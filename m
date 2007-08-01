@@ -1,190 +1,74 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH 1/2] [TCP]: Also handle snd_una changes in tcp_cwnd_down
-Date: Wed, 1 Aug 2007 21:05:54 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0708012054180.27657@kivilampi-30.cs.helsinki.fi>
+Subject: [PATCH 2/2] [TCP]: DSACK signals data receival, be conservative
+Date: Wed, 1 Aug 2007 21:06:55 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0708012106170.27657@kivilampi-30.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0708012054180.27657@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696243703-1375420145-1185991000=:27657"
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1171963027-1185991615=:27657"
 Cc: Netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from courier.cs.helsinki.fi ([128.214.9.1]:58742 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761766AbXHASF5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2007 14:05:57 -0400
-Content-ID: <Pine.LNX.4.64.0708012101400.27657@kivilampi-30.cs.helsinki.fi>
+	with ESMTP id S1764596AbXHASG5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2007 14:06:57 -0400
+In-Reply-To: <Pine.LNX.4.64.0708012054180.27657@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
   This message is in MIME format.  The first part should be readable text,
   while the remaining parts are likely unreadable without MIME-aware tools.
 
----696243703-1375420145-1185991000=:27657
+---696243703-1171963027-1185991615=:27657
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
 Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0708012101401.27657@kivilampi-30.cs.helsinki.fi>
 
 
-tcp_cwnd_down must check for it too as it should be conservative
-in case of collapse stuff and also when receiver is trying to
-lie (though that wouldn't be very successful/useful anyway).
-
-Note:
-- Separated also is_dupack and do_lost in fast_retransalert
-	* Much cleaner look-and-feel now
-	* This time it really fixes cumulative ACK with many new
-	  SACK blocks recovery entry (I claimed this fixes with
-	  last patch but it wasn't). TCP will now call
-	  tcp_update_scoreboard regardless of is_dupack when
-	  in recovery as long as there is enough fackets_out.
-- Introduce FLAG_SND_UNA_ADVANCED
-	* Some prior_snd_una arguments are unnecessary after it
-- Added helper FLAG_ANY_PROGRESS to avoid long FLAG...|FLAG...
-  constructs
+In case a DSACK is received, it's better to lower cwnd as it's
+a sign of data receival.
 
 Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
 ---
-
-Dave, BEWARE, I wasn't able to do anything else but compile test
-because Linus' tree didn't seem to boot on the machine I was
-trying to test it... :-(
-
-I think that to stable version only a small part of this change
-is necessary, not the full changeset. That should keep stable
-folks much happier... :-) I'll soon put my reduced proposal to:
-  http://www.cs.helsinki.fi/u/ijjarvin/patches/stable-0001.patch
-The other patch (DSACK) can go to stable as is.
-
- net/ipv4/tcp_input.c |   34 ++++++++++++++++++----------------
- 1 files changed, 18 insertions(+), 16 deletions(-)
+ net/ipv4/tcp_input.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 378ca8a..c3124e6 100644
+index c3124e6..f030435 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -102,11 +102,13 @@ int sysctl_tcp_abc __read_mostly;
- #define FLAG_DATA_LOST		0x80 /* SACK detected data lossage.		*/
+@@ -103,6 +103,7 @@ int sysctl_tcp_abc __read_mostly;
  #define FLAG_SLOWPATH		0x100 /* Do not skip RFC checks for window update.*/
  #define FLAG_ONLY_ORIG_SACKED	0x200 /* SACKs only non-rexmit sent before RTO */
-+#define FLAG_SND_UNA_ADVANCED	0x400 /* Snd_una was changed (!= FLAG_DATA_ACKED) */
+ #define FLAG_SND_UNA_ADVANCED	0x400 /* Snd_una was changed (!= FLAG_DATA_ACKED) */
++#define FLAG_DSACKING_ACK	0x800 /* SACK blocks contained DSACK info */
  
  #define FLAG_ACKED		(FLAG_DATA_ACKED|FLAG_SYN_ACKED)
  #define FLAG_NOT_DUP		(FLAG_DATA|FLAG_WIN_UPDATE|FLAG_ACKED)
- #define FLAG_CA_ALERT		(FLAG_DATA_SACKED|FLAG_ECE)
- #define FLAG_FORWARD_PROGRESS	(FLAG_ACKED|FLAG_DATA_SACKED)
-+#define FLAG_ANY_PROGRESS	(FLAG_FORWARD_PROGRESS|FLAG_SND_UNA_ADVANCED)
+@@ -966,12 +967,14 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
  
- #define IsReno(tp) ((tp)->rx_opt.sack_ok == 0)
- #define IsFack(tp) ((tp)->rx_opt.sack_ok & 2)
-@@ -1856,7 +1858,7 @@ static void tcp_cwnd_down(struct sock *sk, int flag)
+ 	/* Check for D-SACK. */
+ 	if (before(ntohl(sp[0].start_seq), TCP_SKB_CB(ack_skb)->ack_seq)) {
++		flag |= FLAG_DSACKING_ACK;
+ 		found_dup_sack = 1;
+ 		tp->rx_opt.sack_ok |= 4;
+ 		NET_INC_STATS_BH(LINUX_MIB_TCPDSACKRECV);
+ 	} else if (num_sacks > 1 &&
+ 			!after(ntohl(sp[0].end_seq), ntohl(sp[1].end_seq)) &&
+ 			!before(ntohl(sp[0].start_seq), ntohl(sp[1].start_seq))) {
++		flag |= FLAG_DSACKING_ACK;
+ 		found_dup_sack = 1;
+ 		tp->rx_opt.sack_ok |= 4;
+ 		NET_INC_STATS_BH(LINUX_MIB_TCPDSACKOFORECV);
+@@ -1858,7 +1861,7 @@ static void tcp_cwnd_down(struct sock *sk, int flag)
  	struct tcp_sock *tp = tcp_sk(sk);
  	int decr = tp->snd_cwnd_cnt + 1;
  
--	if ((flag&FLAG_FORWARD_PROGRESS) ||
-+	if ((flag&FLAG_ANY_PROGRESS) ||
+-	if ((flag&FLAG_ANY_PROGRESS) ||
++	if ((flag&(FLAG_ANY_PROGRESS|FLAG_DSACKING_ACK)) ||
  	    (IsReno(tp) && !(flag&FLAG_NOT_DUP))) {
  		tp->snd_cwnd_cnt = decr&1;
  		decr >>= 1;
-@@ -2107,15 +2109,13 @@ static void tcp_mtup_probe_success(struct sock *sk, struct sk_buff *skb)
-  * tcp_xmit_retransmit_queue().
-  */
- static void
--tcp_fastretrans_alert(struct sock *sk, u32 prior_snd_una,
--		      int prior_packets, int flag)
-+tcp_fastretrans_alert(struct sock *sk, int prior_packets, int flag)
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
--	int is_dupack = (tp->snd_una == prior_snd_una &&
--			 (!(flag&FLAG_NOT_DUP) ||
--			  ((flag&FLAG_DATA_SACKED) &&
--			   (tp->fackets_out > tp->reordering))));
-+	int is_dupack = !(flag&(FLAG_SND_UNA_ADVANCED|FLAG_NOT_DUP));
-+	int do_lost = is_dupack || ((flag&FLAG_DATA_SACKED) &&
-+				    (tp->fackets_out > tp->reordering));
- 
- 	/* Some technical things:
- 	 * 1. Reno does not count dupacks (sacked_out) automatically. */
-@@ -2192,14 +2192,14 @@ tcp_fastretrans_alert(struct sock *sk, u32 prior_snd_una,
- 	/* F. Process state. */
- 	switch (icsk->icsk_ca_state) {
- 	case TCP_CA_Recovery:
--		if (prior_snd_una == tp->snd_una) {
-+		if (!(flag & FLAG_SND_UNA_ADVANCED)) {
- 			if (IsReno(tp) && is_dupack)
- 				tcp_add_reno_sack(sk);
- 		} else {
- 			int acked = prior_packets - tp->packets_out;
- 			if (IsReno(tp))
- 				tcp_remove_reno_sacks(sk, acked);
--			is_dupack = tcp_try_undo_partial(sk, acked);
-+			do_lost = tcp_try_undo_partial(sk, acked);
- 		}
- 		break;
- 	case TCP_CA_Loss:
-@@ -2215,7 +2215,7 @@ tcp_fastretrans_alert(struct sock *sk, u32 prior_snd_una,
- 		/* Loss is undone; fall through to processing in Open state. */
- 	default:
- 		if (IsReno(tp)) {
--			if (tp->snd_una != prior_snd_una)
-+			if (flag & FLAG_SND_UNA_ADVANCED)
- 				tcp_reset_reno_sack(tp);
- 			if (is_dupack)
- 				tcp_add_reno_sack(sk);
-@@ -2264,7 +2264,7 @@ tcp_fastretrans_alert(struct sock *sk, u32 prior_snd_una,
- 		tcp_set_ca_state(sk, TCP_CA_Recovery);
- 	}
- 
--	if (is_dupack || tcp_head_timedout(sk))
-+	if (do_lost || tcp_head_timedout(sk))
- 		tcp_update_scoreboard(sk);
- 	tcp_cwnd_down(sk, flag);
- 	tcp_xmit_retransmit_queue(sk);
-@@ -2684,7 +2684,7 @@ static void tcp_undo_spur_to_response(struct sock *sk, int flag)
-  *     to prove that the RTO is indeed spurious. It transfers the control
-  *     from F-RTO to the conventional RTO recovery
-  */
--static int tcp_process_frto(struct sock *sk, u32 prior_snd_una, int flag)
-+static int tcp_process_frto(struct sock *sk, int flag)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 
-@@ -2704,8 +2704,7 @@ static int tcp_process_frto(struct sock *sk, u32 prior_snd_una, int flag)
- 		 * ACK isn't duplicate nor advances window, e.g., opposite dir
- 		 * data, winupdate
- 		 */
--		if ((tp->snd_una == prior_snd_una) && (flag&FLAG_NOT_DUP) &&
--		    !(flag&FLAG_FORWARD_PROGRESS))
-+		if (!(flag&FLAG_ANY_PROGRESS) && (flag&FLAG_NOT_DUP))
- 			return 1;
- 
- 		if (!(flag&FLAG_DATA_ACKED)) {
-@@ -2785,6 +2784,9 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
- 	if (before(ack, prior_snd_una))
- 		goto old_ack;
- 
-+	if (after(ack, prior_snd_una))
-+		flag |= FLAG_SND_UNA_ADVANCED;
-+
- 	if (sysctl_tcp_abc) {
- 		if (icsk->icsk_ca_state < TCP_CA_CWR)
- 			tp->bytes_acked += ack - prior_snd_una;
-@@ -2837,14 +2839,14 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
- 	flag |= tcp_clean_rtx_queue(sk, &seq_rtt);
- 
- 	if (tp->frto_counter)
--		frto_cwnd = tcp_process_frto(sk, prior_snd_una, flag);
-+		frto_cwnd = tcp_process_frto(sk, flag);
- 
- 	if (tcp_ack_is_dubious(sk, flag)) {
- 		/* Advance CWND, if state allows this. */
- 		if ((flag & FLAG_DATA_ACKED) && !frto_cwnd &&
- 		    tcp_may_raise_cwnd(sk, flag))
- 			tcp_cong_avoid(sk, ack, prior_in_flight, 0);
--		tcp_fastretrans_alert(sk, prior_snd_una, prior_packets, flag);
-+		tcp_fastretrans_alert(sk, prior_packets, flag);
- 	} else {
- 		if ((flag & FLAG_DATA_ACKED) && !frto_cwnd)
- 			tcp_cong_avoid(sk, ack, prior_in_flight, 1);
 -- 
 1.5.0.6
----696243703-1375420145-1185991000=:27657--
+
+---696243703-1171963027-1185991615=:27657--
