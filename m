@@ -1,55 +1,48 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] pktgen - define and use pktgen_dbg,err,warn,info
-Date: Tue, 31 Jul 2007 16:48:06 -0700
-Message-ID: <1185925686.14777.22.camel@localhost>
-References: <1184796853.5863.40.camel@localhost>
-	 <20070718.154950.91758269.davem@davemloft.net>
-	 <1184800861.5863.54.camel@localhost>
-	 <20070730.160540.48528135.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Jay Cliburn <jacliburn@bellsouth.net>
+Subject: [PATCH] atl1: use spin_trylock_irqsave()
+Date: Tue, 31 Jul 2007 19:07:02 -0500
+Message-ID: <11859268222715-git-send-email-jacliburn@bellsouth.net>
+Cc: mingo@elte.hu, csnook@redhat.com, atl1-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	nando@ccrma.Stanford.EDU, tglx@linutronix.de, brbrofsvl@gmail.com,
+	Jay Cliburn <jacliburn@bellsouth.net>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:4882 "EHLO Perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754086AbXGaXsV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 31 Jul 2007 19:48:21 -0400
-In-Reply-To: <20070730.160540.48528135.davem@davemloft.net>
+Received: from imf23aec.mail.bellsouth.net ([205.152.59.71]:49296 "EHLO
+	imf23aec.mail.bellsouth.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751558AbXHAAHE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 20:07:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-07-30 at 16:05 -0700, David Miller wrote:
-> I still don't know about this patch.  Instead of the simple
-> transformation:
-> 
-> -	printk(foo);
-> +	printk(KERN_INFO foo);
-> 
-> we get this new macro, and the lines changes to use that macro.
+From: Ingo Molnar <mingo@elte.hu>
 
-Actually, I agree.
+use the simpler spin_trylock_irqsave() API to get the adapter lock.
 
-Many local macros could be eliminated that define
-printk(<level> prefix)
+[ this is also a fix for -rt where adapter->lock is a sleeping lock. ]
 
-I'd like to see macros added to kernel.h for:
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
+---
+ drivers/net/atl1/atl1_main.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-	pr_err
-	pr_notice
-	pr_warn
-	pr_alert
-	pr_crit
-	pr_emerge
-
-and convert tree-wide all the single-line
-
-	printk(KERN_<level> [prefix] fmt "\n", args...)
-
-calls to the equivalent pr_<level> calls.
-
-That would leave the multi-line printk(<level>...) calls
-to be sorted out so these messages might no longer be
-interleaved by multiple cpus/threads.
+diff --git a/drivers/net/atl1/atl1_main.c b/drivers/net/atl1/atl1_main.c
+index 56f6389..3c1984e 100644
+--- a/drivers/net/atl1/atl1_main.c
++++ b/drivers/net/atl1/atl1_main.c
+@@ -1704,10 +1704,8 @@ static int atl1_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 		}
+ 	}
+ 
+-	local_irq_save(flags);
+-	if (!spin_trylock(&adapter->lock)) {
++	if (!spin_trylock_irqsave(&adapter->lock, flags)) {
+ 		/* Can't get lock - tell upper layer to requeue */
+-		local_irq_restore(flags);
+ 		dev_printk(KERN_DEBUG, &adapter->pdev->dev, "tx locked\n");
+ 		return NETDEV_TX_LOCKED;
+ 	}
+-- 
+1.5.2.2
 
