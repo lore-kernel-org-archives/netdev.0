@@ -1,81 +1,114 @@
-From: "Gary Zambrano" <zambrano@broadcom.com>
-Subject: Re: [Bugme-new] [Bug 8808] New: Large file transfer causes
- kernel panic showing b44_poll
-Date: Wed, 01 Aug 2007 09:36:45 -0700
-Message-ID: <1185986205.30383.7.camel@localhost.localdomain>
-References: <bug-8808-10286@http.bugzilla.kernel.org/>
- <20070725115456.f7dac506.akpm@linux-foundation.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [REGRESSION] tg3 dead after s2ram
+Date: Wed, 01 Aug 2007 10:47:46 -0700
+Message-ID: <1185990466.5552.34.camel@dell>
+References: <20070731174522.b141178a.akpm@linux-foundation.org>
+ <1185954811.5552.7.camel@dell>
+ <200708011001.24384.joachim.deguara@amd.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>,
-	simsondem@gmail.com
-To: "Andrew Morton" <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3582 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1765700AbXHASfc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Aug 2007 14:35:32 -0400
-In-Reply-To: <20070725115456.f7dac506.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: "Andrew Morton" <akpm@linux-foundation.org>,
+	"lkml List" <linux-kernel@vger.kernel.org>,
+	"Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>,
+	"netdev" <netdev@vger.kernel.org>, linux-acpi@vger.kernel.org
+To: "Joachim Deguara" <joachim.deguara@amd.com>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <200708011001.24384.joachim.deguara@amd.com>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-07-25 at 11:54 -0700, Andrew Morton wrote:
-> On Wed, 25 Jul 2007 04:29:33 -0700 (PDT)
-> bugme-daemon@bugzilla.kernel.org wrote:
+On Wed, 2007-08-01 at 10:01 +0200, Joachim Deguara wrote:
+
+> Here are the lspci outputs for the tg3
+
+You have 2 Broadcom devices in your system.  07:00.0 is a wireless
+device, I think.  8:4.0 is the tg3 device.
+
+It's clear that the tg3 device is still in D3 state after resume and
+that explains why all register accesses fail.  tg3_resume() should put
+the device back in D0 state in a very straight forward way and I don't
+see how that can fail.  It worked for me when I tested it last night.
+Can you add some printk() to tg3_resume() to see what's happening?  Let
+me know if you want me to send you some debug patches to do that.
+
+Thanks.
+
+Here's the before and after for 8:4.0:
+
 > 
-> > http://bugzilla.kernel.org/show_bug.cgi?id=8808
-> > 
-> >            Summary: Large file transfer causes kernel panic showing b44_poll
-> >            Product: Drivers
-> >            Version: 2.5
-> >      KernelVersion: 2.6.22.1
-> >           Platform: All
-> >         OS/Version: Linux
-> >               Tree: Mainline
-> >             Status: NEW
-> >           Severity: blocking
-> >           Priority: P1
-> >          Component: Network
-> >         AssignedTo: jgarzik@pobox.com
-> >         ReportedBy: simsondem@gmail.com
-> > 
-> > 
-> > Most recent kernel where this bug did not occur: /
-> > Distribution: ttylinux 
-> > Hardware Environment: Dell Inspiron 1300
-> > Problem Description: 
-> > 
-> > A large file transfer (6.5GB) (tried http with wget and plain netcat) causes a
-> > kernel panic after more than several GB have been transferred. However, kernel
-> > panic does not occur consistently. That is, it has occurred after 1.2GB, 1.8GB,
-> > 2.3GB and even 3.4GB transferred. Transfer never finished though. 
-> > 
-I could not repro the problem, but please give this patch a try:
-
-diff -rup a/b44.c b/b44.c
---- a/b44.c	2007-07-31 15:31:08.000000000 -0700
-+++ b/b44.c	2007-08-01 08:03:08.000000000 -0700
-@@ -792,15 +792,15 @@ static int b44_rx(struct b44 *bp, int bu
- 			goto next_pkt;
- 		}
- 
--		if (len == 0) {
-+		if (len < 5) {
- 			int i = 0;
- 
- 			do {
- 				udelay(2);
- 				barrier();
- 				len = le16_to_cpu(rh->len);
--			} while (len == 0 && i++ < 5);
--			if (len == 0)
-+			} while (len < 5 && i++ < 5);
-+			if (len < 5)
- 				goto drop_it;
- 		}
- 
-
+> Before
+>
+> 08:04.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5788 Gigabit 
+> Ethernet (rev 03)
+> 	Subsystem: Acer Incorporated [ALI] Unknown device 010e
+> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- 
+> SERR- FastB2B-
+> 	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- 
+> <MAbort- >SERR- <PERR-
+> 	Latency: 0 (16000ns min)
+> 	Interrupt: pin A routed to IRQ 22
+> 	Region 0: Memory at d0300000 (32-bit, non-prefetchable) [size=64K]
+> 	Expansion ROM at <ignored> [disabled]
+> 	Capabilities: [48] Power Management version 2
+> 		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot+,D3cold+)
+> 		Status: D0 PME-Enable- DSel=0 DScale=1 PME-
+> 	Capabilities: [50] Vital Product Data
+> 	Capabilities: [58] Message Signalled Interrupts: Mask- 64bit+ Queue=0/3 
+> Enable-
+> 		Address: ffff6bfe7fffffb8  Data: fec7
+> 00: e4 14 9c 16 06 00 b0 02 03 00 00 02 00 00 00 00
+> 10: 00 00 30 d0 00 00 00 00 00 00 00 00 00 00 00 00
+> 20: 00 00 00 00 00 00 00 00 07 00 00 00 25 10 0e 01
+> 30: 00 00 ff ff 48 00 00 00 00 00 00 00 0a 01 40 00
+> 40: 00 00 00 00 00 00 00 00 01 50 02 c0 00 20 00 00
+> 50: 03 58 fc 00 6f bf be 7f 05 00 86 00 b8 ff ff 7f
+> 60: fe 6b ff ff c7 fe 00 00 98 00 03 30 00 00 3f 76
+> 70: f6 10 00 00 20 00 00 80 14 04 00 00 00 00 00 00
+> 80: 85 6b d0 36 03 40 00 0c 34 00 13 04 82 90 09 04
+> 90: 09 97 00 01 00 00 00 00 00 00 00 00 eb 01 00 00
+> a0: 00 00 00 00 23 01 00 00 00 00 00 00 cb 00 00 00
+> b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+> c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+> d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+> e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+> f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+> 
+> After
+> 
+> 08:04.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5788 Gigabit 
+> Ethernet (rev 03)
+> 	Subsystem: Acer Incorporated [ALI] Unknown device 010e
+> 	Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- 
+> SERR- FastB2B-
+> 	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- 
+> <MAbort- >SERR- <PERR-
+> 	Interrupt: pin A routed to IRQ 22
+> 	Region 0: Memory at d0300000 (32-bit, non-prefetchable) [disabled] [size=64K]
+> 	Expansion ROM at <ignored> [disabled]
+> 	Capabilities: [48] Power Management version 2
+> 		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot+,D3cold+)
+> 		Status: D0 PME-Enable+ DSel=0 DScale=1 PME-
+> 	Capabilities: [50] Vital Product Data
+> 	Capabilities: [58] Message Signalled Interrupts: Mask- 64bit+ Queue=0/3 
+> Enable-
+> 		Address: ffff6bfe7fffffb8  Data: fec7
+> 00: e4 14 9c 16 00 00 b0 02 03 00 00 02 00 00 00 00
+> 10: 00 00 30 d0 00 00 00 00 00 00 00 00 00 00 00 00
+> 20: 00 00 00 00 00 00 00 00 07 00 00 00 25 10 0e 01
+> 30: 00 00 ff ff 48 00 00 00 00 00 00 00 0a 01 40 00
+> 40: 00 00 00 00 00 00 00 00 01 50 02 c0 00 21 00 64
+> 50: 03 58 fc 00 6f bf be 7f 05 00 86 00 b8 ff ff 7f
+> 60: fe 6b ff ff c7 fe 00 00 9a 00 03 30 00 00 00 00
+> 70: 76 10 00 00 40 00 00 00 50 00 00 00 00 00 00 00
+> 80: 03 58 fc 00 00 00 00 00 00 00 00 00 fe 90 09 04
+> 90: 01 07 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+> a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+> b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+> c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+> d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+> e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+> f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+> 
 
 
