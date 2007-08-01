@@ -1,34 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pktgen - define and use pktgen_dbg,err,warn,info
-Date: Tue, 31 Jul 2007 18:28:56 -0700 (PDT)
-Message-ID: <20070731.182856.74751972.davem@davemloft.net>
-References: <1184800861.5863.54.camel@localhost>
-	<20070730.160540.48528135.davem@davemloft.net>
-	<1185925686.14777.22.camel@localhost>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, netdev@vger.kernel.org
-To: joe@perches.com
+From: Denis Cheng <crquan@gmail.com>
+Subject: [PATCH] net/sched: mark "NET_CLS_RSVP6 depends on IPV6"
+Date: Wed,  1 Aug 2007 09:41:31 +0800
+Message-ID: <11859324914084-git-send-email-crquan@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	chdebra@gmail.com
+To: Gabriel Craciunescu <nix.or.die@googlemail.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35931
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754917AbXHAB2z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 21:28:55 -0400
-In-Reply-To: <1185925686.14777.22.camel@localhost>
+Received: from rv-out-0910.google.com ([209.85.198.184]:45117 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752291AbXHABlN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 21:41:13 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so44446rvb
+        for <netdev@vger.kernel.org>; Tue, 31 Jul 2007 18:41:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 31 Jul 2007 16:48:06 -0700
+Signed-off-by: Denis Cheng <crquan@gmail.com>
+---
+ net/sched/Kconfig |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-> I'd like to see macros added to kernel.h for:
-> 
-> 	pr_err
-> 	pr_notice
-> 	pr_warn
-> 	pr_alert
-> 	pr_crit
-> 	pr_emerge
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index 8a74cac..5d3749c 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -300,6 +300,7 @@ config NET_CLS_RSVP
+ config NET_CLS_RSVP6
+ 	tristate "IPv6 Resource Reservation Protocol (RSVP6)"
+ 	select NET_CLS
++	depends on IPV6
+ 	---help---
+ 	  The Resource Reservation Protocol (RSVP) permits end systems to
+ 	  request a minimum and maximum data flow rate for a connection; this
+-- 
+1.5.2.2
 
-No objections here :)
