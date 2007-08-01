@@ -1,31 +1,34 @@
-From: "Luis R. Rodriguez" <mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Removing the prism54 module
-Date: Tue, 31 Jul 2007 21:20:57 -0400
-Message-ID: <43e72e890707311820h59eebf6raf5b77058e2d23dc@mail.gmail.com>
-References: <20070728224008.782a3be6@ed.anywhere>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] pktgen - define and use pktgen_dbg,err,warn,info
+Date: Tue, 31 Jul 2007 18:28:56 -0700 (PDT)
+Message-ID: <20070731.182856.74751972.davem@davemloft.net>
+References: <1184800861.5863.54.camel@localhost>
+	<20070730.160540.48528135.davem@davemloft.net>
+	<1185925686.14777.22.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Edward Ando" <edwardando-dbx96nzIXN7OeuqD6ShaSA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070728224008.782a3be6-L01rVeg4zJJ+2kGCxyASIg@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Robert.Olsson@data.slu.se, netdev@vger.kernel.org
+To: joe@perches.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35931
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754917AbXHAB2z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 21:28:55 -0400
+In-Reply-To: <1185925686.14777.22.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 7/28/07, Edward Ando <edwardando-dbx96nzIXN7OeuqD6ShaSA@public.gmane.org> wrote:
-> Dear All,
-> I am trying to set up software suspend 2 (TuxOnIce now it seems). This
-> has decided it wants to remove the prism54 module before starting the
-> hibernate process.
->
-> When it tries to do this, (or when I manually do: "ifconfig eth1
-> down"), I start getting these messages on all terminals, ad infinitum:
->
-> kernel: unregister_netdevice: waiting for eth1 to become free. Usage
-> count = 4
+From: Joe Perches <joe@perches.com>
+Date: Tue, 31 Jul 2007 16:48:06 -0700
 
-Hmm... can you show lsmod output please?
+> I'd like to see macros added to kernel.h for:
+> 
+> 	pr_err
+> 	pr_notice
+> 	pr_warn
+> 	pr_alert
+> 	pr_crit
+> 	pr_emerge
 
-  Luis
+No objections here :)
