@@ -1,75 +1,50 @@
-From: Andrew Morton <akpm@linux-foundation.org>
+From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 Subject: Re: [PATCH FINAL] Merge the Sonics Silicon Backplane subsystem
-Date: Tue, 31 Jul 2007 20:26:48 -0700
-Message-ID: <20070731202648.e1a8c45f.akpm@linux-foundation.org>
+Date: Tue, 31 Jul 2007 21:56:50 -0700
+Message-ID: <20070731215650.84c7a26b.akpm@linux-foundation.org>
 References: <200707291324.58691.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel" <linux-kernel@vger.kernel.org>,
-	bcm43xx-dev@lists.berlios.de, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	Gary Zambrano <zambrano@broadcom.com>,
-	John Linville <linville@tuxdriver.com>
-To: Michael Buesch <mb@bu3sch.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:35736 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754208AbXHAD2I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 31 Jul 2007 23:28:08 -0400
-In-Reply-To: <200707291324.58691.mb@bu3sch.de>
-Sender: netdev-owner@vger.kernel.org
+Cc: "linux-kernel" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Ralf Baechle <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200707291324.58691.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 29 Jul 2007 13:24:54 +0200 Michael Buesch <mb@bu3sch.de> wrote:
+On Sun, 29 Jul 2007 13:24:54 +0200 Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org> wrote:
 
 > The Sonics Silicon Backplane is a mini-bus used on
 > various Broadcom chips and embedded devices.
 
-Sigh.
+A few probs with mips allmodconfig:
 
-s390:
+drivers/ssb/driver_mipscore.c:121: warning: "struct ssb_serial_ports" declared inside parameter list
+drivers/ssb/driver_mipscore.c:121: warning: its scope is only this definition or declaration, which is probably not what you want
+drivers/ssb/driver_mipscore.c: In function `ssb_mips_serial_init':
+drivers/ssb/driver_mipscore.c:166: warning: passing arg 1 of `ssb_extif_serial_init' from incompatible pointer type
+drivers/ssb/driver_mipscore.c:166: warning: passing arg 2 of `ssb_extif_serial_init' from incompatible pointer type
+drivers/ssb/driver_mipscore.c: At top level:
+drivers/ssb/driver_mipscore.c:188: warning: 'ssb_cpu_clock' defined but not used
+drivers/ssb/driver_pcicore.c: In function `ssb_fixup_pcibridge':
+drivers/ssb/driver_pcicore.c:98: error: implicit declaration of function `pcibios_enable_device'
+drivers/ssb/driver_pcicore.c: At top level:
+drivers/ssb/driver_pcicore.c:278: warning: integer overflow in expression
+drivers/ssb/driver_pcicore.c:278: warning: integer overflow in expression       
 
-drivers/ssb/main.c: In function 'ssb_ssb_read16':
-drivers/ssb/main.c:489: error: implicit declaration of function 'readw'
-drivers/ssb/main.c: In function 'ssb_ssb_read32':
-drivers/ssb/main.c:497: error: implicit declaration of function 'readl'
-drivers/ssb/main.c: In function 'ssb_ssb_write16':
-drivers/ssb/main.c:505: error: implicit declaration of function 'writew'
-drivers/ssb/main.c: In function 'ssb_ssb_write32':
-drivers/ssb/main.c:513: error: implicit declaration of function 'writel'        
+the latter is due to .end in
 
-we shouldn't be compiling SSB on s390, because:
+static struct resource ssb_pcicore_mem_resource = {
+        .name   = "SSB PCIcore external memory",
+        .start  = SSB_PCI_DMA,
+        .end    = SSB_PCI_DMA + SSB_PCI_DMA_SZ - 1,
+        .flags  = IORESOURCE_MEM,
+};
 
-config SSB
-        tristate "Sonics Silicon Backplane support"
-        depends on EXPERIMENTAL && HAS_IOMEM
-
-and
-
-akpm2:/usr/src/25> grep IOMEM .config 
-CONFIG_NO_IOMEM=y
-akpm2:/usr/src/25> 
-
-but
-
-akpm2:/usr/src/25> grep SSB .config 
-CONFIG_DCSSBLK=m
-CONFIG_SSB=m
-CONFIG_SSB_SILENT=y
-
-well, how did that come about?
-
-It _has_ to be `select'.  It's _always_ `select'.
-
-yup, it's `select':
-
-Selected by: B44 && NETDEVICES && NET_ETHERNET || BCM43XX_MAC80211 && NETDEVICES && !S390 && MAC80211 && WLAN_80211 && EXPERIMENTAL
-
-
-Look.  Kconfig's `select' Just.  Does.  Not.  Work.  If you find yourself
-contemplating using it, please, don sackcloth, take a cold shower and
-several analgesics, then have another go, OK?
-
-ho hum.
-
+It could be more Kconfig select borkage, of course..
