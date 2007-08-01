@@ -1,124 +1,128 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [REGRESSION] tg3 dead after s2ram
-Date: Wed, 01 Aug 2007 14:00:23 -0700
-Message-ID: <1186002023.18322.7.camel@dell>
-References: <20070731174522.b141178a.akpm@linux-foundation.org>
- <1185954811.5552.7.camel@dell>
- <200708011001.24384.joachim.deguara@amd.com>
- <1185990466.5552.34.camel@dell>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@linux-foundation.org>,
-	"lkml List" <linux-kernel@vger.kernel.org>,
-	"Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>,
-	"netdev" <netdev@vger.kernel.org>, linux-acpi@vger.kernel.org
-To: "Joachim Deguara" <joachim.deguara@amd.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1185990466.5552.34.camel@dell>
-Sender: linux-acpi-owner@vger.kernel.org
+From: Brian King <brking@linux.vnet.ibm.com>
+Subject: [PATCH 1/1] ibmveth: Fix rx pool deactivate oops
+Date: Wed, 01 Aug 2007 15:26:50 -0500
+Message-ID: <41031.1648542576$1186000027@news.gmane.org>
+Cc: rcjenn@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, brking@linux.vnet.ibm.com
+To: santil@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:56272 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750811AbXHAU0x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2007 16:26:53 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l71KQqnJ011013
+	for <netdev@vger.kernel.org>; Wed, 1 Aug 2007 16:26:52 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l71KQqNQ214732
+	for <netdev@vger.kernel.org>; Wed, 1 Aug 2007 14:26:52 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l71KQpC6010787
+	for <netdev@vger.kernel.org>; Wed, 1 Aug 2007 14:26:52 -0600
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-08-01 at 10:47 -0700, Michael Chan wrote:
 
-> You have 2 Broadcom devices in your system.  07:00.0 is a wireless
-> device, I think.  8:4.0 is the tg3 device.
-> 
-> It's clear that the tg3 device is still in D3 state after resume and
-> that explains why all register accesses fail.  tg3_resume() should put
-> the device back in D0 state in a very straight forward way and I don't
-> see how that can fail.  It worked for me when I tested it last night.
-> Can you add some printk() to tg3_resume() to see what's happening?  Let
-> me know if you want me to send you some debug patches to do that.
+This fixes the following oops which can occur when trying to deallocate
+receive buffer pools using sysfs with the ibmveth driver.
 
-I misread the PCI registers below.  The power state was ok.
+NIP: d00000000024f954 LR: d00000000024fa58 CTR: c0000000000d7478
+REGS: c00000000ffef9f0 TRAP: 0300   Not tainted  (2.6.22-ppc64)
+MSR: 8000000000009032 <EE,ME,IR,DR>  CR: 24242442  XER: 00000010
+DAR: 00000000000007f0, DSISR: 0000000042000000
+TASK = c000000002f91360[2967] 'bash' THREAD: c00000001398c000 CPU: 2
+GPR00: 0000000000000000 c00000000ffefc70 d000000000262d30 c00000001c4087a0 
+GPR04: 00000003000000fe 0000000000000000 000000000000000f c000000000579d80 
+GPR08: 0000000000365688 c00000001c408998 00000000000007f0 0000000000000000 
+GPR12: d000000000251e88 c000000000579d80 00000000200957ec 0000000000000000 
+GPR16: 00000000100b8808 00000000100feb30 0000000000000000 0000000010084828 
+GPR20: 0000000000000000 000000001014d4d0 0000000000000010 c00000000ffefeb0 
+GPR24: c00000001c408000 0000000000000000 c00000001c408000 00000000ffffb054 
+GPR28: 00000000000000fe 0000000000000003 d000000000262700 c00000001c4087a0 
+NIP [d00000000024f954] .ibmveth_remove_buffer_from_pool+0x38/0x108 [ibmveth]
+LR [d00000000024fa58] .ibmveth_rxq_harvest_buffer+0x34/0x78 [ibmveth]
+Call Trace:
+[c00000000ffefc70] [c0000000000280a8] .dma_iommu_unmap_single+0x14/0x28 (unreliable)
+[c00000000ffefd00] [d00000000024fa58] .ibmveth_rxq_harvest_buffer+0x34/0x78 [ibmveth]
+[c00000000ffefd80] [d000000000250e40] .ibmveth_poll+0xd8/0x434 [ibmveth]
+[c00000000ffefe40] [c00000000032da8c] .net_rx_action+0xdc/0x248
+[c00000000ffefef0] [c000000000068b4c] .__do_softirq+0xa8/0x164
+[c00000000ffeff90] [c00000000002789c] .call_do_softirq+0x14/0x24
+[c00000001398f6f0] [c00000000000c04c] .do_softirq+0x68/0xac
+[c00000001398f780] [c000000000068ca0] .irq_exit+0x54/0x6c
+[c00000001398f800] [c00000000000c8e4] .do_IRQ+0x170/0x1ac
+[c00000001398f890] [c000000000004790] hardware_interrupt_entry+0x18/0x1c
+   Exception: 501 at .plpar_hcall_norets+0x24/0x94
+    LR = .veth_pool_store+0x15c/0x298 [ibmveth]
+[c00000001398fb80] [d000000000250b2c] .veth_pool_store+0x5c/0x298 [ibmveth] (unreliable)
+[c00000001398fc30] [c000000000145530] .sysfs_write_file+0x140/0x1d8
+[c00000001398fcf0] [c0000000000de89c] .vfs_write+0x120/0x208
+[c00000001398fd90] [c0000000000df2c8] .sys_write+0x4c/0x8c
+[c00000001398fe30] [c0000000000086ac] syscall_exit+0x0/0x40
+Instruction dump:
+fba1ffe8 fbe1fff8 789d0022 f8010010 f821ff71 789c0020 1d3d00a8 7b8a1f24 
+38000000 7c7f1b78 7d291a14 e9690128 <7c0a592a> e8030000 e9690120 80a90100 
 
-The problem is that memory enable and bus master were not set in PCI
-register 4 after resume.  This also explains the register access
-failures.
+Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
+---
 
-In tg3_resume(), we call pci_restore_state() which should re-enable
-those 2 bits in PCI register 4.  Can you add some printk() to see why
-those bits are not restored after pci_restore_state()?
+ linux-2.6-bjking1/drivers/net/ibmveth.c |   24 ++++++++++++++----------
+ linux-2.6-bjking1/drivers/net/ibmveth.h |    3 ---
+ 2 files changed, 14 insertions(+), 13 deletions(-)
 
-Thanks.
-
-> 
-> Here's the before and after for 8:4.0:
-> 
-> > 
-> > Before
-> >
-> > 08:04.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5788 Gigabit 
-> > Ethernet (rev 03)
-> > 	Subsystem: Acer Incorporated [ALI] Unknown device 010e
-> > 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- 
-> > SERR- FastB2B-
-> > 	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- 
-> > <MAbort- >SERR- <PERR-
-> > 	Latency: 0 (16000ns min)
-> > 	Interrupt: pin A routed to IRQ 22
-> > 	Region 0: Memory at d0300000 (32-bit, non-prefetchable) [size=64K]
-> > 	Expansion ROM at <ignored> [disabled]
-> > 	Capabilities: [48] Power Management version 2
-> > 		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot+,D3cold+)
-> > 		Status: D0 PME-Enable- DSel=0 DScale=1 PME-
-> > 	Capabilities: [50] Vital Product Data
-> > 	Capabilities: [58] Message Signalled Interrupts: Mask- 64bit+ Queue=0/3 
-> > Enable-
-> > 		Address: ffff6bfe7fffffb8  Data: fec7
-> > 00: e4 14 9c 16 06 00 b0 02 03 00 00 02 00 00 00 00
-> > 10: 00 00 30 d0 00 00 00 00 00 00 00 00 00 00 00 00
-> > 20: 00 00 00 00 00 00 00 00 07 00 00 00 25 10 0e 01
-> > 30: 00 00 ff ff 48 00 00 00 00 00 00 00 0a 01 40 00
-> > 40: 00 00 00 00 00 00 00 00 01 50 02 c0 00 20 00 00
-> > 50: 03 58 fc 00 6f bf be 7f 05 00 86 00 b8 ff ff 7f
-> > 60: fe 6b ff ff c7 fe 00 00 98 00 03 30 00 00 3f 76
-> > 70: f6 10 00 00 20 00 00 80 14 04 00 00 00 00 00 00
-> > 80: 85 6b d0 36 03 40 00 0c 34 00 13 04 82 90 09 04
-> > 90: 09 97 00 01 00 00 00 00 00 00 00 00 eb 01 00 00
-> > a0: 00 00 00 00 23 01 00 00 00 00 00 00 cb 00 00 00
-> > b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> > c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> > d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> > e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> > f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> > 
-> > After
-> > 
-> > 08:04.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5788 Gigabit 
-> > Ethernet (rev 03)
-> > 	Subsystem: Acer Incorporated [ALI] Unknown device 010e
-> > 	Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- 
-> > SERR- FastB2B-
-> > 	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- 
-> > <MAbort- >SERR- <PERR-
-> > 	Interrupt: pin A routed to IRQ 22
-> > 	Region 0: Memory at d0300000 (32-bit, non-prefetchable) [disabled] [size=64K]
-> > 	Expansion ROM at <ignored> [disabled]
-> > 	Capabilities: [48] Power Management version 2
-> > 		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot+,D3cold+)
-> > 		Status: D0 PME-Enable+ DSel=0 DScale=1 PME-
-> > 	Capabilities: [50] Vital Product Data
-> > 	Capabilities: [58] Message Signalled Interrupts: Mask- 64bit+ Queue=0/3 
-> > Enable-
-> > 		Address: ffff6bfe7fffffb8  Data: fec7
-> > 00: e4 14 9c 16 00 00 b0 02 03 00 00 02 00 00 00 00
-> > 10: 00 00 30 d0 00 00 00 00 00 00 00 00 00 00 00 00
-> > 20: 00 00 00 00 00 00 00 00 07 00 00 00 25 10 0e 01
-> > 30: 00 00 ff ff 48 00 00 00 00 00 00 00 0a 01 40 00
-> > 40: 00 00 00 00 00 00 00 00 01 50 02 c0 00 21 00 64
-> > 50: 03 58 fc 00 6f bf be 7f 05 00 86 00 b8 ff ff 7f
-> > 60: fe 6b ff ff c7 fe 00 00 9a 00 03 30 00 00 00 00
-> > 70: 76 10 00 00 40 00 00 00 50 00 00 00 00 00 00 00
-> > 80: 03 58 fc 00 00 00 00 00 00 00 00 00 fe 90 09 04
-> > 90: 01 07 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> > a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> > b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> > c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> > d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> > e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> > f0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> > 
-
-
+diff -puN drivers/net/ibmveth.c~ibmveth_fixup_pool_deactivate drivers/net/ibmveth.c
+--- linux-2.6/drivers/net/ibmveth.c~ibmveth_fixup_pool_deactivate	2007-08-01 10:22:37.000000000 -0500
++++ linux-2.6-bjking1/drivers/net/ibmveth.c	2007-08-01 10:23:20.000000000 -0500
+@@ -1280,24 +1280,28 @@ const char * buf, size_t count)
+ 			int i;
+ 			/* Make sure there is a buffer pool with buffers that
+ 			   can hold a packet of the size of the MTU */
+-			for(i = 0; i<IbmVethNumBufferPools; i++) {
++			for (i = 0; i < IbmVethNumBufferPools; i++) {
+ 				if (pool == &adapter->rx_buff_pool[i])
+ 					continue;
+ 				if (!adapter->rx_buff_pool[i].active)
+ 					continue;
+-				if (mtu < adapter->rx_buff_pool[i].buff_size) {
+-					pool->active = 0;
+-					h_free_logical_lan_buffer(adapter->
+-								  vdev->
+-								  unit_address,
+-								  pool->
+-								  buff_size);
+-				}
++				if (mtu <= adapter->rx_buff_pool[i].buff_size)
++					break;
+ 			}
+-			if (pool->active) {
++
++			if (i == IbmVethNumBufferPools) {
+ 				ibmveth_error_printk("no active pool >= MTU\n");
+ 				return -EPERM;
+ 			}
++
++			pool->active = 0;
++			if (netif_running(netdev)) {
++				adapter->pool_config = 1;
++				ibmveth_close(netdev);
++				adapter->pool_config = 0;
++				if ((rc = ibmveth_open(netdev)))
++					return rc;
++			}
+ 		}
+ 	} else if (attr == &veth_num_attr) {
+ 		if (value <= 0 || value > IBMVETH_MAX_POOL_COUNT)
+diff -puN drivers/net/ibmveth.h~ibmveth_fixup_pool_deactivate drivers/net/ibmveth.h
+--- linux-2.6/drivers/net/ibmveth.h~ibmveth_fixup_pool_deactivate	2007-08-01 14:45:09.000000000 -0500
++++ linux-2.6-bjking1/drivers/net/ibmveth.h	2007-08-01 14:45:21.000000000 -0500
+@@ -73,9 +73,6 @@ static inline long h_send_logical_lan(un
+ #define h_change_logical_lan_mac(ua, mac) \
+   plpar_hcall_norets(H_CHANGE_LOGICAL_LAN_MAC, ua, mac)
+ 
+-#define h_free_logical_lan_buffer(ua, bufsize) \
+-  plpar_hcall_norets(H_FREE_LOGICAL_LAN_BUFFER, ua, bufsize)
+-
+ #define IbmVethNumBufferPools 5
+ #define IBMVETH_BUFF_OH 22 /* Overhead: 14 ethernet header + 8 opaque handle */
+ #define IBMVETH_MAX_MTU 68
+_
