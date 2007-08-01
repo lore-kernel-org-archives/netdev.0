@@ -1,50 +1,30 @@
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
-Subject: [PATCH] prevent SSB compilation on s390 part 2
-Date: Wed, 1 Aug 2007 11:34:04 +0200
-Message-ID: <20070801093404.GA12124@osiris.boeblingen.de.ibm.com>
-References: <20070731230932.a9459617.akpm@linux-foundation.org>
+From: David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: [PATCH FINAL] Merge the Sonics Silicon Backplane subsystem
+Date: Wed, 01 Aug 2007 10:42:43 +0100
+Message-ID: <1185961363.3083.130.camel@pmac.infradead.org>
+References: <200707291324.58691.mb@bu3sch.de>
+	 <20070731202648.e1a8c45f.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Michael Buesch <mb@bu3sch.de>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.uk.ibm.com ([195.212.29.137]:32970 "EHLO
-	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758831AbXHAJee (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2007 05:34:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20070731230932.a9459617.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070731202648.e1a8c45f.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
+On Tue, 2007-07-31 at 20:26 -0700, Andrew Morton wrote:
+> Look.  Kconfig's `select' Just.  Does.  Not.  Work.  If you find
+> yourself contemplating using it, please, don sackcloth, take a cold
+> shower and several analgesics, then have another go, OK?
 
-drivers/ssb/Kconfig has already a depends on HAS_IOMEM which should
-prevent SSB from being selected. But appearantly it looks like this
-doesn't matter at all if it gets selected from somewhere else.
-So add an explicit depends on HAS_IOMEM to the Broadcom driver to
-prevent selection on s390.
+Amen.
 
-Cc: "John W. Linville" <linville@tuxdriver.com>
-Cc: Michael Buesch <mb@bu3sch.de>
-Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
----
- drivers/net/Kconfig |    1 +
- 1 files changed, 1 insertion(+)
-
-Index: linux-2.6.22/drivers/net/Kconfig
-===================================================================
---- linux-2.6.22.orig/drivers/net/Kconfig
-+++ linux-2.6.22/drivers/net/Kconfig
-@@ -1434,6 +1434,7 @@ config APRICOT
- 
- config B44
- 	tristate "Broadcom 440x/47xx ethernet support"
-+	depends on HAS_IOMEM
- 	select SSB
- 	select MII
- 	help
+-- 
+dwmw2
