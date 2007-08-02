@@ -1,55 +1,91 @@
-From: "Joachim Deguara" <joachim.deguara@amd.com>
-Subject: Re: [REGRESSION] tg3 dead after s2ram
-Date: Thu, 2 Aug 2007 10:05:44 +0200
-Message-ID: <200708021005.45773.joachim.deguara@amd.com>
-References: <20070731174522.b141178a.akpm@linux-foundation.org>
- <1185990466.5552.34.camel@dell> <1186002023.18322.7.camel@dell>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: NETPOLL=y , NETDEVICES=n compile error ( Re: 2.6.23-rc1-mm1 )
+Date: Thu, 2 Aug 2007 11:00:08 +0200
+Message-ID: <20070802090008.GA1699@ff.dom.local>
+References: <20070731083210.GA1797@ff.dom.local> <46AF0B8C.7070006@googlemail.com> <20070731121735.GA1046@ff.dom.local> <46AF4F9C.5060000@googlemail.com> <20070801095920.GA1941@ff.dom.local> <20070802020219.GM11166@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "Andrew Morton" <akpm@linux-foundation.org>,
-	"lkml List" <linux-kernel@vger.kernel.org>,
-	"Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>,
-	"netdev" <netdev@vger.kernel.org>, linux-acpi@vger.kernel.org
-To: "Michael Chan" <mchan@broadcom.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1186002023.18322.7.camel@dell>
+Content-Type: text/plain; charset=us-ascii
+Cc: Gabriel C <nix.or.die@googlemail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jason.wessel@windriver.com, amitkale@linsyssoft.com,
+	Sam Ravnborg <sam@ravnborg.org>
+To: Matt Mackall <mpm@selenic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx10.go2.pl ([193.17.41.74]:49090 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753562AbXHBIui (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Aug 2007 04:50:38 -0400
 Content-Disposition: inline
-Sender: linux-acpi-owner@vger.kernel.org
+In-Reply-To: <20070802020219.GM11166@waste.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 01 August 2007 23:00:23 Michael Chan wrote:
-> On Wed, 2007-08-01 at 10:47 -0700, Michael Chan wrote:
-> > You have 2 Broadcom devices in your system.  07:00.0 is a wireless
-> > device, I think.  8:4.0 is the tg3 device.
-> >
-> > It's clear that the tg3 device is still in D3 state after resume and
-> > that explains why all register accesses fail.  tg3_resume() should put
-> > the device back in D0 state in a very straight forward way and I don't
-> > see how that can fail.  It worked for me when I tested it last night.
-> > Can you add some printk() to tg3_resume() to see what's happening?  Let
-> > me know if you want me to send you some debug patches to do that.
->
-> I misread the PCI registers below.  The power state was ok.
->
-> The problem is that memory enable and bus master were not set in PCI
-> register 4 after resume.  This also explains the register access
-> failures.
->
-> In tg3_resume(), we call pci_restore_state() which should re-enable
-> those 2 bits in PCI register 4.  Can you add some printk() to see why
-> those bits are not restored after pci_restore_state()?
+On Wed, Aug 01, 2007 at 09:02:19PM -0500, Matt Mackall wrote:
+> On Wed, Aug 01, 2007 at 11:59:21AM +0200, Jarek Poplawski wrote:
+> > On Tue, Jul 31, 2007 at 05:05:00PM +0200, Gabriel C wrote:
+> > > Jarek Poplawski wrote:
+> > > > On Tue, Jul 31, 2007 at 12:14:36PM +0200, Gabriel C wrote:
+> > > >> Jarek Poplawski wrote:
+> > > >>> On 28-07-2007 20:42, Gabriel C wrote:
+> > > >>>> Andrew Morton wrote:
+> > > >>>>> On Sat, 28 Jul 2007 17:44:45 +0200 Gabriel C <nix.or.die@googlemail.com> wrote:
+...
+> > > >>>>>> net/core/netpoll.c:155: error: 'struct net_device' has no member named 'poll_controller'
+...
+> > > >>>>>> I think is because KGDBOE selects just NETPOLL.
+> > > >>>>>>
+> > > >>>>> Looks like it.
+> > > >>>>>
+> > > >>>>> Select went and selected NETPOLL and NETPOLL_TRAP but things like
+> > > >>>>> CONFIG_NETDEVICES and CONFIG_NET_POLL_CONTROLLER remain unset.  `select'
+> > > >>>>> remains evil.
+...
+> > seems to select NET_POLL_CONTROLLER after selecting NETPOLL, but
+> > still doesn't check for NETDEVICES dependency.
+> 
+> That's odd. Adding Sam to the cc:.
 
-Reading pci_restore_state() it looks already instrumented.  Sorry about the 
-wrong pci device, looking at my BCM5788 it is pci device 08:04.0 and looking 
-at the log from my first post there is nothing restored in the first 64 
-bytes!  Otherwise it would have said "PM: Writing back..."
+Looks right, but after reading Andrew's opinion about select I'd be
+astonished if he doesn't know this problem already.
 
-Is this what you are looking for or should I do other printk instrumentation?
+> 
+> > > >> Now KGDBOE just selects NETPOLL and NETPOLL_TRAP.
+> > > >> Adding 'select CONFIG_NET_POLL_CONTROLLER' let kgdboe compiles but the question is does it work without any ethernet card ?
+> > > > 
+> > > > Why kgdboe should care what netpoll needs? So, I hope, you are adding
+> > > > this select under config NETPOLL. On the other hand, if NETPOLL should
+> > > > depend on NET_POLL_CONTROLLER there is probably no reason to have them
+> > > > both.
+> > > 
+> > > NET_POLL_CONTROLLER has def_bool NETPOLL if NETDEVICES .
+> > > 
+> > > Net peoples ping ?:)
+> 
+> How about cc:ing the netpoll maintainer?
 
--Joachim
+Is there a new one or do you suggest possibility of abusing the
+authority of the netpoll's author with such trifles...?!
 
- 
+BTW, I can't find any official meaning of def_bool, but it's name
+suggests only default value, so logically it should be not enough
+to assure NET_POLL_CONTROLLER=y, and netpoll should use "depends",
+"require" or "select" (IMHO more readable too), but on the other
+hand this could be practially wrong...
 
+>  
+> > OK, I wasn't right here: there is no visible reason for both in the
+> > kernel code, but I can imagine there could be some external users of
+> > NET_POLL_CONTROLLER without NETPOLL.
+> 
+> I don't know of any. As far as I can tell at this point,
+> NET_POLL_CONTROLLER == NETPOLL.
 
+There are some notions about "other diagnostic tools" in some
+net drivers, eg. 3c509.c, so there would be a little bit of
+work if, after changing this, they really exist (and even if
+not - maybe it's reasonable to save such possibility for the
+future?).
+
+Best regards,
+Jarek P.
