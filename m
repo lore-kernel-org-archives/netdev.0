@@ -1,172 +1,109 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: NETPOLL=y , NETDEVICES=n compile error ( Re: 2.6.23-rc1-mm1 )
-Date: Wed, 1 Aug 2007 21:02:19 -0500
-Message-ID: <20070802020219.GM11166@waste.org>
-References: <20070731083210.GA1797@ff.dom.local> <46AF0B8C.7070006@googlemail.com> <20070731121735.GA1046@ff.dom.local> <46AF4F9C.5060000@googlemail.com> <20070801095920.GA1941@ff.dom.local>
+From: Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp>
+Subject: [PATCH 2.6.23-rc1][NETFILTER] nf_conntrack_reasm: adding icmpv6_send
+ code(TIME EXCEEDED).
+Date: Wed, 01 Aug 2007 19:53:20 -0700
+Message-ID: <46B14720.9090300@ncos.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gabriel C <nix.or.die@googlemail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jason.wessel@windriver.com, amitkale@linsyssoft.com,
-	Sam Ravnborg <sam@ravnborg.org>
-To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, yoshfuji@linux-ipv6.org,
+	Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([66.93.16.53]:46995 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751456AbXHBCCO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 Aug 2007 22:02:14 -0400
-Content-Disposition: inline
-In-Reply-To: <20070801095920.GA1941@ff.dom.local>
+Received: from homer.mvista.com ([63.81.120.158]:13294 "EHLO
+	gateway-1237.mvista.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1751771AbXHBCxa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 Aug 2007 22:53:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 01, 2007 at 11:59:21AM +0200, Jarek Poplawski wrote:
-> On Tue, Jul 31, 2007 at 05:05:00PM +0200, Gabriel C wrote:
-> > Jarek Poplawski wrote:
-> > > On Tue, Jul 31, 2007 at 12:14:36PM +0200, Gabriel C wrote:
-> > >> Jarek Poplawski wrote:
-> > >>> On 28-07-2007 20:42, Gabriel C wrote:
-> > >>>> Andrew Morton wrote:
-> > >>>>> On Sat, 28 Jul 2007 17:44:45 +0200 Gabriel C <nix.or.die@googlemail.com> wrote:
-> > >>>>>
-> > >>>>>> Hi,
-> > >>>>>>
-> > >>>>>> I got this compile error with a randconfig ( http://194.231.229.228/MM/randconfig-auto-82.broken.netpoll.c ).
-> > >>>>>>
-> > >>>>>> ...
-> > >>>>>>
-> > >>>>>> net/core/netpoll.c: In function 'netpoll_poll':
-> > >>>>>> net/core/netpoll.c:155: error: 'struct net_device' has no member named 'poll_controller'
-> > >>>>>> net/core/netpoll.c:159: error: 'struct net_device' has no member named 'poll_controller'
-> > >>>>>> net/core/netpoll.c: In function 'netpoll_setup':
-> > >>>>>> net/core/netpoll.c:670: error: 'struct net_device' has no member named 'poll_controller'
-> > >>>>>> make[2]: *** [net/core/netpoll.o] Error 1
-> > >>>>>> make[1]: *** [net/core] Error 2
-> > >>>>>> make: *** [net] Error 2
-> > >>>>>> make: *** Waiting for unfinished jobs....
-> > >>>>>>
-> > >>>>>> ...
-> > >>>>>>
-> > >>>>>>
-> > >>>>>> I think is because KGDBOE selects just NETPOLL.
-> > >>>>>>
-> > >>>>> Looks like it.
-> > >>>>>
-> > >>>>> Select went and selected NETPOLL and NETPOLL_TRAP but things like
-> > >>>>> CONFIG_NETDEVICES and CONFIG_NET_POLL_CONTROLLER remain unset.  `select'
-> > >>>>> remains evil.
-> > >>> ...
-> > >>>> I think there may be a logical issue ( again if I got it right ).
-> > >>>> We need some ethernet card to work with kgdboe right ? but we don't have any if !NETDEVICES && !NET_ETHERNET.
-> > >>>>
-> > >>>> So maybe some ' depends on ... && NETDEVICES!=n && NET_ETHERNET!=n ' is needed too ? 
-> > >>> IMHO, the only logical issue here is netpoll.c mustn't use 
-> > >>> CONFIG_NET_POLL_CONTROLLER code without #ifdef if it doesn't
-> > >>> add this dependency itself.
-> > >>>
-> > >> Well it does if NETDEVICES && if NET_ETHERNET which booth are N when !NETDEVICES is why KGDBOE uses select and not depends on.
-> > > 
-> > > "does if XXX" means may "use if XXX".
-> > 
-> > From what I know means only use "if xxx" on !xxx everything inside the "if xxx" is n and "depends on <something inside the if xxx> 
-> > does not work.
-> > 
-> > ...
-> > 
-> > menuconfig FOO
-> > 	bool "FOO"
-> > 	depends on BAR
-> > 	default y 
-> > 	-- help --
-> > 	something
-> > if FOO
-> > 
-> > config BAZ
-> > 	depends on WHATEVR && !NOT_THIS
-> > 
-> > menuconfig SOMETHING_ELSE
-> > 	....
-> > if SOMETHING_ELSE
-> > 
-> > config BLUBB
-> > 	depends on PCI && WHATNOT
-> > 
-> > endif # SOMETHING_ELSE
-> > 
-> > config NETPOLL
-> >         def_bool NETCONSOLE
-> >         
-> > config NETPOLL_TRAP
-> >         bool "Netpoll traffic trapping"
-> >         default n
-> >         depends on NETPOLL
-> >           
-> > config NET_POLL_CONTROLLER
-> >         def_bool NETPOLL
-> > 
-> > endif # FOO
-> > 
-> > Now if you set FOO=n all is gone and your driver have to select whatever it needs from there.
-> 
-> Probably not exactly so...
-> 
-> >From drivers/net/Kconfig:
-> 
-> > # All the following symbols are dependent on NETDEVICES - do not repeat
-> > # that for each of the symbols.
-> > if NETDEVICES
-> 
-> So, according to this netpoll could presume NETDEVICES and
-> NET_POLL_CONTROLLER are always on.
-> 
-> But, as you've found, it's possible to select NETPOLL and !NETDEVICES,
-> so this comment is at least not precise.
-> 
-> On the other side something like this:
-> 
-> ...
-> endif # NETDEVICES
-> 
-> config NETPOLL
->         depends on NETDEVICES
->         def_bool NETCONSOLE
-> 
-> config NETPOLL_TRAP
->         bool "Netpoll traffic trapping"
->         default n
->         depends on NETPOLL
-> 
-> config NET_POLL_CONTROLLER
->         def_bool NETPOLL
->         depends on NETPOLL
-> 
-> 
-> seems to select NET_POLL_CONTROLLER after selecting NETPOLL, but
-> still doesn't check for NETDEVICES dependency.
+I ran the TAHI conformance test on a kernel, which CONFIG_NF_CONNTRACK_IPV6
+is enabled. And then it showed a result including a couple of failure.
+The all of failed items are related to TIME EXCEEDED.
 
-That's odd. Adding Sam to the cc:.
+The test procedure is here.
+  Tester                      Target
+    |                           |
+    |-------------------------->|
+    |       Echo Request        |
+    |      (1st fragment)       |
+    |                           |
+    |      wait for 65 sec.     |
+    |                           |
+    |<--------------------------|
+    |        ICMPv6 Error       |
 
-> > >> Now KGDBOE just selects NETPOLL and NETPOLL_TRAP.
-> > >> Adding 'select CONFIG_NET_POLL_CONTROLLER' let kgdboe compiles but the question is does it work without any ethernet card ?
-> > > 
-> > > Why kgdboe should care what netpoll needs? So, I hope, you are adding
-> > > this select under config NETPOLL. On the other hand, if NETPOLL should
-> > > depend on NET_POLL_CONTROLLER there is probably no reason to have them
-> > > both.
-> > 
-> > NET_POLL_CONTROLLER has def_bool NETPOLL if NETDEVICES .
-> > 
-> > Net peoples ping ?:)
+(1) Tester sends a first fragment of ICMPv6 echo request to Target.
+(2) Wait for over 60 sec.
+(3) If target replies a ICMPv6 error message(Time Exceeded) to Tester,
+    then this test is success, otherwise it's failure.
 
-How about cc:ing the netpoll maintainer?
- 
-> OK, I wasn't right here: there is no visible reason for both in the
-> kernel code, but I can imagine there could be some external users of
-> NET_POLL_CONTROLLER without NETPOLL.
+The reason of the failure is very simple, it's because icmpv6_send code are
+missing in nf_ct_frag6_expire function(nf_conntrack_reasm.c).
+The change is to add the missing code.
 
-I don't know of any. As far as I can tell at this point,
-NET_POLL_CONTROLLER == NETPOLL.
+In RFC2460, the specification regarding Time Exceeded is described,
+but it's defined as "should". So, there is no specification violation here.
+Therefore I'm not sure whether this change is appropriate or not.
 
--- 
-Mathematics is the supreme nostalgia of our time.
+I will appreciate any comments. Thanks.
+
+Signed-off-by: Masayuki Nakagawa <nakagawa.msy@ncos.nec.co.jp>
+
+Index: linux-2.6/net/ipv6/netfilter/nf_conntrack_reasm.c
+===================================================================
+--- linux-2.6.orig/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ linux-2.6/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -76,6 +76,7 @@ struct nf_ct_frag6_queue
+ 	struct sk_buff		*fragments;
+ 	int			len;
+ 	int			meat;
++	int			iif;
+ 	ktime_t			stamp;
+ 	unsigned int		csum;
+ 	__u8			last_in;	/* has first/last segment arrived? */
+@@ -279,6 +280,7 @@ static void nf_ct_frag6_evictor(void)
+ static void nf_ct_frag6_expire(unsigned long data)
+ {
+ 	struct nf_ct_frag6_queue *fq = (struct nf_ct_frag6_queue *) data;
++	struct net_device *dev = NULL;
+
+ 	spin_lock(&fq->lock);
+
+@@ -287,7 +289,26 @@ static void nf_ct_frag6_expire(unsigned
+
+ 	fq_kill(fq);
+
++	dev = dev_get_by_index(fq->iif);
++	if (!dev)
++		goto out;
++
++	/* Don't send error if the first segment did not arrive. */
++	if (!(fq->last_in&FIRST_IN) || !fq->fragments)
++		goto out;
++
++	/*
++	   But use as source device on which LAST ARRIVED
++	   segment was received. And do not use fq->dev
++	   pointer directly, device might already disappeared.
++	 */
++	fq->fragments->dev = dev;
++	icmpv6_send(fq->fragments, ICMPV6_TIME_EXCEED, ICMPV6_EXC_FRAGTIME, 0, dev);
++
+ out:
++	if (dev)
++		dev_put(dev);
++
+ 	spin_unlock(&fq->lock);
+ 	fq_put(fq, NULL);
+ }
+@@ -534,6 +555,9 @@ static int nf_ct_frag6_queue(struct nf_c
+ 	else
+ 		fq->fragments = skb;
+
++	if (skb->dev)
++		fq->iif = skb->dev->ifindex;
++
+ 	skb->dev = NULL;
+ 	fq->stamp = skb->tstamp;
+ 	fq->meat += skb->len;
