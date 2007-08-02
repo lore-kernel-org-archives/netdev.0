@@ -1,38 +1,83 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] SCTP: drop SACK if ctsn is not less than the next tsn
- of assoc
-Date: Thu, 02 Aug 2007 10:40:28 -0400
-Message-ID: <46B1ECDC.5000201@hp.com>
-References: <18087.57737.908842.337891@zeus.sw.starentnetworks.com>		<46AEBE2B.1060702@cn.fujitsu.com>		<20070731113709.GA28333@hmsreliant.homelinux.net>	<1185902894.8234.5.camel@localhost.localdomain>	<46AFDC97.6080909@cn.fujitsu.com> <46AFFAB7.8050503@hp.com> <46B05EA9.4090507@cn.fujitsu.com> <46B08545.8030707@hp.com> <46B19C88.8070104@cn.fujitsu.com>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: NETPOLL=y , NETDEVICES=n compile error ( Re: 2.6.23-rc1-mm1 )
+Date: Thu, 2 Aug 2007 10:59:23 -0500
+Message-ID: <20070802155922.GQ11115@waste.org>
+References: <20070731083210.GA1797@ff.dom.local> <46AF0B8C.7070006@googlemail.com> <20070731121735.GA1046@ff.dom.local> <46AF4F9C.5060000@googlemail.com> <20070801095920.GA1941@ff.dom.local> <20070802020219.GM11166@waste.org> <20070802090008.GA1699@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-	lksctp-developers@lists.sourceforge.net,
-	Sridhar Samudrala <sri@us.ibm.com>
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Gabriel C <nix.or.die@googlemail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jason.wessel@windriver.com, amitkale@linsyssoft.com,
+	Sam Ravnborg <sam@ravnborg.org>
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:42040 "EHLO atlrel8.hp.com"
+Received: from waste.org ([66.93.16.53]:51657 "EHLO waste.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753502AbXHBOk5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Aug 2007 10:40:57 -0400
-In-Reply-To: <46B19C88.8070104@cn.fujitsu.com>
+	id S1756525AbXHBP7o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Aug 2007 11:59:44 -0400
+Content-Disposition: inline
+In-Reply-To: <20070802090008.GA1699@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wei Yongjun wrote:
-> Patch has been modified base on comment.
-> Thanks.
+On Thu, Aug 02, 2007 at 11:00:08AM +0200, Jarek Poplawski wrote:
+> On Wed, Aug 01, 2007 at 09:02:19PM -0500, Matt Mackall wrote:
+> > On Wed, Aug 01, 2007 at 11:59:21AM +0200, Jarek Poplawski wrote:
+> > > On Tue, Jul 31, 2007 at 05:05:00PM +0200, Gabriel C wrote:
+> > > > Jarek Poplawski wrote:
+> > > > > On Tue, Jul 31, 2007 at 12:14:36PM +0200, Gabriel C wrote:
+> > > > >> Jarek Poplawski wrote:
+> > > > >>> On 28-07-2007 20:42, Gabriel C wrote:
+> > > > >>>> Andrew Morton wrote:
+> > > > >>>>> On Sat, 28 Jul 2007 17:44:45 +0200 Gabriel C <nix.or.die@googlemail.com> wrote:
+> ...
+> > > > >>>>>> net/core/netpoll.c:155: error: 'struct net_device' has no member named 'poll_controller'
+> ...
+> > > > >>>>>> I think is because KGDBOE selects just NETPOLL.
+> > > > >>>>>>
+> > > > >>>>> Looks like it.
+> > > > >>>>>
+> > > > >>>>> Select went and selected NETPOLL and NETPOLL_TRAP but things like
+> > > > >>>>> CONFIG_NETDEVICES and CONFIG_NET_POLL_CONTROLLER remain unset.  `select'
+> > > > >>>>> remains evil.
+> ...
+> > > seems to select NET_POLL_CONTROLLER after selecting NETPOLL, but
+> > > still doesn't check for NETDEVICES dependency.
+> > 
+> > That's odd. Adding Sam to the cc:.
 > 
-> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+> Looks right, but after reading Andrew's opinion about select I'd be
+> astonished if he doesn't know this problem already.
 > 
+> > 
+> > > > >> Now KGDBOE just selects NETPOLL and NETPOLL_TRAP.
+> > > > >> Adding 'select CONFIG_NET_POLL_CONTROLLER' let kgdboe compiles but the question is does it work without any ethernet card ?
+> > > > > 
+> > > > > Why kgdboe should care what netpoll needs? So, I hope, you are adding
+> > > > > this select under config NETPOLL. On the other hand, if NETPOLL should
+> > > > > depend on NET_POLL_CONTROLLER there is probably no reason to have them
+> > > > > both.
+> > > > 
+> > > > NET_POLL_CONTROLLER has def_bool NETPOLL if NETDEVICES .
+> > > > 
+> > > > Net peoples ping ?:)
+> > 
+> > How about cc:ing the netpoll maintainer?
+> 
+> Is there a new one or do you suggest possibility of abusing the
+> authority of the netpoll's author with such trifles...?!
 
-Ok, I've applied this patch, but in the future, please
-generate patches so that they can be applied
-with a -p1 flag.
+I'm just subtly suggesting that if you're going to have a discussion
+about netpoll, you ought to cc: me.
 
-Please see Documentation/SubmittingPatches for proper
-format.
+> There are some notions about "other diagnostic tools" in some
+> net drivers, eg. 3c509.c, so there would be a little bit of
+> work if, after changing this, they really exist (and even if
+> not - maybe it's reasonable to save such possibility for the
+> future?).
 
-Thanks
--vlad
+I created it for netpoll, only netpoll clients have ever cared.
+
+-- 
+Mathematics is the supreme nostalgia of our time.
