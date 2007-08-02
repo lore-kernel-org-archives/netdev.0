@@ -1,73 +1,126 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 1/2] [TCP]: Also handle snd_una changes in tcp_cwnd_down
-Date: Thu, 2 Aug 2007 14:18:59 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0708021412380.8788@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0708012054180.27657@kivilampi-30.cs.helsinki.fi>
+From: Satyam Sharma <satyam@infradead.org>
+Subject: Re: NETPOLL=y , NETDEVICES=n compile error ( Re: 2.6.23-rc1-mm1 )
+Date: Thu, 2 Aug 2007 17:10:27 +0530 (IST)
+Message-ID: <alpine.LFD.0.999.0708021641510.8258@enigma.security.iitk.ac.in>
+References: <20070731083210.GA1797@ff.dom.local> <46AF0B8C.7070006@googlemail.com>
+ <20070731121735.GA1046@ff.dom.local> <46AF4F9C.5060000@googlemail.com>
+ <20070801095920.GA1941@ff.dom.local> <20070802020219.GM11166@waste.org>
+ <20070802093659.GB27748@uranus.ravnborg.org>
+ <alpine.LFD.0.999.0708021547420.8258@enigma.security.iitk.ac.in>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-147386536-1186053539=:8788"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:40098 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753952AbXHBLTD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2007 07:19:03 -0400
-In-Reply-To: <Pine.LNX.4.64.0708012054180.27657@kivilampi-30.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: Matt Mackall <mpm@selenic.com>, Jarek Poplawski <jarkao2@o2.pl>,
+	Gabriel C <nix.or.die@googlemail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, jason.wessel@windriver.com,
+	amitkale@linsyssoft.com, zippel@linux-m68k.org, jengelh@gmx.de
+To: Sam Ravnborg <sam@ravnborg.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756930AbXHBL2b@vger.kernel.org>
+In-Reply-To: <alpine.LFD.0.999.0708021547420.8258@enigma.security.iitk.ac.in>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+[ Read through the thread, looked at Kconfig files,
+  did some tests. Adding Kconfig experts to Cc: list. ]
 
----696243703-147386536-1186053539=:8788
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
 
-On Wed, 1 Aug 2007, Ilpo Järvinen wrote:
-
+> On Thu, 2 Aug 2007, Sam Ravnborg wrote:
 > 
-> tcp_cwnd_down must check for it too as it should be conservative
-> in case of collapse stuff and also when receiver is trying to
-> lie (though that wouldn't be very successful/useful anyway).
-> 
-> Note:
-> - Separated also is_dupack and do_lost in fast_retransalert
-> 	* Much cleaner look-and-feel now
-> 	* This time it really fixes cumulative ACK with many new
-> 	  SACK blocks recovery entry (I claimed this fixes with
-> 	  last patch but it wasn't). TCP will now call
-> 	  tcp_update_scoreboard regardless of is_dupack when
-> 	  in recovery as long as there is enough fackets_out.
-> - Introduce FLAG_SND_UNA_ADVANCED
-> 	* Some prior_snd_una arguments are unnecessary after it
-> - Added helper FLAG_ANY_PROGRESS to avoid long FLAG...|FLAG...
->   constructs
-> 
-> Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-> ---
-> 
-> Dave, BEWARE, I wasn't able to do anything else but compile test
-> because Linus' tree didn't seem to boot on the machine I was
-> trying to test it... :-(
-> 
-> I think that to stable version only a small part of this change
-> is necessary, not the full changeset. That should keep stable
-> folks much happier... :-) I'll soon put my reduced proposal to:
->   http://www.cs.helsinki.fi/u/ijjarvin/patches/stable-0001.patch
-> The other patch (DSACK) can go to stable as is.
+> > > > 
+> > > > ...
+> > > > endif # NETDEVICES
+> > > > 
+> > > > config NETPOLL
+> > > >         depends on NETDEVICES
+> > > >         def_bool NETCONSOLE
+> > > > 
+> > > > config NETPOLL_TRAP
+> > > >         bool "Netpoll traffic trapping"
+> > > >         default n
+> > > >         depends on NETPOLL
+> > > > 
+> > > > config NET_POLL_CONTROLLER
+> > > >         def_bool NETPOLL
+> > > >         depends on NETPOLL
 
-I placed those two earlier sent bidir fixes and these two additional fixes 
-on top of 2.6.22 and was finally able to have them tested on a bootable 
-kernel (I had a boot failure on another machine too with 2.6.23-rc1 
-stuff). FACK&NewReno/bidir and FACK/unidir tested, time-seq graphs were 
-ok.
 
-Dave, please put these two patches to net-2.6 to complete bidir fix 
-series. ...And please push to stable as well, take just the minimized 
-"fix" portion of this "[TCP]: Also handle snd_una changes in 
-tcp_cwnd_down" patch as I described above. Other cleanups in it can be
-put just to net-2.6.
+Gargh, what we're seeing here is a whole bunch of bugs, I think. First
+I thought this must be one of those randconfig-producing-wrong-configs
+issues, but surprisingly, running "make oldconfig" on this .config on
+a fresh 2.6.23-rc1-mm1 tree didn't change anything in the .config.
 
--- 
- i.
----696243703-147386536-1186053539=:8788--
+
+Kconfig bug #1:
+===============
+
+Which means, although:
+
+*****
+menuconfig BAZ
+
+if BAZ
+
+config BAR
+
+endif
+*****
+
+is widely believed (by most folks, I've heard this on several threads,
+and as written in the comment in drivers/net/Kconfig) to be equivalent to:
+
+*****
+menuconfig BAZ
+
+if BAZ
+endif
+
+config BAR
+	depends on BAZ
+*****
+
+this is *not* enforced by "make oldconfig"! And hence, the NETPOLL &&
+!NETDEVICES situation we're seeing here.
+
+[ We could also categorize this as a bug in Kconfig's "if", fwiw. ]
+
+
+Kconfig bug #2:
+===============
+
+config FOO
+	def_bool BAR
+
+is supposed to ensure that FOO == BAR (as Matt mentioned earlier).
+
+However, even this is *not* enforced by "make oldconfig". And hence,
+the NETPOLL && !NET_POLL_CONTROLLER situation we're seeing here.
+
+In fact, I believe it's possible to even pass a NETCONSOLE but
+!NETPOLL kind of .config through "make oldconfig" but it still won't
+catch it, and build breakages *will* occur.
+
+[ We could also categorize this as a bug in Kconfig's "def_bool", fwiw. ]
+
+Possibly, we could also decide to just blame "randconfig" for the whole
+issue, and forget about these, because I think it's highly unlikely
+(though not impossible) for people with "real" .configs to hit the
+problems we saw above.
+
+
+KGDBOE bug #1:
+==============
+
+config KGDBOE in lib/Kconfig.kgdb must also "depend on" NETDEVICES,
+and select NET_POLL_CONTROLLER also.
+
+
+KGDBOE bug #2:
+==============
+
+config KGDBOE_NOMODULE is a sad, sad option, and must be killed. The
+"if !KGDBOE_NOMODULE" in KGDBOE must be removed, and it must lose its
+dependency on "m".
+
+
+Satyam
