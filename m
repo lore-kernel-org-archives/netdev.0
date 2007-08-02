@@ -1,27 +1,63 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: [ofa-general] Re: [PATCH 2.6.23 1/2] Make the iw_cxgb3 module
-	parameters writable.
-Date: Thu, 02 Aug 2007 14:06:41 -0700
-Message-ID: <adaodhp3au6.fsf@cisco.com>
-References: <20070729201226.31659.85900.stgit@dell3.ogc.int>
+From: Daniel Phillips <phillips@phunq.net>
+Subject: Re: Distributed storage.
+Date: Thu, 2 Aug 2007 14:08:24 -0700
+Message-ID: <200708021408.24876.phillips@phunq.net>
+References: <20070731171347.GA14267@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="koi8-r"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: Steve Wise <swise@opengridcomputing.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070729201226.31659.85900.stgit@dell3.ogc.int> (Steve Wise's
-	message of "Sun, 29 Jul 2007 15:12:26 -0500")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+	linux-fsdevel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20070731171347.GA14267@2ka.mipt.ru>
+Content-Disposition: inline
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-thanks... I actually applied this for 2.6.24, since it's not really a
-fix for anything, and the 2.6.23 window is closed.
+On Tuesday 31 July 2007 10:13, Evgeniy Polyakov wrote:
+> Hi.
+>
+> I'm pleased to announce first release of the distributed storage
+> subsystem, which allows to form a storage on top of remote and local
+> nodes, which in turn can be exported to another storage as a node to
+> form tree-like storages.
+
+Excellent!  This is precisely what the doctor ordered for the 
+OCFS2-based distributed storage system I have been mumbling about for 
+some time.  In fact the dd in ddsnap and ddraid stands for "distributed 
+data".  The ddsnap/raid devices do not include an actual network 
+transport, that is expected to be provided by a specialized block 
+device, which up till now has been NBD.  But NBD has various 
+deficiencies as you note, in addition to its tendency to deadlock when 
+accessed locally.  Your new code base may be just the thing we always 
+wanted.  We (zumastor et al) will take it for a drive and see if 
+anything breaks.
+
+Memory deadlock is a concern of course.  From a cursory glance through, 
+it looks like this code is pretty vm-friendly and you have thought 
+quite a lot about it, however I respectfully invite peterz 
+(obsessive/compulsive memory deadlock hunter) to help give it a good 
+going over with me.
+
+I see bits that worry me, e.g.:
+
++		req = mempool_alloc(st->w->req_pool, GFP_NOIO);
+
+which seems to be callable in response to a local request, just the case 
+where NBD deadlocks.  Your mempool strategy can work reliably only if 
+you can prove that the pool allocations of the maximum number of 
+requests you can have in flight do not exceed the size of the pool.  In 
+other words, if you ever take the pool's fallback path to normal 
+allocation, you risk deadlock.
+
+Anyway, if this is as grand as it seems then I would think we ought to 
+factor out a common transfer core that can be used by all of NBD, 
+iSCSI, ATAoE and your own kernel server, in place of the roll-yer-own 
+code those things have now.
+
+Regards,
+
+Daniel
