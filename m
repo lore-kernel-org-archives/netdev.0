@@ -1,52 +1,89 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [REGRESSION] tg3 dead after s2ram
-Date: Thu, 02 Aug 2007 16:38:00 -0700
-Message-ID: <1186097880.18322.73.camel@dell>
-References: <200708021115.10812.joachim.deguara@amd.com>
- <20070802.022317.66176729.davem@davemloft.net>
- <1186081829.18322.20.camel@dell>
- <20070802.150636.77057800.davem@davemloft.net>
+From: Brandon Philips <brandon@suse.de>
+Subject: [patch 1/5][RFC] NET: Change pci_enable_device to
+	pci_reenable_device to keep device enable balance
+Date: Thu, 2 Aug 2007 15:44:23 -0700
+Message-ID: <20070802224423.GC5181@ifup.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: joachim.deguara@amd.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, michal.k.k.piotrowski@gmail.com,
-	"netdev" <netdev@vger.kernel.org>, linux-acpi@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: teheo@suse.de, Brandon Philips <bphilips@suse.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2164 "EHLO mms1.broadcom.com"
+Received: from cantor.suse.de ([195.135.220.2]:55815 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754983AbXHBWny (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Aug 2007 18:43:54 -0400
-In-Reply-To: <20070802.150636.77057800.davem@davemloft.net>
+	id S1753816AbXHBWo1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Aug 2007 18:44:27 -0400
+Received: from Relay2.suse.de (mail2.suse.de [195.135.221.8])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mx1.suse.de (Postfix) with ESMTP id 5F39A122A9
+	for <netdev@vger.kernel.org>; Fri,  3 Aug 2007 00:44:26 +0200 (CEST)
+Content-Disposition: inline; filename="net-pci-reenable-on-slot-reset.patch"
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-08-02 at 15:06 -0700, David Miller wrote:
-> From: "Michael Chan" <mchan@broadcom.com>
-> Date: Thu, 02 Aug 2007 12:10:29 -0700
->
-> > Alternatively, we can also fix it by calling pci_enable_device() again
-> > in tg3_open().  But I think it is better to just always save and restore
-> > in suspend/resume.  bnx2.c will also require the same fix.
-> 
-> We could do it that way.  But don't you think it's more reliable to
-> save and restore around the event we know will be what clobbers the
-> PCI config space on us? :-)
-> 
+On a slot_reset event pci_disable_device() is never called so calling
+pci_enable_device() will unbalance the enable count.
 
-Yes for sure when netif state is running and we were already doing that.
+Signed-off-by: Brandon Philips <bphilips@suse.de>
 
-> Other things might happen between ->resume() and ->open() that could
-> modify PCI config space, and we could overwrite such changes if we do
-> the PCI restore in ->open().
+---
+ drivers/net/e100.c             |    2 +-
+ drivers/net/e1000/e1000_main.c |    2 +-
+ drivers/net/ixgb/ixgb_main.c   |    2 +-
+ drivers/net/s2io.c             |    2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
 
-I suggested calling pci_enable_device() in ->open(), not calling
-pci_restore_state() in ->open().  I ultimately decided against it
-because some devices do not enable memory as a workaround and it would
-be messy to deal with it again in tg3_open().
+Index: linux-2.6/drivers/net/e100.c
+===================================================================
+--- linux-2.6.orig/drivers/net/e100.c
++++ linux-2.6/drivers/net/e100.c
+@@ -2828,7 +2828,7 @@ static pci_ers_result_t e100_io_slot_res
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct nic *nic = netdev_priv(netdev);
+ 
+-	if (pci_enable_device(pdev)) {
++	if (pci_reenable_device(pdev)) {
+ 		printk(KERN_ERR "e100: Cannot re-enable PCI device after reset.\n");
+ 		return PCI_ERS_RESULT_DISCONNECT;
+ 	}
+Index: linux-2.6/drivers/net/e1000/e1000_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/e1000/e1000_main.c
++++ linux-2.6/drivers/net/e1000/e1000_main.c
+@@ -5270,7 +5270,7 @@ static pci_ers_result_t e1000_io_slot_re
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct e1000_adapter *adapter = netdev->priv;
+ 
+-	if (pci_enable_device(pdev)) {
++	if (pci_reenable_device(pdev)) {
+ 		printk(KERN_ERR "e1000: Cannot re-enable PCI device after reset.\n");
+ 		return PCI_ERS_RESULT_DISCONNECT;
+ 	}
+Index: linux-2.6/drivers/net/ixgb/ixgb_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/ixgb/ixgb_main.c
++++ linux-2.6/drivers/net/ixgb/ixgb_main.c
+@@ -2294,7 +2294,7 @@ static pci_ers_result_t ixgb_io_slot_res
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct ixgb_adapter *adapter = netdev_priv(netdev);
+ 
+-	if(pci_enable_device(pdev)) {
++	if(pci_reenable_device(pdev)) {
+ 		DPRINTK(PROBE, ERR, "Cannot re-enable PCI device after reset.\n");
+ 		return PCI_ERS_RESULT_DISCONNECT;
+ 	}
+Index: linux-2.6/drivers/net/s2io.c
+===================================================================
+--- linux-2.6.orig/drivers/net/s2io.c
++++ linux-2.6/drivers/net/s2io.c
+@@ -7833,7 +7833,7 @@ static pci_ers_result_t s2io_io_slot_res
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct s2io_nic *sp = netdev->priv;
+ 
+-	if (pci_enable_device(pdev)) {
++	if (pci_reenable_device(pdev)) {
+ 		printk(KERN_ERR "s2io: "
+ 		       "Cannot re-enable PCI device after reset.\n");
+ 		return PCI_ERS_RESULT_DISCONNECT;
 
-I definitely agree that calling PCI restore in ->open() is a bad idea.
-We used to save PCI state in ->probe() once and restore PCI state after
-every chip reset.  This sequence caused many subtle problems.
-
+-- 
