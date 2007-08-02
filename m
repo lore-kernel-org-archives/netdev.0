@@ -1,80 +1,65 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: net driver error accounting
-Date: Thu, 2 Aug 2007 13:45:34 -0700
-Message-ID: <20070802134534.ec33042a.akpm@linux-foundation.org>
-References: <20070802131718.84543097.akpm@linux-foundation.org>
-	<46B240B1.9080003@garzik.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [RFC][BNX2X]: New driver for Broadcom 10Gb Ethernet.
+Date: Thu, 02 Aug 2007 14:48:21 -0700
+Message-ID: <1186091301.18322.46.camel@dell>
+References: <1185957077.5552.22.camel@dell>
+ <200708020006.13457.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Natalie Protasevich <protasnb@gmail.com>,
-	Tim Hockin <thockin@hockin.org>
-To: Jeff Garzik <jeff@garzik.org>
+Cc: "David Miller" <davem@davemloft.net>, jeff@garzik.org,
+	"netdev" <netdev@vger.kernel.org>, eliezert@broadcom.com,
+	lusinsky@broadcom.com, eilong@broadcom.com
+To: "Michael Buesch" <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:51745 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760269AbXHBUpz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2007 16:45:55 -0400
-In-Reply-To: <46B240B1.9080003@garzik.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:4372 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752070AbXHBUyP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Aug 2007 16:54:15 -0400
+In-Reply-To: <200708020006.13457.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 02 Aug 2007 16:38:09 -0400
-Jeff Garzik <jeff@garzik.org> wrote:
-
-> Andrew Morton wrote:
-> > Looking at http://bugzilla.kernel.org/show_bug.cgi?id=8106
-> > 
-> > Guys, could we please have a ruling here?
-> > 
-> > When a net driver encounters a tx_fifo_error, should this also contribute
-> > to the tx_error count, or should it not?
+On Thu, 2007-08-02 at 00:06 +0200, Michael Buesch wrote:
+> +static inline u32 bnx2x_tx_avail(struct bnx2x_fastpath *fp)
 > 
-> For each TX error, (a) tx_error is incremented and (b) a more-specific 
-> TX error stat is also potentially incremented.  So, yes, tx_error 
-> accumulates.
+> Too big for inlining.
 > 
-> See cp_tx() in 8139cp.
+> > +{
+> > +     u16 used;
+> > +     u32 prod = fp->tx_bd_prod;
+> > +     u32 cons = fp->tx_bd_cons;
+> > +
+> > +     smp_mb();
 > 
+> This barrier needs a comment. Why is it there? And why SMP only?
+
+bnx2 and tg3 have similar logic to tell the compiler that prod and cons
+can change.  Strictly speaking, we can just use barrier().  The barrier
+is also not placed correctly and should be:
+
+	/* Tell compiler that prod and cons can change. */
+	barrier();
+	prod = fp->tx_bd_prod;
+	cons = fp->tx_bd_cons;
+ 
+...
 > 
-> > More generally, should netdev drivers accumulate all the detailed
-> > rx_errors into net_device_stats.rx_errors in real time, or should they not?
-> 
-> For each RX error, (a) rx_error is incremented and (b) a more-specific 
-> RX error stat is also potentially incremented.  So, yes, rx_error 
-> accumulates.
-> 
-> See cp_rx_err_acct() in 8139cp.
-> 
+> > +     fp->tx_pkt_cons = sw_cons;
+> > +     fp->tx_bd_cons = bd_cons;
+> > +
+> > +     smp_mb();
+>
+> Please add a comment why we need a SMP MB here.
 
-OK, thanks.
+This is again similar to logic in tg3 and bnx2 and the comments in tg3
+are:
 
-One does wonder why the overall rx_error exists all all, but whatever.  The
-main thing is to get all the net drivers doing the same thing.
-
-
-So I guess bug 8106 wants something like this?
+	/* Need to make the tx_cons update visible to tg3_start_xmit()
+	 * before checking for netif_queue_stopped().  Without the
+	 * memory barrier, there is a small possibility that tg3_start_xmit()
+	 * will miss it and cause the queue to be stopped forever.
+	 */
 
 
-diff -puN drivers/net/natsemi.c~a drivers/net/natsemi.c
---- a/drivers/net/natsemi.c~a
-+++ a/drivers/net/natsemi.c
-@@ -2438,13 +2438,16 @@ static void netdev_error(struct net_devi
- 				dev->name);
- 		}
- 		np->stats.rx_fifo_errors++;
-+		np->stats.rx_errors++;
- 	}
- 	/* Hmmmmm, it's not clear how to recover from PCI faults. */
- 	if (intr_status & IntrPCIErr) {
- 		printk(KERN_NOTICE "%s: PCI error %#08x\n", dev->name,
- 			intr_status & IntrPCIErr);
- 		np->stats.tx_fifo_errors++;
-+		np->stats.tx_errors++;
- 		np->stats.rx_fifo_errors++;
-+		np->stats.rx_errors++;
- 	}
- 	spin_unlock(&np->lock);
- }
-_
 
