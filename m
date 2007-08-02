@@ -1,69 +1,32 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH] Merge the Sonics Silicon Backplane subsystem
-Date: Thu, 2 Aug 2007 18:18:57 +0200
-Message-ID: <200708021818.58319.mb@bu3sch.de>
-References: <200707271857.24162.mb@bu3sch.de> <200708021624.59701.mb@bu3sch.de>
-	<Pine.LNX.4.64.0708021812260.5150@anakin>
+From: Meelis Roos <mroos@linux.ee>
+Subject: b44 compile error on !PCI
+Date: Thu, 2 Aug 2007 19:45:47 +0300 (EEST)
+Message-ID: <Pine.SOC.4.64.0708021943510.7589@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm-3NddpPZAyC0@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-To: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <Pine.LNX.4.64.0708021812260.5150@anakin>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.it.da.ut.ee ([193.40.5.67]:47266 "EHLO smtp2.it.da.ut.ee"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755872AbXHBQpv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Aug 2007 12:45:51 -0400
+Received: from math.ut.ee (math.ut.ee [193.40.36.2])
+	by smtp2.it.da.ut.ee (Postfix) with ESMTP id A440F4C0377E
+	for <netdev@vger.kernel.org>; Thu,  2 Aug 2007 19:45:47 +0300 (EEST)
+Received: from localhost (localhost [127.0.0.1])
+	by math.ut.ee (Postfix) with ESMTP id 9AE456ADEB
+	for <netdev@vger.kernel.org>; Thu,  2 Aug 2007 19:45:47 +0300 (EEST)
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 02 August 2007, Geert Uytterhoeven wrote:
-> On Thu, 2 Aug 2007, Michael Buesch wrote:
-> > On Thursday 02 August 2007, Geert Uytterhoeven wrote:
-> > > On Fri, 27 Jul 2007, Michael Buesch wrote:
-> > > > The Sonics Silicon Backplane is a mini-bus used on
-> > > > various Broadcom chips and embedded devices.
-> > > > Devices using the SSB include b44, bcm43xx and various
-> > > > Broadcom based wireless routers.
-> > > > A b44 and bcm43xx port and a SSB based OHCI driver is available.
-> > > 
-> > > > --- a/drivers/Kconfig
-> > > > +++ b/drivers/Kconfig
-> > > > @@ -58,6 +58,8 @@ source "drivers/power/Kconfig"
-> > > >  
-> > > >  source "drivers/hwmon/Kconfig"
-> > > >  
-> > > > +source "drivers/ssb/Kconfig"
-> > > > +
-> > > >  source "drivers/mfd/Kconfig"
-> > > >  
-> > > >  source "drivers/media/Kconfig"
-> > > 
-> > > > --- /dev/null
-> > > > +++ b/drivers/ssb/Kconfig
-> > > > @@ -0,0 +1,92 @@
-> > > > +menu "Sonics Silicon Backplane"
-> > > > +
-> > > > +config SSB
-> > > > +	tristate "Sonics Silicon Backplane support"
-> > > > +	depends on EXPERIMENTAL
-> > > 
-> > > Hence this will show up on all platforms?
-> > 
-> > So?
-> 
-> Shouldn't you add a dependency for platforms where it make sense to have SSB?
+Tryng to compile todays git on SBus-only Sparc64 (Ultra 1), no PCI. b44 
+is selectable but fails to compile:
 
-Well, that's everything where you can stick a PCI, PCMCIA, PC-Card or CF-Card
-into, plus the MIPS platform, where we have the embedded SSB.
-That's basically everything, no? Except these strange !HAS_IOMEM platforms,
-which we already take care of in a followup patch.
+  CC [M]  drivers/net/b44.o
+drivers/net/b44.c: In function 'b44_sync_dma_desc_for_device':
+drivers/net/b44.c:134: error: implicit declaration of function 'dma_sync_single_range_for_device'
+drivers/net/b44.c: In function 'b44_sync_dma_desc_for_cpu':
+drivers/net/b44.c:144: error: implicit declaration of function 'dma_sync_single_range_for_cpu'
+
+-- 
+Meelis Roos (mroos@linux.ee)
