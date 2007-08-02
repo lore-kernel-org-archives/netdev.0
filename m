@@ -1,60 +1,38 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH] Merge the Sonics Silicon Backplane subsystem
-Date: Thu, 2 Aug 2007 16:24:58 +0200
-Message-ID: <200708021624.59701.mb@bu3sch.de>
-References: <200707271857.24162.mb@bu3sch.de>
-	<Pine.LNX.4.64.0708021557280.5150@anakin>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] SCTP: drop SACK if ctsn is not less than the next tsn
+ of assoc
+Date: Thu, 02 Aug 2007 10:40:28 -0400
+Message-ID: <46B1ECDC.5000201@hp.com>
+References: <18087.57737.908842.337891@zeus.sw.starentnetworks.com>		<46AEBE2B.1060702@cn.fujitsu.com>		<20070731113709.GA28333@hmsreliant.homelinux.net>	<1185902894.8234.5.camel@localhost.localdomain>	<46AFDC97.6080909@cn.fujitsu.com> <46AFFAB7.8050503@hp.com> <46B05EA9.4090507@cn.fujitsu.com> <46B08545.8030707@hp.com> <46B19C88.8070104@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm-3NddpPZAyC0@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Gary Zambrano <zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-To: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Return-path: <bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <Pine.LNX.4.64.0708021557280.5150@anakin>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/bcm43xx-dev>
-List-Post: <mailto:bcm43xx-dev-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/bcm43xx-dev>,
-	<mailto:bcm43xx-dev-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: bcm43xx-dev-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+	lksctp-developers@lists.sourceforge.net,
+	Sridhar Samudrala <sri@us.ibm.com>
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atlrel8.hp.com ([156.153.255.206]:42040 "EHLO atlrel8.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753502AbXHBOk5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Aug 2007 10:40:57 -0400
+In-Reply-To: <46B19C88.8070104@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 02 August 2007, Geert Uytterhoeven wrote:
-> On Fri, 27 Jul 2007, Michael Buesch wrote:
-> > The Sonics Silicon Backplane is a mini-bus used on
-> > various Broadcom chips and embedded devices.
-> > Devices using the SSB include b44, bcm43xx and various
-> > Broadcom based wireless routers.
-> > A b44 and bcm43xx port and a SSB based OHCI driver is available.
+Wei Yongjun wrote:
+> Patch has been modified base on comment.
+> Thanks.
 > 
-> > --- a/drivers/Kconfig
-> > +++ b/drivers/Kconfig
-> > @@ -58,6 +58,8 @@ source "drivers/power/Kconfig"
-> >  
-> >  source "drivers/hwmon/Kconfig"
-> >  
-> > +source "drivers/ssb/Kconfig"
-> > +
-> >  source "drivers/mfd/Kconfig"
-> >  
-> >  source "drivers/media/Kconfig"
+> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 > 
-> > --- /dev/null
-> > +++ b/drivers/ssb/Kconfig
-> > @@ -0,0 +1,92 @@
-> > +menu "Sonics Silicon Backplane"
-> > +
-> > +config SSB
-> > +	tristate "Sonics Silicon Backplane support"
-> > +	depends on EXPERIMENTAL
-> 
-> Hence this will show up on all platforms?
 
-So?
+Ok, I've applied this patch, but in the future, please
+generate patches so that they can be applied
+with a -p1 flag.
+
+Please see Documentation/SubmittingPatches for proper
+format.
+
+Thanks
+-vlad
