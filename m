@@ -1,44 +1,33 @@
-From: Satyam Sharma <satyam@infradead.org>
-Subject: Re: NETPOLL=y , NETDEVICES=n compile error ( Re: 2.6.23-rc1-mm1 )
-Date: Thu, 2 Aug 2007 17:26:12 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0708021721230.8258@enigma.security.iitk.ac.in>
-References: <20070731083210.GA1797@ff.dom.local> <46AF0B8C.7070006@googlemail.com>
- <20070731121735.GA1046@ff.dom.local> <46AF4F9C.5060000@googlemail.com>
- <20070801095920.GA1941@ff.dom.local> <20070802020219.GM11166@waste.org>
- <20070802093659.GB27748@uranus.ravnborg.org>
- <alpine.LFD.0.999.0708021547420.8258@enigma.security.iitk.ac.in>
- <20070802114042.GB1699@ff.dom.local>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: strange tcp behavior
+Date: Thu, 2 Aug 2007 16:04:53 +0400
+Message-ID: <20070802120452.GB9975@2ka.mipt.ru>
+References: <56697.212.93.96.73.1186035546.squirrel@mail.screen.lv> <20070802095550.GA27226@2ka.mipt.ru> <20070802101655.GA14749@2ka.mipt.ru> <36758.simon.1186054739@5ec7c279.invalid>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Sam Ravnborg <sam@ravnborg.org>, Matt Mackall <mpm@selenic.com>,
-	Gabriel C <nix.or.die@googlemail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jason.wessel@windriver.com, amitkale@linsyssoft.com
-To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Type: text/plain; charset=koi8-r
+Cc: john@screen.lv, netdev@vger.kernel.org
+To: Simon Arlott <simon@fire.lp0.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:50131 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752642AbXHBLnx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 Aug 2007 07:43:53 -0400
-In-Reply-To: <20070802114042.GB1699@ff.dom.local>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:41530 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755549AbXHBMKd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Aug 2007 08:10:33 -0400
+Content-Disposition: inline
+In-Reply-To: <36758.simon.1186054739@5ec7c279.invalid>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, Aug 02, 2007 at 12:38:59PM +0100, Simon Arlott (simon@fire.lp0.eu) wrote:
+> I just got multiple RSTs instead of a connection too. The second RST looks
+> like it's from another connection - and a RST for a RST is wrong...
 
+You should use iptables rule to block non-raw access:
+iptables -I INPUT -p tcp --dport 50000 -j DROP
 
-On Thu, 2 Aug 2007, Jarek Poplawski wrote:
+but even in that case I got valid session.
 
-> On Thu, Aug 02, 2007 at 04:02:21PM +0530, Satyam Sharma wrote:
-> [...]
-> How often "common" developer has to make such decisions in Kconfig?
-> Probably no more than once per year. So, it's fair to blame anybody
-> for not reading lkml to find if there are some bugs or
-> recommendations before using apparently simple tool? I think there
-> is usually some README for such things (maybe in Documentation/)?
+> -- 
+> Simon Arlott
 
-Whoops, I only said that in humour, probably should've snuck in a
-smiley or two. Definitely not blaming anybody. Apologies to anyone
-who felt offended, sorry, nothing such was intended, I assure.
-
-Satyam
+-- 
+	Evgeniy Polyakov
