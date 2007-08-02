@@ -1,61 +1,70 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: NETPOLL=y , NETDEVICES=n compile error ( Re: 2.6.23-rc1-mm1 )
-Date: Thu, 2 Aug 2007 11:36:59 +0200
-Message-ID: <20070802093659.GB27748@uranus.ravnborg.org>
-References: <20070731083210.GA1797@ff.dom.local> <46AF0B8C.7070006@googlemail.com> <20070731121735.GA1046@ff.dom.local> <46AF4F9C.5060000@googlemail.com> <20070801095920.GA1941@ff.dom.local> <20070802020219.GM11166@waste.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: strange tcp behavior
+Date: Thu, 2 Aug 2007 13:55:50 +0400
+Message-ID: <20070802095550.GA27226@2ka.mipt.ru>
+References: <56697.212.93.96.73.1186035546.squirrel@mail.screen.lv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jarek Poplawski <jarkao2@o2.pl>,
-	Gabriel C <nix.or.die@googlemail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jason.wessel@windriver.com, amitkale@linsyssoft.com
-To: Matt Mackall <mpm@selenic.com>
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: john@screen.lv
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpa.tele.dk ([80.160.77.114]:58924 "EHLO pasmtpA.tele.dk"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:47361 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751606AbXHBJfo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 Aug 2007 05:35:44 -0400
+	id S1753262AbXHBJ4b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 Aug 2007 05:56:31 -0400
 Content-Disposition: inline
-In-Reply-To: <20070802020219.GM11166@waste.org>
+In-Reply-To: <56697.212.93.96.73.1186035546.squirrel@mail.screen.lv>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > 
-> > ...
-> > endif # NETDEVICES
-> > 
-> > config NETPOLL
-> >         depends on NETDEVICES
-> >         def_bool NETCONSOLE
-> > 
-> > config NETPOLL_TRAP
-> >         bool "Netpoll traffic trapping"
-> >         default n
-> >         depends on NETPOLL
-> > 
-> > config NET_POLL_CONTROLLER
-> >         def_bool NETPOLL
-> >         depends on NETPOLL
-> > 
-> > 
-> > seems to select NET_POLL_CONTROLLER after selecting NETPOLL, but
-> > still doesn't check for NETDEVICES dependency.
+On Thu, Aug 02, 2007 at 09:19:06AM +0300, john@screen.lv (john@screen.lv) wrote:
+> 1186035057.207629    127.0.0.1 -> 127.0.0.1    TCP 50000 > smtp [SYN]
+> Seq=0 Len=0
+> 1186035057.207632    127.0.0.1 -> 127.0.0.1    TCP smtp > 50000 [SYN, ACK]
+> Seq=0 Ack=1 Win=32792 Len=0 MSS=16396
+> 1186035057.207666    127.0.0.1 -> 127.0.0.1    TCP 50000 > smtp [ACK]
+> Seq=1 Ack=1 Win=1500 Len=0
+> 1186035057.207699    127.0.0.1 -> 127.0.0.1    SMTP Command: EHLO localhost
+> 1186035057.207718    127.0.0.1 -> 127.0.0.1    TCP smtp > 50000 [ACK]
+> Seq=1 Ack=17 Win=32792 Len=0
+> 1186035057.207736    127.0.0.1 -> 127.0.0.1    TCP 50000 > smtp [RST]
+> Seq=17 Len=0
+> 1186035057.223934    127.0.0.1 -> 127.0.0.1    TCP 33787 > 50000 [RST,
+> ACK] Seq=0 Ack=0 Win=32792 Len=0
 > 
-> That's odd. Adding Sam to the cc:.
+> Can someone please comment as to why, tcp  stack sends rst packet from the
+> wrong source port in this situation.
 
-select is evil....
-select will by brute force set a symbol equal to 'y' without
-visiting the dependencies.
-So abusing select you are able to select a symbol FOO even 
-if FOO depends on BAR that is not set.
+Besides the fact, that test applications do not run if started not as
+root, I got this:
 
-In general use select only for non-visible symbols (no promts anywhere)
-and for symbols with no dependencies.
-That will limit the suefullness but on the other hand avoid the illegal
-configurations all over.
+13:51:12.180241 IP localhost.localdomain.50000 > localhost.localdomain.10250: S 906222067:906222067(0) win 1500
+13:51:12.180279 IP localhost.localdomain.10250 > localhost.localdomain.50000: S 2011233747:2011233747(0) ack 906222068
+win 32792 <mss 16396>
+13:51:12.180293 IP localhost.localdomain.50000 > localhost.localdomain.10250: R 906222068:906222068(0) win 0
+13:51:12.180320 IP localhost.localdomain.50000 > localhost.localdomain.10250: . ack 1 win 1500
+13:51:12.180329 IP localhost.localdomain.10250 > localhost.localdomain.50000: R 2011233748:2011233748(0) win 0
+13:51:12.180341 IP localhost.localdomain.50000 > localhost.localdomain.10250: P 1:17(16) ack 1 win 1500
+13:51:12.180349 IP localhost.localdomain.10250 > localhost.localdomain.50000: R 2011233748:2011233748(0) win 0
+13:51:12.180361 IP localhost.localdomain.50000 > localhost.localdomain.10250: R 906222084:906222084(0) win 1500
 
-kconfig should one day warn about such things but I have not fel inclined
-to dive into the matters hoping that Roman does one day.
+I.e. there is no bug in this session.
+FC7 2.6.22.1-27.fc7 kernel.
 
-	Sam
+Here is vanilla (with my patches, unrelated to the problem though)
+2.6.22-rc5:
+
+09:33:37.650279 IP localhost.50000 > localhost.10250: S 1326688203:1326688203(0) win 1500
+09:33:37.664391 IP localhost.10250 > localhost.50000: S 3637551175:3637551175(0) ack 1326688204 win 32792 <mss 16396>
+09:33:37.664417 IP localhost.50000 > localhost.10250: R 1326688204:1326688204(0) win 0
+09:33:37.650451 IP localhost.50000 > localhost.10250: . ack 1 win 1500
+09:33:37.650467 IP localhost.10250 > localhost.50000: R 3637551176:3637551176(0) win 0
+09:33:37.650481 IP localhost.50000 > localhost.10250: P 1:17(16) ack 1 win 1500
+09:33:37.650493 IP localhost.10250 > localhost.50000: R 3637551176:3637551176(0) win 0
+09:33:37.650507 IP localhost.50000 > localhost.10250: R 1326688220:1326688220(0) win 1500
+
+
+Is it possible that your tcpdump is screwed?
+
+-- 
+	Evgeniy Polyakov
