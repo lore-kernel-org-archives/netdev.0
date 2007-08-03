@@ -1,71 +1,81 @@
-From: Tejun Heo <htejun@gmail.com>
-Subject: Re: [patch 0/5][RFC] Update network drivers to use devres
-Date: Fri, 3 Aug 2007 19:26:45 +0900
-Message-ID: <20070803102645.GO13674@htj.dyndns.org>
-References: <20070802224206.GB5181@ifup.org> <20070803095857.5fb3f368@oldman.hamilton.local>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Distributed storage.
+Date: Fri, 3 Aug 2007 14:26:29 +0400
+Message-ID: <20070803102629.GB10089@2ka.mipt.ru>
+References: <20070731171347.GA14267@2ka.mipt.ru> <200708021408.24876.phillips@phunq.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brandon Philips <brandon@ifup.org>, netdev@vger.kernel.org,
-	teheo@suse.de
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.190]:39088 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758793AbXHCK0u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2007 06:26:50 -0400
-Received: by rv-out-0910.google.com with SMTP id k20so642928rvb
-        for <netdev@vger.kernel.org>; Fri, 03 Aug 2007 03:26:49 -0700 (PDT)
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>
+To: Daniel Phillips <phillips@phunq.net>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20070803095857.5fb3f368@oldman.hamilton.local>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <200708021408.24876.phillips@phunq.net>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 03, 2007 at 09:58:57AM +0100, Stephen Hemminger wrote:
-> On Thu, 2 Aug 2007 15:42:06 -0700
-> Brandon Philips <brandon@ifup.org> wrote:
+On Thu, Aug 02, 2007 at 02:08:24PM -0700, Daniel Phillips (phillips@phunq.net) wrote:
+> On Tuesday 31 July 2007 10:13, Evgeniy Polyakov wrote:
+> > Hi.
+> >
+> > I'm pleased to announce first release of the distributed storage
+> > subsystem, which allows to form a storage on top of remote and local
+> > nodes, which in turn can be exported to another storage as a node to
+> > form tree-like storages.
 > 
-> > This patch set adds support for devres in the net core and converts the
-> > e100 and e1000 drivers to devres.  Devres is a simple resource manager
-> > for device drivers, see Documentation/driver-model/devres.txt for more
-> > information.
-> > 
-> > The use of devres will remain optional for drivers with this patch set.
-> > Drivers can be converted when it makes sense.
+> Excellent!  This is precisely what the doctor ordered for the 
+> OCFS2-based distributed storage system I have been mumbling about for 
+> some time.  In fact the dd in ddsnap and ddraid stands for "distributed 
+> data".  The ddsnap/raid devices do not include an actual network 
+> transport, that is expected to be provided by a specialized block 
+> device, which up till now has been NBD.  But NBD has various 
+> deficiencies as you note, in addition to its tendency to deadlock when 
+> accessed locally.  Your new code base may be just the thing we always 
+> wanted.  We (zumastor et al) will take it for a drive and see if 
+> anything breaks.
+
+That would be great.
+
+> Memory deadlock is a concern of course.  From a cursory glance through, 
+> it looks like this code is pretty vm-friendly and you have thought 
+> quite a lot about it, however I respectfully invite peterz 
+> (obsessive/compulsive memory deadlock hunter) to help give it a good 
+> going over with me.
 > 
-> Just because devres exists is not sufficient motivation to change.
+> I see bits that worry me, e.g.:
 > 
-> It seems that devres was a band-aid rather than fixing storage drivers
-> to have proper DMA lifetimes.
+> +		req = mempool_alloc(st->w->req_pool, GFP_NOIO);
+> 
+> which seems to be callable in response to a local request, just the case 
+> where NBD deadlocks.  Your mempool strategy can work reliably only if 
+> you can prove that the pool allocations of the maximum number of 
+> requests you can have in flight do not exceed the size of the pool.  In 
+> other words, if you ever take the pool's fallback path to normal 
+> allocation, you risk deadlock.
 
-I don't really get what you mean by "having proper DMA lifetimes" but
-please don't write devres off too fast.  devres doesn't solve any
-problem that you can't fix without it but it does make the 'solving'
-much easier.
+mempool should be allocated to be able to catch up with maximum
+in-flight requests, in my tests I was unable to force block layer to put
+more than 31 pages in sync, but in one bio. Each request is essentially
+dealyed bio processing, so this must handle maximum number of in-flight
+bios (if they do not cover multiple nodes, if they do, then each node
+requires own request). Sync has one bio in-flight on my machines (from
+tiny VIA nodes to low-end amd64), number of normal requests *usually*
+does not increase several dozens (less than hundred always), but that
+might be only my small systems, so request size was selected as small as
+possible and number of allocations decreased to absolutely healthcare 
+minimum.
 
-IMHO, libata drivers generally have been well maintained and reviewed
-but I could still find quite a few bugs (resource leaks or
-occasionally double free) in init failure and removal paths.  Init
-failure paths are especially prone to bugs because they don't get
-excercised often.  It's just very easy to make a mistake and fail to
-notice and low level drivers don't always get sufficient amount of
-review or testing.
-
-Skimming through drivers... via-rhine doesn't disable PCI device on
-init failure path but does so on removal.  sky2 doesn't free
-consistent memory if sky2_init() fails.  acenic calls iounmap() with
-NULL parameter which I'm not sure whether it's safe or not.  natsemi
-doesn't disable PCI device on failure or removal.
-
-Devres makes low level drivers simpler, easier to get right and
-maintain.  Writing new drivers becomes easier too.  So, why not?
-
-> Network devices seem to work fine thanks, and the resource requirements
-> are different. If ain't broke, don't fix it.
-
-Care to enlighten me on how the resource requirments are different
-from ATA drivers?
+> Anyway, if this is as grand as it seems then I would think we ought to 
+> factor out a common transfer core that can be used by all of NBD, 
+> iSCSI, ATAoE and your own kernel server, in place of the roll-yer-own 
+> code those things have now.
+> 
+> Regards,
+> 
+> Daniel
 
 Thanks.
 
 -- 
-tejun
+	Evgeniy Polyakov
