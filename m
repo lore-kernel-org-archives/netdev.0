@@ -1,75 +1,132 @@
-From: Tejun Heo <htejun@gmail.com>
-Subject: Re: [patch 0/5][RFC] Update network drivers to use devres
-Date: Fri, 03 Aug 2007 20:33:04 +0900
-Message-ID: <46B31270.7090503@gmail.com>
-References: <20070802224206.GB5181@ifup.org>	<20070803095857.5fb3f368@oldman.hamilton.local>	<20070803102645.GO13674@htj.dyndns.org> <20070803120745.2d89c221@oldman.hamilton.local>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: [patch]support for USB autosuspend in the asix driver
+Date: Fri, 3 Aug 2007 13:52:19 +0200
+Message-ID: <200708031352.19419.oneukum@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Brandon Philips <brandon@ifup.org>, netdev@vger.kernel.org,
-	teheo@suse.de
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+To: jgarzik@pobox.com, netdev@vger.kernel.org,
+	David Brownell <david-b@pacbell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.191]:5071 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758872AbXHCLdL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2007 07:33:11 -0400
-Received: by rv-out-0910.google.com with SMTP id k20so655243rvb
-        for <netdev@vger.kernel.org>; Fri, 03 Aug 2007 04:33:11 -0700 (PDT)
-In-Reply-To: <20070803120745.2d89c221@oldman.hamilton.local>
+Received: from cantor2.suse.de ([195.135.220.15]:32992 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760155AbXHCLuG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Aug 2007 07:50:06 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Hi,
 
-Stephen Hemminger wrote:
->> Skimming through drivers... via-rhine doesn't disable PCI device on
->> init failure path but does so on removal.  sky2 doesn't free
->> consistent memory if sky2_init() fails.  acenic calls iounmap() with
->> NULL parameter which I'm not sure whether it's safe or not.  natsemi
->> doesn't disable PCI device on failure or removal.
-> 
-> Did you report these to the developers?
+this implements support for USB autosuspend in the asix USB ethernet
+driver.
 
-Just skimmed through.  I'm pretty sure Brandon will pick those up later.
+	Regards
+		Oliver
+Signed-off-by: Oliver Neukum <oneukum@suse.de>
+---
 
->> Devres makes low level drivers simpler, easier to get right and
->> maintain.  Writing new drivers becomes easier too.  So, why not?
->>
->>> Network devices seem to work fine thanks, and the resource requirements
->>> are different. If ain't broke, don't fix it.
->> Care to enlighten me on how the resource requirments are different
->> from ATA drivers?
-> 
-> I was thinking of the hot remove (no mod ref counts) and lingering
-> /sys open issues.  ATA drivers use ref counts.
-
-I guess the hot removing is done by severing netdev from the actual
-device, right?  I don't see how that affects usage of devres on network
-drivers.  Am I missing something?
-
-On a separate note, can you explain lingering /sys open issue to me a
-bit?  With recent sysfs changes, sysfs nodes are disconnected
-immediately on deletion.  Would that make any difference to netdevs?
-
-> My take on devres is that it is similar to talloc() for device drivers.
-> Not a bad idea in itself, but the real advantage of hierarchical allocation
-> is that it makes exception handling easier if things are layered deeply.
-
-Yeah, devres made layering easier in libata, especially SFF stuff.
-Dunno how much of that is applicable to netdev but, with or without
-layering, it'll be a nice cleanup and I don't see much negative side.
-Conversion would take some work and bugs might be introduced in the
-process as with any changes but the good thing about devres is that
-you're very likely to get failure/release paths right if you get the
-init path right, and if you get the init path wrong, it will stand out
-like a sore thumb - easy to spot, easy to fix.
-
-So, I think using devres on net drivers is a good idea, well, for that
-matter, for any driver, but me being the devres writer, that isn't
-really surprising, is it?
-
-Thanks.
-
--- 
-tejun
+--- a/drivers/net/usb/asix.c	2007-08-03 13:16:31.000000000 +0200
++++ b/drivers/net/usb/asix.c	2007-08-03 13:17:05.000000000 +0200
+@@ -1474,6 +1474,7 @@ static struct usb_driver asix_driver = {
+ 	.suspend =	usbnet_suspend,
+ 	.resume =	usbnet_resume,
+ 	.disconnect =	usbnet_disconnect,
++	.supports_autosuspend = 1,
+ };
+ 
+ static int __init asix_init(void)
+--- a/drivers/net/usb/usbnet.c	2007-08-03 13:16:53.000000000 +0200
++++ b/drivers/net/usb/usbnet.c	2007-08-03 13:19:31.000000000 +0200
+@@ -588,6 +588,7 @@ static int usbnet_stop (struct net_devic
+ 	dev->flags = 0;
+ 	del_timer_sync (&dev->delay);
+ 	tasklet_kill (&dev->bh);
++	usb_autopm_put_interface(dev->intf);
+ 
+ 	return 0;
+ }
+@@ -601,9 +602,19 @@ static int usbnet_stop (struct net_devic
+ static int usbnet_open (struct net_device *net)
+ {
+ 	struct usbnet		*dev = netdev_priv(net);
+-	int			retval = 0;
++	int			retval;
+ 	struct driver_info	*info = dev->driver_info;
+ 
++	if ((retval = usb_autopm_get_interface(dev->intf)) < 0) {
++		if (netif_msg_ifup (dev))
++			devinfo (dev,
++				"resumption fail (%d) usbnet usb-%s-%s, %s",
++				retval,
++				dev->udev->bus->bus_name, dev->udev->devpath,
++			info->description);
++		goto done_nopm;
++	}
++
+ 	// put into "known safe" state
+ 	if (info->reset && (retval = info->reset (dev)) < 0) {
+ 		if (netif_msg_ifup (dev))
+@@ -657,7 +668,10 @@ static int usbnet_open (struct net_devic
+ 
+ 	// delay posting reads until we're fully open
+ 	tasklet_schedule (&dev->bh);
++	return retval;
+ done:
++	usb_autopm_put_interface(dev->intf);
++done_nopm:
+ 	return retval;
+ }
+ 
+@@ -1141,6 +1155,7 @@ usbnet_probe (struct usb_interface *udev
+ 
+ 	dev = netdev_priv(net);
+ 	dev->udev = xdev;
++	dev->intf = udev;
+ 	dev->driver_info = info;
+ 	dev->driver_name = name;
+ 	dev->msg_enable = netif_msg_init (msg_level, NETIF_MSG_DRV
+@@ -1265,12 +1280,18 @@ int usbnet_suspend (struct usb_interface
+ 	struct usbnet		*dev = usb_get_intfdata(intf);
+ 
+ 	if (!dev->suspend_count++) {
+-		/* accelerate emptying of the rx and queues, to avoid
++		/*
++		 * accelerate emptying of the rx and queues, to avoid
+ 		 * having everything error out.
+ 		 */
+ 		netif_device_detach (dev->net);
+ 		(void) unlink_urbs (dev, &dev->rxq);
+ 		(void) unlink_urbs (dev, &dev->txq);
++		/*
++		 * reattach so runtime management can use and
++		 * wake the device
++		 */
++		netif_device_attach (dev->net);
+ 	}
+ 	return 0;
+ }
+@@ -1280,10 +1301,9 @@ int usbnet_resume (struct usb_interface 
+ {
+ 	struct usbnet		*dev = usb_get_intfdata(intf);
+ 
+-	if (!--dev->suspend_count) {
+-		netif_device_attach (dev->net);
++	if (!--dev->suspend_count)
+ 		tasklet_schedule (&dev->bh);
+-	}
++
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(usbnet_resume);
+--- a/drivers/net/usb/usbnet.h	2007-08-03 13:16:44.000000000 +0200
++++ b/drivers/net/usb/usbnet.h	2007-08-03 13:17:05.000000000 +0200
+@@ -28,6 +28,7 @@
+ struct usbnet {
+ 	/* housekeeping */
+ 	struct usb_device	*udev;
++	struct usb_interface	*intf;
+ 	struct driver_info	*driver_info;
+ 	const char		*driver_name;
+ 	wait_queue_head_t	*wait;
