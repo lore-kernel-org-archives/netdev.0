@@ -1,78 +1,62 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [patch 0/5][RFC] Update network drivers to use devres
-Date: Fri, 3 Aug 2007 12:07:45 +0100
-Message-ID: <20070803120745.2d89c221@oldman.hamilton.local>
-References: <20070802224206.GB5181@ifup.org>
-	<20070803095857.5fb3f368@oldman.hamilton.local>
-	<20070803102645.GO13674@htj.dyndns.org>
+From: "Simon Arlott" <simon@fire.lp0.eu>
+Subject: Re: strange tcp behavior
+Date: Fri, 3 Aug 2007 12:21:46 +0100
+Message-ID: <46956.simon.1186140106@5ec7c279.invalid>
+References: <56697.212.93.96.73.1186035546.squirrel@mail.screen.lv>
+    <20070802095550.GA27226@2ka.mipt.ru>
+    <20070802101655.GA14749@2ka.mipt.ru>
+    <36758.simon.1186054739@5ec7c279.invalid>
+    <46860.212.93.96.73.1186055105.squirrel@mail.screen.lv>
+    <48738.simon.1186056932@5ec7c279.invalid>
+    <46B21148.2090004@simon.arlott.org.uk>
+    <20070802180842.GA6864@2ka.mipt.ru>
+    <46B2293B.3020406@simon.arlott.org.uk>
+    <20070803082517.GB25582@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Brandon Philips <brandon@ifup.org>, netdev@vger.kernel.org,
-	teheo@suse.de
-To: Tejun Heo <htejun@gmail.com>
+Content-Transfer-Encoding: 7BIT
+Cc: john@screen.lv, netdev@vger.kernel.org,
+	"David Miller" <davem@davemloft.net>
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:42747 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759473AbXHCLHa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2007 07:07:30 -0400
-In-Reply-To: <20070803102645.GO13674@htj.dyndns.org>
+Received: from proxima.lp0.eu ([85.158.45.36]:44280 "EHLO proxima.lp0.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759582AbXHCLV5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Aug 2007 07:21:57 -0400
+In-Reply-To: <20070803082517.GB25582@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 3 Aug 2007 19:26:45 +0900
-Tejun Heo <htejun@gmail.com> wrote:
 
-> On Fri, Aug 03, 2007 at 09:58:57AM +0100, Stephen Hemminger wrote:
-> > On Thu, 2 Aug 2007 15:42:06 -0700
-> > Brandon Philips <brandon@ifup.org> wrote:
-> > 
-> > > This patch set adds support for devres in the net core and converts the
-> > > e100 and e1000 drivers to devres.  Devres is a simple resource manager
-> > > for device drivers, see Documentation/driver-model/devres.txt for more
-> > > information.
-> > > 
-> > > The use of devres will remain optional for drivers with this patch set.
-> > > Drivers can be converted when it makes sense.
-> > 
-> > Just because devres exists is not sufficient motivation to change.
-> > 
-> > It seems that devres was a band-aid rather than fixing storage drivers
-> > to have proper DMA lifetimes.
-> 
-> I don't really get what you mean by "having proper DMA lifetimes" but
-> please don't write devres off too fast.  devres doesn't solve any
-> problem that you can't fix without it but it does make the 'solving'
-> much easier.
-> 
-> IMHO, libata drivers generally have been well maintained and reviewed
-> but I could still find quite a few bugs (resource leaks or
-> occasionally double free) in init failure and removal paths.  Init
-> failure paths are especially prone to bugs because they don't get
-> excercised often.  It's just very easy to make a mistake and fail to
-> notice and low level drivers don't always get sufficient amount of
-> review or testing.
-> 
-> Skimming through drivers... via-rhine doesn't disable PCI device on
-> init failure path but does so on removal.  sky2 doesn't free
-> consistent memory if sky2_init() fails.  acenic calls iounmap() with
-> NULL parameter which I'm not sure whether it's safe or not.  natsemi
-> doesn't disable PCI device on failure or removal.
+On Fri, August 3, 2007 09:25, Evgeniy Polyakov wrote:
+> On Thu, Aug 02, 2007 at 07:58:03PM +0100, Simon Arlott (simon@fire.lp0.eu) wrote:
+>> 19:24:32.897071 IP 192.168.7.4.50000 > 192.168.7.8.2500: S 705362199:705362199(0) win 1500
+>> 19:24:32.897211 IP 192.168.7.8.2500 > 192.168.7.4.50000: S 4159455228:4159455228(0) ack 705362200 win
+>> 14360 <mss 7180>
+>> 19:24:32.920784 IP 192.168.7.4.50000 > 192.168.7.8.2500: . ack 1 win 1500
+>> 19:24:32.921732 IP 192.168.7.4.50000 > 192.168.7.8.2500: P 1:17(16) ack 1 win 1500
+>> 19:24:32.921795 IP 192.168.7.8.2500 > 192.168.7.4.50000: . ack 17 win 14360
+>> 19:24:32.922881 IP 192.168.7.4.50000 > 192.168.7.8.2500: R 705362216:705362216(0) win 1500
+>> 19:24:34.927717 IP 192.168.7.8.2500 > 192.168.7.4.50000: R 1:1(0) ack 17 win 14360
+>>
+>> According to RFC 793, the RST from .4 means that the connection
+>> is CLOSED.
+>
+> RFC 2525 - common tcp problems, says we should send RST in this case,
+> although it does not specify should we send it if socket is in CLOSED
+> state or not. Well, we send :)
+> Even if tcp_send_active_reset() will check if socket is in CLOSED state
+> and will not send data, but is still there, it will not be easily
+> triggered though, but it can be possible.
 
-Did you report these to the developers?
+Since the connection is considered closed, couldn't another socket re-use it?
 
-> Devres makes low level drivers simpler, easier to get right and
-> maintain.  Writing new drivers becomes easier too.  So, why not?
-> 
-> > Network devices seem to work fine thanks, and the resource requirements
-> > are different. If ain't broke, don't fix it.
-> 
-> Care to enlighten me on how the resource requirments are different
-> from ATA drivers?
+Socket A: Recv data (unread)
+Socket A: Recv RST
+Socket B: Reuses connection (same IPs/ports)
+Socket A: Close
 
-I was thinking of the hot remove (no mod ref counts) and lingering
-/sys open issues.  ATA drivers use ref counts.
+Wouldn't that disrupt socket B's use of the connection?
 
-My take on devres is that it is similar to talloc() for device drivers.
-Not a bad idea in itself, but the real advantage of hierarchical allocation
-is that it makes exception handling easier if things are layered deeply.
+-- 
+Simon Arlott
