@@ -1,80 +1,32 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [BNX2]: Fix suspend/resume problem.
-Date: Fri, 03 Aug 2007 15:32:34 -0700
-Message-ID: <1186180354.18322.79.camel@dell>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: netdevice queueing / sendmsg issue?
+Date: Sat, 04 Aug 2007 00:18:25 +0200
+Message-ID: <m3ps24l0su.fsf@maximus.localdomain>
+References: <m3lkd0upx8.fsf@maximus.localdomain>
+	<20070728.224959.74562336.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4734 "EHLO MMS3.broadcom.com"
+Received: from khc.piap.pl ([195.187.100.11]:54108 "EHLO khc.piap.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763019AbXHCVi3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Aug 2007 17:38:29 -0400
+	id S1763345AbXHCWS2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Aug 2007 18:18:28 -0400
+In-Reply-To: <20070728.224959.74562336.davem@davemloft.net> (David Miller's message of "Sat, 28 Jul 2007 22:49:59 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[BNX2]: Fix suspend/resume problem.
+David Miller <davem@davemloft.net> writes:
 
-The device would not resume properly if it was shutdown before the system
-was suspended.  In such scenario where the netif_running state is 0,
-bnx2_suspend() would not save the PCI state and so the memory enable bit
-and bus master enable bit would be lost.
+> Software interrupts might be getting lost, dev_kfree_skb_irq() has to
+> queue the kfree_skb() to soft IRQ.
+>
+> Therefore, dev_kfree_skb_irq() will only work properly from hardware
+> interrupt context, where we will return and thus run the scheduled
+> software interrupt.
 
-We fix this by always saving and restoring the PCI state in
-bnx2_suspend() and bnx2_resume() regardless of netif_running() state.
-
-Update version to 1.6.4.
-
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index d53dfc5..24e7f9a 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -54,8 +54,8 @@
- 
- #define DRV_MODULE_NAME		"bnx2"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"1.6.3"
--#define DRV_MODULE_RELDATE	"July 16, 2007"
-+#define DRV_MODULE_VERSION	"1.6.4"
-+#define DRV_MODULE_RELDATE	"August 3, 2007"
- 
- #define RUN_AT(x) (jiffies + (x))
- 
-@@ -6937,6 +6937,11 @@ bnx2_suspend(struct pci_dev *pdev, pm_message_t state)
- 	struct bnx2 *bp = netdev_priv(dev);
- 	u32 reset_code;
- 
-+	/* PCI register 4 needs to be saved whether netif_running() or not.
-+	 * MSI address and data need to be saved if using MSI and
-+	 * netif_running().
-+	 */
-+	pci_save_state(pdev);
- 	if (!netif_running(dev))
- 		return 0;
- 
-@@ -6952,7 +6957,6 @@ bnx2_suspend(struct pci_dev *pdev, pm_message_t state)
- 		reset_code = BNX2_DRV_MSG_CODE_SUSPEND_NO_WOL;
- 	bnx2_reset_chip(bp, reset_code);
- 	bnx2_free_skbs(bp);
--	pci_save_state(pdev);
- 	bnx2_set_power_state(bp, pci_choose_state(pdev, state));
- 	return 0;
- }
-@@ -6963,10 +6967,10 @@ bnx2_resume(struct pci_dev *pdev)
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct bnx2 *bp = netdev_priv(dev);
- 
-+	pci_restore_state(pdev);
- 	if (!netif_running(dev))
- 		return 0;
- 
--	pci_restore_state(pdev);
- 	bnx2_set_power_state(bp, PCI_D0);
- 	netif_device_attach(dev);
- 	bnx2_init_nic(bp);
-
-
+Problem solved, stupid user mistake.
+I was using netif_start_queue() instead of netif_wake_queue().
+-- 
+Krzysztof Halasa
