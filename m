@@ -1,81 +1,90 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: Distributed storage.
-Date: Fri, 3 Aug 2007 14:26:29 +0400
-Message-ID: <20070803102629.GB10089@2ka.mipt.ru>
-References: <20070731171347.GA14267@2ka.mipt.ru> <200708021408.24876.phillips@phunq.net>
+Date: Fri, 3 Aug 2007 14:42:50 +0400
+Message-ID: <20070803104249.GC10089@2ka.mipt.ru>
+References: <20070731171347.GA14267@2ka.mipt.ru> <170fa0d20708022109s60ebb85aqe68ec1033634ef27@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=koi8-r
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: Daniel Phillips <phillips@phunq.net>
+	linux-fsdevel@vger.kernel.org, Daniel Phillips <phillips@phunq.net>
+To: Mike Snitzer <snitzer@gmail.com>
 Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <200708021408.24876.phillips@phunq.net>
+In-Reply-To: <170fa0d20708022109s60ebb85aqe68ec1033634ef27@mail.gmail.com>
 Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 02, 2007 at 02:08:24PM -0700, Daniel Phillips (phillips@phunq.net) wrote:
-> On Tuesday 31 July 2007 10:13, Evgeniy Polyakov wrote:
-> > Hi.
-> >
-> > I'm pleased to announce first release of the distributed storage
-> > subsystem, which allows to form a storage on top of remote and local
-> > nodes, which in turn can be exported to another storage as a node to
-> > form tree-like storages.
-> 
-> Excellent!  This is precisely what the doctor ordered for the 
-> OCFS2-based distributed storage system I have been mumbling about for 
-> some time.  In fact the dd in ddsnap and ddraid stands for "distributed 
-> data".  The ddsnap/raid devices do not include an actual network 
-> transport, that is expected to be provided by a specialized block 
-> device, which up till now has been NBD.  But NBD has various 
-> deficiencies as you note, in addition to its tendency to deadlock when 
-> accessed locally.  Your new code base may be just the thing we always 
-> wanted.  We (zumastor et al) will take it for a drive and see if 
-> anything breaks.
+Hi Mike.
 
-That would be great.
+On Fri, Aug 03, 2007 at 12:09:02AM -0400, Mike Snitzer (snitzer@gmail.com) wrote:
+> >     * storage can be formed on top of remote nodes and be exported
+> >         simultaneously (iSCSI is peer-to-peer only, NBD requires device
+> >         mapper and is synchronous)
+> 
+> Having the in-kernel export is a great improvement over NBD's
+> userspace nbd-server (extra copy, etc).
+> 
+> But NBD's synchronous nature is actually an asset when coupled with MD
+> raid1 as it provides guarantees that the data has _really_ been
+> mirrored remotely.
 
-> Memory deadlock is a concern of course.  From a cursory glance through, 
-> it looks like this code is pretty vm-friendly and you have thought 
-> quite a lot about it, however I respectfully invite peterz 
-> (obsessive/compulsive memory deadlock hunter) to help give it a good 
-> going over with me.
-> 
-> I see bits that worry me, e.g.:
-> 
-> +		req = mempool_alloc(st->w->req_pool, GFP_NOIO);
-> 
-> which seems to be callable in response to a local request, just the case 
-> where NBD deadlocks.  Your mempool strategy can work reliably only if 
-> you can prove that the pool allocations of the maximum number of 
-> requests you can have in flight do not exceed the size of the pool.  In 
-> other words, if you ever take the pool's fallback path to normal 
-> allocation, you risk deadlock.
+I believe, that the right answer to this is barrier, but not synchronous
+sending/receiving, which might slow things down noticebly. Barrier must
+wait until remote side received data and send back a notice. Until
+acknowledge is received, no one can say if data mirrored or ever
+received by remote node or not.
 
-mempool should be allocated to be able to catch up with maximum
-in-flight requests, in my tests I was unable to force block layer to put
-more than 31 pages in sync, but in one bio. Each request is essentially
-dealyed bio processing, so this must handle maximum number of in-flight
-bios (if they do not cover multiple nodes, if they do, then each node
-requires own request). Sync has one bio in-flight on my machines (from
-tiny VIA nodes to low-end amd64), number of normal requests *usually*
-does not increase several dozens (less than hundred always), but that
-might be only my small systems, so request size was selected as small as
-possible and number of allocations decreased to absolutely healthcare 
-minimum.
-
-> Anyway, if this is as grand as it seems then I would think we ought to 
-> factor out a common transfer core that can be used by all of NBD, 
-> iSCSI, ATAoE and your own kernel server, in place of the roll-yer-own 
-> code those things have now.
+> > TODO list currently includes following main items:
+> >     * redundancy algorithm (drop me a request of your own, but it is highly
+> >         unlikley that Reed-Solomon based will ever be used - it is too slow
+> >         for distributed RAID, I consider WEAVER codes)
 > 
-> Regards,
-> 
-> Daniel
+> I'd like to better understand where you see DST heading in the area of
+> redundancy.    Based on your blog entries:
+> http://tservice.net.ru/~s0mbre/blog/devel/dst/2007_07_24_1.html
+> http://tservice.net.ru/~s0mbre/blog/devel/dst/2007_07_31_2.html
+> (and your todo above) implementing a mirroring algorithm appears to be
+> a near-term goal for you.  Can you comment on how your intended
+> implementation would compare, in terms of correctness and efficiency,
+> to say MD (raid1) + NBD?  MD raid1 has a write intent bitmap that is
+> useful to speed resyncs; what if any mechanisms do you see DST
+> embracing to provide similar and/or better reconstruction
+> infrastructure?  Do you intend to embrace any exisiting MD or DM
+> infrastructure?
 
-Thanks.
+Depending on what algorithm will be preferred - I do not want mirroring,
+it is _too_ wasteful in terms of used storage, but it is the simplest.
+Right now I still consider WEAVER codes as the fastest in distributed
+envornment from what I checked before, but it is quite complex and spec
+is (at least for me) not clear in all aspects right now. I did not even
+start userspace implementation of that codes. (Hint: spec sucks, kidding :)
+
+For simple mirroring each node must be split to chunks, each one has
+representation bin in main node mask, when dirty full chunk is resynced.
+Depending on node size and amount of memory chunk size varies. Setup is
+performed during node initialization. Having checksum for each chunk
+is a good step.
+
+All interfaces are already there, although require cleanup and move from
+place to place, but I decided to make initial release small.
+
+> BTW, you have definitely published some very compelling work and its
+> sad that you're predisposed to think DST won't be recieved well if you
+> pushed for inclusion (for others, as much was said in the 7.31.2007
+> blog post I referenced above).  Clearly others need to embrace DST to
+> help inclusion become a reality.  To that end, its great to see that
+> Daniel Phillips and the other zumastor folks will be putting DST
+> through its paces.
+
+In that blog entry I misspelled Zen with Xen - that's an error,
+according to prognosis - time will judge :)
+
+> regards,
+> Mike
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 -- 
 	Evgeniy Polyakov
