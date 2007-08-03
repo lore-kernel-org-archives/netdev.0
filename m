@@ -1,45 +1,68 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [patch] genirq: fix simple and fasteoi irq handlers
-Date: Fri, 3 Aug 2007 10:46:49 +0200
-Message-ID: <20070803084649.GA21029@elte.hu>
-References: <1185437431.3227.21.camel@chaos> <20070726083120.GA26910@elte.hu> <20070726085523.GA3423@ff.dom.local> <20070726091254.GA8063@elte.hu> <4bacf17f0707300029g5116e70bq4808059dc8b069f1@mail.gmail.com> <20070731155843.GA7033@elte.hu> <46B20E47.6020403@googlemail.com> <20070802201126.GA27000@elte.hu> <20070803060733.GA1582@ff.dom.local> <20070803080408.GA12222@elte.hu>
+From: Li Yang <leoli@freescale.com>
+Subject: [GIT PATCH] ucc_geth fixes for 2.6.22-rc1
+Date: Fri, 03 Aug 2007 17:07:55 +0800
+Message-ID: <1186132075.6230.11.camel@Gundam>
+Reply-To: leoli@freescale.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gabriel C <nix.or.die@googlemail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>, marcin.slusarz@gmail.com
-To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:35904 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755446AbXHCIrZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Aug 2007 04:47:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20070803080408.GA12222@elte.hu>
+Received: from de01egw01.freescale.net ([192.88.165.102]:37957 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755144AbXHCI5N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2007 04:57:13 -0400
+Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
+	by de01egw01.freescale.net (8.12.11/de01egw01) with ESMTP id l738v9h8013781
+	for <netdev@vger.kernel.org>; Fri, 3 Aug 2007 01:57:09 -0700 (MST)
+Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
+	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id l738v7ec012021
+	for <netdev@vger.kernel.org>; Fri, 3 Aug 2007 03:57:08 -0500 (CDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Please pull from 'ucc_geth' branch of
+master.kernel.org:/pub/scm/linux/kernel/git/leo/fsl-soc.git ucc_geth
 
-* Ingo Molnar <mingo@elte.hu> wrote:
+to receive the following fixes:
 
-> * Jarek Poplawski <jarkao2@o2.pl> wrote:
-> 
-> > I can't guarantee this is all needed to fix this bug, but I think 
-> > this patch is necessary here.
-> 
-> hmmm ... very interesting! Now _this_ is something we'd like to see 
-> tested. Could you send a patch to Marcin that also undoes the 
-> workaround we have in place now, so that he could check whether 
-> ne2k-pci works fine with your fix alone?
+ drivers/net/ucc_geth_ethtool.c |    1 -
+ drivers/net/ucc_geth_mii.c     |    3 ++-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-or it would be nice if Marcin could test pure 2.6.22 plus your fix 
-(without any other patches applied).
+Domen Puncer (1):
+      ucc_geth: fix section mismatch
 
-	Ingo
+Jan Altenberg (1):
+      ucc_geth: remove get_perm_addr from ucc_geth_ethtool.c
+
+
+diff --git a/drivers/net/ucc_geth_ethtool.c
+b/drivers/net/ucc_geth_ethtool.c
+index a8994c7..64bef7c 100644
+--- a/drivers/net/ucc_geth_ethtool.c
++++ b/drivers/net/ucc_geth_ethtool.c
+@@ -379,7 +379,6 @@ static const struct ethtool_ops uec_ethtool_ops = {
+ 	.get_stats_count        = uec_get_stats_count,
+ 	.get_strings            = uec_get_strings,
+ 	.get_ethtool_stats      = uec_get_ethtool_stats,
+-	.get_perm_addr          = ethtool_op_get_perm_addr,
+ };
+ 
+ void uec_set_ethtool_ops(struct net_device *netdev)
+diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
+index 5f8c2d3..6c257b8 100644
+--- a/drivers/net/ucc_geth_mii.c
++++ b/drivers/net/ucc_geth_mii.c
+@@ -272,7 +272,8 @@ int __init uec_mdio_init(void)
+ 	return of_register_platform_driver(&uec_mdio_driver);
+ }
+ 
+-void __exit uec_mdio_exit(void)
++/* called from __init ucc_geth_init, therefore can not be __exit */
++void uec_mdio_exit(void)
+ {
+ 	of_unregister_platform_driver(&uec_mdio_driver);
+ }
+
