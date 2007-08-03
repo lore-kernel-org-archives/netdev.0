@@ -1,41 +1,30 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: Re: [PATCH] lro: myri10ge example how to use LRO
-Date: Fri, 03 Aug 2007 17:00:36 -0400
-Message-ID: <46B39774.4050909@myri.com>
-References: <46B363A8.4010407@myri.com> <46B39063.6070301@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: strange tcp behavior
+Date: Fri, 03 Aug 2007 14:17:17 -0700 (PDT)
+Message-ID: <20070803.141717.36925406.davem@davemloft.net>
+References: <20070802184840.GA8901@2ka.mipt.ru>
+	<20070802.192134.107254907.davem@davemloft.net>
+	<20070803082242.GA25582@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raisch@de.ibm.com, themann@de.ibm.com,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	meder@de.ibm.com, tklein@de.ibm.com, stefan.roscher@de.ibm.com,
-	jeff@garzik.org, davem@davemloft.net
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763933AbXHCVBW@vger.kernel.org>
-In-Reply-To: <46B39063.6070301@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: simon@fire.lp0.eu, john@screen.lv, netdev@vger.kernel.org
+To: johnpol@2ka.mipt.ru
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46451
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1761127AbXHCVR0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2007 17:17:26 -0400
+In-Reply-To: <20070803082242.GA25582@2ka.mipt.ru>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke wrote:
-> Andrew Gallatin wrote:
->> To follow up on Jan-Bernd Themann's LRO patch earlier today,
->> this patch shows how the generic LRO interface can be used for
->> page based drivers.
->>
->> Again, many thanks to Jan-Bernd Themann for leading this effort.
->>
->> Drew
->>
->> Singed off by: Andrew Gallatin <gallatin@myri.com>
->>
-> 
-> 
-> please take a look at my lro patch for ethtool and see if it works for 
-> you, instead of adding another generic module parameter that doesn't 
-> need to be there.
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Fri, 3 Aug 2007 12:22:42 +0400
 
-That looks very nice, and will indeed work for me.
+> Maybe recvmsg should be changed too for symmetry?
 
-Thanks,
+I took a look at this, and it's not %100 trivial.
 
-Drew
+Let's do this later, and only sendmsg for now in order to
+fix the bug in the stable branches.
