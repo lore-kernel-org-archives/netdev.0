@@ -1,66 +1,60 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: Distributed storage.
-Date: Fri, 03 Aug 2007 14:27:52 +0200
-Message-ID: <1186144072.11797.55.camel@lappy>
-References: <20070731171347.GA14267@2ka.mipt.ru>
-	 <200708021408.24876.phillips@phunq.net>
-	 <20070803102629.GB10089@2ka.mipt.ru>  <20070803105747.GE10089@2ka.mipt.ru>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: [PATCH 0/1] lro: Generic Large Receive Offload for TCP traffic
+Date: Fri, 3 Aug 2007 14:41:14 +0200
+Message-ID: <200708031441.14780.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Phillips <phillips@phunq.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20070803105747.GE10089@2ka.mipt.ru>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Cc: Christoph Raisch <raisch@de.ibm.com>,
+	"Jan-Bernd Themann" <themann@de.ibm.com>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"linux-ppc" <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>,
+	Andrew Gallatin <gallatin@myri.com>,
+	Jeff Garzik <jeff@garzik.org>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate1.de.ibm.com ([195.212.29.150]:31093 "EHLO
+	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757636AbXHCNKn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2007 09:10:43 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-08-03 at 14:57 +0400, Evgeniy Polyakov wrote:
+Hi,
 
-> For receiving situation is worse, since system does not know in advance
-> to which socket given packet will belong to, so it must allocate from
-> global pool (and thus there must be independent global reserve), and
-> then exchange part of the socket's reserve to the global one (or just
-> copy packet to the new one, allocated from socket's reseve is it was
-> setup, or drop it otherwise). Global independent reserve is what I
-> proposed when stopped to advertise network allocator, but it seems that
-> it was not taken into account, and reserve was always allocated only
-> when system has serious memory pressure in Peter's patches without any
-> meaning for per-socket reservation.
+I think this patch could be the final version for now. It has been tested
+on two platforms (power and x86_64) and works very well.
 
-This is not true. I have a global reserve which is set-up a priori. You
-cannot allocate a reserve when under pressure, that does not make sense.
+Apart from David Miller and Evgeniy Polaykov, we'd like to thank especially
+Andrew Gallatin for his great reviews and help to make that happen.
 
-Let me explain my approach once again.
+After some discussion we decided to post the LRO patch separately from the 
+driver patches. Our final driver patches for LRO will be posted later with
+some additional fixes for upstream inclusion to the netdev git.
+However, I'll also post our LRO patch for the driver today as an example
+of how to use this interface.
 
-At swapon(8) time we allocate a global reserve. And associate the needed
-sockets with it. The size of this global reserve is make up of two
-parts:
-  - TX
-  - RX
+Thanks a lot,
+Jan-Bernd 
 
-The RX pool is the most interresting part. It again is made up of two
-parts:
-  - skb
-  - auxilary data
+[PATCH 1/1] lro: Generic Large Receive Offload for TCP traffic
 
-The skb part is scaled such that it can overflow the IP fragment
-reassembly, the aux pool such that it can overflow the route cache (that
-was the largest other allocator in the RX path)
+Changes to http://www.spinics.net/lists/netdev/msg37084.html
 
-All (reserve) RX skb allocations are accounted, so as to never allocate
-more than we reserved.
+1) Fixed the LRO_MAX_PG_HLEN bug
 
-All packets are received (given the limit) and are processed up to
-socket demux. At that point all packets not targeted at an associated
-socket are dropped and the skb memory freed - ready for another packet.
+2) skb->ip_summed can now be defined by driver for aggregated packets
 
-All packets targeted for associated sockets get processed. This requires
-that this packet processing happens in-kernel. Since we are swapping
-user-space might be waiting for this data, and we'd deadlock.
+3) The problem that the "ramp up" for tcp connections between machines
+   with different MTU size (1500 vs 9000) is very slow has been fixed
+   by setting skb->gso_size.
 
+4) Checksum problem for little endian machines has been fixed
 
-I'm not quite sure why you need per socket reservations.
-
+5) missing additon of vlan_hdr_len for TCP header determination has been added.
