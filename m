@@ -1,61 +1,78 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Distributed storage.
-Date: Fri, 3 Aug 2007 14:57:47 +0400
-Message-ID: <20070803105747.GE10089@2ka.mipt.ru>
-References: <20070731171347.GA14267@2ka.mipt.ru> <200708021408.24876.phillips@phunq.net> <20070803102629.GB10089@2ka.mipt.ru>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [patch 0/5][RFC] Update network drivers to use devres
+Date: Fri, 3 Aug 2007 12:07:45 +0100
+Message-ID: <20070803120745.2d89c221@oldman.hamilton.local>
+References: <20070802224206.GB5181@ifup.org>
+	<20070803095857.5fb3f368@oldman.hamilton.local>
+	<20070803102645.GO13674@htj.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: Daniel Phillips <phillips@phunq.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Brandon Philips <brandon@ifup.org>, netdev@vger.kernel.org,
+	teheo@suse.de
+To: Tejun Heo <htejun@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:60884 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760283AbXHCK6I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Aug 2007 06:58:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20070803102629.GB10089@2ka.mipt.ru>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:42747 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759473AbXHCLHa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2007 07:07:30 -0400
+In-Reply-To: <20070803102645.GO13674@htj.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 03, 2007 at 02:26:29PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> > Memory deadlock is a concern of course.  From a cursory glance through, 
-> > it looks like this code is pretty vm-friendly and you have thought 
-> > quite a lot about it, however I respectfully invite peterz 
-> > (obsessive/compulsive memory deadlock hunter) to help give it a good 
-> > going over with me.
+On Fri, 3 Aug 2007 19:26:45 +0900
+Tejun Heo <htejun@gmail.com> wrote:
 
-Another major issue is network allocations.
+> On Fri, Aug 03, 2007 at 09:58:57AM +0100, Stephen Hemminger wrote:
+> > On Thu, 2 Aug 2007 15:42:06 -0700
+> > Brandon Philips <brandon@ifup.org> wrote:
+> > 
+> > > This patch set adds support for devres in the net core and converts the
+> > > e100 and e1000 drivers to devres.  Devres is a simple resource manager
+> > > for device drivers, see Documentation/driver-model/devres.txt for more
+> > > information.
+> > > 
+> > > The use of devres will remain optional for drivers with this patch set.
+> > > Drivers can be converted when it makes sense.
+> > 
+> > Just because devres exists is not sufficient motivation to change.
+> > 
+> > It seems that devres was a band-aid rather than fixing storage drivers
+> > to have proper DMA lifetimes.
+> 
+> I don't really get what you mean by "having proper DMA lifetimes" but
+> please don't write devres off too fast.  devres doesn't solve any
+> problem that you can't fix without it but it does make the 'solving'
+> much easier.
+> 
+> IMHO, libata drivers generally have been well maintained and reviewed
+> but I could still find quite a few bugs (resource leaks or
+> occasionally double free) in init failure and removal paths.  Init
+> failure paths are especially prone to bugs because they don't get
+> excercised often.  It's just very easy to make a mistake and fail to
+> notice and low level drivers don't always get sufficient amount of
+> review or testing.
+> 
+> Skimming through drivers... via-rhine doesn't disable PCI device on
+> init failure path but does so on removal.  sky2 doesn't free
+> consistent memory if sky2_init() fails.  acenic calls iounmap() with
+> NULL parameter which I'm not sure whether it's safe or not.  natsemi
+> doesn't disable PCI device on failure or removal.
 
-Your initial work and subsequent releases made by Peter were originally
-opposed on my side, but now I think the right way is to use both
-positive moments from your approach and specialized allocator -
-essentially what I proposed (in the blog only though) is to bind a
-independent reserve for any socket - such a reserve can be stolen from
-socket buffer itself (each socket has a limited socket buffer where
-packets are allocated from, it accounts both data and control (skb)
-lengths), so when main allocation via common path fails, it would be
-possible to get data from own reserve. This allows sending sockets to
-make a progress in case of deadlock.
+Did you report these to the developers?
 
-For receiving situation is worse, since system does not know in advance
-to which socket given packet will belong to, so it must allocate from
-global pool (and thus there must be independent global reserve), and
-then exchange part of the socket's reserve to the global one (or just
-copy packet to the new one, allocated from socket's reseve is it was
-setup, or drop it otherwise). Global independent reserve is what I
-proposed when stopped to advertise network allocator, but it seems that
-it was not taken into account, and reserve was always allocated only
-when system has serious memory pressure in Peter's patches without any
-meaning for per-socket reservation.
+> Devres makes low level drivers simpler, easier to get right and
+> maintain.  Writing new drivers becomes easier too.  So, why not?
+> 
+> > Network devices seem to work fine thanks, and the resource requirements
+> > are different. If ain't broke, don't fix it.
+> 
+> Care to enlighten me on how the resource requirments are different
+> from ATA drivers?
 
-It allows to separate sockets and effectively make them fair - system
-administrator or programmer can limit socket's buffer a bit and request
-a reserve for special communication channels, which will have guaranteed
-ability to have both sending and receiving progress, no matter how many
-of them were setup. And it does not require any changes behind network
-side.
+I was thinking of the hot remove (no mod ref counts) and lingering
+/sys open issues.  ATA drivers use ref counts.
 
--- 
-	Evgeniy Polyakov
+My take on devres is that it is similar to talloc() for device drivers.
+Not a bad idea in itself, but the real advantage of hierarchical allocation
+is that it makes exception handling easier if things are layered deeply.
