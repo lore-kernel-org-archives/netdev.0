@@ -1,72 +1,279 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: Distributed storage.
-Date: Fri, 03 Aug 2007 16:53:37 +0200
-Message-ID: <1186152817.12034.128.camel@twins>
-References: <20070731171347.GA14267@2ka.mipt.ru>
-	 <200708021408.24876.phillips@phunq.net>
-	 <20070803102629.GB10089@2ka.mipt.ru> <20070803105747.GE10089@2ka.mipt.ru>
-	 <1186144072.11797.55.camel@lappy>  <20070803134943.GA21221@2ka.mipt.ru>
+From: Simon Arlott <simon@fire.lp0.eu>
+Subject: Re: strange tcp behavior
+Date: Fri, 03 Aug 2007 17:51:42 +0100
+Message-ID: <46B35D1E.9050501@simon.arlott.org.uk>
+References: <36758.simon.1186054739@5ec7c279.invalid> <46860.212.93.96.73.1186055105.squirrel@mail.screen.lv> <48738.simon.1186056932@5ec7c279.invalid> <46B21148.2090004@simon.arlott.org.uk> <20070802180842.GA6864@2ka.mipt.ru> <46B2293B.3020406@simon.arlott.org.uk> <20070803082517.GB25582@2ka.mipt.ru> <46956.simon.1186140106@5ec7c279.invalid> <20070803115624.GD5727@2ka.mipt.ru> <60580.simon.1186142626@5ec7c279.invalid> <20070803120920.GA23166@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Phillips <phillips@phunq.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Content-Type: multipart/mixed;
+ boundary="------------070703090004010308040704"
+Cc: john@screen.lv, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:39290 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761564AbXHCOxk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2007 10:53:40 -0400
-In-Reply-To: <20070803134943.GA21221@2ka.mipt.ru>
+Received: from proxima.lp0.eu ([85.158.45.36]:49583 "EHLO proxima.lp0.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751690AbXHCQvr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Aug 2007 12:51:47 -0400
+In-Reply-To: <20070803120920.GA23166@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-08-03 at 17:49 +0400, Evgeniy Polyakov wrote:
-> On Fri, Aug 03, 2007 at 02:27:52PM +0200, Peter Zijlstra (peterz@infradead.org) wrote:
-> > On Fri, 2007-08-03 at 14:57 +0400, Evgeniy Polyakov wrote:
-> > 
-> > > For receiving situation is worse, since system does not know in advance
-> > > to which socket given packet will belong to, so it must allocate from
-> > > global pool (and thus there must be independent global reserve), and
-> > > then exchange part of the socket's reserve to the global one (or just
-> > > copy packet to the new one, allocated from socket's reseve is it was
-> > > setup, or drop it otherwise). Global independent reserve is what I
-> > > proposed when stopped to advertise network allocator, but it seems that
-> > > it was not taken into account, and reserve was always allocated only
-> > > when system has serious memory pressure in Peter's patches without any
-> > > meaning for per-socket reservation.
-> > 
-> > This is not true. I have a global reserve which is set-up a priori. You
-> > cannot allocate a reserve when under pressure, that does not make sense.
+This is a multi-part message in MIME format.
+--------------070703090004010308040704
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+On 03/08/07 13:09, Evgeniy Polyakov wrote:
+> On Fri, Aug 03, 2007 at 01:03:46PM +0100, Simon Arlott (simon@fire.lp0.eu) wrote:
+>> On Fri, August 3, 2007 12:56, Evgeniy Polyakov wrote:
+>> > On Fri, Aug 03, 2007 at 12:21:46PM +0100, Simon Arlott (simon@fire.lp0.eu) wrote:
+>> >> Since the connection is considered closed, couldn't another socket re-use it?
+>> >>
+>> >> Socket A: Recv data (unread)
+>> >> Socket A: Recv RST
+>> >> Socket B: Reuses connection (same IPs/ports)
+>> >> Socket A: Close
+>> >>
+>> >> Wouldn't that disrupt socket B's use of the connection?
+>> >
+>> > Then it will drop our data, since there were no appropriate handhsake.
+>> 
+>> Couldn't the sequence numbers be close enough to make the RST valid?
 > 
-> I probably did not cut enough details - my main position is to allocate
-> per socket reserve from socket's queue, and copy data there from main
-> reserve, all of which are allocated either in advance (global one) or
-> per sockoption, so that there would be no fairness issues what to mark 
-> as special and what to not.
-> 
-> Say we have a page per socket, each socket can assign a reserve for
-> itself from own memory, this accounts both tx and rx side. Tx is not
-> interesting, it is simple, rx has global reserve (always allocated on 
-> startup or sometime way before reclaim/oom)where data is originally 
-> received (including skb, shared info and whatever is needed, page is 
-> just an exmaple), then it is copied into per-socket reserve and reused 
-> for the next packet. Having per-socket reserve allows to have progress 
-> in any situation not only in cases where single action must be 
-> received/processed, and allows to be completely fair for all users, but
-> not only special sockets, thus admin for example would be allowed to
-> login, ipsec would work and so on...
+> It does not matter - if connection is not in synchronized state all
+> unrelated data is dropped, so remote side is only allowed to receive syn
+> flag only, anything else must be dropped. If remote side does not do
+> that, it violates RFC.
+
+Except the remote side has a connection, because another one can be made 
+before the existing connection is closed:
+
+17:37:37.377571 IP 192.168.7.4.50550 > 192.168.7.8.2500: S 134077329:134077329(0) win 1500 (raw)
+17:37:37.382352 IP 192.168.7.8.2500 > 192.168.7.4.50550: S 3460060233:3460060233(0) ack 134077330 win 14360 <mss 7180> (accept)
+17:37:37.377966 IP 192.168.7.4.50550 > 192.168.7.8.2500: . ack 1 win 1500 (raw)
+17:37:37.378128 IP 192.168.7.4.50550 > 192.168.7.8.2500: P 1:17(16) ack 1 win 1500 (raw)
+17:37:37.378162 IP 192.168.7.8.2500 > 192.168.7.4.50550: . ack 17 win 14360
+17:37:37.378131 IP 192.168.7.4.50550 > 192.168.7.8.2500: R 134077346:134077346(0) win 1500 (raw)
+
+17:37:37.412709 IP 192.168.7.4.50550 > 192.168.7.8.2500: SWE 3257207813:3257207813(0) win 14280 <mss 7140,sackOK,timestamp 3601441543 0,nop,wscale 5> (connect)
+17:37:37.412785 IP 192.168.7.8.2500 > 192.168.7.4.50550: SE 3495384256:3495384256(0) ack 3257207814 win 14336 <mss 7180,sackOK,timestamp 4294812905 3601441543,nop,wscale 6> (accept)
+17:37:37.412960 IP 192.168.7.4.50550 > 192.168.7.8.2500: . ack 1 win 447 <nop,nop,timestamp 3601441543 4294812905>
+
+17:37:38.383085 IP 192.168.7.8.2500 > 192.168.7.4.50550: R 4259643274:4259643274(0) ack 1171836829 win 14360 (close (previous connection))
+
+17:37:47.417649 IP 192.168.7.8.2500 > 192.168.7.4.50550: F 1:1(0) ack 1 win 224 <nop,nop,timestamp 4294822910 3601441543> (close)
+17:37:47.417993 IP 192.168.7.4.50550 > 192.168.7.8.2500: F 1:1(0) ack 2 win 447 <nop,nop,timestamp 3601444045 4294822910> (read returned)
+17:37:47.418466 IP 192.168.7.8.2500 > 192.168.7.4.50550: . ack 2 win 224 <nop,nop,timestamp 4294822911 3601444045>
 
 
-Ah, I think I understand now. Yes this is indeed a good idea!
+The second connection also modified the RST|ACK that was sent compared to no second connection:
 
-It would be quite doable to implement this on top of that I already
-have. We would need to extend the socket with a sock_opt that would
-reserve a specified amount of data for that specific socket. And then on
-socket demux check if the socket has a non zero reserve and has not yet
-exceeded said reserve. If so, process the packet.
+17:38:03.532703 IP 192.168.7.4.50550 > 192.168.7.8.2500: S 82517575:82517575(0) win 1500 (raw)
+17:38:03.532832 IP 192.168.7.8.2500 > 192.168.7.4.50550: S 3495449795:3495449795(0) ack 82517576 win 14360 <mss 7180> (accept)
+17:38:03.533388 IP 192.168.7.4.50550 > 192.168.7.8.2500: . ack 1 win 1500 (raw)
+17:38:03.533457 IP 192.168.7.4.50550 > 192.168.7.8.2500: P 1:17(16) ack 1 win 1500 (raw)
+17:38:03.533597 IP 192.168.7.8.2500 > 192.168.7.4.50550: . ack 17 win 14360
+17:38:03.533589 IP 192.168.7.4.50550 > 192.168.7.8.2500: R 82517592:82517592(0) win 1500 (raw)
 
-This would also quite neatly work for -rt where we would not want
-incomming packet processing to be delayed by memory allocations.
+17:38:04.536277 IP 192.168.7.8.2500 > 192.168.7.4.50550: R 1:1(0) ack 17 win 14360 (close)
 
+
+17:38:04.536277 IP 192.168.7.8.2500 > 192.168.7.4.50550: R 1:1(0) ack 17 win 14360
+vs
+17:37:38.383085 IP 192.168.7.8.2500 > 192.168.7.4.50550: R 4259643274:4259643274(0) ack 1171836829 win 14360
+What happened there ?
+
+
+On the server, run tcptest-server.c, which waits for 1s on the first connection then 10s on the second connection.
+
+On the client, run:
+iptables -I INPUT -i eth0 -p tcp --dport 50550 -j DROP; ./client; iptables -D INPUT -i eth0 -p tcp --dport 50550 -j DROP; ./tcptest-client
+
+(client.c from john's original email)
+
+-- 
+Simon Arlott
+
+
+--------------070703090004010308040704
+Content-Type: text/x-csrc;
+ name="tcptest-server.c"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="tcptest-server.c"
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <poll.h>
+#include <fcntl.h>
+
+#define PORT 2500
+
+#define xerror(str) do { perror(str); exit(1); } while (0)
+
+int main(void) {
+	struct sockaddr_in sa;
+	int l, s, tmp;
+	int t = 0;
+
+	memset(&sa, 0, sizeof(sa));
+	
+	l = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (!l)
+		xerror("socket");
+		
+	sa.sin_family = AF_INET;
+	sa.sin_addr.s_addr = htonl(INADDR_ANY);
+	sa.sin_port = htons(PORT);
+
+	tmp = 1;
+	setsockopt(l, SOL_SOCKET, SO_REUSEADDR, (char*)&tmp, sizeof(tmp));
+
+	if (bind(l, (struct sockaddr*)&sa, sizeof(sa)) != 0)
+		xerror("bind");
+
+	if (listen(l, 0) != 0)
+		xerror("listen");
+
+	printf("server %d ready...\n", getpid());
+
+	for (t = 1; t <= 2; t++) {
+		s = accept(l, NULL, NULL);
+		switch (fork()) {
+			case -1:
+				xerror("fork");
+				break;
+			case 0:
+				switch (t) {
+					case 1:
+						printf("server %d accepted connection\n", getpid());
+
+#if 0
+						tmp = fcntl(s, F_GETFL, 0);
+						if (fcntl(s, F_SETFL, tmp | O_NONBLOCK) != 0)
+							xerror("fcntl");
+
+						if (send(s, "AAAAAAA", 7, 0) != 7)
+							xerror("send");
+#endif
+
+						printf("server %d waiting for 1 second...\n", getpid());
+							
+						sleep(1);
+						
+						
+						printf("server %d closing connection\n", getpid());
+						
+						close(s);
+						
+						
+						return 0;
+						break;
+
+					case 2:
+						printf("server %d accepted connection\n", getpid());
+						printf("server %d waiting for 10 seconds...\n", getpid());
+
+						sleep(10);
+
+
+						printf("server %d closing connection\n", getpid());
+						
+						close(s);
+						
+						
+						return 0;
+						break;
+				}
+				break;
+			default:
+				close(s);
+		}
+	}
+
+	wait(NULL);
+	wait(NULL);
+	return 0;
+}
+
+--------------070703090004010308040704
+Content-Type: text/x-csrc;
+ name="tcptest-client.c"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="tcptest-client.c"
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+#define SERVER_IP "192.168.7.8"
+#define SRC_PORT 50550
+#define DST_PORT 2500
+
+#define xerror(str) do { perror(str); exit(1); } while (0)
+
+int main(void) {
+	struct sockaddr_in sa;
+	int s;
+	int t = 0;
+	char buf[32];
+	int ret, tmp;
+
+	memset(&sa, 0, sizeof(sa));
+	
+	for (t = 1; t <= 1; t++) {
+		switch (fork()) {
+			case -1:
+				xerror("fork");
+				break;
+			case 0:
+				printf("client %d binding port...\n", getpid());
+
+				s = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+				if (!s)
+					xerror("socket");
+
+				sa.sin_family = AF_INET;
+				sa.sin_addr.s_addr = htonl(INADDR_ANY);
+				sa.sin_port = htons(SRC_PORT);
+
+				tmp = 1;
+				if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char*)&tmp, sizeof(tmp)) != 0)
+					xerror("setsockopt");
+
+				if (bind(s, (struct sockaddr*)&sa, sizeof(sa)) != 0)
+					xerror("bind");
+
+
+				printf("client %d connecting...\n", getpid());
+
+				sa.sin_family = AF_INET;
+				sa.sin_addr.s_addr = inet_addr(SERVER_IP);
+				sa.sin_port = htons(DST_PORT);
+
+				if (connect(s, (struct sockaddr*)&sa, sizeof(sa)) != 0)
+					xerror("connect");
+
+				printf("client %d waiting in read()...\n", getpid());
+
+				ret = read(s, buf, 32);
+				printf("client %d read() returned %d\n", getpid(), ret);
+
+				close(s);
+
+				return 0;
+		}
+
+		wait(NULL);
+	}
+
+	return 0;
+}
+
+--------------070703090004010308040704--
