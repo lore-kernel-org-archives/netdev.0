@@ -1,41 +1,45 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: strange tcp behavior
-Date: Fri, 3 Aug 2007 12:25:17 +0400
-Message-ID: <20070803082517.GB25582@2ka.mipt.ru>
-References: <56697.212.93.96.73.1186035546.squirrel@mail.screen.lv> <20070802095550.GA27226@2ka.mipt.ru> <20070802101655.GA14749@2ka.mipt.ru> <36758.simon.1186054739@5ec7c279.invalid> <46860.212.93.96.73.1186055105.squirrel@mail.screen.lv> <48738.simon.1186056932@5ec7c279.invalid> <46B21148.2090004@simon.arlott.org.uk> <20070802180842.GA6864@2ka.mipt.ru> <46B2293B.3020406@simon.arlott.org.uk>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [patch] genirq: fix simple and fasteoi irq handlers
+Date: Fri, 3 Aug 2007 10:46:49 +0200
+Message-ID: <20070803084649.GA21029@elte.hu>
+References: <1185437431.3227.21.camel@chaos> <20070726083120.GA26910@elte.hu> <20070726085523.GA3423@ff.dom.local> <20070726091254.GA8063@elte.hu> <4bacf17f0707300029g5116e70bq4808059dc8b069f1@mail.gmail.com> <20070731155843.GA7033@elte.hu> <46B20E47.6020403@googlemail.com> <20070802201126.GA27000@elte.hu> <20070803060733.GA1582@ff.dom.local> <20070803080408.GA12222@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: john@screen.lv, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Simon Arlott <simon@fire.lp0.eu>
+Content-Type: text/plain; charset=us-ascii
+Cc: Gabriel C <nix.or.die@googlemail.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>, marcin.slusarz@gmail.com
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:39555 "EHLO 2ka.mipt.ru"
+Received: from mx2.mail.elte.hu ([157.181.151.9]:35904 "EHLO mx2.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753090AbXHCIZl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Aug 2007 04:25:41 -0400
+	id S1755446AbXHCIrZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Aug 2007 04:47:25 -0400
 Content-Disposition: inline
-In-Reply-To: <46B2293B.3020406@simon.arlott.org.uk>
+In-Reply-To: <20070803080408.GA12222@elte.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 02, 2007 at 07:58:03PM +0100, Simon Arlott (simon@fire.lp0.eu) wrote:
-> 19:24:32.897071 IP 192.168.7.4.50000 > 192.168.7.8.2500: S 705362199:705362199(0) win 1500
-> 19:24:32.897211 IP 192.168.7.8.2500 > 192.168.7.4.50000: S 4159455228:4159455228(0) ack 705362200 win 14360 <mss 7180>
-> 19:24:32.920784 IP 192.168.7.4.50000 > 192.168.7.8.2500: . ack 1 win 1500
-> 19:24:32.921732 IP 192.168.7.4.50000 > 192.168.7.8.2500: P 1:17(16) ack 1 win 1500
-> 19:24:32.921795 IP 192.168.7.8.2500 > 192.168.7.4.50000: . ack 17 win 14360
-> 19:24:32.922881 IP 192.168.7.4.50000 > 192.168.7.8.2500: R 705362216:705362216(0) win 1500
-> 19:24:34.927717 IP 192.168.7.8.2500 > 192.168.7.4.50000: R 1:1(0) ack 17 win 14360
+
+* Ingo Molnar <mingo@elte.hu> wrote:
+
+> * Jarek Poplawski <jarkao2@o2.pl> wrote:
 > 
-> According to RFC 793, the RST from .4 means that the connection 
-> is CLOSED.
+> > I can't guarantee this is all needed to fix this bug, but I think 
+> > this patch is necessary here.
+> 
+> hmmm ... very interesting! Now _this_ is something we'd like to see 
+> tested. Could you send a patch to Marcin that also undoes the 
+> workaround we have in place now, so that he could check whether 
+> ne2k-pci works fine with your fix alone?
 
-RFC 2525 - common tcp problems, says we should send RST in this case,
-although it does not specify should we send it if socket is in CLOSED
-state or not. Well, we send :)
-Even if tcp_send_active_reset() will check if socket is in CLOSED state
-and will not send data, but is still there, it will not be easily
-triggered though, but it can be possible.
+or it would be nice if Marcin could test pure 2.6.22 plus your fix 
+(without any other patches applied).
 
--- 
-	Evgeniy Polyakov
+	Ingo
