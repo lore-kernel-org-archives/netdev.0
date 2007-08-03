@@ -1,38 +1,69 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: strange tcp behavior
-Date: Fri, 3 Aug 2007 21:39:06 +0400
-Message-ID: <20070803173906.GA30688@2ka.mipt.ru>
-References: <48738.simon.1186056932@5ec7c279.invalid> <46B21148.2090004@simon.arlott.org.uk> <20070802180842.GA6864@2ka.mipt.ru> <46B2293B.3020406@simon.arlott.org.uk> <20070803082517.GB25582@2ka.mipt.ru> <46956.simon.1186140106@5ec7c279.invalid> <20070803115624.GD5727@2ka.mipt.ru> <60580.simon.1186142626@5ec7c279.invalid> <20070803120920.GA23166@2ka.mipt.ru> <46B35D1E.9050501@simon.arlott.org.uk>
+From: Brandon Philips <brandon@ifup.org>
+Subject: Re: [patch 0/5][RFC] Update network drivers to use devres
+Date: Fri, 3 Aug 2007 11:23:35 -0700
+Message-ID: <20070803182335.GA4294@ifup.org>
+References: <20070802224206.GB5181@ifup.org> <20070803095857.5fb3f368@oldman.hamilton.local> <20070803102645.GO13674@htj.dyndns.org> <20070803120745.2d89c221@oldman.hamilton.local> <46B31270.7090503@gmail.com> <20070803144409.3f95c91d@oldman.hamilton.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: john@screen.lv, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Simon Arlott <simon@fire.lp0.eu>
+Cc: Tejun Heo <htejun@gmail.com>, netdev@vger.kernel.org,
+	teheo@suse.de, bphilips@suse.de
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:57531 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759279AbXHCRlb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Aug 2007 13:41:31 -0400
+Received: from rv-out-0910.google.com ([209.85.198.189]:9765 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751773AbXHCSXl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2007 14:23:41 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so735162rvb
+        for <netdev@vger.kernel.org>; Fri, 03 Aug 2007 11:23:41 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <46B35D1E.9050501@simon.arlott.org.uk>
+In-Reply-To: <20070803144409.3f95c91d@oldman.hamilton.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 03, 2007 at 05:51:42PM +0100, Simon Arlott (simon@fire.lp0.eu) wrote:
+On 14:44 Fri 03 Aug 2007, Stephen Hemminger wrote:
+> On Fri, 03 Aug 2007 20:33:04 +0900 Tejun Heo <htejun@gmail.com> wrote:
+> > >> Devres makes low level drivers simpler, easier to get right and
+> > >> maintain.  Writing new drivers becomes easier too.  So, why not?
+> > >>
+> > >>> Network devices seem to work fine thanks, and the resource requirements
+> > >>> are different. If ain't broke, don't fix it.
+> > >> Care to enlighten me on how the resource requirments are different
+> > >> from ATA drivers?
+> > > 
+> > > I was thinking of the hot remove (no mod ref counts) and lingering
+> > > /sys open issues.  ATA drivers use ref counts.
+> > 
+> > I guess the hot removing is done by severing netdev from the actual
+> > device, right?  I don't see how that affects usage of devres on network
+> > drivers.  Am I missing something?
+> 
+> The issue is that device may be removed at any time. So you can't rely
+> on module ref counts to save you. And netdevice structure must still
+> linger after module is removed, till dev ref count goes to zero.
 
-> 17:38:03.533589 IP 192.168.7.4.50550 > 192.168.7.8.2500: R 82517592:82517592(0) win 1500 (raw)
-> vs
-> 17:37:38.383085 IP 192.168.7.8.2500 > 192.168.7.4.50550: R 4259643274:4259643274(0) ack 1171836829 win 14360
-> What happened there ?
+These patches allow the net_device to linger.  The code calls
+free_netdev on device removal just as before.
 
-You mean what will happend if second rst (4259643274) is close enough to
-first (82517592) to reset the connection? If this will be session hijiking
-attack first (known) implemented by Kevin Mitnik. So far things moved
-forward and sequence number generation algorithm changed a lot.
-It is the same situation, which would happen if you will spam remote
-side with RST packets with arbitrary sequence number in hope that it
-will reset some connection.
+This is how the net_device is handled on device removal by these
+patches:
 
++static void devm_free_netdev(struct device *gendev, void *res)
++{
++       struct net_device *dev = dev_get_drvdata(gendev);
++       free_netdev(dev);
++}
 
--- 
-	Evgeniy Polyakov
+> > On a separate note, can you explain lingering /sys open issue to me a
+> > bit?  With recent sysfs changes, sysfs nodes are disconnected
+> > immediately on deletion.  Would that make any difference to netdevs?
+> 
+> Examples are in Documentation/networking/netdevices.txt
+
+Isn't this the same problem as above?  The net_device structure must
+stay around if there are still references to it and it does.  
+
+Or am I missing something?
+
+Thanks,
+
+	Brandon
