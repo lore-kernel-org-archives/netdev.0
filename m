@@ -1,12 +1,12 @@
 From: Yoann Padioleau <padator@wanadoo.fr>
-Subject: [PATCH 09/13] dev->priv to netdev_priv(dev), for drivers/net/tokenring
-Date: Fri, 3 Aug 2007 19:36:27 +0200 (MEST)
-Message-ID: <200708031736.TAA00854@ifs.emn.fr>
+Subject: [PATCH 12/13] dev->priv to netdev_priv(dev), for drivers/net/wan
+Date: Fri, 3 Aug 2007 19:37:09 +0200 (MEST)
+Message-ID: <200708031737.TAA00878@ifs.emn.fr>
 Cc: jeff@garzik.org, netdev@vger.kernel.org, akpm@linux-foundation.org,
 	linux-kernel@vger.kernel.org
 To: kernel-janitors@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1764213AbXHCRiS@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
@@ -54,801 +54,659 @@ Cc: netdev@vger.kernel.org
 Cc: akpm@linux-foundation.org
 ---
 
- drivers/net/tokenring/3c359.c       |   58 ++++++++++++++++++------------------
- drivers/net/tokenring/ibmtr.c       |   38 +++++++++++------------
- drivers/net/tokenring/lanstreamer.c |   32 +++++++++----------
- drivers/net/tokenring/madgemc.c     |    4 +-
- drivers/net/tokenring/olympic.c     |   36 +++++++++++-----------
- drivers/net/tokenring/tmspci.c      |    4 +-
- 6 files changed, 86 insertions(+), 86 deletions(-)
+ drivers/net/wan/dlci.c         |   30 +++++++++++++-------------
+ drivers/net/wan/lmc/lmc_main.c |   26 +++++++++++------------
+ drivers/net/wan/sdla.c         |   46 ++++++++++++++++++++---------------------
+ drivers/net/wan/sealevel.c     |   12 +++++-----
+ drivers/net/wan/x25_asy.c      |   28 ++++++++++++------------
+ 5 files changed, 71 insertions(+), 71 deletions(-)
 
-diff --git a/drivers/net/tokenring/3c359.c b/drivers/net/tokenring/3c359.c
-index 9f1b6ab..a8573da 100644
---- a/drivers/net/tokenring/3c359.c
-+++ b/drivers/net/tokenring/3c359.c
-@@ -156,7 +156,7 @@ static void print_rx_state(struct net_de
- static void print_tx_state(struct net_device *dev)
- {
+diff --git a/drivers/net/wan/dlci.c b/drivers/net/wan/dlci.c
+index 66be20c..d988161 100644
+--- a/drivers/net/wan/dlci.c
++++ b/drivers/net/wan/dlci.c
+@@ -74,7 +74,7 @@ static int dlci_header(struct sk_buff *s
+ 	unsigned int		hlen;
+ 	char			*dest;
  
--	struct xl_private *xl_priv = (struct xl_private *)dev->priv ; 
-+	struct xl_private *xl_priv = netdev_priv(dev) ; 
- 	struct xl_tx_desc *txd ; 
- 	u8 __iomem *xl_mmio = xl_priv->xl_mmio ; 
- 	int i ; 
-@@ -179,7 +179,7 @@ static void print_tx_state(struct net_de
- static void print_rx_state(struct net_device *dev)
- {
+-	dlp = dev->priv;
++	dlp = netdev_priv(dev);
  
--	struct xl_private *xl_priv = (struct xl_private *)dev->priv ; 
-+	struct xl_private *xl_priv = netdev_priv(dev) ; 
- 	struct xl_rx_desc *rxd ; 
- 	u8 __iomem *xl_mmio = xl_priv->xl_mmio ; 
- 	int i ; 
-@@ -213,7 +213,7 @@ #endif
+ 	hdr.control = FRAD_I_UI;
+ 	switch(type)
+@@ -110,7 +110,7 @@ static void dlci_receive(struct sk_buff 
+ 	struct frhdr		*hdr;
+ 	int					process, header;
  
- static u16 xl_ee_read(struct net_device *dev, int ee_addr)
- { 
--    	struct xl_private *xl_priv = (struct xl_private *)dev->priv ;
-+    	struct xl_private *xl_priv = netdev_priv(dev) ;
- 	u8 __iomem *xl_mmio = xl_priv->xl_mmio ; 
+-	dlp = dev->priv;
++	dlp = netdev_priv(dev);
+ 	if (!pskb_may_pull(skb, sizeof(*hdr))) {
+ 		printk(KERN_NOTICE "%s: invalid data no header\n",
+ 		       dev->name);
+@@ -197,7 +197,7 @@ static int dlci_transmit(struct sk_buff 
+ 	if (!skb || !dev)
+ 		return(0);
  
- 	/* Wait for EEProm to not be busy */
-@@ -245,7 +245,7 @@ static u16 xl_ee_read(struct net_device 
+-	dlp = dev->priv;
++	dlp = netdev_priv(dev);
  
- static void  xl_ee_write(struct net_device *dev, int ee_addr, u16 ee_value) 
- {
--    	struct xl_private *xl_priv = (struct xl_private *)dev->priv ;
-+    	struct xl_private *xl_priv = netdev_priv(dev) ;
- 	u8 __iomem *xl_mmio = xl_priv->xl_mmio ; 
- 
- 	/* Wait for EEProm to not be busy */
-@@ -305,11 +305,11 @@ static int __devinit xl_probe(struct pci
- 		pci_release_regions(pdev) ; 
- 		return -ENOMEM ; 
- 	} 
--	xl_priv = dev->priv ; 
-+	xl_priv = netdev_priv(dev) ; 
- 
- #if XL_DEBUG  
- 	printk("pci_device: %p, dev:%p, dev->priv: %p, ba[0]: %10x, ba[1]:%10x\n", 
--		pdev, dev, dev->priv, (unsigned int)pdev->resource[0].start, (unsigned int)pdev->resource[1].start) ;  
-+		pdev, dev, netdev_priv(dev), (unsigned int)pdev->resource[0].start, (unsigned int)pdev->resource[1].start) ;  
- #endif 
- 
- 	dev->irq=pdev->irq;
-@@ -365,7 +365,7 @@ #endif 
- 
- static int __devinit xl_init(struct net_device *dev) 
- {
--    	struct xl_private *xl_priv = (struct xl_private *)dev->priv ;
-+    	struct xl_private *xl_priv = netdev_priv(dev) ;
- 
- 	printk(KERN_INFO "%s \n", version);
- 	printk(KERN_INFO "%s: I/O at %hx, MMIO at %p, using irq %d\n",
-@@ -385,7 +385,7 @@ static int __devinit xl_init(struct net_
- 
- static int xl_hw_reset(struct net_device *dev) 
- { 
--    	struct xl_private *xl_priv = (struct xl_private *)dev->priv ;
-+    	struct xl_private *xl_priv = netdev_priv(dev) ;
- 	u8 __iomem *xl_mmio = xl_priv->xl_mmio ; 
- 	unsigned long t ; 
- 	u16 i ; 
-@@ -568,7 +568,7 @@ #endif
- 
- static int xl_open(struct net_device *dev) 
- {
--	struct xl_private *xl_priv=(struct xl_private *)dev->priv;
-+	struct xl_private *xl_priv=netdev_priv(dev);
- 	u8 __iomem *xl_mmio = xl_priv->xl_mmio ; 
- 	u8 i ; 
- 	u16 hwaddr[3] ; /* Should be u8[6] but we get word return values */
-@@ -726,7 +726,7 @@ static int xl_open(struct net_device *de
- 
- static int xl_open_hw(struct net_device *dev) 
- { 
--	struct xl_private *xl_priv=(struct xl_private *)dev->priv;
-+	struct xl_private *xl_priv=netdev_priv(dev);
- 	u8 __iomem *xl_mmio = xl_priv->xl_mmio ; 
- 	u16 vsoff ;
- 	char ver_str[33];  
-@@ -875,7 +875,7 @@ static int xl_open_hw(struct net_device 
- 
- static void adv_rx_ring(struct net_device *dev) /* Advance rx_ring, cut down on bloat in xl_rx */ 
- {
--	struct xl_private *xl_priv=(struct xl_private *)dev->priv;
-+	struct xl_private *xl_priv=netdev_priv(dev);
- 	int prev_ring_loc ; 
- 
- 	prev_ring_loc = (xl_priv->rx_ring_tail + XL_RX_RING_SIZE - 1) & (XL_RX_RING_SIZE - 1);
-@@ -890,7 +890,7 @@ static void adv_rx_ring(struct net_devic
- 
- static void xl_rx(struct net_device *dev)
- {
--	struct xl_private *xl_priv=(struct xl_private *)dev->priv;
-+	struct xl_private *xl_priv=netdev_priv(dev);
- 	u8 __iomem * xl_mmio = xl_priv->xl_mmio ; 
- 	struct sk_buff *skb, *skb2 ; 
- 	int frame_length = 0, copy_len = 0  ; 	
-@@ -997,7 +997,7 @@ static void xl_rx(struct net_device *dev
- 
- static void xl_reset(struct net_device *dev) 
- {
--	struct xl_private *xl_priv=(struct xl_private *)dev->priv;
-+	struct xl_private *xl_priv=netdev_priv(dev);
- 	u8 __iomem * xl_mmio = xl_priv->xl_mmio ; 
- 	unsigned long t; 
- 
-@@ -1020,7 +1020,7 @@ static void xl_reset(struct net_device *
- 
- static void xl_freemem(struct net_device *dev) 
- {
--	struct xl_private *xl_priv=(struct xl_private *)dev->priv ; 
-+	struct xl_private *xl_priv=netdev_priv(dev) ; 
- 	int i ; 
- 
- 	for (i=0;i<XL_RX_RING_SIZE;i++) {
-@@ -1044,7 +1044,7 @@ static void xl_freemem(struct net_device
- static irqreturn_t xl_interrupt(int irq, void *dev_id) 
- {
- 	struct net_device *dev = (struct net_device *)dev_id;
-- 	struct xl_private *xl_priv =(struct xl_private *)dev->priv;
-+ 	struct xl_private *xl_priv =netdev_priv(dev);
- 	u8 __iomem * xl_mmio = xl_priv->xl_mmio ; 
- 	u16 intstatus, macstatus  ;
- 
-@@ -1171,7 +1171,7 @@ static irqreturn_t xl_interrupt(int irq,
+ 	netif_stop_queue(dev);
  	
- static int xl_xmit(struct sk_buff *skb, struct net_device *dev) 
- {
--	struct xl_private *xl_priv=(struct xl_private *)dev->priv;
-+	struct xl_private *xl_priv=netdev_priv(dev);
- 	struct xl_tx_desc *txd ; 
- 	int tx_head, tx_tail, tx_prev ; 
- 	unsigned long flags ; 	
-@@ -1232,7 +1232,7 @@ static int xl_xmit(struct sk_buff *skb, 
+@@ -235,7 +235,7 @@ static int dlci_config(struct net_device
+ 	struct frad_local	*flp;
+ 	int			err;
  
- static void xl_dn_comp(struct net_device *dev) 
- {
--	struct xl_private *xl_priv=(struct xl_private *)dev->priv;
-+	struct xl_private *xl_priv=netdev_priv(dev);
- 	u8 __iomem * xl_mmio = xl_priv->xl_mmio ; 
- 	struct xl_tx_desc *txd ; 
+-	dlp = dev->priv;
++	dlp = netdev_priv(dev);
  
-@@ -1268,7 +1268,7 @@ static void xl_dn_comp(struct net_device
+ 	flp = dlp->slave->priv;
  
- static int xl_close(struct net_device *dev) 
- {
--	struct xl_private *xl_priv = (struct xl_private *) dev->priv ; 
-+	struct xl_private *xl_priv = netdev_priv(dev) ; 
- 	u8 __iomem * xl_mmio = xl_priv->xl_mmio ; 
- 	unsigned long t ; 
+@@ -269,7 +269,7 @@ static int dlci_dev_ioctl(struct net_dev
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return(-EPERM);
  
-@@ -1366,7 +1366,7 @@ static int xl_close(struct net_device *d
+-	dlp = dev->priv;
++	dlp = netdev_priv(dev);
  
- static void xl_set_rx_mode(struct net_device *dev) 
- {
--	struct xl_private *xl_priv = (struct xl_private *) dev->priv ; 
-+	struct xl_private *xl_priv = netdev_priv(dev) ; 
- 	struct dev_mc_list *dmi ; 
- 	unsigned char dev_mc_address[4] ; 
- 	u16 options ; 
-@@ -1407,7 +1407,7 @@ static void xl_set_rx_mode(struct net_de
- 
- static void xl_srb_bh(struct net_device *dev) 
- { 
--	struct xl_private *xl_priv = (struct xl_private *) dev->priv ; 
-+	struct xl_private *xl_priv = netdev_priv(dev) ; 
- 	u8 __iomem * xl_mmio = xl_priv->xl_mmio ; 
- 	u8 srb_cmd, ret_code ; 
- 	int i ; 
-@@ -1476,14 +1476,14 @@ static void xl_srb_bh(struct net_device 
- 
- static struct net_device_stats * xl_get_stats(struct net_device *dev)
- {
--	struct xl_private *xl_priv = (struct xl_private *) dev->priv ;
-+	struct xl_private *xl_priv = netdev_priv(dev) ;
- 	return (struct net_device_stats *) &xl_priv->xl_stats; 
- }
- 
- static int xl_set_mac_address (struct net_device *dev, void *addr) 
- {
- 	struct sockaddr *saddr = addr ; 
--	struct xl_private *xl_priv = (struct xl_private *)dev->priv ; 
-+	struct xl_private *xl_priv = netdev_priv(dev) ; 
- 
- 	if (netif_running(dev)) { 
- 		printk(KERN_WARNING "%s: Cannot set mac/laa address while card is open\n", dev->name) ; 
-@@ -1504,7 +1504,7 @@ static int xl_set_mac_address (struct ne
- 
- static void xl_arb_cmd(struct net_device *dev)
- {
--	struct xl_private *xl_priv = (struct xl_private *) dev->priv;
-+	struct xl_private *xl_priv = netdev_priv(dev);
- 	u8 __iomem * xl_mmio = xl_priv->xl_mmio ; 
- 	u8 arb_cmd ; 
- 	u16 lan_status, lan_status_diff ; 
-@@ -1632,7 +1632,7 @@ #endif 		
- 
- static void xl_asb_cmd(struct net_device *dev)
- {
--	struct xl_private *xl_priv = (struct xl_private *) dev->priv ; 
-+	struct xl_private *xl_priv = netdev_priv(dev) ; 
- 	u8 __iomem * xl_mmio = xl_priv->xl_mmio ; 
- 
- 	if (xl_priv->asb_queued == 1) 
-@@ -1663,7 +1663,7 @@ static void xl_asb_cmd(struct net_device
-  */
- static void xl_asb_bh(struct net_device *dev) 
- {
--	struct xl_private *xl_priv = (struct xl_private *) dev->priv ; 
-+	struct xl_private *xl_priv = netdev_priv(dev) ; 
- 	u8 __iomem * xl_mmio = xl_priv->xl_mmio ; 
- 	u8 ret_code ; 
- 
-@@ -1691,7 +1691,7 @@ static void xl_asb_bh(struct net_device 
- 
- static void xl_srb_cmd(struct net_device *dev, int srb_cmd) 
- {
--	struct xl_private *xl_priv = (struct xl_private *) dev->priv ; 
-+	struct xl_private *xl_priv = netdev_priv(dev) ; 
- 	u8 __iomem * xl_mmio = xl_priv->xl_mmio ; 
- 
- 	switch (srb_cmd) { 
-@@ -1748,7 +1748,7 @@ static void xl_srb_cmd(struct net_device
- 
- static void xl_wait_misr_flags(struct net_device *dev) 
- {
--	struct xl_private *xl_priv = (struct xl_private *) dev->priv ; 
-+	struct xl_private *xl_priv = netdev_priv(dev) ; 
- 	u8 __iomem * xl_mmio = xl_priv->xl_mmio ; 
- 	
- 	int i  ; 
-@@ -1773,7 +1773,7 @@ static void xl_wait_misr_flags(struct ne
- 
- static int xl_change_mtu(struct net_device *dev, int mtu) 
- {
--	struct xl_private *xl_priv = (struct xl_private *) dev->priv;
-+	struct xl_private *xl_priv = netdev_priv(dev);
- 	u16 max_mtu ; 
- 
- 	if (xl_priv->xl_ring_speed == 4)
-@@ -1795,7 +1795,7 @@ static int xl_change_mtu(struct net_devi
- static void __devexit xl_remove_one (struct pci_dev *pdev)
- {
- 	struct net_device *dev = pci_get_drvdata(pdev);
--	struct xl_private *xl_priv=(struct xl_private *)dev->priv;
-+	struct xl_private *xl_priv=netdev_priv(dev);
- 	
- 	unregister_netdev(dev);
- 	iounmap(xl_priv->xl_mmio) ; 
-diff --git a/drivers/net/tokenring/ibmtr.c b/drivers/net/tokenring/ibmtr.c
-index 1e8958e..5140969 100644
---- a/drivers/net/tokenring/ibmtr.c
-+++ b/drivers/net/tokenring/ibmtr.c
-@@ -327,7 +327,7 @@ #ifndef PCMCIA
- 	release_region(dev->base_addr, IBMTR_IO_EXTENT);
- 
- 	{ 
--		struct tok_info *ti = (struct tok_info *) dev->priv;
-+		struct tok_info *ti = netdev_priv(dev);
- 		iounmap(ti->mmio);
- 		iounmap(ti->sram_virt);
- 	}
-@@ -384,7 +384,7 @@ static int __devinit ibmtr_probe1(struct
- 
- 	unsigned char segment, intr=0, irq=0, i, j, cardpresent=NOTOK, temp=0;
- 	void __iomem * t_mmio = NULL;
--	struct tok_info *ti = dev->priv;
-+	struct tok_info *ti = netdev_priv(dev);
- 	void __iomem *cd_chanid;
- 	unsigned char *tchanid, ctemp;
- #ifndef PCMCIA
-@@ -823,7 +823,7 @@ static unsigned char __devinit get_sram_
- 
- static int __devinit trdev_init(struct net_device *dev)
- {
--	struct tok_info *ti = (struct tok_info *) dev->priv;
-+	struct tok_info *ti = netdev_priv(dev);
- 
- 	SET_PAGE(ti->srb_page);
-         ti->open_failure = NO    ;
-@@ -846,7 +846,7 @@ static int tok_init_card(struct net_devi
- 	unsigned long i;
- 
- 	PIOaddr = dev->base_addr;
--	ti = (struct tok_info *) dev->priv;
-+	ti = netdev_priv(dev);
- 	/* Special processing for first interrupt after reset */
- 	ti->do_tok_int = FIRST_INT;
- 	/* Reset adapter */
-@@ -868,7 +868,7 @@ #endif
- /*****************************************************************************/
- static int tok_open(struct net_device *dev)
- {
--	struct tok_info *ti = (struct tok_info *) dev->priv;
-+	struct tok_info *ti = netdev_priv(dev);
- 	int i;
- 
- 	/*the case we were left in a failure state during a previous open */
-@@ -927,7 +927,7 @@ static void tok_open_adapter(unsigned lo
- 	struct tok_info *ti;
- 	int i;
- 
--	ti = (struct tok_info *) dev->priv;
-+	ti = netdev_priv(dev);
- 	SET_PAGE(ti->init_srb_page); 
- 	writeb(~SRB_RESP_INT, ti->mmio + ACA_OFFSET + ACA_RESET + ISRP_ODD);
- 	for (i = 0; i < sizeof(struct dir_open_adapter); i++)
-@@ -962,7 +962,7 @@ static void tok_open_adapter(unsigned lo
- static void open_sap(unsigned char type, struct net_device *dev)
- {
- 	int i;
--	struct tok_info *ti = (struct tok_info *) dev->priv;
-+	struct tok_info *ti = netdev_priv(dev);
- 
- 	SET_PAGE(ti->srb_page);
- 	for (i = 0; i < sizeof(struct dlc_open_sap); i++)
-@@ -986,7 +986,7 @@ #define STATION_COUNT_OFST      18
- 
- static void tok_set_multicast_list(struct net_device *dev)
- {
--	struct tok_info *ti = (struct tok_info *) dev->priv;
-+	struct tok_info *ti = netdev_priv(dev);
- 	struct dev_mc_list *mclist;
- 	unsigned char address[4];
- 
-@@ -1029,7 +1029,7 @@ static int tok_send_packet(struct sk_buf
- {
- 	struct tok_info *ti;
- 	unsigned long flags;
--	ti = (struct tok_info *) dev->priv;
-+	ti = netdev_priv(dev);
- 
-         netif_stop_queue(dev);
- 
-@@ -1051,7 +1051,7 @@ static int tok_send_packet(struct sk_buf
- 
- static int tok_close(struct net_device *dev)
- {
--	struct tok_info *ti = (struct tok_info *) dev->priv;
-+	struct tok_info *ti = netdev_priv(dev);
- 
- 	/* Important for PCMCIA hot unplug, otherwise, we'll pull the card, */
- 	/* unloading the module from memory, and then if a timer pops, ouch */
-@@ -1094,7 +1094,7 @@ static void __iomem *map_address(struct 
- 
- static void dir_open_adapter (struct net_device *dev)
- {
--        struct tok_info *ti = (struct tok_info *) dev->priv;
-+        struct tok_info *ti = netdev_priv(dev);
-         unsigned char ret_code;
-         __u16 err;
- 
-@@ -1179,7 +1179,7 @@ #endif
- #if TR_VERBOSE
- 	DPRINTK("Int from tok_driver, dev : %p irq%d\n", dev,irq);
- #endif
--	ti = (struct tok_info *) dev->priv;
-+	ti = netdev_priv(dev);
- 	if (ti->sram_phys & 1)
- 		return IRQ_NONE;         /* PCMCIA card extraction flag */
- 	spin_lock(&(ti->lock));
-@@ -1498,7 +1498,7 @@ static void initial_tok_int(struct net_d
- 	struct tok_info *ti;
-         unsigned char init_status; /*BMS 12/2000*/
- 
--	ti = (struct tok_info *) dev->priv;
-+	ti = netdev_priv(dev);
- 
- 	ti->do_tok_int = NOT_FIRST;
- 
-@@ -1560,7 +1560,7 @@ #define RSAP_VALUE_OFST         9
- 
- static void tr_tx(struct net_device *dev)
- {
--	struct tok_info *ti = (struct tok_info *) dev->priv;
-+	struct tok_info *ti = netdev_priv(dev);
- 	struct trh_hdr *trhdr = (struct trh_hdr *) ti->current_skb->data;
- 	unsigned int hdr_len;
- 	__u32 dhb=0,dhb_base;
-@@ -1674,7 +1674,7 @@ #define ETHERTYPE_OFST          6
- 
- static void tr_rx(struct net_device *dev)
- {
--	struct tok_info *ti = (struct tok_info *) dev->priv;
-+	struct tok_info *ti = netdev_priv(dev);
- 	__u32 rbuffer;
- 	void __iomem *rbuf, *rbufdata, *llc;
- 	__u8 rbuffer_page = 0;
-@@ -1846,7 +1846,7 @@ static void ibmtr_reset_timer(struct tim
- void tok_rerun(unsigned long dev_addr){
- 
- 	struct net_device *dev = (struct net_device *)dev_addr;
--	struct tok_info *ti = (struct tok_info *) dev->priv;
-+	struct tok_info *ti = netdev_priv(dev);
- 
- 	if ( ti->open_action == RESTART){
- 		ti->do_tok_int = FIRST_INT;
-@@ -1868,7 +1868,7 @@ static void ibmtr_readlog(struct net_dev
- {
- 	struct tok_info *ti;
- 
--	ti = (struct tok_info *) dev->priv;
-+	ti = netdev_priv(dev);
- 
- 	ti->readlog_pending = 0;
- 	SET_PAGE(ti->srb_page);
-@@ -1891,7 +1891,7 @@ static struct net_device_stats *tok_get_
- {
- 
- 	struct tok_info *toki;
--	toki = (struct tok_info *) dev->priv;
-+	toki = netdev_priv(dev);
- 	return (struct net_device_stats *) &toki->tr_stats;
- }
- 
-@@ -1899,7 +1899,7 @@ static struct net_device_stats *tok_get_
- 
- static int ibmtr_change_mtu(struct net_device *dev, int mtu)
- {
--	struct tok_info *ti = (struct tok_info *) dev->priv;
-+	struct tok_info *ti = netdev_priv(dev);
- 
- 	if (ti->ring_speed == 16 && mtu > ti->maxmtu16)
- 		return -EINVAL;
-diff --git a/drivers/net/tokenring/lanstreamer.c b/drivers/net/tokenring/lanstreamer.c
-index 5d849c0..3448634 100644
---- a/drivers/net/tokenring/lanstreamer.c
-+++ b/drivers/net/tokenring/lanstreamer.c
-@@ -245,7 +245,7 @@ #endif
- 	}
- 
- 	SET_MODULE_OWNER(dev);
--	streamer_priv = dev->priv;
-+	streamer_priv = netdev_priv(dev);
- 
- #if STREAMER_NETWORK_MONITOR
- #ifdef CONFIG_PROC_FS
-@@ -404,7 +404,7 @@ #endif
- 		return;
- 	}
- 
--	streamer_priv=dev->priv;
-+	streamer_priv=netdev_priv(dev);
- 	if (streamer_priv == NULL) {
- 		printk(KERN_ERR "lanstreamer::streamer_remove_one, ERROR dev->priv is NULL\n");
- 		return;
-@@ -448,7 +448,7 @@ static int streamer_reset(struct net_dev
- 	struct sk_buff *skb = NULL;
- 	__u16 misr;
- 
--	streamer_priv = (struct streamer_private *) dev->priv;
-+	streamer_priv = netdev_priv(dev);
- 	streamer_mmio = streamer_priv->streamer_mmio;
- 
- 	writew(readw(streamer_mmio + BCTL) | BCTL_SOFTRESET, streamer_mmio + BCTL);
-@@ -587,7 +587,7 @@ #endif
- 
- static int streamer_open(struct net_device *dev)
- {
--	struct streamer_private *streamer_priv = (struct streamer_private *) dev->priv;
-+	struct streamer_private *streamer_priv = netdev_priv(dev);
- 	__u8 __iomem *streamer_mmio = streamer_priv->streamer_mmio;
- 	unsigned long flags;
- 	char open_error[255];
-@@ -904,7 +904,7 @@ #endif
- static void streamer_rx(struct net_device *dev)
- {
- 	struct streamer_private *streamer_priv =
--	    (struct streamer_private *) dev->priv;
-+	    netdev_priv(dev);
- 	__u8 __iomem *streamer_mmio = streamer_priv->streamer_mmio;
- 	struct streamer_rx_desc *rx_desc;
- 	int rx_ring_last_received, length, frame_length, buffer_cnt = 0;
-@@ -1029,7 +1029,7 @@ static irqreturn_t streamer_interrupt(in
- {
- 	struct net_device *dev = (struct net_device *) dev_id;
- 	struct streamer_private *streamer_priv =
--	    (struct streamer_private *) dev->priv;
-+	    netdev_priv(dev);
- 	__u8 __iomem *streamer_mmio = streamer_priv->streamer_mmio;
- 	__u16 sisr;
- 	__u16 misr;
-@@ -1152,7 +1152,7 @@ static irqreturn_t streamer_interrupt(in
- static int streamer_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct streamer_private *streamer_priv =
--	    (struct streamer_private *) dev->priv;
-+	    netdev_priv(dev);
- 	__u8 __iomem *streamer_mmio = streamer_priv->streamer_mmio;
- 	unsigned long flags ;
- 
-@@ -1203,7 +1203,7 @@ #endif
- static int streamer_close(struct net_device *dev)
- {
- 	struct streamer_private *streamer_priv =
--	    (struct streamer_private *) dev->priv;
-+	    netdev_priv(dev);
- 	__u8 __iomem *streamer_mmio = streamer_priv->streamer_mmio;
- 	unsigned long flags;
- 	int i;
-@@ -1269,7 +1269,7 @@ #endif
- static void streamer_set_rx_mode(struct net_device *dev)
- {
- 	struct streamer_private *streamer_priv =
--	    (struct streamer_private *) dev->priv;
-+	    netdev_priv(dev);
- 	__u8 __iomem *streamer_mmio = streamer_priv->streamer_mmio;
- 	__u8 options = 0;
- 	struct dev_mc_list *dmi;
-@@ -1328,7 +1328,7 @@ static void streamer_set_rx_mode(struct 
- 
- static void streamer_srb_bh(struct net_device *dev)
- {
--	struct streamer_private *streamer_priv = (struct streamer_private *) dev->priv;
-+	struct streamer_private *streamer_priv = netdev_priv(dev);
- 	__u8 __iomem *streamer_mmio = streamer_priv->streamer_mmio;
- 	__u16 srb_word;
- 
-@@ -1493,14 +1493,14 @@ static void streamer_srb_bh(struct net_d
- static struct net_device_stats *streamer_get_stats(struct net_device *dev)
- {
- 	struct streamer_private *streamer_priv;
--	streamer_priv = (struct streamer_private *) dev->priv;
-+	streamer_priv = netdev_priv(dev);
- 	return (struct net_device_stats *) &streamer_priv->streamer_stats;
- }
- 
- static int streamer_set_mac_address(struct net_device *dev, void *addr)
- {
- 	struct sockaddr *saddr = addr;
--	struct streamer_private *streamer_priv = (struct streamer_private *) dev->priv;
-+	struct streamer_private *streamer_priv = netdev_priv(dev);
- 
- 	if (netif_running(dev)) 
+ 	switch(cmd)
  	{
-@@ -1525,7 +1525,7 @@ static int streamer_set_mac_address(stru
- static void streamer_arb_cmd(struct net_device *dev)
+@@ -298,7 +298,7 @@ static int dlci_change_mtu(struct net_de
  {
- 	struct streamer_private *streamer_priv =
--	    (struct streamer_private *) dev->priv;
-+	    netdev_priv(dev);
- 	__u8 __iomem *streamer_mmio = streamer_priv->streamer_mmio;
- 	__u8 header_len;
- 	__u16 frame_len, buffer_len;
-@@ -1740,7 +1740,7 @@ drop_frame:
- static void streamer_asb_bh(struct net_device *dev)
+ 	struct dlci_local *dlp;
+ 
+-	dlp = dev->priv;
++	dlp = netdev_priv(dev);
+ 
+ 	return((*dlp->slave->change_mtu)(dlp->slave, new_mtu));
+ }
+@@ -309,7 +309,7 @@ static int dlci_open(struct net_device *
+ 	struct frad_local	*flp;
+ 	int			err;
+ 
+-	dlp = dev->priv;
++	dlp = netdev_priv(dev);
+ 
+ 	if (!*(short *)(dev->dev_addr))
+ 		return(-EINVAL);
+@@ -335,7 +335,7 @@ static int dlci_close(struct net_device 
+ 
+ 	netif_stop_queue(dev);
+ 
+-	dlp = dev->priv;
++	dlp = netdev_priv(dev);
+ 
+ 	flp = dlp->slave->priv;
+ 	err = (*flp->deactivate)(dlp->slave, dev);
+@@ -347,7 +347,7 @@ static struct net_device_stats *dlci_get
  {
- 	struct streamer_private *streamer_priv =
--	    (struct streamer_private *) dev->priv;
-+	    netdev_priv(dev);
- 	__u8 __iomem *streamer_mmio = streamer_priv->streamer_mmio;
+ 	struct dlci_local *dlp;
  
- 	if (streamer_priv->asb_queued == 1) 
-@@ -1784,7 +1784,7 @@ static void streamer_asb_bh(struct net_d
- static int streamer_change_mtu(struct net_device *dev, int mtu)
- {
- 	struct streamer_private *streamer_priv =
--	    (struct streamer_private *) dev->priv;
-+	    netdev_priv(dev);
- 	__u16 max_mtu;
+-	dlp = dev->priv;
++	dlp = netdev_priv(dev);
  
- 	if (streamer_priv->streamer_ring_speed == 4)
-@@ -1848,7 +1848,7 @@ static int streamer_proc_info(char *buff
- static int sprintf_info(char *buffer, struct net_device *dev)
- {
- 	struct streamer_private *streamer_priv =
--	    (struct streamer_private *) dev->priv;
-+	    netdev_priv(dev);
- 	__u8 __iomem *streamer_mmio = streamer_priv->streamer_mmio;
- 	struct streamer_adapter_addr_table sat;
- 	struct streamer_parameters_table spt;
-diff --git a/drivers/net/tokenring/madgemc.c b/drivers/net/tokenring/madgemc.c
-index f8f4d74..9eafc2e 100644
---- a/drivers/net/tokenring/madgemc.c
-+++ b/drivers/net/tokenring/madgemc.c
-@@ -690,7 +690,7 @@ static int madgemc_close(struct net_devi
- static int madgemc_mcaproc(char *buf, int slot, void *d) 
- {	
- 	struct net_device *dev = (struct net_device *)d;
--	struct net_local *tp = dev->priv;
-+	struct net_local *tp = netdev_priv(dev);
- 	struct card_info *curcard = tp->tmspriv;
- 	int len = 0;
- 	
-@@ -736,7 +736,7 @@ static int __devexit madgemc_remove(stru
+ 	return(&dlp->stats);
+ }
+@@ -365,7 +365,7 @@ static int dlci_add(struct dlci_add *dlc
+ 	if (!slave)
+ 		return -ENODEV;
  
- 	BUG_ON(!dev);
+-	if (slave->type != ARPHRD_FRAD || slave->priv == NULL)
++	if (slave->type != ARPHRD_FRAD || netdev_priv(slave) == NULL)
+ 		goto err1;
  
--	tp = dev->priv;
-+	tp = netdev_priv(dev);
- 	card = tp->tmspriv;
- 	kfree(card);
- 	tp->tmspriv = NULL;
-diff --git a/drivers/net/tokenring/olympic.c b/drivers/net/tokenring/olympic.c
-index 09b3cfb..a96784e 100644
---- a/drivers/net/tokenring/olympic.c
-+++ b/drivers/net/tokenring/olympic.c
-@@ -219,14 +219,14 @@ static int __devinit olympic_probe(struc
- 		goto op_release_dev;
+ 	/* create device name */
+@@ -391,11 +391,11 @@ static int dlci_add(struct dlci_add *dlc
+ 
+ 	*(short *)(master->dev_addr) = dlci->dlci;
+ 
+-	dlp = (struct dlci_local *) master->priv;
++	dlp = netdev_priv(master);
+ 	dlp->slave = slave;
+ 	dlp->master = master;
+ 
+-	flp = slave->priv;
++	flp = netdev_priv(slave);
+ 	err = (*flp->assoc)(slave, master);
+ 	if (err < 0)
+ 		goto err2;
+@@ -435,9 +435,9 @@ static int dlci_del(struct dlci_add *dlc
+ 		return(-EBUSY);
  	}
  
--	olympic_priv = dev->priv ;
-+	olympic_priv = netdev_priv(dev) ;
- 	
- 	spin_lock_init(&olympic_priv->olympic_lock) ; 
+-	dlp = master->priv;
++	dlp = netdev_priv(master);
+ 	slave = dlp->slave;
+-	flp = slave->priv;
++	flp = netdev_priv(slave);
  
- 	init_waitqueue_head(&olympic_priv->srb_wait);
- 	init_waitqueue_head(&olympic_priv->trb_wait);
- #if OLYMPIC_DEBUG  
--	printk(KERN_INFO "pci_device: %p, dev:%p, dev->priv: %p\n", pdev, dev, dev->priv);
-+	printk(KERN_INFO "pci_device: %p, dev:%p, dev->priv: %p\n", pdev, dev, netdev_priv(dev));
- #endif
- 	dev->irq=pdev->irq;
- 	dev->base_addr=pci_resource_start(pdev, 0);
-@@ -297,7 +297,7 @@ static int __devinit olympic_init(struct
- 	unsigned long t; 
- 	unsigned int uaa_addr;
+ 	rtnl_lock();
+ 	err = (*flp->deassoc)(slave, master);
+@@ -487,7 +487,7 @@ static int dlci_ioctl(unsigned int cmd, 
  
--    	olympic_priv=(struct olympic_private *)dev->priv;
-+    	olympic_priv=netdev_priv(dev);
- 	olympic_mmio=olympic_priv->olympic_mmio;
- 
- 	printk("%s \n", version);
-@@ -435,7 +435,7 @@ #endif
- 
- static int olympic_open(struct net_device *dev) 
+ static void dlci_setup(struct net_device *dev)
  {
--	struct olympic_private *olympic_priv=(struct olympic_private *)dev->priv;
-+	struct olympic_private *olympic_priv=netdev_priv(dev);
- 	u8 __iomem *olympic_mmio=olympic_priv->olympic_mmio,*init_srb;
- 	unsigned long flags, t;
- 	int i, open_finished = 1 ;
-@@ -755,7 +755,7 @@ out:
+-	struct dlci_local *dlp = dev->priv;
++	struct dlci_local *dlp = netdev_priv(dev);
+ 
+ 	dev->flags		= 0;
+ 	dev->open		= dlci_open;
+diff --git a/drivers/net/wan/lmc/lmc_main.c b/drivers/net/wan/lmc/lmc_main.c
+index ae132c1..9aa04a6 100644
+--- a/drivers/net/wan/lmc/lmc_main.c
++++ b/drivers/net/wan/lmc/lmc_main.c
+@@ -126,7 +126,7 @@ int lmc_ioctl (struct net_device *dev, s
+ 
+     ret = -EOPNOTSUPP;
+ 
+-    sc = dev->priv;
++    sc = netdev_priv(dev);
+ 
+     lmc_trace(dev, "lmc_ioctl in");
+ 
+@@ -634,7 +634,7 @@ static void lmc_watchdog (unsigned long 
+     u_int32_t ticks;
+     unsigned long flags;
+ 
+-    sc = dev->priv;
++    sc = netdev_priv(dev);
+ 
+     lmc_trace(dev, "lmc_watchdog in");
+ 
+@@ -872,7 +872,7 @@ #endif
+         lmc_first_load = 1;
+     }
+     
+-    sc = dev->priv;
++    sc = netdev_priv(dev);
+     sc->lmc_device = dev;
+     sc->name = dev->name;
+ 
+@@ -1018,7 +1018,7 @@ static void __devexit lmc_remove_one (st
+     struct net_device *dev = pci_get_drvdata(pdev);
+     
+     if (dev) {
+-	    lmc_softc_t *sc = dev->priv;
++	    lmc_softc_t *sc = netdev_priv(dev);
+ 	    
+ 	    printk("%s: removing...\n", dev->name);
+ 	    lmc_proto_detach(sc);
+@@ -1035,7 +1035,7 @@ static void __devexit lmc_remove_one (st
   */
- static void olympic_rx(struct net_device *dev)
+ static int lmc_open (struct net_device *dev) /*fold00*/
  {
--	struct olympic_private *olympic_priv=(struct olympic_private *)dev->priv;
-+	struct olympic_private *olympic_priv=netdev_priv(dev);
- 	u8 __iomem *olympic_mmio=olympic_priv->olympic_mmio;
- 	struct olympic_rx_status *rx_status;
- 	struct olympic_rx_desc *rx_desc ; 
-@@ -897,7 +897,7 @@ #endif
+-    lmc_softc_t *sc = dev->priv;
++    lmc_softc_t *sc = netdev_priv(dev);
  
- static void olympic_freemem(struct net_device *dev) 
- { 
--	struct olympic_private *olympic_priv=(struct olympic_private *)dev->priv;
-+	struct olympic_private *olympic_priv=netdev_priv(dev);
+     lmc_trace(dev, "lmc_open in");
+ 
+@@ -1153,7 +1153,7 @@ static int lmc_open (struct net_device *
+ static void lmc_running_reset (struct net_device *dev) /*fold00*/
+ {
+ 
+-    lmc_softc_t *sc = (lmc_softc_t *) dev->priv;
++    lmc_softc_t *sc = netdev_priv(dev);
+ 
+     lmc_trace(dev, "lmc_runnig_reset in");
+ 
+@@ -1194,7 +1194,7 @@ static int lmc_close (struct net_device 
+ 
+     lmc_trace(dev, "lmc_close in");
+     
+-    sc = dev->priv;
++    sc = netdev_priv(dev);
+     sc->lmc_ok = 0;
+     sc->lmc_media->set_link_status (sc, 0);
+     del_timer (&sc->timer);
+@@ -1210,7 +1210,7 @@ static int lmc_close (struct net_device 
+ /* When the interface goes down, this is called */
+ static int lmc_ifdown (struct net_device *dev) /*fold00*/
+ {
+-    lmc_softc_t *sc = dev->priv;
++    lmc_softc_t *sc = netdev_priv(dev);
+     u32 csr6;
+     int i;
+ 
+@@ -1287,7 +1287,7 @@ static irqreturn_t lmc_interrupt (int ir
+ 
+     lmc_trace(dev, "lmc_interrupt in");
+ 
+-    sc = dev->priv;
++    sc = netdev_priv(dev);
+     
+     spin_lock(&sc->lmc_lock);
+ 
+@@ -1473,7 +1473,7 @@ static int lmc_start_xmit (struct sk_buf
+ 
+     lmc_trace(dev, "lmc_start_xmit in");
+ 
+-    sc = dev->priv;
++    sc = netdev_priv(dev);
+ 
+     spin_lock_irqsave(&sc->lmc_lock, flags);
+ 
+@@ -1570,7 +1570,7 @@ static int lmc_rx (struct net_device *de
+ 
+     lmc_trace(dev, "lmc_rx in");
+ 
+-    sc = dev->priv;
++    sc = netdev_priv(dev);
+ 
+     lmc_led_on(sc, LMC_DS3_LED3);
+ 
+@@ -1764,7 +1764,7 @@ skip_out_of_mem:
+ 
+ static struct net_device_stats *lmc_get_stats (struct net_device *dev) /*fold00*/
+ {
+-    lmc_softc_t *sc = dev->priv;
++    lmc_softc_t *sc = netdev_priv(dev);
+     unsigned long flags;
+ 
+     lmc_trace(dev, "lmc_get_stats in");
+@@ -2145,7 +2145,7 @@ static void lmc_driver_timeout(struct ne
+ 
+     lmc_trace(dev, "lmc_driver_timeout in");
+ 
+-    sc = dev->priv;
++    sc = netdev_priv(dev);
+ 
+     spin_lock_irqsave(&sc->lmc_lock, flags);
+ 
+diff --git a/drivers/net/wan/sdla.c b/drivers/net/wan/sdla.c
+index 792e588..a2f1849 100644
+--- a/drivers/net/wan/sdla.c
++++ b/drivers/net/wan/sdla.c
+@@ -185,7 +185,7 @@ static void sdla_stop(struct net_device 
+ {
+ 	struct frad_local *flp;
+ 
+-	flp = dev->priv;
++	flp = netdev_priv(dev);
+ 	switch(flp->type)
+ 	{
+ 		case SDLA_S502A:
+@@ -212,7 +212,7 @@ static void sdla_start(struct net_device
+ {
+ 	struct frad_local *flp;
+ 
+-	flp = dev->priv;
++	flp = netdev_priv(dev);
+ 	switch(flp->type)
+ 	{
+ 		case SDLA_S502A:
+@@ -432,7 +432,7 @@ static int sdla_cmd(struct net_device *d
+ 	int                      ret, waiting, len;
+ 	long                     window;
+ 
+-	flp = dev->priv;
++	flp = netdev_priv(dev);
+ 	window = flp->type == SDLA_S508 ? SDLA_508_CMD_BUF : SDLA_502_CMD_BUF;
+ 	cmd_buf = (struct sdla_cmd *)(dev->mem_start + (window & SDLA_ADDR_MASK));
+ 	ret = 0;
+@@ -509,7 +509,7 @@ static int sdla_activate(struct net_devi
+ 	struct frad_local *flp;
  	int i;
- 			
- 	for(i=0;i<OLYMPIC_RX_RING_SIZE;i++) {
-@@ -930,7 +930,7 @@ static void olympic_freemem(struct net_d
- static irqreturn_t olympic_interrupt(int irq, void *dev_id) 
+ 
+-	flp = slave->priv;
++	flp = netdev_priv(slave);
+ 
+ 	for(i=0;i<CONFIG_DLCI_MAX;i++)
+ 		if (flp->master[i] == master)
+@@ -531,7 +531,7 @@ static int sdla_deactivate(struct net_de
+ 	struct frad_local *flp;
+ 	int               i;
+ 
+-	flp = slave->priv;
++	flp = netdev_priv(slave);
+ 
+ 	for(i=0;i<CONFIG_DLCI_MAX;i++)
+ 		if (flp->master[i] == master)
+@@ -556,7 +556,7 @@ static int sdla_assoc(struct net_device 
+ 	if (master->type != ARPHRD_DLCI)
+ 		return(-EINVAL);
+ 
+-	flp = slave->priv;
++	flp = netdev_priv(slave);
+ 
+ 	for(i=0;i<CONFIG_DLCI_MAX;i++)
+ 	{
+@@ -589,7 +589,7 @@ static int sdla_deassoc(struct net_devic
+ 	struct frad_local *flp;
+ 	int               i;
+ 
+-	flp = slave->priv;
++	flp = netdev_priv(slave);
+ 
+ 	for(i=0;i<CONFIG_DLCI_MAX;i++)
+ 		if (flp->master[i] == master)
+@@ -619,7 +619,7 @@ static int sdla_dlci_conf(struct net_dev
+ 	int               i;
+ 	short             len, ret;
+ 
+-	flp = slave->priv;
++	flp = netdev_priv(slave);
+ 
+ 	for(i=0;i<CONFIG_DLCI_MAX;i++)
+ 		if (flp->master[i] == master)
+@@ -628,7 +628,7 @@ static int sdla_dlci_conf(struct net_dev
+ 	if (i == CONFIG_DLCI_MAX)
+ 		return(-ENODEV);
+ 
+-	dlp = master->priv;
++	dlp = netdev_priv(master);
+ 
+ 	ret = SDLA_RET_OK;
+ 	len = sizeof(struct dlci_conf);
+@@ -659,7 +659,7 @@ static int sdla_transmit(struct sk_buff 
+ 	unsigned long     flags;
+ 	struct buf_entry  *pbuf;
+ 
+-	flp = dev->priv;
++	flp = netdev_priv(dev);
+ 	ret = 0;
+ 	accept = 1;
+ 
+@@ -755,7 +755,7 @@ static void sdla_receive(struct net_devi
+ 	int               i=0, received, success, addr, buf_base, buf_top;
+ 	short             dlci, len, len2, split;
+ 
+-	flp = dev->priv;
++	flp = netdev_priv(dev);
+ 	success = 1;
+ 	received = addr = buf_top = buf_base = 0;
+ 	len = dlci = 0;
+@@ -860,7 +860,7 @@ static void sdla_receive(struct net_devi
+ 	if (success)
+ 	{
+ 		flp->stats.rx_packets++;
+-		dlp = master->priv;
++		dlp = netdev_priv(master);
+ 		(*dlp->receive)(skb, master);
+ 	}
+ 
+@@ -924,7 +924,7 @@ static void sdla_poll(unsigned long devi
+ 	struct frad_local *flp;
+ 
+ 	dev = (struct net_device *) device;
+-	flp = dev->priv;
++	flp = netdev_priv(dev);
+ 
+ 	if (sdla_byte(dev, SDLA_502_RCV_BUF))
+ 		sdla_receive(dev);
+@@ -940,7 +940,7 @@ static int sdla_close(struct net_device 
+ 	int               len, i;
+ 	short             dlcis[CONFIG_DLCI_MAX];
+ 
+-	flp = dev->priv;
++	flp = netdev_priv(dev);
+ 
+ 	len = 0;
+ 	for(i=0;i<CONFIG_DLCI_MAX;i++)
+@@ -1001,7 +1001,7 @@ static int sdla_open(struct net_device *
+ 	int               len, i;
+ 	char              byte;
+ 
+-	flp = dev->priv;
++	flp = netdev_priv(dev);
+ 
+ 	if (!flp->initialized)
+ 		return(-EPERM);
+@@ -1098,7 +1098,7 @@ static int sdla_config(struct net_device
+ 	if (dev->type == 0xFFFF)
+ 		return(-EUNATCH);
+ 
+-	flp = dev->priv;
++	flp = netdev_priv(dev);
+ 
+ 	if (!get)
+ 	{
+@@ -1229,7 +1229,7 @@ static int sdla_reconfig(struct net_devi
+ 	struct conf_data  data;
+ 	int               i, len;
+ 
+-	flp = dev->priv;
++	flp = netdev_priv(dev);
+ 
+ 	len = 0;
+ 	for(i=0;i<CONFIG_DLCI_MAX;i++)
+@@ -1254,7 +1254,7 @@ static int sdla_ioctl(struct net_device 
+ 	if(!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+ 		
+-	flp = dev->priv;
++	flp = netdev_priv(dev);
+ 
+ 	if (!flp->initialized)
+ 		return(-EINVAL);
+@@ -1320,7 +1320,7 @@ static int sdla_change_mtu(struct net_de
  {
- 	struct net_device *dev= (struct net_device *)dev_id;
--	struct olympic_private *olympic_priv=(struct olympic_private *)dev->priv;
-+	struct olympic_private *olympic_priv=netdev_priv(dev);
- 	u8 __iomem *olympic_mmio=olympic_priv->olympic_mmio;
- 	u32 sisr;
- 	u8 __iomem *adapter_check_area ; 
-@@ -1046,7 +1046,7 @@ static irqreturn_t olympic_interrupt(int
+ 	struct frad_local *flp;
  
- static int olympic_xmit(struct sk_buff *skb, struct net_device *dev) 
+-	flp = dev->priv;
++	flp = netdev_priv(dev);
+ 
+ 	if (netif_running(dev))
+ 		return(-EBUSY);
+@@ -1337,7 +1337,7 @@ static int sdla_set_config(struct net_de
+ 	unsigned base;
+ 	int err = -EINVAL;
+ 
+-	flp = dev->priv;
++	flp = netdev_priv(dev);
+ 
+ 	if (flp->initialized)
+ 		return(-EINVAL);
+@@ -1592,14 +1592,14 @@ fail:
+ static struct net_device_stats *sdla_stats(struct net_device *dev)
  {
--	struct olympic_private *olympic_priv=(struct olympic_private *)dev->priv;
-+	struct olympic_private *olympic_priv=netdev_priv(dev);
- 	u8 __iomem *olympic_mmio=olympic_priv->olympic_mmio;
- 	unsigned long flags ; 
+ 	struct frad_local *flp;
+-	flp = dev->priv;
++	flp = netdev_priv(dev);
  
-@@ -1077,7 +1077,7 @@ static int olympic_xmit(struct sk_buff *
- 
- static int olympic_close(struct net_device *dev) 
- {
--	struct olympic_private *olympic_priv=(struct olympic_private *)dev->priv;
-+	struct olympic_private *olympic_priv=netdev_priv(dev);
- 	u8 __iomem *olympic_mmio=olympic_priv->olympic_mmio,*srb;
- 	unsigned long t,flags;
- 
-@@ -1147,7 +1147,7 @@ #endif
- 
- static void olympic_set_rx_mode(struct net_device *dev) 
- {
--	struct olympic_private *olympic_priv = (struct olympic_private *) dev->priv ; 
-+	struct olympic_private *olympic_priv = netdev_priv(dev) ; 
-    	u8 __iomem *olympic_mmio = olympic_priv->olympic_mmio ; 
- 	u8 options = 0; 
- 	u8 __iomem *srb;
-@@ -1215,7 +1215,7 @@ static void olympic_set_rx_mode(struct n
- 
- static void olympic_srb_bh(struct net_device *dev) 
- { 
--	struct olympic_private *olympic_priv = (struct olympic_private *) dev->priv ; 
-+	struct olympic_private *olympic_priv = netdev_priv(dev) ; 
-    	u8 __iomem *olympic_mmio = olympic_priv->olympic_mmio ; 
- 	u8 __iomem *srb;
- 
-@@ -1361,14 +1361,14 @@ static void olympic_srb_bh(struct net_de
- static struct net_device_stats * olympic_get_stats(struct net_device *dev)
- {
- 	struct olympic_private *olympic_priv ;
--	olympic_priv=(struct olympic_private *) dev->priv;
-+	olympic_priv=netdev_priv(dev);
- 	return (struct net_device_stats *) &olympic_priv->olympic_stats; 
+ 	return(&flp->stats);
  }
  
- static int olympic_set_mac_address (struct net_device *dev, void *addr) 
+ static void setup_sdla(struct net_device *dev)
  {
- 	struct sockaddr *saddr = addr ; 
--	struct olympic_private *olympic_priv = (struct olympic_private *)dev->priv ; 
-+	struct olympic_private *olympic_priv = netdev_priv(dev) ; 
+-	struct frad_local *flp = dev->priv;
++	struct frad_local *flp = netdev_priv(dev);
  
- 	if (netif_running(dev)) { 
- 		printk(KERN_WARNING "%s: Cannot set mac/laa address while card is open\n", dev->name) ; 
-@@ -1389,7 +1389,7 @@ static int olympic_set_mac_address (stru
+ 	netdev_boot_setup_check(dev);
  
- static void olympic_arb_cmd(struct net_device *dev)
+@@ -1651,7 +1651,7 @@ static int __init init_sdla(void)
+ 
+ static void __exit exit_sdla(void)
  {
--	struct olympic_private *olympic_priv = (struct olympic_private *) dev->priv;
-+	struct olympic_private *olympic_priv = netdev_priv(dev);
- 	u8 __iomem *olympic_mmio=olympic_priv->olympic_mmio;
- 	u8 __iomem *arb_block, *asb_block, *srb  ; 
- 	u8 header_len ; 
-@@ -1575,7 +1575,7 @@ drop_frame:
+-	struct frad_local *flp = sdla->priv;
++	struct frad_local *flp = netdev_priv(sdla);
  
- static void olympic_asb_bh(struct net_device *dev) 
- {
--	struct olympic_private *olympic_priv = (struct olympic_private *) dev->priv ; 
-+	struct olympic_private *olympic_priv = netdev_priv(dev) ; 
- 	u8 __iomem *arb_block, *asb_block ; 
- 
- 	arb_block = (olympic_priv->olympic_lap + olympic_priv->arb) ; 
-@@ -1615,7 +1615,7 @@ static void olympic_asb_bh(struct net_de
+ 	unregister_netdev(sdla);
+ 	if (flp->initialized) {
+diff --git a/drivers/net/wan/sealevel.c b/drivers/net/wan/sealevel.c
+index 11276bf..4414901 100644
+--- a/drivers/net/wan/sealevel.c
++++ b/drivers/net/wan/sealevel.c
+@@ -77,7 +77,7 @@ static void sealevel_input(struct z8530_
   
- static int olympic_change_mtu(struct net_device *dev, int mtu) 
+ static int sealevel_open(struct net_device *d)
  {
--	struct olympic_private *olympic_priv = (struct olympic_private *) dev->priv;
-+	struct olympic_private *olympic_priv = netdev_priv(dev);
- 	u16 max_mtu ; 
+-	struct slvl_device *slvl=d->priv;
++	struct slvl_device *slvl=netdev_priv(d);
+ 	int err = -1;
+ 	int unit = slvl->channel;
+ 	
+@@ -126,7 +126,7 @@ static int sealevel_open(struct net_devi
  
- 	if (olympic_priv->olympic_ring_speed == 4)
-@@ -1637,7 +1637,7 @@ static int olympic_change_mtu(struct net
- static int olympic_proc_info(char *buffer, char **start, off_t offset, int length, int *eof, void *data)
+ static int sealevel_close(struct net_device *d)
  {
- 	struct net_device *dev = (struct net_device *)data ; 
--	struct olympic_private *olympic_priv=(struct olympic_private *)dev->priv;
-+	struct olympic_private *olympic_priv=netdev_priv(dev);
- 	u8 __iomem *oat = (olympic_priv->olympic_lap + olympic_priv->olympic_addr_table_addr) ; 
- 	u8 __iomem *opt = (olympic_priv->olympic_lap + olympic_priv->olympic_parms_addr) ; 
- 	int size = 0 ; 
-@@ -1748,7 +1748,7 @@ static int olympic_proc_info(char *buffe
- static void __devexit olympic_remove_one(struct pci_dev *pdev) 
- {
- 	struct net_device *dev = pci_get_drvdata(pdev) ; 
--	struct olympic_private *olympic_priv=(struct olympic_private *)dev->priv;
-+	struct olympic_private *olympic_priv=netdev_priv(dev);
+-	struct slvl_device *slvl=d->priv;
++	struct slvl_device *slvl=netdev_priv(d);
+ 	int unit = slvl->channel;
+ 	
+ 	/*
+@@ -166,7 +166,7 @@ static int sealevel_ioctl(struct net_dev
  
- 	if (olympic_priv->olympic_network_monitor) { 
- 		char proc_name[20] ; 
-diff --git a/drivers/net/tokenring/tmspci.c b/drivers/net/tokenring/tmspci.c
-index 3b2f00b..aec75c9 100644
---- a/drivers/net/tokenring/tmspci.c
-+++ b/drivers/net/tokenring/tmspci.c
-@@ -149,7 +149,7 @@ static int __devinit tms_pci_attach(stru
- 		goto err_out_irq;
- 	}
- 
--	tp = dev->priv;
-+	tp = netdev_priv(dev);
- 	tp->setnselout = tms_pci_setnselout_pins;
- 		
- 	tp->sifreadb = tms_pci_sifreadb;
-@@ -210,7 +210,7 @@ static void tms_pci_read_eeprom(struct n
- static unsigned short tms_pci_setnselout_pins(struct net_device *dev)
+ static struct net_device_stats *sealevel_get_stats(struct net_device *d)
  {
- 	unsigned short val = 0;
--	struct net_local *tp = dev->priv;
-+	struct net_local *tp = netdev_priv(dev);
- 	struct card_info *cardinfo = tp->tmspriv;
-   
- 	if(tp->DataRate == SPEED_4)
+-	struct slvl_device *slvl=d->priv;
++	struct slvl_device *slvl=netdev_priv(d);
+ 	if(slvl)
+ 		return z8530_get_stats(slvl->chan);
+ 	else
+@@ -179,7 +179,7 @@ static struct net_device_stats *sealevel
+  
+ static int sealevel_queue_xmit(struct sk_buff *skb, struct net_device *d)
+ {
+-	struct slvl_device *slvl=d->priv;
++	struct slvl_device *slvl=netdev_priv(d);
+ 	return z8530_queue_xmit(slvl->chan, skb);
+ }
+ 
+@@ -204,7 +204,7 @@ static int sealevel_neigh_setup_dev(stru
+ 
+ static int sealevel_attach(struct net_device *dev)
+ {
+-	struct slvl_device *sv = dev->priv;
++	struct slvl_device *sv = netdev_priv(dev);
+ 	sppp_attach(&sv->pppdev);
+ 	return 0;
+ }
+@@ -240,7 +240,7 @@ static inline struct slvl_device *slvl_a
+ 	if (!d) 
+ 		return NULL;
+ 
+-	sv = d->priv;
++	sv = netdev_priv(d);
+ 	sv->if_ptr = &sv->pppdev;
+ 	sv->pppdev.dev = d;
+ 	d->base_addr = iobase;
+diff --git a/drivers/net/wan/x25_asy.c b/drivers/net/wan/x25_asy.c
+index c48b1cc..d62821d 100644
+--- a/drivers/net/wan/x25_asy.c
++++ b/drivers/net/wan/x25_asy.c
+@@ -63,7 +63,7 @@ static struct x25_asy *x25_asy_alloc(voi
+ 		if (dev == NULL)
+ 			break;
+ 
+-		sl = dev->priv;
++		sl = netdev_priv(dev);
+ 		/* Not in use ? */
+ 		if (!test_and_set_bit(SLF_INUSE, &sl->flags))
+ 			return sl;
+@@ -85,7 +85,7 @@ static struct x25_asy *x25_asy_alloc(voi
+ 			return NULL;
+ 
+ 		/* Initialize channel control data */
+-		sl = dev->priv;
++		sl = netdev_priv(dev);
+ 		dev->base_addr    = i;
+ 
+ 		/* register device so that it can be ifconfig'ed       */
+@@ -119,7 +119,7 @@ static void x25_asy_free(struct x25_asy 
+ 
+ static int x25_asy_change_mtu(struct net_device *dev, int newmtu)
+ {
+-	struct x25_asy *sl = dev->priv;
++	struct x25_asy *sl = netdev_priv(dev);
+ 	unsigned char *xbuff, *rbuff;
+ 	int len = 2* newmtu;
+ 
+@@ -282,7 +282,7 @@ static void x25_asy_write_wakeup(struct 
+ 
+ static void x25_asy_timeout(struct net_device *dev)
+ {
+-	struct x25_asy *sl = (struct x25_asy*)(dev->priv);
++	struct x25_asy *sl = (struct x25_asy*)(netdev_priv(dev));
+ 
+ 	spin_lock(&sl->lock);
+ 	if (netif_queue_stopped(dev)) {
+@@ -303,7 +303,7 @@ static void x25_asy_timeout(struct net_d
+ 
+ static int x25_asy_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct x25_asy *sl = (struct x25_asy*)(dev->priv);
++	struct x25_asy *sl = (struct x25_asy*)(netdev_priv(dev));
+ 	int err;
+ 
+ 	if (!netif_running(sl->dev)) {
+@@ -372,7 +372,7 @@ static int x25_asy_data_indication(struc
+  
+ static void x25_asy_data_transmit(struct net_device *dev, struct sk_buff *skb)
+ {
+-	struct x25_asy *sl=dev->priv;
++	struct x25_asy *sl=netdev_priv(dev);
+ 	
+ 	spin_lock(&sl->lock);
+ 	if (netif_queue_stopped(sl->dev) || sl->tty == NULL)
+@@ -399,7 +399,7 @@ static void x25_asy_data_transmit(struct
+  
+ static void x25_asy_connected(struct net_device *dev, int reason)
+ {
+-	struct x25_asy *sl = dev->priv;
++	struct x25_asy *sl = netdev_priv(dev);
+ 	struct sk_buff *skb;
+ 	unsigned char *ptr;
+ 
+@@ -418,7 +418,7 @@ static void x25_asy_connected(struct net
+ 
+ static void x25_asy_disconnected(struct net_device *dev, int reason)
+ {
+-	struct x25_asy *sl = dev->priv;
++	struct x25_asy *sl = netdev_priv(dev);
+ 	struct sk_buff *skb;
+ 	unsigned char *ptr;
+ 
+@@ -449,7 +449,7 @@ static struct lapb_register_struct x25_a
+ /* Open the low-level part of the X.25 channel. Easy! */
+ static int x25_asy_open(struct net_device *dev)
+ {
+-	struct x25_asy *sl = (struct x25_asy*)(dev->priv);
++	struct x25_asy *sl = (struct x25_asy*)(netdev_priv(dev));
+ 	unsigned long len;
+ 	int err;
+ 
+@@ -499,7 +499,7 @@ norbuff:
+ /* Close the low-level part of the X.25 channel. Easy! */
+ static int x25_asy_close(struct net_device *dev)
+ {
+-	struct x25_asy *sl = (struct x25_asy*)(dev->priv);
++	struct x25_asy *sl = (struct x25_asy*)(netdev_priv(dev));
+ 	int err;
+ 
+ 	spin_lock(&sl->lock);
+@@ -615,7 +615,7 @@ static void x25_asy_close_tty(struct tty
+ 
+ static struct net_device_stats *x25_asy_get_stats(struct net_device *dev)
+ {
+-	struct x25_asy *sl = (struct x25_asy*)(dev->priv);
++	struct x25_asy *sl = (struct x25_asy*)(netdev_priv(dev));
+ 
+ 	return &sl->stats;
+ }
+@@ -730,7 +730,7 @@ static int x25_asy_ioctl(struct tty_stru
+ 
+ static int x25_asy_open_dev(struct net_device *dev)
+ {
+-	struct x25_asy *sl = (struct x25_asy*)(dev->priv);
++	struct x25_asy *sl = (struct x25_asy*)(netdev_priv(dev));
+ 	if(sl->tty==NULL)
+ 		return -ENODEV;
+ 	return 0;
+@@ -739,7 +739,7 @@ static int x25_asy_open_dev(struct net_d
+ /* Initialise the X.25 driver.  Called by the device init code */
+ static void x25_asy_setup(struct net_device *dev)
+ {
+-	struct x25_asy *sl = dev->priv;
++	struct x25_asy *sl = netdev_priv(dev);
+ 
+ 	sl->magic  = X25_ASY_MAGIC;
+ 	sl->dev	   = dev;
+@@ -805,7 +805,7 @@ static void __exit exit_x25_asy(void)
+ 	for (i = 0; i < x25_asy_maxdev; i++) {
+ 		dev = x25_asy_devs[i];
+ 		if (dev) {
+-			struct x25_asy *sl = dev->priv;
++			struct x25_asy *sl = netdev_priv(dev);
+ 
+ 			spin_lock_bh(&sl->lock);
+ 			if (sl->tty) 
+
