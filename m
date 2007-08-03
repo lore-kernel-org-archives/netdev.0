@@ -1,70 +1,36 @@
-From: Daniel Phillips <phillips@phunq.net>
-Subject: Re: Distributed storage.
-Date: Fri, 3 Aug 2007 12:48:37 -0700
-Message-ID: <200708031248.37804.phillips@phunq.net>
-References: <20070731171347.GA14267@2ka.mipt.ru> <20070803134943.GA21221@2ka.mipt.ru> <1186152817.12034.128.camel@twins>
+From: David Miller <davem@davemloft.net>
+Subject: Re: strange tcp behavior
+Date: Fri, 03 Aug 2007 13:04:51 -0700 (PDT)
+Message-ID: <20070803.130451.63127177.davem@davemloft.net>
+References: <20070802184840.GA8901@2ka.mipt.ru>
+	<20070802.192134.107254907.davem@davemloft.net>
+	<20070803082242.GA25582@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-To: Peter Zijlstra <peterz@infradead.org>
+Cc: simon@fire.lp0.eu, john@screen.lv, netdev@vger.kernel.org
+To: johnpol@2ka.mipt.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl081-085-152.lax1.dsl.speakeasy.net ([64.81.85.152]:59265
-	"EHLO moonbase" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1760624AbXHCTsj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2007 15:48:39 -0400
-In-Reply-To: <1186152817.12034.128.camel@twins>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54500
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1760966AbXHCUQW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Aug 2007 16:16:22 -0400
+In-Reply-To: <20070803082242.GA25582@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 03 August 2007 07:53, Peter Zijlstra wrote:
-> On Fri, 2007-08-03 at 17:49 +0400, Evgeniy Polyakov wrote:
-> > On Fri, Aug 03, 2007 at 02:27:52PM +0200, Peter Zijlstra wrote:
-> > ...my main position is to
-> > allocate per socket reserve from socket's queue, and copy data
-> > there from main reserve, all of which are allocated either in
-> > advance (global one) or per sockoption, so that there would be no
-> > fairness issues what to mark as special and what to not.
-> >
-> > Say we have a page per socket, each socket can assign a reserve for
-> > itself from own memory, this accounts both tx and rx side. Tx is
-> > not interesting, it is simple, rx has global reserve (always
-> > allocated on startup or sometime way before reclaim/oom)where data
-> > is originally received (including skb, shared info and whatever is
-> > needed, page is just an exmaple), then it is copied into per-socket
-> > reserve and reused for the next packet. Having per-socket reserve
-> > allows to have progress in any situation not only in cases where
-> > single action must be received/processed, and allows to be
-> > completely fair for all users, but not only special sockets, thus
-> > admin for example would be allowed to login, ipsec would work and
-> > so on...
->
-> Ah, I think I understand now. Yes this is indeed a good idea!
->
-> It would be quite doable to implement this on top of that I already
-> have. We would need to extend the socket with a sock_opt that would
-> reserve a specified amount of data for that specific socket. And then
-> on socket demux check if the socket has a non zero reserve and has
-> not yet exceeded said reserve. If so, process the packet.
->
-> This would also quite neatly work for -rt where we would not want
-> incomming packet processing to be delayed by memory allocations.
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Fri, 3 Aug 2007 12:22:42 +0400
 
-At this point we need "anything that works" in mainline as a starting 
-point.  By erring on the side of simplicity we can make this 
-understandable for folks who haven't spent the last two years wallowing 
-in it.  The page per socket approach is about as simple as it gets.  I 
-therefore propose we save our premature optimizations for later.
+> On Thu, Aug 02, 2007 at 07:21:34PM -0700, David Miller (davem@davemloft.net) wrote:
+> > What in the world are we doing allowing stream sockets to autobind?
+> > That is totally bogus.  Even if we autobind, that won't make a connect
+> > happen.
+> 
+> For accepted socket it is perfectly valid assumption - we could autobind 
+> it during the first send. Or may bind it during accept. Its a matter of
+> taste I think. Autobinding during first sending can end up being a 
+> protection against DoS in some obscure rare case...
 
-It will also help our cause if we keep any new internal APIs to strictly 
-what is needed to make deadlock go away.  Not a whole lot more than 
-just the flag to mark a socket as part of the vm writeout path when you 
-get right down to essentials.
-
-Regards,
-
-Daniel
+accept()ed socket is by definition fully bound and already in
+established state.
