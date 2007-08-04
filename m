@@ -1,84 +1,93 @@
 From: Urs Thuermann <urs@isnogud.escape.de>
-Subject: [patch 6/7] CAN: Add maintainer entries
-Date: Sat,  4 Aug 2007 04:07:03 +0200
-Message-ID: <20070804020757.25572.6@janus.isnogud.escape.de>
-References: <20070804020657.25572.0@janus.isnogud.escape.de>
+Subject: [patch 0/7] CAN: Add new PF_CAN protocol family, try #5
+Date: Sat,  4 Aug 2007 04:06:57 +0200
+Message-ID: <20070804020657.25572.0@janus.isnogud.escape.de>
 Cc: urs@isnogud.escape.de, oliver@hartkopp.net, davem@davemloft.net,
 	kaber@trash.net, urs.thuermann@volkswagen.de,
 	oliver.hartkopp@volkswagen.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:50264 "EHLO oker.escape.de"
+Received: from oker.escape.de ([194.120.234.254]:50265 "EHLO oker.escape.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760187AbXHDCUd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1760161AbXHDCUd (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 3 Aug 2007 22:20:33 -0400
-Content-Disposition: inline; filename=06-can-maintainers.diff
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds entries in the CREDITS and MAINTAINERS file for CAN.
+Hello Dave,
 
-Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
+this is the fifth post of the patch series that adds the PF_CAN
+protocol family for the Controller Area Network.
 
----
- CREDITS     |   16 ++++++++++++++++
- MAINTAINERS |    9 +++++++++
- 2 files changed, 25 insertions(+)
+Since our last post we have changed the following:
 
-Index: net-2.6/CREDITS
-===================================================================
---- net-2.6.orig/CREDITS	2007-08-03 11:21:31.000000000 +0200
-+++ net-2.6/CREDITS	2007-08-03 11:21:56.000000000 +0200
-@@ -1331,6 +1331,14 @@
- S: 5623 HZ Eindhoven
- S: The Netherlands
- 
-+N: Oliver Hartkopp
-+E: oliver.hartkopp@volkswagen.de
-+W: http://www.volkswagen.de
-+D: Controller Area Network (network layer core)
-+S: Brieffach 1776
-+S: 38436 Wolfsburg
-+S: Germany
-+
- N: Andrew Haylett
- E: ajh@primag.co.uk
- D: Selection mechanism
-@@ -3284,6 +3292,14 @@
- S: F-35042 Rennes Cedex
- S: France
- 
-+N: Urs Thuermann
-+E: urs.thuermann@volkswagen.de
-+W: http://www.volkswagen.de
-+D: Controller Area Network (network layer core)
-+S: Brieffach 1776
-+S: 38436 Wolfsburg
-+S: Germany
-+
- N: Jon Tombs
- E: jon@gte.esi.us.es
- W: http://www.esi.us.es/~jon
-Index: net-2.6/MAINTAINERS
-===================================================================
---- net-2.6.orig/MAINTAINERS	2007-08-03 11:21:31.000000000 +0200
-+++ net-2.6/MAINTAINERS	2007-08-03 11:21:56.000000000 +0200
-@@ -951,6 +951,15 @@
- L:	video4linux-list@redhat.com
- S:	Maintained
- 
-+CAN NETWORK LAYER
-+P:	Urs Thuermann
-+M:	urs.thuermann@volkswagen.de
-+P:	Oliver Hartkopp
-+M:	oliver.hartkopp@volkswagen.de
-+L:	socketcan-core@lists.berlios.de
-+W:	http://developer.berlios.de/projects/socketcan/
-+S:	Maintained
-+
- CALGARY x86-64 IOMMU
- P:	Muli Ben-Yehuda
- M:	muli@il.ibm.com
+* Remove slab destructor from calls to kmem_cache_alloc().
+* Add comments about types defined in can.h.
+* Update comment on vcan loopback module parameter.
+* Fix typo in documentation.
+
+The changes in try #4 were:
+
+* Change vcan network driver to use the new RTNL API, as suggested by
+  Patrick.
+* Revert our change to use skb->iif instead of skb->cb.  After
+  discussion with Patrick and Jamal it turned out, our first
+  implementation was correct.
+* Use skb_tail_pointer() instead of skb->tail directly.
+* Coding style changes to satisfy linux/scripts/checkpatch.pl.
+* Minor changes for 64-bit-cleanliness.
+* Minor cleanup of #include's
+
+The changes in try #3 were:
+
+* Use sbk->sk and skb->pkt_type instead of skb->cb to pass loopback
+  flags and originating socket down to the driver and back to the
+  receiving socket.  Thanks to Patrick McHardy for pointing out our
+  wrong use of sbk->cb.
+* Use skb->iif instead of skb->cb to pass receiving interface from
+  raw_rcv() and bcm_rcv() up to raw_recvmsg() and bcm_recvmsg().
+* Set skb->protocol when sending CAN frames to netdevices.
+* Removed struct raw_opt and struct bcm_opt and integrated these
+  directly into struct raw_sock and bcm_sock resp., like most other
+  proto implementations do.
+* We have found and fixed race conditions between raw_bind(),
+  raw_{set,get}sockopt() and raw_notifier().  This resulted in
+  - complete removal of our own notifier list infrastructure in
+    af_can.c.  raw.c and bcm.c now use normal netdevice notifiers.
+  - removal of ro->lock spinlock.  We use lock_sock(sk) now.
+  - changed deletion of dev_rcv_lists, which are now marked for
+    deletion in the netdevice notifier in af_can.c and are actually
+    deleted when all entries have been deleted using can_rx_unregister().
+* Follow changes in 2.6.22 (e.g. ktime_t timestamps in skb).
+* Removed obsolete code from vcan.c, as pointed out by Stephen Hemminger.
+
+The changes in try #2 were:
+
+* reduced RCU callback overhead when deleting receiver lists (thx to
+  feedback from Paul E. McKenney).
+* eliminated some code duplication in net/can/proc.c.
+* renamed slock-29 and sk_lock-29 to slock-AF_CAN and sk_lock-AF_CAN in
+  net/core/sock.c
+* added entry for can.txt in Documentation/networking/00-INDEX
+* added error frame definitions in include/linux/can/error.h, which are to
+  be used by CAN network drivers.
+
+
+This patch series applies against net-2.6 and is derived from Subversion
+revision r455 of http://svn.berlios.de/svnroot/repos/socketcan.
+It can be found in the directory
+http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/<version>.
+
+This patch doesn't touch anything in the kernel except for the allocation
+of a couple of numbers for protocol, arp hw type, and a line discipline.
+
+Please review this patch series for integration into your tree.
+
+Thanks very much for your work!
+
+Best regards,
+
+Urs Thuermann
+Oliver Hartkopp
 
 --
