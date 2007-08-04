@@ -1,32 +1,34 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: netdevice queueing / sendmsg issue?
-Date: Sat, 04 Aug 2007 00:18:25 +0200
-Message-ID: <m3ps24l0su.fsf@maximus.localdomain>
-References: <m3lkd0upx8.fsf@maximus.localdomain>
-	<20070728.224959.74562336.davem@davemloft.net>
+From: Daniel Phillips <phillips@phunq.net>
+Subject: Re: Distributed storage.
+Date: Fri, 3 Aug 2007 17:41:18 -0700
+Message-ID: <200708031741.18404.phillips@phunq.net>
+References: <20070731171347.GA14267@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:54108 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763345AbXHCWS2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Aug 2007 18:18:28 -0400
-In-Reply-To: <20070728.224959.74562336.davem@davemloft.net> (David Miller's message of "Sat, 28 Jul 2007 22:49:59 -0700 (PDT)")
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="koi8-r"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20070731171347.GA14267@2ka.mipt.ru>
+Content-Disposition: inline
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+Hi Evgeniy,
 
-> Software interrupts might be getting lost, dev_kfree_skb_irq() has to
-> queue the kfree_skb() to soft IRQ.
->
-> Therefore, dev_kfree_skb_irq() will only work properly from hardware
-> interrupt context, where we will return and thus run the scheduled
-> software interrupt.
+Nit alert:
 
-Problem solved, stupid user mistake.
-I was using netif_start_queue() instead of netif_wake_queue().
--- 
-Krzysztof Halasa
+On Tuesday 31 July 2007 10:13, Evgeniy Polyakov wrote:
+>     * storage can be formed on top of remote nodes and be exported
+> 	simultaneously (iSCSI is peer-to-peer only, NBD requires device
+> 	mapper and is synchronous)
+
+In fact, NBD has nothing to do with device mapper.  I use it as a 
+physical target underneath ddraid (a device mapper plugin) just like I 
+would use your DST if it proves out.
+
+Regards,
+
+Daniel
