@@ -1,110 +1,66 @@
-From: "Ray Lee" <ray-lk@madrabbit.org>
-Subject: Re: [PATCH 00/23] per device dirty throttling -v8
-Date: Sat, 4 Aug 2007 09:01:13 -0700
-Message-ID: <2c0942db0708040901x7ada0fe2mf71f37ecba51005b@mail.gmail.com>
-References: <20070803123712.987126000@chello.nl>
-	 <alpine.LFD.0.999.0708031518440.8184@woody.linux-foundation.org>
-	 <20070804063217.GA25069@elte.hu> <20070804070737.GA940@elte.hu>
-	 <Pine.LNX.4.64.0708040032570.6905@asgard.lang.hm>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: strange tcp behavior
+Date: Sat, 4 Aug 2007 20:03:24 +0400
+Message-ID: <20070804160324.GB3194@2ka.mipt.ru>
+References: <20070802180842.GA6864@2ka.mipt.ru> <46B2293B.3020406@simon.arlott.org.uk> <20070803082517.GB25582@2ka.mipt.ru> <46956.simon.1186140106@5ec7c279.invalid> <20070803115624.GD5727@2ka.mipt.ru> <60580.simon.1186142626@5ec7c279.invalid> <20070803120920.GA23166@2ka.mipt.ru> <46B35D1E.9050501@simon.arlott.org.uk> <20070803173906.GA30688@2ka.mipt.ru> <46B37426.20500@simon.arlott.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "Ingo Molnar" <mingo@elte.hu>,
-	"Linus Torvalds" <torvalds@linux-foundation.org>,
-	"Peter Zijlstra" <a.p.zijlstra@chello.nl>, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org, miklos@szeredi.hu,
-	akpm@linux-foundation.org, neilb@suse.de, dgc@sgi.com,
-	tomoki.sekiyama.qu@hitachi.com, nikita@clusterfs.com,
-	trond.myklebust@fys.uio.no, yingchao.zhou@gmail.com,
-	richard@rsk.demon.co.uk, netdev@vger.kernel.org
-To: "david@lang.hm" <david@lang.hm>
+Content-Type: text/plain; charset=us-ascii
+Cc: john@screen.lv, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Simon Arlott <simon@fire.lp0.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.188]:46057 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753504AbXHDQBP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Aug 2007 12:01:15 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so276268nfb
-        for <netdev@vger.kernel.org>; Sat, 04 Aug 2007 09:01:13 -0700 (PDT)
-In-Reply-To: <Pine.LNX.4.64.0708040032570.6905@asgard.lang.hm>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:58722 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752135AbXHDQJS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Aug 2007 12:09:18 -0400
 Content-Disposition: inline
+In-Reply-To: <46B37426.20500@simon.arlott.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(adding netdev cc:)
+On Fri, Aug 03, 2007 at 07:29:58PM +0100, Simon Arlott (simon@fire.lp0.eu) wrote:
+> On 03/08/07 18:39, Evgeniy Polyakov wrote:
+> > On Fri, Aug 03, 2007 at 05:51:42PM +0100, Simon Arlott (simon@fire.lp0.eu) wrote:
+> > 
+> >> 17:38:03.533589 IP 192.168.7.4.50550 > 192.168.7.8.2500: R 82517592:82517592(0) win 1500 (raw)
+> >> vs
+> >> 17:37:38.383085 IP 192.168.7.8.2500 > 192.168.7.4.50550: R 4259643274:4259643274(0) ack 1171836829 win 14360
+> >> What happened there ?
+> 
+> Erm... you seem to have removed parts of my message in a way that doesn't 
+> make sense...
 
-On 8/4/07, david@lang.hm <david@lang.hm> wrote:
-> On Sat, 4 Aug 2007, Ingo Molnar wrote:
->
-> > * Ingo Molnar <mingo@elte.hu> wrote:
-> >
-> >> There are positive reports in the never-ending "my system crawls like
-> >> an XT when copying large files" bugzilla entry:
-> >>
-> >>  http://bugzilla.kernel.org/show_bug.cgi?id=7372
-> >
-> > i forgot this entry:
-> >
-> > " We recently upgraded our office to gigabit Ethernet and got some big
-> >   AMD64 / 3ware boxes for file and vmware servers... only to find them
-> >   almost useless under any kind of real load. I've built some patched
-> >   2.6.21.6 kernels (using the bdi throttling patch you mentioned) to
-> >   see if our various Debian Etch boxes run better. So far my testing
-> >   shows a *great* improvement over the stock Debian 2.6.18 kernel on
-> >   our configurations. "
-> >
-> > and bdi has been in -mm in the past i think, so we also know (to a
-> > certain degree) that it does not hurt those workloads that are fine
-> > either.
-> >
-> > [ my personal interest in this is the following regression: every time i
-> >  start a large kernel build with DEBUG_INFO on a quad-core 4GB RAM box,
-> >  i get up to 30 seconds complete pauses in Vim (and most other tasks),
-> >  during plain editing of the source code. (which happens when Vim tries
-> >  to write() to its swap/undo-file.) ]
->
-> I have an issue that sounds like it's related.
->
-> I've got a syslog server that's got two Opteron 246 cpu's, 16G ram, 2x140G
-> 15k rpm drives (fusion MPT hardware mirroring), 16x500G 7200rpm SATA
-> drives on 3ware 9500 cards (software raid6) running 2.6.20.3 with hz set
-> at default and preempt turned off.
->
-> I have syslog doing buffered writes to the SCSI drives and every 5 min a
-> cron job copies the data to the raid array.
->
-> I've found that if I do anything significant on the large raid array that
-> the system looses a significant amount of the UDP syslog traffic, even
-> though there should be pleanty of ram and cpu (and the spindles involved
-> in the writes are not being touched), even a grep can cause up to 40%
-> losses in the syslog traffic. I've experimented with nice levels (nicing
-> down the grep and nicing up the syslogd) without a noticable effect on the
-> losses.
->
-> I've been planning to try a new kernel with hz=1000 to see if that would
-> help, and after that experiment with the various preempt settings, but it
-> sounds like the per-device queues may actually be more relavent to the
-> problem.
->
-> what would you suggest I test, and in what order and combination?
+Sorry, I left line I tought were enough to understand your point.
 
-At least on a surface level, your report has some similarities to
-http://lkml.org/lkml/2007/5/21/84 . In that message, John Miller
-mentions several things he tried without effect:
+> On Fri, Aug 03, 2007 at 05:51:42PM +0100, Simon Arlott wrote:
+> > 17:38:04.536277 IP 192.168.7.8.2500 > 192.168.7.4.50550: R 1:1(0) ack 17 win 14360
+> > vs
+> > 17:37:38.383085 IP 192.168.7.8.2500 > 192.168.7.4.50550: R 4259643274:4259643274(0) ack 1171836829 win 14360
+> > What happened there ?
+> 
+> The first one is the RST sent when the connection is close()d without 
+> reading, and the second one is the same RST but after other connection 
+> has been made on the same ports using a different socket.
 
-< - I increased the max allowed receive buffer through
-< proc/sys/net/core/rmem_max and the application calls the right
-< syscall. "netstat -su" does not show any "packet receive errors".
-<
-< - After getting "kernel: swapper: page allocation failure.
-< order:0, mode:0x20", I increased /proc/sys/vm/min_free_kbytes
-<
-< - ixgb.txt in kernel network documentation suggests to increase
-< net.core.netdev_max_backlog to 300000. This did not help.
-<
-< - I also had to increase net.core.optmem_max, because the default
-< value was too small for 700 multicast groups.
+I understood it, and your question is about possibility for those
+numbers to be roughly the same. Answer is 'no', it is not possible
+(possible, but with extremely low probability).
+If it is - this is a bug in ISN generation algo and must be fixed.
 
-As they're all pretty simple to test, it may be worthwhile to give
-them a shot just to rule things out.
+> > It is the same situation, which would happen if you will spam remote
+> > side with RST packets with arbitrary sequence number in hope that it
+> > will reset some connection.
+> 
+> Isn't it still possible that the connection that got reset is left open 
+> (possibly for days) until another connection using the same ports is 
+> using roughly the same sequence numbers?
 
-Ray
+Of course it is possible, but it very unlikely. Practically it is
+impossible in modern OSes - ISN generation algos are designed to prevent
+this from happening.
+
+> -- 
+> Simon Arlott
+
+-- 
+	Evgeniy Polyakov
