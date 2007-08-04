@@ -1,33 +1,29 @@
 From: Daniel Phillips <phillips@phunq.net>
 Subject: Re: Distributed storage.
-Date: Fri, 3 Aug 2007 17:41:18 -0700
-Message-ID: <200708031741.18404.phillips@phunq.net>
-References: <20070731171347.GA14267@2ka.mipt.ru>
+Date: Fri, 3 Aug 2007 17:49:00 -0700
+Message-ID: <200708031749.00900.phillips@phunq.net>
+References: <20070731171347.GA14267@2ka.mipt.ru> <170fa0d20708022109s60ebb85aqe68ec1033634ef27@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="koi8-r"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20070731171347.GA14267@2ka.mipt.ru>
+Cc: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: "Mike Snitzer" <snitzer@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762248AbXHDAtS@vger.kernel.org>
+In-Reply-To: <170fa0d20708022109s60ebb85aqe68ec1033634ef27@mail.gmail.com>
 Content-Disposition: inline
-Sender: linux-fsdevel-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Evgeniy,
+Hi Mike,
 
-Nit alert:
+On Thursday 02 August 2007 21:09, Mike Snitzer wrote:
+> But NBD's synchronous nature is actually an asset when coupled with
+> MD raid1 as it provides guarantees that the data has _really_ been
+> mirrored remotely.
 
-On Tuesday 31 July 2007 10:13, Evgeniy Polyakov wrote:
->     * storage can be formed on top of remote nodes and be exported
-> 	simultaneously (iSCSI is peer-to-peer only, NBD requires device
-> 	mapper and is synchronous)
-
-In fact, NBD has nothing to do with device mapper.  I use it as a 
-physical target underneath ddraid (a device mapper plugin) just like I 
-would use your DST if it proves out.
+And bio completion doesn't?
 
 Regards,
 
