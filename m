@@ -1,45 +1,62 @@
-From: Dave Dillow <dave@thedillows.org>
-Subject: Re: Distributed storage.
-Date: Fri, 03 Aug 2007 22:51:08 -0400
-Message-ID: <1186195868.16431.5.camel@obelisk.thedillows.org>
-References: <20070731171347.GA14267@2ka.mipt.ru>
-	 <1a297b360708022204u4fc7603pb6baebe2bdf28618@mail.gmail.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [RFC 0/2][BNX2]: Add iSCSI support to BNX2 devices.
+Date: Fri, 03 Aug 2007 21:03:49 -0700
+Message-ID: <1186200229.18322.97.camel@dell>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org
-To: Manu Abraham <abraham.manu@gmail.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <1a297b360708022204u4fc7603pb6baebe2bdf28618@mail.gmail.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Cc: anilgv@broadcom.com, talm@broadcom.com, lusinsky@broadcom.com,
+	uri@broadcom.com
+To: davem@davemloft.net, mchristi@redhat.com, netdev@vger.kernel.org,
+	open-iscsi@googlegroups.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:1514 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751266AbXHDDJe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Aug 2007 23:09:34 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-08-03 at 09:04 +0400, Manu Abraham wrote:
-> On 7/31/07, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> 
-> > TODO list currently includes following main items:
-> >     * redundancy algorithm (drop me a request of your own, but it is highly
-> >         unlikley that Reed-Solomon based will ever be used - it is too slow
-> >         for distributed RAID, I consider WEAVER codes)
-> 
-> 
-> LDPC codes[1][2] have been replacing Turbo code[3] with regards to
-> communication links and we have been seeing that transition. (maybe
-> helpful, came to mind seeing the mention of Turbo code) Don't know how
-> weaver compares to LDPC, though found some comparisons [4][5] But
-> looking at fault tolerance figures, i guess Weaver is much better.
-> 
-> [1] http://www.ldpc-codes.com/
-> [2] http://portal.acm.org/citation.cfm?id=1240497
-> [3] http://en.wikipedia.org/wiki/Turbo_code
-> [4] http://domino.research.ibm.com/library/cyberdig.nsf/papers/BD559022A190D41C85257212006CEC11/$File/rj10391.pdf
-> [5] http://hplabs.hp.com/personal/Jay_Wylie/publications/wylie_dsn2007.pdf
+[BNX2]: Add iSCSI support to BNX2 devices.
 
-Searching Google for Dr. Plank's work at the University of TN turns up
-some analysis of using LDPC codes in storage systems.
+Modify bnx2 and add a cnic driver to support some offload functions
+needed by iSCSI.
 
-http://www.google.com/search?hl=en&q=plank+ldpc&btnG=Google+Search
+Add a new open-iscsi driver to support iSCSI offload on bnx2 devices.
 
-Patents are an issue to watch out for around the use of Tornado/Raptor
-codes. I've not researched it, but I believe there be dragons there.
+Signed-off-by: Anil Veerabhadrappa <anilgv@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+
+--
+
+The complete patch is in:
+
+ftp://Net_sys_anon@ftp1.broadcom.com/0001-BNX2-Add-iSCSI-support-to-BNX2-devices.patch
+
+I broke this into 2 patches and omitted the firmware blob in the next 2
+emails for review.
+
+---
+ drivers/net/Kconfig                       |   10 +
+ drivers/net/Makefile                      |    1 +
+ drivers/net/bnx2.c                        |  116 +-
+ drivers/net/bnx2.h                        |   25 +-
+ drivers/net/bnx2_fw.h                     | 7036 ++++++++++++++++++-----------
+ drivers/net/cnic.c                        | 1885 ++++++++
+ drivers/net/cnic.diff                     |  363 ++
+ drivers/net/cnic.h                        |  163 +
+ drivers/net/cnic_cm.h                     |  555 +++
+ drivers/net/cnic_if.h                     |  152 +
+ drivers/scsi/Kconfig                      |    2 +
+ drivers/scsi/Makefile                     |    1 +
+ drivers/scsi/bnx2i/57xx_iscsi_constants.h |  212 +
+ drivers/scsi/bnx2i/57xx_iscsi_hsi.h       | 1501 ++++++
+ drivers/scsi/bnx2i/Kconfig                |    7 +
+ drivers/scsi/bnx2i/Makefile               |    4 +
+ drivers/scsi/bnx2i/bnx2i.h                |  828 ++++
+ drivers/scsi/bnx2i/bnx2i_hwi.c            | 1993 ++++++++
+ drivers/scsi/bnx2i/bnx2i_init.c           |  393 ++
+ drivers/scsi/bnx2i/bnx2i_iscsi.c          | 3718 +++++++++++++++
+ drivers/scsi/bnx2i/bnx2i_sysfs.c          |  616 +++
+
+
