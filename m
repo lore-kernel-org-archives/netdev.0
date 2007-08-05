@@ -1,34 +1,29 @@
-From: Meelis Roos <mroos@linux.ee>
-Subject: Re: b44 compile error on !PCI
-Date: Sun, 5 Aug 2007 13:03:04 +0300 (EEST)
-Message-ID: <Pine.SOC.4.64.0708051302310.12916@math.ut.ee>
-References: <Pine.SOC.4.64.0708021943510.7589@math.ut.ee> <200708021917.45876.mb@bu3sch.de>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Distributed storage.
+Date: Sun, 5 Aug 2007 19:01:55 +0400
+Message-ID: <20070805150154.GA32132@2ka.mipt.ru>
+References: <20070731171347.GA14267@2ka.mipt.ru> <200708031741.18404.phillips@phunq.net> <20070804164438.GC14175@2ka.mipt.ru> <200708050106.58383.phillips@phunq.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Michael Buesch <mb@bu3sch.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.it.da.ut.ee ([193.40.5.67]:46815 "EHLO smtp2.it.da.ut.ee"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755115AbXHEKDF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Aug 2007 06:03:05 -0400
-In-Reply-To: <200708021917.45876.mb@bu3sch.de>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Daniel Phillips <phillips@phunq.net>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200708050106.58383.phillips@phunq.net>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> >   CC [M]  drivers/net/b44.o
-> > drivers/net/b44.c: In function 'b44_sync_dma_desc_for_device':
-> > drivers/net/b44.c:134: error: implicit declaration of function 'dma_sync_single_range_for_device'
-> > drivers/net/b44.c: In function 'b44_sync_dma_desc_for_cpu':
-> > drivers/net/b44.c:144: error: implicit declaration of function 'dma_sync_single_range_for_cpu'
+On Sun, Aug 05, 2007 at 01:06:58AM -0700, Daniel Phillips (phillips@phunq.net) wrote:
+> > DST original code worked as device mapper plugin too, but its two
+> > additional allocations (io and clone) per block request ended up for
+> > me as a show stopper.
 > 
-> Are you sure this is related to !PCI ?
-> If I grep include/asm-sparc64/dma-mapping.h I don't
-> find dma_sync_single_range_for_*
-> So I'd rather call this a bug in the arch code of sparc64.
+> Ah, sorry, I misread.  A show stopper in terms of efficiency, or in 
+> terms of deadlock?
 
-Yes, now that Dave Miller added these functions to sparc64, b44 compiles 
-fine.
+At least as in terms of efficiency. Device mapper lives in happy world
+where memory does not end and allocations are fast.
 
 -- 
-Meelis Roos (mroos@linux.ee)
+	Evgeniy Polyakov
