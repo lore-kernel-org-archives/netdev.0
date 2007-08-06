@@ -1,151 +1,217 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: 2.6.20->2.6.21 - networking dies after random time
-Date: Mon, 6 Aug 2007 21:08:12 +0200
-Message-ID: <20070806190812.GD26868@elte.hu>
-References: <20070726081326.GA3197@ff.dom.local> <1185437431.3227.21.camel@chaos> <20070726083120.GA26910@elte.hu> <20070726085523.GA3423@ff.dom.local> <20070726091254.GA8063@elte.hu> <4bacf17f0707300029g5116e70bq4808059dc8b069f1@mail.gmail.com> <20070731132037.GC1046@ff.dom.local> <4bacf17f0708060000n5a00bb77i74adc3b4b28ac42b@mail.gmail.com> <20070806070300.GA4509@elte.hu> <46B75DD4.5080709@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marcin =?utf-8?Q?=C5=9Alusarz?= <marcin.slusarz@gmail.com>,
-	Jarek Poplawski <jarkao2@o2.pl>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: Chuck Ebbert <cebbert@redhat.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <46B75DD4.5080709@redhat.com>
-Sender: linux-net-owner@vger.kernel.org
+From: Brian King <brking@linux.vnet.ibm.com>
+Subject: [PATCH 1/6] ibmveth: Enable TCP checksum offload
+Date: Mon, 06 Aug 2007 14:42:14 -0500
+Message-ID: <11621.8494986699$1186429372@news.gmane.org>
+Cc: rcjenn@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, brking@linux.vnet.ibm.com
+To: santil@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:48373 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756651AbXHFTmS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Aug 2007 15:42:18 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l76JgGml006651
+	for <netdev@vger.kernel.org>; Mon, 6 Aug 2007 15:42:16 -0400
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l76JgGo1556778
+	for <netdev@vger.kernel.org>; Mon, 6 Aug 2007 15:42:16 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l76JgGau030846
+	for <netdev@vger.kernel.org>; Mon, 6 Aug 2007 15:42:16 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-* Chuck Ebbert <cebbert@redhat.com> wrote:
+This patchset enables TCP checksum offload support for IPV4
+on ibmveth. This completely eliminates the generation and checking of
+the checksum for packets that are completely virtual and never
+touch a physical network. A simple TCP_STREAM netperf run on
+a virtual network with maximum mtu set yielded a ~30% increase
+in throughput. This feature is enabled by default on systems that
+support it, but can be disabled with a module option.
 
-> Before, they would print:
-> 
-> eth0: transmit timed out, tx_status 00 status e601.
->   diagnostics: net 0ccc media 8880 dma 0000003a fifo 0000
-> eth0: Interrupt posted but not delivered -- IRQ blocked by another device?
->   Flags; bus-master 1, dirty 295757(13) current 295757(13)
->   Transmit list 00000000 vs. f7150a20.
->   0: @f7150200  length 80000070 status 0c010070
->   1: @f71502a0  length 80000070 status 0c010070
->   2: @f7150340  length 8000005c status 0c01005c
-> 
-> Now they just work, apparently...
-
-could you please try the patch below? If this doesnt do the trick then i 
-guess we need to revert that change.
-
-	Ingo
-
------------->
-(take 2)
-
-Subject: genirq: fix simple and fasteoi irq handlers
-
-After the "genirq: do not mask interrupts by default" patch interrupts
-should be disabled not immediately upon request, but after they happen.
-But, handle_simple_irq() and handle_fasteoi_irq() can skip this once or
-more if an irq is just serviced (IRQ_INPROGRESS), possibly disrupting a
-driver's work.
-
-The main reason of problems here, pointing the broken patch and making
-the first patch which can fix this was done by Marcin Slusarz.
-Additional test patches of Thomas Gleixner and Ingo Molnar tested by
-Marcin Slusarz helped to narrow possible reasons even more. Thanks.
-
-PS: this patch fixes only one evident error here, but there could be
-more places affected by above-mentioned change in irq handling.
-
-PS 2:
-After rethinking, IMHO, there are two most probable scenarios here:
-
-1. After hw resend there could be a conflict between retriggered
-edge type irq and the next level type one: e.g. if this level type
-irq (io_apic is enabled then) is triggered while retriggered irq is
-serviced (IRQ_INPROGRESS) there is goto out with eoi, and probably
-the next such levels are triggered and looping, so probably kind of
-flood in io_apic until this retriggered edge service has ended. 
-2. There is something wrong with ioapic_retrigger_irq (less probable
-because this should be probably seen with 'normal' edge retriggers,
-but on the other hand, they could be less common).
-
-So, if there is #1, this fixed patch should work.
-
-But, since level types don't need this retriggers too much I think
-this "don't mask interrupts by default" idea should be rethinked:
-is there enough gain to risk such hard to diagnose errors?
-  
-So, IMHO, there should be at least possibility to turn this off for
-level types in config (it should be a visible option, so people could
-find & try this before writing for help or changing a network card).
-
-
-Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
-
+Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
 ---
 
-diff -Nurp 2.6.23-rc1-/kernel/irq/chip.c 2.6.23-rc1/kernel/irq/chip.c
---- 2.6.23-rc1-/kernel/irq/chip.c	2007-07-09 01:32:17.000000000 +0200
-+++ 2.6.23-rc1/kernel/irq/chip.c	2007-08-05 21:49:46.000000000 +0200
-@@ -295,12 +295,11 @@ handle_simple_irq(unsigned int irq, stru
- 
- 	spin_lock(&desc->lock);
- 
--	if (unlikely(desc->status & IRQ_INPROGRESS))
--		goto out_unlock;
- 	kstat_cpu(cpu).irqs[irq]++;
- 
- 	action = desc->action;
--	if (unlikely(!action || (desc->status & IRQ_DISABLED))) {
-+	if (unlikely(!action || (desc->status & (IRQ_INPROGRESS |
-+						 IRQ_DISABLED)))) {
- 		if (desc->chip->mask)
- 			desc->chip->mask(irq);
- 		desc->status &= ~(IRQ_REPLAY | IRQ_WAITING);
-@@ -318,6 +317,8 @@ handle_simple_irq(unsigned int irq, stru
- 
- 	spin_lock(&desc->lock);
- 	desc->status &= ~IRQ_INPROGRESS;
-+	if (!(desc->status & IRQ_DISABLED) && desc->chip->unmask)
-+		desc->chip->unmask(irq);
- out_unlock:
- 	spin_unlock(&desc->lock);
+ linux-2.6-bjking1/drivers/net/ibmveth.c |   53 ++++++++++++++++++++++++++++++++
+ linux-2.6-bjking1/drivers/net/ibmveth.h |   41 +++++++++++++++++++++++-
+ 2 files changed, 92 insertions(+), 2 deletions(-)
+
+diff -puN drivers/net/ibmveth.c~ibmveth_csum_offload drivers/net/ibmveth.c
+--- linux-2.6/drivers/net/ibmveth.c~ibmveth_csum_offload	2007-08-01 14:55:11.000000000 -0500
++++ linux-2.6-bjking1/drivers/net/ibmveth.c	2007-08-01 14:55:11.000000000 -0500
+@@ -47,6 +47,8 @@
+ #include <linux/mm.h>
+ #include <linux/ethtool.h>
+ #include <linux/proc_fs.h>
++#include <linux/in.h>
++#include <linux/ip.h>
+ #include <asm/semaphore.h>
+ #include <asm/hvcall.h>
+ #include <asm/atomic.h>
+@@ -131,6 +133,11 @@ static inline int ibmveth_rxq_frame_leng
+ 	return (adapter->rx_queue.queue_addr[adapter->rx_queue.index].length);
  }
-@@ -392,18 +393,16 @@ handle_fasteoi_irq(unsigned int irq, str
  
- 	spin_lock(&desc->lock);
++static inline int ibmveth_rxq_csum_good(struct ibmveth_adapter *adapter)
++{
++	return (adapter->rx_queue.queue_addr[adapter->rx_queue.index].csum_good);
++}
++
+ /* setup the initial settings for a buffer pool */
+ static void ibmveth_init_buffer_pool(struct ibmveth_buff_pool *pool, u32 pool_index, u32 pool_size, u32 buff_size, u32 pool_active)
+ {
+@@ -684,6 +691,24 @@ static int ibmveth_start_xmit(struct sk_
+ 					desc[0].fields.length, DMA_TO_DEVICE);
+ 	desc[0].fields.valid   = 1;
  
--	if (unlikely(desc->status & IRQ_INPROGRESS))
--		goto out;
--
- 	desc->status &= ~(IRQ_REPLAY | IRQ_WAITING);
- 	kstat_cpu(cpu).irqs[irq]++;
++	if (skb->ip_summed == CHECKSUM_PARTIAL &&
++	    ip_hdr(skb)->protocol != IPPROTO_TCP && skb_checksum_help(skb)) {
++		ibmveth_error_printk("tx: failed to checksum packet\n");
++		tx_dropped++;
++		goto out;
++	}
++
++	if (skb->ip_summed == CHECKSUM_PARTIAL) {
++		unsigned char *buf = skb_transport_header(skb) + skb->csum_offset;
++
++		desc[0].fields.no_csum = 1;
++		desc[0].fields.csum_good = 1;
++
++		/* Need to zero out the checksum */
++		buf[0] = 0;
++		buf[1] = 0;
++	}
++
+ 	if(dma_mapping_error(desc[0].fields.address)) {
+ 		ibmveth_error_printk("tx: unable to map initial fragment\n");
+ 		tx_map_failed++;
+@@ -702,6 +727,10 @@ static int ibmveth_start_xmit(struct sk_
+ 				frag->size, DMA_TO_DEVICE);
+ 		desc[curfrag+1].fields.length = frag->size;
+ 		desc[curfrag+1].fields.valid  = 1;
++		if (skb->ip_summed == CHECKSUM_PARTIAL) {
++			desc[curfrag+1].fields.no_csum = 1;
++			desc[curfrag+1].fields.csum_good = 1;
++		}
  
- 	/*
--	 * If its disabled or no action available
-+	 * If it's running, disabled or no action available
- 	 * then mask it and get out of here:
- 	 */
- 	action = desc->action;
--	if (unlikely(!action || (desc->status & IRQ_DISABLED))) {
-+	if (unlikely(!action || (desc->status & (IRQ_INPROGRESS |
-+						 IRQ_DISABLED)))) {
- 		desc->status |= IRQ_PENDING;
- 		if (desc->chip->mask)
- 			desc->chip->mask(irq);
-@@ -420,6 +419,8 @@ handle_fasteoi_irq(unsigned int irq, str
+ 		if(dma_mapping_error(desc[curfrag+1].fields.address)) {
+ 			ibmveth_error_printk("tx: unable to map fragment %d\n", curfrag);
+@@ -792,7 +821,11 @@ static int ibmveth_poll(struct net_devic
+ 			} else {
+ 				int length = ibmveth_rxq_frame_length(adapter);
+ 				int offset = ibmveth_rxq_frame_offset(adapter);
++				int csum_good = ibmveth_rxq_csum_good(adapter);
++
+ 				skb = ibmveth_rxq_get_buffer(adapter);
++				if (csum_good)
++					skb->ip_summed = CHECKSUM_UNNECESSARY;
  
- 	spin_lock(&desc->lock);
- 	desc->status &= ~IRQ_INPROGRESS;
-+	if (!(desc->status & IRQ_DISABLED) && desc->chip->unmask)
-+		desc->chip->unmask(irq);
- out:
- 	desc->chip->eoi(irq);
+ 				ibmveth_rxq_harvest_buffer(adapter);
  
+@@ -962,8 +995,10 @@ static void ibmveth_poll_controller(stru
+ static int __devinit ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ {
+ 	int rc, i;
++	long ret;
+ 	struct net_device *netdev;
+ 	struct ibmveth_adapter *adapter = NULL;
++	union ibmveth_illan_attributes set_attr, ret_attr;
+ 
+ 	unsigned char *mac_addr_p;
+ 	unsigned int *mcastFilterSize_p;
+@@ -1058,6 +1093,24 @@ static int __devinit ibmveth_probe(struc
+ 
+ 	ibmveth_debug_printk("registering netdev...\n");
+ 
++	ret = h_illan_attributes(dev->unit_address, 0, 0, &ret_attr.desc);
++
++	if (ret == H_SUCCESS && !ret_attr.fields.active_trunk &&
++	    !ret_attr.fields.trunk_priority &&
++	    ret_attr.fields.csum_offload_padded_pkt_support) {
++		set_attr.desc = 0;
++		set_attr.fields.tcp_csum_offload_ipv4 = 1;
++
++		ret = h_illan_attributes(dev->unit_address, 0, set_attr.desc,
++					 &ret_attr.desc);
++
++		if (ret == H_SUCCESS)
++			netdev->features |= NETIF_F_IP_CSUM;
++		else
++			ret = h_illan_attributes(dev->unit_address, set_attr.desc,
++						 0, &ret_attr.desc);
++	}
++
+ 	rc = register_netdev(netdev);
+ 
+ 	if(rc) {
+diff -puN drivers/net/ibmveth.h~ibmveth_csum_offload drivers/net/ibmveth.h
+--- linux-2.6/drivers/net/ibmveth.h~ibmveth_csum_offload	2007-08-01 14:55:11.000000000 -0500
++++ linux-2.6-bjking1/drivers/net/ibmveth.h	2007-08-01 14:55:11.000000000 -0500
+@@ -67,6 +67,21 @@ static inline long h_send_logical_lan(un
+ 	return rc;
+ }
+ 
++static inline long h_illan_attributes(unsigned long unit_address,
++				      unsigned long reset_mask, unsigned long set_mask,
++				      unsigned long *ret_attributes)
++{
++	long rc;
++	unsigned long retbuf[PLPAR_HCALL_BUFSIZE];
++
++	rc = plpar_hcall(H_ILLAN_ATTRIBUTES, retbuf, unit_address,
++			 reset_mask, set_mask);
++
++	*ret_attributes = retbuf[0];
++
++	return rc;
++}
++
+ #define h_multicast_ctrl(ua, cmd, mac) \
+   plpar_hcall_norets(H_MULTICAST_CTRL, ua, cmd, mac)
+ 
+@@ -141,7 +156,9 @@ struct ibmveth_adapter {
+ struct ibmveth_buf_desc_fields {
+     u32 valid : 1;
+     u32 toggle : 1;
+-    u32 reserved : 6;
++    u32 reserved : 4;
++    u32 no_csum : 1;
++    u32 csum_good : 1;
+     u32 length : 24;
+     u32 address;
+ };
+@@ -151,10 +168,30 @@ union ibmveth_buf_desc {
+     struct ibmveth_buf_desc_fields fields;
+ };
+ 
++struct ibmveth_illan_attributes_fields {
++	u32 reserved;
++	u32 reserved2 : 18;
++	u32 csum_offload_padded_pkt_support : 1;
++	u32 reserved3 : 1;
++	u32 trunk_priority : 4;
++	u32 reserved4 : 5;
++	u32 tcp_csum_offload_ipv6 : 1;
++	u32 tcp_csum_offload_ipv4 : 1;
++	u32 active_trunk : 1;
++};
++
++union ibmveth_illan_attributes {
++	u64 desc;
++	struct ibmveth_illan_attributes_fields fields;
++};
++
+ struct ibmveth_rx_q_entry {
+     u16 toggle : 1;
+     u16 valid : 1;
+-    u16 reserved : 14;
++    u16 reserved : 4;
++    u16 no_csum : 1;
++    u16 csum_good : 1;
++    u16 reserved2 : 8;
+     u16 offset;
+     u32 length;
+     u64 correlator;
+_
