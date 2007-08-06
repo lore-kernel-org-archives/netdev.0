@@ -1,40 +1,70 @@
-From: Joakim Koskela <joakim.koskela@hiit.fi>
-Subject: Re: [PATCH net-2.6.22-rc7] xfrm beet interfamily support
-Date: Mon, 6 Aug 2007 16:07:28 +0300
-Message-ID: <200708061607.28259.joakim.koskela@hiit.fi>
-References: <200707161506.47915.joakim.koskela@hiit.fi> <200708060949.58758.joakim.koskela@hiit.fi> <46B70F2C.6090807@trash.net>
+From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Subject: Re: [PATCH 2/4][SSB] EXTIF serial port initialization
+Date: Mon, 6 Aug 2007 10:14:52 -0300
+Message-ID: <20070806131452.GM2469@ghostprotocols.net>
+References: <20070805231959.GC13927@hall.aurel32.net> <20070806002117.GJ2469@ghostprotocols.net> <200708061051.05769.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Aurelien Jarno <aurelien@aurel32.net>, netdev@vger.kernel.org,
+	Felix Fietkau <nbd@openwrt.org>
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from creon.otaverkko.fi ([212.68.0.5]:34158 "EHLO creon.otaverkko.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754934AbXHFNH3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Aug 2007 09:07:29 -0400
-In-Reply-To: <46B70F2C.6090807@trash.net>
+Received: from ag-out-0708.google.com ([72.14.246.248]:37768 "EHLO
+	ag-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754274AbXHFNPA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2007 09:15:00 -0400
+Received: by ag-out-0708.google.com with SMTP id 35so1665672aga
+        for <netdev@vger.kernel.org>; Mon, 06 Aug 2007 06:14:59 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <200708061051.05769.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 06 August 2007 15:08:12 Patrick McHardy wrote:
-> >
-> > It's been a while, but as a fyi in case there are comments / suggestions
-> > before submitting the whole patch again - it seems that this had some
-> > problems after all. Works ok for normal cases, but fails when using ip
-> > options for the inner packet as they don't get processed after being
-> > extracted from the pseudoheader. Calling something like
-> > ip_options_compile from beet_mode's input when handling ipv4 would do the
-> > trick, but seems a bit ugly & perhaps unsafe, I'd rather just put the
-> > whole packet through the loop again.
->
-> Won't the options get parsed by ip_rcv() on the second reception?
+Em Mon, Aug 06, 2007 at 10:51:05AM +0200, Michael Buesch escreveu:
+> On Monday 06 August 2007, Arnaldo Carvalho de Melo wrote:
+> > Em Mon, Aug 06, 2007 at 01:19:59AM +0200, Aurelien Jarno escreveu:
+> > > The patch below against 2.6.23-rc1-mm2 implements EXTIF serial
+> > > initialization, currently marked as TODO.
+> > > 
+> > > It originally comes from the OpenWrt patches.
+> > 
+> > Comments below
+> >  
+> > > Cc: Felix Fietkau <nbd@openwrt.org>
+> > > Signed-off-by: Aurelien Jarno <aurelien@aurel32.net>
+> > > 
+> > > --- a/drivers/ssb/driver_mipscore.c
+> > > +++ b/drivers/ssb/driver_mipscore.c
+> > > @@ -128,51 +128,52 @@
+> > >  	ssb_write32(mdev, SSB_IPSFLAG, irqflag);
+> > >  }
+> > >  
+> > > -/* XXX: leave here or move into separate extif driver? */
+> > > -static int ssb_extif_serial_init(struct ssb_device *dev, struct ssb_serial_ports *ports)
+> > > +static inline bool serial_exists(u8 *regs)
+> > >  {
+> > > +	u8 save_mcr, msr = 0;
+> > 
+> > Why declare save_mcr here...
+> > 
+> > >  
+> > > +	if (regs) {
+> > 
+> > if it is just used here?
+> 
+> There is almost never an advantage when declaring variables at the beginning
+> of a statement block instead of the function start.
+> The only thing you "gain" is that you don't easily see anymore how much
+> stackspace is used by the funtions.
 
-Yes. The thing was that it seemed like we could get by with only a 
-transport-mode- amount of processing of same-family beet packets. But unless 
-we do some special processing during beet reception (which doesn't seem that 
-elegant), it won't work. So I'm changing it back to tunnel-like processing.
+Well, I disagree, your argument is flawed because if the function is too
+big to have so many variables it should be split in smaller functions
+anyway, and when it is not that big, like in the above case one can see
+the stack usage just fine on the same screen.
 
-br, j
+> So I really suggest to declare variables at the beginning of functions,
+> except for some rare circumstances maybe. Which is not the case here.
+
+I'd recommend the reverse, but anyway, it is just a suggestion.
+ 
+- Arnaldo
