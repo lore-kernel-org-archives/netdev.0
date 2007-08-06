@@ -1,86 +1,63 @@
 From: Sivakumar Subramani <Sivakumar.Subramani@neterion.com>
-Subject: [PATCH 2.6.23 2/3]S2IO: Fixes in MSIX related code.
-Date: Mon, 6 Aug 2007 05:36:28 -0400 (EDT)
-Message-ID: <Pine.GSO.4.10.10708060533510.4004-100000@guinness>
+Subject: [PATCH 2.6.23 3/3]S2IO: Fixed Link LED issue when MSI-X is enabled
+Date: Mon, 6 Aug 2007 05:38:19 -0400 (EDT)
+Message-ID: <Pine.GSO.4.10.10708060536360.4004-100000@guinness>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: support@neterion.com
 To: netdev@vger.kernel.org, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:40111 "EHLO
+Received: from barracuda.s2io.com ([72.1.205.138]:40118 "EHLO
 	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760752AbXHFJga (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2007 05:36:30 -0400
+	with ESMTP id S1755389AbXHFJiV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2007 05:38:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-- Calling store_xmsi_data to store the MSI-X datas during initialization
-  in s2io-init_nic function
-- Disabling NAPI when MSI-X is enabled
-- Freeing sp->entries and sp->s2io_entries in s2io_rem_isr
+-Fixed Link LED issue when MSI-X is enabled.
 
 Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
 Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
 ---
-diff -urpN patch1/drivers/net/s2io.c patch2/drivers/net/s2io.c
---- patch1/drivers/net/s2io.c	2007-07-31 11:04:50.000000000 +0530
-+++ patch2/drivers/net/s2io.c	2007-08-02 16:51:57.000000000 +0530
-@@ -3898,6 +3898,12 @@ static int s2io_open(struct net_device *
+diff -urpN patch2/drivers/net/s2io.c patch3/drivers/net/s2io.c
+--- patch2/drivers/net/s2io.c	2007-08-02 17:00:36.000000000 +0530
++++ patch3/drivers/net/s2io.c	2007-08-02 16:59:40.000000000 +0530
+@@ -84,7 +84,7 @@
+ #include "s2io.h"
+ #include "s2io-regs.h"
+ 
+-#define DRV_VERSION "2.0.25.1"
++#define DRV_VERSION "2.0.26.1"
+ 
+ /* S2io Driver name & version. */
+ static char s2io_driver_name[] = "Neterion";
+@@ -6205,13 +6205,10 @@ static void s2io_set_link(struct work_st
+ 				netif_stop_queue(dev);
+ 			}
  		}
+-		val64 = readq(&bar0->adapter_status);
+-		if (!LINK_IS_UP(val64)) {
+-			DBG_PRINT(ERR_DBG, "%s:", dev->name);
+-			DBG_PRINT(ERR_DBG, " Link down after enabling ");
+-			DBG_PRINT(ERR_DBG, "device \n");
+-		} else
+-			s2io_link(nic, LINK_UP);
++		val64 = readq(&bar0->adapter_control);
++		val64 |= ADAPTER_LED_ON;
++		writeq(val64, &bar0->adapter_control);
++		s2io_link(nic, LINK_UP);
+ 	} else {
+ 		if (CARDS_WITH_FAULTY_LINK_INDICATORS(nic->device_type,
+ 						      subid)) {
+@@ -6220,6 +6217,10 @@ static void s2io_set_link(struct work_st
+ 			writeq(val64, &bar0->gpio_control);
+ 			val64 = readq(&bar0->gpio_control);
+ 		}
++		/* turn off LED */
++		val64 = readq(&bar0->adapter_control);
++		val64 = val64 &(~ADAPTER_LED_ON);
++		writeq(val64, &bar0->adapter_control);
+ 		s2io_link(nic, LINK_DOWN);
  	}
- 
-+	/* NAPI doesn't work well with MSI(X) */
-+	 if (sp->intr_type != INTA) {
-+		if(sp->config.napi)
-+			sp->config.napi = 0;
-+	}
-+
- 	/* Initialize H/W and enable interrupts */
- 	err = s2io_card_up(sp);
- 	if (err) {
-@@ -6472,6 +6478,7 @@ static void s2io_rem_isr(struct s2io_nic
- {
- 	int cnt = 0;
- 	struct net_device *dev = sp->dev;
-+	struct swStat *stats = &sp->mac_control.stats_info->sw_stat;
- 
- 	if (sp->intr_type == MSI_X) {
- 		int i;
-@@ -6484,6 +6491,16 @@ static void s2io_rem_isr(struct s2io_nic
- 
- 			free_irq(vector, arg);
- 		}
-+
-+		kfree(sp->entries);
-+		stats->mem_freed +=
-+			(MAX_REQUESTED_MSI_X * sizeof(struct msix_entry));
-+		kfree(sp->s2io_entries);
-+		stats->mem_freed +=
-+			(MAX_REQUESTED_MSI_X * sizeof(struct s2io_msix_entry));
-+		sp->entries = NULL;
-+		sp->s2io_entries = NULL;
-+
- 		pci_read_config_word(sp->pdev, 0x42, &msi_control);
- 		msi_control &= 0xFFFE; /* Disable MSI */
- 		pci_write_config_word(sp->pdev, 0x42, msi_control);
-@@ -7379,6 +7396,8 @@ s2io_init_nic(struct pci_dev *pdev, cons
- 	dev->addr_len = ETH_ALEN;
- 	memcpy(dev->dev_addr, sp->def_mac_addr, ETH_ALEN);
- 
-+	 /* Store the values of the MSIX table in the s2io_nic structure */
-+	store_xmsi_data(sp);
- 	/* reset Nic and bring it to known state */
- 	s2io_reset(sp);
- 
-diff -urpN patch1/drivers/net/s2io.h patch2/drivers/net/s2io.h
---- patch1/drivers/net/s2io.h	2007-07-31 10:47:06.000000000 +0530
-+++ patch2/drivers/net/s2io.h	2007-07-31 10:57:35.000000000 +0530
-@@ -415,6 +415,7 @@ struct config_param {
- #define INTA	0
- #define MSI_X	2
- 	u8 intr_type;
-+	u8 napi;
- 
- 	/* Specifies if Tx Intr is UTILZ or PER_LIST type. */
- 
+ 	clear_bit(0, &(nic->link_state));
 
