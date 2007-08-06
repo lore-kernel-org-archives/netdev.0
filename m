@@ -1,35 +1,33 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] drivers/net/ibmveth.c: memset fix
-Date: Mon, 06 Aug 2007 16:44:04 -0400
-Message-ID: <46B78814.50508@pobox.com>
-References: <200708062217.04361.m.kozlowski@tuxland.pl> <46B78672.9090808@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC]: napi_struct V5
+Date: Mon, 06 Aug 2007 13:50:47 -0700 (PDT)
+Message-ID: <20070806.135047.55149298.davem@davemloft.net>
+References: <20070805.232423.21363072.davem@davemloft.net>
+	<1551EAE59135BE47B544934E30FC4FC002AABA1D@nt-irva-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Mariusz Kozlowski <m.kozlowski@tuxland.pl>, santil@us.ibm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: brking@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	jgarzik@pobox.com, hadi@cyberus.ca, rusty@rustcorp.com.au
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:34654 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756084AbXHFUoL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Aug 2007 16:44:11 -0400
-In-Reply-To: <46B78672.9090808@linux.vnet.ibm.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55523
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1761318AbXHFUus (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2007 16:50:48 -0400
+In-Reply-To: <1551EAE59135BE47B544934E30FC4FC002AABA1D@nt-irva-0751.brcm.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brian King wrote:
-> Mariusz Kozlowski wrote:
->> Hello,
->>
->> 	Looks like memset() is zeroing wrong nr of bytes.
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Mon, 6 Aug 2007 11:00:45 -0700
+
+> David Miller wrote:
 > 
-> Good catch, however, I think we can just remove this memset altogether
-> since the memory gets allocated via kzalloc.
+> > 4) NETPOLL put hopefully into a working state.
+> 
+> It's no longer necessary to change the tx locking scheme
+> in bnx2.c and tg3.c, right?  May be you forgot to revert
+> the tx locking changes you did in V4?
 
-Correct, that memset() is superfluous.
-
-	Jeff
-
-
-
+Right, I'll fix that up, thanks for catching it.
