@@ -1,36 +1,52 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: TCP's initial cwnd setting correct?...
-Date: Mon, 6 Aug 2007 21:31:22 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0708062129440.29123@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0708061508070.8788@kivilampi-30.cs.helsinki.fi>
+From: "Luck, Tony" <tony.luck@intel.com>
+Subject: RE: [2/2] 2.6.23-rc2: known regressions with patches
+Date: Mon, 6 Aug 2007 11:45:29 -0700
+Message-ID: <617E1C2C70743745A92448908E030B2A0218E076@scsmsx411.amr.corp.intel.com>
+References: <1186331976.3858.39.camel@fanta4.site>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1790435711-1186425082=:29123"
-Cc: David Miller <davem@davemloft.net>
-To: Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:45373 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755169AbXHFSbY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2007 14:31:24 -0400
-In-Reply-To: <Pine.LNX.4.64.0708061508070.8788@kivilampi-30.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Linus Torvalds" <torvalds@linux-foundation.org>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	"LKML" <linux-kernel@vger.kernel.org>,
+	"Christoph Lameter" <clameter@sgi.com>,
+	"Pekka Enberg" <penberg@cs.helsinki.fi>,
+	"Peter Zijlstra" <peterz@infradead.org>,
+	"Ingo Molnar" <mingo@elte.hu>, "Jan Dittmer" <jdi@l4x.org>,
+	"Netdev" <netdev@vger.kernel.org>,
+	"Joachim Deguara" <joachim.deguara@amd.com>,
+	"Michael Chan" <mchan@broadcom.com>, <linux-scsi@vger.kernel.org>,
+	"James Bottomley" <James.Bottomley@steeleye.com>,
+	"Matthew Wilcox" <matthew@wil.cx>,
+	"Seokmann Ju" <seokmann.ju@qlogic.com>,
+	"Richard Lary" <rlary@us.ibm.com>
+To: <trenn@suse.de>,
+	"Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <1186331976.3858.39.camel@fanta4.site>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+> > Caused-By       : Thomas Renninger <trenn@suse.de>
+> >                   commit 29b71a1ca74491fab9fed09e9d835d840d042690
 
----696243703-1790435711-1186425082=:29123
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+> A patch was sent to Tony. AFAIK it got accepted, not sure whether it
+> already is in any and which git tree...
 
-On Mon, 6 Aug 2007, Ilpo Järvinen wrote:
+The suggested patch adds manual padding to the acpi_device_id structure
+definition in include/linux/mod_devicetable.h  I didn't take it, and it
+appears that nobody else did either.  It is not in Linus' tree (as of 2.6.23-rc2).
 
-> ...Goto logic could be cleaner (somebody has any suggestion for better 
-> way to structure it?)
+I expressed doubts about whether this is the right fix.  The problem
+is that when cross-compiling a locally compiled utility makes a size &
+alignment check.  This is bogus.  We shouldn't care whether this structure
+compiles to the same size/alignment as the kernel that will use on the
+target platform.
 
-...I could probably move the setting of snd_cwnd earlier to avoid 
-this problem if this seems a valid fix at all.
+Is fixing this the right way (make the scripts/mod/file2alias.c understand
+target alignment rules in a cross environment) just too hideous to
+contemplate ... and we should just sacrifice 7 bytes of padding in
+order to keep life simple?
 
--- 
- i.
----696243703-1790435711-1186425082=:29123--
+-Tony
