@@ -1,130 +1,40 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: TCP's initial cwnd setting correct?...
-Date: Mon, 6 Aug 2007 15:37:15 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0708061508070.8788@kivilampi-30.cs.helsinki.fi>
+From: Joakim Koskela <joakim.koskela@hiit.fi>
+Subject: Re: [PATCH net-2.6.22-rc7] xfrm beet interfamily support
+Date: Mon, 6 Aug 2007 16:07:28 +0300
+Message-ID: <200708061607.28259.joakim.koskela@hiit.fi>
+References: <200707161506.47915.joakim.koskela@hiit.fi> <200708060949.58758.joakim.koskela@hiit.fi> <46B70F2C.6090807@trash.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1476037953-1186403835=:8788"
-Cc: David Miller <davem@davemloft.net>
-To: Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:43728 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932143AbXHFMhT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2007 08:37:19 -0400
+Received: from creon.otaverkko.fi ([212.68.0.5]:34158 "EHLO creon.otaverkko.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754934AbXHFNH3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Aug 2007 09:07:29 -0400
+In-Reply-To: <46B70F2C.6090807@trash.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Monday 06 August 2007 15:08:12 Patrick McHardy wrote:
+> >
+> > It's been a while, but as a fyi in case there are comments / suggestions
+> > before submitting the whole patch again - it seems that this had some
+> > problems after all. Works ok for normal cases, but fails when using ip
+> > options for the inner packet as they don't get processed after being
+> > extracted from the pseudoheader. Calling something like
+> > ip_options_compile from beet_mode's input when handling ipv4 would do the
+> > trick, but seems a bit ugly & perhaps unsafe, I'd rather just put the
+> > whole packet through the loop again.
+>
+> Won't the options get parsed by ip_rcv() on the second reception?
 
----696243703-1476037953-1186403835=:8788
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+Yes. The thing was that it seemed like we could get by with only a 
+transport-mode- amount of processing of same-family beet packets. But unless 
+we do some special processing during beet reception (which doesn't seem that 
+elegant), it won't work. So I'm changing it back to tunnel-like processing.
 
-I'm I missing something or why it seems to me that whenever rtt stuff is 
-reset, also tcp_init_cwnd is not called to do RFC3390-like initial 
-window setting (remains then in 2 which is set by tcp_v4_init_sock)...
-Is this done on purpose or what?
-
-...Another thing that makes me wonder, is the tp->mss_cache > 1460 check 
-as based on rfc3390 (and also it's precursor rfc2414) with up to 2190 
-bytes MSS TCP can use 3 as initial cwnd...
-
-...Compile tested patch below in case these are valid concerns... ...Goto 
-logic could be cleaner (somebody has any suggestion for better way to 
-structure it?)
-
--- 
- i.
-
-
-[PATCH] [TCP]: Use IW also when RTT vars get reset & update to match RFC
-
-Previously when RTT got reset, initial window was not being set.
-
-Initial window defined RFC3390 (and it's precursor 2414) allows
-using initial window of three as long as MSS < 2190 bytes.
-
-Also update RFC2414 references as it's obsoleted by RFC3390.
-
-Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
----
- net/ipv4/tcp_input.c  |   32 +++++++++++++++++---------------
- net/ipv4/tcp_output.c |    2 +-
- 2 files changed, 18 insertions(+), 16 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index eb96864..89794ec 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -805,13 +805,13 @@ void tcp_update_metrics(struct sock *sk)
- 	}
- }
- 
--/* Numbers are taken from RFC2414.  */
-+/* Numbers are taken from RFC3390.  */
- __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst)
- {
- 	__u32 cwnd = (dst ? dst_metric(dst, RTAX_INITCWND) : 0);
- 
- 	if (!cwnd) {
--		if (tp->mss_cache > 1460)
-+		if (tp->mss_cache >= 2190)
- 			cwnd = 2;
- 		else
- 			cwnd = (tp->mss_cache > 1095) ? 3 : 4;
-@@ -897,22 +897,24 @@ static void tcp_init_metrics(struct sock *sk)
- 	}
- 	tcp_set_rto(sk);
- 	tcp_bound_rto(sk);
--	if (inet_csk(sk)->icsk_rto < TCP_TIMEOUT_INIT && !tp->rx_opt.saw_tstamp)
--		goto reset;
--	tp->snd_cwnd = tcp_init_cwnd(tp, dst);
--	tp->snd_cwnd_stamp = tcp_time_stamp;
--	return;
-+
-+	if (inet_csk(sk)->icsk_rto < TCP_TIMEOUT_INIT && !tp->rx_opt.saw_tstamp) {
- 
- reset:
--	/* Play conservative. If timestamps are not
--	 * supported, TCP will fail to recalculate correct
--	 * rtt, if initial rto is too small. FORGET ALL AND RESET!
--	 */
--	if (!tp->rx_opt.saw_tstamp && tp->srtt) {
--		tp->srtt = 0;
--		tp->mdev = tp->mdev_max = tp->rttvar = TCP_TIMEOUT_INIT;
--		inet_csk(sk)->icsk_rto = TCP_TIMEOUT_INIT;
-+		/* Play conservative. If timestamps are not
-+		 * supported, TCP will fail to recalculate correct
-+		 * rtt, if initial rto is too small. FORGET ALL AND RESET!
-+		 */
-+		if (!tp->rx_opt.saw_tstamp && tp->srtt) {
-+			tp->srtt = 0;
-+			tp->mdev = tp->mdev_max = tp->rttvar = TCP_TIMEOUT_INIT;
-+			inet_csk(sk)->icsk_rto = TCP_TIMEOUT_INIT;
-+		}
- 	}
-+
-+	tp->snd_cwnd = tcp_init_cwnd(tp, dst);
-+	tp->snd_cwnd_stamp = tcp_time_stamp;
-+	return;
- }
- 
- static void tcp_update_reordering(struct sock *sk, const int metric,
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 3abe22e..4f9be23 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -209,7 +209,7 @@ void tcp_select_initial_window(int __space, __u32 mss,
- 	}
- 
- 	/* Set initial window to value enough for senders,
--	 * following RFC2414. Senders, not following this RFC,
-+	 * following RFC3390. Senders, not following this RFC,
- 	 * will be satisfied with 2.
- 	 */
- 	if (mss > (1<<*rcv_wscale)) {
--- 
-1.5.0.6
-
----696243703-1476037953-1186403835=:8788--
+br, j
