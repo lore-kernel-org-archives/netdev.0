@@ -1,51 +1,92 @@
-From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
-Subject: Re: [PATCH] drivers/net/ibmveth.c: memset fix
-Date: Mon, 6 Aug 2007 23:44:03 +0200
-Message-ID: <200708062344.03443.m.kozlowski@tuxland.pl>
-References: <200708062217.04361.m.kozlowski@tuxland.pl> <46B78672.9090808@linux.vnet.ibm.com> <46B78814.50508@pobox.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: [PATCH] e1000e: New pci-express e1000 driver (currently for ICH9
+ devices only)
+Date: Mon, 06 Aug 2007 14:57:08 -0700
+Message-ID: <46B79934.8010405@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-2"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: brking@linux.vnet.ibm.com, santil@us.ibm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933007AbXHFVoZ@vger.kernel.org>
-In-Reply-To: <46B78814.50508@pobox.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Andrew Morton <akpm@osdl.org>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	Auke Kok <auke-jan.h.kok@intel.com>
+To: Jeff Garzik <jgarzik@pobox.com>, NetDev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:64634 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756513AbXHFV5K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Aug 2007 17:57:10 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> >> 	Looks like memset() is zeroing wrong nr of bytes.
-> > 
-> > Good catch, however, I think we can just remove this memset altogether
-> > since the memory gets allocated via kzalloc.
-> 
-> Correct, that memset() is superfluous.
 
-Ok. Then this should do it.
 
-Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+All,
 
- drivers/net/ibmveth.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Another update on e1000e. Many thanks to Jeff for helping out and getting this 
+going forward. The driver is unfortunately still too large to post, so please 
+use the URL's below to review:
 
---- linux-2.6.23-rc1-mm2-a/drivers/net/ibmveth.c	2007-08-01 08:43:46.000000000 +0200
-+++ linux-2.6.23-rc1-mm2-b/drivers/net/ibmveth.c	2007-08-06 23:32:13.000000000 +0200
-@@ -963,7 +963,7 @@ static int __devinit ibmveth_probe(struc
- {
- 	int rc, i;
- 	struct net_device *netdev;
--	struct ibmveth_adapter *adapter = NULL;
-+	struct ibmveth_adapter *adapter;
+   http://foo-projects.org/~sofar/e1000e-20070806.patch     [525k]
+   http://foo-projects.org/~sofar/e1000e-20070806.patch.bz2  [90k]
 
- 	unsigned char *mac_addr_p;
- 	unsigned int *mcastFilterSize_p;
-@@ -997,7 +997,6 @@ static int __devinit ibmveth_probe(struc
- 	SET_MODULE_OWNER(netdev);
+   git://lost.foo-projects.org/~ahkok/git/linux-2.6 e1000e-20070806
 
- 	adapter = netdev->priv;
--	memset(adapter, 0, sizeof(adapter));
- 	dev->dev.driver_data = netdev;
+Please note that the non-ICH9 device IDs are disabled, but this driver will 
+(once you put them back in) properly work with all the current pci-e adapters 
+that e1000 supports. Once this driver gets merged we'll move those devices over 
+one by one.
 
- 	adapter->vdev = dev;
+Cheers,
+
+Auke
+
+
+
+---
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Date: Mon, 6 Aug 2007 14:14:44 -0700
+Subject: [PATCH] e1000e: New pci-express e1000 driver (currently for ICH9 
+devices only)
+
+This driver implements support for the ICH9 on-board LAN ethernet
+device. The device is similar to ICH8.
+
+The driver encompasses code to support 82571/2/3, es2lan and ICH8
+devices as well, but those device IDs are disabled and will be
+"lifted" from the e1000 driver over one at a time once this driver
+receives some more live time.
+
+Changes to the last snapshot posted are exclusively in the internal
+hardware API organization. Many thanks to Jeff Garzik for jumping in
+and getting this organized with a keen eye on the future layout.
+
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
+  drivers/net/Kconfig          |   23 +
+  drivers/net/Makefile         |    1 +
+  drivers/net/e1000e/82571.c   | 1382 +++++++++++++
+  drivers/net/e1000e/Makefile  |   37 +
+  drivers/net/e1000e/defines.h |  738 +++++++
+  drivers/net/e1000e/e1000.h   |  518 +++++
+  drivers/net/e1000e/es2lan.c  | 1255 ++++++++++++
+  drivers/net/e1000e/ethtool.c | 1763 +++++++++++++++++
+  drivers/net/e1000e/hw.h      |  862 +++++++++
+  drivers/net/e1000e/ich8lan.c | 2297 ++++++++++++++++++++++
+  drivers/net/e1000e/lib.c     | 2528 ++++++++++++++++++++++++
+  drivers/net/e1000e/netdev.c  | 4413 ++++++++++++++++++++++++++++++++++++++++++
+  drivers/net/e1000e/param.c   |  382 ++++
+  drivers/net/e1000e/phy.c     | 1821 +++++++++++++++++
+  14 files changed, 18020 insertions(+), 0 deletions(-)
+  create mode 100644 drivers/net/e1000e/82571.c
+  create mode 100644 drivers/net/e1000e/Makefile
+  create mode 100644 drivers/net/e1000e/defines.h
+  create mode 100644 drivers/net/e1000e/e1000.h
+  create mode 100644 drivers/net/e1000e/es2lan.c
+  create mode 100644 drivers/net/e1000e/ethtool.c
+  create mode 100644 drivers/net/e1000e/hw.h
+  create mode 100644 drivers/net/e1000e/ich8lan.c
+  create mode 100644 drivers/net/e1000e/lib.c
+  create mode 100644 drivers/net/e1000e/netdev.c
+  create mode 100644 drivers/net/e1000e/param.c
+  create mode 100644 drivers/net/e1000e/phy.c
