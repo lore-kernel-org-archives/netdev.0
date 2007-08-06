@@ -1,93 +1,88 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: Re: [PATCH 1/1] lro: Generic Large Receive Offload for TCP traffic
-Date: Mon, 6 Aug 2007 09:51:11 +0200
-Message-ID: <200708060951.12408.ossthema@de.ibm.com>
-References: <200708031441.20632.ossthema@de.ibm.com> <20070803134150.GH19344@lazybastard.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Distributed storage.
+Date: Mon, 6 Aug 2007 12:25:35 +0400
+Message-ID: <20070806082535.GB21909@2ka.mipt.ru>
+References: <20070731171347.GA14267@2ka.mipt.ru> <200708050104.19596.phillips@phunq.net> <20070805150824.GB32132@2ka.mipt.ru> <200708051423.45484.phillips@phunq.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Gallatin <gallatin@myri.com>,
-	Jeff Garzik <jeff@garzik.org>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>
-To: =?utf-8?q?J=C3=B6rn_Engel?= <joern@logfs.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>
+To: Daniel Phillips <phillips@phunq.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.de.ibm.com ([195.212.29.157]:19428 "EHLO
-	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754896AbXHFIVG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2007 04:21:06 -0400
-In-Reply-To: <20070803134150.GH19344@lazybastard.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:51025 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755925AbXHFI1u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Aug 2007 04:27:50 -0400
 Content-Disposition: inline
+In-Reply-To: <200708051423.45484.phillips@phunq.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi J=C3=B6rn
+On Sun, Aug 05, 2007 at 02:23:45PM -0700, Daniel Phillips (phillips@phunq.net) wrote:
+> On Sunday 05 August 2007 08:08, Evgeniy Polyakov wrote:
+> > If we are sleeping in memory pool, then we already do not have memory
+> > to complete previous requests, so we are in trouble.
+> 
+> Not at all.  Any requests in flight are guaranteed to get the resources 
+> they need to complete.  This is guaranteed by the combination of memory 
+> reserve management and request queue throttling.  In logical terms, 
+> reserve management plus queue throttling is necessary and sufficient to 
+> prevent these deadlocks.  Conversely, the absence of either one allows 
+> deadlock.
 
-On Friday 03 August 2007 15:41, J=C3=B6rn Engel wrote:
-> On Fri, 3 August 2007 14:41:19 +0200, Jan-Bernd Themann wrote:
-> >=20
-> > This patch provides generic Large Receive Offload (LRO) functionali=
-ty
-> > for IPv4/TCP traffic.
-> >=20
-> > LRO combines received tcp packets to a single larger tcp packet and=
-=20
-> > passes them then to the network stack in order to increase performa=
-nce
-> > (throughput). The interface supports two modes: Drivers can either =
-pass
-> > SKBs or fragment lists to the LRO engine.=20
->=20
-> Maybe this is a stupid question, but why is LRO done at the device
-> driver level?
->=20
-> If it is a unversal performance benefit, I would have expected it to =
-be
-> done generically, i.e. have all packets moved into network layer pass
-> through LRO instead.
+Only if you have two, which must be closely related to each other (i.e.
+each request  must have network reserve big enough to store data).
 
-The driver seems to be the right place:
--  There is the "page mode" interface that accepts fragment lists inste=
-ad of
-   SKBs and does generate SKBs only in the end (see Andrew Gallatins=20
-   mails where he described the advantages of this approach)
+> > This can work 
+> > for devices which do not require additional allocations (like usual
+> > local storage), but not for network connected ones.
+> 
+> It works for network devices too, and also for a fancy device like 
+> ddsnap, which is the moral equivalent of a filesystem implemented in 
+> user space.
 
--  Some drivers (in particular for 10G NICs which actually could benefi=
-t
-   from LRO) have multiple HW receive queues that do some sort of sorti=
-ng,
-   thus using one lro_mgr per queue increases the likelyhood of beeing =
-able
-   to do efficient LRO.
-  =20
+With or without vm deadlock patches? I can not see how it can work, if
+network does not have a reserve and there is not free memory completely.
+If all systems have reserve then yes, it works good.
 
-> > +void lro_flush_pkt(struct net_lro_mgr *lro_mgr,
-> > +		   struct iphdr *iph, struct tcphdr *tcph);
+> > By default things will be like they are now, except additional
+> > non-atomic increment and branch in generic_make_request() and
+> > decrement and wake in bio_end_io()?
+> 
+> ->endio is called in interrupt context, so the accounting needs to be 
+> atomic as far as I can see.
 
-> In particular this bit looks like it should be driven by a timeout,
-> which would be settable via /proc/sys/net/core/lro_timeout or similar=
-=2E
+Actually we only care about if there is a place in the queue or not - so
+it can be a flag. Actually non-atomic operations are ok, since having
+plus/minus couple of requests in flight does not change the picture, but
+allows not to introduce slow atomic operations in the fast path.
 
-No, this function is needed for "page mode" as some HW provides
-extra handling for small packets where packets are not stored in preall=
-ocated=20
-pages but in extra queues. Thus the driver needs a way to flush old ses=
-sions
-for this connection and handle these packets in a different way (for ex=
-ample=20
-create a SKB and copy the data there).
+> We actually account the total number of bio pages in flight, otherwise 
+> you would need to assume the largest possible bio and waste a huge 
+> amount of reserve memory.  A counting semaphore works fine for this 
+> purpose, with some slight inefficiency that is nigh on unmeasurable in 
+> the block IO path.  What the semaphore does is make the patch small and 
+> easy to understand, which is important at this point.
 
-Timeouts are not used at all. Experiments showed that flushing at the e=
-nd=20
-of a NAPI poll round seems to be sufficient (see Andrew's test results)
-and does not affect the latency too badly.
+Yes, it can be bio vectors.
 
-Regards,
-Jan-Bernd
+> > I can cook up such a patch if idea worth efforts.
+> 
+> It is.  There are some messy details...  You need a place to store the 
+> accounting variable/semaphore and need to be able to find that place 
+> again in ->endio.  Trickier than it sounds, because of the unstructured 
+> way drivers rewrite ->bi_bdev.   Peterz has already poked at this in a 
+> number of different ways, typically involving backing_dev_info, which 
+> seems like a good idea to me.
+
+We can demand that reserve is not per virtual device, but per real one -
+for example in case of distributed storage locally connected node should
+have much higher limit than network one, but having a per-virtual device
+reserve might end up with situation, when local node can proceed data,
+but no requests will be queued sine all requests below limit are in
+network node. In case of per real device limit there is no need to
+increase bio.
+
+-- 
+	Evgeniy Polyakov
