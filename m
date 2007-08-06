@@ -1,63 +1,126 @@
-From: Aurelien Jarno <aurelien@aurel32.net>
-Subject: [PATCH] Fix MII interface of the B44 driver
-Date: Mon, 6 Aug 2007 22:21:42 +0200
-Message-ID: <20070806202142.GA4862@hall.aurel32.net>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Please pull 'fixes-davem' branch of wireless-2.6
+Date: Mon, 6 Aug 2007 16:13:21 -0400
+Message-ID: <20070806201321.GI6442@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: netdev@vger.kernel.org
-To: Michael Buesch <mb@bu3sch.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hall.aurel32.net ([88.191.38.19]:55297 "EHLO hall.aurel32.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760975AbXHFUVn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Aug 2007 16:21:43 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The conversion of the B44 driver to SSB bus added the functions
-__b44_{read,write}phy functions that have an argument phy_id. This gives
-a way to fix the b44_mii_{read,write} functions used for MII interfaces.
+Some fixes intended for 2.6.23.  Individual patches available here:
 
-The patch below does that. It allows B44 devices with integrated switch
-to be configured from userland.
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/fixes-davem/
 
-Signed-off-by: Aurelien Jarno <aurelien@aurel32.net>
+Thanks!
 
-diff --git a/drivers/net/b44.c b/drivers/net/b44.c
-index 36724fb..e6883f4 100644
---- a/drivers/net/b44.c
-+++ b/drivers/net/b44.c
-@@ -300,16 +300,11 @@ static inline int b44_writephy(struct b44 *bp, int reg, u32 val)
+John
+---
+
+The following changes since commit d4ac2477fad0f2680e84ec12e387ce67682c5c13:
+  Linus Torvalds (1):
+        Linux 2.6.23-rc2
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git fixes-davem
+
+Daniel Drake (2):
+      mac80211: missing dev_put in ieee80211_master_start_xmit
+      mac80211: don't allow scanning in monitor mode
+
+Zhu Yi (2):
+      mac80211: use do { } while (0) for multi-line macros
+      mac80211: Fix sparse error for sta_last_seq_ctrl_read
+
+ net/mac80211/debugfs_netdev.c  |    8 +++++---
+ net/mac80211/debugfs_sta.c     |    2 +-
+ net/mac80211/ieee80211.c       |    1 +
+ net/mac80211/ieee80211_ioctl.c |   19 +++++++++++++------
+ 4 files changed, 20 insertions(+), 10 deletions(-)
+
+diff --git a/net/mac80211/debugfs_netdev.c b/net/mac80211/debugfs_netdev.c
+index 799a920..095be91 100644
+--- a/net/mac80211/debugfs_netdev.c
++++ b/net/mac80211/debugfs_netdev.c
+@@ -271,9 +271,11 @@ static void add_files(struct ieee80211_sub_if_data *sdata)
+ 	}
  }
  
- /* miilib interface */
--/* FIXME FIXME: phy_id is ignored, bp->phy_addr use is unconditional
-- * due to code existing before miilib use was added to this driver.
-- * Someone should remove this artificial driver limitation in
-- * b44_{read,write}phy.  bp->phy_addr itself is fine (and needed).
-- */
- static int b44_mii_read(struct net_device *dev, int phy_id, int location)
+-#define DEBUGFS_DEL(name, type)\
+-	debugfs_remove(sdata->debugfs.type.name);\
+-	sdata->debugfs.type.name = NULL;
++#define DEBUGFS_DEL(name, type)					\
++	do {							\
++		debugfs_remove(sdata->debugfs.type.name);	\
++		sdata->debugfs.type.name = NULL;		\
++	} while (0)
+ 
+ static void del_sta_files(struct ieee80211_sub_if_data *sdata)
  {
- 	u32 val;
- 	struct b44 *bp = netdev_priv(dev);
--	int rc = b44_readphy(bp, location, &val);
-+	int rc = __b44_readphy(bp, phy_id, location, &val);
- 	if (rc)
- 		return 0xffffffff;
- 	return val;
-@@ -319,7 +314,7 @@ static void b44_mii_write(struct net_device *dev, int phy_id, int location,
- 			 int val)
- {
- 	struct b44 *bp = netdev_priv(dev);
--	b44_writephy(bp, location, val);
-+	__b44_writephy(bp, phy_id, location, val);
+diff --git a/net/mac80211/debugfs_sta.c b/net/mac80211/debugfs_sta.c
+index d41e696..da34ea7 100644
+--- a/net/mac80211/debugfs_sta.c
++++ b/net/mac80211/debugfs_sta.c
+@@ -157,7 +157,7 @@ static ssize_t sta_last_seq_ctrl_read(struct file *file, char __user *userbuf,
+ 	struct sta_info *sta = file->private_data;
+ 	for (i = 0; i < NUM_RX_DATA_QUEUES; i++)
+ 		p += scnprintf(p, sizeof(buf)+buf-p, "%x ",
+-			       sta->last_seq_ctrl[i]);
++			       le16_to_cpu(sta->last_seq_ctrl[i]));
+ 	p += scnprintf(p, sizeof(buf)+buf-p, "\n");
+ 	return simple_read_from_buffer(userbuf, count, ppos, buf, p - buf);
+ }
+diff --git a/net/mac80211/ieee80211.c b/net/mac80211/ieee80211.c
+index c944b17..8ec5ed1 100644
+--- a/net/mac80211/ieee80211.c
++++ b/net/mac80211/ieee80211.c
+@@ -1650,6 +1650,7 @@ static int ieee80211_master_start_xmit(struct sk_buff *skb,
+ 	if (skb_headroom(skb) < headroom) {
+ 		if (pskb_expand_head(skb, headroom, 0, GFP_ATOMIC)) {
+ 			dev_kfree_skb(skb);
++			dev_put(odev);
+ 			return 0;
+ 		}
+ 	}
+diff --git a/net/mac80211/ieee80211_ioctl.c b/net/mac80211/ieee80211_ioctl.c
+index d0e1ab5..e7904db 100644
+--- a/net/mac80211/ieee80211_ioctl.c
++++ b/net/mac80211/ieee80211_ioctl.c
+@@ -697,17 +697,24 @@ static int ieee80211_ioctl_siwscan(struct net_device *dev,
+ 	if (!netif_running(dev))
+ 		return -ENETDOWN;
+ 
+-	if (local->scan_flags & IEEE80211_SCAN_MATCH_SSID) {
+-		if (sdata->type == IEEE80211_IF_TYPE_STA ||
+-		    sdata->type == IEEE80211_IF_TYPE_IBSS) {
++	switch (sdata->type) {
++	case IEEE80211_IF_TYPE_STA:
++	case IEEE80211_IF_TYPE_IBSS:
++		if (local->scan_flags & IEEE80211_SCAN_MATCH_SSID) {
+ 			ssid = sdata->u.sta.ssid;
+ 			ssid_len = sdata->u.sta.ssid_len;
+-		} else if (sdata->type == IEEE80211_IF_TYPE_AP) {
++		}
++		break;
++	case IEEE80211_IF_TYPE_AP:
++		if (local->scan_flags & IEEE80211_SCAN_MATCH_SSID) {
+ 			ssid = sdata->u.ap.ssid;
+ 			ssid_len = sdata->u.ap.ssid_len;
+-		} else
+-			return -EINVAL;
++		}
++		break;
++	default:
++		return -EOPNOTSUPP;
+ 	}
++
+ 	return ieee80211_sta_req_scan(dev, ssid, ssid_len);
  }
  
- static int b44_phy_reset(struct b44 *bp)
-
 -- 
-  .''`.  Aurelien Jarno	            | GPG: 1024D/F1BCDB73
- : :' :  Debian developer           | Electrical Engineer
- `. `'   aurel32@debian.org         | aurelien@aurel32.net
-   `-    people.debian.org/~aurel32 | www.aurel32.net
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
