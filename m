@@ -1,155 +1,91 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: Please pull 'libertas-upstream' branch of wireless-2.6
-Date: Mon, 06 Aug 2007 18:10:28 -0400
-Message-ID: <1186438228.2861.9.camel@xo-13-A4-25.localdomain>
-References: <20070806203005.GL6442@tuxdriver.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 0/2] r8169: pull request for 'r8169-for-jeff-20070806' branch
+Date: Tue, 7 Aug 2007 00:16:12 +0200
+Message-ID: <20070806221612.GA23302@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070806203005.GL6442-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
+To: jgarzik@pobox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:38002 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759592AbXHFWVb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Aug 2007 18:21:31 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-08-06 at 16:30 -0400, John W. Linville wrote:
-> Got a big patch bomb from the libertas guys.  I tried to cherry-pick
-> some of the fixes for 2.6.23, but they either were fixes to problems
-> in new code or all the code cleanups made them difficult for me to
-> intelligently backport.
-> 
-> So, this is intended for 2.6.24...
+Please pull from branch 'r8169-for-jeff-20070806' in repository
 
-Sounds fine to me...  we did miss the merge window :)
+git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git r8169-for-jeff-20070806
 
-Dan
+to get the changes below.
 
-> 
-> ---
-> 
-> The following changes since commit d4ac2477fad0f2680e84ec12e387ce67682c5c13:
->   Linus Torvalds (1):
->         Linux 2.6.23-rc2
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git libertas-upstream
-> 
-> Dan Williams (27):
->       libertas: kill ieeetypes_capinfo bitfield, use ieee80211.h types
->       libertas: rename WLAN_802_11_KEY to enc_key and clean up usage
->       libertas: clean up indentation in libertas_association_worker
->       libertas: clean up 802.11 IE post-scan handling
->       libertas: remove if_bootcmd.c
->       libertas: fix mixed-case abuse in cmd_ds_802_11_scan
->       libertas: fix mixed-case abuse in cmd_ds_802_11_ad_hoc_result
->       libertas: fix mixed-case abuse in cmd_ds_802_11_ad_hoc_start
->       libertas: re-uppercase command defines and other constants
->       libertas: fix debug build breakage due to field rename
->       libertas: remove thread.h and make kthread usage clearer
->       libertas: new mesh control knobs
->       libertas: bump version to 322.p1
->       libertas: fix more mixed-case abuse
->       libertas: move generic firmware reset command to common code
->       libertas: wlan_ -> libertas_ function prefix renames for main.c
->       libertas: simplify and clean up data rate handling
->       libertas: fix WEXT quality reporting
->       libertas: send association events on adhoc reassociation
->       libertas: push mesh beacon bit to userspace in scan results
->       libertas: fix assignment of WEP key type
->       libertas: push WEXT scan requests to a work queue
->       libertas: fix misspelling in debug message
->       libertas: ignore spurious mesh autostart events
->       libertas: better descriptions for association errors
->       libertas: fix sparse-reported problems
->       libertas: bump driver version
-> 
-> Eugene Teo (1):
->       drivers/net/wireless/libertas/cmd.c: fix adapter->driver_lock dereference
-> 
-> Holger Schurig (33):
->       libertas: remove fw.c
->       libertas: fix one more sparse warning
->       libertas: make more functions static & remove unused functions
->       libertas: uppercase some #defines
->       libertas: access mesh_dev more carefully
->       libertas: tune hardware info output
->       libertas: remove debugmode
->       libertas: make the hex dumper nicer
->       libertas: remove a hundred CMD_RET_xxx definitions
->       libertas: use LBS_DEB_HOST for host-to-card communications
->       libertas: use LBS_DEB_HOST for host-to-card communications
->       add support for Marvell 8385 CF cards
->       libertas: remove unused adapter->prev_XXXX variables
->       libertas: remove adapter->{rx,tx}antenna
->       libertas: remove adapter->prescan
->       libertas: remove adapter->scanprobes
->       libertas: remove adapter->pkttxctrl
->       libertas: remove adapter->txrate
->       libertas: remove adapter->rxpd_rate
->       libertas: remove adapter->{data,bcn}_avg_factor
->       libertas: remove adapter->nullpktinterval
->       libertas: remove adapter->locallisteninterval
->       libertas: remove adapter->multipledtim
->       libertas: remove adapter->atimwindow
->       libertas: remove adapter->regiontableindex
->       libertas: remove adapter->listeninterval
->       libertas: remove adapter->adhoc_grate_enabled
->       libertas: remove adapter->beaconperiod
->       libertas: remove adapter->scanmode
->       libertas: remove adapter->scantype
->       libertas: remove bss_descriptior->networktsf
->       libertas: remove bss_descriptor->timestamp
->       libertas: fix two debug statements in cmdresp.c
-> 
-> Jean Tourrilhes (1):
->       libertas: fix a few wext abuses...
-> 
-> Luis Carlos Cobo (7):
->       libertas: specific mesh scan for mshX interface
->       Support for mesh autostart deactivation through sysfs
->       libertas: Avoid MESH_AUTOSTARTED spam on console
->       libertas: revert CAPINFO_MASK to its original value
->       libertas: keep mesh autostart enabled while asleep
->       libertas: monitor mode support for OLPC firmware
->       libertas: pass boot2 version to firmware
-> 
->  drivers/net/wireless/Kconfig               |    7 +
->  drivers/net/wireless/Makefile              |    2 +-
->  drivers/net/wireless/libertas/11d.c        |  124 ++---
->  drivers/net/wireless/libertas/11d.h        |    4 -
->  drivers/net/wireless/libertas/Makefile     |    5 +-
->  drivers/net/wireless/libertas/assoc.c      |   99 ++--
->  drivers/net/wireless/libertas/assoc.h      |    2 +-
->  drivers/net/wireless/libertas/cmd.c        |  664 +++++++++---------
->  drivers/net/wireless/libertas/cmdresp.c    |  368 +++++------
->  drivers/net/wireless/libertas/debugfs.c    |  137 ++--
->  drivers/net/wireless/libertas/decl.h       |   18 +-
->  drivers/net/wireless/libertas/defs.h       |  157 +++---
->  drivers/net/wireless/libertas/dev.h        |   77 +--
->  drivers/net/wireless/libertas/ethtool.c    |    8 +-
->  drivers/net/wireless/libertas/fw.c         |  349 ----------
->  drivers/net/wireless/libertas/host.h       |  445 ++++++-------
->  drivers/net/wireless/libertas/hostcmd.h    |   81 +--
->  drivers/net/wireless/libertas/if_bootcmd.c |   40 --
->  drivers/net/wireless/libertas/if_cs.c      | 1005 ++++++++++++++++++++++++++++
->  drivers/net/wireless/libertas/if_usb.c     |  209 +++++--
->  drivers/net/wireless/libertas/if_usb.h     |    4 -
->  drivers/net/wireless/libertas/join.c       |  474 +++++++------
->  drivers/net/wireless/libertas/join.h       |   35 +-
->  drivers/net/wireless/libertas/main.c       |  752 ++++++++++++++++++----
->  drivers/net/wireless/libertas/rx.c         |   85 +--
->  drivers/net/wireless/libertas/scan.c       |  585 +++++++----------
->  drivers/net/wireless/libertas/scan.h       |   36 +-
->  drivers/net/wireless/libertas/thread.h     |   52 --
->  drivers/net/wireless/libertas/tx.c         |   41 +-
->  drivers/net/wireless/libertas/types.h      |   67 +--
->  drivers/net/wireless/libertas/wext.c       |  391 ++++--------
->  drivers/net/wireless/libertas/wext.h       |    9 +-
->  32 files changed, 3512 insertions(+), 2820 deletions(-)
->  delete mode 100644 drivers/net/wireless/libertas/fw.c
->  delete mode 100644 drivers/net/wireless/libertas/if_bootcmd.c
->  create mode 100644 drivers/net/wireless/libertas/if_cs.c
->  delete mode 100644 drivers/net/wireless/libertas/thread.h
+Distance from 'upstream-fixes' (c196d80f994ef4ffefd5a7c62e3f42bd75d538bc)
+-------------------------------------------------------------------------
+
+313b0305b5a1e7e0fb39383befbf79558ce68a9c
+2584fbc3a61897de5eddd56b39a4fa9cd074eca2
+
+Diffstat
+--------
+
+ drivers/net/r8169.c |   24 ++++++++++++++++--------
+ 1 files changed, 16 insertions(+), 8 deletions(-)
+
+Shortlog
+--------
+
+Francois Romieu (1):
+      r8169: avoid needless NAPI poll scheduling
+
+Roger So (1):
+      r8169: PHY power-on fix
+
+Patch
+-----
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index bb6896a..631e55d 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -725,6 +725,12 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
+ 
+ 	auto_nego |= ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM;
+ 
++	if (tp->mac_version == RTL_GIGA_MAC_VER_12) {
++		/* Vendor specific (0x1f) and reserved (0x0e) MII registers. */
++		mdio_write(ioaddr, 0x1f, 0x0000);
++		mdio_write(ioaddr, 0x0e, 0x0000);
++	}
++
+ 	tp->phy_auto_nego_reg = auto_nego;
+ 	tp->phy_1000_ctrl_reg = giga_ctrl;
+ 
+@@ -2761,14 +2767,16 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+ 			rtl8169_check_link_status(dev, tp, ioaddr);
+ 
+ #ifdef CONFIG_R8169_NAPI
+-		RTL_W16(IntrMask, tp->intr_event & ~tp->napi_event);
+-		tp->intr_mask = ~tp->napi_event;
+-
+-		if (likely(netif_rx_schedule_prep(dev)))
+-			__netif_rx_schedule(dev);
+-		else if (netif_msg_intr(tp)) {
+-			printk(KERN_INFO "%s: interrupt %04x taken in poll\n",
+-			       dev->name, status);
++		if (status & tp->napi_event) {
++			RTL_W16(IntrMask, tp->intr_event & ~tp->napi_event);
++			tp->intr_mask = ~tp->napi_event;
++
++			if (likely(netif_rx_schedule_prep(dev)))
++				__netif_rx_schedule(dev);
++			else if (netif_msg_intr(tp)) {
++				printk(KERN_INFO "%s: interrupt %04x in poll\n",
++				       dev->name, status);
++			}
+ 		}
+ 		break;
+ #else
+-- 
+Ueimor
