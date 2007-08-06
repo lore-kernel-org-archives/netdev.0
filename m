@@ -1,55 +1,79 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: Re: 2.6.20->2.6.21 - networking dies after random time
-Date: Mon, 06 Aug 2007 13:43:48 -0400
-Message-ID: <46B75DD4.5080709@redhat.com>
-References: <1185322771.4175.102.camel@chaos> <4bacf17f0707260016x14fc1c92s628ae64353663833@mail.gmail.com> <20070726081326.GA3197@ff.dom.local> <1185437431.3227.21.camel@chaos> <20070726083120.GA26910@elte.hu> <20070726085523.GA3423@ff.dom.local> <20070726091254.GA8063@elte.hu> <4bacf17f0707300029g5116e70bq4808059dc8b069f1@mail.gmail.com> <20070731132037.GC1046@ff.dom.local> <4bacf17f0708060000n5a00bb77i74adc3b4b28ac42b@mail.gmail.com> <20070806070300.GA4509@elte.hu>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: Support for Intel 82562V-2?
+Date: Mon, 6 Aug 2007 10:54:56 -0700
+Message-ID: <BD524EA7912ED5469DFD0BAEF6BC752F0256D088@orsmsx411.amr.corp.intel.com>
+References: <20070806163819.GA18130@gateway.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?TWFyY2luIMWabHVzYXJ6?= <marcin.slusarz@gmail.com>,
-	Jarek Poplawski <jarkao2@o2.pl>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "Erik Mouw" <mouw@nl.linux.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:47469 "EHLO mx1.redhat.com"
+Received: from mga02.intel.com ([134.134.136.20]:11393 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752019AbXHFRoK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Aug 2007 13:44:10 -0400
-In-Reply-To: <20070806070300.GA4509@elte.hu>
+	id S1753339AbXHFRzK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2007 13:55:10 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20070806163819.GA18130@gateway.home>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/06/2007 03:03 AM, Ingo Molnar wrote:
-> 
-> But, since level types don't need this retriggers too much I think
-> this "don't mask interrupts by default" idea should be rethinked:
-> is there enough gain to risk such hard to diagnose errors?
->   
-> 
+While that is a "10/100 network connection", it is actually a GigE MAC
+with a 10/100 PHY and will be supported by the e1000e driver that is
+currently in the process of final cleanup before getting into the
+upstream kernel.
 
-I reverted those masking changes in Fedora and the baffling problem
-with 3Com 3C905 network adapters went away.
+If you must use it now, you can grab the latest out-of-tree version of
+the e1000 driver from http://e1000.sf.net which has support for that
+device.  There are no plans for adding support for this device to the
+in-tree e1000 driver.
 
-Before, they would print:
+-----Original Message-----
+From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+On Behalf Of Erik Mouw
+Sent: Monday, August 06, 2007 9:38 AM
+To: netdev@vger.kernel.org
+Subject: Support for Intel 82562V-2?
 
-eth0: transmit timed out, tx_status 00 status e601.
-  diagnostics: net 0ccc media 8880 dma 0000003a fifo 0000
-eth0: Interrupt posted but not delivered -- IRQ blocked by another device?
-  Flags; bus-master 1, dirty 295757(13) current 295757(13)
-  Transmit list 00000000 vs. f7150a20.
-  0: @f7150200  length 80000070 status 0c010070
-  1: @f71502a0  length 80000070 status 0c010070
-  2: @f7150340  length 8000005c status 0c01005c
+Hi,
 
-Now they just work, apparently...
+Just got a brand new Dell Vostro and it appears to have an unsupported
+Intel network card:
 
-So why not just revert the change?
+00:19.0 Ethernet controller: Intel Corporation 82562V-2 10/100 Network
+Connection (rev 02)
+	Subsystem: Dell Unknown device 0238
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR-
+	Latency: 0
+	Interrupt: pin A routed to IRQ 10
+	Region 0: Memory at fdfc0000 (32-bit, non-prefetchable)
+[size=128K]
+	Region 1: Memory at fdfff000 (32-bit, non-prefetchable)
+[size=4K]
+	Region 2: I/O ports at fe00 [size=32]
+	Capabilities: [c8] Power Management version 2
+		Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA
+PME(D0+,D1-,D2-,D3hot+,D3cold+)
+		Status: D0 PME-Enable- DSel=0 DScale=1 PME-
+	Capabilities: [d0] Message Signalled Interrupts: Mask- 64bit+
+Queue=0/0 Enable-
+		Address: 0000000000000000  Data: 0000
+	Capabilities: [e0] Vendor Specific Information
+00: 86 80 c0 10 07 00 10 00 02 00 00 02 00 00 00 00
+10: 00 00 fc fd 00 f0 ff fd 01 fe 00 00 00 00 00 00
+20: 00 00 00 00 00 00 00 00 00 00 00 00 28 10 38 02
+30: 00 00 00 00 c8 00 00 00 00 00 00 00 0a 01 00 00
 
+The e100 driver doesn't recognise it and the "old" eepro100 also
+doesn't. Would it be enought to add the PCI ID to one of these drivers
+to get the card supported?
+
+
+Erik
+
+-- 
+They're all fools. Don't worry. Darwin may be slow, but he'll
+eventually get them. -- Matthew Lammers in alt.sysadmin.recovery
