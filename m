@@ -1,63 +1,52 @@
-From: Erik Mouw <mouw@nl.linux.org>
-Subject: Re: Support for Intel 82562V-2?
-Date: Mon, 6 Aug 2007 21:54:07 +0200
-Message-ID: <20070806195407.GB18130@gateway.home>
-References: <20070806163819.GA18130@gateway.home> <BD524EA7912ED5469DFD0BAEF6BC752F0256D088@orsmsx411.amr.corp.intel.com>
+From: "Jean-Baptiste Vignaud" <vignaud@xandmail.fr>
+Subject: Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Mon,  6 Aug 2007 21:36:15 +0200
+Message-ID: <JMDAGF$E41775B89CFE6CA59D87D92B60DD7A0B@xandmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="TRYliJ5NKNqkz5bu"
-Cc: netdev@vger.kernel.org
-To: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: "cebbert" <cebbert@redhat.com>,
+	"marcin\.slusarz" <marcin.slusarz@gmail.com>,
+	"jarkao2" <jarkao2@o2.pl>, "tglx" <tglx@linutronix.de>,
+	"torvalds" <torvalds@linux-foundation.org>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"shemminger" <shemminger@linux-foundation.org>,
+	"linux-net" <linux-net@vger.kernel.org>,
+	"netdev" <netdev@vger.kernel.org>,
+	"akpm" <akpm@linux-foundation.org>,
+	"alan" <alan@lxorguk.ukuu.org.uk>
+To: "mingo" <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-vbr2.xs4all.nl ([194.109.24.22]:3138 "EHLO
-	smtp-vbr2.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758213AbXHFTyS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2007 15:54:18 -0400
-Content-Disposition: inline
-In-Reply-To: <BD524EA7912ED5469DFD0BAEF6BC752F0256D088@orsmsx411.amr.corp.intel.com>
+Received: from mail.xandmail.com ([212.155.184.97]:55011 "EHLO
+	mail.xandmail.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763606AbXHFUDr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2007 16:03:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> * Chuck Ebbert <cebbert@redhat.com> wrote:
+> 
+> > Before, they would print:
+> > 
+> > eth0: transmit timed out, tx_status 00 status e601.
+> >   diagnostics: net 0ccc media 8880 dma 0000003a fifo 0000
+> > eth0: Interrupt posted but not delivered -- IRQ blocked by another device?
+> >   Flags; bus-master 1, dirty 295757(13) current 295757(13)
+> >   Transmit list 00000000 vs. f7150a20.
+> >   0: @f7150200  length 80000070 status 0c010070
+> >   1: @f71502a0  length 80000070 status 0c010070
+> >   2: @f7150340  length 8000005c status 0c01005c
+> > 
+> > Now they just work, apparently...
+> 
+> could you please try the patch below? If this doesnt do the trick then i 
+> guess we need to revert that change.
 
---TRYliJ5NKNqkz5bu
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I confirm that the latest fedora kernel 2.6.22.1-41.fc7 (with the removal of [PATCH] genirq: do not mask interrupts by default) still work on my machine for 3 days.
 
-On Mon, Aug 06, 2007 at 10:54:56AM -0700, Allan, Bruce W wrote:
-> While that is a "10/100 network connection", it is actually a GigE MAC
-> with a 10/100 PHY and will be supported by the e1000e driver that is
-> currently in the process of final cleanup before getting into the
-> upstream kernel.
+Atm I'm still stressing the network (2 * 3com cards + 1 onboard nvidia card) to be sure.
 
-Ah right, a GigE NIC in disguise... I read that thread a couple of days
-ago but didn't associate it with this particular hardware.
-
-> If you must use it now, you can grab the latest out-of-tree version of
-> the e1000 driver from http://e1000.sf.net which has support for that
-> device.  There are no plans for adding support for this device to the
-> in-tree e1000 driver.
-
-Thanks, that one works great.
+Jb
 
 
-Erik
 
---=20
-They're all fools. Don't worry. Darwin may be slow, but he'll
-eventually get them. -- Matthew Lammers in alt.sysadmin.recovery
-
---TRYliJ5NKNqkz5bu
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQFGt3xf/PlVHJtIto0RAkMLAJ9RrOUt7NynIrZJBYYlsaDYTnj70QCdGJxL
-cprOx7+Vv3Ka6V1S71o2Zkc=
-=OJp6
------END PGP SIGNATURE-----
-
---TRYliJ5NKNqkz5bu--
