@@ -1,114 +1,235 @@
 From: Brian King <brking@linux.vnet.ibm.com>
-Subject: [PATCH 4/6] ibmveth: Add ethtool driver stats hooks
-Date: Mon, 06 Aug 2007 14:42:34 -0500
-Message-ID: <200708061942.l76JgZRK020999@d03av03.boulder.ibm.com>
+Subject: [PATCH 5/6] ibmveth: Remove dead frag processing code
+Date: Mon, 06 Aug 2007 14:42:41 -0500
+Message-ID: <200708061942.l76Jgf85004914@d03av02.boulder.ibm.com>
 References: <11864293333377-patch-mail.ibm.com>
 Cc: rcjenn@linux.vnet.ibm.com, netdev@vger.kernel.org,
 	linuxppc-dev@ozlabs.org, brking@linux.vnet.ibm.com
 To: santil@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:48483 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755658AbXHFTmk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2007 15:42:40 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e31.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l76JgajB025397
-	for <netdev@vger.kernel.org>; Mon, 6 Aug 2007 15:42:36 -0400
-Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l76JganS266270
-	for <netdev@vger.kernel.org>; Mon, 6 Aug 2007 13:42:36 -0600
-Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l76JgZCK021072
-	for <netdev@vger.kernel.org>; Mon, 6 Aug 2007 13:42:36 -0600
+Received: from e35.co.us.ibm.com ([32.97.110.153]:56062 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761718AbXHFTmp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2007 15:42:45 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l76JgiC3028904
+	for <netdev@vger.kernel.org>; Mon, 6 Aug 2007 15:42:44 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l76JggJ8114310
+	for <netdev@vger.kernel.org>; Mon, 6 Aug 2007 13:42:42 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l76JggBO004955
+	for <netdev@vger.kernel.org>; Mon, 6 Aug 2007 13:42:42 -0600
 In-Reply-To: <11864293333377-patch-mail.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Add ethtool hooks to ibmveth to retrieve driver statistics.
+Removes dead frag processing code from ibmveth. Since NETIF_F_SG was
+not set, this code was never executed. Also, since the ibmveth
+interface can only handle 6 fragments, core networking code would need
+to be modified in order to efficiently enable this support.
 
 Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
 ---
 
- drivers/net/ibmveth.c |   53 +++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 52 insertions(+), 1 deletion(-)
+ linux-2.6-bjking1/drivers/net/ibmveth.c |  100 +++++---------------------------
+ linux-2.6-bjking1/drivers/net/ibmveth.h |    5 -
+ 2 files changed, 17 insertions(+), 88 deletions(-)
 
-diff -puN drivers/net/ibmveth.c~ibmveth_ethtool_driver_stats drivers/net/ibmveth.c
---- linux-2.6/drivers/net/ibmveth.c~ibmveth_ethtool_driver_stats	2007-07-19 11:18:41.000000000 -0500
-+++ linux-2.6-bjking1/drivers/net/ibmveth.c	2007-07-19 11:18:41.000000000 -0500
-@@ -112,6 +112,28 @@ MODULE_DESCRIPTION("IBM i/pSeries Virtua
- MODULE_LICENSE("GPL");
- MODULE_VERSION(ibmveth_driver_version);
- 
-+struct ibmveth_stat {
-+	char name[ETH_GSTRING_LEN];
-+	int offset;
-+};
-+
-+#define IBMVETH_STAT_OFF(stat) offsetof(struct ibmveth_adapter, stat)
-+#define IBMVETH_GET_STAT(a, off) *((u64 *)(((unsigned long)(a)) + off))
-+
-+struct ibmveth_stat ibmveth_stats[] = {
-+	{ "replenish_task_cycles", IBMVETH_STAT_OFF(replenish_task_cycles) },
-+	{ "replenish_no_mem", IBMVETH_STAT_OFF(replenish_no_mem) },
-+	{ "replenish_add_buff_failure", IBMVETH_STAT_OFF(replenish_add_buff_failure) },
-+	{ "replenish_add_buff_success", IBMVETH_STAT_OFF(replenish_add_buff_success) },
-+	{ "rx_invalid_buffer", IBMVETH_STAT_OFF(rx_invalid_buffer) },
-+	{ "rx_no_buffer", IBMVETH_STAT_OFF(rx_no_buffer) },
-+	{ "tx_multidesc_send", IBMVETH_STAT_OFF(tx_multidesc_send) },
-+	{ "tx_linearized", IBMVETH_STAT_OFF(tx_linearized) },
-+	{ "tx_linearize_failed", IBMVETH_STAT_OFF(tx_linearize_failed) },
-+	{ "tx_map_failed", IBMVETH_STAT_OFF(tx_map_failed) },
-+	{ "tx_send_failed", IBMVETH_STAT_OFF(tx_send_failed) }
-+};
-+
- /* simple methods of getting data from the current rxq entry */
- static inline int ibmveth_rxq_pending_buffer(struct ibmveth_adapter *adapter)
- {
-@@ -751,6 +773,32 @@ static u32 ibmveth_get_rx_csum(struct ne
- 	return adapter->rx_csum;
- }
- 
-+static void ibmveth_get_strings(struct net_device *dev, u32 stringset, u8 *data)
-+{
-+	int i;
-+
-+	if (stringset != ETH_SS_STATS)
-+		return;
-+
-+	for (i = 0; i < ARRAY_SIZE(ibmveth_stats); i++, data += ETH_GSTRING_LEN)
-+		memcpy(data, ibmveth_stats[i].name, ETH_GSTRING_LEN);
-+}
-+
-+static int ibmveth_get_stats_count(struct net_device *dev)
-+{
-+	return ARRAY_SIZE(ibmveth_stats);
-+}
-+
-+static void ibmveth_get_ethtool_stats(struct net_device *dev,
-+				      struct ethtool_stats *stats, u64 *data)
-+{
-+	int i;
-+	struct ibmveth_adapter *adapter = dev->priv;
-+
-+	for (i = 0; i < ARRAY_SIZE(ibmveth_stats); i++)
-+		data[i] = IBMVETH_GET_STAT(adapter, ibmveth_stats[i].offset);
-+}
-+
- static const struct ethtool_ops netdev_ethtool_ops = {
- 	.get_drvinfo		= netdev_get_drvinfo,
- 	.get_settings		= netdev_get_settings,
-@@ -761,7 +809,10 @@ static const struct ethtool_ops netdev_e
- 	.get_rx_csum		= ibmveth_get_rx_csum,
- 	.set_rx_csum		= ibmveth_set_rx_csum,
- 	.get_tso			= ethtool_op_get_tso,
--	.get_ufo			= ethtool_op_get_ufo
-+	.get_ufo			= ethtool_op_get_ufo,
-+	.get_strings		= ibmveth_get_strings,
-+	.get_stats_count		= ibmveth_get_stats_count,
-+	.get_ethtool_stats	= ibmveth_get_ethtool_stats
+diff -puN drivers/net/ibmveth.c~ibmveth_remove_frag drivers/net/ibmveth.c
+--- linux-2.6/drivers/net/ibmveth.c~ibmveth_remove_frag	2007-08-06 14:11:08.000000000 -0500
++++ linux-2.6-bjking1/drivers/net/ibmveth.c	2007-08-06 14:11:39.000000000 -0500
+@@ -28,7 +28,6 @@
+ /**************************************************************************/
+ /*
+   TODO:
+-  - remove frag processing code - no longer needed
+   - add support for sysfs
+   - possibly remove procfs support
+ */
+@@ -127,9 +126,6 @@ struct ibmveth_stat ibmveth_stats[] = {
+ 	{ "replenish_add_buff_success", IBMVETH_STAT_OFF(replenish_add_buff_success) },
+ 	{ "rx_invalid_buffer", IBMVETH_STAT_OFF(rx_invalid_buffer) },
+ 	{ "rx_no_buffer", IBMVETH_STAT_OFF(rx_no_buffer) },
+-	{ "tx_multidesc_send", IBMVETH_STAT_OFF(tx_multidesc_send) },
+-	{ "tx_linearized", IBMVETH_STAT_OFF(tx_linearized) },
+-	{ "tx_linearize_failed", IBMVETH_STAT_OFF(tx_linearize_failed) },
+ 	{ "tx_map_failed", IBMVETH_STAT_OFF(tx_map_failed) },
+ 	{ "tx_send_failed", IBMVETH_STAT_OFF(tx_send_failed) }
  };
+@@ -825,9 +821,8 @@ static int ibmveth_ioctl(struct net_devi
+ static int ibmveth_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ {
+ 	struct ibmveth_adapter *adapter = netdev->priv;
+-	union ibmveth_buf_desc desc[IbmVethMaxSendFrags];
++	union ibmveth_buf_desc desc;
+ 	unsigned long lpar_rc;
+-	int nfrags = 0, curfrag;
+ 	unsigned long correlator;
+ 	unsigned long flags;
+ 	unsigned int retry_count;
+@@ -837,25 +832,11 @@ static int ibmveth_start_xmit(struct sk_
+ 	unsigned int tx_send_failed = 0;
+ 	unsigned int tx_map_failed = 0;
  
- static int ibmveth_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
-diff -puN drivers/net/ibmveth.h~ibmveth_ethtool_driver_stats drivers/net/ibmveth.h
+-
+-	if ((skb_shinfo(skb)->nr_frags + 1) > IbmVethMaxSendFrags) {
+-		tx_dropped++;
+-		goto out;
+-	}
+-
+-	memset(&desc, 0, sizeof(desc));
+-
+-	/* nfrags = number of frags after the initial fragment */
+-	nfrags = skb_shinfo(skb)->nr_frags;
+-
+-	if(nfrags)
+-		adapter->tx_multidesc_send++;
+-
+-	/* map the initial fragment */
+-	desc[0].fields.length  = nfrags ? skb->len - skb->data_len : skb->len;
+-	desc[0].fields.address = dma_map_single(&adapter->vdev->dev, skb->data,
+-					desc[0].fields.length, DMA_TO_DEVICE);
+-	desc[0].fields.valid   = 1;
++	desc.desc = 0;
++	desc.fields.length  = skb->len;
++	desc.fields.address = dma_map_single(&adapter->vdev->dev, skb->data,
++					     desc.fields.length, DMA_TO_DEVICE);
++	desc.fields.valid   = 1;
+ 
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL &&
+ 	    ip_hdr(skb)->protocol != IPPROTO_TCP && skb_checksum_help(skb)) {
+@@ -867,75 +848,34 @@ static int ibmveth_start_xmit(struct sk_
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		unsigned char *buf = skb_transport_header(skb) + skb->csum_offset;
+ 
+-		desc[0].fields.no_csum = 1;
+-		desc[0].fields.csum_good = 1;
++		desc.fields.no_csum = 1;
++		desc.fields.csum_good = 1;
+ 
+ 		/* Need to zero out the checksum */
+ 		buf[0] = 0;
+ 		buf[1] = 0;
+ 	}
+ 
+-	if(dma_mapping_error(desc[0].fields.address)) {
+-		ibmveth_error_printk("tx: unable to map initial fragment\n");
++	if (dma_mapping_error(desc.fields.address)) {
++		ibmveth_error_printk("tx: unable to map xmit buffer\n");
+ 		tx_map_failed++;
+ 		tx_dropped++;
+ 		goto out;
+ 	}
+ 
+-	curfrag = nfrags;
+-
+-	/* map fragments past the initial portion if there are any */
+-	while(curfrag--) {
+-		skb_frag_t *frag = &skb_shinfo(skb)->frags[curfrag];
+-		desc[curfrag+1].fields.address
+-			= dma_map_single(&adapter->vdev->dev,
+-				page_address(frag->page) + frag->page_offset,
+-				frag->size, DMA_TO_DEVICE);
+-		desc[curfrag+1].fields.length = frag->size;
+-		desc[curfrag+1].fields.valid  = 1;
+-		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-			desc[curfrag+1].fields.no_csum = 1;
+-			desc[curfrag+1].fields.csum_good = 1;
+-		}
+-
+-		if(dma_mapping_error(desc[curfrag+1].fields.address)) {
+-			ibmveth_error_printk("tx: unable to map fragment %d\n", curfrag);
+-			tx_map_failed++;
+-			tx_dropped++;
+-			/* Free all the mappings we just created */
+-			while(curfrag < nfrags) {
+-				dma_unmap_single(&adapter->vdev->dev,
+-						 desc[curfrag+1].fields.address,
+-						 desc[curfrag+1].fields.length,
+-						 DMA_TO_DEVICE);
+-				curfrag++;
+-			}
+-			goto out;
+-		}
+-	}
+-
+ 	/* send the frame. Arbitrarily set retrycount to 1024 */
+ 	correlator = 0;
+ 	retry_count = 1024;
+ 	do {
+ 		lpar_rc = h_send_logical_lan(adapter->vdev->unit_address,
+-					     desc[0].desc,
+-					     desc[1].desc,
+-					     desc[2].desc,
+-					     desc[3].desc,
+-					     desc[4].desc,
+-					     desc[5].desc,
+-					     correlator,
+-					     &correlator);
++					     desc.desc, 0, 0, 0, 0, 0,
++					     correlator, &correlator);
+ 	} while ((lpar_rc == H_BUSY) && (retry_count--));
+ 
+ 	if(lpar_rc != H_SUCCESS && lpar_rc != H_DROPPED) {
+-		int i;
+ 		ibmveth_error_printk("tx: h_send_logical_lan failed with rc=%ld\n", lpar_rc);
+-		for(i = 0; i < 6; i++) {
+-			ibmveth_error_printk("tx: desc[%i] valid=%d, len=%d, address=0x%d\n", i,
+-					     desc[i].fields.valid, desc[i].fields.length, desc[i].fields.address);
+-		}
++		ibmveth_error_printk("tx: valid=%d, len=%d, address=0x%08x\n",
++				     desc.fields.valid, desc.fields.length, desc.fields.address);
+ 		tx_send_failed++;
+ 		tx_dropped++;
+ 	} else {
+@@ -944,11 +884,8 @@ static int ibmveth_start_xmit(struct sk_
+ 		netdev->trans_start = jiffies;
+ 	}
+ 
+-	do {
+-		dma_unmap_single(&adapter->vdev->dev,
+-				desc[nfrags].fields.address,
+-				desc[nfrags].fields.length, DMA_TO_DEVICE);
+-	} while(--nfrags >= 0);
++	dma_unmap_single(&adapter->vdev->dev, desc.fields.address,
++			 desc.fields.length, DMA_TO_DEVICE);
+ 
+ out:	spin_lock_irqsave(&adapter->stats_lock, flags);
+ 	adapter->stats.tx_dropped += tx_dropped;
+@@ -1360,10 +1297,7 @@ static int ibmveth_seq_show(struct seq_f
+ 		   firmware_mac[3], firmware_mac[4], firmware_mac[5]);
+ 
+ 	seq_printf(seq, "\nAdapter Statistics:\n");
+-	seq_printf(seq, "  TX:  skbuffs linearized:          %ld\n", adapter->tx_linearized);
+-	seq_printf(seq, "       multi-descriptor sends:      %ld\n", adapter->tx_multidesc_send);
+-	seq_printf(seq, "       skb_linearize failures:      %ld\n", adapter->tx_linearize_failed);
+-	seq_printf(seq, "       vio_map_single failres:      %ld\n", adapter->tx_map_failed);
++	seq_printf(seq, "  TX:  vio_map_single failres:      %ld\n", adapter->tx_map_failed);
+ 	seq_printf(seq, "       send failures:               %ld\n", adapter->tx_send_failed);
+ 	seq_printf(seq, "  RX:  replenish task cycles:       %ld\n", adapter->replenish_task_cycles);
+ 	seq_printf(seq, "       alloc_skb_failures:          %ld\n", adapter->replenish_no_mem);
+diff -puN drivers/net/ibmveth.h~ibmveth_remove_frag drivers/net/ibmveth.h
+--- linux-2.6/drivers/net/ibmveth.h~ibmveth_remove_frag	2007-08-06 14:11:08.000000000 -0500
++++ linux-2.6-bjking1/drivers/net/ibmveth.h	2007-08-06 14:11:39.000000000 -0500
+@@ -25,8 +25,6 @@
+ #ifndef _IBMVETH_H
+ #define _IBMVETH_H
+ 
+-#define IbmVethMaxSendFrags 6
+-
+ /* constants for H_MULTICAST_CTRL */
+ #define IbmVethMcastReceptionModifyBit     0x80000UL
+ #define IbmVethMcastReceptionEnableBit     0x20000UL
+@@ -146,9 +144,6 @@ struct ibmveth_adapter {
+     u64 replenish_add_buff_success;
+     u64 rx_invalid_buffer;
+     u64 rx_no_buffer;
+-    u64 tx_multidesc_send;
+-    u64 tx_linearized;
+-    u64 tx_linearize_failed;
+     u64 tx_map_failed;
+     u64 tx_send_failed;
+     spinlock_t stats_lock;
 _
