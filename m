@@ -1,48 +1,36 @@
-From: Aurelien Jarno <aurelien@aurel32.net>
-Subject: Re: [PATCH 1/3] SSB EXTIF timing & serial port initialization
-Date: Mon, 6 Aug 2007 20:29:55 +0200
-Message-ID: <20070806182955.GA32465@hall.aurel32.net>
-References: <20070806150447.GB24308@hall.aurel32.net> <200708062023.08046.mb@bu3sch.de>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: TCP's initial cwnd setting correct?...
+Date: Mon, 6 Aug 2007 21:31:22 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0708062129440.29123@kivilampi-30.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0708061508070.8788@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: netdev@vger.kernel.org, Felix Fietkau <nbd@openwrt.org>
-To: Michael Buesch <mb@bu3sch.de>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1790435711-1186425082=:29123"
+Cc: David Miller <davem@davemloft.net>
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hall.aurel32.net ([88.191.38.19]:54384 "EHLO hall.aurel32.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752843AbXHFS37 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Aug 2007 14:29:59 -0400
-Content-Disposition: inline
-In-Reply-To: <200708062023.08046.mb@bu3sch.de>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:45373 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755169AbXHFSbY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2007 14:31:24 -0400
+In-Reply-To: <Pine.LNX.4.64.0708061508070.8788@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 06, 2007 at 08:23:07PM +0200, Michael Buesch wrote:
-> On Monday 06 August 2007, Aurelien Jarno wrote:
-> > The patch below adds a new file drivers/ssb/driver_extif.c which
-> > contains new SSB EXTIF functions to initializes the timing and the
-> > serial ports.
-> > 
-> > Cc: Felix Fietkau <nbd@openwrt.org>
-> > Signed-off-by: Aurelien Jarno <aurelien@aurel32.net>
-> 
-> > +#ifdef CONFIG_SSB_SERIAL
-> > +static bool serial_exists(u8 *regs)
-> > +{
-> > +	u8 save_mcr, msr = 0;
-> > +
-> > +	if (regs) {
-> > +		save_mcr = regs[UART_MCR];
-> > +		regs[UART_MCR] = (UART_MCR_LOOP | UART_MCR_OUT2 | UART_MCR_RTS);
-> > +		msr = regs[UART_MSR] & (UART_MSR_DCD | UART_MSR_RI \
->                                                                  ^^^^^
-> Backslash?
-> 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Oops I did too much shell scripts recently ;-) I will send a new patch.
+---696243703-1790435711-1186425082=:29123
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Mon, 6 Aug 2007, Ilpo Järvinen wrote:
+
+> ...Goto logic could be cleaner (somebody has any suggestion for better 
+> way to structure it?)
+
+...I could probably move the setting of snd_cwnd earlier to avoid 
+this problem if this seems a valid fix at all.
 
 -- 
-  .''`.  Aurelien Jarno	            | GPG: 1024D/F1BCDB73
- : :' :  Debian developer           | Electrical Engineer
- `. `'   aurel32@debian.org         | aurelien@aurel32.net
-   `-    people.debian.org/~aurel32 | www.aurel32.net
+ i.
+---696243703-1790435711-1186425082=:29123--
