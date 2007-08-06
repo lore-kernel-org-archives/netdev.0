@@ -1,48 +1,63 @@
-From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
-Subject: [PATCH] drivers/net/ibmveth.c: memset fix
-Date: Mon, 6 Aug 2007 22:17:04 +0200
-Message-ID: <200708062217.04361.m.kozlowski@tuxland.pl>
+From: Aurelien Jarno <aurelien@aurel32.net>
+Subject: [PATCH] Fix MII interface of the B44 driver
+Date: Mon, 6 Aug 2007 22:21:42 +0200
+Message-ID: <20070806202142.GA4862@hall.aurel32.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-2"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: santil@us.ibm.com, jgarzik@pobox.com
+Content-Type: text/plain; charset=iso-8859-15
+Cc: netdev@vger.kernel.org
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xdsl-664.zgora.dialog.net.pl ([81.168.226.152]:3391 "EHLO
-	tuxland.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754846AbXHFURF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Aug 2007 16:17:05 -0400
+Received: from hall.aurel32.net ([88.191.38.19]:55297 "EHLO hall.aurel32.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760975AbXHFUVn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Aug 2007 16:21:43 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+The conversion of the B44 driver to SSB bus added the functions
+__b44_{read,write}phy functions that have an argument phy_id. This gives
+a way to fix the b44_mii_{read,write} functions used for MII interfaces.
 
-	Looks like memset() is zeroing wrong nr of bytes.
+The patch below does that. It allows B44 devices with integrated switch
+to be configured from userland.
 
-Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+Signed-off-by: Aurelien Jarno <aurelien@aurel32.net>
 
- drivers/net/ibmveth.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
---- linux-2.6.23-rc1-mm2-a/drivers/net/ibmveth.c	2007-08-01 08:43:46.000000000 +0200
-+++ linux-2.6.23-rc1-mm2-b/drivers/net/ibmveth.c	2007-08-06 20:34:44.000000000 +0200
-@@ -963,7 +963,7 @@ static int __devinit ibmveth_probe(struc
+diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+index 36724fb..e6883f4 100644
+--- a/drivers/net/b44.c
++++ b/drivers/net/b44.c
+@@ -300,16 +300,11 @@ static inline int b44_writephy(struct b44 *bp, int reg, u32 val)
+ }
+ 
+ /* miilib interface */
+-/* FIXME FIXME: phy_id is ignored, bp->phy_addr use is unconditional
+- * due to code existing before miilib use was added to this driver.
+- * Someone should remove this artificial driver limitation in
+- * b44_{read,write}phy.  bp->phy_addr itself is fine (and needed).
+- */
+ static int b44_mii_read(struct net_device *dev, int phy_id, int location)
  {
- 	int rc, i;
- 	struct net_device *netdev;
--	struct ibmveth_adapter *adapter = NULL;
-+	struct ibmveth_adapter *adapter;
+ 	u32 val;
+ 	struct b44 *bp = netdev_priv(dev);
+-	int rc = b44_readphy(bp, location, &val);
++	int rc = __b44_readphy(bp, phy_id, location, &val);
+ 	if (rc)
+ 		return 0xffffffff;
+ 	return val;
+@@ -319,7 +314,7 @@ static void b44_mii_write(struct net_device *dev, int phy_id, int location,
+ 			 int val)
+ {
+ 	struct b44 *bp = netdev_priv(dev);
+-	b44_writephy(bp, location, val);
++	__b44_writephy(bp, phy_id, location, val);
+ }
+ 
+ static int b44_phy_reset(struct b44 *bp)
 
- 	unsigned char *mac_addr_p;
- 	unsigned int *mcastFilterSize_p;
-@@ -997,7 +997,7 @@ static int __devinit ibmveth_probe(struc
- 	SET_MODULE_OWNER(netdev);
-
- 	adapter = netdev->priv;
--	memset(adapter, 0, sizeof(adapter));
-+	memset(adapter, 0, sizeof(*adapter));
- 	dev->dev.driver_data = netdev;
-
- 	adapter->vdev = dev;
+-- 
+  .''`.  Aurelien Jarno	            | GPG: 1024D/F1BCDB73
+ : :' :  Debian developer           | Electrical Engineer
+ `. `'   aurel32@debian.org         | aurelien@aurel32.net
+   `-    people.debian.org/~aurel32 | www.aurel32.net
