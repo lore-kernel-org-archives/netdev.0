@@ -1,49 +1,44 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 6/7] Make qdisc changeable.
-Date: Mon, 06 Aug 2007 14:06:12 +0200
-Message-ID: <46B70EB4.70408@trash.net>
-References: <11857548771998-git-send-email-bugfood-ml@fatooh.org> <11857548783311-git-send-email-bugfood-ml@fatooh.org> <46ADF18A.4060008@trash.net> <46B68BBE.9010307@fatooh.org>
+Subject: Re: [PATCH net-2.6.22-rc7] xfrm beet interfamily support
+Date: Mon, 06 Aug 2007 14:08:12 +0200
+Message-ID: <46B70F2C.6090807@trash.net>
+References: <200707161506.47915.joakim.koskela@hiit.fi> <469BBD4C.5040503@trash.net> <200707171730.21655.joakim.koskela@hiit.fi> <200708060949.58758.joakim.koskela@hiit.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Corey Hickey <bugfood-ml@fatooh.org>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Joakim Koskela <joakim.koskela@hiit.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37072 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:37116 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932228AbXHFMGa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2007 08:06:30 -0400
-In-Reply-To: <46B68BBE.9010307@fatooh.org>
+	with ESMTP id S1751139AbXHFMIa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2007 08:08:30 -0400
+In-Reply-To: <200708060949.58758.joakim.koskela@hiit.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Corey Hickey wrote:
-> Patrick McHardy wrote:
+Joakim Koskela wrote:
+> On Tuesday 17 July 2007 17:30:21 Joakim Koskela wrote:
 > 
->>> +    if ((err = sfq_q_init(&tmp, opt)))
->>> +        return err;
->>
->>
->>
->> This will also use defaults for all unspecified values. It would
->> be more consistent with other qdiscs to only change those values
->> that are actually specified, so something like "tc qdisc change ...
->> perturb 10" will *only* change the perturbation parameter.
-> 
-> 
-> I'm fixed this for all the parameters except one--your example above.
-> Since 0 is a valid value for perturb, I can't see any clever way to
-> differentiate between the user specifying "perturb 0" or leaving perturb
-> unspecified. Either way, opt->perturb_period is 0.
-> 
-> The only way I can see would be to add another member, say,
-> opt->perturb_specified, and use that accordingly. Unfortunately, this
-> would break usage of sfq with older versions of tc, so I'm hoping
-> there's a better approach.
-> 
-> Do you have any suggestions? I've looked at the other qdisc files and I
-> don't see any other instances like this.
+>>>>@@ -108,7 +108,8 @@ int xfrm4_rcv_encap(struct sk_buff *skb, __u16
+>>>>encap_type) if (x->mode->input(x, skb))
+>>>> 			goto drop;
+>>>>
+>>>>-		if (x->props.mode == XFRM_MODE_TUNNEL) {
+>>>>+		if (x->props.mode == XFRM_MODE_TUNNEL ||
+>>>>+		    x->props.mode == XFRM_MODE_BEET) {
+>>>> 			decaps = 1;
+>>>> 			break;
+>>>> 		}
+>>>
+> It's been a while, but as a fyi in case there are comments / suggestions 
+> before submitting the whole patch again - it seems that this had some 
+> problems after all. Works ok for normal cases, but fails when using ip 
+> options for the inner packet as they don't get processed after being 
+> extracted from the pseudoheader. Calling something like ip_options_compile 
+> from beet_mode's input when handling ipv4 would do the trick, but seems a bit 
+> ugly & perhaps unsafe, I'd rather just put the whole packet through the loop 
+> again.
 
 
-Maybe use the nested compat attribute and split the base SFQ
-struct in the individual members ..
+Won't the options get parsed by ip_rcv() on the second reception?
