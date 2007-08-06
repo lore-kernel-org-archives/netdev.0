@@ -1,56 +1,68 @@
-From: "=?ISO-8859-2?Q?Marcin_=A6lusarz?=" <marcin.slusarz@gmail.com>
-Subject: Re: [patch (take 2)] genirq: fix simple and fasteoi irq handlers
-Date: Mon, 6 Aug 2007 09:07:55 +0200
-Message-ID: <4bacf17f0708060007t7c849ff1p5dbb07c614789617@mail.gmail.com>
-References: <20070726081326.GA3197@ff.dom.local>
-	 <20070726083120.GA26910@elte.hu> <20070726085523.GA3423@ff.dom.local>
-	 <20070726091254.GA8063@elte.hu>
-	 <4bacf17f0707300029g5116e70bq4808059dc8b069f1@mail.gmail.com>
-	 <20070731155843.GA7033@elte.hu> <46B20E47.6020403@googlemail.com>
-	 <20070802201126.GA27000@elte.hu> <20070806060723.GA981@ff.dom.local>
-	 <20070806061459.GA26046@elte.hu>
+From: David Miller <davem@davemloft.net>
+Subject: [RFC]: Driver internal queue mapping
+Date: Mon, 06 Aug 2007 00:16:40 -0700 (PDT)
+Message-ID: <20070806.001640.74747569.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Jarek Poplawski" <jarkao2@o2.pl>,
-	"Gabriel C" <nix.or.die@googlemail.com>,
-	"Linus Torvalds" <torvalds@linux-foundation.org>,
-	"Thomas Gleixner" <tglx@linutronix.de>,
-	"Jean-Baptiste Vignaud" <vignaud@xandmail.fr>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"Alan Cox" <alan@lxorguk.ukuu.org.uk>
-To: "Ingo Molnar" <mingo@elte.hu>
+Cc: kaber@trash.net, hadi@cyberus.ca
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.183]:40866 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754292AbXHFHH4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2007 03:07:56 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so1689927wah
-        for <netdev@vger.kernel.org>; Mon, 06 Aug 2007 00:07:56 -0700 (PDT)
-In-Reply-To: <20070806061459.GA26046@elte.hu>
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50374
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753926AbXHFHQk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Aug 2007 03:16:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2007/8/6, Ingo Molnar <mingo@elte.hu>:
->
-> * Jarek Poplawski <jarkao2@o2.pl> wrote:
->
-> > Subject: genirq: fix simple and fasteoi irq handlers
-> >
-> > After the "genirq: do not mask interrupts by default" patch interrupts
-> > should be disabled not immediately upon request, but after they
-> > happen. But, handle_simple_irq() and handle_fasteoi_irq() can skip
-> > this once or more if an irq is just serviced (IRQ_INPROGRESS),
-> > possibly disrupting a driver's work.
->
-> nice fix. I think this is exactly the type of bug we were hoping to be
-> able to identify and fix, and it could explain the regression in its
-> entirety. The big question - does it fix Marcin's regression?
-I'll try this patch tomorrow.
 
-Marcin
+In order to put some energy back into the "device selects
+TX queue internally" discussion I've cooked up an example
+patch below.
+
+While tossing this together I noticed that the current code
+paths seem to not check the queue status at the beginnig of
+running the queue, f.e. via dev_queue_xmit(), it just blindly
+invokes qdisc_run() which only checks the global queue stopped
+status, not the mapped one.
+
+This is cumbersome and isn't going to work very well when we
+split up all the locking to be per-queue.
+
+The problem is that qdisc_run() has not enough information.
+Proper checks can't be made until we know what packet we are
+going to process.
+
+Anyways, here is a patch giving an example interface to let
+the driver override skb->queue_mapping.  The drivers/net/sunvnet.c
+driver would implement this as finding the port number for the
+virtual channel that the packet should go over.
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 4a616d7..c2be6f7 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -474,6 +474,8 @@ struct net_device
+ 						    struct net_device *dev);
+ 	/* These may be needed for future network-power-down code. */
+ 	unsigned long		trans_start;	/* Time (in jiffies) of last Tx	*/
++	void			(*tx_queue_select)(struct sk_buff *skb,
++						   struct net_device *dev);
+ 
+ 	int			watchdog_timeo; /* used by dev_watchdog() */
+ 	struct timer_list	watchdog_timer;
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index c81649c..ff8742c 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -141,6 +141,9 @@ static inline int qdisc_restart(struct net_device *dev)
+ 	if (unlikely((skb = dev_dequeue_skb(dev, q)) == NULL))
+ 		return 0;
+ 
++	if (dev->tx_queue_select)
++		dev->tx_queue_select(skb, dev);
++
+ 	/*
+ 	 * When the driver has LLTX set, it does its own locking in
+ 	 * start_xmit. These checks are worth it because even uncongested
+
