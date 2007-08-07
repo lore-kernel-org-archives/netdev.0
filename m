@@ -1,46 +1,66 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFT] sky2: backport patch
-Date: Tue, 7 Aug 2007 17:47:41 -0400
-Message-ID: <20070807174741.3972b52f@oldman>
-References: <Pine.LNX.4.64.0708072043340.16599@bizon.gios.gov.pl>
-	<20070807185631.GA19140@kroah.com>
-	<20070807171415.6892a070@oldman>
-	<46B8E53F.70605@garzik.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 6/6] ibmveth: Remove use of bitfields
+Date: Tue, 07 Aug 2007 17:56:49 -0400
+Message-ID: <46B8EAA1.8070003@garzik.org>
+References: <11864293333377-patch-mail.ibm.com>
+	<200708061942.l76JgmxI031698@d03av01.boulder.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: Greg KH <greg@kroah.com>, Krzysztof Oledzki <olel@ans.pl>,
-	netdev@vger.kernel.org, stable@kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:49432 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S967072AbXHGVri convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Aug 2007 17:47:38 -0400
-In-Reply-To: <46B8E53F.70605@garzik.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org, rcjenn@linux.vnet.ibm.com,
+	santil@linux.vnet.ibm.com, netdev@vger.kernel.org
+To: Brian King <brking@linux.vnet.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <200708061942.l76JgmxI031698@d03av01.boulder.ibm.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 07 Aug 2007 17:33:51 -0400
-Jeff Garzik <jeff@garzik.org> wrote:
+Brian King wrote:
+> Removes the use of bitfields from the ibmveth driver. This results
+> in slightly smaller object code.
+> 
+> Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
+> ---
+> 
+>  linux-2.6-bjking1/drivers/net/ibmveth.c |   90 ++++++++++++++++----------------
+>  linux-2.6-bjking1/drivers/net/ibmveth.h |   56 ++++++++-----------
+>  2 files changed, 68 insertions(+), 78 deletions(-)
 
-> Stephen Hemminger wrote:
-> > Any volunteers to test this, it has a backport for the three main stability patches:
-> >  1. carrier management
-> >  2. lost irq timer
-> >  3. rechecking for packets in poll
-> >  4. overlength packet hang.
-> > 
-> > I am away from any sky2 hardware for another week, but others maybe
-> > able to validate this.
-> 
-> Backport to what?  from what?
->From 2.6.23-rc2 to 2.6.22.y base
+strong ACK :)
 
-> You supplied no kernel version info.
-> 
-> 	Jeff
-> 
-> 
-> 
+Though I also encourage you to avoid #defines for named constants, in 
+favor of
+
+enum {
+	IBMVETH_BUF_VALID	= (1U << 31),
+	IBMVETH_BUF_TOGGLE	= (1U << 30),
+	IBMVETH_BUF_NO_CSUM	= (1U << 25),
+	IBMVETH_BUF_CSUM_GOOD	= (1U << 24),
+	IBMVETH_BUF_LEN_MASK	= 0x00FFFFFF,
+};
+
+This illustrates:
+
+1) The "1 << n" notation is FAR easier to read and compare with data 
+sheets.  You're just adding to the trouble by requiring the reviewer's 
+brain to convert hex numbers to bits, even if most engineers can do this 
+in their sleep.
+
+2) The named constants are available to the C compiler, which is more 
+friendly to debuggers.  It also supplies type information to the C compiler.
+
+3) Similar to #2, wading through C pre-processor output is much easier 
+when the symbols don't disappear.
+
+These are recommendations, not requirements, but I've found these 
+techniques superior to cpp in many other drivers.
+
+	Jeff
