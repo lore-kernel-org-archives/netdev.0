@@ -1,56 +1,76 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH] drivers/net/wireless/wl3501_cs.c: remove redundant
-	memset
-Date: Mon, 6 Aug 2007 20:11:55 -0400
-Message-ID: <20070807001155.GA3285@tuxdriver.com>
-References: <200708070050.23158.m.kozlowski@tuxland.pl>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: e100 (was: eepro100) - Nobody Cares (hardware?)
+Date: Mon, 06 Aug 2007 17:45:09 -0700
+Message-ID: <46B7C095.5010202@intel.com>
+References: <20070806152244.M31050@ericj.net> <46B748A8.4030608@garzik.org> <20070806161747.M31655@ericj.net> <20070806205908.M61217@ericj.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org, Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Mariusz Kozlowski <m.kozlowski-NWF1p15JEu3VItvQsEIGlw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <200708070050.23158.m.kozlowski-NWF1p15JEu3VItvQsEIGlw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, NetDev <netdev@vger.kernel.org>
+To: ericj <ericj@ericj.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:61353 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761239AbXHGApL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Aug 2007 20:45:11 -0400
+In-Reply-To: <20070806205908.M61217@ericj.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please send wireless patches to linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-and CC me.
+[moving to netdev mailinglist]
 
-Thanks!
+ericj wrote:
+> On Mon, 6 Aug 2007 11:20:58 -0500, ericj wrote
+>> On Mon, 06 Aug 2007 12:13:28 -0400, Jeff Garzik wrote
+>>> eepro100 is going to be removed.  Please try e100 on 2.6.22 or 
+>>> 2.6.23-rc2.
+> 
+>> I will give the 2.6.23 a try.
+> 
+> I tried 2.6.23-rc2 and there was no change.
+> 
+> There is now some question from the hardware guys about whether the
+> eeproms were properly configured before shipping the boards. Is there
+> any documentation of the eeprom on an EE Pro 100 VE (ICH4) so that I can
+> figure out if any of the settings in there might be causing the problem?
+> 
+> The only fields I know of for sure are the MAC address at the beginning
+> and the checksum at the end. I also see from the driver code that there
+> is at least one byte controlling wake-on-lan, which I don't care about -
+> unless it's the problem.
+> 
+> Thanks for ethtool, by the way. It's been helpful in looking at this and
+> comparing the eeprom to an earlier version of the board that works.
 
-John
+Eric,
 
-On Tue, Aug 07, 2007 at 12:50:22AM +0200, Mariusz Kozlowski wrote:
-> Hello,
-> 
-> 	This memset() looks superfluous.
-> 
-> Signed-off-by: Mariusz Kozlowski <m.kozlowski-NWF1p15JEu3VItvQsEIGlw@public.gmane.org>
-> 
->  drivers/net/wireless/wl3501_cs.c | 58885 -> 58858 (-27 bytes)
->  drivers/net/wireless/wl3501_cs.o | 200252 -> 200000 (-252 bytes)
-> 
->  drivers/net/wireless/wl3501_cs.c |    1 -
->  1 file changed, 1 deletion(-)
-> 
-> --- linux-2.6.23-rc1-mm2-a/drivers/net/wireless/wl3501_cs.c	2007-08-01 08:43:46.000000000 +0200
-> +++ linux-2.6.23-rc1-mm2-b/drivers/net/wireless/wl3501_cs.c	2007-08-07 00:34:36.000000000 +0200
-> @@ -1841,7 +1841,6 @@ static int wl3501_get_encode(struct net_
->  	tocopy = min_t(u8, len_keys, wrqu->encoding.length);
->  	tocopy = min_t(u8, tocopy, 100);
->  	wrqu->encoding.length = tocopy;
-> -	memset(extra, 0, tocopy);
->  	memcpy(extra, keys, tocopy);
->  out:
->  	return rc;
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+please don't forget that an entire team here at Intel is dedicated to supporting 
+e100 and pro/1000 devices from Intel.
 
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Most of the pro/100 features are documented in the SDM which contains some 
+references to the eeprom parts. Mostly the device doesn't need much 
+configuration from the eeprom to work (unlike gigE parts). The SDM can be 
+downloaded from our sf.net project page:
+
+http://sourceforge.net/project/showfiles.php?group_id=42302&package_id=68544
+
+The issue that you are reporting:
+
+"My system boots fine but when I try to bring up the onboard ethernet (an
+EEPro 100 VE) I get a "Nobody Cares" message and the interrupt is disabled."
+
+However has been recently patched. This should have worked regardless of whether 
+you used e100 or eepro100 (noting that nobody supports eepro100 anymore, you 
+should really use e100 for all tests).
+
+if you look in drivers/pci/quirks.c you'll find that there is specific code for 
+e100 devices. If this quirk doesn't work for you then we'll need to dig into 
+that. For this I'd like you to gather:
+
+- `ethtool -e eth0` output
+- `lspci -n` output
+
+this will allow me to check the quirck code and see if it has the right device 
+ID. I'm suspecting that the device ID is missing somehow, or the workaround fails.
+
+Auke
