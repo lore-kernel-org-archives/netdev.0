@@ -1,64 +1,66 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP ports from
-	the host TCP port space.
-Date: Tue, 7 Aug 2007 19:39:27 +0400
-Message-ID: <20070807153927.GA28648@2ka.mipt.ru>
-References: <46B883B5.8040702@opengridcomputing.com>
-	<20070807145441.GA24895@2ka.mipt.ru>
-	<46B88A75.3040004@opengridcomputing.com>
+From: Brian King <brking@linux.vnet.ibm.com>
+Subject: Re: [PATCH] drivers/net/ibmveth.c: memset fix
+Date: Tue, 07 Aug 2007 10:40:16 -0500
+Message-ID: <46B89260.8000405@linux.vnet.ibm.com>
+References: <200708062217.04361.m.kozlowski@tuxland.pl> <46B78672.9090808@linux.vnet.ibm.com> <46B78814.50508@pobox.com> <200708062344.03443.m.kozlowski@tuxland.pl>
+Reply-To: brking@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	OpenFabrics General <general@lists.openfabrics.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Steve Wise <swise@opengridcomputing.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-Disposition: inline
-In-Reply-To: <46B88A75.3040004@opengridcomputing.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, santil@us.ibm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:37018 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752831AbXHGPkv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2007 11:40:51 -0400
+In-Reply-To: <200708062344.03443.m.kozlowski@tuxland.pl>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 07, 2007 at 10:06:29AM -0500, Steve Wise (swise@opengridcomputing.com) wrote:
-> >On Tue, Aug 07, 2007 at 09:37:41AM -0500, Steve Wise 
-> >(swise@opengridcomputing.com) wrote:
-> >>+static int cma_get_tcp_port(struct rdma_id_private *id_priv)
-> >>+{
-> >>+	int ret;
-> >>+	struct socket *sock;
-> >>+
-> >>+	ret = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, &sock);
-> >>+	if (ret)
-> >>+		return ret;
-> >>+	ret = sock->ops->bind(sock,
-> >>+			  (struct socketaddr 
-> >>*)&id_priv->id.route.addr.src_addr,
-> >>+			  ip_addr_size(&id_priv->id.route.addr.src_addr));
-> >
-> >If get away from talks about broken offloading, this one will result in
-> >the case, when usual network dataflow can enter private rdma land, i.e.
-> >after bind succeeded this socket is accessible via any other network
-> >device. Is it inteded?
-> >And this is quite noticeble overhead per rdma connection, btw.
-> >
+Mariusz Kozlowski wrote:
+>>>> 	Looks like memset() is zeroing wrong nr of bytes.
+>>> Good catch, however, I think we can just remove this memset altogether
+>>> since the memory gets allocated via kzalloc.
+>> Correct, that memset() is superfluous.
 > 
-> I'm not sure I understand your question?  What do you mean by 
-> "accessible"?  The intention is to _just_ reserve the addr/port.  
+> Ok. Then this should do it.
 
-Above RDMA ->bind() ends up with tcp_v4_get_port(), which will only add
-socket into bhash, but it is only accessible for new sockets created for
-listening connections or expilicit bind, network traffic checks only
-listening and establised hashes, which are not affected by above change,
-so it was false alarm from my side. It does allow to 'grab' a port and
-forbid its possible reuse.
+Acked-by: Brian King <brking@linux.vnet.ibm.com>
+
+> 
+> Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+> 
+>  drivers/net/ibmveth.c |    3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+> 
+> --- linux-2.6.23-rc1-mm2-a/drivers/net/ibmveth.c	2007-08-01 08:43:46.000000000 +0200
+> +++ linux-2.6.23-rc1-mm2-b/drivers/net/ibmveth.c	2007-08-06 23:32:13.000000000 +0200
+> @@ -963,7 +963,7 @@ static int __devinit ibmveth_probe(struc
+>  {
+>  	int rc, i;
+>  	struct net_device *netdev;
+> -	struct ibmveth_adapter *adapter = NULL;
+> +	struct ibmveth_adapter *adapter;
+> 
+>  	unsigned char *mac_addr_p;
+>  	unsigned int *mcastFilterSize_p;
+> @@ -997,7 +997,6 @@ static int __devinit ibmveth_probe(struc
+>  	SET_MODULE_OWNER(netdev);
+> 
+>  	adapter = netdev->priv;
+> -	memset(adapter, 0, sizeof(adapter));
+>  	dev->dev.driver_data = netdev;
+> 
+>  	adapter->vdev = dev;
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
 
 -- 
-	Evgeniy Polyakov
+Brian King
+Linux on Power Virtualization
+IBM Linux Technology Center
