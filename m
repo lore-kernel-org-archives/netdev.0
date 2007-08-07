@@ -1,37 +1,42 @@
-From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Subject: Re: Please pull 'libertas-upstream' branch of wireless-2.6
-Date: Tue, 07 Aug 2007 18:22:59 -0400
-Message-ID: <46B8F0C3.6030409@garzik.org>
-References: <20070806203005.GL6442@tuxdriver.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] xen-netfront: remove dead code
+Date: Tue, 07 Aug 2007 18:25:13 -0400
+Message-ID: <46B8F149.3090706@garzik.org>
+References: <46B8EA9A.5020704@goop.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070806203005.GL6442-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>, Adrian Bunk <bunk@stusta.de>,
+	Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+To: Jeremy Fitzhardinge <jeremy@goop.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:48607 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757236AbXHGWZY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Aug 2007 18:25:24 -0400
+In-Reply-To: <46B8EA9A.5020704@goop.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> Got a big patch bomb from the libertas guys.  I tried to cherry-pick
-> some of the fixes for 2.6.23, but they either were fixes to problems
-> in new code or all the code cleanups made them difficult for me to
-> intelligently backport.
+Jeremy Fitzhardinge wrote:
+> This patch removes some residual dead code left over from removing the
+> "flip" receive mode.  This patch doesn't change the generated output
+> at all, since gcc already realized it was dead.
 > 
-> So, this is intended for 2.6.24...
+> This resolves the "regression" reported by Adrian.
+> 
+> Signed-off-by: Jeremy Fitzhardinge <jeremy@xensource.com>
+> Cc: Adrian Bunk <bunk@stusta.de>
+> Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
 > 
 > ---
-> 
-> The following changes since commit d4ac2477fad0f2680e84ec12e387ce67682c5c13:
->   Linus Torvalds (1):
->         Linux 2.6.23-rc2
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git libertas-upstream
+>  drivers/net/xen-netfront.c |   37 ++-----------------------------------
+>  1 file changed, 2 insertions(+), 35 deletions(-)
 
-This is missing the patch.  I looked at it locally, but please do send a 
-patch for review with each push, no matter how big.
+Please send drivers/net/* through me and netdev...
 
-pulled into #upstream
+	Jeff
+
+
