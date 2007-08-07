@@ -1,47 +1,51 @@
-From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Subject: Re: Please pull 'fixes-jgarzik' branch of wireless-2.6
-Date: Tue, 07 Aug 2007 17:25:12 -0400
-Message-ID: <46B8E338.9070405@garzik.org>
-References: <20070806201441.GJ6442@tuxdriver.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 0/2] r8169: pull request for 'r8169-for-jeff-20070806'
+ branch
+Date: Tue, 07 Aug 2007 17:28:38 -0400
+Message-ID: <46B8E406.7080103@garzik.org>
+References: <20070806221612.GA23302@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070806201441.GJ6442-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:52808 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S966051AbXHGV2l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Aug 2007 17:28:41 -0400
+In-Reply-To: <20070806221612.GA23302@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> The following changes since commit d4ac2477fad0f2680e84ec12e387ce67682c5c13:
->   Linus Torvalds (1):
->         Linux 2.6.23-rc2
+Francois Romieu wrote:
+> Please pull from branch 'r8169-for-jeff-20070806' in repository
 > 
-> are available in the git repository at:
+> git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git r8169-for-jeff-20070806
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git fixes-jgarzik
+> to get the changes below.
 > 
-> John W. Linville (1):
->       Revert "[PATCH] bcm43xx: Fix deviation from specifications in set_baseband_attenuation"
+> Distance from 'upstream-fixes' (c196d80f994ef4ffefd5a7c62e3f42bd75d538bc)
+> -------------------------------------------------------------------------
 > 
-> Masakazu Mokuno (1):
->       remove duplicated ioctl entries in compat_ioctl.c
+> 313b0305b5a1e7e0fb39383befbf79558ce68a9c
+> 2584fbc3a61897de5eddd56b39a4fa9cd074eca2
 > 
-> Michael Buesch (1):
->       softmac: Fix deadlock of wx_set_essid with assoc work
+> Diffstat
+> --------
 > 
-> Michael Wu (1):
->       rtl8187: ensure priv->hwaddr is always valid
+>  drivers/net/r8169.c |   24 ++++++++++++++++--------
+>  1 files changed, 16 insertions(+), 8 deletions(-)
 > 
-> Ulrich Kunitz (1):
->       zd1211rw: fix filter for PSPOLL frames
+> Shortlog
+> --------
 > 
->  drivers/net/wireless/bcm43xx/bcm43xx_phy.c  |    2 +-
->  drivers/net/wireless/rtl8187_dev.c          |    2 +-
->  drivers/net/wireless/zd1211rw/zd_mac.c      |    2 +-
->  fs/compat_ioctl.c                           |    3 ---
->  net/ieee80211/softmac/ieee80211softmac_wx.c |   11 ++++++++---
->  5 files changed, 11 insertions(+), 9 deletions(-)
+> Francois Romieu (1):
+>       r8169: avoid needless NAPI poll scheduling
+> 
+> Roger So (1):
+>       r8169: PHY power-on fix
 
 pulled
+
+
