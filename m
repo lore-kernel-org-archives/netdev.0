@@ -1,51 +1,40 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 0/2] r8169: pull request for 'r8169-for-jeff-20070806'
- branch
-Date: Tue, 07 Aug 2007 17:28:38 -0400
-Message-ID: <46B8E406.7080103@garzik.org>
-References: <20070806221612.GA23302@electric-eye.fr.zoreil.com>
+Subject: Re: [RESEND][PATCH 1/3] ehea: Fix workqueue handling
+Date: Tue, 07 Aug 2007 17:34:34 -0400
+Message-ID: <46B8E56A.104@garzik.org>
+References: <200708061354.30653.osstklei@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52808 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966051AbXHGV2l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Aug 2007 17:28:41 -0400
-In-Reply-To: <20070806221612.GA23302@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: Thomas Klein <tklein@de.ibm.com>, Jan-Bernd Themann <themann@de.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Stefan Roscher <ossrosch@linux.vnet.ibm.com>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Jan-Bernd Themann <ossthema@de.ibm.com>, Marcus Eder <meder@de.ibm.com>
+To: Thomas Klein <osstklei@de.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <200708061354.30653.osstklei@de.ibm.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Please pull from branch 'r8169-for-jeff-20070806' in repository
+Thomas Klein wrote:
+> Fix: Workqueue ehea_driver_wq was not destroyed
 > 
-> git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git r8169-for-jeff-20070806
+> Signed-off-by: Thomas Klein <tklein@de.ibm.com>
 > 
-> to get the changes below.
-> 
-> Distance from 'upstream-fixes' (c196d80f994ef4ffefd5a7c62e3f42bd75d538bc)
-> -------------------------------------------------------------------------
-> 
-> 313b0305b5a1e7e0fb39383befbf79558ce68a9c
-> 2584fbc3a61897de5eddd56b39a4fa9cd074eca2
-> 
-> Diffstat
-> --------
-> 
->  drivers/net/r8169.c |   24 ++++++++++++++++--------
->  1 files changed, 16 insertions(+), 8 deletions(-)
-> 
-> Shortlog
-> --------
-> 
-> Francois Romieu (1):
->       r8169: avoid needless NAPI poll scheduling
-> 
-> Roger So (1):
->       r8169: PHY power-on fix
+> ---
+>  drivers/net/ehea/ehea.h      |    2 +-
+>  drivers/net/ehea/ehea_main.c |    1 +
+>  2 files changed, 2 insertions(+), 1 deletions(-)
 
-pulled
-
-
+applied 1-3 to #upstream-fixes
