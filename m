@@ -1,60 +1,49 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [RFC] allow device to stop packet mirror behaviour
-Date: Tue, 07 Aug 2007 10:27:07 +0200
-Message-ID: <1186475227.4067.19.camel@johannes.berg>
-References: <1186475155.4067.17.camel@johannes.berg>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Tue, 7 Aug 2007 11:52:46 +0200
+Message-ID: <20070807095246.GB3223@ff.dom.local>
+References: <20070726083120.GA26910@elte.hu> <20070726085523.GA3423@ff.dom.local> <20070726091254.GA8063@elte.hu> <4bacf17f0707300029g5116e70bq4808059dc8b069f1@mail.gmail.com> <20070731132037.GC1046@ff.dom.local> <4bacf17f0708060000n5a00bb77i74adc3b4b28ac42b@mail.gmail.com> <20070806070300.GA4509@elte.hu> <4bacf17f0708070046o14403089v8376a4544f72fec3@mail.gmail.com> <20070807082321.GB2120@ff.dom.local> <4bacf17f0708070237w19d184b3p7f74b53612edb9a6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andy Green <andy-/Zus8d0mwwtBDgjK7y7TUQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1186475155.4067.17.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: Marcin =?iso-8859-2?Q?=A6lusarz?= <marcin.slusarz@gmail.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4bacf17f0708070237w19d184b3p7f74b53612edb9a6@mail.gmail.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is the corresponding patch to mac80211.
+On Tue, Aug 07, 2007 at 11:37:01AM +0200, Marcin =A6lusarz wrote:
+> 2007/8/7, Jarek Poplawski <jarkao2@o2.pl>:
+> > On Tue, Aug 07, 2007 at 09:46:36AM +0200, Marcin =A6lusarz wrote:
+> > > Network card still locks up (tested on 2.6.22.1). I had to upload=
+ more
+> > > data than usual (~350 MB vs ~1-100 MB) to trigger that bug but it
+> > > might be a coincidence...
+> >
+> > Thanks! It's a good news after all - it would be really strange why
+> > this place doesn't hit more people (it seems there is some safety
+> > elsewhere for this).
+> >
+> > BTW: I hope, this previous Thomas' patch with Ingo's warning to res=
+end.c
+> > (with a warning), had no problems with a similar load?
+> I always tested on 500-600 MB "dataset"
+>=20
+> > PS: Marcin, if you need a break in this testing let us know!
+> No, i don't need a break. I'll have more time in next weeks.
 
-It marks all monitor type interfaces with IFF_NO_MIRROR the reasons for
-which I explained in the previous mail; it also marks the master device
-with IFF_NO_MIRROR so you don't see *any* packets on the master device
-(right now you see outgoing frames with 802.11 header.) We want to get
-rid of it anyway so making it a bit more useless yet seems like a good
-idea.
+Great! So, I'll try to send a patch with _SW_RESEND in a few hours,
+if Ingo doesn't prepare something for you.
 
-johannes
-
----
- net/mac80211/ieee80211.c       |    1 +
- net/mac80211/ieee80211_iface.c |    2 ++
- 2 files changed, 3 insertions(+)
-
---- wireless-dev.orig/net/mac80211/ieee80211_iface.c	2007-08-06 21:14:37.398164177 +0200
-+++ wireless-dev/net/mac80211/ieee80211_iface.c	2007-08-06 21:15:02.078164177 +0200
-@@ -158,6 +158,7 @@ void ieee80211_if_set_type(struct net_de
- 	int oldtype = sdata->type;
- 
- 	dev->hard_start_xmit = ieee80211_subif_start_xmit;
-+	dev->flags &= ~IFF_NO_MIRROR;
- 
- 	sdata->type = type;
- 	switch (type) {
-@@ -216,6 +217,7 @@ void ieee80211_if_set_type(struct net_de
- 	case IEEE80211_IF_TYPE_MNTR:
- 		dev->type = ARPHRD_IEEE80211_RADIOTAP;
- 		dev->hard_start_xmit = ieee80211_monitor_start_xmit;
-+		dev->flags |= IFF_NO_MIRROR;
- 		break;
- 	default:
- 		printk(KERN_WARNING "%s: %s: Unknown interface type 0x%x",
---- wireless-dev.orig/net/mac80211/ieee80211.c	2007-08-06 21:15:01.898164177 +0200
-+++ wireless-dev/net/mac80211/ieee80211.c	2007-08-06 21:15:02.088164177 +0200
-@@ -5138,6 +5138,7 @@ struct ieee80211_hw *ieee80211_alloc_hw(
- 	mdev->stop = ieee80211_master_stop;
- 	mdev->type = ARPHRD_IEEE80211;
- 	mdev->hard_header_parse = header_parse_80211;
-+	mdev->flags |= IFF_NO_MIRROR;
- 
- 	sdata->type = IEEE80211_IF_TYPE_AP;
- 	sdata->dev = mdev;
+Thanks,
+Jarek P.
