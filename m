@@ -1,42 +1,38 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [RFC] cubic: backoff after slow start
-Date: Tue, 7 Aug 2007 14:37:39 -0400
-Message-ID: <20070807143739.7badea0a@oldman>
+Subject: [RFT] sky2: turn on pci power
+Date: Tue, 7 Aug 2007 15:12:44 -0400
+Message-ID: <20070807151244.26471f59@oldman>
+References: <20070724082205.GA19480@paradigm.rfc822.org>
+	<20070724095008.0eb154fe@oldman.hamilton.local>
+	<20070724094042.GA6414@paradigm.rfc822.org>
+	<6bffcb0e0707241630p3599ad99sfd778097b307e78c@mail.gmail.com>
+	<20070725072202.GA4905@paradigm.rfc822.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Injong Rhee <rhee@eos.ncsu.edu>, Sangtae Ha <sha2@ncsu.edu>
+Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
+	netdev@vger.kernel.org
+To: Florian Lohoff <flo@rfc822.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:34450 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:40215 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754567AbXHGShO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2007 14:37:14 -0400
+	by vger.kernel.org with ESMTP id S1751195AbXHGTMh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2007 15:12:37 -0400
+In-Reply-To: <20070725072202.GA4905@paradigm.rfc822.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CUBIC takes several unnecessary iterations to converge out of slow start. This
-is most noticable over a link where the bottleneck queue size is much larger than BDP,
-and the sender has to "fill the pipe" in slow start before the first loss. Typical
-consumer broadband links seem to have large (up to 2secs) of queue that needs
-to get filled before the first loss.
+This setup step got dropped in 2.6.23, Yukon-EX configuration, maybe
+this fixes your problem?
 
-A possible fix is to use a beta of .5 (same as original TCP) when leaving
-slow start.  Originally, the Linux version didn't do slow start so it probably
-never was observed.
-
---- a/net/ipv4/tcp_cubic.c	2007-08-02 12:16:22.000000000 +0100
-+++ b/net/ipv4/tcp_cubic.c	2007-08-03 15:57:12.000000000 +0100
-@@ -289,7 +289,11 @@ static u32 bictcp_recalc_ssthresh(struct
+--- a/drivers/net/sky2.c	2007-08-06 04:39:36.000000000 -0400
++++ b/drivers/net/sky2.c	2007-08-07 14:50:25.000000000 -0400
+@@ -222,6 +222,8 @@ static void sky2_power_on(struct sky2_hw
+ 	if (hw->chip_id == CHIP_ID_YUKON_EC_U || hw->chip_id == CHIP_ID_YUKON_EX) {
+ 		u32 reg;
  
- 	ca->loss_cwnd = tp->snd_cwnd;
- 
--	return max((tp->snd_cwnd * beta) / BICTCP_BETA_SCALE, 2U);
-+	/* Initial backoff when leaving slow start */
-+	if (tp->snd_ssthresh == 0x7fffffff)
-+		return max(tp->snd_cwnd >> 1U, 2U);
-+	else
-+		return max((tp->snd_cwnd * beta) / BICTCP_BETA_SCALE, 2U);
- }
- 
- static u32 bictcp_undo_cwnd(struct sock *sk)
++		sky2_pci_write32(hw, PCI_DEV_REG3, 0);
++
+ 		reg = sky2_pci_read32(hw, PCI_DEV_REG4);
+ 		/* set all bits to 0 except bits 15..12 and 8 */
+ 		reg &= P_ASPM_CONTROL_MSK;
