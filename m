@@ -1,47 +1,37 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [RFC][BNX2X]: New driver for Broadcom 10Gb Ethernet.
-Date: Wed, 8 Aug 2007 00:20:35 +0200
-Message-ID: <200708080020.35701.mb@bu3sch.de>
-References: <1185957077.5552.22.camel@dell> <200708020006.13457.mb@bu3sch.de> <46B8EF13.40109@garzik.org>
+From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
+Subject: Re: Please pull 'libertas-upstream' branch of wireless-2.6
+Date: Tue, 07 Aug 2007 18:22:59 -0400
+Message-ID: <46B8F0C3.6030409@garzik.org>
+References: <20070806203005.GL6442@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, eliezert@broadcom.com,
-	lusinsky@broadcom.com, eilong@broadcom.com
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:52230
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936613AbXHGWV6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2007 18:21:58 -0400
-In-Reply-To: <46B8EF13.40109@garzik.org>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070806203005.GL6442-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 08 August 2007 00:15:47 Jeff Garzik wrote:
-> Michael Buesch wrote:
-> > On Wednesday 01 August 2007 10:31:17 Michael Chan wrote:
-> >> +static irqreturn_t bnx2x_msix_sp_int(int irq, void *dev_instance)
-> >> +{
-> >> +	struct net_device *dev = dev_instance;
-> > 
-> > You need to check if dev==NULL and bail out.
-> > Another driver sharing the IRQ with this might choose to pass the dev
-> > pointer as NULL.
+John W. Linville wrote:
+> Got a big patch bomb from the libertas guys.  I tried to cherry-pick
+> some of the fixes for 2.6.23, but they either were fixes to problems
+> in new code or all the code cleanups made them difficult for me to
+> intelligently backport.
 > 
-> NAK that advice:  It is pointless having such a check in the hottest of 
-> driver hot paths, since a large majority of drivers do not have such a 
-> check.
+> So, this is intended for 2.6.24...
 > 
-> It is better to fix the extremely rare oddball that passes NULL to 
-> request_irq(), than to update all drivers to be slower due to the oddballs.
+> ---
+> 
+> The following changes since commit d4ac2477fad0f2680e84ec12e387ce67682c5c13:
+>   Linus Torvalds (1):
+>         Linux 2.6.23-rc2
+> 
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git libertas-upstream
 
-Ah, well. IMO one should better go safe than Oops. ;)
-It's not that an if branch takes more than 2 or 3 CPU cycles at worst.
-But well, if you don't like it, I can live without it, too.
+This is missing the patch.  I looked at it locally, but please do send a 
+patch for review with each push, no matter how big.
 
--- 
-Greetings Michael.
+pulled into #upstream
