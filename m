@@ -1,72 +1,87 @@
-From: Brian King <brking@linux.vnet.ibm.com>
-Subject: Re: [PATCH 2/6] ibmveth: Implement ethtool hooks to enable/disable
-	checksum offload
-Date: Tue, 07 Aug 2007 17:07:12 -0500
-Message-ID: <46B8ED10.1060701@linux.vnet.ibm.com>
-References: <11864293333377-patch-mail.ibm.com>
-	<200708061942.l76JgLrU009242@d01av04.pok.ibm.com>
-	<46B8E891.80403@garzik.org>
-Reply-To: brking@linux.vnet.ibm.com
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [RFC][BNX2X]: New driver for Broadcom 10Gb Ethernet.
+Date: Tue, 07 Aug 2007 18:15:47 -0400
+Message-ID: <46B8EF13.40109@garzik.org>
+References: <1185957077.5552.22.camel@dell> <200708020006.13457.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=iso-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, rcjenn@linux.vnet.ibm.com,
-	santil@linux.vnet.ibm.com, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <46B8E891.80403@garzik.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: Michael Chan <mchan@broadcom.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, eliezert@broadcom.com,
+	lusinsky@broadcom.com, eilong@broadcom.com
+To: Michael Buesch <mb@bu3sch.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:44734 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753813AbXHGWPx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Aug 2007 18:15:53 -0400
+In-Reply-To: <200708020006.13457.mb@bu3sch.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Brian King wrote:
->> This patch adds the appropriate ethtool hooks to allow for enabling/disabling
->> of hypervisor assisted checksum offload for TCP.
->>
->> Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
->> ---
->>
->>  linux-2.6-bjking1/drivers/net/ibmveth.c |  118 +++++++++++++++++++++++++++++++-
->>  linux-2.6-bjking1/drivers/net/ibmveth.h |    1 
->>  2 files changed, 117 insertions(+), 2 deletions(-)
->>
->> diff -puN drivers/net/ibmveth.c~ibmveth_csum_offload_ethtool drivers/net/ibmveth.c
->> --- linux-2.6/drivers/net/ibmveth.c~ibmveth_csum_offload_ethtool	2007-08-01 14:55:14.000000000 -0500
->> +++ linux-2.6-bjking1/drivers/net/ibmveth.c	2007-08-01 14:55:14.000000000 -0500
->> @@ -641,12 +641,125 @@ static u32 netdev_get_link(struct net_de
->>  	return 1;
->>  }
->>  
->> +static void ibmveth_set_rx_csum_flags(struct net_device *dev, u32 data)
+Michael Buesch wrote:
+> On Wednesday 01 August 2007 10:31:17 Michael Chan wrote:
+>> +static irqreturn_t bnx2x_msix_sp_int(int irq, void *dev_instance)
 >> +{
->> +	struct ibmveth_adapter *adapter = dev->priv;
->> +
->> +	if (data)
->> +		adapter->rx_csum = 1;
->> +	else {
->> +		adapter->rx_csum = 0;
->> +		dev->features &= ~NETIF_F_IP_CSUM;
+>> +	struct net_device *dev = dev_instance;
 > 
-> why does this RX-related code clear a TX-related flag?
+> You need to check if dev==NULL and bail out.
+> Another driver sharing the IRQ with this might choose to pass the dev
+> pointer as NULL.
 
-Its related to how the pSeries firmware works. The firmware provides an interface
-to enable "checksum offload", which means both tx and rx checksum offload from
-the firmware's point of view. The firmware does not support enabling checksum
-offload for only rx. If I disable it for rx I have to disable it for tx as
-well, otherwise the firmware will reject all future tx buffers I throw at it
-that are not checksummed.
+NAK that advice:  It is pointless having such a check in the hottest of 
+driver hot paths, since a large majority of drivers do not have such a 
+check.
 
--Brian
+It is better to fix the extremely rare oddball that passes NULL to 
+request_irq(), than to update all drivers to be slower due to the oddballs.
 
--- 
-Brian King
-Linux on Power Virtualization
-IBM Linux Technology Center
+
+>> +	struct bnx2x *bp = netdev_priv(dev);
+> 
+> No check if the device actually _did_ generate the IRQ? Sharing...
+
+Not for MSI
+
+
+>> +static irqreturn_t bnx2x_msix_fp_int(int irq, void *fp_cookie)
+>> +{
+>> +
+>> +	struct bnx2x_fastpath *fp = fp_cookie;
+> 
+> Check if fp==NULL
+
+NAK
+
+>> +	struct bnx2x *bp = fp->bp;
+>> +	struct net_device *dev = bp->dev;
+> 
+> No share protection either?
+
+MSI
+
+
+>> +static irqreturn_t bnx2x_interrupt(int irq, void *dev_instance)
+>> +{
+>> +	struct net_device *dev = dev_instance;
+> 
+> Check if dev==NULL
+
+NAK
+
+
+>> +	struct bnx2x *bp = netdev_priv(dev);
+>> +	u16 status = bnx2x_ack_int(bp);
+>> +
+>> +	if (unlikely(status == 0)) {
+> 
+> That's not unlikely.
+
+in this case, agreed
+
+the other comments seem fairly sane, and indeed should be considered for 
+the existing drivers as well.
+
+	Jeff
+
+
