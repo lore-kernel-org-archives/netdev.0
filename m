@@ -1,66 +1,31 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 6/6] ibmveth: Remove use of bitfields
-Date: Tue, 07 Aug 2007 17:56:49 -0400
-Message-ID: <46B8EAA1.8070003@garzik.org>
-References: <11864293333377-patch-mail.ibm.com>
-	<200708061942.l76JgmxI031698@d03av01.boulder.ibm.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 68] drivers/net/s2io.c: kmalloc + memset conversion to
+ k[cz]alloc
+Date: Tue, 07 Aug 2007 17:57:36 -0400
+Message-ID: <46B8EAD0.2040303@pobox.com>
+References: <200707311845.48807.m.kozlowski@tuxland.pl> <200707312356.58934.m.kozlowski@tuxland.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, rcjenn@linux.vnet.ibm.com,
-	santil@linux.vnet.ibm.com, netdev@vger.kernel.org
-To: Brian King <brking@linux.vnet.ibm.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <200708061942.l76JgmxI031698@d03av01.boulder.ibm.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <200707312356.58934.m.kozlowski@tuxland.pl>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brian King wrote:
-> Removes the use of bitfields from the ibmveth driver. This results
-> in slightly smaller object code.
+Mariusz Kozlowski wrote:
+> Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
 > 
-> Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
-> ---
+>  drivers/net/s2io.c | 235587 -> 235340 (-247 bytes)
+>  drivers/net/s2io.o | 460768 -> 460120 (-648 bytes)
 > 
->  linux-2.6-bjking1/drivers/net/ibmveth.c |   90 ++++++++++++++++----------------
->  linux-2.6-bjking1/drivers/net/ibmveth.h |   56 ++++++++-----------
->  2 files changed, 68 insertions(+), 78 deletions(-)
+>  drivers/net/s2io.c |   14 +++++---------
+>  1 file changed, 5 insertions(+), 9 deletions(-)
 
-strong ACK :)
+ACK but didn't apply, please wait 24-48 hours (so that s2io fixes go 
+upstream), then rediff and resend
 
-Though I also encourage you to avoid #defines for named constants, in 
-favor of
 
-enum {
-	IBMVETH_BUF_VALID	= (1U << 31),
-	IBMVETH_BUF_TOGGLE	= (1U << 30),
-	IBMVETH_BUF_NO_CSUM	= (1U << 25),
-	IBMVETH_BUF_CSUM_GOOD	= (1U << 24),
-	IBMVETH_BUF_LEN_MASK	= 0x00FFFFFF,
-};
-
-This illustrates:
-
-1) The "1 << n" notation is FAR easier to read and compare with data 
-sheets.  You're just adding to the trouble by requiring the reviewer's 
-brain to convert hex numbers to bits, even if most engineers can do this 
-in their sleep.
-
-2) The named constants are available to the C compiler, which is more 
-friendly to debuggers.  It also supplies type information to the C compiler.
-
-3) Similar to #2, wading through C pre-processor output is much easier 
-when the symbols don't disappear.
-
-These are recommendations, not requirements, but I've found these 
-techniques superior to cpp in many other drivers.
-
-	Jeff
