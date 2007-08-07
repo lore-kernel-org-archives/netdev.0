@@ -1,81 +1,49 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: fscked clock sources revisited
-Date: Tue, 07 Aug 2007 09:19:52 -0400
-Message-ID: <1186492792.5163.94.camel@localhost>
-References: <1185844239.5162.17.camel@localhost>
-	 <20070730.183750.77058266.davem@davemloft.net>
-	 <1185848076.5162.39.camel@localhost>
-Reply-To: hadi@cyberus.ca
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [RFC] stuff from tcp-2.6 partially merged to upcoming net-2.6.24?
+Date: Tue, 7 Aug 2007 16:19:58 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0708071356060.8788@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Robert.Olsson@data.slu.se,
-	shemminger@linux-foundation.org, kaber@trash.net
+Cc: Netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.232]:62932 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758810AbXHGNT6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2007 09:19:58 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1730109wxd
-        for <netdev@vger.kernel.org>; Tue, 07 Aug 2007 06:19:56 -0700 (PDT)
-In-Reply-To: <1185848076.5162.39.camel@localhost>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:34756 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761484AbXHGNUA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2007 09:20:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-30-07 at 22:14 -0400, jamal wrote:
+Hi Dave,
 
-> I am going to test with hpet when i get the chance
+...Noticed you were planning to open net-2.6.24 tree... IMHO, part of the 
+stuff in tcp-2.6 could be merged to 2.6.24. I suggest that most of the 
+stuff which is not directly related to the rbtree, new lost marker, nor
+sacktag reorganization are taken. Some of those things are very trivial
+to take as they do not introduce have any conflicts. Besides that there 
+are some stuff that would need some work if takes as they are built on 
+top of stuff that will remain only in tcp-2.6 (includes left_out removal 
+and IsReno/Fack conversion)... But if it's ok, I could try to come up with 
+a solution even to them... Perhaps do this in two (or more) stages by 
+first taking the trivial ones...
 
-Couldnt figure how to turn on/off hpet, so didnt test.
+I tried rebasing tcp-2.6 (there's some not yet submitted work on top of 
+it too) to top of be1b685fe6c9928848b26b568eaa86ba8ce0046c, result is 
+here:
+  http://www.cs.helsinki.fi/u/ijjarvin/tcp-rebase/{before,after}
+...There was at least one gotcha (sacktag's flag reset position change
+when sacktag_state is created). But all in all, conflicts weren't that 
+hard to resolve... One may resolve some things differently than I did,
+so YMMV if you want to try that yourself... :-) ...I also diffed
+all.patch'es to see if there was some undesired side-effect from diff 
+but didn't find any. Currently only compile tested.
 
-> and perhaps turn off all the other sources if nothing good comes out; i
-> need my numbers ;->
+Do you have any suggestion how I should proceed? Or do you perhaps object 
+such partial merge completely? ...I could try to come up with a cleaned up 
+patch series which has original and their bug fix parts combined to a 
+single patch per change (would provide cleaner history and shouldn't be 
+very hard to do either)...
 
-Here are some numbers that make the mystery even more interesting. This
-is with kernel 2.6.22-rc4. Repeating with kernel 2.6.23-rc1 didnt show
-anything different. I went back to test on 2.6.22-rc4 because it is the 
-base for my batching patches - and since those drove me to this test, i
-wanted something that reduces variables when comparing with batching.
-
-I picked udp for this test because i can select different packet sizes.
-i used iperf. The sender is a dual opteron with tg3. The receiver is a
-dual xeon.
-
-The default HZ is 250. Each packet size was run 3 times with different
-clock sources. The experiment made sure that the receiver wasnt a
-bottleneck (increased socket buffer sizes etc)
-
-Packet | jiffies (1/250) |      tsc      |    acpi_pm
--------------------------|---------------|---------------
-  64   |  141, 145, 142  | 131, 136, 130 | 103, 104, 110
- 128   |  256, 256, 256  | 274, 260, 269 | 216, 206, 220
- 512   |  513, 513, 513  | 886, 886, 886 | 828, 814, 806
-1280   |  684, 684, 684  | 951, 951, 951 | 951, 951, 951
-
-So i was wrong to declare jiffies as being good. The last batch of
-experiments were based on only 64 byte UDP. Clearly as packet size goes
-up, the results are worse with jiffies.
-At this point, i decided to recompile the kernel with HZ=1000 and the
-observations show that the jiffies results are improved.
-
-Packet | jiffies (1/250) |      tsc      |    acpi_pm
--------------------------|---------------|---------------
-  64   |  145, 135, 135  | 131, 137, 139 | 110, 110, 108
- 128   |  257, 257, 257  | 270, 264, 250 | 218, 216, 217
- 512   |  819, 776, 819  | 886, 886, 886 | 841, 824, 846
-1280   |  855, 855, 855  | 951, 950, 951 | 951, 951, 951
-
-Still not as good as the other two at large packet sizes.
-For this machine: The ideal clock source would be jiffies with
-HZ=1000 upto about 100 bytes then change to tsc. Of course i could pick
-tsc but people have dissed it so far - i probably didnt hit the
-condition where it goes into deep slumber.
-
-Any insights? This makes it hard to quantify batching experimental
-improvements as i feel it could be architecture or worse machine
-dependent.
-
-cheers,
-jamal 
-
+-- 
+ i.
