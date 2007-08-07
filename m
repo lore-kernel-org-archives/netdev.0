@@ -1,31 +1,47 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch] sis190 check for ISA bridge on SiS966
-Date: Tue, 07 Aug 2007 17:19:06 -0400
-Message-ID: <46B8E1CA.8010002@pobox.com>
-References: <20070801155204.GB21942@stro.at>
+From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
+Subject: Re: Please pull 'fixes-jgarzik' branch of wireless-2.6
+Date: Tue, 07 Aug 2007 17:25:12 -0400
+Message-ID: <46B8E338.9070405@garzik.org>
+References: <20070806201441.GJ6442@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Neil Muller <drnlmuller+bugs@gmail.com>
-To: maximilian attems <max@stro.at>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:45882 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S937003AbXHGVTL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Aug 2007 17:19:11 -0400
-In-Reply-To: <20070801155204.GB21942@stro.at>
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070806201441.GJ6442-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-maximilian attems wrote:
-> From: Neil Muller <drnlmuller+bugs@gmail.com>
+John W. Linville wrote:
+> The following changes since commit d4ac2477fad0f2680e84ec12e387ce67682c5c13:
+>   Linus Torvalds (1):
+>         Linux 2.6.23-rc2
 > 
-> sis190 driver assumes to find ISA only on SiS965.
-> similar fix is in sis900 driver, see bug report
-> http://bugs.debian.org/435547
+> are available in the git repository at:
 > 
-> Signed-off-by: maximilian attems <max@stro.at>
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git fixes-jgarzik
+> 
+> John W. Linville (1):
+>       Revert "[PATCH] bcm43xx: Fix deviation from specifications in set_baseband_attenuation"
+> 
+> Masakazu Mokuno (1):
+>       remove duplicated ioctl entries in compat_ioctl.c
+> 
+> Michael Buesch (1):
+>       softmac: Fix deadlock of wx_set_essid with assoc work
+> 
+> Michael Wu (1):
+>       rtl8187: ensure priv->hwaddr is always valid
+> 
+> Ulrich Kunitz (1):
+>       zd1211rw: fix filter for PSPOLL frames
+> 
+>  drivers/net/wireless/bcm43xx/bcm43xx_phy.c  |    2 +-
+>  drivers/net/wireless/rtl8187_dev.c          |    2 +-
+>  drivers/net/wireless/zd1211rw/zd_mac.c      |    2 +-
+>  fs/compat_ioctl.c                           |    3 ---
+>  net/ieee80211/softmac/ieee80211softmac_wx.c |   11 ++++++++---
+>  5 files changed, 11 insertions(+), 9 deletions(-)
 
-applied to #upstream-fixes
-
-
+pulled
