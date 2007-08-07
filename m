@@ -1,57 +1,42 @@
-From: Daniel Phillips <phillips@phunq.net>
-Subject: Re: Distributed storage.
-Date: Tue, 7 Aug 2007 11:24:56 -0700
-Message-ID: <200708071124.56859.phillips@phunq.net>
-References: <20070731171347.GA14267@2ka.mipt.ru> <200708051423.45484.phillips@phunq.net> <20070807120523.GX5245@kernel.dk>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [RFC] cubic: backoff after slow start
+Date: Tue, 7 Aug 2007 14:37:39 -0400
+Message-ID: <20070807143739.7badea0a@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: Jens Axboe <jens.axboe@oracle.com>
+Cc: netdev@vger.kernel.org
+To: Injong Rhee <rhee@eos.ncsu.edu>, Sangtae Ha <sha2@ncsu.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl081-085-152.lax1.dsl.speakeasy.net ([64.81.85.152]:41258
-	"EHLO moonbase.phunq.net" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751047AbXHGSZJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2007 14:25:09 -0400
-In-Reply-To: <20070807120523.GX5245@kernel.dk>
-Content-Disposition: inline
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:34450 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754567AbXHGShO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2007 14:37:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 07 August 2007 05:05, Jens Axboe wrote:
-> On Sun, Aug 05 2007, Daniel Phillips wrote:
-> > A simple way to solve the stable accounting field issue is to add a
-> > new pointer to struct bio that is owned by the top level submitter
-> > (normally generic_make_request but not always) and is not affected
-> > by any recursive resubmission.  Then getting rid of that field
-> > later becomes somebody's summer project, which is not all that
-> > urgent because struct bio is already bloated up with a bunch of
-> > dubious fields and is a transient structure anyway.
->
-> Thanks for your insights. Care to detail what bloat and dubious
-> fields struct bio has?
+CUBIC takes several unnecessary iterations to converge out of slow start. This
+is most noticable over a link where the bottleneck queue size is much larger than BDP,
+and the sender has to "fill the pipe" in slow start before the first loss. Typical
+consumer broadband links seem to have large (up to 2secs) of queue that needs
+to get filled before the first loss.
 
-First obvious one I see is bi_rw separate from bi_flags.  Front_size and 
-back_size smell dubious.  Is max_vecs really necessary?  You could 
-reasonably assume bi_vcnt rounded up to a power of two and bury the 
-details of making that work behind wrapper functions to change the 
-number of bvecs, if anybody actually needs that.  Bi_endio and 
-bi_destructor could be combined.  I don't see a lot of users of bi_idx, 
-that looks like a soft target.  See what happened to struct page when a 
-couple of folks got serious about attacking it, some really deep hacks 
-were done to pare off a few bytes here and there.  But struct bio as a 
-space waster is not nearly in the same ballpark.
+A possible fix is to use a beta of .5 (same as original TCP) when leaving
+slow start.  Originally, the Linux version didn't do slow start so it probably
+never was observed.
 
-It would be interesting to see if bi_bdev could be made read only.  
-Generally, each stage in the block device stack knows what the next 
-stage is going to be, so why do we have to write that in the bio?  For 
-error reporting from interrupt context?  Anyway, if Evgeniy wants to do 
-the patch, I will happily unload the task of convincing you that random 
-fields are/are not needed in struct bio :-)
-
-Regards,
-
-Daniel
+--- a/net/ipv4/tcp_cubic.c	2007-08-02 12:16:22.000000000 +0100
++++ b/net/ipv4/tcp_cubic.c	2007-08-03 15:57:12.000000000 +0100
+@@ -289,7 +289,11 @@ static u32 bictcp_recalc_ssthresh(struct
+ 
+ 	ca->loss_cwnd = tp->snd_cwnd;
+ 
+-	return max((tp->snd_cwnd * beta) / BICTCP_BETA_SCALE, 2U);
++	/* Initial backoff when leaving slow start */
++	if (tp->snd_ssthresh == 0x7fffffff)
++		return max(tp->snd_cwnd >> 1U, 2U);
++	else
++		return max((tp->snd_cwnd * beta) / BICTCP_BETA_SCALE, 2U);
+ }
+ 
+ static u32 bictcp_undo_cwnd(struct sock *sk)
