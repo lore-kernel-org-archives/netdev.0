@@ -1,49 +1,67 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [RFC] stuff from tcp-2.6 partially merged to upcoming net-2.6.24?
-Date: Tue, 7 Aug 2007 16:19:58 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0708071356060.8788@kivilampi-30.cs.helsinki.fi>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Fw: [Bug 8845] New: Kernel 2.6.23-RC2: TCP + ICH9 + Amule + Hours =
+ Freeze of my Debian => Reboot
+Date: Tue, 7 Aug 2007 09:37:31 -0400
+Message-ID: <20070807093731.11a6e87a@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:34756 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761484AbXHGNUA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2007 09:20:00 -0400
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:39979 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761321AbXHGNhB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2007 09:37:01 -0400
+Received: from oldman (pool-141-154-144-75.wma.east.verizon.net [141.154.144.75])
+	(authenticated bits=0)
+	by smtp2.linux-foundation.org (8.13.5.20060308/8.13.5/Debian-3ubuntu1.1) with ESMTP id l77DavX1032332
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 7 Aug 2007 06:37:00 -0700
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+Any takers?
 
-...Noticed you were planning to open net-2.6.24 tree... IMHO, part of the 
-stuff in tcp-2.6 could be merged to 2.6.24. I suggest that most of the 
-stuff which is not directly related to the rbtree, new lost marker, nor
-sacktag reorganization are taken. Some of those things are very trivial
-to take as they do not introduce have any conflicts. Besides that there 
-are some stuff that would need some work if takes as they are built on 
-top of stuff that will remain only in tcp-2.6 (includes left_out removal 
-and IsReno/Fack conversion)... But if it's ok, I could try to come up with 
-a solution even to them... Perhaps do this in two (or more) stages by 
-first taking the trivial ones...
+Subject: [Bug 8845] New: Kernel 2.6.23-RC2: TCP + ICH9 + Amule + Hours = Freeze of my Debian => Reboot
 
-I tried rebasing tcp-2.6 (there's some not yet submitted work on top of 
-it too) to top of be1b685fe6c9928848b26b568eaa86ba8ce0046c, result is 
-here:
-  http://www.cs.helsinki.fi/u/ijjarvin/tcp-rebase/{before,after}
-...There was at least one gotcha (sacktag's flag reset position change
-when sacktag_state is created). But all in all, conflicts weren't that 
-hard to resolve... One may resolve some things differently than I did,
-so YMMV if you want to try that yourself... :-) ...I also diffed
-all.patch'es to see if there was some undesired side-effect from diff 
-but didn't find any. Currently only compile tested.
 
-Do you have any suggestion how I should proceed? Or do you perhaps object 
-such partial merge completely? ...I could try to come up with a cleaned up 
-patch series which has original and their bug fix parts combined to a 
-single patch per change (would provide cleaner history and shouldn't be 
-very hard to do either)...
+http://bugzilla.kernel.org/show_bug.cgi?id=8845
+
+           Summary: Kernel 2.6.23-RC2: TCP + ICH9 + Amule + Hours = Freeze
+                    of my Debian => Reboot
+           Product: Networking
+           Version: 2.5
+     KernelVersion: Kernel 2.6.23-RC2
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+        AssignedTo: shemminger@osdl.org
+        ReportedBy: v4ahixbmb4@forgetably.com
+
+
+Hello!
+
+I had the same problem with kernel 2.6.22.
+I have a very recent Asus P5K-VM motherboard, and with the same harddrive and
+software on an Asus P5B-VM I had no problem. I have no problem with Ktorrent.
+
+When I use amule with only the udp mode (Kademlia), my Debian Etch/Lenny works
+alright for 24 hours straight, with dozens of active downloads.
+When I use the regular tcp mode (edonkey protocol), after 3 hours my Debian
+completely freezes (no hardrive activity, no console accessible, impossible to
+trigger a reboot from the keyboard with the right sequence of keys), and I have
+to reboot.
+I reproduced this more than ten times.
+I use an old D-Link DFE-530TX ethernet card with which I never had any problem
+over the years. I have a cable internet connection (1 MB/s up/ 30MB/s down)
+There is nothing in the logs before the freeze.
+
 
 -- 
- i.
+Configure bugmail: http://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are the assignee for the bug, or are watching the assignee.
