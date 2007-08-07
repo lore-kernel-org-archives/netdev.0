@@ -1,71 +1,47 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Please pull 'upstream-jgarzik' branch of wireless-2.6
-Date: Tue, 07 Aug 2007 18:21:34 -0400
-Message-ID: <46B8F06E.9000604@garzik.org>
-References: <20070806201441.GJ6442@tuxdriver.com> <20070806201649.GK6442@tuxdriver.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [RFC][BNX2X]: New driver for Broadcom 10Gb Ethernet.
+Date: Wed, 8 Aug 2007 00:20:35 +0200
+Message-ID: <200708080020.35701.mb@bu3sch.de>
+References: <1185957077.5552.22.camel@dell> <200708020006.13457.mb@bu3sch.de> <46B8EF13.40109@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Cc: Michael Chan <mchan@broadcom.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, eliezert@broadcom.com,
+	lusinsky@broadcom.com, eilong@broadcom.com
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59210 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S937622AbXHGWVi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Aug 2007 18:21:38 -0400
-In-Reply-To: <20070806201649.GK6442@tuxdriver.com>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:52230
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S936613AbXHGWV6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2007 18:21:58 -0400
+In-Reply-To: <46B8EF13.40109@garzik.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> These are intended for 2.6.24...
+On Wednesday 08 August 2007 00:15:47 Jeff Garzik wrote:
+> Michael Buesch wrote:
+> > On Wednesday 01 August 2007 10:31:17 Michael Chan wrote:
+> >> +static irqreturn_t bnx2x_msix_sp_int(int irq, void *dev_instance)
+> >> +{
+> >> +	struct net_device *dev = dev_instance;
+> > 
+> > You need to check if dev==NULL and bail out.
+> > Another driver sharing the IRQ with this might choose to pass the dev
+> > pointer as NULL.
 > 
-> ---
+> NAK that advice:  It is pointless having such a check in the hottest of 
+> driver hot paths, since a large majority of drivers do not have such a 
+> check.
 > 
-> The following changes since commit fdc8f43b5e49b64b251bb48da95193a13ac0132f:
->   Michael Buesch (1):
->         softmac: Fix deadlock of wx_set_essid with assoc work
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-jgarzik
-> 
-> Bill Nottingham (1):
->       remove gratuitous space in airo module description
-> 
-> Faidon Liambotis (2):
->       Kconfig: order options
->       Kconfig: remove references of pcmcia-cs
-> 
-> Mariusz Kozlowski (1):
->       drivers/net/wireless/prism54/oid_mgt.c: kmalloc + memset conversion to kzalloc
-> 
-> Matthias Kaehlcke (1):
->       Use mutex instead of semaphore in the Host AP driver
-> 
-> Ulrich Kunitz (1):
->       zd1211rw: monitor all packets
-> 
-> Yoann Padioleau (1):
->       dev->priv to netdev_priv(dev), for drivers/net/wireless
-> 
->  drivers/net/wireless/Kconfig               |   85 +++++++++++----------------
->  drivers/net/wireless/airo.c                |    4 +-
->  drivers/net/wireless/arlan-proc.c          |   14 ++--
->  drivers/net/wireless/hostap/hostap_cs.c    |    2 +-
->  drivers/net/wireless/hostap/hostap_hw.c    |   16 +++---
->  drivers/net/wireless/hostap/hostap_ioctl.c |   14 ++--
->  drivers/net/wireless/hostap/hostap_wlan.h  |    3 +-
->  drivers/net/wireless/orinoco_tmd.c         |    2 +-
->  drivers/net/wireless/prism54/isl_ioctl.c   |    6 +-
->  drivers/net/wireless/prism54/oid_mgt.c     |    4 +-
->  drivers/net/wireless/ray_cs.c              |   66 +++++++++++-----------
->  drivers/net/wireless/strip.c               |    2 +-
->  drivers/net/wireless/wl3501_cs.c           |   66 +++++++++++-----------
->  drivers/net/wireless/zd1211rw/zd_chip.h    |    5 --
->  drivers/net/wireless/zd1211rw/zd_mac.c     |   44 ++++++++++++--
->  15 files changed, 172 insertions(+), 161 deletions(-)
+> It is better to fix the extremely rare oddball that passes NULL to 
+> request_irq(), than to update all drivers to be slower due to the oddballs.
 
-pulled into #upstream
+Ah, well. IMO one should better go safe than Oops. ;)
+It's not that an if branch takes more than 2 or 3 CPU cycles at worst.
+But well, if you don't like it, I can live without it, too.
 
-
+-- 
+Greetings Michael.
