@@ -1,40 +1,37 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [GIT PATCH] ucc_geth fixes for 2.6.22-rc1
-Date: Tue, 07 Aug 2007 17:19:53 -0400
-Message-ID: <46B8E1F9.3000404@garzik.org>
-References: <1186132075.6230.11.camel@Gundam>
+Subject: Re: [PATCH] atl1: use spin_trylock_irqsave()
+Date: Tue, 07 Aug 2007 17:18:57 -0400
+Message-ID: <46B8E1C1.8040903@garzik.org>
+References: <11859268222715-git-send-email-jacliburn@bellsouth.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org
-To: leoli@freescale.com
-Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-In-Reply-To: <1186132075.6230.11.camel@Gundam>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Cc: mingo@elte.hu, csnook@redhat.com, atl1-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	nando@ccrma.Stanford.EDU, tglx@linutronix.de, brbrofsvl@gmail.com
+To: Jay Cliburn <jacliburn@bellsouth.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:45884 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S936995AbXHGVTK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Aug 2007 17:19:10 -0400
+In-Reply-To: <11859268222715-git-send-email-jacliburn@bellsouth.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Li Yang wrote:
-> Please pull from 'ucc_geth' branch of
-> master.kernel.org:/pub/scm/linux/kernel/git/leo/fsl-soc.git ucc_geth
+Jay Cliburn wrote:
+> From: Ingo Molnar <mingo@elte.hu>
 > 
-> to receive the following fixes:
+> use the simpler spin_trylock_irqsave() API to get the adapter lock.
 > 
->  drivers/net/ucc_geth_ethtool.c |    1 -
->  drivers/net/ucc_geth_mii.c     |    3 ++-
->  2 files changed, 2 insertions(+), 2 deletions(-)
+> [ this is also a fix for -rt where adapter->lock is a sleeping lock. ]
 > 
-> Domen Puncer (1):
->       ucc_geth: fix section mismatch
-> 
-> Jan Altenberg (1):
->       ucc_geth: remove get_perm_addr from ucc_geth_ethtool.c
+> Signed-off-by: Ingo Molnar <mingo@elte.hu>
+> Signed-off-by: Jay Cliburn <jacliburn@bellsouth.net>
+> ---
+>  drivers/net/atl1/atl1_main.c |    4 +---
+>  1 files changed, 1 insertions(+), 3 deletions(-)
 
-pulled
+applied to #upstream-fixes
+
+
