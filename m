@@ -1,81 +1,72 @@
-From: Jens Axboe <jens.axboe@oracle.com>
-Subject: Re: Distributed storage.
-Date: Tue, 7 Aug 2007 22:55:38 +0200
-Message-ID: <20070807205538.GB5245@kernel.dk>
-References: <20070731171347.GA14267@2ka.mipt.ru> <200708051423.45484.phillips@phunq.net> <20070807120523.GX5245@kernel.dk> <200708071124.56859.phillips@phunq.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: Daniel Phillips <phillips@phunq.net>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <200708071124.56859.phillips@phunq.net>
-Sender: linux-fsdevel-owner@vger.kernel.org
+From: "Paul Moore" <paul.moore@hp.com>
+Subject: [patch 1/1] NetLabel: add missing rcu_dereference() calls in the LSM domain mapping hash table
+Date: Tue, 07 Aug 2007 16:54:50 -0400
+Message-ID: <20070807205458.599982536@hp.com>
+Cc: Paul Moore <paul.moore@hp.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atlrel6.hp.com ([156.153.255.205]:60029 "EHLO atlrel6.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935757AbXHGU4r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Aug 2007 16:56:47 -0400
+Received: from smtp2.fc.hp.com (smtp.cnd.hp.com [15.11.136.114])
+	by atlrel6.hp.com (Postfix) with ESMTP id A5234342EA
+	for <netdev@vger.kernel.org>; Tue,  7 Aug 2007 16:56:36 -0400 (EDT)
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 07 2007, Daniel Phillips wrote:
-> On Tuesday 07 August 2007 05:05, Jens Axboe wrote:
-> > On Sun, Aug 05 2007, Daniel Phillips wrote:
-> > > A simple way to solve the stable accounting field issue is to add a
-> > > new pointer to struct bio that is owned by the top level submitter
-> > > (normally generic_make_request but not always) and is not affected
-> > > by any recursive resubmission.  Then getting rid of that field
-> > > later becomes somebody's summer project, which is not all that
-> > > urgent because struct bio is already bloated up with a bunch of
-> > > dubious fields and is a transient structure anyway.
-> >
-> > Thanks for your insights. Care to detail what bloat and dubious
-> > fields struct bio has?
-> 
-> First obvious one I see is bi_rw separate from bi_flags.  Front_size and 
-> back_size smell dubious.  Is max_vecs really necessary?  You could 
+h
+Content-Disposition: inline; filename=netlabel-rcu_deref_fix
 
-I don't like structure bloat, but I do like nice design. Overloading is
-a necessary evil sometimes, though. Even today, there isn't enough room
-to hold bi_rw and bi_flags in the same variable on 32-bit archs, so that
-concern can be scratched. If you read bio.h, that much is obvious.
+The LSM domain mapping head table pointer was not being referenced via the RCU
+safe dereferencing function, rcu_dereference().  This patch adds those missing
+calls to the NetLabel code.
 
-If you check up on the iommu virtual merging, you'll understand the
-front and back size members. They may smell dubious to you, but please
-take the time to understand why it looks the way it does.
+This has been tested using recent linux-2.6 git kernels with no visible
+regressions.
 
-> reasonably assume bi_vcnt rounded up to a power of two and bury the 
-> details of making that work behind wrapper functions to change the 
-> number of bvecs, if anybody actually needs that.  Bi_endio and 
+Signed-off-by: Paul Moore <paul.moore@hp.com>
+---
+ net/netlabel/netlabel_domainhash.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-Changing the number of bvecs is integral to how bio buildup current
-works.
-
-> bi_destructor could be combined.  I don't see a lot of users of bi_idx, 
-
-bi_idx is integral to partial io completions.
-
-> that looks like a soft target.  See what happened to struct page when a 
-> couple of folks got serious about attacking it, some really deep hacks 
-> were done to pare off a few bytes here and there.  But struct bio as a 
-> space waster is not nearly in the same ballpark.
-
-So show some concrete patches and examples, hand waving and assumptions
-is just a waste of everyones time.
-
-> It would be interesting to see if bi_bdev could be made read only.  
-> Generally, each stage in the block device stack knows what the next 
-> stage is going to be, so why do we have to write that in the bio?  For 
-> error reporting from interrupt context?  Anyway, if Evgeniy wants to do 
-> the patch, I will happily unload the task of convincing you that random 
-> fields are/are not needed in struct bio :-)
-
-It's a trade off, otherwise you'd have to pass the block device around a
-lot. And it's, again, a design issue. A bio contains destination
-information, that means device/offset/size information. I'm all for
-shaving structure bytes where it matters, but not for the sake of
-sacrificing code stability or design. I consider struct bio quite lean
-and have worked hard to keep it that way. In fact, iirc, the only
-addition to struct bio since 2001 is the iommu front/back size members.
-And I resisted those for quite a while.
+Index: linux-2.6_nlbl-rcu-fixup/net/netlabel/netlabel_domainhash.c
+===================================================================
+--- linux-2.6_nlbl-rcu-fixup.orig/net/netlabel/netlabel_domainhash.c
++++ linux-2.6_nlbl-rcu-fixup/net/netlabel/netlabel_domainhash.c
+@@ -126,7 +126,9 @@ static struct netlbl_dom_map *netlbl_dom
+ 
+ 	if (domain != NULL) {
+ 		bkt = netlbl_domhsh_hash(domain);
+-		list_for_each_entry_rcu(iter, &netlbl_domhsh->tbl[bkt], list)
++		list_for_each_entry_rcu(iter,
++				     &rcu_dereference(netlbl_domhsh)->tbl[bkt],
++				     list)
+ 			if (iter->valid && strcmp(iter->domain, domain) == 0)
+ 				return iter;
+ 	}
+@@ -227,7 +229,7 @@ int netlbl_domhsh_add(struct netlbl_dom_
+ 		spin_lock(&netlbl_domhsh_lock);
+ 		if (netlbl_domhsh_search(entry->domain, 0) == NULL)
+ 			list_add_tail_rcu(&entry->list,
+-					  &netlbl_domhsh->tbl[bkt]);
++				    &rcu_dereference(netlbl_domhsh)->tbl[bkt]);
+ 		else
+ 			ret_val = -EEXIST;
+ 		spin_unlock(&netlbl_domhsh_lock);
+@@ -423,8 +425,8 @@ int netlbl_domhsh_walk(u32 *skip_bkt,
+ 	     iter_bkt < rcu_dereference(netlbl_domhsh)->size;
+ 	     iter_bkt++, chain_cnt = 0) {
+ 		list_for_each_entry_rcu(iter_entry,
+-					&netlbl_domhsh->tbl[iter_bkt],
+-					list)
++				&rcu_dereference(netlbl_domhsh)->tbl[iter_bkt],
++				list)
+ 			if (iter_entry->valid) {
+ 				if (chain_cnt++ < *skip_chain)
+ 					continue;
 
 -- 
-Jens Axboe
+paul moore
+linux security @ hp
 
