@@ -1,117 +1,97 @@
-From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Subject: [1/2] 2.6.23-rc2: known regressions with patches v2
-Date: Wed, 08 Aug 2007 19:12:46 +0200
-Message-ID: <46B9F98E.9020406@googlemail.com>
+From: Brandon Philips <bphilips@suse.de>
+Subject: [PATCH] NET: Change pci_enable_device to
+	pci_reenable_device to	keep device enable balance
+Date: Wed, 8 Aug 2007 10:21:49 -0700
+Message-ID: <20070808172149.GA6796@ifup.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Gabriel C <nix.or.die@googlemail.com>,
-	Stefan Richter
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.190]:24083 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764982AbXHHRNK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 13:13:10 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so61298nfb
-        for <netdev@vger.kernel.org>; Wed, 08 Aug 2007 10:13:08 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
+Cc: e1000-devel@lists.sourceforge.net, ram.vepa@neterion.com
+To: netdev@vger.kernel.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+I sent this last week as part of my devres patches but it is purely a
+bug fix and can be merged now.
 
-Here is a list of some known regressions in 2.6.23-rc2
-with patches available.
+On a slot_reset event pci_disable_device() is never called so calling
+pci_enable_device() will unbalance the enable count.
 
-Feel free to add new regressions/remove fixed etc.
-http://kernelnewbies.org/known_regressions
+Signed-off-by: Brandon Philips <bphilips@suse.de>
+Acked-by: Tejun Heo <htejun@gmail.com>
 
-List of Aces
+---
+ drivers/net/e100.c             |    2 +-
+ drivers/net/e1000/e1000_main.c |    2 +-
+ drivers/net/ixgb/ixgb_main.c   |    2 +-
+ drivers/net/s2io.c             |    2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
 
-Name                    Regressions fixed since 21-Jun-2007
-Adrian Bunk                            6
-Andi Kleen                             4
-Andrew Morton                          4
-Linus Torvalds                         4
-Al Viro                                3
-Cornelia Huck                          3
-Jens Axboe                             3
-Tejun Heo                              3
-David Woodhouse                        2
-Hugh Dickins                           2
-Peter Zijlstra                         2
-Trent Piepho                           2
+Index: linux-2.6/drivers/net/e100.c
+===================================================================
+--- linux-2.6.orig/drivers/net/e100.c
++++ linux-2.6/drivers/net/e100.c
+@@ -2828,7 +2828,7 @@ static pci_ers_result_t e100_io_slot_res
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct nic *nic = netdev_priv(netdev);
+ 
+-	if (pci_enable_device(pdev)) {
++	if (pci_reenable_device(pdev)) {
+ 		printk(KERN_ERR "e100: Cannot re-enable PCI device after reset.\n");
+ 		return PCI_ERS_RESULT_DISCONNECT;
+ 	}
+Index: linux-2.6/drivers/net/e1000/e1000_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/e1000/e1000_main.c
++++ linux-2.6/drivers/net/e1000/e1000_main.c
+@@ -5270,7 +5270,7 @@ static pci_ers_result_t e1000_io_slot_re
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct e1000_adapter *adapter = netdev->priv;
+ 
+-	if (pci_enable_device(pdev)) {
++	if (pci_reenable_device(pdev)) {
+ 		printk(KERN_ERR "e1000: Cannot re-enable PCI device after reset.\n");
+ 		return PCI_ERS_RESULT_DISCONNECT;
+ 	}
+Index: linux-2.6/drivers/net/ixgb/ixgb_main.c
+===================================================================
+--- linux-2.6.orig/drivers/net/ixgb/ixgb_main.c
++++ linux-2.6/drivers/net/ixgb/ixgb_main.c
+@@ -2294,7 +2294,7 @@ static pci_ers_result_t ixgb_io_slot_res
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct ixgb_adapter *adapter = netdev_priv(netdev);
+ 
+-	if(pci_enable_device(pdev)) {
++	if(pci_reenable_device(pdev)) {
+ 		DPRINTK(PROBE, ERR, "Cannot re-enable PCI device after reset.\n");
+ 		return PCI_ERS_RESULT_DISCONNECT;
+ 	}
+Index: linux-2.6/drivers/net/s2io.c
+===================================================================
+--- linux-2.6.orig/drivers/net/s2io.c
++++ linux-2.6/drivers/net/s2io.c
+@@ -7833,7 +7833,7 @@ static pci_ers_result_t s2io_io_slot_res
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct s2io_nic *sp = netdev->priv;
+ 
+-	if (pci_enable_device(pdev)) {
++	if (pci_reenable_device(pdev)) {
+ 		printk(KERN_ERR "s2io: "
+ 		       "Cannot re-enable PCI device after reset.\n");
+ 		return PCI_ERS_RESULT_DISCONNECT;
 
-
-
-Unclassified
-
-Subject         : Kconfig prompts without help text
-References      : http://lkml.org/lkml/2007/7/16/326
-Last known good : ?
-Submitter       : Stefan Richter <stefanr@s5r6.in-berlin.de>
-Caused-By       : ?
-Handled-By      : Jan Engelhardt <jengelh@linux01.gwdg.de>
-Patch           : http://lkml.org/lkml/2007/7/18/236
-Status          : patch available
-
-Subject         : Oops while modprobing phy fixed module
-References      : http://lkml.org/lkml/2007/7/14/63
-Last known good : ?
-Submitter       : Gabriel C <nix.or.die@googlemail.com>
-Caused-By       : ?
-Handled-By      : Satyam Sharma <satyam.sharma@gmail.com>
-                  Vitaly Bordug <vitb@kernel.crashing.org>
-Patch1          : http://lkml.org/lkml/2007/7/18/506
-Status          : patch available
-
-
-
-FS
-
-Subject         : NFSv4 poops itself
-References      : http://lkml.org/lkml/2007/7/27/144
-Last known good : ?
-Submitter       : Jeff Garzik <jeff@garzik.org> 
-Caused-By       : ?
-Handled-By      : Trond Myklebust <Trond.Myklebust@netapp.com>
-Patch           : http://lkml.org/lkml/2007/7/27/183
-Status          : patch available
-
-
-Modpost
-
-Subject         : modpost bug breaks ia64 cross compilation
-References      : http://lkml.org/lkml/2007/7/27/30
-                  http://lkml.org/lkml/2007/7/27/418
-Last known good : ?
-Submitter       : Jan Dittmer <jdi@l4x.org>
-Caused-By       : Thomas Renninger <trenn@suse.de>
-                  commit 29b71a1ca74491fab9fed09e9d835d840d042690
-Handled-By      : ?
-Patch           : http://lkml.org/lkml/2007/8/2/211
-Status          : patch was suggested
-
-
-
-Networking
-
-Subject         : sky2 boot crash in sky2_mac_intr
-References      : http://lkml.org/lkml/2007/7/24/91
-Last known good : ?
-Submitter       : Florian Lohoff <flo@rfc822.org>
-Caused-By       : 
-Handled-By      : Stephen Hemminger <shemminger@osdl.org>
-Patch           : http://marc.info/?l=linux-netdev&m=118651402523966&w=2
-Status          : patch available
-
-
-
-Regards,
-Michal
-
---
-LOG
-http://www.stardust.webpages.pl/log/
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >>  http://get.splunk.com/
