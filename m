@@ -1,162 +1,89 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: [PATCH 3/3] 8139too: clean up I/O remapping
-Date: Wed, 8 Aug 2007 02:45:39 -0400
-Message-ID: <20070808064539.GB16645@havoc.gtf.org>
-References: <20070808064440.GA16595@havoc.gtf.org>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Wed, 8 Aug 2007 09:21:14 +0200
+Message-ID: <20070808072114.GA1731@ff.dom.local>
+References: <JMEYNL$38C71F6F1D25A7CE82B12729A59CF244@xandmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934232AbXHHGqA@vger.kernel.org>
+Cc: cebbert <cebbert@redhat.com>, mingo <mingo@elte.hu>,
+	"marcin\.slusarz" <marcin.slusarz@gmail.com>,
+	tglx <tglx@linutronix.de>,
+	torvalds <torvalds@linux-foundation.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	akpm <akpm@linux-foundation.org>, alan <alan@lxorguk.ukuu.org.uk>
+To: Jean-Baptiste Vignaud <vignaud@xandmail.fr>
+Return-path: <linux-net-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20070808064440.GA16595@havoc.gtf.org>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <JMEYNL$38C71F6F1D25A7CE82B12729A59CF244@xandmail.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Aug 07, 2007 at 07:16:33PM +0200, Jean-Baptiste Vignaud wrote:
+...
+> So this afternoon i compiled 2.6.23-rc2 with same options as 2.6.23-rc1
+> and edited grub.conf to add nosmp but after reboot the box did not
+> responded. Back home, i saw that the kernel failed because it was unable
+> to find the partitions (mdadm failed, then LVM). After a few tests,
+> removing nosmp let the kernel boot correctly. It seems that even the
+> fedora provided kernels have the same behavior
+> (well at least 2.6.22.1-41.fc7).
 
-commit 9ee6b32a47b9abc565466a9c3b127a5246b452e5
-Author: Jeff Garzik <jeff@garzik.org>
-Date:   Wed Aug 8 02:42:47 2007 -0400
+Sorry: it seems there is some implementation error or some modules
+don't check CONFIG_SMP enough...
 
-    [netdrvr] 8139too: clean up I/O remapping
-    
-    * no need to explicitly use ioport_map() for PIO.  pci_iomap()
-      works just fine for both PIO and MMIO.  This permits deletion
-      of redundant code.
-    
-    * add 'use_pio' module parameter to enable PIO mode without
-      rebuilding the kernel.
-    
-    * change a few other module options' sysfs perms to enable visibility
-    
-    Signed-off-by: Jeff Garzik <jeff@garzik.org>
+Of course testing this with smp should be precious too.
+Only, after finding some problems, you should consider smp is quite
+a new and complicated technology, at least regarding such old designs
+as 3c905.
 
- drivers/net/8139too.c |   50 +++++++++++++++++++++-----------------------------
- 1 file changed, 21 insertions(+), 29 deletions(-)
+BTW: I didn't notice this yesterday, but your forcedeth uses new type
+of irq handling (MSI), so it should explain why it's not affected.
 
-9ee6b32a47b9abc565466a9c3b127a5246b452e5
-diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
-index 87ecaf8..761f716 100644
---- a/drivers/net/8139too.c
-+++ b/drivers/net/8139too.c
-@@ -121,8 +121,15 @@
- 
- 
- /* enable PIO instead of MMIO, if CONFIG_8139TOO_PIO is selected */
-+enum rtl_bar_map_info {
-+	rtl_pio_bar	= 0,	/* PCI BAR #0: PIO */
-+	rtl_mmio_bar	= 1,	/* PCI BAR #1: MMIO */
-+};
-+
- #ifdef CONFIG_8139TOO_PIO
--#define USE_IO_OPS 1
-+static int use_pio	= 1;
-+#else
-+static int use_pio;
- #endif
- 
- /* define to 1, 2 or 3 to enable copious debugging info */
-@@ -613,14 +620,17 @@ MODULE_DESCRIPTION ("RealTek RTL-8139 Fast Ethernet driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_VERSION);
- 
--module_param(multicast_filter_limit, int, 0);
-+module_param(multicast_filter_limit, int, 0444);
- module_param_array(media, int, NULL, 0);
- module_param_array(full_duplex, int, NULL, 0);
--module_param(debug, int, 0);
--MODULE_PARM_DESC (debug, "8139too bitmapped message enable number");
-+module_param(debug, int, 0444);
-+module_param(use_pio, int, 0444);
-+
- MODULE_PARM_DESC (multicast_filter_limit, "8139too maximum number of filtered multicast addresses");
- MODULE_PARM_DESC (media, "8139too: Bits 4+9: force full duplex, bit 5: 100Mbps");
- MODULE_PARM_DESC (full_duplex, "8139too: Force full duplex for board(s) (1)");
-+MODULE_PARM_DESC (debug, "8139too bitmapped message enable number");
-+MODULE_PARM_DESC (use_pio, "Non-zero to enable PIO (rather than MMIO) register mapping");
- 
- static int read_eeprom (void __iomem *ioaddr, int location, int addr_len);
- static int rtl8139_open (struct net_device *dev);
-@@ -708,13 +718,7 @@ static void __rtl8139_cleanup_dev (struct net_device *dev)
- 	assert (tp->pci_dev != NULL);
- 	pdev = tp->pci_dev;
- 
--#ifdef USE_IO_OPS
--	if (tp->mmio_addr)
--		ioport_unmap (tp->mmio_addr);
--#else
--	if (tp->mmio_addr)
--		pci_iounmap (pdev, tp->mmio_addr);
--#endif /* USE_IO_OPS */
-+	pci_iounmap (pdev, tp->mmio_addr);
- 
- 	/* it's ok to call this even if we have no regions to free */
- 	pci_release_regions (pdev);
-@@ -790,32 +794,32 @@ static int __devinit rtl8139_init_board (struct pci_dev *pdev,
- 	DPRINTK("PIO region size == 0x%02X\n", pio_len);
- 	DPRINTK("MMIO region size == 0x%02lX\n", mmio_len);
- 
--#ifdef USE_IO_OPS
- 	/* make sure PCI base addr 0 is PIO */
- 	if (!(pio_flags & IORESOURCE_IO)) {
- 		dev_err(&pdev->dev, "region #0 not a PIO resource, aborting\n");
- 		rc = -ENODEV;
- 		goto err_out;
- 	}
-+
- 	/* check for weird/broken PCI region reporting */
- 	if (pio_len < RTL_MIN_IO_SIZE) {
- 		dev_err(&pdev->dev, "Invalid PCI I/O region size(s), aborting\n");
- 		rc = -ENODEV;
- 		goto err_out;
- 	}
--#else
-+
- 	/* make sure PCI base addr 1 is MMIO */
- 	if (!(mmio_flags & IORESOURCE_MEM)) {
- 		dev_err(&pdev->dev, "region #1 not an MMIO resource, aborting\n");
- 		rc = -ENODEV;
- 		goto err_out;
- 	}
-+
- 	if (mmio_len < RTL_MIN_IO_SIZE) {
- 		dev_err(&pdev->dev, "Invalid PCI mem region size(s), aborting\n");
- 		rc = -ENODEV;
- 		goto err_out;
- 	}
--#endif
- 
- 	rc = pci_request_regions (pdev, DRV_NAME);
- 	if (rc)
-@@ -825,28 +829,16 @@ static int __devinit rtl8139_init_board (struct pci_dev *pdev,
- 	/* enable PCI bus-mastering */
- 	pci_set_master (pdev);
- 
--#ifdef USE_IO_OPS
--	ioaddr = ioport_map(pio_start, pio_len);
--	if (!ioaddr) {
--		dev_err(&pdev->dev, "cannot map PIO, aborting\n");
--		rc = -EIO;
--		goto err_out;
--	}
--	dev->base_addr = pio_start;
--	tp->mmio_addr = ioaddr;
--	tp->regs_len = pio_len;
--#else
--	/* ioremap MMIO region */
--	ioaddr = pci_iomap(pdev, 1, 0);
-+	/* iomap MMIO region */
-+	ioaddr = pci_iomap(pdev, use_pio ? rtl_pio_bar : rtl_mmio_bar, 0);
- 	if (ioaddr == NULL) {
--		dev_err(&pdev->dev, "cannot remap MMIO, aborting\n");
-+		dev_err(&pdev->dev, "cannot map I/O regions, aborting\n");
- 		rc = -EIO;
- 		goto err_out;
- 	}
- 	dev->base_addr = (long) ioaddr;
- 	tp->mmio_addr = ioaddr;
- 	tp->regs_len = mmio_len;
--#endif /* USE_IO_OPS */
- 
- 	/* Bring old chips out of low-power mode. */
- 	RTL_W8 (HltClk, 'R');
+Jean-Baptiste: I'm not sure how much of this testing you can afford?
+If you can spare some time for this and your box isn't for
+'production' it could be very precious to diagnose such reproducible
+bug.
+
+Then, I'd have a few suggestions (you could choose any of them) like:
+- trying these last test patches prepared for Marcin, too (but only
+with kernels 2.6.21 - 2.6.23-rc1),
+- trying to find the last kernel version, which works for you:
+Marcin has done this with successfully using the most professional
+way: git bisect (which btw. I did learn yet), but, IMHO, it could be
+very usable to try a "poor man's" bisect too older kernels like this:
+2.6.18, so to try again this version of previos Fedora, but
+preferably in "vanilla" version (there could be some problems if
+something in your configs or hardware has changed); then if OK:
+2.6.20; if OK 2.6.21-rc1 or -rc2 (there are usually heavy changes
+in the beginning of a cycle); ithen try to jump forward or backward
+around the middle of the range eg. -rc4. You should use each time the
+same, current config and remember to 'make oldconfig' before make.
+
+In my opinion it would be very precious even after some long time,
+so there is no need to hurry and do this now. The most important:
+if nothing has changed with your hardware in the meantime, you
+should find 'the culprit' for sure.
+
+But, if there are any problems about such testing, don't bother!
+It could be really a lot of hard and maybe boring work.
+
+If you would like to read something more about testing (then of
+course my suggestions could occur invalid - I'm a very bad tester
+myself...) you can try this:
+http://www.stardust.webpages.pl/files/handbook/
+
+If you would need some additional advice you can mail me privately
+too (but my response could take a few days). Of course, if your find
+something interresting I'd be glad to know about this, but let's be
+honest - I'm not any authority about these drivers, so cc-ing a
+maintainer should always be more usable.
+
+Thanks,
+Jarek P.
+
+PS: it would be nice if you could fix your mail program on line
+breaking (or try to do this manually).
+
