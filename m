@@ -1,150 +1,32 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH] e1000e: Fix header includes
-Date: Wed, 08 Aug 2007 16:15:25 -0700
-Message-ID: <20070808231525.27519.93728.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC]: napi_struct V6
+Date: Wed, 08 Aug 2007 16:18:04 -0700 (PDT)
+Message-ID: <20070808.161804.102908198.davem@davemloft.net>
+References: <20070807.215432.09951753.davem@davemloft.net>
+	<20070808070628.284d805c@oldman>
+	<46B9EEF7.7060009@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	john.ronciak@intel.com, auke-jan.h.kok@intel.com
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	hadi@cyberus.ca, rusty@rustcorp.com.au
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:5814 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935315AbXHHXPa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Aug 2007 19:15:30 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37315
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1763029AbXHHXSH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 19:18:07 -0400
+In-Reply-To: <46B9EEF7.7060009@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
+From: Jeff Garzik <jeff@garzik.org>
+Date: Wed, 08 Aug 2007 12:27:35 -0400
 
- drivers/net/e1000e/82571.c   |    4 ++++
- drivers/net/e1000e/e1000.h   |    7 ++++---
- drivers/net/e1000e/es2lan.c  |    5 +++++
- drivers/net/e1000e/ethtool.c |    3 ++-
- drivers/net/e1000e/hw.h      |    2 ++
- drivers/net/e1000e/ich8lan.c |    5 +++++
- drivers/net/e1000e/lib.c     |    2 ++
- drivers/net/e1000e/netdev.c  |    1 +
- 8 files changed, 25 insertions(+), 4 deletions(-)
+> Someone please make sure Documentation/networking/netdevices.txt remains 
+> correct with regards to APIs and locking.
+> 
+> It -is- up to date, unlike NAPI howto.  It should not change very much 
+> due to this napi_struct work though, if at all.
 
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index ddf2303..0f8f0ac 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -37,6 +37,10 @@
-  * 82573L Gigabit Ethernet Controller
-  */
- 
-+#include <linux/netdevice.h>
-+#include <linux/delay.h>
-+#include <linux/pci.h>
-+
- #include "e1000.h"
- 
- #define ID_LED_RESERVED_F746 0xF746
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index a1394d6..de17537 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -31,10 +31,11 @@
- #ifndef _E1000_H_
- #define _E1000_H_
- 
-+#include <linux/types.h>
-+#include <linux/timer.h>
-+#include <linux/workqueue.h>
-+#include <linux/io.h>
- #include <linux/netdevice.h>
--#include <linux/ethtool.h>
--#include <linux/pci.h>
--#include <asm/io.h>
- 
- #include "hw.h"
- 
-diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
-index 5604c50..8100d03 100644
---- a/drivers/net/e1000e/es2lan.c
-+++ b/drivers/net/e1000e/es2lan.c
-@@ -31,6 +31,11 @@
-  * 80003ES2LAN Gigabit Ethernet Controller (Serdes)
-  */
- 
-+#include <linux/netdevice.h>
-+#include <linux/ethtool.h>
-+#include <linux/delay.h>
-+#include <linux/pci.h>
-+
- #include "e1000.h"
- 
- #define E1000_KMRNCTRLSTA_OFFSET_FIFO_CTRL	 0x00
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index 6c417ea..a8fa1db 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -29,8 +29,9 @@
- /* ethtool support for e1000 */
- 
- #include <linux/netdevice.h>
--
- #include <linux/ethtool.h>
-+#include <linux/pci.h>
-+#include <linux/delay.h>
- 
- #include "e1000.h"
- 
-diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index 4d562c4..848217a 100644
---- a/drivers/net/e1000e/hw.h
-+++ b/drivers/net/e1000e/hw.h
-@@ -29,6 +29,8 @@
- #ifndef _E1000_HW_H_
- #define _E1000_HW_H_
- 
-+#include <linux/types.h>
-+
- struct e1000_hw;
- struct e1000_adapter;
- 
-diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 042abd4..85095af 100644
---- a/drivers/net/e1000e/ich8lan.c
-+++ b/drivers/net/e1000e/ich8lan.c
-@@ -40,6 +40,11 @@
-  * 82566MM Gigabit Network Connection
-  */
- 
-+#include <linux/netdevice.h>
-+#include <linux/ethtool.h>
-+#include <linux/delay.h>
-+#include <linux/pci.h>
-+
- #include "e1000.h"
- 
- #define ICH_FLASH_GFPREG		0x0000
-diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
-index 3bbe63e..c92ea77 100644
---- a/drivers/net/e1000e/lib.c
-+++ b/drivers/net/e1000e/lib.c
-@@ -27,6 +27,8 @@
- *******************************************************************************/
- 
- #include <linux/netdevice.h>
-+#include <linux/ethtool.h>
-+#include <linux/delay.h>
- #include <linux/pci.h>
- 
- #include "e1000.h"
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 741965d..0ea6eda 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -29,6 +29,7 @@
- #include <linux/module.h>
- #include <linux/types.h>
- #include <linux/init.h>
-+#include <linux/pci.h>
- #include <linux/vmalloc.h>
- #include <linux/pagemap.h>
- #include <linux/netdevice.h>
+I'll take care of it when I cut my net-2.6.24 tree later today.
