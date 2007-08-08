@@ -1,316 +1,64 @@
 From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH 8/9 Rev3] [IPoIB] Post and work completion handler changes
-Date: Wed, 08 Aug 2007 15:02:35 +0530
-Message-ID: <20070808093235.15396.3273.sendpatchset@localhost.localdomain>
+Subject: [ofa-general] [PATCH 5/9 Rev3] [IPoIB] Header file changes
+Date: Wed, 08 Aug 2007 15:02:06 +0530
+Message-ID: <20070808093206.15396.44008.sendpatchset@localhost.localdomain>
 References: <20070808093114.15396.22797.sendpatchset@localhost.localdomain>
-Cc: jagana@us.ibm.com, Robert.Olsson@data.slu.se, rick.jones2@hp.com,
-	herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	kumarkr@linux.ibm.com, rdreier@cisco.com,
+Cc: jagana@us.ibm.com, Robert.Olsson@data.slu.se, herbert@gondor.apana.org.au,
+	gaagaan@gmail.com, kumarkr@linux.ibm.com, rdreier@cisco.com,
 	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
-	jeff@garzik.org, general@lists.openfabrics.org, mchan@broadcom.com,
-	tgraf@suug.ch, hadi@cyberus.ca, netdev@vger.kernel.org,
-	Krishna Kumar <krkumar2@in.ibm.com>, xma@us.ibm.com
-To: johnpol@2ka.mipt.ru, sri@us.ibm.com,
-	shemminger@linux-foundation.org, davem@davemloft.net,
-	kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausmtp06.au.ibm.com ([202.81.18.155]:65255 "EHLO
-	ausmtp06.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757726AbXHHJdc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 05:33:32 -0400
-Received: from d23relay03.au.ibm.com (d23relay03.au.ibm.com [202.81.18.234])
-	by ausmtp06.au.ibm.com (8.13.8/8.13.8) with ESMTP id l789ZVxf3412216
-	for <netdev@vger.kernel.org>; Wed, 8 Aug 2007 19:35:31 +1000
-Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.250.242])
-	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l789Vepl2379826
-	for <netdev@vger.kernel.org>; Wed, 8 Aug 2007 19:31:40 +1000
-Received: from d23av01.au.ibm.com (loopback [127.0.0.1])
-	by d23av01.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l789VWLN011519
-	for <netdev@vger.kernel.org>; Wed, 8 Aug 2007 19:31:40 +1000
+	jeff@garzik.org, general@lists.openfabrics.org,
+	mchan@broadcom.com, tgraf@suug.ch, hadi@cyberus.ca, netdev@vger.kernel.org
+To: johnpol@2ka.mipt.ru, kaber@trash.net, shemminger@linux-foundation.org,
+	davem@davemloft.net, sri@us.ibm.com
+Return-path: <general-bounces@lists.openfabrics.org>
 In-Reply-To: <20070808093114.15396.22797.sendpatchset@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-IPoIB internal post and work completion handler changes.
+IPoIB header file changes to use batching.
 
 Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 ---
- ipoib_ib.c |  217 ++++++++++++++++++++++++++++++++++++++++++++++++-------------
- 1 files changed, 173 insertions(+), 44 deletions(-)
+ ipoib.h |   11 ++++++++---
+ 1 files changed, 8 insertions(+), 3 deletions(-)
 
-diff -ruNp ORG/drivers/infiniband/ulp/ipoib/ipoib_ib.c NEW/drivers/infiniband/ulp/ipoib/ipoib_ib.c
---- ORG/drivers/infiniband/ulp/ipoib/ipoib_ib.c	2007-07-17 08:48:35.000000000 +0530
-+++ NEW/drivers/infiniband/ulp/ipoib/ipoib_ib.c	2007-08-07 13:11:19.000000000 +0530
-@@ -242,6 +242,8 @@ repost:
- static void ipoib_ib_handle_tx_wc(struct net_device *dev, struct ib_wc *wc)
- {
- 	struct ipoib_dev_priv *priv = netdev_priv(dev);
-+	int i, num_completions;
-+	unsigned int tx_ring_index;
- 	unsigned int wr_id = wc->wr_id;
- 	struct ipoib_tx_buf *tx_req;
- 	unsigned long flags;
-@@ -255,18 +257,56 @@ static void ipoib_ib_handle_tx_wc(struct
- 		return;
- 	}
+diff -ruNp ORG/drivers/infiniband/ulp/ipoib/ipoib.h NEW/drivers/infiniband/ulp/ipoib/ipoib.h
+--- ORG/drivers/infiniband/ulp/ipoib/ipoib.h	2007-07-12 08:55:06.000000000 +0530
++++ NEW/drivers/infiniband/ulp/ipoib/ipoib.h	2007-08-07 13:11:19.000000000 +0530
+@@ -266,11 +266,13 @@ struct ipoib_dev_priv {
+ 	struct ipoib_rx_buf *rx_ring;
  
--	tx_req = &priv->tx_ring[wr_id];
-+	/*
-+	 * Handle skbs completion from tx_tail to wr_id. Two issues :
-+	 *	- Need to stop other WC's from mangling same skb's if they
-+	 *	  run at the same time. Use tx_prev_tail to demarcate WC's.
-+	 *	- Handle WC's from earlier (possibly multiple) post_sends in
-+	 *	  this iteration as we move from tx_prev_tail to wr_id, since
-+	 *	  if the last WR (which is the one which requested completion
-+	 *	  notification) failed to be sent for any of those earlier
-+	 *	  request(s), no completion notification is generated for
-+	 *	  successful WR's of those earlier request(s).
-+	 */
-+	spin_lock_irqsave(&priv->comp_lock, flags);
-+
-+	/* Get start index */
-+	tx_ring_index = priv->tx_prev_tail & (ipoib_sendq_size - 1);
-+
-+	/*Find number of WC's */
-+	num_completions = wr_id - tx_ring_index + 1;
-+	if (unlikely(num_completions <= 0))
-+		num_completions += ipoib_sendq_size;
-+
-+	/* Save new start index for any parallel WC's */
-+	priv->tx_prev_tail += num_completions;
-+
-+	spin_unlock_irqrestore(&priv->comp_lock, flags);
+ 	spinlock_t           tx_lock;
++	spinlock_t           comp_lock;		/* to handle parallel WC's */
+ 	struct ipoib_tx_buf *tx_ring;
+ 	unsigned             tx_head;
+ 	unsigned             tx_tail;
+-	struct ib_sge        tx_sge;
+-	struct ib_send_wr    tx_wr;
++	unsigned             tx_prev_tail;	/* to handle parallel WC's */
++	struct ib_sge        *tx_sge;
++	struct ib_send_wr    *tx_wr;
  
--	ib_dma_unmap_single(priv->ca, tx_req->mapping,
--			    tx_req->skb->len, DMA_TO_DEVICE);
-+	tx_req = &priv->tx_ring[tx_ring_index];
-+	for (i = 0; i < num_completions; i++) {
-+		if (likely(tx_req->skb)) {
-+			ib_dma_unmap_single(priv->ca, tx_req->mapping,
-+					    tx_req->skb->len, DMA_TO_DEVICE);
+ 	struct ib_wc ibwc[IPOIB_NUM_WC];
  
--	++priv->stats.tx_packets;
--	priv->stats.tx_bytes += tx_req->skb->len;
-+			++priv->stats.tx_packets;
-+			priv->stats.tx_bytes += tx_req->skb->len;
+@@ -365,8 +367,11 @@ static inline void ipoib_put_ah(struct i
+ int ipoib_open(struct net_device *dev);
+ int ipoib_add_pkey_attr(struct net_device *dev);
  
--	dev_kfree_skb_any(tx_req->skb);
-+			dev_kfree_skb_any(tx_req->skb);
-+		}
-+		/*
-+		 * else this skb failed synchronously when posted and was
-+		 * freed immediately.
-+		 */
-+
-+		if (likely(++tx_ring_index != ipoib_sendq_size))
-+			tx_req++;
-+		else
-+			tx_req = &priv->tx_ring[0];
-+	}
- 
- 	spin_lock_irqsave(&priv->tx_lock, flags);
--	++priv->tx_tail;
-+	priv->tx_tail += num_completions;
- 	if (unlikely(test_bit(IPOIB_FLAG_NETIF_STOPPED, &priv->flags)) &&
- 	    priv->tx_head - priv->tx_tail <= ipoib_sendq_size >> 1) {
- 		clear_bit(IPOIB_FLAG_NETIF_STOPPED, &priv->flags);
-@@ -340,29 +380,57 @@ void ipoib_ib_completion(struct ib_cq *c
- 	netif_rx_schedule(dev_ptr);
- }
- 
--static inline int post_send(struct ipoib_dev_priv *priv,
--			    unsigned int wr_id,
--			    struct ib_ah *address, u32 qpn,
--			    u64 addr, int len)
-+/*
-+ * post_send : Post WR(s) to the device.
-+ *
-+ * num_skbs is the number of WR's, first_wr is the first slot in tx_wr[] (or
-+ * tx_sge[]). first_wr is normally zero unless a previous post_send returned
-+ * error and we are trying to post the untried WR's, in which case first_wr
-+ * is the index to the first untried WR.
-+ *
-+ * Break the WR link before posting so that provider knows how many WR's to
-+ * process, and this is set back after the post.
-+ */
-+static inline int post_send(struct ipoib_dev_priv *priv, u32 qpn,
-+			    int first_wr, int num_skbs,
-+			    struct ib_send_wr **bad_wr)
- {
--	struct ib_send_wr *bad_wr;
-+	int ret;
-+	struct ib_send_wr *last_wr, *next_wr;
-+
-+	last_wr = &priv->tx_wr[first_wr + num_skbs - 1];
-+
-+	/* Set Completion Notification for last WR */
-+	last_wr->send_flags = IB_SEND_SIGNALED;
- 
--	priv->tx_sge.addr             = addr;
--	priv->tx_sge.length           = len;
-+	/* Terminate the last WR */
-+	next_wr = last_wr->next;
-+	last_wr->next = NULL;
- 
--	priv->tx_wr.wr_id 	      = wr_id;
--	priv->tx_wr.wr.ud.remote_qpn  = qpn;
--	priv->tx_wr.wr.ud.ah 	      = address;
-+	/* Send all the WR's in one doorbell */
-+	ret = ib_post_send(priv->qp, &priv->tx_wr[first_wr], bad_wr);
- 
--	return ib_post_send(priv->qp, &priv->tx_wr, &bad_wr);
-+	/* Restore send_flags & WR chain */
-+	last_wr->send_flags = 0;
-+	last_wr->next = next_wr;
-+
-+	return ret;
- }
- 
--void ipoib_send(struct net_device *dev, struct sk_buff *skb,
--		struct ipoib_ah *address, u32 qpn)
-+/*
-+ * Map skb & store skb/mapping in tx_ring; and details of the WR in tx_wr
-+ * to pass to the provider.
-+ *
-+ * Returns:
-+ *	1: Error and the skb is freed.
-+ *	0 skb processed successfully.
-+ */
 +int ipoib_process_skb(struct net_device *dev, struct sk_buff *skb,
 +		      struct ipoib_dev_priv *priv, struct ipoib_ah *address,
-+		      u32 qpn, int wr_num)
- {
--	struct ipoib_dev_priv *priv = netdev_priv(dev);
--	struct ipoib_tx_buf *tx_req;
- 	u64 addr;
-+	unsigned int tx_ring_index;
++		      u32 qpn, int wr_num);
+ void ipoib_send(struct net_device *dev, struct sk_buff *skb,
+-		struct ipoib_ah *address, u32 qpn);
++		struct ipoib_ah *address, u32 qpn, int num_skbs);
+ void ipoib_reap_ah(struct work_struct *work);
  
- 	if (unlikely(skb->len > priv->mcast_mtu + IPOIB_ENCAP_LEN)) {
- 		ipoib_warn(priv, "packet len %d (> %d) too long to send, dropping\n",
-@@ -370,7 +438,7 @@ void ipoib_send(struct net_device *dev, 
- 		++priv->stats.tx_dropped;
- 		++priv->stats.tx_errors;
- 		ipoib_cm_skb_too_long(dev, skb, priv->mcast_mtu);
--		return;
-+		return 1;
- 	}
- 
- 	ipoib_dbg_data(priv, "sending packet, length=%d address=%p qpn=0x%06x\n",
-@@ -383,35 +451,96 @@ void ipoib_send(struct net_device *dev, 
- 	 * means we have to make sure everything is properly recorded and
- 	 * our state is consistent before we call post_send().
- 	 */
--	tx_req = &priv->tx_ring[priv->tx_head & (ipoib_sendq_size - 1)];
--	tx_req->skb = skb;
--	addr = ib_dma_map_single(priv->ca, skb->data, skb->len,
--				 DMA_TO_DEVICE);
-+	addr = ib_dma_map_single(priv->ca, skb->data, skb->len, DMA_TO_DEVICE);
- 	if (unlikely(ib_dma_mapping_error(priv->ca, addr))) {
- 		++priv->stats.tx_errors;
- 		dev_kfree_skb_any(skb);
--		return;
-+		return 1;
- 	}
--	tx_req->mapping = addr;
- 
--	if (unlikely(post_send(priv, priv->tx_head & (ipoib_sendq_size - 1),
--			       address->ah, qpn, addr, skb->len))) {
--		ipoib_warn(priv, "post_send failed\n");
--		++priv->stats.tx_errors;
--		ib_dma_unmap_single(priv->ca, addr, skb->len, DMA_TO_DEVICE);
--		dev_kfree_skb_any(skb);
--	} else {
--		dev->trans_start = jiffies;
-+	tx_ring_index = priv->tx_head & (ipoib_sendq_size - 1);
-+
-+	/* Save till completion handler executes */
-+	priv->tx_ring[tx_ring_index].skb = skb;
-+	priv->tx_ring[tx_ring_index].mapping = addr;
-+
-+	/* Set WR values for the provider to use */
-+	priv->tx_sge[wr_num].addr = addr;
-+	priv->tx_sge[wr_num].length = skb->len;
-+
-+	priv->tx_wr[wr_num].wr_id = tx_ring_index;
-+	priv->tx_wr[wr_num].wr.ud.remote_qpn = qpn;
-+	priv->tx_wr[wr_num].wr.ud.ah = address->ah;
-+
-+	priv->tx_head++;
-+
-+	if (unlikely(priv->tx_head - priv->tx_tail == ipoib_sendq_size)) {
-+		ipoib_dbg(priv, "TX ring full, stopping kernel net queue\n");
-+		netif_stop_queue(dev);
-+		set_bit(IPOIB_FLAG_NETIF_STOPPED, &priv->flags);
-+	}
- 
--		address->last_send = priv->tx_head;
--		++priv->tx_head;
-+	return 0;
-+}
- 
--		if (priv->tx_head - priv->tx_tail == ipoib_sendq_size) {
--			ipoib_dbg(priv, "TX ring full, stopping kernel net queue\n");
--			netif_stop_queue(dev);
--			set_bit(IPOIB_FLAG_NETIF_STOPPED, &priv->flags);
-+/*
-+ * Send num_skbs to the device. If an skb is passed to this function, it is
-+ * single, unprocessed skb send case; otherwise it means that all skbs are
-+ * already processed and put on priv->tx_wr,tx_sge,tx_ring, etc.
-+ */
-+void ipoib_send(struct net_device *dev, struct sk_buff *skb,
-+		struct ipoib_ah *address, u32 qpn, int num_skbs)
-+{
-+	struct ipoib_dev_priv *priv = netdev_priv(dev);
-+	int first_wr = 0;
-+
-+	if (skb && ipoib_process_skb(dev, skb, priv, address, qpn, 0))
-+		return;
-+
-+	/* Send all skb's in one post */
-+	do {
-+		struct ib_send_wr *bad_wr;
-+
-+		if (unlikely((post_send(priv, qpn, first_wr, num_skbs,
-+					&bad_wr)))) {
-+			int done;
-+
-+			ipoib_warn(priv, "post_send failed\n");
-+
-+			/* Get number of WR's that finished successfully */
-+			done = bad_wr - &priv->tx_wr[first_wr];
-+
-+			/* Handle 1 error */
-+			priv->stats.tx_errors++;
-+			ib_dma_unmap_single(priv->ca,
-+				priv->tx_sge[first_wr + done].addr,
-+				priv->tx_sge[first_wr + done].length,
-+				DMA_TO_DEVICE);
-+
-+			/* Free failed WR & reset for WC handler to recognize */
-+			dev_kfree_skb_any(priv->tx_ring[bad_wr->wr_id].skb);
-+			priv->tx_ring[bad_wr->wr_id].skb = NULL;
-+
-+			/* Handle 'n' successes */
-+			if (done) {
-+				dev->trans_start = jiffies;
-+				address->last_send = priv->tx_head - (num_skbs -
-+								      done) - 1;
-+			}
-+
-+			/* Get count of skbs that were not tried */
-+			num_skbs -= (done + 1);
-+				/* + 1 for WR that was tried & failed */
-+
-+			/* Get start index for next iteration */
-+			first_wr += (done + 1);
-+		} else {
-+			dev->trans_start = jiffies;
-+
-+			address->last_send = priv->tx_head - 1;
-+			num_skbs = 0;
- 		}
--	}
-+	} while (num_skbs);
- }
- 
- static void __ipoib_reap_ah(struct net_device *dev)
+ void ipoib_flush_paths(struct net_device *dev);
