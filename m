@@ -1,56 +1,53 @@
-From: "Jean-Baptiste Vignaud" <vignaud@xandmail.fr>
-Subject: Re: 2.6.20->2.6.21 - networking dies after random time
-Date: Wed,  8 Aug 2007 10:59:22 +0200
-Message-ID: <JMG6AY$2339D4FEA804188F4C6D4F66006A6BB6@xandmail.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [RFC] allow device to stop packet mirror behaviour
+Date: Wed, 08 Aug 2007 11:14:01 +0200
+Message-ID: <1186564441.11717.5.camel@johannes.berg>
+References: <1186475155.4067.17.camel@johannes.berg>
+	 <20070807.180607.116354128.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: "cebbert" <cebbert@redhat.com>, "mingo" <mingo@elte.hu>,
-	"marcin\.slusarz" <marcin.slusarz@gmail.com>,
-	"tglx" <tglx@linutronix.de>,
-	"torvalds" <torvalds@linux-foundation.org>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"shemminger" <shemminger@linux-foundation.org>,
-	"linux-net" <linux-net@vger.kernel.org>,
-	"netdev" <netdev@vger.kernel.org>,
-	"akpm" <akpm@linux-foundation.org>,
-	"alan" <alan@lxorguk.ukuu.org.uk>
-To: "jarkao2" <jarkao2@o2.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.xandmail.com ([212.155.184.97]:55019 "EHLO
-	mail.xandmail.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752867AbXHHJAm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 05:00:42 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-zqmS7C6YYBPr5fhexhkT"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, andy-/Zus8d0mwwtBDgjK7y7TUQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070807.180607.116354128.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> Jean-Baptiste: I'm not sure how much of this testing you can afford?
-> If you can spare some time for this and your box isn't for
-> 'production' it could be very precious to diagnose such reproducible
-> bug.
 
-Well i can continue testing patches for sure.
+--=-zqmS7C6YYBPr5fhexhkT
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-> Then, I'd have a few suggestions (you could choose any of them) like:
-> - trying these last test patches prepared for Marcin, too (but only
-> with kernels 2.6.21 - 2.6.23-rc1),
+On Tue, 2007-08-07 at 18:06 -0700, David Miller wrote:
+> From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+> Date: Tue, 07 Aug 2007 10:25:55 +0200
+>=20
+> > The only way to solve this problem therefore seems to be to suppress th=
+e
+> > mirroring out of the packet by dev_queue_xmit_nit(). The patch below
+> > does that by way of adding a new netdev flag.
+>=20
+> Multicast packets also get looped back in a similar manner in the ipv4
+> code.  These will also be seen twice due to this issue.
 
-I'v patched 2.6.23-rc2 with those patches yesterday evening, and
-launched samba copy. 
-Is rc2 ok ?
+I don't think these other places are of any interest because of the
+radiotap+802.11 framing on the devices where it is relevant to us; you
+can't actually add an IP route to a monitor interface as far as I can
+tell.
 
-This morning the network is still up :
-RX bytes:279853499958 (260.6 GiB)  TX bytes:7416695531 (6.9 GiB)
+johannes
 
-Still testing.
+--=-zqmS7C6YYBPr5fhexhkT
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-> If you would like to read something more about testing (then of
-> course my suggestions could occur invalid - I'm a very bad tester
-> myself...) you can try this:
-> http://www.stardust.webpages.pl/files/handbook/
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
 
-I'll have a look at the document. 
+iD8DBQBGuYlZ/ETPhpq3jKURAlZTAJ4vllyzg0QZCC6vIPFcUoBnfTCndgCgnLR8
+dY0FGxSmBgMolwL3nMAI3z8=
+=fAR9
+-----END PGP SIGNATURE-----
 
-Jb
-
-
+--=-zqmS7C6YYBPr5fhexhkT--
