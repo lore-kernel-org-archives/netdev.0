@@ -1,126 +1,203 @@
 From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH 1/9 Rev3] [Doc] HOWTO Documentation for batching
-Date: Wed, 08 Aug 2007 15:01:24 +0530
-Message-ID: <20070808093124.15396.69224.sendpatchset@localhost.localdomain>
+Subject: [PATCH 2/9 Rev3] [core] Add skb_blist & hard_start_xmit_batch
+Date: Wed, 08 Aug 2007 15:01:35 +0530
+Message-ID: <20070808093135.15396.29687.sendpatchset@localhost.localdomain>
 References: <20070808093114.15396.22797.sendpatchset@localhost.localdomain>
-Cc: jagana@us.ibm.com, Robert.Olsson@data.slu.se,
-	peter.p.waskiewicz.jr@intel.com, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, kumarkr@linux.ibm.com, rdreier@cisco.com,
-	rick.jones2@hp.com, mcarlson@broadcom.com, jeff@garzik.org,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	hadi@cyberus.ca, netdev@vger.kernel.org,
+Cc: jagana@us.ibm.com, Robert.Olsson@data.slu.se, rick.jones2@hp.com,
+	herbert@gondor.apana.org.au, gaagaan@gmail.com,
+	kumarkr@linux.ibm.com, rdreier@cisco.com,
+	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
+	jeff@garzik.org, general@lists.openfabrics.org, mchan@broadcom.com,
+	tgraf@suug.ch, hadi@cyberus.ca, netdev@vger.kernel.org,
 	Krishna Kumar <krkumar2@in.ibm.com>, xma@us.ibm.com
-To: johnpol@2ka.mipt.ru, kaber@trash.net,
-	shemminger@linux-foundation.org, davem@davemloft.net,
-	sri@us.ibm.com
+To: johnpol@2ka.mipt.ru, sri@us.ibm.com,
+	shemminger@linux-foundation.org, kaber@trash.net,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausmtp05.au.ibm.com ([202.81.18.154]:54827 "EHLO
+Received: from ausmtp05.au.ibm.com ([202.81.18.154]:55257 "EHLO
 	ausmtp05.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755175AbXHHJab (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 05:30:31 -0400
+	with ESMTP id S1755151AbXHHJay (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 05:30:54 -0400
 Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
-	by ausmtp05.au.ibm.com (8.13.8/8.13.8) with ESMTP id l789WPb0581754
-	for <netdev@vger.kernel.org>; Wed, 8 Aug 2007 19:32:26 +1000
-Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.250.237])
-	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l789XowH134318
-	for <netdev@vger.kernel.org>; Wed, 8 Aug 2007 19:33:51 +1000
-Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
-	by d23av04.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l789UE1a001894
-	for <netdev@vger.kernel.org>; Wed, 8 Aug 2007 19:30:17 +1000
+	by ausmtp05.au.ibm.com (8.13.8/8.13.8) with ESMTP id l789Wtxj1781966
+	for <netdev@vger.kernel.org>; Wed, 8 Aug 2007 19:32:56 +1000
+Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.250.243])
+	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l789Y1KK091890
+	for <netdev@vger.kernel.org>; Wed, 8 Aug 2007 19:34:01 +1000
+Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
+	by d23av02.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l789UPkI020765
+	for <netdev@vger.kernel.org>; Wed, 8 Aug 2007 19:30:28 +1000
 In-Reply-To: <20070808093114.15396.22797.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add Documentation describing batching API.
+Introduce skb_blist and hard_start_xmit_batch API, handle driver's usage
+of the new API, and add support routines.
 
 Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 ---
- Batching_skb_API.txt |   82 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 82 insertions(+)
+ include/linux/netdevice.h |    8 +++
+ net/core/dev.c            |   98 ++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 106 insertions(+)
 
-diff -ruNp ORG/Documentation/networking/Batching_skb_API.txt NEW/Documentation/networking/Batching_skb_API.txt
---- ORG/Documentation/networking/Batching_skb_API.txt	1970-01-01 05:30:00.000000000 +0530
-+++ NEW/Documentation/networking/Batching_skb_API.txt	2007-08-07 22:41:55.000000000 +0530
-@@ -0,0 +1,82 @@
-+		 HOWTO for batching skb API support
-+		 -----------------------------------
+diff -ruNp ORG/include/linux/netdevice.h NEW/include/linux/netdevice.h
+--- ORG/include/linux/netdevice.h	2007-08-06 08:25:37.000000000 +0530
++++ NEW/include/linux/netdevice.h	2007-08-07 13:11:19.000000000 +0530
+@@ -456,6 +456,9 @@ struct net_device
+ 	/* Partially transmitted GSO packet. */
+ 	struct sk_buff		*gso_skb;
+ 
++	/* List of batch skbs (optional, used if driver supports batching API */
++	struct sk_buff_head	*skb_blist;
 +
-+Section 1: What is batching skb API ?
-+Section 2: How batching API works vs the original API ?
-+Section 3: How drivers can support this API ?
-+Section 4: How users can work with this API ?
+ 	/* ingress path synchronizer */
+ 	spinlock_t		ingress_lock;
+ 	struct Qdisc		*qdisc_ingress;
+@@ -472,6 +475,9 @@ struct net_device
+ 	void			*priv;	/* pointer to private data	*/
+ 	int			(*hard_start_xmit) (struct sk_buff *skb,
+ 						    struct net_device *dev);
++	int			(*hard_start_xmit_batch) (struct net_device
++							  *dev);
 +
+ 	/* These may be needed for future network-power-down code. */
+ 	unsigned long		trans_start;	/* Time (in jiffies) of last Tx	*/
+ 
+@@ -832,6 +838,8 @@ extern int		dev_set_mac_address(struct n
+ 					    struct sockaddr *);
+ extern int		dev_hard_start_xmit(struct sk_buff *skb,
+ 					    struct net_device *dev);
++extern int		dev_add_skb_to_blist(struct sk_buff *skb,
++					     struct net_device *dev);
+ 
+ extern void		dev_init(void);
+ 
+diff -ruNp ORG/net/core/dev.c NEW/net/core/dev.c
+--- ORG/net/core/dev.c	2007-08-06 08:25:40.000000000 +0530
++++ NEW/net/core/dev.c	2007-08-07 13:11:19.000000000 +0530
+@@ -897,6 +897,55 @@ void netdev_state_change(struct net_devi
+ 	}
+ }
+ 
++static void free_batching(struct net_device *dev)
++{
++	if (dev->skb_blist) {
++		if (!skb_queue_empty(dev->skb_blist))
++			skb_queue_purge(dev->skb_blist);
++		kfree(dev->skb_blist);
++		dev->skb_blist = NULL;
++	}
++}
 +
-+Introduction: Kernel support for batching skb
-+----------------------------------------------
++int dev_change_tx_batch_skb(struct net_device *dev, unsigned long new_batch_skb)
++{
++	int ret = 0;
++	struct sk_buff_head *blist;
 +
-+A new xmit API - hard_start_xmit_batch() is provided in the netdevice layer
-+similar to the existing hard_start_xmit() API. Drivers which export this
-+API can implement it similar to the hard_start_xmit handler. The new API
-+should process multiple skbs (or even one) in a single call while the
-+existing hard_start_xmit processes one skb. It is possible for the driver
-+writer to re-use most of the code from the existing API in the new API
-+without having code duplication.
++	if (!dev->hard_start_xmit_batch) {
++		/* Driver doesn't support batching skb API */
++		ret = -ENOTSUPP;
++		goto out;
++	}
 +
++	/* Handle invalid argument */
++	if (new_batch_skb < 0) {
++		ret = -EINVAL;
++		goto out;
++	}
 +
-+Section 1: What is batching skb API ?
-+-------------------------------------
++	/* Check if new value is same as the current */
++	if (!!dev->skb_blist == !!new_batch_skb)
++		goto out;
 +
-+	This API is optionally exported by a driver. The pre-requisite for a
-+	driver to use this API is that it should have a reasonably sized
-+	hardware queue that can process multiple skbs.
++	if (new_batch_skb &&
++	    (blist = kmalloc(sizeof *blist, GFP_KERNEL)) == NULL) {
++		ret = -ENOMEM;
++		goto out;
++	}
 +
++	spin_lock(&dev->queue_lock);
++	if (new_batch_skb) {
++		skb_queue_head_init(blist);
++		dev->skb_blist = blist;
++	} else
++		free_batching(dev);
++	spin_unlock(&dev->queue_lock);
 +
-+Section 2: How batching API works vs the original API ?
-+-------------------------------------------------------
++out:
++	return ret;
++}
 +
-+	The networking stack gets called from upper layer protocols with a
-+	single skb to transmit. This skb is first enqueue'd and an attempt is
-+	made to transmit it immediately (via qdisc_run). However, events like
-+	tx lock contention, tx queue stopped, etc, can result in the skb not
-+	getting sent out and it remains in the queue. When the next xmit is
-+	called or when the queue is re-enabled, qdisc_run could potentially
-+	find multiple packets in the queue, and iteratively send them all out
-+	one-by-one.
+ /**
+  *	dev_load 	- load a network module
+  *	@name: name of interface
+@@ -1459,6 +1508,45 @@ static int dev_gso_segment(struct sk_buf
+ 	return 0;
+ }
+ 
++/*
++ * Add skb (skbs in case segmentation is required) to dev->skb_blist. We are
++ * holding QDISC RUNNING bit, so no one else can add to this list. Also, skbs
++ * are dequeued from this list when we call the driver, so the list is safe
++ * from simultaneous deletes too.
++ *
++ * Returns count of successful skb(s) added to skb_blist.
++ */
++int dev_add_skb_to_blist(struct sk_buff *skb, struct net_device *dev)
++{
++	if (!list_empty(&ptype_all))
++		dev_queue_xmit_nit(skb, dev);
 +
-+	The batching skb API was added to exploit this situation where all
-+	skbs can be passed in one shot to the device. This reduces driver
-+	processing, locking at the driver (or in stack for ~LLTX drivers)
-+	gets amortized over multiple skbs, and in case of specific drivers
-+	where every xmit results in a completion processing (like IPoIB),
-+	optimizations can be made in the driver to request a completion for
-+	only the last skb that was sent which results in saving interrupts
-+	for every (but the last) skb that was sent in the same batch.
++	if (netif_needs_gso(dev, skb)) {
++		if (unlikely(dev_gso_segment(skb))) {
++			kfree(skb);
++			return 0;
++		}
 +
-+	Batching can result in significant performance gains for systems that
-+	have multiple data stream paths over the same network interface card.
++		if (skb->next) {
++			int count = 0;
 +
++			do {
++				struct sk_buff *nskb = skb->next;
 +
-+Section 3: How drivers can support this API ?
-+---------------------------------------------
++				skb->next = nskb->next;
++				__skb_queue_tail(dev->skb_blist, nskb);
++				count++;
++			} while (skb->next);
 +
-+	The new API - dev->hard_start_xmit_batch(struct net_device *dev),
-+	simplistically, can be written almost identically to the regular
-+	xmit API except that multiple skbs should be processed by the driver
-+	instead of one skb. The new API doesn't get a skb as an argument,
-+	instead it picks up all the skbs from dev->skb_blist, where it was
-+	added by the core stack, and tries to send them out.
++			skb->destructor = DEV_GSO_CB(skb)->destructor;
++			kfree_skb(skb);
++			return count;
++		}
++	}
++	__skb_queue_tail(dev->skb_blist, skb);
++	return 1;
++}
 +
-+	Batching requires the driver to set dev->hard_start_xmit_batch to the
-+	new API implemented for that driver.
+ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	if (likely(!skb->next)) {
+@@ -3446,6 +3535,13 @@ int register_netdevice(struct net_device
+ 		}
+ 	}
+ 
++	if (dev->hard_start_xmit_batch) {
++		/* Driver supports batching skb API */
++		dev->skb_blist = kmalloc(sizeof *dev->skb_blist, GFP_KERNEL);
++		if (dev->skb_blist)
++			skb_queue_head_init(dev->skb_blist);
++	}
 +
+ 	/*
+ 	 *	nil rebuild_header routine,
+ 	 *	that should be never called and used as just bug trap.
+@@ -3787,6 +3882,9 @@ void unregister_netdevice(struct net_dev
+ 
+ 	synchronize_net();
+ 
++	/* Deallocate batching structure */
++	free_batching(dev);
 +
-+Section 4: How users can work with this API ?
-+---------------------------------------------
-+
-+	Batching could be disabled for a particular device, e.g. on desktop
-+	systems if only one stream of network activity for that device is
-+	taking place, since performance could be slightly affected due to
-+	extra processing that batching adds (unless packets are getting
-+	sent fast resulting in stopped queue's). Batching can be enabled if
-+	more than one stream of network activity per device is being done,
-+	e.g. on servers; or even desktop usage with multiple browser, chat,
-+	file transfer sessions, etc.
-+
-+	Per device batching can be enabled/disabled using ethtool, where
-+	passing 1 enables batching and passing 0 disables batching.
+ 	/* Shutdown queueing discipline. */
+ 	dev_shutdown(dev);
+ 
