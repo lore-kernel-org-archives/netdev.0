@@ -1,38 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/14] nes: device structures and defines
-Date: Wed, 08 Aug 2007 15:04:17 -0700 (PDT)
-Message-ID: <20070808.150417.18560992.davem@davemloft.net>
-References: <200708080045.l780jE9E004667@neteffect.com>
-	<46B918BA.2020400@garzik.org>
-	<p73hcnarykt.fsf@bingen.suse.de>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] e1000e: Remove unused or empty labels
+Date: Wed, 08 Aug 2007 18:18:52 -0400
+Message-ID: <46BA414C.1050602@garzik.org>
+References: <20070808172152.12223.94635.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, ggrundstrom@neteffect.com, rdreier@cisco.com,
-	ewg@lists.openfabrics.org, netdev@vger.kernel.org
-To: andi@firstfloor.org
+Cc: andi@firstfloor.org, netdev@vger.kernel.org, john.ronciak@intel.com
+To: Auke Kok <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49728
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758532AbXHHWER (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 18:04:17 -0400
-In-Reply-To: <p73hcnarykt.fsf@bingen.suse.de>
+Received: from srv5.dvmed.net ([207.36.208.214]:44907 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755418AbXHHWS6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Aug 2007 18:18:58 -0400
+In-Reply-To: <20070808172152.12223.94635.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: 08 Aug 2007 14:38:10 +0200
-
-> Jeff Garzik <jeff@garzik.org> writes:
-> > > +			val, reg_index, addr, addr+4); */
-> > > +	writel(cpu_to_le32(reg_index), addr);
-> > > +	writel(cpu_to_le32(val),(u8 *)addr + 4);
-> > 
-> > wrong -- endian conversion macros not needed with writel()
+Auke Kok wrote:
+> Remove labels with only return, remove E1000_SUCCESS code and
+> replace with 0. Remove most goto's.
 > 
-> Are you sure? I don't think that's true. e.g. powerpc writel 
-> doesn't convert endian
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> ---
+> 
+>  drivers/net/e1000e/82571.c   |  138 +++++---------
+>  drivers/net/e1000e/defines.h |    1 
+>  drivers/net/e1000e/es2lan.c  |  162 +++++++----------
+>  drivers/net/e1000e/ich8lan.c |  401 +++++++++++++++++-------------------------
+>  drivers/net/e1000e/lib.c     |  314 +++++++++++++--------------------
+>  drivers/net/e1000e/netdev.c  |    4 
+>  drivers/net/e1000e/phy.c     |  278 ++++++++++++-----------------
+>  7 files changed, 521 insertions(+), 777 deletions(-)
 
-raw_writel() doesn't, but writel() does.
+applied all three patches to #e1000e
 
-Why not look at the code, as I did, instead of "think"ing? :-)
+
