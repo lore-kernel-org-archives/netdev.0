@@ -1,54 +1,53 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: TCP's initial cwnd setting correct?...
-Date: Wed, 8 Aug 2007 16:05:09 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0708081558000.23600@kivilampi-30.cs.helsinki.fi>
-References: <Pine.LNX.4.64.0708061508070.8788@kivilampi-30.cs.helsinki.fi>
- <20070807.220127.98862306.davem@davemloft.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 2/14] nes: device structures and defines
+Date: Wed, 8 Aug 2007 15:08:28 +0200
+Message-ID: <20070808130828.GB14419@one.firstfloor.org>
+References: <200708080045.l780jE9E004667@neteffect.com> <200708081350.36081.mb@bu3sch.de> <20070808125511.GA14419@one.firstfloor.org> <200708081502.35837.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1540810443-1186578309=:23600"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>, Jeff Garzik <jeff@garzik.org>,
+	ggrundstrom@neteffect.com, rdreier@cisco.com,
+	ewg@lists.openfabrics.org, netdev@vger.kernel.org
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:47573 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757541AbXHHNFL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 09:05:11 -0400
-In-Reply-To: <20070807.220127.98862306.davem@davemloft.net>
+Received: from one.firstfloor.org ([213.235.205.2]:51512 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758779AbXHHNIc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 09:08:32 -0400
+Content-Disposition: inline
+In-Reply-To: <200708081502.35837.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696243703-1540810443-1186578309=:23600
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Tue, 7 Aug 2007, David Miller wrote:
-
-> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Mon, 6 Aug 2007 15:37:15 +0300 (EEST)
+On Wed, Aug 08, 2007 at 03:02:35PM +0200, Michael Buesch wrote:
+> On Wednesday 08 August 2007 14:55:11 Andi Kleen wrote:
+> > On Wed, Aug 08, 2007 at 01:50:35PM +0200, Michael Buesch wrote:
+> > > On Wednesday 08 August 2007 14:38:10 Andi Kleen wrote:
+> > > > Jeff Garzik <jeff@garzik.org> writes:
+> > > > > > +			val, reg_index, addr, addr+4); */
+> > > > > > +	writel(cpu_to_le32(reg_index), addr);
+> > > > > > +	writel(cpu_to_le32(val),(u8 *)addr + 4);
+> > > > > 
+> > > > > wrong -- endian conversion macros not needed with writel()
+> > > > 
+> > > > Are you sure? I don't think that's true. e.g. powerpc writel 
+> > > > doesn't convert endian
+> > > 
+> > > Andi, you are wrong.
+> > > writeX take CPU endian args.
+> > 
+> > That is what I wrote.
 > 
-> > ...Another thing that makes me wonder, is the tp->mss_cache > 1460 check 
-> > as based on rfc3390 (and also it's precursor rfc2414) with up to 2190 
-> > bytes MSS TCP can use 3 as initial cwnd...
-> 
-> I did the research and my memory was at least partially right.
-> 
-> Below is an old bogus change of mine and the later revert with
-> Alexey's explanation.
-> 
-> This seems to be dealing with receive window calculation issues,
-> rather than snd_cwnd.  But they might be related and you should
-> consider this very seriously.
+> Uhm, so....
+> Why did you complain to Jeff?
 
-...Thanks about the info, I'll study it carefully and see what's
-relevant in here too. And anyway we're currently on the safer side
-as the potential issues only make it more conservative than the RFC 
-allows, so there's no hurry to get it in until the solution is
-acceptable if there's indeed a need for a change.
+Because Jeff wrote the opposite.
 
+> I'm a little bit confused now :)
+> 
+> Fact is that we do _not_ need cpu_to_le32 with writel.
 
--- 
- i.
----696243703-1540810443-1186578309=:23600--
+We do on a big endian platform if the register is LE. I assume that's the case 
+on this hardware.
+
+-Andi
