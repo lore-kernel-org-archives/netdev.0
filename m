@@ -1,65 +1,50 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: TCP's initial cwnd setting correct?...
-Date: Wed, 08 Aug 2007 11:20:05 -0400
-Message-ID: <46B9DF25.3000800@psc.edu>
-References: <Pine.LNX.4.64.0708061508070.8788@kivilampi-30.cs.helsinki.fi> <20070807.182823.123919803.davem@davemloft.net>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] ixgbe: New driver for Pci-Express 10GbE 82598 support
+Date: Wed, 08 Aug 2007 08:56:28 -0700
+Message-ID: <46B9E7AC.10509@intel.com>
+References: <20070804040502.D9133F2C0F@doppio.foo-projects.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, ayyappan.veeraiyan@intel.com,
+	akpm@linux-foundation.org, arjan@linux.intel.com,
+	hch@infradead.org, shemminger@linux-foundation.org,
+	nhorman@tuxdriver.com, inaky@linux.intel.com, mb@bu3sch.de,
+	john.ronciak@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:64075 "EHLO mailer1.psc.edu"
+Received: from mga03.intel.com ([143.182.124.21]:1600 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751368AbXHHPuJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Aug 2007 11:50:09 -0400
-In-Reply-To: <20070807.182823.123919803.davem@davemloft.net>
+	id S1762114AbXHHP4d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Aug 2007 11:56:33 -0400
+In-Reply-To: <20070804040502.D9133F2C0F@doppio.foo-projects.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I believe the current calculation is correct.  The RFC specifies a=20
-window of no more than 4380 bytes unless 2*MSS > 4380.  If you change=20
-the code in this way, then MSS=3D1461 will give you an initial window o=
-f=20
-3*MSS =3D=3D 4383, violating the spec.  Reading the pseudocode in the R=
-=46C=20
-3390 is a bit misleading because they use a clamp at 4380 bytes rather=20
-than use a multiplier in the relevant range.
+Auke Kok wrote:
+> This patch adds support for the Intel 82598 PCI-Express 10GbE
+> chipset. Devices will be available on the market soon.
+> 
+> This version of the driver is largely the same as the last release:
+> 
+> * Driver uses a single RX and single TX queue, each using 1 MSI-X
+>   irq vector.
+> * Driver runs in NAPI mode only
+> * Driver is largely multiqueue-ready (TM)
 
-   -John
+
+For those interested in the specs of the product and all the features that it 
+supports, I just noticed that the product brief was posted on our website with 
+all the features and facts on the 82598-based products. Please take a look:
 
 
-David Miller wrote:
-> From: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Mon, 6 Aug 2007 15:37:15 +0300 (EEST)
->=20
->> @@ -805,13 +805,13 @@ void tcp_update_metrics(struct sock *sk)
->>  	}
->>  }
->> =20
->> -/* Numbers are taken from RFC2414.  */
->> +/* Numbers are taken from RFC3390.  */
->>  __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst)
->>  {
->>  	__u32 cwnd =3D (dst ? dst_metric(dst, RTAX_INITCWND) : 0);
->> =20
->>  	if (!cwnd) {
->> -		if (tp->mss_cache > 1460)
->> +		if (tp->mss_cache >=3D 2190)
->>  			cwnd =3D 2;
->>  		else
->>  			cwnd =3D (tp->mss_cache > 1095) ? 3 : 4;
->=20
-> I remember suggesting something similar about 5 or 6 years
-> ago and Alexey Kuznetsov at the time explained the numbers
-> which are there and why they should not be changed.
->=20
-> I forget the reasons though, and I'll try to do the research.
->=20
-> These numbers have been like this forever, FWIW.
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Overview:
+   http://www.intel.com/design/network/products/lan/controllers/82598.htm
 
+Product brief:
+   http://download.intel.com/design/network/prodbrf/317796.pdf
+
+
+Cheers,
+
+Auke
