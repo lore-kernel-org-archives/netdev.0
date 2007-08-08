@@ -1,39 +1,30 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH 2/14] nes: device structures and defines
-Date: Wed, 8 Aug 2007 13:50:35 +0200
-Message-ID: <200708081350.36081.mb@bu3sch.de>
-References: <200708080045.l780jE9E004667@neteffect.com> <46B918BA.2020400@garzik.org> <p73hcnarykt.fsf@bingen.suse.de>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Wed, 8 Aug 2007 13:53:59 +0200
+Message-ID: <20070808115359.GD2426@ff.dom.local>
+References: <20070731132037.GC1046@ff.dom.local> <4bacf17f0708060000n5a00bb77i74adc3b4b28ac42b@mail.gmail.com> <20070806070300.GA4509@elte.hu> <4bacf17f0708070046o14403089v8376a4544f72fec3@mail.gmail.com> <20070807082321.GB2120@ff.dom.local> <4bacf17f0708070237w19d184b3p7f74b53612edb9a6@mail.gmail.com> <20070807095246.GB3223@ff.dom.local> <20070807121339.GA3946@ff.dom.local> <4bacf17f0708080409t116b5c84ye60dff7da51d0fdf@mail.gmail.com> <20070808114243.GC2426@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, ggrundstrom@neteffect.com,
-	rdreier@cisco.com, ewg@lists.openfabrics.org,
-	netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:34595
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752563AbXHHLvQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 07:51:16 -0400
-In-Reply-To: <p73hcnarykt.fsf@bingen.suse.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: Marcin =?iso-8859-2?Q?=A6lusarz?= <marcin.slusarz@gmail.com>
+Return-path: <linux-net-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070808114243.GC2426@ff.dom.local>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 08 August 2007 14:38:10 Andi Kleen wrote:
-> Jeff Garzik <jeff@garzik.org> writes:
-> > > +			val, reg_index, addr, addr+4); */
-> > > +	writel(cpu_to_le32(reg_index), addr);
-> > > +	writel(cpu_to_le32(val),(u8 *)addr + 4);
-> > 
-> > wrong -- endian conversion macros not needed with writel()
-> 
-> Are you sure? I don't think that's true. e.g. powerpc writel 
-> doesn't convert endian
+On Wed, Aug 08, 2007 at 01:42:43PM +0200, Jarek Poplawski wrote:
+...
+> So, it looks like x86_64 io_apic's IPI code was unused too long...
 
-Andi, you are wrong.
-writeX take CPU endian args.
+To be fair it's x86_64 lapic's IPI code.
 
--- 
-Greetings Michael.
+Jarek P.
