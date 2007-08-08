@@ -1,50 +1,50 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: IPV6_PKTINFO socket option
-Date: Wed, 8 Aug 2007 12:16:51 +0100
-Message-ID: <200708081216.51283@strip-the-willow>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: [ofa-general] Re: [PATCH 2/9 Rev3] [core] Add skb_blist &
+	hard_start_xmit_batch
+Date: Wed, 8 Aug 2007 16:54:34 +0530
+Message-ID: <OF7D1FEAF4.C4EEC93F-ON65257331.003D1B34-65257331.003EACA3@in.ibm.com>
+References: <20070808065946.6c80c470@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:62269 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756199AbXHHLUp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Aug 2007 07:20:45 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
+	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
+	kumarkr@linux.ibm.com, mcarlson@broadcom.com,
+	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
+	kaber@trash.net, jeff@garzik.org, general@lists.openfabrics.org,
+	mchan@broadcom.com, tgraf@suug.ch, netdev@vger.kernel.org,
+	sri@us.ibm.com, davem@davemloft.net, rdreier@cisco.com
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070808065946.6c80c470@oldman>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Yoshifuji-san,
+Stephen Hemminger <shemminger@linux-foundation.org> wrote on 08/08/2007
+04:29:46 PM:
 
-a few weeks earlier I enquired about the IPV6_PKTINFO socket option to get at the
-destination address of datagrams, where you replied that this option is `deprecated'.
+> How do qdisc's that do rate control work now? Did you add logic to
+> breakup batches for token bucket, etc.
 
-There are three problems:
- 
- 1. On i386 it works as described in section 4 of RFC 3542, using IPV6_RECVPKTINFO
-    as sticky socket option to pull out the IPV6_PKTINFO cmsg header fields.
-   
- 2. On sparc64 with the same kernel IPV6_PKTINFO works without problems, even pulls
-    out the cmsg fields correctly. Conversely, when trying to set the IPV6_RECVPKTINFO
-    sticky option on the socket, no cmsg fields are generated. 
-    The kernel is of the same date and revision as the i386 kernel - library issue ???
-    It is very annoying, since the application needs to run on both architectures.
+My thought was that the code works identically to the current code except
+in requeue cases. For requeue the existing code sched decides which skb
+to pass next (first) to device; while in batching case it is assumed that
+skbs already in batch list are part of the hardware queue and sent first.
 
- 3. Misc:
-    * The option is mentioned 9 times in the index of "Unix Network Programming"
-      (3rd ed., p. 969). Moreover, an entire section (27.7) is devoted to this topic.
-    * It might be good to give at least a warning message in the syslog that the
-      IPV6_PKTINFO socket option is no longer supported. That would save many users
-      grief. An example how this was done in DCCP is in net/dccp/proto.c:
+If that is a problem - at the time of enabling batching it is possible
+to check what qdisc_ops is being used (or whenever the qdisc's change),
+or maybe add a flag to each qdisc_ops to indicate whether qdisc supports
+batching, etc ? Like definitely enable batching if using pfifo_fast_ops..
 
-        case DCCP_SOCKOPT_PACKET_SIZE:
-                DCCP_WARN("sockopt(PACKET_SIZE) is deprecated: fix your app");
-   
+What is your suggestion ?
 
-Maybe this is due to a misunderstanding - in which case I'd be grateful for any clarifications.
+thanks,
 
-Thanks
-Gerrit
+- KK
