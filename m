@@ -1,45 +1,111 @@
-From: David Miller <davem@davemloft.net>
-Subject: [ofa-general] Re: [PATCH 0/9 Rev3] Implement batching skb API and
- support in IPoIB
-Date: Wed, 08 Aug 2007 15:22:40 -0700 (PDT)
-Message-ID: <20070808.152240.56052317.davem@davemloft.net>
-References: <20070808.034900.85820906.davem@davemloft.net>
-	<20070808134247.GA9942@gondor.apana.org.au>
-	<1186586075.5155.27.camel@localhost>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Subject: Re: [patch] ipvs: force read of atomic_t in while loop
+Date: Thu, 9 Aug 2007 00:27:03 +0200
+Message-ID: <20070808222703.GA11359@osiris.ibm.com>
+References: <20070808093300.GA14530@osiris.boeblingen.de.ibm.com> <20070808.032131.35507346.davem@davemloft.net> <20070808102835.GC14530@osiris.boeblingen.de.ibm.com> <46BA30DC.20207@redhat.com> <20070808143115.de539511.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, peter.p.waskiewicz.jr@intel.com,
-	herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
-	rdreier@cisco.com, mcarlson@broadcom.com, netdev@vger.kernel.org,
-	jagana@us.ibm.com, general@lists.openfabrics.org,
-	mchan@broadcom.com, tgraf@suug.ch, jeff@garzik.org,
-	shemminger@linux-foundation.org, kaber@trash.net, sri@us.ibm.com
-To: hadi@cyberus.ca
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <1186586075.5155.27.camel@localhost>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Chris Snook <csnook@redhat.com>, andi@firstfloor.org,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andi Kleen <ak@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate3.de.ibm.com ([195.212.29.152]:48577 "EHLO
+	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753667AbXHHW1G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 18:27:06 -0400
+Content-Disposition: inline
+In-Reply-To: <20070808143115.de539511.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Wed, 08 Aug 2007 11:14:35 -0400
+On Wed, Aug 08, 2007 at 02:31:15PM -0700, Andrew Morton wrote:
+> On Wed, 08 Aug 2007 17:08:44 -0400
+> Chris Snook <csnook@redhat.com> wrote:
+> 
+> > Heiko Carstens wrote:
+> > > On Wed, Aug 08, 2007 at 03:21:31AM -0700, David Miller wrote:
+> > >> From: Heiko Carstens <heiko.carstens@de.ibm.com>
+> > >> Date: Wed, 8 Aug 2007 11:33:00 +0200
+> > >>
+> > >>> Just saw this while grepping for atomic_reads in a while loops.
+> > >>> Maybe we should re-add the volatile to atomic_t. Not sure.
+> > >> I think whatever the choice, it should be done consistently
+> > >> on every architecture.
+> > >>
+> > >> It's just asking for trouble if your arch does it differently from
+> > >> every other.
+> > > 
+> > > Well..currently it's i386/x86_64 and s390 which have no volatile
+> > > in atomic_t. And yes, of course I agree it should be consistent
+> > > across all architectures. But it isn't.
+> > 
+> > Based on recent discussion, it's pretty clear that there's a lot of 
+> > confusion about this.  A lot of people (myself included, until I thought 
+> > about it long and hard) will reasonably assume that calling 
+> > atomic_read() will actually read the value from memory.  Leaving out the 
+> > volatile declaration seems like a pessimization to me.  If you force 
+> > people to use barrier() everywhere they're working with atomic_t, it 
+> > will force re-reads of all the non-atomic data in use as well, which 
+> > will cause more memory fetches of things that generally don't need 
+> > barrier().  That and it's a bug waiting to happen.
+> > 
+> > Andi -- your thoughts on the matter?
+> 
+> I'm not Andi, but this not-Andi thinks that permitting the compiler to cache
+> the results of atomic_read() is dumb.
 
-> pktgen shows a clear win if you test the driver path - which is what
-> you should test because thats where the batching changes are.
+Ok, how about this:
 
-The driver path, however, does not exist on an island and what
-we care about is the final result with the changes running
-inside the full system.
+Subject: [PATCH] Add 'volatile' to atomic_t again.
 
-So, to be honest, besides for initial internal development
-feedback, the isolated tests only have minimal merit and
-it's the full protocol tests that are really interesting.
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+
+This basically reverts f9e9dcb38f5106fa8cdac04a9e967d5487f1cd20 which
+removed 'volatile' from atomic_t for i386/x86_64. Reason for this
+is to make sure that code like
+while (atomic_read(&whatever));
+continues to work.
+Otherwise the compiler might generate code that will loop forever.
+Also this makes sure atomic_t is the same across all architectures.
+
+Cc: Andi Kleen <ak@suse.de>
+Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+---
+
+s390 patch will go in via Martin if this is accepted.
+
+ include/asm-i386/atomic.h   |    2 +-
+ include/asm-x86_64/atomic.h |    2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+Index: linux-2.6/include/asm-i386/atomic.h
+===================================================================
+--- linux-2.6.orig/include/asm-i386/atomic.h
++++ linux-2.6/include/asm-i386/atomic.h
+@@ -15,7 +15,7 @@
+  * on us. We need to use _exactly_ the address the user gave us,
+  * not some alias that contains the same information.
+  */
+-typedef struct { int counter; } atomic_t;
++typedef struct { volatile int counter; } atomic_t;
+ 
+ #define ATOMIC_INIT(i)	{ (i) }
+ 
+Index: linux-2.6/include/asm-x86_64/atomic.h
+===================================================================
+--- linux-2.6.orig/include/asm-x86_64/atomic.h
++++ linux-2.6/include/asm-x86_64/atomic.h
+@@ -22,7 +22,7 @@
+  * on us. We need to use _exactly_ the address the user gave us,
+  * not some alias that contains the same information.
+  */
+-typedef struct { int counter; } atomic_t;
++typedef struct { volatile int counter; } atomic_t;
+ 
+ #define ATOMIC_INIT(i)	{ (i) }
+ 
