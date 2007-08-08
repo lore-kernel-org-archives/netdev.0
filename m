@@ -1,27 +1,50 @@
-From: Shirley Ma <xma@us.ibm.com>
-Subject: Re: [PATCH RFC]: napi_struct V5
-Date: Wed, 8 Aug 2007 16:23:08 -0700
-Message-ID: <OF88AC1611.F8A1A279-ON87257331.008011B7-88257331.00804588@us.ibm.com>
-References: <20070808.152059.101495015.davem@davemloft.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH] make atomic_t volatile on all architectures
+Date: Thu, 9 Aug 2007 01:25:21 +0200
+Message-ID: <20070808232521.GC8460@xi.wantstofly.org>
+References: <20070808230733.GA17270@shell.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: hadi@cyberus.ca, jgarzik@pobox.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, rdreier@cisco.com,
-	rusty@rustcorp.com.au, shemminger@linux-foundation.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org
+To: Chris Snook <csnook@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:42002 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754232AbXHHXXX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 19:23:23 -0400
-In-Reply-To: <20070808.152059.101495015.davem@davemloft.net>
+Received: from alephnull.demon.nl ([83.160.184.112]:47049 "EHLO
+	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759431AbXHHXZZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 19:25:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20070808230733.GA17270@shell.boston.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave,
+On Wed, Aug 08, 2007 at 07:07:33PM -0400, Chris Snook wrote:
 
-> I reverted everything Roland had an issue with, I got tired of arguing
-> my position and doing all of the coding too.  He won.
-Thanks. I think the reschedule in the IPoIB poll should maintain fairness.
+> From: Chris Snook <csnook@redhat.com>
+> 
+> Some architectures currently do not declare the contents of an atomic_t to be
+> volatile.  This causes confusion since atomic_read() might not actually read
+> anything if an optimizing compiler re-uses a value stored in a register, which
+> can break code that loops until something external changes the value of an
+> atomic_t.  Avoiding such bugs requires using barrier(), which causes re-loads
+> of all registers used in the loop, thus hurting performance instead of helping
+> it, particularly on architectures where it's unnecessary.  Since we generally
+> want to re-read the contents of an atomic variable on every access anyway,
+> let's standardize the behavior across all architectures and avoid the
+> performance and correctness problems of requiring the use of barrier() in
+> loops that expect atomic_t variables to change externally.  This is relevant
+> even on non-smp architectures, since drivers may use atomic operations in
+> interrupt handlers.
+> 
+> Signed-off-by: Chris Snook <csnook@redhat.com>
 
-Shirley
+Documentation/atomic_ops.txt would need updating:
+
+	[...]
+
+	One very important aspect of these two routines is that they DO NOT
+	require any explicit memory barriers.  They need only perform the
+	atomic_t counter update in an SMP safe manner.
