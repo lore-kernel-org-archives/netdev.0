@@ -1,53 +1,82 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH 2/14] nes: device structures and defines
-Date: Wed, 8 Aug 2007 15:08:28 +0200
-Message-ID: <20070808130828.GB14419@one.firstfloor.org>
-References: <200708080045.l780jE9E004667@neteffect.com> <200708081350.36081.mb@bu3sch.de> <20070808125511.GA14419@one.firstfloor.org> <200708081502.35837.mb@bu3sch.de>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [RFC] stuff from tcp-2.6 partially merged to upcoming net-2.6.24?
+Date: Wed, 8 Aug 2007 16:13:31 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0708081529300.23600@kivilampi-30.cs.helsinki.fi>
+References: <Pine.LNX.4.64.0708071356060.8788@kivilampi-30.cs.helsinki.fi>
+ <20070808.035505.110907605.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, Jeff Garzik <jeff@garzik.org>,
-	ggrundstrom@neteffect.com, rdreier@cisco.com,
-	ewg@lists.openfabrics.org, netdev@vger.kernel.org
-To: Michael Buesch <mb@bu3sch.de>
+Content-Type: MULTIPART/MIXED; boundary="-696243703-1219907105-1186576307=:23600"
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:51512 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758779AbXHHNIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 09:08:32 -0400
-Content-Disposition: inline
-In-Reply-To: <200708081502.35837.mb@bu3sch.de>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:44747 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755686AbXHHNNc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 09:13:32 -0400
+In-Reply-To: <20070808.035505.110907605.davem@davemloft.net>
+Content-ID: <Pine.LNX.4.64.0708081605380.23600@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 08, 2007 at 03:02:35PM +0200, Michael Buesch wrote:
-> On Wednesday 08 August 2007 14:55:11 Andi Kleen wrote:
-> > On Wed, Aug 08, 2007 at 01:50:35PM +0200, Michael Buesch wrote:
-> > > On Wednesday 08 August 2007 14:38:10 Andi Kleen wrote:
-> > > > Jeff Garzik <jeff@garzik.org> writes:
-> > > > > > +			val, reg_index, addr, addr+4); */
-> > > > > > +	writel(cpu_to_le32(reg_index), addr);
-> > > > > > +	writel(cpu_to_le32(val),(u8 *)addr + 4);
-> > > > > 
-> > > > > wrong -- endian conversion macros not needed with writel()
-> > > > 
-> > > > Are you sure? I don't think that's true. e.g. powerpc writel 
-> > > > doesn't convert endian
-> > > 
-> > > Andi, you are wrong.
-> > > writeX take CPU endian args.
-> > 
-> > That is what I wrote.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---696243703-1219907105-1186576307=:23600
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+Content-ID: <Pine.LNX.4.64.0708081531571.23600@kivilampi-30.cs.helsinki.fi>
+
+On Wed, 8 Aug 2007, David Miller wrote:
+
+> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Tue, 7 Aug 2007 16:19:58 +0300 (EEST)
 > 
-> Uhm, so....
-> Why did you complain to Jeff?
-
-Because Jeff wrote the opposite.
-
-> I'm a little bit confused now :)
+> > Do you have any suggestion how I should proceed? Or do you perhaps object 
+> > such partial merge completely? ...I could try to come up with a cleaned up 
+> > patch series which has original and their bug fix parts combined to a 
+> > single patch per change (would provide cleaner history and shouldn't be 
+> > very hard to do either)...
 > 
-> Fact is that we do _not_ need cpu_to_le32 with writel.
+> Thank you for doing the rebase.  I agree with you that we should
+> seperate out as much of the non-rb-tree stuff as possible and put it
+> into net-2.6.24
 
-We do on a big endian platform if the register is LE. I assume that's the case 
-on this hardware.
+...It would also help a lot in case we at some point of time in the future 
+decide to merge rb-tree stuff but then have to back up to have it merged 
+in a cleaner state which is easier to revert than with cleanups 
+combined... Besides once I get some additional bits done (haven't yet 
+dared to do L-bit cascade surgery which will fix timedout loop entry 
+bugs and allow dropping of retrans hint counter), long enough mm sit would 
+be nice route to rbtree stuff since there it's getting at least bit more
+versitile testing that we alone can put to it...
 
--Andi
+> I'll will try hard to make time to look at your rebase and try to move
+> things forward. 
+
+...I case you want to validate them, git-patch-id helps to exclude 
+identical changes between before and after allowing you to spend more
+time on things that required non-trivial resolution...
+
+> I've been all-consumed by the NAPI work and a driver I've been writing 
+> in the background for the past few weeks.
+
+...I can try to help... I suggest that as first step we take all changes 
+that do not cause any conflicts (I've already tried cherry-picks), only 
+thing I'm not sure whether I should combine change+fix parts or keep 
+them as they were in tcp-2.6 (I suggest we combine them but you may 
+disagree..?). I can either post them as series or give you them in 
+--pretty=oneline format if you want to cherry-pick them yourself (in 
+that case having a common tree would help a bit as commit ids would
+match as well then)).
+
+However, at least highest_sack inclusion (no space loss as one hint 
+counter can be then dropped and allows accurate fackets out which I've 
+partially coded already) will need also SACK-block validator. But I
+basically have to redo as the validator patch was sacktag reorganization 
+based previously (I've already found couple of improvements too to it's
+accuracy :-))...
+
+
+-- 
+ i.
+---696243703-1219907105-1186576307=:23600--
