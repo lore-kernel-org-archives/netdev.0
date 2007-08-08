@@ -1,442 +1,53 @@
-From: ggrundstrom@neteffect.com
-Subject: [PATCH 4/14] nes: connection manager structures and defines
-Date: Tue, 7 Aug 2007 19:52:30 -0500
-Message-ID: <200708080052.l780qUXw004708@neteffect.com>
-Cc: ewg@lists.openfabrics.org, ggrundstrom@neteffect.com,
-	netdev@vger.kernel.org
-To: rdreier@cisco.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC]: napi_struct V5
+Date: Tue, 07 Aug 2007 17:59:20 -0700 (PDT)
+Message-ID: <20070807.175920.15265201.davem@davemloft.net>
+References: <20070805.232423.21363072.davem@davemloft.net>
+	<1186491155.5163.68.camel@localhost>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	jgarzik@pobox.com, rusty@rustcorp.com.au
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 75.neteffect.com ([204.57.75.75]:50479 "EHLO
-	localhost.localdomain" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932378AbXHHA67 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2007 20:58:59 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45119
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S933289AbXHHA7U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2007 20:59:20 -0400
+In-Reply-To: <1186491155.5163.68.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-NetEffect connection manager includes, structures and defines.
+From: jamal <hadi@cyberus.ca>
+Date: Tue, 07 Aug 2007 08:52:35 -0400
 
-Signed-off-by: Glenn Grundstrom <ggrundstrom@neteffect.com>
----
-diff -Nurp NULL ofa_kernel-1.2/drivers/infiniband/hw/nes/nes_cm.h
---- NULL	1969-12-31 18:00:00.000000000 -0600
-+++ ofa_kernel-1.2/drivers/infiniband/hw/nes/nes_cm.h	2007-08-07 13:35:50.000000000 -0500
-@@ -0,0 +1,419 @@
-+/*
-+ * Copyright (c) 2006 - 2007 NetEffect, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ */
-+
-+#ifndef NES_CM_H
-+#define NES_CM_H
-+
-+#define QUEUE_EVENTS
-+
-+#define NES_MANAGE_APBVT_DEL 0
-+#define NES_MANAGE_APBVT_ADD 1
-+
-+/* IETF MPA -- defines, enums, structs */
-+#define IEFT_MPA_KEY_REQ  "MPA ID Req Frame"
-+#define IEFT_MPA_KEY_REP  "MPA ID Rep Frame"
-+#define IETF_MPA_KEY_SIZE 16
-+#define IETF_MPA_VERSION   1
-+
-+enum ietf_mpa_flags {
-+	IETF_MPA_FLAGS_MARKERS = 0x80,	/* receive Markers */
-+	IETF_MPA_FLAGS_CRC     = 0x40,	/* receive Markers */
-+	IETF_MPA_FLAGS_REJECT  = 0x20,	/* Reject */
-+};
-+
-+struct ietf_mpa_frame {
-+	u8 key[IETF_MPA_KEY_SIZE];
-+	u8 flags;
-+	u8 rev;
-+	u16 priv_data_len;
-+	u8 priv_data[0];
-+};
-+
-+#define ietf_mpa_req_resp_frame ietf_mpa_frame
-+
-+struct nes_v4_quad {
-+	u32 rsvd0;
-+	u32 DstIpAdrIndex;	/* Only most significant 5 bits are valid */
-+	u32 SrcIpadr;
-+	u32 TcpPorts;		/* src is low, dest is high */
-+};
-+
-+struct nes_cm_node;
-+enum nes_timer_type
-+{
-+	NES_TIMER_TYPE_SEND,
-+	NES_TIMER_TYPE_RECV,
-+	NES_TIMER_NODE_CLEANUP,
-+	NES_TIMER_TYPE_CLOSE,
-+};
-+
-+#define MAX_NES_IFS 4
-+
-+#define SET_ACK 1
-+#define SET_SYN 2
-+#define SET_FIN 4
-+#define SET_RST 8
-+
-+struct option_base {
-+	u8 optionnum;
-+	u8 length;
-+};
-+
-+enum option_numbers {
-+	OPTION_NUMBER_END,
-+	OPTION_NUMBER_NONE,
-+	OPTION_NUMBER_MSS,
-+	OPTION_NUMBER_WINDOW_SCALE,
-+	OPTION_NUMBER_SACK_PERM,
-+	OPTION_NUMBER_SACK,
-+	OPTION_NUMBER_WRITE0 = 0xbc
-+};
-+
-+struct option_mss {
-+	u8 optionnum;
-+	u8 length;
-+	u16 mss;
-+};
-+
-+struct option_windowscale {
-+	u8 optionnum;
-+	u8 length;
-+	u8 shiftcount;
-+};
-+
-+union all_known_options{
-+	char as_end;
-+	struct option_base as_base;
-+	struct option_mss as_mss;
-+	struct option_windowscale as_windowscale;
-+};
-+
-+struct nes_timer_entry
-+{
-+	struct list_head list;
-+	unsigned long timetosend;	/* jiffies */
-+	struct sk_buff *skb;
-+	u32 type;
-+	u32 retrycount;	 
-+	u32 retranscount;
-+	u32 context;
-+	u32 seq_num;
-+	u32 send_retrans;
-+	struct net_device *netdev;
-+};
-+
-+#define NES_DEFAULT_RETRYS	64
-+#define NES_DEFAULT_RETRANS 4
-+#define NES_RETRY_TIMEOUT	(1000*HZ/1000)
-+#define NES_SHORT_TIME		(10)
-+#define NES_LONG_TIME		(2000*HZ/1000)
-+
-+#define NES_CM_HASHTABLE_SIZE       1024
-+#define NES_CM_TCP_TIMER_INTERVAL   3000	
-+#define NES_CM_DEFAULT_MTU          1540
-+#define NES_CM_DEFAULT_FRAME_CNT      10
-+#define NES_CM_THREAD_STACK_SIZE     256	
-+#define NES_CM_DEFAULT_RCV_WND			64240	// before we know that window scaling is allowed
-+#define NES_CM_DEFAULT_RCV_WND_SCALED	256960  // after we know that window scaling is allowed
-+#define NES_CM_DEFAULT_RCV_WND_SCALE	2
-+#define NES_CM_DEFAULT_FREE_PKTS  0x000A	
-+#define NES_CM_FREE_PKT_LO_WATERMARK   2	
-+
-+#define NES_CM_DEF_SEQ        0x159bf75f
-+#define NES_CM_DEF_LOCAL_ID       0x3b47
-+
-+#define NES_CM_DEF_SEQ2       0x18ed5740
-+#define NES_CM_DEF_LOCAL_ID2      0xb807
-+
-+typedef u32 nes_addr_t;
-+
-+#define nes_cm_tsa_context nes_qp_context
-+
-+struct nes_qp;
-+
-+/* cm node transition states */
-+enum nes_cm_node_state {
-+	NES_CM_STATE_UNKNOWN,
-+	NES_CM_STATE_INITED,
-+	NES_CM_STATE_LISTENING,
-+	NES_CM_STATE_SYN_RCVD,
-+	NES_CM_STATE_SYN_SENT,
-+	NES_CM_STATE_ONE_SIDE_ESTABLISHED,
-+	NES_CM_STATE_ESTABLISHED,
-+	NES_CM_STATE_ACCEPTING,
-+	NES_CM_STATE_MPAREQ_SENT,
-+	NES_CM_STATE_TSA,
-+	NES_CM_STATE_FIN_WAIT1,
-+	NES_CM_STATE_FIN_WAIT2,
-+	NES_CM_STATE_CLOSE_WAIT,
-+	NES_CM_STATE_TIME_WAIT,
-+	NES_CM_STATE_LAST_ACK,
-+	NES_CM_STATE_CLOSING,
-+	NES_CM_STATE_CLOSED
-+};
-+
-+/* type of nes connection */
-+enum nes_cm_conn_type {
-+	NES_CM_IWARP_CONN_TYPE,
-+};
-+
-+/* CM context params */
-+struct nes_cm_tcp_context {
-+	u8   client;		
-+
-+	u32  loc_seq_num;	
-+	u32  loc_ack_num;	
-+	u32  rem_ack_num;	
-+	u32  rcv_nxt;		
-+
-+	u32  loc_id;
-+	u32  rem_id;
-+
-+	u32 snd_wnd;
-+	u32 max_snd_wnd;
-+
-+	u32 rcv_wnd;
-+	u32 mss;
-+	u8  snd_wscale;
-+	u8  rcv_wscale;
-+
-+	struct nes_cm_tsa_context tsa_cntxt;	
-+	struct timeval sent_ts;		
-+};
-+
-+struct nes_cm_listener {
-+	struct list_head list;
-+	u64 session_id;	
-+	struct nes_cm_core *core_p;
-+	u8 loc_mac[ETH_ALEN];
-+	nes_addr_t loc_addr;
-+	u16 loc_port;
-+	void *cm_id;
-+	enum nes_cm_conn_type conn_type;
-+	atomic_t ref_count;
-+};
-+
-+/* per connection node and node state information */
-+struct nes_cm_node {
-+	u64 session_id;	
-+	u32 hashkey;	
-+
-+	nes_addr_t loc_addr, rem_addr;
-+	u16 loc_port, rem_port;
-+
-+	u8 loc_mac[ETH_ALEN];	
-+	u8 rem_mac[ETH_ALEN];	
-+
-+	enum nes_cm_node_state state;	
-+	struct nes_cm_tcp_context tcp_cntxt;	
-+	struct nes_cm_core *core_p;
-+	struct sk_buff_head resend_list;
-+	struct nes_cm_node *listener;
-+	atomic_t ref_count;				
-+	struct net_device *netdev_p;
-+
-+	struct nes_cm_node  *loopbackpartner ;
-+	struct list_head retrans_list;
-+	spinlock_t retrans_list_lock;
-+	struct list_head recv_list;
-+	spinlock_t recv_list_lock;
-+	
-+	int send_write0;
-+	union {
-+		struct ietf_mpa_frame mpa_frame_p;	
-+		u8 mpa_frame_b[NES_CM_DEFAULT_MTU];
-+	};
-+	u16 mpa_frame_size;
-+	void *cm_id;
-+	struct list_head list;
-+	int accelerated;
-+	struct nes_cm_listener *listen_p;
-+	enum nes_cm_conn_type conn_type;
-+};
-+
-+/* structure for client or CM to fill when making CM api calls. */
-+/*	- only need to set relevant data, based on op. */
-+struct nes_cm_info {
-+	union {
-+		struct iw_cm_id *cm_id;
-+		struct net_device *netdev;
-+	};
-+
-+	u16 loc_port;
-+	u16 rem_port;
-+	nes_addr_t loc_addr;
-+	nes_addr_t rem_addr;
-+
-+	enum nes_cm_conn_type  conn_type;
-+};
-+
-+/* CM event codes */
-+enum  nes_cm_event_type {
-+	NES_CM_EVENT_UNKNOWN,
-+	NES_CM_EVENT_ESTABLISHED,
-+	NES_CM_EVENT_MPA_REQ,
-+	NES_CM_EVENT_MPA_CONNECT,
-+	NES_CM_EVENT_MPA_ACCEPT,
-+	NES_CM_EVENT_MPA_ESTABLISHED,
-+	NES_CM_EVENT_CONNECTED,
-+	NES_CM_EVENT_CLOSED,
-+	NES_CM_EVENT_RESET,
-+	NES_CM_EVENT_DROPPED_PKT,
-+	NES_CM_EVENT_CLOSE_IMMED,
-+	NES_CM_EVENT_CLOSE_HARD,
-+	NES_CM_EVENT_CLOSE_CLEAN,
-+	NES_CM_EVENT_ABORTED,
-+	NES_CM_EVENT_SEND_FIRST
-+};
-+
-+/* event to post to CM event handler */
-+struct nes_cm_event {
-+	enum nes_cm_event_type type;
-+
-+	struct nes_cm_info cm_info;
-+	struct work_struct event_work;
-+	struct nes_cm_node *node_p;
-+};
-+
-+struct nes_cm_core {
-+ 	enum nes_cm_node_state state;	
-+	atomic_t session_id;			
-+
-+	atomic_t listen_node_cnt;			
-+	struct nes_cm_node listen_list;	
-+	spinlock_t listen_list_lock;	
-+
-+	u32 mtu;						
-+	u32 free_tx_pkt_max;
-+	u32 rx_pkt_posted;				
-+	struct sk_buff_head tx_free_list;	
-+	atomic_t ht_node_cnt;			
-+	struct list_head connected_nodes;
-+	/* struct list_head hashtable[NES_CM_HASHTABLE_SIZE]; */
-+	spinlock_t ht_lock;				
-+
-+	struct timer_list tcp_timer;	
-+
-+	struct nes_cm_ops *api;			
-+
-+	int (*post_event)(struct nes_cm_event *event_p);
-+	atomic_t events_posted;
-+	struct workqueue_struct *event_wq;
-+	struct workqueue_struct *disconn_wq;
-+
-+	atomic_t node_cnt;
-+	u64 aborted_connects;
-+	u32 options;
-+
-+	struct nes_cm_node *current_listen_node;
-+};
-+
-+
-+#define NES_CM_SET_PKT_SIZE        (1 << 1)
-+#define NES_CM_SET_FREE_PKT_Q_SIZE (1 << 2)
-+
-+/* CM ops/API for client interface */
-+struct nes_cm_ops {
-+	int (*accelerated)(struct nes_cm_core *cm_core_p,
-+			struct nes_cm_node *node_p);
-+	struct nes_cm_listener * (*listen)(struct nes_cm_core *cm_core_p,
-+			struct nes_vnic *nesvnic, struct nes_cm_info *nfo_p);
-+	int (*stop_listener)(struct nes_cm_core *core_p,
-+			struct nes_cm_listener *cm_core_p);
-+	struct nes_cm_node * (*connect)(struct nes_cm_core *cm_core_p,
-+			struct nes_vnic *nesvnic, struct ietf_mpa_frame *mpa_frame_p,
-+			struct nes_cm_info *nfo_p);
-+	int (*close)(struct nes_cm_core *cm_core_p, struct nes_cm_node *node_p);
-+	int (*accept)(struct nes_cm_core *cm_core_p, struct ietf_mpa_frame *mpa_frame_p,
-+			struct nes_cm_node *node_p);
-+	int (*reject)(struct nes_cm_core *cm_core_p, struct ietf_mpa_frame *mpa_frame_p,
-+			struct nes_cm_node *node_p);
-+	int (*recv_pkt)(struct nes_cm_core *cm_core_p, struct nes_vnic *nesvnic,
-+			struct sk_buff *skb_p);
-+	int (*destroy_cm_core)(struct nes_cm_core *core_p);
-+	int (*get)(struct nes_cm_core *cm_core_p);
-+	int (*set)(struct nes_cm_core *core_p, u32 type, u32 value);
-+};
-+
-+
-+int send_mpa_request(struct nes_cm_node *);
-+struct sk_buff *form_cm_frame(struct sk_buff *, struct nes_cm_node *,
-+		void *, u32, void *, u32, u8);
-+int schedule_nes_timer(struct nes_cm_node *node_p, struct sk_buff *skb_p,
-+						enum nes_timer_type type, int retransmit);
-+void nes_cm_timer_tick(unsigned long);
-+int send_syn(struct nes_cm_node *, u32);
-+int send_reset(struct nes_cm_node *);
-+int send_ack(struct nes_cm_node *);
-+int send_fin(struct nes_cm_node *, struct sk_buff *);
-+struct sk_buff *get_free_pkt(struct nes_cm_node *);
-+int del_hte_node(struct nes_cm_core *, struct nes_cm_node *);
-+int process_packet(struct nes_cm_node *node_p, struct sk_buff *skb_p,
-+		struct nes_cm_core *core_p);
-+
-+struct nes_cm_node * mini_cm_connect(struct nes_cm_core *core_p,
-+		struct nes_vnic *nesvnic, struct ietf_mpa_frame *mpa_frame_p,
-+		struct nes_cm_info *nfo_p);
-+int mini_cm_accept(struct nes_cm_core *, struct ietf_mpa_frame *, struct nes_cm_node *);
-+int mini_cm_reject(struct nes_cm_core *, struct ietf_mpa_frame *, struct nes_cm_node *);
-+int mini_cm_close(struct nes_cm_core *, struct nes_cm_node *);
-+int mini_cm_recv_pkt(struct nes_cm_core *, struct nes_vnic *, struct sk_buff *);
-+struct nes_cm_core *mini_cm_alloc_core(struct nes_cm_info *);
-+int mini_cm_dealloc_core(struct nes_cm_core *);
-+int mini_cm_get(struct nes_cm_core *);
-+int mini_cm_set(struct nes_cm_core *, u32, u32);
-+
-+int nes_cm_disconn(struct nes_qp *nesqp);
-+void nes_disconnect_worker(void *);
-+int nes_cm_disconn_true(struct nes_qp *);
-+int nes_disconnect(struct nes_qp *nesqp, int abrupt, u16 local_port);
-+
-+int nes_accept(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param);
-+int nes_reject(struct iw_cm_id *cm_id, const void *pdata, u8 pdata_len);
-+int nes_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param);
-+int nes_create_listen(struct iw_cm_id *cm_id, int backlog);
-+int nes_destroy_listen(struct iw_cm_id *cm_id);
-+
-+int nes_cm_recv(struct sk_buff *, struct net_device *);
-+int nes_cm_start(void);
-+int nes_cm_stop(void);
-+
-+/* CM event handler functions */
-+void cm_event_connected(struct nes_cm_event *);
-+void cm_event_connect_error(struct nes_cm_event *);
-+void cm_event_reset(struct nes_cm_event *);
-+void cm_event_mpa_req(struct nes_cm_event *);
-+int nes_cm_post_event(struct nes_cm_event *);
-+
-+#endif			/* NES_CM_H */
-+
+> That doc is out of date on the split of work - it focusses mostly
+> describing the original tulip which did not mix rx and tx in the
+> napi_poll(). AFAIK, no driver does that today (although i really liked
+> that scheme, there is a lot of fscked hardware out there that wont work
+> well with that scheme). Where are the firemen when you need them? 
+
+I am tempted to suggest we toss the document completely, for
+two reasons:
+
+1) It's geared towards conversions, whereas %99.9999 of the conversions
+   that will ever happen, have happened.  Every single potential reader
+   of this document is therefore writing new drivers with NAPI from the
+   beginning.
+
+2) Inaccurate documentation is often worse than no documentation.
+
+It's not a bad thing to delete the document, and also we have a lot
+of time until 2.6.24 finalizes with these changes and in that time
+someone with the right incentive could write a fresh new NAPI
+manual that represents reality.  Such a document could be added after
+the merge window closes.
+
+This also reminds me that we confuse people by having two driver
+models for interrupt handling.  I've been reluctant to remove the
+"optional" component of NAPI especially when it didn't handle
+multi-queue properly (which basically made drivers for virtualized
+devices impossible without using dummy devices for each queue).
+But that is no longer true and there isn't any reason for a new
+driver not to be NAPI from the beginning.
