@@ -1,103 +1,43 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [ofa-general] Re: [PATCH 2/9 Rev3] [core] Add skb_blist &
-	hard_start_xmit_batch
-Date: Wed, 8 Aug 2007 16:01:43 +0400
-Message-ID: <20070808120142.GA26884@2ka.mipt.ru>
-References: <20070808093114.15396.22797.sendpatchset@localhost.localdomain>
-	<20070808093135.15396.29687.sendpatchset@localhost.localdomain>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH RFC]: napi_struct V5
+Date: Wed, 08 Aug 2007 08:10:59 -0400
+Message-ID: <1186575059.5171.23.camel@localhost>
+References: <20070805.232423.21363072.davem@davemloft.net>
+	 <1186491155.5163.68.camel@localhost>
+	 <20070807.175920.15265201.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jagana@us.ibm.com, Robert.Olsson@data.slu.se,
-	peter.p.waskiewicz.jr@intel.com, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, kumarkr@linux.ibm.com, rdreier@cisco.com,
-	mcarlson@broadcom.com, kaber@trash.net, jeff@garzik.org,
-	hadi@cyberus.ca, general@lists.openfabrics.org,
-	mchan@broadcom.com, tgraf@suug.ch, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, davem@davemloft.net, sri@us.ibm.com
-To: Krishna Kumar <krkumar2@in.ibm.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-Disposition: inline
-In-Reply-To: <20070808093135.15396.29687.sendpatchset@localhost.localdomain>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	jgarzik@pobox.com, rusty@rustcorp.com.au
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wx-out-0506.google.com ([66.249.82.231]:49378 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751210AbXHHMLF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 08:11:05 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so115104wxd
+        for <netdev@vger.kernel.org>; Wed, 08 Aug 2007 05:11:04 -0700 (PDT)
+In-Reply-To: <20070807.175920.15265201.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Krishna.
+On Tue, 2007-07-08 at 17:59 -0700, David Miller wrote:
 
-On Wed, Aug 08, 2007 at 03:01:35PM +0530, Krishna Kumar (krkumar2@in.ibm.com) wrote:
-> +int dev_change_tx_batch_skb(struct net_device *dev, unsigned long new_batch_skb)
-> +{
-> +	int ret = 0;
-> +	struct sk_buff_head *blist;
-> +
-> +	if (!dev->hard_start_xmit_batch) {
-> +		/* Driver doesn't support batching skb API */
-> +		ret = -ENOTSUPP;
-> +		goto out;
-> +	}
-> +
-> +	/* Handle invalid argument */
-> +	if (new_batch_skb < 0) {
-> +		ret = -EINVAL;
-> +		goto out;
-> +	}
+> I am tempted to suggest we toss the document completely, for
+> two reasons:
 
-It is unsigned, how can it be less than zero?
+Its overdue - just hasnt been anybody who has raised their hands
+to do it. Stephen did at one point. 
+Theres a lot of nice insights in that doc that will be nice to inherit.
+Theres also a nice state machine diagram in 
+http://www.kernel.org/pub/linux/kernel/people/hadi/docs/UKUUG2005.pdf
+that will be very useful to capture in whatever new doc.
 
-And actually you use it just like a binary flag (casted to/from u32 in
-the code, btw), so why not using ethtool_value directly here?
-
-> +	/* Check if new value is same as the current */
-> +	if (!!dev->skb_blist == !!new_batch_skb)
-> +		goto out;
-> +
-> +	if (new_batch_skb &&
-> +	    (blist = kmalloc(sizeof *blist, GFP_KERNEL)) == NULL) {
-> +		ret = -ENOMEM;
-> +		goto out;
-> +	}
-> +
-> +	spin_lock(&dev->queue_lock);
-> +	if (new_batch_skb) {
-> +		skb_queue_head_init(blist);
-> +		dev->skb_blist = blist;
-> +	} else
-> +		free_batching(dev);
-> +	spin_unlock(&dev->queue_lock);
-
-This needs bh lock too, since blist is accessed by qdisc_restart.
-
-> +int dev_add_skb_to_blist(struct sk_buff *skb, struct net_device *dev)
-> +{
-> +	if (!list_empty(&ptype_all))
-> +		dev_queue_xmit_nit(skb, dev);
-> +
-> +	if (netif_needs_gso(dev, skb)) {
-> +		if (unlikely(dev_gso_segment(skb))) {
-> +			kfree(skb);
-> +			return 0;
-> +		}
-> +
-> +		if (skb->next) {
-> +			int count = 0;
-> +
-> +			do {
-> +				struct sk_buff *nskb = skb->next;
-> +
-> +				skb->next = nskb->next;
-> +				__skb_queue_tail(dev->skb_blist, nskb);
-> +				count++;
-> +			} while (skb->next);
-
-Is it possible to move list without iterating over each entry?
+cheers,
+jamal
 
 
--- 
-	Evgeniy Polyakov
+
+
