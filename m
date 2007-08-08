@@ -1,117 +1,69 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: Re: [patch] ipvs: force read of atomic_t in while loop
-Date: Wed, 08 Aug 2007 18:38:25 -0400
-Message-ID: <46BA45E1.5030501@redhat.com>
-References: <20070808093300.GA14530@osiris.boeblingen.de.ibm.com> <20070808.032131.35507346.davem@davemloft.net> <20070808102835.GC14530@osiris.boeblingen.de.ibm.com> <46BA30DC.20207@redhat.com> <20070808143115.de539511.akpm@linux-foundation.org> <20070808222703.GA11359@osiris.ibm.com>
+From: jamal <hadi@cyberus.ca>
+Subject: [ofa-general] Re: [PATCH 0/9 Rev3] Implement batching skb API and
+	support in IPoIB
+Date: Wed, 08 Aug 2007 18:40:32 -0400
+Message-ID: <1186612832.5152.34.camel@localhost>
+References: <20070808093114.15396.22797.sendpatchset@localhost.localdomain>
+	<20070808.034900.85820906.davem@davemloft.net>
+	<20070808134247.GA9942@gondor.apana.org.au>
+	<1186586075.5155.27.camel@localhost> <20070808215501.4825d74b@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andi Kleen <ak@suse.de>, andi@firstfloor.org,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au
-To: Heiko Carstens <heiko.carstens@de.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:41625 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754595AbXHHWip (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Aug 2007 18:38:45 -0400
-In-Reply-To: <20070808222703.GA11359@osiris.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: johnpol@2ka.mipt.ru, peter.p.waskiewicz.jr@intel.com,
+	Herbert Xu <herbert@gondor.apana.org.au>, gaagaan@gmail.com,
+	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
+	rdreier@cisco.com, mcarlson@broadcom.com,
+	David Miller <davem@davemloft.net>, jagana@us.ibm.com,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	jeff@garzik.org, netdev@vger.kernel.org, kaber@trash.net, sri@us.ibm.com
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070808215501.4825d74b@oldman>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Heiko Carstens wrote:
-> On Wed, Aug 08, 2007 at 02:31:15PM -0700, Andrew Morton wrote:
->> On Wed, 08 Aug 2007 17:08:44 -0400
->> Chris Snook <csnook@redhat.com> wrote:
->>
->>> Heiko Carstens wrote:
->>>> On Wed, Aug 08, 2007 at 03:21:31AM -0700, David Miller wrote:
->>>>> From: Heiko Carstens <heiko.carstens@de.ibm.com>
->>>>> Date: Wed, 8 Aug 2007 11:33:00 +0200
->>>>>
->>>>>> Just saw this while grepping for atomic_reads in a while loops.
->>>>>> Maybe we should re-add the volatile to atomic_t. Not sure.
->>>>> I think whatever the choice, it should be done consistently
->>>>> on every architecture.
->>>>>
->>>>> It's just asking for trouble if your arch does it differently from
->>>>> every other.
->>>> Well..currently it's i386/x86_64 and s390 which have no volatile
->>>> in atomic_t. And yes, of course I agree it should be consistent
->>>> across all architectures. But it isn't.
->>> Based on recent discussion, it's pretty clear that there's a lot of 
->>> confusion about this.  A lot of people (myself included, until I thought 
->>> about it long and hard) will reasonably assume that calling 
->>> atomic_read() will actually read the value from memory.  Leaving out the 
->>> volatile declaration seems like a pessimization to me.  If you force 
->>> people to use barrier() everywhere they're working with atomic_t, it 
->>> will force re-reads of all the non-atomic data in use as well, which 
->>> will cause more memory fetches of things that generally don't need 
->>> barrier().  That and it's a bug waiting to happen.
->>>
->>> Andi -- your thoughts on the matter?
->> I'm not Andi, but this not-Andi thinks that permitting the compiler to cache
->> the results of atomic_read() is dumb.
-> 
-> Ok, how about this:
-> 
-> Subject: [PATCH] Add 'volatile' to atomic_t again.
-> 
-> From: Heiko Carstens <heiko.carstens@de.ibm.com>
-> 
-> This basically reverts f9e9dcb38f5106fa8cdac04a9e967d5487f1cd20 which
-> removed 'volatile' from atomic_t for i386/x86_64. Reason for this
-> is to make sure that code like
-> while (atomic_read(&whatever));
-> continues to work.
-> Otherwise the compiler might generate code that will loop forever.
-> Also this makes sure atomic_t is the same across all architectures.
-> 
-> Cc: Andi Kleen <ak@suse.de>
-> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-> Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
-> ---
-> 
-> s390 patch will go in via Martin if this is accepted.
-> 
->  include/asm-i386/atomic.h   |    2 +-
->  include/asm-x86_64/atomic.h |    2 +-
->  3 files changed, 4 insertions(+), 4 deletions(-)
-> 
-> Index: linux-2.6/include/asm-i386/atomic.h
-> ===================================================================
-> --- linux-2.6.orig/include/asm-i386/atomic.h
-> +++ linux-2.6/include/asm-i386/atomic.h
-> @@ -15,7 +15,7 @@
->   * on us. We need to use _exactly_ the address the user gave us,
->   * not some alias that contains the same information.
->   */
-> -typedef struct { int counter; } atomic_t;
-> +typedef struct { volatile int counter; } atomic_t;
->  
->  #define ATOMIC_INIT(i)	{ (i) }
->  
-> Index: linux-2.6/include/asm-x86_64/atomic.h
-> ===================================================================
-> --- linux-2.6.orig/include/asm-x86_64/atomic.h
-> +++ linux-2.6/include/asm-x86_64/atomic.h
-> @@ -22,7 +22,7 @@
->   * on us. We need to use _exactly_ the address the user gave us,
->   * not some alias that contains the same information.
->   */
-> -typedef struct { int counter; } atomic_t;
-> +typedef struct { volatile int counter; } atomic_t;
->  
->  #define ATOMIC_INIT(i)	{ (i) }
->  
+On Wed, 2007-08-08 at 21:55 +0100, Stephen Hemminger wrote:
 
-Good so far, but we need to fix it on non-SMP architectures too, since 
-drivers may use atomic_t in interrupt code.  Ideally I'd like to be able 
-to remove a whole bunch of barriers, since they cause a lot of needless 
-re-fetches for everything else in the loop.  We should also document the 
-semantics of atomic_t to ensure consistency in the future.
+> > pktgen shows a clear win if you test the driver path - which is what you
+> > should test because thats where the batching changes are. 
+> > Using TCP or UDP adds other variables[1] that need to be isolated first
+> > in order to quantify the effect of batching. 
+> > For throughput and CPU utilization, the benefit will be clear when there
+> > are a lot more flows. 
+> 
+> Optimizing for pktgen is a mistake for most users. 
 
-	-- Chris
+There is no "optimization for pktgen". 
+
+If you are improving the tx path, the first step is to test that you can
+show the tx path improved. pktgen happens to be the best test suite for
+that because it talks to the driver and exercises the changes.
+i.e if one cant show that exercising the direct path demonstrates
+improvements you probably wont be able to show batching improves TCP -
+but i dont even wanna swear by that. 
+Does that make sense?
+
+> Please show something
+> useful like router forwarding, TCP (single and multi flow) and/or better
+> yet application benchmark improvement.
+
+Absolutely, but first things first. Analysis of why something improves
+is extremely important, just saying "TCP throughput improved" is not
+interesting and lazy. 
+To be scientific, it is important to isolate variables first in order to
+come up with meaningful results that can be analysed. 
+To make a point, I have noticed extremely different results between TCP
+BIC vs reno with batching. So congestion control as a variable is
+important. 
+
+cheers,
+jamal
