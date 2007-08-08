@@ -1,48 +1,38 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: [RFT 0/4] fib_trie cleanup patches
-Date: Wed, 8 Aug 2007 18:07:13 +0200
-Message-ID: <18105.59953.961468.899750@robur.slu.se>
-References: <20070727075917.470055328@linux-foundation.org>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 2/14] nes: device structures and defines
+Date: Wed, 08 Aug 2007 09:18:31 -0700
+Message-ID: <aday7gmov8o.fsf@cisco.com>
+References: <200708080045.l780jE9E004667@neteffect.com>
+	<20070808133850.GE14419@one.firstfloor.org>
+	<200708081548.25399.mb@bu3sch.de> <200708081555.03588.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, akpm@linux-foundation.org,
+Cc: Andi Kleen <andi@firstfloor.org>, Jeff Garzik <jeff@garzik.org>,
+	ggrundstrom@neteffect.com, ewg@lists.openfabrics.org,
 	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:40558 "EHLO mx1.slu.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752573AbXHHQMV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Aug 2007 12:12:21 -0400
-In-Reply-To: <20070727075917.470055328@linux-foundation.org>
+Received: from sj-iport-3-in.cisco.com ([171.71.176.72]:53656 "EHLO
+	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1765152AbXHHQSi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 12:18:38 -0400
+In-Reply-To: <200708081555.03588.mb@bu3sch.de> (Michael Buesch's message of "Wed, 8 Aug 2007 15:55:03 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+ > But there are indeed a few cases that look wrong.
 
-Stephen Hemminger writes:
+yes...
 
- > I don't have a machine with anywhere near enough routes to test this,
- > so would someone with many routes give it a go and make sure nothing
- > got busted in the process.
+ > arch/x86_64/kernel/pci-calgary.c:       writel(cpu_to_be32(val), target);
 
- Hello! 
+eg this almost certainly wants to be
 
- It's not only the numbers of routes thats important... 
+	writel(swab32(val), target);
 
- Anyway I've done what can to verify that route selection (comparing
- lookups via netlink and userland longest-prefix-match using the same
- full routing table) and locking (concurrent rDoS on multiple CPU:s 
- also while loading the full routing table) is intact.
+or something equivalent like
 
- Keep TKEY_GET_MASK in patch #2 as it gives some hint whats going on.
+	__raw_writel(cpu_to_be32(val), target);
+	/* plus some suffficent memory ordering */
 
- And how about Paul E. McKenney comment about rcu_dereference() 
- covering the initial fetch?
-
- BTW. Right now the lab is setup for tests described above...
-
- Cheers.
-
-					--ro
-
- 
+ - R.
