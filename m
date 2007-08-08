@@ -1,24 +1,24 @@
 From: jamal <hadi@cyberus.ca>
-Subject: [ofa-general] Re: [PATCH 0/9 Rev3] Implement batching skb API and
-	support in IPoIB
-Date: Wed, 08 Aug 2007 11:14:35 -0400
-Message-ID: <1186586075.5155.27.camel@localhost>
+Subject: [ofa-general] Re: [PATCH 3/9 Rev3] [sched] Modify qdisc_run to
+	support batching
+Date: Wed, 08 Aug 2007 11:26:05 -0400
+Message-ID: <1186586765.5155.39.camel@localhost>
 References: <20070808093114.15396.22797.sendpatchset@localhost.localdomain>
-	<20070808.034900.85820906.davem@davemloft.net>
-	<20070808134247.GA9942@gondor.apana.org.au>
+	<20070808093145.15396.91711.sendpatchset@localhost.localdomain>
+	<46B9CD9D.4020506@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, peter.p.waskiewicz.jr@intel.com, jeff@garzik.org,
-	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
-	kumarkr@linux.ibm.com, rdreier@cisco.com, mcarlson@broadcom.com,
-	kaber@trash.net, jagana@us.ibm.com,
+Cc: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, gaagaan@gmail.com,
+	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
+	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
+	mcarlson@broadcom.com, netdev@vger.kernel.org, jagana@us.ibm.com,
 	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	David Miller <davem@davemloft.net>, sri@us.ibm.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
+	jeff@garzik.org, shemminger@linux-foundation.org,
+	davem@davemloft.net, sri@us.ibm.com
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070808134247.GA9942@gondor.apana.org.au>
+In-Reply-To: <46B9CD9D.4020506@trash.net>
 List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
 	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
 List-Archive: <http://lists.openfabrics.org/pipermail/general>
@@ -30,44 +30,27 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-08-08 at 21:42 +0800, Herbert Xu wrote:
-> On Wed, Aug 08, 2007 at 03:49:00AM -0700, David Miller wrote:
-> > 
-> > Not because I think it obviates your work, but rather because I'm
-> > curious, could you test a TSO-in-hardware driver converted to
-> > batching and see how TSO alone compares to batching for a pure
-> > TCP workload?
-> 
-> You could even lower the bar by disabling TSO and enabling
-> software GSO.
+On Wed, 2007-08-08 at 16:05 +0200, Patrick McHardy wrote:
 
->From my observation for TCP packets slightly above MDU (upto 2K), GSO
-gives worse performance than non-GSO throughput-wise. Actually this has
-nothing to do with batching, rather the behavior is consistent with or
-without batching changes. 
+> This is not completely avoidable of
+> course, but you can and should limit the damage by only pulling
+> out as much packets as the driver can take and have the driver
+> stop the queue afterwards.
 
-> > I personally don't think it will help for that case at all as
-> > TSO likely does better job of coalescing the work _and_ reducing
-> > bus traffic as well as work in the TCP stack.
-> 
-> I agree.
-> I suspect the bulk of the effort is in getting
-> these skb's created and processed by the stack so that by
-> the time that they're exiting the qdisc there's not much
-> to be saved anymore.
-
-pktgen shows a clear win if you test the driver path - which is what you
-should test because thats where the batching changes are. 
-Using TCP or UDP adds other variables[1] that need to be isolated first
-in order to quantify the effect of batching. 
-For throughput and CPU utilization, the benefit will be clear when there
-are a lot more flows. 
+This why the dev->xmit_win exists in my patches. The driver says how
+much space it has using this variable - and only those packets get
+pulled off; so there is no conflict with any scheduling algorithm be it
+work/non-work conserving. 
+The ideal case is never to carry over anything in dev->blist. However,
+there is a challenge with GSO/TSO: if say the descriptors in the driver
+are less than the list of skbs, you are faced with the dilema of sending
+a fraction of the gso list first.
+My current approach is to transmit as much as the driver would allow.
+On the next opportunity to transmit, you do immediately send anything
+remaining first before you ask the qdisc for more packets. An
+alternative approach i had entertained was not to send anything from the
+skb list when hitting such a case, but it hasnt seem needed so far
+(havent seen any leftovers from my experiments).
 
 cheers,
 jamal
-
-[1] I think there are too many other variables in play unfortunately
-when you are dealing with a path that starts above the driver and one
-that covers end to end effect:  traffic/app source, system clock sources
-as per my recent discovery, congestion control algorithms used, tuning
-of recevier etc.
