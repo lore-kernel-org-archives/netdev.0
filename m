@@ -1,43 +1,119 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH 2/14] nes: device structures and defines
-Date: Wed, 8 Aug 2007 19:34:25 +0200
-Message-ID: <200708081934.26293.mb@bu3sch.de>
-References: <200708080045.l780jE9E004667@neteffect.com> <200708081843.36370.mb@bu3sch.de> <46B9F65C.9060906@garzik.org>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] NET: Change pci_enable_device
+ to	pci_reenable_device to	keep device enable balance
+Date: Wed, 08 Aug 2007 10:36:31 -0700
+Message-ID: <46B9FF1F.3020705@intel.com>
+References: <20070808172149.GA6796@ifup.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <rdreier@cisco.com>,
-	Andi Kleen <andi@firstfloor.org>, ggrundstrom@neteffect.com,
-	ewg@lists.openfabrics.org, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:42246
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S937074AbXHHRfZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 13:35:25 -0400
-In-Reply-To: <46B9F65C.9060906@garzik.org>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	ram.vepa@neterion.com
+To: Brandon Philips <bphilips@suse.de>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20070808172149.GA6796@ifup.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 08 August 2007 18:59:08 Jeff Garzik wrote:
-> Michael Buesch wrote:
-> > writel doesn't guarantee flushing either.
-> > readl does.
+Brandon Philips wrote:
+> I sent this last week as part of my devres patches but it is purely a
+> bug fix and can be merged now.
 > 
+> On a slot_reset event pci_disable_device() is never called so calling
+> pci_enable_device() will unbalance the enable count.
 > 
-> Not quite -- there are multiple kinds of flushing.  You're thinking 
-> about flushing across PCI bridges, which is correct, but you also have 
-> CPU write posting and CPU write ordering and such.
-> 
-> Without taking all that into account, you might be tempted to think that 
-> __raw_readl() will perform all flushes necessary following a 
-> __raw_writel() -- but that would be incorrect.
+> Signed-off-by: Brandon Philips <bphilips@suse.de>
+> Acked-by: Tejun Heo <htejun@gmail.com>
 
-So, kind of...
-Better use writel(swab32(...
-unless you like being shot into the foot.
 
--- 
-Greetings Michael.
+ACK all the parts except s2io. Of course, I haven't seen the pci_reenable_device 
+rename patch in Jeff's tree yet...
+
+
+Auke
+
+
+> 
+> ---
+>  drivers/net/e100.c             |    2 +-
+>  drivers/net/e1000/e1000_main.c |    2 +-
+>  drivers/net/ixgb/ixgb_main.c   |    2 +-
+>  drivers/net/s2io.c             |    2 +-
+>  4 files changed, 4 insertions(+), 4 deletions(-)
+> 
+> Index: linux-2.6/drivers/net/e100.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/e100.c
+> +++ linux-2.6/drivers/net/e100.c
+> @@ -2828,7 +2828,7 @@ static pci_ers_result_t e100_io_slot_res
+>  	struct net_device *netdev = pci_get_drvdata(pdev);
+>  	struct nic *nic = netdev_priv(netdev);
+>  
+> -	if (pci_enable_device(pdev)) {
+> +	if (pci_reenable_device(pdev)) {
+>  		printk(KERN_ERR "e100: Cannot re-enable PCI device after reset.\n");
+>  		return PCI_ERS_RESULT_DISCONNECT;
+>  	}
+> Index: linux-2.6/drivers/net/e1000/e1000_main.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/e1000/e1000_main.c
+> +++ linux-2.6/drivers/net/e1000/e1000_main.c
+> @@ -5270,7 +5270,7 @@ static pci_ers_result_t e1000_io_slot_re
+>  	struct net_device *netdev = pci_get_drvdata(pdev);
+>  	struct e1000_adapter *adapter = netdev->priv;
+>  
+> -	if (pci_enable_device(pdev)) {
+> +	if (pci_reenable_device(pdev)) {
+>  		printk(KERN_ERR "e1000: Cannot re-enable PCI device after reset.\n");
+>  		return PCI_ERS_RESULT_DISCONNECT;
+>  	}
+> Index: linux-2.6/drivers/net/ixgb/ixgb_main.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/ixgb/ixgb_main.c
+> +++ linux-2.6/drivers/net/ixgb/ixgb_main.c
+> @@ -2294,7 +2294,7 @@ static pci_ers_result_t ixgb_io_slot_res
+>  	struct net_device *netdev = pci_get_drvdata(pdev);
+>  	struct ixgb_adapter *adapter = netdev_priv(netdev);
+>  
+> -	if(pci_enable_device(pdev)) {
+> +	if(pci_reenable_device(pdev)) {
+>  		DPRINTK(PROBE, ERR, "Cannot re-enable PCI device after reset.\n");
+>  		return PCI_ERS_RESULT_DISCONNECT;
+>  	}
+> Index: linux-2.6/drivers/net/s2io.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/s2io.c
+> +++ linux-2.6/drivers/net/s2io.c
+> @@ -7833,7 +7833,7 @@ static pci_ers_result_t s2io_io_slot_res
+>  	struct net_device *netdev = pci_get_drvdata(pdev);
+>  	struct s2io_nic *sp = netdev->priv;
+>  
+> -	if (pci_enable_device(pdev)) {
+> +	if (pci_reenable_device(pdev)) {
+>  		printk(KERN_ERR "s2io: "
+>  		       "Cannot re-enable PCI device after reset.\n");
+>  		return PCI_ERS_RESULT_DISCONNECT;
+> 
+> -------------------------------------------------------------------------
+> This SF.net email is sponsored by: Splunk Inc.
+> Still grepping through log files to find problems?  Stop.
+> Now Search log events and configuration files using AJAX and a browser.
+> Download your FREE copy of Splunk now >>  http://get.splunk.com/
+> _______________________________________________
+> E1000-devel mailing list
+> E1000-devel@lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/e1000-devel
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >>  http://get.splunk.com/
