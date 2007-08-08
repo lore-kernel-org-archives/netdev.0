@@ -1,49 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: [ofa-general] Re: [PATCH 0/9 Rev3] Implement batching skb API and
- support in IPoIB
-Date: Wed, 08 Aug 2007 15:01:37 -0700 (PDT)
-Message-ID: <20070808.150137.50597736.davem@davemloft.net>
-References: <20070808.034900.85820906.davem@davemloft.net>
-	<OF09D78F6D.0A3EBAD3-ON65257331.003CB0E9-65257331.003D526B@in.ibm.com>
+Subject: Re: IPV6_PKTINFO socket option
+Date: Wed, 08 Aug 2007 15:02:48 -0700 (PDT)
+Message-ID: <20070808.150248.124083797.davem@davemloft.net>
+References: <200708081216.51283@strip-the-willow>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, gaagaan@gmail.com, jeff@garzik.org,
-	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
-	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
-	hadi@cyberus.ca, mcarlson@broadcom.com, netdev@vger.kernel.org,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	sri@us.ibm.com, shemminger@linux-foundation.org, kaber@trash.net,
-	herbert@gondor.apana.org.au
-To: krkumar2@in.ibm.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <OF09D78F6D.0A3EBAD3-ON65257331.003CB0E9-65257331.003D526B@in.ibm.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49723
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753480AbXHHWCs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 18:02:48 -0400
+In-Reply-To: <200708081216.51283@strip-the-willow>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Date: Wed, 8 Aug 2007 16:39:47 +0530
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Wed, 8 Aug 2007 12:16:51 +0100
 
-> What do you generally think of the patch/implementation ? :)
+>  2. On sparc64 with the same kernel IPV6_PKTINFO works without problems, even pulls
+>     out the cmsg fields correctly. Conversely, when trying to set the IPV6_RECVPKTINFO
+>     sticky option on the socket, no cmsg fields are generated. 
+>     The kernel is of the same date and revision as the i386 kernel - library issue ???
+>     It is very annoying, since the application needs to run on both architectures.
 
-We have two driver implementation paths on recieve and now
-we'll have two on send, and that's not a good trend.
-
-In an ideal world all the drivers would be NAPI and netif_rx()
-would only be used by tunneling drivers and similar in the
-protocol layers.  And likewise all sends would go through
-->hard_start_xmit().
-
-If you can come up with a long term strategy that gets rid of
-the special transmit method, that'd be great.
-
-We should make Linux network drivers easy to write, not more difficult
-by constantly adding most interfaces than we consolidate.
+Almost certainly a compat layer bug in the kernel, it would
+affect 32-bit applications on powerpc64 and similar if so.
