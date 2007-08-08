@@ -1,45 +1,56 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [RFC][BNX2X]: New driver for Broadcom 10Gb Ethernet.
-Date: Wed, 8 Aug 2007 10:40:54 +0200
-Message-ID: <200708081040.55275.mb@bu3sch.de>
-References: <46B8EF13.40109@garzik.org> <20070807230458.GA9883@infradead.org> <20070807.160808.38709450.davem@davemloft.net>
+From: "Jean-Baptiste Vignaud" <vignaud@xandmail.fr>
+Subject: Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Wed,  8 Aug 2007 10:59:22 +0200
+Message-ID: <JMG6AY$2339D4FEA804188F4C6D4F66006A6BB6@xandmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: hch@infradead.org, jeff@garzik.org, mchan@broadcom.com,
-	netdev@vger.kernel.org, eliezert@broadcom.com,
-	lusinsky@broadcom.com, eilong@broadcom.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: "cebbert" <cebbert@redhat.com>, "mingo" <mingo@elte.hu>,
+	"marcin\.slusarz" <marcin.slusarz@gmail.com>,
+	"tglx" <tglx@linutronix.de>,
+	"torvalds" <torvalds@linux-foundation.org>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"shemminger" <shemminger@linux-foundation.org>,
+	"linux-net" <linux-net@vger.kernel.org>,
+	"netdev" <netdev@vger.kernel.org>,
+	"akpm" <akpm@linux-foundation.org>,
+	"alan" <alan@lxorguk.ukuu.org.uk>
+To: "jarkao2" <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:57476
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751715AbXHHIlg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 04:41:36 -0400
-In-Reply-To: <20070807.160808.38709450.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mail.xandmail.com ([212.155.184.97]:55019 "EHLO
+	mail.xandmail.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752867AbXHHJAm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 05:00:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 08 August 2007 01:08:08 David Miller wrote:
-> From: Christoph Hellwig <hch@infradead.org>
-> Date: Wed, 8 Aug 2007 00:04:59 +0100
-> 
-> > Please take a look at kernel/irq/handle.c.  The irq handler is
-> > always called with the right dev_id argument.  Everything would be a complete
-> > nightmare to handle because you usually need to access the device private
-> > data to check whether the shared irq is for this device.
-> 
-> Absolutely.
-> 
-> I can't believe we're even discussing something so obvious and
-> wasting everyone's time.
-> 
-> 
+> Jean-Baptiste: I'm not sure how much of this testing you can afford?
+> If you can spare some time for this and your box isn't for
+> 'production' it could be very precious to diagnose such reproducible
+> bug.
 
-Ok, then something "so obvious" is explained wrong in all off
-the tutorials I read.
-So it was _not_ that "obvious" to me. ok?
+Well i can continue testing patches for sure.
 
--- 
-Greetings Michael.
+> Then, I'd have a few suggestions (you could choose any of them) like:
+> - trying these last test patches prepared for Marcin, too (but only
+> with kernels 2.6.21 - 2.6.23-rc1),
+
+I'v patched 2.6.23-rc2 with those patches yesterday evening, and
+launched samba copy. 
+Is rc2 ok ?
+
+This morning the network is still up :
+RX bytes:279853499958 (260.6 GiB)  TX bytes:7416695531 (6.9 GiB)
+
+Still testing.
+
+> If you would like to read something more about testing (then of
+> course my suggestions could occur invalid - I'm a very bad tester
+> myself...) you can try this:
+> http://www.stardust.webpages.pl/files/handbook/
+
+I'll have a look at the document. 
+
+Jb
+
+
