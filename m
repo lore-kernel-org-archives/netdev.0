@@ -1,72 +1,48 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH] Virtual ethernet device (v.4)
-Date: Wed, 08 Aug 2007 14:42:50 +0400
-Message-ID: <46B99E2A.60505@openvz.org>
-References: <469F2DE7.9090407@openvz.org>
+From: David Miller <davem@davemloft.net>
+Subject: [ofa-general] Re: [PATCH 0/9 Rev3] Implement batching skb API and
+ support in IPoIB
+Date: Wed, 08 Aug 2007 03:49:00 -0700 (PDT)
+Message-ID: <20070808.034900.85820906.davem@davemloft.net>
+References: <20070808093114.15396.22797.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:10060 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751074AbXHHKpk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Aug 2007 06:45:40 -0400
-In-Reply-To: <469F2DE7.9090407@openvz.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: johnpol@2ka.mipt.ru, jagana@us.ibm.com, peter.p.waskiewicz.jr@intel.com,
+	herbert@gondor.apana.org.au, gaagaan@gmail.com,
+	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
+	rdreier@cisco.com, mcarlson@broadcom.com, jeff@garzik.org,
+	hadi@cyberus.ca, general@lists.openfabrics.org,
+	mchan@broadcom.com, tgraf@suug.ch, netdev@vger.kernel.org,
+	shemminger@linux-foundation.org, kaber@trash.net, sri@us.ibm.com
+To: krkumar2@in.ibm.com
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070808093114.15396.22797.sendpatchset@localhost.localdomain>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Hi, David.
+From: Krishna Kumar <krkumar2@in.ibm.com>
+Date: Wed, 08 Aug 2007 15:01:14 +0530
 
-What are your plans about this driver?
+> RESULTS: The performance improvement for TCP No Delay is in the range of -8%
+> 	to 320% (with -8% being the sole negative), with many individual tests
+> 	giving 50% or more improvement (I think it is to do with the hw slots
+> 	getting full quicker resulting in more batching when the queue gets
+> 	woken). The results for TCP is in the range of -11% to 93%, with most
+> 	of the tests (8/12) giving improvements.
 
-Thanks,
-Pavel
+Not because I think it obviates your work, but rather because I'm
+curious, could you test a TSO-in-hardware driver converted to
+batching and see how TSO alone compares to batching for a pure
+TCP workload?
 
-> Veth stands for Virtual ETHernet. It is a simple tunnel driver
-> that works at the link layer and looks like a pair of ethernet
-> devices interconnected with each other.
-> 
-> Mainly it allows to communicate between network namespaces but
-> it can be used as is as well. E.g. one may join to bridged
-> networking segments together.
-> 
-> Eric recently sent a similar driver called etun with the sysfs
-> interface. This implementation uses another interface - the RTM_NRELINK 
-> message introduced by Patric.
-> 
-> The newlink callback is organized that way to make it easy to create the 
-> peer device in the separate namespace when we have them in kernel.
-> 
-> Many thanks to Patrick for reviewing the patches and his advises
-> on how to make driver cleaner.
-> 
-> Changes from v.3:
-> * Reserved place for struct ifinfomsg in IFLA_INFO_DATA part
->   of the packet. This is not used yet, but may be in the
->   future.
-> 
-> Changes from v.2.1:
-> * Made the generic routine for link creation to be used
->   by veth driver, any other tunnel driver that needs to
->   create several devices at once and rtnl_newlink() code.
-> 
-> Changes from v.2:
-> * Rebase over latest netdev tree. No actual changes;
-> * Small code rework.
-> 
-> Changes from v.1:
-> * Per-cpu statistics;
-> * Standard convention for nla policy names;
-> * Module alias added;
-> * Xmit function fixes noticed by Patric;
-> * Code cleanup.
-> 
-> The patch for an ip utility is also provided.
-> 
-> Signed-off-by: Pavel Emelianov <xemul@openvz.org>
-> Acked-by: Patrick McHardy <kaber@trash.net>
-> 
-
+I personally don't think it will help for that case at all as
+TSO likely does better job of coalescing the work _and_ reducing
+bus traffic as well as work in the TCP stack.
