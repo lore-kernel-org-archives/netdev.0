@@ -1,7 +1,7 @@
 From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH 9/9 Rev3] [IPoIB] Implement the new batching API
-Date: Wed, 08 Aug 2007 15:02:52 +0530
-Message-ID: <20070808093252.15396.89948.sendpatchset@localhost.localdomain>
+Subject: [PATCH 3/9 Rev3] [sched] Modify qdisc_run to support batching
+Date: Wed, 08 Aug 2007 15:01:45 +0530
+Message-ID: <20070808093145.15396.91711.sendpatchset@localhost.localdomain>
 References: <20070808093114.15396.22797.sendpatchset@localhost.localdomain>
 Cc: jagana@us.ibm.com, Robert.Olsson@data.slu.se,
 	peter.p.waskiewicz.jr@intel.com, herbert@gondor.apana.org.au,
@@ -10,287 +10,227 @@ Cc: jagana@us.ibm.com, Robert.Olsson@data.slu.se,
 	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
 	hadi@cyberus.ca, netdev@vger.kernel.org,
 	Krishna Kumar <krkumar2@in.ibm.com>, xma@us.ibm.com
-To: johnpol@2ka.mipt.ru, kaber@trash.net,
-	shemminger@linux-foundation.org, davem@davemloft.net,
-	sri@us.ibm.com
+To: johnpol@2ka.mipt.ru, davem@davemloft.net,
+	shemminger@linux-foundation.org, kaber@trash.net, sri@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausmtp05.au.ibm.com ([202.81.18.154]:56554 "EHLO
-	ausmtp05.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753817AbXHHJcL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 05:32:11 -0400
+Received: from ausmtp04.au.ibm.com ([202.81.18.152]:32851 "EHLO
+	ausmtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757054AbXHHJcp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 05:32:45 -0400
 Received: from d23relay03.au.ibm.com (d23relay03.au.ibm.com [202.81.18.234])
-	by ausmtp05.au.ibm.com (8.13.8/8.13.8) with ESMTP id l789YDmF2564188
-	for <netdev@vger.kernel.org>; Wed, 8 Aug 2007 19:34:13 +1000
+	by ausmtp04.au.ibm.com (8.13.8/8.13.8) with ESMTP id l789Z3Fj129764
+	for <netdev@vger.kernel.org>; Wed, 8 Aug 2007 19:35:15 +1000
 Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.250.237])
-	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l789VkTl237810
-	for <netdev@vger.kernel.org>; Wed, 8 Aug 2007 19:31:46 +1000
+	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l789UcFa516098
+	for <netdev@vger.kernel.org>; Wed, 8 Aug 2007 19:30:39 +1000
 Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
-	by d23av04.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l789VhB9005141
-	for <netdev@vger.kernel.org>; Wed, 8 Aug 2007 19:31:46 +1000
+	by d23av04.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l789UZYi002648
+	for <netdev@vger.kernel.org>; Wed, 8 Aug 2007 19:30:38 +1000
 In-Reply-To: <20070808093114.15396.22797.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-IPoIB: implement the new batching API.
+Modify qdisc_run() to support batching. Modify callers of qdisc_run to
+use batching, modify qdisc_restart to implement batching.
 
 Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 ---
- ipoib_main.c |  189 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++--
- 1 files changed, 184 insertions(+), 5 deletions(-)
+ include/net/pkt_sched.h |    6 +--
+ net/core/dev.c          |    5 +--
+ net/sched/sch_generic.c |   77 +++++++++++++++++++++++++++++++++++++++---------
+ 3 files changed, 69 insertions(+), 19 deletions(-)
 
-diff -ruNp ORG/drivers/infiniband/ulp/ipoib/ipoib_main.c NEW/drivers/infiniband/ulp/ipoib/ipoib_main.c
---- ORG/drivers/infiniband/ulp/ipoib/ipoib_main.c	2007-07-12 08:55:06.000000000 +0530
-+++ NEW/drivers/infiniband/ulp/ipoib/ipoib_main.c	2007-08-07 13:11:19.000000000 +0530
-@@ -558,7 +558,8 @@ static void neigh_add_path(struct sk_buf
- 				goto err_drop;
- 			}
- 		} else
--			ipoib_send(dev, skb, path->ah, IPOIB_QPN(skb->dst->neighbour->ha));
-+			ipoib_send(dev, skb, path->ah,
-+				   IPOIB_QPN(skb->dst->neighbour->ha), 1);
- 	} else {
- 		neigh->ah  = NULL;
+diff -ruNp ORG/include/net/pkt_sched.h NEW/include/net/pkt_sched.h
+--- ORG/include/net/pkt_sched.h	2007-07-17 08:48:37.000000000 +0530
++++ NEW/include/net/pkt_sched.h	2007-08-07 13:11:19.000000000 +0530
+@@ -80,13 +80,13 @@ extern struct qdisc_rate_table *qdisc_ge
+ 		struct rtattr *tab);
+ extern void qdisc_put_rtab(struct qdisc_rate_table *tab);
  
-@@ -638,7 +639,7 @@ static void unicast_arp_send(struct sk_b
- 		ipoib_dbg(priv, "Send unicast ARP to %04x\n",
- 			  be16_to_cpu(path->pathrec.dlid));
+-extern void __qdisc_run(struct net_device *dev);
++extern void __qdisc_run(struct net_device *dev, struct sk_buff_head *blist);
  
--		ipoib_send(dev, skb, path->ah, IPOIB_QPN(phdr->hwaddr));
-+		ipoib_send(dev, skb, path->ah, IPOIB_QPN(phdr->hwaddr), 1);
- 	} else if ((path->query || !path_rec_start(dev, path)) &&
- 		   skb_queue_len(&path->queue) < IPOIB_MAX_PATH_REC_QUEUE) {
- 		/* put pseudoheader back on for next time */
-@@ -704,7 +705,8 @@ static int ipoib_start_xmit(struct sk_bu
- 				goto out;
- 			}
- 
--			ipoib_send(dev, skb, neigh->ah, IPOIB_QPN(skb->dst->neighbour->ha));
-+			ipoib_send(dev, skb, neigh->ah,
-+				   IPOIB_QPN(skb->dst->neighbour->ha), 1);
- 			goto out;
- 		}
- 
-@@ -753,6 +755,153 @@ out:
- 	return NETDEV_TX_OK;
+-static inline void qdisc_run(struct net_device *dev)
++static inline void qdisc_run(struct net_device *dev, struct sk_buff_head *blist)
+ {
+ 	if (!netif_queue_stopped(dev) &&
+ 	    !test_and_set_bit(__LINK_STATE_QDISC_RUNNING, &dev->state))
+-		__qdisc_run(dev);
++		__qdisc_run(dev, blist);
  }
  
-+#define	XMIT_QUEUED_SKBS()						\
-+	do {								\
-+		if (wr_num) {						\
-+			ipoib_send(dev, NULL, old_neigh->ah, old_qpn,	\
-+				   wr_num);				\
-+			wr_num = 0;					\
-+		}							\
-+	} while (0)
-+
-+/*
-+ * TODO: Merge with ipoib_start_xmit to use the same code and have a
-+ * transparent wrapper caller to xmit's, etc. Status: Done, needs testing.
-+ */
-+static int ipoib_start_xmit_frames(struct net_device *dev)
-+{
-+	struct ipoib_dev_priv *priv = netdev_priv(dev);
-+	struct sk_buff *skb;
-+	struct sk_buff_head *blist = dev->skb_blist;
-+	int max_skbs, wr_num = 0;
-+	u32 qpn, old_qpn = 0;
-+	struct ipoib_neigh *neigh, *old_neigh = NULL;
-+	unsigned long flags;
-+
-+	if (unlikely(!spin_trylock_irqsave(&priv->tx_lock, flags)))
-+		return NETDEV_TX_LOCKED;
-+
-+	/*
-+	 * Figure out how many skbs can be sent. This prevents the device
-+	 * getting full and avoids checking for queue stopped after each
-+	 * iteration.
-+	 */
-+	max_skbs = ipoib_sendq_size - (priv->tx_head - priv->tx_tail);
-+	while (max_skbs-- > 0 && (skb = __skb_dequeue(blist)) != NULL) {
-+		if (likely(skb->dst && skb->dst->neighbour)) {
-+			if (unlikely(!*to_ipoib_neigh(skb->dst->neighbour))) {
-+				XMIT_QUEUED_SKBS();
-+				ipoib_path_lookup(skb, dev);
-+				continue;
-+			}
-+
-+			neigh = *to_ipoib_neigh(skb->dst->neighbour);
-+
-+			if (ipoib_cm_get(neigh)) {
-+				if (ipoib_cm_up(neigh)) {
-+					XMIT_QUEUED_SKBS();
-+					ipoib_cm_send(dev, skb,
-+						      ipoib_cm_get(neigh));
-+					continue;
-+				}
-+			} else if (neigh->ah) {
-+				if (unlikely(memcmp(&neigh->dgid.raw,
-+						    skb->dst->neighbour->ha + 4,
-+						    sizeof(union ib_gid)))) {
-+					spin_lock(&priv->lock);
-+					/*
-+					 * It's safe to call ipoib_put_ah()
-+					 * inside priv->lock here, because we
-+					 * know that path->ah will always hold
-+					 * one more reference, so ipoib_put_ah()
-+					 * will never do more than decrement
-+					 * the ref count.
-+					 */
-+					ipoib_put_ah(neigh->ah);
-+					list_del(&neigh->list);
-+					ipoib_neigh_free(dev, neigh);
-+					spin_unlock(&priv->lock);
-+					XMIT_QUEUED_SKBS();
-+					ipoib_path_lookup(skb, dev);
-+					continue;
-+				}
-+
-+				qpn = IPOIB_QPN(skb->dst->neighbour->ha);
-+				if (neigh != old_neigh || qpn != old_qpn) {
-+					/*
-+					 * Sending to a different destination
-+					 * from earlier skb's - send all
-+					 * existing skbs (if any), and restart.
-+					 */
-+					XMIT_QUEUED_SKBS();
-+					old_neigh = neigh;
-+					old_qpn = qpn;
-+				}
-+
-+				if (likely(!ipoib_process_skb(dev, skb, priv,
-+							      neigh->ah, qpn,
-+							      wr_num)))
-+					wr_num++;
-+
-+				continue;
-+			}
-+
-+			if (skb_queue_len(&neigh->queue) <
-+			    IPOIB_MAX_PATH_REC_QUEUE) {
-+				spin_lock(&priv->lock);
-+				__skb_queue_tail(&neigh->queue, skb);
-+				spin_unlock(&priv->lock);
-+			} else {
-+				dev_kfree_skb_any(skb);
-+				++priv->stats.tx_dropped;
-+				++max_skbs;
-+			}
-+		} else {
-+			struct ipoib_pseudoheader *phdr =
-+				(struct ipoib_pseudoheader *) skb->data;
-+			skb_pull(skb, sizeof *phdr);
-+
-+			if (phdr->hwaddr[4] == 0xff) {
-+				/* Add in the P_Key for multicast*/
-+				phdr->hwaddr[8] = (priv->pkey >> 8) & 0xff;
-+				phdr->hwaddr[9] = priv->pkey & 0xff;
-+
-+				XMIT_QUEUED_SKBS();
-+				ipoib_mcast_send(dev, phdr->hwaddr + 4, skb);
-+			} else {
-+				/* unicast GID -- should be ARP or RARP reply */
-+
-+				if ((be16_to_cpup((__be16 *) skb->data) !=
-+				    ETH_P_ARP) &&
-+				    (be16_to_cpup((__be16 *) skb->data) !=
-+				    ETH_P_RARP)) {
-+					ipoib_warn(priv, "Unicast, no %s: type %04x, QPN %06x "
-+						IPOIB_GID_FMT "\n",
-+						skb->dst ? "neigh" : "dst",
-+						be16_to_cpup((__be16 *)
-+						skb->data),
-+						IPOIB_QPN(phdr->hwaddr),
-+						IPOIB_GID_RAW_ARG(phdr->hwaddr
-+								  + 4));
-+					dev_kfree_skb_any(skb);
-+					++priv->stats.tx_dropped;
-+					++max_skbs;
-+					continue;
-+				}
-+				XMIT_QUEUED_SKBS();
-+				unicast_arp_send(skb, dev, phdr);
-+			}
-+		}
+ extern int tc_classify_compat(struct sk_buff *skb, struct tcf_proto *tp,
+diff -ruNp ORG/net/sched/sch_generic.c NEW/net/sched/sch_generic.c
+--- ORG/net/sched/sch_generic.c	2007-07-12 08:55:20.000000000 +0530
++++ NEW/net/sched/sch_generic.c	2007-08-07 13:11:19.000000000 +0530
+@@ -59,10 +59,12 @@ static inline int qdisc_qlen(struct Qdis
+ static inline int dev_requeue_skb(struct sk_buff *skb, struct net_device *dev,
+ 				  struct Qdisc *q)
+ {
+-	if (unlikely(skb->next))
+-		dev->gso_skb = skb;
+-	else
+-		q->ops->requeue(skb, q);
++	if (likely(skb)) {
++		if (unlikely(skb->next))
++			dev->gso_skb = skb;
++		else
++			q->ops->requeue(skb, q);
 +	}
+ 
+ 	netif_schedule(dev);
+ 	return 0;
+@@ -91,17 +93,22 @@ static inline int handle_dev_cpu_collisi
+ 		/*
+ 		 * Same CPU holding the lock. It may be a transient
+ 		 * configuration error, when hard_start_xmit() recurses. We
+-		 * detect it by checking xmit owner and drop the packet when
+-		 * deadloop is detected. Return OK to try the next skb.
++		 * detect it by checking xmit owner and drop the packet (or
++		 * all packets in batching case) when deadloop is detected.
++		 * Return OK to try the next skb.
+ 		 */
+-		kfree_skb(skb);
++		if (likely(skb))
++			kfree_skb(skb);
++		else if (!skb_queue_empty(dev->skb_blist))
++			skb_queue_purge(dev->skb_blist);
 +
-+	/* Send out last packets (if any) */
-+	XMIT_QUEUED_SKBS();
+ 		if (net_ratelimit())
+ 			printk(KERN_WARNING "Dead loop on netdevice %s, "
+ 			       "fix it urgently!\n", dev->name);
+ 		ret = qdisc_qlen(q);
+ 	} else {
+ 		/*
+-		 * Another cpu is holding lock, requeue & delay xmits for
++		 * Another cpu is holding lock, requeue skb & delay xmits for
+ 		 * some time.
+ 		 */
+ 		__get_cpu_var(netdev_rx_stat).cpu_collision++;
+@@ -112,6 +119,38 @@ static inline int handle_dev_cpu_collisi
+ }
+ 
+ /*
++ * Algorithm to get skb(s) is:
++ *	- Non batching drivers, or if the batch list is empty and there is
++ *	  1 skb in the queue - dequeue skb and put it in *skbp to tell the
++ *	  caller to use the single xmit API.
++ *	- Batching drivers where the batch list already contains atleast one
++ *	  skb, or if there are multiple skbs in the queue: keep dequeue'ing
++ *	  skb's upto a limit and set *skbp to NULL to tell the caller to use
++ *	  the multiple xmit API.
++ *
++ * Returns:
++ *	1 - atleast one skb is to be sent out, *skbp contains skb or NULL
++ *	    (in case >1 skbs present in blist for batching)
++ *	0 - no skbs to be sent.
++ */
++static inline int get_skb(struct net_device *dev, struct Qdisc *q,
++			  struct sk_buff_head *blist, struct sk_buff **skbp)
++{
++	if (likely(!blist || (!skb_queue_len(blist) && qdisc_qlen(q) <= 1))) {
++		return likely((*skbp = dev_dequeue_skb(dev, q)) != NULL);
++	} else {
++		int max = dev->tx_queue_len - skb_queue_len(blist);
++		struct sk_buff *skb;
 +
-+	spin_unlock_irqrestore(&priv->tx_lock, flags);
++		while (max > 0 && (skb = dev_dequeue_skb(dev, q)) != NULL)
++			max -= dev_add_skb_to_blist(skb, dev);
 +
-+	return skb_queue_empty(blist) ? NETDEV_TX_OK : NETDEV_TX_BUSY;
++		*skbp = NULL;
++		return 1;	/* we have atleast one skb in blist */
++	}
 +}
 +
- static struct net_device_stats *ipoib_get_stats(struct net_device *dev)
++/*
+  * NOTE: Called under dev->queue_lock with locally disabled BH.
+  *
+  * __LINK_STATE_QDISC_RUNNING guarantees only one CPU can process this
+@@ -130,7 +169,8 @@ static inline int handle_dev_cpu_collisi
+  *				>0 - queue is not empty.
+  *
+  */
+-static inline int qdisc_restart(struct net_device *dev)
++static inline int qdisc_restart(struct net_device *dev,
++				struct sk_buff_head *blist)
  {
- 	struct ipoib_dev_priv *priv = netdev_priv(dev);
-@@ -896,13 +1045,37 @@ int ipoib_dev_init(struct net_device *de
- 		goto out_rx_ring_cleanup;
- 	}
+ 	struct Qdisc *q = dev->qdisc;
+ 	struct sk_buff *skb;
+@@ -138,7 +178,7 @@ static inline int qdisc_restart(struct n
+ 	int ret;
  
--	/* priv->tx_head & tx_tail are already 0 */
-+	/* priv->tx_head & tx_tail & tx_priv_tail are already 0 */
+ 	/* Dequeue packet */
+-	if (unlikely((skb = dev_dequeue_skb(dev, q)) == NULL))
++	if (unlikely(!get_skb(dev, q, blist, &skb)))
+ 		return 0;
  
--	if (ipoib_ib_dev_init(dev, ca, port))
-+	/* Allocate tx_sge */
-+	priv->tx_sge = kmalloc(ipoib_sendq_size * sizeof *priv->tx_sge,
-+			       GFP_KERNEL);
-+	if (!priv->tx_sge) {
-+		printk(KERN_WARNING "%s: failed to allocate TX sge (%d entries)\n",
-+		       ca->name, ipoib_sendq_size);
- 		goto out_tx_ring_cleanup;
-+	}
-+
-+	/* Allocate tx_wr */
-+	priv->tx_wr = kmalloc(ipoib_sendq_size * sizeof *priv->tx_wr,
-+			      GFP_KERNEL);
-+	if (!priv->tx_wr) {
-+		printk(KERN_WARNING "%s: failed to allocate TX wr (%d entries)\n",
-+		       ca->name, ipoib_sendq_size);
-+		goto out_tx_sge_cleanup;
-+	}
-+
-+	if (ipoib_ib_dev_init(dev, ca, port))
-+		goto out_tx_wr_cleanup;
+ 	/*
+@@ -158,7 +198,10 @@ static inline int qdisc_restart(struct n
+ 	/* And release queue */
+ 	spin_unlock(&dev->queue_lock);
  
- 	return 0;
+-	ret = dev_hard_start_xmit(skb, dev);
++	if (likely(skb))
++		ret = dev_hard_start_xmit(skb, dev);
++	else
++		ret = dev->hard_start_xmit_batch(dev);
  
-+out_tx_wr_cleanup:
-+	kfree(priv->tx_wr);
-+
-+out_tx_sge_cleanup:
-+	kfree(priv->tx_sge);
-+
- out_tx_ring_cleanup:
- 	kfree(priv->tx_ring);
+ 	if (!lockless)
+ 		netif_tx_unlock(dev);
+@@ -168,7 +211,7 @@ static inline int qdisc_restart(struct n
  
-@@ -930,9 +1103,13 @@ void ipoib_dev_cleanup(struct net_device
+ 	switch (ret) {
+ 	case NETDEV_TX_OK:
+-		/* Driver sent out skb successfully */
++		/* Driver sent out skb (or entire skb_blist) successfully */
+ 		ret = qdisc_qlen(q);
+ 		break;
  
- 	kfree(priv->rx_ring);
- 	kfree(priv->tx_ring);
-+	kfree(priv->tx_sge);
-+	kfree(priv->tx_wr);
- 
- 	priv->rx_ring = NULL;
- 	priv->tx_ring = NULL;
-+	priv->tx_sge = NULL;
-+	priv->tx_wr = NULL;
+@@ -190,10 +233,10 @@ static inline int qdisc_restart(struct n
+ 	return ret;
  }
  
- static void ipoib_setup(struct net_device *dev)
-@@ -943,6 +1120,7 @@ static void ipoib_setup(struct net_devic
- 	dev->stop 		 = ipoib_stop;
- 	dev->change_mtu 	 = ipoib_change_mtu;
- 	dev->hard_start_xmit 	 = ipoib_start_xmit;
-+	dev->hard_start_xmit_batch = ipoib_start_xmit_frames;
- 	dev->get_stats 		 = ipoib_get_stats;
- 	dev->tx_timeout 	 = ipoib_timeout;
- 	dev->hard_header 	 = ipoib_hard_header;
-@@ -979,6 +1157,7 @@ static void ipoib_setup(struct net_devic
+-void __qdisc_run(struct net_device *dev)
++void __qdisc_run(struct net_device *dev, struct sk_buff_head *blist)
+ {
+ 	do {
+-		if (!qdisc_restart(dev))
++		if (!qdisc_restart(dev, blist))
+ 			break;
+ 	} while (!netif_queue_stopped(dev));
  
- 	spin_lock_init(&priv->lock);
- 	spin_lock_init(&priv->tx_lock);
-+	spin_lock_init(&priv->comp_lock);
+@@ -563,6 +606,12 @@ void dev_deactivate(struct net_device *d
+ 	qdisc = dev->qdisc;
+ 	dev->qdisc = &noop_qdisc;
  
- 	mutex_init(&priv->mcast_mutex);
- 	mutex_init(&priv->vlan_mutex);
++	if (dev->skb_blist) {
++		/* Release skbs on batch list */
++		if (!skb_queue_empty(dev->skb_blist))
++			skb_queue_purge(dev->skb_blist);
++	}
++
+ 	qdisc_reset(qdisc);
+ 
+ 	skb = dev->gso_skb;
+diff -ruNp ORG/net/core/dev.c NEW/net/core/dev.c
+--- ORG/net/core/dev.c	2007-08-06 08:25:40.000000000 +0530
++++ NEW/net/core/dev.c	2007-08-07 13:11:19.000000000 +0530
+@@ -1699,7 +1699,7 @@ gso:
+ 			/* reset queue_mapping to zero */
+ 			skb->queue_mapping = 0;
+ 			rc = q->enqueue(skb, q);
+-			qdisc_run(dev);
++			qdisc_run(dev, NULL);
+ 			spin_unlock(&dev->queue_lock);
+ 
+ 			rc = rc == NET_XMIT_BYPASS ? NET_XMIT_SUCCESS : rc;
+@@ -1896,7 +1896,8 @@ static void net_tx_action(struct softirq
+ 			clear_bit(__LINK_STATE_SCHED, &dev->state);
+ 
+ 			if (spin_trylock(&dev->queue_lock)) {
+-				qdisc_run(dev);
++				/* Send all skbs if driver supports batching */
++				qdisc_run(dev, dev->skb_blist);
+ 				spin_unlock(&dev->queue_lock);
+ 			} else {
+ 				netif_schedule(dev);
