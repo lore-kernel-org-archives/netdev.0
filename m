@@ -1,87 +1,72 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [RFC] allow device to stop packet mirror behaviour
-Date: Wed, 08 Aug 2007 12:32:08 +0200
-Message-ID: <1186569128.11717.44.camel@johannes.berg>
-References: <1186475155.4067.17.camel@johannes.berg>
-	 <20070807.180607.116354128.davem@davemloft.net>
-	 <1186564441.11717.5.camel@johannes.berg>
-	 <20070808.031755.91441405.davem@davemloft.net>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH] Virtual ethernet device (v.4)
+Date: Wed, 08 Aug 2007 14:42:50 +0400
+Message-ID: <46B99E2A.60505@openvz.org>
+References: <469F2DE7.9090407@openvz.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-cTNlzPcwyYgVjOjwnTA6"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, andy-/Zus8d0mwwtBDgjK7y7TUQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070808.031755.91441405.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.233.200]:10060 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751074AbXHHKpk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Aug 2007 06:45:40 -0400
+In-Reply-To: <469F2DE7.9090407@openvz.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi, David.
 
---=-cTNlzPcwyYgVjOjwnTA6
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+What are your plans about this driver?
 
-On Wed, 2007-08-08 at 03:17 -0700, David Miller wrote:
+Thanks,
+Pavel
 
-> Then I don't understand your problem.  If they are specific 802.11
-> protocol packets, the radio stack is in a much better situation to
-> filter out things like this.
+> Veth stands for Virtual ETHernet. It is a simple tunnel driver
+> that works at the link layer and looks like a pair of ethernet
+> devices interconnected with each other.
+> 
+> Mainly it allows to communicate between network namespaces but
+> it can be used as is as well. E.g. one may join to bridged
+> networking segments together.
+> 
+> Eric recently sent a similar driver called etun with the sysfs
+> interface. This implementation uses another interface - the RTM_NRELINK 
+> message introduced by Patric.
+> 
+> The newlink callback is organized that way to make it easy to create the 
+> peer device in the separate namespace when we have them in kernel.
+> 
+> Many thanks to Patrick for reviewing the patches and his advises
+> on how to make driver cleaner.
+> 
+> Changes from v.3:
+> * Reserved place for struct ifinfomsg in IFLA_INFO_DATA part
+>   of the packet. This is not used yet, but may be in the
+>   future.
+> 
+> Changes from v.2.1:
+> * Made the generic routine for link creation to be used
+>   by veth driver, any other tunnel driver that needs to
+>   create several devices at once and rtnl_newlink() code.
+> 
+> Changes from v.2:
+> * Rebase over latest netdev tree. No actual changes;
+> * Small code rework.
+> 
+> Changes from v.1:
+> * Per-cpu statistics;
+> * Standard convention for nla policy names;
+> * Module alias added;
+> * Xmit function fixes noticed by Patric;
+> * Code cleanup.
+> 
+> The patch for an ip utility is also provided.
+> 
+> Signed-off-by: Pavel Emelianov <xemul@openvz.org>
+> Acked-by: Patrick McHardy <kaber@trash.net>
+> 
 
-What do you mean by radio stack? You can't really send any frames into
-the monitor devices *except* raw radiotap+802.11 frames, and these are
-exactly the problem because they're mirrored out right away. But because
-we have a different radiotap header on outgoing than on incoming frames
-to allow userspace to see the transmission indication (was the packet
-ACKed by the other side etc) we ourselves mirror them out as well.
-
-We also mirror out packets from other virtual devices associated with
-the same PHY as the virtual monitor.
-
-So think of it this way:
-
-[ monitor interface (radiotap+802.11) ]  [ STA mode interface (802.3) ]
-                                  |       |
-                                  \       /
-                                   \     /
-                                    \   /
-                                     \ /
-                                [ mac80211 ]
-                                      |
-                                   [ PHY ]
-                                      |
-                             [ wireless medium ]
-
-Now for packets that come in on the right path, they get mirrored out
-back to the STA mode interface as well. That's fine. For packets that
-come from the bottom, they get cloned and sent to both devices at the
-top with different framing.
-
-Additionally, packets that come in via any interface on the top are
-redirected to all monitor interfaces *after* their transmission via the
-PHY and are amended by a radiotap header that indicates whether the
-transmission was successful. So if you run tcpdump on both interfaces
-above you'll see the IPv4 multicast packet sent to the STA mode
-interface come up on the STA mode interface right away, and you'll also
-see it on the monitor interface after it was transmitted by the PHY.
-
-The problem now comes in when you actually transmit a 802.11 framed
-packet down the monitor device. Because the mac80211 code mirrors all
-transmitted packets up to all monitor interfaces, and the generic code
-mirrors the packet as soon as it was sent to the device (via
-dev_queue_xmit_nit) you see it twice.
-
-johannes
-
---=-cTNlzPcwyYgVjOjwnTA6
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGuZuo/ETPhpq3jKURApCCAJ9kN0QxeEEOoPC6ivW4w2YZY21NZwCgo4cq
-NL3Hd71WtBrhPtkl+GB5VsY=
-=nWEs
------END PGP SIGNATURE-----
-
---=-cTNlzPcwyYgVjOjwnTA6--
