@@ -1,60 +1,89 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: Re: [PATCH] SMSC LAN911x and LAN921x vendor driver
-Date: Wed, 08 Aug 2007 01:09:40 +0200
-Message-ID: <87ps1zgcwb.fsf@p4.be.48ers.dk>
-References: <OF5F9C7C7D.04B8DBCD-ON80257328.0063528D-80257328.0065CB53@smsc.com>
-	<87hcnioppf.fsf@p4.be.48ers.dk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bahadir Balban <Bahadir.Balban@arm.com>,
-	Bill Gatliff <bgat@billgatliff.com>,
-	Dustin Mcintire <dustin@sensoria.com>, ian.saturley@smsc.com,
-	netdev@vger.kernel.org
-To: Steve.Glendinning@smsc.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp40.mobistarmail.be ([193.252.23.61]:9384 "EHLO
-	smtp40.mobistarmail.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757410AbXHGXIm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2007 19:08:42 -0400
-Received: from me-wanadoo.net (localhost [127.0.0.1])
-	by mwinf4017.mobistarmail.be (SMTP Server) with ESMTP id 7664A700008F
-	for <netdev@vger.kernel.org>; Wed,  8 Aug 2007 01:08:38 +0200 (CEST)
-In-Reply-To: <87hcnioppf.fsf@p4.be.48ers.dk> (Peter Korsgaard's message of
-	"Thu, 02 Aug 2007 00:27:40 +0200")
-Sender: netdev-owner@vger.kernel.org
+From: ggrundstrom@neteffect.com
+Subject: [ofa-general] [PATCH 0/14] nes: NetEffect 10Gb RNIC Driver
+Date: Tue, 7 Aug 2007 19:22:14 -0500
+Message-ID: <200708080022.l780ME9e004542@neteffect.com>
+Cc: netdev@vger.kernel.org, ewg@lists.openfabrics.org,
+	general@lists.openfabrics.org
+To: rdreier@cisco.com
+Return-path: <general-bounces@lists.openfabrics.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
->>>>> "Peter" == Peter Korsgaard <jacmet@sunsite.dk> writes:
+NetEffect is proud to announce the following series of patches which contain the source code for the NE020 10Gb RNIC adapter.  The driver is split into two components - a kernel driver module and a userspace library.
 
-Hi,
+The code can also be found in the following git trees.
+git.openfabrics.org/~glenn/libnes.git
+git.openfabrics.org/~glenn/ofed_1_2.git
+git.openfabrics.org/~glenn/ofascripts.git
+git.openfabrics.org/~glenn/ofed_1_2_scripts.git
 
- Peter> I'll give your driver a try and report back.
 
-Ok, the driver seems to be working (after fixing up the accessor
-routines for my hw setup) and performance is comparable to Dustin's
-driver.
-
-It would be nice if the driver would enable the byte swapping support
-in the hw if it detects the wrong endian - Like this:
-
-Index: linux/drivers/net/smsc911x.c
-===================================================================
---- linux.orig/drivers/net/smsc911x.c
-+++ linux/drivers/net/smsc911x.c
-@@ -1787,6 +1787,13 @@
- 		return -ENODEV;
- 	}
+Requirements
+============
+* NE020 hardware
+* RHEL4u4 or FC5
+* OFED 1.2 GA
+* OFED 1.2 version of MVAPICH2 
  
-+	/* check endian */
-+	if (smsc911x_reg_read(pdata, BYTE_TEST) == 0x43218765) {
-+		SMSC_TRACE("Byte test looks swapped, inverting");
-+		smsc911x_reg_write(~smsc911x_reg_read(pdata, ENDIAN),
-+				   pdata, ENDIAN);
-+	}
-+
- 	/* Default generation to zero (all workarounds apply) */
- 	pdata->generation = 0;
+ 
+Known issues
+============
+* DAPL only works with 1 process per node due to lack of loopback
+* MPI over DAPL must use MPI shared memory loopback
+ 
+ 
+Plans for next release
+======================
+* Plan on adding verbs loopback to enable DAPL loopback
+* Increase robustness and stability
+ 
+ 
+What we tested
+==============
+The performance results are meant to be broadly representative. 
+Results can vary depending on switches used, system configuration, OS used, etc.
+ 
+Configuration notes:
+All two node tests were performed back-to-back i.e. no switch Multinode
+testing was performed using a high performance, low latency cut-through switch.
+ 
+Platform: CentOS x86_64
+ 
+1.    cbench rotate latency and bandwidth using mvapich2 over OFA verbs:
+ 
+      Rotate Latency: 6.67 us
+      Rotate Bandwidth: 9.3 Gpbs
+ 
+2.    OSU bandwidth and latency tests using mvapich2 over OFA verbs:
+ 
+      OSU Latency: 6.74 us
+      OSU Bi-Bandwidth: 14.4 Gbps
+ 
+3.    Perftest (rdma_bw Uni-dir/Bi-dir and rdma_lat)
+ 
+      RDMA Bandwidth Uni-directional:  8.9  Gpbs
+      RDMA Bandwidth Bi-directional : 15.09 Gpbs
+      RDMA Latency                  :  5.95 us
+ 
+4.    NIC Testing
+ 
+      Iperf 4 stream Bi-directional test
+ 
+Iperf -c <Srvr IP Addr> -d -M -N -i 4 -P 4 (Jumbo packets enabled) --> 10.76 Gbps
+      
+NetPerf
+netperf -H <Srvr IP Addr> -T1,1 -t TCP_STREAM -l 60 -C -c (Jumbo packets enabled) --> 6.2 Gbps
+ 
+ 
 
--- 
-Bye, Peter Korsgaard
 
+Thanks,
+Glenn.
