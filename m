@@ -1,37 +1,122 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2/14] nes: device structures and defines
-Date: Wed, 08 Aug 2007 12:59:08 -0400
-Message-ID: <46B9F65C.9060906@garzik.org>
-References: <200708080045.l780jE9E004667@neteffect.com> <200708081830.20129.mb@bu3sch.de> <46B9F054.4030000@garzik.org> <200708081843.36370.mb@bu3sch.de>
+From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Subject: Re: [2/3] 2.6.23-rc2: known regressions v2
+Date: Wed, 08 Aug 2007 19:11:44 +0200
+Message-ID: <46B9F950.2030209@googlemail.com>
+References: <46B9F664.9060600@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-2
 Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <rdreier@cisco.com>,
-	Andi Kleen <andi@firstfloor.org>, ggrundstrom@neteffect.com,
-	ewg@lists.openfabrics.org, netdev@vger.kernel.org
-To: Michael Buesch <mb@bu3sch.de>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>, Len Brown <lenb@kernel.org>,
+	dth <dth@dth.net>, linux-fsdevel@vger.kernel.org,
+	nfs@lists.sourceforge.net,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	Andrew Clayton <andrew@digital-domain.net>,
+	linux-mtd@lists.infradead.org,
+	David Woodhouse <dwmw2@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>, Netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Thomas Meyer <thomas@m3y3r.de>,
+	Florian Lohoff <flo@rfc822.org>, Uwe Bugla <uwe.bugla@gmx.de>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:37754 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759780AbXHHQ7N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Aug 2007 12:59:13 -0400
-In-Reply-To: <200708081843.36370.mb@bu3sch.de>
+Received: from ug-out-1314.google.com ([66.249.92.170]:6371 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764411AbXHHRME (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 13:12:04 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so234096ugf
+        for <netdev@vger.kernel.org>; Wed, 08 Aug 2007 10:12:03 -0700 (PDT)
+In-Reply-To: <46B9F664.9060600@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch wrote:
-> writel doesn't guarantee flushing either.
-> readl does.
+Hi all,
+
+Here is a list of some known regressions in 2.6.23-rc2.
+
+Feel free to add new regressions/remove fixed etc.
+http://kernelnewbies.org/known_regressions
+
+List of Aces
+
+Name                    Regressions fixed since 21-Jun-2007
+Adrian Bunk                            6
+Andi Kleen                             4
+Andrew Morton                          4
+Linus Torvalds                         4
+Al Viro                                3
+Cornelia Huck                          3
+Jens Axboe                             3
+Tejun Heo                              3
+David Woodhouse                        2
+Hugh Dickins                           2
+Peter Zijlstra                         2
+Trent Piepho                           2
 
 
-Not quite -- there are multiple kinds of flushing.  You're thinking 
-about flushing across PCI bridges, which is correct, but you also have 
-CPU write posting and CPU write ordering and such.
 
-Without taking all that into account, you might be tempted to think that 
-__raw_readl() will perform all flushes necessary following a 
-__raw_writel() -- but that would be incorrect.
+CPUFREQ
 
-	Jeff
+Subject         : ide problems: 2.6.22-git17 working, 2.6.23-rc1* is not
+References      : http://lkml.org/lkml/2007/7/27/298
+                  http://lkml.org/lkml/2007/7/29/371
+Last known good : ?
+Submitter       : dth <dth@dth.net>
+Caused-By       : Len Brown <lenb@kernel.org>
+                  commit f79e3185dd0f8650022518d7624c876d8929061b
+Handled-By      : Len Brown <lenb@kernel.org>
+Status          : problem is being debugged
 
 
+
+FS
+
+Subject         : [NFSD OOPS] 2.6.23-rc1-git10
+References      : http://lkml.org/lkml/2007/8/2/462
+Last known good : ?
+Submitter       : Andrew Clayton <andrew@digital-domain.net>
+Caused-By       : ?
+Handled-By      : ?
+Status          : unknown
+
+
+
+MTD
+
+Subject         : error: implicit declaration of function 'cfi_interleave'
+References      : http://lkml.org/lkml/2007/8/6/272
+Last known good : ?
+Submitter       : Ingo Molnar <mingo@elte.hu>
+Caused-By       : ?
+Handled-By      : ?
+Status          : unknown
+
+
+
+Networking
+
+Subject         : IP v4 routing is broken
+References      : http://www.stardust.webpages.pl/files/tbf/bugs/bug_report01.txt
+Last known good : 2.6.22-git2
+Submitter       : Uwe Bugla <uwe.bugla@gmx.de>
+Caused-By       : ?
+Handled-By      : ?
+Status          : unknown
+
+Subject         : New wake ups from sky2
+References      : http://lkml.org/lkml/2007/7/20/386
+Last known good : ?
+Submitter       : Thomas Meyer <thomas@m3y3r.de>
+Caused-By       : Stephen Hemminger <shemminger@osdl.org>
+                  commit eb35cf60e462491249166182e3e755d3d5d91a28
+Handled-By      : Stephen Hemminger <shemminger@osdl.org>
+Status          : unknown
+
+
+
+Regards,
+Michal
+
+--
+LOG
+http://www.stardust.webpages.pl/log/
