@@ -1,60 +1,49 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [patch] ipvs: force read of atomic_t in while loop
-Date: Wed, 8 Aug 2007 14:31:15 -0700
-Message-ID: <20070808143115.de539511.akpm@linux-foundation.org>
-References: <20070808093300.GA14530@osiris.boeblingen.de.ibm.com>
-	<20070808.032131.35507346.davem@davemloft.net>
-	<20070808102835.GC14530@osiris.boeblingen.de.ibm.com>
-	<46BA30DC.20207@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: [ofa-general] Re: [PATCH 0/9 Rev3] Implement batching skb API and
+ support in IPoIB
+Date: Wed, 08 Aug 2007 15:01:37 -0700 (PDT)
+Message-ID: <20070808.150137.50597736.davem@davemloft.net>
+References: <20070808.034900.85820906.davem@davemloft.net>
+	<OF09D78F6D.0A3EBAD3-ON65257331.003CB0E9-65257331.003D526B@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>, andi@firstfloor.org,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au
-To: Chris Snook <csnook@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:43019 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933046AbXHHVgp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 17:36:45 -0400
-In-Reply-To: <46BA30DC.20207@redhat.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, gaagaan@gmail.com, jeff@garzik.org,
+	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
+	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
+	hadi@cyberus.ca, mcarlson@broadcom.com, netdev@vger.kernel.org,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	sri@us.ibm.com, shemminger@linux-foundation.org, kaber@trash.net,
+	herbert@gondor.apana.org.au
+To: krkumar2@in.ibm.com
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <OF09D78F6D.0A3EBAD3-ON65257331.003CB0E9-65257331.003D526B@in.ibm.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 08 Aug 2007 17:08:44 -0400
-Chris Snook <csnook@redhat.com> wrote:
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Date: Wed, 8 Aug 2007 16:39:47 +0530
 
-> Heiko Carstens wrote:
-> > On Wed, Aug 08, 2007 at 03:21:31AM -0700, David Miller wrote:
-> >> From: Heiko Carstens <heiko.carstens@de.ibm.com>
-> >> Date: Wed, 8 Aug 2007 11:33:00 +0200
-> >>
-> >>> Just saw this while grepping for atomic_reads in a while loops.
-> >>> Maybe we should re-add the volatile to atomic_t. Not sure.
-> >> I think whatever the choice, it should be done consistently
-> >> on every architecture.
-> >>
-> >> It's just asking for trouble if your arch does it differently from
-> >> every other.
-> > 
-> > Well..currently it's i386/x86_64 and s390 which have no volatile
-> > in atomic_t. And yes, of course I agree it should be consistent
-> > across all architectures. But it isn't.
-> 
-> Based on recent discussion, it's pretty clear that there's a lot of 
-> confusion about this.  A lot of people (myself included, until I thought 
-> about it long and hard) will reasonably assume that calling 
-> atomic_read() will actually read the value from memory.  Leaving out the 
-> volatile declaration seems like a pessimization to me.  If you force 
-> people to use barrier() everywhere they're working with atomic_t, it 
-> will force re-reads of all the non-atomic data in use as well, which 
-> will cause more memory fetches of things that generally don't need 
-> barrier().  That and it's a bug waiting to happen.
-> 
-> Andi -- your thoughts on the matter?
+> What do you generally think of the patch/implementation ? :)
 
-I'm not Andi, but this not-Andi thinks that permitting the compiler to cache
-the results of atomic_read() is dumb.
+We have two driver implementation paths on recieve and now
+we'll have two on send, and that's not a good trend.
 
+In an ideal world all the drivers would be NAPI and netif_rx()
+would only be used by tunneling drivers and similar in the
+protocol layers.  And likewise all sends would go through
+->hard_start_xmit().
+
+If you can come up with a long term strategy that gets rid of
+the special transmit method, that'd be great.
+
+We should make Linux network drivers easy to write, not more difficult
+by constantly adding most interfaces than we consolidate.
