@@ -1,42 +1,58 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [1/1] Block device throttling [Re: Distributed storage.]
-Date: Wed, 8 Aug 2007 17:28:53 +0400
-Message-ID: <20070808132853.GA19488@2ka.mipt.ru>
-References: <20070731171347.GA14267@2ka.mipt.ru> <200708051423.45484.phillips@phunq.net> <20070807120523.GX5245@kernel.dk> <200708071124.56859.phillips@phunq.net> <20070807205538.GB5245@kernel.dk> <20070808095448.GA3440@2ka.mipt.ru> <20070808101708.GA23815@2ka.mipt.ru>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 2/14] nes: device structures and defines
+Date: Wed, 8 Aug 2007 15:38:50 +0200
+Message-ID: <20070808133850.GE14419@one.firstfloor.org>
+References: <200708080045.l780jE9E004667@neteffect.com> <200708081502.35837.mb@bu3sch.de> <20070808130828.GB14419@one.firstfloor.org> <200708081528.34116.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Phillips <phillips@phunq.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: Jens Axboe <jens.axboe@oracle.com>
+Cc: Andi Kleen <andi@firstfloor.org>, Jeff Garzik <jeff@garzik.org>,
+	ggrundstrom@neteffect.com, rdreier@cisco.com,
+	ewg@lists.openfabrics.org, netdev@vger.kernel.org
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:44767 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757432AbXHHN3v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Aug 2007 09:29:51 -0400
+Received: from one.firstfloor.org ([213.235.205.2]:53888 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751911AbXHHNiv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 09:38:51 -0400
 Content-Disposition: inline
-In-Reply-To: <20070808101708.GA23815@2ka.mipt.ru>
+In-Reply-To: <200708081528.34116.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 08, 2007 at 02:17:09PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
-> This throttling mechanism allows to limit maximum amount of queued bios 
-> per physical device. By default it is turned off and old block layer 
-> behaviour with unlimited number of bios is used. When turned on (queue
-> limit is set to something different than -1U via blk_set_queue_limit()),
-> generic_make_request() will sleep until there is room in the queue.
-> number of bios is increased in generic_make_request() and reduced either
-> in bio_endio(), when bio is completely processed (bi_size is zero), and
-> recharged from original queue when new device is assigned to bio via
-> blk_set_bdev(). All oerations are not atomic, since we do not care about
-> precise number of bios, but a fact, that we are close or close enough to
-> the limit.
+On Wed, Aug 08, 2007 at 03:28:33PM +0200, Michael Buesch wrote:
+> On Wednesday 08 August 2007 15:08:28 Andi Kleen wrote:
+> > On Wed, Aug 08, 2007 at 03:02:35PM +0200, Michael Buesch wrote:
+> > > On Wednesday 08 August 2007 14:55:11 Andi Kleen wrote:
+> > > > On Wed, Aug 08, 2007 at 01:50:35PM +0200, Michael Buesch wrote:
+> > > > > On Wednesday 08 August 2007 14:38:10 Andi Kleen wrote:
+> > > > > > Jeff Garzik <jeff@garzik.org> writes:
+> > > > > > > > +			val, reg_index, addr, addr+4); */
+> > > > > > > > +	writel(cpu_to_le32(reg_index), addr);
+> > > > > > > > +	writel(cpu_to_le32(val),(u8 *)addr + 4);
+> > > > > > > 
+> > > > > > > wrong -- endian conversion macros not needed with writel()
 > 
-> Tested on distributed storage device - with limit of 2 bios it works
-> slow :)
+> > > Fact is that we do _not_ need cpu_to_le32 with writel.
+> > 
+> > We do on a big endian platform if the register is LE. I assume that's the case 
+> > on this hardware.
+> 
+> That is not true.
+> writeX does automatically convert to bus-endian.
+> Which, in case of the PCI bus, is little endian.
+> So if your register is LE (which it is most likely), you don't
+> need any conversion. If your register is BE (which I very much doubt),
+> then you need swab32().
+> In _no_ case you need cpu_to_xx().
 
-As addon I can cook up a patch to configure this via sysfs if needed.
-Thoughts?
+Hmm, I checked a couple of BE architectures and none seem to convert explicitely.
+But ok it's possible that their PCI bridges convert. I'll take your
+word for it although it sounds somewhat dubious.
 
--- 
-	Evgeniy Polyakov
+However if that's true then there are quite some drivers wrong:
+
+% grep -r write[bwl]\(cpu_to *   | wc -l
+57
+
+-Andi
+
