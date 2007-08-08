@@ -1,56 +1,99 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [ofa-general] Re: [PATCH 0/9 Rev3] Implement batching skb API and
-	support in IPoIB
-Date: Wed, 8 Aug 2007 21:42:47 +0800
-Message-ID: <20070808134247.GA9942@gondor.apana.org.au>
-References: <20070808093114.15396.22797.sendpatchset@localhost.localdomain>
-	<20070808.034900.85820906.davem@davemloft.net>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH 2/14] nes: device structures and defines
+Date: Wed, 8 Aug 2007 15:48:25 +0200
+Message-ID: <200708081548.25399.mb@bu3sch.de>
+References: <200708080045.l780jE9E004667@neteffect.com> <200708081528.34116.mb@bu3sch.de> <20070808133850.GE14419@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johnpol@2ka.mipt.ru, peter.p.waskiewicz.jr@intel.com, jeff@garzik.org,
-	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
-	kumarkr@linux.ibm.com, rdreier@cisco.com, mcarlson@broadcom.com,
-	jagana@us.ibm.com, hadi@cyberus.ca,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	kaber@trash.net, sri@us.ibm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <general-bounces@lists.openfabrics.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jeff@garzik.org>, ggrundstrom@neteffect.com,
+	rdreier@cisco.com, ewg@lists.openfabrics.org,
+	netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:56616
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753234AbXHHNtX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 09:49:23 -0400
+In-Reply-To: <20070808133850.GE14419@one.firstfloor.org>
 Content-Disposition: inline
-In-Reply-To: <20070808.034900.85820906.davem@davemloft.net>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 08, 2007 at 03:49:00AM -0700, David Miller wrote:
+On Wednesday 08 August 2007 15:38:50 Andi Kleen wrote:
+> On Wed, Aug 08, 2007 at 03:28:33PM +0200, Michael Buesch wrote:
+> > On Wednesday 08 August 2007 15:08:28 Andi Kleen wrote:
+> > > On Wed, Aug 08, 2007 at 03:02:35PM +0200, Michael Buesch wrote:
+> > > > On Wednesday 08 August 2007 14:55:11 Andi Kleen wrote:
+> > > > > On Wed, Aug 08, 2007 at 01:50:35PM +0200, Michael Buesch wrote:
+> > > > > > On Wednesday 08 August 2007 14:38:10 Andi Kleen wrote:
+> > > > > > > Jeff Garzik <jeff@garzik.org> writes:
+> > > > > > > > > +			val, reg_index, addr, addr+4); */
+> > > > > > > > > +	writel(cpu_to_le32(reg_index), addr);
+> > > > > > > > > +	writel(cpu_to_le32(val),(u8 *)addr + 4);
+> > > > > > > > 
+> > > > > > > > wrong -- endian conversion macros not needed with writel()
+> > 
+> > > > Fact is that we do _not_ need cpu_to_le32 with writel.
+> > > 
+> > > We do on a big endian platform if the register is LE. I assume that's the case 
+> > > on this hardware.
+> > 
+> > That is not true.
+> > writeX does automatically convert to bus-endian.
+> > Which, in case of the PCI bus, is little endian.
+> > So if your register is LE (which it is most likely), you don't
+> > need any conversion. If your register is BE (which I very much doubt),
+> > then you need swab32().
+> > In _no_ case you need cpu_to_xx().
 > 
-> Not because I think it obviates your work, but rather because I'm
-> curious, could you test a TSO-in-hardware driver converted to
-> batching and see how TSO alone compares to batching for a pure
-> TCP workload?
+> Hmm, I checked a couple of BE architectures and none seem to convert explicitely.
 
-You could even lower the bar by disabling TSO and enabling
-software GSO.
+That depends on the arch.
+Look at this from ppc, for example:
 
-> I personally don't think it will help for that case at all as
-> TSO likely does better job of coalescing the work _and_ reducing
-> bus traffic as well as work in the TCP stack.
+184 static inline void writel(__u32 b, volatile void __iomem *addr)
+185 {
+186         out_le32(addr, b);
+187 }
 
-I agree.  I suspect the bulk of the effort is in getting
-these skb's created and processed by the stack so that by
-the time that they're exiting the qdisc there's not much
-to be saved anymore.
+out_le32 writes a little endian value. So it converts it.
+Also note that b is __u32. Sparse would complain, if someone used cpu_to_xx
+on it.
 
-Cheers,
+> But ok it's possible that their PCI bridges convert. I'll take your
+> word for it although it sounds somewhat dubious.
+>
+> However if that's true then there are quite some drivers wrong:
+> 
+> % grep -r write[bwl]\(cpu_to *   | wc -l
+> 57
+
+Yeah, seems so.
+Here comes an example (with 16bit values)
+
+Little endian register
+	LittleEndian arch		BigEngian arch
+value	0xBBAA				0xAABB
+writew	0xBBAA				0xAABB
+on bus	0xBBAA				0xBBAA
+on dev	0xBBAA				0xBBAA
+
+Big endian register
+	LittleEndian arch		BigEngian arch
+value	0xBBAA				0xAABB
+swab16	0xAABB				0xBBAA
+writew	0xAABB				0xBBAA
+on bus	0xAABB				0xAABB
+on dev	0xAABB				0xAABB
+
+I hope I got it right. :)
+Same result on every arch.
+
+Most hardware has little endian registers. Some can switch
+endianess based on some bit, too. So in case of a BE register that
+bit has to be flipped, or if not possible swabX() has to be used.
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Greetings Michael.
