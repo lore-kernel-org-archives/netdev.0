@@ -1,175 +1,47 @@
-From: ggrundstrom@neteffect.com
-Subject: [PATCH 12/14] nes: OpenFabrics kernel verb includes
-Date: Tue, 7 Aug 2007 20:21:38 -0500
-Message-ID: <200708080121.l781LcEw004889@neteffect.com>
-Cc: ewg@lists.openfabrics.org, ggrundstrom@neteffect.com,
-	netdev@vger.kernel.org
-To: rdreier@cisco.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: TCP's initial cwnd setting correct?...
+Date: Tue, 07 Aug 2007 18:28:23 -0700 (PDT)
+Message-ID: <20070807.182823.123919803.davem@davemloft.net>
+References: <Pine.LNX.4.64.0708061508070.8788@kivilampi-30.cs.helsinki.fi>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 75.neteffect.com ([204.57.75.75]:52411 "EHLO
-	localhost.localdomain" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S934562AbXHHB2J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Aug 2007 21:28:09 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58149
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1758172AbXHHB2X convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Aug 2007 21:28:23 -0400
+In-Reply-To: <Pine.LNX.4.64.0708061508070.8788@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-OpenFabrics kernel verbs provider structures and defines.
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Mon, 6 Aug 2007 15:37:15 +0300 (EEST)
 
-Signed-off-by: Glenn Grundstrom <ggrundstrom@neteffect.com>
----
-diff -Nurp NULL ofa_kernel-1.2/drivers/infiniband/hw/nes/nes_verbs.h
---- NULL	1969-12-31 18:00:00.000000000 -0600
-+++ ofa_kernel-1.2/drivers/infiniband/hw/nes/nes_verbs.h	2007-08-06 20:09:05.000000000 -0500
-@@ -0,0 +1,152 @@
-+/*
-+ * Copyright (c) 2006 NetEffect, Inc. All rights reserved.
-+ * Copyright (c) 2005 Open Grid Computing, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ */
-+
-+#ifndef NES_VERBS_H
-+#define NES_VERBS_H
-+
-+struct nes_device;
-+
-+#define NES_MAX_USER_DB_REGIONS  4096
-+#define NES_MAX_USER_WQ_REGIONS  4096
-+
-+struct nes_ucontext {
-+	struct ib_ucontext ibucontext;
-+	struct nes_device *nesdev;
-+	unsigned long mmap_wq_offset;
-+	unsigned long mmap_cq_offset; /* to be removed */
-+	int index;		/* rnic index (minor) */
-+	unsigned long allocated_doorbells[BITS_TO_LONGS(NES_MAX_USER_DB_REGIONS)];	
-+	u16 mmap_db_index[NES_MAX_USER_DB_REGIONS];	 
-+	u16 first_free_db;
-+	unsigned long allocated_wqs[BITS_TO_LONGS(NES_MAX_USER_WQ_REGIONS)];  
-+	struct nes_qp * mmap_nesqp[NES_MAX_USER_WQ_REGIONS];  
-+	u16 first_free_wq;
-+	struct list_head cq_reg_mem_list;
-+};
-+
-+struct nes_pd {
-+	struct ib_pd ibpd;
-+	u16 pd_id;
-+	atomic_t sqp_count;
-+	u16 mmap_db_index;
-+};
-+
-+struct nes_mr {
-+	union {
-+		struct ib_mr ibmr;
-+		struct ib_mw ibmw;
-+		struct ib_fmr ibfmr;
-+	};
-+	u16 pbls_used;
-+	u8 mode;
-+	u8 pbl_4k; 
-+};
-+
-+struct nes_hw_pb {
-+	u32 pa_low;
-+	u32 pa_high;
-+};
-+
-+struct nes_vpbl {
-+	dma_addr_t pbl_pbase;
-+	struct nes_hw_pb *pbl_vbase;
-+};
-+
-+struct nes_root_vpbl {
-+	dma_addr_t pbl_pbase;
-+	struct nes_hw_pb *pbl_vbase;
-+	struct nes_vpbl *leaf_vpbl;
-+};
-+
-+struct nes_av;
-+
-+struct nes_cq {
-+	struct ib_cq ibcq;
-+	struct nes_hw_cq hw_cq;
-+	u32 polled_completions;
-+	u32 cq_mem_size;
-+	spinlock_t lock;
-+	u8 virtual_cq;
-+	u8 pad[3];
-+};
-+
-+struct nes_wq {
-+	spinlock_t lock;
-+};
-+
-+struct iw_cm_id;
-+struct ietf_mpa_frame;
-+
-+struct nes_qp {
-+	struct ib_qp ibqp;
-+	void * allocated_buffer;
-+	struct iw_cm_id *cm_id;
-+	struct workqueue_struct *wq;
-+	struct work_struct disconn_work;
-+	struct socket *ksock;
-+	struct nes_cq *nesscq;
-+	struct nes_cq *nesrcq;
-+	struct nes_pd *nespd;
-+	struct ietf_mpa_frame *ietf_frame;
-+	dma_addr_t ietf_frame_pbase;
-+	wait_queue_head_t state_waitq;
-+	unsigned long socket;
-+	struct nes_hw_qp hwqp;
-+	struct work_struct work;
-+	struct work_struct ae_work;
-+	enum ib_qp_state ibqp_state;
-+	u32 iwarp_state;
-+	u32 hte_index;
-+	u32 last_aeq;
-+	u32 qp_mem_size;
-+	atomic_t refcount;
-+	u32 mmap_sq_db_index;
-+	u32 mmap_rq_db_index;
-+	spinlock_t lock;
-+	struct nes_qp_context *nesqp_context;
-+	dma_addr_t nesqp_context_pbase;
-+	wait_queue_head_t kick_waitq;
-+	u16 in_disconnect;
-+	u16 private_data_len;
-+	u8 active_conn;
-+	u8 skip_lsmm;
-+	u8 user_mode;
-+	u8 hte_added;
-+	u8 hw_iwarp_state;
-+	u8 flush_issued;
-+	u8 hw_tcp_state;
-+	u8 disconn_pending;
-+	void *cm_node_p; /* handle of the node this QP is associated with */
-+};
-+#endif			/* NES_VERBS_H */
+> @@ -805,13 +805,13 @@ void tcp_update_metrics(struct sock *sk)
+>  	}
+>  }
+> =20
+> -/* Numbers are taken from RFC2414.  */
+> +/* Numbers are taken from RFC3390.  */
+>  __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst)
+>  {
+>  	__u32 cwnd =3D (dst ? dst_metric(dst, RTAX_INITCWND) : 0);
+> =20
+>  	if (!cwnd) {
+> -		if (tp->mss_cache > 1460)
+> +		if (tp->mss_cache >=3D 2190)
+>  			cwnd =3D 2;
+>  		else
+>  			cwnd =3D (tp->mss_cache > 1095) ? 3 : 4;
+
+I remember suggesting something similar about 5 or 6 years
+ago and Alexey Kuznetsov at the time explained the numbers
+which are there and why they should not be changed.
+
+I forget the reasons though, and I'll try to do the research.
+
+These numbers have been like this forever, FWIW.
