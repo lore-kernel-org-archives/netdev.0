@@ -1,43 +1,39 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: 2.6.20->2.6.21 - networking dies after random time
-Date: Wed, 8 Aug 2007 14:16:58 +0200
-Message-ID: <20070808121658.GA4110@ff.dom.local>
-References: <JMG6AY$2339D4FEA804188F4C6D4F66006A6BB6@xandmail.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 2/14] nes: device structures and defines
+Date: Wed, 8 Aug 2007 14:55:11 +0200
+Message-ID: <20070808125511.GA14419@one.firstfloor.org>
+References: <200708080045.l780jE9E004667@neteffect.com> <46B918BA.2020400@garzik.org> <p73hcnarykt.fsf@bingen.suse.de> <200708081350.36081.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: cebbert <cebbert@redhat.com>, mingo <mingo@elte.hu>,
-	"marcin\.slusarz" <marcin.slusarz@gmail.com>,
-	tglx <tglx@linutronix.de>,
-	torvalds <torvalds@linux-foundation.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	akpm <akpm@linux-foundation.org>, alan <alan@lxorguk.ukuu.org.uk>
-To: Jean-Baptiste Vignaud <vignaud@xandmail.fr>
-Return-path: <linux-net-owner@vger.kernel.org>
+Cc: Andi Kleen <andi@firstfloor.org>, Jeff Garzik <jeff@garzik.org>,
+	ggrundstrom@neteffect.com, rdreier@cisco.com,
+	ewg@lists.openfabrics.org, netdev@vger.kernel.org
+To: Michael Buesch <mb@bu3sch.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([213.235.205.2]:59739 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752610AbXHHMzN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 08:55:13 -0400
 Content-Disposition: inline
-In-Reply-To: <JMG6AY$2339D4FEA804188F4C6D4F66006A6BB6@xandmail.com>
-Sender: linux-net-owner@vger.kernel.org
+In-Reply-To: <200708081350.36081.mb@bu3sch.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 08, 2007 at 10:59:22AM +0200, Jean-Baptiste Vignaud wrote:
-...
-> > If you would like to read something more about testing (then of
-> > course my suggestions could occur invalid - I'm a very bad tester
-> > myself...) you can try this:
-> > http://www.stardust.webpages.pl/files/handbook/
+On Wed, Aug 08, 2007 at 01:50:35PM +0200, Michael Buesch wrote:
+> On Wednesday 08 August 2007 14:38:10 Andi Kleen wrote:
+> > Jeff Garzik <jeff@garzik.org> writes:
+> > > > +			val, reg_index, addr, addr+4); */
+> > > > +	writel(cpu_to_le32(reg_index), addr);
+> > > > +	writel(cpu_to_le32(val),(u8 *)addr + 4);
+> > > 
+> > > wrong -- endian conversion macros not needed with writel()
+> > 
+> > Are you sure? I don't think that's true. e.g. powerpc writel 
+> > doesn't convert endian
 > 
-> I'll have a look at the document.
+> Andi, you are wrong.
+> writeX take CPU endian args.
 
-BTW: this document describes some methods for a kind of 'professional'
-testing (so you could save time if you do it very often). But, you
-shouldn't think all this knowledge or tools are necessary. So, you can
-skip many such things and still do very valuable testing with simpler
-methods. And there are a lot of simple & good advices as well.
+That is what I wrote.
 
-BTW #2: this all testing of older versions, which I've described, has
-of course any reason only if after present patches you'll still think
-the older kernel had worked better for you.
-
-Jarek P. 
+-Andi
