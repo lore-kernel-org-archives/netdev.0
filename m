@@ -1,46 +1,36 @@
-From: "Glenn Grundstrom" <ggrundstrom@NetEffect.com>
-Subject: RE: [PATCH 3/14] nes: connection manager routines
-Date: Wed, 8 Aug 2007 10:31:17 -0500
-Message-ID: <5E701717F2B2ED4EA60F87C8AA57B7CC07443E9D@venom2>
-References: <200708080050.l780oGxo004694@neteffect.com> <p73d4xyryg2.fsf@bingen.suse.de>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: TCP's initial cwnd setting correct?...
+Date: Wed, 08 Aug 2007 11:26:18 -0400
+Message-ID: <46B9E09A.3060402@psc.edu>
+References: <Pine.LNX.4.64.0708061508070.8788@kivilampi-30.cs.helsinki.fi> <Pine.LNX.4.64.0708062129440.29123@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <rdreier@cisco.com>, <ewg@lists.openfabrics.org>,
-	<netdev@vger.kernel.org>
-To: "Andi Kleen" <andi@firstfloor.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.neteffect.com ([204.57.75.68]:23902 "EHLO
-	mail2.neteffect.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753655AbXHHPbS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 11:31:18 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <p73d4xyryg2.fsf@bingen.suse.de>
+Received: from mailer1.psc.edu ([128.182.58.100]:65514 "EHLO mailer1.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759098AbXHHPbb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Aug 2007 11:31:31 -0400
+In-Reply-To: <Pine.LNX.4.64.0708062129440.29123@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This code is far from a TCP stack.  It's main purpose is to exchange
-RDMA MPA request/response messages that are required by the iWarp specs
-and therefore needed by our hardware.  All RNIC hardware vendors need
-this MPA message exchange, including those already accepted into
-kernel.org.  Do you have an alternative suggestion?
+That sounds right to me.
 
-Thanks,
-Glenn.
+   -John
 
------Original Message-----
-From: ak@suse.de [mailto:ak@suse.de] On Behalf Of Andi Kleen
-Sent: Wednesday, August 08, 2007 7:41 AM
-To: Glenn Grundstrom
-Cc: rdreier@cisco.com; ewg@lists.openfabrics.org; netdev@vger.kernel.org
-Subject: Re: [PATCH 3/14] nes: connection manager routines
 
-ggrundstrom@neteffect.com writes:
+Ilpo J=E4rvinen wrote:
+> On Mon, 6 Aug 2007, Ilpo J=E4rvinen wrote:
+>=20
+>> ...Goto logic could be cleaner (somebody has any suggestion for bett=
+er=20
+>> way to structure it?)
+>=20
+> ...I could probably move the setting of snd_cwnd earlier to avoid=20
+> this problem if this seems a valid fix at all.
+>=20
 
-> NetEffect connection manager routines.
-
-This seems more like a new TCP stack. I don't think such code is
-appropiate, since Linux already has one.
-
--Andi
