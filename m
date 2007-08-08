@@ -1,43 +1,70 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH RFC]: napi_struct V5
-Date: Wed, 08 Aug 2007 08:10:59 -0400
-Message-ID: <1186575059.5171.23.camel@localhost>
-References: <20070805.232423.21363072.davem@davemloft.net>
-	 <1186491155.5163.68.camel@localhost>
-	 <20070807.175920.15265201.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [ofa-general] Re: [PATCH 3/9 Rev3] [sched] Modify qdisc_run to
+	support batching
+Date: Wed, 8 Aug 2007 16:14:02 +0400
+Message-ID: <20070808121401.GB8478@2ka.mipt.ru>
+References: <20070808093114.15396.22797.sendpatchset@localhost.localdomain>
+	<20070808093145.15396.91711.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	jgarzik@pobox.com, rusty@rustcorp.com.au
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.231]:49378 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751210AbXHHMLF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 08:11:05 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so115104wxd
-        for <netdev@vger.kernel.org>; Wed, 08 Aug 2007 05:11:04 -0700 (PDT)
-In-Reply-To: <20070807.175920.15265201.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jagana@us.ibm.com, Robert.Olsson@data.slu.se, herbert@gondor.apana.org.au,
+	gaagaan@gmail.com, kumarkr@linux.ibm.com, rdreier@cisco.com,
+	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
+	kaber@trash.net, jeff@garzik.org, hadi@cyberus.ca,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	davem@davemloft.net, sri@us.ibm.com
+To: Krishna Kumar <krkumar2@in.ibm.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-Disposition: inline
+In-Reply-To: <20070808093145.15396.91711.sendpatchset@localhost.localdomain>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-07-08 at 17:59 -0700, David Miller wrote:
+On Wed, Aug 08, 2007 at 03:01:45PM +0530, Krishna Kumar (krkumar2@in.ibm.com) wrote:
+> +static inline int get_skb(struct net_device *dev, struct Qdisc *q,
+> +			  struct sk_buff_head *blist, struct sk_buff **skbp)
+> +{
+> +	if (likely(!blist || (!skb_queue_len(blist) && qdisc_qlen(q) <= 1))) {
+> +		return likely((*skbp = dev_dequeue_skb(dev, q)) != NULL);
+> +	} else {
+> +		int max = dev->tx_queue_len - skb_queue_len(blist);
+> +		struct sk_buff *skb;
+> +
+> +		while (max > 0 && (skb = dev_dequeue_skb(dev, q)) != NULL)
+> +			max -= dev_add_skb_to_blist(skb, dev);
+> +
+> +		*skbp = NULL;
+> +		return 1;	/* we have atleast one skb in blist */
+> +	}
+> +}
 
-> I am tempted to suggest we toss the document completely, for
-> two reasons:
+Same here - is it possible to get a list in one go instead of pulling
+one-by-one, since it forces quite a few additional unneded lock
+get/releases. What about dev_dequeue_number_skb(dev, q, num), which will 
+grab the lock and move a list of skbs from one queue to provided head.
 
-Its overdue - just hasnt been anybody who has raised their hands
-to do it. Stephen did at one point. 
-Theres a lot of nice insights in that doc that will be nice to inherit.
-Theres also a nice state machine diagram in 
-http://www.kernel.org/pub/linux/kernel/people/hadi/docs/UKUUG2005.pdf
-that will be very useful to capture in whatever new doc.
+> @@ -158,7 +198,10 @@ static inline int qdisc_restart(struct n
+>  	/* And release queue */
+>  	spin_unlock(&dev->queue_lock);
+>  
+> -	ret = dev_hard_start_xmit(skb, dev);
+> +	if (likely(skb))
+> +		ret = dev_hard_start_xmit(skb, dev);
+> +	else
+> +		ret = dev->hard_start_xmit_batch(dev);
 
-cheers,
-jamal
+Perfectionism says that having array of two functions and calling one of
+them via array_func_pointer[!!skb] will be much faster. Just a though.
+It is actually much faster than if/else on x86 at least.
 
-
-
-
+-- 
+	Evgeniy Polyakov
