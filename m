@@ -1,82 +1,68 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [ofa-general] [PATCH 6/9 Rev3] [IPoIB] CM & Multicast changes
-Date: Wed, 08 Aug 2007 15:02:15 +0530
-Message-ID: <20070808093215.15396.13679.sendpatchset@localhost.localdomain>
-References: <20070808093114.15396.22797.sendpatchset@localhost.localdomain>
-Cc: jagana@us.ibm.com, Robert.Olsson@data.slu.se,
-	peter.p.waskiewicz.jr@intel.com, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, kumarkr@linux.ibm.com, rdreier@cisco.com,
-	mcarlson@broadcom.com, jeff@garzik.org,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	hadi@cyberus.ca, netdev@vger.kernel.org
-To: johnpol@2ka.mipt.ru, sri@us.ibm.com, shemminger@linux-foundation.org,
-	kaber@trash.net, davem@davemloft.net
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070808093114.15396.22797.sendpatchset@localhost.localdomain>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+From: Horms <horms@verge.net.au>
+Subject: Re: [patch] ipvs: force read of atomic_t in while loop
+Date: Wed, 8 Aug 2007 18:45:44 +0900
+Message-ID: <20070808094542.GA5901@verge.net.au>
+References: <20070808093300.GA14530@osiris.boeblingen.de.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Wensong Zhang <wensong@linux-vs.org>
+To: Heiko Carstens <heiko.carstens@de.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763510AbXHHJqA@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20070808093300.GA14530@osiris.boeblingen.de.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-IPoIB CM & Multicast changes based on header file changes.
+On Wed, Aug 08, 2007 at 11:33:00AM +0200, Heiko Carstens wrote:
+> From: Heiko Carstens <heiko.carstens@de.ibm.com>
+> 
+> For architectures that don't have a volatile atomic_ts constructs like
+> while (atomic_read(&something)); might result in endless loops since a
+> barrier() is missing which forces the compiler to generate code that
+> actually reads memory contents.
+> Fix this in ipvs by using the IP_VS_WAIT_WHILE macro which resolves to
+> while (expr) { cpu_relax(); }
+> (why isn't this open coded btw?)
+> 
+> Cc: Wensong Zhang <wensong@linux-vs.org>
+> Cc: Simon Horman <horms@verge.net.au>
+> Cc: David Miller <davem@davemloft.net>
+> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+> Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+> ---
+> 
+> Just saw this while grepping for atomic_reads in a while loops.
+> Maybe we should re-add the volatile to atomic_t. Not sure.
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
----
- ipoib_cm.c        |   13 +++++++++----
- ipoib_multicast.c |    4 ++--
- 2 files changed, 11 insertions(+), 6 deletions(-)
+This looks good to me. A little wile back I noticed a few places
+where IP_VS_WAIT_WHILE seemed to be curiously unused, then I got
+distracted...
 
-diff -ruNp ORG/drivers/infiniband/ulp/ipoib/ipoib_cm.c NEW/drivers/infiniband/ulp/ipoib/ipoib_cm.c
---- ORG/drivers/infiniband/ulp/ipoib/ipoib_cm.c	2007-07-17 08:48:35.000000000 +0530
-+++ NEW/drivers/infiniband/ulp/ipoib/ipoib_cm.c	2007-08-07 13:11:19.000000000 +0530
-@@ -493,14 +493,19 @@ static inline int post_send(struct ipoib
- 			    unsigned int wr_id,
- 			    u64 addr, int len)
- {
-+	int ret;
- 	struct ib_send_wr *bad_wr;
- 
--	priv->tx_sge.addr             = addr;
--	priv->tx_sge.length           = len;
-+	priv->tx_sge[0].addr          = addr;
-+	priv->tx_sge[0].length        = len;
-+
-+	priv->tx_wr[0].wr_id 	      = wr_id;
- 
--	priv->tx_wr.wr_id 	      = wr_id;
-+	priv->tx_wr[0].next = NULL;
-+	ret = ib_post_send(tx->qp, priv->tx_wr, &bad_wr);
-+	priv->tx_wr[0].next = &priv->tx_wr[1];
- 
--	return ib_post_send(tx->qp, &priv->tx_wr, &bad_wr);
-+	return ret;
- }
- 
- void ipoib_cm_send(struct net_device *dev, struct sk_buff *skb, struct ipoib_cm_tx *tx)
-diff -ruNp ORG/drivers/infiniband/ulp/ipoib/ipoib_multicast.c NEW/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
---- ORG/drivers/infiniband/ulp/ipoib/ipoib_multicast.c	2007-07-12 08:55:06.000000000 +0530
-+++ NEW/drivers/infiniband/ulp/ipoib/ipoib_multicast.c	2007-08-07 13:11:19.000000000 +0530
-@@ -217,7 +217,7 @@ static int ipoib_mcast_join_finish(struc
- 	if (!memcmp(mcast->mcmember.mgid.raw, priv->dev->broadcast + 4,
- 		    sizeof (union ib_gid))) {
- 		priv->qkey = be32_to_cpu(priv->broadcast->mcmember.qkey);
--		priv->tx_wr.wr.ud.remote_qkey = priv->qkey;
-+		priv->tx_wr[0].wr.ud.remote_qkey = priv->qkey;
- 	}
- 
- 	if (!test_bit(IPOIB_MCAST_FLAG_SENDONLY, &mcast->flags)) {
-@@ -736,7 +736,7 @@ out:
- 			}
- 		}
- 
--		ipoib_send(dev, skb, mcast->ah, IB_MULTICAST_QPN);
-+		ipoib_send(dev, skb, mcast->ah, IB_MULTICAST_QPN, 1);
- 	}
- 
- unlock:
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
+> 
+>  net/ipv4/ipvs/ip_vs_ctl.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> Index: linux-2.6/net/ipv4/ipvs/ip_vs_ctl.c
+> ===================================================================
+> --- linux-2.6.orig/net/ipv4/ipvs/ip_vs_ctl.c
+> +++ linux-2.6/net/ipv4/ipvs/ip_vs_ctl.c
+> @@ -909,7 +909,7 @@ ip_vs_edit_dest(struct ip_vs_service *sv
+>  	write_lock_bh(&__ip_vs_svc_lock);
+>  
+>  	/* Wait until all other svc users go away */
+> -	while (atomic_read(&svc->usecnt) > 1) {};
+> +	IP_VS_WAIT_WHILE(atomic_read(&svc->usecnt) > 1);
+>  
+>  	/* call the update_service, because server weight may be changed */
+>  	svc->scheduler->update_service(svc);
+
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
