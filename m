@@ -1,68 +1,29 @@
-From: Horms <horms@verge.net.au>
-Subject: Re: [patch] ipvs: force read of atomic_t in while loop
-Date: Wed, 8 Aug 2007 18:45:44 +0900
-Message-ID: <20070808094542.GA5901@verge.net.au>
-References: <20070808093300.GA14530@osiris.boeblingen.de.ibm.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Block device throttling [Re: Distributed storage.]
+Date: Wed, 8 Aug 2007 13:54:49 +0400
+Message-ID: <20070808095448.GA3440@2ka.mipt.ru>
+References: <20070731171347.GA14267@2ka.mipt.ru> <200708051423.45484.phillips@phunq.net> <20070807120523.GX5245@kernel.dk> <200708071124.56859.phillips@phunq.net> <20070807205538.GB5245@kernel.dk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Wensong Zhang <wensong@linux-vs.org>
-To: Heiko Carstens <heiko.carstens@de.ibm.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763510AbXHHJqA@vger.kernel.org>
+Cc: Daniel Phillips <phillips@phunq.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>
+To: Jens Axboe <jens.axboe@oracle.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20070808093300.GA14530@osiris.boeblingen.de.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20070807205538.GB5245@kernel.dk>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 08, 2007 at 11:33:00AM +0200, Heiko Carstens wrote:
-> From: Heiko Carstens <heiko.carstens@de.ibm.com>
-> 
-> For architectures that don't have a volatile atomic_ts constructs like
-> while (atomic_read(&something)); might result in endless loops since a
-> barrier() is missing which forces the compiler to generate code that
-> actually reads memory contents.
-> Fix this in ipvs by using the IP_VS_WAIT_WHILE macro which resolves to
-> while (expr) { cpu_relax(); }
-> (why isn't this open coded btw?)
-> 
-> Cc: Wensong Zhang <wensong@linux-vs.org>
-> Cc: Simon Horman <horms@verge.net.au>
-> Cc: David Miller <davem@davemloft.net>
-> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-> Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
-> ---
-> 
-> Just saw this while grepping for atomic_reads in a while loops.
-> Maybe we should re-add the volatile to atomic_t. Not sure.
+On Tue, Aug 07, 2007 at 10:55:38PM +0200, Jens Axboe (jens.axboe@oracle.com) wrote:
+> I don't like structure bloat, but I do like nice design. Overloading is
 
-This looks good to me. A little wile back I noticed a few places
-where IP_VS_WAIT_WHILE seemed to be curiously unused, then I got
-distracted...
-
-Signed-off-by: Simon Horman <horms@verge.net.au>
-
-> 
->  net/ipv4/ipvs/ip_vs_ctl.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> Index: linux-2.6/net/ipv4/ipvs/ip_vs_ctl.c
-> ===================================================================
-> --- linux-2.6.orig/net/ipv4/ipvs/ip_vs_ctl.c
-> +++ linux-2.6/net/ipv4/ipvs/ip_vs_ctl.c
-> @@ -909,7 +909,7 @@ ip_vs_edit_dest(struct ip_vs_service *sv
->  	write_lock_bh(&__ip_vs_svc_lock);
->  
->  	/* Wait until all other svc users go away */
-> -	while (atomic_read(&svc->usecnt) > 1) {};
-> +	IP_VS_WAIT_WHILE(atomic_read(&svc->usecnt) > 1);
->  
->  	/* call the update_service, because server weight may be changed */
->  	svc->scheduler->update_service(svc);
+So, what did we decide? To bloat bio a bit (add a queue pointer) or to
+use physical device limits? The latter requires to replace all occurence
+of bio->bi_bdev = something_new with blk_set_bdev(bio, somthing_new),
+where queue limits will be appropriately charged. So far I'm testing
+second case, but I only changed DST for testing, can change all other
+users if needed though.
 
 -- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
+	Evgeniy Polyakov
