@@ -1,28 +1,42 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH 1/1] af_packet: don't enable timestamps in mmap'ed sockets
-Date: Thu, 9 Aug 2007 18:33:22 +0400
-Message-ID: <20070809143322.GA5345@2ka.mipt.ru>
-References: <1186669314.24669.56.camel@localhost.localdomain>
+From: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Subject: Re: [PATCH 16/24] make atomic_read() behave consistently on s390
+Date: Thu, 09 Aug 2007 16:36:48 +0200
+Message-ID: <1186670208.9669.9.camel@localhost>
+References: <20070809140655.GA17731@shell.boston.redhat.com>
+Reply-To: schwidefsky@de.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Unai Uribarri <unai.uribarri@optenet.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, ak@suse.de, heiko.carstens@de.ibm.com,
+	davem@davemloft.net, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com
+To: Chris Snook <csnook@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:53538 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965587AbXHIOd3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2007 10:33:29 -0400
-Content-Disposition: inline
-In-Reply-To: <1186669314.24669.56.camel@localhost.localdomain>
+Received: from mtagate2.de.ibm.com ([195.212.29.151]:62993 "EHLO
+	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S940661AbXHIOdL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 10:33:11 -0400
+In-Reply-To: <20070809140655.GA17731@shell.boston.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 09, 2007 at 04:21:54PM +0200, Unai Uribarri (unai.uribarri@optenet.com) wrote:
-> The attached patch removes the automatic timestamp activation, that
-> only mmap'ed AF_PACKET sockets perform. I known it can break user
-> applications, but I believe that it's the correct solution.
+On Thu, 2007-08-09 at 10:06 -0400, Chris Snook wrote:
+> From: Chris Snook <csnook@redhat.com>
+> 
+> Make atomic[64]_read() volatile on s390, to ensure memory is actually read
+> each time.
+> 
+> Signed-off-by: Chris Snook <csnook@redhat.com>
 
-How tcpdump with mmap libpcap will work with it?
+Acked-by: Martin Schwidefsky <schwidefsky@de.ibm.com>
 
 -- 
-	Evgeniy Polyakov
+blue skies,
+  Martin.
+
+"Reality continues to ruin my life." - Calvin.
+
+
