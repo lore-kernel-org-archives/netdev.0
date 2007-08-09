@@ -1,39 +1,138 @@
-From: "Chris Friesen" <cfriesen@nortel.com>
-Subject: Re: [PATCH 24/24] document volatile atomic_read() behavior
-Date: Thu, 09 Aug 2007 14:10:33 -0600
-Message-ID: <46BB74B9.4070702@nortel.com>
-References: <20070809142430.GA19817@shell.boston.redhat.com> <8f6bb8a9e4f2819a161d732bdb6c70c0@kernel.crashing.org> <46BB403D.10202@redhat.com> <0a08872e608cf5f7a3d9c0fc746a1051@kernel.crashing.org>
+From: Brandon Philips <bphilips@suse.de>
+Subject: Re: [patch 1/5][RFC] NET: Change pci_enable_device
+	topci_reenable_device to keep device enable balance
+Date: Thu, 9 Aug 2007 13:45:52 -0700
+Message-ID: <20070809204552.GA6870@ifup.org>
+References: <20070802224423.GC5181@ifup.org> <78C9135A3D2ECE4B8162EBDCE82CAD7702035646@nekter>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Chris Snook <csnook@redhat.com>, wjiang@resilience.com,
-	wensong@linux-vs.org, heiko.carstens@de.ibm.com,
-	linux-kernel@vger.kernel.org, ak@suse.de, netdev@vger.kernel.org,
-	horms@verge.net.au, akpm@linux-foundation.org,
-	linux-arch@vger.kernel.org, torvalds@linux-foundation.org,
-	schwidefsky@de.ibm.com, davem@davemloft.net, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com
-To: Segher Boessenkool <segher@kernel.crashing.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, teheo@suse.de,
+	e1000-devel@lists.sourceforge.net, auke-jan.h.kok@intel.com
+To: Ramkrishna Vepa <Ramkrishna.Vepa@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zcars04f.nortel.com ([47.129.242.57]:45481 "EHLO
-	zcars04f.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932148AbXHIUKw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 16:10:52 -0400
-In-Reply-To: <0a08872e608cf5f7a3d9c0fc746a1051@kernel.crashing.org>
+Received: from ns2.suse.de ([195.135.220.15]:47374 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753710AbXHIUqF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2007 16:46:05 -0400
+Content-Disposition: inline
+In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD7702035646@nekter>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Segher Boessenkool wrote:
+On 17:30 Wed 08 Aug 2007, Ramkrishna Vepa wrote:
+> Before slot_reset event is called io_error_detected could be called
+> (where pci_disable_device() is called), right? 
 
-> Anyway, what's the supposed advantage of *(volatile *) vs. using
-> a real volatile object?  That you can access that same object in
-> a non-volatile way?
+Oops!  Right, the documentation says .error_detected is _always_ called
+before .slot_reset.  So, this patch is not correct.  Please don't merge
+this.
 
-That's my understanding.  That way accesses where you don't care about 
-volatility may be optimised.
+>From Documentation/pci-error-recovery.txt:
 
-For instance, in cases where there are already other things controlling 
-visibility (as are needed for atomic increment, for example) you don't 
-need to make the access itself volatile.
+STEP 1: Notification
+--------------------
+Platform calls the error_detected() callback on every instance of
+every driver affected by the error.
+...
 
-Chris
+If any driver requested a slot reset (by returning PCI_ERS_RESULT_NEED_RESET),
+then recovery proceeds to STEP 4 (Slot Reset).
+
+> The pci_reenable_device() will call enable only if the device was
+> enabled before and would not be enabled if the device were disabled. Is
+> this the intended behavior?
+
+Yes, you are right.  And no it isn't.
+
+Thanks,
+
+	Brandon
+
+> > -----Original Message-----
+> > From: netdev-owner@vger.kernel.org
+> [mailto:netdev-owner@vger.kernel.org]
+> > On Behalf Of Brandon Philips
+> > Sent: Thursday, August 02, 2007 3:44 PM
+> > To: netdev@vger.kernel.org
+> > Cc: teheo@suse.de; Brandon Philips
+> > Subject: [patch 1/5][RFC] NET: Change pci_enable_device
+> > topci_reenable_device to keep device enable balance
+> > 
+> > On a slot_reset event pci_disable_device() is never called so calling
+> > pci_enable_device() will unbalance the enable count.
+> > 
+> > Signed-off-by: Brandon Philips <bphilips@suse.de>
+> > 
+> > ---
+> >  drivers/net/e100.c             |    2 +-
+> >  drivers/net/e1000/e1000_main.c |    2 +-
+> >  drivers/net/ixgb/ixgb_main.c   |    2 +-
+> >  drivers/net/s2io.c             |    2 +-
+> >  4 files changed, 4 insertions(+), 4 deletions(-)
+> > 
+> > Index: linux-2.6/drivers/net/e100.c
+> > ===================================================================
+> > --- linux-2.6.orig/drivers/net/e100.c
+> > +++ linux-2.6/drivers/net/e100.c
+> > @@ -2828,7 +2828,7 @@ static pci_ers_result_t e100_io_slot_res
+> >  	struct net_device *netdev = pci_get_drvdata(pdev);
+> >  	struct nic *nic = netdev_priv(netdev);
+> > 
+> > -	if (pci_enable_device(pdev)) {
+> > +	if (pci_reenable_device(pdev)) {
+> >  		printk(KERN_ERR "e100: Cannot re-enable PCI device after
+> > reset.\n");
+> >  		return PCI_ERS_RESULT_DISCONNECT;
+> >  	}
+> > Index: linux-2.6/drivers/net/e1000/e1000_main.c
+> > ===================================================================
+> > --- linux-2.6.orig/drivers/net/e1000/e1000_main.c
+> > +++ linux-2.6/drivers/net/e1000/e1000_main.c
+> > @@ -5270,7 +5270,7 @@ static pci_ers_result_t e1000_io_slot_re
+> >  	struct net_device *netdev = pci_get_drvdata(pdev);
+> >  	struct e1000_adapter *adapter = netdev->priv;
+> > 
+> > -	if (pci_enable_device(pdev)) {
+> > +	if (pci_reenable_device(pdev)) {
+> >  		printk(KERN_ERR "e1000: Cannot re-enable PCI device
+> after
+> > reset.\n");
+> >  		return PCI_ERS_RESULT_DISCONNECT;
+> >  	}
+> > Index: linux-2.6/drivers/net/ixgb/ixgb_main.c
+> > ===================================================================
+> > --- linux-2.6.orig/drivers/net/ixgb/ixgb_main.c
+> > +++ linux-2.6/drivers/net/ixgb/ixgb_main.c
+> > @@ -2294,7 +2294,7 @@ static pci_ers_result_t ixgb_io_slot_res
+> >  	struct net_device *netdev = pci_get_drvdata(pdev);
+> >  	struct ixgb_adapter *adapter = netdev_priv(netdev);
+> > 
+> > -	if(pci_enable_device(pdev)) {
+> > +	if(pci_reenable_device(pdev)) {
+> >  		DPRINTK(PROBE, ERR, "Cannot re-enable PCI device after
+> > reset.\n");
+> >  		return PCI_ERS_RESULT_DISCONNECT;
+> >  	}
+> > Index: linux-2.6/drivers/net/s2io.c
+> > ===================================================================
+> > --- linux-2.6.orig/drivers/net/s2io.c
+> > +++ linux-2.6/drivers/net/s2io.c
+> > @@ -7833,7 +7833,7 @@ static pci_ers_result_t s2io_io_slot_res
+> >  	struct net_device *netdev = pci_get_drvdata(pdev);
+> >  	struct s2io_nic *sp = netdev->priv;
+> > 
+> > -	if (pci_enable_device(pdev)) {
+> > +	if (pci_reenable_device(pdev)) {
+> >  		printk(KERN_ERR "s2io: "
+> >  		       "Cannot re-enable PCI device after reset.\n");
+> >  		return PCI_ERS_RESULT_DISCONNECT;
+> > 
+> > --
+> > -
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
