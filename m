@@ -1,53 +1,78 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [patch 1/5][RFC] NET: Change pci_enable_device	topci_reenable_device
- to keep device enable balance
-Date: Thu, 09 Aug 2007 13:49:20 -0700
-Message-ID: <46BB7DD0.1000509@intel.com>
-References: <20070802224423.GC5181@ifup.org> <78C9135A3D2ECE4B8162EBDCE82CAD7702035646@nekter> <20070809204552.GA6870@ifup.org>
+From: "Luck, Tony" <tony.luck@intel.com>
+Subject: RE: [PATCH 9/24] make atomic_read() behave consistently on ia64
+Date: Thu, 9 Aug 2007 14:03:33 -0700
+Message-ID: <617E1C2C70743745A92448908E030B2A02213B3C@scsmsx411.amr.corp.intel.com>
+References: <20070809135107.GA15985@shell.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ramkrishna Vepa <Ramkrishna.Vepa@neterion.com>,
-	netdev@vger.kernel.org, teheo@suse.de,
-	e1000-devel@lists.sourceforge.net
-To: Brandon Philips <bphilips@suse.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>, <akpm@linux-foundation.org>,
+	<ak@suse.de>, <heiko.carstens@de.ibm.com>, <davem@davemloft.net>,
+	<schwidefsky@de.ibm.com>, <wensong@linux-vs.org>,
+	<horms@verge.net.au>, <wjiang@resilience.com>,
+	<cfriesen@nortel.com>, <zlynx@acm.org>, <rpjday@mindspring.com>,
+	<jesper.juhl@gmail.com>
+To: "Chris Snook" <csnook@redhat.com>, <linux-kernel@vger.kernel.org>,
+	<linux-arch@vger.kernel.org>, <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:5928 "EHLO mga09.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:62035 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753590AbXHIUtX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2007 16:49:23 -0400
-In-Reply-To: <20070809204552.GA6870@ifup.org>
+	id S1752246AbXHIVDg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 17:03:36 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20070809135107.GA15985@shell.boston.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brandon Philips wrote:
-> On 17:30 Wed 08 Aug 2007, Ramkrishna Vepa wrote:
->> Before slot_reset event is called io_error_detected could be called
->> (where pci_disable_device() is called), right? 
+> +#define atomic_read(v)		(*(volatile __s32 *)&(v)->counter)
+> +#define atomic64_read(v)	(*(volatile __s64 *)&(v)->counter)
 > 
-> Oops!  Right, the documentation says .error_detected is _always_ called
-> before .slot_reset.  So, this patch is not correct.  Please don't merge
-> this.
-> 
-> From Documentation/pci-error-recovery.txt:
-> 
-> STEP 1: Notification
-> --------------------
-> Platform calls the error_detected() callback on every instance of
-> every driver affected by the error.
-> ...
-> 
-> If any driver requested a slot reset (by returning PCI_ERS_RESULT_NEED_RESET),
-> then recovery proceeds to STEP 4 (Slot Reset).
-> 
->> The pci_reenable_device() will call enable only if the device was
->> enabled before and would not be enabled if the device were disabled. Is
->> this the intended behavior?
-> 
-> Yes, you are right.  And no it isn't.
+>  #define atomic_set(v,i)		(((v)->counter) = (i))
+>  #define atomic64_set(v,i)	(((v)->counter) = (i))
 
 
-it would be great if you can convince Linas Vepstas to review and ack your patch 
-- he's the one who knows the error handling code the best.
+Losing the volatile from the "set" variants definitely changes
+the code generated.  Before the patch gcc would give us:
 
-Auke
+	st4.rel [r37]=r9
+
+after
+	st4 [r37]=r9
+
+It is unclear whether anyone relies on (or even whether they should
+rely on) the release semantics that are provided by the current
+version of atomic.h.  But making this change would require an
+audit of all the uses of atomic_set() to find an answer.
+
+There is a more worrying difference in the generated code (this
+from the ancient and venerable gcc 3.4.6 that is on my build
+machine).   In rwsem_down_failed_common I see this change (after
+disassembling vmlinux, I used sed to zap the low 32-bits of addresses
+to make the diff manageable ... that's why the addresses all end
+in xxxxxxxx):
+
+712868,712873c712913,712921
+< a0000001xxxxxxxx:                 adds r16=-1,r30
+< a0000001xxxxxxxx:     [MII]       ld8.acq r33=[r32]
+< a0000001xxxxxxxx:                 nop.i 0x0;;
+< a0000001xxxxxxxx:                 add r42=r33,r16
+< a0000001xxxxxxxx:     [MMI]       mov.m ar.ccv=r33;;
+< a0000001xxxxxxxx:                 cmpxchg8.acq r34=[r32],r42,ar.ccv
+---
+> a0000001xxxxxxxx:                 adds r16=-1,r31
+> a0000001xxxxxxxx:     [MMI]       ld4.acq r14=[r32];;
+> a0000001xxxxxxxx:                 nop.m 0x0
+> a0000001xxxxxxxx:                 sxt4 r34=r14
+> a0000001xxxxxxxx:     [MMI]       nop.m 0x0;;
+> a0000001xxxxxxxx:                 nop.m 0x0
+> a0000001xxxxxxxx:                 add r15=r34,r16
+> a0000001xxxxxxxx:     [MMI]       mov.m ar.ccv=r34;;
+> a0000001xxxxxxxx:                 cmpxchg8.acq r42=[r32],r15,ar.ccv
+
+This code is probably from the rwsem_atomic_update(adjustment, sem) macro
+which is cpp'd to atomic64_add_return().  It looks really bad that the new
+code reads a 32-bit value and sign extends it rather than reading a 64-bit
+value (but I'm perplexed as to why this patch provoked this change in the
+generated code).
+
+-Tony
