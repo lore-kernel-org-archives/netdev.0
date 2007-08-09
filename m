@@ -1,58 +1,78 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [RFC] Re: 2.6.20->2.6.21 - networking dies after random time
-Date: Thu, 9 Aug 2007 17:30:39 +0200
-Message-ID: <20070809153039.GB4955@ff.dom.local>
-References: <20070726085523.GA3423@ff.dom.local> <20070726091254.GA8063@elte.hu> <4bacf17f0707300029g5116e70bq4808059dc8b069f1@mail.gmail.com> <20070731132037.GC1046@ff.dom.local> <4bacf17f0708060000n5a00bb77i74adc3b4b28ac42b@mail.gmail.com> <20070806070300.GA4509@elte.hu> <46B75DD4.5080709@redhat.com> <20070806190812.GD26868@elte.hu> <20070809145026.GB3064@ff.dom.local> <p738x8kg0dp.fsf@bingen.suse.de>
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: [PATCH 1/24] make atomic_read() behave consistently on alpha
+Date: Thu, 09 Aug 2007 11:24:22 -0400
+Message-ID: <46BB31A6.4080507@redhat.com>
+References: <20070809132442.GA13042@shell.boston.redhat.com> <20070809143255.GA8424@linux.vnet.ibm.com> <46BB2A5A.5090006@redhat.com> <20070809150445.GB8424@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, Chuck Ebbert <cebbert@redhat.com>,
-	=?iso-8859-2?B?PT9pc28tODg1OS0yP3E/IE1hcmNpbiCmbHVzYXJ6Pz0=?=
-	<marcin.slusarz@gmail.com>, Thomas Gleixner <tglx@linutronix.de>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, ak@suse.de, heiko.carstens@de.ibm.com,
+	davem@davemloft.net, schwidefsky@de.ibm.com, wensong@linux-vs.org,
+	horms@verge.net.au, wjiang@resilience.com, cfriesen@nortel.com,
+	zlynx@acm.org, rpjday@mindspring.com, jesper.juhl@gmail.com
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:59228 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S940212AbXHIPaG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2007 11:30:06 -0400
-Content-Disposition: inline
-In-Reply-To: <p738x8kg0dp.fsf@bingen.suse.de>
+Received: from mx1.redhat.com ([66.187.233.31]:35339 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934429AbXHIPgI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2007 11:36:08 -0400
+In-Reply-To: <20070809150445.GB8424@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 09, 2007 at 06:04:34PM +0200, Andi Kleen wrote:
-> Jarek Poplawski <jarkao2@o2.pl> writes:
+Paul E. McKenney wrote:
+> On Thu, Aug 09, 2007 at 10:53:14AM -0400, Chris Snook wrote:
+>> Paul E. McKenney wrote:
+>>> Why not the same access-once semantics for atomic_set() as
+>>> for atomic_read()?  As this patch stands, it might introduce
+>>> architecture-specific compiler-induced bugs due to the fact that
+>>> atomic_set() used to imply volatile behavior but no longer does.
+>> When we make the volatile cast in atomic_read(), we're casting an rvalue to 
+>> volatile.  This unambiguously tells the compiler that we want to re-load 
+>> that register from memory.  What's "volatile behavior" for an lvalue?
 > 
-> > It seems, we can start to think about some preferred solutions,
-> > already. Here are some of my preliminary conclusions and suggestions.
-> > 
-> > The problem of timeouts with some 'older' network cards seems to hit
-> > mainly x86_64 arch, and after diagnosing and testing (still beeing
-> > done) it's caused by resending level type irqs.
+> I was absolutely -not- suggesting volatile behavior for lvalues.
 > 
-> i386 interrupt code should be similar, except for the lack of 
-> per CPU irqs, but that shouldnt' affect resending.
+> Instead, I am asking for volatile behavior from an -rvalue-.  In the
+> case of atomic_read(), it is the atomic_t being read from.  In the case
+> of atomic_set(), it is the atomic_t being written to.  As suggested in
+> my previous email:
 > 
-> > 
-> > Possible solutions:
-> 
-> We should probably at least add some statistic counters to the
-> standard kernel to try to detect these cases.
-> 
-> > It looks like these changes are needed for this x86_64 only,
-> 
-> Why?
+> #define atomic_set(v,i)		((*(volatile int *)&(v)->counter) = (i))
+> #define atomic64_set(v,i)	((*(volatile long *)&(v)->counter) = (i))
 
-Maybe I missed something, but considering the popularity of i386
-there was not so much of consistent reporting?! I was very surprised,
-when I read a few days ago that Linus seems to think that this one
-here is only an individual problem...
+That looks like a volatile lvalue to me.  I confess I didn't exactly ace 
+compilers.  Care to explain this?
 
-Jarek P.
+> Again, the architectures that used to have their "counter" declared
+> as volatile will lose volatile semantics on atomic_set() with your
+> patch, which might result in bugs due to overly imaginative compiler
+> optimizations.  The above would prevent any such bugs from appearing.
+> 
+>>                                                                       A 
+>> write to an lvalue already implies an eventual write to memory, so this 
+>> would be a no-op. Maybe you'll write to the register a few times before 
+>> flushing it to memory, but it will happen eventually.  With an rvalue, 
+>> there's no guarantee that it will *ever* load from memory, which is what 
+>> volatile fixes.
+>>
+>> I think what you have in mind is LOCK_PREFIX behavior, which is not the 
+>> purpose of atomic_set.  We use LOCK_PREFIX in the inline assembly for the 
+>> atomic_* operations that read, modify, and write a value, only because it 
+>> is necessary to perform that entire transaction atomically.
+> 
+> No LOCK_PREFIX, thank you!!!  I just want to make sure that the compiler
+> doesn't push the store down out of a loop, split the store, allow the
+> store to happen twice (e.g., to allow different code paths to be merged),
+> and all the other tricks that the C standard permits compilers to pull.
+
+We can't have split stores because we don't use atomic64_t on 32-bit 
+architectures.  volatile won't save you from pushing stores out of loops unless 
+you're also doing reads.  This is why we use reads to flush writes to mmio 
+registers.  In this case, an atomic_read() with volatile in it will suffice. 
+Storing twice is perfectly legal here, though it's unlikely that an optimizing 
+compiler smart enough to create the problem we're addressing would ever do that.
+
+	-- Chris
