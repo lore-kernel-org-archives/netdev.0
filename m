@@ -1,52 +1,84 @@
-From: Jerry Jiang <wjiang@resilience.com>
-Subject: Re: [PATCH] make atomic_t volatile on all architectures
-Date: Thu, 9 Aug 2007 12:59:20 +0800
-Message-ID: <20070809125920.37eb6e6d.wjiang@resilience.com>
-References: <20070808230733.GA17270@shell.boston.redhat.com>
-	<alpine.LFD.0.999.0708082116060.25146@woody.linux-foundation.org>
+From: david@lang.hm
+Subject: Re: [PATCH 00/23] per device dirty throttling -v8
+Date: Wed, 8 Aug 2007 22:11:12 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0708081949320.9909@asgard.lang.hm>
+References: <20070803123712.987126000@chello.nl>
+ <alpine.LFD.0.999.0708031518440.8184@woody.linux-foundation.org>
+ <20070804063217.GA25069@elte.hu> <20070804070737.GA940@elte.hu>
+ <Pine.LNX.4.64.0708040032570.6905@asgard.lang.hm>
+ <2c0942db0708040901x7ada0fe2mf71f37ecba51005b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Chris Snook <csnook@redhat.com>, akpm@linux-foundation.org,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	cfriesen@nortel.com, zlynx@acm.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S938462AbXHIFFX@vger.kernel.org>
-In-Reply-To: <alpine.LFD.0.999.0708082116060.25146@woody.linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Ingo Molnar <mingo@elte.hu>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>, linux-mm@kvack.org,
+	linux-kernel@vger.kernel.org, miklos@szeredi.hu,
+	akpm@linux-foundation.org, neilb@suse.de, dgc@sgi.com,
+	tomoki.sekiyama.qu@hitachi.com, nikita@clusterfs.com,
+	trond.myklebust@fys.uio.no, yingchao.zhou@gmail.com,
+	richard@rsk.demon.co.uk, netdev@vger.kernel.org
+To: Ray Lee <ray-lk@madrabbit.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl081-033-126.lax1.dsl.speakeasy.net ([64.81.33.126]:56131
+	"EHLO bifrost.lang.hm" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752399AbXHIFPf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 01:15:35 -0400
+In-Reply-To: <2c0942db0708040901x7ada0fe2mf71f37ecba51005b@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 8 Aug 2007 21:18:25 -0700 (PDT)
-Linus Torvalds <torvalds@linux-foundation.org> wrote:
+On Sat, 4 Aug 2007, Ray Lee wrote:
 
-> 
-> 
-> On Wed, 8 Aug 2007, Chris Snook wrote:
-> > 
-> > Some architectures currently do not declare the contents of an atomic_t to be
-> > volatile.  This causes confusion since atomic_read() might not actually read
-> > anything if an optimizing compiler re-uses a value stored in a register, which
-> > can break code that loops until something external changes the value of an
-> > atomic_t.
-> 
-> I'd be *much* happier with "atomic_read()" doing the "volatile" instead.
-> 
-> The fact is, volatile on data structures is a bug. It's a wart in the C 
-> language. It shouldn't be used. 
+> On 8/4/07, david@lang.hm <david@lang.hm> wrote:
+>> On Sat, 4 Aug 2007, Ingo Molnar wrote:
+>>
+> At least on a surface level, your report has some similarities to
+> http://lkml.org/lkml/2007/5/21/84 . In that message, John Miller
+> mentions several things he tried without effect:
+>
+> < - I increased the max allowed receive buffer through
+> < proc/sys/net/core/rmem_max and the application calls the right
+> < syscall. "netstat -su" does not show any "packet receive errors".
 
-Why? It's a wart! Is it due to unclear C standard on volatile related point?
+mercury1:/proc/sys/net/core# cat rmem_*
+124928
+131071
+mercury1:/proc/sys/net/core# netstat -su
+Udp:
+     697853177 packets received
+     10025642 packets to unknown port received.
+     191726680 packet receive errors
+     63194 packets sent
+     RcvbufErrors: 191726680
+UdpLite:
+mercury1:/proc/sys/net/core# echo "512000" >rmem_max
 
-Why the *volatile-accesses-in-code* is acceptable, does C standard make it clear?
+> < - After getting "kernel: swapper: page allocation failure.
+> < order:0, mode:0x20", I increased /proc/sys/vm/min_free_kbytes
 
--- Jerry
+I have not seen any similar errors
 
-> 
-> Volatile accesses in *code* can be ok, and if we have "atomic_read()" 
-> expand to a "*(volatile int *)&(x)->value", then I'd be ok with that.
-> 
-> But marking data structures volatile just makes the compiler screw up 
-> totally, and makes code for initialization sequences etc much worse.
-> 
-> 		Linus
+> < - ixgb.txt in kernel network documentation suggests to increase
+> < net.core.netdev_max_backlog to 300000. This did not help.
+
+mercury1:/proc/sys/net/core# cat netdev_*
+300
+1000
+mercury1:/proc/sys/net/core# echo "300000" >netdev_max_backlog
+
+> < - I also had to increase net.core.optmem_max, because the default
+> < value was too small for 700 multicast groups.
+
+I'm not running multicast.
+
+> As they're all pretty simple to test, it may be worthwhile to give
+> them a shot just to rule things out.
+
+unfortunantly the load is not high enough right now to see a real 
+difference (it's only doing ~1400 logs/sec) I'll catch it at a higher load 
+point to see if these make any difference.
+
+David Lang
+
+> Ray
+>
