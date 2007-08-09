@@ -1,36 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC]: napi_struct V5
-Date: Wed, 08 Aug 2007 21:35:42 -0700 (PDT)
-Message-ID: <20070808.213542.32177892.davem@davemloft.net>
-References: <1186491155.5163.68.camel@localhost>
-	<20070807.175920.15265201.davem@davemloft.net>
-	<1186575059.5171.23.camel@localhost>
+Subject: Re: [PATCH RFC]: napi_struct V6
+Date: Wed, 08 Aug 2007 21:36:03 -0700 (PDT)
+Message-ID: <20070808.213603.22125071.davem@davemloft.net>
+References: <20070807.215432.09951753.davem@davemloft.net>
+	<20070808070628.284d805c@oldman>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	jgarzik@pobox.com, rusty@rustcorp.com.au
-To: hadi@cyberus.ca
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, hadi@cyberus.ca,
+	rusty@rustcorp.com.au
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37984
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37990
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750867AbXHIEfm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 00:35:42 -0400
-In-Reply-To: <1186575059.5171.23.camel@localhost>
+	by vger.kernel.org with ESMTP id S1752057AbXHIEgD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 00:36:03 -0400
+In-Reply-To: <20070808070628.284d805c@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Wed, 08 Aug 2007 08:10:59 -0400
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Wed, 8 Aug 2007 07:06:28 -0400
 
-> Its overdue - just hasnt been anybody who has raised their hands
-> to do it. Stephen did at one point. 
-> Theres a lot of nice insights in that doc that will be nice to inherit.
-> Theres also a nice state machine diagram in 
-> http://www.kernel.org/pub/linux/kernel/people/hadi/docs/UKUUG2005.pdf
-> that will be very useful to capture in whatever new doc.
+> Documentation of NAPI still needs more work. I'll take a start at getting
+> net_device docbook format cleaned up, then start on a redo of the API
+> documentation.  
 
-Stephen said he would find time to work on this, so what I'll
-do is yank the documentation file in my napi_struct changeset
-and he can crib content from the old file and your UKUUG2005
-slides.
+Thanks for stepping up to do this Stephen.
