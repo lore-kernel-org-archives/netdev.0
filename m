@@ -1,156 +1,146 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP ports from
- the host TCP port space.
-Date: Thu, 09 Aug 2007 13:49:52 -0500
-Message-ID: <46BB61D0.4090101@opengridcomputing.com>
-References: <46B883B5.8040702@opengridcomputing.com>
+From: Unai Uribarri <unai.uribarri@optenet.com>
+Subject: Re: [PATCH 1/1] af_packet: don't enable timestamps in mmap'ed
+	sockets
+Date: Thu, 09 Aug 2007 20:50:50 +0200
+Message-ID: <1186685450.24669.81.camel@localhost.localdomain>
+References: <1186669314.24669.56.camel@localhost.localdomain>
+	 <20070809143322.GA5345@2ka.mipt.ru>
+	 <1186683234.24669.65.camel@localhost.localdomain>
+	 <20070809181823.GA32449@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>,
-	OpenFabrics General <general@lists.openfabrics.org>
-To: Roland Dreier <rdreier@cisco.com>, "David S. Miller" <davem@davemloft.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <46B883B5.8040702@opengridcomputing.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ipsec.mad.optenet.com ([213.27.232.70]:42013 "EHLO
+	mta-mad.optenet.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1759037AbXHISux (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 14:50:53 -0400
+In-Reply-To: <20070809181823.GA32449@2ka.mipt.ru>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Any more comments?
+Do not enable timestamps automatically on mmap'ed AF_PACKET sockets.
+
+---
+commit d1d6e6bf196e31b6306fd0fef95f4190983c8a86
+tree 22637506c0aafeabfbe05faf5352d0358c4d9460
+parent 6a302358d87fedaf7bda12b8e909265ebf1ce674
+author Unai Uribarri <unai.uribarri@optenet.com> Tue, 31 Jul 2007 20:38:42 +0200
+committer Unai Uribarri <unai.uribarri@optenet.com> Tue, 31 Jul 2007 20:38:42 +0200
+
+ net/packet/af_packet.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 1322d62..a4f2da3 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -640,10 +640,6 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev, struct packe
+        h->tp_snaplen = snaplen;
+        h->tp_mac = macoff;
+        h->tp_net = netoff;
+-       if (skb->tstamp.tv64 == 0) {
+-               __net_timestamp(skb);
+-               sock_enable_timestamp(sk);
+-       }
+        tv = ktime_to_timeval(skb->tstamp);
+        h->tp_sec = tv.tv_sec;
+        h->tp_usec = tv.tv_usec;
 
 
-Steve Wise wrote:
-> Networking experts,
+
+
+!-------------------------------------------------------------flip-
+
+
+Effectively disable timestamping when requested by SO_TIMESTAMP
+
+---
+commit 1fdf6bb534dfbc6e9bdf8958620b05d5334b15eb
+tree ec4b577c1704f178f0f7c5d8d69af41454fc8f14
+parent d1d6e6bf196e31b6306fd0fef95f4190983c8a86
+author Unai Uribarri <unai.uribarri@optenet.com> Tue, 31 Jul 2007 20:43:00 +0200
+committer Unai Uribarri <unai.uribarri@optenet.com> Tue, 31 Jul 2007 20:43:00 +0200
+
+ net/core/sock.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/core/sock.c b/net/core/sock.c
+index cfed7d4..3af2322 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -561,6 +561,7 @@ set_rcvbuf:
+                } else {
+                        sock_reset_flag(sk, SOCK_RCVTSTAMP);
+                        sock_reset_flag(sk, SOCK_RCVTSTAMPNS);
++                       sock_disable_timestamp(sk);
+                }
+                break;
+
+
+
+
+
+!-------------------------------------------------------------flip-
+
+
+Automatically enable timestamping on mmap'ed AF_PACKET sockets.
+
+---
+commit 4564f367ff054bd8837cc6cb1cfb9a927c57054a
+tree 3475d56cc7ea74052677c944ec0a6bf6e9f4817c
+parent 1fdf6bb534dfbc6e9bdf8958620b05d5334b15eb
+author Unai Uribarri <unai.uribarri@optenet.com> Tue, 31 Jul 2007 20:43:59 +0200
+committer Unai Uribarri <unai.uribarri@optenet.com> Tue, 31 Jul 2007 20:43:59 +0200
+
+ net/packet/af_packet.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index a4f2da3..5179daf 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1750,6 +1750,7 @@ static int packet_set_ring(struct sock *sk, struct tpacket_req *req, int closing
+
+                po->pg_vec_pages = req->tp_block_size/PAGE_SIZE;
+                po->prot_hook.func = po->pg_vec ? tpacket_rcv : packet_rcv;
++               sock_enable_timestamp(sk);
+                skb_queue_purge(&sk->sk_receive_queue);
+ #undef XC
+                if (atomic_read(&po->mapped))
+
+
+
+
+!-------------------------------------------------------------flip-
+
+
+
+On jue, 2007-08-09 at 22:18 +0400, Evgeniy Polyakov wrote:
+> On Thu, Aug 09, 2007 at 08:13:54PM +0200, Unai Uribarri (unai.uribarri@optenet.com) wrote:
+> > On jue, 2007-08-09 at 18:33 +0400, Evgeniy Polyakov wrote:
+> > > On Thu, Aug 09, 2007 at 04:21:54PM +0200, Unai Uribarri (unai.uribarri@optenet.com) wrote:
+> > > > The attached patch removes the automatic timestamp activation, that
+> > > > only mmap'ed AF_PACKET sockets perform. I known it can break user
+> > > > applications, but I believe that it's the correct solution.
+> > > 
+> > > How tcpdump with mmap libpcap will work with it?
+> > 
+> > In Linux, you can enable timestamps on any socket executing:
+> > 
+> > int val = 1;
+> > setsockopt(sock, SOL_SOCKET, SO_TIMESTAMP, &val, sizeof(val));
+> > 
+> > PD: Current release of tcpdump doesn't mmap the reception ring and
+> > timestamps packets at user space with gettimeofday. It isn't the best
+> > performing alternative, but it's portable.
+>  
+> IIRC, there was/is a libpcap which worked with mapped sockets, mybe not 
+> official though. Any application which depened on having timestamps with
+> packets will not work now. Why not to implement an
+> absolutely_turn_off_timestamps option instead of breaking compatibility?
 > 
-> I'd like input on the patch below, and help in solving this bug 
-> properly.  iWARP devices that support both native stack TCP and iWARP 
-> (aka RDMA over TCP/IP/Ethernet) connections on the same interface need 
-> the fix below or some similar fix to the RDMA connection manager.
-> 
-> This is a BUG in the Linux RDMA-CMA code as it stands today.
-> 
-> Here is the issue:
-> 
-> Consider an mpi cluster running mvapich2.  And the cluster runs 
-> MPI/Sockets jobs concurrently with MPI/RDMA jobs.  It is possible, 
-> without the patch below, for MPI/Sockets processes to mistakenly get 
-> incoming RDMA connections and vice versa.  The way mvapich2 works is 
-> that the ranks all bind and listen to a random port (retrying new random 
-> ports if the bind fails with "in use").  Once they get a free port and
-> bind/listen, they advertise that port number to the peers to do 
-> connection setup.  Currently, without the patch below, the mpi/rdma 
-> processes can end up binding/listening to the _same_ port number as the 
-> mpi/sockets processes running over the native tcp stack.  This is due to 
-> duplicate port spaces for native stack TCP and the rdma cm's RDMA_PS_TCP 
-> port space.  If this happens, then the connections can get screwed up.
-> 
-> The correct solution in my mind is to use the host stack's TCP port 
-> space for _all_ RDMA_PS_TCP port allocations.   The patch below is a 
-> minimal delta to unify the port spaces by using the kernel stack to bind 
-> ports.  This is done by allocating a kernel socket and binding to the 
-> appropriate local addr/port.  It also allows the kernel stack to pick 
-> ephemeral ports by virtue of just passing in port 0 on the kernel bind 
-> operation.
-> 
-> There has been a discussion already on the RDMA list if anyone is 
-> interested:
-> 
-> http://www.mail-archive.com/general@lists.openfabrics.org/msg05162.html
-> 
-> 
-> Thanks,
-> 
-> Steve.
-> 
-> 
-> ---
-> 
-> RDMA/CMA: Allocate PS_TCP ports from the host TCP port space.
-> 
-> This is needed for iwarp providers that support native and rdma
-> connections over the same interface.
-> 
-> Signed-off-by: Steve Wise <swise@opengridcomputing.com>
-> ---
-> 
-> drivers/infiniband/core/cma.c |   27 ++++++++++++++++++++++++++-
-> 1 files changed, 26 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-> index 9e0ab04..e4d2d7f 100644
-> --- a/drivers/infiniband/core/cma.c
-> +++ b/drivers/infiniband/core/cma.c
-> @@ -111,6 +111,7 @@ struct rdma_id_private {
->     struct rdma_cm_id    id;
-> 
->     struct rdma_bind_list    *bind_list;
-> +    struct socket        *sock;
->     struct hlist_node    node;
->     struct list_head    list;
->     struct list_head    listen_list;
-> @@ -695,6 +696,8 @@ static void cma_release_port(struct rdma
->         kfree(bind_list);
->     }
->     mutex_unlock(&lock);
-> +    if (id_priv->sock)
-> +        sock_release(id_priv->sock);
-> }
-> 
-> void rdma_destroy_id(struct rdma_cm_id *id)
-> @@ -1790,6 +1793,25 @@ static int cma_use_port(struct idr *ps,
->     return 0;
-> }
-> 
-> +static int cma_get_tcp_port(struct rdma_id_private *id_priv)
-> +{
-> +    int ret;
-> +    struct socket *sock;
-> +
-> +    ret = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, &sock);
-> +    if (ret)
-> +        return ret;
-> +    ret = sock->ops->bind(sock,
-> +              (struct sockaddr *)&id_priv->id.route.addr.src_addr,
-> +              ip_addr_size(&id_priv->id.route.addr.src_addr));
-> +    if (ret) {
-> +        sock_release(sock);
-> +        return ret;
-> +    }
-> +    id_priv->sock = sock;
-> +    return 0;   
-> +}
-> +
-> static int cma_get_port(struct rdma_id_private *id_priv)
-> {
->     struct idr *ps;
-> @@ -1801,6 +1823,9 @@ static int cma_get_port(struct rdma_id_p
->         break;
->     case RDMA_PS_TCP:
->         ps = &tcp_ps;
-> +        ret = cma_get_tcp_port(id_priv); /* Synch with native stack */
-> +        if (ret)
-> +            goto out;
->         break;
->     case RDMA_PS_UDP:
->         ps = &udp_ps;
-> @@ -1815,7 +1840,7 @@ static int cma_get_port(struct rdma_id_p
->     else
->         ret = cma_use_port(ps, id_priv);
->     mutex_unlock(&lock);
-> -
-> +out:
->     return ret;
-> }
-> 
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
