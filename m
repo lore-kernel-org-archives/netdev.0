@@ -1,55 +1,35 @@
-From: Aurelien Jarno <aurelien@aurel32.net>
-Subject: Re: [PATCH] SSB PCI core driver fixes
-Date: Thu, 09 Aug 2007 02:38:24 +0200
-Message-ID: <46BA6200.4060306@aurel32.net>
-References: <20070809002353.GA4594@hall.aurel32.net> <200708090227.06510.mb@bu3sch.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] make atomic_t volatile on all architectures
+Date: Wed, 08 Aug 2007 18:48:24 -0700 (PDT)
+Message-ID: <20070808.184824.133910636.davem@davemloft.net>
+References: <20070808230733.GA17270@shell.boston.redhat.com>
+	<E1IIwQx-000468-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Michael Buesch <mb@bu3sch.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: csnook@redhat.com, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, ak@suse.de,
+	heiko.carstens@de.ibm.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, schwidefsky@de.ibm.com,
+	wensong@linux-vs.org, horms@verge.net.au, wjiang@resilience.com,
+	cfriesen@nortel.com, zlynx@acm.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hall.aurel32.net ([88.191.38.19]:47613 "EHLO hall.aurel32.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754175AbXHIB0S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Aug 2007 21:26:18 -0400
-In-Reply-To: <200708090227.06510.mb@bu3sch.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57196
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756466AbXHIBsY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 21:48:24 -0400
+In-Reply-To: <E1IIwQx-000468-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Buesch a =E9crit :
-> On Thursday 09 August 2007, Aurelien Jarno wrote:
->>  - Add some delay between the configuration of the PCI controller=20
->>    and its registration.
->=20
-> Why? It is _huge_ and people won't like it ;)
-> At least add a comment why this is needed.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 09 Aug 2007 09:03:27 +0800
 
-It is need, otherwise the PCI controller gets confused, which causes a
-reset of the machine. Then CFE goes into a loop booting again and again
-without being able to get up to the prompt.
+> Such loops should always use something like cpu_relax() which comes
+> with a barrier.
 
-I agree this is a huge value, so I will try to find the minimum value
-and then add some margin.
+This is an excellent point.
 
-I will send an updated patch.
-
->> @@ -340,6 +345,7 @@
->>  	 * The following needs change, if we want to port hostmode
->>  	 * to non-MIPS platform. */
->>  	set_io_port_base((unsigned long)ioremap_nocache(SSB_PCI_MEM, 0x040=
-00000));
->> +	mdelay(300);
->>  	register_pci_controller(&ssb_pcicore_controller);
->>  }
->>
->=20
->=20
->=20
-
-
---=20
-  .''`.  Aurelien Jarno	            | GPG: 1024D/F1BCDB73
- : :' :  Debian developer           | Electrical Engineer
- `. `'   aurel32@debian.org         | aurelien@aurel32.net
-   `-    people.debian.org/~aurel32 | www.aurel32.net
+And it needs to be weighed with the error prone'ness Andrew mentioned.
+There probably is a middle ground somewhere.
