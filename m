@@ -1,70 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-2.6.24 GIT state
-Date: Thu, 09 Aug 2007 04:10:34 -0700 (PDT)
-Message-ID: <20070809.041034.93473045.davem@davemloft.net>
-References: <20070809.022823.31781972.davem@davemloft.net>
-	<Pine.LNX.4.64.0708091233050.24369@kivilampi-30.cs.helsinki.fi>
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: [PATCH] make atomic_t volatile on all architectures
+Date: Thu, 09 Aug 2007 07:44:08 -0400
+Message-ID: <46BAFE08.5070906@redhat.com>
+References: <E1IIwQx-000468-00@gondolin.me.apana.org.au> <46BAC6AD.7050603@redhat.com> <20070809083055.GA19048@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59834
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1760191AbXHILKf convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2007 07:10:35 -0400
-In-Reply-To: <Pine.LNX.4.64.0708091233050.24369@kivilampi-30.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org
+To: Herbert Xu <herbert.xu@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S939041AbXHILo5@vger.kernel.org>
+In-Reply-To: <20070809083055.GA19048@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Thu, 9 Aug 2007 12:50:51 +0300 (EEST)
+Herbert Xu wrote:
+> On Thu, Aug 09, 2007 at 03:47:57AM -0400, Chris Snook wrote:
+>> If they're not doing anything, sure.  Plenty of loops actually do some sort 
+>> of real work while waiting for their halt condition, possibly even work 
+>> which is necessary for their halt condition to occur, and you definitely 
+>> don't want to be doing cpu_relax() in this case.  On register-rich 
+>> architectures you can do quite a lot of work without needing to reuse the 
+>> register containing the result of the atomic_read().  Those are precisely 
+>> the architectures where barrier() hurts the most.
+> 
+> I have a problem with this argument.  The same loop could be
+> using a non-atomic as long as the updaters are serialised.  Would
+> you suggest that we turn such non-atomics into volatiles too?
 
-> At least these are trivial to take (after rebase, some come nicely ev=
-en=20
-> from the before tree):
->=20
-> 40564051bdb237231e625ba674fdedf6e8373027 [TCP]: Remove num_acked>0 ch=
-ecks from cong.ctrl mods pkts_acked
-> 4c035cd78a6b60710b0dda4f62339df070f761c8 [TCP]: Add tcp_dec_pcount_ap=
-prox int variant
-> ed2753b0b463df41c10121ce494d51428047fcbc [TCP]: Move code from tcp_ec=
-n.h to tcp*.c and tcp.h & remove it
-> c215314c6ea0261865d3df09f375016f3dcadeba [TCP]: Access to highest_sac=
-k obsoletes forward_cnt_hint
-> 9e5f432fb247af2f0062c3c57d7f45d511692f26 [TCP] FRTO: remove unnecessa=
-ry fackets/sacked_out recounting
-> 96001b306c60cb969d456ac70e376220db97e54a [TCP]: Move Reno SACKed_out =
-counter functions earlier
-> 318cf753170367504cfac07ac89e97befb1ca501 [TCP]: Extract DSACK detecti=
-on code from tcp_sacktag_write_queue().
-> a2539974b098065ebe02ad11a6411df4f56ba0ed [TCP]: Rexmit hint must be c=
-leared instead of setting it
->   - Could be combined with the extrator as it's really a bug fix, onc=
-e=20
->     rxmit cnt hint gets dropped, we can add this back as optimization=
- :-).
-> 2fea67411f0c89642fa4abc0490b65c7852a1202 [TCP]: Extracted rexmit hint=
- clearing from the LOST marking code
-> 1fba6548b2ecc2d513981898247472d1183329c5 [TCP]: Add highest_sack seqn=
-o, points to globally highest SACK
+No.  I'm simply saying that when people call atomic_read, they expect a read to 
+occur.  When this doesn't happen, people get confused.  Merely referencing a 
+variable doesn't carry the same connotation.
 
-Ok, in order to get this started I merged the above patches
-into net-2.6.24
+Anyway, I'm taking Linus's advice and putting the cast in atomic_read(), rather 
+than the counter declaration itself.  Everything else uses __asm__ __volatile__, 
+or calls atomic_read() with interrupts disabled.  This ensures that 
+atomic_read() works as expected across all architectures, without the cruft the 
+compiler generates when you declare the variable itself volatile.
 
-I'm exhausted and done for today. :-)
+> Any loop that's waiting for an external halt condition either
+> has to schedule away (which is a barrier) or you'd be busy
+> waiting in which case you should use cpu_relax.
 
-We can work on the other bits next.  Note that patches like the
-"Create tcp_sacktag_foo" ones are just mechanical transformations
-and thus if the conflicts are huge they can just be reimplemented
-by hand.
+Not necessarily.  Some code uses atomic_t for a sort of lightweight semaphore. 
+If your loop is actually doing real work, perhaps in a softirq handler 
+negotiating shared resources with a hard irq handler, you're not busy-waiting.
 
-> ...Taking IsReno/IsFack removal is probably going to be hardest one, =
-as it=20
-> will conflict a lot. ...Maybe some sed work in patches would reduce #=
- of=20
-> conflicts instead of trying cherry-pick+rebase.
+> Do you have an example where this isn't the case?
 
-Yes, such patch hand editing techniques can help in these cases.
+a) No, and that's sort of the point.  We shouldn't have to audit the whole 
+kernel to find cases where a misleadingly-named function is doing what its users 
+are not expecting.  If we can make it always do the right thing without any 
+substantial drawbacks, we should.
+
+b) Loops are just one case, which came to mind because of the IPVS bug recently 
+discussed.  I recall seeing some scheduler code recently which does an 
+atomic_read() twice on the same variable, with a barrier in between.  It's in a 
+very hot path, so if we can remove that barrier, we save a bunch of register 
+loads.  When you're context switching every microsecond in SCHED_RR, that really 
+matters.
+
+	-- Chris
