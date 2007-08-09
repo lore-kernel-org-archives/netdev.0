@@ -1,43 +1,49 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 6/14] nes: hardware init
-Date: Thu, 9 Aug 2007 11:56:44 +0100
-Message-ID: <20070809115644.479a872c@oldman.hamilton.local>
-References: <200708080105.l7815pC3004792@neteffect.com>
-	<46B92342.9090802@garzik.org>
-	<5E701717F2B2ED4EA60F87C8AA57B7CC07443E4D@venom2>
+From: Herbert Xu <herbert.xu@redhat.com>
+Subject: Re: [PATCH] make atomic_t volatile on all architectures
+Date: Thu, 9 Aug 2007 16:30:55 +0800
+Message-ID: <20070809083055.GA19048@gondor.apana.org.au>
+References: <E1IIwQx-000468-00@gondolin.me.apana.org.au> <46BAC6AD.7050603@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Jeff Garzik" <jeff@garzik.org>, <rdreier@cisco.com>,
-	<ewg@lists.openfabrics.org>, <netdev@vger.kernel.org>
-To: "Glenn Grundstrom" <ggrundstrom@NetEffect.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org
+To: Chris Snook <csnook@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:34282 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755762AbXHIK42 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 06:56:28 -0400
-In-Reply-To: <5E701717F2B2ED4EA60F87C8AA57B7CC07443E4D@venom2>
+Received: from rhun.apana.org.au ([64.62.148.172]:2147 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1762331AbXHILJG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 07:09:06 -0400
+Content-Disposition: inline
+In-Reply-To: <46BAC6AD.7050603@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-More comments
+On Thu, Aug 09, 2007 at 03:47:57AM -0400, Chris Snook wrote:
+>
+> If they're not doing anything, sure.  Plenty of loops actually do some sort 
+> of real work while waiting for their halt condition, possibly even work 
+> which is necessary for their halt condition to occur, and you definitely 
+> don't want to be doing cpu_relax() in this case.  On register-rich 
+> architectures you can do quite a lot of work without needing to reuse the 
+> register containing the result of the atomic_read().  Those are precisely 
+> the architectures where barrier() hurts the most.
 
->---
->diff -Nurp NULL ofa_kernel-1.2/drivers/infiniband/hw/nes/nes_hw.c
->--- NULL	1969-12-31 18:00:00.000000000 -0600
->+++ ofa_kernel-1.2/drivers/infiniband/hw/nes/nes_hw.c	2007-08-06 20:09:04.000000000 -0500
->+
->+#include "nes.h"
->+u32 crit_err_count = 0;
+I have a problem with this argument.  The same loop could be
+using a non-atomic as long as the updaters are serialised.  Would
+you suggest that we turn such non-atomics into volatiles too?
 
-Possible global namespace conflict.  You should make sure all global
-symbols start with something specfic to driver like "nes_".
+Any loop that's waiting for an external halt condition either
+has to schedule away (which is a barrier) or you'd be busy
+waiting in which case you should use cpu_relax.
 
->+#include "nes_cm.h"
->+
->+
->+#ifdef NES_DEBUG
->+static unsigned char *nes_iwarp_state_str[] = {
+Do you have an example where this isn't the case?
 
-Why use unsigned char? This should be "static const char *"
-Maybe use gcc array initilaizers.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
