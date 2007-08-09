@@ -1,45 +1,58 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: [PATCH 7/24] make atomic_read() behave consistently on h8300
-Date: Thu, 9 Aug 2007 09:44:51 -0400
-Message-ID: <20070809134451.GA15406@shell.boston.redhat.com>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: 2.6.23-rc2-mm1: e1000e global symbols must be renamed
+Date: Thu, 9 Aug 2007 15:51:31 +0200
+Message-ID: <20070809135131.GN6997@stusta.de>
+References: <20070809015106.cd0bfc53.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, ak@suse.de,
-	heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com
-To: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	torvalds@linux-foundation.org
+Content-Type: text/plain; charset=utf-8
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>,
+	e1000-devel@lists.sourceforge.net, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:45877 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1764050AbXHINuo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2007 09:50:44 -0400
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:56058 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S939606AbXHINvr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 09:51:47 -0400
 Content-Disposition: inline
+In-Reply-To: <20070809015106.cd0bfc53.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Chris Snook <csnook@redhat.com>
+On Thu, Aug 09, 2007 at 01:51:06AM -0700, Andrew Morton wrote:
+>...
+> - There is a new e1000 driver in git-netdev-all, called e1000e.  I'm sure
+>   the developers would like it tested.  Please cc netdev@vger.kernel.org on
+>   any reports.
+>...
+> Changes since 2.6.23-rc2-mm1:
+>...
+>  git-netdev-all.patch
+>...
+>  git trees
+>...
 
-Make atomic_read() volatile on h8300.  This ensures that busy-waiting
-for an interrupt handler to change an atomic_t won't get compiled to an
-infinite loop, consistent with SMP architectures.
+<--  snip  -->
 
-Signed-off-by: Chris Snook <csnook@redhat.com>
+...
+  LD      drivers/net/built-in.o
+drivers/net/e1000e/built-in.o: In function `e1000_read_mac_addr':
+(.text+0x3470): multiple definition of `e1000_read_mac_addr'
+drivers/net/e1000/built-in.o:(.text+0xb6cc): first defined here
+drivers/net/e1000e/built-in.o: In function `e1000_set_ethtool_ops':
+(.text+0x594d): multiple definition of `e1000_set_ethtool_ops'
+drivers/net/e1000/built-in.o:(.text+0xc97a): first defined here
+...
+make[3]: *** [drivers/net/built-in.o] Error 1
 
---- linux-2.6.23-rc2-orig/include/asm-h8300/atomic.h	2007-07-08 19:32:17.000000000 -0400
-+++ linux-2.6.23-rc2/include/asm-h8300/atomic.h	2007-08-09 06:45:43.000000000 -0400
-@@ -9,7 +9,11 @@
- typedef struct { int counter; } atomic_t;
- #define ATOMIC_INIT(i)	{ (i) }
- 
--#define atomic_read(v)		((v)->counter)
-+/*
-+ * Casting to volatile here minimizes the need for barriers,
-+ * without having to declare the type itself as volatile.
-+ */
-+#define atomic_read(v)		(*(volatile int *)&(v)->counter)
- #define atomic_set(v, i)	(((v)->counter) = i)
- 
- #include <asm/system.h>
+<--  snip  -->
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
