@@ -1,34 +1,40 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: Re: [PATCH] make atomic_t volatile on all architectures
-Date: Thu, 09 Aug 2007 13:36:11 -0400
-Message-ID: <46BB508B.7050601@redhat.com>
-References: <20070808230733.GA17270@shell.boston.redhat.com> <alpine.LFD.0.999.0708082116060.25146@woody.linux-foundation.org> <46BAC2BE.1090106@redhat.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH RFC]: napi_struct V5
+Date: Thu, 09 Aug 2007 10:49:35 -0700
+Message-ID: <adawsw4mwcw.fsf@cisco.com>
+References: <20070807.160651.98554604.davem@davemloft.net>
+	<OFA2F18805.38AA0BD0-ON87257331.005367FB-88257331.0027BEED@us.ibm.com>
+	<20070808.152059.101495015.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	akpm@linux-foundation.org, ak@suse.de, heiko.carstens@de.ibm.com,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, schwidefsky@de.ibm.com,
-	wensong@linux-vs.org, horms@verge.net.au, wjiang@resilience.com,
-	cfriesen@nortel.com, zlynx@acm.org
-To: Chris Snook <csnook@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: xma@us.ibm.com, hadi@cyberus.ca, jgarzik@pobox.com,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	rusty@rustcorp.com.au, shemminger@linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:58688 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965112AbXHIRmV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2007 13:42:21 -0400
-In-Reply-To: <46BAC2BE.1090106@redhat.com>
+Received: from sj-iport-3-in.cisco.com ([171.71.176.72]:14639 "EHLO
+	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750893AbXHIRtm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 13:49:42 -0400
+In-Reply-To: <20070808.152059.101495015.davem@davemloft.net> (David Miller's message of "Wed, 08 Aug 2007 15:20:59 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/09/2007 03:31 AM, Chris Snook wrote:
-> 
-> Fair enough.  Casting to (volatile int *) will give us the behavior
-> people expect when using atomic_t without needing to use inefficient
-> barriers.
-> 
+ > > Dave, could you please hold this portion of the patch for a moment. I will
+ > > test this patch ASAP. According to our previous experience, this changes
+ > > significant changes some IPoIB driver performance.
+ > 
+ > I reverted everything Roland had an issue with, I got tired of arguing
+ > my position and doing all of the coding too.  He won.
 
-You can use this forget() macro to make the compiler reread a variable:
+Why does this have to become a contest of wills where someone wins?  I
+wish we could just have a technical discussion and get to the best
+solution.  You posted an RFC, and I commented on the parts where I
+believe I have some expertise.  We're all on the same side here.
 
-#define forget(var) asm volatile ("" : "=m"(var))
+Shirley, I think it would still be useful to run benchmarks of IPoIB
+on ehca with Dave's NAPI patches, both V5 that changed the "missed
+event" behavior and V6 that didn't.  At least I'm curious to know how
+much the difference is.
+
+ - R.
