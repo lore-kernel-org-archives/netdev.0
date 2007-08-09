@@ -1,7 +1,7 @@
 From: Chris Snook <csnook@redhat.com>
-Subject: [PATCH 18/24] make atomic_read() behave consistently on sh
-Date: Thu, 9 Aug 2007 10:10:34 -0400
-Message-ID: <20070809141034.GA18253@shell.boston.redhat.com>
+Subject: [PATCH 19/24] make atomic_read() behave consistently on sparc64
+Date: Thu, 9 Aug 2007 10:12:05 -0400
+Message-ID: <20070809141205.GA18672@shell.boston.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, ak@suse.de,
@@ -12,37 +12,42 @@ Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, ak@suse.de,
 To: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
 	torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:53749 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([66.187.233.31]:54325 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934939AbXHIOLI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2007 10:11:08 -0400
+	id S940399AbXHIOMq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2007 10:12:46 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Chris Snook <csnook@redhat.com>
 
-Purify volatile use for atomic_t on sh.
+Purify volatile use for atomic[64]_t on sparc64.
 
 Signed-off-by: Chris Snook <csnook@redhat.com>
 
---- linux-2.6.23-rc2-orig/include/asm-sh/atomic.h	2007-07-08 19:32:17.000000000 -0400
-+++ linux-2.6.23-rc2/include/asm-sh/atomic.h	2007-08-09 07:21:33.000000000 -0400
-@@ -7,11 +7,15 @@
-  *
-  */
+--- linux-2.6.23-rc2-orig/include/asm-sparc64/atomic.h	2007-07-08 19:32:17.000000000 -0400
++++ linux-2.6.23-rc2/include/asm-sparc64/atomic.h	2007-08-09 07:48:01.000000000 -0400
+@@ -11,14 +11,18 @@
+ #include <linux/types.h>
+ #include <asm/system.h>
  
 -typedef struct { volatile int counter; } atomic_t;
+-typedef struct { volatile __s64 counter; } atomic64_t;
 +typedef struct { int counter; } atomic_t;
++typedef struct { __s64 counter; } atomic64_t;
  
- #define ATOMIC_INIT(i)	( (atomic_t) { (i) } )
+ #define ATOMIC_INIT(i)		{ (i) }
+ #define ATOMIC64_INIT(i)	{ (i) }
  
 -#define atomic_read(v)		((v)->counter)
+-#define atomic64_read(v)	((v)->counter)
 +/*
 + * Casting to volatile here minimizes the need for barriers,
 + * without having to declare the type itself as volatile.
 + */
 +#define atomic_read(v)		(*(volatile int *)&(v)->counter)
- #define atomic_set(v,i)		((v)->counter = (i))
++#define atomic64_read(v)	(*(volatile __s64 *)&(v)->counter)
  
- #include <linux/compiler.h>
+ #define atomic_set(v, i)	(((v)->counter) = i)
+ #define atomic64_set(v, i)	(((v)->counter) = i)
