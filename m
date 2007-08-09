@@ -1,47 +1,63 @@
 From: Segher Boessenkool <segher@kernel.crashing.org>
 Subject: Re: [PATCH 24/24] document volatile atomic_read() behavior
-Date: Fri, 10 Aug 2007 00:23:47 +0200
-Message-ID: <9452870655b1844283961f8e9e406464@kernel.crashing.org>
-References: <20070809142430.GA19817@shell.boston.redhat.com> <8f6bb8a9e4f2819a161d732bdb6c70c0@kernel.crashing.org> <46BB403D.10202@redhat.com> <0a08872e608cf5f7a3d9c0fc746a1051@kernel.crashing.org> <46BB74B9.4070702@nortel.com>
+Date: Fri, 10 Aug 2007 00:34:58 +0200
+Message-ID: <072b6e3f812a116d3972cef8e76c57f1@kernel.crashing.org>
+References: <20070809142430.GA19817@shell.boston.redhat.com> <8f6bb8a9e4f2819a161d732bdb6c70c0@kernel.crashing.org> <46BB403D.10202@redhat.com> <0a08872e608cf5f7a3d9c0fc746a1051@kernel.crashing.org> <46BB7371.7060008@redhat.com>
 Mime-Version: 1.0 (Apple Message framework v623)
 Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: wjiang@resilience.com, rpjday@mindspring.com, wensong@linux-vs.org,
+Cc: wjiang@resilience.com, wensong@linux-vs.org,
 	heiko.carstens@de.ibm.com, linux-kernel@vger.kernel.org,
-	ak@suse.de, netdev@vger.kernel.org, horms@verge.net.au,
-	akpm@linux-foundation.org, linux-arch@vger.kernel.org,
-	jesper.juhl@gmail.com, torvalds@linux-foundation.org,
+	ak@suse.de, cfriesen@nortel.com, netdev@vger.kernel.org,
+	horms@verge.net.au, akpm@linux-foundation.org,
+	linux-arch@vger.kernel.org, torvalds@linux-foundation.org,
 	schwidefsky@de.ibm.com, davem@davemloft.net, zlynx@acm.org,
-	Chris Snook <csnook@redhat.com>
-To: "Chris Friesen" <cfriesen@nortel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:39499 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753453AbXHIWYw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2007 18:24:52 -0400
-In-Reply-To: <46BB74B9.4070702@nortel.com>
-Sender: netdev-owner@vger.kernel.org
+	rpjday@mindspring.com, jesper.juhl@gmail.com
+To: Chris Snook <csnook@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756557AbXHIWg0@vger.kernel.org>
+In-Reply-To: <46BB7371.7060008@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 >> Anyway, what's the supposed advantage of *(volatile *) vs. using
 >> a real volatile object?  That you can access that same object in
 >> a non-volatile way?
 >
-> That's my understanding.  That way accesses where you don't care about 
-> volatility may be optimised.
+> You'll have to take that up with Linus and the minds behind Volatile 
+> Considered Harmful, but the crux of it is that volatile objects are 
+> prone to compiler bugs too, and if we have to track down a compiler 
+> bug, it's a lot easier when we know exactly where the load is supposed 
+> to be because we deliberately put it there, rather than letting the 
+> compiler re-order everything that lacks a strict data dependency and 
+> trying to figure out where in a thousand lines of assembler the 
+> compiler should have put the load for the volatile object.
 
-But those accesses might be done non-atomically then (for example,
-if the compiler knows it only needs to write one byte, it might not
-bother writing the rest), so that's no good if you want to read the
-thing atomically too.
+So, why not do the access explicitly via an inline asm?  It
+generates the same code, it's obviously correct, and it's
+even *actually* correct.  Plus, you get good compiler
+support (and compiler people support).
 
-> For instance, in cases where there are already other things 
-> controlling visibility (as are needed for atomic increment, for 
-> example) you don't need to make the access itself volatile.
+> If we're going to assume that the compiler has bugs we'll never be 
+> able to find, we all need to find new careers.
 
-Hrm, you mean within a lock or similar?  You'll get the same semantics
-as volatile anyway there.
+If we cannot find the bug in finite time, we cannot observe
+the bug in finite time either, so either way that's fine :-)
+
+> If we're going to assume that it has bugs we *can* find, then let's 
+> use code that makes it easier to do that.
+
+And I'm saying this is a step in the wrong direction for that.
+
+> I initially proposed a patch that made all the objects volatile, on 
+> the grounds that this was a special case where there wasn't much room 
+> to have a misunderstanding that resulted in anything worse than wasted 
+> loads.  Linus objected, and now that I've seen all the responses to 
+> the new patchset, I understand exactly why.  If our compilers really 
+> suck as much as everyone says they do, it'll be much easier to detect 
+> that with volatile casts than with volatile declarations.
+
+Except that accesses via volatile pointer casts open up a whole
+new can of worms.
 
 
 Segher
-
