@@ -1,63 +1,61 @@
-From: Unai Uribarri <unai.uribarri@optenet.com>
-Subject: [PATCH 1/1] af_packet: don't enable timestamps in mmap'ed sockets
-Date: Thu, 09 Aug 2007 16:21:54 +0200
-Message-ID: <1186669314.24669.56.camel@localhost.localdomain>
+From: Chris Snook <csnook@redhat.com>
+Subject: [PATCH 24/24] document volatile atomic_read() behavior
+Date: Thu, 9 Aug 2007 10:24:30 -0400
+Message-ID: <20070809142430.GA19817@shell.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, ak@suse.de,
+	heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com
+To: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ipsec.mad.optenet.com ([213.27.232.70]:41417 "EHLO
-	mta-mad.optenet.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S964952AbXHIOV5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 10:21:57 -0400
+Received: from mx1.redhat.com ([66.187.233.31]:58311 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S936719AbXHIOZG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2007 10:25:06 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello folks,
+From: Chris Snook <csnook@redhat.com>
 
-I've discovered two strange behaviours (bugs?) about timestamp
-generation:
+Update atomic_ops.txt to reflect the newly consistent behavior of
+atomic_read(), and to note that volatile (in declarations) is now
+considered harmful.
 
-1. If a program opens an AF_PACKET socket and setup a reception ring
-with setsockopt(sock, SOL_PACKET, PACKET_RX_RING), timestamps are
-automatically (re)enabled at the reception of every packet.
+Signed-off-by: Chris Snook <csnook@redhat.com>
 
-2. Setting SOL_SOCKET/SO_TIMESTAMP to 0 doesn't disables timestamp
-generation. Every skb continues begin timestamped until you close the
-socket that activated it.
-
-
-Timestamp generation is a heavy task that is consuming more than 50% of
-the CPU (using ACPI PM clock) and is currently the bottleneck in my
-packet capturing application.
-
-The attached patch removes the automatic timestamp activation, that
-only mmap'ed AF_PACKET sockets perform. I known it can break user
-applications, but I believe that it's the correct solution.
-
-I will be very pleased to receive any feedback.
-
-Signed-off-by: Unai Uribarri <unai.uribarri@optenet.com>
-
----
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 1322d62..a4f2da3 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -640,10 +640,6 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev, struct packe
-        h->tp_snaplen = snaplen;
-        h->tp_mac = macoff;
-        h->tp_net = netoff;
--       if (skb->tstamp.tv64 == 0) {
--               __net_timestamp(skb);
--               sock_enable_timestamp(sk);
--       }
-        tv = ktime_to_timeval(skb->tstamp);
-        h->tp_sec = tv.tv_sec;
-        h->tp_usec = tv.tv_usec;
-
-
-
+--- linux-2.6.23-rc2-orig/Documentation/atomic_ops.txt	2007-07-08 19:32:17.000000000 -0400
++++ linux-2.6.23-rc2/Documentation/atomic_ops.txt	2007-08-09 08:24:32.000000000 -0400
+@@ -12,7 +12,7 @@
+ C integer type will fail.  Something like the following should
+ suffice:
+ 
+-	typedef struct { volatile int counter; } atomic_t;
++	typedef struct { int counter; } atomic_t;
+ 
+ 	The first operations to implement for atomic_t's are the
+ initializers and plain reads.
+@@ -38,9 +38,17 @@
+ 
+ Next, we have:
+ 
+-	#define atomic_read(v)	((v)->counter)
++	#define atomic_read(v)	(*(volatile int *)&(v)->counter)
+ 
+-which simply reads the current value of the counter.
++which reads the counter as though it were volatile.  This prevents the
++compiler from optimizing away repeated atomic_read() invocations without
++requiring a more expensive barrier().  Historically this has been
++accomplished by declaring the counter itself to be volatile, but the
++ambiguity of the C standard on the semantics of volatile make this practice
++vulnerable to overly creative interpretation by compilers.  Explicit
++casting in atomic_read() ensures consistent behavior across architectures
++and compilers.  Even with this convenience in atomic_read(), busy-waiters
++should call cpu_relax().
+ 
+ Now, we move onto the actual atomic operation interfaces.
+ 
