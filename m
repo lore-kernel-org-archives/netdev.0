@@ -1,50 +1,49 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] e1000e: Fix header includes
-Date: Thu, 09 Aug 2007 16:15:11 -0700
-Message-ID: <46BB9FFF.3080508@intel.com>
-References: <20070808231525.27519.93728.stgit@localhost.localdomain> <46BB9DEA.9060406@redhat.com>
+From: Sean Hefty <mshefty@ichips.intel.com>
+Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP ports
+ from the host TCP port space.
+Date: Thu, 09 Aug 2007 16:22:46 -0700
+Message-ID: <46BBA1C6.9010702@ichips.intel.com>
+References: <46B883B5.8040702@opengridcomputing.com>	<46BB61D0.4090101@opengridcomputing.com>	<46BB89C0.4040303@ichips.intel.com> <20070809.145534.102938208.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	john.ronciak@intel.com
-To: Chuck Ebbert <cebbert@redhat.com>, jeff@garzik.org
+Cc: swise@opengridcomputing.com, rdreier@cisco.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:18795 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754201AbXHIXPO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2007 19:15:14 -0400
-In-Reply-To: <46BB9DEA.9060406@redhat.com>
+Received: from mga06.intel.com ([134.134.136.21]:27744 "EHLO
+	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752799AbXHIXWt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 19:22:49 -0400
+In-Reply-To: <20070809.145534.102938208.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chuck Ebbert wrote:
-> On 08/08/2007 07:15 PM, Auke Kok wrote:
->> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
->> ---
->>
->>  drivers/net/e1000e/82571.c   |    4 ++++
->>  drivers/net/e1000e/e1000.h   |    7 ++++---
->>  drivers/net/e1000e/es2lan.c  |    5 +++++
->>  drivers/net/e1000e/ethtool.c |    3 ++-
->>  drivers/net/e1000e/hw.h      |    2 ++
->>  drivers/net/e1000e/ich8lan.c |    5 +++++
->>  drivers/net/e1000e/lib.c     |    2 ++
->>  drivers/net/e1000e/netdev.c  |    1 +
->>  8 files changed, 25 insertions(+), 4 deletions(-)
->>
-> 
-> Still broken on ppc:
-> 
-> drivers/net/e1000e/phy.c: In function 'e1000e_copper_link_setup_igp':
-> drivers/net/e1000e/phy.c:512: error: implicit declaration of function 'msleep'
-> drivers/net/e1000e/phy.c: In function 'e1000e_phy_has_link_generic':
-> drivers/net/e1000e/phy.c:1339: error: implicit declaration of function 'mdelay'
+> How about we just remove the RDMA stack altogether?  I am not at all
+> kidding.  If you guys can't stay in your sand box and need to cause
+> problems for the normal network stack, it's unacceptable.  We were
+> told all along the if RDMA went into the tree none of this kind of
+> stuff would be an issue.
 
+There are currently two RDMA solutions available.  Each solution has 
+different requirements and uses the normal network stack differently. 
+Infiniband uses its own transport.  iWarp runs over TCP.
 
-ok, time to install git manually on my 4-year-old yellowdog ppc install :@
+We have tried to leverage the existing infrastructure where it makes sense.
 
-I'll resend a new patch to Jeff once I have this sorted out.
+> After TCP port reservation, what's next?  It seems an at least
+> bi-monthly event that the RDMA folks need to put their fingers
+> into something else in the normal networking stack.  No more.
 
+Currently, the RDMA stack uses its own port space.  This causes a 
+problem for iWarp, and is what Steve is looking for a solution for.  I'm 
+not an iWarp guru, so I don't know what options exist.  Can iWarp use 
+its own address family?  Identify specific IP addresses for iWarp use? 
+Restrict iWarp to specific port numbers?  Let the app control the 
+correct operation?  I don't know.
 
-Auke
+Steve merely defined a problem and suggested a possible solution.  He's 
+looking for constructive help trying to solve the problem.
+
+- Sean
