@@ -1,60 +1,43 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: [PATCH 1/24] make atomic_read() behave consistently on alpha
-Date: Thu, 9 Aug 2007 09:24:42 -0400
-Message-ID: <20070809132442.GA13042@shell.boston.redhat.com>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: myri10ge net-2.6.24 build fix
+Date: Thu, 09 Aug 2007 09:30:33 -0400
+Message-ID: <46BB16F9.6030402@myri.com>
+References: <20070809.001138.39464000.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, ak@suse.de,
-	heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com
-To: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	torvalds@linux-foundation.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:36931 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S936159AbXHINZu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2007 09:25:50 -0400
-Content-Disposition: inline
+Received: from mailbox2.myri.com ([64.172.73.26]:1944 "EHLO myri.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S939231AbXHINag (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2007 09:30:36 -0400
+In-Reply-To: <20070809.001138.39464000.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Chris Snook <csnook@redhat.com>
+David Miller wrote:
+ > I had to add the following patch to fix the build after
+ > the LRO changes, I have no idea how you could have compile
+ > tested that patch let alone done any real testing on it :-/
 
-Purify volatile use for atomic[64]_t on alpha.
+Whoops.  I'm very sorry about that.  Future patches will be submitted
+by our Linux guy, who knows the correct procedures. :)
 
-Signed-off-by: Chris Snook <csnook@redhat.com>
+FWIW, the patch I sent came from a script which filters our internal
+driver (which I always work with), and that line was erroneously
+filtered by the script we use to remove all the stuff you guys frown
+on (like our LRO, compat shims for older kernels, optional support to
+receive into skbs rather than pages, etc).  My testing was done with
+our un-filtered upstream driver.
 
---- linux-2.6.23-rc2-orig/include/asm-alpha/atomic.h	2007-07-08 19:32:17.000000000 -0400
-+++ linux-2.6.23-rc2/include/asm-alpha/atomic.h	2007-08-09 09:19:00.000000000 -0400
-@@ -14,18 +14,22 @@
- 
- 
- /*
-- * Counter is volatile to make sure gcc doesn't try to be clever
-- * and move things around on us. We need to use _exactly_ the address
-- * the user gave us, not some alias that contains the same information.
-+ * Make sure gcc doesn't try to be clever and move things around
-+ * on us. We need to use _exactly_ the address the user gave us,
-+ * not some alias that contains the same information.
-  */
--typedef struct { volatile int counter; } atomic_t;
--typedef struct { volatile long counter; } atomic64_t;
-+typedef struct { int counter; } atomic_t;
-+typedef struct { long counter; } atomic64_t;
- 
- #define ATOMIC_INIT(i)		( (atomic_t) { (i) } )
- #define ATOMIC64_INIT(i)	( (atomic64_t) { (i) } )
- 
--#define atomic_read(v)		((v)->counter + 0)
--#define atomic64_read(v)	((v)->counter + 0)
-+/*
-+ * Casting to volatile here minimizes the need for barriers,
-+ * without having to declare the type itself as volatile.
-+ */
-+#define atomic_read(v)		(*(volatile int *)&(v)->counter + 0)
-+#define atomic64_read(v)	(*(volatile long *)&(v)->counter + 0)
- 
- #define atomic_set(v,i)		((v)->counter = (i))
- #define atomic64_set(v,i)	((v)->counter = (i))
+Since our driver specific LRO is now gone (hurray!), I removed the LRO
+filtering, re-ran the filter script, and arrived at the same patch
+you committed.
+
+Thanks for fixing my mistake!
+
+Drew
+
+
