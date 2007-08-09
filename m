@@ -1,40 +1,39 @@
-From: Unai Uribarri <unai.uribarri@optenet.com>
-Subject: Re: [PATCH 1/1] af_packet: don't enable timestamps in mmap'ed
-	sockets
-Date: Thu, 09 Aug 2007 20:13:54 +0200
-Message-ID: <1186683234.24669.65.camel@localhost.localdomain>
-References: <1186669314.24669.56.camel@localhost.localdomain>
-	 <20070809143322.GA5345@2ka.mipt.ru>
+From: Shirley Ma <xma@us.ibm.com>
+Subject: Re: [PATCH RFC]: napi_struct V5
+Date: Thu, 9 Aug 2007 11:16:12 -0700
+Message-ID: <OF26E08E6B.9C6CD04B-ON87257332.00635BE5-88257332.00642BE1@us.ibm.com>
+References: <adawsw4mwcw.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>, hadi@cyberus.ca,
+	jgarzik@pobox.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, rusty@rustcorp.com.au,
+	shemminger@linux-foundation.org
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta-mad.optenet.com ([213.27.232.70]:39573 "EHLO
-	mta-mad.optenet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752377AbXHISN6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 14:13:58 -0400
-In-Reply-To: <20070809143322.GA5345@2ka.mipt.ru>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:33497 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752876AbXHISRL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 14:17:11 -0400
+In-Reply-To: <adawsw4mwcw.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On jue, 2007-08-09 at 18:33 +0400, Evgeniy Polyakov wrote:
-> On Thu, Aug 09, 2007 at 04:21:54PM +0200, Unai Uribarri (unai.uribarri@optenet.com) wrote:
-> > The attached patch removes the automatic timestamp activation, that
-> > only mmap'ed AF_PACKET sockets perform. I known it can break user
-> > applications, but I believe that it's the correct solution.
+Hello Roland,
+
+> Shirley, I think it would still be useful to run benchmarks of IPoIB
+> on ehca with Dave's NAPI patches, both V5 that changed the "missed
+> event" behavior and V6 that didn't.  At least I'm curious to know how
+> much the difference is.
 > 
-> How tcpdump with mmap libpcap will work with it?
+>  - R.
 
-In Linux, you can enable timestamps on any socket executing:
+The performance difference was huge before. Most of the time the poll more 
+method was only polling one packet again and agin. 
+Yes, we will definitely run the performance measurement, but I have 
+lowered this task priority since Dave has V6 version. Actually IPoIB is 
+not the only one device using rescheduling instead of polling more for 
+NAPI. I think it's not a bad idea to do so.
 
-int val = 1;
-setsockopt(sock, SOL_SOCKET, SO_TIMESTAMP, &val, sizeof(val));
-
-PD: Current release of tcpdump doesn't mmap the reception ring and
-timestamps packets at user space with gettimeofday. It isn't the best
-performing alternative, but it's portable.
-
-
-
+Thanks
+Shirley 
