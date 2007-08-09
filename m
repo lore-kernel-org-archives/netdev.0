@@ -1,114 +1,86 @@
 From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: [ofa-general] Re: [PATCH 2/9 Rev3] [core] Add skb_blist &
-	hard_start_xmit_batch
-Date: Thu, 9 Aug 2007 08:39:03 +0530
-Message-ID: <OFE8554133.9693A4CA-ON65257332.000F5EB3-65257332.00114F06@in.ibm.com>
-References: <20070808120142.GA26884@2ka.mipt.ru>
+Subject: Re: [PATCH 3/9 Rev3] [sched] Modify qdisc_run to support batching
+Date: Thu, 9 Aug 2007 08:43:46 +0530
+Message-ID: <OF83470D1B.58B9A3A0-ON65257332.001155B8-65257332.0011BD84@in.ibm.com>
+References: <20070808121401.GB8478@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: jagana@us.ibm.com, mcarlson@broadcom.com, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
-	kumarkr@linux.ibm.com, rdreier@cisco.com,
-	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
-	kaber@trash.net, jeff@garzik.org, general@lists.openfabrics.org,
-	mchan@broadcom.com, tgraf@suug.ch, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, davem@davemloft.net, sri@us.ibm.com
+Cc: davem@davemloft.net, gaagaan@gmail.com,
+	general@lists.openfabrics.org, hadi@cyberus.ca,
+	herbert@gondor.apana.org.au, jagana@us.ibm.com, jeff@garzik.org,
+	kaber@trash.net, kumarkr@linux.ibm.com, mcarlson@broadcom.com,
+	mchan@broadcom.com, netdev@vger.kernel.org,
+	peter.p.waskiewicz.jr@intel.com, rdreier@cisco.com,
+	rick.jones2@hp.com, Robert.Olsson@data.slu.se,
+	shemminger@linux-foundation.org, sri@us.ibm.com, tgraf@suug.ch,
+	xma@us.ibm.com
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070808120142.GA26884@2ka.mipt.ru>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausmtp04.au.ibm.com ([202.81.18.152]:51377 "EHLO
+	ausmtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751618AbXHIDNJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 23:13:09 -0400
+Received: from d23relay03.au.ibm.com (d23relay03.au.ibm.com [202.81.18.234])
+	by ausmtp04.au.ibm.com (8.13.8/8.13.8) with ESMTP id l793GGIS222812
+	for <netdev@vger.kernel.org>; Thu, 9 Aug 2007 13:16:16 +1000
+Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.250.237])
+	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l793D6W64288684
+	for <netdev@vger.kernel.org>; Thu, 9 Aug 2007 13:13:06 +1000
+Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
+	by d23av04.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l793D4ro024837
+	for <netdev@vger.kernel.org>; Thu, 9 Aug 2007 13:13:06 +1000
+In-Reply-To: <20070808121401.GB8478@2ka.mipt.ru>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Evgeniy,
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote on 08/08/2007 05:44:02 PM:
 
-Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote on 08/08/2007 05:31:43 PM:
-
-> > +int dev_change_tx_batch_skb(struct net_device *dev, unsigned long
-new_batch_skb)
+> On Wed, Aug 08, 2007 at 03:01:45PM +0530, Krishna Kumar
+(krkumar2@in.ibm.com) wrote:
+> > +static inline int get_skb(struct net_device *dev, struct Qdisc *q,
+> > +           struct sk_buff_head *blist, struct sk_buff **skbp)
 > > +{
-> > +   int ret = 0;
-> > +   struct sk_buff_head *blist;
+> > +   if (likely(!blist || (!skb_queue_len(blist) && qdisc_qlen(q) <=
+1))) {
+> > +      return likely((*skbp = dev_dequeue_skb(dev, q)) != NULL);
+> > +   } else {
+> > +      int max = dev->tx_queue_len - skb_queue_len(blist);
+> > +      struct sk_buff *skb;
 > > +
-> > +   if (!dev->hard_start_xmit_batch) {
-> > +      /* Driver doesn't support batching skb API */
-> > +      ret = -ENOTSUPP;
-> > +      goto out;
+> > +      while (max > 0 && (skb = dev_dequeue_skb(dev, q)) != NULL)
+> > +         max -= dev_add_skb_to_blist(skb, dev);
+> > +
+> > +      *skbp = NULL;
+> > +      return 1;   /* we have atleast one skb in blist */
 > > +   }
-> > +
-> > +   /* Handle invalid argument */
-> > +   if (new_batch_skb < 0) {
-> > +      ret = -EINVAL;
-> > +      goto out;
-> > +   }
-> It is unsigned, how can it be less than zero?
-
-Yuck, originally I had it as int and changed to ulong and forgot to
-remove this check.
-
-> And actually you use it just like a binary flag (casted to/from u32 in
-> the code, btw), so why not using ethtool_value directly here?
-
-I still need to check if the value is changing, so the one check is needed.
-Later I am using it as a value directly.
-
-> > +   /* Check if new value is same as the current */
-> > +   if (!!dev->skb_blist == !!new_batch_skb)
-> > +      goto out;
-> > +
-> > +   if (new_batch_skb &&
-> > +       (blist = kmalloc(sizeof *blist, GFP_KERNEL)) == NULL) {
-> > +      ret = -ENOMEM;
-> > +      goto out;
-> > +   }
-> > +
-> > +   spin_lock(&dev->queue_lock);
-> > +   if (new_batch_skb) {
-> > +      skb_queue_head_init(blist);
-> > +      dev->skb_blist = blist;
-> > +   } else
-> > +      free_batching(dev);
-> > +   spin_unlock(&dev->queue_lock);
+> > +}
 >
-> This needs bh lock too, since blist is accessed by qdisc_restart.
+> Same here - is it possible to get a list in one go instead of pulling
+> one-by-one, since it forces quite a few additional unneded lock
+> get/releases. What about dev_dequeue_number_skb(dev, q, num), which will
+> grab the lock and move a list of skbs from one queue to provided head.
 
-Yes, had it in the code, put it in the list of changes, but missed it for
-some reason :(
+OK, I will try this out.
 
-> > +int dev_add_skb_to_blist(struct sk_buff *skb, struct net_device *dev)
-> > +{
-> > +   if (!list_empty(&ptype_all))
-> > +      dev_queue_xmit_nit(skb, dev);
-> > +
-> > +   if (netif_needs_gso(dev, skb)) {
-> > +      if (unlikely(dev_gso_segment(skb))) {
-> > +         kfree(skb);
-> > +         return 0;
-> > +      }
-> > +
-> > +      if (skb->next) {
-> > +         int count = 0;
-> > +
-> > +         do {
-> > +            struct sk_buff *nskb = skb->next;
-> > +
-> > +            skb->next = nskb->next;
-> > +            __skb_queue_tail(dev->skb_blist, nskb);
-> > +            count++;
-> > +         } while (skb->next);
+> > @@ -158,7 +198,10 @@ static inline int qdisc_restart(struct n
+> >     /* And release queue */
+> >     spin_unlock(&dev->queue_lock);
+> >
+> > -   ret = dev_hard_start_xmit(skb, dev);
+> > +   if (likely(skb))
+> > +      ret = dev_hard_start_xmit(skb, dev);
+> > +   else
+> > +      ret = dev->hard_start_xmit_batch(dev);
 >
-> Is it possible to move list without iterating over each entry?
+> Perfectionism says that having array of two functions and calling one of
+> them via array_func_pointer[!!skb] will be much faster. Just a though.
+> It is actually much faster than if/else on x86 at least.
 
-Though I cannot see something obvious to do that, let me see if
-something is possible as it will make a good difference.
+Thinking about this - I will have to store the 2 pointer array in dev
+itself wasting some space, and also fn pointer will have wrong signature
+as one takes an extra argument. Will ponder some more :)
 
-thanks for your suggestions,
+thanks,
 
 - KK
+
