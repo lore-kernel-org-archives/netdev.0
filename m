@@ -1,56 +1,49 @@
 From: Segher Boessenkool <segher@kernel.crashing.org>
 Subject: Re: [PATCH 1/24] make atomic_read() behave consistently on alpha
-Date: Thu, 9 Aug 2007 21:19:20 +0200
-Message-ID: <2d0e5a19da57d8c22e81a958ae984884@kernel.crashing.org>
-References: <20070809132442.GA13042@shell.boston.redhat.com> <20070809143255.GA8424@linux.vnet.ibm.com> <46BB2A5A.5090006@redhat.com> <20070809150445.GB8424@linux.vnet.ibm.com> <46BB31A6.4080507@redhat.com> <3bfabd7472d6f019aa1880b14013f7a1@kernel.crashing.org> <46BB3ECF.2070100@redhat.com> <1abc2c621d6b62b3ac9f489d4d18806a@kernel.crashing.org> <46BB656D.6090408@redhat.com>
+Date: Thu, 9 Aug 2007 21:17:12 +0200
+Message-ID: <b6f6588ccebe3e91a03fb2f76febbe34@kernel.crashing.org>
+References: <20070809132442.GA13042@shell.boston.redhat.com> <20070809143255.GA8424@linux.vnet.ibm.com> <46BB2A5A.5090006@redhat.com> <20070809150445.GB8424@linux.vnet.ibm.com> <46BB31A6.4080507@redhat.com> <20070809161024.GC8424@linux.vnet.ibm.com> <46BB4281.7010803@redhat.com> <20070809165853.GD8424@linux.vnet.ibm.com> <46BB4B7B.4070007@redhat.com>
 Mime-Version: 1.0 (Apple Message framework v623)
 Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: wjiang@resilience.com, schwidefsky@de.ibm.com,
-	wensong@linux-vs.org, heiko.carstens@de.ibm.com,
-	linux-kernel@vger.kernel.org, ak@suse.de, cfriesen@nortel.com,
-	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
+Cc: wjiang@resilience.com, rpjday@mindspring.com, wensong@linux-vs.org,
+	heiko.carstens@de.ibm.com, linux-kernel@vger.kernel.org,
+	ak@suse.de, netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
 	horms@verge.net.au, akpm@linux-foundation.org,
 	linux-arch@vger.kernel.org, jesper.juhl@gmail.com,
-	davem@davemloft.net, torvalds@linux-foundation.org, zlynx@acm.org,
-	rpjday@mindspring.com
+	torvalds@linux-foundation.org, schwidefsky@de.ibm.com,
+	davem@davemloft.net, cfriesen@nortel.com, zlynx@acm.org
 To: Chris Snook <csnook@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:59485 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:59495 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752640AbXHITZl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2007 15:25:41 -0400
-In-Reply-To: <46BB656D.6090408@redhat.com>
+	id S1759107AbXHITZy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2007 15:25:54 -0400
+In-Reply-To: <46BB4B7B.4070007@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>>> The only safe way to get atomic accesses is to write
->>>> assembler code.  Are there any downsides to that?  I don't
->>>> see any.
->>>
->>> The assumption that aligned word reads and writes are atomic, and 
->>> that words are aligned unless explicitly packed otherwise, is 
->>> endemic in the kernel.  No sane compiler violates this assumption.  
->>> It's true that we're not portable to insane compilers after this 
->>> patch, but we never were in the first place.
->> You didn't answer my question: are there any downsides to using
->> explicit coded-in-assembler accesses for atomic accesses?  You
->> can handwave all you want that it should "just work" with
->> volatile accesses, but volatility != atomicity, volatile in C
->> is really badly defined, GCC never officially gave stronger
->> guarantees, and we have a bugzilla full of PRs to show what a
->> minefield it is.
->> So, why not use the well-defined alternative?
->
-> Because we don't need to,
+> If you need to guarantee that the value is written to memory at a 
+> particular time in your execution sequence, you either have to read it 
+> from memory to force the compiler to store it first
 
-You don't need to use volatile objects, or accesses through
-valatile-cast pointers, either.
+That isn't enough.  The CPU will happily read the datum back from
+its own store queue before it ever hit memory or cache or any
+external bus.  If you need the value to be globally visible before
+another store, you use wmb(); if you need it before some read,
+you use mb().
 
-> and it hurts performance.
+These concepts are completely separate from both atomicity and
+volatility (which aren't the same themselves).
 
-Please show how it does this -- one load is one load either way,
-and one store is one store.
+> No, but I can reason about it and be confident that this won't break 
+> anything that isn't already broken.  At worst, this patch will make 
+> any existing subtly incorrect uses of atomic_t much more obvious and 
+> easier to track down.
+
+PR22278, PR29753 -- both P2 bugs, and both about basic *(volatile *)
+usage.  Yeah, it's definitely not problematic, esp. not if you want
+to support older compilers than 4.2 too.</sarcasm>
 
 
 Segher
