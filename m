@@ -1,38 +1,40 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH] make atomic_t volatile on all architectures
-Date: Thu, 9 Aug 2007 10:55:46 -0700 (PDT)
-Message-ID: <alpine.LFD.0.999.0708091055080.25146@woody.linux-foundation.org>
-References: <20070808230733.GA17270@shell.boston.redhat.com>
- <alpine.LFD.0.999.0708082116060.25146@woody.linux-foundation.org>
- <46BAC2BE.1090106@redhat.com> <46BB508B.7050601@redhat.com>
+From: Unai Uribarri <unai.uribarri@optenet.com>
+Subject: Re: [PATCH 1/1] af_packet: don't enable timestamps in mmap'ed
+	sockets
+Date: Thu, 09 Aug 2007 20:13:54 +0200
+Message-ID: <1186683234.24669.65.camel@localhost.localdomain>
+References: <1186669314.24669.56.camel@localhost.localdomain>
+	 <20070809143322.GA5345@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Chris Snook <csnook@redhat.com>, akpm@linux-foundation.org,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org
-To: Chuck Ebbert <cebbert@redhat.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:39799 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750763AbXHISBi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 14:01:38 -0400
-In-Reply-To: <46BB508B.7050601@redhat.com>
+Received: from mta-mad.optenet.com ([213.27.232.70]:39573 "EHLO
+	mta-mad.optenet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752377AbXHISN6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 14:13:58 -0400
+In-Reply-To: <20070809143322.GA5345@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On Thu, 9 Aug 2007, Chuck Ebbert wrote:
+On jue, 2007-08-09 at 18:33 +0400, Evgeniy Polyakov wrote:
+> On Thu, Aug 09, 2007 at 04:21:54PM +0200, Unai Uribarri (unai.uribarri@optenet.com) wrote:
+> > The attached patch removes the automatic timestamp activation, that
+> > only mmap'ed AF_PACKET sockets perform. I known it can break user
+> > applications, but I believe that it's the correct solution.
 > 
-> You can use this forget() macro to make the compiler reread a variable:
-> 
-> #define forget(var) asm volatile ("" : "=m"(var))
+> How tcpdump with mmap libpcap will work with it?
 
-No. That will also make the compiler "forget" any previous writes to it, 
-so it changes behaviour.
+In Linux, you can enable timestamps on any socket executing:
 
-You'd have to use "+m".
+int val = 1;
+setsockopt(sock, SOL_SOCKET, SO_TIMESTAMP, &val, sizeof(val));
 
-		Linus
+PD: Current release of tcpdump doesn't mmap the reception ring and
+timestamps packets at user space with gettimeofday. It isn't the best
+performing alternative, but it's portable.
+
+
+
