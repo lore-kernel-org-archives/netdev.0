@@ -1,70 +1,88 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: net-2.6.24 GIT state
-Date: Thu, 9 Aug 2007 17:40:07 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0708091721030.24369@kivilampi-30.cs.helsinki.fi>
-References: <20070809.022823.31781972.davem@davemloft.net>
- <Pine.LNX.4.64.0708091233050.24369@kivilampi-30.cs.helsinki.fi>
- <20070809.041034.93473045.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: [RFC] Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Thu, 9 Aug 2007 16:50:27 +0200
+Message-ID: <20070809145026.GB3064@ff.dom.local>
+References: <1185437431.3227.21.camel@chaos> <20070726083120.GA26910@elte.hu> <20070726085523.GA3423@ff.dom.local> <20070726091254.GA8063@elte.hu> <4bacf17f0707300029g5116e70bq4808059dc8b069f1@mail.gmail.com> <20070731132037.GC1046@ff.dom.local> <4bacf17f0708060000n5a00bb77i74adc3b4b28ac42b@mail.gmail.com> <20070806070300.GA4509@elte.hu> <46B75DD4.5080709@redhat.com> <20070806190812.GD26868@elte.hu>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696243703-52993985-1186669972=:24369"
-Cc: Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:45668 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S938450AbXHIOkJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 10:40:09 -0400
-In-Reply-To: <20070809.041034.93473045.davem@davemloft.net>
-Content-ID: <Pine.LNX.4.64.0708091734580.24369@kivilampi-30.cs.helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Chuck Ebbert <cebbert@redhat.com>,
+	Marcin =?iso-8859-2?Q?=A6lusarz?= <marcin.slusarz@gmail.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-net-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20070806190812.GD26868@elte.hu>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
----696243703-52993985-1186669972=:24369
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0708091734581.24369@kivilampi-30.cs.helsinki.fi>
+It seems, we can start to think about some preferred solutions,
+already. Here are some of my preliminary conclusions and suggestions.
 
-On Thu, 9 Aug 2007, David Miller wrote:
+The problem of timeouts with some 'older' network cards seems to hit
+mainly x86_64 arch, and after diagnosing and testing (still beeing
+done) it's caused by resending level type irqs.
 
-> From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Thu, 9 Aug 2007 12:50:51 +0300 (EEST)
-> 
-> Ok, in order to get this started I merged the above patches
-> into net-2.6.24
-> 
-> I'm exhausted and done for today. :-)
+Possible solutions:
 
-:-)
+1. Reverting the whole "do not mask interrupts by default" patch:
 
-> We can work on the other bits next. 
-
-Next step:
-
-http://www.cs.helsinki.fi/u/ijjarvin/tcp-rebase/after-reorder/
-
-...I put some effort to reorganization and there's the result, please 
-_don't_ take the new SACK block-validator yet as I haven't yet put it 
-under any testing (it's the only difference this reordering of patches 
-seems to have introduced :-)). The first five commits touch left_out (4 
-latest fix bug and "flaws" I made in the first commit), I could combine 
-them into a single one if you want to.
-
-...Notice that part of the next step includes work that hasn't yet been 
-posted to netdev at all (was from my not yet submitted wip portion of 
-it). Would you prefer me to post them using the usual procedure?
-
-> > ...Taking IsReno/IsFack removal is probably going to be hardest one, as it 
-> > will conflict a lot. ...Maybe some sed work in patches would reduce # of 
-> > conflicts instead of trying cherry-pick+rebase.
-> 
-> Yes, such patch hand editing techniques can help in these cases.
-
-...it helped a lot in the process :-).
+Seems to be the most natural, but there are some minuses: this patch
+has been here for a long time and some archs/drivers could have been
+changed in the meantime and depend on this; this could also remove
+possible good sides of this patch for which it was aimed (mainly for
+edge type irqs), so some old problems could be back.
 
 
--- 
- i.
----696243703-52993985-1186669972=:24369--
+2. Excluding all level type irqs from resending. There are 2 ways:
+
+a) Just like this is done now in -rc2 with Thomas' patch and AFAIK
+seems to work very well; the way to find the type of interrupt by
+the name of a handler looks a bit 'temporary' but it's simple and
+working; it could be a bit moved and under #ifdef CONFIG_, so
+this could affect only choosen ones.
+
+b) Alternatively this could be done by e.g. assigning separate
+irq_chip structures for edge and level handlers, so for levels there
+would be chip->retrigger == NULL; so this could be done by arches
+without any need for 'global' changes. The only minus here is a few
+bytes of memory more; on the other hand it looks more readable and
+elastic.
+
+3. Using HARDIRQS_SW_RESEND for level type irqs:
+seems to work, but needs more testing; but if #2 is theoretically
+and practically OK, why bother. This also doesn't need any global
+changes.
+
+I prefer 2b + 3: since this is very delicate measure, I think there
+should be visible CONFIG_ option: at least for disabling
+chip->retrigger handler if used by arch and maybe for using
+_SW_RESEND instead, as well.
+
+It looks like these changes are needed for this x86_64 only, but
+in my opinion some (good?!) apics could sometimes work OK with this
+level resending only "by chance": theoretically it's questionable:
+since edge type irqs used for this should be resent if not acked, and
+level handlers ack time depends on how long drivers do their job,
+there are possible strange and hard to repeat effects, for no reason
+(if these levels can really always be skipped without any problem,
+like seen in testing).
+
+Then of course it would be easier to do this 'globally' with 2a.:
+skipping by default (but #ifdef) chip->retrigger namely for:
+handler_fasteoi_irq and handler_level_irq and handler_simple_irq;
+handle_edge_irq plus others are always tried. 
+
+I hope, Ingo or Thomas will use something of these, or let us know
+about maybe something else which should by tested for final inclusion.
+
+Regards,
+Jarek P.
