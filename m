@@ -1,61 +1,57 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
+From: Chris Snook <csnook@redhat.com>
 Subject: Re: [PATCH 1/24] make atomic_read() behave consistently on alpha
-Date: Thu, 9 Aug 2007 21:25:43 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0708092123270.22584@anakin>
-References: <20070809132442.GA13042@shell.boston.redhat.com>
- <20070809143255.GA8424@linux.vnet.ibm.com> <46BB2A5A.5090006@redhat.com>
- <20070809150445.GB8424@linux.vnet.ibm.com> <46BB31A6.4080507@redhat.com>
- <3bfabd7472d6f019aa1880b14013f7a1@kernel.crashing.org> <46BB3ECF.2070100@redhat.com>
- <1abc2c621d6b62b3ac9f489d4d18806a@kernel.crashing.org> <46BB656D.6090408@redhat.com>
+Date: Thu, 09 Aug 2007 15:24:40 -0400
+Message-ID: <46BB69F8.5000502@redhat.com>
+References: <20070809143255.GA8424@linux.vnet.ibm.com> <46BB2A5A.5090006@redhat.com> <20070809150445.GB8424@linux.vnet.ibm.com> <46BB31A6.4080507@redhat.com> <20070809161024.GC8424@linux.vnet.ibm.com> <46BB4281.7010803@redhat.com> <20070809165853.GD8424@linux.vnet.ibm.com> <46BB4B7B.4070007@redhat.com> <20070809174150.GE8424@linux.vnet.ibm.com> <46BB5960.9040009@redhat.com> <20070809184531.GH8424@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Segher Boessenkool <segher@kernel.crashing.org>,
-	wjiang@resilience.com, cfriesen@nortel.com, wensong@linux-vs.org,
-	heiko.carstens@de.ibm.com, linux-kernel@vger.kernel.org,
-	ak@suse.de, netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
-	horms@verge.net.au, akpm@linux-foundation.org,
-	linux-arch@vger.kernel.org, jesper.juhl@gmail.com,
-	torvalds@linux-foundation.org, zlynx@acm.org,
-	rpjday@mindspring.com, schwidefsky@de.ibm.com, davem@davemloft.net
-To: Chris Snook <csnook@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761653AbXHIT0m@vger.kernel.org>
-In-Reply-To: <46BB656D.6090408@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, ak@suse.de, heiko.carstens@de.ibm.com,
+	davem@davemloft.net, schwidefsky@de.ibm.com, wensong@linux-vs.org,
+	horms@verge.net.au, wjiang@resilience.com, cfriesen@nortel.com,
+	zlynx@acm.org, rpjday@mindspring.com, jesper.juhl@gmail.com
+To: paulmck@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:45343 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751145AbXHITbu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2007 15:31:50 -0400
+In-Reply-To: <20070809184531.GH8424@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 9 Aug 2007, Chris Snook wrote:
-> Segher Boessenkool wrote:
-> > > > The only safe way to get atomic accesses is to write
-> > > > assembler code.  Are there any downsides to that?  I don't
-> > > > see any.
-> > > 
-> > > The assumption that aligned word reads and writes are atomic, and that
-> > > words are aligned unless explicitly packed otherwise, is endemic in the
-> > > kernel.  No sane compiler violates this assumption.  It's true that we're
-> > > not portable to insane compilers after this patch, but we never were in
-> > > the first place.
-> > 
-> > You didn't answer my question: are there any downsides to using
-> > explicit coded-in-assembler accesses for atomic accesses?  You
-> > can handwave all you want that it should "just work" with
-> > volatile accesses, but volatility != atomicity, volatile in C
-> > is really badly defined, GCC never officially gave stronger
-> > guarantees, and we have a bugzilla full of PRs to show what a
-> > minefield it is.
-> > 
-> > So, why not use the well-defined alternative?
+Paul E. McKenney wrote:
+> On Thu, Aug 09, 2007 at 02:13:52PM -0400, Chris Snook wrote:
+>> Paul E. McKenney wrote:
+>>> On Thu, Aug 09, 2007 at 01:14:35PM -0400, Chris Snook wrote:
+>>>>                                If you're depending on volatile writes 
+>>>> being visible to other CPUs, you're screwed either way, because the CPU 
+>>>> can hold that data in cache as long as it wants before it writes it to 
+>>>> memory.  When this finally does happen, it will happen atomically, which 
+>>>> is all that atomic_set guarantees.  If you need to guarantee that the 
+>>>> value is written to memory at a particular time in your execution 
+>>>> sequence, you either have to read it from memory to force the compiler to 
+>>>> store it first (and a volatile cast in atomic_read will suffice for this) 
+>>>> or you have to use LOCK_PREFIX instructions which will invalidate remote 
+>>>> cache lines containing the same variable.  This patch doesn't change 
+>>>> either of these cases.
+>>> The case that it -can- change is interactions with interrupt handlers.
+>>> And NMI/SMI handlers, for that matter.
+>> You have a point here, but only if you can guarantee that the interrupt 
+>> handler is running on a processor sharing the cache that has the 
+>> not-yet-written volatile value.  That implies a strictly non-SMP 
+>> architecture.  At the moment, none of those have volatile in their 
+>> declaration of atomic_t, so this patch can't break any of them.
 > 
-> Because we don't need to, and it hurts performance.
+> This can also happen when using per-CPU variables.  And there are a
+> number of per-CPU variables that are either atomic themselves or are
+> structures containing atomic fields.
 
-It hurts performance by implementing 32-bit atomic reads in assembler?
+Accessing per-CPU variables in this fashion reliably already requires a suitable 
+smp/non-smp read/write memory barrier.  I maintain that if we break anything 
+with this change, it was really already broken, if less obviously.  Can you give 
+a real or synthetic example of legitimate code that could break?
 
-Gr{oetje,eeting}s,
-
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+	-- Chris
