@@ -1,61 +1,47 @@
 From: Chris Snook <csnook@redhat.com>
-Subject: [PATCH 24/24] document volatile atomic_read() behavior
-Date: Thu, 9 Aug 2007 10:24:30 -0400
-Message-ID: <20070809142430.GA19817@shell.boston.redhat.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Thu, 09 Aug 2007 10:29:31 -0400
+Message-ID: <46BB24CB.1040405@redhat.com>
+References: <20070809131423.GA9927@shell.boston.redhat.com> <200708091441.28511.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, ak@suse.de,
-	heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com
-To: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	torvalds@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:58311 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S936719AbXHIOZG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2007 10:25:06 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, ak@suse.de, heiko.carstens@de.ibm.com,
+	davem@davemloft.net, schwidefsky@de.ibm.com, wensong@linux-vs.org,
+	horms@verge.net.au, wjiang@resilience.com, cfriesen@nortel.com,
+	zlynx@acm.org, rpjday@mindspring.com, jesper.juhl@gmail.com
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965294AbXHIOav@vger.kernel.org>
+In-Reply-To: <200708091441.28511.arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Chris Snook <csnook@redhat.com>
+Arnd Bergmann wrote:
+> On Thursday 09 August 2007, Chris Snook wrote:
+>> This patchset makes the behavior of atomic_read uniform by removing the
+>> volatile keyword from all atomic_t and atomic64_t definitions that currently
+>> have it, and instead explicitly casts the variable as volatile in
+>> atomic_read().  This leaves little room for creative optimization by the
+>> compiler, and is in keeping with the principles behind "volatile considered
+>> harmful".
+>>
+> 
+> Just an idea: since all architectures already include asm-generic/atomic.h,
+> why not move the definitions of atomic_t and atomic64_t, as well as anything
+> that does not involve architecture specific inline assembly into the generic
+> header?
+> 
+> 	Arnd <><
 
-Update atomic_ops.txt to reflect the newly consistent behavior of
-atomic_read(), and to note that volatile (in declarations) is now
-considered harmful.
+a) chicken and egg: asm-generic/atomic.h depends on definitions in asm/atomic.h
 
-Signed-off-by: Chris Snook <csnook@redhat.com>
+If you can find a way to reshuffle the code and make it simpler, I personally am 
+all for it.  I'm skeptical that you'll get much to show for the effort.
 
---- linux-2.6.23-rc2-orig/Documentation/atomic_ops.txt	2007-07-08 19:32:17.000000000 -0400
-+++ linux-2.6.23-rc2/Documentation/atomic_ops.txt	2007-08-09 08:24:32.000000000 -0400
-@@ -12,7 +12,7 @@
- C integer type will fail.  Something like the following should
- suffice:
- 
--	typedef struct { volatile int counter; } atomic_t;
-+	typedef struct { int counter; } atomic_t;
- 
- 	The first operations to implement for atomic_t's are the
- initializers and plain reads.
-@@ -38,9 +38,17 @@
- 
- Next, we have:
- 
--	#define atomic_read(v)	((v)->counter)
-+	#define atomic_read(v)	(*(volatile int *)&(v)->counter)
- 
--which simply reads the current value of the counter.
-+which reads the counter as though it were volatile.  This prevents the
-+compiler from optimizing away repeated atomic_read() invocations without
-+requiring a more expensive barrier().  Historically this has been
-+accomplished by declaring the counter itself to be volatile, but the
-+ambiguity of the C standard on the semantics of volatile make this practice
-+vulnerable to overly creative interpretation by compilers.  Explicit
-+casting in atomic_read() ensures consistent behavior across architectures
-+and compilers.  Even with this convenience in atomic_read(), busy-waiters
-+should call cpu_relax().
- 
- Now, we move onto the actual atomic operation interfaces.
- 
+b) The definitions aren't precisely identical between all architectures, so it 
+would be a mess of special cases, which gets us right back to where we are now.
+
+	-- Chris
