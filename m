@@ -1,52 +1,65 @@
-From: Jerry Jiang <wjiang@resilience.com>
-Subject: Re: [PATCH] make atomic_t volatile on all architectures
-Date: Thu, 9 Aug 2007 17:18:32 +0800
-Message-ID: <20070809171832.1568864b.wjiang@resilience.com>
-References: <8Q2Pg-8uV-23@gated-at.bofh.it>
-	<8Q7Fa-7rJ-1@gated-at.bofh.it>
-	<8Q8rD-hh-7@gated-at.bofh.it>
-	<E1IJ424-0000d7-HK@be1.lrz>
+From: David Miller <davem@davemloft.net>
+Subject: net-2.6.24 GIT state
+Date: Thu, 09 Aug 2007 02:28:23 -0700 (PDT)
+Message-ID: <20070809.022823.31781972.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Chris Snook <csnook@redhat.com>, akpm@linux-foundation.org,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	cfriesen@nortel.com, zlynx@acm.org
-To: 7eggert@gmx.de
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 207.47.19.6.static.nextweb.net ([207.47.19.6]:40334 "EHLO
-	ex1.resilience.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934808AbXHIJTZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 05:19:25 -0400
-In-Reply-To: <E1IJ424-0000d7-HK@be1.lrz>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54722
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1758154AbXHIJ2X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 05:28:23 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 727C3510001
+	for <netdev@vger.kernel.org>; Thu,  9 Aug 2007 02:28:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 09 Aug 2007 11:10:16 +0200
-Bodo Eggert <7eggert@gmx.de> wrote:
 
-> >=20
-> > Why the *volatile-accesses-in-code* is acceptable, does C standard =
-make it
-> > clear?
->=20
-> http://lwn.net/Articles/233482/
+Ok, as is clear for some the net-2.6.24 tree has been cut
+and is at:
 
-I have read this article before, but What Linus said only focusing on
-the conclusion-- The semantics of it are so unclear as
-to be totally useless.
+	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.24.git
 
-and still not to said "Why the *volatile-accesses-in-code* is
-acceptable"
+Contents:
 
--- Jerry
+1) napi_struct V6 :-)
+2) LRO with EHEA and Myri10g ports
+3) mac80211 merge with John Linville
+4) Some netlink bits from Thomas Graf
+5) VETH driver
 
+For shits and grins I build a powerpc cross environment and used
+this to fix up the EHEA build fallout.  That means nobody with
+these chips did any testing at all, please do so if you can.
 
-> --=20
-> Fun things to slip into your budget
-> Heisenberg Compensator upgrade kit
->=20
-> Fri=C3=9F, Spammer: uWfuXeviZ@x.7eggert.dyndns.org
+SIS190 didn't build because it had a half-done NAPI implementation
+(actually closer to not done) and it did netif_poll_{enable,disable}()
+(and wrongly) in it's open and close routines.  Doing this
+unconditionally, even when non-NAPI, is just wrong and therefore since
+the NAPI related bits were miniscule I just ripped out all of it to
+fix that.
+
+Natsemi and pasemi_mac were missing a few netif_poll_{disable,enable}()
+conversions to napi_{enable,disable}().
+
+I found one driver whose conversion got missed, ibm_emac, but I can't
+enable that in the powerpc64 build because it's guarded against when
+PPC_MERGE is enabled which ppc64 sets unconditionally.
+
+I might take a stab at converting that guy (it's similar to
+EHEA and can use multi-queue NAPI quite directly although
+the access back up to the parent netdev is a bit tricky)
+but if someone can beat me to it... Hint hint!
+
+I'm now doing a powerpc allmodconfig build to try and shake out
+any other build regressions added by the net-2.6.24 tree changes.
+
+I'll be going over the TCP bits Ilpo and I have been discussing
+then expect me to disappear back to driver hacking :-)  As is,
+there should be enough in there for people to play with,
+regression test, and improve.
+
+Thanks.
