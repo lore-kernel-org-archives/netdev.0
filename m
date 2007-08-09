@@ -1,63 +1,44 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: 2.6.23-rc2-mm1: e1000e global symbols must be
-	renamed
-Date: Thu, 09 Aug 2007 10:06:26 -0700
-Message-ID: <46BB4992.2020504@intel.com>
-References: <20070809015106.cd0bfc53.akpm@linux-foundation.org>
-	<20070809135131.GN6997@stusta.de>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Thu, 9 Aug 2007 17:30:16 +0200
+Message-ID: <200708091730.19024.arnd@arndb.de>
+References: <20070809131423.GA9927@shell.boston.redhat.com> <200708091441.28511.arnd@arndb.de> <46BB24CB.1040405@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>, jgarzik@pobox.com,
-	linux-kernel@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20070809135131.GN6997@stusta.de>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, ak@suse.de, heiko.carstens@de.ibm.com,
+	davem@davemloft.net, schwidefsky@de.ibm.com, wensong@linux-vs.org,
+	horms@verge.net.au, wjiang@resilience.com, cfriesen@nortel.com,
+	zlynx@acm.org, rpjday@mindspring.com, jesper.juhl@gmail.com
+To: Chris Snook <csnook@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.188]:57266 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932890AbXHIRKU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 13:10:20 -0400
+In-Reply-To: <46BB24CB.1040405@redhat.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
-> On Thu, Aug 09, 2007 at 01:51:06AM -0700, Andrew Morton wrote:
->> ...
->> - There is a new e1000 driver in git-netdev-all, called e1000e.  I'm sure
->>   the developers would like it tested.  Please cc netdev@vger.kernel.org on
->>   any reports.
->> ...
->> Changes since 2.6.23-rc2-mm1:
->> ...
->>  git-netdev-all.patch
->> ...
->>  git trees
->> ...
-> 
-> <--  snip  -->
-> 
-> ...
->   LD      drivers/net/built-in.o
-> drivers/net/e1000e/built-in.o: In function `e1000_read_mac_addr':
-> (.text+0x3470): multiple definition of `e1000_read_mac_addr'
-> drivers/net/e1000/built-in.o:(.text+0xb6cc): first defined here
-> drivers/net/e1000e/built-in.o: In function `e1000_set_ethtool_ops':
-> (.text+0x594d): multiple definition of `e1000_set_ethtool_ops'
-> drivers/net/e1000/built-in.o:(.text+0xc97a): first defined here
-> ...
-> make[3]: *** [drivers/net/built-in.o] Error 1
+On Thursday 09 August 2007, Chris Snook wrote:
+> a) chicken and egg: asm-generic/atomic.h depends on definitions in asm/atomic.h
 
-ack, I'll step on that and make it go away :)
+Ok, I see.
+ 
+> If you can find a way to reshuffle the code and make it simpler, I personally am 
+> all for it. I'm skeptical that you'll get much to show for the effort. 
 
-Auke
+I guess it could  be done using more macros or new headers, but I don't see
+a way that would actually improve the situation.
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >>  http://get.splunk.com/
+> b) The definitions aren't precisely identical between all architectures, so it 
+> would be a mess of special cases, which gets us right back to where we are now.
+
+Why are they not identical? Anything beyond the 32/64 bit difference should
+be the same afaics, or it might cause more bugs.
+
+	Arnd <><
