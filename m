@@ -1,44 +1,48 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [PATCH 1/1] af_packet: don't enable timestamps in mmap'ed sockets
-Date: Thu, 9 Aug 2007 22:18:23 +0400
-Message-ID: <20070809181823.GA32449@2ka.mipt.ru>
-References: <1186669314.24669.56.camel@localhost.localdomain> <20070809143322.GA5345@2ka.mipt.ru> <1186683234.24669.65.camel@localhost.localdomain>
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: [PATCH 1/24] make atomic_read() behave consistently on alpha
+Date: Thu, 09 Aug 2007 14:13:52 -0400
+Message-ID: <46BB5960.9040009@redhat.com>
+References: <20070809132442.GA13042@shell.boston.redhat.com> <20070809143255.GA8424@linux.vnet.ibm.com> <46BB2A5A.5090006@redhat.com> <20070809150445.GB8424@linux.vnet.ibm.com> <46BB31A6.4080507@redhat.com> <20070809161024.GC8424@linux.vnet.ibm.com> <46BB4281.7010803@redhat.com> <20070809165853.GD8424@linux.vnet.ibm.com> <46BB4B7B.4070007@redhat.com> <20070809174150.GE8424@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Unai Uribarri <unai.uribarri@optenet.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, ak@suse.de, heiko.carstens@de.ibm.com,
+	davem@davemloft.net, schwidefsky@de.ibm.com, wensong@linux-vs.org,
+	horms@verge.net.au, wjiang@resilience.com, cfriesen@nortel.com,
+	zlynx@acm.org, rpjday@mindspring.com, jesper.juhl@gmail.com
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:50757 "EHLO 2ka.mipt.ru"
+Received: from mx1.redhat.com ([66.187.233.31]:43900 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754274AbXHISSa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2007 14:18:30 -0400
-Content-Disposition: inline
-In-Reply-To: <1186683234.24669.65.camel@localhost.localdomain>
+	id S1757558AbXHISTx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2007 14:19:53 -0400
+In-Reply-To: <20070809174150.GE8424@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 09, 2007 at 08:13:54PM +0200, Unai Uribarri (unai.uribarri@optenet.com) wrote:
-> On jue, 2007-08-09 at 18:33 +0400, Evgeniy Polyakov wrote:
-> > On Thu, Aug 09, 2007 at 04:21:54PM +0200, Unai Uribarri (unai.uribarri@optenet.com) wrote:
-> > > The attached patch removes the automatic timestamp activation, that
-> > > only mmap'ed AF_PACKET sockets perform. I known it can break user
-> > > applications, but I believe that it's the correct solution.
-> > 
-> > How tcpdump with mmap libpcap will work with it?
+Paul E. McKenney wrote:
+> On Thu, Aug 09, 2007 at 01:14:35PM -0400, Chris Snook wrote:
+>>                                 If you're depending on volatile writes 
+>> being visible to other CPUs, you're screwed either way, because the CPU can 
+>> hold that data in cache as long as it wants before it writes it to memory.  
+>> When this finally does happen, it will happen atomically, which is all that 
+>> atomic_set guarantees.  If you need to guarantee that the value is written 
+>> to memory at a particular time in your execution sequence, you either have 
+>> to read it from memory to force the compiler to store it first (and a 
+>> volatile cast in atomic_read will suffice for this) or you have to use 
+>> LOCK_PREFIX instructions which will invalidate remote cache lines 
+>> containing the same variable.  This patch doesn't change either of these 
+>> cases.
 > 
-> In Linux, you can enable timestamps on any socket executing:
-> 
-> int val = 1;
-> setsockopt(sock, SOL_SOCKET, SO_TIMESTAMP, &val, sizeof(val));
-> 
-> PD: Current release of tcpdump doesn't mmap the reception ring and
-> timestamps packets at user space with gettimeofday. It isn't the best
-> performing alternative, but it's portable.
- 
-IIRC, there was/is a libpcap which worked with mapped sockets, mybe not 
-official though. Any application which depened on having timestamps with
-packets will not work now. Why not to implement an
-absolutely_turn_off_timestamps option instead of breaking compatibility?
+> The case that it -can- change is interactions with interrupt handlers.
+> And NMI/SMI handlers, for that matter.
 
--- 
-	Evgeniy Polyakov
+You have a point here, but only if you can guarantee that the interrupt handler 
+is running on a processor sharing the cache that has the not-yet-written 
+volatile value.  That implies a strictly non-SMP architecture.  At the moment, 
+none of those have volatile in their declaration of atomic_t, so this patch 
+can't break any of them.
+
+	-- Chris
