@@ -1,31 +1,45 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [patch] ipvs: force read of atomic_t in while loop
-Date: Thu, 9 Aug 2007 15:36:59 +0200
-Message-ID: <20070809133659.GA28532@one.firstfloor.org>
-References: <20070808093300.GA14530@osiris.boeblingen.de.ibm.com> <46BA30DC.20207@redhat.com> <20070809001533.GA17798@one.firstfloor.org> <200708091435.18595.mb@bu3sch.de>
+From: Chris Snook <csnook@redhat.com>
+Subject: [PATCH 4/24] make atomic_read() behave consistently on blackfin
+Date: Thu, 9 Aug 2007 09:37:03 -0400
+Message-ID: <20070809133703.GA14317@shell.boston.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, Chris Snook <csnook@redhat.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, ak@suse.de,
+	heiko.carstens@de.ibm.com, davem@davemloft.net,
 	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	torvalds@osdl.org
-To: Michael Buesch <mb@bu3sch.de>
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com
+To: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:45881 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1765415AbXHINhC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 09:37:02 -0400
+Received: from mx1.redhat.com ([66.187.233.31]:41408 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935657AbXHINiL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2007 09:38:11 -0400
 Content-Disposition: inline
-In-Reply-To: <200708091435.18595.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Isn't it possible through some inline assembly trick
-> that only a certain variable has to be reloaded?
+From: Chris Snook <csnook@redhat.com>
 
-A volatile cast does that already
+Make atomic_read() volatile on blackfin.  This ensures that busy-waiting
+for an interrupt handler to change an atomic_t won't get compiled to an
+infinite loop, consistent with SMP architectures.
 
--Andi
+Signed-off-by: Chris Snook <csnook@redhat.com>
 
+--- linux-2.6.23-rc2-orig/include/asm-blackfin/atomic.h	2007-07-08 19:32:17.000000000 -0400
++++ linux-2.6.23-rc2/include/asm-blackfin/atomic.h	2007-08-09 06:36:15.000000000 -0400
+@@ -18,7 +18,11 @@ typedef struct {
+ } atomic_t;
+ #define ATOMIC_INIT(i)	{ (i) }
+ 
+-#define atomic_read(v)		((v)->counter)
++/*
++ * Casting to volatile here minimizes the need for barriers,
++ * without having to declare the type itself as volatile.
++ */
++#define atomic_read(v)		(*(volatile int *)&(v)->counter)
+ #define atomic_set(v, i)	(((v)->counter) = i)
+ 
+ static __inline__ void atomic_add(int i, atomic_t * v)
