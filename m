@@ -1,86 +1,65 @@
 From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [PATCH 3/9 Rev3] [sched] Modify qdisc_run to support batching
-Date: Thu, 9 Aug 2007 08:43:46 +0530
-Message-ID: <OF83470D1B.58B9A3A0-ON65257332.001155B8-65257332.0011BD84@in.ibm.com>
-References: <20070808121401.GB8478@2ka.mipt.ru>
+Subject: [ofa-general] Re: [PATCH 0/9 Rev3] Implement batching skb API and
+	support in IPoIB
+Date: Thu, 9 Aug 2007 08:49:40 +0530
+Message-ID: <OFCC5B6697.663C86DD-ON65257332.0011C213-65257332.001247F3@in.ibm.com>
+References: <20070808134247.GA9942@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: davem@davemloft.net, gaagaan@gmail.com,
-	general@lists.openfabrics.org, hadi@cyberus.ca,
-	herbert@gondor.apana.org.au, jagana@us.ibm.com, jeff@garzik.org,
-	kaber@trash.net, kumarkr@linux.ibm.com, mcarlson@broadcom.com,
-	mchan@broadcom.com, netdev@vger.kernel.org,
-	peter.p.waskiewicz.jr@intel.com, rdreier@cisco.com,
-	rick.jones2@hp.com, Robert.Olsson@data.slu.se,
-	shemminger@linux-foundation.org, sri@us.ibm.com, tgraf@suug.ch,
-	xma@us.ibm.com
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausmtp04.au.ibm.com ([202.81.18.152]:51377 "EHLO
-	ausmtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751618AbXHIDNJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 23:13:09 -0400
-Received: from d23relay03.au.ibm.com (d23relay03.au.ibm.com [202.81.18.234])
-	by ausmtp04.au.ibm.com (8.13.8/8.13.8) with ESMTP id l793GGIS222812
-	for <netdev@vger.kernel.org>; Thu, 9 Aug 2007 13:16:16 +1000
-Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.250.237])
-	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l793D6W64288684
-	for <netdev@vger.kernel.org>; Thu, 9 Aug 2007 13:13:06 +1000
-Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
-	by d23av04.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l793D4ro024837
-	for <netdev@vger.kernel.org>; Thu, 9 Aug 2007 13:13:06 +1000
-In-Reply-To: <20070808121401.GB8478@2ka.mipt.ru>
-Sender: netdev-owner@vger.kernel.org
+Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, gaagaan@gmail.com, jeff@garzik.org,
+	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
+	mcarlson@broadcom.com, peter.p.waskiewicz.jr@intel.com,
+	hadi@cyberus.ca, kaber@trash.net, netdev@vger.kernel.org,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	sri@us.ibm.com, shemminger@linux-foundation.org,
+	David Miller <davem@davemloft.net>, rdreier@cisco.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070808134247.GA9942@gondor.apana.org.au>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote on 08/08/2007 05:44:02 PM:
+Herbert Xu <herbert@gondor.apana.org.au> wrote on 08/08/2007 07:12:47 PM:
 
-> On Wed, Aug 08, 2007 at 03:01:45PM +0530, Krishna Kumar
-(krkumar2@in.ibm.com) wrote:
-> > +static inline int get_skb(struct net_device *dev, struct Qdisc *q,
-> > +           struct sk_buff_head *blist, struct sk_buff **skbp)
-> > +{
-> > +   if (likely(!blist || (!skb_queue_len(blist) && qdisc_qlen(q) <=
-1))) {
-> > +      return likely((*skbp = dev_dequeue_skb(dev, q)) != NULL);
-> > +   } else {
-> > +      int max = dev->tx_queue_len - skb_queue_len(blist);
-> > +      struct sk_buff *skb;
-> > +
-> > +      while (max > 0 && (skb = dev_dequeue_skb(dev, q)) != NULL)
-> > +         max -= dev_add_skb_to_blist(skb, dev);
-> > +
-> > +      *skbp = NULL;
-> > +      return 1;   /* we have atleast one skb in blist */
-> > +   }
-> > +}
->
-> Same here - is it possible to get a list in one go instead of pulling
-> one-by-one, since it forces quite a few additional unneded lock
-> get/releases. What about dev_dequeue_number_skb(dev, q, num), which will
-> grab the lock and move a list of skbs from one queue to provided head.
-
-OK, I will try this out.
-
-> > @@ -158,7 +198,10 @@ static inline int qdisc_restart(struct n
-> >     /* And release queue */
-> >     spin_unlock(&dev->queue_lock);
+> On Wed, Aug 08, 2007 at 03:49:00AM -0700, David Miller wrote:
 > >
-> > -   ret = dev_hard_start_xmit(skb, dev);
-> > +   if (likely(skb))
-> > +      ret = dev_hard_start_xmit(skb, dev);
-> > +   else
-> > +      ret = dev->hard_start_xmit_batch(dev);
+> > Not because I think it obviates your work, but rather because I'm
+> > curious, could you test a TSO-in-hardware driver converted to
+> > batching and see how TSO alone compares to batching for a pure
+> > TCP workload?
 >
-> Perfectionism says that having array of two functions and calling one of
-> them via array_func_pointer[!!skb] will be much faster. Just a though.
-> It is actually much faster than if/else on x86 at least.
+> You could even lower the bar by disabling TSO and enabling
+> software GSO.
 
-Thinking about this - I will have to store the 2 pointer array in dev
-itself wasting some space, and also fn pointer will have wrong signature
-as one takes an extra argument. Will ponder some more :)
+I will try with E1000 (though I didn't see improvement when I tested a long
+time back). The difference I expect is that TSO would help with large
+packets and not necessarily small/medium packets and not definitely in
+the case of multiple different skbs (as opposed to single large skb)
+getting
+queue'd. I think these are two different workloads.
+
+> > I personally don't think it will help for that case at all as
+> > TSO likely does better job of coalescing the work _and_ reducing
+> > bus traffic as well as work in the TCP stack.
+>
+> I agree.  I suspect the bulk of the effort is in getting
+> these skb's created and processed by the stack so that by
+> the time that they're exiting the qdisc there's not much
+> to be saved anymore.
+
+However, I am getting a large improvement for IPoIB specifically for this
+same case. The reason - batching will help only when queue gets full and
+stopped (and to a lesser extent if tx lock was not got, which results
+in fewer amount of batching that can be done).
 
 thanks,
 
 - KK
-
