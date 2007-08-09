@@ -1,73 +1,43 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: [PATCH] ssb: pci core driver fixes
-Date: Thu, 9 Aug 2007 12:10:19 +0200
-Message-ID: <200708091210.20176.mb@bu3sch.de>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 6/14] nes: hardware init
+Date: Thu, 9 Aug 2007 11:56:44 +0100
+Message-ID: <20070809115644.479a872c@oldman.hamilton.local>
+References: <200708080105.l7815pC3004792@neteffect.com>
+	<46B92342.9090802@garzik.org>
+	<5E701717F2B2ED4EA60F87C8AA57B7CC07443E4D@venom2>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Aurelien Jarno <aurelien@aurel32.net>, netdev@vger.kernel.org
-To: John Linville <linville@tuxdriver.com>
+Cc: "Jeff Garzik" <jeff@garzik.org>, <rdreier@cisco.com>,
+	<ewg@lists.openfabrics.org>, <netdev@vger.kernel.org>
+To: "Glenn Grundstrom" <ggrundstrom@NetEffect.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:42227
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764363AbXHIKKv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 06:10:51 -0400
-Content-Disposition: inline
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:34282 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755762AbXHIK42 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 06:56:28 -0400
+In-Reply-To: <5E701717F2B2ED4EA60F87C8AA57B7CC07443E4D@venom2>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Aurelien Jarno <aurelien@aurel32.net>
+More comments
 
-Fixes various things on the SSB
-PCI core driver:
- - Correctly write the configuration register value in 
-   ssb_extpci_write_config() for len = 1 or len = 2.
- - Set the PCI_LATENCY_TIMER to handle devices on the PCI bus.
- - Set the PCI arbiter control to internal.
- - Add some delay between the configuration of the PCI controller 
-   and its registration.
+>---
+>diff -Nurp NULL ofa_kernel-1.2/drivers/infiniband/hw/nes/nes_hw.c
+>--- NULL	1969-12-31 18:00:00.000000000 -0600
+>+++ ofa_kernel-1.2/drivers/infiniband/hw/nes/nes_hw.c	2007-08-06 20:09:04.000000000 -0500
+>+
+>+#include "nes.h"
+>+u32 crit_err_count = 0;
 
-Signed-off-by: Aurelien Jarno <aurelien@aurel32.net>
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+Possible global namespace conflict.  You should make sure all global
+symbols start with something specfic to driver like "nes_".
 
---- a/drivers/ssb/driver_pcicore.c
-+++ b/drivers/ssb/driver_pcicore.c
-@@ -99,6 +99,9 @@
- 
- 	/* Enable PCI bridge BAR1 prefetch and burst */
- 	pci_write_config_dword(dev, SSB_BAR1_CONTROL, 3);
-+
-+	/* Make sure our latency is high enough to handle the devices behind us */
-+	pci_write_config_byte(dev, PCI_LATENCY_TIMER, 0xa8);
- }
- DECLARE_PCI_FIXUP_EARLY(PCI_ANY_ID, PCI_ANY_ID, ssb_fixup_pcibridge);
- 
-@@ -230,7 +233,7 @@
- 		val = *((const u32 *)buf);
- 		break;
- 	}
--	writel(*((const u32 *)buf), mmio);
-+	writel(val, mmio);
- 
- 	err = 0;
- unmap:
-@@ -311,6 +314,8 @@
- 	udelay(150); /* Assertion time demanded by the PCI standard */
- 	val |= SSB_PCICORE_CTL_RST; /* Deassert RST# */
- 	pcicore_write32(pc, SSB_PCICORE_CTL, val);
-+	val = SSB_PCICORE_ARBCTL_INTERN;
-+	pcicore_write32(pc, SSB_PCICORE_ARBCTL, val);
- 	udelay(1); /* Assertion time demanded by the PCI standard */
- 
- 	/*TODO cardbus mode */
-@@ -340,6 +345,9 @@
- 	 * The following needs change, if we want to port hostmode
- 	 * to non-MIPS platform. */
- 	set_io_port_base((unsigned long)ioremap_nocache(SSB_PCI_MEM, 0x04000000));
-+	/* Give some time to the PCI controller to configure itself with the new
-+	 * values. Not waiting at this point causes crashes of the machine. */
-+	mdelay(10);
- 	register_pci_controller(&ssb_pcicore_controller);
- }
- 
+>+#include "nes_cm.h"
+>+
+>+
+>+#ifdef NES_DEBUG
+>+static unsigned char *nes_iwarp_state_str[] = {
+
+Why use unsigned char? This should be "static const char *"
+Maybe use gcc array initilaizers.
