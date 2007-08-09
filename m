@@ -1,37 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TCP's initial cwnd setting correct?...
-Date: Wed, 08 Aug 2007 21:40:54 -0700 (PDT)
-Message-ID: <20070808.214054.133430158.davem@davemloft.net>
-References: <Pine.LNX.4.64.0708061508070.8788@kivilampi-30.cs.helsinki.fi>
-	<20070807.182823.123919803.davem@davemloft.net>
-	<46B9DF25.3000800@psc.edu>
+From: Jerry Jiang <wjiang@resilience.com>
+Subject: Re: [PATCH] make atomic_t volatile on all architectures
+Date: Thu, 9 Aug 2007 12:59:20 +0800
+Message-ID: <20070809125920.37eb6e6d.wjiang@resilience.com>
+References: <20070808230733.GA17270@shell.boston.redhat.com>
+	<alpine.LFD.0.999.0708082116060.25146@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
-To: jheffner@psc.edu
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41765
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751786AbXHIEky (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 00:40:54 -0400
-In-Reply-To: <46B9DF25.3000800@psc.edu>
-Sender: netdev-owner@vger.kernel.org
+Cc: Chris Snook <csnook@redhat.com>, akpm@linux-foundation.org,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	cfriesen@nortel.com, zlynx@acm.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S938462AbXHIFFX@vger.kernel.org>
+In-Reply-To: <alpine.LFD.0.999.0708082116060.25146@woody.linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: John Heffner <jheffner@psc.edu>
-Date: Wed, 08 Aug 2007 11:20:05 -0400
+On Wed, 8 Aug 2007 21:18:25 -0700 (PDT)
+Linus Torvalds <torvalds@linux-foundation.org> wrote:
 
-> I believe the current calculation is correct.  The RFC specifies a 
-> window of no more than 4380 bytes unless 2*MSS > 4380.  If you change 
-> the code in this way, then MSS=1461 will give you an initial window of 
-> 3*MSS == 4383, violating the spec.  Reading the pseudocode in the RFC 
-> 3390 is a bit misleading because they use a clamp at 4380 bytes rather 
-> than use a multiplier in the relevant range.
+> 
+> 
+> On Wed, 8 Aug 2007, Chris Snook wrote:
+> > 
+> > Some architectures currently do not declare the contents of an atomic_t to be
+> > volatile.  This causes confusion since atomic_read() might not actually read
+> > anything if an optimizing compiler re-uses a value stored in a register, which
+> > can break code that loops until something external changes the value of an
+> > atomic_t.
+> 
+> I'd be *much* happier with "atomic_read()" doing the "volatile" instead.
+> 
+> The fact is, volatile on data structures is a bug. It's a wart in the C 
+> language. It shouldn't be used. 
 
-Thanks for this excellent clarification John.
+Why? It's a wart! Is it due to unclear C standard on volatile related point?
 
-Because this has tripped up enough people, not once but on
-multiple occaisions, I'm going to add some comments to
-tcp_init_cwnd() to save the next person who is confused
-by what seems to be an incorrect implementation of the RFC :-)
+Why the *volatile-accesses-in-code* is acceptable, does C standard make it clear?
+
+-- Jerry
+
+> 
+> Volatile accesses in *code* can be ok, and if we have "atomic_read()" 
+> expand to a "*(volatile int *)&(x)->value", then I'd be ok with that.
+> 
+> But marking data structures volatile just makes the compiler screw up 
+> totally, and makes code for initialization sequences etc much worse.
+> 
+> 		Linus
