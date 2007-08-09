@@ -1,62 +1,74 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [patch] ipvs: force read of atomic_t in while loop
-Date: Thu, 9 Aug 2007 02:15:33 +0200
-Message-ID: <20070809001533.GA17798@one.firstfloor.org>
-References: <20070808093300.GA14530@osiris.boeblingen.de.ibm.com> <20070808.032131.35507346.davem@davemloft.net> <20070808102835.GC14530@osiris.boeblingen.de.ibm.com> <46BA30DC.20207@redhat.com>
+From: Aurelien Jarno <aurelien@aurel32.net>
+Subject: [PATCH] SSB PCI core driver fixes
+Date: Thu, 9 Aug 2007 02:23:53 +0200
+Message-ID: <20070809002353.GA4594@hall.aurel32.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>, andi@firstfloor.org,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	torvalds@osdl.org
-To: Chris Snook <csnook@redhat.com>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: netdev@vger.kernel.org
+To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:37531 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762438AbXHIAPf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Aug 2007 20:15:35 -0400
+Received: from hall.aurel32.net ([88.191.38.19]:33546 "EHLO hall.aurel32.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763827AbXHIAXy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Aug 2007 20:23:54 -0400
 Content-Disposition: inline
-In-Reply-To: <46BA30DC.20207@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 08, 2007 at 05:08:44PM -0400, Chris Snook wrote:
-> Heiko Carstens wrote:
-> >On Wed, Aug 08, 2007 at 03:21:31AM -0700, David Miller wrote:
-> >>From: Heiko Carstens <heiko.carstens@de.ibm.com>
-> >>Date: Wed, 8 Aug 2007 11:33:00 +0200
-> >>
-> >>>Just saw this while grepping for atomic_reads in a while loops.
-> >>>Maybe we should re-add the volatile to atomic_t. Not sure.
-> >>I think whatever the choice, it should be done consistently
-> >>on every architecture.
-> >>
-> >>It's just asking for trouble if your arch does it differently from
-> >>every other.
-> >
-> >Well..currently it's i386/x86_64 and s390 which have no volatile
-> >in atomic_t. And yes, of course I agree it should be consistent
-> >across all architectures. But it isn't.
-> 
-> Based on recent discussion, it's pretty clear that there's a lot of 
-> confusion about this.  A lot of people (myself included, until I thought 
-> about it long and hard) will reasonably assume that calling 
-> atomic_read() will actually read the value from memory.  Leaving out the 
-> volatile declaration seems like a pessimization to me.  If you force 
-> people to use barrier() everywhere they're working with atomic_t, it 
-> will force re-reads of all the non-atomic data in use as well, which 
-> will cause more memory fetches of things that generally don't need 
-> barrier().  That and it's a bug waiting to happen.
-> 
-> Andi -- your thoughts on the matter?
+The patch below against 2.6.23-rc1-mm2 fixes various things on the SSB
+PCI core driver:
+ - Correctly write the configuration register value in 
+   ssb_extpci_write_config() for len = 1 or len = 2.
+ - Set the PCI latency timer to handle devices on the PCI bus.
+ - Set the PCI arbiter control to internal.
+ - Add some delay between the configuration of the PCI controller 
+   and its registration.
 
-I also think readding volatile makes sense. An alternative would be
-to stick an rmb() into atomic_read() -- that would also stop speculative reads.
-Disadvantage is that it clobbers all memory, not just the specific value.
+Note: this is the latest SSB patch from my local tree. Next ones are 
+only BCM947xx or CFE related.
 
-But you really have to complain to Linus (cc'ed). He came up
-with the volatile removale change iirc.
+Signed-off-by: Aurelien Jarno <aurelien@aurel32.net>
 
--Andi
+--- a/drivers/ssb/driver_pcicore.c
++++ b/drivers/ssb/driver_pcicore.c
+@@ -99,6 +99,9 @@
+ 
+ 	/* Enable PCI bridge BAR1 prefetch and burst */
+ 	pci_write_config_dword(dev, SSB_BAR1_CONTROL, 3);
++
++	/* Make sure our latency is high enough to handle the devices behind us */
++	pci_write_config_byte(dev, PCI_LATENCY_TIMER, 0xa8);
+ }
+ DECLARE_PCI_FIXUP_EARLY(PCI_ANY_ID, PCI_ANY_ID, ssb_fixup_pcibridge);
+ 
+@@ -230,7 +233,7 @@
+ 		val = *((const u32 *)buf);
+ 		break;
+ 	}
+-	writel(*((const u32 *)buf), mmio);
++	writel(val, mmio);
+ 
+ 	err = 0;
+ unmap:
+@@ -311,6 +314,8 @@
+ 	udelay(150); /* Assertion time demanded by the PCI standard */
+ 	val |= SSB_PCICORE_CTL_RST; /* Deassert RST# */
+ 	pcicore_write32(pc, SSB_PCICORE_CTL, val);
++	val = SSB_PCICORE_ARBCTL_INTERN;
++	pcicore_write32(pc, SSB_PCICORE_ARBCTL, val);
+ 	udelay(1); /* Assertion time demanded by the PCI standard */
+ 
+ 	/*TODO cardbus mode */
+@@ -340,6 +345,7 @@
+ 	 * The following needs change, if we want to port hostmode
+ 	 * to non-MIPS platform. */
+ 	set_io_port_base((unsigned long)ioremap_nocache(SSB_PCI_MEM, 0x04000000));
++	mdelay(300);
+ 	register_pci_controller(&ssb_pcicore_controller);
+ }
 
+-- 
+  .''`.  Aurelien Jarno	            | GPG: 1024D/F1BCDB73
+ : :' :  Debian developer           | Electrical Engineer
+ `. `'   aurel32@debian.org         | aurelien@aurel32.net
+   `-    people.debian.org/~aurel32 | www.aurel32.net
