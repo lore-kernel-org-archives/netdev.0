@@ -1,71 +1,58 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: Re: [PATCH 1/1] NFS: change the ip_map cache code to handle IPv6
- addresses
-Date: Thu, 09 Aug 2007 11:14:45 -0400
-Message-ID: <46BB2F65.4080602@oracle.com>
-References: <46BAC0B9.1020207@ext.bull.net> <46BB05B6.5080301@oracle.com> <46BB2E01.2010406@ext.bull.net>
-Reply-To: chuck.lever@oracle.com
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [RFC] Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Thu, 9 Aug 2007 17:30:39 +0200
+Message-ID: <20070809153039.GB4955@ff.dom.local>
+References: <20070726085523.GA3423@ff.dom.local> <20070726091254.GA8063@elte.hu> <4bacf17f0707300029g5116e70bq4808059dc8b069f1@mail.gmail.com> <20070731132037.GC1046@ff.dom.local> <4bacf17f0708060000n5a00bb77i74adc3b4b28ac42b@mail.gmail.com> <20070806070300.GA4509@elte.hu> <46B75DD4.5080709@redhat.com> <20070806190812.GD26868@elte.hu> <20070809145026.GB3064@ff.dom.local> <p738x8kg0dp.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010002020108040403000009"
-Cc: Mailing list NFSv4 <nfsv4@linux-nfs.org>,
-	netdev ML <netdev@vger.kernel.org>, Neil Brown <neilb@suse.de>
-To: =?UTF-8?B?QXVyw6lsaWVuIENoYXJib24=?=
-	<aurelien.charbon@ext.bull.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@elte.hu>, Chuck Ebbert <cebbert@redhat.com>,
+	=?iso-8859-2?B?PT9pc28tODg1OS0yP3E/IE1hcmNpbiCmbHVzYXJ6Pz0=?=
+	<marcin.slusarz@gmail.com>, Thomas Gleixner <tglx@linutronix.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:48111 "EHLO
-	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936617AbXHIPQN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 11:16:13 -0400
-In-Reply-To: <46BB2E01.2010406@ext.bull.net>
+Received: from mx12.go2.pl ([193.17.41.142]:59228 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S940212AbXHIPaG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2007 11:30:06 -0400
+Content-Disposition: inline
+In-Reply-To: <p738x8kg0dp.fsf@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010002020108040403000009
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-
-Aurélien Charbon wrote:
->>> @@ -112,12 +112,16 @@
->>>      return (hash ^ (hash>>8)) & 0xff;
->>>  }
->>>  #endif
->>> +static inline int hash_ip6(struct in6_addr ip)
->>> +{
->>> +        return (hash_ip(ip.s6_addr32[0]) ^ hash_ip(ip.s6_addr32[1]) 
->>> ^ hash_ip(ip.s6_addr32[2]) ^ hash_ip(ip.s6_addr32[3])) ;
->>> +}
->>
->>
->> How have you tested the effectiveness of the new hash function?
+On Thu, Aug 09, 2007 at 06:04:34PM +0200, Andi Kleen wrote:
+> Jarek Poplawski <jarkao2@o2.pl> writes:
 > 
-> I have not tested that point but I can easily imagine there are better 
-> solutions.
-> Perhaps we can keep the same function for an IPv4 address (only taking 
-> the 32 bits of IPv4 addr), and then design one for IPv6 addresses.
+> > It seems, we can start to think about some preferred solutions,
+> > already. Here are some of my preliminary conclusions and suggestions.
+> > 
+> > The problem of timeouts with some 'older' network cards seems to hit
+> > mainly x86_64 arch, and after diagnosing and testing (still beeing
+> > done) it's caused by resending level type irqs.
+> 
+> i386 interrupt code should be similar, except for the lack of 
+> per CPU irqs, but that shouldnt' affect resending.
+> 
+> > 
+> > Possible solutions:
+> 
+> We should probably at least add some statistic counters to the
+> standard kernel to try to detect these cases.
+> 
+> > It looks like these changes are needed for this x86_64 only,
+> 
+> Why?
 
-I see that, to generate the hash, you would be xor-ing the FF and 00 
-bytes in the canonicalized IPv4 address.  Yes, perhaps a better function 
-is needed, or as you say, one specifically for IPv6 and one for 
-canonicalized IPv4.
+Maybe I missed something, but considering the popularity of i386
+there was not so much of consistent reporting?! I was very surprised,
+when I read a few days ago that Linus seems to think that this one
+here is only an individual problem...
 
-> Do you have any suggestion on that ?
-
-I don't have anything specific, but you may find something useful if you 
-poke around elsewhere under net/.
-
---------------010002020108040403000009
-Content-Type: text/x-vcard; charset=utf-8;
- name="chuck.lever.vcf"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="chuck.lever.vcf"
-
-YmVnaW46dmNhcmQNCmZuOkNodWNrIExldmVyDQpuOkxldmVyO0NodWNrDQpvcmc6T3JhY2xl
-IENvcnBvcmF0aW9uO0NvcnBvcmF0ZSBBcmNoaXRlY3R1cmU6IExpbnV4IFByb2plY3RzIEdy
-b3VwDQphZHI6OzsxMDE1IEdyYW5nZXIgQXZlbnVlO0FubiBBcmJvcjtNSTs0ODEwNDtVU0EN
-CnRpdGxlOlByaW5jaXBhbCBNZW1iZXIgb2YgU3RhZmYNCnRlbDt3b3JrOisxIDI0OCA2MTQg
-NTA5MQ0KeC1tb3ppbGxhLWh0bWw6RkFMU0UNCnVybDpodHRwOi8vb3NzLm9yYWNsZS5jb20v
-fmNlbA0KdmVyc2lvbjoyLjENCmVuZDp2Y2FyZA0KDQo=
---------------010002020108040403000009--
+Jarek P.
