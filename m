@@ -1,217 +1,198 @@
 From: Brian King <brking@linux.vnet.ibm.com>
-Subject: [PATCH 1/6] ibmveth: Enable TCP checksum offload
-Date: Fri, 10 Aug 2007 14:28:54 -0500
-Message-ID: <37981.2421081171$1186774146@news.gmane.org>
+Subject: [PATCH 2/6] ibmveth: Implement ethtool hooks to enable/disable checksum offload
+Date: Fri, 10 Aug 2007 14:29:01 -0500
+Message-ID: <200708101929.l7AJT2kM019154@d01av03.pok.ibm.com>
+References: <11867741331983-patch-mail.ibm.com>
 Cc: rcjenn@linux.vnet.ibm.com, netdev@vger.kernel.org,
 	linuxppc-dev@ozlabs.org, brking@linux.vnet.ibm.com
 To: santil@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:46604 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758545AbXHJT24 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 15:28:56 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e31.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l7AJSun2025128
-	for <netdev@vger.kernel.org>; Fri, 10 Aug 2007 15:28:56 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l7AJSuNe025624
-	for <netdev@vger.kernel.org>; Fri, 10 Aug 2007 13:28:56 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7AJStxq011672
-	for <netdev@vger.kernel.org>; Fri, 10 Aug 2007 13:28:56 -0600
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:33913 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1765432AbXHJT3D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2007 15:29:03 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l7AJT3vf008315
+	for <netdev@vger.kernel.org>; Fri, 10 Aug 2007 15:29:03 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l7AJT31i557992
+	for <netdev@vger.kernel.org>; Fri, 10 Aug 2007 15:29:03 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7AJT2q8019181
+	for <netdev@vger.kernel.org>; Fri, 10 Aug 2007 15:29:02 -0400
+In-Reply-To: <11867741331983-patch-mail.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-This patchset enables TCP checksum offload support for IPV4
-on ibmveth. This completely eliminates the generation and checking of
-the checksum for packets that are completely virtual and never
-touch a physical network. A simple TCP_STREAM netperf run on
-a virtual network with maximum mtu set yielded a ~30% increase
-in throughput. This feature is enabled by default on systems that
-support it, but can be disabled with a module option.
+This patch adds the appropriate ethtool hooks to allow for enabling/disabling
+of hypervisor assisted checksum offload for TCP.
 
 Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
 ---
 
- linux-2.6-bjking1/drivers/net/ibmveth.c |   53 ++++++++++++++++++++++++++++++++
- linux-2.6-bjking1/drivers/net/ibmveth.h |   41 +++++++++++++++++++++++-
- 2 files changed, 92 insertions(+), 2 deletions(-)
+ linux-2.6-bjking1/drivers/net/ibmveth.c |  125 +++++++++++++++++++++++++++++++-
+ linux-2.6-bjking1/drivers/net/ibmveth.h |    1 
+ 2 files changed, 124 insertions(+), 2 deletions(-)
 
-diff -puN drivers/net/ibmveth.c~ibmveth_csum_offload drivers/net/ibmveth.c
---- linux-2.6/drivers/net/ibmveth.c~ibmveth_csum_offload	2007-08-09 13:08:21.000000000 -0500
-+++ linux-2.6-bjking1/drivers/net/ibmveth.c	2007-08-09 13:08:21.000000000 -0500
-@@ -47,6 +47,8 @@
- #include <linux/mm.h>
- #include <linux/ethtool.h>
- #include <linux/proc_fs.h>
-+#include <linux/in.h>
-+#include <linux/ip.h>
- #include <asm/semaphore.h>
- #include <asm/hvcall.h>
- #include <asm/atomic.h>
-@@ -131,6 +133,11 @@ static inline int ibmveth_rxq_frame_leng
- 	return (adapter->rx_queue.queue_addr[adapter->rx_queue.index].length);
+diff -puN drivers/net/ibmveth.c~ibmveth_csum_offload_ethtool drivers/net/ibmveth.c
+--- linux-2.6/drivers/net/ibmveth.c~ibmveth_csum_offload_ethtool	2007-08-09 15:15:07.000000000 -0500
++++ linux-2.6-bjking1/drivers/net/ibmveth.c	2007-08-09 15:15:07.000000000 -0500
+@@ -641,12 +641,132 @@ static u32 netdev_get_link(struct net_de
+ 	return 1;
  }
  
-+static inline int ibmveth_rxq_csum_good(struct ibmveth_adapter *adapter)
++static void ibmveth_set_rx_csum_flags(struct net_device *dev, u32 data)
 +{
-+	return (adapter->rx_queue.queue_addr[adapter->rx_queue.index].csum_good);
++	struct ibmveth_adapter *adapter = dev->priv;
++
++	if (data)
++		adapter->rx_csum = 1;
++	else {
++		/*
++		 * Since the ibmveth firmware interface does not have the concept of
++		 * separate tx/rx checksum offload enable, if rx checksum is disabled
++		 * we also have to disable tx checksum offload. Once we disable rx
++		 * checksum offload, we are no longer allowed to send tx buffers that
++		 * are not properly checksummed.
++		 */
++		adapter->rx_csum = 0;
++		dev->features &= ~NETIF_F_IP_CSUM;
++	}
 +}
 +
- /* setup the initial settings for a buffer pool */
- static void ibmveth_init_buffer_pool(struct ibmveth_buff_pool *pool, u32 pool_index, u32 pool_size, u32 buff_size, u32 pool_active)
- {
-@@ -684,6 +691,24 @@ static int ibmveth_start_xmit(struct sk_
- 					desc[0].fields.length, DMA_TO_DEVICE);
- 	desc[0].fields.valid   = 1;
- 
-+	if (skb->ip_summed == CHECKSUM_PARTIAL &&
-+	    ip_hdr(skb)->protocol != IPPROTO_TCP && skb_checksum_help(skb)) {
-+		ibmveth_error_printk("tx: failed to checksum packet\n");
-+		tx_dropped++;
-+		goto out;
-+	}
++static void ibmveth_set_tx_csum_flags(struct net_device *dev, u32 data)
++{
++	struct ibmveth_adapter *adapter = dev->priv;
 +
-+	if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+		unsigned char *buf = skb_transport_header(skb) + skb->csum_offset;
++	if (data) {
++		dev->features |= NETIF_F_IP_CSUM;
++		adapter->rx_csum = 1;
++	} else
++		dev->features &= ~NETIF_F_IP_CSUM;
++}
 +
-+		desc[0].fields.no_csum = 1;
-+		desc[0].fields.csum_good = 1;
-+
-+		/* Need to zero out the checksum */
-+		buf[0] = 0;
-+		buf[1] = 0;
-+	}
-+
- 	if(dma_mapping_error(desc[0].fields.address)) {
- 		ibmveth_error_printk("tx: unable to map initial fragment\n");
- 		tx_map_failed++;
-@@ -702,6 +727,10 @@ static int ibmveth_start_xmit(struct sk_
- 				frag->size, DMA_TO_DEVICE);
- 		desc[curfrag+1].fields.length = frag->size;
- 		desc[curfrag+1].fields.valid  = 1;
-+		if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+			desc[curfrag+1].fields.no_csum = 1;
-+			desc[curfrag+1].fields.csum_good = 1;
-+		}
- 
- 		if(dma_mapping_error(desc[curfrag+1].fields.address)) {
- 			ibmveth_error_printk("tx: unable to map fragment %d\n", curfrag);
-@@ -792,7 +821,11 @@ static int ibmveth_poll(struct net_devic
- 			} else {
- 				int length = ibmveth_rxq_frame_length(adapter);
- 				int offset = ibmveth_rxq_frame_offset(adapter);
-+				int csum_good = ibmveth_rxq_csum_good(adapter);
-+
- 				skb = ibmveth_rxq_get_buffer(adapter);
-+				if (csum_good)
-+					skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
- 				ibmveth_rxq_harvest_buffer(adapter);
- 
-@@ -962,8 +995,10 @@ static void ibmveth_poll_controller(stru
- static int __devinit ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
- {
- 	int rc, i;
++static int ibmveth_set_csum_offload(struct net_device *dev, u32 data,
++				    void (*done) (struct net_device *, u32))
++{
++	struct ibmveth_adapter *adapter = dev->priv;
++	union ibmveth_illan_attributes set_attr, clr_attr, ret_attr;
 +	long ret;
- 	struct net_device *netdev;
- 	struct ibmveth_adapter *adapter;
-+	union ibmveth_illan_attributes set_attr, ret_attr;
- 
- 	unsigned char *mac_addr_p;
- 	unsigned int *mcastFilterSize_p;
-@@ -1057,6 +1092,24 @@ static int __devinit ibmveth_probe(struc
- 
- 	ibmveth_debug_printk("registering netdev...\n");
- 
-+	ret = h_illan_attributes(dev->unit_address, 0, 0, &ret_attr.desc);
++	int rc1 = 0, rc2 = 0;
++	int restart = 0;
++
++	if (netif_running(dev)) {
++		restart = 1;
++		adapter->pool_config = 1;
++		ibmveth_close(dev);
++		adapter->pool_config = 0;
++	}
++
++	set_attr.desc = 0;
++	clr_attr.desc = 0;
++
++	if (data)
++		set_attr.fields.tcp_csum_offload_ipv4 = 1;
++	else
++		clr_attr.fields.tcp_csum_offload_ipv4 = 1;
++
++	ret = h_illan_attributes(adapter->vdev->unit_address, 0, 0, &ret_attr.desc);
 +
 +	if (ret == H_SUCCESS && !ret_attr.fields.active_trunk &&
 +	    !ret_attr.fields.trunk_priority &&
 +	    ret_attr.fields.csum_offload_padded_pkt_support) {
-+		set_attr.desc = 0;
-+		set_attr.fields.tcp_csum_offload_ipv4 = 1;
++		ret = h_illan_attributes(adapter->vdev->unit_address, clr_attr.desc,
++					 set_attr.desc, &ret_attr.desc);
 +
-+		ret = h_illan_attributes(dev->unit_address, 0, set_attr.desc,
-+					 &ret_attr.desc);
++		if (ret != H_SUCCESS) {
++			rc1 = -EIO;
++			ibmveth_error_printk("unable to change checksum offload settings."
++					     " %d rc=%ld\n", data, ret);
 +
-+		if (ret == H_SUCCESS)
-+			netdev->features |= NETIF_F_IP_CSUM;
-+		else
-+			ret = h_illan_attributes(dev->unit_address, set_attr.desc,
-+						 0, &ret_attr.desc);
++			ret = h_illan_attributes(adapter->vdev->unit_address,
++						 set_attr.desc, clr_attr.desc, &ret_attr.desc);
++		} else
++			done(dev, data);
++	} else {
++		rc1 = -EIO;
++		ibmveth_error_printk("unable to change checksum offload settings."
++				     " %d rc=%ld ret_attr=%lx\n", data, ret, ret_attr.desc);
 +	}
 +
- 	rc = register_netdev(netdev);
- 
- 	if(rc) {
-diff -puN drivers/net/ibmveth.h~ibmveth_csum_offload drivers/net/ibmveth.h
---- linux-2.6/drivers/net/ibmveth.h~ibmveth_csum_offload	2007-08-09 13:08:21.000000000 -0500
-+++ linux-2.6-bjking1/drivers/net/ibmveth.h	2007-08-09 13:08:21.000000000 -0500
-@@ -67,6 +67,21 @@ static inline long h_send_logical_lan(un
- 	return rc;
- }
- 
-+static inline long h_illan_attributes(unsigned long unit_address,
-+				      unsigned long reset_mask, unsigned long set_mask,
-+				      unsigned long *ret_attributes)
++	if (restart)
++		rc2 = ibmveth_open(dev);
++
++	return rc1 ? rc1 : rc2;
++}
++
++static int ibmveth_set_rx_csum(struct net_device *dev, u32 data)
 +{
-+	long rc;
-+	unsigned long retbuf[PLPAR_HCALL_BUFSIZE];
++	struct ibmveth_adapter *adapter = dev->priv;
 +
-+	rc = plpar_hcall(H_ILLAN_ATTRIBUTES, retbuf, unit_address,
-+			 reset_mask, set_mask);
++	if ((data && adapter->rx_csum) || (!data && !adapter->rx_csum))
++		return 0;
 +
-+	*ret_attributes = retbuf[0];
++	return ibmveth_set_csum_offload(dev, data, ibmveth_set_rx_csum_flags);
++}
++
++static int ibmveth_set_tx_csum(struct net_device *dev, u32 data)
++{
++	struct ibmveth_adapter *adapter = dev->priv;
++	int rc = 0;
++
++	if (data && (dev->features & NETIF_F_IP_CSUM))
++		return 0;
++	if (!data && !(dev->features & NETIF_F_IP_CSUM))
++		return 0;
++
++	if (data && !adapter->rx_csum)
++		rc = ibmveth_set_csum_offload(dev, data, ibmveth_set_tx_csum_flags);
++	else
++		ibmveth_set_tx_csum_flags(dev, data);
 +
 +	return rc;
 +}
 +
- #define h_multicast_ctrl(ua, cmd, mac) \
-   plpar_hcall_norets(H_MULTICAST_CTRL, ua, cmd, mac)
- 
-@@ -141,7 +156,9 @@ struct ibmveth_adapter {
- struct ibmveth_buf_desc_fields {
-     u32 valid : 1;
-     u32 toggle : 1;
--    u32 reserved : 6;
-+    u32 reserved : 4;
-+    u32 no_csum : 1;
-+    u32 csum_good : 1;
-     u32 length : 24;
-     u32 address;
- };
-@@ -151,10 +168,30 @@ union ibmveth_buf_desc {
-     struct ibmveth_buf_desc_fields fields;
- };
- 
-+struct ibmveth_illan_attributes_fields {
-+	u32 reserved;
-+	u32 reserved2 : 18;
-+	u32 csum_offload_padded_pkt_support : 1;
-+	u32 reserved3 : 1;
-+	u32 trunk_priority : 4;
-+	u32 reserved4 : 5;
-+	u32 tcp_csum_offload_ipv6 : 1;
-+	u32 tcp_csum_offload_ipv4 : 1;
-+	u32 active_trunk : 1;
-+};
++static u32 ibmveth_get_rx_csum(struct net_device *dev)
++{
++	struct ibmveth_adapter *adapter = dev->priv;
++	return adapter->rx_csum;
++}
 +
-+union ibmveth_illan_attributes {
-+	u64 desc;
-+	struct ibmveth_illan_attributes_fields fields;
-+};
-+
- struct ibmveth_rx_q_entry {
-     u16 toggle : 1;
-     u16 valid : 1;
--    u16 reserved : 14;
-+    u16 reserved : 4;
-+    u16 no_csum : 1;
-+    u16 csum_good : 1;
-+    u16 reserved2 : 8;
-     u16 offset;
-     u32 length;
-     u64 correlator;
+ static const struct ethtool_ops netdev_ethtool_ops = {
+ 	.get_drvinfo		= netdev_get_drvinfo,
+ 	.get_settings		= netdev_get_settings,
+ 	.get_link		= netdev_get_link,
+ 	.get_sg			= ethtool_op_get_sg,
+ 	.get_tx_csum		= ethtool_op_get_tx_csum,
++	.set_tx_csum		= ibmveth_set_tx_csum,
++	.get_rx_csum		= ibmveth_get_rx_csum,
++	.set_rx_csum		= ibmveth_set_rx_csum,
+ };
+ 
+ static int ibmveth_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+@@ -1103,9 +1223,10 @@ static int __devinit ibmveth_probe(struc
+ 		ret = h_illan_attributes(dev->unit_address, 0, set_attr.desc,
+ 					 &ret_attr.desc);
+ 
+-		if (ret == H_SUCCESS)
++		if (ret == H_SUCCESS) {
++			adapter->rx_csum = 1;
+ 			netdev->features |= NETIF_F_IP_CSUM;
+-		else
++		} else
+ 			ret = h_illan_attributes(dev->unit_address, set_attr.desc,
+ 						 0, &ret_attr.desc);
+ 	}
+diff -puN drivers/net/ibmveth.h~ibmveth_csum_offload_ethtool drivers/net/ibmveth.h
+--- linux-2.6/drivers/net/ibmveth.h~ibmveth_csum_offload_ethtool	2007-08-09 15:15:07.000000000 -0500
++++ linux-2.6-bjking1/drivers/net/ibmveth.h	2007-08-09 15:15:07.000000000 -0500
+@@ -137,6 +137,7 @@ struct ibmveth_adapter {
+     struct ibmveth_buff_pool rx_buff_pool[IbmVethNumBufferPools];
+     struct ibmveth_rx_q rx_queue;
+     int pool_config;
++    int rx_csum;
+ 
+     /* adapter specific stats */
+     u64 replenish_task_cycles;
 _
