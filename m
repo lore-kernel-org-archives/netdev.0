@@ -1,49 +1,74 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Subject: RE: [PATCH 9/24] make atomic_read() behave consistently on ia64
-Date: Fri, 10 Aug 2007 15:59:44 -0700
-Message-ID: <617E1C2C70743745A92448908E030B2A0224C8D7@scsmsx411.amr.corp.intel.com>
-References: <20070809135107.GA15985@shell.boston.redhat.com><617E1C2C70743745A92448908E030B2A02213B3C@scsmsx411.amr.corp.intel.com><46BCC1AF.5050204@redhat.com><617E1C2C70743745A92448908E030B2A0224C777@scsmsx411.amr.corp.intel.com> <jewsw3oyl8.fsf@sykes.suse.de> <617E1C2C70743745A92448908E030B2A0224C88B@scsmsx411.amr.corp.intel.com> <46BCE9F8.4060009@redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH for 2.6.24] SCTP: Rewrite of sctp buffer management code
+Date: Fri, 10 Aug 2007 19:01:26 -0400
+Message-ID: <20070810230126.GB3983@hmsreliant.homelinux.net>
+References: <46BCCE8B.2050605@hp.com> <20070810.150625.105430969.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Andreas Schwab" <schwab@suse.de>, <linux-kernel@vger.kernel.org>,
-	<linux-arch@vger.kernel.org>, <torvalds@linux-foundation.org>,
-	<netdev@vger.kernel.org>, <akpm@linux-foundation.org>,
-	<ak@suse.de>, <heiko.carstens@de.ibm.com>, <davem@davemloft.net>,
-	<schwidefsky@de.ibm.com>, <wensong@linux-vs.org>,
-	<horms@verge.net.au>, <wjiang@resilience.com>,
-	<cfriesen@nortel.com>, <zlynx@acm.org>, <rpjday@mindspring.com>,
-	<jesper.juhl@gmail.com>
-To: "Chris Snook" <csnook@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1765006AbXHJXAB@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <46BCE9F8.4060009@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: vladislav.yasevich@hp.com, netdev@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ra.tuxdriver.com ([70.61.120.52]:3369 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753102AbXHJXCY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2007 19:02:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20070810.150625.105430969.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Possibly.  Either that or we've uncovered some latent bugs.  Maybe a 
-> combination of the two.  Can you list those 19 changes so we can 
-evaluate them?
+On Fri, Aug 10, 2007 at 03:06:25PM -0700, David Miller wrote:
+> From: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Date: Fri, 10 Aug 2007 16:46:03 -0400
+> 
+> > This patch introduces autotuning to the sctp buffer management code
+> > similar to the TCP.  The buffer space can be grown if the advertised
+> > receive window still has room.  This might happen if small message
+> > sizes are used, which is common in telecom environmens.
+> > New tunables are introduced that provide limits to buffer growth
+> > and memory pressure is entered if to much buffer spaces is used.
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> > Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+> 
+> Applied, thanks Vlad.
+> 
+> Can you in the future fix up whitespace issues like this:
+> 
+> Adds trailing whitespace.
+> diff:21: 
+> Space in indent is followed by a tab.
+> diff:27: 	int amt;
+> Space in indent is followed by a tab.
+> diff:48: 		amt = asoc->base.sk->sk_sndbuf - amt;
+> Space in indent is followed by a tab.
+> diff:55:  	return amt;
+> 
+> I know where the "Space in indent" cases come from, you apply the
+> patch to merge it into a current tree, you get rejects, then you edit
+> in the foo.rej hunks by hand into the code but forget to remove the
+> extra leading whitespace characters.
+> 
+> :-)
 
-Here are the functions in which they occur in the object file. You
-may have to chase down some inlining to find the function that
-actually uses atomic_*().
+Thanks for applying this Dave, but something seems to have occured during your
+application.  The commitdiff:
+http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.24.git;a=commitdiff;h=e20e5d698dcccd2e84ee2e1e482b0b203f885c00
+only shows applications to socket.c, while the patch that vlad sent you changed
+much more than that.  Not sure If I'm seeing something thats transient, but I
+wanted to bring it to your attention in the event that something has in fact
+gone awry.  
 
-freeque
-do_msgrcv
-sk_free
-sock_wfree
-sock_rfree
-sock_kmalloc
-sock_kfree_s
-sock_setsockopt
-skb_release_data
-__sk_stream_mem_reclaim
-sk_tream_mem_schedule
-sk_stream_rfree
-sk_attach_filter
-ip_frag_destroy * 2
-ip_frag_queue * 2
-ip_frag_reasm * 2
+Thanks & Regards to you both
+Neil
 
--Tony
+-- 
+/***************************************************
+ *Neil Horman
+ *Software Engineer
+ *Red Hat, Inc.
+ *nhorman@tuxdriver.com
+ *gpg keyid: 1024D / 0x92A74FA1
+ *http://pgp.mit.edu
+ ***************************************************/
