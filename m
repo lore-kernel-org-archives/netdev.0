@@ -1,164 +1,372 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 1/24] make atomic_read() behave consistently on alpha
-Date: Fri, 10 Aug 2007 13:26:46 -0700
-Message-ID: <20070810202646.GD8511@linux.vnet.ibm.com>
-References: <20070809161024.GC8424@linux.vnet.ibm.com> <46BB4281.7010803@redhat.com> <20070809165853.GD8424@linux.vnet.ibm.com> <46BB4B7B.4070007@redhat.com> <20070809174150.GE8424@linux.vnet.ibm.com> <46BB5960.9040009@redhat.com> <20070809184531.GH8424@linux.vnet.ibm.com> <46BB69F8.5000502@redhat.com> <20070810012848.GJ8424@linux.vnet.ibm.com> <46BCC12F.9020803@redhat.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [PATCH 4/4] ethtool: internal simplification
+Date: Fri, 10 Aug 2007 16:26:54 -0400
+Message-ID: <20070810202654.GC25095@havoc.gtf.org>
+References: <20070810202426.GA25050@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, ak@suse.de, heiko.carstens@de.ibm.com,
-	davem@davemloft.net, schwidefsky@de.ibm.com, wensong@linux-vs.org,
-	horms@verge.net.au, wjiang@resilience.com, cfriesen@nortel.com,
-	zlynx@acm.org, rpjday@mindspring.com, jesper.juhl@gmail.com
-To: Chris Snook <csnook@redhat.com>
+Cc: davem@davemloft.net, LKML <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:46730 "EHLO e4.ny.us.ibm.com"
+Received: from havoc.gtf.org ([69.61.125.42]:43078 "EHLO havoc.gtf.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966031AbXHJU0x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2007 16:26:53 -0400
+	id S966029AbXHJU0z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2007 16:26:55 -0400
 Content-Disposition: inline
-In-Reply-To: <46BCC12F.9020803@redhat.com>
+In-Reply-To: <20070810202426.GA25050@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 10, 2007 at 03:49:03PM -0400, Chris Snook wrote:
-> Paul E. McKenney wrote:
-> >On Thu, Aug 09, 2007 at 03:24:40PM -0400, Chris Snook wrote:
-> >>Paul E. McKenney wrote:
-> >>>On Thu, Aug 09, 2007 at 02:13:52PM -0400, Chris Snook wrote:
-> >>>>Paul E. McKenney wrote:
-> >>>>>On Thu, Aug 09, 2007 at 01:14:35PM -0400, Chris Snook wrote:
-> >>>>>>                              If you're depending on volatile writes 
-> >>>>>>being visible to other CPUs, you're screwed either way, because the 
-> >>>>>>CPU can hold that data in cache as long as it wants before it writes 
-> >>>>>>it to memory.  When this finally does happen, it will happen 
-> >>>>>>atomically, which is all that atomic_set guarantees.  If you need to 
-> >>>>>>guarantee that the value is written to memory at a particular time in 
-> >>>>>>your execution sequence, you either have to read it from memory to 
-> >>>>>>force the compiler to store it first (and a volatile cast in 
-> >>>>>>atomic_read will suffice for this) or you have to use LOCK_PREFIX 
-> >>>>>>instructions which will invalidate remote cache lines containing the 
-> >>>>>>same variable.  This patch doesn't change either of these cases.
-> >>>>>The case that it -can- change is interactions with interrupt handlers.
-> >>>>>And NMI/SMI handlers, for that matter.
-> >>>>You have a point here, but only if you can guarantee that the interrupt 
-> >>>>handler is running on a processor sharing the cache that has the 
-> >>>>not-yet-written volatile value.  That implies a strictly non-SMP 
-> >>>>architecture.  At the moment, none of those have volatile in their 
-> >>>>declaration of atomic_t, so this patch can't break any of them.
-> >>>This can also happen when using per-CPU variables.  And there are a
-> >>>number of per-CPU variables that are either atomic themselves or are
-> >>>structures containing atomic fields.
-> >>Accessing per-CPU variables in this fashion reliably already requires a 
-> >>suitable smp/non-smp read/write memory barrier.  I maintain that if we 
-> >>break anything with this change, it was really already broken, if less 
-> >>obviously.  Can you give a real or synthetic example of legitimate code 
-> >>that could break?
-> >
-> >My main concern is actually the lack of symmetry -- I would expect
-> >that an atomic_set() would have the same properties as atomic_read().
-> >It is easy and cheap to provide them with similar properties, so why not?
-> >Debugging even a single problem would consume far more time than simply
-> >giving them corresponding semantics.
-> >
-> >But you asked for examples.  These are synthetic, and of course legitimacy
-> >is in the eye of the beholder.
-> >
-> >1.  Watchdog variable.
-> >
-> >	atomic_t watchdog = ATOMIC_INIT(0);
-> >
-> >	...
-> >
-> >	int i;
-> >	while (!done) {
-> >
-> >		/* Do so stuff that doesn't take more than a few us. */
-> >		/* Could do atomic increment, but throughput penalty. */
-> >
-> >		i++;
-> >		atomic_set(&watchdog, i);
-> >	}
-> >	do_something_with(&watchdog);
-> >
-> >
-> >	/* Every so often on some other CPU... */
-> >
-> >	if ((new_watchdog = atomic_read(&watchdog)) == old_watchdog)
-> >		die_horribly();
-> >	old_watchdog = new_watchdog;
-> >
-> >
-> >	If atomic_set() did not have volatile semantics, the compiler
-> >	would be within its rights optimizing it to simply get the
-> >	final value of "i" after exit from the loop.  This would cause
-> >	the watchdog check to fail spuriously.  Memory barriers are
-> >	not required in this case, because the CPU cannot hang onto
-> >	the value for very long -- we don't care about the exact value,
-> >	or about exact synchronization, but rather about whether or
-> >	not the value is changing.
-> >
-> >	In this (toy) example, one might replace the atomic_set() with
-> >	an atomic increment (though that might be too expensive in some
-> >	cases) or with something like:
-> >
-> >		atomic_set(&watchdog, atomic_read(&watchdog) + 1);
-> >
-> >	However, other cases might not permit this transformation,
-> >	for example, an existing heavily used API might take int rather
-> >	than atomic_t.
-> >
-> >	Some will no doubt argue that this example should use a
-> >	macro or an asm similar to the "forget()" asm put forward
-> >	elsewhere in this thread.
-> >
-> >2.  Communicating both with interrupt handler and with other CPUs.
-> >    For example, data elements that are built up in a location visible
-> >    to interrupts and NMIs, and then added as a unit to a data structure
-> >    visible to other CPUs.  This more-realistic example is abbreviated
-> >    to the point of pointlessness as follows:
-> >
-> >	struct foo {
-> >		atomic_t a;
-> >		atomic_t b;
-> >	};
-> >
-> >	DEFINE_PER_CPU(struct foo *, staging) = NULL;
-> >
-> >	/* Create element in staging area. */
-> >
-> >	__get_cpu_var(staging) = kzalloc(sizeof(*p), GFP_WHATEVER);
-> >	if (__get_cpu_var(staging) == NULL)
-> >		die_horribly();
-> >	/* allocate an element of some per-CPU array, get the result in "i" 
-> >	*/
-> >	atomic_set(__get_cpu_var(staging).a, i);
-> >	/* allocate another element of a per-CPU array, with result in "i" */
-> >	atomic_set(__get_cpu_var(staging).b, i);
-> >	rcu_assign_pointer(some_global_place, __get_cpu_var(staging));
-> >
-> >	If atomic_set() didn't have volatile semantics, then an interrupt
-> >	or NMI handler could see the atomic_set() to .a and .b out of
-> >	order due to compiler optimizations.
-> >
-> >Remember, you -did- ask for these!!!  ;-)
-> 
-> Ok, I'm convinced.  Part of the motivation here is to avoid heisenbugs, 
-> so if people expect volatile atomic_set behavior, I'm inclined to give 
-> it to them.  I don't really feel like indulging the compiler bug 
-> paranoiacs, but developer expectations are a legitimate motivation, and 
-> a major part of why I posted this in the first place.  I'll resubmit the 
-> patchset with a volatile cast in atomic_set.  Before I do, is there 
-> anything *else* that desperately needs such a cast?  As far as I can 
-> tell, all the other functions are implemented with __asm__ __volatile__, 
-> or with spinlocks that use that under the hood.
 
-Sounds good!!!
+commit 758522226b3e7758a84e721998bce8f63855caca
+Author: Jeff Garzik <jeff@garzik.org>
+Date:   Fri Aug 10 16:17:09 2007 -0400
 
-The only other API that I am aware of needing volatile semantics is
-rcu_dereference(), but I already sent a patch in for it.  So as far
-as I know, atomic_read() and atomic_set() should cover it.
+    [ETHTOOL] Internal cleanup of ethtool_value-related handlers
+    
+    Several get/set functions can be handled by a passing the ethtool_op
+    function pointer directly to a generic function.  This permits deletion
+    of a fair bit of redundant code.
+    
+    Signed-off-by: Jeff Garzik <jeff@garzik.org>
 
-							Thanx, Paul
+ net/core/ethtool.c |  199 ++++++++++-------------------------------------------
+ 1 file changed, 39 insertions(+), 160 deletions(-)
+
+758522226b3e7758a84e721998bce8f63855caca
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index f721e38..4559200 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -272,34 +272,6 @@ static int ethtool_set_wol(struct net_device *dev, char __user *useraddr)
+ 	return dev->ethtool_ops->set_wol(dev, &wol);
+ }
+ 
+-static int ethtool_get_msglevel(struct net_device *dev, char __user *useraddr)
+-{
+-	struct ethtool_value edata = { ETHTOOL_GMSGLVL };
+-
+-	if (!dev->ethtool_ops->get_msglevel)
+-		return -EOPNOTSUPP;
+-
+-	edata.data = dev->ethtool_ops->get_msglevel(dev);
+-
+-	if (copy_to_user(useraddr, &edata, sizeof(edata)))
+-		return -EFAULT;
+-	return 0;
+-}
+-
+-static int ethtool_set_msglevel(struct net_device *dev, char __user *useraddr)
+-{
+-	struct ethtool_value edata;
+-
+-	if (!dev->ethtool_ops->set_msglevel)
+-		return -EOPNOTSUPP;
+-
+-	if (copy_from_user(&edata, useraddr, sizeof(edata)))
+-		return -EFAULT;
+-
+-	dev->ethtool_ops->set_msglevel(dev, edata.data);
+-	return 0;
+-}
+-
+ static int ethtool_nway_reset(struct net_device *dev)
+ {
+ 	if (!dev->ethtool_ops->nway_reset)
+@@ -308,20 +280,6 @@ static int ethtool_nway_reset(struct net_device *dev)
+ 	return dev->ethtool_ops->nway_reset(dev);
+ }
+ 
+-static int ethtool_get_link(struct net_device *dev, void __user *useraddr)
+-{
+-	struct ethtool_value edata = { ETHTOOL_GLINK };
+-
+-	if (!dev->ethtool_ops->get_link)
+-		return -EOPNOTSUPP;
+-
+-	edata.data = dev->ethtool_ops->get_link(dev);
+-
+-	if (copy_to_user(useraddr, &edata, sizeof(edata)))
+-		return -EFAULT;
+-	return 0;
+-}
+-
+ static int ethtool_get_eeprom(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_eeprom eeprom;
+@@ -489,48 +447,6 @@ static int ethtool_set_pauseparam(struct net_device *dev, void __user *useraddr)
+ 	return dev->ethtool_ops->set_pauseparam(dev, &pauseparam);
+ }
+ 
+-static int ethtool_get_rx_csum(struct net_device *dev, char __user *useraddr)
+-{
+-	struct ethtool_value edata = { ETHTOOL_GRXCSUM };
+-
+-	if (!dev->ethtool_ops->get_rx_csum)
+-		return -EOPNOTSUPP;
+-
+-	edata.data = dev->ethtool_ops->get_rx_csum(dev);
+-
+-	if (copy_to_user(useraddr, &edata, sizeof(edata)))
+-		return -EFAULT;
+-	return 0;
+-}
+-
+-static int ethtool_set_rx_csum(struct net_device *dev, char __user *useraddr)
+-{
+-	struct ethtool_value edata;
+-
+-	if (!dev->ethtool_ops->set_rx_csum)
+-		return -EOPNOTSUPP;
+-
+-	if (copy_from_user(&edata, useraddr, sizeof(edata)))
+-		return -EFAULT;
+-
+-	dev->ethtool_ops->set_rx_csum(dev, edata.data);
+-	return 0;
+-}
+-
+-static int ethtool_get_tx_csum(struct net_device *dev, char __user *useraddr)
+-{
+-	struct ethtool_value edata = { ETHTOOL_GTXCSUM };
+-
+-	if (!dev->ethtool_ops->get_tx_csum)
+-		return -EOPNOTSUPP;
+-
+-	edata.data = dev->ethtool_ops->get_tx_csum(dev);
+-
+-	if (copy_to_user(useraddr, &edata, sizeof(edata)))
+-		return -EFAULT;
+-	return 0;
+-}
+-
+ static int __ethtool_set_sg(struct net_device *dev, u32 data)
+ {
+ 	int err;
+@@ -569,20 +485,6 @@ static int ethtool_set_tx_csum(struct net_device *dev, char __user *useraddr)
+ 	return dev->ethtool_ops->set_tx_csum(dev, edata.data);
+ }
+ 
+-static int ethtool_get_sg(struct net_device *dev, char __user *useraddr)
+-{
+-	struct ethtool_value edata = { ETHTOOL_GSG };
+-
+-	if (!dev->ethtool_ops->get_sg)
+-		return -EOPNOTSUPP;
+-
+-	edata.data = dev->ethtool_ops->get_sg(dev);
+-
+-	if (copy_to_user(useraddr, &edata, sizeof(edata)))
+-		return -EFAULT;
+-	return 0;
+-}
+-
+ static int ethtool_set_sg(struct net_device *dev, char __user *useraddr)
+ {
+ 	struct ethtool_value edata;
+@@ -600,20 +502,6 @@ static int ethtool_set_sg(struct net_device *dev, char __user *useraddr)
+ 	return __ethtool_set_sg(dev, edata.data);
+ }
+ 
+-static int ethtool_get_tso(struct net_device *dev, char __user *useraddr)
+-{
+-	struct ethtool_value edata = { ETHTOOL_GTSO };
+-
+-	if (!dev->ethtool_ops->get_tso)
+-		return -EOPNOTSUPP;
+-
+-	edata.data = dev->ethtool_ops->get_tso(dev);
+-
+-	if (copy_to_user(useraddr, &edata, sizeof(edata)))
+-		return -EFAULT;
+-	return 0;
+-}
+-
+ static int ethtool_set_tso(struct net_device *dev, char __user *useraddr)
+ {
+ 	struct ethtool_value edata;
+@@ -630,18 +518,6 @@ static int ethtool_set_tso(struct net_device *dev, char __user *useraddr)
+ 	return dev->ethtool_ops->set_tso(dev, edata.data);
+ }
+ 
+-static int ethtool_get_ufo(struct net_device *dev, char __user *useraddr)
+-{
+-	struct ethtool_value edata = { ETHTOOL_GUFO };
+-
+-	if (!dev->ethtool_ops->get_ufo)
+-		return -EOPNOTSUPP;
+-	edata.data = dev->ethtool_ops->get_ufo(dev);
+-	if (copy_to_user(useraddr, &edata, sizeof(edata)))
+-		 return -EFAULT;
+-	return 0;
+-}
+-
+ static int ethtool_set_ufo(struct net_device *dev, char __user *useraddr)
+ {
+ 	struct ethtool_value edata;
+@@ -857,58 +733,48 @@ static int ethtool_get_perm_addr(struct net_device *dev, void __user *useraddr)
+ 	return 0;
+ }
+ 
+-static int ethtool_get_flags(struct net_device *dev, char __user *useraddr)
++static int ethtool_get_value(struct net_device *dev, char __user *useraddr,
++			     u32 cmd, u32 (*actor)(struct net_device *))
+ {
+-	struct ethtool_value edata = { ETHTOOL_GFLAGS };
++	struct ethtool_value edata = { cmd };
+ 
+-	if (!dev->ethtool_ops->get_flags)
++	if (!actor)
+ 		return -EOPNOTSUPP;
+ 
+-	edata.data = dev->ethtool_ops->get_flags(dev);
++	edata.data = actor(dev);
+ 
+ 	if (copy_to_user(useraddr, &edata, sizeof(edata)))
+ 		return -EFAULT;
+ 	return 0;
+ }
+ 
+-static int ethtool_set_flags(struct net_device *dev, char __user *useraddr)
++static int ethtool_set_value_void(struct net_device *dev, char __user *useraddr,
++			     void (*actor)(struct net_device *, u32))
+ {
+ 	struct ethtool_value edata;
+ 
+-	if (!dev->ethtool_ops->set_flags)
++	if (!actor)
+ 		return -EOPNOTSUPP;
+ 
+ 	if (copy_from_user(&edata, useraddr, sizeof(edata)))
+ 		return -EFAULT;
+ 
+-	return dev->ethtool_ops->set_flags(dev, edata.data);
+-}
+-
+-static int ethtool_get_priv_flags(struct net_device *dev, char __user *useraddr)
+-{
+-	struct ethtool_value edata = { ETHTOOL_GPFLAGS };
+-
+-	if (!dev->ethtool_ops->get_priv_flags)
+-		return -EOPNOTSUPP;
+-
+-	edata.data = dev->ethtool_ops->get_priv_flags(dev);
+-
+-	if (copy_to_user(useraddr, &edata, sizeof(edata)))
+-		return -EFAULT;
++	actor(dev, edata.data);
+ 	return 0;
+ }
+ 
+-static int ethtool_set_priv_flags(struct net_device *dev, char __user *useraddr)
++static int ethtool_set_value(struct net_device *dev, char __user *useraddr,
++			     int (*actor)(struct net_device *, u32))
+ {
+ 	struct ethtool_value edata;
+ 
+-	if (!dev->ethtool_ops->set_priv_flags)
++	if (!actor)
+ 		return -EOPNOTSUPP;
+ 
+ 	if (copy_from_user(&edata, useraddr, sizeof(edata)))
+ 		return -EFAULT;
+ 
+-	return dev->ethtool_ops->set_priv_flags(dev, edata.data);
++	return actor(dev, edata.data);
+ }
+ 
+ /* The main entry point in this file.  Called from net/core/dev.c */
+@@ -979,16 +845,19 @@ int dev_ethtool(struct ifreq *ifr)
+ 		rc = ethtool_set_wol(dev, useraddr);
+ 		break;
+ 	case ETHTOOL_GMSGLVL:
+-		rc = ethtool_get_msglevel(dev, useraddr);
++		rc = ethtool_get_value(dev, useraddr, ethcmd,
++				       dev->ethtool_ops->get_msglevel);
+ 		break;
+ 	case ETHTOOL_SMSGLVL:
+-		rc = ethtool_set_msglevel(dev, useraddr);
++		rc = ethtool_set_value_void(dev, useraddr,
++				       dev->ethtool_ops->set_msglevel);
+ 		break;
+ 	case ETHTOOL_NWAY_RST:
+ 		rc = ethtool_nway_reset(dev);
+ 		break;
+ 	case ETHTOOL_GLINK:
+-		rc = ethtool_get_link(dev, useraddr);
++		rc = ethtool_get_value(dev, useraddr, ethcmd,
++				       dev->ethtool_ops->get_link);
+ 		break;
+ 	case ETHTOOL_GEEPROM:
+ 		rc = ethtool_get_eeprom(dev, useraddr);
+@@ -1015,25 +884,30 @@ int dev_ethtool(struct ifreq *ifr)
+ 		rc = ethtool_set_pauseparam(dev, useraddr);
+ 		break;
+ 	case ETHTOOL_GRXCSUM:
+-		rc = ethtool_get_rx_csum(dev, useraddr);
++		rc = ethtool_get_value(dev, useraddr, ethcmd,
++				       dev->ethtool_ops->get_rx_csum);
+ 		break;
+ 	case ETHTOOL_SRXCSUM:
+-		rc = ethtool_set_rx_csum(dev, useraddr);
++		rc = ethtool_set_value(dev, useraddr,
++				       dev->ethtool_ops->set_rx_csum);
+ 		break;
+ 	case ETHTOOL_GTXCSUM:
+-		rc = ethtool_get_tx_csum(dev, useraddr);
++		rc = ethtool_get_value(dev, useraddr, ethcmd,
++				       dev->ethtool_ops->get_tx_csum);
+ 		break;
+ 	case ETHTOOL_STXCSUM:
+ 		rc = ethtool_set_tx_csum(dev, useraddr);
+ 		break;
+ 	case ETHTOOL_GSG:
+-		rc = ethtool_get_sg(dev, useraddr);
++		rc = ethtool_get_value(dev, useraddr, ethcmd,
++				       dev->ethtool_ops->get_sg);
+ 		break;
+ 	case ETHTOOL_SSG:
+ 		rc = ethtool_set_sg(dev, useraddr);
+ 		break;
+ 	case ETHTOOL_GTSO:
+-		rc = ethtool_get_tso(dev, useraddr);
++		rc = ethtool_get_value(dev, useraddr, ethcmd,
++				       dev->ethtool_ops->get_tso);
+ 		break;
+ 	case ETHTOOL_STSO:
+ 		rc = ethtool_set_tso(dev, useraddr);
+@@ -1054,7 +928,8 @@ int dev_ethtool(struct ifreq *ifr)
+ 		rc = ethtool_get_perm_addr(dev, useraddr);
+ 		break;
+ 	case ETHTOOL_GUFO:
+-		rc = ethtool_get_ufo(dev, useraddr);
++		rc = ethtool_get_value(dev, useraddr, ethcmd,
++				       dev->ethtool_ops->get_ufo);
+ 		break;
+ 	case ETHTOOL_SUFO:
+ 		rc = ethtool_set_ufo(dev, useraddr);
+@@ -1066,16 +941,20 @@ int dev_ethtool(struct ifreq *ifr)
+ 		rc = ethtool_set_gso(dev, useraddr);
+ 		break;
+ 	case ETHTOOL_GFLAGS:
+-		rc = ethtool_get_flags(dev, useraddr);
++		rc = ethtool_get_value(dev, useraddr, ethcmd,
++				       dev->ethtool_ops->get_flags);
+ 		break;
+ 	case ETHTOOL_SFLAGS:
+-		rc = ethtool_set_flags(dev, useraddr);
++		rc = ethtool_set_value(dev, useraddr,
++				       dev->ethtool_ops->set_flags);
+ 		break;
+ 	case ETHTOOL_GPFLAGS:
+-		rc = ethtool_get_priv_flags(dev, useraddr);
++		rc = ethtool_get_value(dev, useraddr, ethcmd,
++				       dev->ethtool_ops->get_priv_flags);
+ 		break;
+ 	case ETHTOOL_SPFLAGS:
+-		rc = ethtool_set_priv_flags(dev, useraddr);
++		rc = ethtool_set_value(dev, useraddr,
++				       dev->ethtool_ops->set_priv_flags);
+ 		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
