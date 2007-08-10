@@ -1,55 +1,44 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: 2.6.23-rc2-mm2
-Date: Fri, 10 Aug 2007 11:33:41 -0600
-Message-ID: <m1fy2rxpje.fsf@ebiederm.dsl.xmission.com>
-References: <20070809224254.11f42716.akpm@linux-foundation.org>
-	<46BC8F71.3070006@googlemail.com> <46BC944F.9020801@googlemail.com>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: [net-2.6.24] forcedeth does not compile without CONFIG_FORCEDETH_NAPI
+ set
+Date: Fri, 10 Aug 2007 19:34:03 +0200
+Message-ID: <46BCA18B.80603@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
-	coreteam@netfilter.org
-To: Gabriel C <nix.or.die@googlemail.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:36471 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752389AbXHJRe1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 13:34:27 -0400
-In-Reply-To: <46BC944F.9020801@googlemail.com> (Gabriel C.'s message of "Fri,
-	10 Aug 2007 18:37:35 +0200")
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:36577 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932744AbXHJReh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 13:34:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Gabriel C <nix.or.die@googlemail.com> writes:
+Checking some other source with the current net-2.6.24 GIT, i just
+discovered this:
 
-> Michal Piotrowski wrote:
->> Andrew Morton pisze:
->>>
-> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.23-rc2/2.6.23-rc2-mm2/
->>>
->> 
->> Yet another sysctl table check failed
->> 
->> [   88.949055] Netfilter messages via NETLINK v0.30.
->> [   89.485399] nf_conntrack version 0.5.0 (16384 buckets, 65536 max)
->> [ 89.491892] sysctl table check failed:
-> /net/netfilter/nf_conntrack_generic_timeout .3.19.13 Missing strategy
->> [   89.558178] xt_state: Unknown symbol nf_conntrack_untracked
->> [   89.563942] xt_state: Unknown symbol nf_ct_l3proto_module_put
->> [   89.569870] xt_state: Unknown symbol nf_ct_l3proto_try_module_get
->> [   90.852319] NET: Registered protocol family 17
->>
->
-> And maybe this ?
+  CC      drivers/net/mii.o
+  CC      drivers/net/Space.o
+  CC      drivers/net/loopback.o
+  CC      drivers/net/b44.o
+  CC      drivers/net/forcedeth.o
+drivers/net/forcedeth.c: In function nv_nic_irq:
+drivers/net/forcedeth.c:3017: error: RX_WORK_PER_LOOP undeclared (first
+use in this function)
+drivers/net/forcedeth.c:3017: error: (Each undeclared identifier is
+reported only once
+drivers/net/forcedeth.c:3017: error: for each function it appears in.)
+make[2]: *** [drivers/net/forcedeth.o] Error 1
+make[1]: *** [drivers/net] Error 2
+make: *** [drivers] Error 2
 
-Could be.
+This only occurs the CONFIG_FORCEDETH_NAPI is _disabled_.
 
-sysctl table check failure looks legitimate.
-At a quick skim I can't tell for certain if failure to register the
-sysctl table will keep the module from loading but it might.
+You definitely know best, how to fix this ;-)
 
-It looks like another canidate on the pile of kill the broken
-binary sysctl.
+Regards,
+Oliver
 
-Eric
