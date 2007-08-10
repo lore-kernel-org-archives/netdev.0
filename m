@@ -1,7 +1,7 @@
 From: "Scott Thompson" <postfail@hushmail.com>
-Subject: [PATCH 2/4]  /drivers/net ioremap balancing/returncode check (lne390.c)
-Date: Fri, 10 Aug 2007 14:38:34 -0400
-Message-ID: <20070810183834.B00E3DA81F@mailserver7.hushmail.com>
+Subject: [PATCH 3/4]  /drivers/net ioremap balancing/returncode check (myri_sbus.c)
+Date: Fri, 10 Aug 2007 14:40:26 -0400
+Message-ID: <20070810184026.B3276DA82B@mailserver7.hushmail.com>
 Reply-To: postfail@hushmail.com
 Content-Type: text/plain; charset="UTF-8"
 To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
@@ -29,20 +29,44 @@ I split patches up by file changed as each file had different
 
 Signed-off-by: Scott Thompson <postfail <at> hushmail.com>
 ----------------------------------------------------------
-diff --git a/drivers/net/lne390.c b/drivers/net/lne390.c
-index 0a08d0c..f6d9fb6 100644
---- a/drivers/net/lne390.c
-+++ b/drivers/net/lne390.c
-@@ -290,7 +290,7 @@ static int __init lne390_probe1(struct 
-net_device *dev, int ioaddr)
- 		goto unmap;
- 	return 0;
- unmap:
--	if (ei_status.reg0)
-+	if (ei_status.mem)
- 		iounmap(ei_status.mem);
- cleanup:
- 	free_irq(dev->irq, dev);
+diff --git a/drivers/net/myri_sbus.c b/drivers/net/myri_sbus.c
+index 13444da..fa624b3 100644
+--- a/drivers/net/myri_sbus.c
++++ b/drivers/net/myri_sbus.c
+@@ -1007,6 +1007,13 @@ static int __devinit myri_ether_init(struct 
+sbus_dev *sdev)
+ 		mp->lanai =
+ 			sbus_ioremap(&sdev->resource[0], (512 * 1024),
+ 				     mp->eeprom.ramsz, "MyriCOM SRAM");
++
++
++		if (!mp->cregs || !mp->lregs || !mp->lanai ) {
++			printk("MyriCOM: Cannot map MyriCOM registers for cpuvers >= 
+CPUVERS_4_0.\n");
++			goto err;
++		}
++		
+ 	}
+ 	DET(("Registers mapped: cregs[%p] lregs[%p] lanai[%p]\n",
+ 	     mp->cregs, mp->lregs, mp->lanai));
+@@ -1108,6 +1115,16 @@ err_free_irq:
+ err:
+ 	/* This will also free the co-allocated 'dev->priv' */
+ 	free_netdev(dev);
++
++	if (mp->regs)
++		sbus_iounmap(mp->regs, mp->reg_size);
++	if (mp->cregs)
++		sbus_iounmap(mp->cregs, PAGE_SIZE);
++	if (mp->lregs)
++		sbus_iounmap(mp->lregs, (256 * 1024));
++	if (mp->lanai)
++		sbus_iounmap(mp->lanai, (512 * 1024));
++
+ 	return -ENODEV;
+ }
+ 
+
 
 
 
