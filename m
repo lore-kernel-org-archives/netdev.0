@@ -1,50 +1,31 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [patch (testing)] Re: 2.6.20->2.6.21 - networking dies after random time
-Date: Fri, 10 Aug 2007 11:19:54 +0200
-Message-ID: <20070810091954.GI1764@ff.dom.local>
-References: <JMJTMH$F1699B57C9B0E170ED337488612E649B@xandmail.com> <20070810083720.GE1764@ff.dom.local> <20070810084841.GA11086@elte.hu> <20070810090318.GG1764@ff.dom.local> <20070810090833.GA15121@elte.hu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
-	"marcin\.slusarz" <marcin.slusarz@gmail.com>,
-	tglx <tglx@linutronix.de>,
-	torvalds <torvalds@linux-foundation.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	akpm <akpm@linux-foundation.org>, alan <alan@lxorguk.ukuu.org.uk>
-To: Ingo Molnar <mingo@elte.hu>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH 6/24] make atomic_read() behave consistently on frv
+Date: Fri, 10 Aug 2007 10:23:46 +0100
+Message-ID: <2708.1186737826@redhat.com>
+References: <46BB46B2.60808@redhat.com> <20070809134150.GA14890@shell.boston.redhat.com>
+Cc: dhowells@redhat.com, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, torvalds@linux-foundation.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org, ak@suse.de,
+	heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com
+To: Chris Snook <csnook@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:47602 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751783AbXHJJTS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2007 05:19:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20070810090833.GA15121@elte.hu>
+Received: from mx1.redhat.com ([66.187.233.31]:45211 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762075AbXHJJYc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2007 05:24:32 -0400
+In-Reply-To: <46BB46B2.60808@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 10, 2007 at 11:08:33AM +0200, Ingo Molnar wrote:
-> 
-> * Jarek Poplawski <jarkao2@o2.pl> wrote:
-> 
-> > On 10-08-2007 10:05, Thomas Gleixner wrote:
-> > ...
-> > > But suppressing the resend is not fixing the driver problem. The 
-> > > problem can show up with spurious interrupts and with interrupts on 
-> > > a shared PCI interrupt line at any time. It just might take weeks 
-> > > instead of minutes.
-> > 
-> > Maybe I miss something but it's not the same!
-> 
-> _now_ i finally understand what you probably meant: because sw-resend 
-> worked and hw-resend didnt, it's hw-resend that is causing the breakage, 
-> not any driver or irqflow bug - correct?
+Chris Snook <csnook@redhat.com> wrote:
 
-All correct! There was also checked a possibility it can be not
-hw itself, but wrong way of handling after hw (acking too late). This
-was false idea (or bad implementation), so it looks like hw vs lapic
-problem.
+> To head off the criticism, I admit this is an oversimplification, and true
+> busy-waiters should be using cpu_relax(), which contains a barrier.
 
-Jarek P.
+Why would you want to use cpu_relax()?  That's there to waste time efficiently,
+isn't it?  Shouldn't you be using smp_rmb() or something like that?
+
+David
