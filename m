@@ -1,41 +1,63 @@
 From: akpm@linux-foundation.org
-Subject: [patch 08/28] Clean up duplicate includes in net/sunrpc/
-Date: Fri, 10 Aug 2007 14:11:53 -0700
-Message-ID: <200708102111.l7ALBreC009394@imap1.linux-foundation.org>
+Subject: [patch 05/28] Clean up duplicate includes in net/ipv4/
+Date: Fri, 10 Aug 2007 14:11:52 -0700
+Message-ID: <200708102111.l7ALBqgG009383@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	jesper.juhl@gmail.com, neilb@suse.de, trond.myklebust@fys.uio.no
+	jesper.juhl@gmail.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:46041 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:36100 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S940849AbXHJVMS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 17:12:18 -0400
+	by vger.kernel.org with ESMTP id S942359AbXHJVMB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 17:12:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Jesper Juhl <jesper.juhl@gmail.com>
 
 This patch cleans up duplicate includes in
-	net/sunrpc/
+	net/ipv4/
 
 Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
-Cc: Trond Myklebust <trond.myklebust@fys.uio.no>
-Cc: Neil Brown <neilb@suse.de>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- net/sunrpc/auth_gss/svcauth_gss.c |    1 -
- 1 files changed, 1 deletion(-)
+ net/ipv4/ip_output.c               |    1 -
+ net/ipv4/ipvs/ip_vs_ctl.c          |    1 -
+ net/ipv4/netfilter/ipt_CLUSTERIP.c |    1 -
+ 3 files changed, 3 deletions(-)
 
-diff -puN net/sunrpc/auth_gss/svcauth_gss.c~clean-up-duplicate-includes-in-net-sunrpc net/sunrpc/auth_gss/svcauth_gss.c
---- a/net/sunrpc/auth_gss/svcauth_gss.c~clean-up-duplicate-includes-in-net-sunrpc
-+++ a/net/sunrpc/auth_gss/svcauth_gss.c
-@@ -42,7 +42,6 @@
- #include <linux/pagemap.h>
+diff -puN net/ipv4/ip_output.c~clean-up-duplicate-includes-in-net-ipv4 net/ipv4/ip_output.c
+--- a/net/ipv4/ip_output.c~clean-up-duplicate-includes-in-net-ipv4
++++ a/net/ipv4/ip_output.c
+@@ -75,7 +75,6 @@
+ #include <net/icmp.h>
+ #include <net/checksum.h>
+ #include <net/inetpeer.h>
+-#include <net/checksum.h>
+ #include <linux/igmp.h>
+ #include <linux/netfilter_ipv4.h>
+ #include <linux/netfilter_bridge.h>
+diff -puN net/ipv4/ipvs/ip_vs_ctl.c~clean-up-duplicate-includes-in-net-ipv4 net/ipv4/ipvs/ip_vs_ctl.c
+--- a/net/ipv4/ipvs/ip_vs_ctl.c~clean-up-duplicate-includes-in-net-ipv4
++++ a/net/ipv4/ipvs/ip_vs_ctl.c
+@@ -29,7 +29,6 @@
+ #include <linux/proc_fs.h>
+ #include <linux/workqueue.h>
+ #include <linux/swap.h>
+-#include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
  
- #include <linux/sunrpc/auth_gss.h>
--#include <linux/sunrpc/svcauth.h>
- #include <linux/sunrpc/gss_err.h>
- #include <linux/sunrpc/svcauth.h>
- #include <linux/sunrpc/svcauth_gss.h>
+ #include <linux/netfilter.h>
+diff -puN net/ipv4/netfilter/ipt_CLUSTERIP.c~clean-up-duplicate-includes-in-net-ipv4 net/ipv4/netfilter/ipt_CLUSTERIP.c
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c~clean-up-duplicate-includes-in-net-ipv4
++++ a/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -19,7 +19,6 @@
+ #include <linux/udp.h>
+ #include <linux/icmp.h>
+ #include <linux/if_arp.h>
+-#include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+ #include <linux/netfilter_arp.h>
+ #include <linux/netfilter/x_tables.h>
 _
