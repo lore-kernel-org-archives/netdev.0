@@ -1,87 +1,199 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: Re: 2.6.23-rc2-mm2 -- conntrack divide error
-Date: Fri, 10 Aug 2007 22:22:20 +0200
-Message-ID: <46BCC8FC.8020804@gmail.com>
-References: <20070809224254.11f42716.akpm@linux-foundation.org>	 <a8e1da0708100118r779068i64ffdc11e452be9b@mail.gmail.com>	 <20070810013210.1b2f121c.akpm@linux-foundation.org>	 <a8e1da0708100137t48c5c673vf0c98fb5f0cd058b@mail.gmail.com> <a8e1da0708100252g5597da63j9cb665ade26f7654@mail.gmail.com> <46BC49C3.6020100@googlemail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [PATCH 1/4] Add ETHTOOL_[GS]FLAGS sub-ioctls
+Date: Fri, 10 Aug 2007 16:24:26 -0400
+Message-ID: <20070810202426.GA25050@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Dave Young <hidave.darkstar@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Gabriel C <nix.or.die@googlemail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S965444AbXHJUVz@vger.kernel.org>
-In-Reply-To: <46BC49C3.6020100@googlemail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, LKML <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from havoc.gtf.org ([69.61.125.42]:47462 "EHLO havoc.gtf.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932906AbXHJUY1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2007 16:24:27 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Gabriel C napsal(a):
-> Dave Young wrote:
->>> On 8/10/07, Dave Young <hidave.darkstar@gmail.com> wrote:
->>>> On 8/10/07, Andrew Morton <akpm@linux-foundation.org> wrote:
->>>> On Fri, 10 Aug 2007 16:18:38 +0800 "Dave Young" <hidave.darkstar@gmail.com> wrote:
->>>>
->>>>> Hi,
->>>>> 2.6.23-rc2-mm2:
->>>>> config with CONFIG_NF_CONNTRACK_AMANDA=y
->>>>> boot  oops:
->>>>>
->>>>> hand copyed :
->>>>> the EIP: helper_hash
->>>>>
->>>>> backtrace:
->>>>> do_basic_setup
->>>>> ...
->>>>> nf_conntrack_amanda_init
->>>>> error_code
->>>>> do_vivide_error
->>>>> ...
->>>>>
->>>> cc netdev
->>>>
->>>> please send config
->>>>
->>>> presumably nf_ct_helper_hsize is zero
 
-I think so. 2.6.23-rc2-mm1 seemed be OK.
+Also, adds support for the first flag, LRO.
 
->>>>
->>>> I'd have thought that the same bug would be present in mainline - there's
->>>> nothing in git-net.patch.
->>>>
->>>> (hunts around, discovers that there's a net-2.6.24 tree now.  Bah)
->>>>
->>> MY config file for test:
->>> -----cut---
->> Hi,
->> config the CONFIG_NF_CONNTRACK_AMANDA=m, reboot , still oops, but this
->> time the point is nf_conntrack_ftp_init, (I doubt the
->> nf_conntrack_core is not initialized.)
->>
->> boot with vga_ask and select 80x60, copyed more infomations:
->> ---------pre oops:-----------
->> sysctl table check failed: /net/netfilter/nf_conntrack_generic_timeout
->> .3.19.13 Missing strategy
->> ...
->> nf_conntrack_14_proto_sctp4 protocol register failed
->> ...
->> ---------oops:----------------
->> divide error: 0000 [#1] SMP
->> EIP: 0060: [<c088477b>] EFLAGS 00010246
->> Process swapper
->> ...
->> nf_conntrack_ftp_init
->> ...
->>
->> Code: <...>
->> EIP <...> helper_hash +0x1b/0x24
-> 
-> Does not Oops here but is broken.
+Earlier version of this patch posted about 12 hours ago.
 
-My $0.02:
-http://www.fi.muni.cz/~xslaby/sklad/panics/nf_oops.png
-http://www.fi.muni.cz/~xslaby/sklad/panics/nf_oops.config
 
--- 
-Jiri Slaby (jirislaby@gmail.com)
-Faculty of Informatics, Masaryk University
+commit 84bf82f38dacde0fa86986e23c061728e819810e
+Author: Jeff Garzik <jeff@garzik.org>
+Date:   Fri Aug 10 05:27:23 2007 -0400
+
+    [ETHTOOL] Add ETHTOOL_[GS]FLAGS sub-ioctls
+    
+    Signed-off-by: Jeff Garzik <jeff@garzik.org>
+
+ include/linux/ethtool.h   |   21 +++++++++++++++
+ include/linux/netdevice.h |    1 
+ net/core/ethtool.c        |   61 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 83 insertions(+)
+
+84bf82f38dacde0fa86986e23c061728e819810e
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 23ccea8..0e5de2f 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -256,6 +256,19 @@ struct ethtool_perm_addr {
+ 	__u8	data[0];
+ };
+ 
++/* boolean flags controlling per-interface behavior characteristics.
++ * When reading, the flag indicates whether or not a certain behavior
++ * is enabled/present.  When writing, the flag indicates whether
++ * or not the driver should turn on (set) or off (clear) a behavior.
++ *
++ * Some behaviors may read-only (unconditionally absent or present).
++ * If such is the case, return EINVAL in the set-flags operation if the
++ * flag differs from the read-only value.
++ */
++enum ethtool_flags {
++	ETH_FLAG_LRO		= (1 << 15),	/* LRO is enabled */
++};
++
+ #ifdef __KERNEL__
+ 
+ struct net_device;
+@@ -272,6 +285,8 @@ u32 ethtool_op_get_tso(struct net_device *dev);
+ int ethtool_op_set_tso(struct net_device *dev, u32 data);
+ u32 ethtool_op_get_ufo(struct net_device *dev);
+ int ethtool_op_set_ufo(struct net_device *dev, u32 data);
++u32 ethtool_op_get_flags(struct net_device *dev);
++int ethtool_op_set_flags(struct net_device *dev, u32 data);
+ 
+ /**
+  * &ethtool_ops - Alter and report network device settings
+@@ -307,6 +322,8 @@ int ethtool_op_set_ufo(struct net_device *dev, u32 data);
+  * get_strings: Return a set of strings that describe the requested objects 
+  * phys_id: Identify the device
+  * get_stats: Return statistics about the device
++ * get_flags: get 32-bit flags bitmap
++ * set_flags: set 32-bit flags bitmap
+  * 
+  * Description:
+  *
+@@ -369,6 +386,8 @@ struct ethtool_ops {
+ 	void	(*complete)(struct net_device *);
+ 	u32     (*get_ufo)(struct net_device *);
+ 	int     (*set_ufo)(struct net_device *, u32);
++	u32     (*get_flags)(struct net_device *);
++	int     (*set_flags)(struct net_device *, u32);
+ };
+ #endif /* __KERNEL__ */
+ 
+@@ -410,6 +429,8 @@ struct ethtool_ops {
+ #define ETHTOOL_SUFO		0x00000022 /* Set UFO enable (ethtool_value) */
+ #define ETHTOOL_GGSO		0x00000023 /* Get GSO enable (ethtool_value) */
+ #define ETHTOOL_SGSO		0x00000024 /* Set GSO enable (ethtool_value) */
++#define ETHTOOL_GFLAGS		0x00000025 /* Get flags bitmap(ethtool_value) */
++#define ETHTOOL_SFLAGS		0x00000026 /* Set flags bitmap(ethtool_value) */
+ 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 4a616d7..559a4dc 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -341,6 +341,7 @@ struct net_device
+ #define NETIF_F_GSO		2048	/* Enable software GSO. */
+ #define NETIF_F_LLTX		4096	/* LockLess TX */
+ #define NETIF_F_MULTI_QUEUE	16384	/* Has multiple TX/RX queues */
++#define NETIF_F_LRO		32768	/* large receive offload */
+ 
+ 	/* Segmentation offload features */
+ #define NETIF_F_GSO_SHIFT	16
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 2ab0a60..6e8563e 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -109,6 +109,32 @@ int ethtool_op_set_ufo(struct net_device *dev, u32 data)
+ 	return 0;
+ }
+ 
++/* the following list of flags are the same as their associated
++ * NETIF_F_xxx values in include/linux/netdevice.h
++ */
++static const u32 flags_dup_features =
++	ETH_FLAG_LRO;
++
++u32 ethtool_op_get_flags(struct net_device *dev)
++{
++	/* in the future, this function will probably contain additional
++	 * handling for flags which are not so easily handled
++	 * by a simple masking operation
++	 */
++	
++	return dev->features & flags_dup_features;
++}
++
++int ethtool_op_set_flags(struct net_device *dev, u32 data)
++{
++	if (data & ETH_FLAG_LRO)
++		dev->features |= NETIF_F_LRO;
++	else
++		dev->features &= ~NETIF_F_LRO;
++
++	return 0;
++}
++
+ /* Handlers for each ethtool command */
+ 
+ static int ethtool_get_settings(struct net_device *dev, void __user *useraddr)
+@@ -783,6 +809,33 @@ static int ethtool_get_perm_addr(struct net_device *dev, void __user *useraddr)
+ 	return 0;
+ }
+ 
++static int ethtool_get_flags(struct net_device *dev, char __user *useraddr)
++{
++	struct ethtool_value edata = { ETHTOOL_GFLAGS };
++
++	if (!dev->ethtool_ops->get_flags)
++		return -EOPNOTSUPP;
++
++	edata.data = dev->ethtool_ops->get_flags(dev);
++
++	if (copy_to_user(useraddr, &edata, sizeof(edata)))
++		return -EFAULT;
++	return 0;
++}
++
++static int ethtool_set_flags(struct net_device *dev, char __user *useraddr)
++{
++	struct ethtool_value edata;
++
++	if (!dev->ethtool_ops->set_flags)
++		return -EOPNOTSUPP;
++
++	if (copy_from_user(&edata, useraddr, sizeof(edata)))
++		return -EFAULT;
++
++	return dev->ethtool_ops->set_flags(dev, edata.data);
++}
++
+ /* The main entry point in this file.  Called from net/core/dev.c */
+ 
+ int dev_ethtool(struct ifreq *ifr)
+@@ -935,6 +988,12 @@ int dev_ethtool(struct ifreq *ifr)
+ 	case ETHTOOL_SGSO:
+ 		rc = ethtool_set_gso(dev, useraddr);
+ 		break;
++	case ETHTOOL_GFLAGS:
++		rc = ethtool_get_flags(dev, useraddr);
++		break;
++	case ETHTOOL_SFLAGS:
++		rc = ethtool_set_flags(dev, useraddr);
++		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
+@@ -960,3 +1019,5 @@ EXPORT_SYMBOL(ethtool_op_set_tx_hw_csum);
+ EXPORT_SYMBOL(ethtool_op_set_tx_ipv6_csum);
+ EXPORT_SYMBOL(ethtool_op_set_ufo);
+ EXPORT_SYMBOL(ethtool_op_get_ufo);
++EXPORT_SYMBOL(ethtool_op_set_flags);
++EXPORT_SYMBOL(ethtool_op_get_flags);
