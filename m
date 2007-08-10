@@ -1,36 +1,66 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Subject: RE: [PATCH 9/24] make atomic_read() behave consistently on ia64
-Date: Fri, 10 Aug 2007 14:19:29 -0700
-Message-ID: <617E1C2C70743745A92448908E030B2A0224C777@scsmsx411.amr.corp.intel.com>
-References: <20070809135107.GA15985@shell.boston.redhat.com> <617E1C2C70743745A92448908E030B2A02213B3C@scsmsx411.amr.corp.intel.com> <46BCC1AF.5050204@redhat.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: 2.6.23-rc2-mm2
+Date: Fri, 10 Aug 2007 15:19:55 -0600
+Message-ID: <m1vebnulxg.fsf@ebiederm.dsl.xmission.com>
+References: <20070809224254.11f42716.akpm@linux-foundation.org>
+	<46BC8F71.3070006@googlemail.com> <46BC944F.9020801@googlemail.com>
+	<m1fy2rxpje.fsf@ebiederm.dsl.xmission.com>
+	<20070810124156.2de9710e.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <linux-kernel@vger.kernel.org>, <linux-arch@vger.kernel.org>,
-	<torvalds@linux-foundation.org>, <netdev@vger.kernel.org>,
-	<akpm@linux-foundation.org>, <ak@suse.de>,
-	<heiko.carstens@de.ibm.com>, <davem@davemloft.net>,
-	<schwidefsky@de.ibm.com>, <wensong@linux-vs.org>,
-	<horms@verge.net.au>, <wjiang@resilience.com>,
-	<cfriesen@nortel.com>, <zlynx@acm.org>, <rpjday@mindspring.com>,
-	<jesper.juhl@gmail.com>
-To: "Chris Snook" <csnook@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Gabriel C <nix.or.die@googlemail.com>,
+	Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
+	linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
+	coreteam@netfilter.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:39805 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1764929AbXHJVTb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 17:19:31 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <46BCC1AF.5050204@redhat.com>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:47085 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762575AbXHJVUK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 17:20:10 -0400
+In-Reply-To: <20070810124156.2de9710e.akpm@linux-foundation.org> (Andrew
+	Morton's message of "Fri, 10 Aug 2007 12:41:56 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> That's distressing.  I'm about to resubmit with a volatile cast in 
-> atomic_set as well, since people expect that behavior and I've been 
-> shown a legitimate case where it could matter.  Does the assembly look 
-> right with that cast in atomic_set() as well?
+Andrew Morton <akpm@linux-foundation.org> writes:
 
-No.  With the casts to volatile in atomic_set and atomic64_set I
-still see places where ld8 is changed to ld4 + sign-extend.
+> There seems to be rather a lot of damage here.
+>
+> I assume that the sysctl changes are what caused the netfilter oopses.
+>
+> - nf_conntrack_init() calls nf_conntrack_expect_init() which fails due to
+>   sysctl problems.  
 
--Tony
+In particular sysctl_check_table finds issues with the sysctl table
+so register_sysctl_table refuses to register it.
+
+> - nf_conntrack_init() bales out without calling nf_conntrack_helper_init()
+>
+>   So nf_ct_helper_hsize never gets initialised.
+>
+> - Later, netfilter client code calls helper_hash(), which gets a
+>   divide-by-zero due to nf_ct_helper_hsize==0.
+>
+>
+> yeah, that's a netfilter bug, but we're trying to get kernels tested here. 
+> If I'm feeling energetic I'll drop the sysctl changes and do rc2-mm3. 
+> Probably I won't feel energetic, but we'll need a lot of fixes here before
+> I can release the sysctl changes in another -mm, please.
+
+As a cheap workaround it should be possible to disable SYSCTL support
+in 2.6.23-rc2-mm2 to get around these issues.
+
+
+Andrew for the moment I have just sent you fixes for all of the issues
+that I am aware of.  Mostly they are cheap kill the sys_sysctl()
+support patches.
+
+Hopefully that is enough to bring the pain level down to manageable.
+
+I hadn't anticipated subsystems failing because they could not register
+their sysctl tables.  I was simply expecting things not to show up in
+/proc/sys.  And more of the pain of making working sysctl tables to 
+be pushed back to developers.
+
+Eric
