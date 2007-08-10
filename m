@@ -1,52 +1,51 @@
 From: akpm@linux-foundation.org
-Subject: [patch 04/18] via-rhine: disable rx_copybreak on archs that don't allow unaligned DMA access
-Date: Fri, 10 Aug 2007 14:05:15 -0700
-Message-ID: <200708102105.l7AL5FUp008954@imap1.linux-foundation.org>
+Subject: [patch 08/18] 3c59x: check return of pci_enable_device()
+Date: Fri, 10 Aug 2007 14:05:18 -0700
+Message-ID: <200708102105.l7AL5Jje008968@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	jailbird@alcatraz.fdf.net, ink@jurassic.park.msu.ru,
-	romieu@fr.zoreil.com
+	mark@hindley.org.uk, klassert@mathematik.tu-chemnitz.de
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:48371 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:41128 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759294AbXHJVG3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 17:06:29 -0400
+	by vger.kernel.org with ESMTP id S938138AbXHJVHO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 17:07:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dustin Marquess <jailbird@alcatraz.fdf.net>
+From: Mark Hindley <mark@hindley.org.uk>
 
-Patch to disable the rx_copybreak feature on hardware architectures that
-don't allow unaligned DMA access.
+Check return of pci_enable_device in vortex_up().
 
-#ifdef code taken from tulip_core.c.  Problem pointed out by Ivan
-Kokshaysky.
-
-Signed-off-by: Dustin Marquess <jailbird@alcatraz.fdf.net>
-Cc: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Ivan Kokshaysky <ink@jurassic.park.msu.ru>
-Cc: Jeff Garzik <jeff@garzik.org>
+Signed-off-by: Mark Hindley <mark@hindley.org.uk>
+Acked-by: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/via-rhine.c |    6 ++++++
- 1 files changed, 6 insertions(+)
+ drivers/net/3c59x.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
-diff -puN drivers/net/via-rhine.c~via-rhine-disable-rx_copybreak-on-archs-that drivers/net/via-rhine.c
---- a/drivers/net/via-rhine.c~via-rhine-disable-rx_copybreak-on-archs-that
-+++ a/drivers/net/via-rhine.c
-@@ -42,7 +42,13 @@ static int max_interrupt_work = 20;
+diff -puN drivers/net/3c59x.c~3c59x-check-return-of-pci_enable_device drivers/net/3c59x.c
+--- a/drivers/net/3c59x.c~3c59x-check-return-of-pci_enable_device
++++ a/drivers/net/3c59x.c
+@@ -1490,13 +1490,17 @@ vortex_up(struct net_device *dev)
+ 	struct vortex_private *vp = netdev_priv(dev);
+ 	void __iomem *ioaddr = vp->ioaddr;
+ 	unsigned int config;
+-	int i, mii_reg1, mii_reg5;
++	int i, mii_reg1, mii_reg5, err;
  
- /* Set the copy breakpoint for the copy-only-tiny-frames scheme.
-    Setting to > 1518 effectively disables this feature. */
-+#if defined(__alpha__) || defined(__arm__) || defined(__hppa__) \
-+       || defined(CONFIG_SPARC) || defined(__ia64__) \
-+       || defined(__sh__) || defined(__mips__)
-+static int rx_copybreak = 1518;
-+#else
- static int rx_copybreak;
-+#endif
+ 	if (VORTEX_PCI(vp)) {
+ 		pci_set_power_state(VORTEX_PCI(vp), PCI_D0);	/* Go active */
+ 		if (vp->pm_state_valid)
+ 			pci_restore_state(VORTEX_PCI(vp));
+-		pci_enable_device(VORTEX_PCI(vp));
++		err = pci_enable_device(VORTEX_PCI(vp));
++		if (err) {
++			printk(KERN_WARNING "%s: Could not enable device \n",
++				dev->name);
++		}
+ 	}
  
- /* Work-around for broken BIOSes: they are unable to get the chip back out of
-    power state D3 so PXE booting fails. bootparam(7): via-rhine.avoid_D3=1 */
+ 	/* Before initializing select the active media port. */
 _
