@@ -1,38 +1,36 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: [PATCH 04/10] sysctl: Fix neighbour table sysctls.
-Date: Fri, 10 Aug 2007 11:22:33 +0900 (JST)
-Message-ID: <20070810.112233.90409216.yoshfuji@linux-ipv6.org>
-References: <m18x8k9ppv.fsf_-_@ebiederm.dsl.xmission.com>
-	<m14pj89pmt.fsf_-_@ebiederm.dsl.xmission.com>
-	<m1zm108axi.fsf_-_@ebiederm.dsl.xmission.com>
+Date: Thu, 09 Aug 2007 20:23:16 -0600
+Message-ID: <m1odhg6sbv.fsf@ebiederm.dsl.xmission.com>
+References: <m1zm108axi.fsf_-_@ebiederm.dsl.xmission.com>
+	<20070810.104710.28739250.yoshfuji@linux-ipv6.org>
+	<20070809.184921.11594412.davem@davemloft.net>
+	<20070810.111420.29442251.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	devel@openvz.org, adobriyan@sw.ru, netdev@vger.kernel.org,
-	davem@davemloft.net, yoshfuji@linux-ipv6.org
-To: ebiederm@xmission.com
+Content-Type: text/plain; charset=euc-jp
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, ebiederm@xmission.com,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	devel@openvz.org, adobriyan@sw.ru, netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki / =?euc-jp?B?tcjGo7HRzMA=?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:54254 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753366AbXHJCVb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 22:21:31 -0400
-In-Reply-To: <m1zm108axi.fsf_-_@ebiederm.dsl.xmission.com>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:41155 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750821AbXHJCYS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 22:24:18 -0400
+In-Reply-To: <20070810.111420.29442251.yoshfuji@linux-ipv6.org> (YOSHIFUJI
+	Hideaki's message of "Fri, 10 Aug 2007 11:14:20 +0900 (JST)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <m1zm108axi.fsf_-_@ebiederm.dsl.xmission.com> (at Thu, 09 Aug 2007 18:56:09 -0600), ebiederm@xmission.com (Eric W. Biederman) says:
+YOSHIFUJI Hideaki / =B5=C8=C6=A3=B1=D1=CC=C0 <yoshfuji@linux-ipv6.org> =
+writes:
 
-> 
-> - In ipv6 ndisc_ifinfo_syctl_change so it doesn't depend on binary
->   sysctl names for a function that works with proc.
-:
+> Would you explain why it does not work properly
+> for those cases?
 
-Well, retrans_time_ms and base_reachable_time_ms supercedes
-retrans_time and base_reachable_time, we've warned for long
-time for its deprecation.  So, maybe, it is time to remove
-the old interfaces (retrans_time and base_reachable_time)
-and simplify ndisc_ifinfo_syctl_change().
+Mostly no appropriate strategy routine was setup to=20
+report the data to the caller of sys_sysctl.
 
---yoshfuji
+Eric
