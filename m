@@ -1,35 +1,159 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH for 2.6.24] SCTP: Rewrite of sctp buffer management code
-Date: Fri, 10 Aug 2007 16:37:59 -0700 (PDT)
-Message-ID: <20070810.163759.48396729.davem@davemloft.net>
-References: <46BCCE8B.2050605@hp.com>
-	<20070810.150625.105430969.davem@davemloft.net>
-	<20070810230126.GB3983@hmsreliant.homelinux.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [patch 27/28] Introduce U16_MAX and U32_MAX
+Date: Fri, 10 Aug 2007 16:41:21 -0700
+Message-ID: <20070810164121.ac860896.akpm@linux-foundation.org>
+References: <200708102112.l7ALCA2M009460@imap1.linux-foundation.org>
+	<20070810.153819.76325424.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: vladislav.yasevich@hp.com, netdev@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net
-To: nhorman@tuxdriver.com
+Cc: netdev@vger.kernel.org, satyam@infradead.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37996
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753577AbXHJXh7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 19:37:59 -0400
-In-Reply-To: <20070810230126.GB3983@hmsreliant.homelinux.net>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:60701 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756892AbXHJXlh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 19:41:37 -0400
+In-Reply-To: <20070810.153819.76325424.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Fri, 10 Aug 2007 19:01:26 -0400
+On Fri, 10 Aug 2007 15:38:19 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> Thanks for applying this Dave, but something seems to have occured during your
-> application.  The commitdiff:
-> http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.24.git;a=commitdiff;h=e20e5d698dcccd2e84ee2e1e482b0b203f885c00
-> only shows applications to socket.c, while the patch that vlad sent you changed
-> much more than that.
+> From: akpm@linux-foundation.org
+> Date: Fri, 10 Aug 2007 14:12:10 -0700
+> 
+> > From: Satyam Sharma <satyam@infradead.org>
+> > 
+> > ... in kernel.h and clean up home-grown macros elsewhere in the tree.
+> > 
+> > Leave out the one in reiserfs_fs.h as it is in the userspace-visible part
+> > of that header. Still, #undef the (equivalent) kernel version there to
+> > avoid seeing "redefined, previous definition was here" gcc warnings.
+> > 
+> > [akpm@linux-foundation.org: fix U16_MAX, U32_MAX defns]
+> > Signed-off-by: Satyam Sharma <satyam@infradead.org>
+> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> 
+> I won't apply this one, for two reasons:
+> 
+> 1) The reiserfs definition is better, it is _type_ based.
+>    Please use (~(__u16)0) and (~(__u32)0), respectively.
+> 
+> 2) The reiserfs definition is going to define an equivalent
+>    value, so just adding an #undef and still letting reiserfs
+>    override is wrong.  Why put a common define in kernel.h
+>    if other headers still keep their own crufty copy too?
 
-Vlad's posted patch only had the socket.c changes, that's the
-problem.  I just double checked in the archives on marc.info
+OK, I made those changes.  Will add to the next batch->davem.
 
-I'm reverting this, please sort this out.
+I note that reiserfs has open-coded (~(__u64) 0) in there too...
+
+
+
+From: Satyam Sharma <satyam@infradead.org>
+
+... in kernel.h and clean up home-grown macros elsewhere in the tree.
+
+Signed-off-by: Satyam Sharma <satyam@infradead.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ drivers/net/netconsole.c    |    7 +++----
+ include/linux/kernel.h      |    3 +++
+ include/linux/reiserfs_fs.h |    2 --
+ net/ipv4/tcp_illinois.c     |    2 +-
+ 4 files changed, 7 insertions(+), 7 deletions(-)
+
+diff -puN drivers/net/netconsole.c~introduce-u16_max-and-u32_max drivers/net/netconsole.c
+--- a/drivers/net/netconsole.c~introduce-u16_max-and-u32_max
++++ a/drivers/net/netconsole.c
+@@ -34,6 +34,7 @@
+  *
+  ****************************************************************/
+ 
++#include <linux/kernel.h>
+ #include <linux/mm.h>
+ #include <linux/init.h>
+ #include <linux/module.h>
+@@ -389,7 +390,6 @@ static ssize_t store_local_port(struct n
+ 				size_t count)
+ {
+ 	long local_port;
+-#define __U16_MAX	((__u16) ~0U)
+ 
+ 	if (nt->enabled) {
+ 		printk(KERN_ERR "netconsole: target (%s) is enabled, "
+@@ -398,7 +398,7 @@ static ssize_t store_local_port(struct n
+ 		return -EINVAL;
+ 	}
+ 
+-	local_port = strtol10_check_range(buf, 0, __U16_MAX);
++	local_port = strtol10_check_range(buf, 0, U16_MAX);
+ 	if (local_port < 0)
+ 		return local_port;
+ 
+@@ -412,7 +412,6 @@ static ssize_t store_remote_port(struct 
+ 				 size_t count)
+ {
+ 	long remote_port;
+-#define __U16_MAX	((__u16) ~0U)
+ 
+ 	if (nt->enabled) {
+ 		printk(KERN_ERR "netconsole: target (%s) is enabled, "
+@@ -421,7 +420,7 @@ static ssize_t store_remote_port(struct 
+ 		return -EINVAL;
+ 	}
+ 
+-	remote_port = strtol10_check_range(buf, 0, __U16_MAX);
++	remote_port = strtol10_check_range(buf, 0, U16_MAX);
+ 	if (remote_port < 0)
+ 		return remote_port;
+ 
+diff -puN include/linux/kernel.h~introduce-u16_max-and-u32_max include/linux/kernel.h
+--- a/include/linux/kernel.h~introduce-u16_max-and-u32_max
++++ a/include/linux/kernel.h
+@@ -30,6 +30,9 @@ extern const char linux_proc_banner[];
+ #define LLONG_MIN	(-LLONG_MAX - 1)
+ #define ULLONG_MAX	(~0ULL)
+ 
++#define U16_MAX		(~(__u16)0)
++#define U32_MAX		(~(__u32)0)
++
+ #define STACK_MAGIC	0xdeadbeef
+ 
+ #define ALIGN(x,a)		__ALIGN_MASK(x,(typeof(x))(a)-1)
+diff -puN include/linux/reiserfs_fs.h~introduce-u16_max-and-u32_max include/linux/reiserfs_fs.h
+--- a/include/linux/reiserfs_fs.h~introduce-u16_max-and-u32_max
++++ a/include/linux/reiserfs_fs.h
+@@ -1225,8 +1225,6 @@ struct treepath var = {.path_length = IL
+ #define MAX_US_INT 0xffff
+ 
+ // reiserfs version 2 has max offset 60 bits. Version 1 - 32 bit offset
+-#define U32_MAX (~(__u32)0)
+-
+ static inline loff_t max_reiserfs_offset(struct inode *inode)
+ {
+ 	if (get_inode_item_key_version(inode) == KEY_FORMAT_3_5)
+diff -puN net/ipv4/tcp_illinois.c~introduce-u16_max-and-u32_max net/ipv4/tcp_illinois.c
+--- a/net/ipv4/tcp_illinois.c~introduce-u16_max-and-u32_max
++++ a/net/ipv4/tcp_illinois.c
+@@ -12,6 +12,7 @@
+  * Copyright (C) 2007 Stephen Hemminger <shemminger@linux-foundation.org>
+  */
+ 
++#include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/skbuff.h>
+ #include <linux/inet_diag.h>
+@@ -23,7 +24,6 @@
+ #define ALPHA_MIN	((3*ALPHA_SCALE)/10)	/* ~0.3 */
+ #define ALPHA_MAX	(10*ALPHA_SCALE)	/* 10.0 */
+ #define ALPHA_BASE	ALPHA_SCALE		/* 1.0 */
+-#define U32_MAX		((u32)~0U)
+ #define RTT_MAX		(U32_MAX / ALPHA_MAX)	/* 3.3 secs */
+ 
+ #define BETA_SHIFT	6
+_
+
