@@ -1,65 +1,48 @@
 From: akpm@linux-foundation.org
-Subject: [patch 17/28] drivers/atm/iphase.c: mostly kmalloc + memset conversion to kzalloc
-Date: Fri, 10 Aug 2007 14:12:01 -0700
-Message-ID: <200708102112.l7ALC1UV009424@imap1.linux-foundation.org>
+Subject: [patch 15/28] drivers/net/wan/hdlc_fr.c: kmalloc + memset conversion to kzalloc
+Date: Fri, 10 Aug 2007 14:11:58 -0700
+Message-ID: <200708102111.l7ALBxJj009417@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	m.kozlowski@tuxland.pl
+	m.kozlowski@tuxland.pl, khc@pm.waw.pl
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:52940 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:40952 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S942074AbXHJVMV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 17:12:21 -0400
+	by vger.kernel.org with ESMTP id S942242AbXHJVMW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 17:12:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
 
- drivers/atm/iphase.c | 111508 -> 111431 (-77 bytes)
- drivers/atm/iphase.o | 254740 -> 254260 (-480 bytes)
+ drivers/net/wan/hdlc_fr.c | 31260 -> 31223 (-37 bytes)
+ drivers/net/wan/hdlc_fr.o | 144872 -> 144728 (-144 bytes)
 
 Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+Acked-by: Krzysztof Halasa <khc@pm.waw.pl>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/atm/iphase.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/wan/hdlc_fr.c |    3 +--
+ 1 files changed, 1 insertion(+), 2 deletions(-)
 
-diff -puN drivers/atm/iphase.c~drivers-atm-iphasec-mostly-kmalloc-memset-conversion-to-kzalloc drivers/atm/iphase.c
---- a/drivers/atm/iphase.c~drivers-atm-iphasec-mostly-kmalloc-memset-conversion-to-kzalloc
-+++ a/drivers/atm/iphase.c
-@@ -1601,14 +1601,14 @@ static int rx_init(struct atm_dev *dev) 
-   
- 	skb_queue_head_init(&iadev->rx_dma_q);  
- 	iadev->rx_free_desc_qhead = NULL;   
--	iadev->rx_open = kmalloc(4*iadev->num_vc,GFP_KERNEL);
--	if (!iadev->rx_open)  
--	{  
-+
-+	iadev->rx_open = kzalloc(4 * iadev->num_vc, GFP_KERNEL);
-+	if (!iadev->rx_open) {
- 		printk(KERN_ERR DEV_LABEL "itf %d couldn't get free page\n",
- 		dev->number);  
- 		goto err_free_dle;
- 	}  
--	memset(iadev->rx_open, 0, 4*iadev->num_vc);  
-+
-         iadev->rxing = 1;
-         iadev->rx_pkt_cnt = 0;
- 	/* Mode Register */  
-@@ -3171,12 +3171,12 @@ static int __devinit ia_init_one(struct 
-         unsigned long flags;
- 	int ret;
- 
--	iadev = kmalloc(sizeof(*iadev), GFP_KERNEL); 
-+	iadev = kzalloc(sizeof(*iadev), GFP_KERNEL);
- 	if (!iadev) {
- 		ret = -ENOMEM;
- 		goto err_out;
+diff -puN drivers/net/wan/hdlc_fr.c~drivers-net-wan-hdlc_frc-kmalloc-memset-conversion-to-kzalloc drivers/net/wan/hdlc_fr.c
+--- a/drivers/net/wan/hdlc_fr.c~drivers-net-wan-hdlc_frc-kmalloc-memset-conversion-to-kzalloc
++++ a/drivers/net/wan/hdlc_fr.c
+@@ -212,14 +212,13 @@ static pvc_device* add_pvc(struct net_de
+ 		pvc_p = &(*pvc_p)->next;
  	}
--	memset(iadev, 0, sizeof(*iadev));
-+
- 	iadev->pci = pdev;
  
- 	IF_INIT(printk("ia detected at bus:%d dev: %d function:%d\n",
+-	pvc = kmalloc(sizeof(pvc_device), GFP_ATOMIC);
++	pvc = kzalloc(sizeof(pvc_device), GFP_ATOMIC);
+ #ifdef DEBUG_PVC
+ 	printk(KERN_DEBUG "add_pvc: allocated pvc %p, frad %p\n", pvc, dev);
+ #endif
+ 	if (!pvc)
+ 		return NULL;
+ 
+-	memset(pvc, 0, sizeof(pvc_device));
+ 	pvc->dlci = dlci;
+ 	pvc->frad = dev;
+ 	pvc->next = *pvc_p;	/* Put it in the chain */
 _
