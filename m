@@ -1,120 +1,67 @@
-From: "md ayyaz" <md.ayyaz@gmail.com>
-Subject: Fwd: bug in kernel 2.6.20.9 in ipv6 dest opt <help>
-Date: Fri, 10 Aug 2007 12:34:27 +0530
-Message-ID: <df1706540708100004r78b3bbaau1aee5e613172b48f@mail.gmail.com>
-References: <df1706540708092335h1c8ad61dq6ed8f11e01d0190e@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [patch (testing)] Re: 2.6.20->2.6.21 - networking dies after random time
+Date: Fri, 10 Aug 2007 09:10:38 +0200
+Message-ID: <20070810071038.GA1764@ff.dom.local>
+References: <20070806070300.GA4509@elte.hu> <4bacf17f0708070046o14403089v8376a4544f72fec3@mail.gmail.com> <20070807082321.GB2120@ff.dom.local> <4bacf17f0708070237w19d184b3p7f74b53612edb9a6@mail.gmail.com> <20070807095246.GB3223@ff.dom.local> <20070807121339.GA3946@ff.dom.local> <4bacf17f0708080409t116b5c84ye60dff7da51d0fdf@mail.gmail.com> <20070808114243.GC2426@ff.dom.local> <20070809091919.GB2423@ff.dom.local> <4bacf17f0708092333n17e0ba19jf2c769531610868d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.180]:7664 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754974AbXHJHE2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 03:04:28 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so816735wah
-        for <netdev@vger.kernel.org>; Fri, 10 Aug 2007 00:04:27 -0700 (PDT)
-In-Reply-To: <df1706540708092335h1c8ad61dq6ed8f11e01d0190e@mail.gmail.com>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	shemminger <shemminger@linux-foundation.org>,
+	linux-net <linux-net@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: Marcin =?iso-8859-2?Q?=A6lusarz?= <marcin.slusarz@gmail.com>
+Return-path: <linux-net-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <4bacf17f0708092333n17e0ba19jf2c769531610868d@mail.gmail.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
----------- Forwarded message ----------
-From: md ayyaz <md.ayyaz@gmail.com>
-Date: Aug 10, 2007 12:05 PM
-Subject: bug in kernel 2.6.20.9 in ipv6 dest opt <help>
-To: yoshfuji@linux-ipv6.org
+On Fri, Aug 10, 2007 at 08:33:27AM +0200, Marcin =A6lusarz wrote:
+> 2007/8/9, Jarek Poplawski <jarkao2@o2.pl>:
+=2E..
+> > diff -Nurp 2.6.23-rc1-/kernel/irq/chip.c 2.6.23-rc1/kernel/irq/chip=
+=2Ec
+> > --- 2.6.23-rc1-/kernel/irq/chip.c       2007-07-09 01:32:17.0000000=
+00 +0200
+> > +++ 2.6.23-rc1/kernel/irq/chip.c        2007-08-08 20:49:07.0000000=
+00 +0200
+> > @@ -389,12 +389,19 @@ handle_fasteoi_irq(unsigned int irq, str
+> >         unsigned int cpu =3D smp_processor_id();
+> >         struct irqaction *action;
+> >         irqreturn_t action_ret;
+> > +       int edge =3D 0;
+> >
+=2E..
+> NETDEV WATCHDOG: eth0: transmit timed out
+> eth0: Tx timed out, lost interrupt? TSR=3D0x3, ISR=3D0x3, t=3D351.
+> eth0: Resetting the 8390 t=3D4295229000...<6>NETDEV WATCHDOG: eth0:
+> transmit timed out
+> eth0: Tx timed out, lost interrupt? TSR=3D0x3, ISR=3D0x3, t=3D718.
+> eth0: Resetting the 8390 t=3D4295230000...<6>NETDEV WATCHDOG: eth0:
+> transmit timed out
+> eth0: Tx timed out, lost interrupt? TSR=3D0x3, ISR=3D0x3, t=3D874.
+> etc...
 
+So, we still have to wait for the exact explanation...
 
-Hi ,
-i am working on mobile ipv6 protocol , so what happens whenver i pass
-a ipv6 packet with destination option in it , it doesnt parse it
-correctly in extension header parsing for dest option and hence
-returns -1 as an error back so packet gets dropped in ip layer , along
-with this if i send ipv6-ipv6 tunnel packet it shows slab corruption
-in logs ,( i had put some debug messages)
+Thanks very much Marcin!
 
-please reply as soon as possible i will be greatly thankfull for the help
+I think, there is this one possible for your testing yet?:
+Subject: [patch] genirq: temporary fix for level-triggered IRQ resend
+Date: Wed, 8 Aug 2007 13:00:37 +0200
 
-Aug  1 16:18:12 localhost kernel: Recived IPv6 packet with next hdr as 17 from
-3ffe:0300:0068:0218:f3ff:fed9:8914:f521600001
-Aug  1 16:18:12 localhost kernel:  packet Len : 173 nxt Hdr : 17 skb:213
-Aug  1 16:18:13 localhost kernel: Recived IPv6 packet with next hdr as 17 from
-3ffe:0300:0068:0218:f3ff:fed9:8914:f521600001
-Aug  1 16:18:13 localhost kernel:  packet Len : 173 nxt Hdr : 17 skb:213
-Aug  1 16:18:14 localhost kernel: Recived IPv6 packet with next hdr as 58 from
-fe80:0000:0000:0218:f3ff:feda:83cb:f521600001
-Aug  1 16:18:14 localhost kernel:  packet Len : 64 nxt Hdr : 58 skb:104
-Aug  1 16:18:16 localhost kernel: Recived IPv6 packet with next hdr as 58 from
-fe80:0000:0000:0218:f3ff:feda:83cb:f521600001
-Aug  1 16:18:16 localhost kernel:  packet Len : 24 nxt Hdr : 58 skb:64
-Aug  1 16:18:18 localhost kernel: Recived IPv6 packet with next hdr as 58 from
-fe80:0000:0000:0218:f3ff:feda:83cb:f521600001
-Aug  1 16:18:18 localhost kernel:  packet Len : 64 nxt Hdr : 58 skb:104
-Aug  1 16:18:21 localhost kernel: Recived IPv6 packet with next hdr as 58 from
-fe80:0000:0000:0218:f3ff:feda:83cb:f521600001
-Aug  1 16:18:21 localhost kernel:  packet Len : 32 nxt Hdr : 58 skb:72
-Aug  1 16:18:24 localhost kernel: Recived IPv6 packet with next hdr as 41 from
-3ffe:0300:0068:020c:29ff:fea2:b14c:f521600001
-Aug  1 16:18:24 localhost kernel:  packet Len : 140 nxt Hdr : 41 skb:180
-Aug  1 16:18:24 localhost kernel: Slab corruption: start=f50b1dac, len=176
-Aug  1 16:18:24 localhost kernel: Redzone: 0x5a2cf071/0x5a2cf071.
-Aug  1 16:18:24 localhost kernel: Last user:
-[<c055d930>](kfree_skbmem+0x63/0x66)
-   Aug  1 16:18:24 localhost kernel: 090: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b
-   6a 6b 6b 6b
-   Aug  1 16:18:24 localhost kernel: Single bit error detected. Probably bad
-   RAM.
-   Aug  1 16:18:24 localhost kernel: Run memtest86+ or a similar memory test
-   tool.
-   Aug  1 16:18:24 localhost kernel: Prev obj: start=f50b1cf0, len=176
-   Aug  1 16:18:24 localhost kernel: Redzone: 0x170fc2a5/0x170fc2a5.
-   Aug  1 16:18:24 localhost kernel: Last user:
-   [<c055e041>](__alloc_skb+0x2c/0xfd)
-   Aug  1 16:18:24 localhost kernel: 000: 00 00 00 00 00 00 00 00 00 00 00 00
-   00 00 00 00
-   Aug  1 16:18:24 localhost kernel: 010: 00 00 00 00 00 60 21 f5 00 00 00 00
-   00 00 00 00
-   Aug  1 16:18:24 localhost kernel: Next obj: start=f50b1e68, len=176
-   Aug  1 16:18:24 localhost kernel: Redzone: 0x170fc2a5/0x170fc2a5.
-   Aug  1 16:18:24 localhost kernel: Last user:
-   [<c055e041>](__alloc_skb+0x2c/0xfd)
-   Aug  1 16:18:24 localhost kernel: 000: 00 00 00 00 00 00 00 00 00 00 00 00
-   00 00 00 00
-   Aug  1 16:18:24 localhost kernel: 010: 00 00 00 00 00 60 21 f5 00 00 00 00
-   00 00 00 00
-   Aug  1 16:18:26 localhost kernel: Recived IPv6 packet with next hdr as 58
-   from fe80:0000:0000:0218:f3ff:feda:83cb:f521600001
-   Aug  1 16:18:26 localhost kernel:  packet Len : 64 nxt Hdr : 58 skb:104
-   Aug  1 16:18:35 localhost kernel: Recived IPv6 packet with next hdr as 58
-   from fe80:0000:0000:0218:f3ff:feda:83cb:f521600001
-   Aug  1 16:18:35 localhost kernel:  packet Len : 64 nxt Hdr : 58 skb:104
-   Aug  1 16:18:37 localhost kernel: Recived IPv6 packet with next hdr as 41
-   from 3ffe:0300:0068:020c:29ff:fea2:b14c:f521600001
-   Aug  1 16:18:37 localhost kernel:  packet Len : 140 nxt Hdr : 41 skb:180
-   Aug  1 16:18:37 localhost kernel: Slab corruption: start=f50ba4dc, len=176
-   Aug  1 16:18:37 localhost kernel: Redzone: 0x5a2cf071/0x5a2cf071.
-   Aug  1 16:18:37 localhost kernel: Last user:
-   [<c055d930>](kfree_skbmem+0x63/0x66)
-   Aug  1 16:18:37 localhost kernel: 090: 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b
-   6a 6b 6b 6b
-   Aug  1 16:18:37 localhost kernel: Single bit error detected. Probably bad
-   RAM.
-   Aug  1 16:18:37 localhost kernel: Run memtest86+ or a similar memory test
-   tool.
-   Aug  1 16:18:37 localhost kernel: Prev obj: start=f50ba420, len=176
-   Aug  1 16:18:37 localhost kernel: Redzone: 0x170fc2a5/0x170fc2a5.
-   Aug  1 16:18:37 localhost kernel: Last user:
-   [<c055e041>](__alloc_skb+0x2c/0xfd)
-   Aug  1 16:18:37 localhost kernel: 000: 00 00 00 00 00 00 00 00 00 00 00 00
-   00 00 00 00
-   Aug  1 16:18:37 localhost kernel: 010: 00 00 00 00 00 60 21 f5 00 00 00 00
-   00 00 00 00
-   Aug  1 16:18:37 localhost kernel: Next obj: start=f50ba598, len=176
-   Aug  1 16:18:37 localhost kernel: Redzone: 0x170fc2a5/0x170fc2a5.
-   Aug  1 16:18:37 localhost kernel: Last user:
-   [<c055e041>](__alloc_skb+0x2c/0xfd)
-   Aug  1 16:18:37 localhost kernel: 000: 00 00 00 00 00 00 00 00 00 00 00 00
-   00 00 00 00
-   Aug  1 16:18:37 localhost kernel: 010: 00 00 00 00 00 00 f6 f7 00 00 00 00
-   00 00 00 00
+If it's not a great problem it would be interesting to try this with
+different CONFIG_HZ too e.g. you could start with 100 (I guess, you
+tested very similar thing in 2.6.23-rc2 with 1000(?) already).
+
+Jean-Baptiste: you can skip/break testing of this 'experimental'
+patch, too.
+
+Regards,
+Jarek P.
