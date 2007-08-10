@@ -1,82 +1,243 @@
-From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
-Subject: Re: 2.6.23-rc2-mm1: rtl8139 inconsistent lock state
-Date: Fri, 10 Aug 2007 01:49:14 +0200
-Message-ID: <200708100149.14446.m.kozlowski@tuxland.pl>
-References: <20070809015106.cd0bfc53.akpm@linux-foundation.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 04/10] sysctl: Fix neighbour table sysctls.
+Date: Thu, 09 Aug 2007 18:56:09 -0600
+Message-ID: <m1zm108axi.fsf_-_@ebiederm.dsl.xmission.com>
+References: <20070726164518.GB16937@localhost.sw.ru>
+	<m13azbulhf.fsf@ebiederm.dsl.xmission.com>
+	<20070727145235.GC6924@localhost.sw.ru>
+	<20070806124530.GD6634@localhost.sw.ru>
+	<m1tzr8a3ms.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1ps1wa3kf.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1hcn8a2rq.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1d4xw9psl.fsf_-_@ebiederm.dsl.xmission.com>
+	<m18x8k9ppv.fsf_-_@ebiederm.dsl.xmission.com>
+	<m14pj89pmt.fsf_-_@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, devel@openvz.org,
+	Alexey Dobriyan <adobriyan@sw.ru>, <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xdsl-664.zgora.dialog.net.pl ([81.168.226.152]:1846 "EHLO
-	tuxland.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750792AbXHIXtS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2007 19:49:18 -0400
-In-Reply-To: <20070809015106.cd0bfc53.akpm@linux-foundation.org>
-Content-Disposition: inline
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:41608 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755134AbXHJA5I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 20:57:08 -0400
+In-Reply-To: <m14pj89pmt.fsf_-_@ebiederm.dsl.xmission.com> (Eric
+	W. Biederman's message of "Thu, 09 Aug 2007 18:53:14 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
 
-=================================
-[ INFO: inconsistent lock state ]
-2.6.23-rc2-mm1 #7
----------------------------------
-inconsistent {in-hardirq-W} -> {hardirq-on-W} usage.
-ifconfig/5492 [HC0[0]:SC0[0]:HE1:SE1] takes:
- (&tp->lock){+...}, at: [<de8706e0>] rtl8139_interrupt+0x27/0x46b [8139too]
-{in-hardirq-W} state was registered at:
-  [<c0138eeb>] __lock_acquire+0x949/0x11ac
-  [<c01397e7>] lock_acquire+0x99/0xb2
-  [<c0452ff3>] _spin_lock+0x35/0x42
-  [<de8706e0>] rtl8139_interrupt+0x27/0x46b [8139too]
-  [<c0147a5d>] handle_IRQ_event+0x28/0x59
-  [<c01493ca>] handle_level_irq+0xad/0x10b
-  [<c0105a13>] do_IRQ+0x93/0xd0
-  [<c010441e>] common_interrupt+0x2e/0x34
-  [<c0370d2b>] cpuidle_idle_call+0x74/0x99
-  [<c01023e7>] cpu_idle+0x87/0x89
-  [<c044fa24>] rest_init+0x60/0x62
-  [<c05f8ad5>] start_kernel+0x23a/0x2c5
-  [<00000000>] 0x0
-  [<ffffffff>] 0xffffffff
-irq event stamp: 1777
-hardirqs last  enabled at (1777): [<c0169c04>] kfree+0xee/0x105
-hardirqs last disabled at (1776): [<c0169b9d>] kfree+0x87/0x105
-softirqs last  enabled at (1756): [<c03cb7ab>] dev_deactivate+0x86/0xa5
-softirqs last disabled at (1754): [<c045300e>] _spin_lock_bh+0xe/0x47
+- In ipv6 ndisc_ifinfo_syctl_change so it doesn't depend on binary
+  sysctl names for a function that works with proc.
 
-other info that might help us debug this:
-1 lock held by ifconfig/5492:
- #0:  (rtnl_mutex){--..}, at: [<c0451778>] mutex_lock+0x1c/0x1f
+- In neighbour.c reorder the table to put the possibly unused entries
+  at the end so we can remove them by terminating the table early.
 
-stack backtrace:
- [<c0104869>] show_trace_log_lvl+0x1a/0x30
- [<c01053ad>] show_trace+0x12/0x14
- [<c0105515>] dump_stack+0x15/0x17
- [<c0136ed9>] print_usage_bug+0x145/0x14f
- [<c0137ce7>] mark_lock+0x61f/0x70c
- [<c0138ce0>] __lock_acquire+0x73e/0x11ac
- [<c01397e7>] lock_acquire+0x99/0xb2
- [<c0452ff3>] _spin_lock+0x35/0x42
- [<de8706e0>] rtl8139_interrupt+0x27/0x46b [8139too]
- [<c01480fd>] free_irq+0x11b/0x146
- [<de871d59>] rtl8139_close+0x8a/0x14a [8139too]
- [<c03bde63>] dev_close+0x57/0x74
- [<c03bce65>] dev_change_flags+0x8e/0x190
- [<c03fd37c>] devinet_ioctl+0x4af/0x652
- [<c03fdc62>] inet_ioctl+0x56/0x71
- [<c03b1dba>] sock_ioctl+0xa5/0x1d4
- [<c0178b42>] do_ioctl+0x22/0x71
- [<c0178be6>] vfs_ioctl+0x55/0x29e
- [<c0178e62>] sys_ioctl+0x33/0x69
- [<c01041aa>] sysenter_past_esp+0x5f/0x99
- =======================
+- In neighbour.c kill the entries with questionable binary sysctl
+  handling behavior.
 
-Regards,
+- In neighbour.c if we don't have a strategy routine remove the
+  binary path.  So we don't the default sysctl strategy routine
+  on data that is not ready for it.
 
-	Mariusz
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ net/core/neighbour.c |   75 ++++++++++++++++++++++++++------------------------
+ net/ipv6/ndisc.c     |   24 ++++++---------
+ 2 files changed, 49 insertions(+), 50 deletions(-)
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index ca2a153..27c3f4e 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -2498,7 +2498,6 @@ static struct neigh_sysctl_table {
+ 			.proc_handler	= &proc_dointvec,
+ 		},
+ 		{
+-			.ctl_name	= NET_NEIGH_RETRANS_TIME,
+ 			.procname	= "retrans_time",
+ 			.maxlen		= sizeof(int),
+ 			.mode		= 0644,
+@@ -2543,27 +2542,40 @@ static struct neigh_sysctl_table {
+ 			.proc_handler	= &proc_dointvec,
+ 		},
+ 		{
+-			.ctl_name	= NET_NEIGH_ANYCAST_DELAY,
+ 			.procname	= "anycast_delay",
+ 			.maxlen		= sizeof(int),
+ 			.mode		= 0644,
+ 			.proc_handler	= &proc_dointvec_userhz_jiffies,
+ 		},
+ 		{
+-			.ctl_name	= NET_NEIGH_PROXY_DELAY,
+ 			.procname	= "proxy_delay",
+ 			.maxlen		= sizeof(int),
+ 			.mode		= 0644,
+ 			.proc_handler	= &proc_dointvec_userhz_jiffies,
+ 		},
+ 		{
+-			.ctl_name	= NET_NEIGH_LOCKTIME,
+ 			.procname	= "locktime",
+ 			.maxlen		= sizeof(int),
+ 			.mode		= 0644,
+ 			.proc_handler	= &proc_dointvec_userhz_jiffies,
+ 		},
+ 		{
++			.ctl_name	= NET_NEIGH_RETRANS_TIME_MS,
++			.procname	= "retrans_time_ms",
++			.maxlen		= sizeof(int),
++			.mode		= 0644,
++			.proc_handler	= &proc_dointvec_ms_jiffies,
++			.strategy	= &sysctl_ms_jiffies,
++		},
++		{
++			.ctl_name	= NET_NEIGH_REACHABLE_TIME_MS,
++			.procname	= "base_reachable_time_ms",
++			.maxlen		= sizeof(int),
++			.mode		= 0644,
++			.proc_handler	= &proc_dointvec_ms_jiffies,
++			.strategy	= &sysctl_ms_jiffies,
++		},
++		{
+ 			.ctl_name	= NET_NEIGH_GC_INTERVAL,
+ 			.procname	= "gc_interval",
+ 			.maxlen		= sizeof(int),
+@@ -2592,22 +2604,7 @@ static struct neigh_sysctl_table {
+ 			.mode		= 0644,
+ 			.proc_handler	= &proc_dointvec,
+ 		},
+-		{
+-			.ctl_name	= NET_NEIGH_RETRANS_TIME_MS,
+-			.procname	= "retrans_time_ms",
+-			.maxlen		= sizeof(int),
+-			.mode		= 0644,
+-			.proc_handler	= &proc_dointvec_ms_jiffies,
+-			.strategy	= &sysctl_ms_jiffies,
+-		},
+-		{
+-			.ctl_name	= NET_NEIGH_REACHABLE_TIME_MS,
+-			.procname	= "base_reachable_time_ms",
+-			.maxlen		= sizeof(int),
+-			.mode		= 0644,
+-			.proc_handler	= &proc_dointvec_ms_jiffies,
+-			.strategy	= &sysctl_ms_jiffies,
+-		},
++		{}
+ 	},
+ 	.neigh_dev = {
+ 		{
+@@ -2660,42 +2657,48 @@ int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
+ 	t->neigh_vars[9].data  = &p->anycast_delay;
+ 	t->neigh_vars[10].data = &p->proxy_delay;
+ 	t->neigh_vars[11].data = &p->locktime;
++	t->neigh_vars[12].data  = &p->retrans_time;
++	t->neigh_vars[13].data  = &p->base_reachable_time;
+ 
+ 	if (dev) {
+ 		dev_name_source = dev->name;
+ 		t->neigh_dev[0].ctl_name = dev->ifindex;
+-		t->neigh_vars[12].procname = NULL;
+-		t->neigh_vars[13].procname = NULL;
+-		t->neigh_vars[14].procname = NULL;
+-		t->neigh_vars[15].procname = NULL;
++		/* Terminate the table early */
++		memset(&t->neigh_vars[14], 0, sizeof(t->neigh_vars[14]));
+ 	} else {
+ 		dev_name_source = t->neigh_dev[0].procname;
+-		t->neigh_vars[12].data = (int *)(p + 1);
+-		t->neigh_vars[13].data = (int *)(p + 1) + 1;
+-		t->neigh_vars[14].data = (int *)(p + 1) + 2;
+-		t->neigh_vars[15].data = (int *)(p + 1) + 3;
++		t->neigh_vars[14].data = (int *)(p + 1);
++		t->neigh_vars[15].data = (int *)(p + 1) + 1;
++		t->neigh_vars[16].data = (int *)(p + 1) + 2;
++		t->neigh_vars[17].data = (int *)(p + 1) + 3;
+ 	}
+ 
+-	t->neigh_vars[16].data  = &p->retrans_time;
+-	t->neigh_vars[17].data  = &p->base_reachable_time;
+ 
+ 	if (handler || strategy) {
+ 		/* RetransTime */
+ 		t->neigh_vars[3].proc_handler = handler;
+ 		t->neigh_vars[3].strategy = strategy;
+ 		t->neigh_vars[3].extra1 = dev;
++		if (!strategy)
++			t->neigh_vars[3].ctl_name = CTL_UNNUMBERED;
+ 		/* ReachableTime */
+ 		t->neigh_vars[4].proc_handler = handler;
+ 		t->neigh_vars[4].strategy = strategy;
+ 		t->neigh_vars[4].extra1 = dev;
++		if (!strategy)
++			t->neigh_vars[4].ctl_name = CTL_UNNUMBERED;
+ 		/* RetransTime (in milliseconds)*/
+-		t->neigh_vars[16].proc_handler = handler;
+-		t->neigh_vars[16].strategy = strategy;
+-		t->neigh_vars[16].extra1 = dev;
++		t->neigh_vars[12].proc_handler = handler;
++		t->neigh_vars[12].strategy = strategy;
++		t->neigh_vars[12].extra1 = dev;
++		if (!strategy)
++			t->neigh_vars[12].ctl_name = CTL_UNNUMBERED;
+ 		/* ReachableTime (in milliseconds) */
+-		t->neigh_vars[17].proc_handler = handler;
+-		t->neigh_vars[17].strategy = strategy;
+-		t->neigh_vars[17].extra1 = dev;
++		t->neigh_vars[13].proc_handler = handler;
++		t->neigh_vars[13].strategy = strategy;
++		t->neigh_vars[13].extra1 = dev;
++		if (!strategy)
++			t->neigh_vars[13].ctl_name = CTL_UNNUMBERED;
+ 	}
+ 
+ 	dev_name = kstrdup(dev_name_source, GFP_KERNEL);
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 0358e60..d388429 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1570,30 +1570,26 @@ int ndisc_ifinfo_sysctl_change(struct ctl_table *ctl, int write, struct file * f
+ 	struct inet6_dev *idev;
+ 	int ret;
+ 
+-	if (ctl->ctl_name == NET_NEIGH_RETRANS_TIME ||
+-	    ctl->ctl_name == NET_NEIGH_REACHABLE_TIME)
++	if ((strcmp(ctl->procname, "retrans_time") == 0) ||
++	    (strcmp(ctl->procname, "base_reachable_time") == 0))
+ 		ndisc_warn_deprecated_sysctl(ctl, "syscall", dev ? dev->name : "default");
+ 
+-	switch (ctl->ctl_name) {
+-	case NET_NEIGH_RETRANS_TIME:
++	if (strcmp(ctl->procname, "retrans_time") == 0)
+ 		ret = proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
+-		break;
+-	case NET_NEIGH_REACHABLE_TIME:
++
++	else if (strcmp(ctl->procname, "base_reachable_time") == 0)
+ 		ret = proc_dointvec_jiffies(ctl, write,
+ 					    filp, buffer, lenp, ppos);
+-		break;
+-	case NET_NEIGH_RETRANS_TIME_MS:
+-	case NET_NEIGH_REACHABLE_TIME_MS:
++
++	else if ((strcmp(ctl->procname, "retrans_time_ms") == 0) ||
++		 (strcmp(ctl->procname, "base_reacable_time_ms") == 0))
+ 		ret = proc_dointvec_ms_jiffies(ctl, write,
+ 					       filp, buffer, lenp, ppos);
+-		break;
+-	default:
++	else
+ 		ret = -1;
+-	}
+ 
+ 	if (write && ret == 0 && dev && (idev = in6_dev_get(dev)) != NULL) {
+-		if (ctl->ctl_name == NET_NEIGH_REACHABLE_TIME ||
+-		    ctl->ctl_name == NET_NEIGH_REACHABLE_TIME_MS)
++		if (ctl->data == &idev->nd_parms->base_reachable_time)
+ 			idev->nd_parms->reachable_time = neigh_rand_reach_time(idev->nd_parms->base_reachable_time);
+ 		idev->tstamp = jiffies;
+ 		inet6_ifinfo_notify(RTM_NEWLINK, idev);
+-- 
+1.5.1.1.181.g2de0
+
