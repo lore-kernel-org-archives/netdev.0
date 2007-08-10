@@ -1,62 +1,61 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: Re: RealTek 8169 support question
-Date: Fri, 10 Aug 2007 18:40:27 -0400
-Message-ID: <46BCE95B.7020408@oracle.com>
-References: <46BCD853.1010801@oracle.com> <20070810222346.GA9042@electric-eye.fr.zoreil.com>
-Reply-To: chuck.lever@oracle.com
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: [PATCH 9/24] make atomic_read() behave consistently on ia64
+Date: Fri, 10 Aug 2007 18:43:04 -0400
+Message-ID: <46BCE9F8.4060009@redhat.com>
+References: <20070809135107.GA15985@shell.boston.redhat.com><617E1C2C70743745A92448908E030B2A02213B3C@scsmsx411.amr.corp.intel.com><46BCC1AF.5050204@redhat.com><617E1C2C70743745A92448908E030B2A0224C777@scsmsx411.amr.corp.intel.com> <jewsw3oyl8.fsf@sykes.suse.de> <617E1C2C70743745A92448908E030B2A0224C88B@scsmsx411.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010304040002010504010109"
-Cc: netdev ML <netdev@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andreas Schwab <schwab@suse.de>, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, torvalds@linux-foundation.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org, ak@suse.de,
+	heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com
+To: "Luck, Tony" <tony.luck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:37247 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753123AbXHJWlh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 18:41:37 -0400
-In-Reply-To: <20070810222346.GA9042@electric-eye.fr.zoreil.com>
+Received: from mx1.redhat.com ([66.187.233.31]:40853 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752571AbXHJWnp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2007 18:43:45 -0400
+In-Reply-To: <617E1C2C70743745A92448908E030B2A0224C88B@scsmsx411.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010304040002010504010109
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-
-Francois Romieu wrote:
-> Chuck Lever <chuck.lever@oracle.com> :
-> [...]
->> I just bought a new Jetway mainboard with a pair of RTL 8169 NICs. 
+Luck, Tony wrote:
+>> Use atomic64_read to read an atomic64_t.
 > 
-> Mini-ITX J7F4 ?
+> Thanks Andreas!
+> 
+> Chris: This bug is why the 8-byte loads got changed to 4-byte + sign-extend
+> by your change to atomic_read().
 
-Yes.  I wanted a low-power DSL router that will support IPv6 and have a 
-familiar GUI.
+I figured as much.  Thanks for confirming this.
 
-> Have your tried 2.6.23-git-latest or at least a post 2.6.23-rc1 kernel ?
+> With this applied together with shuffling the volatile from the
+> declaration to the usage (in both atomic_read() and atomic_set()
+> the generated code *almost* reverts to the original.
+> 
+> There are some differences where ld4 have turned into ld8 though.
+> Are these bugs in the use of atomic_add() and atomic_sub().  E.g.
+> the first of these changes is in: ipc/msg.c:freeque() where we have:
+> 
+> 	atomic_sub(msg->q_cbytes, &msg_bytes);
+> 
+> Now the type of msg->q_cbytes is "unsigned long" ... so it seems a
+> poor idea to subtract such a large typed object from "msg_bytes"
+> which is a mere slip of an atomic_t.
+> 
+> Or is there some other type-wrangling that needs to happen in
+> include/asm-ia64/atomic.h?  There are a total of nineteen of
+> these ld4->ld8 transforms.
 
-Not yet.  I wanted to check with "the Maintainer" to see if it was worth 
-trying.  :-)  The last time I tried a kernel build on one of these 
-little Via processors, it took forever.  Will give it a shot.
+Possibly.  Either that or we've uncovered some latent bugs.  Maybe a 
+combination of the two.  Can you list those 19 changes so we can 
+evaluate them?  I'm told there were some *(volatile *) bugs fixed in gcc 
+recently, so it's also possible your 3.4.6 is showing those.  I can test 
+that on a more recent gcc on ia64 if it's inconvenient for you to do so 
+on your test box.
 
---------------010304040002010504010109
-Content-Type: text/x-vcard; charset=utf-8;
- name="chuck.lever.vcf"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="chuck.lever.vcf"
-
-begin:vcard
-fn:Chuck Lever
-n:Lever;Chuck
-org:Oracle Corporation;Corporate Architecture: Linux Projects Group
-adr:;;1015 Granger Avenue;Ann Arbor;MI;48104;USA
-title:Principal Member of Staff
-tel;work:+1 248 614 5091
-x-mozilla-html:FALSE
-url:http://oss.oracle.com/~cel
-version:2.1
-end:vcard
-
-
---------------010304040002010504010109--
+	-- Chris
