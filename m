@@ -1,60 +1,147 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-2.6.24 GIT state
-Date: Thu, 09 Aug 2007 18:27:19 -0700 (PDT)
-Message-ID: <20070809.182719.99676246.davem@davemloft.net>
-References: <Pine.LNX.4.64.0708091233050.24369@kivilampi-30.cs.helsinki.fi>
-	<20070809.041034.93473045.davem@davemloft.net>
-	<Pine.LNX.4.64.0708091721030.24369@kivilampi-30.cs.helsinki.fi>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 1/24] make atomic_read() behave consistently on alpha
+Date: Thu, 9 Aug 2007 18:28:48 -0700
+Message-ID: <20070810012848.GJ8424@linux.vnet.ibm.com>
+References: <20070809150445.GB8424@linux.vnet.ibm.com> <46BB31A6.4080507@redhat.com> <20070809161024.GC8424@linux.vnet.ibm.com> <46BB4281.7010803@redhat.com> <20070809165853.GD8424@linux.vnet.ibm.com> <46BB4B7B.4070007@redhat.com> <20070809174150.GE8424@linux.vnet.ibm.com> <46BB5960.9040009@redhat.com> <20070809184531.GH8424@linux.vnet.ibm.com> <46BB69F8.5000502@redhat.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, ak@suse.de, heiko.carstens@de.ibm.com,
+	davem@davemloft.net, schwidefsky@de.ibm.com, wensong@linux-vs.org,
+	horms@verge.net.au, wjiang@resilience.com, cfriesen@nortel.com,
+	zlynx@acm.org, rpjday@mindspring.com, jesper.juhl@gmail.com
+To: Chris Snook <csnook@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58011
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751906AbXHJB1T convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Aug 2007 21:27:19 -0400
-In-Reply-To: <Pine.LNX.4.64.0708091721030.24369@kivilampi-30.cs.helsinki.fi>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:53581 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754592AbXHJB2w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2007 21:28:52 -0400
+Content-Disposition: inline
+In-Reply-To: <46BB69F8.5000502@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Thu, 9 Aug 2007 17:40:07 +0300 (EEST)
+On Thu, Aug 09, 2007 at 03:24:40PM -0400, Chris Snook wrote:
+> Paul E. McKenney wrote:
+> >On Thu, Aug 09, 2007 at 02:13:52PM -0400, Chris Snook wrote:
+> >>Paul E. McKenney wrote:
+> >>>On Thu, Aug 09, 2007 at 01:14:35PM -0400, Chris Snook wrote:
+> >>>>                               If you're depending on volatile writes 
+> >>>>being visible to other CPUs, you're screwed either way, because the CPU 
+> >>>>can hold that data in cache as long as it wants before it writes it to 
+> >>>>memory.  When this finally does happen, it will happen atomically, 
+> >>>>which is all that atomic_set guarantees.  If you need to guarantee that 
+> >>>>the value is written to memory at a particular time in your execution 
+> >>>>sequence, you either have to read it from memory to force the compiler 
+> >>>>to store it first (and a volatile cast in atomic_read will suffice for 
+> >>>>this) or you have to use LOCK_PREFIX instructions which will invalidate 
+> >>>>remote cache lines containing the same variable.  This patch doesn't 
+> >>>>change either of these cases.
+> >>>The case that it -can- change is interactions with interrupt handlers.
+> >>>And NMI/SMI handlers, for that matter.
+> >>You have a point here, but only if you can guarantee that the interrupt 
+> >>handler is running on a processor sharing the cache that has the 
+> >>not-yet-written volatile value.  That implies a strictly non-SMP 
+> >>architecture.  At the moment, none of those have volatile in their 
+> >>declaration of atomic_t, so this patch can't break any of them.
+> >
+> >This can also happen when using per-CPU variables.  And there are a
+> >number of per-CPU variables that are either atomic themselves or are
+> >structures containing atomic fields.
+> 
+> Accessing per-CPU variables in this fashion reliably already requires a 
+> suitable smp/non-smp read/write memory barrier.  I maintain that if we 
+> break anything with this change, it was really already broken, if less 
+> obviously.  Can you give a real or synthetic example of legitimate code 
+> that could break?
 
-> Next step:
->=20
-> http://www.cs.helsinki.fi/u/ijjarvin/tcp-rebase/after-reorder/
->=20
-> ...I put some effort to reorganization and there's the result, please=
-=20
-> _don't_ take the new SACK block-validator yet as I haven't yet put it=
-=20
-> under any testing (it's the only difference this reordering of patche=
-s=20
-> seems to have introduced :-)). The first five commits touch left_out =
-(4=20
-> latest fix bug and "flaws" I made in the first commit), I could combi=
-ne=20
-> them into a single one if you want to.
+My main concern is actually the lack of symmetry -- I would expect
+that an atomic_set() would have the same properties as atomic_read().
+It is easy and cheap to provide them with similar properties, so why not?
+Debugging even a single problem would consume far more time than simply
+giving them corresponding semantics.
 
-I applied everything up until the SACK validator to net-2.6.24
+But you asked for examples.  These are synthetic, and of course legitimacy
+is in the eye of the beholder.
 
-Thanks for doing all of this merging work, I very much appreciate
-it.
+1.  Watchdog variable.
 
-> ...Notice that part of the next step includes work that hasn't yet be=
-en=20
-> posted to netdev at all (was from my not yet submitted wip portion of=
-=20
-> it). Would you prefer me to post them using the usual procedure?
+	atomic_t watchdog = ATOMIC_INIT(0);
 
-Everything I hit today which had not been posted before was trivial
-fix or a reasonable small cleanup.
+	...
 
-Why don't you just post the patches to the list one-by-one from
-now on so we can review them in parallel with merging into
-net-2.6.24?
+	int i;
+	while (!done) {
 
-Thanks again Ilpo!
+		/* Do so stuff that doesn't take more than a few us. */
+		/* Could do atomic increment, but throughput penalty. */
+
+		i++;
+		atomic_set(&watchdog, i);
+	}
+	do_something_with(&watchdog);
+
+
+	/* Every so often on some other CPU... */
+
+	if ((new_watchdog = atomic_read(&watchdog)) == old_watchdog)
+		die_horribly();
+	old_watchdog = new_watchdog;
+
+
+	If atomic_set() did not have volatile semantics, the compiler
+	would be within its rights optimizing it to simply get the
+	final value of "i" after exit from the loop.  This would cause
+	the watchdog check to fail spuriously.  Memory barriers are
+	not required in this case, because the CPU cannot hang onto
+	the value for very long -- we don't care about the exact value,
+	or about exact synchronization, but rather about whether or
+	not the value is changing.
+
+	In this (toy) example, one might replace the atomic_set() with
+	an atomic increment (though that might be too expensive in some
+	cases) or with something like:
+
+		atomic_set(&watchdog, atomic_read(&watchdog) + 1);
+
+	However, other cases might not permit this transformation,
+	for example, an existing heavily used API might take int rather
+	than atomic_t.
+
+	Some will no doubt argue that this example should use a
+	macro or an asm similar to the "forget()" asm put forward
+	elsewhere in this thread.
+
+2.  Communicating both with interrupt handler and with other CPUs.
+    For example, data elements that are built up in a location visible
+    to interrupts and NMIs, and then added as a unit to a data structure
+    visible to other CPUs.  This more-realistic example is abbreviated
+    to the point of pointlessness as follows:
+
+	struct foo {
+		atomic_t a;
+		atomic_t b;
+	};
+
+	DEFINE_PER_CPU(struct foo *, staging) = NULL;
+
+	/* Create element in staging area. */
+
+	__get_cpu_var(staging) = kzalloc(sizeof(*p), GFP_WHATEVER);
+	if (__get_cpu_var(staging) == NULL)
+		die_horribly();
+	/* allocate an element of some per-CPU array, get the result in "i" */
+	atomic_set(__get_cpu_var(staging).a, i);
+	/* allocate another element of a per-CPU array, with result in "i" */
+	atomic_set(__get_cpu_var(staging).b, i);
+	rcu_assign_pointer(some_global_place, __get_cpu_var(staging));
+
+	If atomic_set() didn't have volatile semantics, then an interrupt
+	or NMI handler could see the atomic_set() to .a and .b out of
+	order due to compiler optimizations.
+
+Remember, you -did- ask for these!!!  ;-)
+
+							Thanx, Paul
