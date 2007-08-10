@@ -1,80 +1,84 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: 2.6.23-rc2-mm2
-Date: Fri, 10 Aug 2007 12:41:56 -0700
-Message-ID: <20070810124156.2de9710e.akpm@linux-foundation.org>
-References: <20070809224254.11f42716.akpm@linux-foundation.org>
-	<46BC8F71.3070006@googlemail.com>
-	<46BC944F.9020801@googlemail.com>
-	<m1fy2rxpje.fsf@ebiederm.dsl.xmission.com>
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: [PATCH 9/24] make atomic_read() behave consistently on ia64
+Date: Fri, 10 Aug 2007 15:51:11 -0400
+Message-ID: <46BCC1AF.5050204@redhat.com>
+References: <20070809135107.GA15985@shell.boston.redhat.com> <617E1C2C70743745A92448908E030B2A02213B3C@scsmsx411.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Gabriel C <nix.or.die@googlemail.com>,
-	Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
-	coreteam@netfilter.org
-To: ebiederm@xmission.com (Eric W. Biederman)
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, ak@suse.de, heiko.carstens@de.ibm.com,
+	davem@davemloft.net, schwidefsky@de.ibm.com, wensong@linux-vs.org,
+	horms@verge.net.au, wjiang@resilience.com, cfriesen@nortel.com,
+	zlynx@acm.org, rpjday@mindspring.com, jesper.juhl@gmail.com
+To: "Luck, Tony" <tony.luck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:49917 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757113AbXHJTmv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 15:42:51 -0400
-In-Reply-To: <m1fy2rxpje.fsf@ebiederm.dsl.xmission.com>
+Received: from mx1.redhat.com ([66.187.233.31]:45911 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S937912AbXHJTvs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2007 15:51:48 -0400
+In-Reply-To: <617E1C2C70743745A92448908E030B2A02213B3C@scsmsx411.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Aug 2007 11:33:41 -0600
-ebiederm@xmission.com (Eric W. Biederman) wrote:
-
-> Gabriel C <nix.or.die@googlemail.com> writes:
+Luck, Tony wrote:
+>> +#define atomic_read(v)		(*(volatile __s32 *)&(v)->counter)
+>> +#define atomic64_read(v)	(*(volatile __s64 *)&(v)->counter)
+>>
+>>  #define atomic_set(v,i)		(((v)->counter) = (i))
+>>  #define atomic64_set(v,i)	(((v)->counter) = (i))
 > 
-> > Michal Piotrowski wrote:
-> >> Andrew Morton pisze:
-> >>>
-> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.23-rc2/2.6.23-rc2-mm2/
-> >>>
-> >> 
-> >> Yet another sysctl table check failed
-> >> 
-> >> [   88.949055] Netfilter messages via NETLINK v0.30.
-> >> [   89.485399] nf_conntrack version 0.5.0 (16384 buckets, 65536 max)
-> >> [ 89.491892] sysctl table check failed:
-> > /net/netfilter/nf_conntrack_generic_timeout .3.19.13 Missing strategy
-> >> [   89.558178] xt_state: Unknown symbol nf_conntrack_untracked
-> >> [   89.563942] xt_state: Unknown symbol nf_ct_l3proto_module_put
-> >> [   89.569870] xt_state: Unknown symbol nf_ct_l3proto_try_module_get
-> >> [   90.852319] NET: Registered protocol family 17
-> >>
-> >
-> > And maybe this ?
 > 
-> Could be.
+> Losing the volatile from the "set" variants definitely changes
+> the code generated.  Before the patch gcc would give us:
 > 
-> sysctl table check failure looks legitimate.
-> At a quick skim I can't tell for certain if failure to register the
-> sysctl table will keep the module from loading but it might.
+> 	st4.rel [r37]=r9
 > 
-> It looks like another canidate on the pile of kill the broken
-> binary sysctl.
+> after
+> 	st4 [r37]=r9
 > 
+> It is unclear whether anyone relies on (or even whether they should
+> rely on) the release semantics that are provided by the current
+> version of atomic.h.  But making this change would require an
+> audit of all the uses of atomic_set() to find an answer.
+> 
+> There is a more worrying difference in the generated code (this
+> from the ancient and venerable gcc 3.4.6 that is on my build
+> machine).   In rwsem_down_failed_common I see this change (after
+> disassembling vmlinux, I used sed to zap the low 32-bits of addresses
+> to make the diff manageable ... that's why the addresses all end
+> in xxxxxxxx):
+> 
+> 712868,712873c712913,712921
+> < a0000001xxxxxxxx:                 adds r16=-1,r30
+> < a0000001xxxxxxxx:     [MII]       ld8.acq r33=[r32]
+> < a0000001xxxxxxxx:                 nop.i 0x0;;
+> < a0000001xxxxxxxx:                 add r42=r33,r16
+> < a0000001xxxxxxxx:     [MMI]       mov.m ar.ccv=r33;;
+> < a0000001xxxxxxxx:                 cmpxchg8.acq r34=[r32],r42,ar.ccv
+> ---
+>> a0000001xxxxxxxx:                 adds r16=-1,r31
+>> a0000001xxxxxxxx:     [MMI]       ld4.acq r14=[r32];;
+>> a0000001xxxxxxxx:                 nop.m 0x0
+>> a0000001xxxxxxxx:                 sxt4 r34=r14
+>> a0000001xxxxxxxx:     [MMI]       nop.m 0x0;;
+>> a0000001xxxxxxxx:                 nop.m 0x0
+>> a0000001xxxxxxxx:                 add r15=r34,r16
+>> a0000001xxxxxxxx:     [MMI]       mov.m ar.ccv=r34;;
+>> a0000001xxxxxxxx:                 cmpxchg8.acq r42=[r32],r15,ar.ccv
+> 
+> This code is probably from the rwsem_atomic_update(adjustment, sem) macro
+> which is cpp'd to atomic64_add_return().  It looks really bad that the new
+> code reads a 32-bit value and sign extends it rather than reading a 64-bit
+> value (but I'm perplexed as to why this patch provoked this change in the
+> generated code).
+> 
+> -Tony
 
-There seems to be rather a lot of damage here.
+That's distressing.  I'm about to resubmit with a volatile cast in 
+atomic_set as well, since people expect that behavior and I've been 
+shown a legitimate case where it could matter.  Does the assembly look 
+right with that cast in atomic_set() as well?
 
-I assume that the sysctl changes are what caused the netfilter oopses.
-
-- nf_conntrack_init() calls nf_conntrack_expect_init() which fails due to
-  sysctl problems.  
-
-- nf_conntrack_init() bales out without calling nf_conntrack_helper_init()
-
-  So nf_ct_helper_hsize never gets initialised.
-
-- Later, netfilter client code calls helper_hash(), which gets a
-  divide-by-zero due to nf_ct_helper_hsize==0.
-
-
-yeah, that's a netfilter bug, but we're trying to get kernels tested here. 
-If I'm feeling energetic I'll drop the sysctl changes and do rc2-mm3. 
-Probably I won't feel energetic, but we'll need a lot of fixes here before
-I can release the sysctl changes in another -mm, please.
-
+	-- Chris
