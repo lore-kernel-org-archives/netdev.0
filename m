@@ -1,7 +1,7 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 6/6] e1000e: Remove two compile warnings
-Date: Fri, 10 Aug 2007 13:01:07 -0700
-Message-ID: <20070810200107.21509.74125.stgit@localhost.localdomain>
+Subject: [PATCH 5/6] e1000e: error handling for pci_map_single calls.
+Date: Fri, 10 Aug 2007 13:01:02 -0700
+Message-ID: <20070810200102.21509.97953.stgit@localhost.localdomain>
 References: <20070810200038.21509.77815.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,53 +10,205 @@ Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
 	andi@firstfloor.org
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:33254 "EHLO mga09.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:13994 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S938165AbXHJUBJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2007 16:01:09 -0400
+	id S940190AbXHJUBG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2007 16:01:06 -0400
 In-Reply-To: <20070810200038.21509.77815.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CC [M]  drivers/net/e1000e/lib.o
-drivers/net/e1000e/lib.c: In function 'e1000e_read_nvm_eerd':
-drivers/net/e1000e/lib.c:1941: warning: 'ret_val' may be used uninitialized
-in this function
-  CC [M]  drivers/net/e1000e/phy.o
-drivers/net/e1000e/phy.c: In function 'e1000e_phy_has_link_generic':
-drivers/net/e1000e/phy.c:1324: warning: 'ret_val' may be used
-uninitialized in this function
+Add proper error handling for various callers of pci_map_single.
 
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000e/lib.c |    2 +-
- drivers/net/e1000e/phy.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/e1000e/e1000.h   |    2 ++
+ drivers/net/e1000e/ethtool.c |   16 +++++++++++---
+ drivers/net/e1000e/netdev.c  |   49 +++++++++++++++++++++++++++++++++++++++---
+ 3 files changed, 61 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
-index a04c1e4..6645c21 100644
---- a/drivers/net/e1000e/lib.c
-+++ b/drivers/net/e1000e/lib.c
-@@ -1938,7 +1938,7 @@ s32 e1000e_read_nvm_eerd(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
- {
- 	struct e1000_nvm_info *nvm = &hw->nvm;
- 	u32 i, eerd = 0;
--	s32 ret_val;
-+	s32 ret_val = 0;
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index 3475e48..e3cd877 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -220,6 +220,7 @@ struct e1000_adapter {
+ 	u32 tx_fifo_head;
+ 	u32 tx_head_addr;
+ 	u32 tx_fifo_size;
++	u32 tx_dma_failed;
  
- 	/* A check for invalid values:  offset too large, too many words,
- 	 * and not enough words. */
-diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
-index 1efb47a..7932318 100644
---- a/drivers/net/e1000e/phy.c
-+++ b/drivers/net/e1000e/phy.c
-@@ -1321,7 +1321,7 @@ static s32 e1000_wait_autoneg(struct e1000_hw *hw)
- s32 e1000e_phy_has_link_generic(struct e1000_hw *hw, u32 iterations,
- 			       u32 usec_interval, bool *success)
- {
--	s32 ret_val;
-+	s32 ret_val = 0;
- 	u16 i, phy_status;
+ 	/*
+ 	 * RX
+@@ -241,6 +242,7 @@ struct e1000_adapter {
+ 	u64 gorcl_old;
+ 	u32 gorcl;
+ 	u32 alloc_rx_buff_failed;
++	u32 rx_dma_failed;
  
- 	for (i = 0; i < iterations; i++) {
+ 	unsigned int rx_ps_pages;
+ 	u16 rx_ps_bsize0;
+diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
+index d14cc4b..0e80406 100644
+--- a/drivers/net/e1000e/ethtool.c
++++ b/drivers/net/e1000e/ethtool.c
+@@ -91,6 +91,8 @@ static const struct e1000_stats e1000_gstrings_stats[] = {
+ 	{ "tx_smbus", E1000_STAT(stats.mgptc) },
+ 	{ "rx_smbus", E1000_STAT(stats.mgprc) },
+ 	{ "dropped_smbus", E1000_STAT(stats.mgpdc) },
++	{ "rx_dma_failed", E1000_STAT(rx_dma_failed) },
++	{ "tx_dma_failed", E1000_STAT(tx_dma_failed) },
+ };
+ 
+ #define E1000_GLOBAL_STATS_LEN	\
+@@ -1042,6 +1044,10 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
+ 		tx_ring->buffer_info[i].dma =
+ 			pci_map_single(pdev, skb->data, skb->len,
+ 				       PCI_DMA_TODEVICE);
++		if (pci_dma_mapping_error(tx_ring->buffer_info[i].dma)) {
++			ret_val = 4;
++			goto err_nomem;
++		}
+ 		tx_desc->buffer_addr = cpu_to_le64(
+ 					 tx_ring->buffer_info[i].dma);
+ 		tx_desc->lower.data = cpu_to_le32(skb->len);
+@@ -1059,7 +1065,7 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
+ 	size = rx_ring->count * sizeof(struct e1000_buffer);
+ 	rx_ring->buffer_info = kmalloc(size, GFP_KERNEL);
+ 	if (!rx_ring->buffer_info) {
+-		ret_val = 4;
++		ret_val = 5;
+ 		goto err_nomem;
+ 	}
+ 	memset(rx_ring->buffer_info, 0, size);
+@@ -1068,7 +1074,7 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
+ 	rx_ring->desc = dma_alloc_coherent(&pdev->dev, rx_ring->size,
+ 					   &rx_ring->dma, GFP_KERNEL);
+ 	if (!rx_ring->desc) {
+-		ret_val = 5;
++		ret_val = 6;
+ 		goto err_nomem;
+ 	}
+ 	memset(rx_ring->desc, 0, rx_ring->size);
+@@ -1093,7 +1099,7 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
+ 
+ 		skb = alloc_skb(2048 + NET_IP_ALIGN, GFP_KERNEL);
+ 		if (!skb) {
+-			ret_val = 6;
++			ret_val = 7;
+ 			goto err_nomem;
+ 		}
+ 		skb_reserve(skb, NET_IP_ALIGN);
+@@ -1101,6 +1107,10 @@ static int e1000_setup_desc_rings(struct e1000_adapter *adapter)
+ 		rx_ring->buffer_info[i].dma =
+ 			pci_map_single(pdev, skb->data, 2048,
+ 				       PCI_DMA_FROMDEVICE);
++		if (pci_dma_mapping_error(rx_ring->buffer_info[i].dma)) {
++			ret_val = 8;
++			goto err_nomem;
++		}
+ 		rx_desc->buffer_addr =
+ 			cpu_to_le64(rx_ring->buffer_info[i].dma);
+ 		memset(skb->data, 0x00, skb->len);
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 51c9024..8ebe238 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -195,6 +195,11 @@ map_skb:
+ 		buffer_info->dma = pci_map_single(pdev, skb->data,
+ 						  adapter->rx_buffer_len,
+ 						  PCI_DMA_FROMDEVICE);
++		if (pci_dma_mapping_error(buffer_info->dma)) {
++			dev_err(&pdev->dev, "RX DMA map failed\n");
++			adapter->rx_dma_failed++;
++			break;
++		}
+ 
+ 		rx_desc = E1000_RX_DESC(*rx_ring, i);
+ 		rx_desc->buffer_addr = cpu_to_le64(buffer_info->dma);
+@@ -255,6 +260,13 @@ static void e1000_alloc_rx_buffers_ps(struct e1000_adapter *adapter,
+ 							   ps_page->page,
+ 							   0, PAGE_SIZE,
+ 							   PCI_DMA_FROMDEVICE);
++					if (pci_dma_mapping_error(
++							ps_page->dma)) {
++						dev_err(&adapter->pdev->dev,
++						  "RX DMA page map failed\n");
++						adapter->rx_dma_failed++;
++						goto no_buffers;
++					}
+ 				}
+ 				/*
+ 				 * Refresh the desc even if buffer_addrs
+@@ -286,6 +298,14 @@ static void e1000_alloc_rx_buffers_ps(struct e1000_adapter *adapter,
+ 		buffer_info->dma = pci_map_single(pdev, skb->data,
+ 						  adapter->rx_ps_bsize0,
+ 						  PCI_DMA_FROMDEVICE);
++		if (pci_dma_mapping_error(buffer_info->dma)) {
++			dev_err(&pdev->dev, "RX DMA map failed\n");
++			adapter->rx_dma_failed++;
++			/* cleanup skb */
++			dev_kfree_skb_any(skb);
++			buffer_info->skb = NULL;
++			break;
++		}
+ 
+ 		rx_desc->read.buffer_addr[0] = cpu_to_le64(buffer_info->dma);
+ 
+@@ -374,6 +394,11 @@ check_page:
+ 							buffer_info->page, 0,
+ 							PAGE_SIZE,
+ 							PCI_DMA_FROMDEVICE);
++		if (pci_dma_mapping_error(buffer_info->dma)) {
++			dev_err(&adapter->pdev->dev, "RX DMA page map failed\n");
++			adapter->rx_dma_failed++;
++			break;
++		}
+ 
+ 		rx_desc = E1000_RX_DESC(*rx_ring, i);
+ 		rx_desc->buffer_addr = cpu_to_le64(buffer_info->dma);
+@@ -3214,6 +3239,11 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
+ 				skb->data + offset,
+ 				size,
+ 				PCI_DMA_TODEVICE);
++		if (pci_dma_mapping_error(buffer_info->dma)) {
++			dev_err(&adapter->pdev->dev, "TX DMA map failed\n");
++			adapter->tx_dma_failed++;
++			return -1;
++		}
+ 		buffer_info->next_to_watch = i;
+ 
+ 		len -= size;
+@@ -3247,6 +3277,13 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
+ 					offset,
+ 					size,
+ 					PCI_DMA_TODEVICE);
++			if (pci_dma_mapping_error(buffer_info->dma)) {
++				dev_err(&adapter->pdev->dev,
++					"TX DMA page map failed\n");
++				adapter->tx_dma_failed++;
++				return -1;
++			}
++
+ 			buffer_info->next_to_watch = i;
+ 
+ 			len -= size;
+@@ -3512,9 +3549,15 @@ static int e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 	if (skb->protocol == htons(ETH_P_IP))
+ 		tx_flags |= E1000_TX_FLAGS_IPV4;
+ 
+-	e1000_tx_queue(adapter, tx_flags,
+-		       e1000_tx_map(adapter, skb, first,
+-				    max_per_txd, nr_frags, mss));
++	count = e1000_tx_map(adapter, skb, first, max_per_txd, nr_frags, mss);
++	if (count < 0) {
++		/* handle pci_map_single() error in e1000_tx_map */
++		dev_kfree_skb_any(skb);
++		spin_unlock_irqrestore(&adapter->tx_queue_lock, irq_flags);
++		return NETDEV_TX_BUSY;
++	}
++
++	e1000_tx_queue(adapter, tx_flags, count);
+ 
+ 	netdev->trans_start = jiffies;
+ 
