@@ -1,32 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4] Add ETHTOOL_[GS]FLAGS sub-ioctls
-Date: Fri, 10 Aug 2007 15:46:01 -0700 (PDT)
-Message-ID: <20070810.154601.98709831.davem@davemloft.net>
-References: <46BCD47C.9060408@candelatech.com>
-	<20070810.151039.31642625.davem@davemloft.net>
-	<46BCE942.1030107@candelatech.com>
+Subject: Re: [NET]: Share correct feature code between bridging and bonding
+Date: Fri, 10 Aug 2007 15:48:17 -0700 (PDT)
+Message-ID: <20070810.154817.04442540.davem@davemloft.net>
+References: <20070809033601.GA16912@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: greearb@candelatech.com
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55905
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53072
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753415AbXHJWqA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 18:46:00 -0400
-In-Reply-To: <46BCE942.1030107@candelatech.com>
+	by vger.kernel.org with ESMTP id S1753552AbXHJWsR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 18:48:17 -0400
+In-Reply-To: <20070809033601.GA16912@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Fri, 10 Aug 2007 15:40:02 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 9 Aug 2007 11:36:01 +0800
 
-> For GSO on output, is there a generic fallback for any driver that
-> does not specifically implement GSO?
+> Hi Dave:
+> 
+> [NET]: Share correct feature code between bridging and bonding
+> 
+> http://bugzilla.kernel.org/show_bug.cgi?id=8797 shows that the
+> bonding driver may produce bogus combinations of the checksum
+> flags and SG/TSO.
+> 
+> For example, if you bond devices with NETIF_F_HW_CSUM and
+> NETIF_F_IP_CSUM you'll end up with a bonding device that
+> has neither flag set.  If both have TSO then this produces
+> an illegal combination.
+> 
+> The bridge device on the other hand has the correct code to
+> deal with this.
+> 
+> In fact, the same code can be used for both.  So this patch
+> moves that logic into net/core/dev.c and uses it for both
+> bonding and bridging.
+> 
+> In the process I've made small adjustments such as only
+> setting GSO_ROBUST if at least one constituent device
+> supports it.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Absolutely, in fact that's mainly what it's there for.
-
-I don't think there is any issue.  The knob is there via
-ethtool for people who really want to disable it.
+Applied, thanks a lot for fixing this bug Herbert!
