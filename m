@@ -1,8 +1,8 @@
 From: Chris Snook <csnook@redhat.com>
-Subject: Re: [PATCH 9/24] make atomic_read() behave consistently on ia64
-Date: Fri, 10 Aug 2007 15:51:11 -0400
-Message-ID: <46BCC1AF.5050204@redhat.com>
-References: <20070809135107.GA15985@shell.boston.redhat.com> <617E1C2C70743745A92448908E030B2A02213B3C@scsmsx411.amr.corp.intel.com>
+Subject: Re: [PATCH 1/24] make atomic_read() behave consistently on alpha
+Date: Fri, 10 Aug 2007 15:49:03 -0400
+Message-ID: <46BCC12F.9020803@redhat.com>
+References: <20070809150445.GB8424@linux.vnet.ibm.com> <46BB31A6.4080507@redhat.com> <20070809161024.GC8424@linux.vnet.ibm.com> <46BB4281.7010803@redhat.com> <20070809165853.GD8424@linux.vnet.ibm.com> <46BB4B7B.4070007@redhat.com> <20070809174150.GE8424@linux.vnet.ibm.com> <46BB5960.9040009@redhat.com> <20070809184531.GH8424@linux.vnet.ibm.com> <46BB69F8.5000502@redhat.com> <20070810012848.GJ8424@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -12,73 +12,140 @@ Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
 	davem@davemloft.net, schwidefsky@de.ibm.com, wensong@linux-vs.org,
 	horms@verge.net.au, wjiang@resilience.com, cfriesen@nortel.com,
 	zlynx@acm.org, rpjday@mindspring.com, jesper.juhl@gmail.com
-To: "Luck, Tony" <tony.luck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:45911 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S937912AbXHJTvs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2007 15:51:48 -0400
-In-Reply-To: <617E1C2C70743745A92448908E030B2A02213B3C@scsmsx411.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
+To: paulmck@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S941744AbXHJTxB@vger.kernel.org>
+In-Reply-To: <20070810012848.GJ8424@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Luck, Tony wrote:
->> +#define atomic_read(v)		(*(volatile __s32 *)&(v)->counter)
->> +#define atomic64_read(v)	(*(volatile __s64 *)&(v)->counter)
->>
->>  #define atomic_set(v,i)		(((v)->counter) = (i))
->>  #define atomic64_set(v,i)	(((v)->counter) = (i))
+Paul E. McKenney wrote:
+> On Thu, Aug 09, 2007 at 03:24:40PM -0400, Chris Snook wrote:
+>> Paul E. McKenney wrote:
+>>> On Thu, Aug 09, 2007 at 02:13:52PM -0400, Chris Snook wrote:
+>>>> Paul E. McKenney wrote:
+>>>>> On Thu, Aug 09, 2007 at 01:14:35PM -0400, Chris Snook wrote:
+>>>>>>                               If you're depending on volatile writes 
+>>>>>> being visible to other CPUs, you're screwed either way, because the CPU 
+>>>>>> can hold that data in cache as long as it wants before it writes it to 
+>>>>>> memory.  When this finally does happen, it will happen atomically, 
+>>>>>> which is all that atomic_set guarantees.  If you need to guarantee that 
+>>>>>> the value is written to memory at a particular time in your execution 
+>>>>>> sequence, you either have to read it from memory to force the compiler 
+>>>>>> to store it first (and a volatile cast in atomic_read will suffice for 
+>>>>>> this) or you have to use LOCK_PREFIX instructions which will invalidate 
+>>>>>> remote cache lines containing the same variable.  This patch doesn't 
+>>>>>> change either of these cases.
+>>>>> The case that it -can- change is interactions with interrupt handlers.
+>>>>> And NMI/SMI handlers, for that matter.
+>>>> You have a point here, but only if you can guarantee that the interrupt 
+>>>> handler is running on a processor sharing the cache that has the 
+>>>> not-yet-written volatile value.  That implies a strictly non-SMP 
+>>>> architecture.  At the moment, none of those have volatile in their 
+>>>> declaration of atomic_t, so this patch can't break any of them.
+>>> This can also happen when using per-CPU variables.  And there are a
+>>> number of per-CPU variables that are either atomic themselves or are
+>>> structures containing atomic fields.
+>> Accessing per-CPU variables in this fashion reliably already requires a 
+>> suitable smp/non-smp read/write memory barrier.  I maintain that if we 
+>> break anything with this change, it was really already broken, if less 
+>> obviously.  Can you give a real or synthetic example of legitimate code 
+>> that could break?
+> 
+> My main concern is actually the lack of symmetry -- I would expect
+> that an atomic_set() would have the same properties as atomic_read().
+> It is easy and cheap to provide them with similar properties, so why not?
+> Debugging even a single problem would consume far more time than simply
+> giving them corresponding semantics.
+> 
+> But you asked for examples.  These are synthetic, and of course legitimacy
+> is in the eye of the beholder.
+> 
+> 1.  Watchdog variable.
+> 
+> 	atomic_t watchdog = ATOMIC_INIT(0);
+> 
+> 	...
+> 
+> 	int i;
+> 	while (!done) {
+> 
+> 		/* Do so stuff that doesn't take more than a few us. */
+> 		/* Could do atomic increment, but throughput penalty. */
+> 
+> 		i++;
+> 		atomic_set(&watchdog, i);
+> 	}
+> 	do_something_with(&watchdog);
 > 
 > 
-> Losing the volatile from the "set" variants definitely changes
-> the code generated.  Before the patch gcc would give us:
+> 	/* Every so often on some other CPU... */
 > 
-> 	st4.rel [r37]=r9
+> 	if ((new_watchdog = atomic_read(&watchdog)) == old_watchdog)
+> 		die_horribly();
+> 	old_watchdog = new_watchdog;
 > 
-> after
-> 	st4 [r37]=r9
 > 
-> It is unclear whether anyone relies on (or even whether they should
-> rely on) the release semantics that are provided by the current
-> version of atomic.h.  But making this change would require an
-> audit of all the uses of atomic_set() to find an answer.
+> 	If atomic_set() did not have volatile semantics, the compiler
+> 	would be within its rights optimizing it to simply get the
+> 	final value of "i" after exit from the loop.  This would cause
+> 	the watchdog check to fail spuriously.  Memory barriers are
+> 	not required in this case, because the CPU cannot hang onto
+> 	the value for very long -- we don't care about the exact value,
+> 	or about exact synchronization, but rather about whether or
+> 	not the value is changing.
 > 
-> There is a more worrying difference in the generated code (this
-> from the ancient and venerable gcc 3.4.6 that is on my build
-> machine).   In rwsem_down_failed_common I see this change (after
-> disassembling vmlinux, I used sed to zap the low 32-bits of addresses
-> to make the diff manageable ... that's why the addresses all end
-> in xxxxxxxx):
+> 	In this (toy) example, one might replace the atomic_set() with
+> 	an atomic increment (though that might be too expensive in some
+> 	cases) or with something like:
 > 
-> 712868,712873c712913,712921
-> < a0000001xxxxxxxx:                 adds r16=-1,r30
-> < a0000001xxxxxxxx:     [MII]       ld8.acq r33=[r32]
-> < a0000001xxxxxxxx:                 nop.i 0x0;;
-> < a0000001xxxxxxxx:                 add r42=r33,r16
-> < a0000001xxxxxxxx:     [MMI]       mov.m ar.ccv=r33;;
-> < a0000001xxxxxxxx:                 cmpxchg8.acq r34=[r32],r42,ar.ccv
-> ---
->> a0000001xxxxxxxx:                 adds r16=-1,r31
->> a0000001xxxxxxxx:     [MMI]       ld4.acq r14=[r32];;
->> a0000001xxxxxxxx:                 nop.m 0x0
->> a0000001xxxxxxxx:                 sxt4 r34=r14
->> a0000001xxxxxxxx:     [MMI]       nop.m 0x0;;
->> a0000001xxxxxxxx:                 nop.m 0x0
->> a0000001xxxxxxxx:                 add r15=r34,r16
->> a0000001xxxxxxxx:     [MMI]       mov.m ar.ccv=r34;;
->> a0000001xxxxxxxx:                 cmpxchg8.acq r42=[r32],r15,ar.ccv
+> 		atomic_set(&watchdog, atomic_read(&watchdog) + 1);
 > 
-> This code is probably from the rwsem_atomic_update(adjustment, sem) macro
-> which is cpp'd to atomic64_add_return().  It looks really bad that the new
-> code reads a 32-bit value and sign extends it rather than reading a 64-bit
-> value (but I'm perplexed as to why this patch provoked this change in the
-> generated code).
+> 	However, other cases might not permit this transformation,
+> 	for example, an existing heavily used API might take int rather
+> 	than atomic_t.
 > 
-> -Tony
+> 	Some will no doubt argue that this example should use a
+> 	macro or an asm similar to the "forget()" asm put forward
+> 	elsewhere in this thread.
+> 
+> 2.  Communicating both with interrupt handler and with other CPUs.
+>     For example, data elements that are built up in a location visible
+>     to interrupts and NMIs, and then added as a unit to a data structure
+>     visible to other CPUs.  This more-realistic example is abbreviated
+>     to the point of pointlessness as follows:
+> 
+> 	struct foo {
+> 		atomic_t a;
+> 		atomic_t b;
+> 	};
+> 
+> 	DEFINE_PER_CPU(struct foo *, staging) = NULL;
+> 
+> 	/* Create element in staging area. */
+> 
+> 	__get_cpu_var(staging) = kzalloc(sizeof(*p), GFP_WHATEVER);
+> 	if (__get_cpu_var(staging) == NULL)
+> 		die_horribly();
+> 	/* allocate an element of some per-CPU array, get the result in "i" */
+> 	atomic_set(__get_cpu_var(staging).a, i);
+> 	/* allocate another element of a per-CPU array, with result in "i" */
+> 	atomic_set(__get_cpu_var(staging).b, i);
+> 	rcu_assign_pointer(some_global_place, __get_cpu_var(staging));
+> 
+> 	If atomic_set() didn't have volatile semantics, then an interrupt
+> 	or NMI handler could see the atomic_set() to .a and .b out of
+> 	order due to compiler optimizations.
+> 
+> Remember, you -did- ask for these!!!  ;-)
 
-That's distressing.  I'm about to resubmit with a volatile cast in 
-atomic_set as well, since people expect that behavior and I've been 
-shown a legitimate case where it could matter.  Does the assembly look 
-right with that cast in atomic_set() as well?
+Ok, I'm convinced.  Part of the motivation here is to avoid heisenbugs, 
+so if people expect volatile atomic_set behavior, I'm inclined to give 
+it to them.  I don't really feel like indulging the compiler bug 
+paranoiacs, but developer expectations are a legitimate motivation, and 
+a major part of why I posted this in the first place.  I'll resubmit the 
+patchset with a volatile cast in atomic_set.  Before I do, is there 
+anything *else* that desperately needs such a cast?  As far as I can 
+tell, all the other functions are implemented with __asm__ __volatile__, 
+or with spinlocks that use that under the hood.
 
 	-- Chris
