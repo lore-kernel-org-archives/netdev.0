@@ -1,43 +1,73 @@
-From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Subject: Re: 2.6.23-rc2-mm2
-Date: Fri, 10 Aug 2007 18:16:49 +0200
-Message-ID: <46BC8F71.3070006@googlemail.com>
-References: <20070809224254.11f42716.akpm@linux-foundation.org>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH] [NET] ethtool: Add LRO support
+Date: Fri, 10 Aug 2007 09:24:27 -0700
+Message-ID: <46BC913B.9060506@intel.com>
+References: <20070809164117.9907.23351.stgit@localhost.localdomain> <46BC2504.9010400@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Netdev <netdev@vger.kernel.org>, coreteam@netfilter.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ossthema@de.ibm.com
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.174]:6702 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S941435AbXHJQRf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 12:17:35 -0400
-Received: by ug-out-1314.google.com with SMTP id j3so461641ugf
-        for <netdev@vger.kernel.org>; Fri, 10 Aug 2007 09:17:33 -0700 (PDT)
-In-Reply-To: <20070809224254.11f42716.akpm@linux-foundation.org>
+Received: from mga01.intel.com ([192.55.52.88]:25168 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935932AbXHJQYa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2007 12:24:30 -0400
+In-Reply-To: <46BC2504.9010400@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton pisze:
-> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.23-rc2/2.6.23-rc2-mm2/
+Jeff Garzik wrote:
+> Auke Kok wrote:
+>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+>> ---
+>>
+>>  include/linux/ethtool.h   |    8 +++++++
+>>  include/linux/netdevice.h |    1 +
+>>  net/core/ethtool.c        |   53 +++++++++++++++++++++++++++++++++++++++++++++
+>>  3 files changed, 62 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+>> index 23ccea8..a97248e 100644
+>> --- a/include/linux/ethtool.h
+>> +++ b/include/linux/ethtool.h
+>> @@ -272,6 +272,8 @@ u32 ethtool_op_get_tso(struct net_device *dev);
+>>  int ethtool_op_set_tso(struct net_device *dev, u32 data);
+>>  u32 ethtool_op_get_ufo(struct net_device *dev);
+>>  int ethtool_op_set_ufo(struct net_device *dev, u32 data);
+>> +u32 ethtool_op_get_lro(struct net_device *dev);
+>> +int ethtool_op_set_lro(struct net_device *dev, u32 data);
 > 
+> I'm thinking we don't need to keep adding two function pointers for each 
+> boolean choice.
+> 
+> I propose adding two operations:
+> 
+> get-flags:	return 32-bit (even on 64-bit platforms) flags bitmap
+> set-flags:	set 32-bit flags bitmap
+> 
+> The 32 bits shall be divided as follows:
+> 
+> bits 0-23:	ETHTOOL_FLAG_xxx defined in linux/ethtool.h
+> bits 24-31:	driver-specific boolean flags
+> 
+> The driver-specific flags are first enumerated by userland via an 
+> ETHTOOL_GSTRINGS call, using new string set ETH_SS_FLAGS.  The first 
+> string returned names the first driver-private flag (bit 24).  This also 
+> indicates that driver-private bit 24 is a valid flag for this driver and 
+> network interface.
+> 
+> The overall goal is to replace get-LRO/set-LRO operations with the 
+> setting/clearing of ETH_FLAG_LRO, and as well, provide a more-scalable 
+> ethtool interface.
+> 
+> I'll code this up, along with the associated generic helpers 
+> (net/core/ethtool.c), if there are no objections.
 
-Yet another sysctl table check failed
+absolutely not. While going over the flags in netdevice.h I can already see that 
+the room for more flags is rapidly becoming smaller. Unfortunately we're stuck 
+with the current flags for compatiblity :)
 
-[   88.949055] Netfilter messages via NETLINK v0.30.
-[   89.485399] nf_conntrack version 0.5.0 (16384 buckets, 65536 max)
-[   89.491892] sysctl table check failed: /net/netfilter/nf_conntrack_generic_timeout .3.19.13 Missing strategy
-[   89.558178] xt_state: Unknown symbol nf_conntrack_untracked
-[   89.563942] xt_state: Unknown symbol nf_ct_l3proto_module_put
-[   89.569870] xt_state: Unknown symbol nf_ct_l3proto_try_module_get
-[   90.852319] NET: Registered protocol family 17
+The above idea sounds good to me and should give that room.
 
-Regards,
-Michal
-
--- 
-LOG
-http://www.stardust.webpages.pl/log/
+Auke
