@@ -1,19 +1,19 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 09/28] Clean up duplicate includes in net/tipc/
-Date: Fri, 10 Aug 2007 15:19:53 -0700 (PDT)
-Message-ID: <20070810.151953.116351857.davem@davemloft.net>
-References: <200708102111.l7ALBsvm009397@imap1.linux-foundation.org>
+Subject: Re: [patch 10/28] Clean up duplicate includes in net/xfrm/
+Date: Fri, 10 Aug 2007 15:20:33 -0700 (PDT)
+Message-ID: <20070810.152033.00929487.davem@davemloft.net>
+References: <200708102111.l7ALBt8h009400@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, jesper.juhl@gmail.com
 To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54356
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54360
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755647AbXHJWTw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 18:19:52 -0400
-In-Reply-To: <200708102111.l7ALBsvm009397@imap1.linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1756789AbXHJWUg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 18:20:36 -0400
+In-Reply-To: <200708102111.l7ALBt8h009400@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -23,7 +23,7 @@ Date: Fri, 10 Aug 2007 14:11:54 -0700
 > From: Jesper Juhl <jesper.juhl@gmail.com>
 > 
 > This patch cleans up duplicate includes in
-> 	net/tipc/
+> 	net/xfrm/
 > 
 > Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
 > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
