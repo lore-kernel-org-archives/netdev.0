@@ -1,33 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 15/28] drivers/net/wan/hdlc_fr.c: kmalloc + memset
- conversion to kzalloc
-Date: Fri, 10 Aug 2007 15:25:04 -0700 (PDT)
-Message-ID: <20070810.152504.133167300.davem@davemloft.net>
-References: <200708102111.l7ALBxJj009417@imap1.linux-foundation.org>
+From: "Daniel K." <daniel@cluded.net>
+Subject: BUG: when using 'brctl stp'
+Date: Fri, 10 Aug 2007 22:15:28 +0000
+Message-ID: <46BCE380.60508@cluded.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, m.kozlowski@tuxland.pl, khc@pm.waw.pl
-To: akpm@linux-foundation.org
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52984
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758789AbXHJWZE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 18:25:04 -0400
-In-Reply-To: <200708102111.l7ALBxJj009417@imap1.linux-foundation.org>
+Received: from in.cluded.net ([195.159.98.120]:50327 "EHLO in.cluded.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758390AbXHJWZP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2007 18:25:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: akpm@linux-foundation.org
-Date: Fri, 10 Aug 2007 14:11:58 -0700
+I get this on the latest GIT, it was also present shortly after -rc1.
+I have not tested with earlier kernels.
 
-> From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
-> 
->  drivers/net/wan/hdlc_fr.c | 31260 -> 31223 (-37 bytes)
->  drivers/net/wan/hdlc_fr.o | 144872 -> 144728 (-144 bytes)
-> 
-> Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
-> Acked-by: Krzysztof Halasa <khc@pm.waw.pl>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+# brctl stp br0 on
+[  169.672008] BUG: sleeping function called from invalid context at kernel/mutex.c:86
+[  169.672532] in_atomic():1, irqs_disabled():0
+[  169.672832] 
+[  169.672832] Call Trace:
+[  169.673406]  [<ffffffff8125db3a>] mutex_lock+0x19/0x2f
+[  169.673696]  [<ffffffff81067135>] __alloc_pages+0x71/0x2d3
+[  169.673996]  [<ffffffff881e0abc>] :bridge:set_stp_state+0x12/0x37
+[  169.674293]  [<ffffffff881e0a0a>] :bridge:store_bridge_parm+0x5f/0x79
+[  169.674587]  [<ffffffff810ceb24>] sysfs_write_file+0xf2/0x134
+[  169.674879]  [<ffffffff8108b3ad>] vfs_write+0xce/0x177
+[  169.675170]  [<ffffffff8108b970>] sys_write+0x45/0x6e
+[  169.675463]  [<ffffffff8100bc8e>] system_call+0x7e/0x83
+[  169.675769] 
+[  169.676139] br0: starting userspace STP failed, staring kernel STP
 
-Applied to net-2.6, thanks!
+# brctl stp br0 off
+[  171.774500] BUG: sleeping function called from invalid context at kernel/mutex.c:86
+[  171.775040] in_atomic():1, irqs_disabled():0
+[  171.775327] 
+[  171.775328] Call Trace:
+[  171.775906]  [<ffffffff8125db3a>] mutex_lock+0x19/0x2f
+[  171.776195]  [<ffffffff81067135>] __alloc_pages+0x71/0x2d3
+[  171.776496]  [<ffffffff881e0abc>] :bridge:set_stp_state+0x12/0x37
+[  171.776792]  [<ffffffff881e0a0a>] :bridge:store_bridge_parm+0x5f/0x79
+[  171.777086]  [<ffffffff810ceb24>] sysfs_write_file+0xf2/0x134
+[  171.777378]  [<ffffffff8108b3ad>] vfs_write+0xce/0x177
+[  171.777669]  [<ffffffff8108b970>] sys_write+0x45/0x6e
+[  171.777958]  [<ffffffff8100bc8e>] system_call+0x7e/0x83
+[  171.778250] 
+
+
+Daniel K.
