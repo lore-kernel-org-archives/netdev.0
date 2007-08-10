@@ -1,77 +1,217 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [PATCH 2.6.24]S2io: Default to IntA interrupt type when there are less than 4 CPUs in the system.
-Date: Fri, 10 Aug 2007 15:14:41 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7702035B30@nekter>
-References: <46BCA2B0.7020501@garzik.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Sivakumar Subramani" <Sivakumar.Subramani@neterion.com>,
-	<netdev@vger.kernel.org>, "support" <support@neterion.com>
-To: "Jeff Garzik" <jeff@garzik.org>, "Rick Jones" <rick.jones2@hp.com>
+From: Brian King <brking@linux.vnet.ibm.com>
+Subject: [PATCH 1/6] ibmveth: Enable TCP checksum offload
+Date: Fri, 10 Aug 2007 14:28:54 -0500
+Message-ID: <37981.2421081171$1186774146@news.gmane.org>
+Cc: rcjenn@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, brking@linux.vnet.ibm.com
+To: santil@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:8863 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755702AbXHJTST convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 15:18:19 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <46BCA2B0.7020501@garzik.org>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:46604 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758545AbXHJT24 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 15:28:56 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e31.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l7AJSun2025128
+	for <netdev@vger.kernel.org>; Fri, 10 Aug 2007 15:28:56 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l7AJSuNe025624
+	for <netdev@vger.kernel.org>; Fri, 10 Aug 2007 13:28:56 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7AJStxq011672
+	for <netdev@vger.kernel.org>; Fri, 10 Aug 2007 13:28:56 -0600
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We had found during performance measurement/analysis that with 2 cpus
-and napi disabled, and the system transmitting (tcp), the cpus get too
-busy due to receive interrupt handling, reducing performance by around
-10%.
+
+This patchset enables TCP checksum offload support for IPV4
+on ibmveth. This completely eliminates the generation and checking of
+the checksum for packets that are completely virtual and never
+touch a physical network. A simple TCP_STREAM netperf run on
+a virtual network with maximum mtu set yielded a ~30% increase
+in throughput. This feature is enabled by default on systems that
+support it, but can be disabled with a module option.
+
+Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
+---
+
+ linux-2.6-bjking1/drivers/net/ibmveth.c |   53 ++++++++++++++++++++++++++++++++
+ linux-2.6-bjking1/drivers/net/ibmveth.h |   41 +++++++++++++++++++++++-
+ 2 files changed, 92 insertions(+), 2 deletions(-)
+
+diff -puN drivers/net/ibmveth.c~ibmveth_csum_offload drivers/net/ibmveth.c
+--- linux-2.6/drivers/net/ibmveth.c~ibmveth_csum_offload	2007-08-09 13:08:21.000000000 -0500
++++ linux-2.6-bjking1/drivers/net/ibmveth.c	2007-08-09 13:08:21.000000000 -0500
+@@ -47,6 +47,8 @@
+ #include <linux/mm.h>
+ #include <linux/ethtool.h>
+ #include <linux/proc_fs.h>
++#include <linux/in.h>
++#include <linux/ip.h>
+ #include <asm/semaphore.h>
+ #include <asm/hvcall.h>
+ #include <asm/atomic.h>
+@@ -131,6 +133,11 @@ static inline int ibmveth_rxq_frame_leng
+ 	return (adapter->rx_queue.queue_addr[adapter->rx_queue.index].length);
+ }
  
-But then again, when the number of cpus increase, the interrupt scaling
-is much better and msi-x gives better numbers.
-
-We are modifying the driver to enable napi with msi-x, but this work is
-in progress and may get released in a few months. 
-
-The Xframe hardware has 8 independent dma channels for transmit and
-receive, with doorbells for each channel. Multiple channels are in use
-for a single netdev. In one of the variations of this driver that is not
-released to netdev, the received packets are steered to a channel based
-on hashing on a preconfigured criteria such as sockets on tcp_ipv4,
-udp_ipv4, tcp_ipv6, udp_ipv6 or addresses in ipv4/6. The transmits are
-handled in a similar manner. 
-
-The current napi implementation looks like  -
-driver_poll(struct net_device *dev, int *budget)
-
-where as, something like -
-driver_poll(struct context *context, int *budget)
-
-would be ideal for hardware like ours. Each channel could schedule a
-respective poller, rather than the current method which requires
-synchronization between the poller and the channels.
-
-Ram
-> -----Original Message-----
-> From: Jeff Garzik [mailto:jeff@garzik.org]
-> Sent: Friday, August 10, 2007 10:39 AM
-> To: Rick Jones
-> Cc: Sivakumar Subramani; netdev@vger.kernel.org; support
-> Subject: Re: [PATCH 2.6.24]S2io: Default to IntA interrupt type when
-there
-> are less than 4 CPUs in the system.
-> 
-> Rick Jones wrote:
-> > Sivakumar Subramani wrote:
-> >> - Default to IntA interrupt type when there are less than 4 CPUs in
-> >> the system.
-> >
-> > It might be good to include _why_ in the comment(s).  I certainly am
-> > curious to know the reason, and it would be good to have in there
-for
-> > "posterity" should the underlying conditions change.
-> 
-> Indeed.  I really want to know 'why'?
-> 
-> 	Jeff
-> 
-> 
-
++static inline int ibmveth_rxq_csum_good(struct ibmveth_adapter *adapter)
++{
++	return (adapter->rx_queue.queue_addr[adapter->rx_queue.index].csum_good);
++}
++
+ /* setup the initial settings for a buffer pool */
+ static void ibmveth_init_buffer_pool(struct ibmveth_buff_pool *pool, u32 pool_index, u32 pool_size, u32 buff_size, u32 pool_active)
+ {
+@@ -684,6 +691,24 @@ static int ibmveth_start_xmit(struct sk_
+ 					desc[0].fields.length, DMA_TO_DEVICE);
+ 	desc[0].fields.valid   = 1;
+ 
++	if (skb->ip_summed == CHECKSUM_PARTIAL &&
++	    ip_hdr(skb)->protocol != IPPROTO_TCP && skb_checksum_help(skb)) {
++		ibmveth_error_printk("tx: failed to checksum packet\n");
++		tx_dropped++;
++		goto out;
++	}
++
++	if (skb->ip_summed == CHECKSUM_PARTIAL) {
++		unsigned char *buf = skb_transport_header(skb) + skb->csum_offset;
++
++		desc[0].fields.no_csum = 1;
++		desc[0].fields.csum_good = 1;
++
++		/* Need to zero out the checksum */
++		buf[0] = 0;
++		buf[1] = 0;
++	}
++
+ 	if(dma_mapping_error(desc[0].fields.address)) {
+ 		ibmveth_error_printk("tx: unable to map initial fragment\n");
+ 		tx_map_failed++;
+@@ -702,6 +727,10 @@ static int ibmveth_start_xmit(struct sk_
+ 				frag->size, DMA_TO_DEVICE);
+ 		desc[curfrag+1].fields.length = frag->size;
+ 		desc[curfrag+1].fields.valid  = 1;
++		if (skb->ip_summed == CHECKSUM_PARTIAL) {
++			desc[curfrag+1].fields.no_csum = 1;
++			desc[curfrag+1].fields.csum_good = 1;
++		}
+ 
+ 		if(dma_mapping_error(desc[curfrag+1].fields.address)) {
+ 			ibmveth_error_printk("tx: unable to map fragment %d\n", curfrag);
+@@ -792,7 +821,11 @@ static int ibmveth_poll(struct net_devic
+ 			} else {
+ 				int length = ibmveth_rxq_frame_length(adapter);
+ 				int offset = ibmveth_rxq_frame_offset(adapter);
++				int csum_good = ibmveth_rxq_csum_good(adapter);
++
+ 				skb = ibmveth_rxq_get_buffer(adapter);
++				if (csum_good)
++					skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 
+ 				ibmveth_rxq_harvest_buffer(adapter);
+ 
+@@ -962,8 +995,10 @@ static void ibmveth_poll_controller(stru
+ static int __devinit ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ {
+ 	int rc, i;
++	long ret;
+ 	struct net_device *netdev;
+ 	struct ibmveth_adapter *adapter;
++	union ibmveth_illan_attributes set_attr, ret_attr;
+ 
+ 	unsigned char *mac_addr_p;
+ 	unsigned int *mcastFilterSize_p;
+@@ -1057,6 +1092,24 @@ static int __devinit ibmveth_probe(struc
+ 
+ 	ibmveth_debug_printk("registering netdev...\n");
+ 
++	ret = h_illan_attributes(dev->unit_address, 0, 0, &ret_attr.desc);
++
++	if (ret == H_SUCCESS && !ret_attr.fields.active_trunk &&
++	    !ret_attr.fields.trunk_priority &&
++	    ret_attr.fields.csum_offload_padded_pkt_support) {
++		set_attr.desc = 0;
++		set_attr.fields.tcp_csum_offload_ipv4 = 1;
++
++		ret = h_illan_attributes(dev->unit_address, 0, set_attr.desc,
++					 &ret_attr.desc);
++
++		if (ret == H_SUCCESS)
++			netdev->features |= NETIF_F_IP_CSUM;
++		else
++			ret = h_illan_attributes(dev->unit_address, set_attr.desc,
++						 0, &ret_attr.desc);
++	}
++
+ 	rc = register_netdev(netdev);
+ 
+ 	if(rc) {
+diff -puN drivers/net/ibmveth.h~ibmveth_csum_offload drivers/net/ibmveth.h
+--- linux-2.6/drivers/net/ibmveth.h~ibmveth_csum_offload	2007-08-09 13:08:21.000000000 -0500
++++ linux-2.6-bjking1/drivers/net/ibmveth.h	2007-08-09 13:08:21.000000000 -0500
+@@ -67,6 +67,21 @@ static inline long h_send_logical_lan(un
+ 	return rc;
+ }
+ 
++static inline long h_illan_attributes(unsigned long unit_address,
++				      unsigned long reset_mask, unsigned long set_mask,
++				      unsigned long *ret_attributes)
++{
++	long rc;
++	unsigned long retbuf[PLPAR_HCALL_BUFSIZE];
++
++	rc = plpar_hcall(H_ILLAN_ATTRIBUTES, retbuf, unit_address,
++			 reset_mask, set_mask);
++
++	*ret_attributes = retbuf[0];
++
++	return rc;
++}
++
+ #define h_multicast_ctrl(ua, cmd, mac) \
+   plpar_hcall_norets(H_MULTICAST_CTRL, ua, cmd, mac)
+ 
+@@ -141,7 +156,9 @@ struct ibmveth_adapter {
+ struct ibmveth_buf_desc_fields {
+     u32 valid : 1;
+     u32 toggle : 1;
+-    u32 reserved : 6;
++    u32 reserved : 4;
++    u32 no_csum : 1;
++    u32 csum_good : 1;
+     u32 length : 24;
+     u32 address;
+ };
+@@ -151,10 +168,30 @@ union ibmveth_buf_desc {
+     struct ibmveth_buf_desc_fields fields;
+ };
+ 
++struct ibmveth_illan_attributes_fields {
++	u32 reserved;
++	u32 reserved2 : 18;
++	u32 csum_offload_padded_pkt_support : 1;
++	u32 reserved3 : 1;
++	u32 trunk_priority : 4;
++	u32 reserved4 : 5;
++	u32 tcp_csum_offload_ipv6 : 1;
++	u32 tcp_csum_offload_ipv4 : 1;
++	u32 active_trunk : 1;
++};
++
++union ibmveth_illan_attributes {
++	u64 desc;
++	struct ibmveth_illan_attributes_fields fields;
++};
++
+ struct ibmveth_rx_q_entry {
+     u16 toggle : 1;
+     u16 valid : 1;
+-    u16 reserved : 14;
++    u16 reserved : 4;
++    u16 no_csum : 1;
++    u16 csum_good : 1;
++    u16 reserved2 : 8;
+     u16 offset;
+     u32 length;
+     u64 correlator;
+_
