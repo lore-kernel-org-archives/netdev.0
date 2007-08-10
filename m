@@ -1,69 +1,60 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] [NET] ethtool: Add LRO support
-Date: Fri, 10 Aug 2007 04:42:44 -0400
-Message-ID: <46BC2504.9010400@garzik.org>
-References: <20070809164117.9907.23351.stgit@localhost.localdomain>
+From: Richard MUSIL <richard.musil@st.com>
+Subject: [GENETLINK] some thoughts on the usage
+Date: Fri, 10 Aug 2007 10:45:26 +0200
+Message-ID: <46BC25A6.7000703@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ossthema@de.ibm.com
-To: Auke Kok <auke-jan.h.kok@intel.com>, davem@davemloft.net
+Cc: Thomas Graf <tgraf@suug.ch>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:53902 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758817AbXHJIms (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2007 04:42:48 -0400
-In-Reply-To: <20070809164117.9907.23351.stgit@localhost.localdomain>
+Received: from s200aog11.obsmtp.com ([207.126.144.125]:37915 "EHLO
+	s200aog11.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755490AbXHJIpz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 04:45:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Auke Kok wrote:
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> ---
-> 
->  include/linux/ethtool.h   |    8 +++++++
->  include/linux/netdevice.h |    1 +
->  net/core/ethtool.c        |   53 +++++++++++++++++++++++++++++++++++++++++++++
->  3 files changed, 62 insertions(+), 0 deletions(-)
-> 
-> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-> index 23ccea8..a97248e 100644
-> --- a/include/linux/ethtool.h
-> +++ b/include/linux/ethtool.h
-> @@ -272,6 +272,8 @@ u32 ethtool_op_get_tso(struct net_device *dev);
->  int ethtool_op_set_tso(struct net_device *dev, u32 data);
->  u32 ethtool_op_get_ufo(struct net_device *dev);
->  int ethtool_op_set_ufo(struct net_device *dev, u32 data);
-> +u32 ethtool_op_get_lro(struct net_device *dev);
-> +int ethtool_op_set_lro(struct net_device *dev, u32 data);
+Hello all,
 
-I'm thinking we don't need to keep adding two function pointers for each 
-boolean choice.
+I am currently writing virtual TPM device driver. This is supposed to
+behave the same way as normal TPM but instead sending commands to
+hardware device, it will pass them back to user space. Probably similar
+in concept to tun/tap but with the difference it has nothing to do with
+networking.
 
-I propose adding two operations:
+I am using genetlink for communication with user space "backend".
+Virtual device manager can create certain number of devices (e.g. up to
+8) and it works like this:
 
-get-flags:	return 32-bit (even on 64-bit platforms) flags bitmap
-set-flags:	set 32-bit flags bitmap
+1) Create platform device (i.e. /dev/tpm#)
+2) Register genetlink family for this device with name "/dev/tpm#"
+3) Register ops for this family.
 
-The 32 bits shall be divided as follows:
+I have noticed that although ops for each family are the same (each
+device is functionally same) I cannot use same genl_ops struct for
+registration, because it uses internal member to link in list. Therefore
+it is necessary to allocate new genl_ops for each device and pass it to
+registration. But I cannot "officially" use this list to track those
+genl_ops (so I can properly destroy them later), because there is no
+interface. So I need to redo the management of the structures on my own.
 
-bits 0-23:	ETHTOOL_FLAG_xxx defined in linux/ethtool.h
-bits 24-31:	driver-specific boolean flags
+Simple function genl_get_family_ops probably would do, but I do not
+know, if what I am trying to do is the intended way of using genetlink,
+so I am asking first. (Can write patch for it later.)
 
-The driver-specific flags are first enumerated by userland via an 
-ETHTOOL_GSTRINGS call, using new string set ETH_SS_FLAGS.  The first 
-string returned names the first driver-private flag (bit 24).  This also 
-indicates that driver-private bit 24 is a valid flag for this driver and 
-network interface.
+The second "inconvenience" is that for each family I register, I also
+register basically same ops (basically means, the definitions, and doit,
+dumpit handlers are same, though the structures are at different
+addresses for reasons described above). When the handler receives the
+message it needs to associate the message with the actual device it is
+handling. This could be done through family lookup (using
+nlmsghdr::nlmsg_type), but I wondered if it would make sense to extend
+genl_family for user custom data pointer and then pass this custom data
+(or genl_family reference) to each handler (for example inside
+genl_info). It is already parsed by genetlink layer, so it should not
+slow things down.
 
-The overall goal is to replace get-LRO/set-LRO operations with the 
-setting/clearing of ETH_FLAG_LRO, and as well, provide a more-scalable 
-ethtool interface.
+What would you say?
 
-I'll code this up, along with the associated generic helpers 
-(net/core/ethtool.c), if there are no objections.
-
-	Jeff
-
-
-
+Richard
