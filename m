@@ -1,51 +1,40 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: 2.6.23-rc2: WARNING: at kernel/irq/resend.c:70
-	check_irq_resend()
-Date: Fri, 10 Aug 2007 10:05:40 +0200
-Message-ID: <1186733140.12828.45.camel@chaos>
-References: <18107.11431.838905.331157@stoffel.org>
-	 <20070809155445.GA5161@ff.dom.local>
+From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Subject: Add 3c59x maintainer
+Date: Fri, 10 Aug 2007 10:14:42 +0200
+Message-ID: <20070810081442.GB29435@bayes.mathematik.tu-chemnitz.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: John Stoffel <john@stoffel.org>, linux-kernel@vger.kernel.org,
-	shemminger@linux-foundation.org, vignaud@xandmail.fr,
-	marcin.slusarz@gmail.com, mingo@elte.hu,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	alan@lxorguk.ukuu.org.uk, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@o2.pl>
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <20070809155445.GA5161@ff.dom.local>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lana.hrz.tu-chemnitz.de ([134.109.132.3]:35467 "EHLO
+	lana.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753414AbXHJIOp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 04:14:45 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-08-09 at 17:54 +0200, Jarek Poplawski wrote:
-> I'm not sure I don't miss anything (a little in hurry now), but this
-> warning's aim was purely diagnostical and nothing wrong is meant!
-> Unless there is something wrong... Then please try to be more explicit.
-> 
-> If you prefer to not see this, there is my patch proposal somewhere
-> in this older thread:
-> Subject: [patch] genirq: temporary fix for level-triggered IRQ resend
-> Date: Wed, 8 Aug 2007 13:00:37 +0200
-> 
-> On the other hand, if it works OK, it would be better to let it be
-> tested more like this...
+Add 3c59x maintainer.
 
-Hmm. This solution is still just pampering over the real problem. The
-delayed disable just re-sends level interrupts unnecessarily. I have a
-fix (needs some testing) for this, which I send out tomorrow, when I'm
-really back from vacation.
+Signed-off-by: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+---
+ MAINTAINERS |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
-But suppressing the resend is not fixing the driver problem. The problem
-can show up with spurious interrupts and with interrupts on a shared PCI
-interrupt line at any time. It just might take weeks instead of minutes.
-
-Alan,
-
-is there anything which can be done on the driver level ?
-
-	tglx
-
-
+--- linux-2.6.23-rc2.orig/MAINTAINERS
++++ linux-2.6.23-rc2/MAINTAINERS
+@@ -97,6 +97,12 @@ M:	philb@gnu.org
+ L:	netdev@vger.kernel.org
+ S:	Maintained
+ 
++3C59X NETWORK DRIVER
++P:	Steffen Klassert
++M:	klassert@mathematik.tu-chemnitz.de
++L:	netdev@vger.kernel.org
++S:	Maintained
++
+ 3CR990 NETWORK DRIVER
+ P:	David Dillow
+ M:	dave@thedillows.org
