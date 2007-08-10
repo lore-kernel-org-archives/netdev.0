@@ -1,48 +1,34 @@
-From: akpm@linux-foundation.org
-Subject: [patch 19/28] netconsole: Remove bogus check
-Date: Fri, 10 Aug 2007 14:12:03 -0700
-Message-ID: <200708102112.l7ALC3DC009436@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	satyam@infradead.org, k-keiichi@bx.jp.nec.com, mpm@selenic.com
-To: davem@davemloft.net
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: [patch 03/18] drivers/net/ns83820.c: add paramter to disable autonegotiation
+Date: Fri, 10 Aug 2007 17:13:49 -0400
+Message-ID: <20070810211349.GD978@kvack.org>
+References: <200708102105.l7AL5ERH008951@imap1.linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, netdev@vger.kernel.org, dan@scannet.dk,
+	dan@hacker.dk, jgarzik@pobox.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:49242 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S942233AbXHJVM2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 17:12:28 -0400
+Received: from kanga.kvack.org ([66.96.29.28]:38123 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753597AbXHJVOf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2007 17:14:35 -0400
+Content-Disposition: inline
+In-Reply-To: <200708102105.l7AL5ERH008951@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Satyam Sharma <satyam@infradead.org>
+On Fri, Aug 10, 2007 at 02:05:13PM -0700, akpm@linux-foundation.org wrote:
+> Also added a "disable_autoneg" module argument to completely disable
+> autoneg on all cards using this driver.
+...
+> [akpm: this is a previously-nacked patch, but the problem is real]
 
-Based upon initial work by Keiichi Kii <k-keiichi@bx.jp.nec.com>.
+Please remove this part of the patch.  The ethtool support is sufficient and 
+doesn't clobber other cards in the system.  At the very least the module 
+parameter has to be limited to a specific card.
 
-The (!np.dev) check in write_msg() is bogus (always false), because: np.dev is
-set by netpoll_setup(), which is called by init_netconsole() before
-register_console(), so write_msg() cannot be triggered unless netpoll_setup()
-successfully set np.dev.  Also np.dev cannot go away from under us, because
-netpoll_setup() grabs us reference on it.  So let's remove the bogus check.
-
-Signed-off-by: Satyam Sharma <satyam@infradead.org>
-Acked-by: Keiichi Kii <k-keiichi@bx.jp.nec.com>
-Acked-by: Matt Mackall <mpm@selenic.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
-
- drivers/net/netconsole.c |    3 ---
- 1 files changed, 3 deletions(-)
-
-diff -puN drivers/net/netconsole.c~netconsole-remove-bogus-check drivers/net/netconsole.c
---- a/drivers/net/netconsole.c~netconsole-remove-bogus-check
-+++ a/drivers/net/netconsole.c
-@@ -67,9 +67,6 @@ static void write_msg(struct console *co
- 	int frag, left;
- 	unsigned long flags;
- 
--	if (!np.dev)
--		return;
--
- 	local_irq_save(flags);
- 
- 	for (left = len; left;) {
-_
+		-ben
+-- 
+"Time is of no importance, Mr. President, only life is important."
+Don't Email: <zyntrop@kvack.org>.
