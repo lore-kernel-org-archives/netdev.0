@@ -1,46 +1,48 @@
-From: "Jean-Baptiste Vignaud" <vignaud@xandmail.fr>
-Subject: Re: [patch (testing)] Re: 2.6.20->2.6.21 - networking dies after
-	random time
-Date: Fri, 10 Aug 2007 10:15:53 +0200
-Message-ID: <JMJTMH$F1699B57C9B0E170ED337488612E649B@xandmail.com>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: Re: [PATCH] [NET] ethtool: Add LRO support
+Date: Fri, 10 Aug 2007 09:47:13 +0200
+Message-ID: <200708100947.13486.ossthema@de.ibm.com>
+References: <20070809164117.9907.23351.stgit@localhost.localdomain> <20070809.150014.32064726.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: "marcin\.slusarz" <marcin.slusarz@gmail.com>,
-	"mingo" <mingo@elte.hu>, "tglx" <tglx@linutronix.de>,
-	"torvalds" <torvalds@linux-foundation.org>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"shemminger" <shemminger@linux-foundation.org>,
-	"linux-net" <linux-net@vger.kernel.org>,
-	"netdev" <netdev@vger.kernel.org>,
-	"akpm" <akpm@linux-foundation.org>,
-	"alan" <alan@lxorguk.ukuu.org.uk>
-To: "jarkao2" <jarkao2@o2.pl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1764040AbXHJIRW@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: auke-jan.h.kok@intel.com, jeff@garzik.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate2.de.ibm.com ([195.212.29.151]:16373 "EHLO
+	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755478AbXHJIRn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 04:17:43 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate2.de.ibm.com (8.13.8/8.13.8) with ESMTP id l7A8Hg3u132384
+	for <netdev@vger.kernel.org>; Fri, 10 Aug 2007 08:17:42 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l7A8Hg0F2125988
+	for <netdev@vger.kernel.org>; Fri, 10 Aug 2007 10:17:42 +0200
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7A8HcNg006680
+	for <netdev@vger.kernel.org>; Fri, 10 Aug 2007 10:17:39 +0200
+In-Reply-To: <20070809.150014.32064726.davem@davemloft.net>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> So, we still have to wait for the exact explanation...
-> 
-> Thanks very much Marcin!
-> 
-> I think, there is this one possible for your testing yet?:
-> Subject: [patch] genirq: temporary fix for level-triggered IRQ resend
-> Date: Wed, 8 Aug 2007 13:00:37 +0200
-> 
-> If it's not a great problem it would be interesting to try this with
-> different CONFIG_HZ too e.g. you could start with 100 (I guess, you
-> tested very similar thing in 2.6.23-rc2 with 1000(?) already).
-> 
-> Jean-Baptiste: you can skip/break testing of this 'experimental'
+Hi
 
-ok
+On Friday 10 August 2007 00:00, David Miller wrote:
+> From: Auke Kok <auke-jan.h.kok@intel.com>
+> Date: Thu, 09 Aug 2007 09:41:17 -0700
+> 
+> > Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> 
+> I think this is definitely how we should handle LRO
+> configuration instead of the ad-hoc module parameters
+> current LRO drivers use now.
+> 
+> I'll put this infrastructure into net-2.6.24, it would
+> be nice if the EHEA and myri10g folks submitted conversions.
+> 
 
-I was still testing on -rc2:
-Subject: [patch] genirq: temporary fix for level-triggered IRQ resend
-Date: Wed, 8 Aug 2007 13:00:37 +0200
+yes, I'll submit a patch soon
 
-For me after 1day 20hours, the network is still up, with more than 1To 
-of network traffic. HZ was 1000, i restart with HZ=100.
-
-Jb
