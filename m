@@ -1,48 +1,52 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: Re: [PATCH] [NET] ethtool: Add LRO support
-Date: Fri, 10 Aug 2007 09:47:13 +0200
-Message-ID: <200708100947.13486.ossthema@de.ibm.com>
-References: <20070809164117.9907.23351.stgit@localhost.localdomain> <20070809.150014.32064726.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: 2.6.23-rc2: WARNING: at kernel/irq/resend.c:70 check_irq_resend()
+Date: Fri, 10 Aug 2007 10:23:46 +0200
+Message-ID: <20070810082346.GD1764@ff.dom.local>
+References: <18107.11431.838905.331157@stoffel.org> <20070809155445.GA5161@ff.dom.local> <1186733140.12828.45.camel@chaos>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, jeff@garzik.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: John Stoffel <john@stoffel.org>, linux-kernel@vger.kernel.org,
+	shemminger@linux-foundation.org, vignaud@xandmail.fr,
+	marcin.slusarz@gmail.com, mingo@elte.hu,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	alan@lxorguk.ukuu.org.uk, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.de.ibm.com ([195.212.29.151]:16373 "EHLO
-	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755478AbXHJIRn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 04:17:43 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate2.de.ibm.com (8.13.8/8.13.8) with ESMTP id l7A8Hg3u132384
-	for <netdev@vger.kernel.org>; Fri, 10 Aug 2007 08:17:42 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.4) with ESMTP id l7A8Hg0F2125988
-	for <netdev@vger.kernel.org>; Fri, 10 Aug 2007 10:17:42 +0200
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7A8HcNg006680
-	for <netdev@vger.kernel.org>; Fri, 10 Aug 2007 10:17:39 +0200
-In-Reply-To: <20070809.150014.32064726.davem@davemloft.net>
+Received: from mx2.go2.pl ([193.17.41.42]:53878 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752828AbXHJIXL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2007 04:23:11 -0400
 Content-Disposition: inline
+In-Reply-To: <1186733140.12828.45.camel@chaos>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi
+On Fri, Aug 10, 2007 at 10:05:40AM +0200, Thomas Gleixner wrote:
+> On Thu, 2007-08-09 at 17:54 +0200, Jarek Poplawski wrote:
+> > I'm not sure I don't miss anything (a little in hurry now), but this
+> > warning's aim was purely diagnostical and nothing wrong is meant!
+> > Unless there is something wrong... Then please try to be more explicit.
+> > 
+> > If you prefer to not see this, there is my patch proposal somewhere
+> > in this older thread:
+> > Subject: [patch] genirq: temporary fix for level-triggered IRQ resend
+> > Date: Wed, 8 Aug 2007 13:00:37 +0200
+> > 
+> > On the other hand, if it works OK, it would be better to let it be
+> > tested more like this...
+> 
+> Hmm. This solution is still just pampering over the real problem. The
+> delayed disable just re-sends level interrupts unnecessarily. I have a
+> fix (needs some testing) for this, which I send out tomorrow, when I'm
+> really back from vacation.
+> 
+> But suppressing the resend is not fixing the driver problem. The problem
+> can show up with spurious interrupts and with interrupts on a shared PCI
+> interrupt line at any time. It just might take weeks instead of minutes.
 
-On Friday 10 August 2007 00:00, David Miller wrote:
-> From: Auke Kok <auke-jan.h.kok@intel.com>
-> Date: Thu, 09 Aug 2007 09:41:17 -0700
-> 
-> > Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> 
-> I think this is definitely how we should handle LRO
-> configuration instead of the ad-hoc module parameters
-> current LRO drivers use now.
-> 
-> I'll put this infrastructure into net-2.6.24, it would
-> be nice if the EHEA and myri10g folks submitted conversions.
-> 
+Doesn't it look like a little change of mind? Well, there are probably
+(but need more testing) two other solutions: _SW_RESEND and disabling
+without delay for levels only...
 
-yes, I'll submit a patch soon
-
+Jarek P.
