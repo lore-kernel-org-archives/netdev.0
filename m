@@ -1,73 +1,64 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] [NET] ethtool: Add LRO support
-Date: Fri, 10 Aug 2007 09:24:27 -0700
-Message-ID: <46BC913B.9060506@intel.com>
-References: <20070809164117.9907.23351.stgit@localhost.localdomain> <46BC2504.9010400@garzik.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [RFC] IP_RECVERRC
+Date: Fri, 10 Aug 2007 18:26:43 +0200
+Message-ID: <20070810162643.GA11892@one.firstfloor.org>
+References: <1186752912.5188.12.camel@localhost> <20070810140214.GA10331@one.firstfloor.org> <1186756212.5163.4.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, ossthema@de.ibm.com
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:25168 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935932AbXHJQYa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2007 12:24:30 -0400
-In-Reply-To: <46BC2504.9010400@garzik.org>
+Received: from one.firstfloor.org ([213.235.205.2]:40016 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1765624AbXHJQ0p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 12:26:45 -0400
+Content-Disposition: inline
+In-Reply-To: <1186756212.5163.4.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Auke Kok wrote:
->> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
->> ---
->>
->>  include/linux/ethtool.h   |    8 +++++++
->>  include/linux/netdevice.h |    1 +
->>  net/core/ethtool.c        |   53 +++++++++++++++++++++++++++++++++++++++++++++
->>  3 files changed, 62 insertions(+), 0 deletions(-)
->>
->> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
->> index 23ccea8..a97248e 100644
->> --- a/include/linux/ethtool.h
->> +++ b/include/linux/ethtool.h
->> @@ -272,6 +272,8 @@ u32 ethtool_op_get_tso(struct net_device *dev);
->>  int ethtool_op_set_tso(struct net_device *dev, u32 data);
->>  u32 ethtool_op_get_ufo(struct net_device *dev);
->>  int ethtool_op_set_ufo(struct net_device *dev, u32 data);
->> +u32 ethtool_op_get_lro(struct net_device *dev);
->> +int ethtool_op_set_lro(struct net_device *dev, u32 data);
+On Fri, Aug 10, 2007 at 10:30:12AM -0400, jamal wrote:
+> On Fri, 2007-10-08 at 16:02 +0200, Andi Kleen wrote:
+> > On Fri, Aug 10, 2007 at 09:35:12AM -0400, jamal wrote:
 > 
-> I'm thinking we don't need to keep adding two function pointers for each 
-> boolean choice.
+> > 
+> > Affected in what way? 
+> > 
 > 
-> I propose adding two operations:
-> 
-> get-flags:	return 32-bit (even on 64-bit platforms) flags bitmap
-> set-flags:	set 32-bit flags bitmap
-> 
-> The 32 bits shall be divided as follows:
-> 
-> bits 0-23:	ETHTOOL_FLAG_xxx defined in linux/ethtool.h
-> bits 24-31:	driver-specific boolean flags
-> 
-> The driver-specific flags are first enumerated by userland via an 
-> ETHTOOL_GSTRINGS call, using new string set ETH_SS_FLAGS.  The first 
-> string returned names the first driver-private flag (bit 24).  This also 
-> indicates that driver-private bit 24 is a valid flag for this driver and 
-> network interface.
-> 
-> The overall goal is to replace get-LRO/set-LRO operations with the 
-> setting/clearing of ETH_FLAG_LRO, and as well, provide a more-scalable 
-> ethtool interface.
-> 
-> I'll code this up, along with the associated generic helpers 
-> (net/core/ethtool.c), if there are no objections.
+> They dont get errors back and they just keep sending even in the
+> presence of errors - take a look at ip_push_pending_frames. I have been
+> struggling initially to unconditionally mod that part, but it may break
+> certain apps expectations.
 
-absolutely not. While going over the flags in netdevice.h I can already see that 
-the room for more flags is rapidly becoming smaller. Unfortunately we're stuck 
-with the current flags for compatiblity :)
+Are we talking about TCP or UDP/RAW?
 
-The above idea sounds good to me and should give that room.
+The reason why IP_RECVERR was invented was that for non connected 
+DGRAM sockets there was no way to figure out for which target host
+the error was. So they were dropped. With IP_RECVERR you can get them
+together with the original target address.
 
-Auke
+If you connect the DGRAM socket and don't set IP_RECVERR you will just get 
+errnos -- that might be what you want.
+
+If you're talking about TCP: IP_RECVERR never made too much sense here.
+
+Normally TCP only reports errors after a major timeout.
+At some point Alexey added an extension that if IP_RECVERR is set
+you won't need to wait on the timeout, but get the error immediately
+delivered using MSG_ERRQUEUE. That actually breaks TCP because it 
+is not resistent to shifting routes etc. anymore so it's a pretty bad idea.
+
+If for TCP you just want the error delivery without MSG_ERRQUEUE
+you could just decrease the max timeouts. Then major timeouts
+will happen sooner and you'll get the errnos sooner too.
+Of course TCP will be far more unreliable than it is. But it might
+be ok for some few applications who really know what they're doing
+(but more likely it is just programmer hybris who think
+they know all about the networks the app will ever be deployed on) 
+
+Anyways, it might make sense to set these timeouts per socket (right now
+it is only global sysctl), but on the other hand that would bloat
+the already bloated tcp_sock even more.
+
+-Andi
