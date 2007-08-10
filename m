@@ -1,7 +1,7 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 4/6] e1000e: Use time_after to account for jiffies wrapping
-Date: Fri, 10 Aug 2007 13:00:57 -0700
-Message-ID: <20070810200057.21509.18676.stgit@localhost.localdomain>
+Subject: [PATCH 6/6] e1000e: Remove two compile warnings
+Date: Fri, 10 Aug 2007 13:01:07 -0700
+Message-ID: <20070810200107.21509.74125.stgit@localhost.localdomain>
 References: <20070810200038.21509.77815.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,30 +10,53 @@ Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
 	andi@firstfloor.org
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:13994 "EHLO mga01.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:33254 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S938172AbXHJUA6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2007 16:00:58 -0400
+	id S938165AbXHJUBJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2007 16:01:09 -0400
 In-Reply-To: <20070810200038.21509.77815.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+CC [M]  drivers/net/e1000e/lib.o
+drivers/net/e1000e/lib.c: In function 'e1000e_read_nvm_eerd':
+drivers/net/e1000e/lib.c:1941: warning: 'ret_val' may be used uninitialized
+in this function
+  CC [M]  drivers/net/e1000e/phy.o
+drivers/net/e1000e/phy.c: In function 'e1000e_phy_has_link_generic':
+drivers/net/e1000e/phy.c:1324: warning: 'ret_val' may be used
+uninitialized in this function
+
 Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 ---
 
- drivers/net/e1000e/ethtool.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/e1000e/lib.c |    2 +-
+ drivers/net/e1000e/phy.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index d184116..d14cc4b 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -1411,7 +1411,7 @@ static int e1000_run_loopback_test(struct e1000_adapter *adapter)
- 			 * enough time to complete the receives, if it's
- 			 * exceeded, break and error off
- 			 */
--		} while (good_cnt < 64 && jiffies < (time + 20));
-+		} while ((good_cnt < 64) && !time_after(jiffies, time + 20));
- 		if (good_cnt != 64) {
- 			ret_val = 13; /* ret_val is the same as mis-compare */
- 			break;
+diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
+index a04c1e4..6645c21 100644
+--- a/drivers/net/e1000e/lib.c
++++ b/drivers/net/e1000e/lib.c
+@@ -1938,7 +1938,7 @@ s32 e1000e_read_nvm_eerd(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
+ {
+ 	struct e1000_nvm_info *nvm = &hw->nvm;
+ 	u32 i, eerd = 0;
+-	s32 ret_val;
++	s32 ret_val = 0;
+ 
+ 	/* A check for invalid values:  offset too large, too many words,
+ 	 * and not enough words. */
+diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
+index 1efb47a..7932318 100644
+--- a/drivers/net/e1000e/phy.c
++++ b/drivers/net/e1000e/phy.c
+@@ -1321,7 +1321,7 @@ static s32 e1000_wait_autoneg(struct e1000_hw *hw)
+ s32 e1000e_phy_has_link_generic(struct e1000_hw *hw, u32 iterations,
+ 			       u32 usec_interval, bool *success)
+ {
+-	s32 ret_val;
++	s32 ret_val = 0;
+ 	u16 i, phy_status;
+ 
+ 	for (i = 0; i < iterations; i++) {
