@@ -1,49 +1,39 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: 2.6.23-rc2-mm2
-Date: Fri, 10 Aug 2007 01:32:10 -0700
-Message-ID: <20070810013210.1b2f121c.akpm@linux-foundation.org>
-References: <20070809224254.11f42716.akpm@linux-foundation.org>
-	<a8e1da0708100118r779068i64ffdc11e452be9b@mail.gmail.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PATCH 1/1] af_packet: don't enable timestamps in mmap'ed sockets
+Date: Fri, 10 Aug 2007 12:34:18 +0400
+Message-ID: <20070810083418.GA25479@2ka.mipt.ru>
+References: <1186669314.24669.56.camel@localhost.localdomain> <20070809143322.GA5345@2ka.mipt.ru> <1186683234.24669.65.camel@localhost.localdomain> <20070809181823.GA32449@2ka.mipt.ru> <1186685061.24669.76.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Dave Young" <hidave.darkstar@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Unai Uribarri <unai.uribarri@optenet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:56407 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752761AbXHJIcv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 04:32:51 -0400
-In-Reply-To: <a8e1da0708100118r779068i64ffdc11e452be9b@mail.gmail.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:33071 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763197AbXHJIe1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2007 04:34:27 -0400
+Content-Disposition: inline
+In-Reply-To: <1186685061.24669.76.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Aug 2007 16:18:38 +0800 "Dave Young" <hidave.darkstar@gmail.com> wrote:
+Hi Unai.
 
-> Hi,
-> 2.6.23-rc2-mm2:
-> config with CONFIG_NF_CONNTRACK_AMANDA=y
-> boot  oops:
+On Thu, Aug 09, 2007 at 08:44:21PM +0200, Unai Uribarri (unai.uribarri@optenet.com) wrote:
+> There is another option:
 > 
-> hand copyed :
-> the EIP: helper_hash
-> 
-> backtrace:
-> do_basic_setup
-> ...
-> nf_conntrack_amanda_init
-> error_code
-> do_vivide_error
-> ...
-> 
+> 1. Move timestampt activation to packet_set_ring(), so it's activated
+> only once at setup instead of every time a packet arrives.
 
-cc netdev
+Does this break existing systems which expects timestamp be turned on
+always if there are packet sockets.
 
-please send config
+> 2. Fix sock_setsockopt() so setting SO_TIMESTAMP to 0 effectively
+> disables timestamp.
 
-presumably nf_ct_helper_hsize is zero
+This breaks compatibility. Add new socket option, which will really
+disable it and do all your logic, but not breaking existing
+applications.
 
-I'd have thought that the same bug would be present in mainline - there's
-nothing in git-net.patch.
-
-(hunts around, discovers that there's a net-2.6.24 tree now.  Bah)
+-- 
+	Evgeniy Polyakov
