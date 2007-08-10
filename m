@@ -1,49 +1,43 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 1/24] make atomic_read() behave consistently on alpha
-Date: Fri, 10 Aug 2007 08:02:13 -0700
-Message-ID: <20070810150213.GB8511@linux.vnet.ibm.com>
-References: <E1IJPkg-0000x0-00@gondolin.me.apana.org.au> <200708101108.20897.ak@suse.de>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Subject: Re: 2.6.23-rc2-mm2
+Date: Fri, 10 Aug 2007 18:16:49 +0200
+Message-ID: <46BC8F71.3070006@googlemail.com>
+References: <20070809224254.11f42716.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, csnook@redhat.com,
-	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, heiko.carstens@de.ibm.com,
-	davem@davemloft.net, schwidefsky@de.ibm.com, wensong@linux-vs.org,
-	horms@verge.net.au, wjiang@resilience.com, cfriesen@nortel.com,
-	zlynx@acm.org, rpjday@mindspring.com, jesper.juhl@gmail.com
-To: Andi Kleen <ak@suse.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Netdev <netdev@vger.kernel.org>, coreteam@netfilter.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:52731 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754786AbXHJPCR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2007 11:02:17 -0400
-Content-Disposition: inline
-In-Reply-To: <200708101108.20897.ak@suse.de>
+Received: from ug-out-1314.google.com ([66.249.92.174]:6702 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S941435AbXHJQRf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 12:17:35 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so461641ugf
+        for <netdev@vger.kernel.org>; Fri, 10 Aug 2007 09:17:33 -0700 (PDT)
+In-Reply-To: <20070809224254.11f42716.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 10, 2007 at 11:08:20AM +0200, Andi Kleen wrote:
-> On Friday 10 August 2007 10:21:46 Herbert Xu wrote:
-> > Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> > >
-> > > The compiler is within its rights to read a 32-bit quantity 16 bits at
-> > > at time, even on a 32-bit machine.  I would be glad to help pummel any
-> > > compiler writer that pulls such a dirty trick, but the C standard really
-> > > does permit this.
-> > 
-> > Code all over the kernel assumes that 32-bit reads/writes
-> > are atomic so while such a compiler might be legal it certainly
-> > can't compile Linux.
+Andrew Morton pisze:
+> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.23-rc2/2.6.23-rc2-mm2/
 > 
-> Yes, the kernel requirements are much stricter than ISO-C. And besides
-> it is a heavy user of C extensions anyways. On the other hand some of the
-> C99 extensions are not allowed. And then there is sparse, which enforces
-> a language which sometimes is quite far from standard C. You could say it is 
-> written in Linux-C, not ISO C. 
 
-Understood.  My question is "why do we want the semantics of atomic_read()
-and atomic_set() to differ?"
+Yet another sysctl table check failed
 
-						Thanx, Paul
+[   88.949055] Netfilter messages via NETLINK v0.30.
+[   89.485399] nf_conntrack version 0.5.0 (16384 buckets, 65536 max)
+[   89.491892] sysctl table check failed: /net/netfilter/nf_conntrack_generic_timeout .3.19.13 Missing strategy
+[   89.558178] xt_state: Unknown symbol nf_conntrack_untracked
+[   89.563942] xt_state: Unknown symbol nf_ct_l3proto_module_put
+[   89.569870] xt_state: Unknown symbol nf_ct_l3proto_try_module_get
+[   90.852319] NET: Registered protocol family 17
+
+Regards,
+Michal
+
+-- 
+LOG
+http://www.stardust.webpages.pl/log/
