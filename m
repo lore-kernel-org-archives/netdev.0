@@ -1,72 +1,49 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Potential u32 classifier bug.
-Date: Thu, 9 Aug 2007 18:07:55 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC3290365C9A8@orsmsx414.amr.corp.intel.com>
+From: Neil Brown <neilb@suse.de>
+Subject: Re: [PATCH 1/1] NFS: change the ip_map cache code to handle IPv6
+ addresses
+Date: Fri, 10 Aug 2007 11:11:19 +1000
+Message-ID: <18107.47927.676454.739240@notabene.brown>
+References: <46BAC0B9.1020207@ext.bull.net>
+	<46BB05B6.5080301@oracle.com>
+	<46BB2E01.2010406@ext.bull.net>
+	<46BB2F65.4080602@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?B?QXVyw6lsaWVuIENoYXJib24=?=
+	<aurelien.charbon@ext.bull.net>,
+	Mailing list NFSv4 <nfsv4@linux-nfs.org>,
+	netdev ML <netdev@vger.kernel.org>
+To: chuck.lever@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:34695 "EHLO mga03.intel.com"
+Received: from ns2.suse.de ([195.135.220.15]:33492 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756636AbXHJBH5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 21:07:57 -0400
-Content-class: urn:content-classes:message
+	id S1758112AbXHJBLc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Aug 2007 21:11:32 -0400
+In-Reply-To: message from Chuck Lever on Thursday August 9
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I've recently been trying to use tc with u32 classifiers to filter
-ethernet traffic based on ethertype.  Although we found and fixed an
-issue in the sch_prio call to tc_classify() (thanks Patrick!), this
-didn't fix the actual filtering issue.  For those of you who are curious
-or are tc-savy, I'm really in a bind and need some help.  This is what I
-have so far:
- 
-Filter to identify and move traffic to a different flow:
- 
-# tc qdisc add dev eth2 root handle 1: rr bands 8 priomap 7 7 6 6 5 5 4
-4 3 3 2 2 1 1 0 0 multiqueue
-# tc filter add dev eth2 parent 1: protocol 802_3 prio 1 u32 match u32
-0x00000800 0x0000ffff at 12 flowid 1:6
+On Thursday August 9, chuck.lever@oracle.com wrote:
+> >>
+> >> How have you tested the effectiveness of the new hash function?
+> > 
+> > I have not tested that point but I can easily imagine there are better 
+> > solutions.
+> > Perhaps we can keep the same function for an IPv4 address (only taking 
+> > the 32 bits of IPv4 addr), and then design one for IPv6 addresses.
+> 
+> I see that, to generate the hash, you would be xor-ing the FF and 00 
+> bytes in the canonicalized IPv4 address.  Yes, perhaps a better function 
+> is needed, or as you say, one specifically for IPv6 and one for 
+> canonicalized IPv4.
+> 
 
-Now this hits tc_classify(), and tp->protocol and skb->protocol match
-(be16 of 8 - ETH_P_802_3, which is what I expect), so u32_classify() is
-called through the tp->classify() func pointer.  This is where things
-get weird.
+I suspect that the given hash function will be as good as any other.
+The values in each byte of an IPv6 are likely to be either evenly
+distributed, or constant.
+Each the first case you don't need a clever hash function to
+distribute them, while in the second, no hash function can improve the
+distribution. 
 
-In net/sched/cls_u32.c, u32_classify() grabs a reference to part of the
-network header.  This is question number one: how can the filter look at
-the ethernet (mac) header if it's grabbing a reference to the network
-header:
-
-	u8 *ptr = skb_network_header(skb);
-
-I would think that for a protocol of 802.3, one would want:
-
-	u8 *ptr = skb_mac_header(skb);
-
-Changing this though doesn't fix the filter.  Further down is a rather
-horrible match criteria to make sure the filter is looking at the right
-data before it applies the whole filter list on the skb:
-
-	if
-((*(u32*)(ptr+key->off+(off2&key->offmask))^key->val)&key->mask) {
-
-Now if this matches (meaning it evaluates to zero), we can move on.  If
-not, we go to the next key node and try again.  Run out of key nodes, we
-return -1 and take the default mapping from IP TOS to Linux priority,
-and get queued to a band.
-
-My big question is: Has anyone recently used the 802_3 protocol in tc
-with u32 and actually gotten it to work?  I can't see how the
-u32_classify() code can look at the mac header, since it is using the
-network header accessor to start looking.  I think this is an issue with
-the classification code, but I'm looking to see if I'm doing something
-stupid before I really start digging into this mess.
-
-Thanks in advance,
-
-PJ Waskiewicz
-Intel Corporation
-peter.p.waskiewicz.jr@intel.com <mailto:peter.p.waskiewicz.jr@intel.com>
+NeilBrown
