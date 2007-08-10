@@ -1,199 +1,204 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: [PATCH 1/4] Add ETHTOOL_[GS]FLAGS sub-ioctls
-Date: Fri, 10 Aug 2007 16:24:26 -0400
-Message-ID: <20070810202426.GA25050@havoc.gtf.org>
+Subject: [PATCH 2/4] ethtool: introduce get_sset_count
+Date: Fri, 10 Aug 2007 16:25:28 -0400
+Message-ID: <20070810202528.GA25095@havoc.gtf.org>
+References: <20070810202426.GA25050@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, LKML <linux-kernel@vger.kernel.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:47462 "EHLO havoc.gtf.org"
+Received: from havoc.gtf.org ([69.61.125.42]:47424 "EHLO havoc.gtf.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932906AbXHJUY1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2007 16:24:27 -0400
+	id S965894AbXHJUZ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2007 16:25:29 -0400
 Content-Disposition: inline
+In-Reply-To: <20070810202426.GA25050@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Also, adds support for the first flag, LRO.
+Required prep for the priv-flags changeset (next patch), which also uses
+ethtool string sets.
 
-Earlier version of this patch posted about 12 hours ago.
 
-
-commit 84bf82f38dacde0fa86986e23c061728e819810e
+commit 86fe0ff220a795c82aa9dea5dc4b7359519a1366
 Author: Jeff Garzik <jeff@garzik.org>
-Date:   Fri Aug 10 05:27:23 2007 -0400
+Date:   Fri Aug 10 15:49:21 2007 -0400
 
-    [ETHTOOL] Add ETHTOOL_[GS]FLAGS sub-ioctls
+    [ETHTOOL] Introduce get_sset_count. Obsolete get_stats_count, self_test_count
     
     Signed-off-by: Jeff Garzik <jeff@garzik.org>
 
- include/linux/ethtool.h   |   21 +++++++++++++++
- include/linux/netdevice.h |    1 
- net/core/ethtool.c        |   61 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 83 insertions(+)
+ include/linux/ethtool.h |    7 ++-
+ net/core/ethtool.c      |   95 +++++++++++++++++++++++++++++++++++-------------
+ 2 files changed, 75 insertions(+), 27 deletions(-)
 
-84bf82f38dacde0fa86986e23c061728e819810e
+86fe0ff220a795c82aa9dea5dc4b7359519a1366
 diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 23ccea8..0e5de2f 100644
+index 0e5de2f..f617998 100644
 --- a/include/linux/ethtool.h
 +++ b/include/linux/ethtool.h
-@@ -256,6 +256,19 @@ struct ethtool_perm_addr {
- 	__u8	data[0];
- };
- 
-+/* boolean flags controlling per-interface behavior characteristics.
-+ * When reading, the flag indicates whether or not a certain behavior
-+ * is enabled/present.  When writing, the flag indicates whether
-+ * or not the driver should turn on (set) or off (clear) a behavior.
-+ *
-+ * Some behaviors may read-only (unconditionally absent or present).
-+ * If such is the case, return EINVAL in the set-flags operation if the
-+ * flag differs from the read-only value.
-+ */
-+enum ethtool_flags {
-+	ETH_FLAG_LRO		= (1 << 15),	/* LRO is enabled */
-+};
-+
- #ifdef __KERNEL__
- 
- struct net_device;
-@@ -272,6 +285,8 @@ u32 ethtool_op_get_tso(struct net_device *dev);
- int ethtool_op_set_tso(struct net_device *dev, u32 data);
- u32 ethtool_op_get_ufo(struct net_device *dev);
- int ethtool_op_set_ufo(struct net_device *dev, u32 data);
-+u32 ethtool_op_get_flags(struct net_device *dev);
-+int ethtool_op_set_flags(struct net_device *dev, u32 data);
- 
- /**
-  * &ethtool_ops - Alter and report network device settings
-@@ -307,6 +322,8 @@ int ethtool_op_set_ufo(struct net_device *dev, u32 data);
-  * get_strings: Return a set of strings that describe the requested objects 
-  * phys_id: Identify the device
-  * get_stats: Return statistics about the device
-+ * get_flags: get 32-bit flags bitmap
-+ * set_flags: set 32-bit flags bitmap
-  * 
-  * Description:
-  *
-@@ -369,6 +386,8 @@ struct ethtool_ops {
+@@ -376,11 +376,9 @@ struct ethtool_ops {
+ 	int	(*set_sg)(struct net_device *, u32);
+ 	u32	(*get_tso)(struct net_device *);
+ 	int	(*set_tso)(struct net_device *, u32);
+-	int	(*self_test_count)(struct net_device *);
+ 	void	(*self_test)(struct net_device *, struct ethtool_test *, u64 *);
+ 	void	(*get_strings)(struct net_device *, u32 stringset, u8 *);
+ 	int	(*phys_id)(struct net_device *, u32);
+-	int	(*get_stats_count)(struct net_device *);
+ 	void	(*get_ethtool_stats)(struct net_device *, struct ethtool_stats *, u64 *);
+ 	int	(*begin)(struct net_device *);
  	void	(*complete)(struct net_device *);
- 	u32     (*get_ufo)(struct net_device *);
+@@ -388,6 +386,11 @@ struct ethtool_ops {
  	int     (*set_ufo)(struct net_device *, u32);
-+	u32     (*get_flags)(struct net_device *);
-+	int     (*set_flags)(struct net_device *, u32);
+ 	u32     (*get_flags)(struct net_device *);
+ 	int     (*set_flags)(struct net_device *, u32);
++	int	(*get_sset_count)(struct net_device *, int);
++
++	/* the following hooks are obsolete */
++	int	(*self_test_count)(struct net_device *);/* use get_sset_count */
++	int	(*get_stats_count)(struct net_device *);/* use get_sset_count */
  };
  #endif /* __KERNEL__ */
  
-@@ -410,6 +429,8 @@ struct ethtool_ops {
- #define ETHTOOL_SUFO		0x00000022 /* Set UFO enable (ethtool_value) */
- #define ETHTOOL_GGSO		0x00000023 /* Get GSO enable (ethtool_value) */
- #define ETHTOOL_SGSO		0x00000024 /* Set GSO enable (ethtool_value) */
-+#define ETHTOOL_GFLAGS		0x00000025 /* Get flags bitmap(ethtool_value) */
-+#define ETHTOOL_SFLAGS		0x00000026 /* Set flags bitmap(ethtool_value) */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 4a616d7..559a4dc 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -341,6 +341,7 @@ struct net_device
- #define NETIF_F_GSO		2048	/* Enable software GSO. */
- #define NETIF_F_LLTX		4096	/* LockLess TX */
- #define NETIF_F_MULTI_QUEUE	16384	/* Has multiple TX/RX queues */
-+#define NETIF_F_LRO		32768	/* large receive offload */
- 
- 	/* Segmentation offload features */
- #define NETIF_F_GSO_SHIFT	16
 diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 2ab0a60..6e8563e 100644
+index 6e8563e..2b366a5 100644
 --- a/net/core/ethtool.c
 +++ b/net/core/ethtool.c
-@@ -109,6 +109,32 @@ int ethtool_op_set_ufo(struct net_device *dev, u32 data)
- 	return 0;
- }
+@@ -179,10 +179,23 @@ static int ethtool_get_drvinfo(struct net_device *dev, void __user *useraddr)
+ 	info.cmd = ETHTOOL_GDRVINFO;
+ 	ops->get_drvinfo(dev, &info);
  
-+/* the following list of flags are the same as their associated
-+ * NETIF_F_xxx values in include/linux/netdevice.h
-+ */
-+static const u32 flags_dup_features =
-+	ETH_FLAG_LRO;
+-	if (ops->self_test_count)
+-		info.testinfo_len = ops->self_test_count(dev);
+-	if (ops->get_stats_count)
+-		info.n_stats = ops->get_stats_count(dev);
++	if (ops->get_sset_count) {
++		int rc;
 +
-+u32 ethtool_op_get_flags(struct net_device *dev)
-+{
-+	/* in the future, this function will probably contain additional
-+	 * handling for flags which are not so easily handled
-+	 * by a simple masking operation
-+	 */
-+	
-+	return dev->features & flags_dup_features;
-+}
++		rc = ops->get_sset_count(dev, ETH_SS_TEST);
++		if (rc >= 0)
++			info.testinfo_len = rc;
++		rc = ops->get_sset_count(dev, ETH_SS_STATS);
++		if (rc >= 0)
++			info.n_stats = rc;
++	} else {
++		/* code path for obsolete hooks */
 +
-+int ethtool_op_set_flags(struct net_device *dev, u32 data)
-+{
-+	if (data & ETH_FLAG_LRO)
-+		dev->features |= NETIF_F_LRO;
++		if (ops->self_test_count)
++			info.testinfo_len = ops->self_test_count(dev);
++		if (ops->get_stats_count)
++			info.n_stats = ops->get_stats_count(dev);
++	}
+ 	if (ops->get_regs_len)
+ 		info.regdump_len = ops->get_regs_len(dev);
+ 	if (ops->get_eeprom_len)
+@@ -669,16 +682,27 @@ static int ethtool_self_test(struct net_device *dev, char __user *useraddr)
+ 	struct ethtool_test test;
+ 	const struct ethtool_ops *ops = dev->ethtool_ops;
+ 	u64 *data;
+-	int ret;
++	int ret, test_len;
+ 
+-	if (!ops->self_test || !ops->self_test_count)
++	if (!ops->self_test)
++		return -EOPNOTSUPP;
++	if (!ops->get_sset_count && !ops->self_test_count)
+ 		return -EOPNOTSUPP;
+ 
++	if (ops->get_sset_count)
++		test_len = ops->get_sset_count(dev, ETH_SS_TEST);
 +	else
-+		dev->features &= ~NETIF_F_LRO;
++		/* code path for obsolete hook */
++		test_len = ops->self_test_count(dev);
++	if (test_len < 0)
++		return test_len;
++	WARN_ON(test_len == 0);
 +
-+	return 0;
-+}
-+
- /* Handlers for each ethtool command */
+ 	if (copy_from_user(&test, useraddr, sizeof(test)))
+ 		return -EFAULT;
  
- static int ethtool_get_settings(struct net_device *dev, void __user *useraddr)
-@@ -783,6 +809,33 @@ static int ethtool_get_perm_addr(struct net_device *dev, void __user *useraddr)
- 	return 0;
- }
+-	test.len = ops->self_test_count(dev);
+-	data = kmalloc(test.len * sizeof(u64), GFP_USER);
++	test.len = test_len;
++	data = kmalloc(test_len * sizeof(u64), GFP_USER);
+ 	if (!data)
+ 		return -ENOMEM;
  
-+static int ethtool_get_flags(struct net_device *dev, char __user *useraddr)
-+{
-+	struct ethtool_value edata = { ETHTOOL_GFLAGS };
-+
-+	if (!dev->ethtool_ops->get_flags)
-+		return -EOPNOTSUPP;
-+
-+	edata.data = dev->ethtool_ops->get_flags(dev);
-+
-+	if (copy_to_user(useraddr, &edata, sizeof(edata)))
-+		return -EFAULT;
-+	return 0;
-+}
-+
-+static int ethtool_set_flags(struct net_device *dev, char __user *useraddr)
-+{
-+	struct ethtool_value edata;
-+
-+	if (!dev->ethtool_ops->set_flags)
-+		return -EOPNOTSUPP;
-+
-+	if (copy_from_user(&edata, useraddr, sizeof(edata)))
-+		return -EFAULT;
-+
-+	return dev->ethtool_ops->set_flags(dev, edata.data);
-+}
-+
- /* The main entry point in this file.  Called from net/core/dev.c */
+@@ -710,19 +734,29 @@ static int ethtool_get_strings(struct net_device *dev, void __user *useraddr)
+ 	if (copy_from_user(&gstrings, useraddr, sizeof(gstrings)))
+ 		return -EFAULT;
  
- int dev_ethtool(struct ifreq *ifr)
-@@ -935,6 +988,12 @@ int dev_ethtool(struct ifreq *ifr)
- 	case ETHTOOL_SGSO:
- 		rc = ethtool_set_gso(dev, useraddr);
- 		break;
-+	case ETHTOOL_GFLAGS:
-+		rc = ethtool_get_flags(dev, useraddr);
-+		break;
-+	case ETHTOOL_SFLAGS:
-+		rc = ethtool_set_flags(dev, useraddr);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
+-	switch (gstrings.string_set) {
+-	case ETH_SS_TEST:
+-		if (!ops->self_test_count)
+-			return -EOPNOTSUPP;
+-		gstrings.len = ops->self_test_count(dev);
+-		break;
+-	case ETH_SS_STATS:
+-		if (!ops->get_stats_count)
+-			return -EOPNOTSUPP;
+-		gstrings.len = ops->get_stats_count(dev);
+-		break;
+-	default:
+-		return -EINVAL;
++	if (ops->get_sset_count) {
++		ret = ops->get_sset_count(dev, gstrings.string_set);
++		if (ret < 0)
++			return ret;
++
++		gstrings.len = ret;
++	} else {
++		/* code path for obsolete hooks */
++
++		switch (gstrings.string_set) {
++		case ETH_SS_TEST:
++			if (!ops->self_test_count)
++				return -EOPNOTSUPP;
++			gstrings.len = ops->self_test_count(dev);
++			break;
++		case ETH_SS_STATS:
++			if (!ops->get_stats_count)
++				return -EOPNOTSUPP;
++			gstrings.len = ops->get_stats_count(dev);
++			break;
++		default:
++			return -EINVAL;
++		}
  	}
-@@ -960,3 +1019,5 @@ EXPORT_SYMBOL(ethtool_op_set_tx_hw_csum);
- EXPORT_SYMBOL(ethtool_op_set_tx_ipv6_csum);
- EXPORT_SYMBOL(ethtool_op_set_ufo);
- EXPORT_SYMBOL(ethtool_op_get_ufo);
-+EXPORT_SYMBOL(ethtool_op_set_flags);
-+EXPORT_SYMBOL(ethtool_op_get_flags);
+ 
+ 	data = kmalloc(gstrings.len * ETH_GSTRING_LEN, GFP_USER);
+@@ -762,16 +796,27 @@ static int ethtool_get_stats(struct net_device *dev, void __user *useraddr)
+ 	struct ethtool_stats stats;
+ 	const struct ethtool_ops *ops = dev->ethtool_ops;
+ 	u64 *data;
+-	int ret;
++	int ret, n_stats;
+ 
+-	if (!ops->get_ethtool_stats || !ops->get_stats_count)
++	if (!ops->get_ethtool_stats)
+ 		return -EOPNOTSUPP;
++	if (!ops->get_sset_count && !ops->get_stats_count)
++		return -EOPNOTSUPP;
++
++	if (ops->get_sset_count)
++		n_stats = ops->get_sset_count(dev, ETH_SS_STATS);
++	else
++		/* code path for obsolete hook */
++		n_stats = ops->get_stats_count(dev);
++	if (n_stats < 0)
++		return n_stats;
++	WARN_ON(n_stats == 0);
+ 
+ 	if (copy_from_user(&stats, useraddr, sizeof(stats)))
+ 		return -EFAULT;
+ 
+-	stats.n_stats = ops->get_stats_count(dev);
+-	data = kmalloc(stats.n_stats * sizeof(u64), GFP_USER);
++	stats.n_stats = n_stats;
++	data = kmalloc(n_stats * sizeof(u64), GFP_USER);
+ 	if (!data)
+ 		return -ENOMEM;
+ 
