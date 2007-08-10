@@ -1,45 +1,49 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [patch (testing)] Re: 2.6.20->2.6.21 - networking dies after
-	random time
-Date: Fri, 10 Aug 2007 11:08:33 +0200
-Message-ID: <20070810090833.GA15121@elte.hu>
-References: <JMJTMH$F1699B57C9B0E170ED337488612E649B@xandmail.com> <20070810083720.GE1764@ff.dom.local> <20070810084841.GA11086@elte.hu> <20070810090318.GG1764@ff.dom.local>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: 2.6.23-rc2: WARNING: at kernel/irq/resend.c:70 check_irq_resend()
+Date: Fri, 10 Aug 2007 11:12:31 +0200
+Message-ID: <20070810091231.GH1764@ff.dom.local>
+References: <18107.11431.838905.331157@stoffel.org> <20070809155445.GA5161@ff.dom.local> <1186733140.12828.45.camel@chaos> <20070810082346.GD1764@ff.dom.local> <20070810083050.GA4545@elte.hu> <20070810084924.GF1764@ff.dom.local> <20070810085611.GA11639@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jean-Baptiste Vignaud <vignaud@xandmail.fr>,
-	"marcin.slusarz" <marcin.slusarz@gmail.com>,
-	tglx <tglx@linutronix.de>,
-	torvalds <torvalds@linux-foundation.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	shemminger <shemminger@linux-foundation.org>,
-	linux-net <linux-net@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	akpm <akpm@linux-foundation.org>, alan <alan@lxorguk.ukuu.org.uk>
-To: Jarek Poplawski <jarkao2@o2.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:38853 "EHLO mx3.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761910AbXHJJIp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Aug 2007 05:08:45 -0400
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	John Stoffel <john@stoffel.org>, linux-kernel@vger.kernel.org,
+	shemminger@linux-foundation.org, vignaud@xandmail.fr,
+	marcin.slusarz@gmail.com, torvalds@linux-foundation.org,
+	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
+	linux-net@vger.kernel.org, netdev@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-net-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20070810090318.GG1764@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070810085611.GA11639@elte.hu>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-* Jarek Poplawski <jarkao2@o2.pl> wrote:
-
-> On 10-08-2007 10:05, Thomas Gleixner wrote:
-> ...
-> > But suppressing the resend is not fixing the driver problem. The 
-> > problem can show up with spurious interrupts and with interrupts on 
-> > a shared PCI interrupt line at any time. It just might take weeks 
-> > instead of minutes.
+On Fri, Aug 10, 2007 at 10:56:11AM +0200, Ingo Molnar wrote:
+...
+> this changes the picture completely and makes the IO-APIC/local-APIC hw 
+> retrigger code/logic the main suspect. I think you right that it's quite 
+> bogus to hw-retrigger level irqs, and that could be confusing the 
+> IO-APIC (or the local APIC, or both).
 > 
-> Maybe I miss something but it's not the same!
+> and i think i see why my first sw-resend patch didnt do the trick:
+> 
+> > > -               if (!desc->chip || !desc->chip->retrigger ||
+> > > -                                       !desc->chip->retrigger(irq)) {
+> > > +               if (desc->handle_irq == handle_edge_irq) {
+> > > +                       if (desc->chip->retrigger)
+> > > +                               desc->chip->retrigger(irq);
+> > > +                       return;
+> > > +               }
+> > >  #ifdef CONFIG_HARDIRQS_SW_RESEND
+> 
+> we used the hw-resend method unconditionally, right?
 
-_now_ i finally understand what you probably meant: because sw-resend 
-worked and hw-resend didnt, it's hw-resend that is causing the breakage, 
-not any driver or irqflow bug - correct?
+Right: unconditionally on a condition they are not edges...
 
-	Ingo
+But, since not resending at all seems to work so good in testing,
+I thought, _SW_RESEND could be considered as an unnecessarily
+complicated alternative.
+
+Now, I'm a bit confused...
+
+Jarek P.
