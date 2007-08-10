@@ -1,39 +1,33 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 1/24] make atomic_read() behave consistently on alpha
-Date: Fri, 10 Aug 2007 16:21:46 +0800
-Message-ID: <E1IJPkg-0000x0-00@gondolin.me.apana.org.au>
-References: <20070809161024.GC8424@linux.vnet.ibm.com>
-Cc: csnook@redhat.com, linux-kernel@vger.kernel.org,
-	linux-arch@vger.kernel.org, torvalds@linux-foundation.org,
-	netdev@vger.kernel.org, akpm@linux-foundation.org, ak@suse.de,
-	heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com
-To: paulmck@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3240 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757030AbXHJIjB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 04:39:01 -0400
-In-Reply-To: <20070809161024.GC8424@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+From: "Jean-Baptiste Vignaud" <vignaud@xandmail.fr>
+Subject: Re: [patch (testing)] Re: 2.6.20->2.6.21 - networking dies after
+	random time
+Date: Fri, 10 Aug 2007 10:41:17 +0200
+Message-ID: <JMJUST$9BEA6C68F4D3CDC22D78DD1BF4340016@xandmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: "marcin\.slusarz" <marcin.slusarz@gmail.com>,
+	"mingo" <mingo@elte.hu>, "tglx" <tglx@linutronix.de>,
+	"torvalds" <torvalds@linux-foundation.org>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"shemminger" <shemminger@linux-foundation.org>,
+	"linux-net" <linux-net@vger.kernel.org>,
+	"netdev" <netdev@vger.kernel.org>,
+	"akpm" <akpm@linux-foundation.org>,
+	"alan" <alan@lxorguk.ukuu.org.uk>
+To: "jarkao2" <jarkao2@o2.pl>
+Return-path: <linux-net-owner@vger.kernel.org>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
->
-> The compiler is within its rights to read a 32-bit quantity 16 bits at
-> at time, even on a 32-bit machine.  I would be glad to help pummel any
-> compiler writer that pulls such a dirty trick, but the C standard really
-> does permit this.
+> For me it's enough too but Thomas seems to doubt.
+> 
+> You've written earlier that you've 2.6.23-rc1 with HARDIRQS_SW_RESEND
+> prepared too. So, if this is not a great problem maybe you could try
+> this first. Tomorrow Thomas may send something, so this 100HZ could
+> wait yet, I hope?
 
-Code all over the kernel assumes that 32-bit reads/writes
-are atomic so while such a compiler might be legal it certainly
-can't compile Linux.
+Ok, i'll test 2.6.23-rc1 with HARDIRQS_SW_RESEND first.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Jb
+
