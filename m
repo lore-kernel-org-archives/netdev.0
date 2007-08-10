@@ -1,49 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NET]: Share correct feature code between bridging and bonding
-Date: Fri, 10 Aug 2007 15:48:17 -0700 (PDT)
-Message-ID: <20070810.154817.04442540.davem@davemloft.net>
-References: <20070809033601.GA16912@gondor.apana.org.au>
+From: "Luck, Tony" <tony.luck@intel.com>
+Subject: RE: [PATCH 9/24] make atomic_read() behave consistently on ia64
+Date: Fri, 10 Aug 2007 15:59:44 -0700
+Message-ID: <617E1C2C70743745A92448908E030B2A0224C8D7@scsmsx411.amr.corp.intel.com>
+References: <20070809135107.GA15985@shell.boston.redhat.com><617E1C2C70743745A92448908E030B2A02213B3C@scsmsx411.amr.corp.intel.com><46BCC1AF.5050204@redhat.com><617E1C2C70743745A92448908E030B2A0224C777@scsmsx411.amr.corp.intel.com> <jewsw3oyl8.fsf@sykes.suse.de> <617E1C2C70743745A92448908E030B2A0224C88B@scsmsx411.amr.corp.intel.com> <46BCE9F8.4060009@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53072
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753552AbXHJWsR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 18:48:17 -0400
-In-Reply-To: <20070809033601.GA16912@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Andreas Schwab" <schwab@suse.de>, <linux-kernel@vger.kernel.org>,
+	<linux-arch@vger.kernel.org>, <torvalds@linux-foundation.org>,
+	<netdev@vger.kernel.org>, <akpm@linux-foundation.org>,
+	<ak@suse.de>, <heiko.carstens@de.ibm.com>, <davem@davemloft.net>,
+	<schwidefsky@de.ibm.com>, <wensong@linux-vs.org>,
+	<horms@verge.net.au>, <wjiang@resilience.com>,
+	<cfriesen@nortel.com>, <zlynx@acm.org>, <rpjday@mindspring.com>,
+	<jesper.juhl@gmail.com>
+To: "Chris Snook" <csnook@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1765006AbXHJXAB@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <46BCE9F8.4060009@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 9 Aug 2007 11:36:01 +0800
+> Possibly.  Either that or we've uncovered some latent bugs.  Maybe a 
+> combination of the two.  Can you list those 19 changes so we can 
+evaluate them?
 
-> Hi Dave:
-> 
-> [NET]: Share correct feature code between bridging and bonding
-> 
-> http://bugzilla.kernel.org/show_bug.cgi?id=8797 shows that the
-> bonding driver may produce bogus combinations of the checksum
-> flags and SG/TSO.
-> 
-> For example, if you bond devices with NETIF_F_HW_CSUM and
-> NETIF_F_IP_CSUM you'll end up with a bonding device that
-> has neither flag set.  If both have TSO then this produces
-> an illegal combination.
-> 
-> The bridge device on the other hand has the correct code to
-> deal with this.
-> 
-> In fact, the same code can be used for both.  So this patch
-> moves that logic into net/core/dev.c and uses it for both
-> bonding and bridging.
-> 
-> In the process I've made small adjustments such as only
-> setting GSO_ROBUST if at least one constituent device
-> supports it.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Here are the functions in which they occur in the object file. You
+may have to chase down some inlining to find the function that
+actually uses atomic_*().
 
-Applied, thanks a lot for fixing this bug Herbert!
+freeque
+do_msgrcv
+sk_free
+sock_wfree
+sock_rfree
+sock_kmalloc
+sock_kfree_s
+sock_setsockopt
+skb_release_data
+__sk_stream_mem_reclaim
+sk_tream_mem_schedule
+sk_stream_rfree
+sk_attach_filter
+ip_frag_destroy * 2
+ip_frag_queue * 2
+ip_frag_reasm * 2
+
+-Tony
