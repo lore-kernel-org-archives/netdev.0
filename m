@@ -1,42 +1,46 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: [PATCH 04/10] sysctl: Fix neighbour table sysctls.
-Date: Fri, 10 Aug 2007 11:14:20 +0900 (JST)
-Message-ID: <20070810.111420.29442251.yoshfuji@linux-ipv6.org>
-References: <m1zm108axi.fsf_-_@ebiederm.dsl.xmission.com>
+Date: Thu, 09 Aug 2007 20:12:14 -0600
+Message-ID: <m11wec87ep.fsf@ebiederm.dsl.xmission.com>
+References: <m18x8k9ppv.fsf_-_@ebiederm.dsl.xmission.com>
+	<m14pj89pmt.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1zm108axi.fsf_-_@ebiederm.dsl.xmission.com>
 	<20070810.104710.28739250.yoshfuji@linux-ipv6.org>
-	<20070809.184921.11594412.davem@davemloft.net>
+	<20070809185521.c3ab1afd.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, devel@openvz.org, adobriyan@sw.ru,
-	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>, linux-kernel@vger.kernel.org,
+	devel@openvz.org, adobriyan@sw.ru, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:54246 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751585AbXHJCNS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 22:13:18 -0400
-In-Reply-To: <20070809.184921.11594412.davem@davemloft.net>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:48366 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756403AbXHJCNY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Aug 2007 22:13:24 -0400
+In-Reply-To: <20070809185521.c3ab1afd.akpm@linux-foundation.org> (Andrew
+	Morton's message of "Thu, 9 Aug 2007 18:55:21 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20070809.184921.11594412.davem@davemloft.net> (at Thu, 09 Aug 2007 18:49:21 -0700 (PDT)), David Miller <davem@davemloft.net> says:
+Andrew Morton <akpm@linux-foundation.org> writes:
 
-> From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-> Date: Fri, 10 Aug 2007 10:47:10 +0900 (JST)
-> 
-> > I disagree.  It is bad to remove existing interface.
-> > Ditto for other patches.
-> 
-> I think perhaps you misunderstand what Eric is doing.
-> 
-> sys_sysctl() isn't working properly for these cases and it is both a
-> deprecated interface and not worth the pain of adding support
-> in these cases.
+> But it is good to remove bad interfaces, if we possibly can.
+>
+> It is worth making the attempt.  Does anyone know of anything which will
+> break?  I fed NET_NEIGH_ANYCAST_DELAY at random into
+> http://www.google.com/codesearch and came up with nothing...
 
-Would you explain why it does not work properly
-for those cases?
+My current policy is that since I could only find 5 real world linux
+programs that even call sys_sysctl, that if I find a broken sysctl
+binary interface I'm lazy and just remove it.  The only networking one
+I know of is radvd.
 
---yoshfuji
+Added to that I just pushed an autochecking sysctl patch to Andrew
+that fails register_sysctl_table if the sysctl table is broken.  And
+all of these showed up.  So some fix was needed or things would have
+been even worse.
+
+Eric
+
