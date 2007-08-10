@@ -1,24 +1,36 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: 2.6.23-rc2: WARNING: at kernel/irq/resend.c:70 check_irq_resend()
-Date: Fri, 10 Aug 2007 12:05:13 +0200
-Message-ID: <20070810100513.GA3279@ff.dom.local>
-References: <18107.11431.838905.331157@stoffel.org> <20070809155445.GA5161@ff.dom.local> <1186733140.12828.45.camel@chaos> <20070810082346.GD1764@ff.dom.local> <20070810083050.GA4545@elte.hu> <20070810084924.GF1764@ff.dom.local> <20070810085611.GA11639@elte.hu> <20070810091231.GH1764@ff.dom.local> <20070810093353.GA19777@elte.hu>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: 2.6.23-rc2: WARNING: at kernel/irq/resend.c:70
+ check_irq_resend()
+Date: Fri, 10 Aug 2007 11:13:03 +0100
+Message-ID: <20070810111303.04da45e1@oldman.hamilton.local>
+References: <18107.11431.838905.331157@stoffel.org>
+	<20070809155445.GA5161@ff.dom.local>
+	<1186733140.12828.45.camel@chaos>
+	<20070810082346.GD1764@ff.dom.local>
+	<20070810083050.GA4545@elte.hu>
+	<20070810084924.GF1764@ff.dom.local>
+	<20070810085611.GA11639@elte.hu>
+	<20070810091231.GH1764@ff.dom.local>
+	<20070810093353.GA19777@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Gleixner <tglx@linutronix.de>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jarek Poplawski <jarkao2@o2.pl>,
+	Thomas Gleixner <tglx@linutronix.de>,
 	John Stoffel <john@stoffel.org>, linux-kernel@vger.kernel.org,
-	shemminger@linux-foundation.org, vignaud@xandmail.fr,
-	marcin.slusarz@gmail.com, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
-	linux-net@vger.kernel.org, netdev@vger.kernel.org
+	vignaud@xandmail.fr, marcin.slusarz@gmail.com,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	alan@lxorguk.ukuu.org.uk, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
 To: Ingo Molnar <mingo@elte.hu>
 Return-path: <linux-net-owner@vger.kernel.org>
-Content-Disposition: inline
 In-Reply-To: <20070810093353.GA19777@elte.hu>
 Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 10, 2007 at 11:33:53AM +0200, Ingo Molnar wrote:
+On Fri, 10 Aug 2007 11:33:53 +0200
+Ingo Molnar <mingo@elte.hu> wrote:
+
 > 
 > * Jarek Poplawski <jarkao2@o2.pl> wrote:
 > 
@@ -63,36 +75,14 @@ On Fri, Aug 10, 2007 at 11:33:53AM +0200, Ingo Molnar wrote:
 > is to retrigger an IRQ for level-triggered irqs with the proper 
 > trigger-type set.
 > 
-> 	Ingo
 
-Ingo: I think, you have to do this in x86_64, and there is probably
-send_IPI_mask used for this (but I can miss something...).
 
-I think, Marcin will not be able to do this and report before monday,
-but,
-Jean-Baptiste: of course current Ingo's or Thomas' patches are
-more urgent, so if you could break the current test and try this
-(maybe after Ingo acks this yet?) with eg. clean 2.6.23-rc1 or 2.6.22?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+All this might explain some of the IRQ loss, I saw with sky2 on mac mini.
+Basically, the device would act like it missed an IRQ. The chip and PCI registers
+all said "device has asserted IRQ" but the IRQ handler never got called.
 
-Jarek P.
+Then again, the problem might be completely different since this was with
+PCI-E with either MSI or INTA mode.
 
-> 
-> ------------------>
-> Not-Signed-off-by: Ingo Molnar <mingo@elte.hu>
-> 
-> Index: linux/arch/i386/kernel/io_apic.c
-> ===================================================================
-> --- linux.orig/arch/i386/kernel/io_apic.c
-> +++ linux/arch/i386/kernel/io_apic.c
-> @@ -735,7 +735,8 @@ void fastcall send_IPI_self(int vector)
->  	 * Wait for idle.
->  	 */
->  	apic_wait_icr_idle();
-> -	cfg = APIC_DM_FIXED | APIC_DEST_SELF | vector | APIC_DEST_LOGICAL;
-> +	cfg = APIC_DM_FIXED | APIC_DEST_SELF | vector | APIC_DEST_LOGICAL |
-> +		APIC_INT_LEVELTRIG;
->  	/*
->  	 * Send the IPI. The write to APIC_ICR fires this off.
->  	 */
-> 
+The workaround was to perodically call the soft IRQ handler and that would
+clear the IRQ, but it's not something I want to keep.
