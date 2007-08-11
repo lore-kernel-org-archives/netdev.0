@@ -1,7 +1,7 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 5/13] cxgb3 - Expose HW memory page info
-Date: Fri, 10 Aug 2007 23:29:54 -0700
-Message-ID: <20070811062954.8094.33064.stgit@speedy5>
+Subject: [PATCH 3/13] cxgb3 - SGE doorbell overflow warning
+Date: Fri, 10 Aug 2007 23:29:44 -0700
+Message-ID: <20070811062944.8058.38057.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,115 +9,55 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:19429 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:3058 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755439AbXHKGaA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Aug 2007 02:30:00 -0400
+	with ESMTP id S1754235AbXHKG3r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Aug 2007 02:29:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Divy Le Ray <divy@chelsio.com>
 
-Let the RDMA driver get HW page info to work around HW issues.
-Assign explicit enum values.
+Log doorbell Fifo overflow
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/cxgb3_ctl_defs.h |   52 +++++++++++++++++++++---------------
- drivers/net/cxgb3/cxgb3_offload.c  |    7 +++++
- 2 files changed, 38 insertions(+), 21 deletions(-)
+ drivers/net/cxgb3/regs.h |    8 ++++++++
+ drivers/net/cxgb3/sge.c  |    4 ++++
+ 2 files changed, 12 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/cxgb3/cxgb3_ctl_defs.h b/drivers/net/cxgb3/cxgb3_ctl_defs.h
-index 2095dda..6c4f320 100644
---- a/drivers/net/cxgb3/cxgb3_ctl_defs.h
-+++ b/drivers/net/cxgb3/cxgb3_ctl_defs.h
-@@ -33,27 +33,29 @@
- #define _CXGB3_OFFLOAD_CTL_DEFS_H
+diff --git a/drivers/net/cxgb3/regs.h b/drivers/net/cxgb3/regs.h
+index aa80313..2824278 100644
+--- a/drivers/net/cxgb3/regs.h
++++ b/drivers/net/cxgb3/regs.h
+@@ -172,6 +172,14 @@
  
- enum {
--	GET_MAX_OUTSTANDING_WR,
--	GET_TX_MAX_CHUNK,
--	GET_TID_RANGE,
--	GET_STID_RANGE,
--	GET_RTBL_RANGE,
--	GET_L2T_CAPACITY,
--	GET_MTUS,
--	GET_WR_LEN,
--	GET_IFF_FROM_MAC,
--	GET_DDP_PARAMS,
--	GET_PORTS,
--
--	ULP_ISCSI_GET_PARAMS,
--	ULP_ISCSI_SET_PARAMS,
--
--	RDMA_GET_PARAMS,
--	RDMA_CQ_OP,
--	RDMA_CQ_SETUP,
--	RDMA_CQ_DISABLE,
--	RDMA_CTRL_QP_SETUP,
--	RDMA_GET_MEM,
-+	GET_MAX_OUTSTANDING_WR 	= 0,
-+	GET_TX_MAX_CHUNK	= 1,
-+	GET_TID_RANGE		= 2,
-+	GET_STID_RANGE		= 3,
-+	GET_RTBL_RANGE		= 4,
-+	GET_L2T_CAPACITY	= 5,
-+	GET_MTUS		= 6,
-+	GET_WR_LEN		= 7,
-+	GET_IFF_FROM_MAC	= 8,
-+	GET_DDP_PARAMS		= 9,
-+	GET_PORTS		= 10,
-+
-+	ULP_ISCSI_GET_PARAMS	= 11,
-+	ULP_ISCSI_SET_PARAMS	= 12,
-+
-+	RDMA_GET_PARAMS		= 13,
-+	RDMA_CQ_OP		= 14,
-+	RDMA_CQ_SETUP		= 15,
-+	RDMA_CQ_DISABLE		= 16,
-+	RDMA_CTRL_QP_SETUP	= 17,
-+	RDMA_GET_MEM		= 18,
-+
-+	GET_RX_PAGE_INFO	= 50,
- };
+ #define A_SG_INT_CAUSE 0x5c
  
- /*
-@@ -161,4 +163,12 @@ struct rdma_ctrlqp_setup {
- 	unsigned long long base_addr;
- 	unsigned int size;
- };
++#define S_HIPIODRBDROPERR    11
++#define V_HIPIODRBDROPERR(x) ((x) << S_HIPIODRBDROPERR)
++#define F_HIPIODRBDROPERR    V_HIPIODRBDROPERR(1U)
 +
-+/*
-+ * Offload TX/RX page information.
-+ */
-+struct ofld_page_info {
-+	unsigned int page_size;  /* Page size, should be a power of 2 */
-+	unsigned int num;        /* Number of pages */
-+};
- #endif				/* _CXGB3_OFFLOAD_CTL_DEFS_H */
-diff --git a/drivers/net/cxgb3/cxgb3_offload.c b/drivers/net/cxgb3/cxgb3_offload.c
-index e620ed4..522c1be 100644
---- a/drivers/net/cxgb3/cxgb3_offload.c
-+++ b/drivers/net/cxgb3/cxgb3_offload.c
-@@ -317,6 +317,8 @@ static int cxgb_offload_ctl(struct t3cdev *tdev, unsigned int req, void *data)
- 	struct iff_mac *iffmacp;
- 	struct ddp_params *ddpp;
- 	struct adap_ports *ports;
-+	struct ofld_page_info *rx_page_info;
-+	struct tp_params *tp = &adapter->params.tp;
- 	int i;
- 
- 	switch (req) {
-@@ -382,6 +384,11 @@ static int cxgb_offload_ctl(struct t3cdev *tdev, unsigned int req, void *data)
- 		if (!offload_running(adapter))
- 			return -EAGAIN;
- 		return cxgb_rdma_ctl(adapter, req, data);
-+	case GET_RX_PAGE_INFO:
-+		rx_page_info = data;
-+		rx_page_info->page_size = tp->rx_pg_size;
-+		rx_page_info->num = tp->rx_num_pgs;
-+		break;
- 	default:
- 		return -EOPNOTSUPP;
++#define S_LOPIODRBDROPERR    10
++#define V_LOPIODRBDROPERR(x) ((x) << S_LOPIODRBDROPERR)
++#define F_LOPIODRBDROPERR    V_LOPIODRBDROPERR(1U)
++
+ #define S_RSPQDISABLED    3
+ #define V_RSPQDISABLED(x) ((x) << S_RSPQDISABLED)
+ #define F_RSPQDISABLED    V_RSPQDISABLED(1U)
+diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
+index a2cfd68..9213cda 100644
+--- a/drivers/net/cxgb3/sge.c
++++ b/drivers/net/cxgb3/sge.c
+@@ -2476,6 +2476,10 @@ void t3_sge_err_intr_handler(struct adapter *adapter)
+ 			 "(0x%x)\n", (v >> S_RSPQ0DISABLED) & 0xff);
  	}
+ 
++	if (status & (F_HIPIODRBDROPERR | F_LOPIODRBDROPERR))
++		CH_ALERT(adapter, "SGE dropped %s priority doorbell\n",
++			 status & F_HIPIODRBDROPERR ? "high" : "lo");
++
+ 	t3_write_reg(adapter, A_SG_INT_CAUSE, status);
+ 	if (status & (F_RSPQCREDITOVERFOW | F_RSPQDISABLED))
+ 		t3_fatal_err(adapter);
