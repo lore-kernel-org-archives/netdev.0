@@ -1,32 +1,27 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: RealTek 8169 support question
-Date: Sat, 11 Aug 2007 10:24:50 +0200
-Message-ID: <20070811082450.GA23531@electric-eye.fr.zoreil.com>
-References: <46BCD853.1010801@oracle.com> <20070810222346.GA9042@electric-eye.fr.zoreil.com> <46BCE95B.7020408@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev ML <netdev@vger.kernel.org>
-To: Chuck Lever <chuck.lever@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:44750 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753672AbXHKI2p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Aug 2007 04:28:45 -0400
-Content-Disposition: inline
-In-Reply-To: <46BCE95B.7020408@oracle.com>
-Sender: netdev-owner@vger.kernel.org
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH 6/24] make atomic_read() behave consistently on frv
+Date: Sat, 11 Aug 2007 09:47:51 +0100
+Message-ID: <7680.1186822071@redhat.com>
+References: <46BCC26B.6080600@redhat.com> <46BB46B2.60808@redhat.com> <20070809134150.GA14890@shell.boston.redhat.com> <2708.1186737826@redhat.com>
+Cc: dhowells@redhat.com, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, torvalds@linux-foundation.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org, ak@suse.de,
+	heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com
+To: Chris Snook <csnook@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758974AbXHKIs6@vger.kernel.org>
+In-Reply-To: <46BCC26B.6080600@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chuck Lever <chuck.lever@oracle.com> :
-[...]
-> Not yet.  I wanted to check with "the Maintainer" to see if it was worth 
-> trying.  :-)  The last time I tried a kernel build on one of these 
+Chris Snook <csnook@redhat.com> wrote:
 
-It is worth trying.
+> cpu_relax() contains a barrier, so it should do the right thing.  For non-smp
+> architectures, I'm concerned about interacting with interrupt handlers.  Some
+> drivers do use atomic_* operations.
 
-> little Via processors, it took forever.  Will give it a shot.
+I'm not sure that actually answers my question.  Why not smp_rmb()?
 
-Why can you not compile on a different computer ?
-
--- 
-Ueimor
+David
