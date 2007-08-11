@@ -1,7 +1,7 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 6/13] cxgb3 - tighten checks on TID values
-Date: Fri, 10 Aug 2007 23:29:59 -0700
-Message-ID: <20070811062959.8112.35708.stgit@speedy5>
+Subject: [PATCH 12/13] cxgb3 - log and clear PEX errors
+Date: Fri, 10 Aug 2007 23:30:31 -0700
+Message-ID: <20070811063031.8221.70512.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,126 +9,45 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:5142 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:4346 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755874AbXHKGaF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Aug 2007 02:30:05 -0400
+	with ESMTP id S1752391AbXHKGaf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Aug 2007 02:30:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Divy Le Ray <divy@chelsio.com>
 
-Enforce validity checks on connection ids
+Clear pciE PEX errors late at module load time.
+Log details when PEX errors occur.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/cxgb3_defs.h    |   20 ++++++++++++++++++--
- drivers/net/cxgb3/cxgb3_offload.c |   28 +++++++++++++++++++++++-----
- 2 files changed, 41 insertions(+), 7 deletions(-)
+ drivers/net/cxgb3/t3_hw.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/cxgb3/cxgb3_defs.h b/drivers/net/cxgb3/cxgb3_defs.h
-index 483a594..45e9216 100644
---- a/drivers/net/cxgb3/cxgb3_defs.h
-+++ b/drivers/net/cxgb3/cxgb3_defs.h
-@@ -79,9 +79,17 @@ static inline struct t3c_tid_entry *lookup_tid(const struct tid_info *t,
- static inline struct t3c_tid_entry *lookup_stid(const struct tid_info *t,
- 						unsigned int tid)
- {
-+	union listen_entry *e;
-+
- 	if (tid < t->stid_base || tid >= t->stid_base + t->nstids)
- 		return NULL;
--	return &(stid2entry(t, tid)->t3c_tid);
-+
-+	e = stid2entry(t, tid);
-+	if ((void *)e->next >= (void *)t->tid_tab &&
-+	    (void *)e->next < (void *)&t->atid_tab[t->natids])
-+		return NULL;
-+
-+	return &e->t3c_tid;
- }
+diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
+index 3d47627..538b254 100644
+--- a/drivers/net/cxgb3/t3_hw.c
++++ b/drivers/net/cxgb3/t3_hw.c
+@@ -1355,6 +1355,10 @@ static void pcie_intr_handler(struct adapter *adapter)
+ 		{0}
+ 	};
  
- /*
-@@ -90,9 +98,17 @@ static inline struct t3c_tid_entry *lookup_stid(const struct tid_info *t,
- static inline struct t3c_tid_entry *lookup_atid(const struct tid_info *t,
- 						unsigned int tid)
- {
-+	union active_open_entry *e;
++	if (t3_read_reg(adapter, A_PCIE_INT_CAUSE) & F_PEXERR)
++		CH_ALERT(adapter, "PEX error code 0x%x\n",
++			 t3_read_reg(adapter, A_PCIE_PEX_ERR));
 +
- 	if (tid < t->atid_base || tid >= t->atid_base + t->natids)
- 		return NULL;
--	return &(atid2entry(t, tid)->t3c_tid);
-+
-+	e = atid2entry(t, tid);
-+	if ((void *)e->next >= (void *)t->tid_tab &&
-+	    (void *)e->next < (void *)&t->atid_tab[t->natids])
-+		return NULL;
-+
-+	return &e->t3c_tid;
- }
+ 	if (t3_handle_intr_status(adapter, A_PCIE_INT_CAUSE, PCIE_INTR_MASK,
+ 				  pcie_intr_info, adapter->irq_stats))
+ 		t3_fatal_err(adapter);
+@@ -1806,6 +1810,8 @@ void t3_intr_clear(struct adapter *adapter)
+ 	for (i = 0; i < ARRAY_SIZE(cause_reg_addr); ++i)
+ 		t3_write_reg(adapter, cause_reg_addr[i], 0xffffffff);
  
- int process_rx(struct t3cdev *dev, struct sk_buff **skbs, int n);
-diff --git a/drivers/net/cxgb3/cxgb3_offload.c b/drivers/net/cxgb3/cxgb3_offload.c
-index 522c1be..7fb526a 100644
---- a/drivers/net/cxgb3/cxgb3_offload.c
-+++ b/drivers/net/cxgb3/cxgb3_offload.c
-@@ -57,7 +57,7 @@ static DEFINE_RWLOCK(adapter_list_lock);
- static LIST_HEAD(adapter_list);
- 
- static const unsigned int MAX_ATIDS = 64 * 1024;
--static const unsigned int ATID_BASE = 0x100000;
-+static const unsigned int ATID_BASE = 0x10000;
- 
- static inline int offload_activated(struct t3cdev *tdev)
- {
-@@ -684,10 +684,19 @@ static int do_cr(struct t3cdev *dev, struct sk_buff *skb)
- {
- 	struct cpl_pass_accept_req *req = cplhdr(skb);
- 	unsigned int stid = G_PASS_OPEN_TID(ntohl(req->tos_tid));
-+	struct tid_info *t = &(T3C_DATA(dev))->tid_maps;
- 	struct t3c_tid_entry *t3c_tid;
-+	unsigned int tid = GET_TID(req);
- 
--	t3c_tid = lookup_stid(&(T3C_DATA(dev))->tid_maps, stid);
--	if (t3c_tid->ctx && t3c_tid->client->handlers &&
-+	if (unlikely(tid >= t->ntids)) {
-+		printk("%s: passive open TID %u too large\n",
-+		       dev->name, tid);
-+		t3_fatal_err(tdev2adap(dev));
-+		return CPL_RET_BUF_DONE;
-+	}
-+	
-+	t3c_tid = lookup_stid(t, stid);
-+	if (t3c_tid && t3c_tid->ctx && t3c_tid->client->handlers &&
- 	    t3c_tid->client->handlers[CPL_PASS_ACCEPT_REQ]) {
- 		return t3c_tid->client->handlers[CPL_PASS_ACCEPT_REQ]
- 		    (dev, skb, t3c_tid->ctx);
-@@ -769,16 +778,25 @@ static int do_act_establish(struct t3cdev *dev, struct sk_buff *skb)
- {
- 	struct cpl_act_establish *req = cplhdr(skb);
- 	unsigned int atid = G_PASS_OPEN_TID(ntohl(req->tos_tid));
-+	struct tid_info *t = &(T3C_DATA(dev))->tid_maps;
- 	struct t3c_tid_entry *t3c_tid;
-+	unsigned int tid = GET_TID(req);
- 
--	t3c_tid = lookup_atid(&(T3C_DATA(dev))->tid_maps, atid);
-+	if (unlikely(tid >= t->ntids)) {
-+		printk("%s: active establish TID %u too large\n",
-+		       dev->name, tid);
-+		t3_fatal_err(tdev2adap(dev));
-+		return CPL_RET_BUF_DONE;
-+	}
-+
-+	t3c_tid = lookup_atid(t, atid);
- 	if (t3c_tid && t3c_tid->ctx && t3c_tid->client->handlers &&
- 	    t3c_tid->client->handlers[CPL_ACT_ESTABLISH]) {
- 		return t3c_tid->client->handlers[CPL_ACT_ESTABLISH]
- 		    (dev, skb, t3c_tid->ctx);
- 	} else {
- 		printk(KERN_ERR "%s: received clientless CPL command 0x%x\n",
--		       dev->name, CPL_PASS_ACCEPT_REQ);
-+		       dev->name, CPL_ACT_ESTABLISH);
- 		return CPL_RET_BUF_DONE | CPL_RET_BAD_MSG;
- 	}
++	if (is_pcie(adapter))
++		t3_write_reg(adapter, A_PCIE_PEX_ERR, 0xffffffff);
+ 	t3_write_reg(adapter, A_PL_INT_CAUSE0, 0xffffffff);
+ 	t3_read_reg(adapter, A_PL_INT_CAUSE0);	/* flush */
  }
