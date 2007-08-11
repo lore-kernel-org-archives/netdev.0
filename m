@@ -1,37 +1,80 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 6/24] make atomic_read() behave consistently on frv
-Date: Sat, 11 Aug 2007 08:54:46 +0800
-Message-ID: <E1IJfFe-0003Sq-00@gondolin.me.apana.org.au>
-References: <46BCC26B.6080600@redhat.com>
-Cc: dhowells@redhat.com, linux-kernel@vger.kernel.org,
-	linux-arch@vger.kernel.org, torvalds@linux-foundation.org,
-	netdev@vger.kernel.org, akpm@linux-foundation.org, ak@suse.de,
-	heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com
-To: csnook@redhat.com (Chris Snook)
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] b44-ssb: Fix the SSB dependency hell
+Date: Sat, 11 Aug 2007 02:57:36 +0200
+Message-ID: <1186793856.4862.16.camel@johannes.berg>
+References: <200708110208.21624.mb@bu3sch.de>
+	 <20070811004341.GA22213@stusta.de>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-+WX+wiHefmFHqmVLS8Om"
+Cc: Michael Buesch <mb@bu3sch.de>,
+	John Linville <linville@tuxdriver.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1518 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756714AbXHKAzK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 20:55:10 -0400
-In-Reply-To: <46BCC26B.6080600@redhat.com>
+Received: from crystal.sipsolutions.net ([195.210.38.204]:59654 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759593AbXHKAzQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 20:55:16 -0400
+In-Reply-To: <20070811004341.GA22213@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chris Snook <csnook@redhat.com> wrote:
-> 
-> cpu_relax() contains a barrier, so it should do the right thing.  For 
-> non-smp architectures, I'm concerned about interacting with interrupt 
-> handlers.  Some drivers do use atomic_* operations.
 
-What problems with interrupt handlers? Access to int/long must
-be atomic or we're in big trouble anyway.
+--=-+WX+wiHefmFHqmVLS8Om
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+On Sat, 2007-08-11 at 02:43 +0200, Adrian Bunk wrote:
+
+> -ENOMENUCONFIGPATCH
+
+Has anybody decided how it could possibly even look like anyhow? It
+should be fixed, but nobody has a plan.
+
+> That's horrible - you shouldn't force the user to manually enable three=20
+> options.
+
+Well, akpm says: "select is broken. do not ever use it"
+
+
+> config SSB_PCIHOST_POSSIBLE
+[...]
+
+> 	depends on SSB_PCIHOST_POSSIBLE
+> 	select SSB
+> 	select SSB_PCIHOST
+
+That would, indeed, be possible. But it's ... ugly ... you've now
+effectively pushed the information on what *SSB* depends on into each
+SSB *user* instead of SSB itself...
+
+> Is there any extremely good reason why options like SSB or SSB_PCIHOST=20
+> have to be user visible?=20
+
+Yes. Embedded systems like the small Linksys routers come with SSB as
+the system bus. No PCI/PCIHOST.
+
+> And according to the kconfig help text, we should remove the B44_PCI=20
+> option and enable the code unconditionally?
+> (Or what was the person writing this help text smoking^Wthinking when
+>  writing it?)
+
+Same reason. They have a b44 core there but no pci.
+
+johannes
+
+--=-+WX+wiHefmFHqmVLS8Om
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGvQmA/ETPhpq3jKURAhp6AKCsbN2y9kmK2yGzlcKOOuL2gPcgTQCfe6tD
+kocTHtATcTJDo/1PVf5HK9Q=
+=G8st
+-----END PGP SIGNATURE-----
+
+--=-+WX+wiHefmFHqmVLS8Om--
+
