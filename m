@@ -1,43 +1,61 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 6/24] make atomic_read() behave consistently on frv
-Date: Fri, 10 Aug 2007 21:29:43 -0700
-Message-ID: <20070811042943.GA13410@linux.vnet.ibm.com>
-References: <46BCC26B.6080600@redhat.com> <E1IJfFe-0003Sq-00@gondolin.me.apana.org.au>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH 1/24] make atomic_read() behave consistently on alpha
+Date: Sat, 11 Aug 2007 00:38:35 -0400
+Message-ID: <7943.1186807115@turing-police.cc.vt.edu>
+References: <E1IJPkg-0000x0-00@gondolin.me.apana.org.au> <442f95ba19f8622ce04cf0334f34be11@kernel.crashing.org> <20070811000029.GA12779@gondor.apana.org.au>
+            <ef7e94b08a6515d33039d187e04db5db@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Snook <csnook@redhat.com>, dhowells@redhat.com,
-	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, ak@suse.de, heiko.carstens@de.ibm.com,
-	davem@davemloft.net, schwidefsky@de.ibm.com, wensong@linux-vs.org,
-	horms@verge.net.au, wjiang@resilience.com, cfriesen@nortel.com,
-	zlynx@acm.org, rpjday@mindspring.com, jesper.juhl@gmail.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:54698 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750897AbXHKE3z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Aug 2007 00:29:55 -0400
-Content-Disposition: inline
-In-Reply-To: <E1IJfFe-0003Sq-00@gondolin.me.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/signed; boundary="==_Exmh_1186807115_3018P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	paulmck@linux.vnet.ibm.com, heiko.carstens@de.ibm.com,
+	horms@verge.net.au, linux-kernel@vger.kernel.org,
+	csnook@redhat.com, rpjday@mindspring.com, netdev@vger.kernel.org,
+	ak@suse.de, cfriesen@nortel.com, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, jesper.juhl@gmail.com,
+	linux-arch@vger.kernel.org, zlynx@acm.org, schwidefsky@de.ibm.com,
+	davem@davemloft.net, wensong@linux-vs.org, wjiang@resilience.com
+To: Segher Boessenkool <segher@kernel.crashing.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753494AbXHKEkg@vger.kernel.org>
+In-Reply-To: Your message of "Sat, 11 Aug 2007 02:38:40 +0200."
+             <ef7e94b08a6515d33039d187e04db5db@kernel.crashing.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 11, 2007 at 08:54:46AM +0800, Herbert Xu wrote:
-> Chris Snook <csnook@redhat.com> wrote:
-> > 
-> > cpu_relax() contains a barrier, so it should do the right thing.  For 
-> > non-smp architectures, I'm concerned about interacting with interrupt 
-> > handlers.  Some drivers do use atomic_* operations.
+--==_Exmh_1186807115_3018P
+Content-Type: text/plain; charset=us-ascii
+
+On Sat, 11 Aug 2007 02:38:40 +0200, Segher Boessenkool said:
+> >> That means GCC cannot compile Linux; it already optimises
+> >> some accesses to scalars to smaller accesses when it knows
+> >> it is allowed to.  Not often though, since it hardly ever
+> >> helps in the cost model it employs.
+> >
+> > Please give an example code snippet + gcc version + arch
+> > to back this up.
 > 
-> What problems with interrupt handlers? Access to int/long must
-> be atomic or we're in big trouble anyway.
+> 	unsigned char f(unsigned long *p)
+> 	{
+> 	        return *p & 1;
+> 	}
 
-Reordering due to compiler optimizations.  CPU reordering does not
-affect interactions with interrupt handlers on a given CPU, but
-reordering due to compiler code-movement optimization does.  Since
-volatile can in some cases suppress code-movement optimizations,
-it can affect interactions with interrupt handlers.
+Not really valid, because it's still able to do one atomic access to
+compute the result.
 
-						Thanx, Paul
+Now, if you had found an example where it converts a 32-bit atomic access into
+2 separate 16-bit accesses that weren't atomic as a whole....
+
+--==_Exmh_1186807115_3018P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFGvT1LcC3lWbTT17ARAmccAKCRd2ZxCdpo0ruAOJZXkpds4qazcwCff1OA
+WRSvt/dpaznIWvvdf7+Q/1o=
+=uesa
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1186807115_3018P--
