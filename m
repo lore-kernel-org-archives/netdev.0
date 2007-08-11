@@ -1,51 +1,41 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [PATCH] b44-ssb: Fix the SSB dependency hell
-Date: Sat, 11 Aug 2007 16:42:39 +0200
-Message-ID: <200708111642.39348.mb@bu3sch.de>
-References: <200708110208.21624.mb@bu3sch.de> <200708111136.46781.mb@bu3sch.de> <20070811143002.GE22213@stusta.de>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC] IP_RECVERRC
+Date: Sat, 11 Aug 2007 15:27:20 -0400
+Message-ID: <1186860440.5158.15.camel@localhost>
+References: <1186752912.5188.12.camel@localhost>
+	 <20070810140214.GA10331@one.firstfloor.org>
+	 <1186756212.5163.4.camel@localhost>
+	 <20070810162643.GA11892@one.firstfloor.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	John Linville <linville@tuxdriver.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Adrian Bunk <bunk@kernel.org>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:50917
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758300AbXHKOnv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Aug 2007 10:43:51 -0400
-In-Reply-To: <20070811143002.GE22213@stusta.de>
-Content-Disposition: inline
+Received: from wx-out-0506.google.com ([66.249.82.239]:42049 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753595AbXHKT1Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Aug 2007 15:27:25 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so842927wxd
+        for <netdev@vger.kernel.org>; Sat, 11 Aug 2007 12:27:24 -0700 (PDT)
+In-Reply-To: <20070810162643.GA11892@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 11 August 2007 16:30:02 Adrian Bunk wrote:
-> And offering more options than required or manually sending users into 
-> other menus are bad thing for your users.
 
-Breaking compilations are as bad.
-So, does your example actually work in practice and not only
-in theory, too? My select stuff should have worked in theory, too.
-But it broke, for whatever reasons on whatever weird setups.
 
-We somehow are in an endless loop here:
+On Fri, 2007-10-08 at 18:26 +0200, Andi Kleen wrote:
+> Are we talking about TCP or UDP/RAW?
 
-loop:
-	implement it with select
-	people complain select it bad and suggest to implement it with depends on
-	implement it with depends on
-	either
-		users don't find it anymore
-		users complain
-	or
-		it needs way to tell the user what to select first
-		developers complain
-	goto loop
+Both. initially datagram.
 
-;)
+I think you gave me something to think about - let me go back to the
+drawing table. I like the per socket timer idea; however, if i can solve
+from the app (or write my own app which is fine) then i will rather go
+that path.
+Thanks for taking the time Andi.
 
--- 
-Greetings Michael.
+cheers,
+jamal
+
