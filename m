@@ -1,7 +1,7 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 11/13] cxgb3 - Firmware update
-Date: Fri, 10 Aug 2007 23:30:25 -0700
-Message-ID: <20070811063025.8203.59703.stgit@speedy5>
+Subject: [PATCH 6/13] cxgb3 - tighten checks on TID values
+Date: Fri, 10 Aug 2007 23:29:59 -0700
+Message-ID: <20070811062959.8112.35708.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,116 +9,126 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:23130 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:5142 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754669AbXHKGab (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Aug 2007 02:30:31 -0400
+	with ESMTP id S1755874AbXHKGaF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Aug 2007 02:30:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Divy Le Ray <divy@chelsio.com>
 
-Update firmware version
-Allow the driver to be up and running with older FW image
+Enforce validity checks on connection ids
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/common.h     |    2 +-
- drivers/net/cxgb3/cxgb3_main.c |    9 +++++----
- drivers/net/cxgb3/t3_hw.c      |   20 +++++++++++++++-----
- drivers/net/cxgb3/version.h    |    2 +-
- 4 files changed, 22 insertions(+), 11 deletions(-)
+ drivers/net/cxgb3/cxgb3_defs.h    |   20 ++++++++++++++++++--
+ drivers/net/cxgb3/cxgb3_offload.c |   28 +++++++++++++++++++++++-----
+ 2 files changed, 41 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/cxgb3/common.h b/drivers/net/cxgb3/common.h
-index b665b20..ff867c2 100644
---- a/drivers/net/cxgb3/common.h
-+++ b/drivers/net/cxgb3/common.h
-@@ -691,7 +691,7 @@ int t3_read_flash(struct adapter *adapter, unsigned int addr,
- 		  unsigned int nwords, u32 *data, int byte_oriented);
- int t3_load_fw(struct adapter *adapter, const u8 * fw_data, unsigned int size);
- int t3_get_fw_version(struct adapter *adapter, u32 *vers);
--int t3_check_fw_version(struct adapter *adapter);
-+int t3_check_fw_version(struct adapter *adapter, int *must_load);
- int t3_init_hw(struct adapter *adapter, u32 fw_params);
- void mac_prep(struct cmac *mac, struct adapter *adapter, int index);
- void early_hw_init(struct adapter *adapter, const struct adapter_info *ai);
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-index 65ded16..eaebd7f 100644
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -814,11 +814,12 @@ static int cxgb_up(struct adapter *adap)
- 	int must_load;
- 
- 	if (!(adap->flags & FULL_INIT_DONE)) {
--		err = t3_check_fw_version(adap);
--		if (err == -EINVAL)
-+		err = t3_check_fw_version(adap, &must_load);
-+		if (err == -EINVAL) {
- 			err = upgrade_fw(adap);
--		if (err)
--			goto out;
-+			if (err && must_load)
-+				goto out;
-+		}
- 
- 		err = t3_check_tpsram_version(adap, &must_load);
- 		if (err == -EINVAL) {
-diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
-index 63032e8..3d47627 100644
---- a/drivers/net/cxgb3/t3_hw.c
-+++ b/drivers/net/cxgb3/t3_hw.c
-@@ -957,16 +957,18 @@ int t3_get_fw_version(struct adapter *adapter, u32 *vers)
- /**
-  *	t3_check_fw_version - check if the FW is compatible with this driver
-  *	@adapter: the adapter
-- *
-+ *	@must_load: set to 1 if loading a new FW image is required
-+
-  *	Checks if an adapter's FW is compatible with the driver.  Returns 0
-  *	if the versions are compatible, a negative error otherwise.
-  */
--int t3_check_fw_version(struct adapter *adapter)
-+int t3_check_fw_version(struct adapter *adapter, int *must_load)
+diff --git a/drivers/net/cxgb3/cxgb3_defs.h b/drivers/net/cxgb3/cxgb3_defs.h
+index 483a594..45e9216 100644
+--- a/drivers/net/cxgb3/cxgb3_defs.h
++++ b/drivers/net/cxgb3/cxgb3_defs.h
+@@ -79,9 +79,17 @@ static inline struct t3c_tid_entry *lookup_tid(const struct tid_info *t,
+ static inline struct t3c_tid_entry *lookup_stid(const struct tid_info *t,
+ 						unsigned int tid)
  {
- 	int ret;
- 	u32 vers;
- 	unsigned int type, major, minor;
- 
-+	*must_load = 1;
- 	ret = t3_get_fw_version(adapter, &vers);
- 	if (ret)
- 		return ret;
-@@ -979,9 +981,17 @@ int t3_check_fw_version(struct adapter *adapter)
- 	    minor == FW_VERSION_MINOR)
- 		return 0;
- 
--	CH_ERR(adapter, "found wrong FW version(%u.%u), "
--	       "driver needs version %u.%u\n", major, minor,
--	       FW_VERSION_MAJOR, FW_VERSION_MINOR);
-+	if (major != FW_VERSION_MAJOR)
-+		CH_ERR(adapter, "found wrong FW version(%u.%u), "
-+		       "driver needs version %u.%u\n", major, minor,
-+		       FW_VERSION_MAJOR, FW_VERSION_MINOR);
-+	else {
-+		*must_load = 0;
-+		CH_WARN(adapter, "found wrong FW minor version(%u.%u), "
-+		        "driver compiled for version %u.%u\n", major, minor,
-+			FW_VERSION_MAJOR, FW_VERSION_MINOR);
-+	}
++	union listen_entry *e;
 +
- 	return -EINVAL;
+ 	if (tid < t->stid_base || tid >= t->stid_base + t->nstids)
+ 		return NULL;
+-	return &(stid2entry(t, tid)->t3c_tid);
++
++	e = stid2entry(t, tid);
++	if ((void *)e->next >= (void *)t->tid_tab &&
++	    (void *)e->next < (void *)&t->atid_tab[t->natids])
++		return NULL;
++
++	return &e->t3c_tid;
  }
  
-diff --git a/drivers/net/cxgb3/version.h b/drivers/net/cxgb3/version.h
-index eb508bf..ef1c633 100644
---- a/drivers/net/cxgb3/version.h
-+++ b/drivers/net/cxgb3/version.h
-@@ -39,6 +39,6 @@
+ /*
+@@ -90,9 +98,17 @@ static inline struct t3c_tid_entry *lookup_stid(const struct tid_info *t,
+ static inline struct t3c_tid_entry *lookup_atid(const struct tid_info *t,
+ 						unsigned int tid)
+ {
++	union active_open_entry *e;
++
+ 	if (tid < t->atid_base || tid >= t->atid_base + t->natids)
+ 		return NULL;
+-	return &(atid2entry(t, tid)->t3c_tid);
++
++	e = atid2entry(t, tid);
++	if ((void *)e->next >= (void *)t->tid_tab &&
++	    (void *)e->next < (void *)&t->atid_tab[t->natids])
++		return NULL;
++
++	return &e->t3c_tid;
+ }
  
- /* Firmware version */
- #define FW_VERSION_MAJOR 4
--#define FW_VERSION_MINOR 3
-+#define FW_VERSION_MINOR 6
- #define FW_VERSION_MICRO 0
- #endif				/* __CHELSIO_VERSION_H */
+ int process_rx(struct t3cdev *dev, struct sk_buff **skbs, int n);
+diff --git a/drivers/net/cxgb3/cxgb3_offload.c b/drivers/net/cxgb3/cxgb3_offload.c
+index 522c1be..7fb526a 100644
+--- a/drivers/net/cxgb3/cxgb3_offload.c
++++ b/drivers/net/cxgb3/cxgb3_offload.c
+@@ -57,7 +57,7 @@ static DEFINE_RWLOCK(adapter_list_lock);
+ static LIST_HEAD(adapter_list);
+ 
+ static const unsigned int MAX_ATIDS = 64 * 1024;
+-static const unsigned int ATID_BASE = 0x100000;
++static const unsigned int ATID_BASE = 0x10000;
+ 
+ static inline int offload_activated(struct t3cdev *tdev)
+ {
+@@ -684,10 +684,19 @@ static int do_cr(struct t3cdev *dev, struct sk_buff *skb)
+ {
+ 	struct cpl_pass_accept_req *req = cplhdr(skb);
+ 	unsigned int stid = G_PASS_OPEN_TID(ntohl(req->tos_tid));
++	struct tid_info *t = &(T3C_DATA(dev))->tid_maps;
+ 	struct t3c_tid_entry *t3c_tid;
++	unsigned int tid = GET_TID(req);
+ 
+-	t3c_tid = lookup_stid(&(T3C_DATA(dev))->tid_maps, stid);
+-	if (t3c_tid->ctx && t3c_tid->client->handlers &&
++	if (unlikely(tid >= t->ntids)) {
++		printk("%s: passive open TID %u too large\n",
++		       dev->name, tid);
++		t3_fatal_err(tdev2adap(dev));
++		return CPL_RET_BUF_DONE;
++	}
++	
++	t3c_tid = lookup_stid(t, stid);
++	if (t3c_tid && t3c_tid->ctx && t3c_tid->client->handlers &&
+ 	    t3c_tid->client->handlers[CPL_PASS_ACCEPT_REQ]) {
+ 		return t3c_tid->client->handlers[CPL_PASS_ACCEPT_REQ]
+ 		    (dev, skb, t3c_tid->ctx);
+@@ -769,16 +778,25 @@ static int do_act_establish(struct t3cdev *dev, struct sk_buff *skb)
+ {
+ 	struct cpl_act_establish *req = cplhdr(skb);
+ 	unsigned int atid = G_PASS_OPEN_TID(ntohl(req->tos_tid));
++	struct tid_info *t = &(T3C_DATA(dev))->tid_maps;
+ 	struct t3c_tid_entry *t3c_tid;
++	unsigned int tid = GET_TID(req);
+ 
+-	t3c_tid = lookup_atid(&(T3C_DATA(dev))->tid_maps, atid);
++	if (unlikely(tid >= t->ntids)) {
++		printk("%s: active establish TID %u too large\n",
++		       dev->name, tid);
++		t3_fatal_err(tdev2adap(dev));
++		return CPL_RET_BUF_DONE;
++	}
++
++	t3c_tid = lookup_atid(t, atid);
+ 	if (t3c_tid && t3c_tid->ctx && t3c_tid->client->handlers &&
+ 	    t3c_tid->client->handlers[CPL_ACT_ESTABLISH]) {
+ 		return t3c_tid->client->handlers[CPL_ACT_ESTABLISH]
+ 		    (dev, skb, t3c_tid->ctx);
+ 	} else {
+ 		printk(KERN_ERR "%s: received clientless CPL command 0x%x\n",
+-		       dev->name, CPL_PASS_ACCEPT_REQ);
++		       dev->name, CPL_ACT_ESTABLISH);
+ 		return CPL_RET_BUF_DONE | CPL_RET_BAD_MSG;
+ 	}
+ }
