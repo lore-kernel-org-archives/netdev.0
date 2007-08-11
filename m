@@ -1,53 +1,31 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 12/13] cxgb3 - log and clear PEX errors
-Date: Fri, 10 Aug 2007 23:30:31 -0700
-Message-ID: <20070811063031.8221.70512.stgit@speedy5>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:4346 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752391AbXHKGaf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Aug 2007 02:30:35 -0400
-Sender: netdev-owner@vger.kernel.org
+From: divy@chelsio.com
+Subject: [PATCH 0/13] cxgb3 - driver updates
+Date: Fri, 10 Aug 2007 23:51:08 -0700
+Message-ID: <200708110651.l7B6p8v2008685@speedy5.asicdesigners.com>
+Cc: linux-kernel@vger.kernel.org, swise@opengridcomputing.com
+To: jeff@garzik.org, netdev@vget.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757954AbXHKGvX@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Divy Le Ray <divy@chelsio.com>
+Hi Jeff,
 
-Clear pciE PEX errors late at module load time.
-Log details when PEX errors occur.
+I'm submitting a patch series for inclusion in netdev#upstream.
 
-Signed-off-by: Divy Le Ray <divy@chelsio.com>
----
+Here is a brief description:
+-	MAC hang workaround update
+-	Modify max HW Rx coalescing size
+-	Log SGE doorbell Fifo overflow
+-	Use Tx immediate data for offload packets whenever possible
+-	RDMA can get internal mem info to workaround HW issues
+-	More validity checks on connection ids
+-	Stop MAC when a fatal error is detected
+-	Log HW serial number
+-	Update internal mem operating mode
+-	Update engine microcode management, version is now 1.1.0
+-	Update FW management, version is now 4.6.0
+-	Ignore some HW errors until the HW is initialized
+-	Check MSI/MSI-X after it got enabled
 
- drivers/net/cxgb3/t3_hw.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
-index 3d47627..538b254 100644
---- a/drivers/net/cxgb3/t3_hw.c
-+++ b/drivers/net/cxgb3/t3_hw.c
-@@ -1355,6 +1355,10 @@ static void pcie_intr_handler(struct adapter *adapter)
- 		{0}
- 	};
- 
-+	if (t3_read_reg(adapter, A_PCIE_INT_CAUSE) & F_PEXERR)
-+		CH_ALERT(adapter, "PEX error code 0x%x\n",
-+			 t3_read_reg(adapter, A_PCIE_PEX_ERR));
-+
- 	if (t3_handle_intr_status(adapter, A_PCIE_INT_CAUSE, PCIE_INTR_MASK,
- 				  pcie_intr_info, adapter->irq_stats))
- 		t3_fatal_err(adapter);
-@@ -1806,6 +1810,8 @@ void t3_intr_clear(struct adapter *adapter)
- 	for (i = 0; i < ARRAY_SIZE(cause_reg_addr); ++i)
- 		t3_write_reg(adapter, cause_reg_addr[i], 0xffffffff);
- 
-+	if (is_pcie(adapter))
-+		t3_write_reg(adapter, A_PCIE_PEX_ERR, 0xffffffff);
- 	t3_write_reg(adapter, A_PL_INT_CAUSE0, 0xffffffff);
- 	t3_read_reg(adapter, A_PL_INT_CAUSE0);	/* flush */
- }
+Cheers,
+Divy
