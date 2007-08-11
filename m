@@ -1,41 +1,55 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] IP_RECVERRC
-Date: Sat, 11 Aug 2007 15:27:20 -0400
-Message-ID: <1186860440.5158.15.camel@localhost>
-References: <1186752912.5188.12.camel@localhost>
-	 <20070810140214.GA10331@one.firstfloor.org>
-	 <1186756212.5163.4.camel@localhost>
-	 <20070810162643.GA11892@one.firstfloor.org>
-Reply-To: hadi@cyberus.ca
+From: Jiri Kosina <jikos@jikos.cz>
+Subject: Re: Weird network problems with 2.6.23-rc2
+Date: Sat, 11 Aug 2007 23:55:23 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0708112353410.3948@twin.jikos.cz>
+References: <20070811083959.305b0421.shish@shishnet.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.239]:42049 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753595AbXHKT1Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Aug 2007 15:27:25 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so842927wxd
-        for <netdev@vger.kernel.org>; Sat, 11 Aug 2007 12:27:24 -0700 (PDT)
-In-Reply-To: <20070810162643.GA11892@one.firstfloor.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Shish <shish@shishnet.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1764238AbXHKVzx@vger.kernel.org>
+In-Reply-To: <20070811083959.305b0421.shish@shishnet.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sat, 11 Aug 2007, Shish wrote:
 
+> Something seems to have broken in 2.6.23-rc2, and I'm not sure what, or
+> where I should look for further debugging. The info I have:
+> 
+> On my 2.6.23-rc2 desktop, things run fine.
+> 
+> On my test server, built from the same source tree, networking goes
+> strange every few minutes, with the following symptoms:
+> 
+> o) running ping against the server, the first ping goes through;
+> further pings go AWOL until about icmp_seq=30, when I get 4-5 icmp
+> replies (marked as DUP!), then no pings for a while, then dups, and so
+> on.
+> 
+> o) the server doesn't see ARP replies. According to tcpdump, the server
+> will send eg "who has 192.168.0.2? tell 192.168.0.1"; the client in
+> question will recieve the packet and send a response, but nothing shows
+> up in the server-side tcpdump.
+> 
+> o) after a few minutes of random network troubles, everything will work
+> fine again, (ping is normal, arp replies are seen, tcp sessions work)
+> for a few minutes.
+> 
+> o) The server's dmesg shows lots of "short udp packet" messages
+> 
+> o) ifdown then ifup'ing the interfaces fixes things, temporarily.
+> 
+> Reverting to 2.6.22, everything seems to be running fine (but no lguest,
+> which is what I came for :( )
+> 
+> I've also tried with the latest code from git, the behaviour is the same
+> as 2.6.23-rc2.
 
-On Fri, 2007-10-08 at 18:26 +0200, Andi Kleen wrote:
-> Are we talking about TCP or UDP/RAW?
+This needs to go to netdev, CC added.
 
-Both. initially datagram.
+Also, git-bisect will help a lot here to find the commit which caused the 
+regression you are seeing.
 
-I think you gave me something to think about - let me go back to the
-drawing table. I like the per socket timer idea; however, if i can solve
-from the app (or write my own app which is fine) then i will rather go
-that path.
-Thanks for taking the time Andi.
-
-cheers,
-jamal
-
+-- 
+Jiri Kosina
