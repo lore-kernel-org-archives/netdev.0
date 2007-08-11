@@ -1,35 +1,32 @@
-From: divy@chelsio.com
-Subject: [PATCH 0/13] cxgb3 - driver updates
-Date: Fri, 10 Aug 2007 23:52:44 -0700
-Message-ID: <200708110652.l7B6qiUv008711@speedy5.asicdesigners.com>
-Cc: linux-kernel@vger.kernel.org, swise@opengridcomputing.com
-To: jeff@garzik.org, netdev@vger.kernel.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: RealTek 8169 support question
+Date: Sat, 11 Aug 2007 10:24:50 +0200
+Message-ID: <20070811082450.GA23531@electric-eye.fr.zoreil.com>
+References: <46BCD853.1010801@oracle.com> <20070810222346.GA9042@electric-eye.fr.zoreil.com> <46BCE95B.7020408@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev ML <netdev@vger.kernel.org>
+To: Chuck Lever <chuck.lever@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:9918 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750796AbXHKGwr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Aug 2007 02:52:47 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:44750 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753672AbXHKI2p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 11 Aug 2007 04:28:45 -0400
+Content-Disposition: inline
+In-Reply-To: <46BCE95B.7020408@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jeff,
+Chuck Lever <chuck.lever@oracle.com> :
+[...]
+> Not yet.  I wanted to check with "the Maintainer" to see if it was worth 
+> trying.  :-)  The last time I tried a kernel build on one of these 
 
-I'm submitting a patch series for inclusion in netdev#upstream.
+It is worth trying.
 
-Here is a brief description:
--       MAC hang workaround update
--       Modify max HW Rx coalescing size
--       Log SGE doorbell Fifo overflow
--       Use Tx immediate data for offload packets whenever possible
--       RDMA can get internal mem info to workaround HW issues
--       More validity checks on connection ids
--       Stop MAC when a fatal error is detected
--       Log HW serial number
--       Update internal mem operating mode
--       Update engine microcode management, version is now 1.1.0
--       Update FW management, version is now 4.6.0
--       Ignore some HW errors until the HW is initialized
--       Check MSI/MSI-X after it got enabled
+> little Via processors, it took forever.  Will give it a shot.
 
-Cheers,
-Divy
+Why can you not compile on a different computer ?
+
+-- 
+Ueimor
