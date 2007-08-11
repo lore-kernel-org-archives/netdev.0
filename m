@@ -1,61 +1,114 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: [PATCH 1/24] make atomic_read() behave consistently on alpha
-Date: Sat, 11 Aug 2007 00:38:35 -0400
-Message-ID: <7943.1186807115@turing-police.cc.vt.edu>
-References: <E1IJPkg-0000x0-00@gondolin.me.apana.org.au> <442f95ba19f8622ce04cf0334f34be11@kernel.crashing.org> <20070811000029.GA12779@gondor.apana.org.au>
-            <ef7e94b08a6515d33039d187e04db5db@kernel.crashing.org>
+From: Divy Le Ray <divy@chelsio.com>
+Subject: [PATCH 1/13] cxgb3 - MAC workaround update
+Date: Fri, 10 Aug 2007 23:29:33 -0700
+Message-ID: <20070811062933.8022.51781.stgit@speedy5>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1186807115_3018P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	paulmck@linux.vnet.ibm.com, heiko.carstens@de.ibm.com,
-	horms@verge.net.au, linux-kernel@vger.kernel.org,
-	csnook@redhat.com, rpjday@mindspring.com, netdev@vger.kernel.org,
-	ak@suse.de, cfriesen@nortel.com, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, jesper.juhl@gmail.com,
-	linux-arch@vger.kernel.org, zlynx@acm.org, schwidefsky@de.ibm.com,
-	davem@davemloft.net, wensong@linux-vs.org, wjiang@resilience.com
-To: Segher Boessenkool <segher@kernel.crashing.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753494AbXHKEkg@vger.kernel.org>
-In-Reply-To: Your message of "Sat, 11 Aug 2007 02:38:40 +0200."
-             <ef7e94b08a6515d33039d187e04db5db@kernel.crashing.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	swise@opengridcomputing.com
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.22.49.110]:6107 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751854AbXHKG3h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Aug 2007 02:29:37 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1186807115_3018P
-Content-Type: text/plain; charset=us-ascii
+From: Divy Le Ray <divy@chelsio.com>
 
-On Sat, 11 Aug 2007 02:38:40 +0200, Segher Boessenkool said:
-> >> That means GCC cannot compile Linux; it already optimises
-> >> some accesses to scalars to smaller accesses when it knows
-> >> it is allowed to.  Not often though, since it hardly ever
-> >> helps in the cost model it employs.
-> >
-> > Please give an example code snippet + gcc version + arch
-> > to back this up.
-> 
-> 	unsigned char f(unsigned long *p)
-> 	{
-> 	        return *p & 1;
-> 	}
+Update the MAC workaround to deal with switches that do not
+honor pause frames.
 
-Not really valid, because it's still able to do one atomic access to
-compute the result.
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+---
 
-Now, if you had found an example where it converts a 32-bit atomic access into
-2 separate 16-bit accesses that weren't atomic as a whole....
+ drivers/net/cxgb3/common.h |    1 +
+ drivers/net/cxgb3/xgmac.c  |   22 +++++++++++-----------
+ 2 files changed, 12 insertions(+), 11 deletions(-)
 
---==_Exmh_1186807115_3018P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFGvT1LcC3lWbTT17ARAmccAKCRd2ZxCdpo0ruAOJZXkpds4qazcwCff1OA
-WRSvt/dpaznIWvvdf7+Q/1o=
-=uesa
------END PGP SIGNATURE-----
-
---==_Exmh_1186807115_3018P--
+diff --git a/drivers/net/cxgb3/common.h b/drivers/net/cxgb3/common.h
+index 1637800..c46c249 100644
+--- a/drivers/net/cxgb3/common.h
++++ b/drivers/net/cxgb3/common.h
+@@ -507,6 +507,7 @@ struct cmac {
+ 	unsigned int tx_xcnt;
+ 	u64 tx_mcnt;
+ 	unsigned int rx_xcnt;
++	unsigned int rx_ocnt;
+ 	u64 rx_mcnt;
+ 	unsigned int toggle_cnt;
+ 	unsigned int txen;
+diff --git a/drivers/net/cxgb3/xgmac.c b/drivers/net/cxgb3/xgmac.c
+index c302b1a..1d1c391 100644
+--- a/drivers/net/cxgb3/xgmac.c
++++ b/drivers/net/cxgb3/xgmac.c
+@@ -437,12 +437,13 @@ int t3_mac_enable(struct cmac *mac, int which)
+ 	struct mac_stats *s = &mac->stats;
+ 	
+ 	if (which & MAC_DIRECTION_TX) {
+-		t3_write_reg(adap, A_XGM_TX_CTRL + oft, F_TXEN);
+ 		t3_write_reg(adap, A_TP_PIO_ADDR, A_TP_TX_DROP_CFG_CH0 + idx);
+ 		t3_write_reg(adap, A_TP_PIO_DATA, 0xc0ede401);
+ 		t3_write_reg(adap, A_TP_PIO_ADDR, A_TP_TX_DROP_MODE);
+ 		t3_set_reg_field(adap, A_TP_PIO_DATA, 1 << idx, 1 << idx);
+ 
++		t3_write_reg(adap, A_XGM_TX_CTRL + oft, F_TXEN);
++
+ 		t3_write_reg(adap, A_TP_PIO_ADDR, A_TP_TX_DROP_CNT_CH0 + idx);
+ 		mac->tx_mcnt = s->tx_frames;
+ 		mac->tx_tcnt = (G_TXDROPCNTCH0RCVD(t3_read_reg(adap,
+@@ -454,6 +455,7 @@ int t3_mac_enable(struct cmac *mac, int which)
+ 		mac->rx_xcnt = (G_TXSPI4SOPCNT(t3_read_reg(adap,
+ 						A_XGM_RX_SPI4_SOP_EOP_CNT +
+ 						oft)));
++		mac->rx_ocnt = s->rx_fifo_ovfl;
+ 		mac->txen = F_TXEN;
+ 		mac->toggle_cnt = 0;
+ 	}
+@@ -464,24 +466,19 @@ int t3_mac_enable(struct cmac *mac, int which)
+ 
+ int t3_mac_disable(struct cmac *mac, int which)
+ {
+-	int idx = macidx(mac);
+ 	struct adapter *adap = mac->adapter;
+-	int val;
+ 
+ 	if (which & MAC_DIRECTION_TX) {
+ 		t3_write_reg(adap, A_XGM_TX_CTRL + mac->offset, 0);
+-		t3_write_reg(adap, A_TP_PIO_ADDR, A_TP_TX_DROP_CFG_CH0 + idx);
+-		t3_write_reg(adap, A_TP_PIO_DATA, 0xc000001f);
+-		t3_write_reg(adap, A_TP_PIO_ADDR, A_TP_TX_DROP_MODE);
+-		t3_set_reg_field(adap, A_TP_PIO_DATA, 1 << idx, 1 << idx);
+ 		mac->txen = 0;
+ 	}
+ 	if (which & MAC_DIRECTION_RX) {
++		int val = F_MAC_RESET_;
++
+ 		t3_set_reg_field(mac->adapter, A_XGM_RESET_CTRL + mac->offset,
+ 				 F_PCS_RESET_, 0);
+ 		msleep(100);
+ 		t3_write_reg(adap, A_XGM_RX_CTRL + mac->offset, 0);
+-		val = F_MAC_RESET_;
+ 		if (is_10G(adap))
+ 			val |= F_PCS_RESET_;
+ 		else if (uses_xaui(adap))
+@@ -541,11 +538,14 @@ int t3b2_mac_watchdog_task(struct cmac *mac)
+ 	}
+ 
+ rxcheck:
+-	if (rx_mcnt != mac->rx_mcnt)
++	if (rx_mcnt != mac->rx_mcnt) {
+ 		rx_xcnt = (G_TXSPI4SOPCNT(t3_read_reg(adap,
+ 						A_XGM_RX_SPI4_SOP_EOP_CNT +
+-						mac->offset)));
+-	else
++						mac->offset))) +
++						(s->rx_fifo_ovfl -
++						 mac->rx_ocnt);
++		mac->rx_ocnt = s->rx_fifo_ovfl;
++	} else
+ 		goto out;
+ 
+ 	if (mac->rx_mcnt != s->rx_frames && rx_xcnt == 0 &&
