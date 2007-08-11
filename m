@@ -1,7 +1,7 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 4/13] cxgb3 - use immediate data for offload Tx
-Date: Fri, 10 Aug 2007 23:29:49 -0700
-Message-ID: <20070811062949.8076.42523.stgit@speedy5>
+Subject: [PATCH 5/13] cxgb3 - Expose HW memory page info
+Date: Fri, 10 Aug 2007 23:29:54 -0700
+Message-ID: <20070811062954.8094.33064.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,74 +9,115 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:5984 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:19429 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753523AbXHKG3x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Aug 2007 02:29:53 -0400
+	with ESMTP id S1755439AbXHKGaA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Aug 2007 02:30:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Divy Le Ray <divy@chelsio.com>
 
-Send small TX_DATA work requests as immediate data even when
-there are fragments.
+Let the RDMA driver get HW page info to work around HW issues.
+Assign explicit enum values.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/sge.c |   17 +++++++++++------
- 1 files changed, 11 insertions(+), 6 deletions(-)
+ drivers/net/cxgb3/cxgb3_ctl_defs.h |   52 +++++++++++++++++++++---------------
+ drivers/net/cxgb3/cxgb3_offload.c  |    7 +++++
+ 2 files changed, 38 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
-index 9213cda..dca2716 100644
---- a/drivers/net/cxgb3/sge.c
-+++ b/drivers/net/cxgb3/sge.c
-@@ -1182,8 +1182,8 @@ int t3_eth_xmit(struct sk_buff *skb, struct net_device *dev)
-  *
-  *	Writes a packet as immediate data into a Tx descriptor.  The packet
-  *	contains a work request at its beginning.  We must write the packet
-- *	carefully so the SGE doesn't read accidentally before it's written in
-- *	its entirety.
-+ *	carefully so the SGE doesn't read it accidentally before it's written
-+ *	in its entirety.
-  */
- static inline void write_imm(struct tx_desc *d, struct sk_buff *skb,
- 			     unsigned int len, unsigned int gen)
-@@ -1191,7 +1191,11 @@ static inline void write_imm(struct tx_desc *d, struct sk_buff *skb,
- 	struct work_request_hdr *from = (struct work_request_hdr *)skb->data;
- 	struct work_request_hdr *to = (struct work_request_hdr *)d;
+diff --git a/drivers/net/cxgb3/cxgb3_ctl_defs.h b/drivers/net/cxgb3/cxgb3_ctl_defs.h
+index 2095dda..6c4f320 100644
+--- a/drivers/net/cxgb3/cxgb3_ctl_defs.h
++++ b/drivers/net/cxgb3/cxgb3_ctl_defs.h
+@@ -33,27 +33,29 @@
+ #define _CXGB3_OFFLOAD_CTL_DEFS_H
  
--	memcpy(&to[1], &from[1], len - sizeof(*from));
-+	if (likely(!skb->data_len))
-+		memcpy(&to[1], &from[1], len - sizeof(*from));
-+	else
-+		skb_copy_bits(skb, sizeof(*from), &to[1], len - sizeof(*from));
+ enum {
+-	GET_MAX_OUTSTANDING_WR,
+-	GET_TX_MAX_CHUNK,
+-	GET_TID_RANGE,
+-	GET_STID_RANGE,
+-	GET_RTBL_RANGE,
+-	GET_L2T_CAPACITY,
+-	GET_MTUS,
+-	GET_WR_LEN,
+-	GET_IFF_FROM_MAC,
+-	GET_DDP_PARAMS,
+-	GET_PORTS,
+-
+-	ULP_ISCSI_GET_PARAMS,
+-	ULP_ISCSI_SET_PARAMS,
+-
+-	RDMA_GET_PARAMS,
+-	RDMA_CQ_OP,
+-	RDMA_CQ_SETUP,
+-	RDMA_CQ_DISABLE,
+-	RDMA_CTRL_QP_SETUP,
+-	RDMA_GET_MEM,
++	GET_MAX_OUTSTANDING_WR 	= 0,
++	GET_TX_MAX_CHUNK	= 1,
++	GET_TID_RANGE		= 2,
++	GET_STID_RANGE		= 3,
++	GET_RTBL_RANGE		= 4,
++	GET_L2T_CAPACITY	= 5,
++	GET_MTUS		= 6,
++	GET_WR_LEN		= 7,
++	GET_IFF_FROM_MAC	= 8,
++	GET_DDP_PARAMS		= 9,
++	GET_PORTS		= 10,
 +
- 	to->wr_hi = from->wr_hi | htonl(F_WR_SOP | F_WR_EOP |
- 					V_WR_BCNTLFLT(len & 7));
- 	wmb();
-@@ -1261,7 +1265,7 @@ static inline void reclaim_completed_tx_imm(struct sge_txq *q)
++	ULP_ISCSI_GET_PARAMS	= 11,
++	ULP_ISCSI_SET_PARAMS	= 12,
++
++	RDMA_GET_PARAMS		= 13,
++	RDMA_CQ_OP		= 14,
++	RDMA_CQ_SETUP		= 15,
++	RDMA_CQ_DISABLE		= 16,
++	RDMA_CTRL_QP_SETUP	= 17,
++	RDMA_GET_MEM		= 18,
++
++	GET_RX_PAGE_INFO	= 50,
+ };
  
- static inline int immediate(const struct sk_buff *skb)
- {
--	return skb->len <= WR_LEN && !skb->data_len;
-+	return skb->len <= WR_LEN;
- }
+ /*
+@@ -161,4 +163,12 @@ struct rdma_ctrlqp_setup {
+ 	unsigned long long base_addr;
+ 	unsigned int size;
+ };
++
++/*
++ * Offload TX/RX page information.
++ */
++struct ofld_page_info {
++	unsigned int page_size;  /* Page size, should be a power of 2 */
++	unsigned int num;        /* Number of pages */
++};
+ #endif				/* _CXGB3_OFFLOAD_CTL_DEFS_H */
+diff --git a/drivers/net/cxgb3/cxgb3_offload.c b/drivers/net/cxgb3/cxgb3_offload.c
+index e620ed4..522c1be 100644
+--- a/drivers/net/cxgb3/cxgb3_offload.c
++++ b/drivers/net/cxgb3/cxgb3_offload.c
+@@ -317,6 +317,8 @@ static int cxgb_offload_ctl(struct t3cdev *tdev, unsigned int req, void *data)
+ 	struct iff_mac *iffmacp;
+ 	struct ddp_params *ddpp;
+ 	struct adap_ports *ports;
++	struct ofld_page_info *rx_page_info;
++	struct tp_params *tp = &adapter->params.tp;
+ 	int i;
  
- /**
-@@ -1467,12 +1471,13 @@ static void write_ofld_wr(struct adapter *adap, struct sk_buff *skb,
-  */
- static inline unsigned int calc_tx_descs_ofld(const struct sk_buff *skb)
- {
--	unsigned int flits, cnt = skb_shinfo(skb)->nr_frags;
-+	unsigned int flits, cnt;
- 
--	if (skb->len <= WR_LEN && cnt == 0)
-+	if (skb->len <= WR_LEN)
- 		return 1;	/* packet fits as immediate data */
- 
- 	flits = skb_transport_offset(skb) / 8;	/* headers */
-+	cnt = skb_shinfo(skb)->nr_frags;
- 	if (skb->tail != skb->transport_header)
- 		cnt++;
- 	return flits_to_desc(flits + sgl_len(cnt));
+ 	switch (req) {
+@@ -382,6 +384,11 @@ static int cxgb_offload_ctl(struct t3cdev *tdev, unsigned int req, void *data)
+ 		if (!offload_running(adapter))
+ 			return -EAGAIN;
+ 		return cxgb_rdma_ctl(adapter, req, data);
++	case GET_RX_PAGE_INFO:
++		rx_page_info = data;
++		rx_page_info->page_size = tp->rx_pg_size;
++		rx_page_info->num = tp->rx_num_pgs;
++		break;
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
