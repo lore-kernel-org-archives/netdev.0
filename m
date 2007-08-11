@@ -1,36 +1,54 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] [RFT] sky2: backport patch
-Date: Fri, 10 Aug 2007 17:46:09 -0700
-Message-ID: <20070811004609.GA18327@kroah.com>
-References: <Pine.LNX.4.64.0708072043340.16599@bizon.gios.gov.pl> <20070807185631.GA19140@kroah.com> <20070807171415.6892a070@oldman>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, stable@kernel.org,
-	Krzysztof Oledzki <olel@ans.pl>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+From: Segher Boessenkool <segher@kernel.crashing.org>
+Subject: Re: [PATCH 1/24] make atomic_read() behave consistently on alpha
+Date: Sat, 11 Aug 2007 02:50:25 +0200
+Message-ID: <12943ce306ab975fd589bbf5e8b14167@kernel.crashing.org>
+References: <E1IJPkg-0000x0-00@gondolin.me.apana.org.au> <442f95ba19f8622ce04cf0334f34be11@kernel.crashing.org> <20070811000029.GA12779@gondor.apana.org.au> <ef7e94b08a6515d33039d187e04db5db@kernel.crashing.org> <20070811004322.GA13178@gondor.apana.org.au>
+Mime-Version: 1.0 (Apple Message framework v623)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: paulmck@linux.vnet.ibm.com, heiko.carstens@de.ibm.com,
+	horms@verge.net.au, linux-kernel@vger.kernel.org,
+	csnook@redhat.com, rpjday@mindspring.com, netdev@vger.kernel.org,
+	ak@suse.de, cfriesen@nortel.com, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, jesper.juhl@gmail.com,
+	linux-arch@vger.kernel.org, zlynx@acm.org, schwidefsky@de.ibm.com,
+	davem@davemloft.net, wensong@linux-vs.org, wjiang@resilience.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:37472 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754956AbXHKAqS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Aug 2007 20:46:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20070807171415.6892a070@oldman>
+Received: from gate.crashing.org ([63.228.1.57]:60345 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756584AbXHKAv3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Aug 2007 20:51:29 -0400
+In-Reply-To: <20070811004322.GA13178@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 07, 2007 at 05:14:15PM -0400, Stephen Hemminger wrote:
-> Any volunteers to test this, it has a backport for the three main stability patches:
->  1. carrier management
->  2. lost irq timer
->  3. rechecking for packets in poll
->  4. overlength packet hang.
-> 
-> I am away from any sky2 hardware for another week, but others maybe
-> able to validate this.
+>>>> That means GCC cannot compile Linux; it already optimises
+>>>> some accesses to scalars to smaller accesses when it knows
+>>>> it is allowed to.  Not often though, since it hardly ever
+>>>> helps in the cost model it employs.
+>>>
+>>> Please give an example code snippet + gcc version + arch
+>>> to back this up.
+>>
+>> 	unsigned char f(unsigned long *p)
+>> 	{
+>> 	        return *p & 1;
+>> 	}
+>
+> This doesn't really matter since we only care about the LSB.
 
-Care to break these down into 3 patches and send them to stable@ if you
-get the chance?
+It is exactly what I claimed, and what you asked proof of.
 
-thanks,
+> Do you have an example where gcc reads it non-atmoically and
+> we care about all parts?
 
-greg k-h
+Like I explained in the original mail; no, I suspect such
+a testcase will be really hard to construct, esp. as a small
+testcase.  I have no reason to believe it is impossible to
+do so though -- maybe someone else can write trickier code
+than I can, in which case, please do so.
+
+
+Segher
+
