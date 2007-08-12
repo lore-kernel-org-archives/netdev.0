@@ -1,78 +1,32 @@
-From: Al Boldi <a1426z@gawab.com>
-Subject: Re: [RFD] Layering: Use-Case Composers (was: DRBD - what is it, anyways? [compare with e.g. NBD + MD raid])
-Date: Sun, 12 Aug 2007 18:28:03 +0300
-Message-ID: <200708121828.03184.a1426z@gawab.com>
-References: <200708121335.17267.a1426z@gawab.com> <20070812115126.GA14770@2ka.mipt.ru>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 2.6.24]S2io: Default to IntA interrupt type when there are less than 4 CPUs in the system.
+Date: 12 Aug 2007 19:15:38 +0200
+Message-ID: <p73sl6oishx.fsf@bingen.suse.de>
+References: <46BCA2B0.7020501@garzik.org>
+	<78C9135A3D2ECE4B8162EBDCE82CAD7702035B30@nekter>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-raid@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Jeff Garzik" <jeff@garzik.org>, "Rick Jones" <rick.jones2@hp.com>,
+	"Sivakumar Subramani" <Sivakumar.Subramani@neterion.com>,
+	<netdev@vger.kernel.org>, "support" <support@neterion.com>
+To: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [212.12.190.217] ([212.12.190.217]:33099 "EHLO raad.intranet"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S934600AbXHLP2R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Aug 2007 11:28:17 -0400
-In-Reply-To: <20070812115126.GA14770@2ka.mipt.ru>
-Content-Disposition: inline
+Received: from mx2.suse.de ([195.135.220.15]:43417 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762940AbXHLQVd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Aug 2007 12:21:33 -0400
+In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD7702035B30@nekter>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> Al Boldi (a1426z@gawab.com) wrote:
-> > Look at ZFS; it illegally violates layering by combining md/dm/lvm with
-> > the fs, but it does this based on a realistic understanding of the
-> > problems involved, which enables it to improve performance, flexibility,
-> > and functionality specific to its use case.
-> >
-> > This implies that there are two distinct forces at work here:
-> >
-> >   1. Layer components
-> >   2. Use-Case composers
-> >
-> > Layer components should technically not implement any use case (other
-> > than providing a plumbing framework), as that would incur unnecessary
-> > dependencies, which could reduce its generality and thus reusability.
-> >
-> > Use-Case composers can now leverage layer components from across the
-> > layering hierarchy, to yield a specific use case implementation.
-> >
-> > DRBD is such a Use-Case composer, as is mdm / dm / lvm and any fs in
-> > general, whereas aoe / nbd / loop and the VFS / FUSE are examples of
-> > layer components.
-> >
-> > It follows that Use-case composers, like DRBD, need common functionality
-> > that should be factored out into layer components, and then recompose to
-> > implement a specific use case.
->
-> Out of curiosity, did you try ndb+dm+raid1 compared to drbd and/or zfs
-> on top of distributed storage (which is a urprise to me, that holy zfs
-> suppors that)?
+"Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com> writes:
 
-Actually, I may not have been very clear in my Use-Case composer description 
-to mean internal in-kernel Use-Case composer as opposed to external Userland 
-Use-Case composer.
+> In one of the variations of this driver that is not
+> released to netdev, the received packets are steered to a channel based
+> on hashing on a preconfigured criteria such as sockets on tcp_ipv4,
+> udp_ipv4, tcp_ipv6, udp_ipv6 or addresses in ipv4/6.
 
-So, nbd+dm+raid1 would be an external Userland Use-Case composition, which 
-obviously could have some drastic performance issues.
+Why is it not released for mainline? It sounds interesting.
 
-DRBD and ZFS are examples of internal in-kernel Use-Case composers, which 
-obviously could show some drastic performance improvements.  
-
-Although you could allow in-kernel Use-Case composers to be run on top of 
-Userland Use-Case composers, that wouldn't be the preferred mode of 
-operation.  Instead, you would for example recompose ZFS to incorporate an 
-in-kernel distributed storage layer component, like nbd.
-
-All this boils down to refactoring Use-Case composers to produce layer 
-components with both in-kernel and userland interfaces.  Once we have that, 
-it becomes a matter of plug-and-play to produce something awesome like ZFS.
-
-
-Thanks!
-
---
-Al
+-Andi
 
