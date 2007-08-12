@@ -1,291 +1,220 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [RFC: -mm patch] improve the SSB dependencies
-Date: Sun, 12 Aug 2007 14:00:26 +0200
-Message-ID: <200708121400.28297.mb@bu3sch.de>
-References: <200708110208.21624.mb@bu3sch.de> <200708111642.39348.mb@bu3sch.de> <20070811230855.GA8907@stusta.de>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	John Linville <linville@tuxdriver.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Adrian Bunk <bunk@stusta.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:53629
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757608AbXHLMBY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Aug 2007 08:01:24 -0400
-In-Reply-To: <20070811230855.GA8907@stusta.de>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+From: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1/4] Net: mac80211, remove bitfields from struct ieee80211_tx_packet_data
+Date: Sun, 12 Aug 2007 15:08:56 +0200 (CEST)
+Message-ID: <32694265142306417777@wsc.cz>
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: <jbenc-AlSwsSmVLrQ@public.gmane.org>
+Cc: <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
+Cc: <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Ok, I'll give it a try, with small modifications.
+All against mac80211 tree
 
-On Sunday 12 August 2007, Adrian Bunk wrote:
-> Additional changes in this patch:
-> - small help text changes
-> - B44_PCI is no longer usr visible (automatically enabled when possible)
+--
 
-I think we want that to be selectable, as it's not needed
-on some embedded devices. And we need to save memory there.
+mac80211, remove bitfields from struct ieee80211_tx_packet_data
 
-> - let SSB_SILENT depend on EMBEDDED (unless you are in a very
->   space restricted environment you don't need to enable it)
+Signed-off-by: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Good idea.
+---
+commit 10e9252a35d42fb92e65dfaaef136d81dbb71c4f
+tree f8579cff30dc8053b770b78582a30961b7320046
+parent a050b807aede7f33339c6bee0bef1c07cd9c5fc4
+author Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> Sun, 12 Aug 2007 11:14:36 +0200
+committer Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> Sun, 12 Aug 2007 11:14:36 +0200
 
-> - make the following options no longer user visible
->   (they are select'ed when required):
->   - SSB_PCIHOST
+ net/mac80211/ieee80211.c     |   15 +++++++++++----
+ net/mac80211/ieee80211_i.h   |   11 ++++++-----
+ net/mac80211/ieee80211_sta.c |    6 ++++--
+ net/mac80211/rx.c            |    4 ++--
+ net/mac80211/tx.c            |   23 ++++++++++++-----------
+ net/mac80211/wme.c           |    4 ++--
+ 6 files changed, 37 insertions(+), 26 deletions(-)
 
->   - SSB_DRIVER_PCICORE
-
-No, we need that to be selectable.
-
->   - SSB_PCMCIAHOST
-> 
-> 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
-> 
-> ---
-> 
->  drivers/net/Kconfig                           |   12 ---
->  drivers/net/wireless/bcm43xx-mac80211/Kconfig |   10 +-
->  drivers/ssb/Kconfig                           |   72 ++++++++++--------
->  drivers/usb/host/Kconfig                      |    4 -
->  4 files changed, 51 insertions(+), 47 deletions(-)
-> 
-> 6ed573214282b96e7714b33b89a7221c01efbb86 
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index cea1979..a4f0c2f 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -1435,6 +1435,7 @@ config APRICOT
->  config B44
->  	tristate "Broadcom 440x/47xx ethernet support"
->  	depends on HAS_IOMEM
-> +	depends on SSB_POSSIBLE
->  	select SSB
->  	select MII
->  	help
-> @@ -1452,17 +1453,10 @@ config B44
->  	  called b44.
->  
->  config B44_PCI
-> -	bool "Broadcom 440x PCI device support"
-> -	depends on B44 && NET_PCI
-> -	select SSB_PCIHOST
-> +	bool
-> +	depends on B44 && SSB_DRIVER_PCICORE_POSSIBLE
->  	select SSB_DRIVER_PCICORE
->  	default y
-> -	help
-> -	  Support for Broadcom 440x PCI devices.
-> -
-> -	  Say Y, unless you know what you are doing.
-> -	  If you say N here I will _not_ listen to your
-> -	  bugreports!
->  
->  config FORCEDETH
->  	tristate "nForce Ethernet support"
-> diff --git a/drivers/net/wireless/bcm43xx-mac80211/Kconfig b/drivers/net/wireless/bcm43xx-mac80211/Kconfig
-> index 8f9df0e..8af8535 100644
-> --- a/drivers/net/wireless/bcm43xx-mac80211/Kconfig
-> +++ b/drivers/net/wireless/bcm43xx-mac80211/Kconfig
-> @@ -1,6 +1,6 @@
->  config BCM43XX_MAC80211
->  	tristate "Broadcom BCM43xx wireless support (mac80211 stack)"
-> -	depends on MAC80211 && WLAN_80211 && EXPERIMENTAL
-> +	depends on MAC80211 && WLAN_80211 && SSB_POSSIBLE && EXPERIMENTAL
->  	select FW_LOADER
->  	select SSB
->  	select HW_RANDOM
-> @@ -10,8 +10,8 @@ config BCM43XX_MAC80211
->  
->  config BCM43XX_MAC80211_PCI
->  	bool "BCM43xx PCI device support"
-> -	depends on BCM43XX_MAC80211 && PCI
-> -	select SSB_PCIHOST
-> +	depends on BCM43XX_MAC80211
-> +	depends on SSB_DRIVER_PCICORE_POSSIBLE
->  	select SSB_DRIVER_PCICORE
->  	default y
->  	---help---
-> @@ -24,7 +24,7 @@ config BCM43XX_MAC80211_PCI
->  
->  config BCM43XX_MAC80211_PCMCIA
->  	bool "BCM43xx PCMCIA device support"
-> -	depends on BCM43XX_MAC80211 && PCMCIA
-> +	depends on BCM43XX_MAC80211 && SSB_PCMCIAHOST_POSSIBLE
->  	select SSB_PCMCIAHOST
->  	---help---
->  	  Broadcom 43xx PCMCIA device support.
-> @@ -45,7 +45,7 @@ config BCM43XX_MAC80211_PCMCIA
->  config BCM43XX_MAC80211_DEBUG
->  	bool "Broadcom BCM43xx debugging (RECOMMENDED)"
->  	depends on BCM43XX_MAC80211
-> -	select SSB_DEBUG if !SSB_SILENT
-> +	select SSB_DEBUG if SSB_DEBUG_POSSIBLE
->  	default y
->  	---help---
->  	  Broadcom 43xx debugging messages.
-> diff --git a/drivers/ssb/Kconfig b/drivers/ssb/Kconfig
-> index 094703c..366c888 100644
-> --- a/drivers/ssb/Kconfig
-> +++ b/drivers/ssb/Kconfig
-> @@ -1,37 +1,42 @@
->  menu "Sonics Silicon Backplane"
->  
-> +config SSB_POSSIBLE
-> +	bool
-> +	depends on EXPERIMENTAL && HAS_IOMEM
-> +	default y
-> +
->  config SSB
->  	tristate "Sonics Silicon Backplane support"
-> -	depends on EXPERIMENTAL && HAS_IOMEM
-> +	depends on SSB_POSSIBLE
->  	help
-> -	  Support for the Sonics Silicon Backplane bus
-> +	  Support for the Sonics Silicon Backplane bus.
-> +	  You only need to enable this option if you are
-> +	  configuring a kernel for an embedded system with
-> +	  this bus.
->  
-> -	  The module will be called ssb
-> +	  The module will be called ssb.
->  
-> -	  If unsure, say M
-> +	  If unsure, say N.
->  
-> -config SSB_PCIHOST
-> -	bool "Support for SSB on PCI-bus host"
-> -	depends on SSB && PCI
-> +config SSB_PCIHOST_POSSIBLE
-> +	bool
-> +	depends on SSB_POSSIBLE && PCI
->  	default y
-> -	help
-> -	  Support for a Sonics Silicon Backplane on top
-> -	  of a PCI device.
->  
-> -	  If unsure, say Y
-> +config SSB_PCIHOST
-> +	bool
->  
-> -config SSB_PCMCIAHOST
-> -	bool "Support for SSB on PCMCIA-bus host"
-> -	depends on SSB && PCMCIA
-> -	help
-> -	  Support for a Sonics Silicon Backplane on top
-> -	  of a PCMCIA device.
-> +config SSB_PCMCIAHOST_POSSIBLE
-> +	bool
-> +	depends on SSB_POSSIBLE && PCMCIA
-> +	default y
->  
-> -	  If unsure, say N
-> +config SSB_PCMCIAHOST
-> +	bool
->  
->  config SSB_SILENT
->  	bool "No SSB kernel messages"
-> -	depends on SSB
-> +	depends on SSB && EMBEDDED
->  	help
->  	  This option turns off all Sonics Silicon Backplane printks.
->  	  Note that you won't be able to identify problems, once
-> @@ -39,30 +44,35 @@ config SSB_SILENT
->  	  This might only be desired for production kernels on
->  	  embedded devices to reduce the kernel size.
->  
-> -	  Say N
-> +	  If unsure, say N.
-> +
-> +config SSB_DEBUG_POSSIBLE
-> +	bool
-> +	depends on SSB && !SSB_SILENT
-> +	default y
->  
->  config SSB_DEBUG
->  	bool "SSB debugging"
-> -	depends on SSB && !SSB_SILENT
-> +	depends on SSB_DEBUG_POSSIBLE
->  	help
->  	  This turns on additional runtime checks and debugging
->  	  messages. Turn this on for SSB troubleshooting.
->  
-> -	  If unsure, say N
-> +	  If unsure, say N.
->  
->  config SSB_SERIAL
->  	bool
->  	depends on SSB
->  	# ChipCommon and ExtIf serial support routines.
->  
-> -config SSB_DRIVER_PCICORE
-> -	bool "SSB PCI core driver"
-> -	depends on SSB && SSB_PCIHOST
-> -	help
-> -	  Driver for the Sonics Silicon Backplane attached
-> -	  Broadcom PCI core.
-> +config SSB_DRIVER_PCICORE_POSSIBLE
-> +	bool
-> +	depends on SSB_PCIHOST_POSSIBLE
-> +	default y
->  
-> -	  If unsure, say Y
-> +config SSB_DRIVER_PCICORE
-> +	bool
-> +	select SSB_PCIHOST
->  
->  config SSB_PCICORE_HOSTMODE
->  	bool "Hostmode support for SSB PCI core"
-> @@ -78,7 +88,7 @@ config SSB_DRIVER_MIPS
->  	  Driver for the Sonics Silicon Backplane attached
->  	  Broadcom MIPS core.
->  
-> -	  If unsure, say N
-> +	  If unsure, say N.
->  
->  config SSB_DRIVER_EXTIF
->  	bool "SSB Broadcom EXTIF core driver"
-> @@ -87,6 +97,6 @@ config SSB_DRIVER_EXTIF
->  	  Driver for the Sonics Silicon Backplane attached
->  	  Broadcom EXTIF core.
->  
-> -	  If unsure, say N
-> +	  If unsure, say N.
->  
->  endmenu
-> diff --git a/drivers/usb/host/Kconfig b/drivers/usb/host/Kconfig
-> index dc3b7fe..d7f5328 100644
-> --- a/drivers/usb/host/Kconfig
-> +++ b/drivers/usb/host/Kconfig
-> @@ -101,6 +101,7 @@ config USB_OHCI_HCD
->  	depends on USB && USB_ARCH_HAS_OHCI
->  	select ISP1301_OMAP if MACH_OMAP_H2 || MACH_OMAP_H3
->  	select I2C if ARCH_PNX4008
-> +	select SSB if USB_OHCI_HCD_SSB
->  	---help---
->  	  The Open Host Controller Interface (OHCI) is a standard for accessing
->  	  USB 1.1 host controller hardware.  It does more in hardware than Intel's
-> @@ -156,8 +157,7 @@ config USB_OHCI_HCD_PCI
->  
->  config USB_OHCI_HCD_SSB
->  	bool "OHCI support for the Broadcom SSB OHCI core (embedded systems only)"
-> -	depends on USB_OHCI_HCD && ((USB_OHCI_HCD=m && SSB) || (USB_OHCI_HCD=y && SSB=y)) && EXPERIMENTAL
-> -	default n
-> +	depends on USB_OHCI_HCD && SSB_POSSIBLE && EXPERIMENTAL
->  	---help---
->  	  Support for the Sonics Silicon Backplane (SSB) attached
->  	  Broadcom USB OHCI core.
-> 
-> 
-> 
-
-
+diff --git a/net/mac80211/ieee80211.c b/net/mac80211/ieee80211.c
+index 9ff86ee..0952237 100644
+--- a/net/mac80211/ieee80211.c
++++ b/net/mac80211/ieee80211.c
+@@ -933,10 +933,17 @@ static void ieee80211_remove_tx_extra(struct ieee80211_local *local,
+ 
+ 	pkt_data = (struct ieee80211_tx_packet_data *)skb->cb;
+ 	pkt_data->ifindex = control->ifindex;
+-	pkt_data->mgmt_iface = (control->type == IEEE80211_IF_TYPE_MGMT);
+-	pkt_data->req_tx_status = !!(control->flags & IEEE80211_TXCTL_REQ_TX_STATUS);
+-	pkt_data->do_not_encrypt = !!(control->flags & IEEE80211_TXCTL_DO_NOT_ENCRYPT);
+-	pkt_data->requeue = !!(control->flags & IEEE80211_TXCTL_REQUEUE);
++	pkt_data->flags &= ~(IEEE80211_TXPD_REQ_TX_STATUS |
++		IEEE80211_TXPD_DO_NOT_ENCRYPT | IEEE80211_TXPD_REQUEUE |
++		IEEE80211_TXPD_MGMT_IFACE);
++	if (control->flags & IEEE80211_TXCTL_REQ_TX_STATUS)
++		pkt_data->flags |= IEEE80211_TXPD_REQ_TX_STATUS;
++	if (control->flags & IEEE80211_TXCTL_DO_NOT_ENCRYPT)
++		pkt_data->flags |= IEEE80211_TXPD_DO_NOT_ENCRYPT;
++	if (control->flags & IEEE80211_TXCTL_REQUEUE)
++		pkt_data->flags |= IEEE80211_TXPD_REQUEUE;
++	if (control->type == IEEE80211_IF_TYPE_MGMT)
++		pkt_data->flags |= IEEE80211_TXPD_MGMT_IFACE;
+ 	pkt_data->queue = control->queue;
+ 
+ 	hdrlen = ieee80211_get_hdrlen_from_skb(skb);
+diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
+index 4599d55..265893a 100644
+--- a/net/mac80211/ieee80211_i.h
++++ b/net/mac80211/ieee80211_i.h
+@@ -170,11 +170,12 @@ struct ieee80211_txrx_data {
+ struct ieee80211_tx_packet_data {
+ 	int ifindex;
+ 	unsigned long jiffies;
+-	unsigned int req_tx_status:1;
+-	unsigned int do_not_encrypt:1;
+-	unsigned int requeue:1;
+-	unsigned int mgmt_iface:1;
+-	unsigned int queue:4;
++#define IEEE80211_TXPD_REQ_TX_STATUS	BIT(0)
++#define IEEE80211_TXPD_DO_NOT_ENCRYPT	BIT(1)
++#define IEEE80211_TXPD_REQUEUE		BIT(2)
++#define IEEE80211_TXPD_MGMT_IFACE	BIT(3)
++	unsigned int flags;
++	u8 queue;
+ };
+ 
+ struct ieee80211_tx_stored_packet {
+diff --git a/net/mac80211/ieee80211_sta.c b/net/mac80211/ieee80211_sta.c
+index b996332..75521ae 100644
+--- a/net/mac80211/ieee80211_sta.c
++++ b/net/mac80211/ieee80211_sta.c
+@@ -506,8 +506,10 @@ static void ieee80211_sta_tx(struct net_device *dev, struct sk_buff *skb,
+ 	pkt_data = (struct ieee80211_tx_packet_data *) skb->cb;
+ 	memset(pkt_data, 0, sizeof(struct ieee80211_tx_packet_data));
+ 	pkt_data->ifindex = sdata->dev->ifindex;
+-	pkt_data->mgmt_iface = (sdata->type == IEEE80211_IF_TYPE_MGMT);
+-	pkt_data->do_not_encrypt = !encrypt;
++	if (sdata->type == IEEE80211_IF_TYPE_MGMT)
++		pkt_data->flags |= IEEE80211_TXPD_MGMT_IFACE;
++	if (!encrypt)
++		pkt_data->flags |= IEEE80211_TXPD_DO_NOT_ENCRYPT;
+ 
+ 	dev_queue_xmit(skb);
+ }
+diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+index 0a10720..948eb2f 100644
+--- a/net/mac80211/rx.c
++++ b/net/mac80211/rx.c
+@@ -415,7 +415,7 @@ static int ap_sta_ps_end(struct net_device *dev, struct sta_info *sta)
+ 	while ((skb = skb_dequeue(&sta->tx_filtered)) != NULL) {
+ 		pkt_data = (struct ieee80211_tx_packet_data *) skb->cb;
+ 		sent++;
+-		pkt_data->requeue = 1;
++		pkt_data->flags |= IEEE80211_TXPD_REQUEUE;
+ 		dev_queue_xmit(skb);
+ 	}
+ 	while ((skb = skb_dequeue(&sta->ps_tx_buf)) != NULL) {
+@@ -427,7 +427,7 @@ static int ap_sta_ps_end(struct net_device *dev, struct sta_info *sta)
+ 		       "since STA not sleeping anymore\n", dev->name,
+ 		       MAC_ARG(sta->addr), sta->aid);
+ #endif /* CONFIG_MAC80211_VERBOSE_PS_DEBUG */
+-		pkt_data->requeue = 1;
++		pkt_data->flags |= IEEE80211_TXPD_REQUEUE;
+ 		dev_queue_xmit(skb);
+ 	}
+ 
+diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
+index b57a592..3d05f8f 100644
+--- a/net/mac80211/tx.c
++++ b/net/mac80211/tx.c
+@@ -1248,11 +1248,11 @@ int ieee80211_master_start_xmit(struct sk_buff *skb,
+ 
+ 	control.ifindex = odev->ifindex;
+ 	control.type = osdata->type;
+-	if (pkt_data->req_tx_status)
++	if (pkt_data->flags & IEEE80211_TXPD_REQ_TX_STATUS)
+ 		control.flags |= IEEE80211_TXCTL_REQ_TX_STATUS;
+-	if (pkt_data->do_not_encrypt)
++	if (pkt_data->flags & IEEE80211_TXPD_DO_NOT_ENCRYPT)
+ 		control.flags |= IEEE80211_TXCTL_DO_NOT_ENCRYPT;
+-	if (pkt_data->requeue)
++	if (pkt_data->flags & IEEE80211_TXPD_REQUEUE)
+ 		control.flags |= IEEE80211_TXCTL_REQUEUE;
+ 	control.queue = pkt_data->queue;
+ 
+@@ -1294,8 +1294,7 @@ int ieee80211_monitor_start_xmit(struct sk_buff *skb,
+ 	/* needed because we set skb device to master */
+ 	pkt_data->ifindex = dev->ifindex;
+ 
+-	pkt_data->mgmt_iface = 0;
+-	pkt_data->do_not_encrypt = 1;
++	pkt_data->flags |= IEEE80211_TXPD_DO_NOT_ENCRYPT;
+ 
+ 	/*
+ 	 * fix up the pointers accounting for the radiotap
+@@ -1346,7 +1345,7 @@ int ieee80211_subif_start_xmit(struct sk_buff *skb,
+ 	struct ieee80211_hdr hdr;
+ 	const u8 *encaps_data;
+ 	int encaps_len, skip_header_bytes;
+-	int nh_pos, h_pos, no_encrypt = 0;
++	int nh_pos, h_pos;
+ 	struct sta_info *sta;
+ 
+ 	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+@@ -1492,8 +1491,8 @@ int ieee80211_subif_start_xmit(struct sk_buff *skb,
+ 	pkt_data = (struct ieee80211_tx_packet_data *)skb->cb;
+ 	memset(pkt_data, 0, sizeof(struct ieee80211_tx_packet_data));
+ 	pkt_data->ifindex = dev->ifindex;
+-	pkt_data->mgmt_iface = (sdata->type == IEEE80211_IF_TYPE_MGMT);
+-	pkt_data->do_not_encrypt = no_encrypt;
++	if (sdata->type == IEEE80211_IF_TYPE_MGMT)
++		pkt_data->flags |= IEEE80211_TXPD_MGMT_IFACE;
+ 
+ 	skb->dev = local->mdev;
+ 	sdata->stats.tx_packets++;
+@@ -1551,7 +1550,8 @@ int ieee80211_mgmt_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	pkt_data = (struct ieee80211_tx_packet_data *) skb->cb;
+ 	memset(pkt_data, 0, sizeof(struct ieee80211_tx_packet_data));
+ 	pkt_data->ifindex = sdata->dev->ifindex;
+-	pkt_data->mgmt_iface = (sdata->type == IEEE80211_IF_TYPE_MGMT);
++	if (sdata->type == IEEE80211_IF_TYPE_MGMT)
++		pkt_data->flags |= IEEE80211_TXPD_MGMT_IFACE;
+ 
+ 	skb->priority = 20; /* use hardcoded priority for mgmt TX queue */
+ 	skb->dev = sdata->local->mdev;
+@@ -1561,12 +1561,13 @@ int ieee80211_mgmt_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 * to request TX callback for hostapd. BIT(1) is checked.
+ 	 */
+ 	if ((fc & BIT(1)) == BIT(1)) {
+-		pkt_data->req_tx_status = 1;
++		pkt_data->flags |= IEEE80211_TXPD_REQ_TX_STATUS;
+ 		fc &= ~BIT(1);
+ 		hdr->frame_control = cpu_to_le16(fc);
+ 	}
+ 
+-	pkt_data->do_not_encrypt = !(fc & IEEE80211_FCTL_PROTECTED);
++	if (!(fc & IEEE80211_FCTL_PROTECTED))
++		pkt_data->flags |= IEEE80211_TXPD_DO_NOT_ENCRYPT;
+ 
+ 	sdata->stats.tx_packets++;
+ 	sdata->stats.tx_bytes += skb->len;
+diff --git a/net/mac80211/wme.c b/net/mac80211/wme.c
+index 99a792c..d3c81fe 100644
+--- a/net/mac80211/wme.c
++++ b/net/mac80211/wme.c
+@@ -110,7 +110,7 @@ static inline int classify80211(struct sk_buff *skb, struct Qdisc *qd)
+ 		return IEEE80211_TX_QUEUE_DATA0;
+ 	}
+ 
+-	if (unlikely(pkt_data->mgmt_iface)) {
++	if (unlikely(pkt_data->flags & IEEE80211_TXPD_MGMT_IFACE)) {
+ 		/* Data frames from hostapd (mainly, EAPOL) use AC_VO
+ 		* and they will include QoS control fields if
+ 		* the target STA is using WME. */
+@@ -179,7 +179,7 @@ static int wme_qdiscop_enqueue(struct sk_buff *skb, struct Qdisc* qd)
+ 	struct Qdisc *qdisc;
+ 	int err, queue;
+ 
+-	if (pkt_data->requeue) {
++	if (pkt_data->flags & IEEE80211_TXPD_REQUEUE) {
+ 		skb_queue_tail(&q->requeued[pkt_data->queue], skb);
+ 		qd->q.qlen++;
+ 		return 0;
