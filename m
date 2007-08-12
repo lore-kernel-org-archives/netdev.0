@@ -1,32 +1,46 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH 2.6.24]S2io: Default to IntA interrupt type when there are less than 4 CPUs in the system.
-Date: 12 Aug 2007 19:15:38 +0200
-Message-ID: <p73sl6oishx.fsf@bingen.suse.de>
-References: <46BCA2B0.7020501@garzik.org>
-	<78C9135A3D2ECE4B8162EBDCE82CAD7702035B30@nekter>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Jeff Garzik" <jeff@garzik.org>, "Rick Jones" <rick.jones2@hp.com>,
-	"Sivakumar Subramani" <Sivakumar.Subramani@neterion.com>,
-	<netdev@vger.kernel.org>, "support" <support@neterion.com>
-To: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
+From: Segher Boessenkool <segher@kernel.crashing.org>
+Subject: Re: [PATCH] make atomic_t volatile on all architectures
+Date: Sun, 12 Aug 2007 18:30:32 +0200
+Message-ID: <74868f39491f8691afc5540f72679129@kernel.crashing.org>
+References: <20070808230733.GA17270@shell.boston.redhat.com> <alpine.LFD.0.999.0708082116060.25146@woody.linux-foundation.org> <46BAC2BE.1090106@redhat.com> <46BB508B.7050601@redhat.com> <alpine.LFD.0.999.0708091055080.25146@woody.linux-foundation.org> <1186683646.9669.20.camel@localhost> <a599bc5062d557db46496f0d7c7886b0@kernel.crashing.org> <alpine.LFD.0.999.0708112305170.30176@woody.linux-foundation.org> <1186912098.3852.11.camel@localhost>
+Mime-Version: 1.0 (Apple Message framework v623)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: wjiang@resilience.com,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	wensong@linux-vs.org, heiko.carstens@de.ibm.com,
+	linux-kernel@vger.kernel.org, ak@suse.de, cfriesen@nortel.com,
+	netdev@vger.kernel.org, horms@verge.net.au,
+	akpm@linux-foundation.org, Chuck Ebbert <cebbert@redhat.com>,
+	davem@davemloft.net, zlynx@acm.org, Chris Snook <csnook@redhat.com>
+To: schwidefsky@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:43417 "EHLO mx2.suse.de"
+Received: from gate.crashing.org ([63.228.1.57]:50408 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762940AbXHLQVd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Aug 2007 12:21:33 -0400
-In-Reply-To: <78C9135A3D2ECE4B8162EBDCE82CAD7702035B30@nekter>
+	id S1753884AbXHLQgh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Aug 2007 12:36:37 -0400
+In-Reply-To: <1186912098.3852.11.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com> writes:
+>> "+m" works. We use it. It's better than the alternatives. Pointing to
+>> stale documentation doesn't change anything.
+>
+> Well, perhaps on i386. I've seen some older versions of the s390 gcc 
+> die
+> with an ICE because I have used "+m" in some kernel inline assembly. 
+> I'm
+> happy to hear that this issue is fixed in recent gcc. Now I'll have to
+> find out if this is already true with gcc 3.x.
 
-> In one of the variations of this driver that is not
-> released to netdev, the received packets are steered to a channel based
-> on hashing on a preconfigured criteria such as sockets on tcp_ipv4,
-> udp_ipv4, tcp_ipv6, udp_ipv6 or addresses in ipv4/6.
+It was fixed (that is, "+m" is translated into a separate read
+and write by GCC itself) in GCC-4.0.0, I just learnt.
 
-Why is it not released for mainline? It sounds interesting.
+> The duplication "=m" and "m" with the same constraint is rather 
+> annoying.
 
--Andi
+Yeah.  Compiler errors are more annoying though I dare say ;-)
+
+
+Segher
 
