@@ -1,77 +1,125 @@
 From: Daniel Phillips <phillips@phunq.net>
-Subject: Re: [1/1] Block device throttling [Re: Distributed storage.]
-Date: Sun, 12 Aug 2007 16:16:10 -0700
-Message-ID: <200708121616.10670.phillips@phunq.net>
-References: <20070731171347.GA14267@2ka.mipt.ru> <20070808095448.GA3440@2ka.mipt.ru> <20070808101708.GA23815@2ka.mipt.ru>
+Subject: Re: Distributed storage.
+Date: Sun, 12 Aug 2007 16:36:59 -0700
+Message-ID: <200708121637.00144.phillips@phunq.net>
+References: <20070731171347.GA14267@2ka.mipt.ru> <200708071124.56859.phillips@phunq.net> <20070807205538.GB5245@kernel.dk>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org,
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	Peter Zijlstra <peterz@infradead.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Jens Axboe <jens.axboe@oracle.com>
 Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20070808101708.GA23815@2ka.mipt.ru>
+In-Reply-To: <20070807205538.GB5245@kernel.dk>
 Content-Disposition: inline
 Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Evgeniy,
+On Tuesday 07 August 2007 13:55, Jens Axboe wrote:
+> I don't like structure bloat, but I do like nice design. Overloading
+> is a necessary evil sometimes, though. Even today, there isn't enough
+> room to hold bi_rw and bi_flags in the same variable on 32-bit archs,
+> so that concern can be scratched. If you read bio.h, that much is
+> obvious.
 
-Sorry for not getting back to you right away, I was on the road with 
-limited email access.  Incidentally, the reason my mails to you keep 
-bouncing is, your MTA is picky about my mailer's IP reversing to a real 
-hostname.  I will take care of that pretty soon, but for now my direct 
-mail to you is going to bounce and you will only see the lkml copy.
+Sixteen bits in bi_rw are consumed by queue priority.  Is there a reason 
+this lives in struct bio instead of struct request?
 
-On Wednesday 08 August 2007 03:17, Evgeniy Polyakov wrote:
-> This throttling mechanism allows to limit maximum amount of queued
-> bios per physical device. By default it is turned off and old block
-> layer behaviour with unlimited number of bios is used. When turned on
-> (queue limit is set to something different than -1U via
-> blk_set_queue_limit()), generic_make_request() will sleep until there
-> is room in the queue. number of bios is increased in
-> generic_make_request() and reduced either in bio_endio(), when bio is
-> completely processed (bi_size is zero), and recharged from original
-> queue when new device is assigned to bio via blk_set_bdev(). All
-> oerations are not atomic, since we do not care about precise number
-> of bios, but a fact, that we are close or close enough to the limit.
+> If you check up on the iommu virtual merging, you'll understand the
+> front and back size members. They may smell dubious to you, but
+> please take the time to understand why it looks the way it does.
+
+Virtual merging is only needed at the physical device, so why do these 
+fields live in struct bio instead of struct request?
+
+> Changing the number of bvecs is integral to how bio buildup current
+> works.
+
+Right, that is done by bi_vcnt.  I meant bi_max_vecs, which you can 
+derive efficiently from BIO_POOL_IDX() provided the bio was allocated 
+in the standard way.  This leaves a little bit of clean up to do for 
+bios not allocated from a standard pool.
+
+Incidentally, why does the bvl need to be memset to zero on allocation?  
+bi_vcnt already tells you which bvecs are valid and the only field in a 
+bvec that can reasonably default to zero is the offset, which ought to 
+be set set every time a bvec is initialized anyway.
+
+> > bi_destructor could be combined.  I don't see a lot of users of
+> > bi_idx,
 >
-> Tested on distributed storage device - with limit of 2 bios it works
-> slow :)
+> bi_idx is integral to partial io completions.
 
-it seems to me you need:
+Struct request has a remaining submission sector count so what does 
+bi_idx do that is different?
 
--               if (q) {
-+               if (q && q->bio_limit != -1) {
+> > that looks like a soft target.  See what happened to struct page
+> > when a couple of folks got serious about attacking it, some really
+> > deep hacks were done to pare off a few bytes here and there.  But
+> > struct bio as a space waster is not nearly in the same ballpark.
+>
+> So show some concrete patches and examples, hand waving and
+> assumptions is just a waste of everyones time.
 
-This patch is short and simple, and will throttle more accurately than 
-the current simplistic per-request allocation limit.  However, it fails 
-to throttle device mapper devices.  This is because no request is 
-allocated by the device mapper queue method, instead the mapping call 
-goes straight through to the mapping function.  If the mapping function 
-allocates memory (typically the case) then this resource usage evades 
-throttling and deadlock becomes a risk.
+Average struct bio memory footprint ranks near the bottom of the list of 
+things that suck most about Linux storage.  At idle I see 8K in use 
+(reserves); during updatedb it spikes occasionally to 50K; under a 
+heavy  load generated by ddsnap on a storage box it sometimes goes to 
+100K with bio throttling in place.  Really not moving the needle.
 
-There are three obvious fixes:
+On the other hand, vm writeout deadlock ranks smack dab at the top of 
+the list, so that is where the patching effort must go for the 
+forseeable future.  Without bio throttling, the ddsnap load can go to 
+24 MB for struct bio alone.  That definitely moves the needle.  in 
+short, we save 3,200 times more memory by putting decent throttling in 
+place than by saving an int in struct bio.
 
-   1) Implement bio throttling in each virtual block device
-   2) Implement bio throttling generically in device mapper
-   3) Implement bio throttling for all block devices
+That said, I did a little analysis to get an idea of where the soft 
+targets are in struct bio, and to get to know the bio layer a little 
+better.  Maybe these few hints will get somebody interested enough to 
+look further.
 
-Number 1 is the approach we currently use in ddsnap, but it is ugly and 
-repetitious.  Number 2 is a possibility, but I favor number 3 because 
-it is a system-wide solution to a system-wide problem, does not need to 
-be repeated for every block device that lacks a queue, heads in the 
-direction of code subtraction, and allows system-wide reserve 
-accounting. 
+> > It would be interesting to see if bi_bdev could be made read only.
+> > Generally, each stage in the block device stack knows what the next
+> > stage is going to be, so why do we have to write that in the bio? 
+> > For error reporting from interrupt context?  Anyway, if Evgeniy
+> > wants to do the patch, I will happily unload the task of convincing
+> > you that random fields are/are not needed in struct bio :-)
+>
+> It's a trade off, otherwise you'd have to pass the block device
+> around a lot.
 
-Your patch is close to the truth, but it needs to throttle at the top 
-(virtual) end of each block device stack instead of the bottom 
-(physical) end.  It does head in the direction of eliminating your own 
-deadlock risk indeed, however there are block devices it does not 
-cover.
+Which costs very little, probably less than trashing an extra field's 
+worth of cache.
+
+> And it's, again, a design issue. A bio contains 
+> destination information, that means device/offset/size information.
+> I'm all for shaving structure bytes where it matters, but not for the
+> sake of sacrificing code stability or design. I consider struct bio
+> quite lean and have worked hard to keep it that way. In fact, iirc,
+> the only addition to struct bio since 2001 is the iommu front/back
+> size members. And I resisted those for quite a while.
+
+You did not comment on the one about putting the bio destructor in 
+the ->endio handler, which looks dead simple.  The majority of cases 
+just use the default endio handler and the default destructor.  Of the 
+remaining cases, where a specialized destructor is needed, typically a 
+specialized endio handler is too, so combining is free.  There are few 
+if any cases where a new specialized endio handler would need to be 
+written.
+
+As far as code stability goes, current kernels are horribly unstable in 
+a variety of contexts because of memory deadlock and slowdowns related 
+to the attempt to fix the problem via dirty memory limits.  Accurate 
+throttling of bio traffic is one of the two key requirements to fix 
+this instability, the other other is accurate writeout path reserve 
+management, which is only partially addressed by BIO_POOL.
+
+Nice to see you jumping in Jens.  Now it is over to the other side of 
+the thread where Evgeniy has posted a patch that a) grants your wish to 
+add no new field in struct bio and b) does not fix the problem.
 
 Regards,
 
