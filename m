@@ -1,88 +1,68 @@
-From: michael trimarchi <trimarchi@gandalf.sssup.it>
-Subject: dm9000: add set_mac_address() v2
-Date: Sun, 12 Aug 2007 23:20:09 +0200
-Message-ID: <20070812212009.GD27490@gandalf.sssup.it>
-References: <20070812192741.GB27490@gandalf.sssup.it> <200708122338.08523.mb@bu3sch.de>
+From: Jesper Juhl <jesper.juhl@gmail.com>
+Subject: [PATCH 6/6][RESEND] Avoid possible NULL pointer deref in 3c359 driver
+Date: Mon, 13 Aug 2007 00:22:53 +0200
+Message-ID: <200708130022.53998.jesper.juhl@gmail.com>
+References: <200708130016.11281.jesper.juhl@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzi@pobox.com, netdev@vger.kernel.org
-To: Michael Buesch <mb@bu3sch.de>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Mike Phillips <mikep@linuxtr.net>, netdev@vger.kernel.org,
+	linux-tr@linuxtr.net, davem@davemloft.net,
+	Jesper Juhl <jesper.juhl@gmail.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ms01.sssup.it ([193.205.80.99]:35389 "EHLO sssup.it"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1765221AbXHLWXJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Aug 2007 18:23:09 -0400
+Received: from ug-out-1314.google.com ([66.249.92.174]:43967 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759763AbXHLWZT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Aug 2007 18:25:19 -0400
+Received: by ug-out-1314.google.com with SMTP id j3so542238ugf
+        for <netdev@vger.kernel.org>; Sun, 12 Aug 2007 15:25:18 -0700 (PDT)
+In-Reply-To: <200708130016.11281.jesper.juhl@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <200708122338.08523.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implement set_mac_address() for the dm9000 driver.  This allows changing
-the mac address of the interface. Fix BigEndian problem.
- 
-Signed-off-by: Michael Trimarchi <trimarchi@gandalf.sssup.it>
+(Resending old patch originally submitted at 1/7-2007 02:19, 04-Aug-2007 20:31)
+
+In xl_freemem(), if dev_if is NULL, the line
+  struct xl_private *xl_priv =(struct xl_private *)dev->priv;
+will cause a NULL pointer dereference. However, if we move
+that assignment below the 'if' statement that tests for a NULL
+'dev', then that NULL deref can never happen.
+It never hurts to be safe :-)
+
+
+Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
 ---
 
---- linux-2.6.22/drivers/net/dm9000.c.orig	2007-07-09 01:32:17.000000000 +0200
-+++ linux-2.6.22/drivers/net/dm9000.c	2007-08-13 00:15:38.000000000 +0200
-@@ -161,6 +161,8 @@ static irqreturn_t dm9000_interrupt(int,
- static int dm9000_phy_read(struct net_device *dev, int phyaddr_unsused, int reg);
- static void dm9000_phy_write(struct net_device *dev, int phyaddr_unused, int reg,
- 			   int value);
-+static int dm9000_eth_set_mac_address(struct net_device *dev, void *p);
-+
- static u16 read_srom_word(board_info_t *, int);
- static void dm9000_rx(struct net_device *);
- static void dm9000_hash_table(struct net_device *);
-@@ -546,6 +548,7 @@ dm9000_probe(struct platform_device *pde
- 	ndev->stop		 = &dm9000_stop;
- 	ndev->get_stats		 = &dm9000_get_stats;
- 	ndev->set_multicast_list = &dm9000_hash_table;
-+	ndev->set_mac_address	 = &dm9000_eth_set_mac_address;
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	ndev->poll_controller	 = &dm9000_poll_controller;
- #endif
-@@ -986,7 +989,6 @@ read_srom_word(board_info_t * db, int of
- 	return (ior(db, DM9000_EPDRL) + (ior(db, DM9000_EPDRH) << 8));
- }
+diff --git a/drivers/net/tokenring/3c359.c b/drivers/net/tokenring/3c359.c
+index e22a3f5..671f4da 100644
+--- a/drivers/net/tokenring/3c359.c
++++ b/drivers/net/tokenring/3c359.c
+@@ -1044,15 +1044,17 @@ static void xl_freemem(struct net_device *dev)
+ static irqreturn_t xl_interrupt(int irq, void *dev_id) 
+ {
+ 	struct net_device *dev = (struct net_device *)dev_id;
+- 	struct xl_private *xl_priv =(struct xl_private *)dev->priv;
+-	u8 __iomem * xl_mmio = xl_priv->xl_mmio ; 
+-	u16 intstatus, macstatus  ;
++ 	struct xl_private *xl_priv;
++	u8 __iomem * xl_mmio; 
++	u16 intstatus, macstatus;
  
--#ifdef DM9000_PROGRAM_EEPROM
- /*
-  * Write a word data to SROM
-  */
-@@ -1002,6 +1004,35 @@ write_srom_word(board_info_t * db, int o
- }
+ 	if (!dev) { 
+-		printk(KERN_WARNING "Device structure dead, aaahhhh !\n") ;
++		printk(KERN_WARNING "3c359: Device structure dead, aaahhhh!\n");
+ 		return IRQ_NONE; 
+ 	}
  
- /*
-+ * dm9000_eth_set_mac_address
-+ *
-+ * Change the interface's mac address.
-+ *
-+ */
-+static int 
-+dm9000_eth_set_mac_address(struct net_device *dev, void *p)
-+{
-+	board_info_t *db = (board_info_t *) dev->priv;
-+	struct sockaddr *addr = p;
-+	int i;
-+
-+	if (!is_valid_ether_addr(addr->sa_data))
-+		return -EADDRNOTAVAIL;
-+
-+	if (netif_running(dev))
-+		return -EBUSY;
-+
-+	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
-+
-+	for (i = 0; i < 3; i++)
-+		write_srom_word(db, i,
-+				cpu_to_le16(((u16 *) (addr->sa_data))[i]));
-+
-+	return 0;
-+}
-+
-+#ifdef DM9000_PROGRAM_EEPROM
-+/*
-  * Only for development:
-  * Here we write static data to the eeprom in case
-  * we don't have valid content on a new board
++	xl_priv = (struct xl_private *)dev->priv;
++	xl_mmio = xl_priv->xl_mmio;
+ 	intstatus = readw(xl_mmio + MMIO_INTSTATUS) ;  
+ 
+ 	if (!(intstatus & 1)) /* We didn't generate the interrupt */
+
+
+
