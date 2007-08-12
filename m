@@ -1,361 +1,61 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [RFC: -mm patch] improve the SSB dependencies
-Date: Sun, 12 Aug 2007 01:08:55 +0200
-Message-ID: <20070811230855.GA8907@stusta.de>
-References: <200708110208.21624.mb@bu3sch.de> <200708111136.46781.mb@bu3sch.de> <20070811143002.GE22213@stusta.de> <200708111642.39348.mb@bu3sch.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Adrian Bunk <bunk@kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	John Linville <linville@tuxdriver.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Michael Buesch <mb@bu3sch.de>
+From: Segher Boessenkool <segher@kernel.crashing.org>
+Subject: Re: [PATCH] make atomic_t volatile on all architectures
+Date: Sun, 12 Aug 2007 07:53:58 +0200
+Message-ID: <a599bc5062d557db46496f0d7c7886b0@kernel.crashing.org>
+References: <20070808230733.GA17270@shell.boston.redhat.com> <alpine.LFD.0.999.0708082116060.25146@woody.linux-foundation.org> <46BAC2BE.1090106@redhat.com> <46BB508B.7050601@redhat.com> <alpine.LFD.0.999.0708091055080.25146@woody.linux-foundation.org> <1186683646.9669.20.camel@localhost>
+Mime-Version: 1.0 (Apple Message framework v623)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: wjiang@resilience.com,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	wensong@linux-vs.org, heiko.carstens@de.ibm.com,
+	linux-kernel@vger.kernel.org, ak@suse.de, cfriesen@nortel.com,
+	netdev@vger.kernel.org, horms@verge.net.au,
+	akpm@linux-foundation.org, Chuck Ebbert <cebbert@redhat.com>,
+	davem@davemloft.net, zlynx@acm.org, Chris Snook <csnook@redhat.com>
+To: schwidefsky@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:42260 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753569AbXHKXJJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Aug 2007 19:09:09 -0400
-Content-Disposition: inline
-In-Reply-To: <200708111642.39348.mb@bu3sch.de>
+Received: from gate.crashing.org ([63.228.1.57]:42304 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752793AbXHLFzF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Aug 2007 01:55:05 -0400
+In-Reply-To: <1186683646.9669.20.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 11, 2007 at 04:42:39PM +0200, Michael Buesch wrote:
-> On Saturday 11 August 2007 16:30:02 Adrian Bunk wrote:
-> > And offering more options than required or manually sending users into 
-> > other menus are bad thing for your users.
-> 
-> Breaking compilations are as bad.
-> So, does your example actually work in practice and not only
-> in theory, too? My select stuff should have worked in theory, too.
-> But it broke, for whatever reasons on whatever weird setups.
-> 
-> We somehow are in an endless loop here:
-> 
-> loop:
-> 	implement it with select
-> 	people complain select it bad and suggest to implement it with depends on
-> 	implement it with depends on
-> 	either
-> 		users don't find it anymore
-> 		users complain
-> 	or
-> 		it needs way to tell the user what to select first
-> 		developers complain
-> 	goto loop
-> 
-> ;)
+>> You'd have to use "+m".
+>
+> Yes, though I would use "=m" on the output list and "m" on the input
+> list. The reason is that I've seen gcc fall on its face with an ICE on
+> s390 due to "+m". The explanation I've got from our compiler people was
+> quite esoteric, as far as I remember gcc splits "+m" to an input 
+> operand
+> and an output operand. Now it can happen that the compiler chooses two
+> different registers to access the same memory location. "+m" requires
+> that the two memory references are identical which causes the ICE if
+> they are not.
 
-It's your fault that you base your work on an algorithm lacking the 
-essential steps
-	fix it properly
-	goto out
-;-)
+The problem is very nicely described here, last paragraph:
+<http://gcc.gnu.org/ml/gcc-patches/2007-07/msg01816.html>
 
-More seriously, below is a patch doing what I have in mind.
+It's not a problem anymore in (very) recent GCC, although
+that of course won't help you in the kernel (yet).
 
-> Greetings Michael.
+> I do not know if the current compilers still do this. Has
+> anyone else seen this happen ?
 
-cu
-Adrian
+In recent GCC, it's actually documented:
+
+	 The ordinary output operands must be write-only; GCC will assume that
+	the values in these operands before the instruction are dead and need
+	not be generated.  Extended asm supports input-output or read-write
+	operands.  Use the constraint character `+' to indicate such an operand
+	and list it with the output operands.  You should only use read-write
+	operands when the constraints for the operand (or the operand in which
+	only some of the bits are to be changed) allow a register.
+
+Note that last line.
 
 
-<--  snip  -->
-
-
-This patch adds *_POSSIBLE helper variables for all SSB* variables that 
-get select'ed. They indicate whether this variable can be select'ed, 
-IOW: whether it's dependencies are fulfilled.
-
-
-Usage in drivers:
-
-
-If you need SSB support:
-
-config FOO
-	tristate "foo"
-	depends on SSB_POSSIBLE
-	select SSB
-
-
-If you need SSB_BAZ support:
-
-config BAR
-	tristate "bar"
-	depends on SSB_BAZ_POSSIBLE
-	select SSB
-	select SSB_BAZ
-
-
-If your driver needs SSB and has optional functionality requiring SSB_BAZ:
-
-config FOOBAR
-	tristate "foobar
-	depends on SSB_POSSIBLE
-	select SSB
-
-# due to being "bool" this suboption shouldn't directly select SSB
-# SSB is already select'ed by FOOBAR
-config FOOBAR_BAZ
-	bool "baz support in foobar"
-	depends on FOOBAR && SSB_BAZ_POSSIBLE
-	select SSB_BAZ
-
-
-After this patch, SSB_BAZ can be one of:
-- SSB_PCIHOST
-- SSB_DRIVER_PCICORE
-- SSB_PCMCIAHOST
-- SSB_DEBUG
-
-
-Additional changes in this patch:
-- small help text changes
-- B44_PCI is no longer usr visible (automatically enabled when possible)
-- let SSB_SILENT depend on EMBEDDED (unless you are in a very
-  space restricted environment you don't need to enable it)
-- make the following options no longer user visible
-  (they are select'ed when required):
-  - SSB_PCIHOST
-  - SSB_DRIVER_PCICORE
-  - SSB_PCMCIAHOST
-
-
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
-
----
-
- drivers/net/Kconfig                           |   12 ---
- drivers/net/wireless/bcm43xx-mac80211/Kconfig |   10 +-
- drivers/ssb/Kconfig                           |   72 ++++++++++--------
- drivers/usb/host/Kconfig                      |    4 -
- 4 files changed, 51 insertions(+), 47 deletions(-)
-
-6ed573214282b96e7714b33b89a7221c01efbb86 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index cea1979..a4f0c2f 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1435,6 +1435,7 @@ config APRICOT
- config B44
- 	tristate "Broadcom 440x/47xx ethernet support"
- 	depends on HAS_IOMEM
-+	depends on SSB_POSSIBLE
- 	select SSB
- 	select MII
- 	help
-@@ -1452,17 +1453,10 @@ config B44
- 	  called b44.
- 
- config B44_PCI
--	bool "Broadcom 440x PCI device support"
--	depends on B44 && NET_PCI
--	select SSB_PCIHOST
-+	bool
-+	depends on B44 && SSB_DRIVER_PCICORE_POSSIBLE
- 	select SSB_DRIVER_PCICORE
- 	default y
--	help
--	  Support for Broadcom 440x PCI devices.
--
--	  Say Y, unless you know what you are doing.
--	  If you say N here I will _not_ listen to your
--	  bugreports!
- 
- config FORCEDETH
- 	tristate "nForce Ethernet support"
-diff --git a/drivers/net/wireless/bcm43xx-mac80211/Kconfig b/drivers/net/wireless/bcm43xx-mac80211/Kconfig
-index 8f9df0e..8af8535 100644
---- a/drivers/net/wireless/bcm43xx-mac80211/Kconfig
-+++ b/drivers/net/wireless/bcm43xx-mac80211/Kconfig
-@@ -1,6 +1,6 @@
- config BCM43XX_MAC80211
- 	tristate "Broadcom BCM43xx wireless support (mac80211 stack)"
--	depends on MAC80211 && WLAN_80211 && EXPERIMENTAL
-+	depends on MAC80211 && WLAN_80211 && SSB_POSSIBLE && EXPERIMENTAL
- 	select FW_LOADER
- 	select SSB
- 	select HW_RANDOM
-@@ -10,8 +10,8 @@ config BCM43XX_MAC80211
- 
- config BCM43XX_MAC80211_PCI
- 	bool "BCM43xx PCI device support"
--	depends on BCM43XX_MAC80211 && PCI
--	select SSB_PCIHOST
-+	depends on BCM43XX_MAC80211
-+	depends on SSB_DRIVER_PCICORE_POSSIBLE
- 	select SSB_DRIVER_PCICORE
- 	default y
- 	---help---
-@@ -24,7 +24,7 @@ config BCM43XX_MAC80211_PCI
- 
- config BCM43XX_MAC80211_PCMCIA
- 	bool "BCM43xx PCMCIA device support"
--	depends on BCM43XX_MAC80211 && PCMCIA
-+	depends on BCM43XX_MAC80211 && SSB_PCMCIAHOST_POSSIBLE
- 	select SSB_PCMCIAHOST
- 	---help---
- 	  Broadcom 43xx PCMCIA device support.
-@@ -45,7 +45,7 @@ config BCM43XX_MAC80211_PCMCIA
- config BCM43XX_MAC80211_DEBUG
- 	bool "Broadcom BCM43xx debugging (RECOMMENDED)"
- 	depends on BCM43XX_MAC80211
--	select SSB_DEBUG if !SSB_SILENT
-+	select SSB_DEBUG if SSB_DEBUG_POSSIBLE
- 	default y
- 	---help---
- 	  Broadcom 43xx debugging messages.
-diff --git a/drivers/ssb/Kconfig b/drivers/ssb/Kconfig
-index 094703c..366c888 100644
---- a/drivers/ssb/Kconfig
-+++ b/drivers/ssb/Kconfig
-@@ -1,37 +1,42 @@
- menu "Sonics Silicon Backplane"
- 
-+config SSB_POSSIBLE
-+	bool
-+	depends on EXPERIMENTAL && HAS_IOMEM
-+	default y
-+
- config SSB
- 	tristate "Sonics Silicon Backplane support"
--	depends on EXPERIMENTAL && HAS_IOMEM
-+	depends on SSB_POSSIBLE
- 	help
--	  Support for the Sonics Silicon Backplane bus
-+	  Support for the Sonics Silicon Backplane bus.
-+	  You only need to enable this option if you are
-+	  configuring a kernel for an embedded system with
-+	  this bus.
- 
--	  The module will be called ssb
-+	  The module will be called ssb.
- 
--	  If unsure, say M
-+	  If unsure, say N.
- 
--config SSB_PCIHOST
--	bool "Support for SSB on PCI-bus host"
--	depends on SSB && PCI
-+config SSB_PCIHOST_POSSIBLE
-+	bool
-+	depends on SSB_POSSIBLE && PCI
- 	default y
--	help
--	  Support for a Sonics Silicon Backplane on top
--	  of a PCI device.
- 
--	  If unsure, say Y
-+config SSB_PCIHOST
-+	bool
- 
--config SSB_PCMCIAHOST
--	bool "Support for SSB on PCMCIA-bus host"
--	depends on SSB && PCMCIA
--	help
--	  Support for a Sonics Silicon Backplane on top
--	  of a PCMCIA device.
-+config SSB_PCMCIAHOST_POSSIBLE
-+	bool
-+	depends on SSB_POSSIBLE && PCMCIA
-+	default y
- 
--	  If unsure, say N
-+config SSB_PCMCIAHOST
-+	bool
- 
- config SSB_SILENT
- 	bool "No SSB kernel messages"
--	depends on SSB
-+	depends on SSB && EMBEDDED
- 	help
- 	  This option turns off all Sonics Silicon Backplane printks.
- 	  Note that you won't be able to identify problems, once
-@@ -39,30 +44,35 @@ config SSB_SILENT
- 	  This might only be desired for production kernels on
- 	  embedded devices to reduce the kernel size.
- 
--	  Say N
-+	  If unsure, say N.
-+
-+config SSB_DEBUG_POSSIBLE
-+	bool
-+	depends on SSB && !SSB_SILENT
-+	default y
- 
- config SSB_DEBUG
- 	bool "SSB debugging"
--	depends on SSB && !SSB_SILENT
-+	depends on SSB_DEBUG_POSSIBLE
- 	help
- 	  This turns on additional runtime checks and debugging
- 	  messages. Turn this on for SSB troubleshooting.
- 
--	  If unsure, say N
-+	  If unsure, say N.
- 
- config SSB_SERIAL
- 	bool
- 	depends on SSB
- 	# ChipCommon and ExtIf serial support routines.
- 
--config SSB_DRIVER_PCICORE
--	bool "SSB PCI core driver"
--	depends on SSB && SSB_PCIHOST
--	help
--	  Driver for the Sonics Silicon Backplane attached
--	  Broadcom PCI core.
-+config SSB_DRIVER_PCICORE_POSSIBLE
-+	bool
-+	depends on SSB_PCIHOST_POSSIBLE
-+	default y
- 
--	  If unsure, say Y
-+config SSB_DRIVER_PCICORE
-+	bool
-+	select SSB_PCIHOST
- 
- config SSB_PCICORE_HOSTMODE
- 	bool "Hostmode support for SSB PCI core"
-@@ -78,7 +88,7 @@ config SSB_DRIVER_MIPS
- 	  Driver for the Sonics Silicon Backplane attached
- 	  Broadcom MIPS core.
- 
--	  If unsure, say N
-+	  If unsure, say N.
- 
- config SSB_DRIVER_EXTIF
- 	bool "SSB Broadcom EXTIF core driver"
-@@ -87,6 +97,6 @@ config SSB_DRIVER_EXTIF
- 	  Driver for the Sonics Silicon Backplane attached
- 	  Broadcom EXTIF core.
- 
--	  If unsure, say N
-+	  If unsure, say N.
- 
- endmenu
-diff --git a/drivers/usb/host/Kconfig b/drivers/usb/host/Kconfig
-index dc3b7fe..d7f5328 100644
---- a/drivers/usb/host/Kconfig
-+++ b/drivers/usb/host/Kconfig
-@@ -101,6 +101,7 @@ config USB_OHCI_HCD
- 	depends on USB && USB_ARCH_HAS_OHCI
- 	select ISP1301_OMAP if MACH_OMAP_H2 || MACH_OMAP_H3
- 	select I2C if ARCH_PNX4008
-+	select SSB if USB_OHCI_HCD_SSB
- 	---help---
- 	  The Open Host Controller Interface (OHCI) is a standard for accessing
- 	  USB 1.1 host controller hardware.  It does more in hardware than Intel's
-@@ -156,8 +157,7 @@ config USB_OHCI_HCD_PCI
- 
- config USB_OHCI_HCD_SSB
- 	bool "OHCI support for the Broadcom SSB OHCI core (embedded systems only)"
--	depends on USB_OHCI_HCD && ((USB_OHCI_HCD=m && SSB) || (USB_OHCI_HCD=y && SSB=y)) && EXPERIMENTAL
--	default n
-+	depends on USB_OHCI_HCD && SSB_POSSIBLE && EXPERIMENTAL
- 	---help---
- 	  Support for the Sonics Silicon Backplane (SSB) attached
- 	  Broadcom USB OHCI core.
+Segher
 
