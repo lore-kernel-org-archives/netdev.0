@@ -1,46 +1,66 @@
-From: Segher Boessenkool <segher@kernel.crashing.org>
-Subject: Re: [PATCH] make atomic_t volatile on all architectures
-Date: Sun, 12 Aug 2007 18:30:32 +0200
-Message-ID: <74868f39491f8691afc5540f72679129@kernel.crashing.org>
-References: <20070808230733.GA17270@shell.boston.redhat.com> <alpine.LFD.0.999.0708082116060.25146@woody.linux-foundation.org> <46BAC2BE.1090106@redhat.com> <46BB508B.7050601@redhat.com> <alpine.LFD.0.999.0708091055080.25146@woody.linux-foundation.org> <1186683646.9669.20.camel@localhost> <a599bc5062d557db46496f0d7c7886b0@kernel.crashing.org> <alpine.LFD.0.999.0708112305170.30176@woody.linux-foundation.org> <1186912098.3852.11.camel@localhost>
-Mime-Version: 1.0 (Apple Message framework v623)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: wjiang@resilience.com,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	wensong@linux-vs.org, heiko.carstens@de.ibm.com,
-	linux-kernel@vger.kernel.org, ak@suse.de, cfriesen@nortel.com,
-	netdev@vger.kernel.org, horms@verge.net.au,
-	akpm@linux-foundation.org, Chuck Ebbert <cebbert@redhat.com>,
-	davem@davemloft.net, zlynx@acm.org, Chris Snook <csnook@redhat.com>
-To: schwidefsky@de.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:50408 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753884AbXHLQgh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Aug 2007 12:36:37 -0400
-In-Reply-To: <1186912098.3852.11.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
+From: david@lang.hm
+Subject: Re: [RFD] Layering: Use-Case Composers (was: DRBD - what is it,
+ anyways? [compare with e.g. NBD + MD raid])
+Date: Sun, 12 Aug 2007 09:39:54 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0708120933210.19502@asgard.lang.hm>
+References: <200708121335.17267.a1426z@gawab.com>
+ <Pine.LNX.4.64.0708121325170.28963@fbirervta.pbzchgretzou.qr>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Al Boldi <a1426z@gawab.com>, linux-kernel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-raid@vger.kernel.org
+To: Jan Engelhardt <jengelh@computergmbh.de>
+Return-path: <linux-raid-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0708121325170.28963@fbirervta.pbzchgretzou.qr>
+Sender: linux-raid-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> "+m" works. We use it. It's better than the alternatives. Pointing to
->> stale documentation doesn't change anything.
+On Sun, 12 Aug 2007, Jan Engelhardt wrote:
+
+> On Aug 12 2007 13:35, Al Boldi wrote:
+>> Lars Ellenberg wrote:
+>>> meanwhile, please, anyone interessted,
+>>> the drbd paper for LinuxConf Eu 2007 is finalized.
+>>> http://www.drbd.org/fileadmin/drbd/publications/
+>>> drbd8.linux-conf.eu.2007.pdf
+>>>
+>>> but it does give a good overview about what DRBD actually is,
+>>> what exact problems it tries to solve,
+>>> and what developments to expect in the near future.
+>>>
+>>> so you can make up your mind about
+>>>  "Do we need it?", and
+>>>  "Why DRBD? Why not NBD + MD-RAID?"
 >
-> Well, perhaps on i386. I've seen some older versions of the s390 gcc 
-> die
-> with an ICE because I have used "+m" in some kernel inline assembly. 
-> I'm
-> happy to hear that this issue is fixed in recent gcc. Now I'll have to
-> find out if this is already true with gcc 3.x.
+> I may have made a mistake when asking for how it compares to NBD+MD.
+> Let me retry: what's the functional difference between
+> GFS2 on a DRBD .vs. GFS2 on a DAS SAN?
 
-It was fixed (that is, "+m" is translated into a separate read
-and write by GCC itself) in GCC-4.0.0, I just learnt.
+GFS is a distributed filesystem, DRDB is a replicated block device. you 
+wouldn't do GFS on top of DRDB, you would do ext2/3, XFS, etc
 
-> The duplication "=m" and "m" with the same constraint is rather 
-> annoying.
+DRDB is much closer to the NBD+MD option.
 
-Yeah.  Compiler errors are more annoying though I dare say ;-)
+now, I am not an expert on either option, but three are a couple things 
+that I would question about the DRDB+MD option
 
+1. when the remote machine is down, how does MD deal with it for reads and 
+writes?
 
-Segher
+2. MD over local drive will alternate reads between mirrors (or so I've 
+been told), doing so over the network is wrong.
 
+3. when writing, will MD wait for the network I/O to get the data saved on 
+the backup before returning from the syscall? or can it sync the data out 
+lazily
+
+>> Now, shared remote block access should theoretically be handled, as does
+>> DRBD, by a block layer driver, but realistically it may be more appropriate
+>> to let it be handled by the combining end user, like OCFS or GFS.
+
+there are times when you want to replicate at the block layer, and there 
+are times when you want to have a filesystem do the work. don't force a 
+filesystem on use-cases where a block device is the right answer.
+
+David Lang
