@@ -1,58 +1,39 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [RFC: -mm patch] improve the SSB dependencies
-Date: Mon, 13 Aug 2007 00:44:02 +0200
-Message-ID: <20070812224401.GA18945@stusta.de>
-References: <200708110208.21624.mb@bu3sch.de> <200708111642.39348.mb@bu3sch.de> <20070811230855.GA8907@stusta.de> <200708121400.28297.mb@bu3sch.de>
+From: Michael Trimarchi <trimarchi@gandalf.sssup.it>
+Subject: Re: dm9000: add set_mac_address() v2
+Date: Mon, 13 Aug 2007 00:45:17 +0200
+Message-ID: <46BF8D7D.5070105@gandalf.sssup.it>
+References: <20070812192741.GB27490@gandalf.sssup.it> <200708122338.08523.mb@bu3sch.de> <20070812212009.GD27490@gandalf.sssup.it> <200708130026.07221.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	John Linville <linville@tuxdriver.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
 To: Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:49461 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932211AbXHLWoN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Aug 2007 18:44:13 -0400
-Content-Disposition: inline
-In-Reply-To: <200708121400.28297.mb@bu3sch.de>
+Received: from ms01.sssup.it ([193.205.80.99]:36102 "EHLO sssup.it"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1764985AbXHLWpY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Aug 2007 18:45:24 -0400
+In-Reply-To: <200708130026.07221.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 12, 2007 at 02:00:26PM +0200, Michael Buesch wrote:
-> Ok, I'll give it a try, with small modifications.
 
-Thanks.
+>> +		return -EBUSY;
+>> +
+>> +	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+>> +
+>> +	for (i = 0; i < 3; i++)
+>> +		write_srom_word(db, i,
+>> +				cpu_to_le16(((u16 *) (addr->sa_data))[i]));
+>>     
+>
+> Nope.
+>
+> write_srom_word(db, i, le16_to_cpu(((__le16 *) (addr->sa_data))[i]));
+>
+>   
+Are you sure? I don't know how the dm9000 reads the eeprom back.
 
-> On Sunday 12 August 2007, Adrian Bunk wrote:
-> > Additional changes in this patch:
-> > - small help text changes
-> > - B44_PCI is no longer usr visible (automatically enabled when possible)
-> 
-> I think we want that to be selectable, as it's not needed
-> on some embedded devices. And we need to save memory there.
->...
-
-Makes sense, but then:
-
-config B44_PCI
-	bool "Broadcom 440x PCI device support" if EMBEDDED
-	...
-	default y
-	...
-
-I don't care about how many options we present if CONFIG_EMBEDDED=y, but 
-for the normal CONFIG_EMBEDDED=n case we should not bother the user with 
-this option.
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+regards
+Michael
 
