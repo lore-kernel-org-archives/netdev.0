@@ -1,48 +1,65 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH] make atomic_t volatile on all architectures
-Date: Sun, 12 Aug 2007 11:11:25 -0700 (PDT)
-Message-ID: <alpine.LFD.0.999.0708121107490.30176@woody.linux-foundation.org>
-References: <20070808230733.GA17270@shell.boston.redhat.com>
- <alpine.LFD.0.999.0708082116060.25146@woody.linux-foundation.org>
- <46BAC2BE.1090106@redhat.com> <46BB508B.7050601@redhat.com>
- <alpine.LFD.0.999.0708091055080.25146@woody.linux-foundation.org>
- <1186683646.9669.20.camel@localhost> <a599bc5062d557db46496f0d7c7886b0@kernel.crashing.org>
- <alpine.LFD.0.999.0708112305170.30176@woody.linux-foundation.org>
- <1186912098.3852.11.camel@localhost>
- <74868f39491f8691afc5540f72679129@kernel.crashing.org>
+From: Vadim Dyadkin <dyadkin@lns.pnpi.spb.ru>
+Subject: troubles with r8169
+Date: Sun, 12 Aug 2007 22:37:11 +0400
+Message-ID: <46BF5357.6080205@lns.pnpi.spb.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: schwidefsky@de.ibm.com, wjiang@resilience.com,
-	wensong@linux-vs.org, heiko.carstens@de.ibm.com,
-	linux-kernel@vger.kernel.org, ak@suse.de, cfriesen@nortel.com,
-	netdev@vger.kernel.org, horms@verge.net.au,
-	akpm@linux-foundation.org, Chuck Ebbert <cebbert@redhat.com>,
-	davem@davemloft.net, zlynx@acm.org, Chris Snook <csnook@redhat.com>
-To: Segher Boessenkool <segher@kernel.crashing.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:38942 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752603AbXHLSMV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Aug 2007 14:12:21 -0400
-In-Reply-To: <74868f39491f8691afc5540f72679129@kernel.crashing.org>
+Received: from dimail1.hmi.de ([134.30.95.50]:55300 "EHLO dimail1.hmi.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933600AbXHLSyA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Aug 2007 14:54:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi!
 
+I need help from developers, may be, because I have some troubles with
+r8169 card.
+I use laptop ASUS a6tc. The network card in this laptop is r8169. Video
+is GeForce Go 7300. When I load linux (I use linux almost always), the
+network and video cards take the same IRQ every time.
+************************
+# cat /proc/interrupts
+           CPU0       CPU1
+  0:    3530622     177152    XT-PIC-XT        timer
+  1:       1910          9   IO-APIC-edge      i8042
+  8:          1          1   IO-APIC-edge      rtc
+  9:      41627        115   IO-APIC-fasteoi   acpi
+ 12:        122         10   IO-APIC-edge      i8042
+ 14:         38         12   IO-APIC-edge      ide0
+ 15:      53721          8   IO-APIC-edge      ide1
+ 16:          0          0   IO-APIC-fasteoi   yenta
+ 17:      34909          1   IO-APIC-fasteoi   ohci_hcd:usb1
+ 18:         13          1   IO-APIC-fasteoi   ehci_hcd:usb2
+ 19:     332826          1   IO-APIC-fasteoi   nvidia, eth0
+ 20:          0          0   IO-APIC-fasteoi   sdhci:slot0
+ 21:      26981          1   IO-APIC-fasteoi   HDA Intel
+NMI:          0          0
+LOC:     177152    3530365
+ERR:          1
+MIS:          0
+**************************
+You can see, now it's 19, sometimes it's 17 or 21, but every time it is
+the same.
+Often, the computer hangs, only the reboot can help. In /var/log/messages:
+************************
+Jul 14 19:15:29 satah NETDEV WATCHDOG: eth0: transmit timed out
+Jul 14 19:15:32 satah NVRM: Xid (0002:00): 16, Head 00000000 Count 00cfda2c
+Jul 14 19:15:40 satah NVRM: Xid (0002:00): 16, Head 00000000 Count 00cfda2d
+Jul 14 19:15:48 satah NVRM: Xid (0002:00): 16, Head 00000000 Count 00cfda2e
+Jul 14 19:15:56 satah NVRM: Xid (0002:00): 16, Head 00000000 Count 00cfda2f
+Jul 14 19:16:04 satah NVRM: Xid (0002:00): 16, Head 00000000 Count 00cfda30
+Jul 14 19:16:12 satah NVRM: Xid (0002:00): 16, Head 00000000 Count 00cfda31
+Jul 14 19:16:17 satah NETDEV WATCHDOG: eth0: transmit timed out
+Jul 14 19:16:20 satah NVRM: Xid (0002:00): 16, Head 00000000 Count 00cfda32
+Jul 14 19:16:35 satah NETDEV WATCHDOG: eth0: transmit timed out
+Jul 14 19:16:53 satah NETDEV WATCHDOG: eth0: transmit timed out
+****************************
+There's no such problem in windows. Could you help me with it?
 
-On Sun, 12 Aug 2007, Segher Boessenkool wrote:
-> 
-> Yeah.  Compiler errors are more annoying though I dare say ;-)
+Thank you in advance,
+Vadim
 
-Actually, compile-time errors are fine, and easy to work around. *Much* 
-more annoying is when gcc actively generates subtly bad code. We've had 
-use-after-free issues due to incorrect gcc liveness calculations etc, and 
-inline asm has beeen one of the more common causes - exactly because the 
-kernel is one of the few users (along with glibc) that uses it at all.
-
-Now *those* are hard to find - the code works most of the time, but the 
-compiler has inserted a really subtle race condition into the code 
-(deallocated a local stack entry before last use). We had that with our 
-semaphore code at some point.
-
-		Linus
