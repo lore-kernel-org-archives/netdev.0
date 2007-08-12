@@ -1,80 +1,78 @@
-From: Samuel Ortiz <samuel@sortiz.org>
-Subject: Re: [net-2.6.24] forcedeth does not compile without
-	CONFIG_FORCEDETH_NAPI set
-Date: Sun, 12 Aug 2007 16:28:53 +0300
-Message-ID: <20070812132853.GA3851@sortiz.org>
-References: <46BCA18B.80603@hartkopp.net>
-Reply-To: Samuel Ortiz <samuel@sortiz.org>
+From: Al Boldi <a1426z@gawab.com>
+Subject: Re: [RFD] Layering: Use-Case Composers (was: DRBD - what is it, anyways? [compare with e.g. NBD + MD raid])
+Date: Sun, 12 Aug 2007 18:28:03 +0300
+Message-ID: <200708121828.03184.a1426z@gawab.com>
+References: <200708121335.17267.a1426z@gawab.com> <20070812115126.GA14770@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Oliver Hartkopp <oliver@hartkopp.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-raid@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp23.orange.fr ([193.252.22.126]:23164 "EHLO smtp23.orange.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751902AbXHLN3B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Aug 2007 09:29:01 -0400
-Received: from me-wanadoo.net (localhost [127.0.0.1])
-	by mwinf2316.orange.fr (SMTP Server) with ESMTP id 321C8700008C
-	for <netdev@vger.kernel.org>; Sun, 12 Aug 2007 15:28:55 +0200 (CEST)
+Received: from [212.12.190.217] ([212.12.190.217]:33099 "EHLO raad.intranet"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S934600AbXHLP2R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Aug 2007 11:28:17 -0400
+In-Reply-To: <20070812115126.GA14770@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <46BCA18B.80603@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Oliver,
+Evgeniy Polyakov wrote:
+> Al Boldi (a1426z@gawab.com) wrote:
+> > Look at ZFS; it illegally violates layering by combining md/dm/lvm with
+> > the fs, but it does this based on a realistic understanding of the
+> > problems involved, which enables it to improve performance, flexibility,
+> > and functionality specific to its use case.
+> >
+> > This implies that there are two distinct forces at work here:
+> >
+> >   1. Layer components
+> >   2. Use-Case composers
+> >
+> > Layer components should technically not implement any use case (other
+> > than providing a plumbing framework), as that would incur unnecessary
+> > dependencies, which could reduce its generality and thus reusability.
+> >
+> > Use-Case composers can now leverage layer components from across the
+> > layering hierarchy, to yield a specific use case implementation.
+> >
+> > DRBD is such a Use-Case composer, as is mdm / dm / lvm and any fs in
+> > general, whereas aoe / nbd / loop and the VFS / FUSE are examples of
+> > layer components.
+> >
+> > It follows that Use-case composers, like DRBD, need common functionality
+> > that should be factored out into layer components, and then recompose to
+> > implement a specific use case.
+>
+> Out of curiosity, did you try ndb+dm+raid1 compared to drbd and/or zfs
+> on top of distributed storage (which is a urprise to me, that holy zfs
+> suppors that)?
 
-On Fri, Aug 10, 2007 at 07:34:03PM +0200, Oliver Hartkopp wrote:
-> Checking some other source with the current net-2.6.24 GIT, i just
-> discovered this:
-> 
->   CC      drivers/net/mii.o
->   CC      drivers/net/Space.o
->   CC      drivers/net/loopback.o
->   CC      drivers/net/b44.o
->   CC      drivers/net/forcedeth.o
-> drivers/net/forcedeth.c: In function nv_nic_irq:
-> drivers/net/forcedeth.c:3017: error: RX_WORK_PER_LOOP undeclared (first
-> use in this function)
-> drivers/net/forcedeth.c:3017: error: (Each undeclared identifier is
-> reported only once
-> drivers/net/forcedeth.c:3017: error: for each function it appears in.)
-> make[2]: *** [drivers/net/forcedeth.o] Error 1
-> make[1]: *** [drivers/net] Error 2
-> make: *** [drivers] Error 2
-> 
-> This only occurs the CONFIG_FORCEDETH_NAPI is _disabled_.
-This fixes the build:
+Actually, I may not have been very clear in my Use-Case composer description 
+to mean internal in-kernel Use-Case composer as opposed to external Userland 
+Use-Case composer.
+
+So, nbd+dm+raid1 would be an external Userland Use-Case composition, which 
+obviously could have some drastic performance issues.
+
+DRBD and ZFS are examples of internal in-kernel Use-Case composers, which 
+obviously could show some drastic performance improvements.  
+
+Although you could allow in-kernel Use-Case composers to be run on top of 
+Userland Use-Case composers, that wouldn't be the preferred mode of 
+operation.  Instead, you would for example recompose ZFS to incorporate an 
+in-kernel distributed storage layer component, like nbd.
+
+All this boils down to refactoring Use-Case composers to produce layer 
+components with both in-kernel and userland interfaces.  Once we have that, 
+it becomes a matter of plug-and-play to produce something awesome like ZFS.
+
+
+Thanks!
 
 --
-Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
-
- drivers/net/forcedeth.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-index 37732f9..90eef4a 100644
---- a/drivers/net/forcedeth.c
-+++ b/drivers/net/forcedeth.c
-@@ -2973,6 +2973,8 @@ static void nv_link_irq(struct net_device *dev)
- 	dprintk(KERN_DEBUG "%s: link change notification done.\n", dev->name);
- }
- 
-+#define TX_WORK_PER_LOOP  64
-+#define RX_WORK_PER_LOOP  64
- static irqreturn_t nv_nic_irq(int foo, void *data)
- {
- 	struct net_device *dev = (struct net_device *) data;
-@@ -3083,8 +3085,6 @@ static irqreturn_t nv_nic_irq(int foo, void *data)
- 	return IRQ_RETVAL(i);
- }
- 
--#define TX_WORK_PER_LOOP  64
--#define RX_WORK_PER_LOOP  64
- /**
-  * All _optimized functions are used to help increase performance
-  * (reduce CPU and increase throughput). They use descripter version 3,
-
-
+Al
 
