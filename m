@@ -1,55 +1,50 @@
-From: Daniel Phillips <phillips@phunq.net>
-Subject: Re: Block device throttling [Re: Distributed storage.]
-Date: Sun, 12 Aug 2007 23:44:00 -0700
-Message-ID: <200708122344.00343.phillips@phunq.net>
-References: <20070731171347.GA14267@2ka.mipt.ru> <20070808095448.GA3440@2ka.mipt.ru> <200708122236.24096.phillips@phunq.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] [374/2many] MAINTAINERS - PCNET32 NETWORK DRIVER
+Date: Sun, 12 Aug 2007 23:46:49 -0700
+Message-ID: <1186987609.10249.22.camel@localhost>
+References: <46bffb4c.nrqicrPs7IJXlgQ0%joe@perches.com>
+	 <20070812.233630.00455011.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <200708122236.24096.phillips@phunq.net>
-Content-Disposition: inline
-Sender: linux-fsdevel-owner@vger.kernel.org
+Cc: torvalds@linux-foundation.org, pcnet32@verizon.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from DSL022.labridge.com ([206.117.136.22]:2573 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S968072AbXHMGsC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Aug 2007 02:48:02 -0400
+In-Reply-To: <20070812.233630.00455011.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 12 August 2007 22:36, I wrote:
-> Note!  There are two more issues I forgot to mention earlier.
+On Sun, 2007-08-12 at 23:36 -0700, David Miller wrote:
+> Ok, 374 patches is just rediculious.
+> 
+> So many patches eats up an enormous amount of mailing list resources,
+> and for these patches in particular there are few reasons to split
+> them up at all.  The fact that the split up landed you at 300+ patches
+> is a very good indication of that.
 
-Oops, and there is also:
+More than ridiculous.  Completely agree.
 
-3) The bio throttle, which is supposed to prevent deadlock, can itself 
-deadlock.  Let me see if I can remember how it goes.
+I tried to send 1 patch over the last couple of days.
+Unfortunately, it's > 100KB and disappears into the void.
 
-  * generic_make_request puts a bio in flight
-  * the bio gets past the throttle and initiates network IO
-  * net calls sk_alloc->alloc_pages->shrink_caches
-  * shrink_caches submits a bio recursively to our block device
-  * this bio blocks on the throttle
-  * net may never get the memory it needs, and we are wedged
+How about 10 patches or so?
 
-I need to review a backtrace to get this precisely right, however you 
-can see the danger.  In ddsnap we kludge around this problem by not 
-throttling any bio submitted in PF_MEMALLOC mode, which effectively 
-increases our reserve requirement by the amount of IO that mm will 
-submit to a given block device before deciding the device is congested 
-and should be left alone.  This works, but is sloppy and disgusting.
+What about maintainer sign offs?
 
-The right thing to do is to make sure than the mm knows about our 
-throttle accounting in backing_dev_info so it will not push IO to our 
-device when it knows that the IO will just block on congestion.  
-Instead, shrink_caches will find some other less congested block device 
-or give up, causing alloc_pages to draw from the memalloc reserve to 
-satisfy the sk_alloc request.
+Personally, I don't think it's necessary, but for
+the subsystem maintainers like you, if or when the
+get_maintainers.pl get integrated into patch
+generation mechanisms, you might get more emails.
+Perhaps more than you want.
 
-The mm already uses backing_dev_info this way, we just need to set the 
-right bits in the backing_dev_info state flags.  I think Peter posted a 
-patch set that included this feature at some point.
+Suggestions?
 
-Regards,
+One good thing by emailing all the listed maintainers,
+I've gotten several bounces for invalid addresses.
 
-Daniel
