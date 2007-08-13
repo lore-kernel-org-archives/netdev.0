@@ -1,34 +1,27 @@
-From: Tetsuo Handa <from-netdev@I-love.SAKURA.ne.jp>
-Subject: What does -EIOCBQUEUED do?
-Date: Mon, 13 Aug 2007 22:27:57 +0900
-Message-ID: <200708132227.DBJ15225.OGtFSPUFNWE@I-love.SAKURA.ne.jp>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: [PATCH] [3/2many] MAINTAINERS - 3C359 NETWORK DRIVER
+Date: Mon, 13 Aug 2007 07:01:22 -0700
+Message-ID: <1187013682.2854.23.camel@laptopd505.fenrus.org>
+References: <46bff703.S76S51omMOUeUM3N%joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	mikep@linuxtr.net, linux-tr@linuxtr.net,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wine.ocn.ne.jp ([122.1.235.145]:62882 "EHLO smtp.wine.ocn.ne.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S944396AbXHMOAy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Aug 2007 10:00:54 -0400
+Received: from pentafluge.infradead.org ([213.146.154.40]:47652 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S944457AbXHMOEz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 10:04:55 -0400
+In-Reply-To: <46bff703.S76S51omMOUeUM3N%joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi,
 
-There are several locations that handle
--EIOCBQUEUED error code.
-According to include/linux/errno.h ,
-it seems this code is NFS related and
-caller will receive completion event later.
-But I couldn't figure out where is the beginning point
-and what is happening.
+please in the future send just one patch for this; there's no real
+reason to split this up this finegrained...
 
-What functions are called before aio_complete() is called?
-(For example, is udp_recvmsg() called if sock_recvmsg() for
-UDP socket returned -EIOCBQUEUED?)
 
-What memory regions are accessed before aio_complete() is called?
-(For example, is "struct msghdr"->msg_name accessed
-if sock_recvmsg() for UDP socket returned -EIOCBQUEUED?)
-
-Regards.
