@@ -1,42 +1,39 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH] [459/2many] MAINTAINERS - SPIDERNET NETWORK DRIVER for CELL
-Date: Mon, 13 Aug 2007 10:45:48 -0500
-Message-ID: <20070813154548.GA4338@austin.ibm.com>
-References: <46bffbfa.6q67BtSh8n+UV4q4%joe@perches.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] [70/2many] MAINTAINERS - ARPD SUPPORT
+Date: Mon, 13 Aug 2007 08:46:06 -0700
+Message-ID: <1187019966.10249.75.camel@localhost>
+References: <46bff8e8.HhTQ7TBPy1zkcNfh%joe@perches.com>
+	 <20070813114942.04a5483c@the-village.bc.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
-To: joe@perches.com
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:56725 "EHLO e2.ny.us.ibm.com"
+Received: from DSL022.labridge.com ([206.117.136.22]:3063 "EHLO perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S968259AbXHMPpu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Aug 2007 11:45:50 -0400
-Content-Disposition: inline
-In-Reply-To: <46bffbfa.6q67BtSh8n+UV4q4%joe@perches.com>
+	id S967516AbXHMPqs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Aug 2007 11:46:48 -0400
+In-Reply-To: <20070813114942.04a5483c@the-village.bc.nu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 12, 2007 at 11:36:42PM -0700, joe@perches.com wrote:
-> Add file pattern to MAINTAINER entry
+On Mon, 2007-08-13 at 11:49 +0100, Alan Cox wrote:
+> > diff --git a/MAINTAINERS b/MAINTAINERS
+> > index 90c1b81..ac2226b 100644
+> > --- a/MAINTAINERS
+> > +++ b/MAINTAINERS
+> > @@ -697,6 +697,7 @@ ARPD SUPPORT
+> >  P:	Jonathan Layes
+> >  L:	netdev@vger.kernel.org
+> >  S:	Maintained
+> > +F:	net/ipv4/arp.c
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> NAK
 > 
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index b616562..fa8fb1c 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -4377,6 +4377,9 @@ P:	Linas Vepstas
->  M:	linas@austin.ibm.com
->  L:	netdev@vger.kernel.org
->  S:	Supported
-> +F:	Documentation/networking/spider_net.txt
-> +F:	arch/powerpc/platforms/cell/spider-pic.c
-> +F:	drivers/net/spider_net*
+> arp.c is the netdev people, ARPD is a corner case bit of code within it,
+> something your patterns don't actually cope with
 
-Note quite right. spider-pic is not part of spider_net.
-The rest loks fine.
-
---linas
+Suggestions?
 
