@@ -1,58 +1,44 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: Re: RealTek 8169 support question
-Date: Mon, 13 Aug 2007 09:52:39 -0400
-Message-ID: <46C06227.7050700@oracle.com>
-References: <46BCD853.1010801@oracle.com> <20070810222346.GA9042@electric-eye.fr.zoreil.com> <46BCE95B.7020408@oracle.com> <20070811082450.GA23531@electric-eye.fr.zoreil.com>
-Reply-To: chuck.lever@oracle.com
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] [70/2many] MAINTAINERS - ARPD SUPPORT
+Date: Mon, 13 Aug 2007 18:51:48 +0100
+Message-ID: <20070813185148.16308985@the-village.bc.nu>
+References: <46bff8e8.HhTQ7TBPy1zkcNfh%joe@perches.com>
+	<20070813114942.04a5483c@the-village.bc.nu>
+	<1187019966.10249.75.camel@localhost>
+	<20070813173522.685dab9e@the-village.bc.nu>
+	<1187024659.10249.125.camel@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080207090007050103070803"
-Cc: netdev ML <netdev@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:31988 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S973106AbXHMRcb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 13:32:31 -0400
-In-Reply-To: <20070811082450.GA23531@electric-eye.fr.zoreil.com>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:44602 "EHLO
+	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1031415AbXHMRpP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 13:45:15 -0400
+In-Reply-To: <1187024659.10249.125.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080207090007050103070803
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+On Mon, 13 Aug 2007 10:04:19 -0700
+Joe Perches <joe@perches.com> wrote:
 
-Francois Romieu wrote:
-> Chuck Lever <chuck.lever@oracle.com> :
-> [...]
->> Not yet.  I wanted to check with "the Maintainer" to see if it was worth 
->> trying.  :-)  The last time I tried a kernel build on one of these 
+> On Mon, 2007-08-13 at 17:35 +0100, Alan Cox wrote:
+> > I wouldn't add a pattern for this.
 > 
-> It is worth trying.
+> Back to:ARPD SUPPORT
+> P:	Jonathan Layes
+> L:	netdev@vger.kernel.org
+> S:	Maintained
+> 
+> > Actually I think the entire thing is a
+> > bad idea but thats another matter.
+> 
+> Of course it's not an end-all solution,
+> but what might work better?
 
-FYI: I tested a 2.6.23-rc2 kernel over the weekend, and the NICs worked 
-without issue.
-
---------------080207090007050103070803
-Content-Type: text/x-vcard; charset=utf-8;
- name="chuck.lever.vcf"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="chuck.lever.vcf"
-
-begin:vcard
-fn:Chuck Lever
-n:Lever;Chuck
-org:Oracle Corporation;Corporate Architecture: Linux Projects Group
-adr:;;1015 Granger Avenue;Ann Arbor;MI;48104;USA
-title:Principal Member of Staff
-tel;work:+1 248 614 5091
-x-mozilla-html:FALSE
-url:http://oss.oracle.com/~cel
-version:2.1
-end:vcard
-
-
---------------080207090007050103070803--
-
+Working off the git tree as it shows who actually is making
+changes/updating stuff recently and why which is a major clue when
+tracing bugs
