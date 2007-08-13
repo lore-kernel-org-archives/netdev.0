@@ -1,53 +1,64 @@
-From: Daniel Phillips <phillips@phunq.net>
-Subject: Re: Distributed storage.
-Date: Mon, 13 Aug 2007 02:55:35 -0700
-Message-ID: <200708130255.35828.phillips@phunq.net>
-References: <20070731171347.GA14267@2ka.mipt.ru> <200708130208.57542.phillips@phunq.net> <20070813091348.GJ23758@kernel.dk>
+From: Surya Prabhakar N <surya.prabhakar@wipro.com>
+Subject: [KJ] replacing kmalloc with kzalloc in drivers/net/sb1250-mac.c
+Date: Mon, 13 Aug 2007 15:28:43 +0530
+Message-ID: <1186999123.29518.18.camel@bluegenie>
+Reply-To: surya.prabhakar@wipro.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: Jens Axboe <jens.axboe@oracle.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20070813091348.GJ23758@kernel.dk>
-Content-Disposition: inline
-Sender: linux-fsdevel-owner@vger.kernel.org
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wip-cdc-wd.wipro.com ([203.91.201.26]:42830 "EHLO
+	wip-cdc-wd.wipro.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934323AbXHMJ7K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 05:59:10 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 13 August 2007 02:13, Jens Axboe wrote:
-> On Mon, Aug 13 2007, Daniel Phillips wrote:
-> > On Monday 13 August 2007 00:45, Jens Axboe wrote:
-> > > On Mon, Aug 13 2007, Jens Axboe wrote:
-> > > > > You did not comment on the one about putting the bio
-> > > > > destructor in the ->endio handler, which looks dead simple. 
-> > > > > The majority of cases just use the default endio handler and
-> > > > > the default destructor.  Of the remaining cases, where a
-> > > > > specialized destructor is needed, typically a specialized
-> > > > > endio handler is too, so combining is free.  There are few if
-> > > > > any cases where a new specialized endio handler would need to
-> > > > > be written.
-> > > >
-> > > > We could do that without too much work, I agree.
-> > >
-> > > But that idea fails as well, since reference counts and IO
-> > > completion are two completely seperate entities. So unless end IO
-> > > just happens to be the last user holding a reference to the bio,
-> > > you cannot free it.
-> >
-> > That is not a problem.  When bio_put hits zero it calls ->endio
-> > instead of the destructor.  The ->endio sees that the count is zero
-> > and destroys the bio.
->
-> You can't be serious? You'd stall end io completion notification
-> because someone holds a reference to a bio.
+Hi,
+   Replacing kmalloc with kzalloc and cleaning up memset in 
+drivers/net/sb1250-mac.c
 
-Of course not.  Nothing I said stops endio from being called in the 
-usual way as well.  For this to work, endio just needs to know that one 
-call means "end" and the other means "destroy", this is trivial.
 
-Regards,
+Signed-off-by: Surya Prabhakar <surya.prabhakar@wipro.com>
+---
 
-Daniel
+diff --git a/drivers/net/sb1250-mac.c b/drivers/net/sb1250-mac.c
+index e7fdcf1..2dca5a7 100644
+--- a/drivers/net/sb1250-mac.c
++++ b/drivers/net/sb1250-mac.c
+@@ -760,7 +760,7 @@ static void sbdma_initctx(sbmacdma_t *d,
+ 
+ 	d->sbdma_dscrtable_unaligned =
+ 	d->sbdma_dscrtable = (sbdmadscr_t *)
+-		kmalloc((d->sbdma_maxdescr+1)*sizeof(sbdmadscr_t), GFP_KERNEL);
++		kzalloc((d->sbdma_maxdescr+1)*sizeof(sbdmadscr_t), GFP_KERNEL);
+ 
+ 	/*
+ 	 * The descriptor table must be aligned to at least 16 bytes or the
+@@ -769,8 +769,6 @@ static void sbdma_initctx(sbmacdma_t *d,
+ 	d->sbdma_dscrtable = (sbdmadscr_t *)
+ 		ALIGN((unsigned long)d->sbdma_dscrtable, sizeof(sbdmadscr_t));
+ 
+-	memset(d->sbdma_dscrtable,0,d->sbdma_maxdescr*sizeof(sbdmadscr_t));
+-
+ 	d->sbdma_dscrtable_end = d->sbdma_dscrtable + d->sbdma_maxdescr;
+ 
+ 	d->sbdma_dscrtable_phys = virt_to_phys(d->sbdma_dscrtable);
+@@ -780,9 +778,7 @@ static void sbdma_initctx(sbmacdma_t *d,
+ 	 */
+ 
+ 	d->sbdma_ctxtable = (struct sk_buff **)
+-		kmalloc(d->sbdma_maxdescr*sizeof(struct sk_buff *), GFP_KERNEL);
+-
+-	memset(d->sbdma_ctxtable,0,d->sbdma_maxdescr*sizeof(struct sk_buff *));
++		kzalloc(d->sbdma_maxdescr*sizeof(struct sk_buff *), GFP_KERNEL);
+ 
+ #ifdef CONFIG_SBMAC_COALESCE
+ 	/*
+
+--
+thanks
+surya.
