@@ -1,44 +1,44 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: Re: [PATCH 1/4] Net: mac80211, remove bitfields from struct	ieee80211_tx_packet_data
-Date: Mon, 13 Aug 2007 21:59:19 +0200
-Message-ID: <46C0B817.50707@gmail.com>
-References: <32694265142306417777@wsc.cz> <1187009029.27916.107.camel@johannes.berg>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 27/28] Introduce U16_MAX and U32_MAX
+Date: Mon, 13 Aug 2007 13:52:22 -0700 (PDT)
+Message-ID: <20070813.135222.62369884.davem@davemloft.net>
+References: <200708102112.l7ALCA2M009460@imap1.linux-foundation.org>
+	<20070810.153819.76325424.davem@davemloft.net>
+	<alpine.LFD.0.999.0708132039200.29609@enigma.security.iitk.ac.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	jbenc@suse.cz, flamingice@sourmilk.net, jeff@garzik.org
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
+To: satyam@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:47660 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031318AbXHMT6e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 15:58:34 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so571850nfb
-        for <netdev@vger.kernel.org>; Mon, 13 Aug 2007 12:58:31 -0700 (PDT)
-In-Reply-To: <1187009029.27916.107.camel@johannes.berg>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39425
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S934438AbXHMUwX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 16:52:23 -0400
+In-Reply-To: <alpine.LFD.0.999.0708132039200.29609@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Johannes Berg napsal(a):
-> On Sun, 2007-08-12 at 15:08 +0200, Jiri Slaby wrote:
+From: Satyam Sharma <satyam@infradead.org>
+Date: Mon, 13 Aug 2007 20:59:09 +0530 (IST)
+
+> On Fri, 10 Aug 2007, David Miller wrote:
 > 
->> +	if (control->flags & IEEE80211_TXCTL_REQ_TX_STATUS)
->> +		pkt_data->flags |= IEEE80211_TXPD_REQ_TX_STATUS;
->> +	if (control->flags & IEEE80211_TXCTL_DO_NOT_ENCRYPT)
->> +		pkt_data->flags |= IEEE80211_TXPD_DO_NOT_ENCRYPT;
->> +	if (control->flags & IEEE80211_TXCTL_REQUEUE)
->> +		pkt_data->flags |= IEEE80211_TXPD_REQUEUE;
->> +	if (control->type == IEEE80211_IF_TYPE_MGMT)
->> +		pkt_data->flags |= IEEE80211_TXPD_MGMT_IFACE;
+> > 2) The reiserfs definition is going to define an equivalent
+> >    value, so just adding an #undef and still letting reiserfs
+> >    override is wrong.  Why put a common define in kernel.h
+> >    if other headers still keep their own crufty copy too?
 > 
-> This looks weird. Can't we just use the same flags?
+> Because removing the (re-)definition of U32_MAX from in there in
+> reiserfs_fs.h will break builds of all userspace users of U32_MAX and
+> max_reiserfs_offset(), would it not? I haven't looked at any reiserfs
+> userspace tools source code, so possibly none such (that use
+> max_reiserfs_offset) exist, but I thought it better to be safe.
+> I'll have a look at the reiserfs-utils package, just in case.
 
-I don't think, that it must be subset one of each another in the future. (This
-is why I created yet another bits defined).
+If this is the case then it would be better to pick different macro
+names from the one's reiserfs already defines in it's header exported
+userland interfaces.
 
-Do we still want the same flags?
-
--- 
-Jiri Slaby (jirislaby@gmail.com)
-Faculty of Informatics, Masaryk University
+Or, alternatively, make sure reiserfs's headers get the appropriate
+headers and defines even when used in userspace.
