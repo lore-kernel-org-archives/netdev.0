@@ -1,8 +1,8 @@
 From: Daniel Phillips <phillips@phunq.net>
-Subject: Re: Block device throttling [Re: Distributed storage.]
-Date: Mon, 13 Aug 2007 04:18:03 -0700
-Message-ID: <200708130418.03667.phillips@phunq.net>
-References: <20070731171347.GA14267@2ka.mipt.ru> <200708122236.24096.phillips@phunq.net> <20070813082326.GC30089@2ka.mipt.ru>
+Subject: Re: Distributed storage.
+Date: Mon, 13 Aug 2007 04:45:06 -0700
+Message-ID: <200708130445.06643.phillips@phunq.net>
+References: <20070731171347.GA14267@2ka.mipt.ru> <200708130312.33903.phillips@phunq.net> <20070813110302.GA28360@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
@@ -11,77 +11,68 @@ Cc: Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	Peter Zijlstra <peterz@infradead.org>
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl081-085-152.lax1.dsl.speakeasy.net ([64.81.85.152]:46615
-	"EHLO moonbase.phunq.net" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S944390AbXHMLSJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 07:18:09 -0400
-In-Reply-To: <20070813082326.GC30089@2ka.mipt.ru>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20070813110302.GA28360@2ka.mipt.ru>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 13 August 2007 01:23, Evgeniy Polyakov wrote:
-> On Sun, Aug 12, 2007 at 10:36:23PM -0700, Daniel Phillips 
+On Monday 13 August 2007 04:03, Evgeniy Polyakov wrote:
+> On Mon, Aug 13, 2007 at 03:12:33AM -0700, Daniel Phillips 
 (phillips@phunq.net) wrote:
-> > (previous incomplete message sent accidentally)
+> > > This is not a very good solution, since it requires all users of
+> > > the bios to know how to free it.
 > >
-> > On Wednesday 08 August 2007 02:54, Evgeniy Polyakov wrote:
-> > > On Tue, Aug 07, 2007 at 10:55:38PM +0200, Jens Axboe wrote:
-> > >
-> > > So, what did we decide? To bloat bio a bit (add a queue pointer)
-> > > or to use physical device limits? The latter requires to replace
-> > > all occurence of bio->bi_bdev = something_new with
-> > > blk_set_bdev(bio, somthing_new), where queue limits will be
-> > > appropriately charged. So far I'm testing second case, but I only
-> > > changed DST for testing, can change all other users if needed
-> > > though.
-> >
-> > Adding a queue pointer to struct bio and using physical device
-> > limits as in your posted patch both suffer from the same problem:
-> > you release the throttling on the previous queue when the bio moves
-> > to a new one, which is a bug because memory consumption on the
-> > previous queue then becomes unbounded, or limited only by the
-> > number of struct requests that can be allocated.  In other words,
-> > it reverts to the same situation we have now as soon as the IO
-> > stack has more than one queue.  (Just a shorter version of my
-> > previous post.)
+> > No, only the specific ->endio needs to know that, which is set by
+> > the bio owner, so this knowledge lies in exactly the right place. 
+> > A small handful of generic endios all with the same destructor are
+> > used nearly everywhere.
 >
-> No. Since all requests for virtual device end up in physical devices,
-> which have limits, this mechanism works. Virtual device will
-> essentially call either generic_make_request() for new physical
-> device (and thus will sleep is limit is over), or will process bios
-> directly, but in that case it will sleep in generic_make_request()
-> for virutal device.
+> That is what I meant - there will be no way to just alloc a bio and
+> put it, helpers for generic bio sets must be exported and each and
+> every bi_end_io() must be changed to check reference counter and they
+> must know how they were allocated.
 
-What can happen is, as soon as you unthrottle the previous queue, 
-another thread can come in and put another request on it.  Sure, that 
-thread will likely block on the physical throttle and so will the rest 
-of the incoming threads, but it still allows the higher level queue to 
-grow past any given limit, with the help of lots of threads.  JVM for 
-example?
+There are fewer non-generic bio allocators than you think.
 
-Say you have a device mapper device with some physical device sitting 
-underneath, the classic use case for this throttle code.  Say 8,000 
-threads each submit an IO in parallel.  The device mapper mapping 
-function will be called 8,000 times with associated resource 
-allocations, regardless of any throttling on the physical device queue.
+> Endio callback is of course quite rare and additional atomic
+> reading will not kill the system, but why introduce another read?
+> It is possible to provide a flag for endio callback that it is last,
+> but it still requires to change every single callback - why do we
+> want this?
 
-Anyway, your approach is awfully close to being airtight, there is just 
-a small hole.  I would be more than happy to be proved wrong about 
-that, but the more I look, the more I see that hole.
+We don't.  Struct bio does not need to be shrunk.  Jens wanted to talk 
+about what fields could be eliminated if we wanted to shrink it.  It is 
+about time to let that lie, don't you think?
 
-> > 1) One throttle count per submitted bio is too crude a measure.  A
-> > bio can carry as few as one page or as many as 256 pages.  If you
-> > take only
+> So, I'm a bit lost...
 >
-> It does not matter - we can count bytes, pages, bio vectors or
-> whatever we like, its just a matter of counter and can be changed
-> without problem.
+> You say it is too big 
 
-Quite true.  In some cases the simple inc/dec per bio works just fine.  
-But the general case where finer granularity is required comes up in 
-existing code, so there needs to be a plan.
+Did not say that.
+
+> and some parts can be removed or combined
+
+True.
+
+> and  then that size does not matter.
+
+Also true, backed up by numbers on real systems.
+
+> Last/not-last checks in the code is 
+> not clear design, so I do not see why it is needed at all if not for
+> size shrinking.
+
+Not needed, indeed.  Accurate throttling is needed.  If the best way to 
+throttle requires expanding struct bio a little then we should not let 
+concerns about the cost  of an int or two stand in the way.  Like Jens, 
+I am more concerned about the complexity cost, and that is minimized in 
+my opinion by throttling in the generic code rather than with custom 
+code in each specialized block driver.
+
+Your patch does throttle in the generic code, great.  Next thing is to 
+be sure that it completely closes the window for reserve leakage, which 
+is not yet clear.
 
 Regards,
 
