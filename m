@@ -1,68 +1,96 @@
-From: Satyam Sharma <satyam@infradead.org>
-Subject: Re: [patch 27/28] Introduce U16_MAX and U32_MAX
-Date: Mon, 13 Aug 2007 20:59:09 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0708132039200.29609@enigma.security.iitk.ac.in>
-References: <200708102112.l7ALCA2M009460@imap1.linux-foundation.org>
- <20070810.153819.76325424.davem@davemloft.net>
+From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
+Subject: Re: possible BUG while using CUPS
+Date: Mon, 13 Aug 2007 17:39:47 +0200
+Message-ID: <6bffcb0e0708130839v27b4269dqfde702c410b33fd0@mail.gmail.com>
+References: <46BD762F.4060801@xs4all.nl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>
+To: "Udo van den Heuvel" <udovdh@xs4all.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:43272 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966778AbXHMPQb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 11:16:31 -0400
-In-Reply-To: <20070810.153819.76325424.davem@davemloft.net>
+Received: from wa-out-1112.google.com ([209.85.146.180]:57724 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S942835AbXHMPju (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 11:39:50 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so1880588wah
+        for <netdev@vger.kernel.org>; Mon, 13 Aug 2007 08:39:48 -0700 (PDT)
+In-Reply-To: <46BD762F.4060801@xs4all.nl>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+Hi Udo,
 
+On 11/08/07, Udo van den Heuvel <udovdh@xs4all.nl> wrote:
+> Using Cups 1.2.12 on Linux 2.6.22.1.
+> Managing a printer from a Win2K workstation via the http interface.
+> I am at: http://box:631/printers
+> I click Set as default.
+> I see:
+> 426 Upgrade Required
+>
+> You must access this page using the URL
+> https://box:631/admin/?op=set-as-default&printer_name=HP_DESKJET_3820_USB_1.
+>
+> I clikc that link and hear the ping-ping of the BUG:
 
-On Fri, 10 Aug 2007, David Miller wrote:
+This is very interesting. Can you reproduce this bug?
 
-> From: akpm@linux-foundation.org
-> Date: Fri, 10 Aug 2007 14:12:10 -0700
-> 
-> > From: Satyam Sharma <satyam@infradead.org>
-> > 
-> > ... in kernel.h and clean up home-grown macros elsewhere in the tree.
-> > 
-> > Leave out the one in reiserfs_fs.h as it is in the userspace-visible part
-> > of that header. Still, #undef the (equivalent) kernel version there to
-> > avoid seeing "redefined, previous definition was here" gcc warnings.
-> > 
-> > [akpm@linux-foundation.org: fix U16_MAX, U32_MAX defns]
-> > Signed-off-by: Satyam Sharma <satyam@infradead.org>
-> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> 
-> I won't apply this one, for two reasons:
-> 
-> 1) The reiserfs definition is better, it is _type_ based.
->    Please use (~(__u16)0) and (~(__u32)0), respectively.
+>
+> BUG: unable to handle kernel paging request at virtual address 730ca542
+>  printing eip:
+> 730ca542
+> *pde = 00000000
+> Oops: 0000 [#1]
+> PREEMPT
+> Modules linked in: pwc nls_utf8 cifs sch_tbf ipt_recent xt_string
+> xt_MARK xt_length xt_tcpmss xt_mac xt_mark w83627hf hwmon_vid eeprom sit
+> tunnel4 nf_nat_h323 nf_conntrack_h323 nf_nat_ftp nf_conntrack_ftp
+> ipt_tos ipt_REDIRECT nf_nat_irc nf_conntrack_irc ipt_owner ipt_ttl ipv6
+> ipt_MASQUERADE iptable_nat nf_nat xt_NOTRACK iptable_raw ipt_TOS
+> iptable_mangle ipt_LOG xt_TCPMSS xt_limit xt_state ipt_TARPIT ipt_REJECT
+> iptable_filter binfmt_misc lp nvram loop snd_via82xx snd_ac97_codec
+> ac97_bus snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq
+> snd_pcm_oss snd_mixer_oss snd_pcm compat_ioctl32 videodev snd_timer
+> snd_page_alloc snd_mpu401_uart snd_rawmidi v4l2_common snd_seq_device
+> v4l1_compat parport_pc parport snd usblp i2c_viapro uhci_hcd
+> CPU:    0
+> EIP:    0060:[<730ca542>]    Not tainted VLI
+> EFLAGS: 00010292   (2.6.22.1 #2)
+> EIP is at 0x730ca542
+> eax: 00000000   ebx: a69845a0   ecx: 00000000   edx: 00000000
+> esi: 1057e3db   edi: 67c88dd0   ebp: 898c1ad5   esp: d9f97f18
+> ds: 007b   es: 007b   fs: 0000  gs: 0033  ss: 0068
+> Process cupsd (pid: 2220, ti=d9f96000 task=db549420 task.ti=d9f96000)
+> Stack: b717a69a 240c98ab c2e35cdc 2f6eea16 64cf0972 c0a5a2b1 ba2d3d30
+> f026206d
+>        3301069b 39222156 d15922e5 eb1da2a4 656caba4 023f7970 33d43992
+> cc0c5c41
+>        63ed81fc 5c760bf7 fe3db5c3 7cdbd9fc ba114508 0ff827b8 b51f3690
+> 9e64614f
+> Call Trace:
+>  [<c0103aa5>] show_trace_log_lvl+0x1a/0x2f
+>  [<c0103b57>] show_stack_log_lvl+0x9d/0xa5
+>  [<c0103d2c>] show_registers+0x1cd/0x2e3
+>  [<c0103f40>] die+0xfe/0x200
+>  [<c010f899>] do_page_fault+0x432/0x505
+>  [<c02ff72a>] error_code+0x6a/0x70
+>  =======================
+> Code:  Bad EIP value.
+> EIP: [<730ca542>] 0x730ca542 SS:ESP 0068:d9f97f18
+>
+>
+> This is on a VIA Epia EK8000. ksymoops did not really help me, this is
+> all output I got.
+>
+> Ideas?
 
-Hmm, in that case ((__u16)0xffff) and ((__u32)0xffffffff) are probably
-better and clearer -- as that's what u16_max and u32_max are, after all.
+BTW. Please try 2.6.22.2.
 
-We do require the (~0) thing for the max int/uint/long types, but that's
-because those are types where the number-of-bits is not known when writing
-the macro definition -- but that's not case with u16 and u32, so the
-0xff... variants are clearer, IMHO.
+Regards,
+Michal
 
-
-> 2) The reiserfs definition is going to define an equivalent
->    value, so just adding an #undef and still letting reiserfs
->    override is wrong.  Why put a common define in kernel.h
->    if other headers still keep their own crufty copy too?
-
-Because removing the (re-)definition of U32_MAX from in there in
-reiserfs_fs.h will break builds of all userspace users of U32_MAX and
-max_reiserfs_offset(), would it not? I haven't looked at any reiserfs
-userspace tools source code, so possibly none such (that use
-max_reiserfs_offset) exist, but I thought it better to be safe.
-I'll have a look at the reiserfs-utils package, just in case.
-
-
-Thanks,
-Satyam
+-- 
+LOG
+http://www.stardust.webpages.pl/log/
