@@ -1,7 +1,7 @@
 From: Daniel Phillips <phillips@phunq.net>
 Subject: Re: Block device throttling [Re: Distributed storage.]
-Date: Sun, 12 Aug 2007 22:22:11 -0700
-Message-ID: <200708122222.12189.phillips@phunq.net>
+Date: Sun, 12 Aug 2007 22:36:23 -0700
+Message-ID: <200708122236.24096.phillips@phunq.net>
 References: <20070731171347.GA14267@2ka.mipt.ru> <20070807205538.GB5245@kernel.dk> <20070808095448.GA3440@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -11,15 +11,20 @@ Cc: Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	Peter Zijlstra <peterz@infradead.org>
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl081-085-152.lax1.dsl.speakeasy.net ([64.81.85.152]:40019
+	"EHLO moonbase.phunq.net" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752504AbXHMFg1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 01:36:27 -0400
 In-Reply-To: <20070808095448.GA3440@2ka.mipt.ru>
 Content-Disposition: inline
-Sender: linux-fsdevel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+(previous incomplete message sent accidentally)
+
 On Wednesday 08 August 2007 02:54, Evgeniy Polyakov wrote:
-> On Tue, Aug 07, 2007 at 10:55:38PM +0200, Jens Axboe 
-(jens.axboe@oracle.com) wrote:
+> On Tue, Aug 07, 2007 at 10:55:38PM +0200, Jens Axboe wrote:
 >
 > So, what did we decide? To bloat bio a bit (add a queue pointer) or
 > to use physical device limits? The latter requires to replace all
@@ -61,18 +66,19 @@ later by unthrottle, thus avoiding the issue that the bio fields we
 used to calculate might have changed during the lifetime of the bio.  
 This would translate into one more per-bio field.
 
+2) Exposing the per-block device throttle limits via sysfs or similar is 
+really not a good long term solution for system administration.  
+Imagine our help text: "just keep trying smaller numbers until your 
+system deadlocks".  We really need to figure this out internally and 
+get it correct.  I can see putting in a temporary userspace interface 
+just for experimentation, to help determine what really is safe, and 
+what size the numbers should be to approach optimal throughput in a 
+fully loaded memory state.
 
+Regards,
 
-the throttling performs another function: keeping a reasonable amount of 
-IO in flight for the device.  The definition of "reasonable" is 
-complex.  For a hard disk it depends on the physical distance between 
-sector addresses of the bios in flight.  In ddsnap we make a crude but 
-workable approximation that 
+Daniel
 
-
- In general, a per block device 
-
-The throttle count needs to cover 
 
 Regards,
 
