@@ -1,51 +1,42 @@
-From: David Greaves <david@dgreaves.com>
-Subject: Re: [RFD] Layering: Use-Case Composers (was: DRBD - what is it, anyways?
- [compare with e.g. NBD + MD raid])
-Date: Mon, 13 Aug 2007 09:03:30 +0100
-Message-ID: <46C01052.4050708@dgreaves.com>
-References: <200708121335.17267.a1426z@gawab.com> <Pine.LNX.4.64.0708121325170.28963@fbirervta.pbzchgretzou.qr> <Pine.LNX.4.64.0708120933210.19502@asgard.lang.hm> <Pine.LNX.4.64.0708121901290.28963@fbirervta.pbzchgretzou.qr> <20070812174549.GA2915@teal.hq.k1024.org> <46BFB6BB.80406@steeleye.com> <Pine.LNX.4.64.0708122016100.22470@asgard.lang.hm>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Block device throttling [Re: Distributed storage.]
+Date: Mon, 13 Aug 2007 12:14:41 +0400
+Message-ID: <20070813081441.GA30089@2ka.mipt.ru>
+References: <20070731171347.GA14267@2ka.mipt.ru> <20070808095448.GA3440@2ka.mipt.ru> <200708122236.24096.phillips@phunq.net> <200708122344.00343.phillips@phunq.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Paul Clements <paul.clements@steeleye.com>,
-	Jan Engelhardt <jengelh@computergmbh.de>,
-	Al Boldi <a1426z@gawab.com>, linux-kernel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-raid@vger.kernel.org
-To: david@lang.hm
-Return-path: <linux-raid-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0708122016100.22470@asgard.lang.hm>
-Sender: linux-raid-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>
+To: Daniel Phillips <phillips@phunq.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:42789 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S967511AbXHMIPR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Aug 2007 04:15:17 -0400
+Content-Disposition: inline
+In-Reply-To: <200708122344.00343.phillips@phunq.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-david@lang.hm wrote:
-> per the message below MD (or DM) would need to be modified to work 
-> reasonably well with one of the disk components being over an unreliable 
-> link (like a network link)
+On Sun, Aug 12, 2007 at 11:44:00PM -0700, Daniel Phillips (phillips@phunq.net) wrote:
+> On Sunday 12 August 2007 22:36, I wrote:
+> > Note!  There are two more issues I forgot to mention earlier.
 > 
-> are the MD/DM maintainers interested in extending their code in this 
-> direction? or would they prefer to keep it simpler by being able to 
-> continue to assume that the raid components are connected over a highly 
-> reliable connection?
+> Oops, and there is also:
 > 
-> if they are interested in adding (and maintaining) this functionality 
-> then there is a real possibility that NBD+MD/DM could eliminate the need 
-> for DRDB. however if they are not interested in adding all the code to 
-> deal with the network type issues, then the argument that DRDB should 
-> not be merged becouse you can do the same thing with MD/DM + NBD is 
-> invalid and can be dropped/ignored
+> 3) The bio throttle, which is supposed to prevent deadlock, can itself 
+> deadlock.  Let me see if I can remember how it goes.
 > 
-> David Lang
+>   * generic_make_request puts a bio in flight
+>   * the bio gets past the throttle and initiates network IO
+>   * net calls sk_alloc->alloc_pages->shrink_caches
+>   * shrink_caches submits a bio recursively to our block device
+>   * this bio blocks on the throttle
+>   * net may never get the memory it needs, and we are wedged
 
-As a user I'd like to see md/nbd be extended to cope with unreliable links.
-I think md could be better in handling link exceptions. My unreliable memory 
-recalls sporadic issues with hot-plug leaving md hanging and certain lower level 
-errors (or even very high latency) causing unsatisfactory behaviour in what is 
-supposed to be a fault 'tolerant' subsystem.
+If system is in such condition, it is already broken - throttle limit
+must be lowered (next time) not to allow such situation.
 
-
-Would this just be relevant to network devices or would it improve support for 
-jostled usb and sata hot-plugging I wonder?
-
-David
-
+-- 
+	Evgeniy Polyakov
