@@ -1,51 +1,55 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [PATCH 2.6.24]S2io: Default to IntA interrupt type when there are less than 4 CPUs in the system.
-Date: Mon, 13 Aug 2007 01:59:39 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7702035C84@nekter>
-References: <p73sl6oishx.fsf@bingen.suse.de>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 6/24] make atomic_read() behave consistently on frv
+Date: Sun, 12 Aug 2007 23:03:02 -0700
+Message-ID: <20070813060302.GF13410@linux.vnet.ibm.com>
+References: <20070811042943.GA13410@linux.vnet.ibm.com> <E1IKSHQ-0007hg-00@gondolin.me.apana.org.au>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Jeff Garzik" <jeff@garzik.org>, "Rick Jones" <rick.jones2@hp.com>,
-	"Sivakumar Subramani" <Sivakumar.Subramani@neterion.com>,
-	<netdev@vger.kernel.org>, "support" <support@neterion.com>
-To: "Andi Kleen" <andi@firstfloor.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: csnook@redhat.com, dhowells@redhat.com,
+	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, ak@suse.de, heiko.carstens@de.ibm.com,
+	davem@davemloft.net, schwidefsky@de.ibm.com, wensong@linux-vs.org,
+	horms@verge.net.au, wjiang@resilience.com, cfriesen@nortel.com,
+	zlynx@acm.org, rpjday@mindspring.com, jesper.juhl@gmail.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:31492 "EHLO owa.neterion.com"
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:42823 "EHLO e4.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754712AbXHMF7m convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 01:59:42 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <p73sl6oishx.fsf@bingen.suse.de>
+	id S1754712AbXHMGDI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Aug 2007 02:03:08 -0400
+Content-Disposition: inline
+In-Reply-To: <E1IKSHQ-0007hg-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We will be releasing it to the mainline soon. The patches are getting
-queued at our end for test and release. It should be out in a couple of
-weeks.
+On Mon, Aug 13, 2007 at 01:15:52PM +0800, Herbert Xu wrote:
+> Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
+> > On Sat, Aug 11, 2007 at 08:54:46AM +0800, Herbert Xu wrote:
+> >> Chris Snook <csnook@redhat.com> wrote:
+> >> > 
+> >> > cpu_relax() contains a barrier, so it should do the right thing.  For 
+> >> > non-smp architectures, I'm concerned about interacting with interrupt 
+> >> > handlers.  Some drivers do use atomic_* operations.
+> >> 
+> >> What problems with interrupt handlers? Access to int/long must
+> >> be atomic or we're in big trouble anyway.
+> > 
+> > Reordering due to compiler optimizations.  CPU reordering does not
+> > affect interactions with interrupt handlers on a given CPU, but
+> > reordering due to compiler code-movement optimization does.  Since
+> > volatile can in some cases suppress code-movement optimizations,
+> > it can affect interactions with interrupt handlers.
+> 
+> If such reordering matters, then you should use one of the
+> *mb macros or barrier() rather than relying on possibly
+> hidden volatile cast.
 
-Ram
-> -----Original Message-----
-> From: ak@suse.de [mailto:ak@suse.de] On Behalf Of Andi Kleen
-> Sent: Sunday, August 12, 2007 10:16 AM
-> To: Ramkrishna Vepa
-> Cc: Jeff Garzik; Rick Jones; Sivakumar Subramani;
-netdev@vger.kernel.org;
-> support
-> Subject: Re: [PATCH 2.6.24]S2io: Default to IntA interrupt type when
-there
-> are less than 4 CPUs in the system.
-> 
-> "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com> writes:
-> 
-> > In one of the variations of this driver that is not
-> > released to netdev, the received packets are steered to a channel
-based
-> > on hashing on a preconfigured criteria such as sockets on tcp_ipv4,
-> > udp_ipv4, tcp_ipv6, udp_ipv6 or addresses in ipv4/6.
-> 
-> Why is it not released for mainline? It sounds interesting.
-> 
-> -Andi
+If communicating among CPUs, sure.  However, when communicating between
+mainline and interrupt/NMI handlers on the same CPU, the barrier() and
+most expecially the *mb() macros are gross overkill.  So there really
+truly is a place for volatile -- not a large place, to be sure, but a
+place nonetheless.
 
+						Thanx, Paul
