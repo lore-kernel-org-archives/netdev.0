@@ -1,33 +1,39 @@
 From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Subject: Re: [3/4] 2.6.23-rc3: known regressions
-Date: Mon, 13 Aug 2007 19:59:37 +0200
-Message-ID: <46C09C09.7010605@googlemail.com>
-References: <46C098FD.1030601@googlemail.com>
+Subject: Re: [2/2] 2.6.23-rc3: known regressions with patches
+Date: Mon, 13 Aug 2007 20:00:03 +0200
+Message-ID: <46C09C23.8070906@googlemail.com>
+References: <46C09B4D.6040907@googlemail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-2
 Content-Transfer-Encoding: 7bit
 Cc: Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, Jan Dittmer <jdi@l4x.org>,
+	Thomas Renninger <trenn@suse.de>,
+	linux-mtd@lists.infradead.org,
+	David Woodhouse <dwmw2@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>, Tony Luck <tony.luck@intel.com>,
 	Netdev <netdev@vger.kernel.org>,
 	Stephen Hemminger <shemminger@osdl.org>,
-	Thomas Meyer <thomas@m3y3r.de>, Uwe Bugla <uwe.bugla@gmx.de>,
-	"Daniel K." <daniel@cluded.net>, Shish <shish@shishnet.org>,
-	Karl Meyer <adhocrocker@gmail.com>
+	Florian Lohoff <flo@rfc822.org>,
+	linux-usb-devel@lists.sourceforge.net, Greg KH <gregkh@suse.de>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Dan Zwell <dzwell@gmail.com>
 To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.230]:35880 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S974363AbXHMSAm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 14:00:42 -0400
-Received: by wr-out-0506.google.com with SMTP id 36so219728wra
-        for <netdev@vger.kernel.org>; Mon, 13 Aug 2007 11:00:42 -0700 (PDT)
-In-Reply-To: <46C098FD.1030601@googlemail.com>
+Received: from fk-out-0910.google.com ([209.85.128.186]:35699 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965509AbXHMSBL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 14:01:11 -0400
+Received: by fk-out-0910.google.com with SMTP id z23so1475659fkz
+        for <netdev@vger.kernel.org>; Mon, 13 Aug 2007 11:01:08 -0700 (PDT)
+In-Reply-To: <46C09B4D.6040907@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi all,
 
-Here is a list of some known regressions in 2.6.23-rc3.
+Here is a list of some known regressions in 2.6.23-rc3
+with patches available.
 
 Feel free to add new regressions/remove fixed etc.
 http://kernelnewbies.org/known_regressions
@@ -46,48 +52,57 @@ Tejun Heo                              3
 
 
 
+Modpost
+
+Subject         : modpost bug breaks ia64 cross compilation
+References      : http://lkml.org/lkml/2007/7/27/30
+                  http://lkml.org/lkml/2007/7/27/418
+Last known good : ?
+Submitter       : Jan Dittmer <jdi@l4x.org>
+Caused-By       : Thomas Renninger <trenn@suse.de>
+                  commit 29b71a1ca74491fab9fed09e9d835d840d042690
+Handled-By      : ?
+Patch           : http://lkml.org/lkml/2007/8/2/211
+Status          : patch was suggested
+
+
+
+MTD
+
+Subject         : error: implicit declaration of function 'cfi_interleave'
+References      : http://lkml.org/lkml/2007/8/6/272
+Last known good : ?
+Submitter       : Ingo Molnar <mingo@elte.hu>
+Caused-By       : ?
+Handled-By      : David Woodhouse <dwmw2@infradead.org>
+Patch           : http://lkml.org/lkml/2007/8/9/586
+Status          : patch available
+
+
+
 Networking
 
-Subject         : NETDEV WATCHDOG: eth0: transmit timed out
-References      : http://lkml.org/lkml/2007/8/13/737
+Subject         : sky2 boot crash in sky2_mac_intr
+References      : http://lkml.org/lkml/2007/7/24/91
 Last known good : ?
-Submitter       : Karl Meyer <adhocrocker@gmail.com>
-Caused-By       : ?
-Handled-By      : ?
-Status          : unknown
-
-Subject         : Weird network problems with 2.6.23-rc2
-References      : http://lkml.org/lkml/2007/8/11/40
-Last known good : ?
-Submitter       : Shish <shish@shishnet.org>
-Caused-By       : ?
-Handled-By      : ?
-Status          : unknown
-
-Subject         : BUG: when using 'brctl stp'
-References      : http://lkml.org/lkml/2007/8/10/441
-Last known good : 2.6.23-rc1
-Submitter       : Daniel K. <daniel@cluded.net>
-Caused-By       : ?
-Handled-By      : ?
-Status          : unknown
-
-Subject         : IP v4 routing is broken
-References      : http://www.stardust.webpages.pl/files/tbf/bugs/bug_report01.txt
-Last known good : 2.6.22-git2
-Submitter       : Uwe Bugla <uwe.bugla@gmx.de>
-Caused-By       : ?
-Handled-By      : ?
-Status          : unknown
-
-Subject         : New wake ups from sky2
-References      : http://lkml.org/lkml/2007/7/20/386
-Last known good : ?
-Submitter       : Thomas Meyer <thomas@m3y3r.de>
-Caused-By       : Stephen Hemminger <shemminger@osdl.org>
-                  commit eb35cf60e462491249166182e3e755d3d5d91a28
+Submitter       : Florian Lohoff <flo@rfc822.org>
+Caused-By       : 
 Handled-By      : Stephen Hemminger <shemminger@osdl.org>
-Status          : unknown
+Patch           : http://marc.info/?l=linux-netdev&m=118651402523966&w=2
+Status          : patch available
+
+
+
+USB
+
+Subject         : USB hard disk problem due to "usb-storage: implement autosuspend" patch
+References      : http://lkml.org/lkml/2007/8/9/329
+Last known good : ?
+Submitter       : Dan Zwell <dzwell@gmail.com>
+Caused-By       : Alan Stern <stern@rowland.harvard.edu>
+                  commit 8dfe4b14869fd185ca25ee88b02ada58a3005eaf
+Handled-By      : Alan Stern <stern@rowland.harvard.edu>
+Status          : patch available
 
 
 
