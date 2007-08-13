@@ -1,79 +1,49 @@
-From: Daniel Phillips <phillips@phunq.net>
-Subject: Re: Distributed storage.
-Date: Mon, 13 Aug 2007 04:45:06 -0700
-Message-ID: <200708130445.06643.phillips@phunq.net>
-References: <20070731171347.GA14267@2ka.mipt.ru> <200708130312.33903.phillips@phunq.net> <20070813110302.GA28360@2ka.mipt.ru>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Block device throttling [Re: Distributed storage.]
+Date: Mon, 13 Aug 2007 16:04:17 +0400
+Message-ID: <20070813120417.GA5992@2ka.mipt.ru>
+References: <20070731171347.GA14267@2ka.mipt.ru> <200708122344.00343.phillips@phunq.net> <20070813081441.GA30089@2ka.mipt.ru> <200708130404.26572.phillips@phunq.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	Peter Zijlstra <peterz@infradead.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20070813110302.GA28360@2ka.mipt.ru>
+To: Daniel Phillips <phillips@phunq.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:45421 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S968580AbXHMMFR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Aug 2007 08:05:17 -0400
 Content-Disposition: inline
-Sender: linux-fsdevel-owner@vger.kernel.org
+In-Reply-To: <200708130404.26572.phillips@phunq.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 13 August 2007 04:03, Evgeniy Polyakov wrote:
-> On Mon, Aug 13, 2007 at 03:12:33AM -0700, Daniel Phillips 
-(phillips@phunq.net) wrote:
-> > > This is not a very good solution, since it requires all users of
-> > > the bios to know how to free it.
+On Mon, Aug 13, 2007 at 04:04:26AM -0700, Daniel Phillips (phillips@phunq.net) wrote:
+> On Monday 13 August 2007 01:14, Evgeniy Polyakov wrote:
+> > > Oops, and there is also:
+> > >
+> > > 3) The bio throttle, which is supposed to prevent deadlock, can
+> > > itself deadlock.  Let me see if I can remember how it goes.
+> > >
+> > >   * generic_make_request puts a bio in flight
+> > >   * the bio gets past the throttle and initiates network IO
+> > >   * net calls sk_alloc->alloc_pages->shrink_caches
+> > >   * shrink_caches submits a bio recursively to our block device
+> > >   * this bio blocks on the throttle
+> > >   * net may never get the memory it needs, and we are wedged
 > >
-> > No, only the specific ->endio needs to know that, which is set by
-> > the bio owner, so this knowledge lies in exactly the right place. 
-> > A small handful of generic endios all with the same destructor are
-> > used nearly everywhere.
->
-> That is what I meant - there will be no way to just alloc a bio and
-> put it, helpers for generic bio sets must be exported and each and
-> every bi_end_io() must be changed to check reference counter and they
-> must know how they were allocated.
+> > If system is in such condition, it is already broken - throttle limit
+> > must be lowered (next time) not to allow such situation.
+> 
+> Agreed that the system is broken, however lowering the throttle limit 
+> gives no improvement in this case.
 
-There are fewer non-generic bio allocators than you think.
+How is it ever possible? The whole idea of throttling is to remove such
+situation, and now you say it can not be solved. If limit is for 1gb of
+pending block io, and system has for example 2gbs of ram (or any other
+resonable parameters), then there is no way we can deadlock in
+allocation, since it will not force page reclaim mechanism.
 
-> Endio callback is of course quite rare and additional atomic
-> reading will not kill the system, but why introduce another read?
-> It is possible to provide a flag for endio callback that it is last,
-> but it still requires to change every single callback - why do we
-> want this?
-
-We don't.  Struct bio does not need to be shrunk.  Jens wanted to talk 
-about what fields could be eliminated if we wanted to shrink it.  It is 
-about time to let that lie, don't you think?
-
-> So, I'm a bit lost...
->
-> You say it is too big 
-
-Did not say that.
-
-> and some parts can be removed or combined
-
-True.
-
-> and  then that size does not matter.
-
-Also true, backed up by numbers on real systems.
-
-> Last/not-last checks in the code is 
-> not clear design, so I do not see why it is needed at all if not for
-> size shrinking.
-
-Not needed, indeed.  Accurate throttling is needed.  If the best way to 
-throttle requires expanding struct bio a little then we should not let 
-concerns about the cost  of an int or two stand in the way.  Like Jens, 
-I am more concerned about the complexity cost, and that is minimized in 
-my opinion by throttling in the generic code rather than with custom 
-code in each specialized block driver.
-
-Your patch does throttle in the generic code, great.  Next thing is to 
-be sure that it completely closes the window for reserve leakage, which 
-is not yet clear.
-
-Regards,
-
-Daniel
+-- 
+	Evgeniy Polyakov
