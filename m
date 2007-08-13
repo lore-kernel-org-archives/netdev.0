@@ -1,50 +1,54 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH 2/4] Net: mac80211, remove bitfields from struct
-	ieee80211_txrx_data
-Date: Mon, 13 Aug 2007 14:44:38 +0200
-Message-ID: <1187009078.27916.109.camel@johannes.berg>
-References: <2653412025907217317@wsc.cz>
+From: David Greaves <david@dgreaves.com>
+Subject: Re: [RFD] Layering: Use-Case Composers (was: DRBD - what is it, anyways?
+ [compare with e.g. NBD + MD raid])
+Date: Mon, 13 Aug 2007 13:43:55 +0100
+Message-ID: <46C0520B.20804@dgreaves.com>
+References: <200708121335.17267.a1426z@gawab.com> <Pine.LNX.4.64.0708121325170.28963@fbirervta.pbzchgretzou.qr> <Pine.LNX.4.64.0708120933210.19502@asgard.lang.hm> <Pine.LNX.4.64.0708121901290.28963@fbirervta.pbzchgretzou.qr> <20070812174549.GA2915@teal.hq.k1024.org> <46BFB6BB.80406@steeleye.com> <Pine.LNX.4.64.0708122016100.22470@asgard.lang.hm> <46C01052.4050708@dgreaves.com> <Pine.LNX.4.64.0708130127260.22470@asgard.lang.hm>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-QDS0UPsfdZM3iz18bE18"
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jbenc-AlSwsSmVLrQ@public.gmane.org, flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org
-To: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <2653412025907217317-2EuRcrBQ8V0@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Paul Clements <paul.clements@steeleye.com>,
+	Jan Engelhardt <jengelh@computergmbh.de>,
+	Al Boldi <a1426z@gawab.com>, linux-kernel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-raid@vger.kernel.org
+To: david@lang.hm
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s2.ukfsn.org ([217.158.120.143]:52200 "EHLO mail.ukfsn.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753904AbXHMMn7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Aug 2007 08:43:59 -0400
+In-Reply-To: <Pine.LNX.4.64.0708130127260.22470@asgard.lang.hm>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+david@lang.hm wrote:
+>> Would this just be relevant to network devices or would it improve 
+>> support for jostled usb and sata hot-plugging I wonder?
+> 
+> good question, I suspect that some of the error handling would be 
+> similar (for devices that are unreachable not haning the system for 
+> example), but a lot of the rest would be different (do you really want 
+> to try to auto-resync to a drive that you _think_ just reappeared,
+Well, omit 'think' and the answer may be "yes". A lot of systems are quite 
+simple and RAID is common on the desktop now. If jostled USB fits into this 
+category - then "yes".
 
---=-QDS0UPsfdZM3iz18bE18
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> what 
+> if it's a different drive? how can you be sure?
+And that's the key isn't it. We have the RAID device UUID and the superblock 
+info. Isn't that enough? If not then given the work involved an extended 
+superblock wouldn't be unreasonable.
+And I suspect the capability of devices would need recording in the superblock 
+too? eg 'retry-on-fail'
+I can see how md would fail a device but may now periodically retry it. If a 
+retry shows that it's back then it would validate it (UUID) and then resync it.
 
-On Sun, 2007-08-12 at 15:08 +0200, Jiri Slaby wrote:
+> ) the error rate of a 
+> network is gong to be significantly higher then for USB or SATA drives 
+> (although I suppose iscsi would be limilar)
 
-> -	unsigned int fragmented:1; /* whether the MSDU was fragmented */
-> +	/* whether the MSDU was fragmented */
-> +#define IEEE80211_TXRXD_FRAGMENTED		BIT(0)
-> +#define IEEE80211_TXRXD_TXUNICAST		BIT(1)
-> +#define IEEE80211_TXRXD_TXPS_BUFFERED		BIT(2)
-> +#define IEEE80211_TXRXD_TXPROBE_LAST_FRAG	BIT(3)
-> +#define IEEE80211_TXRXD_RXIN_SCAN		BIT(4)
+I do agree - I was looking for value-add for the existing subsystem. If this 
+benefits existing RAID users then it's more likely to be attractive.
 
-I know this isn't the style currently used, but could you put these
-definitions before the struct declaration? That way, kerneldoc doesn't
-totally screw up.
-
-johannes
-
---=-QDS0UPsfdZM3iz18bE18
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGwFI2/ETPhpq3jKURAqoiAJ9TudBaJ7/wz8RydKNs9NzyH0S0XgCgi3MF
-2U/c9xHgn70Ysvo21XVdnnM=
-=iHUh
------END PGP SIGNATURE-----
-
---=-QDS0UPsfdZM3iz18bE18--
+David
