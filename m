@@ -1,49 +1,50 @@
 From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH 1/4] Net: mac80211, remove bitfields from struct
-	ieee80211_tx_packet_data
-Date: Mon, 13 Aug 2007 14:43:49 +0200
-Message-ID: <1187009029.27916.107.camel@johannes.berg>
-References: <32694265142306417777@wsc.cz>
+Subject: Re: [PATCH 2/4] Net: mac80211, remove bitfields from struct
+	ieee80211_txrx_data
+Date: Mon, 13 Aug 2007 14:44:38 +0200
+Message-ID: <1187009078.27916.109.camel@johannes.berg>
+References: <2653412025907217317@wsc.cz>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-7G5E77YaV8ejdTKXdGhu"
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-QDS0UPsfdZM3iz18bE18"
 Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	jbenc-AlSwsSmVLrQ@public.gmane.org, flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org
 To: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <32694265142306417777-2EuRcrBQ8V0@public.gmane.org>
+In-Reply-To: <2653412025907217317-2EuRcrBQ8V0@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
---=-7G5E77YaV8ejdTKXdGhu
+--=-QDS0UPsfdZM3iz18bE18
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
 On Sun, 2007-08-12 at 15:08 +0200, Jiri Slaby wrote:
 
-> +	if (control->flags & IEEE80211_TXCTL_REQ_TX_STATUS)
-> +		pkt_data->flags |=3D IEEE80211_TXPD_REQ_TX_STATUS;
-> +	if (control->flags & IEEE80211_TXCTL_DO_NOT_ENCRYPT)
-> +		pkt_data->flags |=3D IEEE80211_TXPD_DO_NOT_ENCRYPT;
-> +	if (control->flags & IEEE80211_TXCTL_REQUEUE)
-> +		pkt_data->flags |=3D IEEE80211_TXPD_REQUEUE;
-> +	if (control->type =3D=3D IEEE80211_IF_TYPE_MGMT)
-> +		pkt_data->flags |=3D IEEE80211_TXPD_MGMT_IFACE;
+> -	unsigned int fragmented:1; /* whether the MSDU was fragmented */
+> +	/* whether the MSDU was fragmented */
+> +#define IEEE80211_TXRXD_FRAGMENTED		BIT(0)
+> +#define IEEE80211_TXRXD_TXUNICAST		BIT(1)
+> +#define IEEE80211_TXRXD_TXPS_BUFFERED		BIT(2)
+> +#define IEEE80211_TXRXD_TXPROBE_LAST_FRAG	BIT(3)
+> +#define IEEE80211_TXRXD_RXIN_SCAN		BIT(4)
 
-This looks weird. Can't we just use the same flags?
+I know this isn't the style currently used, but could you put these
+definitions before the struct declaration? That way, kerneldoc doesn't
+totally screw up.
 
 johannes
 
---=-7G5E77YaV8ejdTKXdGhu
+--=-QDS0UPsfdZM3iz18bE18
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iD8DBQBGwFIF/ETPhpq3jKURAjXCAKCg1zYXY3Xvcl8v4bea/6pHod8yUgCgorwG
-DaD5jjbBjNVxZdrxjVy9OMY=
-=Wwrs
+iD8DBQBGwFI2/ETPhpq3jKURAqoiAJ9TudBaJ7/wz8RydKNs9NzyH0S0XgCgi3MF
+2U/c9xHgn70Ysvo21XVdnnM=
+=iHUh
 -----END PGP SIGNATURE-----
 
---=-7G5E77YaV8ejdTKXdGhu--
+--=-QDS0UPsfdZM3iz18bE18--
