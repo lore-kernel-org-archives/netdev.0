@@ -1,50 +1,46 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] [374/2many] MAINTAINERS - PCNET32 NETWORK DRIVER
-Date: Sun, 12 Aug 2007 23:46:49 -0700
-Message-ID: <1186987609.10249.22.camel@localhost>
-References: <46bffb4c.nrqicrPs7IJXlgQ0%joe@perches.com>
-	 <20070812.233630.00455011.davem@davemloft.net>
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: [PATCH 6/24] make atomic_read() behave consistently on frv
+Date: Mon, 13 Aug 2007 02:44:13 -0400
+Message-ID: <46BFFDBD.6080804@redhat.com>
+References: <46BCC26B.6080600@redhat.com> <46BB46B2.60808@redhat.com> <20070809134150.GA14890@shell.boston.redhat.com> <2708.1186737826@redhat.com> <7680.1186822071@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, pcnet32@verizon.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org
-To: David Miller <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, ak@suse.de, heiko.carstens@de.ibm.com,
+	davem@davemloft.net, schwidefsky@de.ibm.com, wensong@linux-vs.org,
+	horms@verge.net.au, wjiang@resilience.com, cfriesen@nortel.com,
+	zlynx@acm.org, rpjday@mindspring.com, jesper.juhl@gmail.com
+To: David Howells <dhowells@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:2573 "EHLO perches.com"
+Received: from mx1.redhat.com ([66.187.233.31]:33608 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S968072AbXHMGsC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Aug 2007 02:48:02 -0400
-In-Reply-To: <20070812.233630.00455011.davem@davemloft.net>
+	id S967818AbXHMGuh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Aug 2007 02:50:37 -0400
+In-Reply-To: <7680.1186822071@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2007-08-12 at 23:36 -0700, David Miller wrote:
-> Ok, 374 patches is just rediculious.
+David Howells wrote:
+> Chris Snook <csnook@redhat.com> wrote:
 > 
-> So many patches eats up an enormous amount of mailing list resources,
-> and for these patches in particular there are few reasons to split
-> them up at all.  The fact that the split up landed you at 300+ patches
-> is a very good indication of that.
+>> cpu_relax() contains a barrier, so it should do the right thing.  For non-smp
+>> architectures, I'm concerned about interacting with interrupt handlers.  Some
+>> drivers do use atomic_* operations.
+> 
+> I'm not sure that actually answers my question.  Why not smp_rmb()?
+> 
+> David
 
-More than ridiculous.  Completely agree.
+I would assume because we want to waste time efficiently even on non-smp 
+architectures, rather than frying the CPU or draining the battery.  Certain 
+looping execution patterns can cause the CPU to operate above thermal design 
+power.  I have fans on my workstation that only ever come on when running 
+LINPACK, and that's generally memory bandwidth-bound.  Just imagine what happens 
+when you're executing the same few non-serializing instructions in a tight loop 
+without ever stalling on memory fetches, or being scheduled out.
 
-I tried to send 1 patch over the last couple of days.
-Unfortunately, it's > 100KB and disappears into the void.
+If there's another reason, I'd like to hear it too, because I'm just guessing here.
 
-How about 10 patches or so?
-
-What about maintainer sign offs?
-
-Personally, I don't think it's necessary, but for
-the subsystem maintainers like you, if or when the
-get_maintainers.pl get integrated into patch
-generation mechanisms, you might get more emails.
-Perhaps more than you want.
-
-Suggestions?
-
-One good thing by emailing all the listed maintainers,
-I've gotten several bounces for invalid addresses.
-
+	-- Chris
