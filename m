@@ -1,85 +1,51 @@
-From: Daniel Phillips <phillips@phunq.net>
-Subject: Re: Block device throttling [Re: Distributed storage.]
-Date: Sun, 12 Aug 2007 22:36:23 -0700
-Message-ID: <200708122236.24096.phillips@phunq.net>
-References: <20070731171347.GA14267@2ka.mipt.ru> <20070807205538.GB5245@kernel.dk> <20070808095448.GA3440@2ka.mipt.ru>
+From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
+Subject: RE: [PATCH 2.6.24]S2io: Default to IntA interrupt type when there are less than 4 CPUs in the system.
+Date: Mon, 13 Aug 2007 01:59:39 -0400
+Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7702035C84@nekter>
+References: <p73sl6oishx.fsf@bingen.suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Jeff Garzik" <jeff@garzik.org>, "Rick Jones" <rick.jones2@hp.com>,
+	"Sivakumar Subramani" <Sivakumar.Subramani@neterion.com>,
+	<netdev@vger.kernel.org>, "support" <support@neterion.com>
+To: "Andi Kleen" <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dsl081-085-152.lax1.dsl.speakeasy.net ([64.81.85.152]:40019
-	"EHLO moonbase.phunq.net" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752504AbXHMFg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 01:36:27 -0400
-In-Reply-To: <20070808095448.GA3440@2ka.mipt.ru>
-Content-Disposition: inline
+Received: from mx.neterion.com ([72.1.205.142]:31492 "EHLO owa.neterion.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754712AbXHMF7m convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 01:59:42 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <p73sl6oishx.fsf@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(previous incomplete message sent accidentally)
+We will be releasing it to the mainline soon. The patches are getting
+queued at our end for test and release. It should be out in a couple of
+weeks.
 
-On Wednesday 08 August 2007 02:54, Evgeniy Polyakov wrote:
-> On Tue, Aug 07, 2007 at 10:55:38PM +0200, Jens Axboe wrote:
->
-> So, what did we decide? To bloat bio a bit (add a queue pointer) or
-> to use physical device limits? The latter requires to replace all
-> occurence of bio->bi_bdev = something_new with blk_set_bdev(bio,
-> somthing_new), where queue limits will be appropriately charged. So
-> far I'm testing second case, but I only changed DST for testing, can
-> change all other users if needed though.
+Ram
+> -----Original Message-----
+> From: ak@suse.de [mailto:ak@suse.de] On Behalf Of Andi Kleen
+> Sent: Sunday, August 12, 2007 10:16 AM
+> To: Ramkrishna Vepa
+> Cc: Jeff Garzik; Rick Jones; Sivakumar Subramani;
+netdev@vger.kernel.org;
+> support
+> Subject: Re: [PATCH 2.6.24]S2io: Default to IntA interrupt type when
+there
+> are less than 4 CPUs in the system.
+> 
+> "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com> writes:
+> 
+> > In one of the variations of this driver that is not
+> > released to netdev, the received packets are steered to a channel
+based
+> > on hashing on a preconfigured criteria such as sockets on tcp_ipv4,
+> > udp_ipv4, tcp_ipv6, udp_ipv6 or addresses in ipv4/6.
+> 
+> Why is it not released for mainline? It sounds interesting.
+> 
+> -Andi
 
-Adding a queue pointer to struct bio and using physical device limits as 
-in your posted patch both suffer from the same problem: you release the 
-throttling on the previous queue when the bio moves to a new one, which 
-is a bug because memory consumption on the previous queue then becomes 
-unbounded, or limited only by the number of struct requests that can be 
-allocated.  In other words, it reverts to the same situation we have 
-now as soon as the IO stack has more than one queue.  (Just a shorter 
-version of my previous post.)
-
-We can solve this by having the bio only point at the queue to which it 
-was originally submitted, since throttling the top level queue 
-automatically throttles all queues lower down the stack.  Alternatively 
-the bio can point at the block_device or straight at the 
-backing_dev_info, which is the per-device structure it actually needs 
-to touch.
-
-Note!  There are two more issues I forgot to mention earlier.
-
-1) One throttle count per submitted bio is too crude a measure.  A bio 
-can carry as few as one page or as many as 256 pages.  If you take only 
-one throttle count per bio and that data will be transferred over the 
-network then you have to assume that (a little more than) 256 pages of 
-sk_alloc reserve will be needed for every bio, resulting in a grossly 
-over-provisioned reserve.  The precise reserve calculation we want to 
-do is per-block device, and you will find hooks like this already 
-living in backing_dev_info.  We need to place our own fn+data there to 
-calculate the throttle draw for each bio.  Unthrottling gets trickier 
-with variable size throttle draw.  In ddsnap, we simply write the 
-amount we drew from the throttle into (the private data of) bio for use 
-later by unthrottle, thus avoiding the issue that the bio fields we 
-used to calculate might have changed during the lifetime of the bio.  
-This would translate into one more per-bio field.
-
-2) Exposing the per-block device throttle limits via sysfs or similar is 
-really not a good long term solution for system administration.  
-Imagine our help text: "just keep trying smaller numbers until your 
-system deadlocks".  We really need to figure this out internally and 
-get it correct.  I can see putting in a temporary userspace interface 
-just for experimentation, to help determine what really is safe, and 
-what size the numbers should be to approach optimal throughput in a 
-fully loaded memory state.
-
-Regards,
-
-Daniel
-
-
-Regards,
-
-Daniel
