@@ -1,48 +1,41 @@
-From: "Robert P. J. Day" <rpjday@mindspring.com>
-Subject: Re: [KJ] replacing kmalloc with kzalloc in drivers/net/sb1250-mac.c
-Date: Mon, 13 Aug 2007 11:24:10 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0708131123020.2277@localhost.localdomain>
-References: <1186999123.29518.18.camel@bluegenie>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] [70/2many] MAINTAINERS - ARPD SUPPORT
+Date: Mon, 13 Aug 2007 17:35:22 +0100
+Message-ID: <20070813173522.685dab9e@the-village.bc.nu>
+References: <46bff8e8.HhTQ7TBPy1zkcNfh%joe@perches.com>
+	<20070813114942.04a5483c@the-village.bc.nu>
+	<1187019966.10249.75.camel@localhost>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Linux Kernel <linux-kernel@vger.kernel.org>
-To: Surya Prabhakar N <surya.prabhakar@wipro.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S947256AbXHMQyk@vger.kernel.org>
-In-Reply-To: <1186999123.29518.18.camel@bluegenie>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S948331AbXHMQ5F@vger.kernel.org>
+In-Reply-To: <1187019966.10249.75.camel@localhost>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 13 Aug 2007, Surya Prabhakar N wrote:
+On Mon, 13 Aug 2007 08:46:06 -0700
+Joe Perches <joe@perches.com> wrote:
 
-> Hi,
->    Replacing kmalloc with kzalloc and cleaning up memset in
-> drivers/net/sb1250-mac.c
->
->
-> Signed-off-by: Surya Prabhakar <surya.prabhakar@wipro.com>
-> ---
->
-> diff --git a/drivers/net/sb1250-mac.c b/drivers/net/sb1250-mac.c
-> index e7fdcf1..2dca5a7 100644
-> --- a/drivers/net/sb1250-mac.c
-> +++ b/drivers/net/sb1250-mac.c
-> @@ -760,7 +760,7 @@ static void sbdma_initctx(sbmacdma_t *d,
->
->  	d->sbdma_dscrtable_unaligned =
->  	d->sbdma_dscrtable = (sbdmadscr_t *)
-                             ^^^^^^^^^^^^^^^
-> -		kmalloc((d->sbdma_maxdescr+1)*sizeof(sbdmadscr_t), GFP_KERNEL);
-> +		kzalloc((d->sbdma_maxdescr+1)*sizeof(sbdmadscr_t), GFP_KERNEL);
+> On Mon, 2007-08-13 at 11:49 +0100, Alan Cox wrote:
+> > > diff --git a/MAINTAINERS b/MAINTAINERS
+> > > index 90c1b81..ac2226b 100644
+> > > --- a/MAINTAINERS
+> > > +++ b/MAINTAINERS
+> > > @@ -697,6 +697,7 @@ ARPD SUPPORT
+> > >  P:	Jonathan Layes
+> > >  L:	netdev@vger.kernel.org
+> > >  S:	Maintained
+> > > +F:	net/ipv4/arp.c
+> > 
+> > NAK
+> > 
+> > arp.c is the netdev people, ARPD is a corner case bit of code within it,
+> > something your patterns don't actually cope with
+> 
+> Suggestions?
 
-i'm fairly sure you can drop all of those superfluous casts when
-calling one of those memory allocation routines.
-
-rday
--- 
-========================================================================
-Robert P. J. Day
-Linux Consulting, Training and Annoying Kernel Pedantry
-Waterloo, Ontario, CANADA
-
-http://fsdev.net/wiki/index.php?title=Main_Page
-========================================================================
+I wouldn't add a pattern for this. Actually I think the entire thing is a
+bad idea but thats another matter.
