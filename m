@@ -1,47 +1,67 @@
-From: Jens Axboe <jens.axboe@oracle.com>
-Subject: Re: Distributed storage.
-Date: Mon, 13 Aug 2007 11:13:49 +0200
-Message-ID: <20070813091348.GJ23758@kernel.dk>
-References: <20070731171347.GA14267@2ka.mipt.ru> <20070813072848.GC23758@kernel.dk> <20070813074530.GE23758@kernel.dk> <200708130208.57542.phillips@phunq.net>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH 9/24] make atomic_read() behave consistently on ia64
+Date: Mon, 13 Aug 2007 09:39:55 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0708130939470.16526@anakin>
+References: <20070809135107.GA15985@shell.boston.redhat.com>
+ <617E1C2C70743745A92448908E030B2A02213B3C@scsmsx411.amr.corp.intel.com>
+ <46BCC1AF.5050204@redhat.com> <617E1C2C70743745A92448908E030B2A0224C777@scsmsx411.amr.corp.intel.com>
+ <jewsw3oyl8.fsf@sykes.suse.de> <617E1C2C70743745A92448908E030B2A0224C88B@scsmsx411.amr.corp.intel.com>
+ <46BCE9F8.4060009@redhat.com> <617E1C2C70743745A92448908E030B2A0224C8D7@scsmsx411.amr.corp.intel.com>
+ <alpine.LFD.0.999.0708101607130.30176@woody.linux-foundation.org>
+ <46BCF19E.5000702@redhat.com> <18109.1084.917429.585224@cargo.ozlabs.ibm.com>
+ <46BFFA71.4080601@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: Daniel Phillips <phillips@phunq.net>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <200708130208.57542.phillips@phunq.net>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Paul Mackerras <paulus@samba.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	"Luck, Tony" <tony.luck@intel.com>,
+	Andreas Schwab <schwab@suse.de>, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, ak@suse.de, heiko.carstens@de.ibm.com,
+	davem@davemloft.net, schwidefsky@de.ibm.com, wensong@linux-vs.org,
+	horms@verge.net.au, wjiang@resilience.com, cfriesen@nortel.com,
+	zlynx@acm.org, rpjday@mindspring.com, jesper.juhl@gmail.com
+To: Chris Snook <csnook@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dike.telenet-ops.be ([195.130.132.36]:60229 "EHLO
+	dike.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S942650AbXHMJSl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 05:18:41 -0400
+Received: from adicia.telenet-ops.be (adicia.telenet-ops.be [195.130.132.56])
+	by dike.telenet-ops.be (Postfix) with ESMTP id 3EFFD30105E
+	for <netdev@vger.kernel.org>; Mon, 13 Aug 2007 09:41:07 +0200 (CEST)
+In-Reply-To: <46BFFA71.4080601@redhat.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 13 2007, Daniel Phillips wrote:
-> On Monday 13 August 2007 00:45, Jens Axboe wrote:
-> > On Mon, Aug 13 2007, Jens Axboe wrote:
-> > > > You did not comment on the one about putting the bio destructor
-> > > > in the ->endio handler, which looks dead simple.  The majority of
-> > > > cases just use the default endio handler and the default
-> > > > destructor.  Of the remaining cases, where a specialized
-> > > > destructor is needed, typically a specialized endio handler is
-> > > > too, so combining is free.  There are few if any cases where a
-> > > > new specialized endio handler would need to be written.
-> > >
-> > > We could do that without too much work, I agree.
-> >
-> > But that idea fails as well, since reference counts and IO completion
-> > are two completely seperate entities. So unless end IO just happens
-> > to be the last user holding a reference to the bio, you cannot free
-> > it.
+On Mon, 13 Aug 2007, Chris Snook wrote:
+> Paul Mackerras wrote:
+> > Chris Snook writes:
+> > > I'll do this for the whole patchset.  Stay tuned for the resubmit.
+> > 
+> > Could you incorporate Segher's patch to turn atomic_{read,set} into
+> > asm on powerpc?  Segher claims that using asm is really the only
+> > reliable way to ensure that gcc does what we want, and he seems to
+> > have a point.
+> > 
+> > Paul.
 > 
-> That is not a problem.  When bio_put hits zero it calls ->endio instead 
-> of the destructor.  The ->endio sees that the count is zero and 
-> destroys the bio.
+> I haven't seen a patch yet.  I'm going to resubmit with inline volatile-cast
+> atomic[64]_[read|set] on all architectures as a reference point, and if anyone
+> wants to go and implement some of them in assembly, that's between them and
+> the relevant arch maintainers.  I have no problem with (someone else) doing it
+> in assembly.  I just don't think it's necessary and won't let it hold up the
+> effort to get consistent behavior on all architectures.
 
-You can't be serious? You'd stall end io completion notification because
-someone holds a reference to a bio. Surely you jest.
+http://lkml.org/lkml/2007/8/10/470
 
-Needless to say, that will never go in.
+Gr{oetje,eeting}s,
 
--- 
-Jens Axboe
+						Geert
 
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
