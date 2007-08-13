@@ -1,68 +1,64 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Block device throttling [Re: Distributed storage.]
-Date: Mon, 13 Aug 2007 12:23:27 +0400
-Message-ID: <20070813082326.GC30089@2ka.mipt.ru>
-References: <20070731171347.GA14267@2ka.mipt.ru> <20070807205538.GB5245@kernel.dk> <20070808095448.GA3440@2ka.mipt.ru> <200708122236.24096.phillips@phunq.net>
+From: david@lang.hm
+Subject: Re: [RFD] Layering: Use-Case Composers (was: DRBD - what is it,
+ anyways? [compare with e.g. NBD + MD raid])
+Date: Mon, 13 Aug 2007 01:31:24 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0708130127260.22470@asgard.lang.hm>
+References: <200708121335.17267.a1426z@gawab.com>
+ <Pine.LNX.4.64.0708121325170.28963@fbirervta.pbzchgretzou.qr>
+ <Pine.LNX.4.64.0708120933210.19502@asgard.lang.hm>
+ <Pine.LNX.4.64.0708121901290.28963@fbirervta.pbzchgretzou.qr>
+ <20070812174549.GA2915@teal.hq.k1024.org> <46BFB6BB.80406@steeleye.com>
+ <Pine.LNX.4.64.0708122016100.22470@asgard.lang.hm> <46C01052.4050708@dgreaves.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: Daniel Phillips <phillips@phunq.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Paul Clements <paul.clements@steeleye.com>,
+	Jan Engelhardt <jengelh@computergmbh.de>,
+	Al Boldi <a1426z@gawab.com>, linux-kernel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-raid@vger.kernel.org
+To: David Greaves <david@dgreaves.com>
 Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <200708122236.24096.phillips@phunq.net>
+In-Reply-To: <46C01052.4050708@dgreaves.com>
 Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 12, 2007 at 10:36:23PM -0700, Daniel Phillips (phillips@phunq.net) wrote:
-> (previous incomplete message sent accidentally)
-> 
-> On Wednesday 08 August 2007 02:54, Evgeniy Polyakov wrote:
-> > On Tue, Aug 07, 2007 at 10:55:38PM +0200, Jens Axboe wrote:
-> >
-> > So, what did we decide? To bloat bio a bit (add a queue pointer) or
-> > to use physical device limits? The latter requires to replace all
-> > occurence of bio->bi_bdev = something_new with blk_set_bdev(bio,
-> > somthing_new), where queue limits will be appropriately charged. So
-> > far I'm testing second case, but I only changed DST for testing, can
-> > change all other users if needed though.
-> 
-> Adding a queue pointer to struct bio and using physical device limits as 
-> in your posted patch both suffer from the same problem: you release the 
-> throttling on the previous queue when the bio moves to a new one, which 
-> is a bug because memory consumption on the previous queue then becomes 
-> unbounded, or limited only by the number of struct requests that can be 
-> allocated.  In other words, it reverts to the same situation we have 
-> now as soon as the IO stack has more than one queue.  (Just a shorter 
-> version of my previous post.)
+On Mon, 13 Aug 2007, David Greaves wrote:
 
-No. Since all requests for virtual device end up in physical devices,
-which have limits, this mechanism works. Virtual device will essentially 
-call either generic_make_request() for new physical device (and thus
-will sleep is limit is over), or will process bios directly, but in that
-case it will sleep in generic_make_request() for virutal device.
+> david@lang.hm wrote:
+>>  per the message below MD (or DM) would need to be modified to work
+>>  reasonably well with one of the disk components being over an unreliable
+>>  link (like a network link)
+>>
+>>  are the MD/DM maintainers interested in extending their code in this
+>>  direction? or would they prefer to keep it simpler by being able to
+>>  continue to assume that the raid components are connected over a highly
+>>  reliable connection?
+>>
+>>  if they are interested in adding (and maintaining) this functionality then
+>>  there is a real possibility that NBD+MD/DM could eliminate the need for
+>>  DRDB. however if they are not interested in adding all the code to deal
+>>  with the network type issues, then the argument that DRDB should not be
+>>  merged becouse you can do the same thing with MD/DM + NBD is invalid and
+>>  can be dropped/ignored
+>>
+>>  David Lang
+>
+> As a user I'd like to see md/nbd be extended to cope with unreliable links.
+> I think md could be better in handling link exceptions. My unreliable memory 
+> recalls sporadic issues with hot-plug leaving md hanging and certain lower 
+> level errors (or even very high latency) causing unsatisfactory behaviour in 
+> what is supposed to be a fault 'tolerant' subsystem.
+>
+>
+> Would this just be relevant to network devices or would it improve support 
+> for jostled usb and sata hot-plugging I wonder?
 
-> 1) One throttle count per submitted bio is too crude a measure.  A bio 
-> can carry as few as one page or as many as 256 pages.  If you take only 
+good question, I suspect that some of the error handling would be similar 
+(for devices that are unreachable not haning the system for example), but 
+a lot of the rest would be different (do you really want to try to 
+auto-resync to a drive that you _think_ just reappeared, what if it's a 
+different drive? how can you be sure?) the error rate of a network is gong 
+to be significantly higher then for USB or SATA drives (although I suppose 
+iscsi would be limilar)
 
-It does not matter - we can count bytes, pages, bio vectors or whatever
-we like, its just a matter of counter and can be changed without
-problem.
-
-> 2) Exposing the per-block device throttle limits via sysfs or similar is 
-> really not a good long term solution for system administration.  
-> Imagine our help text: "just keep trying smaller numbers until your 
-> system deadlocks".  We really need to figure this out internally and 
-> get it correct.  I can see putting in a temporary userspace interface 
-> just for experimentation, to help determine what really is safe, and 
-> what size the numbers should be to approach optimal throughput in a 
-> fully loaded memory state.
-
-Well, we already have number of such 'supposed-to-be-automatic'
-variables exported to userspace, so this will not change a picture,
-frankly I do not care if there will or will not be any sysfs exported
-tunable, eventually we can remove it or do not create at all.
-
--- 
-	Evgeniy Polyakov
+David Lang
