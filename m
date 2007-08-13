@@ -1,19 +1,24 @@
 From: joe@perches.com
-Subject: [PATCH] [492/2many] MAINTAINERS - USB DAVICOM DM9601 DRIVER
-Date: Sun, 12 Aug 2007 23:38:04 -0700
-Message-ID: <46bffc4c.w7oFuPSxHvT0GnSB%joe@perches.com>
+Subject: [PATCH] [504/2many] MAINTAINERS - USB PEGASUS
+	DRIVER
+Date: Sun, 12 Aug 2007 23:38:28 -0700
+Message-ID: <46bffc64.Are6NTp/45DX6lxZ%joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jacmet@sunsite.dk,
-	akpm@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:2170 "EHLO perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S939240AbXHMGiX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Aug 2007 02:38:23 -0400
-Sender: netdev-owner@vger.kernel.org
+To: torvalds@linux-foundation.org, petkan@users.sourceforge.net,
+	netdev@vger.kernel.org, linux-usb-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
+Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
+List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
+List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: linux-usb-devel-bounces@lists.sourceforge.net
+Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
 Add file pattern to MAINTAINER entry
@@ -21,14 +26,24 @@ Add file pattern to MAINTAINER entry
 Signed-off-by: Joe Perches <joe@perches.com>
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 8f496de..b7498bf 100644
+index d822865..fc87fa7 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -4662,6 +4662,7 @@ M:	jacmet@sunsite.dk
+@@ -4764,6 +4764,7 @@ L:	linux-usb-devel@lists.sourceforge.net
  L:	netdev@vger.kernel.org
- W:	http://www.linux-usb.org/usbnet
+ W:	http://pegasus2.sourceforge.net/
  S:	Maintained
-+F:	drivers/net/usb/dm9601.c
++F:	drivers/net/usb/pegasus.*
  
- USB EHCI DRIVER
- P:	David Brownell
+ USB PRINTER DRIVER (usblp)
+ P:	Pete Zaitcev
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >>  http://get.splunk.com/
+_______________________________________________
+linux-usb-devel@lists.sourceforge.net
+To unsubscribe, use the last form field at:
+https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
