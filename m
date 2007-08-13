@@ -1,42 +1,47 @@
-From: Jan Engelhardt <jengelh@computergmbh.de>
-Subject: Re: [RFD] Layering: Use-Case Composers (was: DRBD - what is it,
- anyways? [compare with e.g. NBD + MD raid])
-Date: Mon, 13 Aug 2007 11:02:54 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0708131102310.28963@fbirervta.pbzchgretzou.qr>
-References: <200708121335.17267.a1426z@gawab.com>
- <Pine.LNX.4.64.0708121325170.28963@fbirervta.pbzchgretzou.qr>
- <Pine.LNX.4.64.0708120933210.19502@asgard.lang.hm>
- <Pine.LNX.4.64.0708121901290.28963@fbirervta.pbzchgretzou.qr>
- <20070812174549.GA2915@teal.hq.k1024.org> <46BFB6BB.80406@steeleye.com>
- <Pine.LNX.4.64.0708122016100.22470@asgard.lang.hm>
+From: Daniel Phillips <phillips@phunq.net>
+Subject: Re: Distributed storage.
+Date: Mon, 13 Aug 2007 02:08:57 -0700
+Message-ID: <200708130208.57542.phillips@phunq.net>
+References: <20070731171347.GA14267@2ka.mipt.ru> <20070813072848.GC23758@kernel.dk> <20070813074530.GE23758@kernel.dk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Paul Clements <paul.clements@steeleye.com>,
-	Al Boldi <a1426z@gawab.com>, linux-kernel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-raid@vger.kernel.org
-To: david@lang.hm
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>
+To: Jens Axboe <jens.axboe@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sovereign.computergmbh.de ([85.214.69.204]:58657 "EHLO
-	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S971006AbXHMJCz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 05:02:55 -0400
-In-Reply-To: <Pine.LNX.4.64.0708122016100.22470@asgard.lang.hm>
+Received: from dsl081-085-152.lax1.dsl.speakeasy.net ([64.81.85.152]:53610
+	"EHLO moonbase.phunq.net" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S966936AbXHMJJG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 05:09:06 -0400
+In-Reply-To: <20070813074530.GE23758@kernel.dk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-On Aug 12 2007 20:21, david@lang.hm wrote:
+On Monday 13 August 2007 00:45, Jens Axboe wrote:
+> On Mon, Aug 13 2007, Jens Axboe wrote:
+> > > You did not comment on the one about putting the bio destructor
+> > > in the ->endio handler, which looks dead simple.  The majority of
+> > > cases just use the default endio handler and the default
+> > > destructor.  Of the remaining cases, where a specialized
+> > > destructor is needed, typically a specialized endio handler is
+> > > too, so combining is free.  There are few if any cases where a
+> > > new specialized endio handler would need to be written.
+> >
+> > We could do that without too much work, I agree.
 >
-> per the message below MD (or DM) would need to be modified to work
-> reasonably well with one of the disk components being over an
-> unreliable link (like a network link)
+> But that idea fails as well, since reference counts and IO completion
+> are two completely seperate entities. So unless end IO just happens
+> to be the last user holding a reference to the bio, you cannot free
+> it.
 
-Does not dm-multipath do something like that?
+That is not a problem.  When bio_put hits zero it calls ->endio instead 
+of the destructor.  The ->endio sees that the count is zero and 
+destroys the bio.
 
-> are the MD/DM maintainers interested in extending their code in this direction?
-> or would they prefer to keep it simpler by being able to continue to assume
-> that the raid components are connected over a highly reliable connection?
+Regards,
 
-	Jan
--- 
+Daniel
