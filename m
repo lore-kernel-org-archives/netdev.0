@@ -1,73 +1,52 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Distributed storage.
-Date: Mon, 13 Aug 2007 15:03:02 +0400
-Message-ID: <20070813110302.GA28360@2ka.mipt.ru>
-References: <20070731171347.GA14267@2ka.mipt.ru> <200708130208.57542.phillips@phunq.net> <20070813091856.GA5503@2ka.mipt.ru> <200708130312.33903.phillips@phunq.net>
+From: Daniel Phillips <phillips@phunq.net>
+Subject: Re: Block device throttling [Re: Distributed storage.]
+Date: Mon, 13 Aug 2007 04:04:26 -0700
+Message-ID: <200708130404.26572.phillips@phunq.net>
+References: <20070731171347.GA14267@2ka.mipt.ru> <200708122344.00343.phillips@phunq.net> <20070813081441.GA30089@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 Cc: Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
 	Peter Zijlstra <peterz@infradead.org>
-To: Daniel Phillips <phillips@phunq.net>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dsl081-085-152.lax1.dsl.speakeasy.net ([64.81.85.152]:59481
+	"EHLO moonbase.phunq.net" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S936278AbXHMLEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 07:04:30 -0400
+In-Reply-To: <20070813081441.GA30089@2ka.mipt.ru>
 Content-Disposition: inline
-In-Reply-To: <200708130312.33903.phillips@phunq.net>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 13, 2007 at 03:12:33AM -0700, Daniel Phillips (phillips@phunq.net) wrote:
-> > This is not a very good solution, since it requires all users of the
-> > bios to know how to free it.
-> 
-> No, only the specific ->endio needs to know that, which is set by the 
-> bio owner, so this knowledge lies in exactly the right place.  A small 
-> handful of generic endios all with the same destructor are used nearly 
-> everywhere.
+On Monday 13 August 2007 01:14, Evgeniy Polyakov wrote:
+> > Oops, and there is also:
+> >
+> > 3) The bio throttle, which is supposed to prevent deadlock, can
+> > itself deadlock.  Let me see if I can remember how it goes.
+> >
+> >   * generic_make_request puts a bio in flight
+> >   * the bio gets past the throttle and initiates network IO
+> >   * net calls sk_alloc->alloc_pages->shrink_caches
+> >   * shrink_caches submits a bio recursively to our block device
+> >   * this bio blocks on the throttle
+> >   * net may never get the memory it needs, and we are wedged
+>
+> If system is in such condition, it is already broken - throttle limit
+> must be lowered (next time) not to allow such situation.
 
-That is what I meant - there will be no way to just alloc a bio and put
-it, helpers for generic bio sets must be exported and each and every
-bi_end_io() must be changed to check reference counter and they must
-know how they were allocated.
+Agreed that the system is broken, however lowering the throttle limit 
+gives no improvement in this case.
 
-> > Right now it is hidden. 
-> > And adds additional atomic check (although reading is quite fast) in
-> > the end_io.
-> 
-> Actual endio happens once in the lifetime of the transfer, this read 
-> will be entirely lost in the noise.
+This is not theoretical, but a testable, repeatable result.  
+Instructions to reproduce should show up tomorrow.
 
-Not always. Sometimes it is called multiple times, but all bi_end_io()
-callbacks I checked (I believe all in mainline tree) tests if bi_size is
-zero or not.
+This bug is now solved in a kludgy way.  Now, Peter's patch set offers a 
+much cleaner way to fix this little problem, along with at least one 
+other nasty that it already fixed.
 
-Endio callback is of course quite rare and additional atomic
-reading will not kill the system, but why introduce another read?
-It is possible to provide a flag for endio callback that it is last, but
-it still requires to change every single callback - why do we want this?
+Regards,
 
-> > And for what purpose? To eat 8 bytes on 64bit platform? 
-> > This will not reduce its size noticebly, so the same number of bios
-> > will be in the cache's page, so what is a gain? All this cleanups and
-> > logic complicatins should be performed only if after size shring
-> > increased number of bios can fit into cache's page, will it be done
-> > after such cleanups?
-> 
-> Well, exactly,   My point from the beginning was that the size of struct 
-> bio is not even close to being a problem and adding a few bytes to it 
-> in the interest of doing the cleanest fix to a core kernel bug is just 
-> not a dominant issue.
-
-So, I'm a bit lost...
-
-You say it is too big and some parts can be removed or combined, and
-then that size does not matter. Last/not-last checks in the code is not
-clear design, so I do not see why it is needed at all if not for size
-shrinking.
-
-> I suppose that leaving out the word "bloated" and skipping straight to 
-> the "doesn't matter" proof would have saved some bandwidth.
-
-:) Likely it will.
-
--- 
-	Evgeniy Polyakov
+Daniel
