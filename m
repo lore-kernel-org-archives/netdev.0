@@ -1,46 +1,64 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: Re: [PATCH 6/24] make atomic_read() behave consistently on frv
-Date: Mon, 13 Aug 2007 02:44:13 -0400
-Message-ID: <46BFFDBD.6080804@redhat.com>
-References: <46BCC26B.6080600@redhat.com> <46BB46B2.60808@redhat.com> <20070809134150.GA14890@shell.boston.redhat.com> <2708.1186737826@redhat.com> <7680.1186822071@redhat.com>
+From: "=?ISO-8859-2?Q?Marcin_=A6lusarz?=" <marcin.slusarz@gmail.com>
+Subject: Re: 2.6.23-rc2: WARNING: at kernel/irq/resend.c:70 check_irq_resend()
+Date: Mon, 13 Aug 2007 09:13:50 +0200
+Message-ID: <4bacf17f0708130013m67dcf91fx7136d0050aa08b82@mail.gmail.com>
+References: <18107.11431.838905.331157@stoffel.org>
+	 <1186733140.12828.45.camel@chaos> <20070810082346.GD1764@ff.dom.local>
+	 <20070810083050.GA4545@elte.hu> <20070810084924.GF1764@ff.dom.local>
+	 <20070810085611.GA11639@elte.hu> <20070810091231.GH1764@ff.dom.local>
+	 <20070810093353.GA19777@elte.hu> <20070810100513.GA3279@ff.dom.local>
+	 <20070810101641.GA31396@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, ak@suse.de, heiko.carstens@de.ibm.com,
-	davem@davemloft.net, schwidefsky@de.ibm.com, wensong@linux-vs.org,
-	horms@verge.net.au, wjiang@resilience.com, cfriesen@nortel.com,
-	zlynx@acm.org, rpjday@mindspring.com, jesper.juhl@gmail.com
-To: David Howells <dhowells@redhat.com>
+Cc: "Jarek Poplawski" <jarkao2@o2.pl>,
+	"Thomas Gleixner" <tglx@linutronix.de>,
+	"John Stoffel" <john@stoffel.org>, linux-kernel@vger.kernel.org,
+	shemminger@linux-foundation.org, vignaud@xandmail.fr,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	alan@lxorguk.ukuu.org.uk, linux-net@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Ingo Molnar" <mingo@elte.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:33608 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S967818AbXHMGuh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Aug 2007 02:50:37 -0400
-In-Reply-To: <7680.1186822071@redhat.com>
+Received: from wa-out-1112.google.com ([209.85.146.179]:47072 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S940816AbXHMHNv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 03:13:51 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so1755516wah
+        for <netdev@vger.kernel.org>; Mon, 13 Aug 2007 00:13:51 -0700 (PDT)
+In-Reply-To: <20070810101641.GA31396@elte.hu>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Howells wrote:
-> Chris Snook <csnook@redhat.com> wrote:
-> 
->> cpu_relax() contains a barrier, so it should do the right thing.  For non-smp
->> architectures, I'm concerned about interacting with interrupt handlers.  Some
->> drivers do use atomic_* operations.
-> 
-> I'm not sure that actually answers my question.  Why not smp_rmb()?
-> 
-> David
+2007/8/10, Ingo Molnar <mingo@elte.hu>:
+> Index: linux/arch/i386/kernel/io_apic.c
+> ===================================================================
+> --- linux.orig/arch/i386/kernel/io_apic.c
+> +++ linux/arch/i386/kernel/io_apic.c
+> @@ -735,7 +735,8 @@ void fastcall send_IPI_self(int vector)
+>          * Wait for idle.
+>          */
+>         apic_wait_icr_idle();
+> -       cfg = APIC_DM_FIXED | APIC_DEST_SELF | vector | APIC_DEST_LOGICAL;
+> +       cfg = APIC_DM_FIXED | APIC_DEST_SELF | vector | APIC_DEST_LOGICAL |
+> +               APIC_INT_LEVELTRIG;
+>         /*
+>          * Send the IPI. The write to APIC_ICR fires this off.
+>          */
+> Index: linux/arch/x86_64/kernel/genapic.c
+> ===================================================================
+> --- linux.orig/arch/x86_64/kernel/genapic.c
+> +++ linux/arch/x86_64/kernel/genapic.c
+> @@ -62,5 +62,6 @@ void __init setup_apic_routing(void)
+>
+>  void send_IPI_self(int vector)
+>  {
+> -       __send_IPI_shortcut(APIC_DEST_SELF, vector, APIC_DEST_PHYSICAL);
+> +       __send_IPI_shortcut(APIC_DEST_SELF, vector, APIC_DEST_PHYSICAL |
+> +                           APIC_INT_LEVELTRIG);
+>  }
+>
+network card timed out as usual ;)
 
-I would assume because we want to waste time efficiently even on non-smp 
-architectures, rather than frying the CPU or draining the battery.  Certain 
-looping execution patterns can cause the CPU to operate above thermal design 
-power.  I have fans on my workstation that only ever come on when running 
-LINPACK, and that's generally memory bandwidth-bound.  Just imagine what happens 
-when you're executing the same few non-serializing instructions in a tight loop 
-without ever stalling on memory fetches, or being scheduled out.
-
-If there's another reason, I'd like to hear it too, because I'm just guessing here.
-
-	-- Chris
+Marcin
