@@ -1,61 +1,37 @@
-From: Surya Prabhakar N <surya.prabhakar@wipro.com>
-Subject: drivers/net/tokenring/3c359.c
-Date: Mon, 13 Aug 2007 15:43:30 +0530
-Message-ID: <1187000010.29518.27.camel@bluegenie>
-Reply-To: surya.prabhakar@wipro.com
+From: Daniel Phillips <phillips@phunq.net>
+Subject: Re: Distributed storage.
+Date: Mon, 13 Aug 2007 03:15:08 -0700
+Message-ID: <200708130315.08382.phillips@phunq.net>
+References: <20070731171347.GA14267@2ka.mipt.ru> <200708130255.35828.phillips@phunq.net> <20070813100636.GL23758@kernel.dk>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-tr@linuxtr.net, Linux Kernel <linux-kernel@vger.kernel.org>,
-	kernel-janitors <kernel-janitors@lists.osdl.org>
-To: mikep@linuxtr.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wip-cdc-wd.wipro.com ([203.91.201.26]:44204 "EHLO
-	wip-cdc-wd.wipro.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933734AbXHMKN5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 06:13:57 -0400
-Sender: netdev-owner@vger.kernel.org
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>
+To: Jens Axboe <jens.axboe@oracle.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20070813100636.GL23758@kernel.dk>
+Content-Disposition: inline
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-   Replacing kmalloc with kzalloc and cleaning up memset in 
-drivers/net/tokenring/3c359.c
+On Monday 13 August 2007 03:06, Jens Axboe wrote:
+> On Mon, Aug 13 2007, Daniel Phillips wrote:
+> > Of course not.  Nothing I said stops endio from being called in the
+> > usual way as well.  For this to work, endio just needs to know that
+> > one call means "end" and the other means "destroy", this is
+> > trivial.
+>
+> Sorry Daniel, but your suggestions would do nothing more than uglify
+> the code and design.
 
+Pretty much exactly what was said about shrinking struct page, ask Bill.  
+The difference was, shrinking struct page actually mattered whereas 
+shrinking struct bio does not, and neither does expanding it by a few 
+bytes.
 
-Signed-off-by: Surya Prabhakar <surya.prabhakar@wipro.com>
----
+Regards,
 
-diff --git a/drivers/net/tokenring/3c359.c b/drivers/net/tokenring/3c359.c
-index 9f1b6ab..d36dd53 100644
---- a/drivers/net/tokenring/3c359.c
-+++ b/drivers/net/tokenring/3c359.c
-@@ -641,14 +641,14 @@ static int xl_open(struct net_device *dev)
- 	 * Now to set up the Rx and Tx buffer structures
- 	 */
- 	/* These MUST be on 8 byte boundaries */
--	xl_priv->xl_tx_ring = kmalloc((sizeof(struct xl_tx_desc) * XL_TX_RING_SIZE) + 7, GFP_DMA | GFP_KERNEL) ; 
-+	xl_priv->xl_tx_ring = kzalloc((sizeof(struct xl_tx_desc) * XL_TX_RING_SIZE) + 7, GFP_DMA | GFP_KERNEL) ; 
- 	if (xl_priv->xl_tx_ring == NULL) {
- 		printk(KERN_WARNING "%s: Not enough memory to allocate rx buffers.\n",
- 				     dev->name);
- 		free_irq(dev->irq,dev);
- 		return -ENOMEM;
- 	}
--	xl_priv->xl_rx_ring = kmalloc((sizeof(struct xl_rx_desc) * XL_RX_RING_SIZE) +7, GFP_DMA | GFP_KERNEL) ; 
-+	xl_priv->xl_rx_ring = kzalloc((sizeof(struct xl_rx_desc) * XL_RX_RING_SIZE) +7, GFP_DMA | GFP_KERNEL) ; 
- 	if (xl_priv->xl_tx_ring == NULL) {
- 		printk(KERN_WARNING "%s: Not enough memory to allocate rx buffers.\n",
- 				     dev->name);
-@@ -656,8 +656,6 @@ static int xl_open(struct net_device *dev)
- 		kfree(xl_priv->xl_tx_ring);
- 		return -ENOMEM;
- 	}
--	memset(xl_priv->xl_tx_ring,0,sizeof(struct xl_tx_desc) * XL_TX_RING_SIZE) ; 
--	memset(xl_priv->xl_rx_ring,0,sizeof(struct xl_rx_desc) * XL_RX_RING_SIZE) ; 
- 
- 	 /* Setup Rx Ring */
- 	 for (i=0 ; i < XL_RX_RING_SIZE ; i++) { 
-
---
-thanks
-surya.
+Daniel
