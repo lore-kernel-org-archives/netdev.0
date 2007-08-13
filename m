@@ -1,38 +1,48 @@
-From: Udo van den Heuvel <udovdh@xs4all.nl>
-Subject: Re: possible BUG while using CUPS
-Date: Mon, 13 Aug 2007 17:46:55 +0200
-Message-ID: <46C07CEF.1020207@xs4all.nl>
-References: <46BD762F.4060801@xs4all.nl> <6bffcb0e0708130839v27b4269dqfde702c410b33fd0@mail.gmail.com>
+From: "Robert P. J. Day" <rpjday@mindspring.com>
+Subject: Re: [KJ] replacing kmalloc with kzalloc in drivers/net/sb1250-mac.c
+Date: Mon, 13 Aug 2007 11:24:10 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0708131123020.2277@localhost.localdomain>
+References: <1186999123.29518.18.camel@bluegenie>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>
-To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-vbr3.xs4all.nl ([194.109.24.23]:2170 "EHLO
-	smtp-vbr3.xs4all.nl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S943695AbXHMPzJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 11:55:09 -0400
-In-Reply-To: <6bffcb0e0708130839v27b4269dqfde702c410b33fd0@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Linux Kernel <linux-kernel@vger.kernel.org>
+To: Surya Prabhakar N <surya.prabhakar@wipro.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S947256AbXHMQyk@vger.kernel.org>
+In-Reply-To: <1186999123.29518.18.camel@bluegenie>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michal Piotrowski wrote:
-> On 11/08/07, Udo van den Heuvel <udovdh@xs4all.nl> wrote:
->> Using Cups 1.2.12 on Linux 2.6.22.1.
-(...)
->> I clikc that link and hear the ping-ping of the BUG:
-> 
-> This is very interesting. Can you reproduce this bug?
+On Mon, 13 Aug 2007, Surya Prabhakar N wrote:
 
-I think so. (at least: I have seen it before: clicking around in Cups
-and this crash/bug/whatever.)
+> Hi,
+>    Replacing kmalloc with kzalloc and cleaning up memset in
+> drivers/net/sb1250-mac.c
+>
+>
+> Signed-off-by: Surya Prabhakar <surya.prabhakar@wipro.com>
+> ---
+>
+> diff --git a/drivers/net/sb1250-mac.c b/drivers/net/sb1250-mac.c
+> index e7fdcf1..2dca5a7 100644
+> --- a/drivers/net/sb1250-mac.c
+> +++ b/drivers/net/sb1250-mac.c
+> @@ -760,7 +760,7 @@ static void sbdma_initctx(sbmacdma_t *d,
+>
+>  	d->sbdma_dscrtable_unaligned =
+>  	d->sbdma_dscrtable = (sbdmadscr_t *)
+                             ^^^^^^^^^^^^^^^
+> -		kmalloc((d->sbdma_maxdescr+1)*sizeof(sbdmadscr_t), GFP_KERNEL);
+> +		kzalloc((d->sbdma_maxdescr+1)*sizeof(sbdmadscr_t), GFP_KERNEL);
 
->> This is on a VIA Epia EK8000. ksymoops did not really help me, this is
->> all output I got.
->>
->> Ideas?
-> 
-> BTW. Please try 2.6.22.2.
+i'm fairly sure you can drop all of those superfluous casts when
+calling one of those memory allocation routines.
 
-Compiling...
+rday
+-- 
+========================================================================
+Robert P. J. Day
+Linux Consulting, Training and Annoying Kernel Pedantry
+Waterloo, Ontario, CANADA
+
+http://fsdev.net/wiki/index.php?title=Main_Page
+========================================================================
