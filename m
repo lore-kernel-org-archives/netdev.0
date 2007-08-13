@@ -1,50 +1,62 @@
-From: vignesh babu <vignesh.babu@wipro.com>
-Subject: [kj] is_power_of_2 in net/pcmcia/pcnet_cs.c
-Date: Mon, 13 Aug 2007 18:22:34 +0530
-Message-ID: <1187009554.7273.3.camel@merlin.linuxcoe.com>
-Reply-To: vigneshbabu@gmail.com
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: [PATCH] [504/2many] MAINTAINERS - USB PEGASUS
+	DRIVER
+Date: Mon, 13 Aug 2007 15:55:14 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0708131553290.14743@bender.nucleusys.com>
+References: <46bffc64.Are6NTp/45DX6lxZ%joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Kernel Janitors List <kernel-janitors@lists.osdl.org>
-To: dahinds@users.sourceforge.net, p_gortmaker@yahoo.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wip-cdc-wd.wipro.com ([203.91.201.26]:58245 "EHLO
-	wip-cdc-wd.wipro.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S945739AbXHMMxJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 08:53:09 -0400
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-usb-devel@lists.sourceforge.net,
+	petkan@users.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org
+To: joe@perches.com
+Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <46bffc64.Are6NTp/45DX6lxZ%joe@perches.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
+List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
+List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: linux-usb-devel-bounces@lists.sourceforge.net
+Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Replacing n & (n - 1) for power of 2 check by is_power_of_2(n)
+On Sun, 12 Aug 2007, joe@perches.com wrote:
 
-Signed-off-by: vignesh babu <vignesh.babu@wipro.com>
----
-diff --git a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_cs.c
-index 63de89e..d23bf6e 100644
---- a/drivers/net/pcmcia/pcnet_cs.c
-+++ b/drivers/net/pcmcia/pcnet_cs.c
-@@ -36,6 +36,7 @@
- #include <linux/string.h>
- #include <linux/timer.h>
- #include <linux/delay.h>
-+#include <linux/log2.h>
- #include <linux/ethtool.h>
- #include <linux/netdevice.h>
- #include <../drivers/net/8390.h>
-@@ -1486,7 +1487,7 @@ static int setup_shmem_window(struct pcmcia_device *link, int start_pg,
- 	window_size = 32 * 1024;
- 
-     /* Make sure it's a power of two.  */
--    while ((window_size & (window_size - 1)) != 0)
-+    while (!is_power_of_2(window_size))
- 	window_size += window_size & ~(window_size - 1);
- 
-     /* Allocate a memory window */
+> Add file pattern to MAINTAINER entry
+>
+> Signed-off-by: Joe Perches <joe@perches.com>
+>
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index d822865..fc87fa7 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -4764,6 +4764,7 @@ L:	linux-usb-devel@lists.sourceforge.net
+> L:	netdev@vger.kernel.org
+> W:	http://pegasus2.sourceforge.net/
+> S:	Maintained
+> +F:	drivers/net/usb/pegasus.*
+>
+> USB PRINTER DRIVER (usblp)
+> P:	Pete Zaitcev
+>
 
--- 
-Vignesh Babu BM 
-_____________________________________________________________ 
-"Why is it that every time I'm with you, makes me believe in magic?"
+Well, what can i say?  "NO, don't do it!" is probably not going to work so 
+i assume i will have to ACK.  :-)
 
+
+ 		Petko
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >>  http://get.splunk.com/
+_______________________________________________
+linux-usb-devel@lists.sourceforge.net
+To unsubscribe, use the last form field at:
+https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
