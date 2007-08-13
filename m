@@ -1,28 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [374/2many] MAINTAINERS - PCNET32 NETWORK DRIVER
-Date: Sun, 12 Aug 2007 23:36:30 -0700 (PDT)
-Message-ID: <20070812.233630.00455011.davem@davemloft.net>
-References: <46bffb4c.nrqicrPs7IJXlgQ0%joe@perches.com>
+From: joe@perches.com
+Subject: [PATCH] [455/2many] MAINTAINERS - SKGE, SKY2 10/100/1000 GIGABIT
+ ETHERNET DRIVERS
+Date: Sun, 12 Aug 2007 23:36:35 -0700
+Message-ID: <46bffbf3.rv8NyuKEk/VVKvwd%joe@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, pcnet32@verizon.net,
+To: torvalds@linux-foundation.org, shemminger@linux-foundation.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	akpm@linux-foundation.org
-To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53405
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S967338AbXHMGga (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 02:36:30 -0400
-In-Reply-To: <46bffb4c.nrqicrPs7IJXlgQ0%joe@perches.com>
+Received: from DSL022.labridge.com ([206.117.136.22]:1942 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S967369AbXHMGgs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Aug 2007 02:36:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Add file pattern to MAINTAINER entry
 
-Ok, 374 patches is just rediculious.
+Signed-off-by: Joe Perches <joe@perches.com>
 
-So many patches eats up an enormous amount of mailing list resources,
-and for these patches in particular there are few reasons to split
-them up at all.  The fact that the split up landed you at 300+ patches
-is a very good indication of that.
+diff --git a/MAINTAINERS b/MAINTAINERS
+index a40c7ed..cb9f9da 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4348,6 +4348,8 @@ P:	Stephen Hemminger
+ M:	shemminger@linux-foundation.org
+ L:	netdev@vger.kernel.org
+ S:	Maintained
++F:	drivers/net/skge.*
++F:	drivers/net/sky2.*
+ 
+ SOEKRIS NET48XX LED SUPPORT
+ P:	Chris Boot
