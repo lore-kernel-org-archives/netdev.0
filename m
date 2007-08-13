@@ -1,126 +1,63 @@
-From: Daniel Phillips <phillips@phunq.net>
-Subject: Re: Distributed storage.
-Date: Sun, 12 Aug 2007 16:36:59 -0700
-Message-ID: <200708121637.00144.phillips@phunq.net>
-References: <20070731171347.GA14267@2ka.mipt.ru> <200708071124.56859.phillips@phunq.net> <20070807205538.GB5245@kernel.dk>
+From: Paul Clements <paul.clements@steeleye.com>
+Subject: Re: [RFD] Layering: Use-Case Composers (was: DRBD - what is it,	anyways?
+ [compare with e.g. NBD + MD raid])
+Date: Sun, 12 Aug 2007 21:41:15 -0400
+Message-ID: <46BFB6BB.80406@steeleye.com>
+References: <200708121335.17267.a1426z@gawab.com> <Pine.LNX.4.64.0708121325170.28963@fbirervta.pbzchgretzou.qr> <Pine.LNX.4.64.0708120933210.19502@asgard.lang.hm> <Pine.LNX.4.64.0708121901290.28963@fbirervta.pbzchgretzou.qr> <20070812174549.GA2915@teal.hq.k1024.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: Jens Axboe <jens.axboe@oracle.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20070807205538.GB5245@kernel.dk>
-Content-Disposition: inline
-Sender: linux-fsdevel-owner@vger.kernel.org
+To: Jan Engelhardt <jengelh@computergmbh.de>, david@lang.hm,
+	Al Boldi <a1426z@gawab.com>, linux-kernel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-raid@v
+Return-path: <linux-raid-owner@vger.kernel.org>
+In-Reply-To: <20070812174549.GA2915@teal.hq.k1024.org>
+Sender: linux-raid-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 07 August 2007 13:55, Jens Axboe wrote:
-> I don't like structure bloat, but I do like nice design. Overloading
-> is a necessary evil sometimes, though. Even today, there isn't enough
-> room to hold bi_rw and bi_flags in the same variable on 32-bit archs,
-> so that concern can be scratched. If you read bio.h, that much is
-> obvious.
+Iustin Pop wrote:
+> On Sun, Aug 12, 2007 at 07:03:44PM +0200, Jan Engelhardt wrote:
+>> On Aug 12 2007 09:39, david@lang.hm wrote:
+>>> now, I am not an expert on either option, but three are a couple things that I
+>>> would question about the DRDB+MD option
+>>>
+>>> 1. when the remote machine is down, how does MD deal with it for reads and
+>>> writes?
+>> I suppose it kicks the drive and you'd have to re-add it by hand unless done by
+>> a cronjob.
 
-Sixteen bits in bi_rw are consumed by queue priority.  Is there a reason 
-this lives in struct bio instead of struct request?
+Yes, and with a bitmap configured on the raid1, you just resync the 
+blocks that have been written while the connection was down.
 
-> If you check up on the iommu virtual merging, you'll understand the
-> front and back size members. They may smell dubious to you, but
-> please take the time to understand why it looks the way it does.
 
-Virtual merging is only needed at the physical device, so why do these 
-fields live in struct bio instead of struct request?
+>>From my tests, since NBD doesn't have a timeout option, MD hangs in the
+> write to that mirror indefinitely, somewhat like when dealing with a
+> broken IDE driver/chipset/disk.
 
-> Changing the number of bvecs is integral to how bio buildup current
-> works.
+Well, if people would like to see a timeout option, I actually coded up 
+a patch a couple of years ago to do just that, but I never got it into 
+mainline because you can do almost as well by doing a check at 
+user-level (I basically ping the nbd connection periodically and if it 
+fails, I kill -9 the nbd-client).
 
-Right, that is done by bi_vcnt.  I meant bi_max_vecs, which you can 
-derive efficiently from BIO_POOL_IDX() provided the bio was allocated 
-in the standard way.  This leaves a little bit of clean up to do for 
-bios not allocated from a standard pool.
 
-Incidentally, why does the bvl need to be memset to zero on allocation?  
-bi_vcnt already tells you which bvecs are valid and the only field in a 
-bvec that can reasonably default to zero is the offset, which ought to 
-be set set every time a bvec is initialized anyway.
+>>> 2. MD over local drive will alternate reads between mirrors (or so I've been
+>>> told), doing so over the network is wrong.
+>> Certainly. In which case you set "write_mostly" (or even write_only, not sure
+>> of its name) on the raid component that is nbd.
+>>
+>>> 3. when writing, will MD wait for the network I/O to get the data saved on the
+>>> backup before returning from the syscall? or can it sync the data out lazily
+>> Can't answer this one - ask Neil :)
+> 
+> MD has the write-mostly/write-behind options - which help in this case
+> but only up to a certain amount.
 
-> > bi_destructor could be combined.  I don't see a lot of users of
-> > bi_idx,
->
-> bi_idx is integral to partial io completions.
+You can configure write_behind (aka, asynchronous writes) to buffer as 
+much data as you have RAM to hold. At a certain point, presumably, you'd 
+want to just break the mirror and take the hit of doing a resync once 
+your network leg falls too far behind.
 
-Struct request has a remaining submission sector count so what does 
-bi_idx do that is different?
-
-> > that looks like a soft target.  See what happened to struct page
-> > when a couple of folks got serious about attacking it, some really
-> > deep hacks were done to pare off a few bytes here and there.  But
-> > struct bio as a space waster is not nearly in the same ballpark.
->
-> So show some concrete patches and examples, hand waving and
-> assumptions is just a waste of everyones time.
-
-Average struct bio memory footprint ranks near the bottom of the list of 
-things that suck most about Linux storage.  At idle I see 8K in use 
-(reserves); during updatedb it spikes occasionally to 50K; under a 
-heavy  load generated by ddsnap on a storage box it sometimes goes to 
-100K with bio throttling in place.  Really not moving the needle.
-
-On the other hand, vm writeout deadlock ranks smack dab at the top of 
-the list, so that is where the patching effort must go for the 
-forseeable future.  Without bio throttling, the ddsnap load can go to 
-24 MB for struct bio alone.  That definitely moves the needle.  in 
-short, we save 3,200 times more memory by putting decent throttling in 
-place than by saving an int in struct bio.
-
-That said, I did a little analysis to get an idea of where the soft 
-targets are in struct bio, and to get to know the bio layer a little 
-better.  Maybe these few hints will get somebody interested enough to 
-look further.
-
-> > It would be interesting to see if bi_bdev could be made read only.
-> > Generally, each stage in the block device stack knows what the next
-> > stage is going to be, so why do we have to write that in the bio? 
-> > For error reporting from interrupt context?  Anyway, if Evgeniy
-> > wants to do the patch, I will happily unload the task of convincing
-> > you that random fields are/are not needed in struct bio :-)
->
-> It's a trade off, otherwise you'd have to pass the block device
-> around a lot.
-
-Which costs very little, probably less than trashing an extra field's 
-worth of cache.
-
-> And it's, again, a design issue. A bio contains 
-> destination information, that means device/offset/size information.
-> I'm all for shaving structure bytes where it matters, but not for the
-> sake of sacrificing code stability or design. I consider struct bio
-> quite lean and have worked hard to keep it that way. In fact, iirc,
-> the only addition to struct bio since 2001 is the iommu front/back
-> size members. And I resisted those for quite a while.
-
-You did not comment on the one about putting the bio destructor in 
-the ->endio handler, which looks dead simple.  The majority of cases 
-just use the default endio handler and the default destructor.  Of the 
-remaining cases, where a specialized destructor is needed, typically a 
-specialized endio handler is too, so combining is free.  There are few 
-if any cases where a new specialized endio handler would need to be 
-written.
-
-As far as code stability goes, current kernels are horribly unstable in 
-a variety of contexts because of memory deadlock and slowdowns related 
-to the attempt to fix the problem via dirty memory limits.  Accurate 
-throttling of bio traffic is one of the two key requirements to fix 
-this instability, the other other is accurate writeout path reserve 
-management, which is only partially addressed by BIO_POOL.
-
-Nice to see you jumping in Jens.  Now it is over to the other side of 
-the thread where Evgeniy has posted a patch that a) grants your wish to 
-add no new field in struct bio and b) does not fix the problem.
-
-Regards,
-
-Daniel
+--
+Paul
