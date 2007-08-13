@@ -1,29 +1,41 @@
-From: Daniel Phillips <phillips@phunq.net>
-Subject: Re: Distributed storage.
-Date: Mon, 13 Aug 2007 03:32:33 -0700
-Message-ID: <200708130332.33737.phillips@phunq.net>
-References: <20070731171347.GA14267@2ka.mipt.ru> <200708130315.08382.phillips@phunq.net> <20070813102255.GN23758@kernel.dk>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] [70/2many] MAINTAINERS - ARPD SUPPORT
+Date: Mon, 13 Aug 2007 11:49:42 +0100
+Message-ID: <20070813114942.04a5483c@the-village.bc.nu>
+References: <46bff8e8.HhTQ7TBPy1zkcNfh%joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: Jens Axboe <jens.axboe@oracle.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20070813102255.GN23758@kernel.dk>
-Content-Disposition: inline
-Sender: linux-fsdevel-owner@vger.kernel.org
+Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org
+To: joe@perches.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:38734 "EHLO
+	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S939684AbXHMKnH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 06:43:07 -0400
+In-Reply-To: <46bff8e8.HhTQ7TBPy1zkcNfh%joe@perches.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 13 August 2007 03:22, Jens Axboe wrote:
-> I never compared the bio to struct page, I'd obviously agree that
-> shrinking struct page was a worthy goal and that it'd be ok to uglify
-> some code to do that. The same isn't true for struct bio.
+On Sun, 12 Aug 2007 23:23:36 -0700
+joe@perches.com wrote:
 
-I thought I just said that.
+> Add file pattern to MAINTAINER entry
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> 
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 90c1b81..ac2226b 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -697,6 +697,7 @@ ARPD SUPPORT
+>  P:	Jonathan Layes
+>  L:	netdev@vger.kernel.org
+>  S:	Maintained
+> +F:	net/ipv4/arp.c
 
-Regards,
+NAK
 
-Daniel
+arp.c is the netdev people, ARPD is a corner case bit of code within it,
+something your patterns don't actually cope with
