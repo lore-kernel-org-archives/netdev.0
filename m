@@ -1,62 +1,50 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 08/18] 3c59x: check return of pci_enable_device()
-Date: Tue, 14 Aug 2007 01:33:26 -0400
-Message-ID: <46C13EA6.9090301@garzik.org>
-References: <200708102105.l7AL5Jje008968@imap1.linux-foundation.org>
+Subject: Re: [patch 09/18] Clean up duplicate includes in drivers/net/
+Date: Tue, 14 Aug 2007 01:34:25 -0400
+Message-ID: <46C13EE1.6010506@garzik.org>
+References: <200708102105.l7AL5Ko8008971@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
-To: akpm@linux-foundation.org, mark@hindley.org.uk
+Cc: netdev@vger.kernel.org, jesper.juhl@gmail.com,
+	linville@tuxdriver.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:56230 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:56248 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S941549AbXHNFdb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Aug 2007 01:33:31 -0400
-In-Reply-To: <200708102105.l7AL5Jje008968@imap1.linux-foundation.org>
+	id S933054AbXHNFe3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Aug 2007 01:34:29 -0400
+In-Reply-To: <200708102105.l7AL5Ko8008971@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 akpm@linux-foundation.org wrote:
-> From: Mark Hindley <mark@hindley.org.uk>
+> From: Jesper Juhl <jesper.juhl@gmail.com>
 > 
-> Check return of pci_enable_device in vortex_up().
+> This patch cleans up duplicate includes in
+> 	 drivers/net/
 > 
-> Signed-off-by: Mark Hindley <mark@hindley.org.uk>
-> Acked-by: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+> Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
+> Acked-by: "John W. Linville" <linville@tuxdriver.com>
 > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 > ---
 > 
->  drivers/net/3c59x.c |    8 ++++++--
->  1 files changed, 6 insertions(+), 2 deletions(-)
-> 
-> diff -puN drivers/net/3c59x.c~3c59x-check-return-of-pci_enable_device drivers/net/3c59x.c
-> --- a/drivers/net/3c59x.c~3c59x-check-return-of-pci_enable_device
-> +++ a/drivers/net/3c59x.c
-> @@ -1490,13 +1490,17 @@ vortex_up(struct net_device *dev)
->  	struct vortex_private *vp = netdev_priv(dev);
->  	void __iomem *ioaddr = vp->ioaddr;
->  	unsigned int config;
-> -	int i, mii_reg1, mii_reg5;
-> +	int i, mii_reg1, mii_reg5, err;
->  
->  	if (VORTEX_PCI(vp)) {
->  		pci_set_power_state(VORTEX_PCI(vp), PCI_D0);	/* Go active */
->  		if (vp->pm_state_valid)
->  			pci_restore_state(VORTEX_PCI(vp));
-> -		pci_enable_device(VORTEX_PCI(vp));
-> +		err = pci_enable_device(VORTEX_PCI(vp));
-> +		if (err) {
-> +			printk(KERN_WARNING "%s: Could not enable device \n",
-> +				dev->name);
-> +		}
+>  drivers/net/atl1/atl1_main.c           |    1 -
+>  drivers/net/bfin_mac.c                 |    5 -----
+>  drivers/net/bonding/bond_sysfs.c       |    1 -
+>  drivers/net/fs_enet/fs_enet-main.c     |    2 --
+>  drivers/net/gianfar.h                  |    1 -
+>  drivers/net/gianfar_ethtool.c          |    1 -
+>  drivers/net/irda/kingsun-sir.c         |    1 -
+>  drivers/net/irda/mcs7780.c             |    1 -
+>  drivers/net/mipsnet.c                  |    1 -
+>  drivers/net/netxen/netxen_nic_main.c   |    1 -
+>  drivers/net/qla3xxx.c                  |    1 -
+>  drivers/net/tsi108_eth.c               |    1 -
+>  drivers/net/wireless/ipw2200.h         |    1 -
+>  drivers/net/wireless/zd1211rw/zd_def.h |    1 -
+>  14 files changed, 19 deletions(-)
 
-I would strongly prefer that vortex_up return a value, since all the 
-important callers of this function can themselves return an error back 
-to the system.
+applied
 
-we can definitely return a meaningful return value here, if 
-pci_enable_device() fails, and I would rather not apply a patch that 
-fails to propagate a serious condition (pci_enable_device failure is 
-indeed serious) when it is possible to do so
 
