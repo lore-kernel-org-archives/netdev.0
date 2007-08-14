@@ -1,15 +1,15 @@
 From: Scott Thompson <postfailathushmaildotcom@yahoo.com>
-Subject: [PATCH 2/3] /drivers/net myri_sbus.c ioremap balancing/returncode check (resend)
-Date: Mon, 13 Aug 2007 21:44:49 -0700 (PDT)
-Message-ID: <303513.3821.qm@web44906.mail.sp1.yahoo.com>
+Subject: [PATCH 3/3] /drivers/net ucc_geth ioremap balancing/returncode check (resend)
+Date: Mon, 13 Aug 2007 21:47:16 -0700 (PDT)
+Message-ID: <246708.59171.qm@web44916.mail.sp1.yahoo.com>
 Reply-To: postfail@hushmail.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	kernel-janitors@vger.kernel.org, postfail@hushmail.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Sender: kernel-janitors-owner@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S939848AbXHNErc@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 resending patchset against 2.6.23-rc3 for /drivers/net ioremap balancing / return check,
@@ -25,39 +25,20 @@ this audit was only for files directly in drivers/net directory, not the full tr
 
 Signed-off-by: Scott Thompson <postfail <at> hushmail.com>
 ----------------------------------------------------------
-diff --git a/drivers/net/myri_sbus.c b/drivers/net/myri_sbus.c
-index 13444da..138aabd 100644
---- a/drivers/net/myri_sbus.c
-+++ b/drivers/net/myri_sbus.c
-@@ -1007,6 +1007,13 @@ static int __devinit myri_ether_init(struct sbus_dev *sdev)
- 		mp->lanai =
- 			sbus_ioremap(&sdev->resource[0], (512 * 1024),
- 				     mp->eeprom.ramsz, "MyriCOM SRAM");
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 12e01b2..30acbe2 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -2430,6 +2430,11 @@ static int ucc_struct_init(struct ucc_geth_private *ugeth)
+ 
+ 	ugeth->ug_regs = (struct ucc_geth *) ioremap(uf_info->regs, sizeof(struct ucc_geth));
+ 
++	if (!ugeth->ug_regs){
++		ugeth_err("%s: Failed to ioremap.", __FUNCTION__);
++		return -ENOMEM;
++	}
 +
-+
-+		if (!mp->cregs || !mp->lregs || !mp->lanai ) {
-+			printk("MyriCOM: Cannot map registers for ioremap fail.\n");
-+			goto err;
-+		}
-+		
- 	}
- 	DET(("Registers mapped: cregs[%p] lregs[%p] lanai[%p]\n",
- 	     mp->cregs, mp->lregs, mp->lanai));
-@@ -1108,6 +1115,16 @@ err_free_irq:
- err:
- 	/* This will also free the co-allocated 'dev->priv' */
- 	free_netdev(dev);
-+
-+	if (mp->regs)
-+		sbus_iounmap(mp->regs, mp->reg_size);
-+	if (mp->cregs)
-+		sbus_iounmap(mp->cregs, PAGE_SIZE);
-+	if (mp->lregs)
-+		sbus_iounmap(mp->lregs, (256 * 1024));
-+	if (mp->lanai)
-+		sbus_iounmap(mp->lanai, (512 * 1024));
-+
- 	return -ENODEV;
+ 	return 0;
  }
  
 
@@ -65,6 +46,12 @@ index 13444da..138aabd 100644
 
        
 ____________________________________________________________________________________
-Be a better Heartthrob. Get better relationship answers from someone who knows. Yahoo! Answers - Check it out. 
-http://answers.yahoo.com/dir/?link=list&sid=396545433
+Choose the right car based on your needs.  Check out Yahoo! Autos new Car Finder tool.
+http://autos.yahoo.com/carfinder/
 
+
+       
+____________________________________________________________________________________
+Need a vacation? Get great deals
+to amazing places on Yahoo! Travel.
+http://travel.yahoo.com/
