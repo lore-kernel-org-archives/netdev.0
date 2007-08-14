@@ -1,45 +1,39 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] net/8021q/vlanproc.c: fix check-after-use
-Date: Tue, 14 Aug 2007 23:22:44 +0200
-Message-ID: <20070814212244.GB18945@stusta.de>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH 2/6] e1000e: remove namespace collisions with e1000
+Date: Tue, 14 Aug 2007 14:22:15 -0700
+Message-ID: <46C21D07.6060108@intel.com>
+References: <20070810200038.21509.77815.stgit@localhost.localdomain>	<20070810200047.21509.46779.stgit@localhost.localdomain> <46C139F6.2040007@garzik.org> <46C1DB49.1080601@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Rick Jones <rick.jones2@hp.com>,
+	Auke Kok <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, andi@firstfloor.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:38409 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752271AbXHNVWz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2007 17:22:55 -0400
-Content-Disposition: inline
+Received: from mga09.intel.com ([134.134.136.24]:39097 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754495AbXHNVWo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Aug 2007 17:22:44 -0400
+In-Reply-To: <46C1DB49.1080601@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Coverity checker spotted that we'd have already oops'ed if "vlandev"
-was NULL.
+Rick Jones wrote:
+>> if you grep around this effort was already started using the 'e1e_' 
+>> prefix.  I like the shorter prefix, but your call ultimately.  Either 
+>> way, make sure to make the driver consistent there too.
+> 
+> should it then be consistent with the overall driver name too? 
+> certainly calling things e1e or e1ke  or heck, even elke if one wanted 
+> to be a triffle playful would certainly help distinguish this driver 
+> from its grandfather.
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
+I think we are passed the time for the name-a-driver raffle now. We've informed 
+a lot of people that the name will be "e1000e", so I definately prefer using 
+this internally as well.
 
----
---- linux-2.6.23-rc1-mm2/net/8021q/vlanproc.c.old	2007-08-08 06:22:40.000000000 +0200
-+++ linux-2.6.23-rc1-mm2/net/8021q/vlanproc.c	2007-08-08 06:23:13.000000000 +0200
-@@ -314,17 +314,17 @@
- static int vlandev_seq_show(struct seq_file *seq, void *offset)
- {
- 	struct net_device *vlandev = (struct net_device *) seq->private;
- 	const struct vlan_dev_info *dev_info = VLAN_DEV_INFO(vlandev);
- 	struct net_device_stats *stats;
- 	static const char fmt[] = "%30s %12lu\n";
- 	int i;
- 
--	if ((vlandev == NULL) || (!(vlandev->priv_flags & IFF_802_1Q_VLAN)))
-+	if (!(vlandev->priv_flags & IFF_802_1Q_VLAN))
- 		return 0;
- 
- 	seq_printf(seq, "%s  VID: %d	 REORDER_HDR: %i  dev->priv_flags: %hx\n",
- 		       vlandev->name, dev_info->vlan_id,
- 		       (int)(dev_info->flags & 1), vlandev->priv_flags);
- 
- 
- 	stats = vlan_dev_get_stats(vlandev);
+As for the e1000_get_speed_and_duplex_fiber_serdes long names, those are an 
+eyesore to me as well...
 
+Auke
