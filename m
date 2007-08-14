@@ -1,48 +1,62 @@
-From: Richard Knutsson <ricknu-0@student.ltu.se>
-Subject: [PATCH] drivers/net/tokenring: Convert to generic boolean
-Date: Tue, 14 Aug 2007 02:07:09 +0200 (MEST)
-Message-ID: <20070814000543.13576.62289.sendpatchset@thinktank.campus.ltu.se>
-Cc: netdev@vger.kernel.org, kernel-janitors@lists.osdl.org,
-	linux-kernel@vger.kernel.org,
-	Richard Knutsson <ricknu-0@student.ltu.se>
-To: mikep@linuxtr.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gepetto.dc.ltu.se ([130.240.42.40]:57011 "EHLO
-	gepetto.dc.ltu.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755733AbXHNAHX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Aug 2007 20:07:23 -0400
-Sender: netdev-owner@vger.kernel.org
+From: Scott Thompson <postfailathushmaildotcom@yahoo.com>
+Subject: [PATCH 1/3] /drivers/net ioremap balancing/returncode check (resend)
+Date: Mon, 13 Aug 2007 21:42:17 -0700 (PDT)
+Message-ID: <851437.53933.qm@web44909.mail.sp1.yahoo.com>
+Reply-To: postfail@hushmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, postfail@hushmail.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Convert to generic boolean
+resending patchset against 2.6.23-rc3 for /drivers/net ioremap balancing / return check,
+previous patchset contained wordwrap errors:
 
-Signed-off-by: Richard Knutsson <ricknu-0@student.ltu.se>
----
-Compile-tested with all(yes|mod|no)config on x86(|_64) & sparc(|64)
-Diffed against Linus' git-tree.
-Sent 2007-05-01, no replys
+  corrects:
+  --sbus_ioremap return unchecked.
+  --ioremap function unchecked
+  --function failure cases did not clean up ioremap'd values.
+  lne390.c  -- believe had incorrect/not ideal variable check on if for iounmap
+
+this audit was only for files directly in drivers/net directory, not the full tree.
+
+Signed-off-by: Scott Thompson <postfail <at> hushmail.com>
+----------------------------------------------------------
+diff --git a/drivers/net/es3210.c b/drivers/net/es3210.c
+index 822e5bf..d7d6b90 100644
+--- a/drivers/net/es3210.c
++++ b/drivers/net/es3210.c
+@@ -307,6 +307,10 @@ out1:
+ 	free_irq(dev->irq, dev);
+ out:
+ 	release_region(ioaddr + ES_SA_PROM, ES_IO_EXTENT);
++
++	if (ei_status.mem)
++		iounmap(ei_status.mem);
++	
+ 	return retval;
+ }
+ 
+diff --git a/drivers/net/lne390.c b/drivers/net/lne390.c
+index 0a08d0c..f6d9fb6 100644
+--- a/drivers/net/lne390.c
++++ b/drivers/net/lne390.c
+@@ -290,7 +290,7 @@ static int __init lne390_probe1(struct net_device *dev, int ioaddr)
+ 		goto unmap;
+ 	return 0;
+ unmap:
+-	if (ei_status.reg0)
++	if (ei_status.mem)
+ 		iounmap(ei_status.mem);
+ cleanup:
+ 	free_irq(dev->irq, dev);
 
 
-diff --git a/drivers/net/tokenring/ibmtr.c b/drivers/net/tokenring/ibmtr.c
-index 1e8958e..0c69eaa 100644
---- a/drivers/net/tokenring/ibmtr.c
-+++ b/drivers/net/tokenring/ibmtr.c
-@@ -116,9 +116,6 @@ in the event that chatty debug messages are desired - jjs 12/30/98 */
- #define ENABLE_PAGING 1		
- #endif
- 
--#define FALSE 0
--#define TRUE (!FALSE)
--
- /* changes the output format of driver initialization */
- #define TR_VERBOSE	0
- 
-@@ -1542,7 +1539,7 @@ static void initial_tok_int(struct net_device *dev)
- 	ti->ring_speed = init_status & 0x01 ? 16 : 4;
- 	DPRINTK("Initial interrupt : %d Mbps, shared RAM base %08x.\n",
- 				ti->ring_speed, (unsigned int)dev->mem_start);
--	ti->auto_speedsave=readb(ti->init_srb+INIT_STATUS_2_OFST)&4?TRUE:FALSE;
-+	ti->auto_speedsave = (readb(ti->init_srb+INIT_STATUS_2_OFST) & 4) != 0;
- 
-         if (ti->open_mode == MANUAL)	wake_up(&ti->wait_for_reset);
- 	else				tok_open_adapter((unsigned long)dev);
+       
+____________________________________________________________________________________
+Take the Internet to Go: Yahoo!Go puts the Internet in your pocket: mail, news, photos & more. 
+http://mobile.yahoo.com/go?refer=1GNXIC
+
