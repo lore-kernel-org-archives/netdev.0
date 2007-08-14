@@ -1,31 +1,32 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: drivers/net/tokenring/3c359.c
-Date: Tue, 14 Aug 2007 01:50:15 -0400
-Message-ID: <46C14297.1050800@garzik.org>
-References: <1187000010.29518.27.camel@bluegenie>
+Subject: Re: [PATCH] xen-netfront: Avoid deref'ing skbafter it is potentially
+ freed.
+Date: Tue, 14 Aug 2007 01:51:17 -0400
+Message-ID: <46C142D5.6050800@garzik.org>
+References: <46C0B6FD.7020701@goop.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mikep@linuxtr.net, netdev@vger.kernel.org, linux-tr@linuxtr.net,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	kernel-janitors <kernel-janitors@lists.osdl.org>
-To: surya.prabhakar@wipro.com
+Cc: NetDev <netdev@vger.kernel.org>, Keir Fraser <keir@xensource.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Jeremy Fitzhardinge <jeremy@goop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52063 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:52094 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754897AbXHNFuV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Aug 2007 01:50:21 -0400
-In-Reply-To: <1187000010.29518.27.camel@bluegenie>
+	id S943188AbXHNFvU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Aug 2007 01:51:20 -0400
+In-Reply-To: <46C0B6FD.7020701@goop.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Surya Prabhakar N wrote:
-> Hi,
->    Replacing kmalloc with kzalloc and cleaning up memset in 
-> drivers/net/tokenring/3c359.c
+Jeremy Fitzhardinge wrote:
+> xennet_tx_bug_gc can free the skb before we use it, so make sure we don't.
 > 
+> Jeff, this is -rc material.
 > 
-> Signed-off-by: Surya Prabhakar <surya.prabhakar@wipro.com>
+> Signed-off-by: Keir Fraser <keir@xensource.com>
+> Signed-off-by: Jeremy Fitzhardinge <jeremy@xensource.com>
+> Cc: Jeff Garzik <jeff@garzik.org>
 
 applied
 
