@@ -1,43 +1,46 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [patch]support for USB autosuspend in the asix driver
-Date: Tue, 14 Aug 2007 09:22:34 +0200
-Message-ID: <200708140922.34927.oneukum@suse.de>
-References: <200708031352.19419.oneukum@suse.de> <46C13546.8030508@pobox.com> <200708132222.13978.david-b@pacbell.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 6/24] make atomic_read() behave consistently on frv
+Date: Tue, 14 Aug 2007 15:26:17 +0800
+Message-ID: <20070814072617.GA8766@gondor.apana.org.au>
+References: <20070811042943.GA13410@linux.vnet.ibm.com> <E1IKSHQ-0007hg-00@gondolin.me.apana.org.au> <20070813060302.GF13410@linux.vnet.ibm.com> <46C13EE1.1000707@yahoo.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: David Brownell <david-b@pacbell.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: paulmck@linux.vnet.ibm.com, csnook@redhat.com, dhowells@redhat.com,
+	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, ak@suse.de, heiko.carstens@de.ibm.com,
+	davem@davemloft.net, schwidefsky@de.ibm.com, wensong@linux-vs.org,
+	horms@verge.net.au, wjiang@resilience.com, cfriesen@nortel.com,
+	zlynx@acm.org, rpjday@mindspring.com, jesper.juhl@gmail.com
+To: Nick Piggin <nickpiggin@yahoo.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:44599 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751033AbXHNHWm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Aug 2007 03:22:42 -0400
-In-Reply-To: <200708132222.13978.david-b@pacbell.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:2188 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750714AbXHNH1Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2007 03:27:24 -0400
 Content-Disposition: inline
+In-Reply-To: <46C13EE1.1000707@yahoo.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Dienstag 14 August 2007 schrieb David Brownell:
-> On Monday 13 August 2007, Jeff Garzik wrote:
-> > Oliver Neukum wrote:
-> > > Hi,
-> > > 
-> > > this implements support for USB autosuspend in the asix USB ethernet
-> > > driver.
-> > > 
-> > > 	Regards
-> > > 		Oliver
-> > > Signed-off-by: Oliver Neukum <oneukum@suse.de>
-> > 
-> > David, does this look OK to you?  I never saw much comment from anybody, 
-> > and cannot really comment on the USB parts.
+On Tue, Aug 14, 2007 at 03:34:25PM +1000, Nick Piggin wrote:
+>
+> What do you think of this crazy idea?
 > 
-> I didn't see anything obviously wrong.  I presume Oliver tested
-> this with actual ASIX hardware ... assuming that, it's OK by me.
+> /* Enforce a compiler barrier for only operations to location X.
+>  * Call multiple times to provide an ordering between multiple
+>  * memory locations. Other memory operations can be assumed by
+>  * the compiler to remain unchanged and may be reordered
+>  */
+> #define order(x) asm volatile("" : "+m" (x))
 
-I've tested it. It works.
+Yes this is a very good idea.  This also makes it explicit
+that the coder is depending on this rather than the more
+vague connotations of atomic_read.
 
-	Regards
-		Oliver
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
