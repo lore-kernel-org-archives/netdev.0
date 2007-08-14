@@ -1,52 +1,35 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [2.6 patch] remove Documentation/networking/net-modules.txt
-Date: Wed, 15 Aug 2007 00:22:45 +0200
-Message-ID: <20070814222245.GF18945@stusta.de>
-References: <20070814212604.GW18945@stusta.de> <46C226D1.4070203@pobox.com>
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Tue, 14 Aug 2007 15:31:12 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
+References: <20070809131423.GA9927@shell.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Adrian Bunk <bunk@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	torvalds@linux-foundation.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, ak@suse.de, heiko.carstens@de.ibm.com,
+	davem@davemloft.net, schwidefsky@de.ibm.com, wensong@linux-vs.org,
+	horms@verge.net.au, wjiang@resilience.com, cfriesen@nortel.com,
+	zlynx@acm.org, rpjday@mindspring.com, jesper.juhl@gmail.com
+To: Chris Snook <csnook@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:47460 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S936767AbXHNWW4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2007 18:22:56 -0400
-Content-Disposition: inline
-In-Reply-To: <46C226D1.4070203@pobox.com>
+Received: from netops-testserver-3-out.sgi.com ([192.48.171.28]:51794 "EHLO
+	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751393AbXHNWbQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2007 18:31:16 -0400
+In-Reply-To: <20070809131423.GA9927@shell.boston.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 14, 2007 at 06:04:01PM -0400, Jeff Garzik wrote:
-> Adrian Bunk wrote:
->> According to git, the only one who touched this file during the last
->> 5 years was me when removing drivers...
->> modinfo offers less ancient information.
->> Signed-off-by: Adrian Bunk <bunk@kernel.org>
->> ---
->> This patch has been sent on:
->> - 23 Jul 2007
->>  Documentation/networking/00-INDEX        |    2  
->> Documentation/networking/net-modules.txt |  315 -----------------------
->>  2 files changed, 317 deletions(-)
->
-> NAK, IMO it's still use for ancient drivers
+On Thu, 9 Aug 2007, Chris Snook wrote:
 
-Is there any that lacks a MODULE_PARM_DESC()?
-If yes, shouln't we fix such drivers instead?
+> This patchset makes the behavior of atomic_read uniform by removing the
+> volatile keyword from all atomic_t and atomic64_t definitions that currently
+> have it, and instead explicitly casts the variable as volatile in
+> atomic_read().  This leaves little room for creative optimization by the
+> compiler, and is in keeping with the principles behind "volatile considered
+> harmful".
 
-Even for ancient drivers net-modules.txt is outdated and sometimes lists 
-no longer existing or doesn't document more recent parameters.
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+volatile is generally harmful even in atomic_read(). Barriers control
+visibility and AFAICT things are fine.
