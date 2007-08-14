@@ -1,82 +1,49 @@
-From: Don Fry <pcnet32@verizon.net>
-Subject: [PATCH] pcnet32: add suspend and resume capability
-Date: Tue, 14 Aug 2007 15:08:59 -0700
-Message-ID: <20070814220859.GA4327@verizon.net>
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Tue, 14 Aug 2007 16:14:21 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0708141612590.693@schroedinger.engr.sgi.com>
+References: <20070809131423.GA9927@shell.boston.redhat.com>
+ <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
+ <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
+ <46C2350A.1010807@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: jgarzik@pobox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pool-72-90-101-199.ptldor.fios.verizon.net ([72.90.101.199]:33643
-	"EHLO Linux.home" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756276AbXHNXHa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2007 19:07:30 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Satyam Sharma <satyam@infradead.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org, torvalds@linux-foundation.org,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org
+To: Chris Snook <csnook@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761742AbXHNXOk@vger.kernel.org>
+In-Reply-To: <46C2350A.1010807@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add suspend and resume capability to the driver.
-Tested both to ram and to disk on x86_64 platform.
+On Tue, 14 Aug 2007, Chris Snook wrote:
 
-Signed-off-by:  Don Fry <pcnet32@verizon.net>
----
---- linux-2.6.23-rc3/drivers/net/pcnet32.c.orig	2007-08-14 13:52:24.000000000 -0700
-+++ linux-2.6.23-rc3/drivers/net/pcnet32.c	2007-08-14 14:16:55.000000000 -0700
-@@ -23,11 +23,11 @@
- 
- #define DRV_NAME	"pcnet32"
- #ifdef CONFIG_PCNET32_NAPI
--#define DRV_VERSION	"1.33-NAPI"
-+#define DRV_VERSION	"1.34-NAPI"
- #else
--#define DRV_VERSION	"1.33"
-+#define DRV_VERSION	"1.34"
- #endif
--#define DRV_RELDATE	"27.Jun.2006"
-+#define DRV_RELDATE	"14.Aug.2007"
- #define PFX		DRV_NAME ": "
- 
- static const char *const version =
-@@ -2943,6 +2943,33 @@ static void pcnet32_watchdog(struct net_
- 	mod_timer(&(lp->watchdog_timer), PCNET32_WATCHDOG_TIMEOUT);
- }
- 
-+static int pcnet32_pm_suspend(struct pci_dev *pdev, pm_message_t state)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+
-+	if (netif_running(dev)) {
-+		netif_device_detach(dev);
-+		pcnet32_close(dev);
-+	}
-+	pci_save_state(pdev);
-+	pci_set_power_state(pdev, pci_choose_state(pdev, state));
-+	return 0;
-+}
-+
-+static int pcnet32_pm_resume(struct pci_dev *pdev)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+
-+	pci_set_power_state(pdev, PCI_D0);
-+	pci_restore_state(pdev);
-+
-+	if (netif_running(dev)) {
-+		pcnet32_open(dev);
-+		netif_device_attach(dev);
-+	}
-+	return 0;
-+}
-+
- static void __devexit pcnet32_remove_one(struct pci_dev *pdev)
- {
- 	struct net_device *dev = pci_get_drvdata(pdev);
-@@ -2966,6 +2993,8 @@ static struct pci_driver pcnet32_driver 
- 	.probe = pcnet32_probe_pci,
- 	.remove = __devexit_p(pcnet32_remove_one),
- 	.id_table = pcnet32_pci_tbl,
-+	.suspend = pcnet32_pm_suspend,
-+	.resume = pcnet32_pm_resume,
- };
- 
- /* An additional parameter that may be passed in... */
+> Because atomic operations are generally used for synchronization, which
+> requires volatile behavior.  Most such codepaths currently use an inefficient
+> barrier().  Some forget to and we get bugs, because people assume that
+> atomic_read() actually reads something, and atomic_write() actually writes
+> something.  Worse, these are architecture-specific, even compiler
+> version-specific bugs that are often difficult to track down.
+
+Looks like we need to have lock and unlock semantics?
+
+atomic_read()
+
+which has no barrier or volatile implications.
+
+atomic_read_for_lock
+
+	Acquire semantics?
+
+
+atomic_read_for_unlock
+
+	Release semantics?
