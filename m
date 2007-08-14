@@ -1,36 +1,41 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 13/13] cxgb3 - test MSI capabilities
-Date: Tue, 14 Aug 2007 01:47:04 -0400
-Message-ID: <46C141D8.40805@garzik.org>
-References: <20070811063036.8239.27320.stgit@speedy5>
+From: Brice Goglin <brice@myri.com>
+Subject: Re: [patch 06/18] PCI-X/PCI-Express read control interfaces: use
+ them in myrinet
+Date: Tue, 14 Aug 2007 07:49:17 +0200
+Message-ID: <46C1425D.6030606@myri.com>
+References: <200708102105.l7AL5H0a008960@imap1.linux-foundation.org> <46C13DE5.2070107@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: Divy Le Ray <divy@chelsio.com>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	peter.oruba@amd.com, rolandd@cisco.com,
+	shemminger@linux-foundation.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:37840 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S941911AbXHNFrG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Aug 2007 01:47:06 -0400
-In-Reply-To: <20070811063036.8239.27320.stgit@speedy5>
+Received: from mailbox2.myri.com ([64.172.73.26]:1797 "EHLO myri.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S942192AbXHNFsX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Aug 2007 01:48:23 -0400
+In-Reply-To: <46C13DE5.2070107@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Divy Le Ray wrote:
-> From: Divy Le Ray <divy@chelsio.com>
-> 
-> Check that the HW in really in MSI/MSI-X mode
-> when it was succesfully enabled.
-> 
-> Signed-off-by: Divy Le Ray <divy@chelsio.com>
-> ---
-> 
->  drivers/net/cxgb3/cxgb3_main.c |   42 ++++++++++++++++++++++++++++++++++++++++
->  drivers/net/cxgb3/regs.h       |    4 ++++
->  2 files changed, 46 insertions(+), 0 deletions(-)
+Jeff Garzik wrote:
+> akpm@linux-foundation.org wrote:
+>> From: "Peter Oruba" <peter.oruba@amd.com>
+>>
+>> These driver changes incorporate the proposed PCI-X / PCI-Express
+>> read byte
+>> count interface.  Reading and setting those valuse doesn't take place
+>> "manually", instead wrapping functions are called to allow quirks for
+>> some
+>> PCI bridges.
+>>
+>
+> I presume Brice will resend this one to me, next time he pushes...
 
-we really don't need to be adding this to each driver
 
+Ok, I'll take care of it.
+
+Brice
 
