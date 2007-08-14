@@ -1,64 +1,87 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Block device throttling [Re: Distributed storage.]
-Date: Tue, 14 Aug 2007 15:50:38 +0400
-Message-ID: <20070814115037.GA2958@2ka.mipt.ru>
-References: <20070731171347.GA14267@2ka.mipt.ru> <200708140413.12530.phillips@phunq.net> <20070814113039.GA20780@2ka.mipt.ru> <200708140435.44979.phillips@phunq.net>
+From: Laurent Pinchart <laurentp@cse-semaphore.com>
+Subject: [PATCH] [DM9000] Add support for big-endian hosts
+Date: Tue, 14 Aug 2007 13:22:32 +0200
+Message-ID: <200708141322.32473.laurentp@cse-semaphore.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: Daniel Phillips <phillips@phunq.net>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Dooks <ben-linux@fluff.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailrelay001.isp.belgacom.be ([195.238.6.51]:61818 "EHLO
+	mailrelay001.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760666AbXHNLwJ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Aug 2007 07:52:09 -0400
 Content-Disposition: inline
-In-Reply-To: <200708140435.44979.phillips@phunq.net>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 14, 2007 at 04:35:43AM -0700, Daniel Phillips (phillips@phunq.net) wrote:
-> On Tuesday 14 August 2007 04:30, Evgeniy Polyakov wrote:
-> > > And it will not solve the deadlock problem in general.  (Maybe it
-> > > works for your virtual device, but I wonder...)  If the virtual
-> > > device allocates memory during generic_make_request then the memory
-> > > needs to be throttled.
-> >
-> > Daniel, if device process bio by itself, it has a limit and thus it
-> > will wait in generic_make_request()
-> 
-> What will make it wait?
+This patch splits the receive status in 8bit wide fields and convert th=
+e
+packet length from little endian to CPU byte order.
 
-gneric_make_request() for given block device.
+Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
+---
+ drivers/net/dm9000.c |   13 +++++++------
+ 1 files changed, 7 insertions(+), 6 deletions(-)
 
-Example:
+diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+index 264fa0e..ee578d9 100644
+--- a/drivers/net/dm9000.c
++++ b/drivers/net/dm9000.c
+@@ -879,7 +879,8 @@ dm9000_timer(unsigned long data)
+ }
+=20
+ struct dm9000_rxhdr {
+-	u16	RxStatus;
++	u8	RxPktReady;
++	u8	RxStatus;
+ 	u16	RxLen;
+ } __attribute__((__packed__));
+=20
+@@ -920,7 +921,7 @@ dm9000_rx(struct net_device *dev)
+=20
+ 		(db->inblk)(db->io_data, &rxhdr, sizeof(rxhdr));
+=20
+-		RxLen =3D rxhdr.RxLen;
++		RxLen =3D le16_to_cpu(rxhdr.RxLen);
+=20
+ 		/* Packet Status check */
+ 		if (RxLen < 0x40) {
+@@ -932,17 +933,17 @@ dm9000_rx(struct net_device *dev)
+ 			PRINTK1("RST: RX Len:%x\n", RxLen);
+ 		}
+=20
+-		if (rxhdr.RxStatus & 0xbf00) {
++		if (rxhdr.RxStatus & 0xbf) {
+ 			GoodPacket =3D false;
+-			if (rxhdr.RxStatus & 0x100) {
++			if (rxhdr.RxStatus & 0x01) {
+ 				PRINTK1("fifo error\n");
+ 				db->stats.rx_fifo_errors++;
+ 			}
+-			if (rxhdr.RxStatus & 0x200) {
++			if (rxhdr.RxStatus & 0x02) {
+ 				PRINTK1("crc error\n");
+ 				db->stats.rx_crc_errors++;
+ 			}
+-			if (rxhdr.RxStatus & 0x8000) {
++			if (rxhdr.RxStatus & 0x80) {
+ 				PRINTK1("length error\n");
+ 				db->stats.rx_length_errors++;
+ 			}
+--=20
+1.5.0
 
-   virt_device -> do_smth_with_bio ->bio_endio().
-       |
-      / \
- phys0   phys1
 
-Each of three devices above works with bio, each one eventually calls
-bio_endio() and bio->bi_bdev will be one of the three above devices.
+--=20
+Laurent Pinchart
+CSE Semaphore Belgium
 
-Thus, when system calls generic_make_request(bio->bi_bdev == virt_device),
-one of the three limits will be charged, depending on the fact, that
-virtual device forward bio to physical devices or not. Actually virtual
-device limit will be charged too first, but if bio is forwarded, its 
-portion will be reduced from virtual device's limit.
+Chauss=E9e de Bruxelles, 732A
+B-1410 Waterloo
+Belgium
 
-Now, if virtual device allocates bio itself (like device mapper), then
-this new bio will be forwarded to physical devices via
-gneric_make_request() and thus it will sleep in the physical device's
-queue, if it is filled.
-
-So, if each of three devices has a limit of 10 bios, then actual number
-of bios in flight is maximum 3 * 10, since each device will be charged
-up to _its_ maximum limit, not limit for the first device in the chain.
-
-So, you set 10 to virtual device and its can process bio itself (like
-send it to network), then this is number of bios in flight, which are
-processed by _this_ device and not forwarded further. Actual number of
-bios you can flush into virtual device is its own limit plus limits of
-all physical devices atached to it.
-
--- 
-	Evgeniy Polyakov
+T +32 (2) 387 42 59
+=46 +32 (2) 387 42 75
