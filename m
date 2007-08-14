@@ -1,77 +1,46 @@
-From: Daniel Phillips <phillips@phunq.net>
-Subject: Re: Distributed storage.
-Date: Mon, 13 Aug 2007 16:27:42 -0700
-Message-ID: <200708131627.42859.phillips@phunq.net>
-References: <20070731171347.GA14267@2ka.mipt.ru> <200708130159.22407.phillips@phunq.net> <20070813091235.GI23758@kernel.dk>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: Problem with semantics?
+Date: 14 Aug 2007 02:38:13 +0200
+Message-ID: <p737inzne6i.fsf@bingen.suse.de>
+References: <OFF8FEF8BA.07073375-ONC2257336.005DB73A-C2257336.005E19ED@il.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: Jens Axboe <jens.axboe@oracle.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20070813091235.GI23758@kernel.dk>
-Content-Disposition: inline
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, mtk-manpages@gmx.net
+To: Shay Goikhman <GOIKHMAN@il.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns2.suse.de ([195.135.220.15]:48481 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761503AbXHMXoE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Aug 2007 19:44:04 -0400
+In-Reply-To: <OFF8FEF8BA.07073375-ONC2257336.005DB73A-C2257336.005E19ED@il.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 13 August 2007 02:12, Jens Axboe wrote:
-> > It is a system wide problem.  Every block device needs throttling,
-> > otherwise queues expand without limit.  Currently, block devices
-> > that use the standard request library get a slipshod form of
-> > throttling for free in the form of limiting in-flight request
-> > structs.  Because the amount of IO carried by a single request can
-> > vary by two orders of magnitude, the system behavior of this
-> > approach is far from predictable.
->
-> Is it? Consider just 10 standard sata disks. The next kernel revision
-> will have sg chaining support, so that allows 32MiB per request. Even
-> if we disregard reads (not so interesting in this discussion) and
-> just look at potentially pinned dirty data in a single queue, that
-> number comes to 4GiB PER disk. Or 40GiB for 10 disks. Auch.
->
-> So I still think that this throttling needs to happen elsewhere, you
-> cannot rely the block layer throttling globally or for a single
-> device. It just doesn't make sense.
+Shay Goikhman <GOIKHMAN@il.ibm.com> writes:
 
-You are right, so long as the unit of throttle accounting remains one 
-request.  This is not what we do in ddsnap.  Instead we inc/dec the 
-throttle counter by the number of bvecs in each bio, which produces a 
-nice steady data flow to the disk under a wide variety of loads, and 
-provides the memory resource bound we require.
+> Dear Linux maintainers,
+> 
+>  I'm doing :
+> 
+>       setsockopt(s,  SO_RCVTIMEO, t1 );                  // set time-out
+> t1 on socket while block receiving on it
+>       select(,,, &fd_set_including(s), .., &errs, t2);      // block till
+> receive or time-out  t 2 jointly on a set of sockets
+> 
+> Apparently, I could no find reference on the coupled behavior of the two
+> above statements in Linux documentation.
+> As I understand the blocking semantics, I would expect  that  if t1<t2 ,
+> select should return after t1 with the descriptor 's' in 'errs' if 's' does
+> not become readable in the t1 interval.
+> 
+> It is not so in life -- select ignores t1 altogether.
+> 
+> Do you have some enlightening knowledge on the matter?
 
-One throttle count per bvec will not be the right throttling metric for 
-every driver.  To customize this accounting metric for a given driver 
-we already have the backing_dev_info structure, which provides 
-per-device-instance accounting functions and instance data.  Perfect! 
-This allows us to factor the throttling mechanism out of the driver, so 
-the only thing the driver has to do is define the throttle accounting 
-if it needs a custom one.
+RCVTIMEO only applies to recvmsg et.al., similar to SNDTIMEO only
+apply to sendmsg etc. But select/poll only report events, they
+do not actually send or receive by themselves.
 
-We can avoid affecting the traditional behavior quite easily, for 
-example if backing_dev_info->throttle_fn (new method) is null then 
-either not throttle at all (and rely on the struct request in-flight 
-limit) or we can move the in-flight request throttling logic into core 
-as the default throttling method, simplifying the request library and 
-not changing its behavior.
+Michael, perhaps you can clarify that in the manpages
 
-> > These deadlocks are first and foremost, block layer deficiencies. 
-> > Even the network becomes part of the problem only because it lies
-> > in the block IO path.
->
-> The block layer has NEVER guaranteed throttling, so it can - by
-> definition - not be a block layer deficiency.
-
-The block layer has always been deficient by not providing accurate 
-throttling, or any throttling at all for some devices.  We have 
-practical proof that this causes deadlock and a good theoretical basis 
-for describing exactly how it happens.
-
-To be sure, vm and net are co-conspirators, however the block layer 
-really is the main actor in this little drama.
-
-Regards,
-
-Daniel
+-Andi
