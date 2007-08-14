@@ -1,35 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Realtek r8168 slow outbound transfer - potential fix/workaround
-Date: Tue, 14 Aug 2007 23:19:54 +0200
-Message-ID: <20070814211954.GA3552@electric-eye.fr.zoreil.com>
-References: <46C0A88E.7050802@gmail.com>
+From: Adrian Bunk <bunk@kernel.org>
+Subject: [2.6 patch] unexport dev_ethtool
+Date: Tue, 14 Aug 2007 23:22:03 +0200
+Message-ID: <20070814212203.GV18945@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Cc: netdev@vger.kernel.org
-To: Bruce Cole <bacole@gmail.com>
+To: Matthew Wilcox <matthew@wil.cx>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:40134 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750926AbXHNVUz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Aug 2007 17:20:55 -0400
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:38397 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753523AbXHNVWL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2007 17:22:11 -0400
 Content-Disposition: inline
-In-Reply-To: <46C0A88E.7050802@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bruce Cole <bacole@gmail.com> :
-[...]
-> What's the status of this fix?  It (or something more refined) seems 
-> necessary to correct the current performance problems with this driver.
+This patch removes the no longer used EXPORT_SYMBOL(dev_ethtool).
 
-An explanation or something more refined would be welcome.
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-[...]
-> I can troubleshoot in more detail if that would help get a proper fix
-> developed.
+---
+37bcb29c1a1fefe6da0ea9e54a5cde09a82318f0 
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 2ab0a60..c5e0593 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -948,7 +948,6 @@ int dev_ethtool(struct ifreq *ifr)
+ 	return rc;
+ }
+ 
+-EXPORT_SYMBOL(dev_ethtool);
+ EXPORT_SYMBOL(ethtool_op_get_link);
+ EXPORT_SYMBOL(ethtool_op_get_sg);
+ EXPORT_SYMBOL(ethtool_op_get_tso);
 
-Can you try 2.6.23-rc3 with NAPI enabled and send a complete dmesg +
-/proc/interrupts + ethtool -S output ?
-
--- 
-Ueimor
