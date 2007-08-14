@@ -1,53 +1,62 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 06/18] PCI-X/PCI-Express read control interfaces: use
- them in myrinet
-Date: Tue, 14 Aug 2007 01:30:13 -0400
-Message-ID: <46C13DE5.2070107@garzik.org>
-References: <200708102105.l7AL5H0a008960@imap1.linux-foundation.org>
+Subject: Re: [patch 08/18] 3c59x: check return of pci_enable_device()
+Date: Tue, 14 Aug 2007 01:33:26 -0400
+Message-ID: <46C13EA6.9090301@garzik.org>
+References: <200708102105.l7AL5Jje008968@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, peter.oruba@amd.com, rolandd@cisco.com,
-	shemminger@linux-foundation.org
-To: akpm@linux-foundation.org, brice@myri.com
+Cc: netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
+To: akpm@linux-foundation.org, mark@hindley.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:46946 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:56230 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S936849AbXHNFaR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Aug 2007 01:30:17 -0400
-In-Reply-To: <200708102105.l7AL5H0a008960@imap1.linux-foundation.org>
+	id S941549AbXHNFdb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Aug 2007 01:33:31 -0400
+In-Reply-To: <200708102105.l7AL5Jje008968@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 akpm@linux-foundation.org wrote:
-> From: "Peter Oruba" <peter.oruba@amd.com>
+> From: Mark Hindley <mark@hindley.org.uk>
 > 
-> These driver changes incorporate the proposed PCI-X / PCI-Express read byte
-> count interface.  Reading and setting those valuse doesn't take place
-> "manually", instead wrapping functions are called to allow quirks for some
-> PCI bridges.
+> Check return of pci_enable_device in vortex_up().
 > 
-> Signed-off by: Peter Oruba <peter.oruba@amd.com>
-> Based on work by Stephen Hemminger <shemminger@linux-foundation.org>
-> Cc: Roland Dreier <rolandd@cisco.com>
-> Cc: Brice Goglin <brice@myri.com>
+> Signed-off-by: Mark Hindley <mark@hindley.org.uk>
+> Acked-by: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
 > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 > ---
 > 
->  drivers/net/myri10ge/myri10ge.c |    3 +--
->  1 files changed, 1 insertion(+), 2 deletions(-)
+>  drivers/net/3c59x.c |    8 ++++++--
+>  1 files changed, 6 insertions(+), 2 deletions(-)
 > 
-> diff -puN drivers/net/myri10ge/myri10ge.c~pci-x-pci-express-read-control-interfaces-myrinet drivers/net/myri10ge/myri10ge.c
-> --- a/drivers/net/myri10ge/myri10ge.c~pci-x-pci-express-read-control-interfaces-myrinet
-> +++ a/drivers/net/myri10ge/myri10ge.c
-> @@ -2884,8 +2884,7 @@ static int myri10ge_probe(struct pci_dev
->  			status);
->  		goto abort_with_netdev;
->  	}
-> -	val = (val & ~PCI_EXP_DEVCTL_READRQ) | (5 << 12);
-> -	status = pci_write_config_word(pdev, cap + PCI_EXP_DEVCTL, val);
-> +	status = pcie_set_readrq(pdev, 4096);
+> diff -puN drivers/net/3c59x.c~3c59x-check-return-of-pci_enable_device drivers/net/3c59x.c
+> --- a/drivers/net/3c59x.c~3c59x-check-return-of-pci_enable_device
+> +++ a/drivers/net/3c59x.c
+> @@ -1490,13 +1490,17 @@ vortex_up(struct net_device *dev)
+>  	struct vortex_private *vp = netdev_priv(dev);
+>  	void __iomem *ioaddr = vp->ioaddr;
+>  	unsigned int config;
+> -	int i, mii_reg1, mii_reg5;
+> +	int i, mii_reg1, mii_reg5, err;
+>  
+>  	if (VORTEX_PCI(vp)) {
+>  		pci_set_power_state(VORTEX_PCI(vp), PCI_D0);	/* Go active */
+>  		if (vp->pm_state_valid)
+>  			pci_restore_state(VORTEX_PCI(vp));
+> -		pci_enable_device(VORTEX_PCI(vp));
+> +		err = pci_enable_device(VORTEX_PCI(vp));
+> +		if (err) {
+> +			printk(KERN_WARNING "%s: Could not enable device \n",
+> +				dev->name);
+> +		}
 
+I would strongly prefer that vortex_up return a value, since all the 
+important callers of this function can themselves return an error back 
+to the system.
 
-I presume Brice will resend this one to me, next time he pushes...
+we can definitely return a meaningful return value here, if 
+pci_enable_device() fails, and I would rather not apply a patch that 
+fails to propagate a serious condition (pci_enable_device failure is 
+indeed serious) when it is possible to do so
 
