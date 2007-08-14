@@ -1,86 +1,58 @@
-From: Laurent Pinchart <laurentp@cse-semaphore.com>
-Subject: [PATCH] [DM9000] External PHY support
-Date: Tue, 14 Aug 2007 13:29:35 +0200
-Message-ID: <200708141329.35301.laurentp@cse-semaphore.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Block device throttling [Re: Distributed storage.]
+Date: Tue, 14 Aug 2007 15:30:42 +0400
+Message-ID: <20070814113039.GA20780@2ka.mipt.ru>
+References: <20070731171347.GA14267@2ka.mipt.ru> <200708130604.07154.phillips@phunq.net> <20070814084625.GA20265@2ka.mipt.ru> <200708140413.12530.phillips@phunq.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Dooks <ben-linux@fluff.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay009.isp.belgacom.be ([195.238.6.176]:44099 "EHLO
-	mailrelay009.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753760AbXHNL3i convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Aug 2007 07:29:38 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>
+To: Daniel Phillips <phillips@phunq.net>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <200708140413.12530.phillips@phunq.net>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds a flag to the DM9000 platform data which, when set,
-configures the device to use an external PHY.
+On Tue, Aug 14, 2007 at 04:13:10AM -0700, Daniel Phillips (phillips@phunq.net) wrote:
+> On Tuesday 14 August 2007 01:46, Evgeniy Polyakov wrote:
+> > On Mon, Aug 13, 2007 at 06:04:06AM -0700, Daniel Phillips 
+> (phillips@phunq.net) wrote:
+> > > Perhaps you never worried about the resources that the device
+> > > mapper mapping function allocates to handle each bio and so did not
+> > > consider this hole significant.  These resources can be
+> > > significant, as is the case with ddsnap.  It is essential to close
+> > > that window through with the virtual device's queue limit may be
+> > > violated.  Not doing so will allow deadlock.
+> >
+> > This is not a bug, this is special kind of calculation - total limit
+> > is number of physical devices multiplied by theirs limits. It was
+> > done _on purpose_ to allow different device to have different limits
+> > (for example in distributed storage project it is possible to have
+> > both remote and local node in the same device, but local device
+> > should not have _any_ limit at all, but network one should).
+> >
+> > Virtual device essentially has _no_ limit. And that as done on
+> > purpose.
+> 
+> And it will not solve the deadlock problem in general.  (Maybe it works 
+> for your virtual device, but I wonder...)  If the virtual device 
+> allocates memory during generic_make_request then the memory needs to 
+> be throttled.
 
-Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
----
- drivers/net/dm9000.c   |    6 ++++++
- include/linux/dm9000.h |    1 +
- 2 files changed, 7 insertions(+), 0 deletions(-)
+Daniel, if device process bio by itself, it has a limit and thus it will
+wait in generic_make_request(), if it queues it to different device,
+then the same logic applies there. If virutal device does not process
+bio, its limit will always be recharged to underlying devices, and
+overall limit is equal to number of physical device (or devices which do
+process bio) multiplied by theirs limits. This does _work_ and I showed
+example how limits are processed and who and where will sleep. This
+solution is not narrow fix, please check my examples I showed before.
 
-diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
-index ee578d9..820f0d3 100644
---- a/drivers/net/dm9000.c
-+++ b/drivers/net/dm9000.c
-@@ -124,6 +124,7 @@ typedef struct board_info {
- 	u16 dbug_cnt;
- 	u8 io_mode;		/* 0:word, 2:byte */
- 	u8 phy_addr;
-+	unsigned int flags;
-=20
- 	void (*inblk)(void __iomem *port, void *data, int length);
- 	void (*outblk)(void __iomem *port, void *data, int length);
-@@ -513,6 +514,8 @@ dm9000_probe(struct platform_device *pdev)
-=20
- 		if (pdata->dumpblk !=3D NULL)
- 			db->dumpblk =3D pdata->dumpblk;
-+
-+		db->flags =3D pdata->flags;
- 	}
-=20
- 	dm9000_reset(db);
-@@ -655,6 +658,9 @@ dm9000_init_dm9000(struct net_device *dev)
- 	iow(db, DM9000_GPCR, GPCR_GEP_CNTL);	/* Let GPIO0 output */
- 	iow(db, DM9000_GPR, 0);	/* Enable PHY */
-=20
-+	if (db->flags & DM9000_PLATF_EXT_PHY)
-+		iow(db, DM9000_NCR, NCR_EXT_PHY);
-+
- 	/* Program operating register */
- 	iow(db, DM9000_TCR, 0);	        /* TX Polling clear */
- 	iow(db, DM9000_BPTR, 0x3f);	/* Less 3Kb, 200us */
-diff --git a/include/linux/dm9000.h b/include/linux/dm9000.h
-index 0008e2a..ea530fd 100644
---- a/include/linux/dm9000.h
-+++ b/include/linux/dm9000.h
-@@ -19,6 +19,7 @@
- #define DM9000_PLATF_8BITONLY	(0x0001)
- #define DM9000_PLATF_16BITONLY	(0x0002)
- #define DM9000_PLATF_32BITONLY	(0x0004)
-+#define DM9000_PLATF_EXT_PHY	(0x0008)
-=20
- /* platfrom data for platfrom device structure's platfrom_data field *=
-/
-=20
---=20
-1.5.0
+> Regards,
+> 
+> Daniel
 
-
---=20
-Laurent Pinchart
-CSE Semaphore Belgium
-
-Chauss=E9e de Bruxelles, 732A
-B-1410 Waterloo
-Belgium
-
-T +32 (2) 387 42 59
-=46 +32 (2) 387 42 75
+-- 
+	Evgeniy Polyakov
