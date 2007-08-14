@@ -1,65 +1,52 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [3/4] 2.6.23-rc3: known regressions
-Date: Wed, 15 Aug 2007 00:09:26 +0200
-Message-ID: <20070814220926.GA3495@electric-eye.fr.zoreil.com>
-References: <46C098FD.1030601@googlemail.com> <46C09C09.7010605@googlemail.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [2.6 patch] remove Documentation/networking/net-modules.txt
+Date: Wed, 15 Aug 2007 00:22:45 +0200
+Message-ID: <20070814222245.GF18945@stusta.de>
+References: <20070814212604.GW18945@stusta.de> <46C226D1.4070203@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+Content-Type: text/plain; charset=utf-8
+Cc: Adrian Bunk <bunk@kernel.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@osdl.org>,
-	"Daniel K." <daniel@cluded.net>, Shish <shish@shishnet.org>,
-	Karl Meyer <adhocrocker@gmail.com>
-To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:43491 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757498AbXHNWNn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Aug 2007 18:13:43 -0400
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:47460 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S936767AbXHNWW4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2007 18:22:56 -0400
 Content-Disposition: inline
-In-Reply-To: <46C09C09.7010605@googlemail.com>
+In-Reply-To: <46C226D1.4070203@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michal Piotrowski <michal.k.k.piotrowski@gmail.com> :
-[...]
-> Networking
-> 
-> Subject         : NETDEV WATCHDOG: eth0: transmit timed out
-> References      : http://lkml.org/lkml/2007/8/13/737
-> Last known good : ?
-> Submitter       : Karl Meyer <adhocrocker@gmail.com>
-> Caused-By       : ?
-> Handled-By      : ?
+On Tue, Aug 14, 2007 at 06:04:01PM -0400, Jeff Garzik wrote:
+> Adrian Bunk wrote:
+>> According to git, the only one who touched this file during the last
+>> 5 years was me when removing drivers...
+>> modinfo offers less ancient information.
+>> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+>> ---
+>> This patch has been sent on:
+>> - 23 Jul 2007
+>>  Documentation/networking/00-INDEX        |    2  
+>> Documentation/networking/net-modules.txt |  315 -----------------------
+>>  2 files changed, 317 deletions(-)
+>
+> NAK, IMO it's still use for ancient drivers
 
-  Handled-By      : romieu@fr.zoreil.com
+Is there any that lacks a MODULE_PARM_DESC()?
+If yes, shouln't we fix such drivers instead?
 
-> Status          : unknown
+Even for ancient drivers net-modules.txt is outdated and sometimes lists 
+no longer existing or doesn't document more recent parameters.
 
-> Subject         : Weird network problems with 2.6.23-rc2
-> References      : http://lkml.org/lkml/2007/8/11/40
-> Last known good : ?
-> Submitter       : Shish <shish@shishnet.org>
-> Caused-By       : ?
-> Handled-By      : ?
-> Status          : unknown
-
-The PR does not give any driver nor hardware detail. :o/
-
-> Subject         : BUG: when using 'brctl stp'
-> References      : http://lkml.org/lkml/2007/8/10/441
-> Last known good : 2.6.23-rc1
-> Submitter       : Daniel K. <daniel@cluded.net>
-> Caused-By       : ?
-> Handled-By      : ?
-
-  Handled-By      : shemminger@linux-foundation.org
-
-> Status          : unknown
-
-  Status          : fix applied by David Miller
+cu
+Adrian
 
 -- 
-Ueimor
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
