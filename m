@@ -1,36 +1,47 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [patch 13/18] natsemi: fix netdev error acounting
-Date: Tue, 14 Aug 2007 01:36:46 -0400
-Message-ID: <46C13F6E.3060701@garzik.org>
-References: <200708102105.l7AL5NBY008983@imap1.linux-foundation.org>
+Subject: Re: [patch 15/18] drivers/net: remove superfluous memset
+Date: Tue, 14 Aug 2007 01:38:11 -0400
+Message-ID: <46C13FC3.2020706@garzik.org>
+References: <200708102105.l7AL5PRA008989@imap1.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, loveminix@yahoo.com.cn, protasnb@gmail.com,
-	thockin@hockin.org
+Cc: netdev@vger.kernel.org, m.kozlowski@tuxland.pl
 To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:44523 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:44543 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S941354AbXHNFgx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Aug 2007 01:36:53 -0400
-In-Reply-To: <200708102105.l7AL5NBY008983@imap1.linux-foundation.org>
+	id S934359AbXHNFiN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Aug 2007 01:38:13 -0400
+In-Reply-To: <200708102105.l7AL5PRA008989@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 akpm@linux-foundation.org wrote:
-> From: Andrew Morton <akpm@linux-foundation.org>
+> From: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
 > 
-> When a detailed netdev error is counted, we also must account for it in the
-> aggregated error count.
+> 	This patch covers something like this:
 > 
-> Addresses http://bugzilla.kernel.org/show_bug.cgi?id=8106
+> dev = alloc_*dev(...
+> ...
+> priv = netdev_priv(dev);
+> memset(priv, 0, sizeof(*priv));
 > 
-> Cc: Tim Hockin <thockin@hockin.org>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Cc: Chongfeng Hu <loveminix@yahoo.com.cn>
-> Cc: Natalie Protasevich <protasnb@gmail.com>
+> The memset() here is superfluous. alloc_netdev() uses kzalloc()
+> to allocate needed memory so there is no need to zero the priv region
+> twice.
+> 
+> Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
 > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> ---
+> 
+>  drivers/net/fs_enet/fs_enet-main.c   |    1 -
+>  drivers/net/myri10ge/myri10ge.c      |    1 -
+>  drivers/net/netxen/netxen_nic_main.c |    1 -
+>  drivers/net/sunlance.c               |    1 -
+>  drivers/net/usb/pegasus.c            |    1 -
+>  drivers/net/usb/rtl8150.c            |    1 -
+>  6 files changed, 6 deletions(-)
 
 applied
 
