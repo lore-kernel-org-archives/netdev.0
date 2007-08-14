@@ -1,363 +1,78 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] remove Documentation/networking/net-modules.txt
-Date: Tue, 14 Aug 2007 23:26:04 +0200
-Message-ID: <20070814212604.GW18945@stusta.de>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] econet: remove econet_packet_type on unload
+Date: Wed, 15 Aug 2007 01:25:53 +0400
+Message-ID: <20070814212553.GB5873@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>, jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, akpm@osdl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:45841 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757693AbXHNV0O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2007 17:26:14 -0400
+Received: from fk-out-0910.google.com ([209.85.128.184]:22972 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757684AbXHNVZ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2007 17:25:59 -0400
+Received: by fk-out-0910.google.com with SMTP id z23so1776406fkz
+        for <netdev@vger.kernel.org>; Tue, 14 Aug 2007 14:25:57 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-According to git, the only one who touched this file during the last
-5 years was me when removing drivers...
+Steps to reproduce:
 
-modinfo offers less ancient information.
+	modprobe econet
+	rmmod econet
+	modprobe econet
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
+Unable to handle kernel paging request at ffffffff8870a098 RIP: 
+ [<ffffffff8040bfb8>] dev_add_pack+0x48/0x90
+PGD 203067 PUD 207063 PMD 7817f067 PTE 0
+Oops: 0002 [1] PREEMPT SMP 
+CPU 1 
+Modules linked in: econet [maaaany]
+Pid: 10671, comm: modprobe Not tainted 2.6.23-rc3-bloat #6
+RIP: 0010:[<ffffffff8040bfb8>]  [<ffffffff8040bfb8>] dev_add_pack+0x48/0x90
+RSP: 0000:ffff810076293df8  EFLAGS: 00010202
+RAX: ffffffff88659090 RBX: ffffffff88659060 RCX: ffffffff8870a090
+RDX: 0000000000000080 RSI: ffffffff805ec660 RDI: ffff810078ce4680
+RBP: ffff810076293e08 R08: 0000000000000002 R09: 0000000000000000
+R10: ffffffff8040bf88 R11: 0000000000000001 R12: ffff810076293e18
+R13: 000000000000001b R14: ffff810076dd06b0 R15: ffffffff886590c0
+FS:  00002b96a525dae0(0000) GS:ffff81007e0e2138(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+CR2: ffffffff8870a098 CR3: 000000007bb67000 CR4: 00000000000026e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process modprobe (pid: 10671, threadinfo ffff810076292000, task ffff810078ce4680)
+Stack:  ffff810076dd06b0 0000000000000000 ffff810076293e38 ffffffff8865b180
+ 0000000000800000 0000000000000000 ffffffff886590c0 ffff810076dd01c8
+ ffff810076293f78 ffffffff8026723c ffff810076293e48 ffffffff886590d8
+Call Trace:
+ [<ffffffff8865b180>] :econet:econet_proto_init+0x180/0x1da
+ [<ffffffff8026723c>] sys_init_module+0x15c/0x19e0
+ [<ffffffff8020c13e>] system_call+0x7e/0x83
 
+
+Code: 48 89 41 08 48 89 82 e0 c5 5e 80 48 c7 c7 a0 08 5d 80 e8 f1 
+RIP  [<ffffffff8040bfb8>] dev_add_pack+0x48/0x90
+ RSP <ffff810076293df8>
+CR2: ffffffff8870a098
+
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
-This patch has been sent on:
-- 23 Jul 2007
+ net/econet/af_econet.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
- Documentation/networking/00-INDEX        |    2 
- Documentation/networking/net-modules.txt |  315 -----------------------
- 2 files changed, 317 deletions(-)
-
---- linux-2.6.22-rc6-mm1/Documentation/networking/00-INDEX.old	2007-07-23 20:28:51.000000000 +0200
-+++ linux-2.6.22-rc6-mm1/Documentation/networking/00-INDEX	2007-07-23 20:28:59.000000000 +0200
-@@ -80,8 +80,6 @@
- 	- Behaviour of cards under Multicast
- ncsa-telnet
- 	- notes on how NCSA telnet (DOS) breaks with MTU discovery enabled.
--net-modules.txt
--	- info and "insmod" parameters for all network driver modules.
- netdevices.txt
- 	- info on network device driver functions exported to the kernel.
- olympic.txt
---- linux-2.6.22-rc6-mm1/Documentation/networking/net-modules.txt	2007-07-12 20:43:37.000000000 +0200
-+++ /dev/null	2006-09-19 00:45:31.000000000 +0200
-@@ -1,315 +0,0 @@
--Wed 2-Aug-95  <matti.aarnio@utu.fi>
--
--		Linux network driver modules
--
--	Do not mistake this for "README.modules" at the top-level
--	directory!  That document tells about modules in general, while
--	this one tells only about network device driver modules.
--
--	This is a potpourri of INSMOD-time(*) configuration options
--	(if such exists) and their default values of various modules
--	in the Linux network drivers collection.
--
--	Some modules have also hidden (= non-documented) tunable values.
--	The choice of not documenting them is based on general belief, that
--	the less the user needs to know, the better.  (There are things that
--	driver developers can use, others should not confuse themselves.)
--
--	In many cases it is highly preferred that insmod:ing is done
--	ONLY with defining an explicit address for the card, AND BY
--	NOT USING AUTO-PROBING!
--
--	Now most cards have some explicitly defined base address that they
--	are compiled with (to avoid auto-probing, among other things).
--	If that compiled value does not match your actual configuration,
--	do use the "io=0xXXX" -parameter for the insmod, and give there
--	a value matching your environment.
--
--	If you are adventurous, you can ask the driver to autoprobe
--	by using the "io=0" parameter, however it is a potentially dangerous
--	thing to do in a live system.  (If you don't know where the
--	card is located, you can try autoprobing, and after possible
--	crash recovery, insmod with proper IO-address..)
--
--	--------------------------
--	(*)	"INSMOD-time" means when you load module with
--		/sbin/insmod  you can feed it optional parameters.
--		See "man insmod".
--	--------------------------
--
--
--	8390 based Network Modules		(Paul Gortmaker, Nov 12, 1995)
--	--------------------------
--
--(Includes: smc-ultra, ne, wd, 3c503, hp, hp-plus, e2100 and ac3200)
--
--The 8390 series of network drivers now support multiple card systems without 
--reloading the same module multiple times (memory efficient!) This is done by 
--specifying multiple comma separated values, such as:
--
--	insmod 3c503.o io=0x280,0x300,0x330,0x350  xcvr=0,1,0,1
--
--The above would have the one module controlling four 3c503 cards, with card 2
--and 4 using external transceivers. The "insmod" manual describes the usage
--of comma separated value lists.
--
--It is *STRONGLY RECOMMENDED* that you supply "io=" instead of autoprobing.
--If an "io=" argument is not supplied, then the ISA drivers will complain
--about autoprobing being not recommended, and begrudgingly autoprobe for
--a *SINGLE CARD ONLY* -- if you want to use multiple cards you *have* to 
--supply an "io=0xNNN,0xQQQ,..." argument.
--
--The ne module is an exception to the above. A NE2000 is essentially an
--8390 chip, some bus glue and some RAM. Because of this, the ne probe is
--more invasive than the rest, and so at boot we make sure the ne probe is 
--done last of all the 8390 cards (so that it won't trip over other 8390 based
--cards) With modules we can't ensure that all other non-ne 8390 cards have
--already been found. Because of this, the ne module REQUIRES an "io=0xNNN" 
--argument passed in via insmod. It will refuse to autoprobe.
--
--It is also worth noting that auto-IRQ probably isn't as reliable during 
--the flurry of interrupt activity on a running machine. Cards such as the 
--ne2000 that can't get the IRQ setting from an EEPROM or configuration
--register are probably best supplied with an "irq=M" argument as well.
--
--
------------------------------------------------------------------------
--Card/Module List - Configurable Parameters and Default Values
------------------------------------------------------------------------
--
--3c501.c:
--	io  = 0x280	IO base address
--	irq = 5		IRQ
--	(Probes ports:	0x280, 0x300)
--
--3c503.c:
--	io = 0		(It will complain if you don't supply an "io=0xNNN")
--	irq = 0		(IRQ software selected by driver using autoIRQ)
--	xcvr = 0	(Use xcvr=1 to select external transceiver.)
--	(Probes ports: 0x300, 0x310, 0x330, 0x350, 0x250, 0x280, 0x2A0, 0x2E0)
--
--3c505.c:
--	io = 0
--	irq = 0
--	dma = 6         (not autoprobed)
--	(Probes ports: 0x300, 0x280, 0x310)
--
--3c507.c:
--	io = 0x300
--	irq = 0
--	(Probes ports: 0x300, 0x320, 0x340, 0x280)
--
--3c509.c:
--	io = 0
--	irq = 0
--	( Module load-time probing Works reliably only on EISA, ISA ID-PROBE
--	  IS NOT RELIABLE!  Compile this driver statically into kernel for
--	  now, if you need it auto-probing on an ISA-bus machine. )
--
--8390.c:
--	(No public options, several other modules need this one)
--
--a2065.c:
--	Since this is a Zorro board, it supports full autoprobing, even for
--	multiple boards. (m68k/Amiga)
--
--ac3200.c:
--	io = 0		(Checks 0x1000 to 0x8fff in 0x1000 intervals)
--	irq = 0		(Read from config register)
--	(EISA probing..)
--
--apricot.c:
--	io = 0x300  (Can't be altered!)
--	irq = 10
--
--arcnet.c:
--	io = 0
--	irqnum = 0
--	shmem = 0
--	num = 0
--	DO SET THESE MANUALLY AT INSMOD!
--	(When probing, looks at the following possible addresses:
--	 Suggested ones:
--		0x300, 0x2E0, 0x2F0, 0x2D0
--	 Other ones:
--		0x200, 0x210, 0x220, 0x230, 0x240, 0x250, 0x260, 0x270,
--		0x280, 0x290, 0x2A0, 0x2B0, 0x2C0,
--		       0x310, 0x320, 0x330, 0x340, 0x350, 0x360, 0x370,
--		0x380, 0x390, 0x3A0,			  0x3E0, 0x3F0  )
--
--ariadne.c:
--	Since this is a Zorro board, it supports full autoprobing, even for
--	multiple boards. (m68k/Amiga)
--
--at1700.c:
--	io = 0x260
--	irq = 0
--	(Probes ports: 0x260, 0x280, 0x2A0, 0x240, 0x340, 0x320, 0x380, 0x300)
--
--atarilance.c:
--	Supports full autoprobing. (m68k/Atari)
--
--atp.c: *Not modularized*
--	(Probes ports: 0x378, 0x278, 0x3BC;
--	 fixed IRQs: 5 and 7			)
--
--cops.c:
--	io = 0x240
--	irq = 5
--	nodeid = 0	(AutoSelect = 0, NodeID 1-254 is hand selected.)
--	(Probes ports: 0x240, 0x340, 0x200, 0x210, 0x220, 0x230, 0x260,
--		       0x2A0, 0x300, 0x310, 0x320, 0x330, 0x350, 0x360)	
--
--de4x5.c:
--	io = 0x000b
--	irq = 10
--	is_not_dec = 0  -- For non-DEC card using DEC 21040/21041/21140 chip, set this to 1
--	(EISA, and PCI probing)
--
--de600.c:
--	de600_debug = 0
--	(On port 0x378, irq 7 -- lpt1;  compile time configurable)
--
--de620.c:
--	bnc = 0, utp = 0  <-- Force media by setting either.
--	io = 0x378	(also compile-time configurable)
--	irq = 7
--
--depca.c:
--	io = 0x200
--	irq = 7
--	(Probes ports:	ISA:  0x300, 0x200;
--			EISA: 0x0c00		)
--
--dummy.c:
--	No options
--
--e2100.c:
--	io = 0		(It will complain if you don't supply an "io=0xNNN")
--	irq = 0		(IRQ software selected by driver)
--	mem = 0		(Override default shared memory start of 0xd0000)
--	xcvr = 0	(Use xcvr=1 to select external transceiver.)
--	(Probes ports: 0x300, 0x280, 0x380, 0x220)
--
--eepro.c:
--	io = 0x200
--	irq = 0
--	(Probes ports: 0x200, 0x240, 0x280, 0x2C0, 0x300, 0x320, 0x340, 0x360)
--
--eexpress.c:
--	io = 0x300
--	irq = 0		(IRQ value read from EEPROM)
--	(Probes ports: 0x300, 0x270, 0x320, 0x340)
--
--eql.c:
--	(No parameters)
--
--ewrk3.c:
--	io = 0x300
--	irq = 5
--	(With module no autoprobing!
--	 On EISA-bus does EISA probing.
--	 Static linkage probes ports on ISA bus:
--		0x100, 0x120, 0x140, 0x160, 0x180, 0x1A0, 0x1C0,
--		0x200, 0x220, 0x240, 0x260, 0x280, 0x2A0, 0x2C0, 0x2E0,
--		0x300,        0x340, 0x360, 0x380, 0x3A0, 0x3C0)
--
--hp-plus.c:
--	io = 0		(It will complain if you don't supply an "io=0xNNN")
--	irq = 0		(IRQ read from configuration register)
--	(Probes ports: 0x200, 0x240, 0x280, 0x2C0, 0x300, 0x320, 0x340)
--
--hp.c:
--	io = 0		(It will complain if you don't supply an "io=0xNNN")
--	irq = 0		(IRQ software selected by driver using autoIRQ)
--	(Probes ports: 0x300, 0x320, 0x340, 0x280, 0x2C0, 0x200, 0x240)
--
--hp100.c:
--	hp100_port = 0 (IO-base address)
--	(Does EISA-probing, if on EISA-slot;
--	 On ISA-bus probes all ports from 0x100 thru to 0x3E0
--	 in increments of 0x020)
--
--hydra.c:
--	Since this is a Zorro board, it supports full autoprobing, even for
--	multiple boards. (m68k/Amiga)
--
--ibmtr.c:
--	io = 0xa20, 0xa24 (autoprobed by default)
--	irq = 0 (driver cannot select irq - read from hardware)
--	mem = 0 (shared memory base set at 0xd0000 and not yet 
--	         able to override thru mem= parameter.)
--
--lance.c: *Not modularized*
--	(PCI, and ISA probing; "CONFIG_PCI" needed for PCI support)
--	(Probes ISA ports: 0x300, 0x320, 0x340, 0x360)
--
--loopback.c: *Static kernel component*
--
--ne.c:
--	io = 0		(Explicitly *requires* an "io=0xNNN" value)
--	irq = 0		(Tries to determine configured IRQ via autoIRQ)
--	(Probes ports: 0x300, 0x280, 0x320, 0x340, 0x360)
--
--net_init.c: *Static kernel component*
--
--ni52.c: *Not modularized*
--	(Probes ports:	0x300, 0x280, 0x360, 0x320, 0x340
--		mems:	0xD0000, 0xD2000, 0xC8000, 0xCA000,
--			0xD4000, 0xD6000, 0xD8000 )
--
--ni65.c: *Not modularized*  **16MB MEMORY BARRIER BUG**
--	(Probes ports:	0x300, 0x320, 0x340, 0x360)
--
--pi2.c:	*Not modularized* (well, NON-STANDARD modularization!)
--	Only one card supported at this time.
--	(Probes ports: 0x380, 0x300, 0x320, 0x340, 0x360, 0x3A0)
--
--plip.c:
--	io = 0
--	irq = 0		(by default, uses IRQ 5 for port at 0x3bc, IRQ 7
--			for port at 0x378, and IRQ 2 for port at 0x278)
--	(Probes ports: 0x278, 0x378, 0x3bc)
--
--ppp.c:
--	No options (ppp-2.2+ has some, this is based on non-dynamic
--	version from ppp-2.1.2d)
--
--seeq8005.c: *Not modularized*
--	(Probes ports: 0x300, 0x320, 0x340, 0x360)
--
--skeleton.c: *Skeleton*
--
--slhc.c:
--	No configuration parameters
--
--slip.c:
--	slip_maxdev = 256 (default value from SL_NRUNIT on slip.h)
--
--
--smc-ultra.c:
--	io = 0		(It will complain if you don't supply an "io=0xNNN")
--	irq = 0		(IRQ val. read from EEPROM)
--	(Probes ports:	0x200, 0x220, 0x240, 0x280, 0x300, 0x340, 0x380)
--
--tulip.c: *Partial modularization*
--	(init-time memory allocation makes problems..)
--
--tunnel.c:
--	No insmod parameters
--
--wavelan.c:
--	io = 0x390	(Settable, but change not recommended)
--	irq = 0		(Not honoured, if changed..)
--
--wd.c:
--	io = 0		(It will complain if you don't supply an "io=0xNNN")
--	irq = 0		(IRQ val. read from EEPROM, ancient cards use autoIRQ)
--	mem = 0		(Force shared-memory on address 0xC8000, or whatever..)
--	mem_end = 0	(Force non-std. mem. size via supplying mem_end val.)
--			(eg. for 32k WD8003EBT, use mem=0xd0000 mem_end=0xd8000)
--	(Probes ports:	0x300, 0x280, 0x380, 0x240)
--
--znet.c: *Not modularized*
--	(Only one device on  Zenith Z-Note (notebook?) systems,
--	 configuration information from (EE)PROM)
+--- a/net/econet/af_econet.c
++++ b/net/econet/af_econet.c
+@@ -1146,6 +1146,9 @@ static void __exit econet_proto_exit(void)
+ 		sock_release(udpsock);
+ #endif
+ 	unregister_netdevice_notifier(&econet_netdev_notifier);
++#ifdef CONFIG_ECONET_NATIVE
++	dev_remove_pack(&econet_packet_type);
++#endif
+ 	sock_unregister(econet_family_ops.family);
+ 	proto_unregister(&econet_proto);
+ }
 
