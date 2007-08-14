@@ -1,7 +1,7 @@
 From: Scott Thompson <postfailathushmaildotcom@yahoo.com>
-Subject: [PATCH 1/3] /drivers/net ioremap balancing/returncode check (resend)
-Date: Mon, 13 Aug 2007 21:42:17 -0700 (PDT)
-Message-ID: <851437.53933.qm@web44909.mail.sp1.yahoo.com>
+Subject: [PATCH 2/3] /drivers/net myri_sbus.c ioremap balancing/returncode check (resend)
+Date: Mon, 13 Aug 2007 21:44:49 -0700 (PDT)
+Message-ID: <303513.3821.qm@web44906.mail.sp1.yahoo.com>
 Reply-To: postfail@hushmail.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -25,38 +25,46 @@ this audit was only for files directly in drivers/net directory, not the full tr
 
 Signed-off-by: Scott Thompson <postfail <at> hushmail.com>
 ----------------------------------------------------------
-diff --git a/drivers/net/es3210.c b/drivers/net/es3210.c
-index 822e5bf..d7d6b90 100644
---- a/drivers/net/es3210.c
-+++ b/drivers/net/es3210.c
-@@ -307,6 +307,10 @@ out1:
- 	free_irq(dev->irq, dev);
- out:
- 	release_region(ioaddr + ES_SA_PROM, ES_IO_EXTENT);
+diff --git a/drivers/net/myri_sbus.c b/drivers/net/myri_sbus.c
+index 13444da..138aabd 100644
+--- a/drivers/net/myri_sbus.c
++++ b/drivers/net/myri_sbus.c
+@@ -1007,6 +1007,13 @@ static int __devinit myri_ether_init(struct sbus_dev *sdev)
+ 		mp->lanai =
+ 			sbus_ioremap(&sdev->resource[0], (512 * 1024),
+ 				     mp->eeprom.ramsz, "MyriCOM SRAM");
 +
-+	if (ei_status.mem)
-+		iounmap(ei_status.mem);
-+	
- 	return retval;
++
++		if (!mp->cregs || !mp->lregs || !mp->lanai ) {
++			printk("MyriCOM: Cannot map registers for ioremap fail.\n");
++			goto err;
++		}
++		
+ 	}
+ 	DET(("Registers mapped: cregs[%p] lregs[%p] lanai[%p]\n",
+ 	     mp->cregs, mp->lregs, mp->lanai));
+@@ -1108,6 +1115,16 @@ err_free_irq:
+ err:
+ 	/* This will also free the co-allocated 'dev->priv' */
+ 	free_netdev(dev);
++
++	if (mp->regs)
++		sbus_iounmap(mp->regs, mp->reg_size);
++	if (mp->cregs)
++		sbus_iounmap(mp->cregs, PAGE_SIZE);
++	if (mp->lregs)
++		sbus_iounmap(mp->lregs, (256 * 1024));
++	if (mp->lanai)
++		sbus_iounmap(mp->lanai, (512 * 1024));
++
+ 	return -ENODEV;
  }
  
-diff --git a/drivers/net/lne390.c b/drivers/net/lne390.c
-index 0a08d0c..f6d9fb6 100644
---- a/drivers/net/lne390.c
-+++ b/drivers/net/lne390.c
-@@ -290,7 +290,7 @@ static int __init lne390_probe1(struct net_device *dev, int ioaddr)
- 		goto unmap;
- 	return 0;
- unmap:
--	if (ei_status.reg0)
-+	if (ei_status.mem)
- 		iounmap(ei_status.mem);
- cleanup:
- 	free_irq(dev->irq, dev);
+
 
 
        
 ____________________________________________________________________________________
-Take the Internet to Go: Yahoo!Go puts the Internet in your pocket: mail, news, photos & more. 
-http://mobile.yahoo.com/go?refer=1GNXIC
+Be a better Heartthrob. Get better relationship answers from someone who knows. Yahoo! Answers - Check it out. 
+http://answers.yahoo.com/dir/?link=list&sid=396545433
 
