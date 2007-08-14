@@ -1,66 +1,82 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Tue, 14 Aug 2007 19:04:42 -0400
-Message-ID: <46C2350A.1010807@redhat.com>
-References: <20070809131423.GA9927@shell.boston.redhat.com> <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
+From: Don Fry <pcnet32@verizon.net>
+Subject: [PATCH] pcnet32: add suspend and resume capability
+Date: Tue, 14 Aug 2007 15:08:59 -0700
+Message-ID: <20070814220859.GA4327@verizon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Lameter <clameter@sgi.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org, torvalds@linux-foundation.org,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
-To: Satyam Sharma <satyam@infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:41110 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1765118AbXHNXF0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Aug 2007 19:05:26 -0400
-In-Reply-To: <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
+Received: from pool-72-90-101-199.ptldor.fios.verizon.net ([72.90.101.199]:33643
+	"EHLO Linux.home" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756276AbXHNXHa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2007 19:07:30 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Satyam Sharma wrote:
-> 
-> On Tue, 14 Aug 2007, Christoph Lameter wrote:
-> 
->> On Thu, 9 Aug 2007, Chris Snook wrote:
->>
->>> This patchset makes the behavior of atomic_read uniform by removing the
->>> volatile keyword from all atomic_t and atomic64_t definitions that currently
->>> have it, and instead explicitly casts the variable as volatile in
->>> atomic_read().  This leaves little room for creative optimization by the
->>> compiler, and is in keeping with the principles behind "volatile considered
->>> harmful".
->> volatile is generally harmful even in atomic_read(). Barriers control
->> visibility and AFAICT things are fine.
-> 
-> Frankly, I don't see the need for this series myself either. Personal
-> opinion (others may differ), but I consider "volatile" to be a sad /
-> unfortunate wart in C (numerous threads on this list and on the gcc
-> lists/bugzilla over the years stand testimony to this) and if we _can_
-> steer clear of it, then why not -- why use this ill-defined primitive
-> whose implementation has often differed over compiler versions and
-> platforms? Granted, barrier() _is_ heavy-handed in that it makes the
-> optimizer forget _everything_, but then somebody did post a forget()
-> macro on this thread itself ...
-> 
-> [ BTW, why do we want the compiler to not optimize atomic_read()'s in
->   the first place? Atomic ops guarantee atomicity, which has nothing
->   to do with "volatility" -- users that expect "volatility" from
->   atomic ops are the ones who must be fixed instead, IMHO. ]
+Add suspend and resume capability to the driver.
+Tested both to ram and to disk on x86_64 platform.
 
-Because atomic operations are generally used for synchronization, which requires 
-volatile behavior.  Most such codepaths currently use an inefficient barrier(). 
-  Some forget to and we get bugs, because people assume that atomic_read() 
-actually reads something, and atomic_write() actually writes something.  Worse, 
-these are architecture-specific, even compiler version-specific bugs that are 
-often difficult to track down.
-
-	-- Chris
+Signed-off-by:  Don Fry <pcnet32@verizon.net>
+---
+--- linux-2.6.23-rc3/drivers/net/pcnet32.c.orig	2007-08-14 13:52:24.000000000 -0700
++++ linux-2.6.23-rc3/drivers/net/pcnet32.c	2007-08-14 14:16:55.000000000 -0700
+@@ -23,11 +23,11 @@
+ 
+ #define DRV_NAME	"pcnet32"
+ #ifdef CONFIG_PCNET32_NAPI
+-#define DRV_VERSION	"1.33-NAPI"
++#define DRV_VERSION	"1.34-NAPI"
+ #else
+-#define DRV_VERSION	"1.33"
++#define DRV_VERSION	"1.34"
+ #endif
+-#define DRV_RELDATE	"27.Jun.2006"
++#define DRV_RELDATE	"14.Aug.2007"
+ #define PFX		DRV_NAME ": "
+ 
+ static const char *const version =
+@@ -2943,6 +2943,33 @@ static void pcnet32_watchdog(struct net_
+ 	mod_timer(&(lp->watchdog_timer), PCNET32_WATCHDOG_TIMEOUT);
+ }
+ 
++static int pcnet32_pm_suspend(struct pci_dev *pdev, pm_message_t state)
++{
++	struct net_device *dev = pci_get_drvdata(pdev);
++
++	if (netif_running(dev)) {
++		netif_device_detach(dev);
++		pcnet32_close(dev);
++	}
++	pci_save_state(pdev);
++	pci_set_power_state(pdev, pci_choose_state(pdev, state));
++	return 0;
++}
++
++static int pcnet32_pm_resume(struct pci_dev *pdev)
++{
++	struct net_device *dev = pci_get_drvdata(pdev);
++
++	pci_set_power_state(pdev, PCI_D0);
++	pci_restore_state(pdev);
++
++	if (netif_running(dev)) {
++		pcnet32_open(dev);
++		netif_device_attach(dev);
++	}
++	return 0;
++}
++
+ static void __devexit pcnet32_remove_one(struct pci_dev *pdev)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+@@ -2966,6 +2993,8 @@ static struct pci_driver pcnet32_driver 
+ 	.probe = pcnet32_probe_pci,
+ 	.remove = __devexit_p(pcnet32_remove_one),
+ 	.id_table = pcnet32_pci_tbl,
++	.suspend = pcnet32_pm_suspend,
++	.resume = pcnet32_pm_resume,
+ };
+ 
+ /* An additional parameter that may be passed in... */
