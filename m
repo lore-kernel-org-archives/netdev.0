@@ -1,41 +1,46 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.24]S2io: Enhance device error/alarm handling
-Date: Tue, 14 Aug 2007 01:04:25 -0400
-Message-ID: <46C137D9.7050504@garzik.org>
-References: <1186542917.1997.17.camel@flash>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] net/tulip/xircom_cb.c: remove superfulous priv assignment
+Date: Tue, 14 Aug 2007 01:05:38 -0400
+Message-ID: <46C13822.7040803@pobox.com>
+References: <200708081320.26756.m.kozlowski@tuxland.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, support@neterion.com
-To: ram.vepa@neterion.com
+Cc: Arjan van de Ven <arjan@infradead.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:53087 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:36177 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759574AbXHNFE1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Aug 2007 01:04:27 -0400
-In-Reply-To: <1186542917.1997.17.camel@flash>
+	id S1765298AbXHNFFn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Aug 2007 01:05:43 -0400
+In-Reply-To: <200708081320.26756.m.kozlowski@tuxland.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ramkrishna Vepa wrote:
-> - Added support to poll for entire set of device errors and alarms.
-> - Optimized interrupt routine fast path.
-> - Removed the unused variable, intr_type, in device private structure.
+Mariusz Kozlowski wrote:
+> Hello,
 > 
-> Signed-off-by: Santosh Rastapur <santosh.rastapur@neterion.com>
-> Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
+> 	Unpatched version does sth like this:
+> 
+> dev = alloc_etherdev(...
+> private = netdev_priv(dev);
+> ...
+> dev->priv = private;
+> 
+> which doesn't make much sense (does it?) because this is done in
+> alloc_netdev() already.
+> 
+> struct net_device *alloc_netdev(...
+> {
+> ...
+> 	if (sizeof_priv)
+> 		dev->priv = netdev_priv(dev);
+> 
+> This patch removes superfluous code.
+> 
+> Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
 
-please split this patch up into multiple patches.
-
-In general it's OK to combine several small, minor changes together, but 
-this patch was pretty big.  at that point, you need to start looking 
-into splitting up patches into separate logical changes (intr_type clean 
-in its own patch, irq handler optimization in its own patch, etc.).
-
-More patches means that each patch is smaller, making it easier to 
-review.  It also means that automated tools such as git-bisect can 
-easily identify which change created a regression, should one appear.
-
-
+applied
 
 
