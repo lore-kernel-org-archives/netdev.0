@@ -1,70 +1,41 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] bridge: sysfs locking fix.
-Date: Tue, 14 Aug 2007 14:50:52 +0100
-Message-ID: <20070814145052.2d135d2f@oldman.hamilton.local>
-References: <46BCE380.60508@cluded.net>
- <20070812012037.0195b610.akpm@linux-foundation.org>
- <20070814141105.0a4b8dde@oldman.hamilton.local>
- <20070814131822.GA13676@xi.wantstofly.org>
+From: Chuck Ebbert <cebbert@redhat.com>
+Subject: Re: possible BUG while using CUPS
+Date: Tue, 14 Aug 2007 11:21:21 -0400
+Message-ID: <46C1C871.5020803@redhat.com>
+References: <46BD762F.4060801@xs4all.nl> <6bffcb0e0708130839v27b4269dqfde702c410b33fd0@mail.gmail.com> <46C07CEF.1020207@xs4all.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	bridge@linux-foundation.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
+	linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>
+To: Udo van den Heuvel <udovdh@xs4all.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:51427 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751415AbXHNN5k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2007 09:57:40 -0400
-In-Reply-To: <20070814131822.GA13676@xi.wantstofly.org>
+Received: from mx1.redhat.com ([66.187.233.31]:45391 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755568AbXHNPVa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Aug 2007 11:21:30 -0400
+In-Reply-To: <46C07CEF.1020207@xs4all.nl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Forget earlier patch, it is wrong...
+On 08/13/2007 11:46 AM, Udo van den Heuvel wrote:
+> Michal Piotrowski wrote:
+>> On 11/08/07, Udo van den Heuvel <udovdh@xs4all.nl> wrote:
+>>> Using Cups 1.2.12 on Linux 2.6.22.1.
+> (...)
+>>> I clikc that link and hear the ping-ping of the BUG:
+>> This is very interesting. Can you reproduce this bug?
+> 
+> I think so. (at least: I have seen it before: clicking around in Cups
+> and this crash/bug/whatever.)
+> 
+>>> This is on a VIA Epia EK8000. ksymoops did not really help me, this is
+>>> all output I got.
+>>>
+>>> Ideas?
+>> BTW. Please try 2.6.22.2.
+> 
+> Compiling...
 
-The stp change code generates "sleeping function called from invalid context"
-because rtnl_lock() called with BH disabled. This fixes it by not acquiring then
-dropping the bridge lock.
-
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-
---- a/net/bridge/br_sysfs_br.c	2007-08-06 09:26:48.000000000 +0100
-+++ b/net/bridge/br_sysfs_br.c	2007-08-14 14:29:52.000000000 +0100
-@@ -147,20 +147,26 @@ static ssize_t show_stp_state(struct dev
- 	return sprintf(buf, "%d\n", br->stp_enabled);
- }
- 
--static void set_stp_state(struct net_bridge *br, unsigned long val)
--{
--	rtnl_lock();
--	spin_unlock_bh(&br->lock);
--	br_stp_set_enabled(br, val);
--	spin_lock_bh(&br->lock);
--	rtnl_unlock();
--}
- 
- static ssize_t store_stp_state(struct device *d,
- 			       struct device_attribute *attr, const char *buf,
- 			       size_t len)
- {
--	return store_bridge_parm(d, buf, len, set_stp_state);
-+	struct net_bridge *br = to_bridge(d);
-+	char *endp;
-+	unsigned long val;
-+
-+	if (!capable(CAP_NET_ADMIN))
-+		return -EPERM;
-+
-+	val = simple_strtoul(buf, &endp, 0);
-+	if (endp == buf)
-+		return -EINVAL;
-+
-+	rtnl_lock();
-+	br_stp_set_enabled(br, val);
-+	rtnl_unlock();
-+
- }
- static DEVICE_ATTR(stp_state, S_IRUGO | S_IWUSR, show_stp_state,
- 		   store_stp_state);
+If you can reproduce that, do it after booting with "kstack=2048" and post
+that so we can see the whole stack in the oops message.
