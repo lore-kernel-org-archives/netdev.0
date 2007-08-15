@@ -1,37 +1,41 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [2.6 patch] remove Documentation/networking/net-modules.txt
-Date: Wed, 15 Aug 2007 09:58:06 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0708150957480.5158@anakin>
-References: <20070814212604.GW18945@stusta.de>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: [PATCH] [70/2many] MAINTAINERS - ARPD SUPPORT
+Date: Wed, 15 Aug 2007 10:10:38 +0200
+Message-ID: <46C2B4FE.3080703@s5r6.in-berlin.de>
+References: <46bff8e8.HhTQ7TBPy1zkcNfh%joe@perches.com>	<20070813114942.04a5483c@the-village.bc.nu>	<1187019966.10249.75.camel@localhost>	<20070813173522.685dab9e@the-village.bc.nu>	<1187024659.10249.125.camel@localhost> <20070813185148.16308985@the-village.bc.nu>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>, jgarzik@pobox.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Adrian Bunk <bunk@kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759337AbXHOH6X@vger.kernel.org>
-In-Reply-To: <20070814212604.GW18945@stusta.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Joe Perches <joe@perches.com>, torvalds@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hp3.statik.tu-cottbus.de ([141.43.120.68]:37252 "EHLO
+	hp3.statik.tu-cottbus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754456AbXHOIKk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 04:10:40 -0400
+In-Reply-To: <20070813185148.16308985@the-village.bc.nu>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 14 Aug 2007, Adrian Bunk wrote:
-> According to git, the only one who touched this file during the last
-> 5 years was me when removing drivers...
-> 
-> modinfo offers less ancient information.
-> 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+Alan Cox wrote:
+>> > Actually I think the entire thing is a
+>> > bad idea but thats another matter.
 
-For the m68k net drivers:
+> Working off the git tree as it shows who actually is making
+> changes/updating stuff recently and why which is a major clue when
+> tracing bugs
 
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Adrian Bunk wrote in http://lkml.org/lkml/2007/6/30/107 :
+| I don't see how git could tell you to Cc net patches to
+| netdev@vger.kernel.org.
 
-Gr{oetje,eeting}s,
+Ditto with problem reports.
 
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+For example, Cc'ing linux1394-devel on FireWire topics is a lot more
+important than Cc'ing me.
+-- 
+Stefan Richter
+-=====-=-=== =--- -====
+http://arcgraph.de/sr/
