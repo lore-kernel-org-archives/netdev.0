@@ -1,34 +1,34 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH 9/13] cxgb3 - Update internal memory management
-Date: Tue, 14 Aug 2007 17:09:50 -0700
-Message-ID: <46C2444E.1080000@chelsio.com>
-References: <20070811063015.8166.66861.stgit@speedy5> <46C14189.8010304@garzik.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] econet: remove econet_packet_type on unload
+Date: Tue, 14 Aug 2007 17:24:31 -0700 (PDT)
+Message-ID: <20070814.172431.18304665.davem@davemloft.net>
+References: <20070814212553.GB5873@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Steve Wise <swise@opengridcomputing.com>
-To: Jeff Garzik <jeff@garzik.org>
+Cc: akpm@osdl.org, netdev@vger.kernel.org
+To: adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:24970 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756434AbXHOAJy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2007 20:09:54 -0400
-In-Reply-To: <46C14189.8010304@garzik.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39574
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751974AbXHOAYd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2007 20:24:33 -0400
+In-Reply-To: <20070814212553.GB5873@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
->
-> Divy Le Ray wrote:
-> > From: Divy Le Ray <divy@chelsio.com>
-> >
-> > Set PM1 internal memory to round robin mode
-> >
-> > Signed-off-by: Divy Le Ray <divy@chelsio.com>
->
-> why?
->
-For multiport adapters, it balances access to this internal memory.
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Wed, 15 Aug 2007 01:25:53 +0400
 
-Divy
+> Steps to reproduce:
+> 
+> 	modprobe econet
+> 	rmmod econet
+> 	modprobe econet
+> 
+> Unable to handle kernel paging request at ffffffff8870a098 RIP: 
+>  [<ffffffff8040bfb8>] dev_add_pack+0x48/0x90
+ ...
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+
+Patch applied, thanks a lot Alexey.
