@@ -1,74 +1,52 @@
-From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-Subject: Re: [patch 08/18] 3c59x: check return of pci_enable_device()
-Date: Wed, 15 Aug 2007 22:59:10 +0200
-Message-ID: <20070815205910.GB6367@bayes.mathematik.tu-chemnitz.de>
-References: <200708102105.l7AL5Jje008968@imap1.linux-foundation.org> <20070814095432.GA13825@hindley.org.uk> <20070815163000.GB619@bayes.mathematik.tu-chemnitz.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org
-To: Mark Hindley <mark@hindley.org.uk>
+From: Segher Boessenkool <segher@kernel.crashing.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Wed, 15 Aug 2007 22:58:04 +0200
+Message-ID: <cbd19eac9a1f0d22bfb0dac0ad0a4d76@kernel.crashing.org>
+References: <20070809131423.GA9927@shell.boston.redhat.com> <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in> <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in> <46C2FADB.7020407@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151906330.16414@enigma.security.iitk.ac.in> <20070815142516.GB9645@linux.vnet.ibm.com> <alpine.LFD.0.999.0708152048270.16414@enigma.security.iitk.ac.in>
+Mime-Version: 1.0 (Apple Message framework v623)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Lameter <clameter@sgi.com>, heiko.carstens@de.ibm.com,
+	horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, ak@suse.de, cfriesen@nortel.com,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	linux-arch@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
+	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Satyam Sharma <satyam@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from john.hrz.tu-chemnitz.de ([134.109.132.2]:33160 "EHLO
-	john.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754573AbXHOU7P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 16:59:15 -0400
-Content-Disposition: inline
-In-Reply-To: <20070815163000.GB619@bayes.mathematik.tu-chemnitz.de>
+Received: from gate.crashing.org ([63.228.1.57]:50843 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752237AbXHOVAF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 17:00:05 -0400
+In-Reply-To: <alpine.LFD.0.999.0708152048270.16414@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 15, 2007 at 06:30:00PM +0200, Steffen Klassert wrote:
-> On Tue, Aug 14, 2007 at 10:54:32AM +0100, Mark Hindley wrote:
-> > On Tue, Aug 14, 2007 at 01:33:26AM -0400, Jeff Garzik wrote:
-> > > I would strongly prefer that vortex_up return a value, since all the 
-> > > important callers of this function can themselves return an error back 
-> > > to the system.
-> > > 
-> > > we can definitely return a meaningful return value here, if 
-> > > pci_enable_device() fails, and I would rather not apply a patch that 
-> > > fails to propagate a serious condition (pci_enable_device failure is 
-> > > indeed serious) when it is possible to do so
-> > > 
-> > 
-> > OK. Any comments on this revised version? I have only ignored the return of
-> > vortex_up in vortex_error. It is not immediately clear what to do if
-> > vortex_up still fails there after a pci reset.
-> > 
-> > Mark
-> > 
-> > 
-> > diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
-> > index 001c66d..a1dfd6b 100644
-> > --- a/drivers/net/3c59x.c
-> > +++ b/drivers/net/3c59x.c
-> > @@ -705,7 +705,7 @@ static struct {
-> >  
-> >  static int vortex_probe1(struct device *gendev, void __iomem *ioaddr, int irq,
-> >  				   int chip_idx, int card_idx);
-> > -static void vortex_up(struct net_device *dev);
-> > +static int vortex_up(struct net_device *dev);
-> >  static void vortex_down(struct net_device *dev, int final);
-> >  static int vortex_open(struct net_device *dev);
-> >  static void mdio_sync(void __iomem *ioaddr, int bits);
-> > @@ -841,8 +841,11 @@ static int vortex_resume(struct pci_dev *pdev)
-> >  			return -EBUSY;
-> >  		}
-> >  		if (netif_running(dev)) {
-> > -			vortex_up(dev);
-> > -			netif_device_attach(dev);
-> > +			err = vortex_up(dev);
-> > +			if (err)
-> > +				return err;
-> > +			else  
-> > +				netif_device_attach(dev);
-> >  		}
-> >  	}
-> >  	return 0;
-> 
-> I think we should free the requested irq if vortex_up really fails here.
-> 
+>>> Of course, if we find there are more callers in the kernel who want 
+>>> the
+>>> volatility behaviour than those who don't care, we can re-define the
+>>> existing ops to such variants, and re-name the existing definitions 
+>>> to
+>>> somethine else, say "atomic_read_nonvolatile" for all I care.
+>>
+>> Do we really need another set of APIs?
+>
+> Well, if there's one set of users who do care about volatile behaviour,
+> and another set that doesn't, it only sounds correct to provide both
+> those APIs, instead of forcing one behaviour on all users.
 
-I was wrong, this will be done in vortex_close. So it is OK as it is.
+But since there currently is only one such API, and there are
+users expecting the stronger behaviour, the only sane thing to
+do is let the API provide that behaviour.  You can always add
+a new API with weaker behaviour later, and move users that are
+okay with it over to that new API.
 
-Steffen 
+
+Segher
+
