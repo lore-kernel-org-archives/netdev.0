@@ -1,115 +1,156 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Wed, 15 Aug 2007 07:25:16 -0700
-Message-ID: <20070815142516.GB9645@linux.vnet.ibm.com>
-References: <20070809131423.GA9927@shell.boston.redhat.com> <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in> <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in> <46C2FADB.7020407@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151906330.16414@enigma.security.iitk.ac.in>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP ports
+	from the host TCP port space.
+Date: Wed, 15 Aug 2007 09:42:41 -0500
+Message-ID: <46C310E1.7020503@opengridcomputing.com>
+References: <46B883B5.8040702@opengridcomputing.com>	<46BB61D0.4090101@opengridcomputing.com>	<46BB89C0.4040303@ichips.intel.com>
+	<20070809.145534.102938208.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Christoph Lameter <clameter@sgi.com>,
-	Chris Snook <csnook@redhat.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Satyam Sharma <satyam@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:51438 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757874AbXHOOZU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2007 10:25:20 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.0.999.0708151906330.16414@enigma.security.iitk.ac.in>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: rdreier@cisco.com, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070809.145534.102938208.davem@davemloft.net>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 15, 2007 at 07:17:29PM +0530, Satyam Sharma wrote:
-> On Wed, 15 Aug 2007, Stefan Richter wrote:
-> > Satyam Sharma wrote:
-> > > On Wed, 15 Aug 2007, Stefan Richter wrote:
-> > >> Doesn't "atomic WRT all processors" require volatility?
-> > > 
-> > > No, it definitely doesn't. Why should it?
-> > > 
-> > > "Atomic w.r.t. all processors" is just your normal, simple "atomicity"
-> > > for SMP systems (ensure that that object is modified / set / replaced
-> > > in main memory atomically) and has nothing to do with "volatile"
-> > > behaviour.
-> > > 
-> > > "Volatile behaviour" itself isn't consistently defined (at least
-> > > definitely not consistently implemented in various gcc versions across
-> > > platforms), but it is /expected/ to mean something like: "ensure that
-> > > every such access actually goes all the way to memory, and is not
-> > > re-ordered w.r.t. to other accesses, as far as the compiler can take
-> > > care of these". The last "as far as compiler can take care" disclaimer
-> > > comes about due to CPUs doing their own re-ordering nowadays.
-> > > 
-> > > For example (say on i386):
-> > 
-> > [...]
-> > 
-> > > In (A) the compiler optimized "a = 10;" away, but the actual store
-> > > of the final value "20" to "a" was still "atomic". (B) and (C) also
-> > > exhibit "volatile" behaviour apart from the "atomicity".
-> > > 
-> > > But as others replied, it seems some callers out there depend upon
-> > > atomic ops exhibiting "volatile" behaviour as well, so that answers
-> > > my initial question, actually. I haven't looked at the code Paul
-> > > pointed me at, but I wonder if that "forget(x)" macro would help
-> > > those cases. I'd wish to avoid the "volatile" primitive, personally.
-> > 
-> > So, looking at load instead of store, understand I correctly that in
-> > your opinion
-> > 
-> > 	int b;
-> > 
-> > 	b = atomic_read(&a);
-> > 	if (b)
-> > 		do_something_time_consuming();
-> > 
-> > 	b = atomic_read(&a);
-> > 	if (b)
-> > 		do_something_more();
-> > 
-> > should be changed to explicitly forget(&a) after
-> > do_something_time_consuming?
+
+
+David Miller wrote:
+> From: Sean Hefty <mshefty@ichips.intel.com>
+> Date: Thu, 09 Aug 2007 14:40:16 -0700
 > 
-> No, I'd actually prefer something like what Christoph Lameter suggested,
-> i.e. users (such as above) who want "volatile"-like behaviour from atomic
-> ops can use alternative functions. How about something like:
+>> Steve Wise wrote:
+>>> Any more comments?
+>> Does anyone have ideas on how to reserve the port space without using a 
+>> struct socket?
 > 
-> #define atomic_read_volatile(v)			\
-> 	({					\
-> 		forget(&(v)->counter);		\
-> 		((v)->counter);			\
-> 	})
+> How about we just remove the RDMA stack altogether?  I am not at all
+> kidding.  If you guys can't stay in your sand box and need to cause
+> problems for the normal network stack, it's unacceptable.  We were
+> told all along the if RDMA went into the tree none of this kind of
+> stuff would be an issue.
 
-Wouldn't the above "forget" the value, throw it away, then forget
-that it forgot it, giving non-volatile semantics?
+I think removing the RDMA stack is the wrong thing to do, and you 
+shouldn't just threaten to yank entire subsystems because you don't like 
+the technology.  Lets keep this constructive, can we?  RDMA should get 
+the respect of any other technology in Linux.  Maybe its a niche in your 
+opinion, but come on, there's more RDMA users than say, the sparc64 
+port.  Eh?
 
-> Or possibly, implement these "volatile" atomic ops variants in inline asm
-> like the patch that Sebastian Siewior has submitted on another thread just
-> a while back.
+> 
+> These are exactly the kinds of problems for which people like myself
+> were dreading.  These subsystems have no buisness using the TCP port
+> space of the Linux software stack, absolutely none.
+> 
 
-Given that you are advocating a change (please keep in mind that
-atomic_read() and atomic_set() had volatile semantics on almost all
-platforms), care to give some example where these historical volatile
-semantics are causing a problem?
+Ok, although IMO its the correct solution.  But I'll propose other 
+solutions below.  I ask for your feedback (and everyones!) on these 
+alternate solutions.
 
-> Of course, if we find there are more callers in the kernel who want the
-> volatility behaviour than those who don't care, we can re-define the
-> existing ops to such variants, and re-name the existing definitions to
-> somethine else, say "atomic_read_nonvolatile" for all I care.
+> After TCP port reservation, what's next?  It seems an at least
+> bi-monthly event that the RDMA folks need to put their fingers
+> into something else in the normal networking stack.  No more.
+>
 
-Do we really need another set of APIs?  Can you give even one example
-where the pre-existing volatile semantics are causing enough of a problem
-to justify adding yet more atomic_*() APIs?
+The only other change requested and commited, if I recall correctly, was 
+for netevents, and that enabled both Infiniband and iWARP to integrate 
+with the neighbour subsystem.  I think that was a useful and needed 
+change.  Prior to that, these subsystems were snooping ARP replies to 
+trigger events.  That was back in 2.6.18 or 2.6.19 I think...
 
-							Thanx, Paul
+> I will NACK any patch that opens up sockets to eat up ports or
+> anything stupid like that.
+
+Got it.
+
+Here are alternate solutions that avoid the need to share the port space:
+
+Solution 1)
+
+1) admins must setup an alias interface on the iwarp device for use with 
+rdma.  This interface will have to be a separate subnet from the "TCP 
+used" interface.  And with a canonical name that indicates its "for rdma 
+only".  Like eth2:iw or eth2:rdma.  There can be many of these per device.
+
+2) admins make sure their sockets/tcp services don't use the interface 
+configured in #1, and their rdma service do use said interface.
+
+3) iwarp providers must translation binds to ipaddr 0.0.0.0 to the 
+associated "for rdma only" ip addresses.  They can do this by searching 
+for all aliases of the canonical name that are aliases of the TCP 
+interface for their nic device.  Or: somehow not handle incoming 
+connections to any address but the "for rdma use" addresses and instead 
+pass them up and not offload them.
+
+This will avoid the collisions as long as the above steps are followed.
+
+
+Solution 2)
+
+Another possibility would be for the driver to create two net devices 
+(and hence two interace names) like "eth2" and "iw2", and artificially 
+separate the RDMA stuff that way.
+
+These two solutions are similar in that they create a "rdma only" interface.
+
+Pros:
+- is not intrusive into the core networking code
+- very minimal changes needed and in the iwarp provider's code, who are 
+the ones with this problem
+- makes it clear which subnets are RDMA only
+
+Cons:
+- relies on system admin to set it up correctly.
+- native stack can still "use" this rdma-only interface and the same 
+port space issue will exist.
+
+
+For the record, here are possible port-sharing solutions Dave sez he'll NAK:
+
+Solution NAK-1)
+
+The rdma-cma just allocates a socket and binds it to reserve TCP ports.
+
+Pros:
+- minimal changes needed to implement (always a plus in my mind :)
+- simple, clean, and it works (KISS)
+- if no RDMA is in use, there is no impact on the native stack
+- no need for a seperate RDMA interface
+
+Cons:
+- wastes memory
+- puts a TCP socket in the "CLOSED" state in the pcb tables.
+- Dave will NAK it :)
+
+Solution NAK-2)
+
+Create a low-level sockets-agnostic port allocation service that is 
+shared by both TCP and RDMA.  This way, the rdma-cm can reserve ports in 
+an efficient manor instead of doing it via kernel_bind() using a sock 
+struct.
+
+Pros:
+- probably the correct solution (my opinion :) if we went down the path 
+of sharing port space
+- if no RDMA is in use, there is no impact on the native stack
+- no need for a separate RDMA interface
+
+Cons:
+
+- very intrusive change because the port allocations stuff is tightly 
+bound to the host stack and sock struct, etc.
+- Dave will NAK it :)
+
+
+Steve.
