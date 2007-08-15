@@ -1,213 +1,52 @@
-From: Satyam Sharma <satyam@infradead.org>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Wed, 15 Aug 2007 23:25:05 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0708152048270.16414@enigma.security.iitk.ac.in>
-References: <20070809131423.GA9927@shell.boston.redhat.com>
- <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
- <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
- <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
- <46C2FADB.7020407@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151906330.16414@enigma.security.iitk.ac.in>
- <20070815142516.GB9645@linux.vnet.ibm.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [GENETLINK] some thoughts on the usage
+Date: Wed, 15 Aug 2007 19:50:09 +0200
+Message-ID: <20070815175009.GA32236@postel.suug.ch>
+References: <46BC25A6.7000703@st.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Christoph Lameter <clameter@sgi.com>,
-	Chris Snook <csnook@redhat.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Richard MUSIL <richard.musil@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:35720 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755535AbXHORqG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 13:46:06 -0400
-In-Reply-To: <20070815142516.GB9645@linux.vnet.ibm.com>
+Received: from postel.suug.ch ([194.88.212.233]:40618 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755237AbXHORtt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 13:49:49 -0400
+Content-Disposition: inline
+In-Reply-To: <46BC25A6.7000703@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Paul,
+* Richard MUSIL <richard.musil@st.com> 2007-08-10 10:45
+> I have noticed that although ops for each family are the same (each
+> device is functionally same) I cannot use same genl_ops struct for
+> registration, because it uses internal member to link in list. Therefore
+> it is necessary to allocate new genl_ops for each device and pass it to
+> registration. But I cannot "officially" use this list to track those
+> genl_ops (so I can properly destroy them later), because there is no
+> interface. So I need to redo the management of the structures on my own.
 
+The intended usage of the interface in your example would be to register
+only one genetlink family, say "tpm", register one set of operations
+and then have an attribute in every message which specifies which TPM
+device to use. This helps keeping the total number of genetlink families
+down.
 
-On Wed, 15 Aug 2007, Paul E. McKenney wrote:
+> The second "inconvenience" is that for each family I register, I also
+> register basically same ops (basically means, the definitions, and doit,
+> dumpit handlers are same, though the structures are at different
+> addresses for reasons described above). When the handler receives the
+> message it needs to associate the message with the actual device it is
+> handling. This could be done through family lookup (using
+> nlmsghdr::nlmsg_type), but I wondered if it would make sense to extend
+> genl_family for user custom data pointer and then pass this custom data
+> (or genl_family reference) to each handler (for example inside
+> genl_info). It is already parsed by genetlink layer, so it should not
+> slow things down.
 
-> On Wed, Aug 15, 2007 at 07:17:29PM +0530, Satyam Sharma wrote:
-> > [...]
-> > No, I'd actually prefer something like what Christoph Lameter suggested,
-> > i.e. users (such as above) who want "volatile"-like behaviour from atomic
-> > ops can use alternative functions. How about something like:
-> > 
-> > #define atomic_read_volatile(v)			\
-> > 	({					\
-> > 		forget(&(v)->counter);		\
-> > 		((v)->counter);			\
-> > 	})
-> 
-> Wouldn't the above "forget" the value, throw it away, then forget
-> that it forgot it, giving non-volatile semantics?
-
-Nope, I don't think so. I wrote the following trivial testcases:
-[ See especially tp4.c and tp4.s (last example). ]
-
-==============================================================================
-$ cat tp1.c # Using volatile access casts
-
-#define atomic_read(a)	(*(volatile int *)&a)
-
-int a;
-
-void func(void)
-{
-	a = 0;
-	while (atomic_read(a))
-		;
-}
-==============================================================================
-$ gcc -Os -S tp1.c; cat tp1.s
-
-func:
-	pushl	%ebp
-	movl	%esp, %ebp
-	movl	$0, a
-.L2:
-	movl	a, %eax
-	testl	%eax, %eax
-	jne	.L2
-	popl	%ebp
-	ret
-==============================================================================
-$ cat tp2.c # Using nothing; gcc will optimize the whole loop away
-
-#define forget(x)
-
-#define atomic_read(a)		\
-	({			\
-		forget(&(a));	\
-		(a);		\
-	})
-
-int a;
-
-void func(void)
-{
-	a = 0;
-	while (atomic_read(a))
-		;
-}
-==============================================================================
-$ gcc -Os -S tp2.c; cat tp2.s
-
-func:
-	pushl	%ebp
-	movl	%esp, %ebp
-	popl	%ebp
-	movl	$0, a
-	ret
-==============================================================================
-$ cat tp3.c # Using a full memory clobber barrier
-
-#define forget(x)	asm volatile ("":::"memory")
-
-#define atomic_read(a)		\
-	({			\
-		forget(&(a));	\
-		(a);		\
-	})
-
-int a;
-
-void func(void)
-{
-	a = 0;
-	while (atomic_read(a))
-		;
-}
-==============================================================================
-$ gcc -Os -S tp3.c; cat tp3.s
-
-func:
-	pushl	%ebp
-	movl	%esp, %ebp
-	movl	$0, a
-.L2:
-	cmpl	$0, a
-	jne	.L2
-	popl	%ebp
-	ret
-==============================================================================
-$ cat tp4.c # Using a forget(var) macro
-
-#define forget(a)	__asm__ __volatile__ ("" :"=m" (a) :"m" (a))
-
-#define atomic_read(a)		\
-	({			\
-		forget(a);	\
-		(a);		\
-	})
-
-int a;
-
-void func(void)
-{
-	a = 0;
-	while (atomic_read(a))
-		;
-}
-==============================================================================
-$ gcc -Os -S tp4.c; cat tp4.s
-
-func:
-	pushl	%ebp
-	movl	%esp, %ebp
-	movl	$0, a
-.L2:
-	cmpl	$0, a
-	jne	.L2
-	popl	%ebp
-	ret
-==============================================================================
-
-
-Possibly these were too trivial to expose any potential problems that you
-may have been referring to, so would be helpful if you could write a more
-concrete example / sample code.
-
-
-> > Or possibly, implement these "volatile" atomic ops variants in inline asm
-> > like the patch that Sebastian Siewior has submitted on another thread just
-> > a while back.
-> 
-> Given that you are advocating a change (please keep in mind that
-> atomic_read() and atomic_set() had volatile semantics on almost all
-> platforms), care to give some example where these historical volatile
-> semantics are causing a problem?
-> [...]
-> Can you give even one example
-> where the pre-existing volatile semantics are causing enough of a problem
-> to justify adding yet more atomic_*() APIs?
-
-Will take this to the other sub-thread ...
-
-
-> > Of course, if we find there are more callers in the kernel who want the
-> > volatility behaviour than those who don't care, we can re-define the
-> > existing ops to such variants, and re-name the existing definitions to
-> > somethine else, say "atomic_read_nonvolatile" for all I care.
-> 
-> Do we really need another set of APIs?
-
-Well, if there's one set of users who do care about volatile behaviour,
-and another set that doesn't, it only sounds correct to provide both
-those APIs, instead of forcing one behaviour on all users.
-
-
-Thanks,
-Satyam
+That's not a bad idea, although I think we should try and keep the
+generic netlink part as simple as possible. There is a family specific
+header, referred to as user header in genl_info which is basically
+what you're looking for with the custom header. I believe making the
+generic netlink family aware of anything beyond family id and operations
+id only complicates things.
