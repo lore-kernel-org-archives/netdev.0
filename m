@@ -1,50 +1,88 @@
 From: Segher Boessenkool <segher@kernel.crashing.org>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Wed, 15 Aug 2007 22:47:07 +0200
-Message-ID: <2d2eeab6276cab2e6cc5830d36a43b98@kernel.crashing.org>
-References: <46C2350A.1010807@redhat.com> <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <20070815081841.GA16551@osiris.boeblingen.de.ibm.com> <46C30540.2070603@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151941150.16414@enigma.security.iitk.ac.in> <20070815145207.GA23106@gondor.apana.org.au> <46C3253F.5090707@s5r6.in-berlin.de> <20070815162722.GD9645@linux.vnet.ibm.com> <d4406222873856f472b9173a14a19aa2@kernel.crashing.org> <20070815185724.GH9645@linux.vnet.ibm.com> <alpine.LFD.0.999.0708160118330.16414@enigma.security.iitk.ac.in>
+Date: Wed, 15 Aug 2007 22:42:08 +0200
+Message-ID: <d36ec7799cfb43557770951c1cd57355@kernel.crashing.org>
+References: <20070809131423.GA9927@shell.boston.redhat.com> <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in> <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in> <9350e9fab505c92af8d5e1f3441d6ad2@kernel.crashing.org> <alpine.LFD.0.999.0708160102550.16414@enigma.security.iitk.ac.in>
 Mime-Version: 1.0 (Apple Message framework v623)
 Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
+Cc: Christoph Lameter <clameter@sgi.com>, heiko.carstens@de.ibm.com,
+	horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, ak@suse.de,
-	netdev@vger.kernel.org, cfriesen@nortel.com,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, ak@suse.de, cfriesen@nortel.com,
 	rpjday@mindspring.com, jesper.juhl@gmail.com,
 	linux-arch@vger.kernel.org,
 	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
-	clameter@sgi.com, schwidefsky@de.ibm.com,
-	Chris Snook <csnook@redhat.com>,
+	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
 	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
 	Linus Torvalds <torvalds@linux-foundation.org>,
 	wensong@linux-vs.org, wjiang@resilience.com
 To: Satyam Sharma <satyam@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:32975 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:49982 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753959AbXHOUtA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2007 16:49:00 -0400
-In-Reply-To: <alpine.LFD.0.999.0708160118330.16414@enigma.security.iitk.ac.in>
+	id S1756921AbXHOUxv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 16:53:51 -0400
+In-Reply-To: <alpine.LFD.0.999.0708160102550.16414@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>> What you probably mean is that the compiler has to assume any code
->>> it cannot currently see can do anything (insofar as allowed by the
->>> relevant standards etc.)
+>> What volatile does are a) never optimise away a read (or write)
+>> to the object, since the data can change in ways the compiler
+>> cannot see; and b) never move stores to the object across a
+>> sequence point.  This does not mean other accesses cannot be
+>> reordered wrt the volatile access.
+>>
+>> If the abstract machine would do an access to a volatile-
+>> qualified object, the generated machine code will do that
+>> access too.  But, for example, it can still be optimised
+>> away by the compiler, if it can prove it is allowed to.
 >
-> I think this was just terminology confusion here again. Isn't "any code
-> that it cannot currently see" the same as "another compilation unit",
+> As (now) indicated above, I had meant multiple volatile accesses to
+> the same object, obviously.
 
-It is not; try  gcc -combine  or the upcoming link-time optimisation
-stuff, for example.
+Yes, accesses to volatile objects are never reordered with
+respect to each other.
 
-> and wouldn't the "compilation unit" itself expand if we ask gcc to
-> compile more than one unit at once? Or is there some more specific
-> "definition" for "compilation unit" (in gcc lingo, possibly?)
+> BTW:
+>
+> #define atomic_read(a)	(*(volatile int *)&(a))
+> #define atomic_set(a,i)	(*(volatile int *)&(a) = (i))
+>
+> int a;
+>
+> void func(void)
+> {
+> 	int b;
+>
+> 	b = atomic_read(a);
+> 	atomic_set(a, 20);
+> 	b = atomic_read(a);
+> }
+>
+> gives:
+>
+> func:
+> 	pushl	%ebp
+> 	movl	a, %eax
+> 	movl	%esp, %ebp
+> 	movl	$20, a
+> 	movl	a, %eax
+> 	popl	%ebp
+> 	ret
+>
+> so the first atomic_read() wasn't optimized away.
 
-"compilation unit" is a C standard term.  It typically boils down
-to "single .c file".
+Of course.  It is executed by the abstract machine, so
+it will be executed by the actual machine.  On the other
+hand, try
+
+	b = 0;
+	if (b)
+		b = atomic_read(a);
+
+or similar.
 
 
 Segher
