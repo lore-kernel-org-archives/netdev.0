@@ -1,76 +1,104 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: b44: Fix Kconfig dependencies by using select
-Date: Wed, 15 Aug 2007 15:46:10 +0200
-Message-ID: <200708151546.10771.mb@bu3sch.de>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Wed, 15 Aug 2007 15:53:04 +0200
+Message-ID: <46C30540.2070603@s5r6.in-berlin.de>
+References: <46C2350A.1010807@redhat.com> <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <20070815081841.GA16551@osiris.boeblingen.de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: John Linville <linville@tuxdriver.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Chris Snook <csnook@redhat.com>, satyam@infradead.org,
+	clameter@sgi.com, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, torvalds@linux-foundation.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org, ak@suse.de,
+	davem@davemloft.net, schwidefsky@de.ibm.com, wensong@linux-vs.org,
+	horms@verge.net.au, wjiang@resilience.com, cfriesen@nortel.com,
+	zlynx@acm.org, rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org
+To: Heiko Carstens <heiko.carstens@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:40617
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762448AbXHONqW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 09:46:22 -0400
-Content-Disposition: inline
+Received: from hp3.statik.tu-cottbus.de ([141.43.120.68]:38301 "EHLO
+	hp3.statik.tu-cottbus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757521AbXHONxG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 09:53:06 -0400
+In-Reply-To: <20070815081841.GA16551@osiris.boeblingen.de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+On 8/15/2007 10:18 AM, Heiko Carstens wrote:
+> On Wed, Aug 15, 2007 at 02:49:03PM +0800, Herbert Xu wrote:
+>> Chris Snook <csnook@redhat.com> wrote:
+>> > 
+>> > Because atomic operations are generally used for synchronization, which requires 
+>> > volatile behavior.  Most such codepaths currently use an inefficient barrier(). 
+>> >  Some forget to and we get bugs, because people assume that atomic_read() 
+>> > actually reads something, and atomic_write() actually writes something.  Worse, 
+>> > these are architecture-specific, even compiler version-specific bugs that are 
+>> > often difficult to track down.
+>> 
+>> I'm yet to see a single example from the current tree where
+>> this patch series is the correct solution.  So far the only
+>> example has been a buggy piece of code which has since been
+>> fixed with a cpu_relax.
+> 
+> Btw.: we still have
+> 
+> include/asm-i386/mach-es7000/mach_wakecpu.h:  while (!atomic_read(deassert));
+> include/asm-i386/mach-default/mach_wakecpu.h: while (!atomic_read(deassert));
+> 
+> Looks like they need to be fixed as well.
 
-Index: wireless-dev-new/drivers/net/Kconfig
-===================================================================
---- wireless-dev-new.orig/drivers/net/Kconfig	2007-08-11 00:49:28.000000000 +0200
-+++ wireless-dev-new/drivers/net/Kconfig	2007-08-15 15:29:36.000000000 +0200
-@@ -1454,7 +1454,7 @@ config APRICOT
- 
- config B44
- 	tristate "Broadcom 440x/47xx ethernet support"
--	depends on HAS_IOMEM
-+	depends on SSB_POSSIBLE
- 	select SSB
- 	select MII
- 	help
-@@ -1462,27 +1462,28 @@ config B44
- 	  or M and read the Ethernet-HOWTO, available from
- 	  <http://www.tldp.org/docs.html#howto>.
- 
--	  If you have a Broadcom 440x PCI device (and if you don't
--	  know, you _do_ have one) you must also select the options
--	  "EISA, VLB, PCI and on board controllers" above and
--	  "Broadcom 440x PCI device support" below.
--
- 	  To compile this driver as a module, choose M here and read
- 	  <file:Documentation/networking/net-modules.txt>.  The module will be
- 	  called b44.
- 
--config B44_PCI
--	bool "Broadcom 440x PCI device support"
--	depends on B44 && NET_PCI
-+# Auto-select SSB PCI-HOST support, if possible
-+config B44_PCI_AUTOSELECT
-+	bool
-+	depends on B44 && SSB_PCIHOST_POSSIBLE
- 	select SSB_PCIHOST
-+	default y
-+
-+# Auto-select SSB PCICORE driver, if possible
-+config B44_PCICORE_AUTOSELECT
-+	bool
-+	depends on B44 && SSB_DRIVER_PCICORE_POSSIBLE
- 	select SSB_DRIVER_PCICORE
- 	default y
--	help
--	  Support for Broadcom 440x PCI devices.
- 
--	  Say Y, unless you know what you are doing.
--	  If you say N here I will _not_ listen to your
--	  bugreports!
-+config B44_PCI
-+	bool
-+	depends on B44_PCI_AUTOSELECT && B44_PCICORE_AUTOSELECT
-+	default y
- 
- config FORCEDETH
- 	tristate "nForce Ethernet support"
+
+I don't know if this here is affected:
+
+/* drivers/ieee1394/ieee1394_core.h */
+static inline unsigned int get_hpsb_generation(struct hpsb_host *host)
+{
+	return atomic_read(&host->generation);
+}
+
+/* drivers/ieee1394/nodemgr.c */
+static int nodemgr_host_thread(void *__hi)
+{
+	[...]
+
+	for (;;) {
+		[... sleep until bus reset event ...]
+
+		/* Pause for 1/4 second in 1/16 second intervals,
+		 * to make sure things settle down. */
+		g = get_hpsb_generation(host);
+		for (i = 0; i < 4 ; i++) {
+			if (msleep_interruptible(63) ||
+			    kthread_should_stop())
+				goto exit;
+
+	/* Now get the generation in which the node ID's we collect
+	 * are valid.  During the bus scan we will use this generation
+	 * for the read transactions, so that if another reset occurs
+	 * during the scan the transactions will fail instead of
+	 * returning bogus data. */
+
+			generation = get_hpsb_generation(host);
+
+	/* If we get a reset before we are done waiting, then
+	 * start the waiting over again */
+
+			if (generation != g)
+				g = generation, i = 0;
+		}
+
+		[... scan bus, using generation ...]
+
+	}
+exit:
+[...]
+}
+
+
+
+-- 
+Stefan Richter
+-=====-=-=== =--- -====
+http://arcgraph.de/sr/
