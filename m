@@ -1,44 +1,29 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: Potential u32 classifier bug.
-Date: Wed, 15 Aug 2007 11:02:00 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC329036D1BA7@orsmsx414.amr.corp.intel.com>
-References: <D5C1322C3E673F459512FB59E0DDC3290365C9A8@orsmsx414.amr.corp.intel.com> <20070815175758.GC32236@postel.suug.ch>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Potential u32 classifier bug.
+Date: Wed, 15 Aug 2007 20:11:39 +0200
+Message-ID: <20070815181139.GD32236@postel.suug.ch>
+References: <D5C1322C3E673F459512FB59E0DDC3290365C9A8@orsmsx414.amr.corp.intel.com> <20070815175758.GC32236@postel.suug.ch> <D5C1322C3E673F459512FB59E0DDC329036D1BA7@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "Thomas Graf" <tgraf@suug.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:34762 "EHLO mga02.intel.com"
+Received: from postel.suug.ch ([194.88.212.233]:40671 "EHLO postel.suug.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753973AbXHOSCD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 14:02:03 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20070815175758.GC32236@postel.suug.ch>
+	id S935450AbXHOSLV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 14:11:21 -0400
+Content-Disposition: inline
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329036D1BA7@orsmsx414.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> * Waskiewicz Jr, Peter P <peter.p.waskiewicz.jr@intel.com> 
-> 2007-08-09 18:07
-> > My big question is: Has anyone recently used the 802_3 
-> protocol in tc 
-> > with u32 and actually gotten it to work?  I can't see how the
-> > u32_classify() code can look at the mac header, since it is 
-> using the 
-> > network header accessor to start looking.  I think this is an issue 
-> > with the classification code, but I'm looking to see if I'm doing 
-> > something stupid before I really start digging into this mess.
+* Waskiewicz Jr, Peter P <peter.p.waskiewicz.jr@intel.com> 2007-08-15 11:02
+> > There is this very horrible way of using the u32 classifier 
+> > with a negative offset to look into the ethernet header.
 > 
-> There is this very horrible way of using the u32 classifier 
-> with a negative offset to look into the ethernet header.
+> Based on this, it sounds like u32 using protocol 802_3 is broken?
 
-Based on this, it sounds like u32 using protocol 802_3 is broken?
-
-> You might want to look into the cmp ematch which can be 
-> attached to almost any classifier. It allows basing offsets 
-> on any layer thus making ethernet header filtering trivial.
-
-I'll look at this.  Thanks Thomas for the response!
-
--PJ
+You might be expecting too much from u32. The protocol given
+to u32 is just a filter, it doesn't imply anything beyond that.
+u32 has its usage the way it is, that's way we've added an ematch
+rather than extending u32 itself.
