@@ -1,45 +1,54 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] [70/2many] MAINTAINERS - ARPD SUPPORT
-Date: Wed, 15 Aug 2007 09:33:44 +0100
-Message-ID: <20070815093344.48d70c72@the-village.bc.nu>
-References: <46bff8e8.HhTQ7TBPy1zkcNfh%joe@perches.com>
-	<20070813114942.04a5483c@the-village.bc.nu>
-	<1187019966.10249.75.camel@localhost>
-	<20070813173522.685dab9e@the-village.bc.nu>
-	<1187024659.10249.125.camel@localhost>
-	<20070813185148.16308985@the-village.bc.nu>
-	<46C2B4FE.3080703@s5r6.in-berlin.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Joe Perches <joe@perches.com>, torvalds@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762131AbXHOI11@vger.kernel.org>
-In-Reply-To: <46C2B4FE.3080703@s5r6.in-berlin.de>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: linux kernel 2.6.18-20 bug: rcu_read_unlock in __sock_create
+Date: Wed, 15 Aug 2007 16:33:35 +0800
+Message-ID: <E1ILEJr-0005Fl-00@gondolin.me.apana.org.au>
+References: <af57f1ac0708141130v729fa636k3150673809ec20a8@mail.gmail.com>
+Cc: linux-kernel@vger.kernel.org
+To: 123.oleg@gmail.com (oleg 123), davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:3277 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754727AbXHOIdm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 04:33:42 -0400
+In-Reply-To: <af57f1ac0708141130v729fa636k3150673809ec20a8@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Aug 2007 10:10:38 +0200
-Stefan Richter <stefanr@s5r6.in-berlin.de> wrote:
+oleg 123 <123.oleg@gmail.com> wrote:
+>
+> There is a bug in __sock_create() function (net/socket.c).
+> If an error occur in LSM hook security_socket_post_create, then unneeded
+> rcu_read_unlock() is made in __sock_create.
 
-> Alan Cox wrote:
-> >> > Actually I think the entire thing is a
-> >> > bad idea but thats another matter.
-> 
-> > Working off the git tree as it shows who actually is making
-> > changes/updating stuff recently and why which is a major clue when
-> > tracing bugs
-> 
-> Adrian Bunk wrote in http://lkml.org/lkml/2007/6/30/107 :
-> | I don't see how git could tell you to Cc net patches to
-> | netdev@vger.kernel.org.
-> 
-> Ditto with problem reports.
-> 
-> For example, Cc'ing linux1394-devel on FireWire topics is a lot more
-> important than Cc'ing me.
+Well spotted! Please cc netdev@vger.kernel.org for networking
+issues.
 
-Tools question. And even if you need to keep a simple set of mappings by
-hand for mailing list/files thats a fairly small set of patterns
+[NET]: Fix unbalanced rcu_read_unlock in __sock_create
+
+The recent RCU work created an unbalanced rcu_read_unlock
+in __sock_create.  This patch fixes that.  Reported by
+oleg 123.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/socket.c b/net/socket.c
+index ec07703..7d44453 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1168,7 +1168,7 @@ static int __sock_create(int family, int type, int protocol,
+ 	module_put(pf->owner);
+ 	err = security_socket_post_create(sock, family, type, protocol, kern);
+ 	if (err)
+-		goto out_release;
++		goto out_sock_release;
+ 	*res = sock;
+ 
+ 	return 0;
