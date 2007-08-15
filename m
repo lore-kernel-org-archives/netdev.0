@@ -1,45 +1,46 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Wed, 15 Aug 2007 11:45:20 -0700
-Message-ID: <20070815184520.GG9645@linux.vnet.ibm.com>
-References: <20070815153335.GA23593@gondor.apana.org.au> <20070809131423.GA9927@shell.boston.redhat.com> <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in> <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in> <46C2FADB.7020407@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151906330.16414@enigma.security.iitk.ac.in> <20070815142516.GB9645@linux.vnet.ibm.com> <4413.1187201997@redhat.com>
-Reply-To: paulmck@linux.vnet.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Satyam Sharma <satyam@infradead.org>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Christoph Lameter <clameter@sgi.com>,
-	Chris Snook <csnook@redhat.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
-To: David Howells <dhowells@redhat.com>
+From: Segher Boessenkool <segher@kernel.crashing.org>
+Subject: Re: [PATCH 6/24] make atomic_read() behave consistently on frv
+Date: Wed, 15 Aug 2007 20:51:58 +0200
+Message-ID: <2cbda24e96a49c3ab7cf7039c515f9fc@kernel.crashing.org>
+References: <46BCC26B.6080600@redhat.com> <46BB46B2.60808@redhat.com> <20070809134150.GA14890@shell.boston.redhat.com> <2708.1186737826@redhat.com> <7680.1186822071@redhat.com> <46BFFDBD.6080804@redhat.com> <46C140DD.3060509@yahoo.com.au>
+Mime-Version: 1.0 (Apple Message framework v623)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: heiko.carstens@de.ibm.com, horms@verge.net.au,
+	linux-kernel@vger.kernel.org, rpjday@mindspring.com, ak@suse.de,
+	netdev@vger.kernel.org, cfriesen@nortel.com,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	jesper.juhl@gmail.com, linux-arch@vger.kernel.org, zlynx@acm.org,
+	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
+	davem@davemloft.net, wensong@linux-vs.org, wjiang@resilience.com,
+	David Howells <dhowells@redhat.com>
+To: Nick Piggin <nickpiggin@yahoo.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:51779 "EHLO e4.ny.us.ibm.com"
+Received: from gate.crashing.org ([63.228.1.57]:42428 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762777AbXHOSpY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2007 14:45:24 -0400
-Content-Disposition: inline
-In-Reply-To: <4413.1187201997@redhat.com>
+	id S1754477AbXHOSwz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 14:52:55 -0400
+In-Reply-To: <46C140DD.3060509@yahoo.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 15, 2007 at 07:19:57PM +0100, David Howells wrote:
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> 
-> > Let's turn this around.  Can you give a single example where
-> > the volatile semantics is needed in a legitimate way?
-> 
-> Accessing H/W registers?  But apart from that...
+> Well if there is only one memory location involved, then smp_rmb() 
+> isn't
+> going to really do anything anyway, so it would be incorrect to use it.
 
-Communicating between process context and interrupt/NMI handlers using
-per-CPU variables.
+rmb() orders *any* two reads; that includes two reads from the same
+location.
 
-							Thanx, Paul
+> Consider that smp_rmb basically will do anything from flushing the
+> pipeline to invalidating loads speculatively executed out of order. 
+> AFAIK
+> it will not control the visibility of stores coming from other CPUs 
+> (that
+> is up to the cache coherency).
+
+The writer side should typically use wmb() whenever the reader side
+uses rmb(), sure.
+
+
+Segher
+
