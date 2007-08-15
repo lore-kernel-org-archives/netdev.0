@@ -1,46 +1,64 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Wed, 15 Aug 2007 12:35:31 +0200
-Message-ID: <46C2D6F3.3070707@s5r6.in-berlin.de>
-References: <20070809131423.GA9927@shell.boston.redhat.com> <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: [PATCH] nl80211: remove VLAN type
+Date: Wed, 15 Aug 2007 11:18:37 +0200
+Message-ID: <1187169518.3960.0.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Lameter <clameter@sgi.com>,
-	Chris Snook <csnook@redhat.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org, torvalds@linux-foundation.org,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Satyam Sharma <satyam@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hp3.statik.tu-cottbus.de ([141.43.120.68]:37731 "EHLO
-	hp3.statik.tu-cottbus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751634AbXHOKfd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 06:35:33 -0400
-In-Reply-To: <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Satyam Sharma wrote:
-> [ BTW, why do we want the compiler to not optimize atomic_read()'s in
->   the first place? Atomic ops guarantee atomicity, which has nothing
->   to do with "volatility" -- users that expect "volatility" from
->   atomic ops are the ones who must be fixed instead, IMHO. ]
+There is no point in trying to handle source MAC address based VLANs in
+the wireless stack, something like "smacvlan" modeled after macvlan
+should be sufficient.
 
-LDD3 says on page 125:  "The following operations are defined for the
-type [atomic_t] and are guaranteed to be atomic with respect to all
-processors of an SMP computer."
+Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 
-Doesn't "atomic WRT all processors" require volatility?
--- 
-Stefan Richter
--=====-=-=== =--- -====
-http://arcgraph.de/sr/
+---
+We could just not keep the hole as well since people can't really be
+using that header yet, but the version we have in previous kernels could
+still be shipped somewhere so I think it should be kept compatible.
+
+ include/linux/nl80211.h |   19 +++++++++++--------
+ 1 file changed, 11 insertions(+), 8 deletions(-)
+
+--- wireless-dev.orig/include/linux/nl80211.h	2007-08-15 00:43:06.290200043 +0200
++++ wireless-dev/include/linux/nl80211.h	2007-08-15 00:45:51.860200043 +0200
+@@ -207,7 +207,6 @@ enum nl80211_attrs {
+  * @NL80211_IFTYPE_ADHOC: independent BSS member
+  * @NL80211_IFTYPE_STATION: managed BSS member
+  * @NL80211_IFTYPE_AP: access point
+- * @NL80211_IFTYPE_AP_VLAN: VLAN interface for access points
+  * @NL80211_IFTYPE_WDS: wireless distribution interface
+  * @NL80211_IFTYPE_MONITOR: monitor interface receiving all frames
+  * @__NL80211_IFTYPE_AFTER_LAST: internal use
+@@ -217,13 +216,17 @@ enum nl80211_attrs {
+  *
+  */
+ enum nl80211_iftype {
+-	NL80211_IFTYPE_UNSPECIFIED,
+-	NL80211_IFTYPE_ADHOC,
+-	NL80211_IFTYPE_STATION,
+-	NL80211_IFTYPE_AP,
+-	NL80211_IFTYPE_AP_VLAN,
+-	NL80211_IFTYPE_WDS,
+-	NL80211_IFTYPE_MONITOR,
++	NL80211_IFTYPE_UNSPECIFIED = 0,
++	NL80211_IFTYPE_ADHOC = 1,
++	NL80211_IFTYPE_STATION = 2,
++	NL80211_IFTYPE_AP = 3,
++	/*
++	 * there was AP_VLAN here but it was never used
++	 * keep the number unallocated for the benefit
++	 * of those people using old headers
++	 */
++	NL80211_IFTYPE_WDS = 5,
++	NL80211_IFTYPE_MONITOR = 6,
+ 
+ 	/* keep last */
+ 	__NL80211_IFTYPE_AFTER_LAST
