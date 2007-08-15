@@ -1,106 +1,66 @@
-From: Satyam Sharma <satyam@infradead.org>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Wed, 15 Aug 2007 19:17:29 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0708151906330.16414@enigma.security.iitk.ac.in>
-References: <20070809131423.GA9927@shell.boston.redhat.com>
- <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
- <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
- <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
- <46C2FADB.7020407@s5r6.in-berlin.de>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: [PATCH] b44: Fix MII interface of the B44 driver
+Date: Wed, 15 Aug 2007 15:41:53 +0200
+Message-ID: <200708151541.53903.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Christoph Lameter <clameter@sgi.com>,
-	Chris Snook <csnook@redhat.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Aurelien Jarno <aurelien@aurel32.net>, netdev@vger.kernel.org
+To: John Linville <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:36339 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755193AbXHONfK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 09:35:10 -0400
-In-Reply-To: <46C2FADB.7020407@s5r6.in-berlin.de>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:40177
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755957AbXHONnG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 09:43:06 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Aurelien Jarno <aurelien@aurel32.net>
+
+The conversion of the B44 driver to SSB bus added the functions
+__b44_{read,write}phy functions that have an argument phy_id. This gives
+a way to fix the b44_mii_{read,write} functions used for MII interfaces.
+
+The patch below does that. It allows B44 devices with integrated switch
+to be configured from userland.
+
+Signed-off-by: Aurelien Jarno <aurelien@aurel32.net>
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
+
+diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+index 36724fb..e6883f4 100644
+--- a/drivers/net/b44.c
++++ b/drivers/net/b44.c
+@@ -300,16 +300,11 @@ static inline int b44_writephy(struct b44 *bp, int reg, u32 val)
+ }
+ 
+ /* miilib interface */
+-/* FIXME FIXME: phy_id is ignored, bp->phy_addr use is unconditional
+- * due to code existing before miilib use was added to this driver.
+- * Someone should remove this artificial driver limitation in
+- * b44_{read,write}phy.  bp->phy_addr itself is fine (and needed).
+- */
+ static int b44_mii_read(struct net_device *dev, int phy_id, int location)
+ {
+ 	u32 val;
+ 	struct b44 *bp = netdev_priv(dev);
+-	int rc = b44_readphy(bp, location, &val);
++	int rc = __b44_readphy(bp, phy_id, location, &val);
+ 	if (rc)
+ 		return 0xffffffff;
+ 	return val;
+@@ -319,7 +314,7 @@ static void b44_mii_write(struct net_device *dev, int phy_id, int location,
+ 			 int val)
+ {
+ 	struct b44 *bp = netdev_priv(dev);
+-	b44_writephy(bp, location, val);
++	__b44_writephy(bp, phy_id, location, val);
+ }
+ 
+ static int b44_phy_reset(struct b44 *bp)
 
 
-On Wed, 15 Aug 2007, Stefan Richter wrote:
-
-> Satyam Sharma wrote:
-> > On Wed, 15 Aug 2007, Stefan Richter wrote:
-> >> Doesn't "atomic WRT all processors" require volatility?
-> > 
-> > No, it definitely doesn't. Why should it?
-> > 
-> > "Atomic w.r.t. all processors" is just your normal, simple "atomicity"
-> > for SMP systems (ensure that that object is modified / set / replaced
-> > in main memory atomically) and has nothing to do with "volatile"
-> > behaviour.
-> > 
-> > "Volatile behaviour" itself isn't consistently defined (at least
-> > definitely not consistently implemented in various gcc versions across
-> > platforms), but it is /expected/ to mean something like: "ensure that
-> > every such access actually goes all the way to memory, and is not
-> > re-ordered w.r.t. to other accesses, as far as the compiler can take
-> > care of these". The last "as far as compiler can take care" disclaimer
-> > comes about due to CPUs doing their own re-ordering nowadays.
-> > 
-> > For example (say on i386):
-> 
-> [...]
-> 
-> > In (A) the compiler optimized "a = 10;" away, but the actual store
-> > of the final value "20" to "a" was still "atomic". (B) and (C) also
-> > exhibit "volatile" behaviour apart from the "atomicity".
-> > 
-> > But as others replied, it seems some callers out there depend upon
-> > atomic ops exhibiting "volatile" behaviour as well, so that answers
-> > my initial question, actually. I haven't looked at the code Paul
-> > pointed me at, but I wonder if that "forget(x)" macro would help
-> > those cases. I'd wish to avoid the "volatile" primitive, personally.
-> 
-> So, looking at load instead of store, understand I correctly that in
-> your opinion
-> 
-> 	int b;
-> 
-> 	b = atomic_read(&a);
-> 	if (b)
-> 		do_something_time_consuming();
-> 
-> 	b = atomic_read(&a);
-> 	if (b)
-> 		do_something_more();
-> 
-> should be changed to explicitly forget(&a) after
-> do_something_time_consuming?
-
-No, I'd actually prefer something like what Christoph Lameter suggested,
-i.e. users (such as above) who want "volatile"-like behaviour from atomic
-ops can use alternative functions. How about something like:
-
-#define atomic_read_volatile(v)			\
-	({					\
-		forget(&(v)->counter);		\
-		((v)->counter);			\
-	})
-
-Or possibly, implement these "volatile" atomic ops variants in inline asm
-like the patch that Sebastian Siewior has submitted on another thread just
-a while back.
-
-Of course, if we find there are more callers in the kernel who want the
-volatility behaviour than those who don't care, we can re-define the
-existing ops to such variants, and re-name the existing definitions to
-somethine else, say "atomic_read_nonvolatile" for all I care.
+-- 
+Greetings Michael.
