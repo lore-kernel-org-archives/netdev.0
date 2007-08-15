@@ -1,45 +1,65 @@
-From: "Andy Gospodarek" <andy@greyhouse.net>
-Subject: Re: [PATCH 1/1] bonding: eliminate RTNL assertion spew
-Date: Tue, 14 Aug 2007 23:27:07 -0400
-Message-ID: <bdfc5d6e0708142027i669347aasa935bb277b2bbb48@mail.gmail.com>
-References: <20070109225900.GA11755@gospo.rdu.redhat.com>
-	 <20070109150935.6ec3ce69@localhost>
-	 <20070110193355.GA13249@gospo.rdu.redhat.com>
-	 <170fa0d20708142014l217b8804g66426a84547ba91d@mail.gmail.com>
+From: Bruce Cole <bacole@gmail.com>
+Subject: Re: Realtek r8168 slow outbound transfer - potential fix/workaround
+Date: Tue, 14 Aug 2007 22:46:52 -0700
+Message-ID: <46C2934C.9060907@gmail.com>
+References: <25536.1187071305@iinet.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Stephen Hemminger" <shemminger@osdl.org>,
-	"Jeff Garzik" <jeff@garzik.org>, fubar@us.ibm.com,
-	netdev@vger.kernel.org
-To: "Mike Snitzer" <snitzer@gmail.com>
+Cc: netdev@vger.kernel.org, bacole@gmail.com
+To: gundy@iinet.net.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.182]:29299 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751735AbXHOD1L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2007 23:27:11 -0400
-Received: by py-out-1112.google.com with SMTP id u77so18660pyb
-        for <netdev@vger.kernel.org>; Tue, 14 Aug 2007 20:27:10 -0700 (PDT)
-In-Reply-To: <170fa0d20708142014l217b8804g66426a84547ba91d@mail.gmail.com>
-Content-Disposition: inline
+Received: from rv-out-0910.google.com ([209.85.198.187]:55974 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752065AbXHOFuo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 01:50:44 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so1643183rvb
+        for <netdev@vger.kernel.org>; Tue, 14 Aug 2007 22:50:43 -0700 (PDT)
+In-Reply-To: <25536.1187071305@iinet.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/14/07, Mike Snitzer <snitzer@gmail.com> wrote:
-> Andy,
+gundy@iinet.net.au wrote:
+> Bruce,
 >
-> Is there an updated version of this patch?
+> I settled on using ndelay(10) rather than udelay(25) in the end..  
+> it's probably a bit safer & less likely to cause problems with higher 
+> throughputs.
+Yes, I saw that you later recommended the change but opted to try it the 
+way you tested first. 
 >
-> Please advise, thanks.
+> When I was diagnosing the problem I used 2 machines.  One machine was 
+> running Samba on linux (the 'problem' machine), and one was a windows 
+> XP machine.
+Likewise, tho I also tested vista.
 >
+> I used tcpdump to capture the traffic on the Samba machine, and used 
+> wireshark to capture the traffic on the windows machine.  What i found 
+> was happening was that samba was attempting to send two packets to the 
+> windows machine in quick succession (ie. something in the order of a 
+> 1/10,000th or less of a second apart).  Although both packets showed 
+> up in the tcpdump output from the linux machine, only the first packet 
+> appeared to be making it to the windows machine.   Because the second 
+> packet was 'lost', it had to be retried after a delay and this is what 
+> was causing the abysmal performance.
 >
+> The reasoning behind my patch was that I figured the TxPoll register 
+> wasn't being given enough time to reset itself after sending the 
+> previous packet.   I may or may not have been correct with that 
+> assumption, but as you noticed the delay does seem to make it behave a 
+> bit better.
+Disclaimer: I haven't seen the definition for that register so I'm just 
+guessing here.
+I suppose the danger is that your fix may just be changing the timing 
+around such that the time-dependent bug does not occur as readily, yet a 
+bug remains.  Does anyone have the programming spec for this chip from 
+realtek, or are we all just forced to guess :)?
+>
+> I understand that Francios came up with a similar patch that he said 
+> also worked, and that he thought was a bit more robust than my 
+> method.  I'd check with him on what the status of that particular 
+> patch is.
+Thanks, I don't see that patch in 2.6.23-rc3 but I'll try Francios' 
+recommendations first and if that doesn't work I'll test out things with 
+the shorter ndelay().
 
-Mike,
-
-There is a version that Jay and I have been testing and if you would
-like to help out, we could probably send you some patches.
-
-Jay has split the entire patch into smaller chunks, and we hope to
-post the entire thing quite soon (days not months).
-
--andy
