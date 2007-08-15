@@ -1,60 +1,58 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: set_multicast_list vs. set_rx_mode
-Date: Wed, 15 Aug 2007 14:44:26 +0200
-Message-ID: <1187181866.3998.46.camel@johannes.berg>
-References: <1187181208.3998.44.camel@johannes.berg>
-	 <46C2F2B5.60803@trash.net>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [RFC: -mm patch] improve the SSB dependencies
+Date: Wed, 15 Aug 2007 14:47:29 +0200
+Message-ID: <200708151447.29968.mb@bu3sch.de>
+References: <200708110208.21624.mb@bu3sch.de> <20070812224401.GA18945@stusta.de> <20070815004035.GL7198@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-CyYXZnKVPWgc7xtaY1Wn"
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Adrian Bunk <bunk@kernel.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:52485 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751196AbXHOMlr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 08:41:47 -0400
-In-Reply-To: <46C2F2B5.60803@trash.net>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:60187
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754172AbXHOMso (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 08:48:44 -0400
+In-Reply-To: <20070815004035.GL7198@tuxdriver.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wednesday 15 August 2007 02:40:35 John W. Linville wrote:
+> On Mon, Aug 13, 2007 at 12:44:02AM +0200, Adrian Bunk wrote:
+> > On Sun, Aug 12, 2007 at 02:00:26PM +0200, Michael Buesch wrote:
+> > > Ok, I'll give it a try, with small modifications.
+> > 
+> > Thanks.
+> > 
+> > > On Sunday 12 August 2007, Adrian Bunk wrote:
+> > > > Additional changes in this patch:
+> > > > - small help text changes
+> > > > - B44_PCI is no longer usr visible (automatically enabled when possible)
+> > > 
+> > > I think we want that to be selectable, as it's not needed
+> > > on some embedded devices. And we need to save memory there.
+> > >...
+> > 
+> > Makes sense, but then:
+> > 
+> > config B44_PCI
+> > 	bool "Broadcom 440x PCI device support" if EMBEDDED
+> > 	...
+> > 	default y
+> > 	...
+> > 
+> > I don't care about how many options we present if CONFIG_EMBEDDED=y, but 
+> > for the normal CONFIG_EMBEDDED=n case we should not bother the user with 
+> > this option.
+> 
+> Was all this resolved?  Was there another patch?  If so, I missed it...
 
---=-CyYXZnKVPWgc7xtaY1Wn
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+I am going to send one, soon.
 
-On Wed, 2007-08-15 at 14:33 +0200, Patrick McHardy wrote:
-> Johannes Berg wrote:
-> > Is it intentional that in the case where set_rx_mode is assigned, you
-> > still need to assign set_multicast_list even if it won't ever be called
-> > as a flag for SIOCADDMULTI?
-> >=20
-> > I was thinking of converting the wireless code to use set_rx_mode and
-> > assign set_multicast_list only if the underlying hardware supports
-> > multicast filtering, and it seems that is well-supported, but it does
-> > seem a bit weird that set_multicast_list degrades to a flag.
->=20
->=20
-> Indeed, I missed that. It should check for !dev->set_multicast_list &&
-> !dev->set_rx_mode before returning -EINVAL.
-
-Ok. Want me to send a patch?
-
-And then the expected behaviour is that set_rx_mode will set
-IFF_ALLMULTI if it can't honour the list, right?
-
-johannes
-
---=-CyYXZnKVPWgc7xtaY1Wn
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBGwvUq/ETPhpq3jKURAoilAJ0ePYL5dEeYuF9owbdy/tXy0bSapACgkkWv
-7WHeMBhjHTJUTPEyBFOfTn8=
-=rzsr
------END PGP SIGNATURE-----
-
---=-CyYXZnKVPWgc7xtaY1Wn--
-
+-- 
+Greetings Michael.
