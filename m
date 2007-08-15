@@ -1,54 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: linux kernel 2.6.18-20 bug: rcu_read_unlock in __sock_create
-Date: Wed, 15 Aug 2007 16:33:35 +0800
-Message-ID: <E1ILEJr-0005Fl-00@gondolin.me.apana.org.au>
-References: <af57f1ac0708141130v729fa636k3150673809ec20a8@mail.gmail.com>
-Cc: linux-kernel@vger.kernel.org
-To: 123.oleg@gmail.com (oleg 123), davem@davemloft.net,
-	netdev@vger.kernel.org
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Wed, 15 Aug 2007 12:35:31 +0200
+Message-ID: <46C2D6F3.3070707@s5r6.in-berlin.de>
+References: <20070809131423.GA9927@shell.boston.redhat.com> <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Lameter <clameter@sgi.com>,
+	Chris Snook <csnook@redhat.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org, torvalds@linux-foundation.org,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Satyam Sharma <satyam@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3277 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754727AbXHOIdm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 04:33:42 -0400
-In-Reply-To: <af57f1ac0708141130v729fa636k3150673809ec20a8@mail.gmail.com>
+Received: from hp3.statik.tu-cottbus.de ([141.43.120.68]:37731 "EHLO
+	hp3.statik.tu-cottbus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751634AbXHOKfd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 06:35:33 -0400
+In-Reply-To: <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-oleg 123 <123.oleg@gmail.com> wrote:
->
-> There is a bug in __sock_create() function (net/socket.c).
-> If an error occur in LSM hook security_socket_post_create, then unneeded
-> rcu_read_unlock() is made in __sock_create.
+Satyam Sharma wrote:
+> [ BTW, why do we want the compiler to not optimize atomic_read()'s in
+>   the first place? Atomic ops guarantee atomicity, which has nothing
+>   to do with "volatility" -- users that expect "volatility" from
+>   atomic ops are the ones who must be fixed instead, IMHO. ]
 
-Well spotted! Please cc netdev@vger.kernel.org for networking
-issues.
+LDD3 says on page 125:  "The following operations are defined for the
+type [atomic_t] and are guaranteed to be atomic with respect to all
+processors of an SMP computer."
 
-[NET]: Fix unbalanced rcu_read_unlock in __sock_create
-
-The recent RCU work created an unbalanced rcu_read_unlock
-in __sock_create.  This patch fixes that.  Reported by
-oleg 123.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Thanks,
+Doesn't "atomic WRT all processors" require volatility?
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/socket.c b/net/socket.c
-index ec07703..7d44453 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1168,7 +1168,7 @@ static int __sock_create(int family, int type, int protocol,
- 	module_put(pf->owner);
- 	err = security_socket_post_create(sock, family, type, protocol, kern);
- 	if (err)
--		goto out_release;
-+		goto out_sock_release;
- 	*res = sock;
- 
- 	return 0;
+Stefan Richter
+-=====-=-=== =--- -====
+http://arcgraph.de/sr/
