@@ -1,39 +1,47 @@
-From: Christoph Lameter <clameter@sgi.com>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Wed, 15 Aug 2007 12:59:01 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0708151258340.7326@schroedinger.engr.sgi.com>
-References: <20070809131423.GA9927@shell.boston.redhat.com>
- <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
- <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
- <46C2D6F3.3070707@s5r6.in-berlin.de>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 6/24] make atomic_read() behave consistently on frv
+Date: Wed, 15 Aug 2007 12:59:15 -0700
+Message-ID: <20070815195915.GL9645@linux.vnet.ibm.com>
+References: <46BCC26B.6080600@redhat.com> <46BB46B2.60808@redhat.com> <20070809134150.GA14890@shell.boston.redhat.com> <2708.1186737826@redhat.com> <7680.1186822071@redhat.com> <46BFFDBD.6080804@redhat.com> <46C140DD.3060509@yahoo.com.au> <2cbda24e96a49c3ab7cf7039c515f9fc@kernel.crashing.org> <20070815191829.GJ9645@linux.vnet.ibm.com> <369924c4b3132a4b06258b7ac81b1006@kernel.crashing.org>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Satyam Sharma <satyam@infradead.org>,
-	Chris Snook <csnook@redhat.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org, torvalds@linux-foundation.org,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S936198AbXHOT7e@vger.kernel.org>
-In-Reply-To: <46C2D6F3.3070707@s5r6.in-berlin.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: heiko.carstens@de.ibm.com, horms@verge.net.au,
+	linux-kernel@vger.kernel.org, rpjday@mindspring.com, ak@suse.de,
+	netdev@vger.kernel.org, cfriesen@nortel.com,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	linux-arch@vger.kernel.org, jesper.juhl@gmail.com, zlynx@acm.org,
+	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
+	davem@davemloft.net, wensong@linux-vs.org, wjiang@resilience.com,
+	David Howells <dhowells@redhat.com>
+To: Segher Boessenkool <segher@kernel.crashing.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:32798 "EHLO e2.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S936137AbXHOT7T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 15:59:19 -0400
+Content-Disposition: inline
+In-Reply-To: <369924c4b3132a4b06258b7ac81b1006@kernel.crashing.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Aug 2007, Stefan Richter wrote:
-
-> LDD3 says on page 125:  "The following operations are defined for the
-> type [atomic_t] and are guaranteed to be atomic with respect to all
-> processors of an SMP computer."
+On Wed, Aug 15, 2007 at 09:46:55PM +0200, Segher Boessenkool wrote:
+> >>>Well if there is only one memory location involved, then smp_rmb()
+> >>>isn't
+> >>>going to really do anything anyway, so it would be incorrect to use 
+> >>>it.
+> >>
+> >>rmb() orders *any* two reads; that includes two reads from the same
+> >>location.
+> >
+> >If the two reads are to the same location, all CPUs I am aware of
+> >will maintain the ordering without need for a memory barrier.
 > 
-> Doesn't "atomic WRT all processors" require volatility?
+> That's true of course, although there is no real guarantee for that.
 
-Atomic operations only require exclusive access to the cacheline while the 
-value is modified.
+A CPU that did not provide this property ("cache coherence") would be
+most emphatically reviled.  So we are pretty safe assuming that CPUs
+will provide it.
+
+						Thanx, Paul
