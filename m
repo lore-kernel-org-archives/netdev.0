@@ -1,246 +1,218 @@
-From: Brandon Philips <bphilips@suse.de>
-Subject: [patch 4/4] Update e1000 driver to use devres.
-Date: Wed, 15 Aug 2007 12:00:14 -0700
-Message-ID: <20070815190014.GE7294@ifup.org>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Wed, 15 Aug 2007 12:07:22 -0700
+Message-ID: <20070815190722.GI9645@linux.vnet.ibm.com>
+References: <20070809131423.GA9927@shell.boston.redhat.com> <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in> <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in> <46C2FADB.7020407@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151906330.16414@enigma.security.iitk.ac.in> <20070815142516.GB9645@linux.vnet.ibm.com> <alpine.LFD.0.999.0708152048270.16414@enigma.security.iitk.ac.in>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: teheo@suse.de, Brandon Philips <bphilips@suse.de>
-To: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline; filename="e1000-devres.patch"
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Christoph Lameter <clameter@sgi.com>,
+	Chris Snook <csnook@redhat.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Satyam Sharma <satyam@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:41108 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754102AbXHOTH0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 15:07:26 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.0.999.0708152048270.16414@enigma.security.iitk.ac.in>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Conversion of e1000 probe() and remove() to devres.
+On Wed, Aug 15, 2007 at 11:25:05PM +0530, Satyam Sharma wrote:
+> Hi Paul,
+> On Wed, 15 Aug 2007, Paul E. McKenney wrote:
+> 
+> > On Wed, Aug 15, 2007 at 07:17:29PM +0530, Satyam Sharma wrote:
+> > > [...]
+> > > No, I'd actually prefer something like what Christoph Lameter suggested,
+> > > i.e. users (such as above) who want "volatile"-like behaviour from atomic
+> > > ops can use alternative functions. How about something like:
+> > > 
+> > > #define atomic_read_volatile(v)			\
+> > > 	({					\
+> > > 		forget(&(v)->counter);		\
+> > > 		((v)->counter);			\
+> > > 	})
+> > 
+> > Wouldn't the above "forget" the value, throw it away, then forget
+> > that it forgot it, giving non-volatile semantics?
+> 
+> Nope, I don't think so. I wrote the following trivial testcases:
+> [ See especially tp4.c and tp4.s (last example). ]
 
-Signed-off-by: Brandon Philips <bphilips@suse.de>
----
- drivers/net/e1000/e1000.h      |    1 
- drivers/net/e1000/e1000_main.c |   92 ++++++++++++-----------------------------
- 2 files changed, 28 insertions(+), 65 deletions(-)
+Right.  I should have said "wouldn't the compiler be within its rights
+to forget the value, throw it away, then forget that it forgot it".
+The value coming out of the #define above is an unadorned ((v)->counter),
+which has no volatile semantics.
 
-Index: linux-2.6/drivers/net/e1000/e1000_main.c
-===================================================================
---- linux-2.6.orig/drivers/net/e1000/e1000_main.c
-+++ linux-2.6/drivers/net/e1000/e1000_main.c
-@@ -860,15 +860,14 @@ e1000_probe(struct pci_dev *pdev,
- {
- 	struct net_device *netdev;
- 	struct e1000_adapter *adapter;
--	unsigned long mmio_start, mmio_len;
--	unsigned long flash_start, flash_len;
-+	unsigned long mmio_len, flash_len;
- 
- 	static int cards_found = 0;
- 	static int global_quad_port_a = 0; /* global ksp3 port a indication */
- 	int i, err, pci_using_dac;
- 	uint16_t eeprom_data = 0;
- 	uint16_t eeprom_apme_mask = E1000_EEPROM_APME;
--	if ((err = pci_enable_device(pdev)))
-+	if ((err = pcim_enable_device(pdev)))
- 		return err;
- 
- 	if (!(err = pci_set_dma_mask(pdev, DMA_64BIT_MASK)) &&
-@@ -878,20 +877,19 @@ e1000_probe(struct pci_dev *pdev,
- 		if ((err = pci_set_dma_mask(pdev, DMA_32BIT_MASK)) &&
- 		    (err = pci_set_consistent_dma_mask(pdev, DMA_32BIT_MASK))) {
- 			E1000_ERR("No usable DMA configuration, aborting\n");
--			goto err_dma;
-+			return err;
- 		}
- 		pci_using_dac = 0;
- 	}
- 
- 	if ((err = pci_request_regions(pdev, e1000_driver_name)))
--		goto err_pci_reg;
-+		return err;
- 
- 	pci_set_master(pdev);
- 
--	err = -ENOMEM;
--	netdev = alloc_etherdev(sizeof(struct e1000_adapter));
-+	netdev = devm_alloc_etherdev(&pdev->dev, sizeof(struct e1000_adapter));
- 	if (!netdev)
--		goto err_alloc_etherdev;
-+		return -ENOMEM;
- 
- 	SET_MODULE_OWNER(netdev);
- 	SET_NETDEV_DEV(netdev, &pdev->dev);
-@@ -903,13 +901,11 @@ e1000_probe(struct pci_dev *pdev,
- 	adapter->hw.back = adapter;
- 	adapter->msg_enable = (1 << debug) - 1;
- 
--	mmio_start = pci_resource_start(pdev, BAR_0);
- 	mmio_len = pci_resource_len(pdev, BAR_0);
- 
--	err = -EIO;
--	adapter->hw.hw_addr = ioremap(mmio_start, mmio_len);
-+	adapter->hw.hw_addr = pcim_iomap(pdev, BAR_0, mmio_len);
- 	if (!adapter->hw.hw_addr)
--		goto err_ioremap;
-+		return -EIO;
- 
- 	for (i = BAR_1; i <= BAR_5; i++) {
- 		if (pci_resource_len(pdev, i) == 0)
-@@ -943,8 +939,8 @@ e1000_probe(struct pci_dev *pdev,
- #endif
- 	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
- 
--	netdev->mem_start = mmio_start;
--	netdev->mem_end = mmio_start + mmio_len;
-+	netdev->mem_start = pci_resource_start(pdev, BAR_0);
-+	netdev->mem_end = netdev->mem_start + mmio_len;
- 	netdev->base_addr = adapter->hw.io_base;
- 
- 	adapter->bd_number = cards_found;
-@@ -952,16 +948,15 @@ e1000_probe(struct pci_dev *pdev,
- 	/* setup the private structure */
- 
- 	if ((err = e1000_sw_init(adapter)))
--		goto err_sw_init;
-+		return err;
- 
- 	err = -EIO;
- 	/* Flash BAR mapping must happen after e1000_sw_init
- 	 * because it depends on mac_type */
- 	if ((adapter->hw.mac_type == e1000_ich8lan) &&
- 	   (pci_resource_flags(pdev, 1) & IORESOURCE_MEM)) {
--		flash_start = pci_resource_start(pdev, 1);
- 		flash_len = pci_resource_len(pdev, 1);
--		adapter->hw.flash_address = ioremap(flash_start, flash_len);
-+		adapter->hw.flash_address = pcim_iomap(pdev, 1, flash_len);
- 		if (!adapter->hw.flash_address)
- 			goto err_flashmap;
- 	}
-@@ -1163,29 +1158,11 @@ err_register:
- err_eeprom:
- 	if (!e1000_check_phy_reset_block(&adapter->hw))
- 		e1000_phy_hw_reset(&adapter->hw);
--
--	if (adapter->hw.flash_address)
--		iounmap(adapter->hw.flash_address);
- err_flashmap:
- #ifdef CONFIG_E1000_NAPI
- 	for (i = 0; i < adapter->num_rx_queues; i++)
- 		dev_put(&adapter->polling_netdev[i]);
- #endif
--
--	kfree(adapter->tx_ring);
--	kfree(adapter->rx_ring);
--#ifdef CONFIG_E1000_NAPI
--	kfree(adapter->polling_netdev);
--#endif
--err_sw_init:
--	iounmap(adapter->hw.hw_addr);
--err_ioremap:
--	free_netdev(netdev);
--err_alloc_etherdev:
--	pci_release_regions(pdev);
--err_pci_reg:
--err_dma:
--	pci_disable_device(pdev);
- 	return err;
- }
- 
-@@ -1224,21 +1201,6 @@ e1000_remove(struct pci_dev *pdev)
- 
- 	if (!e1000_check_phy_reset_block(&adapter->hw))
- 		e1000_phy_hw_reset(&adapter->hw);
--
--	kfree(adapter->tx_ring);
--	kfree(adapter->rx_ring);
--#ifdef CONFIG_E1000_NAPI
--	kfree(adapter->polling_netdev);
--#endif
--
--	iounmap(adapter->hw.hw_addr);
--	if (adapter->hw.flash_address)
--		iounmap(adapter->hw.flash_address);
--	pci_release_regions(pdev);
--
--	free_netdev(netdev);
--
--	pci_disable_device(pdev);
- }
- 
- /**
-@@ -1350,27 +1312,27 @@ e1000_sw_init(struct e1000_adapter *adap
- static int __devinit
- e1000_alloc_queues(struct e1000_adapter *adapter)
- {
--	adapter->tx_ring = kcalloc(adapter->num_tx_queues,
--	                           sizeof(struct e1000_tx_ring), GFP_KERNEL);
-+	adapter->tx_ring = devm_kcalloc(&adapter->pdev->dev,
-+					adapter->num_tx_queues,
-+					sizeof(struct e1000_tx_ring),
-+					GFP_KERNEL);
- 	if (!adapter->tx_ring)
- 		return -ENOMEM;
- 
--	adapter->rx_ring = kcalloc(adapter->num_rx_queues,
--	                           sizeof(struct e1000_rx_ring), GFP_KERNEL);
--	if (!adapter->rx_ring) {
--		kfree(adapter->tx_ring);
-+	adapter->rx_ring = devm_kcalloc(&adapter->pdev->dev,
-+					adapter->num_rx_queues,
-+					sizeof(struct e1000_rx_ring),
-+					GFP_KERNEL);
-+	if (!adapter->rx_ring)
- 		return -ENOMEM;
--	}
- 
- #ifdef CONFIG_E1000_NAPI
--	adapter->polling_netdev = kcalloc(adapter->num_rx_queues,
--	                                  sizeof(struct net_device),
--	                                  GFP_KERNEL);
--	if (!adapter->polling_netdev) {
--		kfree(adapter->tx_ring);
--		kfree(adapter->rx_ring);
-+	adapter->polling_netdev = devm_kcalloc(&adapter->pdev->dev,
-+					       adapter->num_rx_queues,
-+					       sizeof(struct net_device),
-+					       GFP_KERNEL);
-+	if (!adapter->polling_netdev)
- 		return -ENOMEM;
--	}
- #endif
- 
- 	return E1000_SUCCESS;
-@@ -5174,7 +5136,7 @@ e1000_resume(struct pci_dev *pdev)
- 
- 	pci_set_power_state(pdev, PCI_D0);
- 	pci_restore_state(pdev);
--	if ((err = pci_enable_device(pdev))) {
-+	if ((err = pcim_enable_device(pdev))) {
- 		printk(KERN_ERR "e1000: Cannot enable PCI device from suspend\n");
- 		return err;
- 	}
-Index: linux-2.6/drivers/net/e1000/e1000.h
-===================================================================
---- linux-2.6.orig/drivers/net/e1000/e1000.h
-+++ linux-2.6/drivers/net/e1000/e1000.h
-@@ -41,6 +41,7 @@
- #include <linux/errno.h>
- #include <linux/ioport.h>
- #include <linux/pci.h>
-+#include <linux/io.h>
- #include <linux/kernel.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
+> ==============================================================================
+> $ cat tp1.c # Using volatile access casts
+> 
+> #define atomic_read(a)	(*(volatile int *)&a)
+> 
+> int a;
+> 
+> void func(void)
+> {
+> 	a = 0;
+> 	while (atomic_read(a))
+> 		;
+> }
+> ==============================================================================
+> $ gcc -Os -S tp1.c; cat tp1.s
+> 
+> func:
+> 	pushl	%ebp
+> 	movl	%esp, %ebp
+> 	movl	$0, a
+> .L2:
+> 	movl	a, %eax
+> 	testl	%eax, %eax
+> 	jne	.L2
+> 	popl	%ebp
+> 	ret
+> ==============================================================================
+> $ cat tp2.c # Using nothing; gcc will optimize the whole loop away
+> 
+> #define forget(x)
+> 
+> #define atomic_read(a)		\
+> 	({			\
+> 		forget(&(a));	\
+> 		(a);		\
+> 	})
+> 
+> int a;
+> 
+> void func(void)
+> {
+> 	a = 0;
+> 	while (atomic_read(a))
+> 		;
+> }
+> ==============================================================================
+> $ gcc -Os -S tp2.c; cat tp2.s
+> 
+> func:
+> 	pushl	%ebp
+> 	movl	%esp, %ebp
+> 	popl	%ebp
+> 	movl	$0, a
+> 	ret
+> ==============================================================================
+> $ cat tp3.c # Using a full memory clobber barrier
+> 
+> #define forget(x)	asm volatile ("":::"memory")
+> 
+> #define atomic_read(a)		\
+> 	({			\
+> 		forget(&(a));	\
+> 		(a);		\
+> 	})
+> 
+> int a;
+> 
+> void func(void)
+> {
+> 	a = 0;
+> 	while (atomic_read(a))
+> 		;
+> }
+> ==============================================================================
+> $ gcc -Os -S tp3.c; cat tp3.s
+> 
+> func:
+> 	pushl	%ebp
+> 	movl	%esp, %ebp
+> 	movl	$0, a
+> .L2:
+> 	cmpl	$0, a
+> 	jne	.L2
+> 	popl	%ebp
+> 	ret
+> ==============================================================================
+> $ cat tp4.c # Using a forget(var) macro
+> 
+> #define forget(a)	__asm__ __volatile__ ("" :"=m" (a) :"m" (a))
+> 
+> #define atomic_read(a)		\
+> 	({			\
+> 		forget(a);	\
+> 		(a);		\
+> 	})
+> 
+> int a;
+> 
+> void func(void)
+> {
+> 	a = 0;
+> 	while (atomic_read(a))
+> 		;
+> }
+> ==============================================================================
+> $ gcc -Os -S tp4.c; cat tp4.s
+> 
+> func:
+> 	pushl	%ebp
+> 	movl	%esp, %ebp
+> 	movl	$0, a
+> .L2:
+> 	cmpl	$0, a
+> 	jne	.L2
+> 	popl	%ebp
+> 	ret
+> ==============================================================================
+> 
+> Possibly these were too trivial to expose any potential problems that you
+> may have been referring to, so would be helpful if you could write a more
+> concrete example / sample code.
 
--- 
+The trick is to have a sufficiently complicated expression to force
+the compiler to run out of registers.  If the value is non-volatile,
+it will refetch it (and expect it not to have changed, possibly being
+disappointed by an interrupt handler running on that same CPU).
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >>  http://get.splunk.com/
+> > > Or possibly, implement these "volatile" atomic ops variants in inline asm
+> > > like the patch that Sebastian Siewior has submitted on another thread just
+> > > a while back.
+> > 
+> > Given that you are advocating a change (please keep in mind that
+> > atomic_read() and atomic_set() had volatile semantics on almost all
+> > platforms), care to give some example where these historical volatile
+> > semantics are causing a problem?
+> > [...]
+> > Can you give even one example
+> > where the pre-existing volatile semantics are causing enough of a problem
+> > to justify adding yet more atomic_*() APIs?
+> 
+> Will take this to the other sub-thread ...
+
+OK.
+
+> > > Of course, if we find there are more callers in the kernel who want the
+> > > volatility behaviour than those who don't care, we can re-define the
+> > > existing ops to such variants, and re-name the existing definitions to
+> > > somethine else, say "atomic_read_nonvolatile" for all I care.
+> > 
+> > Do we really need another set of APIs?
+> 
+> Well, if there's one set of users who do care about volatile behaviour,
+> and another set that doesn't, it only sounds correct to provide both
+> those APIs, instead of forcing one behaviour on all users.
+
+Well, if the second set doesn't care, they should be OK with the volatile
+behavior in this case.
+
+							Thanx, Paul
