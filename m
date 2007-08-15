@@ -1,64 +1,25 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Wed, 15 Aug 2007 11:57:24 -0700
-Message-ID: <20070815185724.GH9645@linux.vnet.ibm.com>
-References: <46C2350A.1010807@redhat.com> <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <20070815081841.GA16551@osiris.boeblingen.de.ibm.com> <46C30540.2070603@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151941150.16414@enigma.security.iitk.ac.in> <20070815145207.GA23106@gondor.apana.org.au> <46C3253F.5090707@s5r6.in-berlin.de> <20070815162722.GD9645@linux.vnet.ibm.com> <d4406222873856f472b9173a14a19aa2@kernel.crashing.org>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Brandon Philips <bphilips@suse.de>
+Subject: [patch 0/4] Update network drivers to use devres
+Date: Wed, 15 Aug 2007 11:59:10 -0700
+Message-ID: <20070815185910.GA7294@ifup.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Satyam Sharma <satyam@infradead.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	rpjday@mindspring.com, netdev@vger.kernel.org, ak@suse.de,
-	cfriesen@nortel.com, Heiko Carstens <heiko.carstens@de.ibm.com>,
-	jesper.juhl@gmail.com, linux-arch@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
-	clameter@sgi.com, schwidefsky@de.ibm.com,
-	Chris Snook <csnook@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	wensong@linux-vs.org, wjiang@resilience.com
-To: Segher Boessenkool <segher@kernel.crashing.org>
+Cc: teheo@suse.de
+To: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:57105 "EHLO e1.ny.us.ibm.com"
+Received: from ns2.suse.de ([195.135.220.15]:48342 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933392AbXHOS52 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2007 14:57:28 -0400
+	id S1750926AbXHOS7O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 14:59:14 -0400
 Content-Disposition: inline
-In-Reply-To: <d4406222873856f472b9173a14a19aa2@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 15, 2007 at 08:31:25PM +0200, Segher Boessenkool wrote:
-> >>How does the compiler know that msleep() has got barrier()s?
-> >
-> >Because msleep_interruptible() is in a separate compilation unit,
-> >the compiler has to assume that it might modify any arbitrary global.
-> 
-> No; compilation units have nothing to do with it, GCC can optimise
-> across compilation unit boundaries just fine, if you tell it to
-> compile more than one compilation unit at once.
+These patches update the network driver core, e100 and e1000 driver to use
+devres.  Devres is a simple resource manager for device drivers, see
+Documentation/driver-model/devres.txt for more information.
 
-Last I checked, the Linux kernel build system did compile each .c file
-as a separate compilation unit.
+The use of devres will continue to be optional with this patch set and can be
+applied to drivers where it makes sense.
 
-> What you probably mean is that the compiler has to assume any code
-> it cannot currently see can do anything (insofar as allowed by the
-> relevant standards etc.)
-
-Indeed.
-
-> >In many cases, the compiler also has to assume that 
-> >msleep_interruptible()
-> >might call back into a function in the current compilation unit, thus
-> >possibly modifying global static variables.
-> 
-> It most often is smart enough to see what compilation-unit-local
-> variables might be modified that way, though :-)
-
-Yep.  For example, if it knows the current value of a given such local
-variable, and if all code paths that would change some other variable
-cannot be reached given that current value of the first variable.
-At least given that gcc doesn't know about multiple threads of execution!
-
-							Thanx, Paul
+This series includes all of the feedback from the final RFC.  Thanks :)
