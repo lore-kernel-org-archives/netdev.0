@@ -1,123 +1,58 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+From: Segher Boessenkool <segher@kernel.crashing.org>
 Subject: Re: [PATCH 6/24] make atomic_read() behave consistently on frv
-Date: Wed, 15 Aug 2007 13:15:01 -0700
-Message-ID: <20070815201501.GM9645@linux.vnet.ibm.com>
-References: <20070811042943.GA13410@linux.vnet.ibm.com> <E1IKSHQ-0007hg-00@gondolin.me.apana.org.au> <20070813060302.GF13410@linux.vnet.ibm.com> <46C13EE1.1000707@yahoo.com.au> <20070814170128.GA8243@linux.vnet.ibm.com> <46C2FFDD.5000600@yahoo.com.au>
-Reply-To: paulmck@linux.vnet.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, csnook@redhat.com,
-	dhowells@redhat.com, linux-kernel@vger.kernel.org,
-	linux-arch@vger.kernel.org, torvalds@linux-foundation.org,
-	netdev@vger.kernel.org, akpm@linux-foundation.org, ak@suse.de,
-	heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	Arnd Bergmann <arnd@arndb.de>
-To: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Wed, 15 Aug 2007 22:13:49 +0200
+Message-ID: <d2cd1065faf8a13040e8a2405c363aa1@kernel.crashing.org>
+References: <46BCC26B.6080600@redhat.com> <46BB46B2.60808@redhat.com> <20070809134150.GA14890@shell.boston.redhat.com> <2708.1186737826@redhat.com> <7680.1186822071@redhat.com> <46BFFDBD.6080804@redhat.com> <46C140DD.3060509@yahoo.com.au> <2cbda24e96a49c3ab7cf7039c515f9fc@kernel.crashing.org> <20070815191829.GJ9645@linux.vnet.ibm.com> <369924c4b3132a4b06258b7ac81b1006@kernel.crashing.org> <20070815195915.GL9645@linux.vnet.ibm.com>
+Mime-Version: 1.0 (Apple Message framework v623)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: heiko.carstens@de.ibm.com, horms@verge.net.au,
+	linux-kernel@vger.kernel.org, rpjday@mindspring.com, ak@suse.de,
+	netdev@vger.kernel.org, cfriesen@nortel.com,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	linux-arch@vger.kernel.org, jesper.juhl@gmail.com, zlynx@acm.org,
+	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
+	davem@davemloft.net, wensong@linux-vs.org, wjiang@resilience.com,
+	David Howells <dhowells@redhat.com>
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:45098 "EHLO e2.ny.us.ibm.com"
+Received: from gate.crashing.org ([63.228.1.57]:60926 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752020AbXHOUPF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2007 16:15:05 -0400
-Content-Disposition: inline
-In-Reply-To: <46C2FFDD.5000600@yahoo.com.au>
+	id S1759521AbXHOUQZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 16:16:25 -0400
+In-Reply-To: <20070815195915.GL9645@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 15, 2007 at 11:30:05PM +1000, Nick Piggin wrote:
-> Paul E. McKenney wrote:
-> >On Tue, Aug 14, 2007 at 03:34:25PM +1000, Nick Piggin wrote:
-> 
-> >>Maybe it is the safe way to go, but it does obscure cases where there
-> >>is a real need for barriers.
-> >
-> >
-> >I prefer burying barriers into other primitives.
-> 
-> When they should naturally be there, eg. locking or the RCU primitives,
-> I agree.
-> 
-> I don't like having them scattered in various "just in case" places,
-> because it makes both the users and the APIs hard to understand and
-> change.
+>>>>> Well if there is only one memory location involved, then smp_rmb()
+>>>>> isn't
+>>>>> going to really do anything anyway, so it would be incorrect to use
+>>>>> it.
+>>>>
+>>>> rmb() orders *any* two reads; that includes two reads from the same
+>>>> location.
+>>>
+>>> If the two reads are to the same location, all CPUs I am aware of
+>>> will maintain the ordering without need for a memory barrier.
+>>
+>> That's true of course, although there is no real guarantee for that.
+>
+> A CPU that did not provide this property ("cache coherence") would be
+> most emphatically reviled.
 
-I certainly agree that we shouldn't do volatile just for the fun of it,
-and also that use of volatile should be quite rare.
+That doesn't have anything to do with coherency as far as I can see.
 
-> Especially since several big architectures don't have volatile in their
-> atomic_get and _set, I think it would be a step backwards to add them in
-> as a "just in case" thin now (unless there is a better reason).
+It's just about the order in which a CPU (speculatively) performs the 
+loads
+(which isn't necessarily the same as the order in which it executes the
+corresponding instructions, even).
 
-Good point, except that I would expect gcc's optimization to continue
-to improve.  I would like the kernel to be able to take advantage of
-improved optimization, which means that we are going to have to make
-a few changes.  Adding volatile to atomic_get() and atomic_set() is
-IMHO one of those changes.
+> So we are pretty safe assuming that CPUs
+> will provide it.
 
-> >>Many atomic operations are allowed to be reordered between CPUs, so
-> >>I don't have a good idea for the rationale to order them within the
-> >>CPU (also loads and stores to long and ptr types are not ordered like
-> >>this, although we do consider those to be atomic operations too).
-> >>
-> >>barrier() in a way is like enforcing sequential memory ordering
-> >>between process and interrupt context, wheras volatile is just
-> >>enforcing coherency of a single memory location (and as such is
-> >>cheaper).
-> >
-> >
-> >barrier() is useful, but it has the very painful side-effect of forcing
-> >the compiler to dump temporaries.  So we do need something that is
-> >not quite so global in effect.
-> 
-> Yep.
-> 
-> >>What do you think of this crazy idea?
-> >>
-> >>/* Enforce a compiler barrier for only operations to location X.
-> >>* Call multiple times to provide an ordering between multiple
-> >>* memory locations. Other memory operations can be assumed by
-> >>* the compiler to remain unchanged and may be reordered
-> >>*/
-> >>#define order(x) asm volatile("" : "+m" (x))
-> >
-> >There was something very similar discussed earlier in this thread,
-> >with quite a bit of debate as to exactly what the "m" flag should
-> >look like.  I suggested something similar named ACCESS_ONCE in the
-> >context of RCU (http://lkml.org/lkml/2007/7/11/664):
-> 
-> Oh, I missed that earlier debate. Will go have a look.
-> 
-> >	#define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
-> >
-> >The nice thing about this is that it works for both loads and stores.
-> >Not clear that order() above does this -- I get compiler errors when
-> >I try something like "b = order(a)" or "order(a) = 1" using gcc 4.1.2.
-> 
-> As Arnd ponted out, order() is not supposed to be an lvalue, but a
-> statement like the rest of our memory ordering API.
-> 
-> As to your followup question of why to use it over ACCESS_ONCE. I
-> guess, aside from consistency with the rest of the barrier APIs, you
-> can use it in other primitives when you don't actually know what the
-> caller is going to do or if it even will make an access. You could
-> also use it between calls to _other_ primitives, etc... it just
-> seems more flexible to me, but I haven't actually used such a thing
-> in real code...
-> 
-> ACCESS_ONCE doesn't seem as descriptive. What it results in is the
-> memory location being loaded or stored (presumably once exactly),
-> but I think the more general underlying idea is a barrier point.
+Yeah, pretty safe.  I just don't like undocumented assumptions :-)
 
-OK, first, I am not arguing that ACCESS_ONCE() can replace all current
-uses of barrier().  Similarly, rcu_dereference(), rcu_assign_pointer(),
-and the various RCU versions of the list-manipulation API in no way
-replaced all uses of explicit memory barriers.  However, I do believe that
-these API are much easier to use (where they apply, of course) than were
-the earlier idioms involving explicit memory barriers.
 
-But we of course need to keep the explicit memory and compiler barriers
-for other situations.
+Segher
 
-							Thanx, Paul
