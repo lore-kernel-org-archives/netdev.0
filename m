@@ -1,64 +1,40 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: [PATCH] nl80211: remove VLAN type
-Date: Wed, 15 Aug 2007 11:18:37 +0200
-Message-ID: <1187169518.3960.0.camel@johannes.berg>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [METH] Don't use GFP_DMA for zone allocation.
+Date: Wed, 15 Aug 2007 12:53:16 +0100
+Message-ID: <20070815115316.GB5862@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ftp.linux-mips.org ([194.74.144.162]:38565 "EHLO
+	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753527AbXHOLxU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 07:53:20 -0400
+Received: from localhost.localdomain ([127.0.0.1]:27816 "EHLO
+	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
+	id S20021409AbXHOLxT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 12:53:19 +0100
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is no point in trying to handle source MAC address based VLANs in
-the wireless stack, something like "smacvlan" modeled after macvlan
-should be sufficient.
+IP32 doesn't even have a ZONE_DMA so no point in using GFP_DMA in any
+IP32-specific device driver.
 
-Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
----
-We could just not keep the hole as well since people can't really be
-using that header yet, but the version we have in previous kernels could
-still be shipped somewhere so I think it should be kept compatible.
-
- include/linux/nl80211.h |   19 +++++++++++--------
- 1 file changed, 11 insertions(+), 8 deletions(-)
-
---- wireless-dev.orig/include/linux/nl80211.h	2007-08-15 00:43:06.290200043 +0200
-+++ wireless-dev/include/linux/nl80211.h	2007-08-15 00:45:51.860200043 +0200
-@@ -207,7 +207,6 @@ enum nl80211_attrs {
-  * @NL80211_IFTYPE_ADHOC: independent BSS member
-  * @NL80211_IFTYPE_STATION: managed BSS member
-  * @NL80211_IFTYPE_AP: access point
-- * @NL80211_IFTYPE_AP_VLAN: VLAN interface for access points
-  * @NL80211_IFTYPE_WDS: wireless distribution interface
-  * @NL80211_IFTYPE_MONITOR: monitor interface receiving all frames
-  * @__NL80211_IFTYPE_AFTER_LAST: internal use
-@@ -217,13 +216,17 @@ enum nl80211_attrs {
-  *
-  */
- enum nl80211_iftype {
--	NL80211_IFTYPE_UNSPECIFIED,
--	NL80211_IFTYPE_ADHOC,
--	NL80211_IFTYPE_STATION,
--	NL80211_IFTYPE_AP,
--	NL80211_IFTYPE_AP_VLAN,
--	NL80211_IFTYPE_WDS,
--	NL80211_IFTYPE_MONITOR,
-+	NL80211_IFTYPE_UNSPECIFIED = 0,
-+	NL80211_IFTYPE_ADHOC = 1,
-+	NL80211_IFTYPE_STATION = 2,
-+	NL80211_IFTYPE_AP = 3,
-+	/*
-+	 * there was AP_VLAN here but it was never used
-+	 * keep the number unallocated for the benefit
-+	 * of those people using old headers
-+	 */
-+	NL80211_IFTYPE_WDS = 5,
-+	NL80211_IFTYPE_MONITOR = 6,
- 
- 	/* keep last */
- 	__NL80211_IFTYPE_AFTER_LAST
+diff --git a/drivers/net/meth.c b/drivers/net/meth.c
+index 92b403b..32bed6b 100644
+--- a/drivers/net/meth.c
++++ b/drivers/net/meth.c
+@@ -405,7 +405,7 @@ static void meth_rx(struct net_device* dev, unsigned long int_status)
+ 				priv->stats.rx_length_errors++;
+ 				skb = priv->rx_skbs[priv->rx_write];
+ 			} else {
+-				skb = alloc_skb(METH_RX_BUFF_SIZE, GFP_ATOMIC | GFP_DMA);
++				skb = alloc_skb(METH_RX_BUFF_SIZE, GFP_ATOMIC);
+ 				if (!skb) {
+ 					/* Ouch! No memory! Drop packet on the floor */
+ 					DPRINTK("No mem: dropping packet\n");
