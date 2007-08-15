@@ -1,143 +1,115 @@
-From: Satyam Sharma <satyam@infradead.org>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Wed, 15 Aug 2007 20:05:38 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0708151941150.16414@enigma.security.iitk.ac.in>
-References: <46C2350A.1010807@redhat.com> <E1ILCgh-00052A-00@gondolin.me.apana.org.au>
- <20070815081841.GA16551@osiris.boeblingen.de.ibm.com>
- <46C30540.2070603@s5r6.in-berlin.de>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Wed, 15 Aug 2007 07:25:16 -0700
+Message-ID: <20070815142516.GB9645@linux.vnet.ibm.com>
+References: <20070809131423.GA9927@shell.boston.redhat.com> <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in> <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in> <46C2FADB.7020407@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151906330.16414@enigma.security.iitk.ac.in>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Chris Snook <csnook@redhat.com>, clameter@sgi.com,
+Content-Type: text/plain; charset=us-ascii
+Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Christoph Lameter <clameter@sgi.com>,
+	Chris Snook <csnook@redhat.com>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	linux-arch@vger.kernel.org,
 	Linus Torvalds <torvalds@linux-foundation.org>,
 	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, davem@davemloft.net, schwidefsky@de.ibm.com,
-	wensong@linux-vs.org, horms@verge.net.au, wjiang@resilience.com,
-	cfriesen@nortel.com, zlynx@acm.org, rpjday@mindspring.com,
-	jesper.juhl@gmail.com, segher@kernel.crashing.org
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Satyam Sharma <satyam@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:47456 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756010AbXHOOXQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 10:23:16 -0400
-In-Reply-To: <46C30540.2070603@s5r6.in-berlin.de>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:51438 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757874AbXHOOZU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 10:25:20 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.0.999.0708151906330.16414@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stefan,
-
-
-On Wed, 15 Aug 2007, Stefan Richter wrote:
-
-> On 8/15/2007 10:18 AM, Heiko Carstens wrote:
-> > On Wed, Aug 15, 2007 at 02:49:03PM +0800, Herbert Xu wrote:
-> >> Chris Snook <csnook@redhat.com> wrote:
-> >> > 
-> >> > Because atomic operations are generally used for synchronization, which requires 
-> >> > volatile behavior.  Most such codepaths currently use an inefficient barrier(). 
-> >> >  Some forget to and we get bugs, because people assume that atomic_read() 
-> >> > actually reads something, and atomic_write() actually writes something.  Worse, 
-> >> > these are architecture-specific, even compiler version-specific bugs that are 
-> >> > often difficult to track down.
-> >> 
-> >> I'm yet to see a single example from the current tree where
-> >> this patch series is the correct solution.  So far the only
-> >> example has been a buggy piece of code which has since been
-> >> fixed with a cpu_relax.
+On Wed, Aug 15, 2007 at 07:17:29PM +0530, Satyam Sharma wrote:
+> On Wed, 15 Aug 2007, Stefan Richter wrote:
+> > Satyam Sharma wrote:
+> > > On Wed, 15 Aug 2007, Stefan Richter wrote:
+> > >> Doesn't "atomic WRT all processors" require volatility?
+> > > 
+> > > No, it definitely doesn't. Why should it?
+> > > 
+> > > "Atomic w.r.t. all processors" is just your normal, simple "atomicity"
+> > > for SMP systems (ensure that that object is modified / set / replaced
+> > > in main memory atomically) and has nothing to do with "volatile"
+> > > behaviour.
+> > > 
+> > > "Volatile behaviour" itself isn't consistently defined (at least
+> > > definitely not consistently implemented in various gcc versions across
+> > > platforms), but it is /expected/ to mean something like: "ensure that
+> > > every such access actually goes all the way to memory, and is not
+> > > re-ordered w.r.t. to other accesses, as far as the compiler can take
+> > > care of these". The last "as far as compiler can take care" disclaimer
+> > > comes about due to CPUs doing their own re-ordering nowadays.
+> > > 
+> > > For example (say on i386):
 > > 
-> > Btw.: we still have
+> > [...]
 > > 
-> > include/asm-i386/mach-es7000/mach_wakecpu.h:  while (!atomic_read(deassert));
-> > include/asm-i386/mach-default/mach_wakecpu.h: while (!atomic_read(deassert));
+> > > In (A) the compiler optimized "a = 10;" away, but the actual store
+> > > of the final value "20" to "a" was still "atomic". (B) and (C) also
+> > > exhibit "volatile" behaviour apart from the "atomicity".
+> > > 
+> > > But as others replied, it seems some callers out there depend upon
+> > > atomic ops exhibiting "volatile" behaviour as well, so that answers
+> > > my initial question, actually. I haven't looked at the code Paul
+> > > pointed me at, but I wonder if that "forget(x)" macro would help
+> > > those cases. I'd wish to avoid the "volatile" primitive, personally.
 > > 
-> > Looks like they need to be fixed as well.
+> > So, looking at load instead of store, understand I correctly that in
+> > your opinion
+> > 
+> > 	int b;
+> > 
+> > 	b = atomic_read(&a);
+> > 	if (b)
+> > 		do_something_time_consuming();
+> > 
+> > 	b = atomic_read(&a);
+> > 	if (b)
+> > 		do_something_more();
+> > 
+> > should be changed to explicitly forget(&a) after
+> > do_something_time_consuming?
 > 
+> No, I'd actually prefer something like what Christoph Lameter suggested,
+> i.e. users (such as above) who want "volatile"-like behaviour from atomic
+> ops can use alternative functions. How about something like:
 > 
-> I don't know if this here is affected:
+> #define atomic_read_volatile(v)			\
+> 	({					\
+> 		forget(&(v)->counter);		\
+> 		((v)->counter);			\
+> 	})
 
-Yes, I think it is. You're clearly expecting the read to actually happen
-when you call get_hpsb_generation(). It's clearly not a busy-loop, so
-cpu_relax() sounds pointless / wrong solution for this case, so I'm now
-somewhat beginning to appreciate the motivation behind this series :-)
+Wouldn't the above "forget" the value, throw it away, then forget
+that it forgot it, giving non-volatile semantics?
 
-But as I said, there are ways to achieve the same goals of this series
-without using "volatile".
+> Or possibly, implement these "volatile" atomic ops variants in inline asm
+> like the patch that Sebastian Siewior has submitted on another thread just
+> a while back.
 
-I think I'll submit a RFC/patch or two on this myself (will also fix
-the code pieces listed here).
+Given that you are advocating a change (please keep in mind that
+atomic_read() and atomic_set() had volatile semantics on almost all
+platforms), care to give some example where these historical volatile
+semantics are causing a problem?
 
+> Of course, if we find there are more callers in the kernel who want the
+> volatility behaviour than those who don't care, we can re-define the
+> existing ops to such variants, and re-name the existing definitions to
+> somethine else, say "atomic_read_nonvolatile" for all I care.
 
-> /* drivers/ieee1394/ieee1394_core.h */
-> static inline unsigned int get_hpsb_generation(struct hpsb_host *host)
-> {
-> 	return atomic_read(&host->generation);
-> }
-> 
-> /* drivers/ieee1394/nodemgr.c */
-> static int nodemgr_host_thread(void *__hi)
-> {
-> 	[...]
-> 
-> 	for (;;) {
-> 		[... sleep until bus reset event ...]
-> 
-> 		/* Pause for 1/4 second in 1/16 second intervals,
-> 		 * to make sure things settle down. */
-> 		g = get_hpsb_generation(host);
-> 		for (i = 0; i < 4 ; i++) {
-> 			if (msleep_interruptible(63) ||
-> 			    kthread_should_stop())
-> 				goto exit;
+Do we really need another set of APIs?  Can you give even one example
+where the pre-existing volatile semantics are causing enough of a problem
+to justify adding yet more atomic_*() APIs?
 
-Totally unrelated, but this looks weird. IMHO you actually wanted:
-
-	msleep_interruptible(63);
-	if (kthread_should_stop())
-		goto exit;
-
-here, didn't you? Otherwise the thread will exit even when
-kthread_should_stop() != TRUE (just because it received a signal),
-and it is not good for a kthread to exit on its own if it uses
-kthread_should_stop() or if some other piece of kernel code could
-eventually call kthread_stop(tsk) on it.
-
-Ok, probably the thread will never receive a signal in the first
-place because it's spawned off kthreadd which ignores all signals
-beforehand, but still ...
-
-[PATCH] ieee1394: Fix kthread stopping in nodemgr_host_thread
-
-The nodemgr host thread can exit on its own even when kthread_should_stop
-is not true, on receiving a signal (might never happen in practice, as
-it ignores signals). But considering kthread_stop() must not be mixed with
-kthreads that can exit on their own, I think changing the code like this
-is clearer. This change means the thread can cut its sleep short when
-receive a signal but looking at the code around, that sounds okay (and
-again, it might never actually recieve a signal in practice).
-
-Signed-off-by: Satyam Sharma <satyam@infradead.org>
-
----
-
- drivers/ieee1394/nodemgr.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/ieee1394/nodemgr.c b/drivers/ieee1394/nodemgr.c
-index 2ffd534..981a7da 100644
---- a/drivers/ieee1394/nodemgr.c
-+++ b/drivers/ieee1394/nodemgr.c
-@@ -1721,7 +1721,8 @@ static int nodemgr_host_thread(void *__hi)
- 		 * to make sure things settle down. */
- 		g = get_hpsb_generation(host);
- 		for (i = 0; i < 4 ; i++) {
--			if (msleep_interruptible(63) || kthread_should_stop())
-+			msleep_interruptible(63);
-+			if (kthread_should_stop())
- 				goto exit;
- 
- 			/* Now get the generation in which the node ID's we collect
+							Thanx, Paul
