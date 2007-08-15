@@ -1,8 +1,9 @@
 From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 1/2] ethtool: add register dump support for intel 82575
-	chipsets (igb driver)
-Date: Wed, 15 Aug 2007 10:44:01 -0700
-Message-ID: <20070815174401.15938.53561.stgit@localhost.localdomain>
+Subject: [PATCH 2/2] ethtool: add register dump support for intel 82598
+	chipsets (ixgbe driver)
+Date: Wed, 15 Aug 2007 10:44:11 -0700
+Message-ID: <20070815174411.15938.87243.stgit@localhost.localdomain>
+References: <20070815174401.15938.53561.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,10 +11,11 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	nicholas.d.nunley@intel.com, auke-jan.h.kok@intel.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:26700 "EHLO mga09.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:23414 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752691AbXHORoM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2007 13:44:12 -0400
+	id S1753000AbXHORoq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 13:44:46 -0400
+In-Reply-To: <20070815174401.15938.53561.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -26,145 +28,84 @@ Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
  Makefile.am    |    2 
  ethtool-util.h |    2 
  ethtool.c      |    1 
- igb.c          |  864 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 868 insertions(+), 1 deletions(-)
+ ixgbe.c        | 1017 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 1021 insertions(+), 1 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 9f4bbd3..7bb58d8 100644
+index 7bb58d8..43d1236 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -5,7 +5,7 @@ EXTRA_DIST = ethtool.8 ethtool.spec.in aclocal.m4 ChangeLog autogen.sh
- 
+@@ -6,7 +6,7 @@ EXTRA_DIST = ethtool.8 ethtool.spec.in aclocal.m4 ChangeLog autogen.sh
  sbin_PROGRAMS = ethtool
  ethtool_SOURCES = ethtool.c ethtool-copy.h ethtool-util.h	\
--		  amd8111e.c de2104x.c e100.c e1000.c		\
-+		  amd8111e.c de2104x.c e100.c e1000.c igb.c	\
- 		  fec_8xx.c ibm_emac.c ixgb.c natsemi.c		\
+ 		  amd8111e.c de2104x.c e100.c e1000.c igb.c	\
+-		  fec_8xx.c ibm_emac.c ixgb.c natsemi.c		\
++		  fec_8xx.c ibm_emac.c ixgb.c ixgbe.c natsemi.c	\
  		  pcnet32.c realtek.c tg3.c marvell.c vioc.c	\
  		  smsc911x.c
+ 
 diff --git a/ethtool-util.h b/ethtool-util.h
-index f429555..1621dfe 100644
+index 1621dfe..5572771 100644
 --- a/ethtool-util.h
 +++ b/ethtool-util.h
-@@ -30,6 +30,8 @@ int de2104x_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
- /* Intel(R) PRO/1000 Gigabit Adapter Family */
- int e1000_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
+@@ -56,6 +56,8 @@ int ibm_emac_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
+ /* Intel(R) PRO/10GBe Gigabit Adapter Family */
+ int ixgb_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
  
-+int igb_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
++int ixgbe_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
 +
- /* RealTek PCI */
- int realtek_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
+ /* Broadcom Tigon3 Ethernet controller */
+ int tg3_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
  
 diff --git a/ethtool.c b/ethtool.c
-index b04f747..29562a7 100644
+index 29562a7..651529e 100644
 --- a/ethtool.c
 +++ b/ethtool.c
-@@ -1003,6 +1003,7 @@ static struct {
- 	{ "r8169", realtek_dump_regs },
- 	{ "de2104x", de2104x_dump_regs },
+@@ -1005,6 +1005,7 @@ static struct {
  	{ "e1000", e1000_dump_regs },
-+	{ "igb", igb_dump_regs },
+ 	{ "igb", igb_dump_regs },
  	{ "ixgb", ixgb_dump_regs },
++	{ "ixgbe", ixgbe_dump_regs },
  	{ "natsemi", natsemi_dump_regs },
  	{ "e100", e100_dump_regs },
-diff --git a/igb.c b/igb.c
+ 	{ "amd8111e", amd8111e_dump_regs },
+diff --git a/ixgbe.c b/ixgbe.c
 new file mode 100644
-index 0000000..fadc22e
+index 0000000..03eba6a
 --- /dev/null
-+++ b/igb.c
-@@ -0,0 +1,864 @@
++++ b/ixgbe.c
+@@ -0,0 +1,1017 @@
 +/* Copyright (c) 2007 Intel Corporation */
 +#include <stdio.h>
 +#include "ethtool-util.h"
 +
 +/* Register Bit Masks */
-+/* Device Control */
-+#define E1000_CTRL_FD         0x00000001  /* Full duplex.0=half; 1=full */
-+#define E1000_CTRL_PRIOR      0x00000004  /* Priority on PCI. 0=rx,1=fair */
-+#define E1000_CTRL_GIOMASTERD 0x00000008  /* GIO Master Disable*/
-+#define E1000_CTRL_TME        0x00000010  /* Test mode. 0=normal,1=test */
-+#define E1000_CTRL_SLE        0x00000020  /* Serial Link on 0=dis,1=en */
-+#define E1000_CTRL_ASDE       0x00000020  /* Auto-speed detect enable */
-+#define E1000_CTRL_SLU        0x00000040  /* Set link up (Force Link) */
-+#define E1000_CTRL_ILOS       0x00000080  /* Invert Loss-Of Signal */
-+#define E1000_CTRL_SPD_SEL    0x00000300  /* Speed Select Mask */
-+#define E1000_CTRL_SPD_10     0x00000000  /* Force 10Mb */
-+#define E1000_CTRL_SPD_100    0x00000100  /* Force 100Mb */
-+#define E1000_CTRL_SPD_1000   0x00000200  /* Force 1Gb */
-+#define E1000_CTRL_FRCSPD     0x00000800  /* Force Speed */
-+#define E1000_CTRL_FRCDPX     0x00001000  /* Force Duplex */
-+#define E1000_CTRL_SDP0_GPIEN 0x00010000  /* General Purpose Interrupt Detection Enable for SDP0 */
-+#define E1000_CTRL_SDP1_GPIEN 0x00020000  /* General Purpose Interrupt Detection Enable for SDP1 */
-+#define E1000_CTRL_SDP0_DATA  0x00040000  /* SDP0 Data */
-+#define E1000_CTRL_SDP1_DATA  0x00080000  /* SDP1 Data */
-+#define E1000_CTRL_ADVD3WUC   0x00100000  /* D3Cold WakeUp Capability Advertisement Enable */
-+#define E1000_CTRL_SDP0_WDE   0x00200000  /* Watchdog Indication for SDP0 */
-+#define E1000_CTRL_SDP1_IODIR 0x00400000  /* SDP1 Directionality */
-+#define E1000_CTRL_RST        0x04000000  /* Global reset */
-+#define E1000_CTRL_RFCE       0x08000000  /* Receive Flow Control enable */
-+#define E1000_CTRL_TFCE       0x10000000  /* Transmit flow control enable */
-+#define E1000_CTRL_VME        0x40000000  /* IEEE VLAN mode enable */
-+#define E1000_CTRL_PHY_RST    0x80000000  /* PHY Reset */
-+
-+/* Device Status */
-+#define E1000_STATUS_FD          0x00000001      /* Full duplex.0=half,1=full */
-+#define E1000_STATUS_LU          0x00000002      /* Link up.0=no,1=link */
-+#define E1000_STATUS_LANID       0x00000008      /* LAN ID */
-+#define E1000_STATUS_TXOFF       0x00000010      /* transmission paused */
-+#define E1000_STATUS_TBIMODE     0x00000020      /* TBI mode */
-+#define E1000_STATUS_SPEED_MASK  0x000000C0      /* Speed Mask */
-+#define E1000_STATUS_SPEED_10    0x00000000      /* Speed 10Mb/s */
-+#define E1000_STATUS_SPEED_100   0x00000040      /* Speed 100Mb/s */
-+#define E1000_STATUS_SPEED_1000  0x00000080      /* Speed 1000Mb/s */
-+#define E1000_STATUS_ASDV        0x00000300      /* Auto speed detect value */
-+#define E1000_STATUS_PHYRA       0x00000400      /* PHY Reset Asserted */
-+#define E1000_STATUS_GIOMASTEREN 0x00080000      /* GIO Master Enable Status */
-+#define E1000_STATUS_DMA_CGEN    0x80000000      /* DMA clock gating Enable */
-+
-+/* Receive Control */
-+#define E1000_RCTL_EN           0x00000002      /* enable */
-+#define E1000_RCTL_SBP          0x00000004      /* store bad packet */
-+#define E1000_RCTL_UPE          0x00000008      /* unicast promiscuous enable */
-+#define E1000_RCTL_MPE          0x00000010      /* multicast promiscuous enab */
-+#define E1000_RCTL_LPE          0x00000020      /* long packet enable */
-+#define E1000_RCTL_LBM_MASK     0x000000C0      /* Loopback mode mask */
-+#define E1000_RCTL_LBM_NORM     0x00000000      /* normal loopback mode */
-+#define E1000_RCTL_LBM_MAC      0x00000040      /* MAC loopback mode */
-+#define E1000_RCTL_LBM_SERDES   0x000000C0      /* SERDES loopback mode */
-+#define E1000_RCTL_RDMTS        0x00000300      /* rx desc min threshold size */
-+#define E1000_RCTL_RDMTS_HALF   0x00000000      /* rx desc min threshold size */
-+#define E1000_RCTL_RDMTS_QUAT   0x00000100      /* rx desc min threshold size */
-+#define E1000_RCTL_RDMTS_EIGTH  0x00000200      /* rx desc min threshold size */
-+#define E1000_RCTL_MO           0x00003000      /* multicast offset shift */
-+#define E1000_RCTL_MO_0         0x00000000      /* multicast offset 47:36 */
-+#define E1000_RCTL_MO_1         0x00001000      /* multicast offset 46:35 */
-+#define E1000_RCTL_MO_2         0x00002000      /* multicast offset 45:34 */
-+#define E1000_RCTL_MO_3         0x00003000      /* multicast offset 43:32 */
-+#define E1000_RCTL_BAM          0x00008000      /* broadcast enable */
-+#define E1000_RCTL_BSIZE        0x00030000      /* rx buffer size */
-+#define E1000_RCTL_BSIZE_2048   0x00000000      /* rx buffer size 2048 */
-+#define E1000_RCTL_BSIZE_1024   0x00010000      /* rx buffer size 1024 */
-+#define E1000_RCTL_BSIZE_512    0x00020000      /* rx buffer size 512 */
-+#define E1000_RCTL_BSIZE_256    0x00030000      /* rx buffer size 256 */
-+#define E1000_RCTL_VFE          0x00040000      /* vlan filter enable */
-+#define E1000_RCTL_CFIEN        0x00080000      /* canonical form enable */
-+#define E1000_RCTL_CFI          0x00100000      /* canonical form indicator */
-+#define E1000_RCTL_DPF          0x00400000      /* discard pause frames */
-+#define E1000_RCTL_PMCF         0x00800000      /* pass MAC control frames */
-+#define E1000_RCTL_SECRC        0x04000000      /* Strip Ethernet CRC from packet.0=No strip;1=strip */
-+
-+/* Transmit Control */
-+#define E1000_TCTL_EN     0x00000002    /* enable tx */
-+#define E1000_TCTL_PSP    0x00000008    /* pad short packets */
-+#define E1000_TCTL_CT     0x00000ff0    /* collision threshold */
-+#define E1000_TCTL_BST    0x003ff000    /* Backoff Slot time */
-+#define E1000_TCTL_SWXOFF 0x00400000    /* SW Xoff transmission */
-+#define E1000_TCTL_PBE    0x00800000    /* Packet Burst Enable */
-+#define E1000_TCTL_RTLC   0x01000000    /* Re-transmit on late collision */
-+#define E1000_TCTL_NRTU   0x02000000    /* No Re-transmit on underrun */
++#define IXGBE_FCTRL_SBP            0x00000002
++#define IXGBE_FCTRL_MPE            0x00000100
++#define IXGBE_FCTRL_UPE            0x00000200
++#define IXGBE_FCTRL_BAM            0x00000400
++#define IXGBE_FCTRL_PMCF           0x00001000
++#define IXGBE_FCTRL_DPF            0x00002000
++#define IXGBE_FCTRL_RPFCE          0x00004000
++#define IXGBE_FCTRL_RFCE           0x00008000
++#define IXGBE_VLNCTRL_VET          0x0000FFFF
++#define IXGBE_VLNCTRL_CFI          0x10000000
++#define IXGBE_VLNCTRL_CFIEN        0x20000000
++#define IXGBE_VLNCTRL_VFE          0x40000000
++#define IXGBE_VLNCTRL_VME          0x80000000
++#define IXGBE_LINKS_UP             0x40000000
++#define IXGBE_LINKS_SPEED          0x20000000
++#define IXGBE_SRRCTL_BSIZEPKT_MASK 0x0000007F
++#define IXGBE_HLREG0_TXCRCEN       0x00000001
++#define IXGBE_HLREG0_RXCRCSTRP     0x00000002
++#define IXGBE_HLREG0_JUMBOEN       0x00000004
++#define IXGBE_HLREG0_TXPADEN       0x00000400
++#define IXGBE_HLREG0_LPBK          0x00008000
++#define IXGBE_RMCS_TFCE_802_3X     0x00000008
++#define IXGBE_RMCS_TFCE_PRIORITY   0x00000010
 +
 +int
-+igb_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
++ixgbe_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
 +{
 +	u32 *regs_buff = (u32 *)regs->data;
 +	u32 reg;
@@ -174,766 +115,980 @@ index 0000000..fadc22e
 +	if (version != 1)
 +		return -1;
 +
-+	/* Device control register */
-+	reg = regs_buff[0];
++	reg = regs_buff[1065];
 +	fprintf(stdout,
-+		"0x00000: CTRL (Device control register)               0x%08X\n"
-+		"       Invert Loss-Of-Signal:                         %s\n"
-+		"       Receive flow control:                          %s\n"
-+		"       Transmit flow control:                         %s\n"
-+		"       VLAN mode:                                     %s\n"
-+		"       Set link up:                                   %s\n"
-+		"       D3COLD WakeUp capability advertisement:        %s\n",
-+		reg,
-+		reg & E1000_CTRL_ILOS     ? "yes"      : "no",
-+		reg & E1000_CTRL_RFCE     ? "enabled"  : "disabled",
-+		reg & E1000_CTRL_TFCE     ? "enabled"  : "disabled",
-+		reg & E1000_CTRL_VME      ? "enabled"  : "disabled",
-+		reg & E1000_CTRL_SLU      ? "1"        : "0",
-+		reg & E1000_CTRL_ADVD3WUC ? "enabled"  : "disabled");
++	"0x042A4: LINKS (Link Status register)                 0x%08X\n"
++	"       Link Status:                                   %s\n"
++	"       Link Speed:                                    %s\n",
++	reg,
++	reg & IXGBE_LINKS_UP      ? "up"       : "down",
++	reg & IXGBE_LINKS_SPEED   ? "10G"      : "1G");
++	
++	reg = regs_buff[515];
 +	fprintf(stdout,
-+		"       Auto speed detect:                             %s\n"
-+		"       Speed select:                                  %s\n"
-+		"       Force speed:                                   %s\n"
-+		"       Force duplex:                                  %s\n",
-+		reg & E1000_CTRL_ASDE   ? "enabled"  : "disabled",
-+		(reg & E1000_CTRL_SPD_SEL) == E1000_CTRL_SPD_10   ? "10Mb/s"   :
-+		(reg & E1000_CTRL_SPD_SEL) == E1000_CTRL_SPD_100  ? "100Mb/s"  :
-+		(reg & E1000_CTRL_SPD_SEL) == E1000_CTRL_SPD_1000 ? "1000Mb/s" :
-+		"not used",
-+		reg & E1000_CTRL_FRCSPD ? "yes"      : "no",
-+		reg & E1000_CTRL_FRCDPX ? "yes"      : "no");
-+
-+	/* Device status register */
-+	reg = regs_buff[1];
++	"0x05080: FCTRL (Filter Control register)              0x%08X\n"
++	"       Receive Flow Control Packets:                  %s\n"
++	"       Receive Priority Flow Control Packets:         %s\n"
++	"       Discard Pause Frames:                          %s\n"
++	"       Pass MAC Control Frames:                       %s\n"
++	"       Broadcast Accept:                              %s\n"
++	"       Unicast Promiscuous:                           %s\n"
++	"       Multicast Promiscuous:                         %s\n"
++	"       Store Bad Packets:                             %s\n",
++	reg,
++	reg & IXGBE_FCTRL_RFCE    ? "enabled"  : "disabled",
++	reg & IXGBE_FCTRL_RPFCE   ? "enabled"  : "disabled",
++	reg & IXGBE_FCTRL_DPF     ? "enabled"  : "disabled",
++	reg & IXGBE_FCTRL_PMCF    ? "enabled"  : "disabled",
++	reg & IXGBE_FCTRL_BAM     ? "enabled"  : "disabled",
++	reg & IXGBE_FCTRL_UPE     ? "enabled"  : "disabled",
++	reg & IXGBE_FCTRL_MPE     ? "enabled"  : "disabled",
++	reg & IXGBE_FCTRL_SBP     ? "enabled"  : "disabled");
++	
++	reg = regs_buff[516];
 +	fprintf(stdout,
-+		"0x00008: STATUS (Device status register)              0x%08X\n"
-+		"       Duplex:                                        %s\n"
-+		"       Link up:                                       %s\n"
-+		"       Transmission:                                  %s\n"
-+		"       DMA clock gating:                              %s\n",
-+		reg,
-+		reg & E1000_STATUS_FD       ? "full"        : "half",
-+		reg & E1000_STATUS_LU       ? "link config" : "no link config",
-+		reg & E1000_STATUS_TXOFF    ? "paused"      : "on",
-+		reg & E1000_STATUS_DMA_CGEN ? "enabled"     : "disabled");
++	"0x05088: VLNCTRL (VLAN Control register)              0x%08X\n"
++	"       VLAN Mode:                                     %s\n"
++	"       VLAN Filter:                                   %s\n",
++	reg,
++	reg & IXGBE_VLNCTRL_VME   ? "enabled"  : "disabled",
++	reg & IXGBE_VLNCTRL_VFE   ? "enabled"  : "disabled");
++	
++	reg = regs_buff[437];
 +	fprintf(stdout,
-+		"       TBI mode:                                      %s\n"
-+		"       Link speed:                                    %s\n"
-+		"       Bus type:                                      %s\n",
-+		reg & E1000_STATUS_TBIMODE ? "enabled"     : "disabled",
-+		(reg & E1000_STATUS_SPEED_MASK) == E1000_STATUS_SPEED_10   ?
-+		"10Mb/s" :
-+		(reg & E1000_STATUS_SPEED_MASK) == E1000_STATUS_SPEED_100  ?
-+		"100Mb/s" :
-+		(reg & E1000_STATUS_SPEED_MASK) == E1000_STATUS_SPEED_1000 ?
-+		"1000Mb/s" : "not used",
-+		"PCI Express");
-+
-+	/* Receive control register */
-+	reg = regs_buff[32];
++	"0x02100: SRRCTL0 (Split and Replic Rx Control 0)      0x%08X\n"
++	"       Receive Buffer Size:                           %uKB\n",
++	reg,
++	(reg & IXGBE_SRRCTL_BSIZEPKT_MASK) <= 0x10 ? (reg & IXGBE_SRRCTL_BSIZEPKT_MASK) : 0x10);
++	
++	reg = regs_buff[829];
 +	fprintf(stdout,
-+		"0x00100: RCTL (Receive control register)              0x%08X\n"
-+		"       Receiver:                                      %s\n"
-+		"       Store bad packets:                             %s\n"
-+		"       Unicast promiscuous:                           %s\n"
-+		"       Multicast promiscuous:                         %s\n"
-+		"       Long packet:                                   %s\n"
-+		"       Descriptor minimum threshold size:             %s\n"
-+		"       Broadcast accept mode:                         %s\n"
-+		"       VLAN filter:                                   %s\n"
-+		"       Cononical form indicator:                      %s\n"
-+		"       Discard pause frames:                          %s\n"
-+		"       Pass MAC control frames:                       %s\n"
-+		"       Loopback mode:                                 %s\n",
-+		reg,
-+		reg & E1000_RCTL_EN      ? "enabled"  : "disabled",
-+		reg & E1000_RCTL_SBP     ? "enabled"  : "disabled",
-+		reg & E1000_RCTL_UPE     ? "enabled"  : "disabled",
-+		reg & E1000_RCTL_MPE     ? "enabled"  : "disabled",
-+		reg & E1000_RCTL_LPE     ? "enabled"  : "disabled",
-+		(reg & E1000_RCTL_RDMTS) == E1000_RCTL_RDMTS_HALF  ? "1/2" :
-+		(reg & E1000_RCTL_RDMTS) == E1000_RCTL_RDMTS_QUAT  ? "1/4" :
-+		(reg & E1000_RCTL_RDMTS) == E1000_RCTL_RDMTS_EIGTH ? "1/8" :
-+		"reserved",
-+		reg & E1000_RCTL_BAM      ? "accept"   : "ignore",
-+		reg & E1000_RCTL_VFE      ? "enabled"  : "disabled",
-+		reg & E1000_RCTL_CFIEN    ? "enabled"  : "disabled",
-+		reg & E1000_RCTL_DPF      ? "ignored"  : "filtered",
-+		reg & E1000_RCTL_PMCF     ? "pass"     : "don't pass",
-+		(reg & E1000_RCTL_LBM_MASK) == E1000_RCTL_LBM_NORM   ? "normal" :
-+		(reg & E1000_RCTL_LBM_MASK) == E1000_RCTL_LBM_MAC    ? "MAC":
-+		(reg & E1000_RCTL_LBM_MASK) == E1000_RCTL_LBM_SERDES ? "SERDES":
-+		"undefined");
++	"0x03D00: RMCS (Receive Music Control register)        0x%08X\n"
++	"       Transmit Flow Control:                         %s\n"
++	"       Priority Flow Control:                         %s\n",
++	reg,
++	reg & IXGBE_RMCS_TFCE_802_3X     ? "enabled"  : "disabled",
++	reg & IXGBE_RMCS_TFCE_PRIORITY   ? "enabled"  : "disabled");
++	
++	reg = regs_buff[1047];
 +	fprintf(stdout,
-+		"       Receive buffer size:                           %s\n",
-+		(reg & E1000_RCTL_BSIZE)==E1000_RCTL_BSIZE_2048  ? "2048"  :
-+		(reg & E1000_RCTL_BSIZE)==E1000_RCTL_BSIZE_1024  ? "1024"  :
-+		(reg & E1000_RCTL_BSIZE)==E1000_RCTL_BSIZE_512   ? "512"   :
-+		"256");
-+
-+	/* Receive descriptor registers */
++	"0x04250: HLREG0 (Highlander Control 0 register)       0x%08X\n"
++	"       Transmit CRC:                                  %s\n"
++	"       Receive CRC Strip:                             %s\n"
++	"       Jumbo Frames:                                  %s\n"
++	"       Pad Short Frames:                              %s\n"
++	"       Loopback:                                      %s\n",
++	reg,
++	reg & IXGBE_HLREG0_TXCRCEN   ? "enabled"  : "disabled",
++	reg & IXGBE_HLREG0_RXCRCSTRP ? "enabled"  : "disabled",
++	reg & IXGBE_HLREG0_JUMBOEN   ? "enabled"  : "disabled",
++	reg & IXGBE_HLREG0_TXPADEN   ? "enabled"  : "disabled",
++	reg & IXGBE_HLREG0_LPBK      ? "enabled"  : "disabled");
++	
++	/* General Registers */
 +	fprintf(stdout,
-+		"0x02808: RDLEN  (Receive desc length)                 0x%08X\n",
-+		regs_buff[142]);
-+	fprintf(stdout,
-+		"0x02810: RDH    (Receive desc head)                   0x%08X\n",
-+		regs_buff[146]);
-+	fprintf(stdout,
-+		"0x02818: RDT    (Receive desc tail)                   0x%08X\n",
-+		regs_buff[150]);
-+
-+	/* Transmit control register */
-+	reg = regs_buff[38];
-+	fprintf(stdout,
-+		"0x00400: TCTL (Transmit ctrl register)                0x%08X\n"
-+		"       Transmitter:                                   %s\n"
-+		"       Pad short packets:                             %s\n"
-+		"       Software XOFF Transmission:                    %s\n",
-+		reg,
-+		reg & E1000_TCTL_EN      ? "enabled"  : "disabled",
-+		reg & E1000_TCTL_PSP     ? "enabled"  : "disabled",
-+		reg & E1000_TCTL_SWXOFF  ? "enabled"  : "disabled");
-+	fprintf(stdout,
-+		"       Re-transmit on late collision:                 %s\n",
-+		reg & E1000_TCTL_RTLC    ? "enabled"  : "disabled");
-+
-+	/* Transmit descriptor registers */
-+	fprintf(stdout,
-+		"0x03808: TDLEN       (Transmit desc length)           0x%08X\n",
-+		regs_buff[214]);
-+	fprintf(stdout,
-+		"0x03810: TDH         (Transmit desc head)             0x%08X\n",
-+		regs_buff[218]);
-+	fprintf(stdout,
-+		"0x03818: TDT         (Transmit desc tail)             0x%08X\n",
-+		regs_buff[222]);
-+
++		"0x00000: CTRL        (Device Control)                 0x%08X\n",
++		regs_buff[0]);
 +
 +	fprintf(stdout,
-+		"0x00018: CTRL_EXT    (Extended device control)        0x%08X\n",
++		"0x00008: STATUS      (Device Status)                  0x%08X\n",
++		regs_buff[1]);
++
++	fprintf(stdout,
++		"0x00018: CTRL_EXT    (Extended Device Control)        0x%08X\n",
 +		regs_buff[2]);
 +
 +	fprintf(stdout,
-+		"0x00018: MDIC        (MDI control)                    0x%08X\n",
++		"0x00020: ESDP        (Extended SDP Control)           0x%08X\n",
 +		regs_buff[3]);
 +
 +	fprintf(stdout,
-+		"0x00024: SCTL        (SERDES ANA)                     0x%08X\n",
++		"0x00028: EODSDP      (Extended OD SDP Control)        0x%08X\n",
 +		regs_buff[4]);
 +
 +	fprintf(stdout,
-+		"0x00034: CONNSW      (Copper/Fiber switch control)    0x%08X\n",
++		"0x00200: LEDCTL      (LED Control)                    0x%08X\n",
 +		regs_buff[5]);
 +
 +	fprintf(stdout,
-+		"0x00038: VET         (VLAN Ether type)                0x%08X\n",
++		"0x00048: FRTIMER     (Free Running Timer)             0x%08X\n",
 +		regs_buff[6]);
-+	
-+	fprintf(stdout,
-+		"0x00E00: LEDCTL      (LED control)                    0x%08X\n",
-+		regs_buff[7]);
 +
 +	fprintf(stdout,
-+		"0x01000: PBA         (Packet buffer allocation)       0x%08X\n",
++		"0x0004C: TCPTIMER    (TCP Timer)                      0x%08X\n",
++		regs_buff[7]);
++
++	/* NVM Register */
++	fprintf(stdout,
++		"0x10010: EEC         (EEPROM/Flash Control)           0x%08X\n",
 +		regs_buff[8]);
-+	
++
 +	fprintf(stdout,
-+		"0x01008: PBS         (Packet buffer size)             0x%08X\n",
++		"0x10014: EERD        (EEPROM Read)                    0x%08X\n",
 +		regs_buff[9]);
-+	
++
 +	fprintf(stdout,
-+		"0x01048: FRTIMER     (Free running timer)             0x%08X\n",
++		"0x1001C: FLA         (Flash Access)                   0x%08X\n",
 +		regs_buff[10]);
 +
 +	fprintf(stdout,
-+		"0x0104C: TCPTIMER    (TCP timer)                      0x%08X\n",
++		"0x10110: EEMNGCTL    (Manageability EEPROM Control)   0x%08X\n",
 +		regs_buff[11]);
 +
 +	fprintf(stdout,
-+		"0x00010: EEC         (EEPROM/FLASH control)           0x%08X\n",
++		"0x10114: EEMNGDATA   (Manageability EEPROM R/W Data)  0x%08X\n",
 +		regs_buff[12]);
 +
 +	fprintf(stdout,
-+		"0x01580: EICR        (Extended interrupt cause)       0x%08X\n",
++		"0x10110: FLMNGCTL    (Manageability Flash Control)    0x%08X\n",
 +		regs_buff[13]);
 +
 +	fprintf(stdout,
-+		"0x01520: EICS        (Extended interrupt cause set)   0x%08X\n",
++		"0x1011C: FLMNGDATA   (Manageability Flash Read Data)  0x%08X\n",
 +		regs_buff[14]);
-+	
++
 +	fprintf(stdout,
-+		"0x01524: EIMS        (Extended interrup set/read)     0x%08X\n",
++		"0x10120: FLMNGCNT    (Manageability Flash Read Count) 0x%08X\n",
 +		regs_buff[15]);
-+	
++
 +	fprintf(stdout,
-+		"0x01528: EIMC        (Extended interrupt mask clear)  0x%08X\n",
++		"0x1013C: FLOP        (Flash Opcode)                   0x%08X\n",
 +		regs_buff[16]);
-+	
++
 +	fprintf(stdout,
-+		"0x0152C: EIAC        (Extended interrupt auto clear)  0x%08X\n",
++		"0x10200: GRC         (General Receive Control)        0x%08X\n",
 +		regs_buff[17]);
-+	
++
++	/* Interrupt */
 +	fprintf(stdout,
-+		"0x01530: EIAM        (Extended interrupt auto mask)   0x%08X\n",
++		"0x00800: EICR        (Extended Interrupt Cause)       0x%08X\n",
 +		regs_buff[18]);
-+	
++
 +	fprintf(stdout,
-+		"0x01500: ICR         (Interrupt cause read)           0x%08X\n",
++		"0x00808: EICS        (Extended Interrupt Cause Set)   0x%08X\n",
 +		regs_buff[19]);
-+	
++
 +	fprintf(stdout,
-+		"0x01504: ICS         (Interrupt cause set)            0x%08X\n",
++		"0x00880: EIMS        (Extended Interr. Mask Set/Read) 0x%08X\n",
 +		regs_buff[20]);
-+	
++
 +	fprintf(stdout,
-+		"0x01508: IMS         (Interrupt mask set/read)        0x%08X\n",
++		"0x00888: EIMC        (Extended Interrupt Mask Clear)  0x%08X\n",
 +		regs_buff[21]);
-+	
++
 +	fprintf(stdout,
-+		"0x0150C: IMC         (Interrupt mask clear)           0x%08X\n",
++		"0x00810: EIAC        (Extended Interrupt Auto Clear)  0x%08X\n",
 +		regs_buff[22]);
-+	
++
 +	fprintf(stdout,
-+		"0x04100: IAC         (Interrupt assertion count)      0x%08X\n",
++		"0x00890: EIAM        (Extended Interr. Auto Mask EN)  0x%08X\n",
 +		regs_buff[23]);
-+	
++
 +	fprintf(stdout,
-+		"0x01510: IAM         (Interr acknowledge auto-mask)   0x%08X\n",
++		"0x00820: EITR0       (Extended Interrupt Throttle 0)  0x%08X\n",
 +		regs_buff[24]);
-+	
++
 +	fprintf(stdout,
-+		"0x05AC0: IMIRVP      (Immed interr rx VLAN priority)  0x%08X\n",
++		"0x00900: IVAR0       (Interrupt Vector Allocation 0)  0x%08X\n",
 +		regs_buff[25]);
-+	
++
 +	fprintf(stdout,
-+		"0x00028: FCAL        (Flow control address low)       0x%08X\n",
++		"0x00000: MSIXT       (MSI-X Table)                    0x%08X\n",
 +		regs_buff[26]);
 +
 +	fprintf(stdout,
-+		"0x0002C: FCAH        (Flow control address high)      0x%08X\n",
++		"0x02000: MSIXPBA     (MSI-X Pending Bit Array)        0x%08X\n",
 +		regs_buff[27]);
 +
 +	fprintf(stdout,
-+		"0x00170: FCTTV       (Flow control tx timer value)    0x%08X\n",
++		"0x11068: PBACL       (MSI-X PBA Clear)                0x%08X\n",
 +		regs_buff[28]);
 +
 +	fprintf(stdout,
-+		"0x02160: FCRTL       (Flow control rx threshold low)  0x%08X\n",
++		"0x00898: GPIE        (General Purpose Interrupt EN)   0x%08X\n",
 +		regs_buff[29]);
 +
++	/* Flow Control */
 +	fprintf(stdout,
-+		"0x02168: FCRTH       (Flow control rx threshold high) 0x%08X\n",
++		"0x03008: PFCTOP      (Priority Flow Ctrl Type Opcode) 0x%08X\n",
 +		regs_buff[30]);
 +
-+	fprintf(stdout,
-+		"0x02460: FCRTV       (Flow control refresh threshold) 0x%08X\n",
-+		regs_buff[31]);
++	for (i = 0; i < 4; i++)
++		fprintf(stdout,
++		"0x%05X: FCCTV%d      (Flow Ctrl Tx Timer Value %d)     0x%08X\n",
++		0x03200 + (4 * i), i, i, regs_buff[31 + i]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: FCRTL%d      (Flow Ctrl Rx Threshold low %d)   0x%08X\n",
++		0x3220 + (8 * i), i, i, regs_buff[35 + i]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: FCRTH%d      (Flow Ctrl Rx Threshold High %d)  0x%08X\n",
++		0x3260 + (8 * i), i, i, regs_buff[43 + i]);
 +
 +	fprintf(stdout,
-+		"0x05000: RXCSUM      (Receive checksum control)       0x%08X\n",
-+		regs_buff[33]);
-+
-+	fprintf(stdout,
-+		"0x05004: RLPML       (Receive long packet max length) 0x%08X\n",
-+		regs_buff[34]);
-+
-+	fprintf(stdout,
-+		"0x05008: RFCTL       (Receive filter control)         0x%08X\n",
-+		regs_buff[35]);
-+
-+	fprintf(stdout,
-+		"0x05818: MRQC        (Multiple rx queues command)     0x%08X\n",
-+		regs_buff[36]);
-+
-+	fprintf(stdout,
-+		"0x0581C: VMD_CTL     (VMDq control)                   0x%08X\n",
-+		regs_buff[37]);
-+
-+	fprintf(stdout,
-+		"0x00404: TCTL_EXT    (Transmit control extended)      0x%08X\n",
-+		regs_buff[39]);
-+
-+	fprintf(stdout,
-+		"0x00410: TIPG        (Transmit IPG)                   0x%08X\n",
-+		regs_buff[40]);
-+
-+	fprintf(stdout,
-+		"0x03590: DTXCTL      (DMA tx control)                 0x%08X\n",
-+		regs_buff[41]);
-+
-+	fprintf(stdout,
-+		"0x05800: WUC         (Wake up control)                0x%08X\n",
-+		regs_buff[42]);
-+
-+	fprintf(stdout,
-+		"0x05808: WUFC        (Wake up filter control)         0x%08X\n",
-+		regs_buff[43]);
-+
-+	fprintf(stdout,
-+		"0x05810: WUS         (Wake up status)                 0x%08X\n",
-+		regs_buff[44]);
-+
-+	fprintf(stdout,
-+		"0x05838: IPAV        (IP address valid)               0x%08X\n",
-+		regs_buff[45]);
-+
-+	fprintf(stdout,
-+		"0x05900: WUPL        (Wake up packet length)          0x%08X\n",
-+		regs_buff[46]);
-+
-+	fprintf(stdout,
-+		"0x04200: PCS_CFG     (PCS configuration 0)            0x%08X\n",
-+		regs_buff[47]);
-+
-+	fprintf(stdout,
-+		"0x04208: PCS_LCTL    (PCS link control)               0x%08X\n",
-+		regs_buff[48]);
-+
-+	fprintf(stdout,
-+		"0x0420C: PCS_LSTS    (PCS link status)                0x%08X\n",
-+		regs_buff[49]);
-+
-+	fprintf(stdout,
-+		"0x04218: PCS_ANADV   (AN advertisement)               0x%08X\n",
-+		regs_buff[50]);
-+
-+	fprintf(stdout,
-+		"0x0421C: PCS_LPAB    (Link partner ability)           0x%08X\n",
++		"0x032A0: FCRTV       (Flow Control Refresh Threshold) 0x%08X\n",
 +		regs_buff[51]);
 +
 +	fprintf(stdout,
-+		"0x04220: PCS_NPTX    (Next Page transmit)             0x%08X\n",
++		"0x0CE00: TFCS        (Transmit Flow Control Status)   0x%08X\n",
 +		regs_buff[52]);
 +
-+	fprintf(stdout,
-+		"0x04224: PCS_LPABNP  (Link partner ability Next Page) 0x%08X\n",
-+		regs_buff[53]);
-+
-+	fprintf(stdout,
-+		"0x04000: CRCERRS     (CRC error count)                0x%08X\n",
-+		regs_buff[54]);
-+
-+	fprintf(stdout,
-+		"0x04004: ALGNERRC    (Alignment error count)          0x%08X\n",
-+		regs_buff[55]);
-+
-+	fprintf(stdout,
-+		"0x04008: SYMERRS     (Symbol error count)             0x%08X\n",
-+		regs_buff[56]);
-+
-+	fprintf(stdout,
-+		"0x0400C: RXERRC      (RX error count)                 0x%08X\n",
-+		regs_buff[57]);
-+
-+	fprintf(stdout,
-+		"0x04010: MPC         (Missed packets count)           0x%08X\n",
-+		regs_buff[58]);
-+
-+	fprintf(stdout,
-+		"0x04014: SCC         (Single collision count)         0x%08X\n",
-+		regs_buff[59]);
-+
-+	fprintf(stdout,
-+		"0x04018: ECOL        (Excessive collisions count)     0x%08X\n",
-+		regs_buff[60]);
-+
-+	fprintf(stdout,
-+		"0x0401C: MCC         (Multiple collision count)       0x%08X\n",
-+		regs_buff[61]);
-+
-+	fprintf(stdout,
-+		"0x04020: LATECOL     (Late collisions count)          0x%08X\n",
-+		regs_buff[62]);
-+
-+	fprintf(stdout,
-+		"0x04028: COLC        (Collision count)                0x%08X\n",
-+		regs_buff[63]);
-+
-+	fprintf(stdout,
-+		"0x04030: DC          (Defer count)                    0x%08X\n",
-+		regs_buff[64]);
-+
-+	fprintf(stdout,
-+		"0x04034: TNCRS       (Transmit with no CRS)           0x%08X\n",
-+		regs_buff[65]);
-+
-+	fprintf(stdout,
-+		"0x04038: SEC         (Sequence error count)           0x%08X\n",
-+		regs_buff[66]);
-+
-+	fprintf(stdout,
-+		"0x0403C: HTDPMC      (Host tx discrd pkts MAC count)  0x%08X\n",
-+		regs_buff[67]);
-+
-+	fprintf(stdout,
-+		"0x04040: RLEC        (Receive length error count)     0x%08X\n",
-+		regs_buff[68]);
-+
-+	fprintf(stdout,
-+		"0x04048: XONRXC      (XON received count)             0x%08X\n",
-+		regs_buff[69]);
-+
-+	fprintf(stdout,
-+		"0x0404C: XONTXC      (XON transmitted count)          0x%08X\n",
-+		regs_buff[70]);
-+
-+	fprintf(stdout,
-+		"0x04050: XOFFRXC     (XOFF received count)            0x%08X\n",
-+		regs_buff[71]);
-+
-+	fprintf(stdout,
-+		"0x04054: XOFFTXC     (XOFF transmitted count)         0x%08X\n",
-+		regs_buff[72]);
-+
-+	fprintf(stdout,
-+		"0x04058: FCRUC       (FC received unsupported count)  0x%08X\n",
-+		regs_buff[73]);
-+
-+	fprintf(stdout,
-+		"0x0405C: PRC64       (Packets rx (64 B) count)        0x%08X\n",
-+		regs_buff[74]);
-+
-+	fprintf(stdout,
-+		"0x04060: PRC127      (Packets rx (65-127 B) count)    0x%08X\n",
-+		regs_buff[75]);
-+
-+	fprintf(stdout,
-+		"0x04064: PRC255      (Packets rx (128-255 B) count)   0x%08X\n",
-+		regs_buff[76]);
-+
-+	fprintf(stdout,
-+		"0x04068: PRC511      (Packets rx (256-511 B) count)   0x%08X\n",
-+		regs_buff[77]);
-+
-+	fprintf(stdout,
-+		"0x0406C: PRC1023     (Packets rx (512-1023 B) count)  0x%08X\n",
-+		regs_buff[78]);
-+
-+	fprintf(stdout,
-+		"0x04070: PRC1522     (Packets rx (1024-max B) count)  0x%08X\n",
-+		regs_buff[79]);
-+
-+	fprintf(stdout,
-+		"0x04074: GPRC        (Good packets received count)    0x%08X\n",
-+		regs_buff[80]);
-+
-+	fprintf(stdout,
-+		"0x04078: BPRC        (Broadcast packets rx count)     0x%08X\n",
-+		regs_buff[81]);
-+
-+	fprintf(stdout,
-+		"0x0407C: MPRC        (Multicast packets rx count)     0x%08X\n",
-+		regs_buff[82]);
-+
-+	fprintf(stdout,
-+		"0x04080: GPTC        (Good packets tx count)          0x%08X\n",
-+		regs_buff[83]);
-+
-+	fprintf(stdout,
-+		"0x04088: GORCL       (Good octets rx count lower)     0x%08X\n",
-+		regs_buff[84]);
-+
-+	fprintf(stdout,
-+		"0x0408C: GORCH       (Good octets rx count upper)     0x%08X\n",
-+		regs_buff[85]);
-+	
-+	fprintf(stdout,
-+		"0x04090: GOTCL       (Good octets tx count lower)     0x%08X\n",
-+		regs_buff[86]);
-+
-+	fprintf(stdout,
-+		"0x04094: GOTCH       (Good octets tx count upper)     0x%08X\n",
-+		regs_buff[87]);
-+
-+	fprintf(stdout,
-+		"0x040A0: RNBC        (Receive no buffers count)       0x%08X\n",
-+		regs_buff[88]);
-+
-+	fprintf(stdout,
-+		"0x040A4: RUC         (Receive undersize count)        0x%08X\n",
-+		regs_buff[89]);
-+
-+	fprintf(stdout,
-+		"0x040A8: RFC         (Receive fragment count)         0x%08X\n",
-+		regs_buff[90]);
-+
-+	fprintf(stdout,
-+		"0x040AC: ROC         (Receive oversize count)         0x%08X\n",
-+		regs_buff[91]);
-+
-+	fprintf(stdout,
-+		"0x040B0: RJC         (Receive jabber count)           0x%08X\n",
-+		regs_buff[92]);
-+
-+	fprintf(stdout,
-+		"0x040B4: MGPRC       (Management packets rx count)    0x%08X\n",
-+		regs_buff[93]);
-+
-+	fprintf(stdout,
-+		"0x040B8: MGPDC       (Management pkts dropped count)  0x%08X\n",
-+		regs_buff[94]);
-+
-+	fprintf(stdout,
-+		"0x040BC: MGPTC       (Management packets tx count)    0x%08X\n",
-+		regs_buff[95]);
-+
-+	fprintf(stdout,
-+		"0x040C0: TORL        (Total octets received lower)    0x%08X\n",
-+		regs_buff[96]);
-+
-+	fprintf(stdout,
-+		"0x040C4: TORH        (Total octets received upper)    0x%08X\n",
-+		regs_buff[97]);
-+
-+	fprintf(stdout,
-+		"0x040C8: TOTL        (Total octets transmitted lower) 0x%08X\n",
-+		regs_buff[98]);
-+
-+	fprintf(stdout,
-+		"0x040CC: TOTH        (Total octets transmitted upper) 0x%08X\n",
-+		regs_buff[99]);
-+
-+	fprintf(stdout,
-+		"0x040D0: TPR         (Total packets received)         0x%08X\n",
-+		regs_buff[100]);
-+
-+	fprintf(stdout,
-+		"0x040D4: TPT         (Total packets transmitted)      0x%08X\n",
-+		regs_buff[101]);
-+
-+	fprintf(stdout,
-+		"0x040D8: PTC64       (Packets tx (64 B) count)        0x%08X\n",
-+		regs_buff[102]);
-+
-+	fprintf(stdout,
-+		"0x040DC: PTC127      (Packets tx (65-127 B) count)    0x%08X\n",
-+		regs_buff[103]);
-+
-+	fprintf(stdout,
-+		"0x040E0: PTC255      (Packets tx (128-255 B) count)   0x%08X\n",
-+		regs_buff[104]);
-+
-+	fprintf(stdout,
-+		"0x040E4: PTC511      (Packets tx (256-511 B) count)   0x%08X\n",
-+		regs_buff[105]);
-+	
-+	fprintf(stdout,
-+		"0x040E8: PTC1023     (Packets tx (512-1023 B) count)  0x%08X\n",
-+		regs_buff[106]);
-+	
-+	fprintf(stdout,
-+		"0x040EC: PTC1522     (Packets tx (> 1024 B) count)    0x%08X\n",
-+		regs_buff[107]);
-+	
-+	fprintf(stdout,
-+		"0x040F0: MPTC        (Multicast packets tx count)     0x%08X\n",
-+		regs_buff[108]);
-+	
-+	fprintf(stdout,
-+		"0x040F4: BPTC        (Broadcast packets tx count)     0x%08X\n",
-+		regs_buff[109]);
-+	
-+	fprintf(stdout,
-+		"0x040F8: TSCTC       (TCP segment context tx count)   0x%08X\n",
-+		regs_buff[110]);
-+	
-+	fprintf(stdout,
-+		"0x04100: IAC         (Interrupt assertion count)      0x%08X\n",
-+		regs_buff[111]);
-+	
-+	fprintf(stdout,
-+		"0x04104: RPTHC       (Rx packets to host count)       0x%08X\n",
-+		regs_buff[112]);
-+	
-+	fprintf(stdout,
-+		"0x04118: HGPTC       (Host good packets tx count)     0x%08X\n",
-+		regs_buff[113]);
-+	
-+	fprintf(stdout,
-+		"0x04128: HGORCL      (Host good octets rx cnt lower)  0x%08X\n",
-+		regs_buff[114]);
-+	
-+	fprintf(stdout,
-+		"0x0412C: HGORCH      (Host good octets rx cnt upper)  0x%08X\n",
-+		regs_buff[115]);
-+	
-+	fprintf(stdout,
-+		"0x04130: HGOTCL      (Host good octets tx cnt lower)  0x%08X\n",
-+		regs_buff[116]);
-+	
-+	fprintf(stdout,
-+		"0x04134: HGOTCH      (Host good octets tx cnt upper)  0x%08X\n",
-+		regs_buff[117]);
-+	
-+	fprintf(stdout,
-+		"0x04138: LENNERS     (Length error count)             0x%08X\n",
-+		regs_buff[118]);
-+	
-+	fprintf(stdout,
-+		"0x04228: SCVPC       (SerDes/SGMII code viol pkt cnt) 0x%08X\n",
-+		regs_buff[119]);
-+	
-+	fprintf(stdout,
-+		"0x0A018: HRMPC       (Header redir missed pkt count)  0x%08X\n",
-+		regs_buff[120]);
-+	
-+	for (i = 0; i < 4; i++)
++	/* Receive DMA */
++	for (i = 0; i < 64; i++)
 +		fprintf(stdout,
-+		"0x0%02X: SRRCTL%d     (Split and replic rx ctl%d)       0x%08X\n",
-+		0x0280C + (0x100 * i), i, i, regs_buff[121 + i]);
-+	
-+	for (i = 0; i < 4; i++)
-+		fprintf(stdout,
-+		"0x0%02X: PSRTYPE%d    (Packet split receive type%d)     0x%08X\n",
-+		0x05480 + (0x4 * i), i, i, regs_buff[125 + i]);
-+	
-+	for (i = 0; i < 4; i++)
-+		fprintf(stdout,
-+		"0x0%02X: RDBAL%d      (Rx desc base addr low%d)         0x%08X\n",
-+		0x02800 + (0x100 * i), i, i, regs_buff[129 + i]);
-+	
-+	for (i = 0; i < 4; i++)
-+		fprintf(stdout,
-+		"0x0%02X: RDBAH%d      (Rx desc base addr high%d)        0x%08X\n",
-+		0x02804 + (0x100 * i), i, i, regs_buff[133 + i]);
-+	
-+	for (i = 0; i < 4; i++)
-+		fprintf(stdout,
-+		"0x0%02X: RDLEN%d      (Rx descriptor length%d)          0x%08X\n",
-+		0x02808 + (0x100 * i), i, i, regs_buff[137 + i]);
-+	
-+	for (i = 0; i < 4; i++)
-+		fprintf(stdout,
-+		"0x0%02X: RDH%d        (Rx descriptor head%d)            0x%08X\n",
-+		0x02810 + (0x100 * i), i, i, regs_buff[141 + i]);
-+	
-+	for (i = 0; i < 4; i++)
-+		fprintf(stdout,
-+		"0x0%02X: RDT%d        (Rx descriptor tail%d)            0x%08X\n",
-+		0x02818 + (0x100 * i), i, i, regs_buff[145 + i]);
++		"0x%05X: RDBAL%02d     (Rx Desc Base Addr Low %02d)       0x%08X\n",
++		0x01000 + (0x40 * i), i, i, regs_buff[53 + i]);
 +
-+	for (i = 0; i < 4; i++)
++	for (i = 0; i < 64; i++)
 +		fprintf(stdout,
-+		"0x0%02X: RXDCTL%d     (Rx descriptor control%d)         0x%08X\n",
-+		0x02828 + (0x100 * i), i, i, regs_buff[149 + i]);
-+	
-+	for (i = 0; i < 10; i++)
++		"0x%05X: RDBAH%02d     (Rx Desc Base Addr High %02d)      0x%08X\n",
++		0x01004 + (0x40 * i), i, i, regs_buff[117 + i]);
++
++	for (i = 0; i < 64; i++)
 +		fprintf(stdout,
-+		"0x0%02X: EITR%d       (Interrupt throttle%d)            0x%08X\n",
-+		0x01680 + (0x4 * i), i, i, regs_buff[153 + i]);
-+	
-+	for (i = 0; i < 8; i++)
++		"0x%05X: RDLEN%02d     (Receive Descriptor Length %02d)   0x%08X\n",
++		0x01008 + (0x40 * i), i, i, regs_buff[181 + i]);
++
++	for (i = 0; i < 64; i++)
 +		fprintf(stdout,
-+		"0x0%02X: IMIR%d       (Immediate interrupt Rx%d)        0x%08X\n",
-+		0x05A80 + (0x4 * i), i, i, regs_buff[163 + i]);
-+	
-+	for (i = 0; i < 8; i++)
++		"0x%05X: RDH%02d       (Receive Descriptor Head %02d)     0x%08X\n",
++		0x01010 + (0x40 * i), i, i, regs_buff[245 + i]);
++
++	for (i = 0; i < 64; i++)
 +		fprintf(stdout,
-+		"0x0%02X: IMIREXT%d    (Immediate interr Rx extended%d)  0x%08X\n",
-+		0x05AA0 + (0x4 * i), i, i, regs_buff[171 + i]);
-+	
++		"0x%05X: RDT%02d       (Receive Descriptor Tail %02d)     0x%08X\n",
++		0x01018 + (0x40 * i), i, i, regs_buff[309 + i]);
++
++	for (i = 0; i < 64; i++)
++		fprintf(stdout,
++		"0x%05X: RXDCTL%02d    (Receive Descriptor Control %02d)  0x%08X\n",
++		0x01028 + (0x40 * i), i, i, regs_buff[373 + i]);
++
 +	for (i = 0; i < 16; i++)
 +		fprintf(stdout,
-+		"0x0%02X: RAL%02d       (Receive address low%02d)          0x%08X\n",
-+		0x05400 + (0x8 * i), i,i, regs_buff[179 + i]);
-+	
++		"0x%05X: SRRCTL%02d    (Split and Replic Rx Control %02d) 0x%08X\n",
++		0x02100 + (4 * i), i, i, regs_buff[437 + i]);
++
 +	for (i = 0; i < 16; i++)
 +		fprintf(stdout,
-+		"0x0%02X: RAH%02d       (Receive address high%02d)         0x%08X\n",
-+		0x05404 + (0x8 * i), i, i, regs_buff[195 + i]);
-+	
-+	for (i = 0; i < 4; i++)
-+		fprintf(stdout,
-+		"0x0%02X: TDBAL%d      (Tx desc base address low%d)      0x%08X\n",
-+		0x03800 + (0x100 * i), i, i, regs_buff[211 + i]);
-+	
-+	for (i = 0; i < 4; i++)
-+		fprintf(stdout,
-+		"0x0%02X: TDBAH%d      (Tx desc base address high%d)     0x%08X\n",
-+		0x03804 + (0x100 * i), i, i, regs_buff[215 + i]);
-+	
-+	for (i = 0; i < 4; i++)
-+		fprintf(stdout,
-+		"0x0%02X: TDLEN%d      (Tx descriptor length%d)          0x%08X\n",
-+		0x03808 + (0x100 * i), i, i, regs_buff[219 + i]);
-+	
-+	for (i = 0; i < 4; i++)
-+		fprintf(stdout,
-+		"0x0%02X: TDH%d        (Transmit descriptor head%d)      0x%08X\n",
-+		0x03810 + (0x100 * i), i, i, regs_buff[223 + i]);
-+	
-+	for (i = 0; i < 4; i++)
-+		fprintf(stdout,
-+		"0x0%02X: TDT%d        (Transmit descriptor tail%d)      0x%08X\n",
-+		0x03818 + (0x100 * i), i, i, regs_buff[227 + i]);
-+	
-+	for (i = 0; i < 4; i++)
-+		fprintf(stdout,
-+		"0x0%02X: TXDCTL%d     (Transmit descriptor control%d)   0x%08X\n",
-+		0x03828 + (0x100 * i), i, i, regs_buff[231 + i]);
++		"0x%05X: DCA_RXCTRL%02d (Rx DCA Control %02d)             0x%08X\n",
++		0x02200 + (4 * i), i, i, regs_buff[453 + i]);
 +
-+	for (i = 0; i < 4; i++)
-+		fprintf(stdout,
-+		"0x0%02X: TDWBAL%d     (Tx desc complete wb addr low%d)  0x%08X\n",
-+		0x03838 + (0x100 * i), i, i, regs_buff[235 + i]);
++	fprintf(stdout,
++		"0x02F00: RDRXCTL     (Receive DMA Control)            0x%08X\n",
++		regs_buff[469]);
 +
-+	for (i = 0; i < 4; i++)
++	for (i = 0; i < 8; i++ )
 +		fprintf(stdout,
-+		"0x0%02X: TDWBAH%d     (Tx desc complete wb addr hi%d)   0x%08X\n",
-+		0x0383C + (0x100 * i), i, i, regs_buff[239 + i]);
++		"0x%05X: RXPBSIZE%d   (Receive Packet Buffer Size %d)   0x%08X\n",
++		0x3C00 + (4 * i), i, i, regs_buff[470 + i]);
 +
-+	for (i = 0; i < 4; i++)
++	fprintf(stdout,
++		"0x03000: RXCTRL      (Receive Control)                0x%08X\n",
++		regs_buff[478]);
++
++	fprintf(stdout,
++		"0x03D04: DROPEN      (Drop Enable Control)            0x%08X\n",
++		regs_buff[479]);
++
++	/* Receive */
++	fprintf(stdout,
++		"0x05000: RXCSUM      (Receive Checksum Control)       0x%08X\n",
++		regs_buff[480]);
++
++	fprintf(stdout,
++		"0x05008: RFCTL       (Receive Filter Control)         0x%08X\n",
++		regs_buff[481]);
++
++	for (i = 0; i < 16; i++)
 +		fprintf(stdout,
-+		"0x0%02X: DCA_TXCTRL%d (Tx DCA control%d)                0x%08X\n",
-+		0x03814 + (0x100 * i), i, i, regs_buff[243 + i]);
-+	
-+	for (i = 0; i < 4; i++)
++		"0x%05X: RAL%02d       (Receive Address Low%02d)          0x%08X\n",
++		0x05400 + (8 * i), i, i, regs_buff[482 + i]);
++
++	for (i = 0; i < 16; i++)
 +		fprintf(stdout,
-+		"0x0%02X: IP4AT%d      (IPv4 address table%d)            0x%08X\n",
-+		0x05840 + (0x8 * i), i, i, regs_buff[247 + i]);
-+	
-+	for (i = 0; i < 4; i++)
++		"0x%05X: RAH%02d       (Receive Address High %02d)        0x%08X\n",
++		0x05404 + (8 * i), i, i, regs_buff[498 + i]);
++
++	fprintf(stdout,
++		"0x05480: PSRTYPE     (Packet Split Receive Type)      0x%08X\n",
++		regs_buff[514]);
++
++	fprintf(stdout,
++		"0x05090: MCSTCTRL    (Multicast Control)              0x%08X\n",
++		regs_buff[517]);
++
++	fprintf(stdout,
++		"0x05818: MRQC        (Multiple Rx Queues Command)     0x%08X\n",
++		regs_buff[518]);
++
++	fprintf(stdout,
++		"0x0581C: VMD_CTL     (VMDq Control)                   0x%08X\n",
++		regs_buff[519]);
++
++	for (i = 0; i < 8; i++)
 +		fprintf(stdout,
-+		"0x0%02X: IP6AT%d      (IPv6 address table%d)            0x%08X\n",
-+		0x05880 + (0x4 * i), i, i, regs_buff[251 + i]);
-+	
++		"0x%05X: IMIR%d       (Immediate Interrupt Rx %d)       0x%08X\n",
++		0x05A80 + (4 * i), i, i, regs_buff[520 + i]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: IMIREXT%d    (Immed. Interr. Rx Extended %d)   0x%08X\n",
++		0x05AA0 + (4 * i), i, i, regs_buff[528 + i]);
++
++	fprintf(stdout,
++		"0x05AC0: IMIRVP      (Immed. Interr. Rx VLAN Prior.)  0x%08X\n",
++		regs_buff[536]);
++
++	/* Transmit */
 +	for (i = 0; i < 32; i++)
 +		fprintf(stdout,
-+		"0x0%02X: WUPM%02d      (Wake up packet memory%02d)        0x%08X\n",
-+		0x05A00 + (0x4 * i), i, i, regs_buff[255 + i]);
-+	
-+	for (i = 0; i < 128; i++)
++		"0x%05X: TDBAL%02d     (Tx Desc Base Addr Low %02d)       0x%08X\n",
++		0x06000 + (0x40 * i), i, i, regs_buff[537 + i]);
++
++	for (i = 0; i < 32; i++)
 +		fprintf(stdout,
-+		"0x0%02X: FFMT%03d     (Flexible filter mask table%03d)  0x%08X\n",
-+		0x09000 + (0x8 * i), i, i, regs_buff[287 + i]);
-+	
-+	for (i = 0; i < 128; i++)
++		"0x%05X: TDBAH%02d     (Tx Desc Base Addr High %02d)      0x%08X\n",
++		0x06004 + (0x40 * i), i, i, regs_buff[569 + i]);
++
++	for (i = 0; i < 32; i++)
 +		fprintf(stdout,
-+		"0x0%02X: FFVT%03d     (Flexible filter value table%03d) 0x%08X\n",
-+		0x09800 + (0x8 * i), i, i, regs_buff[415 + i]);
-+	
-+	for (i = 0; i < 4; i++)
++		"0x%05X: TDLEN%02d     (Tx Descriptor Length %02d)        0x%08X\n",
++		0x06008 + (0x40 * i), i, i, regs_buff[601 + i]);
++
++	for (i = 0; i < 32; i++)
 +		fprintf(stdout,
-+		"0x0%02X: FFLT%d       (Flexible filter length table%d)  0x%08X\n",
-+		0x05F00 + (0x8 * i), i, i, regs_buff[543 + i]);
-+	
++		"0x%05X: TDH%02d       (Transmit Descriptor Head %02d)    0x%08X\n",
++		0x06010 + (0x40 * i), i, i, regs_buff[633 + i]);
++
++	for (i = 0; i < 32; i++)
++		fprintf(stdout,
++		"0x%05X: TDT%02d       (Transmit Descriptor Tail %02d)    0x%08X\n",
++		0x06018 + (0x40 * i), i, i, regs_buff[665 + i]);
++
++	for (i = 0; i < 32; i++)
++		fprintf(stdout,
++		"0x%05X: TXDCTL%02d    (Tx Descriptor Control %02d)       0x%08X\n",
++		0x06028 + (0x40 * i), i, i, regs_buff[697 + i]);
++
++	for (i = 0; i < 32; i++)
++		fprintf(stdout,
++		"0x%05X: TDWBAL%02d    (Tx Desc Compl. WB Addr low %02d)  0x%08X\n",
++		0x06038 + (0x40 * i), i, i, regs_buff[729 + i]);
++
++	for (i = 0; i < 32; i++)
++		fprintf(stdout,
++		"0x%05X: TDWBAH%02d    (Tx Desc Compl. WB Addr High %02d) 0x%08X\n",
++		0x0603C + (0x40 * i), i, i, regs_buff[761 + i]);
++
 +	fprintf(stdout,
-+		"0x03410: TDFH        (Tx data FIFO head)              0x%08X\n",
-+		regs_buff[547]);
-+	
++		"0x07E00: DTXCTL      (DMA Tx Control)                 0x%08X\n",
++		regs_buff[793]);
++
++	for (i = 0; i < 16; i++)
++		fprintf(stdout,
++		"0x%05X: DCA_TXCTRL%02d (Tx DCA Control %02d)             0x%08X\n",
++		0x07200 + (4 * i), i, i, regs_buff[794 + i]);
++
 +	fprintf(stdout,
-+		"0x03418: TDFT        (Tx data FIFO tail)              0x%08X\n",
-+		regs_buff[548]);
-+	
++		"0x0CB00: TIPG        (Transmit IPG Control)           0x%08X\n",
++		regs_buff[810]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: TXPBSIZE%d   (Transmit Packet Buffer Size %d)  0x%08X\n",
++		0x0CC00 + (4 * i), i, i, regs_buff[811 + i]);
++
 +	fprintf(stdout,
-+		"0x03420: TDFHS       (Tx data FIFO head saved)        0x%08X\n",
-+		regs_buff[549]);
-+	
++		"0x0CD10: MNGTXMAP    (Manageability Tx TC Mapping)    0x%08X\n",
++		regs_buff[819]);
++
++	/* Wake Up */
 +	fprintf(stdout,
-+		"0x03430: TDFPC       (Tx data FIFO packet count)      0x%08X\n",
-+		regs_buff[550]);
++		"0x05800: WUC         (Wake up Control)                0x%08X\n",
++		regs_buff[820]);
++
++	fprintf(stdout,
++		"0x05808: WUFC        (Wake Up Filter Control)         0x%08X\n",
++		regs_buff[821]);
++
++	fprintf(stdout,
++		"0x05810: WUS         (Wake Up Status)                 0x%08X\n",
++		regs_buff[822]);
++
++	fprintf(stdout,
++		"0x05838: IPAV        (IP Address Valid)               0x%08X\n",
++		regs_buff[823]);
++
++	fprintf(stdout,
++		"0x05840: IP4AT       (IPv4 Address Table)             0x%08X\n",
++		regs_buff[824]);
++
++	fprintf(stdout,
++		"0x05880: IP6AT       (IPv6 Address Table)             0x%08X\n",
++		regs_buff[825]);
++
++	fprintf(stdout,
++		"0x05900: WUPL        (Wake Up Packet Length)          0x%08X\n",
++		regs_buff[826]);
++
++	fprintf(stdout,
++		"0x05A00: WUPM        (Wake Up Packet Memory)          0x%08X\n",
++		regs_buff[827]);
++
++	fprintf(stdout,
++		"0x09000: FHFT        (Flexible Host Filter Table)     0x%08X\n",
++		regs_buff[828]);
++
++	/* DCE */
++	fprintf(stdout,
++		"0x07F40: DPMCS       (Desc. Plan Music Ctrl Status)   0x%08X\n",
++		regs_buff[830]);
++
++	fprintf(stdout,
++		"0x0CD00: PDPMCS      (Pkt Data Plan Music ctrl Stat)  0x%08X\n",
++		regs_buff[831]);
++
++	fprintf(stdout,
++		"0x050A0: RUPPBMR     (Rx User Prior to Pkt Buff Map)  0x%08X\n",
++		regs_buff[832]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: RT2CR%d      (Receive T2 Configure %d)         0x%08X\n",
++		0x03C20 + (4 * i), i, i, regs_buff[833 + i]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: RT2SR%d      (Recieve T2 Status %d)            0x%08X\n",
++		0x03C40 + (4 * i), i, i, regs_buff[841 + i]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: TDTQ2TCCR%d  (Tx Desc TQ2 TC Config %d)        0x%08X\n",
++		0x0602C + (0x40 * i), i, i, regs_buff[849 + i]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: TDTQ2TCSR%d  (Tx Desc TQ2 TC Status %d)        0x%08X\n",
++		0x0622C + (0x40 * i), i, i, regs_buff[857 + i]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: TDPT2TCCR%d  (Tx Data Plane T2 TC Config %d)   0x%08X\n",
++		0x0CD20 + (4 * i), i, i, regs_buff[865 + i]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: TDPT2TCSR%d  (Tx Data Plane T2 TC Status %d)   0x%08X\n",
++		0x0CD40 + (4 * i), i, i, regs_buff[873 + i]);
++
++	/* Statistics */
++	fprintf(stdout,
++		"0x04000: crcerrs     (CRC Error Count)                0x%08X\n",
++		regs_buff[881]);
++
++	fprintf(stdout,
++		"0x04004: illerrc     (Illegal Byte Error Count)       0x%08X\n",
++		regs_buff[882]);
++
++	fprintf(stdout,
++		"0x04008: errbc       (Error Byte Count)               0x%08X\n",
++		regs_buff[883]);
++
++	fprintf(stdout,
++		"0x04010: mspdc       (MAC Short Packet Discard Count) 0x%08X\n",
++		regs_buff[884]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: mpc%d        (Missed Packets Count %d)         0x%08X\n",
++		0x03FA0 + (4 * i), i, i, regs_buff[885 + i]);
++
++	fprintf(stdout,
++		"0x04034: mlfc        (MAC Local Fault Count)          0x%08X\n",
++		regs_buff[893]);
++
++	fprintf(stdout,
++		"0x04038: mrfc        (MAC Remote Fault Count)         0x%08X\n",
++		regs_buff[894]);
++
++	fprintf(stdout,
++		"0x04040: rlec        (Receive Length Error Count)     0x%08X\n",
++		regs_buff[895]);
++
++	fprintf(stdout,
++		"0x03F60: lxontxc     (Link XON Transmitted Count)     0x%08X\n",
++		regs_buff[896]);
++
++	fprintf(stdout,
++		"0x0CF60: lxonrxc     (Link XON Received Count)        0x%08X\n",
++		regs_buff[897]);
++
++	fprintf(stdout,
++		"0x03F68: lxofftxc    (Link XOFF Transmitted Count)    0x%08X\n",
++		regs_buff[898]);
++
++	fprintf(stdout,
++		"0x0CF68: lxoffrxc    (Link XOFF Received Count)       0x%08X\n",
++		regs_buff[899]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: pxontxc%d    (Priority XON Tx Count %d)        0x%08X\n",
++		0x03F00 + (4 * i), i, i, regs_buff[900 + i]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: pxonrxc%d    (Priority XON Received Count %d)  0x%08X\n",
++		0x0CF00 + (4 * i), i, i, regs_buff[908 + i]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: pxofftxc%d   (Priority XOFF Tx Count %d)       0x%08X\n",
++		0x03F20 + (4 * i), i, i, regs_buff[916 + i]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: pxoffrxc%d   (Priority XOFF Received Count %d) 0x%08X\n",
++		0x0CF20 + (4 * i), i, i, regs_buff[924 + i]);
++
++	fprintf(stdout,
++		"0x0405C: prc64       (Packets Received (64B) Count)   0x%08X\n",
++		regs_buff[932]);
++
++	fprintf(stdout,
++		"0x04060: prc127      (Packets Rx (65-127B) Count)     0x%08X\n",
++		regs_buff[933]);
++
++	fprintf(stdout,
++		"0x04064: prc255      (Packets Rx (128-255B) Count)    0x%08X\n",
++		regs_buff[934]);
++
++	fprintf(stdout,
++		"0x04068: prc511      (Packets Rx (256-511B) Count)    0x%08X\n",
++		regs_buff[935]);
++
++	fprintf(stdout,
++		"0x0406C: prc1023     (Packets Rx (512-1023B) Count)   0x%08X\n",
++		regs_buff[936]);
++
++	fprintf(stdout,
++		"0x04070: prc1522     (Packets Rx (1024-Max) Count)    0x%08X\n",
++		regs_buff[937]);
++
++	fprintf(stdout,
++		"0x04074: gprc        (Good Packets Received Count)    0x%08X\n",
++		regs_buff[938]);
++
++	fprintf(stdout,
++		"0x04078: bprc        (Broadcast Packets Rx Count)     0x%08X\n",
++		regs_buff[939]);
++
++	fprintf(stdout,
++		"0x0407C: mprc        (Multicast Packets Rx Count)     0x%08X\n",
++		regs_buff[940]);
++
++	fprintf(stdout,
++		"0x04080: gptc        (Good Packets Transmitted Count) 0x%08X\n",
++		regs_buff[941]);
++
++	fprintf(stdout,
++		"0x04088: gorcl       (Good Octets Rx Count Low)       0x%08X\n",
++		regs_buff[942]);
++
++	fprintf(stdout,
++		"0x0408C: gorch       (Good Octets Rx Count High)      0x%08X\n",
++		regs_buff[943]);
++
++	fprintf(stdout,
++		"0x04090: gotcl       (Good Octets Tx Count Low)       0x%08X\n",
++		regs_buff[944]);
++
++	fprintf(stdout,
++		"0x04094: gotch       (Good Octets Tx Count High)      0x%08X\n",
++		regs_buff[945]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: rnbc%d       (Receive No Buffers Count %d)     0x%08X\n",
++		0x03FC0 + (4 * i), i, i, regs_buff[946 + i]);
++
++	fprintf(stdout,
++		"0x040A4: ruc         (Receive Undersize count)        0x%08X\n",
++		regs_buff[954]);
++
++	fprintf(stdout,
++		"0x040A8: rfc         (Receive Fragment Count)         0x%08X\n",
++		regs_buff[955]);
++
++	fprintf(stdout,
++		"0x040AC: roc         (Receive Oversize Count)         0x%08X\n",
++		regs_buff[956]);
++
++	fprintf(stdout,
++		"0x040B0: rjc         (Receive Jabber Count)           0x%08X\n",
++		regs_buff[957]);
++
++	fprintf(stdout,
++		"0x040B4: mngprc      (Management Packets Rx Count)    0x%08X\n",
++		regs_buff[958]);
++
++	fprintf(stdout,
++		"0x040B8: mngpdc      (Management Pkts Dropped Count)  0x%08X\n",
++		regs_buff[959]);
++
++	fprintf(stdout,
++		"0x0CF90: mngptc      (Management Packets Tx Count)    0x%08X\n",
++		regs_buff[960]);
++
++	fprintf(stdout,
++		"0x040C0: torl        (Total Octets Rx Count Low)      0x%08X\n",
++		regs_buff[961]);
++
++	fprintf(stdout,
++		"0x040C4: torh        (Total Octets Rx Count High)     0x%08X\n",
++		regs_buff[962]);
++
++	fprintf(stdout,
++		"0x040D0: tpr         (Total Packets Received)         0x%08X\n",
++		regs_buff[963]);
++
++	fprintf(stdout,
++		"0x040D4: tpt         (Total Packets Transmitted)      0x%08X\n",
++		regs_buff[964]);
++
++	fprintf(stdout,
++		"0x040D8: ptc64       (Packets Tx (64B) Count)         0x%08X\n",
++		regs_buff[965]);
++
++	fprintf(stdout,
++		"0x040DC: ptc127      (Packets Tx (65-127B) Count)     0x%08X\n",
++		regs_buff[966]);
++
++	fprintf(stdout,
++		"0x040E0: ptc255      (Packets Tx (128-255B) Count)    0x%08X\n",
++		regs_buff[967]);
++
++	fprintf(stdout,
++		"0x040E4: ptc511      (Packets Tx (256-511B) Count)    0x%08X\n",
++		regs_buff[968]);
++
++	fprintf(stdout,
++		"0x040E8: ptc1023     (Packets Tx (512-1023B) Count)   0x%08X\n",
++		regs_buff[969]);
++
++	fprintf(stdout,
++		"0x040EC: ptc1522     (Packets Tx (1024-Max) Count)    0x%08X\n",
++		regs_buff[970]);
++
++	fprintf(stdout,
++		"0x040F0: mptc        (Multicast Packets Tx Count)     0x%08X\n",
++		regs_buff[971]);
++
++	fprintf(stdout,
++		"0x040F4: bptc        (Broadcast Packets Tx Count)     0x%08X\n",
++		regs_buff[972]);
++
++	fprintf(stdout,
++		"0x04120: xec         (XSUM Error Count)               0x%08X\n",
++		regs_buff[973]);
++
++	for (i = 0; i < 16; i++)
++		fprintf(stdout,
++		"0x%05X: qprc%02d      (Queue Packets Rx Count %02d)      0x%08X\n",
++		0x01030 + (0x40 * i), i, i, regs_buff[974 + i]);
++
++	for (i = 0; i < 16; i++)
++		fprintf(stdout,
++		"0x%05X: qptc%02d      (Queue Packets Tx Count %02d)      0x%08X\n",
++		0x06030 + (0x40 * i), i, i, regs_buff[990 + i]);
++
++	for (i = 0; i < 16; i++)
++		fprintf(stdout,
++		"0x%05X: qbrc%02d      (Queue Bytes Rx Count %02d)        0x%08X\n",
++		0x01034 + (0x40 * i), i, i, regs_buff[1006 + i]);
++
++	for (i = 0; i < 16; i++)
++		fprintf(stdout,
++		"0x%05X: qbtc%02d      (Queue Bytes Tx Count %02d)        0x%08X\n",
++		0x06034 + (0x40 * i), i, i, regs_buff[1022 + i]);
++
++	/* MAC */
++	fprintf(stdout,
++		"0x04200: PCS1GCFIG   (PCS_1G Gloabal Config 1)        0x%08X\n",
++		regs_buff[1038]);
++
++	fprintf(stdout,
++		"0x04208: PCS1GLCTL   (PCS_1G Link Control)            0x%08X\n",
++		regs_buff[1039]);
++
++	fprintf(stdout,
++		"0x0420C: PCS1GLSTA   (PCS_1G Link Status)             0x%08X\n",
++		regs_buff[1040]);
++
++	fprintf(stdout,
++		"0x04210: PCS1GDBG0   (PCS_1G Debug 0)                 0x%08X\n",
++		regs_buff[1041]);
++
++	fprintf(stdout,
++		"0x04214: PCS1GDBG1   (PCS_1G Debug 1)                 0x%08X\n",
++		regs_buff[1042]);
++
++	fprintf(stdout,
++		"0x04218: PCS1GANA    (PCS-1G Auto Neg. Adv.)          0x%08X\n",
++		regs_buff[1043]);
++
++	fprintf(stdout,
++		"0x0421C: PCS1GANLP   (PCS-1G AN LP Ability)           0x%08X\n",
++		regs_buff[1044]);
++
++	fprintf(stdout,
++		"0x04220: PCS1GANNP   (PCS_1G Auto Neg Next Page Tx)   0x%08X\n",
++		regs_buff[1045]);
++
++	fprintf(stdout,
++		"0x04224: PCS1GANLPNP (PCS_1G Auto Neg LPs Next Page)  0x%08X\n",
++		regs_buff[1046]);
++
++	fprintf(stdout,
++		"0x04244: HLREG1      (Highlander Status 1)            0x%08X\n",
++		regs_buff[1048]);
++
++	fprintf(stdout,
++		"0x04248: PAP         (Pause and Pace)                 0x%08X\n",
++		regs_buff[1049]);
++
++	fprintf(stdout,
++		"0x0424C: MACA        (MDI Auto-Scan Command and Addr) 0x%08X\n",
++		regs_buff[1050]);
++
++	fprintf(stdout,
++		"0x04250: APAE        (Auto-Scan PHY Address Enable)   0x%08X\n",
++		regs_buff[1051]);
++
++	fprintf(stdout,
++		"0x04254: ARD         (Auto-Scan Read Data)            0x%08X\n",
++		regs_buff[1052]);
++
++	fprintf(stdout,
++		"0x04258: AIS         (Auto-Scan Interrupt Status)     0x%08X\n",
++		regs_buff[1053]);
++
++	fprintf(stdout,
++		"0x0425C: MSCA        (MDI Single Command and Addr)    0x%08X\n",
++		regs_buff[1054]);
++
++	fprintf(stdout,
++		"0x04260: MSRWD       (MDI Single Read and Write Data) 0x%08X\n",
++		regs_buff[1055]);
++
++	fprintf(stdout,
++		"0x04264: MLADD       (MAC Address Low)                0x%08X\n",
++		regs_buff[1056]);
++
++	fprintf(stdout,
++		"0x04268: MHADD       (MAC Addr High/Max Frame size)   0x%08X\n",
++		regs_buff[1057]);
++
++	fprintf(stdout,
++		"0x0426C: TREG        (Test Register)                  0x%08X\n",
++		regs_buff[1058]);
++
++	fprintf(stdout,
++		"0x04288: PCSS1       (XGXS Status 1)                  0x%08X\n",
++		regs_buff[1059]);
++
++	fprintf(stdout,
++		"0x0428C: PCSS2       (XGXS Status 2)                  0x%08X\n",
++		regs_buff[1060]);
++
++	fprintf(stdout,
++		"0x04290: XPCSS       (10GBASE-X PCS Status)           0x%08X\n",
++		regs_buff[1061]);
++
++	fprintf(stdout,
++		"0x04298: SERDESC     (SERDES Interface Control)       0x%08X\n",
++		regs_buff[1062]);
++
++	fprintf(stdout,
++		"0x0429C: MACS        (FIFO Status/CNTL Report)        0x%08X\n",
++		regs_buff[1063]);
++
++	fprintf(stdout,
++		"0x042A0: AUTOC       (Auto Negotiation Control)       0x%08X\n",
++		regs_buff[1064]);
++
++	fprintf(stdout,
++		"0x042A8: AUTOC2      (Auto Negotiation Control 2)     0x%08X\n",
++		regs_buff[1066]);
++
++	fprintf(stdout,
++		"0x042AC: AUTOC3      (Auto Negotiation Control 3)     0x%08X\n",
++		regs_buff[1067]);
++
++	fprintf(stdout,
++		"0x042B0: ANLP1       (Auto Neg Lnk Part. Ctrl Word 1) 0x%08X\n",
++		regs_buff[1068]);
++
++	fprintf(stdout,
++		"0x042B0: ANLP2       (Auto Neg Lnk Part. Ctrl Word 2) 0x%08X\n",
++		regs_buff[1069]);
++
++	fprintf(stdout,
++		"0x04800: ATLASCTL    (Atlas Analog Configuration)     0x%08X\n",
++		regs_buff[1070]);
++
++	/* Diagnostic */
++	fprintf(stdout,
++		"0x02C20: RDSTATCTL   (Rx DMA Statistic Control)       0x%08X\n",
++		regs_buff[1071]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: RDSTAT%d     (Rx DMA Statistics %d)            0x%08X\n",
++		0x02C00 + (4 * i), i, i, regs_buff[1072 + i]);
++
++	fprintf(stdout,
++		"0x02F08: RDHMPN      (Rx Desc Handler Mem Page num)   0x%08X\n",
++		regs_buff[1080]);
++
++	fprintf(stdout,
++		"0x02F10: RIC_DW0     (Rx Desc Hand. Mem Read Data 0)  0x%08X\n",
++		regs_buff[1081]);
++
++	fprintf(stdout,
++		"0x02F14: RIC_DW1     (Rx Desc Hand. Mem Read Data 1)  0x%08X\n",
++		regs_buff[1082]);
++
++	fprintf(stdout,
++		"0x02F18: RIC_DW2     (Rx Desc Hand. Mem Read Data 2)  0x%08X\n",
++		regs_buff[1083]);
++
++	fprintf(stdout,
++		"0x02F1C: RIC_DW3     (Rx Desc Hand. Mem Read Data 3)  0x%08X\n",
++		regs_buff[1084]);
++
++	fprintf(stdout,
++		"0x02F20: RDPROBE     (Rx Probe Mode Status)           0x%08X\n",
++		regs_buff[1085]);
++
++	fprintf(stdout,
++		"0x07C20: TDSTATCTL   (Tx DMA Statistic Control)       0x%08X\n",
++		regs_buff[1086]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: TDSTAT%d     (Tx DMA Statistics %d)            0x%08X\n",
++		0x07C00 + (4 * i), i, i, regs_buff[1087 + i]);
++
++	fprintf(stdout,
++		"0x07F08: TDHMPN      (Tx Desc Handler Mem Page Num)   0x%08X\n",
++		regs_buff[1095]);
++
++	fprintf(stdout,
++		"0x07F10: TIC_DW0     (Tx Desc Hand. Mem Read Data 0)  0x%08X\n",
++		regs_buff[1096]);
++
++	fprintf(stdout,
++		"0x07F14: TIC_DW1     (Tx Desc Hand. Mem Read Data 1)  0x%08X\n",
++		regs_buff[1097]);
++
++	fprintf(stdout,
++		"0x07F18: TIC_DW2     (Tx Desc Hand. Mem Read Data 2)  0x%08X\n",
++		regs_buff[1098]);
++
++	fprintf(stdout,
++		"0x07F1C: TIC_DW3     (Tx Desc Hand. Mem Read Data 3)  0x%08X\n",
++		regs_buff[1099]);
++
++	fprintf(stdout,
++		"0x07F20: TDPROBE     (Tx Probe Mode Status)           0x%08X\n",
++		regs_buff[1100]);
++
++	fprintf(stdout,
++		"0x0C600: TXBUFCTRL   (TX Buffer Access Control)       0x%08X\n",
++		regs_buff[1101]);
++
++	fprintf(stdout,
++		"0x0C610: TXBUFDATA0  (TX Buffer DATA 0)               0x%08X\n",
++		regs_buff[1102]);
++
++	fprintf(stdout,
++		"0x0C614: TXBUFDATA1  (TX Buffer DATA 1)               0x%08X\n",
++		regs_buff[1103]);
++
++	fprintf(stdout,
++		"0x0C618: TXBUFDATA2  (TX Buffer DATA 2)               0x%08X\n",
++		regs_buff[1104]);
++
++	fprintf(stdout,
++		"0x0C61C: TXBUFDATA3  (TX Buffer DATA 3)               0x%08X\n",
++		regs_buff[1105]);
++
++	fprintf(stdout,
++		"0x03600: RXBUFCTRL   (RX Buffer Access Control)       0x%08X\n",
++		regs_buff[1106]);
++
++	fprintf(stdout,
++		"0x03610: RXBUFDATA0  (RX Buffer DATA 0)               0x%08X\n",
++		regs_buff[1107]);
++
++	fprintf(stdout,
++		"0x03614: RXBUFDATA1  (RX Buffer DATA 1)               0x%08X\n",
++		regs_buff[1108]);
++
++	fprintf(stdout,
++		"0x03618: RXBUFDATA2  (RX Buffer DATA 2)               0x%08X\n",
++		regs_buff[1109]);
++
++	fprintf(stdout,
++		"0x0361C: RXBUFDATA3  (RX Buffer DATA 3)               0x%08X\n",
++		regs_buff[1110]);
++
++	for (i = 0; i < 8; i++)
++		fprintf(stdout,
++		"0x%05X: PCIE_DIAG%d  (PCIe Diagnostic %d)              0x%08X\n",
++		0x11090 + (4 * i), i, i, regs_buff[1111 + i]);
++
++	fprintf(stdout,
++		"0x050A4: RFVAL       (Receive Filter Validation)      0x%08X\n",
++		regs_buff[1119]);
++
++	fprintf(stdout,
++		"0x042B8: MDFTC1      (MAC DFT Control 1)              0x%08X\n",
++		regs_buff[1120]);
++
++	fprintf(stdout,
++		"0x042C0: MDFTC2      (MAC DFT Control 2)              0x%08X\n",
++		regs_buff[1121]);
++
++	fprintf(stdout,
++		"0x042C4: MDFTFIFO1   (MAC DFT FIFO 1)                 0x%08X\n",
++		regs_buff[1122]);
++
++	fprintf(stdout,
++		"0x042C8: MDFTFIFO2   (MAC DFT FIFO 2)                 0x%08X\n",
++		regs_buff[1123]);
++
++	fprintf(stdout,
++		"0x042CC: MDFTS       (MAC DFT Status)                 0x%08X\n",
++		regs_buff[1124]);
++
++	fprintf(stdout,
++		"0x1106C: PCIEECCCTL  (PCIe ECC Control)               0x%08X\n",
++		regs_buff[1125]);
++
++	fprintf(stdout,
++		"0x0C300: PBTXECC     (Packet Buffer Tx ECC)           0x%08X\n",
++		regs_buff[1126]);
++
++	fprintf(stdout,
++		"0x03300: PBRXECC     (Packet Buffer Rx ECC)           0x%08X\n",
++		regs_buff[1127]);
 +
 +	return 0;
 +}
-+
