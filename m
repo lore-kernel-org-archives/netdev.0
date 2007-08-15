@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [2.6 patch] unexport dev_ethtool
-Date: Tue, 14 Aug 2007 17:39:00 -0700 (PDT)
-Message-ID: <20070814.173900.85417650.davem@davemloft.net>
-References: <20070814212203.GV18945@stusta.de>
-	<20070814212325.GW16277@parisc-linux.org>
+Subject: Re: [2.6 patch] net/8021q/vlanproc.c: fix check-after-use
+Date: Tue, 14 Aug 2007 17:39:57 -0700 (PDT)
+Message-ID: <20070814.173957.18578051.davem@davemloft.net>
+References: <20070814212244.GB18945@stusta.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bunk@kernel.org, netdev@vger.kernel.org
-To: matthew@wil.cx
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: bunk@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48593
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48612
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756060AbXHOAjB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2007 20:39:01 -0400
-In-Reply-To: <20070814212325.GW16277@parisc-linux.org>
+	by vger.kernel.org with ESMTP id S1754632AbXHOAj5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Aug 2007 20:39:57 -0400
+In-Reply-To: <20070814212244.GB18945@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Tue, 14 Aug 2007 15:23:26 -0600
+From: Adrian Bunk <bunk@kernel.org>
+Date: Tue, 14 Aug 2007 23:22:44 +0200
 
-> On Tue, Aug 14, 2007 at 11:22:03PM +0200, Adrian Bunk wrote:
-> > This patch removes the no longer used EXPORT_SYMBOL(dev_ethtool).
-> > 
-> > Signed-off-by: Adrian Bunk <bunk@kernel.org>
-> Acked-by: Matthew Wilcox <matthew@wil.cx>
+> The Coverity checker spotted that we'd have already oops'ed if "vlandev"
+> was NULL.
+> 
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-Applied, thanks.
+Fair enough, applied, thanks Adrian.
