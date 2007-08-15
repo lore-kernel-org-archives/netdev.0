@@ -1,13 +1,13 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+From: Segher Boessenkool <segher@kernel.crashing.org>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Wed, 15 Aug 2007 13:17:48 -0700
-Message-ID: <20070815201748.GN9645@linux.vnet.ibm.com>
-References: <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <20070815081841.GA16551@osiris.boeblingen.de.ibm.com> <46C30540.2070603@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151941150.16414@enigma.security.iitk.ac.in> <20070815145207.GA23106@gondor.apana.org.au> <46C3253F.5090707@s5r6.in-berlin.de> <20070815162722.GD9645@linux.vnet.ibm.com> <d4406222873856f472b9173a14a19aa2@kernel.crashing.org> <20070815185724.GH9645@linux.vnet.ibm.com> <alpine.LFD.0.999.0708160118330.16414@enigma.security.iitk.ac.in>
-Reply-To: paulmck@linux.vnet.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Segher Boessenkool <segher@kernel.crashing.org>,
-	horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
+Date: Wed, 15 Aug 2007 20:31:25 +0200
+Message-ID: <d4406222873856f472b9173a14a19aa2@kernel.crashing.org>
+References: <46C2350A.1010807@redhat.com> <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <20070815081841.GA16551@osiris.boeblingen.de.ibm.com> <46C30540.2070603@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151941150.16414@enigma.security.iitk.ac.in> <20070815145207.GA23106@gondor.apana.org.au> <46C3253F.5090707@s5r6.in-berlin.de> <20070815162722.GD9645@linux.vnet.ibm.com>
+Mime-Version: 1.0 (Apple Message framework v623)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Satyam Sharma <satyam@infradead.org>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	rpjday@mindspring.com, netdev@vger.kernel.org, ak@suse.de,
 	cfriesen@nortel.com, Heiko Carstens <heiko.carstens@de.ibm.com>,
@@ -18,50 +18,37 @@ Cc: Segher Boessenkool <segher@kernel.crashing.org>,
 	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
 	Linus Torvalds <torvalds@linux-foundation.org>,
 	wensong@linux-vs.org, wjiang@resilience.com
-To: Satyam Sharma <satyam@infradead.org>
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:45557 "EHLO e5.ny.us.ibm.com"
+Received: from gate.crashing.org ([63.228.1.57]:38916 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756697AbXHOURw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2007 16:17:52 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.0.999.0708160118330.16414@enigma.security.iitk.ac.in>
+	id S1751658AbXHOUgd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 16:36:33 -0400
+In-Reply-To: <20070815162722.GD9645@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 16, 2007 at 01:24:42AM +0530, Satyam Sharma wrote:
-> [ The Cc: list scares me. Should probably trim it. ]
+>> How does the compiler know that msleep() has got barrier()s?
+>
+> Because msleep_interruptible() is in a separate compilation unit,
+> the compiler has to assume that it might modify any arbitrary global.
 
-Trim away!  ;-)
+No; compilation units have nothing to do with it, GCC can optimise
+across compilation unit boundaries just fine, if you tell it to
+compile more than one compilation unit at once.
 
-> On Wed, 15 Aug 2007, Paul E. McKenney wrote:
-> 
-> > On Wed, Aug 15, 2007 at 08:31:25PM +0200, Segher Boessenkool wrote:
-> > > >>How does the compiler know that msleep() has got barrier()s?
-> > > >
-> > > >Because msleep_interruptible() is in a separate compilation unit,
-> > > >the compiler has to assume that it might modify any arbitrary global.
-> > > 
-> > > No; compilation units have nothing to do with it, GCC can optimise
-> > > across compilation unit boundaries just fine, if you tell it to
-> > > compile more than one compilation unit at once.
-> > 
-> > Last I checked, the Linux kernel build system did compile each .c file
-> > as a separate compilation unit.
-> > 
-> > > What you probably mean is that the compiler has to assume any code
-> > > it cannot currently see can do anything (insofar as allowed by the
-> > > relevant standards etc.)
-> 
-> I think this was just terminology confusion here again. Isn't "any code
-> that it cannot currently see" the same as "another compilation unit",
-> and wouldn't the "compilation unit" itself expand if we ask gcc to
-> compile more than one unit at once? Or is there some more specific
-> "definition" for "compilation unit" (in gcc lingo, possibly?)
+What you probably mean is that the compiler has to assume any code
+it cannot currently see can do anything (insofar as allowed by the
+relevant standards etc.)
 
-This is indeed my understanding -- "compilation unit" is whatever the
-compiler looks at in one go.  I have heard the word "module" used for
-the minimal compilation unit covering a single .c file and everything
-that it #includes, but there might be a better name for this.
+> In many cases, the compiler also has to assume that 
+> msleep_interruptible()
+> might call back into a function in the current compilation unit, thus
+> possibly modifying global static variables.
 
-							Thanx, Paul
+It most often is smart enough to see what compilation-unit-local
+variables might be modified that way, though :-)
+
+
+Segher
+
