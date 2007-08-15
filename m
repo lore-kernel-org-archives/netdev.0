@@ -1,43 +1,47 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Wed, 15 Aug 2007 22:52:07 +0800
-Message-ID: <20070815145207.GA23106@gondor.apana.org.au>
-References: <46C2350A.1010807@redhat.com> <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <20070815081841.GA16551@osiris.boeblingen.de.ibm.com> <46C30540.2070603@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151941150.16414@enigma.security.iitk.ac.in>
+From: Milan Kocian <milon@wq.cz>
+Subject: [PATCH 1/1] ipv6: corrects sended rtnetlink message
+Date: Wed, 15 Aug 2007 16:33:22 +0200
+Message-ID: <20070815143322.GA25640@wq.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Chris Snook <csnook@redhat.com>, clameter@sgi.com,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, davem@davemloft.net, schwidefsky@de.ibm.com,
-	wensong@linux-vs.org, horms@verge.net.au, wjiang@resilience.com,
-	cfriesen@nortel.com, zlynx@acm.org, rpjday@mindspring.com,
-	jesper.juhl@gmail.com, segher@kernel.crashing.org
-To: Satyam Sharma <satyam@infradead.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932873AbXHOOxh@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw-sitel.lam.cz ([212.71.129.172]:48118 "EHLO nt.wq.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1761834AbXHOOzH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 10:55:07 -0400
+Received: from milon by nt.wq.cz with local (Exim 4.67)
+	(envelope-from <milon@wq.cz>)
+	id 1ILJw2-0006uI-Iu
+	for netdev@vger.kernel.org; Wed, 15 Aug 2007 16:33:22 +0200
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.0.999.0708151941150.16414@enigma.security.iitk.ac.in>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 15, 2007 at 08:05:38PM +0530, Satyam Sharma wrote:
->
-> > I don't know if this here is affected:
-> 
-> Yes, I think it is. You're clearly expecting the read to actually happen
-> when you call get_hpsb_generation(). It's clearly not a busy-loop, so
-> cpu_relax() sounds pointless / wrong solution for this case, so I'm now
-> somewhat beginning to appreciate the motivation behind this series :-)
+ipv6 sends a RTM_DELLINK netlink message on both events: NETDEV_DOWN,
+NETDEV_UNREGISTER. Corrected by sending RTM_NEWLINK on NETDEV_DOWN event
+and RTM_DELLINK on NETDEV_UNREGISTER event.
+---
 
-Nope, we're calling schedule which is a rather heavy-weight
-barrier.
+btw. I don't know why protocol sends a NL messages about iface state
+changes. It comes from other sources. By contrast ipv6 doesn't send
+no message on NETDEV_UP event !? IMO best possibility is deletion of
+sending this message.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--- a/net/ipv6/addrconf.c	2007-08-13 11:35:23.481430029 +0200
++++ b/net/ipv6/addrconf.c	2007-08-13 12:47:01.825690662 +0200
+@@ -2488,7 +2488,10 @@ static int addrconf_ifdown(struct net_de
+ 
+ 	/* Step 5: netlink notification of this interface */
+ 	idev->tstamp = jiffies;
+-	inet6_ifinfo_notify(RTM_DELLINK, idev);
++	if (how)
++		inet6_ifinfo_notify(RTM_DELLINK, idev);
++	else 
++		inet6_ifinfo_notify(RTM_NEWLINK, idev);
+ 
+ 	/* Shot the device (if unregistered) */
+ 
+
+Signed-off-by: Milan Kocian <milon@wq.cz>
