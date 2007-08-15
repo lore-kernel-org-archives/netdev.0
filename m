@@ -1,55 +1,35 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [RFC: -mm patch] improve the SSB dependencies
-Date: Tue, 14 Aug 2007 20:40:35 -0400
-Message-ID: <20070815004035.GL7198@tuxdriver.com>
-References: <200708110208.21624.mb@bu3sch.de> <200708111642.39348.mb@bu3sch.de> <20070811230855.GA8907@stusta.de> <200708121400.28297.mb@bu3sch.de> <20070812224401.GA18945@stusta.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: Please pull 'fixes-davem' branch of wireless-2.6
+Date: Tue, 14 Aug 2007 18:33:30 -0700 (PDT)
+Message-ID: <20070814.183330.21931289.davem@davemloft.net>
+References: <20070815003234.GI7198@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Buesch <mb@bu3sch.de>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Adrian Bunk <bunk@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4085 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758489AbXHOBHa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Aug 2007 21:07:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20070812224401.GA18945@stusta.de>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070815003234.GI7198-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 13, 2007 at 12:44:02AM +0200, Adrian Bunk wrote:
-> On Sun, Aug 12, 2007 at 02:00:26PM +0200, Michael Buesch wrote:
-> > Ok, I'll give it a try, with small modifications.
-> 
-> Thanks.
-> 
-> > On Sunday 12 August 2007, Adrian Bunk wrote:
-> > > Additional changes in this patch:
-> > > - small help text changes
-> > > - B44_PCI is no longer usr visible (automatically enabled when possible)
-> > 
-> > I think we want that to be selectable, as it's not needed
-> > on some embedded devices. And we need to save memory there.
-> >...
-> 
-> Makes sense, but then:
-> 
-> config B44_PCI
-> 	bool "Broadcom 440x PCI device support" if EMBEDDED
-> 	...
-> 	default y
-> 	...
-> 
-> I don't care about how many options we present if CONFIG_EMBEDDED=y, but 
-> for the normal CONFIG_EMBEDDED=n case we should not bother the user with 
-> this option.
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Tue, 14 Aug 2007 20:32:34 -0400
 
-Was all this resolved?  Was there another patch?  If so, I missed it...
+> These are a few more items intended for 2.6.23.
+ ...
+> The following changes since commit 39d3520c92cf7a28c07229ca00cc35a1e8026c77:
+>   Linus Torvalds (1):
+>         Linux 2.6.23-rc3
+> 
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git fixes-davem
+> 
+> Johannes Berg (1):
+>       mac80211: fix tx status frame code
+> 
+> John W. Linville (1):
+>       mac80211: probe for hidden SSIDs in pre-auth scan
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+Pulled, thanks John.
