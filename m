@@ -1,46 +1,125 @@
-From: Segher Boessenkool <segher@kernel.crashing.org>
-Subject: Re: [PATCH 6/24] make atomic_read() behave consistently on frv
-Date: Wed, 15 Aug 2007 23:15:51 +0200
-Message-ID: <7131d547746a998fcec74d1c091f9f6a@kernel.crashing.org>
-References: <20070809134150.GA14890@shell.boston.redhat.com> <2708.1186737826@redhat.com> <7680.1186822071@redhat.com> <46BFFDBD.6080804@redhat.com> <46C140DD.3060509@yahoo.com.au> <2cbda24e96a49c3ab7cf7039c515f9fc@kernel.crashing.org> <20070815191829.GJ9645@linux.vnet.ibm.com> <369924c4b3132a4b06258b7ac81b1006@kernel.crashing.org> <20070815195915.GL9645@linux.vnet.ibm.com> <d2cd1065faf8a13040e8a2405c363aa1@kernel.crashing.org> <20070815203836.GO9645@linux.vnet.ibm.com>
-Mime-Version: 1.0 (Apple Message framework v623)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: heiko.carstens@de.ibm.com, horms@verge.net.au,
-	linux-kernel@vger.kernel.org, rpjday@mindspring.com, ak@suse.de,
-	netdev@vger.kernel.org, cfriesen@nortel.com,
-	akpm@linux-foundation.org, torvalds@linux-foundation.org,
-	Nick Piggin <nickpiggin@yahoo.com.au>,
-	linux-arch@vger.kernel.org, jesper.juhl@gmail.com, zlynx@acm.org,
-	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
-	davem@davemloft.net, wensong@linux-vs.org, wjiang@resilience.com,
-	David Howells <dhowells@redhat.com>
-To: paulmck@linux.vnet.ibm.com
+From: =?utf-8?b?U8OpYmFzdGllbg==?= Judenherc
+	<sebastien.judenherc@agecodagis.com>
+Subject: skge and sky2 stop working after a few minutes.
+Date: Wed, 15 Aug 2007 21:20:37 +0000 (UTC)
+Message-ID: <loom.20070815T224114-635@post.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:53881 "EHLO gate.crashing.org"
+Received: from main.gmane.org ([80.91.229.2]:58542 "EHLO ciao.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758406AbXHOVQr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2007 17:16:47 -0400
-In-Reply-To: <20070815203836.GO9645@linux.vnet.ibm.com>
+	id S1753866AbXHOVZH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 17:25:07 -0400
+Received: from root by ciao.gmane.org with local (Exim 4.43)
+	id 1ILQMQ-0006QD-3f
+	for netdev@vger.kernel.org; Wed, 15 Aug 2007 23:25:02 +0200
+Received: from AToulouse-256-1-54-59.w86-205.abo.wanadoo.fr ([86.205.133.59])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 15 Aug 2007 23:25:02 +0200
+Received: from sebastien.judenherc by AToulouse-256-1-54-59.w86-205.abo.wanadoo.fr with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 15 Aug 2007 23:25:02 +0200
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Please check the definition of "cache coherence".
+Hello,
+I can see some very strange problem with sky2 and skge interfaces with =
+2.6.22,
+and also 2.6.23-rc2/3.
+After 8-9 minutes, the interfaces stop working. ethtool reports that th=
+e link is
+down and the only way to make the interfaces usable again is
+removing/reinserting the module or running ethtool -r.
+This occurs for both sky2 and skge for two PCs connected to a gigabit s=
+witch.
+The other PCs on the same switch continue to work fine (most are 100Mbi=
+t/s). It
+also occurs on a third PC with skge, directly connected to a 100Mbit/s =
+interface
+over a cross over cable. I didn't notice the problem with 2.6.19.
 
-Which of the twelve thousand such definitions?  :-)
+After 8-9 minutes, the interface stops working. ethtool reports that th=
+e link is
+down and the only way to make the interface usable again is removing/re=
+inserting
+the module or running ethtool -r.
 
-> Summary: the CPU is indeed within its rights to execute loads and 
-> stores
-> to a single variable out of order, -but- only if it gets the same 
-> result
-> that it would have obtained by executing them in order.  Which means 
-> that
-> any reordering of accesses by a single CPU to a single variable will be
-> invisible to the software.
+=46or the skge interface connected to the gigabit switch, here is what =
+ethtool
+reports:
 
-I'm still not sure if that applies to all architectures.
-Doesn't matter anyway, let's kill this thread :-)
+Settings for eth0:
+        Supported ports: [ TP ]
+        Supported link modes:   10baseT/Half 10baseT/Full=20
+                                100baseT/Half 100baseT/Full=20
+                                1000baseT/Half 1000baseT/Full=20
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 10baseT/Full=20
+                                100baseT/Half 100baseT/Full=20
+                                1000baseT/Half 1000baseT/Full=20
+        Advertised auto-negotiation: Yes
+        Speed: Unknown! (65535)
+        Duplex: Unknown! (255)
+        Port: Twisted Pair
+        PHYAD: 0
+        Transceiver: internal
+        Auto-negotiation: on
+        Supports Wake-on: pg
+        Wake-on: g
+        Current message level: 0x00000037 (55)
+        Link detected: no
+NIC statistics:
+     tx_bytes: 0
+     rx_bytes: 0
+     tx_broadcast: 0
+     rx_broadcast: 0
+     tx_multicast: 0
+     rx_multicast: 0
+     tx_unicast: 0
+     rx_unicast: 0
+     tx_mac_pause: 0
+     rx_mac_pause: 0
+     collisions: 0
+     multi_collisions: 0
+     aborted: 0
+     late_collision: 0
+     fifo_underrun: 0
+     fifo_overflow: 0
+     rx_toolong: 0
+     rx_jabber: 0
+     rx_runt: 0
+     rx_too_long: 0
+     rx_fcs_error: 0
 
+and here is what dmesg says just after the hangs with debug=3D16 for sk=
+ge:
+=2E..
+eth0: tx queued, slot 127, len 1098
+skge eth0: tx done slot 127
+skge eth0: rx slot 394 status 0x420100 len 66
+skge eth0: rx slot 395 status 0x420100 len 66
+eth0: tx queued, slot 0, len 42
+skge eth0: tx done slot 0
+eth0: tx queued, slot 1, len 74
+skge eth0: tx done slot 1
+skge eth0: rx slot 396 status 0x420100 len 66
+eth0: tx queued, slot 2, len 1414
+skge eth0: tx done slot 2
+skge eth0: rx slot 397 status 0x420100 len 66
+eth0: tx queued, slot 3, len 270
+skge eth0: tx done slot 3
+skge eth0: rx slot 398 status 0x420100 len 66
+eth0: tx queued, slot 4, len 74
+skge eth0: tx done slot 4
+skge eth0: rx slot 399 status 0x420100 len 66
+skge eth0: phy interrupt status 0x400 0x814c
+skge eth0: Link is down.
 
-Segher
+I would be happy to help.
+
+regards
+s=C3=A9bastien.
 
