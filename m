@@ -1,54 +1,83 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: RE: [patch 4/4] Update e1000 driver to use devres.
-Date: Thu, 16 Aug 2007 10:09:58 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC329036D2426@orsmsx414.amr.corp.intel.com>
-References: <20070815190014.GE7294@ifup.org> <D5C1322C3E673F459512FB59E0DDC329036D21B5@orsmsx414.amr.corp.intel.com> <20070816170522.GA4226@ifup.org>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [patch 4/4] Update e1000 driver to use devres.
+Date: Thu, 16 Aug 2007 10:36:46 -0700
+Message-ID: <46C48B2E.9040105@intel.com>
+References: <20070815190014.GE7294@ifup.org> <46C43891.4080304@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <e1000-devel@lists.sourceforge.net>,
-	<teheo@suse.de>
-To: "Brandon Philips" <bphilips@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:21666 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755558AbXHPRKG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 13:10:06 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20070816170522.GA4226@ifup.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Brandon Philips <bphilips@suse.de>
+To: Tejun Heo <teheo@suse.de>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <46C43891.4080304@suse.de>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-> Now if I insert a return -ENOMEM right after allocating tx_ring:
-> --- a/drivers/net/e1000/e1000_main.c
-> +++ b/drivers/net/e1000/e1000_main.c
-> @@ -1356,6 +1356,8 @@ e1000_alloc_queues(struct e1000_adapter 
-> *adapter)  {
->         adapter->tx_ring = kcalloc(adapter->num_tx_queues,
->                                    sizeof(struct 
-> e1000_tx_ring), GFP_KERNEL);
-> +
-> +       return -ENOMEM;
->         if (!adapter->tx_ring)
->                 return -ENOMEM;
+Tejun Heo wrote:
+> Brandon Philips wrote:
+>> -	mmio_start = pci_resource_start(pdev, BAR_0);
+>>  	mmio_len = pci_resource_len(pdev, BAR_0);
 > 
-> #insmod
-> DEVRES ADD f7a80e80 pcim_release (8 bytes) DEVRES ADD 
-> f7a80ca0 devm_free_netdev (4 bytes) DEVRES ADD eb7f0080 
-> pcim_iomap_release (24 bytes) DEVRES ADD eb7f0000 
-> devm_kzalloc_release (40 bytes)
-> e1000_sw_init: Unable to allocate memory for queues DEVRES 
-> REL eb7f0000 devm_kzalloc_release (40 bytes) DEVRES REL 
-> eb7f0080 pcim_iomap_release (24 bytes) DEVRES REL f7a80ca0 
-> devm_free_netdev (4 bytes) DEVRES REL f7a80e80 pcim_release (8 bytes)
-> ACPI: PCI interrupt for device 0000:02:00.0 disabled
-> e1000: probe of 0000:02:00.0 failed with error -12
+> You don't need mmio_len either.
 > 
-> Since we are returning an error from probe the driver core calls
-> devres_release_all(dev) which releases all of the resources 
-> in the right order.  See really_probe() in drivers/base/dd.c.
+>> -	err = -EIO;
+>> -	adapter->hw.hw_addr = ioremap(mmio_start, mmio_len);
+>> +	adapter->hw.hw_addr = pcim_iomap(pdev, BAR_0, mmio_len);
+> 
+> Passing 0 as @max_len tells pci[m]_iomap() to use pci_resource_len() of
+> the BAR.
+> 
+>> @@ -952,16 +948,15 @@ e1000_probe(struct pci_dev *pdev,
+>>  	/* setup the private structure */
+>>  
+>>  	if ((err = e1000_sw_init(adapter)))
+>> -		goto err_sw_init;
+>> +		return err;
+>>  
+>>  	err = -EIO;
+>>  	/* Flash BAR mapping must happen after e1000_sw_init
+>>  	 * because it depends on mac_type */
+>>  	if ((adapter->hw.mac_type == e1000_ich8lan) &&
+>>  	   (pci_resource_flags(pdev, 1) & IORESOURCE_MEM)) {
+>> -		flash_start = pci_resource_start(pdev, 1);
+>>  		flash_len = pci_resource_len(pdev, 1);
+> 
+> Ditto.
+> 
+>> -		adapter->hw.flash_address = ioremap(flash_start, flash_len);
+>> +		adapter->hw.flash_address = pcim_iomap(pdev, 1, flash_len);
+>>  		if (!adapter->hw.flash_address)
+>>  			goto err_flashmap;
+>>  	}
+> 
 
-This looks fine then to me.  Thanks for the explanation.
 
--PJ
+brandon,
+
+seeing the multiple revisions I am scared that this will produce some fallout 
+and e1000 already is quite fragile. I would suggest that you instead work 
+against "e1000e" which is in a branch on jgarzik's netdev tree instead. This 
+driver is new and it would be much more interesting to have devres used in here 
+instead.
+
+Since this driver is in -mm as well this would give your patches some testing 
+before it goes upstream.
+
+Let's leave e1000 alone for now if we can.
+
+Auke
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >>  http://get.splunk.com/
