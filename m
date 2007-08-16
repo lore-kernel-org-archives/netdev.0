@@ -1,66 +1,41 @@
-From: Tom Tucker <tom@opengridcomputing.com>
-Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP ports
-	from the host TCP port space.
-Date: Thu, 16 Aug 2007 08:43:11 -0500
-Message-ID: <1187271791.4685.9.camel@trinity.ogc.int>
-References: <46B883B5.8040702@opengridcomputing.com>
-	<46BB61D0.4090101@opengridcomputing.com>
-	<46BB89C0.4040303@ichips.intel.com>
-	<20070809.145534.102938208.davem@davemloft.net>
-	<46C310E1.7020503@opengridcomputing.com> <46C3B5EF.5060409@garzik.org>
+From: Marcus Meissner <meissner@suse.de>
+Subject: [PATCH] use correct array index. (array is just 6 bytes long)
+Date: Thu, 16 Aug 2007 16:06:07 +0200
+Message-ID: <20070816140607.GA26206@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdreier@cisco.com, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org, David Miller <davem@davemloft.net>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <46C3B5EF.5060409@garzik.org>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-tr@linuxtr.net, mikep@linuxtr.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.suse.de ([195.135.220.2]:36449 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759256AbXHPOGJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Aug 2007 10:06:09 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-08-15 at 22:26 -0400, Jeff Garzik wrote:
+From: Marcus Meissner <meissner@suse.de>
 
-[...snip...]
+Use correct array index (goes from 0-6 instead of 10-16).
 
-> > I think removing the RDMA stack is the wrong thing to do, and you 
-> > shouldn't just threaten to yank entire subsystems because you don't like 
-> > the technology.  Lets keep this constructive, can we?  RDMA should get 
-> > the respect of any other technology in Linux.  Maybe its a niche in your 
-> > opinion, but come on, there's more RDMA users than say, the sparc64 
-> > port.  Eh?
-> 
-> It's not about being a niche.  It's about creating a maintainable 
-> software net stack that has predictable behavior.
+Signed-Off-By: Marcus Meissner <meissner@suse.de>
+---
+ drivers/net/tokenring/3c359.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Isn't RDMA _part_ of the "software net stack" within Linux? Why isn't
-making RDMA stable, supportable and maintainable equally as important as
-any other subsystem? 
-
-> 
-> Needing to reach out of the RDMA sandbox and reserve net stack resources 
-> away from itself travels a path we've consistently avoided.
-> 
-> 
-> >> I will NACK any patch that opens up sockets to eat up ports or
-> >> anything stupid like that.
-> > 
-> > Got it.
-> 
-> Ditto for me as well.
-> 
-> 	Jeff
-> 
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/tokenring/3c359.c b/drivers/net/tokenring/3c359.c
+index 9f1b6ab..5e2437e 100644
+--- a/drivers/net/tokenring/3c359.c
++++ b/drivers/net/tokenring/3c359.c
+@@ -763,7 +763,7 @@ static int xl_open_hw(struct net_device
+ 	if (xl_priv->xl_laa[0]) {  /* If using a LAA address */
+ 		for (i=10;i<16;i++) { 
+ 			writel( (MEM_BYTE_WRITE | 0xD0000 | xl_priv->srb) + i, xl_mmio + MMIO_MAC_ACCESS_CMD) ; 
+-			writeb(xl_priv->xl_laa[i],xl_mmio + MMIO_MACDATA) ; 
++			writeb(xl_priv->xl_laa[i-10],xl_mmio + MMIO_MACDATA) ;
+ 		}
+ 		memcpy(dev->dev_addr,xl_priv->xl_laa,dev->addr_len) ; 
+ 	} else { /* Regular hardware address */ 
+-- 
+1.4.3.4
