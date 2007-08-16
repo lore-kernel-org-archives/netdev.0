@@ -1,14 +1,21 @@
-From: Herbert Xu <herbert.xu@redhat.com>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Thu, 16 Aug 2007 08:53:16 +0800
-Message-ID: <20070816005316.GA29802@gondor.apana.org.au>
-References: <alpine.LFD.0.999.0708151906330.16414@enigma.security.iitk.ac.in> <20070815142516.GB9645@linux.vnet.ibm.com> <4413.1187201997@redhat.com> <20070815184520.GG9645@linux.vnet.ibm.com> <20070815234146.GB28775@gondor.apana.org.au> <20070815235335.GU9645@linux.vnet.ibm.com> <20070816001248.GA29214@gondor.apana.org.au> <20070816002310.GW9645@linux.vnet.ibm.com> <20070816003023.GA29447@gondor.apana.org.au> <20070816004950.GZ9645@linux.vnet.ibm.com>
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Wed, 15 Aug 2007 17:59:41 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0708151757400.11196@schroedinger.engr.sgi.com>
+References: <20070809131423.GA9927@shell.boston.redhat.com>
+ <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
+ <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
+ <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
+ <18115.35524.56393.347841@cargo.ozlabs.ibm.com>
+ <Pine.LNX.4.64.0708151725130.10497@schroedinger.engr.sgi.com>
+ <20070816003948.GY9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com>
+ <20070816005348.GA9645@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Howells <dhowells@redhat.com>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Paul Mackerras <paulus@samba.org>,
 	Satyam Sharma <satyam@infradead.org>,
 	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Christoph Lameter <clameter@sgi.com>,
 	Chris Snook <csnook@redhat.com>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	linux-arch@vger.kernel.org,
@@ -18,35 +25,29 @@ Cc: David Howells <dhowells@redhat.com>,
 	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
 	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
 	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
+	segher@kernel.crashing.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
 To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1683 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758509AbXHPAxj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 20:53:39 -0400
-Content-Disposition: inline
-In-Reply-To: <20070816004950.GZ9645@linux.vnet.ibm.com>
+Received: from netops-testserver-4-out.sgi.com ([192.48.171.29]:56662 "EHLO
+	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755757AbXHPA7p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 20:59:45 -0400
+In-Reply-To: <20070816005348.GA9645@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 15, 2007 at 05:49:50PM -0700, Paul E. McKenney wrote:
-> On Thu, Aug 16, 2007 at 08:30:23AM +0800, Herbert Xu wrote:
->
-> > Thanks.  But I don't need a summary of the thread, I'm asking
-> > for an extant code snippet in our kernel that benefits from
-> > the volatile change and is not part of a busy-wait.
-> 
-> Sorry, can't help you there.  I really do believe that the information
-> you need (as opposed to the specific item you are asking for) really
-> has been put forth in this thread.
+On Wed, 15 Aug 2007, Paul E. McKenney wrote:
 
-That only leads me to believe that such a code snippet simply
-does not exist.
+> The volatile cast should not disable all that many optimizations,
+> for example, it is much less hurtful than barrier().  Furthermore,
+> the main optimizations disabled (pulling atomic_read() and atomic_set()
+> out of loops) really do need to be disabled.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+In many cases you do not need a barrier. Having volatile there *will* 
+impact optimization because the compiler cannot use a register that may 
+contain the value that was fetched earlier. And the compiler cannot choose 
+freely when to fetch the value. The order of memory accesses are fixed if 
+you use volatile. If the variable is not volatile then the compiler can 
+arrange memory accesses any way they fit and thus generate better code.
+
