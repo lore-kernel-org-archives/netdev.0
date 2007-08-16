@@ -1,59 +1,53 @@
-From: Segher Boessenkool <segher@kernel.crashing.org>
-Subject: Re:
-Date: Thu, 16 Aug 2007 03:38:43 +0200
-Message-ID: <1ad8c70930530d4639a72e1c77d3904e@kernel.crashing.org>
-References: <46C2350A.1010807@redhat.com> <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <20070815081841.GA16551@osiris.boeblingen.de.ibm.com> <46C30540.2070603@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151941150.16414@enigma.security.iitk.ac.in> <20070815145207.GA23106@gondor.apana.org.au> <46C3253F.5090707@s5r6.in-berlin.de> <20070815162722.GD9645@linux.vnet.ibm.com> <d4406222873856f472b9173a14a19aa2@kernel.crashing.org> <20070815185724.GH9645@linux.vnet.ibm.com> <alpine.LFD.0.999.0708160118330.16414@enigma.security.iitk.ac.in> <2d2eeab6276cab2e6cc5830d36a43b98@kernel.crashing.org> <alpine.LFD.0.999.0708160338520.22701@enigma.security.iitk.ac.in>
-Mime-Version: 1.0 (Apple Message framework v623)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, ak@suse.de,
-	netdev@vger.kernel.org, cfriesen@nortel.com,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	linux-arch@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
-	clameter@sgi.com, schwidefsky@de.ibm.com,
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Wed, 15 Aug 2007 18:41:40 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0708151839140.11520@schroedinger.engr.sgi.com>
+References: <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
+ <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
+ <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
+ <18115.35524.56393.347841@cargo.ozlabs.ibm.com>
+ <Pine.LNX.4.64.0708151725130.10497@schroedinger.engr.sgi.com>
+ <20070816003948.GY9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com>
+ <20070816005348.GA9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151757400.11196@schroedinger.engr.sgi.com>
+ <20070816011414.GC9645@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Paul Mackerras <paulus@samba.org>,
+	Satyam Sharma <satyam@infradead.org>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	Chris Snook <csnook@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org,
 	Linus Torvalds <torvalds@linux-foundation.org>,
-	wensong@linux-vs.org, wjiang@resilience.com
-To: Satyam Sharma <satyam@infradead.org>
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:60490 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756473AbXHPBlK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2007 21:41:10 -0400
-In-Reply-To: <alpine.LFD.0.999.0708160338520.22701@enigma.security.iitk.ac.in>
+Received: from netops-testserver-4-out.sgi.com ([192.48.171.29]:58651 "EHLO
+	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1760168AbXHPBlm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 21:41:42 -0400
+In-Reply-To: <20070816011414.GC9645@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> "compilation unit" is a C standard term.  It typically boils down
->> to "single .c file".
->
-> As you mentioned later, "single .c file with all the other files 
-> (headers
-> or other .c files) that it pulls in via #include" is actually 
-> "translation
-> unit", both in the C standard as well as gcc docs.
+On Wed, 15 Aug 2007, Paul E. McKenney wrote:
 
-Yeah.  "single .c file after preprocessing".  Same thing :-)
+> Understood.  My point is not that the impact is precisely zero, but
+> rather that the impact on optimization is much less hurtful than the
+> problems that could arise otherwise, particularly as compilers become
+> more aggressive in their optimizations.
 
-> "Compilation unit"
-> doesn't seem to be nearly as standard a term, though in most places it
-> is indeed meant to be same as "translation unit", but with the new gcc
-> inter-module-analysis stuff that you referred to above, I suspect one 
-> may
-> reasonably want to call a "compilation unit" as all that the compiler 
-> sees
-> at a given instant.
+The problems arise because barriers are not used as required. Volatile 
+has wishy washy semantics and somehow marries memory barriers with data 
+access. It is clearer to separate the two. Conceptual cleanness usually 
+translates into better code. If one really wants the volatile then lets 
+make it explicit and use
 
-That would be a bit confusing, would it not?  They'd better find
-some better name for that if they want to name it at all (remember,
-none of these optimisations should have any effect on the semantics
-of the program, you just get fewer .o files etc.).
-
-
-Segher
-
+	atomic_read_volatile()
