@@ -1,75 +1,39 @@
 From: Segher Boessenkool <segher@kernel.crashing.org>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Thu, 16 Aug 2007 03:23:28 +0200
-Message-ID: <f24994ecd2ecfcda6e01b289a25c1e47@kernel.crashing.org>
-References: <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <20070815081841.GA16551@osiris.boeblingen.de.ibm.com> <46C30540.2070603@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151941150.16414@enigma.security.iitk.ac.in> <20070815145207.GA23106@gondor.apana.org.au> <46C3253F.5090707@s5r6.in-berlin.de> <20070815162722.GD9645@linux.vnet.ibm.com> <d4406222873856f472b9173a14a19aa2@kernel.crashing.org> <20070815185724.GH9645@linux.vnet.ibm.com> <2c907d70a2267b887de346891758983d@kernel.crashing.org> <20070815224433.GQ9645@linux.vnet.ibm.com>
+Date: Thu, 16 Aug 2007 03:26:02 +0200
+Message-ID: <3694fb2e4ed1e4d9bf873c0d050c911e@kernel.crashing.org>
+References: <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <46C32618.2080108@redhat.com> <20070815234021.GA28775@gondor.apana.org.au>
 Mime-Version: 1.0 (Apple Message framework v623)
 Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Satyam Sharma <satyam@infradead.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	rpjday@mindspring.com, netdev@vger.kernel.org, ak@suse.de,
-	cfriesen@nortel.com, Heiko Carstens <heiko.carstens@de.ibm.com>,
-	jesper.juhl@gmail.com, linux-arch@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
-	clameter@sgi.com, schwidefsky@de.ibm.com,
-	Chris Snook <csnook@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
-	Linus Torvalds <torvalds@linux-foundation.org>,
+Cc: heiko.carstens@de.ibm.com, horms@verge.net.au,
+	linux-kernel@vger.kernel.org, rpjday@mindspring.com, ak@suse.de,
+	netdev@vger.kernel.org, cfriesen@nortel.com,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	jesper.juhl@gmail.com, linux-arch@vger.kernel.org, zlynx@acm.org,
+	satyam@infradead.org, clameter@sgi.com, schwidefsky@de.ibm.com,
+	Chris Snook <csnook@redhat.com>, davem@davemloft.net,
 	wensong@linux-vs.org, wjiang@resilience.com
-To: paulmck@linux.vnet.ibm.com
+To: Herbert Xu <herbert.xu@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:34184 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:34209 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760662AbXHPB02 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2007 21:26:28 -0400
-In-Reply-To: <20070815224433.GQ9645@linux.vnet.ibm.com>
+	id S1757786AbXHPB1a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 21:27:30 -0400
+In-Reply-To: <20070815234021.GA28775@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>>> No; compilation units have nothing to do with it, GCC can optimise
->>>> across compilation unit boundaries just fine, if you tell it to
->>>> compile more than one compilation unit at once.
->>>
->>> Last I checked, the Linux kernel build system did compile each .c 
->>> file
->>> as a separate compilation unit.
->>
->> I have some patches to use -combine -fwhole-program for Linux.
->> Highly experimental, you need a patched bleeding edge toolchain.
->> If there's interest I'll clean it up and put it online.
->>
->> David Woodhouse had some similar patches about a year ago.
+>> Part of the motivation here is to fix heisenbugs.  If I knew where 
+>> they
 >
-> Sounds exciting...  ;-)
+> By the same token we should probably disable optimisations
+> altogether since that too can create heisenbugs.
 
-Yeah, the breakage is *quite* spectacular :-)
-
->>>>> In many cases, the compiler also has to assume that
->>>>> msleep_interruptible()
->>>>> might call back into a function in the current compilation unit, 
->>>>> thus
->>>>> possibly modifying global static variables.
->>>>
->>>> It most often is smart enough to see what compilation-unit-local
->>>> variables might be modified that way, though :-)
->>>
->>> Yep.  For example, if it knows the current value of a given such 
->>> local
->>> variable, and if all code paths that would change some other variable
->>> cannot be reached given that current value of the first variable.
->>
->> Or the most common thing: if neither the address of the translation-
->> unit local variable nor the address of any function writing to that
->> variable can "escape" from that translation unit, nothing outside
->> the translation unit can write to the variable.
->
-> But there is usually at least one externally callable function in
-> a .c file.
-
-Of course, but often none of those will (indirectly) write a certain
-static variable.
+Almost everything is a tradeoff; and so is this.  I don't
+believe most people would find disabling all compiler
+optimisations an acceptable price to pay for some peace
+of mind.
 
 
 Segher
