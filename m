@@ -1,51 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Thu, 16 Aug 2007 08:51:56 +0800
-Message-ID: <20070816005156.GA29698@gondor.apana.org.au>
-References: <20070815145207.GA23106@gondor.apana.org.au> <46C3253F.5090707@s5r6.in-berlin.de> <20070815162722.GD9645@linux.vnet.ibm.com> <d4406222873856f472b9173a14a19aa2@kernel.crashing.org> <20070815185724.GH9645@linux.vnet.ibm.com> <alpine.LFD.0.999.0708160118330.16414@enigma.security.iitk.ac.in> <2d2eeab6276cab2e6cc5830d36a43b98@kernel.crashing.org> <alpine.LFD.0.999.0708160338520.22701@enigma.security.iitk.ac.in> <20070816003226.GA29491@gondor.apana.org.au> <alpine.LFD.0.999.0708160621260.24380@enigma.security.iitk.ac.in>
+Date: Wed, 15 Aug 2007 17:53:48 -0700
+Message-ID: <20070816005348.GA9645@linux.vnet.ibm.com>
+References: <20070809131423.GA9927@shell.boston.redhat.com> <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in> <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in> <18115.35524.56393.347841@cargo.ozlabs.ibm.com> <Pine.LNX.4.64.0708151725130.10497@schroedinger.engr.sgi.com> <20070816003948.GY9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Segher Boessenkool <segher@kernel.crashing.org>,
-	horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
+Cc: Paul Mackerras <paulus@samba.org>,
+	Satyam Sharma <satyam@infradead.org>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Chris Snook <csnook@redhat.com>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, ak@suse.de,
-	netdev@vger.kernel.org, cfriesen@nortel.com,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
 	linux-arch@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
-	clameter@sgi.com, schwidefsky@de.ibm.com,
-	Chris Snook <csnook@redhat.com>, davem@davemloft.net,
 	Linus Torvalds <torvalds@linux-foundation.org>,
-	wensong@linux-vs.org, wjiang@resilience.com
-To: Satyam Sharma <satyam@infradead.org>
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Christoph Lameter <clameter@sgi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1660 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1764241AbXHPAxG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 20:53:06 -0400
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:38143 "EHLO e2.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S937499AbXHPAxx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 20:53:53 -0400
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.0.999.0708160621260.24380@enigma.security.iitk.ac.in>
+In-Reply-To: <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 16, 2007 at 06:28:42AM +0530, Satyam Sharma wrote:
->
-> > The udelay itself certainly should have some form of cpu_relax in it.
+On Wed, Aug 15, 2007 at 05:42:07PM -0700, Christoph Lameter wrote:
+> On Wed, 15 Aug 2007, Paul E. McKenney wrote:
 > 
-> Yes, a form of barrier() must be present in mdelay() or udelay() itself
-> as you say, having it in __const_udelay() is *not* enough (superflous
-> actually, considering it is already a separate translation unit and
-> invisible to the compiler).
+> > Seems to me that we face greater chance of confusion without the
+> > volatile than with, particularly as compiler optimizations become
+> > more aggressive.  Yes, we could simply disable optimization, but
+> > optimization can be quite helpful.
+> 
+> A volatile default would disable optimizations for atomic_read. 
+> atomic_read without volatile would allow for full optimization by the 
+> compiler. Seems that this is what one wants in many cases.
 
-As long as __const_udelay does something which has the same
-effect as barrier it is enough even if it's in the same unit.
-As a matter of fact it does on i386 where __delay either uses
-rep_nop or asm/volatile.
+The volatile cast should not disable all that many optimizations,
+for example, it is much less hurtful than barrier().  Furthermore,
+the main optimizations disabled (pulling atomic_read() and atomic_set()
+out of loops) really do need to be disabled.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+						Thanx, Paul
