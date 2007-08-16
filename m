@@ -1,51 +1,40 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Wed, 15 Aug 2007 18:14:26 -0700
-Message-ID: <20070816011426.GD9645@linux.vnet.ibm.com>
-References: <20070815142516.GB9645@linux.vnet.ibm.com> <4413.1187201997@redhat.com> <20070815184520.GG9645@linux.vnet.ibm.com> <20070815234146.GB28775@gondor.apana.org.au> <20070815235335.GU9645@linux.vnet.ibm.com> <20070816001248.GA29214@gondor.apana.org.au> <20070816002310.GW9645@linux.vnet.ibm.com> <20070816003023.GA29447@gondor.apana.org.au> <20070816004950.GZ9645@linux.vnet.ibm.com> <20070816005316.GA29802@gondor.apana.org.au>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Subject: Re: [PATCH 6/24] make atomic_read() behave consistently on frv
+Date: Thu, 16 Aug 2007 11:20:53 +1000
+Message-ID: <46C3A675.7050108@yahoo.com.au>
+References: <20070809134150.GA14890@shell.boston.redhat.com> <2708.1186737826@redhat.com> <7680.1186822071@redhat.com> <46BFFDBD.6080804@redhat.com> <46C140DD.3060509@yahoo.com.au> <2cbda24e96a49c3ab7cf7039c515f9fc@kernel.crashing.org> <20070815191829.GJ9645@linux.vnet.ibm.com> <369924c4b3132a4b06258b7ac81b1006@kernel.crashing.org> <20070815195915.GL9645@linux.vnet.ibm.com> <d2cd1065faf8a13040e8a2405c363aa1@kernel.crashing.org> <20070815203836.GO9645@linux.vnet.ibm.com> <7131d547746a998fcec74d1c091f9f6a@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Howells <dhowells@redhat.com>,
-	Satyam Sharma <satyam@infradead.org>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Christoph Lameter <clameter@sgi.com>,
-	Chris Snook <csnook@redhat.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
-To: Herbert Xu <herbert.xu@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:56932 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S936289AbXHPBOa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2007 21:14:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20070816005316.GA29802@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: paulmck@linux.vnet.ibm.com, heiko.carstens@de.ibm.com,
+	horms@verge.net.au, linux-kernel@vger.kernel.org,
+	rpjday@mindspring.com, ak@suse.de, netdev@vger.kernel.org,
+	cfriesen@nortel.com, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, linux-arch@vger.kernel.org,
+	jesper.juhl@gmail.com, zlynx@acm.org, schwidefsky@de.ibm.com,
+	Chris Snook <csnook@redhat.com>, davem@davemloft.net,
+	wensong@linux-vs.org, wjiang@resilience.com,
+	David Howells <dhowells@redhat.com>
+To: Segher Boessenkool <segher@kernel.crashing.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S937746AbXHPBVW@vger.kernel.org>
+In-Reply-To: <7131d547746a998fcec74d1c091f9f6a@kernel.crashing.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 16, 2007 at 08:53:16AM +0800, Herbert Xu wrote:
-> On Wed, Aug 15, 2007 at 05:49:50PM -0700, Paul E. McKenney wrote:
-> > On Thu, Aug 16, 2007 at 08:30:23AM +0800, Herbert Xu wrote:
-> >
-> > > Thanks.  But I don't need a summary of the thread, I'm asking
-> > > for an extant code snippet in our kernel that benefits from
-> > > the volatile change and is not part of a busy-wait.
-> > 
-> > Sorry, can't help you there.  I really do believe that the information
-> > you need (as opposed to the specific item you are asking for) really
-> > has been put forth in this thread.
+Segher Boessenkool wrote:
+>> Please check the definition of "cache coherence".
 > 
-> That only leads me to believe that such a code snippet simply
-> does not exist.
+> 
+> Which of the twelve thousand such definitions?  :-)
 
-Whatever...
+Every definition I have seen says that writes to a single memory
+location have a serial order as seen by all CPUs, and that a read
+will return the most recent write in the sequence (with a bit of
+extra mumbo jumbo to cover store queues and store forwarding).
 
-						Thanx, Paul
+Within such a definition, I don't see how would be allowed for a
+single CPU to execute reads out of order and have the second read
+return an earlier write than the first read.
+
+-- 
+SUSE Labs, Novell Inc.
