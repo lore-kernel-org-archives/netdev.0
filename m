@@ -1,67 +1,35 @@
-From: Satyam Sharma <satyam@infradead.org>
-Subject: Re: drivers/infiniband/mlx/mad.c misplaced ;
-Date: Thu, 16 Aug 2007 18:11:17 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0708161801530.25951@enigma.security.iitk.ac.in>
-References: <20070815235825.GB17004@redhat.com> <1187224811.5906.55.camel@localhost>
- <20070816084635.GA15985@osiris.boeblingen.de.ibm.com>
- <Pine.LNX.4.64.0708161248050.22579@kivilampi-30.cs.helsinki.fi>
-Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="464262402-1168800151-1187268086=:25951"
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Joe Perches <joe@perches.com>, Dave Jones <davej@redhat.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>, rolandd@cisco.com,
-	Chas Williams <chas@cmf.nrl.navy.mil>,
-	Paul Mundt <lethal@linux-sh.org>,
-	isdn4linux@listserv.isdn4linux.de, mikep@linuxtr.net,
-	Netdev <netdev@vger.kernel.org>, swen@vnet.ibm.com,
-	linux390@de.ibm.com, linux-s390@vger.kernel.org, jdike@karaya.com,
-	user-mode-linux-devel@lists.sourceforge.net,
-	user-mode-linux-user@lists.sourceforge.net,
-	netfilter-devel@lists.netfilter.org, coreteam@netfilter.org
-To: =?iso-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC] net/core/dst.c : Should'nt dst_run_gc() be more scalable and friendly ?
+Date: Thu, 16 Aug 2007 20:41:58 +0800
+Message-ID: <E1ILefm-00010m-00@gondolin.me.apana.org.au>
+References: <20070816140914.de24335c.dada1@cosmosbay.com>
+Cc: netdev@vger.kernel.org
+To: dada1@cosmosbay.com (Eric Dumazet)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:50122 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754598AbXHPM2w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 08:28:52 -0400
-In-Reply-To: <Pine.LNX.4.64.0708161248050.22579@kivilampi-30.cs.helsinki.fi>
+Received: from rhun.apana.org.au ([64.62.148.172]:3616 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755257AbXHPMmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 08:42:07 -0400
+In-Reply-To: <20070816140914.de24335c.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Eric Dumazet <dada1@cosmosbay.com> wrote:
+>
+> I am wondering how to really solve the problem. Could a workqueue be used here instead of a timer ?
 
---464262402-1168800151-1187268086=:25951
-Content-Type: TEXT/PLAIN; charset=iso-8859-15
-Content-Transfer-Encoding: 8BIT
+I think so.
 
-Hi Ilpo,
+A mutex would separate the GC and dst_ifdown.  You'd take the
+spin lock in the GC only to replace the garbage list with NULL.
+You then drop the lock to process it.  Once it's done you take
+the lock again and join it with whatever that's been added in
+the mean time.  This is easy because you should already have
+the tail after the GC process.
 
-
-On Thu, 16 Aug 2007, Ilpo Järvinen wrote:
-
-> 
-> ...I guess those guys hunting for broken busyloops in the other thread 
-> could also benefit from similar searching commands introduced in this 
-> thread... ...Ccing Satyam to caught their attention too.
-> 
-> 
-> > On Wed, Aug 15, 2007 at 05:40:11PM -0700, Joe Perches wrote:
-> > > 
-> > > There's more than a few of these (not inspected).
-> > > 
-> > > $ egrep -r --include=*.c "\bif[[:space:]]*\([^\)]*\)[[:space:]]*\;" * 
-> 
-> ...Hmm, I plugged in "a preprocessor" too to manage with non compliant 
-> coding styles :-). Please understand that the line numbers are not an 
-> exact match due to preprocessor changes:
-> 
-> $ for i in `find . -name '*.[ch]'`; do echo $i; indent -npro -kr -i8 -ts8 
-> -sob -l8000 -ss -ncs -cp1 -nhnl -st $i | egrep -n "[[:space:]]if [(].*[)] ;$";
-> done | grep -B1 "^[^.]"
-
-Thanks, looks useful, will check with this.
-
-
-Satyam
---464262402-1168800151-1187268086=:25951--
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
