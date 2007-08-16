@@ -1,119 +1,60 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: [PATCH] lockdep: annotate rcu_read_{,un}lock()
-Date: Thu, 16 Aug 2007 16:25:07 +0200
-Message-ID: <1187274307.6114.92.camel@twins>
-References: <af57f1ac0708141130v729fa636k3150673809ec20a8@mail.gmail.com>
-	 <E1ILEJr-0005Fl-00@gondolin.me.apana.org.au>
-	 <20070815.144628.104052147.davem@davemloft.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Thu, 16 Aug 2007 17:48:25 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0708161743500.13267@kivilampi-30.cs.helsinki.fi>
+References: <20070816003948.GY9645@linux.vnet.ibm.com>
+ <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com>
+ <18115.44462.622801.683446@cargo.ozlabs.ibm.com> <20070816020042.GA30650@gondor.apana.org.au>
+ <18115.45316.702491.681906@cargo.ozlabs.ibm.com>
+ <alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in>
+ <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in>
+ <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au>
+ <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, 123.oleg@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Daniel Walker <dwalker@mvista.com>
-To: Paul E McKenney <paulmck@linux.vnet.ibm.com>,
-	Ingo Molnar <mingo@elte.hu>
+Cc: Paul Mackerras <paulus@samba.org>,
+	Satyam Sharma <satyam@infradead.org>,
+	Christoph Lameter <clameter@sgi.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Chris Snook <csnook@redhat.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>, ak@suse.de,
+	heiko.carstens@de.ibm.com, David Miller <davem@davemloft.net>,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:52712 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753566AbXHPOZp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 10:25:45 -0400
-In-Reply-To: <20070815.144628.104052147.davem@davemloft.net>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:38609 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751759AbXHPOs2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 10:48:28 -0400
+In-Reply-To: <20070816070907.GA964@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 16 Aug 2007, Herbert Xu wrote:
 
-There seem to be some unbalanced rcu_read_{,un}lock() issues of late,
-how about doing something like this:
+> We've been through that already.  If it's a busy-wait it
+> should use cpu_relax. 
 
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
----
- include/linux/lockdep.h  |    7 +++++++
- include/linux/rcupdate.h |   12 ++++++++++++
- kernel/rcupdate.c        |    8 ++++++++
- 3 files changed, 27 insertions(+)
+I looked around a bit by using some command lines and ended up wondering 
+if these are equal to busy-wait case (and should be fixed) or not:
 
-Index: linux-2.6/include/linux/lockdep.h
-===================================================================
---- linux-2.6.orig/include/linux/lockdep.h
-+++ linux-2.6/include/linux/lockdep.h
-@@ -252,6 +252,13 @@ extern void lockdep_init_map(struct lock
- 			     struct lock_class_key *key, int subclass);
- 
- /*
-+ * To initialize a lockdep_map statically use this macro.
-+ * Note that _name must not be NULL.
-+ */
-+#define STATIC_LOCKDEP_MAP_INIT(_name, _key) \
-+	{ .name = (_name), .key = (void *)(_key), }
-+
-+/*
-  * Reinitialize a lock key - for cases where there is special locking or
-  * special initialization of locks so that the validator gets the scope
-  * of dependencies wrong: they are either too broad (they need a class-split)
-Index: linux-2.6/include/linux/rcupdate.h
-===================================================================
---- linux-2.6.orig/include/linux/rcupdate.h
-+++ linux-2.6/include/linux/rcupdate.h
-@@ -41,6 +41,7 @@
- #include <linux/percpu.h>
- #include <linux/cpumask.h>
- #include <linux/seqlock.h>
-+#include <linux/lockdep.h>
- 
- /**
-  * struct rcu_head - callback structure for use with RCU
-@@ -133,6 +134,15 @@ static inline void rcu_bh_qsctr_inc(int 
- extern int rcu_pending(int cpu);
- extern int rcu_needs_cpu(int cpu);
- 
-+#ifdef CONFIG_DEBUG_LOCK_ALLOC
-+extern struct lockdep_map rcu_lock_map;
-+# define rcu_read_acquire()	lock_acquire(&rcu_lock_map, 0, 0, 2, 1, _THIS_IP_)
-+# define rcu_read_release()	lock_release(&rcu_lock_map, 1, _THIS_IP_)
-+#else
-+# define rcu_read_acquire()	do { } while (0)
-+# define rcu_read_release()	do { } while (0)
-+#endif
-+
- /**
-  * rcu_read_lock - mark the beginning of an RCU read-side critical section.
-  *
-@@ -166,6 +176,7 @@ extern int rcu_needs_cpu(int cpu);
- 	do { \
- 		preempt_disable(); \
- 		__acquire(RCU); \
-+		rcu_read_acquire(); \
- 	} while(0)
- 
- /**
-@@ -175,6 +186,7 @@ extern int rcu_needs_cpu(int cpu);
-  */
- #define rcu_read_unlock() \
- 	do { \
-+		rcu_read_release(); \
- 		__release(RCU); \
- 		preempt_enable(); \
- 	} while(0)
-Index: linux-2.6/kernel/rcupdate.c
-===================================================================
---- linux-2.6.orig/kernel/rcupdate.c
-+++ linux-2.6/kernel/rcupdate.c
-@@ -49,6 +49,14 @@
- #include <linux/cpu.h>
- #include <linux/mutex.h>
- 
-+#ifdef CONFIG_DEBUG_LOCK_ALLOC
-+static struct lock_class_key rcu_lock_key;
-+struct lockdep_map rcu_lock_map =
-+	STATIC_LOCKDEP_MAP_INIT("rcu_read_lock", &rcu_lock_key);
-+
-+EXPORT_SYMBOL_GPL(rcu_lock_map);
-+#endif
-+
- /* Definition for rcupdate control block. */
- static struct rcu_ctrlblk rcu_ctrlblk = {
- 	.cur = -300,
+./drivers/telephony/ixj.c
+6674:   while (atomic_read(&j->DSPWrite) > 0)
+6675-           atomic_dec(&j->DSPWrite);
+
+...besides that, there are couple of more similar cases in the same file 
+(with braces)...
 
 
+-- 
+ i.
