@@ -1,101 +1,87 @@
-From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
-Subject: Re: 2.6.23-rc3 and SKY2 driver issue
-Date: Thu, 16 Aug 2007 10:25:45 +0200
-Message-ID: <6bffcb0e0708160125v56f3d0f3l865574bdd56bd6ad@mail.gmail.com>
-References: <663186.13204.qm@web90403.mail.mud.yahoo.com>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [patch 4/4] Update e1000 driver to use devres.
+Date: Thu, 16 Aug 2007 01:38:02 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC329036D21B5@orsmsx414.amr.corp.intel.com>
+References: <20070815190014.GE7294@ifup.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
-	"Stephen Hemminger" <shemminger@linux-foundation.org>
-To: "James Corey" <ploversegg@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.177]:20688 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751679AbXHPIZq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 04:25:46 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so205983wah
-        for <netdev@vger.kernel.org>; Thu, 16 Aug 2007 01:25:45 -0700 (PDT)
-In-Reply-To: <663186.13204.qm@web90403.mail.mud.yahoo.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: teheo@suse.de
+To: "Brandon Philips" <bphilips@suse.de>, <netdev@vger.kernel.org>,
+	<e1000-devel@lists.sourceforge.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-class: urn:content-classes:message
+In-Reply-To: <20070815190014.GE7294@ifup.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-[Adding Stephen and netdev to CC]
+> Index: linux-2.6/drivers/net/e1000/e1000_main.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/e1000/e1000_main.c
+> +++ linux-2.6/drivers/net/e1000/e1000_main.c
+> @@ -860,15 +860,14 @@ e1000_probe(struct pci_dev *pdev,  {
+>  	struct net_device *netdev;
+>  	struct e1000_adapter *adapter;
+> -	unsigned long mmio_start, mmio_len;
+> -	unsigned long flash_start, flash_len;
+> +	unsigned long mmio_len, flash_len;
+>  
+>  	static int cards_found = 0;
+>  	static int global_quad_port_a = 0; /* global ksp3 port 
+> a indication */
+>  	int i, err, pci_using_dac;
+>  	uint16_t eeprom_data = 0;
+>  	uint16_t eeprom_apme_mask = E1000_EEPROM_APME;
+> -	if ((err = pci_enable_device(pdev)))
+> +	if ((err = pcim_enable_device(pdev)))
+>  		return err;
+>  
+>  	if (!(err = pci_set_dma_mask(pdev, DMA_64BIT_MASK)) && 
+> @@ -878,20 +877,19 @@ e1000_probe(struct pci_dev *pdev,
+>  		if ((err = pci_set_dma_mask(pdev, DMA_32BIT_MASK)) &&
+>  		    (err = pci_set_consistent_dma_mask(pdev, 
+> DMA_32BIT_MASK))) {
+>  			E1000_ERR("No usable DMA configuration, 
+> aborting\n");
+> -			goto err_dma;
+> +			return err;
+>  		}
+>  		pci_using_dac = 0;
+>  	}
+>  
+>  	if ((err = pci_request_regions(pdev, e1000_driver_name)))
+> -		goto err_pci_reg;
+> +		return err;
+>  
+>  	pci_set_master(pdev);
+>  
+> -	err = -ENOMEM;
+> -	netdev = alloc_etherdev(sizeof(struct e1000_adapter));
+> +	netdev = devm_alloc_etherdev(&pdev->dev, sizeof(struct 
+> +e1000_adapter));
+>  	if (!netdev)
+> -		goto err_alloc_etherdev;
+> +		return -ENOMEM;
 
-On 15/08/07, James Corey <ploversegg@yahoo.com> wrote:
->
-> I tried running a D-link gig card on kernel 2.6.21.1
-> and it came up fine, but when I did a sftp of
-> an linux dvd ISO to it, the interface would lock
-> up hard with the error
->
-> eth1: hw csum failure.
->
-> Call Trace:
->  <IRQ>  [<ffffffff804d3e31>]
-> __skb_checksum_complete_head+0x46/0x5f
->  [<ffffffff804d3e56>] __skb_checksum_complete+0xc/0x11
->  [<ffffffff805046c7>] tcp_v4_rcv+0x157/0x810
->  [<ffffffff804d8a6f>] dev_queue_xmit+0x237/0x260
->  [<ffffffff80229990>] find_busiest_group+0x252/0x684
->  [<ffffffff804ead50>] ip_local_deliver+0xca/0x14c
->  [<ffffffff804eb24a>] ip_rcv+0x478/0x4ba
->  [<ffffffff803ec7d3>] sky2_poll+0x6f9/0x9b9
->  [<ffffffff8022bd5d>]
-> run_rebalance_domains+0x13e/0x408
->  [<ffffffff804d877a>] net_rx_action+0xa8/0x166
->  [<ffffffff80235d62>] __do_softirq+0x55/0xc3
->  [<ffffffff8020a4ec>] call_softirq+0x1c/0x28
->  [<ffffffff8020b611>] do_softirq+0x2c/0x7d
->  [<ffffffff8020b8cf>] do_IRQ+0x13e/0x15f
->  [<ffffffff802086ce>] mwait_idle+0x0/0x46
->  [<ffffffff80209871>] ret_from_intr+0x0/0xa
->  <EOI>  [<ffffffff80208710>] mwait_idle+0x42/0x46
->  [<ffffffff80208666>] cpu_idle+0x8c/0xaf
->  [<ffffffff8078174e>] start_kernel+0x2ac/0x2b8
->  [<ffffffff80781140>] _sinittext+0x140/0x144
->
->
-> So I tried running the latest snapshot 2.6.23-rc3
-> and the almost the same thing happens. Only
-> difference is that now the entire box locks up.
-> The error is almost the same
->
-> eth1: hw csum failure.
->
-> Call Trace:
->  <IRQ>  [<ffffffff804779b6>]
-> __skb_checksum_complete_head+0x43/0x56
->  [<ffffffff804779d5>] __skb_checksum_complete+0xc/0x11
->  [<ffffffff804a989d>] tcp_v4_rcv+0x14e/0x801
->  [<ffffffff8048ff84>] ip_local_deliver+0xca/0x14c
->  [<ffffffff80490472>] ip_rcv+0x46c/0x4ae
->  [<ffffffff880060f9>] :sky2:sky2_poll+0x72b/0x9c7
->  [<ffffffff8047c934>] net_rx_action+0xa8/0x166
->  [<ffffffff80235ced>] __do_softirq+0x55/0xc4
->  [<ffffffff8020c5cc>] call_softirq+0x1c/0x28
->  [<ffffffff8020d6fd>] do_softirq+0x2c/0x7d
->  [<ffffffff8020d9bb>] do_IRQ+0x13e/0x15f
->  [<ffffffff8020a780>] mwait_idle+0x0/0x48
->  [<ffffffff8020b951>] ret_from_intr+0x0/0xa
->  <EOI>  [<ffffffff880063e7>]
-> :sky2:sky2_xmit_frame+0x0/0x41d
->  [<ffffffff8020a7c2>] mwait_idle+0x42/0x48
->  [<ffffffff8020a718>] cpu_idle+0xbd/0xe0
->  [<ffffffff80704a5a>] start_kernel+0x2ac/0x2b8
->  [<ffffffff80704140>] _sinittext+0x140/0x144
->
->
-> I see that the new kernel includes some sort of
-> SKY2 DEBUG stuff. I would be happy to rerun
-> the test with that turned on, given some minor
-> direction.
->
+I'm a bit confused why you removed the goto's, and then removed all the
+target unwinding code at the bottom of e1000_probe().   Those labels
+clean up resources if something fails, like the err_sw_init label.  I
+don't see anything in the devres code that jumps out at me that explains
+why we can do away with these cleanup routines.  Thoughts?
 
-Regards,
-Michal
+Thanks,
+-PJ Waskiewicz
 
--- 
-LOG
-http://www.stardust.webpages.pl/log/
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >>  http://get.splunk.com/
