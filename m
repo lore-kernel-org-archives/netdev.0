@@ -1,103 +1,90 @@
-From: Brandon Philips <bphilips@suse.de>
-Subject: Re: [patch 2/4] Update e100 driver to use devres.
-Date: Thu, 16 Aug 2007 08:54:02 -0700
-Message-ID: <20070816155402.GA4218@ifup.org>
-References: <20070815185949.GC7294@ifup.org> <46C43652.6030609@suse.de>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [GENETLINK]: Question: global lock (genl_mutex) possible refinement?
+Date: Thu, 16 Aug 2007 17:58:19 +0200
+Message-ID: <20070816155819.GE32236@postel.suug.ch>
+References: <46A0B017.4080505@st.com> <46A0B6DE.1080904@trash.net> <46A0BF7F.80001@st.com> <46A0BFFF.5020000@trash.net> <46A0DF91.6000508@st.com> <20070723102909.GA9285@postel.suug.ch> <46A4DB34.4040502@st.com> <20070724093558.GB9285@postel.suug.ch> <46A5DDDD.6070602@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Tejun Heo <teheo@suse.de>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Richard MUSIL <richard.musil@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from postel.suug.ch ([194.88.212.233]:42928 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1764821AbXHPP57 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Aug 2007 11:57:59 -0400
 Content-Disposition: inline
-In-Reply-To: <46C43652.6030609@suse.de>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+In-Reply-To: <46A5DDDD.6070602@st.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 20:34 Thu 16 Aug 2007, Tejun Heo wrote:
-> Brandon Philips wrote:
-> > @@ -2554,8 +2547,10 @@ static int __devinit e100_probe(struct p
-> >  	struct net_device *netdev;
-> >  	struct nic *nic;
-> >  	int err;
-> > +	void __iomem **iomap;
-> > +	int bar;
-> >  
-> > -	if(!(netdev = alloc_etherdev(sizeof(struct nic)))) {
-> > +	if (!(netdev = devm_alloc_etherdev(&pdev->dev, sizeof(struct nic)))) {
-> >  		if(((1 << debug) - 1) & NETIF_MSG_PROBE)
-> >  			printk(KERN_ERR PFX "Etherdev alloc failed, abort.\n");
-> >  		return -ENOMEM;
-> > @@ -2585,26 +2580,28 @@ static int __devinit e100_probe(struct p
-> >  	nic->msg_enable = (1 << debug) - 1;
-> >  	pci_set_drvdata(pdev, netdev);
-> >  
-> > -	if((err = pci_enable_device(pdev))) {
-> > +	if ((err = pcim_enable_device(pdev))) {
-> >  		DPRINTK(PROBE, ERR, "Cannot enable PCI device, aborting.\n");
-> > -		goto err_out_free_dev;
-> > +		return err;
-> >  	}
-> >  
-> >  	if(!(pci_resource_flags(pdev, 0) & IORESOURCE_MEM)) {
-> >  		DPRINTK(PROBE, ERR, "Cannot find proper PCI device "
-> >  			"base address, aborting.\n");
-> >  		err = -ENODEV;
-> > -		goto err_out_disable_pdev;
-> > +		return err;
-> >  	}
-> >  
-> > -	if((err = pci_request_regions(pdev, DRV_NAME))) {
-> > +	bar = use_io ? 1 : 0;
-> > +	if((err = pcim_iomap_regions(pdev, 1 << bar, DRV_NAME))) {
-> >  		DPRINTK(PROBE, ERR, "Cannot obtain PCI resources, aborting.\n");
-> > -		goto err_out_disable_pdev;
-> > +		return err;
-> >  	}
-> > +	iomap = pcim_iomap_table(pdev)[bar];
+* Richard MUSIL <richard.musil@st.com> 2007-07-24 13:09
+> Thomas Graf wrote:
+> > Please provide a new overall patch which is not based on your
+> > initial patch so I can review your idea properly.
 > 
-> Type mismatch.  Didn't compiler warn about it?
+> Here it goes (merging two previous patches). I have diffed
+> against v2.6.22, which I am using currently as my base:
 
-s/iomap/nic->csr/
+Sorry for taking so long.
 
-> >  
-> >  	if((err = pci_set_dma_mask(pdev, DMA_32BIT_MASK))) {
-> >  		DPRINTK(PROBE, ERR, "No usable DMA configuration, aborting.\n");
-> > -		goto err_out_free_res;
-> > +		return err;
-> >  	}
-> >  
-> >  	SET_MODULE_OWNER(netdev);
-> > @@ -2613,12 +2610,6 @@ static int __devinit e100_probe(struct p
-> >  	if (use_io)
-> >  		DPRINTK(PROBE, INFO, "using i/o access mode\n");
-> >  
-> > -	nic->csr = pci_iomap(pdev, (use_io ? 1 : 0), sizeof(struct csr));
-> > -	if(!nic->csr) {
-> > -		DPRINTK(PROBE, ERR, "Cannot map device registers, aborting.\n");
-> > -		err = -ENOMEM;
-> > -		goto err_out_free_res;
-> > -	}
-> 
-> nic->csr initialization seems missing.  Have you tested the patched code?
+> @@ -150,9 +176,9 @@ int genl_register_ops(struct genl_family *family, struct genl_ops *ops)
+>  	if (ops->policy)
+>  		ops->flags |= GENL_CMD_CAP_HASPOL;
+>  
+> -	genl_lock();
+> +	genl_fam_lock(family);
+>  	list_add_tail(&ops->ops_list, &family->ops_list);
+> -	genl_unlock();
+> +	genl_fam_unlock(family);
 
-No I didn't test it; my e100 box gave up on me.  I shouldn't have sent
-this patch since I wasn't able to get it tested.
+For registering operations, it is sufficient to just acquire the
+family lock, the family itself can't disappear while holding it.
 
-Thanks,
+> @@ -216,8 +242,9 @@ int genl_register_family(struct genl_family *family)
+>  		goto errout;
+>  
+>  	INIT_LIST_HEAD(&family->ops_list);
+> +	mutex_init(&family->lock);
+>  
+> -	genl_lock();
+> +	genl_fam_lock(family);
+>  
+>  	if (genl_family_find_byname(family->name)) {
+>  		err = -EEXIST;
+> @@ -251,14 +278,14 @@ int genl_register_family(struct genl_family *family)
+>  		family->attrbuf = NULL;
+>  
+>  	list_add_tail(&family->family_list, genl_family_chain(family->id));
+> -	genl_unlock();
+> +	genl_fam_unlock(family);
 
-	Brandon
+This looks good.
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >>  http://get.splunk.com/
+> @@ -303,38 +332,57 @@ static int genl_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+>  	struct genlmsghdr *hdr = nlmsg_data(nlh);
+>  	int hdrlen, err;
+>  
+> +	genl_fam_lock(NULL);
+>  	family = genl_family_find_byid(nlh->nlmsg_type);
+> -	if (family == NULL)
+> +	if (family == NULL) {
+> +		genl_fam_unlock(NULL);
+>  		return -ENOENT;
+> +	}
+> +
+> +	/* get particular family lock, but release global family lock
+> +	 * so registering operations for other families are possible */
+> +	genl_onefam_lock(family);
+> +	genl_fam_unlock(NULL);
+
+I don't like having two locks for something as trivial as this.
+Basically the only reason the global lock is required here is to
+protect from family removal which can be avoided otherwise by
+using RCU list operations.
+
+Therefore, I'd propose the following lock semantics:
+Use own global mutex to protect writing to the family list, make
+reading side lockless using rcu for use when looking up family
+upon mesage processing. Use a family lock to protect writing to
+operations list and serialize messae processing with unregister
+operations.
