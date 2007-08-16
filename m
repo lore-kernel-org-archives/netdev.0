@@ -1,84 +1,51 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Thu, 16 Aug 2007 10:06:31 +0200
-Message-ID: <46C40587.7050708@s5r6.in-berlin.de>
-References: <20070816003948.GY9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com> <18115.44462.622801.683446@cargo.ozlabs.ibm.com> <20070816020042.GA30650@gondor.apana.org.au> <18115.45316.702491.681906@cargo.ozlabs.ibm.com> <alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in> <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in> <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au> <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au>
+From: Laurent Pinchart <laurentp@cse-semaphore.com>
+Subject: Re: [PATCH] [DM9000] Add support for big-endian hosts
+Date: Thu, 16 Aug 2007 10:10:56 +0200
+Message-ID: <200708161010.57064.laurentp@cse-semaphore.com>
+References: <200708141322.32473.laurentp@cse-semaphore.com> <20070814182558.GA12547@fluff.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Paul Mackerras <paulus@samba.org>,
-	Satyam Sharma <satyam@infradead.org>,
-	Christoph Lameter <clameter@sgi.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Chris Snook <csnook@redhat.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Ben Dooks <ben@fluff.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hp3.statik.tu-cottbus.de ([141.43.120.68]:40942 "EHLO
-	hp3.statik.tu-cottbus.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752082AbXHPIGe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 04:06:34 -0400
-In-Reply-To: <20070816070907.GA964@gondor.apana.org.au>
+Received: from mailrelay012.isp.belgacom.be ([195.238.6.179]:17469 "EHLO
+	mailrelay012.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751326AbXHPIK7 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Aug 2007 04:10:59 -0400
+In-Reply-To: <20070814182558.GA12547@fluff.org.uk>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Thu, Aug 16, 2007 at 04:56:21PM +1000, Paul Mackerras wrote:
->>
->> Note that I said these are the cases _where one might want to allow
->> caching_, so of course adding volatile doesn't help _these_ cases.
->> There are of course other cases where one definitely doesn't want to
->> allow the compiler to cache the value, such as when polling an atomic
->> variable waiting for another CPU to change it, and from my inspection
->> so far these cases seem to be the majority.
-> 
-> We've been through that already.  If it's a busy-wait it
-> should use cpu_relax.  If it's scheduling away that already
-> forces the compiler to reread anyway.
-> 
-> Do you have an actual example where volatile is needed?
-> 
->> - It matches the normal expectation based on the name "atomic_read"
->> - It matches the behaviour of the other atomic_* primitives
-> 
-> Can't argue since you left out what those expectations
-> or properties are.
+On Tuesday 14 August 2007 20:25, Ben Dooks wrote:
+> On Tue, Aug 14, 2007 at 01:22:32PM +0200, Laurent Pinchart wrote:
+> > This patch splits the receive status in 8bit wide fields and conver=
+t the
+> > packet length from little endian to CPU byte order.
+>
+> Which version of the the kernel was this against, it applies with
+> fuzz to 2.6.23-rc3:
+>
+> $ patch -p1 < ~/dm9000-fix-endianness.patch
+> patching file drivers/net/dm9000.c
+> Hunk #1 succeeded at 894 (offset 15 lines).
+> Hunk #2 succeeded at 936 (offset 15 lines).
+> Hunk #3 succeeded at 948 (offset 15 lines).
 
-We use atomic_t for data that is concurrently locklessly written and
-read at arbitrary times.  My naive expectation as driver author (driver
-maintainer) is that all atomic_t accessors, including atomic_read, (and
-atomic bitops) work with the then current value of the atomic data.
+That was against 2.6.22. Sorry. I'll post updated patches against 2.6.2=
+3-rc3.
 
->> - It avoids bugs in the cases where "volatile" behaviour is required
-> 
-> Do you (or anyone else for that matter) have an example of this?
+Best regards.
 
-The only code I somewhat know, the ieee1394 subsystem, was perhaps
-authored and is currently maintained with the expectation that each
-occurrence of atomic_read actually results in a load operation, i.e. is
-not optimized away.  This means all atomic_t (bus generation, packet and
-buffer refcounts, and some other state variables)* and likewise all
-atomic bitops in that subsystem.
+--=20
+Laurent Pinchart
+CSE Semaphore Belgium
 
-If that assumption is wrong, then what is the API or language primitive
-to force a load operation to occur?
+Chauss=E9e de Bruxelles, 732A
+B-1410 Waterloo
+Belgium
 
-
-*)  Interesting what a quick LXR session in search for all atomic_t
-usages in 'my' subsystem brings to light.  I now noticed an apparently
-unused struct member in the bitrotting pcilynx driver, and more
-importantly, a pairing of two atomic_t variables in raw1394 that should
-be audited for race conditions and for possible replacement by plain int.
--- 
-Stefan Richter
--=====-=-=== =--- =----
-http://arcgraph.de/sr/
+T +32 (2) 387 42 59
+=46 +32 (2) 387 42 75
