@@ -1,45 +1,50 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 4/4] net: netdev_budget rearrangement
-Date: Thu, 16 Aug 2007 09:25:27 -0400
-Message-ID: <20070816132622.540107922@linux-foundation.org>
-References: <20070816132523.201766718@linux-foundation.org>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFC] net/core/dst.c : Should'nt dst_run_gc() be more scalable
+ and friendly ?
+Date: Thu, 16 Aug 2007 15:36:19 +0200
+Message-ID: <20070816153619.2c699e21.dada1@cosmosbay.com>
+References: <20070816140914.de24335c.dada1@cosmosbay.com>
+	<E1ILefm-00010m-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:50101 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758195AbXHPNfI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 09:35:08 -0400
-Content-Disposition: inline; filename=netdev_budget.patch
+Received: from pfx2.jmh.fr ([194.153.89.55]:37543 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758118AbXHPNgU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Aug 2007 09:36:20 -0400
+In-Reply-To: <E1ILefm-00010m-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Trivial patch, move netdev_budget declaration out of netdevice.h
-to a new home with the other sysctl externs.
+On Thu, 16 Aug 2007 20:41:58 +0800
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> Eric Dumazet <dada1@cosmosbay.com> wrote:
+> >
+> > I am wondering how to really solve the problem. Could a workqueue be used here instead of a timer ?
+> 
+> I think so.
+> 
+> A mutex would separate the GC and dst_ifdown.  You'd take the
+> spin lock in the GC only to replace the garbage list with NULL.
+> You then drop the lock to process it.  Once it's done you take
+> the lock again and join it with whatever that's been added in
+> the mean time.  This is easy because you should already have
+> the tail after the GC process.
 
---- a/include/linux/netdevice.h	2007-08-16 06:38:33.000000000 -0400
-+++ b/include/linux/netdevice.h	2007-08-16 09:24:08.000000000 -0400
-@@ -811,8 +811,6 @@ extern int		dev_hard_start_xmit(struct s
- 					    struct net_device *dev);
- extern struct net_device_stats	*dev_get_stats(struct net_device *dev);
- 
--extern int		netdev_budget;
--
- /* Called by rtnetlink.c:rtnl_unlock() */
- extern void netdev_run_todo(void);
- 
---- a/net/core/sysctl_net_core.c	2007-08-06 04:26:48.000000000 -0400
-+++ b/net/core/sysctl_net_core.c	2007-08-16 09:24:08.000000000 -0400
-@@ -13,6 +13,7 @@
- 
- #ifdef CONFIG_SYSCTL
- 
-+extern int netdev_budget;
- extern int netdev_max_backlog;
- extern int weight_p;
- 
+Thanks Herbert
 
--- 
+Yes, I already did this (with the current softirq based timer model),
+ but how can dst_dev_event() do its work, since the GC is using 
+a private list. (In my patch, time to GC process XXX.000 entries is about XX seconds.)
+
+We would have to change dst_dev_event() to :
+- Signal to GC it has to stop as soon as possible.
+- Wait for GC be stoped (busy wait I suspect we cannot sleep in dst_dev_event() ? )
+, giving us a full garbage_list.
+- Process the whole list.
+- Restart GC
 
