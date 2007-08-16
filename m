@@ -1,49 +1,69 @@
-From: Christoph Lameter <clameter@sgi.com>
+From: Satyam Sharma <satyam@infradead.org>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
  architectures
-Date: Wed, 15 Aug 2007 17:42:07 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com>
-References: <20070809131423.GA9927@shell.boston.redhat.com>
- <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
- <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
- <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
- <18115.35524.56393.347841@cargo.ozlabs.ibm.com>
- <Pine.LNX.4.64.0708151725130.10497@schroedinger.engr.sgi.com>
- <20070816003948.GY9645@linux.vnet.ibm.com>
+Date: Thu, 16 Aug 2007 06:28:42 +0530 (IST)
+Message-ID: <alpine.LFD.0.999.0708160621260.24380@enigma.security.iitk.ac.in>
+References: <46C30540.2070603@s5r6.in-berlin.de>
+ <alpine.LFD.0.999.0708151941150.16414@enigma.security.iitk.ac.in>
+ <20070815145207.GA23106@gondor.apana.org.au> <46C3253F.5090707@s5r6.in-berlin.de>
+ <20070815162722.GD9645@linux.vnet.ibm.com> <d4406222873856f472b9173a14a19aa2@kernel.crashing.org>
+ <20070815185724.GH9645@linux.vnet.ibm.com>
+ <alpine.LFD.0.999.0708160118330.16414@enigma.security.iitk.ac.in>
+ <2d2eeab6276cab2e6cc5830d36a43b98@kernel.crashing.org>
+ <alpine.LFD.0.999.0708160338520.22701@enigma.security.iitk.ac.in>
+ <20070816003226.GA29491@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Paul Mackerras <paulus@samba.org>,
-	Satyam Sharma <satyam@infradead.org>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Chris Snook <csnook@redhat.com>,
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: Segher Boessenkool <segher@kernel.crashing.org>,
+	horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, ak@suse.de,
+	netdev@vger.kernel.org, cfriesen@nortel.com,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
 	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+	linux-arch@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
+	clameter@sgi.com, schwidefsky@de.ibm.com,
+	Chris Snook <csnook@redhat.com>, davem@davemloft.net,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netops-testserver-4-out.sgi.com ([192.48.171.29]:56014 "EHLO
-	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S937318AbXHPAmK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 20:42:10 -0400
-In-Reply-To: <20070816003948.GY9645@linux.vnet.ibm.com>
+Received: from pentafluge.infradead.org ([213.146.154.40]:53239 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754860AbXHPAqS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 20:46:18 -0400
+In-Reply-To: <20070816003226.GA29491@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Aug 2007, Paul E. McKenney wrote:
+[ Sorry for empty subject line in previous mail. I intended to make
+  a patch so cleared it to change it, but ultimately neither made
+  a patch nor restored subject line. Done that now. ]
 
-> Seems to me that we face greater chance of confusion without the
-> volatile than with, particularly as compiler optimizations become
-> more aggressive.  Yes, we could simply disable optimization, but
-> optimization can be quite helpful.
 
-A volatile default would disable optimizations for atomic_read. 
-atomic_read without volatile would allow for full optimization by the 
-compiler. Seems that this is what one wants in many cases.
+On Thu, 16 Aug 2007, Herbert Xu wrote:
 
+> On Thu, Aug 16, 2007 at 06:06:00AM +0530, Satyam Sharma wrote:
+> > 
+> > that are:
+> > 
+> > 	while ((atomic_read(&waiting_for_crash_ipi) > 0) && msecs) {
+> > 		mdelay(1);
+> > 		msecs--;
+> > 	}
+> > 
+> > where mdelay() becomes __const_udelay() which happens to be in another
+> > translation unit (arch/i386/lib/delay.c) and hence saves this callsite
+> > from being a bug :-)
+> 
+> The udelay itself certainly should have some form of cpu_relax in it.
+
+Yes, a form of barrier() must be present in mdelay() or udelay() itself
+as you say, having it in __const_udelay() is *not* enough (superflous
+actually, considering it is already a separate translation unit and
+invisible to the compiler).
+
+However, there are no compiler barriers on the macro-definition-path
+between mdelay(1) and __const_udelay(), so the only thing that saves us
+from being a bug here is indeed the different-translation-unit concept.
