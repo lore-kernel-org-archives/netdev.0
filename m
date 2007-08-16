@@ -1,55 +1,57 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: drivers/infiniband/mlx/mad.c misplaced ;
-Date: Wed, 15 Aug 2007 17:40:11 -0700
-Message-ID: <1187224811.5906.55.camel@localhost>
-References: <20070815235825.GB17004@redhat.com>
+From: Christoph Lameter <clameter@sgi.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Wed, 15 Aug 2007 17:40:33 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0708151736180.10497@schroedinger.engr.sgi.com>
+References: <20070809131423.GA9927@shell.boston.redhat.com>
+ <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
+ <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
+ <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
+ <18115.35524.56393.347841@cargo.ozlabs.ibm.com>
+ <Pine.LNX.4.64.0708151725130.10497@schroedinger.engr.sgi.com>
+ <18115.39815.730873.346526@cargo.ozlabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>, rolandd@cisco.com,
-	Chas Williams <chas@cmf.nrl.navy.mil>,
-	Paul Mundt <lethal@linux-sh.org>,
-	isdn4linux@listserv.isdn4linux.de, mikep@linuxtr.net,
-	netdev@vger.kernel.org, swen@vnet.ibm.com, linux390@de.ibm.com,
-	linux-s390@vger.kernel.org, jdike@karaya.com,
-	user-mode-linux-devel@lists.sourceforge.net,
-	user-mode-linux-user@lists.sourceforge.net,
-	netfilter-devel@lists.netfilter.org, coreteam@netfilter.org
-To: Dave Jones <davej@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Satyam Sharma <satyam@infradead.org>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Chris Snook <csnook@redhat.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Paul Mackerras <paulus@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:2158 "EHLO perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S937406AbXHPAkh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2007 20:40:37 -0400
-In-Reply-To: <20070815235825.GB17004@redhat.com>
+Received: from netops-testserver-4-out.sgi.com ([192.48.171.29]:55902 "EHLO
+	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S937402AbXHPAkf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 20:40:35 -0400
+In-Reply-To: <18115.39815.730873.346526@cargo.ozlabs.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-08-15 at 19:58 -0400, Dave Jones wrote:
-> Signed-off-by: Dave Jones <davej@redhat.com>
-> 
-> diff --git a/drivers/infiniband/hw/mlx4/mad.c b/drivers/infiniband/hw/mlx4/mad.c
-> index 3330917..0ed02b7 100644
-> --- a/drivers/infiniband/hw/mlx4/mad.c
-> +++ b/drivers/infiniband/hw/mlx4/mad.c
-> @@ -109,7 +109,7 @@ int mlx4_MAD_IFC(struct mlx4_ib_dev *dev, int ignore_mkey, int ignore_bkey,
->  			   in_modifier, op_modifier,
->  			   MLX4_CMD_MAD_IFC, MLX4_CMD_TIME_CLASS_C);
->  
-> -	if (!err);
-> +	if (!err)
+On Thu, 16 Aug 2007, Paul Mackerras wrote:
 
-There's more than a few of these (not inspected).
+> Those barriers are for when we need ordering between atomic variables
+> and other memory locations.  An atomic variable by itself doesn't and
+> shouldn't need any barriers for other CPUs to be able to see what's
+> happening to it.
 
-$ egrep -r --include=*.c "\bif[[:space:]]*\([^\)]*\)[[:space:]]*\;" * 
-arch/sh/boards/se/7343/io.c:    if (0) ;
-drivers/atm/iphase.c:     if (!desc1) ;
-drivers/infiniband/hw/mlx4/mad.c:       if (!err);
-drivers/isdn/capi/capiutil.c:   else if (c <= 0x0f);
-drivers/net/tokenring/ibmtr.c:  else if (ti->shared_ram_paging == 0xf);  /* No paging in adapter */
-drivers/s390/scsi/zfcp_erp.c:           if (status == ZFCP_ERP_SUCCEEDED) ;     /* no further action */
-fs/hostfs/hostfs_user.c:        if(attrs->ia_valid & HOSTFS_ATTR_CTIME) ;
-net/netfilter/xt_u32.c:         if (skb->len < 4 || pos > skb->len - 4);
-sound/pci/au88x0/au88x0_synth.c:                                if (eax == 0) ;
+It does not need any barriers. As soon as one cpu acquires the 
+cacheline for write it will be invalidated in the caches of the others. So 
+the other cpu will have to refetch. No need for volatile.
 
+The issue here may be that the compiler has fetched the atomic variable 
+earlier and put it into a register. However, that prefetching is limited 
+because it cannot cross functions calls etc. The only problem could be 
+loops where the compiler does not refetch the variable since it assumes 
+that it does not change and there are no function calls in the body of the 
+loop. But AFAIK these loops need cpu_relax and other measures anyways to 
+avoid bad effects from busy waiting.
 
