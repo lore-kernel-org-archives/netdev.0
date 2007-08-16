@@ -1,8 +1,7 @@
 From: Ramkrishna Vepa <ram.vepa@neterion.com>
-Subject: [PATCH 2.6.24 3/5]S2io: Cleanup - removed unused variable,
-	intr_type
-Date: 15 Aug 2007 17:12:24 -0700
-Message-ID: <1187223144.23940.335.camel@flash>
+Subject: [PATCH 2.6.24 4/5]S2io: Check for CARD_DOWN before handling traffic
+Date: 15 Aug 2007 17:12:29 -0700
+Message-ID: <1187223149.23940.337.camel@flash>
 Reply-To: ram.vepa@neterion.com
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,182 +9,82 @@ Content-Transfer-Encoding: 7bit
 Cc: jeff@garzik.org, support@neterion.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:49009 "EHLO
+Received: from barracuda.s2io.com ([72.1.205.138]:49014 "EHLO
 	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760663AbXHOWUv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 18:20:51 -0400
+	with ESMTP id S1761144AbXHOWUz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 18:20:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-- Removed the unused variable, intr_type, in device private structure.
+- Added check to return from the traffic handling function, if the card status 
+  is DOWN.
 
 Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
 Signed-off-by: Santosh Rastapur <santosh.rastapur@neterion.com>
 Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
 ---
-diff -Nurp patch2/drivers/net/s2io.c patch3/drivers/net/s2io.c
---- patch2/drivers/net/s2io.c	2007-08-15 08:57:44.000000000 -0700
-+++ patch3/drivers/net/s2io.c	2007-08-15 08:57:32.000000000 -0700
-@@ -1611,7 +1611,7 @@ static int init_nic(struct s2io_nic *nic
+diff -Nurp patch3/drivers/net/s2io.c patch4/drivers/net/s2io.c
+--- patch3/drivers/net/s2io.c	2007-08-15 08:57:32.000000000 -0700
++++ patch4/drivers/net/s2io.c	2007-08-15 08:42:14.000000000 -0700
+@@ -2927,6 +2927,11 @@ static int s2io_poll(struct net_device *
+ 	int i;
  
- 		val64 = RTI_DATA2_MEM_RX_UFC_A(0x1) |
- 		    RTI_DATA2_MEM_RX_UFC_B(0x2) ;
--		if (nic->intr_type == MSI_X)
-+		if (nic->config.intr_type == MSI_X)
- 		    val64 |= (RTI_DATA2_MEM_RX_UFC_C(0x20) | \
- 				RTI_DATA2_MEM_RX_UFC_D(0x40));
- 		else
-@@ -1749,7 +1749,7 @@ static int init_nic(struct s2io_nic *nic
+ 	atomic_inc(&nic->isr_cnt);
++	if (unlikely(atomic_read(&nic->card_state) == CARD_DOWN)) {
++		atomic_dec(&nic->isr_cnt);
++		return IRQ_NONE;
++	}
++
+ 	mac_control = &nic->mac_control;
+ 	config = &nic->config;
  
- static int s2io_link_fault_indication(struct s2io_nic *nic)
- {
--	if (nic->intr_type != INTA)
-+	if (nic->config.intr_type != INTA)
- 		return MAC_RMAC_ERR_TIMER;
- 	if (nic->device_type == XFRAME_II_DEVICE)
- 		return LINK_UP_DOWN_INTERRUPT;
-@@ -3774,7 +3774,7 @@ static int s2io_set_swapper(struct s2io_
- 		 SWAPPER_CTRL_RXF_W_FE |
- 		 SWAPPER_CTRL_XMSI_FE |
- 		 SWAPPER_CTRL_STATS_FE | SWAPPER_CTRL_STATS_SE);
--	if (sp->intr_type == INTA)
-+	if (sp->config.intr_type == INTA)
- 		val64 |= SWAPPER_CTRL_XMSI_SE;
- 	writeq(val64, &bar0->swapper_ctrl);
- #else
-@@ -3797,7 +3797,7 @@ static int s2io_set_swapper(struct s2io_
- 		 SWAPPER_CTRL_RXF_W_FE |
- 		 SWAPPER_CTRL_XMSI_FE |
- 		 SWAPPER_CTRL_STATS_FE | SWAPPER_CTRL_STATS_SE);
--	if (sp->intr_type == INTA)
-+	if (sp->config.intr_type == INTA)
- 		val64 |= SWAPPER_CTRL_XMSI_SE;
- 	writeq(val64, &bar0->swapper_ctrl);
- #endif
-@@ -4071,7 +4071,7 @@ static int s2io_open(struct net_device *
- 	netif_carrier_off(dev);
- 	sp->last_link_state = 0;
+@@ -3062,12 +3067,6 @@ static void rx_intr_handler(struct ring_
+ 	struct RxD3* rxdp3;
  
--	if (sp->intr_type == MSI_X) {
-+	if (sp->config.intr_type == MSI_X) {
- 		int ret = s2io_enable_msi_x(sp);
+ 	spin_lock(&nic->rx_lock);
+-	if (atomic_read(&nic->card_state) == CARD_DOWN) {
+-		DBG_PRINT(INTR_DBG, "%s: %s going down for reset\n",
+-			  __FUNCTION__, dev->name);
+-		spin_unlock(&nic->rx_lock);
+-		return;
+-	}
  
- 		if (!ret) {
-@@ -4103,12 +4103,12 @@ static int s2io_open(struct net_device *
- 			DBG_PRINT(ERR_DBG,
- 			  "%s: MSI-X requested but failed to enable\n",
- 			  dev->name);
--			sp->intr_type = INTA;
-+			sp->config.intr_type = INTA;
- 		}
- 	}
+ 	get_info = ring_data->rx_curr_get_info;
+ 	get_block = get_info.block_index;
+@@ -4404,6 +4403,10 @@ static irqreturn_t s2io_msix_ring_handle
+ 	struct s2io_nic *sp = ring->nic;
  
- 	/* NAPI doesn't work well with MSI(X) */
--	 if (sp->intr_type != INTA) {
-+	 if (sp->config.intr_type != INTA) {
- 		if(sp->config.napi)
- 			sp->config.napi = 0;
- 	}
-@@ -4132,7 +4132,7 @@ static int s2io_open(struct net_device *
- 	return 0;
+ 	atomic_inc(&sp->isr_cnt);
++	if (unlikely(atomic_read(&sp->card_state) == CARD_DOWN)){
++		atomic_dec(&sp->isr_cnt);
++		return IRQ_HANDLED;
++	}
  
- hw_init_failed:
--	if (sp->intr_type == MSI_X) {
-+	if (sp->config.intr_type == MSI_X) {
- 		if (sp->entries) {
- 			kfree(sp->entries);
- 			sp->mac_control.stats_info->sw_stat.mem_freed 
-@@ -7017,18 +7017,18 @@ static int s2io_add_isr(struct s2io_nic 
- 	struct net_device *dev = sp->dev;
- 	int err = 0;
+ 	rx_intr_handler(ring);
+ 	s2io_chk_rx_buffers(sp, ring->ring_no);
+@@ -4418,6 +4421,10 @@ static irqreturn_t s2io_msix_fifo_handle
+ 	struct s2io_nic *sp = fifo->nic;
  
--	if (sp->intr_type == MSI_X)
-+	if (sp->config.intr_type == MSI_X)
- 		ret = s2io_enable_msi_x(sp);
- 	if (ret) {
- 		DBG_PRINT(ERR_DBG, "%s: Defaulting to INTA\n", dev->name);
--		sp->intr_type = INTA;
-+		sp->config.intr_type = INTA;
- 	}
+ 	atomic_inc(&sp->isr_cnt);
++	if (unlikely(atomic_read(&sp->card_state) == CARD_DOWN)){
++		atomic_dec(&sp->isr_cnt);
++		return IRQ_HANDLED;
++	}
+ 	tx_intr_handler(fifo);
+ 	atomic_dec(&sp->isr_cnt);
+ 	return IRQ_HANDLED;
+@@ -4896,6 +4903,11 @@ static irqreturn_t s2io_isr(int irq, voi
+ 		return IRQ_NONE;
  
- 	/* Store the values of the MSIX table in the struct s2io_nic structure */
- 	store_xmsi_data(sp);
+ 	atomic_inc(&sp->isr_cnt);
++	if (unlikely(atomic_read(&sp->card_state) == CARD_DOWN)) {
++		atomic_dec(&sp->isr_cnt);
++		return IRQ_NONE;
++	}
++
+ 	mac_control = &sp->mac_control;
+ 	config = &sp->config;
  
- 	/* After proper initialization of H/W, register ISR */
--	if (sp->intr_type == MSI_X) {
-+	if (sp->config.intr_type == MSI_X) {
- 		int i, msix_tx_cnt=0,msix_rx_cnt=0;
- 
- 		for (i=1; (sp->s2io_entries[i].in_use == MSIX_FLG); i++) {
-@@ -7080,7 +7080,7 @@ static int s2io_add_isr(struct s2io_nic 
- 		printk("MSI-X-TX %d entries enabled\n",msix_tx_cnt);
- 		printk("MSI-X-RX %d entries enabled\n",msix_rx_cnt);
- 	}
--	if (sp->intr_type == INTA) {
-+	if (sp->config.intr_type == INTA) {
- 		err = request_irq((int) sp->pdev->irq, s2io_isr, IRQF_SHARED,
- 				sp->name, dev);
- 		if (err) {
-@@ -7097,7 +7097,7 @@ static void s2io_rem_isr(struct s2io_nic
- 	struct net_device *dev = sp->dev;
- 	struct swStat *stats = &sp->mac_control.stats_info->sw_stat;
- 
--	if (sp->intr_type == MSI_X) {
-+	if (sp->config.intr_type == MSI_X) {
- 		int i;
- 		u16 msi_control;
- 
-@@ -7270,7 +7270,7 @@ static int s2io_card_up(struct s2io_nic 
- 
- 	/* Add interrupt service routine */
- 	if (s2io_add_isr(sp) != 0) {
--		if (sp->intr_type == MSI_X)
-+		if (sp->config.intr_type == MSI_X)
- 			s2io_rem_isr(sp);
- 		s2io_reset(sp);
- 		free_rx_buffers(sp);
-@@ -7284,7 +7284,7 @@ static int s2io_card_up(struct s2io_nic 
- 
- 	/*  Enable select interrupts */
- 	en_dis_err_alarms(sp, ENA_ALL_INTRS, ENABLE_INTRS);
--	if (sp->intr_type != INTA)
-+	if (sp->config.intr_type != INTA)
- 		en_dis_able_nic_intrs(sp, ENA_ALL_INTRS, DISABLE_INTRS);
- 	else {
- 		interruptible = TX_TRAFFIC_INTR | RX_TRAFFIC_INTR;
-@@ -7811,7 +7811,7 @@ s2io_init_nic(struct pci_dev *pdev, cons
- 	if (rx_ring_mode == 2)
- 		sp->rxd_mode = RXD_MODE_3B;
- 
--	sp->intr_type = dev_intr_type;
-+	sp->config.intr_type = dev_intr_type;
- 
- 	if ((pdev->device == PCI_DEVICE_ID_HERC_WIN) ||
- 		(pdev->device == PCI_DEVICE_ID_HERC_UNI))
-@@ -8091,7 +8091,7 @@ s2io_init_nic(struct pci_dev *pdev, cons
- 
- 	if (napi)
- 		DBG_PRINT(ERR_DBG, "%s: NAPI enabled\n", dev->name);
--	switch(sp->intr_type) {
-+	switch(sp->config.intr_type) {
- 		case INTA:
- 		    DBG_PRINT(ERR_DBG, "%s: Interrupt type INTA\n", dev->name);
- 		    break;
-diff -Nurp patch2/drivers/net/s2io.h patch3/drivers/net/s2io.h
---- patch2/drivers/net/s2io.h	2007-08-15 08:06:17.000000000 -0700
-+++ patch3/drivers/net/s2io.h	2007-08-15 08:06:22.000000000 -0700
-@@ -905,11 +905,6 @@ struct s2io_nic {
- 	unsigned long	sending_both;
- 	u8		lro;
- 	u16		lro_max_aggr_per_sess;
--
--#define INTA	0
--#define MSI_X	2
--	u8 intr_type;
--
- 	spinlock_t	rx_lock;
- 	atomic_t	isr_cnt;
- 	u64		general_int_mask;
 
 
 
