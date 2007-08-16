@@ -1,14 +1,18 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Thu, 16 Aug 2007 11:33:43 +0800
-Message-ID: <20070816033343.GA31844@gondor.apana.org.au>
-References: <20070816003948.GY9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com> <20070816005348.GA9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151757400.11196@schroedinger.engr.sgi.com> <20070816011414.GC9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151839140.11520@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708160730590.24380@enigma.security.iitk.ac.in> <20070816020851.GA30809@gondor.apana.org.au> <Pine.LNX.4.64.0708151917210.11736@schroedinger.engr.sgi.com> <18115.49946.522011.832468@cargo.ozlabs.ibm.com>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Wed, 15 Aug 2007 23:37:21 -0400
+Message-ID: <20070815233721.91032366.billfink@mindspring.com>
+References: <20070809131423.GA9927@shell.boston.redhat.com>
+	<Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
+	<alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
+	<46C2D6F3.3070707@s5r6.in-berlin.de>
+	<alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Lameter <clameter@sgi.com>,
-	Satyam Sharma <satyam@infradead.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Christoph Lameter <clameter@sgi.com>,
 	Chris Snook <csnook@redhat.com>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	linux-arch@vger.kernel.org,
@@ -18,48 +22,47 @@ Cc: Christoph Lameter <clameter@sgi.com>,
 	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
 	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
 	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
-To: Paul Mackerras <paulus@samba.org>
+	segher@kernel.crashing.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Satyam Sharma <satyam@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3268 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932509AbXHPDek (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 23:34:40 -0400
-Content-Disposition: inline
-In-Reply-To: <18115.49946.522011.832468@cargo.ozlabs.ibm.com>
+Received: from elasmtp-junco.atl.sa.earthlink.net ([209.86.89.63]:39750 "EHLO
+	elasmtp-junco.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933124AbXHPDhi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 23:37:38 -0400
+In-Reply-To: <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 16, 2007 at 01:23:06PM +1000, Paul Mackerras wrote:
->
-> In particular, atomic_read seems to lend itself to buggy uses.  People
-> seem to do things like:
+On Wed, 15 Aug 2007, Satyam Sharma wrote:
+
+> (C)
+> $ cat tp3.c
+> int a;
 > 
-> 	atomic_add(&v, something);
-> 	if (atomic_read(&v) > something_else) ...
+> void func(void)
+> {
+> 	*(volatile int *)&a = 10;
+> 	*(volatile int *)&a = 20;
+> }
+> $ gcc -Os -S tp3.c
+> $ cat tp3.s
+> ...
+> movl    $10, a
+> movl    $20, a
+> ...
 
-If you're referring to the code in sk_stream_mem_schedule
-then it's working as intended.  The atomicity guarantees
-that the atomic_add/atomic_sub won't be seen in parts by
-other readers.
+I'm curious about one minor tangential point.  Why, instead of:
 
-We certainly do not need to see other atomic_add/atomic_sub
-operations immediately.
+	b = *(volatile int *)&a;
 
-If you're referring to another code snippet please cite.
+why can't this just be expressed as:
 
-> I'd go so far as to say that anywhere where you want a non-"volatile"
-> atomic_read, either your code is buggy, or else an int would work just
-> as well.
+	b = (volatile int)a;
 
-An int won't work here because += and -= do not have the
-atomicity guarantees that atomic_add/atomic_sub do.  In
-particular, this may cause an atomic_read on another CPU
-to give a bogus reading.
+Isn't it the contents of a that's volatile, i.e. it's value can change
+invisibly to the compiler, and that's why you want to force a read from
+memory?  Why do you need the "*(volatile int *)&" construct?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+						-Bill
