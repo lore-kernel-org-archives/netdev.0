@@ -1,8 +1,8 @@
 From: Segher Boessenkool <segher@kernel.crashing.org>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Thu, 16 Aug 2007 22:50:38 +0200
-Message-ID: <4952d3f536060c186f40c277dfc74194@kernel.crashing.org>
-References: <20070809131423.GA9927@shell.boston.redhat.com> <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in> <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in> <20070815233721.91032366.billfink@mindspring.com> <alpine.LFD.0.999.0708161045360.25951@enigma.security.iitk.ac.in>
+Date: Thu, 16 Aug 2007 23:00:30 +0200
+Message-ID: <43eccf425e36943ce0411c3b504b1de2@kernel.crashing.org>
+References: <20070809131423.GA9927@shell.boston.redhat.com> <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in> <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in> <20070815233721.91032366.billfink@mindspring.com> <alpine.LFD.0.999.0708161045360.25951@enigma.security.iitk.ac.in> <alpine.LFD.0.999.0708161115370.25951@enigma.security.iitk.ac.in>
 Mime-Version: 1.0 (Apple Message framework v623)
 Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -21,41 +21,34 @@ Cc: Christoph Lameter <clameter@sgi.com>, heiko.carstens@de.ibm.com,
 	wensong@linux-vs.org, wjiang@resilience.com
 To: Satyam Sharma <satyam@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:45386 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:47902 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756370AbXHPUwW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Aug 2007 16:52:22 -0400
-In-Reply-To: <alpine.LFD.0.999.0708161045360.25951@enigma.security.iitk.ac.in>
+	id S1753312AbXHPVCQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Aug 2007 17:02:16 -0400
+In-Reply-To: <alpine.LFD.0.999.0708161115370.25951@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Note that "volatile"
-> is a type-qualifier, not a type itself, so a cast of the _object_ 
-> itself
-> to a qualified-type i.e. (volatile int) would not make the access 
-> itself
-> volatile-qualified.
+> Here, I should obviously admit that the semantics of *(volatile int *)&
+> aren't any neater or well-defined in the _language standard_ at all. 
+> The
+> standard does say (verbatim) "precisely what constitutes as access to
+> object of volatile-qualified type is implementation-defined", but GCC
+> does help us out here by doing the right thing.
 
-There is no such thing as "volatile-qualified access" defined
-anywhere; there only is the concept of a "volatile-qualified
-*object*".
+Where do you get that idea?  GCC manual, section 6.1, "When
+is a Volatile Object Accessed?" doesn't say anything of the
+kind.  PR33053 and some others.
 
-> To serve our purposes, it is necessary for us to take the address of 
-> this
-> (non-volatile) object, cast the resulting _pointer_ to the 
-> corresponding
-> volatile-qualified pointer-type, and then dereference it. This makes 
-> that
-> particular _access_ be volatile-qualified, without the object itself 
-> being
-> such. Also note that the (dereferenced) result is also a valid lvalue 
-> and
-> hence can be used in "*(volatile int *)&a = b;" kind of construction
-> (which we use for the atomic_set case).
+> Honestly, given such confusion, and the propensity of the "volatile"
+> type-qualifier keyword to be ill-defined (or at least poorly 
+> understood,
+> often inconsistently implemented), I'd (again) express my opinion that 
+> it
+> would be best to avoid its usage, given other alternatives do exist.
 
-There is a quite convincing argument that such an access _is_ an
-access to a volatile object; see GCC PR21568 comment #9.  This
-probably isn't the last word on the matter though...
+Yeah.  Or we can have an email thread like this every time
+someone proposes a patch that uses an atomic variable ;-)
 
 
 Segher
