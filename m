@@ -1,14 +1,23 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Wed, 15 Aug 2007 19:35:58 -0700
-Message-ID: <20070816023558.GE14613@linux.vnet.ibm.com>
-References: <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in> <18115.35524.56393.347841@cargo.ozlabs.ibm.com> <Pine.LNX.4.64.0708151725130.10497@schroedinger.engr.sgi.com> <20070816003948.GY9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com> <18115.44462.622801.683446@cargo.ozlabs.ibm.com> <20070816020042.GA30650@gondor.apana.org.au> <18115.45316.702491.681906@cargo.ozlabs.ibm.com> <20070816021105.GA30883@gondor.apana.org.au>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Satyam Sharma <satyam@infradead.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Thu, 16 Aug 2007 08:31:02 +0530 (IST)
+Message-ID: <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in>
+References: <20070809131423.GA9927@shell.boston.redhat.com>
+ <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
+ <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
+ <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
+ <18115.35524.56393.347841@cargo.ozlabs.ibm.com>
+ <Pine.LNX.4.64.0708151725130.10497@schroedinger.engr.sgi.com>
+ <20070816003948.GY9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com>
+ <18115.44462.622801.683446@cargo.ozlabs.ibm.com> <20070816020042.GA30650@gondor.apana.org.au>
+ <18115.45316.702491.681906@cargo.ozlabs.ibm.com>
+ <alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul Mackerras <paulus@samba.org>,
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	Christoph Lameter <clameter@sgi.com>,
-	Satyam Sharma <satyam@infradead.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
 	Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	Chris Snook <csnook@redhat.com>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
@@ -20,19 +29,21 @@ Cc: Paul Mackerras <paulus@samba.org>,
 	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
 	rpjday@mindspring.com, jesper.juhl@gmail.com,
 	segher@kernel.crashing.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Paul Mackerras <paulus@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:53364 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755354AbXHPCgD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2007 22:36:03 -0400
-Content-Disposition: inline
-In-Reply-To: <20070816021105.GA30883@gondor.apana.org.au>
+Received: from pentafluge.infradead.org ([213.146.154.40]:32779 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755833AbXHPCsh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 22:48:37 -0400
+In-Reply-To: <alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 16, 2007 at 10:11:05AM +0800, Herbert Xu wrote:
-> On Thu, Aug 16, 2007 at 12:05:56PM +1000, Paul Mackerras wrote:
+
+
+On Thu, 16 Aug 2007, Satyam Sharma wrote:
+
+> On Thu, 16 Aug 2007, Paul Mackerras wrote:
 > > Herbert Xu writes:
 > > 
 > > > See sk_stream_mem_schedule in net/core/stream.c:
@@ -55,13 +66,21 @@ On Thu, Aug 16, 2007 at 10:11:05AM +0800, Herbert Xu wrote:
 > > Are you sure?  How do you know some other CPU hasn't changed the value
 > > in between?
 > 
-> Yes I'm sure, because we don't care if others have increased
-> the reservation.
-> 
-> Note that even if we did we'd be using barriers so volatile
-> won't do us any good here.
+> I can't speak for this particular case, but there could be similar code
+> examples elsewhere, where we do the atomic ops on an atomic_t object
+> inside a higher-level locking scheme that would take care of the kind of
+> problem you're referring to here. It would be useful for such or similar
+> code if the compiler kept the value of that atomic object in a register.
 
-If the load-coalescing is important to performance, why not load into
-a local variable?
+We might not be using atomic_t (and ops) if we already have a higher-level
+locking scheme, actually. So as Herbert mentioned, such cases might just
+not care. [ Too much of this thread, too little sleep, sorry! ]
 
-						Thanx, Paul
+Anyway, the problem, of course, is that this conversion to a stronger /
+safer-by-default behaviour doesn't happen with zero cost to performance.
+Converting atomic ops to "volatile" behaviour did add ~2K to kernel text
+for archs such as i386 (possibly to important codepaths) that didn't have
+those semantics already so it would be constructive to actually look at
+those differences and see if there were really any heisenbugs that got
+rectified. Or if there were legitimate optimizations that got wrongly
+disabled. Onus lies on those proposing the modifications, I'd say ;-)
