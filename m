@@ -1,198 +1,157 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [RFC] net/core/dst.c : Should'nt dst_run_gc() be more scalable and
- friendly ?
-Date: Thu, 16 Aug 2007 14:09:13 +0200
-Message-ID: <20070816140914.de24335c.dada1@cosmosbay.com>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: zd1211rw regression, device does not enumerate
+Date: Thu, 16 Aug 2007 14:25:11 +0200
+Message-ID: <200708161425.12217.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:35617 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752606AbXHPMJS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Aug 2007 08:09:18 -0400
-Sender: netdev-owner@vger.kernel.org
+To: netdev@vger.kernel.org, linux-usb-devel@lists.sourceforge.net,
+	Daniel Drake <dsd@gentoo.org>,
+	John W.Linville <linville@tuxdriver.com>
+Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
+List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
+List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: linux-usb-devel-bounces@lists.sourceforge.net
+Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Hi all
+Hi,
 
-When the periodic route cache flush is done, this machine suffers a lot and eventually triggers the "soft lockup" message.
+after bisection it boils down to this patch:
 
-dst_run_gc() is doing a scan of a possibly huge list of dst_entries, eventually freeing some (less than 1%) of them, but holding the dst_lock spinlock for the whole scan.
+oliver@oenone:/home/olli2/Trees/linux-2.6> git bisect bad
+74553aedd46b3a2cae986f909cf2a3f99369decc is first bad commit
+commit 74553aedd46b3a2cae986f909cf2a3f99369decc
+Author: Daniel Drake <dsd@gentoo.org>
+Date:   Sun Jul 1 18:22:32 2007 +0100
 
-Then it rearms a timer to redo the full thing 1/10 s later. The slowdown can last one minute or so.
-No need to say that machine is not really usable in the meantime.
+    [PATCH] zd1211rw: Defer firmware load until first ifup
 
-I already looked at the code and I am testing a patch (included in this mail) where I limit the number of entries that can be scanned at each dst_run_gc() call, and not holding dst_lock during the scan. But then I dont know how to address the dst_dev_event() problem, since we must be able to dst_ifdown() all entries attached to one dev.
+that plugging in my device I get an error:
+Aug 16 13:17:11 oenone kernel: zd1211rw 3-4.3:1.0: zd1211b chip 0ace:1215 v4810 high 00-02-72 AL2230_RF pa0 g--NS
+Aug 16 13:17:11 oenone kernel: usb 3-4.3: link qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
+Aug 16 13:17:11 oenone kernel: usb 3-4.3: unlink qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
+Aug 16 13:17:11 oenone kernel: usb 3-4.3: link qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
+Aug 16 13:17:11 oenone kernel: usb 3-4.3: unlink qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
+Aug 16 13:17:11 oenone kernel: usb 3-4.3: unlink qh1-0001/ffff810037c04960 start 0 [2/0 us]
+Aug 16 13:17:11 oenone kernel: ehci_hcd 0000:00:02.2: reused qh ffff810037c04960 schedule
+Aug 16 13:17:11 oenone kernel: usb 3-4.3: link qh1-0001/ffff810037c04960 start 0 [2/0 us]
+Aug 16 13:17:11 oenone kernel: usb 3-4.3: link qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
+Aug 16 13:17:11 oenone kernel: usb 3-4.3: unlink qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
+Aug 16 13:17:11 oenone kernel: usb 3-4.3: link qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
+Aug 16 13:17:11 oenone kernel: usb 3-4.3: unlink qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
+Aug 16 13:17:11 oenone kernel: usb 3-4.3: link qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
+Aug 16 13:17:11 oenone kernel: usb 3-4.3: unlink qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
+Aug 16 13:17:11 oenone kernel: usb 3-4.3: link qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
+Aug 16 13:17:11 oenone kernel: usb 3-4.3: unlink qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
+Aug 16 13:17:12 oenone ifup: Cannot enable interface eth2.
+Aug 16 13:17:12 oenone kernel: zd1211rw 3-4.3:1.0: error ioread32(CR_REG1): -110
+Aug 16 13:17:12 oenone kernel: usb 3-4.3: unlink qh1-0001/ffff810037c04960 start 0 [2/0 us]
+Aug 16 13:17:12 oenone ifup-route: interface eth2 is not up
 
-I am wondering how to really solve the problem. Could a workqueue be used here instead of a timer ?
+Bus 003 Device 006: ID 0ace:1215 ZyDAS
+Device Descriptor:
+  bLength                18
+  bDescriptorType         1
+  bcdUSB               2.00
+  bDeviceClass          255 Vendor Specific Class
+  bDeviceSubClass       255 Vendor Specific Subclass
+  bDeviceProtocol       255 Vendor Specific Protocol
+  bMaxPacketSize0        64
+  idVendor           0x0ace ZyDAS
+  idProduct          0x1215
+  bcdDevice           48.10
+  iManufacturer          16 ZyDAS
+  iProduct               32 USB2.0 WLAN
+  iSerial                 0
+  bNumConfigurations      1
+  Configuration Descriptor:
+    bLength                 9
+    bDescriptorType         2
+    wTotalLength           46
+    bNumInterfaces          1
+    bConfigurationValue     1
+    iConfiguration          0
+    bmAttributes         0x80
+      (Bus Powered)
+    MaxPower              500mA
+    Interface Descriptor:
+      bLength                 9
+      bDescriptorType         4
+      bInterfaceNumber        0
+      bAlternateSetting       0
+      bNumEndpoints           4
+      bInterfaceClass       255 Vendor Specific Class
+      bInterfaceSubClass      0
+      bInterfaceProtocol      0
+      iInterface              0
+      Endpoint Descriptor:
+        bLength                 7
+        bDescriptorType         5
+        bEndpointAddress     0x01  EP 1 OUT
+        bmAttributes            2
+          Transfer Type            Bulk
+          Synch Type               None
+          Usage Type               Data
+        wMaxPacketSize     0x0200  1x 512 bytes
+        bInterval               0
+      Endpoint Descriptor:
+        bLength                 7
+        bDescriptorType         5
+        bEndpointAddress     0x82  EP 2 IN
+        bmAttributes            2
+          Transfer Type            Bulk
+          Synch Type               None
+          Usage Type               Data
+        wMaxPacketSize     0x0200  1x 512 bytes
+        bInterval               0
+      Endpoint Descriptor:
+        bLength                 7
+        bDescriptorType         5
+        bEndpointAddress     0x83  EP 3 IN
+        bmAttributes            3
+          Transfer Type            Interrupt
+          Synch Type               None
+          Usage Type               Data
+        wMaxPacketSize     0x0040  1x 64 bytes
+        bInterval               1
+      Endpoint Descriptor:
+        bLength                 7
+        bDescriptorType         5
+        bEndpointAddress     0x04  EP 4 OUT
+        bmAttributes            3
+          Transfer Type            Interrupt
+          Synch Type               None
+          Usage Type               Data
+        wMaxPacketSize     0x0040  1x 64 bytes
+        bInterval               1
+Device Qualifier (for other device speed):
+  bLength                10
+  bDescriptorType         6
+  bcdUSB               2.00
+  bDeviceClass          255 Vendor Specific Class
+  bDeviceSubClass       255 Vendor Specific Subclass
+  bDeviceProtocol       255 Vendor Specific Protocol
+  bMaxPacketSize0        64
+  bNumConfigurations      1
+Device Status:     0x0000
+  (Bus Powered)
 
+	Regards
+		Oliver
 
-Aug 16 06:21:37 SRV1 kernel: BUG: soft lockup detected on CPU#0!
-Aug 16 06:21:37 SRV1 kernel: 
-Aug 16 06:21:37 SRV1 kernel: Call Trace:
-Aug 16 06:21:37 SRV1 kernel:  <IRQ>  [<ffffffff802286f0>] wake_up_process+0x10/0x20
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80251e09>] softlockup_tick+0xe9/0x110
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803cd380>] dst_run_gc+0x0/0x140
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff802376f3>] run_local_timers+0x13/0x20
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff802379c7>] update_process_times+0x57/0x90
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80216034>] smp_local_timer_interrupt+0x34/0x60
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff802165cc>] smp_apic_timer_interrupt+0x5c/0x80
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff8020a816>] apic_timer_interrupt+0x66/0x70
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803cd3d3>] dst_run_gc+0x53/0x140
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803cd3c6>] dst_run_gc+0x46/0x140
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80237148>] run_timer_softirq+0x148/0x1c0
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff8023340c>] __do_softirq+0x6c/0xe0
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff8020ad6c>] call_softirq+0x1c/0x30
-Aug 16 06:21:37 SRV1 kernel:  <EOI>  [<ffffffff8020cb34>] do_softirq+0x34/0x90
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff802331cf>] local_bh_enable_ip+0x3f/0x60
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80422913>] _spin_unlock_bh+0x13/0x20
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803dfde8>] rt_garbage_collect+0x1d8/0x320
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803cd4dd>] dst_alloc+0x1d/0xa0
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803e1433>] __ip_route_output_key+0x573/0x800
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803c02e2>] sock_common_recvmsg+0x32/0x50
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803e16dc>] ip_route_output_flow+0x1c/0x60
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80400160>] tcp_v4_connect+0x150/0x610
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803ebf07>] inet_bind_bucket_create+0x17/0x60
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff8040cd16>] inet_stream_connect+0xa6/0x2c0
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80422981>] _spin_lock_bh+0x11/0x30
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803c0bdf>] lock_sock_nested+0xcf/0xe0
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80422981>] _spin_lock_bh+0x11/0x30
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803be551>] sys_connect+0x71/0xa0
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803eee3f>] tcp_setsockopt+0x1f/0x30
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803c030f>] sock_common_setsockopt+0xf/0x20
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803be4bd>] sys_setsockopt+0x9d/0xc0
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff8028881e>] sys_ioctl+0x5e/0x80
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80209c4e>] system_call+0x7e/0x83
-
-Prelimary patch :
-
---- linux-2.6.22/net/core/dst.c
-+++ linux-2.6.22-ed/net/core/dst.c
-@@ -28,6 +28,9 @@
-  * 4) All operations modify state, so a spinlock is used.
-  */
- static struct dst_entry 	*dst_garbage_list;
-+static struct dst_entry     *dst_garbage_wrk;
-+static struct dst_entry     *dst_garbage_inuse;
-+static int dst_gc_running;
- #if RT_CACHE_DEBUG >= 2
- static atomic_t			 dst_total = ATOMIC_INIT(0);
- #endif
-@@ -42,26 +45,42 @@
- 
- static void dst_run_gc(unsigned long dummy)
- {
--	int    delayed = 0;
--	int    work_performed;
--	struct dst_entry * dst, **dstp;
--
--	if (!spin_trylock(&dst_lock)) {
--		mod_timer(&dst_gc_timer, jiffies + HZ/10);
--		return;
--	}
--
-+	int    quota = 1000;
-+	int    work_performed = 0;
-+	struct dst_entry *dst, *next;
-+	struct dst_entry *first = NULL, *last = NULL;
-+#if RT_CACHE_DEBUG >= 2
-+	unsigned long t0 = jiffies;
-+#endif
-+	spin_lock(&dst_lock);
-+	if (dst_gc_running)
-+		goto out;
- 	del_timer(&dst_gc_timer);
--	dstp = &dst_garbage_list;
--	work_performed = 0;
--	while ((dst = *dstp) != NULL) {
--		if (atomic_read(&dst->__refcnt)) {
--			dstp = &dst->next;
--			delayed++;
-+	if (!dst_garbage_wrk) {
-+		dst_garbage_wrk = dst_garbage_list;
-+		dst_garbage_list = dst_garbage_inuse;
-+		dst_garbage_inuse = NULL;
-+	}
-+	/*
-+	 * before releasing dst_lock, tell others we are currently running
-+	 * so they wont start timer or mess dst_garbage_wrk
-+	 */
-+	dst_gc_running = 1;
-+	next = dst_garbage_wrk;
-+	spin_unlock(&dst_lock);
-+
-+	while ((dst = next) != NULL) {
-+		next = dst->next;
-+		if (likely(atomic_read(&dst->__refcnt))) {
-+			if (unlikely(last == NULL))
-+				last = dst;
-+			dst->next = first;
-+			first = dst;
-+			if (--quota == 0)
-+				break;
- 			continue;
- 		}
--		*dstp = dst->next;
--		work_performed = 1;
-+		work_performed++;
- 
- 		dst = dst_destroy(dst);
- 		if (dst) {
-@@ -77,16 +96,26 @@
- 				continue;
- 
- 			___dst_free(dst);
--			dst->next = *dstp;
--			*dstp = dst;
--			dstp = &dst->next;
-+			dst->next = next;
-+			next = dst;
- 		}
- 	}
--	if (!dst_garbage_list) {
-+	dst_garbage_wrk = next;
-+
-+	spin_lock(&dst_lock);
-+	dst_gc_running = 0;
-+	if (last != NULL) {
-+		last->next = dst_garbage_inuse;
-+		dst_garbage_inuse = first;
-+	}
-+	/*
-+	 * If all lists are empty, no need to rearm a timer
-+	 */
-+	if (!dst_garbage_list && !dst_garbage_wrk && !dst_garbage_inuse) {
- 		dst_gc_timer_inc = DST_GC_MAX;
- 		goto out;
- 	}
--	if (!work_performed) {
-+	if (!work_performed && !dst_garbage_wrk) {
- 		if ((dst_gc_timer_expires += dst_gc_timer_inc) > DST_GC_MAX)
- 			dst_gc_timer_expires = DST_GC_MAX;
- 		dst_gc_timer_inc += DST_GC_INC;
-@@ -95,8 +124,12 @@
- 		dst_gc_timer_expires = DST_GC_MIN;
- 	}
- #if RT_CACHE_DEBUG >= 2
--	printk("dst_total: %d/%d %ld\n",
--	       atomic_read(&dst_total), delayed,  dst_gc_timer_expires);
-+	if (net_msg_warn)
-+		printk(KERN_DEBUG "dst_run_gc: "
-+		"dst_total=%d quota=%d perf=%d expires=%ld elapsed=%lu\n",
-+		atomic_read(&dst_total),
-+		quota,  work_performed,
-+		dst_gc_timer_expires, jiffies - t0);
- #endif
- 	/* if the next desired timer is more than 4 seconds in the future
- 	 * then round the timer to whole seconds
-@@ -157,7 +190,7 @@
- 	___dst_free(dst);
- 	dst->next = dst_garbage_list;
- 	dst_garbage_list = dst;
--	if (dst_gc_timer_inc > DST_GC_INC) {
-+	if (dst_gc_timer_inc > DST_GC_INC && !dst_gc_running) {
- 		dst_gc_timer_inc = DST_GC_INC;
- 		dst_gc_timer_expires = DST_GC_MIN;
- 		mod_timer(&dst_gc_timer, jiffies + dst_gc_timer_expires);
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >>  http://get.splunk.com/
+_______________________________________________
+linux-usb-devel@lists.sourceforge.net
+To unsubscribe, use the last form field at:
+https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
