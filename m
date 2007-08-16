@@ -1,90 +1,133 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [GENETLINK]: Question: global lock (genl_mutex) possible refinement?
-Date: Thu, 16 Aug 2007 17:58:19 +0200
-Message-ID: <20070816155819.GE32236@postel.suug.ch>
-References: <46A0B017.4080505@st.com> <46A0B6DE.1080904@trash.net> <46A0BF7F.80001@st.com> <46A0BFFF.5020000@trash.net> <46A0DF91.6000508@st.com> <20070723102909.GA9285@postel.suug.ch> <46A4DB34.4040502@st.com> <20070724093558.GB9285@postel.suug.ch> <46A5DDDD.6070602@st.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] lockdep: annotate rcu_read_{,un}lock()
+Date: Thu, 16 Aug 2007 09:01:45 -0700
+Message-ID: <20070816160145.GA16957@linux.vnet.ibm.com>
+References: <af57f1ac0708141130v729fa636k3150673809ec20a8@mail.gmail.com> <E1ILEJr-0005Fl-00@gondolin.me.apana.org.au> <20070815.144628.104052147.davem@davemloft.net> <1187274307.6114.92.camel@twins>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Richard MUSIL <richard.musil@st.com>
+Cc: Ingo Molnar <mingo@elte.hu>, herbert@gondor.apana.org.au,
+	123.oleg@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Daniel Walker <dwalker@mvista.com>, josht@linux.vnet.ibm.com
+To: Peter Zijlstra <peterz@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from postel.suug.ch ([194.88.212.233]:42928 "EHLO postel.suug.ch"
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:33944 "EHLO e5.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1764821AbXHPP57 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Aug 2007 11:57:59 -0400
+	id S1765588AbXHPQBt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Aug 2007 12:01:49 -0400
 Content-Disposition: inline
-In-Reply-To: <46A5DDDD.6070602@st.com>
+In-Reply-To: <1187274307.6114.92.camel@twins>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Richard MUSIL <richard.musil@st.com> 2007-07-24 13:09
-> Thomas Graf wrote:
-> > Please provide a new overall patch which is not based on your
-> > initial patch so I can review your idea properly.
+On Thu, Aug 16, 2007 at 04:25:07PM +0200, Peter Zijlstra wrote:
 > 
-> Here it goes (merging two previous patches). I have diffed
-> against v2.6.22, which I am using currently as my base:
+> There seem to be some unbalanced rcu_read_{,un}lock() issues of late,
+> how about doing something like this:
 
-Sorry for taking so long.
+This will break when rcu_read_lock() and rcu_read_unlock() are invoked
+from NMI/SMI handlers -- the raw_local_irq_save() in lock_acquire() will
+not mask NMIs or SMIs.
 
-> @@ -150,9 +176,9 @@ int genl_register_ops(struct genl_family *family, struct genl_ops *ops)
->  	if (ops->policy)
->  		ops->flags |= GENL_CMD_CAP_HASPOL;
->  
-> -	genl_lock();
-> +	genl_fam_lock(family);
->  	list_add_tail(&ops->ops_list, &family->ops_list);
-> -	genl_unlock();
-> +	genl_fam_unlock(family);
+One approach would be to check for being in an NMI/SMI handler, and
+to avoid calling lock_acquire() and lock_release() in those cases.
+Another approach would be to use sparse, which has checks for
+rcu_read_lock()/rcu_read_unlock() nesting.
 
-For registering operations, it is sufficient to just acquire the
-family lock, the family itself can't disappear while holding it.
+							Thanx, Paul
 
-> @@ -216,8 +242,9 @@ int genl_register_family(struct genl_family *family)
->  		goto errout;
->  
->  	INIT_LIST_HEAD(&family->ops_list);
-> +	mutex_init(&family->lock);
->  
-> -	genl_lock();
-> +	genl_fam_lock(family);
->  
->  	if (genl_family_find_byname(family->name)) {
->  		err = -EEXIST;
-> @@ -251,14 +278,14 @@ int genl_register_family(struct genl_family *family)
->  		family->attrbuf = NULL;
->  
->  	list_add_tail(&family->family_list, genl_family_chain(family->id));
-> -	genl_unlock();
-> +	genl_fam_unlock(family);
-
-This looks good.
-
-> @@ -303,38 +332,57 @@ static int genl_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
->  	struct genlmsghdr *hdr = nlmsg_data(nlh);
->  	int hdrlen, err;
->  
-> +	genl_fam_lock(NULL);
->  	family = genl_family_find_byid(nlh->nlmsg_type);
-> -	if (family == NULL)
-> +	if (family == NULL) {
-> +		genl_fam_unlock(NULL);
->  		return -ENOENT;
-> +	}
+> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> ---
+>  include/linux/lockdep.h  |    7 +++++++
+>  include/linux/rcupdate.h |   12 ++++++++++++
+>  kernel/rcupdate.c        |    8 ++++++++
+>  3 files changed, 27 insertions(+)
+> 
+> Index: linux-2.6/include/linux/lockdep.h
+> ===================================================================
+> --- linux-2.6.orig/include/linux/lockdep.h
+> +++ linux-2.6/include/linux/lockdep.h
+> @@ -252,6 +252,13 @@ extern void lockdep_init_map(struct lock
+>  			     struct lock_class_key *key, int subclass);
+> 
+>  /*
+> + * To initialize a lockdep_map statically use this macro.
+> + * Note that _name must not be NULL.
+> + */
+> +#define STATIC_LOCKDEP_MAP_INIT(_name, _key) \
+> +	{ .name = (_name), .key = (void *)(_key), }
 > +
-> +	/* get particular family lock, but release global family lock
-> +	 * so registering operations for other families are possible */
-> +	genl_onefam_lock(family);
-> +	genl_fam_unlock(NULL);
-
-I don't like having two locks for something as trivial as this.
-Basically the only reason the global lock is required here is to
-protect from family removal which can be avoided otherwise by
-using RCU list operations.
-
-Therefore, I'd propose the following lock semantics:
-Use own global mutex to protect writing to the family list, make
-reading side lockless using rcu for use when looking up family
-upon mesage processing. Use a family lock to protect writing to
-operations list and serialize messae processing with unregister
-operations.
+> +/*
+>   * Reinitialize a lock key - for cases where there is special locking or
+>   * special initialization of locks so that the validator gets the scope
+>   * of dependencies wrong: they are either too broad (they need a class-split)
+> Index: linux-2.6/include/linux/rcupdate.h
+> ===================================================================
+> --- linux-2.6.orig/include/linux/rcupdate.h
+> +++ linux-2.6/include/linux/rcupdate.h
+> @@ -41,6 +41,7 @@
+>  #include <linux/percpu.h>
+>  #include <linux/cpumask.h>
+>  #include <linux/seqlock.h>
+> +#include <linux/lockdep.h>
+> 
+>  /**
+>   * struct rcu_head - callback structure for use with RCU
+> @@ -133,6 +134,15 @@ static inline void rcu_bh_qsctr_inc(int 
+>  extern int rcu_pending(int cpu);
+>  extern int rcu_needs_cpu(int cpu);
+> 
+> +#ifdef CONFIG_DEBUG_LOCK_ALLOC
+> +extern struct lockdep_map rcu_lock_map;
+> +# define rcu_read_acquire()	lock_acquire(&rcu_lock_map, 0, 0, 2, 1, _THIS_IP_)
+> +# define rcu_read_release()	lock_release(&rcu_lock_map, 1, _THIS_IP_)
+> +#else
+> +# define rcu_read_acquire()	do { } while (0)
+> +# define rcu_read_release()	do { } while (0)
+> +#endif
+> +
+>  /**
+>   * rcu_read_lock - mark the beginning of an RCU read-side critical section.
+>   *
+> @@ -166,6 +176,7 @@ extern int rcu_needs_cpu(int cpu);
+>  	do { \
+>  		preempt_disable(); \
+>  		__acquire(RCU); \
+> +		rcu_read_acquire(); \
+>  	} while(0)
+> 
+>  /**
+> @@ -175,6 +186,7 @@ extern int rcu_needs_cpu(int cpu);
+>   */
+>  #define rcu_read_unlock() \
+>  	do { \
+> +		rcu_read_release(); \
+>  		__release(RCU); \
+>  		preempt_enable(); \
+>  	} while(0)
+> Index: linux-2.6/kernel/rcupdate.c
+> ===================================================================
+> --- linux-2.6.orig/kernel/rcupdate.c
+> +++ linux-2.6/kernel/rcupdate.c
+> @@ -49,6 +49,14 @@
+>  #include <linux/cpu.h>
+>  #include <linux/mutex.h>
+> 
+> +#ifdef CONFIG_DEBUG_LOCK_ALLOC
+> +static struct lock_class_key rcu_lock_key;
+> +struct lockdep_map rcu_lock_map =
+> +	STATIC_LOCKDEP_MAP_INIT("rcu_read_lock", &rcu_lock_key);
+> +
+> +EXPORT_SYMBOL_GPL(rcu_lock_map);
+> +#endif
+> +
+>  /* Definition for rcupdate control block. */
+>  static struct rcu_ctrlblk rcu_ctrlblk = {
+>  	.cur = -300,
+> 
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
