@@ -1,74 +1,52 @@
-From: Paul Mackerras <paulus@samba.org>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Thu, 16 Aug 2007 13:23:06 +1000
-Message-ID: <18115.49946.522011.832468@cargo.ozlabs.ibm.com>
-References: <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
-	<18115.35524.56393.347841@cargo.ozlabs.ibm.com>
-	<Pine.LNX.4.64.0708151725130.10497@schroedinger.engr.sgi.com>
-	<20070816003948.GY9645@linux.vnet.ibm.com>
-	<Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com>
-	<20070816005348.GA9645@linux.vnet.ibm.com>
-	<Pine.LNX.4.64.0708151757400.11196@schroedinger.engr.sgi.com>
-	<20070816011414.GC9645@linux.vnet.ibm.com>
-	<Pine.LNX.4.64.0708151839140.11520@schroedinger.engr.sgi.com>
-	<alpine.LFD.0.999.0708160730590.24380@enigma.security.iitk.ac.in>
-	<20070816020851.GA30809@gondor.apana.org.au>
-	<Pine.LNX.4.64.0708151917210.11736@schroedinger.engr.sgi.com>
+From: "Sean Hefty" <sean.hefty@intel.com>
+Subject: RE: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP portsfrom
+	the host TCP port space.
+Date: Wed, 15 Aug 2007 20:27:26 -0700
+Message-ID: <000001c7dfb5$5e6ced20$4dc8180a@amr.corp.intel.com>
+References: <46B883B5.8040702@opengridcomputing.com>	<46BB61D0.4090101@opengridcomputing.com>	<46BB89C0.4040303@ichips.intel.com><20070809.145534.102938208.davem@davemloft.net><46C310E1.7020503@opengridcomputing.com>
+	<46C3B5EF.5060409@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Satyam Sharma <satyam@infradead.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Chris Snook <csnook@redhat.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
-To: Christoph Lameter <clameter@sgi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:49983 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756641AbXHPDXT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2007 23:23:19 -0400
-In-Reply-To: <Pine.LNX.4.64.0708151917210.11736@schroedinger.engr.sgi.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org, David Miller <davem@davemloft.net>
+To: "'Jeff Garzik'" <jeff@garzik.org>,
+	"Steve Wise" <swise@opengridcomputing.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <46C3B5EF.5060409@garzik.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Christoph Lameter writes:
+>It's not about being a niche.  It's about creating a maintainable
+>software net stack that has predictable behavior.
+>
+>Needing to reach out of the RDMA sandbox and reserve net stack resources
+>away from itself travels a path we've consistently avoided.
 
-> > But I have to say that I still don't know of a single place
-> > where one would actually use the volatile variant.
-> 
-> I suspect that what you say is true after we have looked at all callers.
+We need to ensure that we're also creating a maintainable kernel.  RDMA doesn't
+use sockets, but that doesn't mean it's not part of the networking support
+provided by the Linux kernel.  Making blanket statements that RDMA should stay
+within a sandbox is equivalent to saying that RDMA should duplicate any network
+related functionality that it might need.
 
-It seems that there could be a lot of places where atomic_t is used in
-a non-atomic fashion, and that those uses are either buggy, or there
-is some lock held at the time which guarantees that other CPUs aren't
-changing the value.  In both cases there is no point in using
-atomic_t; we might as well just use an ordinary int.
+>>> I will NACK any patch that opens up sockets to eat up ports or
+>>> anything stupid like that.
+>
+>Ditto for me as well.
 
-In particular, atomic_read seems to lend itself to buggy uses.  People
-seem to do things like:
+I agree that using a socket is the wrong approach, but my guess is that it was
+suggested as a possibility because of the attempt to keep RDMA in its 'sandbox'.
+The iWarp architecture implements RDMA over TCP; it just doesn't use sockets.
+The Linux network stack doesn't easily support this possibility.  Are there any
+reasonable ways to enable this to the degree necessary for iWarp?
 
-	atomic_add(&v, something);
-	if (atomic_read(&v) > something_else) ...
-
-and expect that there is some relationship between the value that the
-atomic_add stored and the value that the atomic_read will return,
-which there isn't.  People seem to think that using atomic_t magically
-gets rid of races.  It doesn't.
-
-I'd go so far as to say that anywhere where you want a non-"volatile"
-atomic_read, either your code is buggy, or else an int would work just
-as well.
-
-Paul.
-
+- Sean
