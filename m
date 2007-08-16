@@ -1,13 +1,21 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Thu, 16 Aug 2007 10:00:42 +0800
-Message-ID: <20070816020042.GA30650@gondor.apana.org.au>
-References: <20070809131423.GA9927@shell.boston.redhat.com> <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in> <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in> <18115.35524.56393.347841@cargo.ozlabs.ibm.com> <Pine.LNX.4.64.0708151725130.10497@schroedinger.engr.sgi.com> <20070816003948.GY9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com> <18115.44462.622801.683446@cargo.ozlabs.ibm.com>
+From: Satyam Sharma <satyam@infradead.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Thu, 16 Aug 2007 07:45:44 +0530 (IST)
+Message-ID: <alpine.LFD.0.999.0708160730590.24380@enigma.security.iitk.ac.in>
+References: <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
+ <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
+ <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
+ <18115.35524.56393.347841@cargo.ozlabs.ibm.com>
+ <Pine.LNX.4.64.0708151725130.10497@schroedinger.engr.sgi.com>
+ <20070816003948.GY9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com>
+ <20070816005348.GA9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151757400.11196@schroedinger.engr.sgi.com>
+ <20070816011414.GC9645@linux.vnet.ibm.com>
+ <Pine.LNX.4.64.0708151839140.11520@schroedinger.engr.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Lameter <clameter@sgi.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Satyam Sharma <satyam@infradead.org>,
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Paul Mackerras <paulus@samba.org>,
 	Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	Chris Snook <csnook@redhat.com>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
@@ -18,44 +26,54 @@ Cc: Christoph Lameter <clameter@sgi.com>,
 	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
 	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
 	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
-To: Paul Mackerras <paulus@samba.org>
+	segher@kernel.crashing.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Christoph Lameter <clameter@sgi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2365 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753766AbXHPCCG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 22:02:06 -0400
-Content-Disposition: inline
-In-Reply-To: <18115.44462.622801.683446@cargo.ozlabs.ibm.com>
+Received: from pentafluge.infradead.org ([213.146.154.40]:58586 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751363AbXHPCDW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 22:03:22 -0400
+In-Reply-To: <Pine.LNX.4.64.0708151839140.11520@schroedinger.engr.sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 16, 2007 at 11:51:42AM +1000, Paul Mackerras wrote:
+
+
+On Wed, 15 Aug 2007, Christoph Lameter wrote:
+
+> On Wed, 15 Aug 2007, Paul E. McKenney wrote:
 > 
-> Name one such case.
+> > Understood.  My point is not that the impact is precisely zero, but
+> > rather that the impact on optimization is much less hurtful than the
+> > problems that could arise otherwise, particularly as compilers become
+> > more aggressive in their optimizations.
+> 
+> The problems arise because barriers are not used as required. Volatile 
+> has wishy washy semantics and somehow marries memory barriers with data 
+> access. It is clearer to separate the two. Conceptual cleanness usually 
+> translates into better code. If one really wants the volatile then lets 
+> make it explicit and use
+> 
+> 	atomic_read_volatile()
 
-See sk_stream_mem_schedule in net/core/stream.c:
+Completely agreed, again. To summarize again (had done so about ~100 mails
+earlier in this thread too :-) ...
 
-        /* Under limit. */
-        if (atomic_read(sk->sk_prot->memory_allocated) < sk->sk_prot->sysctl_mem[0]) {
-                if (*sk->sk_prot->memory_pressure)
-                        *sk->sk_prot->memory_pressure = 0;
-                return 1;
-        }
+atomic_{read,set}_volatile() -- guarantees volatility also along with
+atomicity (the two _are_ different concepts after all, irrespective of
+whether callsites normally want one with the other or not)
 
-        /* Over hard limit. */
-        if (atomic_read(sk->sk_prot->memory_allocated) > sk->sk_prot->sysctl_mem[2]) {
-                sk->sk_prot->enter_memory_pressure();
-                goto suppress_allocation;
-        }
+atomic_{read,set}_nonvolatile() -- only guarantees atomicity, compiler
+free to elid / coalesce / optimize such accesses, can keep the object
+in question cached in a local register, leads to smaller text, etc.
 
-We don't need to reload sk->sk_prot->memory_allocated here.
+As to which one should be the default atomic_read() is a question of
+whether majority of callsites (more weightage to important / hot
+codepaths, lesser to obscure callsites) want a particular behaviour.
 
-Now where is your example again?
+Do we have a consensus here? (hoping against hope, probably :-)
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+[ This thread has gotten completely out of hand ... for my mail client
+  alpine as well, it now seems. Reminds of that 1000+ GPLv3 fest :-) ]
