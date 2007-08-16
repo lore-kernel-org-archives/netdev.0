@@ -1,51 +1,52 @@
-From: Laurent Pinchart <laurentp@cse-semaphore.com>
-Subject: Re: [PATCH] [DM9000] Add support for big-endian hosts
-Date: Thu, 16 Aug 2007 10:10:56 +0200
-Message-ID: <200708161010.57064.laurentp@cse-semaphore.com>
-References: <200708141322.32473.laurentp@cse-semaphore.com> <20070814182558.GA12547@fluff.org.uk>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Thu, 16 Aug 2007 16:10:49 +0800
+Message-ID: <20070816081049.GA1431@gondor.apana.org.au>
+References: <18115.44462.622801.683446@cargo.ozlabs.ibm.com> <20070816020042.GA30650@gondor.apana.org.au> <18115.45316.702491.681906@cargo.ozlabs.ibm.com> <alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in> <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in> <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au> <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au> <46C40587.7050708@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Ben Dooks <ben@fluff.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Mackerras <paulus@samba.org>,
+	Satyam Sharma <satyam@infradead.org>,
+	Christoph Lameter <clameter@sgi.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Chris Snook <csnook@redhat.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay012.isp.belgacom.be ([195.238.6.179]:17469 "EHLO
-	mailrelay012.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751326AbXHPIK7 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Aug 2007 04:10:59 -0400
-In-Reply-To: <20070814182558.GA12547@fluff.org.uk>
+Received: from rhun.apana.org.au ([64.62.148.172]:1278 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755603AbXHPIMV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 04:12:21 -0400
 Content-Disposition: inline
+In-Reply-To: <46C40587.7050708@s5r6.in-berlin.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 14 August 2007 20:25, Ben Dooks wrote:
-> On Tue, Aug 14, 2007 at 01:22:32PM +0200, Laurent Pinchart wrote:
-> > This patch splits the receive status in 8bit wide fields and conver=
-t the
-> > packet length from little endian to CPU byte order.
->
-> Which version of the the kernel was this against, it applies with
-> fuzz to 2.6.23-rc3:
->
-> $ patch -p1 < ~/dm9000-fix-endianness.patch
-> patching file drivers/net/dm9000.c
-> Hunk #1 succeeded at 894 (offset 15 lines).
-> Hunk #2 succeeded at 936 (offset 15 lines).
-> Hunk #3 succeeded at 948 (offset 15 lines).
+On Thu, Aug 16, 2007 at 10:06:31AM +0200, Stefan Richter wrote:
+> > 
+> > Do you (or anyone else for that matter) have an example of this?
+> 
+> The only code I somewhat know, the ieee1394 subsystem, was perhaps
+> authored and is currently maintained with the expectation that each
+> occurrence of atomic_read actually results in a load operation, i.e. is
+> not optimized away.  This means all atomic_t (bus generation, packet and
+> buffer refcounts, and some other state variables)* and likewise all
+> atomic bitops in that subsystem.
 
-That was against 2.6.22. Sorry. I'll post updated patches against 2.6.2=
-3-rc3.
+Can you find an actual atomic_read code snippet there that is
+broken without the volatile modifier?
 
-Best regards.
-
---=20
-Laurent Pinchart
-CSE Semaphore Belgium
-
-Chauss=E9e de Bruxelles, 732A
-B-1410 Waterloo
-Belgium
-
-T +32 (2) 387 42 59
-=46 +32 (2) 387 42 75
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
