@@ -1,8 +1,8 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Thu, 16 Aug 2007 18:35:47 +0800
-Message-ID: <20070816103547.GA2927@gondor.apana.org.au>
-References: <18115.45316.702491.681906@cargo.ozlabs.ibm.com> <alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in> <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in> <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au> <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au> <46C40587.7050708@s5r6.in-berlin.de> <20070816081049.GA1431@gondor.apana.org.au> <46C41EE4.9090806@s5r6.in-berlin.de>
+Date: Thu, 16 Aug 2007 18:42:50 +0800
+Message-ID: <20070816104250.GB2927@gondor.apana.org.au>
+References: <alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in> <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in> <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au> <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au> <46C40587.7050708@s5r6.in-berlin.de> <20070816081049.GA1431@gondor.apana.org.au> <46C41EE4.9090806@s5r6.in-berlin.de> <46C42767.4070104@s5r6.in-berlin.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Paul Mackerras <paulus@samba.org>,
@@ -21,30 +21,50 @@ Cc: Paul Mackerras <paulus@samba.org>,
 	segher@kernel.crashing.org
 To: Stefan Richter <stefanr@s5r6.in-berlin.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2686 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:2754 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752009AbXHPKhg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 06:37:36 -0400
+	with ESMTP id S1757452AbXHPKnc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 06:43:32 -0400
 Content-Disposition: inline
-In-Reply-To: <46C41EE4.9090806@s5r6.in-berlin.de>
+In-Reply-To: <46C42767.4070104@s5r6.in-berlin.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 16, 2007 at 11:54:44AM +0200, Stefan Richter wrote:
+On Thu, Aug 16, 2007 at 12:31:03PM +0200, Stefan Richter wrote:
 > 
-> One example was discussed here earlier:  The for (;;) loop in
-> nodemgr_host_thread.  There an msleep_interruptible implicitly acted as
-> barrier (at the moment because it's in a different translation unit; if
-> it were the same, then because it hopefully has own barriers).  So that
-> happens to work, although such an implicit barrier is bad style:  Better
-> enforce the desired behaviour (== guaranteed load operation) *explicitly*.
+> PS:  Just to clarify, I'm not speaking for the volatile modifier.  I'm
+> not speaking for any particular implementation of atomic_t and its
+> accessors at all.  All I am saying is that
+>   - we use atomically accessed data types because we concurrently but
+>     locklessly access this data,
+>   - hence a read access to this data that could be optimized away
+>     makes *no sense at all*.
 
-Hmm, it's not bad style at all.  Let's assume that everything
-is in the same scope.  Such a loop must either call a function
-that busy-waits, which should always have a cpu_relax or
-something equivalent, or it'll call a function that schedules
-away which immediately invalidates any values the compiler might
-have cached for the atomic_read.
+No sane compiler can optimise away an atomic_read per se.
+That's only possible if there's a preceding atomic_set or
+atomic_read, with no barriers in the middle.
+
+If that's the case, then one has to conclude that doing
+away with the second read is acceptable, as otherwise
+a memory (or at least a compiler) barrier should have been
+used.
+
+In fact, volatile doesn't guarantee that the memory gets
+read anyway.  You might be reading some stale value out
+of the cache.  Granted this doesn't happen on x86 but
+when you're coding for the kernel you can't make such
+assumptions.
+
+So the point here is that if you don't mind getting a stale
+value from the CPU cache when doing an atomic_read, then
+surely you won't mind getting a stale value from the compiler
+"cache".
+
+> So, the architecture guys can implement atomic_read however they want
+> --- as long as it cannot be optimized away.*
+
+They can implement it however they want as long as it stays
+atomic.
 
 Cheers,
 -- 
