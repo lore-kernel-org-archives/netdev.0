@@ -1,35 +1,44 @@
-From: Jeff Dike <jdike@addtoit.com>
-Subject: Re: drivers/infiniband/mlx/mad.c misplaced ;
-Date: Thu, 16 Aug 2007 10:52:10 -0400
-Message-ID: <20070816145210.GD6670@c2.user-mode-linux.org>
-References: <20070815235825.GB17004@redhat.com> <1187224811.5906.55.camel@localhost>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH] nl80211: remove VLAN type
+Date: Thu, 16 Aug 2007 17:03:45 +0200
+Message-ID: <1187276625.23489.18.camel@johannes.berg>
+References: <1187169518.3960.0.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dave Jones <davej@redhat.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>, rolandd@cisco.com,
-	Chas Williams <chas@cmf.nrl.navy.mil>,
-	Paul Mundt <lethal@linux-sh.org>,
-	isdn4linux@listserv.isdn4linux.de, mikep@linuxtr.net,
-	netdev@vger.kernel.org, swen@vnet.ibm.com, linux390@de.ibm.com,
-	linux-s390@vger.kernel.org,
-	user-mode-linux-devel@lists.sourceforge.net,
-	user-mode-linux-user@lists.sourceforge.net,
-	netfilter-devel@lists.netfilter.org, coreteam@netfilter.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761849AbXHPOyV@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1187224811.5906.55.camel@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-ePkXdZFPogBeQNKPZl89"
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1187169518.3960.0.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 15, 2007 at 05:40:11PM -0700, Joe Perches wrote:
-> fs/hostfs/hostfs_user.c:        if(attrs->ia_valid & HOSTFS_ATTR_CTIME) ;
 
-This one can be deleted, but I think I did it for documentation
-reasons, to make it clear that ctime handling wasn't left out by
-mistake.
+--=-ePkXdZFPogBeQNKPZl89
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-				Jeff
+On Wed, 2007-08-15 at 11:18 +0200, Johannes Berg wrote:
+> There is no point in trying to handle source MAC address based VLANs in
+> the wireless stack, something like "smacvlan" modeled after macvlan
+> should be sufficient.
 
--- 
-Work email - jdike at linux dot intel dot com
+Whoops. I only forgot the use with encryption. Please consider this
+patch withdrawn, at least until I see clearer through that crypto issue.
+
+johannes
+
+--=-ePkXdZFPogBeQNKPZl89
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBGxGdR/ETPhpq3jKURAoDOAKCKgkzeYX2pR4TFnZ4unHN1tnPbegCfbpT7
+XHnXpUetncpeoGCX+XZIwIo=
+=ylzQ
+-----END PGP SIGNATURE-----
+
+--=-ePkXdZFPogBeQNKPZl89--
