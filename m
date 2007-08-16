@@ -1,85 +1,67 @@
 From: Tejun Heo <teheo@suse.de>
-Subject: Re: [patch 2/4] Update e100 driver to use devres.
-Date: Thu, 16 Aug 2007 20:34:42 +0900
-Message-ID: <46C43652.6030609@suse.de>
-References: <20070815185949.GC7294@ifup.org>
+Subject: Re: [patch 4/4] Update e1000 driver to use devres.
+Date: Thu, 16 Aug 2007 20:44:17 +0900
+Message-ID: <46C43891.4080304@suse.de>
+References: <20070815190014.GE7294@ifup.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
 To: Brandon Philips <bphilips@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from jericho.provo.novell.com ([137.65.248.124]:1227 "EHLO
-	jericho.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750747AbXHPLe6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 07:34:58 -0400
-In-Reply-To: <20070815185949.GC7294@ifup.org>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20070815190014.GE7294@ifup.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
 Brandon Philips wrote:
-> @@ -2554,8 +2547,10 @@ static int __devinit e100_probe(struct p
->  	struct net_device *netdev;
->  	struct nic *nic;
->  	int err;
-> +	void __iomem **iomap;
-> +	int bar;
->  
-> -	if(!(netdev = alloc_etherdev(sizeof(struct nic)))) {
-> +	if (!(netdev = devm_alloc_etherdev(&pdev->dev, sizeof(struct nic)))) {
->  		if(((1 << debug) - 1) & NETIF_MSG_PROBE)
->  			printk(KERN_ERR PFX "Etherdev alloc failed, abort.\n");
->  		return -ENOMEM;
-> @@ -2585,26 +2580,28 @@ static int __devinit e100_probe(struct p
->  	nic->msg_enable = (1 << debug) - 1;
->  	pci_set_drvdata(pdev, netdev);
->  
-> -	if((err = pci_enable_device(pdev))) {
-> +	if ((err = pcim_enable_device(pdev))) {
->  		DPRINTK(PROBE, ERR, "Cannot enable PCI device, aborting.\n");
-> -		goto err_out_free_dev;
-> +		return err;
->  	}
->  
->  	if(!(pci_resource_flags(pdev, 0) & IORESOURCE_MEM)) {
->  		DPRINTK(PROBE, ERR, "Cannot find proper PCI device "
->  			"base address, aborting.\n");
->  		err = -ENODEV;
-> -		goto err_out_disable_pdev;
-> +		return err;
->  	}
->  
-> -	if((err = pci_request_regions(pdev, DRV_NAME))) {
-> +	bar = use_io ? 1 : 0;
-> +	if((err = pcim_iomap_regions(pdev, 1 << bar, DRV_NAME))) {
->  		DPRINTK(PROBE, ERR, "Cannot obtain PCI resources, aborting.\n");
-> -		goto err_out_disable_pdev;
-> +		return err;
->  	}
-> +	iomap = pcim_iomap_table(pdev)[bar];
+> -	mmio_start = pci_resource_start(pdev, BAR_0);
+>  	mmio_len = pci_resource_len(pdev, BAR_0);
 
-Type mismatch.  Didn't compiler warn about it?
+You don't need mmio_len either.
 
+> -	err = -EIO;
+> -	adapter->hw.hw_addr = ioremap(mmio_start, mmio_len);
+> +	adapter->hw.hw_addr = pcim_iomap(pdev, BAR_0, mmio_len);
+
+Passing 0 as @max_len tells pci[m]_iomap() to use pci_resource_len() of
+the BAR.
+
+> @@ -952,16 +948,15 @@ e1000_probe(struct pci_dev *pdev,
+>  	/* setup the private structure */
 >  
->  	if((err = pci_set_dma_mask(pdev, DMA_32BIT_MASK))) {
->  		DPRINTK(PROBE, ERR, "No usable DMA configuration, aborting.\n");
-> -		goto err_out_free_res;
+>  	if ((err = e1000_sw_init(adapter)))
+> -		goto err_sw_init;
 > +		return err;
->  	}
 >  
->  	SET_MODULE_OWNER(netdev);
-> @@ -2613,12 +2610,6 @@ static int __devinit e100_probe(struct p
->  	if (use_io)
->  		DPRINTK(PROBE, INFO, "using i/o access mode\n");
->  
-> -	nic->csr = pci_iomap(pdev, (use_io ? 1 : 0), sizeof(struct csr));
-> -	if(!nic->csr) {
-> -		DPRINTK(PROBE, ERR, "Cannot map device registers, aborting.\n");
-> -		err = -ENOMEM;
-> -		goto err_out_free_res;
-> -	}
+>  	err = -EIO;
+>  	/* Flash BAR mapping must happen after e1000_sw_init
+>  	 * because it depends on mac_type */
+>  	if ((adapter->hw.mac_type == e1000_ich8lan) &&
+>  	   (pci_resource_flags(pdev, 1) & IORESOURCE_MEM)) {
+> -		flash_start = pci_resource_start(pdev, 1);
+>  		flash_len = pci_resource_len(pdev, 1);
 
-nic->csr initialization seems missing.  Have you tested the patched code?
+Ditto.
+
+> -		adapter->hw.flash_address = ioremap(flash_start, flash_len);
+> +		adapter->hw.flash_address = pcim_iomap(pdev, 1, flash_len);
+>  		if (!adapter->hw.flash_address)
+>  			goto err_flashmap;
+>  	}
 
 -- 
 tejun
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >>  http://get.splunk.com/
