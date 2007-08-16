@@ -1,83 +1,136 @@
-From: Richard MUSIL <richard.musil@st.com>
-Subject: Re: [GENETLINK] some thoughts on the usage
-Date: Thu, 16 Aug 2007 10:50:58 +0200
-Message-ID: <46C40FF2.2030400@st.com>
-References: <46BC25A6.7000703@st.com> <20070815175009.GA32236@postel.suug.ch>
+From: Satyam Sharma <satyam@infradead.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Thu, 16 Aug 2007 14:55:23 +0530 (IST)
+Message-ID: <alpine.LFD.0.999.0708161342290.25951@enigma.security.iitk.ac.in>
+References: <20070809131423.GA9927@shell.boston.redhat.com>
+ <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
+ <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
+ <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
+ <20070815233721.91032366.billfink@mindspring.com>
+ <alpine.LFD.0.999.0708161045360.25951@enigma.security.iitk.ac.in>
+ <alpine.LFD.0.999.0708161115370.25951@enigma.security.iitk.ac.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Christoph Lameter <clameter@sgi.com>,
+	Chris Snook <csnook@redhat.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s200aog13.obsmtp.com ([207.126.144.127]:33440 "EHLO
-	s200aog13.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753018AbXHPIwO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 04:52:14 -0400
-In-Reply-To: <20070815175009.GA32236@postel.suug.ch>
+Received: from pentafluge.infradead.org ([213.146.154.40]:50653 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752157AbXHPJNB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 05:13:01 -0400
+In-Reply-To: <alpine.LFD.0.999.0708161115370.25951@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> * Richard MUSIL <richard.musil@st.com> 2007-08-10 10:45
->> I have noticed that although ops for each family are the same (each
->> device is functionally same) I cannot use same genl_ops struct for
->> registration, because it uses internal member to link in list. Therefore
->> it is necessary to allocate new genl_ops for each device and pass it to
->> registration. But I cannot "officially" use this list to track those
->> genl_ops (so I can properly destroy them later), because there is no
->> interface. So I need to redo the management of the structures on my own.
+[ Bill tells me in private communication he gets this already, but I
+  think it's more complicated than the shoddy explanation I'd made
+  earlier so would wish to make this clearer in detail one last time,
+  for the benefit of others listening in or reading the archives. ]
+
+
+On Thu, 16 Aug 2007, Satyam Sharma wrote:
+
+> On Thu, 16 Aug 2007, Satyam Sharma wrote:
+> [...]
+> > On Wed, 15 Aug 2007, Bill Fink wrote:
+> > > [...]
+> > > I'm curious about one minor tangential point.  Why, instead of:
+> > > 
+> > > 	b = *(volatile int *)&a;
+> > > 
+> > > why can't this just be expressed as:
+> > > 
+> > > 	b = (volatile int)a;
+> > > 
+> > > Isn't it the contents of a that's volatile, i.e. it's value can change
+> > > invisibly to the compiler, and that's why you want to force a read from
+> > > memory?  Why do you need the "*(volatile int *)&" construct?
+> > 
+> > "b = (volatile int)a;" doesn't help us because a cast to a qualified type
+> > has the same effect as a cast to an unqualified version of that type, as
+> > mentioned in 6.5.4:4 (footnote 86) of the standard. Note that "volatile"
+> > is a type-qualifier, not a type itself, so a cast of the _object_ itself
+> > to a qualified-type i.e. (volatile int) would not make the access itself
+> > volatile-qualified.
+
+Casts don't produce lvalues, and the cast ((volatile int)a) does not
+produce the object-int-a-qualified-as-"volatile" -- in fact, the
+result of the above cast is whatever is the _value_ of "int a", with
+the access to that object having _already_ taken place, as per the
+actual type-qualification of the object (that was originally declared
+as being _non-volatile_, in fact). Hence, defining atomic_read() as:
+
+#define atomic_read(v)          ((volatile int)((v)->counter))
+
+would be buggy and not give "volatility" semantics at all, unless the
+"counter" object itself isn't volatile-qualified already (which it
+isn't).
+
+The result of the cast itself being the _value_ of the int object, and
+not the object itself (i.e., not an lvalue), is thereby independent of
+type-qualification in that cast itself (it just wouldn't make any
+difference), hence the "cast to a qualified type has the same effect
+as a cast to an unqualified version of that type" bit in section 6.5.4:4
+of the standard.
+
+
+> > To serve our purposes, it is necessary for us to take the address of this
+> > (non-volatile) object, cast the resulting _pointer_ to the corresponding
+> > volatile-qualified pointer-type, and then dereference it. This makes that
+> > particular _access_ be volatile-qualified, without the object itself being
+> > such. Also note that the (dereferenced) result is also a valid lvalue and
+> > hence can be used in "*(volatile int *)&a = b;" kind of construction
+> > (which we use for the atomic_set case).
+
+Dereferencing using the *(pointer-type-cast)& construct, OTOH, serves
+us well:
+
+#define atomic_read(v)          (*(volatile int *)&(v)->counter)
+
+Firstly, note that the cast here being (volatile int *) and not
+(int * volatile) qualifies the type of the _object_ being pointed to
+by the pointer in question as being volatile-qualified, and not the
+pointer itself (6.2.5:27 of the standard, and 6.3.2.3:2 allows us to
+convert from a pointer-to-non-volatile-qualified-int to a pointer-to-
+volatile-qualified-int, which suits us just fine) -- but note that
+the _access_ to that address itself has not yet occurred.
+
+_After_ specifying the memory address as containing a volatile-qualified-
+int-type object, (and GCC co-operates as mentioned below), we proceed to
+dereference it, which is when the _actual access_ occurs, therefore with
+"volatility" semantics this time.
+
+Interesting.
+
+
+> Here, I should obviously admit that the semantics of *(volatile int *)&
+> aren't any neater or well-defined in the _language standard_ at all. The
+> standard does say (verbatim) "precisely what constitutes as access to
+> object of volatile-qualified type is implementation-defined", but GCC
+> does help us out here by doing the right thing. Accessing the non-volatile
+> object there using the volatile-qualified pointer-type cast makes GCC
+> treat the object stored at that memory address itself as if it were a 
+> volatile object, thus making the access end up having what we're calling
+> as "volatility" semantics here.
 > 
-> The intended usage of the interface in your example would be to register
-> only one genetlink family, say "tpm", register one set of operations
-> and then have an attribute in every message which specifies which TPM
-> device to use. This helps keeping the total number of genetlink families
-> down.
+> Honestly, given such confusion, and the propensity of the "volatile"
+> type-qualifier keyword to be ill-defined (or at least poorly understood,
+> often inconsistently implemented), I'd (again) express my opinion that it
+> would be best to avoid its usage, given other alternatives do exist.
 
-I got your point. The fact that there are several families of the same
-device type seems however quite convenient. For example, I
-create/register virtual device /dev/tpm0 and register family with the
-same name for that device, the same for /dev/tpm1 etc. Then I got
-straightforward association in between devices and families and get for
-free the whole management what happen if I try to talk to device which
-is not registered/present etc.
-I could multiplex it over one channel, but I will need to make the
-communication protocol more complex and make me handle all exceptions
-myself.
-Since in my case there will be probably not more than one device
-present, and the device itself is quite "exotic" I would probably not
-rewrite it to the multiplexing scheme, but I understand what you mean
-and will take it into account next time I face decision how to use
-genetlink.
 
-However I am still wondering, whether the allocation of structures
-(genl_family, genl_ops) should not be done by genetlink layer instead of
-the user (I mean allocating copy of the struct passed by user). This is
-for example, what TPM layer (tpm.c) does. This would come at slight cost
-at memory usage and performance, but will protect the caller from
-inspecting internal behavior and taking care of that. And internal links
-would nicely help in keeping of track of allocated structures. I could
-write a patch for this.
-
->> The second "inconvenience" is that for each family I register, I also
->> register basically same ops (basically means, the definitions, and doit,
->> dumpit handlers are same, though the structures are at different
->> addresses for reasons described above). When the handler receives the
->> message it needs to associate the message with the actual device it is
->> handling. This could be done through family lookup (using
->> nlmsghdr::nlmsg_type), but I wondered if it would make sense to extend
->> genl_family for user custom data pointer and then pass this custom data
->> (or genl_family reference) to each handler (for example inside
->> genl_info). It is already parsed by genetlink layer, so it should not
->> slow things down.
-> 
-> That's not a bad idea, although I think we should try and keep the
-> generic netlink part as simple as possible. There is a family specific
-> header, referred to as user header in genl_info which is basically
-> what you're looking for with the custom header. I believe making the
-> generic netlink family aware of anything beyond family id and operations
-> id only complicates things.
-
-Ok, this was just an idea ;-) - probably important only for high
-performance genetlink users.
-
-Richard
+Satyam
