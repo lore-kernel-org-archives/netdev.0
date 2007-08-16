@@ -1,12 +1,27 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Thu, 16 Aug 2007 12:03:08 +0800
-Message-ID: <20070816040308.GA32133@gondor.apana.org.au>
-References: <20070816005348.GA9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151757400.11196@schroedinger.engr.sgi.com> <20070816011414.GC9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151839140.11520@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708160730590.24380@enigma.security.iitk.ac.in> <20070816020851.GA30809@gondor.apana.org.au> <Pine.LNX.4.64.0708151917210.11736@schroedinger.engr.sgi.com> <18115.49946.522011.832468@cargo.ozlabs.ibm.com> <20070816033343.GA31844@gondor.apana.org.au> <18115.51472.408193.332905@cargo.ozlabs.ibm.com>
+From: Paul Mackerras <paulus@samba.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Thu, 16 Aug 2007 14:11:43 +1000
+Message-ID: <18115.52863.638655.658466@cargo.ozlabs.ibm.com>
+References: <20070809131423.GA9927@shell.boston.redhat.com>
+	<Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
+	<alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
+	<46C2D6F3.3070707@s5r6.in-berlin.de>
+	<alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
+	<18115.35524.56393.347841@cargo.ozlabs.ibm.com>
+	<Pine.LNX.4.64.0708151725130.10497@schroedinger.engr.sgi.com>
+	<20070816003948.GY9645@linux.vnet.ibm.com>
+	<Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com>
+	<18115.44462.622801.683446@cargo.ozlabs.ibm.com>
+	<20070816020042.GA30650@gondor.apana.org.au>
+	<18115.45316.702491.681906@cargo.ozlabs.ibm.com>
+	<alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in>
+	<alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Lameter <clameter@sgi.com>,
-	Satyam Sharma <satyam@infradead.org>,
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Christoph Lameter <clameter@sgi.com>,
 	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
 	Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	Chris Snook <csnook@redhat.com>,
@@ -19,39 +34,49 @@ Cc: Christoph Lameter <clameter@sgi.com>,
 	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
 	rpjday@mindspring.com, jesper.juhl@gmail.com,
 	segher@kernel.crashing.org
-To: Paul Mackerras <paulus@samba.org>
+To: Satyam Sharma <satyam@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3519 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750725AbXHPEDv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 00:03:51 -0400
-Content-Disposition: inline
-In-Reply-To: <18115.51472.408193.332905@cargo.ozlabs.ibm.com>
+Received: from ozlabs.org ([203.10.76.45]:42424 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751238AbXHPELu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Aug 2007 00:11:50 -0400
+In-Reply-To: <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 16, 2007 at 01:48:32PM +1000, Paul Mackerras wrote:
-> Herbert Xu writes:
-> 
-> > If you're referring to the code in sk_stream_mem_schedule
-> > then it's working as intended.  The atomicity guarantees
-> 
-> You mean it's intended that *sk->sk_prot->memory_pressure can end up
-> as 1 when sk->sk_prot->memory_allocated is small (less than
-> ->sysctl_mem[0]), or as 0 when ->memory_allocated is large (greater
-> than ->sysctl_mem[2])?  Because that's the effect of the current code.
-> If so I wonder why you bother computing it.
+Satyam Sharma writes:
 
-You need to remember that there are three different limits:
-minimum, pressure, and maximum.  By default we should never
-be in a situation where what you say can occur.
+> Anyway, the problem, of course, is that this conversion to a stronger /
+> safer-by-default behaviour doesn't happen with zero cost to performance.
+> Converting atomic ops to "volatile" behaviour did add ~2K to kernel text
+> for archs such as i386 (possibly to important codepaths) that didn't have
+> those semantics already so it would be constructive to actually look at
+> those differences and see if there were really any heisenbugs that got
+> rectified. Or if there were legitimate optimizations that got wrongly
+> disabled. Onus lies on those proposing the modifications, I'd say ;-)
 
-If you set all three limits to the same thing, then yes it
-won't work as intended but it's still well-behaved.
+The uses of atomic_read where one might want it to allow caching of
+the result seem to me to fall into 3 categories:
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1. Places that are buggy because of a race arising from the way it's
+   used.
+
+2. Places where there is a race but it doesn't matter because we're
+   doing some clever trick.
+
+3. Places where there is some locking in place that eliminates any
+   potential race.
+
+In case 1, adding volatile won't solve the race, of course, but it's
+hard to argue that we shouldn't do something because it will slow down
+buggy code.  Case 2 is hopefully pretty rare and accompanied by large
+comment blocks, and in those cases caching the result of atomic_read
+explicitly in a local variable would probably make the code clearer.
+And in case 3 there is no reason to use atomic_t at all; we might as
+well just use an int.
+
+So I don't see any good reason to make the atomic API more complex by
+having "volatile" and "non-volatile" versions of atomic_read.  It
+should just have the "volatile" behaviour.
+
+Paul.
