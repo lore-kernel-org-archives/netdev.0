@@ -1,38 +1,50 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP ports
-	from the host TCP port space.
-Date: Wed, 15 Aug 2007 20:11:15 -0700
-Message-ID: <adaabss41ik.fsf@cisco.com>
-References: <46B883B5.8040702@opengridcomputing.com>
-	<46BB61D0.4090101@opengridcomputing.com>
-	<46BB89C0.4040303@ichips.intel.com>
-	<20070809.145534.102938208.davem@davemloft.net>
-	<46C310E1.7020503@opengridcomputing.com> <46C3B5EF.5060409@garzik.org>
+From: "Paul Gortmaker" <paul.gortmaker@gmail.com>
+Subject: Re: [2.6 patch] remove Documentation/networking/net-modules.txt
+Date: Wed, 15 Aug 2007 23:22:36 -0400
+Message-ID: <7d1d9c250708152022s3c21be16x488a4f9705cd3b3d@mail.gmail.com>
+References: <20070814212604.GW18945@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org, David Miller <davem@davemloft.net>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <46C3B5EF.5060409@garzik.org> (Jeff Garzik's message of "Wed,
-	15 Aug 2007 22:26:55 -0400")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Andrew Morton" <akpm@linux-foundation.org>, jgarzik@pobox.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Adrian Bunk" <bunk@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wr-out-0506.google.com ([64.233.184.225]:61811 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751877AbXHPDWh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 23:22:37 -0400
+Received: by wr-out-0506.google.com with SMTP id 36so95884wra
+        for <netdev@vger.kernel.org>; Wed, 15 Aug 2007 20:22:36 -0700 (PDT)
+In-Reply-To: <20070814212604.GW18945@stusta.de>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > Needing to reach out of the RDMA sandbox and reserve net stack
- > resources away from itself travels a path we've consistently avoided.
+On 8/14/07, Adrian Bunk <bunk@kernel.org> wrote:
+> According to git, the only one who touched this file during the last
+> 5 years was me when removing drivers...
+>
+> modinfo offers less ancient information.
+>
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+>
 
-Where did the idea of an "RDMA sandbox" come from?  Obviously no one
-disagrees with keeping things clean and maintainable, but the idea
-that RDMA is a second-class citizen that doesn't get any input into
-the evolution of the networking code seems kind of offensive to me.
+Fine by me for any of the old stuff I was responsible for...
 
- - R.
+Acked-by: Paul Gortmaker <paul.gortmaker@gmail.com>
+
+
+
+> -
+> -       8390 based Network Modules              (Paul Gortmaker, Nov 12, 1995)
+> -       --------------------------
+> -
+> -(Includes: smc-ultra, ne, wd, 3c503, hp, hp-plus, e2100 and ac3200)
+> -
+> -The 8390 series of network drivers now support multiple card systems without
+> -reloading the same module multiple times (memory efficient!) This is done by
+> -specifying multiple comma separated values, such as:
+> -
+> -       insmod 3c503.o io=0x280,0x300,0x330,0x350  xcvr=0,1,0,1
+> -
