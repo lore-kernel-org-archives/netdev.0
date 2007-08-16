@@ -1,68 +1,84 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Subject: Re: [PATCH 6/24] make atomic_read() behave consistently on frv
-Date: Thu, 16 Aug 2007 11:09:25 +1000
-Message-ID: <46C3A3C5.5020103@yahoo.com.au>
-References: <20070811042943.GA13410@linux.vnet.ibm.com> <E1IKSHQ-0007hg-00@gondolin.me.apana.org.au> <20070813060302.GF13410@linux.vnet.ibm.com> <46C13EE1.1000707@yahoo.com.au> <20070814170128.GA8243@linux.vnet.ibm.com> <46C2FFDD.5000600@yahoo.com.au> <20070815201501.GM9645@linux.vnet.ibm.com>
+From: Satyam Sharma <satyam@infradead.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Thu, 16 Aug 2007 06:53:45 +0530 (IST)
+Message-ID: <alpine.LFD.0.999.0708160649590.24380@enigma.security.iitk.ac.in>
+References: <20070809131423.GA9927@shell.boston.redhat.com>
+ <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
+ <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
+ <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
+ <9350e9fab505c92af8d5e1f3441d6ad2@kernel.crashing.org>
+ <alpine.LFD.0.999.0708160102550.16414@enigma.security.iitk.ac.in>
+ <d36ec7799cfb43557770951c1cd57355@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, csnook@redhat.com,
-	dhowells@redhat.com, linux-kernel@vger.kernel.org,
-	linux-arch@vger.kernel.org, torvalds@linux-foundation.org,
-	netdev@vger.kernel.org, akpm@linux-foundation.org, ak@suse.de,
-	heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: Christoph Lameter <clameter@sgi.com>, heiko.carstens@de.ibm.com,
+	horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, ak@suse.de, cfriesen@nortel.com,
 	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	Arnd Bergmann <arnd@arndb.de>
-To: paulmck@linux.vnet.ibm.com
+	linux-arch@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
+	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Segher Boessenkool <segher@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp110.mail.mud.yahoo.com ([209.191.85.220]:22012 "HELO
-	smtp110.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S933120AbXHPBJj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 21:09:39 -0400
-In-Reply-To: <20070815201501.GM9645@linux.vnet.ibm.com>
+Received: from pentafluge.infradead.org ([213.146.154.40]:50344 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762600AbXHPBLO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 21:11:14 -0400
+In-Reply-To: <d36ec7799cfb43557770951c1cd57355@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Paul E. McKenney wrote:
-> On Wed, Aug 15, 2007 at 11:30:05PM +1000, Nick Piggin wrote:
 
->>Especially since several big architectures don't have volatile in their
->>atomic_get and _set, I think it would be a step backwards to add them in
->>as a "just in case" thin now (unless there is a better reason).
+
+On Wed, 15 Aug 2007, Segher Boessenkool wrote:
+
+> [...]
+> > BTW:
+> > 
+> > #define atomic_read(a)	(*(volatile int *)&(a))
+> > #define atomic_set(a,i)	(*(volatile int *)&(a) = (i))
+> > 
+> > int a;
+> > 
+> > void func(void)
+> > {
+> > 	int b;
+> > 
+> > 	b = atomic_read(a);
+> > 	atomic_set(a, 20);
+> > 	b = atomic_read(a);
+> > }
+> > 
+> > gives:
+> > 
+> > func:
+> > 	pushl	%ebp
+> > 	movl	a, %eax
+> > 	movl	%esp, %ebp
+> > 	movl	$20, a
+> > 	movl	a, %eax
+> > 	popl	%ebp
+> > 	ret
+> > 
+> > so the first atomic_read() wasn't optimized away.
 > 
+> Of course.  It is executed by the abstract machine, so
+> it will be executed by the actual machine.  On the other
+> hand, try
 > 
-> Good point, except that I would expect gcc's optimization to continue
-> to improve.  I would like the kernel to be able to take advantage of
-> improved optimization, which means that we are going to have to make
-> a few changes.  Adding volatile to atomic_get() and atomic_set() is
-> IMHO one of those changes.
-
-What optimisations? gcc already does most of the things you need a
-barrier/volatile for, like reordering non-dependant loads and stores,
-and eliminating mem ops completely by caching in registers.
-
-
->>As to your followup question of why to use it over ACCESS_ONCE. I
->>guess, aside from consistency with the rest of the barrier APIs, you
->>can use it in other primitives when you don't actually know what the
->>caller is going to do or if it even will make an access. You could
->>also use it between calls to _other_ primitives, etc... it just
->>seems more flexible to me, but I haven't actually used such a thing
->>in real code...
->>
->>ACCESS_ONCE doesn't seem as descriptive. What it results in is the
->>memory location being loaded or stored (presumably once exactly),
->>but I think the more general underlying idea is a barrier point.
+> 	b = 0;
+> 	if (b)
+> 		b = atomic_read(a);
 > 
-> 
-> OK, first, I am not arguing that ACCESS_ONCE() can replace all current
-> uses of barrier().
+> or similar.
 
-OK. Well I also wasn't saying that ACCESS_ONCE should not be
-implemented. But if we want something like it, then it would make
-sense to have an equivalent barrier statement as well (ie. order()).
-
--- 
-SUSE Labs, Novell Inc.
+Yup, obviously. Volatile accesses (or any access to volatile objects),
+or even "__volatile__ asms" (which gcc normally promises never to elid)
+can always be optimized for cases such as these where the compiler can
+trivially determine that the code in question is not reachable.
