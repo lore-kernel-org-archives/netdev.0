@@ -1,8 +1,8 @@
 From: Segher Boessenkool <segher@kernel.crashing.org>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Thu, 16 Aug 2007 21:32:03 +0200
-Message-ID: <194369f4c96ea0e24decf8f9197d5bad@kernel.crashing.org>
-References: <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <46C32618.2080108@redhat.com> <20070815234021.GA28775@gondor.apana.org.au> <3694fb2e4ed1e4d9bf873c0d050c911e@kernel.crashing.org> <46C3B50E.7010702@yahoo.com.au>
+Date: Thu, 16 Aug 2007 21:33:40 +0200
+Message-ID: <d4c6e3846c4171eb1e74d0874d7c3b60@kernel.crashing.org>
+References: <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <46C32618.2080108@redhat.com> <20070815234021.GA28775@gondor.apana.org.au> <20070815235125.GT9645@linux.vnet.ibm.com> <0de0c3d833b6f543bd75f74bb17a124b@kernel.crashing.org> <20070816023050.GC14613@linux.vnet.ibm.com>
 Mime-Version: 1.0 (Apple Message framework v623)
 Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -15,38 +15,30 @@ Cc: heiko.carstens@de.ibm.com, horms@verge.net.au,
 	Chris Snook <csnook@redhat.com>,
 	Herbert Xu <herbert.xu@redhat.com>, davem@davemloft.net,
 	wensong@linux-vs.org, wjiang@resilience.com
-To: Nick Piggin <nickpiggin@yahoo.com.au>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1765612AbXHPTie@vger.kernel.org>
-In-Reply-To: <46C3B50E.7010702@yahoo.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
+To: paulmck@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:54742 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759235AbXHPTjq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Aug 2007 15:39:46 -0400
+In-Reply-To: <20070816023050.GC14613@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>>> Part of the motivation here is to fix heisenbugs.  If I knew where 
->>>> they
->>>
->>>
->>> By the same token we should probably disable optimisations
->>> altogether since that too can create heisenbugs.
->> Almost everything is a tradeoff; and so is this.  I don't
->> believe most people would find disabling all compiler
->> optimisations an acceptable price to pay for some peace
->> of mind.
+>> The only thing volatile on an asm does is create a side effect
+>> on the asm statement; in effect, it tells the compiler "do not
+>> remove this asm even if you don't need any of its outputs".
+>>
+>> It's not disabling optimisation likely to result in bugs,
+>> heisen- or otherwise; _not_ putting the volatile on an asm
+>> that needs it simply _is_ a bug :-)
 >
-> So why is this a good tradeoff?
+> Yep.  And the reason it is a bug is that it fails to disable
+> the relevant compiler optimizations.  So I suspect that we might
+> actually be saying the same thing here.
 
-It certainly is better than disabling all compiler optimisations!
-
-> I also think that just adding things to APIs in the hope it might fix
-> up some bugs isn't really a good road to go down. Where do you stop?
-
-I look at it the other way: keeping the "volatile" semantics in
-atomic_XXX() (or adding them to it, whatever) helps _prevent_ bugs;
-certainly most people expect that behaviour, and also that behaviour
-is *needed* in some places and no other interface provides that
-functionality.
-
-
-[some confusion about barriers wrt atomics snipped]
+We're not saying the same thing, but we do agree :-)
 
 
 Segher
+
