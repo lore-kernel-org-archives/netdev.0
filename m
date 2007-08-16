@@ -1,71 +1,84 @@
-From: Satyam Sharma <satyam@infradead.org>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Thu, 16 Aug 2007 08:03:11 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in>
-References: <20070809131423.GA9927@shell.boston.redhat.com>
- <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
- <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
- <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
- <18115.35524.56393.347841@cargo.ozlabs.ibm.com>
- <Pine.LNX.4.64.0708151725130.10497@schroedinger.engr.sgi.com>
- <20070816003948.GY9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com>
- <18115.44462.622801.683446@cargo.ozlabs.ibm.com> <20070816020042.GA30650@gondor.apana.org.au>
- <18115.45316.702491.681906@cargo.ozlabs.ibm.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Wed, 15 Aug 2007 19:22:26 -0700
+Message-ID: <20070816022226.GA14613@linux.vnet.ibm.com>
+References: <46C30540.2070603@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151941150.16414@enigma.security.iitk.ac.in> <20070815145207.GA23106@gondor.apana.org.au> <46C3253F.5090707@s5r6.in-berlin.de> <20070815162722.GD9645@linux.vnet.ibm.com> <d4406222873856f472b9173a14a19aa2@kernel.crashing.org> <20070815185724.GH9645@linux.vnet.ibm.com> <2c907d70a2267b887de346891758983d@kernel.crashing.org> <20070815224433.GQ9645@linux.vnet.ibm.com> <f24994ecd2ecfcda6e01b289a25c1e47@kernel.crashing.org>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Christoph Lameter <clameter@sgi.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Chris Snook <csnook@redhat.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Satyam Sharma <satyam@infradead.org>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org,
+	rpjday@mindspring.com, netdev@vger.kernel.org, ak@suse.de,
+	cfriesen@nortel.com, Heiko Carstens <heiko.carstens@de.ibm.com>,
+	jesper.juhl@gmail.com, linux-arch@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
+	clameter@sgi.com, schwidefsky@de.ibm.com,
+	Chris Snook <csnook@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
 	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
-To: Paul Mackerras <paulus@samba.org>
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Segher Boessenkool <segher@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:46143 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030276AbXHPCUn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 22:20:43 -0400
-In-Reply-To: <18115.45316.702491.681906@cargo.ozlabs.ibm.com>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:39417 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757167AbXHPCWb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 22:22:31 -0400
+Content-Disposition: inline
+In-Reply-To: <f24994ecd2ecfcda6e01b289a25c1e47@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On Thu, 16 Aug 2007, Paul Mackerras wrote:
-
-> Herbert Xu writes:
+On Thu, Aug 16, 2007 at 03:23:28AM +0200, Segher Boessenkool wrote:
+> >>>>No; compilation units have nothing to do with it, GCC can optimise
+> >>>>across compilation unit boundaries just fine, if you tell it to
+> >>>>compile more than one compilation unit at once.
+> >>>
+> >>>Last I checked, the Linux kernel build system did compile each .c 
+> >>>file
+> >>>as a separate compilation unit.
+> >>
+> >>I have some patches to use -combine -fwhole-program for Linux.
+> >>Highly experimental, you need a patched bleeding edge toolchain.
+> >>If there's interest I'll clean it up and put it online.
+> >>
+> >>David Woodhouse had some similar patches about a year ago.
+> >
+> >Sounds exciting...  ;-)
 > 
-> > See sk_stream_mem_schedule in net/core/stream.c:
-> > 
-> >         /* Under limit. */
-> >         if (atomic_read(sk->sk_prot->memory_allocated) < sk->sk_prot->sysctl_mem[0]) {
-> >                 if (*sk->sk_prot->memory_pressure)
-> >                         *sk->sk_prot->memory_pressure = 0;
-> >                 return 1;
-> >         }
-> > 
-> >         /* Over hard limit. */
-> >         if (atomic_read(sk->sk_prot->memory_allocated) > sk->sk_prot->sysctl_mem[2]) {
-> >                 sk->sk_prot->enter_memory_pressure();
-> >                 goto suppress_allocation;
-> >         }
-> > 
-> > We don't need to reload sk->sk_prot->memory_allocated here.
-> 
-> Are you sure?  How do you know some other CPU hasn't changed the value
-> in between?
+> Yeah, the breakage is *quite* spectacular :-)
 
-I can't speak for this particular case, but there could be similar code
-examples elsewhere, where we do the atomic ops on an atomic_t object
-inside a higher-level locking scheme that would take care of the kind of
-problem you're referring to here. It would be useful for such or similar
-code if the compiler kept the value of that atomic object in a register.
+I bet!!!  ;-)
+
+> >>>>>In many cases, the compiler also has to assume that
+> >>>>>msleep_interruptible()
+> >>>>>might call back into a function in the current compilation unit, 
+> >>>>>thus
+> >>>>>possibly modifying global static variables.
+> >>>>
+> >>>>It most often is smart enough to see what compilation-unit-local
+> >>>>variables might be modified that way, though :-)
+> >>>
+> >>>Yep.  For example, if it knows the current value of a given such 
+> >>>local
+> >>>variable, and if all code paths that would change some other variable
+> >>>cannot be reached given that current value of the first variable.
+> >>
+> >>Or the most common thing: if neither the address of the translation-
+> >>unit local variable nor the address of any function writing to that
+> >>variable can "escape" from that translation unit, nothing outside
+> >>the translation unit can write to the variable.
+> >
+> >But there is usually at least one externally callable function in
+> >a .c file.
+> 
+> Of course, but often none of those will (indirectly) write a certain
+> static variable.
+
+But there has to be some path to the static functions, assuming that
+they are not dead code.  Yes, there can be cases where the compiler
+knows enough about the state of the variables to rule out some of code
+paths to them, but I have no idea how often this happens in kernel
+code.
+
+						Thanx, Paul
