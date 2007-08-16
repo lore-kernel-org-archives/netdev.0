@@ -1,48 +1,52 @@
-From: "Luis Carlos Cobo" <luisca@cozybit.com>
-Subject: Re: Proposed interface for per-packet mesh-ttl
-Date: Thu, 16 Aug 2007 12:21:14 -0700
-Message-ID: <8e8340660708161221t1c0bee01g9d0cb1835f7026f0@mail.gmail.com>
-References: <445f43ac0707031149o2b50fc0en48aef4130b4b60ec@mail.gmail.com>
-	 <445f43ac0707031229m4ed60e0cg7960437c3e373c8e@mail.gmail.com>
-	 <20070727195616.GA31510@infradead.org>
-	 <1185574942.17934.9.camel@xo-13-A4-25.localdomain>
-	 <20070728073145.57155e03@oldman>
-	 <445f43ac0707301337l2f7d62ebx6955a12cd89c6bd3@mail.gmail.com>
-	 <20070730215316.5c236e18@oldman>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+From: Segher Boessenkool <segher@kernel.crashing.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Thu, 16 Aug 2007 21:32:03 +0200
+Message-ID: <194369f4c96ea0e24decf8f9197d5bad@kernel.crashing.org>
+References: <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <46C32618.2080108@redhat.com> <20070815234021.GA28775@gondor.apana.org.au> <3694fb2e4ed1e4d9bf873c0d050c911e@kernel.crashing.org> <46C3B50E.7010702@yahoo.com.au>
+Mime-Version: 1.0 (Apple Message framework v623)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Javier Cardona" <javier@cozybit.com>,
-	"Dan Williams" <dcbw@redhat.com>,
-	"Christoph Hellwig" <hch@infradead.org>, netdev@vger.kernel.org
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ik-out-1112.google.com ([66.249.90.179]:20054 "EHLO
-	ik-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753613AbXHPTVR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 15:21:17 -0400
-Received: by ik-out-1112.google.com with SMTP id b32so77986ika
-        for <netdev@vger.kernel.org>; Thu, 16 Aug 2007 12:21:15 -0700 (PDT)
-In-Reply-To: <20070730215316.5c236e18@oldman>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: heiko.carstens@de.ibm.com, horms@verge.net.au,
+	linux-kernel@vger.kernel.org, rpjday@mindspring.com, ak@suse.de,
+	netdev@vger.kernel.org, cfriesen@nortel.com,
+	akpm@linux-foundation.org, torvalds@linux-foundation.org,
+	jesper.juhl@gmail.com, linux-arch@vger.kernel.org, zlynx@acm.org,
+	satyam@infradead.org, clameter@sgi.com, schwidefsky@de.ibm.com,
+	Chris Snook <csnook@redhat.com>,
+	Herbert Xu <herbert.xu@redhat.com>, davem@davemloft.net,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Nick Piggin <nickpiggin@yahoo.com.au>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1765612AbXHPTie@vger.kernel.org>
+In-Reply-To: <46C3B50E.7010702@yahoo.com.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 7/30/07, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> it would need an IP ttl to mesh mapping. The fundamental thing is to try
-> and avoid topology specific options bleeding all the way up the socket layer,
-> especially since the network layer is involved and may need to multipath.
+>>>> Part of the motivation here is to fix heisenbugs.  If I knew where 
+>>>> they
+>>>
+>>>
+>>> By the same token we should probably disable optimisations
+>>> altogether since that too can create heisenbugs.
+>> Almost everything is a tradeoff; and so is this.  I don't
+>> believe most people would find disabling all compiler
+>> optimisations an acceptable price to pay for some peace
+>> of mind.
+>
+> So why is this a good tradeoff?
 
-I think the cleanest way would be to add a ll_ttl (ll for link layer)
-field to struct sock and a SO_LL_TTL socket option that sets both the
-field and a flag in sk->flags. This way it is useful for any driver
-that can do mesh or any other protocol that involves a ttl at link
-layer (not that I'm aware of any).
+It certainly is better than disabling all compiler optimisations!
 
-However I guess you are not supposed to add new socket options nor
-modify struct socket too often so I'd appreciate feedback on whether
-this would be considered a good approach.
+> I also think that just adding things to APIs in the hope it might fix
+> up some bugs isn't really a good road to go down. Where do you stop?
 
--- 
-Luis Carlos Cobo Rus       GnuPG ID: 44019B60
-cozybit Inc.
+I look at it the other way: keeping the "volatile" semantics in
+atomic_XXX() (or adding them to it, whatever) helps _prevent_ bugs;
+certainly most people expect that behaviour, and also that behaviour
+is *needed* in some places and no other interface provides that
+functionality.
+
+
+[some confusion about barriers wrt atomics snipped]
+
+
+Segher
