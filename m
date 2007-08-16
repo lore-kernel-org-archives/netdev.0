@@ -1,157 +1,67 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: zd1211rw regression, device does not enumerate
-Date: Thu, 16 Aug 2007 14:25:11 +0200
-Message-ID: <200708161425.12217.oliver@neukum.org>
+From: Satyam Sharma <satyam@infradead.org>
+Subject: Re: drivers/infiniband/mlx/mad.c misplaced ;
+Date: Thu, 16 Aug 2007 18:11:17 +0530 (IST)
+Message-ID: <alpine.LFD.0.999.0708161801530.25951@enigma.security.iitk.ac.in>
+References: <20070815235825.GB17004@redhat.com> <1187224811.5906.55.camel@localhost>
+ <20070816084635.GA15985@osiris.boeblingen.de.ibm.com>
+ <Pine.LNX.4.64.0708161248050.22579@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-usb-devel@lists.sourceforge.net,
-	Daniel Drake <dsd@gentoo.org>,
-	John W.Linville <linville@tuxdriver.com>
-Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
-List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
-List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: linux-usb-devel-bounces@lists.sourceforge.net
-Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
+Content-Type: MULTIPART/MIXED; BOUNDARY="464262402-1168800151-1187268086=:25951"
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Joe Perches <joe@perches.com>, Dave Jones <davej@redhat.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>, rolandd@cisco.com,
+	Chas Williams <chas@cmf.nrl.navy.mil>,
+	Paul Mundt <lethal@linux-sh.org>,
+	isdn4linux@listserv.isdn4linux.de, mikep@linuxtr.net,
+	Netdev <netdev@vger.kernel.org>, swen@vnet.ibm.com,
+	linux390@de.ibm.com, linux-s390@vger.kernel.org, jdike@karaya.com,
+	user-mode-linux-devel@lists.sourceforge.net,
+	user-mode-linux-user@lists.sourceforge.net,
+	netfilter-devel@lists.netfilter.org, coreteam@netfilter.org
+To: =?iso-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pentafluge.infradead.org ([213.146.154.40]:50122 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754598AbXHPM2w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 08:28:52 -0400
+In-Reply-To: <Pine.LNX.4.64.0708161248050.22579@kivilampi-30.cs.helsinki.fi>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-after bisection it boils down to this patch:
+--464262402-1168800151-1187268086=:25951
+Content-Type: TEXT/PLAIN; charset=iso-8859-15
+Content-Transfer-Encoding: 8BIT
 
-oliver@oenone:/home/olli2/Trees/linux-2.6> git bisect bad
-74553aedd46b3a2cae986f909cf2a3f99369decc is first bad commit
-commit 74553aedd46b3a2cae986f909cf2a3f99369decc
-Author: Daniel Drake <dsd@gentoo.org>
-Date:   Sun Jul 1 18:22:32 2007 +0100
+Hi Ilpo,
 
-    [PATCH] zd1211rw: Defer firmware load until first ifup
 
-that plugging in my device I get an error:
-Aug 16 13:17:11 oenone kernel: zd1211rw 3-4.3:1.0: zd1211b chip 0ace:1215 v4810 high 00-02-72 AL2230_RF pa0 g--NS
-Aug 16 13:17:11 oenone kernel: usb 3-4.3: link qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
-Aug 16 13:17:11 oenone kernel: usb 3-4.3: unlink qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
-Aug 16 13:17:11 oenone kernel: usb 3-4.3: link qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
-Aug 16 13:17:11 oenone kernel: usb 3-4.3: unlink qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
-Aug 16 13:17:11 oenone kernel: usb 3-4.3: unlink qh1-0001/ffff810037c04960 start 0 [2/0 us]
-Aug 16 13:17:11 oenone kernel: ehci_hcd 0000:00:02.2: reused qh ffff810037c04960 schedule
-Aug 16 13:17:11 oenone kernel: usb 3-4.3: link qh1-0001/ffff810037c04960 start 0 [2/0 us]
-Aug 16 13:17:11 oenone kernel: usb 3-4.3: link qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
-Aug 16 13:17:11 oenone kernel: usb 3-4.3: unlink qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
-Aug 16 13:17:11 oenone kernel: usb 3-4.3: link qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
-Aug 16 13:17:11 oenone kernel: usb 3-4.3: unlink qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
-Aug 16 13:17:11 oenone kernel: usb 3-4.3: link qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
-Aug 16 13:17:11 oenone kernel: usb 3-4.3: unlink qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
-Aug 16 13:17:11 oenone kernel: usb 3-4.3: link qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
-Aug 16 13:17:11 oenone kernel: usb 3-4.3: unlink qh0-00ff/ffff810037c04a00 start 0 [2/0 us]
-Aug 16 13:17:12 oenone ifup: Cannot enable interface eth2.
-Aug 16 13:17:12 oenone kernel: zd1211rw 3-4.3:1.0: error ioread32(CR_REG1): -110
-Aug 16 13:17:12 oenone kernel: usb 3-4.3: unlink qh1-0001/ffff810037c04960 start 0 [2/0 us]
-Aug 16 13:17:12 oenone ifup-route: interface eth2 is not up
+On Thu, 16 Aug 2007, Ilpo Järvinen wrote:
 
-Bus 003 Device 006: ID 0ace:1215 ZyDAS
-Device Descriptor:
-  bLength                18
-  bDescriptorType         1
-  bcdUSB               2.00
-  bDeviceClass          255 Vendor Specific Class
-  bDeviceSubClass       255 Vendor Specific Subclass
-  bDeviceProtocol       255 Vendor Specific Protocol
-  bMaxPacketSize0        64
-  idVendor           0x0ace ZyDAS
-  idProduct          0x1215
-  bcdDevice           48.10
-  iManufacturer          16 ZyDAS
-  iProduct               32 USB2.0 WLAN
-  iSerial                 0
-  bNumConfigurations      1
-  Configuration Descriptor:
-    bLength                 9
-    bDescriptorType         2
-    wTotalLength           46
-    bNumInterfaces          1
-    bConfigurationValue     1
-    iConfiguration          0
-    bmAttributes         0x80
-      (Bus Powered)
-    MaxPower              500mA
-    Interface Descriptor:
-      bLength                 9
-      bDescriptorType         4
-      bInterfaceNumber        0
-      bAlternateSetting       0
-      bNumEndpoints           4
-      bInterfaceClass       255 Vendor Specific Class
-      bInterfaceSubClass      0
-      bInterfaceProtocol      0
-      iInterface              0
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x01  EP 1 OUT
-        bmAttributes            2
-          Transfer Type            Bulk
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0200  1x 512 bytes
-        bInterval               0
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x82  EP 2 IN
-        bmAttributes            2
-          Transfer Type            Bulk
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0200  1x 512 bytes
-        bInterval               0
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x83  EP 3 IN
-        bmAttributes            3
-          Transfer Type            Interrupt
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0040  1x 64 bytes
-        bInterval               1
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x04  EP 4 OUT
-        bmAttributes            3
-          Transfer Type            Interrupt
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0040  1x 64 bytes
-        bInterval               1
-Device Qualifier (for other device speed):
-  bLength                10
-  bDescriptorType         6
-  bcdUSB               2.00
-  bDeviceClass          255 Vendor Specific Class
-  bDeviceSubClass       255 Vendor Specific Subclass
-  bDeviceProtocol       255 Vendor Specific Protocol
-  bMaxPacketSize0        64
-  bNumConfigurations      1
-Device Status:     0x0000
-  (Bus Powered)
+> 
+> ...I guess those guys hunting for broken busyloops in the other thread 
+> could also benefit from similar searching commands introduced in this 
+> thread... ...Ccing Satyam to caught their attention too.
+> 
+> 
+> > On Wed, Aug 15, 2007 at 05:40:11PM -0700, Joe Perches wrote:
+> > > 
+> > > There's more than a few of these (not inspected).
+> > > 
+> > > $ egrep -r --include=*.c "\bif[[:space:]]*\([^\)]*\)[[:space:]]*\;" * 
+> 
+> ...Hmm, I plugged in "a preprocessor" too to manage with non compliant 
+> coding styles :-). Please understand that the line numbers are not an 
+> exact match due to preprocessor changes:
+> 
+> $ for i in `find . -name '*.[ch]'`; do echo $i; indent -npro -kr -i8 -ts8 
+> -sob -l8000 -ss -ncs -cp1 -nhnl -st $i | egrep -n "[[:space:]]if [(].*[)] ;$";
+> done | grep -B1 "^[^.]"
 
-	Regards
-		Oliver
+Thanks, looks useful, will check with this.
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >>  http://get.splunk.com/
-_______________________________________________
-linux-usb-devel@lists.sourceforge.net
-To unsubscribe, use the last form field at:
-https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
+
+Satyam
+--464262402-1168800151-1187268086=:25951--
