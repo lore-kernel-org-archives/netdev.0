@@ -1,121 +1,91 @@
-From: Dave Jones <davej@redhat.com>
-Subject: lockdep report in the bonding code.
-Date: Thu, 16 Aug 2007 12:32:19 -0400
-Message-ID: <20070816163219.GA1190@redhat.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Thu, 16 Aug 2007 09:34:41 -0700
+Message-ID: <20070816163441.GB16957@linux.vnet.ibm.com>
+References: <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in> <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au> <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au> <46C40587.7050708@s5r6.in-berlin.de> <20070816081049.GA1431@gondor.apana.org.au> <46C41EE4.9090806@s5r6.in-berlin.de> <46C42767.4070104@s5r6.in-berlin.de> <20070816104250.GB2927@gondor.apana.org.au>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Paul Mackerras <paulus@samba.org>,
+	Satyam Sharma <satyam@infradead.org>,
+	Christoph Lameter <clameter@sgi.com>,
+	Chris Snook <csnook@redhat.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:33916 "EHLO mx1.redhat.com"
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:44431 "EHLO e5.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1764739AbXHPQcW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Aug 2007 12:32:22 -0400
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.13.1/8.13.1) with ESMTP id l7GGWLVo030357
-	for <netdev@vger.kernel.org>; Thu, 16 Aug 2007 12:32:21 -0400
-Received: from gelk.kernelslacker.org (vpn-248-3.boston.redhat.com [10.13.248.3])
-	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id l7GGWK1v013538
-	for <netdev@vger.kernel.org>; Thu, 16 Aug 2007 12:32:20 -0400
-Received: from gelk.kernelslacker.org (localhost.localdomain [127.0.0.1])
-	by gelk.kernelslacker.org (8.14.1/8.13.8) with ESMTP id l7GGWJPk001201
-	for <netdev@vger.kernel.org>; Thu, 16 Aug 2007 12:32:19 -0400
-Received: (from davej@localhost)
-	by gelk.kernelslacker.org (8.14.1/8.14.1/Submit) id l7GGWJhQ001200
-	for netdev@vger.kernel.org; Thu, 16 Aug 2007 12:32:19 -0400
+	id S1760136AbXHPQer (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Aug 2007 12:34:47 -0400
 Content-Disposition: inline
+In-Reply-To: <20070816104250.GB2927@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A Fedora users reported this against our 2.6.23-rc3 build
+On Thu, Aug 16, 2007 at 06:42:50PM +0800, Herbert Xu wrote:
+> On Thu, Aug 16, 2007 at 12:31:03PM +0200, Stefan Richter wrote:
+> > 
+> > PS:  Just to clarify, I'm not speaking for the volatile modifier.  I'm
+> > not speaking for any particular implementation of atomic_t and its
+> > accessors at all.  All I am saying is that
+> >   - we use atomically accessed data types because we concurrently but
+> >     locklessly access this data,
+> >   - hence a read access to this data that could be optimized away
+> >     makes *no sense at all*.
+> 
+> No sane compiler can optimise away an atomic_read per se.
+> That's only possible if there's a preceding atomic_set or
+> atomic_read, with no barriers in the middle.
+> 
+> If that's the case, then one has to conclude that doing
+> away with the second read is acceptable, as otherwise
+> a memory (or at least a compiler) barrier should have been
+> used.
 
-	Dave
+The compiler can also reorder non-volatile accesses.  For an example
+patch that cares about this, please see:
 
-NET: Registered protocol family 10
-lo: Disabled Privacy Extensions
-Ethernet Channel Bonding Driver: v3.1.3 (June 13, 2007)
-bonding: MII link monitoring set to 100 ms
-ADDRCONF(NETDEV_UP): bond0: link is not ready
-bonding: bond0: Adding slave eth0.
-e100: eth0: e100_watchdog: link up, 100Mbps, half-duplex
-bonding: bond0: making interface eth0 the new active one.
-bonding: bond0: enslaving eth0 as an active interface with an up link.
-ADDRCONF(NETDEV_CHANGE): bond0: link becomes ready
+	http://lkml.org/lkml/2007/8/7/280
 
-=================================
-[ INFO: inconsistent lock state ]
-2.6.23-0.104.rc3.fc8 #1
----------------------------------
-inconsistent {softirq-on-W} -> {in-softirq-W} usage.
-events/0/9 [HC0[0]:SC1[2]:HE1:SE0] takes:
- (&(bond_info->tx_hashtbl_lock)){-+..}, at: [<f8ae4cc2>] bond_alb_xmit+0x26a/0x42c [bonding]
-{softirq-on-W} state was registered at:
-  [<c044a6e4>] __lock_acquire+0x4ff/0xc67
-  [<c044b2c6>] lock_acquire+0x7b/0x9e
-  [<c062ecc8>] _spin_lock+0x2e/0x58
-  [<f8ae492e>] bond_alb_initialize+0x64/0x18e [bonding]
-  [<f8ae1256>] bond_open+0x33/0x175 [bonding]
-  [<c05ca8aa>] dev_open+0x31/0x6c
-  [<c05c8a01>] dev_change_flags+0xa3/0x156
-  [<c0609231>] devinet_ioctl+0x207/0x50e
-  [<c06098df>] inet_ioctl+0x86/0xa4
-  [<c05bec32>] sock_ioctl+0x1ac/0x1c9
-  [<c0490b76>] do_ioctl+0x22/0x68
-  [<c0490e05>] vfs_ioctl+0x249/0x25c
-  [<c0490e61>] sys_ioctl+0x49/0x64
-  [<c040519e>] syscall_call+0x7/0xb
-  [<ffffffff>] 0xffffffff
-irq event stamp: 266326
-hardirqs last  enabled at (266326): [<c043258f>] local_bh_enable_ip+0xf3/0x106
-hardirqs last disabled at (266325): [<c0432516>] local_bh_enable_ip+0x7a/0x106
-softirqs last  enabled at (266306): [<c05e2d20>] rt_run_flush+0x6e/0x97
-softirqs last disabled at (266309): [<c0407548>] do_softirq+0x74/0xf7
+This patch uses an ORDERED_WRT_IRQ() in rcu_read_lock() and
+rcu_read_unlock() to ensure that accesses aren't reordered with respect
+to interrupt handlers and NMIs/SMIs running on that same CPU.
 
-other info that might help us debug this:
-3 locks held by events/0/9:
- #0:  (rtnl_mutex){--..}, at: [<c062d8a9>] mutex_lock+0x21/0x24
- #1:  (&bond->lock){-.-+}, at: [<f8ae4a90>] bond_alb_xmit+0x38/0x42c [bonding]
- #2:  (&bond->curr_slave_lock){..-+}, at: [<f8ae4a98>] bond_alb_xmit+0x40/0x42c [bonding]
+> In fact, volatile doesn't guarantee that the memory gets
+> read anyway.  You might be reading some stale value out
+> of the cache.  Granted this doesn't happen on x86 but
+> when you're coding for the kernel you can't make such
+> assumptions.
+> 
+> So the point here is that if you don't mind getting a stale
+> value from the CPU cache when doing an atomic_read, then
+> surely you won't mind getting a stale value from the compiler
+> "cache".
 
-stack backtrace:
- [<c04063d8>] show_trace_log_lvl+0x1a/0x2f
- [<c0406e71>] show_trace+0x12/0x14
- [<c0406e89>] dump_stack+0x16/0x18
- [<c0448f8a>] print_usage_bug+0x141/0x14b
- [<c0449810>] mark_lock+0x12f/0x472
- [<c044a66c>] __lock_acquire+0x487/0xc67
- [<c044b2c6>] lock_acquire+0x7b/0x9e
- [<c062ecc8>] _spin_lock+0x2e/0x58
- [<f8ae4cc2>] bond_alb_xmit+0x26a/0x42c [bonding]
- [<c05c9467>] dev_hard_start_xmit+0x21c/0x27a
- [<c05cb489>] dev_queue_xmit+0x1f7/0x2aa
- [<f8b274e0>] mld_sendpack+0x210/0x35a [ipv6]
- [<f8b28535>] mld_ifc_timer_expire+0x1e9/0x211 [ipv6]
- [<c0435a5f>] run_timer_softirq+0x127/0x18f
- [<c0432708>] __do_softirq+0x78/0xff
- [<c0407548>] do_softirq+0x74/0xf7
- [<c04325e6>] irq_exit+0x44/0x46
- [<c041d3a3>] smp_apic_timer_interrupt+0x74/0x81
- [<c0405cb7>] apic_timer_interrupt+0x33/0x38
- [<c062eba6>] _spin_unlock_bh+0x25/0x28
- [<c05e2d20>] rt_run_flush+0x6e/0x97
- [<c05e471c>] rt_cache_flush+0x7c/0xaf
- [<c060e86f>] fib_netdev_event+0x62/0x68
- [<c0630e6c>] notifier_call_chain+0x2b/0x4a
- [<c04391c8>] __raw_notifier_call_chain+0x19/0x1e
- [<c04391e7>] raw_notifier_call_chain+0x1a/0x1c
- [<c05c84f3>] netdev_state_change+0x20/0x31
- [<c05d251a>] __linkwatch_run_queue+0x159/0x183
- [<c05d2564>] linkwatch_event+0x20/0x27
- [<c043bd9b>] run_workqueue+0x7d/0x129
- [<c043c75b>] worker_thread+0xbb/0xc8
- [<c043ef6f>] kthread+0x3b/0x64
- [<c0405e5b>] kernel_thread_helper+0x7/0x10
- =======================
-bonding: bond0: Adding slave eth1.
-e100: eth1: e100_watchdog: link up, 100Mbps, half-duplex
-bonding: bond0: enslaving eth1 as an active interface with an up link.
-audit(1187170179.728:3): audit_pid=1885 old=0 by auid=4294967295
-bond0: no IPv6 routers present
+Absolutely disagree.  An interrupt/NMI/SMI handler running on the CPU
+will see the same value (whether in cache or in store buffer) that
+the mainline code will see.  In this case, we don't care about CPU
+misordering, only about compiler misordering.  It is easy to see
+other uses that combine communication with handlers on the current
+CPU with communication among CPUs -- again, see prior messages in
+this thread.
 
--- 
-http://www.codemonkey.org.uk
+> > So, the architecture guys can implement atomic_read however they want
+> > --- as long as it cannot be optimized away.*
+> 
+> They can implement it however they want as long as it stays
+> atomic.
+
+Precisely.  And volatility is a key property of "atomic".  Let's please
+not throw it away.
+
+						Thanx, Paul
