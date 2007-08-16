@@ -1,84 +1,65 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Wed, 15 Aug 2007 19:22:26 -0700
-Message-ID: <20070816022226.GA14613@linux.vnet.ibm.com>
-References: <46C30540.2070603@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151941150.16414@enigma.security.iitk.ac.in> <20070815145207.GA23106@gondor.apana.org.au> <46C3253F.5090707@s5r6.in-berlin.de> <20070815162722.GD9645@linux.vnet.ibm.com> <d4406222873856f472b9173a14a19aa2@kernel.crashing.org> <20070815185724.GH9645@linux.vnet.ibm.com> <2c907d70a2267b887de346891758983d@kernel.crashing.org> <20070815224433.GQ9645@linux.vnet.ibm.com> <f24994ecd2ecfcda6e01b289a25c1e47@kernel.crashing.org>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Thu, 16 Aug 2007 12:23:10 +1000
+Message-ID: <46C3B50E.7010702@yahoo.com.au>
+References: <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <46C32618.2080108@redhat.com> <20070815234021.GA28775@gondor.apana.org.au> <3694fb2e4ed1e4d9bf873c0d050c911e@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Satyam Sharma <satyam@infradead.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	rpjday@mindspring.com, netdev@vger.kernel.org, ak@suse.de,
-	cfriesen@nortel.com, Heiko Carstens <heiko.carstens@de.ibm.com>,
-	jesper.juhl@gmail.com, linux-arch@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert.xu@redhat.com>, heiko.carstens@de.ibm.com,
+	horms@verge.net.au, linux-kernel@vger.kernel.org,
+	rpjday@mindspring.com, ak@suse.de, netdev@vger.kernel.org,
+	cfriesen@nortel.com, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, jesper.juhl@gmail.com,
+	linux-arch@vger.kernel.org, zlynx@acm.org, satyam@infradead.org,
 	clameter@sgi.com, schwidefsky@de.ibm.com,
-	Chris Snook <csnook@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
-	Linus Torvalds <torvalds@linux-foundation.org>,
+	Chris Snook <csnook@redhat.com>, davem@davemloft.net,
 	wensong@linux-vs.org, wjiang@resilience.com
 To: Segher Boessenkool <segher@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:39417 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757167AbXHPCWb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2007 22:22:31 -0400
-Content-Disposition: inline
-In-Reply-To: <f24994ecd2ecfcda6e01b289a25c1e47@kernel.crashing.org>
+Received: from smtp106.mail.mud.yahoo.com ([209.191.85.216]:39083 "HELO
+	smtp106.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755694AbXHPCXV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 22:23:21 -0400
+In-Reply-To: <3694fb2e4ed1e4d9bf873c0d050c911e@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 16, 2007 at 03:23:28AM +0200, Segher Boessenkool wrote:
-> >>>>No; compilation units have nothing to do with it, GCC can optimise
-> >>>>across compilation unit boundaries just fine, if you tell it to
-> >>>>compile more than one compilation unit at once.
-> >>>
-> >>>Last I checked, the Linux kernel build system did compile each .c 
-> >>>file
-> >>>as a separate compilation unit.
-> >>
-> >>I have some patches to use -combine -fwhole-program for Linux.
-> >>Highly experimental, you need a patched bleeding edge toolchain.
-> >>If there's interest I'll clean it up and put it online.
-> >>
-> >>David Woodhouse had some similar patches about a year ago.
-> >
-> >Sounds exciting...  ;-)
+Segher Boessenkool wrote:
+>>> Part of the motivation here is to fix heisenbugs.  If I knew where they
+>>
+>>
+>> By the same token we should probably disable optimisations
+>> altogether since that too can create heisenbugs.
 > 
-> Yeah, the breakage is *quite* spectacular :-)
-
-I bet!!!  ;-)
-
-> >>>>>In many cases, the compiler also has to assume that
-> >>>>>msleep_interruptible()
-> >>>>>might call back into a function in the current compilation unit, 
-> >>>>>thus
-> >>>>>possibly modifying global static variables.
-> >>>>
-> >>>>It most often is smart enough to see what compilation-unit-local
-> >>>>variables might be modified that way, though :-)
-> >>>
-> >>>Yep.  For example, if it knows the current value of a given such 
-> >>>local
-> >>>variable, and if all code paths that would change some other variable
-> >>>cannot be reached given that current value of the first variable.
-> >>
-> >>Or the most common thing: if neither the address of the translation-
-> >>unit local variable nor the address of any function writing to that
-> >>variable can "escape" from that translation unit, nothing outside
-> >>the translation unit can write to the variable.
-> >
-> >But there is usually at least one externally callable function in
-> >a .c file.
 > 
-> Of course, but often none of those will (indirectly) write a certain
-> static variable.
+> Almost everything is a tradeoff; and so is this.  I don't
+> believe most people would find disabling all compiler
+> optimisations an acceptable price to pay for some peace
+> of mind.
 
-But there has to be some path to the static functions, assuming that
-they are not dead code.  Yes, there can be cases where the compiler
-knows enough about the state of the variables to rule out some of code
-paths to them, but I have no idea how often this happens in kernel
-code.
+So why is this a good tradeoff?
 
-						Thanx, Paul
+I also think that just adding things to APIs in the hope it might fix
+up some bugs isn't really a good road to go down. Where do you stop?
+
+On the actual proposal to make atomic_operators volatile: I think the
+better approach in the long term, for both maintainability of the
+code and education of coders, is to make the use of barriers _more_
+explicit rather than sprinkling these "just in case" ones around.
+
+You may get rid of a few atomic_read heisenbugs (in noise when
+compared to all bugs), but if the coder was using a regular atomic
+load, or a test_bit (which is also atomic), etc. then they're going
+to have problems.
+
+It would be better for Linux if everyone was to have better awareness
+of barriers than to hide some of the cases where they're required.
+A pretty large number of bugs I see in lock free code in the VM is
+due to memory ordering problems. It's hard to find those bugs, or
+even be aware when you're writing buggy code if you don't have some
+feel for barriers.
+
+-- 
+SUSE Labs, Novell Inc.
