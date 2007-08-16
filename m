@@ -1,86 +1,68 @@
-From: Satyam Sharma <satyam@infradead.org>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Thu, 16 Aug 2007 06:48:53 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0708160637510.24380@enigma.security.iitk.ac.in>
-References: <20070815145207.GA23106@gondor.apana.org.au> <46C3253F.5090707@s5r6.in-berlin.de>
- <20070815162722.GD9645@linux.vnet.ibm.com> <d4406222873856f472b9173a14a19aa2@kernel.crashing.org>
- <20070815185724.GH9645@linux.vnet.ibm.com>
- <alpine.LFD.0.999.0708160118330.16414@enigma.security.iitk.ac.in>
- <2d2eeab6276cab2e6cc5830d36a43b98@kernel.crashing.org>
- <alpine.LFD.0.999.0708160338520.22701@enigma.security.iitk.ac.in>
- <20070816003226.GA29491@gondor.apana.org.au>
- <alpine.LFD.0.999.0708160621260.24380@enigma.security.iitk.ac.in>
- <20070816005156.GA29698@gondor.apana.org.au>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Subject: Re: [PATCH 6/24] make atomic_read() behave consistently on frv
+Date: Thu, 16 Aug 2007 11:09:25 +1000
+Message-ID: <46C3A3C5.5020103@yahoo.com.au>
+References: <20070811042943.GA13410@linux.vnet.ibm.com> <E1IKSHQ-0007hg-00@gondolin.me.apana.org.au> <20070813060302.GF13410@linux.vnet.ibm.com> <46C13EE1.1000707@yahoo.com.au> <20070814170128.GA8243@linux.vnet.ibm.com> <46C2FFDD.5000600@yahoo.com.au> <20070815201501.GM9645@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Segher Boessenkool <segher@kernel.crashing.org>,
-	horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, ak@suse.de,
-	netdev@vger.kernel.org, cfriesen@nortel.com,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, csnook@redhat.com,
+	dhowells@redhat.com, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, torvalds@linux-foundation.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org, ak@suse.de,
+	heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
 	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	linux-arch@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
-	clameter@sgi.com, schwidefsky@de.ibm.com,
-	Chris Snook <csnook@redhat.com>, davem@davemloft.net,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	wensong@linux-vs.org, wjiang@resilience.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S937641AbXHPBGg@vger.kernel.org>
-In-Reply-To: <20070816005156.GA29698@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+	Arnd Bergmann <arnd@arndb.de>
+To: paulmck@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp110.mail.mud.yahoo.com ([209.191.85.220]:22012 "HELO
+	smtp110.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S933120AbXHPBJj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 21:09:39 -0400
+In-Reply-To: <20070815201501.GM9645@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Herbert,
+Paul E. McKenney wrote:
+> On Wed, Aug 15, 2007 at 11:30:05PM +1000, Nick Piggin wrote:
 
-
-On Thu, 16 Aug 2007, Herbert Xu wrote:
-
-> On Thu, Aug 16, 2007 at 06:28:42AM +0530, Satyam Sharma wrote:
-> >
-> > > The udelay itself certainly should have some form of cpu_relax in it.
-> > 
-> > Yes, a form of barrier() must be present in mdelay() or udelay() itself
-> > as you say, having it in __const_udelay() is *not* enough (superflous
-> > actually, considering it is already a separate translation unit and
-> > invisible to the compiler).
+>>Especially since several big architectures don't have volatile in their
+>>atomic_get and _set, I think it would be a step backwards to add them in
+>>as a "just in case" thin now (unless there is a better reason).
 > 
-> As long as __const_udelay does something which has the same
-> effect as barrier it is enough even if it's in the same unit.
+> 
+> Good point, except that I would expect gcc's optimization to continue
+> to improve.  I would like the kernel to be able to take advantage of
+> improved optimization, which means that we are going to have to make
+> a few changes.  Adding volatile to atomic_get() and atomic_set() is
+> IMHO one of those changes.
 
-Only if __const_udelay() is inlined. But as I said, __const_udelay()
--- although marked "inline" -- will never be inlined anywhere in the
-kernel in reality. It's an exported symbol, and never inlined from
-modules. Even from built-in targets, the definition of __const_udelay
-is invisible when gcc is compiling the compilation units of those
-callsites. The compiler has no idea that that function has barriers
-or not, so we're saved here _only_ by the lucky fact that
-__const_udelay() is in a different compilation unit.
-
-
-> As a matter of fact it does on i386 where __delay either uses
-> rep_nop or asm/volatile.
-
-__delay() can be either delay_tsc() or delay_loop() on i386.
-
-delay_tsc() uses the rep_nop() there for it's own little busy
-loop, actually. But for a call site that inlines __const_udelay()
--- if it were ever moved to a .h file and marked inline -- the
-call to __delay() will _still_ be across compilation units. So,
-again for this case, it does not matter if the callee function
-has compiler barriers or not (it would've been a different story
-if we were discussing real/CPU barriers, I think), what saves us
-here is just the fact that a call is made to a function from a
-different compilation unit, which is invisible to the compiler
-when compiling the callsite, and hence acting as the compiler
-barrier.
-
-Regarding delay_loop(), it uses "volatile" for the "asm" which
-has quite different semantics from the C language "volatile"
-type-qualifier keyword and does not imply any compiler barrier
-at all.
+What optimisations? gcc already does most of the things you need a
+barrier/volatile for, like reordering non-dependant loads and stores,
+and eliminating mem ops completely by caching in registers.
 
 
-Satyam
+>>As to your followup question of why to use it over ACCESS_ONCE. I
+>>guess, aside from consistency with the rest of the barrier APIs, you
+>>can use it in other primitives when you don't actually know what the
+>>caller is going to do or if it even will make an access. You could
+>>also use it between calls to _other_ primitives, etc... it just
+>>seems more flexible to me, but I haven't actually used such a thing
+>>in real code...
+>>
+>>ACCESS_ONCE doesn't seem as descriptive. What it results in is the
+>>memory location being loaded or stored (presumably once exactly),
+>>but I think the more general underlying idea is a barrier point.
+> 
+> 
+> OK, first, I am not arguing that ACCESS_ONCE() can replace all current
+> uses of barrier().
+
+OK. Well I also wasn't saying that ACCESS_ONCE should not be
+implemented. But if we want something like it, then it would make
+sense to have an equivalent barrier statement as well (ie. order()).
+
+-- 
+SUSE Labs, Novell Inc.
