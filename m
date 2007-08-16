@@ -1,53 +1,63 @@
-From: Christoph Lameter <clameter@sgi.com>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Wed, 15 Aug 2007 19:18:30 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0708151917210.11736@schroedinger.engr.sgi.com>
-References: <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
- <18115.35524.56393.347841@cargo.ozlabs.ibm.com>
- <Pine.LNX.4.64.0708151725130.10497@schroedinger.engr.sgi.com>
- <20070816003948.GY9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com>
- <20070816005348.GA9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151757400.11196@schroedinger.engr.sgi.com>
- <20070816011414.GC9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151839140.11520@schroedinger.engr.sgi.com>
- <alpine.LFD.0.999.0708160730590.24380@enigma.security.iitk.ac.in>
- <20070816020851.GA30809@gondor.apana.org.au>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: drivers/infiniband/mlx/mad.c misplaced ;
+Date: Wed, 15 Aug 2007 19:19:20 -0700
+Message-ID: <46C3B428.4000003@intel.com>
+References: <20070815235825.GB17004@redhat.com> <1187224811.5906.55.camel@localhost>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Satyam Sharma <satyam@infradead.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Paul Mackerras <paulus@samba.org>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Chris Snook <csnook@redhat.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dave Jones <davej@redhat.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>, rolandd@cisco.com,
+	Chas Williams <chas@cmf.nrl.navy.mil>,
+	Paul Mundt <lethal@linux-sh.org>,
+	isdn4linux@listserv.isdn4linux.de, mikep@linuxtr.net,
+	netdev@vger.kernel.org, swen@vnet.ibm.com, linux390@de.ibm.com,
+	linux-s390@vger.kernel.org, jdike@karaya.com,
+	user-mode-linux-devel@lists.sourceforge.net,
+	user-mode-linux-user@lists.sourceforge.net,
+	netfilter-devel@lists.netfilter.org, coreteam@netfilter.org
+To: Joe Perches <joe@perches.com>, Andy Whitcroft <apw@shadowen.org>,
+	"Randy.Dunlap" <rdunlap@xenotime.net>,
+	Joel Schopp <jschopp@austin.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netops-testserver-3-out.sgi.com ([192.48.171.28]:54649 "EHLO
-	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1760515AbXHPCSb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 22:18:31 -0400
-In-Reply-To: <20070816020851.GA30809@gondor.apana.org.au>
+Received: from mga03.intel.com ([143.182.124.21]:45995 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762708AbXHPCTw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 22:19:52 -0400
+In-Reply-To: <1187224811.5906.55.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 16 Aug 2007, Herbert Xu wrote:
-
-> > Do we have a consensus here? (hoping against hope, probably :-)
+Joe Perches wrote:
+> On Wed, 2007-08-15 at 19:58 -0400, Dave Jones wrote:
+>> Signed-off-by: Dave Jones <davej@redhat.com>
+>>
+>> diff --git a/drivers/infiniband/hw/mlx4/mad.c b/drivers/infiniband/hw/mlx4/mad.c
+>> index 3330917..0ed02b7 100644
+>> --- a/drivers/infiniband/hw/mlx4/mad.c
+>> +++ b/drivers/infiniband/hw/mlx4/mad.c
+>> @@ -109,7 +109,7 @@ int mlx4_MAD_IFC(struct mlx4_ib_dev *dev, int ignore_mkey, int ignore_bkey,
+>>  			   in_modifier, op_modifier,
+>>  			   MLX4_CMD_MAD_IFC, MLX4_CMD_TIME_CLASS_C);
+>>  
+>> -	if (!err);
+>> +	if (!err)
 > 
-> I can certainly agree with this.
+> There's more than a few of these (not inspected).
+> 
+> $ egrep -r --include=*.c "\bif[[:space:]]*\([^\)]*\)[[:space:]]*\;" * 
+> arch/sh/boards/se/7343/io.c:    if (0) ;
+> drivers/atm/iphase.c:     if (!desc1) ;
+> drivers/infiniband/hw/mlx4/mad.c:       if (!err);
+> drivers/isdn/capi/capiutil.c:   else if (c <= 0x0f);
+> drivers/net/tokenring/ibmtr.c:  else if (ti->shared_ram_paging == 0xf);  /* No paging in adapter */
+> drivers/s390/scsi/zfcp_erp.c:           if (status == ZFCP_ERP_SUCCEEDED) ;     /* no further action */
+> fs/hostfs/hostfs_user.c:        if(attrs->ia_valid & HOSTFS_ATTR_CTIME) ;
+> net/netfilter/xt_u32.c:         if (skb->len < 4 || pos > skb->len - 4);
+> sound/pci/au88x0/au88x0_synth.c:                                if (eax == 0) ;
 
-I agree too.
+sounds like an excellent candidate check for checkpatch.pl !!!
 
-> But I have to say that I still don't know of a single place
-> where one would actually use the volatile variant.
+Cheers,
 
-I suspect that what you say is true after we have looked at all callers.
-
-
+Auke
