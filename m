@@ -1,14 +1,18 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Thu, 16 Aug 2007 13:39:45 +0800
-Message-ID: <20070816053945.GB32442@gondor.apana.org.au>
-References: <18115.35524.56393.347841@cargo.ozlabs.ibm.com> <Pine.LNX.4.64.0708151725130.10497@schroedinger.engr.sgi.com> <20070816003948.GY9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com> <18115.44462.622801.683446@cargo.ozlabs.ibm.com> <20070816020042.GA30650@gondor.apana.org.au> <18115.45316.702491.681906@cargo.ozlabs.ibm.com> <alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in> <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in> <18115.52863.638655.658466@cargo.ozlabs.ibm.com>
+From: Satyam Sharma <satyam@infradead.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Thu, 16 Aug 2007 11:27:39 +0530 (IST)
+Message-ID: <alpine.LFD.0.999.0708161115370.25951@enigma.security.iitk.ac.in>
+References: <20070809131423.GA9927@shell.boston.redhat.com>
+ <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
+ <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
+ <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
+ <20070815233721.91032366.billfink@mindspring.com>
+ <alpine.LFD.0.999.0708161045360.25951@enigma.security.iitk.ac.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Satyam Sharma <satyam@infradead.org>,
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	Christoph Lameter <clameter@sgi.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	Chris Snook <csnook@redhat.com>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	linux-arch@vger.kernel.org,
@@ -18,49 +22,84 @@ Cc: Satyam Sharma <satyam@infradead.org>,
 	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
 	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
 	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
-To: Paul Mackerras <paulus@samba.org>
+	segher@kernel.crashing.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4187 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752064AbXHPFkH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 01:40:07 -0400
-Content-Disposition: inline
-In-Reply-To: <18115.52863.638655.658466@cargo.ozlabs.ibm.com>
+Received: from pentafluge.infradead.org ([213.146.154.40]:41869 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754526AbXHPFpL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 01:45:11 -0400
+In-Reply-To: <alpine.LFD.0.999.0708161045360.25951@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 16, 2007 at 02:11:43PM +1000, Paul Mackerras wrote:
->
-> The uses of atomic_read where one might want it to allow caching of
-> the result seem to me to fall into 3 categories:
+
+
+On Thu, 16 Aug 2007, Satyam Sharma wrote:
+
+> Hi Bill,
 > 
-> 1. Places that are buggy because of a race arising from the way it's
->    used.
 > 
-> 2. Places where there is a race but it doesn't matter because we're
->    doing some clever trick.
+> On Wed, 15 Aug 2007, Bill Fink wrote:
 > 
-> 3. Places where there is some locking in place that eliminates any
->    potential race.
+> > On Wed, 15 Aug 2007, Satyam Sharma wrote:
+> > 
+> > > (C)
+> > > $ cat tp3.c
+> > > int a;
+> > > 
+> > > void func(void)
+> > > {
+> > > 	*(volatile int *)&a = 10;
+> > > 	*(volatile int *)&a = 20;
+> > > }
+> > > $ gcc -Os -S tp3.c
+> > > $ cat tp3.s
+> > > ...
+> > > movl    $10, a
+> > > movl    $20, a
+> > > ...
+> > 
+> > I'm curious about one minor tangential point.  Why, instead of:
+> > 
+> > 	b = *(volatile int *)&a;
+> > 
+> > why can't this just be expressed as:
+> > 
+> > 	b = (volatile int)a;
+> > 
+> > Isn't it the contents of a that's volatile, i.e. it's value can change
+> > invisibly to the compiler, and that's why you want to force a read from
+> > memory?  Why do you need the "*(volatile int *)&" construct?
+> 
+> "b = (volatile int)a;" doesn't help us because a cast to a qualified type
+> has the same effect as a cast to an unqualified version of that type, as
+> mentioned in 6.5.4:4 (footnote 86) of the standard. Note that "volatile"
+> is a type-qualifier, not a type itself, so a cast of the _object_ itself
+> to a qualified-type i.e. (volatile int) would not make the access itself
+> volatile-qualified.
+> 
+> To serve our purposes, it is necessary for us to take the address of this
+> (non-volatile) object, cast the resulting _pointer_ to the corresponding
+> volatile-qualified pointer-type, and then dereference it. This makes that
+> particular _access_ be volatile-qualified, without the object itself being
+> such. Also note that the (dereferenced) result is also a valid lvalue and
+> hence can be used in "*(volatile int *)&a = b;" kind of construction
+> (which we use for the atomic_set case).
 
-Agreed.
+Here, I should obviously admit that the semantics of *(volatile int *)&
+aren't any neater or well-defined in the _language standard_ at all. The
+standard does say (verbatim) "precisely what constitutes as access to
+object of volatile-qualified type is implementation-defined", but GCC
+does help us out here by doing the right thing. Accessing the non-volatile
+object there using the volatile-qualified pointer-type cast makes GCC
+treat the object stored at that memory address itself as if it were a 
+volatile object, thus making the access end up having what we're calling
+as "volatility" semantics here.
 
-> In case 1, adding volatile won't solve the race, of course, but it's
-> hard to argue that we shouldn't do something because it will slow down
-> buggy code.  Case 2 is hopefully pretty rare and accompanied by large
-> comment blocks, and in those cases caching the result of atomic_read
-> explicitly in a local variable would probably make the code clearer.
-> And in case 3 there is no reason to use atomic_t at all; we might as
-> well just use an int.
-
-Since adding volatile doesn't help any of the 3 cases, and
-takes away optimisations from both 2 and 3, I wonder what
-is the point of the addition after all?
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Honestly, given such confusion, and the propensity of the "volatile"
+type-qualifier keyword to be ill-defined (or at least poorly understood,
+often inconsistently implemented), I'd (again) express my opinion that it
+would be best to avoid its usage, given other alternatives do exist.
