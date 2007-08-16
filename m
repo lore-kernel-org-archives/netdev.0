@@ -1,84 +1,54 @@
-From: Satyam Sharma <satyam@infradead.org>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Thu, 16 Aug 2007 06:53:45 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0708160649590.24380@enigma.security.iitk.ac.in>
-References: <20070809131423.GA9927@shell.boston.redhat.com>
- <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
- <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
- <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
- <9350e9fab505c92af8d5e1f3441d6ad2@kernel.crashing.org>
- <alpine.LFD.0.999.0708160102550.16414@enigma.security.iitk.ac.in>
- <d36ec7799cfb43557770951c1cd57355@kernel.crashing.org>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Wed, 15 Aug 2007 18:14:14 -0700
+Message-ID: <20070816011414.GC9645@linux.vnet.ibm.com>
+References: <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in> <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in> <18115.35524.56393.347841@cargo.ozlabs.ibm.com> <Pine.LNX.4.64.0708151725130.10497@schroedinger.engr.sgi.com> <20070816003948.GY9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com> <20070816005348.GA9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151757400.11196@schroedinger.engr.sgi.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Christoph Lameter <clameter@sgi.com>, heiko.carstens@de.ibm.com,
-	horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Mackerras <paulus@samba.org>,
+	Satyam Sharma <satyam@infradead.org>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Chris Snook <csnook@redhat.com>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, ak@suse.de, cfriesen@nortel.com,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
 	linux-arch@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
-	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
 	Linus Torvalds <torvalds@linux-foundation.org>,
-	wensong@linux-vs.org, wjiang@resilience.com
-To: Segher Boessenkool <segher@kernel.crashing.org>
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Christoph Lameter <clameter@sgi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:50344 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762600AbXHPBLO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 21:11:14 -0400
-In-Reply-To: <d36ec7799cfb43557770951c1cd57355@kernel.crashing.org>
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:40515 "EHLO e6.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757798AbXHPBOS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Aug 2007 21:14:18 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0708151757400.11196@schroedinger.engr.sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On Wed, 15 Aug 2007, Segher Boessenkool wrote:
-
-> [...]
-> > BTW:
-> > 
-> > #define atomic_read(a)	(*(volatile int *)&(a))
-> > #define atomic_set(a,i)	(*(volatile int *)&(a) = (i))
-> > 
-> > int a;
-> > 
-> > void func(void)
-> > {
-> > 	int b;
-> > 
-> > 	b = atomic_read(a);
-> > 	atomic_set(a, 20);
-> > 	b = atomic_read(a);
-> > }
-> > 
-> > gives:
-> > 
-> > func:
-> > 	pushl	%ebp
-> > 	movl	a, %eax
-> > 	movl	%esp, %ebp
-> > 	movl	$20, a
-> > 	movl	a, %eax
-> > 	popl	%ebp
-> > 	ret
-> > 
-> > so the first atomic_read() wasn't optimized away.
+On Wed, Aug 15, 2007 at 05:59:41PM -0700, Christoph Lameter wrote:
+> On Wed, 15 Aug 2007, Paul E. McKenney wrote:
 > 
-> Of course.  It is executed by the abstract machine, so
-> it will be executed by the actual machine.  On the other
-> hand, try
+> > The volatile cast should not disable all that many optimizations,
+> > for example, it is much less hurtful than barrier().  Furthermore,
+> > the main optimizations disabled (pulling atomic_read() and atomic_set()
+> > out of loops) really do need to be disabled.
 > 
-> 	b = 0;
-> 	if (b)
-> 		b = atomic_read(a);
-> 
-> or similar.
+> In many cases you do not need a barrier. Having volatile there *will* 
+> impact optimization because the compiler cannot use a register that may 
+> contain the value that was fetched earlier. And the compiler cannot choose 
+> freely when to fetch the value. The order of memory accesses are fixed if 
+> you use volatile. If the variable is not volatile then the compiler can 
+> arrange memory accesses any way they fit and thus generate better code.
 
-Yup, obviously. Volatile accesses (or any access to volatile objects),
-or even "__volatile__ asms" (which gcc normally promises never to elid)
-can always be optimized for cases such as these where the compiler can
-trivially determine that the code in question is not reachable.
+Understood.  My point is not that the impact is precisely zero, but
+rather that the impact on optimization is much less hurtful than the
+problems that could arise otherwise, particularly as compilers become
+more aggressive in their optimizations.
+
+						Thanx, Paul
