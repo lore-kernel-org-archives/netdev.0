@@ -1,56 +1,62 @@
-From: Segher Boessenkool <segher@kernel.crashing.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Thu, 16 Aug 2007 04:07:01 +0200
-Message-ID: <e21c163fdfa7f2fa9428816d6ba69671@kernel.crashing.org>
-References: <20070809131423.GA9927@shell.boston.redhat.com> <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in> <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in> <18115.35524.56393.347841@cargo.ozlabs.ibm.com> <Pine.LNX.4.64.0708151725130.10497@schroedinger.engr.sgi.com> <20070816003948.GY9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com> <18115.44462.622801.683446@cargo.ozlabs.ibm.com>
-Mime-Version: 1.0 (Apple Message framework v623)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Lameter <clameter@sgi.com>, heiko.carstens@de.ibm.com,
-	horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Satyam Sharma <satyam@infradead.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+Date: Thu, 16 Aug 2007 10:08:51 +0800
+Message-ID: <20070816020851.GA30809@gondor.apana.org.au>
+References: <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in> <18115.35524.56393.347841@cargo.ozlabs.ibm.com> <Pine.LNX.4.64.0708151725130.10497@schroedinger.engr.sgi.com> <20070816003948.GY9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com> <20070816005348.GA9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151757400.11196@schroedinger.engr.sgi.com> <20070816011414.GC9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151839140.11520@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708160730590.24380@enigma.security.iitk.ac.in>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Lameter <clameter@sgi.com>,
 	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, ak@suse.de, cfriesen@nortel.com,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	Paul Mackerras <paulus@samba.org>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Chris Snook <csnook@redhat.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	linux-arch@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
-	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
 	Linus Torvalds <torvalds@linux-foundation.org>,
-	wensong@linux-vs.org, wjiang@resilience.com
-To: Paul Mackerras <paulus@samba.org>
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org
+To: Satyam Sharma <satyam@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:51652 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750976AbXHPCJC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Aug 2007 22:09:02 -0400
-In-Reply-To: <18115.44462.622801.683446@cargo.ozlabs.ibm.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:2471 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1760627AbXHPCJv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 22:09:51 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.0.999.0708160730590.24380@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> A volatile default would disable optimizations for atomic_read.
->> atomic_read without volatile would allow for full optimization by the
->> compiler. Seems that this is what one wants in many cases.
+On Thu, Aug 16, 2007 at 07:45:44AM +0530, Satyam Sharma wrote:
 >
-> Name one such case.
->
-> An atomic_read should do a load from memory.  If the programmer puts
-> an atomic_read() in the code then the compiler should emit a load for
-> it, not re-use a value returned by a previous atomic_read.  I do not
-> believe it would ever be useful for the compiler to collapse two
-> atomic_read statements into a single load.
+> Completely agreed, again. To summarize again (had done so about ~100 mails
+> earlier in this thread too :-) ...
+> 
+> atomic_{read,set}_volatile() -- guarantees volatility also along with
+> atomicity (the two _are_ different concepts after all, irrespective of
+> whether callsites normally want one with the other or not)
+> 
+> atomic_{read,set}_nonvolatile() -- only guarantees atomicity, compiler
+> free to elid / coalesce / optimize such accesses, can keep the object
+> in question cached in a local register, leads to smaller text, etc.
+> 
+> As to which one should be the default atomic_read() is a question of
+> whether majority of callsites (more weightage to important / hot
+> codepaths, lesser to obscure callsites) want a particular behaviour.
+> 
+> Do we have a consensus here? (hoping against hope, probably :-)
 
-An atomic_read() implemented as a "normal" C variable read would
-allow that read to be combined with another "normal" read from
-that variable.  This could perhaps be marginally useful, although
-I'd bet you cannot see it unless counting cycles on a simulator
-or counting bits in the binary size.
+I can certainly agree with this.
 
-With an asm() implementation, the compiler can not do this; with
-a "volatile" implementation (either volatile variable or volatile-cast),
-this invokes undefined behaviour (in both C and GCC).
+But I have to say that I still don't know of a single place
+where one would actually use the volatile variant.
 
-
-Segher
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
