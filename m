@@ -1,53 +1,86 @@
-From: Christoph Lameter <clameter@sgi.com>
+From: Satyam Sharma <satyam@infradead.org>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
  architectures
-Date: Wed, 15 Aug 2007 17:59:41 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0708151757400.11196@schroedinger.engr.sgi.com>
-References: <20070809131423.GA9927@shell.boston.redhat.com>
- <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com>
- <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in>
- <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in>
- <18115.35524.56393.347841@cargo.ozlabs.ibm.com>
- <Pine.LNX.4.64.0708151725130.10497@schroedinger.engr.sgi.com>
- <20070816003948.GY9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com>
- <20070816005348.GA9645@linux.vnet.ibm.com>
+Date: Thu, 16 Aug 2007 06:48:53 +0530 (IST)
+Message-ID: <alpine.LFD.0.999.0708160637510.24380@enigma.security.iitk.ac.in>
+References: <20070815145207.GA23106@gondor.apana.org.au> <46C3253F.5090707@s5r6.in-berlin.de>
+ <20070815162722.GD9645@linux.vnet.ibm.com> <d4406222873856f472b9173a14a19aa2@kernel.crashing.org>
+ <20070815185724.GH9645@linux.vnet.ibm.com>
+ <alpine.LFD.0.999.0708160118330.16414@enigma.security.iitk.ac.in>
+ <2d2eeab6276cab2e6cc5830d36a43b98@kernel.crashing.org>
+ <alpine.LFD.0.999.0708160338520.22701@enigma.security.iitk.ac.in>
+ <20070816003226.GA29491@gondor.apana.org.au>
+ <alpine.LFD.0.999.0708160621260.24380@enigma.security.iitk.ac.in>
+ <20070816005156.GA29698@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Paul Mackerras <paulus@samba.org>,
-	Satyam Sharma <satyam@infradead.org>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Chris Snook <csnook@redhat.com>,
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: Segher Boessenkool <segher@kernel.crashing.org>,
+	horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, ak@suse.de,
+	netdev@vger.kernel.org, cfriesen@nortel.com,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
 	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from netops-testserver-4-out.sgi.com ([192.48.171.29]:56662 "EHLO
-	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755757AbXHPA7p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Aug 2007 20:59:45 -0400
-In-Reply-To: <20070816005348.GA9645@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+	linux-arch@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
+	clameter@sgi.com, schwidefsky@de.ibm.com,
+	Chris Snook <csnook@redhat.com>, davem@davemloft.net,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S937641AbXHPBGg@vger.kernel.org>
+In-Reply-To: <20070816005156.GA29698@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Aug 2007, Paul E. McKenney wrote:
+Hi Herbert,
 
-> The volatile cast should not disable all that many optimizations,
-> for example, it is much less hurtful than barrier().  Furthermore,
-> the main optimizations disabled (pulling atomic_read() and atomic_set()
-> out of loops) really do need to be disabled.
 
-In many cases you do not need a barrier. Having volatile there *will* 
-impact optimization because the compiler cannot use a register that may 
-contain the value that was fetched earlier. And the compiler cannot choose 
-freely when to fetch the value. The order of memory accesses are fixed if 
-you use volatile. If the variable is not volatile then the compiler can 
-arrange memory accesses any way they fit and thus generate better code.
+On Thu, 16 Aug 2007, Herbert Xu wrote:
 
+> On Thu, Aug 16, 2007 at 06:28:42AM +0530, Satyam Sharma wrote:
+> >
+> > > The udelay itself certainly should have some form of cpu_relax in it.
+> > 
+> > Yes, a form of barrier() must be present in mdelay() or udelay() itself
+> > as you say, having it in __const_udelay() is *not* enough (superflous
+> > actually, considering it is already a separate translation unit and
+> > invisible to the compiler).
+> 
+> As long as __const_udelay does something which has the same
+> effect as barrier it is enough even if it's in the same unit.
+
+Only if __const_udelay() is inlined. But as I said, __const_udelay()
+-- although marked "inline" -- will never be inlined anywhere in the
+kernel in reality. It's an exported symbol, and never inlined from
+modules. Even from built-in targets, the definition of __const_udelay
+is invisible when gcc is compiling the compilation units of those
+callsites. The compiler has no idea that that function has barriers
+or not, so we're saved here _only_ by the lucky fact that
+__const_udelay() is in a different compilation unit.
+
+
+> As a matter of fact it does on i386 where __delay either uses
+> rep_nop or asm/volatile.
+
+__delay() can be either delay_tsc() or delay_loop() on i386.
+
+delay_tsc() uses the rep_nop() there for it's own little busy
+loop, actually. But for a call site that inlines __const_udelay()
+-- if it were ever moved to a .h file and marked inline -- the
+call to __delay() will _still_ be across compilation units. So,
+again for this case, it does not matter if the callee function
+has compiler barriers or not (it would've been a different story
+if we were discussing real/CPU barriers, I think), what saves us
+here is just the fact that a call is made to a function from a
+different compilation unit, which is invisible to the compiler
+when compiling the callsite, and hence acting as the compiler
+barrier.
+
+Regarding delay_loop(), it uses "volatile" for the "asm" which
+has quite different semantics from the C language "volatile"
+type-qualifier keyword and does not imply any compiler barrier
+at all.
+
+
+Satyam
