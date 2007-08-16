@@ -1,95 +1,111 @@
-From: Ben Dooks <ben-linux@fluff.org>
-Subject: Re: [PATCH 2/2] [DM9000] External PHY support
-Date: Thu, 16 Aug 2007 18:00:47 +0100
-Message-ID: <20070816170047.GD12547@fluff.org.uk>
-References: <200708161016.08180.laurentp@cse-semaphore.com>
+From: Brandon Philips <bphilips@suse.de>
+Subject: Re: [patch 4/4] Update e1000 driver to use devres.
+Date: Thu, 16 Aug 2007 10:05:22 -0700
+Message-ID: <20070816170522.GA4226@ifup.org>
+References: <20070815190014.GE7294@ifup.org>
+	<D5C1322C3E673F459512FB59E0DDC329036D21B5@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Ben Dooks <ben-linux@fluff.org>
-To: Laurent Pinchart <laurentp@cse-semaphore.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 87-194-8-8.bethere.co.uk ([87.194.8.8]:63248 "EHLO
-	aeryn.fluff.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752632AbXHPRAs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 13:00:48 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	teheo@suse.de
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-In-Reply-To: <200708161016.08180.laurentp@cse-semaphore.com>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC329036D21B5@orsmsx414.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 16, 2007 at 10:16:08AM +0200, Laurent Pinchart wrote:
-> This patch adds a flag to the DM9000 platform data which, when set,
-> configures the device to use an external PHY.
+On 01:38 Thu 16 Aug 2007, Waskiewicz Jr, Peter P wrote:
+> > -	err = -ENOMEM;
+> > -	netdev = alloc_etherdev(sizeof(struct e1000_adapter));
+> > +	netdev = devm_alloc_etherdev(&pdev->dev, sizeof(struct 
+> > +e1000_adapter));
+> >  	if (!netdev)
+> > -		goto err_alloc_etherdev;
+> > +		return -ENOMEM;
 > 
-> Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
-Acked-by: Ben Dooks <ben-linux@fluff.org>
-> ---
->  drivers/net/dm9000.c   |    6 ++++++
->  include/linux/dm9000.h |    1 +
->  2 files changed, 7 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
-> index a424810..a86984e 100644
-> --- a/drivers/net/dm9000.c
-> +++ b/drivers/net/dm9000.c
-> @@ -136,6 +136,7 @@ typedef struct board_info {
->  	u16 dbug_cnt;
->  	u8 io_mode;		/* 0:word, 2:byte */
->  	u8 phy_addr;
-> +	unsigned int flags;
->  
->  	void (*inblk)(void __iomem *port, void *data, int length);
->  	void (*outblk)(void __iomem *port, void *data, int length);
-> @@ -528,6 +529,8 @@ dm9000_probe(struct platform_device *pdev)
->  
->  		if (pdata->dumpblk != NULL)
->  			db->dumpblk = pdata->dumpblk;
-> +
-> +		db->flags = pdata->flags;
->  	}
->  
->  	dm9000_reset(db);
-> @@ -670,6 +673,9 @@ dm9000_init_dm9000(struct net_device *dev)
->  	iow(db, DM9000_GPCR, GPCR_GEP_CNTL);	/* Let GPIO0 output */
->  	iow(db, DM9000_GPR, 0);	/* Enable PHY */
->  
-> +	if (db->flags & DM9000_PLATF_EXT_PHY)
-> +		iow(db, DM9000_NCR, NCR_EXT_PHY);
-> +
->  	/* Program operating register */
->  	iow(db, DM9000_TCR, 0);	        /* TX Polling clear */
->  	iow(db, DM9000_BPTR, 0x3f);	/* Less 3Kb, 200us */
-> diff --git a/include/linux/dm9000.h b/include/linux/dm9000.h
-> index 0008e2a..ea530fd 100644
-> --- a/include/linux/dm9000.h
-> +++ b/include/linux/dm9000.h
-> @@ -19,6 +19,7 @@
->  #define DM9000_PLATF_8BITONLY	(0x0001)
->  #define DM9000_PLATF_16BITONLY	(0x0002)
->  #define DM9000_PLATF_32BITONLY	(0x0004)
-> +#define DM9000_PLATF_EXT_PHY	(0x0008)
->  
->  /* platfrom data for platfrom device structure's platfrom_data field */
->  
-> -- 
-> 1.5.0
-> 
-> -- 
-> Laurent Pinchart
-> CSE Semaphore Belgium
-> 
-> Chauss?e de Bruxelles, 732A
-> B-1410 Waterloo
-> Belgium
-> 
-> T +32 (2) 387 42 59
-> F +32 (2) 387 42 75
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> I'm a bit confused why you removed the goto's, and then removed all the
+> target unwinding code at the bottom of e1000_probe().   Those labels
+> clean up resources if something fails, like the err_sw_init label.  I
+> don't see anything in the devres code that jumps out at me that explains
+> why we can do away with these cleanup routines.  Thoughts?
 
--- 
-Ben (ben@fluff.org, http://www.fluff.org/)
+Have you read Documentation/driver-model/devres.txt?  That has a good
+explanation.  Here is a practical explanation on how it works too.
 
-  'a smiley only costs 4 bytes'
+This is the output from a normal modprobe then rmmod of e1000 with
+devres debugging on.
+
+# modprobe
+DEVRES ADD f7fd6cc0 pcim_release (8 bytes)
+DEVRES ADD f7a80fe0 devm_free_netdev (4 bytes) # netdev **p for free_netdev
+DEVRES ADD f7dbe780 pcim_iomap_release (24 bytes) # adapter->hw.hw_addr
+DEVRES ADD f7dbe9c0 devm_kzalloc_release (40 bytes) # adapter->tx_ring
+DEVRES ADD f7dbe8c0 devm_kzalloc_release (44 bytes) # adapter->rx_ring
+
+# rmmod
+DEVRES REL f7dbe8c0 devm_kzalloc_release (44 bytes) # adapter->tx_ring
+DEVRES REL f7dbe9c0 devm_kzalloc_release (40 bytes) # adapter->rx_ring
+DEVRES REL f7dbe780 pcim_iomap_release (24 bytes) # adapter->hw.hw_addr
+DEVRES REL f7a80fe0 devm_free_netdev (4 bytes) # called free_netdev
+DEVRES REL f7fd6cc0 pcim_release (8 bytes)
+
+Now if I insert a return -ENOMEM right after allocating tx_ring:
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -1356,6 +1356,8 @@ e1000_alloc_queues(struct e1000_adapter *adapter)
+ {
+        adapter->tx_ring = kcalloc(adapter->num_tx_queues,
+                                   sizeof(struct e1000_tx_ring),
+GFP_KERNEL);
++
++       return -ENOMEM;
+        if (!adapter->tx_ring)
+                return -ENOMEM;
+
+#insmod
+DEVRES ADD f7a80e80 pcim_release (8 bytes)
+DEVRES ADD f7a80ca0 devm_free_netdev (4 bytes)
+DEVRES ADD eb7f0080 pcim_iomap_release (24 bytes)
+DEVRES ADD eb7f0000 devm_kzalloc_release (40 bytes)
+e1000_sw_init: Unable to allocate memory for queues 
+DEVRES REL eb7f0000 devm_kzalloc_release (40 bytes)
+DEVRES REL eb7f0080 pcim_iomap_release (24 bytes)
+DEVRES REL f7a80ca0 devm_free_netdev (4 bytes)
+DEVRES REL f7a80e80 pcim_release (8 bytes)
+ACPI: PCI interrupt for device 0000:02:00.0 disabled
+e1000: probe of 0000:02:00.0 failed with error -12
+
+Since we are returning an error from probe the driver core calls
+devres_release_all(dev) which releases all of the resources in the right
+order.  See really_probe() in drivers/base/dd.c.
+
+SIDE NOTE
+---------
+I ran into a possible e1000 bug with the little -ENOMEM patch above both
+with and without the devres patches.  The driver seems to leave the
+EEPROM in a bad state on error because I get this error after trying to
+insert the module again: 
+
+e1000_probe: The EEPROM Checksum Is Not Valid 
+
+A power cycle but not a reboot fixes it.
+
+Thanks,
+
+	Brandon
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >>  http://get.splunk.com/
