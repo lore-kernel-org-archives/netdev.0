@@ -1,86 +1,46 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] ethernet: optimize memcpy and memset
-Date: Fri, 17 Aug 2007 16:29:50 -0700
-Message-ID: <20070817162950.6d8d07cd@freepuppy.rosehill.hemminger.net>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP ports
+	from the host TCP port space.
+Date: Fri, 17 Aug 2007 16:31:07 -0700
+Message-ID: <adafy2hyc04.fsf@cisco.com>
+References: <1187271791.4685.9.camel@trinity.ogc.int>
+	<20070816.141751.115907875.davem@davemloft.net>
+	<adaodh6x7js.fsf@cisco.com>
+	<20070817.142756.65194845.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:43207 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755067AbXHQXav (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2007 19:30:51 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff@garzik.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org
+To: David Miller <davem@davemloft.net>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070817.142756.65194845.davem@davemloft.net> (David Miller's
+	message of "Fri, 17 Aug 2007 14:27:56 -0700 (PDT)")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-The ethernet header management only needs to handle a fixed
-size address (6 bytes). If the memcpy/memset are changed to
-be passed a constant length, then compiler can optimize for
-this case (and if it is smart eliminate string instructions).
+ > >  > When using RDMA you lose the capability to do packet shaping,
+ > >  > classification, and all the other wonderful networking facilities
+ > >  > you've grown to love and use over the years.
+ > > 
+ > > Same thing with TSO and LRO and who knows what else.
+ > 
+ > Not true at all.  Full classification and filtering still is usable
+ > with TSO and LRO.
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+Well, obviously with TSO and LRO the packets that the stack sends or
+receives are not the same as what's on the wire.  Whether that breaks
+your wonderful networking facilities or not depends on the specifics
+of the particular facility I guess -- for example shaping is clearly
+broken by TSO.  (And people can wonder what the packet trains TSO
+creates do to congestion control on the internet, but the netdev crowd
+has already decided that TSO is "good" and RDMA is "bad")
 
---- a/net/ethernet/eth.c	2007-08-17 12:08:51.000000000 -0400
-+++ b/net/ethernet/eth.c	2007-08-17 12:16:33.000000000 -0400
-@@ -91,10 +91,10 @@ int eth_header(struct sk_buff *skb, stru
- 
- 	if (!saddr)
- 		saddr = dev->dev_addr;
--	memcpy(eth->h_source, saddr, dev->addr_len);
-+	memcpy(eth->h_source, saddr, ETH_ALEN);
- 
- 	if (daddr) {
--		memcpy(eth->h_dest, daddr, dev->addr_len);
-+		memcpy(eth->h_dest, daddr, ETH_ALEN);
- 		return ETH_HLEN;
- 	}
- 
-@@ -103,7 +103,7 @@ int eth_header(struct sk_buff *skb, stru
- 	 */
- 
- 	if (dev->flags & (IFF_LOOPBACK | IFF_NOARP)) {
--		memset(eth->h_dest, 0, dev->addr_len);
-+		memset(eth->h_dest, 0, ETH_ALEN);
- 		return ETH_HLEN;
- 	}
- 
-@@ -135,7 +135,7 @@ int eth_rebuild_header(struct sk_buff *s
- 		       "%s: unable to resolve type %X addresses.\n",
- 		       dev->name, (int)eth->h_proto);
- 
--		memcpy(eth->h_source, dev->dev_addr, dev->addr_len);
-+		memcpy(eth->h_source, dev->dev_addr, ETH_ALEN);
- 		break;
- 	}
- 
-@@ -233,8 +233,8 @@ int eth_header_cache(struct neighbour *n
- 		return -1;
- 
- 	eth->h_proto = type;
--	memcpy(eth->h_source, dev->dev_addr, dev->addr_len);
--	memcpy(eth->h_dest, neigh->ha, dev->addr_len);
-+	memcpy(eth->h_source, dev->dev_addr, ETH_ALEN);
-+	memcpy(eth->h_dest, neigh->ha, ETH_ALEN);
- 	hh->hh_len = ETH_HLEN;
- 	return 0;
- }
-@@ -251,7 +251,7 @@ void eth_header_cache_update(struct hh_c
- 			     unsigned char *haddr)
- {
- 	memcpy(((u8 *) hh->hh_data) + HH_DATA_OFF(sizeof(struct ethhdr)),
--	       haddr, dev->addr_len);
-+	       haddr, ETH_ALEN);
- }
- 
- /**
-@@ -271,7 +271,7 @@ static int eth_mac_addr(struct net_devic
- 		return -EBUSY;
- 	if (!is_valid_ether_addr(addr->sa_data))
- 		return -EADDRNOTAVAIL;
--	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
-+	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
- 	return 0;
- }
- 
+ - R.
