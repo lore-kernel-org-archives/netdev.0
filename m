@@ -1,57 +1,108 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [RFC] net/core/dst.c : Should'nt dst_run_gc() be more scalable
- and friendly ?
-Date: Fri, 17 Aug 2007 10:31:13 +0200
-Message-ID: <20070817103113.e737c2d9.dada1@cosmosbay.com>
-References: <20070816153619.2c699e21.dada1@cosmosbay.com>
-	<E1ILft1-0001Db-00@gondolin.me.apana.org.au>
-	<20070816174044.43c90ff4.dada1@cosmosbay.com>
-	<20070816233339.GA11594@gondor.apana.org.au>
-	<20070817101030.cc64467a.dada1@cosmosbay.com>
-	<20070817081522.GA16720@gondor.apana.org.au>
+From: Satyam Sharma <satyam@infradead.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Fri, 17 Aug 2007 14:17:36 +0530 (IST)
+Message-ID: <alpine.LFD.0.999.0708171358520.3666@enigma.security.iitk.ac.in>
+References: <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <46C32618.2080108@redhat.com>
+ <20070815234021.GA28775@gondor.apana.org.au> <3694fb2e4ed1e4d9bf873c0d050c911e@kernel.crashing.org>
+ <46C3B50E.7010702@yahoo.com.au> <194369f4c96ea0e24decf8f9197d5bad@kernel.crashing.org>
+ <46C505B2.6030704@yahoo.com.au> <18117.4848.695269.72976@cargo.ozlabs.ibm.com>
+ <alpine.LFD.0.999.0708162033400.30176@woody.linux-foundation.org>
+ <alpine.LFD.0.999.0708171016160.3666@enigma.security.iitk.ac.in>
+ <46C54D94.5080803@yahoo.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Segher Boessenkool <segher@kernel.crashing.org>,
+	heiko.carstens@de.ibm.com, horms@verge.net.au,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	rpjday@mindspring.com, ak@suse.de, netdev@vger.kernel.org,
+	cfriesen@nortel.com, Andrew Morton <akpm@linux-foundation.org>,
+	jesper.juhl@gmail.com, linux-arch@vger.kernel.org, zlynx@acm.org,
+	clameter@sgi.com, schwidefsky@de.ibm.com,
+	Chris Snook <csnook@redhat.com>,
+	Herbert Xu <herbert.xu@redhat.com>, davem@davemloft.net,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Nick Piggin <nickpiggin@yahoo.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:45450 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752313AbXHQIbP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Aug 2007 04:31:15 -0400
-In-Reply-To: <20070817081522.GA16720@gondor.apana.org.au>
+Received: from pentafluge.infradead.org ([213.146.154.40]:34060 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756283AbXHQIfK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2007 04:35:10 -0400
+In-Reply-To: <46C54D94.5080803@yahoo.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 17 Aug 2007 16:15:22 +0800
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> On Fri, Aug 17, 2007 at 10:10:30AM +0200, Eric Dumazet wrote:
-> >
-> > Will a workqueue react the same in case of a DDOS situation, 
-> > where softirq could use all CPU cycles to handle incoming
-> > packets and feed the GC list, and GC would never
-> > have a chance to scan and free some items ?
+
+On Fri, 17 Aug 2007, Nick Piggin wrote:
+
+> Satyam Sharma wrote:
 > 
-> Well when that happens the softirqs will be deferred to
-> ksoftirqd which should share the CPU fairly with the
-> workqueue.
-
-Thats nice :)
-
-I'll code a workqueue based thing in about 10 days after my hollidays,
-and perform DOS tests as well.
-
-Thanks for the feedback.
-
+> > #define atomic_read_volatile(v)				\
+> > 	({						\
+> > 		forget((v)->counter);			\
+> > 		((v)->counter);				\
+> > 	})
+> > 
+> > where:
 > 
-> > About chunk processing, I did it on purpose, to not throw away
-> > all CPU cache. Goal is to process entries, but not all of them
-> > in a row, especially if we find many yet referenced entries
-> > (and thus not candidates to freeing)
+> *vomit* :)
+
+I wonder if this'll generate smaller and better code than _both_ the
+other atomic_read_volatile() variants. Would need to build allyesconfig
+on lots of diff arch's etc to test the theory though.
+
+
+> Not only do I hate the keyword volatile, but the barrier is only a
+> one-sided affair so its probable this is going to have slightly
+> different allowed reorderings than a real volatile access.
+
+True ...
+
+
+> Also, why would you want to make these insane accessors for atomic_t
+> types? Just make sure everybody knows the basics of barriers, and they
+> can apply that knowledge to atomic_t and all other lockless memory
+> accesses as well.
+
+Code that looks like:
+
+	while (!atomic_read(&v)) {
+		...
+		cpu_relax_no_barrier();
+		forget(v.counter);
+		        ^^^^^^^^
+	}
+
+would be uglier. Also think about code such as:
+
+	a = atomic_read();
+	if (!a)
+		do_something();
+
+	forget();
+	a = atomic_read();
+	... /* some code that depends on value of a, obviously */
+
+	forget();
+	a = atomic_read();
+	...
+
+So much explicit sprinkling of "forget()" looks ugly.
+
+	atomic_read_volatile()
+
+on the other hand, looks neater. The "_volatile()" suffix makes it also
+no less explicit than an explicit barrier-like macro that this primitive
+is something "special", for code clarity purposes.
+
+
+> > #define forget(a)	__asm__ __volatile__ ("" :"=m" (a) :"m" (a))
 > 
-> I agree that chunks are desirable for a timer since you'd
-> be hogging the CPU otherwise.  However, if you went to a
-> workqueue then it's less of a concern and would simplify
-> things.  In particular, you won't have to pick a good
-> chunk size :)
+> I like order(x) better, but it's not the most perfect name either.
+
+forget(x) is just a stupid-placeholder-for-a-better-name. order(x) sounds
+good but we could leave quibbling about function or macro names for later,
+this thread is noisy as it is :-)
