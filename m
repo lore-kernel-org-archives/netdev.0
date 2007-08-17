@@ -1,93 +1,89 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [PATCH 0/9 Rev3] Implement batching skb API and support in IPoIB
-Date: Fri, 17 Aug 2007 11:36:03 +0530
-Message-ID: <OFFFECFAD7.CF3FF115-ON6525733A.0020AE37-6525733A.00218365@in.ibm.com>
+From: Satyam Sharma <satyam@infradead.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Fri, 17 Aug 2007 11:56:22 +0530 (IST)
+Message-ID: <alpine.LFD.0.999.0708171142550.3666@enigma.security.iitk.ac.in>
+References: <18115.52863.638655.658466@cargo.ozlabs.ibm.com>
+ <20070816053945.GB32442@gondor.apana.org.au> <18115.62741.807704.969977@cargo.ozlabs.ibm.com>
+ <20070816070907.GA964@gondor.apana.org.au>
+ <Pine.LNX.4.64.0708161743500.13267@kivilampi-30.cs.helsinki.fi>
+ <46C4ABA5.9010804@redhat.com> <Pine.LNX.4.64.0708161319000.17777@schroedinger.engr.sgi.com>
+ <18117.1287.779351.836552@cargo.ozlabs.ibm.com>
+ <alpine.LFD.0.999.0708161953310.30176@woody.linux-foundation.org>
+ <18117.6495.397597.582736@cargo.ozlabs.ibm.com>
+ <20070817035342.GA14744@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: gaagaan@gmail.com, general@lists.openfabrics.org, hadi@cyberus.ca,
-	herbert@gondor.apana.org.au, jagana@us.ibm.com, jeff@garzik.org,
-	johnpol@2ka.mipt.ru, kaber@trash.net, kumarkr@linux.ibm.com,
-	mcarlson@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org,
-	peter.p.waskiewicz.jr@intel.com, rdreier@cisco.com,
-	rick.jones2@hp.com, Robert.Olsson@data.slu.se,
-	shemminger@linux-foundation.org, sri@us.ibm.com, tgraf@suug.ch,
-	xma@us.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: Paul Mackerras <paulus@samba.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Christoph Lameter <clameter@sgi.com>,
+	Chris Snook <csnook@redhat.com>,
+	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>, ak@suse.de,
+	heiko.carstens@de.ibm.com, David Miller <davem@davemloft.net>,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausmtp05.au.ibm.com ([202.81.18.154]:64242 "EHLO
-	ausmtp05.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756633AbXHQGFM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2007 02:05:12 -0400
-Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
-	by ausmtp05.au.ibm.com (8.13.8/8.13.8) with ESMTP id l7H66rtB3276940
-	for <netdev@vger.kernel.org>; Fri, 17 Aug 2007 16:06:53 +1000
-Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.250.243])
-	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7H68POU177032
-	for <netdev@vger.kernel.org>; Fri, 17 Aug 2007 16:08:25 +1000
-Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
-	by d23av02.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7H64nG5003868
-	for <netdev@vger.kernel.org>; Fri, 17 Aug 2007 16:04:51 +1000
+Received: from pentafluge.infradead.org ([213.146.154.40]:56668 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758080AbXHQGOA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2007 02:14:00 -0400
+In-Reply-To: <20070817035342.GA14744@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Hi Dave,
 
-> I ran 3 iterations of 45 sec tests (total 1 hour 16 min, but I will
-> run a longer one tonight). The results are (results in KB/s, and %):
+On Fri, 17 Aug 2007, Herbert Xu wrote:
 
-I ran a 8.5 hours run with no batching + another 8.5 hours run with
-batching (Buffer sizes: "32 128 512 4096 16384", Threads: "1 8 32",
-Each test run time: 3 minutes, Iterations to average: 5). TCP seems
-to get a small improvement.
+> On Fri, Aug 17, 2007 at 01:43:27PM +1000, Paul Mackerras wrote:
+> >
+> > The cost of doing so seems to me to be well down in the noise - 44
+> > bytes of extra kernel text on a ppc64 G5 config, and I don't believe
+> > the extra few cycles for the occasional extra load would be measurable
+> > (they should all hit in the L1 dcache).  I don't mind if x86[-64] have
+> > atomic_read/set be nonvolatile and find all the missing barriers, but
+> > for now on powerpc, I think that not having to find those missing
+> > barriers is worth the 0.00076% increase in kernel text size.
+> 
+> BTW, the sort of missing barriers that triggered this thread
+> aren't that subtle.  It'll result in a simple lock-up if the
+> loop condition holds upon entry.  At which point it's fairly
+> straightforward to find the culprit.
 
-Thanks,
+Not necessarily. A barrier-less buggy code such as below:
 
-- KK
+	atomic_set(&v, 0);
 
--------------------------------------------------------------------------------
-                           TCP
-                        -----------
-Size:32 Procs:1             3415       3321       -2.75
-Size:128 Procs:1           13094      13388      2.24
-Size:512 Procs:1            49037      50683      3.35
-Size:4096 Procs:1          114646     114619     -.02
-Size:16384 Procs:1        114626     114644     .01
+	... /* some initial code */
 
-Size:32 Procs:8             22675      22633      -.18
-Size:128 Procs:8            77994      77297      -.89
-Size:512 Procs:8            114716     114711     0
-Size:4096 Procs:8          114637     114636     0
-Size:16384 Procs:8         95814      114638     19.64
+	while (atomic_read(&v))
+		;
 
-Size:32 Procs:32            23240      23349      .46
-Size:128 Procs:32          82284      82247      -.04
-Size:512 Procs:32          114885     114769     -.10
-Size:4096 Procs:32         95735      114634     19.74
-Size:16384 Procs:32       114736     114641     -.08
+	... /* code that MUST NOT be executed unless v becomes non-zero */
 
-Average:                        1151534    1190210    3.36%
--------------------------------------------------------------------------------
-                        No Delay:
-                        ---------
-Size:32 Procs:1             3002       2873       -4.29
-Size:128 Procs:1           11853      11801      -.43
-Size:512 Procs:1           45565      45837      .59
-Size:4096 Procs:1         114511     114485     -.02
-Size:16384 Procs:1        114521     114555     .02
+(where v->counter is has no volatile access semantics)
 
-Size:32 Procs:8             8026       8029       .03
-Size:128 Procs:8           31589      31573      -.05
-Size:512 Procs:8           111506     105766     -5.14
-Size:4096 Procs:8         114455     114454     0
-Size:16384 Procs:8        95833      114491     19.46
+could be generated by the compiler to simply *elid* or *do away* with
+the loop itself, thereby making the:
 
-Size:32 Procs:32            8005       8027       .27
-Size:128 Procs:32          31475      31505      .09
-Size:512 Procs:32          114558     113687     -.76
-Size:4096 Procs:32        114784     114447     -.29
-Size:16384 Procs:32       114719     114496     -.19
+"/* code that MUST NOT be executed unless v becomes non-zero */"
 
-Average:                         1046026    1034402    -1.11%
--------------------------------------------------------------------------------
+to be executed even when v is zero! That is subtle indeed, and causes
+no hard lockups.
 
+Granted, the above IS buggy code. But, the stated objective is to avoid
+heisenbugs. And we have driver / subsystem maintainers such as Stefan
+coming up and admitting that often a lot of code that's written to use
+atomic_read() does assume the read will not be elided by the compiler.
+
+See, I agree, "volatility" semantics != what we often want. However, if
+what we want is compiler barrier, for only the object under consideration,
+"volatility" semantics aren't really "nonsensical" or anything.
