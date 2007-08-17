@@ -1,49 +1,50 @@
-From: Segher Boessenkool <segher@kernel.crashing.org>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Sat, 18 Aug 2007 00:49:08 +0200
-Message-ID: <f5796b5aa38ae6305c65ffa0340ba295@kernel.crashing.org>
-References: <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <46C32618.2080108@redhat.com> <20070815234021.GA28775@gondor.apana.org.au> <3694fb2e4ed1e4d9bf873c0d050c911e@kernel.crashing.org> <46C3B50E.7010702@yahoo.com.au> <194369f4c96ea0e24decf8f9197d5bad@kernel.crashing.org> <46C505B2.6030704@yahoo.com.au> <18117.4848.695269.72976@cargo.ozlabs.ibm.com> <alpine.LFD.0.999.0708162033400.30176@woody.linux-foundation.org> <alpine.LFD.0.999.0708171016160.3666@enigma.security.iitk.ac.in>
-Mime-Version: 1.0 (Apple Message framework v623)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] restore netdev_priv optimization
+Date: Fri, 17 Aug 2007 16:04:09 -0700 (PDT)
+Message-ID: <20070817.160409.88475506.davem@davemloft.net>
+References: <20070817154022.0f3afba4@freepuppy.rosehill.hemminger.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Paul Mackerras <paulus@samba.org>, heiko.carstens@de.ibm.com,
-	horms@verge.net.au,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	rpjday@mindspring.com, ak@suse.de, netdev@vger.kernel.org,
-	cfriesen@nortel.com, Nick Piggin <nickpiggin@yahoo.com.au>,
-	linux-arch@vger.kernel.org, jesper.juhl@gmail.com,
-	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
-	clameter@sgi.com, schwidefsky@de.ibm.com,
-	Chris Snook <csnook@redhat.com>,
-	Herbert Xu <herbert.xu@redhat.com>, davem@davemloft.net,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	wensong@linux-vs.org, wjiang@resilience.com
-To: Satyam Sharma <satyam@infradead.org>
+Cc: netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:33158 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754478AbXHQWu0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Aug 2007 18:50:26 -0400
-In-Reply-To: <alpine.LFD.0.999.0708171016160.3666@enigma.security.iitk.ac.in>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54036
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751117AbXHQXEJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2007 19:04:09 -0400
+In-Reply-To: <20070817154022.0f3afba4@freepuppy.rosehill.hemminger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> #define forget(a)	__asm__ __volatile__ ("" :"=m" (a) :"m" (a))
->
-> [ This is exactly equivalent to using "+m" in the constraints, as 
-> recently
->   explained on a GCC list somewhere, in response to the patch in my 
-> bitops
->   series a few weeks back where I thought "+m" was bogus. ]
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Fri, 17 Aug 2007 15:40:22 -0700
 
-[It wasn't explained on a GCC list in response to your patch, as
-far as I can see -- if I missed it, please point me to an archived
-version of it].
+> Compile tested only!!!
 
-One last time: it isn't equivalent on older (but still supported
-by Linux) versions of GCC.  Current versions of GCC allow it, but
-it has no documented behaviour at all, so use it at your own risk.
+Obviously.  The first loopback transmit is guarenteed to crash.
 
+> Fix optimization of netdev_priv() lost by the  addition of multiqueue.
+> Move the variable size subqueues to after the constant size priv area.
+> 
+> When putting back the old netdev_priv() code, I tried to make it
+> clearer by using roundup() and ALIGN() macros.
+> 
+> --- a/include/linux/netdevice.h	2007-08-17 12:08:51.000000000 -0400
+> +++ b/include/linux/netdevice.h	2007-08-17 12:48:03.000000000 -0400
+> @@ -575,16 +575,15 @@ struct net_device
+>  
+>  	/* The TX queue control structures */
+>  	unsigned int			egress_subqueue_count;
+> -	struct net_device_subqueue	egress_subqueue[1];
+> +	struct net_device_subqueue	*egress_subqueue;
+>  };
 
-Segher
+This just trades off the dev->priv dereference for a
+dev->egress_subqueue dereference.  I bet they occur about equally in
+the data paths, at least on transmit.
+
+And this also breaks loopback again, which uses a static struct netdev
+in the kernel image, it doesn't use alloc_netdev(), so egress_subqueue
+of loopback will be NULL.
 
