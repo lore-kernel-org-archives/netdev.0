@@ -1,67 +1,64 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP ports
-	from the host TCP port space.
-Date: Fri, 17 Aug 2007 12:52:39 -0700
-Message-ID: <adaodh6x7js.fsf@cisco.com>
-References: <46C310E1.7020503@opengridcomputing.com>
-	<46C3B5EF.5060409@garzik.org>
-	<1187271791.4685.9.camel@trinity.ogc.int>
-	<20070816.141751.115907875.davem@davemloft.net>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+	architectures
+Date: Fri, 17 Aug 2007 12:49:00 -0700
+Message-ID: <1187380142.2615.6.camel@laptopd505.fenrus.org>
+References: <20070817035342.GA14744@gondor.apana.org.au>
+	 <alpine.LFD.0.999.0708171142550.3666@enigma.security.iitk.ac.in>
+	 <46C55E90.7010407@yahoo.com.au>
+	 <alpine.LFD.0.999.0708171431150.3666@enigma.security.iitk.ac.in>
+	 <46C56ADF.8010501@cyberone.com.au>
+	 <alpine.LFD.0.999.0708171612440.3666@enigma.security.iitk.ac.in>
+	 <46C59717.4020108@cyberone.com.au>
+	 <alpine.LFD.0.999.0708170929580.30176@woody.linux-foundation.org>
+	 <46C5EDF9.3090507@nortel.com>
+	 <1187376873.2615.2.camel@laptopd505.fenrus.org>
+	 <20070817194924.GG8464@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: David Miller <davem@davemloft.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070816.141751.115907875.davem@davemloft.net> (David Miller's
-	message of "Thu, 16 Aug 2007 14:17:51 -0700 (PDT)")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Chris Friesen <cfriesen@nortel.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Nick Piggin <piggin@cyberone.com.au>,
+	Satyam Sharma <satyam@infradead.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Paul Mackerras <paulus@samba.org>,
+	Christoph Lameter <clameter@sgi.com>,
+	Chris Snook <csnook@redhat.com>,
+	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>, ak@suse.de,
+	heiko.carstens@de.ibm.com, David Miller <davem@davemloft.net>,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, zlynx@acm.org, rpjday@mindspring.com,
+	jesper.juhl@gmail.com, segher@kernel.crashing.org
+To: paulmck@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pentafluge.infradead.org ([213.146.154.40]:34158 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754446AbXHQTyF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2007 15:54:05 -0400
+In-Reply-To: <20070817194924.GG8464@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > > Isn't RDMA _part_ of the "software net stack" within Linux?
 
- > It very much is not so.
+On Fri, 2007-08-17 at 12:49 -0700, Paul E. McKenney wrote:
+> > > What about reading values modified in interrupt handlers, as in your 
+> > > "random" case?  Or is this a bug where the user of atomic_read() is 
+> > > invalidly expecting a read each time it is called?
+> > 
+> > the interrupt handler case is an SMP case since you do not know
+> > beforehand what cpu your interrupt handler will run on.
+> 
+> With the exception of per-CPU variables, yes.
 
-This is just nit-picking.  You can draw the boundary of the "software
-net stack" wherever you want, but I think Sean's point was just that
-RDMA drivers already are part of Linux, and we all want them to get
-better.
+if you're spinning waiting for a per-CPU variable to get changed by an
+interrupt handler... you have bigger problems than "volatile" ;-)
 
- > When using RDMA you lose the capability to do packet shaping,
- > classification, and all the other wonderful networking facilities
- > you've grown to love and use over the years.
+-- 
+if you want to mail me at work (you don't), use arjan (at) linux.intel.com
+Test the interaction between Linux and your BIOS via http://www.linuxfirmwarekit.org
 
-Same thing with TSO and LRO and who knows what else.  I know you're
-going to make a distinction between "stateless" and "stateful"
-offloads, but really it's just an arbitrary distinction between things
-you like and things you don't.
-
- > Imagine if you didn't know any of this, you purchase and begin to
- > deploy a huge piece of RDMA infrastructure, you then get the mandate
- > from IT that you need to add firewalling on the RDMA connections at
- > the host level, and "oh shit" you can't?
-
-It's ironic that you bring up firewalling.  I've had vendors of iWARP
-hardware tell me they would *love* to work with the community to make
-firewalling work better for RDMA connections.  But instead we get the
-catch-22 of your changing arguments -- first, you won't even consider
-changes that might help RDMA work better in the name of
-maintainability; then you have to protect poor, ignorant users from
-accidentally using RDMA because of some problem or another; and then
-when someone tries to fix some of the problems you mention, it's back
-to step one.
-
-Obviously some decisions have been prejudged here, so I guess this
-moves to the realm of politics.  I have plenty of interesting
-technical stuff, so I'll leave it to the people with a horse in the
-race to find ways to twist your arm.
-
- - R.
