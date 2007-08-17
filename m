@@ -1,58 +1,198 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Fri, 17 Aug 2007 13:12:05 -0700
-Message-ID: <20070817201205.GJ8464@linux.vnet.ibm.com>
-References: <46C55E90.7010407@yahoo.com.au> <alpine.LFD.0.999.0708171431150.3666@enigma.security.iitk.ac.in> <46C56ADF.8010501@cyberone.com.au> <alpine.LFD.0.999.0708171612440.3666@enigma.security.iitk.ac.in> <46C59717.4020108@cyberone.com.au> <alpine.LFD.0.999.0708170929580.30176@woody.linux-foundation.org> <46C5EDF9.3090507@nortel.com> <1187376873.2615.2.camel@laptopd505.fenrus.org> <20070817194924.GG8464@linux.vnet.ibm.com> <1187380142.2615.6.camel@laptopd505.fenrus.org>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Brandon Philips <bphilips@suse.de>
+Subject: [PATCH] e1000e: Update e1000e driver to use devres
+Date: Fri, 17 Aug 2007 13:25:02 -0700
+Message-ID: <20070817202502.GD4525@ifup.org>
+References: <20070815190014.GE7294@ifup.org> <46C43891.4080304@suse.de> <46C48B2E.9040105@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Chris Friesen <cfriesen@nortel.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Nick Piggin <piggin@cyberone.com.au>,
-	Satyam Sharma <satyam@infradead.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Paul Mackerras <paulus@samba.org>,
-	Christoph Lameter <clameter@sgi.com>,
-	Chris Snook <csnook@redhat.com>,
-	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>, ak@suse.de,
-	heiko.carstens@de.ibm.com, David Miller <davem@davemloft.net>,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, zlynx@acm.org, rpjday@mindspring.com,
-	jesper.juhl@gmail.com, segher@kernel.crashing.org
-To: Arjan van de Ven <arjan@infradead.org>
+Cc: Tejun Heo <teheo@suse.de>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:60708 "EHLO e1.ny.us.ibm.com"
+Received: from cantor2.suse.de ([195.135.220.15]:43776 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752668AbXHQUMK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Aug 2007 16:12:10 -0400
+	id S1750880AbXHQUZL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Aug 2007 16:25:11 -0400
 Content-Disposition: inline
-In-Reply-To: <1187380142.2615.6.camel@laptopd505.fenrus.org>
+In-Reply-To: <46C48B2E.9040105@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 17, 2007 at 12:49:00PM -0700, Arjan van de Ven wrote:
-> 
-> On Fri, 2007-08-17 at 12:49 -0700, Paul E. McKenney wrote:
-> > > > What about reading values modified in interrupt handlers, as in your 
-> > > > "random" case?  Or is this a bug where the user of atomic_read() is 
-> > > > invalidly expecting a read each time it is called?
-> > > 
-> > > the interrupt handler case is an SMP case since you do not know
-> > > beforehand what cpu your interrupt handler will run on.
-> > 
-> > With the exception of per-CPU variables, yes.
-> 
-> if you're spinning waiting for a per-CPU variable to get changed by an
-> interrupt handler... you have bigger problems than "volatile" ;-)
+Conversion of e1000e probe() and remove() to devres.
 
-That would be true, if you were doing that.  But you might instead be
-simply making sure that the mainline actions were seen in order by the
-interrupt handler.  My current example is the NMI-save rcu_read_lock()
-implementation for realtime.  Not the common case, I will admit, but
-still real.  ;-)
+Depends on "[patch 1/4] Update net core to use devres."
 
-						Thanx, Paul
+Signed-off-by: Brandon Philips <bphilips@suse.de>
+
+---
+ drivers/net/e1000e/netdev.c |   70 ++++++++++----------------------------------
+ 1 file changed, 17 insertions(+), 53 deletions(-)
+
+Index: linux-netdev/drivers/net/e1000e/netdev.c
+===================================================================
+--- linux-netdev.orig/drivers/net/e1000e/netdev.c
++++ linux-netdev/drivers/net/e1000e/netdev.c
+@@ -2516,6 +2516,7 @@ void e1000e_reinit_locked(struct e1000_a
+ static int __devinit e1000_sw_init(struct e1000_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
++	struct pci_dev *pdev = adapter->pdev;
+ 	struct net_device *netdev = adapter->netdev;
+ 
+ 	adapter->rx_buffer_len = ETH_FRAME_LEN + VLAN_HLEN + ETH_FCS_LEN;
+@@ -2523,11 +2524,13 @@ static int __devinit e1000_sw_init(struc
+ 	hw->mac.max_frame_size = netdev->mtu + ETH_HLEN + ETH_FCS_LEN;
+ 	hw->mac.min_frame_size = ETH_ZLEN + ETH_FCS_LEN;
+ 
+-	adapter->tx_ring = kzalloc(sizeof(struct e1000_ring), GFP_KERNEL);
++	adapter->tx_ring = devm_kzalloc(&pdev->dev,
++					sizeof(struct e1000_ring), GFP_KERNEL);
+ 	if (!adapter->tx_ring)
+ 		goto err;
+ 
+-	adapter->rx_ring = kzalloc(sizeof(struct e1000_ring), GFP_KERNEL);
++	adapter->rx_ring = devm_kzalloc(&pdev->dev,
++					sizeof(struct e1000_ring), GFP_KERNEL);
+ 	if (!adapter->rx_ring)
+ 		goto err;
+ 
+@@ -2544,8 +2547,6 @@ static int __devinit e1000_sw_init(struc
+ 
+ err:
+ 	ndev_err(netdev, "Unable to allocate memory for queues\n");
+-	kfree(adapter->rx_ring);
+-	kfree(adapter->tx_ring);
+ 	return -ENOMEM;
+ }
+ 
+@@ -4016,15 +4017,13 @@ static int __devinit e1000_probe(struct 
+ 	struct e1000_adapter *adapter;
+ 	struct e1000_hw *hw;
+ 	const struct e1000_info *ei = e1000_info_tbl[ent->driver_data];
+-	unsigned long mmio_start, mmio_len;
+-	unsigned long flash_start, flash_len;
+ 
+ 	static int cards_found;
+ 	int i, err, pci_using_dac;
+ 	u16 eeprom_data = 0;
+ 	u16 eeprom_apme_mask = E1000_EEPROM_APME;
+ 
+-	err = pci_enable_device(pdev);
++	err = pcim_enable_device(pdev);
+ 	if (err)
+ 		return err;
+ 
+@@ -4042,21 +4041,20 @@ static int __devinit e1000_probe(struct 
+ 			if (err) {
+ 				dev_err(&pdev->dev, "No usable DMA "
+ 					"configuration, aborting\n");
+-				goto err_dma;
++				return err;
+ 			}
+ 		}
+ 	}
+ 
+ 	err = pci_request_regions(pdev, e1000e_driver_name);
+ 	if (err)
+-		goto err_pci_reg;
++		return err;
+ 
+ 	pci_set_master(pdev);
+ 
+-	err = -ENOMEM;
+-	netdev = alloc_etherdev(sizeof(struct e1000_adapter));
++	netdev = devm_alloc_etherdev(&pdev->dev, sizeof(struct e1000_adapter));
+ 	if (!netdev)
+-		goto err_alloc_etherdev;
++		return -ENOMEM;
+ 
+ 	SET_MODULE_OWNER(netdev);
+ 	SET_NETDEV_DEV(netdev, &pdev->dev);
+@@ -4073,21 +4071,16 @@ static int __devinit e1000_probe(struct 
+ 	adapter->hw.mac.type = ei->mac;
+ 	adapter->msg_enable = (1 << NETIF_MSG_DRV | NETIF_MSG_PROBE) - 1;
+ 
+-	mmio_start = pci_resource_start(pdev, 0);
+-	mmio_len = pci_resource_len(pdev, 0);
+ 
+-	err = -EIO;
+-	adapter->hw.hw_addr = ioremap(mmio_start, mmio_len);
++	adapter->hw.hw_addr = pcim_iomap(pdev, 0, 0);
+ 	if (!adapter->hw.hw_addr)
+-		goto err_ioremap;
++		return -EIO;
+ 
+ 	if ((adapter->flags & FLAG_HAS_FLASH) &&
+ 	    (pci_resource_flags(pdev, 1) & IORESOURCE_MEM)) {
+-		flash_start = pci_resource_start(pdev, 1);
+-		flash_len = pci_resource_len(pdev, 1);
+-		adapter->hw.flash_address = ioremap(flash_start, flash_len);
++		adapter->hw.flash_address = pcim_iomap(pdev, 1, 0);
+ 		if (!adapter->hw.flash_address)
+-			goto err_flashmap;
++			return -EIO;
+ 	}
+ 
+ 	/* construct the net_device struct */
+@@ -4112,17 +4105,15 @@ static int __devinit e1000_probe(struct 
+ #endif
+ 	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
+ 
+-	netdev->mem_start = mmio_start;
+-	netdev->mem_end = mmio_start + mmio_len;
++	netdev->mem_start = pci_resource_start(pdev, 0);
++	netdev->mem_end = netdev->mem_start + pci_resource_len(pdev, 0);
+ 
+ 	adapter->bd_number = cards_found++;
+ 
+ 	/* setup adapter struct */
+ 	err = e1000_sw_init(adapter);
+ 	if (err)
+-		goto err_sw_init;
+-
+-	err = -EIO;
++		return err;
+ 
+ 	memcpy(&hw->mac.ops, ei->mac_ops, sizeof(hw->mac.ops));
+ 	memcpy(&hw->nvm.ops, ei->nvm_ops, sizeof(hw->nvm.ops));
+@@ -4290,21 +4281,6 @@ err_eeprom:
+ 	if (!e1000_check_reset_block(&adapter->hw))
+ 		e1000_phy_hw_reset(&adapter->hw);
+ 
+-	if (adapter->hw.flash_address)
+-		iounmap(adapter->hw.flash_address);
+-
+-err_flashmap:
+-	kfree(adapter->tx_ring);
+-	kfree(adapter->rx_ring);
+-err_sw_init:
+-	iounmap(adapter->hw.hw_addr);
+-err_ioremap:
+-	free_netdev(netdev);
+-err_alloc_etherdev:
+-	pci_release_regions(pdev);
+-err_pci_reg:
+-err_dma:
+-	pci_disable_device(pdev);
+ 	return err;
+ }
+ 
+@@ -4340,18 +4316,6 @@ static void __devexit e1000_remove(struc
+ 
+ 	if (!e1000_check_reset_block(&adapter->hw))
+ 		e1000_phy_hw_reset(&adapter->hw);
+-
+-	kfree(adapter->tx_ring);
+-	kfree(adapter->rx_ring);
+-
+-	iounmap(adapter->hw.hw_addr);
+-	if (adapter->hw.flash_address)
+-		iounmap(adapter->hw.flash_address);
+-	pci_release_regions(pdev);
+-
+-	free_netdev(netdev);
+-
+-	pci_disable_device(pdev);
+ }
+ 
+ /* PCI Error Recovery (ERS) */
