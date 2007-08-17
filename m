@@ -1,116 +1,65 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [RFC] restore netdev_priv optimization
-Date: Fri, 17 Aug 2007 15:40:22 -0700
-Message-ID: <20070817154022.0f3afba4@freepuppy.rosehill.hemminger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+From: Segher Boessenkool <segher@kernel.crashing.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Sat, 18 Aug 2007 00:38:12 +0200
+Message-ID: <d14d1a768bfbbef34ee9f981cfd348c6@kernel.crashing.org>
+References: <20070809131423.GA9927@shell.boston.redhat.com> <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in> <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in> <20070815233721.91032366.billfink@mindspring.com> <alpine.LFD.0.999.0708161045360.25951@enigma.security.iitk.ac.in> <alpine.LFD.0.999.0708161115370.25951@enigma.security.iitk.ac.in> <43eccf425e36943ce0411c3b504b1de2@kernel.crashing.org> <alpine.LFD.0.999.0708170957350.3666@enigma.security.iitk.ac.in>
+Mime-Version: 1.0 (Apple Message framework v623)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Cc: Christoph Lameter <clameter@sgi.com>, heiko.carstens@de.ibm.com,
+	horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Bill Fink <billfink@mindspring.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, ak@suse.de, cfriesen@nortel.com,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	linux-arch@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
+	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Satyam Sharma <satyam@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:53693 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759443AbXHQWkk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2007 18:40:40 -0400
+Received: from gate.crashing.org ([63.228.1.57]:39401 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754668AbXHQWpK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Aug 2007 18:45:10 -0400
+In-Reply-To: <alpine.LFD.0.999.0708170957350.3666@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Compile tested only!!!
+>>> Here, I should obviously admit that the semantics of *(volatile int 
+>>> *)&
+>>> aren't any neater or well-defined in the _language standard_ at all. 
+>>> The
+>>> standard does say (verbatim) "precisely what constitutes as access to
+>>> object of volatile-qualified type is implementation-defined", but GCC
+>>> does help us out here by doing the right thing.
+>>
+>> Where do you get that idea?
+>
+> Try a testcase (experimentally verify).
 
-Fix optimization of netdev_priv() lost by the  addition of multiqueue.
-Move the variable size subqueues to after the constant size priv area.
+That doesn't prove anything.  Experiments can only disprove
+things.
 
-When putting back the old netdev_priv() code, I tried to make it
-clearer by using roundup() and ALIGN() macros.
+>> GCC manual, section 6.1, "When
+>> is a Volatile Object Accessed?" doesn't say anything of the
+>> kind.
+>
+> True, "implementation-defined" as per the C standard _is_ supposed to 
+> mean
+> "unspecified behaviour where each implementation documents how the 
+> choice
+> is made". So ok, probably GCC isn't "documenting" this
+> implementation-defined behaviour which it is supposed to, but can't 
+> really
+> fault them much for this, probably.
 
---- a/include/linux/netdevice.h	2007-08-17 12:08:51.000000000 -0400
-+++ b/include/linux/netdevice.h	2007-08-17 12:48:03.000000000 -0400
-@@ -575,16 +575,15 @@ struct net_device
- 
- 	/* The TX queue control structures */
- 	unsigned int			egress_subqueue_count;
--	struct net_device_subqueue	egress_subqueue[1];
-+	struct net_device_subqueue	*egress_subqueue;
- };
- #define to_net_dev(d) container_of(d, struct net_device, dev)
- 
- #define	NETDEV_ALIGN		32
--#define	NETDEV_ALIGN_CONST	(NETDEV_ALIGN - 1)
- 
- static inline void *netdev_priv(const struct net_device *dev)
- {
--	return dev->priv;
-+	return (void *)dev + ALIGN(sizeof(struct net_device), NETDEV_ALIGN);
- }
- 
- #define SET_MODULE_OWNER(dev) do { } while (0)
---- a/net/core/dev.c	2007-08-17 09:02:57.000000000 -0400
-+++ b/net/core/dev.c	2007-08-17 12:48:30.000000000 -0400
-@@ -3706,7 +3706,22 @@ EXPORT_SYMBOL(dev_get_stats);
-  *	@queue_count:	the number of subqueues to allocate
-  *
-  *	Allocates a struct net_device with private data area for driver use
-- *	and performs basic initialization.  Also allocates subquue structs
-+ *	and performs basic initialization.
-+ *
-+ *      Layout:
-+ *              allocation->+------------+
-+ *                          | (pad)      | dev->padded
-+ *                   dev -->+------------+ -- (32 byte boundary)
-+ *                          | net_device |
-+ *      netdev_priv(dev) -->+------------+ -- (32 byte boundary)
-+ *                          | device     |
-+ *                          | private    |
-+ *			    |            |
-+ * dev->egress_subqueue  -->+------------+ -- (32 byte boundary)
-+ *                          | Tx queue(s)|
-+ *                          +------------+
-+ *
-+ * Also allocates subqueue structs
-  *	for each queue on the device at the end of the netdevice.
-  */
- struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
-@@ -3719,10 +3734,9 @@ struct net_device *alloc_netdev_mq(int s
- 	BUG_ON(strlen(name) >= sizeof(dev->name));
- 
- 	/* ensure 32-byte alignment of both the device and private area */
--	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST +
--		     (sizeof(struct net_device_subqueue) * (queue_count - 1))) &
--		     ~NETDEV_ALIGN_CONST;
--	alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
-+	alloc_size = roundup(sizeof(*dev), NETDEV_ALIGN);
-+	alloc_size += roundup(sizeof_priv, NETDEV_ALIGN);
-+	alloc_size += sizeof(struct net_device_subqueue) * queue_count;
- 
- 	p = kzalloc(alloc_size, GFP_KERNEL);
- 	if (!p) {
-@@ -3730,19 +3744,20 @@ struct net_device *alloc_netdev_mq(int s
- 		return NULL;
- 	}
- 
--	dev = (struct net_device *)
--		(((long)p + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
-+	/* Pad so that network device is on cache line boundary	 */
-+	dev = (struct net_device *) ALIGN((unsigned long) p, NETDEV_ALIGN);
- 	dev->padded = (char *)dev - (char *)p;
- 
--	if (sizeof_priv) {
--		dev->priv = ((char *)dev +
--			     ((sizeof(struct net_device) +
--			       (sizeof(struct net_device_subqueue) *
--				(queue_count - 1)) + NETDEV_ALIGN_CONST)
--			      & ~NETDEV_ALIGN_CONST));
--	}
-+	if (sizeof_priv)
-+		dev->priv = netdev_priv(dev);
- 
-+	/* Put subqueue(s) which are variable size after fix sized priv area */
- 	dev->egress_subqueue_count = queue_count;
-+	dev->egress_subqueue = ALIGN((unsigned long)(netdev_priv(dev) + sizeof_priv),
-+				     NETDEV_ALIGN);
-+
-+	pr_debug("alloc_netdev_mq: p=%p dev=%p priv=%p q=%p\n",
-+	       p, dev, dev->priv, dev->egress_subqueue);
- 
- 	setup(dev);
- 	strcpy(dev->name, name);
+GCC _is_ documenting this, namely in this section 6.1.  It doesn't
+mention volatile-casted stuff.  Draw your own conclusions.
+
+
+Segher
+
