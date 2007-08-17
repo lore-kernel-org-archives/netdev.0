@@ -1,94 +1,65 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
+From: Paul Mackerras <paulus@samba.org>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
  architectures
-Date: Thu, 16 Aug 2007 20:42:23 -0700 (PDT)
-Message-ID: <alpine.LFD.0.999.0708162033400.30176@woody.linux-foundation.org>
-References: <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <46C32618.2080108@redhat.com>
- <20070815234021.GA28775@gondor.apana.org.au> <3694fb2e4ed1e4d9bf873c0d050c911e@kernel.crashing.org>
- <46C3B50E.7010702@yahoo.com.au> <194369f4c96ea0e24decf8f9197d5bad@kernel.crashing.org>
- <46C505B2.6030704@yahoo.com.au>
- <18117.4848.695269.72976@cargo.ozlabs.ibm.com>
+Date: Fri, 17 Aug 2007 13:43:27 +1000
+Message-ID: <18117.6495.397597.582736@cargo.ozlabs.ibm.com>
+References: <20070816003948.GY9645@linux.vnet.ibm.com>
+	<Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com>
+	<18115.44462.622801.683446@cargo.ozlabs.ibm.com>
+	<20070816020042.GA30650@gondor.apana.org.au>
+	<18115.45316.702491.681906@cargo.ozlabs.ibm.com>
+	<alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in>
+	<alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in>
+	<18115.52863.638655.658466@cargo.ozlabs.ibm.com>
+	<20070816053945.GB32442@gondor.apana.org.au>
+	<18115.62741.807704.969977@cargo.ozlabs.ibm.com>
+	<20070816070907.GA964@gondor.apana.org.au>
+	<Pine.LNX.4.64.0708161743500.13267@kivilampi-30.cs.helsinki.fi>
+	<46C4ABA5.9010804@redhat.com>
+	<Pine.LNX.4.64.0708161319000.17777@schroedinger.engr.sgi.com>
+	<18117.1287.779351.836552@cargo.ozlabs.ibm.com>
+	<alpine.LFD.0.999.0708161953310.30176@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Nick Piggin <nickpiggin@yahoo.com.au>,
-	Segher Boessenkool <segher@kernel.crashing.org>,
-	heiko.carstens@de.ibm.com, horms@verge.net.au,
-	linux-kernel@vger.kernel.org, rpjday@mindspring.com, ak@suse.de,
-	netdev@vger.kernel.org, cfriesen@nortel.com,
-	akpm@linux-foundation.org, jesper.juhl@gmail.com,
-	linux-arch@vger.kernel.org, zlynx@acm.org, satyam@infradead.org,
-	clameter@sgi.com, schwidefsky@de.ibm.com,
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Lameter <clameter@sgi.com>,
 	Chris Snook <csnook@redhat.com>,
-	Herbert Xu <herbert.xu@redhat.com>, davem@davemloft.net,
-	wensong@linux-vs.org, wjiang@resilience.com
-To: Paul Mackerras <paulus@samba.org>
+	Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Satyam Sharma <satyam@infradead.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>, ak@suse.de,
+	heiko.carstens@de.ibm.com, David Miller <davem@davemloft.net>,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:45760 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752814AbXHQDna (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 23:43:30 -0400
-In-Reply-To: <18117.4848.695269.72976@cargo.ozlabs.ibm.com>
+Received: from ozlabs.org ([203.10.76.45]:52471 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753672AbXHQDni (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Aug 2007 23:43:38 -0400
+In-Reply-To: <alpine.LFD.0.999.0708161953310.30176@woody.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Linus Torvalds writes:
 
+> In general, I'd *much* rather we used barriers. Anything that "depends" on 
+> volatile is pretty much set up to be buggy. But I'm certainly also willing 
+> to have that volatile inside "atomic_read/atomic_set()" if it avoids code 
+> that would otherwise break - ie if it hides a bug.
 
-On Fri, 17 Aug 2007, Paul Mackerras wrote:
-> 
-> I'm really surprised it's as much as a few K.  I tried it on powerpc
-> and it only saved 40 bytes (10 instructions) for a G5 config.
+The cost of doing so seems to me to be well down in the noise - 44
+bytes of extra kernel text on a ppc64 G5 config, and I don't believe
+the extra few cycles for the occasional extra load would be measurable
+(they should all hit in the L1 dcache).  I don't mind if x86[-64] have
+atomic_read/set be nonvolatile and find all the missing barriers, but
+for now on powerpc, I think that not having to find those missing
+barriers is worth the 0.00076% increase in kernel text size.
 
-One of the things that "volatile" generally screws up is a simple
-
-	volatile int i;
-
-	i++;
-
-which a compiler will generally get horribly, horribly wrong.
-
-In a reasonable world, gcc should just make that be (on x86)
-
-	addl $1,i(%rip)
-
-on x86-64, which is indeed what it does without the volatile. But with the 
-volatile, the compiler gets really nervous, and doesn't dare do it in one 
-instruction, and thus generates crap like
-
-        movl    i(%rip), %eax
-        addl    $1, %eax
-        movl    %eax, i(%rip)
-
-instead. For no good reason, except that "volatile" just doesn't have any 
-good/clear semantics for the compiler, so most compilers will just make it 
-be "I will not touch this access in any way, shape, or form". Including 
-even trivially correct instruction optimization/combination.
-
-This is one of the reasons why we should never use "volatile". It 
-pessimises code generation for no good reason - just because compilers 
-don't know what the heck it even means! 
-
-Now, people don't do "i++" on atomics (you'd use "atomic_inc()" for that), 
-but people *do* do things like
-
-	if (atomic_read(..) <= 1)
-		..
-
-On ppc, things like that probably don't much matter. But on x86, it makes 
-a *huge* difference whether you do
-
-	movl i(%rip),%eax
-	cmpl $1,%eax
-
-or if you can just use the value directly for the operation, like this:
-
-	cmpl $1,i(%rip)
-
-which is again a totally obvious and totally safe optimization, but is 
-(again) something that gcc doesn't dare do, since "i" is volatile.
-
-In other words: "volatile" is a horribly horribly bad way of doing things, 
-because it generates *worse*code*, for no good reason. You just don't see 
-it on powerpc, because it's already a load-store architecture, so there is 
-no "good code" for doing direct-to-memory operations.
-
-		Linus
+Paul.
