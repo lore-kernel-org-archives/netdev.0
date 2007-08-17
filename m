@@ -1,34 +1,31 @@
 From: Nick Piggin <piggin@cyberone.com.au>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
  architectures
-Date: Fri, 17 Aug 2007 21:50:43 +1000
-Message-ID: <46C58B93.5000408@cyberone.com.au>
-References: <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in> <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au> <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au> <46C40587.7050708@s5r6.in-berlin.de> <20070816081049.GA1431@gondor.apana.org.au> <46C41EE4.9090806@s5r6.in-berlin.de> <46C42767.4070104@s5r6.in-berlin.de> <20070816104250.GB2927@gondor.apana.org.au> <20070816163441.GB16957@linux.vnet.ibm.com> <46C512EB.7020603@yahoo.com.au> <46C54D74.60101@s5r6.in-berlin.de> <46C556F1.8000407@yahoo.com.au> <alpine.LFD.0.999.0708171420060.3666@enigma.security.iitk.ac.in> <46C5672E.4060003@cyberone.com.au> <alpine.LFD.0.999.0708171521230.3666@enigma.security.iitk.ac.in>
+Date: Fri, 17 Aug 2007 22:14:02 +1000
+Message-ID: <46C5910A.6020904@cyberone.com.au>
+References: <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <46C32618.2080108@redhat.com> <20070815234021.GA28775@gondor.apana.org.au> <3694fb2e4ed1e4d9bf873c0d050c911e@kernel.crashing.org> <46C3B50E.7010702@yahoo.com.au> <194369f4c96ea0e24decf8f9197d5bad@kernel.crashing.org> <46C505B2.6030704@yahoo.com.au> <18117.4848.695269.72976@cargo.ozlabs.ibm.com> <alpine.LFD.0.999.0708162033400.30176@woody.linux-foundation.org> <alpine.LFD.0.999.0708171016160.3666@enigma.security.iitk.ac.in> <46C54D94.5080803@yahoo.com.au> <alpine.LFD.0.999.0708171358520.3666@enigma.security.iitk.ac.in> <46C56725.6000207@cyberone.com.au> <alpine.LFD.0.999.0708171505200.3666@enigma.security.iitk.ac.in>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	paulmck@linux.vnet.ibm.com,
-	Herbert Xu <herbert@gondor.apana.org.au>,
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
 	Paul Mackerras <paulus@samba.org>,
-	Christoph Lameter <clameter@sgi.com>,
-	Chris Snook <csnook@redhat.com>,
+	Segher Boessenkool <segher@kernel.crashing.org>,
+	heiko.carstens@de.ibm.com, horms@verge.net.au,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
+	rpjday@mindspring.com, ak@suse.de, netdev@vger.kernel.org,
+	cfriesen@nortel.com, Andrew Morton <akpm@linux-foundation.org>,
+	jesper.juhl@gmail.com, linux-arch@vger.kernel.org, zlynx@acm.org,
+	clameter@sgi.com, schwidefsky@de.ibm.com,
+	Chris Snook <csnook@redhat.com>,
+	Herbert Xu <herbert.xu@redhat.com>, davem@davemloft.net,
+	wensong@linux-vs.org, wjiang@resilience.com
 To: Satyam Sharma <satyam@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.icp-qv1-irony2.iinet.net.au ([203.59.1.107]:38245 "EHLO
-	webmail.icp-qv1-irony2.iinet.net.au" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759944AbXHQLuu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2007 07:50:50 -0400
-In-Reply-To: <alpine.LFD.0.999.0708171521230.3666@enigma.security.iitk.ac.in>
+Received: from webmail.icp-qv1-irony3.iinet.net.au ([203.59.1.108]:4827 "EHLO
+	webmail.icp-qv1-irony3.iinet.net.au" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751364AbXHQMOI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2007 08:14:08 -0400
+In-Reply-To: <alpine.LFD.0.999.0708171505200.3666@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -37,46 +34,78 @@ Satyam Sharma wrote:
 >
 >On Fri, 17 Aug 2007, Nick Piggin wrote:
 >
->
->>Satyam Sharma wrote:
->>
->>It is very obvious. msleep calls schedule() (ie. sleeps), which is
->>always a barrier.
+>>I think they would both be equally ugly,
 >>
 >
->Probably you didn't mean that, but no, schedule() is not barrier because
->it sleeps. It's a barrier because it's invisible.
+>You think both these are equivalent in terms of "looks":
+>
+>					|
+>while (!atomic_read(&v)) {		|	while (!atomic_read_xxx(&v)) {
+>	...				|		...
+>	cpu_relax_no_barrier();		|		cpu_relax_no_barrier();
+>	order_atomic(&v);		|	}
+>}					|
+>
+>(where order_atomic() is an atomic_t
+>specific wrapper as you mentioned below)
+>
+>?
 >
 
-Where did I say it is a barrier because it sleeps?
+I think the LHS is better if your atomic_read_xxx primitive is using the
+crazy one-sided barrier, because the LHS code you immediately know what
+barriers are happening, and with the RHS you have to look at the 
+atomic_read_xxx
+definition.
 
-It is always a barrier because, at the lowest level, schedule() (and thus
-anything that sleeps) is defined to always be a barrier. Regardless of
-whatever obscure means the compiler might need to infer the barrier.
-
-In other words, you can ignore those obscure details because schedule() is
-always going to have an explicit barrier in it.
+If your atomic_read_xxx implementation was more intuitive, then both are
+pretty well equal. More lines != ugly code.
 
 
->>The "unobvious" thing is that you wanted to know how the compiler knows
->>a function is a barrier -- answer is that if it does not *know* it is not
->>a barrier, it must assume it is a barrier.
+>>but the atomic_read_volatile
+>>variant would be more prone to subtle bugs because of the weird
+>>implementation.
 >>
 >
->True, that's clearly what happens here. But are you're definitely joking
->that this is "obvious" in terms of code-clarity, right?
+>What bugs?
 >
 
-No. If you accept that barrier() is implemented correctly, and you know
-that sleeping is defined to be a barrier, then its perfectly clear. You
-don't have to know how the compiler "knows" that some function contains
-a barrier.
+You can't think for yourself? Your atomic_read_volatile contains a compiler
+barrier to the atomic variable before the load. 2 such reads from different
+locations look like this:
 
+asm volatile("" : "+m" (v1));
+atomic_read(&v1);
+asm volatile("" : "+m" (v2));
+atomic_read(&v2);
 
->Just 5 minutes back you mentioned elsewhere you like seeing lots of
->explicit calls to barrier() (with comments, no less, hmm? :-)
+Which implies that the load of v1 can be reordered to occur after the load
+of v2. Bet you didn't expect that?
+
+>>Secondly, what sort of code would do such a thing?
+>>
+>
+>See the nodemgr_host_thread() that does something similar, though not
+>exactly same.
 >
 
-Sure, but there are well known primitives which contain barriers, and
-trivial recognisable code sequences for which you don't need comments.
-waiting-loops using sleeps or cpu_relax() are prime examples.
+I'm sorry, all this waffling about made up code which might do this and
+that is just a waste of time. Seriously, the thread is bloated enough
+and never going to get anywhere with all this handwaving. If someone is
+saving up all the really real and actually good arguments for why we
+must have a volatile here, now is the time to use them.
+
+>>and have barriers both before and after the memory operation,
+>>
+>
+>How could that lead to bugs? (if you can point to existing code,
+>but just some testcase / sample code would be fine as well).
+>
+
+See above.
+
+>As I said, barrier() is too heavy-handed.
+>
+
+Typo. I meant: defined for a single memory location (ie. order(x)).
+
