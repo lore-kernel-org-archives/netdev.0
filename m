@@ -1,62 +1,43 @@
 From: Segher Boessenkool <segher@kernel.crashing.org>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Sat, 18 Aug 2007 00:29:30 +0200
-Message-ID: <036b785bc30ad3faa872171d8630542f@kernel.crashing.org>
-References: <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <46C32618.2080108@redhat.com> <20070815234021.GA28775@gondor.apana.org.au> <3694fb2e4ed1e4d9bf873c0d050c911e@kernel.crashing.org> <46C3B50E.7010702@yahoo.com.au> <194369f4c96ea0e24decf8f9197d5bad@kernel.crashing.org> <46C505B2.6030704@yahoo.com.au> <18117.4848.695269.72976@cargo.ozlabs.ibm.com> <alpine.LFD.0.999.0708162033400.30176@woody.linux-foundation.org>
+Date: Sat, 18 Aug 2007 00:34:34 +0200
+Message-ID: <33a54cfcfda7e50e43a7399780626869@kernel.crashing.org>
+References: <20070809131423.GA9927@shell.boston.redhat.com> <Pine.LNX.4.64.0708141529310.32693@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708150417240.6482@enigma.security.iitk.ac.in> <46C2D6F3.3070707@s5r6.in-berlin.de> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in> <20070815233721.91032366.billfink@mindspring.com> <alpine.LFD.0.999.0708161045360.25951@enigma.security.iitk.ac.in> <4952d3f536060c186f40c277dfc74194@kernel.crashing.org> <alpine.LFD.0.999.0708170945300.3666@enigma.security.iitk.ac.in>
 Mime-Version: 1.0 (Apple Message framework v623)
 Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Paul Mackerras <paulus@samba.org>, heiko.carstens@de.ibm.com,
-	horms@verge.net.au, linux-kernel@vger.kernel.org,
-	rpjday@mindspring.com, ak@suse.de, netdev@vger.kernel.org,
-	cfriesen@nortel.com, akpm@linux-foundation.org,
-	Nick Piggin <nickpiggin@yahoo.com.au>,
-	linux-arch@vger.kernel.org, jesper.juhl@gmail.com,
-	satyam@infradead.org, zlynx@acm.org, clameter@sgi.com,
-	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
-	Herbert Xu <herbert.xu@redhat.com>, davem@davemloft.net,
+Cc: Christoph Lameter <clameter@sgi.com>, heiko.carstens@de.ibm.com,
+	horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Bill Fink <billfink@mindspring.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, ak@suse.de, cfriesen@nortel.com,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	linux-arch@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
+	davids@webmaster.com, schwidefsky@de.ibm.com,
+	Chris Snook <csnook@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	Linus Torvalds <torvalds@linux-foundation.org>,
 	wensong@linux-vs.org, wjiang@resilience.com
-To: Linus Torvalds <torvalds@linux-foundation.org>
+To: Satyam Sharma <satyam@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:53034 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:35515 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752951AbXHQWaj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Aug 2007 18:30:39 -0400
-In-Reply-To: <alpine.LFD.0.999.0708162033400.30176@woody.linux-foundation.org>
+	id S1752062AbXHQWkM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Aug 2007 18:40:12 -0400
+In-Reply-To: <alpine.LFD.0.999.0708170945300.3666@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> In a reasonable world, gcc should just make that be (on x86)
->
-> 	addl $1,i(%rip)
->
-> on x86-64, which is indeed what it does without the volatile. But with 
-> the
-> volatile, the compiler gets really nervous, and doesn't dare do it in 
-> one
-> instruction, and thus generates crap like
->
->         movl    i(%rip), %eax
->         addl    $1, %eax
->         movl    %eax, i(%rip)
->
-> instead. For no good reason, except that "volatile" just doesn't have 
-> any
-> good/clear semantics for the compiler, so most compilers will just 
-> make it
-> be "I will not touch this access in any way, shape, or form". Including
-> even trivially correct instruction optimization/combination.
+> Now the second wording *IS* technically correct, but come on, it's
+> 24 words long whereas the original one was 3 -- and hopefully anybody
+> reading the shorter phrase *would* have known anyway what was meant,
+> without having to be pedantic about it :-)
 
-It's just a (target-specific, perhaps) missed-optimisation kind
-of bug in GCC.  Care to file a bug report?
-
-> but is
-> (again) something that gcc doesn't dare do, since "i" is volatile.
-
-Just nobody taught it it can do this; perhaps no one wanted to
-add optimisations like that, maybe with a reasoning like "people
-who hit the go-slow-in-unspecified-ways button should get what
-they deserve" ;-)
+Well you were talking pretty formal (and detailed) stuff, so
+IMHO it's good to have that exactly correct.  Sure it's nicer
+to use small words most of the time :-)
 
 
 Segher
