@@ -1,15 +1,16 @@
-From: Herbert Xu <herbert.xu@redhat.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Fri, 17 Aug 2007 08:02:09 +0800
-Message-ID: <20070817000209.GC11594@gondor.apana.org.au>
-References: <18115.45316.702491.681906@cargo.ozlabs.ibm.com> <alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in> <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in> <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au> <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au> <46C40587.7050708@s5r6.in-berlin.de> <20070816081049.GA1431@gondor.apana.org.au> <46C4AA26.4060707@redhat.com>
+Date: Thu, 16 Aug 2007 18:01:08 -0700
+Message-ID: <20070817010108.GJ16957@linux.vnet.ibm.com>
+References: <20070816053945.GB32442@gondor.apana.org.au> <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au> <46C40587.7050708@s5r6.in-berlin.de> <20070816081049.GA1431@gondor.apana.org.au> <46C41EE4.9090806@s5r6.in-berlin.de> <46C42767.4070104@s5r6.in-berlin.de> <20070816104250.GB2927@gondor.apana.org.au> <20070816163441.GB16957@linux.vnet.ibm.com> <20070816235902.GB11594@gondor.apana.org.au>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	Paul Mackerras <paulus@samba.org>,
 	Satyam Sharma <satyam@infradead.org>,
 	Christoph Lameter <clameter@sgi.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Chris Snook <csnook@redhat.com>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	linux-arch@vger.kernel.org,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -19,32 +20,111 @@ Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
 	rpjday@mindspring.com, jesper.juhl@gmail.com,
 	segher@kernel.crashing.org
-To: Chris Snook <csnook@redhat.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3251 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753510AbXHQAC2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 20:02:28 -0400
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:54076 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752195AbXHQBBN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Aug 2007 21:01:13 -0400
 Content-Disposition: inline
-In-Reply-To: <46C4AA26.4060707@redhat.com>
+In-Reply-To: <20070816235902.GB11594@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 16, 2007 at 03:48:54PM -0400, Chris Snook wrote:
->
-> >Can you find an actual atomic_read code snippet there that is
-> >broken without the volatile modifier?
+On Fri, Aug 17, 2007 at 07:59:02AM +0800, Herbert Xu wrote:
+> On Thu, Aug 16, 2007 at 09:34:41AM -0700, Paul E. McKenney wrote:
+> >
+> > The compiler can also reorder non-volatile accesses.  For an example
+> > patch that cares about this, please see:
+> > 
+> > 	http://lkml.org/lkml/2007/8/7/280
+> > 
+> > This patch uses an ORDERED_WRT_IRQ() in rcu_read_lock() and
+> > rcu_read_unlock() to ensure that accesses aren't reordered with respect
+> > to interrupt handlers and NMIs/SMIs running on that same CPU.
 > 
-> A whole bunch of atomic_read uses will be broken without the volatile 
-> modifier once we start removing barriers that aren't needed if volatile 
-> behavior is guaranteed.
+> Good, finally we have some code to discuss (even though it's
+> not actually in the kernel yet).
 
-Could you please cite the file/function names so we can
-see whether removing the barrier makes sense?
+There was some earlier in this thread as well.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> First of all, I think this illustrates that what you want
+> here has nothing to do with atomic ops.  The ORDERED_WRT_IRQ
+> macro occurs a lot more times in your patch than atomic
+> reads/sets.  So *assuming* that it was necessary at all,
+> then having an ordered variant of the atomic_read/atomic_set
+> ops could do just as well.
+
+Indeed.  If I could trust atomic_read()/atomic_set() to cause the compiler
+to maintain ordering, then I could just use them instead of having to
+create an  ORDERED_WRT_IRQ().  (Or ACCESS_ONCE(), as it is called in a
+different patch.)
+
+> However, I still don't know which atomic_read/atomic_set in
+> your patch would be broken if there were no volatile.  Could
+> you please point them out?
+
+Suppose I tried replacing the ORDERED_WRT_IRQ() calls with
+atomic_read() and atomic_set().  Starting with __rcu_read_lock():
+
+o	If "ORDERED_WRT_IRQ(__get_cpu_var(rcu_flipctr)[idx])++"
+	was ordered by the compiler after
+	"ORDERED_WRT_IRQ(me->rcu_read_lock_nesting) = nesting + 1", then
+	suppose an NMI/SMI happened after the rcu_read_lock_nesting but
+	before the rcu_flipctr.
+
+	Then if there was an rcu_read_lock() in the SMI/NMI
+	handler (which is perfectly legal), the nested rcu_read_lock()
+	would believe that it could take the then-clause of the
+	enclosing "if" statement.  But because the rcu_flipctr per-CPU
+	variable had not yet been incremented, an RCU updater would
+	be within its rights to assume that there were no RCU reads
+	in progress, thus possibly yanking a data structure out from
+	under the reader in the SMI/NMI function.
+
+	Fatal outcome.  Note that only one CPU is involved here
+	because these are all either per-CPU or per-task variables.
+
+o	If "ORDERED_WRT_IRQ(me->rcu_read_lock_nesting) = nesting + 1"
+	was ordered by the compiler to follow the
+	"ORDERED_WRT_IRQ(me->rcu_flipctr_idx) = idx", and an NMI/SMI
+	happened between the two, then an __rcu_read_lock() in the NMI/SMI
+	would incorrectly take the "else" clause of the enclosing "if"
+	statement.  If some other CPU flipped the rcu_ctrlblk.completed
+	in the meantime, then the __rcu_read_lock() would (correctly)
+	write the new value into rcu_flipctr_idx.
+
+	Well and good so far.  But the problem arises in
+	__rcu_read_unlock(), which then decrements the wrong counter.
+	Depending on exactly how subsequent events played out, this could
+	result in either prematurely ending grace periods or never-ending
+	grace periods, both of which are fatal outcomes.
+
+And the following are not needed in the current version of the
+patch, but will be in a future version that either avoids disabling
+irqs or that dispenses with the smp_read_barrier_depends() that I
+have 99% convinced myself is unneeded:
+
+o	nesting = ORDERED_WRT_IRQ(me->rcu_read_lock_nesting);
+
+o	idx = ORDERED_WRT_IRQ(rcu_ctrlblk.completed) & 0x1;
+
+Furthermore, in that future version, irq handlers can cause the same
+mischief that SMI/NMI handlers can in this version.
+
+Next, looking at __rcu_read_unlock():
+
+o	If "ORDERED_WRT_IRQ(me->rcu_read_lock_nesting) = nesting - 1"
+	was reordered by the compiler to follow the
+	"ORDERED_WRT_IRQ(__get_cpu_var(rcu_flipctr)[idx])--",
+	then if an NMI/SMI containing an rcu_read_lock() occurs between
+	the two, this nested rcu_read_lock() would incorrectly believe
+	that it was protected by an enclosing RCU read-side critical
+	section as described in the first reversal discussed for
+	__rcu_read_lock() above.  Again, fatal outcome.
+
+This is what we have now.  It is not hard to imagine situations that
+interact with -both- interrupt handlers -and- other CPUs, as described
+earlier.
+
+							Thanx, Paul
