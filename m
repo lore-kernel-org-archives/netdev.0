@@ -1,46 +1,76 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP ports
-	from the host TCP port space.
-Date: Fri, 17 Aug 2007 16:31:07 -0700
-Message-ID: <adafy2hyc04.fsf@cisco.com>
-References: <1187271791.4685.9.camel@trinity.ogc.int>
-	<20070816.141751.115907875.davem@davemloft.net>
-	<adaodh6x7js.fsf@cisco.com>
-	<20070817.142756.65194845.davem@davemloft.net>
+From: Satyam Sharma <satyam@infradead.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Sat, 18 Aug 2007 05:21:42 +0530 (IST)
+Message-ID: <alpine.LFD.0.999.0708180512300.3666@enigma.security.iitk.ac.in>
+References: <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <46C32618.2080108@redhat.com>
+ <20070815234021.GA28775@gondor.apana.org.au> <3694fb2e4ed1e4d9bf873c0d050c911e@kernel.crashing.org>
+ <46C3B50E.7010702@yahoo.com.au> <194369f4c96ea0e24decf8f9197d5bad@kernel.crashing.org>
+ <46C505B2.6030704@yahoo.com.au> <18117.4848.695269.72976@cargo.ozlabs.ibm.com>
+ <alpine.LFD.0.999.0708162033400.30176@woody.linux-foundation.org>
+ <alpine.LFD.0.999.0708171016160.3666@enigma.security.iitk.ac.in>
+ <f5796b5aa38ae6305c65ffa0340ba295@kernel.crashing.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: David Miller <davem@davemloft.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070817.142756.65194845.davem@davemloft.net> (David Miller's
-	message of "Fri, 17 Aug 2007 14:27:56 -0700 (PDT)")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: Paul Mackerras <paulus@samba.org>, heiko.carstens@de.ibm.com,
+	horms@verge.net.au,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	rpjday@mindspring.com, ak@suse.de, netdev@vger.kernel.org,
+	cfriesen@nortel.com, Nick Piggin <nickpiggin@yahoo.com.au>,
+	linux-arch@vger.kernel.org, jesper.juhl@gmail.com,
+	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
+	clameter@sgi.com, schwidefsky@de.ibm.com,
+	Chris Snook <csnook@redhat.com>,
+	Herbert Xu <herbert.xu@redhat.com>, davem@davemloft.net,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Segher Boessenkool <segher@kernel.crashing.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pentafluge.infradead.org ([213.146.154.40]:46455 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751348AbXHQXjI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2007 19:39:08 -0400
+In-Reply-To: <f5796b5aa38ae6305c65ffa0340ba295@kernel.crashing.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > >  > When using RDMA you lose the capability to do packet shaping,
- > >  > classification, and all the other wonderful networking facilities
- > >  > you've grown to love and use over the years.
- > > 
- > > Same thing with TSO and LRO and who knows what else.
- > 
- > Not true at all.  Full classification and filtering still is usable
- > with TSO and LRO.
 
-Well, obviously with TSO and LRO the packets that the stack sends or
-receives are not the same as what's on the wire.  Whether that breaks
-your wonderful networking facilities or not depends on the specifics
-of the particular facility I guess -- for example shaping is clearly
-broken by TSO.  (And people can wonder what the packet trains TSO
-creates do to congestion control on the internet, but the netdev crowd
-has already decided that TSO is "good" and RDMA is "bad")
 
- - R.
+On Sat, 18 Aug 2007, Segher Boessenkool wrote:
+
+> > #define forget(a)	__asm__ __volatile__ ("" :"=m" (a) :"m" (a))
+> > 
+> > [ This is exactly equivalent to using "+m" in the constraints, as recently
+> >   explained on a GCC list somewhere, in response to the patch in my bitops
+> >   series a few weeks back where I thought "+m" was bogus. ]
+> 
+> [It wasn't explained on a GCC list in response to your patch, as
+> far as I can see -- if I missed it, please point me to an archived
+> version of it].
+
+http://gcc.gnu.org/ml/gcc-patches/2007-07/msg01758.html
+
+is a follow-up in the thread on the gcc-patches@gcc.gnu.org mailing list,
+which began with:
+
+http://gcc.gnu.org/ml/gcc-patches/2007-07/msg01677.html
+
+that was posted by Jan Kubicka, as he quotes in that initial posting,
+after I had submitted:
+
+http://lkml.org/lkml/2007/7/23/252
+
+which was a (wrong) patch to "rectify" what I thought was the "bogus"
+"+m" constraint, as per the quoted extract from gcc docs (that was
+given in that (wrong) patch's changelog).
+
+That's when _I_ came to know how GCC interprets "+m", but probably
+this has been explained on those lists multiple times. Who cares,
+anyway?
+
+
+> One last time: it isn't equivalent on older (but still supported
+> by Linux) versions of GCC.  Current versions of GCC allow it, but
+> it has no documented behaviour at all, so use it at your own risk.
+
+True.
