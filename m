@@ -1,216 +1,186 @@
-From: Brian King <brking@linux.vnet.ibm.com>
-Subject: [PATCH 1/6] ibmveth: Enable TCP checksum offload
-Date: Fri, 17 Aug 2007 09:16:24 -0500
-Message-ID: <5973.71771368689$1187360235@news.gmane.org>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Fri, 17 Aug 2007 07:31:01 -0700
+Message-ID: <20070817143101.GA8464@linux.vnet.ibm.com>
+References: <20070816070907.GA964@gondor.apana.org.au> <46C40587.7050708@s5r6.in-berlin.de> <20070816081049.GA1431@gondor.apana.org.au> <46C41EE4.9090806@s5r6.in-berlin.de> <46C42767.4070104@s5r6.in-berlin.de> <20070816104250.GB2927@gondor.apana.org.au> <20070816163441.GB16957@linux.vnet.ibm.com> <20070816235902.GB11594@gondor.apana.org.au> <20070817010108.GJ16957@linux.vnet.ibm.com> <alpine.LFD.0.999.0708171232380.3666@enigma.security.iitk.ac.in>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, rcjenn@linux.vnet.ibm.com,
-	brking@linux.vnet.ibm.com, santil@linux.vnet.ibm.com,
-	netdev@vger.kernel.org
-To: jeff@garzik.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Paul Mackerras <paulus@samba.org>,
+	Christoph Lameter <clameter@sgi.com>,
+	Chris Snook <csnook@redhat.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org
+To: Satyam Sharma <satyam@infradead.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1764093AbXHQOb0@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.0.999.0708171232380.3666@enigma.security.iitk.ac.in>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Aug 17, 2007 at 01:09:08PM +0530, Satyam Sharma wrote:
+> 
+> 
+> On Thu, 16 Aug 2007, Paul E. McKenney wrote:
+> 
+> > On Fri, Aug 17, 2007 at 07:59:02AM +0800, Herbert Xu wrote:
+> > > On Thu, Aug 16, 2007 at 09:34:41AM -0700, Paul E. McKenney wrote:
+> > > >
+> > > > The compiler can also reorder non-volatile accesses.  For an example
+> > > > patch that cares about this, please see:
+> > > > 
+> > > > 	http://lkml.org/lkml/2007/8/7/280
+> > > > 
+> > > > This patch uses an ORDERED_WRT_IRQ() in rcu_read_lock() and
+> > > > rcu_read_unlock() to ensure that accesses aren't reordered with respect
+> > > > to interrupt handlers and NMIs/SMIs running on that same CPU.
+> > > 
+> > > Good, finally we have some code to discuss (even though it's
+> > > not actually in the kernel yet).
+> > 
+> > There was some earlier in this thread as well.
+> 
+> Hmm, I never quite got what all this interrupt/NMI/SMI handling and
+> RCU business you mentioned earlier was all about, but now that you've
+> pointed to the actual code and issues with it ...
 
-This patchset enables TCP checksum offload support for IPV4
-on ibmveth. This completely eliminates the generation and checking of
-the checksum for packets that are completely virtual and never
-touch a physical network. A simple TCP_STREAM netperf run on
-a virtual network with maximum mtu set yielded a ~30% increase
-in throughput. This feature is enabled by default on systems that
-support it, but can be disabled with a module option.
+Glad to help...
 
-Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
----
+> > > First of all, I think this illustrates that what you want
+> > > here has nothing to do with atomic ops.  The ORDERED_WRT_IRQ
+> > > macro occurs a lot more times in your patch than atomic
+> > > reads/sets.  So *assuming* that it was necessary at all,
+> > > then having an ordered variant of the atomic_read/atomic_set
+> > > ops could do just as well.
+> > 
+> > Indeed.  If I could trust atomic_read()/atomic_set() to cause the compiler
+> > to maintain ordering, then I could just use them instead of having to
+> > create an  ORDERED_WRT_IRQ().  (Or ACCESS_ONCE(), as it is called in a
+> > different patch.)
+> 
+> +#define WHATEVER(x)	(*(volatile typeof(x) *)&(x))
+> 
+> I suppose one could want volatile access semantics for stuff that's
+> a bit-field too, no?
 
- linux-2.6-bjking1/drivers/net/ibmveth.c |   53 ++++++++++++++++++++++++++++++++
- linux-2.6-bjking1/drivers/net/ibmveth.h |   41 +++++++++++++++++++++++-
- 2 files changed, 92 insertions(+), 2 deletions(-)
+One could, but this is not supported in general.  So if you want that,
+you need to use the usual bit-mask tricks and (for setting) atomic
+operations.
 
-diff -puN drivers/net/ibmveth.c~ibmveth_csum_offload drivers/net/ibmveth.c
---- linux-2.6/drivers/net/ibmveth.c~ibmveth_csum_offload	2007-08-09 13:08:21.000000000 -0500
-+++ linux-2.6-bjking1/drivers/net/ibmveth.c	2007-08-09 13:08:21.000000000 -0500
-@@ -47,6 +47,8 @@
- #include <linux/mm.h>
- #include <linux/ethtool.h>
- #include <linux/proc_fs.h>
-+#include <linux/in.h>
-+#include <linux/ip.h>
- #include <asm/semaphore.h>
- #include <asm/hvcall.h>
- #include <asm/atomic.h>
-@@ -131,6 +133,11 @@ static inline int ibmveth_rxq_frame_leng
- 	return (adapter->rx_queue.queue_addr[adapter->rx_queue.index].length);
- }
- 
-+static inline int ibmveth_rxq_csum_good(struct ibmveth_adapter *adapter)
-+{
-+	return (adapter->rx_queue.queue_addr[adapter->rx_queue.index].csum_good);
-+}
-+
- /* setup the initial settings for a buffer pool */
- static void ibmveth_init_buffer_pool(struct ibmveth_buff_pool *pool, u32 pool_index, u32 pool_size, u32 buff_size, u32 pool_active)
- {
-@@ -684,6 +691,24 @@ static int ibmveth_start_xmit(struct sk_
- 					desc[0].fields.length, DMA_TO_DEVICE);
- 	desc[0].fields.valid   = 1;
- 
-+	if (skb->ip_summed == CHECKSUM_PARTIAL &&
-+	    ip_hdr(skb)->protocol != IPPROTO_TCP && skb_checksum_help(skb)) {
-+		ibmveth_error_printk("tx: failed to checksum packet\n");
-+		tx_dropped++;
-+		goto out;
-+	}
-+
-+	if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+		unsigned char *buf = skb_transport_header(skb) + skb->csum_offset;
-+
-+		desc[0].fields.no_csum = 1;
-+		desc[0].fields.csum_good = 1;
-+
-+		/* Need to zero out the checksum */
-+		buf[0] = 0;
-+		buf[1] = 0;
-+	}
-+
- 	if(dma_mapping_error(desc[0].fields.address)) {
- 		ibmveth_error_printk("tx: unable to map initial fragment\n");
- 		tx_map_failed++;
-@@ -702,6 +727,10 @@ static int ibmveth_start_xmit(struct sk_
- 				frag->size, DMA_TO_DEVICE);
- 		desc[curfrag+1].fields.length = frag->size;
- 		desc[curfrag+1].fields.valid  = 1;
-+		if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+			desc[curfrag+1].fields.no_csum = 1;
-+			desc[curfrag+1].fields.csum_good = 1;
-+		}
- 
- 		if(dma_mapping_error(desc[curfrag+1].fields.address)) {
- 			ibmveth_error_printk("tx: unable to map fragment %d\n", curfrag);
-@@ -792,7 +821,11 @@ static int ibmveth_poll(struct net_devic
- 			} else {
- 				int length = ibmveth_rxq_frame_length(adapter);
- 				int offset = ibmveth_rxq_frame_offset(adapter);
-+				int csum_good = ibmveth_rxq_csum_good(adapter);
-+
- 				skb = ibmveth_rxq_get_buffer(adapter);
-+				if (csum_good)
-+					skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
- 				ibmveth_rxq_harvest_buffer(adapter);
- 
-@@ -962,8 +995,10 @@ static void ibmveth_poll_controller(stru
- static int __devinit ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
- {
- 	int rc, i;
-+	long ret;
- 	struct net_device *netdev;
- 	struct ibmveth_adapter *adapter;
-+	union ibmveth_illan_attributes set_attr, ret_attr;
- 
- 	unsigned char *mac_addr_p;
- 	unsigned int *mcastFilterSize_p;
-@@ -1057,6 +1092,24 @@ static int __devinit ibmveth_probe(struc
- 
- 	ibmveth_debug_printk("registering netdev...\n");
- 
-+	ret = h_illan_attributes(dev->unit_address, 0, 0, &ret_attr.desc);
-+
-+	if (ret == H_SUCCESS && !ret_attr.fields.active_trunk &&
-+	    !ret_attr.fields.trunk_priority &&
-+	    ret_attr.fields.csum_offload_padded_pkt_support) {
-+		set_attr.desc = 0;
-+		set_attr.fields.tcp_csum_offload_ipv4 = 1;
-+
-+		ret = h_illan_attributes(dev->unit_address, 0, set_attr.desc,
-+					 &ret_attr.desc);
-+
-+		if (ret == H_SUCCESS)
-+			netdev->features |= NETIF_F_IP_CSUM;
-+		else
-+			ret = h_illan_attributes(dev->unit_address, set_attr.desc,
-+						 0, &ret_attr.desc);
-+	}
-+
- 	rc = register_netdev(netdev);
- 
- 	if(rc) {
-diff -puN drivers/net/ibmveth.h~ibmveth_csum_offload drivers/net/ibmveth.h
---- linux-2.6/drivers/net/ibmveth.h~ibmveth_csum_offload	2007-08-09 13:08:21.000000000 -0500
-+++ linux-2.6-bjking1/drivers/net/ibmveth.h	2007-08-09 13:08:21.000000000 -0500
-@@ -67,6 +67,21 @@ static inline long h_send_logical_lan(un
- 	return rc;
- }
- 
-+static inline long h_illan_attributes(unsigned long unit_address,
-+				      unsigned long reset_mask, unsigned long set_mask,
-+				      unsigned long *ret_attributes)
-+{
-+	long rc;
-+	unsigned long retbuf[PLPAR_HCALL_BUFSIZE];
-+
-+	rc = plpar_hcall(H_ILLAN_ATTRIBUTES, retbuf, unit_address,
-+			 reset_mask, set_mask);
-+
-+	*ret_attributes = retbuf[0];
-+
-+	return rc;
-+}
-+
- #define h_multicast_ctrl(ua, cmd, mac) \
-   plpar_hcall_norets(H_MULTICAST_CTRL, ua, cmd, mac)
- 
-@@ -141,7 +156,9 @@ struct ibmveth_adapter {
- struct ibmveth_buf_desc_fields {
-     u32 valid : 1;
-     u32 toggle : 1;
--    u32 reserved : 6;
-+    u32 reserved : 4;
-+    u32 no_csum : 1;
-+    u32 csum_good : 1;
-     u32 length : 24;
-     u32 address;
- };
-@@ -151,10 +168,30 @@ union ibmveth_buf_desc {
-     struct ibmveth_buf_desc_fields fields;
- };
- 
-+struct ibmveth_illan_attributes_fields {
-+	u32 reserved;
-+	u32 reserved2 : 18;
-+	u32 csum_offload_padded_pkt_support : 1;
-+	u32 reserved3 : 1;
-+	u32 trunk_priority : 4;
-+	u32 reserved4 : 5;
-+	u32 tcp_csum_offload_ipv6 : 1;
-+	u32 tcp_csum_offload_ipv4 : 1;
-+	u32 active_trunk : 1;
-+};
-+
-+union ibmveth_illan_attributes {
-+	u64 desc;
-+	struct ibmveth_illan_attributes_fields fields;
-+};
-+
- struct ibmveth_rx_q_entry {
-     u16 toggle : 1;
-     u16 valid : 1;
--    u16 reserved : 14;
-+    u16 reserved : 4;
-+    u16 no_csum : 1;
-+    u16 csum_good : 1;
-+    u16 reserved2 : 8;
-     u16 offset;
-     u32 length;
-     u64 correlator;
-_
+> Also, this gives *zero* "re-ordering" guarantees that your code wants
+> as you've explained it below) -- neither w.r.t. CPU re-ordering (which
+> probably you don't care about) *nor* w.r.t. compiler re-ordering
+> (which you definitely _do_ care about).
+
+You are correct about CPU re-ordering (and about the fact that this
+example doesn't care about it), but not about compiler re-ordering.
+
+The compiler is prohibited from moving a volatile access across a sequence
+point.  One example of a sequence point is a statement boundary.  Because
+all of the volatile accesses in this code are separated by statement
+boundaries, a conforming compiler is prohibited from reordering them.
+
+> > > However, I still don't know which atomic_read/atomic_set in
+> > > your patch would be broken if there were no volatile.  Could
+> > > you please point them out?
+> > 
+> > Suppose I tried replacing the ORDERED_WRT_IRQ() calls with
+> > atomic_read() and atomic_set().  Starting with __rcu_read_lock():
+> > 
+> > o	If "ORDERED_WRT_IRQ(__get_cpu_var(rcu_flipctr)[idx])++"
+> > 	was ordered by the compiler after
+> > 	"ORDERED_WRT_IRQ(me->rcu_read_lock_nesting) = nesting + 1", then
+> > 	suppose an NMI/SMI happened after the rcu_read_lock_nesting but
+> > 	before the rcu_flipctr.
+> > 
+> > 	Then if there was an rcu_read_lock() in the SMI/NMI
+> > 	handler (which is perfectly legal), the nested rcu_read_lock()
+> > 	would believe that it could take the then-clause of the
+> > 	enclosing "if" statement.  But because the rcu_flipctr per-CPU
+> > 	variable had not yet been incremented, an RCU updater would
+> > 	be within its rights to assume that there were no RCU reads
+> > 	in progress, thus possibly yanking a data structure out from
+> > 	under the reader in the SMI/NMI function.
+> > 
+> > 	Fatal outcome.  Note that only one CPU is involved here
+> > 	because these are all either per-CPU or per-task variables.
+> 
+> Ok, so you don't care about CPU re-ordering. Still, I should let you know
+> that your ORDERED_WRT_IRQ() -- bad name, btw -- is still buggy. What you
+> want is a full compiler optimization barrier().
+
+No.  See above.
+
+> [ Your code probably works now, and emits correct code, but that's
+>   just because of gcc did what it did. Nothing in any standard,
+>   or in any documented behaviour of gcc, or anything about the real
+>   (or expected) semantics of "volatile" is protecting the code here. ]
+
+Really?  Why doesn't the prohibition against moving volatile accesses
+across sequence points take care of this?
+
+> > o	If "ORDERED_WRT_IRQ(me->rcu_read_lock_nesting) = nesting + 1"
+> > 	was ordered by the compiler to follow the
+> > 	"ORDERED_WRT_IRQ(me->rcu_flipctr_idx) = idx", and an NMI/SMI
+> > 	happened between the two, then an __rcu_read_lock() in the NMI/SMI
+> > 	would incorrectly take the "else" clause of the enclosing "if"
+> > 	statement.  If some other CPU flipped the rcu_ctrlblk.completed
+> > 	in the meantime, then the __rcu_read_lock() would (correctly)
+> > 	write the new value into rcu_flipctr_idx.
+> > 
+> > 	Well and good so far.  But the problem arises in
+> > 	__rcu_read_unlock(), which then decrements the wrong counter.
+> > 	Depending on exactly how subsequent events played out, this could
+> > 	result in either prematurely ending grace periods or never-ending
+> > 	grace periods, both of which are fatal outcomes.
+> > 
+> > And the following are not needed in the current version of the
+> > patch, but will be in a future version that either avoids disabling
+> > irqs or that dispenses with the smp_read_barrier_depends() that I
+> > have 99% convinced myself is unneeded:
+> > 
+> > o	nesting = ORDERED_WRT_IRQ(me->rcu_read_lock_nesting);
+> > 
+> > o	idx = ORDERED_WRT_IRQ(rcu_ctrlblk.completed) & 0x1;
+> > 
+> > Furthermore, in that future version, irq handlers can cause the same
+> > mischief that SMI/NMI handlers can in this version.
+> > 
+> > Next, looking at __rcu_read_unlock():
+> > 
+> > o	If "ORDERED_WRT_IRQ(me->rcu_read_lock_nesting) = nesting - 1"
+> > 	was reordered by the compiler to follow the
+> > 	"ORDERED_WRT_IRQ(__get_cpu_var(rcu_flipctr)[idx])--",
+> > 	then if an NMI/SMI containing an rcu_read_lock() occurs between
+> > 	the two, this nested rcu_read_lock() would incorrectly believe
+> > 	that it was protected by an enclosing RCU read-side critical
+> > 	section as described in the first reversal discussed for
+> > 	__rcu_read_lock() above.  Again, fatal outcome.
+> > 
+> > This is what we have now.  It is not hard to imagine situations that
+> > interact with -both- interrupt handlers -and- other CPUs, as described
+> > earlier.
+> 
+> It's not about interrupt/SMI/NMI handlers at all! What you clearly want,
+> simply put, is that a certain stream of C statements must be emitted
+> by the compiler _as they are_ with no re-ordering optimizations! You must
+> *definitely* use barrier(), IMHO.
+
+Almost.  I don't care about most of the operations, only about the loads
+and stores marked volatile.  Again, although the compiler is free to
+reorder volatile accesses that occur -within- a single statement, it
+is prohibited by the standard from moving volatile accesses from one
+statement to another.  Therefore, this code can legitimately use volatile.
+
+Or am I missing something subtle?
+
+						Thanx, Paul
