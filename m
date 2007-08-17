@@ -1,10 +1,21 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Paul Mackerras <paulus@samba.org>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Fri, 17 Aug 2007 13:32:00 +0800
-Message-ID: <20070817053200.GA15457@gondor.apana.org.au>
-References: <18115.45316.702491.681906@cargo.ozlabs.ibm.com> <alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in> <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in> <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au> <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au> <46C40587.7050708@s5r6.in-berlin.de> <20070816081049.GA1431@gondor.apana.org.au> <18117.11685.431347.996767@cargo.ozlabs.ibm.com>
+Date: Fri, 17 Aug 2007 15:41:28 +1000
+Message-ID: <18117.13576.93583.222760@cargo.ozlabs.ibm.com>
+References: <18115.45316.702491.681906@cargo.ozlabs.ibm.com>
+	<alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in>
+	<alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in>
+	<18115.52863.638655.658466@cargo.ozlabs.ibm.com>
+	<20070816053945.GB32442@gondor.apana.org.au>
+	<18115.62741.807704.969977@cargo.ozlabs.ibm.com>
+	<20070816070907.GA964@gondor.apana.org.au>
+	<46C40587.7050708@s5r6.in-berlin.de>
+	<20070816081049.GA1431@gondor.apana.org.au>
+	<18117.11685.431347.996767@cargo.ozlabs.ibm.com>
+	<20070817053200.GA15457@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	Satyam Sharma <satyam@infradead.org>,
 	Christoph Lameter <clameter@sgi.com>,
@@ -19,37 +30,39 @@ Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
 	rpjday@mindspring.com, jesper.juhl@gmail.com,
 	segher@kernel.crashing.org
-To: Paul Mackerras <paulus@samba.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1619 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755076AbXHQFdO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2007 01:33:14 -0400
-Content-Disposition: inline
-In-Reply-To: <18117.11685.431347.996767@cargo.ozlabs.ibm.com>
+Received: from ozlabs.org ([203.10.76.45]:56066 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756898AbXHQFlh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Aug 2007 01:41:37 -0400
+In-Reply-To: <20070817053200.GA15457@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 17, 2007 at 03:09:57PM +1000, Paul Mackerras wrote:
-> Herbert Xu writes:
+Herbert Xu writes:
+
+> On Fri, Aug 17, 2007 at 03:09:57PM +1000, Paul Mackerras wrote:
+> > Herbert Xu writes:
+> > 
+> > > Can you find an actual atomic_read code snippet there that is
+> > > broken without the volatile modifier?
+> > 
+> > There are some in arch-specific code, for example line 1073 of
+> > arch/mips/kernel/smtc.c.  On mips, cpu_relax() is just barrier(), so
+> > the empty loop body is ok provided that atomic_read actually does the
+> > load each time around the loop.
 > 
-> > Can you find an actual atomic_read code snippet there that is
-> > broken without the volatile modifier?
+> A barrier() is all you need to force the compiler to reread
+> the value.
 > 
-> There are some in arch-specific code, for example line 1073 of
-> arch/mips/kernel/smtc.c.  On mips, cpu_relax() is just barrier(), so
-> the empty loop body is ok provided that atomic_read actually does the
-> load each time around the loop.
+> The people advocating volatile in this thread are talking
+> about code that doesn't use barrier()/cpu_relax().
 
-A barrier() is all you need to force the compiler to reread
-the value.
+Did you look at it?  Here it is:
 
-The people advocating volatile in this thread are talking
-about code that doesn't use barrier()/cpu_relax().
+	/* Someone else is initializing in parallel - let 'em finish */
+	while (atomic_read(&idle_hook_initialized) < 1000)
+		;
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Paul.
