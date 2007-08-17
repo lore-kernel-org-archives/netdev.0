@@ -1,53 +1,102 @@
-From: Paul Mackerras <paulus@samba.org>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Fri, 17 Aug 2007 15:09:57 +1000
-Message-ID: <18117.11685.431347.996767@cargo.ozlabs.ibm.com>
-References: <18115.44462.622801.683446@cargo.ozlabs.ibm.com>
-	<20070816020042.GA30650@gondor.apana.org.au>
-	<18115.45316.702491.681906@cargo.ozlabs.ibm.com>
-	<alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in>
-	<alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in>
-	<18115.52863.638655.658466@cargo.ozlabs.ibm.com>
-	<20070816053945.GB32442@gondor.apana.org.au>
-	<18115.62741.807704.969977@cargo.ozlabs.ibm.com>
-	<20070816070907.GA964@gondor.apana.org.au>
-	<46C40587.7050708@s5r6.in-berlin.de>
-	<20070816081049.GA1431@gondor.apana.org.au>
+Date: Thu, 16 Aug 2007 22:18:11 -0700
+Message-ID: <20070817051811.GB12232@linux.vnet.ibm.com>
+References: <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <46C32618.2080108@redhat.com> <20070815234021.GA28775@gondor.apana.org.au> <3694fb2e4ed1e4d9bf873c0d050c911e@kernel.crashing.org> <46C3B50E.7010702@yahoo.com.au> <194369f4c96ea0e24decf8f9197d5bad@kernel.crashing.org> <46C505B2.6030704@yahoo.com.au> <18117.4848.695269.72976@cargo.ozlabs.ibm.com> <alpine.LFD.0.999.0708162033400.30176@woody.linux-foundation.org>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Satyam Sharma <satyam@infradead.org>,
-	Christoph Lameter <clameter@sgi.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+Cc: Paul Mackerras <paulus@samba.org>,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	Segher Boessenkool <segher@kernel.crashing.org>,
+	heiko.carstens@de.ibm.com, horms@verge.net.au,
+	linux-kernel@vger.kernel.org, rpjday@mindspring.com, ak@suse.de,
+	netdev@vger.kernel.org, cfriesen@nortel.com,
+	akpm@linux-foundation.org, jesper.juhl@gmail.com,
+	linux-arch@vger.kernel.org, zlynx@acm.org, satyam@infradead.org,
+	clameter@sgi.com, schwidefsky@de.ibm.com,
 	Chris Snook <csnook@redhat.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+	Herbert Xu <herbert.xu@redhat.com>, davem@davemloft.net,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:48151 "EHLO ozlabs.org"
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:49714 "EHLO e5.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754436AbXHQFKJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Aug 2007 01:10:09 -0400
-In-Reply-To: <20070816081049.GA1431@gondor.apana.org.au>
+	id S1752563AbXHQFSQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Aug 2007 01:18:16 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.0.999.0708162033400.30176@woody.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu writes:
+On Thu, Aug 16, 2007 at 08:42:23PM -0700, Linus Torvalds wrote:
+> 
+> 
+> On Fri, 17 Aug 2007, Paul Mackerras wrote:
+> > 
+> > I'm really surprised it's as much as a few K.  I tried it on powerpc
+> > and it only saved 40 bytes (10 instructions) for a G5 config.
+> 
+> One of the things that "volatile" generally screws up is a simple
+> 
+> 	volatile int i;
+> 
+> 	i++;
+> 
+> which a compiler will generally get horribly, horribly wrong.
+> 
+> In a reasonable world, gcc should just make that be (on x86)
+> 
+> 	addl $1,i(%rip)
+> 
+> on x86-64, which is indeed what it does without the volatile. But with the 
+> volatile, the compiler gets really nervous, and doesn't dare do it in one 
+> instruction, and thus generates crap like
+> 
+>         movl    i(%rip), %eax
+>         addl    $1, %eax
+>         movl    %eax, i(%rip)
 
-> Can you find an actual atomic_read code snippet there that is
-> broken without the volatile modifier?
+Blech.  Sounds like a chat with some gcc people is in order.  Will
+see what I can do.
 
-There are some in arch-specific code, for example line 1073 of
-arch/mips/kernel/smtc.c.  On mips, cpu_relax() is just barrier(), so
-the empty loop body is ok provided that atomic_read actually does the
-load each time around the loop.
+						Thanx, Paul
 
-Paul.
+> instead. For no good reason, except that "volatile" just doesn't have any 
+> good/clear semantics for the compiler, so most compilers will just make it 
+> be "I will not touch this access in any way, shape, or form". Including 
+> even trivially correct instruction optimization/combination.
+> 
+> This is one of the reasons why we should never use "volatile". It 
+> pessimises code generation for no good reason - just because compilers 
+> don't know what the heck it even means! 
+> 
+> Now, people don't do "i++" on atomics (you'd use "atomic_inc()" for that), 
+> but people *do* do things like
+> 
+> 	if (atomic_read(..) <= 1)
+> 		..
+> 
+> On ppc, things like that probably don't much matter. But on x86, it makes 
+> a *huge* difference whether you do
+> 
+> 	movl i(%rip),%eax
+> 	cmpl $1,%eax
+> 
+> or if you can just use the value directly for the operation, like this:
+> 
+> 	cmpl $1,i(%rip)
+> 
+> which is again a totally obvious and totally safe optimization, but is 
+> (again) something that gcc doesn't dare do, since "i" is volatile.
+> 
+> In other words: "volatile" is a horribly horribly bad way of doing things, 
+> because it generates *worse*code*, for no good reason. You just don't see 
+> it on powerpc, because it's already a load-store architecture, so there is 
+> no "good code" for doing direct-to-memory operations.
+> 
+> 		Linus
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
