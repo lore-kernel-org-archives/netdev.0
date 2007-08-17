@@ -1,45 +1,79 @@
-From: Konstantin Sharlaimov <konstantin.sharlaimov@gmail.com>
-Subject: [PATCH 2.6.22.3] ppp: fix output buffer size in
-	ppp_decompress_frame
-Date: Fri, 17 Aug 2007 20:45:51 +1100
-Message-ID: <1187343951.10629.9.camel@traveler>
-Reply-To: konstantin.sharlaimov@gmail.com
+From: Paul Mackerras <paulus@samba.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Fri, 17 Aug 2007 19:48:41 +1000
+Message-ID: <18117.28409.943948.355586@cargo.ozlabs.ibm.com>
+References: <E1ILCgh-00052A-00@gondolin.me.apana.org.au>
+	<46C32618.2080108@redhat.com>
+	<20070815234021.GA28775@gondor.apana.org.au>
+	<3694fb2e4ed1e4d9bf873c0d050c911e@kernel.crashing.org>
+	<46C3B50E.7010702@yahoo.com.au>
+	<194369f4c96ea0e24decf8f9197d5bad@kernel.crashing.org>
+	<46C505B2.6030704@yahoo.com.au>
+	<18117.4848.695269.72976@cargo.ozlabs.ibm.com>
+	<alpine.LFD.0.999.0708162033400.30176@woody.linux-foundation.org>
+	<alpine.LFD.0.999.0708171016160.3666@enigma.security.iitk.ac.in>
+	<46C54D94.5080803@yahoo.com.au>
+	<alpine.LFD.0.999.0708171358520.3666@enigma.security.iitk.ac.in>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, paulus@samba.org,
-	netdev@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
-To: Suresh Mahalingam <msuresh_2001@yahoo.com>
+Cc: Nick Piggin <nickpiggin@yahoo.com.au>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Segher Boessenkool <segher@kernel.crashing.org>,
+	heiko.carstens@de.ibm.com, horms@verge.net.au,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	rpjday@mindspring.com, ak@suse.de, netdev@vger.kernel.org,
+	cfriesen@nortel.com, Andrew Morton <akpm@linux-foundation.org>,
+	jesper.juhl@gmail.com, linux-arch@vger.kernel.org, zlynx@acm.org,
+	clameter@sgi.com, schwidefsky@de.ibm.com,
+	Chris Snook <csnook@redhat.com>,
+	Herbert Xu <herbert.xu@redhat.com>, davem@davemloft.net,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Satyam Sharma <satyam@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.173]:16647 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752268AbXHQJqH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2007 05:46:07 -0400
-Received: by ug-out-1314.google.com with SMTP id j3so318408ugf
-        for <netdev@vger.kernel.org>; Fri, 17 Aug 2007 02:46:05 -0700 (PDT)
+Received: from ozlabs.org ([203.10.76.45]:56124 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750950AbXHQJsr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Aug 2007 05:48:47 -0400
+In-Reply-To: <alpine.LFD.0.999.0708171358520.3666@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch addresses the issue with "osize too small" errors in mppe encryption.
-The patch fixes the issue with wrong output buffer size being passed to ppp
-decompression routine.
+Satyam Sharma writes:
 
-Signed-off-by: Konstantin Sharlaimov <konstantin.sharlaimov@gmail.com>
----
-As pointed out by Suresh Mahalingam, the issue addressed by 
-ppp-fix-osize-too-small-errors-when-decoding patch is not fully resolved yet.
-The size of allocated output buffer is correct, however it size passed to
-ppp->rcomp->decompress in ppp_generic.c if wrong. The patch fixes that.
+> I wonder if this'll generate smaller and better code than _both_ the
+> other atomic_read_volatile() variants. Would need to build allyesconfig
+> on lots of diff arch's etc to test the theory though.
 
---- linux-2.6.21.3/drivers/net/ppp_generic.c.orig	2007-08-17 20:35:03.000000000 +1100
-+++ linux-2.6.21.3/drivers/net/ppp_generic.c	2007-08-17 20:35:45.000000000 +1100
-@@ -1726,7 +1726,7 @@ ppp_decompress_frame(struct ppp *ppp, st
- 		}
- 		/* the decompressor still expects the A/C bytes in the hdr */
- 		len = ppp->rcomp->decompress(ppp->rc_state, skb->data - 2,
--				skb->len + 2, ns->data, ppp->mru + PPP_HDRLEN);
-+				skb->len + 2, ns->data, obuff_size);
- 		if (len < 0) {
- 			/* Pass the compressed frame to pppd as an
- 			   error indication. */
+I'm sure it would be a tiny effect.
 
+This whole thread is arguing about effects that are quite
+insignificant.  On the one hand we have the non-volatile proponents,
+who want to let the compiler do extra optimizations - which amounts to
+letting it elide maybe a dozen loads in the whole kernel, loads which
+would almost always be L1 cache hits.
+
+On the other hand we have the volatile proponents, who are concerned
+that some code somewhere in the kernel might be buggy without the
+volatile behaviour, and who also want to be able to remove some
+barriers and thus save a few bytes of code and a few loads here and
+there (and possibly some stores too).
+
+Either way the effect on code size and execution time is miniscule.
+
+In the end the strongest argument is actually that gcc generates
+unnecessarily verbose code on x86[-64] for volatile accesses.  Even
+then we're only talking about ~2000 bytes, or less than 1 byte per
+instance of atomic_read on average, about 0.06% of the kernel text
+size.
+
+The x86[-64] developers seem to be willing to bear the debugging cost
+involved in having the non-volatile behaviour for atomic_read, in
+order to save the 2kB.  That's fine with me.  Either way I think
+somebody should audit all the uses of atomic_read, not just for
+missing barriers, but also to find the places where it's used in a
+racy manner.  Then we can work out where the races matter and fix them
+if they do.
+
+Paul.
