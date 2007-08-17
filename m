@@ -1,41 +1,62 @@
 From: Segher Boessenkool <segher@kernel.crashing.org>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Sat, 18 Aug 2007 00:14:30 +0200
-Message-ID: <1f265c14b28f2c5922059a130b1d8aa5@kernel.crashing.org>
-References: <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in> <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au> <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au> <46C40587.7050708@s5r6.in-berlin.de> <20070816081049.GA1431@gondor.apana.org.au> <46C41EE4.9090806@s5r6.in-berlin.de> <46C42767.4070104@s5r6.in-berlin.de> <20070816104250.GB2927@gondor.apana.org.au> <20070816163441.GB16957@linux.vnet.ibm.com> <46C512EB.7020603@yahoo.com.au>
+Date: Sat, 18 Aug 2007 00:29:30 +0200
+Message-ID: <036b785bc30ad3faa872171d8630542f@kernel.crashing.org>
+References: <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <46C32618.2080108@redhat.com> <20070815234021.GA28775@gondor.apana.org.au> <3694fb2e4ed1e4d9bf873c0d050c911e@kernel.crashing.org> <46C3B50E.7010702@yahoo.com.au> <194369f4c96ea0e24decf8f9197d5bad@kernel.crashing.org> <46C505B2.6030704@yahoo.com.au> <18117.4848.695269.72976@cargo.ozlabs.ibm.com> <alpine.LFD.0.999.0708162033400.30176@woody.linux-foundation.org>
 Mime-Version: 1.0 (Apple Message framework v623)
 Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: paulmck@linux.vnet.ibm.com, Christoph Lameter <clameter@sgi.com>,
-	Paul Mackerras <paulus@samba.org>, heiko.carstens@de.ibm.com,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>, horms@verge.net.au,
-	Satyam Sharma <satyam@infradead.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	rpjday@mindspring.com, netdev@vger.kernel.org, ak@suse.de,
-	cfriesen@nortel.com, jesper.juhl@gmail.com,
-	linux-arch@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
+Cc: Paul Mackerras <paulus@samba.org>, heiko.carstens@de.ibm.com,
+	horms@verge.net.au, linux-kernel@vger.kernel.org,
+	rpjday@mindspring.com, ak@suse.de, netdev@vger.kernel.org,
+	cfriesen@nortel.com, akpm@linux-foundation.org,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	linux-arch@vger.kernel.org, jesper.juhl@gmail.com,
+	satyam@infradead.org, zlynx@acm.org, clameter@sgi.com,
 	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
-	Linus Torvalds <torvalds@linux-foundation.org>,
+	Herbert Xu <herbert.xu@redhat.com>, davem@davemloft.net,
 	wensong@linux-vs.org, wjiang@resilience.com
-To: Nick Piggin <nickpiggin@yahoo.com.au>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:45347 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:53034 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754374AbXHQWR1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Aug 2007 18:17:27 -0400
-In-Reply-To: <46C512EB.7020603@yahoo.com.au>
+	id S1752951AbXHQWaj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Aug 2007 18:30:39 -0400
+In-Reply-To: <alpine.LFD.0.999.0708162033400.30176@woody.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> (and yes, it is perfectly legitimate to
-> want a non-volatile read for a data type that you also want to do
-> atomic RMW operations on)
+> In a reasonable world, gcc should just make that be (on x86)
+>
+> 	addl $1,i(%rip)
+>
+> on x86-64, which is indeed what it does without the volatile. But with 
+> the
+> volatile, the compiler gets really nervous, and doesn't dare do it in 
+> one
+> instruction, and thus generates crap like
+>
+>         movl    i(%rip), %eax
+>         addl    $1, %eax
+>         movl    %eax, i(%rip)
+>
+> instead. For no good reason, except that "volatile" just doesn't have 
+> any
+> good/clear semantics for the compiler, so most compilers will just 
+> make it
+> be "I will not touch this access in any way, shape, or form". Including
+> even trivially correct instruction optimization/combination.
 
-...which is undefined behaviour in C (and GCC) when that data is
-declared volatile, which is a good argument against implementing
-atomics that way in itself.
+It's just a (target-specific, perhaps) missed-optimisation kind
+of bug in GCC.  Care to file a bug report?
+
+> but is
+> (again) something that gcc doesn't dare do, since "i" is volatile.
+
+Just nobody taught it it can do this; perhaps no one wanted to
+add optimisations like that, maybe with a reasoning like "people
+who hit the go-slow-in-unspecified-ways button should get what
+they deserve" ;-)
 
 
 Segher
