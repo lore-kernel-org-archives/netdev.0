@@ -1,69 +1,49 @@
-From: Satyam Sharma <satyam@infradead.org>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Fri, 17 Aug 2007 14:28:42 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0708171420060.3666@enigma.security.iitk.ac.in>
-References: <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in>
- <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au>
- <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au>
- <46C40587.7050708@s5r6.in-berlin.de> <20070816081049.GA1431@gondor.apana.org.au>
- <46C41EE4.9090806@s5r6.in-berlin.de> <46C42767.4070104@s5r6.in-berlin.de>
- <20070816104250.GB2927@gondor.apana.org.au> <20070816163441.GB16957@linux.vnet.ibm.com>
- <46C512EB.7020603@yahoo.com.au> <46C54D74.60101@s5r6.in-berlin.de>
- <46C556F1.8000407@yahoo.com.au>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Fri, 17 Aug 2007 10:52:37 +0200
+Message-ID: <200708171052.39477.ak@suse.de>
+References: <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <18117.4848.695269.72976@cargo.ozlabs.ibm.com> <alpine.LFD.0.999.0708162033400.30176@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	paulmck@linux.vnet.ibm.com,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Paul Mackerras <paulus@samba.org>,
-	Christoph Lameter <clameter@sgi.com>,
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Paul Mackerras <paulus@samba.org>,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	Segher Boessenkool <segher@kernel.crashing.org>,
+	heiko.carstens@de.ibm.com, horms@verge.net.au,
+	linux-kernel@vger.kernel.org, rpjday@mindspring.com,
+	netdev@vger.kernel.org, cfriesen@nortel.com,
+	akpm@linux-foundation.org, jesper.juhl@gmail.com,
+	linux-arch@vger.kernel.org, zlynx@acm.org, satyam@infradead.org,
+	clameter@sgi.com, schwidefsky@de.ibm.com,
 	Chris Snook <csnook@redhat.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
-To: Nick Piggin <nickpiggin@yahoo.com.au>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1764686AbXHQIqw@vger.kernel.org>
-In-Reply-To: <46C556F1.8000407@yahoo.com.au>
+	Herbert Xu <herbert.xu@redhat.com>, davem@davemloft.net,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1764147AbXHQIzL@vger.kernel.org>
+In-Reply-To: <alpine.LFD.0.999.0708162033400.30176@woody.linux-foundation.org>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Friday 17 August 2007 05:42, Linus Torvalds wrote:
+> On Fri, 17 Aug 2007, Paul Mackerras wrote:
+> > I'm really surprised it's as much as a few K.  I tried it on powerpc
+> > and it only saved 40 bytes (10 instructions) for a G5 config.
+>
+> One of the things that "volatile" generally screws up is a simple
+>
+> 	volatile int i;
+>
+> 	i++;
 
+But for atomic_t people use atomic_inc() anyways which does this correctly.
+It shouldn't really matter for atomic_t.
 
-On Fri, 17 Aug 2007, Nick Piggin wrote:
+I'm worrying a bit that the volatile atomic_t change caused subtle code 
+breakage like these delay read loops people here pointed out.
+Wouldn't it be safer to just re-add the volatile to atomic_read() 
+for 2.6.23? Or alternatively make it asm(), but volatile seems more
+proven.
 
-> Stefan Richter wrote:
-> [...]
-> Just use spinlocks if you're not absolutely clear about potential
-> races and memory ordering issues -- they're pretty cheap and simple.
-
-I fully agree with this. As Paul Mackerras mentioned elsewhere,
-a lot of authors sprinkle atomic_t in code thinking they're somehow
-done with *locking*. This is sad, and I wonder if it's time for a
-Documentation/atomic-considered-dodgy.txt kind of document :-)
-
-
-> > Sure, now
-> > that I learned of these properties I can start to audit code and insert
-> > barriers where I believe they are needed, but this simply means that
-> > almost all occurrences of atomic_read will get barriers (unless there
-> > already are implicit but more or less obvious barriers like msleep).
-> 
-> You might find that these places that appear to need barriers are
-> buggy for other reasons anyway. Can you point to some in-tree code
-> we can have a look at?
-
-Such code was mentioned elsewhere (query nodemgr_host_thread in cscope)
-that managed to escape the requirement for a barrier only because of
-some completely un-obvious compilation-unit-scope thing. But I find such
-an non-explicit barrier quite bad taste. Stefan, do consider plunking an
-explicit call to barrier() there.
-
-
-Satyam
+-Andi
