@@ -1,36 +1,45 @@
 From: Satyam Sharma <satyam@infradead.org>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
  architectures
-Date: Sat, 18 Aug 2007 05:21:42 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0708180512300.3666@enigma.security.iitk.ac.in>
-References: <E1ILCgh-00052A-00@gondolin.me.apana.org.au> <46C32618.2080108@redhat.com>
- <20070815234021.GA28775@gondor.apana.org.au> <3694fb2e4ed1e4d9bf873c0d050c911e@kernel.crashing.org>
- <46C3B50E.7010702@yahoo.com.au> <194369f4c96ea0e24decf8f9197d5bad@kernel.crashing.org>
- <46C505B2.6030704@yahoo.com.au> <18117.4848.695269.72976@cargo.ozlabs.ibm.com>
- <alpine.LFD.0.999.0708162033400.30176@woody.linux-foundation.org>
- <alpine.LFD.0.999.0708171016160.3666@enigma.security.iitk.ac.in>
- <f5796b5aa38ae6305c65ffa0340ba295@kernel.crashing.org>
+Date: Sat, 18 Aug 2007 05:25:41 +0530 (IST)
+Message-ID: <alpine.LFD.0.999.0708180522120.3666@enigma.security.iitk.ac.in>
+References: <20070816003948.GY9645@linux.vnet.ibm.com>
+ <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com>
+ <18115.44462.622801.683446@cargo.ozlabs.ibm.com> <20070816020042.GA30650@gondor.apana.org.au>
+ <18115.45316.702491.681906@cargo.ozlabs.ibm.com>
+ <alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in>
+ <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in>
+ <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au>
+ <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au>
+ <Pine.LNX.4.64.0708161743500.13267@kivilampi-30.cs.helsinki.fi>
+ <46C4ABA5.9010804@redhat.com> <Pine.LNX.4.64.0708161319000.17777@schroedinger.engr.sgi.com>
+ <c298f0e3f9e49c9dd2d326115d156084@kernel.crashing.org>
+ <alpine.LFD.0.999.0708180002290.3666@enigma.security.iitk.ac.in>
+ <a51ab88dc00f8d7fd44f79400671d259@kernel.crashing.org>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Paul Mackerras <paulus@samba.org>, heiko.carstens@de.ibm.com,
-	horms@verge.net.au,
+Cc: Christoph Lameter <clameter@sgi.com>,
+	Paul Mackerras <paulus@samba.org>, heiko.carstens@de.ibm.com,
+	horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	rpjday@mindspring.com, ak@suse.de, netdev@vger.kernel.org,
-	cfriesen@nortel.com, Nick Piggin <nickpiggin@yahoo.com.au>,
-	linux-arch@vger.kernel.org, jesper.juhl@gmail.com,
-	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
-	clameter@sgi.com, schwidefsky@de.ibm.com,
-	Chris Snook <csnook@redhat.com>,
-	Herbert Xu <herbert.xu@redhat.com>, davem@davemloft.net,
+	David Miller <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	=?iso-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	ak@suse.de, cfriesen@nortel.com, rpjday@mindspring.com,
+	Netdev <netdev@vger.kernel.org>, jesper.juhl@gmail.com,
+	linux-arch@vger.kernel.org, zlynx@acm.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
 	wensong@linux-vs.org, wjiang@resilience.com
 To: Segher Boessenkool <segher@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:46455 "EHLO
+Received: from pentafluge.infradead.org ([213.146.154.40]:39097 "EHLO
 	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751348AbXHQXjI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2007 19:39:08 -0400
-In-Reply-To: <f5796b5aa38ae6305c65ffa0340ba295@kernel.crashing.org>
+	with ESMTP id S1751966AbXHQXnN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2007 19:43:13 -0400
+In-Reply-To: <a51ab88dc00f8d7fd44f79400671d259@kernel.crashing.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -38,39 +47,50 @@ List-Id: netdev.vger.kernel.org
 
 On Sat, 18 Aug 2007, Segher Boessenkool wrote:
 
-> > #define forget(a)	__asm__ __volatile__ ("" :"=m" (a) :"m" (a))
+> > > > No it does not have any volatile semantics. atomic_dec() can be
+> > > > reordered
+> > > > at will by the compiler within the current basic unit if you do not add
+> > > > a
+> > > > barrier.
+> > > 
+> > > "volatile" has nothing to do with reordering.
 > > 
-> > [ This is exactly equivalent to using "+m" in the constraints, as recently
-> >   explained on a GCC list somewhere, in response to the patch in my bitops
-> >   series a few weeks back where I thought "+m" was bogus. ]
+> > If you're talking of "volatile" the type-qualifier keyword, then
+> > http://lkml.org/lkml/2007/8/16/231 (and sub-thread below it) shows
+> > otherwise.
 > 
-> [It wasn't explained on a GCC list in response to your patch, as
-> far as I can see -- if I missed it, please point me to an archived
-> version of it].
+> I'm not sure what in that mail you mean, but anyway...
+> 
+> Yes, of course, the fact that "volatile" creates a side effect
+> prevents certain things from being reordered wrt the atomic_dec();
+> but the atomic_dec() has a side effect *already* so the volatile
+> doesn't change anything.
 
-http://gcc.gnu.org/ml/gcc-patches/2007-07/msg01758.html
-
-is a follow-up in the thread on the gcc-patches@gcc.gnu.org mailing list,
-which began with:
-
-http://gcc.gnu.org/ml/gcc-patches/2007-07/msg01677.html
-
-that was posted by Jan Kubicka, as he quotes in that initial posting,
-after I had submitted:
-
-http://lkml.org/lkml/2007/7/23/252
-
-which was a (wrong) patch to "rectify" what I thought was the "bogus"
-"+m" constraint, as per the quoted extract from gcc docs (that was
-given in that (wrong) patch's changelog).
-
-That's when _I_ came to know how GCC interprets "+m", but probably
-this has been explained on those lists multiple times. Who cares,
-anyway?
+That's precisely what that sub-thread (read down to the last mail
+there, and not the first mail only) shows. So yes, "volatile" does
+have something to do with re-ordering (as guaranteed by the C
+standard).
 
 
-> One last time: it isn't equivalent on older (but still supported
-> by Linux) versions of GCC.  Current versions of GCC allow it, but
-> it has no documented behaviour at all, so use it at your own risk.
+> > > atomic_dec() writes
+> > > to memory, so it _does_ have "volatile semantics", implicitly, as
+> > > long as the compiler cannot optimise the atomic variable away
+> > > completely -- any store counts as a side effect.
+> > 
+> > I don't think an atomic_dec() implemented as an inline "asm volatile"
+> > or one that uses a "forget" macro would have the same re-ordering
+> > guarantees as an atomic_dec() that uses a volatile access cast.
+> 
+> The "asm volatile" implementation does have exactly the same
+> reordering guarantees as the "volatile cast" thing,
 
-True.
+I don't think so.
+
+> if that is
+> implemented by GCC in the "obvious" way.  Even a "plain" asm()
+> will do the same.
+
+Read the relevant GCC documentation.
+
+[ of course, if the (latest) GCC documentation is *yet again*
+  wrong, then alright, not much I can do about it, is there. ]
