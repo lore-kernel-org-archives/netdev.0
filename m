@@ -1,54 +1,103 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Fri, 17 Aug 2007 11:53:42 +0800
-Message-ID: <20070817035342.GA14744@gondor.apana.org.au>
-References: <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au> <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au> <Pine.LNX.4.64.0708161743500.13267@kivilampi-30.cs.helsinki.fi> <46C4ABA5.9010804@redhat.com> <Pine.LNX.4.64.0708161319000.17777@schroedinger.engr.sgi.com> <18117.1287.779351.836552@cargo.ozlabs.ibm.com> <alpine.LFD.0.999.0708161953310.30176@woody.linux-foundation.org> <18117.6495.397597.582736@cargo.ozlabs.ibm.com>
+From: Paul Mackerras <paulus@samba.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Fri, 17 Aug 2007 14:02:03 +1000
+Message-ID: <18117.7611.660070.879392@cargo.ozlabs.ibm.com>
+References: <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in>
+	<18115.52863.638655.658466@cargo.ozlabs.ibm.com>
+	<20070816053945.GB32442@gondor.apana.org.au>
+	<18115.62741.807704.969977@cargo.ozlabs.ibm.com>
+	<20070816070907.GA964@gondor.apana.org.au>
+	<46C40587.7050708@s5r6.in-berlin.de>
+	<20070816081049.GA1431@gondor.apana.org.au>
+	<46C41EE4.9090806@s5r6.in-berlin.de>
+	<46C42767.4070104@s5r6.in-berlin.de>
+	<20070816104250.GB2927@gondor.apana.org.au>
+	<20070816163441.GB16957@linux.vnet.ibm.com>
+	<46C512EB.7020603@yahoo.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+Content-Transfer-Encoding: 7bit
+Cc: paulmck@linux.vnet.ibm.com,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Satyam Sharma <satyam@infradead.org>,
 	Christoph Lameter <clameter@sgi.com>,
 	Chris Snook <csnook@redhat.com>,
-	Ilpo J?rvinen <ilpo.jarvinen@helsinki.fi>,
-	Satyam Sharma <satyam@infradead.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>, ak@suse.de,
-	heiko.carstens@de.ibm.com, David Miller <davem@davemloft.net>,
+	linux-arch@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
 	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
 	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
 	rpjday@mindspring.com, jesper.juhl@gmail.com,
 	segher@kernel.crashing.org
-To: Paul Mackerras <paulus@samba.org>
+To: Nick Piggin <nickpiggin@yahoo.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4872 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752821AbXHQDzS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Aug 2007 23:55:18 -0400
-Content-Disposition: inline
-In-Reply-To: <18117.6495.397597.582736@cargo.ozlabs.ibm.com>
+Received: from ozlabs.org ([203.10.76.45]:56028 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750918AbXHQECM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Aug 2007 00:02:12 -0400
+In-Reply-To: <46C512EB.7020603@yahoo.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 17, 2007 at 01:43:27PM +1000, Paul Mackerras wrote:
->
-> The cost of doing so seems to me to be well down in the noise - 44
-> bytes of extra kernel text on a ppc64 G5 config, and I don't believe
-> the extra few cycles for the occasional extra load would be measurable
-> (they should all hit in the L1 dcache).  I don't mind if x86[-64] have
-> atomic_read/set be nonvolatile and find all the missing barriers, but
-> for now on powerpc, I think that not having to find those missing
-> barriers is worth the 0.00076% increase in kernel text size.
+Nick Piggin writes:
 
-BTW, the sort of missing barriers that triggered this thread
-aren't that subtle.  It'll result in a simple lock-up if the
-loop condition holds upon entry.  At which point it's fairly
-straightforward to find the culprit.
+> Why are people making these undocumented and just plain false
+> assumptions about atomic_t?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Well, it has only been false since December 2006.  Prior to that
+atomics *were* volatile on all platforms.
+
+> If they're using lockless code (ie.
+> which they must be if using atomics), then they actually need to be
+> thinking much harder about memory ordering issues.
+
+Indeed.  I believe that most uses of atomic_read other than in polling
+loops or debug printk statements are actually racy.  In some cases the
+race doesn't seem to matter, but I'm sure there are cases where it
+does.
+
+> If that is too
+> much for them, then they can just use locks.
+
+Why use locks when you can just sprinkle magic fix-the-races dust (aka
+atomic_t) over your code? :) :)
+
+> > Precisely.  And volatility is a key property of "atomic".  Let's please
+> > not throw it away.
+> 
+> It isn't, though (at least not since i386 and x86-64 don't have it).
+
+Conceptually it is, because atomic_t is specifically for variables
+which are liable to be modified by other CPUs, and volatile _means_
+"liable to be changed by mechanisms outside the knowledge of the
+compiler".
+
+> _Adding_ it is trivial, and can be done any time. Throwing it away
+> (ie. making the API weaker) is _hard_. So let's not add it without
+
+Well, in one sense it's not that hard - Linus did it just 8 months ago
+in commit f9e9dcb3. :)
+
+> really good reasons. It most definitely results in worse code
+> generation in practice.
+
+0.0008% increase in kernel text size on powerpc according to my
+measurement. :)
+
+> I don't know why people would assume volatile of atomics. AFAIK, most
+
+By making something an atomic_t you're saying "other CPUs are going to
+be modifying this, so treat it specially".  It's reasonable to assume
+that special treatment extends to reading and setting it.
+
+> of the documentation is pretty clear that all the atomic stuff can be
+> reordered etc. except for those that modify and return a value.
+
+Volatility isn't primarily about reordering (though as Linus says it
+does restrict reordering to some extent).
+
+Paul.
