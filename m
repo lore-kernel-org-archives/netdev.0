@@ -1,203 +1,68 @@
-From: Kevin E <kevin360@yahoo.com>
+From: Willy Tarreau <w@1wt.eu>
 Subject: Re: Marvell 88E8056 gigabit ethernet controller
-Date: Sat, 18 Aug 2007 04:45:26 -0700 (PDT)
-Message-ID: <244053.17817.qm@web38913.mail.mud.yahoo.com>
-References: <20070818053812.GP6002@1wt.eu>
+Date: Sat, 18 Aug 2007 14:17:14 +0200
+Message-ID: <20070818121714.GA28247@1wt.eu>
+References: <20070818053812.GP6002@1wt.eu> <244053.17817.qm@web38913.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="0-115891262-1187437526=:17817"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754715AbXHRLpj@vger.kernel.org>
-In-Reply-To: <20070818053812.GP6002@1wt.eu>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Kevin E <kevin360@yahoo.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 1wt.eu ([62.212.114.60]:1739 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750759AbXHRMZF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Aug 2007 08:25:05 -0400
+Content-Disposition: inline
+In-Reply-To: <244053.17817.qm@web38913.mail.mud.yahoo.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---0-115891262-1187437526=:17817
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Content-Id: 
-Content-Disposition: inline
+On Sat, Aug 18, 2007 at 04:45:26AM -0700, Kevin E wrote:
+> 
+> --- Willy Tarreau <w@1wt.eu> wrote:
+> 
+> > No Stephen, look again, he says that moving the
+> > video card into the broken
+> > system does not change anything.
+> 
+> Correct, I've used three different video cards in the
+> broken machine.  I've used an old PCI vid card, the
+> PCI-X vid card from the working machine, and now PCI-X
+> card I just bought yesterday (nvidia based).  None
+> have affected whether the Marvell chipset works or
+> not.  
+> 
+> Also, the broken machine is a server so I don't start
+> X on it.  It just sits in console mode all the time. 
+> The CPU (Core2 E4400) used to be in the working
+> machine, then upgraded it to the Q6600 and put the old
+> E4400 in the new MB that became the broken machine. 
+> Memory was brand new out of the package.  So I've used
+> the E4400 in a MB that worked fine.
+> 
+> 
+> > I don't understand why the working one is on PCI bus
+> > 3 while the other
+> > is on PCI bus 4. It's just as if the chip embedded a
+> > PCI bridge. Maybe
+> > those chips are just cheaper dual-channel
+> > controllers with one faulty
+> > controller disabled. It would also explain why the
+> > PCI ID is different.
+> 
+> I've attached the "lspci -vvv" output for the two
+> machines, if it doesn't come through just let me know
+> how I can get it to you.
 
+OK, in this trace, both controllers are on the same bus. The broken
+one has 'Capabilities: [100] Advanced Error Reporting' the other
+does not have, and the bridge to this bus has two more capabilities :
+'Capabilities: [100] Virtual Channel' and 'Capabilities: [180] Unknown (5)'.
 
---- Willy Tarreau <w@1wt.eu> wrote:
+I don't know whether it can jutify a different behaviour. Also, maybe this
+is caused by a minuscule difference in the BIOS setup ?
 
-> No Stephen, look again, he says that moving the
-> video card into the broken
-> system does not change anything.
+Regards,
+Willy
 
-Correct, I've used three different video cards in the
-broken machine.  I've used an old PCI vid card, the
-PCI-X vid card from the working machine, and now PCI-X
-card I just bought yesterday (nvidia based).  None
-have affected whether the Marvell chipset works or
-not.  
-
-Also, the broken machine is a server so I don't start
-X on it.  It just sits in console mode all the time. 
-The CPU (Core2 E4400) used to be in the working
-machine, then upgraded it to the Q6600 and put the old
-E4400 in the new MB that became the broken machine. 
-Memory was brand new out of the package.  So I've used
-the E4400 in a MB that worked fine.
-
-
-> I don't understand why the working one is on PCI bus
-> 3 while the other
-> is on PCI bus 4. It's just as if the chip embedded a
-> PCI bridge. Maybe
-> those chips are just cheaper dual-channel
-> controllers with one faulty
-> controller disabled. It would also explain why the
-> PCI ID is different.
-
-I've attached the "lspci -vvv" output for the two
-machines, if it doesn't come through just let me know
-how I can get it to you.
-
-Thanks,
-Kevin
-
-
-       
-____________________________________________________________________________________Ready for the edge of your seat? 
-Check out tonight's top picks on Yahoo! TV. 
-http://tv.yahoo.com/
---0-115891262-1187437526=:17817
-Content-Type: application/gzip; name="working-MB.gz"
-Content-Transfer-Encoding: base64
-Content-Description: 2173274505-working-MB.gz
-Content-Disposition: attachment; filename="working-MB.gz"
-
-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
-Pu+E3v8y2tkiX8sT7WwkbVuFO/8CQZzyHYxOAAA=
-
---0-115891262-1187437526=:17817
-Content-Type: application/gzip; name="broken-MB.gz"
-Content-Transfer-Encoding: base64
-Content-Description: 2522529575-broken-MB.gz
-Content-Disposition: attachment; filename="broken-MB.gz"
-
-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
-o7qrCmXoG2cfuB3HX2KsUP8HKE5dms5aAAA=
-
---0-115891262-1187437526=:17817--
