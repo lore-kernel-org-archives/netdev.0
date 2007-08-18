@@ -1,77 +1,56 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: LDD3 pitfalls (was Re: [PATCH 0/24] make atomic_read() behave consistently
- across all architectures)
-Date: Sat, 18 Aug 2007 16:35:53 +0200
-Message-ID: <46C703C9.9060507@s5r6.in-berlin.de>
-References: <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in> <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au> <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au> <46C40587.7050708@s5r6.in-berlin.de> <20070816081049.GA1431@gondor.apana.org.au> <46C41EE4.9090806@s5r6.in-berlin.de> <46C42767.4070104@s5r6.in-berlin.de> <20070816104250.GB2927@gondor.apana.org.au> <20070816163441.GB16957@linux.vnet.ibm.com> <46C512EB.7020603@yahoo.com.au> <46C54D74.60101@s5r6.in-berlin.de> <46C556F1.8000407@yahoo.com.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Nick Piggin <nickpiggin@yahoo.com.au>, paulmck@linux.vnet.ibm.com,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Paul Mackerras <paulus@samba.org>,
-	Satyam Sharma <satyam@infradead.org>,
-	Christoph Lameter <clameter@sgi.com>,
-	Chris Snook <csnook@redhat.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
-To: Jonathan Corbet <corbet@lwn.net>,
-	Greg Kroah-Hartman <gregkh@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from einhorn.in-berlin.de ([192.109.42.8]:60207 "EHLO
-	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751242AbXHROm7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Aug 2007 10:42:59 -0400
-In-Reply-To: <46C556F1.8000407@yahoo.com.au>
-Sender: netdev-owner@vger.kernel.org
+From: Daniel Schaffrath <danielschaffrath@mac.com>
+Subject: Re: drivers/infiniband/mlx/mad.c misplaced ;
+Date: Sat, 18 Aug 2007 17:14:00 +0200
+Message-ID: <28AF5775-A29A-4BB8-83DA-2CAEAEDA164E@mac.com>
+References: <20070815235825.GB17004@redhat.com> <1187224811.5906.55.camel@localhost> <20070816084635.GA15985@osiris.boeblingen.de.ibm.com> <Pine.LNX.4.64.0708161248050.22579@kivilampi-30.cs.helsinki.fi> <20070816110116.GA8100@pingi.kke.suse.de>
+Mime-Version: 1.0 (Apple Message framework v752.3)
+Content-Type: text/plain; charset=ISO-8859-1;
+	delsp=yes	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Joe Perches <joe@perches.com>, Dave Jones <davej@redhat.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>, rolandd@cisco.com,
+	Chas Williams <chas@cmf.nrl.navy.mil>,
+	Paul Mundt <lethal@linux-sh.org>,
+	isdn4linux@listserv.isdn4linux.de, mikep@linuxtr.net,
+	Netdev <netdev@vger.kernel.org>, swen@vnet.ibm.com,
+	linux390@de.ibm.com, linux-s390@vger.kernel.org, jdike@karaya.com,
+	user-mode-linux-devel@lists.sourceforge.net,
+	user-mode-linux-user@lists.sourceforge.net,
+	netfilter-devel@lists.netfilter.org, coreteam@netfilter.org,
+	Satyam Sharma <satyam@infradead.org>
+To: Karsten Keil <kkeil@suse.de>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756124AbXHRPVE@vger.kernel.org>
+In-Reply-To: <20070816110116.GA8100@pingi.kke.suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Nick Piggin wrote:
-> Stefan Richter wrote:
->> Nick Piggin wrote:
->>
->>> I don't know why people would assume volatile of atomics. AFAIK, most
->>> of the documentation is pretty clear that all the atomic stuff can be
->>> reordered etc. except for those that modify and return a value.
->>
->>
->> Which documentation is there?
-> 
-> Documentation/atomic_ops.txt
-> 
-> 
->> For driver authors, there is LDD3.  It doesn't specifically cover
->> effects of optimization on accesses to atomic_t.
->>
->> For architecture port authors, there is Documentation/atomic_ops.txt.
->> Driver authors also can learn something from that document, as it
->> indirectly documents the atomic_t and bitops APIs.
->>
-> 
-> "Semantics and Behavior of Atomic and Bitmask Operations" is
-> pretty direct :)
-> 
-> Sure, it says that it's for arch maintainers, but there is no
-> reason why users can't make use of it.
 
+On 2007/08/16  , at 13:01, Karsten Keil wrote:
 
-Note, LDD3 page 238 says:  "It is worth noting that most of the other
-kernel primitives dealing with synchronization, such as spinlock and
-atomic_t operations, also function as memory barriers."
-
-I don't know about Linux 2.6.10 against which LDD3 was written, but
-currently only _some_ atomic_t operations function as memory barriers.
-
-Besides, judging from some posts in this thread, saying that atomic_t
-operations dealt with synchronization may not be entirely precise.
--- 
-Stefan Richter
--=====-=-=== =--- =--=-
-http://arcgraph.de/sr/
+> On Thu, Aug 16, 2007 at 01:22:04PM +0300, Ilpo J=E4rvinen wrote:
+>>
+>> ...I guess those guys hunting for broken busyloops in the other =20
+>> thread
+>> could also benefit from similar searching commands introduced in thi=
+s
+>> thread... ...Ccing Satyam to caught their attention too.
+>>
+>>
+>> ./drivers/isdn/hisax/hfc_pci.c
+>> 125:	if (Read_hfc(cs, HFCPCI_INT_S1)) ;
+>> 155:	if (Read_hfc(cs, HFCPCI_INT_S1)) ;
+>> 1483:					if (Read_hfc(cs, HFCPCI_INT_S1)) ;
+>> --
+>> ./drivers/isdn/hisax/hfc_sx.c
+>> 377:	if (Read_hfc(cs, HFCSX_INT_S1)) ;
+>> 407:	if (Read_hfc(cs, HFCSX_INT_S2)) ;
+>> 1246:					if (Read_hfc(cs, HFCSX_INT_S1)) ;
+>> --
+>
+> These are workaround to not get compiler warnings about ignored retur=
+n
+> values I got some time ago under some architecture.
+Maybe '(void) Read_hfc(cs, HFCSX_INT_S1)' is a better option to get =20
+rid of the warnings.
