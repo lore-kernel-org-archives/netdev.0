@@ -1,67 +1,79 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Sat, 18 Aug 2007 14:56:52 -0700
-Message-ID: <20070818215652.GD7628@linux.vnet.ibm.com>
-References: <46C3B50E.7010702@yahoo.com.au> <194369f4c96ea0e24decf8f9197d5bad@kernel.crashing.org> <46C505B2.6030704@yahoo.com.au> <18117.4848.695269.72976@cargo.ozlabs.ibm.com> <46C516BA.60700@yahoo.com.au> <alpine.LFD.0.999.0708162045150.30176@woody.linux-foundation.org> <20070817235912.GA24314@linux.vnet.ibm.com> <20070818000913.GA25585@gondor.apana.org.au> <20070818010818.GQ8464@linux.vnet.ibm.com> <Pine.LNX.4.64.0708171817050.15427@schroedinger.engr.sgi.com>
+Subject: Re: [PATCH] lockdep: annotate rcu_read_{,un}lock()
+Date: Sat, 18 Aug 2007 15:03:37 -0700
+Message-ID: <20070818220337.GE7628@linux.vnet.ibm.com>
+References: <af57f1ac0708141130v729fa636k3150673809ec20a8@mail.gmail.com> <E1ILEJr-0005Fl-00@gondolin.me.apana.org.au> <20070815.144628.104052147.davem@davemloft.net> <1187274307.6114.92.camel@twins> <20070816160145.GA16957@linux.vnet.ibm.com> <1187337405.6114.123.camel@twins> <20070817155357.GD8464@linux.vnet.ibm.com> <46C5ED69.6060604@acm.org>
 Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Nick Piggin <nickpiggin@yahoo.com.au>,
-	Paul Mackerras <paulus@samba.org>,
-	Segher Boessenkool <segher@kernel.crashing.org>,
-	heiko.carstens@de.ibm.com, horms@verge.net.au,
-	linux-kernel@vger.kernel.org, rpjday@mindspring.com, ak@suse.de,
-	netdev@vger.kernel.org, cfriesen@nortel.com,
-	akpm@linux-foundation.org, jesper.juhl@gmail.com,
-	linux-arch@vger.kernel.org, zlynx@acm.org, satyam@infradead.org,
-	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
-	davem@davemloft.net, wensong@linux-vs.org, wjiang@resilience.com
-To: Christoph Lameter <clameter@sgi.com>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@elte.hu>,
+	herbert@gondor.apana.org.au, 123.oleg@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Daniel Walker <dwalker@mvista.com>, josht@linux.vnet.ibm.com
+To: Corey Minyard <minyard@acm.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:45439 "EHLO e3.ny.us.ibm.com"
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:59619 "EHLO e2.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757581AbXHRV45 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Aug 2007 17:56:57 -0400
+	id S1756609AbXHRWDl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Aug 2007 18:03:41 -0400
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0708171817050.15427@schroedinger.engr.sgi.com>
+In-Reply-To: <46C5ED69.6060604@acm.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 17, 2007 at 06:24:15PM -0700, Christoph Lameter wrote:
-> On Fri, 17 Aug 2007, Paul E. McKenney wrote:
-> 
-> > On Sat, Aug 18, 2007 at 08:09:13AM +0800, Herbert Xu wrote:
-> > > On Fri, Aug 17, 2007 at 04:59:12PM -0700, Paul E. McKenney wrote:
-> > > >
-> > > > gcc bugzilla bug #33102, for whatever that ends up being worth.  ;-)
-> > > 
-> > > I had totally forgotten that I'd already filed that bug more
-> > > than six years ago until they just closed yours as a duplicate
-> > > of mine :)
-> > > 
-> > > Good luck in getting it fixed!
-> > 
-> > Well, just got done re-opening it for the third time.  And a local
-> > gcc community member advised me not to give up too easily.  But I
-> > must admit that I am impressed with the speed that it was identified
-> > as duplicate.
-> > 
-> > Should be entertaining!  ;-)
-> 
-> Right. ROTFL... volatile actually breaks atomic_t instead of making it 
-> safe. x++ becomes a register load, increment and a register store. Without 
-> volatile we can increment the memory directly. It seems that volatile 
-> requires that the variable is loaded into a register first and then 
-> operated upon. Understandable when you think about volatile being used to 
-> access memory mapped I/O registers where a RMW operation could be 
-> problematic.
-> 
-> See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=3506
+On Fri, Aug 17, 2007 at 01:48:09PM -0500, Corey Minyard wrote:
+> Paul E. McKenney wrote:
+> >On Fri, Aug 17, 2007 at 09:56:45AM +0200, Peter Zijlstra wrote:
+> >  
+> >>On Thu, 2007-08-16 at 09:01 -0700, Paul E. McKenney wrote:
+> >>    
+> >>>On Thu, Aug 16, 2007 at 04:25:07PM +0200, Peter Zijlstra wrote:
+> >>>      
+> >>>>There seem to be some unbalanced rcu_read_{,un}lock() issues of late,
+> >>>>how about doing something like this:
+> >>>>        
+> >>>This will break when rcu_read_lock() and rcu_read_unlock() are invoked
+> >>>from NMI/SMI handlers -- the raw_local_irq_save() in lock_acquire() will
+> >>>not mask NMIs or SMIs.
+> >>>
+> >>>One approach would be to check for being in an NMI/SMI handler, and
+> >>>to avoid calling lock_acquire() and lock_release() in those cases.
+> >>>      
+> >>It seems:
+> >>
+> >>#define nmi_enter()		do { lockdep_off(); __irq_enter(); } while 
+> >>(0)
+> >>#define nmi_exit()		do { __irq_exit(); lockdep_on(); } while (0)
+> >>
+> >>Should make it all work out just fine. (for NMIs at least, /me fully
+> >>ignorant of the workings of SMIs)
+> >>    
+> >
+> >Very good point, at least for NMIs on i386 and x86_64.  Can't say that I
+> >know much about SMIs myself.  Or about whatever equivalents to NMIs and
+> >SMIs might exist on other platforms.  :-/  Of course, the other platforms
+> >could be handled by making the RCU lockdep operate only on i386 and x86_64
+> >if required.
+> >
+> >Corey, any advice on SMI handlers?  Is there something like nmi_enter()
+> >and nmi_exit() that allows disabing lockdep?
+> >  
+> You will certainly need something like nmi_enter() and nmi_exit() for 
+> SMIs, since they can occur at any time like NMIs.  As far as anything 
+> else, you just have to be extremely careful and remember that it can 
+> occur anyplace.  But you already know that :).
 
-Yep.  The initial reaction was in fact to close my bug as a duplicate
-of 3506.  But I was not asking for atomicity, but rather for smaller
-code to be generated, so I reopened it.
+So we would need to create an smi_enter() and smi_exit() an place them
+appropriately.  Any preferences?
 
-							Thanx, Paul
+> It would be nice if the PowerPC board vendors would tie watchdog 
+> pretimeouts and some type of timer into the SMI input.  It would make 
+> debugging certain problems much easier.  And all those Marvell bridge 
+> chips have a watchdog pretimeout and I haven't seen any board vendor 
+> wire it up :(.
+
+Can't say that I have much influence over them, but I must agree
+that debuggability is a very good thing!
+
+						Thanx, Paul
