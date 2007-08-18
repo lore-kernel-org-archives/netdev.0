@@ -1,83 +1,221 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP ports
-	from the host TCP port space.
-Date: Fri, 17 Aug 2007 23:44:05 -0700 (PDT)
-Message-ID: <20070817.234405.66176298.davem@davemloft.net>
-References: <adafy2hyc04.fsf@cisco.com>
-	<20070817.170033.63993876.davem@davemloft.net>
-	<adatzqxwh56.fsf@cisco.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: rdreier@cisco.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <adatzqxwh56.fsf@cisco.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+From: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1/4 #2] Net: mac80211, remove bitfields from struct ieee80211_tx_packet_data
+Date: Sat, 18 Aug 2007 10:53:31 +0200 (CEST)
+Message-ID: <25024219461172228260@wsc.cz>
+Cc: <jbenc-AlSwsSmVLrQ@public.gmane.org>
+To: <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
+Cc: <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Fri, 17 Aug 2007 22:23:01 -0700
+mac80211, remove bitfields from struct ieee80211_tx_packet_data
 
-> Also, looking at the complexity and bug-fixing effort that go into
-> making TSO work vs the really pretty small gain it gives also makes
-> part of me wonder whether the noble proclamations about
-> maintainability are always taken to heart.
+Signed-off-by: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-The cpu and bus utilization improvements of TSO on the sender side are
-more than significant.  Ask anyone who looks closely at this.
+---
+commit b7844000ba006531bd2133e8097fa27724efe3c2
+tree ba74c93d4c8f1ef7d7c4a3f45af9a24cf3a6d329
+parent a050b807aede7f33339c6bee0bef1c07cd9c5fc4
+author Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> Sat, 18 Aug 2007 10:23:58 +0200
+committer Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> Sat, 18 Aug 2007 10:23:58 +0200
 
-For example, as part of his batching work Krisha Kumar has been
-posting lots of numbers lately on the netdev list, I'm sure he can
-post more specific numbers comparing the current stack in the case of
-TSO disabled vs. TSO enabled if that is what you need to see how
-beneficial TSO in fact is.
+ net/mac80211/ieee80211.c     |   15 +++++++++++----
+ net/mac80211/ieee80211_i.h   |   12 +++++++-----
+ net/mac80211/ieee80211_sta.c |    6 ++++--
+ net/mac80211/rx.c            |    4 ++--
+ net/mac80211/tx.c            |   23 ++++++++++++-----------
+ net/mac80211/wme.c           |    4 ++--
+ 6 files changed, 38 insertions(+), 26 deletions(-)
 
-If TSO is such a lose why does pretty much every ethernet chip vendor
-implement it in hardware?  If you say it's just because Microsoft
-defines TSO in their NDI, that's a total cop-out.  It really does help
-performance a lot.  Why did the Xen folks bother making generic
-software TSO infrastructure for the kernel for the benefit of their
-virtualization network device?  Why would someone as bright as Herbert
-Xu even bother to implement that stuff if TSO gives a "pretty small
-gain"?
-
-Similarly for LRO and this isn't defined in NDI at all.  Vendors are
-going so far as to put full flow tables in their chips in order to do
-LRO better.
-
-Using the bugs and issues we've run into while implementing TSO as
-evidence there is something wrong with it is a total straw man.  Look
-how many times the filesystem page cache has been rewritten over the
-years.
-
-Use the TSO problems as more of an example of how shitty a programmer
-I must be. :)
-
-Just be realistic and accept that RDMA is a point in time solution,
-and like any other such technology takes flexibility away from users.
-
-Horizontal scaling of cpus up to huge arity cores, network devices
-using large numbers of transmit and receive queues and classification
-based queue selection, are all going to work to make things like RDMA
-even more irrelevant than they already are.
-
-If you can't see that this is the future, you have my condolences.
-Because frankly, the signs are all around that this is where things
-are going.
-
-The work doesn't belong in these special purpose devices, they belong
-in the far-end-node compute resources, and our computers are getting
-more and more of these general purpose compute engines every day.
-We will be constantly moving away from specialized solutions and
-towards those which solve large classes of problems for large groups
-of people.
+diff --git a/net/mac80211/ieee80211.c b/net/mac80211/ieee80211.c
+index 9ff86ee..0952237 100644
+--- a/net/mac80211/ieee80211.c
++++ b/net/mac80211/ieee80211.c
+@@ -933,10 +933,17 @@ static void ieee80211_remove_tx_extra(struct ieee80211_local *local,
+ 
+ 	pkt_data = (struct ieee80211_tx_packet_data *)skb->cb;
+ 	pkt_data->ifindex = control->ifindex;
+-	pkt_data->mgmt_iface = (control->type == IEEE80211_IF_TYPE_MGMT);
+-	pkt_data->req_tx_status = !!(control->flags & IEEE80211_TXCTL_REQ_TX_STATUS);
+-	pkt_data->do_not_encrypt = !!(control->flags & IEEE80211_TXCTL_DO_NOT_ENCRYPT);
+-	pkt_data->requeue = !!(control->flags & IEEE80211_TXCTL_REQUEUE);
++	pkt_data->flags &= ~(IEEE80211_TXPD_REQ_TX_STATUS |
++		IEEE80211_TXPD_DO_NOT_ENCRYPT | IEEE80211_TXPD_REQUEUE |
++		IEEE80211_TXPD_MGMT_IFACE);
++	if (control->flags & IEEE80211_TXCTL_REQ_TX_STATUS)
++		pkt_data->flags |= IEEE80211_TXPD_REQ_TX_STATUS;
++	if (control->flags & IEEE80211_TXCTL_DO_NOT_ENCRYPT)
++		pkt_data->flags |= IEEE80211_TXPD_DO_NOT_ENCRYPT;
++	if (control->flags & IEEE80211_TXCTL_REQUEUE)
++		pkt_data->flags |= IEEE80211_TXPD_REQUEUE;
++	if (control->type == IEEE80211_IF_TYPE_MGMT)
++		pkt_data->flags |= IEEE80211_TXPD_MGMT_IFACE;
+ 	pkt_data->queue = control->queue;
+ 
+ 	hdrlen = ieee80211_get_hdrlen_from_skb(skb);
+diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
+index 4599d55..8163a5a 100644
+--- a/net/mac80211/ieee80211_i.h
++++ b/net/mac80211/ieee80211_i.h
+@@ -166,15 +166,17 @@ struct ieee80211_txrx_data {
+ #endif /* CONFIG_HOSTAPD_WPA_TESTING */
+ };
+ 
++/* flags used in struct ieee80211_tx_packet_data.flags */
++#define IEEE80211_TXPD_REQ_TX_STATUS	BIT(0)
++#define IEEE80211_TXPD_DO_NOT_ENCRYPT	BIT(1)
++#define IEEE80211_TXPD_REQUEUE		BIT(2)
++#define IEEE80211_TXPD_MGMT_IFACE	BIT(3)
+ /* Stored in sk_buff->cb */
+ struct ieee80211_tx_packet_data {
+ 	int ifindex;
+ 	unsigned long jiffies;
+-	unsigned int req_tx_status:1;
+-	unsigned int do_not_encrypt:1;
+-	unsigned int requeue:1;
+-	unsigned int mgmt_iface:1;
+-	unsigned int queue:4;
++	unsigned int flags;
++	u8 queue;
+ };
+ 
+ struct ieee80211_tx_stored_packet {
+diff --git a/net/mac80211/ieee80211_sta.c b/net/mac80211/ieee80211_sta.c
+index b996332..75521ae 100644
+--- a/net/mac80211/ieee80211_sta.c
++++ b/net/mac80211/ieee80211_sta.c
+@@ -506,8 +506,10 @@ static void ieee80211_sta_tx(struct net_device *dev, struct sk_buff *skb,
+ 	pkt_data = (struct ieee80211_tx_packet_data *) skb->cb;
+ 	memset(pkt_data, 0, sizeof(struct ieee80211_tx_packet_data));
+ 	pkt_data->ifindex = sdata->dev->ifindex;
+-	pkt_data->mgmt_iface = (sdata->type == IEEE80211_IF_TYPE_MGMT);
+-	pkt_data->do_not_encrypt = !encrypt;
++	if (sdata->type == IEEE80211_IF_TYPE_MGMT)
++		pkt_data->flags |= IEEE80211_TXPD_MGMT_IFACE;
++	if (!encrypt)
++		pkt_data->flags |= IEEE80211_TXPD_DO_NOT_ENCRYPT;
+ 
+ 	dev_queue_xmit(skb);
+ }
+diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+index 0a10720..948eb2f 100644
+--- a/net/mac80211/rx.c
++++ b/net/mac80211/rx.c
+@@ -415,7 +415,7 @@ static int ap_sta_ps_end(struct net_device *dev, struct sta_info *sta)
+ 	while ((skb = skb_dequeue(&sta->tx_filtered)) != NULL) {
+ 		pkt_data = (struct ieee80211_tx_packet_data *) skb->cb;
+ 		sent++;
+-		pkt_data->requeue = 1;
++		pkt_data->flags |= IEEE80211_TXPD_REQUEUE;
+ 		dev_queue_xmit(skb);
+ 	}
+ 	while ((skb = skb_dequeue(&sta->ps_tx_buf)) != NULL) {
+@@ -427,7 +427,7 @@ static int ap_sta_ps_end(struct net_device *dev, struct sta_info *sta)
+ 		       "since STA not sleeping anymore\n", dev->name,
+ 		       MAC_ARG(sta->addr), sta->aid);
+ #endif /* CONFIG_MAC80211_VERBOSE_PS_DEBUG */
+-		pkt_data->requeue = 1;
++		pkt_data->flags |= IEEE80211_TXPD_REQUEUE;
+ 		dev_queue_xmit(skb);
+ 	}
+ 
+diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
+index b57a592..3d05f8f 100644
+--- a/net/mac80211/tx.c
++++ b/net/mac80211/tx.c
+@@ -1248,11 +1248,11 @@ int ieee80211_master_start_xmit(struct sk_buff *skb,
+ 
+ 	control.ifindex = odev->ifindex;
+ 	control.type = osdata->type;
+-	if (pkt_data->req_tx_status)
++	if (pkt_data->flags & IEEE80211_TXPD_REQ_TX_STATUS)
+ 		control.flags |= IEEE80211_TXCTL_REQ_TX_STATUS;
+-	if (pkt_data->do_not_encrypt)
++	if (pkt_data->flags & IEEE80211_TXPD_DO_NOT_ENCRYPT)
+ 		control.flags |= IEEE80211_TXCTL_DO_NOT_ENCRYPT;
+-	if (pkt_data->requeue)
++	if (pkt_data->flags & IEEE80211_TXPD_REQUEUE)
+ 		control.flags |= IEEE80211_TXCTL_REQUEUE;
+ 	control.queue = pkt_data->queue;
+ 
+@@ -1294,8 +1294,7 @@ int ieee80211_monitor_start_xmit(struct sk_buff *skb,
+ 	/* needed because we set skb device to master */
+ 	pkt_data->ifindex = dev->ifindex;
+ 
+-	pkt_data->mgmt_iface = 0;
+-	pkt_data->do_not_encrypt = 1;
++	pkt_data->flags |= IEEE80211_TXPD_DO_NOT_ENCRYPT;
+ 
+ 	/*
+ 	 * fix up the pointers accounting for the radiotap
+@@ -1346,7 +1345,7 @@ int ieee80211_subif_start_xmit(struct sk_buff *skb,
+ 	struct ieee80211_hdr hdr;
+ 	const u8 *encaps_data;
+ 	int encaps_len, skip_header_bytes;
+-	int nh_pos, h_pos, no_encrypt = 0;
++	int nh_pos, h_pos;
+ 	struct sta_info *sta;
+ 
+ 	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+@@ -1492,8 +1491,8 @@ int ieee80211_subif_start_xmit(struct sk_buff *skb,
+ 	pkt_data = (struct ieee80211_tx_packet_data *)skb->cb;
+ 	memset(pkt_data, 0, sizeof(struct ieee80211_tx_packet_data));
+ 	pkt_data->ifindex = dev->ifindex;
+-	pkt_data->mgmt_iface = (sdata->type == IEEE80211_IF_TYPE_MGMT);
+-	pkt_data->do_not_encrypt = no_encrypt;
++	if (sdata->type == IEEE80211_IF_TYPE_MGMT)
++		pkt_data->flags |= IEEE80211_TXPD_MGMT_IFACE;
+ 
+ 	skb->dev = local->mdev;
+ 	sdata->stats.tx_packets++;
+@@ -1551,7 +1550,8 @@ int ieee80211_mgmt_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	pkt_data = (struct ieee80211_tx_packet_data *) skb->cb;
+ 	memset(pkt_data, 0, sizeof(struct ieee80211_tx_packet_data));
+ 	pkt_data->ifindex = sdata->dev->ifindex;
+-	pkt_data->mgmt_iface = (sdata->type == IEEE80211_IF_TYPE_MGMT);
++	if (sdata->type == IEEE80211_IF_TYPE_MGMT)
++		pkt_data->flags |= IEEE80211_TXPD_MGMT_IFACE;
+ 
+ 	skb->priority = 20; /* use hardcoded priority for mgmt TX queue */
+ 	skb->dev = sdata->local->mdev;
+@@ -1561,12 +1561,13 @@ int ieee80211_mgmt_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 * to request TX callback for hostapd. BIT(1) is checked.
+ 	 */
+ 	if ((fc & BIT(1)) == BIT(1)) {
+-		pkt_data->req_tx_status = 1;
++		pkt_data->flags |= IEEE80211_TXPD_REQ_TX_STATUS;
+ 		fc &= ~BIT(1);
+ 		hdr->frame_control = cpu_to_le16(fc);
+ 	}
+ 
+-	pkt_data->do_not_encrypt = !(fc & IEEE80211_FCTL_PROTECTED);
++	if (!(fc & IEEE80211_FCTL_PROTECTED))
++		pkt_data->flags |= IEEE80211_TXPD_DO_NOT_ENCRYPT;
+ 
+ 	sdata->stats.tx_packets++;
+ 	sdata->stats.tx_bytes += skb->len;
+diff --git a/net/mac80211/wme.c b/net/mac80211/wme.c
+index 99a792c..d3c81fe 100644
+--- a/net/mac80211/wme.c
++++ b/net/mac80211/wme.c
+@@ -110,7 +110,7 @@ static inline int classify80211(struct sk_buff *skb, struct Qdisc *qd)
+ 		return IEEE80211_TX_QUEUE_DATA0;
+ 	}
+ 
+-	if (unlikely(pkt_data->mgmt_iface)) {
++	if (unlikely(pkt_data->flags & IEEE80211_TXPD_MGMT_IFACE)) {
+ 		/* Data frames from hostapd (mainly, EAPOL) use AC_VO
+ 		* and they will include QoS control fields if
+ 		* the target STA is using WME. */
+@@ -179,7 +179,7 @@ static int wme_qdiscop_enqueue(struct sk_buff *skb, struct Qdisc* qd)
+ 	struct Qdisc *qdisc;
+ 	int err, queue;
+ 
+-	if (pkt_data->requeue) {
++	if (pkt_data->flags & IEEE80211_TXPD_REQUEUE) {
+ 		skb_queue_tail(&q->requeued[pkt_data->queue], skb);
+ 		qd->q.qlen++;
+ 		return 0;
