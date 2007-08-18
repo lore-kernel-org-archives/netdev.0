@@ -1,14 +1,13 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Sat, 18 Aug 2007 14:54:09 -0700
-Message-ID: <20070818215409.GC7628@linux.vnet.ibm.com>
-References: <46C505B2.6030704@yahoo.com.au> <18117.4848.695269.72976@cargo.ozlabs.ibm.com> <46C516BA.60700@yahoo.com.au> <alpine.LFD.0.999.0708162045150.30176@woody.linux-foundation.org> <20070817235912.GA24314@linux.vnet.ibm.com> <20070818000913.GA25585@gondor.apana.org.au> <20070818010818.GQ8464@linux.vnet.ibm.com> <Pine.LNX.4.64.0708171817050.15427@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708180709060.3666@enigma.security.iitk.ac.in> <alpine.LFD.0.999.0708172110400.30176@woody.linux-foundation.org>
+Date: Sat, 18 Aug 2007 14:56:52 -0700
+Message-ID: <20070818215652.GD7628@linux.vnet.ibm.com>
+References: <46C3B50E.7010702@yahoo.com.au> <194369f4c96ea0e24decf8f9197d5bad@kernel.crashing.org> <46C505B2.6030704@yahoo.com.au> <18117.4848.695269.72976@cargo.ozlabs.ibm.com> <46C516BA.60700@yahoo.com.au> <alpine.LFD.0.999.0708162045150.30176@woody.linux-foundation.org> <20070817235912.GA24314@linux.vnet.ibm.com> <20070818000913.GA25585@gondor.apana.org.au> <20070818010818.GQ8464@linux.vnet.ibm.com> <Pine.LNX.4.64.0708171817050.15427@schroedinger.engr.sgi.com>
 Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Satyam Sharma <satyam@infradead.org>,
-	Christoph Lameter <clameter@sgi.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
 	Nick Piggin <nickpiggin@yahoo.com.au>,
 	Paul Mackerras <paulus@samba.org>,
 	Segher Boessenkool <segher@kernel.crashing.org>,
@@ -16,59 +15,53 @@ Cc: Satyam Sharma <satyam@infradead.org>,
 	linux-kernel@vger.kernel.org, rpjday@mindspring.com, ak@suse.de,
 	netdev@vger.kernel.org, cfriesen@nortel.com,
 	akpm@linux-foundation.org, jesper.juhl@gmail.com,
-	linux-arch@vger.kernel.org, zlynx@acm.org, schwidefsky@de.ibm.com,
-	Chris Snook <csnook@redhat.com>, davem@davemloft.net,
-	wensong@linux-vs.org, wjiang@resilience.com
-To: Linus Torvalds <torvalds@linux-foundation.org>
+	linux-arch@vger.kernel.org, zlynx@acm.org, satyam@infradead.org,
+	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
+	davem@davemloft.net, wensong@linux-vs.org, wjiang@resilience.com
+To: Christoph Lameter <clameter@sgi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:41446 "EHLO e6.ny.us.ibm.com"
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:45439 "EHLO e3.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757544AbXHRVyR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 Aug 2007 17:54:17 -0400
+	id S1757581AbXHRV45 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Aug 2007 17:56:57 -0400
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.0.999.0708172110400.30176@woody.linux-foundation.org>
+In-Reply-To: <Pine.LNX.4.64.0708171817050.15427@schroedinger.engr.sgi.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 17, 2007 at 09:13:35PM -0700, Linus Torvalds wrote:
+On Fri, Aug 17, 2007 at 06:24:15PM -0700, Christoph Lameter wrote:
+> On Fri, 17 Aug 2007, Paul E. McKenney wrote:
 > 
-> 
-> On Sat, 18 Aug 2007, Satyam Sharma wrote:
+> > On Sat, Aug 18, 2007 at 08:09:13AM +0800, Herbert Xu wrote:
+> > > On Fri, Aug 17, 2007 at 04:59:12PM -0700, Paul E. McKenney wrote:
+> > > >
+> > > > gcc bugzilla bug #33102, for whatever that ends up being worth.  ;-)
+> > > 
+> > > I had totally forgotten that I'd already filed that bug more
+> > > than six years ago until they just closed yours as a duplicate
+> > > of mine :)
+> > > 
+> > > Good luck in getting it fixed!
 > > 
-> > No code does (or would do, or should do):
+> > Well, just got done re-opening it for the third time.  And a local
+> > gcc community member advised me not to give up too easily.  But I
+> > must admit that I am impressed with the speed that it was identified
+> > as duplicate.
 > > 
-> > 	x.counter++;
-> > 
-> > on an "atomic_t x;" anyway.
+> > Should be entertaining!  ;-)
 > 
-> That's just an example of a general problem.
+> Right. ROTFL... volatile actually breaks atomic_t instead of making it 
+> safe. x++ becomes a register load, increment and a register store. Without 
+> volatile we can increment the memory directly. It seems that volatile 
+> requires that the variable is loaded into a register first and then 
+> operated upon. Understandable when you think about volatile being used to 
+> access memory mapped I/O registers where a RMW operation could be 
+> problematic.
 > 
-> No, you don't use "x.counter++". But you *do* use
-> 
-> 	if (atomic_read(&x) <= 1)
-> 
-> and loading into a register is stupid and pointless, when you could just 
-> do it as a regular memory-operand to the cmp instruction.
-> 
-> And as far as the compiler is concerned, the problem is the 100% same: 
-> combining operations with the volatile memop.
-> 
-> The fact is, a compiler that thinks that
-> 
-> 	movl mem,reg
-> 	cmpl $val,reg
-> 
-> is any better than
-> 
-> 	cmpl $val,mem
-> 
-> is just not a very good compiler. But when talking about "volatile", 
-> that's exactly what ytou always get (and always have gotten - this is 
-> not a regression, and I doubt gcc is alone in this).
+> See http://gcc.gnu.org/bugzilla/show_bug.cgi?id=3506
 
-One of the gcc guys claimed that he thought that the two-instruction
-sequence would be faster on some x86 machines.  I pointed out that
-there might be a concern about code size.  I chose not to point out
-that people might also care about the other x86 machines.  ;-)
+Yep.  The initial reaction was in fact to close my bug as a duplicate
+of 3506.  But I was not asking for atomicity, but rather for smaller
+code to be generated, so I reopened it.
 
 							Thanx, Paul
