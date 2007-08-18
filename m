@@ -1,73 +1,74 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH 8/9] define global BIT macro
-Date: Sat, 18 Aug 2007 11:15:25 -0700
-Message-ID: <46C7373D.90005@oracle.com>
-References: <737828602404912540@wsc.cz>	<428714662539710215@wsc.cz> <20070818094602.0ea69c27.randy.dunlap@oracle.com> <46C728CB.6060102@gmail.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Sat, 18 Aug 2007 14:54:09 -0700
+Message-ID: <20070818215409.GC7628@linux.vnet.ibm.com>
+References: <46C505B2.6030704@yahoo.com.au> <18117.4848.695269.72976@cargo.ozlabs.ibm.com> <46C516BA.60700@yahoo.com.au> <alpine.LFD.0.999.0708162045150.30176@woody.linux-foundation.org> <20070817235912.GA24314@linux.vnet.ibm.com> <20070818000913.GA25585@gondor.apana.org.au> <20070818010818.GQ8464@linux.vnet.ibm.com> <Pine.LNX.4.64.0708171817050.15427@schroedinger.engr.sgi.com> <alpine.LFD.0.999.0708180709060.3666@enigma.security.iitk.ac.in> <alpine.LFD.0.999.0708172110400.30176@woody.linux-foundation.org>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org,
-        source@mvista.com, dougthompson@xmission.com,
-        bluesmoke-devel@lists.sourceforge.net, dtor@mail.ru,
-        linux-input@atrey.karlin.mff.cuni.cz, netdev@vger.kernel.org,
-        James.Bottomley@SteelEye.com, linux-scsi@vger.kernel.org,
-        gtolstolytkin@ru.mvista.com, vitalywool@gmail.com, dsaxena@plexity.net,
-        ralf@linux-mips.org, linux-mips@linux-mips.org, mchehab@infradead.org,
-        video4linux-list@redhat.com, jbenc@suse.cz, flamingice@sourmilk.net,
-        linux-wireless@vger.kernel.org
-To: Jiri Slaby <jirislaby@gmail.com>
-Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
-In-Reply-To: <46C728CB.6060102@gmail.com>
-Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
-List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
-List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
-List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
-List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
+Content-Type: text/plain; charset=us-ascii
+Cc: Satyam Sharma <satyam@infradead.org>,
+	Christoph Lameter <clameter@sgi.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	Paul Mackerras <paulus@samba.org>,
+	Segher Boessenkool <segher@kernel.crashing.org>,
+	heiko.carstens@de.ibm.com, horms@verge.net.au,
+	linux-kernel@vger.kernel.org, rpjday@mindspring.com, ak@suse.de,
+	netdev@vger.kernel.org, cfriesen@nortel.com,
+	akpm@linux-foundation.org, jesper.juhl@gmail.com,
+	linux-arch@vger.kernel.org, zlynx@acm.org, schwidefsky@de.ibm.com,
+	Chris Snook <csnook@redhat.com>, davem@davemloft.net,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:41446 "EHLO e6.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757544AbXHRVyR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Aug 2007 17:54:17 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.0.999.0708172110400.30176@woody.linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jiri Slaby wrote:
-> Randy Dunlap napsal(a):
->> On Sat, 18 Aug 2007 11:44:12 +0200 (CEST) Jiri Slaby wrote:
->>
->>> define global BIT macro
->>>
->>> move all local BIT defines to the new globally define macro.
->>>
->>> Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
->>>
->>> ---
->>>
->>>  include/linux/bitops.h                      |    1 +
->>>  include/video/sstfb.h                       |    1 -
->>>  include/video/tdfx.h                        |    2 --
->>>  net/mac80211/ieee80211_i.h                  |    2 --
->>>  18 files changed, 1 insertions(+), 37 deletions(-)
->>>
->>> diff --git a/include/linux/bitops.h b/include/linux/bitops.h
->>> index 3255b06..a57b81f 100644
->>> --- a/include/linux/bitops.h
->>> +++ b/include/linux/bitops.h
->>> @@ -3,6 +3,7 @@
->>>  #include <asm/types.h>
->>>  
->>>  #ifdef	__KERNEL__
->>> +#define BIT(nr)			(1UL << (nr))
->>>  #define BIT_MASK(nr)		(1UL << ((nr) % BITS_PER_LONG))
->>>  #define BIT_WORD(nr)		((nr) / BITS_PER_LONG)
->>>  #define BITS_TO_TYPE(nr, t)	(((nr)+(t)-1)/(t))
->>
->> So users of the BIT() macro in include/linux/input.h can be
->> changed to use the global BIT_MASK() macro...
->> and the former can be removed.
+On Fri, Aug 17, 2007 at 09:13:35PM -0700, Linus Torvalds wrote:
 > 
-> I'm afraid I don't understand you. Maybe, you are writing about changes done in
-> patch no. 7 [1], which didn't go through to the lkml?
 > 
-> [1]
-> http://www.fi.muni.cz/~xslaby/sklad/07-get-rid-of-input-bit-duplicate-defines.patch
+> On Sat, 18 Aug 2007, Satyam Sharma wrote:
+> > 
+> > No code does (or would do, or should do):
+> > 
+> > 	x.counter++;
+> > 
+> > on an "atomic_t x;" anyway.
+> 
+> That's just an example of a general problem.
+> 
+> No, you don't use "x.counter++". But you *do* use
+> 
+> 	if (atomic_read(&x) <= 1)
+> 
+> and loading into a register is stupid and pointless, when you could just 
+> do it as a regular memory-operand to the cmp instruction.
+> 
+> And as far as the compiler is concerned, the problem is the 100% same: 
+> combining operations with the volatile memop.
+> 
+> The fact is, a compiler that thinks that
+> 
+> 	movl mem,reg
+> 	cmpl $val,reg
+> 
+> is any better than
+> 
+> 	cmpl $val,mem
+> 
+> is just not a very good compiler. But when talking about "volatile", 
+> that's exactly what ytou always get (and always have gotten - this is 
+> not a regression, and I doubt gcc is alone in this).
 
-Exactly.  Thanks.
+One of the gcc guys claimed that he thought that the two-instruction
+sequence would be faster on some x86 machines.  I pointed out that
+there might be a concern about code size.  I chose not to point out
+that people might also care about the other x86 machines.  ;-)
 
--- 
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+							Thanx, Paul
