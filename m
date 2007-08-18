@@ -1,74 +1,66 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Fri, 17 Aug 2007 21:13:35 -0700 (PDT)
-Message-ID: <alpine.LFD.0.999.0708172110400.30176@woody.linux-foundation.org>
-References: <20070815234021.GA28775@gondor.apana.org.au>
- <3694fb2e4ed1e4d9bf873c0d050c911e@kernel.crashing.org> <46C3B50E.7010702@yahoo.com.au>
- <194369f4c96ea0e24decf8f9197d5bad@kernel.crashing.org> <46C505B2.6030704@yahoo.com.au>
- <18117.4848.695269.72976@cargo.ozlabs.ibm.com> <46C516BA.60700@yahoo.com.au>
- <alpine.LFD.0.999.0708162045150.30176@woody.linux-foundation.org>
- <20070817235912.GA24314@linux.vnet.ibm.com> <20070818000913.GA25585@gondor.apana.org.au>
- <20070818010818.GQ8464@linux.vnet.ibm.com> <Pine.LNX.4.64.0708171817050.15427@schroedinger.engr.sgi.com>
- <alpine.LFD.0.999.0708180709060.3666@enigma.security.iitk.ac.in>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] i386: optimize memset of 6 and 8 bytes
+Date: Fri, 17 Aug 2007 21:53:35 -0700 (PDT)
+Message-ID: <20070817.215335.26278415.davem@davemloft.net>
+References: <20070817185452.5cbf60c4@freepuppy.rosehill.hemminger.net>
+	<1187402220.2789.2.camel@laptopd505.fenrus.org>
+	<20070817203139.61d1505b@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Christoph Lameter <clameter@sgi.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Nick Piggin <nickpiggin@yahoo.com.au>,
-	Paul Mackerras <paulus@samba.org>,
-	Segher Boessenkool <segher@kernel.crashing.org>,
-	heiko.carstens@de.ibm.com, horms@verge.net.au,
-	linux-kernel@vger.kernel.org, rpjday@mindspring.com, ak@suse.de,
-	netdev@vger.kernel.org, cfriesen@nortel.com,
-	akpm@linux-foundation.org, jesper.juhl@gmail.com,
-	linux-arch@vger.kernel.org, zlynx@acm.org, schwidefsky@de.ibm.com,
-	Chris Snook <csnook@redhat.com>, davem@davemloft.net,
-	wensong@linux-vs.org, wjiang@resilience.com
-To: Satyam Sharma <satyam@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:51408 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750743AbXHREPn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Aug 2007 00:15:43 -0400
-In-Reply-To: <alpine.LFD.0.999.0708180709060.3666@enigma.security.iitk.ac.in>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: arjan@infradead.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752673AbXHRExp@vger.kernel.org>
+In-Reply-To: <20070817203139.61d1505b@freepuppy.rosehill.hemminger.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Fri, 17 Aug 2007 20:31:39 -0700
 
-
-On Sat, 18 Aug 2007, Satyam Sharma wrote:
+> On Fri, 17 Aug 2007 18:57:00 -0700
+> Arjan van de Ven <arjan@infradead.org> wrote:
 > 
-> No code does (or would do, or should do):
-> 
-> 	x.counter++;
-> 
-> on an "atomic_t x;" anyway.
+> > 
+> > On Fri, 2007-08-17 at 18:54 -0700, Stephen Hemminger wrote:
+> > > On Fri, 17 Aug 2007 18:49:34 -0700
+> > > Arjan van de Ven <arjan@infradead.org> wrote:
+> > > 
+> > > > 
+> > > > On Fri, 2007-08-17 at 16:50 -0700, Stephen Hemminger wrote:
+> > > > > Tne network code does memset for 6 and 8 byte values, that can easily
+> > > > > be optimized into simple assignments without string instructions.
+> > > > 
+> > > > 
+> > > > so... question.
+> > > > Why are we doing this by hand? Wouldn't gcc just generate this code in
+> > > > the first place (when using __builtin_memset)? I very much suspect it
+> > > > would (and if some version doesn't.... we really ought to get that
+> > > > fixed)
+> > > 
+> > > i386 and x86_64 are not using __builtin_memset, as least from the
+> > > code that I see generated.
+> > 
+> > .. maybe we should just fix it that way then?
+> > 
+> There probably is history behind the decision, like gcc problems
+> on some old compiler version.
 
-That's just an example of a general problem.
+Yes, but those reasons are very likely no longer true.
 
-No, you don't use "x.counter++". But you *do* use
+In fact, just removing the memcpy macro altogether is the best
+thing to do.  GCC will do inline memcpy when appropriate.
+Then put all of the rep; movsl; etc. code in an external
+assembler file and name the routine memcpy.
 
-	if (atomic_read(&x) <= 1)
+The inlining is senseless even if it all gets optimized away
+into the bare necessary instructions.  All the x86 registers
+get clobbered in most of those rep; movsl; code paths, so
+it's hardly going to be more expensive to extern the thing
+and it will make the kernel smaller to boot.
 
-and loading into a register is stupid and pointless, when you could just 
-do it as a regular memory-operand to the cmp instruction.
-
-And as far as the compiler is concerned, the problem is the 100% same: 
-combining operations with the volatile memop.
-
-The fact is, a compiler that thinks that
-
-	movl mem,reg
-	cmpl $val,reg
-
-is any better than
-
-	cmpl $val,mem
-
-is just not a very good compiler. But when talking about "volatile", 
-that's exactly what ytou always get (and always have gotten - this is 
-not a regression, and I doubt gcc is alone in this).
-
-			Linus
+Anyways the point is to make the real C symbol called by "memcpy"
+because that's what makes all the automatic gcc inline memcpy logic
+kick in.  If you define the "memcpy" as a macro which calls
+differently named functions, you bypass all of that.
