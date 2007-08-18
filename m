@@ -1,66 +1,96 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP ports
-	from the host TCP port space.
-Date: Fri, 17 Aug 2007 22:23:01 -0700
-Message-ID: <adatzqxwh56.fsf@cisco.com>
-References: <adaodh6x7js.fsf@cisco.com>
-	<20070817.142756.65194845.davem@davemloft.net>
-	<adafy2hyc04.fsf@cisco.com>
-	<20070817.170033.63993876.davem@davemloft.net>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: Marvell 88E8056 gigabit ethernet controller
+Date: Sat, 18 Aug 2007 07:38:12 +0200
+Message-ID: <20070818053812.GP6002@1wt.eu>
+References: <424491.59139.qm@web38906.mail.mud.yahoo.com> <20070817170341.7f2645fa@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: David Miller <davem@davemloft.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070817.170033.63993876.davem@davemloft.net> (David Miller's
-	message of "Fri, 17 Aug 2007 17:00:33 -0700 (PDT)")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 1wt.eu ([62.212.114.60]:1736 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751218AbXHRFpy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Aug 2007 01:45:54 -0400
+Content-Disposition: inline
+In-Reply-To: <20070817170341.7f2645fa@freepuppy.rosehill.hemminger.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > This is also a series of falsehoods.  All packet filtering,
- > queue management, and packet scheduling facilities work perfectly
- > fine and as designed with both LRO and TSO.
+On Fri, Aug 17, 2007 at 05:03:41PM -0700, Stephen Hemminger wrote:
+> On Fri, 17 Aug 2007 05:42:13 -0700 (PDT)
+> Kevin E <kevin360@yahoo.com> wrote:
+> 
+> > Hi all,
+> > 
+> > 	I've read where the onboard Marvell lan controller on
+> > some Gigabyte boards don't work.  I've got two systems
+> > using the same Gigabyte board, on one the LAN works on
+> > the other it dies like described by others.  Here's
+> > the systems:
+> > 
+> > 
+> > Working system:
+> > Gigabyte 965P-DS3 rev 3.3  (BIOS F10)
+> > Core2 Q6600
+> > 2GB Corsair XMS2 memory
+> > kernel 2.6.22.3
+> > 
+> > lspci for LAN controller:
+> > 04:00.0 Ethernet controller: Marvell Technology Group
+> > Ltd. 88E8056 PCI-E Gigabit Ethernet Controller (rev
+> > 14)
+> > 
+> > 
+> > Broken system:
+> > Gigabyte 965P-DS3 rev 3.3  (BIOS F10)
+> > Core2 E4400
+> > 2GB Corsair XMS2 memory
+> > kernel 2.6.22.3
+> > 
+> > lspci for LAN controller:
+> > 03:00.0 Ethernet controller: Marvell Technology Group
+> > Ltd. Unknown device 4364 (rev 12)
+> > 
+> > 
+> > 	The BIOS for the two systems are setup the same and
+> > the config for the kernels are the same too.  I've
+> > actually tried taking the kernel from the working
+> > system and booting it on the broken one but still the
+> > LAN dies after a couple of seconds.  The working
+> > system has one card plugged in (nvidia based PCI-X
+> > video card), I've taken that card and plugged into the
+> > broken system, booted the same kernel, and it still
+> > dies after a while.
+> > 
+> > 	I will gladly provide any info needed if it can help
+> > in getting this chipset working on the Gigabyte
+> > boards.
+> > 
+> > 	Thanks,
+> > 	Kevin
+> 
+> I maintain the sky2 driver, and have one of the (buggy) Gigabyte motherboards.
+> It is interesting that the problem seems to track with video card.
 
-I'm not sure I follow.  Perhaps "broken" was too strong a word to use,
-but if you pass a huge segment to a NIC with TSO, then you've given
-the NIC control of scheduling the packets that end up getting put on
-the wire.  If your software packet scheduling is operating at a bigger
-scale, then things work fine, but I don't see how you can say that TSO
-doesn't lead to head-of-line blocking etc at short time scales.  And
-yes of course I agree you can make sure things work by using short
-segments or not using TSO at all.
+No Stephen, look again, he says that moving the video card into the broken
+system does not change anything.
 
-Similarly with LRO the packets that get passed to the stack are not
-the packets that were actually on the wire.  Sure, most filtering will
-work fine but eg are you sure your RTT estimates aren't going to get
-screwed up and cause some subtle bug?  And I could trot out all the
-same bugaboos that are brought up about RDMA and warn darkly about
-security problems with bugs in NIC hardware that after all has to
-parse and rewrite TCP and IP packets.
+> Are you using the Nvidia binary driver?
+> The video card in the system I have troubles with is:
+> 	ATI Technologies Inc RV370 [Radeon X300SE]
+> 
+> Surprisingly, using other PCI-E cards with same driver (different Marvell chips)
+> has no problem.  Vendor version of sk98lin driver has same failure mode
+> on the buggy hardware.
+> 
+> You might want to look at lspci -vvv output on two system to see if there
+> are differences. Perhaps there is a CPU speed dependency?
 
-Also, looking at the complexity and bug-fixing effort that go into
-making TSO work vs the really pretty small gain it gives also makes
-part of me wonder whether the noble proclamations about
-maintainability are always taken to heart.
+I don't understand why the working one is on PCI bus 3 while the other
+is on PCI bus 4. It's just as if the chip embedded a PCI bridge. Maybe
+those chips are just cheaper dual-channel controllers with one faulty
+controller disabled. It would also explain why the PCI ID is different.
 
-Of course I know everything I just wrote is wrong because I forgot to
-refer to the crucial axiom that stateless == good && RDMA == bad.
-And sometimes it's unfortunate that in Linux when there's disagreement
-about something, the default action is *not* to do something.
+Willy
 
-Sorry for prolonging this argument.  Dave, I should say that I
-appreciate all the work you've done in helping build the most kick-ass
-networking stack in history.  And as I said before, I have plenty of
-interesting work to do however this turns out, so I'll try to leave
-any further arguing to people who actually have a dog in this fight.
-
- - R.
