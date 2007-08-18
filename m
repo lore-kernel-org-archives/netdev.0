@@ -1,58 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP ports
-	from the host TCP port space.
-Date: Fri, 17 Aug 2007 17:00:33 -0700 (PDT)
-Message-ID: <20070817.170033.63993876.davem@davemloft.net>
-References: <adaodh6x7js.fsf@cisco.com>
-	<20070817.142756.65194845.davem@davemloft.net>
-	<adafy2hyc04.fsf@cisco.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: Marvell 88E8056 gigabit ethernet controller
+Date: Fri, 17 Aug 2007 17:03:41 -0700
+Message-ID: <20070817170341.7f2645fa@freepuppy.rosehill.hemminger.net>
+References: <424491.59139.qm@web38906.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: rdreier@cisco.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <adafy2hyc04.fsf@cisco.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: netdev@vger.kernel.org
+To: Kevin E <kevin360@yahoo.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:52288 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751364AbXHRAEO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2007 20:04:14 -0400
+In-Reply-To: <424491.59139.qm@web38906.mail.mud.yahoo.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Fri, 17 Aug 2007 16:31:07 -0700
+On Fri, 17 Aug 2007 05:42:13 -0700 (PDT)
+Kevin E <kevin360@yahoo.com> wrote:
 
->  > >  > When using RDMA you lose the capability to do packet shaping,
->  > >  > classification, and all the other wonderful networking facilities
->  > >  > you've grown to love and use over the years.
->  > > 
->  > > Same thing with TSO and LRO and who knows what else.
->  > 
->  > Not true at all.  Full classification and filtering still is usable
->  > with TSO and LRO.
+> Hi all,
 > 
-> Well, obviously with TSO and LRO the packets that the stack sends or
-> receives are not the same as what's on the wire.  Whether that breaks
-> your wonderful networking facilities or not depends on the specifics
-> of the particular facility I guess -- for example shaping is clearly
-> broken by TSO.  (And people can wonder what the packet trains TSO
-> creates do to congestion control on the internet, but the netdev crowd
-> has already decided that TSO is "good" and RDMA is "bad")
+> 	I've read where the onboard Marvell lan controller on
+> some Gigabyte boards don't work.  I've got two systems
+> using the same Gigabyte board, on one the LAN works on
+> the other it dies like described by others.  Here's
+> the systems:
+> 
+> 
+> Working system:
+> Gigabyte 965P-DS3 rev 3.3  (BIOS F10)
+> Core2 Q6600
+> 2GB Corsair XMS2 memory
+> kernel 2.6.22.3
+> 
+> lspci for LAN controller:
+> 04:00.0 Ethernet controller: Marvell Technology Group
+> Ltd. 88E8056 PCI-E Gigabit Ethernet Controller (rev
+> 14)
+> 
+> 
+> Broken system:
+> Gigabyte 965P-DS3 rev 3.3  (BIOS F10)
+> Core2 E4400
+> 2GB Corsair XMS2 memory
+> kernel 2.6.22.3
+> 
+> lspci for LAN controller:
+> 03:00.0 Ethernet controller: Marvell Technology Group
+> Ltd. Unknown device 4364 (rev 12)
+> 
+> 
+> 	The BIOS for the two systems are setup the same and
+> the config for the kernels are the same too.  I've
+> actually tried taking the kernel from the working
+> system and booting it on the broken one but still the
+> LAN dies after a couple of seconds.  The working
+> system has one card plugged in (nvidia based PCI-X
+> video card), I've taken that card and plugged into the
+> broken system, booted the same kernel, and it still
+> dies after a while.
+> 
+> 	I will gladly provide any info needed if it can help
+> in getting this chipset working on the Gigabyte
+> boards.
+> 
+> 	Thanks,
+> 	Kevin
 
-This is also a series of falsehoods.  All packet filtering,
-queue management, and packet scheduling facilities work perfectly
-fine and as designed with both LRO and TSO.
+I maintain the sky2 driver, and have one of the (buggy) Gigabyte motherboards.
+It is interesting that the problem seems to track with video card.
+Are you using the Nvidia binary driver?
+The video card in the system I have troubles with is:
+	ATI Technologies Inc RV370 [Radeon X300SE]
 
-When problems come up, they are bugs, and we fix them.
+Surprisingly, using other PCI-E cards with same driver (different Marvell chips)
+has no problem.  Vendor version of sk98lin driver has same failure mode
+on the buggy hardware.
 
-Please stop spreading this FUD about TSO and LRO.
+You might want to look at lspci -vvv output on two system to see if there
+are differences. Perhaps there is a CPU speed dependency?
 
-The fact is that RDMA bypasses the whole stack so that supporting
-these facilities is not even _POSSIBLE_.  With stateless offloads it
-is possible to support all of these facilities, and we do.
