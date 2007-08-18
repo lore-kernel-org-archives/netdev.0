@@ -1,84 +1,70 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: Marvell 88E8056 gigabit ethernet controller
-Date: Fri, 17 Aug 2007 17:03:41 -0700
-Message-ID: <20070817170341.7f2645fa@freepuppy.rosehill.hemminger.net>
-References: <424491.59139.qm@web38906.mail.mud.yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+From: Segher Boessenkool <segher@kernel.crashing.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Sat, 18 Aug 2007 02:04:35 +0200
+Message-ID: <c0115c88da5d6756502e0c0499faa71f@kernel.crashing.org>
+References: <20070816003948.GY9645@linux.vnet.ibm.com> <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com> <18115.44462.622801.683446@cargo.ozlabs.ibm.com> <20070816020042.GA30650@gondor.apana.org.au> <18115.45316.702491.681906@cargo.ozlabs.ibm.com> <alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in> <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in> <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au> <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au> <Pine.LNX.4.64.0708161743500.13267@kivilampi-30.cs.helsinki.fi> <46C4ABA5.9010804@redhat.com> <Pine.LNX.4.64.0708161319000.17777@schroedinger.engr.sgi.com> <c298f0e3f9e49c9dd2d326115d156084@kernel.crashing.org> <alpine.LFD
+ .0.999.0708180002290.3666@enigma.security.iitk.ac.in> <a51ab88dc00f8d7fd44f79400671d259@kernel.crashing.org> <alpine.LFD.0.999.0708180522120.3666@enigma.security.iitk.ac.in>
+Mime-Version: 1.0 (Apple Message framework v623)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Kevin E <kevin360@yahoo.com>
+Cc: Christoph Lameter <clameter@sgi.com>,
+	Paul Mackerras <paulus@samba.org>, heiko.carstens@de.ibm.com,
+	horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	ak@suse.de, cfriesen@nortel.com, rpjday@mindspring.com,
+	Netdev <netdev@vger.kernel.org>, jesper.juhl@gmail.com,
+	linux-arch@vger.kernel.org, zlynx@acm.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Satyam Sharma <satyam@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:52288 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751364AbXHRAEO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Aug 2007 20:04:14 -0400
-In-Reply-To: <424491.59139.qm@web38906.mail.mud.yahoo.com>
+Received: from gate.crashing.org ([63.228.1.57]:57610 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752348AbXHRAId (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Aug 2007 20:08:33 -0400
+In-Reply-To: <alpine.LFD.0.999.0708180522120.3666@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 17 Aug 2007 05:42:13 -0700 (PDT)
-Kevin E <kevin360@yahoo.com> wrote:
+>>>> atomic_dec() writes
+>>>> to memory, so it _does_ have "volatile semantics", implicitly, as
+>>>> long as the compiler cannot optimise the atomic variable away
+>>>> completely -- any store counts as a side effect.
+>>>
+>>> I don't think an atomic_dec() implemented as an inline "asm volatile"
+>>> or one that uses a "forget" macro would have the same re-ordering
+>>> guarantees as an atomic_dec() that uses a volatile access cast.
+>>
+>> The "asm volatile" implementation does have exactly the same
+>> reordering guarantees as the "volatile cast" thing,
+>
+> I don't think so.
 
-> Hi all,
-> 
-> 	I've read where the onboard Marvell lan controller on
-> some Gigabyte boards don't work.  I've got two systems
-> using the same Gigabyte board, on one the LAN works on
-> the other it dies like described by others.  Here's
-> the systems:
-> 
-> 
-> Working system:
-> Gigabyte 965P-DS3 rev 3.3  (BIOS F10)
-> Core2 Q6600
-> 2GB Corsair XMS2 memory
-> kernel 2.6.22.3
-> 
-> lspci for LAN controller:
-> 04:00.0 Ethernet controller: Marvell Technology Group
-> Ltd. 88E8056 PCI-E Gigabit Ethernet Controller (rev
-> 14)
-> 
-> 
-> Broken system:
-> Gigabyte 965P-DS3 rev 3.3  (BIOS F10)
-> Core2 E4400
-> 2GB Corsair XMS2 memory
-> kernel 2.6.22.3
-> 
-> lspci for LAN controller:
-> 03:00.0 Ethernet controller: Marvell Technology Group
-> Ltd. Unknown device 4364 (rev 12)
-> 
-> 
-> 	The BIOS for the two systems are setup the same and
-> the config for the kernels are the same too.  I've
-> actually tried taking the kernel from the working
-> system and booting it on the broken one but still the
-> LAN dies after a couple of seconds.  The working
-> system has one card plugged in (nvidia based PCI-X
-> video card), I've taken that card and plugged into the
-> broken system, booted the same kernel, and it still
-> dies after a while.
-> 
-> 	I will gladly provide any info needed if it can help
-> in getting this chipset working on the Gigabyte
-> boards.
-> 
-> 	Thanks,
-> 	Kevin
+"asm volatile" creates a side effect.  Side effects aren't
+allowed to be reordered wrt sequence points.  This is exactly
+the same reason as why "volatile accesses" cannot be reordered.
 
-I maintain the sky2 driver, and have one of the (buggy) Gigabyte motherboards.
-It is interesting that the problem seems to track with video card.
-Are you using the Nvidia binary driver?
-The video card in the system I have troubles with is:
-	ATI Technologies Inc RV370 [Radeon X300SE]
+>> if that is
+>> implemented by GCC in the "obvious" way.  Even a "plain" asm()
+>> will do the same.
+>
+> Read the relevant GCC documentation.
 
-Surprisingly, using other PCI-E cards with same driver (different Marvell chips)
-has no problem.  Vendor version of sk98lin driver has same failure mode
-on the buggy hardware.
+I did, yes.
 
-You might want to look at lspci -vvv output on two system to see if there
-are differences. Perhaps there is a CPU speed dependency?
+> [ of course, if the (latest) GCC documentation is *yet again*
+>   wrong, then alright, not much I can do about it, is there. ]
+
+There was (and is) nothing wrong about the "+m" documentation, if
+that is what you are talking about.  It could be extended now, to
+allow "+m" -- but that takes more than just "fixing" the documentation.
+
+
+Segher
 
