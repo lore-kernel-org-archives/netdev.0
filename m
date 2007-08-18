@@ -1,56 +1,45 @@
-From: Daniel Schaffrath <danielschaffrath@mac.com>
-Subject: Re: drivers/infiniband/mlx/mad.c misplaced ;
-Date: Sat, 18 Aug 2007 17:14:00 +0200
-Message-ID: <28AF5775-A29A-4BB8-83DA-2CAEAEDA164E@mac.com>
-References: <20070815235825.GB17004@redhat.com> <1187224811.5906.55.camel@localhost> <20070816084635.GA15985@osiris.boeblingen.de.ibm.com> <Pine.LNX.4.64.0708161248050.22579@kivilampi-30.cs.helsinki.fi> <20070816110116.GA8100@pingi.kke.suse.de>
-Mime-Version: 1.0 (Apple Message framework v752.3)
-Content-Type: text/plain; charset=ISO-8859-1;
-	delsp=yes	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Joe Perches <joe@perches.com>, Dave Jones <davej@redhat.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>, rolandd@cisco.com,
-	Chas Williams <chas@cmf.nrl.navy.mil>,
-	Paul Mundt <lethal@linux-sh.org>,
-	isdn4linux@listserv.isdn4linux.de, mikep@linuxtr.net,
-	Netdev <netdev@vger.kernel.org>, swen@vnet.ibm.com,
-	linux390@de.ibm.com, linux-s390@vger.kernel.org, jdike@karaya.com,
-	user-mode-linux-devel@lists.sourceforge.net,
-	user-mode-linux-user@lists.sourceforge.net,
-	netfilter-devel@lists.netfilter.org, coreteam@netfilter.org,
-	Satyam Sharma <satyam@infradead.org>
-To: Karsten Keil <kkeil@suse.de>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756124AbXHRPVE@vger.kernel.org>
-In-Reply-To: <20070816110116.GA8100@pingi.kke.suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH 6/7 v2] fs_enet: Be an of_platform device when CONFIG_PPC_CPM_NEW_BINDING is set.
+Date: Sat, 18 Aug 2007 11:36:24 -0500
+Message-ID: <55FCD650-548C-40C9-8B1E-16259EF93F1D@kernel.crashing.org>
+References: <20070817181718.GA15792@ld0162-tx32.am.freescale.net>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Scott Wood <scottwood@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:40013 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755914AbXHRQer (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 Aug 2007 12:34:47 -0400
+In-Reply-To: <20070817181718.GA15792@ld0162-tx32.am.freescale.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-On 2007/08/16  , at 13:01, Karsten Keil wrote:
+On Aug 17, 2007, at 1:17 PM, Scott Wood wrote:
 
-> On Thu, Aug 16, 2007 at 01:22:04PM +0300, Ilpo J=E4rvinen wrote:
->>
->> ...I guess those guys hunting for broken busyloops in the other =20
->> thread
->> could also benefit from similar searching commands introduced in thi=
-s
->> thread... ...Ccing Satyam to caught their attention too.
->>
->>
->> ./drivers/isdn/hisax/hfc_pci.c
->> 125:	if (Read_hfc(cs, HFCPCI_INT_S1)) ;
->> 155:	if (Read_hfc(cs, HFCPCI_INT_S1)) ;
->> 1483:					if (Read_hfc(cs, HFCPCI_INT_S1)) ;
->> --
->> ./drivers/isdn/hisax/hfc_sx.c
->> 377:	if (Read_hfc(cs, HFCSX_INT_S1)) ;
->> 407:	if (Read_hfc(cs, HFCSX_INT_S2)) ;
->> 1246:					if (Read_hfc(cs, HFCSX_INT_S1)) ;
->> --
+> The existing OF glue code was crufty and broken.  Rather than fix  
+> it, it
+> will be removed, and the ethernet driver now talks to the device tree
+> directly.
 >
-> These are workaround to not get compiler warnings about ignored retur=
-n
-> values I got some time ago under some architecture.
-Maybe '(void) Read_hfc(cs, HFCSX_INT_S1)' is a better option to get =20
-rid of the warnings.
+> The old, non-CONFIG_PPC_CPM_NEW_BINDING code can go away once CPM
+> platforms are dropped from arch/ppc (which will hopefully be soon),  
+> and
+> existing arch/powerpc boards that I wasn't able to test on for this
+> patchset get converted (which should be even sooner).
+>
+> mii-bitbang.c now also uses the generic bitbang code.
+>
+> Signed-off-by: Scott Wood <scottwood@freescale.com>
+> ---
+> Sorry, the previous version of this patch had bb_ops in the wrong
+> place, and wouldn't build when not using the new binding.
+
+This patch seems to mix moving to using the device tree directly w/o  
+some other modifications.  Can it be broken into those two changes as  
+they'd be easier to review.
+
+- k
