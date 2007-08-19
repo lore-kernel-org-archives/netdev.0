@@ -1,58 +1,58 @@
-From: "Sean Hefty" <sean.hefty@intel.com>
-Subject: RE: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP portsfrom
-	the host TCP port space.
-Date: Sun, 19 Aug 2007 00:01:07 -0700
-Message-ID: <000001c7e22e$b7b90f00$29c8180a@amr.corp.intel.com>
-References: <adafy2hyc04.fsf@cisco.com><20070817.170033.63993876.davem@davemloft.net><adatzqxwh56.fsf@cisco.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP
+ portsfrom the host TCP port space.
+Date: Sun, 19 Aug 2007 00:23:37 -0700 (PDT)
+Message-ID: <20070819.002337.06589160.davem@davemloft.net>
+References: <adatzqxwh56.fsf@cisco.com>
 	<20070817.234405.66176298.davem@davemloft.net>
+	<000001c7e22e$b7b90f00$29c8180a@amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, general@lists.openfabrics.org,
-	linux-kernel@vger.kernel.org, jeff@garzik.org
-To: "'David Miller'" <davem@davemloft.net>,
-	<rdreier@cisco.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070817.234405.66176298.davem@davemloft.net>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: rdreier@cisco.com, jeff@garzik.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, general@lists.openfabrics.org
+To: sean.hefty@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55083
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750709AbXHSHXi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2007 03:23:38 -0400
+In-Reply-To: <000001c7e22e$b7b90f00$29c8180a@amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->Just be realistic and accept that RDMA is a point in time solution,
->and like any other such technology takes flexibility away from users.
+From: "Sean Hefty" <sean.hefty@intel.com>
+Date: Sun, 19 Aug 2007 00:01:07 -0700
 
-All technologies are just point in time solutions.  While management is
-important, shouldn't the customers decide how important it is relative to their
-problems?  Whether some future technology will be better matters little if a
-problem needs to be solved today.
+> Millions of Infiniband ports are in operation today.  Over 25% of the top 500
+> supercomputers use Infiniband.  The formation of the OpenFabrics Alliance was
+> pushed and has been continuously funded by an RDMA customer - the US National
+> Labs.  RDMA technologies are backed by Cisco, IBM, Intel, QLogic, Sun, Voltaire,
+> Mellanox, NetApp, AMD, Dell, HP, Oracle, Unisys, Emulex, Hitachi, NEC, Fujitsu,
+> LSI, SGI, Sandia, and at least two dozen other companies.  IDC expects
+> Infiniband adapter revenue to triple between 2006 and 2011, and switch revenue
+> to increase six-fold (combined revenues of 1 billion).
 
->If you can't see that this is the future, you have my condolences.
->Because frankly, the signs are all around that this is where things
->are going.
+Scale these numbers with reality and usage.
 
-Adding a bazillion cores to a processor doesn't do a thing to help memory
-bandwidth.
+These vendors pour in huge amounts of money into a relatively small
+number of extremely large cluster installations.  Besides the folks
+doing nuke and whole-earth simulations at some government lab, nobody
+cares.  And part of the investment is not being done wholly for smart
+economic reasons, but also largely publicity purposes.
 
-Millions of Infiniband ports are in operation today.  Over 25% of the top 500
-supercomputers use Infiniband.  The formation of the OpenFabrics Alliance was
-pushed and has been continuously funded by an RDMA customer - the US National
-Labs.  RDMA technologies are backed by Cisco, IBM, Intel, QLogic, Sun, Voltaire,
-Mellanox, NetApp, AMD, Dell, HP, Oracle, Unisys, Emulex, Hitachi, NEC, Fujitsu,
-LSI, SGI, Sandia, and at least two dozen other companies.  IDC expects
-Infiniband adapter revenue to triple between 2006 and 2011, and switch revenue
-to increase six-fold (combined revenues of 1 billion).
+So present your great Infiniband numbers with that being admitted up
+front, ok?
 
-Customers see real benefits using channel based architectures.  Do all customers
-need it?  Of course not.  Is it a niche?  Yes, but I would say that about any
-10+ gig network.  That doesn't mean that it hasn't become essential for some
-customers.
+It's relevance to Linux as a general purpose operating system that
+should be "good enough" for %99 of the world is close to NIL.
 
-- Sean
+People have been pouring tons of money and research into doing stupid
+things to make clusters go fast, and in such a way that make zero
+sense for general purpose operating systems, for ages.  RDMA is just
+one such example.
+
+BTW, I find it ironic that you mention memory bandwidth as a retort,
+as Roland's favorite stateless offload devil, TSO, deals explicity
+with lowering the per-packet BUS bandwidth usage of TCP.  LRO
+offloading does likewise.
