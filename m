@@ -1,58 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP
- portsfrom the host TCP port space.
-Date: Sun, 19 Aug 2007 00:23:37 -0700 (PDT)
-Message-ID: <20070819.002337.06589160.davem@davemloft.net>
-References: <adatzqxwh56.fsf@cisco.com>
-	<20070817.234405.66176298.davem@davemloft.net>
-	<000001c7e22e$b7b90f00$29c8180a@amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, general@lists.openfabrics.org
-To: sean.hefty@intel.com
+From: linux@horizon.com
+Subject: The mess that is SIGPIPE
+Date: 19 Aug 2007 08:00:02 -0400
+Message-ID: <20070819120002.17027.qmail@science.horizon.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55083
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750709AbXHSHXi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2007 03:23:38 -0400
-In-Reply-To: <000001c7e22e$b7b90f00$29c8180a@amr.corp.intel.com>
+Received: from science.horizon.com ([192.35.100.1]:15874 "HELO
+	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751196AbXHSMGo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2007 08:06:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Sean Hefty" <sean.hefty@intel.com>
-Date: Sun, 19 Aug 2007 00:01:07 -0700
+I noticed that FreeBSD has a useful SOL_SOCKET option, SO_NOSIGPIPE, which
+is a "sticky" version of MSG_NOSIGNAL.  Particularly useful for libraries,
+it disables SIGPIPE on a particular socket without disabling it globally.
 
-> Millions of Infiniband ports are in operation today.  Over 25% of the top 500
-> supercomputers use Infiniband.  The formation of the OpenFabrics Alliance was
-> pushed and has been continuously funded by an RDMA customer - the US National
-> Labs.  RDMA technologies are backed by Cisco, IBM, Intel, QLogic, Sun, Voltaire,
-> Mellanox, NetApp, AMD, Dell, HP, Oracle, Unisys, Emulex, Hitachi, NEC, Fujitsu,
-> LSI, SGI, Sandia, and at least two dozen other companies.  IDC expects
-> Infiniband adapter revenue to triple between 2006 and 2011, and switch revenue
-> to increase six-fold (combined revenues of 1 billion).
+Anyway, this led me to look at the implementation of SIGPIPE and
+MSG_NOSIGNAL and...  it's a bit of a mess.  Some places honor
+MSG_NOSIGNAL, but there are a lot of code paths that don't appear to.
 
-Scale these numbers with reality and usage.
+So I started thinking about a cleanup...
 
-These vendors pour in huge amounts of money into a relatively small
-number of extremely large cluster installations.  Besides the folks
-doing nuke and whole-earth simulations at some government lab, nobody
-cares.  And part of the investment is not being done wholly for smart
-economic reasons, but also largely publicity purposes.
+Currently, SIGPIPE is sent from dozens of places that return EPIPE.
+What if they could all be deleted and just a few system calls: write(),
+writev(), send(), sendto() and sendmsg() (oh, yes, and sendfile())
+could check for EPIPE from the VFS calls they make and generate SIGPIPE
+appropriately?
 
-So present your great Infiniband numbers with that being admitted up
-front, ok?
+The only thing is figuring out where in the call chain to put it.
 
-It's relevance to Linux as a general purpose operating system that
-should be "good enough" for %99 of the world is close to NIL.
+sys_send()
+-> sys_sendto()
+   -> sock_sendmsg()
+      -> __sock_sendmsg()
+         -> sock->ops->sendmsg
 
-People have been pouring tons of money and research into doing stupid
-things to make clusters go fast, and in such a way that make zero
-sense for general purpose operating systems, for ages.  RDMA is just
-one such example.
+sys_write()
+-> vfs_write()
+   -> do_sync_write
+      -> filp->f_op->aio_write
+         -> sock_aio_write()
+            -> do_sock_write()
+               -> __sock_(sendmsg()
 
-BTW, I find it ironic that you mention memory bandwidth as a retort,
-as Roland's favorite stateless offload devil, TSO, deals explicity
-with lowering the per-packet BUS bandwidth usage of TCP.  LRO
-offloading does likewise.
+sys_writev()
+-> vfs_writev()
+   -> do_readv_writev()
+      -> do_loop_readv_writev()
+         -> file->f_op->write
+            -> ????
+               -> sock_aio_write()
+                  -> do_sock_write()
+                     -> __sock_(sendmsg()
+
+kernel_sendmsg() also calls sock_sendmsg(), and it would save a bunch
+of fiddling with MSG_NOSIGNAL if kernel_sendmsg() never generated signals.
+
+That implies that the check should be at the sys_sendto() layer or higher.
+
+
+Anyway, looking into implementing this, I found a zillion places where
+the logic looked a little unclear, such as OCFS2 code.  I'm not convinced
+that a bug there can't generate SIGPIPE unexpectedly.
+
+
+Anyway, before I tackle this rewrite, I'd like to ask if someone knows
+what the code is *supposed* to be doing, and can confirm that SIGPIPE
+should be generated if and only if the write is done by a user-level
+system call that can return EPIPE.  So all the buried network file
+systems should never generate it.  Is that right?
+
+Thanks for the insights.
