@@ -1,27 +1,50 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
+From: Kevin E <kevin360@yahoo.com>
 Subject: Re: Marvell 88E8056 gigabit ethernet controller
-Date: Sun, 19 Aug 2007 11:34:00 -0700
-Message-ID: <20070819113400.12f5570c@localhost>
-References: <20070818121714.GA28247@1wt.eu>
-	<283388.84897.qm@web38905.mail.mud.yahoo.com>
-	<20070819093221.4d3291e9@freepuppy.rosehill.hemminger.net>
-	<2456F7EB-000C-4B71-B002-64340DD17BA8@linuxmontreal.com>
+Date: Sun, 19 Aug 2007 12:13:57 -0700 (PDT)
+Message-ID: <551158.43737.qm@web38907.mail.mud.yahoo.com>
+References: <20070819113400.12f5570c@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Kevin E <kevin360@yahoo.com>, Willy Tarreau <w@1wt.eu>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Preston <developer@linuxmontreal.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:60030 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754737AbXHSSe1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2007 14:34:27 -0400
-In-Reply-To: <2456F7EB-000C-4B71-B002-64340DD17BA8@linuxmontreal.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Transfer-Encoding: 7BIT
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755920AbXHSTOO@vger.kernel.org>
+In-Reply-To: <20070819113400.12f5570c@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The driver prints some chip version info at startup, that might
-be helpful in disambiguating good/bad versions:
 
-	dmesg | grep sky2
+--- Stephen Hemminger
+<shemminger@linux-foundation.org> wrote:
+
+> The driver prints some chip version info at startup,
+> that might
+> be helpful in disambiguating good/bad versions:
+> 
+> 	dmesg | grep sky2
+
+Here's the output from the working MB:
+
+sky2 0000:04:00.0: v1.14 addr 0xf8000000 irq 16
+Yukon-EC Ultra (0xb4) rev 3
+sky2 eth0: addr 00:1a:4d:42:61:46
+sky2 eth0: enabling interface
+sky2 eth0: ram buffer 0K
+sky2 eth0: Link is up at 100 Mbps, full duplex, flow
+control both
+
+The broken MB there's no output in dmesg but there is
+in /var/log/messages (I just rebooted the machine to
+get the output):
+
+Aug 19 14:56:42 www kernel: sky2 0000:04:00.0: v1.14
+addr 0xf8000000 irq 16 Yukon-EC Ultra (0xb4) rev 3
+Aug 19 14:56:42 www kernel: sky2 eth1: addr
+00:1a:4d:82:11:02
+
+
+
+
+       
+____________________________________________________________________________________
+Moody friends. Drama queens. Your life? Nope! - their life, your story. Play Sims Stories at Yahoo! Games.
+http://sims.yahoo.com/  
