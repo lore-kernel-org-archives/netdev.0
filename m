@@ -1,49 +1,42 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCPportsfrom
-	the host TCP port space.
-Date: 20 Aug 2007 01:27:35 +0200
-Message-ID: <p73hcmv14wo.fsf@bingen.suse.de>
-References: <000001c7e22e$b7b90f00$29c8180a@amr.corp.intel.com>
-	<20070819.002337.06589160.davem@davemloft.net>
-	<8A71B368A89016469F72CD08050AD334018E208F@maui.asicdesigners.com>
-	<20070819.123212.13769462.davem@davemloft.net>
-	<8A71B368A89016469F72CD08050AD334018E209C@maui.asicdesigners.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org, rdreier@cisco.com,
-	linux-kernel@vger.kernel.org, general@lists.openfabrics.org,
-	David Miller <davem@davemloft.net>
-To: "Felix Marti" <felix@chelsio.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <8A71B368A89016469F72CD08050AD334018E209C@maui.asicdesigners.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+From: Eric Preston <developer@linuxmontreal.com>
+Subject: Re: Marvell 88E8056 gigabit ethernet controller
+Date: Sun, 19 Aug 2007 19:04:37 -0400
+Message-ID: <172AD054-448D-4085-82EE-AAEE77C0640F@linuxmontreal.com>
+References: <20070818121714.GA28247@1wt.eu> <283388.84897.qm@web38905.mail.mud.yahoo.com> <20070819093221.4d3291e9@freepuppy.rosehill.hemminger.net> <2456F7EB-000C-4B71-B002-64340DD17BA8@linuxmontreal.com> <20070819113400.12f5570c@localhost>
+Mime-Version: 1.0 (Apple Message framework v752.3)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from server2.corp.notserp.com ([64.71.152.20]:4806 "EHLO
+	server2.corp.notserp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751318AbXHSXEo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2007 19:04:44 -0400
+In-Reply-To: <20070819113400.12f5570c@localhost>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Felix Marti" <felix@chelsio.com> writes:
 
-> what benefits does the TSO infrastructure give the
-> non-TSO capable devices?
+On 19-Aug-07, at 2:34 PM, Stephen Hemminger wrote:
 
-It improves performance on software queueing devices between guests
-and hypervisors. This is a more and more important application these
-days.  Even when the system running the Hypervisor has a non TSO
-capable device in the end it'll still save CPU cycles this way. Right now
-virtualized IO tends to much more CPU intensive than direct IO so any
-help it can get is beneficial.
+> The driver prints some chip version info at startup, that might
+> be helpful in disambiguating good/bad versions:
+>
+> 	dmesg | grep sky2
 
-It also makes loopback faster, although given that's probably not that
-useful.
+sky2 0000:03:00.0: v1.16 addr 0xfa000000 irq 16 Yukon-EC Ultra (0xb4)  
+rev 2
+sky2 eth0: addr XX:XX:XX:XX:XX
+sky2 eth0: enabling interface
+sky2 eth0: ram buffer 0K
+sky2 eth0: disabling interface
 
-And a lot of the "TSO infrastructure" was needed for zero copy TX anyways,
-which benefits most reasonable modern NICs (anything with hardware 
-checksumming)
+-E
 
--Andi
+---
+Eric Preston, RHCA, RHCSS, RHCE
+Open Source Software Consultant // Administrator, Developer, Trainer
+514-312-7072
+
+
