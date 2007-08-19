@@ -1,50 +1,62 @@
-From: Kevin E <kevin360@yahoo.com>
-Subject: Re: Marvell 88E8056 gigabit ethernet controller
-Date: Sun, 19 Aug 2007 12:13:57 -0700 (PDT)
-Message-ID: <551158.43737.qm@web38907.mail.mud.yahoo.com>
-References: <20070819113400.12f5570c@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate
+	PS_TCPportsfrom the host TCP port space.
+Date: Sun, 19 Aug 2007 12:32:12 -0700 (PDT)
+Message-ID: <20070819.123212.13769462.davem@davemloft.net>
+References: <000001c7e22e$b7b90f00$29c8180a@amr.corp.intel.com>
+	<20070819.002337.06589160.davem@davemloft.net>
+	<8A71B368A89016469F72CD08050AD334018E208F@maui.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755920AbXHSTOO@vger.kernel.org>
-In-Reply-To: <20070819113400.12f5570c@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org, rdreier@cisco.com,
+	linux-kernel@vger.kernel.org, general@lists.openfabrics.org
+To: felix@chelsio.com
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <8A71B368A89016469F72CD08050AD334018E208F@maui.asicdesigners.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
+From: "Felix Marti" <felix@chelsio.com>
+Date: Sun, 19 Aug 2007 10:33:31 -0700
 
---- Stephen Hemminger
-<shemminger@linux-foundation.org> wrote:
+> I know that you don't agree that TSO has drawbacks, as outlined by
+> Roland, but its history showing something else: the addition of TSO
+> took a fair amount of time and network performance was erratic for
+> multiple kernel revisions and the TSO code is sprinkled across the
+> network stack.
 
-> The driver prints some chip version info at startup,
-> that might
-> be helpful in disambiguating good/bad versions:
-> 
-> 	dmesg | grep sky2
+This thing you call "sprinkled" is a necessity of any hardware
+offload when it is possible for a packet to later get "steered"
+to a device which cannot perform the offload.
 
-Here's the output from the working MB:
+Therefore we need a software implementation of TSO so that those
+packets can still get output to the non-TSO-capable device.
 
-sky2 0000:04:00.0: v1.14 addr 0xf8000000 irq 16
-Yukon-EC Ultra (0xb4) rev 3
-sky2 eth0: addr 00:1a:4d:42:61:46
-sky2 eth0: enabling interface
-sky2 eth0: ram buffer 0K
-sky2 eth0: Link is up at 100 Mbps, full duplex, flow
-control both
+We do the same thing for checksum offloading.
 
-The broken MB there's no output in dmesg but there is
-in /var/log/messages (I just rebooted the machine to
-get the output):
+And for free we can use the software offloading mechanism to
+get batching to arbitrary network devices, even those which cannot
+do TSO.
 
-Aug 19 14:56:42 www kernel: sky2 0000:04:00.0: v1.14
-addr 0xf8000000 irq 16 Yukon-EC Ultra (0xb4) rev 3
-Aug 19 14:56:42 www kernel: sky2 eth1: addr
-00:1a:4d:82:11:02
+What benefits does RDMA infrastructure give to non-RDMA capable
+devices?  None?  I see, that's great.
 
+And again the TSO bugs and issues are being overstated and, also for
+the second time, these issues are more indicative of my bad
+programming skills then they are of intrinsic issues of TSO.  The
+TSO implementation was looking for a good design, and it took me
+a while to find it because I personally suck.
 
+Face it, stateless offloads are always going to be better in the long
+term.  And this is proven.
 
-
-       
-____________________________________________________________________________________
-Moody friends. Drama queens. Your life? Nope! - their life, your story. Play Sims Stories at Yahoo! Games.
-http://sims.yahoo.com/  
+You RDMA folks really do live in some kind of fantasy land.
