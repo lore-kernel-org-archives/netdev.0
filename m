@@ -1,73 +1,49 @@
-From: linux@horizon.com
-Subject: The mess that is SIGPIPE
-Date: 19 Aug 2007 08:00:02 -0400
-Message-ID: <20070819120002.17027.qmail@science.horizon.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from science.horizon.com ([192.35.100.1]:15874 "HELO
-	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751196AbXHSMGo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2007 08:06:44 -0400
-Sender: netdev-owner@vger.kernel.org
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: Marvell 88E8056 gigabit ethernet controller
+Date: Sun, 19 Aug 2007 09:32:21 -0700
+Message-ID: <20070819093221.4d3291e9@freepuppy.rosehill.hemminger.net>
+References: <20070818121714.GA28247@1wt.eu>
+	<283388.84897.qm@web38905.mail.mud.yahoo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Willy Tarreau <w@1wt.eu>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Kevin E <kevin360@yahoo.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756530AbXHSQdQ@vger.kernel.org>
+In-Reply-To: <283388.84897.qm@web38905.mail.mud.yahoo.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I noticed that FreeBSD has a useful SOL_SOCKET option, SO_NOSIGPIPE, which
-is a "sticky" version of MSG_NOSIGNAL.  Particularly useful for libraries,
-it disables SIGPIPE on a particular socket without disabling it globally.
+On Sat, 18 Aug 2007 06:59:08 -0700 (PDT)
+Kevin E <kevin360@yahoo.com> wrote:
 
-Anyway, this led me to look at the implementation of SIGPIPE and
-MSG_NOSIGNAL and...  it's a bit of a mess.  Some places honor
-MSG_NOSIGNAL, but there are a lot of code paths that don't appear to.
+> --- Willy Tarreau <w@1wt.eu> wrote:
+> 
+> > OK, in this trace, both controllers are on the same
+> > bus. The broken
+> > one has 'Capabilities: [100] Advanced Error
+> > Reporting' the other
+> > does not have, and the bridge to this bus has two
+> > more capabilities :
+> > 'Capabilities: [100] Virtual Channel' and
+> > 'Capabilities: [180] Unknown (5)'.
+> > 
+> > I don't know whether it can jutify a different
+> > behaviour. Also, maybe this
+> > is caused by a minuscule difference in the BIOS
+> > setup ?
+> 
 
-So I started thinking about a cleanup...
+The working board has a different version of the Marvell chip:
 
-Currently, SIGPIPE is sent from dozens of places that return EPIPE.
-What if they could all be deleted and just a few system calls: write(),
-writev(), send(), sendto() and sendmsg() (oh, yes, and sendfile())
-could check for EPIPE from the VFS calls they make and generate SIGPIPE
-appropriately?
+$ grep Marvell working-MB 
+04:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8056 PCI-E Gigabit Ethernet Controller (rev 14)
+$ grep Marvell broken-MB 
+04:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8056 PCI-E Gigabit Ethernet Controller (rev 12)
 
-The only thing is figuring out where in the call chain to put it.
+Not sure if that completely explains the problem because the broken chip on my
+system is:
+06:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8056 PCI-E Gigabit Ethernet Controller (rev 14)
 
-sys_send()
--> sys_sendto()
-   -> sock_sendmsg()
-      -> __sock_sendmsg()
-         -> sock->ops->sendmsg
-
-sys_write()
--> vfs_write()
-   -> do_sync_write
-      -> filp->f_op->aio_write
-         -> sock_aio_write()
-            -> do_sock_write()
-               -> __sock_(sendmsg()
-
-sys_writev()
--> vfs_writev()
-   -> do_readv_writev()
-      -> do_loop_readv_writev()
-         -> file->f_op->write
-            -> ????
-               -> sock_aio_write()
-                  -> do_sock_write()
-                     -> __sock_(sendmsg()
-
-kernel_sendmsg() also calls sock_sendmsg(), and it would save a bunch
-of fiddling with MSG_NOSIGNAL if kernel_sendmsg() never generated signals.
-
-That implies that the check should be at the sys_sendto() layer or higher.
-
-
-Anyway, looking into implementing this, I found a zillion places where
-the logic looked a little unclear, such as OCFS2 code.  I'm not convinced
-that a bug there can't generate SIGPIPE unexpectedly.
-
-
-Anyway, before I tackle this rewrite, I'd like to ask if someone knows
-what the code is *supposed* to be doing, and can confirm that SIGPIPE
-should be generated if and only if the write is done by a user-level
-system call that can return EPIPE.  So all the buried network file
-systems should never generate it.  Is that right?
-
-Thanks for the insights.
+I don't know what the differences are between versions.
