@@ -1,80 +1,86 @@
-From: "Felix Marti" <felix@chelsio.com>
-Subject: RE: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCPportsfrom the host TCP port space.
-Date: Mon, 20 Aug 2007 09:26:31 -0700
-Message-ID: <8A71B368A89016469F72CD08050AD334018E2108@maui.asicdesigners.com>
-References: <8A71B368A89016469F72CD08050AD334018E20BC@maui.asicdesigners.com><20070819.174017.77241227.davem@davemloft.net><8A71B368A89016469F72CD08050AD334018E20BE@maui.asicdesigners.com><20070819.180540.74750322.davem@davemloft.net><8A71B368A89016469F72CD08050AD334018E20C1@maui.asicdesigners.com> <p733aye1n39.fsf@bingen.suse.de>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: 2.6.23-rc3 and SKY2 driver issue
+Date: Mon, 20 Aug 2007 09:47:27 -0700
+Message-ID: <20070820094727.2b92fad0@freepuppy.rosehill.hemminger.net>
+References: <20070820090227.6ceb2934@freepuppy.rosehill.hemminger.net>
+	<624025.57129.qm@web90408.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "David Miller" <davem@davemloft.net>, <sean.hefty@intel.com>,
-	<netdev@vger.kernel.org>, <rdreier@cisco.com>,
-	<general@lists.openfabrics.org>, <linux-kernel@vger.kernel.org>,
-	<jeff@garzik.org>
-To: "Andi Kleen" <andi@firstfloor.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
+	linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>
+To: James Corey <ploversegg@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:17031 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755086AbXHTQ3W convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 12:29:22 -0400
-Content-class: urn:content-classes:message
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:52550 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760158AbXHTQsD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 12:48:03 -0400
+In-Reply-To: <624025.57129.qm@web90408.mail.mud.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-> -----Original Message-----
-> From: ak@suse.de [mailto:ak@suse.de] On Behalf Of Andi Kleen
-> Sent: Monday, August 20, 2007 4:07 AM
-> To: Felix Marti
-> Cc: David Miller; sean.hefty@intel.com; netdev@vger.kernel.org;
-> rdreier@cisco.com; general@lists.openfabrics.org; linux-
-> kernel@vger.kernel.org; jeff@garzik.org
-> Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate
-> PS_TCPportsfrom the host TCP port space.
-> 
-> "Felix Marti" <felix@chelsio.com> writes:
-> > > avoidance gains of TSO and LRO are still a very worthwhile
-savings.
-> > So, i.e. with TSO, your saving about 16 headers (let us say 14 + 20
-+
-> > 20), 864B, when moving ~64KB of payload - looks like very much in
-the
-> > noise to me.
-> 
-> TSO is beneficial for the software again. The linux code currently
-> takes several locks and does quite a few function calls for each
-> packet and using larger packets lowers this overhead. At least with
-> 10GbE saving CPU cycles is still quite important.
-> 
-> > an option to get 'high performance'
-> 
-> Shouldn't you qualify that?
-> 
-> It is unlikely you really duplicated all the tuning for corner cases
-> that went over many years into good software TCP stacks in your
-> hardware.  So e.g. for wide area networks with occasional packet loss
-> the software might well perform better.
-Yes, it used to be sufficient to submit performance data to show that a
-technology make 'sense'. In fact, I believe it was Alan Cox who once
-said that linux will have a look at offload once an offload device holds
-the land speed record (probably assuming that the day never comes ;).
-For the last few years it has been Chelsio offload devices that have
-been improving their own LSRs (as IO bus speeds have been increasing).
-It is worthwhile to point out that OC-192 doesn't offer full 10Gbps BW
-and the fine-grained (per packet and not per TSO-burst) packet scheduler
-in the offload device played a crucial part in pushing performance to
-the limits of what OC-192 can do. Most other customers use our offload
-products in low-latency cluster environments. - The problem with offload
-devices is that they are not all born equal and there have been a lot of
-poor implementation giving the technology a bad name. I can only speak
-for Chelsio and do claim that we have a solid implementation that scales
-from low-latency clusters environments to LFNs.
-
-Andi, I could present performance numbers, i.e. throughput and CPU
-utilization in function of IO size, number of connections, ... in a
-back-to-back environment and/or in a cluster environment... but what
-will it get me? I'd still get hit by the 'not integrated' hammer :(
+On Mon, 20 Aug 2007 09:23:46 -0700 (PDT)
+James Corey <ploversegg@yahoo.com> wrote:
 
 > 
-> -Andi
+> --- Stephen Hemminger
+> <shemminger@linux-foundation.org> wrote:
+> 
+> > On Mon, 20 Aug 2007 08:42:21 -0700 (PDT)
+> > James Corey <ploversegg@yahoo.com> wrote:
+> > 
+> > > 
+> > > --- Stephen Hemminger
+> > > <shemminger@linux-foundation.org> wrote:
+> > > 
+> > > > On Thu, 16 Aug 2007 10:25:45 +0200
+> > > > "Michal Piotrowski"
+> > >
+> > > > Please reproduce with a more recent kernel?
+> > > 
+> > > Um, I thought 2.6.23rc WAS pretty recent. :-)
+> > > 
+> > > I'll check if there is something newer in the
+> > > repository now.
+> > > 
+> > 
+> > What is the chip version?  Please send console log:
+> > "dmesg | grep sky2"
+> > 
+> > 
+> > -- 
+> > Stephen Hemminger <shemminger@linux-foundation.org>
+> > 
+> 
+> 
+> Ah ... details.
+> 
+> Machine: 
+> 
+> Dell Optiplex 745
+> 
+> Kernel:
+> 
+> 2.6.23-rc3 #1 SMP Tue Aug 14 19:44:07 EDT 2007 x86_64
+> x86_64 x86_64 GNU/Linux
+> 
+> Card:
+> 
+> D-Link DGE-550SX
+> 
+> # dmesg | grep sky2
+> sky2 0000:04:00.0: v1.16 addr 0xdf9fc000 irq 16
+> Yukon-XL (0xb3) rev 3
+> sky2 eth1: addr 00:17:9a:73:87:60
+> sky2 eth1: enabling interface
+> sky2 eth1: ram buffer 96K
+> sky2 eth1: Link is up at 1000 Mbps, full duplex, flow
+> control none
+
+Okay, this is a fiber based card.  Does the error happen right away (ie all packets
+have bad sum), or is it sporadic (ie some magic packet or race in hardware).
+Also are you using regular (1500) or jumbo (9000) mtu?
+
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
