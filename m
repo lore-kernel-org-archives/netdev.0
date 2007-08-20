@@ -1,34 +1,38 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: Re: [PATCH] phy layer: fix genphy_setup_forced (don't reset)
-Date: Mon, 20 Aug 2007 14:43:06 -0500
-Message-ID: <8A4DE44B-A030-4794-8832-E9C731379BD1@freescale.com>
-References: <20070817065445.GH13994@moe.telargo.com>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org
-To: Domen Puncer <domen.puncer@telargo.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCPportsfrom the host TCP port space.
+Date: Mon, 20 Aug 2007 22:18:08 +0200
+Message-ID: <20070820201808.GM32236@postel.suug.ch>
+References: <p73y7g6yt3j.fsf@bingen.suse.de> <8A71B368A89016469F72CD08050AD334018E2149@maui.asicdesigners.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, jeff@garzik.org,
+	netdev@vger.kernel.org, rdreier@cisco.com,
+	linux-kernel@vger.kernel.org, general@lists.openfabrics.org,
+	David Miller <davem@davemloft.net>
+To: Felix Marti <felix@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:35314 "EHLO
-	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753800AbXHTTn0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 15:43:26 -0400
-In-Reply-To: <20070817065445.GH13994@moe.telargo.com>
+Received: from postel.suug.ch ([194.88.212.233]:52386 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751450AbXHTURr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Aug 2007 16:17:47 -0400
+Content-Disposition: inline
+In-Reply-To: <8A71B368A89016469F72CD08050AD334018E2149@maui.asicdesigners.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+* Felix Marti <felix@chelsio.com> 2007-08-20 12:02
+> These graphic adapters provide a wealth of features that you can take
+> advantage of to bring these amazing graphics to life. General purpose
+> CPUs cannot keep up. Chelsio offload devices do the same thing in the
+> realm of networking. - Will there be things you can't do, probably yes,
+> but as I said, there are lots of knobs to turn (and the latest and
+> greatest feature that gets hyped up might not always be the best thing
+> since sliced bread anyway; what happened to BIC love? ;)
 
-On Aug 17, 2007, at 01:54, Domen Puncer wrote:
-
-> Writing BMCR_RESET bit will reset MII_BMCR to default values. This is
-> clearly not what we want.
->
->
-> Signed-off-by: Domen Puncer <domen.puncer@telargo.com>
-
-Acked-by: Andy Fleming <afleming@freescale.com>
-
-I could have sworn there was a patch that did this, already, but it  
-must have lost steam somewhere.
-
-Andy
+GPUs have almost no influence on system security, the network stack OTOH
+is probably the most vulnerable part of an operating system. Even if all
+vendors would implement all the features collected over the last years
+properly which seems unlikely. Having such an essential and critical
+part depend on the vendor of my network card without being able to even
+verify it properly is truly frightening.
