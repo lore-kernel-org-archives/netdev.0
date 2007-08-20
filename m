@@ -1,82 +1,43 @@
-From: James Corey <ploversegg@yahoo.com>
-Subject: Re: 2.6.23-rc3 and SKY2 driver issue
-Date: Mon, 20 Aug 2007 09:23:46 -0700 (PDT)
-Message-ID: <624025.57129.qm@web90408.mail.mud.yahoo.com>
-References: <20070820090227.6ceb2934@freepuppy.rosehill.hemminger.net>
+From: Erik Slagter <erik@slagter.name>
+Subject: Re: Linksys Gigabit USB2.0 adapter (asix) regression
+Date: Mon, 20 Aug 2007 18:23:14 +0200
+Message-ID: <46C9BFF2.8030206@slagter.name>
+References: <467915D9.3030900@slagter.name>	<1182523020.4938.20.camel@dhollis-lnx.sunera.com>	<467FF5DB.5090006@slagter.name>	<1182923692.6644.4.camel@dhollis-lnx.sunera.com>	<46ADAF1B.4060500@slagter.name>	<1185820074.8086.4.camel@dhollis-lnx.sunera.com>	<46B4A826.7010705@slagter.name> <1186603993.3078.16.camel@dhollis-lnx.sunera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Hollis <dhollis@davehollis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web90408.mail.mud.yahoo.com ([216.252.100.160]:22125 "HELO
-	web90408.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1759337AbXHTQXv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 12:23:51 -0400
-In-Reply-To: <20070820090227.6ceb2934@freepuppy.rosehill.hemminger.net>
+Received: from erik-slagter.demon.nl ([83.160.41.216]:40387 "EHLO
+	artemis.slagter.name" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1759508AbXHTQY6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 12:24:58 -0400
+In-Reply-To: <1186603993.3078.16.camel@dhollis-lnx.sunera.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+David Hollis wrote:
 
---- Stephen Hemminger
-<shemminger@linux-foundation.org> wrote:
-
-> On Mon, 20 Aug 2007 08:42:21 -0700 (PDT)
-> James Corey <ploversegg@yahoo.com> wrote:
+> It's a bit of a longshot, but I notice that EEPROM index 0x17 returns
+> 0x580 for you, 0x180 for my devices.  Based on that, my devices go
+> through the "gpio phymode == 1 path" GPIO init sequence, and yours goes
+> through the other path (  if ((eeprom >> 8) != 1) { ).  Comment out the
+> if() else portion so that you go through the "phymode == 1" path and see
+> if that makes a difference.  That segment should look something like
+> this:
 > 
-> > 
-> > --- Stephen Hemminger
-> > <shemminger@linux-foundation.org> wrote:
-> > 
-> > > On Thu, 16 Aug 2007 10:25:45 +0200
-> > > "Michal Piotrowski"
-> >
-> > > Please reproduce with a more recent kernel?
-> > 
-> > Um, I thought 2.6.23rc WAS pretty recent. :-)
-> > 
-> > I'll check if there is something newer in the
-> > repository now.
-> > 
-> 
-> What is the chip version?  Please send console log:
-> "dmesg | grep sky2"
-> 
-> 
-> -- 
-> Stephen Hemminger <shemminger@linux-foundation.org>
-> 
+> /*
+>         if ((eeprom >> 8) != 1) {
+>                 asix_write_gpio(dev, 0x003c, 30);
+>                 asix_write_gpio(dev, 0x001c, 300);
+>                 asix_write_gpio(dev, 0x003c, 30);
+>         } else {
+> */
+>                 dbg("gpio phymode == 1 path");
+>                 asix_write_gpio(dev, AX_GPIO_GPO1EN, 30);
+>                 asix_write_gpio(dev, AX_GPIO_GPO1EN | AX_GPIO_GPO_1,
+> 30);
+> //      }
 
-
-Ah ... details.
-
-Machine: 
-
-Dell Optiplex 745
-
-Kernel:
-
-2.6.23-rc3 #1 SMP Tue Aug 14 19:44:07 EDT 2007 x86_64
-x86_64 x86_64 GNU/Linux
-
-Card:
-
-D-Link DGE-550SX
-
-# dmesg | grep sky2
-sky2 0000:04:00.0: v1.16 addr 0xdf9fc000 irq 16
-Yukon-XL (0xb3) rev 3
-sky2 eth1: addr 00:17:9a:73:87:60
-sky2 eth1: enabling interface
-sky2 eth1: ram buffer 96K
-sky2 eth1: Link is up at 1000 Mbps, full duplex, flow
-control none
-
-
-
-
-       
-____________________________________________________________________________________
-Be a better Globetrotter. Get better travel answers from someone who knows. Yahoo! Answers - Check it out.
-http://answers.yahoo.com/dir/?link=list&sid=396545469
+Tried, but now it doesn't work at all, no LEDs and no traffic.
