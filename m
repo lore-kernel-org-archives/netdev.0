@@ -1,46 +1,54 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCPportsfrom the host TCP port space.
-Date: 20 Aug 2007 13:07:06 +0200
-Message-ID: <p733aye1n39.fsf@bingen.suse.de>
-References: <8A71B368A89016469F72CD08050AD334018E20BC@maui.asicdesigners.com>
-	<20070819.174017.77241227.davem@davemloft.net>
-	<8A71B368A89016469F72CD08050AD334018E20BE@maui.asicdesigners.com>
-	<20070819.180540.74750322.davem@davemloft.net>
-	<8A71B368A89016469F72CD08050AD334018E20C1@maui.asicdesigners.com>
+From: Benjamin Thery <benjamin.thery@bull.net>
+Subject: Re: [RFC] restore netdev_priv optimization
+Date: Mon, 20 Aug 2007 13:51:37 +0200
+Message-ID: <46C98049.7060308@bull.net>
+References: <20070817154022.0f3afba4@freepuppy.rosehill.hemminger.net> <20070817.160409.88475506.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David Miller" <davem@davemloft.net>, <sean.hefty@intel.com>,
-	<netdev@vger.kernel.org>, <rdreier@cisco.com>,
-	<general@lists.openfabrics.org>, <linux-kernel@vger.kernel.org>,
-	<jeff@garzik.org>
-To: "Felix Marti" <felix@chelsio.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	ebiederm@xmission.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:33576 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751596AbXHTKNM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Aug 2007 06:13:12 -0400
-In-Reply-To: <8A71B368A89016469F72CD08050AD334018E20C1@maui.asicdesigners.com>
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:55438 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751154AbXHTLwb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 07:52:31 -0400
+In-Reply-To: <20070817.160409.88475506.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Felix Marti" <felix@chelsio.com> writes:
-> > avoidance gains of TSO and LRO are still a very worthwhile savings.
-> So, i.e. with TSO, your saving about 16 headers (let us say 14 + 20 +
-> 20), 864B, when moving ~64KB of payload - looks like very much in the
-> noise to me.
+Hi,
 
-TSO is beneficial for the software again. The linux code currently
-takes several locks and does quite a few function calls for each 
-packet and using larger packets lowers this overhead. At least with
-10GbE saving CPU cycles is still quite important.
+David Miller wrote:
+> From: Stephen Hemminger <shemminger@linux-foundation.org>
+> Date: Fri, 17 Aug 2007 15:40:22 -0700
+> 
+>> Compile tested only!!!
+> 
+> Obviously.  The first loopback transmit is guarenteed to crash.
+> 
+> [...]
+> 
+> And this also breaks loopback again, which uses a static struct netdev
+> in the kernel image, it doesn't use alloc_netdev(), so egress_subqueue
+> of loopback will be NULL.
 
-> an option to get 'high performance' 
+Talking about loopback, don't you think it could be the right time
+to make it behave like any other kind of net devices, and allocate it
+dynamically.
 
-Shouldn't you qualify that?
+Having a dynamically allocated loopback could make maintenance easier
+(removing special cases).
+Also this is something we'll need to support multiple loopbacks for 
+example for network namespaces.
 
-It is unlikely you really duplicated all the tuning for corner cases
-that went over many years into good software TCP stacks in your
-hardware.  So e.g. for wide area networks with occasional packet loss
-the software might well perform better.
+Eric Biederman has written a nice patch that does this.
+I'm using it on 2.6.23-rc2.
 
--Andi
+Benjamin
+
+-- 
+B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
+
+    http://www.bull.com
