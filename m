@@ -1,47 +1,43 @@
-From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH] spidernet: fix interrupt reason recognition
-Date: Mon, 20 Aug 2007 17:38:19 -0500
-Message-ID: <20070820223819.GK4261@austin.ibm.com>
-References: <20070820.221327.-1300518791.kouish@swc.toshiba.co.jp>
+From: Russell King <rmk+lkml@arm.linux.org.uk>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Mon, 20 Aug 2007 23:48:59 +0100
+Message-ID: <20070820224859.GA16162@flint.arm.linux.org.uk>
+References: <46C505B2.6030704@yahoo.com.au> <18117.4848.695269.72976@cargo.ozlabs.ibm.com> <46C516BA.60700@yahoo.com.au> <alpine.LFD.0.999.0708162045150.30176@woody.linux-foundation.org> <20070817235912.GA24314@linux.vnet.ibm.com> <20070818000913.GA25585@gondor.apana.org.au> <20070818010818.GQ8464@linux.vnet.ibm.com> <Pine.LNX.4.64.0708171817050.15427@schroedinger.engr.sgi.com> <46C997B1.1010800@redhat.com> <417ebba299a7ad3c4b7a31c4f860a814@kernel.crashing.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org,
-	Arnd Bergmann <arnd@arndb.de>
-To: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:54917 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751468AbXHTWiV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Aug 2007 18:38:21 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l7KMcLeK031173
-	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 18:38:21 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7KMcK5G527602
-	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 18:38:21 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7KMcKit024181
-	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 18:38:20 -0400
+Cc: Chris Snook <csnook@redhat.com>,
+	Christoph Lameter <clameter@sgi.com>,
+	Paul Mackerras <paulus@samba.org>, heiko.carstens@de.ibm.com,
+	horms@verge.net.au, linux-kernel@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, ak@suse.de,
+	netdev@vger.kernel.org, cfriesen@nortel.com,
+	akpm@linux-foundation.org, rpjday@mindspring.com,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	linux-arch@vger.kernel.org, jesper.juhl@gmail.com,
+	satyam@infradead.org, zlynx@acm.org, schwidefsky@de.ibm.com,
+	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Segher Boessenkool <segher@kernel.crashing.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756267AbXHTWu5@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20070820.221327.-1300518791.kouish@swc.toshiba.co.jp>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <417ebba299a7ad3c4b7a31c4f860a814@kernel.crashing.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 20, 2007 at 10:13:27PM +0900, Ishizaki Kou wrote:
-> Please apply this to 2.6.23.
-
-I'll review and forward shortly.  Kick me if you don't see a formal
-reply in a few days.
-
-> And also, please apply the following Arnd-san's patch to fix a problem
-> that spidernet driver sometimes causes a BUG_ON at open.
+On Tue, Aug 21, 2007 at 12:04:17AM +0200, Segher Boessenkool wrote:
+> And no, RMW on MMIO isn't "problematic" at all, either.
 > 
->  http://patchwork.ozlabs.org/cbe-oss-dev/patch?id=12211
+> An RMW op is a read op, a modify op, and a write op, all rolled
+> into one opcode.  But three actual operations.
 
-Are you sure? This patch no longer applies cleanly, in part because
-your patch "[PATCH] spidernet: improve interrupt handling" 
-from Mon, 09 Jul 2007 added a spider_net_enable_interrupts(card); 
-at the end of spider_net_open().  Because of this, it seems like 
-Arnd's patch is no longer needed, right?
+Maybe for some CPUs, but not all.  ARM for instance can't use the
+load exclusive and store exclusive instructions to MMIO space.
 
---linas
+This means placing atomic_t or bitops into MMIO space is a definite
+no-go on ARM.  It breaks.
+
+-- 
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:
