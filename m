@@ -1,48 +1,36 @@
-From: Segher Boessenkool <segher@kernel.crashing.org>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Tue, 21 Aug 2007 00:07:15 +0200
-Message-ID: <f95b4ab810e3850f92ee7e98a1219bb2@kernel.crashing.org>
-References: <18117.6495.397597.582736@cargo.ozlabs.ibm.com> <20070817035342.GA14744@gondor.apana.org.au> <alpine.LFD.0.999.0708171142550.3666@enigma.security.iitk.ac.in> <46C55E90.7010407@yahoo.com.au> <alpine.LFD.0.999.0708171431150.3666@enigma.security.iitk.ac.in> <46C56ADF.8010501@cyberone.com.au> <alpine.LFD.0.999.0708171612440.3666@enigma.security.iitk.ac.in> <46C59717.4020108@cyberone.com.au> <alpine.LFD.0.999.0708170929580.30176@woody.linux-foundation.org> <46C993DF.4080400@redhat.com> <20070820133207.GA13835@gondor.apana.org.au> <46C99945.9080303@redhat.com>
-Mime-Version: 1.0 (Apple Message framework v623)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Lameter <clameter@sgi.com>,
-	Paul Mackerras <paulus@samba.org>, heiko.carstens@de.ibm.com,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>, horms@verge.net.au,
-	Satyam Sharma <satyam@infradead.org>,
-	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, ak@suse.de,
-	Netdev <netdev@vger.kernel.org>, cfriesen@nortel.com,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	linux-arch@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
-	schwidefsky@de.ibm.com, Herbert Xu <herbert.xu@redhat.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	wensong@linux-vs.org, Nick Piggin <piggin@cyberone.com.au>,
-	wjiang@resilience.com
-To: Chris Snook <csnook@redhat.com>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: [PATCH] spidernet: enable poll() before registering interrupts
+Date: Mon, 20 Aug 2007 17:20:56 -0500
+Message-ID: <20070820222056.GI4261@austin.ibm.com>
+References: <200707120119.12589.arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: cbe-oss-dev@ozlabs.org, netdev@vger.kernel.org,
+	Christian Krafft <krafft@de.ibm.com>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:40720 "EHLO gate.crashing.org"
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:38641 "EHLO e3.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759810AbXHTWOg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Aug 2007 18:14:36 -0400
-In-Reply-To: <46C99945.9080303@redhat.com>
+	id S1750784AbXHTWVB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Aug 2007 18:21:01 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e3.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l7KMKvAI007093
+	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 18:20:57 -0400
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7KMKvBm446716
+	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 18:20:57 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7KMKvVh025041
+	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 18:20:57 -0400
+Content-Disposition: inline
+In-Reply-To: <200707120119.12589.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Such code generally doesn't care precisely when it gets the update, 
-> just that the update is atomic, and it doesn't loop forever.
+On Thu, Jul 12, 2007 at 01:19:11AM +0200, Arnd Bergmann wrote:
+> Index: linux-2.6/drivers/net/spider_net.c
 
-Yes, it _does_ care that it gets the update _at all_, and preferably
-as early as possible.
+Sorry, this one got lost in my mailbox.  Will attend to it shortly.
 
-> Regardless, I'm convinced we just need to do it all in assembly.
-
-So do you want "volatile asm" or "plain asm", for atomic_read()?
-The asm version has two ways to go about it too...
-
-
-Segher
+--linas
 
