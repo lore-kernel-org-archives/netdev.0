@@ -1,124 +1,83 @@
-From: James Corey <ploversegg@yahoo.com>
-Subject: Re: 2.6.23-rc3 and SKY2 driver issue
-Date: Mon, 20 Aug 2007 08:42:21 -0700 (PDT)
-Message-ID: <370212.9287.qm@web90407.mail.mud.yahoo.com>
-References: <20070816090556.6a5295e6@oldman>
+From: Moni Shoua <monis@voltaire.com>
+Subject: [ofa-general] [PATCH V4 2/10] IB/ipoib: Notify the world before
+	doing unregister
+Date: Mon, 20 Aug 2007 18:43:43 +0300
+Message-ID: <46C9B6AF.5030402@voltaire.com>
+References: <46C9B474.5020202@voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760191AbXHTPmf@vger.kernel.org>
-In-Reply-To: <20070816090556.6a5295e6@oldman>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
+To: rdreier@cisco.com,  davem@davemloft.net,  fubar@us.ibm.com
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <46C9B474.5020202@voltaire.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
+When the bonding device enslaves IPoIB devices it takes pointers to
+functions in the ib_ipoib module. This is fine as long as the ib_ipoib
+nodule remains loaded while the references to its functions exist.
+So, to help bonding do a cleanup on time, when the IPoIB net device is a 
+slave of a bonding master, let the master know that the IPoIB device is
+about to unregister (but before calling unregister).
 
---- Stephen Hemminger
-<shemminger@linux-foundation.org> wrote:
+Signed-off-by: Moni Shoua <monis@voltaire.com>
+---
+ drivers/infiniband/ulp/ipoib/ipoib_main.c |   15 +++++++++++++++
+ 1 files changed, 15 insertions(+)
 
-> On Thu, 16 Aug 2007 10:25:45 +0200
-> "Michal Piotrowski"
-> <michal.k.k.piotrowski@gmail.com> wrote:
-> 
-> > [Adding Stephen and netdev to CC]
-> > 
-> > On 15/08/07, James Corey <ploversegg@yahoo.com>
-> wrote:
-> > >
-> > > I tried running a D-link gig card on kernel
-> 2.6.21.1
-> > > and it came up fine, but when I did a sftp of
-> > > an linux dvd ISO to it, the interface would lock
-> > > up hard with the error
-> > >
-> > > eth1: hw csum failure.
-> > >
-> > > Call Trace:
-> > >  <IRQ>  [<ffffffff804d3e31>]
-> > > __skb_checksum_complete_head+0x46/0x5f
-> > >  [<ffffffff804d3e56>]
-> __skb_checksum_complete+0xc/0x11
-> > >  [<ffffffff805046c7>] tcp_v4_rcv+0x157/0x810
-> > >  [<ffffffff804d8a6f>] dev_queue_xmit+0x237/0x260
-> > >  [<ffffffff80229990>]
-> find_busiest_group+0x252/0x684
-> > >  [<ffffffff804ead50>]
-> ip_local_deliver+0xca/0x14c
-> > >  [<ffffffff804eb24a>] ip_rcv+0x478/0x4ba
-> > >  [<ffffffff803ec7d3>] sky2_poll+0x6f9/0x9b9
-> > >  [<ffffffff8022bd5d>]
-> > > run_rebalance_domains+0x13e/0x408
-> > >  [<ffffffff804d877a>] net_rx_action+0xa8/0x166
-> > >  [<ffffffff80235d62>] __do_softirq+0x55/0xc3
-> > >  [<ffffffff8020a4ec>] call_softirq+0x1c/0x28
-> > >  [<ffffffff8020b611>] do_softirq+0x2c/0x7d
-> > >  [<ffffffff8020b8cf>] do_IRQ+0x13e/0x15f
-> > >  [<ffffffff802086ce>] mwait_idle+0x0/0x46
-> > >  [<ffffffff80209871>] ret_from_intr+0x0/0xa
-> > >  <EOI>  [<ffffffff80208710>]
-> mwait_idle+0x42/0x46
-> > >  [<ffffffff80208666>] cpu_idle+0x8c/0xaf
-> > >  [<ffffffff8078174e>] start_kernel+0x2ac/0x2b8
-> > >  [<ffffffff80781140>] _sinittext+0x140/0x144
-> > >
-> > >
-> > > So I tried running the latest snapshot
-> 2.6.23-rc3
-> > > and the almost the same thing happens. Only
-> > > difference is that now the entire box locks up.
-> > > The error is almost the same
-> > >
-> > > eth1: hw csum failure.
-> > >
-> > > Call Trace:
-> > >  <IRQ>  [<ffffffff804779b6>]
-> > > __skb_checksum_complete_head+0x43/0x56
-> > >  [<ffffffff804779d5>]
-> __skb_checksum_complete+0xc/0x11
-> > >  [<ffffffff804a989d>] tcp_v4_rcv+0x14e/0x801
-> > >  [<ffffffff8048ff84>]
-> ip_local_deliver+0xca/0x14c
-> > >  [<ffffffff80490472>] ip_rcv+0x46c/0x4ae
-> > >  [<ffffffff880060f9>]
-> :sky2:sky2_poll+0x72b/0x9c7
-> > >  [<ffffffff8047c934>] net_rx_action+0xa8/0x166
-> > >  [<ffffffff80235ced>] __do_softirq+0x55/0xc4
-> > >  [<ffffffff8020c5cc>] call_softirq+0x1c/0x28
-> > >  [<ffffffff8020d6fd>] do_softirq+0x2c/0x7d
-> > >  [<ffffffff8020d9bb>] do_IRQ+0x13e/0x15f
-> > >  [<ffffffff8020a780>] mwait_idle+0x0/0x48
-> > >  [<ffffffff8020b951>] ret_from_intr+0x0/0xa
-> > >  <EOI>  [<ffffffff880063e7>]
-> > > :sky2:sky2_xmit_frame+0x0/0x41d
-> > >  [<ffffffff8020a7c2>] mwait_idle+0x42/0x48
-> > >  [<ffffffff8020a718>] cpu_idle+0xbd/0xe0
-> > >  [<ffffffff80704a5a>] start_kernel+0x2ac/0x2b8
-> > >  [<ffffffff80704140>] _sinittext+0x140/0x144
-> > >
-> > >
-> > > I see that the new kernel includes some sort of
-> > > SKY2 DEBUG stuff. I would be happy to rerun
-> > > the test with that turned on, given some minor
-> > > direction.
-> > >
-> > 
-> > Regards,
-> > Michal
-> 
-> Please reproduce with a more recent kernel?
-
-Um, I thought 2.6.23rc WAS pretty recent. :-)
-
-I'll check if there is something newer in the
-repository now.
-
--J
-
-
-
-       
-____________________________________________________________________________________
-Take the Internet to Go: Yahoo!Go puts the Internet in your pocket: mail, news, photos & more. 
-http://mobile.yahoo.com/go?refer=1GNXIC
+Index: net-2.6/drivers/infiniband/ulp/ipoib/ipoib_main.c
+===================================================================
+--- net-2.6.orig/drivers/infiniband/ulp/ipoib/ipoib_main.c	2007-08-20 14:29:29.522209580 +0300
++++ net-2.6/drivers/infiniband/ulp/ipoib/ipoib_main.c	2007-08-20 14:43:03.432162133 +0300
+@@ -48,6 +48,7 @@
+ #include <linux/in.h>
+ 
+ #include <net/dst.h>
++#include <linux/netdevice.h>
+ 
+ MODULE_AUTHOR("Roland Dreier");
+ MODULE_DESCRIPTION("IP-over-InfiniBand net driver");
+@@ -772,6 +773,18 @@ static void ipoib_timeout(struct net_dev
+ 	/* XXX reset QP, etc. */
+ }
+ 
++static int ipoib_slave_detach(struct net_device *dev)
++{
++	int ret = 0;
++	if (dev->flags & IFF_SLAVE) {
++		dev->priv_flags |= IFF_SLAVE_DETACH;
++		rtnl_lock();
++		ret = call_netdevice_notifiers(NETDEV_CHANGE, dev);
++		rtnl_unlock();
++	}
++	return ret;
++}
++
+ static int ipoib_hard_header(struct sk_buff *skb,
+ 			     struct net_device *dev,
+ 			     unsigned short type,
+@@ -921,6 +934,7 @@ void ipoib_dev_cleanup(struct net_device
+ 
+ 	/* Delete any child interfaces first */
+ 	list_for_each_entry_safe(cpriv, tcpriv, &priv->child_intfs, list) {
++		ipoib_slave_detach(cpriv->dev);
+ 		unregister_netdev(cpriv->dev);
+ 		ipoib_dev_cleanup(cpriv->dev);
+ 		free_netdev(cpriv->dev);
+@@ -1208,6 +1222,7 @@ static void ipoib_remove_one(struct ib_d
+ 		ib_unregister_event_handler(&priv->event_handler);
+ 		flush_scheduled_work();
+ 
++		ipoib_slave_detach(priv->dev);
+ 		unregister_netdev(priv->dev);
+ 		ipoib_dev_cleanup(priv->dev);
+ 		free_netdev(priv->dev);
