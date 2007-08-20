@@ -1,76 +1,38 @@
-From: Markus Brunner <super.firetwister@googlemail.com>
-Subject: [PATCH] smc911x irq sense request and MPR2 board support
-Date: Mon, 20 Aug 2007 08:36:50 +0200
-Message-ID: <200708200836.51182.super.firetwister@gmail.com>
+From: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+Subject: [PATCH 0/4 - rev 2] Age Entry For IPv4 & IPv6 Route Table
+Date: Mon, 20 Aug 2007 13:43:29 +0530
+Message-ID: <20070820134329.1590be39.varunc@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Mark Jonas <toertel@gmail.com>
-To: jgarzik@pobox.com
+Cc: netdev@vger.kernel.org, kaber@trash.net, socketcan@hartkopp.net,
+	shemminger@linux-foundation.org, krkumar2@in.ibm.com,
+	varuncha@in.ibm.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:20380 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750871AbXHTGch (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 02:32:37 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so562536nfb
-        for <netdev@vger.kernel.org>; Sun, 19 Aug 2007 23:32:36 -0700 (PDT)
-Content-Disposition: inline
+Received: from e33.co.us.ibm.com ([32.97.110.151]:49105 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750884AbXHTIM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 04:12:56 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l7K8CtHq010052
+	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 04:12:55 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7K8CtlI203172
+	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 02:12:55 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7K8CsA2030718
+	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 02:12:55 -0600
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi Dave,
+         This is rev2 of the patch set i sent out sometime ago. I have made it against net-2.6.24 tree. Can you please review and let me know? There have been a few minor changes since rev1.
 
-this are the changes to the smc911x driver, which were necessary
-to get it running on the Magic Panel R2 (smsc9115).
-It is a SH3-DSP based board. The other patches are available on 
-the linuxsh-dev mailinglist.
-http://marc.info/?l=linuxsh-dev&r=1&b=200708&w=2
+Original Message:
+According to the RFC 4292 (IP Forwarding Table MIB) there is a need for an age entry for all the routes in therouting table. The entry in the RFC is inetCidrRouteAge and oid is inetCidrRouteAge.1.10.
+Many snmp application require this age entry. So iam adding the age field in the routing table for ipv4 and ipv6 and providing the interface for this value netlink.
 
-It was necessary to set the irq sense to low level.
-Therefor the SMC_IRQ_SENSE define was added.
-How are the chances for inclusion in 2.6.24?
-
-Signed-off by: Markus Brunner <super.firetwister@gmail.com>
-Signed-off by: Mark Jonas <toertel@gmail.com>
+Signed-off-by: Varun Chandramohan <varunc@linux.vnet.ibm.com>
 ---
- Kconfig   |    2 +-
- smc911x.c |    2 +-
- smc911x.h |    6 ++++++
- 3 files changed, 8 insertions(+), 2 deletions(-)
 
---- sh-2.6-intc/drivers/net/Kconfig	2007-08-02 07:05:16.000000000 +0200
-+++ sh-2.6/drivers/net/Kconfig	2007-08-03 09:46:20.000000000 +0200
-@@ -944,7 +944,7 @@ config SMC911X
- 	tristate "SMSC LAN911[5678] support"
- 	select CRC32
- 	select MII
--	depends on ARCH_PXA
-+	depends on ARCH_PXA || SUPERH
- 	help
- 	  This is a driver for SMSC's LAN911x series of Ethernet chipsets
- 	  including the new LAN9115, LAN9116, LAN9117, and LAN9118.
---- sh-2.6-intc/drivers/net/smc911x.c	2007-07-04 21:46:34.000000000 +0200
-+++ sh-2.6/drivers/net/smc911x.c	2007-08-14 10:43:16.000000000 +0200
-@@ -2084,7 +2084,7 @@ static int __init smc911x_probe(struct n
- 
- 	/* Grab the IRQ */
- 	retval = request_irq(dev->irq, &smc911x_interrupt,
--			IRQF_SHARED | IRQF_TRIGGER_FALLING, dev->name, dev);
-+			IRQF_SHARED | SMC_IRQ_SENSE, dev->name, dev);
- 	if (retval)
- 		goto err_out;
- 
---- sh-2.6-intc/drivers/net/smc911x.h	2007-07-04 21:46:34.000000000 +0200
-+++ sh-2.6/drivers/net/smc911x.h	2007-08-10 13:16:34.000000000 +0200
-@@ -36,6 +36,12 @@
-   #define SMC_USE_PXA_DMA	1
-   #define SMC_USE_16BIT		0
-   #define SMC_USE_32BIT		1
-+  #define SMC_IRQ_SENSE IRQF_TRIGGER_FALLING
-+#elif CONFIG_SH_MAGIC_PANEL_R2
-+  #define SMC_USE_SH_DMA	0
-+  #define SMC_USE_16BIT		0
-+  #define SMC_USE_32BIT		1
-+  #define SMC_IRQ_SENSE IRQF_TRIGGER_LOW
- #endif
