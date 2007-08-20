@@ -1,129 +1,102 @@
 From: Moni Shoua <monis@voltaire.com>
-Subject: [PATCH V4 8/10] net/bonding: Handlle wrong assumptions that slave
- is always an Ethernet device
-Date: Mon, 20 Aug 2007 18:52:57 +0300
-Message-ID: <46C9B8D9.5060508@voltaire.com>
+Subject: [ofa-general] PATCH V4 9/10] net/bonding: Delay sending of
+ gratuitous ARP to avoid failure
+Date: Mon, 20 Aug 2007 18:53:59 +0300
+Message-ID: <46C9B917.7080702@voltaire.com>
 References: <46C9B474.5020202@voltaire.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
-To: rdreier@cisco.com, davem@davemloft.net, fubar@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:30851 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759485AbXHTPw7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Aug 2007 11:52:59 -0400
+To: rdreier@cisco.com,  davem@davemloft.net,  fubar@us.ibm.com
+Return-path: <general-bounces@lists.openfabrics.org>
 In-Reply-To: <46C9B474.5020202@voltaire.com>
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-bonding sometimes uses Ethernet constants (such as MTU and address length) which
-are not good when it enslaves non Ethernet devices (such as InfiniBand).
+Delay sending a gratuitous_arp when LINK_STATE_LINKWATCH_PENDING bit
+in dev->state field is on. This improves the chances for the arp packet to
+be transmitted.
 
 Signed-off-by: Moni Shoua <monis@voltaire.com>
 ---
- drivers/net/bonding/bond_main.c  |    3 ++-
- drivers/net/bonding/bond_sysfs.c |   19 +++++++++++++------
- drivers/net/bonding/bonding.h    |    1 +
- 3 files changed, 16 insertions(+), 7 deletions(-)
+ drivers/net/bonding/bond_main.c |   24 +++++++++++++++++++++---
+ drivers/net/bonding/bonding.h   |    1 +
+ 2 files changed, 22 insertions(+), 3 deletions(-)
 
 Index: net-2.6/drivers/net/bonding/bond_main.c
 ===================================================================
---- net-2.6.orig/drivers/net/bonding/bond_main.c	2007-08-15 10:55:48.000000000 +0300
-+++ net-2.6/drivers/net/bonding/bond_main.c	2007-08-20 14:29:11.911298577 +0300
-@@ -1224,7 +1224,8 @@ static int bond_compute_features(struct 
- 	struct slave *slave;
- 	struct net_device *bond_dev = bond->dev;
- 	unsigned long features = bond_dev->features;
--	unsigned short max_hard_header_len = ETH_HLEN;
-+	unsigned short max_hard_header_len = max((u16)ETH_HLEN,
-+						bond_dev->hard_header_len);
- 	int i;
+--- net-2.6.orig/drivers/net/bonding/bond_main.c	2007-08-15 10:56:33.000000000 +0300
++++ net-2.6/drivers/net/bonding/bond_main.c	2007-08-15 11:04:37.221123652 +0300
+@@ -1102,8 +1102,14 @@ void bond_change_active_slave(struct bon
+ 		if (new_active && !bond->do_set_mac_addr)
+ 			memcpy(bond->dev->dev_addr,  new_active->dev->dev_addr,
+ 				new_active->dev->addr_len);
+-
+-		bond_send_gratuitous_arp(bond);
++		if (bond->curr_active_slave &&
++			test_bit(__LINK_STATE_LINKWATCH_PENDING,
++					&bond->curr_active_slave->dev->state)) {
++			dprintk("delaying gratuitous arp on %s\n",
++				bond->curr_active_slave->dev->name);
++			bond->send_grat_arp = 1;
++		} else
++			bond_send_gratuitous_arp(bond);
+ 	}
+ }
  
- 	features &= ~(NETIF_F_ALL_CSUM | BOND_VLAN_FEATURES);
-Index: net-2.6/drivers/net/bonding/bond_sysfs.c
-===================================================================
---- net-2.6.orig/drivers/net/bonding/bond_sysfs.c	2007-08-15 10:55:48.000000000 +0300
-+++ net-2.6/drivers/net/bonding/bond_sysfs.c	2007-08-15 12:14:41.152469089 +0300
-@@ -164,9 +164,7 @@ static ssize_t bonding_store_bonds(struc
- 				printk(KERN_INFO DRV_NAME
- 					": %s is being deleted...\n",
- 					bond->dev->name);
--				bond_deinit(bond->dev);
--		        	bond_destroy_sysfs_entry(bond);
--				unregister_netdevice(bond->dev);
-+				bond_destroy(bond);
- 				rtnl_unlock();
- 				goto out;
- 			}
-@@ -260,6 +258,7 @@ static ssize_t bonding_store_slaves(stru
- 	char command[IFNAMSIZ + 1] = { 0, };
- 	char *ifname;
- 	int i, res, found, ret = count;
-+	u32 original_mtu;
- 	struct slave *slave;
- 	struct net_device *dev = NULL;
- 	struct bonding *bond = to_bond(d);
-@@ -325,6 +324,7 @@ static ssize_t bonding_store_slaves(stru
- 		}
+@@ -2083,6 +2089,17 @@ void bond_mii_monitor(struct net_device 
+ 	 * program could monitor the link itself if needed.
+ 	 */
  
- 		/* Set the slave's MTU to match the bond */
-+		original_mtu = dev->mtu;
- 		if (dev->mtu != bond->dev->mtu) {
- 			if (dev->change_mtu) {
- 				res = dev->change_mtu(dev,
-@@ -339,6 +339,9 @@ static ssize_t bonding_store_slaves(stru
- 		}
- 		rtnl_lock();
- 		res = bond_enslave(bond->dev, dev);
-+		bond_for_each_slave(bond, slave, i)
-+			if (strnicmp(slave->dev->name, ifname, IFNAMSIZ) == 0)
-+				slave->original_mtu = original_mtu;
- 		rtnl_unlock();
- 		if (res) {
- 			ret = res;
-@@ -351,13 +354,17 @@ static ssize_t bonding_store_slaves(stru
- 		bond_for_each_slave(bond, slave, i)
- 			if (strnicmp(slave->dev->name, ifname, IFNAMSIZ) == 0) {
- 				dev = slave->dev;
-+				original_mtu = slave->original_mtu;
- 				break;
- 			}
- 		if (dev) {
- 			printk(KERN_INFO DRV_NAME ": %s: Removing slave %s\n",
- 				bond->dev->name, dev->name);
- 			rtnl_lock();
--			res = bond_release(bond->dev, dev);
-+			if (bond->setup_by_slave)
-+				res = bond_release_and_destroy(bond->dev, dev);
-+			else
-+				res = bond_release(bond->dev, dev);
- 			rtnl_unlock();
- 			if (res) {
- 				ret = res;
-@@ -365,9 +372,9 @@ static ssize_t bonding_store_slaves(stru
- 			}
- 			/* set the slave MTU to the default */
- 			if (dev->change_mtu) {
--				dev->change_mtu(dev, 1500);
-+				dev->change_mtu(dev, original_mtu);
- 			} else {
--				dev->mtu = 1500;
-+				dev->mtu = original_mtu;
- 			}
- 		}
- 		else {
++	if (bond->send_grat_arp) {
++		if (bond->curr_active_slave && test_bit(__LINK_STATE_LINKWATCH_PENDING,
++				&bond->curr_active_slave->dev->state))
++			dprintk("Needs to send gratuitous arp but not yet\n");
++		else {
++			dprintk("sending delayed gratuitous arp on on %s\n",
++				bond->curr_active_slave->dev->name);
++			bond_send_gratuitous_arp(bond);
++			bond->send_grat_arp = 0;
++		}
++	}
+ 	read_lock(&bond->curr_slave_lock);
+ 	oldcurrent = bond->curr_active_slave;
+ 	read_unlock(&bond->curr_slave_lock);
+@@ -2484,7 +2501,7 @@ static void bond_send_gratuitous_arp(str
+ 
+ 	if (bond->master_ip) {
+ 		bond_arp_send(slave->dev, ARPOP_REPLY, bond->master_ip,
+-				  bond->master_ip, 0);
++				bond->master_ip, 0);
+ 	}
+ 
+ 	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
+@@ -4293,6 +4310,7 @@ static int bond_init(struct net_device *
+ 	bond->current_arp_slave = NULL;
+ 	bond->primary_slave = NULL;
+ 	bond->dev = bond_dev;
++	bond->send_grat_arp = 0;
+ 	INIT_LIST_HEAD(&bond->vlan_list);
+ 
+ 	/* Initialize the device entry points */
 Index: net-2.6/drivers/net/bonding/bonding.h
 ===================================================================
---- net-2.6.orig/drivers/net/bonding/bonding.h	2007-08-15 10:55:34.000000000 +0300
-+++ net-2.6/drivers/net/bonding/bonding.h	2007-08-20 14:29:11.912298402 +0300
-@@ -156,6 +156,7 @@ struct slave {
- 	s8     link;    /* one of BOND_LINK_XXXX */
- 	s8     state;   /* one of BOND_STATE_XXXX */
- 	u32    original_flags;
-+	u32    original_mtu;
- 	u32    link_failure_count;
- 	u16    speed;
- 	u8     duplex;
-
+--- net-2.6.orig/drivers/net/bonding/bonding.h	2007-08-15 10:56:33.000000000 +0300
++++ net-2.6/drivers/net/bonding/bonding.h	2007-08-15 11:05:41.516451497 +0300
+@@ -187,6 +187,7 @@ struct bonding {
+ 	struct   timer_list arp_timer;
+ 	s8       kill_timers;
+ 	s8       do_set_mac_addr;
++	s8	 send_grat_arp;
+ 	struct   net_device_stats stats;
+ #ifdef CONFIG_PROC_FS
+ 	struct   proc_dir_entry *proc_entry;
