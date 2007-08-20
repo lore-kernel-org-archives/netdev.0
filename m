@@ -1,89 +1,86 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: Re: [RFT] r8169 changes against 2.6.23-rc3
-Date: Mon, 20 Aug 2007 14:58:05 -0400
-Message-ID: <46C9E43D.4050306@oracle.com>
-References: <20070818100701.GA20703@electric-eye.fr.zoreil.com>
-Reply-To: chuck.lever@oracle.com
+From: "Felix Marti" <felix@chelsio.com>
+Subject: RE: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCPportsfrom
+	the host TCP port space.
+Date: Mon, 20 Aug 2007 12:02:25 -0700
+Message-ID: <8A71B368A89016469F72CD08050AD334018E2149@maui.asicdesigners.com>
+References: <20070819.174017.77241227.davem@davemloft.net><8A71B368A89016469F72CD08050AD334018E20BE@maui.asicdesigners.com><20070820094317.GA14817@2ka.mipt.ru><8A71B368A89016469F72CD08050AD334018E2115@maui.asicdesigners.com>
+	<p73y7g6yt3j.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000201040705080705090702"
-Cc: netdev ML <netdev@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:40858 "EHLO
-	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752849AbXHTS7U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 14:59:20 -0400
-In-Reply-To: <20070818100701.GA20703@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, jeff@garzik.org,
+	netdev@vger.kernel.org, rdreier@cisco.com,
+	linux-kernel@vger.kernel.org, general@lists.openfabrics.org,
+	David Miller <davem@davemloft.net>
+To: "Andi Kleen" <andi@firstfloor.org>
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-class: urn:content-classes:message
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000201040705080705090702
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-
-Francois Romieu wrote:
-> The latest serie of r8169 changes is available against 2.6.23-rc3 as:
-> http://www.fr.zoreil.com/people/francois/misc/20070818-2.6.23-rc3-r8169-test.patch 
-> 
-> or (tarball sits one level higher):
-> 
-> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.23-rc3/r8169-20070818/
-> 
-> or (rebase prone branch)
-> 
-> git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git#r8169
->  
-> Please do not clone your whole git kernel tree from here, thanks.
-> 
-> Changes (most recent first):
-> 
-> - eeprom read support
-> - phy init cleanup
-> - PHY init for the 8168
-> - make room for more PHY init changes
-> - remove dead wood
-> - add MAC identifiers
-> - MSI support
-> - correct phy parameters for the 8110SC
-> 
-> The first patch of the serie ("correct phy parameters for the 8110SC") has
-> been elaborated with Edward Hsu from Realtek and it should help some owners
-> of 8169 chipsets. If there is no report of regression for it on any
-> chispet and it is reported to fix someone's problems, I will send it to
-> Jeff Garzik for inclusion in 2.6.23 as a bugfix.
-> 
-> Anything else in this serie has not been tested on a wide scale nor acked
-> by the manufacturer: I consider it post 2.6.23 material. That being said,
-> the MSI changes seem fine and the "PHY init for the 8168" patch could make
-> a difference for the users of the 8168 whose link is not properly
-> negotiated.
-> 
-> Success and failure reports or patches will be welcome. Please Cc: netdev
-> and include "r8169" in the Subject.
-
-Tested 2.6.23-rc3 plus your patch on my dual-R8169 mini-ITX Jetway 
-J7F4K1G2E mainboard.  No problems to report.
-
---------------000201040705080705090702
-Content-Type: text/x-vcard; charset=utf-8;
- name="chuck.lever.vcf"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="chuck.lever.vcf"
-
-begin:vcard
-fn:Chuck Lever
-n:Lever;Chuck
-org:Oracle Corporation;Corporate Architecture: Linux Projects Group
-adr:;;1015 Granger Avenue;Ann Arbor;MI;48104;USA
-title:Principal Member of Staff
-tel;work:+1 248 614 5091
-x-mozilla-html:FALSE
-url:http://oss.oracle.com/~cel
-version:2.1
-end:vcard
 
 
---------------000201040705080705090702--
+> -----Original Message-----
+> From: ak@suse.de [mailto:ak@suse.de] On Behalf Of Andi Kleen
+> Sent: Monday, August 20, 2007 11:11 AM
+> To: Felix Marti
+> Cc: Evgeniy Polyakov; jeff@garzik.org; netdev@vger.kernel.org;
+> rdreier@cisco.com; linux-kernel@vger.kernel.org;
+> general@lists.openfabrics.org; David Miller
+> Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate
+> PS_TCPportsfrom the host TCP port space.
+>=20
+> "Felix Marti" <felix@chelsio.com> writes:
+>=20
+> > What I was referring to is that TSO(/LRO) have their own
+> > issues, some eluded to by Roland and me. In fact, customers working
+> on
+> > the LSR couldn't use TSO due to the burstiness it introduces
+>=20
+> That was in old kernels where TSO didn't honor the initial cwnd
+> correctly,
+> right? I assume it's long fixed.
+>=20
+> If not please clarify what the problem was.
+The problem is that is that Ethernet is about the only technology that
+discloses 'useable' throughput while everybody else talks about
+signaling rates ;) - OC-192 can carry about 9.128Gbps (or close to that
+number) and hence 10Gbps Ethernet was overwhelming the OC-192 network.
+The customer needed to schedule packets at about 98% of OC-192
+throughput in order to avoid packet drop. The scheduling needed to be
+done on a per packet basis and not per 'burst of packets' basis in order
+to avoid packet drop.
+=20
+>=20
+> > have a look at graphics.
+> > Graphics used to be done by the host CPU and now we have dedicated
+> > graphics adapters that do a much better job...
+>=20
+> Is your off load device as programable as a modern GPU?
+It has a lot of knobs to turn.
+
+>=20
+> > farfetched that offload devices can do a better job at a data-flow
+> > problem?
+>=20
+> One big difference is that there is no potentially adverse and
+> always varying internet between the graphics card and your monitor.
+These graphic adapters provide a wealth of features that you can take
+advantage of to bring these amazing graphics to life. General purpose
+CPUs cannot keep up. Chelsio offload devices do the same thing in the
+realm of networking. - Will there be things you can't do, probably yes,
+but as I said, there are lots of knobs to turn (and the latest and
+greatest feature that gets hyped up might not always be the best thing
+since sliced bread anyway; what happened to BIC love? ;)
+
+>=20
+> -Andi
