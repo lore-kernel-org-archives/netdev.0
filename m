@@ -1,8 +1,8 @@
 From: Moni Shoua <monis@voltaire.com>
-Subject: [ofa-general] [PATCH V4 2/10] IB/ipoib: Notify the world before
-	doing unregister
-Date: Mon, 20 Aug 2007 18:43:43 +0300
-Message-ID: <46C9B6AF.5030402@voltaire.com>
+Subject: [ofa-general] [PATCH V4 3/10] IB/ipoib: Bound the net device to the
+ ipoib_neigh structue
+Date: Mon, 20 Aug 2007 18:44:56 +0300
+Message-ID: <46C9B6F8.2090804@voltaire.com>
 References: <46C9B474.5020202@voltaire.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -22,62 +22,114 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-When the bonding device enslaves IPoIB devices it takes pointers to
-functions in the ib_ipoib module. This is fine as long as the ib_ipoib
-nodule remains loaded while the references to its functions exist.
-So, to help bonding do a cleanup on time, when the IPoIB net device is a 
-slave of a bonding master, let the master know that the IPoIB device is
-about to unregister (but before calling unregister).
+IPoIB uses a two layer neighboring scheme, such that for each struct neighbour
+whose device is an ipoib one, there is a struct ipoib_neigh buddy which is
+created on demand at the tx flow by an ipoib_neigh_alloc(skb->dst->neighbour)
+call.
+
+When using the bonding driver, neighbours are created by the net stack on behalf
+of the bonding (master) device. On the tx flow the bonding code gets an skb such
+that skb->dev points to the master device, it changes this skb to point on the
+slave device and calls the slave hard_start_xmit function.
+
+Under this scheme, ipoib_neigh_destructor assumption that for each struct
+neighbour it gets, n->dev is an ipoib device and hence netdev_priv(n->dev)
+can be casted to struct ipoib_dev_priv is buggy.
+
+To fix it, this patch adds a dev field to struct ipoib_neigh which is used
+instead of the struct neighbour dev one, when n->dev->flags has the
+IFF_MASTER bit set.
 
 Signed-off-by: Moni Shoua <monis@voltaire.com>
+Signed-off-by: Or Gerlitz <ogerlitz@voltaire.com>
 ---
- drivers/infiniband/ulp/ipoib/ipoib_main.c |   15 +++++++++++++++
- 1 files changed, 15 insertions(+)
+ drivers/infiniband/ulp/ipoib/ipoib.h           |    4 +++-
+ drivers/infiniband/ulp/ipoib/ipoib_main.c      |   17 +++++++++++++++--
+ drivers/infiniband/ulp/ipoib/ipoib_multicast.c |    3 ++-
+ 3 files changed, 20 insertions(+), 4 deletions(-)
 
-Index: net-2.6/drivers/infiniband/ulp/ipoib/ipoib_main.c
+Index: net-2.6/drivers/infiniband/ulp/ipoib/ipoib.h
 ===================================================================
---- net-2.6.orig/drivers/infiniband/ulp/ipoib/ipoib_main.c	2007-08-20 14:29:29.522209580 +0300
-+++ net-2.6/drivers/infiniband/ulp/ipoib/ipoib_main.c	2007-08-20 14:43:03.432162133 +0300
-@@ -48,6 +48,7 @@
- #include <linux/in.h>
+--- net-2.6.orig/drivers/infiniband/ulp/ipoib/ipoib.h	2007-08-15 10:09:00.000000000 +0300
++++ net-2.6/drivers/infiniband/ulp/ipoib/ipoib.h	2007-08-15 10:53:52.756348574 +0300
+@@ -328,6 +328,7 @@ struct ipoib_neigh {
+ 	struct sk_buff_head queue;
  
- #include <net/dst.h>
-+#include <linux/netdevice.h>
+ 	struct neighbour   *neighbour;
++	struct net_device *dev;
  
- MODULE_AUTHOR("Roland Dreier");
- MODULE_DESCRIPTION("IP-over-InfiniBand net driver");
-@@ -772,6 +773,18 @@ static void ipoib_timeout(struct net_dev
- 	/* XXX reset QP, etc. */
+ 	struct list_head    list;
+ };
+@@ -344,7 +345,8 @@ static inline struct ipoib_neigh **to_ip
+ 				     INFINIBAND_ALEN, sizeof(void *));
  }
  
-+static int ipoib_slave_detach(struct net_device *dev)
-+{
-+	int ret = 0;
-+	if (dev->flags & IFF_SLAVE) {
-+		dev->priv_flags |= IFF_SLAVE_DETACH;
-+		rtnl_lock();
-+		ret = call_netdevice_notifiers(NETDEV_CHANGE, dev);
-+		rtnl_unlock();
+-struct ipoib_neigh *ipoib_neigh_alloc(struct neighbour *neigh);
++struct ipoib_neigh *ipoib_neigh_alloc(struct neighbour *neigh,
++				      struct net_device *dev);
+ void ipoib_neigh_free(struct net_device *dev, struct ipoib_neigh *neigh);
+ 
+ extern struct workqueue_struct *ipoib_workqueue;
+Index: net-2.6/drivers/infiniband/ulp/ipoib/ipoib_main.c
+===================================================================
+--- net-2.6.orig/drivers/infiniband/ulp/ipoib/ipoib_main.c	2007-08-15 10:53:28.000000000 +0300
++++ net-2.6/drivers/infiniband/ulp/ipoib/ipoib_main.c	2007-08-15 10:53:52.757348397 +0300
+@@ -511,7 +511,7 @@ static void neigh_add_path(struct sk_buf
+ 	struct ipoib_path *path;
+ 	struct ipoib_neigh *neigh;
+ 
+-	neigh = ipoib_neigh_alloc(skb->dst->neighbour);
++	neigh = ipoib_neigh_alloc(skb->dst->neighbour, skb->dev);
+ 	if (!neigh) {
+ 		++priv->stats.tx_dropped;
+ 		dev_kfree_skb_any(skb);
+@@ -830,6 +830,17 @@ static void ipoib_neigh_cleanup(struct n
+ 	unsigned long flags;
+ 	struct ipoib_ah *ah = NULL;
+ 
++	if (n->dev->flags & IFF_MASTER) {
++		/* n->dev is not an IPoIB device and we have
++			to take priv from elsewhere */
++		neigh = *to_ipoib_neigh(n);
++		if (neigh) {
++			priv = netdev_priv(neigh->dev);
++			ipoib_dbg(priv, "neigh_destructor for bonding device: %s\n",
++				  n->dev->name);
++		} else
++			return;
 +	}
-+	return ret;
-+}
-+
- static int ipoib_hard_header(struct sk_buff *skb,
- 			     struct net_device *dev,
- 			     unsigned short type,
-@@ -921,6 +934,7 @@ void ipoib_dev_cleanup(struct net_device
+ 	ipoib_dbg(priv,
+ 		  "neigh_cleanup for %06x " IPOIB_GID_FMT "\n",
+ 		  IPOIB_QPN(n->ha),
+@@ -851,7 +862,8 @@ static void ipoib_neigh_cleanup(struct n
+ 		ipoib_put_ah(ah);
+ }
  
- 	/* Delete any child interfaces first */
- 	list_for_each_entry_safe(cpriv, tcpriv, &priv->child_intfs, list) {
-+		ipoib_slave_detach(cpriv->dev);
- 		unregister_netdev(cpriv->dev);
- 		ipoib_dev_cleanup(cpriv->dev);
- 		free_netdev(cpriv->dev);
-@@ -1208,6 +1222,7 @@ static void ipoib_remove_one(struct ib_d
- 		ib_unregister_event_handler(&priv->event_handler);
- 		flush_scheduled_work();
+-struct ipoib_neigh *ipoib_neigh_alloc(struct neighbour *neighbour)
++struct ipoib_neigh *ipoib_neigh_alloc(struct neighbour *neighbour,
++				      struct net_device *dev)
+ {
+ 	struct ipoib_neigh *neigh;
  
-+		ipoib_slave_detach(priv->dev);
- 		unregister_netdev(priv->dev);
- 		ipoib_dev_cleanup(priv->dev);
- 		free_netdev(priv->dev);
+@@ -860,6 +872,7 @@ struct ipoib_neigh *ipoib_neigh_alloc(st
+ 		return NULL;
+ 
+ 	neigh->neighbour = neighbour;
++	neigh->dev = dev;
+ 	*to_ipoib_neigh(neighbour) = neigh;
+ 	skb_queue_head_init(&neigh->queue);
+ 	ipoib_cm_set(neigh, NULL);
+Index: net-2.6/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
+===================================================================
+--- net-2.6.orig/drivers/infiniband/ulp/ipoib/ipoib_multicast.c	2007-08-15 10:09:00.000000000 +0300
++++ net-2.6/drivers/infiniband/ulp/ipoib/ipoib_multicast.c	2007-08-15 10:53:52.758348220 +0300
+@@ -727,7 +727,8 @@ out:
+ 		if (skb->dst            &&
+ 		    skb->dst->neighbour &&
+ 		    !*to_ipoib_neigh(skb->dst->neighbour)) {
+-			struct ipoib_neigh *neigh = ipoib_neigh_alloc(skb->dst->neighbour);
++			struct ipoib_neigh *neigh = ipoib_neigh_alloc(skb->dst->neighbour,
++									skb->dev);
+ 
+ 			if (neigh) {
+ 				kref_get(&mcast->ah->ref);
