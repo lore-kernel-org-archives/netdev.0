@@ -1,76 +1,52 @@
-From: Martin Buck <mb-tmp-ohtmvyyn.xreary.bet@gromit.dyndns.org>
-Subject: Re: [patch 17/18] 3c59x: fix duplex configuration
-Date: Mon, 20 Aug 2007 17:06:35 +0200
-Message-ID: <20070820150635.GA32554@gromit.at.home>
-References: <200708102105.l7AL5Q2h008995@imap1.linux-foundation.org>
+From: Moni Shoua <monis@voltaire.com>
+Subject: [PATCH V4 0/10] net/bonding: ADD IPoIB support for the bonding driver
+Date: Mon, 20 Aug 2007 18:34:12 +0300
+Message-ID: <46C9B474.5020202@voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	klassert@mathematik.tu-chemnitz.de, protasnb@gmail.com
-To: akpm@linux-foundation.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
+To: rdreier@cisco.com, davem@davemloft.net, fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail16.bluewin.ch ([195.186.19.63]:56443 "EHLO
-	mail16.bluewin.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751373AbXHTPMi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 11:12:38 -0400
-Content-Disposition: inline
-In-Reply-To: <200708102105.l7AL5Q2h008995@imap1.linux-foundation.org>
+Received: from fwil.voltaire.com ([193.47.165.2]:25480 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1758872AbXHTPeU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Aug 2007 11:34:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 10, 2007 at 02:05:26PM -0700, akpm@linux-foundation.org wrote:
-[...]
-> diff -puN drivers/net/3c59x.c~3c59x-fix-duplex-configuration drivers/net/3c59x.c
-> --- a/drivers/net/3c59x.c~3c59x-fix-duplex-configuration
-> +++ a/drivers/net/3c59x.c
-> @@ -1559,6 +1559,7 @@ vortex_up(struct net_device *dev)
->  		mii_reg1 = mdio_read(dev, vp->phys[0], MII_BMSR);
->  		mii_reg5 = mdio_read(dev, vp->phys[0], MII_LPA);
->  		vp->partner_flow_ctrl = ((mii_reg5 & 0x0400) != 0);
-> +		vp->mii.full_duplex = vp->full_duplex;
->  
->  		vortex_check_media(dev, 1);
->  	}
-> _
+This patch series is the fourth version (see below link to V3) of the 
+suggested changes to the bonding driver so it would be able to support 
+non ARPHRD_ETHER netdevices for its High-Availability (active-backup) mode. 
+
+The motivation is to enable the bonding driver on its HA mode to work with 
+the IP over Infiniband (IPoIB) driver. With these patches I was able to enslave 
+IPoIB netdevices and run TCP, UDP, IP (UDP) Multicast and ICMP traffic with 
+fail-over and fail-back working fine. The working environment was the net-2.6 git. 
+
+More over, as IPoIB is also the IB ARP provider for the RDMA CM driver which 
+is used by native IB ULPs whose addressing scheme is based on IP (e.g. iSER, 
+SDP, Lustre, NFSoRDMA, RDS), bonding support for IPoIB devices **enables** HA 
+for these ULPs. This holds as when the ULP is informed by the IB HW on the 
+failure of the current IB connection, it just need to reconnect, where the 
+bonding device will now issue the IB ARP over the active IPoIB slave. 
+
+This series also includes patches to the IPoIB driver that fix some fix 
+some neighboring related issues. 
+
+Major changes from the previous version:
+
+1) Addressing the issue of safety when unloading the IPoIB module before
+the bonding module
+2) style changes
 
 
-Sorry for the late reply. I finally managed to get my notebook fixed so
-that I could actually test this patch. I can confirm that it fixes my
-duplex configuration problem. The steps described in
-http://bugzilla.kernel.org/show_bug.cgi?id=8575
-now result in a Ethernet chip properly configured for full duplex. Thanks
-for the fix!
+Links to earlier discussion: 
 
-The only remaining issue I have the 3c59x driver is the time required until
-it detects link loss when unplugging the Ethernet cable. At the moment,
-this needs up to 60 seconds which makes this feature pretty useless. Other
-drivers need 2-5 seconds for this which is roughly what I would have
-expected. I've been using the patch below sucessfully for a few weeks now
-which brings down this time to 5 seconds. Would be nice if somebody could
-apply it.
+1. A discussion in netdev about bonding support for IPoIB.
+http://lists.openwall.net/netdev/2006/11/30/46
 
-Thanks,
-Martin
+2. A discussion in openfabrics regarding changes in the IPoIB that 
+enable using it as a slave for bonding.
+http://lists.openfabrics.org/pipermail/general/2007-July/038914.html
 
-
---- drivers/net/3c59x.c.orig	2007-08-20 17:01:06.000000000 +0200
-+++ drivers/net/3c59x.c	2007-08-20 17:02:38.000000000 +0200
-@@ -1726,7 +1726,7 @@
- 	struct net_device *dev = (struct net_device *)data;
- 	struct vortex_private *vp = netdev_priv(dev);
- 	void __iomem *ioaddr = vp->ioaddr;
--	int next_tick = 60*HZ;
-+	int next_tick = 5*HZ;
- 	int ok = 0;
- 	int media_status, old_window;
- 
-@@ -1771,9 +1771,6 @@
- 		ok = 1;
- 	}
- 
--	if (!netif_carrier_ok(dev))
--		next_tick = 5*HZ;
--
- 	if (vp->medialock)
- 		goto leave_media_alone;
- 
