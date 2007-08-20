@@ -1,80 +1,82 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: skb_pull_rcsum - Fatal exception in interrupt
-Date: Mon, 20 Aug 2007 09:21:54 -0700
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F52032A44D8@orsmsx418.amr.corp.intel.com>
-References: <18115.5803.588114.372952@wylie.me.uk>
+From: James Corey <ploversegg@yahoo.com>
+Subject: Re: 2.6.23-rc3 and SKY2 driver issue
+Date: Mon, 20 Aug 2007 09:23:46 -0700 (PDT)
+Message-ID: <624025.57129.qm@web90408.mail.mud.yahoo.com>
+References: <20070820090227.6ceb2934@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <e1000-devel@lists.sourceforge.net>,
-	"Linux Network Development list" <netdev@vger.kernel.org>
-To: "Alan J. Wylie" <alan@wylie.me.uk>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
+	linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:41102 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758087AbXHTQV5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 12:21:57 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <18115.5803.588114.372952@wylie.me.uk>
+Received: from web90408.mail.mud.yahoo.com ([216.252.100.160]:22125 "HELO
+	web90408.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1759337AbXHTQXv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 12:23:51 -0400
+In-Reply-To: <20070820090227.6ceb2934@freepuppy.rosehill.hemminger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alan J. Wylie wrote:
-> We have been shipping Linux based servers to customers for several
-> years now, with few problems. Recently, however, a single customer has
-> been seeing kernel panics. Unfortunately, the customer is about 200
-> miles away, so physical access is limited. There are two ethernet
-> interfaces, one should be plugged into a local RFC1918 network, the
-> other is connected to the internet. If eth0 is plugged into the local
-> network, a short time later the system panics.
-> 
-> Hardware: Intel S5000VSA server
-> 
-> Network cards: Intel e1000
->    Intel Corporation 80003ES2LAN Gigabit Ethernet Controller (Copper)
 
-Hi Alan, I work on the team that supports e1000, I'd be interested in
-seeing the dmesg output from the machine before it crashes, maybe you
-can add that to your web collection of data below?
+--- Stephen Hemminger
+<shemminger@linux-foundation.org> wrote:
 
-many of the 5000 series machines have BMC's its possible that you could
-set up the remote management so you could reboot it remotely, but that
-may not be worth the extra effort.  It could however give you the
-ability to have a serial console over ethernet, which would get us the
-full panic message, but see below.
-
-> # CONFIG_E1000_DISABLE_PACKET_SPLIT is not set
-can you try setting the CONFIG_E1000_DISABLE_PACKET_SPLIT=y
-
-this will prevent the driver from splitting the header from the packet
-data which could be exacerbating this problem.
-
-Its not immediately obvious whether this is a kernel or driver problem,
-I hope you don't mind I cc'd e1000-devel since this is possibly relevant
-to other e1000 users and developers.
- 
-> We shipped a second system, and this displayed identical symptoms.  We
-> have tested with several recent 2.6 kernels, including
+> On Mon, 20 Aug 2007 08:42:21 -0700 (PDT)
+> James Corey <ploversegg@yahoo.com> wrote:
 > 
-> 2.6.22
-> 2.6.17.14
-> 2.6.20.15
+> > 
+> > --- Stephen Hemminger
+> > <shemminger@linux-foundation.org> wrote:
+> > 
+> > > On Thu, 16 Aug 2007 10:25:45 +0200
+> > > "Michal Piotrowski"
+> >
+> > > Please reproduce with a more recent kernel?
+> > 
+> > Um, I thought 2.6.23rc WAS pretty recent. :-)
+> > 
+> > I'll check if there is something newer in the
+> > repository now.
+> > 
 > 
-> all of which crash.
+> What is the chip version?  Please send console log:
+> "dmesg | grep sky2"
 > 
-> We have a couple of photographs showing the tail end of the messages
-> on the screen.
 > 
-> The last two lines are:
+> -- 
+> Stephen Hemminger <shemminger@linux-foundation.org>
 > 
-> EIP: [<c02b6fb2>] skb_pull_rcsum+0x6d/0x71 SS:ESP 09068:c03e1ea4
-> Kernel panic - not syncing: Fatal exception in interrupt
 
-can you boot with vga=0x318 appended to kernel options? this might help
-you get more on the screen.   you could also look into netconsole, but
-because this is a networking crash I don't know if you'll get data out
-of netconsole or not, and I don't know if you can use netconsole over
-the 'net' as I've only used it for local logging.
 
-Jesse
+Ah ... details.
+
+Machine: 
+
+Dell Optiplex 745
+
+Kernel:
+
+2.6.23-rc3 #1 SMP Tue Aug 14 19:44:07 EDT 2007 x86_64
+x86_64 x86_64 GNU/Linux
+
+Card:
+
+D-Link DGE-550SX
+
+# dmesg | grep sky2
+sky2 0000:04:00.0: v1.16 addr 0xdf9fc000 irq 16
+Yukon-XL (0xb3) rev 3
+sky2 eth1: addr 00:17:9a:73:87:60
+sky2 eth1: enabling interface
+sky2 eth1: ram buffer 96K
+sky2 eth1: Link is up at 1000 Mbps, full duplex, flow
+control none
+
+
+
+
+       
+____________________________________________________________________________________
+Be a better Globetrotter. Get better travel answers from someone who knows. Yahoo! Answers - Check it out.
+http://answers.yahoo.com/dir/?link=list&sid=396545469
