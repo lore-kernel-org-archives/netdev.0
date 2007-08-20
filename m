@@ -1,62 +1,47 @@
 From: linas@austin.ibm.com (Linas Vepstas)
-Subject: Re: [PATCH] spidernet: enable poll() before registering interrupts
-Date: Mon, 20 Aug 2007 17:29:45 -0500
-Message-ID: <20070820222945.GJ4261@austin.ibm.com>
-References: <200707120119.12589.arnd@arndb.de>
+Subject: Re: [PATCH] spidernet: fix interrupt reason recognition
+Date: Mon, 20 Aug 2007 17:38:19 -0500
+Message-ID: <20070820223819.GK4261@austin.ibm.com>
+References: <20070820.221327.-1300518791.kouish@swc.toshiba.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: cbe-oss-dev@ozlabs.org, netdev@vger.kernel.org,
-	Christian Krafft <krafft@de.ibm.com>
-To: Arnd Bergmann <arnd@arndb.de>
+Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org,
+	Arnd Bergmann <arnd@arndb.de>
+To: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:46126 "EHLO e1.ny.us.ibm.com"
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:54917 "EHLO e1.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752953AbXHTW3r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Aug 2007 18:29:47 -0400
+	id S1751468AbXHTWiV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Aug 2007 18:38:21 -0400
 Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l7KMTlO8022145
-	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 18:29:47 -0400
+	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l7KMcLeK031173
+	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 18:38:21 -0400
 Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7KMTk85397572
-	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 18:29:46 -0400
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7KMcK5G527602
+	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 18:38:21 -0400
 Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7KMTkui008796
-	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 18:29:46 -0400
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7KMcKit024181
+	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 18:38:20 -0400
 Content-Disposition: inline
-In-Reply-To: <200707120119.12589.arnd@arndb.de>
+In-Reply-To: <20070820.221327.-1300518791.kouish@swc.toshiba.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 12, 2007 at 01:19:11AM +0200, Arnd Bergmann wrote:
-> We must not call netif_poll_enable after enabling interrupts,
-> because an interrupt might come in and set the __LINK_STATE_RX_SCHED
-> bit before we get to clear that bit again. If that happens,
-> the next call to the ->poll() function will oops.
-> 
-> Signed-off-by: Arnd Bergmann <arnd.bergmann@de.ibm.com>
-> ---
-> This was found during testing with the fedora kernel,
-> with all patches from netdev-2.6.git applied.
-> 
-> It may not be the right fix, but this is currently the
-> only way I can get that kernel to boot.
-> 
-> One part I don't understand at the moment is that Christian
-> Krafft reported the same problem with tg3, but that driver
-> has all interrupts disabled at the device while calling
-> the request_irq() function, which seems to be the best
-> solution for avoiding the bug in the first place.
+On Mon, Aug 20, 2007 at 10:13:27PM +0900, Ishizaki Kou wrote:
+> Please apply this to 2.6.23.
 
-It apears that this patch does not apply cleanly any more,
-and I think that's a good thing! 
+I'll review and forward shortly.  Kick me if you don't see a formal
+reply in a few days.
 
-An intervening patch changed the init so that the 
-hardware interrupts aren't enabled until after the
-request_irq, and after the poll_enable().  Thus,
-it seems this pach is no longer needed, right?
+> And also, please apply the following Arnd-san's patch to fix a problem
+> that spidernet driver sometimes causes a BUG_ON at open.
+> 
+>  http://patchwork.ozlabs.org/cbe-oss-dev/patch?id=12211
 
-I'll pursue with Kou Ishizaki, who pointed out that
-I'd missed your email.
+Are you sure? This patch no longer applies cleanly, in part because
+your patch "[PATCH] spidernet: improve interrupt handling" 
+from Mon, 09 Jul 2007 added a spider_net_enable_interrupts(card); 
+at the end of spider_net_open().  Because of this, it seems like 
+Arnd's patch is no longer needed, right?
 
 --linas
-
