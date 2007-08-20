@@ -1,75 +1,68 @@
-From: Patrick Geoffray <patrick@myri.com>
-Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCPportsfrom
-	the host TCP port space.
-Date: Mon, 20 Aug 2007 16:33:56 -0400
-Message-ID: <46C9FAB4.5020609@myri.com>
-References: <20070819.174017.77241227.davem@davemloft.net>
-	<8A71B368A89016469F72CD08050AD334018E20BE@maui.asicdesigners.com>
-	<20070820094317.GA14817@2ka.mipt.ru>
-	<8A71B368A89016469F72CD08050AD334018E2115@maui.asicdesigners.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: Segher Boessenkool <segher@kernel.crashing.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Tue, 21 Aug 2007 00:04:17 +0200
+Message-ID: <417ebba299a7ad3c4b7a31c4f860a814@kernel.crashing.org>
+References: <20070815234021.GA28775@gondor.apana.org.au> <3694fb2e4ed1e4d9bf873c0d050c911e@kernel.crashing.org> <46C3B50E.7010702@yahoo.com.au> <194369f4c96ea0e24decf8f9197d5bad@kernel.crashing.org> <46C505B2.6030704@yahoo.com.au> <18117.4848.695269.72976@cargo.ozlabs.ibm.com> <46C516BA.60700@yahoo.com.au> <alpine.LFD.0.999.0708162045150.30176@woody.linux-foundation.org> <20070817235912.GA24314@linux.vnet.ibm.com> <20070818000913.GA25585@gondor.apana.org.au> <20070818010818.GQ8464@linux.vnet.ibm.com> <Pine.LNX.4.64.0708171817050.15427@schroedinger.engr.sgi.com> <46C997B1.1010800@redhat.com>
+Mime-Version: 1.0 (Apple Message framework v623)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, jeff@garzik.org,
-	netdev@vger.kernel.org, rdreier@cisco.com,
-	linux-kernel@vger.kernel.org, general@lists.openfabrics.org,
-	David Miller <davem@davemloft.net>
-To: Felix Marti <felix@chelsio.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <8A71B368A89016469F72CD08050AD334018E2115@maui.asicdesigners.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: Christoph Lameter <clameter@sgi.com>,
+	Paul Mackerras <paulus@samba.org>, heiko.carstens@de.ibm.com,
+	horms@verge.net.au, linux-kernel@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, ak@suse.de,
+	netdev@vger.kernel.org, cfriesen@nortel.com,
+	akpm@linux-foundation.org, rpjday@mindspring.com,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	linux-arch@vger.kernel.org, jesper.juhl@gmail.com,
+	satyam@infradead.org, zlynx@acm.org, schwidefsky@de.ibm.com,
+	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Chris Snook <csnook@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761444AbXHTWIS@vger.kernel.org>
+In-Reply-To: <46C997B1.1010800@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Felix Marti wrote:
-> Yes, the app will take the cache hits when accessing the data. However,
-> the fact remains that if there is a copy in the receive path, you
-> require and additional 3x memory BW (which is very significant at these
-> high rates and most likely the bottleneck for most current systems)...
-> and somebody always has to take the cache miss be it the copy_to_user or
-> the app.
+>> Right. ROTFL... volatile actually breaks atomic_t instead of making 
+>> it safe. x++ becomes a register load, increment and a register store. 
+>> Without volatile we can increment the memory directly. It seems that 
+>> volatile requires that the variable is loaded into a register first 
+>> and then operated upon. Understandable when you think about volatile 
+>> being used to access memory mapped I/O registers where a RMW 
+>> operation could be problematic.
+>
+> So, if we want consistent behavior, we're pretty much screwed unless 
+> we use inline assembler everywhere?
 
-The cache miss is going to cost you half the memory bandwidth of a full 
-copy. If the data is already in cache, then the copy is cheaper.
+Nah, this whole argument is flawed -- "without volatile" we still
+*cannot* "increment the memory directly".  On x86, you need a lock
+prefix; on other archs, some other mechanism to make the memory
+increment an *atomic* memory increment.
 
-However, removing the copy removes the kernel from the picture on the 
-receive side, so you lose demultiplexing, asynchronism, security, 
-accounting, flow-control, swapping, etc. If it's ok with you to not use 
-the kernel stack, then why expect to fit in the existing infrastructure 
-anyway ?
+And no, RMW on MMIO isn't "problematic" at all, either.
 
-> Yes, RDMA support is there... but we could make it better and easier to
+An RMW op is a read op, a modify op, and a write op, all rolled
+into one opcode.  But three actual operations.
 
-What do you need from the kernel for RDMA support beyond HW drivers ? A 
-fast way to pin and translate user memory (ie registration). That is 
-pretty much the sandbox that David referred to.
 
-Eventually, it would be useful to be able to track the VM space to 
-implement a registration cache instead of using ugly hacks in user-space 
-to hijack malloc, but this is completely independent from the net stack.
+The advantages of asm code for atomic_{read,set} are:
+1) all the other atomic ops are implemented that way already;
+2) you have full control over the asm insns selected, in particular,
+    you can guarantee you *do* get an atomic op;
+3) you don't need to use "volatile <data>" which generates
+    not-all-that-good code on archs like x86, and we want to get rid
+    of it anyway since it is problematic in many ways;
+4) you don't need to use *(volatile <type>*)&<data>, which a) doesn't
+    exist in C; b) isn't documented or supported in GCC; c) has a recent
+    history of bugginess; d) _still uses volatile objects_; e) _still_
+    is problematic in almost all those same ways as in 3);
+5) you can mix atomic and non-atomic accesses to the atomic_t, which
+    you cannot with the other alternatives.
 
-> use. We have a problem today with port sharing and there was a proposal
+The only disadvantage I know of is potentially slightly worse
+instruction scheduling.  This is a generic asm() problem: GCC
+cannot see what actual insns are inside the asm() block.
 
-The port spaces are either totally separate and there is no issue, or 
-completely identical and you should then run your connection manager in 
-user-space or fix your middlewares.
 
-> and not for technical reasons. I believe this email threads shows in
-> detail how RDMA (a network technology) is treated as bastard child by
-> the network folks, well at least by one of them.
-
-I don't think it's fair. This thread actually show how pushy some RDMA 
-folks are about not acknowledging that the current infrastructure is 
-here for a reason, and about mistaking zero-copy and RDMA.
-
-This is a similar argument than the TOE discussion, and it was 
-definitively a good decision to not mess up the Linux stack with TOEs.
-
-Patrick
+Segher
