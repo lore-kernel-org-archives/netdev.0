@@ -1,28 +1,34 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [PATCH 0/2] qla3xxx: receive path bugfixes.
-Date: Mon, 20 Aug 2007 13:32:09 -0700
-Message-ID: <20070820203209.GB4181@linux-7mw0.qlogic.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCPportsfrom
+	the host TCP port space.
+Date: Mon, 20 Aug 2007 22:33:55 +0200
+Message-ID: <20070820203355.GA21244@one.firstfloor.org>
+References: <p73y7g6yt3j.fsf@bingen.suse.de>
+	<8A71B368A89016469F72CD08050AD334018E2149@maui.asicdesigners.com>
+	<20070820201808.GM32236@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: ron.mercer@qlogic.com, jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexch1.qlogic.com ([198.70.193.115]:46612 "EHLO
-	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754759AbXHTUcV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 16:32:21 -0400
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, jeff@garzik.org,
+	netdev@vger.kernel.org, rdreier@cisco.com,
+	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
+	general@lists.openfabrics.org, David Miller <davem@davemloft.net>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <general-bounces@lists.openfabrics.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070820201808.GM32236@postel.suug.ch>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-The following two patches fix:
+> GPUs have almost no influence on system security, 
 
-An undocumented "feature" where the 4032 chip sets bit-7
-of the opcode for an inbound completion if it's for a VLAN.
+Unless you use direct rendering from user space.
 
-The access of stale data on a completion entry.
-
-These patches were built and tested on 2.6.23-rc1.
-
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
-
+-Andi
