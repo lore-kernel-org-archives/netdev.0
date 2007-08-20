@@ -1,57 +1,52 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 2/4 - rev2] Add new timeval_to_sec function
-Date: Mon, 20 Aug 2007 07:53:25 -0700
-Message-ID: <20070820075325.43bd8f60@freepuppy.rosehill.hemminger.net>
-References: <20070820134536.d260585a.varunc@linux.vnet.ibm.com>
+Subject: Re: Marvell 88E8056 gigabit ethernet controller
+Date: Mon, 20 Aug 2007 08:01:37 -0700
+Message-ID: <20070820080137.4112f6c2@freepuppy.rosehill.hemminger.net>
+References: <2456F7EB-000C-4B71-B002-64340DD17BA8@linuxmontreal.com>
+	<573746.86745.qm@web38903.mail.mud.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kaber@trash.net,
-	socketcan@hartkopp.net, krkumar2@in.ibm.com, varuncha@in.ibm.com
-To: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Kevin E <kevin360@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:60851 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:58358 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752502AbXHTOyM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 10:54:12 -0400
-In-Reply-To: <20070820134536.d260585a.varunc@linux.vnet.ibm.com>
+	by vger.kernel.org with ESMTP id S1758749AbXHTPCM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 11:02:12 -0400
+In-Reply-To: <573746.86745.qm@web38903.mail.mud.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Aug 2007 13:45:36 +0530
-Varun Chandramohan <varunc@linux.vnet.ibm.com> wrote:
+On Sun, 19 Aug 2007 18:15:47 -0700 (PDT)
+Kevin E <kevin360@yahoo.com> wrote:
 
-> A new function for converting timeval to time_t is added in time.h. Its a common function used in different
-> places.
+> Someone wrote me with a solution to try and so far
+> it's working.  They suggested I try the driver up on
+> Marvell's website but to make sure I powered off the
+> machine completely and when it rebooted to not have
+> any of the regular kernel drivers for the Marvell
+> chipset to load.  They had found that letting the sky2
+> load and then unloading the module would mean the
+> vendor's driver wouldn't work.
 > 
-> Signed-off-by: Varun Chandramohan <varunc@linux.vnet.ibm.com>
-> ---
->  include/linux/time.h |   12 ++++++++++++
->  1 files changed, 12 insertions(+), 0 deletions(-)
+> So I got down the latest driver package they have
+> (10.0.5.3).  At first I couldn't get it compiled
+> against kernel 2.6.22.3 that I'm running, but I have
+> it compiled with the 2.6.21.5 kernel, which is what
+> the machine is running now.  And I'm happy to say that
+> it's working fine so far.  I've transfered about 4G
+> over the link and it's still working fine.
 > 
-> diff --git a/include/linux/time.h b/include/linux/time.h
-> index 6a5f503..1faf65c 100644
-> --- a/include/linux/time.h
-> +++ b/include/linux/time.h
-> @@ -149,6 +149,18 @@ static inline s64 timeval_to_ns(const st
->  }
->  
->  /**
-> + * timeval_to_sec - Convert timeval to seconds
-> + * @tv:         pointer to the timeval variable to be converted
-> + *
-> + * Returns the seconds representation of timeval parameter.
-> + * Note : Here we round up the value. We dont need accuracy.
-> + */
-> +static inline time_t timeval_to_sec(const struct timeval *tv)
-> +{
-> +	return (tv->tv_sec + (tv->tv_usec ? 1 : 0));
-> +}
-> +
+> Since Marvell's driver seems to be working for the
+> 88E8056 chipset and from what I've looked at the code
+> it's marked as GPL, could it be rolled into the kernel
+> for those of us that have 88E8056 chipsets that are
+> working to use? 
+> 
 
-Why roundup? Unless there is a requirement in the standard, please just
-use the timeval seconds. In which case the inline is unneeded.
-
+Submit for code review, and cleanup the resulting comments.
+Good luck.
 
 -- 
 Stephen Hemminger <shemminger@linux-foundation.org>
