@@ -1,104 +1,104 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: [PATCH] IPv6: Fix kernel panic while send SCTP data with IP fragments
-Date: Mon, 20 Aug 2007 09:28:27 +0800
-Message-ID: <46C8EE3B.40105@cn.fujitsu.com>
+From: "Felix Marti" <felix@chelsio.com>
+Subject: RE: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCPportsfrom the host TCP port space.
+Date: Sun, 19 Aug 2007 18:41:40 -0700
+Message-ID: <8A71B368A89016469F72CD08050AD334018E20C1@maui.asicdesigners.com>
+References: <8A71B368A89016469F72CD08050AD334018E20BC@maui.asicdesigners.com><20070819.174017.77241227.davem@davemloft.net><8A71B368A89016469F72CD08050AD334018E20BE@maui.asicdesigners.com> <20070819.180540.74750322.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <sean.hefty@intel.com>, <netdev@vger.kernel.org>,
+	<rdreier@cisco.com>, <general@lists.openfabrics.org>,
+	<linux-kernel@vger.kernel.org>, <jeff@garzik.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [222.73.24.84] ([222.73.24.84]:50714 "EHLO song.cn.fujitsu.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751461AbXHTBaM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Aug 2007 21:30:12 -0400
-Received: from tang.cn.fujitsu.com (tang.cn.fujitsu.com [10.167.250.3])
-	by song.cn.fujitsu.com (Postfix) with ESMTP id 37C491701A5
-	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 09:30:11 +0800 (CST)
-Received: from fnst.cn.fujitsu.com (localhost.localdomain [127.0.0.1])
-	by tang.cn.fujitsu.com (8.13.1/8.13.1) with ESMTP id l7K1UADs011689
-	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 09:30:10 +0800
-Received: from [10.167.141.203] (unknown [10.167.141.203])
-	by fnst.cn.fujitsu.com (Postfix) with ESMTP id D52F42938D7
-	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 09:44:05 +0800 (CST)
+Received: from stargate.chelsio.com ([12.22.49.110]:31961 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750811AbXHTBna convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Aug 2007 21:43:30 -0400
+Content-class: urn:content-classes:message
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If ICMP6 message with "Packet Too Big" is received after send SCTP DATA,
-kernel panic will occur when SCTP DATA is send again.
-
-This is because of a bad dest address when call to skb_copy_bits().
-
-The messages sequence is like this:
-
-Endpoint A                             Endpoint B
-                               <-------  SCTP DATA (size=1432) 
-ICMP6 message ------->
-(Packet Too Big pmtu=1280)
-                               <-------  Resend SCTP DATA (size=1432) 
-------------kernel panic---------------
-
- printing eip:
-c05be62a
-*pde = 00000000
-Oops: 0002 [#1]
-SMP
-Modules linked in: scomm l2cap bluetooth ipv6 dm_mirror dm_mod video output sbs battery lp floppy sg i2c_piix4 i2c_core pcnet32 mii button ac parport_pc parport ide_cd cdrom serio_raw mptspi mptscsih mptbase scsi_transport_spi sd_mod scsi_mod ext3 jbd ehci_hcd ohci_hcd uhci_hcd
-CPU:    0
-EIP:    0060:[<c05be62a>]    Not tainted VLI
-EFLAGS: 00010282   (2.6.23-rc2 #1)
-EIP is at skb_copy_bits+0x4f/0x1ef
-eax: 000004d0   ebx: ce12a980   ecx: 00000134   edx: cfd5a880
-esi: c8246858   edi: 00000000   ebp: c0759b14   esp: c0759adc
-ds: 007b   es: 007b   fs: 00d8  gs: 0000  ss: 0068
-Process swapper (pid: 0, ti=c0759000 task=c06d0340 task.ti=c0713000)
-Stack: c0759b88 c0405867 ce12a980 c8bff838 c789c084 00000000 00000028 cfd5a880
-       d09f1890 000005dc 0000007b ce12a980 cfd5a880 c8bff838 c0759b88 d09bc521
-       000004d0 fffff96c 00000200 00000100 c0759b50 cfd5a880 00000246 c0759bd4
-Call Trace:
- [<c0405e1d>] show_trace_log_lvl+0x1a/0x2f
- [<c0405ecd>] show_stack_log_lvl+0x9b/0xa3
- [<c040608d>] show_registers+0x1b8/0x289
- [<c0406271>] die+0x113/0x246
- [<c0625dbc>] do_page_fault+0x4ad/0x57e
- [<c0624642>] error_code+0x72/0x78
- [<d09bc521>] ip6_output+0x8e5/0xab2 [ipv6]
- [<d09bcec1>] ip6_xmit+0x2ea/0x3a3 [ipv6]
- [<d0a3f2ca>] sctp_v6_xmit+0x248/0x253 [sctp]
- [<d0a3c934>] sctp_packet_transmit+0x53f/0x5ae [sctp]
- [<d0a34bf8>] sctp_outq_flush+0x555/0x587 [sctp]
- [<d0a34d3c>] sctp_retransmit+0xf8/0x10f [sctp]
- [<d0a3d183>] sctp_icmp_frag_needed+0x57/0x5b [sctp]
- [<d0a3ece2>] sctp_v6_err+0xcd/0x148 [sctp]
- [<d09cf1ce>] icmpv6_notify+0xe6/0x167 [ipv6]
- [<d09d009a>] icmpv6_rcv+0x7d7/0x849 [ipv6]
- [<d09be240>] ip6_input+0x1dc/0x310 [ipv6]
- [<d09be965>] ipv6_rcv+0x294/0x2df [ipv6]
- [<c05c3789>] netif_receive_skb+0x2d2/0x335
- [<c05c5733>] process_backlog+0x7f/0xd0
- [<c05c58f6>] net_rx_action+0x96/0x17e
- [<c042e722>] __do_softirq+0x64/0xcd
- [<c0406f37>] do_softirq+0x5c/0xac
- =======================
-Code: 00 00 29 ca 89 d0 2b 45 e0 89 55 ec 85 c0 7e 35 39 45 08 8b 55 e4 0f 4e 45 08 8b 75 e0 8b 7d dc 89 c1 c1 e9 02 03 b2 a0 00 00 00 <f3> a5 89 c1 83 e1 03 74 02 f3 a4 29 45 08 0f 84 7b 01 00 00 01
-EIP: [<c05be62a>] skb_copy_bits+0x4f/0x1ef SS:ESP 0068:c0759adc
-Kernel panic - not syncing: Fatal exception in interrupt
-
-Following is the patch.
-
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 
 
---- a/net/ipv6/ip6_output.c	2007-08-14 10:36:03.000000000 -0400
-+++ b/net/ipv6/ip6_output.c	2007-08-17 15:33:35.000000000 -0400
-@@ -794,7 +794,7 @@ slow_path:
- 		/*
- 		 *	Copy a block of the IP datagram.
- 		 */
--		if (skb_copy_bits(skb, ptr, skb_transport_header(skb), len))
-+		if (skb_copy_bits(skb, ptr, skb_transport_header(frag), len))
- 			BUG();
- 		left -= len;
- 
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Sunday, August 19, 2007 6:06 PM
+> To: Felix Marti
+> Cc: sean.hefty@intel.com; netdev@vger.kernel.org; rdreier@cisco.com;
+> general@lists.openfabrics.org; linux-kernel@vger.kernel.org;
+> jeff@garzik.org
+> Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate
+> PS_TCPportsfrom the host TCP port space.
+> 
+> From: "Felix Marti" <felix@chelsio.com>
+> Date: Sun, 19 Aug 2007 17:47:59 -0700
+> 
+> > [Felix Marti]
+> 
+> Please stop using this to start your replies, thank you.
+Better?
 
+> 
+> > David and Herbert, so you agree that the user<>kernel
+> > space memory copy overhead is a significant overhead and we want to
+> > enable zero-copy in both the receive and transmit path? - Yes, copy
+> > avoidance is mainly an API issue and unfortunately the so widely
+used
+> > (synchronous) sockets API doesn't make copy avoidance easy, which is
+> one
+> > area where protocol offload can help. Yes, some apps can resort to
+> > sendfile() but there are many apps which seem to have trouble
+> switching
+> > to that API... and what about the receive path?
+> 
+> On the send side none of this is an issue.  You either are sending
+> static content, in which using sendfile() is trivial, or you're
+> generating data dynamically in which case the data copy is in the
+> noise or too small to do zerocopy on and if not you can use a shared
+> mmap to generate your data into, and then sendfile out from that file,
+> to avoid the copy that way.
+> 
+> splice() helps a lot too.
+> 
+> Splice has the capability to do away with the receive side too, and
+> there are a few receivefile() implementations that could get cleaned
+> up and merged in.
+I don't believe it is as simple as that. Many apps synthesize their
+payload in user space buffers (i.e. malloced memory) and expect to
+receive their data in user space buffers _and_ expect the received data
+to have a certain alignment and to be contiguous - something not
+addressed by these 'new' APIs. Look, people writing HPC apps tend to
+take advantage of whatever they can to squeeze some extra performance
+out of their apps and they are resorting to protocol offload technology
+for a reason, wouldn't you agree? 
 
+> 
+> Also, the I/O bus is still the more limiting factor and main memory
+> bandwidth in all of this, it is the smallest data pipe for
+> communications out to and from the network.  So the protocol header
+> avoidance gains of TSO and LRO are still a very worthwhile savings.
+So, i.e. with TSO, your saving about 16 headers (let us say 14 + 20 +
+20), 864B, when moving ~64KB of payload - looks like very much in the
+noise to me. And again, PCI-E provides more bandwidth than the wire...
+
+> 
+> But even if RDMA increases performance 100 fold, it still doesn't
+> avoid the issue that it doesn't fit in with the rest of the networking
+> stack and feature set.
+> 
+> Any monkey can change the rules around ("ok I can make it go fast as
+> long as you don't need firewalling, packet scheduling, classification,
+> and you only need to talk to specific systems that speak this same
+> special protocol") to make things go faster.  On the other hand well
+> designed solutions can give performance gains within the constraints
+> of the full system design and without sactificing functionality.
+While I believe that you should give people an option to get 'high
+performance' _instead_ of other features and let them chose whatever
+they care about, I really do agree with what you're saying and believe
+that offload devices _should_ be integrated with the facilities that you
+mention (in fact, offload can do a much better job at lots of things
+that you mention ;) ... but you're not letting offload devices integrate
+and you're slowing down innovation in this field.
 
