@@ -1,94 +1,47 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH 5/5] [TCP] MIB: Add counters for discarded SACK blocks
-Date: Mon, 20 Aug 2007 16:16:33 +0300
-Message-ID: <1187615793520-git-send-email-ilpo.jarvinen@helsinki.fi>
-References: <118761579315-git-send-email-ilpo.jarvinen@helsinki.fi> <1187615793197-git-send-email-ilpo.jarvinen@helsinki.fi> <1187615793583-git-send-email-ilpo.jarvinen@helsinki.fi> <118761579328-git-send-email-ilpo.jarvinen@helsinki.fi> <11876157932029-git-send-email-ilpo.jarvinen@helsinki.fi>
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Mon, 20 Aug 2007 09:15:11 -0400
+Message-ID: <46C993DF.4080400@redhat.com>
+References: <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au> <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au> <Pine.LNX.4.64.0708161743500.13267@kivilampi-30.cs.helsinki.fi> <46C4ABA5.9010804@redhat.com> <Pine.LNX.4.64.0708161319000.17777@schroedinger.engr.sgi.com> <18117.1287.779351.836552@cargo.ozlabs.ibm.com> <alpine.LFD.0.999.0708161953310.30176@woody.linux-foundation.org> <18117.6495.397597.582736@cargo.ozlabs.ibm.com> <20070817035342.GA14744@gondor.apana.org.au> <alpine.LFD.0.999.0708171142550.3666@enigma.security.iitk.ac.in> <46C55E90.7010407@yahoo.com.au> <alpine.LFD.0.999.0708171431150.3666@enigma.security.iitk.ac.in> <46C56ADF.8010501@cyberone.com.au> <alpine.LFD.0.999.0708171612440.3666@enigm
+ a.security.iitk.ac.in> <46C59717.4020108@cyberone.com.au> <alpine.LFD.0.999.0708170929580.30176@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	"=?ISO-8859-1?q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Nick Piggin <piggin@cyberone.com.au>,
+	Satyam Sharma <satyam@infradead.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Paul Mackerras <paulus@samba.org>,
+	Christoph Lameter <clameter@sgi.com>,
+	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>, ak@suse.de,
+	heiko.carstens@de.ibm.com, David Miller <davem@davemloft.net>,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:42752 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756171AbXHTNQg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 09:16:36 -0400
-In-Reply-To: <11876157932029-git-send-email-ilpo.jarvinen@helsinki.fi>
+Received: from mx1.redhat.com ([66.187.233.31]:38646 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756021AbXHTNQk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Aug 2007 09:16:40 -0400
+In-Reply-To: <alpine.LFD.0.999.0708170929580.30176@woody.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: =3D?ISO-8859-1?q?Ilpo_J=3DE4rvinen?=3D <ilpo.jarvinen@helsinki.=
-fi>
+Linus Torvalds wrote:
+> So the only reason to add back "volatile" to the atomic_read() sequence is 
+> not to fix bugs, but to _hide_ the bugs better. They're still there, they 
+> are just a lot harder to trigger, and tend to be a lot subtler.
 
-In DSACK case, some events are not extraordinary, such as packet
-duplication generated DSACK. They can arrive easily below
-snd_una when undo_marker is not set (TCP being in CA_Open),
-counting such DSACKs amoung SACK discards will likely just
-mislead if they occur in some scenario when there are other
-problems as well. Similarly, excessively delayed packets could
-cause "normal" DSACKs. Therefore, separate counters are
-allocated for DSACK events.
+What about barrier removal?  With consistent semantics we could optimize a fair 
+amount of code.  Whether or not that constitutes "premature" optimization is 
+open to debate, but there's no question we could reduce our register wiping in 
+some places.
 
-Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
----
- include/linux/snmp.h |    3 +++
- net/ipv4/proc.c      |    3 +++
- net/ipv4/tcp_input.c |   10 +++++++++-
- 3 files changed, 15 insertions(+), 1 deletions(-)
-
-diff --git a/include/linux/snmp.h b/include/linux/snmp.h
-index 802b3a3..d24c554 100644
---- a/include/linux/snmp.h
-+++ b/include/linux/snmp.h
-@@ -231,6 +231,9 @@ enum
- 	LINUX_MIB_TCPABORTONLINGER,		/* TCPAbortOnLinger */
- 	LINUX_MIB_TCPABORTFAILED,		/* TCPAbortFailed */
- 	LINUX_MIB_TCPMEMORYPRESSURES,		/* TCPMemoryPressures */
-+	LINUX_MIB_TCPSACKDISCARD,		/* TCPSACKDiscard */
-+	LINUX_MIB_TCPDSACKIGNOREDOLD,		/* TCPSACKIgnoredOld */
-+	LINUX_MIB_TCPDSACKIGNOREDNOUNDO,	/* TCPSACKIgnoredNoUndo */
- 	__LINUX_MIB_MAX
- };
-=20
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index 3b690cf..986d1c8 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -244,6 +244,9 @@ static const struct snmp_mib snmp4_net_list[] =3D {
- 	SNMP_MIB_ITEM("TCPAbortOnLinger", LINUX_MIB_TCPABORTONLINGER),
- 	SNMP_MIB_ITEM("TCPAbortFailed", LINUX_MIB_TCPABORTFAILED),
- 	SNMP_MIB_ITEM("TCPMemoryPressures", LINUX_MIB_TCPMEMORYPRESSURES),
-+	SNMP_MIB_ITEM("TCPSACKDiscard", LINUX_MIB_TCPSACKDISCARD),
-+	SNMP_MIB_ITEM("TCPDSACKIgnoredOld", LINUX_MIB_TCPDSACKIGNOREDOLD),
-+	SNMP_MIB_ITEM("TCPDSACKIgnoredNoUndo", LINUX_MIB_TCPDSACKIGNOREDNOUND=
-O),
- 	SNMP_MIB_SENTINEL
- };
-=20
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 102aefa..8692d0b 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1222,8 +1222,16 @@ tcp_sacktag_write_queue(struct sock *sk, struct =
-sk_buff *ack_skb, u32 prior_snd_
- 		int fack_count;
- 		int dup_sack =3D (found_dup_sack && (i =3D=3D first_sack_index));
-=20
--		if (!tcp_is_sackblock_valid(tp, dup_sack, start_seq, end_seq))
-+		if (!tcp_is_sackblock_valid(tp, dup_sack, start_seq, end_seq)) {
-+			if (dup_sack) {
-+				if (!tp->undo_marker)
-+					NET_INC_STATS_BH(LINUX_MIB_TCPDSACKIGNOREDNOUNDO);
-+				else
-+					NET_INC_STATS_BH(LINUX_MIB_TCPDSACKIGNOREDOLD);
-+			} else
-+				NET_INC_STATS_BH(LINUX_MIB_TCPSACKDISCARD);
- 			continue;
-+		}
-=20
- 		skb =3D cached_skb;
- 		fack_count =3D cached_fack_count;
---=20
-1.5.0.6
-
+	-- Chris
