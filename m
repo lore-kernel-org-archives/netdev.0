@@ -1,93 +1,78 @@
-From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-Subject: [PATCH] spidernet: fix interrupt reason recognition
-Date: Mon, 20 Aug 2007 22:13:27 +0900 (JST)
-Message-ID: <20070820.221327.-1300518791.kouish@swc.toshiba.co.jp>
+From: Chris Snook <csnook@redhat.com>
+Subject: Re: LDD3 pitfalls (was Re: [PATCH 0/24] make atomic_read() behave
+ consistently across all architectures)
+Date: Mon, 20 Aug 2007 09:28:05 -0400
+Message-ID: <46C996E5.90503@redhat.com>
+References: <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in> <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au> <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au> <46C40587.7050708@s5r6.in-berlin.de> <20070816081049.GA1431@gondor.apana.org.au> <46C41EE4.9090806@s5r6.in-berlin.de> <46C42767.4070104@s5r6.in-berlin.de> <20070816104250.GB2927@gondor.apana.org.au> <20070816163441.GB16957@linux.vnet.ibm.com> <46C512EB.7020603@yahoo.com.au> <46C54D74.60101@s5r6.in-berlin.de> <46C556F1.8000407@yahoo.com.au> <46C703C9.9060507@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
-To: linas@austin.ibm.com
+Cc: Jonathan Corbet <corbet@lwn.net>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	paulmck@linux.vnet.ibm.com,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Paul Mackerras <paulus@samba.org>,
+	Satyam Sharma <satyam@infradead.org>,
+	Christoph Lameter <clameter@sgi.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imx9.toshiba.co.jp ([202.33.96.51]:62798 "EHLO
-	imx9.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753434AbXHTNVq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 09:21:46 -0400
-Received: from imx12.toshiba.co.jp (imx12 [61.202.160.132])
-	by imx9.toshiba.co.jp  with ESMTP id l7KDLdOe008267
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 22:21:40 +0900 (JST)
+Received: from mx1.redhat.com ([66.187.233.31]:42296 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755705AbXHTN3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Aug 2007 09:29:16 -0400
+In-Reply-To: <46C703C9.9060507@s5r6.in-berlin.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch solves a problem that the spidernet driver sometimes fails
-to handle IRQ.
+Stefan Richter wrote:
+> Nick Piggin wrote:
+>> Stefan Richter wrote:
+>>> Nick Piggin wrote:
+>>>
+>>>> I don't know why people would assume volatile of atomics. AFAIK, most
+>>>> of the documentation is pretty clear that all the atomic stuff can be
+>>>> reordered etc. except for those that modify and return a value.
+>>>
+>>> Which documentation is there?
+>> Documentation/atomic_ops.txt
+>>
+>>
+>>> For driver authors, there is LDD3.  It doesn't specifically cover
+>>> effects of optimization on accesses to atomic_t.
+>>>
+>>> For architecture port authors, there is Documentation/atomic_ops.txt.
+>>> Driver authors also can learn something from that document, as it
+>>> indirectly documents the atomic_t and bitops APIs.
+>>>
+>> "Semantics and Behavior of Atomic and Bitmask Operations" is
+>> pretty direct :)
+>>
+>> Sure, it says that it's for arch maintainers, but there is no
+>> reason why users can't make use of it.
+> 
+> 
+> Note, LDD3 page 238 says:  "It is worth noting that most of the other
+> kernel primitives dealing with synchronization, such as spinlock and
+> atomic_t operations, also function as memory barriers."
+> 
+> I don't know about Linux 2.6.10 against which LDD3 was written, but
+> currently only _some_ atomic_t operations function as memory barriers.
+> 
+> Besides, judging from some posts in this thread, saying that atomic_t
+> operations dealt with synchronization may not be entirely precise.
 
-The problem happens because,
-- In Cell architecture, interrupts may arrive at an interrupt
-  controller, even if they are masked by the setting on registers of
-  devices. It happens when interrupt packets are sent just before 
-  the interrupts are masked.
-- spidernet interrupt handler compares interrupt reasons with
-  interrupt masks, so when such interrupts occurs, spidernet interrupt
-  handler returns IRQ_NONE.
-- When all of interrupt handler return IRQ_NONE, linux kernel disables
-  the IRQ and it no longer delivers interrupts to the interrupt handlers.
+atomic_t is often used as the basis for implementing more sophisticated 
+synchronization mechanisms, such as rwlocks.  Whether or not they are designed 
+for that purpose, the atomic_* operations are de facto synchronization primitives.
 
-spidernet doesn't work after above sequence, because it can't receive
-interrupts.
- 
-This patch changes spidernet interrupt handler that it compares
-interrupt reason with SPIDER_NET_INTX_MASK_VALUE.
-
-Signed-off-by: Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
----
-
-Linas-san,
-
-Please apply this to 2.6.23. Because this problem is sometimes happens
-and we cannot use the ethernet port any more.
-
-And also, please apply the following Arnd-san's patch to fix a problem
-that spidernet driver sometimes causes a BUG_ON at open.
-
- http://patchwork.ozlabs.org/cbe-oss-dev/patch?id=12211
-
-
-Index: linux-powerpc-git/drivers/net/spider_net.c
-===================================================================
---- linux-powerpc-git.orig/drivers/net/spider_net.c	2007-07-19 18:42:02.000000000 +0900
-+++ linux-powerpc-git/drivers/net/spider_net.c	2007-08-20 20:52:23.000000000 +0900
-@@ -1441,17 +1441,14 @@ static void
- spider_net_handle_error_irq(struct spider_net_card *card, u32 status_reg)
- {
- 	u32 error_reg1, error_reg2;
--	u32 mask_reg1, mask_reg2;
- 	u32 i;
- 	int show_error = 1;
- 
- 	error_reg1 = spider_net_read_reg(card, SPIDER_NET_GHIINT1STS);
- 	error_reg2 = spider_net_read_reg(card, SPIDER_NET_GHIINT2STS);
--	mask_reg1 = spider_net_read_reg(card, SPIDER_NET_GHIINT1MSK);
--	mask_reg2 = spider_net_read_reg(card,SPIDER_NET_GHIINT2MSK);
- 
--	error_reg1 &= mask_reg1;
--	error_reg2 &= mask_reg2;
-+	error_reg1 &= SPIDER_NET_INT1_MASK_VALUE;
-+	error_reg2 &= SPIDER_NET_INT2_MASK_VALUE;
- 
- 	/* check GHIINT0STS ************************************/
- 	if (status_reg)
-@@ -1679,11 +1676,10 @@ spider_net_interrupt(int irq, void *ptr)
- {
- 	struct net_device *netdev = ptr;
- 	struct spider_net_card *card = netdev_priv(netdev);
--	u32 status_reg, mask_reg;
-+	u32 status_reg;
- 
- 	status_reg = spider_net_read_reg(card, SPIDER_NET_GHIINT0STS);
--	mask_reg = spider_net_read_reg(card, SPIDER_NET_GHIINT0MSK);
--	status_reg &= mask_reg;
-+	status_reg &= SPIDER_NET_INT0_MASK_VALUE;
- 
- 	if (!status_reg)
- 		return IRQ_NONE;
+	-- Chris
