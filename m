@@ -1,35 +1,55 @@
-From: "Reither Robert" <Robert.Reither@av-digital.at>
-Subject: still not properly working multicast receiving at rtk8110SC (with 23rc3+ your patches)
-Date: Tue, 21 Aug 2007 11:10:10 +0200
-Message-ID: <BA41E8A07B73A041948C2E3A4EF6239D062E16@av-digital-exch.avdigital.at>
+From: Russell King <rmk+lkml@arm.linux.org.uk>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Tue, 21 Aug 2007 08:08:37 +0100
+Message-ID: <20070821070837.GB32036@flint.arm.linux.org.uk>
+References: <alpine.LFD.0.999.0708162045150.30176@woody.linux-foundation.org> <20070817235912.GA24314@linux.vnet.ibm.com> <20070818000913.GA25585@gondor.apana.org.au> <20070818010818.GQ8464@linux.vnet.ibm.com> <Pine.LNX.4.64.0708171817050.15427@schroedinger.engr.sgi.com> <46C997B1.1010800@redhat.com> <417ebba299a7ad3c4b7a31c4f860a814@kernel.crashing.org> <20070820224859.GA16162@flint.arm.linux.org.uk> <2bdb04581125f22122f1d230e991ea92@kernel.crashing.org> <20070821000518.GC7292@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <netdev@vger.kernel.org>
-To: "Francois Romieu" <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Segher Boessenkool <segher@kernel.crashing.org>,
+	Christoph Lameter <clameter@sgi.com>,
+	Paul Mackerras <paulus@samba.org>, heiko.carstens@de.ibm.com,
+	horms@verge.net.au, linux-kernel@vger.kernel.org, ak@suse.de,
+	netdev@vger.kernel.org, cfriesen@nortel.com,
+	akpm@linux-foundation.org, rpjday@mindspring.com,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	linux-arch@vger.kernel.org, jesper.juhl@gmail.com,
+	satyam@infradead.org, zlynx@acm.org, schwidefsky@de.ibm.com,
+	Chris Snook <csnook@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.av-digital.at ([213.33.59.122]:27762 "EHLO
-	av-digital-exch.avdigital.at" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752163AbXHUJKU convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Aug 2007 05:10:20 -0400
-Content-class: urn:content-classes:message
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:45054 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753332AbXHUJNh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 05:13:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20070821000518.GC7292@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Aug 20, 2007 at 05:05:18PM -0700, Paul E. McKenney wrote:
+> On Tue, Aug 21, 2007 at 01:02:01AM +0200, Segher Boessenkool wrote:
+> > >>And no, RMW on MMIO isn't "problematic" at all, either.
+> > >>
+> > >>An RMW op is a read op, a modify op, and a write op, all rolled
+> > >>into one opcode.  But three actual operations.
+> > >
+> > >Maybe for some CPUs, but not all.  ARM for instance can't use the
+> > >load exclusive and store exclusive instructions to MMIO space.
+> > 
+> > Sure, your CPU doesn't have RMW instructions -- how to emulate
+> > those if you don't have them is a totally different thing.
+> 
+> I thought that ARM's load exclusive and store exclusive instructions
+> were its equivalent of LL and SC, which RISC machines typically use to
+> build atomic sequences of instructions -- and which normally cannot be
+> applied to MMIO space.
 
-Hi Francois,
+Absolutely correct.
 
-i just tested the new kernel 2.6.23rc3 with and without your patches, i cannot find a difference to the behaviour of the previous state ... (22 + your patches)
-
-I still have a very unreliable receiving of multicast packets, only for about 1/3 of my join mc attempts or so i receive them, in the other cases i do not.
-
-Glen Gray also reported the same problems here on list, and i did some conversation.
-I'm using a Jetway mini-ITX board 7F4K with VIA C7 processor and he uses a similar platform, also with a C7 cpu, maybe the platform influences the problem ?
-Do we have reports on other platforms with the r8110SC and multicast receiving ?
-
-I also tried drivers from realtek homepage (the new 2.x series does not compile under kernel >2.6.20)
-The older driver (1.x for kernel 2.4) does work fine for me if i do some changes to the code to fit with kernel 2.6 series (transfered code from older versions which did support 2.6 too).
-
-Greetings
-Robert
+-- 
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:
