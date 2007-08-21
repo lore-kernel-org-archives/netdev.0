@@ -1,60 +1,93 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP ports from the host TCP port space.
-Date: Mon, 20 Aug 2007 18:16:54 -0700
-Message-ID: <adalkc5u1o9.fsf@cisco.com>
-References: <adafy2hyc04.fsf@cisco.com>
-	<20070817.170033.63993876.davem@davemloft.net>
-	<adatzqxwh56.fsf@cisco.com>
-	<20070817.234405.66176298.davem@davemloft.net>
+From: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+Subject: Re: [PATCH 2/4 - rev2] Add new timeval_to_sec function
+Date: Tue, 21 Aug 2007 09:09:33 +0530
+Message-ID: <46CA5E75.9050904@linux.vnet.ibm.com>
+References: <20070820134536.d260585a.varunc@linux.vnet.ibm.com> <20070820075325.43bd8f60@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tom@opengridcomputing.com, jeff@garzik.org,
-	swise@opengridcomputing.com, mshefty@ichips.intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kaber@trash.net,
+	socketcan@hartkopp.net, krkumar2@in.ibm.com, varuncha@in.ibm.com
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2-in.cisco.com ([171.71.176.71]:12670 "EHLO
-	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751416AbXHUBQ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 21:16:56 -0400
-In-Reply-To: <20070817.234405.66176298.davem@davemloft.net> (David Miller's message of "Fri, 17 Aug 2007 23:44:05 -0700 (PDT)")
+Received: from e32.co.us.ibm.com ([32.97.110.150]:56086 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752794AbXHUDjF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 23:39:05 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e32.co.us.ibm.com (8.12.11.20060308/8.13.8) with ESMTP id l7L2W4gl016761
+	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 22:32:04 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7L3cwUO251216
+	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 21:38:58 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7L3cvhH010889
+	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 21:38:58 -0600
+In-Reply-To: <20070820075325.43bd8f60@freepuppy.rosehill.hemminger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[TSO / LRO discussion snipped -- it's not the main point so no sense
-spending energy arguing about it]
+Stephen Hemminger wrote:
+> On Mon, 20 Aug 2007 13:45:36 +0530
+> Varun Chandramohan <varunc@linux.vnet.ibm.com> wrote:
+>
+>   
+>> A new function for converting timeval to time_t is added in time.h. Its a common function used in different
+>> places.
+>>
+>> Signed-off-by: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+>> ---
+>>  include/linux/time.h |   12 ++++++++++++
+>>  1 files changed, 12 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/include/linux/time.h b/include/linux/time.h
+>> index 6a5f503..1faf65c 100644
+>> --- a/include/linux/time.h
+>> +++ b/include/linux/time.h
+>> @@ -149,6 +149,18 @@ static inline s64 timeval_to_ns(const st
+>>  }
+>>  
+>>  /**
+>> + * timeval_to_sec - Convert timeval to seconds
+>> + * @tv:         pointer to the timeval variable to be converted
+>> + *
+>> + * Returns the seconds representation of timeval parameter.
+>> + * Note : Here we round up the value. We dont need accuracy.
+>> + */
+>> +static inline time_t timeval_to_sec(const struct timeval *tv)
+>> +{
+>> +	return (tv->tv_sec + (tv->tv_usec ? 1 : 0));
+>> +}
+>> +
+>>     
+>
+> Why roundup? Unless there is a requirement in the standard, please just
+> use the timeval seconds. In which case the inline is unneeded.
+>
+>
+>   
+Thanks for the reply stephen. As you might be aware that this discussion
+took place sometime ago when i posted my first patch set.
+Initially it was like this:
 
- > Just be realistic and accept that RDMA is a point in time solution,
- > and like any other such technology takes flexibility away from users.
- > 
- > Horizontal scaling of cpus up to huge arity cores, network devices
- > using large numbers of transmit and receive queues and classification
- > based queue selection, are all going to work to make things like RDMA
- > even more irrelevant than they already are.
+return (tv->tv_sec + (tv->tv_usec + 500000)/1000000);
+Then i got some comments from patrick and oliver. They wanted me to
+round it up.
 
-To me there is a real fundamental difference between RDMA and
-traditional SOCK_STREAM / SOCK_DATAGRAM networking, namely that
-messages can carry the address where they're supposed to be
-delivered (what the IETF calls "direct data placement").  And on top
-of that you can build one-sided operations aka put/get aka RDMA.
+So what about rounding up with
 
-And direct data placement really does give you a factor of two at
-least, because otherwise you're stuck receiving the data in one
-buffer, looking at some of the data at least, and then figuring out
-where to copy it.  And memory bandwidth is if anything becoming more
-valuable; maybe LRO + header splitting + page remapping tricks can get
-you somewhere but as NCPUS grows then it seems the TLB shootdown cost
-of page flipping is only going to get worse.
+return (tv->tv_sec + (tv->tv_usec + 999999)/1000000);
 
-Don't get too hung up on the fact that current iWARP (RDMA over IP)
-implementations are using TCP offload -- to me that is just a side
-effect of doing enough processing on the NIC side of the PCI bus to be
-able to do direct data placement.  InfiniBand with competely different
-transport, link and physical layers is one way to implement RDMA
-without TCP offload and I'm sure there will be others -- eg Intel's
-IOAT stuff could probably evolve to the point where you could
-implement iWARP with software TCP and the data placement offloaded to
-some DMA engine.
 
- - R.
+Then on second revision the above was changed to
+
+return tv->tv_sec + (tv->tv_usec ? 1 : 0);
+
+as it would be much faster. Since the timeval is meant for stats purpose
+we decided not really bother about accuracy. My initial patch actually
+took only sec value into account, but i was adviced to round up usec to
+give a better o/p. Is that ok??? Or you still think we should consider
+only secs?
+
+Regards,
+Varun
