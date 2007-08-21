@@ -1,34 +1,31 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [RFT] sky2: yukon-ec-u phy power problems
-Date: Tue, 21 Aug 2007 10:07:13 -0700
-Message-ID: <20070821100713.2867dce3@freepuppy.rosehill.hemminger.net>
-References: <20070819093221.4d3291e9@freepuppy.rosehill.hemminger.net>
-	<623107.14278.qm@web38905.mail.mud.yahoo.com>
+Subject: [PATCH] sky2: don't clear phy power bits
+Date: Tue, 21 Aug 2007 11:11:56 -0700
+Message-ID: <20070821111156.590afb5d@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Willy Tarreau <w@1wt.eu>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Kevin E <kevin360@yahoo.com>
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:35484 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:47211 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757666AbXHURHX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 13:07:23 -0400
-In-Reply-To: <623107.14278.qm@web38905.mail.mud.yahoo.com>
+	by vger.kernel.org with ESMTP id S1755651AbXHUSNG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 14:13:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The sky2 driver clears some bits in the PHY control register, that cause
-the PHY interface to get changed.  Some of these deal with voltage and power
-savings as well. This may explain some of the failures on Gigabyte DS-3 motherboard.
+There are special PHY settings available on Yukon EC-U chip that
+should not get cleared. The reset bits are in the least significant
+bits, so that is all that needs to be set.
 
-The clue to possible problem was looking at why loading/unloading sky2 would
-break vendor sk98lin driver (ie what registers changed).
+This should solve mysterious errors on some motherboards (like Gigabyte DS-3).
+
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
 
---- a/drivers/net/sky2.c	2007-08-21 09:53:41.000000000 -0700
-+++ b/drivers/net/sky2.c	2007-08-21 09:53:43.000000000 -0700
+--- a/drivers/net/sky2.c	2007-08-21 10:17:54.000000000 -0700
++++ b/drivers/net/sky2.c	2007-08-21 10:17:59.000000000 -0700
 @@ -696,8 +696,8 @@ static void sky2_mac_init(struct sky2_hw
  	int i;
  	const u8 *addr = hw->dev[port]->dev_addr;
