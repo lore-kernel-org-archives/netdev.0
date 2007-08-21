@@ -1,45 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: [ofa-general] Re: [PATCH 0/9 Rev3] Implement batching skb API and
- support in IPoIB
-Date: Tue, 21 Aug 2007 11:51:43 -0700 (PDT)
-Message-ID: <20070821.115143.23013721.davem@davemloft.net>
-References: <OFFFECFAD7.CF3FF115-ON6525733A.0020AE37-6525733A.00218365@in.ibm.com>
-	<20070821.001824.105429474.davem@davemloft.net>
-	<1187699422.5324.41.camel@localhost>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] sky2: don't clear phy power bits
+Date: Tue, 21 Aug 2007 11:50:11 -0700
+Message-ID: <20070821115011.63d9fc7c@freepuppy.rosehill.hemminger.net>
+References: <20070821064251.972690753@blue.kroah.org>
+	<20070821065421.GG5275@kroah.com>
+	<20070821111022.046eec14@freepuppy.rosehill.hemminger.net>
+	<alpine.LFD.0.999.0708211123510.30176@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jagana@us.ibm.com, gaagaan@gmail.com, jeff@garzik.org,
-	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
-	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
-	mcarlson@broadcom.com, netdev@vger.kernel.org, sri@us.ibm.com,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	johnpol@2ka.mipt.ru, shemminger@linux-foundation.org,
-	kaber@trash.net, herbert@gondor.apana.org.au
-To: hadi@cyberus.ca
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <1187699422.5324.41.camel@localhost>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: Greg KH <gregkh@suse.de>, stable@vger.kernel.org,
+	stable@kernel.org, Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>,
+	Chris Wedgwood <reviews@ml.cw.f00f.org>,
+	Michael Krufky <mkrufky@linuxtv.org>,
+	Chuck Ebbert <cebbert@redhat.com>,
+	Domenico Andreoli <cavokz@gmail.com>,
+	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
+	netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:50619 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759917AbXHUSwC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 14:52:02 -0400
+In-Reply-To: <alpine.LFD.0.999.0708211123510.30176@woody.linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Tue, 21 Aug 2007 08:30:22 -0400
+On Tue, 21 Aug 2007 11:26:23 -0700 (PDT)
+Linus Torvalds <torvalds@linux-foundation.org> wrote:
 
-> On Tue, 2007-21-08 at 00:18 -0700, David Miller wrote:
 > 
-> > Using 16K buffer size really isn't going to keep the pipe full enough
-> > for TSO. 
 > 
-> Why the comparison with TSO (or GSO for that matter)?
+> On Tue, 21 Aug 2007, Stephen Hemminger wrote:
+> >
+> > There are special PHY settings available on Yukon EC-U chip that
+> > should not get cleared. This should solve mysterious errors on some
+> > motherboards (like Gigabyte DS-3).
+> 
+> Ok, applied.
+> 
+> However:
+> 
+>  - now all accesses to GPHY_CTRL are 8-bit (it used to mix them). Good.
+> 
+>  - but sky2.h still says "32 bit" about the register
+> 
+> Should the comments in sky2.h perhaps be fixed?
+> 
 
-Because TSO does batching already, so it's a very good
-"tit for tat" comparison of the new batching scheme
-vs. an existing one.
+Register is 32 bit, I'll add documentation about other bits.
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
