@@ -1,55 +1,61 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: ATA over ethernet swapping
-Date: Tue, 21 Aug 2007 09:42:01 +0200
-Message-ID: <20070821074201.GC7258@elf.ucw.cz>
-References: <20070731135831.GA4604@elf.ucw.cz> <20070731150324.GE3206@coraid.com> <20070731152924.GM2087@elf.ucw.cz> <20070731162140.GI3206@coraid.com> <20070731222742.GR2087@elf.ucw.cz> <1185959909.12034.38.camel@twins> <20070809101105.GA7581@elf.ucw.cz> <1186991157.20108.47.camel@twins>
+From: Paul Mackerras <paulus@samba.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Tue, 21 Aug 2007 19:33:49 +1000
+Message-ID: <18122.45437.807239.395869@cargo.ozlabs.ibm.com>
+References: <46C516BA.60700@yahoo.com.au>
+	<alpine.LFD.0.999.0708162045150.30176@woody.linux-foundation.org>
+	<20070817235912.GA24314@linux.vnet.ibm.com>
+	<20070818000913.GA25585@gondor.apana.org.au>
+	<20070818010818.GQ8464@linux.vnet.ibm.com>
+	<Pine.LNX.4.64.0708171817050.15427@schroedinger.engr.sgi.com>
+	<46C997B1.1010800@redhat.com>
+	<417ebba299a7ad3c4b7a31c4f860a814@kernel.crashing.org>
+	<20070820224859.GA16162@flint.arm.linux.org.uk>
+	<2bdb04581125f22122f1d230e991ea92@kernel.crashing.org>
+	<20070821070555.GA32036@flint.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Ed L. Cashin" <ecashin@coraid.com>,
-	kernel list <linux-kernel@vger.kernel.org>, ak@suse.de,
-	Netdev list <netdev@vger.kernel.org>
-To: Peter Zijlstra <peterz@infradead.org>
+Content-Transfer-Encoding: 7bit
+Cc: Segher Boessenkool <segher@kernel.crashing.org>,
+	Christoph Lameter <clameter@sgi.com>,
+	heiko.carstens@de.ibm.com, horms@verge.net.au,
+	linux-kernel@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, ak@suse.de,
+	netdev@vger.kernel.org, cfriesen@nortel.com,
+	akpm@linux-foundation.org, rpjday@mindspring.com,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	linux-arch@vger.kernel.org, jesper.juhl@gmail.com,
+	satyam@infradead.org, zlynx@acm.org, schwidefsky@de.ibm.com,
+	Chris Snook <csnook@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Russell King <rmk+lkml@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gprs189-60.eurotel.cz ([160.218.189.60]:55088 "EHLO amd.ucw.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754453AbXHUJeK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Aug 2007 05:34:10 -0400
-Content-Disposition: inline
-In-Reply-To: <1186991157.20108.47.camel@twins>
+Received: from ozlabs.org ([203.10.76.45]:39949 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752140AbXHUJdy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Aug 2007 05:33:54 -0400
+In-Reply-To: <20070821070555.GA32036@flint.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
+Russell King writes:
 
-> > But I'm able to compile kernel (-j 10) on 128MB machine, and I tried
-> > cat /dev/zero | grep foo to exhaust memory... and could not reproduce
-> > the deadlock. Should I pingflood? Tweak down ammount of atomic memory
-> > avaialable to make deadlocks easier to reproduce?
-> 
-> I usually test swap over NFS in the following manner, I setup a regular
-> inet service on the machine (apache or a bunch of ncat sockets piping to
-> files or something) and run a heavy workload on the machine (128M):
-> 2*64M file backed thrashers and 2*64M anonymous thrashers. Then I start
-> clients for the regular inet service, wait for a bit, and shut down the
-> NFS server.
-> 
-> This makes the machine grind to a halt, I then restart the NFS server,
-> wait for it to reconnect and the client to come alive again.
-> 
-> Without the last few swap-over-NFS patches this last bit - getting back
-> out of that situation - never happens.
-> 
-> The basic idea is to make connectivity to the machine where swap traffic
-> goes very hard (pull a cable, cleanly shut down the server) and to keep
-> other network traffic pounding the machine.
+> Let me say it more clearly: On ARM, it is impossible to perform atomic
+> operations on MMIO space.
 
-Hmm, I could not get swap-over-ata-over-ethernet to break. Maybe I
-should not have local / filesystem, because it allows kernel to get
-rid of some memory pressure by dropping clean pages? Plus I guess
-ata-over-ethernet has some significant advantages, as it works over
-ethernet directly, not over IP.
+Actually, no one is suggesting that we try to do that at all.
 
-								Pavel
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+The discussion about RMW ops on MMIO space started with a comment
+attributed to the gcc developers that one reason why gcc on x86
+doesn't use instructions that do RMW ops on volatile variables is that
+volatile is used to mark MMIO addresses, and there was some
+uncertainty about whether (non-atomic) RMW ops on x86 could be used on
+MMIO.  This is in regard to the question about why gcc on x86 always
+moves a volatile variable into a register before doing anything to it.
+
+So the whole discussion is irrelevant to ARM, PowerPC and any other
+architecture except x86[-64].
+
+Paul.
