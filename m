@@ -1,93 +1,119 @@
-From: Varun Chandramohan <varunc@linux.vnet.ibm.com>
-Subject: Re: [PATCH 2/4 - rev2] Add new timeval_to_sec function
-Date: Tue, 21 Aug 2007 09:09:33 +0530
-Message-ID: <46CA5E75.9050904@linux.vnet.ibm.com>
-References: <20070820134536.d260585a.varunc@linux.vnet.ibm.com> <20070820075325.43bd8f60@freepuppy.rosehill.hemminger.net>
+From: "Felix Marti" <felix@chelsio.com>
+Subject: RE: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCPportsfrom
+	the host TCP port space.
+Date: Mon, 20 Aug 2007 21:21:18 -0700
+Message-ID: <8A71B368A89016469F72CD08050AD334018E21C6@maui.asicdesigners.com>
+References: <20070819.174017.77241227.davem@davemloft.net>
+	<8A71B368A89016469F72CD08050AD334018E20BE@maui.asicdesigners.com>
+	<20070820094317.GA14817@2ka.mipt.ru>
+	<8A71B368A89016469F72CD08050AD334018E2115@maui.asicdesigners.com>
+	<46C9FAB4.5020609@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kaber@trash.net,
-	socketcan@hartkopp.net, krkumar2@in.ibm.com, varuncha@in.ibm.com
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:56086 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752794AbXHUDjF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Aug 2007 23:39:05 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e32.co.us.ibm.com (8.12.11.20060308/8.13.8) with ESMTP id l7L2W4gl016761
-	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 22:32:04 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7L3cwUO251216
-	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 21:38:58 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7L3cvhH010889
-	for <netdev@vger.kernel.org>; Mon, 20 Aug 2007 21:38:58 -0600
-In-Reply-To: <20070820075325.43bd8f60@freepuppy.rosehill.hemminger.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, jeff@garzik.org,
+	netdev@vger.kernel.org, rdreier@cisco.com,
+	linux-kernel@vger.kernel.org, general@lists.openfabrics.org,
+	David Miller <davem@davemloft.net>
+To: "Patrick Geoffray" <patrick@myri.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-class: urn:content-classes:message
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Mon, 20 Aug 2007 13:45:36 +0530
-> Varun Chandramohan <varunc@linux.vnet.ibm.com> wrote:
->
->   
->> A new function for converting timeval to time_t is added in time.h. Its a common function used in different
->> places.
->>
->> Signed-off-by: Varun Chandramohan <varunc@linux.vnet.ibm.com>
->> ---
->>  include/linux/time.h |   12 ++++++++++++
->>  1 files changed, 12 insertions(+), 0 deletions(-)
->>
->> diff --git a/include/linux/time.h b/include/linux/time.h
->> index 6a5f503..1faf65c 100644
->> --- a/include/linux/time.h
->> +++ b/include/linux/time.h
->> @@ -149,6 +149,18 @@ static inline s64 timeval_to_ns(const st
->>  }
->>  
->>  /**
->> + * timeval_to_sec - Convert timeval to seconds
->> + * @tv:         pointer to the timeval variable to be converted
->> + *
->> + * Returns the seconds representation of timeval parameter.
->> + * Note : Here we round up the value. We dont need accuracy.
->> + */
->> +static inline time_t timeval_to_sec(const struct timeval *tv)
->> +{
->> +	return (tv->tv_sec + (tv->tv_usec ? 1 : 0));
->> +}
->> +
->>     
->
-> Why roundup? Unless there is a requirement in the standard, please just
-> use the timeval seconds. In which case the inline is unneeded.
->
->
->   
-Thanks for the reply stephen. As you might be aware that this discussion
-took place sometime ago when i posted my first patch set.
-Initially it was like this:
-
-return (tv->tv_sec + (tv->tv_usec + 500000)/1000000);
-Then i got some comments from patrick and oliver. They wanted me to
-round it up.
-
-So what about rounding up with
-
-return (tv->tv_sec + (tv->tv_usec + 999999)/1000000);
 
 
-Then on second revision the above was changed to
+> -----Original Message-----
+> From: Patrick Geoffray [mailto:patrick@myri.com]
+> Sent: Monday, August 20, 2007 1:34 PM
+> To: Felix Marti
+> Cc: Evgeniy Polyakov; David Miller; sean.hefty@intel.com;
+> netdev@vger.kernel.org; rdreier@cisco.com;
+> general@lists.openfabrics.org; linux-kernel@vger.kernel.org;
+> jeff@garzik.org
+> Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate
+> PS_TCPportsfrom the host TCP port space.
+>=20
+> Felix Marti wrote:
+> > Yes, the app will take the cache hits when accessing the data.
+> However,
+> > the fact remains that if there is a copy in the receive path, you
+> > require and additional 3x memory BW (which is very significant at
+> these
+> > high rates and most likely the bottleneck for most current
+> systems)...
+> > and somebody always has to take the cache miss be it the
+copy_to_user
+> or
+> > the app.
+>=20
+> The cache miss is going to cost you half the memory bandwidth of a
+full
+> copy. If the data is already in cache, then the copy is cheaper.
+>=20
+> However, removing the copy removes the kernel from the picture on the
+> receive side, so you lose demultiplexing, asynchronism, security,
+> accounting, flow-control, swapping, etc. If it's ok with you to not
+use
+> the kernel stack, then why expect to fit in the existing
+infrastructure
+> anyway ?
+Many of the things you're referring to are moved to the offload adapter
+but from an ease of use point of view, it would be great if the user
+could still collect stats the same way, i.e. netstat reports the 4-tuple
+in use and other network stats. In addition, security features and
+packet scheduling could be integrated so that the user configures them
+the same way as the network stack.
 
-return tv->tv_sec + (tv->tv_usec ? 1 : 0);
+>=20
+> > Yes, RDMA support is there... but we could make it better and easier
+> to
+>=20
+> What do you need from the kernel for RDMA support beyond HW drivers ?
+A
+> fast way to pin and translate user memory (ie registration). That is
+> pretty much the sandbox that David referred to.
+>=20
+> Eventually, it would be useful to be able to track the VM space to
+> implement a registration cache instead of using ugly hacks in user-
+> space
+> to hijack malloc, but this is completely independent from the net
+> stack.
+>=20
+> > use. We have a problem today with port sharing and there was a
+> proposal
+>=20
+> The port spaces are either totally separate and there is no issue, or
+> completely identical and you should then run your connection manager
+in
+> user-space or fix your middlewares.
+When running on an iWarp device (and hence on top of TCP) I believe that
+the port space should shared and i.e. netstat reports the 4-tuple in
+use.=20
 
-as it would be much faster. Since the timeval is meant for stats purpose
-we decided not really bother about accuracy. My initial patch actually
-took only sec value into account, but i was adviced to round up usec to
-give a better o/p. Is that ok??? Or you still think we should consider
-only secs?
+>=20
+> > and not for technical reasons. I believe this email threads shows in
+> > detail how RDMA (a network technology) is treated as bastard child
+by
+> > the network folks, well at least by one of them.
+>=20
+> I don't think it's fair. This thread actually show how pushy some RDMA
+> folks are about not acknowledging that the current infrastructure is
+> here for a reason, and about mistaking zero-copy and RDMA.
+Zero-copy and RDMA are not the same but in the context of this
+discussion I referred to RDMA as a superset (zero-copy is implied).
 
-Regards,
-Varun
+>=20
+> This is a similar argument than the TOE discussion, and it was
+> definitively a good decision to not mess up the Linux stack with TOEs.
+>=20
+> Patrick
