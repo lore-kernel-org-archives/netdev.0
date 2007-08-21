@@ -1,134 +1,96 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH 6/7 v2] fs_enet: Be an of_platform device when CONFIG_PPC_CPM_NEW_BINDING
- is set.
-Date: Tue, 21 Aug 2007 11:47:41 -0500
-Message-ID: <46CB172D.9010807@freescale.com>
-References: <20070817181718.GA15792@ld0162-tx32.am.freescale.net> <20070821130155.43898b68@localhost.localdomain>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
+ architectures
+Date: Tue, 21 Aug 2007 09:43:52 -0700 (PDT)
+Message-ID: <alpine.LFD.0.999.0708210922290.30176@woody.linux-foundation.org>
+References: <alpine.LFD.0.999.0708170929580.30176@woody.linux-foundation.org>
+ <46C993DF.4080400@redhat.com> <alpine.LFD.0.999.0708202244520.30176@woody.linux-foundation.org>
+ <20070821.000404.39159401.davem@davemloft.net>
+ <46CAED8B.9030006@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Vitaly Bordug <vitb@kernel.crashing.org>
+Content-Type: TEXT/PLAIN; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, piggin@cyberone.com.au,
+	satyam@infradead.org, herbert@gondor.apana.org.au,
+	paulus@samba.org, clameter@sgi.com, ilpo.jarvinen@helsinki.fi,
+	paulmck@linux.vnet.ibm.com, stefanr@s5r6.in-berlin.de,
+	linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
+	netdev@vger.kernel.org, akpm@linux-foundation.org, ak@suse.de,
+	heiko.carstens@de.ibm.com, schwidefsky@de.ibm.com,
+	wensong@linux-vs.org, horms@verge.net.au, wjiang@resilience.com,
+	cfriesen@nortel.com, zlynx@acm.org, rpjday@mindspring.com,
+	jesper.juhl@gmail.com, segher@kernel.crashing.org
+To: Chris Snook <csnook@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:56071 "EHLO
-	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757944AbXHUQr6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 12:47:58 -0400
-In-Reply-To: <20070821130155.43898b68@localhost.localdomain>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:35508 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759459AbXHUQvc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 12:51:32 -0400
+In-Reply-To: <46CAED8B.9030006@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Vitaly Bordug wrote:
-> On Fri, 17 Aug 2007 13:17:18 -0500
-> Scott Wood wrote:
+
+
+On Tue, 21 Aug 2007, Chris Snook wrote:
 > 
-> 
->>The existing OF glue code was crufty and broken.  Rather than fix it,
->>it will be removed, and the ethernet driver now talks to the device
->>tree directly.
->>
-> 
-> A bit short description, I'd rather expect some specific improvements list,
-> that are now up and running using device tree. Or if it is just move to new
-> infrastucture, let's state that, too.
+> Moore's law is definitely working against us here.  Register counts, pipeline
+> depths, core counts, and clock multipliers are all increasing in the long run.
+> At some point in the future, barrier() will be universally regarded as a
+> hammer too big for most purposes.
 
-Some of specific binding changes (there are too many to exhaustively 
-list) are enumerated in the "new CPM binding" patch, which I'll send 
-after Kumar's include/asm-ppc patch goes in (since it modifies one of 
-those files).
+Note that "barrier()" is purely a compiler barrier. It has zero impact on 
+the CPU pipeline itself, and also has zero impact on anything that gcc 
+knows isn't visible in memory (ie local variables that don't have their 
+address taken), so barrier() really is pretty cheap.
 
->>+#ifdef CONFIG_PPC_CPM_NEW_BINDING
->>+static int __devinit find_phy(struct device_node *np,
->>+                              struct fs_platform_info *fpi)
->>+{
->>+	struct device_node *phynode, *mdionode;
->>+	struct resource res;
->>+	int ret = 0, len;
->>+
->>+	const u32 *data = of_get_property(np, "phy-handle", &len);
->>+	if (!data || len != 4)
->>+		return -EINVAL;
->>+
->>+	phynode = of_find_node_by_phandle(*data);
->>+	if (!phynode)
->>+		return -EINVAL;
->>+
->>+	mdionode = of_get_parent(phynode);
->>+	if (!phynode)
->>+		goto out_put_phy;
->>+
->>+	ret = of_address_to_resource(mdionode, 0, &res);
->>+	if (ret)
->>+		goto out_put_mdio;
->>+
->>+	data = of_get_property(phynode, "reg", &len);
->>+	if (!data || len != 4)
->>+		goto out_put_mdio;
->>+
->>+	snprintf(fpi->bus_id, 16, PHY_ID_FMT, res.start, *data);
->>+
->>+out_put_mdio:
->>+	of_node_put(mdionode);
->>+out_put_phy:
->>+	of_node_put(phynode);
->>+	return ret;
->>+}
-> 
-> And without phy node? 
+Now, it's possible that gcc messes up in some circumstances, and that the 
+memory clobber will cause gcc to also do things like flush local registers 
+unnecessarily to their stack slots, but quite frankly, if that happens, 
+it's a gcc problem, and I also have to say that I've not seen that myself.
 
-It returns -EINVAL. :-)
+So in a very real sense, "barrier()" will just make sure that there is a 
+stronger sequence point for the compiler where things are stable. In most 
+cases it has absolutely zero performance impact - apart from the 
+-intended- impact of making sure that the compiler doesn't re-order or 
+cache stuff around it.
 
->>+#ifdef CONFIG_FS_ENET_HAS_FEC
->>+#define IS_FEC(match) ((match)->data == &fs_fec_ops)
->>+#else
->>+#define IS_FEC(match) 0
->>+#endif
->>+
-> 
-> Since we're talking directly with device tree, why bother with CONFIG_ stuff? We are able to figure it out from dts..
+And sure, we could make it more finegrained, and also introduce a 
+per-variable barrier, but the fact is, people _already_ have problems with 
+thinking about these kinds of things, and adding new abstraction issues 
+with subtle semantics is the last thing we want.
 
-We are figuring it out from the DTS (that's what match->data is).  I 
-just didn't want boards without a FEC to have to build in support for it 
-and waste memory.
+So I really think you'd want to show a real example of real code that 
+actually gets noticeably slower or bigger.
 
->>+	fpi->rx_ring = 32;
->>+	fpi->tx_ring = 32;
->>+	fpi->rx_copybreak = 240;
->>+	fpi->use_napi = 0;
->>+	fpi->napi_weight = 17;
->>+
-> 
-> 
-> move params over to  dts?
+In removing "volatile", we have shown that. It may not have made a big 
+difference on powerpc, but it makes a real difference on x86 - and more 
+importantly, it removes something that people clearly don't know how it 
+works, and incorrectly expect to just fix bugs.
 
-No.  These aren't attributes of the hardware, they're choices the driver 
-makes about how much memory to use and how to interact with the rest of 
-the kernel.
+[ There are *other* barriers - the ones that actually add memory barriers 
+  to the CPU - that really can be quite expensive. The good news is that 
+  the expense is going down rather than up: both Intel and AMD are not 
+  only removing the need for some of them (ie "smp_rmb()" will become a 
+  compiler-only barrier), but we're _also_ seeing the whole "pipeline 
+  flush" approach go away, and be replaced by the CPU itself actually 
+  being better - so even the actual CPU pipeline barriers are getting
+  cheaper, not more expensive. ]
 
->>+	ret = find_phy(ofdev->node, fpi);
->>+	if (ret)
->>+		goto out_free_fpi;
->>+
-> 
-> so we're hosed without phy node.
+For example, did anybody even _test_ how expensive "barrier()" is? Just 
+as a lark, I did
 
-How is that different from the old code, where you're hosed without 
-fep->fpi->bus_id?
+	#undef barrier
+	#define barrier() do { } while (0)
 
->>+static struct of_device_id fs_enet_match[] = {
->>+#ifdef CONFIG_FS_ENET_HAS_SCC
-> 
-> 
-> same nagging. Are we able to get rid of Kconfig arcane defining which SoC currently plays the game for fs_enet?
+in kernel/sched.c (which only has three of them in it, but hey, that's 
+more than most files), and there were _zero_ code generation downsides. 
+One instruction was moved (and a few line numbers changed), so it wasn't 
+like the assembly language was identical, but the point is, barrier() 
+simply doesn't have the same kinds of downsides that "volatile" has.
 
-No, it's still needed for mpc885ads to determine pin setup and 
-conflicting device tree node removal (though that could go away if the 
-device tree is changed to reflect the jumper settings).
+(That may not be true on other architectures or in other source files, of 
+course. This *does* depend on code generation details. But anybody who 
+thinks that "barrier()" is fundamentally expensive is simply incorrect. It 
+is *fundamnetally* a no-op).
 
-It's also useful for excluding unwanted code.  I don't like using 
-8xx/CPM2 as the decision point for that -- why should I build in 
-mac-scc.c if I have no intention of using an SCC ethernet (either 
-because my board doesn't have one, or because it's slow and conflicts 
-with other devices)?
-
--Scott
+		Linus
