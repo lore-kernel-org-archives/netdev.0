@@ -1,50 +1,141 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH] sky2: don't clear phy power bits
-Date: Tue, 21 Aug 2007 11:26:23 -0700 (PDT)
-Message-ID: <alpine.LFD.0.999.0708211123510.30176@woody.linux-foundation.org>
-References: <20070821064251.972690753@blue.kroah.org> <20070821065421.GG5275@kroah.com>
- <20070821111022.046eec14@freepuppy.rosehill.hemminger.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 8914] New: filter attached to prio qdisc
+ breaks priomap handling of packets it does _not_ match
+Date: Tue, 21 Aug 2007 11:29:42 -0700
+Message-ID: <20070821112942.9a5c78ca.akpm@linux-foundation.org>
+References: <bug-8914-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Greg KH <gregkh@suse.de>, stable@vger.kernel.org,
-	stable@kernel.org, Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>,
-	Chris Wedgwood <reviews@ml.cw.f00f.org>,
-	Michael Krufky <mkrufky@linuxtv.org>,
-	Chuck Ebbert <cebbert@redhat.com>,
-	Domenico Andreoli <cavokz@gmail.com>,
-	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org, lionel@mamane.lu
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:54867 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:38969 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1761951AbXHUS1m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 14:27:42 -0400
-In-Reply-To: <20070821111022.046eec14@freepuppy.rosehill.hemminger.net>
+	by vger.kernel.org with ESMTP id S1761392AbXHUSaE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 14:30:04 -0400
+In-Reply-To: <bug-8914-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 21 Aug 2007 05:32:57 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
 
-
-On Tue, 21 Aug 2007, Stephen Hemminger wrote:
->
-> There are special PHY settings available on Yukon EC-U chip that
-> should not get cleared. This should solve mysterious errors on some
-> motherboards (like Gigabyte DS-3).
-
-Ok, applied.
-
-However:
-
- - now all accesses to GPHY_CTRL are 8-bit (it used to mix them). Good.
-
- - but sky2.h still says "32 bit" about the register
-
-Should the comments in sky2.h perhaps be fixed?
-
-		Linus
+> http://bugzilla.kernel.org/show_bug.cgi?id=8914
+> 
+>            Summary: filter attached to prio qdisc breaks priomap handling of
+>                     packets it does _not_ match
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: 2.6.22.4
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV4
+>         AssignedTo: shemminger@osdl.org
+>         ReportedBy: lionel@mamane.lu
+> 
+> 
+> Most recent kernel where this bug did not occur: none known to me
+> Distribution: Debian (sid / unstable / distro development bleeding edge)
+> Hardware Environment: reproduced on i386 and x64-64 machines
+> Software Environment: Debian, iproute 20070313-1
+> Problem Description:
+> 
+> When I attach a filter to a prio qdisc, the packets that it does _not_
+> match are not correctly handled (enqueued) according to the priomap
+> anymore, that is the same way than when there is no filter attached to
+> the qdisc. They seem to always fall in the map for best effort traffic.
+> 
+> Problem first noticed on Debian precompiled kernels (2.6.18-4-amd64, based on
+> 2.6.18.7 and 2.6.22-1-686, based on 2.6.22.1), reproduced with self-compiled
+> (with .config copied from Debian precompiled one) straight-from-kernel.org
+> 2.6.22.4 .
+> 
+> Steps to reproduce:
+> 
+> Run attached script (as root), trying to ensure no other traffic happens over
+> the interface: it installs qdiscs on interface ${TIF} (defaults to eth0), pings
+> host ${PHOST} (defaults to master.debian.org - numerical IP hardcoded) with
+> various IP TOS bits set, installs a filter that matches TCP (_not_ ICMP) and
+> does the pings again. You have to ensure that pings to ${PHOST} leaver over
+> ${TIF}. You may have to "modprobe em_cmp" before running the script.
+> 
+> Notice how the first pings (before filters get installed) get in the
+> right queue according to their TOS bits, but after the filter gets
+> installed, they all end up in the "best effort" queue.
+> 
+> 
+> The output I get (non-relevant bits snipped out) is:
+> 
+>  Running test on interface eth0
+>  by pinging host 70.103.162.29
+> 
+>  Pinging with normal service 1 times
+>  Pinging with minimise delay 2 times
+>  Pinging with minimise cost 4 times
+>  qdisc pfifo 22: parent 20:2 limit 1000p
+>   Sent 196 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
+>  qdisc pfifo 23: parent 20:3 limit 1000p
+>   Sent 98 bytes 1 pkt (dropped 0, overlimits 0 requeues 0)
+>  qdisc pfifo 24: parent 20:4 limit 1000p
+>   Sent 392 bytes 4 pkt (dropped 0, overlimits 0 requeues 0)
+> 
+>  Adding a filter that does _not_ match ICMP
+> 
+>  Pinging with normal service 8 times
+>  qdisc pfifo 22: parent 20:2 limit 1000p
+>   Sent 196 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
+>  qdisc pfifo 23: parent 20:3 limit 1000p
+>   Sent 924 bytes 10 pkt (dropped 0, overlimits 0 requeues 0)
+>  qdisc pfifo 24: parent 20:4 limit 1000p
+>   Sent 392 bytes 4 pkt (dropped 0, overlimits 0 requeues 0)
+> 
+>  Pinging with minimise delay 16 times
+>  qdisc pfifo 22: parent 20:2 limit 1000p
+>   Sent 196 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
+>  qdisc pfifo 23: parent 20:3 limit 1000p
+>   Sent 2492 bytes 26 pkt (dropped 0, overlimits 0 requeues 0)
+>  qdisc pfifo 24: parent 20:4 limit 1000p
+>   Sent 392 bytes 4 pkt (dropped 0, overlimits 0 requeues 0)
+> 
+>  Pinging with minimise cost 32 times
+>  qdisc pfifo 22: parent 20:2 limit 1000p
+>   Sent 196 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
+>  qdisc pfifo 23: parent 20:3 limit 1000p
+>   Sent 5628 bytes 58 pkt (dropped 0, overlimits 0 requeues 0)
+>  qdisc pfifo 24: parent 20:4 limit 1000p
+>   Sent 392 bytes 4 pkt (dropped 0, overlimits 0 requeues 0)
+> 
+> 
+> The output I would expect is:
+> 
+>  (... snip ...)
+> 
+>  Adding a filter that does _not_ match ICMP
+> 
+>  Pinging with normal service 8 times
+>  qdisc pfifo 22: parent 20:2 limit 1000p
+>   Sent XXX bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
+>  qdisc pfifo 23: parent 20:3 limit 1000p
+>   Sent XXX bytes 10 pkt (dropped 0, overlimits 0 requeues 0)
+>  qdisc pfifo 24: parent 20:4 limit 1000p
+>   Sent XXX bytes 4 pkt (dropped 0, overlimits 0 requeues 0)
+> 
+>  Pinging with minimise delay 16 times
+>  qdisc pfifo 22: parent 20:2 limit 1000p
+>   Sent XXX bytes 18 pkt (dropped 0, overlimits 0 requeues 0)
+>  qdisc pfifo 23: parent 20:3 limit 1000p
+>   Sent XXX bytes 10 pkt (dropped 0, overlimits 0 requeues 0)
+>  qdisc pfifo 24: parent 20:4 limit 1000p
+>   Sent XXX bytes 4 pkt (dropped 0, overlimits 0 requeues 0)
+> 
+>  Pinging with minimise cost 32 times
+>  qdisc pfifo 22: parent 20:2 limit 1000p
+>   Sent XXX bytes 18 pkt (dropped 0, overlimits 0 requeues 0)
+>  qdisc pfifo 23: parent 20:3 limit 1000p
+>   Sent XXX bytes 10 pkt (dropped 0, overlimits 0 requeues 0)
+>  qdisc pfifo 24: parent 20:4 limit 1000p
+>   Sent XXX bytes 36 pkt (dropped 0, overlimits 0 requeues 0)
