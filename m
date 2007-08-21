@@ -1,126 +1,55 @@
-From: "Fortier,Vincent [Montreal]" <Vincent.Fortier1@EC.GC.CA>
-Subject: 2.6.22 dev_base changes info request
-Date: Tue, 21 Aug 2007 10:22:49 -0400
-Message-ID: <F1D642E5A91BC94D9504EC83AE19E6B0128B25@ecqcmtlmail3.quebec.int.ec.gc.ca>
-References: <20070820203209.GB4181@linux-7mw0.qlogic.org> <11877040854129-git-send-email-ron.mercer@qlogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
+From: Segher Boessenkool <segher@kernel.crashing.org>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Tue, 21 Aug 2007 16:39:15 +0200
+Message-ID: <0e3d1956b0b85feb2bdbdba07fad6a08@kernel.crashing.org>
+References: <46C516BA.60700@yahoo.com.au> <alpine.LFD.0.999.0708162045150.30176@woody.linux-foundation.org> <20070817235912.GA24314@linux.vnet.ibm.com> <20070818000913.GA25585@gondor.apana.org.au> <20070818010818.GQ8464@linux.vnet.ibm.com> <Pine.LNX.4.64.0708171817050.15427@schroedinger.engr.sgi.com> <46C997B1.1010800@redhat.com> <417ebba299a7ad3c4b7a31c4f860a814@kernel.crashing.org> <20070820224859.GA16162@flint.arm.linux.org.uk> <2bdb04581125f22122f1d230e991ea92@kernel.crashing.org> <20070821070555.GA32036@flint.arm.linux.org.uk>
+Mime-Version: 1.0 (Apple Message framework v623)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Lameter <clameter@sgi.com>,
+	Paul Mackerras <paulus@samba.org>, heiko.carstens@de.ibm.com,
+	horms@verge.net.au, linux-kernel@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, ak@suse.de,
+	netdev@vger.kernel.org, cfriesen@nortel.com,
+	akpm@linux-foundation.org, rpjday@mindspring.com,
+	Nick Piggin <nickpiggin@yahoo.com.au>,
+	linux-arch@vger.kernel.org, jesper.juhl@gmail.com,
+	satyam@infradead.org, zlynx@acm.org, schwidefsky@de.ibm.com,
+	Chris Snook <csnook@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Russell King <rmk+lkml@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwstl1-1.wul.qc.ec.gc.ca ([205.211.132.24]:18927 "EHLO
-	ecqcmtlbh.quebec.int.ec.gc.ca" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753695AbXHUO2l convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Aug 2007 10:28:41 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <11877040854129-git-send-email-ron.mercer@qlogic.com>
+Received: from gate.crashing.org ([63.228.1.57]:42512 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756336AbXHUOou (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Aug 2007 10:44:50 -0400
+In-Reply-To: <20070821070555.GA32036@flint.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+>>>> And no, RMW on MMIO isn't "problematic" at all, either.
+>>>>
+>>>> An RMW op is a read op, a modify op, and a write op, all rolled
+>>>> into one opcode.  But three actual operations.
+>>>
+>>> Maybe for some CPUs, but not all.  ARM for instance can't use the
+>>> load exclusive and store exclusive instructions to MMIO space.
+>>
+>> Sure, your CPU doesn't have RMW instructions -- how to emulate
+>> those if you don't have them is a totally different thing.
+>
+> Let me say it more clearly: On ARM, it is impossible to perform atomic
+> operations on MMIO space.
 
-Hi all,
+It's all completely beside the point, see the other subthread, but...
 
-Sadly I have to use the Apani/Nortel cvc contivity linux client.  The
-latest version (3.5) stopped being compatible with the latest stable
-2.6.22 kernel.
-
-Since there will most probably not be a new release from apani until
-year 2013 we have hack the linux_wrapper.c file to try to keep the
-module compatible.
-
-Based on the horrors that showed up while compiling against the 2.6.22
-kernel (see below), I was wondering if somebody would be kind enough to
-give hints/examples/doc-url/etc on how to convert dev_base calls so we
-ca find a proper way to make the linux_wrapper.c file compatible with
-the latest stable kernel.
-
-Here are the make against 2.6.22 kernel horrors:
-  CC [M]
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.o
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c: In function 'init_misc':
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:310: error: 'dev_base' undeclared (first use in this function)
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:310: error: (Each undeclared identifier is reported only once
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:310: error: for each function it appears in.)
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c: In function 'nl_ip_rcv':
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:434: error: 'struct sk_buff' has no member named 'nh'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c: In function 'dev_next':
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:497: error: 'net_device_t' has no member named 'next'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c: In function 'nl_skb_dup':
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:549: error: 'struct sk_buff' has no member named 'h'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:549: error: 'struct sk_buff' has no member named 'h'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:550: error: 'struct sk_buff' has no member named 'nh'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:550: error: 'struct sk_buff' has no member named 'nh'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:551: error: 'struct sk_buff' has no member named 'mac'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:551: error: 'struct sk_buff' has no member named 'mac'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c: In function 'nl_skb_hdr_copy':
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:576: error: 'struct sk_buff' has no member named 'h'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:576: error: 'struct sk_buff' has no member named 'h'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:577: error: 'struct sk_buff' has no member named 'nh'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:577: error: 'struct sk_buff' has no member named 'nh'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:578: error: 'struct sk_buff' has no member named 'mac'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:578: error: 'struct sk_buff' has no member named 'mac'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c: In function 'nl_skb_iph':
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:595: error: 'struct sk_buff' has no member named 'nh'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c: In function 'nl_send_skb':
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:616: error: 'struct sk_buff' has no member named 'nh'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:619: error: 'struct sk_buff' has no member named 'nh'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c: In function 'nl_data_len':
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:658: error: invalid operands to binary -
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c: In function 'do_checksum_offload':
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:752: error: 'struct sk_buff' has no member named 'nh'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:768: error: 'struct sk_buff' has no member named 'nh'
-/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wrap
-per.c:772: error: 'struct sk_buff' has no member named 'nh'
-make[3]: ***
-[/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6/linux_wra
-pper.o] Error 1
-make[2]: ***
-[_module_/usr/src/Nortel/Apani_VPN_v3.5/cvc_linux-rh-gcc3-3.5/src/k2.6]
-Error 2
-
-Note, here is the line 310:
-void init_misc(void)
-{
-
-        nl_dev_base = dev_base;
-}
+Yeah, you can't do LL/SC to MMIO space; ARM isn't alone in that.
+You could still implement atomic operations on MMIO space by taking
+a lock elsewhere, in normal cacheable memory space.  Why you would
+do this is a separate question, you probably don't want it :-)
 
 
-Help very much appreciated.
+Segher
 
-- vin
