@@ -1,42 +1,44 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [ofa-general] Re: [PATCH 0/9 Rev3] Implement batching skb API and
-	support in IPoIB
-Date: Tue, 21 Aug 2007 08:30:22 -0400
-Message-ID: <1187699422.5324.41.camel@localhost>
-References: <OFFFECFAD7.CF3FF115-ON6525733A.0020AE37-6525733A.00218365@in.ibm.com>
-	<20070821.001824.105429474.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jagana@us.ibm.com, gaagaan@gmail.com, jeff@garzik.org,
-	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
-	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
-	mcarlson@broadcom.com, netdev@vger.kernel.org, sri@us.ibm.com,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	johnpol@2ka.mipt.ru, shemminger@linux-foundation.org,
-	kaber@trash.net, herbert@gondor.apana.org.au
-To: David Miller <davem@davemloft.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070821.001824.105429474.davem@davemloft.net>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [PATCH 2/2] qla3xxx: bugfix:  Fix VLAN rx completion handling.
+Date: Tue, 21 Aug 2007 06:48:04 -0700
+Message-ID: <11877040854129-git-send-email-ron.mercer@qlogic.com>
+References: <20070820203209.GB4181@linux-7mw0.qlogic.org>
+Cc: Ron Mercer <ron.mercer@qlogic.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from avexch1.qlogic.com ([198.70.193.115]:35148 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755284AbXHUNsS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 09:48:18 -0400
+In-Reply-To: <20070820203209.GB4181@linux-7mw0.qlogic.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-21-08 at 00:18 -0700, David Miller wrote:
+Fix 4032 chip undocumented "feature" where bit-8 is set
+if the inbound completion is for a VLAN.
 
-> Using 16K buffer size really isn't going to keep the pipe full enough
-> for TSO. 
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+---
+ drivers/net/qla3xxx.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-Why the comparison with TSO (or GSO for that matter)?
-Seems to me that is only valid/fair if you have a single flow. 
-Batching is multi-flow focused (or i should say flow-unaware).
+diff --git a/drivers/net/qla3xxx.c b/drivers/net/qla3xxx.c
+index c3fe1c7..ea15131 100755
+--- a/drivers/net/qla3xxx.c
++++ b/drivers/net/qla3xxx.c
+@@ -2249,6 +2249,12 @@ static int ql_tx_rx_clean(struct ql3_adapter *qdev,
+ 
+ 		net_rsp = qdev->rsp_current;
+ 		rmb();
++		/*
++		 * Fix 4032 chipe undocumented "feature" where bit-8 is set if the
++		 * inbound completion is for a VLAN.
++		 */
++		if (qdev->device_id == QL3032_DEVICE_ID)
++			net_rsp->opcode &= 0x7f;
+ 		switch (net_rsp->opcode) {
+ 
+ 		case OPCODE_OB_MAC_IOCB_FN0:
+-- 
+1.5.0.rc4.16.g9e258
 
-cheers,
-jamal
