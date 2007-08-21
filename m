@@ -1,60 +1,52 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] sky2: don't clear phy power bits
-Date: Tue, 21 Aug 2007 11:50:11 -0700
-Message-ID: <20070821115011.63d9fc7c@freepuppy.rosehill.hemminger.net>
-References: <20070821064251.972690753@blue.kroah.org>
-	<20070821065421.GG5275@kroah.com>
-	<20070821111022.046eec14@freepuppy.rosehill.hemminger.net>
-	<alpine.LFD.0.999.0708211123510.30176@woody.linux-foundation.org>
+From: Bruce Cole <bacole@gmail.com>
+Subject: [RFT] r8169 changes against 2.6.23-rc3
+Date: Tue, 21 Aug 2007 12:32:52 -0700
+Message-ID: <46CB3DE4.4060107@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <gregkh@suse.de>, stable@vger.kernel.org,
-	stable@kernel.org, Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>,
-	Chris Wedgwood <reviews@ml.cw.f00f.org>,
-	Michael Krufky <mkrufky@linuxtv.org>,
-	Chuck Ebbert <cebbert@redhat.com>,
-	Domenico Andreoli <cavokz@gmail.com>,
-	akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk,
-	netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: bacole@gmail.com
+To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:50619 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759917AbXHUSwC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 14:52:02 -0400
-In-Reply-To: <alpine.LFD.0.999.0708211123510.30176@woody.linux-foundation.org>
+Received: from ag-out-0708.google.com ([72.14.246.248]:2063 "EHLO
+	ag-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750819AbXHUTer (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 15:34:47 -0400
+Received: by ag-out-0708.google.com with SMTP id 35so560275aga
+        for <netdev@vger.kernel.org>; Tue, 21 Aug 2007 12:34:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 21 Aug 2007 11:26:23 -0700 (PDT)
-Linus Torvalds <torvalds@linux-foundation.org> wrote:
+On 8/20/07, Dirk wrote:
+ >> So it seems that when the driver tries to queue a packet while the
+ >> controller is busy processing the queue, the newly queued packet does
+ >> not get noticed by the controller (until further packet activity 
+occurs).
+ >> Perhaps there is a problem with the memory barriers when adding to the
+ >> TX queue, but I'm a newbie on linux kernel memory barriers.
+ >
+ >One thing I noticed a while ago (march) is that floodpinging (ping -f)
+ >the r8169 host from an external system also increases performance
+ >without changing code.
+Yes, I just tried this and saw the same result.  Makes perfect sense - 
+if the TX queue is normally getting stuck until TCP retransmits, then 
+keeping the TX queue busy keeps the queue from remaining stuck.
+I think this is a good demonstration that the underlying problem is a 
+stuck TX queue as suggested.
 
-> 
-> 
-> On Tue, 21 Aug 2007, Stephen Hemminger wrote:
-> >
-> > There are special PHY settings available on Yukon EC-U chip that
-> > should not get cleared. This should solve mysterious errors on some
-> > motherboards (like Gigabyte DS-3).
-> 
-> Ok, applied.
-> 
-> However:
-> 
->  - now all accesses to GPHY_CTRL are 8-bit (it used to mix them). Good.
-> 
->  - but sky2.h still says "32 bit" about the register
-> 
-> Should the comments in sky2.h perhaps be fixed?
-> 
+ >I ended up (until now perhaps :-) with disabling the onboard nic and
+ >adding an e1000 card.
 
-Register is 32 bit, I'll add documentation about other bits.
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Yes, ditching the realtek interface and going with an ad-on nic seems to 
+be what everyone has been doing to get around this problem.  Perhaps 
+you'd like to try the busy-wait workaround with ndelay(10)?  It has 
+saved me from buying an e1000 card as well.
+
+Speaking of the e1000, I notice that its TX queue processing code for 
+that driver includes spin_lock_irqsave()/spin_unlock_irqrestore() 
+protection on access to the queue.  The r8169 driver seems to be missing 
+equivalent code.  Last time I dealt with kernel locking bugs was in the 
+old days of splnet()/splx(), so I could use some help here, but I 
+suspect this could be fixed with more careful locking.
+
