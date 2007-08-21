@@ -1,106 +1,57 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [patch 04/20] sky2: carrier management
-Date: Mon, 20 Aug 2007 23:54:08 -0700
-Message-ID: <20070821065408.GE5275@kroah.com>
-References: <20070821064251.972690753@blue.kroah.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP ports
+	from the host TCP port space.
+Date: Mon, 20 Aug 2007 23:58:04 -0700 (PDT)
+Message-ID: <20070820.235804.85409183.davem@davemloft.net>
+References: <adatzqxwh56.fsf@cisco.com>
+	<20070817.234405.66176298.davem@davemloft.net>
+	<adalkc5u1o9.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	Theodore Ts'o <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>,
-	Chris Wedgwood <reviews@ml.cw.f00f.org>,
-	Michael Krufky <mkrufky@linuxtv.org>,
-	Chuck Ebbert <cebbert@redhat.com>,
-	Domenico Andreoli <cavokz@gmail.com>,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Greg Kroah-Hartman <gregkh@suse.de>
-To: linux-kernel@vger.kernel.org, stable@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canuck.infradead.org ([209.217.80.40]:44135 "EHLO
-	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759511AbXHUGwi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 02:52:38 -0400
-Content-Disposition: inline; filename="sky2-carrier-mgmt.patch"
-In-Reply-To: <20070821065210.GA5275@kroah.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org
+To: rdreier@cisco.com
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <adalkc5u1o9.fsf@cisco.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
--stable review patch.  If anyone has any objections, please let us know.
+From: Roland Dreier <rdreier@cisco.com>
+Date: Mon, 20 Aug 2007 18:16:54 -0700
 
-------------------
-From: Stephen Hemminger <shemminger@linux-foundation.org>
+> And direct data placement really does give you a factor of two at
+> least, because otherwise you're stuck receiving the data in one
+> buffer, looking at some of the data at least, and then figuring out
+> where to copy it.  And memory bandwidth is if anything becoming more
+> valuable; maybe LRO + header splitting + page remapping tricks can get
+> you somewhere but as NCPUS grows then it seems the TLB shootdown cost
+> of page flipping is only going to get worse.
 
-backport of commit 55d7b4e6ed6ad3ec5e5e30b3b4515a0a6a53e344
+As Herbert has said already, people can code for this just like
+they have to code for RDMA.
 
-Make sky2 handle carrier similar to other drivers,
-eliminate some possible races in carrier state transistions.
+There is no fundamental difference from converting an application
+to sendfile or similar.
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+The only thing this needs is a
+"recvmsg_I_dont_care_where_the_data_is()" call.  There are no alignment
+issues unless you are trying to push this data directly into the
+page cache.
 
----
- drivers/net/sky2.c |   11 ++++-------
- 1 file changed, 4 insertions(+), 7 deletions(-)
+Couple this with a card that makes sure that on a per-page basis, only
+data for a particular flow (or group of flows) will accumulate.
 
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -1234,6 +1234,8 @@ static int sky2_up(struct net_device *de
- 	if (netif_msg_ifup(sky2))
- 		printk(KERN_INFO PFX "%s: enabling interface\n", dev->name);
- 
-+	netif_carrier_off(dev);
-+
- 	/* must be power of 2 */
- 	sky2->tx_le = pci_alloc_consistent(hw->pdev,
- 					   TX_RING_SIZE *
-@@ -1573,7 +1575,6 @@ static int sky2_down(struct net_device *
- 
- 	/* Stop more packets from being queued */
- 	netif_stop_queue(dev);
--	netif_carrier_off(dev);
- 
- 	/* Disable port IRQ */
- 	imask = sky2_read32(hw, B0_IMSK);
-@@ -1625,6 +1626,8 @@ static int sky2_down(struct net_device *
- 
- 	sky2_phy_power(hw, port, 0);
- 
-+	netif_carrier_off(dev);
-+
- 	/* turn off LED's */
- 	sky2_write16(hw, B0_Y2LED, LED_STAT_OFF);
- 
-@@ -1689,7 +1692,6 @@ static void sky2_link_up(struct sky2_por
- 	gm_phy_write(hw, port, PHY_MARV_INT_MASK, PHY_M_DEF_MSK);
- 
- 	netif_carrier_on(sky2->netdev);
--	netif_wake_queue(sky2->netdev);
- 
- 	/* Turn on link LED */
- 	sky2_write8(hw, SK_REG(port, LNK_LED_REG),
-@@ -1741,7 +1743,6 @@ static void sky2_link_down(struct sky2_p
- 	gma_write16(hw, port, GM_GP_CTRL, reg);
- 
- 	netif_carrier_off(sky2->netdev);
--	netif_stop_queue(sky2->netdev);
- 
- 	/* Turn on link LED */
- 	sky2_write8(hw, SK_REG(port, LNK_LED_REG), LINKLED_OFF);
-@@ -3493,10 +3494,6 @@ static __devinit struct net_device *sky2
- 	memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port * 8, ETH_ALEN);
- 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
- 
--	/* device is off until link detection */
--	netif_carrier_off(dev);
--	netif_stop_queue(dev);
--
- 	return dev;
- }
- 
+People already make cards that can do stuff like this, it can be done
+statelessly with an on-chip dynamically maintained flow table.
 
--- 
+And best yet it doesn't turn off every feature in the networking nor
+bypass it for the actual protocol processing.
