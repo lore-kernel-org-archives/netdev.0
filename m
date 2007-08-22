@@ -1,57 +1,56 @@
 From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-Subject: Re: [Cbe-oss-dev] [PATCH] spidernet: fix interrupt reason
- recognition
-Date: Wed, 22 Aug 2007 09:26:24 +0900 (JST)
-Message-ID: <200708220026.l7M0QODr013175@toshiba.co.jp>
-References: <20070820223819.GK4261@austin.ibm.com>
+Subject: [PATCH] spidernet: enable poll() before registering interrupts
+Date: Wed, 22 Aug 2007 09:27:57 +0900 (JST)
+Message-ID: <20070822.092757.-432817388.kouish@swc.toshiba.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org, arnd@arndb.de
-To: linas@austin.ibm.com
+To: Linas Vepstas <linas@austin.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imx12.toshiba.co.jp ([61.202.160.132]:61848 "EHLO
+Received: from imx12.toshiba.co.jp ([61.202.160.132]:62058 "EHLO
 	imx12.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750950AbXHVA0o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 20:26:44 -0400
-In-Reply-To: <20070820223819.GK4261@austin.ibm.com>
+	with ESMTP id S1751201AbXHVA2Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 20:28:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linas Vepstas wrote:
-> On Mon, Aug 20, 2007 at 10:13:27PM +0900, Ishizaki Kou wrote:
-> > Please apply this to 2.6.23.
-> 
-> I'll review and forward shortly.  Kick me if you don't see a formal
-> reply in a few days.
-> 
-> > And also, please apply the following Arnd-san's patch to fix a problem
-> > that spidernet driver sometimes causes a BUG_ON at open.
-> > 
-> >  http://patchwork.ozlabs.org/cbe-oss-dev/patch?id=12211
-> 
-> Are you sure? This patch no longer applies cleanly, in part because
+We must not call netif_poll_enable after enabling interrupts,
+because an interrupt might come in and set the __LINK_STATE_RX_SCHED
+bit before we get to clear that bit again. If that happens,
+the next call to the ->poll() function will oops.
 
-I see. I'll send another applicable patch.
+Signed-off-by: Arnd Bergmann <arnd.bergmann@de.ibm.com>
+Signed-off-by: Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
+---
 
-> your patch "[PATCH] spidernet: improve interrupt handling" 
-> from Mon, 09 Jul 2007 added a spider_net_enable_interrupts(card); 
-> at the end of spider_net_open().  Because of this, it seems like 
-> Arnd's patch is no longer needed, right?
+I refreshed Arnd-san's patch.
 
-As you pointed out, we intended that "[PATCH] spidernet: improve
-interrupt handling" solves the same problem which Arnd's patch solves.
 
-When spider_net_open() is called, interrupt reasons sometimes remain
-on interrupt status register, even though they are masked by mask
-register.  With this patch, spider_net_interrupt() compares the value
-of interrupt status register with SPIDER_NET_INTX_MASK_VALUE, not with
-interrupt mask register value.  As a result, spider_net_interrupt()
-(which is called from request_irq() in spider_net_open()) starts
-polling and causes BUG_ON().
-
-So, netif_poll_enable() must be called before request_irq() is
-called. This is the reason that we also need Arnd's patch.
-
-Best regards,
-Kou Ishizaki
+Index: linux-powerpc-git/drivers/net/spider_net.c
+===================================================================
+--- linux-powerpc-git.orig/drivers/net/spider_net.c	2007-08-21 16:58:44.000000000 +0900
++++ linux-powerpc-git/drivers/net/spider_net.c	2007-08-21 17:11:07.000000000 +0900
+@@ -2030,6 +2030,7 @@ spider_net_open(struct net_device *netde
+ 	/* further enhancement: setup hw vlan, if needed */
+ 
+ 	result = -EBUSY;
++	netif_poll_enable(netdev);
+ 	if (request_irq(netdev->irq, spider_net_interrupt,
+ 			     IRQF_SHARED, netdev->name, netdev))
+ 		goto register_int_failed;
+@@ -2038,13 +2039,13 @@ spider_net_open(struct net_device *netde
+ 
+ 	netif_start_queue(netdev);
+ 	netif_carrier_on(netdev);
+-	netif_poll_enable(netdev);
+ 
+ 	spider_net_enable_interrupts(card);
+ 
+ 	return 0;
+ 
+ register_int_failed:
++	netif_poll_disable(netdev);
+ 	spider_net_free_rx_chain_contents(card);
+ alloc_skbs_failed:
+ 	spider_net_free_chain(card, &card->rx_chain);
