@@ -1,11 +1,11 @@
 From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH 6/10 Rev4] [IPoIB] CM & Multicast changes
-Date: Wed, 22 Aug 2007 14:00:32 +0530
-Message-ID: <20070822083032.11964.97171.sendpatchset@localhost.localdomain>
+Subject: [PATCH 7/10 Rev4] [IPoIB] Verbs changes
+Date: Wed, 22 Aug 2007 14:00:51 +0530
+Message-ID: <20070822083051.11964.70799.sendpatchset@localhost.localdomain>
 References: <20070822082839.11964.63503.sendpatchset@localhost.localdomain>
-Cc: jagana@us.ibm.com, Robert.Olsson@data.slu.se, rick.jones2@hp.com,
-	xma@us.ibm.com, gaagaan@gmail.com, kumarkr@linux.ibm.com,
-	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
+Cc: jagana@us.ibm.com, Robert.Olsson@data.slu.se,
+	peter.p.waskiewicz.jr@intel.com, xma@us.ibm.com, gaagaan@gmail.com,
+	kumarkr@linux.ibm.com, rdreier@cisco.com, rick.jones2@hp.com,
 	mcarlson@broadcom.com, jeff@garzik.org,
 	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
 	netdev@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>,
@@ -14,76 +14,69 @@ To: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, hadi@cyberus.ca,
 	kaber@trash.net, shemminger@linux-foundation.org,
 	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:50847 "EHLO e4.ny.us.ibm.com"
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:38799 "EHLO e5.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751039AbXHVI3E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Aug 2007 04:29:04 -0400
+	id S1751267AbXHVI3X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Aug 2007 04:29:23 -0400
 Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l7M8T3x6026694
-	for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 04:29:03 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7M8T3OK507618
-	for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 04:29:03 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7M8T0Rd006831
-	for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 04:29:03 -0400
+	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l7M8TMmk015754
+	for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 04:29:22 -0400
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7M8TMP0550048
+	for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 04:29:22 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7M8TJpj007228
+	for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 04:29:22 -0400
 In-Reply-To: <20070822082839.11964.63503.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-IPoIB CM & Multicast changes based on header file changes.
+IPoIB verb changes to use batching.
 
 Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 ---
- ipoib_cm.c        |   13 +++++++++----
- ipoib_multicast.c |    4 ++--
- 2 files changed, 11 insertions(+), 6 deletions(-)
+ ipoib_verbs.c |   23 ++++++++++++++---------
+ 1 files changed, 14 insertions(+), 9 deletions(-)
 
-diff -ruNp org/drivers/infiniband/ulp/ipoib/ipoib_cm.c new/drivers/infiniband/ulp/ipoib/ipoib_cm.c
---- org/drivers/infiniband/ulp/ipoib/ipoib_cm.c	2007-08-20 14:26:26.000000000 +0530
-+++ new/drivers/infiniband/ulp/ipoib/ipoib_cm.c	2007-08-22 08:33:51.000000000 +0530
-@@ -493,14 +493,19 @@ static inline int post_send(struct ipoib
- 			    unsigned int wr_id,
- 			    u64 addr, int len)
- {
-+	int ret;
- 	struct ib_send_wr *bad_wr;
+diff -ruNp org/drivers/infiniband/ulp/ipoib/ipoib_verbs.c new/drivers/infiniband/ulp/ipoib/ipoib_verbs.c
+--- org/drivers/infiniband/ulp/ipoib/ipoib_verbs.c	2007-08-20 14:26:26.000000000 +0530
++++ new/drivers/infiniband/ulp/ipoib/ipoib_verbs.c	2007-08-22 08:33:51.000000000 +0530
+@@ -152,11 +152,11 @@ int ipoib_transport_dev_init(struct net_
+ 			.max_send_sge = 1,
+ 			.max_recv_sge = 1
+ 		},
+-		.sq_sig_type = IB_SIGNAL_ALL_WR,
++		.sq_sig_type = IB_SIGNAL_REQ_WR,	/* 11.2.4.1 */
+ 		.qp_type     = IB_QPT_UD
+ 	};
+-
+-	int ret, size;
++	struct ib_send_wr *next_wr = NULL;
++	int i, ret, size;
  
--	priv->tx_sge.addr             = addr;
--	priv->tx_sge.length           = len;
-+	priv->tx_sge[0].addr          = addr;
-+	priv->tx_sge[0].length        = len;
+ 	priv->pd = ib_alloc_pd(priv->ca);
+ 	if (IS_ERR(priv->pd)) {
+@@ -197,12 +197,17 @@ int ipoib_transport_dev_init(struct net_
+ 	priv->dev->dev_addr[2] = (priv->qp->qp_num >>  8) & 0xff;
+ 	priv->dev->dev_addr[3] = (priv->qp->qp_num      ) & 0xff;
+ 
+-	priv->tx_sge.lkey 	= priv->mr->lkey;
+-
+-	priv->tx_wr.opcode 	= IB_WR_SEND;
+-	priv->tx_wr.sg_list 	= &priv->tx_sge;
+-	priv->tx_wr.num_sge 	= 1;
+-	priv->tx_wr.send_flags 	= IB_SEND_SIGNALED;
++	for (i = ipoib_sendq_size - 1; i >= 0; i--) {
++		priv->tx_sge[i].lkey		= priv->mr->lkey;
++		priv->tx_wr[i].opcode		= IB_WR_SEND;
++		priv->tx_wr[i].sg_list		= &priv->tx_sge[i];
++		priv->tx_wr[i].num_sge		= 1;
++		priv->tx_wr[i].send_flags	= 0;
 +
-+	priv->tx_wr[0].wr_id 	      = wr_id;
++		/* Link the list properly for provider to use */
++		priv->tx_wr[i].next		= next_wr;
++		next_wr				= &priv->tx_wr[i];
++	}
  
--	priv->tx_wr.wr_id 	      = wr_id;
-+	priv->tx_wr[0].next = NULL;
-+	ret = ib_post_send(tx->qp, priv->tx_wr, &bad_wr);
-+	priv->tx_wr[0].next = &priv->tx_wr[1];
+ 	return 0;
  
--	return ib_post_send(tx->qp, &priv->tx_wr, &bad_wr);
-+	return ret;
- }
- 
- void ipoib_cm_send(struct net_device *dev, struct sk_buff *skb, struct ipoib_cm_tx *tx)
-diff -ruNp org/drivers/infiniband/ulp/ipoib/ipoib_multicast.c new/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
---- org/drivers/infiniband/ulp/ipoib/ipoib_multicast.c	2007-08-20 14:26:26.000000000 +0530
-+++ new/drivers/infiniband/ulp/ipoib/ipoib_multicast.c	2007-08-22 08:33:51.000000000 +0530
-@@ -217,7 +217,7 @@ static int ipoib_mcast_join_finish(struc
- 	if (!memcmp(mcast->mcmember.mgid.raw, priv->dev->broadcast + 4,
- 		    sizeof (union ib_gid))) {
- 		priv->qkey = be32_to_cpu(priv->broadcast->mcmember.qkey);
--		priv->tx_wr.wr.ud.remote_qkey = priv->qkey;
-+		priv->tx_wr[0].wr.ud.remote_qkey = priv->qkey;
- 	}
- 
- 	if (!test_bit(IPOIB_MCAST_FLAG_SENDONLY, &mcast->flags)) {
-@@ -736,7 +736,7 @@ out:
- 			}
- 		}
- 
--		ipoib_send(dev, skb, mcast->ah, IB_MULTICAST_QPN);
-+		ipoib_send(dev, skb, mcast->ah, IB_MULTICAST_QPN, 1);
- 	}
- 
- unlock:
