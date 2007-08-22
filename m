@@ -1,41 +1,40 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: [ofa-general] Re: [PATCH 0/9 Rev3] Implement batching skb API and
-	support in IPoIB
-Date: Wed, 22 Aug 2007 10:09:37 -0700
-Message-ID: <46CC6DD1.5020105@hp.com>
-References: <20070821.115143.23013721.davem@davemloft.net>	<OFC19F468C.48FB78EE-ON6525733F.0016047F-6525733F.00170F48@in.ibm.com>
-	<20070821.212229.82050253.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] santize tc_ematch headers
+Date: Wed, 22 Aug 2007 10:18:38 -0700
+Message-ID: <20070822101838.31178935@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jagana@us.ibm.com, herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
-	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
-	hadi@cyberus.ca, mcarlson@broadcom.com, jeff@garzik.org,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, johnpol@2ka.mipt.ru,
-	shemminger@linux-foundation.org, kaber@trash.net, sri@us.ibm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070821.212229.82050253.davem@davemloft.net>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:60459 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933770AbXHVRXn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 13:23:43 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> I think the jury is still out, but seeing TSO perform even slightly
-> worse with the batching changes in place would be very worrysome.
-> This applies to both throughput and cpu utilization.
+The headers in tc_ematch are used by iproute2, so these headers
+should be processed.
 
-Should it be any more or less worrysome than small packet performance (eg the 
-TCP_RR stuff I posted recently) being rather worse with TSO enabled than with it 
-disabled?
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+---
+ include/linux/Kbuild |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-rick jones
+diff --git a/include/linux/Kbuild b/include/linux/Kbuild
+index ad7f71a..818cc3a 100644
+--- a/include/linux/Kbuild
++++ b/include/linux/Kbuild
+@@ -7,6 +7,7 @@ header-y += raid/
+ header-y += spi/
+ header-y += sunrpc/
+ header-y += tc_act/
++header-y += tc_ematch/
+ header-y += netfilter/
+ header-y += netfilter_arp/
+ header-y += netfilter_bridge/
+-- 
+1.5.2.4
+
