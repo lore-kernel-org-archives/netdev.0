@@ -1,52 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] improved xfrm_audit_log() patch
-Date: Wed, 22 Aug 2007 12:51:57 -0700 (PDT)
-Message-ID: <20070822.125157.43008100.davem@davemloft.net>
-References: <200708151616.l7FGGTk9001632@faith.austin.ibm.com>
-	<20070821.002405.88473654.davem@davemloft.net>
+Subject: Re: [PATCH 0/9 Rev3] Implement batching skb API and support in
+ IPoIB
+Date: Wed, 22 Aug 2007 13:21:45 -0700 (PDT)
+Message-ID: <20070822.132145.90824527.davem@davemloft.net>
+References: <OFC19F468C.48FB78EE-ON6525733F.0016047F-6525733F.00170F48@in.ibm.com>
+	<20070821.212229.82050253.davem@davemloft.net>
+	<46CC6DD1.5020105@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp-2
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-audit@redhat.com
-To: latten@austin.ibm.com
-Return-path: <linux-audit-bounces@redhat.com>
-In-Reply-To: <20070821.002405.88473654.davem@davemloft.net>
-List-Unsubscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/linux-audit>
-List-Post: <mailto:linux-audit@redhat.com>
-List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=subscribe>
-Sender: linux-audit-bounces@redhat.com
-Errors-To: linux-audit-bounces@redhat.com
+Cc: krkumar2@in.ibm.com, gaagaan@gmail.com,
+	general@lists.openfabrics.org, hadi@cyberus.ca,
+	herbert@gondor.apana.org.au, jagana@us.ibm.com, jeff@garzik.org,
+	johnpol@2ka.mipt.ru, kaber@trash.net, kumarkr@linux.ibm.com,
+	mcarlson@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org,
+	peter.p.waskiewicz.jr@intel.com, rdreier@cisco.com,
+	Robert.Olsson@data.slu.se, shemminger@linux-foundation.org,
+	sri@us.ibm.com, tgraf@suug.ch, xma@us.ibm.com
+To: rick.jones2@hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58461
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753157AbXHVUVr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 16:21:47 -0400
+In-Reply-To: <46CC6DD1.5020105@hp.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 21 Aug 2007 00:24:05 -0700 (PDT)
+From: Rick Jones <rick.jones2@hp.com>
+Date: Wed, 22 Aug 2007 10:09:37 -0700
 
-> Looks good, applied to net-2.6.24, thanks Joy.
+> Should it be any more or less worrysome than small packet
+> performance (eg the TCP_RR stuff I posted recently) being rather
+> worse with TSO enabled than with it disabled?
 
-Something is still buggered up in this patch, you can't add this local
-"audit_info" variable unconditionally to these functions, and
-alternatively you also can't add a bunch of ifdefs to xfrm_user.c to
-cover it up either.
-
-  CC [M]  net/xfrm/xfrm_user.o
-net/xfrm/xfrm_user.c: In function $,1rx(Bxfrm_add_sa$,1ry(B:
-net/xfrm/xfrm_user.c:450: warning: unused variable $,1rx(Baudit_info$,1ry(B
-net/xfrm/xfrm_user.c: In function $,1rx(Bxfrm_del_sa$,1ry(B:
-net/xfrm/xfrm_user.c:525: warning: unused variable $,1rx(Baudit_info$,1ry(B
-net/xfrm/xfrm_user.c: In function $,1rx(Bxfrm_add_policy$,1ry(B:
-net/xfrm/xfrm_user.c:1140: warning: unused variable $,1rx(Baudit_info$,1ry(B
-net/xfrm/xfrm_user.c: In function $,1rx(Bxfrm_get_policy$,1ry(B:
-net/xfrm/xfrm_user.c:1404: warning: unused variable $,1rx(Baudit_info$,1ry(B
-net/xfrm/xfrm_user.c: In function $,1rx(Bxfrm_add_pol_expire$,1ry(B:
-net/xfrm/xfrm_user.c:1651: warning: unused variable $,1rx(Baudit_info$,1ry(B
-net/xfrm/xfrm_user.c: In function $,1rx(Bxfrm_add_sa_expire$,1ry(B:
-net/xfrm/xfrm_user.c:1688: warning: unused variable $,1rx(Baudit_info$,1ry(B
-
-So I'm going to revert for now.  Let me know when you have
-a fixed version of the patch.
-
-Thanks.
+That, like any such thing shown by the batching changes, is a bug
+to fix.
