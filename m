@@ -1,35 +1,76 @@
-From: James Morris <jmorris@namei.org>
-Subject: Re: [RFC] Wild and crazy ideas involving struct sk_buff
-Date: Wed, 22 Aug 2007 15:31:15 -0700 (PDT)
-Message-ID: <Xine.LNX.4.64.0708221528220.20059@us.intercode.com.au>
-References: <200708221631.34234.paul.moore@hp.com> <20070822.143627.62367286.davem@davemloft.net>
- <Xine.LNX.4.64.0708221506380.20059@us.intercode.com.au>
- <200708221820.56516.paul.moore@hp.com>
+From: Kevin E <kevin360@yahoo.com>
+Subject: Re: [RFT] sky2: yukon-ec-u phy power problems
+Date: Wed, 22 Aug 2007 15:37:09 -0700 (PDT)
+Message-ID: <314260.5533.qm@web38904.mail.mud.yahoo.com>
+References: <20070821100713.2867dce3@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, tgraf@suug.ch,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Willy Tarreau <w@1wt.eu>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Paul Moore <paul.moore@hp.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from namei.org ([69.55.235.186]:51211 "EHLO us.intercode.com.au"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1761273AbXHVWbU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Aug 2007 18:31:20 -0400
-In-Reply-To: <200708221820.56516.paul.moore@hp.com>
+Received: from web38904.mail.mud.yahoo.com ([209.191.125.110]:45608 "HELO
+	web38904.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1763432AbXHVWhK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 18:37:10 -0400
+In-Reply-To: <20070821100713.2867dce3@freepuppy.rosehill.hemminger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 22 Aug 2007, Paul Moore wrote:
 
-> > Don't forget Rusty's skb reservation patches from 1999...
+--- Stephen Hemminger
+<shemminger@linux-foundation.org> wrote:
+
+> The sky2 driver clears some bits in the PHY control
+> register, that cause
+> the PHY interface to get changed.  Some of these
+> deal with voltage and power
+> savings as well. This may explain some of the
+> failures on Gigabyte DS-3 motherboard.
 > 
-> I'm guessing those would probably need to be forward ported just a teensy 
-> weensy bit ;)
+> The clue to possible problem was looking at why
+> loading/unloading sky2 would
+> break vendor sk98lin driver (ie what registers
+> changed).
+> 
+> 
+> --- a/drivers/net/sky2.c	2007-08-21
+> 09:53:41.000000000 -0700
+> +++ b/drivers/net/sky2.c	2007-08-21
+> 09:53:43.000000000 -0700
+> @@ -696,8 +696,8 @@ static void sky2_mac_init(struct
+> sky2_hw
+>  	int i;
+>  	const u8 *addr = hw->dev[port]->dev_addr;
+>  
+> -	sky2_write32(hw, SK_REG(port, GPHY_CTRL),
+> GPC_RST_SET);
+> -	sky2_write32(hw, SK_REG(port, GPHY_CTRL),
+> GPC_RST_CLR);
+> +	sky2_write8(hw, SK_REG(port, GPHY_CTRL),
+> GPC_RST_SET);
+> +	sky2_write8(hw, SK_REG(port, GPHY_CTRL),
+> GPC_RST_CLR);
+>  
+>  	sky2_write8(hw, SK_REG(port, GMAC_CTRL),
+> GMC_RST_CLR);
+>  
 
-The point being that the idea has been around since last century and has 
-never gone anywhere :-)
+This appears to have fixed the problem!  I made the
+change to the kernel on the broken MB and the link
+stayed up.  So I went ahead and made the change to the
+kernel on the working one too.   Right now I'm using
+netcat to saturate the link and make sure it stays up.
+ So far it's looking good, if I have any problems I'll
+let you know.
+
+Thanks,
+Kevin
 
 
--- 
-James Morris
-<jmorris@namei.org>
+
+       
+____________________________________________________________________________________
+Building a website is a piece of cake. Yahoo! Small Business gives you all the tools to get online.
+http://smallbusiness.yahoo.com/webhosting 
