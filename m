@@ -1,39 +1,36 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: Oops in e100_up
-Date: Wed, 22 Aug 2007 09:35:04 -0700
-Message-ID: <46CC65B8.1030006@intel.com>
-References: <200708220956.48297@strip-the-willow>
+From: Bruce Cole <bacole@gmail.com>
+Subject: r8169: slow samba performance
+Date: Wed, 22 Aug 2007 09:39:47 -0700
+Message-ID: <46CC66D3.8030602@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Cc: netdev@vger.kernel.org, bacole@gmail.com
+To: shane@cm.nu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:34883 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762797AbXHVQfF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Aug 2007 12:35:05 -0400
-In-Reply-To: <200708220956.48297@strip-the-willow>
+Received: from qb-out-0506.google.com ([72.14.204.229]:63718 "EHLO
+	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759291AbXHVQlt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 12:41:49 -0400
+Received: by qb-out-0506.google.com with SMTP id e11so1243508qbe
+        for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 09:41:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Gerrit Renker wrote:
-> With the davem-2.6.24 tree I get the following Oops in the e100 driver (cribbed from console):
-> 
-> Code: 6c ff ff ff 8b 48 0c ba 01 00 00 00 89 f0 e8 1b f2 ff ff c7 86 9c 00 00 00
->       01 00 00 00 e9 4e ff ff ff 89 d0 e8 b3 f8 0b 00 eb 8e <0f> 0b eb fe 55 89 e5
->       56 53 83 ec 0c 8b 98 dc 01 00 00 e8 ff b9
-> 
-> EIP: e100_up+0x11d/0x121 
-> 
-> SS:ESP 0068:f759ce38
-> 
-> Stack: syscall_call -> sys_ioctl -> vfs_ioctl -> do_ioctl -> sock_ioctl -> inet_ioctl -> devinet_ioctl ->
->        dev_change_flags -> dev_open -> e100_open -> oops
-> 
-> The system log then goes on reporting "eth0: link up, 100Mbps, full-duplex" and hangs while trying to
-> restore the serial console state (not sure that this is related).
+>Just upgraded a motherboard and it came with an onboard
+>Realtek card which appears to use the r8169 driver.  The
+>machine is a samba server and when serving files to a local
+>Linux or Windows client, I only get approx 40-60 kbps. 
+>Write performance is fine though, in the tens of mbps and
+>scp, nfs, and ftp server all work well so it appears
+>specific to the Samba load.  However, when serving to more
+>than one client symoltaniously, performance goes up
+>dramatically, again into the tens of mbps or when there is
+>other network activity.
 
-restore? Is this during resume from suspend or something?
+Shane, join the crowd :)  Try the fix I just re-posted over here:
 
-Auke
+http://www.spinics.net/lists/netdev/msg39244.html
+
+
+
