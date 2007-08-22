@@ -1,7 +1,7 @@
 From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: [PATCH 3/4] ehea: fix queue destructor
-Date: Wed, 22 Aug 2007 16:21:28 +0200
-Message-ID: <200708221621.28487.ossthema@de.ibm.com>
+Subject: [PATCH 4/4] ehea: show physical port state
+Date: Wed, 22 Aug 2007 16:21:32 +0200
+Message-ID: <200708221621.32549.ossthema@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -16,54 +16,115 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Stefan Roscher <stefan.roscher@de.ibm.com>
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.de.ibm.com ([195.212.29.151]:47196 "EHLO
-	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762556AbXHVOxs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 10:53:48 -0400
+Received: from mtagate8.uk.ibm.com ([195.212.29.141]:9538 "EHLO
+	mtagate8.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763010AbXHVOyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 10:54:04 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Includes hcp_epas_dtor in eq/cq/qp destructors to unmap
-HW register.
+Introduces a module parameter to decide whether the physical
+port link state is propagated to the network stack or not.
+It makes sense not to take the physical port state into account
+on machines with more logical partitions that communicate
+with each other. This is always possible no matter what the physical
+port state is. Thus eHEA can be considered as a switch there.
 
 Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
 
 ---
- drivers/net/ehea/ehea_qmr.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ drivers/net/ehea/ehea.h      |    5 ++++-
+ drivers/net/ehea/ehea_main.c |   14 +++++++++++++-
+ 2 files changed, 17 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ehea/ehea_qmr.c b/drivers/net/ehea/ehea_qmr.c
-index a36fa6c..c82e245 100644
---- a/drivers/net/ehea/ehea_qmr.c
-+++ b/drivers/net/ehea/ehea_qmr.c
-@@ -235,6 +235,8 @@ int ehea_destroy_cq(struct ehea_cq *cq)
- 	if (!cq)
- 		return 0;
+diff --git a/drivers/net/ehea/ehea.h b/drivers/net/ehea/ehea.h
+index d67f97b..8d58be5 100644
+--- a/drivers/net/ehea/ehea.h
++++ b/drivers/net/ehea/ehea.h
+@@ -39,7 +39,7 @@
+ #include <asm/io.h>
  
-+	hcp_epas_dtor(&cq->epas);
-+
- 	if ((hret = ehea_destroy_cq_res(cq, NORMAL_FREE)) == H_R_STATE) {
- 		ehea_error_data(cq->adapter, cq->fw_handle);
- 		hret = ehea_destroy_cq_res(cq, FORCE_FREE);
-@@ -361,6 +363,8 @@ int ehea_destroy_eq(struct ehea_eq *eq)
- 	if (!eq)
- 		return 0;
+ #define DRV_NAME	"ehea"
+-#define DRV_VERSION	"EHEA_0073"
++#define DRV_VERSION	"EHEA_0074"
  
-+	hcp_epas_dtor(&eq->epas);
-+
- 	if ((hret = ehea_destroy_eq_res(eq, NORMAL_FREE)) == H_R_STATE) {
- 		ehea_error_data(eq->adapter, eq->fw_handle);
- 		hret = ehea_destroy_eq_res(eq, FORCE_FREE);
-@@ -541,6 +545,8 @@ int ehea_destroy_qp(struct ehea_qp *qp)
- 	if (!qp)
- 		return 0;
+ /* eHEA capability flags */
+ #define DLPAR_PORT_ADD_REM 1
+@@ -402,6 +402,8 @@ struct ehea_mc_list {
  
-+	hcp_epas_dtor(&qp->epas);
+ #define EHEA_PORT_UP 1
+ #define EHEA_PORT_DOWN 0
++#define EHEA_PHY_LINK_UP 1
++#define EHEA_PHY_LINK_DOWN 0
+ #define EHEA_MAX_PORT_RES 16
+ struct ehea_port {
+ 	struct ehea_adapter *adapter;	 /* adapter that owns this port */
+@@ -427,6 +429,7 @@ struct ehea_port {
+ 	u32 msg_enable;
+ 	u32 sig_comp_iv;
+ 	u32 state;
++	u8 phy_link;
+ 	u8 full_duplex;
+ 	u8 autoneg;
+ 	u8 num_def_qps;
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index db57474..1804c99 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -53,17 +53,21 @@ static int rq3_entries = EHEA_DEF_ENTRIES_RQ3;
+ static int sq_entries = EHEA_DEF_ENTRIES_SQ;
+ static int use_mcs = 0;
+ static int num_tx_qps = EHEA_NUM_TX_QP;
++static int show_phys_link = 0;
+ 
+ module_param(msg_level, int, 0);
+ module_param(rq1_entries, int, 0);
+ module_param(rq2_entries, int, 0);
+ module_param(rq3_entries, int, 0);
+ module_param(sq_entries, int, 0);
++module_param(show_phys_link, int, 0);
+ module_param(use_mcs, int, 0);
+ module_param(num_tx_qps, int, 0);
+ 
+ MODULE_PARM_DESC(num_tx_qps, "Number of TX-QPS");
+ MODULE_PARM_DESC(msg_level, "msg_level");
++MODULE_PARM_DESC(show_phys_link, "Show link state of external port"
++		 "1:yes, 0: no.  Default = 0 ");
+ MODULE_PARM_DESC(rq3_entries, "Number of entries for Receive Queue 3 "
+ 		 "[2^x - 1], x = [6..14]. Default = "
+ 		 __MODULE_STRING(EHEA_DEF_ENTRIES_RQ3) ")");
+@@ -814,7 +818,9 @@ int ehea_set_portspeed(struct ehea_port *port, u32 port_speed)
+ 			ehea_error("Failed setting port speed");
+ 		}
+ 	}
+-	netif_carrier_on(port->netdev);
++	if (!show_phys_link || (port->phy_link == EHEA_PHY_LINK_UP))
++		netif_carrier_on(port->netdev);
 +
- 	if ((hret = ehea_destroy_qp_res(qp, NORMAL_FREE)) == H_R_STATE) {
- 		ehea_error_data(qp->adapter, qp->fw_handle);
- 		hret = ehea_destroy_qp_res(qp, FORCE_FREE);
+ 	kfree(cb4);
+ out:
+ 	return ret;
+@@ -869,13 +875,19 @@ static void ehea_parse_eqe(struct ehea_adapter *adapter, u64 eqe)
+ 			}
+ 
+ 		if (EHEA_BMASK_GET(NEQE_EXTSWITCH_PORT_UP, eqe)) {
++			port->phy_link = EHEA_PHY_LINK_UP;
+ 			if (netif_msg_link(port))
+ 				ehea_info("%s: Physical port up",
+ 					  port->netdev->name);
++			if (show_phys_link)
++				netif_carrier_on(port->netdev);
+ 		} else {
++			port->phy_link = EHEA_PHY_LINK_DOWN;
+ 			if (netif_msg_link(port))
+ 				ehea_info("%s: Physical port down",
+ 					  port->netdev->name);
++			if (show_phys_link)
++				netif_carrier_off(port->netdev);
+ 		}
+ 
+ 		if (EHEA_BMASK_GET(NEQE_EXTSWITCH_PRIMARY, eqe))
 -- 
 1.5.2
 
