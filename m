@@ -1,473 +1,573 @@
-From: =?ISO-8859-1?Q?Aur=E9lien_Charbon?= <aurelien.charbon@ext.bull.net>
-Subject: [PATCH 1/1] NFS: change the ip_map cache code to handle IPv6 addresses
-Date: Thu, 23 Aug 2007 15:18:04 +0200
-Message-ID: <46CD890C.2040502@ext.bull.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH net-2.6.24] introduce MAC_FMT/MAC_ARG
+Date: Wed, 22 Aug 2007 20:46:48 +0200
+Message-ID: <1187808408.4314.15.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: Mailing list NFSv4 <nfsv4@linux-nfs.org>,
-	netdev ML <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:50204 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758085AbXHWNQ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2007 09:16:29 -0400
+Received: from crystal.sipsolutions.net ([195.210.38.204]:37056 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751313AbXHWOMy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2007 10:12:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-According to Neil's comments, I have tried to correct the mistakes of my first sending
-Thank you for these comments Neil.
+The two different wireless code bases both define macros to ease
+printing MAC addresses:
 
-This is a small part of missing pieces of IPv6 support for the server.
-It deals with the ip_map caching code part.
+printk(KERN_INFO "MAC address is " MAC_FMT "\n", MAC_ARG(addr));
 
-It changes the ip_map structure to be able to store INET6 addresses.
-It adds also the changes in address hashing, and mapping to test it with INET addresses.
+This patch moves those macros to if_ether.h and uses them all over the
+tree.
 
-Signed-off-by: Aurelien Charbon <aurelien.charbon@ext.bull.net>
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+
 ---
+ drivers/net/3c505.c         |    4 +---
+ drivers/net/8139cp.c        |   11 ++---------
+ drivers/net/82596.c         |    4 ++--
+ drivers/net/a2065.c         |    4 +---
+ drivers/net/acenic.c        |    6 ++----
+ drivers/net/ariadne.c       |    4 +---
+ drivers/net/dl2k.c          |    6 ++----
+ drivers/net/forcedeth.c     |   11 ++++-------
+ drivers/net/hp100.c         |    5 ++---
+ drivers/net/hydra.c         |    6 ++----
+ drivers/net/ibmlana.c       |    6 ++----
+ drivers/net/ioc3-eth.c      |    5 ++---
+ drivers/net/lguest_net.c    |    3 +--
+ drivers/net/lib82596.c      |    4 ++--
+ drivers/net/macb.c          |    6 ++----
+ drivers/net/meth.c          |    4 +---
+ drivers/net/mv643xx_eth.c   |    5 ++---
+ drivers/net/mvme147.c       |    7 ++-----
+ drivers/net/myri_sbus.c     |    6 ++----
+ drivers/net/ns83820.c       |    9 +++------
+ drivers/net/pasemi_mac.c    |    5 ++---
+ drivers/net/ps3_gelic_net.c |    6 ++----
+ drivers/net/qla3xxx.c       |    6 ++----
+ drivers/net/rionet.c        |    5 ++---
+ drivers/net/s2io.c          |   10 ++--------
+ drivers/net/skge.c          |    6 ++----
+ drivers/net/sky2.c          |    6 ++----
+ drivers/net/tsi108_eth.c    |    6 ++----
+ drivers/net/zorro8390.c     |    6 ++----
+ include/linux/etherdevice.h |    1 +
+ include/linux/if_ether.h    |    5 +++++
+ include/net/ieee80211.h     |    5 -----
+ include/net/mac80211.h      |    4 ----
+ 33 files changed, 62 insertions(+), 125 deletions(-)
 
- fs/nfsd/export.c               |   10 ++-
- fs/nfsd/nfsctl.c               |   21 ++++++-
- include/linux/sunrpc/svcauth.h |    4 -
- include/net/ipv6.h             |   17 +++++
- net/sunrpc/svcauth_unix.c      |  121 
-++++++++++++++++++++++++++++-------------
- 5 files changed, 129 insertions(+), 44 deletions(-)
-
-
-diff -p -u -r -N linux-2.6.23-rc3/fs/nfsd/export.c 
-linux-2.6.23-rc3-IPv6-ipmap-cache/fs/nfsd/export.c
---- linux-2.6.23-rc3/fs/nfsd/export.c    2007-08-23 13:18:16.000000000 +0200
-+++ linux-2.6.23-rc3-IPv6-ipmap-cache/fs/nfsd/export.c    2007-08-23 
-13:51:08.000000000 +0200
-@@ -35,6 +35,7 @@
- #include <linux/lockd/bind.h>
- #include <linux/sunrpc/msg_prot.h>
- #include <linux/sunrpc/gss_api.h>
-+#include <net/ipv6.h>
+--- netdev-2.6.orig/drivers/net/3c505.c	2007-08-22 20:33:10.921906163 +0200
++++ netdev-2.6/drivers/net/3c505.c	2007-08-22 20:40:01.011906163 +0200
+@@ -1540,9 +1540,7 @@ static int __init elplus_setup(struct ne
+ 	 */
+ 	printk(KERN_INFO "%s: 3c505 at %#lx, irq %d, dma %d, ",
+ 	       dev->name, dev->base_addr, dev->irq, dev->dma);
+-	printk("addr %02x:%02x:%02x:%02x:%02x:%02x, ",
+-	       dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
+-	       dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5]);
++	printk("addr " MAC_FMT ", ", MAC_ARG(dev->dev_addr));
  
- #define NFSDDBG_FACILITY    NFSDDBG_EXPORT
+ 	/*
+ 	 * read more information from the adapter
+--- netdev-2.6.orig/drivers/net/8139cp.c	2007-08-22 20:33:10.931906163 +0200
++++ netdev-2.6/drivers/net/8139cp.c	2007-08-22 20:40:01.011906163 +0200
+@@ -1961,15 +1961,8 @@ static int cp_init_one (struct pci_dev *
+ 	if (rc)
+ 		goto err_out_iomap;
  
-@@ -1559,6 +1560,7 @@ exp_addclient(struct nfsctl_client *ncp)
- {
-     struct auth_domain    *dom;
-     int            i, err;
-+    struct in6_addr addr6;
+-	printk (KERN_INFO "%s: RTL-8139C+ at 0x%lx, "
+-		"%02x:%02x:%02x:%02x:%02x:%02x, "
+-		"IRQ %d\n",
+-		dev->name,
+-		dev->base_addr,
+-		dev->dev_addr[0], dev->dev_addr[1],
+-		dev->dev_addr[2], dev->dev_addr[3],
+-		dev->dev_addr[4], dev->dev_addr[5],
+-		dev->irq);
++	printk (KERN_INFO "%s: RTL-8139C+ at 0x%lx, " MAC_FMT ", IRQ %d\n",
++		dev->name, dev->base_addr, MAC_ARG(dev->dev_addr), dev->irq);
  
-     /* First, consistency check. */
-     err = -EINVAL;
-@@ -1577,9 +1579,11 @@ exp_addclient(struct nfsctl_client *ncp)
-         goto out_unlock;
+ 	pci_set_drvdata(pdev, dev);
  
-     /* Insert client into hashtable. */
--    for (i = 0; i < ncp->cl_naddr; i++)
--        auth_unix_add_addr(ncp->cl_addrlist[i], dom);
--
-+    for (i = 0; i < ncp->cl_naddr; i++) {
-+        /* Mapping address */
-+        ipv6_addr_map(ncp->cl_addrlist[i], addr6);
-+        auth_unix_add_addr(addr6, dom);
-+    }
-     auth_unix_forget_old(dom);
-     auth_domain_put(dom);
+--- netdev-2.6.orig/drivers/net/82596.c	2007-08-22 20:33:10.941906163 +0200
++++ netdev-2.6/drivers/net/82596.c	2007-08-22 20:40:01.021906163 +0200
+@@ -1561,8 +1561,8 @@ static void set_multicast_list(struct ne
+ 		for (dmi = dev->mc_list; cnt && dmi != NULL; dmi = dmi->next, cnt--, cp += 6) {
+ 			memcpy(cp, dmi->dmi_addr, 6);
+ 			if (i596_debug > 1)
+-				DEB(DEB_MULTI,printk(KERN_INFO "%s: Adding address %02x:%02x:%02x:%02x:%02x:%02x\n",
+-						dev->name, cp[0],cp[1],cp[2],cp[3],cp[4],cp[5]));
++				DEB(DEB_MULTI,printk(KERN_INFO "%s: Adding address " MAC_FMT "\n",
++						dev->name, MAC_ARG(cp));
+ 		}
+ 		i596_add_cmd(dev, &cmd->cmd);
+ 	}
+--- netdev-2.6.orig/drivers/net/a2065.c	2007-08-22 20:33:10.991906163 +0200
++++ netdev-2.6/drivers/net/a2065.c	2007-08-22 20:40:01.031906163 +0200
+@@ -802,9 +802,7 @@ static int __devinit a2065_init_one(stru
+ 	zorro_set_drvdata(z, dev);
  
-diff -p -u -r -N linux-2.6.23-rc3/fs/nfsd/nfsctl.c 
-linux-2.6.23-rc3-IPv6-ipmap-cache/fs/nfsd/nfsctl.c
---- linux-2.6.23-rc3/fs/nfsd/nfsctl.c    2007-08-23 13:18:16.000000000 +0200
-+++ linux-2.6.23-rc3-IPv6-ipmap-cache/fs/nfsd/nfsctl.c    2007-08-23 
-13:25:28.000000000 +0200
-@@ -222,7 +222,7 @@ static ssize_t write_getfs(struct file *
-     struct auth_domain *clp;
-     int err = 0;
-     struct knfsd_fh *res;
--
-+    struct in6_addr in6;
-     if (size < sizeof(*data))
-         return -EINVAL;
-     data = (struct nfsctl_fsparm*)buf;
-@@ -236,7 +236,14 @@ static ssize_t write_getfs(struct file *
-     res = (struct knfsd_fh*)buf;
+ 	printk(KERN_INFO "%s: A2065 at 0x%08lx, Ethernet Address "
+-	       "%02x:%02x:%02x:%02x:%02x:%02x\n", dev->name, board,
+-	       dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
+-	       dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5]);
++	       MAC_FMT "\n", dev->name, board, MAC_ARG(dev->dev_addr));
  
-     exp_readlock();
--    if (!(clp = auth_unix_lookup(sin->sin_addr)))
-+
-+    /* IPv6 address mapping */
-+    in6.s6_addr32[0] = 0;
-+    in6.s6_addr32[1] = 0;
-+    in6.s6_addr32[2] = htonl(0xffff);
-+    in6.s6_addr32[3] = (uint32_t)sin->sin_addr.s_addr;
-+
-+    if (!(clp = auth_unix_lookup(in6)))
-         err = -EPERM;
-     else {
-         err = exp_rootfh(clp, data->gd_path, res, data->gd_maxlen);
-@@ -253,6 +260,7 @@ static ssize_t write_getfd(struct file *
- {
-     struct nfsctl_fdparm *data;
-     struct sockaddr_in *sin;
-+    struct in6_addr in6;
-     struct auth_domain *clp;
-     int err = 0;
-     struct knfsd_fh fh;
-@@ -271,7 +279,14 @@ static ssize_t write_getfd(struct file *
-     res = buf;
-     sin = (struct sockaddr_in *)&data->gd_addr;
-     exp_readlock();
--    if (!(clp = auth_unix_lookup(sin->sin_addr)))
-+
-+    /* IPv6 address mapping */
-+    in6.s6_addr32[0] = 0;
-+    in6.s6_addr32[1] = 0;
-+    in6.s6_addr32[2] = htonl(0xffff);
-+    in6.s6_addr32[3] = (uint32_t)sin->sin_addr.s_addr;
-+
-+    if (!(clp = auth_unix_lookup(in6)))
-         err = -EPERM;
-     else {
-         err = exp_rootfh(clp, data->gd_path, &fh, NFS_FHSIZE);
-diff -p -u -r -N linux-2.6.23-rc3/include/linux/sunrpc/svcauth.h 
-linux-2.6.23-rc3-IPv6-ipmap-cache/include/linux/sunrpc/svcauth.h
---- linux-2.6.23-rc3/include/linux/sunrpc/svcauth.h    2007-08-23 
-13:18:21.000000000 +0200
-+++ linux-2.6.23-rc3-IPv6-ipmap-cache/include/linux/sunrpc/svcauth.h    
-2007-08-23 13:25:28.000000000 +0200
-@@ -120,10 +120,10 @@ extern void    svc_auth_unregister(rpc_auth
- 
- extern struct auth_domain *unix_domain_find(char *name);
- extern void auth_domain_put(struct auth_domain *item);
--extern int auth_unix_add_addr(struct in_addr addr, struct auth_domain 
-*dom);
-+extern int auth_unix_add_addr(struct in6_addr addr, struct auth_domain 
-*dom);
- extern struct auth_domain *auth_domain_lookup(char *name, struct 
-auth_domain *new);
- extern struct auth_domain *auth_domain_find(char *name);
--extern struct auth_domain *auth_unix_lookup(struct in_addr addr);
-+extern struct auth_domain *auth_unix_lookup(struct in6_addr addr);
- extern int auth_unix_forget_old(struct auth_domain *dom);
- extern void svcauth_unix_purge(void);
- extern void svcauth_unix_info_release(void *);
-diff -p -u -r -N linux-2.6.23-rc3/include/net/ipv6.h 
-linux-2.6.23-rc3-IPv6-ipmap-cache/include/net/ipv6.h
---- linux-2.6.23-rc3/include/net/ipv6.h    2007-08-23 13:18:23.000000000 
-+0200
-+++ linux-2.6.23-rc3-IPv6-ipmap-cache/include/net/ipv6.h    2007-08-23 
-13:25:28.000000000 +0200
-@@ -21,6 +21,7 @@
- #include <net/ndisc.h>
- #include <net/flow.h>
- #include <net/snmp.h>
-+#include <linux/in.h>
- 
- #define SIN6_LEN_RFC2133    24
- 
-@@ -167,6 +168,12 @@ DECLARE_SNMP_STAT(struct udp_mib, udplit
-     if (is_udplite) SNMP_INC_STATS_USER(udplite_stats_in6, 
-field);         \
-     else        SNMP_INC_STATS_USER(udp_stats_in6, field);    } while(0)
- 
-+#define IS_ADDR_MAPPED(a) \
-+    (((uint32_t *) (a))[0] == 0            \
-+    && ((uint32_t *) (a))[1] == 0            \
-+    && (((uint32_t *) (a))[2] == 0            \
-+    || ((uint32_t *) (a))[2] == htonl(0xffff)))
-+
- struct ip6_ra_chain
- {
-     struct ip6_ra_chain    *next;
-@@ -377,6 +384,16 @@ static inline int ipv6_addr_any(const st
-          a->s6_addr32[2] | a->s6_addr32[3] ) == 0);
+ 	return 0;
  }
+--- netdev-2.6.orig/drivers/net/acenic.c	2007-08-22 20:33:10.991906163 +0200
++++ netdev-2.6/drivers/net/acenic.c	2007-08-22 20:40:01.031906163 +0200
+@@ -1013,10 +1013,6 @@ static int __devinit ace_init(struct net
+ 	writel(mac1, &regs->MacAddrHi);
+ 	writel(mac2, &regs->MacAddrLo);
  
-+/* Maps a IPv4 address into a wright IPv6 address */
-+static inline int ipv6_addr_map(const struct in_addr a1, struct 
-in6_addr a2)
-+{
-+    a2.s6_addr32[0] = 0;
-+    a2.s6_addr32[1] = 0;
-+    a2.s6_addr32[2] = htonl(0xffff);
-+    a2.s6_addr32[3] = (uint32_t)a1.s_addr;
-+    return 0;
-+}
-+
- /*
-  * find the first different bit between two addresses
-  * length of address must be a multiple of 32bits
-diff -p -u -r -N linux-2.6.23-rc3/net/sunrpc/svcauth_unix.c 
-linux-2.6.23-rc3-IPv6-ipmap-cache/net/sunrpc/svcauth_unix.c
---- linux-2.6.23-rc3/net/sunrpc/svcauth_unix.c    2007-08-23 
-13:18:24.000000000 +0200
-+++ linux-2.6.23-rc3-IPv6-ipmap-cache/net/sunrpc/svcauth_unix.c    
-2007-08-23 13:52:02.000000000 +0200
-@@ -11,7 +11,8 @@
- #include <linux/hash.h>
- #include <linux/string.h>
- #include <net/sock.h>
+-	printk("MAC: %02x:%02x:%02x:%02x:%02x:%02x\n",
+-	       (mac1 >> 8) & 0xff, mac1 & 0xff, (mac2 >> 24) &0xff,
+-	       (mac2 >> 16) & 0xff, (mac2 >> 8) & 0xff, mac2 & 0xff);
 -
-+#include <net/ipv6.h>
-+#include <linux/kernel.h>
- #define RPCDBG_FACILITY    RPCDBG_AUTH
+ 	dev->dev_addr[0] = (mac1 >> 8) & 0xff;
+ 	dev->dev_addr[1] = mac1 & 0xff;
+ 	dev->dev_addr[2] = (mac2 >> 24) & 0xff;
+@@ -1024,6 +1020,8 @@ static int __devinit ace_init(struct net
+ 	dev->dev_addr[4] = (mac2 >> 8) & 0xff;
+ 	dev->dev_addr[5] = mac2 & 0xff;
  
++	printk("MAC: " MAC_FMT "\n", MAC_ARG(dev->dev_addr));
++
+ 	/*
+ 	 * Looks like this is necessary to deal with on all architectures,
+ 	 * even this %$#%$# N440BX Intel based thing doesn't get it right.
+--- netdev-2.6.orig/drivers/net/ariadne.c	2007-08-22 20:33:11.661906163 +0200
++++ netdev-2.6/drivers/net/ariadne.c	2007-08-22 20:40:01.041906163 +0200
+@@ -217,9 +217,7 @@ static int __devinit ariadne_init_one(st
+     zorro_set_drvdata(z, dev);
  
-@@ -84,7 +85,7 @@ static void svcauth_unix_domain_release(
- struct ip_map {
-     struct cache_head    h;
-     char            m_class[8]; /* e.g. "nfsd" */
--    struct in_addr        m_addr;
-+    struct in6_addr        m_addr;
-     struct unix_domain    *m_client;
-     int            m_add_change;
- };
-@@ -112,12 +113,19 @@ static inline int hash_ip(__be32 ip)
-     return (hash ^ (hash>>8)) & 0xff;
+     printk(KERN_INFO "%s: Ariadne at 0x%08lx, Ethernet Address "
+-	   "%02x:%02x:%02x:%02x:%02x:%02x\n", dev->name, board,
+-	   dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
+-	   dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5]);
++	   MAC_FMT "\n", dev->name, board, MAC_ARG(dev->dev_addr));
+ 
+     return 0;
  }
+--- netdev-2.6.orig/drivers/net/dl2k.c	2007-08-22 20:33:12.181906163 +0200
++++ netdev-2.6/drivers/net/dl2k.c	2007-08-22 20:40:01.041906163 +0200
+@@ -257,10 +257,8 @@ rio_probe1 (struct pci_dev *pdev, const 
+ 
+ 	card_idx++;
+ 
+-	printk (KERN_INFO "%s: %s, %02x:%02x:%02x:%02x:%02x:%02x, IRQ %d\n",
+-		dev->name, np->name,
+-		dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
+-		dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5], irq);
++	printk (KERN_INFO "%s: %s, " MAC_FMT ", IRQ %d\n",
++		dev->name, np->name, MAC_ARG(dev->dev_addr));
+ 	if (tx_coalesce > 1)
+ 		printk(KERN_INFO "tx_coalesce:\t%d packets\n",
+ 				tx_coalesce);
+--- netdev-2.6.orig/drivers/net/forcedeth.c	2007-08-22 20:33:12.461906163 +0200
++++ netdev-2.6/drivers/net/forcedeth.c	2007-08-22 20:40:01.051906163 +0200
+@@ -5201,10 +5201,8 @@ static int __devinit nv_probe(struct pci
+ 		 * Bad mac address. At least one bios sets the mac address
+ 		 * to 01:23:45:67:89:ab
+ 		 */
+-		printk(KERN_ERR "%s: Invalid Mac address detected: %02x:%02x:%02x:%02x:%02x:%02x\n",
+-			pci_name(pci_dev),
+-			dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
+-			dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5]);
++		printk(KERN_ERR "%s: Invalid Mac address detected: " MAC_FMT "\n",
++			pci_name(pci_dev), MAC_ARG(dev->dev_addr));
+ 		printk(KERN_ERR "Please complain to your hardware vendor. Switching to a random MAC.\n");
+ 		dev->dev_addr[0] = 0x00;
+ 		dev->dev_addr[1] = 0x00;
+@@ -5212,9 +5210,8 @@ static int __devinit nv_probe(struct pci
+ 		get_random_bytes(&dev->dev_addr[3], 3);
+ 	}
+ 
+-	dprintk(KERN_DEBUG "%s: MAC Address %02x:%02x:%02x:%02x:%02x:%02x\n", pci_name(pci_dev),
+-			dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
+-			dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5]);
++	dprintk(KERN_DEBUG "%s: MAC Address " MAC_FMT "\n", pci_name(pci_dev),
++			MAC_ARG(dev->dev_addr));
+ 
+ 	/* set mac address */
+ 	nv_copy_mac_to_hw(dev);
+--- netdev-2.6.orig/drivers/net/hp100.c	2007-08-22 20:33:12.751906163 +0200
++++ netdev-2.6/drivers/net/hp100.c	2007-08-22 20:40:01.061906163 +0200
+@@ -2095,9 +2095,8 @@ static void hp100_set_multicast_list(str
+ 				addrs = dmi->dmi_addr;
+ 				if ((*addrs & 0x01) == 0x01) {	/* multicast address? */
+ #ifdef HP100_DEBUG
+-					printk("hp100: %s: multicast = %02x:%02x:%02x:%02x:%02x:%02x, ",
+-						     dev->name, addrs[0], addrs[1], addrs[2],
+-						     addrs[3], addrs[4], addrs[5]);
++					printk("hp100: %s: multicast = " MAC_FMT ", ",
++						     dev->name, MAC_ARG(addrs));
  #endif
-+static inline int hash_ip6(struct in6_addr ip)
-+{
-+    return (hash_ip(ip.s6_addr32[0]) ^
-+        hash_ip(ip.s6_addr32[1]) ^
-+        hash_ip(ip.s6_addr32[2]) ^
-+        hash_ip(ip.s6_addr32[3]));
-+}
- static int ip_map_match(struct cache_head *corig, struct cache_head *cnew)
- {
-     struct ip_map *orig = container_of(corig, struct ip_map, h);
-     struct ip_map *new = container_of(cnew, struct ip_map, h);
-     return strcmp(orig->m_class, new->m_class) == 0
--        && orig->m_addr.s_addr == new->m_addr.s_addr;
-+        && ipv6_addr_equal(&orig->m_addr, &new->m_addr);
+ 					for (j = idx = 0; j < 6; j++) {
+ 						idx ^= *addrs++ & 0x3f;
+--- netdev-2.6.orig/drivers/net/hydra.c	2007-08-22 20:33:12.761906163 +0200
++++ netdev-2.6/drivers/net/hydra.c	2007-08-22 20:40:01.061906163 +0200
+@@ -163,10 +163,8 @@ static int __devinit hydra_init(struct z
+     zorro_set_drvdata(z, dev);
+ 
+     printk(KERN_INFO "%s: Hydra at 0x%08lx, address "
+-	   "%02x:%02x:%02x:%02x:%02x:%02x (hydra.c " HYDRA_VERSION ")\n",
+-	   dev->name, z->resource.start, dev->dev_addr[0], dev->dev_addr[1],
+-	   dev->dev_addr[2], dev->dev_addr[3], dev->dev_addr[4],
+-	   dev->dev_addr[5]);
++	   MAC_FMT " (hydra.c " HYDRA_VERSION ")\n",
++	   dev->name, z->resource.start, MAC_ARG(dev->dev_addr));
+ 
+     return 0;
  }
- static void ip_map_init(struct cache_head *cnew, struct cache_head *citem)
- {
-@@ -125,7 +133,7 @@ static void ip_map_init(struct cache_hea
-     struct ip_map *item = container_of(citem, struct ip_map, h);
+--- netdev-2.6.orig/drivers/net/ibmlana.c	2007-08-22 20:33:12.791906163 +0200
++++ netdev-2.6/drivers/net/ibmlana.c	2007-08-22 20:40:01.071906163 +0200
+@@ -992,11 +992,9 @@ static int ibmlana_probe(struct net_devi
+ 	/* print config */
  
-     strcpy(new->m_class, item->m_class);
--    new->m_addr.s_addr = item->m_addr.s_addr;
-+    memcpy(&(new->m_addr), &(item->m_addr), sizeof(struct in6_addr));
+ 	printk(KERN_INFO "%s: IRQ %d, I/O %#lx, memory %#lx-%#lx, "
+-	       "MAC address %02x:%02x:%02x:%02x:%02x:%02x.\n",
++	       "MAC address " MAC_FMT ".\n",
+ 	       dev->name, priv->realirq, dev->base_addr,
+-	       dev->mem_start, dev->mem_end - 1,
+-	       dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
+-	       dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5]);
++	       dev->mem_start, dev->mem_end - 1, MAC_ARG(dev->dev_addr));
+ 	printk(KERN_INFO "%s: %s medium\n", dev->name, MediaNames[priv->medium]);
+ 
+ 	/* reset board */
+--- netdev-2.6.orig/drivers/net/ioc3-eth.c	2007-08-22 20:33:12.801906163 +0200
++++ netdev-2.6/drivers/net/ioc3-eth.c	2007-08-22 20:40:01.071906163 +0200
+@@ -392,9 +392,8 @@ static int nic_init(struct ioc3 *ioc3)
+ 
+ 	printk("Found %s NIC", type);
+ 	if (type != unknown) {
+-		printk (" registration number %02x:%02x:%02x:%02x:%02x:%02x,"
+-			" CRC %02x", serial[0], serial[1], serial[2],
+-			serial[3], serial[4], serial[5], crc);
++		printk (" registration number " MAC_FMT ", CRC %02x",
++			MAC_ARG(serial), crc);
+ 	}
+ 	printk(".\n");
+ 
+--- netdev-2.6.orig/drivers/net/lguest_net.c	2007-08-22 20:33:12.921906163 +0200
++++ netdev-2.6/drivers/net/lguest_net.c	2007-08-22 20:40:01.081906163 +0200
+@@ -236,8 +236,7 @@ static int lguestnet_start_xmit(struct s
+ 	/* Extract the destination ethernet address from the packet. */
+ 	const unsigned char *dest = ((struct ethhdr *)skb->data)->h_dest;
+ 
+-	pr_debug("%s: xmit %02x:%02x:%02x:%02x:%02x:%02x\n",
+-		 dev->name, dest[0],dest[1],dest[2],dest[3],dest[4],dest[5]);
++	pr_debug("%s: xmit " MAC_FMT "\n", dev->name, MAC_ARG(dest));
+ 
+ 	/* If it's a multicast packet, we broadcast to everyone.  That's not
+ 	 * very efficient, but there are very few applications which actually
+--- netdev-2.6.orig/drivers/net/lib82596.c	2007-08-22 20:33:12.931906163 +0200
++++ netdev-2.6/drivers/net/lib82596.c	2007-08-22 20:40:01.081906163 +0200
+@@ -1425,8 +1425,8 @@ static void set_multicast_list(struct ne
+ 			if (i596_debug > 1)
+ 				DEB(DEB_MULTI,
+ 				    printk(KERN_DEBUG
+-					   "%s: Adding address %02x:%02x:%02x:%02x:%02x:%02x\n",
+-					   dev->name, cp[0], cp[1], cp[2], cp[3], cp[4], cp[5]));
++					   "%s: Adding address " MAC_FMT "\n",
++					   dev->name, MAC_ARG(cp));
+ 		}
+ 		DMA_WBACK_INV(dev, &dma->mc_cmd, sizeof(struct mc_cmd));
+ 		i596_add_cmd(dev, &cmd->cmd);
+--- netdev-2.6.orig/drivers/net/macb.c	2007-08-22 20:33:12.931906163 +0200
++++ netdev-2.6/drivers/net/macb.c	2007-08-22 20:40:01.081906163 +0200
+@@ -1189,10 +1189,8 @@ static int __devinit macb_probe(struct p
+ 	platform_set_drvdata(pdev, dev);
+ 
+ 	printk(KERN_INFO "%s: Atmel MACB at 0x%08lx irq %d "
+-	       "(%02x:%02x:%02x:%02x:%02x:%02x)\n",
+-	       dev->name, dev->base_addr, dev->irq,
+-	       dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
+-	       dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5]);
++	       "(" MAC_FMT ")\n",
++	       dev->name, dev->base_addr, dev->irq, MAC_ARG(dev->dev_addr));
+ 
+ 	phydev = bp->phy_dev;
+ 	printk(KERN_INFO "%s: attached PHY driver [%s] "
+--- netdev-2.6.orig/drivers/net/meth.c	2007-08-22 20:33:12.941906163 +0200
++++ netdev-2.6/drivers/net/meth.c	2007-08-22 20:40:01.101906163 +0200
+@@ -96,11 +96,9 @@ char o2meth_eaddr[8]={0,0,0,0,0,0,0,0};
+ static inline void load_eaddr(struct net_device *dev)
+ {
+ 	int i;
+-	DPRINTK("Loading MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
+-		(int)o2meth_eaddr[0]&0xFF,(int)o2meth_eaddr[1]&0xFF,(int)o2meth_eaddr[2]&0xFF,
+-		(int)o2meth_eaddr[3]&0xFF,(int)o2meth_eaddr[4]&0xFF,(int)o2meth_eaddr[5]&0xFF);
+ 	for (i = 0; i < 6; i++)
+ 		dev->dev_addr[i] = o2meth_eaddr[i];
++	DPRINTK("Loading MAC Address: " MAC_FMT "\n", MAC_ARG(dev->dev_addr));
+ 	mace->eth.mac_addr = (*(unsigned long*)o2meth_eaddr) >> 16;
  }
- static void update(struct cache_head *cnew, struct cache_head *citem)
- {
-@@ -151,20 +159,22 @@ static void ip_map_request(struct cache_
- {
-     char text_addr[20];
-     struct ip_map *im = container_of(h, struct ip_map, h);
--    __be32 addr = im->m_addr.s_addr;
--
--    snprintf(text_addr, 20, "%u.%u.%u.%u",
--         ntohl(addr) >> 24 & 0xff,
--         ntohl(addr) >> 16 & 0xff,
--         ntohl(addr) >>  8 & 0xff,
--         ntohl(addr) >>  0 & 0xff);
  
-+    if (IS_ADDR_MAPPED(im->m_addr.s6_addr32)) {
-+        snprintf(text_addr, 20, NIPQUAD_FMT,
-+                ntohl(im->m_addr.s6_addr32[3]) >> 24 & 0xff,
-+                ntohl(im->m_addr.s6_addr32[3]) >> 16 & 0xff,
-+                ntohl(im->m_addr.s6_addr32[3]) >>  8 & 0xff,
-+                ntohl(im->m_addr.s6_addr32[3]) >>  0 & 0xff);
-+    } else {
-+        snprintf(text_addr, 20, NIP6_FMT, NIP6(im->m_addr));
-+    }
-     qword_add(bpp, blen, im->m_class);
-     qword_add(bpp, blen, text_addr);
-     (*bpp)[-1] = '\n';
+--- netdev-2.6.orig/drivers/net/mv643xx_eth.c	2007-08-22 20:33:12.981906163 +0200
++++ netdev-2.6/drivers/net/mv643xx_eth.c	2007-08-22 20:40:01.111906163 +0200
+@@ -1429,9 +1429,8 @@ static int mv643xx_eth_probe(struct plat
+ 		goto out;
+ 
+ 	p = dev->dev_addr;
+-	printk(KERN_NOTICE
+-		"%s: port %d with MAC address %02x:%02x:%02x:%02x:%02x:%02x\n",
+-		dev->name, port_num, p[0], p[1], p[2], p[3], p[4], p[5]);
++	printk(KERN_NOTICE "%s: port %d with MAC address " MAC_FMT "\n",
++		dev->name, port_num, MAC_ARG(p));
+ 
+ 	if (dev->features & NETIF_F_SG)
+ 		printk(KERN_NOTICE "%s: Scatter Gather Enabled\n", dev->name);
+--- netdev-2.6.orig/drivers/net/mvme147.c	2007-08-22 20:33:12.991906163 +0200
++++ netdev-2.6/drivers/net/mvme147.c	2007-08-22 20:40:01.111906163 +0200
+@@ -103,12 +103,9 @@ struct net_device * __init mvme147lance_
+ 	address=address>>8;
+ 	dev->dev_addr[3]=address&0xff;
+ 
+-	printk("%s: MVME147 at 0x%08lx, irq %d, Hardware Address %02x:%02x:%02x:%02x:%02x:%02x\n",
++	printk("%s: MVME147 at 0x%08lx, irq %d, Hardware Address " MAC_FMT "\n",
+ 		dev->name, dev->base_addr, MVME147_LANCE_IRQ,
+-		dev->dev_addr[0],
+-		dev->dev_addr[1], dev->dev_addr[2],
+-		dev->dev_addr[3], dev->dev_addr[4],
+-		dev->dev_addr[5]);
++		MAC_ARG(dev->dev_addr));
+ 
+ 	lp = (struct m147lance_private *)dev->priv;
+ 	lp->ram = __get_dma_pages(GFP_ATOMIC, 3);	/* 16K */
+--- netdev-2.6.orig/drivers/net/ns83820.c	2007-08-22 20:33:16.621906163 +0200
++++ netdev-2.6/drivers/net/ns83820.c	2007-08-22 20:40:01.111906163 +0200
+@@ -2082,14 +2082,11 @@ static int __devinit ns83820_init_one(st
+ 		ndev->features |= NETIF_F_HIGHDMA;
+ 	}
+ 
+-	printk(KERN_INFO "%s: ns83820 v" VERSION ": DP83820 v%u.%u: %02x:%02x:%02x:%02x:%02x:%02x io=0x%08lx irq=%d f=%s\n",
+-		ndev->name,
++	printk(KERN_INFO "%s: ns83820 v" VERSION ": DP83820 v%u.%u: " MAC_FMT
++		" io=0x%08lx irq=%d f=%s\n", ndev->name,
+ 		(unsigned)readl(dev->base + SRR) >> 8,
+ 		(unsigned)readl(dev->base + SRR) & 0xff,
+-		ndev->dev_addr[0], ndev->dev_addr[1],
+-		ndev->dev_addr[2], ndev->dev_addr[3],
+-		ndev->dev_addr[4], ndev->dev_addr[5],
+-		addr, pci_dev->irq,
++		MAC_ARG(ndev->dev_addr) addr, pci_dev->irq,
+ 		(ndev->features & NETIF_F_HIGHDMA) ? "h,sg" : "sg"
+ 		);
+ 
+--- netdev-2.6.orig/drivers/net/pasemi_mac.c	2007-08-22 20:33:16.691906163 +0200
++++ netdev-2.6/drivers/net/pasemi_mac.c	2007-08-22 20:40:01.121906163 +0200
+@@ -1173,11 +1173,10 @@ pasemi_mac_probe(struct pci_dev *pdev, c
+ 		goto out;
+ 	} else
+ 		printk(KERN_INFO "%s: PA Semi %s: intf %d, txch %d, rxch %d, "
+-		       "hw addr %02x:%02x:%02x:%02x:%02x:%02x\n",
++		       "hw addr " MAC_FMT "\n",
+ 		       dev->name, mac->type == MAC_TYPE_GMAC ? "GMAC" : "XAUI",
+ 		       mac->dma_if, mac->dma_txch, mac->dma_rxch,
+-		       dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
+-		       dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5]);
++		       MAC_ARG(dev->dev_addr));
+ 
+ 	return err;
+ 
+--- netdev-2.6.orig/drivers/net/ps3_gelic_net.c	2007-08-22 20:33:16.891906163 +0200
++++ netdev-2.6/drivers/net/ps3_gelic_net.c	2007-08-22 20:40:01.121906163 +0200
+@@ -1397,10 +1397,8 @@ static int gelic_net_setup_netdev(struct
+ 	v1 <<= 16;
+ 	memcpy(addr.sa_data, &v1, ETH_ALEN);
+ 	memcpy(netdev->dev_addr, addr.sa_data, ETH_ALEN);
+-	dev_info(ctodev(card), "MAC addr %02x:%02x:%02x:%02x:%02x:%02x\n",
+-		 netdev->dev_addr[0], netdev->dev_addr[1],
+-		 netdev->dev_addr[2], netdev->dev_addr[3],
+-		 netdev->dev_addr[4], netdev->dev_addr[5]);
++	dev_info(ctodev(card), "MAC addr " MAC_FMT "\n",
++		 MAC_ARG(netdev->dev_addr));
+ 
+ 	card->vlan_index = -1;	/* no vlan */
+ 	for (i = 0; i < GELIC_NET_VLAN_MAX; i++) {
+--- netdev-2.6.orig/drivers/net/qla3xxx.c	2007-08-22 20:33:16.901906163 +0200
++++ netdev-2.6/drivers/net/qla3xxx.c	2007-08-22 20:40:01.131906163 +0200
+@@ -3576,10 +3576,8 @@ static void ql_display_dev_info(struct n
+ 
+ 	if (netif_msg_probe(qdev))
+ 		printk(KERN_INFO PFX
+-		       "%s: MAC address %02x:%02x:%02x:%02x:%02x:%02x\n",
+-		       ndev->name, ndev->dev_addr[0], ndev->dev_addr[1],
+-		       ndev->dev_addr[2], ndev->dev_addr[3], ndev->dev_addr[4],
+-		       ndev->dev_addr[5]);
++		       "%s: MAC address " MAC_FMT "\n",
++		       ndev->name, MAC_ARG(ndev->dev_addr));
  }
  
--static struct ip_map *ip_map_lookup(char *class, struct in_addr addr);
-+static struct ip_map *ip_map_lookup(char *class, struct in6_addr addr);
- static int ip_map_update(struct ip_map *ipm, struct unix_domain *udom, 
-time_t expiry);
+ static int ql_adapter_down(struct ql3_adapter *qdev, int do_reset)
+--- netdev-2.6.orig/drivers/net/rionet.c	2007-08-22 20:33:16.901906163 +0200
++++ netdev-2.6/drivers/net/rionet.c	2007-08-22 20:40:01.141906163 +0200
+@@ -482,13 +482,12 @@ static int rionet_setup_netdev(struct ri
+ 	if (rc != 0)
+ 		goto out;
  
- static int ip_map_parse(struct cache_detail *cd,
-@@ -175,10 +185,10 @@ static int ip_map_parse(struct cache_det
-      * for scratch: */
-     char *buf = mesg;
-     int len;
--    int b1,b2,b3,b4;
-+    int b1, b2, b3, b4, b5, b6, b7, b8;
-     char c;
-     char class[8];
--    struct in_addr addr;
-+    struct in6_addr addr;
-     int err;
+-	printk("%s: %s %s Version %s, MAC %02x:%02x:%02x:%02x:%02x:%02x\n",
++	printk("%s: %s %s Version %s, MAC " MAC_FMT "\n",
+ 	       ndev->name,
+ 	       DRV_NAME,
+ 	       DRV_DESC,
+ 	       DRV_VERSION,
+-	       ndev->dev_addr[0], ndev->dev_addr[1], ndev->dev_addr[2],
+-	       ndev->dev_addr[3], ndev->dev_addr[4], ndev->dev_addr[5]);
++	       MAC_ARG(ndev->dev_addr));
  
-     struct ip_map *ipmp;
-@@ -197,9 +207,26 @@ static int ip_map_parse(struct cache_det
-     len = qword_get(&mesg, buf, mlen);
-     if (len <= 0) return -EINVAL;
+       out:
+ 	return rc;
+--- netdev-2.6.orig/drivers/net/s2io.c	2007-08-22 20:33:16.991906163 +0200
++++ netdev-2.6/drivers/net/s2io.c	2007-08-22 20:40:01.151906163 +0200
+@@ -7330,14 +7330,8 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 		  sp->product_name, pdev->revision);
+ 	DBG_PRINT(ERR_DBG, "%s: Driver version %s\n", dev->name,
+ 		  s2io_driver_version);
+-	DBG_PRINT(ERR_DBG, "%s: MAC ADDR: "
+-			  "%02x:%02x:%02x:%02x:%02x:%02x", dev->name,
+-			  sp->def_mac_addr[0].mac_addr[0],
+-			  sp->def_mac_addr[0].mac_addr[1],
+-			  sp->def_mac_addr[0].mac_addr[2],
+-			  sp->def_mac_addr[0].mac_addr[3],
+-			  sp->def_mac_addr[0].mac_addr[4],
+-			  sp->def_mac_addr[0].mac_addr[5]);
++	DBG_PRINT(ERR_DBG, "%s: MAC ADDR: " MAC_FMT, dev->name,
++		  MAC_ARG(sp->def_mac_addr[0]));
+ 	DBG_PRINT(ERR_DBG, "SERIAL NUMBER: %s\n", sp->serial_num);
+ 	if (sp->device_type & XFRAME_II_DEVICE) {
+ 		mode = s2io_print_pci_mode(sp);
+--- netdev-2.6.orig/drivers/net/skge.c	2007-08-22 20:33:18.721906163 +0200
++++ netdev-2.6/drivers/net/skge.c	2007-08-22 20:40:01.211906163 +0200
+@@ -3621,10 +3621,8 @@ static void __devinit skge_show_addr(str
+ 	const struct skge_port *skge = netdev_priv(dev);
  
--    if (sscanf(buf, "%u.%u.%u.%u%c", &b1, &b2, &b3, &b4, &c) != 4)
-+    if (sscanf(buf, NIPQUAD_FMT "%c", &b1, &b2, &b3, &b4, &c) == 4) {
-+        addr.s6_addr32[0] = 0;
-+        addr.s6_addr32[1] = 0;
-+        addr.s6_addr32[2] = htonl(0xffff);
-+        addr.s6_addr32[3] =
-+            htonl((((((b1<<8)|b2)<<8)|b3)<<8)|b4);
-+       } else if (sscanf(buf, NIP6_FMT "%c",
-+            &b1, &b2, &b3, &b4, &b5, &b6, &b7, &b8, &c) == 8) {
-+        addr.s6_addr16[7] = htons(b1);
-+        addr.s6_addr16[6] = htons(b2);
-+        addr.s6_addr16[5] = htons(b3);
-+        addr.s6_addr16[4] = htons(b4);
-+        addr.s6_addr16[3] = htons(b5);
-+        addr.s6_addr16[2] = htons(b6);
-+        addr.s6_addr16[1] = htons(b7);
-+        addr.s6_addr16[0] = htons(b8);
-+       } else
-         return -EINVAL;
+ 	if (netif_msg_probe(skge))
+-		printk(KERN_INFO PFX "%s: addr %02x:%02x:%02x:%02x:%02x:%02x\n",
+-		       dev->name,
+-		       dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
+-		       dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5]);
++		printk(KERN_INFO PFX "%s: addr " MAC_FMT "\n",
++		       dev->name, MAC_ARG(dev->dev_addr));
+ }
  
-+
-     expiry = get_expiry(&mesg);
-     if (expiry ==0)
-         return -EINVAL;
-@@ -215,9 +242,6 @@ static int ip_map_parse(struct cache_det
-     } else
-         dom = NULL;
+ static int __devinit skge_probe(struct pci_dev *pdev,
+--- netdev-2.6.orig/drivers/net/sky2.c	2007-08-22 20:33:18.921906163 +0200
++++ netdev-2.6/drivers/net/sky2.c	2007-08-22 20:40:01.221906163 +0200
+@@ -3808,10 +3808,8 @@ static void __devinit sky2_show_addr(str
+ 	const struct sky2_port *sky2 = netdev_priv(dev);
  
--    addr.s_addr =
--        htonl((((((b1<<8)|b2)<<8)|b3)<<8)|b4);
--
-     ipmp = ip_map_lookup(class,addr);
-     if (ipmp) {
-         err = ip_map_update(ipmp,
-@@ -238,7 +262,7 @@ static int ip_map_show(struct seq_file *
-                struct cache_head *h)
- {
-     struct ip_map *im;
--    struct in_addr addr;
-+    struct in6_addr addr;
-     char *dom = "-no-domain-";
+ 	if (netif_msg_probe(sky2))
+-		printk(KERN_INFO PFX "%s: addr %02x:%02x:%02x:%02x:%02x:%02x\n",
+-		       dev->name,
+-		       dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
+-		       dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5]);
++		printk(KERN_INFO PFX "%s: addr " MAC_FMT "\n",
++		       dev->name, MAC_ARG(dev->dev_addr));
+ }
  
-     if (h == NULL) {
-@@ -247,20 +271,33 @@ static int ip_map_show(struct seq_file *
+ /* Handle software interrupt used during MSI test */
+--- netdev-2.6.orig/drivers/net/tsi108_eth.c	2007-08-22 20:33:31.261906163 +0200
++++ netdev-2.6/drivers/net/tsi108_eth.c	2007-08-22 20:40:01.231906163 +0200
+@@ -1628,10 +1628,8 @@ tsi108_init_one(struct platform_device *
+ 		goto register_fail;
+ 	}
+ 
+-	printk(KERN_INFO "%s: Tsi108 Gigabit Ethernet, MAC: "
+-	       "%02x:%02x:%02x:%02x:%02x:%02x\n", dev->name,
+-	       dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
+-	       dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5]);
++	printk(KERN_INFO "%s: Tsi108 Gigabit Ethernet, MAC: " MAC_FMT "\n",
++	       dev->name, MAC_ARG(dev->dev_addr));
+ #ifdef DEBUG
+ 	data->msg_enable = DEBUG;
+ 	dump_eth_one(dev);
+--- netdev-2.6.orig/drivers/net/zorro8390.c	2007-08-22 20:33:34.401906163 +0200
++++ netdev-2.6/drivers/net/zorro8390.c	2007-08-22 20:40:01.231906163 +0200
+@@ -244,10 +244,8 @@ static int __devinit zorro8390_init(stru
+ 	return err;
      }
-     im = container_of(h, struct ip_map, h);
-     /* class addr domain */
--    addr = im->m_addr;
-+    memcpy(&addr, &im->m_addr, sizeof(struct in6_addr));
  
-     if (test_bit(CACHE_VALID, &h->flags) &&
-         !test_bit(CACHE_NEGATIVE, &h->flags))
-         dom = im->m_client->h.name;
+-    printk(KERN_INFO "%s: %s at 0x%08lx, Ethernet Address "
+-	   "%02x:%02x:%02x:%02x:%02x:%02x\n", dev->name, name, board,
+-	   dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
+-	   dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5]);
++    printk(KERN_INFO "%s: %s at 0x%08lx, Ethernet Address " MAC_FMT "\n",
++	   dev->name, name, board, MAC_ARG(dev->dev_addr));
  
--    seq_printf(m, "%s %d.%d.%d.%d %s\n",
--           im->m_class,
--           ntohl(addr.s_addr) >> 24 & 0xff,
--           ntohl(addr.s_addr) >> 16 & 0xff,
--           ntohl(addr.s_addr) >>  8 & 0xff,
--           ntohl(addr.s_addr) >>  0 & 0xff,
--           dom
--           );
-+    if (IS_ADDR_MAPPED(addr.s6_addr32)) {
-+        seq_printf(m, "%s" NIPQUAD_FMT "%s\n",
-+            im->m_class,
-+            ntohl(addr.s6_addr32[3]) >> 24 & 0xff,
-+            ntohl(addr.s6_addr32[3]) >> 16 & 0xff,
-+            ntohl(addr.s6_addr32[3]) >>  8 & 0xff,
-+            ntohl(addr.s6_addr32[3]) >>  0 & 0xff,
-+            dom);
-+    } else {
-+        seq_printf(m, "%s" NIP6_FMT "%s\n",
-+            im->m_class,
-+            ntohl(addr.s6_addr16[7]),
-+            ntohl(addr.s6_addr16[6]),
-+            ntohl(addr.s6_addr16[5]),
-+            ntohl(addr.s6_addr16[4]),
-+            ntohl(addr.s6_addr16[3]),
-+            ntohl(addr.s6_addr16[2]),
-+            ntohl(addr.s6_addr16[1]),
-+            ntohl(addr.s6_addr16[0]),
-+            dom);
-+    }
      return 0;
  }
- 
-@@ -280,16 +317,16 @@ struct cache_detail ip_map_cache = {
-     .alloc        = ip_map_alloc,
- };
- 
--static struct ip_map *ip_map_lookup(char *class, struct in_addr addr)
-+static struct ip_map *ip_map_lookup(char *class, struct in6_addr addr)
- {
-     struct ip_map ip;
-     struct cache_head *ch;
- 
-     strcpy(ip.m_class, class);
--    ip.m_addr = addr;
-+    memcpy(&ip.m_addr, &addr, sizeof(struct in6_addr));
-     ch = sunrpc_cache_lookup(&ip_map_cache, &ip.h,
-                  hash_str(class, IP_HASHBITS) ^
--                 hash_ip(addr.s_addr));
-+                 hash_ip6(addr));
- 
-     if (ch)
-         return container_of(ch, struct ip_map, h);
-@@ -318,14 +355,14 @@ static int ip_map_update(struct ip_map *
-     ch = sunrpc_cache_update(&ip_map_cache,
-                  &ip.h, &ipm->h,
-                  hash_str(ipm->m_class, IP_HASHBITS) ^
--                 hash_ip(ipm->m_addr.s_addr));
-+                 hash_ip6(ipm->m_addr));
-     if (!ch)
-         return -ENOMEM;
-     cache_put(ch, &ip_map_cache);
-     return 0;
+--- netdev-2.6.orig/include/linux/etherdevice.h	2007-08-22 20:34:43.451906163 +0200
++++ netdev-2.6/include/linux/etherdevice.h	2007-08-22 20:40:02.101906163 +0200
+@@ -133,6 +133,7 @@ static inline unsigned compare_ether_add
+ 	BUILD_BUG_ON(ETH_ALEN != 6);
+ 	return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | (a[2] ^ b[2])) != 0;
  }
- 
--int auth_unix_add_addr(struct in_addr addr, struct auth_domain *dom)
-+int auth_unix_add_addr(struct in6_addr addr, struct auth_domain *dom)
- {
-     struct unix_domain *udom;
-     struct ip_map *ipmp;
-@@ -352,7 +389,7 @@ int auth_unix_forget_old(struct auth_dom
-     return 0;
- }
- 
--struct auth_domain *auth_unix_lookup(struct in_addr addr)
-+struct auth_domain *auth_unix_lookup(struct in6_addr addr)
- {
-     struct ip_map *ipm;
-     struct auth_domain *rv;
-@@ -641,7 +678,19 @@ static int unix_gid_find(uid_t uid, stru
- int
- svcauth_unix_set_client(struct svc_rqst *rqstp)
- {
--    struct sockaddr_in *sin = svc_addr_in(rqstp);
-+    struct sockaddr_in *sin;
-+    struct sockaddr_in6 *sin6;
 +
-+    switch (rqstp->rq_addr.ss_family) {
-+    default:
-+        BUG();
-+    case AF_INET:
-+        sin = svc_addr_in(rqstp);
-+        ipv6_addr_map(sin->sin_addr, sin6->sin6_addr);
-+    case AF_INET6:
-+        sin6 = svc_addr_in6(rqstp);
-+    }
+ #endif	/* __KERNEL__ */
+ 
+ #endif	/* _LINUX_ETHERDEVICE_H */
+--- netdev-2.6.orig/drivers/net/myri_sbus.c	2007-08-22 20:33:16.251906163 +0200
++++ netdev-2.6/drivers/net/myri_sbus.c	2007-08-22 20:40:02.171906163 +0200
+@@ -854,10 +854,8 @@ static inline void determine_reg_space_s
+ static void dump_eeprom(struct myri_eth *mp)
+ {
+ 	printk("EEPROM: clockval[%08x] cpuvers[%04x] "
+-	       "id[%02x,%02x,%02x,%02x,%02x,%02x]\n",
+-	       mp->eeprom.cval, mp->eeprom.cpuvers,
+-	       mp->eeprom.id[0], mp->eeprom.id[1], mp->eeprom.id[2],
+-	       mp->eeprom.id[3], mp->eeprom.id[4], mp->eeprom.id[5]);
++	       "id[" MAC_FMT "]\n",
++	       mp->eeprom.cval, mp->eeprom.cpuvers, MAC_ARG(mp->eeprom.id));
+ 	printk("EEPROM: ramsz[%08x]\n", mp->eeprom.ramsz);
+ 	printk("EEPROM: fvers[%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x\n",
+ 	       mp->eeprom.fvers[0], mp->eeprom.fvers[1], mp->eeprom.fvers[2],
+--- netdev-2.6.orig/include/net/mac80211.h	2007-08-22 20:35:04.481906163 +0200
++++ netdev-2.6/include/net/mac80211.h	2007-08-22 20:40:02.171906163 +0200
+@@ -1058,8 +1058,4 @@ static inline int ieee80211_get_morefrag
+ 		IEEE80211_FCTL_MOREFRAGS) != 0;
+ }
+ 
+-#define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
+-#define MAC_ARG(x) ((u8*)(x))[0], ((u8*)(x))[1], ((u8*)(x))[2], \
+-		   ((u8*)(x))[3], ((u8*)(x))[4], ((u8*)(x))[5]
+-
+ #endif /* MAC80211_H */
+--- netdev-2.6.orig/include/net/ieee80211.h	2007-08-22 20:35:03.981906163 +0200
++++ netdev-2.6/include/net/ieee80211.h	2007-08-22 20:40:02.181906163 +0200
+@@ -119,11 +119,6 @@ do { if (ieee80211_debug_level & (level)
+ #define IEEE80211_DEBUG(level, fmt, args...) do {} while (0)
+ #endif				/* CONFIG_IEEE80211_DEBUG */
+ 
+-/* debug macros not dependent on CONFIG_IEEE80211_DEBUG */
+-
+-#define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
+-#define MAC_ARG(x) ((u8*)(x))[0],((u8*)(x))[1],((u8*)(x))[2],((u8*)(x))[3],((u8*)(x))[4],((u8*)(x))[5]
+-
+ /* escape_essid() is intended to be used in debug (and possibly error)
+  * messages. It should never be used for passing essid to user space. */
+ const char *escape_essid(const char *essid, u8 essid_len);
+--- netdev-2.6.orig/include/linux/if_ether.h	2007-08-22 20:34:43.751906163 +0200
++++ netdev-2.6/include/linux/if_ether.h	2007-08-22 20:40:02.181906163 +0200
+@@ -120,6 +120,11 @@ static inline struct ethhdr *eth_hdr(con
+ #ifdef CONFIG_SYSCTL
+ extern struct ctl_table ether_table[];
+ #endif
 +
-     struct ip_map *ipm;
++/* helper macros to print MAC addresses */
++#define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
++#define MAC_ARG(x) ((u8*)(x))[0], ((u8*)(x))[1], ((u8*)(x))[2], \
++		   ((u8*)(x))[3], ((u8*)(x))[4], ((u8*)(x))[5]
+ #endif
  
-     rqstp->rq_client = NULL;
-@@ -651,7 +700,7 @@ svcauth_unix_set_client(struct svc_rqst
-     ipm = ip_map_cached_get(rqstp);
-     if (ipm == NULL)
-         ipm = ip_map_lookup(rqstp->rq_server->sv_program->pg_class,
--                    sin->sin_addr);
-+                    sin6->sin6_addr);
- 
-     if (ipm == NULL)
-         return SVC_DENIED;
+ #endif	/* _LINUX_IF_ETHER_H */
 
--- 
-
-********************************
-       Aurelien Charbon
-       Linux NFSv4 team
-           Bull SAS
-     Echirolles - France
-http://nfsv4.bullopensource.org/
-********************************
 
