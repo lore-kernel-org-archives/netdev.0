@@ -1,56 +1,50 @@
-From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
-Subject: [PATCH] spidernet: enable poll() before registering interrupts
-Date: Wed, 22 Aug 2007 09:27:57 +0900 (JST)
-Message-ID: <20070822.092757.-432817388.kouish@swc.toshiba.co.jp>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Tue, 21 Aug 2007 17:50:07 -0700
+Message-ID: <20070822005007.GG7574@linux.vnet.ibm.com>
+References: <Pine.LNX.4.64.0708171817050.15427@schroedinger.engr.sgi.com> <46C997B1.1010800@redhat.com> <417ebba299a7ad3c4b7a31c4f860a814@kernel.crashing.org> <20070820224859.GA16162@flint.arm.linux.org.uk> <2bdb04581125f22122f1d230e991ea92@kernel.crashing.org> <20070821070555.GA32036@flint.arm.linux.org.uk> <18122.45437.807239.395869@cargo.ozlabs.ibm.com> <33412cad5894a9cbdc85482db5e9a0a0@kernel.crashing.org> <20070821161643.GA7574@linux.vnet.ibm.com> <28709.1187736676@turing-police.cc.vt.edu>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org, arnd@arndb.de
-To: Linas Vepstas <linas@austin.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Segher Boessenkool <segher@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Russell King <rmk+lkml@arm.linux.org.uk>,
+	Christoph Lameter <clameter@sgi.com>,
+	heiko.carstens@de.ibm.com, horms@verge.net.au,
+	linux-kernel@vger.kernel.org, ak@suse.de, netdev@vger.kernel.org,
+	cfriesen@nortel.com, akpm@linux-foundation.org,
+	rpjday@mindspring.com, Nick Piggin <nickpiggin@yahoo.com.au>,
+	linux-arch@vger.kernel.org, jesper.juhl@gmail.com,
+	satyam@infradead.org, zlynx@acm.org, schwidefsky@de.ibm.com,
+	Chris Snook <csnook@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Valdis.Kletnieks@vt.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imx12.toshiba.co.jp ([61.202.160.132]:62058 "EHLO
-	imx12.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751201AbXHVA2Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 20:28:24 -0400
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:53549 "EHLO e6.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751055AbXHVAuM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Aug 2007 20:50:12 -0400
+Content-Disposition: inline
+In-Reply-To: <28709.1187736676@turing-police.cc.vt.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We must not call netif_poll_enable after enabling interrupts,
-because an interrupt might come in and set the __LINK_STATE_RX_SCHED
-bit before we get to clear that bit again. If that happens,
-the next call to the ->poll() function will oops.
+On Tue, Aug 21, 2007 at 06:51:16PM -0400, Valdis.Kletnieks@vt.edu wrote:
+> On Tue, 21 Aug 2007 09:16:43 PDT, "Paul E. McKenney" said:
+> 
+> > I agree that instant gratification is hard to come by when synching
+> > up compiler and kernel versions.  Nonetheless, it should be possible
+> > to create APIs that are are conditioned on the compiler version.
+> 
+> We've tried that, sort of.  See the mess surrounding the whole
+> extern/static/inline/__whatever boondogle, which seems to have
+> changed semantics in every single gcc release since 2.95 or so.
+> 
+> And recently mention was made that gcc4.4 will have *new* semantics
+> in this area. Yee. Hah.
 
-Signed-off-by: Arnd Bergmann <arnd.bergmann@de.ibm.com>
-Signed-off-by: Kou Ishizaki <kou.ishizaki@toshiba.co.jp>
----
+;-)
 
-I refreshed Arnd-san's patch.
-
-
-Index: linux-powerpc-git/drivers/net/spider_net.c
-===================================================================
---- linux-powerpc-git.orig/drivers/net/spider_net.c	2007-08-21 16:58:44.000000000 +0900
-+++ linux-powerpc-git/drivers/net/spider_net.c	2007-08-21 17:11:07.000000000 +0900
-@@ -2030,6 +2030,7 @@ spider_net_open(struct net_device *netde
- 	/* further enhancement: setup hw vlan, if needed */
- 
- 	result = -EBUSY;
-+	netif_poll_enable(netdev);
- 	if (request_irq(netdev->irq, spider_net_interrupt,
- 			     IRQF_SHARED, netdev->name, netdev))
- 		goto register_int_failed;
-@@ -2038,13 +2039,13 @@ spider_net_open(struct net_device *netde
- 
- 	netif_start_queue(netdev);
- 	netif_carrier_on(netdev);
--	netif_poll_enable(netdev);
- 
- 	spider_net_enable_interrupts(card);
- 
- 	return 0;
- 
- register_int_failed:
-+	netif_poll_disable(netdev);
- 	spider_net_free_rx_chain_contents(card);
- alloc_skbs_failed:
- 	spider_net_free_chain(card, &card->rx_chain);
+						Thanx, Paul
