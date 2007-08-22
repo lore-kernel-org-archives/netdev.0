@@ -1,7 +1,7 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 2/11 RESEND] cxgb3 - SGE doorbell overflow warning
-Date: Tue, 21 Aug 2007 20:49:10 -0700
-Message-ID: <20070822034910.9278.84307.stgit@speedy5>
+Subject: [PATCH 3/11 RESEND] cxgb3 - use immediate data for offload Tx
+Date: Tue, 21 Aug 2007 20:49:15 -0700
+Message-ID: <20070822034915.9296.97240.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,55 +9,77 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:15982 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:22925 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754868AbXHVDtN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 23:49:13 -0400
+	with ESMTP id S1755283AbXHVDtS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 23:49:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Divy Le Ray <divy@chelsio.com>
 
-Log doorbell Fifo overflow
+Send small TX_DATA work requests as immediate data even when
+there are fragments. this avoids doing multiple DMAs for 
+small fragmented packets. 
+The driver already implements this optimization for small
+contiguous packets.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/regs.h |    8 ++++++++
- drivers/net/cxgb3/sge.c  |    4 ++++
- 2 files changed, 12 insertions(+), 0 deletions(-)
+ drivers/net/cxgb3/sge.c |   17 +++++++++++------
+ 1 files changed, 11 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/cxgb3/regs.h b/drivers/net/cxgb3/regs.h
-index aa80313..2824278 100644
---- a/drivers/net/cxgb3/regs.h
-+++ b/drivers/net/cxgb3/regs.h
-@@ -172,6 +172,14 @@
- 
- #define A_SG_INT_CAUSE 0x5c
- 
-+#define S_HIPIODRBDROPERR    11
-+#define V_HIPIODRBDROPERR(x) ((x) << S_HIPIODRBDROPERR)
-+#define F_HIPIODRBDROPERR    V_HIPIODRBDROPERR(1U)
-+
-+#define S_LOPIODRBDROPERR    10
-+#define V_LOPIODRBDROPERR(x) ((x) << S_LOPIODRBDROPERR)
-+#define F_LOPIODRBDROPERR    V_LOPIODRBDROPERR(1U)
-+
- #define S_RSPQDISABLED    3
- #define V_RSPQDISABLED(x) ((x) << S_RSPQDISABLED)
- #define F_RSPQDISABLED    V_RSPQDISABLED(1U)
 diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
-index a2cfd68..9213cda 100644
+index 9213cda..dca2716 100644
 --- a/drivers/net/cxgb3/sge.c
 +++ b/drivers/net/cxgb3/sge.c
-@@ -2476,6 +2476,10 @@ void t3_sge_err_intr_handler(struct adapter *adapter)
- 			 "(0x%x)\n", (v >> S_RSPQ0DISABLED) & 0xff);
- 	}
+@@ -1182,8 +1182,8 @@ int t3_eth_xmit(struct sk_buff *skb, struct net_device *dev)
+  *
+  *	Writes a packet as immediate data into a Tx descriptor.  The packet
+  *	contains a work request at its beginning.  We must write the packet
+- *	carefully so the SGE doesn't read accidentally before it's written in
+- *	its entirety.
++ *	carefully so the SGE doesn't read it accidentally before it's written
++ *	in its entirety.
+  */
+ static inline void write_imm(struct tx_desc *d, struct sk_buff *skb,
+ 			     unsigned int len, unsigned int gen)
+@@ -1191,7 +1191,11 @@ static inline void write_imm(struct tx_desc *d, struct sk_buff *skb,
+ 	struct work_request_hdr *from = (struct work_request_hdr *)skb->data;
+ 	struct work_request_hdr *to = (struct work_request_hdr *)d;
  
-+	if (status & (F_HIPIODRBDROPERR | F_LOPIODRBDROPERR))
-+		CH_ALERT(adapter, "SGE dropped %s priority doorbell\n",
-+			 status & F_HIPIODRBDROPERR ? "high" : "lo");
+-	memcpy(&to[1], &from[1], len - sizeof(*from));
++	if (likely(!skb->data_len))
++		memcpy(&to[1], &from[1], len - sizeof(*from));
++	else
++		skb_copy_bits(skb, sizeof(*from), &to[1], len - sizeof(*from));
 +
- 	t3_write_reg(adapter, A_SG_INT_CAUSE, status);
- 	if (status & (F_RSPQCREDITOVERFOW | F_RSPQDISABLED))
- 		t3_fatal_err(adapter);
+ 	to->wr_hi = from->wr_hi | htonl(F_WR_SOP | F_WR_EOP |
+ 					V_WR_BCNTLFLT(len & 7));
+ 	wmb();
+@@ -1261,7 +1265,7 @@ static inline void reclaim_completed_tx_imm(struct sge_txq *q)
+ 
+ static inline int immediate(const struct sk_buff *skb)
+ {
+-	return skb->len <= WR_LEN && !skb->data_len;
++	return skb->len <= WR_LEN;
+ }
+ 
+ /**
+@@ -1467,12 +1471,13 @@ static void write_ofld_wr(struct adapter *adap, struct sk_buff *skb,
+  */
+ static inline unsigned int calc_tx_descs_ofld(const struct sk_buff *skb)
+ {
+-	unsigned int flits, cnt = skb_shinfo(skb)->nr_frags;
++	unsigned int flits, cnt;
+ 
+-	if (skb->len <= WR_LEN && cnt == 0)
++	if (skb->len <= WR_LEN)
+ 		return 1;	/* packet fits as immediate data */
+ 
+ 	flits = skb_transport_offset(skb) / 8;	/* headers */
++	cnt = skb_shinfo(skb)->nr_frags;
+ 	if (skb->tail != skb->transport_header)
+ 		cnt++;
+ 	return flits_to_desc(flits + sgl_len(cnt));
