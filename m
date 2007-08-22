@@ -1,7 +1,7 @@
 From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: [PATCH 1/4] ehea: fix interface to DLPAR tools
-Date: Wed, 22 Aug 2007 16:20:58 +0200
-Message-ID: <200708221620.59078.ossthema@de.ibm.com>
+Subject: [PATCH 2/4] ehea: fix module parameter description
+Date: Wed, 22 Aug 2007 16:21:24 +0200
+Message-ID: <200708221621.25163.ossthema@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -16,55 +16,36 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Stefan Roscher <stefan.roscher@de.ibm.com>
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:43620 "EHLO
-	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758722AbXHVOxT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 10:53:19 -0400
+Received: from mtagate8.de.ibm.com ([195.212.29.157]:64333 "EHLO
+	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762418AbXHVOxp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 10:53:45 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Userspace DLPAR tool expects decimal numbers to be written to
-and read from sysfs entries.
+Update the module parameter description of "use_mcs" to
+show correct default value
 
 Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
 
-
 ---
- drivers/net/ehea/ehea_main.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ehea/ehea_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index 9756211..22d000f 100644
+index 22d000f..db57474 100644
 --- a/drivers/net/ehea/ehea_main.c
 +++ b/drivers/net/ehea/ehea_main.c
-@@ -2490,7 +2490,7 @@ static ssize_t ehea_show_port_id(struct device *dev,
- 				 struct device_attribute *attr, char *buf)
- {
- 	struct ehea_port *port = container_of(dev, struct ehea_port, ofdev.dev);
--	return sprintf(buf, "0x%X", port->logical_port_id);
-+	return sprintf(buf, "%d", port->logical_port_id);
- }
+@@ -76,7 +76,7 @@ MODULE_PARM_DESC(rq1_entries, "Number of entries for Receive Queue 1 "
+ MODULE_PARM_DESC(sq_entries, " Number of entries for the Send Queue  "
+ 		 "[2^x - 1], x = [6..14]. Default = "
+ 		 __MODULE_STRING(EHEA_DEF_ENTRIES_SQ) ")");
+-MODULE_PARM_DESC(use_mcs, " 0:NAPI, 1:Multiple receive queues, Default = 1 ");
++MODULE_PARM_DESC(use_mcs, " 0:NAPI, 1:Multiple receive queues, Default = 0 ");
  
- static DEVICE_ATTR(log_port_id, S_IRUSR | S_IRGRP | S_IROTH, ehea_show_port_id,
-@@ -2781,7 +2781,7 @@ static ssize_t ehea_probe_port(struct device *dev,
- 
- 	u32 logical_port_id;
- 
--	sscanf(buf, "%X", &logical_port_id);
-+	sscanf(buf, "%d", &logical_port_id);
- 
- 	port = ehea_get_port(adapter, logical_port_id);
- 
-@@ -2834,7 +2834,7 @@ static ssize_t ehea_remove_port(struct device *dev,
- 	int i;
- 	u32 logical_port_id;
- 
--	sscanf(buf, "%X", &logical_port_id);
-+	sscanf(buf, "%d", &logical_port_id);
- 
- 	port = ehea_get_port(adapter, logical_port_id);
- 
+ static int port_name_cnt = 0;
+ static LIST_HEAD(adapter_list);
 -- 
 1.5.2
 
