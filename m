@@ -1,56 +1,70 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH -mm] drivers/net/e1000e/netdev.c warning
-	fix
-Date: Wed, 22 Aug 2007 07:40:41 -0700
-Message-ID: <46CC4AE9.5070007@intel.com>
-References: <46CC316D.2020906@googlemail.com>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: [PATCH 1/4] ehea: fix interface to DLPAR tools
+Date: Wed, 22 Aug 2007 16:20:58 +0200
+Message-ID: <200708221620.59078.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-Cc: e1000-devel@lists.sourceforge.net,
-	Netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux NICS <linux.nics@intel.com>
-To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <46CC316D.2020906@googlemail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	"Jan-Bernd Themann" <themann@de.ibm.com>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"linux-ppc" <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate5.de.ibm.com ([195.212.29.154]:43620 "EHLO
+	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758722AbXHVOxT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 10:53:19 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michal Piotrowski wrote:
-> Hi,
-> =
+Userspace DLPAR tool expects decimal numbers to be written to
+and read from sysfs entries.
 
-> This patch fixes the following compilation warning
-> =
-
-> drivers/net/e1000e/netdev.c: In function =E2=80=98e1000_setup_rctl=E2=80=
-=99:
-> drivers/net/e1000e/netdev.c:1963: warning: unused variable =E2=80=98pages=
-=E2=80=99
-> =
-
-> Regards,
-> Michal
-> =
+Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
 
 
-also exposes a symbol issue. I think I want to remove this #ifdef =
+---
+ drivers/net/ehea/ehea_main.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-CONFIG_E1000_DISABLE_PACKET_SPLIT from this driver alltogether...
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index 9756211..22d000f 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -2490,7 +2490,7 @@ static ssize_t ehea_show_port_id(struct device *dev,
+ 				 struct device_attribute *attr, char *buf)
+ {
+ 	struct ehea_port *port = container_of(dev, struct ehea_port, ofdev.dev);
+-	return sprintf(buf, "0x%X", port->logical_port_id);
++	return sprintf(buf, "%d", port->logical_port_id);
+ }
+ 
+ static DEVICE_ATTR(log_port_id, S_IRUSR | S_IRGRP | S_IROTH, ehea_show_port_id,
+@@ -2781,7 +2781,7 @@ static ssize_t ehea_probe_port(struct device *dev,
+ 
+ 	u32 logical_port_id;
+ 
+-	sscanf(buf, "%X", &logical_port_id);
++	sscanf(buf, "%d", &logical_port_id);
+ 
+ 	port = ehea_get_port(adapter, logical_port_id);
+ 
+@@ -2834,7 +2834,7 @@ static ssize_t ehea_remove_port(struct device *dev,
+ 	int i;
+ 	u32 logical_port_id;
+ 
+-	sscanf(buf, "%X", &logical_port_id);
++	sscanf(buf, "%d", &logical_port_id);
+ 
+ 	port = ehea_get_port(adapter, logical_port_id);
+ 
+-- 
+1.5.2
 
-Auke
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >>  http://get.splunk.com/
