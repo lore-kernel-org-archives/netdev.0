@@ -1,38 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/9 Rev3] Implement batching skb API and support in
- IPoIB
-Date: Wed, 22 Aug 2007 13:21:45 -0700 (PDT)
-Message-ID: <20070822.132145.90824527.davem@davemloft.net>
-References: <OFC19F468C.48FB78EE-ON6525733F.0016047F-6525733F.00170F48@in.ibm.com>
-	<20070821.212229.82050253.davem@davemloft.net>
-	<46CC6DD1.5020105@hp.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH] netdevice: kernel docbook addition
+Date: Wed, 22 Aug 2007 13:42:24 -0700
+Message-ID: <20070822134224.338ff7a8.randy.dunlap@oracle.com>
+References: <20070822123314.785dea2a@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, gaagaan@gmail.com,
-	general@lists.openfabrics.org, hadi@cyberus.ca,
-	herbert@gondor.apana.org.au, jagana@us.ibm.com, jeff@garzik.org,
-	johnpol@2ka.mipt.ru, kaber@trash.net, kumarkr@linux.ibm.com,
-	mcarlson@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org,
-	peter.p.waskiewicz.jr@intel.com, rdreier@cisco.com,
-	Robert.Olsson@data.slu.se, shemminger@linux-foundation.org,
-	sri@us.ibm.com, tgraf@suug.ch, xma@us.ibm.com
-To: rick.jones2@hp.com
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58461
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753157AbXHVUVr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 16:21:47 -0400
-In-Reply-To: <46CC6DD1.5020105@hp.com>
+Received: from agminet01.oracle.com ([141.146.126.228]:36878 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758283AbXHVUng (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 16:43:36 -0400
+In-Reply-To: <20070822123314.785dea2a@freepuppy.rosehill.hemminger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Wed, 22 Aug 2007 10:09:37 -0700
+On Wed, 22 Aug 2007 12:33:14 -0700 Stephen Hemminger wrote:
 
-> Should it be any more or less worrysome than small packet
-> performance (eg the TCP_RR stuff I posted recently) being rather
-> worse with TSO enabled than with it disabled?
+> Add more kernel doc's for part of the network device API.
+> This is only a start, and needs more work.
+> 
+> Applies against net-2.6.24
 
-That, like any such thing shown by the batching changes, is a bug
-to fix.
+Thanks!
+
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
