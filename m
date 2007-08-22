@@ -1,40 +1,40 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH 4/7] fs_enet: mac-fcc: Eliminate __fcc-* macros.
-Date: Wed, 22 Aug 2007 16:17:01 -0500
-Message-ID: <46CCA7CD.3060109@freescale.com>
-References: <20070817175320.GA8259@ld0162-tx32.am.freescale.net>	<20070817175402.GD9218@ld0162-tx32.am.freescale.net> <20070823010826.6ae3452d@localhost.localdomain>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC] Wild and crazy ideas involving struct sk_buff
+Date: Wed, 22 Aug 2007 23:20:05 +0200
+Message-ID: <20070822212005.GR32236@postel.suug.ch>
+References: <200708221631.34234.paul.moore@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Vitaly Bordug <vitb@kernel.crashing.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Paul Moore <paul.moore@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:52033 "EHLO
-	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760257AbXHVVRS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 17:17:18 -0400
-In-Reply-To: <20070823010826.6ae3452d@localhost.localdomain>
+Received: from postel.suug.ch ([194.88.212.233]:57755 "EHLO postel.suug.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756982AbXHVVTo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Aug 2007 17:19:44 -0400
+Content-Disposition: inline
+In-Reply-To: <200708221631.34234.paul.moore@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Vitaly Bordug wrote:
->>-#define W8(_p, _m, _v)	__fcc_out8(&(_p)->_m, (_v))
->>-#define R8(_p, _m)	__fcc_in8(&(_p)->_m)
->>+#define W8(_p, _m, _v)	out_8(&(_p)->_m, (_v))
->>+#define R8(_p, _m)	in_8(&(_p)->_m)
->> #define S8(_p, _m, _v)	W8(_p, _m, R8(_p, _m) | (_v))
->> #define C8(_p, _m, _v)	W8(_p, _m, R8(_p, _m) & ~(_v))
->> 
->>@@ -290,7 +281,7 @@ static void restart(struct net_device *dev)
->> 
->> 	/* clear everything (slow & steady does it) */
->> 	for (i = 0; i < sizeof(*ep); i++)
->>-		__fcc_out8((char *)ep + i, 0);
->>+		out_8((char *)ep + i, 0);
->> 
-> 
-> Perhaps W8() here, to keep consistency?
+* Paul Moore <paul.moore@hp.com> 2007-08-22 16:31
+> We're currently talking about several different ideas to solve the problem, 
+> including leveraging the sk_buff.secmark field, and one of the ideas was to 
+> add an additional field to the sk_buff structure.  Knowing how well that idea 
+> would go over (lead balloon is probably an understatement at best) I started 
+> looking at what I might be able to remove from the sk_buff struct to make 
+> room for a new field (the new field would be a u32).  Looking at the sk_buff 
+> structure it appears that the sk_buff.dev and sk_buff.iif fields are a bit 
+> redundant and removing the sk_buff.dev field could free 32/64 bits depending 
+> on the platform.  Is there any reason (performance?) for keeping the 
+> sk_buff.dev field around?  Would the community be open to patches which 
+> removed it and transition users over to the sk_buff.iif field?  Finally, 
+> assuming the sk_buff.dev field was removed, would the community be open to 
+> adding a new LSM/SELinux related u32 field to the sk_buff struct?
 
-W8 expects a struct pointer and member, which we don't have here.
+This reminds of an idea someone brought up a while ago, it involved
+having a way to attach additional space to an sk_buff for all the
+different marks and other non-essential fields.
 
--Scott
+I think skb->dev is required because we need to have a reference on the
+device while a packet being processing is put on a queue somewhere.
