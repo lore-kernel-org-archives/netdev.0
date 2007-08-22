@@ -1,80 +1,94 @@
-From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Subject: Re: [PATCH][VIA-RHINE]: Fix CONFIG_VIA_RHINE_NAPI usage
-Date: Wed, 22 Aug 2007 19:19:47 -0300
-Message-ID: <20070822221946.GE23220@ghostprotocols.net>
-References: <20070822214659.GC23220@ghostprotocols.net> <20070822.145855.32177470.davem@davemloft.net>
+From: Andrew Theurer <habanero@us.ibm.com>
+Subject: Re: eHEA driver issues from net-2.6.24
+Date: Wed, 22 Aug 2007 17:20:06 -0500
+Message-ID: <46CCB696.7090703@us.ibm.com>
+References: <46CCB0B7.3030302@us.ibm.com> <20070822.150302.44981242.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ossthema@de.ibm.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.228]:54552 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934150AbXHVWTz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 18:19:55 -0400
-Received: by wr-out-0506.google.com with SMTP id 36so246858wra
-        for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 15:19:54 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20070822.145855.32177470.davem@davemloft.net>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:59720 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932307AbXHVWUN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 18:20:13 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l7MMK8Bc007032
+	for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 18:20:08 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7MMK7lZ132822
+	for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 16:20:07 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7MMK7th000937
+	for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 16:20:07 -0600
+In-Reply-To: <20070822.150302.44981242.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Wed, Aug 22, 2007 at 02:58:55PM -0700, David Miller escreveu:
-> From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-> Date: Wed, 22 Aug 2007 18:46:59 -0300
-> 
-> > Hi David,
-> > 
-> > 	napi is broken here, with this patch at least I can isolate this
-> > breakage and boot the machine with a non-napi via-rhine driver.
-> > 
-> 
-> Thanks for finding this problem.
-> 
-> The core issue seems to be that via-rhine.c tries to perform
-> a napi_enable() when there has not been a previous napi_disable().
-> 
-> So lets make sure that all paths that lead to an init_registers()
-> call makes a preceeding napi_disable().
-> 
-> Please give this patch a try:
+David Miller wrote:
+> From: Andrew Theurer <habanero@us.ibm.com>
+> Date: Wed, 22 Aug 2007 16:55:03 -0500
+>
+> Thanks for finally getting to test this, I thought nobody
+> would test this until it got merged into 2.6.24 :-/
+>
+>   
+>> kernel BUG at include/linux/netdevice.h:318!
+>> enter ? for help
+>> [c00000000f613e40] c0000000003fe394 .net_rx_action+0x1b8/0x254
+>> [c00000000f613ef0] c000000000057b70 .__do_softirq+0xa8/0x164
+>> [c00000000f613f90] c000000000024438 .call_do_softirq+0x14/0x24
+>> [c000000b8ffbf9f0] c00000000000bd30 .do_softirq+0x68/0xac
+>> [c000000b8ffbfa80] c000000000057cc4 .irq_exit+0x54/0x6c
+>> [c000000b8ffbfb00] c00000000000c358 .do_IRQ+0x170/0x1ac
+>> [c000000b8ffbfb90] c000000000004780 hardware_interrupt_entry+0x18/0x98
+>> --- Exception: 501 (Hardware Interrupt) at c000000000010bdc 
+>> .cpu_idle+0x114/0x1e0
+>> [c000000b8ffbfe80] c000000000010bd0 .cpu_idle+0x108/0x1e0 (unreliable)
+>> [c000000b8ffbff00] c000000000026db0 .start_secondary+0x160/0x184
+>> [c000000b8ffbff90] c000000000008364 .start_secondary_prolog+0xc/0x10
+>>
+>> I'm a little confused if the port_napi_enable() is being called when the 
+>> device is initialized, but then again, this is all new to me (should it 
+>> be called in ehea_open?).  I see it called on some reset routines, but 
+>> not on the first initialization.
+>>     
+>
+> This is similar to the problem that Arnaldo hit a few minutes
+> ago in the VIA Rhine driver.
+>
+> You can't only make a napi_enable() call when there has been
+> a previous napi_disable().
+>
+> One way to fix this would be to forcefully napi_disable() on
+> all the per-port NAPI structs at the beginning of ehea_open(),
+> which should set things up to satisfy the pre-condition of the
+> napi_enable() calls.
+>   
+OK, Ill try this. 
+> You'll need to audit the entire driver to make sure this invariant
+> is held properly.
+>
+>   
+>> Also, on this code, in ehea_sense_port_attr()
+>>
+>> /* Number of default QPs */
+>>         if (use_mcs)
+>>                 port->num_def_qps = cb0->num_default_qps;
+>>         else
+>>                 port->num_def_qps = 1;
+>>                
+>>
+>> When using napi, since we have multi-queue napi support now, wouldn't we 
+>> want to use all the default qps instead of 1?
+>>     
+>
+> I don't know how this hardware works, you tell me :-)
+>   
+Heh, I don't know it well, either. Maybe Jan Bernd can chime in.
 
-Tried with and without CONFIG_VIA_RHINE_NAPI, did stress testing with
-netperf only with NAPI enabled. Works great
+Thanks for your help,
 
+-Andrew
 
-Signed-off-by: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
- 
-> diff --git a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
-> index 8f4cf82..0e6aefe 100644
-> --- a/drivers/net/via-rhine.c
-> +++ b/drivers/net/via-rhine.c
-> @@ -1167,6 +1167,7 @@ static int rhine_open(struct net_device *dev)
->  		free_irq(rp->pdev->irq, dev);
->  		return rc;
->  	}
-> +	napi_disable(&rp->napi);
->  	alloc_rbufs(dev);
->  	alloc_tbufs(dev);
->  	rhine_chip_reset(dev);
-> @@ -1195,6 +1196,8 @@ static void rhine_tx_timeout(struct net_device *dev)
->  	/* protect against concurrent rx interrupts */
->  	disable_irq(rp->pdev->irq);
->  
-> +	napi_disable(&rp->napi);
-> +
->  	spin_lock(&rp->lock);
->  
->  	/* clear all descriptors */
-> @@ -1935,6 +1938,7 @@ static int rhine_suspend(struct pci_dev *pdev, pm_message_t state)
->  	if (!netif_running(dev))
->  		return 0;
->  
-> +	napi_disable(&rp->napi);
->  	netif_device_detach(dev);
->  	pci_save_state(pdev);
->  
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
