@@ -1,43 +1,101 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] Wild and crazy ideas involving struct sk_buff
-Date: Wed, 22 Aug 2007 14:08:05 -0700 (PDT)
-Message-ID: <20070822.140805.54950393.davem@davemloft.net>
-References: <200708221631.34234.paul.moore@hp.com>
+From: Vitaly Bordug <vitb@kernel.crashing.org>
+Subject: Re: [PATCH 4/7] fs_enet: mac-fcc: Eliminate __fcc-* macros.
+Date: Thu, 23 Aug 2007 01:08:26 +0400
+Message-ID: <20070823010826.6ae3452d@localhost.localdomain>
+References: <20070817175320.GA8259@ld0162-tx32.am.freescale.net>
+	<20070817175402.GD9218@ld0162-tx32.am.freescale.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jmorris@namei.org
-To: paul.moore@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43606
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1764207AbXHVVII (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 17:08:08 -0400
-In-Reply-To: <200708221631.34234.paul.moore@hp.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, linuxppc-dev@ozlabs.org
+To: Scott Wood <scottwood@freescale.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <20070817175402.GD9218@ld0162-tx32.am.freescale.net>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Moore <paul.moore@hp.com>
-Date: Wed, 22 Aug 2007 16:31:34 -0400
+On Fri, 17 Aug 2007 12:54:02 -0500
+Scott Wood wrote:
 
-> We're currently talking about several different ideas to solve the problem, 
-> including leveraging the sk_buff.secmark field, and one of the ideas was to 
-> add an additional field to the sk_buff structure.  Knowing how well that idea 
-> would go over (lead balloon is probably an understatement at best) I started 
-> looking at what I might be able to remove from the sk_buff struct to make 
-> room for a new field (the new field would be a u32).  Looking at the sk_buff 
-> structure it appears that the sk_buff.dev and sk_buff.iif fields are a bit 
-> redundant and removing the sk_buff.dev field could free 32/64 bits depending 
-> on the platform.  Is there any reason (performance?) for keeping the 
-> sk_buff.dev field around?  Would the community be open to patches which 
-> removed it and transition users over to the sk_buff.iif field?  Finally, 
-> assuming the sk_buff.dev field was removed, would the community be open to 
-> adding a new LSM/SELinux related u32 field to the sk_buff struct?
+> These macros accomplish nothing other than defeating type checking.
+> 
+> This patch also fixes one instance of the wrong register size being
+> used that was revealed by enabling type checking.
+> 
+> Signed-off-by: Scott Wood <scottwood@freescale.com>
+> ---
+>  drivers/net/fs_enet/mac-fcc.c |   25 ++++++++-----------------
+>  1 files changed, 8 insertions(+), 17 deletions(-)
+> 
+> diff --git a/drivers/net/fs_enet/mac-fcc.c
+> b/drivers/net/fs_enet/mac-fcc.c index ad3c5fa..8b30361 100644
+> --- a/drivers/net/fs_enet/mac-fcc.c
+> +++ b/drivers/net/fs_enet/mac-fcc.c
+> @@ -48,28 +48,19 @@
+>  
+>  /* FCC access macros */
+>  
+> -#define __fcc_out32(addr, x)	out_be32((unsigned *)addr, x)
+> -#define __fcc_out16(addr, x)	out_be16((unsigned short *)addr,
+> x) -#define __fcc_out8(addr, x)	out_8((unsigned char *)addr, x)
+> -#define __fcc_in32(addr)	in_be32((unsigned *)addr)
+> -#define __fcc_in16(addr)	in_be16((unsigned short *)addr)
+> -#define __fcc_in8(addr)		in_8((unsigned char *)addr)
+> -
+> -/* parameter space */
+> -
+>  /* write, read, set bits, clear bits */
+> -#define W32(_p, _m, _v)	__fcc_out32(&(_p)->_m, (_v))
+> -#define R32(_p, _m)	__fcc_in32(&(_p)->_m)
+> +#define W32(_p, _m, _v)	out_be32(&(_p)->_m, (_v))
+> +#define R32(_p, _m)	in_be32(&(_p)->_m)
+>  #define S32(_p, _m, _v)	W32(_p, _m, R32(_p, _m) | (_v))
+>  #define C32(_p, _m, _v)	W32(_p, _m, R32(_p, _m) & ~(_v))
+>  
+> -#define W16(_p, _m, _v)	__fcc_out16(&(_p)->_m, (_v))
+> -#define R16(_p, _m)	__fcc_in16(&(_p)->_m)
+> +#define W16(_p, _m, _v)	out_be16(&(_p)->_m, (_v))
+> +#define R16(_p, _m)	in_be16(&(_p)->_m)
+>  #define S16(_p, _m, _v)	W16(_p, _m, R16(_p, _m) | (_v))
+>  #define C16(_p, _m, _v)	W16(_p, _m, R16(_p, _m) & ~(_v))
+>  
+> -#define W8(_p, _m, _v)	__fcc_out8(&(_p)->_m, (_v))
+> -#define R8(_p, _m)	__fcc_in8(&(_p)->_m)
+> +#define W8(_p, _m, _v)	out_8(&(_p)->_m, (_v))
+> +#define R8(_p, _m)	in_8(&(_p)->_m)
+>  #define S8(_p, _m, _v)	W8(_p, _m, R8(_p, _m) | (_v))
+>  #define C8(_p, _m, _v)	W8(_p, _m, R8(_p, _m) & ~(_v))
+>  
+> @@ -290,7 +281,7 @@ static void restart(struct net_device *dev)
+>  
+>  	/* clear everything (slow & steady does it) */
+>  	for (i = 0; i < sizeof(*ep); i++)
+> -		__fcc_out8((char *)ep + i, 0);
+> +		out_8((char *)ep + i, 0);
+>  
+Perhaps W8() here, to keep consistency?
 
-It's there for performance, and I bet there might be some semantic
-issues involved.
 
-And ironically James Morris still owes me a struct sk_buff removal
-from when I let him put the "secmark" thing in there!
+>  	/* get physical address */
+>  	rx_bd_base_phys = fep->ring_mem_addr;
+> @@ -495,7 +486,7 @@ static void tx_kickstart(struct net_device *dev)
+>  	struct fs_enet_private *fep = netdev_priv(dev);
+>  	fcc_t *fccp = fep->fcc.fccp;
+>  
+> -	S32(fccp, fcc_ftodr, 0x80);
+> +	S16(fccp, fcc_ftodr, 0x8000);
+>  }
+>  
+>  static u32 get_int_events(struct net_device *dev)
 
-Stop spending money you guys haven't earned yet :-)
+
+-- 
+Sincerely, Vitaly
