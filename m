@@ -1,110 +1,61 @@
-From: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 2/2] Net: ath5k, remove sysctls
-Date: Wed, 22 Aug 2007 22:54:07 +0200 (CEST)
-Message-ID: <782311765865710289@wsc.cz>
-References: <2698018635706419125@wsc.cz>
-Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-reply-to: <2698018635706419125-2EuRcrBQ8V0@public.gmane.org>
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Cc: <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Cc: <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Cc: <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Paul Moore <paul.moore@hp.com>
+Subject: [RFC] Wild and crazy ideas involving struct sk_buff
+Date: Wed, 22 Aug 2007 16:31:34 -0400
+Message-ID: <200708221631.34234.paul.moore@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tayrelbas04.tay.hp.com ([161.114.80.247]:50837 "EHLO
+	tayrelbas04.tay.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933333AbXHVUyY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 16:54:24 -0400
+Received: from smtp1.fc.hp.com (smtp1.fc.hp.com [15.15.136.127])
+	by tayrelbas04.tay.hp.com (Postfix) with ESMTP id AD07F35E2E
+	for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 16:31:42 -0400 (EDT)
+Received: from ldl.fc.hp.com (ldl.fc.hp.com [15.11.146.30])
+	by smtp1.fc.hp.com (Postfix) with ESMTP id 595431B2261
+	for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 20:31:37 +0000 (UTC)
+Received: from localhost (ldl.fc.hp.com [127.0.0.1])
+	by ldl.fc.hp.com (Postfix) with ESMTP id 3667739C199
+	for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 14:31:37 -0600 (MDT)
+Received: from ldl.fc.hp.com ([127.0.0.1])
+	by localhost (ldl.fc.hp.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id TlGmPDHEcWJV for <netdev@vger.kernel.org>;
+	Wed, 22 Aug 2007 14:31:35 -0600 (MDT)
+Received: from flek.americas.hpqcorp.net (flek.americas.hpqcorp.net [16.116.100.36])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by ldl.fc.hp.com (Postfix) with ESMTP id 8CF2F134A9D
+	for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 14:31:35 -0600 (MDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ath5k, remove sysctls
+Over in LSM/SELinux land there has been a lot of talk recently about how to 
+deal with loopback and forwarded traffic, specifically, how to preserve the 
+sender's security label on those two types of traffic.  Yes, there is the 
+existing sk_buff.secmark field but that is already being used for something 
+else and utilizing it for this purpose has it's pros/cons.
 
-Syscalls were buggy and defunct in later kernels (due to sysctl check).
+We're currently talking about several different ideas to solve the problem, 
+including leveraging the sk_buff.secmark field, and one of the ideas was to 
+add an additional field to the sk_buff structure.  Knowing how well that idea 
+would go over (lead balloon is probably an understatement at best) I started 
+looking at what I might be able to remove from the sk_buff struct to make 
+room for a new field (the new field would be a u32).  Looking at the sk_buff 
+structure it appears that the sk_buff.dev and sk_buff.iif fields are a bit 
+redundant and removing the sk_buff.dev field could free 32/64 bits depending 
+on the platform.  Is there any reason (performance?) for keeping the 
+sk_buff.dev field around?  Would the community be open to patches which 
+removed it and transition users over to the sk_buff.iif field?  Finally, 
+assuming the sk_buff.dev field was removed, would the community be open to 
+adding a new LSM/SELinux related u32 field to the sk_buff struct?
 
-Signed-off-by: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-
----
-commit 069bfbe93facb3468f579568434d18f1268a487c
-tree 87c19ebf2c91d9fb07f1847adcb6098f2235eaaa
-parent b01c0e9a02b248c3e2f2923da9728ba2c3961dee
-author Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> Wed, 22 Aug 2007 22:48:41 +0200
-committer Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> Wed, 22 Aug 2007 22:48:41 +0200
-
- drivers/net/wireless/ath5k_base.c |   23 ++++++++---------------
- 1 files changed, 8 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/net/wireless/ath5k_base.c b/drivers/net/wireless/ath5k_base.c
-index 2ce82ed..7f938c4 100644
---- a/drivers/net/wireless/ath5k_base.c
-+++ b/drivers/net/wireless/ath5k_base.c
-@@ -2440,21 +2440,13 @@ static struct pci_driver ath_pci_drv_id = {
- 	.resume		= ath_pci_resume,
- };
+Thanks.
  
--/*
-- * Static (i.e. global) sysctls.  Note that the hal sysctls
-- * are located under ours by sharing the setting for DEV_ATH.
-- */
--enum {
--	DEV_ATH		= 9,			/* XXX known by hal */
--};
--
- static int mincalibrate = 1;
- static int maxcalibrate = INT_MAX / 1000;
- #define	CTL_AUTO	-2	/* cannot be CTL_ANY or CTL_NONE */
- 
- static ctl_table ath_static_sysctls[] = {
- #if AR_DEBUG
--	{ .ctl_name	= CTL_AUTO,
-+	{
- 	  .procname	= "debug",
- 	  .mode		= 0644,
- 	  .data		= &ath_debug,
-@@ -2462,28 +2454,28 @@ static ctl_table ath_static_sysctls[] = {
- 	  .proc_handler	= proc_dointvec
- 	},
- #endif
--	{ .ctl_name	= CTL_AUTO,
-+	{
- 	  .procname	= "countrycode",
- 	  .mode		= 0444,
- 	  .data		= &countrycode,
- 	  .maxlen	= sizeof(countrycode),
- 	  .proc_handler	= proc_dointvec
- 	},
--	{ .ctl_name	= CTL_AUTO,
-+	{
- 	  .procname	= "outdoor",
- 	  .mode		= 0444,
- 	  .data		= &outdoor,
- 	  .maxlen	= sizeof(outdoor),
- 	  .proc_handler	= proc_dointvec
- 	},
--	{ .ctl_name	= CTL_AUTO,
-+	{
- 	  .procname	= "xchanmode",
- 	  .mode		= 0444,
- 	  .data		= &xchanmode,
- 	  .maxlen	= sizeof(xchanmode),
- 	  .proc_handler	= proc_dointvec
- 	},
--	{ .ctl_name	= CTL_AUTO,
-+	{
- 	  .procname	= "calibrate",
- 	  .mode		= 0644,
- 	  .data		= &ath_calinterval,
-@@ -2495,14 +2487,15 @@ static ctl_table ath_static_sysctls[] = {
- 	{ 0 }
- };
- static ctl_table ath_ath_table[] = {
--	{ .ctl_name	= DEV_ATH,
-+	{
- 	  .procname	= "ath",
- 	  .mode		= 0555,
- 	  .child	= ath_static_sysctls
- 	}, { 0 }
- };
- static ctl_table ath_root_table[] = {
--	{ .ctl_name	= CTL_DEV,
-+	{
-+	  .ctl_name	= CTL_DEV,
- 	  .procname	= "dev",
- 	  .mode		= 0555,
- 	  .child	= ath_ath_table
+-- 
+paul moore
+linux security @ hp
