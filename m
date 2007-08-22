@@ -1,47 +1,39 @@
-From: Gabriel C <nix.or.die@googlemail.com>
-Subject: Re: net/ipv4/fib_trie.c - compile error (Re: 2.6.23-rc3-mm1)
-Date: Wed, 22 Aug 2007 18:32:04 +0200
-Message-ID: <46CC6504.3020500@googlemail.com>
-References: <20070822020648.5ea3a612.akpm@linux-foundation.org> <46CC5685.7090500@googlemail.com> <20070822154111.GI30705@stusta.de>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: Oops in e100_up
+Date: Wed, 22 Aug 2007 09:35:04 -0700
+Message-ID: <46CC65B8.1030006@intel.com>
+References: <200708220956.48297@strip-the-willow>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Adrian Bunk <bunk@kernel.org>
+Cc: netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:35356 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761777AbXHVQd2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 12:33:28 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so162003nfb
-        for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 09:33:26 -0700 (PDT)
-In-Reply-To: <20070822154111.GI30705@stusta.de>
+Received: from mga01.intel.com ([192.55.52.88]:34883 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762797AbXHVQfF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Aug 2007 12:35:05 -0400
+In-Reply-To: <200708220956.48297@strip-the-willow>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
-> On Wed, Aug 22, 2007 at 05:30:13PM +0200, Gabriel C wrote:
->> Got it with a randconfig ( http://194.231.229.228/kernel/mm/2.6.23-rc3-mm1/r/randconfig-8 )
->>
->> ...
->>
->> net/ipv4/fib_trie.c: In function 'trie_rebalance':
->> net/ipv4/fib_trie.c:969: error: lvalue required as unary '&' operand
->> net/ipv4/fib_trie.c:971: error: lvalue required as unary '&' operand
->> net/ipv4/fib_trie.c:977: error: lvalue required as unary '&' operand
->> net/ipv4/fib_trie.c:980: error: lvalue required as unary '&' operand
->> ...
+Gerrit Renker wrote:
+> With the davem-2.6.24 tree I get the following Oops in the e100 driver (cribbed from console):
 > 
-> Side effect of the git-net removal, temporarily removing 
-> immunize-rcu_dereference-against-crazy-compiler-writers.patch should 
-> work around it.
-
-Yes it does , thx Adrian
-
+> Code: 6c ff ff ff 8b 48 0c ba 01 00 00 00 89 f0 e8 1b f2 ff ff c7 86 9c 00 00 00
+>       01 00 00 00 e9 4e ff ff ff 89 d0 e8 b3 f8 0b 00 eb 8e <0f> 0b eb fe 55 89 e5
+>       56 53 83 ec 0c 8b 98 dc 01 00 00 e8 ff b9
 > 
-> cu
-> Adrian
+> EIP: e100_up+0x11d/0x121 
 > 
+> SS:ESP 0068:f759ce38
+> 
+> Stack: syscall_call -> sys_ioctl -> vfs_ioctl -> do_ioctl -> sock_ioctl -> inet_ioctl -> devinet_ioctl ->
+>        dev_change_flags -> dev_open -> e100_open -> oops
+> 
+> The system log then goes on reporting "eth0: link up, 100Mbps, full-duplex" and hangs while trying to
+> restore the serial console state (not sure that this is related).
 
-Gabriel
+restore? Is this during resume from suspend or something?
+
+Auke
