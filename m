@@ -1,94 +1,42 @@
-From: Andrew Theurer <habanero@us.ibm.com>
-Subject: Re: eHEA driver issues from net-2.6.24
-Date: Wed, 22 Aug 2007 17:20:06 -0500
-Message-ID: <46CCB696.7090703@us.ibm.com>
-References: <46CCB0B7.3030302@us.ibm.com> <20070822.150302.44981242.davem@davemloft.net>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [RFC] Wild and crazy ideas involving struct sk_buff
+Date: Wed, 22 Aug 2007 18:20:55 -0400
+Message-ID: <200708221820.56516.paul.moore@hp.com>
+References: <200708221631.34234.paul.moore@hp.com> <20070822.143627.62367286.davem@davemloft.net> <Xine.LNX.4.64.0708221506380.20059@us.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: ossthema@de.ibm.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, tgraf@suug.ch,
+	netdev@vger.kernel.org
+To: James Morris <jmorris@namei.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:59720 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932307AbXHVWUN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 18:20:13 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l7MMK8Bc007032
-	for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 18:20:08 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7MMK7lZ132822
-	for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 16:20:07 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7MMK7th000937
-	for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 16:20:07 -0600
-In-Reply-To: <20070822.150302.44981242.davem@davemloft.net>
+Received: from atlrel9.hp.com ([156.153.255.214]:50604 "EHLO atlrel9.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934561AbXHVWV0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Aug 2007 18:21:26 -0400
+In-Reply-To: <Xine.LNX.4.64.0708221506380.20059@us.intercode.com.au>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Andrew Theurer <habanero@us.ibm.com>
-> Date: Wed, 22 Aug 2007 16:55:03 -0500
+On Wednesday, August 22 2007 6:09:36 pm James Morris wrote:
+> On Wed, 22 Aug 2007, David Miller wrote:
+> > From: Paul Moore <paul.moore@hp.com>
+> > Date: Wed, 22 Aug 2007 17:26:36 -0400
+> >
+> > > Was it just a thought, or was there some actual design/code/patchset
+> > > to go along with it that described the idea?
+> >
+> > It was a thought mentioned at the first two netconfs, but it
+> > went nowhere because the more we discussed the implementation
+> > the more horrific it began to sound :-)
 >
-> Thanks for finally getting to test this, I thought nobody
-> would test this until it got merged into 2.6.24 :-/
->
->   
->> kernel BUG at include/linux/netdevice.h:318!
->> enter ? for help
->> [c00000000f613e40] c0000000003fe394 .net_rx_action+0x1b8/0x254
->> [c00000000f613ef0] c000000000057b70 .__do_softirq+0xa8/0x164
->> [c00000000f613f90] c000000000024438 .call_do_softirq+0x14/0x24
->> [c000000b8ffbf9f0] c00000000000bd30 .do_softirq+0x68/0xac
->> [c000000b8ffbfa80] c000000000057cc4 .irq_exit+0x54/0x6c
->> [c000000b8ffbfb00] c00000000000c358 .do_IRQ+0x170/0x1ac
->> [c000000b8ffbfb90] c000000000004780 hardware_interrupt_entry+0x18/0x98
->> --- Exception: 501 (Hardware Interrupt) at c000000000010bdc 
->> .cpu_idle+0x114/0x1e0
->> [c000000b8ffbfe80] c000000000010bd0 .cpu_idle+0x108/0x1e0 (unreliable)
->> [c000000b8ffbff00] c000000000026db0 .start_secondary+0x160/0x184
->> [c000000b8ffbff90] c000000000008364 .start_secondary_prolog+0xc/0x10
->>
->> I'm a little confused if the port_napi_enable() is being called when the 
->> device is initialized, but then again, this is all new to me (should it 
->> be called in ehea_open?).  I see it called on some reset routines, but 
->> not on the first initialization.
->>     
->
-> This is similar to the problem that Arnaldo hit a few minutes
-> ago in the VIA Rhine driver.
->
-> You can't only make a napi_enable() call when there has been
-> a previous napi_disable().
->
-> One way to fix this would be to forcefully napi_disable() on
-> all the per-port NAPI structs at the beginning of ehea_open(),
-> which should set things up to satisfy the pre-condition of the
-> napi_enable() calls.
->   
-OK, Ill try this. 
-> You'll need to audit the entire driver to make sure this invariant
-> is held properly.
->
->   
->> Also, on this code, in ehea_sense_port_attr()
->>
->> /* Number of default QPs */
->>         if (use_mcs)
->>                 port->num_def_qps = cb0->num_default_qps;
->>         else
->>                 port->num_def_qps = 1;
->>                
->>
->> When using napi, since we have multi-queue napi support now, wouldn't we 
->> want to use all the default qps instead of 1?
->>     
->
-> I don't know how this hardware works, you tell me :-)
->   
-Heh, I don't know it well, either. Maybe Jan Bernd can chime in.
+> Don't forget Rusty's skb reservation patches from 1999...
 
-Thanks for your help,
+I'm guessing those would probably need to be forward ported just a teensy 
+weensy bit ;)
 
--Andrew
-
+-- 
+paul moore
+linux security @ hp
