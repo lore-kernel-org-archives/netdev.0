@@ -1,36 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC IPROUTE]: Add flow classifier support
-Date: Wed, 22 Aug 2007 12:36:51 -0700 (PDT)
-Message-ID: <20070822.123651.50596407.davem@davemloft.net>
-References: <465D46E9.2000808@trash.net>
-	<20070822104615.550dd952@freepuppy.rosehill.hemminger.net>
+Subject: Re: [PATCH] xfrm: export sysctl_xfrm_acq_expires
+Date: Wed, 22 Aug 2007 12:44:32 -0700 (PDT)
+Message-ID: <20070822.124432.124083784.davem@davemloft.net>
+References: <20070822194202.GB17694@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org, hadi@cyberus.ca
-To: shemminger@linux-foundation.org
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@coreworks.de
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49919
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37377
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756510AbXHVTg4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 15:36:56 -0400
-In-Reply-To: <20070822104615.550dd952@freepuppy.rosehill.hemminger.net>
+	by vger.kernel.org with ESMTP id S1756798AbXHVTod (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 15:44:33 -0400
+In-Reply-To: <20070822194202.GB17694@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Wed, 22 Aug 2007 10:46:15 -0700
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Wed, 22 Aug 2007 15:42:02 -0400
 
-> On Wed, 30 May 2007 11:42:01 +0200
-> Patrick McHardy <kaber@trash.net> wrote:
+> Hey all-
+> 	I had noticed that an extra sysctl for xfrm had been added while back
+> (specifically sysctl_xfrm_acq_expires).  Unlike its related sysctl's however,
+> this was never exported so that out-of-tree modules could access it, and I
+> thought it would be a good idea if it was.  This patch handles that.
 > 
-> > The iproute patch for the flow classifier.
-> > 
-> > 
+> Thanks & Regards
+> Neil
 > 
-> This patch is on hold since the netlink changes haven't made it upstream yet.
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-I don't have the kernel side in my queue either, perhaps
-I lost it or I didn't see it when it was sent out.
+There is no reason for out-of-tree code to access it and no
+current examples exist.
 
-Patrick?
+It is an internal knob controlling how a specific part of the IPSEC
+rule lookup operates, and that is all in-tree.
+
