@@ -1,60 +1,63 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
-	architectures
-Date: Wed, 22 Aug 2007 23:38:00 +0200
-Message-ID: <20070822213800.GJ30705@stusta.de>
-References: <Pine.LNX.4.64.0708171817050.15427@schroedinger.engr.sgi.com> <46C997B1.1010800@redhat.com> <417ebba299a7ad3c4b7a31c4f860a814@kernel.crashing.org> <20070820224859.GA16162@flint.arm.linux.org.uk> <2bdb04581125f22122f1d230e991ea92@kernel.crashing.org> <20070821070555.GA32036@flint.arm.linux.org.uk> <18122.45437.807239.395869@cargo.ozlabs.ibm.com> <33412cad5894a9cbdc85482db5e9a0a0@kernel.crashing.org> <20070821161643.GA7574@linux.vnet.ibm.com> <28709.1187736676@turing-police.cc.vt.edu>
+From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Subject: [PATCH][VIA-RHINE]: Fix CONFIG_VIA_RHINE_NAPI usage
+Date: Wed, 22 Aug 2007 18:46:59 -0300
+Message-ID: <20070822214659.GC23220@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: paulmck@linux.vnet.ibm.com,
-	Segher Boessenkool <segher@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Russell King <rmk+lkml@arm.linux.org.uk>,
-	Christoph Lameter <clameter@sgi.com>,
-	heiko.carstens@de.ibm.com, horms@verge.net.au,
-	linux-kernel@vger.kernel.org, ak@suse.de, netdev@vger.kernel.org,
-	cfriesen@nortel.com, akpm@linux-foundation.org,
-	rpjday@mindspring.com, Nick Piggin <nickpiggin@yahoo.com.au>,
-	linux-arch@vger.kernel.org, jesper.juhl@gmail.com,
-	satyam@infradead.org, zlynx@acm.org, schwidefsky@de.ibm.com,
-	Chris Snook <csnook@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	wensong@linux-vs.org, wjiang@resilience.com
-To: Valdis.Kletnieks@vt.edu
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:59865 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1760813AbXHVVjH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 17:39:07 -0400
+Received: from wr-out-0506.google.com ([64.233.184.232]:39293 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761234AbXHVVrK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 17:47:10 -0400
+Received: by wr-out-0506.google.com with SMTP id 36so241231wra
+        for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 14:47:07 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <28709.1187736676@turing-police.cc.vt.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 21, 2007 at 06:51:16PM -0400, Valdis.Kletnieks@vt.edu wrote:
-> On Tue, 21 Aug 2007 09:16:43 PDT, "Paul E. McKenney" said:
-> 
-> > I agree that instant gratification is hard to come by when synching
-> > up compiler and kernel versions.  Nonetheless, it should be possible
-> > to create APIs that are are conditioned on the compiler version.
-> 
-> We've tried that, sort of.  See the mess surrounding the whole
-> extern/static/inline/__whatever boondogle, which seems to have
-> changed semantics in every single gcc release since 2.95 or so.
->...
+Hi David,
 
-There is exactly one semantics change in gcc in this area, and that is 
-the change of the "extern inline" semantics in gcc 4.3 to the
-C99 semantics.
+	napi is broken here, with this patch at least I can isolate this
+breakage and boot the machine with a non-napi via-rhine driver.
 
-cu
-Adrian
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+diff --git a/drivers/net/via-rhine.c b/drivers/net/via-rhine.c
+index 8f4cf82..4cecd06 100644
+--- a/drivers/net/via-rhine.c
++++ b/drivers/net/via-rhine.c
+@@ -390,7 +390,9 @@ struct rhine_private {
+ 	struct pci_dev *pdev;
+ 	long pioaddr;
+ 	struct net_device *dev;
++#ifdef CONFIG_VIA_RHINE_NAPI
+ 	struct napi_struct napi;
++#endif
+ 	struct net_device_stats stats;
+ 	spinlock_t lock;
+ 
+@@ -1059,9 +1061,9 @@ static void init_registers(struct net_device *dev)
+ 	iowrite32(rp->tx_ring_dma, ioaddr + TxRingPtr);
+ 
+ 	rhine_set_rx_mode(dev);
+-
++#ifdef CONFIG_VIA_RHINE_NAPI
+ 	napi_enable(&rp->napi);
+-
++#endif
+ 	/* Enable interrupts by setting the interrupt mask. */
+ 	iowrite16(IntrRxDone | IntrRxErr | IntrRxEmpty| IntrRxOverflow |
+ 	       IntrRxDropped | IntrRxNoBuf | IntrTxAborted |
+@@ -1836,8 +1838,9 @@ static int rhine_close(struct net_device *dev)
+ 	spin_lock_irq(&rp->lock);
+ 
+ 	netif_stop_queue(dev);
++#ifdef CONFIG_VIA_RHINE_NAPI
+ 	napi_disable(&rp->napi);
+-
++#endif
+ 	if (debug > 1)
+ 		printk(KERN_DEBUG "%s: Shutting down ethercard, "
+ 		       "status was %4.4x.\n",
