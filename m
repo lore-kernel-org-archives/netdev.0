@@ -1,63 +1,56 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 8/11] cxgb3 - Update internal memory management
-Date: Tue, 21 Aug 2007 20:49:41 -0700
-Message-ID: <20070822034941.9387.79621.stgit@speedy5>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: [ofa-general] Re: [PATCH 0/9 Rev3] Implement batching skb API and
+	support in IPoIB
+Date: Wed, 22 Aug 2007 09:41:52 +0530
+Message-ID: <OFC19F468C.48FB78EE-ON6525733F.0016047F-6525733F.00170F48@in.ibm.com>
+References: <20070821.115143.23013721.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: jeff@garzik.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:24424 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757363AbXHVDto (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 23:49:44 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, gaagaan@gmail.com, jeff@garzik.org,
+	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
+	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
+	hadi@cyberus.ca, mcarlson@broadcom.com, netdev@vger.kernel.org,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	sri@us.ibm.com, shemminger@linux-foundation.org, kaber@trash.net,
+	herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070821.115143.23013721.davem@davemloft.net>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-From: Divy Le Ray <divy@chelsio.com>
+David Miller <davem@davemloft.net> wrote on 08/22/2007 12:21:43 AM:
 
-Set PM1 internal memory to round robin mode
-It balances access to this internal memory for multiport adapters.
+> From: jamal <hadi@cyberus.ca>
+> Date: Tue, 21 Aug 2007 08:30:22 -0400
+>
+> > On Tue, 2007-21-08 at 00:18 -0700, David Miller wrote:
+> >
+> > > Using 16K buffer size really isn't going to keep the pipe full enough
+> > > for TSO.
+> >
+> > Why the comparison with TSO (or GSO for that matter)?
+>
+> Because TSO does batching already, so it's a very good
+> "tit for tat" comparison of the new batching scheme
+> vs. an existing one.
 
-Signed-off-by: Divy Le Ray <divy@chelsio.com>
----
+I am planning to do more testing on your suggestion over the
+weekend, but I had a comment. Are you saying that TSO and
+batching should be mutually exclusive so hardware that doesn't
+support TSO (like IB) only would benefit?
 
- drivers/net/cxgb3/regs.h  |    2 ++
- drivers/net/cxgb3/t3_hw.c |    2 ++
- 2 files changed, 4 insertions(+), 0 deletions(-)
+But even if they can co-exist, aren't cases like sending
+multiple small skbs better handled with batching?
 
-diff --git a/drivers/net/cxgb3/regs.h b/drivers/net/cxgb3/regs.h
-index 2824278..5e1bc0d 100644
---- a/drivers/net/cxgb3/regs.h
-+++ b/drivers/net/cxgb3/regs.h
-@@ -1326,6 +1326,7 @@
- #define V_D0_WEIGHT(x) ((x) << S_D0_WEIGHT)
- 
- #define A_PM1_RX_CFG 0x5c0
-+#define A_PM1_RX_MODE 0x5c4
- 
- #define A_PM1_RX_INT_ENABLE 0x5d8
- 
-@@ -1394,6 +1395,7 @@
- #define A_PM1_RX_INT_CAUSE 0x5dc
- 
- #define A_PM1_TX_CFG 0x5e0
-+#define A_PM1_TX_MODE 0x5e4
- 
- #define A_PM1_TX_INT_ENABLE 0x5f8
- 
-diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
-index 23b1a16..13bfbec 100644
---- a/drivers/net/cxgb3/t3_hw.c
-+++ b/drivers/net/cxgb3/t3_hw.c
-@@ -3189,6 +3189,8 @@ int t3_init_hw(struct adapter *adapter, u32 fw_params)
- 		t3_set_reg_field(adapter, A_PCIX_CFG, 0, F_CLIDECEN);
- 
- 	t3_write_reg(adapter, A_PM1_RX_CFG, 0xffffffff);
-+	t3_write_reg(adapter, A_PM1_RX_MODE, 0);
-+	t3_write_reg(adapter, A_PM1_TX_MODE, 0);
- 	init_hw_for_avail_ports(adapter, adapter->params.nports);
- 	t3_sge_init(adapter, &adapter->params.sge);
- 
+Thanks,
+
+- KK
