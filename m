@@ -1,50 +1,60 @@
-From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Subject: Re: Oops in e100_up
-Date: Wed, 22 Aug 2007 13:47:23 -0300
-Message-ID: <20070822164723.GT10392@ghostprotocols.net>
-References: <200708220956.48297@strip-the-willow> <46CC65B8.1030006@intel.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: net/ipv4/fib_trie.c - compile error (Re: 2.6.23-rc3-mm1)
+Date: Wed, 22 Aug 2007 10:03:02 -0700
+Message-ID: <20070822170302.GC8786@linux.vnet.ibm.com>
+References: <20070822020648.5ea3a612.akpm@linux-foundation.org> <46CC5685.7090500@googlemail.com> <20070822154111.GI30705@stusta.de>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>, netdev@vger.kernel.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Cc: Gabriel C <nix.or.die@googlemail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Adrian Bunk <bunk@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.177]:19591 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764214AbXHVQrd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 12:47:33 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so245530wah
-        for <netdev@vger.kernel.org>; Wed, 22 Aug 2007 09:47:33 -0700 (PDT)
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:38102 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758858AbXHVRDE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Aug 2007 13:03:04 -0400
 Content-Disposition: inline
-In-Reply-To: <46CC65B8.1030006@intel.com>
+In-Reply-To: <20070822154111.GI30705@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Wed, Aug 22, 2007 at 09:35:04AM -0700, Kok, Auke escreveu:
-> Gerrit Renker wrote:
-> >With the davem-2.6.24 tree I get the following Oops in the e100 driver 
-> >(cribbed from console):
-> >
-> >Code: 6c ff ff ff 8b 48 0c ba 01 00 00 00 89 f0 e8 1b f2 ff ff c7 86 9c 00 
-> >00 00
-> >      01 00 00 00 e9 4e ff ff ff 89 d0 e8 b3 f8 0b 00 eb 8e <0f> 0b eb fe 
-> >      55 89 e5
-> >      56 53 83 ec 0c 8b 98 dc 01 00 00 e8 ff b9
-> >
-> >EIP: e100_up+0x11d/0x121 
-> >
-> >SS:ESP 0068:f759ce38
-> >
-> >Stack: syscall_call -> sys_ioctl -> vfs_ioctl -> do_ioctl -> sock_ioctl -> 
-> >inet_ioctl -> devinet_ioctl ->
-> >       dev_change_flags -> dev_open -> e100_open -> oops
-> >
-> >The system log then goes on reporting "eth0: link up, 100Mbps, 
-> >full-duplex" and hangs while trying to
-> >restore the serial console state (not sure that this is related).
+On Wed, Aug 22, 2007 at 05:41:11PM +0200, Adrian Bunk wrote:
+> On Wed, Aug 22, 2007 at 05:30:13PM +0200, Gabriel C wrote:
+> > Got it with a randconfig ( http://194.231.229.228/kernel/mm/2.6.23-rc3-mm1/r/randconfig-8 )
+> > 
+> > ...
+> > 
+> > net/ipv4/fib_trie.c: In function 'trie_rebalance':
+> > net/ipv4/fib_trie.c:969: error: lvalue required as unary '&' operand
+> > net/ipv4/fib_trie.c:971: error: lvalue required as unary '&' operand
+> > net/ipv4/fib_trie.c:977: error: lvalue required as unary '&' operand
+> > net/ipv4/fib_trie.c:980: error: lvalue required as unary '&' operand
+> >...
 > 
-> restore? Is this during resume from suspend or something?
+> Side effect of the git-net removal, temporarily removing 
+> immunize-rcu_dereference-against-crazy-compiler-writers.patch should 
+> work around it.
 
-This seems to have been fixed by a bug reported by akpm and fixed by
-Thomas Graf, check a recent post with "netconsole" on the subject.
+Alternatively, the following one-line patch to net/ipv4/fib_trie.c could
+be used.
 
-- Arnaldo
+Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+---
+
+ fib_trie.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff -urpNa -X dontdiff linux-2.6.23-rc3-mm1/net/ipv4/fib_trie.c linux-2.6.23-rc3-mm1.compile/net/ipv4/fib_trie.c
+--- linux-2.6.23-rc3-mm1/net/ipv4/fib_trie.c	2007-08-22 09:20:33.000000000 -0700
++++ linux-2.6.23-rc3-mm1.compile/net/ipv4/fib_trie.c	2007-08-22 09:47:33.000000000 -0700
+@@ -94,7 +94,7 @@ typedef unsigned int t_key;
+ #define T_LEAF  1
+ #define NODE_TYPE_MASK	0x1UL
+ #define NODE_PARENT(node) \
+-	((struct tnode *)rcu_dereference(((node)->parent & ~NODE_TYPE_MASK)))
++	((struct tnode *)(rcu_dereference((node)->parent) & ~NODE_TYPE_MASK))
+ 
+ #define NODE_TYPE(node) ((node)->parent & NODE_TYPE_MASK)
+ 
