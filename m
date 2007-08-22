@@ -1,7 +1,7 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 7/11 RESEND] cxgb3 - log adapter serial number
-Date: Tue, 21 Aug 2007 20:49:36 -0700
-Message-ID: <20070822034936.9368.65647.stgit@speedy5>
+Subject: [PATCH 10/11] cxgb3 - Firmware update
+Date: Tue, 21 Aug 2007 20:49:52 -0700
+Message-ID: <20070822034952.9422.52720.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,82 +9,116 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:14048 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:17632 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757252AbXHVDtj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 23:49:39 -0400
+	with ESMTP id S1754998AbXHVDtz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Aug 2007 23:49:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Divy Le Ray <divy@chelsio.com>
 
-Log HW serial number when cxgb3 module is loaded.
+Update firmware version
+Allow the driver to be up and running with older FW image
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/common.h     |    2 ++
- drivers/net/cxgb3/cxgb3_main.c |    6 ++++--
- drivers/net/cxgb3/t3_hw.c      |    3 ++-
- 3 files changed, 8 insertions(+), 3 deletions(-)
+ drivers/net/cxgb3/common.h     |    2 +-
+ drivers/net/cxgb3/cxgb3_main.c |    9 +++++----
+ drivers/net/cxgb3/t3_hw.c      |   20 +++++++++++++++-----
+ drivers/net/cxgb3/version.h    |    2 +-
+ 4 files changed, 22 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/cxgb3/common.h b/drivers/net/cxgb3/common.h
-index 55922ed..d54446f 100644
+index b665b20..ff867c2 100644
 --- a/drivers/net/cxgb3/common.h
 +++ b/drivers/net/cxgb3/common.h
-@@ -97,6 +97,7 @@ enum {
- 	MAX_NPORTS = 2,		/* max # of ports */
- 	MAX_FRAME_SIZE = 10240,	/* max MAC frame size, including header + FCS */
- 	EEPROMSIZE = 8192,	/* Serial EEPROM size */
-+	SERNUM_LEN     = 16,    /* Serial # length */
- 	RSS_TABLE_SIZE = 64,	/* size of RSS lookup and mapping tables */
- 	TCB_SIZE = 128,		/* TCB size */
- 	NMTUS = 16,		/* size of MTU table */
-@@ -391,6 +392,7 @@ struct vpd_params {
- 	unsigned int uclk;
- 	unsigned int mdc;
- 	unsigned int mem_timing;
-+	u8 sn[SERNUM_LEN + 1];
- 	u8 eth_base[6];
- 	u8 port_type[MAX_NPORTS];
- 	unsigned short xauicfg[2];
+@@ -691,7 +691,7 @@ int t3_read_flash(struct adapter *adapter, unsigned int addr,
+ 		  unsigned int nwords, u32 *data, int byte_oriented);
+ int t3_load_fw(struct adapter *adapter, const u8 * fw_data, unsigned int size);
+ int t3_get_fw_version(struct adapter *adapter, u32 *vers);
+-int t3_check_fw_version(struct adapter *adapter);
++int t3_check_fw_version(struct adapter *adapter, int *must_load);
+ int t3_init_hw(struct adapter *adapter, u32 fw_params);
+ void mac_prep(struct cmac *mac, struct adapter *adapter, int index);
+ void early_hw_init(struct adapter *adapter, const struct adapter_info *ai);
 diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-index a1f94cf..e5744e7 100644
+index 65ded16..eaebd7f 100644
 --- a/drivers/net/cxgb3/cxgb3_main.c
 +++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -2333,10 +2333,12 @@ static void __devinit print_port_info(struct adapter *adap,
- 		       (adap->flags & USING_MSIX) ? " MSI-X" :
- 		       (adap->flags & USING_MSI) ? " MSI" : "");
- 		if (adap->name == dev->name && adap->params.vpd.mclk)
--			printk(KERN_INFO "%s: %uMB CM, %uMB PMTX, %uMB PMRX\n",
-+			printk(KERN_INFO
-+			       "%s: %uMB CM, %uMB PMTX, %uMB PMRX, S/N: %s\n",
- 			       adap->name, t3_mc7_size(&adap->cm) >> 20,
- 			       t3_mc7_size(&adap->pmtx) >> 20,
--			       t3_mc7_size(&adap->pmrx) >> 20);
-+			       t3_mc7_size(&adap->pmrx) >> 20,
-+			       adap->params.vpd.sn);
- 	}
- }
+@@ -814,11 +814,12 @@ static int cxgb_up(struct adapter *adap)
+ 	int must_load;
  
+ 	if (!(adap->flags & FULL_INIT_DONE)) {
+-		err = t3_check_fw_version(adap);
+-		if (err == -EINVAL)
++		err = t3_check_fw_version(adap, &must_load);
++		if (err == -EINVAL) {
+ 			err = upgrade_fw(adap);
+-		if (err)
+-			goto out;
++			if (err && must_load)
++				goto out;
++		}
+ 
+ 		err = t3_check_tpsram_version(adap, &must_load);
+ 		if (err == -EINVAL) {
 diff --git a/drivers/net/cxgb3/t3_hw.c b/drivers/net/cxgb3/t3_hw.c
-index dd3149d..23b1a16 100644
+index 63032e8..3d47627 100644
 --- a/drivers/net/cxgb3/t3_hw.c
 +++ b/drivers/net/cxgb3/t3_hw.c
-@@ -505,7 +505,7 @@ struct t3_vpd {
- 	u8 vpdr_len[2];
- 	VPD_ENTRY(pn, 16);	/* part number */
- 	VPD_ENTRY(ec, 16);	/* EC level */
--	VPD_ENTRY(sn, 16);	/* serial number */
-+	VPD_ENTRY(sn, SERNUM_LEN); /* serial number */
- 	VPD_ENTRY(na, 12);	/* MAC address base */
- 	VPD_ENTRY(cclk, 6);	/* core clock */
- 	VPD_ENTRY(mclk, 6);	/* mem clock */
-@@ -648,6 +648,7 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
- 	p->uclk = simple_strtoul(vpd.uclk_data, NULL, 10);
- 	p->mdc = simple_strtoul(vpd.mdc_data, NULL, 10);
- 	p->mem_timing = simple_strtoul(vpd.mt_data, NULL, 10);
-+	memcpy(p->sn, vpd.sn_data, SERNUM_LEN);
+@@ -957,16 +957,18 @@ int t3_get_fw_version(struct adapter *adapter, u32 *vers)
+ /**
+  *	t3_check_fw_version - check if the FW is compatible with this driver
+  *	@adapter: the adapter
+- *
++ *	@must_load: set to 1 if loading a new FW image is required
++
+  *	Checks if an adapter's FW is compatible with the driver.  Returns 0
+  *	if the versions are compatible, a negative error otherwise.
+  */
+-int t3_check_fw_version(struct adapter *adapter)
++int t3_check_fw_version(struct adapter *adapter, int *must_load)
+ {
+ 	int ret;
+ 	u32 vers;
+ 	unsigned int type, major, minor;
  
- 	/* Old eeproms didn't have port information */
- 	if (adapter->params.rev == 0 && !vpd.port0_data[0]) {
++	*must_load = 1;
+ 	ret = t3_get_fw_version(adapter, &vers);
+ 	if (ret)
+ 		return ret;
+@@ -979,9 +981,17 @@ int t3_check_fw_version(struct adapter *adapter)
+ 	    minor == FW_VERSION_MINOR)
+ 		return 0;
+ 
+-	CH_ERR(adapter, "found wrong FW version(%u.%u), "
+-	       "driver needs version %u.%u\n", major, minor,
+-	       FW_VERSION_MAJOR, FW_VERSION_MINOR);
++	if (major != FW_VERSION_MAJOR)
++		CH_ERR(adapter, "found wrong FW version(%u.%u), "
++		       "driver needs version %u.%u\n", major, minor,
++		       FW_VERSION_MAJOR, FW_VERSION_MINOR);
++	else {
++		*must_load = 0;
++		CH_WARN(adapter, "found wrong FW minor version(%u.%u), "
++		        "driver compiled for version %u.%u\n", major, minor,
++			FW_VERSION_MAJOR, FW_VERSION_MINOR);
++	}
++
+ 	return -EINVAL;
+ }
+ 
+diff --git a/drivers/net/cxgb3/version.h b/drivers/net/cxgb3/version.h
+index eb508bf..ef1c633 100644
+--- a/drivers/net/cxgb3/version.h
++++ b/drivers/net/cxgb3/version.h
+@@ -39,6 +39,6 @@
+ 
+ /* Firmware version */
+ #define FW_VERSION_MAJOR 4
+-#define FW_VERSION_MINOR 3
++#define FW_VERSION_MINOR 6
+ #define FW_VERSION_MICRO 0
+ #endif				/* __CHELSIO_VERSION_H */
