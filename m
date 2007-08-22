@@ -1,41 +1,41 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] DM9000: fix interface hang under load
-Date: Thu, 23 Aug 2007 12:16:09 +0200
-Message-ID: <20070823101609.GI9315@Chamillionaire.breakpoint.cc>
-References: <20070820233342.GG9315@Chamillionaire.breakpoint.cc> <20070823093749.GE12547@fluff.org.uk>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH 8/9] define global BIT macro
+Date: Wed, 22 Aug 2007 23:03:21 +0100
+Message-ID: <20070822220321.GA4473@linux-mips.org>
+References: <737828602404912540@wsc.cz> <428714662539710215@wsc.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org, jgarzik@pobox.com,
-	netdev@vger.kernel.org
-To: Ben Dooks <ben@fluff.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:35575 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756972AbXHWKQ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2007 06:16:26 -0400
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, source@mvista.com,
+	dougthompson@xmission.com, bluesmoke-devel@lists.sourceforge.net,
+	dtor@mail.ru, linux-input@atrey.karlin.mff.cuni.cz,
+	netdev@vger.kernel.org, James.Bottomley@SteelEye.com,
+	linux-scsi@vger.kernel.org, gtolstolytkin@ru.mvista.com,
+	vitalywool@gmail.com, dsaxena@plexity.net,
+	linux-mips@linux-mips.org, mchehab@infradead.org,
+	video4linux-list@redhat.com, jbenc@suse.cz,
+	flamingice@sourmilk.net, linux-wireless@vger.kernel.org
+To: Jiri Slaby <jirislaby@gmail.com>
+Return-path: <owner-linux-input@atrey.karlin.mff.cuni.cz>
 Content-Disposition: inline
-In-Reply-To: <20070823093749.GE12547@fluff.org.uk>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <428714662539710215@wsc.cz>
+Sender: owner-linux-input@atrey.karlin.mff.cuni.cz
+List-Help: <mailto:majordomo@atrey.karlin.mff.cuni.cz?body=help>
+List-Owner: <mailto:owner-linux-input@atrey.karlin.mff.cuni.cz>
+List-Post: <mailto:linux-input@atrey.karlin.mff.cuni.cz>
+List-Unsubscribe: <mailto:linux-input-request@atrey.karlin.mff.cuni.cz?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-Ben Dooks <ben@fluff.org> wrote:
-> On Tue, Aug 21, 2007 at 01:33:42AM +0200, Florian Westphal wrote:
-> > @@ -700,6 +700,7 @@ dm9000_init_dm9000(struct net_device *dev)
-[..]
-> >  	} else {
-> >  		/* Second packet */
-> > -		db->tx_pkt_cnt++;
-> >  		db->queue_pkt_len = skb->len;
-> > +		netif_stop_queue(dev);
-> >  	}
+On Sat, Aug 18, 2007 at 11:44:12AM +0200, Jiri Slaby wrote:
 
-> If I read this correctly, you've moved the netif_{stop,start}_queue()
-> calls so that the queue is only stopped if we have loaded 2 packets
-> into the chip instead of stopping and starting each time.
+> define global BIT macro
+> 
+> move all local BIT defines to the new globally define macro.
+> 
+> Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
 
-Yes. For those that are not familiar with the dm9000 driver:
-The queue is started again when a packet has been sent.
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
 
-Thanks for taking the time to review this.
+for the MACE ethernet and MIPS bits.
 
-Florian
+  Ralf
