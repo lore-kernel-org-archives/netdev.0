@@ -1,64 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: [ofa-general] Re: [PATCH 0/9 Rev3] Implement batching skb API and
- support in IPoIB
-Date: Tue, 21 Aug 2007 21:22:29 -0700 (PDT)
-Message-ID: <20070821.212229.82050253.davem@davemloft.net>
-References: <20070821.115143.23013721.davem@davemloft.net>
-	<OFC19F468C.48FB78EE-ON6525733F.0016047F-6525733F.00170F48@in.ibm.com>
+From: Bruce Cole <bacole@gmail.com>
+Subject: Re: [RFT] r8169 changes against 2.6.23-rc3
+Date: Tue, 21 Aug 2007 22:51:50 -0700
+Message-ID: <46CBCEF6.5080806@gmail.com>
+References: <46CB3DE4.4060107@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, gaagaan@gmail.com, jeff@garzik.org,
-	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
-	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
-	hadi@cyberus.ca, mcarlson@broadcom.com, netdev@vger.kernel.org,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	sri@us.ibm.com, shemminger@linux-foundation.org, kaber@trash.net,
-	herbert@gondor.apana.org.au
-To: krkumar2@in.ibm.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <OFC19F468C.48FB78EE-ON6525733F.0016047F-6525733F.00170F48@in.ibm.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: David Gundersen <gundy@iinet.net.au>, bacole@gmail.com
+To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qb-out-0506.google.com ([72.14.204.228]:42726 "EHLO
+	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753546AbXHVFxr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 01:53:47 -0400
+Received: by qb-out-0506.google.com with SMTP id e11so1101860qbe
+        for <netdev@vger.kernel.org>; Tue, 21 Aug 2007 22:53:46 -0700 (PDT)
+In-Reply-To: <46CB3DE4.4060107@gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Date: Wed, 22 Aug 2007 09:41:52 +0530
+So I did some experimenting with locking, but eventually found that this 
+chunk:
 
-> David Miller <davem@davemloft.net> wrote on 08/22/2007 12:21:43 AM:
-> 
-> > From: jamal <hadi@cyberus.ca>
-> > Date: Tue, 21 Aug 2007 08:30:22 -0400
-> >
-> > > On Tue, 2007-21-08 at 00:18 -0700, David Miller wrote:
-> > >
-> > > > Using 16K buffer size really isn't going to keep the pipe full enough
-> > > > for TSO.
-> > >
-> > > Why the comparison with TSO (or GSO for that matter)?
-> >
-> > Because TSO does batching already, so it's a very good
-> > "tit for tat" comparison of the new batching scheme
-> > vs. an existing one.
-> 
-> I am planning to do more testing on your suggestion over the
-> weekend, but I had a comment. Are you saying that TSO and
-> batching should be mutually exclusive so hardware that doesn't
-> support TSO (like IB) only would benefit?
-> 
-> But even if they can co-exist, aren't cases like sending
-> multiple small skbs better handled with batching?
+@@ -2677,10 +2681,18 @@ static void rtl8169_tx_interrupt(struct 
+net_device *dev,
 
-I'm not making any suggestions, so don't read that into anything I've
-said :-)
+     if (tp->dirty_tx != dirty_tx) {
+         tp->dirty_tx = dirty_tx;
+- -        smp_wmb();
+- -        if (netif_queue_stopped(dev) &&
+- -            (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)) {
+- -            netif_wake_queue(dev);
++        smp_mb();
++        if (unlikely(netif_queue_stopped(dev))) {
++            netif_tx_lock(dev);
++                if (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)
++                netif_wake_queue(dev);
++            if (dirty_tx != tp->cur_tx)
++                RTL_W8(TxPoll, NPQ);
++            netif_tx_unlock(dev);
++        } else if (dirty_tx != tp->cur_tx) {
++            netif_tx_lock(dev);
++            RTL_W8(TxPoll, NPQ);
++            netif_tx_unlock(dev);
+         }
+     }
+ }
 
-I think the jury is still out, but seeing TSO perform even slightly
-worse with the batching changes in place would be very worrysome.
-This applies to both throughput and cpu utilization.
+from the patch in http://www.spinics.net/lists/netdev/msg33960.html
+was sufficient to fix the stuck TX queue bug without the busy-wait.  
+Actually
+just the else portion of the above chunk was sufficient in my testing, 
+without
+the barrier change or the if statement change.
+
+David Gundersen pointed me to this potential fix days ago, but I didn't
+consider it first since the change had (presumably intentionally) been 
+dropped from
+the set of diffs Francois pointed me to.  Given that I had reported the same
+problem as David Gundersen (and Dirk, and other samba users...) I 
+thought this
+patch had been ruled out.  Apparently not.  Hopefully this can be dusted off
+and made into a fairly high priority fix as it has been biting realtek users
+since last year at least.
+
