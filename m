@@ -1,111 +1,90 @@
-From: Benjamin Thery <benjamin.thery@bull.net>
-Subject: Re: [PATCH 1/1] net/core: Fix crash in dev_mc_sync()/dev_mc_unsync()
-Date: Wed, 22 Aug 2007 15:21:04 +0200
-Message-ID: <46CC3840.7050300@bull.net>
-References: <20070821162922.149199466@frecb000701.frec.bull.fr> <20070821163129.377666902@frecb000701.frec.bull.fr>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: [PATCH 2.6.23-rc3-mm1] request_irq fix DEBUG_SHIRQ handling Re: 2.6.23-rc2-mm1: rtl8139 inconsistent lock state
+Date: Wed, 22 Aug 2007 15:35:11 +0200
+Message-ID: <20070822133511.GH1684@ff.dom.local>
+References: <200708100149.14446.m.kozlowski@tuxland.pl>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070503060207070101070909"
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ecfrec.frec.bull.fr ([129.183.4.8]:39725 "EHLO
-	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762190AbXHVNWj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 09:22:39 -0400
-In-Reply-To: <20070821163129.377666902@frecb000701.frec.bull.fr>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Mariusz Kozlowski <m.kozlowski@tuxland.pl>, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758929AbXHVNeW@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200708100149.14446.m.kozlowski@tuxland.pl>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070503060207070101070909
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+On 10-08-2007 01:49, Mariusz Kozlowski wrote:
+> Hello,
+> 
+> =================================
+> [ INFO: inconsistent lock state ]
+> 2.6.23-rc2-mm1 #7
+> ---------------------------------
+> inconsistent {in-hardirq-W} -> {hardirq-on-W} usage.
+> ifconfig/5492 [HC0[0]:SC0[0]:HE1:SE1] takes:
+>  (&tp->lock){+...}, at: [<de8706e0>] rtl8139_interrupt+0x27/0x46b [8139too]
+> {in-hardirq-W} state was registered at:
+>   [<c0138eeb>] __lock_acquire+0x949/0x11ac
+>   [<c01397e7>] lock_acquire+0x99/0xb2
+>   [<c0452ff3>] _spin_lock+0x35/0x42
+>   [<de8706e0>] rtl8139_interrupt+0x27/0x46b [8139too]
+>   [<c0147a5d>] handle_IRQ_event+0x28/0x59
+>   [<c01493ca>] handle_level_irq+0xad/0x10b
+>   [<c0105a13>] do_IRQ+0x93/0xd0
+>   [<c010441e>] common_interrupt+0x2e/0x34
+...
+> other info that might help us debug this:
+> 1 lock held by ifconfig/5492:
+>  #0:  (rtnl_mutex){--..}, at: [<c0451778>] mutex_lock+0x1c/0x1f
+> 
+> stack backtrace:
+...
+>  [<c0452ff3>] _spin_lock+0x35/0x42
+>  [<de8706e0>] rtl8139_interrupt+0x27/0x46b [8139too]
+>  [<c01480fd>] free_irq+0x11b/0x146
+>  [<de871d59>] rtl8139_close+0x8a/0x14a [8139too]
+>  [<c03bde63>] dev_close+0x57/0x74
+...
 
-Oops, don't use the previous version of the patch:
-the change in dev_mc_unsync() was not correct.
-Sorry.
+It looks like this was possible after David's fix, which really
+enabled running of the handler in free_irq, but before Andrew's patch
+disabling local irqs for this time.
 
-This one is a lot better (it compiles and runs). :)
+So, this bug should be fixed, but IMHO similar problem is possible in
+request_irq. And, I think, this is not only about lockdep complaining,
+but real lockup possibility, because any locks in such a handler are
+taken in another, not expected for them context, and could be
+vulnerable (especially with softirqs, but probably hardirqs as well).
 
-Benjamin
--- 
-B e n j a m i n   T h e r y  - BULL/DT/Open Software R&D
+Reported-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
 
-    http://www.bull.com
-
---------------070503060207070101070909
-Content-Transfer-Encoding: 7bit
-Content-Type: text/x-patch;
- name="Fix-crash-in-dev_mc_sync.patch"
-Content-Disposition: inline;
- filename="Fix-crash-in-dev_mc_sync.patch"
-
-From: benjamin.thery@bull.net
-Subject: net/core: Fix crash in dev_mc_sync()/dev_mc_unsync()
-
-This patch fixes a crash that may occur when the routine dev_mc_sync()
-deletes an address from the list it is currently going through. It 
-saves the pointer to the next element before deleting the current one.
-The problem may also exist in dev_mc_unsync().
-
-Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
 ---
- net/core/dev_mcast.c |   14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
 
-Index: linux-2.6.23-rc2/net/core/dev_mcast.c
-===================================================================
---- linux-2.6.23-rc2.orig/net/core/dev_mcast.c
-+++ linux-2.6.23-rc2/net/core/dev_mcast.c
-@@ -116,11 +116,13 @@ int dev_mc_add(struct net_device *dev, v
-  */
- int dev_mc_sync(struct net_device *to, struct net_device *from)
- {
--	struct dev_addr_list *da;
-+	struct dev_addr_list *da, *next;
- 	int err = 0;
+diff -Nurp 2.6.23-rc3-mm1-/kernel/irq/manage.c 2.6.23-rc3-mm1/kernel/irq/manage.c
+--- 2.6.23-rc3-mm1-/kernel/irq/manage.c	2007-08-22 13:58:58.000000000 +0200
++++ 2.6.23-rc3-mm1/kernel/irq/manage.c	2007-08-22 14:12:21.000000000 +0200
+@@ -546,14 +546,11 @@ int request_irq(unsigned int irq, irq_ha
+ 		 * We do this before actually registering it, to make sure that
+ 		 * a 'real' IRQ doesn't run in parallel with our fake
+ 		 */
+-		if (irqflags & IRQF_DISABLED) {
+-			unsigned long flags;
++		unsigned long flags;
  
- 	netif_tx_lock_bh(to);
--	for (da = from->mc_list; da != NULL; da = da->next) {
-+	da = from->mc_list;
-+	while (da != NULL) {
-+		next = da->next;
- 		if (!da->da_synced) {
- 			err = __dev_addr_add(&to->mc_list, &to->mc_count,
- 					     da->da_addr, da->da_addrlen, 0);
-@@ -134,6 +136,7 @@ int dev_mc_sync(struct net_device *to, s
- 			__dev_addr_delete(&from->mc_list, &from->mc_count,
- 					  da->da_addr, da->da_addrlen, 0);
- 		}
-+		da = next;
+-			local_irq_save(flags);
+-			handler(irq, dev_id);
+-			local_irq_restore(flags);
+-		} else
+-			handler(irq, dev_id);
++		local_irq_save(flags);
++		handler(irq, dev_id);
++		local_irq_restore(flags);
  	}
- 	if (!err)
- 		__dev_set_rx_mode(to);
-@@ -156,12 +159,14 @@ EXPORT_SYMBOL(dev_mc_sync);
-  */
- void dev_mc_unsync(struct net_device *to, struct net_device *from)
- {
--	struct dev_addr_list *da;
-+	struct dev_addr_list *da, *next;
+ #endif
  
- 	netif_tx_lock_bh(from);
- 	netif_tx_lock_bh(to);
- 
--	for (da = from->mc_list; da != NULL; da = da->next) {
-+	da = from->mc_list;
-+	while (da != NULL) {
-+		next = da->next;
- 		if (!da->da_synced)
- 			continue;
- 		__dev_addr_delete(&to->mc_list, &to->mc_count,
-@@ -169,6 +174,7 @@ void dev_mc_unsync(struct net_device *to
- 		da->da_synced = 0;
- 		__dev_addr_delete(&from->mc_list, &from->mc_count,
- 				  da->da_addr, da->da_addrlen, 0);
-+		da = next;
- 	}
- 	__dev_set_rx_mode(to);
- 
-
---------------070503060207070101070909--
