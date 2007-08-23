@@ -1,106 +1,45 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: [PATCH (take 2)] request_irq fix DEBUG_SHIRQ handling Re: 2.6.23-rc2-mm1: rtl8139 inconsistent lock state
-Date: Thu, 23 Aug 2007 10:44:30 +0200
-Message-ID: <20070823084430.GB1980@ff.dom.local>
-References: <200708100149.14446.m.kozlowski@tuxland.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mariusz Kozlowski <m.kozlowski@tuxland.pl>, netdev@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+From: Krishna Kumar <krkumar2@in.ibm.com>
+Subject: [PATCH 1/2] E1000: Fix ifdown hang in git-2.6.24
+Date: Thu, 23 Aug 2007 14:34:18 +0530
+Message-ID: <20070823090418.13099.89298.sendpatchset@localhost.localdomain>
+Cc: Krishna Kumar <krkumar2@in.ibm.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:58777 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751039AbXHWInZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Aug 2007 04:43:25 -0400
-Content-Disposition: inline
-In-Reply-To: <200708100149.14446.m.kozlowski@tuxland.pl>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:35672 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751050AbXHWJCk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Aug 2007 05:02:40 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e3.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l7N92eFV018803
+	for <netdev@vger.kernel.org>; Thu, 23 Aug 2007 05:02:40 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7N92dtx466992
+	for <netdev@vger.kernel.org>; Thu, 23 Aug 2007 05:02:39 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7N92dH5024325
+	for <netdev@vger.kernel.org>; Thu, 23 Aug 2007 05:02:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton pointed out that my changelog was unusable. Sorry!
-Here is a second try with the changelog and kernel version changed.
+Doing napi_disable twice hangs "ifdown" of the device. e1000_down is the
+common place to call napi_disable.
 
-Regards,
-Jarek P.
-
------------->(take 2)
-
-Subject: request_irq() - fix DEBUG_SHIRQ handling
-
-Mariusz Kozlowski reported lockdep's warning:
-
-> =================================
-> [ INFO: inconsistent lock state ]
-> 2.6.23-rc2-mm1 #7
-> ---------------------------------
-> inconsistent {in-hardirq-W} -> {hardirq-on-W} usage.
-> ifconfig/5492 [HC0[0]:SC0[0]:HE1:SE1] takes:
->  (&tp->lock){+...}, at: [<de8706e0>] rtl8139_interrupt+0x27/0x46b [8139too]
-> {in-hardirq-W} state was registered at:
->   [<c0138eeb>] __lock_acquire+0x949/0x11ac
->   [<c01397e7>] lock_acquire+0x99/0xb2
->   [<c0452ff3>] _spin_lock+0x35/0x42
->   [<de8706e0>] rtl8139_interrupt+0x27/0x46b [8139too]
->   [<c0147a5d>] handle_IRQ_event+0x28/0x59
->   [<c01493ca>] handle_level_irq+0xad/0x10b
->   [<c0105a13>] do_IRQ+0x93/0xd0
->   [<c010441e>] common_interrupt+0x2e/0x34
-...
-> other info that might help us debug this:
-> 1 lock held by ifconfig/5492:
->  #0:  (rtnl_mutex){--..}, at: [<c0451778>] mutex_lock+0x1c/0x1f
-> 
-> stack backtrace:
-...
->  [<c0452ff3>] _spin_lock+0x35/0x42
->  [<de8706e0>] rtl8139_interrupt+0x27/0x46b [8139too]
->  [<c01480fd>] free_irq+0x11b/0x146
->  [<de871d59>] rtl8139_close+0x8a/0x14a [8139too]
->  [<c03bde63>] dev_close+0x57/0x74
-...
-
-This shows that a driver's irq handler was running both in hard interrupt
-and process contexts with irqs enabled. The latter was done during
-free_irq() call and was possible only with CONFIG_DEBUG_SHIRQ enabled.
-This was fixed by another patch.
-
-But similar problem is possible with request_irq(): any locks taken from
-irq handler could be vulnerable - especially with soft interrupts. This
-patch fixes it by disabling local interrupts during handler's run. (It
-seems, disabling softirqs should be enough, but it needs more checking
-on possible races or other special cases).
-
-This patch is recommended to all stable versions since 2.6.21, too.
-
-Reported-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
-Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
-
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 ---
+ e1000_main.c |    4 ----
+ 1 files changed, 4 deletions(-)
 
-diff -Nurp 2.6.23-rc3-git6-/kernel/irq/manage.c 2.6.23-rc3-git6/kernel/irq/manage.c
---- 2.6.23-rc3-git6-/kernel/irq/manage.c	2007-08-23 10:11:35.000000000 +0200
-+++ 2.6.23-rc3-git6/kernel/irq/manage.c	2007-08-23 10:16:29.000000000 +0200
-@@ -555,14 +555,11 @@ int request_irq(unsigned int irq, irq_ha
- 		 * We do this before actually registering it, to make sure that
- 		 * a 'real' IRQ doesn't run in parallel with our fake
- 		 */
--		if (irqflags & IRQF_DISABLED) {
--			unsigned long flags;
-+		unsigned long flags;
+diff -ruNp org/drivers/net/e1000/e1000_main.c new/drivers/net/e1000/e1000_main.c
+--- org/drivers/net/e1000/e1000_main.c	2007-08-23 13:32:16.000000000 +0530
++++ new/drivers/net/e1000/e1000_main.c	2007-08-23 13:32:34.000000000 +0530
+@@ -1477,10 +1477,6 @@ e1000_close(struct net_device *netdev)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
  
--			local_irq_save(flags);
--			handler(irq, dev_id);
--			local_irq_restore(flags);
--		} else
--			handler(irq, dev_id);
-+		local_irq_save(flags);
-+		handler(irq, dev_id);
-+		local_irq_restore(flags);
- 	}
- #endif
- 
+-#ifdef CONFIG_E1000_NAPI
+-	napi_disable(&adapter->napi);
+-#endif
+-
+ 	WARN_ON(test_bit(__E1000_RESETTING, &adapter->flags));
+ 	e1000_down(adapter);
+ 	e1000_power_down_phy(adapter);
