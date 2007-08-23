@@ -1,44 +1,57 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [IPv6] Add v4mapped address inline
-Date: Fri, 24 Aug 2007 03:00:02 +0900 (JST)
-Message-ID: <20070824.030002.56135604.yoshfuji@linux-ipv6.org>
-References: <46CDB896.8040408@hp.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [2.6.20.17 review 35/58] forcedeth bug fix: realtek
+	phy
+Date: Thu, 23 Aug 2007 09:55:13 -0700
+Message-ID: <20070823165513.GA6341@kroah.com>
+References: <20070822083844.%N@1wt.eu> <20070822204225.GD14132@1wt.eu> <20070822230526.GC32121@suse.de> <200708231750.45257.prakash@punnoor.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net, yoshfuji@linux-ipv6.org
-To: brian.haley@hp.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg KH <gregkh@suse.de>, stable@kernel.org,
+	netdev@vger.kernel.org, Willy Tarreau <w@1wt.eu>,
+	Ayaz Abdulla <aabdulla@nvidia.com>,
+	linux-kernel@vger.kernel.org
+To: Prakash Punnoor <prakash@punnoor.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:58205 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753208AbXHWR6v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2007 13:58:51 -0400
-In-Reply-To: <46CDB896.8040408@hp.com>
+Received: from pentafluge.infradead.org ([213.146.154.40]:54503 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759923AbXHWSH2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2007 14:07:28 -0400
+Content-Disposition: inline
+In-Reply-To: <200708231750.45257.prakash@punnoor.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Thu, Aug 23, 2007 at 05:50:41PM +0200, Prakash Punnoor wrote:
+> On the day of Thursday 23 August 2007 Greg KH hast written:
+> > On Wed, Aug 22, 2007 at 10:42:25PM +0200, Willy Tarreau wrote:
+> > > On Wed, Aug 22, 2007 at 08:15:03PM +0200, Prakash Punnoor wrote:
+> > > > Hi,
+> > > >
+> > > > even if Greg is waiting for some special invitation
+> > > > (http://lkml.org/lkml/2007/8/14/229), I suggest putting this patch by
+> > > > Ayaz on top:
+> > > >
+> > > > http://lkml.org/lkml/2007/8/10/296
+> > >
+> > > That's what I prepare first, but then noticed it's not in mainline.
+> > >
+> > > > Perhaps Ayaz wants to give Greg the clarification he needs... :sigh:
+> > >
+> > > He should, as the fix is not in mainline either :-(
+> > > I don't think Greg asks for specific clarification, just a plain patch
+> > > with a short commit log on its own which does not include remains of
+> > > older mails.
+> >
+> > Exactly, that is what I am waiting for.
+> >
+> > And also I need the change to go into mainline first, as we can not
+> > diverge with the -stable releases.
+> 
+> Can we get that into mainline then? I haven't seen forcedeth in MAINTAINERS, 
+> so I added netdev to the cc list.
 
-In article <46CDB896.8040408@hp.com> (at Thu, 23 Aug 2007 12:40:54 -0400), Brian Haley <brian.haley@hp.com> says:
+It might help if someone sends a real patch that can be applied :)
 
-> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-> index 9059e0e..c2b6c11 100644
-> --- a/include/net/ipv6.h
-> +++ b/include/net/ipv6.h
-> @@ -418,6 +418,12 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
->  	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
->  }
->  
-> +static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
-> +{
-> +	return ((a->s6_addr32[0] | a->s6_addr32[1]) == 0 && 
-> +		 a->s6_addr32[2] == htonl(0x0000ffff)); 
-> +}
-> +
+thanks,
 
-Please put this just after ipv6_addr_any(), not after
-ipv6_addr_diff().
-
---yoshfuji
+greg k-h
