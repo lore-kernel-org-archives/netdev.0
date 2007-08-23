@@ -1,62 +1,57 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH 0/3] cxgb3 driver update
-Date: Thu, 23 Aug 2007 15:03:07 -0700
-Message-ID: <46CE041B.8030403@chelsio.com>
-References: <46CD2AA8.9070507@chelsio.com> <20070823070216.GI21089@ftp.linux.org.uk>
+From: jamal <hadi@cyberus.ca>
+Subject: [ofa-general] Re: [PATCH 0/9 Rev3] Implement batching skb API and
+	support in IPoIB
+Date: Thu, 23 Aug 2007 18:04:10 -0400
+Message-ID: <1187906650.4279.16.camel@localhost>
+References: <OFC19F468C.48FB78EE-ON6525733F.0016047F-6525733F.00170F48@in.ibm.com>
+	<20070821.212229.82050253.davem@davemloft.net>
+	<46CC6DD1.5020105@hp.com>
+	<20070822.132145.90824527.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Steve Wise <swise@opengridcomputing.com>
-To: Al Viro <viro@ftp.linux.org.uk>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932488AbXHWWDg@vger.kernel.org>
-In-Reply-To: <20070823070216.GI21089@ftp.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: jagana@us.ibm.com, peter.p.waskiewicz.jr@intel.com,
+	herbert@gondor.apana.org.au, gaagaan@gmail.com,
+	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
+	rdreier@cisco.com, mcarlson@broadcom.com, jeff@garzik.org,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, johnpol@2ka.mipt.ru,
+	shemminger@linux-foundation.org, kaber@trash.net, sri@us.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070822.132145.90824527.davem@davemloft.net>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Hi Al,
+On Wed, 2007-22-08 at 13:21 -0700, David Miller wrote:
+> From: Rick Jones <rick.jones2@hp.com>
+> Date: Wed, 22 Aug 2007 10:09:37 -0700
+> 
+> > Should it be any more or less worrysome than small packet
+> > performance (eg the TCP_RR stuff I posted recently) being rather
+> > worse with TSO enabled than with it disabled?
+> 
+> That, like any such thing shown by the batching changes, is a bug
+> to fix.
 
-> Speaking of cxgb3, could you explain what the hell is
-> static int do_term(struct t3cdev *dev, struct sk_buff *skb)
-> {
->         unsigned int hwtid = ntohl(skb->priority) >> 8 & 0xfffff;
-> doing?  AFAIK, skb->priority is not net-endian...
->
-
-the RDMA connection id is saved in the skb's priority field for TERM 
-messages
-because it is not in the CPL message that comes up from the hardware.
-Yet the RDMA driver needs it, so sge.c::process_responses() overloads
-the skb's priority and csum with these values.
-
-
->
-> Another odd place is
-> int t3_seeprom_write(struct adapter *adapter, u32 addr, u32 data)
-> {  
->         u16 val;
->         int attempts = EEPROM_MAX_POLL;
->         unsigned int base = adapter->params.pci.vpd_cap_addr;
->
->         if ((addr >= EEPROMSIZE && addr != EEPROM_STAT_ADDR) || (addr 
-> & 3))  
->                 return -EINVAL;
->
->         pci_write_config_dword(adapter->pdev, base + PCI_VPD_DATA,
->                                cpu_to_le32(data));
-> with callers like
-> int t3_seeprom_wp(struct adapter *adapter, int enable)
-> {
->         return t3_seeprom_write(adapter, EEPROM_STAT_ADDR, enable ? 
-> 0xc : 0);
->
-> IOW, you really get little-endian values passed to 
-> pci_write_config_dword()
-> and it expects a host-endian as the last argument...
->
-
-It looks like a bug. Thanks for spotting this.
-
-Cheers,
-Divy
+Possibly a bug - but you really should turn off TSO if you are doing
+huge interactive transactions (which is fair because there is a clear
+demarcation).
+The litmus test is the same as any change that is supposed to improve
+net performance - it has to demonstrate it is not intrusive and that it
+improves (consistently) performance. The standard metrics are
+{throughput, cpu-utilization, latency} i.e as long as one improves and
+others remain zero, it would make sense. Yes, i am religious for
+batching after all the invested sweat (and i continue to work on it
+hoping to demystify) - the theory makes a lot of sense.
+ 
+cheers,
+jamal
