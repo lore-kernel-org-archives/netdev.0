@@ -1,135 +1,187 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [IPv6] Add v4mapped address inline
-Date: Thu, 23 Aug 2007 14:14:35 -0400
-Message-ID: <46CDCE8B.6010909@hp.com>
-References: <46CDB896.8040408@hp.com> <20070824.030002.56135604.yoshfuji@linux-ipv6.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] udp: randomize port selection
+Date: Thu, 23 Aug 2007 11:32:26 -0700
+Message-ID: <20070823113226.30d6a4b6@freepuppy.rosehill.hemminger.net>
+References: <46CD3462.2070403@balabit.hu>
+	<46CDBE17.7080909@hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040604000202020802060006"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net
-To: =?ISO-8859-1?Q?YOSHIFUJI_Hideaki_/_=3F=3F=3F=3F?=
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: panther@balabit.hu, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:47541 "EHLO atlrel9.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763978AbXHWSO6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Aug 2007 14:14:58 -0400
-In-Reply-To: <20070824.030002.56135604.yoshfuji@linux-ipv6.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:49717 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1763052AbXHWStO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2007 14:49:14 -0400
+In-Reply-To: <46CDBE17.7080909@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040604000202020802060006
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 8bit
+This patch causes UDP port allocation to be randomized like TCP.
+The earlier code would always choose same port (ie first empty list).
 
-YOSHIFUJI Hideaki / ???? wrote:
-> Please put this just after ipv6_addr_any(), not after
-> ipv6_addr_diff().
-
-Ok, updated patch attached.
-
--Brian
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
 
-Add v4mapped address inline to avoid calls to ipv6_addr_type().
-
-Signed-off-by: Brian Haley <brian.haley@hp.com>
-
---------------040604000202020802060006
-Content-Type: text/x-patch;
- name="v4mapped.inline.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="v4mapped.inline.patch"
-
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 9059e0e..37bdb25 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -377,6 +377,12 @@ static inline int ipv6_addr_any(const struct in6_addr *a)
- 		 a->s6_addr32[2] | a->s6_addr32[3] ) == 0); 
+--- a/net/ipv4/udp.c	2007-08-23 09:44:22.000000000 -0700
++++ b/net/ipv4/udp.c	2007-08-23 11:29:02.000000000 -0700
+@@ -113,9 +113,8 @@ DEFINE_SNMP_STAT(struct udp_mib, udp_sta
+ struct hlist_head udp_hash[UDP_HTABLE_SIZE];
+ DEFINE_RWLOCK(udp_hash_lock);
+ 
+-static int udp_port_rover;
+-
+-static inline int __udp_lib_lport_inuse(__u16 num, struct hlist_head udptable[])
++static inline int __udp_lib_lport_inuse(__u16 num,
++					const struct hlist_head udptable[])
+ {
+ 	struct sock *sk;
+ 	struct hlist_node *node;
+@@ -132,11 +131,10 @@ static inline int __udp_lib_lport_inuse(
+  *  @sk:          socket struct in question
+  *  @snum:        port number to look up
+  *  @udptable:    hash list table, must be of UDP_HTABLE_SIZE
+- *  @port_rover:  pointer to record of last unallocated port
+  *  @saddr_comp:  AF-dependent comparison of bound local IP addresses
+  */
+ int __udp_lib_get_port(struct sock *sk, unsigned short snum,
+-		       struct hlist_head udptable[], int *port_rover,
++		       struct hlist_head udptable[],
+ 		       int (*saddr_comp)(const struct sock *sk1,
+ 					 const struct sock *sk2 )    )
+ {
+@@ -146,49 +144,56 @@ int __udp_lib_get_port(struct sock *sk, 
+ 	int    error = 1;
+ 
+ 	write_lock_bh(&udp_hash_lock);
+-	if (snum == 0) {
+-		int best_size_so_far, best, result, i;
+ 
+-		if (*port_rover > sysctl_local_port_range[1] ||
+-		    *port_rover < sysctl_local_port_range[0])
+-			*port_rover = sysctl_local_port_range[0];
+-		best_size_so_far = 32767;
+-		best = result = *port_rover;
+-		for (i = 0; i < UDP_HTABLE_SIZE; i++, result++) {
+-			int size;
+-
+-			head = &udptable[result & (UDP_HTABLE_SIZE - 1)];
+-			if (hlist_empty(head)) {
+-				if (result > sysctl_local_port_range[1])
+-					result = sysctl_local_port_range[0] +
+-						((result - sysctl_local_port_range[0]) &
+-						 (UDP_HTABLE_SIZE - 1));
++	if (!snum) {
++		int i;
++		int low = sysctl_local_port_range[0];
++		int high = sysctl_local_port_range[1];
++		unsigned rover, best, best_size_so_far;
++
++		best_size_so_far = UINT_MAX;
++		best = rover = net_random() % (high - low) + low;
++
++		/* 1st pass: look for empty (or shortest) hash chain */
++		for (i = 0; i < UDP_HTABLE_SIZE; i++) {
++			int size = 0;
++
++			head = &udptable[rover & (UDP_HTABLE_SIZE - 1)];
++			if (hlist_empty(head))
+ 				goto gotit;
+-			}
+-			size = 0;
++
+ 			sk_for_each(sk2, node, head) {
+ 				if (++size >= best_size_so_far)
+ 					goto next;
+ 			}
+ 			best_size_so_far = size;
+-			best = result;
++			best = rover;
+ 		next:
+-			;
++			/* fold back if end of range */
++			if (++rover > high)
++				rover = low + ((rover - low)
++					       & (UDP_HTABLE_SIZE - 1));
++
++
+ 		}
+-		result = best;
+-		for (i = 0; i < (1 << 16) / UDP_HTABLE_SIZE;
+-		     i++, result += UDP_HTABLE_SIZE) {
+-			if (result > sysctl_local_port_range[1])
+-				result = sysctl_local_port_range[0]
+-					+ ((result - sysctl_local_port_range[0]) &
+-					   (UDP_HTABLE_SIZE - 1));
+-			if (! __udp_lib_lport_inuse(result, udptable))
+-				break;
++
++		/* 2nd pass: find hole in shortest hash chain */
++		rover = best;
++		for (i = 0; i < (1 << 16) / UDP_HTABLE_SIZE; i++) {
++			if (! __udp_lib_lport_inuse(rover, udptable))
++				goto gotit;
++			rover += UDP_HTABLE_SIZE;
++			if (rover > high)
++				rover = low + ((rover - low)
++					       & (UDP_HTABLE_SIZE - 1));
+ 		}
+-		if (i >= (1 << 16) / UDP_HTABLE_SIZE)
+-			goto fail;
++
++
++		/* All ports in use! */
++		goto fail;
++
+ gotit:
+-		*port_rover = snum = result;
++		snum = rover;
+ 	} else {
+ 		head = &udptable[snum & (UDP_HTABLE_SIZE - 1)];
+ 
+@@ -201,6 +206,7 @@ gotit:
+ 			    (*saddr_comp)(sk, sk2)                             )
+ 				goto fail;
+ 	}
++
+ 	inet_sk(sk)->num = snum;
+ 	sk->sk_hash = snum;
+ 	if (sk_unhashed(sk)) {
+@@ -217,7 +223,7 @@ fail:
+ int udp_get_port(struct sock *sk, unsigned short snum,
+ 			int (*scmp)(const struct sock *, const struct sock *))
+ {
+-	return  __udp_lib_get_port(sk, snum, udp_hash, &udp_port_rover, scmp);
++	return  __udp_lib_get_port(sk, snum, udp_hash, scmp);
  }
  
-+static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
-+{
-+	return ((a->s6_addr32[0] | a->s6_addr32[1]) == 0 && 
-+		 a->s6_addr32[2] == htonl(0x0000ffff)); 
-+}
-+
- /*
-  * find the first different bit between two addresses
-  * length of address must be a multiple of 32bits
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 761a910..92d8119 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -249,7 +249,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
- 			}
+ int ipv4_rcv_saddr_equal(const struct sock *sk1, const struct sock *sk2)
+--- a/net/ipv4/udp_impl.h	2007-08-23 09:44:22.000000000 -0700
++++ b/net/ipv4/udp_impl.h	2007-08-23 11:26:48.000000000 -0700
+@@ -9,7 +9,7 @@ extern int  	__udp4_lib_rcv(struct sk_bu
+ extern void 	__udp4_lib_err(struct sk_buff *, u32, struct hlist_head []);
  
- 			if (ipv6_only_sock(sk) ||
--			    !(ipv6_addr_type(&np->daddr) & IPV6_ADDR_MAPPED)) {
-+			    !ipv6_addr_v4mapped(&np->daddr)) {
- 				retv = -EADDRNOTAVAIL;
- 				break;
- 			}
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 0f7defb..d5c0175 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -697,7 +697,7 @@ static int tcp_v6_parse_md5_keys (struct sock *sk, char __user *optval,
- 	if (!cmd.tcpm_keylen) {
- 		if (!tcp_sk(sk)->md5sig_info)
- 			return -ENOENT;
--		if (ipv6_addr_type(&sin6->sin6_addr) & IPV6_ADDR_MAPPED)
-+		if (ipv6_addr_v4mapped(&sin6->sin6_addr))
- 			return tcp_v4_md5_do_del(sk, sin6->sin6_addr.s6_addr32[3]);
- 		return tcp_v6_md5_do_del(sk, &sin6->sin6_addr);
- 	}
-@@ -720,7 +720,7 @@ static int tcp_v6_parse_md5_keys (struct sock *sk, char __user *optval,
- 	newkey = kmemdup(cmd.tcpm_key, cmd.tcpm_keylen, GFP_KERNEL);
- 	if (!newkey)
- 		return -ENOMEM;
--	if (ipv6_addr_type(&sin6->sin6_addr) & IPV6_ADDR_MAPPED) {
-+	if (ipv6_addr_v4mapped(&sin6->sin6_addr)) {
- 		return tcp_v4_md5_do_add(sk, sin6->sin6_addr.s6_addr32[3],
- 					 newkey, cmd.tcpm_keylen);
- 	}
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 4210951..3e0ca15 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -610,7 +610,7 @@ int udpv6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 		daddr = NULL;
+ extern int	__udp_lib_get_port(struct sock *sk, unsigned short snum,
+-				   struct hlist_head udptable[], int *port_rover,
++				   struct hlist_head udptable[],
+ 				   int (*)(const struct sock*,const struct sock*));
+ extern int	ipv4_rcv_saddr_equal(const struct sock *, const struct sock *);
  
- 	if (daddr) {
--		if (ipv6_addr_type(daddr) == IPV6_ADDR_MAPPED) {
-+		if (ipv6_addr_v4mapped(daddr)) {
- 			struct sockaddr_in sin;
- 			sin.sin_family = AF_INET;
- 			sin.sin_port = sin6 ? sin6->sin6_port : inet->dport;
-diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-index f8aa23d..cd57a51 100644
---- a/net/sctp/ipv6.c
-+++ b/net/sctp/ipv6.c
-@@ -481,7 +481,7 @@ static int sctp_v6_cmp_addr(const union sctp_addr *addr1,
- 	if (addr1->sa.sa_family != addr2->sa.sa_family) {
- 		if (addr1->sa.sa_family == AF_INET &&
- 		    addr2->sa.sa_family == AF_INET6 &&
--		    IPV6_ADDR_MAPPED == ipv6_addr_type(&addr2->v6.sin6_addr)) {
-+		    ipv6_addr_v4mapped(&addr2->v6.sin6_addr)) {
- 			if (addr2->v6.sin6_port == addr1->v4.sin_port &&
- 			    addr2->v6.sin6_addr.s6_addr32[3] ==
- 			    addr1->v4.sin_addr.s_addr)
-@@ -489,7 +489,7 @@ static int sctp_v6_cmp_addr(const union sctp_addr *addr1,
- 		}
- 		if (addr2->sa.sa_family == AF_INET &&
- 		    addr1->sa.sa_family == AF_INET6 &&
--		    IPV6_ADDR_MAPPED == ipv6_addr_type(&addr1->v6.sin6_addr)) {
-+		    ipv6_addr_v4mapped(&addr1->v6.sin6_addr)) {
- 			if (addr1->v6.sin6_port == addr2->v4.sin_port &&
- 			    addr1->v6.sin6_addr.s6_addr32[3] ==
- 			    addr2->v4.sin_addr.s_addr)
-
---------------040604000202020802060006--
+--- a/net/ipv4/udplite.c	2007-08-23 09:44:22.000000000 -0700
++++ b/net/ipv4/udplite.c	2007-08-23 11:25:33.000000000 -0700
+@@ -16,12 +16,11 @@
+ DEFINE_SNMP_STAT(struct udp_mib, udplite_statistics)	__read_mostly;
+ 
+ struct hlist_head 	udplite_hash[UDP_HTABLE_SIZE];
+-static int		udplite_port_rover;
+ 
+ int udplite_get_port(struct sock *sk, unsigned short p,
+ 		     int (*c)(const struct sock *, const struct sock *))
+ {
+-	return  __udp_lib_get_port(sk, p, udplite_hash, &udplite_port_rover, c);
++	return  __udp_lib_get_port(sk, p, udplite_hash, c);
+ }
+ 
+ static int udplite_v4_get_port(struct sock *sk, unsigned short snum)
