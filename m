@@ -1,80 +1,51 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: Re: [PATCH] improved xfrm_audit_log() patch
-Date: Thu, 23 Aug 2007 12:15:10 -0500
-Message-ID: <1187889310.15699.735.camel@faith.austin.ibm.com>
-References: <20070821.002405.88473654.davem@davemloft.net>
-	 <20070822.125157.43008100.davem@davemloft.net>
-	 <1187832557.15699.687.camel@faith.austin.ibm.com>
-	 <20070822.200502.35874480.davem@davemloft.net>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH net-2.6.24] introduce MAC_FMT/MAC_ARG
+Date: Thu, 23 Aug 2007 13:08:30 -0400
+Message-ID: <20070823170830.GE2989@tuxdriver.com>
+References: <1187808408.4314.15.camel@johannes.berg> <1187884912.32738.24.camel@localhost> <1187885520.22725.4.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-audit@redhat.com, sgrubb@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Joe Perches <joe@perches.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:49463 "EHLO e4.ny.us.ibm.com"
+Received: from ra.tuxdriver.com ([70.61.120.52]:4441 "EHLO ra.tuxdriver.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750840AbXHWRSI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Aug 2007 13:18:08 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l7NHI6M7011193
-	for <netdev@vger.kernel.org>; Thu, 23 Aug 2007 13:18:06 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7NHI6El549854
-	for <netdev@vger.kernel.org>; Thu, 23 Aug 2007 13:18:06 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7NHI51d028324
-	for <netdev@vger.kernel.org>; Thu, 23 Aug 2007 13:18:05 -0400
-In-Reply-To: <20070822.200502.35874480.davem@davemloft.net>
+	id S1765557AbXHWRtb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Aug 2007 13:49:31 -0400
+Content-Disposition: inline
+In-Reply-To: <1187885520.22725.4.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-08-22 at 20:05 -0700, David Miller wrote:
-> I would suggest, at this point, to make purpose built situation
-> specific interfaces that pass specific objects (the ones being
-> operated upon) to the audit layer.
+On Thu, Aug 23, 2007 at 06:12:00PM +0200, Johannes Berg wrote:
+> On Thu, 2007-08-23 at 09:01 -0700, Joe Perches wrote:
+> > There are also several different uses of the equivalent of
+> > 
+> > 	printk("%02x",addr[0])
+> > 	for (i=1; i<6; i++)
+> > 		printk(":%02x",addr[i]);
+> > 
+> > to print an ethernet MAC address.
 > 
-> Let the audit layer pick out the bits it actually wants in the
-> format it likes.
+> Hm. I didn't know that, I can go through in a later patch if desired.
 > 
-> For example, if we're creating a template, pass the policy and
-> the templace to the audit layer via a function called:
+> > http://www.uwsg.iu.edu/hypermail/linux/net/0602.1/0002.html
+> > 
+> > As not all device MAC addresses are 6 bytes, colon separated,
+> > perhaps an appropriate ethernet/tr MAC designation is EUI48.
+> > 
+> > http://standards.ieee.org/regauth/oui/tutorials/EUI48.html
 > 
-> xfrm_audit_template_add()
-> 
-> or something like that.  That function only needs two arguments.
-> 
-> All of these call sites will rarely need more than 2 or 3 arguments in
-> any given situation, and the on-stack audit thing will be gone too.
-> 
-> This is the suggestion I made to you over a month ago, but you choose
-> to do the on-stack thing.
-> 
-I misunderstood. My bad.
+> Practically, however, nobody is going to even find macros named
+> EUI48_FMT/EUI48_ARG, would they? I don't much care, but I find it rather
+> unsatisfying that both wireless code bases define these macros.
 
-For clarification, I plan on removing xfrm_audit_log() and replacing it
-with more specific ipsec audit interfaces. 
+Yeah, accomodating non-48-bit MAC addresses is a bit pedantic.
 
-For example, when auditing the addition of a policy, either
-xfrm_user_audit_policy_add(xp, result, skb) or
-pfkey_audit_policy_add(xp, result) will get called. 
-I need two because xfrm_user gets loginuid/secid from netlink/skb
-and pfkey gets it from audit_get_loginuid(). 
-Each will setup and format audit buffer according
-to what they want.
+I ACK the original patch, FWIW.
 
-Also, for deleting, there will be pfkey_audit_policy_delete(xp, result)
-and xfrm_user_audit_policy_delete(xp, result, skb).
-
-> You must make this cost absolutely nothing when it is either
-> not configured, and have next to no cost when not enabled at
-> run time.  And it is very doable.
-
-The new ipsec audit functions can be ifdef'd with CONFIG_AUDITSYSCALL
-just as xfrm_audit_log() was so that there is no cost when 
-audit is not configured. 
-
-Let me know if this is better.
-
-Regards,
-Joy
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
