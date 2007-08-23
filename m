@@ -1,156 +1,78 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: Re: [PATCH 1/1] NFS: change the ip_map cache code to handle IPv6
- addresses
-Date: Thu, 23 Aug 2007 11:39:32 -0400
-Message-ID: <46CDAA34.1070603@oracle.com>
-References: <46CD890C.2040502@ext.bull.net>
-Reply-To: chuck.lever@oracle.com
+From: Prakash Punnoor <prakash@punnoor.de>
+Subject: Re: [2.6.20.17 review 35/58] forcedeth bug fix: realtek phy
+Date: Thu, 23 Aug 2007 17:50:41 +0200
+Message-ID: <200708231750.45257.prakash@punnoor.de>
+References: <20070822083844.%N@1wt.eu> <20070822204225.GD14132@1wt.eu> <20070822230526.GC32121@suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000802050604020802040108"
-Cc: Mailing list NFSv4 <nfsv4@linux-nfs.org>,
-	netdev ML <netdev@vger.kernel.org>
-To: =?UTF-8?B?QXVyw6lsaWVuIENoYXJib24=?=
-	<aurelien.charbon@ext.bull.net>
+Content-Type: multipart/signed;
+  boundary="nextPart2544282.4zfNHyCUiP";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Willy Tarreau <w@1wt.eu>, linux-kernel@vger.kernel.org,
+	stable@kernel.org, Ayaz Abdulla <aabdulla@nvidia.com>,
+	netdev@vger.kernel.org
+To: Greg KH <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:59453 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762052AbXHWPlY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2007 11:41:24 -0400
-In-Reply-To: <46CD890C.2040502@ext.bull.net>
+Received: from mail-in-04.arcor-online.net ([151.189.21.44]:37116 "EHLO
+	mail-in-04.arcor-online.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758673AbXHWPvH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2007 11:51:07 -0400
+In-Reply-To: <20070822230526.GC32121@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000802050604020802040108
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
+--nextPart2544282.4zfNHyCUiP
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Hi Aurélien-
+On the day of Thursday 23 August 2007 Greg KH hast written:
+> On Wed, Aug 22, 2007 at 10:42:25PM +0200, Willy Tarreau wrote:
+> > On Wed, Aug 22, 2007 at 08:15:03PM +0200, Prakash Punnoor wrote:
+> > > Hi,
+> > >
+> > > even if Greg is waiting for some special invitation
+> > > (http://lkml.org/lkml/2007/8/14/229), I suggest putting this patch by
+> > > Ayaz on top:
+> > >
+> > > http://lkml.org/lkml/2007/8/10/296
+> >
+> > That's what I prepare first, but then noticed it's not in mainline.
+> >
+> > > Perhaps Ayaz wants to give Greg the clarification he needs... :sigh:
+> >
+> > He should, as the fix is not in mainline either :-(
+> > I don't think Greg asks for specific clarification, just a plain patch
+> > with a short commit log on its own which does not include remains of
+> > older mails.
+>
+> Exactly, that is what I am waiting for.
+>
+> And also I need the change to go into mainline first, as we can not
+> diverge with the -stable releases.
 
-Aurélien Charbon wrote:
-> According to Neil's comments, I have tried to correct the mistakes of my first sending
-> Thank you for these comments Neil.
-> 
-> This is a small part of missing pieces of IPv6 support for the server.
-> It deals with the ip_map caching code part.
-> 
-> It changes the ip_map structure to be able to store INET6 addresses.
-> It adds also the changes in address hashing, and mapping to test it with INET addresses.
-> 
-> Signed-off-by: Aurelien Charbon <aurelien.charbon@ext.bull.net>
-> ---
-> 
->  fs/nfsd/export.c               |   10 ++-
->  fs/nfsd/nfsctl.c               |   21 ++++++-
->  include/linux/sunrpc/svcauth.h |    4 -
->  include/net/ipv6.h             |   17 +++++
->  net/sunrpc/svcauth_unix.c      |  121 
-> ++++++++++++++++++++++++++++-------------
->  5 files changed, 129 insertions(+), 44 deletions(-)
-> 
-> 
-> diff -p -u -r -N linux-2.6.23-rc3/fs/nfsd/export.c 
-> linux-2.6.23-rc3-IPv6-ipmap-cache/fs/nfsd/export.c
-> --- linux-2.6.23-rc3/fs/nfsd/export.c    2007-08-23 13:18:16.000000000 +0200
-> +++ linux-2.6.23-rc3-IPv6-ipmap-cache/fs/nfsd/export.c    2007-08-23 
-> 13:51:08.000000000 +0200
-> @@ -35,6 +35,7 @@
->  #include <linux/lockd/bind.h>
->  #include <linux/sunrpc/msg_prot.h>
->  #include <linux/sunrpc/gss_api.h>
-> +#include <net/ipv6.h>
->  
->  #define NFSDDBG_FACILITY    NFSDDBG_EXPORT
->  
-> @@ -1559,6 +1560,7 @@ exp_addclient(struct nfsctl_client *ncp)
->  {
->      struct auth_domain    *dom;
->      int            i, err;
-> +    struct in6_addr addr6;
->  
->      /* First, consistency check. */
->      err = -EINVAL;
-> @@ -1577,9 +1579,11 @@ exp_addclient(struct nfsctl_client *ncp)
->          goto out_unlock;
->  
->      /* Insert client into hashtable. */
-> -    for (i = 0; i < ncp->cl_naddr; i++)
-> -        auth_unix_add_addr(ncp->cl_addrlist[i], dom);
-> -
-> +    for (i = 0; i < ncp->cl_naddr; i++) {
-> +        /* Mapping address */
-> +        ipv6_addr_map(ncp->cl_addrlist[i], addr6);
-> +        auth_unix_add_addr(addr6, dom);
-> +    }
->      auth_unix_forget_old(dom);
->      auth_domain_put(dom);
->  
-> diff -p -u -r -N linux-2.6.23-rc3/fs/nfsd/nfsctl.c 
-> linux-2.6.23-rc3-IPv6-ipmap-cache/fs/nfsd/nfsctl.c
-> --- linux-2.6.23-rc3/fs/nfsd/nfsctl.c    2007-08-23 13:18:16.000000000 +0200
-> +++ linux-2.6.23-rc3-IPv6-ipmap-cache/fs/nfsd/nfsctl.c    2007-08-23 
-> 13:25:28.000000000 +0200
-> @@ -222,7 +222,7 @@ static ssize_t write_getfs(struct file *
->      struct auth_domain *clp;
->      int err = 0;
->      struct knfsd_fh *res;
-> -
-> +    struct in6_addr in6;
->      if (size < sizeof(*data))
->          return -EINVAL;
->      data = (struct nfsctl_fsparm*)buf;
-> @@ -236,7 +236,14 @@ static ssize_t write_getfs(struct file *
->      res = (struct knfsd_fh*)buf;
->  
->      exp_readlock();
-> -    if (!(clp = auth_unix_lookup(sin->sin_addr)))
-> +
-> +    /* IPv6 address mapping */
-> +    in6.s6_addr32[0] = 0;
-> +    in6.s6_addr32[1] = 0;
-> +    in6.s6_addr32[2] = htonl(0xffff);
-> +    in6.s6_addr32[3] = (uint32_t)sin->sin_addr.s_addr;
-> +
-> +    if (!(clp = auth_unix_lookup(in6)))
->          err = -EPERM;
->      else {
->          err = exp_rootfh(clp, data->gd_path, res, data->gd_maxlen);
-> @@ -253,6 +260,7 @@ static ssize_t write_getfd(struct file *
->  {
->      struct nfsctl_fdparm *data;
->      struct sockaddr_in *sin;
-> +    struct in6_addr in6;
->      struct auth_domain *clp;
->      int err = 0;
->      struct knfsd_fh fh;
-> @@ -271,7 +279,14 @@ static ssize_t write_getfd(struct file *
->      res = buf;
->      sin = (struct sockaddr_in *)&data->gd_addr;
->      exp_readlock();
-> -    if (!(clp = auth_unix_lookup(sin->sin_addr)))
-> +
-> +    /* IPv6 address mapping */
-> +    in6.s6_addr32[0] = 0;
-> +    in6.s6_addr32[1] = 0;
-> +    in6.s6_addr32[2] = htonl(0xffff);
-> +    in6.s6_addr32[3] = (uint32_t)sin->sin_addr.s_addr;
+Can we get that into mainline then? I haven't seen forcedeth in MAINTAINERS=
+,=20
+so I added netdev to the cc list.
 
-The code canonicalizes IPv4 addresses in several places.  Is there 
-already a generic function defined somewhere to do this?  If not, it 
-might make sense to add one.
+bye,
+=2D-=20
+(=B0=3D                 =3D=B0)
+//\ Prakash Punnoor /\\
+V_/                 \_V
 
---------------000802050604020802040108
-Content-Type: text/x-vcard; charset=utf-8;
- name="chuck.lever.vcf"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="chuck.lever.vcf"
+--nextPart2544282.4zfNHyCUiP
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
-YmVnaW46dmNhcmQNCmZuOkNodWNrIExldmVyDQpuOkxldmVyO0NodWNrDQpvcmc6T3JhY2xl
-IENvcnBvcmF0aW9uO0NvcnBvcmF0ZSBBcmNoaXRlY3R1cmU6IExpbnV4IFByb2plY3RzIEdy
-b3VwDQphZHI6OzsxMDE1IEdyYW5nZXIgQXZlbnVlO0FubiBBcmJvcjtNSTs0ODEwNDtVU0EN
-CnRpdGxlOlByaW5jaXBhbCBNZW1iZXIgb2YgU3RhZmYNCnRlbDt3b3JrOisxIDI0OCA2MTQg
-NTA5MQ0KeC1tb3ppbGxhLWh0bWw6RkFMU0UNCnVybDpodHRwOi8vb3NzLm9yYWNsZS5jb20v
-fmNlbA0KdmVyc2lvbjoyLjENCmVuZDp2Y2FyZA0KDQo=
---------------000802050604020802040108--
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.6 (GNU/Linux)
+
+iD8DBQBGzazVxU2n/+9+t5gRArFSAKDkCgJUrlJ4JjO4RCApyTEvR5CZbwCg70iK
+BKkFiX1CidBJVjNdZ95ztCc=
+=HVOh
+-----END PGP SIGNATURE-----
+
+--nextPart2544282.4zfNHyCUiP--
