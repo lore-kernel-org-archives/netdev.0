@@ -1,61 +1,55 @@
 From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [PATCH 0/9 Rev3] Implement batching skb API and support in IPoIB
-Date: Thu, 23 Aug 2007 08:13:20 +0530
-Message-ID: <OF0CF9546C.CC582BA6-ON65257340.000ECF21-65257340.000EF44C@in.ibm.com>
-References: <20070822.021440.123973929.davem@davemloft.net>
+Subject: [ofa-general] Re: [PATCH 10/10 Rev4] [E1000] Implement batching
+Date: Thu, 23 Aug 2007 08:14:32 +0530
+Message-ID: <OFF62B08D8.4B722584-ON65257340.000EF898-65257340.000F1081@in.ibm.com>
+References: <46CC4AA3.5030607@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: gaagaan@gmail.com, general@lists.openfabrics.org, hadi@cyberus.ca,
-	herbert@gondor.apana.org.au, jagana@us.ibm.com, jeff@garzik.org,
-	johnpol@2ka.mipt.ru, kaber@trash.net, kumarkr@linux.ibm.com,
-	mcarlson@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org,
-	peter.p.waskiewicz.jr@intel.com, rdreier@cisco.com,
-	rick.jones2@hp.com, Robert.Olsson@data.slu.se,
-	shemminger@linux-foundation.org, sri@us.ibm.com, tgraf@suug.ch,
-	xma@us.ibm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausmtp04.au.ibm.com ([202.81.18.152]:50270 "EHLO
-	ausmtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750870AbXHWCm1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Aug 2007 22:42:27 -0400
-Received: from d23relay03.au.ibm.com (d23relay03.au.ibm.com [202.81.18.234])
-	by ausmtp04.au.ibm.com (8.13.8/8.13.8) with ESMTP id l7N2kCjR206908
-	for <netdev@vger.kernel.org>; Thu, 23 Aug 2007 12:46:12 +1000
-Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.250.242])
-	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7N2gLU83793138
-	for <netdev@vger.kernel.org>; Thu, 23 Aug 2007 12:42:21 +1000
-Received: from d23av01.au.ibm.com (loopback [127.0.0.1])
-	by d23av01.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7N2gJnT021529
-	for <netdev@vger.kernel.org>; Thu, 23 Aug 2007 12:42:21 +1000
-In-Reply-To: <20070822.021440.123973929.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
+	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
+	kumarkr@linux.ibm.com, mcarlson@broadcom.com,
+	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
+	kaber@trash.net, jeff@garzik.org, general@lists.openfabrics.org,
+	mchan@broadcom.com, tgraf@suug.ch, netdev@vger.kernel.org,
+	sri@us.ibm.com, shemminger@linux-foundation.org,
+	davem@davemloft.net, rdreier@cisco.com
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <46CC4AA3.5030607@intel.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> wrote on 08/22/2007 02:44:40 PM:
+Hi Auke,
 
-> From: Krishna Kumar2 <krkumar2@in.ibm.com>
-> Date: Wed, 22 Aug 2007 12:33:04 +0530
+"Kok, Auke" <auke-jan.h.kok@intel.com> wrote on 08/22/2007 08:09:31 PM:
+
+> Krishna,
 >
-> > Does turning off batching solve that problem? What I mean by that is:
-> > batching can be disabled if a TSO device is worse for some cases.
+> while I appreciate the patch I would have preferred a patch to e1000e.
+Not only
+> does the e1000e driver remove a lot of the workarounds for old silicon,
+it is
+> also a good way for us to move the current e1000 driver into a bit more
+stable
+> maintenance mode.
 >
-> This new batching stuff isn't going to be enabled or disabled
-> on a per-device basis just to get "parity" with how things are
-> now.
+> Do you think you can write this patch for e1000e instead? code-wise a lot
+of
+> things are still the same, so your patch should be relatively easy to
+generate.
 >
-> It should be enabled by default, and give at least as good
-> performance as what can be obtained right now.
+> e1000e currently lives in a branch from jeff garzik's netdev-2.6 tree
 
-That was how it was in earlier revisions. In revision4 I coded it so
-that it is enabled only if explicitly set by the user. I can revert
-that change.
-
-> Otherwise it's a clear regression.
-
-Definitely. For drivers that support it, it should not reduce performance.
+Definitely, I will pick it up and generate a patch.
 
 Thanks,
 
 - KK
-
