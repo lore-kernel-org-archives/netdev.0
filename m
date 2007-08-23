@@ -1,187 +1,48 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] udp: randomize port selection
-Date: Thu, 23 Aug 2007 11:32:26 -0700
-Message-ID: <20070823113226.30d6a4b6@freepuppy.rosehill.hemminger.net>
-References: <46CD3462.2070403@balabit.hu>
-	<46CDBE17.7080909@hp.com>
+From: Olof Johansson <olof@lixom.net>
+Subject: Re: [PATCH] [02/10] pasemi_mac: Stop using the pci config space
+	accessors for register read/writes
+Date: Thu, 23 Aug 2007 13:12:08 -0500
+Message-ID: <20070823181208.GA31882@lixom.net>
+References: <20070817205413.548020000@lixom.net> <20070822141248.GC16830@lixom.net> <20070823103103.a1815a07.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: panther@balabit.hu, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, linuxppc-dev@ozlabs.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:49717 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1763052AbXHWStO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2007 14:49:14 -0400
-In-Reply-To: <46CDBE17.7080909@hp.com>
+Received: from lixom.net ([66.141.50.11]:58817 "EHLO mail.lixom.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755659AbXHWTHI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Aug 2007 15:07:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20070823103103.a1815a07.sfr@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch causes UDP port allocation to be randomized like TCP.
-The earlier code would always choose same port (ie first empty list).
+On Thu, Aug 23, 2007 at 10:31:03AM +1000, Stephen Rothwell wrote:
+> On Wed, 22 Aug 2007 09:12:48 -0500 Olof Johansson <olof@lixom.net> wrote:
+> >
+> > -static unsigned int read_iob_reg(struct pasemi_mac *mac, unsigned int reg)
+> > +static inline unsigned int read_iob_reg(struct pasemi_mac *mac, unsigned int reg)
+>           ^^^^^^
+> For static functions in C files, we tend not to bother marking them
+> inline any more as the compiler does a pretty good job theses days.
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+Yeah, sloppy coding on my behalf. It was still there from when I
+explicitly added noinline during debugging, forgot to take it out
+alltogether.
+
+> > -	pci_read_config_dword(mac->iob_pdev, reg, &val);
+> > +	val = in_le32(mac->iob_regs+reg);
+> > +
+> >  	return val;
+> 
+> Why not just "return in_le32(mac->iob_regs+reg);" ?
+> And similarly below?
+
+Residual from debugging as well, I had debug hooks showing what was
+read/written that I took out, but didn't fix up the surrounding stuff.
 
 
---- a/net/ipv4/udp.c	2007-08-23 09:44:22.000000000 -0700
-+++ b/net/ipv4/udp.c	2007-08-23 11:29:02.000000000 -0700
-@@ -113,9 +113,8 @@ DEFINE_SNMP_STAT(struct udp_mib, udp_sta
- struct hlist_head udp_hash[UDP_HTABLE_SIZE];
- DEFINE_RWLOCK(udp_hash_lock);
- 
--static int udp_port_rover;
--
--static inline int __udp_lib_lport_inuse(__u16 num, struct hlist_head udptable[])
-+static inline int __udp_lib_lport_inuse(__u16 num,
-+					const struct hlist_head udptable[])
- {
- 	struct sock *sk;
- 	struct hlist_node *node;
-@@ -132,11 +131,10 @@ static inline int __udp_lib_lport_inuse(
-  *  @sk:          socket struct in question
-  *  @snum:        port number to look up
-  *  @udptable:    hash list table, must be of UDP_HTABLE_SIZE
-- *  @port_rover:  pointer to record of last unallocated port
-  *  @saddr_comp:  AF-dependent comparison of bound local IP addresses
-  */
- int __udp_lib_get_port(struct sock *sk, unsigned short snum,
--		       struct hlist_head udptable[], int *port_rover,
-+		       struct hlist_head udptable[],
- 		       int (*saddr_comp)(const struct sock *sk1,
- 					 const struct sock *sk2 )    )
- {
-@@ -146,49 +144,56 @@ int __udp_lib_get_port(struct sock *sk, 
- 	int    error = 1;
- 
- 	write_lock_bh(&udp_hash_lock);
--	if (snum == 0) {
--		int best_size_so_far, best, result, i;
- 
--		if (*port_rover > sysctl_local_port_range[1] ||
--		    *port_rover < sysctl_local_port_range[0])
--			*port_rover = sysctl_local_port_range[0];
--		best_size_so_far = 32767;
--		best = result = *port_rover;
--		for (i = 0; i < UDP_HTABLE_SIZE; i++, result++) {
--			int size;
--
--			head = &udptable[result & (UDP_HTABLE_SIZE - 1)];
--			if (hlist_empty(head)) {
--				if (result > sysctl_local_port_range[1])
--					result = sysctl_local_port_range[0] +
--						((result - sysctl_local_port_range[0]) &
--						 (UDP_HTABLE_SIZE - 1));
-+	if (!snum) {
-+		int i;
-+		int low = sysctl_local_port_range[0];
-+		int high = sysctl_local_port_range[1];
-+		unsigned rover, best, best_size_so_far;
-+
-+		best_size_so_far = UINT_MAX;
-+		best = rover = net_random() % (high - low) + low;
-+
-+		/* 1st pass: look for empty (or shortest) hash chain */
-+		for (i = 0; i < UDP_HTABLE_SIZE; i++) {
-+			int size = 0;
-+
-+			head = &udptable[rover & (UDP_HTABLE_SIZE - 1)];
-+			if (hlist_empty(head))
- 				goto gotit;
--			}
--			size = 0;
-+
- 			sk_for_each(sk2, node, head) {
- 				if (++size >= best_size_so_far)
- 					goto next;
- 			}
- 			best_size_so_far = size;
--			best = result;
-+			best = rover;
- 		next:
--			;
-+			/* fold back if end of range */
-+			if (++rover > high)
-+				rover = low + ((rover - low)
-+					       & (UDP_HTABLE_SIZE - 1));
-+
-+
- 		}
--		result = best;
--		for (i = 0; i < (1 << 16) / UDP_HTABLE_SIZE;
--		     i++, result += UDP_HTABLE_SIZE) {
--			if (result > sysctl_local_port_range[1])
--				result = sysctl_local_port_range[0]
--					+ ((result - sysctl_local_port_range[0]) &
--					   (UDP_HTABLE_SIZE - 1));
--			if (! __udp_lib_lport_inuse(result, udptable))
--				break;
-+
-+		/* 2nd pass: find hole in shortest hash chain */
-+		rover = best;
-+		for (i = 0; i < (1 << 16) / UDP_HTABLE_SIZE; i++) {
-+			if (! __udp_lib_lport_inuse(rover, udptable))
-+				goto gotit;
-+			rover += UDP_HTABLE_SIZE;
-+			if (rover > high)
-+				rover = low + ((rover - low)
-+					       & (UDP_HTABLE_SIZE - 1));
- 		}
--		if (i >= (1 << 16) / UDP_HTABLE_SIZE)
--			goto fail;
-+
-+
-+		/* All ports in use! */
-+		goto fail;
-+
- gotit:
--		*port_rover = snum = result;
-+		snum = rover;
- 	} else {
- 		head = &udptable[snum & (UDP_HTABLE_SIZE - 1)];
- 
-@@ -201,6 +206,7 @@ gotit:
- 			    (*saddr_comp)(sk, sk2)                             )
- 				goto fail;
- 	}
-+
- 	inet_sk(sk)->num = snum;
- 	sk->sk_hash = snum;
- 	if (sk_unhashed(sk)) {
-@@ -217,7 +223,7 @@ fail:
- int udp_get_port(struct sock *sk, unsigned short snum,
- 			int (*scmp)(const struct sock *, const struct sock *))
- {
--	return  __udp_lib_get_port(sk, snum, udp_hash, &udp_port_rover, scmp);
-+	return  __udp_lib_get_port(sk, snum, udp_hash, scmp);
- }
- 
- int ipv4_rcv_saddr_equal(const struct sock *sk1, const struct sock *sk2)
---- a/net/ipv4/udp_impl.h	2007-08-23 09:44:22.000000000 -0700
-+++ b/net/ipv4/udp_impl.h	2007-08-23 11:26:48.000000000 -0700
-@@ -9,7 +9,7 @@ extern int  	__udp4_lib_rcv(struct sk_bu
- extern void 	__udp4_lib_err(struct sk_buff *, u32, struct hlist_head []);
- 
- extern int	__udp_lib_get_port(struct sock *sk, unsigned short snum,
--				   struct hlist_head udptable[], int *port_rover,
-+				   struct hlist_head udptable[],
- 				   int (*)(const struct sock*,const struct sock*));
- extern int	ipv4_rcv_saddr_equal(const struct sock *, const struct sock *);
- 
---- a/net/ipv4/udplite.c	2007-08-23 09:44:22.000000000 -0700
-+++ b/net/ipv4/udplite.c	2007-08-23 11:25:33.000000000 -0700
-@@ -16,12 +16,11 @@
- DEFINE_SNMP_STAT(struct udp_mib, udplite_statistics)	__read_mostly;
- 
- struct hlist_head 	udplite_hash[UDP_HTABLE_SIZE];
--static int		udplite_port_rover;
- 
- int udplite_get_port(struct sock *sk, unsigned short p,
- 		     int (*c)(const struct sock *, const struct sock *))
- {
--	return  __udp_lib_get_port(sk, p, udplite_hash, &udplite_port_rover, c);
-+	return  __udp_lib_get_port(sk, p, udplite_hash, c);
- }
- 
- static int udplite_v4_get_port(struct sock *sk, unsigned short snum)
+Refreshed patch posted separately. Thanks for the feedback.
+
+-Olof
