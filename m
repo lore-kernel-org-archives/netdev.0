@@ -1,43 +1,39 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH 2.6.23] cxgb3 - Fix dev->priv usage
-Date: Thu, 23 Aug 2007 14:25:18 -0500
-Message-ID: <46CDDF1E.1010408@opengridcomputing.com>
-References: <20070813193303.15321.49171.stgit@speedy5> <20070813.135811.06543390.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] improved xfrm_audit_log() patch
+Date: Thu, 23 Aug 2007 13:07:30 -0700 (PDT)
+Message-ID: <20070823.130730.40743564.davem@davemloft.net>
+References: <1187832557.15699.687.camel@faith.austin.ibm.com>
+	<20070822.200502.35874480.davem@davemloft.net>
+	<1187889310.15699.735.camel@faith.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: divy@chelsio.com, jeff@garzik.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-audit@redhat.com, sgrubb@redhat.com
+To: latten@austin.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.opengridcomputing.com ([71.42.183.126]:51548 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755568AbXHWTpr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2007 15:45:47 -0400
-In-Reply-To: <20070813.135811.06543390.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33359
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756302AbXHWUHd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2007 16:07:33 -0400
+In-Reply-To: <1187889310.15699.735.camel@faith.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch doesn't seem to have gone in yet????
+From: Joy Latten <latten@austin.ibm.com>
+Date: Thu, 23 Aug 2007 12:15:10 -0500
 
-Steve.
-
-
-David Miller wrote:
-> From: Divy Le Ray <divy@chelsio.com>
-> Date: Mon, 13 Aug 2007 12:33:04 -0700
+> For example, when auditing the addition of a policy, either
+> xfrm_user_audit_policy_add(xp, result, skb) or
+> pfkey_audit_policy_add(xp, result) will get called. 
+> I need two because xfrm_user gets loginuid/secid from netlink/skb
+> and pfkey gets it from audit_get_loginuid(). 
+> Each will setup and format audit buffer according
+> to what they want.
 > 
->> From: Divy Le Ray <divy@chelsio.com>
->>
->> cxgb3 used netdev_priv() and dev->priv for different purposes.
->> In 2.6.23, netdev_priv() == dev->priv, cxgb3 needs a fix.
->> This patch is a partial backport of Dave Miller's changes in the 
->> net-2.6.24 git branch. 
->>
->> Signed-off-by: Divy Le Ray <divy@chelsio.com>
-> 
-> Thank you for doing this backport.
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Also, for deleting, there will be pfkey_audit_policy_delete(xp, result)
+> and xfrm_user_audit_policy_delete(xp, result, skb).
+
+This sounds great.
+
+How cheap is the "auditing enabled" test?  Perhaps it can
+be even inlined into the xfrm audit hooks.
