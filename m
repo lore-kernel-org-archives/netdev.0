@@ -1,238 +1,57 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [patch 02/28] NET: Share correct feature code between bridging and
-	bonding
-Date: Thu, 23 Aug 2007 15:25:57 -0700
-Message-ID: <20070823222557.GC18559@kroah.com>
-References: <20070823220656.101239233@mini.kroah.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/9 Rev3] Implement batching skb API and support in
+ IPoIB
+Date: Thu, 23 Aug 2007 15:30:47 -0700 (PDT)
+Message-ID: <20070823.153047.99173582.davem@davemloft.net>
+References: <46CC6DD1.5020105@hp.com>
+	<20070822.132145.90824527.davem@davemloft.net>
+	<1187906650.4279.16.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Justin Forbes <jmforbes@linuxtx.org>,
-	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-	Theodore Ts'o <tytso@mit.edu>,
-	Randy Dunlap <rdunlap@xenotime.net>,
-	Dave Jones <davej@redhat.com>,
-	Chuck Wolber <chuckw@quantumlinux.com>,
-	Chris Wedgwood <reviews@ml.cw.f00f.org>,
-	Michael Krufky <mkrufky@linuxtv.org>,
-	Chuck Ebbert <cebbert@redhat.com>,
-	Domenico Andreoli <cavokz@gmail.com>,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: linux-kernel@vger.kernel.org, stable@kernel.org,
-	David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rick.jones2@hp.com, krkumar2@in.ibm.com, gaagaan@gmail.com,
+	general@lists.openfabrics.org, herbert@gondor.apana.org.au,
+	jagana@us.ibm.com, jeff@garzik.org, johnpol@2ka.mipt.ru,
+	kaber@trash.net, kumarkr@linux.ibm.com, mcarlson@broadcom.com,
+	mchan@broadcom.com, netdev@vger.kernel.org,
+	peter.p.waskiewicz.jr@intel.com, rdreier@cisco.com,
+	Robert.Olsson@data.slu.se, shemminger@linux-foundation.org,
+	sri@us.ibm.com, tgraf@suug.ch, xma@us.ibm.com
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:50625 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1765484AbXHWW14 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2007 18:27:56 -0400
-Content-Disposition: inline; filename="net-share-correct-feature-code-between-bridging-and-bonding.patch"
-In-Reply-To: <20070823221811.GA18559@kroah.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40999
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S933452AbXHWWav (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2007 18:30:51 -0400
+In-Reply-To: <1187906650.4279.16.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
--stable review patch.  If anyone has any objections, please let us know.
+From: jamal <hadi@cyberus.ca>
+Date: Thu, 23 Aug 2007 18:04:10 -0400
 
-------------------
+> Possibly a bug - but you really should turn off TSO if you are doing
+> huge interactive transactions (which is fair because there is a clear
+> demarcation).
 
-[NET]: Share correct feature code between bridging and bonding
+I don't see how this can matter.
 
-http://bugzilla.kernel.org/show_bug.cgi?id=8797 shows that the
-bonding driver may produce bogus combinations of the checksum
-flags and SG/TSO.
+TSO only ever does anything if you accumulate more than one MSS
+worth of data.
 
-For example, if you bond devices with NETIF_F_HW_CSUM and
-NETIF_F_IP_CSUM you'll end up with a bonding device that
-has neither flag set.  If both have TSO then this produces
-an illegal combination.
+And when that does happen, all it does is take whats in the send queue
+and send as much as possible at once.  The packets are already built
+in big chunks, so there is no extra work to do.
 
-The bridge device on the other hand has the correct code to
-deal with this.
+The card is going to send the things back to back and as fast as
+in the non-TSO case as well.
 
-In fact, the same code can be used for both.  So this patch
-moves that logic into net/core/dev.c and uses it for both
-bonding and bridging.
+It doesn't change application scheduling, and it absolutely does not
+penalize small sends by the application unless we have a bug
+somewhere.
 
-In the process I've made small adjustments such as only
-setting GSO_ROBUST if at least one constituent device
-supports it.
+So I see no reason to disable TSO for any reason other than hardware
+implementation deficiencies.  And for the drivers I am familiar with
+they do make smart default TSO enabling decisions based upon how well
+the chip does TSO.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-Acked-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
----
- drivers/net/bonding/bond_main.c |   30 +++++++++---------------------
- include/linux/netdevice.h       |    2 ++
- net/bridge/br_device.c          |    3 ++-
- net/bridge/br_if.c              |   28 ++++------------------------
- net/core/dev.c                  |   38 ++++++++++++++++++++++++++++++++++++++
- 5 files changed, 55 insertions(+), 46 deletions(-)
-
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1233,43 +1233,31 @@ int bond_sethwaddr(struct net_device *bo
- 	return 0;
- }
- 
--#define BOND_INTERSECT_FEATURES \
--	(NETIF_F_SG | NETIF_F_ALL_CSUM | NETIF_F_TSO | NETIF_F_UFO)
-+#define BOND_VLAN_FEATURES \
-+	(NETIF_F_VLAN_CHALLENGED | NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_TX | \
-+	 NETIF_F_HW_VLAN_FILTER)
- 
- /* 
-  * Compute the common dev->feature set available to all slaves.  Some
-- * feature bits are managed elsewhere, so preserve feature bits set on
-- * master device that are not part of the examined set.
-+ * feature bits are managed elsewhere, so preserve those feature bits
-+ * on the master device.
-  */
- static int bond_compute_features(struct bonding *bond)
- {
--	unsigned long features = BOND_INTERSECT_FEATURES;
- 	struct slave *slave;
- 	struct net_device *bond_dev = bond->dev;
-+	unsigned long features = bond_dev->features & ~BOND_VLAN_FEATURES;
- 	unsigned short max_hard_header_len = ETH_HLEN;
- 	int i;
- 
- 	bond_for_each_slave(bond, slave, i) {
--		features &= (slave->dev->features & BOND_INTERSECT_FEATURES);
-+		features = netdev_compute_features(features,
-+						   slave->dev->features);
- 		if (slave->dev->hard_header_len > max_hard_header_len)
- 			max_hard_header_len = slave->dev->hard_header_len;
- 	}
- 
--	if ((features & NETIF_F_SG) && 
--	    !(features & NETIF_F_ALL_CSUM))
--		features &= ~NETIF_F_SG;
--
--	/* 
--	 * features will include NETIF_F_TSO (NETIF_F_UFO) iff all 
--	 * slave devices support NETIF_F_TSO (NETIF_F_UFO), which 
--	 * implies that all slaves also support scatter-gather 
--	 * (NETIF_F_SG), which implies that features also includes 
--	 * NETIF_F_SG. So no need to check whether we have an  
--	 * illegal combination of NETIF_F_{TSO,UFO} and 
--	 * !NETIF_F_SG 
--	 */
--
--	features |= (bond_dev->features & ~BOND_INTERSECT_FEATURES);
-+	features |= (bond_dev->features & BOND_VLAN_FEATURES);
- 	bond_dev->features = features;
- 	bond_dev->hard_header_len = max_hard_header_len;
- 
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1032,6 +1032,8 @@ extern void dev_seq_stop(struct seq_file
- 
- extern void linkwatch_run_queue(void);
- 
-+extern int netdev_compute_features(unsigned long all, unsigned long one);
-+
- static inline int net_gso_ok(int features, int gso_type)
- {
- 	int feature = gso_type << NETIF_F_GSO_SHIFT;
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -179,5 +179,6 @@ void br_dev_setup(struct net_device *dev
- 	dev->priv_flags = IFF_EBRIDGE;
- 
- 	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA |
--			NETIF_F_TSO | NETIF_F_NO_CSUM | NETIF_F_GSO_ROBUST;
-+			NETIF_F_GSO_SOFTWARE | NETIF_F_NO_CSUM |
-+			NETIF_F_GSO_ROBUST | NETIF_F_LLTX;
- }
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -360,35 +360,15 @@ int br_min_mtu(const struct net_bridge *
- void br_features_recompute(struct net_bridge *br)
- {
- 	struct net_bridge_port *p;
--	unsigned long features, checksum;
-+	unsigned long features;
- 
--	checksum = br->feature_mask & NETIF_F_ALL_CSUM ? NETIF_F_NO_CSUM : 0;
--	features = br->feature_mask & ~NETIF_F_ALL_CSUM;
-+	features = br->feature_mask;
- 
- 	list_for_each_entry(p, &br->port_list, list) {
--		unsigned long feature = p->dev->features;
--
--		if (checksum & NETIF_F_NO_CSUM && !(feature & NETIF_F_NO_CSUM))
--			checksum ^= NETIF_F_NO_CSUM | NETIF_F_HW_CSUM;
--		if (checksum & NETIF_F_HW_CSUM && !(feature & NETIF_F_HW_CSUM))
--			checksum ^= NETIF_F_HW_CSUM | NETIF_F_IP_CSUM;
--		if (!(feature & NETIF_F_IP_CSUM))
--			checksum = 0;
--
--		if (feature & NETIF_F_GSO)
--			feature |= NETIF_F_GSO_SOFTWARE;
--		feature |= NETIF_F_GSO;
--
--		features &= feature;
-+		features = netdev_compute_features(features, p->dev->features);
- 	}
- 
--	if (!(checksum & NETIF_F_ALL_CSUM))
--		features &= ~NETIF_F_SG;
--	if (!(features & NETIF_F_SG))
--		features &= ~NETIF_F_GSO_MASK;
--
--	br->dev->features = features | checksum | NETIF_F_LLTX |
--			    NETIF_F_GSO_ROBUST;
-+	br->dev->features = features;
- }
- 
- /* called with RTNL */
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3635,6 +3635,44 @@ static int __init netdev_dma_register(vo
- static int __init netdev_dma_register(void) { return -ENODEV; }
- #endif /* CONFIG_NET_DMA */
- 
-+/**
-+ *	netdev_compute_feature - compute conjunction of two feature sets
-+ *	@all: first feature set
-+ *	@one: second feature set
-+ *
-+ *	Computes a new feature set after adding a device with feature set
-+ *	@one to the master device with current feature set @all.  Returns
-+ *	the new feature set.
-+ */
-+int netdev_compute_features(unsigned long all, unsigned long one)
-+{
-+	/* if device needs checksumming, downgrade to hw checksumming */
-+	if (all & NETIF_F_NO_CSUM && !(one & NETIF_F_NO_CSUM))
-+		all ^= NETIF_F_NO_CSUM | NETIF_F_HW_CSUM;
-+
-+	/* if device can't do all checksum, downgrade to ipv4 */
-+	if (all & NETIF_F_HW_CSUM && !(one & NETIF_F_HW_CSUM))
-+		all ^= NETIF_F_HW_CSUM | NETIF_F_IP_CSUM;
-+
-+	if (one & NETIF_F_GSO)
-+		one |= NETIF_F_GSO_SOFTWARE;
-+	one |= NETIF_F_GSO;
-+
-+	/* If even one device supports robust GSO, enable it for all. */
-+	if (one & NETIF_F_GSO_ROBUST)
-+		all |= NETIF_F_GSO_ROBUST;
-+
-+	all &= one | NETIF_F_LLTX;
-+
-+	if (!(all & NETIF_F_ALL_CSUM))
-+		all &= ~NETIF_F_SG;
-+	if (!(all & NETIF_F_SG))
-+		all &= ~NETIF_F_GSO_MASK;
-+
-+	return all;
-+}
-+EXPORT_SYMBOL(netdev_compute_features);
-+
- /*
-  *	Initialize the DEV module. At boot time this walks the device list and
-  *	unhooks any devices that fail to initialise (normally hardware not
-
--- 
