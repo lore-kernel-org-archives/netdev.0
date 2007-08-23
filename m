@@ -1,68 +1,78 @@
-From: Shannon Nelson <shannon.nelson@intel.com>
-Subject: [PATCH] IOAT: ioatdma needs to to play nice in a multi-dma-client
-	world
-Date: Wed, 22 Aug 2007 17:12:18 -0700
-Message-ID: <20070823001218.11648.49528.stgit@localhost.localdomain>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH] [02/10] pasemi_mac: Stop using the pci config space
+ accessors for register read/writes
+Date: Thu, 23 Aug 2007 10:31:03 +1000
+Message-ID: <20070823103103.a1815a07.sfr@canb.auug.org.au>
+References: <20070817205413.548020000@lixom.net>
+	<20070822141248.GC16830@lixom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: shannon.nelson@intel.com, dan.j.williams@intel.com,
-	jgarzik@pobox.com
-To: netdev@vger.kernel.org, davem@davemloft.net,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Thu__23_Aug_2007_10_31_03_+1000_N5WdhekWD3pD01YF"
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Olof Johansson <olof@lixom.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:26860 "EHLO mga03.intel.com"
+Received: from chilli.pcug.org.au ([203.10.76.44]:39402 "EHLO smtps.tip.net.au"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932482AbXHWAMi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Aug 2007 20:12:38 -0400
+	id S1751788AbXHWAbL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Aug 2007 20:31:11 -0400
+In-Reply-To: <20070822141248.GC16830@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now that the DMA engine has a multi-client interface, fix the ioatdma
-driver to play along.  At the same time, remove a couple of unnecessary
-reads and writes.
+--Signature=_Thu__23_Aug_2007_10_31_03_+1000_N5WdhekWD3pD01YF
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
----
+Hi Olof,
 
- drivers/dma/ioatdma.c |   18 ++++--------------
- 1 files changed, 4 insertions(+), 14 deletions(-)
+On Wed, 22 Aug 2007 09:12:48 -0500 Olof Johansson <olof@lixom.net> wrote:
+>
+> -static unsigned int read_iob_reg(struct pasemi_mac *mac, unsigned int re=
+g)
+> +static inline unsigned int read_iob_reg(struct pasemi_mac *mac, unsigned=
+ int reg)
+          ^^^^^^
+For static functions in C files, we tend not to bother marking them
+inline any more as the compiler does a pretty good job theses days.
 
-diff --git a/drivers/dma/ioatdma.c b/drivers/dma/ioatdma.c
-index 2d1f178..41b18c5 100644
---- a/drivers/dma/ioatdma.c
-+++ b/drivers/dma/ioatdma.c
-@@ -191,17 +191,12 @@ static int ioat_dma_alloc_chan_resources(struct dma_chan *chan)
- 	int i;
- 	LIST_HEAD(tmp_list);
- 
--	/*
--	 * In-use bit automatically set by reading chanctrl
--	 * If 0, we got it, if 1, someone else did
--	 */
--	chanctrl = readw(ioat_chan->reg_base + IOAT_CHANCTRL_OFFSET);
--	if (chanctrl & IOAT_CHANCTRL_CHANNEL_IN_USE)
--		return -EBUSY;
-+	/* have we already been set up? */
-+	if (!list_empty(&ioat_chan->free_desc))
-+		return INITIAL_IOAT_DESC_COUNT;
- 
-         /* Setup register to interrupt and write completion status on error */
--	chanctrl = IOAT_CHANCTRL_CHANNEL_IN_USE |
--		IOAT_CHANCTRL_ERR_INT_EN |
-+	chanctrl = IOAT_CHANCTRL_ERR_INT_EN |
- 		IOAT_CHANCTRL_ANY_ERR_ABORT_EN |
- 		IOAT_CHANCTRL_ERR_COMPLETION_EN;
-         writew(chanctrl, ioat_chan->reg_base + IOAT_CHANCTRL_OFFSET);
-@@ -282,11 +277,6 @@ static void ioat_dma_free_chan_resources(struct dma_chan *chan)
- 			in_use_descs - 1);
- 
- 	ioat_chan->last_completion = ioat_chan->completion_addr = 0;
--
--	/* Tell hw the chan is free */
--	chanctrl = readw(ioat_chan->reg_base + IOAT_CHANCTRL_OFFSET);
--	chanctrl &= ~IOAT_CHANCTRL_CHANNEL_IN_USE;
--	writew(chanctrl, ioat_chan->reg_base + IOAT_CHANCTRL_OFFSET);
- }
- 
- static struct dma_async_tx_descriptor *
+>  {
+>  	unsigned int val;
+> =20
+> -	pci_read_config_dword(mac->iob_pdev, reg, &val);
+> +	val =3D in_le32(mac->iob_regs+reg);
+> +
+>  	return val;
+
+Why not just "return in_le32(mac->iob_regs+reg);" ?
+And similarly below?
+
+> +static inline void __iomem * __devinit map_onedev(struct pci_dev *p, int=
+ index)
+          ^^^^^^                ^^^^^^^^^
+Mixing inline and __*init is just plain silly :-)
+
+> +fallback:
+> +	/* This is hardcoded and ugly, but we have some firmware versions
+> +	 * who don't provide the register space in the device tree. Luckily
+           ^^^
+"that"
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Thu__23_Aug_2007_10_31_03_+1000_N5WdhekWD3pD01YF
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFGzNVLTgG2atn1QN8RAtYqAJ44BLpY7ycf+VNZdMOZTt3Jro8oOwCfUo5a
+YXoprYiexVRdRxj4dSvIgQA=
+=aUb7
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__23_Aug_2007_10_31_03_+1000_N5WdhekWD3pD01YF--
