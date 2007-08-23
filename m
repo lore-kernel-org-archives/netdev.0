@@ -1,51 +1,44 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH net-2.6.24] introduce MAC_FMT/MAC_ARG
-Date: Thu, 23 Aug 2007 13:08:30 -0400
-Message-ID: <20070823170830.GE2989@tuxdriver.com>
-References: <1187808408.4314.15.camel@johannes.berg> <1187884912.32738.24.camel@localhost> <1187885520.22725.4.camel@johannes.berg>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [IPv6] Add v4mapped address inline
+Date: Fri, 24 Aug 2007 03:00:02 +0900 (JST)
+Message-ID: <20070824.030002.56135604.yoshfuji@linux-ipv6.org>
+References: <46CDB896.8040408@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net, yoshfuji@linux-ipv6.org
+To: brian.haley@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4441 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1765557AbXHWRtb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Aug 2007 13:49:31 -0400
-Content-Disposition: inline
-In-Reply-To: <1187885520.22725.4.camel@johannes.berg>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:58205 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753208AbXHWR6v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2007 13:58:51 -0400
+In-Reply-To: <46CDB896.8040408@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 23, 2007 at 06:12:00PM +0200, Johannes Berg wrote:
-> On Thu, 2007-08-23 at 09:01 -0700, Joe Perches wrote:
-> > There are also several different uses of the equivalent of
-> > 
-> > 	printk("%02x",addr[0])
-> > 	for (i=1; i<6; i++)
-> > 		printk(":%02x",addr[i]);
-> > 
-> > to print an ethernet MAC address.
-> 
-> Hm. I didn't know that, I can go through in a later patch if desired.
-> 
-> > http://www.uwsg.iu.edu/hypermail/linux/net/0602.1/0002.html
-> > 
-> > As not all device MAC addresses are 6 bytes, colon separated,
-> > perhaps an appropriate ethernet/tr MAC designation is EUI48.
-> > 
-> > http://standards.ieee.org/regauth/oui/tutorials/EUI48.html
-> 
-> Practically, however, nobody is going to even find macros named
-> EUI48_FMT/EUI48_ARG, would they? I don't much care, but I find it rather
-> unsatisfying that both wireless code bases define these macros.
+Hello.
 
-Yeah, accomodating non-48-bit MAC addresses is a bit pedantic.
+In article <46CDB896.8040408@hp.com> (at Thu, 23 Aug 2007 12:40:54 -0400), Brian Haley <brian.haley@hp.com> says:
 
-I ACK the original patch, FWIW.
+> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+> index 9059e0e..c2b6c11 100644
+> --- a/include/net/ipv6.h
+> +++ b/include/net/ipv6.h
+> @@ -418,6 +418,12 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
+>  	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
+>  }
+>  
+> +static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
+> +{
+> +	return ((a->s6_addr32[0] | a->s6_addr32[1]) == 0 && 
+> +		 a->s6_addr32[2] == htonl(0x0000ffff)); 
+> +}
+> +
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+Please put this just after ipv6_addr_any(), not after
+ipv6_addr_diff().
+
+--yoshfuji
