@@ -1,161 +1,161 @@
-From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference - linux-2.6.22
-Date: Fri, 24 Aug 2007 01:40:56 +0200
-Message-ID: <6bffcb0e0708231640m7d76d1e0uac8f1f573af84aea@mail.gmail.com>
-References: <200708210256.58818.rc.poison@gmail.com>
+From: "Mr. Berkley Shands" <bshands@exegy.com>
+Subject: 2.6.22.5 forcedeth timeout hang
+Date: Thu, 23 Aug 2007 18:48:23 -0500
+Message-ID: <46CE1CC7.6000507@exegy.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: multipart/mixed;
+	boundary="------------060908010400050909020803"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>
-To: poison <rc.poison@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.186]:30998 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1763528AbXHWXk6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2007 19:40:58 -0400
-Received: by rv-out-0910.google.com with SMTP id k20so513970rvb
-        for <netdev@vger.kernel.org>; Thu, 23 Aug 2007 16:40:57 -0700 (PDT)
-In-Reply-To: <200708210256.58818.rc.poison@gmail.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+To: <linux-kernel@vger.kernel.org>, "Net Dev" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1765883AbXHXAE5@vger.kernel.org>
+Content-class: urn:content-classes:message
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[Adding netdev to CC]
+This is a multi-part message in MIME format.
 
-On 21/08/07, poison <rc.poison@gmail.com> wrote:
-> Hello,
-> after running a few instances of bittorent-curses on 2.6.22 - 2.6.22.3 it
-> takes about 15min to 2hrs for my System to hang. 2.6.21.7 is definately fine,
-> 2.6.21 probably (ran for 4hrs without hanging).
-> If I'm lucky the Oops below makes it to my syslog (unfortunately SysRq-{p,s,i}
-> doesn't work when it hangs, neither can I ssh into it):
->
-> Aug 18 19:47:41 draco kernel: BUG: unable to handle kernel NULL pointer
-> dereference at virtual address 00000000
-> Aug 18 19:47:41 draco kernel:  printing eip:
-> Aug 18 19:47:41 draco kernel: c038fcba
-> Aug 18 19:47:41 draco kernel: *pdpt = 0000000033830001
-> Aug 18 19:47:41 draco kernel: *pde = 0000000000000000
-> Aug 18 19:47:41 draco kernel: Oops: 0002 [#1]
-> Aug 18 19:47:41 draco kernel: SMP
-> Aug 18 19:47:41 draco kernel: Modules linked in: snd_hda_intel snd_emu10k1
-> cls_u32 sch_sfq sch_htb snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq
-> snd_pcm_oss snd_mixer_oss rfcomm hidp l2cap nfsd exportfs lockd sunrpc
-> coretemp hwmon eeprom snd_rawmidi snd_ac97_codec hci_usb ac97_bus
-> snd_seq_device snd_util_mem snd_pcm bluetooth snd_hwdep snd_timer snd
-> snd_page_alloc i2c_i801 emu10k1_gp gameport i2c_core sg
-> Aug 18 19:47:41 draco kernel: CPU:    0
-> Aug 18 19:47:41 draco kernel: EIP:    0060:[<c038fcba>]    Not tainted VLI
-> Aug 18 19:47:41 draco kernel: EFLAGS: 00210202   (2.6.22.2poison #14)
-> Aug 18 19:47:41 draco kernel: EIP is at tcp_sendmsg+0x40a/0xb70
-> Aug 18 19:47:41 draco kernel: eax: 00000000   ebx: ec5b807c   ecx: c04b43a0
-> edx: ec5b807c
-> Aug 18 19:47:41 draco kernel: esi: ec5b8000   edi: 00000100   ebp: ec524180
-> esp: f3a11d30
-> Aug 18 19:47:41 draco kernel: ds: 007b   es: 007b   fs: 00d8  gs: 0033  ss:
-> 0068
-> Aug 18 19:47:41 draco kernel: Process bittorrent-curs (pid: 3974, ti=f3a10000
-> task=f3a0e000 task.ti=f3a10000)
-> Aug 18 19:47:41 draco kernel: Stack: ffffffff ebe562f5 0000000b 00000000
-> f3a11d94 00000000 ec5b807c 00000000
-> Aug 18 19:47:41 draco kernel:        00000001 00100100 f3a11f40 00000000
-> 00000040 00000200 00000200 000004b6
-> Aug 18 19:47:41 draco kernel:        08604707 00200200 f3e5c798 eeaa4b40
-> 00000000 f3a0e000 000001f5 00100100
-> Aug 18 19:47:41 draco kernel: Call Trace:
-> Aug 18 19:47:41 draco kernel:  [<c03ac267>] inet_sendmsg+0x37/0x70
-> Aug 18 19:47:41 draco kernel:  [<c03511ef>] sock_sendmsg+0xbf/0xf0
-> Aug 18 19:47:41 draco kernel:  [<c012fe60>] autoremove_wake_function+0x0/0x50
-> Aug 18 19:47:41 draco kernel:  [<c01188f0>] default_wake_function+0x0/0x10
-> Aug 18 19:47:41 draco last message repeated 3 times
-> Aug 18 19:47:41 draco kernel:  [<c015589d>] find_extend_vma+0x1d/0x70
-> Aug 18 19:47:41 draco kernel:  [<c03515cf>] sys_sendto+0x12f/0x180
-> Aug 18 19:47:41 draco kernel:  [<c0139dfc>] futex_wake+0xac/0xd0
-> Aug 18 19:47:41 draco kernel:  [<c013a4dd>] do_futex+0x6bd/0xbd0
-> Aug 18 19:47:41 draco kernel:  [<c0351653>] sys_send+0x33/0x40
-> Aug 18 19:47:41 draco kernel:  [<c03525c2>] sys_socketcall+0x142/0x280
-> Aug 18 19:47:41 draco kernel:  [<c0205d20>] copy_to_user+0x30/0x60
-> Aug 18 19:47:41 draco kernel:  [<c0102a92>] syscall_call+0x7/0xb
-> Aug 18 19:47:41 draco kernel:  =======================
-> Aug 18 19:47:41 draco kernel: Code: 85 fb 06 00 00 80 ca 10 8b 83 94 00 00 00
-> 88 53 68 f0 81 00 00 00 01 00 8b 44 24 18 ff 40 08 8b 54 24 18 8b 42 04 89 13
-> 89 43 04 <89> 18 89 5a 04 8b 8e 2c 01 00 00 85 c9 0f 84 19 06 00 00 8b 83
-> Aug 18 19:47:41 draco kernel: EIP: [<c038fcba>] tcp_sendmsg+0x40a/0xb70 SS:ESP
-> 0068:f3a11d30
-> Aug 18 19:47:51 draco kernel:
-> Aug 18 19:47:51 draco kernel: Pid: 3812, comm:                    X
-> Aug 18 19:47:51 draco kernel: EIP: 0060:[<c014a4c2>] CPU: 0
-> Aug 18 19:47:51 draco kernel: EIP is at __get_free_pages+0x22/0x40
-> Aug 18 19:47:51 draco kernel:  EFLAGS: 00003246    Not tainted
-> (2.6.22.2poison #14)
-> Aug 18 19:47:51 draco kernel: EAX: 000000d0 EBX: 000000d0 ECX: c0496b40 EDX:
-> 00000000
-> Aug 18 19:47:51 draco kernel: ESI: 00000000 EDI: f5ba1be4 EBP: f49a4d80 DS:
-> 007b ES: 007b FS: 00d8
-> Aug 18 19:47:51 draco kernel: CR0: 8005003b CR2: b7384000 CR3: 37165000 CR4:
-> 000006f0
-> Aug 18 19:47:51 draco kernel:  [<c01734b6>] __pollwait+0xa6/0x100
-> Aug 18 19:47:51 draco kernel:  [<c03c9597>] unix_poll+0x17/0xa0
-> Aug 18 19:47:51 draco kernel:  [<c03500bc>] sock_poll+0xc/0x10
-> Aug 18 19:47:51 draco kernel:  [<c0172bec>] do_select+0x25c/0x490
-> Aug 18 19:47:51 draco kernel:  [<c0173410>] __pollwait+0x0/0x100
-> Aug 18 19:47:51 draco kernel:  [<c01188f0>] default_wake_function+0x0/0x10
-> Aug 18 19:47:51 draco last message repeated 19 times
-> Aug 18 19:47:51 draco kernel:  [<c0172fe8>] core_sys_select+0x1c8/0x2f0
-> Aug 18 19:47:51 draco kernel:  [<c0166a30>] do_readv_writev+0x120/0x190
-> Aug 18 19:47:51 draco kernel:  [<c03503c0>] sock_aio_write+0x0/0x110
-> Aug 18 19:47:51 draco kernel:  [<c017355d>] sys_select+0x4d/0x1b0
-> Aug 18 19:47:51 draco kernel:  [<c0166adc>] vfs_writev+0x3c/0x50
-> Aug 18 19:47:51 draco kernel:  [<c0166f97>] sys_writev+0x47/0x80
-> Aug 18 19:47:51 draco kernel:  [<c0102a92>] syscall_call+0x7/0xb
-> Aug 18 19:47:51 draco kernel:  =======================
-> ---
->
-> It's also attached together with one from a tainted 2.6.22.3
->
-> The error is reproducable for me by running 4 bittorent instances and wating.
-> 2.6.22 lives no longer than 2hrs, so when bisecting I assumed it was good
-> after 4hrs ... so I may as well have taken a wrong turn. Result here:
->
-> 00ed8e3dda47f8421b11da17e353d7db8c878121 is first bad commit
-> commit 00ed8e3dda47f8421b11da17e353d7db8c878121
-> Author: Dmitriy Monakhov <dmonakhov@sw.ru>
-> Date:   Sun Mar 11 15:36:19 2007 +0300
->
->     driver core: fix device_add error path
->
->      - At the moment we jump here device was't added to
->        dev->class->devices list yet.
->
->     Signed-off-by: Monakhov Dmitriy <dmonakhov@openvz.org>
->     Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
->
-> :040000 040000 bc29a0e7ec67055b2cad30ef3e0d19b8fe0c0981
-> 8b1eee1c34d5b5db827a4d0c8a8363eb827338f3 M      dr
-> ivers
-> ---
->
-> gcc -v
-> Reading specs from /usr/lib/gcc/i486-slackware-linux/4.1.2/specs
-> Target: i486-slackware-linux
-> Configured
-> with: ../gcc-4.1.2/configure --prefix=/usr --enable-shared --enable-languages=ada,c,c++,fortran,java,objc --enable-threads=posix --enable-__cxa_atexit --disable-checking --with-gnu-ld --verbose --with-arch=i486 --target=i486-slackware-linux --host=i486-slackware-linux
-> Thread model: posix
-> gcc version 4.1.
-> ---
->
-> All traffic went over an USB NIC (D-Link DUB-E100) using the asix driver.
-> I have no idea what further information could be useful, so shout =)
->
-> ---
-> If you only have a hammer, you tend to see every problem as a nail.
->                 -- Maslow
->
->
+--------------060908010400050909020803
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-Regards,
-Michal
+100% reproducible hang on xmit timeout.
+Just do a "make -j4 modules" on an nfs mounted kernel source.
 
--- 
-LOG
-http://www.stardust.webpages.pl/log/
+attached is the messages log
+
+berkley
+--=20
+
+// E. F. Berkley Shands, MSc//
+
+** Exegy Inc.**
+
+349 Marshall Road, Suite 100
+
+St. Louis , MO  63119
+
+Direct:  (314) 218-3600 X450
+
+Cell:  (314) 303-2546
+
+Office:  (314) 218-3600
+
+Fax:  (314) 218-3601
+
+=20
+
+The Usual Disclaimer follows...
+=20
+This e-mail and any documents accompanying it may contain legally =
+privileged and/or confidential information belonging to Exegy, Inc. Such =
+information may be protected from disclosure by law. The information is =
+intended for use by only the addressee. If you are not the intended =
+recipient, you are hereby notified that any disclosure or use of the =
+information is strictly prohibited. If you have received this e-mail in =
+error, please immediately contact the sender by e-mail or phone =
+regarding instructions for return or destruction and do not use or =
+disclose the content to others.
+
+--------------060908010400050909020803
+Content-Type: text/plain;
+	name="messages"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+	filename="messages"
+
+Aug 23 18:34:55 crash kernel: [30819.690155] NETDEV WATCHDOG: eth1: transmit timed out
+Aug 23 18:34:55 crash kernel: [30819.690162] eth1: Got tx_timeout. irq: 00000036
+Aug 23 18:34:55 crash kernel: [30819.690164] eth1: Ring at 16e086000
+Aug 23 18:34:55 crash kernel: [30819.690166] eth1: Dumping tx registers
+Aug 23 18:34:55 crash kernel: [30819.690171]   0: 00000036 000000ff 00000003 024e03ca 00000000 00000000 00000000 00000000
+Aug 23 18:34:55 crash kernel: [30819.690176]  20: 06255300 ff701365 00000000 00000000 00000000 00000000 00000000 00000000
+Aug 23 18:34:55 crash kernel: [30819.690181]  40: 0420e20e 0000a855 00002e20 00000000 00000000 00000000 00000000 00000000
+Aug 23 18:34:55 crash kernel: [30819.690186]  60: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+Aug 23 18:34:55 crash kernel: [30819.690192]  80: 003b0f3c 00000001 00040000 007f0020 0000061c 00000001 00200000 00007f87
+Aug 23 18:34:55 crash kernel: [30819.690197]  a0: 0014050f 00000016 5781e000 0000020a 00000001 00000000 a800cccd 0000fcf5
+Aug 23 18:34:55 crash kernel: [30819.690203]  c0: 10000002 00000001 00000001 00000001 00000001 00000001 00000001 00000001
+Aug 23 18:34:55 crash kernel: [30819.690207]  e0: 00000001 00000001 00000001 00000001 00000001 00000001 00000001 00000001
+Aug 23 18:34:55 crash kernel: [30819.690213] 100: 6e086800 6e086000 007f00ff 00008000 00010032 00000000 0000002c 6e0874c0
+Aug 23 18:34:55 crash kernel: [30819.690220] 120: 6e086360 1ca37240 a000ffeb 00000000 00000000 6e0874cc 6e08636c 0fe08000
+Aug 23 18:34:55 crash kernel: [30819.690225] 140: 00304120 80002600 00000001 00000001 00000000 00000000 00000000 00000000
+Aug 23 18:34:55 crash kernel: [30819.690229] 160: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+Aug 23 18:34:55 crash kernel: [30819.690235] 180: 00000016 00000008 0194796d 00008103 0000002a 00003800 0194000f 00000003
+Aug 23 18:34:55 crash kernel: [30819.690241] 1a0: 00000016 00000008 0194796d 00008103 0000002a 00003800 0194000f 00000003
+Aug 23 18:34:55 crash kernel: [30819.690246] 1c0: 00000016 00000008 0194796d 00008103 0000002a 00003800 0194000f 00000003
+Aug 23 18:34:55 crash kernel: [30819.690252] 1e0: 00000016 00000008 0194796d 00008103 0000002a 00003800 0194000f 00000003
+Aug 23 18:34:55 crash kernel: [30819.690257] 200: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+Aug 23 18:34:55 crash kernel: [30819.690261] 220: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+Aug 23 18:34:55 crash kernel: [30819.690266] 240: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+Aug 23 18:34:55 crash kernel: [30819.690271] 260: 00000000 00000000 fe020001 00000100 00000000 00000000 7e020001 00000100
+Aug 23 18:34:55 crash kernel: [30819.690276] 280: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+Aug 23 18:34:55 crash kernel: [30819.690280] 2a0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+Aug 23 18:34:55 crash kernel: [30819.690285] 2c0: 00000000 00000000 00000000 00000000 00000000 00000001 00000001 00000001
+Aug 23 18:34:55 crash kernel: [30819.690287] eth1: Dumping tx ring
+Aug 23 18:34:55 crash kernel: [30819.690292] 000: 00000000 8fd00892 20000052 // 00000000 88115c92 20000052 // 00000000 875ae892 20000052 // 00000000 8a660492 20000052
+Aug 23 18:34:55 crash kernel: [30819.690298] 004: 00000001 61fdb492 20000052 // 00000000 8bf3f892 20000052 // 00000000 8daa7092 20000052 // 00000000 8fa29892 20000052
+Aug 23 18:34:55 crash kernel: [30819.690304] 008: 00000001 0d558892 20000052 // 00000000 8e0bf892 20000052 // 00000000 8fd00492 20000052 // 00000000 8d160092 20000052
+Aug 23 18:34:55 crash kernel: [30819.690310] 00c: 00000001 27698092 20000052 // 00000000 7fc6cc92 20000052 // 00000000 8d03ec92 20000052 // 00000000 88085492 20000052
+Aug 23 18:34:55 crash kernel: [30819.690317] 010: 00000000 850ee492 20000052 // 00000000 8bba8c92 20000052 // 00000001 56108492 20000052 // 00000000 7f0ed892 20000052
+Aug 23 18:34:55 crash kernel: [30819.690323] 014: 00000001 509a0492 20000052 // 00000000 87b60892 20000052 // 00000000 87b62092 20000052 // 00000000 8f0d5892 20000052
+Aug 23 18:34:55 crash kernel: [30819.690329] 018: 00000000 87c7b492 20000052 // 00000000 8ee76092 20000052 // 00000001 4fb8e892 20000052 // 00000000 7fc6c492 20000052
+Aug 23 18:34:55 crash kernel: [30819.690335] 01c: 00000001 541bc492 20000052 // 00000000 85572492 20000052 // 00000000 8ee77492 20000052 // 00000000 8bbab492 20000052
+Aug 23 18:34:55 crash kernel: [30819.690341] 020: 00000001 1b4b3492 20000052 // 00000001 541bc892 20000052 // 00000000 7fc6e092 20000052 // 00000000 8fd01092 20000052
+Aug 23 18:34:55 crash kernel: [30819.690347] 024: 00000001 0d530c92 20000052 // 00000000 8bbaa092 20000052 // 00000000 8d03e892 20000052 // 00000000 7deac0b2 00000000
+Aug 23 18:34:55 crash kernel: [30819.690352] 028: 00000000 8257dba0 00000000 // 00000000 895d0000 200005ee // 00000000 8d03e4b2 00000000 // 00000000 895d013c 22000bdc
+Aug 23 18:34:55 crash kernel: [30819.690357] 02c: 00000000 8eba30b2 00000000 // 00000000 895d0c74 00000000 // 00000000 895d1000 22000bdc // 00000000 875aecb2 00000000
+Aug 23 18:34:55 crash kernel: [30819.690363] 030: 00000000 895d17ac 00000000 // 00000000 86f62000 22000bdc // 00000000 8a6618b2 00000000 // 00000000 86f622e4 22000bdc
+Aug 23 18:34:55 crash kernel: [30819.690368] 034: 00000000 855734b2 00000000 // 00000000 86f62e1c 00000000 // 00000000 86f63000 22000bdc // 00000001 65b95cb2 00000000
+Aug 23 18:34:55 crash kernel: [30819.690374] 038: 00000000 86f63954 00000000 // 00000000 7fb6e000 22000bdc // 00000000 850ee0b2 00000000 // 00000000 7fb6e48c 22000bdc
+Aug 23 18:34:55 crash kernel: [30819.690379] 03c: 00000000 8d1604b2 00000000 // 00000000 7fb6efc4 00000000 // 00000000 7fb6f000 22000bdc // 00000000 8d03f8b2 00000000
+Aug 23 18:34:55 crash kernel: [30819.690384] 040: 00000000 7fb6fafc 00000000 // 00000000 8b7c0000 220005ee // 00000001 1000e8b2 00000000 // 00000000 8b7c0098 2200007a
+Aug 23 18:34:55 crash kernel: [30819.690390] 044: 00000000 8e0bf0b2 00000000 // 00000000 8b7c00c0 22000fde // 00000000 8d03e0b2 00000000 // 00000000 8b7c0fa8 00000000
+Aug 23 18:34:55 crash kernel: [30819.690395] 048: 00000000 8b7c1000 22000bdc // 00000000 87b600b2 00000000 // 00000000 8b7c1ae0 00000000 // 00000000 8dc38000 22000bdc
+Aug 23 18:34:55 crash kernel: [30819.690401] 04c: 00000001 4fb8e0b2 00000000 // 00000000 8dc38618 00000000 // 00000000 8dc39000 22000bdc // 00000000 8fa294b2 00000000
+Aug 23 18:34:55 crash kernel: [30819.690406] 050: 00000000 8dc39150 22000bdc // 00000001 620870b2 00000000 // 00000000 8dc39c88 00000000 // 00000000 85ad8000 22000bdc
+Aug 23 18:34:55 crash kernel: [30819.690411] 054: 00000000 875af8b2 00000000 // 00000000 85ad87c0 00000000 // 00000000 85ad9000 22000bdc // 00000000 881150b2 00000000
+Aug 23 18:34:55 crash kernel: [30819.690417] 058: 00000000 85ad92f8 22000bdc // 00000001 62f8e8b2 00000000 // 00000000 85ad9e30 00000000 // 00000000 887d8000 22000bdc
+Aug 23 18:34:55 crash kernel: [30819.690422] 05c: 00000000 8ee764b2 00000000 // 00000000 887d8968 00000000 // 00000000 887d9000 22000bdc // 00000000 8d160cb2 00000000
+Aug 23 18:34:55 crash kernel: [30819.690428] 060: 00000000 887d94a0 220005ee // 00000000 8a6600b2 00000000 // 00000000 887d9a3c 2200023e // 00000001 6427e4b2 00000000
+Aug 23 18:34:55 crash kernel: [30819.690433] 064: 00000000 887d9c28 00000000 // 00000000 87e80000 22000fde // 00000000 875af0b2 00000000 // 00000000 87e80b10 00000000
+Aug 23 18:34:55 crash kernel: [30819.690439] 068: 00000000 87e81000 22000bb4 // 00000000 850ee892 22000052 // 00000001 1000ec92 22000052 // 00000000 7deac492 22000052
+Aug 23 18:34:55 crash kernel: [30819.690445] 06c: 00000000 8daa7c92 22000052 // 00000001 1b4b3092 22000052 // 00000000 8bbaa492 22000052 // 00000000 8fa29c92 22000052
+Aug 23 18:34:55 crash kernel: [30819.690451] 070: 00000000 850ed492 22000052 // 00000000 875ae092 22000052 // 00000000 7fc6e492 22000052 // 00000000 8d03fc92 22000052
+Aug 23 18:34:55 crash kernel: [30819.690457] 074: 00000000 8bf3f492 22000052 // 00000000 8daa7892 22000052 // 00000001 509a0c92 22000052 // 00000000 8eba3892 22000052
+Aug 23 18:34:55 crash kernel: [30819.690463] 078: 00000000 8eba3c92 22000052 // 00000000 8a661492 22000052 // 00000000 8f0d5092 22000052 // 00000000 850eec92 22000052
+Aug 23 18:34:55 crash kernel: [30819.690469] 07c: 00000000 7f0ed492 22000052 // 00000000 88115492 22000052 // 00000000 87c7a48a 2200005a // 00000000 8ee7708a 2200005a
+Aug 23 18:34:55 crash kernel: [30819.690475] 080: 00000001 6233848a 2200005a // 00000001 4fb8688a 2200005a // 00000000 8557288a 2200005a // 00000000 87c7b88a 2200005a
+Aug 23 18:34:55 crash kernel: [30819.690481] 084: 00000000 8a660c8a 2200005a // 00000000 8557208a 2200005a // 00000000 8ee7788a 2200005a // 00000001 4fb8608a 2200005a
+Aug 23 18:34:55 crash kernel: [30819.690487] 088: 00000001 62f8e48a 2200005a // 00000001 567cb88a 2200005a // 00000000 7f0edcaa 00000000 // 00000000 8257dba0 00000000
+Aug 23 18:34:55 crash kernel: [30819.690492] 08c: 00000000 895d0000 200005ee // 00000001 6ebb8802 20000066 // 00000001 620874aa 00000000 // 00000000 8257dba0 00000000
+Aug 23 18:34:55 crash kernel: [30819.690498] 090: 00000000 895d0000 200005ee // 00000001 63945a02 20000066 // 00000001 61a9b4aa 00000000 // 00000000 8257dba0 00000000
+Aug 23 18:34:55 crash kernel: [30819.690504] 094: 00000000 895d0000 200005ee // 00000001 259b9202 20000066 // 00000001 339e6002 20000040 // 00000001 61a9b8aa 00000000
+Aug 23 18:34:55 crash kernel: [30819.690510] 098: 00000000 8257dba0 00000000 // 00000000 895d0000 220005ee // 00000001 259b9a02 20000066 // 00000001 2f34ea02 20000040
+Aug 23 18:34:55 crash kernel: [30819.690516] 09c: 00000001 6ebb8402 22000066 // 00000001 63945402 20000040 // 00000001 4f226a02 22000066 // 00000001 2e04f402 20000066
+Aug 23 18:34:55 crash kernel: [30819.690521] 0a0: 00000001 4fb8ecaa 00000000 // 00000000 8257dba0 00000000 // 00000000 895d0000 200005ee // 00000001 2f34ec02 20000066
+Aug 23 18:34:55 crash kernel: [30819.690528] 0a4: 00000001 341f6402 20000066 // 00000001 339e6e02 20000066 // 00000001 341f6e02 20000066 // 00000001 2e04f202 20000066
+Aug 23 18:34:55 crash kernel: [30819.690533] 0a8: 00000001 0d5304aa 00000000 // 00000000 8257dba0 00000000 // 00000000 895d0000 200005ee // 00000001 fc4588be 00000000
+Aug 23 18:34:55 crash kernel: [30819.690539] 0ac: 00000001 29eba7d6 200000b2 // 00000002 6e3b60be 00000000 // 00000001 29eba7d6 200000b2 // 00000001 4f226c02 20000040
+Aug 23 18:34:55 crash kernel: [30819.690544] 0b0: 00000001 6509fe02 22000040 // 00000000 8bba90ca 00000000 // 00000001 38bf4d7c 22000040 // 00000000 8bba94ca 00000000
+Aug 23 18:34:55 crash kernel: [30819.690551] 0b4: 00000001 38bf4d7c 22000040 // 00000001 6de0d002 22000040 // 00000002 0f793202 22000040 // 00000001 6de0de02 22000040
+Aug 23 18:34:55 crash kernel: [30819.690557] 0b8: 00000002 2482b202 22000040 // 00000001 6de0d802 22000066 // 00000001 6ebb8e02 20000040 // 00000002 4a3e4202 22000040
+Aug 23 18:34:55 crash kernel: [30819.690562] 0bc: 00000001 6ebb8a02 22000040 // 00000000 8bba98be 00000000 // 00000001 271400e9 2200005c // 00000000 8832e8be 00000000
+Aug 23 18:34:55 crash kernel: [30819.690568] 0c0: 00000001 271400e9 2000005c // 00000001 341f6002 20000040 // 00000000 8d03f0aa 00000000 // 00000000 8257dba0 00000000
+Aug 23 18:34:55 crash kernel: [30819.690574] 0c4: 00000000 895d0000 220005ee // 00000001 2e04fa02 20000040 // 00000001 2e04fc02 22000040 // 00000001 339e6402 22000040
+Aug 23 18:34:55 crash kernel: [30819.690580] 0c8: 00000001 339e6602 22000040 // 00000001 339e6a02 22000040 // 00000002 391e4c02 22000040 // 00000002 1ca37202 22000040
+Aug 23 18:34:55 crash kernel: [30819.690586] 0cc: 00000000 7fc6c092 22000052 // 00000000 7fc6c092 20000052 // 00000001 1a702492 20000052 // 00000000 87c7bc92 20000052
+Aug 23 18:34:55 crash kernel: [30819.690592] 0d0: 00000000 8ee76892 20000052 // 00000000 85573892 20000052 // 00000001 622efc92 20000052 // 00000000 7fc6d492 20000052
+Aug 23 18:34:55 crash kernel: [30819.690599] 0d4: 00000001 4bbb7492 20000052 // 00000000 85573c92 20000052 // 00000000 8bf3f092 20000052 // 00000001 0d558492 20000052
+Aug 23 18:34:55 crash kernel: [30819.690605] 0d8: 00000000 875afc92 20000052 // 00000000 87b60492 20000052 // 00000000 8bba9c92 20000052 // 00000000 8fa29092 20000052
+Aug 23 18:34:55 crash kernel: [30819.690611] 0dc: 00000001 541bc092 20000052 // 00000000 85573092 20000052 // 00000000 87b62892 20000052 // 00000000 87c7ac92 20000052
+Aug 23 18:34:55 crash kernel: [30819.690617] 0e0: 00000000 8bba8492 20000052 // 00000000 8bbab092 20000052 // 00000001 60e3c492 20000052 // 00000000 8832e092 20000052
+Aug 23 18:34:55 crash kernel: [30819.690623] 0e4: 00000000 8a661092 20000052 // 00000000 8bbab892 20000052 // 00000001 0d558092 20000052 // 00000000 800bc092 20000052
+Aug 23 18:34:55 crash kernel: [30819.690629] 0e8: 00000000 8daa7492 20000052 // 00000001 4fb86492 20000052 // 00000001 0d558c92 20000052 // 00000000 87b63892 20000052
+Aug 23 18:34:55 crash kernel: [30819.690635] 0ec: 00000000 7deacc92 20000052 // 00000000 8a660892 20000052 // 00000000 850ed892 20000052 // 00000000 8f0d5c92 20000052
+Aug 23 18:34:55 crash kernel: [30819.690641] 0f0: 00000001 0d530892 20000052 // 00000000 7fc6e892 20000052 // 00000000 889c9092 20000052 // 00000000 8bbaac92 20000052
+Aug 23 18:34:55 crash kernel: [30819.690647] 0f4: 00000001 61fdb892 20000052 // 00000000 8a661c92 20000052 // 00000000 7f0ed092 20000052 // 00000000 8fd01892 20000052
+Aug 23 18:34:55 crash kernel: [30819.690653] 0f8: 00000000 87b62c92 20000052 // 00000000 87b62492 20000052 // 00000001 62338892 20000052 // 00000000 7fc6d092 20000052
+Aug 23 18:34:55 crash kernel: [30819.690659] 0fc: 00000001 1a702892 20000052 // 00000001 614ca492 20000052 // 00000000 8bba8092 20000052 // 00000000 889c9c92 20000052
+
+--------------060908010400050909020803--
