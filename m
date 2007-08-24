@@ -1,48 +1,36 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH (take 2)] request_irq fix DEBUG_SHIRQ handling Re: 2.6.23-rc2-mm1: rtl8139 inconsistent lock state
-Date: Fri, 24 Aug 2007 07:46:47 +0200
-Message-ID: <20070824054647.GA1648@ff.dom.local>
-References: <200708100149.14446.m.kozlowski@tuxland.pl> <20070823084430.GB1980@ff.dom.local>
+From: Brice Goglin <brice@myri.com>
+Subject: [PATCH 0/2] myri10ge updates for 2.6.23
+Date: Fri, 24 Aug 2007 08:56:03 +0200
+Message-ID: <46CE8103.10109@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mariusz Kozlowski <m.kozlowski@tuxland.pl>, netdev@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:53886 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750815AbXHXFpj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Aug 2007 01:45:39 -0400
-Content-Disposition: inline
-In-Reply-To: <20070823084430.GB1980@ff.dom.local>
+Received: from mailbox2.myri.com ([64.172.73.26]:1969 "EHLO myri.com"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757588AbXHXGyx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Aug 2007 02:54:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 23, 2007 at 10:44:30AM +0200, Jarek Poplawski wrote:
-> Andrew Morton pointed out that my changelog was unusable. Sorry!
-> Here is a second try with the changelog and kernel version changed.
-...
-> ------------>(take 2)
-> 
-> Subject: request_irq() - fix DEBUG_SHIRQ handling
-...
-> Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
-> 
-> ---
-> 
-> diff -Nurp 2.6.23-rc3-git6-/kernel/irq/manage.c 2.6.23-rc3-git6/kernel/irq/manage.c
-> --- 2.6.23-rc3-git6-/kernel/irq/manage.c	2007-08-23 10:11:35.000000000 +0200
-> +++ 2.6.23-rc3-git6/kernel/irq/manage.c	2007-08-23 10:16:29.000000000 +0200
+Hi Jeff,
 
-So, this time I f-ed the diff part: it's not exactly against 2.6.23-rc-git6.
-But, it's Andrew to blame: he should've known that some old & slow chips
-can't do science and poetry at the same time. Sorry (for him)!
+Now that Greg pushed my fix to expose pcie_get_readrq() prototype in
+linux/pci.h, I am resending my rework of Peter Oruba's patch to use
+pcie_get/set_readrq() in myri10ge. Please apply for 2.6.23.
 
-Anyway, beside an offset, should be OK...
+1. use pcie_get/set_readrq
+2. update driver version to 1.3.2-1.269
 
-Regards,
-Jarek P.
+
+
+Also, we noticed that packet forwarding is faster on our hardware when
+receiving in linear skb instead of pages (about 10Gb/s vs. 7), so we are
+thinking of submitting a Kconfig option to switch to the old linear skb
+RX code. Would this be acceptable?
+
+Thanks,
+Brice
+
