@@ -1,41 +1,57 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: Problem with implementation of TCP_DEFER_ACCEPT?
-Date: Fri, 24 Aug 2007 12:09:23 -0400
-Message-ID: <46CF02B3.6020101@psc.edu>
-References: <1187914105.26866.41.camel@bagoas.tjworld.net>	 <20070824071530.GB26447@xi.wantstofly.org>	 <20070824084048.GA8346@ms2.inr.ac.ru> <1187947887.6976.18.camel@bagoas.tjworld.net>
+From: "Luck, Tony" <tony.luck@intel.com>
+Subject: RE: [PATCH] i386: Fix a couple busy loops in mach_wakecpu.h:wait_for_init_deassert()
+Date: Fri, 24 Aug 2007 09:19:47 -0700
+Message-ID: <617E1C2C70743745A92448908E030B2A023EB8FB@scsmsx411.amr.corp.intel.com>
+References: <46C2350A.1010807@redhat.com> <20070815081841.GA16551@osiris.boeblingen.de.ibm.com> <alpine.LFD.0.999.0708160606580.24380@enigma.security.iitk.ac.in> <200708241259.33659.vda.linux@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: TJ <linux@tjworld.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Heiko Carstens" <heiko.carstens@de.ibm.com>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>,
+	"Chris Snook" <csnook@redhat.com>, <clameter@sgi.com>,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+	<linux-arch@vger.kernel.org>,
+	"Linus Torvalds" <torvalds@linux-foundation.org>,
+	<netdev@vger.kernel.org>,
+	"Andrew Morton" <akpm@linux-foundation.org>, <ak@suse.de>,
+	<davem@davemloft.net>, <schwidefsky@de.ibm.com>,
+	<wensong@linux-vs.org>, <horms@verge.net.au>,
+	<wjiang@resilience.com>, <cfriesen@nortel.com>, <zlynx@acm.org>,
+	<rpjday@mindspring.com>, <jesper.juhl@gmail.com>,
+	<segher@kernel.crashing.org>
+To: "Denys Vlasenko" <vda.linux@googlemail.com>,
+	"Satyam Sharma" <satyam@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:62193 "EHLO mailer1.psc.edu"
+Received: from mga02.intel.com ([134.134.136.20]:7467 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751526AbXHXQKQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Aug 2007 12:10:16 -0400
-In-Reply-To: <1187947887.6976.18.camel@bagoas.tjworld.net>
+	id S1756646AbXHXQTu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2007 12:19:50 -0400
+Content-class: urn:content-classes:message
+In-reply-to: <200708241259.33659.vda.linux@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-TJ wrote:
-> Right now Juniper are claiming the issue that brought this to the
-> surface (the bug linked to in my original post) is a problem with the
-> implementation of TCP_DEFER_ACCEPT.
-> 
-> My position so far is that the Juniper DX OS is not following the HTTP
-> standard because it doesn't send a request with the connection, and as I
-> read the end of section 1.4 of RFC2616, an HTTP connection should be
-> accompanied by a request.
-> 
-> Can anyone confirm my interpretation or provide references to firm it
-> up, or refute it?
+>>  static inline void wait_for_init_deassert(atomic_t *deassert)
+>>  {
+>> -	while (!atomic_read(deassert));
+>> +	while (!atomic_read(deassert))
+>> +		cpu_relax();
+>>  	return;
+>>  }
+>
+> For less-than-briliant people like me, it's totally non-obvious that
+> cpu_relax() is needed for correctness here, not just to make P4 happy.
 
-You can think of TCP_DEFER_ACCEPT as an implicit application close() 
-after a certain timeout, when not receiving a request.  All HTTP servers 
-do this anyway (though I think technically they're supposed to send a 
-408 Request Timeout error it seems many do not).  It's a very valid 
-question for Juniper as to why their box is failing to fill requests 
-when its back-end connection has gone away, instead of re-establishing 
-the connection and filling the request.
+Not just P4 ... there are other threaded cpus where it is useful to
+let the core know that this is a busy loop so it would be a good thing
+to let other threads have priority.
 
-   -John
+Even on a non-threaded cpu the cpu_relax() could be useful in the
+future to hint to the cpu that it could drop into a lower power
+hogging state.
+
+But I agree with your main point that the loop without the cpu_relax()
+looks like it ought to work because atomic_read() ought to actually
+go out and read memory each time around the loop.
+
+-Tony
