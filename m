@@ -1,51 +1,42 @@
-From: Li Yu <raise.sail@gmail.com>
-Subject: [Question] the precondition of calling alloc_skb()/kfree_skb()?
-Date: Fri, 24 Aug 2007 16:58:42 +0800
-Message-ID: <46CE9DC2.8070407@gmail.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: Problem with implementation of TCP_DEFER_ACCEPT?
+Date: Fri, 24 Aug 2007 12:40:48 +0400
+Message-ID: <20070824084048.GA8346@ms2.inr.ac.ru>
+References: <1187914105.26866.41.camel@bagoas.tjworld.net> <20070824071530.GB26447@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: TJ <linux@tjworld.net>, netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.189]:47476 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761020AbXHXI7Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2007 04:59:16 -0400
-Received: by rv-out-0910.google.com with SMTP id k20so602385rvb
-        for <netdev@vger.kernel.org>; Fri, 24 Aug 2007 01:59:16 -0700 (PDT)
+Received: from minus.inr.ac.ru ([194.67.69.97]:54157 "HELO ms2.inr.ac.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1760879AbXHXJOE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Aug 2007 05:14:04 -0400
+Content-Disposition: inline
+In-Reply-To: <20070824071530.GB26447@xi.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, all:
+Hello!
 
-I encountered a problem of using sk_buff.
+> > At present with TCP_DEFER_ACCEPT the kernel treats the RFC 793 handshake
+> > as invalid; dropping the ACK from the client without replying so the
+> > client doesn't know the server has in fact set it's internal ACKed flag.
+> > 
+> > If the client doesn't send a packet containing data before the SYN_ACK
+> > time-outs finally expire the connection will be dropped.
+> 
+> A brought this up a long, long time ago, and I seem to remember
+> Alexey Kuznetsov explained me at the time that this was intentional.
 
-I used 2.4.20 kernel, when burst traffic come, the kernel will complain
-a bug report at skbuff.c:316 later:
-
-311 void __kfree_skb(struct sk_buff *skb)
-312 {
-313 if (skb->list) {
-314 printk(KERN_WARNING "Warning: kfree_skb passed an skb still "
-315 "on a list (from %p).\n", NET_CALLER(skb));
-316 BUG(); /* HERE!!! */
-317 }
-/* snip some code here */
-332 }
+Obviously, I said something like "it is exactly what TCP_DEFER_ACCEPT does".
 
 
-I saw the dev_kfree_skb_irq() and dev_kfree_skb_irq(), and how to use
-them. even, in fact, we work in pure poll I/O model, so the NIC can not
-issue any interrupt.
+There is no protocol violation here, ACK from client is considered as lost,
+it is quite normal and happens all the time. Handshake is not complete,
+server remains in SYN-RECV state and continues to retransmit SYN-ACK.
+If client tried to cheat and is not going to send its request,
+connection will time out.
 
-And, I searched google, there are many similar reports like above, but
-almost of them have no reply. I think there may have some unknown thing
-while sk_buff API.
-
-Well, I hope know, are there some preconditions of calling alloc_skb()
-or *_kfree_skb_*() ? Thank in advanced.
-
-Good luck.
-
-- Yu Li
+Alexey
 
