@@ -1,220 +1,339 @@
 From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: [PATCH 2/3] [IPROUTE2] ip: xfrm: Fix policy and state flags.
-Date: Fri, 24 Aug 2007 11:05:18 +0900
-Message-ID: <11879211182007-git-send-email-nakam@linux-ipv6.org>
+Subject: [PATCH 3/3] [IPROUTE2] ip: xfrm: Fix flush message.
+Date: Fri, 24 Aug 2007 11:05:24 +0900
+Message-ID: <11879211243893-git-send-email-nakam@linux-ipv6.org>
 Cc: Masahide NAKAMURA <nakam@linux-ipv6.org>
 To: Stephen Hemminger <shemminger@osdl.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usagi025.linux-ipv6.org ([203.178.140.25]:44739 "EHLO
+Received: from usagi025.linux-ipv6.org ([203.178.140.25]:44740 "EHLO
 	triton.linux-ipv6.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1765764AbXHXC0w (ORCPT
+	with ESMTP id S1765756AbXHXC0w (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2007 22:26:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-o Support policy flag with string format.
-  Note that kernel defines only one name "localok" for the flag
-  and it has not had any effect currently.
-o Support state flag value XFRM_STATE_NOPMTUDISC.
-o Fix to show detailed flags value when "-s" option is used.
-o Fix minor typo.
+Fix xfrm state or policy flush message.
+And minor updates are included:
+o Use static buffer to show unknown value as string.
+o Show policy type (ptype) only when kernel specified it.
+o Clean-up xfrm_monitor.
 
 Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
 ---
- ip/ipxfrm.c      |   18 +++++++++++++---
- ip/xfrm.h        |    1 +
- ip/xfrm_policy.c |   55 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
- ip/xfrm_state.c  |    6 +++-
- 4 files changed, 72 insertions(+), 8 deletions(-)
+ ip/ipxfrm.c       |   48 +++++++++++++--------
+ ip/xfrm.h         |    1 +
+ ip/xfrm_monitor.c |  122 +++++++++++++++++++++++++++++++++++++---------------
+ ip/xfrm_state.c   |    1 -
+ 4 files changed, 117 insertions(+), 55 deletions(-)
 
 diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
-index d9b0e3b..359a2d2 100644
+index 359a2d2..80dbb52 100644
 --- a/ip/ipxfrm.c
 +++ b/ip/ipxfrm.c
-@@ -745,12 +745,13 @@ void xfrm_state_info_print(struct xfrm_usersa_info *xsinfo,
- 		fprintf(fp, "flag ");
- 		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_NOECN, "noecn");
- 		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_DECAP_DSCP, "decap-dscp");
-+		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_NOPMTUDISC, "nopmtudisc");
- 		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_WILDRECV, "wildrecv");
- 		if (flags)
- 			fprintf(fp, "%x", flags);
--		if (show_stats > 0)
--			fprintf(fp, " (0x%s)", strxf_mask8(flags));
- 	}
-+	if (show_stats > 0)
-+		fprintf(fp, " (0x%s)", strxf_mask8(xsinfo->flags));
- 	fprintf(fp, "%s", _SL_);
+@@ -114,6 +114,7 @@ struct typeent {
+ static const struct typeent xfrmproto_types[]= {
+ 	{ "esp", IPPROTO_ESP }, { "ah", IPPROTO_AH }, { "comp", IPPROTO_COMP },
+ 	{ "route2", IPPROTO_ROUTING }, { "hao", IPPROTO_DSTOPTS },
++	{ "ipsec-any", IPSEC_PROTO_ANY },
+ 	{ NULL, -1 }
+ };
  
- 	xfrm_xfrma_print(tb, xsinfo->family, fp, buf);
-@@ -845,10 +846,19 @@ void xfrm_policy_info_print(struct xfrm_userpolicy_info *xpinfo,
- 	}
- 	fprintf(fp, " ");
+@@ -135,6 +136,7 @@ int xfrm_xfrmproto_getbyname(char *name)
  
--	if (show_stats > 0) {
-+	if (show_stats > 0)
- 		fprintf(fp, "share %s ", strxf_share(xpinfo->share));
--		fprintf(fp, "flag 0x%s", strxf_mask8(xpinfo->flags));
+ const char *strxf_xfrmproto(__u8 proto)
+ {
++	static char str[16];
+ 	int i;
+ 
+ 	for (i = 0; ; i++) {
+@@ -146,7 +148,8 @@ const char *strxf_xfrmproto(__u8 proto)
+ 			return t->t_name;
+ 	}
+ 
+-	return NULL;
++	sprintf(str, "%u", proto);
++	return str;
+ }
+ 
+ static const struct typeent algo_types[]= {
+@@ -172,6 +175,7 @@ int xfrm_algotype_getbyname(char *name)
+ 
+ const char *strxf_algotype(int type)
+ {
++	static char str[32];
+ 	int i;
+ 
+ 	for (i = 0; ; i++) {
+@@ -183,7 +187,8 @@ const char *strxf_algotype(int type)
+ 			return t->t_name;
+ 	}
+ 
+-	return NULL;
++	sprintf(str, "%d", type);
++	return str;
+ }
+ 
+ const char *strxf_mask8(__u8 mask)
+@@ -251,6 +256,25 @@ const char *strxf_proto(__u8 proto)
+ 	return p;
+ }
+ 
++const char *strxf_ptype(__u8 ptype)
++{
++	static char str[16];
 +
-+	if (show_stats > 0 || xpinfo->flags) {
-+		__u8 flags = xpinfo->flags;
++	switch (ptype) {
++	case XFRM_POLICY_TYPE_MAIN:
++		strcpy(str, "main");
++		break;
++	case XFRM_POLICY_TYPE_SUB:
++		strcpy(str, "sub");
++		break;
++	default:
++		sprintf(str, "%u", ptype);
++		break;
++	}
 +
-+		fprintf(fp, "flag ");
-+		XFRM_FLAG_PRINT(fp, flags, XFRM_POLICY_LOCALOK, "localok");
-+		if (flags)
-+			fprintf(fp, "%x", flags);
- 	}
-+	if (show_stats > 0)
-+		fprintf(fp, " (0x%s)", strxf_mask8(xpinfo->flags));
- 	fprintf(fp, "%s", _SL_);
++	return str;
++}
++
+ void xfrm_id_info_print(xfrm_address_t *saddr, struct xfrm_id *id,
+ 			__u8 mode, __u32 reqid, __u16 family, int force_spi,
+ 			FILE *fp, const char *prefix, const char *title)
+@@ -776,7 +800,6 @@ void xfrm_policy_info_print(struct xfrm_userpolicy_info *xpinfo,
+ 			    const char *title)
+ {
+ 	char buf[STRBUF_SIZE];
+-	__u8 ptype = XFRM_POLICY_TYPE_MAIN;
  
+ 	memset(buf, '\0', sizeof(buf));
+ 
+@@ -821,31 +844,18 @@ void xfrm_policy_info_print(struct xfrm_userpolicy_info *xpinfo,
+ 		fprintf(fp, "index %u ", xpinfo->index);
+ 	fprintf(fp, "priority %u ", xpinfo->priority);
+ 
+-	fprintf(fp, "ptype ");
+-
+ 	if (tb[XFRMA_POLICY_TYPE]) {
+ 		struct xfrm_userpolicy_type *upt;
+ 
++		fprintf(fp, "ptype ");
++
+ 		if (RTA_PAYLOAD(tb[XFRMA_POLICY_TYPE]) < sizeof(*upt))
+ 			fprintf(fp, "(ERROR truncated)");
+ 
+ 		upt = (struct xfrm_userpolicy_type *)RTA_DATA(tb[XFRMA_POLICY_TYPE]);
+-		ptype = upt->type;
++		fprintf(fp, "%s ", strxf_ptype(upt->type));
+ 	}
+ 
+-	switch (ptype) {
+-	case XFRM_POLICY_TYPE_MAIN:
+-		fprintf(fp, "main");
+-		break;
+-	case XFRM_POLICY_TYPE_SUB:
+-		fprintf(fp, "sub");
+-		break;
+-	default:
+-		fprintf(fp, "%u", ptype);
+-		break;
+-	}
+-	fprintf(fp, " ");
+-
  	if (show_stats > 0)
+ 		fprintf(fp, "share %s ", strxf_share(xpinfo->share));
+ 
 diff --git a/ip/xfrm.h b/ip/xfrm.h
-index 71345b9..335c2a5 100644
+index 335c2a5..930bb3f 100644
 --- a/ip/xfrm.h
 +++ b/ip/xfrm.h
-@@ -98,6 +98,7 @@ struct xfrm_filter {
- 	__u32 index_mask;
- 	__u8 action_mask;
- 	__u32 priority_mask;
-+	__u8 policy_flags_mask;
+@@ -127,6 +127,7 @@ const char *strxf_mask8(__u8 mask);
+ const char *strxf_mask32(__u32 mask);
+ const char *strxf_share(__u8 share);
+ const char *strxf_proto(__u8 proto);
++const char *strxf_ptype(__u8 ptype);
+ void xfrm_id_info_print(xfrm_address_t *saddr, struct xfrm_id *id,
+ 			__u8 mode, __u32 reqid, __u16 family, int force_spi,
+ 			FILE *fp, const char *prefix, const char *title);
+diff --git a/ip/xfrm_monitor.c b/ip/xfrm_monitor.c
+index bdbf4a6..dc12fca 100644
+--- a/ip/xfrm_monitor.c
++++ b/ip/xfrm_monitor.c
+@@ -50,12 +50,6 @@ static int xfrm_acquire_print(const struct sockaddr_nl *who,
+ 	struct rtattr * tb[XFRMA_MAX+1];
+ 	__u16 family;
  
- 	__u8 ptype;
- 	__u8 ptype_mask;
-diff --git a/ip/xfrm_policy.c b/ip/xfrm_policy.c
-index f4488ac..419ca67 100644
---- a/ip/xfrm_policy.c
-+++ b/ip/xfrm_policy.c
-@@ -54,10 +54,10 @@ static void usage(void) __attribute__((noreturn));
- static void usage(void)
- {
- 	fprintf(stderr, "Usage: ip xfrm policy { add | update } dir DIR SELECTOR [ index INDEX ] [ ptype PTYPE ]\n");
--	fprintf(stderr, "        [ action ACTION ] [ priority PRIORITY ] [ LIMIT-LIST ] [ TMPL-LIST ]\n");
-+	fprintf(stderr, "        [ action ACTION ] [ priority PRIORITY ] [ flag FLAG-LIST ] [ LIMIT-LIST ] [ TMPL-LIST ]\n");
- 	fprintf(stderr, "Usage: ip xfrm policy { delete | get } dir DIR [ SELECTOR | index INDEX ] [ ptype PTYPE ]\n");
- 	fprintf(stderr, "Usage: ip xfrm policy { deleteall | list } [ dir DIR ] [ SELECTOR ]\n");
--	fprintf(stderr, "        [ index INDEX ] [ action ACTION ] [ priority PRIORITY ]\n");
-+	fprintf(stderr, "        [ index INDEX ] [ action ACTION ] [ priority PRIORITY ]  [ flag FLAG-LIST ]\n");
- 	fprintf(stderr, "Usage: ip xfrm policy flush [ ptype PTYPE ]\n");
- 	fprintf(stderr, "Usage: ip xfrm count\n");
- 	fprintf(stderr, "PTYPE := [ main | sub ](default=main)\n");
-@@ -74,6 +74,9 @@ static void usage(void)
- 
- 	//fprintf(stderr, "PRIORITY - priority value(default=0)\n");
- 
-+	fprintf(stderr, "FLAG-LIST := [ FLAG-LIST ] FLAG\n");
-+	fprintf(stderr, "FLAG := [ localok ]\n");
-+
- 	fprintf(stderr, "LIMIT-LIST := [ LIMIT-LIST ] | [ limit LIMIT ]\n");
- 	fprintf(stderr, "LIMIT := [ [time-soft|time-hard|time-use-soft|time-use-hard] SECONDS ] |\n");
- 	fprintf(stderr, "         [ [byte-soft|byte-hard] SIZE ] | [ [packet-soft|packet-hard] NUMBER ]\n");
-@@ -135,6 +138,39 @@ static int xfrm_policy_ptype_parse(__u8 *ptype, int *argcp, char ***argvp)
+-	if (n->nlmsg_type != XFRM_MSG_ACQUIRE) {
+-		fprintf(stderr, "Not an acquire: %08x %08x %08x\n",
+-			n->nlmsg_len, n->nlmsg_type, n->nlmsg_flags);
+-		return 0;
+-	}
+-
+ 	len -= NLMSG_LENGTH(sizeof(*xacq));
+ 	if (len < 0) {
+ 		fprintf(stderr, "BUG: wrong nlmsg len %d\n", len);
+@@ -108,6 +102,74 @@ static int xfrm_acquire_print(const struct sockaddr_nl *who,
  	return 0;
  }
  
-+static int xfrm_policy_flag_parse(__u8 *flags, int *argcp, char ***argvp)
++static int xfrm_state_flush_print(const struct sockaddr_nl *who,
++				  struct nlmsghdr *n, void *arg)
 +{
-+	int argc = *argcp;
-+	char **argv = *argvp;
-+	int len = strlen(*argv);
++	FILE *fp = (FILE*)arg;
++	struct xfrm_usersa_flush *xsf = NLMSG_DATA(n);
++	int len = n->nlmsg_len;
++	const char *str;
 +
-+	if (len > 2 && strncmp(*argv, "0x", 2) == 0) {
-+		__u8 val = 0;
-+
-+		if (get_u8(&val, *argv, 16))
-+			invarg("\"FLAG\" is invalid", *argv);
-+		*flags = val;
-+	} else {
-+		while (1) {
-+			if (strcmp(*argv, "localok") == 0)
-+				*flags |= XFRM_POLICY_LOCALOK;
-+			else {
-+				PREV_ARG(); /* back track */
-+				break;
-+			}
-+
-+			if (!NEXT_ARG_OK())
-+				break;
-+			NEXT_ARG();
-+		}
++	len -= NLMSG_SPACE(sizeof(*xsf));
++	if (len < 0) {
++		fprintf(stderr, "BUG: wrong nlmsg len %d\n", len);
++		return -1;
 +	}
 +
-+	*argcp = argc;
-+	*argvp = argv;
++	fprintf(fp, "Flushed state ");
++
++	str = strxf_xfrmproto(xsf->proto);
++	if (str)
++		fprintf(fp, "proto %s", str);
++	else
++		fprintf(fp, "proto %u", xsf->proto);
++	fprintf(fp, "%s", _SL_);
++
++	if (oneline)
++		fprintf(fp, "\n");
++	fflush(fp);
 +
 +	return 0;
 +}
 +
- static int xfrm_tmpl_parse(struct xfrm_user_tmpl *tmpl,
- 			   int *argcp, char ***argvp)
++static int xfrm_policy_flush_print(const struct sockaddr_nl *who,
++				   struct nlmsghdr *n, void *arg)
++{
++	struct rtattr * tb[XFRMA_MAX+1];
++	FILE *fp = (FILE*)arg;
++	int len = n->nlmsg_len;
++
++	len -= NLMSG_SPACE(0);
++	if (len < 0) {
++		fprintf(stderr, "BUG: wrong nlmsg len %d\n", len);
++		return -1;
++	}
++
++	fprintf(fp, "Flushed policy ");
++
++	parse_rtattr(tb, XFRMA_MAX, NLMSG_DATA(n), len);
++
++	if (tb[XFRMA_POLICY_TYPE]) {
++		struct xfrm_userpolicy_type *upt;
++
++		fprintf(fp, "ptype ");
++
++		if (RTA_PAYLOAD(tb[XFRMA_POLICY_TYPE]) < sizeof(*upt))
++			fprintf(fp, "(ERROR truncated)");
++
++		upt = (struct xfrm_userpolicy_type *)RTA_DATA(tb[XFRMA_POLICY_TYPE]);
++		fprintf(fp, "%s ", strxf_ptype(upt->type));
++	}
++
++	fprintf(fp, "%s", _SL_);
++
++	if (oneline)
++		fprintf(fp, "\n");
++	fflush(fp);
++
++	return 0;
++}
++
+ static int xfrm_report_print(const struct sockaddr_nl *who,
+ 			     struct nlmsghdr *n, void *arg)
  {
-@@ -245,6 +281,10 @@ static int xfrm_policy_modify(int cmd, unsigned flags, int argc, char **argv)
- 			NEXT_ARG();
- 			if (get_u32(&req.xpinfo.priority, *argv, 0))
- 				invarg("\"PRIORITY\" is invalid", *argv);
-+		} else if (strcmp(*argv, "flag") == 0) {
-+			NEXT_ARG();
-+			xfrm_policy_flag_parse(&req.xpinfo.flags, &argc,
-+					       &argv);
- 		} else if (strcmp(*argv, "limit") == 0) {
- 			NEXT_ARG();
- 			xfrm_lifetime_cfg_parse(&req.xpinfo.lft, &argc, &argv);
-@@ -357,6 +397,10 @@ static int xfrm_policy_filter_match(struct xfrm_userpolicy_info *xpinfo,
- 	if ((xpinfo->priority^filter.xpinfo.priority)&filter.priority_mask)
+@@ -117,12 +179,6 @@ static int xfrm_report_print(const struct sockaddr_nl *who,
+ 	struct rtattr * tb[XFRMA_MAX+1];
+ 	__u16 family;
+ 
+-	if (n->nlmsg_type != XFRM_MSG_REPORT) {
+-		fprintf(stderr, "Not a report: %08x %08x %08x\n",
+-			n->nlmsg_len, n->nlmsg_type, n->nlmsg_flags);
+-		return 0;
+-	}
+-
+ 	len -= NLMSG_LENGTH(sizeof(*xrep));
+ 	if (len < 0) {
+ 		fprintf(stderr, "BUG: wrong nlmsg len %d\n", len);
+@@ -201,42 +257,38 @@ static int xfrm_accept_msg(const struct sockaddr_nl *who,
+ 	if (timestamp)
+ 		print_timestamp(fp);
+ 
+-	if (n->nlmsg_type == XFRM_MSG_NEWSA ||
+-	    n->nlmsg_type == XFRM_MSG_DELSA ||
+-	    n->nlmsg_type == XFRM_MSG_UPDSA ||
+-	    n->nlmsg_type == XFRM_MSG_EXPIRE) {
++	switch (n->nlmsg_type) {
++	case XFRM_MSG_NEWSA:
++	case XFRM_MSG_DELSA:
++	case XFRM_MSG_UPDSA:
++	case XFRM_MSG_EXPIRE:
+ 		xfrm_state_print(who, n, arg);
  		return 0;
- 
-+	if (filter.policy_flags_mask)
-+		if ((xpinfo->flags & filter.xpinfo.flags) == 0)
-+			return 0;
+-	}
+-	if (n->nlmsg_type == XFRM_MSG_NEWPOLICY ||
+-	    n->nlmsg_type == XFRM_MSG_DELPOLICY ||
+-	    n->nlmsg_type == XFRM_MSG_UPDPOLICY ||
+-	    n->nlmsg_type == XFRM_MSG_POLEXPIRE) {
++	case XFRM_MSG_NEWPOLICY:
++	case XFRM_MSG_DELPOLICY:
++	case XFRM_MSG_UPDPOLICY:
++	case XFRM_MSG_POLEXPIRE:
+ 		xfrm_policy_print(who, n, arg);
+ 		return 0;
+-	}
+-
+-	if (n->nlmsg_type == XFRM_MSG_ACQUIRE) {
++	case XFRM_MSG_ACQUIRE:
+ 		xfrm_acquire_print(who, n, arg);
+ 		return 0;
+-	}
+-	if (n->nlmsg_type == XFRM_MSG_FLUSHSA) {
+-		/* XXX: Todo: show proto in xfrm_usersa_flush */
+-		fprintf(fp, "Flushed state\n");
++	case XFRM_MSG_FLUSHSA:
++		xfrm_state_flush_print(who, n, arg);
+ 		return 0;
+-	}
+-	if (n->nlmsg_type == XFRM_MSG_FLUSHPOLICY) {
+-		fprintf(fp, "Flushed policy\n");
++	case XFRM_MSG_FLUSHPOLICY:
++		xfrm_policy_flush_print(who, n, arg);
+ 		return 0;
+-	}
+-	if (n->nlmsg_type == XFRM_MSG_REPORT) {
++	case XFRM_MSG_REPORT:
+ 		xfrm_report_print(who, n, arg);
+ 		return 0;
+-	}
+-	if (n->nlmsg_type == XFRM_MSG_NEWAE) {
++	case XFRM_MSG_NEWAE:
+ 		xfrm_ae_print(who, n, arg);
+ 		return 0;
++	default:
++		break;
+ 	}
 +
- 	return 1;
- }
- 
-@@ -684,6 +728,13 @@ static int xfrm_policy_list_or_deleteall(int argc, char **argv, int deleteall)
- 
- 			filter.priority_mask = XFRM_FILTER_MASK_FULL;
- 
-+		} else if (strcmp(*argv, "flag") == 0) {
-+			NEXT_ARG();
-+			xfrm_policy_flag_parse(&filter.xpinfo.flags, &argc,
-+					       &argv);
-+
-+			filter.policy_flags_mask = XFRM_FILTER_MASK_FULL;
-+
- 		} else {
- 			if (selp)
- 				invarg("unknown", *argv);
+ 	if (n->nlmsg_type != NLMSG_ERROR && n->nlmsg_type != NLMSG_NOOP &&
+ 	    n->nlmsg_type != NLMSG_DONE) {
+ 		fprintf(fp, "Unknown message: %08d 0x%08x 0x%08x\n",
 diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
-index 2b68f49..29604a5 100644
+index 29604a5..f51e8b6 100644
 --- a/ip/xfrm_state.c
 +++ b/ip/xfrm_state.c
-@@ -62,7 +62,7 @@ static void usage(void)
- 	fprintf(stderr, "        [ min SPI max SPI ]\n");
- 	fprintf(stderr, "Usage: ip xfrm state { delete | get } ID\n");
- 	fprintf(stderr, "Usage: ip xfrm state { deleteall | list } [ ID ] [ mode MODE ] [ reqid REQID ]\n");
--	fprintf(stderr, "        [ flag FLAG_LIST ]\n");
-+	fprintf(stderr, "        [ flag FLAG-LIST ]\n");
- 	fprintf(stderr, "Usage: ip xfrm state flush [ proto XFRM_PROTO ]\n");
- 	fprintf(stderr, "Usage: ip xfrm state count \n");
+@@ -1053,7 +1053,6 @@ static int xfrm_state_flush(int argc, char **argv)
  
-@@ -82,7 +82,7 @@ static void usage(void)
-  	//fprintf(stderr, "REQID - number(default=0)\n");
+ 	if (show_stats > 1)
+ 		fprintf(stderr, "Flush state proto=%s\n",
+-			(req.xsf.proto == IPSEC_PROTO_ANY) ? "any" :
+ 			strxf_xfrmproto(req.xsf.proto));
  
- 	fprintf(stderr, "FLAG-LIST := [ FLAG-LIST ] FLAG\n");
--	fprintf(stderr, "FLAG := [ noecn | decap-dscp | wildrecv ]\n");
-+	fprintf(stderr, "FLAG := [ noecn | decap-dscp | nopmtudisc | wildrecv ]\n");
- 
-         fprintf(stderr, "ENCAP := ENCAP-TYPE SPORT DPORT OADDR\n");
-         fprintf(stderr, "ENCAP-TYPE := espinudp | espinudp-nonike\n");
-@@ -203,6 +203,8 @@ static int xfrm_state_flag_parse(__u8 *flags, int *argcp, char ***argvp)
- 				*flags |= XFRM_STATE_NOECN;
- 			else if (strcmp(*argv, "decap-dscp") == 0)
- 				*flags |= XFRM_STATE_DECAP_DSCP;
-+			else if (strcmp(*argv, "nopmtudisc") == 0)
-+				*flags |= XFRM_STATE_NOPMTUDISC;
- 			else if (strcmp(*argv, "wildrecv") == 0)
- 				*flags |= XFRM_STATE_WILDRECV;
- 			else {
+ 	if (rtnl_talk(&rth, &req.n, 0, 0, NULL, NULL, NULL) < 0)
 -- 
 1.4.4.2
 
