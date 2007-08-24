@@ -1,68 +1,50 @@
-From: "Denis V. Lunev" <dlunev@gmail.com>
-Subject: Re: [Devel] [PATCH 1/1] Dynamically allocate the loopback device
-Date: Sat, 25 Aug 2007 01:24:29 +0400
-Message-ID: <46CF4C8D.9010709@gmail.com>
-References: <11879698031215-git-send-email-dlezcano@fr.ibm.com>	<46CEFF83.3040003@gmail.com> <20070824104301.2f4ff34e@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: [ofa-general] Re: [PATCH 0/9 Rev3] Implement batching skb API and
+ support in IPoIB
+Date: Fri, 24 Aug 2007 14:25:03 -0700 (PDT)
+Message-ID: <20070824.142503.30177455.davem@davemloft.net>
+References: <46CE0BA1.60206@hp.com>
+	<20070823231820.2ae52cc0.billfink@mindspring.com>
+	<1187957657.4255.35.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Denis V. Lunev" <dlunev@gmail.com>, containers@lists.osdl.org,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.188]:41831 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752955AbXHXVYG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2007 17:24:06 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so715817nfb
-        for <netdev@vger.kernel.org>; Fri, 24 Aug 2007 14:24:03 -0700 (PDT)
-In-Reply-To: <20070824104301.2f4ff34e@localhost>
-Sender: netdev-owner@vger.kernel.org
+Cc: jagana@us.ibm.com, billfink@mindspring.com, peter.p.waskiewicz.jr@intel.com,
+	herbert@gondor.apana.org.au, gaagaan@gmail.com,
+	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
+	rdreier@cisco.com, mcarlson@broadcom.com, jeff@garzik.org,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	johnpol@2ka.mipt.ru, shemminger@linux-foundation.org,
+	kaber@trash.net, sri@us.ibm.com
+To: hadi@cyberus.ca
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <1187957657.4255.35.camel@localhost>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-no, and this is important. Loopback is initialized in fs_initcall which
-is called sufficiently before module_init.
+From: jamal <hadi@cyberus.ca>
+Date: Fri, 24 Aug 2007 08:14:16 -0400
 
-I have checked the code and do not see initialization order mistakes
-right now. But, from now on, maintainer should pay attention for this
-unfortunate consequence :(
+> Seems the receive side of the sender is also consuming a lot more cpu
+> i suspect because receiver is generating a lot more ACKs with TSO.
 
-Regards,
-    Den
+I've seen this behavior before on a low cpu powered receiver and the
+issue is that batching too much actually hurts a receiver.
 
-Stephen Hemminger wrote:
-> On Fri, 24 Aug 2007 19:55:47 +0400
-> "Denis V. Lunev" <dlunev@gmail.com> wrote:
-> 
->> dlezcano@fr.ibm.com wrote:
->>> From: Daniel Lezcano <dlezcano@fr.ibm.com>
->>>
->>> Doing this makes loopback.c a better example of how to do a
->>> simple network device, and it removes the special case
->>> single static allocation of a struct net_device, hopefully
->>> making maintenance easier.
->>>
->>> Applies against net-2.6.24
->>>
->>> Tested on i386, x86_64
->>> Compiled on ia64, sparc
->> I think that a small note, that initialization order is changed will be
->> good to record. After this, loopback MUST be allocated before any other
->> networking subsystem initialization. And this is an important change.
->>
->> Regards,
->>     Den
-> 
-> Yes, this code would break when other drivers are directly linked
-> in. 
-> _______________________________________________
-> Containers mailing list
-> Containers@lists.linux-foundation.org
-> https://lists.linux-foundation.org/mailman/listinfo/containers
-> 
-> _______________________________________________
-> Devel mailing list
-> Devel@openvz.org
-> https://openvz.org/mailman/listinfo/devel
-> 
+If the data packets were better spaced out, the receive would handle
+the load better.
 
+This is the thing the TOE guys keep talking about overcoming with
+their packet pacing algorithms in their on-card TOE stack.
+
+My hunch is that even if in the non-TSO case the TX packets were all
+back to back in the cards TX ring, TSO still spits them out faster on
+the wire.
