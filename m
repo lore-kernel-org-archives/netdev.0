@@ -1,50 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: [ofa-general] Re: [PATCH 0/9 Rev3] Implement batching skb API and
- support in IPoIB
-Date: Fri, 24 Aug 2007 14:25:03 -0700 (PDT)
-Message-ID: <20070824.142503.30177455.davem@davemloft.net>
-References: <46CE0BA1.60206@hp.com>
-	<20070823231820.2ae52cc0.billfink@mindspring.com>
-	<1187957657.4255.35.camel@localhost>
+Subject: Re: RFC: issues concerning the next NAPI interface
+Date: Fri, 24 Aug 2007 14:32:20 -0700 (PDT)
+Message-ID: <20070824.143220.55503163.davem@davemloft.net>
+References: <200708241559.17055.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jagana@us.ibm.com, billfink@mindspring.com, peter.p.waskiewicz.jr@intel.com,
-	herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
-	rdreier@cisco.com, mcarlson@broadcom.com, jeff@garzik.org,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	johnpol@2ka.mipt.ru, shemminger@linux-foundation.org,
-	kaber@trash.net, sri@us.ibm.com
-To: hadi@cyberus.ca
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <1187957657.4255.35.camel@localhost>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, raisch@de.ibm.com, themann@de.ibm.com,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	meder@de.ibm.com, tklein@de.ibm.com, stefan.roscher@de.ibm.com
+To: ossthema@de.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34748
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751242AbXHXVcV convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Aug 2007 17:32:21 -0400
+In-Reply-To: <200708241559.17055.ossthema@de.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Fri, 24 Aug 2007 08:14:16 -0400
+=46rom: Jan-Bernd Themann <ossthema@de.ibm.com>
+Date: Fri, 24 Aug 2007 15:59:16 +0200
 
-> Seems the receive side of the sender is also consuming a lot more cpu
-> i suspect because receiver is generating a lot more ACKs with TSO.
+> =A0 =A0It would be nice if it is possible to schedule queues to other=
+ CPU's, or
+> =A0 =A0at least to use interrupts to put the queue to another cpu (no=
+t nice for=20
+> =A0 =A0as you never know which one you will hit).=20
+> =A0 =A0I'm not sure how bad the tradeoff would be.
 
-I've seen this behavior before on a low cpu powered receiver and the
-issue is that batching too much actually hurts a receiver.
+Once the per-cpu NAPI poll queues start needing locks, much of the
+gain will be lost.  This is strictly what we want to avoid.
 
-If the data packets were better spaced out, the receive would handle
-the load better.
+We need real facilities for IRQ distribution policies.  With that none
+of this is an issue.
 
-This is the thing the TOE guys keep talking about overcoming with
-their packet pacing algorithms in their on-card TOE stack.
+This is also a platform specific problem with IRQ behavior, the IRQ
+distibution scheme you mention would never occur on sparc64 for
+example.  We use a fixed round-robin distribution of interrupts to
+CPUS there, they don't move.
 
-My hunch is that even if in the non-TSO case the TX packets were all
-back to back in the cards TX ring, TSO still spits them out faster on
-the wire.
+Each scheme has it's advantages, but you want a difference scheme here
+than what is implemented and the fix is therefore not in the
+networking :-)
+
+=46urthermore, most cards that will be using multi-queue will be
+using hashes on the packet headers to choose the MSI-X interrupt
+and thus the cpu to be targetted.  Those cards will want fixed
+instead of dynamic interrupt to cpu distribution schemes as well,
+so your problem is not unique and they'll need the same fix as
+you do.
