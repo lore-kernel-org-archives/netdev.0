@@ -1,70 +1,42 @@
-From: Bodo Eggert <7eggert@gmx.de>
-Subject: Re: RFC: issues concerning the next NAPI interface
-Date: Fri, 24 Aug 2007 21:04:56 +0200
-Message-ID: <E1IOeSm-0000bm-Jo@be1.lrz>
-References: <8VHRR-45R-17@gated-at.bofh.it> <8VKwj-8ke-27@gated-at.bofh.it>
-Reply-To: 7eggert@gmx.de
+From: Olof Johansson <olof@lixom.net>
+Subject: Re: [PATCH v2] [02/10] pasemi_mac: Stop using the pci config space
+	accessors for register read/writes
+Date: Fri, 24 Aug 2007 13:11:04 -0500
+Message-ID: <20070824181104.GA17171@lixom.net>
+References: <20070817205413.548020000@lixom.net> <20070822141248.GC16830@lixom.net> <20070823181310.GB31882@lixom.net> <20070824140531.ff7d66bf.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Linas Vepstas <linas@austin.ibm.com>,
-	Jan-Bernd Themann <ossthema@de.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.co
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, linuxppc-dev@ozlabs.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:50877 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758335AbXHXTFO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2007 15:05:14 -0400
+Received: from lixom.net ([66.141.50.11]:58633 "EHLO mail.lixom.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761546AbXHXTF4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Aug 2007 15:05:56 -0400
+Content-Disposition: inline
+In-Reply-To: <20070824140531.ff7d66bf.sfr@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linas Vepstas <linas@austin.ibm.com> wrote:
-> On Fri, Aug 24, 2007 at 03:59:16PM +0200, Jan-Bernd Themann wrote:
+On Fri, Aug 24, 2007 at 02:05:31PM +1000, Stephen Rothwell wrote:
+> On Thu, 23 Aug 2007 13:13:10 -0500 Olof Johansson <olof@lixom.net> wrote:
+> >
+> >  out:
+> > -	pci_dev_put(mac->iob_pdev);
+> > -out_put_dma_pdev:
+> > -	pci_dev_put(mac->dma_pdev);
+> > -out_free_netdev:
+> > +	if (mac->iob_pdev)
+> > +		pci_dev_put(mac->iob_pdev);
+> > +	if (mac->dma_pdev)
+> > +		pci_dev_put(mac->dma_pdev);
+> 
+> It is not documented as such (as far as I can see), but pci_dev_put is
+> safe to call with NULL. And there are other places in the kernel that
+> explicitly use that fact.
 
->> 3) On modern systems the incoming packets are processed very fast. E=
-specially
->> on SMP systems when we use multiple queues we process only a few pac=
-kets
->> per napi poll cycle. So NAPI does not work very well here and the in=
-terrupt
->> rate is still high.
->=20
-> I saw this too, on a system that is "modern" but not terribly fast, a=
-nd
-> only slightly (2-way) smp. (the spidernet)
->=20
-> I experimented wih various solutions, none were terribly exciting.  T=
-he
-> thing that killed all of them was a crazy test case that someone spru=
-ng on
-> me:  They had written a worst-case network ping-pong app: send one
-> packet, wait for reply, send one packet, etc.
->=20
-> If I waited (indefinitely) for a second packet to show up, the test c=
-ase
-> completely stalled (since no second packet would ever arrive).  And i=
-f I
-> introduced a timer to wait for a second packet, then I just increased
-> the latency in the response to the first packet, and this was noticed=
-,
-> and folks complained.
+Some places check, others do not. I'll leave it be for now but might take
+care of it during some future cleanup. Thanks for point it out though.
 
-Possible solution / possible brainfart:
 
-Introduce a timer, but don't start to use it to combine packets unless =
-you
-receive n packets within the timeframe. If you receive less than m pack=
-ets
-within one timeframe, stop using the timer. The system should now have =
-a
-decent response time when the network is idle, and when the network is
-busy, nobody will complain about the latency.-)
---=20
-=46unny quotes:
-22. When everything's going your way, you're in the wrong lane and and =
-going
-    the wrong way.
-=46ri=DF, Spammer: rsRxhvmk@CaR.7eggert.dyndns.org m@z3T.7eggert.dyndns=
-=2Eorg
+-Olof
