@@ -1,42 +1,37 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: Re: [PATCH v2] [02/10] pasemi_mac: Stop using the pci config space
-	accessors for register read/writes
-Date: Fri, 24 Aug 2007 13:11:04 -0500
-Message-ID: <20070824181104.GA17171@lixom.net>
-References: <20070817205413.548020000@lixom.net> <20070822141248.GC16830@lixom.net> <20070823181310.GB31882@lixom.net> <20070824140531.ff7d66bf.sfr@canb.auug.org.au>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [ANNOUNCE] iproute2-2.6.23-rc3
+Date: Fri, 24 Aug 2007 12:26:28 -0700
+Message-ID: <20070824122628.0305f98e@freepuppy.rosehill.hemminger.net>
+References: <20070822110804.30c2e803@freepuppy.rosehill.hemminger.net>
+	<20070824101044.GA2913@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com, linuxppc-dev@ozlabs.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:58633 "EHLO mail.lixom.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761546AbXHXTF4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Aug 2007 15:05:56 -0400
-Content-Disposition: inline
-In-Reply-To: <20070824140531.ff7d66bf.sfr@canb.auug.org.au>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:50284 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750815AbXHXT0i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2007 15:26:38 -0400
+In-Reply-To: <20070824101044.GA2913@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 24, 2007 at 02:05:31PM +1000, Stephen Rothwell wrote:
-> On Thu, 23 Aug 2007 13:13:10 -0500 Olof Johansson <olof@lixom.net> wrote:
-> >
-> >  out:
-> > -	pci_dev_put(mac->iob_pdev);
-> > -out_put_dma_pdev:
-> > -	pci_dev_put(mac->dma_pdev);
-> > -out_free_netdev:
-> > +	if (mac->iob_pdev)
-> > +		pci_dev_put(mac->iob_pdev);
-> > +	if (mac->dma_pdev)
-> > +		pci_dev_put(mac->dma_pdev);
+On Fri, 24 Aug 2007 12:10:44 +0200
+Jarek Poplawski <jarkao2@o2.pl> wrote:
+
+> On 22-08-2007 20:08, Stephen Hemminger wrote:
+> > There have been a lot of changes for 2.6.23, so here is a test release
+> > of iproute2 that should capture all the submitted patches
+> > 
+> > 
+> > http://developer.osdl.org/shemminger/iproute2/download/iproute2-2.6.23-rc3.tar.gz
 > 
-> It is not documented as such (as far as I can see), but pci_dev_put is
-> safe to call with NULL. And there are other places in the kernel that
-> explicitly use that fact.
+> But... isn't it forged, btw?!
 
-Some places check, others do not. I'll leave it be for now but might take
-care of it during some future cleanup. Thanks for point it out though.
+No, I just didn't sign a temporary testing version.  A final version
+will be out after 2.6.23
 
-
--Olof
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
