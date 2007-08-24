@@ -1,112 +1,108 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Fri, 24 Aug 2007 10:19:50 -0700 (PDT)
-Message-ID: <alpine.LFD.0.999.0708241001560.25853@woody.linux-foundation.org>
-References: <20070815234021.GA28775@gondor.apana.org.au>
- <alpine.LFD.0.999.0708180709060.3666@enigma.security.iitk.ac.in>
- <alpine.LFD.0.999.0708172110400.30176@woody.linux-foundation.org>
- <200708241319.05760.vda.linux@googlemail.com>
+From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Subject: Re: [3/4] 2.6.23-rc3: known regressions v3
+Date: Fri, 24 Aug 2007 19:38:30 +0200
+Message-ID: <46CF1796.1020004@googlemail.com>
+References: <46CF0DEF.5040107@googlemail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Satyam Sharma <satyam@infradead.org>,
-	Christoph Lameter <clameter@sgi.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Nick Piggin <nickpiggin@yahoo.com.au>,
-	Paul Mackerras <paulus@samba.org>,
-	Segher Boessenkool <segher@kernel.crashing.org>,
-	heiko.carstens@de.ibm.com, horms@verge.net.au,
-	linux-kernel@vger.kernel.org, rpjday@mindspring.com, ak@suse.de,
-	netdev@vger.kernel.org, cfriesen@nortel.com,
-	akpm@linux-foundation.org, jesper.juhl@gmail.com,
-	linux-arch@vger.kernel.org, zlynx@acm.org, schwidefsky@de.ibm.com,
-	Chris Snook <csnook@redhat.com>, davem@davemloft.net,
-	wensong@linux-vs.org, wjiang@resilience.com
-To: Denys Vlasenko <vda.linux@googlemail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763610AbXHXR1J@vger.kernel.org>
-In-Reply-To: <200708241319.05760.vda.linux@googlemail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Thomas Meyer <thomas@m3y3r.de>, Shish <shish@shishnet.org>,
+	Karl Meyer <adhocrocker@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	linux-pm@lists.linux-foundation.org,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Pavel Machek <pavel@ucw.cz>,
+	Arkadiusz Miskiewicz <arekm@maven.pl>,
+	Thomas Voegtle <tv@lio96.de>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fk-out-0910.google.com ([209.85.128.184]:9101 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763547AbXHXRip (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2007 13:38:45 -0400
+Received: by fk-out-0910.google.com with SMTP id z23so728689fkz
+        for <netdev@vger.kernel.org>; Fri, 24 Aug 2007 10:38:44 -0700 (PDT)
+In-Reply-To: <46CF0DEF.5040107@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi all,
+
+Here is a list of some known regressions in 2.6.23-rc3.
+
+Feel free to add new regressions/remove fixed etc.
+http://kernelnewbies.org/known_regressions
+
+List of Aces
+
+Name                    Regressions fixed since 21-Jun-2007
+Adrian Bunk                            9
+Andi Kleen                             5
+Linus Torvalds                         5
+Andrew Morton                          4
+Al Viro                                3
+Alan Stern                             3
+Cornelia Huck                          3
+Jens Axboe                             3
+Tejun Heo                              3
 
 
-On Fri, 24 Aug 2007, Denys Vlasenko wrote:
->
-> > No, you don't use "x.counter++". But you *do* use
-> >
-> > 	if (atomic_read(&x) <= 1)
-> >
-> > and loading into a register is stupid and pointless, when you could just
-> > do it as a regular memory-operand to the cmp instruction.
-> 
-> It doesn't mean that (volatile int*) cast is bad, it means that current gcc
-> is bad (or "not good enough"). IOW: instead of avoiding volatile cast,
-> it's better to fix the compiler.
 
-I would agree that fixing the compiler in this case would be a good thing, 
-even quite regardless of any "atomic_read()" discussion.
+Networking
 
-I just have a strong suspicion that "volatile" performance is so low down 
-the list of any C compiler persons interest, that it's never going to 
-happen. And quite frankly, I cannot blame the gcc guys for it.
+Subject         : NETDEV WATCHDOG: eth0: transmit timed out
+References      : http://lkml.org/lkml/2007/8/13/737
+Last known good : ?
+Submitter       : Karl Meyer <adhocrocker@gmail.com>
+Caused-By       : ?
+Handled-By      : Francois Romieu <romieu@fr.zoreil.com>
+Status          : problem is being debugged
 
-That's especially as "volatile" really isn't a very good feature of the C 
-language, and is likely to get *less* interesting rather than more (as 
-user space starts to be more and more threaded, "volatile" gets less and 
-less useful.
+Subject         : Weird network problems with 2.6.23-rc2
+References      : http://lkml.org/lkml/2007/8/11/40
+Last known good : ?
+Submitter       : Shish <shish@shishnet.org>
+Caused-By       : ?
+Handled-By      : ?
+Status          : unknown
 
-[ Ie, currently, I think you can validly use "volatile" in a "sigatomic_t" 
-  kind of way, where there is a single thread, but with asynchronous 
-  events. In that kind of situation, I think it's probably useful. But 
-  once you get multiple threads, it gets pointless.
+Subject         : New wake ups from sky2
+References      : http://lkml.org/lkml/2007/7/20/386
+Last known good : ?
+Submitter       : Thomas Meyer <thomas@m3y3r.de>
+Caused-By       : Stephen Hemminger <shemminger@osdl.org>
+                  commit eb35cf60e462491249166182e3e755d3d5d91a28
+Handled-By      : Stephen Hemminger <shemminger@osdl.org>
+Status          : unknown
 
-  Sure: you could use "volatile" together with something like Dekker's or 
-  Peterson's algorithm that doesn't depend on cache coherency (that's 
-  basically what the C "volatile" keyword approximates: not atomic 
-  accesses, but *uncached* accesses! But let's face it, that's way past 
-  insane. ]
 
-So I wouldn't expect "volatile" to ever really generate better code. It 
-might happen as a side effect of other improvements (eg, I might hope that 
-the SSA work would eventually lead to gcc having a much better defined 
-model of valid optimizations, and maybe better code generation for 
-volatile accesses fall out cleanly out of that), but in the end, it's such 
-an ugly special case in C, and so seldom used, that I wouldn't depend on 
-it.
 
-> Linus, in all honesty gcc has many more cases of suboptimal code,
-> case of "volatile" is just one of many.
+Power management
 
-Well, the thing is, quite often, many of those "suboptimal code" 
-generations fall into two distinct classes:
+Subject         : 2.6.23-rc2 swsusp, suddenly increased uptime
+References      : http://lkml.org/lkml/2007/8/12/249
+Last known good : ?
+Submitter       : Thomas Voegtle <tv@lio96.de>
+Caused-By       : ?
+Handled-By      : Rafael J. Wysocki <rjw@sisk.pl>
+Status          : problem is being debugged
 
- - complex C code. I can't really blame the compiler too much for this. 
-   Some things are *hard* to optimize, and for various scalability 
-   reasons, you often end up having limits in the compiler where it 
-   doesn't even _try_ doing certain optimizations if you have excessive 
-   complexity.
+Subject         : resume from ram much slower
+References      : http://lkml.org/lkml/2007/8/10/275
+Last known good : 2.6.23-rc1 ?
+Submitter       : Arkadiusz Miskiewicz <arekm@maven.pl>
+Caused-By       : ?
+Handled-By      : Rafael J. Wysocki <rjw@sisk.pl>
+Status          : problem is being debugged
 
- - bad register allocation. Register allocation really is hard, and 
-   sometimes gcc just does the "obviously wrong" thing, and you end up 
-   having totally unnecessary spills.
 
-> Off the top of my head:
 
-Yes, "unsigned long long" with x86 has always generated atrocious code. In 
-fact, I would say that historically it was really *really* bad. These 
-days, gcc actually does a pretty good job, but I'm not surprised that it's 
-still quite possible to find cases where it did some optimization (in this 
-case, apparently noticing that "shift by >= 32 bits" causes the low 
-register to be pointless) and then missed *another* optimization (better 
-register use) because that optimization had been done *before* the first 
-optimization was done.
+Regards,
+Michal
 
-That's a *classic* example of compiler code generation issues, and quite 
-frankly, I think that's very different from the issue of "volatile".
-
-Quite frankly, I'd like there to be more competition in the open source 
-compiler game, and that might cause some upheavals, but on the whole, gcc 
-actually does a pretty damn good job. 
-
-			Linus
+--
+LOG
+http://www.stardust.webpages.pl/log/
