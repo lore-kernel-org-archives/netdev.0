@@ -1,54 +1,115 @@
-From: Richard Knutsson <ricknu-0@student.ltu.se>
-Subject: Re: [PATCH 4/9] s2io, rename BIT macro
-Date: Fri, 24 Aug 2007 04:35:40 +0200
-Message-ID: <46CE43FC.9040104@student.ltu.se>
-References: <27692164102679012429@wsc.cz>
+From: Bill Fink <billfink@mindspring.com>
+Subject: [ofa-general] Re: [PATCH 0/9 Rev3] Implement batching skb API and
+ support in IPoIB
+Date: Thu, 23 Aug 2007 23:18:20 -0400
+Message-ID: <20070823231820.2ae52cc0.billfink@mindspring.com>
+References: <OFC19F468C.48FB78EE-ON6525733F.0016047F-6525733F.00170F48@in.ibm.com>
+	<20070821.212229.82050253.davem@davemloft.net>
+	<46CC6DD1.5020105@hp.com>
+	<20070822.132145.90824527.davem@davemloft.net>
+	<1187906650.4279.16.camel@localhost>
+	<1187907903.4279.28.camel@localhost> <46CE0BA1.60206@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, ram.vepa@neterion.com,
-	santosh.rastapur@neterion.com, sivakumar.subramani@neterion.com,
-	sreenivasa.honnur@neterion.com, netdev@vger.kernel.org
-To: Jiri Slaby <jirislaby@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gepetto.dc.ltu.se ([130.240.42.40]:64464 "EHLO
-	gepetto.dc.ltu.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933503AbXHXCjP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Aug 2007 22:39:15 -0400
-In-Reply-To: <27692164102679012429@wsc.cz>
-Sender: netdev-owner@vger.kernel.org
+Cc: jagana@us.ibm.com, herbert@gondor.apana.org.au, gaagaan@gmail.com,
+	Robert.Olsson@data.slu.se, mcarlson@broadcom.com,
+	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
+	hadi@cyberus.ca, kaber@trash.net, jeff@garzik.org,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, johnpol@2ka.mipt.ru,
+	shemminger@linux-foundation.org,
+	David Miller <davem@davemloft.net>, sri@us.ibm.com
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <46CE0BA1.60206@hp.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Jiri Slaby wrote:
-> s2io, rename BIT macro
->
-> BIT macro will be global definiton of (1<<x)
->
-> Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
->
-> ---
->   
-[snip]
->  			cnt++;
->  			if (cnt == 5)
-> diff --git a/drivers/net/s2io.h b/drivers/net/s2io.h
-> index 92983ee..448f899 100644
-> --- a/drivers/net/s2io.h
-> +++ b/drivers/net/s2io.h
-> @@ -14,7 +14,7 @@
->  #define _S2IO_H
->  
->  #define TBD 0
-> -#define BIT(loc)		(0x8000000000000000ULL >> (loc))
-> +#define s2BIT(loc)		(0x8000000000000000ULL >> (loc))
->  #define vBIT(val, loc, sz)	(((u64)val) << (64-loc-sz))
->  #define INV(d)  ((d&0xff)<<24) | (((d>>8)&0xff)<<16) | (((d>>16)&0xff)<<8)| ((d>>24)&0xff)
->  
->   
-Sorry for the late response, but would it not be better/easier to use 
-BIT() instead (or a global #define LLBIT(nr)  (1ULL << (nr))) and just 
-recalculate the values?
+On Thu, 23 Aug 2007, Rick Jones wrote:
 
-Richard Knutsson
+> jamal wrote:
+> > [TSO already passed - iirc, it has been
+> > demostranted to really not add much to throughput (cant improve much
+> > over closeness to wire speed) but improve CPU utilization].
+> 
+> In the one gig space sure, but in the 10 Gig space, TSO on/off does make a 
+> difference for throughput.
 
+Not too much.
+
+TSO enabled:
+
+[root@lang2 ~]# ethtool -k eth2
+Offload parameters for eth2:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: on
+
+[root@lang2 ~]# nuttcp -w10m 192.168.88.16
+11813.4375 MB /  10.00 sec = 9906.1644 Mbps 99 %TX 80 %RX
+
+TSO disabled:
+
+[root@lang2 ~]# ethtool -K eth2 tso off
+[root@lang2 ~]# ethtool -k eth2
+Offload parameters for eth2:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: off
+
+[root@lang2 ~]# nuttcp -w10m 192.168.88.16
+11818.2500 MB /  10.00 sec = 9910.0176 Mbps 100 %TX 78 %RX
+
+Pretty negligible difference it seems.
+
+This is with a 2.6.20.7 kernel, Myricom 10-GigE NICs, and 9000 byte
+jumbo frames, in a LAN environment.
+
+For grins, I also did a couple of tests with an MSS of 1460 to
+emulate a standard 1500 byte Ethernet MTU.
+
+TSO enabled:
+
+[root@lang2 ~]# ethtool -k eth2
+Offload parameters for eth2:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: on
+
+[root@lang2 ~]# nuttcp -M1460 -w10m 192.168.88.16
+ 5102.8503 MB /  10.06 sec = 4253.9124 Mbps 39 %TX 99 %RX
+
+TSO disabled:
+
+[root@lang2 ~]# ethtool -K eth2 tso off
+[root@lang2 ~]# ethtool -k eth2
+Offload parameters for eth2:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: off
+
+[root@lang2 ~]# nuttcp -M1460 -w10m 192.168.88.16
+ 5399.5625 MB /  10.00 sec = 4527.9070 Mbps 99 %TX 76 %RX
+
+Here you can see there is a major difference in the TX CPU utilization
+(99 % with TSO disabled versus only 39 % with TSO enabled), although
+the TSO disabled case was able to squeeze out a little extra performance
+from its extra CPU utilization.  Interestingly, with TSO enabled, the
+receiver actually consumed more CPU than with TSO disabled, so I guess
+the receiver CPU saturation in that case (99 %) was what restricted
+its performance somewhat (this was consistent across a few test runs).
+
+						-Bill
