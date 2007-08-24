@@ -1,47 +1,48 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: 2.6.22.5 forcedeth timeout hang
-Date: Fri, 24 Aug 2007 07:06:18 +0200
-Message-ID: <20070824050617.GS6002@1wt.eu>
-References: <46CE1CC7.6000507@exegy.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH (take 2)] request_irq fix DEBUG_SHIRQ handling Re: 2.6.23-rc2-mm1: rtl8139 inconsistent lock state
+Date: Fri, 24 Aug 2007 07:46:47 +0200
+Message-ID: <20070824054647.GA1648@ff.dom.local>
+References: <200708100149.14446.m.kozlowski@tuxland.pl> <20070823084430.GB1980@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Net Dev <netdev@vger.kernel.org>
-To: "Mr. Berkley Shands" <bshands@exegy.com>
+Cc: Mariusz Kozlowski <m.kozlowski@tuxland.pl>, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:2291 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750735AbXHXFVV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Aug 2007 01:21:21 -0400
+Received: from mx12.go2.pl ([193.17.41.142]:53886 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750815AbXHXFpj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Aug 2007 01:45:39 -0400
 Content-Disposition: inline
-In-Reply-To: <46CE1CC7.6000507@exegy.com>
+In-Reply-To: <20070823084430.GB1980@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 23, 2007 at 06:48:23PM -0500, Mr. Berkley Shands wrote:
-> 100% reproducible hang on xmit timeout.
-> Just do a "make -j4 modules" on an nfs mounted kernel source.
+On Thu, Aug 23, 2007 at 10:44:30AM +0200, Jarek Poplawski wrote:
+> Andrew Morton pointed out that my changelog was unusable. Sorry!
+> Here is a second try with the changelog and kernel version changed.
+...
+> ------------>(take 2)
+> 
+> Subject: request_irq() - fix DEBUG_SHIRQ handling
+...
+> Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
+> 
+> ---
+> 
+> diff -Nurp 2.6.23-rc3-git6-/kernel/irq/manage.c 2.6.23-rc3-git6/kernel/irq/manage.c
+> --- 2.6.23-rc3-git6-/kernel/irq/manage.c	2007-08-23 10:11:35.000000000 +0200
+> +++ 2.6.23-rc3-git6/kernel/irq/manage.c	2007-08-23 10:16:29.000000000 +0200
 
-Most likely you also had the problem with 2.6.22.2 (maybe you have not
-tested this one, though). There were bug fixes for forcedeth introduced
-in this version, one of them being buggy. The patch below fixes it. Can
-you please give it a try ? If it does not fix the problem, please try
-2.6.22.1 which does not include those changes. I'm interested because
-I have those changes pending for 2.6.20.17 too.
+So, this time I f-ed the diff part: it's not exactly against 2.6.23-rc-git6.
+But, it's Andrew to blame: he should've known that some old & slow chips
+can't do science and poetry at the same time. Sorry (for him)!
 
-diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-index 10f4e3b..1938d6d 100644
---- a/drivers/net/forcedeth.c
-+++ b/drivers/net/forcedeth.c
-@@ -552,7 +552,7 @@ union ring_type {
- #define PHY_OUI_MARVELL	0x5043
- #define PHY_OUI_CICADA	0x03f1
- #define PHY_OUI_VITESSE	0x01c1
--#define PHY_OUI_REALTEK	0x01c1
-+#define PHY_OUI_REALTEK	0x0732
- #define PHYID1_OUI_MASK	0x03ff
- #define PHYID1_OUI_SHFT	6
- #define PHYID2_OUI_MASK	0xfc00
+Anyway, beside an offset, should be OK...
 
-Thanks,
-Willy
-
+Regards,
+Jarek P.
