@@ -1,53 +1,48 @@
-From: David Miller <davem@davemloft.net>
+From: linas@austin.ibm.com (Linas Vepstas)
 Subject: Re: RFC: issues concerning the next NAPI interface
-Date: Fri, 24 Aug 2007 14:32:20 -0700 (PDT)
-Message-ID: <20070824.143220.55503163.davem@davemloft.net>
-References: <200708241559.17055.ossthema@de.ibm.com>
+Date: Fri, 24 Aug 2007 16:35:14 -0500
+Message-ID: <20070824213514.GL4282@austin.ibm.com>
+References: <8VHRR-45R-17@gated-at.bofh.it> <8VKwj-8ke-27@gated-at.bofh.it> <E1IOeSm-0000bm-Jo@be1.lrz> <20070824204243.GI4282@austin.ibm.com> <46CF499C.60009@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, raisch@de.ibm.com, themann@de.ibm.com,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	meder@de.ibm.com, tklein@de.ibm.com, stefan.roscher@de.ibm.com
-To: ossthema@de.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Bodo Eggert <7eggert@gmx.de>, netdev <netdev@vger.kernel.org>,
+	Thomas Klein <tklein@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Marcus Eder <meder@de.ibm.com>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34748
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751242AbXHXVcV convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Aug 2007 17:32:21 -0400
-In-Reply-To: <200708241559.17055.ossthema@de.ibm.com>
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:45585 "EHLO e6.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753602AbXHXVfQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Aug 2007 17:35:16 -0400
+Content-Disposition: inline
+In-Reply-To: <46CF499C.60009@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Jan-Bernd Themann <ossthema@de.ibm.com>
-Date: Fri, 24 Aug 2007 15:59:16 +0200
+On Fri, Aug 24, 2007 at 11:11:56PM +0200, Jan-Bernd Themann wrote:
+> (when they are available for
+> POWER in our case). 
 
-> =A0 =A0It would be nice if it is possible to schedule queues to other=
- CPU's, or
-> =A0 =A0at least to use interrupts to put the queue to another cpu (no=
-t nice for=20
-> =A0 =A0as you never know which one you will hit).=20
-> =A0 =A0I'm not sure how bad the tradeoff would be.
+hrtimer worked fine on the powerpc cell arch last summer.
+I assume they work on p5 and p6 too, no ??
 
-Once the per-cpu NAPI poll queues start needing locks, much of the
-gain will be lost.  This is strictly what we want to avoid.
+> I tried to implement something with "normal" timers, but the result
+> was everything but great. The timers seem to be far too slow.
+> I'm not sure if it helps to increase it from 1000HZ to 2500HZ
+> or more.
 
-We need real facilities for IRQ distribution policies.  With that none
-of this is an issue.
+Heh. Do the math. Even on 1gigabit cards, that's not enough:
 
-This is also a platform specific problem with IRQ behavior, the IRQ
-distibution scheme you mention would never occur on sparc64 for
-example.  We use a fixed round-robin distribution of interrupts to
-CPUS there, they don't move.
+(1gigabit/sec) x (byte/8 bits) x (packet/1500bytes) x (sec/1000 jiffy) 
 
-Each scheme has it's advantages, but you want a difference scheme here
-than what is implemented and the fix is therefore not in the
-networking :-)
+is 83 packets a jiffy (for big packets, even more for small packets, 
+and more again for 10 gigabit cards). So polling once per jiffy is a 
+latency disaster.
 
-=46urthermore, most cards that will be using multi-queue will be
-using hashes on the packet headers to choose the MSI-X interrupt
-and thus the cpu to be targetted.  Those cards will want fixed
-instead of dynamic interrupt to cpu distribution schemes as well,
-so your problem is not unique and they'll need the same fix as
-you do.
+--linas  
+
