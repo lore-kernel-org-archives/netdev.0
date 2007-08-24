@@ -1,65 +1,61 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [ofa-general] Re: [PATCH 0/9 Rev3] Implement batching skb API and
- support in IPoIB
-Date: Thu, 23 Aug 2007 20:34:25 -0700
-Message-ID: <20070823203425.2a32fb3f@freepuppy.rosehill.hemminger.net>
-References: <46CC6DD1.5020105@hp.com>
-	<20070822.132145.90824527.davem@davemloft.net>
-	<1187906650.4279.16.camel@localhost>
-	<20070823.153047.99173582.davem@davemloft.net>
-	<1187908702.4279.36.camel@localhost>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH v2] [02/10] pasemi_mac: Stop using the pci config space
+ accessors for register read/writes
+Date: Fri, 24 Aug 2007 14:05:31 +1000
+Message-ID: <20070824140531.ff7d66bf.sfr@canb.auug.org.au>
+References: <20070817205413.548020000@lixom.net>
+	<20070822141248.GC16830@lixom.net>
+	<20070823181310.GB31882@lixom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jagana@us.ibm.com, peter.p.waskiewicz.jr@intel.com,
-	herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
-	rdreier@cisco.com, mcarlson@broadcom.com, kaber@trash.net,
-	jeff@garzik.org, general@lists.openfabrics.org,
-	mchan@broadcom.com, tgraf@suug.ch, johnpol@2ka.mipt.ru,
-	David Miller <davem@davemloft.net>, sri@us.ibm.com
-To: hadi@cyberus.ca
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <1187908702.4279.36.camel@localhost>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Fri__24_Aug_2007_14_05_31_+1000_is0RHKOjeyeyY/Sp"
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Olof Johansson <olof@lixom.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from chilli.pcug.org.au ([203.10.76.44]:58372 "EHLO smtps.tip.net.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750795AbXHXEFn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Aug 2007 00:05:43 -0400
+In-Reply-To: <20070823181310.GB31882@lixom.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 23 Aug 2007 18:38:22 -0400
-jamal <hadi@cyberus.ca> wrote:
+--Signature=_Fri__24_Aug_2007_14_05_31_+1000_is0RHKOjeyeyY/Sp
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> On Thu, 2007-23-08 at 15:30 -0700, David Miller wrote:
-> > From: jamal <hadi@cyberus.ca>
-> > Date: Thu, 23 Aug 2007 18:04:10 -0400
-> > 
-> > > Possibly a bug - but you really should turn off TSO if you are doing
-> > > huge interactive transactions (which is fair because there is a clear
-> > > demarcation).
-> > 
-> > I don't see how this can matter.
-> > 
-> > TSO only ever does anything if you accumulate more than one MSS
-> > worth of data.
-> 
-> I stand corrected then.
-> 
-> cheers,
-> jamal
-> 
+On Thu, 23 Aug 2007 13:13:10 -0500 Olof Johansson <olof@lixom.net> wrote:
+>
+>  out:
+> -	pci_dev_put(mac->iob_pdev);
+> -out_put_dma_pdev:
+> -	pci_dev_put(mac->dma_pdev);
+> -out_free_netdev:
+> +	if (mac->iob_pdev)
+> +		pci_dev_put(mac->iob_pdev);
+> +	if (mac->dma_pdev)
+> +		pci_dev_put(mac->dma_pdev);
 
-For most normal Internet TCP connections, you will see only 2 or 3 packets per TSO
-because of ACK clocking. If you turn off delayed ACK on the receiver it
-will be even less.
+It is not documented as such (as far as I can see), but pci_dev_put is
+safe to call with NULL. And there are other places in the kernel that
+explicitly use that fact.
 
-A current hot topic of research is reducing the number of ACK's to make TCP
-work better over asymmetric links like 3G.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+--Signature=_Fri__24_Aug_2007_14_05_31_+1000_is0RHKOjeyeyY/Sp
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFGzlkUTgG2atn1QN8RAtKLAJ9wigSW2fn7t1hxx31DxeXH5sA7MwCgllYb
+PvAfjEOfp+P5lPb62Cb8CZg=
+=lj3f
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__24_Aug_2007_14_05_31_+1000_is0RHKOjeyeyY/Sp--
