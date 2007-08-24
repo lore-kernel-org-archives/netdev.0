@@ -1,46 +1,50 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 0/9 Rev3] Implement batching skb API and support in
-	IPoIB
-Date: Fri, 24 Aug 2007 08:36:57 -0400
-Message-ID: <1187959017.4255.43.camel@localhost>
-References: <46CC6DD1.5020105@hp.com>
-	 <20070822.132145.90824527.davem@davemloft.net>
-	 <1187906650.4279.16.camel@localhost>
-	 <20070823.153047.99173582.davem@davemloft.net>
-	 <1187908702.4279.36.camel@localhost>
-	 <20070823203425.2a32fb3f@freepuppy.rosehill.hemminger.net>
-Reply-To: hadi@cyberus.ca
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Fri, 24 Aug 2007 13:50:44 +0100
+Message-ID: <200708241350.45061.vda.linux@googlemail.com>
+References: <20070809131423.GA9927@shell.boston.redhat.com> <alpine.LFD.0.999.0708151713080.16414@enigma.security.iitk.ac.in> <18115.35524.56393.347841@cargo.ozlabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
-	krkumar2@in.ibm.com, gaagaan@gmail.com,
-	general@lists.openfabrics.org, herbert@gondor.apana.org.au,
-	jagana@us.ibm.com, jeff@garzik.org, johnpol@2ka.mipt.ru,
-	kaber@trash.net, mcarlson@broadcom.com, mchan@broadcom.com,
-	netdev@vger.kernel.org, peter.p.waskiewicz.jr@intel.com,
-	rdreier@cisco.com, Robert.Olsson@data.slu.se, sri@us.ibm.com,
-	tgraf@suug.ch, xma@us.ibm.com
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Satyam Sharma <satyam@infradead.org>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Christoph Lameter <clameter@sgi.com>,
+	Chris Snook <csnook@redhat.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	ak@suse.de, heiko.carstens@de.ibm.com, davem@davemloft.net,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Paul Mackerras <paulus@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.186]:47213 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758606AbXHXMhD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2007 08:37:03 -0400
-Received: by rv-out-0910.google.com with SMTP id k20so640905rvb
-        for <netdev@vger.kernel.org>; Fri, 24 Aug 2007 05:37:03 -0700 (PDT)
-In-Reply-To: <20070823203425.2a32fb3f@freepuppy.rosehill.hemminger.net>
+Received: from hu-out-0506.google.com ([72.14.214.236]:58716 "EHLO
+	hu-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1764449AbXHXMvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2007 08:51:41 -0400
+Received: by hu-out-0506.google.com with SMTP id 19so497649hue
+        for <netdev@vger.kernel.org>; Fri, 24 Aug 2007 05:51:39 -0700 (PDT)
+In-Reply-To: <18115.35524.56393.347841@cargo.ozlabs.ibm.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-23-08 at 20:34 -0700, Stephen Hemminger wrote:
+On Thursday 16 August 2007 00:22, Paul Mackerras wrote:
+> Satyam Sharma writes:
+> In the kernel we use atomic variables in precisely those situations
+> where a variable is potentially accessed concurrently by multiple
+> CPUs, and where each CPU needs to see updates done by other CPUs in a
+> timely fashion.  That is what they are for.  Therefore the compiler
+> must not cache values of atomic variables in registers; each
+> atomic_read must result in a load and each atomic_set must result in a
+> store.  Anything else will just lead to subtle bugs.
 
-> A current hot topic of research is reducing the number of ACK's to make TCP
-> work better over asymmetric links like 3G.
-
-One other good reason to reduce ACKs to battery powered (3G) terminals
-is it reduces the power consumption i.e you have longer battery life.
-
-cheers,
-jamal
-
+Amen.
+--
+vda
