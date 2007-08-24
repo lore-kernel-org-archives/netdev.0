@@ -1,49 +1,28 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: Problem with implementation of TCP_DEFER_ACCEPT?
-Date: Fri, 24 Aug 2007 09:15:30 +0200
-Message-ID: <20070824071530.GB26447@xi.wantstofly.org>
-References: <1187914105.26866.41.camel@bagoas.tjworld.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
-To: TJ <linux@tjworld.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:59786 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751248AbXHXHPd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Aug 2007 03:15:33 -0400
-Content-Disposition: inline
-In-Reply-To: <1187914105.26866.41.camel@bagoas.tjworld.net>
-Sender: netdev-owner@vger.kernel.org
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH 12/30] net: No point in casting kmalloc return values in Gianfar Ethernet Driver
+Date: Fri, 24 Aug 2007 02:25:09 -0500
+Message-ID: <4F41C3E8-49C1-4F5A-ABB3-116853C5102C@kernel.crashing.org>
+References: <1554af80879a7ef2f78a4d654f23c248203500d9.1187912217.git.jesper.juhl@gmail.com> <c4e095af9df5ab47e7d1c8e4f3d256d74576a0c9.1187912217.git.jesper.juhl@gmail.com>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Andy Fleming <afleming@freescale.com>
+To: Jesper Juhl <jesper.juhl@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932328AbXHXHXY@vger.kernel.org>
+In-Reply-To: <c4e095af9df5ab47e7d1c8e4f3d256d74576a0c9.1187912217.git.jesper.juhl@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 24, 2007 at 01:08:25AM +0100, TJ wrote:
 
-> An RFC 793 standard TCP handshake requires three packets:
-> 
-> client SYN > server LISTENING
-> client < SYN ACK server SYN_RECEIVED
-> client ACK > server ESTABLISHED
-> 
-> client PSH ACK + data > server
-> 
-> TCP_DEFER_ACCEPT is designed to increase performance by reducing the
-> number of TCP packets exchanged before the client can pass data:
-> 
-> client SYN > server LISTENING
-> client < SYN ACK server SYN_RECEIVED
-> 
-> client PSH ACK + data > server ESTABLISHED
-> 
-> At present with TCP_DEFER_ACCEPT the kernel treats the RFC 793 handshake
-> as invalid; dropping the ACK from the client without replying so the
-> client doesn't know the server has in fact set it's internal ACKed flag.
-> 
-> If the client doesn't send a packet containing data before the SYN_ACK
-> time-outs finally expire the connection will be dropped.
+On Aug 23, 2007, at 6:59 PM, Jesper Juhl wrote:
 
-A brought this up a long, long time ago, and I seem to remember
-Alexey Kuznetsov explained me at the time that this was intentional.
+> kmalloc() returns a void ptr, so there's no need to cast its return
+> value in drivers/net/gianfar.c .
+>
+> Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
 
-I can't find the thread in the mailing list archives anymore, though
--- and my memory might be failing me.
+Acked-by: Kumar Gala <galak@kernel.crashing.org>
+
+- k
