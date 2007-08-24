@@ -1,34 +1,61 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH 0/9 Rev3] Implement batching skb API and support in IPoIB
-Date: Fri, 24 Aug 2007 09:25:20 -0700
-Message-ID: <46CF0670.1050102@hp.com>
-References: <46CC6DD1.5020105@hp.com>	<20070822.132145.90824527.davem@davemloft.net>	<1187906650.4279.16.camel@localhost>	<20070823.153047.99173582.davem@davemloft.net>	<1187908702.4279.36.camel@localhost> <20070823203425.2a32fb3f@freepuppy.rosehill.hemminger.net>
+From: linas@austin.ibm.com (Linas Vepstas)
+Subject: Re: RFC: issues concerning the next NAPI interface
+Date: Fri, 24 Aug 2007 11:45:41 -0500
+Message-ID: <20070824164541.GG4282@austin.ibm.com>
+References: <200708241559.17055.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, David Miller <davem@davemloft.net>,
-	krkumar2@in.ibm.com, gaagaan@gmail.com,
-	general@lists.openfabrics.org, herbert@gondor.apana.org.au,
-	jagana@us.ibm.com, jeff@garzik.org, johnpol@2ka.mipt.ru,
-	kaber@trash.net, mcarlson@broadcom.com, mchan@broadcom.com,
-	netdev@vger.kernel.org, peter.p.waskiewicz.jr@intel.com,
-	rdreier@cisco.com, Robert.Olsson@data.slu.se, sri@us.ibm.com,
-	tgraf@suug.ch, xma@us.ibm.com
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>, Thomas Klein <tklein@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Marcus Eder <meder@de.ibm.com>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:58247 "EHLO palrel10.hp.com"
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:55230 "EHLO e6.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761356AbXHXQ1R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Aug 2007 12:27:17 -0400
-In-Reply-To: <20070823203425.2a32fb3f@freepuppy.rosehill.hemminger.net>
+	id S1751976AbXHXQpm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Aug 2007 12:45:42 -0400
+Content-Disposition: inline
+In-Reply-To: <200708241559.17055.ossthema@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> 
-> A current hot topic of research is reducing the number of ACK's to make TCP
-> work better over asymmetric links like 3G.
+On Fri, Aug 24, 2007 at 03:59:16PM +0200, Jan-Bernd Themann wrote:
+> 3) On modern systems the incoming packets are processed very fast. Es=
+pecially
+> =A0 =A0on SMP systems when we use multiple queues we process only a f=
+ew packets
+> =A0 =A0per napi poll cycle. So NAPI does not work very well here and =
+the interrupt=20
+> =A0 =A0rate is still high.=20
 
-Oy.  People running Solaris and HP-UX have been "researching" ACK reductions 
-since 1997 if not earlier.
+I saw this too, on a system that is "modern" but not terribly fast, and
+only slightly (2-way) smp. (the spidernet)
 
-rick jones
+I experimented wih various solutions, none were terribly exciting.  The
+thing that killed all of them was a crazy test case that someone sprung=
+ on
+me:  They had written a worst-case network ping-pong app: send one
+packet, wait for reply, send one packet, etc. =20
+
+If I waited (indefinitely) for a second packet to show up, the test cas=
+e=20
+completely stalled (since no second packet would ever arrive).  And if =
+I=20
+introduced a timer to wait for a second packet, then I just increased=20
+the latency in the response to the first packet, and this was noticed,=20
+and folks complained. =20
+
+In the end, I just let it be, and let the system work as a busy-beaver,=
+=20
+with the high interrupt rate. Is this a wise thing to do?  I was
+thinking that, if the system is under heavy load, then the interrupt
+rate would fall, since (for less pathological network loads) more=20
+packets would queue up before the poll was serviced.  But I did not
+actually measure the interrupt rate under heavy load ...=20
+
+--linas
