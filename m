@@ -1,49 +1,32 @@
-From: Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: [Devel] [PATCH 1/1] Dynamically allocate the loopback device
-Date: Fri, 24 Aug 2007 10:43:01 -0700
-Message-ID: <20070824104301.2f4ff34e@localhost>
-References: <11879698031215-git-send-email-dlezcano@fr.ibm.com>
-	<46CEFF83.3040003@gmail.com>
+From: Shirley Ma <xma@us.ibm.com>
+Subject: Re: RFC: issues concerning the next NAPI interface
+Date: Fri, 24 Aug 2007 10:45:17 -0700
+Message-ID: <OFB48299BB.9D9BCE91-ON87257341.006139E9-88257341.00614EB7@us.ibm.com>
+References: <20070824165110.GH4282@austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: "Denis V. Lunev" <dlunev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <46CEFF83.3040003-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: akepner@sgi.com, linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>, Marcus@ozlabs.org,
+	Eder <meder@de.ibm.com>, netdev <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org,
+	Jan-Bernd Themann <ossthema@de.ibm.com>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>
+To: linas@austin.ibm.com (Linas Vepstas)
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759476AbXHXRpi@vger.kernel.org>
+In-Reply-To: <20070824165110.GH4282@austin.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 24 Aug 2007 19:55:47 +0400
-"Denis V. Lunev" <dlunev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> Just to be clear, in the previous email I posted on this thread, I
+> described a worst-case network ping-pong test case (send a packet, wait
+> for reply), and found out that a deffered interrupt scheme just damaged
+> the performance of the test case. 
 
-> dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org wrote:
-> > From: Daniel Lezcano <dlezcano-NmTC/0ZBporQT0dZR+AlfA@public.gmane.org>
-> > 
-> > Doing this makes loopback.c a better example of how to do a
-> > simple network device, and it removes the special case
-> > single static allocation of a struct net_device, hopefully
-> > making maintenance easier.
-> > 
-> > Applies against net-2.6.24
-> > 
-> > Tested on i386, x86_64
-> > Compiled on ia64, sparc
-> 
-> I think that a small note, that initialization order is changed will be
-> good to record. After this, loopback MUST be allocated before any other
-> networking subsystem initialization. And this is an important change.
-> 
-> Regards,
->     Den
+When splitting rx and tx handler, I found some performance gain by 
+deffering interrupt scheme in tx not rx in IPoIB driver.
 
-Yes, this code would break when other drivers are directly linked
-in. 
+Shirley
