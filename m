@@ -1,56 +1,33 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH] ucc_geth: kill unused include
-Date: Sat, 25 Aug 2007 09:57:35 -0500
-Message-ID: <E7D8272D-4A5F-43ED-A8AB-FAEEE31464AB@kernel.crashing.org>
-References: <Pine.LNX.4.64.0708222144440.6464@blarg.am.freescale.net> <46CFB1FA.1040705@garzik.org>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bug 8934] System freeze when restarting network connection
+ with Broadcom driver
+Date: Sat, 25 Aug 2007 09:08:31 -0700
+Message-ID: <20070825090831.73772b99.akpm@linux-foundation.org>
+References: <bug-8934-27@http.bugzilla.kernel.org/>
+	<20070825102624.732A810807E@picon.linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, Li Yang <leoli@freescale.com>
-To: Jeff Garzik <jeff@garzik.org>
+Cc: bugme-daemon@bugzilla.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, casteyde.christian@free.fr,
+	mchan@broadcom.com
+To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:52938 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752508AbXHYO5A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Aug 2007 10:57:00 -0400
-In-Reply-To: <46CFB1FA.1040705@garzik.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:51153 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751908AbXHYQIh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Aug 2007 12:08:37 -0400
+In-Reply-To: <20070825102624.732A810807E@picon.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sat, 25 Aug 2007 03:26:24 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
 
-On Aug 24, 2007, at 11:37 PM, Jeff Garzik wrote:
+> http://bugzilla.kernel.org/show_bug.cgi?id=8934
 
-> Kumar Gala wrote:
->> The ucc_geth_mii code is based on the gianfar_mii code that use to  
->> include
->> ocp.h.  ucc never need this and it causes issues when we want to kill
->> arch/ppc includes from arch/powerpc.
->> Signed-off-by: Kumar Gala <galak@kernel.crashing.org>
->> ---
->> Jeff, if you issue with this for 2.6.23, I'd prefer to push this via
->> the powerpc.git trees in 2.6.24 as part of a larger cleanup.  Let  
->> me know
->> one way or the other.
->> - k
->>  drivers/net/ucc_geth_mii.c |    1 -
->>  1 files changed, 0 insertions(+), 1 deletions(-)
->> diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
->> index 6c257b8..df884f0 100644
->> --- a/drivers/net/ucc_geth_mii.c
->> +++ b/drivers/net/ucc_geth_mii.c
->> @@ -32,7 +32,6 @@
->>  #include <linux/mm.h>
->>  #include <linux/module.h>
->>  #include <linux/platform_device.h>
->> -#include <asm/ocp.h>
->>  #include <linux/crc32.h>
->>  #include <linux/mii.h>
->
-> Feel free to push via PPC git
+Various nasty box-killing things happening here and
+http://bugzilla.kernel.org/show_bug.cgi?id=8937 might be related. 
 
-will do.
+Michal, 8934 (at least) is a post-2.6.22 regression - can you please add it
+to the list?
 
-thanks
-
-- k
