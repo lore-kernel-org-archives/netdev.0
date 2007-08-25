@@ -1,80 +1,169 @@
 From: Corey Hickey <bugfood-ml@fatooh.org>
-Subject: [PATCH 00/10] SFQ: backport some features from ESFQ (try 3)
-Date: Sat, 25 Aug 2007 15:26:54 -0700
-Message-ID: <11880808243166-git-send-email-bugfood-ml@fatooh.org>
+Subject: [PATCH 01/10] Preparatory refactoring part 1.
+Date: Sat, 25 Aug 2007 15:26:55 -0700
+Message-ID: <1188080825229-git-send-email-bugfood-ml@fatooh.org>
+References: <11880808243166-git-send-email-bugfood-ml@fatooh.org>
+Cc: Corey Hickey <bugfood-ml@fatooh.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hot.fatooh.org ([208.78.103.127]:35045 "EHLO hot.fatooh.org"
+Received: from hot.fatooh.org ([208.78.103.127]:35048 "EHLO hot.fatooh.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757596AbXHYW1F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757660AbXHYW1F (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 25 Aug 2007 18:27:05 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by hot.fatooh.org (Postfix) with ESMTP id 6A9BC17C313
-	for <netdev@vger.kernel.org>; Sat, 25 Aug 2007 17:27:06 -0500 (CDT)
-Received: from hot.fatooh.org ([127.0.0.1])
-	by localhost (hot.fatooh.org [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id C5SnxdxziJ4s for <netdev@vger.kernel.org>;
-	Sat, 25 Aug 2007 17:27:06 -0500 (CDT)
-Received: from bugfood (c-76-102-59-34.hsd1.ca.comcast.net [76.102.59.34])
-	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by hot.fatooh.org (Postfix) with ESMTP id 0618F17C212
-	for <netdev@vger.kernel.org>; Sat, 25 Aug 2007 17:27:05 -0500 (CDT)
+In-Reply-To: <11880808243166-git-send-email-bugfood-ml@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patchset try 2 addresses the review by Michael Buesch.
-Patchset try 3 addresses the review by Patrick McHardy.
+Make a new function sfq_q_enqueue() that operates directly on the
+queue data. This will be useful for implementing sfq_change() in
+a later patch. A pleasant side-effect is reducing most of the
+duplicate code in sfq_enqueue() and sfq_requeue().
 
-The first 7 patches in this series resemble the corresponding 7 patches
-I sent previously. There aren't any major changes--just modifications
-to address errors noticed in review and slight reorganizations to make
-the next patches easier.
+Similarly, make a new function sfq_q_dequeue().
 
-Patches 8-10 implement parameter passing via nested compat attributes.
-This is necessary for using 'tc qdisc change' to disable perturbation.
-The rest of the parameters were added for consistency.
+Signed-off-by: Corey Hickey <bugfood-ml@fatooh.org>
+---
+ net/sched/sch_sfq.c |   72 +++++++++++++++++++++++++++------------------------
+ 1 files changed, 38 insertions(+), 34 deletions(-)
 
-Iproute2 patches will follow shortly.
-
-
-
-The following is the original patch text.
-
-This set of patches adds some of ESFQ's modifications to the original 
-SFQ. Thus far, I have received support for this approach rather than for 
-trying to get ESFQ included as a separate qdisc.
-
-http://mailman.ds9a.nl/pipermail/lartc/2007q2/021056.html
-
-My patches here implement "tc qdisc change", user-configurable depth 
-(number of flows), and user-configurable divisor (for setting hash table 
-size). I've left out the remaining ESFQ features (usage of jhash and 
-different hashing methods) because Patrick McHardy intends to submit a 
-patch that will supersede that functionality; see the URL above.
-
-Default values remain the same, and SFQ's default behavior remains the 
-same, so there should be no user disruption.
-
-Thanks for your consideration,
-Corey
-
-
-
- include/linux/pkt_sched.h |   23 ++-
- net/sched/sch_sfq.c       |  356 ++++++++++++++++++++++++++++++--------------
- 2 files changed, 257 insertions(+), 122 deletions(-)
-
-
-[PATCH 01/10] Preparatory refactoring part 1.
-[PATCH 02/10] Preparatory refactoring part 2.
-[PATCH 03/10] Move two functions.
-[PATCH 04/10] Make "depth" (number of queues) user-configurable:
-[PATCH 05/10] Add divisor.
-[PATCH 06/10] Make qdisc changeable.
-[PATCH 07/10] Remove comments about hardcoded values.
-[PATCH 08/10] Multiply perturb_period by HZ when used rather than when assigned.
-[PATCH 09/10] Change perturb_period to unsigned.
-[PATCH 10/10] Use nested compat attributes to pass parameters.
-
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index 9579573..346e966 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -77,6 +77,9 @@
+ #define SFQ_DEPTH		128
+ #define SFQ_HASH_DIVISOR	1024
+ 
++#define SFQ_HEAD 0
++#define SFQ_TAIL 1
++
+ /* This type should contain at least SFQ_DEPTH*2 values */
+ typedef unsigned char sfq_index;
+ 
+@@ -244,10 +247,9 @@ static unsigned int sfq_drop(struct Qdisc *sch)
+ 	return 0;
+ }
+ 
+-static int
+-sfq_enqueue(struct sk_buff *skb, struct Qdisc* sch)
++static void
++sfq_q_enqueue(struct sk_buff *skb, struct sfq_sched_data *q, unsigned int end)
+ {
+-	struct sfq_sched_data *q = qdisc_priv(sch);
+ 	unsigned hash = sfq_hash(q, skb);
+ 	sfq_index x;
+ 
+@@ -256,8 +258,12 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc* sch)
+ 		q->ht[hash] = x = q->dep[SFQ_DEPTH].next;
+ 		q->hash[x] = hash;
+ 	}
+-	sch->qstats.backlog += skb->len;
+-	__skb_queue_tail(&q->qs[x], skb);
++
++	if (end == SFQ_TAIL)
++		__skb_queue_tail(&q->qs[x], skb);
++	else
++		__skb_queue_head(&q->qs[x], skb);
++
+ 	sfq_inc(q, x);
+ 	if (q->qs[x].qlen == 1) {		/* The flow is new */
+ 		if (q->tail == SFQ_DEPTH) {	/* It is the first flow */
+@@ -270,6 +276,15 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc* sch)
+ 			q->tail = x;
+ 		}
+ 	}
++}
++
++static int
++sfq_enqueue(struct sk_buff *skb, struct Qdisc* sch)
++{
++	struct sfq_sched_data *q = qdisc_priv(sch);
++
++	sfq_q_enqueue(skb, q, SFQ_TAIL);
++	sch->qstats.backlog += skb->len;
+ 	if (++sch->q.qlen < q->limit-1) {
+ 		sch->bstats.bytes += skb->len;
+ 		sch->bstats.packets++;
+@@ -284,45 +299,21 @@ static int
+ sfq_requeue(struct sk_buff *skb, struct Qdisc* sch)
+ {
+ 	struct sfq_sched_data *q = qdisc_priv(sch);
+-	unsigned hash = sfq_hash(q, skb);
+-	sfq_index x;
+ 
+-	x = q->ht[hash];
+-	if (x == SFQ_DEPTH) {
+-		q->ht[hash] = x = q->dep[SFQ_DEPTH].next;
+-		q->hash[x] = hash;
+-	}
++	sfq_q_enqueue(skb, q, SFQ_HEAD);
+ 	sch->qstats.backlog += skb->len;
+-	__skb_queue_head(&q->qs[x], skb);
+-	sfq_inc(q, x);
+-	if (q->qs[x].qlen == 1) {		/* The flow is new */
+-		if (q->tail == SFQ_DEPTH) {	/* It is the first flow */
+-			q->tail = x;
+-			q->next[x] = x;
+-			q->allot[x] = q->quantum;
+-		} else {
+-			q->next[x] = q->next[q->tail];
+-			q->next[q->tail] = x;
+-			q->tail = x;
+-		}
+-	}
+ 	if (++sch->q.qlen < q->limit - 1) {
+ 		sch->qstats.requeues++;
+ 		return 0;
+ 	}
+ 
+-	sch->qstats.drops++;
+ 	sfq_drop(sch);
+ 	return NET_XMIT_CN;
+ }
+ 
+-
+-
+-
+-static struct sk_buff *
+-sfq_dequeue(struct Qdisc* sch)
++static struct
++sk_buff *sfq_q_dequeue(struct sfq_sched_data *q)
+ {
+-	struct sfq_sched_data *q = qdisc_priv(sch);
+ 	struct sk_buff *skb;
+ 	sfq_index a, old_a;
+ 
+@@ -335,8 +326,6 @@ sfq_dequeue(struct Qdisc* sch)
+ 	/* Grab packet */
+ 	skb = __skb_dequeue(&q->qs[a]);
+ 	sfq_dec(q, a);
+-	sch->q.qlen--;
+-	sch->qstats.backlog -= skb->len;
+ 
+ 	/* Is the slot empty? */
+ 	if (q->qs[a].qlen == 0) {
+@@ -353,6 +342,21 @@ sfq_dequeue(struct Qdisc* sch)
+ 		a = q->next[a];
+ 		q->allot[a] += q->quantum;
+ 	}
++
++	return skb;
++}
++
++static struct sk_buff
++*sfq_dequeue(struct Qdisc* sch)
++{
++	struct sfq_sched_data *q = qdisc_priv(sch);
++	struct sk_buff *skb;
++
++	skb = sfq_q_dequeue(q);
++	if (skb == NULL)
++		return NULL;
++	sch->q.qlen--;
++	sch->qstats.backlog -= skb->len;
+ 	return skb;
+ }
+ 
+-- 
+1.5.2.4
 
