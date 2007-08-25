@@ -1,537 +1,278 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: [git patches] net driver fixes
-Date: Sat, 25 Aug 2007 03:51:38 -0400
-Message-ID: <20070825075138.GA7145@havoc.gtf.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:52787 "EHLO havoc.gtf.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932439AbXHYHvk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Aug 2007 03:51:40 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+From: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1/4] Net: ath5k, comment some EEPROM registers
+Date: Sat, 25 Aug 2007 03:57:26 -0400
+Message-ID: <149438602455517207@pripojeni.net>
+Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+ath5k, comment some EEPROM registers
 
-Please pull from 'upstream-linus' branch of
-master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-linus
+make some registers meaning clear
 
-to receive the following updates:
+Signed-off-by: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 
- drivers/net/dm9000.c            |   25 ++++-----------
- drivers/net/ehea/ehea_main.c    |    8 ++--
- drivers/net/ehea/ehea_qmr.c     |    6 ++++
- drivers/net/forcedeth.c         |    2 +-
- drivers/net/meth.c              |    2 +-
- drivers/net/myri10ge/myri10ge.c |   34 ++++----------------
- drivers/net/phy/phy_device.c    |    2 +-
- drivers/net/sgiseeq.c           |    4 ++-
- drivers/net/sky2.c              |   64 +++++++++++++++++++-------------------
- drivers/net/sky2.h              |    3 +-
- 10 files changed, 64 insertions(+), 86 deletions(-)
+---
+commit 06615d9cdf1ae777821dfcd7845c72c38ff14ffa
+tree d0c4b9ded4aa541e003b6855e9bde072e01b631d
+parent 069bfbe93facb3468f579568434d18f1268a487c
+author Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> Sat, 25 Aug 2007 09:18:19 +0200
+committer Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> Sat, 25 Aug 2007 09:18:19 +0200
 
-Brice Goglin (2):
-      myri10ge: use pcie_get/set_readrq
-      myri10ge: update driver version to 1.3.2-1.269
+ drivers/net/wireless/ath5k_hw.c  |    4 +
+ drivers/net/wireless/ath5k_reg.h |  114 +++++++++++++++++++++-----------------
+ 2 files changed, 65 insertions(+), 53 deletions(-)
 
-Domen Puncer (1):
-      phy layer: fix genphy_setup_forced (don't reset)
-
-Florian Westphal (1):
-      DM9000: fix interface hang under load
-
-Jan-Bernd Themann (3):
-      ehea: fix interface to DLPAR tools
-      ehea: fix module parameter description
-      ehea: fix queue destructor
-
-Ralf Baechle (2):
-      Don't use GFP_DMA for zone allocation.
-      sgiseeq: Fix return type of sgiseeq_remove
-
-Stephen Hemminger (3):
-      sky2: clear PCI power control reg at startup
-      sky2: only bring up watchdog if link is active
-      sky2 1.17
-
-Willy Tarreau (1):
-      fix realtek phy id in forcedeth
-
-diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
-index c3de81b..738aa59 100644
---- a/drivers/net/dm9000.c
-+++ b/drivers/net/dm9000.c
-@@ -700,6 +700,7 @@ dm9000_init_dm9000(struct net_device *dev)
- static int
- dm9000_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
-+	unsigned long flags;
- 	board_info_t *db = (board_info_t *) dev->priv;
- 
- 	PRINTK3("dm9000_start_xmit\n");
-@@ -707,10 +708,7 @@ dm9000_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (db->tx_pkt_cnt > 1)
- 		return 1;
- 
--	netif_stop_queue(dev);
--
--	/* Disable all interrupts */
--	iow(db, DM9000_IMR, IMR_PAR);
-+	spin_lock_irqsave(&db->lock, flags);
- 
- 	/* Move data to DM9000 TX RAM */
- 	writeb(DM9000_MWCMD, db->io_addr);
-@@ -718,12 +716,9 @@ dm9000_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	(db->outblk)(db->io_data, skb->data, skb->len);
- 	db->stats.tx_bytes += skb->len;
- 
-+	db->tx_pkt_cnt++;
- 	/* TX control: First packet immediately send, second packet queue */
--	if (db->tx_pkt_cnt == 0) {
--
--		/* First Packet */
--		db->tx_pkt_cnt++;
--
-+	if (db->tx_pkt_cnt == 1) {
- 		/* Set TX length to DM9000 */
- 		iow(db, DM9000_TXPLL, skb->len & 0xff);
- 		iow(db, DM9000_TXPLH, (skb->len >> 8) & 0xff);
-@@ -732,23 +727,17 @@ dm9000_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		iow(db, DM9000_TCR, TCR_TXREQ);	/* Cleared after TX complete */
- 
- 		dev->trans_start = jiffies;	/* save the time stamp */
--
- 	} else {
- 		/* Second packet */
--		db->tx_pkt_cnt++;
- 		db->queue_pkt_len = skb->len;
-+		netif_stop_queue(dev);
- 	}
- 
-+	spin_unlock_irqrestore(&db->lock, flags);
-+
- 	/* free this SKB */
- 	dev_kfree_skb(skb);
- 
--	/* Re-enable resource check */
--	if (db->tx_pkt_cnt == 1)
--		netif_wake_queue(dev);
--
--	/* Re-enable interrupt */
--	iow(db, DM9000_IMR, IMR_PAR | IMR_PTM | IMR_PRM);
--
- 	return 0;
- }
- 
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index 9756211..db57474 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -76,7 +76,7 @@ MODULE_PARM_DESC(rq1_entries, "Number of entries for Receive Queue 1 "
- MODULE_PARM_DESC(sq_entries, " Number of entries for the Send Queue  "
- 		 "[2^x - 1], x = [6..14]. Default = "
- 		 __MODULE_STRING(EHEA_DEF_ENTRIES_SQ) ")");
--MODULE_PARM_DESC(use_mcs, " 0:NAPI, 1:Multiple receive queues, Default = 1 ");
-+MODULE_PARM_DESC(use_mcs, " 0:NAPI, 1:Multiple receive queues, Default = 0 ");
- 
- static int port_name_cnt = 0;
- static LIST_HEAD(adapter_list);
-@@ -2490,7 +2490,7 @@ static ssize_t ehea_show_port_id(struct device *dev,
- 				 struct device_attribute *attr, char *buf)
- {
- 	struct ehea_port *port = container_of(dev, struct ehea_port, ofdev.dev);
--	return sprintf(buf, "0x%X", port->logical_port_id);
-+	return sprintf(buf, "%d", port->logical_port_id);
- }
- 
- static DEVICE_ATTR(log_port_id, S_IRUSR | S_IRGRP | S_IROTH, ehea_show_port_id,
-@@ -2781,7 +2781,7 @@ static ssize_t ehea_probe_port(struct device *dev,
- 
- 	u32 logical_port_id;
- 
--	sscanf(buf, "%X", &logical_port_id);
-+	sscanf(buf, "%d", &logical_port_id);
- 
- 	port = ehea_get_port(adapter, logical_port_id);
- 
-@@ -2834,7 +2834,7 @@ static ssize_t ehea_remove_port(struct device *dev,
- 	int i;
- 	u32 logical_port_id;
- 
--	sscanf(buf, "%X", &logical_port_id);
-+	sscanf(buf, "%d", &logical_port_id);
- 
- 	port = ehea_get_port(adapter, logical_port_id);
- 
-diff --git a/drivers/net/ehea/ehea_qmr.c b/drivers/net/ehea/ehea_qmr.c
-index a36fa6c..c82e245 100644
---- a/drivers/net/ehea/ehea_qmr.c
-+++ b/drivers/net/ehea/ehea_qmr.c
-@@ -235,6 +235,8 @@ int ehea_destroy_cq(struct ehea_cq *cq)
- 	if (!cq)
- 		return 0;
- 
-+	hcp_epas_dtor(&cq->epas);
-+
- 	if ((hret = ehea_destroy_cq_res(cq, NORMAL_FREE)) == H_R_STATE) {
- 		ehea_error_data(cq->adapter, cq->fw_handle);
- 		hret = ehea_destroy_cq_res(cq, FORCE_FREE);
-@@ -361,6 +363,8 @@ int ehea_destroy_eq(struct ehea_eq *eq)
- 	if (!eq)
- 		return 0;
- 
-+	hcp_epas_dtor(&eq->epas);
-+
- 	if ((hret = ehea_destroy_eq_res(eq, NORMAL_FREE)) == H_R_STATE) {
- 		ehea_error_data(eq->adapter, eq->fw_handle);
- 		hret = ehea_destroy_eq_res(eq, FORCE_FREE);
-@@ -541,6 +545,8 @@ int ehea_destroy_qp(struct ehea_qp *qp)
- 	if (!qp)
- 		return 0;
- 
-+	hcp_epas_dtor(&qp->epas);
-+
- 	if ((hret = ehea_destroy_qp_res(qp, NORMAL_FREE)) == H_R_STATE) {
- 		ehea_error_data(qp->adapter, qp->fw_handle);
- 		hret = ehea_destroy_qp_res(qp, FORCE_FREE);
-diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-index 10f4e3b..1938d6d 100644
---- a/drivers/net/forcedeth.c
-+++ b/drivers/net/forcedeth.c
-@@ -552,7 +552,7 @@ union ring_type {
- #define PHY_OUI_MARVELL	0x5043
- #define PHY_OUI_CICADA	0x03f1
- #define PHY_OUI_VITESSE	0x01c1
--#define PHY_OUI_REALTEK	0x01c1
-+#define PHY_OUI_REALTEK	0x0732
- #define PHYID1_OUI_MASK	0x03ff
- #define PHYID1_OUI_SHFT	6
- #define PHYID2_OUI_MASK	0xfc00
-diff --git a/drivers/net/meth.c b/drivers/net/meth.c
-index 92b403b..32bed6b 100644
---- a/drivers/net/meth.c
-+++ b/drivers/net/meth.c
-@@ -405,7 +405,7 @@ static void meth_rx(struct net_device* dev, unsigned long int_status)
- 				priv->stats.rx_length_errors++;
- 				skb = priv->rx_skbs[priv->rx_write];
- 			} else {
--				skb = alloc_skb(METH_RX_BUFF_SIZE, GFP_ATOMIC | GFP_DMA);
-+				skb = alloc_skb(METH_RX_BUFF_SIZE, GFP_ATOMIC);
- 				if (!skb) {
- 					/* Ouch! No memory! Drop packet on the floor */
- 					DPRINTK("No mem: dropping packet\n");
-diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
-index ae9bb7b..1c42266 100644
---- a/drivers/net/myri10ge/myri10ge.c
-+++ b/drivers/net/myri10ge/myri10ge.c
-@@ -72,7 +72,7 @@
- #include "myri10ge_mcp.h"
- #include "myri10ge_mcp_gen_header.h"
- 
--#define MYRI10GE_VERSION_STR "1.3.1-1.248"
-+#define MYRI10GE_VERSION_STR "1.3.2-1.269"
- 
- MODULE_DESCRIPTION("Myricom 10G driver (10GbE)");
- MODULE_AUTHOR("Maintainer: help@myri.com");
-@@ -2514,26 +2514,20 @@ static void myri10ge_firmware_probe(struct myri10ge_priv *mgp)
- {
- 	struct pci_dev *pdev = mgp->pdev;
- 	struct device *dev = &pdev->dev;
--	int cap, status;
--	u16 val;
-+	int status;
- 
- 	mgp->tx.boundary = 4096;
+diff --git a/drivers/net/wireless/ath5k_hw.c b/drivers/net/wireless/ath5k_hw.c
+index f273c42..4375129 100644
+--- a/drivers/net/wireless/ath5k_hw.c
++++ b/drivers/net/wireless/ath5k_hw.c
+@@ -344,7 +344,7 @@ struct ath_hw *ath5k_hw_attach(u16 device, u8 mac_version, void *sc,
  	/*
- 	 * Verify the max read request size was set to 4KB
- 	 * before trying the test with 4KB.
+ 	 * Set the mac revision based on the pci id
  	 */
--	cap = pci_find_capability(pdev, PCI_CAP_ID_EXP);
--	if (cap < 64) {
--		dev_err(dev, "Bad PCI_CAP_ID_EXP location %d\n", cap);
--		goto abort;
--	}
--	status = pci_read_config_word(pdev, cap + PCI_EXP_DEVCTL, &val);
--	if (status != 0) {
-+	status = pcie_get_readrq(pdev);
-+	if (status < 0) {
- 		dev_err(dev, "Couldn't read max read req size: %d\n", status);
- 		goto abort;
- 	}
--	if ((val & (5 << 12)) != (5 << 12)) {
--		dev_warn(dev, "Max Read Request size != 4096 (0x%x)\n", val);
-+	if (status != 4096) {
-+		dev_warn(dev, "Max Read Request size != 4096 (%d)\n", status);
- 		mgp->tx.boundary = 2048;
- 	}
- 	/*
-@@ -2850,9 +2844,7 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	size_t bytes;
- 	int i;
- 	int status = -ENXIO;
--	int cap;
- 	int dac_enabled;
--	u16 val;
+-	hal->ah_version	= mac_version;
++	hal->ah_version = mac_version;
  
- 	netdev = alloc_etherdev(sizeof(*mgp));
- 	if (netdev == NULL) {
-@@ -2884,19 +2876,7 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	    = pci_find_capability(pdev, PCI_CAP_ID_VNDR);
- 
- 	/* Set our max read request to 4KB */
--	cap = pci_find_capability(pdev, PCI_CAP_ID_EXP);
--	if (cap < 64) {
--		dev_err(&pdev->dev, "Bad PCI_CAP_ID_EXP location %d\n", cap);
--		goto abort_with_netdev;
--	}
--	status = pci_read_config_word(pdev, cap + PCI_EXP_DEVCTL, &val);
--	if (status != 0) {
--		dev_err(&pdev->dev, "Error %d reading PCI_EXP_DEVCTL\n",
--			status);
--		goto abort_with_netdev;
--	}
--	val = (val & ~PCI_EXP_DEVCTL_READRQ) | (5 << 12);
--	status = pci_write_config_word(pdev, cap + PCI_EXP_DEVCTL, val);
-+	status = pcie_set_readrq(pdev, 4096);
- 	if (status != 0) {
- 		dev_err(&pdev->dev, "Error %d writing PCI_EXP_DEVCTL\n",
- 			status);
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index a8b74cd..e275df8 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -364,7 +364,7 @@ EXPORT_SYMBOL(genphy_config_advert);
-  */
- int genphy_setup_forced(struct phy_device *phydev)
- {
--	int ctl = BMCR_RESET;
-+	int ctl = 0;
- 
- 	phydev->pause = phydev->asym_pause = 0;
- 
-diff --git a/drivers/net/sgiseeq.c b/drivers/net/sgiseeq.c
-index 384b468..0fb74cb 100644
---- a/drivers/net/sgiseeq.c
-+++ b/drivers/net/sgiseeq.c
-@@ -726,7 +726,7 @@ err_out:
- 	return err;
- }
- 
--static void __exit sgiseeq_remove(struct platform_device *pdev)
-+static int __exit sgiseeq_remove(struct platform_device *pdev)
- {
- 	struct net_device *dev = platform_get_drvdata(pdev);
- 	struct sgiseeq_private *sp = netdev_priv(dev);
-@@ -735,6 +735,8 @@ static void __exit sgiseeq_remove(struct platform_device *pdev)
- 	free_page((unsigned long) sp->srings);
- 	free_netdev(dev);
- 	platform_set_drvdata(pdev, NULL);
-+
-+	return 0;
- }
- 
- static struct platform_driver sgiseeq_driver = {
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 7575924..e6d937e 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -51,7 +51,7 @@
- #include "sky2.h"
- 
- #define DRV_NAME		"sky2"
--#define DRV_VERSION		"1.16"
-+#define DRV_VERSION		"1.17"
- #define PFX			DRV_NAME " "
+ 	/*Fill the hal struct with the needed functions*/
+ 	if (hal->ah_version == AR5K_AR5212)
+@@ -4636,6 +4636,8 @@ static int ath5k_hw_channel(struct ath_hw *hal,
  
  /*
-@@ -99,10 +99,6 @@ static int disable_msi = 0;
- module_param(disable_msi, int, 0);
- MODULE_PARM_DESC(disable_msi, "Disable Message Signaled Interrupt (MSI)");
+  * Perform a PHY calibration on RF5110
++ * -Fix BPSK/QAM Constellation (I/Q correction)
++ * -Calculate Noise Floor
+  */
+ static int ath5k_hw_rf5110_calibrate(struct ath_hw *hal,
+ 		struct ieee80211_channel *channel)
+diff --git a/drivers/net/wireless/ath5k_reg.h b/drivers/net/wireless/ath5k_reg.h
+index 59547d1..c6142d2 100644
+--- a/drivers/net/wireless/ath5k_reg.h
++++ b/drivers/net/wireless/ath5k_reg.h
+@@ -920,63 +920,65 @@
+ #define AR5K_EEPROM_BASE	0x6000
  
--static int idle_timeout = 100;
--module_param(idle_timeout, int, 0);
--MODULE_PARM_DESC(idle_timeout, "Watchdog timer for lost interrupts (ms)");
--
- static const struct pci_device_id sky2_id_table[] = {
- 	{ PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, 0x9000) }, /* SK-9Sxx */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, 0x9E00) }, /* SK-9Exx */
-@@ -219,9 +215,12 @@ static void sky2_power_on(struct sky2_hw *hw)
- 	else
- 		sky2_write8(hw, B2_Y2_CLK_GATE, 0);
+ /*
+- * Common ar5xxx EEPROM data offset (set these on AR5K_EEPROM_BASE)
++ * Common ar5xxx EEPROM data offsets (set these on AR5K_EEPROM_BASE)
+  */
+-#define AR5K_EEPROM_MAGIC		0x003d
+-#define AR5K_EEPROM_MAGIC_VALUE		0x5aa5
++#define AR5K_EEPROM_MAGIC		0x003d	/* EEPROM Magic number */
++#define AR5K_EEPROM_MAGIC_VALUE		0x5aa5	/* Default - found on EEPROM */
+ #define AR5K_EEPROM_MAGIC_5212		0x0000145c /* 5212 */
+ #define AR5K_EEPROM_MAGIC_5211		0x0000145b /* 5211 */
+ #define AR5K_EEPROM_MAGIC_5210		0x0000145a /* 5210 */
  
--	if (hw->chip_id == CHIP_ID_YUKON_EC_U || hw->chip_id == CHIP_ID_YUKON_EX) {
-+	if (hw->chip_id == CHIP_ID_YUKON_EC_U ||
-+	    hw->chip_id == CHIP_ID_YUKON_EX) {
- 		u32 reg;
+-#define AR5K_EEPROM_PROTECT		0x003f
+-#define AR5K_EEPROM_PROTECT_RD_0_31	0x0001
+-#define AR5K_EEPROM_PROTECT_WR_0_31	0x0002
+-#define AR5K_EEPROM_PROTECT_RD_32_63	0x0004
++#define AR5K_EEPROM_PROTECT		0x003f	/* EEPROM protect status */
++#define AR5K_EEPROM_PROTECT_RD_0_31	0x0001	/* Read protection bit for offsets 0x0 - 0x1f */
++#define AR5K_EEPROM_PROTECT_WR_0_31	0x0002	/* Write protection bit for offsets 0x0 - 0x1f */
++#define AR5K_EEPROM_PROTECT_RD_32_63	0x0004	/* 0x20 - 0x3f */
+ #define AR5K_EEPROM_PROTECT_WR_32_63	0x0008
+-#define AR5K_EEPROM_PROTECT_RD_64_127	0x0010
++#define AR5K_EEPROM_PROTECT_RD_64_127	0x0010	/* 0x40 - 0x7f */
+ #define AR5K_EEPROM_PROTECT_WR_64_127	0x0020
+-#define AR5K_EEPROM_PROTECT_RD_128_191	0x0040
++#define AR5K_EEPROM_PROTECT_RD_128_191	0x0040	/* 0x80 - 0xbf (regdom) */
+ #define AR5K_EEPROM_PROTECT_WR_128_191	0x0080
+-#define AR5K_EEPROM_PROTECT_RD_192_207	0x0100
++#define AR5K_EEPROM_PROTECT_RD_192_207	0x0100	/* 0xc0 - 0xcf */
+ #define AR5K_EEPROM_PROTECT_WR_192_207	0x0200
+-#define AR5K_EEPROM_PROTECT_RD_208_223	0x0400
++#define AR5K_EEPROM_PROTECT_RD_208_223	0x0400	/* 0xd0 - 0xdf */
+ #define AR5K_EEPROM_PROTECT_WR_208_223	0x0800
+-#define AR5K_EEPROM_PROTECT_RD_224_239	0x1000
++#define AR5K_EEPROM_PROTECT_RD_224_239	0x1000	/* 0xe0 - 0xef */
+ #define AR5K_EEPROM_PROTECT_WR_224_239	0x2000
+-#define AR5K_EEPROM_PROTECT_RD_240_255	0x4000
++#define AR5K_EEPROM_PROTECT_RD_240_255	0x4000	/* 0xf0 - 0xff */
+ #define AR5K_EEPROM_PROTECT_WR_240_255	0x8000
+-#define AR5K_EEPROM_REG_DOMAIN		0x00bf
+-#define AR5K_EEPROM_INFO_BASE		0x00c0
++#define AR5K_EEPROM_REG_DOMAIN		0x00bf	/* EEPROM regdom */
++#define AR5K_EEPROM_INFO_BASE		0x00c0	/* EEPROM header */
+ #define AR5K_EEPROM_INFO_MAX		(0x400 - AR5K_EEPROM_INFO_BASE)
+ #define AR5K_EEPROM_INFO_CKSUM		0xffff
+ #define AR5K_EEPROM_INFO(_n)		(AR5K_EEPROM_INFO_BASE + (_n))
  
-+		sky2_pci_write32(hw, PCI_DEV_REG3, 0);
-+
- 		reg = sky2_pci_read32(hw, PCI_DEV_REG4);
- 		/* set all bits to 0 except bits 15..12 and 8 */
- 		reg &= P_ASPM_CONTROL_MSK;
-@@ -238,6 +237,8 @@ static void sky2_power_on(struct sky2_hw *hw)
- 		reg = sky2_read32(hw, B2_GP_IO);
- 		reg |= GLB_GPIO_STAT_RACE_DIS;
- 		sky2_write32(hw, B2_GP_IO, reg);
-+
-+		sky2_read32(hw, B2_GP_IO);
- 	}
- }
+-#define AR5K_EEPROM_VERSION		AR5K_EEPROM_INFO(1)
+-#define AR5K_EEPROM_VERSION_3_0		0x3000
+-#define AR5K_EEPROM_VERSION_3_1		0x3001
+-#define AR5K_EEPROM_VERSION_3_2		0x3002
+-#define AR5K_EEPROM_VERSION_3_3		0x3003
+-#define AR5K_EEPROM_VERSION_3_4		0x3004
+-#define AR5K_EEPROM_VERSION_4_0		0x4000
+-#define AR5K_EEPROM_VERSION_4_1		0x4001
+-#define AR5K_EEPROM_VERSION_4_2		0x4002
++#define AR5K_EEPROM_VERSION		AR5K_EEPROM_INFO(1)	/* EEPROM Version */
++#define AR5K_EEPROM_VERSION_3_0		0x3000	/* No idea what's going on before this version */
++#define AR5K_EEPROM_VERSION_3_1		0x3001	/* ob/db values for 2Ghz (ar5211_rfregs) */
++#define AR5K_EEPROM_VERSION_3_2		0x3002	/* different frequency representation (eeprom_bin2freq) */
++#define AR5K_EEPROM_VERSION_3_3		0x3003	/* offsets changed, has 32 CTLs (see below) and ee_false_detect (eeprom_read_modes) */
++#define AR5K_EEPROM_VERSION_3_4		0x3004	/* has ee_i_gain ee_cck_ofdm_power_delta (eeprom_read_modes) */
++#define AR5K_EEPROM_VERSION_4_0		0x4000	/* has ee_misc*, ee_cal_pier, ee_turbo_max_power and ee_xr_power (eeprom_init) */
++#define AR5K_EEPROM_VERSION_4_1		0x4001	/* has ee_margin_tx_rx (eeprom_init) */
++#define AR5K_EEPROM_VERSION_4_2		0x4002	/* has ee_cck_ofdm_gain_delta (eeprom_init) */
+ #define AR5K_EEPROM_VERSION_4_3		0x4003
+-#define AR5K_EEPROM_VERSION_4_6		0x4006
++#define AR5K_EEPROM_VERSION_4_4		0x4004
++#define AR5K_EEPROM_VERSION_4_5		0x4005
++#define AR5K_EEPROM_VERSION_4_6		0x4006	/* has ee_scaled_cck_delta */
+ #define AR5K_EEPROM_VERSION_4_7		0x3007
  
-@@ -1619,6 +1620,9 @@ static int sky2_down(struct net_device *dev)
- 	if (netif_msg_ifdown(sky2))
- 		printk(KERN_INFO PFX "%s: disabling interface\n", dev->name);
+ #define AR5K_EEPROM_MODE_11A		0
+ #define AR5K_EEPROM_MODE_11B		1
+ #define AR5K_EEPROM_MODE_11G		2
  
-+	if (netif_carrier_ok(dev) && --hw->active == 0)
-+		del_timer(&hw->watchdog_timer);
-+
- 	/* Stop more packets from being queued */
- 	netif_stop_queue(dev);
+-#define AR5K_EEPROM_HDR			AR5K_EEPROM_INFO(2)
++#define AR5K_EEPROM_HDR			AR5K_EEPROM_INFO(2)	/* Header that contains the device caps */
+ #define AR5K_EEPROM_HDR_11A(_v)		(((_v) >> AR5K_EEPROM_MODE_11A) & 0x1)
+ #define AR5K_EEPROM_HDR_11B(_v)		(((_v) >> AR5K_EEPROM_MODE_11B) & 0x1)
+ #define AR5K_EEPROM_HDR_11G(_v)		(((_v) >> AR5K_EEPROM_MODE_11G) & 0x1)
+-#define AR5K_EEPROM_HDR_T_2GHZ_DIS(_v)	(((_v) >> 3) & 0x1)
+-#define AR5K_EEPROM_HDR_T_5GHZ_DBM(_v)	(((_v) >> 4) & 0x7f)
++#define AR5K_EEPROM_HDR_T_2GHZ_DIS(_v)	(((_v) >> 3) & 0x1)	/* Disable turbo for 2Ghz (?) */
++#define AR5K_EEPROM_HDR_T_5GHZ_DBM(_v)	(((_v) >> 4) & 0x7f)	/* Max turbo power for a/XR mode (eeprom_init) */
+ #define AR5K_EEPROM_HDR_DEVICE(_v)	(((_v) >> 11) & 0x7)
+-#define AR5K_EEPROM_HDR_T_5GHZ_DIS(_v)	(((_v) >> 15) & 0x1)
+-#define AR5K_EEPROM_HDR_RFKILL(_v)	(((_v) >> 14) & 0x1)
++#define AR5K_EEPROM_HDR_T_5GHZ_DIS(_v)	(((_v) >> 15) & 0x1)	/* Disable turbo for 5Ghz (?) */
++#define AR5K_EEPROM_HDR_RFKILL(_v)	(((_v) >> 14) & 0x1)	/* Device has RFKill support */
  
-@@ -1739,6 +1743,10 @@ static void sky2_link_up(struct sky2_port *sky2)
+ #define AR5K_EEPROM_RFKILL_GPIO_SEL	0x0000001c
+ #define AR5K_EEPROM_RFKILL_GPIO_SEL_S	2
+@@ -991,12 +993,13 @@
+ #define AR5K_EEPROM_ANT_GAIN_5GHZ(_v)	((int8_t)(((_v) >> 8) & 0xff))
+ #define AR5K_EEPROM_ANT_GAIN_2GHZ(_v)	((int8_t)((_v) & 0xff))
  
- 	netif_carrier_on(sky2->netdev);
++/* calibration settings */
+ #define AR5K_EEPROM_MODES_11A(_v)	AR5K_EEPROM_OFF(_v, 0x00c5, 0x00d4)
+ #define AR5K_EEPROM_MODES_11B(_v)	AR5K_EEPROM_OFF(_v, 0x00d0, 0x00f2)
+ #define AR5K_EEPROM_MODES_11G(_v)	AR5K_EEPROM_OFF(_v, 0x00da, 0x010d)
+-#define AR5K_EEPROM_CTL(_v)		AR5K_EEPROM_OFF(_v, 0x00e4, 0x0128)
++#define AR5K_EEPROM_CTL(_v)		AR5K_EEPROM_OFF(_v, 0x00e4, 0x0128)	/* Conformance test limits */
  
-+	if (hw->active++ == 0)
-+		mod_timer(&hw->watchdog_timer, jiffies + 1);
-+
-+
- 	/* Turn on link LED */
- 	sky2_write8(hw, SK_REG(port, LNK_LED_REG),
- 		    LINKLED_ON | LINKLED_BLINK_OFF | LINKLED_LINKSYNC_OFF);
-@@ -1790,6 +1798,11 @@ static void sky2_link_down(struct sky2_port *sky2)
+-/* Since 3.1 */
++/* [3.1 - 3.3] */
+ #define AR5K_EEPROM_OBDB0_2GHZ		0x00ec
+ #define AR5K_EEPROM_OBDB1_2GHZ		0x00ed
  
- 	netif_carrier_off(sky2->netdev);
+@@ -1718,12 +1721,12 @@
+  * PHY PLL (Phase Locked Loop) control register
+  */
+ #define	AR5K_PHY_PLL			0x987c
+-#define	AR5K_PHY_PLL_20MHZ		0x13		/* [5111] */
+-#define	AR5K_PHY_PLL_40MHZ_5211		0x18
++#define	AR5K_PHY_PLL_20MHZ		0x13	/* For half rate (?) [5111+] */
++#define	AR5K_PHY_PLL_40MHZ_5211		0x18	/* For 802.11a */
+ #define	AR5K_PHY_PLL_40MHZ_5212		0x000000aa
+ #define	AR5K_PHY_PLL_40MHZ		(hal->ah_version == AR5K_AR5211 ? \
+ 					AR5K_PHY_PLL_40MHZ_5211 : AR5K_PHY_PLL_40MHZ_5212)
+-#define	AR5K_PHY_PLL_44MHZ_5211		0x19
++#define	AR5K_PHY_PLL_44MHZ_5211		0x19	/* For 802.11b/g */
+ #define	AR5K_PHY_PLL_44MHZ_5212		0x000000ab
+ #define	AR5K_PHY_PLL_44MHZ		(hal->ah_version == AR5K_AR5211 ? \
+ 					AR5K_PHY_PLL_44MHZ_5211 : AR5K_PHY_PLL_44MHZ_5212)
+@@ -1770,7 +1773,8 @@
+ 						/* Channel set on 5111 */
+ 						/* Used to read radio revision*/
  
-+	/* Stop watchdog if both ports are not active */
-+	if (--hw->active == 0)
-+		del_timer(&hw->watchdog_timer);
-+
-+
- 	/* Turn on link LED */
- 	sky2_write8(hw, SK_REG(port, LNK_LED_REG), LINKLED_OFF);
+-#define AR5K_RF_BUFFER_CONTROL_4	0x98d4  /* Bank 0,1,2,6 on 5111 */
++#define AR5K_RF_BUFFER_CONTROL_4	0x98d4  /* RF Stage register on 5110 */
++						/* Bank 0,1,2,6 on 5111 */
+ 						/* Bank 1 on 5112 */
+ 						/* Used during activation on 5111 */
  
-@@ -2421,25 +2434,20 @@ static void sky2_le_error(struct sky2_hw *hw, unsigned port,
- 	sky2_write32(hw, Q_ADDR(q, Q_CSR), BMU_CLR_IRQ_CHK);
- }
+@@ -1796,14 +1800,14 @@
+ /*
+  * PHY timing I(nphase) Q(adrature) control register [5111+]
+  */
+-#define	AR5K_PHY_IQ			0x9920
+-#define	AR5K_PHY_IQ_CORR_Q_Q_COFF	0x0000001f
+-#define	AR5K_PHY_IQ_CORR_Q_I_COFF	0x000007e0
++#define	AR5K_PHY_IQ			0x9920		/* Register address */
++#define	AR5K_PHY_IQ_CORR_Q_Q_COFF	0x0000001f	/* Mask for q correction info */
++#define	AR5K_PHY_IQ_CORR_Q_I_COFF	0x000007e0	/* Mask for i correction info */
+ #define	AR5K_PHY_IQ_CORR_Q_I_COFF_S	5
+-#define	AR5K_PHY_IQ_CORR_ENABLE		0x00000800
++#define	AR5K_PHY_IQ_CORR_ENABLE		0x00000800	/* Enable i/q correction */
+ #define	AR5K_PHY_IQ_CAL_NUM_LOG_MAX	0x0000f000
+ #define	AR5K_PHY_IQ_CAL_NUM_LOG_MAX_S	12
+-#define	AR5K_PHY_IQ_RUN			0x00010000
++#define	AR5K_PHY_IQ_RUN			0x00010000	/* Run i/q calibration */
  
--/* If idle then force a fake soft NAPI poll once a second
-- * to work around cases where sharing an edge triggered interrupt.
-- */
--static inline void sky2_idle_start(struct sky2_hw *hw)
--{
--	if (idle_timeout > 0)
--		mod_timer(&hw->idle_timer,
--			  jiffies + msecs_to_jiffies(idle_timeout));
--}
--
--static void sky2_idle(unsigned long arg)
-+/* Check for lost IRQ once a second */
-+static void sky2_watchdog(unsigned long arg)
- {
- 	struct sky2_hw *hw = (struct sky2_hw *) arg;
--	struct net_device *dev = hw->dev[0];
  
--	if (__netif_rx_schedule_prep(dev))
--		__netif_rx_schedule(dev);
-+	if (sky2_read32(hw, B0_ISRC)) {
-+		struct net_device *dev = hw->dev[0];
-+
-+		if (__netif_rx_schedule_prep(dev))
-+			__netif_rx_schedule(dev);
-+	}
+ /*
+@@ -1846,13 +1850,19 @@
+ /*---[5111+]---*/
+ #define	AR5K_PHY_FRAME_CTL_TX_CLIP	0x00000038
+ #define	AR5K_PHY_FRAME_CTL_TX_CLIP_S	3
+-/*---[5110]---*/
++/*---[5110/5111]---*/
+ #define	AR5K_PHY_FRAME_CTL_TIMING_ERR	0x01000000
+ #define	AR5K_PHY_FRAME_CTL_PARITY_ERR	0x02000000
+-#define	AR5K_PHY_FRAME_CTL_ILLRATE_ERR	0x04000000
+-#define	AR5K_PHY_FRAME_CTL_ILLLEN_ERR	0x08000000
++#define	AR5K_PHY_FRAME_CTL_ILLRATE_ERR	0x04000000	/* illegal rate */
++#define	AR5K_PHY_FRAME_CTL_ILLLEN_ERR	0x08000000	/* illegal length */
+ #define	AR5K_PHY_FRAME_CTL_SERVICE_ERR	0x20000000
+-#define	AR5K_PHY_FRAME_CTL_TXURN_ERR	0x40000000
++#define	AR5K_PHY_FRAME_CTL_TXURN_ERR	0x40000000	/* tx underrun */
++#define AR5K_PHY_FRAME_CTL_INI		AR5K_PHY_FRAME_CTL_SERVICE_ERR | \
++			AR5K_PHY_FRAME_CTL_TXURN_ERR | \
++			AR5K_PHY_FRAME_CTL_ILLLEN_ERR | \
++			AR5K_PHY_FRAME_CTL_ILLRATE_ERR | \
++			AR5K_PHY_FRAME_CTL_PARITY_ERR | \
++			AR5K_PHY_FRAME_CTL_TIMING_ERR
  
--	mod_timer(&hw->idle_timer, jiffies + msecs_to_jiffies(idle_timeout));
-+	if (hw->active > 0)
-+		mod_timer(&hw->watchdog_timer, round_jiffies(jiffies + HZ));
- }
+ /*
+  * PHY radar detection register [5111+]
+@@ -1928,7 +1938,7 @@ after DFS is enabled */
+  */
+ #define	AR5K_PHY_IQRES_CAL_PWR_I	0x9c10 /* I (Inphase) power value */
+ #define	AR5K_PHY_IQRES_CAL_PWR_Q	0x9c14 /* Q (Quadrature) power value */
+-#define	AR5K_PHY_IQRES_CAL_CORR		0x9c18
++#define	AR5K_PHY_IQRES_CAL_CORR		0x9c18	/* I/Q Correlation */
  
- /* Hardware/software error handling */
-@@ -2727,8 +2735,6 @@ static void sky2_restart(struct work_struct *work)
- 	struct net_device *dev;
- 	int i, err;
+ /*
+  * PHY current RSSI register [5111+]
+@@ -1936,7 +1946,7 @@ after DFS is enabled */
+ #define	AR5K_PHY_CURRENT_RSSI		0x9c1c
  
--	del_timer_sync(&hw->idle_timer);
--
- 	rtnl_lock();
- 	sky2_write32(hw, B0_IMSK, 0);
- 	sky2_read32(hw, B0_IMSK);
-@@ -2757,8 +2763,6 @@ static void sky2_restart(struct work_struct *work)
- 		}
- 	}
- 
--	sky2_idle_start(hw);
--
- 	rtnl_unlock();
- }
- 
-@@ -4025,11 +4029,9 @@ static int __devinit sky2_probe(struct pci_dev *pdev,
- 			sky2_show_addr(dev1);
- 	}
- 
--	setup_timer(&hw->idle_timer, sky2_idle, (unsigned long) hw);
-+	setup_timer(&hw->watchdog_timer, sky2_watchdog, (unsigned long) hw);
- 	INIT_WORK(&hw->restart_work, sky2_restart);
- 
--	sky2_idle_start(hw);
--
- 	pci_set_drvdata(pdev, hw);
- 
- 	return 0;
-@@ -4064,7 +4066,7 @@ static void __devexit sky2_remove(struct pci_dev *pdev)
- 	if (!hw)
- 		return;
- 
--	del_timer_sync(&hw->idle_timer);
-+	del_timer_sync(&hw->watchdog_timer);
- 
- 	flush_scheduled_work();
- 
-@@ -4108,7 +4110,6 @@ static int sky2_suspend(struct pci_dev *pdev, pm_message_t state)
- 	if (!hw)
- 		return 0;
- 
--	del_timer_sync(&hw->idle_timer);
- 	netif_poll_disable(hw->dev[0]);
- 
- 	for (i = 0; i < hw->ports; i++) {
-@@ -4174,7 +4175,7 @@ static int sky2_resume(struct pci_dev *pdev)
- 	}
- 
- 	netif_poll_enable(hw->dev[0]);
--	sky2_idle_start(hw);
-+
- 	return 0;
- out:
- 	dev_err(&pdev->dev, "resume failed (%d)\n", err);
-@@ -4191,7 +4192,6 @@ static void sky2_shutdown(struct pci_dev *pdev)
- 	if (!hw)
- 		return;
- 
--	del_timer_sync(&hw->idle_timer);
- 	netif_poll_disable(hw->dev[0]);
- 
- 	for (i = 0; i < hw->ports; i++) {
-diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
-index dce4d27..72e12b7 100644
---- a/drivers/net/sky2.h
-+++ b/drivers/net/sky2.h
-@@ -2045,12 +2045,13 @@ struct sky2_hw {
- 	u8		     chip_rev;
- 	u8		     pmd_type;
- 	u8		     ports;
-+	u8		     active;
- 
- 	struct sky2_status_le *st_le;
- 	u32		     st_idx;
- 	dma_addr_t   	     st_dma;
- 
--	struct timer_list    idle_timer;
-+	struct timer_list    watchdog_timer;
- 	struct work_struct   restart_work;
- 	int		     msi;
- 	wait_queue_head_t    msi_wait;
+ /*
+- * PHY PCDAC TX power register [511+ (?)]
++ * PHY PCDAC TX power table
+  */
+ #define	AR5K_PHY_PCDAC_TXPOWER_BASE	0xa180
+ #define	AR5K_PHY_PCDAC_TXPOWER(_n)	(AR5K_PHY_PCDAC_TXPOWER_BASE + ((_n) << 2))
+@@ -1944,15 +1954,15 @@ after DFS is enabled */
+ /*
+  * PHY mode register [5111+]
+  */
+-#define	AR5K_PHY_MODE			0x0a200
+-#define	AR5K_PHY_MODE_MOD		0x00000001
++#define	AR5K_PHY_MODE			0x0a200		/* Register address */
++#define	AR5K_PHY_MODE_MOD		0x00000001	/* PHY Modulation mask*/
+ #define AR5K_PHY_MODE_MOD_OFDM		0
+ #define AR5K_PHY_MODE_MOD_CCK		1
+-#define AR5K_PHY_MODE_FREQ		0x00000002
++#define AR5K_PHY_MODE_FREQ		0x00000002	/* Freq mode mask */
+ #define	AR5K_PHY_MODE_FREQ_5GHZ		0
+ #define	AR5K_PHY_MODE_FREQ_2GHZ		2
+-#define AR5K_PHY_MODE_MOD_DYN		0x00000004	/* [5112+] */
+-#define AR5K_PHY_MODE_RAD		0x00000008	/* [5112+] */
++#define AR5K_PHY_MODE_MOD_DYN		0x00000004	/* Dynamic OFDM/CCK mode mask [5112+] */
++#define AR5K_PHY_MODE_RAD		0x00000008	/* [5212+] */
+ #define AR5K_PHY_MODE_RAD_RF5111	0
+ #define AR5K_PHY_MODE_RAD_RF5112	8
+ #define AR5K_PHY_MODE_XR		0x00000010	/* [5112+] */
