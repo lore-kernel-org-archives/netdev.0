@@ -1,26 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.24] [NET] Cleanup: DIV_ROUND_UP
-Date: Fri, 24 Aug 2007 23:00:42 -0700 (PDT)
-Message-ID: <20070824.230042.42898106.davem@davemloft.net>
-References: <Pine.LNX.4.64.0708221347010.16255@kivilampi-30.cs.helsinki.fi>
+Subject: Re: [PATCH] IOAT: ioatdma needs to to play nice in a
+ multi-dma-client world
+Date: Fri, 24 Aug 2007 23:03:09 -0700 (PDT)
+Message-ID: <20070824.230309.21227596.davem@davemloft.net>
+References: <20070823001218.11648.49528.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, dan.j.williams@intel.com,
+	jgarzik@pobox.com
+To: shannon.nelson@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53994
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54000
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757824AbXHYGAo convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Aug 2007 02:00:44 -0400
-In-Reply-To: <Pine.LNX.4.64.0708221347010.16255@kivilampi-30.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S1756246AbXHYGDM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Aug 2007 02:03:12 -0400
+In-Reply-To: <20070823001218.11648.49528.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Wed, 22 Aug 2007 13:48:14 +0300 (EEST)
+From: Shannon Nelson <shannon.nelson@intel.com>
+Date: Wed, 22 Aug 2007 17:12:18 -0700
 
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> Now that the DMA engine has a multi-client interface, fix the ioatdma
+> driver to play along.  At the same time, remove a couple of unnecessary
+> reads and writes.
+> 
+> Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 
-Applied, thanks Ilpo.
+Applied, thanks Shannon.
