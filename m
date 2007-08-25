@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 16/30] net: Avoid pointless allocation casts in BSD
- compression module
-Date: Fri, 24 Aug 2007 23:25:01 -0700 (PDT)
-Message-ID: <20070824.232501.08140344.davem@davemloft.net>
-References: <1554af80879a7ef2f78a4d654f23c248203500d9.1187912217.git.jesper.juhl@gmail.com>
-	<fd58f69b12c07872b351261199f3c677c6786f06.1187912217.git.jesper.juhl@gmail.com>
+Subject: Re: [PATCH] [XFRM] : Fix pointer copy size for encap_tmpl and
+ coaddr.
+Date: Fri, 24 Aug 2007 23:30:17 -0700 (PDT)
+Message-ID: <20070824.233017.16508113.davem@davemloft.net>
+References: <20070822145632.087638328@lsx.localdomain>
+	<11879499202750-git-send-email-nakam@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: jesper.juhl@gmail.com
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
+To: nakam@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43923
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45127
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754646AbXHYGZC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Aug 2007 02:25:02 -0400
-In-Reply-To: <fd58f69b12c07872b351261199f3c677c6786f06.1187912217.git.jesper.juhl@gmail.com>
+	by vger.kernel.org with ESMTP id S1759069AbXHYGan (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Aug 2007 02:30:43 -0400
+In-Reply-To: <11879499202750-git-send-email-nakam@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesper Juhl <jesper.juhl@gmail.com>
-Date: Fri, 24 Aug 2007 02:06:58 +0200
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Date: Fri, 24 Aug 2007 19:05:20 +0900
 
-> The general kernel memory allocation functions return void pointers
-> and there is no need to cast their return values.
+> This is minor fix about sizeof argument using with kmemdup().
 > 
-> Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
+> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
 
-Applied.
+Patch applied, thank you!
