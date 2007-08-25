@@ -1,39 +1,61 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2] myri10ge: use pcie_get/set_readrq
-Date: Sat, 25 Aug 2007 00:41:28 -0400
-Message-ID: <46CFB2F8.5000200@garzik.org>
-References: <46CE8103.10109@myri.com> <46CE814D.2060704@myri.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] [NET]: fix multicast list when cloning sockets
+Date: Fri, 24 Aug 2007 22:16:54 -0700 (PDT)
+Message-ID: <20070824.221654.03105704.davem@davemloft.net>
+References: <20070730.190144.26963470.davem@davemloft.net>
+	<39e6f6c70707302000l52926c9ar927fd550467ce3e3@mail.gmail.com>
+	<20070731182940.GE4002@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Brice Goglin <brice@myri.com>
+Cc: netdev@vger.kernel.org, dlstevens@us.ibm.com,
+	acme@ghostprotocols.net
+To: fleitner@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42184 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1764292AbXHYEla (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Aug 2007 00:41:30 -0400
-In-Reply-To: <46CE814D.2060704@myri.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46000
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751839AbXHYFQz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Aug 2007 01:16:55 -0400
+In-Reply-To: <20070731182940.GE4002@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brice Goglin wrote:
-> Based on a patch from Peter Oruba, convert myri10ge to use pcie_get_readrq()
-> and pcie_set_readrq() instead of our own PCI calls and arithmetics.
+From: Flavio Leitner <fleitner@redhat.com>
+Date: Tue, 31 Jul 2007 15:29:40 -0300
+
+> On Tue, Jul 31, 2007 at 12:00:41AM -0300, Arnaldo Carvalho de Melo wrote:
+> > On 7/30/07, David Miller <davem@davemloft.net> wrote:
+> > > Allowing non-datagram sockets to end up with a non-NULL inet->mc_list
+> > > in the first place is a bug.
+> > >
+> > > Multicast subscriptions cannot even be used with TCP and DCCP, which
+> > > are the only two users of these connection oriented socket functions.
+> > >
+> > > The first thing that TCP and DCCP do, in fact, for input packet
+> > > processing is drop the packet if it is not unicast.
+> > >
+> > > Therefore the fix really is for the inet layer to reject multicast
+> > > subscription requests on sockets for which that absolutely does not
+> > > make sense.  There is no reason these functions in
+> > > inet_connection_sock.c should need to be mindful of multicast
+> > > state. :-)
+> > 
+> > Well, we can add a BUG_ON there then 8)
+> > 
+> > Flavio, take a look at  do_ip_setsockopt in net/ipv4/ip_sockglue.c, in
+> > the IP_{ADD,DROP}_MEMBERSHIP labels.
+> > 
+> > Don't forget IPV6 (net/ipv6/ipv6_sockglue.c)
 > 
-> These driver changes incorporate the proposed PCI-X / PCI-Express read byte
-> count interface.  Reading and setting those values doesn't take place
-> "manually", instead wrapping functions are called to allow quirks for some
-> PCI bridges.
+> yes, right. What about the one below?
 > 
-> Signed-off-by: Brice Goglin <brice@myri.com>
-> Signed-off by: Peter Oruba <peter.oruba@amd.com>
-> Based on work by Stephen Hemminger <shemminger@linux-foundation.org>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
->  drivers/net/myri10ge/myri10ge.c |   32 ++++++--------------------------
->  1 file changed, 6 insertions(+), 26 deletions(-)
+> [NET]: Fix IP_ADD/DROP_MEMBERSHIP to handle only connectionless
+> 
+> Fix IP[V6]_ADD_MEMBERSHIP and IP[V6]_DROP_MEMBERSHIP to
+> return -EPROTO for connection oriented sockets.
+> 
+> Signed-off-by: Flavio Leitner <fleitner@redhat.com>
 
-applied 1-2
+This looks great, patch applied.
 
-
+Thanks!
