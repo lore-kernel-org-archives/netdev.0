@@ -1,37 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] [TCP] MIB: Add counters for discarded SACK blocks
-Date: Fri, 24 Aug 2007 22:56:08 -0700 (PDT)
-Message-ID: <20070824.225608.93637672.davem@davemloft.net>
-References: <118761579328-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<11876157932029-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<1187615793520-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: Re: ppp dependency on slhc
+Date: Fri, 24 Aug 2007 22:57:47 -0700 (PDT)
+Message-ID: <20070824.225747.102456373.davem@davemloft.net>
+References: <20070821013057.48e5af73.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: paulus@samba.org, netdev@vger.kernel.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48709
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48714
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757248AbXHYF4J convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Aug 2007 01:56:09 -0400
-In-Reply-To: <1187615793520-git-send-email-ilpo.jarvinen@helsinki.fi>
+	by vger.kernel.org with ESMTP id S1757376AbXHYF5t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Aug 2007 01:57:49 -0400
+In-Reply-To: <20070821013057.48e5af73.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Mon, 20 Aug 2007 16:16:33 +0300
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Tue, 21 Aug 2007 01:30:57 -0700
 
-> In DSACK case, some events are not extraordinary, such as packet
-> duplication generated DSACK. They can arrive easily below
-> snd_una when undo_marker is not set (TCP being in CA_Open),
-> counting such DSACKs amoung SACK discards will likely just
-> mislead if they occur in some scenario when there are other
-> problems as well. Similarly, excessively delayed packets could
-> cause "normal" DSACKs. Therefore, separate counters are
-> allocated for DSACK events.
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+> ERROR: "slhc_init" [drivers/net/ppp_generic.ko] undefined!
+> ERROR: "slhc_free" [drivers/net/ppp_generic.ko] undefined!
+> ERROR: "slhc_uncompress" [drivers/net/ppp_generic.ko] undefined!
+> ERROR: "slhc_compress" [drivers/net/ppp_generic.ko] undefined!
+> ERROR: "slhc_toss" [drivers/net/ppp_generic.ko] undefined!
+> ERROR: "slhc_remember" [drivers/net/ppp_generic.ko] undefined!
+> 
+> yet another reminder that select doesn't work ;)
 
-Also applied, thanks a lot!
+Indeed :-)
+
+However it is a good example of the kind of cases select was
+made for, nobody should have to know about SLHC in order to
+get PPP offered in the config.
