@@ -1,71 +1,62 @@
-From: Martin von Gagern <Martin.vGagern@gmx.net>
-Subject: iproute2: no error messages for unsupported table requests
-Date: Sat, 25 Aug 2007 18:29:12 +0200
-Message-ID: <46D058D8.3030206@gmx.net>
-Reply-To: Martin von Gagern <Martin.vGagern@gmx.net>,
-	  netdev@vger.kernel.org
+From: Olaf Hering <olaf@aepfle.de>
+Subject: [PATCH] bmac: add simple ethtool support for network manager
+Date: Sat, 25 Aug 2007 20:32:59 +0200
+Message-ID: <20070825183259.GA14478@aepfle.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig2DE49BDD02A7148F5125C291"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.gmx.net ([213.165.64.20]:33760 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753296AbXHYRa3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Aug 2007 13:30:29 -0400
+Received: from mail-out.m-online.net ([212.18.0.10]:42087 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759586AbXHYSc6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Aug 2007 14:32:58 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig2DE49BDD02A7148F5125C291
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
 
-Hi!
+NetworkManager will not start dhcpd on an interface unless it reports
+link-up state via ethtool.
 
-A while ago I've tried to configure multiple routing tables using
-iproute2-2.6.20. As my kernel at that time was configured without
-CONFIG_IP_MULTIPLE_TABLES this could not work. However, I got no error
-message from the ip command, the route was added to the main table, and
-it took me quite a while to locate the error.
+Signed-off-by: Olaf Hering <olaf@aepfle.de>
 
-=46rom what a quick diff to 2.6.22 tells me, there seems to be no change
-addressing the issue, so I guess the same would hold for that version.
+---
+ drivers/net/bmac.c |   13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
-Originally I had reported this issue with my distro, Gentoo:
-http://bugs.gentoo.org/show_bug.cgi?id=3D181928
-Now a Gentoo dev directed me towards this list here.
-
-There I also posted the steps I used to reproduce the issue:
- ip route add 123.45.67.89 dev ppp0 table 100
- ip route show table 100
- ip route show table main
-Expected result:
- route listed in table 100 but not listed in table main
-Actual result:
- route listed in table main, table 100 still empty
-
-I now have resolved the issue for me by reconfiguring my kernel, but you
-could probably save others some trouble by generating an error message
-in case the kernel doesn't support multiple tables.
-
-Greetings,
- Martin von Gagern
-
-
---------------enig2DE49BDD02A7148F5125C291
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iD8DBQFG0FjkRhp6o4m9dFsRAheJAJ4p0kLqhzR/AFR1kjfCzeWn0bc+oACfWA1X
-RSgWO498khTT3A++Cum0xWc=
-=r/dt
------END PGP SIGNATURE-----
-
---------------enig2DE49BDD02A7148F5125C291--
+--- a/drivers/net/bmac.c
++++ b/drivers/net/bmac.c
+@@ -19,6 +19,7 @@
+ #include <linux/spinlock.h>
+ #include <linux/crc32.h>
+ #include <linux/bitrev.h>
++#include <linux/ethtool.h>
+ #include <asm/prom.h>
+ #include <asm/dbdma.h>
+ #include <asm/io.h>
+@@ -1246,6 +1247,17 @@ static void bmac_reset_and_enable(struct
+ 	}
+ 	spin_unlock_irqrestore(&bp->lock, flags);
+ }
++static void bmac_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
++{
++	struct bmac_data *bp = netdev_priv(dev);
++	strcpy(info->driver, "bmac");
++	strcpy(info->bus_info, bp->mdev->ofdev.dev.bus_id);
++}
++
++static const struct ethtool_ops bmac_ethtool_ops = {
++	.get_drvinfo		= bmac_get_drvinfo,
++	.get_link		= ethtool_op_get_link,
++};
+ 
+ static int __devinit bmac_probe(struct macio_dev *mdev, const struct of_device_id *match)
+ {
+@@ -1311,6 +1323,7 @@ static int __devinit bmac_probe(struct m
+ 
+ 	dev->open = bmac_open;
+ 	dev->stop = bmac_close;
++	dev->ethtool_ops = &bmac_ethtool_ops;
+ 	dev->hard_start_xmit = bmac_output;
+ 	dev->get_stats = bmac_stats;
+ 	dev->set_multicast_list = bmac_set_multicast;
