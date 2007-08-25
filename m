@@ -1,44 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] [IPV4] IPSEC: Omit redirect for tunnelled packet.
-Date: Fri, 24 Aug 2007 23:33:13 -0700 (PDT)
-Message-ID: <20070824.233313.34382404.davem@davemloft.net>
-References: <11879501412786-git-send-email-nakam@linux-ipv6.org>
+From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
+Subject: Re: Please pull 'upstream-jgarzik' branch of wireless-2.6
+Date: Sat, 25 Aug 2007 02:40:39 -0400
+Message-ID: <46CFCEE7.4080009@garzik.org>
+References: <20070815003637.GK7198@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nakam@linux-ipv6.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45138
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759450AbXHYGdO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Aug 2007 02:33:14 -0400
-In-Reply-To: <11879501412786-git-send-email-nakam@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070815003637.GK7198-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Date: Fri, 24 Aug 2007 19:09:01 +0900
+John W. Linville wrote:
+> A few items intended for 2.6.24.
+> 
+> Individual patches here:
+> 
+> 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/upstream-jgarzik/
+> 
+> Thanks!
+> 
+> John
+> 
+> ---
+> 
+> The following changes since commit 39d3520c92cf7a28c07229ca00cc35a1e8026c77:
+>   Linus Torvalds (1):
+>         Linux 2.6.23-rc3
+> 
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-jgarzik
+> 
+> Daniel Drake (2):
+>       zd1211rw: Add ID for Sitecom WL-162
+>       zd1211rw: Add ID for ZyXEL M-202 XtremeMIMO
+> 
+> Mariusz Kozlowski (1):
+>       drivers/net/wireless/wl3501_cs.c: remove redundant memset
+> 
+> Ulrich Kunitz (2):
+>       zd1211rw: removed noisy debug messages
+>       zd1211rw: consistent handling of ZD1211 specific rates
+> 
+>  drivers/net/wireless/wl3501_cs.c             |    1 -
+>  drivers/net/wireless/zd1211rw/zd_chip.c      |   69 +++++++-----------
+>  drivers/net/wireless/zd1211rw/zd_ieee80211.h |   43 +++++++----
+>  drivers/net/wireless/zd1211rw/zd_mac.c       |   99 +++++++-------------------
+>  drivers/net/wireless/zd1211rw/zd_mac.h       |   65 +++++++++++------
+>  drivers/net/wireless/zd1211rw/zd_usb.c       |    2 +
+>  6 files changed, 128 insertions(+), 151 deletions(-)
 
-> IPv4 IPsec tunnel gateway incorrectly sends redirect to
-> sender if it is onlink host when network device the IPsec tunnelled
-> packet is arrived is the same as the one the decapsulated packet
-> is sent.
-> 
-> With this patch, it omits to send the redirect when the forwarding
-> skbuff carries secpath, since such skbuff should be assumed as
-> a decapsulated packet from IPsec tunnel by own.
-> 
-> Request for comments:
-> Alternatively we'd have another way to change net/ipv4/route.c
-> (__mkroute_input) to use RTCF_DOREDIRECT flag unless skbuff
-> has no secpath. It is better than this patch at performance
-> point of view because IPv4 redirect judgement is done at
-> routing slow-path. However, it should be taken care of resource
-> changes between SAD(XFRM states) and routing table. In other words,
-> When IPv4 SAD is changed does the related routing entry go to its
-> slow-path? If not, it is reasonable to apply this patch.
-> 
-> Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
-
-Also applied, thank you!
+pulled
