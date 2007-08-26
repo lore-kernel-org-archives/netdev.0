@@ -1,60 +1,89 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: RFC: issues concerning the next NAPI interface
-Date: Sun, 26 Aug 2007 20:36:20 +0100
-Message-ID: <46D1D634.7060007@katalix.com>
-References: <200708241747.16592.ossthema@de.ibm.com>	<20070824085203.42f4305c@freepuppy.rosehill.hemminger.net>	<46CF127D.1090609@katalix.com> <20070824.144711.18301866.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, ossthema@de.ibm.com,
-	akepner@sgi.com, netdev@vger.kernel.org, raisch@de.ibm.com,
-	themann@de.ibm.com, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, meder@de.ibm.com, tklein@de.ibm.com,
-	stefan.roscher@de.ibm.com
-To: David Miller <davem@davemloft.net>
+From: Samuel Ortiz <samuel@sortiz.org>
+Subject: [PATCH 1/3] [IrDA] MSG_NOSIGNAL support for IrDA sockets
+Date: Mon, 27 Aug 2007 01:15:15 +0300
+Message-ID: <20070826221927.740053374@sortiz.org>
+References: <20070826221514.036436030@sortiz.org>
+Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:59058 "EHLO s36.avahost.net"
+Received: from smtp2e.orange.fr ([80.12.242.113]:61327 "EHLO smtp2e.orange.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752065AbXHZTlZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Aug 2007 15:41:25 -0400
-In-Reply-To: <20070824.144711.18301866.davem@davemloft.net>
+	id S1752078AbXHZWTa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Aug 2007 18:19:30 -0400
+Received: from me-wanadoo.net (localhost [127.0.0.1])
+	by mwinf2e18.orange.fr (SMTP Server) with ESMTP id 98CE170000A3
+	for <netdev@vger.kernel.org>; Mon, 27 Aug 2007 00:19:28 +0200 (CEST)
+Content-Disposition: inline; filename=irda_socket_msg_nosignal
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: James Chapman <jchapman@katalix.com>
-> Date: Fri, 24 Aug 2007 18:16:45 +0100
-> 
->> Does hardware interrupt mitigation really interact well with NAPI?
-> 
-> It interacts quite excellently.
+Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
+---
+ net/irda/af_irda.c |   21 ++++++++++++---------
+ 1 file changed, 12 insertions(+), 9 deletions(-)
 
-If NAPI disables interrupts and keeps them disabled while there are more 
-packets arriving or more transmits being completed, why do hardware 
-interrupt mitigation / coalescing features of the network silicon help?
-
-> There was a long saga about this with tg3 and huge SGI numa
-> systems with large costs for interrupt processing, and the
-> fix was to do a minimal amount of interrupt mitigation and
-> this basically cleared up all the problems.
-> 
-> Someone should reference that thread _now_ before this discussion goes
-> too far and we repeat a lot of information and people like myself have
-> to stay up all night correcting the misinformation and
-> misunderstandings that are basically guarenteed for this topic :)
-
-I hope I'm not spreading misinformation. :) The original poster was 
-observing NAPI going in/out of polled mode because the CPU is fast 
-enough to process all work per poll. I've seen the same and I'm 
-suggesting that the NAPI driver keeps itself in polled mode for N polls 
-or M jiffies after it sees workdone=0. This has always worked for me in 
-packet forwarding scenarios to maximize packets/sec and minimize 
-latency. I'm considering putting a patch together to add this as another 
-tuning knob, hence I'm keen to understand what I'm missing. :)
+Index: net-2.6.24-quilt/net/irda/af_irda.c
+===================================================================
+--- net-2.6.24-quilt.orig/net/irda/af_irda.c	2007-08-25 02:41:39.000000000 +0300
++++ net-2.6.24-quilt/net/irda/af_irda.c	2007-08-25 02:41:41.000000000 +0300
+@@ -1245,18 +1245,17 @@
+ 	struct sock *sk = sock->sk;
+ 	struct irda_sock *self;
+ 	struct sk_buff *skb;
+-	int err;
++	int err = -EPIPE;
+ 
+ 	IRDA_DEBUG(4, "%s(), len=%zd\n", __FUNCTION__, len);
+ 
+ 	/* Note : socket.c set MSG_EOR on SEQPACKET sockets */
+-	if (msg->msg_flags & ~(MSG_DONTWAIT|MSG_EOR|MSG_CMSG_COMPAT))
++	if (msg->msg_flags & ~(MSG_DONTWAIT | MSG_EOR | MSG_CMSG_COMPAT |
++			       MSG_NOSIGNAL))
+ 		return -EINVAL;
+ 
+-	if (sk->sk_shutdown & SEND_SHUTDOWN) {
+-		send_sig(SIGPIPE, current, 0);
+-		return -EPIPE;
+-	}
++	if (sk->sk_shutdown & SEND_SHUTDOWN)
++		goto out_err;
+ 
+ 	if (sk->sk_state != TCP_ESTABLISHED)
+ 		return -ENOTCONN;
+@@ -1283,7 +1282,7 @@
+ 	skb = sock_alloc_send_skb(sk, len + self->max_header_size + 16,
+ 				  msg->msg_flags & MSG_DONTWAIT, &err);
+ 	if (!skb)
+-		return -ENOBUFS;
++		goto out_err;
+ 
+ 	skb_reserve(skb, self->max_header_size + 16);
+ 	skb_reset_transport_header(skb);
+@@ -1291,7 +1290,7 @@
+ 	err = memcpy_fromiovec(skb_transport_header(skb), msg->msg_iov, len);
+ 	if (err) {
+ 		kfree_skb(skb);
+-		return err;
++		goto out_err;
+ 	}
+ 
+ 	/*
+@@ -1301,10 +1300,14 @@
+ 	err = irttp_data_request(self->tsap, skb);
+ 	if (err) {
+ 		IRDA_DEBUG(0, "%s(), err=%d\n", __FUNCTION__, err);
+-		return err;
++		goto out_err;
+ 	}
+ 	/* Tell client how much data we actually sent */
+ 	return len;
++
++ out_err:
++	return sk_stream_error(sk, msg->msg_flags, err);
++
+ }
+ 
+ /*
 
 -- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
 
