@@ -1,72 +1,93 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
+From: Joe Perches <joe@perches.com>
 Subject: Re: [PATCH] Prefix each line of multiline printk(KERN_<level>
- "foo\nbar") with KERN_<level>
-Date: Sun, 26 Aug 2007 13:06:31 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0708261305020.31149@anakin>
-References: <1187999098.32738.179.camel@localhost> <Pine.LNX.4.64.0708261028120.31149@anakin>
- <8bd0f97a0708260354xb4c8546od0cc19a590820f32@mail.gmail.com>
+	"foo\nbar") with KERN_<level>
+Date: Sun, 26 Aug 2007 10:36:30 -0700
+Message-ID: <1188149790.18004.44.camel@localhost>
+References: <1187999098.32738.179.camel@localhost>
+	 <Pine.LNX.4.64.0708261028120.31149@anakin>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Joe Perches <joe@perches.com>, linux-kernel@vger.kernel.org,
-	blinux-list@redhat.com, cluster-devel@redhat.com,
-	discuss@x86-64.org, jffs-dev@axis.com, linux-acpi@vger.kernel.org,
-	linux-ide@vger.kernel.org, linux-mips@linux-mips.org,
-	linux-mm@kvack.org, linux-mtd@lists.infradead.org,
-	linux-scsi@vger.kernel.org, mpt_linux_developer@lsi.com,
-	netdev@vger.kernel.org, osst-users@lists.sourceforge.net,
-	parisc-linux@parisc-linux.org, tpmdd-devel@lists.sourceforge.net,
-	uclinux-dist-devel@blackfin.uclinux.org
-To: Mike Frysinger <vapier.adi@gmail.com>
-Return-path: <linux-ide-owner@vger.kernel.org>
-In-Reply-To: <8bd0f97a0708260354xb4c8546od0cc19a590820f32@mail.gmail.com>
-Sender: linux-ide-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755088AbXHZRhZ@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.0708261028120.31149@anakin>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 26 Aug 2007, Mike Frysinger wrote:
-> On 8/26/07, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
-> > On Fri, 24 Aug 2007, Joe Perches wrote:
-> > > Corrected printk calls with multiple output lines which
-> > > did not correctly preface each line with KERN_<level>
-> > >
-> > > Fixed uses of some single lines with too many KERN_<level>
-> >
-> > > --- a/arch/arm/kernel/ecard.c
-> > > +++ b/arch/arm/kernel/ecard.c
-> > > @@ -547,7 +547,8 @@ static void ecard_check_lockup(struct irq_desc *desc)
-> > >       if (last == jiffies) {
-> > >               lockup += 1;
-> > >               if (lockup > 1000000) {
-> > > -                     printk(KERN_ERR "\nInterrupt lockup detected - "
-> > > +                     printk(KERN_ERR "\n"
-> > > +                            KERN_ERR "Interrupt lockup detected - "
-> > >                              "disabling all expansion card interrupts\n");
-> > >
-> > >                       desc->chip->mask(IRQ_EXPANSIONCARD);
-> >
-> > What's the purpose of having lines printed with e.g. `KERN_ERR "\n"' only?
-> > Shouldn't these just be removed?
-> >
-> > Usually lines starting with `\n' are continuations, but given some other
-> > module may call printk() in between, there's no guarantee continuations
-> > appear on the same line.
+On Sun, 2007-08-26 at 10:30 +0200, Geert Uytterhoeven wrote: 
+> On Fri, 24 Aug 2007, Joe Perches wrote:
+> > Corrected printk calls with multiple output lines which
+> > did not correctly preface each line with KERN_<level>
+> > Fixed uses of some single lines with too many KERN_<level>
+> > --- a/arch/arm/kernel/ecard.c
+> > +++ b/arch/arm/kernel/ecard.c
+> > @@ -547,7 +547,8 @@ static void ecard_check_lockup(struct irq_desc *desc)
+> >  	if (last == jiffies) {
+> >  		lockup += 1;
+> >  		if (lockup > 1000000) {
+> > -			printk(KERN_ERR "\nInterrupt lockup detected - "
+> > +			printk(KERN_ERR "\n"
+> > +			       KERN_ERR "Interrupt lockup detected - "
+> >  			       "disabling all expansion card interrupts\n");
+> >  
+> >  			desc->chip->mask(IRQ_EXPANSIONCARD);
 > 
-> erm, i thought the prink lock was grabbed per-buffer, not per-line ...
-> so yes, if the function calls were like printk(KERN_ERR "\n");
-> printk(KERN_ERR "..."); things could be broken up, but this is on
-> function call, so it shouldnt ...
+> What's the purpose of having lines printed with e.g. `KERN_ERR "\n"' only?
+> Shouldn't these just be removed?
 
-Yes it is.
+My preference too.  There could be a separate effort for that.
 
-What I mean is that probably there used to be a printk() call starting with
-`\n'. Then someone added a `KERN_ERR' in front of it.
+egrep -r --include=*.[ch] "KERN_[A-Z]*[[:space:]]+\"\\\n" * | wc -l
+104
 
-Gr{oetje,eeting}s,
+These are either errors or a desire to prettify logs with
+vertical whitespace.  I think vertical whitespace doesn't help.
 
-						Geert
+> Usually lines starting with `\n' are continuations, but given some other
+> module may call printk() in between, there's no guarantee continuations
+> appear on the same line.
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+printk KERN_<level>s were sometimes bolted on after code was written.
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+etherfoo_card_init()
+{
+	printk(KERN_INFO "etherfoo card");
+	slot = foo_getslot();
+	if (slot < 0) {
+		printk("\n" KERN_ERR "etherfoo card slot not found\n");
+		return -1;
+	}
+	printk(" found in slot %d", slot);
+	irq = foo_getirq();
+	if (irq < 0) {
+		printk("\n" KERN_ERR "etherfoo card irq not found\n");
+		return -1;
+	}
+	printk(" with irq %d\n", irq);
+}
+
+Sometimes, a KERN_ERR is misplaced, or the "\n" is missing.
+
+	printk(KERN_ERR "\n" msg);
+or
+	printk(KERN_ERR msg);
+
+To me, the card announcement printk should move to the
+end of the card_init routine and just be a single printk.
+
+etherfoo_card_init()
+{
+	slot = foo_getslot();
+	if (slot < 0) {
+		printk(KERN_ERR "etherfoo card slot not found\n");
+		return -1;
+	}
+	irq = foo_getirq();
+	if (irq < 0) {
+		printk(KERN_ERR "etherfoo card irq not found\n");
+		return -1;
+	}
+	printk(KERN_INFO "etherfoo card in slot %d with irq %d\n",
+	       slot, irq);
+}
