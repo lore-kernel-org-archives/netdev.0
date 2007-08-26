@@ -1,94 +1,102 @@
-From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 3/3] [IrDA] Kingsun KS-959 IrDA USB driver
-Date: Mon, 27 Aug 2007 01:15:17 +0300
-Message-ID: <20070826221928.324161676@sortiz.org>
+From: Samuel Ortiz <samuel@sortiz.org>
+Subject: [PATCH 2/3] [IrDA] Kingsun Dazzle IrDA USB driver
+Date: Mon, 27 Aug 2007 01:15:16 +0300
+Message-ID: <20070826221928.019956679@sortiz.org>
 References: <20070826221514.036436030@sortiz.org>
-Content-Type: multipart/mixed; boundary="===============0894956945=="
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?UTF-8?q?Alex=20Villac=C3=ADs=20Lasso?= <a_villacis-5itmuRygkZmgSpxsJD1C4w@public.gmane.org>,
-	irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net,
+	=?UTF-8?q?Alex=20Villac=C3=ADs=20Lasso?= <a_villacis@palosanto.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp23.orange.fr ([80.12.242.97]:12268 "EHLO smtp23.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752162AbXHZWTc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Aug 2007 18:19:32 -0400
+Received: from me-wanadoo.net (localhost [127.0.0.1])
+	by mwinf2362.orange.fr (SMTP Server) with ESMTP id 74879700009D
+	for <netdev@vger.kernel.org>; Mon, 27 Aug 2007 00:19:29 +0200 (CEST)
+Content-Disposition: inline; filename=ksdazzle-irda-try2.diff
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---===============0894956945==
-Content-Disposition: inline; filename=ks959-irda-tryN.diff
+This dongle does not follow the usb-irda specification, so it needs its=
+ own
+special driver. Just like the Kingsun/Donshine dongle, it exposes two
+interrupt endpoints. Reception is performed through direct reads from t=
+he
+input endpoint. Transmission requires splitting the IrDA frames into 8-=
+byte
+segments, in which the first byte encodes how many of the remaining 7 b=
+ytes
+are used as data. Speed change is made with a control URB just like the=
+ one
+in cypress_m8, and it seems to support up to 115200 bps.
 
-This dongle does not follow the usb-irda specification, so it needs its own
-special driver. First, it uses control URBs for data transfer, instead of
-bulk or interrupt transfers; the only interrupt endpoint exposed seems to
-be a dummy to prevent the interface from being rejected. Second, it uses
-obfuscation and padding at the USB traffic level, for no apparent reason
-other than to make reverse engineering harder (full details on obfuscation
-in comments at beginning of source). Although it is advertised as a "4 Mbps
-FIR dongle", it apparently loses packets at speeds greater than 57600 bps.
+On plugin, this dongle reports vendor and device IDs: 0x07d0:0x4100
 
-On plugin, this dongle reports vendor and device IDs: 0x07d0:0x4959 .
-
-The Windows driver that is used normally to control this dongle has a
-filename of KS-959.SYS .
-
-Signed-off-by: Alex Villacís Lasso <a_villacis-5itmuRygkZmgSpxsJD1C4w@public.gmane.org>
-Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Signed-off-by: Alex Villac=C3=ADs Lasso <a_villacis@palosanto.com>
+Signed-off-by: Samuel Ortiz <samuel@sortiz.org>
 
 ---
- drivers/net/irda/Kconfig     |   14 
- drivers/net/irda/Makefile    |    1 
- drivers/net/irda/ks959-sir.c |  939 +++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 954 insertions(+)
+ drivers/net/irda/Kconfig        |   12=20
+ drivers/net/irda/Makefile       |    1=20
+ drivers/net/irda/ksdazzle-sir.c |  823 +++++++++++++++++++++++++++++++=
++++++++++
+ 3 files changed, 836 insertions(+)
 
 Index: net-2.6.24-quilt/drivers/net/irda/Kconfig
-===================================================================
---- net-2.6.24-quilt.orig/drivers/net/irda/Kconfig	2007-08-25 02:43:16.000000000 +0300
-+++ net-2.6.24-quilt/drivers/net/irda/Kconfig	2007-08-25 03:05:15.000000000 +0300
-@@ -176,6 +176,20 @@
- 	  To compile it as a module, choose M here: the module will be called
- 	  ksdazzle-sir.
- 
-+config KS959_DONGLE
-+	tristate "KingSun KS-959 IrDA-USB dongle (EXPERIMENTAL)"
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+--- net-2.6.24-quilt.orig/drivers/net/irda/Kconfig	2007-08-24 14:55:19.=
+000000000 +0300
++++ net-2.6.24-quilt/drivers/net/irda/Kconfig	2007-08-25 02:43:16.00000=
+0000 +0300
+@@ -162,7 +162,19 @@
+ 	  Say Y here if you want to build support for the Cirrus logic
+ 	  EP7211 chipset's infrared module.
+=20
++config KSDAZZLE_DONGLE
++	tristate "KingSun Dazzle IrDA-USB dongle (EXPERIMENTAL)"
 +	depends on IRDA && USB && EXPERIMENTAL
 +	help
-+	  Say Y or M here if you want to build support for the KingSun KS-959
++	  Say Y or M here if you want to build support for the KingSun Dazzle
 +	  IrDA-USB bridge device driver.
-+
+=20
 +	  This USB bridge does not conform to the IrDA-USB device class
 +	  specification, and therefore needs its own specific driver. This
-+	  dongle supports SIR speeds only (9600 through 57600 bps).
++	  dongle supports SIR speeds only (9600 through 115200 bps).
 +
 +	  To compile it as a module, choose M here: the module will be called
-+	  ks959-sir.
-+
++	  ksdazzle-sir.
+=20
  comment "Old SIR device drivers"
- 
- config IRPORT_SIR
-Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
-===================================================================
+=20
+Index: net-2.6.24-quilt/drivers/net/irda/ksdazzle-sir.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24-quilt/drivers/net/irda/ks959-sir.c	2007-08-25 03:04:30.000000000 +0300
-@@ -0,0 +1,939 @@
-+/*****************************************************************************
++++ net-2.6.24-quilt/drivers/net/irda/ksdazzle-sir.c	2007-08-25 02:42:2=
+0.000000000 +0300
+@@ -0,0 +1,823 @@
++/*********************************************************************=
+********
 +*
-+* Filename:      ks959-sir.c
-+* Version:       0.1.2
-+* Description:   Irda KingSun KS-959 USB Dongle
++* Filename:      ksdazzle.c
++* Version:       0.1.1
++* Description:   Irda KingSun Dazzle USB Dongle
 +* Status:        Experimental
-+* Author:        Alex Villacís Lasso <a_villacis-5itmuRygkZmgSpxsJD1C4w@public.gmane.org>
-+*         with help from Domen Puncer <domen-CvScVCPLwOZg9hUCZPvPmw@public.gmane.org>
++* Author:        Alex Villac=C3=ADs Lasso <a_villacis@palosanto.com>
 +*
 +*    Based on stir4200, mcs7780, kingsun-sir drivers.
 +*
-+*    This program is free software; you can redistribute it and/or modify
-+*    it under the terms of the GNU General Public License as published by
++*    This program is free software; you can redistribute it and/or mod=
+ify
++*    it under the terms of the GNU General Public License as published=
+ by
 +*    the Free Software Foundation; either version 2 of the License.
 +*
 +*    This program is distributed in the hope that it will be useful,
@@ -100,72 +108,66 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +*    along with this program; if not, write to the Free Software
 +*    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 +*
-+*****************************************************************************/
++**********************************************************************=
+*******/
 +
 +/*
-+ * Following is my most current (2007-07-17) understanding of how the Kingsun
-+ * KS-959 dongle is supposed to work. This information was deduced by
-+ * reverse-engineering and examining the USB traffic captured with USBSnoopy
-+ * from the WinXP driver. Feel free to update here as more of the dongle is
++ * Following is my most current (2007-07-26) understanding of how the =
+Kingsun
++ * 07D0:4100 dongle (sometimes known as the MA-660) is supposed to wor=
+k. This
++ * information was deduced by examining the USB traffic captured with =
+USBSnoopy
++ * from the WinXP driver. Feel free to update here as more of the dong=
+le is
 + * known.
 + *
-+ * My most sincere thanks must go to Domen Puncer <domen-CvScVCPLwOZg9hUCZPvPmw@public.gmane.org> for
-+ * invaluable help in cracking the obfuscation and padding required for this
-+ * dongle.
++ * General: This dongle exposes one interface with two interrupt endpo=
+ints, one
++ * IN and one OUT. In this regard, it is similar to what the Kingsun/D=
+onshine
++ * dongle (07c0:4200) exposes. Traffic is raw and needs to be wrapped =
+and
++ * unwrapped manually as in stir4200, kingsun-sir, and ks959-sir.
 + *
-+ * General: This dongle exposes one interface with one interrupt IN endpoint.
-+ * However, the interrupt endpoint is NOT used at all for this dongle. Instead,
-+ * this dongle uses control transfers for everything, including sending and
-+ * receiving the IrDA frame data. Apparently the interrupt endpoint is just a
-+ * dummy to ensure the dongle has a valid interface to present to the PC.And I
-+ * thought the DonShine dongle was weird... In addition, this dongle uses
-+ * obfuscation (?!?!), applied at the USB level, to hide the traffic, both sent
-+ * and received, from the dongle. I call it obfuscation because the XOR keying
-+ * and padding required to produce an USB traffic acceptable for the dongle can
-+ * not be explained by any other technical requirement.
++ * Transmission: To transmit an IrDA frame, it is necessary to wrap it=
+, then
++ * split it into multiple segments of up to 7 bytes each, and transmit=
+ each in
++ * sequence. It seems that sending a single big block (like kingsun-si=
+r does)
++ * won't work with this dongle. Each segment needs to be prefixed with=
+ a value
++ * equal to (unsigned char)0xF8 + <number of bytes in segment>, inside=
+ a payload
++ * of exactly 8 bytes. For example, a segment of 1 byte gets prefixed =
+by 0xF9,
++ * and one of 7 bytes gets prefixed by 0xFF. The bytes at the end of t=
+he
++ * payload, not considered by the prefix, are ignored (set to 0 by thi=
+s
++ * implementation).
 + *
-+ * Transmission: To transmit an IrDA frame, the driver must prepare a control
-+ * URB with the following as a setup packet:
-+ *    bRequestType    USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE
-+ *    bRequest        0x09
-+ *    wValue          <length of valid data before padding, little endian>
-+ *    wIndex          0x0000
-+ *    wLength         <length of padded data>
-+ * The payload packet must be manually wrapped and escaped (as in stir4200.c),
-+ * then padded and obfuscated before being sent. Both padding and obfuscation
-+ * are implemented in the procedure obfuscate_tx_buffer(). Suffice to say, the
-+ * designer/programmer of the dongle used his name as a source for the
-+ * obfuscation. WTF?!
-+ * Apparently the dongle cannot handle payloads larger than 256 bytes. The
-+ * driver has to perform fragmentation in order to send anything larger than
-+ * this limit.
++ * Reception: To receive data, the driver must poll the dongle regular=
+ly (like
++ * kingsun-sir.c) with interrupt URBs. If data is available, it will b=
+e returned
++ * in payloads from 0 to 8 bytes long. When concatenated, these payloa=
+ds form
++ * a raw IrDA stream that needs to be unwrapped as in stir4200 and kin=
+gsun-sir
 + *
-+ * Reception: To receive data, the driver must poll the dongle regularly (like
-+ * kingsun-sir.c) with control URBs and the following as a setup packet:
-+ *    bRequestType    USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE
-+ *    bRequest        0x01
-+ *    wValue          0x0200
-+ *    wIndex          0x0000
-+ *    wLength         0x0800 (size of available buffer)
-+ * If there is data to be read, it will be returned as the response payload.
-+ * This data is (apparently) not padded, but it is obfuscated. To de-obfuscate
-+ * it, the driver must XOR every byte, in sequence, with a value that starts at
-+ * 1 and is incremented with each byte processed, and then with 0x55. The value
-+ * incremented with each byte processed overflows as an unsigned char. The
-+ * resulting bytes form a wrapped SIR frame that is unwrapped and unescaped
-+ * as in stir4200.c The incremented value is NOT reset with each frame, but is
-+ * kept across the entire session with the dongle. Also, the dongle inserts an
-+ * extra garbage byte with value 0x95 (after decoding) every 0xff bytes, which
-+ * must be skipped.
-+ *
-+ * Speed change: To change the speed of the dongle, the driver prepares a
++ * Speed change: To change the speed of the dongle, the driver prepare=
+s a
 + * control URB with the following as a setup packet:
-+ *    bRequestType    USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE
++ *    bRequestType    USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFA=
+CE
 + *    bRequest        0x09
 + *    wValue          0x0200
 + *    wIndex          0x0001
 + *    wLength         0x0008 (length of the payload)
-+ * The payload is a 8-byte record, apparently identical to the one used in
++ * The payload is a 8-byte record, apparently identical to the one use=
+d in
 + * drivers/usb/serial/cypress_m8.c to change speed:
 + *     __u32 baudSpeed;
 + *    unsigned int dataBits : 2;    // 0 - 5 bits 3 - 8 bits
@@ -177,16 +179,13 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 + *    unsigned int reset : 1;
 + *    unsigned char reserved[3];    // set to 0
 + *
-+ * For now only SIR speeds have been observed with this dongle. Therefore,
-+ * nothing is known on what changes (if any) must be done to frame wrapping /
-+ * unwrapping for higher than SIR speeds. This driver assumes no change is
-+ * necessary and announces support for all the way to 57600 bps. Although the
-+ * package announces support for up to 4MBps, tests with a Sony Ericcson K300
-+ * phone show corruption when receiving large frames at 115200 bps, the highest
-+ * speed announced by the phone. However, transmission at 115200 bps is OK. Go
-+ * figure. Since I don't know whether the phone or the dongle is at fault, max
-+ * announced speed is 57600 bps until someone produces a device that can run
-+ * at higher speeds with this dongle.
++ * For now only SIR speeds have been observed with this dongle. Theref=
+ore,
++ * nothing is known on what changes (if any) must be done to frame wra=
+pping /
++ * unwrapping for higher than SIR speeds. This driver assumes no chang=
+e is
++ * necessary and announces support for all the way to 115200 bps.
 + */
 +
 +#include <linux/module.h>
@@ -210,13 +209,13 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +#include <net/irda/wrapper.h>
 +#include <net/irda/crc.h>
 +
-+#define KS959_VENDOR_ID 0x07d0
-+#define KS959_PRODUCT_ID 0x4959
++#define KSDAZZLE_VENDOR_ID 0x07d0
++#define KSDAZZLE_PRODUCT_ID 0x4100
 +
 +/* These are the currently known USB ids */
-+static struct usb_device_id dongles[] = {
++static struct usb_device_id dongles[] =3D {
 +	/* KingSun Co,Ltd  IrDA/USB Bridge */
-+	{USB_DEVICE(KS959_VENDOR_ID, KS959_PRODUCT_ID)},
++	{USB_DEVICE(KSDAZZLE_VENDOR_ID, KSDAZZLE_PRODUCT_ID)},
 +	{}
 +};
 +
@@ -226,11 +225,9 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +#define KINGSUN_REQ_RECV 0x01
 +#define KINGSUN_REQ_SEND 0x09
 +
-+#define KINGSUN_RCV_FIFO_SIZE    2048	/* Max length we can receive */
 +#define KINGSUN_SND_FIFO_SIZE    2048	/* Max packet we can send */
-+#define KINGSUN_SND_PACKET_SIZE    256	/* Max packet dongle can handle */
 +
-+struct ks959_speedparams {
++struct ksdazzle_speedparams {
 +	__le32 baudrate;	/* baud rate, little endian */
 +	__u8 flags;
 +	__u8 reserved[3];
@@ -249,176 +246,131 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +#define KS_PAR_ODD    0x30
 +#define KS_RESET    0x80
 +
-+struct ks959_cb {
++#define KINGSUN_EP_IN			0
++#define KINGSUN_EP_OUT			1
++
++struct ksdazzle_cb {
 +	struct usb_device *usbdev;	/* init: probe_irda */
 +	struct net_device *netdev;	/* network layer */
 +	struct irlap_cb *irlap;	/* The link layer we are binded to */
 +	struct net_device_stats stats;	/* network statistics */
 +	struct qos_info qos;
 +
-+	struct usb_ctrlrequest *tx_setuprequest;
 +	struct urb *tx_urb;
 +	__u8 *tx_buf_clear;
 +	unsigned int tx_buf_clear_used;
 +	unsigned int tx_buf_clear_sent;
-+	__u8 *tx_buf_xored;
++	__u8 tx_payload[8];
 +
-+	struct usb_ctrlrequest *rx_setuprequest;
 +	struct urb *rx_urb;
-+	__u8 *rx_buf;
-+	__u8 rx_variable_xormask;
++	__u8 rx_payload[8];
 +	iobuff_t rx_unwrap_buff;
-+	struct timeval rx_time;
 +
 +	struct usb_ctrlrequest *speed_setuprequest;
 +	struct urb *speed_urb;
-+	struct ks959_speedparams speedparams;
++	struct ksdazzle_speedparams speedparams;
 +	unsigned int new_speed;
++
++	__u8 ep_in;
++	__u8 ep_out;
 +
 +	spinlock_t lock;
 +	int receiving;
 +};
 +
-+/* Procedure to perform the obfuscation/padding expected by the dongle
-+ *
-+ * buf_cleartext    (IN) Cleartext version of the IrDA frame to transmit
-+ * len_cleartext    (IN) Length of the cleartext version of IrDA frame
-+ * buf_xoredtext    (OUT) Obfuscated version of frame built by proc
-+ * len_maxbuf        (OUT) Maximum space available at buf_xoredtext
-+ *
-+ * (return)         length of obfuscated frame with padding
-+ *
-+ * If not enough space (as indicated by len_maxbuf vs. required padding),
-+ * zero is returned
-+ *
-+ * The value of lookup_string is actually a required portion of the algorithm.
-+ * Seems the designer of the dongle wanted to state who exactly is responsible
-+ * for implementing obfuscation. Send your best (or other) wishes to him ]:-)
-+ */
-+static unsigned int obfuscate_tx_buffer(const __u8 * buf_cleartext,
-+					unsigned int len_cleartext,
-+					__u8 * buf_xoredtext,
-+					unsigned int len_maxbuf)
-+{
-+	unsigned int len_xoredtext;
-+
-+	/* Calculate required length with padding, check for necessary space */
-+	len_xoredtext = ((len_cleartext + 7) & ~0x7) + 0x10;
-+	if (len_xoredtext <= len_maxbuf) {
-+		static const __u8 lookup_string[] = "wangshuofei19710";
-+		__u8 xor_mask;
-+
-+		/* Unlike the WinXP driver, we *do* clear out the padding */
-+		memset(buf_xoredtext, 0, len_xoredtext);
-+
-+		xor_mask = lookup_string[(len_cleartext & 0x0f) ^ 0x06] ^ 0x55;
-+
-+		while (len_cleartext-- > 0) {
-+			*buf_xoredtext++ = *buf_cleartext++ ^ xor_mask;
-+		}
-+	} else {
-+		len_xoredtext = 0;
-+	}
-+	return len_xoredtext;
-+}
-+
 +/* Callback transmission routine */
-+static void ks959_speed_irq(struct urb *urb)
++static void ksdazzle_speed_irq(struct urb *urb)
 +{
 +	/* unlink, shutdown, unplug, other nasties */
-+	if (urb->status != 0) {
-+		err("ks959_speed_irq: urb asynchronously failed - %d",
++	if (urb->status !=3D 0) {
++		err("ksdazzle_speed_irq: urb asynchronously failed - %d",
 +		    urb->status);
 +	}
 +}
 +
 +/* Send a control request to change speed of the dongle */
-+static int ks959_change_speed(struct ks959_cb *kingsun, unsigned speed)
++static int ksdazzle_change_speed(struct ksdazzle_cb *kingsun, unsigned=
+ speed)
 +{
-+	static unsigned int supported_speeds[] = { 2400, 9600, 19200, 38400,
++	static unsigned int supported_speeds[] =3D { 2400, 9600, 19200, 38400=
+,
 +		57600, 115200, 576000, 1152000, 4000000, 0
 +	};
 +	int err;
 +	unsigned int i;
 +
-+	if (kingsun->speed_setuprequest == NULL || kingsun->speed_urb == NULL)
++	if (kingsun->speed_setuprequest =3D=3D NULL || kingsun->speed_urb =3D=
+=3D NULL)
 +		return -ENOMEM;
 +
 +	/* Check that requested speed is among the supported ones */
-+	for (i = 0; supported_speeds[i] && supported_speeds[i] != speed; i++) ;
-+	if (supported_speeds[i] == 0)
++	for (i =3D 0; supported_speeds[i] && supported_speeds[i] !=3D speed; =
+i++) ;
++	if (supported_speeds[i] =3D=3D 0)
 +		return -EOPNOTSUPP;
 +
-+	memset(&(kingsun->speedparams), 0, sizeof(struct ks959_speedparams));
-+	kingsun->speedparams.baudrate = cpu_to_le32(speed);
-+	kingsun->speedparams.flags = KS_DATA_8_BITS;
++	memset(&(kingsun->speedparams), 0, sizeof(struct ksdazzle_speedparams=
+));
++	kingsun->speedparams.baudrate =3D cpu_to_le32(speed);
++	kingsun->speedparams.flags =3D KS_DATA_8_BITS;
 +
-+	/* speed_setuprequest pre-filled in ks959_probe */
++	/* speed_setuprequest pre-filled in ksdazzle_probe */
 +	usb_fill_control_urb(kingsun->speed_urb, kingsun->usbdev,
 +			     usb_sndctrlpipe(kingsun->usbdev, 0),
 +			     (unsigned char *)kingsun->speed_setuprequest,
 +			     &(kingsun->speedparams),
-+			     sizeof(struct ks959_speedparams), ks959_speed_irq,
-+			     kingsun);
-+	kingsun->speed_urb->status = 0;
-+	err = usb_submit_urb(kingsun->speed_urb, GFP_ATOMIC);
++			     sizeof(struct ksdazzle_speedparams),
++			     ksdazzle_speed_irq, kingsun);
++	kingsun->speed_urb->status =3D 0;
++	err =3D usb_submit_urb(kingsun->speed_urb, GFP_ATOMIC);
 +
 +	return err;
 +}
 +
 +/* Submit one fragment of an IrDA frame to the dongle */
-+static void ks959_send_irq(struct urb *urb);
-+static int ks959_submit_tx_fragment(struct ks959_cb *kingsun)
++static void ksdazzle_send_irq(struct urb *urb);
++static int ksdazzle_submit_tx_fragment(struct ksdazzle_cb *kingsun)
 +{
-+	unsigned int padlen;
 +	unsigned int wraplen;
 +	int ret;
 +
-+	/* Check whether current plaintext can produce a padded buffer that fits
-+	   within the range handled by the dongle */
-+	wraplen = (KINGSUN_SND_PACKET_SIZE & ~0x7) - 0x10;
++	/* We can send at most 7 bytes of payload at a time */
++	wraplen =3D 7;
 +	if (wraplen > kingsun->tx_buf_clear_used)
-+		wraplen = kingsun->tx_buf_clear_used;
++		wraplen =3D kingsun->tx_buf_clear_used;
 +
-+	/* Perform dongle obfuscation. Also remove the portion of the frame that
-+	   was just obfuscated and will now be sent to the dongle. */
-+	padlen = obfuscate_tx_buffer(kingsun->tx_buf_clear, wraplen,
-+				     kingsun->tx_buf_xored,
-+				     KINGSUN_SND_PACKET_SIZE);
++	/* Prepare payload prefix with used length */
++	memset(kingsun->tx_payload, 0, 8);
++	kingsun->tx_payload[0] =3D (unsigned char)0xf8 + wraplen;
++	memcpy(kingsun->tx_payload + 1, kingsun->tx_buf_clear, wraplen);
 +
-+	/* Calculate how much data can be transmitted in this urb */
-+	kingsun->tx_setuprequest->wValue = cpu_to_le16(wraplen);
-+	kingsun->tx_setuprequest->wLength = cpu_to_le16(padlen);
-+	/* Rest of the fields were filled in ks959_probe */
-+	usb_fill_control_urb(kingsun->tx_urb, kingsun->usbdev,
-+			     usb_sndctrlpipe(kingsun->usbdev, 0),
-+			     (unsigned char *)kingsun->tx_setuprequest,
-+			     kingsun->tx_buf_xored, padlen,
-+			     ks959_send_irq, kingsun);
-+	kingsun->tx_urb->status = 0;
-+	ret = usb_submit_urb(kingsun->tx_urb, GFP_ATOMIC);
++	usb_fill_int_urb(kingsun->tx_urb, kingsun->usbdev,
++			 usb_sndintpipe(kingsun->usbdev, kingsun->ep_out),
++			 kingsun->tx_payload, 8, ksdazzle_send_irq, kingsun, 1);
++	kingsun->tx_urb->status =3D 0;
++	ret =3D usb_submit_urb(kingsun->tx_urb, GFP_ATOMIC);
 +
 +	/* Remember how much data was sent, in order to update at callback */
-+	kingsun->tx_buf_clear_sent = (ret == 0) ? wraplen : 0;
++	kingsun->tx_buf_clear_sent =3D (ret =3D=3D 0) ? wraplen : 0;
 +	return ret;
 +}
 +
 +/* Callback transmission routine */
-+static void ks959_send_irq(struct urb *urb)
++static void ksdazzle_send_irq(struct urb *urb)
 +{
-+	struct ks959_cb *kingsun = urb->context;
-+	struct net_device *netdev = kingsun->netdev;
-+	int ret = 0;
++	struct ksdazzle_cb *kingsun =3D urb->context;
++	struct net_device *netdev =3D kingsun->netdev;
++	int ret =3D 0;
 +
 +	/* in process of stopping, just drop data */
 +	if (!netif_running(kingsun->netdev)) {
-+		err("ks959_send_irq: Network not running!");
++		err("ksdazzle_send_irq: Network not running!");
 +		return;
 +	}
 +
 +	/* unlink, shutdown, unplug, other nasties */
-+	if (urb->status != 0) {
-+		err("ks959_send_irq: urb asynchronously failed - %d",
++	if (urb->status !=3D 0) {
++		err("ksdazzle_send_irq: urb asynchronously failed - %d",
 +		    urb->status);
 +		return;
 +	}
@@ -432,14 +384,13 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +				kingsun->tx_buf_clear_used -
 +				kingsun->tx_buf_clear_sent);
 +		}
-+		kingsun->tx_buf_clear_used -= kingsun->tx_buf_clear_sent;
-+		kingsun->tx_buf_clear_sent = 0;
++		kingsun->tx_buf_clear_used -=3D kingsun->tx_buf_clear_sent;
++		kingsun->tx_buf_clear_sent =3D 0;
 +
 +		if (kingsun->tx_buf_clear_used > 0) {
 +			/* There is more data to be sent */
-+			if ((ret = ks959_submit_tx_fragment(kingsun)) != 0) {
-+				err("ks959_send_irq: failed tx_urb submit: %d",
-+				    ret);
++			if ((ret =3D ksdazzle_submit_tx_fragment(kingsun)) !=3D 0) {
++				err("ksdazzle_send_irq: failed tx_urb submit: %d", ret);
 +				switch (ret) {
 +				case -ENODEV:
 +				case -EPIPE:
@@ -451,10 +402,11 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +			}
 +		} else {
 +			/* All data sent, send next speed && wake network queue */
-+			if (kingsun->new_speed != -1 &&
-+			    cpu_to_le32(kingsun->new_speed) !=
++			if (kingsun->new_speed !=3D -1 &&
++			    cpu_to_le32(kingsun->new_speed) !=3D
 +			    kingsun->speedparams.baudrate)
-+				ks959_change_speed(kingsun, kingsun->new_speed);
++				ksdazzle_change_speed(kingsun,
++						      kingsun->new_speed);
 +
 +			netif_wake_queue(netdev);
 +		}
@@ -464,13 +416,14 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +/*
 + * Called from net/core when new frame is available.
 + */
-+static int ks959_hard_xmit(struct sk_buff *skb, struct net_device *netdev)
++static int ksdazzle_hard_xmit(struct sk_buff *skb, struct net_device *=
+netdev)
 +{
-+	struct ks959_cb *kingsun;
++	struct ksdazzle_cb *kingsun;
 +	unsigned int wraplen;
-+	int ret = 0;
++	int ret =3D 0;
 +
-+	if (skb == NULL || netdev == NULL)
++	if (skb =3D=3D NULL || netdev =3D=3D NULL)
 +		return -EINVAL;
 +
 +	netif_stop_queue(netdev);
@@ -478,18 +431,20 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +	/* the IRDA wrapping routines don't deal with non linear skb */
 +	SKB_LINEAR_ASSERT(skb);
 +
-+	kingsun = netdev_priv(netdev);
++	kingsun =3D netdev_priv(netdev);
 +
 +	spin_lock(&kingsun->lock);
-+	kingsun->new_speed = irda_get_next_speed(skb);
++	kingsun->new_speed =3D irda_get_next_speed(skb);
 +
-+	/* Append data to the end of whatever data remains to be transmitted */
-+	wraplen =
-+	    async_wrap_skb(skb, kingsun->tx_buf_clear, KINGSUN_SND_FIFO_SIZE);
-+	kingsun->tx_buf_clear_used = wraplen;
++	/* Append data to the end of whatever data remains to be transmitted =
+*/
++	wraplen =3D
++	    async_wrap_skb(skb, kingsun->tx_buf_clear, KINGSUN_SND_FIFO_SIZE)=
+;
++	kingsun->tx_buf_clear_used =3D wraplen;
 +
-+	if ((ret = ks959_submit_tx_fragment(kingsun)) != 0) {
-+		err("ks959_hard_xmit: failed tx_urb submit: %d", ret);
++	if ((ret =3D ksdazzle_submit_tx_fragment(kingsun)) !=3D 0) {
++		err("ksdazzle_hard_xmit: failed tx_urb submit: %d", ret);
 +		switch (ret) {
 +		case -ENODEV:
 +		case -EPIPE:
@@ -500,7 +455,7 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +		}
 +	} else {
 +		kingsun->stats.tx_packets++;
-+		kingsun->stats.tx_bytes += skb->len;
++		kingsun->stats.tx_bytes +=3D skb->len;
 +
 +	}
 +
@@ -511,104 +466,87 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +}
 +
 +/* Receive callback function */
-+static void ks959_rcv_irq(struct urb *urb)
++static void ksdazzle_rcv_irq(struct urb *urb)
 +{
-+	struct ks959_cb *kingsun = urb->context;
-+	int ret;
++	struct ksdazzle_cb *kingsun =3D urb->context;
 +
 +	/* in process of stopping, just drop data */
 +	if (!netif_running(kingsun->netdev)) {
-+		kingsun->receiving = 0;
++		kingsun->receiving =3D 0;
 +		return;
 +	}
 +
 +	/* unlink, shutdown, unplug, other nasties */
-+	if (urb->status != 0) {
-+		err("kingsun_rcv_irq: urb asynchronously failed - %d",
++	if (urb->status !=3D 0) {
++		err("ksdazzle_rcv_irq: urb asynchronously failed - %d",
 +		    urb->status);
-+		kingsun->receiving = 0;
++		kingsun->receiving =3D 0;
 +		return;
 +	}
 +
 +	if (urb->actual_length > 0) {
-+		__u8 *bytes = urb->transfer_buffer;
++		__u8 *bytes =3D urb->transfer_buffer;
 +		unsigned int i;
 +
-+		for (i = 0; i < urb->actual_length; i++) {
-+			/* De-obfuscation implemented here: variable portion of
-+			   xormask is incremented, and then used with the encoded
-+			   byte for the XOR. The result of the operation is used
-+			   to unwrap the SIR frame. */
-+			kingsun->rx_variable_xormask++;
-+			bytes[i] =
-+			    bytes[i] ^ kingsun->rx_variable_xormask ^ 0x55u;
-+
-+			/* rx_variable_xormask doubles as an index counter so we
-+			   can skip the byte at 0xff (wrapped around to 0).
-+			 */
-+			if (kingsun->rx_variable_xormask != 0) {
-+				async_unwrap_char(kingsun->netdev,
-+						  &kingsun->stats,
-+						  &kingsun->rx_unwrap_buff,
-+						  bytes[i]);
-+			}
++		for (i =3D 0; i < urb->actual_length; i++) {
++			async_unwrap_char(kingsun->netdev, &kingsun->stats,
++					  &kingsun->rx_unwrap_buff, bytes[i]);
 +		}
-+		kingsun->netdev->last_rx = jiffies;
-+		do_gettimeofday(&kingsun->rx_time);
-+		kingsun->receiving =
-+		    (kingsun->rx_unwrap_buff.state != OUTSIDE_FRAME) ? 1 : 0;
++		kingsun->netdev->last_rx =3D jiffies;
++		kingsun->receiving =3D
++		    (kingsun->rx_unwrap_buff.state !=3D OUTSIDE_FRAME) ? 1 : 0;
 +	}
 +
-+	/* This urb has already been filled in kingsun_net_open. Setup
-+	   packet must be re-filled, but it is assumed that urb keeps the
-+	   pointer to the initial setup packet, as well as the payload buffer.
-+	   Setup packet is already pre-filled at ks959_probe.
++	/* This urb has already been filled in ksdazzle_net_open. It is assum=
+ed that
++	   urb keeps the pointer to the payload buffer.
 +	 */
-+	urb->status = 0;
-+	ret = usb_submit_urb(urb, GFP_ATOMIC);
++	urb->status =3D 0;
++	usb_submit_urb(urb, GFP_ATOMIC);
 +}
 +
 +/*
-+ * Function kingsun_net_open (dev)
++ * Function ksdazzle_net_open (dev)
 + *
-+ *    Network device is taken up. Usually this is done by "ifconfig irda0 up"
++ *    Network device is taken up. Usually this is done by "ifconfig ir=
+da0 up"
 + */
-+static int ks959_net_open(struct net_device *netdev)
++static int ksdazzle_net_open(struct net_device *netdev)
 +{
-+	struct ks959_cb *kingsun = netdev_priv(netdev);
-+	int err = -ENOMEM;
++	struct ksdazzle_cb *kingsun =3D netdev_priv(netdev);
++	int err =3D -ENOMEM;
 +	char hwname[16];
 +
-+	/* At this point, urbs are NULL, and skb is NULL (see kingsun_probe) */
-+	kingsun->receiving = 0;
++	/* At this point, urbs are NULL, and skb is NULL (see ksdazzle_probe)=
+ */
++	kingsun->receiving =3D 0;
 +
 +	/* Initialize for SIR to copy data directly into skb.  */
-+	kingsun->rx_unwrap_buff.in_frame = FALSE;
-+	kingsun->rx_unwrap_buff.state = OUTSIDE_FRAME;
-+	kingsun->rx_unwrap_buff.truesize = IRDA_SKB_MAX_MTU;
-+	kingsun->rx_unwrap_buff.skb = dev_alloc_skb(IRDA_SKB_MAX_MTU);
++	kingsun->rx_unwrap_buff.in_frame =3D FALSE;
++	kingsun->rx_unwrap_buff.state =3D OUTSIDE_FRAME;
++	kingsun->rx_unwrap_buff.truesize =3D IRDA_SKB_MAX_MTU;
++	kingsun->rx_unwrap_buff.skb =3D dev_alloc_skb(IRDA_SKB_MAX_MTU);
 +	if (!kingsun->rx_unwrap_buff.skb)
 +		goto free_mem;
 +
 +	skb_reserve(kingsun->rx_unwrap_buff.skb, 1);
-+	kingsun->rx_unwrap_buff.head = kingsun->rx_unwrap_buff.skb->data;
-+	do_gettimeofday(&kingsun->rx_time);
++	kingsun->rx_unwrap_buff.head =3D kingsun->rx_unwrap_buff.skb->data;
 +
-+	kingsun->rx_urb = usb_alloc_urb(0, GFP_KERNEL);
++	kingsun->rx_urb =3D usb_alloc_urb(0, GFP_KERNEL);
 +	if (!kingsun->rx_urb)
 +		goto free_mem;
 +
-+	kingsun->tx_urb = usb_alloc_urb(0, GFP_KERNEL);
++	kingsun->tx_urb =3D usb_alloc_urb(0, GFP_KERNEL);
 +	if (!kingsun->tx_urb)
 +		goto free_mem;
 +
-+	kingsun->speed_urb = usb_alloc_urb(0, GFP_KERNEL);
++	kingsun->speed_urb =3D usb_alloc_urb(0, GFP_KERNEL);
 +	if (!kingsun->speed_urb)
 +		goto free_mem;
 +
 +	/* Initialize speed for dongle */
-+	kingsun->new_speed = 9600;
-+	err = ks959_change_speed(kingsun, 9600);
++	kingsun->new_speed =3D 9600;
++	err =3D ksdazzle_change_speed(kingsun, 9600);
 +	if (err < 0)
 +		goto free_mem;
 +
@@ -617,22 +555,20 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +	 * Open new IrLAP layer instance to take care of us...
 +	 */
 +	sprintf(hwname, "usb#%d", kingsun->usbdev->devnum);
-+	kingsun->irlap = irlap_open(netdev, &kingsun->qos, hwname);
++	kingsun->irlap =3D irlap_open(netdev, &kingsun->qos, hwname);
 +	if (!kingsun->irlap) {
-+		err("ks959-sir: irlap_open failed");
++		err("ksdazzle-sir: irlap_open failed");
 +		goto free_mem;
 +	}
 +
-+	/* Start reception. Setup request already pre-filled in ks959_probe */
-+	usb_fill_control_urb(kingsun->rx_urb, kingsun->usbdev,
-+			     usb_rcvctrlpipe(kingsun->usbdev, 0),
-+			     (unsigned char *)kingsun->rx_setuprequest,
-+			     kingsun->rx_buf, KINGSUN_RCV_FIFO_SIZE,
-+			     ks959_rcv_irq, kingsun);
-+	kingsun->rx_urb->status = 0;
-+	err = usb_submit_urb(kingsun->rx_urb, GFP_KERNEL);
++	/* Start reception. */
++	usb_fill_int_urb(kingsun->rx_urb, kingsun->usbdev,
++			 usb_rcvintpipe(kingsun->usbdev, kingsun->ep_in),
++			 kingsun->rx_payload, 8, ksdazzle_rcv_irq, kingsun, 1);
++	kingsun->rx_urb->status =3D 0;
++	err =3D usb_submit_urb(kingsun->rx_urb, GFP_KERNEL);
 +	if (err) {
-+		err("ks959-sir: first urb-submit failed: %d", err);
++		err("ksdazzle-sir: first urb-submit failed: %d", err);
 +		goto close_irlap;
 +	}
 +
@@ -653,28 +589,28 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +	irlap_close(kingsun->irlap);
 +      free_mem:
 +	usb_free_urb(kingsun->speed_urb);
-+	kingsun->speed_urb = NULL;
++	kingsun->speed_urb =3D NULL;
 +	usb_free_urb(kingsun->tx_urb);
-+	kingsun->tx_urb = NULL;
++	kingsun->tx_urb =3D NULL;
 +	usb_free_urb(kingsun->rx_urb);
-+	kingsun->rx_urb = NULL;
++	kingsun->rx_urb =3D NULL;
 +	if (kingsun->rx_unwrap_buff.skb) {
 +		kfree_skb(kingsun->rx_unwrap_buff.skb);
-+		kingsun->rx_unwrap_buff.skb = NULL;
-+		kingsun->rx_unwrap_buff.head = NULL;
++		kingsun->rx_unwrap_buff.skb =3D NULL;
++		kingsun->rx_unwrap_buff.head =3D NULL;
 +	}
 +	return err;
 +}
 +
 +/*
-+ * Function kingsun_net_close (kingsun)
++ * Function ksdazzle_net_close (dev)
 + *
 + *    Network device is taken down. Usually this is done by
 + *    "ifconfig irda0 down"
 + */
-+static int ks959_net_close(struct net_device *netdev)
++static int ksdazzle_net_close(struct net_device *netdev)
 +{
-+	struct ks959_cb *kingsun = netdev_priv(netdev);
++	struct ksdazzle_cb *kingsun =3D netdev_priv(netdev);
 +
 +	/* Stop transmit processing */
 +	netif_stop_queue(netdev);
@@ -682,28 +618,27 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +	/* Mop up receive && transmit urb's */
 +	usb_kill_urb(kingsun->tx_urb);
 +	usb_free_urb(kingsun->tx_urb);
-+	kingsun->tx_urb = NULL;
++	kingsun->tx_urb =3D NULL;
 +
 +	usb_kill_urb(kingsun->speed_urb);
 +	usb_free_urb(kingsun->speed_urb);
-+	kingsun->speed_urb = NULL;
++	kingsun->speed_urb =3D NULL;
 +
 +	usb_kill_urb(kingsun->rx_urb);
 +	usb_free_urb(kingsun->rx_urb);
-+	kingsun->rx_urb = NULL;
++	kingsun->rx_urb =3D NULL;
 +
 +	kfree_skb(kingsun->rx_unwrap_buff.skb);
-+	kingsun->rx_unwrap_buff.skb = NULL;
-+	kingsun->rx_unwrap_buff.head = NULL;
-+	kingsun->rx_unwrap_buff.in_frame = FALSE;
-+	kingsun->rx_unwrap_buff.state = OUTSIDE_FRAME;
-+	kingsun->receiving = 0;
++	kingsun->rx_unwrap_buff.skb =3D NULL;
++	kingsun->rx_unwrap_buff.head =3D NULL;
++	kingsun->rx_unwrap_buff.in_frame =3D FALSE;
++	kingsun->rx_unwrap_buff.state =3D OUTSIDE_FRAME;
++	kingsun->receiving =3D 0;
 +
 +	/* Stop and remove instance of IrLAP */
-+	if (kingsun->irlap)
-+		irlap_close(kingsun->irlap);
++	irlap_close(kingsun->irlap);
 +
-+	kingsun->irlap = NULL;
++	kingsun->irlap =3D NULL;
 +
 +	return 0;
 +}
@@ -711,11 +646,13 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +/*
 + * IOCTLs : Extra out-of-band network commands...
 + */
-+static int ks959_net_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
++static int ksdazzle_net_ioctl(struct net_device *netdev, struct ifreq =
+*rq,
++			      int cmd)
 +{
-+	struct if_irda_req *irq = (struct if_irda_req *)rq;
-+	struct ks959_cb *kingsun = netdev_priv(netdev);
-+	int ret = 0;
++	struct if_irda_req *irq =3D (struct if_irda_req *)rq;
++	struct ksdazzle_cb *kingsun =3D netdev_priv(netdev);
++	int ret =3D 0;
 +
 +	switch (cmd) {
 +	case SIOCSBANDWIDTH:	/* Set bandwidth */
@@ -724,7 +661,8 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +
 +		/* Check if the device is still there */
 +		if (netif_device_present(kingsun->netdev))
-+			return ks959_change_speed(kingsun, irq->ifr_baudrate);
++			return ksdazzle_change_speed(kingsun,
++						     irq->ifr_baudrate);
 +		break;
 +
 +	case SIOCSMEDIABUSY:	/* Set media busy */
@@ -738,11 +676,11 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +
 +	case SIOCGRECEIVING:
 +		/* Only approximately true */
-+		irq->ifr_receiving = kingsun->receiving;
++		irq->ifr_receiving =3D kingsun->receiving;
 +		break;
 +
 +	default:
-+		ret = -EOPNOTSUPP;
++		ret =3D -EOPNOTSUPP;
 +	}
 +
 +	return ret;
@@ -751,9 +689,11 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +/*
 + * Get device stats (for /proc/net/dev and ifconfig)
 + */
-+static struct net_device_stats *ks959_net_get_stats(struct net_device *netdev)
++static struct net_device_stats *ksdazzle_net_get_stats(struct net_devi=
+ce
++						       *netdev)
 +{
-+	struct ks959_cb *kingsun = netdev_priv(netdev);
++	struct ksdazzle_cb *kingsun =3D netdev_priv(netdev);
 +	return &kingsun->stats;
 +}
 +
@@ -762,97 +702,103 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 + * in the system. We need to check if the device is ours, and in
 + * this case start handling it.
 + */
-+static int ks959_probe(struct usb_interface *intf,
-+		       const struct usb_device_id *id)
++static int ksdazzle_probe(struct usb_interface *intf,
++			  const struct usb_device_id *id)
 +{
-+	struct usb_device *dev = interface_to_usbdev(intf);
-+	struct ks959_cb *kingsun = NULL;
-+	struct net_device *net = NULL;
-+	int ret = -ENOMEM;
++	struct usb_host_interface *interface;
++	struct usb_endpoint_descriptor *endpoint;
++
++	struct usb_device *dev =3D interface_to_usbdev(intf);
++	struct ksdazzle_cb *kingsun =3D NULL;
++	struct net_device *net =3D NULL;
++	int ret =3D -ENOMEM;
++	int pipe, maxp_in, maxp_out;
++	__u8 ep_in;
++	__u8 ep_out;
++
++	/* Check that there really are two interrupt endpoints. Check based o=
+n the
++	   one in drivers/usb/input/usbmouse.c
++	 */
++	interface =3D intf->cur_altsetting;
++	if (interface->desc.bNumEndpoints !=3D 2) {
++		err("ksdazzle: expected 2 endpoints, found %d",
++		    interface->desc.bNumEndpoints);
++		return -ENODEV;
++	}
++	endpoint =3D &interface->endpoint[KINGSUN_EP_IN].desc;
++	if (!usb_endpoint_is_int_in(endpoint)) {
++		err("ksdazzle: endpoint 0 is not interrupt IN");
++		return -ENODEV;
++	}
++
++	ep_in =3D endpoint->bEndpointAddress;
++	pipe =3D usb_rcvintpipe(dev, ep_in);
++	maxp_in =3D usb_maxpacket(dev, pipe, usb_pipeout(pipe));
++	if (maxp_in > 255 || maxp_in <=3D 1) {
++		err("ksdazzle: endpoint 0 has max packet size %d not in range [2..25=
+5]", maxp_in);
++		return -ENODEV;
++	}
++
++	endpoint =3D &interface->endpoint[KINGSUN_EP_OUT].desc;
++	if (!usb_endpoint_is_int_out(endpoint)) {
++		err("ksdazzle: endpoint 1 is not interrupt OUT");
++		return -ENODEV;
++	}
++
++	ep_out =3D endpoint->bEndpointAddress;
++	pipe =3D usb_sndintpipe(dev, ep_out);
++	maxp_out =3D usb_maxpacket(dev, pipe, usb_pipeout(pipe));
 +
 +	/* Allocate network device container. */
-+	net = alloc_irdadev(sizeof(*kingsun));
++	net =3D alloc_irdadev(sizeof(*kingsun));
 +	if (!net)
 +		goto err_out1;
 +
 +	SET_MODULE_OWNER(net);
 +	SET_NETDEV_DEV(net, &intf->dev);
-+	kingsun = netdev_priv(net);
-+	kingsun->netdev = net;
-+	kingsun->usbdev = dev;
-+	kingsun->irlap = NULL;
-+	kingsun->tx_setuprequest = NULL;
-+	kingsun->tx_urb = NULL;
-+	kingsun->tx_buf_clear = NULL;
-+	kingsun->tx_buf_xored = NULL;
-+	kingsun->tx_buf_clear_used = 0;
-+	kingsun->tx_buf_clear_sent = 0;
++	kingsun =3D netdev_priv(net);
++	kingsun->netdev =3D net;
++	kingsun->usbdev =3D dev;
++	kingsun->ep_in =3D ep_in;
++	kingsun->ep_out =3D ep_out;
++	kingsun->irlap =3D NULL;
++	kingsun->tx_urb =3D NULL;
++	kingsun->tx_buf_clear =3D NULL;
++	kingsun->tx_buf_clear_used =3D 0;
++	kingsun->tx_buf_clear_sent =3D 0;
 +
-+	kingsun->rx_setuprequest = NULL;
-+	kingsun->rx_urb = NULL;
-+	kingsun->rx_buf = NULL;
-+	kingsun->rx_variable_xormask = 0;
-+	kingsun->rx_unwrap_buff.in_frame = FALSE;
-+	kingsun->rx_unwrap_buff.state = OUTSIDE_FRAME;
-+	kingsun->rx_unwrap_buff.skb = NULL;
-+	kingsun->receiving = 0;
++	kingsun->rx_urb =3D NULL;
++	kingsun->rx_unwrap_buff.in_frame =3D FALSE;
++	kingsun->rx_unwrap_buff.state =3D OUTSIDE_FRAME;
++	kingsun->rx_unwrap_buff.skb =3D NULL;
++	kingsun->receiving =3D 0;
 +	spin_lock_init(&kingsun->lock);
 +
-+	kingsun->speed_setuprequest = NULL;
-+	kingsun->speed_urb = NULL;
-+	kingsun->speedparams.baudrate = 0;
-+
-+	/* Allocate input buffer */
-+	kingsun->rx_buf = kmalloc(KINGSUN_RCV_FIFO_SIZE, GFP_KERNEL);
-+	if (!kingsun->rx_buf)
-+		goto free_mem;
-+
-+	/* Allocate input setup packet */
-+	kingsun->rx_setuprequest =
-+	    kmalloc(sizeof(struct usb_ctrlrequest), GFP_KERNEL);
-+	if (!kingsun->rx_setuprequest)
-+		goto free_mem;
-+	kingsun->rx_setuprequest->bRequestType =
-+	    USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE;
-+	kingsun->rx_setuprequest->bRequest = KINGSUN_REQ_RECV;
-+	kingsun->rx_setuprequest->wValue = cpu_to_le16(0x0200);
-+	kingsun->rx_setuprequest->wIndex = 0;
-+	kingsun->rx_setuprequest->wLength = cpu_to_le16(KINGSUN_RCV_FIFO_SIZE);
++	kingsun->speed_setuprequest =3D NULL;
++	kingsun->speed_urb =3D NULL;
++	kingsun->speedparams.baudrate =3D 0;
 +
 +	/* Allocate output buffer */
-+	kingsun->tx_buf_clear = kmalloc(KINGSUN_SND_FIFO_SIZE, GFP_KERNEL);
++	kingsun->tx_buf_clear =3D kmalloc(KINGSUN_SND_FIFO_SIZE, GFP_KERNEL);
 +	if (!kingsun->tx_buf_clear)
 +		goto free_mem;
-+	kingsun->tx_buf_xored = kmalloc(KINGSUN_SND_PACKET_SIZE, GFP_KERNEL);
-+	if (!kingsun->tx_buf_xored)
-+		goto free_mem;
-+
-+	/* Allocate and initialize output setup packet */
-+	kingsun->tx_setuprequest =
-+	    kmalloc(sizeof(struct usb_ctrlrequest), GFP_KERNEL);
-+	if (!kingsun->tx_setuprequest)
-+		goto free_mem;
-+	kingsun->tx_setuprequest->bRequestType =
-+	    USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE;
-+	kingsun->tx_setuprequest->bRequest = KINGSUN_REQ_SEND;
-+	kingsun->tx_setuprequest->wValue = 0;
-+	kingsun->tx_setuprequest->wIndex = 0;
-+	kingsun->tx_setuprequest->wLength = 0;
 +
 +	/* Allocate and initialize speed setup packet */
-+	kingsun->speed_setuprequest =
++	kingsun->speed_setuprequest =3D
 +	    kmalloc(sizeof(struct usb_ctrlrequest), GFP_KERNEL);
 +	if (!kingsun->speed_setuprequest)
 +		goto free_mem;
-+	kingsun->speed_setuprequest->bRequestType =
++	kingsun->speed_setuprequest->bRequestType =3D
 +	    USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE;
-+	kingsun->speed_setuprequest->bRequest = KINGSUN_REQ_SEND;
-+	kingsun->speed_setuprequest->wValue = cpu_to_le16(0x0200);
-+	kingsun->speed_setuprequest->wIndex = cpu_to_le16(0x0001);
-+	kingsun->speed_setuprequest->wLength =
-+	    cpu_to_le16(sizeof(struct ks959_speedparams));
++	kingsun->speed_setuprequest->bRequest =3D KINGSUN_REQ_SEND;
++	kingsun->speed_setuprequest->wValue =3D cpu_to_le16(0x0200);
++	kingsun->speed_setuprequest->wIndex =3D cpu_to_le16(0x0001);
++	kingsun->speed_setuprequest->wLength =3D
++	    cpu_to_le16(sizeof(struct ksdazzle_speedparams));
 +
-+	printk(KERN_INFO "KingSun KS-959 IRDA/USB found at address %d, "
++	printk(KERN_INFO "KingSun/Dazzle IRDA/USB found at address %d, "
 +	       "Vendor: %x, Product: %x\n",
 +	       dev->devnum, le16_to_cpu(dev->descriptor.idVendor),
 +	       le16_to_cpu(dev->descriptor.idProduct));
@@ -860,27 +806,29 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +	/* Initialize QoS for this device */
 +	irda_init_max_qos_capabilies(&kingsun->qos);
 +
-+	/* Baud rates known to be supported. Please uncomment if devices (other
-+	   than a SonyEriccson K300 phone) can be shown to support higher speed
++	/* Baud rates known to be supported. Please uncomment if devices (oth=
+er
++	   than a SonyEriccson K300 phone) can be shown to support higher spe=
+eds
 +	   with this dongle.
 +	 */
-+	kingsun->qos.baud_rate.bits =
-+	    IR_2400 | IR_9600 | IR_19200 | IR_38400 | IR_57600;
-+	kingsun->qos.min_turn_time.bits &= KINGSUN_MTT;
++	kingsun->qos.baud_rate.bits =3D
++	    IR_2400 | IR_9600 | IR_19200 | IR_38400 | IR_57600 | IR_115200;
++	kingsun->qos.min_turn_time.bits &=3D KINGSUN_MTT;
 +	irda_qos_bits_to_value(&kingsun->qos);
 +
 +	/* Override the network functions we need to use */
-+	net->hard_start_xmit = ks959_hard_xmit;
-+	net->open = ks959_net_open;
-+	net->stop = ks959_net_close;
-+	net->get_stats = ks959_net_get_stats;
-+	net->do_ioctl = ks959_net_ioctl;
++	net->hard_start_xmit =3D ksdazzle_hard_xmit;
++	net->open =3D ksdazzle_net_open;
++	net->stop =3D ksdazzle_net_close;
++	net->get_stats =3D ksdazzle_net_get_stats;
++	net->do_ioctl =3D ksdazzle_net_ioctl;
 +
-+	ret = register_netdev(net);
-+	if (ret != 0)
++	ret =3D register_netdev(net);
++	if (ret !=3D 0)
 +		goto free_mem;
 +
-+	info("IrDA: Registered KingSun KS-959 device %s", net->name);
++	info("IrDA: Registered KingSun/Dazzle device %s", net->name);
 +
 +	usb_set_intfdata(intf, kingsun);
 +
@@ -889,29 +837,27 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +	   - setup requests pre-filled
 +	   - urbs not allocated, set to NULL
 +	   - max rx packet known (is KINGSUN_FIFO_SIZE)
-+	   - unwrap state machine (partially) initialized, but skb == NULL
++	   - unwrap state machine (partially) initialized, but skb =3D=3D NUL=
+L
 +	 */
 +
 +	return 0;
 +
 +      free_mem:
 +	kfree(kingsun->speed_setuprequest);
-+	kfree(kingsun->tx_setuprequest);
-+	kfree(kingsun->tx_buf_xored);
 +	kfree(kingsun->tx_buf_clear);
-+	kfree(kingsun->rx_setuprequest);
-+	kfree(kingsun->rx_buf);
 +	free_netdev(net);
 +      err_out1:
 +	return ret;
 +}
 +
 +/*
-+ * The current device is removed, the USB layer tell us to shut it down...
++ * The current device is removed, the USB layer tell us to shut it dow=
+n...
 + */
-+static void ks959_disconnect(struct usb_interface *intf)
++static void ksdazzle_disconnect(struct usb_interface *intf)
 +{
-+	struct ks959_cb *kingsun = usb_get_intfdata(intf);
++	struct ksdazzle_cb *kingsun =3D usb_get_intfdata(intf);
 +
 +	if (!kingsun)
 +		return;
@@ -919,28 +865,20 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +	unregister_netdev(kingsun->netdev);
 +
 +	/* Mop up receive && transmit urb's */
-+	if (kingsun->speed_urb != NULL) {
-+		usb_kill_urb(kingsun->speed_urb);
-+		usb_free_urb(kingsun->speed_urb);
-+		kingsun->speed_urb = NULL;
-+	}
-+	if (kingsun->tx_urb != NULL) {
-+		usb_kill_urb(kingsun->tx_urb);
-+		usb_free_urb(kingsun->tx_urb);
-+		kingsun->tx_urb = NULL;
-+	}
-+	if (kingsun->rx_urb != NULL) {
-+		usb_kill_urb(kingsun->rx_urb);
-+		usb_free_urb(kingsun->rx_urb);
-+		kingsun->rx_urb = NULL;
-+	}
++	usb_kill_urb(kingsun->speed_urb);
++	usb_free_urb(kingsun->speed_urb);
++	kingsun->speed_urb =3D NULL;
++
++	usb_kill_urb(kingsun->tx_urb);
++	usb_free_urb(kingsun->tx_urb);
++	kingsun->tx_urb =3D NULL;
++
++	usb_kill_urb(kingsun->rx_urb);
++	usb_free_urb(kingsun->rx_urb);
++	kingsun->rx_urb =3D NULL;
 +
 +	kfree(kingsun->speed_setuprequest);
-+	kfree(kingsun->tx_setuprequest);
-+	kfree(kingsun->tx_buf_xored);
 +	kfree(kingsun->tx_buf_clear);
-+	kfree(kingsun->rx_setuprequest);
-+	kfree(kingsun->rx_buf);
 +	free_netdev(kingsun->netdev);
 +
 +	usb_set_intfdata(intf, NULL);
@@ -948,27 +886,28 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +
 +#ifdef CONFIG_PM
 +/* USB suspend, so power off the transmitter/receiver */
-+static int ks959_suspend(struct usb_interface *intf, pm_message_t message)
++static int ksdazzle_suspend(struct usb_interface *intf, pm_message_t m=
+essage)
 +{
-+	struct ks959_cb *kingsun = usb_get_intfdata(intf);
++	struct ksdazzle_cb *kingsun =3D usb_get_intfdata(intf);
 +
 +	netif_device_detach(kingsun->netdev);
-+	if (kingsun->speed_urb != NULL)
++	if (kingsun->speed_urb !=3D NULL)
 +		usb_kill_urb(kingsun->speed_urb);
-+	if (kingsun->tx_urb != NULL)
++	if (kingsun->tx_urb !=3D NULL)
 +		usb_kill_urb(kingsun->tx_urb);
-+	if (kingsun->rx_urb != NULL)
++	if (kingsun->rx_urb !=3D NULL)
 +		usb_kill_urb(kingsun->rx_urb);
 +	return 0;
 +}
 +
 +/* Coming out of suspend, so reset hardware */
-+static int ks959_resume(struct usb_interface *intf)
++static int ksdazzle_resume(struct usb_interface *intf)
 +{
-+	struct ks959_cb *kingsun = usb_get_intfdata(intf);
++	struct ksdazzle_cb *kingsun =3D usb_get_intfdata(intf);
 +
-+	if (kingsun->rx_urb != NULL) {
-+		/* Setup request already filled in ks959_probe */
++	if (kingsun->rx_urb !=3D NULL) {
++		/* Setup request already filled in ksdazzle_probe */
 +		usb_submit_urb(kingsun->rx_urb, GFP_KERNEL);
 +	}
 +	netif_device_attach(kingsun->netdev);
@@ -980,78 +919,57 @@ Index: net-2.6.24-quilt/drivers/net/irda/ks959-sir.c
 +/*
 + * USB device callbacks
 + */
-+static struct usb_driver irda_driver = {
-+	.name = "ks959-sir",
-+	.probe = ks959_probe,
-+	.disconnect = ks959_disconnect,
-+	.id_table = dongles,
++static struct usb_driver irda_driver =3D {
++	.name =3D "ksdazzle-sir",
++	.probe =3D ksdazzle_probe,
++	.disconnect =3D ksdazzle_disconnect,
++	.id_table =3D dongles,
 +#ifdef CONFIG_PM
-+	.suspend = ks959_suspend,
-+	.resume = ks959_resume,
++	.suspend =3D ksdazzle_suspend,
++	.resume =3D ksdazzle_resume,
 +#endif
 +};
 +
 +/*
 + * Module insertion
 + */
-+static int __init ks959_init(void)
++static int __init ksdazzle_init(void)
 +{
 +	return usb_register(&irda_driver);
 +}
 +
-+module_init(ks959_init);
++module_init(ksdazzle_init);
 +
 +/*
 + * Module removal
 + */
-+static void __exit ks959_cleanup(void)
++static void __exit ksdazzle_cleanup(void)
 +{
 +	/* Deregister the driver and remove all pending instances */
 +	usb_deregister(&irda_driver);
 +}
 +
-+module_exit(ks959_cleanup);
++module_exit(ksdazzle_cleanup);
 +
-+MODULE_AUTHOR("Alex Villacís Lasso <a_villacis-5itmuRygkZmgSpxsJD1C4w@public.gmane.org>");
-+MODULE_DESCRIPTION("IrDA-USB Dongle Driver for KingSun KS-959");
++MODULE_AUTHOR("Alex Villac=C3=ADs Lasso <a_villacis@palosanto.com>");
++MODULE_DESCRIPTION("IrDA-USB Dongle Driver for KingSun Dazzle");
 +MODULE_LICENSE("GPL");
 Index: net-2.6.24-quilt/drivers/net/irda/Makefile
-===================================================================
---- net-2.6.24-quilt.orig/drivers/net/irda/Makefile	2007-08-25 02:42:20.000000000 +0300
-+++ net-2.6.24-quilt/drivers/net/irda/Makefile	2007-08-25 02:54:09.000000000 +0300
-@@ -48,6 +48,7 @@
- obj-$(CONFIG_EP7211_DONGLE)	+= ep7211-sir.o
- obj-$(CONFIG_KINGSUN_DONGLE)	+= kingsun-sir.o
- obj-$(CONFIG_KSDAZZLE_DONGLE)	+= ksdazzle-sir.o
-+obj-$(CONFIG_KS959_DONGLE)    	+= ks959-sir.o
- 
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+--- net-2.6.24-quilt.orig/drivers/net/irda/Makefile	2007-08-24 14:55:19=
+=2E000000000 +0300
++++ net-2.6.24-quilt/drivers/net/irda/Makefile	2007-08-25 02:42:20.0000=
+00000 +0300
+@@ -47,6 +47,7 @@
+ obj-$(CONFIG_TOIM3232_DONGLE)	+=3D toim3232-sir.o
+ obj-$(CONFIG_EP7211_DONGLE)	+=3D ep7211-sir.o
+ obj-$(CONFIG_KINGSUN_DONGLE)	+=3D kingsun-sir.o
++obj-$(CONFIG_KSDAZZLE_DONGLE)	+=3D ksdazzle-sir.o
+=20
  # The SIR helper module
- sir-dev-objs := sir_dev.o sir_dongle.o
+ sir-dev-objs :=3D sir_dev.o sir_dongle.o
 
--- 
+--=20
 
-
-
---===============0894956945==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >>  http://get.splunk.com/
---===============0894956945==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-irda-users mailing list
-irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-http://lists.sourceforge.net/lists/listinfo/irda-users
-
---===============0894956945==--
