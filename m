@@ -1,82 +1,47 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH net-2.6.24] introduce MAC_FMT/MAC_ARG
-Date: Mon, 27 Aug 2007 12:54:09 +0200
-Message-ID: <1188212049.6756.18.camel@johannes.berg>
-References: <1187808408.4314.15.camel@johannes.berg>
-	 <1188086976.18004.5.camel@localhost>
+From: Karsten Keil <kkeil@suse.de>
+Subject: Re: [PATCH] isdn capi driver broken on 64 bit.
+Date: Mon, 27 Aug 2007 13:02:26 +0200
+Message-ID: <20070827110226.GA15362@pingi.kke.suse.de>
+References: <20070824110811.32f266f8@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-79nALHRha+O0eZRj2QFr"
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=us-ascii
+To: isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:60050 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753901AbXH0KxE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2007 06:53:04 -0400
-In-Reply-To: <1188086976.18004.5.camel@localhost>
+Received: from mx1.suse.de ([195.135.220.2]:53634 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753794AbXH0LC1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Aug 2007 07:02:27 -0400
+Content-Disposition: inline
+In-Reply-To: <20070824110811.32f266f8@freepuppy.rosehill.hemminger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Aug 24, 2007 at 11:08:11AM -0700, Stephen Hemminger wrote:
+> The following driver API is broken on any architecture with 64 bit addresses.
+> because of cast that loses high bits.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> 
+> 
+> --- a/drivers/isdn/capi/capidrv.c	2007-06-25 09:03:12.000000000 -0700
+> +++ b/drivers/isdn/capi/capidrv.c	2007-08-24 11:06:46.000000000 -0700
+> @@ -1855,6 +1855,9 @@ static int if_sendbuf(int id, int channe
+>  		return 0;
+>  	}
+>  	datahandle = nccip->datahandle;
+> +
+> +	/* This won't work on 64 bit! */
+> +	BUILD_BUG_ON(sizeof(skb->data) > sizeof(u32));
+>  	capi_fill_DATA_B3_REQ(&sendcmsg, global.ap.applid, card->msgid++,
+>  			      nccip->ncci,	/* adr */
+>  			      (u32) skb->data,	/* Data */
 
---=-79nALHRha+O0eZRj2QFr
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
 
-On Sat, 2007-08-25 at 17:09 -0700, Joe Perches wrote:
->=20
-> @@ -747,22 +741,15 @@ static int ariadne_rx(struct net_device *dev)
->             skb_copy_to_linear_data(skb, (char *)priv->rx_buff[entry],
-> pkt_len);
->             skb->protocol=3Deth_type_trans(skb,dev);
->  #if 0
->  (int)skb->len);
-> +{
-> +           printk(KERN_DEBUG "RX pkt type 0x%04x"
-> +                  " from " MAC_FMT " to " MAC_FMT
-> +                  " data 0x%08x len %d\n",
-> +                  ((u_short *)skb->data)[6],
-> +                  MAC_ARG(((u_char *)skb->data)+6),
-> +                  MAC_ARG((u_char *)skb->data),
-> +                  (int)skb->data, (int)skb->len);
-> +}
->  #endif=20
+NACK.
 
-You could drop the braces since there are no variables there any more.
+It is not a BUG.
 
-Thanks for this patch though, I'd have done it otherwise.
-
-I was rereading your original conversion and noticed that it is now
-trivial to make the kernel smaller like you originally wanted by doing
-something like this
-
--- define this function somewhere --
-print_mac(u8 *mac, char *buf)
-{
-	sprintf(buf, "%02x:...", mac[0], mac[1], ...);
-}
-EXPORT_SYMBOL(print_mac)
-
--- change macros to --
-#define MAC_FMT "%s"
-#define MAC_ARG(a) ({char __buf[18]; print_mac(a, buf); __buf})
-
-I'm not sure we'd want that, but at the time you said it made the kernel
-significantly smaller and I doubt there's a performance problem with it
-(who prints mac addresses regularly?)
-
-johannes
-
---=-79nALHRha+O0eZRj2QFr
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBG0q1R/ETPhpq3jKURAk6QAJ9FmoTAq1bMVCnQ0DiOfxDOUbX9pQCgkgSz
-CeewInSSOYBxU0mAvOeSUQ8=
-=5Dlg
------END PGP SIGNATURE-----
-
---=-79nALHRha+O0eZRj2QFr--
+This is OK, since this field must have a value and on 32 it has the correct
+one) On 64 bit this field is ignored (but also need a value, random data is
+bad as well).
 
