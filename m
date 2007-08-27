@@ -1,39 +1,63 @@
-From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-Subject: Re: ps3 gelic network driver doesn't restart properly
-Date: Mon, 27 Aug 2007 14:12:54 +0900
-Message-ID: <20070827140347.C2A8.MOKUNO@sm.sony.co.jp>
-References: <46CBFF3E.2080400@suse.de> <fc94aae90708221812w60ba7c30rf2669ae74401ee22@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH 2.6.23-rc3-mm1] request_irq fix DEBUG_SHIRQ handling Re: 2.6.23-rc2-mm1: rtl8139 inconsistent lock state
+Date: Mon, 27 Aug 2007 07:54:26 +0200
+Message-ID: <20070827055426.GA1703@ff.dom.local>
+References: <20070822133511.GH1684@ff.dom.local> <200708251143.09425.m.kozlowski@tuxland.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: "Stefan Assmann" <sassmann@suse.de>,
-	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>,
-	netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org, ppc@suse.de
-To: "Michael Lothian" <mike@fireburn.co.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	linux-kernel@vger.kernel.org
+To: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MGW2.Sony.CO.JP ([137.153.0.14]:59448 "EHLO mgw2.sony.co.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751008AbXH0FM6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Aug 2007 01:12:58 -0400
-In-Reply-To: <fc94aae90708221812w60ba7c30rf2669ae74401ee22@mail.gmail.com>
+Received: from mx12.go2.pl ([193.17.41.142]:48764 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751357AbXH0FxL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Aug 2007 01:53:11 -0400
+Content-Disposition: inline
+In-Reply-To: <200708251143.09425.m.kozlowski@tuxland.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sorry for late reply.  I was on holiday last week.
-
-On Thu, 23 Aug 2007 02:12:47 +0100
-"Michael Lothian" <mike@fireburn.co.uk> wrote:
-
-> I can confirm this behaviour
+On Sat, Aug 25, 2007 at 11:43:08AM +0200, Mariusz Kozlowski wrote:
+> > > =================================
+> > > [ INFO: inconsistent lock state ]
+> > > 2.6.23-rc2-mm1 #7
+> > > ---------------------------------
+> > > inconsistent {in-hardirq-W} -> {hardirq-on-W} usage.
+> > > ifconfig/5492 [HC0[0]:SC0[0]:HE1:SE1] takes:
+> > >  (&tp->lock){+...}, at: [<de8706e0>] rtl8139_interrupt+0x27/0x46b [8139too]
+...
+> I tested your patch and it still happens. Dmesg info from patched kernel attached.
+> I coulnd't reproduce that on 2.6.23-rc3-mm1 - but on 2.6.23-rc2-mm2 it is easily
+> reproducible.
 > 
-> It could also be worth mentioning I'm using gcc 4.2.1
+> If you need more info, test some patches, etc. - just mail me.
 > 
-> Cheers
+...
+> =========================================================
+> [ INFO: possible irq lock inversion dependency detected ]
+> 2.6.23-rc2-mm2 #2
+> ---------------------------------------------------------
+> runscript.sh/5065 just changed the state of lock:
+>  (_xmit_ETHER){-+..}, at: [<c03cb659>] dev_watchdog+0x17/0xcc
+> but this lock took another, soft-irq-unsafe lock in the past:
+>  (&tp->lock){--..}
+> 
+> and interrupts could create inverse lock ordering between them.
 
+It's OK! These're 2 different warnings. As a matter of fact, my patch
+wasn't supposed to fix any of them, but something similar to the first
+one, which was possible, but for some reason wasn't reported by
+lockdep.
 
-I also reproduced the symptom now.  I'll investigate.
-Thanks, Stefan and Mike.
+The first warning was fixed by Andrew Morton's patch to free_irq(),
+so it shouldn't happen in -rc3-mm. The second warning could have been
+fixed too, I don't know, but since it's quite long, I would prefer to
+think about it only if it still happens in current -mm's.
 
---
-Masakazu MOKUNO
-
+Thanks,
+Jarek P.
