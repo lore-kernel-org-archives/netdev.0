@@ -1,67 +1,82 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: Re: RFC: issues concerning the next NAPI interface
-Date: Mon, 27 Aug 2007 11:47:01 +0200
-Message-ID: <200708271147.01890.ossthema@de.ibm.com>
-References: <46CF127D.1090609@katalix.com> <46D1D634.7060007@katalix.com> <20070826.185815.93042514.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH net-2.6.24] introduce MAC_FMT/MAC_ARG
+Date: Mon, 27 Aug 2007 12:54:09 +0200
+Message-ID: <1188212049.6756.18.camel@johannes.berg>
+References: <1187808408.4314.15.camel@johannes.berg>
+	 <1188086976.18004.5.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: jchapman@katalix.com, shemminger@linux-foundation.org,
-	akepner@sgi.com, netdev@vger.kernel.org, raisch@de.ibm.com,
-	themann@de.ibm.com, linux-kernel@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, meder@de.ibm.com, tklein@de.ibm.com,
-	stefan.roscher@de.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-79nALHRha+O0eZRj2QFr"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.uk.ibm.com ([195.212.29.139]:35674 "EHLO
-	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753113AbXH0JrQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2007 05:47:16 -0400
-In-Reply-To: <20070826.185815.93042514.davem@davemloft.net>
-Content-Disposition: inline
+Received: from crystal.sipsolutions.net ([195.210.38.204]:60050 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753901AbXH0KxE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2007 06:53:04 -0400
+In-Reply-To: <1188086976.18004.5.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 27 August 2007 03:58, David Miller wrote:
-> From: James Chapman <jchapman@katalix.com>
-> Date: Sun, 26 Aug 2007 20:36:20 +0100
-> 
-> > David Miller wrote:
-> > > From: James Chapman <jchapman@katalix.com>
-> > > Date: Fri, 24 Aug 2007 18:16:45 +0100
-> > > 
-> > >> Does hardware interrupt mitigation really interact well with NAPI?
-> > > 
-> > > It interacts quite excellently.
-> > 
-> > If NAPI disables interrupts and keeps them disabled while there are more 
-> > packets arriving or more transmits being completed, why do hardware 
-> > interrupt mitigation / coalescing features of the network silicon help?
-> 
-> Because if your packet rate is low enough such that the cpu can
-> process the interrupt fast enough and thus only one packet gets
-> processed per NAPI poll, the cost of going into and out of NAPI mode
-> dominates the packet processing costs.
 
-As far as I understand your argumentation, NAPI is supposed to work well only
-for HW with coalescing features (concerning dropping the interrupt rate).
-NAPI itself does not provide a reliable functionality to reduce the
-number of interrupts, especially not for systems with only 1 NIC. 
-NAPI will only wait for some time when the budget is exceeded
-and the softIRQs don't call net_rx_action again. This seems to be the case
-after 10 rounds. That means NAPI really waits after 300 x 10 packets 
-have been processed in a row (worst case).
+--=-79nALHRha+O0eZRj2QFr
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-As a matter of fact there is HW that does not have this feature. There seems
-to be HW which does not work well with plain NAPI.
-This HW performs well if the operation system supports HP timers 
-(and when they are used either in the device driver or polling engine).
+On Sat, 2007-08-25 at 17:09 -0700, Joe Perches wrote:
+>=20
+> @@ -747,22 +741,15 @@ static int ariadne_rx(struct net_device *dev)
+>             skb_copy_to_linear_data(skb, (char *)priv->rx_buff[entry],
+> pkt_len);
+>             skb->protocol=3Deth_type_trans(skb,dev);
+>  #if 0
+>  (int)skb->len);
+> +{
+> +           printk(KERN_DEBUG "RX pkt type 0x%04x"
+> +                  " from " MAC_FMT " to " MAC_FMT
+> +                  " data 0x%08x len %d\n",
+> +                  ((u_short *)skb->data)[6],
+> +                  MAC_ARG(((u_char *)skb->data)+6),
+> +                  MAC_ARG((u_char *)skb->data),
+> +                  (int)skb->data, (int)skb->len);
+> +}
+>  #endif=20
 
-So the question is simply: Do we want drivers that need (benefit from)
-a timer based polling support to implement their own timers each, 
-or should there be a generic support? 
+You could drop the braces since there are no variables there any more.
 
-Thanks,
-Jan-Bernd
+Thanks for this patch though, I'd have done it otherwise.
+
+I was rereading your original conversion and noticed that it is now
+trivial to make the kernel smaller like you originally wanted by doing
+something like this
+
+-- define this function somewhere --
+print_mac(u8 *mac, char *buf)
+{
+	sprintf(buf, "%02x:...", mac[0], mac[1], ...);
+}
+EXPORT_SYMBOL(print_mac)
+
+-- change macros to --
+#define MAC_FMT "%s"
+#define MAC_ARG(a) ({char __buf[18]; print_mac(a, buf); __buf})
+
+I'm not sure we'd want that, but at the time you said it made the kernel
+significantly smaller and I doubt there's a performance problem with it
+(who prints mac addresses regularly?)
+
+johannes
+
+--=-79nALHRha+O0eZRj2QFr
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBG0q1R/ETPhpq3jKURAk6QAJ9FmoTAq1bMVCnQ0DiOfxDOUbX9pQCgkgSz
+CeewInSSOYBxU0mAvOeSUQ8=
+=5Dlg
+-----END PGP SIGNATURE-----
+
+--=-79nALHRha+O0eZRj2QFr--
 
