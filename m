@@ -1,39 +1,73 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [ANNOUNCE] iproute2-2.6.23-rc3
-Date: Mon, 27 Aug 2007 09:10:11 +0200
-Message-ID: <20070827071011.GC1703@ff.dom.local>
-References: <20070822110804.30c2e803@freepuppy.rosehill.hemminger.net> <20070824101044.GA2913@ff.dom.local> <20070824122628.0305f98e@freepuppy.rosehill.hemminger.net>
+From: Laurent Pinchart <laurentp@cse-semaphore.com>
+Subject: Re: [PATCH 1/2] [DM9000] Added support for big-endian hosts
+Date: Mon, 27 Aug 2007 09:51:34 +0200
+Message-ID: <200708270951.35269.laurentp@cse-semaphore.com>
+References: <200708161015.35337.laurentp@cse-semaphore.com> <46CFB0BE.4030301@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Ben Dooks <ben-linux@fluff.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:44460 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751833AbXH0HIz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Aug 2007 03:08:55 -0400
+Received: from mailrelay001.isp.belgacom.be ([195.238.6.51]:50975 "EHLO
+	mailrelay001.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751250AbXH0Hvi convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Aug 2007 03:51:38 -0400
+In-Reply-To: <46CFB0BE.4030301@garzik.org>
 Content-Disposition: inline
-In-Reply-To: <20070824122628.0305f98e@freepuppy.rosehill.hemminger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 24, 2007 at 12:26:28PM -0700, Stephen Hemminger wrote:
-> On Fri, 24 Aug 2007 12:10:44 +0200
-> Jarek Poplawski <jarkao2@o2.pl> wrote:
-> 
-> > On 22-08-2007 20:08, Stephen Hemminger wrote:
-> > > There have been a lot of changes for 2.6.23, so here is a test release
-> > > of iproute2 that should capture all the submitted patches
-> > > 
-> > > 
-> > > http://developer.osdl.org/shemminger/iproute2/download/iproute2-2.6.23-rc3.tar.gz
-> > 
-> > But... isn't it forged, btw?!
-> 
-> No, I just didn't sign a temporary testing version.  A final version
-> will be out after 2.6.23
+On Saturday 25 August 2007 06:31, Jeff Garzik wrote:
+> Laurent Pinchart wrote:
+> > This patch splits the receive status in 8bit wide fields and conver=
+t the
+> > packet length from little endian to CPU byte order.
+> >
+> > Signed-off-by: Laurent Pinchart <laurentp@cse-semaphore.com>
+> > ---
+> >  drivers/net/dm9000.c |   13 +++++++------
+> >  1 files changed, 7 insertions(+), 6 deletions(-)
+> >
+> > diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+> > index c3de81b..a424810 100644
+> > --- a/drivers/net/dm9000.c
+> > +++ b/drivers/net/dm9000.c
+> > @@ -894,7 +894,8 @@ dm9000_timer(unsigned long data)
+> >  }
+> >
+> >  struct dm9000_rxhdr {
+> > -	u16	RxStatus;
+> > +	u8	RxPktReady;
+> > +	u8	RxStatus;
+> >  	u16	RxLen;
+> >  } __attribute__((__packed__));
+>
+> why does this not need endian conversions as well?
+>
+> 	Jeff
 
-So, I'm calmer now... On the other hand with kernel testing versions
-there seems to be more afraid of?
+The rx header is a 4-byte structure layed out as above (packet ready, s=
+tatus=20
+and length). The first two fields are 8-bit wide so don't need endian=20
+conversion. The length field is a 16-bit big endian value which is conv=
+erted=20
+to CPU order in dm9000_rx().
 
-Jarek P.
+Before this patch, the driver accessed the status and packet ready fiel=
+ds as a=20
+16-bit value, which was obviously endianess-dependant.
+
+Best regards,
+
+--=20
+Laurent Pinchart
+CSE Semaphore Belgium
+
+Chauss=E9e de Bruxelles, 732A
+B-1410 Waterloo
+Belgium
+
+T +32 (2) 387 42 59
+=46 +32 (2) 387 42 75
