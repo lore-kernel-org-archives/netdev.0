@@ -1,51 +1,56 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: [PATCH 2/2] ehea: fix last_rx update
-Date: Mon, 27 Aug 2007 17:07:06 +0200
-Message-ID: <200708271707.07186.ossthema@de.ibm.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-2.6.24] introduce MAC_FMT/MAC_ARG
+Date: Mon, 27 Aug 2007 08:44:17 -0700
+Message-ID: <1188229458.18004.65.camel@localhost>
+References: <1187808408.4314.15.camel@johannes.berg>
+	 <1188086976.18004.5.camel@localhost>
+	 <1188212049.6756.18.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	"Jan-Bernd Themann" <themann@de.ibm.com>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"linux-ppc" <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>
-To: Jeff Garzik <jeff@garzik.org>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate8.de.ibm.com ([195.212.29.157]:60183 "EHLO
-	mtagate8.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753494AbXH0PHL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2007 11:07:11 -0400
-Content-Disposition: inline
+Received: from DSL022.labridge.com ([206.117.136.22]:2764 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752700AbXH0Ppt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Aug 2007 11:45:49 -0400
+In-Reply-To: <1188212049.6756.18.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Update last_rx in registered device struct instead of
-in the dummy device.
+On Mon, 2007-08-27 at 12:54 +0200, Johannes Berg wrote:
+> Thanks for this patch though, I'd have done it otherwise.
 
-Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
+I had it, it was just a s/EUI48/MAC/ and copy/paste thing.
 
----
- drivers/net/ehea/ehea_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+There are also the arch, drivers/[^net], and net directories
+that have a few of these.
 
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index 1e9fd6f..717b129 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -471,7 +471,7 @@ static struct ehea_cqe *ehea_proc_rwqes(struct net_device *dev,
- 			else
- 				netif_receive_skb(skb);
- 
--			dev->last_rx = jiffies;
-+			port->netdev->last_rx = jiffies;
- 		} else {
- 			pr->p_stats.poll_receive_errors++;
- 			port_reset = ehea_treat_poll_error(pr, rq, cqe,
--- 
-1.5.2
+The patch also added the missing ")" in drivers/net/82596.c
+
+> I was rereading your original conversion and noticed that it is now
+> trivial to make the kernel smaller like you originally wanted by doing
+> something like this
+> 
+> -- define this function somewhere --
+> print_mac(u8 *mac, char *buf)
+> {
+> 	sprintf(buf, "%02x:...", mac[0], mac[1], ...);
+> }
+> EXPORT_SYMBOL(print_mac)
+> 
+> -- change macros to --
+> #define MAC_FMT "%s"
+> #define MAC_ARG(a) ({char __buf[18]; print_mac(a, buf); __buf})
+> 
+> I'm not sure we'd want that, but at the time you said it made the kernel
+> significantly smaller and I doubt there's a performance problem with it
+> (who prints mac addresses regularly?)
+
+The reduction is ~.1% in an allyesconfig.
+The compound statement to hide the automatic works well.
+The function call is noise compared to the printk.
+
+cheers, Joe
 
