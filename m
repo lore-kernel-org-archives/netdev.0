@@ -1,51 +1,49 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-2.6.24] introduce MAC_FMT/MAC_ARG
-Date: Mon, 27 Aug 2007 14:26:46 -0700
-Message-ID: <1188250006.18004.144.camel@localhost>
-References: <1187808408.4314.15.camel@johannes.berg>
-	 <1188086976.18004.5.camel@localhost>
-	 <1188212049.6756.18.camel@johannes.berg>
-	 <20070827.134131.41639376.davem@davemloft.net>
+From: john@BlueSkyTours.com
+Subject: Re: r8169: slow samba performance
+Date: Mon, 27 Aug 2007 16:34:50 -0600 (MDT)
+Message-ID: <Pine.SOC.4.64.0708271631330.871@katana>
+References: <46CC66D3.8030602@gmail.com> <20070822182116.GA5445@csy.ca>
+ <46CC9290.3040501@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
+To: Bruce Cole <bacole@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:2986 "EHLO perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1764830AbXH0V12 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Aug 2007 17:27:28 -0400
-In-Reply-To: <20070827.134131.41639376.davem@davemloft.net>
+Received: from nat1.blueskytours.com ([12.96.192.180]:21757 "HELO
+	volcano.blueskytours.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with SMTP id S1754542AbXH0Wld (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2007 18:41:33 -0400
+In-Reply-To: <46CC9290.3040501@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-08-27 at 13:41 -0700, David Miller wrote:
-> there are better approaches to this,
-> how about just calling:
-> 
-> 	print_mac(dev->dev_addr);
-> 
-> Sure, we'll have to split up printk() calls, but in the end it's
-> likely still smaller and better.  And I think it's much cleaner
-> than this macro stuff.
 
-My original patch had the equivalent of
+On Wed, 22 Aug 2007, Bruce Cole wrote:
 
-	char* print_mac(char* buf, const char* addr) {
-		sprintf(buf,"%02x:...", addr[0]...)
-		return buf;
-	}
+> Shane wrote:
+>> On Wed, Aug 22, 2007 at 09:39:47AM -0700, Bruce Cole wrote:
+>> 
+>>> Shane, join the crowd :)  Try the fix I just re-posted over here:
+>>> 
+>> 
+>> Bruce, gigabit speeds thanks for the pointer.  This fix
+>> works well for me though I just added the three or so lines
+>> in the elseif statement as it rejected with the
+>> r8169-20070818.  I suppose I could've merged the whole
+>> thing and if you need that tested, let me know but this is
+>> looking good.
+>> 
+> Glad it works for you.  I'm not the maintainer, and also don't have adequate 
+> specs from Realtek to definitively explain why the NPQ bit apparently needs 
+> to be re-enabled when some but not all of the TX FIFO is dequeued.  It is 
+> documented as if it isn't cleared until the FIFO is empty.  So I assume an 
+> official patch will have to wait until Francois is back.
 
-and used:
 
-	DECLARE_MAC_BUF(var); //same as char var[18];
-	printk(MAC_FMT, MAC_ARG(var, addr));
+I have had abysmal performance trying to remotely run X apps via ssh on a
+computer with a RTL8111 NIC.  Saw this message and decided to give this
+patch a try --- success!  Much, much better.
 
-which didn't require splitting printk()s
+Thanks,
 
-I've still got the original patch.
-It's just substituting EUI48 for MAC and forward porting.
-
-Want something like that?
-
+John
