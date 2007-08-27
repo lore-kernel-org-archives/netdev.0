@@ -1,66 +1,57 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: net/ipv4/fib_trie.c - compile error (Re: 2.6.23-rc3-mm1)
-Date: Mon, 27 Aug 2007 09:23:18 -0700
-Message-ID: <20070827162318.GB8290@linux.vnet.ibm.com>
-References: <20070822170302.GC8786@linux.vnet.ibm.com> <20070827063635.GB1703@ff.dom.local>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] isdn capi driver broken on 64 bit.
+Date: Mon, 27 Aug 2007 09:16:55 -0700
+Message-ID: <20070827091655.4e0bb5fe@freepuppy.rosehill.hemminger.net>
+References: <20070824110811.32f266f8@freepuppy.rosehill.hemminger.net>
+	<20070827110226.GA15362@pingi.kke.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Adrian Bunk <bunk@kernel.org>,
-	Gabriel C <nix.or.die@googlemail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@o2.pl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932319AbXH0QYe@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20070827063635.GB1703@ff.dom.local>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org
+To: Karsten Keil <kkeil@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:59148 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761733AbXH0QRg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2007 12:17:36 -0400
+In-Reply-To: <20070827110226.GA15362@pingi.kke.suse.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 27, 2007 at 08:36:35AM +0200, Jarek Poplawski wrote:
-> On 22-08-2007 19:03, Paul E. McKenney wrote:
-> > On Wed, Aug 22, 2007 at 05:41:11PM +0200, Adrian Bunk wrote:
-> >> On Wed, Aug 22, 2007 at 05:30:13PM +0200, Gabriel C wrote:
-> >>> Got it with a randconfig ( http://194.231.229.228/kernel/mm/2.6.23-rc3-mm1/r/randconfig-8 )
-> >>>
-> >>> ...
-> >>>
-> >>> net/ipv4/fib_trie.c: In function 'trie_rebalance':
-> >>> net/ipv4/fib_trie.c:969: error: lvalue required as unary '&' operand
-> >>> net/ipv4/fib_trie.c:971: error: lvalue required as unary '&' operand
-> >>> net/ipv4/fib_trie.c:977: error: lvalue required as unary '&' operand
-> >>> net/ipv4/fib_trie.c:980: error: lvalue required as unary '&' operand
-> >>> ...
-> >> Side effect of the git-net removal, temporarily removing 
-> >> immunize-rcu_dereference-against-crazy-compiler-writers.patch should 
-> >> work around it.
+On Mon, 27 Aug 2007 13:02:26 +0200
+Karsten Keil <kkeil@suse.de> wrote:
+
+> On Fri, Aug 24, 2007 at 11:08:11AM -0700, Stephen Hemminger wrote:
+> > The following driver API is broken on any architecture with 64 bit addresses.
+> > because of cast that loses high bits.
 > > 
-> > Alternatively, the following one-line patch to net/ipv4/fib_trie.c could
-> > be used.
+> > Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 > > 
-> > Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> > ---
 > > 
-> >  fib_trie.c |    2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > 
-> > diff -urpNa -X dontdiff linux-2.6.23-rc3-mm1/net/ipv4/fib_trie.c linux-2.6.23-rc3-mm1.compile/net/ipv4/fib_trie.c
-> > --- linux-2.6.23-rc3-mm1/net/ipv4/fib_trie.c	2007-08-22 09:20:33.000000000 -0700
-> > +++ linux-2.6.23-rc3-mm1.compile/net/ipv4/fib_trie.c	2007-08-22 09:47:33.000000000 -0700
-> > @@ -94,7 +94,7 @@ typedef unsigned int t_key;
-> >  #define T_LEAF  1
-> >  #define NODE_TYPE_MASK	0x1UL
-> >  #define NODE_PARENT(node) \
-> > -	((struct tnode *)rcu_dereference(((node)->parent & ~NODE_TYPE_MASK)))
-> > +	((struct tnode *)(rcu_dereference((node)->parent) & ~NODE_TYPE_MASK))
-> ...
+> > --- a/drivers/isdn/capi/capidrv.c	2007-06-25 09:03:12.000000000 -0700
+> > +++ b/drivers/isdn/capi/capidrv.c	2007-08-24 11:06:46.000000000 -0700
+> > @@ -1855,6 +1855,9 @@ static int if_sendbuf(int id, int channe
+> >  		return 0;
+> >  	}
+> >  	datahandle = nccip->datahandle;
+> > +
+> > +	/* This won't work on 64 bit! */
+> > +	BUILD_BUG_ON(sizeof(skb->data) > sizeof(u32));
+> >  	capi_fill_DATA_B3_REQ(&sendcmsg, global.ap.applid, card->msgid++,
+> >  			      nccip->ncci,	/* adr */
+> >  			      (u32) skb->data,	/* Data */
 > 
-> After first reading of this thread I've had an impression it's about
-> compiler's behavior, but now it seems to me this patch is not an
-> alternative, but a 'must be' and only proper way of calling
-> rcu_dereference (with a variable instead of an expression)? Am I
-> right?
+> 
+> NACK.
+> 
+> It is not a BUG.
+> 
+> This is OK, since this field must have a value and on 32 it has the correct
+> one) On 64 bit this field is ignored (but also need a value, random data is
+> bad as well).
 
-Yes, rcu_dereference() does indeed need to be invoked on a lvalue.
-
-							Thanx, Paul
+If you are using it as a transaction ID, then you should generate one.
+There is no guarantee that two skb's won't have the same 32 bit data value
+on 64 bit.
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
