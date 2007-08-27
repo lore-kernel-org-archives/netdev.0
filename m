@@ -1,80 +1,39 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [Devel] [PATCH 1/1] Dynamically allocate the loopback device
-Date: Mon, 27 Aug 2007 06:12:14 -0600
-Message-ID: <m1lkbx5g81.fsf@ebiederm.dsl.xmission.com>
-References: <11879698031215-git-send-email-dlezcano@fr.ibm.com>
-	<46CEFF83.3040003@gmail.com> <20070824104301.2f4ff34e@localhost>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] netdevice: kernel docbook addition
+Date: Mon, 27 Aug 2007 14:18:53 +0200
+Message-ID: <20070827121853.GA2854@ff.dom.local>
+References: <20070822123314.785dea2a@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Denis V. Lunev" <dlunev@gmail.com>, dlezcano@fr.ibm.com,
-	davem@davemloft.net, containers@lists.osdl.org,
-	netdev@vger.kernel.org
+Cc: "David S\. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:51820 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755938AbXH0MMr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2007 08:12:47 -0400
-In-Reply-To: <20070824104301.2f4ff34e@localhost> (Stephen Hemminger's message
-	of "Fri, 24 Aug 2007 10:43:01 -0700")
+Received: from mx10.go2.pl ([193.17.41.74]:57630 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750718AbXH0MRi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Aug 2007 08:17:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20070822123314.785dea2a@freepuppy.rosehill.hemminger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@linux-foundation.org> writes:
+On 22-08-2007 21:33, Stephen Hemminger wrote:
+> Add more kernel doc's for part of the network device API.
+> This is only a start, and needs more work.
+> 
+> Applies against net-2.6.24
+...
+> +/**
+> + *	napi_disable - prevent NAPI from scheduling
+> + *	@n: napi context
+> + *
+> + * Resume NAPI from being scheduled on this context.
+> + * Must be paired with napi_disable.
+> + */
+>  static inline void napi_enable(struct napi_struct *n)
+>  {
 
-> On Fri, 24 Aug 2007 19:55:47 +0400
-> "Denis V. Lunev" <dlunev@gmail.com> wrote:
->
->> dlezcano@fr.ibm.com wrote:
->> > From: Daniel Lezcano <dlezcano@fr.ibm.com>
->> > 
->> > Doing this makes loopback.c a better example of how to do a
->> > simple network device, and it removes the special case
->> > single static allocation of a struct net_device, hopefully
->> > making maintenance easier.
->> > 
->> > Applies against net-2.6.24
->> > 
->> > Tested on i386, x86_64
->> > Compiled on ia64, sparc
->> 
->> I think that a small note, that initialization order is changed will be
->> good to record. After this, loopback MUST be allocated before any other
->> networking subsystem initialization. And this is an important change.
->> 
->> Regards,
->>     Den
->
-> Yes, this code would break when other drivers are directly linked
-> in. 
+It looks like small fix is needed here (I hope it would be faster
+without my patch, thanks).
 
-No. Other drivers don't care at all about the loopback device,
-and it isn't a requirement that the loopback device be initialized
-before other devices.
-
-The requirement is that the loopback device is allocated before
-we start using it.  Which means networking subsystems like
-ipv4 and ipv6 care not other network drivers.  In practices this means
-before we get very far into the ipv4 subsystem initialization as
-ipv4 is always compiled in and is initialized early.
-
-To get the initialization order correct I used fs_initcall instead of
-module_init.
-
-When I reflect on it.  I'm not really comfortable with the fact
-that we currently start using the loopback device before we
-finish initializing and register it.  Although it has worked
-for over a decade so I guess early on we don't care about
-much more then the address of the loopback device.
-
->From what I can tell the initialization order dependency seems much
-less subtle and much more robust then separate rules for allocating
-the loopback device.  We have had several patchs recently that
-broke (including one merged upstream).  The only way I can see
-to break an initialization order dependency is to go deliberately
-messing around with initialization order.
-
-Eric
-
-p.s.  My apologies for the late reply some one dropped me off the cc.
-And I have been under the weather all week.
+Jarek P.
