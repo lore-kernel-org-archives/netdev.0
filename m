@@ -1,71 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: RFC: issues concerning the next NAPI interface
-Date: Mon, 27 Aug 2007 14:02:51 -0700 (PDT)
-Message-ID: <20070827.140251.95055210.davem@davemloft.net>
-References: <46D1D634.7060007@katalix.com>
-	<20070826.185815.93042514.davem@davemloft.net>
-	<46D2F301.7050105@katalix.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [E1000-devel] [PATCH net-2.6.24] e100: fix driver init lockup
+ on	e100_up()
+Date: Mon, 27 Aug 2007 22:03:15 +0100
+Message-ID: <46D33C13.7060605@katalix.com>
+References: <200708271706.l7RH6wT0024567@quickie.katalix.com> <46D3055F.5060201@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: tklein@de.ibm.com, themann@de.ibm.com, stefan.roscher@de.ibm.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	raisch@de.ibm.com, linuxppc-dev@ozlabs.org, akepner@sgi.com,
-	meder@de.ibm.com, ossthema@de.ibm.com, shemminger@linux-foundation.org
-To: jchapman@katalix.com
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <46D2F301.7050105@katalix.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s36.avahost.net ([74.53.95.194]:51561 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760495AbXH0VDV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Aug 2007 17:03:21 -0400
+In-Reply-To: <46D3055F.5060201@intel.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: James Chapman <jchapman@katalix.com>
-Date: Mon, 27 Aug 2007 16:51:29 +0100
-
-> To implement this, there's no need for timers, hrtimers or generic NAPI 
-> support that others have suggested. A driver's poll() would set an 
-> internal flag and record the current jiffies value when finding 
-> workdone=0 rather than doing an immediate napi_complete(). Early in 
-> poll() it would test this flag and if set, do a low-cost test to see if 
-> it had any work to do. If no work, it would check the saved jiffies 
-> value and do the napi_complete() only if no work has been done for a 
-> configurable number of jiffies. This keeps interrupts disabled longer at 
-> the expense of many more calls to poll() where no work is done. So 
-> critical to this scheme is modifying the driver's poll() to fastpath the 
-> case of having no work to do while waiting for its local jiffy count to 
-> expire.
+Kok, Auke wrote:
+> James Chapman wrote:
+>> Recent NAPI changes require that napi_enable() is always matched with
+>> a napi_disable(). This patch makes sure that this invariant holds for
+>> e100. It also moves the netif_napi_add() call until after private
+>> pointers have been intialized, though this might only be significant
+>> for cases where netpoll is being used.
+>>
+>> Signed-off-by: James Chapman <jchapman@katalix.com>
+>>
+>> diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+>> index e25f5ec..48996a4 100644
+>> --- a/drivers/net/e100.c
+>> +++ b/drivers/net/e100.c
+>> @@ -2575,11 +2575,12 @@ static int __devinit e100_probe(struct pci_dev 
+>> *pdev,
+>>      strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
+>>  
+>>      nic = netdev_priv(netdev);
+>> -    netif_napi_add(netdev, &nic->napi, e100_poll, E100_NAPI_WEIGHT);
+>>      nic->netdev = netdev;
+>>      nic->pdev = pdev;
+>>      nic->msg_enable = (1 << debug) - 1;
+>>      pci_set_drvdata(pdev, netdev);
+>> +    netif_napi_add(netdev, &nic->napi, e100_poll, E100_NAPI_WEIGHT);
+>> +    napi_disable(&nic->napi);
 > 
-> Here's an untested patch for tg3 that illustrates the idea.
+> Just wondering, could we even reverse this order? IOW disable NAPI 
+> first, then add it ?
 
-It's only going to work with hrtimers, these interfaces can
-process at least 100,000 per jiffies tick.
+I think the order shouldn't matter. DaveM?
 
-And the hrtimer granularity is going to need to be significantly low,
-and futhermore you're adding a guaranteed extra interrupt (for the
-hrtimer firing) in these cases where we're exactly trying to avoid is
-more interrupts.
+> Otherwise this sounds OK to me.
 
-If you can make it work, fine, but it's going to need to be at a
-minimum disabled when the hrtimer granularity is not sufficient.
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
 
-But there are huger fish to fry for you I think.  Talk to your
-platform maintainers and ask for an interface for obtaining
-a flat static distribution of interrupts to cpus in order to
-support multiqueue NAPI better.
-
-In your previous postings you made arguments saying that the
-automatic placement of interrupts to cpus made everything
-bunch of to a single cpu and you wanted to propagate the
-NAPI work to other cpu's software interrupts from there.
-
-That logic is bogus, because it merely proves that the hardware
-interrupt distribution is broken.  If it's a bad cpu to run
-software interrupts on, it's also a bad cpu to run hardware
-interrupts on.
