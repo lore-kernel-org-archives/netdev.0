@@ -1,133 +1,84 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Remove softirq scheduling from pktgen [PATCH]
-Date: Mon, 27 Aug 2007 18:57:19 +0200
-Message-ID: <18131.623.945573.425948@robur.slu.se>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: RFC: issues concerning the next NAPI interface
+Date: Mon, 27 Aug 2007 18:05:46 +0100
+Message-ID: <46D3046A.5090607@katalix.com>
+References: <46CF127D.1090609@katalix.com> <20070826.185815.93042514.davem@davemloft.net> <46D2F301.7050105@katalix.com> <200708271802.48691.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+	shemminger@linux-foundation.org, akepner@sgi.com,
+	netdev@vger.kernel.org, raisch@de.ibm.com, themann@de.ibm.com,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	meder@de.ibm.com, tklein@de.ibm.com, stefan.roscher@de.ibm.com
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:38914 "EHLO mx1.slu.se"
+Received: from s36.avahost.net ([74.53.95.194]:51361 "EHLO s36.avahost.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754104AbXH0Q5Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Aug 2007 12:57:24 -0400
+	id S1752159AbXH0RFz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Aug 2007 13:05:55 -0400
+In-Reply-To: <200708271802.48691.ossthema@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Jan-Bernd Themann wrote:
+> On Monday 27 August 2007 17:51, James Chapman wrote:
+> 
+>> In the second half of my previous reply (which seems to have been 
+>> deleted), I suggest a way to avoid this problem without using hardware 
+>> interrupt mitigation / coalescing. Original text is quoted below.
+>>
+>>  >> I've seen the same and I'm suggesting that the NAPI driver keeps
+>>  >> itself in polled mode for N polls or M jiffies after it sees
+>>  >> workdone=0. This has always worked for me in packet forwarding
+>>  >> scenarios to maximize packets/sec and minimize latency.
+>>
+>> To implement this, there's no need for timers, hrtimers or generic NAPI 
+>> support that others have suggested. A driver's poll() would set an 
+>> internal flag and record the current jiffies value when finding 
+>> workdone=0 rather than doing an immediate napi_complete(). Early in 
+>> poll() it would test this flag and if set, do a low-cost test to see if 
+>> it had any work to do. If no work, it would check the saved jiffies 
+>> value and do the napi_complete() only if no work has been done for a 
+>> configurable number of jiffies. This keeps interrupts disabled longer at 
+>> the expense of many more calls to poll() where no work is done. So 
+>> critical to this scheme is modifying the driver's poll() to fastpath the 
+>> case of having no work to do while waiting for its local jiffy count to 
+>> expire.
+>>
+> 
+> The problem I see with this approach is that the time that passes between
+> two jiffies might be too long for 10G ethernet adapters. 
 
+Why would staying in polled mode for 2 jiffies be too long in the 10G 
+case? I don't see why 10G makes any difference. Your poll() would be 
+called as fast as your CPU allows during those 2 jiffies (it would 
+actually be between 1 and 2 jiffies in practice). It is therefore 
+critical that the driver's poll() implementation is as efficient as 
+possible for the "no work" case to minimize the overhead of the extra 
+poll() calls. Your poll might be called thousands of times in 1-2 
+jiffies with nothing to do...
 
-Hello, It's not a job for pktgen.
+> (I tried to implement
+> a timer based approach with usual timers and the result was a disaster).
+> HW interrupts / or HP timer avoid the jiffy problem as they activate softIRQs
+> as soon as you call netif_rx_schedule. 
 
-Cheers
-					--ro
+My scheme doesn't use timers to do netif_rx_schedule() because the 
+device stays in polled mode for 1-2 jiffies _after_ it detects it has no 
+more work. So the device remains scheduled, processing packets as usual. 
+The device deschedules itself and re-enables its interrupts only when it 
+has a period of 1-2 jiffies of doing no work.
 
+BTW, I chose 2 jiffies in the example patch just to keep the patch 
+simple. It might be more for systems with large HZ or those that want to 
+be even more aggressive at staying in polled mode. I envisage it being 
+another parameter that can be tweaked using ethtool if people see a 
+benefit of this scheme.
 
-Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
 
-
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 18601af..975e887 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -164,7 +164,7 @@
- #include <asm/div64.h>		/* do_div */
- #include <asm/timex.h>
- 
--#define VERSION  "pktgen v2.68: Packet Generator for packet performance testing.\n"
-+#define VERSION  "pktgen v2.69: Packet Generator for packet performance testing.\n"
- 
- /* The buckets are exponential in 'width' */
- #define LAT_BUCKETS_MAX 32
-@@ -381,7 +381,6 @@ struct pktgen_thread {
- 	struct list_head th_list;
- 	struct task_struct *tsk;
- 	char result[512];
--	u32 max_before_softirq;	/* We'll call do_softirq to prevent starvation. */
- 
- 	/* Field for thread to receive "posted" events terminate, stop ifs etc. */
- 
-@@ -1752,9 +1751,6 @@ static int pktgen_thread_show(struct seq_file *seq, void *v)
- 
- 	BUG_ON(!t);
- 
--	seq_printf(seq, "Name: %s  max_before_softirq: %d\n",
--		   t->tsk->comm, t->max_before_softirq);
--
- 	seq_printf(seq, "Running: ");
- 
- 	if_lock(t);
-@@ -1787,7 +1783,6 @@ static ssize_t pktgen_thread_write(struct file *file,
- 	int i = 0, max, len, ret;
- 	char name[40];
- 	char *pg_result;
--	unsigned long value = 0;
- 
- 	if (count < 1) {
- 		//      sprintf(pg_result, "Wrong command format");
-@@ -1861,12 +1856,8 @@ static ssize_t pktgen_thread_write(struct file *file,
- 	}
- 
- 	if (!strcmp(name, "max_before_softirq")) {
--		len = num_arg(&user_buffer[i], 10, &value);
--		mutex_lock(&pktgen_thread_lock);
--		t->max_before_softirq = value;
--		mutex_unlock(&pktgen_thread_lock);
-+		sprintf(pg_result, "OK: Note! max_before_softirq is obsoleted -- Do not use");
- 		ret = count;
--		sprintf(pg_result, "OK: max_before_softirq=%lu", value);
- 		goto out;
- 	}
- 
-@@ -2145,7 +2136,6 @@ static void spin(struct pktgen_dev *pkt_dev, __u64 spin_until_us)
- 		if (spin_until_us - now > jiffies_to_usecs(1) + 1)
- 			schedule_timeout_interruptible(1);
- 		else if (spin_until_us - now > 100) {
--			do_softirq();
- 			if (!pkt_dev->running)
- 				return;
- 			if (need_resched())
-@@ -3515,8 +3505,6 @@ static int pktgen_thread_worker(void *arg)
- 	struct pktgen_thread *t = arg;
- 	struct pktgen_dev *pkt_dev = NULL;
- 	int cpu = t->cpu;
--	u32 max_before_softirq;
--	u32 tx_since_softirq = 0;
- 
- 	BUG_ON(smp_processor_id() != cpu);
- 
-@@ -3526,8 +3514,6 @@ static int pktgen_thread_worker(void *arg)
- 
- 	pr_debug("pktgen: starting pktgen/%d:  pid=%d\n", cpu, current->pid);
- 
--	max_before_softirq = t->max_before_softirq;
--
- 	set_current_state(TASK_INTERRUPTIBLE);
- 
- 	set_freezable();
-@@ -3546,24 +3532,9 @@ static int pktgen_thread_worker(void *arg)
- 
- 		__set_current_state(TASK_RUNNING);
- 
--		if (pkt_dev) {
--
-+		if (pkt_dev) 
- 			pktgen_xmit(pkt_dev);
- 
--			/*
--			 * We like to stay RUNNING but must also give
--			 * others fair share.
--			 */
--
--			tx_since_softirq += pkt_dev->last_ok;
--
--			if (tx_since_softirq > max_before_softirq) {
--				if (local_softirq_pending())
--					do_softirq();
--				tx_since_softirq = 0;
--			}
--		}
--
- 		if (t->control & T_STOP) {
- 			pktgen_stop(t);
- 			t->control &= ~(T_STOP);
