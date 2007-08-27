@@ -1,55 +1,66 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: Re: RFC: issues concerning the next NAPI interface
-Date: Mon, 27 Aug 2007 18:02:47 +0200
-Message-ID: <200708271802.48691.ossthema@de.ibm.com>
-References: <46CF127D.1090609@katalix.com> <20070826.185815.93042514.davem@davemloft.net> <46D2F301.7050105@katalix.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: net/ipv4/fib_trie.c - compile error (Re: 2.6.23-rc3-mm1)
+Date: Mon, 27 Aug 2007 09:23:18 -0700
+Message-ID: <20070827162318.GB8290@linux.vnet.ibm.com>
+References: <20070822170302.GC8786@linux.vnet.ibm.com> <20070827063635.GB1703@ff.dom.local>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org, akepner@sgi.com,
-	netdev@vger.kernel.org, raisch@de.ibm.com, themann@de.ibm.com,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	meder@de.ibm.com, tklein@de.ibm.com, stefan.roscher@de.ibm.com
-To: James Chapman <jchapman@katalix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate1.uk.ibm.com ([195.212.29.134]:6458 "EHLO
-	mtagate1.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759348AbXH0QDS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2007 12:03:18 -0400
-In-Reply-To: <46D2F301.7050105@katalix.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Adrian Bunk <bunk@kernel.org>,
+	Gabriel C <nix.or.die@googlemail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@o2.pl>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932319AbXH0QYe@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070827063635.GB1703@ff.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 27 August 2007 17:51, James Chapman wrote:
+On Mon, Aug 27, 2007 at 08:36:35AM +0200, Jarek Poplawski wrote:
+> On 22-08-2007 19:03, Paul E. McKenney wrote:
+> > On Wed, Aug 22, 2007 at 05:41:11PM +0200, Adrian Bunk wrote:
+> >> On Wed, Aug 22, 2007 at 05:30:13PM +0200, Gabriel C wrote:
+> >>> Got it with a randconfig ( http://194.231.229.228/kernel/mm/2.6.23-rc3-mm1/r/randconfig-8 )
+> >>>
+> >>> ...
+> >>>
+> >>> net/ipv4/fib_trie.c: In function 'trie_rebalance':
+> >>> net/ipv4/fib_trie.c:969: error: lvalue required as unary '&' operand
+> >>> net/ipv4/fib_trie.c:971: error: lvalue required as unary '&' operand
+> >>> net/ipv4/fib_trie.c:977: error: lvalue required as unary '&' operand
+> >>> net/ipv4/fib_trie.c:980: error: lvalue required as unary '&' operand
+> >>> ...
+> >> Side effect of the git-net removal, temporarily removing 
+> >> immunize-rcu_dereference-against-crazy-compiler-writers.patch should 
+> >> work around it.
+> > 
+> > Alternatively, the following one-line patch to net/ipv4/fib_trie.c could
+> > be used.
+> > 
+> > Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> > ---
+> > 
+> >  fib_trie.c |    2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > 
+> > diff -urpNa -X dontdiff linux-2.6.23-rc3-mm1/net/ipv4/fib_trie.c linux-2.6.23-rc3-mm1.compile/net/ipv4/fib_trie.c
+> > --- linux-2.6.23-rc3-mm1/net/ipv4/fib_trie.c	2007-08-22 09:20:33.000000000 -0700
+> > +++ linux-2.6.23-rc3-mm1.compile/net/ipv4/fib_trie.c	2007-08-22 09:47:33.000000000 -0700
+> > @@ -94,7 +94,7 @@ typedef unsigned int t_key;
+> >  #define T_LEAF  1
+> >  #define NODE_TYPE_MASK	0x1UL
+> >  #define NODE_PARENT(node) \
+> > -	((struct tnode *)rcu_dereference(((node)->parent & ~NODE_TYPE_MASK)))
+> > +	((struct tnode *)(rcu_dereference((node)->parent) & ~NODE_TYPE_MASK))
+> ...
+> 
+> After first reading of this thread I've had an impression it's about
+> compiler's behavior, but now it seems to me this patch is not an
+> alternative, but a 'must be' and only proper way of calling
+> rcu_dereference (with a variable instead of an expression)? Am I
+> right?
 
-> In the second half of my previous reply (which seems to have been 
-> deleted), I suggest a way to avoid this problem without using hardware 
-> interrupt mitigation / coalescing. Original text is quoted below.
-> 
->  >> I've seen the same and I'm suggesting that the NAPI driver keeps
->  >> itself in polled mode for N polls or M jiffies after it sees
->  >> workdone=0. This has always worked for me in packet forwarding
->  >> scenarios to maximize packets/sec and minimize latency.
-> 
-> To implement this, there's no need for timers, hrtimers or generic NAPI 
-> support that others have suggested. A driver's poll() would set an 
-> internal flag and record the current jiffies value when finding 
-> workdone=0 rather than doing an immediate napi_complete(). Early in 
-> poll() it would test this flag and if set, do a low-cost test to see if 
-> it had any work to do. If no work, it would check the saved jiffies 
-> value and do the napi_complete() only if no work has been done for a 
-> configurable number of jiffies. This keeps interrupts disabled longer at 
-> the expense of many more calls to poll() where no work is done. So 
-> critical to this scheme is modifying the driver's poll() to fastpath the 
-> case of having no work to do while waiting for its local jiffy count to 
-> expire.
-> 
+Yes, rcu_dereference() does indeed need to be invoked on a lvalue.
 
-The problem I see with this approach is that the time that passes between
-two jiffies might be too long for 10G ethernet adapters. (I tried to implement
-a timer based approach with usual timers and the result was a disaster).
-HW interrupts / or HP timer avoid the jiffy problem as they activate softIRQs
-as soon as you call netif_rx_schedule. 
+							Thanx, Paul
