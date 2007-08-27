@@ -1,172 +1,130 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: pktgen Multiqueue support [PATCH]
-Date: Mon, 27 Aug 2007 16:55:19 +0200
-Message-ID: <18130.58839.670389.974331@robur.slu.se>
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: [PATCH 1/2] ehea: propagate physical port state
+Date: Mon, 27 Aug 2007 17:06:58 +0200
+Message-ID: <200708271706.58984.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	"Jan-Bernd Themann" <themann@de.ibm.com>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>,
+	"linux-ppc" <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:36736 "EHLO mx1.slu.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750784AbXH0OzX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Aug 2007 10:55:23 -0400
+Received: from mtagate3.de.ibm.com ([195.212.29.152]:1760 "EHLO
+	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751824AbXH0PHG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2007 11:07:06 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Introduces a module parameter to decide whether the physical
+port link state is propagated to the network stack or not.
+It makes sense not to take the physical port state into account
+on machines with more logical partitions that communicate
+with each other. This is always possible no matter what the physical
+port state is. Thus eHEA can be considered as a switch there.
 
+Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
 
-Hello,
+---
+ drivers/net/ehea/ehea.h      |    5 ++++-
+ drivers/net/ehea/ehea_main.c |   14 +++++++++++++-
+ 2 files changed, 17 insertions(+), 2 deletions(-)
 
-Below some pktgen support to send into different TX queues.
-This can of course be feed into input queues on other machines
-
-Cheers
-					--ro
-
-
-
-Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
-
-
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index a0db4d1..18601af 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -186,6 +186,7 @@
- #define F_SVID_RND    (1<<10)	/* Random SVLAN ID */
- #define F_FLOW_SEQ    (1<<11)	/* Sequential flows */
- #define F_IPSEC_ON    (1<<12)	/* ipsec on for flows */
-+#define F_QUEUE_MAP_RND (1<<13)	/* queue map Random */
+diff --git a/drivers/net/ehea/ehea.h b/drivers/net/ehea/ehea.h
+index d67f97b..8d58be5 100644
+--- a/drivers/net/ehea/ehea.h
++++ b/drivers/net/ehea/ehea.h
+@@ -39,7 +39,7 @@
+ #include <asm/io.h>
  
- /* Thread control flag bits */
- #define T_TERMINATE   (1<<0)
-@@ -328,6 +329,7 @@ struct pktgen_dev {
- 	__be32 cur_daddr;
- 	__u16 cur_udp_dst;
- 	__u16 cur_udp_src;
-+	__u16 cur_queue_map;
- 	__u32 cur_pkt_size;
+ #define DRV_NAME	"ehea"
+-#define DRV_VERSION	"EHEA_0073"
++#define DRV_VERSION	"EHEA_0074"
  
- 	__u8 hh[14];
-@@ -355,6 +357,10 @@ struct pktgen_dev {
- 	unsigned lflow;		/* Flow length  (config) */
- 	unsigned nflows;	/* accumulated flows (stats) */
- 	unsigned curfl;		/* current sequenced flow (state)*/
-+
-+	u16 queue_map_min;
-+	u16 queue_map_max;
-+
- #ifdef CONFIG_XFRM
- 	__u8	ipsmode;		/* IPSEC mode (config) */
- 	__u8	ipsproto;		/* IPSEC type (config) */
-@@ -611,6 +617,11 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
- 	seq_printf(seq, "     flows: %u flowlen: %u\n", pkt_dev->cflows,
- 		   pkt_dev->lflow);
+ /* eHEA capability flags */
+ #define DLPAR_PORT_ADD_REM 1
+@@ -402,6 +402,8 @@ struct ehea_mc_list {
  
-+	seq_printf(seq,
-+		   "     queue_map_min: %u  queue_map_max: %u\n",
-+		   pkt_dev->queue_map_min,
-+		   pkt_dev->queue_map_max);
-+
- 	if (pkt_dev->flags & F_IPV6) {
- 		char b1[128], b2[128], b3[128];
- 		fmt_ip6(b1, pkt_dev->in6_saddr.s6_addr);
-@@ -707,6 +718,9 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
- 	if (pkt_dev->flags & F_MPLS_RND)
- 		seq_printf(seq,  "MPLS_RND  ");
+ #define EHEA_PORT_UP 1
+ #define EHEA_PORT_DOWN 0
++#define EHEA_PHY_LINK_UP 1
++#define EHEA_PHY_LINK_DOWN 0
+ #define EHEA_MAX_PORT_RES 16
+ struct ehea_port {
+ 	struct ehea_adapter *adapter;	 /* adapter that owns this port */
+@@ -427,6 +429,7 @@ struct ehea_port {
+ 	u32 msg_enable;
+ 	u32 sig_comp_iv;
+ 	u32 state;
++	u8 phy_link;
+ 	u8 full_duplex;
+ 	u8 autoneg;
+ 	u8 num_def_qps;
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index db57474..1e9fd6f 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -53,17 +53,21 @@ static int rq3_entries = EHEA_DEF_ENTRIES_RQ3;
+ static int sq_entries = EHEA_DEF_ENTRIES_SQ;
+ static int use_mcs = 0;
+ static int num_tx_qps = EHEA_NUM_TX_QP;
++static int prop_carrier_state = 0;
  
-+	if (pkt_dev->flags & F_QUEUE_MAP_RND)
-+		seq_printf(seq,  "QUEUE_MAP_RND  ");
-+
- 	if (pkt_dev->cflows) {
- 		if (pkt_dev->flags & F_FLOW_SEQ)
- 			seq_printf(seq,  "FLOW_SEQ  "); /*in sequence flows*/
-@@ -762,6 +776,8 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
- 	seq_printf(seq, "     cur_udp_dst: %d  cur_udp_src: %d\n",
- 		   pkt_dev->cur_udp_dst, pkt_dev->cur_udp_src);
+ module_param(msg_level, int, 0);
+ module_param(rq1_entries, int, 0);
+ module_param(rq2_entries, int, 0);
+ module_param(rq3_entries, int, 0);
+ module_param(sq_entries, int, 0);
++module_param(prop_carrier_state, int, 0);
+ module_param(use_mcs, int, 0);
+ module_param(num_tx_qps, int, 0);
  
-+	seq_printf(seq, "     cur_queue_map: %u\n", pkt_dev->cur_queue_map);
-+
- 	seq_printf(seq, "     flows: %u\n", pkt_dev->nflows);
- 
- 	if (pkt_dev->result[0])
-@@ -1213,6 +1229,11 @@ static ssize_t pktgen_if_write(struct file *file,
- 		else if (strcmp(f, "FLOW_SEQ") == 0)
- 			pkt_dev->flags |= F_FLOW_SEQ;
- 
-+		else if (strcmp(f, "QUEUE_MAP_RND") == 0)
-+			pkt_dev->flags |= F_QUEUE_MAP_RND;
-+
-+		else if (strcmp(f, "!QUEUE_MAP_RND") == 0)
-+			pkt_dev->flags &= ~F_QUEUE_MAP_RND;
- #ifdef CONFIG_XFRM
- 		else if (strcmp(f, "IPSEC") == 0)
- 			pkt_dev->flags |= F_IPSEC_ON;
-@@ -1517,6 +1538,28 @@ static ssize_t pktgen_if_write(struct file *file,
- 		return count;
+ MODULE_PARM_DESC(num_tx_qps, "Number of TX-QPS");
+ MODULE_PARM_DESC(msg_level, "msg_level");
++MODULE_PARM_DESC(prop_carrier_state, "Propagate carrier state of physical "
++		 "port to stack. 1:yes, 0:no.  Default = 0 ");
+ MODULE_PARM_DESC(rq3_entries, "Number of entries for Receive Queue 3 "
+ 		 "[2^x - 1], x = [6..14]. Default = "
+ 		 __MODULE_STRING(EHEA_DEF_ENTRIES_RQ3) ")");
+@@ -814,7 +818,9 @@ int ehea_set_portspeed(struct ehea_port *port, u32 port_speed)
+ 			ehea_error("Failed setting port speed");
+ 		}
  	}
- 
-+	if (!strcmp(name, "queue_map_min")) {
-+		len = num_arg(&user_buffer[i], 5, &value);
-+		if (len < 0) {
-+			return len;
-+		}
-+		i += len;
-+		pkt_dev->queue_map_min = value;
-+		sprintf(pg_result, "OK: queue_map_min=%u", pkt_dev->queue_map_min);
-+		return count;
-+	}
+-	netif_carrier_on(port->netdev);
++	if (!prop_carrier_state || (port->phy_link == EHEA_PHY_LINK_UP))
++		netif_carrier_on(port->netdev);
 +
-+	if (!strcmp(name, "queue_map_max")) {
-+		len = num_arg(&user_buffer[i], 5, &value);
-+		if (len < 0) {
-+			return len;
-+		}
-+		i += len;
-+		pkt_dev->queue_map_max = value;
-+		sprintf(pg_result, "OK: queue_map_max=%u", pkt_dev->queue_map_max);
-+		return count;
-+	}
-+
- 	if (!strcmp(name, "mpls")) {
- 		unsigned n, offset;
- 		len = get_labels(&user_buffer[i], pkt_dev);
-@@ -2378,6 +2421,20 @@ static void mod_cur_headers(struct pktgen_dev *pkt_dev)
- 		pkt_dev->cur_pkt_size = t;
- 	}
+ 	kfree(cb4);
+ out:
+ 	return ret;
+@@ -869,13 +875,19 @@ static void ehea_parse_eqe(struct ehea_adapter *adapter, u64 eqe)
+ 			}
  
-+	if (pkt_dev->queue_map_min < pkt_dev->queue_map_max) {
-+		__u16 t;
-+		if (pkt_dev->flags & F_QUEUE_MAP_RND) {
-+			t = random32() %
-+				(pkt_dev->queue_map_max - pkt_dev->queue_map_min + 1)
-+				+ pkt_dev->queue_map_min;
-+		} else {
-+			t = pkt_dev->cur_queue_map + 1;
-+			if (t > pkt_dev->queue_map_max)
-+				t = pkt_dev->queue_map_min;
-+		}
-+		pkt_dev->cur_queue_map = t;
-+	}
-+
- 	pkt_dev->flows[flow].count++;
- }
+ 		if (EHEA_BMASK_GET(NEQE_EXTSWITCH_PORT_UP, eqe)) {
++			port->phy_link = EHEA_PHY_LINK_UP;
+ 			if (netif_msg_link(port))
+ 				ehea_info("%s: Physical port up",
+ 					  port->netdev->name);
++			if (prop_carrier_state)
++				netif_carrier_on(port->netdev);
+ 		} else {
++			port->phy_link = EHEA_PHY_LINK_DOWN;
+ 			if (netif_msg_link(port))
+ 				ehea_info("%s: Physical port down",
+ 					  port->netdev->name);
++			if (prop_carrier_state)
++				netif_carrier_off(port->netdev);
+ 		}
  
-@@ -2548,6 +2605,7 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
- 	skb->network_header = skb->tail;
- 	skb->transport_header = skb->network_header + sizeof(struct iphdr);
- 	skb_put(skb, sizeof(struct iphdr) + sizeof(struct udphdr));
-+	skb->queue_mapping = pkt_dev->cur_queue_map;
- 
- 	iph = ip_hdr(skb);
- 	udph = udp_hdr(skb);
-@@ -2889,6 +2947,7 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
- 	skb->network_header = skb->tail;
- 	skb->transport_header = skb->network_header + sizeof(struct ipv6hdr);
- 	skb_put(skb, sizeof(struct ipv6hdr) + sizeof(struct udphdr));
-+	skb->queue_mapping = pkt_dev->cur_queue_map;
- 
- 	iph = ipv6_hdr(skb);
- 	udph = udp_hdr(skb);
+ 		if (EHEA_BMASK_GET(NEQE_EXTSWITCH_PRIMARY, eqe))
+-- 
+1.5.2
+
