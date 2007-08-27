@@ -1,53 +1,71 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.24] introduce MAC_FMT/MAC_ARG
-Date: Mon, 27 Aug 2007 13:41:31 -0700 (PDT)
-Message-ID: <20070827.134131.41639376.davem@davemloft.net>
-References: <1187808408.4314.15.camel@johannes.berg>
-	<1188086976.18004.5.camel@localhost>
-	<1188212049.6756.18.camel@johannes.berg>
+Subject: Re: RFC: issues concerning the next NAPI interface
+Date: Mon, 27 Aug 2007 14:02:51 -0700 (PDT)
+Message-ID: <20070827.140251.95055210.davem@davemloft.net>
+References: <46D1D634.7060007@katalix.com>
+	<20070826.185815.93042514.davem@davemloft.net>
+	<46D2F301.7050105@katalix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org
-To: johannes@sipsolutions.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55370
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759240AbXH0Ulf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2007 16:41:35 -0400
-In-Reply-To: <1188212049.6756.18.camel@johannes.berg>
-Sender: netdev-owner@vger.kernel.org
+Cc: tklein@de.ibm.com, themann@de.ibm.com, stefan.roscher@de.ibm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	raisch@de.ibm.com, linuxppc-dev@ozlabs.org, akepner@sgi.com,
+	meder@de.ibm.com, ossthema@de.ibm.com, shemminger@linux-foundation.org
+To: jchapman@katalix.com
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <46D2F301.7050105@katalix.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Mon, 27 Aug 2007 12:54:09 +0200
+From: James Chapman <jchapman@katalix.com>
+Date: Mon, 27 Aug 2007 16:51:29 +0100
 
-> -- change macros to --
-> #define MAC_FMT "%s"
-> #define MAC_ARG(a) ({char __buf[18]; print_mac(a, buf); __buf})
+> To implement this, there's no need for timers, hrtimers or generic NAPI 
+> support that others have suggested. A driver's poll() would set an 
+> internal flag and record the current jiffies value when finding 
+> workdone=0 rather than doing an immediate napi_complete(). Early in 
+> poll() it would test this flag and if set, do a low-cost test to see if 
+> it had any work to do. If no work, it would check the saved jiffies 
+> value and do the napi_complete() only if no work has been done for a 
+> configurable number of jiffies. This keeps interrupts disabled longer at 
+> the expense of many more calls to poll() where no work is done. So 
+> critical to this scheme is modifying the driver's poll() to fastpath the 
+> case of having no work to do while waiting for its local jiffy count to 
+> expire.
 > 
-> I'm not sure we'd want that, but at the time you said it made the kernel
-> significantly smaller and I doubt there's a performance problem with it
-> (who prints mac addresses regularly?)
+> Here's an untested patch for tg3 that illustrates the idea.
 
-I don't think this works.
+It's only going to work with hrtimers, these interfaces can
+process at least 100,000 per jiffies tick.
 
-The scope of the __buf[18] array is inside of that MAC_ARG()
-expression, which will be fully evaluated before constructing
-the argument to printk().
+And the hrtimer granularity is going to need to be significantly low,
+and futhermore you're adding a guaranteed extra interrupt (for the
+hrtimer firing) in these cases where we're exactly trying to avoid is
+more interrupts.
 
-Therefore printk() will be passed what is essentially a stale stack
-pointer.
+If you can make it work, fine, but it's going to need to be at a
+minimum disabled when the hrtimer granularity is not sufficient.
 
-You'd need something like a "MAC_BUF buf;" all the callers need
-to declare, and a new "buf" argument to MAC_ARG().
+But there are huger fish to fry for you I think.  Talk to your
+platform maintainers and ask for an interface for obtaining
+a flat static distribution of interrupts to cpus in order to
+support multiqueue NAPI better.
 
-If this was the goal, there are better approches to this, how
-about just calling:
+In your previous postings you made arguments saying that the
+automatic placement of interrupts to cpus made everything
+bunch of to a single cpu and you wanted to propagate the
+NAPI work to other cpu's software interrupts from there.
 
-	print_mac(dev->dev_addr);
-
-Sure, we'll have to split up printk() calls, but in the end it's
-likely still smaller and better.  And I think it's much cleaner
-than this macro stuff.
-
+That logic is bogus, because it merely proves that the hardware
+interrupt distribution is broken.  If it's a bad cpu to run
+software interrupts on, it's also a bad cpu to run hardware
+interrupts on.
