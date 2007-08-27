@@ -1,39 +1,50 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] netdevice: kernel docbook addition
-Date: Mon, 27 Aug 2007 14:18:53 +0200
-Message-ID: <20070827121853.GA2854@ff.dom.local>
-References: <20070822123314.785dea2a@freepuppy.rosehill.hemminger.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: net-2.6.24 build broken (allyesconfig)
+Date: Mon, 27 Aug 2007 15:32:26 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0708271522400.16245@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S\. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:57630 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750718AbXH0MRi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Aug 2007 08:17:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20070822123314.785dea2a@freepuppy.rosehill.hemminger.net>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:35052 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751181AbXH0Mc2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2007 08:32:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 22-08-2007 21:33, Stephen Hemminger wrote:
-> Add more kernel doc's for part of the network device API.
-> This is only a start, and needs more work.
-> 
-> Applies against net-2.6.24
+Hi,
+
+$ git-reset --hard net-2.6.24-origin
+HEAD is now at e2eb35e... [ATM]: Fix build errors after conversion to pr_debug()
+$ make allyesconfig
 ...
-> +/**
-> + *	napi_disable - prevent NAPI from scheduling
-> + *	@n: napi context
-> + *
-> + * Resume NAPI from being scheduled on this context.
-> + * Must be paired with napi_disable.
-> + */
->  static inline void napi_enable(struct napi_struct *n)
->  {
+$ make bzImage
+...
+  CC      drivers/net/82596.o
+drivers/net/82596.c:1618:1: error: unterminated argument list invoking 
+macro "DEB"
+drivers/net/82596.c: In function 'set_multicast_list':
+drivers/net/82596.c:1564: error: 'DEB' undeclared (first use in this 
+function)
+drivers/net/82596.c:1564: error: (Each undeclared identifier is reported 
+only once
+drivers/net/82596.c:1564: error: for each function it appears in.)
+drivers/net/82596.c:1564: error: expected ';' at end of input
+make[1]: *** [drivers/net/82596.o] Error 1
+make: *** [drivers/net/82596.o] Error 2
 
-It looks like small fix is needed here (I hope it would be faster
-without my patch, thanks).
 
-Jarek P.
+Hmm, I would guess that "[NET]: Introduce MAC_FMT/MAC_ARG" broken it, 
+though didn't verify it.
+
+The fix is left as an exercise of the reader (i.e., the solution wasn't 
+too obvious for me :-) )...
+
+
+--
+ i.
