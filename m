@@ -1,63 +1,63 @@
 From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH 2.6.23-rc3-mm1] request_irq fix DEBUG_SHIRQ handling Re: 2.6.23-rc2-mm1: rtl8139 inconsistent lock state
-Date: Mon, 27 Aug 2007 07:54:26 +0200
-Message-ID: <20070827055426.GA1703@ff.dom.local>
-References: <20070822133511.GH1684@ff.dom.local> <200708251143.09425.m.kozlowski@tuxland.pl>
+Subject: Re: net/ipv4/fib_trie.c - compile error (Re: 2.6.23-rc3-mm1)
+Date: Mon, 27 Aug 2007 08:36:35 +0200
+Message-ID: <20070827063635.GB1703@ff.dom.local>
+References: <20070822170302.GC8786@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	linux-kernel@vger.kernel.org
-To: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:48764 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751357AbXH0FxL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Aug 2007 01:53:11 -0400
+Cc: Adrian Bunk <bunk@kernel.org>,
+	Gabriel C <nix.or.die@googlemail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: paulmck@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1752189AbXH0Gfe@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <200708251143.09425.m.kozlowski@tuxland.pl>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070822170302.GC8786@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 25, 2007 at 11:43:08AM +0200, Mariusz Kozlowski wrote:
-> > > =================================
-> > > [ INFO: inconsistent lock state ]
-> > > 2.6.23-rc2-mm1 #7
-> > > ---------------------------------
-> > > inconsistent {in-hardirq-W} -> {hardirq-on-W} usage.
-> > > ifconfig/5492 [HC0[0]:SC0[0]:HE1:SE1] takes:
-> > >  (&tp->lock){+...}, at: [<de8706e0>] rtl8139_interrupt+0x27/0x46b [8139too]
+On 22-08-2007 19:03, Paul E. McKenney wrote:
+> On Wed, Aug 22, 2007 at 05:41:11PM +0200, Adrian Bunk wrote:
+>> On Wed, Aug 22, 2007 at 05:30:13PM +0200, Gabriel C wrote:
+>>> Got it with a randconfig ( http://194.231.229.228/kernel/mm/2.6.23-rc3-mm1/r/randconfig-8 )
+>>>
+>>> ...
+>>>
+>>> net/ipv4/fib_trie.c: In function 'trie_rebalance':
+>>> net/ipv4/fib_trie.c:969: error: lvalue required as unary '&' operand
+>>> net/ipv4/fib_trie.c:971: error: lvalue required as unary '&' operand
+>>> net/ipv4/fib_trie.c:977: error: lvalue required as unary '&' operand
+>>> net/ipv4/fib_trie.c:980: error: lvalue required as unary '&' operand
+>>> ...
+>> Side effect of the git-net removal, temporarily removing 
+>> immunize-rcu_dereference-against-crazy-compiler-writers.patch should 
+>> work around it.
+> 
+> Alternatively, the following one-line patch to net/ipv4/fib_trie.c could
+> be used.
+> 
+> Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> ---
+> 
+>  fib_trie.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff -urpNa -X dontdiff linux-2.6.23-rc3-mm1/net/ipv4/fib_trie.c linux-2.6.23-rc3-mm1.compile/net/ipv4/fib_trie.c
+> --- linux-2.6.23-rc3-mm1/net/ipv4/fib_trie.c	2007-08-22 09:20:33.000000000 -0700
+> +++ linux-2.6.23-rc3-mm1.compile/net/ipv4/fib_trie.c	2007-08-22 09:47:33.000000000 -0700
+> @@ -94,7 +94,7 @@ typedef unsigned int t_key;
+>  #define T_LEAF  1
+>  #define NODE_TYPE_MASK	0x1UL
+>  #define NODE_PARENT(node) \
+> -	((struct tnode *)rcu_dereference(((node)->parent & ~NODE_TYPE_MASK)))
+> +	((struct tnode *)(rcu_dereference((node)->parent) & ~NODE_TYPE_MASK))
 ...
-> I tested your patch and it still happens. Dmesg info from patched kernel attached.
-> I coulnd't reproduce that on 2.6.23-rc3-mm1 - but on 2.6.23-rc2-mm2 it is easily
-> reproducible.
-> 
-> If you need more info, test some patches, etc. - just mail me.
-> 
-...
-> =========================================================
-> [ INFO: possible irq lock inversion dependency detected ]
-> 2.6.23-rc2-mm2 #2
-> ---------------------------------------------------------
-> runscript.sh/5065 just changed the state of lock:
->  (_xmit_ETHER){-+..}, at: [<c03cb659>] dev_watchdog+0x17/0xcc
-> but this lock took another, soft-irq-unsafe lock in the past:
->  (&tp->lock){--..}
-> 
-> and interrupts could create inverse lock ordering between them.
 
-It's OK! These're 2 different warnings. As a matter of fact, my patch
-wasn't supposed to fix any of them, but something similar to the first
-one, which was possible, but for some reason wasn't reported by
-lockdep.
+After first reading of this thread I've had an impression it's about
+compiler's behavior, but now it seems to me this patch is not an
+alternative, but a 'must be' and only proper way of calling
+rcu_dereference (with a variable instead of an expression)? Am I
+right?
 
-The first warning was fixed by Andrew Morton's patch to free_irq(),
-so it shouldn't happen in -rc3-mm. The second warning could have been
-fixed too, I don't know, but since it's quite long, I would prefer to
-think about it only if it still happens in current -mm's.
-
-Thanks,
+Regards,
 Jarek P.
