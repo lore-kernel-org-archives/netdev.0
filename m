@@ -1,27 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [NET] atm: Fix build errors after conversion to pr_debug()
-Date: Mon, 27 Aug 2007 01:13:18 -0700 (PDT)
-Message-ID: <20070827.011318.104052774.davem@davemloft.net>
-References: <20070827080536.GC894@postel.suug.ch>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: pktgen multiqueue oops
+Date: Mon, 27 Aug 2007 11:16:19 +0200
+Message-ID: <18130.38499.765184.425431@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tgraf@suug.ch
+Cc: Robert.Olsson@data.slu.se, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56570
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751124AbXH0INU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2007 04:13:20 -0400
-In-Reply-To: <20070827080536.GC894@postel.suug.ch>
+Received: from mx1.slu.se ([130.238.96.70]:57487 "EHLO mx1.slu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751305AbXH0JQY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Aug 2007 05:16:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Mon, 27 Aug 2007 10:05:37 +0200
 
-> Fixes ancient ATM debug code to at least compile again.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Hello,
 
-Patch applied, thanks Thomas!
+Initially pkt_dev can be NULL this causes netif_subqueue_stopped to 
+oops. The patch below should cure it. But maybe the pktgen TX logic 
+should be reworked to better support the new multiqueue support. 
+
+Cheers
+					--ro
+
+Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
+
+
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 7bae576..a0db4d1 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -3331,8 +3331,9 @@ static __inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 	}
+ 
+ 	if ((netif_queue_stopped(odev) ||
+-	     netif_subqueue_stopped(odev, pkt_dev->skb->queue_mapping)) ||
+-	     need_resched()) {
++	     (pkt_dev->skb && 
++	      netif_subqueue_stopped(odev, pkt_dev->skb->queue_mapping))) ||
++	    need_resched()) {
+ 		idle_start = getCurUs();
+ 
+ 		if (!netif_running(odev)) {
