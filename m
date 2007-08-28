@@ -1,90 +1,69 @@
-From: "Mandeep Baines" <mandeep.baines@gmail.com>
-Subject: Re: pktgen terminating condition
-Date: Wed, 29 Aug 2007 09:59:42 -0700
-Message-ID: <535ddc6b0708290959j4b89579dk37c97f555f7cfcb9@mail.gmail.com>
-References: <20070829044352.GA4133@ludhiana>
-	 <1188395183.4274.19.camel@localhost>
+From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
+Subject: Re: Crash report 2.6.22.5
+Date: Wed, 29 Aug 2007 01:51:09 +0200
+Message-ID: <6bffcb0e0708281651g29729d6au6b40c0f9af5beed2@mail.gmail.com>
+References: <24c800fb0708281140r2c46e364i77e041b6c746b60d@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, rick.jones2@hp.com, msb@google.com,
-	netdev@vger.kernel.org, grundler@google.com,
-	robert.olsson@its.uu.se, venza@brownhat.org, jeff@garzik.org,
-	nhorman@tuxdriver.com
-To: hadi@cyberus.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.180]:28208 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751580AbXH2Q7n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 12:59:43 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so268891wah
-        for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 09:59:43 -0700 (PDT)
-In-Reply-To: <1188395183.4274.19.camel@localhost>
+Cc: Netdev <netdev@vger.kernel.org>, netfilter-devel@lists.netfilter.org,
+	linux-kernel@vger.kernel.org
+To: "Pete Monroe" <pizzlemonrizzle@gmail.com>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+In-Reply-To: <24c800fb0708281140r2c46e364i77e041b6c746b60d@mail.gmail.com>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On 8/29/07, jamal <hadi@cyberus.ca> wrote:
-> On Tue, 2007-28-08 at 21:43 -0700, Mandeep Singh Baines wrote:
->
-> > I interpret this to mean that the interrupt gets generates after a packet
-> > is transferred to the TFIFO on the NIC and the next packet in the ring is
-> > NULL.
->
-> iow, when tx transits to idle ..
->
-> > This interrupt gets generates less often then TxOK which gets generated
-> > after every completed packet transmit. So I'm thinking that maybe the
-> > driver was written to use this interrupt instead of TxOK for this reason.
-> > Really just my speculation.
->
-> It does make sense if you are trying to cut down on tx interupts. It's a
-> little extreme - and if you dont have much memory it may not be the best
-> scheme. OTOH, you have moved to the other extreme imo ;-> You are
-> generating an interupt per tx packet. This may not matter on modern
-> hardware because that NIC seems to be Fast Ethernet.
-> You may wanna heed Dave's advice and just always set the idle on a
-> per-descriptor basis as well as txcomplete on every Xth packet (4 was
-> suggested).
+Hi Pete,
 
-My hardware at home is not so modern:( I'm running a AMD Geode NX1750.
-I like to punish myself:) Actually, it does the job and is very power
-efficient.
-
-Agreed, interrupting every packet is inefficient. A better solution is
-probably NAPI. I'll work on a new patch.
-
-> Looking at sis900_start_xmit() at the spot where OWN is set
-> on the descriptor, theres possibly another bit in tx_ring[entry].cmdsts
-> you may could set that will ask for tx complete; which makes me wonder:
-> is that "outl(TxENA | inl(ioaddr + cr), ioaddr + cr)" really needed on a
-> per-packet basis? Should it not be sufficient to turn it on once at
-> open()?
+On 28/08/07, Pete Monroe <pizzlemonrizzle@gmail.com> wrote:
+> Hi,
 >
-
-You have to set this bit to restart the Tx State Machine. You could
-optimize this if you use the TxIdle interrupt to tell you when you
-really need to set this bit.
-
-> > Anyway, if I rewrite the driver to use TxOK instead of TxIdle, pktgen
-> > works fine.
+> Sorry there's not more to go on here.
 >
-> I think its a good thing pktgen caught this; i am unsure however if it
-> is doing the right thing. Hoping Robert would respond.
-> One thing pktgen could do is restrict the amount of outstanding buffers
-> by using accounting the way sockets do - this at least wont stop
-> progress as it did in your case.
+> A 32-bit firewall running the kernel LVS virtual server to fan out to
+> a dozen webservers ran fine for a year using  2.6.17.13, but won't
+> last more than four hours or so with 2.6.22.5.  Another server,
+> different hardware and vendor but same purpose, also crashed with
+> 2.6.22.5 after a few hours.  It had previously run 2.6.20.11.  Nothing
+> on the screen, nothing in the logs.
 >
-> > I'm attaching the patch.
->
-> Looks good to me given the desire. I would bounce it by whoever the
-> maintainer is - they may have some insights on the lazy tx prune habit.
->
+> I'm attaching zipped dmesg (both kernel versions),
 
-+ nhorman@tuxdriver.com
-+ jeff@garzik.org
+Could you capture the bug with serial/netconsole etc.?
 
-I'll work on a NAPI patch.
+"Collecting kernel messages"
+http://www.stardust.webpages.pl/files/handbook/handbook-en-0.3-rc1.pdf
+for more info.
+
+> .config and lspci
+> -v output for one of the machines, a Dell Intel dual-Xeon box.  The
+> other machine is a dual Athlon box.  Both use SCSI drives (the
+> attached Dell uses MPT Fusion, the other one Adaptec.)  Intel ethernet
+> on both.
+>
+> I did enable the Slub allocator in 2.6.22.5, figuring that if it is
+> going to be the default in 2.6.23 that it's probably solid in .22.5.
+>
+> PLMK if any more info would be useful.
+>
+> Thanks,
+> Pete
+>
+>
 
 Regards,
-Mandeep
+Michal
+
+-- 
+LOG
+http://www.stardust.webpages.pl/log/
