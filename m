@@ -1,8 +1,8 @@
 From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Subject: Re: [3/4] 2.6.23-rc4: known regressions
-Date: Wed, 29 Aug 2007 17:27:39 +0200
-Message-ID: <46D5906B.1030701__33382.161128293$1188401400$gmane$org@googlemail.com>
-References: <46D58CC6.4020605@googlemail.com>
+Subject: Re: [2/2] 2.6.23-rc3: known regressions with patches
+Date: Wed, 29 Aug 2007 17:28:25 +0200
+Message-ID: <46D59099.8000709__43185.263957321$1188401402$gmane$org@googlemail.com>
+References: <46D58F89.4010108@googlemail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-2
 Content-Transfer-Encoding: 7bit
@@ -10,36 +10,33 @@ Cc: Andrew Morton <akpm@linux-foundation.org>,
 	LKML <linux-kernel@vger.kernel.org>,
 	linux-fsdevel@vger.kernel.org, nfs@lists.sourceforge.net,
 	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Andrew Clayton <andrew@digital-domain.net>,
-	kbuild-devel@lists.sourceforge.net,
-	Roman Zippel <zippel@linux-m68k.org>,
-	Sam Ravnborg <sam@ravnborg.org>,
-	Hugh Dickins <hugh@veritas.com>,
-	Netdev <netdev@vger.kernel.org>, Shish <shish@shishnet.org>,
-	Karl Meyer <adhocrocker@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	linux-wireless@vger.kernel.org,
+	Florin Iucha <florin@iucha.net>, Bret Towe <magnade@gmail.com>,
+	Harry Edmon <harry@atmos.washington.edu>,
+	Pierre Ossman <drzeus-mmc@drzeus.cx>,
 	Christian Casteyde <casteyde.christian@free.fr>,
-	Martin Langer <martin-langer@gmx.de>,
-	Stefano Brivio <st3@riseup.net>,
-	Michael Buesch <mbuesch@freenet.de>,
-	Danny van Dyk <kugelfang@gentoo.org>,
-	Andreas Jaggi <andreas.jaggi@waterwave.ch>
+	Alan Stern <stern@rowland.harvard.edu>,
+	linux-mtd@lists.infradead.org,
+	David Woodhouse <dwmw2@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>, Netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	Florian Lohoff <flo@rfc822.org>,
+	"Daniel K." <daniel@cluded.net>
 To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.184]:63377 "EHLO
+Received: from nf-out-0910.google.com ([64.233.182.191]:61828 "EHLO
 	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758364AbXH2P2p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 11:28:45 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so197542nfb
-        for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 08:28:43 -0700 (PDT)
-In-Reply-To: <46D58CC6.4020605@googlemail.com>
+	with ESMTP id S1758861AbXH2P3J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 11:29:09 -0400
+Received: by nf-out-0910.google.com with SMTP id g13so197372nfb
+        for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 08:29:07 -0700 (PDT)
+In-Reply-To: <46D58F89.4010108@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi all,
 
-Here is a list of some known regressions in 2.6.23-rc4.
+Here is a list of some known regressions in 2.6.23-rc4
+with patches available.
 
 Feel free to add new regressions/remove fixed etc.
 http://kernelnewbies.org/known_regressions
@@ -62,53 +59,75 @@ Tejun Heo                              3
 
 FS
 
-Subject         : [NFSD OOPS] 2.6.23-rc1-git10
-References      : http://lkml.org/lkml/2007/8/2/462
+Subject         : NFSv4 client OOPS
+References      : http://lkml.org/lkml/2007/8/28/207
 Last known good : ?
-Submitter       : Andrew Clayton <andrew@digital-domain.net>
+Submitter       : Harry Edmon <harry@atmos.washington.edu>
 Caused-By       : ?
-Handled-By      : ?
-Status          : unknown
+Handled-By      : Trond Myklebust <Trond.Myklebust@netapp.com>
+Patch           : http://lkml.org/lkml/2007/8/28/204
+Status          : patch available
 
-
-
-Kconfig
-
-Subject         : CONFIG_HOTPLUG_CPU: kconfig bug?
-References      : http://lkml.org/lkml/2007/8/27/204
+Subject         : nfs4 hang/NFS woes again
+                  (was USB-related oops in sysfs with linux v2.6.23-rc3-50-g28e8351)
+References      : http://lkml.org/lkml/2007/8/15/144
+                  http://lkml.org/lkml/2007/8/22/484
+                  http://lkml.org/lkml/2007/8/23/134
 Last known good : ?
-Submitter       : Hugh Dickins <hugh@veritas.com>
+Submitter       : Florin Iucha <florin@iucha.net>
+                  Bret Towe <magnade@gmail.com>
+Caused-By       : Trond Myklebust <Trond.Myklebust@netapp.com>
+                  commit 3d39c691ff486142dd9aaeac12f553f4476b7a62
+Handled-By      : Trond Myklebust <Trond.Myklebust@netapp.com>
+Patch           : http://lkml.org/lkml/2007/8/28/119
+Status          : patch available
+
+
+
+MMC
+
+Subject         : Unable to access memory card reader anymore
+References      : http://bugzilla.kernel.org/show_bug.cgi?id=8885
+Last known good : ?
+Submitter       : Christian Casteyde <casteyde.christian@free.fr>
 Caused-By       : ?
-Handled-By      : Sam Ravnborg <sam@ravnborg.org>
-Status          : problem is being debugged
+Handled-By      : Alan Stern <stern@rowland.harvard.edu>
+Patch           : http://bugzilla.kernel.org/attachment.cgi?id=12438
+Status          : patch available
+
+
+
+MTD
+
+Subject         : error: implicit declaration of function 'cfi_interleave'
+References      : http://lkml.org/lkml/2007/8/6/272
+Last known good : ?
+Submitter       : Ingo Molnar <mingo@elte.hu>
+Caused-By       : ?
+Handled-By      : David Woodhouse <dwmw2@infradead.org>
+Patch           : http://lkml.org/lkml/2007/8/9/586
+Status          : patch available
 
 
 
 Networking
 
-Subject         : System freeze when restarting network connection with Broadcom driver
-References      : http://bugzilla.kernel.org/show_bug.cgi?id=8934
-Last known good : ?
-Submitter       : Christian Casteyde <casteyde.christian@free.fr>
+Subject         : BUG: when using 'brctl stp'
+References      : http://lkml.org/lkml/2007/8/10/441
+Last known good : 2.6.23-rc1
+Submitter       : Daniel K. <daniel@cluded.net>
 Caused-By       : ?
-Handled-By      : ?
-Status          : problem is being debugged
+Handled-By      : Stephen Hemminger <shemminger@osdl.org>
+Status          : fix applied by David Miller
 
-Subject         : NETDEV WATCHDOG: eth0: transmit timed out
-References      : http://lkml.org/lkml/2007/8/13/737
+Subject         : sky2 boot crash in sky2_mac_intr
+References      : http://lkml.org/lkml/2007/7/24/91
 Last known good : ?
-Submitter       : Karl Meyer <adhocrocker@gmail.com>
-Caused-By       : ?
-Handled-By      : Francois Romieu <romieu@fr.zoreil.com>
-Status          : problem is being debugged
-
-Subject         : Weird network problems with 2.6.23-rc2
-References      : http://lkml.org/lkml/2007/8/11/40
-Last known good : ?
-Submitter       : Shish <shish@shishnet.org>
-Caused-By       : ?
-Handled-By      : ?
-Status          : unknown
+Submitter       : Florian Lohoff <flo@rfc822.org>
+Caused-By       : 
+Handled-By      : Stephen Hemminger <shemminger@osdl.org>
+Patch           : http://marc.info/?l=linux-netdev&m=118651402523966&w=2
+Status          : patch available
 
 
 
