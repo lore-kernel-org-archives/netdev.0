@@ -1,55 +1,89 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 03/12] sky2: document GPHY_CTRL bits
-Date: Wed, 29 Aug 2007 12:58:12 -0700
-Message-ID: <20070829195842.813275655@linux-foundation.org>
+Subject: [PATCH 08/12] ktime_sub_ns: analog of ktime_add_ns
+Date: Wed, 29 Aug 2007 12:58:17 -0700
+Message-ID: <20070829195843.076226125@linux-foundation.org>
 References: <20070829193922.078561651@linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:44265 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:57850 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932111AbXH2UCW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 16:02:22 -0400
-Content-Disposition: inline; filename=sky2-gphy-doc.patch
+	by vger.kernel.org with ESMTP id S932084AbXH2UCU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 16:02:20 -0400
+Content-Disposition: inline; filename=ktime_sub_ns.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add documentation of GPHY_CTRL register bits even if driver
-is not using them (yet).
+Add macro/function to subtract constant nanoseconds.
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
---- a/drivers/net/sky2.h	2007-08-29 11:38:37.000000000 -0700
-+++ b/drivers/net/sky2.h	2007-08-29 11:40:12.000000000 -0700
-@@ -1846,6 +1846,28 @@ enum {
+
+--- a/include/linux/ktime.h	2007-08-29 11:31:59.000000000 -0700
++++ b/include/linux/ktime.h	2007-08-29 11:41:19.000000000 -0700
+@@ -102,6 +102,13 @@ static inline ktime_t ktime_set(const lo
+ #define ktime_add_ns(kt, nsval) \
+ 		({ (ktime_t){ .tv64 = (kt).tv64 + (nsval) }; })
  
- /*	GPHY_CTRL		32 bit	GPHY Control Reg (YUKON only) */
- enum {
-+	GPC_TX_PAUSE	= 1<<30, /* Tx pause enabled (ro) */
-+	GPC_RX_PAUSE	= 1<<29, /* Rx pause enabled (ro) */
-+	GPC_SPEED	= 3<<27, /* PHY speed (ro) */
-+	GPC_LINK	= 1<<26, /* Link up (ro) */
-+	GPC_DUPLEX	= 1<<25, /* Duplex (ro) */
-+	GPC_CLOCK	= 1<<24, /* 125Mhz clock stable (ro) */
++/*
++ * Subtract a ktime_t variable and a scalar nanosecond value.
++ * res = kt - nsval:
++ */
++#define ktime_sub_ns(kt, nsval) \
++		({ (ktime_t){ .tv64 = (kt).tv64 - (nsval) }; })
 +
-+	GPC_PDOWN	= 1<<23, /* Internal regulator 2.5 power down */
-+	GPC_TSTMODE	= 1<<22, /* Test mode */
-+	GPC_REG18	= 1<<21, /* Reg18 Power down */
-+	GPC_REG12SEL	= 3<<19, /* Reg12 power setting */
-+	GPC_REG18SEL	= 3<<17, /* Reg18 power setting */
-+	GPC_SPILOCK	= 1<<16, /* SPI lock (ASF) */
+ /* convert a timespec to ktime_t format: */
+ static inline ktime_t timespec_to_ktime(struct timespec ts)
+ {
+@@ -200,6 +207,15 @@ static inline ktime_t ktime_add(const kt
+ extern ktime_t ktime_add_ns(const ktime_t kt, u64 nsec);
+ 
+ /**
++ * ktime_sub_ns - Subtract a scalar nanoseconds value to a ktime_t variable
++ * @kt:	        minuend
++ * @nsec:	subtrahend in nanoseconds
++ *
++ * Returns the difference of @kt and @nsec in ktime_t format
++ */
++extern ktime_t ktime_sub_ns(const ktime_t kt, u64 nsec);
 +
-+	GPC_LEDMUX	= 3<<14, /* LED Mux */
-+	GPC_INTPOL	= 1<<13, /* Interrupt polarity */
-+	GPC_DETECT	= 1<<12, /* Energy detect */
-+	GPC_1000HD	= 1<<11, /* Enable 1000Mbit HD */
-+	GPC_SLAVE	= 1<<10, /* Slave mode */
-+	GPC_PAUSE	= 1<<9, /* Pause enable */
-+	GPC_LEDCTL	= 3<<6, /* GPHY Leds */
++/**
+  * timespec_to_ktime - convert a timespec to ktime_t format
+  * @ts:		the timespec variable to convert
+  *
+--- a/kernel/hrtimer.c	2007-08-29 11:31:59.000000000 -0700
++++ b/kernel/hrtimer.c	2007-08-29 11:41:19.000000000 -0700
+@@ -277,6 +277,30 @@ ktime_t ktime_add_ns(const ktime_t kt, u
+ }
+ 
+ EXPORT_SYMBOL_GPL(ktime_add_ns);
 +
- 	GPC_RST_CLR	= 1<<1,	/* Clear GPHY Reset */
- 	GPC_RST_SET	= 1<<0,	/* Set   GPHY Reset */
- };
++/**
++ * ktime_sub_ns - Subract a scalar nanoseconds value to a ktime_t variable
++ * @kt:		minuend
++ * @nsec:	subtrahend in nanoseconds
++ *
++ * Returns the difference of kt and nsec in ktime_t format
++ */
++ktime_t ktime_sub_ns(const ktime_t kt, u64 nsec)
++{
++	ktime_t tmp;
++
++	if (likely(nsec < NSEC_PER_SEC)) {
++		tmp.tv64 = nsec;
++	} else {
++		unsigned long rem = do_div(nsec, NSEC_PER_SEC);
++
++		tmp = ktime_set((long)nsec, rem);
++	}
++
++	return ktime_sub(kt, tmp);
++}
++
++EXPORT_SYMBOL_GPL(ktime_add_ns);
+ # endif /* !CONFIG_KTIME_SCALAR */
+ 
+ /*
 
 -- 
 Stephen Hemminger <shemminger@linux-foundation.org>
