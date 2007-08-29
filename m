@@ -1,74 +1,59 @@
-From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-Subject: Re: [PATCH] make _minimum_ TCP retransmission timeout configurable
-Date: Thu, 30 Aug 2007 09:32:38 +1200
-Message-ID: <5640c7e00708291432q6acde704od52247647a6b453@mail.gmail.com>
-References: <200708292052.NAA21975@tardy.cup.hp.com>
+From: sukadev@us.ibm.com
+Subject: Re: [PATCH] Remove write-only variable from pktgen_thread
+Date: Wed, 29 Aug 2007 14:33:56 -0700
+Message-ID: <20070829213356.GC18542@us.ibm.com>
+References: <46D572FA.9090302@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Rick Jones" <rick.jones2@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, Oleg Nesterov <oleg@tv-sign.ru>,
+	Linux Containers <containers@lists.osdl.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.179]:46376 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756980AbXH2Vcj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 17:32:39 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so357680wah
-        for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 14:32:38 -0700 (PDT)
-In-Reply-To: <200708292052.NAA21975@tardy.cup.hp.com>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:39936 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751013AbXH2Vd6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Aug 2007 17:33:58 -0400
 Content-Disposition: inline
+In-Reply-To: <46D572FA.9090302@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/30/07, Rick Jones <rick.jones2@hp.com> wrote:
-> Enable configuration of the minimum TCP Retransmission Timeout via
-> a new sysctl "tcp_rto_min" to help those who's networks (eg cellular)
-> have quite variable RTTs avoid spurrious RTOs.
->
-> Signed-off-by: Rick Jones <rick.jones2@hp.com>
-> Signed-off-by: Lamont Jones <lamont@hp.com>
-> ---
->
-> diff -r 1559df81a153 Documentation/networking/ip-sysctl.txt
-> --- a/Documentation/networking/ip-sysctl.txt    Mon Aug 13 05:00:33 2007 +0000
-> +++ b/Documentation/networking/ip-sysctl.txt    Wed Aug 22 10:42:55 2007 -0700
-> @@ -339,6 +339,13 @@ tcp_rmem - vector of 3 INTEGERs: min, de
->         selected receiver buffers for TCP socket. This value does not override
->         net.core.rmem_max, "static" selection via SO_RCVBUF does not use this.
->         Default: 87380*2 bytes.
-> +
-> +tcp_rto_min - INTEGER
-> +       The minimum value for the TCP Retransmission Timeout, expressed
-> +       in milliseconds for the convenience of the user.
-> +       This is bounded at the low-end by TCP_RTO_MIN and by TCP_RTO_MAX at
-> +       the high-end.
-> +       Default: 200.
->
+Pavel Emelianov [xemul@openvz.org] wrote:
+| The pktgen_thread.pid is set to current->pid and is never used
+| after this. So remove this at all.
+| 
+| Found during isolating the explicit pid/tgid usage.
+| 
+| Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Hmmm... RFC2988 says:
-   (2.4) Whenever RTO is computed, if it is less than 1 second then the
-         RTO SHOULD be rounded up to 1 second.
+Good observation that its not being used :-)
 
-         Traditionally, TCP implementations use coarse grain clocks to
-         measure the RTT and trigger the RTO, which imposes a large
-         minimum value on the RTO.  Research suggests that a large
-         minimum RTO is needed to keep TCP conservative and avoid
-         spurious retransmissions [AP99].  Therefore, this
-         specification requires a large minimum RTO as a conservative
-         approach, while at the same time acknowledging that at some
-         future point, research may show that a smaller minimum RTO is
-         acceptable or superior.
-
-I went and had a look and this RFC has not been obsoleted. RFC3390
-also backs this assertion up.
-
-So I'm suspecting that the default should be changed to 1000 to match
-the RFC which would solve this issue. I note that the RFC is a SHOULD
-rather than a MUST. I had a quick look around and not sure why Linux
-overrides the RFC on this one.
-
-Ian
--- 
-Web1: http://wand.net.nz/~iam4/
-Web2: http://www.jandi.co.nz
-Blog: http://iansblog.jandi.co.nz
+Acked-by: Sukadev Bhattiprolu <sukadev@us.ibm.com>
+| 
+| ---
+| 
+| diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+| index 3a3154e..93695c2 100644
+| --- a/net/core/pktgen.c
+| +++ b/net/core/pktgen.c
+| @@ -380,7 +380,6 @@ struct pktgen_thread {
+| 	/* Field for thread to receive "posted" events terminate, stop ifs 
+| 	etc. */
+| 
+| 	u32 control;
+| -	int pid;
+| 	int cpu;
+| 
+| 	wait_queue_head_t queue;
+| @@ -3462,8 +3461,6 @@ static int pktgen_thread_worker(void *ar
+| 
+| 	init_waitqueue_head(&t->queue);
+| 
+| -	t->pid = current->pid;
+| -
+| 	pr_debug("pktgen: starting pktgen/%d:  pid=%d\n", cpu, 
+| 	task_pid_nr(current));
+| 
+| 	max_before_softirq = t->max_before_softirq;
