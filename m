@@ -1,64 +1,51 @@
-From: Xavier Bestel <xavier.bestel@free.fr>
-Subject: Re: [PATCH 4/5] Net: ath5k, license is GPLv2
-Date: Wed, 29 Aug 2007 15:13:46 +0200
-Message-ID: <1188393226.1131.319.camel@frg-rhel40-em64t-04>
-References: <7515194658758617@pripojeni.net>
-	 <1188381582.19891.6.camel@johannes.berg>
-	 <4af2d03a0708290335x1a9aa38o566e9d416505f280@mail.gmail.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH] Remove write-only variable from pktgen_thread
+Date: Wed, 29 Aug 2007 17:22:02 +0400
+Message-ID: <46D572FA.9090302@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>, linville@tuxdriver.com,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jiri Slaby <jirislaby@gmail.com>
+Cc: Oleg Nesterov <oleg@tv-sign.ru>,
+	Sukadev Bhattiprolu <sukadev@us.ibm.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2f.orange.fr ([80.12.242.151]:9683 "EHLO smtp2f.orange.fr"
+Received: from mailhub.sw.ru ([195.214.233.200]:38276 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756377AbXH2NNx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Aug 2007 09:13:53 -0400
-Received: from me-wanadoo.net (localhost [127.0.0.1])
-	by mwinf2f11.orange.fr (SMTP Server) with ESMTP id 83D307000102
-	for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 15:13:51 +0200 (CEST)
-In-Reply-To: <4af2d03a0708290335x1a9aa38o566e9d416505f280@mail.gmail.com>
+	id S1757257AbXH2NZn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Aug 2007 09:25:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-08-29 at 08:35 -0200, Jiri Slaby wrote:
-> On 8/29/07, Johannes Berg <johannes@sipsolutions.net> wrote:
-> > On Tue, 2007-08-28 at 12:00 -0400, Jiri Slaby wrote:
-> >
-> > > The files are available only under GPLv2 since now.
-> >
-> > Since the BSD people are already getting upset about (for various
-> > reasons among which seem to be a clear non-understanding) I'd suggest
-> > changing it to:
-> 
-> yes, please. Can somebody do it, I'm away from my box.
-> 
-> > + * Parts of this file were originally licenced under the BSD licence:
-> > + *
-> > >  * Permission to use, copy, modify, and distribute this software for any
-> > >  * purpose with or without fee is hereby granted, provided that the above
-> > >  * copyright notice and this permission notice appear in all copies.
-> > >  *
-> > >  * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
-> > WARRANTIES
-> > >  * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-> > >  * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-> > >  * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-> > >  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-> > >  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-> > >  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-> > + *
-> > + * Further changes to this file since the moment this notice was extended
-> > + * are now distributed under the terms of the GPL version two as published
-> > + * by the Free Software Foundation <yaddaya>
-> >
-> > johannes
+The pktgen_thread.pid is set to current->pid and is never used
+after this. So remove this at all.
 
-How about asking for changes to be dual-licenced too ?
+Found during isolating the explicit pid/tgid usage.
 
-	Xav
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
+---
 
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 3a3154e..93695c2 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -380,7 +380,6 @@ struct pktgen_thread {
+ 	/* Field for thread to receive "posted" events terminate, stop ifs etc. */
+ 
+ 	u32 control;
+-	int pid;
+ 	int cpu;
+ 
+ 	wait_queue_head_t queue;
+@@ -3462,8 +3461,6 @@ static int pktgen_thread_worker(void *ar
+ 
+ 	init_waitqueue_head(&t->queue);
+ 
+-	t->pid = current->pid;
+-
+ 	pr_debug("pktgen: starting pktgen/%d:  pid=%d\n", cpu, task_pid_nr(current));
+ 
+ 	max_before_softirq = t->max_before_softirq;
