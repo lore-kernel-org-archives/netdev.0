@@ -1,44 +1,43 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: [PATCH] make _minimum_ TCP retransmission timeout configurable
-Date: Wed, 29 Aug 2007 19:44:23 -0400
-Message-ID: <46D604D7.6090200@psc.edu>
-References: <46D5F32F.2070502@hp.com>	<20070829.153503.18295527.davem@davemloft.net>	<46D5FBF3.5050700@hp.com> <20070829.161528.38309258.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: net-2.6.24 rebased
+Date: Wed, 29 Aug 2007 16:47:07 -0700
+Message-ID: <1188431227.6062.114.camel@localhost>
+References: <20070828.175404.23012909.davem@davemloft.net>
+	 <20070828.175922.70219802.davem@davemloft.net>
+	 <1188430440.6062.110.camel@localhost>
+	 <20070829.164130.31655965.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, ian.mcdonald@jandi.co.nz,
-	netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer1.psc.edu ([128.182.58.100]:53495 "EHLO mailer1.psc.edu"
+Received: from DSL022.labridge.com ([206.117.136.22]:4556 "EHLO perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750802AbXH2Xom (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Aug 2007 19:44:42 -0400
-In-Reply-To: <20070829.161528.38309258.davem@davemloft.net>
+	id S1750877AbXH2XrO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Aug 2007 19:47:14 -0400
+In-Reply-To: <20070829.164130.31655965.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Rick Jones <rick.jones2@hp.com>
-> Date: Wed, 29 Aug 2007 16:06:27 -0700
-> 
->> I belive the biggest component comes from link-layer retransmissions. 
->> There can also be some short outtages thanks to signal blocking, 
->> tunnels, people with big hats and whatnot that the link-layer 
->> retransmissions are trying to address.  The three seconds seems to be a 
->> value that gives the certainty that 99 times out of 10 the segment was 
->> indeed lost.
->>
->> The trace I've been sent shows clean RTTs ranging from ~200 milliseconds 
->> to ~7000 milliseconds.
-> 
-> Thanks for the info.
-> 
-> It's pretty easy to generate examples where we might have some sockets
-> talking over interfaces on such a network and others which are not.
-> Therefore, if we do this, a per-route metric is probably the best bet.
+On Wed, 2007-08-29 at 16:41 -0700, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Wed, 29 Aug 2007 16:34:00 -0700
+>=20
+> > On Tue, 2007-08-28 at 17:59 -0700, David Miller wrote:
+> > > I pushed this fix into net-2.6.24 just now, thanks again.
+> >=20
+> > This tree doesn't compile for me defconfig
 
-This is exactly what I was thinking.  It might even help discourage 
-users from playing with this setting who should not. ;)
+CC      drivers/net/forcedeth.o
+drivers/net/forcedeth.c: In function =E2=80=98nv_probe=E2=80=99:
+drivers/net/forcedeth.c:5158: error: =E2=80=98nv_napi_poll=E2=80=99 und=
+eclared (first use in this function)
+drivers/net/forcedeth.c:5158: error: (Each undeclared identifier is rep=
+orted only once
+drivers/net/forcedeth.c:5158: error: for each function it appears in.)
+make[2]: *** [drivers/net/forcedeth.o] Error 1
+make[1]: *** [drivers/net] Error 2
+make: *** [drivers] Error 2
 
-   -John
+
