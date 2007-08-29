@@ -1,51 +1,64 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] make _minimum_ TCP retransmission timeout configurable
-Date: Wed, 29 Aug 2007 23:13:53 +0200
-Message-ID: <46D5E191.6070401@cosmosbay.com>
-References: <200708292052.NAA21975@tardy.cup.hp.com>
+From: Daniel Lezcano <dlezcano@meiosys.com>
+Subject: Re: [patch 0/1][RFC] add a private field to the sock structure
+Date: Wed, 29 Aug 2007 23:15:31 +0200
+Message-ID: <46D5E1F3.4020009@meiosys.com>
+References: <20070829164114.868188182@f002726.toulouse-stg.fr.ibm.com> <20070829.112316.98862875.davem@davemloft.net> <20070829191831.GA16184@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	David Miller <davem@davemloft.net>, dlezcano@fr.ibm.com,
+	netdev@vger.kernel.org, ralf@linux-mips.org, hch@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:60125 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751651AbXH2VOG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 17:14:06 -0400
-In-Reply-To: <200708292052.NAA21975@tardy.cup.hp.com>
+Received: from mtagate3.de.ibm.com ([195.212.29.152]:11132 "EHLO
+	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753712AbXH2VVd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 17:21:33 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate3.de.ibm.com (8.13.8/8.13.8) with ESMTP id l7TLLVw6121852
+	for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 21:21:31 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7TLLVRI1765570
+	for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 23:21:31 +0200
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7TLLUXn030978
+	for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 23:21:31 +0200
+In-Reply-To: <20070829191831.GA16184@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rick Jones a =E9crit :
-> Enable configuration of the minimum TCP Retransmission Timeout via
-> a new sysctl "tcp_rto_min" to help those who's networks (eg cellular)
-> have quite variable RTTs avoid spurrious RTOs.
->=20
-> Signed-off-by: Rick Jones <rick.jones2@hp.com>
-> Signed-off-by: Lamont Jones <lamont@hp.com>
-> ---
->=20
-> diff -r 1559df81a153 include/linux/sysctl.h
-> --- a/include/linux/sysctl.h	Mon Aug 13 05:00:33 2007 +0000
-> +++ b/include/linux/sysctl.h	Wed Aug 22 10:42:55 2007 -0700
-> @@ -441,6 +441,7 @@ enum
->  	NET_TCP_ALLOWED_CONG_CONTROL=3D123,
->  	NET_TCP_MAX_SSTHRESH=3D124,
->  	NET_TCP_FRTO_RESPONSE=3D125,
-> +	NET_TCP_RTO_MIN=3D126,
->  };
-> =20
->  enum {
+Arnaldo Carvalho de Melo wrote:
+> Em Wed, Aug 29, 2007 at 11:23:16AM -0700, David Miller escreveu:
+>> From: dlezcano@fr.ibm.com
+>> Date: Wed, 29 Aug 2007 18:41:14 +0200
+>>
+>>> When a socket is created it is sometime useful to store a specific information
+>>> for this socket.
+>>>  
+>>> This information can be for examples: 
+>>> 	* a creation time
+>>> 	* a pid
+>>> 	* a uid/gid
+>>> 	* a container identifier
+>>> 	* a pointer to a more specific structure
+>>> 	* ...
+>>>
+>>> The following patch is a proposition to add a private anonymous pointer
+>>> field to the common part of the sock structure.
+>> We got rid of the private field a long time ago because not only
+>> is it not needed, it tends to get abused.
+> 
+> Nah, it still there, sk_protinfo, its just ax25 that uses it
+> (nudge(Ralf)). How do we state that a struct field is deprecated and
+> will be removed soon(tm)?
+> 
+> There is another, sk_user_data, that is used only by the rpc, pppol2tp,
+> iscsi, ncpfs, smbfs and dlm guys, see? We need a deprecate flag for
+> sk_protinfo, if not people will use it! :-)
 
-I am sure you can use CTL_UNNUMBERED instead of adding yet another sysc=
-tl=20
-value, as advised in include/linux/sysctl.h
+Thank you for your feedbacks. I will play with the sk_user_data.
 
-**  For new interfaces unless you really need a binary number
-**  please use CTL_UNNUMBERED.
+Is there a chance to have this field in the timewait sockets ? :)
 
-
-Thank you
-
+Regards
+	--Daniel
