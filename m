@@ -1,64 +1,74 @@
-From: Daniel Lezcano <dlezcano@meiosys.com>
-Subject: Re: [patch 0/1][RFC] add a private field to the sock structure
-Date: Wed, 29 Aug 2007 23:15:31 +0200
-Message-ID: <46D5E1F3.4020009@meiosys.com>
-References: <20070829164114.868188182@f002726.toulouse-stg.fr.ibm.com> <20070829.112316.98862875.davem@davemloft.net> <20070829191831.GA16184@ghostprotocols.net>
+From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+Subject: Re: [PATCH] make _minimum_ TCP retransmission timeout configurable
+Date: Thu, 30 Aug 2007 09:32:38 +1200
+Message-ID: <5640c7e00708291432q6acde704od52247647a6b453@mail.gmail.com>
+References: <200708292052.NAA21975@tardy.cup.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	David Miller <davem@davemloft.net>, dlezcano@fr.ibm.com,
-	netdev@vger.kernel.org, ralf@linux-mips.org, hch@infradead.org
+Cc: netdev@vger.kernel.org
+To: "Rick Jones" <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.de.ibm.com ([195.212.29.152]:11132 "EHLO
-	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753712AbXH2VVd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 17:21:33 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate3.de.ibm.com (8.13.8/8.13.8) with ESMTP id l7TLLVw6121852
-	for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 21:21:31 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7TLLVRI1765570
-	for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 23:21:31 +0200
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7TLLUXn030978
-	for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 23:21:31 +0200
-In-Reply-To: <20070829191831.GA16184@ghostprotocols.net>
+Received: from wa-out-1112.google.com ([209.85.146.179]:46376 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756980AbXH2Vcj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 17:32:39 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so357680wah
+        for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 14:32:38 -0700 (PDT)
+In-Reply-To: <200708292052.NAA21975@tardy.cup.hp.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arnaldo Carvalho de Melo wrote:
-> Em Wed, Aug 29, 2007 at 11:23:16AM -0700, David Miller escreveu:
->> From: dlezcano@fr.ibm.com
->> Date: Wed, 29 Aug 2007 18:41:14 +0200
->>
->>> When a socket is created it is sometime useful to store a specific information
->>> for this socket.
->>>  
->>> This information can be for examples: 
->>> 	* a creation time
->>> 	* a pid
->>> 	* a uid/gid
->>> 	* a container identifier
->>> 	* a pointer to a more specific structure
->>> 	* ...
->>>
->>> The following patch is a proposition to add a private anonymous pointer
->>> field to the common part of the sock structure.
->> We got rid of the private field a long time ago because not only
->> is it not needed, it tends to get abused.
-> 
-> Nah, it still there, sk_protinfo, its just ax25 that uses it
-> (nudge(Ralf)). How do we state that a struct field is deprecated and
-> will be removed soon(tm)?
-> 
-> There is another, sk_user_data, that is used only by the rpc, pppol2tp,
-> iscsi, ncpfs, smbfs and dlm guys, see? We need a deprecate flag for
-> sk_protinfo, if not people will use it! :-)
+On 8/30/07, Rick Jones <rick.jones2@hp.com> wrote:
+> Enable configuration of the minimum TCP Retransmission Timeout via
+> a new sysctl "tcp_rto_min" to help those who's networks (eg cellular)
+> have quite variable RTTs avoid spurrious RTOs.
+>
+> Signed-off-by: Rick Jones <rick.jones2@hp.com>
+> Signed-off-by: Lamont Jones <lamont@hp.com>
+> ---
+>
+> diff -r 1559df81a153 Documentation/networking/ip-sysctl.txt
+> --- a/Documentation/networking/ip-sysctl.txt    Mon Aug 13 05:00:33 2007 +0000
+> +++ b/Documentation/networking/ip-sysctl.txt    Wed Aug 22 10:42:55 2007 -0700
+> @@ -339,6 +339,13 @@ tcp_rmem - vector of 3 INTEGERs: min, de
+>         selected receiver buffers for TCP socket. This value does not override
+>         net.core.rmem_max, "static" selection via SO_RCVBUF does not use this.
+>         Default: 87380*2 bytes.
+> +
+> +tcp_rto_min - INTEGER
+> +       The minimum value for the TCP Retransmission Timeout, expressed
+> +       in milliseconds for the convenience of the user.
+> +       This is bounded at the low-end by TCP_RTO_MIN and by TCP_RTO_MAX at
+> +       the high-end.
+> +       Default: 200.
+>
 
-Thank you for your feedbacks. I will play with the sk_user_data.
+Hmmm... RFC2988 says:
+   (2.4) Whenever RTO is computed, if it is less than 1 second then the
+         RTO SHOULD be rounded up to 1 second.
 
-Is there a chance to have this field in the timewait sockets ? :)
+         Traditionally, TCP implementations use coarse grain clocks to
+         measure the RTT and trigger the RTO, which imposes a large
+         minimum value on the RTO.  Research suggests that a large
+         minimum RTO is needed to keep TCP conservative and avoid
+         spurious retransmissions [AP99].  Therefore, this
+         specification requires a large minimum RTO as a conservative
+         approach, while at the same time acknowledging that at some
+         future point, research may show that a smaller minimum RTO is
+         acceptable or superior.
 
-Regards
-	--Daniel
+I went and had a look and this RFC has not been obsoleted. RFC3390
+also backs this assertion up.
+
+So I'm suspecting that the default should be changed to 1000 to match
+the RFC which would solve this issue. I note that the RFC is a SHOULD
+rather than a MUST. I had a quick look around and not sure why Linux
+overrides the RFC on this one.
+
+Ian
+-- 
+Web1: http://wand.net.nz/~iam4/
+Web2: http://www.jandi.co.nz
+Blog: http://iansblog.jandi.co.nz
