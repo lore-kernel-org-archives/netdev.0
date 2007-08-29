@@ -1,47 +1,90 @@
-From: dlezcano@fr.ibm.com
-Subject: [patch 0/1][RFC] add a private field to the sock structure
-Date: Wed, 29 Aug 2007 18:41:14 +0200
-Message-ID: <20070829164114.868188182@f002726.toulouse-stg.fr.ibm.com>
-To: netdev@vger.kernel.org
+From: "Mandeep Baines" <mandeep.baines@gmail.com>
+Subject: Re: pktgen terminating condition
+Date: Wed, 29 Aug 2007 09:59:42 -0700
+Message-ID: <535ddc6b0708290959j4b89579dk37c97f555f7cfcb9@mail.gmail.com>
+References: <20070829044352.GA4133@ludhiana>
+	 <1188395183.4274.19.camel@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, rick.jones2@hp.com, msb@google.com,
+	netdev@vger.kernel.org, grundler@google.com,
+	robert.olsson@its.uu.se, venza@brownhat.org, jeff@garzik.org,
+	nhorman@tuxdriver.com
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([195.212.29.140]:62670 "EHLO
-	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753313AbXH2Qx3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 12:53:29 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate7.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l7TGrSJO576736
-	for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 16:53:28 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7TGrS4V2691162
-	for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 17:53:28 +0100
-Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7TGrFSb010013
-	for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 17:53:15 +0100
-Received: from f002726.toulouse-stg.fr.ibm.com (dyn-9-101-17-26.toulouse-stg.fr.ibm.com [9.101.17.26])
-	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id l7TGrEca009850
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 17:53:15 +0100
-Received: from f002726.toulouse-stg.fr.ibm.com (localhost.localdomain [127.0.0.1])
-	by f002726.toulouse-stg.fr.ibm.com (8.14.1/8.14.1) with ESMTP id l7TGlEI4029219
-	for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 18:47:14 +0200
-Received: (from dlezcano@localhost)
-	by f002726.toulouse-stg.fr.ibm.com (8.14.1/8.14.1/Submit) id l7TGlD9Z029218
-	for netdev@vger.kernel.org; Wed, 29 Aug 2007 18:47:13 +0200
+Received: from wa-out-1112.google.com ([209.85.146.180]:28208 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751580AbXH2Q7n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 12:59:43 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so268891wah
+        for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 09:59:43 -0700 (PDT)
+In-Reply-To: <1188395183.4274.19.camel@localhost>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When a socket is created it is sometime useful to store a specific information
-for this socket.
- 
-This information can be for examples: 
-	* a creation time
-	* a pid
-	* a uid/gid
-	* a container identifier
-	* a pointer to a more specific structure
-	* ...
+On 8/29/07, jamal <hadi@cyberus.ca> wrote:
+> On Tue, 2007-28-08 at 21:43 -0700, Mandeep Singh Baines wrote:
+>
+> > I interpret this to mean that the interrupt gets generates after a packet
+> > is transferred to the TFIFO on the NIC and the next packet in the ring is
+> > NULL.
+>
+> iow, when tx transits to idle ..
+>
+> > This interrupt gets generates less often then TxOK which gets generated
+> > after every completed packet transmit. So I'm thinking that maybe the
+> > driver was written to use this interrupt instead of TxOK for this reason.
+> > Really just my speculation.
+>
+> It does make sense if you are trying to cut down on tx interupts. It's a
+> little extreme - and if you dont have much memory it may not be the best
+> scheme. OTOH, you have moved to the other extreme imo ;-> You are
+> generating an interupt per tx packet. This may not matter on modern
+> hardware because that NIC seems to be Fast Ethernet.
+> You may wanna heed Dave's advice and just always set the idle on a
+> per-descriptor basis as well as txcomplete on every Xth packet (4 was
+> suggested).
 
-The following patch is a proposition to add a private anonymous pointer
-field to the common part of the sock structure.
+My hardware at home is not so modern:( I'm running a AMD Geode NX1750.
+I like to punish myself:) Actually, it does the job and is very power
+efficient.
 
--- 
+Agreed, interrupting every packet is inefficient. A better solution is
+probably NAPI. I'll work on a new patch.
+
+> Looking at sis900_start_xmit() at the spot where OWN is set
+> on the descriptor, theres possibly another bit in tx_ring[entry].cmdsts
+> you may could set that will ask for tx complete; which makes me wonder:
+> is that "outl(TxENA | inl(ioaddr + cr), ioaddr + cr)" really needed on a
+> per-packet basis? Should it not be sufficient to turn it on once at
+> open()?
+>
+
+You have to set this bit to restart the Tx State Machine. You could
+optimize this if you use the TxIdle interrupt to tell you when you
+really need to set this bit.
+
+> > Anyway, if I rewrite the driver to use TxOK instead of TxIdle, pktgen
+> > works fine.
+>
+> I think its a good thing pktgen caught this; i am unsure however if it
+> is doing the right thing. Hoping Robert would respond.
+> One thing pktgen could do is restrict the amount of outstanding buffers
+> by using accounting the way sockets do - this at least wont stop
+> progress as it did in your case.
+>
+> > I'm attaching the patch.
+>
+> Looks good to me given the desire. I would bounce it by whoever the
+> maintainer is - they may have some insights on the lazy tx prune habit.
+>
+
++ nhorman@tuxdriver.com
++ jeff@garzik.org
+
+I'll work on a NAPI patch.
+
+Regards,
+Mandeep
