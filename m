@@ -1,46 +1,46 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: pktgen terminating condition
-Date: Wed, 29 Aug 2007 18:32:15 +0200
-Message-ID: <18133.40847.166882.838333@robur.slu.se>
-References: <20070829044352.GA4133@ludhiana>
-	<1188395183.4274.19.camel@localhost>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [PATCH 0/9 Rev3] Implement batching skb API and support in IPoIB
+Date: Wed, 29 Aug 2007 09:43:11 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC3290381E16F@orsmsx414.amr.corp.intel.com>
+References: <20070828.215150.98552996.davem@davemloft.net><OF46DAD75A.5ADE5863-ON65257346.001C9AA3-65257346.001CB0F4@in.ibm.com> <20070828.221448.123919361.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Mandeep Singh Baines <mandeep.baines@gmail.com>,
-	davem@davemloft.net, rick.jones2@hp.com, msb@google.com,
-	netdev@vger.kernel.org, grundler@google.com,
-	robert.olsson@its.uu.se, venza@brownhat.org
-To: hadi@cyberus.ca
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <gaagaan@gmail.com>, <general@lists.openfabrics.org>,
+	<hadi@cyberus.ca>, <herbert@gondor.apana.org.au>,
+	<jagana@us.ibm.com>, <jeff@garzik.org>, <johnpol@2ka.mipt.ru>,
+	<kaber@trash.net>, <kumarkr@linux.ibm.com>,
+	<mcarlson@broadcom.com>, <mchan@broadcom.com>,
+	<netdev@vger.kernel.org>, <netdev-owner@vger.kernel.org>,
+	<rdreier@cisco.com>, <rick.jones2@hp.com>,
+	<Robert.Olsson@data.slu.se>, <shemminger@linux-foundation.org>,
+	<sri@us.ibm.com>, <tgraf@suug.ch>, <xma@us.ibm.com>
+To: "David Miller" <davem@davemloft.net>, <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:58961 "EHLO mx1.slu.se"
+Received: from mga03.intel.com ([143.182.124.21]:23379 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752415AbXH2QhU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Aug 2007 12:37:20 -0400
-In-Reply-To: <1188395183.4274.19.camel@localhost>
+	id S1751708AbXH2QnO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 12:43:14 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20070828.221448.123919361.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> From: Krishna Kumar2 <krkumar2@in.ibm.com>
+> Date: Wed, 29 Aug 2007 10:43:23 +0530
+> 
+> > The reason was to run parallel copies, not for buffer limitations.
+> 
+> Oh, I see.
+> 
+> I'll note in passing that current lmbench-3 has some 
+> parallelization features you could play with, you might want 
+> to check it out.
 
-jamal writes:
- > On Tue, 2007-28-08 at 21:43 -0700, Mandeep Singh Baines wrote:
+I've also used iperf for parallel connections successfully, and that
+will allow you to mess with the buffer sizes as well along with other
+variables of the data streams for both TCP and UDP.
 
- > I think its a good thing pktgen caught this; i am unsure however if it
- > is doing the right thing. Hoping Robert would respond.
- > One thing pktgen could do is restrict the amount of outstanding buffers
- > by using accounting the way sockets do - this at least wont stop
- > progress as it did in your case.
-
- Hello,
-
- Yes it's synchronization issue... the test is over and we have sent 
- all pkts to the device but pktgen cannot free the skb for it still 
- has refcounts. 
-
- IMO must drivers have provisions to handle situation like. I'll 
- guess we can discuss last-resort timer if it should be us, ms 
- or possibly seconds but shouldn't need ping to make this happen. 
- If so we probably have a ICMP packet sitting there waiting instead.  
-
- Cheers
-					--ro
+Cheers,
+-PJ
