@@ -1,46 +1,46 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [NFS] [3/4] 2.6.23-rc4: known regressions
-Date: Wed, 29 Aug 2007 17:54:36 -0400
-Message-ID: <20070829215436.GB9731@fieldses.org>
-References: <46D58CC6.4020605@googlemail.com> <46D5906B.1030701@googlemail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] make _minimum_ TCP retransmission timeout configurable
+Date: Wed, 29 Aug 2007 15:09:58 -0700
+Message-ID: <46D5EEB6.3020602@hp.com>
+References: <200708292052.NAA21975@tardy.cup.hp.com> <5640c7e00708291432q6acde704od52247647a6b453@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-wireless@vger.kernel.org,
-	Michael Buesch <mbuesch@freenet.de>,
-	Stefano Brivio <st3@riseup.net>,
-	Andrew Clayton <andrew@digital-domain.net>,
-	Shish <shish@shishnet.org>, Roman Zippel <zippel@linux-m68k.org>,
-	Sam Ravnborg <sam@ravnborg.org>,
-	Karl Meyer <adhocrocker@gmail.com>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Christian Casteyde <casteyde.christian@free.fr>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	nfs@lists.sourceforge.net, Netdev <netdev@vger.kernel.org>,
-	linux-fsdevel@vger.kernel.org, Hugh Dickins <hugh@veritas.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	kbuild-devel@lists.sourceforge.net,
-	Martin Langer <martin-langer@gmx.de>,
-	Andreas Jaggi <andreas.jaggi@waterwave.ch>,
-	Danny van Dyk <kugelfang@gentoo.org>
-To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <46D5906B.1030701@googlemail.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ian McDonald <ian.mcdonald@jandi.co.nz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from palrel11.hp.com ([156.153.255.246]:60906 "EHLO palrel11.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754640AbXH2WKR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Aug 2007 18:10:17 -0400
+In-Reply-To: <5640c7e00708291432q6acde704od52247647a6b453@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 29, 2007 at 05:27:39PM +0200, Michal Piotrowski wrote:
-> FS
+Ian McDonald wrote:
+> Hmmm... RFC2988 says:
+>    (2.4) Whenever RTO is computed, if it is less than 1 second then the
+>          RTO SHOULD be rounded up to 1 second.
 > 
-> Subject         : [NFSD OOPS] 2.6.23-rc1-git10
-> References      : http://lkml.org/lkml/2007/8/2/462
-> Last known good : ?
-> Submitter       : Andrew Clayton <andrew@digital-domain.net>
-> Caused-By       : ?
-> Handled-By      : ?
-> Status          : unknown
+>          Traditionally, TCP implementations use coarse grain clocks to
+>          measure the RTT and trigger the RTO, which imposes a large
+>          minimum value on the RTO.  Research suggests that a large
+>          minimum RTO is needed to keep TCP conservative and avoid
+>          spurious retransmissions [AP99].  Therefore, this
+>          specification requires a large minimum RTO as a conservative
+>          approach, while at the same time acknowledging that at some
+>          future point, research may show that a smaller minimum RTO is
+>          acceptable or superior.
+> 
+> I went and had a look and this RFC has not been obsoleted. RFC3390
+> also backs this assertion up.
+> 
+> So I'm suspecting that the default should be changed to 1000 to match
+> the RFC which would solve this issue. I note that the RFC is a SHOULD
+> rather than a MUST. I had a quick look around and not sure why Linux
+> overrides the RFC on this one.
 
-This is a bug, but (alas) appears to be a preexisting bug, so may not
-belong on this list.--b.
+If nothing else, 200 ms is a "principle of least surprise" thing since 
+that is the current value (in MS) for TCP_RTO_MIN.
+
+rick jones
