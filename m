@@ -1,55 +1,75 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: [PATCH 4/5] Net: ath5k, license is GPLv2
-Date: Wed, 29 Aug 2007 13:29:05 -0400
-Message-ID: <3208.1188408545@turing-police.cc.vt.edu>
-References: <2713029743177393055@pripojeni.net> <7515194658758617@pripojeni.net>
-            <20070828171155.GC29343@infradead.org>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH net-2.6.24] introduce MAC_FMT/MAC_ARG
+Date: Wed, 29 Aug 2007 19:46:23 +0200
+Message-ID: <200708291946.24017.mb@bu3sch.de>
+References: <1188248263.18004.131.camel@localhost> <200708281648.44352.mb@bu3sch.de> <20070828.155419.74563234.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1188408545_2981P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Slaby <jirislaby@gmail.com>, linville@tuxdriver.com,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Christoph Hellwig <hch@infradead.org>
+Cc: joe@perches.com, johannes@sipsolutions.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from turing-police.cc.vt.edu ([128.173.14.107]:60551 "EHLO
-	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752143AbXH2R3o (ORCPT
-	<RFC822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 13:29:44 -0400
-In-Reply-To: Your message of "Tue, 28 Aug 2007 18:11:55 BST."
-             <20070828171155.GC29343@infradead.org>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:48583
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753636AbXH2RsW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 13:48:22 -0400
+In-Reply-To: <20070828.155419.74563234.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1188408545_2981P
-Content-Type: text/plain; charset=us-ascii
-
-On Tue, 28 Aug 2007 18:11:55 BST, Christoph Hellwig said:
-> On Tue, Aug 28, 2007 at 12:00:50PM -0400, Jiri Slaby wrote:
-> > ath5k, license is GPLv2
-> > 
-> > The files are available only under GPLv2 since now.
+On Wednesday 29 August 2007 00:54:19 David Miller wrote:
+> From: Michael Buesch <mb@bu3sch.de>
+> Date: Tue, 28 Aug 2007 16:48:44 +0200
 > 
-> Is this really a good idea?  Most of the reverse-engineering was
-> done by the OpenBSD folks, and it would certainly be helpful to
-> work together with them on new hardware revisions, etc..
+> > On Monday 27 August 2007 23:11:50 David Miller wrote:
+> > > From: Joe Perches <joe@perches.com>
+> > > Date: Mon, 27 Aug 2007 13:57:42 -0700
+> > > 
+> > > > On Mon, 2007-08-27 at 13:41 -0700, David Miller wrote:
+> > > > > From: Johannes Berg <johannes@sipsolutions.net>
+> > > > > Date: Mon, 27 Aug 2007 12:54:09 +0200
+> > > > > > #define MAC_FMT "%s"
+> > > > > > #define MAC_ARG(a) ({char __buf[18]; print_mac(a, __buf); __buf;})
+> > > > 
+> > > > > I don't think this works.
+> > > > 
+> > > > $ cat test_fmt.c
+> > > > #include <stdio.h>
+> > > > #include <stdlib.h>
+> > > 
+> > > You're just getting lucky in this test case.
+> > > 
+> > > The language does not allow what you are doing, so you're
+> > > playing with fire.
+> > 
+> > What exactly to you think it invalid in this code?
+> > I think it's fine (except that I'd chose an u8* for the mac
+> > address (first arg in print_mac()).
+> 
+> The __buf[] is used out of scope, therefore it's stack space is
+> fair game for the compiler to reuse.
+> 
+> When the compiler sees:
+> 
+> 	printk(FMT, ({ char __buf[x]; print_mac(a, __buf); __buf;}));
+> 
+> It first all of the printk() argument expressions, first FMT and
+> then it evaluates the ({ ... }) argument.
+> 
+> Now that the ({ ... }) expression is done, __buf[] is out of
+> scope and illegal to reference.
+> 
+> printk() is now called, with a pointer to an out-of-scope buffer.
+> This is illegal.
+> 
+> I don't know how else to explain this to you, I can learn how to
+> describe the issue in German if this would help :-)
 
-The heck with "good idea" - it's unclear to me if Jiri is even *allowed*
-to remove the BSD/other license.   Jiri can release *his* code as GPLv2
-only, but I suspect the files as a whole really should be dual BSD/GPLv2,
-due to the numerous other stakeholders in those files.
+Oh, not needed. I see the bug and indeed, this is a ticking
+timebomb.
+I don't use the ({}) notation a lot, so I didn't see this here.
 
---==_Exmh_1188408545_2981P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFG1azhcC3lWbTT17ARAqPfAKDxwQPBhROMke8+MfqroU/qgLTRWQCfeLrN
-WR0bzJ9VaJLrHQlf8hOrCwk=
-=y6qw
------END PGP SIGNATURE-----
-
---==_Exmh_1188408545_2981P--
+-- 
+Greetings Michael.
