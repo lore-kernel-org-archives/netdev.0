@@ -1,44 +1,37 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
 Subject: Re: [PATCH 4/5] Net: ath5k, license is GPLv2
-Date: Wed, 29 Aug 2007 20:45:29 +0100
-Message-ID: <20070829204529.66ce1bcb@the-village.bc.nu>
-References: <2713029743177393055@pripojeni.net>
-	<7515194658758617@pripojeni.net>
-	<20070828171155.GC29343@infradead.org>
-	<3208.1188408545@turing-police.cc.vt.edu>
-	<9e4733910708291101i3783a8b1l38f0d5cfb0c2863d@mail.gmail.com>
-	<20070829192858.75aa6542@the-village.bc.nu>
-	<9e4733910708291233h3c4022a9n6e46733c5c50e222@mail.gmail.com>
+Date: Wed, 29 Aug 2007 21:37:48 +0200
+Message-ID: <200708292137.48834.mb@bu3sch.de>
+References: <2713029743177393055@pripojeni.net> <20070829192858.75aa6542@the-village.bc.nu> <9e4733910708291233h3c4022a9n6e46733c5c50e222@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Valdis.Kletnieks@vt.edu" <Valdis.Kletnieks@vt.edu>,
-	"Christoph Hellwig" <hch@infradead.org>,
-	"Jiri Slaby" <jirislaby@gmail.com>, linville@tuxdriver.com,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Jon Smirl" <jonsmirl@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:35395 "EHLO
-	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755074AbXH2Tiq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 15:38:46 -0400
-In-Reply-To: <9e4733910708291233h3c4022a9n6e46733c5c50e222@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: "Alan Cox" <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	"Valdis.Kletnieks-PjAqaU27lzQ@public.gmane.org" <Valdis.Kletnieks-PjAqaU27lzQ@public.gmane.org>,
+	"Christoph Hellwig" <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	"Jiri Slaby" <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Jon Smirl" <jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <9e4733910708291233h3c4022a9n6e46733c5c50e222-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> Aren't patches made against the kernel GPL'd if the author doesn't
-> explicitly grant them more liberal BSD license in addition?
-
-That would be the normal assumption.
-
-> The problem then comes in taking the patches that were only made
-> available against GPL code and reshipping them under the BSD license
-> without the author explicitly agreeing to this.
-> 
+On Wednesday 29 August 2007 21:33:43 Jon Smirl wrote:
 > What if a patch spans both code that is pure GPL and code imported
 > from BSD, how do you license it?
 
-See the acpi codebase for a worked example.
+I think it's a valid assumption, if we say that the author
+of the patch read the license header of a file and agreed with it.
+So the patch is licensed to whatever the fileheader says. And if
+there's none, it's licensed with the COPYING terms.
+If a patch author likes some other license conditions, he must
+explicitely add them with the patch to the file, saying that this
+and that part have these and those conditions. Of course they must
+be compatible with the original license.
 
-Alan
+-- 
+Greetings Michael.
