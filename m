@@ -1,75 +1,67 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [1/1] Block device throttling [Re: Distributed storage.]
-Date: Wed, 29 Aug 2007 12:53:31 +0400
-Message-ID: <20070829085331.GA16607@2ka.mipt.ru>
-References: <20070731171347.GA14267@2ka.mipt.ru> <200708281027.59528.phillips@phunq.net> <20070828175403.GA28440@2ka.mipt.ru> <200708281408.06618.phillips@phunq.net>
+From: Ishizaki Kou <kou.ishizaki@toshiba.co.jp>
+Subject: Re: [Cbe-oss-dev] [PATCH] spidernet: fix interrupt reason
+ recognition
+Date: Wed, 29 Aug 2007 17:58:21 +0900 (JST)
+Message-ID: <20070829.175821.-1350499419.kouish@swc.toshiba.co.jp>
+References: <200708220026.l7M0QODr013175@toshiba.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: Daniel Phillips <phillips@phunq.net>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <200708281408.06618.phillips@phunq.net>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, cbe-oss-dev@ozlabs.org
+To: linas@austin.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from imx12.toshiba.co.jp ([61.202.160.132]:38096 "EHLO
+	imx12.toshiba.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754406AbXH2JIu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 05:08:50 -0400
+In-Reply-To: <200708220026.l7M0QODr013175@toshiba.co.jp>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 28, 2007 at 02:08:04PM -0700, Daniel Phillips (phillips@phunq.net) wrote:
-> On Tuesday 28 August 2007 10:54, Evgeniy Polyakov wrote:
-> > On Tue, Aug 28, 2007 at 10:27:59AM -0700, Daniel Phillips (phillips@phunq.net) wrote:
-> > > > We do not care about one cpu being able to increase its counter
-> > > > higher than the limit, such inaccuracy (maximum bios in flight
-> > > > thus can be more than limit, difference is equal to the number of
-> > > > CPUs - 1) is a price for removing atomic operation. I thought I
-> > > > pointed it in the original description, but might forget, that if
-> > > > it will be an issue, that atomic operations can be introduced
-> > > > there. Any uber-precise measurements in the case when we are
-> > > > close to the edge will not give us any benefit at all, since were
-> > > > are already in the grey area.
-> > >
-> > > This is not just inaccurate, it is suicide.  Keep leaking throttle
-> > > counts and eventually all of them will be gone.  No more IO
-> > > on that block device!
-> >
-> > First, because number of increased and decreased operations are the
-> > same, so it will dance around limit in both directions.
+
+Linas-san,
+
+Ishizaki Kou wrote:
+> Linas Vepstas wrote:
+> > On Mon, Aug 20, 2007 at 10:13:27PM +0900, Ishizaki Kou wrote:
+> > > Please apply this to 2.6.23.
+> > 
+> > I'll review and forward shortly.  Kick me if you don't see a formal
+> > reply in a few days.
+> > 
+> > > And also, please apply the following Arnd-san's patch to fix a problem
+> > > that spidernet driver sometimes causes a BUG_ON at open.
+> > > 
+> > >  http://patchwork.ozlabs.org/cbe-oss-dev/patch?id=12211
+> > 
+> > Are you sure? This patch no longer applies cleanly, in part because
 > 
-> No.  Please go and read it the description of the race again.  A count
-> gets irretrievably lost because the write operation of the first
-> decrement is overwritten by the second. Data gets lost.  Atomic 
-> operations exist to prevent that sort of thing.  You either need to use 
-> them or have a deep understanding of SMP read and write ordering in 
-> order to preserve data integrity by some equivalent algorithm.
+> I see. I'll send another applicable patch.
+> 
+> > your patch "[PATCH] spidernet: improve interrupt handling" 
+> > from Mon, 09 Jul 2007 added a spider_net_enable_interrupts(card); 
+> > at the end of spider_net_open().  Because of this, it seems like 
+> > Arnd's patch is no longer needed, right?
+> 
+> As you pointed out, we intended that "[PATCH] spidernet: improve
+> interrupt handling" solves the same problem which Arnd's patch solves.
+> 
+> When spider_net_open() is called, interrupt reasons sometimes remain
+> on interrupt status register, even though they are masked by mask
+> register.  With this patch, spider_net_interrupt() compares the value
+> of interrupt status register with SPIDER_NET_INTX_MASK_VALUE, not with
+> interrupt mask register value.  As a result, spider_net_interrupt()
+> (which is called from request_irq() in spider_net_open()) starts
+> polling and causes BUG_ON().
+> 
+> So, netif_poll_enable() must be called before request_irq() is
+> called. This is the reason that we also need Arnd's patch.
 
-I think you should complete your emotional email with decription of how
-atomic types are operated and how processors access data. Just to give a
-lesson to those who never knew how SMP works, but create patches and
-have the conscience to send them and even discuss.
-Then, if of course you will want, which I doubt, you can reread previous 
-mails and find that it was pointed to that race and possibilities to 
-solve it way too long ago. 
-Anyway, I prefer to look like I do not know how SMP and atomic operation
-work and thus stay away from this discussion.
 
-> --- 2.6.22.clean/block/ll_rw_blk.c	2007-07-08 16:32:17.000000000 -0700
-> +++ 2.6.22/block/ll_rw_blk.c	2007-08-24 12:07:16.000000000 -0700
-> @@ -3237,6 +3237,15 @@ end_io:
->   */
->  void generic_make_request(struct bio *bio)
->  {
-> +	struct request_queue *q = bdev_get_queue(bio->bi_bdev);
-> +
-> +	if (q && q->metric) {
-> +		int need = bio->bi_reserved = q->metric(bio);
-> +		bio->queue = q;
+How about following two patches that I posted last week:
 
-In case you have stacked device, this entry will be rewritten and you
-will lost all your account data.
+ http://patchwork.ozlabs.org/cbe-oss-dev/patch?id=12997
+ http://patchwork.ozlabs.org/cbe-oss-dev/patch?id=13049
 
-> +		wait_event_interruptible(q->throttle_wait, atomic_read(&q->available) >= need);
-> +		atomic_sub(&q->available, need);
-> +	}
-
--- 
-	Evgeniy Polyakov
+Best regards,
+Kou Ishizaki
