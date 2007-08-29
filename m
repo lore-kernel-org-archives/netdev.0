@@ -1,290 +1,202 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 06/12] sky2: use pci_config access functions
-Date: Wed, 29 Aug 2007 12:58:15 -0700
-Message-ID: <20070829195842.973126272@linux-foundation.org>
+Subject: [PATCH 05/12] sky2: advanced error reporting
+Date: Wed, 29 Aug 2007 12:58:14 -0700
+Message-ID: <20070829195842.939833136@linux-foundation.org>
 References: <20070829193922.078561651@linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:49111 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:33526 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755886AbXH2UCP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 16:02:15 -0400
-Content-Disposition: inline; filename=sky2-pci-func.patch
+	by vger.kernel.org with ESMTP id S932453AbXH2UCf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 16:02:35 -0400
+Content-Disposition: inline; filename=sky2-recoverable.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use the PCI layer config access functions. The driver was using the
-memory mapped window in device, to workaround issues accessing the
-advanced error reporting registers.
+Use the kernel interfaces for advanced error reporting.
+This should be cleaner and clear up errors on boot.
+
+For those systems with busted BIOS's that don't correctly 
+support mmconfig, advanced error reporting will be disabled.
+The PCI registers for advanced error reporting start at 0x100 which
+is too large to be accessed by legacy functions.
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
 ---
- drivers/net/sky2.c |   91 +++++++++++++++++++++++++++++------------------------
- drivers/net/sky2.h |   21 ------------
- 2 files changed, 50 insertions(+), 62 deletions(-)
+ drivers/net/sky2.c |   51 +++++++++++++++++++++++++++------------------------
+ drivers/net/sky2.h |   41 -----------------------------------------
+ 2 files changed, 27 insertions(+), 65 deletions(-)
 
---- a/drivers/net/sky2.c	2007-08-29 11:41:07.000000000 -0700
-+++ b/drivers/net/sky2.c	2007-08-29 11:41:10.000000000 -0700
-@@ -222,21 +222,22 @@ static void sky2_power_on(struct sky2_hw
+--- a/drivers/net/sky2.c	2007-08-29 11:40:53.000000000 -0700
++++ b/drivers/net/sky2.c	2007-08-29 11:41:07.000000000 -0700
+@@ -31,6 +31,7 @@
+ #include <linux/etherdevice.h>
+ #include <linux/ethtool.h>
+ #include <linux/pci.h>
++#include <linux/aer.h>
+ #include <linux/ip.h>
+ #include <net/ip.h>
+ #include <linux/tcp.h>
+@@ -2369,7 +2370,11 @@ static void sky2_hw_error(struct sky2_hw
  
- 	if (hw->chip_id == CHIP_ID_YUKON_EC_U ||
- 	    hw->chip_id == CHIP_ID_YUKON_EX) {
-+		struct pci_dev *pdev = hw->pdev;
- 		u32 reg;
- 
--		sky2_pci_write32(hw, PCI_DEV_REG3, 0);
-+		pci_write_config_dword(pdev, PCI_DEV_REG3, 0);
- 
--		reg = sky2_pci_read32(hw, PCI_DEV_REG4);
-+		pci_read_config_dword(pdev, PCI_DEV_REG4, &reg);
- 		/* set all bits to 0 except bits 15..12 and 8 */
- 		reg &= P_ASPM_CONTROL_MSK;
--		sky2_pci_write32(hw, PCI_DEV_REG4, reg);
-+		pci_write_config_dword(pdev, PCI_DEV_REG4, reg);
- 
--		reg = sky2_pci_read32(hw, PCI_DEV_REG5);
-+		pci_read_config_dword(pdev, PCI_DEV_REG5, &reg);
- 		/* set all bits to 0 except bits 28 & 27 */
- 		reg &= P_CTL_TIM_VMAIN_AV_MSK;
--		sky2_pci_write32(hw, PCI_DEV_REG5, reg);
-+		pci_write_config_dword(pdev, PCI_DEV_REG5, reg);
- 
--		sky2_pci_write32(hw, PCI_CFG_REG_1, 0);
-+		pci_write_config_dword(pdev, PCI_CFG_REG_1, 0);
- 
- 		/* Enable workaround for dev 4.107 on Yukon-Ultra & Extreme */
- 		reg = sky2_read32(hw, B2_GP_IO);
-@@ -596,6 +597,7 @@ static void sky2_phy_init(struct sky2_hw
- 
- static void sky2_phy_power(struct sky2_hw *hw, unsigned port, int onoff)
+ static void sky2_hw_intr(struct sky2_hw *hw)
  {
 +	struct pci_dev *pdev = hw->pdev;
- 	u32 reg1;
- 	static const u32 phy_power[]
- 		= { PCI_Y2_PHY1_POWD, PCI_Y2_PHY2_POWD };
-@@ -604,15 +606,16 @@ static void sky2_phy_power(struct sky2_h
- 	if (hw->chip_id == CHIP_ID_YUKON_XL && hw->chip_rev > 1)
- 		onoff = !onoff;
- 
--	reg1 = sky2_pci_read32(hw, PCI_DEV_REG1);
-+	pci_read_config_dword(pdev, PCI_DEV_REG1, &reg1);
- 	if (onoff)
- 		/* Turn off phy power saving */
- 		reg1 &= ~phy_power[port];
- 	else
- 		reg1 |= phy_power[port];
- 
--	sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
--	sky2_pci_read32(hw, PCI_DEV_REG1);
-+	pci_write_config_dword(pdev, PCI_DEV_REG1, reg1);
-+	pci_read_config_dword(pdev, PCI_DEV_REG1, &reg1);
+ 	u32 status = sky2_read32(hw, B0_HWE_ISRC);
++	u32 hwmsk = sky2_read32(hw, B0_HWE_IMSK);
 +
- 	udelay(100);
- }
++	status &= hwmsk;
  
-@@ -680,9 +683,9 @@ static void sky2_wol_init(struct sky2_po
- 	sky2_write16(hw, WOL_REGS(port, WOL_CTRL_STAT), ctrl);
+ 	if (status & Y2_IS_TIST_OV)
+ 		sky2_write8(hw, GMAC_TI_ST_CTRL, GMT_ST_CLR_IRQ);
+@@ -2379,7 +2384,7 @@ static void sky2_hw_intr(struct sky2_hw 
  
- 	/* Turn on legacy PCI-Express PME mode */
--	reg1 = sky2_pci_read32(hw, PCI_DEV_REG1);
-+	pci_read_config_dword(hw->pdev, PCI_DEV_REG1, &reg1);
- 	reg1 |= PCI_Y2_PME_LEGACY;
--	sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
-+	pci_write_config_dword(hw->pdev, PCI_DEV_REG1, reg1);
- 
- 	/* block receiver */
- 	sky2_write8(hw, SK_REG(port, RX_GMF_CTRL_T), GMF_RST_SET);
-@@ -1281,9 +1284,9 @@ static int sky2_up(struct net_device *de
-  		struct sky2_port *osky2 = netdev_priv(otherdev);
-  		u16 cmd;
- 
-- 		cmd = sky2_pci_read16(hw, cap + PCI_X_CMD);
-+		pci_read_config_word(hw->pdev, cap + PCI_X_CMD, &cmd);
-  		cmd &= ~PCI_X_CMD_MAX_SPLIT;
-- 		sky2_pci_write16(hw, cap + PCI_X_CMD, cmd);
-+ 		pci_write_config_word(hw->pdev, cap + PCI_X_CMD, cmd);
- 
-  		sky2->rx_csum = 0;
-  		osky2->rx_csum = 0;
-@@ -2382,13 +2385,13 @@ static void sky2_hw_intr(struct sky2_hw 
- 	if (status & (Y2_IS_MST_ERR | Y2_IS_IRQ_STAT)) {
- 		u16 pci_err;
- 
--		pci_err = sky2_pci_read16(hw, PCI_STATUS);
-+		pci_read_config_word(pdev, PCI_STATUS, &pci_err);
+ 		pci_err = sky2_pci_read16(hw, PCI_STATUS);
  		if (net_ratelimit())
- 			dev_err(&pdev->dev, "PCI hardware error (0x%x)\n",
+-			dev_err(&hw->pdev->dev, "PCI hardware error (0x%x)\n",
++			dev_err(&pdev->dev, "PCI hardware error (0x%x)\n",
  			        pci_err);
  
--		sky2_pci_write16(hw, PCI_STATUS,
--				 pci_err | PCI_STATUS_ERROR_BITS);
-+		pci_write_config_word(pdev, PCI_STATUS,
-+				      pci_err | PCI_STATUS_ERROR_BITS);
- 	}
+ 		sky2_pci_write16(hw, PCI_STATUS,
+@@ -2388,22 +2393,13 @@ static void sky2_hw_intr(struct sky2_hw 
  
  	if (status & Y2_IS_PCI_EXP) {
-@@ -2599,10 +2602,13 @@ static inline u32 sky2_clk2us(const stru
+ 		/* PCI-Express uncorrectable Error occurred */
+-		u32 pex_err;
+-
+-		pex_err = sky2_pci_read32(hw, PEX_UNC_ERR_STAT);
+-
+-		if (net_ratelimit())
+-			dev_err(&hw->pdev->dev, "PCI Express error (0x%x)\n",
+-				pex_err);
++		int pos = pci_find_aer_capability(hw->pdev);
++		u32 err;
  
- static int __devinit sky2_init(struct sky2_hw *hw)
+-		/* clear the interrupt */
+-		sky2_pci_write32(hw, PEX_UNC_ERR_STAT,
+-				       0xffffffffUL);
+-		if (pex_err & PEX_FATAL_ERRORS) {
+-			u32 hwmsk = sky2_read32(hw, B0_HWE_IMSK);
+-			hwmsk &= ~Y2_IS_PCI_EXP;
+-			sky2_write32(hw, B0_HWE_IMSK, hwmsk);
+-		}
++		pci_read_config_dword(pdev, pos + PCI_ERR_UNCOR_STATUS, &err);
++  		if (net_ratelimit())
++			dev_err(&pdev->dev, "PCI Express error (0x%x)\n", err);
++		pci_cleanup_aer_uncorrect_error_status(pdev);
+ 	}
+ 
+ 	if (status & Y2_HWE_L1_MASK)
+@@ -2641,8 +2637,10 @@ static int __devinit sky2_init(struct sk
+ 
+ static void sky2_reset(struct sky2_hw *hw)
  {
-+	int rc;
- 	u8 t8;
++	struct pci_dev *pdev = hw->pdev;
+ 	u16 status;
+-	int i;
++	int i, cap;
++	u32 hwe_mask = Y2_HWE_ALL_MASK;
  
--	/* Enable all clocks */
--	sky2_pci_write32(hw, PCI_DEV_REG3, 0);
-+	/* Enable all clocks and check for bad PCI access */
-+	rc = pci_write_config_dword(hw->pdev, PCI_DEV_REG3, 0);
-+	if (rc)
-+		return rc;
- 
- 	sky2_write8(hw, B0_CTST, CS_RST_CLR);
- 
-@@ -2657,10 +2663,9 @@ static void sky2_reset(struct sky2_hw *h
- 	sky2_write8(hw, B0_CTST, CS_RST_CLR);
- 
- 	/* clear PCI errors, if any */
--	status = sky2_pci_read16(hw, PCI_STATUS);
--
--	sky2_pci_write16(hw, PCI_STATUS, status | PCI_STATUS_ERROR_BITS);
--
-+	pci_read_config_word(pdev, PCI_STATUS, &status);
-+	status |= PCI_STATUS_ERROR_BITS;
-+	pci_write_config_word(pdev, PCI_STATUS, status);
+ 	/* disable ASF */
+ 	if (hw->chip_id == CHIP_ID_YUKON_EX) {
+@@ -2666,10 +2664,19 @@ static void sky2_reset(struct sky2_hw *h
  
  	sky2_write8(hw, B0_CTST, CS_MRST_CLR);
  
-@@ -3477,26 +3482,31 @@ static int sky2_get_eeprom_len(struct ne
- 	struct sky2_port *sky2 = netdev_priv(dev);
- 	u16 reg2;
- 
--	reg2 = sky2_pci_read32(sky2->hw, PCI_DEV_REG2);
-+	pci_read_config_word(sky2->hw->pdev, PCI_DEV_REG2, &reg2);
- 	return 1 << ( ((reg2 & PCI_VPD_ROM_SZ) >> 14) + 8);
- }
- 
--static u32 sky2_vpd_read(struct sky2_hw *hw, int cap, u16 offset)
-+static u32 sky2_vpd_read(struct pci_dev *pdev, int cap, u16 offset)
- {
--	sky2_pci_write16(hw, cap + PCI_VPD_ADDR, offset);
-+	u32 val;
- 
--	while (!(sky2_pci_read16(hw, cap + PCI_VPD_ADDR) & PCI_VPD_ADDR_F))
--			cpu_relax();
--	return sky2_pci_read32(hw, cap + PCI_VPD_DATA);
-+	pci_write_config_word(pdev, cap + PCI_VPD_ADDR, offset);
+-	/* clear any PEX errors */
+-	if (pci_find_capability(hw->pdev, PCI_CAP_ID_EXP))
+-		sky2_pci_write32(hw, PEX_UNC_ERR_STAT, 0xffffffffUL);
++	cap = pci_find_capability(pdev, PCI_CAP_ID_EXP);
++	if (cap) {
++		/* Check for advanced error reporting */
++		pci_cleanup_aer_uncorrect_error_status(pdev);
++		pci_cleanup_aer_correct_error_status(pdev);
 +
-+	do {
-+		pci_read_config_word(pdev, cap + PCI_VPD_ADDR, &offset);
-+	} while (!(offset & PCI_VPD_ADDR_F));
-+
-+	pci_read_config_dword(pdev, cap + PCI_VPD_DATA, &val);
-+	return val;
- }
++		/* If error bit is stuck on ignore it */
++		if (sky2_read32(hw, B0_HWE_ISRC) & Y2_IS_PCI_EXP)
++			dev_info(&pdev->dev, "ignoring stuck error report bit\n");
  
--static void sky2_vpd_write(struct sky2_hw *hw, int cap, u16 offset, u32 val)
-+static void sky2_vpd_write(struct pci_dev *pdev, int cap, u16 offset, u32 val)
- {
--	sky2_pci_write32(hw, cap + PCI_VPD_DATA, val);
--	sky2_pci_write16(hw, cap + PCI_VPD_ADDR, offset | PCI_VPD_ADDR_F);
-+	pci_write_config_word(pdev, cap + PCI_VPD_DATA, val);
-+	pci_write_config_dword(pdev, cap + PCI_VPD_ADDR, offset | PCI_VPD_ADDR_F);
- 	do {
--		cpu_relax();
--	} while (sky2_pci_read16(hw, cap + PCI_VPD_ADDR) & PCI_VPD_ADDR_F);
-+		pci_read_config_word(pdev, cap + PCI_VPD_ADDR, &offset);
-+	} while (offset & PCI_VPD_ADDR_F);
- }
++		else if (pci_enable_pcie_error_reporting(pdev))
++			hwe_mask |= Y2_IS_PCI_EXP;
++	}
  
- static int sky2_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
-@@ -3513,7 +3523,7 @@ static int sky2_get_eeprom(struct net_de
- 	eeprom->magic = SKY2_EEPROM_MAGIC;
+ 	sky2_power_on(hw);
  
- 	while (length > 0) {
--		u32 val = sky2_vpd_read(sky2->hw, cap, offset);
-+		u32 val = sky2_vpd_read(sky2->hw->pdev, cap, offset);
- 		int n = min_t(int, length, sizeof(val));
- 
- 		memcpy(data, &val, n);
-@@ -3543,10 +3553,10 @@ static int sky2_set_eeprom(struct net_de
- 		int n = min_t(int, length, sizeof(val));
- 
- 		if (n < sizeof(val))
--			val = sky2_vpd_read(sky2->hw, cap, offset);
-+			val = sky2_vpd_read(sky2->hw->pdev, cap, offset);
- 		memcpy(&val, data, n);
- 
--		sky2_vpd_write(sky2->hw, cap, offset, val);
-+		sky2_vpd_write(sky2->hw->pdev, cap, offset, val);
- 
- 		length -= n;
- 		data += n;
-@@ -3990,15 +4000,14 @@ static int __devinit sky2_probe(struct p
- 	 */
- 	{
- 		u32 reg;
--		reg = sky2_pci_read32(hw, PCI_DEV_REG2);
-+		pci_read_config_dword(pdev,PCI_DEV_REG2, &reg);
- 		reg &= ~PCI_REV_DESC;
--		sky2_pci_write32(hw, PCI_DEV_REG2, reg);
-+		pci_write_config_dword(pdev, PCI_DEV_REG2, reg);
+@@ -2721,7 +2728,7 @@ static void sky2_reset(struct sky2_hw *h
+ 		sky2_write8(hw, RAM_BUFFER(i, B3_RI_RTO_XS2), SK_RI_TO_53);
  	}
- #endif
  
- 	/* ring for status responses */
--	hw->st_le = pci_alloc_consistent(hw->pdev, STATUS_LE_BYTES,
--					 &hw->st_dma);
-+	hw->st_le = pci_alloc_consistent(pdev, STATUS_LE_BYTES, &hw->st_dma);
- 	if (!hw->st_le)
- 		goto err_out_iounmap;
+-	sky2_write32(hw, B0_HWE_IMSK, Y2_HWE_ALL_MASK);
++	sky2_write32(hw, B0_HWE_IMSK, hwe_mask);
  
-@@ -4073,7 +4082,7 @@ err_out_free_netdev:
- 	free_netdev(dev);
- err_out_free_pci:
- 	sky2_write8(hw, B0_CTST, CS_RST_SET);
--	pci_free_consistent(hw->pdev, STATUS_LE_BYTES, hw->st_le, hw->st_dma);
-+	pci_free_consistent(pdev, STATUS_LE_BYTES, hw->st_le, hw->st_dma);
- err_out_iounmap:
- 	iounmap(hw->regs);
- err_out_free_hw:
-@@ -4184,7 +4193,7 @@ static int sky2_resume(struct pci_dev *p
+ 	for (i = 0; i < hw->ports; i++)
+ 		sky2_gmac_reset(hw, i);
+--- a/drivers/net/sky2.h	2007-08-29 11:40:51.000000000 -0700
++++ b/drivers/net/sky2.h	2007-08-29 11:41:07.000000000 -0700
+@@ -18,14 +18,6 @@ enum {
+ 	PCI_CFG_REG_1	= 0x94,
+ };
  
- 	/* Re-enable all clocks */
- 	if (hw->chip_id == CHIP_ID_YUKON_EX || hw->chip_id == CHIP_ID_YUKON_EC_U)
--		sky2_pci_write32(hw, PCI_DEV_REG3, 0);
-+		pci_write_config_dword(pdev, PCI_DEV_REG3, 0);
- 
- 	sky2_reset(hw);
- 
---- a/drivers/net/sky2.h	2007-08-29 11:41:07.000000000 -0700
-+++ b/drivers/net/sky2.h	2007-08-29 11:41:10.000000000 -0700
-@@ -2115,25 +2115,4 @@ static inline void gma_set_addr(struct s
- 	gma_write16(hw, port, reg+4,(u16) addr[2] | ((u16) addr[3] << 8));
- 	gma_write16(hw, port, reg+8,(u16) addr[4] | ((u16) addr[5] << 8));
- }
+-enum {
+-	PEX_DEV_CAP	= 0xe4,
+-	PEX_DEV_CTRL	= 0xe8,
+-	PEX_DEV_STA	= 0xea,
+-	PEX_LNK_STAT	= 0xf2,
+-	PEX_UNC_ERR_STAT= 0x104,
+-};
 -
--/* PCI config space access */
--static inline u32 sky2_pci_read32(const struct sky2_hw *hw, unsigned reg)
--{
--	return sky2_read32(hw, Y2_CFG_SPC + reg);
--}
+ /* Yukon-2 */
+ enum pci_dev_reg_1 {
+ 	PCI_Y2_PIG_ENA	 = 1<<31, /* Enable Plug-in-Go (YUKON-2) */
+@@ -151,38 +143,6 @@ enum pci_cfg_reg1 {
+ 			       PCI_STATUS_REC_TARGET_ABORT | \
+ 			       PCI_STATUS_PARITY)
+ 
+-enum pex_dev_ctrl {
+-	PEX_DC_MAX_RRS_MSK	= 7<<12, /* Bit 14..12:	Max. Read Request Size */
+-	PEX_DC_EN_NO_SNOOP	= 1<<11,/* Enable No Snoop */
+-	PEX_DC_EN_AUX_POW	= 1<<10,/* Enable AUX Power */
+-	PEX_DC_EN_PHANTOM	= 1<<9,	/* Enable Phantom Functions */
+-	PEX_DC_EN_EXT_TAG	= 1<<8,	/* Enable Extended Tag Field */
+-	PEX_DC_MAX_PLS_MSK	= 7<<5,	/* Bit  7.. 5:	Max. Payload Size Mask */
+-	PEX_DC_EN_REL_ORD	= 1<<4,	/* Enable Relaxed Ordering */
+-	PEX_DC_EN_UNS_RQ_RP	= 1<<3,	/* Enable Unsupported Request Reporting */
+-	PEX_DC_EN_FAT_ER_RP	= 1<<2,	/* Enable Fatal Error Reporting */
+-	PEX_DC_EN_NFA_ER_RP	= 1<<1,	/* Enable Non-Fatal Error Reporting */
+-	PEX_DC_EN_COR_ER_RP	= 1<<0,	/* Enable Correctable Error Reporting */
+-};
+-#define  PEX_DC_MAX_RD_RQ_SIZE(x) (((x)<<12) & PEX_DC_MAX_RRS_MSK)
 -
--static inline u16 sky2_pci_read16(const struct sky2_hw *hw, unsigned reg)
--{
--	return sky2_read16(hw, Y2_CFG_SPC + reg);
--}
+-/* PEX_UNC_ERR_STAT	 PEX Uncorrectable Errors Status Register (Yukon-2) */
+-enum pex_err {
+-	PEX_UNSUP_REQ 	= 1<<20, /* Unsupported Request Error */
 -
--static inline void sky2_pci_write32(struct sky2_hw *hw, unsigned reg, u32 val)
--{
--	sky2_write32(hw, Y2_CFG_SPC + reg, val);
--}
+-	PEX_MALFOR_TLP	= 1<<18, /* Malformed TLP */
 -
--static inline void sky2_pci_write16(struct sky2_hw *hw, unsigned reg, u16 val)
--{
--	sky2_write16(hw, Y2_CFG_SPC + reg, val);
--}
- #endif
+-	PEX_UNEXP_COMP	= 1<<16, /* Unexpected Completion */
+-
+-	PEX_COMP_TO	= 1<<14, /* Completion Timeout */
+-	PEX_FLOW_CTRL_P	= 1<<13, /* Flow Control Protocol Error */
+-	PEX_POIS_TLP	= 1<<12, /* Poisoned TLP */
+-
+-	PEX_DATA_LINK_P = 1<<4,	/* Data Link Protocol Error */
+-	PEX_FATAL_ERRORS= (PEX_MALFOR_TLP | PEX_FLOW_CTRL_P | PEX_DATA_LINK_P),
+-};
+-
+-
+ enum csr_regs {
+ 	B0_RAP		= 0x0000,
+ 	B0_CTST		= 0x0004,
+@@ -419,7 +379,6 @@ enum {
+ 			  Y2_IS_PAR_RX2 | Y2_IS_TCP_TXS2| Y2_IS_TCP_TXA2,
+ 
+ 	Y2_HWE_ALL_MASK	= Y2_IS_TIST_OV | Y2_IS_MST_ERR | Y2_IS_IRQ_STAT |
+-			  Y2_IS_PCI_EXP |
+ 			  Y2_HWE_L1_MASK | Y2_HWE_L2_MASK,
+ };
+ 
 
 -- 
 Stephen Hemminger <shemminger@linux-foundation.org>
