@@ -1,66 +1,50 @@
-From: Ursula Braun <braunu@de.ibm.com>
-Subject: [patch 7/7] s390: Drop ARP packages on HiperSockets interface with NOARP attribute.
-Date: Wed, 29 Aug 2007 11:26:58 +0200
-Message-ID: <20070829101858.540991000@linux.vnet.ibm.com>
-References: <20070829092651.411517000@linux.vnet.ibm.com>
-Cc: frank.blaschka@de.ibm.com, "Klaus D. Wacker" <kdwacker@de.ibm.com>
-To: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:31389 "EHLO
-	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932070AbXH2KTB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 06:19:01 -0400
-Content-Disposition: inline; filename=711-qeth-arp.diff
-Sender: netdev-owner@vger.kernel.org
+From: "Jiri Slaby" <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 4/5] Net: ath5k, license is GPLv2
+Date: Wed, 29 Aug 2007 08:35:05 -0200
+Message-ID: <4af2d03a0708290335x1a9aa38o566e9d416505f280@mail.gmail.com>
+References: <7515194658758617@pripojeni.net>
+	 <1188381582.19891.6.camel@johannes.berg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Johannes Berg" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1188381582.19891.6.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Klaus D. Wacker <kdwacker@de.ibm.com>
+On 8/29/07, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+> On Tue, 2007-08-28 at 12:00 -0400, Jiri Slaby wrote:
+>
+> > The files are available only under GPLv2 since now.
+>
+> Since the BSD people are already getting upset about (for various
+> reasons among which seem to be a clear non-understanding) I'd suggest
+> changing it to:
 
-A network interface can get ARP packets even when the interface has
-NOARP specified. In a HiperSockets environment this disturbs receiving
-systems when packets are sent on the multicast queue. (E.g. TCP/IP on
-z/VM issues messages reporting invalid data on the HiperSockets
-interface.)
-Qeth will no longer send ARP packets on HiperSockets interface when
-interface has the NOARP attribute.
+yes, please. Can somebody do it, I'm away from my box.
 
-Signed-off-by: Klaus D. Wacker <kdwacker@de.ibm.com>
-Signed-off-by: Ursula Braun <braunu@de.ibm.com>
----
-
- drivers/s390/net/qeth_main.c |   10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
-
-Index: linux-2.6-uschi/drivers/s390/net/qeth_main.c
-===================================================================
---- linux-2.6-uschi.orig/drivers/s390/net/qeth_main.c
-+++ linux-2.6-uschi/drivers/s390/net/qeth_main.c
-@@ -2505,7 +2505,7 @@ qeth_rebuild_skb_fake_ll_tr(struct qeth_
- 	struct iphdr *ip_hdr;
- 
- 	QETH_DBF_TEXT(trace,5,"skbfktr");
--	skb_set_mac_header(skb, -QETH_FAKE_LL_LEN_TR);
-+	skb_set_mac_header(skb, (int)-QETH_FAKE_LL_LEN_TR);
- 	/* this is a fake ethernet header */
- 	fake_hdr = tr_hdr(skb);
- 
-@@ -4710,9 +4710,15 @@ qeth_send_packet(struct qeth_card *card,
- 	if (card->info.type != QETH_CARD_TYPE_IQD)
- 		rc = qeth_do_send_packet(card, queue, new_skb, hdr,
- 					 elements_needed, ctx);
--	else
-+	else {
-+		if ((skb->protocol == htons(ETH_P_ARP)) &&
-+		    (card->dev->flags & IFF_NOARP)) {
-+			__qeth_free_new_skb(skb, new_skb);
-+			return -EPERM;
-+		}
- 		rc = qeth_do_send_packet_fast(card, queue, new_skb, hdr,
- 					      elements_needed, ctx);
-+	}
- 	if (!rc) {
- 		card->stats.tx_packets++;
- 		card->stats.tx_bytes += tx_bytes;
-
--- 
+> + * Parts of this file were originally licenced under the BSD licence:
+> + *
+> >  * Permission to use, copy, modify, and distribute this software for any
+> >  * purpose with or without fee is hereby granted, provided that the above
+> >  * copyright notice and this permission notice appear in all copies.
+> >  *
+> >  * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+> WARRANTIES
+> >  * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+> >  * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+> >  * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+> >  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+> >  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+> >  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+> + *
+> + * Further changes to this file since the moment this notice was extended
+> + * are now distributed under the terms of the GPL version two as published
+> + * by the Free Software Foundation <yaddaya>
+>
+> johannes
+>
