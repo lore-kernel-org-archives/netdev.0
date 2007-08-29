@@ -1,51 +1,44 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] Remove write-only variable from pktgen_thread
-Date: Wed, 29 Aug 2007 17:22:02 +0400
-Message-ID: <46D572FA.9090302@openvz.org>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Tc bug (kernel crash) more info
+Date: Wed, 29 Aug 2007 15:30:42 +0200
+Message-ID: <20070829133042.GA4038@ff.dom.local>
+References: <46D53D9C.5070204@bigtelecom.ru> <20070829113447.GA3575@ff.dom.local> <20070829121408.GB3575@ff.dom.local> <46D56C60.3060702@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Oleg Nesterov <oleg@tv-sign.ru>,
-	Sukadev Bhattiprolu <sukadev@us.ibm.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Badalian Vyacheslav <slavon@bigtelecom.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:38276 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757257AbXH2NZn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Aug 2007 09:25:43 -0400
+Received: from mx2.go2.pl ([193.17.41.42]:35422 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755617AbXH2N3X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Aug 2007 09:29:23 -0400
+Content-Disposition: inline
+In-Reply-To: <46D56C60.3060702@bigtelecom.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The pktgen_thread.pid is set to current->pid and is never used
-after this. So remove this at all.
+On Wed, Aug 29, 2007 at 04:53:52PM +0400, Badalian Vyacheslav wrote:
+...
+> we have this kernel panic (then delete HTB) at all 2.6.18-x versions.
+> on older kernel (2.6.x) we have another panic (then delete tc filter)... 
+> summary we have TC panics 1 year ago ;) Sysctl option "reboot on panic" 
 
-Found during isolating the explicit pid/tgid usage.
+I'm not sure: do you mean it was less often? Did you try to report it
+here? (Delete HTB: qdisc or classes?)
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> save us. Now we up 2 backup computers and may try any patches to fix 
+> this problem.
+> 
+> Also on 2.6.22 have strange dead. Black screen, no response to keyboard, 
+> no info in netconsole, HardDisk led is stable red. "Black Dead"
+> 
 
----
+Yes, with all black it could be harder... Maybe 'set -x' at the
+beginning (after #!/bin/sh line) of a script could manage to save
+something before reboot or send with netconsole (but there could be
+a lot of this with a large script...). Netconsole could be troublesome
+too. One HTB deadlock problem during similar deleting was fixed in
+2.6.23-rc (HTB timer problem) but the log was different. Anyway,
+we probably need some more information (and trying).
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 3a3154e..93695c2 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -380,7 +380,6 @@ struct pktgen_thread {
- 	/* Field for thread to receive "posted" events terminate, stop ifs etc. */
- 
- 	u32 control;
--	int pid;
- 	int cpu;
- 
- 	wait_queue_head_t queue;
-@@ -3462,8 +3461,6 @@ static int pktgen_thread_worker(void *ar
- 
- 	init_waitqueue_head(&t->queue);
- 
--	t->pid = current->pid;
--
- 	pr_debug("pktgen: starting pktgen/%d:  pid=%d\n", cpu, task_pid_nr(current));
- 
- 	max_before_softirq = t->max_before_softirq;
+Jarek P.
