@@ -1,37 +1,37 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH 4/5] Net: ath5k, license is GPLv2
-Date: Wed, 29 Aug 2007 21:37:48 +0200
-Message-ID: <200708292137.48834.mb@bu3sch.de>
-References: <2713029743177393055@pripojeni.net> <20070829192858.75aa6542@the-village.bc.nu> <9e4733910708291233h3c4022a9n6e46733c5c50e222@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Alan Cox" <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	"Valdis.Kletnieks-PjAqaU27lzQ@public.gmane.org" <Valdis.Kletnieks-PjAqaU27lzQ@public.gmane.org>,
-	"Christoph Hellwig" <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	"Jiri Slaby" <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Jon Smirl" <jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <9e4733910708291233h3c4022a9n6e46733c5c50e222-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH 0/0] sky2: update for 2.6.24
+Date: Wed, 29 Aug 2007 12:39:22 -0700
+Message-ID: <20070829193922.078561651@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:38109 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755782AbXH2Tme (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 15:42:34 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 29 August 2007 21:33:43 Jon Smirl wrote:
-> What if a patch spans both code that is pure GPL and code imported
-> from BSD, how do you license it?
+This version includes some new features:
+  * support for new FE+ chips (not tested)
 
-I think it's a valid assumption, if we say that the author
-of the patch read the license header of a file and agreed with it.
-So the patch is licensed to whatever the fileheader says. And if
-there's none, it's licensed with the COPYING terms.
-If a patch author likes some other license conditions, he must
-explicitely add them with the patch to the file, saying that this
-and that part have these and those conditions. Of course they must
-be compatible with the original license.
+  * use PCI functions.  The only reason the driver
+    wasn't doing it was the advanced error bits weren't
+    accessbile on busted AMD chipsets without MMCONFIG
+    access.
+
+  * use PCI error recovery functions to access those
+    functions. If no mmconfig then driver has to ignore
+    PCI Express errors.
+
+  * provide receive skb timestamping in driver. This is
+    a big win because it saves an expensive time of day
+    access per packet.
+
+Tested on most chips already.
+It would be good to put these in -mm to catch any
+early problems.
 
 -- 
-Greetings Michael.
+Stephen Hemminger <shemminger@linux-foundation.org>
+
