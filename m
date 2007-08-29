@@ -1,45 +1,67 @@
-From: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH] Use task_pid_nr() in ip_vs_sync.c
-Date: Wed, 29 Aug 2007 17:30:48 +0400
-Message-ID: <46D57508.9040401@openvz.org>
+From: Moni Shoua <monisonlists@gmail.com>
+Subject: Re: [ofa-general] Re: [PATCH V4 8/10] net/bonding: Handlle wrong
+ assumptions that slave is always an Ethernet device
+Date: Wed, 29 Aug 2007 16:37:34 +0300
+Message-ID: <46D5769E.6000405@gmail.com>
+References: <46C9B474.5020202@voltaire.com> <46C9B8D9.5060508@voltaire.com> <416.1188343604@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Oleg Nesterov <oleg-6lXkIZvqkOAvJsYlp49lxw@public.gmane.org>,
-        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andrew Morton <akpm-3NddpPZAyC0@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: Moni Shoua <monis@voltaire.com>, netdev@vger.kernel.org,
+	rdreier@cisco.com, davem@davemloft.net,
+	general@lists.openfabrics.org
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fwil.voltaire.com ([193.47.165.2]:55502 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757297AbXH2Nhl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Aug 2007 09:37:41 -0400
+In-Reply-To: <416.1188343604@death>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The sync_master_pid and sync_backup_pid are set in set_sync_pid()
-and are used later for set/not-set checks and in printk. So it
-is safe to use the global pid value in this case.
+Jay Vosburgh wrote:
+> Moni Shoua <monis@voltaire.com> wrote:
+> 
+>> bonding sometimes uses Ethernet constants (such as MTU and address length) which
+>> are not good when it enslaves non Ethernet devices (such as InfiniBand).
+>>
+>> Signed-off-by: Moni Shoua <monis@voltaire.com>
+>> ---
+>> drivers/net/bonding/bond_main.c  |    3 ++-
+>> drivers/net/bonding/bond_sysfs.c |   19 +++++++++++++------
+>> drivers/net/bonding/bonding.h    |    1 +
+>> 3 files changed, 16 insertions(+), 7 deletions(-)
+>>
+>> Index: net-2.6/drivers/net/bonding/bond_main.c
+>> ===================================================================
+>> --- net-2.6.orig/drivers/net/bonding/bond_main.c	2007-08-15 10:55:48.000000000 +0300
+>> +++ net-2.6/drivers/net/bonding/bond_main.c	2007-08-20 14:29:11.911298577 +0300
+>> @@ -1224,7 +1224,8 @@ static int bond_compute_features(struct 
+>> 	struct slave *slave;
+>> 	struct net_device *bond_dev = bond->dev;
+>> 	unsigned long features = bond_dev->features;
+>> -	unsigned short max_hard_header_len = ETH_HLEN;
+>> +	unsigned short max_hard_header_len = max((u16)ETH_HLEN,
+>> +						bond_dev->hard_header_len);
+> 
+> 	Since non-IB bonding masters are run through ether_setup, which
+> sets hard_header_len to ETH_HLEN, the max() is probably unnecessary, and
+> I think this could just be bond_dev->hard_header_len.
+> 
+This is true except for the case where there are no slaves left.
+In that case max_hard_header_len has equals to the initialization value.
 
-Signed-off-by: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
 
----
+       bond_for_each_slave(bond, slave, i) {
+                features = netdev_compute_features(features,
+                                                   slave->dev->features);
+                if (slave->dev->hard_header_len > max_hard_header_len)
+                        max_hard_header_len = slave->dev->hard_header_len;
+        }
 
-diff --git a/net/ipv4/ipvs/ip_vs_sync.c b/net/ipv4/ipvs/ip_vs_sync.c
-index 959c08d..d0798a5 100644
---- a/net/ipv4/ipvs/ip_vs_sync.c
-+++ b/net/ipv4/ipvs/ip_vs_sync.c
-@@ -794,7 +794,7 @@ static int sync_thread(void *startup)
- 
- 	add_wait_queue(&sync_wait, &wait);
- 
--	set_sync_pid(state, current->pid);
-+	set_sync_pid(state, task_pid_nr(current));
- 	complete(tinfo->startup);
- 
- 	/*
+        features |= (bond_dev->features & BOND_VLAN_FEATURES);
+        bond_dev->features = features;
+        bond_dev->hard_header_len = max_hard_header_len;
+
+
