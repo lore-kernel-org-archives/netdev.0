@@ -1,47 +1,43 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] make _minimum_ TCP retransmission timeout configurable
-Date: Wed, 29 Aug 2007 15:23:54 -0700 (PDT)
-Message-ID: <20070829.152354.39168348.davem@davemloft.net>
+Date: Wed, 29 Aug 2007 15:28:12 -0700 (PDT)
+Message-ID: <20070829.152812.74548456.davem@davemloft.net>
 References: <5640c7e00708291432q6acde704od52247647a6b453@mail.gmail.com>
 	<20070829.144656.104048365.davem@davemloft.net>
-	<5640c7e00708291510p778f387w51d50e981ba49a25@mail.gmail.com>
+	<20070829151301.495f3d6e@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, netdev@vger.kernel.org
-To: ian.mcdonald@jandi.co.nz
+Cc: ian.mcdonald@jandi.co.nz, rick.jones2@hp.com,
+	netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56695
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48130
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1761001AbXH2WX6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 18:23:58 -0400
-In-Reply-To: <5640c7e00708291510p778f387w51d50e981ba49a25@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1752275AbXH2W2N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 18:28:13 -0400
+In-Reply-To: <20070829151301.495f3d6e@freepuppy.rosehill.hemminger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
-Date: Thu, 30 Aug 2007 10:10:37 +1200
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Wed, 29 Aug 2007 15:13:01 -0700
 
-> Understand what you are saying. That is why I questioned as 200 msecs
-> makes no sense on a LAN with < 1 msec RTT. So if the current is
-> ridiculous and 1000 is even more so, why do we use? Just because that
-> is how TCP is written I'm guessing.
+> There was some discussion about implementing TCP NCR (RFC4653)
+> and Narasimha Reddy said he might have something that could be used.
 
-We considered getting rid of the lower bound several times, but didn't
-want to investigate it fully back then.
+Although this looks interesting, I'm unsure it will help these
+cell folks.  Actually I can't tell for sure until Rick provides
+us with some more details of the exact issue at hand.
 
-> I know that in DCCP CCID3 the RTO is 4 x RTT (from memory - it might
-> be a slight variation) but we ended up putting a minimum on it as you
-> also face a problem if it fires too frequently (i.e. link is in
-> usecs).
-> 
-> I might ask around on research lists and see why this issue has never
-> been revisited.
+NCR seems to deal with when the trigger loss recovery, whereas
+the cell phone network folks aparently want to jack up TCP_RTO_MIN
+so that hard timeout based retranmits are deferred a lot more
+than normal.
 
-There is also the argument that on a local lan congestion control
-stops to make any sense.  The problem it that you can't detect what is
-a local lan, and any config knob to indicate this is an unacceptable
-hack.
+And reading NCR some more, we already have something similar in the
+form of Alexey's reordering detection, in fact it handles exactly the
+case NCR supposedly deals with.  We do not trigger loss recovery
+strictly on the 3rd duplicate ACK, and we've known about and dealt
+with the reordering issue explicitly for years.
 
-Any "congestion" you see on a local high speed lan will be gone before
-you can react to it, so it's pretty pointless to do anything.
