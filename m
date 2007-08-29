@@ -1,68 +1,61 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 0/9 Rev3] Implement batching skb API and support in
-	IPoIB
-Date: Mon, 27 Aug 2007 19:23:39 -0400
-Message-ID: <1188257019.4250.55.camel@localhost>
-References: <46CF7B13.3020701@psc.edu>
-	 <20070826044134.eabd18cf.billfink@mindspring.com>
-	 <46D229AA.6020900@psc.edu>  <20070826.190420.41652839.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+Subject: [PATCH 0/4 Rev-3] Age Entry For IPv4 & IPv6 Route Table
+Date: Wed, 29 Aug 2007 12:28:41 +0530
+Message-ID: <20070829122841.5166e94e.varunc@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jheffner@psc.edu, billfink@mindspring.com, rick.jones2@hp.com,
-	krkumar2@in.ibm.com, gaagaan@gmail.com,
-	general@lists.openfabrics.org, herbert@gondor.apana.org.au,
-	jagana@us.ibm.com, jeff@garzik.org, johnpol@2ka.mipt.ru,
-	kaber@trash.net, mcarlson@broadcom.com, mchan@broadcom.com,
-	netdev@vger.kernel.org, peter.p.waskiewicz.jr@intel.com,
-	rdreier@cisco.com, Robert.Olsson@data.slu.se,
-	shemminger@linux-foundation.org, sri@us.ibm.com, tgraf@suug.ch,
-	xma@us.ibm.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, kaber@trash.net, socketcan@hartkopp.net,
+	shemminger@linux-foundation.org, krkumar2@in.ibm.com,
+	tgraf@suug.ch, varuncha@in.ibm.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from el-out-1112.google.com ([209.85.162.177]:7961 "EHLO
-	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751150AbXH0XYE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Aug 2007 19:24:04 -0400
-Received: by el-out-1112.google.com with SMTP id j27so370370elf
-        for <netdev@vger.kernel.org>; Mon, 27 Aug 2007 16:24:03 -0700 (PDT)
-In-Reply-To: <20070826.190420.41652839.davem@davemloft.net>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:40187 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752985AbXH2G6H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 02:58:07 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l7T6vuVN027039
+	for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 02:57:56 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l7T6vuPQ504408
+	for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 00:57:56 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l7T6vtHg015229
+	for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 00:57:56 -0600
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2007-26-08 at 19:04 -0700, David Miller wrote:
+Hi Dave,
+	The is the next revision of the age patch. This contains changes as suggested in the last rev.
+Can you review and push it in? I also added the changelog below.
 
-> The transfer is much better behaved if we ACK every two full sized
-> frames we copy into the receiver, and therefore don't stretch ACK, but
-> at the cost of cpu utilization.
+Original Comment:
+According to the RFC 4292 (IP Forwarding Table MIB) there is a need for an age entry for all the routes in therouting table. The entry in the RFC is inetCidrRouteAge and oid is inetCidrRouteAge.1.10.
+Many snmp application require this age entry. So iam adding the age field in the routing table for ipv4 and ipv6 and providing the interface for this value netlink.
 
-The rx coalescing in theory should help by accumulating more ACKs on the
-rx side of the sender. But it doesnt seem to do that i.e For the 9K MTU,
-you are better off to turn off the coalescing if you want higher
-numbers. Also some of the TOE vendors (chelsio?) claim to have fixed
-this by reducing bursts on outgoing packets.
+I made a note of changes i made as per the suggestions given in the community. Here is the changelog.
+
+Changelog since ver 1:
+---------------------
+        Changes							Suggestion	
  
-Bill:
-who suggested (as per your email) the 75usec value and what was it based
-on measurement-wise? 
-BTW, thanks for the finding the energy to run those tests and a very
-refreshing perspective. I dont mean to add more work, but i had some
-queries;
-On your earlier tests, i think that Reno showed some significant
-differences on the lower MTU case over BIC. I wonder if this is
-consistent? 
-A side note: Although the experimentation reduces the variables (eg
-tying all to CPU0), it would be more exciting to see multi-cpu and
-multi-flow sender effect (which IMO is more real world). 
-Last note: you need a newer netstat.
+1)Change in the interface from proc to netlink.
+  It was not approved by David Miller and Yoshifuji.            David Miller & Yoshifuji
 
-> These effects are particularly pronounced on systems where the
-> bus bandwidth is also one of the limiting factors.
+2)Change from jiffies to timeval.				Eric Dumazet
 
-Can you elucidate this a little more Dave? Did you mean memory
-bandwidth? 
+3)Rounding up timeval						Patrick McHardy, Oliver Hartkopp
+								Eric Dumazet.
 
-cheers,
-jamal
+4)Relocate timeval_to_sec					Stephen Hemminger, Krishna Kumar
+
+5)Using macro RT6_GET_ROUTE_INFO				Krishna Kumar
+
+6)Add proper comment for timeval_to_sec				Eric Dumazet
+
+7)Add proper comment for timeval insertion			Thomas Graf				  
+
+Signed-off-by: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+---
 
