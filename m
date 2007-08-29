@@ -1,52 +1,44 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH 2.6.23 0/2] cxgb3 - Fix dev->priv usage
-Date: Wed, 29 Aug 2007 10:53:26 -0700
-Message-ID: <46D5B296.8020703@chelsio.com>
-References: <46D4F12C.7090409@chelsio.com> <ada3ay26gys.fsf@cisco.com>
+From: "Jon Smirl" <jonsmirl@gmail.com>
+Subject: Re: [PATCH 4/5] Net: ath5k, license is GPLv2
+Date: Wed, 29 Aug 2007 14:01:34 -0400
+Message-ID: <9e4733910708291101i3783a8b1l38f0d5cfb0c2863d@mail.gmail.com>
+References: <2713029743177393055@pripojeni.net>
+	 <7515194658758617@pripojeni.net>
+	 <20070828171155.GC29343@infradead.org>
+	 <3208.1188408545@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Steve Wise <swise@opengridcomputing.com>
-To: Roland Dreier <rdreier@cisco.com>
+Cc: "Christoph Hellwig" <hch@infradead.org>,
+	"Jiri Slaby" <jirislaby@gmail.com>, linville@tuxdriver.com,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Valdis.Kletnieks@vt.edu" <Valdis.Kletnieks@vt.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:28184 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752554AbXH2RzC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 13:55:02 -0400
-In-Reply-To: <ada3ay26gys.fsf@cisco.com>
+Received: from nz-out-0506.google.com ([64.233.162.224]:26910 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751556AbXH2SBg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 14:01:36 -0400
+Received: by nz-out-0506.google.com with SMTP id s18so222426nze
+        for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 11:01:35 -0700 (PDT)
+In-Reply-To: <3208.1188408545@turing-police.cc.vt.edu>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Roland Dreier wrote:
->
-> Looks OK to me but I would just roll up the second patch into the
-> first patch and let Jeff merge it as one commit.  There's no point in
-> creating an intermediate tree that doesn't build -- it just breaks git
-> bisect for no useful purpose.
->
+On 8/29/07, Valdis.Kletnieks@vt.edu <Valdis.Kletnieks@vt.edu> wrote:
+> The heck with "good idea" - it's unclear to me if Jiri is even *allowed*
+> to remove the BSD/other license.   Jiri can release *his* code as GPLv2
+> only, but I suspect the files as a whole really should be dual BSD/GPLv2,
+> due to the numerous other stakeholders in those files.
 
-Okay, Jeff agrees too, I'll do so.
+This mess has been occurring in the kernel for years. The DRM graphics
+drivers are used in both BSD and Linux. It is quite easy to contribute
+something to this code via LKML and think you are doing it under the
+GPL. Doesn't a patch against the kernel have to be GPL? When these
+patches get pulled back into BSD and distributed with it, did BSD get
+infected with the GPL? AFAIK this has never been legally sorted out.
 
-> Also as a side note, when trying to test this I got the message
->
->     could not load TP SRAM: unable to load t3a_protocol_sram-1.0.44.bin
->
-> and you guys seem to only have t3b protocol sram images on your web
-> site.  Could you send me the t3a file (or swap out my T3A boards for
-> T3B boards ;)?
->
-I'd rather fix the driver then:
-First, HW folks tell me that there is no need for engine
-microcode update for T3A.
-Moreover, there is a bug when the file name is constructed.
-We have T3B and T3B2 board revs, the driver looks for
-t3b_protocol_sram-1.0.44.bin for T3B2 boards and defaults to
-t3a_protocol_sram-1.0.44.bin even for T3B boards.
-I submitted a patch fixing this in netdev#upstream.
-I should propose the fix for 2.6.23 instead.
-
-Cheers,
-Divy
-
+-- 
+Jon Smirl
+jonsmirl@gmail.com
