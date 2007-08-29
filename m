@@ -1,55 +1,55 @@
-From: "Pete Monroe" <pizzlemonrizzle@gmail.com>
-Subject: Re: Crash report 2.6.22.5
-Date: Tue, 28 Aug 2007 17:06:58 -0700
-Message-ID: <24c800fb0708281706n6d92d9d9w7c8defc4a884296b@mail.gmail.com>
-References: <24c800fb0708281140r2c46e364i77e041b6c746b60d@mail.gmail.com>
-	<6bffcb0e0708281651g29729d6au6b40c0f9af5beed2@mail.gmail.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH 4/5] Net: ath5k, license is GPLv2
+Date: Wed, 29 Aug 2007 13:29:05 -0400
+Message-ID: <3208.1188408545@turing-police.cc.vt.edu>
+References: <2713029743177393055@pripojeni.net> <7515194658758617@pripojeni.net>
+            <20070828171155.GC29343@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: multipart/signed; boundary="==_Exmh_1188408545_2981P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, netfilter-devel@lists.netfilter.org,
-	linux-kernel@vger.kernel.org
-To: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-In-Reply-To: <6bffcb0e0708281651g29729d6au6b40c0f9af5beed2@mail.gmail.com>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: Jiri Slaby <jirislaby@gmail.com>, linville@tuxdriver.com,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Christoph Hellwig <hch@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from turing-police.cc.vt.edu ([128.173.14.107]:60551 "EHLO
+	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752143AbXH2R3o (ORCPT
+	<RFC822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 13:29:44 -0400
+In-Reply-To: Your message of "Tue, 28 Aug 2007 18:11:55 BST."
+             <20070828171155.GC29343@infradead.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/28/07, Michal Piotrowski <michal.k.k.piotrowski@gmail.com> wrote:
-> Hi Pete,
->
-> On 28/08/07, Pete Monroe <pizzlemonrizzle@gmail.com> wrote:
-> > Hi,
-> >
-> > Sorry there's not more to go on here.
-> >
-> > A 32-bit firewall running the kernel LVS virtual server to fan out to
-> > a dozen webservers ran fine for a year using  2.6.17.13, but won't
-> > last more than four hours or so with 2.6.22.5.  Another server,
-> > different hardware and vendor but same purpose, also crashed with
-> > 2.6.22.5 after a few hours.  It had previously run 2.6.20.11.  Nothing
-> > on the screen, nothing in the logs.
-> >
-> > I'm attaching zipped dmesg (both kernel versions),
->
-> Could you capture the bug with serial/netconsole etc.?
+--==_Exmh_1188408545_2981P
+Content-Type: text/plain; charset=us-ascii
 
-The servers are remote, production servers and it's a PITA when they
-crash.  But I'll see what I can do.  Thanks for the pointer.
+On Tue, 28 Aug 2007 18:11:55 BST, Christoph Hellwig said:
+> On Tue, Aug 28, 2007 at 12:00:50PM -0400, Jiri Slaby wrote:
+> > ath5k, license is GPLv2
+> > 
+> > The files are available only under GPLv2 since now.
+> 
+> Is this really a good idea?  Most of the reverse-engineering was
+> done by the OpenBSD folks, and it would certainly be helpful to
+> work together with them on new hardware revisions, etc..
 
---
-Pete
+The heck with "good idea" - it's unclear to me if Jiri is even *allowed*
+to remove the BSD/other license.   Jiri can release *his* code as GPLv2
+only, but I suspect the files as a whole really should be dual BSD/GPLv2,
+due to the numerous other stakeholders in those files.
 
->
-> "Collecting kernel messages"
-> http://www.stardust.webpages.pl/files/handbook/handbook-en-0.3-rc1.pdf
-> for more info.
+--==_Exmh_1188408545_2981P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFG1azhcC3lWbTT17ARAqPfAKDxwQPBhROMke8+MfqroU/qgLTRWQCfeLrN
+WR0bzJ9VaJLrHQlf8hOrCwk=
+=y6qw
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1188408545_2981P--
