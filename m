@@ -1,264 +1,65 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: [Lksctp-developers] SCTP: Fix dead loop while received unexpected
- chunk with length set to zero
-Date: Wed, 29 Aug 2007 15:26:09 +0800
-Message-ID: <46D51F91.90101@cn.fujitsu.com>
-References: <46D223A0.3080604@cn.fujitsu.com> <46D44630.8070802@hp.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: malformed captured packets
+Date: Wed, 29 Aug 2007 08:35:24 +0100
+Message-ID: <46D521BC.1050300@katalix.com>
+References: <200708281811.34074.toralf.foerster@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Toralf_F=F6rster?= <toralf.foerster@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [222.73.24.84] ([222.73.24.84]:55840 "EHLO song.cn.fujitsu.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750991AbXH2H2h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Aug 2007 03:28:37 -0400
-In-Reply-To: <46D44630.8070802@hp.com>
+Received: from s36.avahost.net ([74.53.95.194]:41510 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751092AbXH2Hf1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Aug 2007 03:35:27 -0400
+In-Reply-To: <200708281811.34074.toralf.foerster@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Vlad Yasevich wrote:
-> Wei Yongjun wrote:
->   
->> A ootb chunk such as data in close state or init-ack in estab state will 
->> cause SCTP to enter dead loop. Look like this:
->>
->> (1)
->>   Endpoint A                      Endpoint B
->>   (Closed)                        (Closed)
->>
->>   DATA      ----------------->   Kernel dead loop
->>   (With Length set to zero)
->>
->> (2)
->>   Endpoint A                      Endpoint B
->>   (Established)                   (Established)
->>
->>   INIT-ACK   ----------------->   Kernel dead loop
->>   (With Length set to zero)
->>
->>
->> This is beacuse when process chunks, chunk->chunk_end is set to the 
->> chunk->chunk_hdr plus chunk length, if chunk length is set to zero, 
->> chunk->chunk_end will be never changed and process enter dead loop.
->> Following is the patch.
->>     
->
-> NACK
->
-> Section 8.4:
->
->    An SCTP packet is called an "out of the blue" (OOTB) packet if it is
->    correctly formed (i.e., passed the receiver's CRC32c check; see
->    Section 6.8), but the receiver is not able to identify the
->    association to which this packet belongs.
->
->
-> I would argue that the packet is not correctly formed in this case
-> and deserves a protocol violation ABORT in return.
->
-> -vlad
->   
-As your comment, patch has been changed.
-Patch has been split to two, one is resolve this dead loop problem in 
-this mail.
-And the other is come in another mail to discard partial chunk which 
-chunk length is set to zero.
+Toralf F=F6rster wrote:
+> I use at home an DSL connection (stable Gentoo system),
+> current kernel is 2.6.22-gentoo-r5.
+>=20
+> I attached 2 pcap files with the communication of the KDE program ksc=
+d with the
+> CDDB server freedb.org, sniffed from interface ppp0 and eth0 respecti=
+vely.
+>=20
+> The sniffed network stream over the ppp0 interface looks _always_ fin=
+e whereas
+> the sniffed packets from the eth0 always looks bad :-(
+>=20
+> I don't undestand why the ppp0 stream is ok, whereas the eth0 stream =
+has always
+> a malformed package (eg #13 in kscd_eth0.pcap) which contains the con=
+tent of the CD.
+> And I'm really confused about the fact, that within a LAN I did not h=
+ave a
+> malformed packet.
+>=20
+> I discussed it
+> here http://www.wireshark.org/lists/wireshark-users/200707/msg00187.h=
+tml
+> and here http://bugzilla.kernel.org/show_bug.cgi?id=3D8793 and many d=
+ifferent
+> places in the past but w/o success.
+>=20
+> Any explanation are appreciated.
 
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+Can you provide more information about the problem, please? Are you=20
+using a simple DSL modem with PPPoE, such that the ppp0 interface is=20
+that of the pppd started by a local PPPoE server? Is this a problem onl=
+y=20
+with packet capture or are you seeing actual data corruption? Did this=20
+work with previous kernels? What is the network topology related to the=
+=20
+DSL interface?
 
---- a/net/sctp/sm_statefuns.c	2007-08-17 06:17:14.000000000 -0400
-+++ b/net/sctp/sm_statefuns.c	2007-08-17 09:57:17.000000000 -0400
-@@ -98,6 +98,7 @@ static sctp_disposition_t sctp_stop_t1_a
- 					   struct sctp_transport *transport);
- 
- static sctp_disposition_t sctp_sf_abort_violation(
-+				     const struct sctp_endpoint *ep,
- 				     const struct sctp_association *asoc,
- 				     void *arg,
- 				     sctp_cmd_seq_t *commands,
-@@ -192,6 +193,11 @@ sctp_disposition_t sctp_sf_do_4_C(const 
- 	if (!sctp_vtag_verify_either(chunk, asoc))
- 		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
- 
-+	/* Make sure that the SHUTDOWN_COMPLETE chunk has a valid length. */
-+	if (!sctp_chunk_length_valid(chunk, sizeof(sctp_chunkhdr_t)))
-+		return sctp_sf_violation_chunklen(ep, asoc, type, arg,
-+						  commands);
-+
- 	/* RFC 2960 10.2 SCTP-to-ULP
- 	 *
- 	 * H) SHUTDOWN COMPLETE notification
-@@ -2495,6 +2501,11 @@ sctp_disposition_t sctp_sf_do_9_2_reshut
- 	struct sctp_chunk *chunk = (struct sctp_chunk *) arg;
- 	struct sctp_chunk *reply;
- 
-+	/* Make sure that the INIT chunk has a valid length */
-+	if (!sctp_chunk_length_valid(chunk, sizeof(sctp_init_chunk_t)))
-+		return sctp_sf_violation_chunklen(ep, asoc, type, arg,
-+						  commands);
-+
- 	/* Since we are not going to really process this INIT, there
- 	 * is no point in verifying chunk boundries.  Just generate
- 	 * the SHUTDOWN ACK.
-@@ -2938,6 +2949,11 @@ sctp_disposition_t sctp_sf_tabort_8_4_8(
- 	struct sctp_chunk *chunk = arg;
- 	struct sctp_chunk *abort;
- 
-+	/* Make sure that the chunk has a valid length. */
-+	if (!sctp_chunk_length_valid(chunk, sizeof(sctp_chunkhdr_t)))
-+		return sctp_sf_violation_chunklen(ep, asoc, type, arg,
-+						  commands);
-+
- 	packet = sctp_ootb_pkt_new(asoc, chunk);
- 
- 	if (packet) {
-@@ -3185,6 +3201,11 @@ static sctp_disposition_t sctp_sf_shut_8
- 	struct sctp_chunk *chunk = arg;
- 	struct sctp_chunk *shut;
- 
-+	/* Make sure that the SHUTDOWN_ACK chunk has a valid length. */
-+	if (!sctp_chunk_length_valid(chunk, sizeof(sctp_chunkhdr_t)))
-+		return sctp_sf_violation_chunklen(ep, asoc, type, arg,
-+						  commands);
-+
- 	packet = sctp_ootb_pkt_new(asoc, chunk);
- 
- 	if (packet) {
-@@ -3240,6 +3261,13 @@ sctp_disposition_t sctp_sf_do_8_5_1_E_sa
- 				      void *arg,
- 				      sctp_cmd_seq_t *commands)
- {
-+	struct sctp_chunk *chunk = arg;
-+
-+	/* Make sure that the SHUTDOWN_ACK chunk has a valid length. */
-+	if (!sctp_chunk_length_valid(chunk, sizeof(sctp_chunkhdr_t)))
-+		return sctp_sf_violation_chunklen(ep, asoc, type, arg,
-+						  commands);
-+
- 	/* Although we do have an association in this case, it corresponds
- 	 * to a restarted association. So the packet is treated as an OOTB
- 	 * packet and the state function that handles OOTB SHUTDOWN_ACK is
-@@ -3654,6 +3682,16 @@ sctp_disposition_t sctp_sf_discard_chunk
- 					 void *arg,
- 					 sctp_cmd_seq_t *commands)
- {
-+	struct sctp_chunk *chunk = arg;
-+
-+	/* Make sure that the chunk has a valid length.
-+	 * Since we don't know the chunk type, we use a general
-+	 * chunkhdr structure to make a comparison.
-+	 */
-+	if (!sctp_chunk_length_valid(chunk, sizeof(sctp_chunkhdr_t)))
-+		return sctp_sf_violation_chunklen(ep, asoc, type, arg,
-+						  commands);
-+
- 	SCTP_DEBUG_PRINTK("Chunk %d is discarded\n", type.chunk);
- 	return SCTP_DISPOSITION_DISCARD;
- }
-@@ -3709,6 +3747,13 @@ sctp_disposition_t sctp_sf_violation(con
- 				     void *arg,
- 				     sctp_cmd_seq_t *commands)
- {
-+	struct sctp_chunk *chunk = arg;
-+
-+	/* Make sure that the chunk has a valid length. */
-+	if (!sctp_chunk_length_valid(chunk, sizeof(sctp_chunkhdr_t)))
-+		return sctp_sf_violation_chunklen(ep, asoc, type, arg,
-+						  commands);
-+
- 	return SCTP_DISPOSITION_VIOLATION;
- }
- 
-@@ -3716,12 +3761,14 @@ sctp_disposition_t sctp_sf_violation(con
-  * Common function to handle a protocol violation.
-  */
- static sctp_disposition_t sctp_sf_abort_violation(
-+				     const struct sctp_endpoint *ep,
- 				     const struct sctp_association *asoc,
- 				     void *arg,
- 				     sctp_cmd_seq_t *commands,
- 				     const __u8 *payload,
- 				     const size_t paylen)
- {
-+	struct sctp_packet *packet = NULL;
- 	struct sctp_chunk *chunk =  arg;
- 	struct sctp_chunk *abort = NULL;
- 
-@@ -3730,22 +3777,41 @@ static sctp_disposition_t sctp_sf_abort_
- 	if (!abort)
- 		goto nomem;
- 
--	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
--	SCTP_INC_STATS(SCTP_MIB_OUTCTRLCHUNKS);
-+	if (asoc) {
-+		sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
-+		SCTP_INC_STATS(SCTP_MIB_OUTCTRLCHUNKS);
- 
--	if (asoc->state <= SCTP_STATE_COOKIE_ECHOED) {
--		sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_STOP,
--				SCTP_TO(SCTP_EVENT_TIMEOUT_T1_INIT));
--		sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
--				SCTP_ERROR(ECONNREFUSED));
--		sctp_add_cmd_sf(commands, SCTP_CMD_INIT_FAILED,
--				SCTP_PERR(SCTP_ERROR_PROTO_VIOLATION));
-+		if (asoc->state <= SCTP_STATE_COOKIE_ECHOED) {
-+			sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_STOP,
-+					SCTP_TO(SCTP_EVENT_TIMEOUT_T1_INIT));
-+			sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
-+					SCTP_ERROR(ECONNREFUSED));
-+			sctp_add_cmd_sf(commands, SCTP_CMD_INIT_FAILED,
-+					SCTP_PERR(SCTP_ERROR_PROTO_VIOLATION));
-+		} else {
-+			sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
-+					SCTP_ERROR(ECONNABORTED));
-+			sctp_add_cmd_sf(commands, SCTP_CMD_ASSOC_FAILED,
-+					SCTP_PERR(SCTP_ERROR_PROTO_VIOLATION));
-+			SCTP_DEC_STATS(SCTP_MIB_CURRESTAB);
-+		}
- 	} else {
--		sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
--				SCTP_ERROR(ECONNABORTED));
--		sctp_add_cmd_sf(commands, SCTP_CMD_ASSOC_FAILED,
--				SCTP_PERR(SCTP_ERROR_PROTO_VIOLATION));
--		SCTP_DEC_STATS(SCTP_MIB_CURRESTAB);
-+		packet = sctp_ootb_pkt_new(asoc, chunk);
-+
-+		if (!packet)
-+			goto nomem;
-+
-+		if (sctp_test_T_bit(abort))
-+			packet->vtag = ntohl(chunk->sctp_hdr->vtag);
-+
-+		abort->skb->sk = ep->base.sk;
-+
-+		sctp_packet_append_chunk(packet, abort);
-+
-+		sctp_add_cmd_sf(commands, SCTP_CMD_SEND_PKT, 
-+			SCTP_PACKET(packet));
-+
-+		SCTP_INC_STATS(SCTP_MIB_OUTCTRLCHUNKS);
- 	}
- 
- 	sctp_add_cmd_sf(commands, SCTP_CMD_DISCARD_PACKET, SCTP_NULL());
-@@ -3786,7 +3852,7 @@ static sctp_disposition_t sctp_sf_violat
- {
- 	char err_str[]="The following chunk had invalid length:";
- 
--	return sctp_sf_abort_violation(asoc, arg, commands, err_str,
-+	return sctp_sf_abort_violation(ep, asoc, arg, commands, err_str,
- 					sizeof(err_str));
- }
- 
-@@ -3805,7 +3871,7 @@ static sctp_disposition_t sctp_sf_violat
- {
- 	char err_str[]="The cumulative tsn ack beyond the max tsn currently sent:";
- 
--	return sctp_sf_abort_violation(asoc, arg, commands, err_str,
-+	return sctp_sf_abort_violation(ep, asoc, arg, commands, err_str,
- 					sizeof(err_str));
- }
- 
-
+--=20
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
 
