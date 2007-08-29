@@ -1,75 +1,75 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: Re: RFC: issues concerning the next NAPI interface
-Date: Wed, 29 Aug 2007 10:43:13 +0200
-Message-ID: <200708291043.14380.ossthema@de.ibm.com>
-References: <200708271147.01890.ossthema@de.ibm.com> <46D51BD7.6040904@de.ibm.com> <46D52B14.8010508@katalix.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [1/1] Block device throttling [Re: Distributed storage.]
+Date: Wed, 29 Aug 2007 12:53:31 +0400
+Message-ID: <20070829085331.GA16607@2ka.mipt.ru>
+References: <20070731171347.GA14267@2ka.mipt.ru> <200708281027.59528.phillips@phunq.net> <20070828175403.GA28440@2ka.mipt.ru> <200708281408.06618.phillips@phunq.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	shemminger@linux-foundation.org, akepner@sgi.com,
-	netdev@vger.kernel.org, raisch@de.ibm.com, themann@de.ibm.com,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	meder@de.ibm.com, tklein@de.ibm.com, stefan.roscher@de.ibm.com
-To: James Chapman <jchapman@katalix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:26258 "EHLO
-	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753407AbXH2InR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 04:43:17 -0400
-In-Reply-To: <46D52B14.8010508@katalix.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>
+To: Daniel Phillips <phillips@phunq.net>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <200708281408.06618.phillips@phunq.net>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 29 August 2007 10:15, James Chapman wrote:
-> Jan-Bernd Themann wrote:
-> > What I'm trying to improve with this approach is interrupt
-> > mitigation for NICs where the hardware support for interrupt
-> > mitigation is limited. I'm not trying to improve this for NICs
-> > that work well with the means their HW provides. I'm aware of
-> > the fact that this scheme has it's tradeoffs and certainly
-> > can not be as good as a HW approach.
-> > So I'm grateful for any ideas that do have less tradeoffs and
-> > provide a mechanism to reduce interrupts without depending on
-> > HW support of the NIC.
-> > 
-> > In the end I want to reduce the CPU utilization. And one way
-> > to do that is LRO which also works only well if there are more
-> > then just a very few packets to aggregate. So at least our
-> > driver (eHEA) would benefit from a mix of timer based polling
-> > and plain NAPI (depending on load situations).
+On Tue, Aug 28, 2007 at 02:08:04PM -0700, Daniel Phillips (phillips@phunq.net) wrote:
+> On Tuesday 28 August 2007 10:54, Evgeniy Polyakov wrote:
+> > On Tue, Aug 28, 2007 at 10:27:59AM -0700, Daniel Phillips (phillips@phunq.net) wrote:
+> > > > We do not care about one cpu being able to increase its counter
+> > > > higher than the limit, such inaccuracy (maximum bios in flight
+> > > > thus can be more than limit, difference is equal to the number of
+> > > > CPUs - 1) is a price for removing atomic operation. I thought I
+> > > > pointed it in the original description, but might forget, that if
+> > > > it will be an issue, that atomic operations can be introduced
+> > > > there. Any uber-precise measurements in the case when we are
+> > > > close to the edge will not give us any benefit at all, since were
+> > > > are already in the grey area.
+> > >
+> > > This is not just inaccurate, it is suicide.  Keep leaking throttle
+> > > counts and eventually all of them will be gone.  No more IO
+> > > on that block device!
+> >
+> > First, because number of increased and decreased operations are the
+> > same, so it will dance around limit in both directions.
 > 
-> Wouldn't you achieve the same result by enabling hardware interrupt 
-> mitigation in eHEA in combination with NAPI? Presumably a 10G interface 
-> has hardware mitigation features?
+> No.  Please go and read it the description of the race again.  A count
+> gets irretrievably lost because the write operation of the first
+> decrement is overwritten by the second. Data gets lost.  Atomic 
+> operations exist to prevent that sort of thing.  You either need to use 
+> them or have a deep understanding of SMP read and write ordering in 
+> order to preserve data integrity by some equivalent algorithm.
 
-Quote from above: "What I'm trying to improve with this approach 
-is interrupt mitigation for NICs where the hardware support for
-interrupt mitigation is limited"
+I think you should complete your emotional email with decription of how
+atomic types are operated and how processors access data. Just to give a
+lesson to those who never knew how SMP works, but create patches and
+have the conscience to send them and even discuss.
+Then, if of course you will want, which I doubt, you can reread previous 
+mails and find that it was pointed to that race and possibilities to 
+solve it way too long ago. 
+Anyway, I prefer to look like I do not know how SMP and atomic operation
+work and thus stay away from this discussion.
 
-So guess why I'm doing that ;-)
+> --- 2.6.22.clean/block/ll_rw_blk.c	2007-07-08 16:32:17.000000000 -0700
+> +++ 2.6.22/block/ll_rw_blk.c	2007-08-24 12:07:16.000000000 -0700
+> @@ -3237,6 +3237,15 @@ end_io:
+>   */
+>  void generic_make_request(struct bio *bio)
+>  {
+> +	struct request_queue *q = bdev_get_queue(bio->bi_bdev);
+> +
+> +	if (q && q->metric) {
+> +		int need = bio->bi_reserved = q->metric(bio);
+> +		bio->queue = q;
 
-> 
-> > If there is no need for a generic mechanism for this kind of
-> > network adapters, then we can just leave this to each device
-> > driver.
-> 
-> I've been looking at this from a different angle. My goal is to optimize 
-> NAPI packet forwarding rates while minimizing packet latency. Using 
-> hardware interrupt mitigation hurts latency so I'm investigating ways to 
-> turn it off without risking NAPI poll on/off thrashing at certain packet 
-> rates.
-> 
-> Jan-Bernd, I think I've found a solution to the issue that you 
-> highlighted with my scheme yesterday and it doesn't involve generating 
-> other interrupts using hrtimers etc. :) Initial results are very 
-> encouraging in my setups. Would you be willing to test it with eHEA? I 
-> don't have a 10G setup. If results are encouraging, I'll post an RFC to 
-> ask for review / feedback from the NAPI experts here. What do you think?
-> 
+In case you have stacked device, this entry will be rewritten and you
+will lost all your account data.
 
-I'm not sure which solution you mean. If you post your RFC, please create
-a new thread (other title)
+> +		wait_event_interruptible(q->throttle_wait, atomic_read(&q->available) >= need);
+> +		atomic_sub(&q->available, need);
+> +	}
 
+-- 
+	Evgeniy Polyakov
