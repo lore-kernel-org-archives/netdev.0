@@ -1,61 +1,59 @@
-From: Milan Kocian <milon@wq.cz>
-Subject: Re: [PATCH 1/1] ipv6: corrects sended rtnetlink message
-Date: Wed, 29 Aug 2007 23:51:19 +0200
-Message-ID: <20070829215119.GB15856@wq.cz>
-References: <20070815143322.GA25640@wq.cz> <20070821.002058.102575162.davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] make _minimum_ TCP retransmission timeout configurable
+Date: Wed, 29 Aug 2007 15:29:03 -0700
+Message-ID: <46D5F32F.2070502@hp.com>
+References: <200708292052.NAA21975@tardy.cup.hp.com>	<5640c7e00708291432q6acde704od52247647a6b453@mail.gmail.com> <20070829.144656.104048365.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ian.mcdonald@jandi.co.nz, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wq.cz ([82.202.95.52]:34626 "EHLO nt.wq.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1761229AbXH2W2a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Aug 2007 18:28:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20070821.002058.102575162.davem@davemloft.net>
+Received: from palrel12.hp.com ([156.153.255.237]:34749 "EHLO palrel12.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753321AbXH2W3l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Aug 2007 18:29:41 -0400
+In-Reply-To: <20070829.144656.104048365.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 21, 2007 at 12:20:58AM -0700, David Miller wrote:
-> From: Milan Kocian <milon@wq.cz>
-> Date: Wed, 15 Aug 2007 16:33:22 +0200
+David Miller wrote:
+> From: "Ian McDonald" <ian.mcdonald@jandi.co.nz>
+> Date: Thu, 30 Aug 2007 09:32:38 +1200
 > 
-> > ipv6 sends a RTM_DELLINK netlink message on both events: NETDEV_DOWN,
-> > NETDEV_UNREGISTER. Corrected by sending RTM_NEWLINK on NETDEV_DOWN event
-> > and RTM_DELLINK on NETDEV_UNREGISTER event.
 > 
-> Why would we indicate that a new device has appeared on NETDEV_DOWN?
+>>So I'm suspecting that the default should be changed to 1000 to match
+>>the RFC which would solve this issue. I note that the RFC is a SHOULD
+>>rather than a MUST. I had a quick look around and not sure why Linux
+>>overrides the RFC on this one.
 > 
-> I don't see any sense in saying "RTM_NEWLINK" for a removal, it's
-> for additions.
 > 
-Sorry for my late reply. I was out.
+> Everyone uses this value, even BSD since ancient times.
 
-Because RTM_NEWLINK is used to notify about device status change
-(as I see in net/core/rtnetlink.c) and RTM_DELLINK to inform about
-NETDEV_UNREGISTER. Why should it be else in ipv6 subsystem ? And
-userspace programs (quagga) suppose it. Now userspace get two rtnetlink's
-'LINK' messages on 'ip l s down' event. First is RTM_NEWLINK from 
-net/core/rtnetlink.c and second is RTM_DELLINK from ipv6.
+Or at least something close to it - some use 500 milliseconds for 
+"tcp_rto_min."
 
-quagga story:
-On NEWLINK (flag IFF_UP is down) message quagga flushes all routes from RIB
-but leaves ip adresses. On DELLINK message q. flushes routes and addresses.
-On 'ip l s up' event ipv6 sends addresses and routes again but ipv4 not
-(it sends only routes). Thus q. stays without knowledge about ipv4's addresses
-after 'ip l s down/up' commands.
+> None of the research folks want to commit to saying a lower value is
+> OK, even though it's quite clear that on a local 10 gigabit link a
+> minimum value of even 200 is absolutely and positively absurd.
+> 
+> So what do these cellphone network people want to do, increate the
+> minimum RTO or increase it?  Exactly how does it help them?
 
-git change:
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=979ad663125af4be120697263038bb06ddbb83b4
+They want to increase it.  The folks who triggered this want to make it 
+3 seconds to avoid spurrious RTOs.  Their experience the "other 
+platform" they widh to replace suggests that 3 seconds is a good value 
+for their network.
 
-So from this point of view I tried to synchronize types of messages
-on the same events.
+> If the issue is wireless loss, algorithms like FRTO might help them,
+> because FRTO tries to make a distinction between capacity losses
+> (which should adjust cwnd) and radio losses (which are not capacity
+> based and therefore should not affect cwnd).
 
-IMHO second possibility is to remove rtnetlink notification about
-NETDEV_DOWN/_UNREGISTER from ipv6 subsystem because it is duplicate message.
+I was looking at that.  FRTO seems only to affect the cwnd calculations, 
+and not the RTO calculation, so it seems to "deal with" spurrious RTOs 
+rather than preclude them.  There is a strong desire here to not have 
+spurrious RTO's in the first place.  Each spurrious retransmission will 
+increase a user's charges.
 
-regards,
-
-milon
-
+rick
