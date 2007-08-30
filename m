@@ -1,51 +1,21 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Tc bug (kernel crash) more info
-Date: Thu, 30 Aug 2007 14:37:51 +0200
-Message-ID: <20070830123751.GA2778@ff.dom.local>
-References: <46D53D9C.5070204@bigtelecom.ru> <20070829113447.GA3575@ff.dom.local> <20070829121408.GB3575@ff.dom.local> <46D56C60.3060702@bigtelecom.ru> <20070829133042.GA4038@ff.dom.local> <20070830001632.ki4u5bx9sow40o4s@mail.himki.net> <20070830063110.GB1677@ff.dom.local> <20070830072718.GC1677@ff.dom.local> <46D68937.7030305@bigtelecom.ru>
+From: David Newall <david@davidnewall.com>
+Subject: Re: [PATCH 4/5] Net: ath5k, license is GPLv2
+Date: Thu, 30 Aug 2007 22:32:56 +0930
+Message-ID: <46D6C000.30305@davidnewall.com>
+References: <2713029743177393055@pripojeni.net>	 <7515194658758617@pripojeni.net>	 <20070828171155.GC29343@infradead.org>	 <3208.1188408545@turing-police.cc.vt.edu>	 <9e4733910708291101i3783a8b1l38f0d5cfb0c2863d@mail.gmail.com>	 <20070829192858.75aa6542@the-village.bc.nu> <9e4733910708291233h3c4022a9n6e46733c5c50e222@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Badalian Vyacheslav <slavon@bigtelecom.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:52872 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756442AbXH3Mga (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Aug 2007 08:36:30 -0400
-Content-Disposition: inline
-In-Reply-To: <46D68937.7030305@bigtelecom.ru>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jon Smirl <jonsmirl@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759454AbXH3NDQ@vger.kernel.org>
+In-Reply-To: <9e4733910708291233h3c4022a9n6e46733c5c50e222@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 30, 2007 at 01:09:11PM +0400, Badalian Vyacheslav wrote:
-> Jarek Poplawski ??????????:
-...
-> >On the other hand disabling local interrupts shouldn't be enough here,
-> >so it's really strange... Did you get this remotely? Are you sure LOC
-> >only? (Anyway this 2.6.23-rc4 should be interesting.)
-...
-> Only LOC changes... icmp answer = 50-70ms... after 1-2 hours traffic 
-> level is down and SI on CPU0 and CPU2 change to above 50%. ksoftirqd 
-> free CPU usage. I have this bug 3-4 times in week. If you need info what 
-> i can see only in bug still processing - i may try get this info for you.
-
-Any additional info could be helpful. I'm not sure if all these
-computers do similar htb processing, or it's another problem?
-As I've written before htb before 2.6.23-rc1 has a problem with
-timer lockup during qdisc_destroy, so softirqs would be hit.
-If it's htb's fault 2.6.23-rc4 or my testing patch should help.
-
-I try to find in htb code another weak points. BTW, if during
-such lockups any processes are killed 'by hand' etc., without
-restarting the whole system, please let us know.
-
-> maybe help:
-> 
-> 1U server INTEL, mb se7501w2
-> 
-> nat-new ~ # lspci
-
-lspci -v (or -vv should be more usable - but with dmesg at least)
-
-Jarek P.
-
+Is it actually necessary to change the license?  With the dual-license, 
+you can keep a single code-base for both BSD and Linux platforms, which 
+seems terribly important to me.  It'd be awful to lose that.  It would 
+be a maintenance nightmare for BSD.  Is it even possible--in real life, 
+I mean--to accept GPLed patches into a BSD project?  Nightmare, I tell you!
