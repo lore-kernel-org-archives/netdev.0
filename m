@@ -1,59 +1,56 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: oops with recent wireless-dev tree
-Date: Thu, 30 Aug 2007 14:05:30 +0200
-Message-ID: <1188475530.2963.20.camel@johannes.berg>
-References: <20070829223752.GA6969@seehuhn.de>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: pktgen terminating condition
+Date: Thu, 30 Aug 2007 08:08:40 -0400
+Message-ID: <1188475721.22423.35.camel@localhost>
+References: <20070829044352.GA4133@ludhiana>
+	 <1188395183.4274.19.camel@localhost>
+	 <18133.40847.166882.838333@robur.slu.se>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-k++eE6lgayPUMaShUuKJ"
-Cc: linux wireless list <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
-To: Jochen Voss <voss-52ZyvxujusuELgA04lAiVw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070829223752.GA6969-52ZyvxujusuELgA04lAiVw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Mandeep Singh Baines <mandeep.baines@gmail.com>,
+	davem@davemloft.net, rick.jones2@hp.com, msb@google.com,
+	netdev@vger.kernel.org, grundler@google.com,
+	robert.olsson@its.uu.se, venza@brownhat.org
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wa-out-1112.google.com ([209.85.146.179]:18928 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752929AbXH3MIq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2007 08:08:46 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so573136wah
+        for <netdev@vger.kernel.org>; Thu, 30 Aug 2007 05:08:45 -0700 (PDT)
+In-Reply-To: <18133.40847.166882.838333@robur.slu.se>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 2007-29-08 at 18:32 +0200, Robert Olsson wrote:
 
---=-k++eE6lgayPUMaShUuKJ
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+>  Yes it's synchronization issue... the test is over and we have sent 
+>  all pkts to the device but pktgen cannot free the skb for it still 
+>  has refcounts. 
 
-Hi Jochen,
+Ok, right.
 
-[added CCs since it affects bridge code]
+I was confusing it with another issue where pktgen could send a lot of
+packets without waiting for them to be freed; there are some drivers
+(10G) which may hold onto 8K skbs. A gazillion ooms start spewing ;-> My
+thinking in resolving that was to do something like waht sockets do and
+charge pktgen so it doesnt have too many outstanding packets in flight.
 
-> If I read this correctly, the EIP in the last line corresponds to
-> net/bridge/br_if.c, line 36:
->=20
->     static int port_cost(struct net_device *dev)
->     {
-> 	    if (dev->ethtool_ops->get_settings) {
->                                ^^^^
->=20
-> As far as I can figure out, dev->ethtool_ops is NULL and the crash
-> happens while trying to derefernce ...->get_settings.
->=20
-> Is dev->ethtool_ops allowed to be NULL?  In this case the appended
-> patch might be the correct fix.  At least it makes the oops disappear
-> for me.  Another possible fix would be to add an ethtool_ops structure
-> to the device created by b43.
+>  IMO must drivers have provisions to handle situation like. 
 
-I don't think adding ethtool_ops in mac80211 should be necessary.
-Stephen?
+Mandeep was saying he found less than a handful that didnt conform.
 
-johannes
+> I'll 
+>  guess we can discuss last-resort timer if it should be us, ms 
+>  or possibly seconds but shouldn't need ping to make this happen. 
+>  If so we probably have a ICMP packet sitting there waiting instead.  
 
---=-k++eE6lgayPUMaShUuKJ
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+I think as long as it doesnt affect throughput calculation (it just adds
+to idle time) its fine.
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+cheers,
+jamal
 
-iD8DBQBG1rKK/ETPhpq3jKURAidxAJ43uGOXdW8H7E9VH+Kft4Ix4At+0QCeOtju
-Q4/RpDfYQGtbeINda8xd0ic=
-=NaRp
------END PGP SIGNATURE-----
-
---=-k++eE6lgayPUMaShUuKJ--
