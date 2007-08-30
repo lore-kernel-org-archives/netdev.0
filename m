@@ -1,33 +1,54 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] bridge: packets leaking out of disabled/blocked ports
-Date: Thu, 30 Aug 2007 16:03:13 -0400
-Message-ID: <20070830200313.GF5140@tuxdriver.com>
-References: <20070829150515.54dd7ecf@freepuppy.rosehill.hemminger.net> <426497.88154.qm@web51910.mail.re2.yahoo.com> <20070830122258.1c606516@freepuppy.rosehill.hemminger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: wang dengyi <dy_wang@yahoo.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [GIT PULL] SCTP updates
+Date: Thu, 30 Aug 2007 17:26:30 -0400
+Message-ID: <11885091901093-git-send-email-vladislav.yasevich@hp.com>
+Cc: lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4658 "EHLO ra.tuxdriver.com"
+Received: from atlrel6.hp.com ([156.153.255.205]:44511 "EHLO atlrel6.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758132AbXH3Uot (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Aug 2007 16:44:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20070830122258.1c606516@freepuppy.rosehill.hemminger.net>
+	id S1755369AbXH3V1A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Aug 2007 17:27:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 30, 2007 at 12:22:58PM -0700, Stephen Hemminger wrote:
-> This patch fixes some packet leakage in bridge.  The bridging code
-> was allowing forward table entries to be generated even if a device
-> was being blocked. The fix is to not add forwarding database entries
-> unless the port is active.
+Hi David
 
-Seems reasonable -- ACK
+Please pull the  following changes since commit
+b07d68b5ca4d55a16fab223d63d5fb36f89ff42f:
+  Linus Torvalds (1):
+        Linux 2.6.23-rc4
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+that are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/vxy/lksctp-dev.git master
+
+Vlad Yasevich (7):
+      SCTP: properly clean up fragment and ordering queues during FWD-TSN.
+      SCTP: Assign stream sequence numbers to the entire message
+      SCTP: Pick the correct port when binding to 0.
+      SCTP: Uncomfirmed transports can't become Inactive
+      SCTP: Do not retransmit chunks that are newer then rtt.
+      SCTP: Correctly disable listening when backlog is 0.
+      SCTP: Abort on COOKIE-ECHO if backlog is exceeded.
+
+Wei Yongjun (4):
+      SCTP: Fix sctp_addto_chunk() to add pad with correct length
+      SCTP: Fix to encode PROTOCOL VIOLATION error cause correctly
+      SCTP: Use net_ratelimit to suppress error messages print too fast
+      SCTP: Fix to handle invalid parameter length correctly
+
+ include/net/sctp/sm.h       |    2 +-
+ include/net/sctp/structs.h  |    1 +
+ include/net/sctp/ulpqueue.h |    1 +
+ net/sctp/associola.c        |    7 ++-
+ net/sctp/outqueue.c         |    7 +++
+ net/sctp/sm_make_chunk.c    |  112 +++++++++++++++++++++++++++++-------------
+ net/sctp/sm_sideeffect.c    |    8 ++-
+ net/sctp/sm_statefuns.c     |   51 ++++++++++----------
+ net/sctp/socket.c           |    3 +
+ net/sctp/ulpqueue.c         |   75 ++++++++++++++++++++++++-----
+ 10 files changed, 190 insertions(+), 77 deletions(-)
+
+Thanks
+-vlad
