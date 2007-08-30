@@ -1,26 +1,33 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 0/0] sky2: update for 2.6.24
-Date: Thu, 30 Aug 2007 13:36:11 -0700
-Message-ID: <20070830133611.3fd4922f@freepuppy.rosehill.hemminger.net>
-References: <20070829193922.078561651@linux-foundation.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] bridge: packets leaking out of disabled/blocked ports
+Date: Thu, 30 Aug 2007 16:03:13 -0400
+Message-ID: <20070830200313.GF5140@tuxdriver.com>
+References: <20070829150515.54dd7ecf@freepuppy.rosehill.hemminger.net> <426497.88154.qm@web51910.mail.re2.yahoo.com> <20070830122258.1c606516@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: wang dengyi <dy_wang@yahoo.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:46941 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1761511AbXH3UhL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2007 16:37:11 -0400
-In-Reply-To: <20070829193922.078561651@linux-foundation.org>
+Received: from ra.tuxdriver.com ([70.61.120.52]:4658 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758132AbXH3Uot (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Aug 2007 16:44:49 -0400
+Content-Disposition: inline
+In-Reply-To: <20070830122258.1c606516@freepuppy.rosehill.hemminger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patch number 10 doesn't work right, it causes excess interrupts
-and console messages.
-8 & 9 are only needed for #10, so skip them as well.
+On Thu, Aug 30, 2007 at 12:22:58PM -0700, Stephen Hemminger wrote:
+> This patch fixes some packet leakage in bridge.  The bridging code
+> was allowing forward table entries to be generated even if a device
+> was being blocked. The fix is to not add forwarding database entries
+> unless the port is active.
 
-So please only apply 1-7 to netdev for 2.6.24
+Seems reasonable -- ACK
+
+John
 -- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+John W. Linville
+linville@tuxdriver.com
