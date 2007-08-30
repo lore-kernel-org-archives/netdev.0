@@ -1,50 +1,26 @@
-From: "Jesper Juhl" <jesper.juhl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 13/30] net: Don't do pointless kmalloc return value casts in zd1211 driver
-Date: Thu, 30 Aug 2007 22:20:23 +0200
-Message-ID: <9a8748490708301320o49d8e794vc5c37ffc938006f1@mail.gmail.com>
-References: <1554af80879a7ef2f78a4d654f23c248203500d9.1187912217.git.jesper.juhl@gmail.com>
-	 <d551047daed1cb4d9de1eff956268a468c9837f6.1187912217.git.jesper.juhl@gmail.com>
-	 <46D70467.1040109@gentoo.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 0/0] sky2: update for 2.6.24
+Date: Thu, 30 Aug 2007 13:36:11 -0700
+Message-ID: <20070830133611.3fd4922f@freepuppy.rosehill.hemminger.net>
+References: <20070829193922.078561651@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Linux Kernel Mailing List" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Ulrich Kunitz" <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Daniel Drake" <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <46D70467.1040109-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:46941 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761511AbXH3UhL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2007 16:37:11 -0400
+In-Reply-To: <20070829193922.078561651@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 30/08/2007, Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org> wrote:
-> Jesper Juhl wrote:
-> > Since kmalloc() returns a void pointer there is no reason to cast
-> > its return value.
-> > This patch also removes a pointless initialization of a variable.
->
-> NAK: adds a sparse warning
-> zd_chip.c:116:15: warning: implicit cast to nocast type
->
-Ok, I must admit I didn't check with sparse since it seemed pointless
-- we usually never cast void pointers to other pointer types,
-specifically because the C language nicely guarantees that the right
-thing will happen without the cast.  Sometimes we have to cast them to
-integer types, su sure we need the cast there.   But what on earth
-makes a "zd_addr_t *" so special that we have to explicitly cast a
-"void *" to that type?
+Patch number 10 doesn't work right, it causes excess interrupts
+and console messages.
+8 & 9 are only needed for #10, so skip them as well.
 
-I see it's defined as
-  typedef u32 __nocast zd_addr_t;
-in drivers/net/wireless/zd1211rw/zd_types.h , but why the __nocast ?
-
-What would be wrong in applying my patch that removes the cast of the
-kmalloc() return value and then also remove the "__nocast" here?
-
-
+So please only apply 1-7 to netdev for 2.6.24
 -- 
-Jesper Juhl <jesper.juhl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please      http://www.expita.com/nomime.html
+Stephen Hemminger <shemminger@linux-foundation.org>
