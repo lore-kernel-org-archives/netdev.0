@@ -1,54 +1,79 @@
-From: "Jesper Juhl" <jesper.juhl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] Don't needlessly initialize variable to NULL in zd_chip (was: Re: [PATCH 13/30] net: Don't do pointless kmalloc return value casts in zd1211 driver)
-Date: Fri, 31 Aug 2007 01:04:09 +0200
-Message-ID: <9a8748490708301604k688daad8p145fb9106b442d91@mail.gmail.com>
-References: <1554af80879a7ef2f78a4d654f23c248203500d9.1187912217.git.jesper.juhl@gmail.com>
-	 <9a8748490708301320o49d8e794vc5c37ffc938006f1@mail.gmail.com>
-	 <1188512393.6062.156.camel@localhost>
-	 <200708310030.31713.jesper.juhl@gmail.com>
-	 <20070830154255.6a146c21.randy.dunlap@oracle.com>
+From: Daniel Phillips <phillips@phunq.net>
+Subject: Re: [1/1] Block device throttling [Re: Distributed storage.]
+Date: Thu, 30 Aug 2007 16:20:35 -0700
+Message-ID: <200708301620.37965.phillips@phunq.net>
+References: <20070731171347.GA14267@2ka.mipt.ru> <200708281408.06618.phillips@phunq.net> <20070829085331.GA16607@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Joe Perches" <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, "Daniel Drake" <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
-	"Linux Kernel Mailing List" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Ulrich Kunitz" <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Randy Dunlap" <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070830154255.6a146c21.randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Cc: Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20070829085331.GA16607@2ka.mipt.ru>
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 31/08/2007, Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org> wrote:
-...
+On Wednesday 29 August 2007 01:53, Evgeniy Polyakov wrote:
+> Then, if of course you will want, which I doubt, you can reread
+> previous mails and find that it was pointed to that race and
+> possibilities to solve it way too long ago.
+
+What still bothers me about your response is that, while you know the 
+race exists and do not disagree with my example, you don't seem to see 
+that that race can eventually lock up the block device by repeatedly 
+losing throttle counts which are never recovered.  What prevents that?
+
+> > --- 2.6.22.clean/block/ll_rw_blk.c	2007-07-08 16:32:17.000000000
+> > -0700 +++ 2.6.22/block/ll_rw_blk.c	2007-08-24 12:07:16.000000000
+> > -0700 @@ -3237,6 +3237,15 @@ end_io:
+> >   */
+> >  void generic_make_request(struct bio *bio)
+> >  {
+> > +	struct request_queue *q = bdev_get_queue(bio->bi_bdev);
+> > +
+> > +	if (q && q->metric) {
+> > +		int need = bio->bi_reserved = q->metric(bio);
+> > +		bio->queue = q;
 >
-> BTW:  http://marc.info/?l=linux-wireless&m=118831813500769&w=2
->
-...
+> In case you have stacked device, this entry will be rewritten and you
+> will lost all your account data.
 
-Heh, thanks Randy.
+It is a weakness all right.  Well,
 
-All too often patches get missed since I don't happen to include the
-right magic person to Cc. So I generally take a "better to have one Cc
-too many than miss one" approach when sending patches - otherwise I
-just end up resending it several times and eventually have to bother
-Andrew to move it through -mm.
+-	if (q && q->metric) {
++	if (q && q->metric && !bio->queue) {
 
-I see the point of people not getting things twice, but too many
-patches slip through the cracks already (and not just my patches,
-that's a general problem) so I'd rather inconvenience a few people
-with one extra email than missing the proper maintainer by not Cc'ing
-the right list.    Picking the right list/set of people to Cc is hard!
+which fixes that problem.  Maybe there is a better fix possible.  Thanks 
+for the catch!
 
+The original conception was that this block throttling would apply only 
+to the highest level submission of the bio, the one that crosses the 
+boundary between filesystem (or direct block device application) and 
+block layer.  Resubmitting a bio or submitting a dependent bio from 
+inside a block driver does not need to be throttled because all 
+resources required to guarantee completion must have been obtained 
+_before_ the bio was allowed to proceed into the block layer.
 
-(whoops, mistakenly didn't do a reply-to-all initially; sorry Randy,
-now you'll get this mail twice ;)
+The other principle we are trying to satisfy is that the throttling 
+should not be released until bio->endio, which I am not completely sure 
+about with the patch as modified above.  Your earlier idea of having 
+the throttle protection only cover the actual bio submission is 
+interesting and may be effective in some cases, in fact it may cover 
+the specific case of ddsnap.  But we don't have to look any further 
+than ddraid (distributed raid) to find a case it doesn't cover - the 
+additional memory allocated to hold parity data has to be reserved 
+until parity data is deallocated, long after the submission completes.
+So while you manage to avoid some logistical difficulties, it also looks 
+like you didn't solve the general problem.
 
+Hopefully I will be able to report on whether my patch actually works 
+soon, when I get back from vacation.  The mechanism in ddsnap this is 
+supposed to replace is effective, it is just ugly and tricky to verify.
 
---
-Jesper Juhl <jesper.juhl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please      http://www.expita.com/nomime.html
+Regards,
+
+Daniel
