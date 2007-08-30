@@ -1,111 +1,115 @@
-From: Badalian Vyacheslav <slavon@bigtelecom.ru>
-Subject: Re: Tc bug (kernel crash) more info
-Date: Thu, 30 Aug 2007 13:09:11 +0400
-Message-ID: <46D68937.7030305@bigtelecom.ru>
-References: <46D53D9C.5070204@bigtelecom.ru> <20070829113447.GA3575@ff.dom.local> <20070829121408.GB3575@ff.dom.local> <46D56C60.3060702@bigtelecom.ru> <20070829133042.GA4038@ff.dom.local> <20070830001632.ki4u5bx9sow40o4s@mail.himki.net> <20070830063110.GB1677@ff.dom.local> <20070830072718.GC1677@ff.dom.local>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: malformed captured packets
+Date: Thu, 30 Aug 2007 10:51:31 +0100
+Message-ID: <46D69323.3070503@katalix.com>
+References: <200708281811.34074.toralf.foerster@gmx.de> <46D521BC.1050300@katalix.com> <200708291822.35128.toralf.foerster@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
+Content-Type: text/plain; charset=ISO-8859-1;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@o2.pl>
+To: =?ISO-8859-1?Q?Toralf_F=F6rster?= <toralf.foerster@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bigtelecom.ru ([87.255.0.61]:52026 "EHLO
-	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752676AbXH3JJs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2007 05:09:48 -0400
-In-Reply-To: <20070830072718.GC1677@ff.dom.local>
+Received: from s36.avahost.net ([74.53.95.194]:41321 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753153AbXH3Jvd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Aug 2007 05:51:33 -0400
+In-Reply-To: <200708291822.35128.toralf.foerster@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Thu, Aug 30, 2007 at 08:31:10AM +0200, Jarek Poplawski wrote:
->  =20
->> On Thu, Aug 30, 2007 at 12:16:32AM +0400, slavon@bigtelecom.ru wrote=
-:
->>    =20
-> ...
->  =20
->>> PS. And also have we have strange bug in another computer (2.6.22-r=
-5).
->>> Have computer XEON_CPUx2 (4 CPU)
->>>
->>> after boot have CPU0 and CPU3 SI =3D ~50%
->>> after some time CPU0 SI =3D 0% and ksoftirqd/2 process have 100% cp=
-u usage!
->>> nat-new ~ # cat /proc/interrupts
->>>            CPU0       CPU1       CPU2       CPU3
->>>   0:        403          0          0          0   IO-APIC-edge    =
-  timer
->>>      =20
->> ...
->>    =20
->>> LOC:   89312505   89314019   89310139   89313972
->>> ERR:          0
->>> MIS:          0
->>>
->>> changes only LOC interrupts!
->>>
->>> Maybe its info intresting for you. =3D)
->>>      =20
->> Yes. It seems something loops or breaks with disabled interrupts. If
->>    =20
->
-> On the other hand disabling local interrupts shouldn't be enough here=
-,
-> so it's really strange... Did you get this remotely? Are you sure LOC
-> only? (Anyway this 2.6.23-rc4 should be interesting.)
->
-> Jarek P.
->
->  =20
-Only LOC changes... icmp answer =3D 50-70ms... after 1-2 hours traffic=20
-level is down and SI on CPU0 and CPU2 change to above 50%. ksoftirqd=20
-free CPU usage. I have this bug 3-4 times in week. If you need info wha=
-t=20
-i can see only in bug still processing - i may try get this info for yo=
-u.
+Toralf F=F6rster wrote:
+> Am Mittwoch, 29. August 2007 schrieb James Chapman:
+>=20
+>> Can you provide more information about the problem, please? Are you=20
+>> using a simple DSL modem with PPPoE, such that the ppp0 interface is=
+=20
+>> that of the pppd started by a local PPPoE server? Is this a problem =
+only=20
+>> with packet capture or are you seeing actual data corruption? Did th=
+is=20
+>> work with previous kernels? What is the network topology related to =
+the=20
+>> DSL interface?
+>>
+>=20
+> I use a ThinkPad T41 with this Ethernet controller:
+>=20
+> n22 ~ # lspci | grep Eth
+> 02:01.0 Ethernet controller: Intel Corporation 82540EP Gigabit Ethern=
+et Controller (Mobile) (rev 03)
+> 02:02.0 Ethernet controller: Atheros Communications, Inc. AR5212 802.=
+11abg NIC (rev 01)
+>=20
+> My DSL provider is Alice DSL (formerly Hansenet) in Hamburg. The T41 =
+is connected
+> with an Ethernet cable to a Siemens DSL modem. The modem (just a mode=
+m, not a
+> router) itself is connected to the DSL splitter which itself is plugg=
+ed into socket.
+>=20
+> The current ppp version I'm using is net-dialup/ppp-2.4.4-r9
+>=20
+> Here are my kernel config settings:
+>=20
+> n22 ~ # zgrep PPP /proc/config.gz
+> CONFIG_PPP=3Dm
+> # CONFIG_PPP_MULTILINK is not set
+> CONFIG_PPP_FILTER=3Dy
+> # CONFIG_PPP_ASYNC is not set
+> # CONFIG_PPP_SYNC_TTY is not set
+> CONFIG_PPP_DEFLATE=3Dm
+> # CONFIG_PPP_BSDCOMP is not set
+> # CONFIG_PPP_MPPE is not set
+> CONFIG_PPPOE=3Dm
+>=20
+> I observed this problem since a long time with different kernel versi=
+ons (Gentoo,
+> plain vanilla kernel, git sources) while playing with ethereal - curr=
+ently known
+> as wireshark.
+>=20
+> I'm wondering b/c for kscd eg. it is always the IP packet containing =
+the content
+> information of a CD (or even a <CD is unknown> message) with is strug=
+gled.
+> This packets prevents me from using the "Follow TCP Strem" feature of=
+ wireshark
+> for an easy look into the plain text of all TCP packets of this HTTP =
+stream
+> (which was in fact the trigger for me to have a deeper look into the =
+sniffed
+> stream from ppp0 and eth0).
+>=20
+> For other apps I observed similar things which cannot fully be explai=
+ned by
+> terms like "TCP checksum offloading".=20
+>=20
+> I didn't observed any malfunction at application level so it might be=
+ an issue
+> with the capturing itself.
+>=20
+> Why is the ppp stream always ok in opposite to the eth0 stream ?
 
-maybe help:
+Toralf, thanks for providing more info about your setup.
 
-1U server INTEL, mb se7501w2
+Are you using kernel-mode PPPoE? I know some PPPoE servers do the PPPoE=
+=20
+datapath in userspace...
 
-nat-new ~ # lspci
-00:00.0 Host bridge: Intel Corporation E7501 Memory Controller Hub (rev=
- 01)
-00:00.1 Class ff00: Intel Corporation E7500/E7501 Host RASUM Controller=
-=20
-(rev 01)
-00:03.0 PCI bridge: Intel Corporation E7500/E7501 Hub Interface C=20
-PCI-to-PCI Bridge (rev 01)
-00:03.1 Class ff00: Intel Corporation E7500/E7501 Hub Interface C RASUM=
-=20
-Controller (rev 01)
-00:1d.0 USB Controller: Intel Corporation 82801CA/CAM USB Controller #1=
-=20
-(rev 02)
-00:1d.1 USB Controller: Intel Corporation 82801CA/CAM USB Controller #2=
-=20
-(rev 02)
-00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev 42)
-00:1f.0 ISA bridge: Intel Corporation 82801CA LPC Interface Controller=20
-(rev 02)
-00:1f.1 IDE interface: Intel Corporation 82801CA Ultra ATA Storage=20
-Controller (rev 02)
-00:1f.3 SMBus: Intel Corporation 82801CA/CAM SMBus Controller (rev 02)
-01:0c.0 VGA compatible controller: ATI Technologies Inc Rage XL (rev 27=
-)
-02:1c.0 PIC: Intel Corporation 82870P2 P64H2 I/OxAPIC (rev 04)
-02:1d.0 PCI bridge: Intel Corporation 82870P2 P64H2 Hub PCI Bridge (rev=
- 04)
-02:1e.0 PIC: Intel Corporation 82870P2 P64H2 I/OxAPIC (rev 04)
-02:1f.0 PCI bridge: Intel Corporation 82870P2 P64H2 Hub PCI Bridge (rev=
- 04)
-03:07.0 Ethernet controller: Intel Corporation 82546EB Gigabit Ethernet=
-=20
-Controller (Copper) (rev 01)
-03:07.1 Ethernet controller: Intel Corporation 82546EB Gigabit Ethernet=
-=20
-Controller (Copper) (rev 01)
-04:08.0 RAID bus controller: Intel Corporation RAID Controller
+The captured PPPoE stream seems to show incorrect data lengths in the=20
+PPPoE header for some captured PPPoE packets. The kernel's PPPoE=20
+datapath uses this length to extract the PPP frame and send it through=20
+to the ppp interface. Since your ppp stream is fine, the actual PPPoE=20
+header contents must be correct when it is parsed by the kernel PPPoE=20
+code. It seems more likely that this is a wireshark bug to me.
+
+Is it possible to get captures from ppp0 and eth0 simultaneously such=20
+that they show the same ppp instance? This might give more clues.
+
+--=20
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
 
