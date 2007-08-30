@@ -1,58 +1,50 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] bridge: packets leaking out of disabled/blocked ports
-Date: Thu, 30 Aug 2007 12:22:58 -0700
-Message-ID: <20070830122258.1c606516@freepuppy.rosehill.hemminger.net>
-References: <20070829150515.54dd7ecf@freepuppy.rosehill.hemminger.net>
- <426497.88154.qm@web51910.mail.re2.yahoo.com>
+From: "Jesper Juhl" <jesper.juhl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 13/30] net: Don't do pointless kmalloc return value casts in zd1211 driver
+Date: Thu, 30 Aug 2007 22:20:23 +0200
+Message-ID: <9a8748490708301320o49d8e794vc5c37ffc938006f1@mail.gmail.com>
+References: <1554af80879a7ef2f78a4d654f23c248203500d9.1187912217.git.jesper.juhl@gmail.com>
+	 <d551047daed1cb4d9de1eff956268a468c9837f6.1187912217.git.jesper.juhl@gmail.com>
+	 <46D70467.1040109@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: wang dengyi <dy_wang@yahoo.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:38475 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755150AbXH3TXG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2007 15:23:06 -0400
-In-Reply-To: <426497.88154.qm@web51910.mail.re2.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: "Linux Kernel Mailing List" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Ulrich Kunitz" <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Daniel Drake" <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <46D70467.1040109-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes some packet leakage in bridge.  The bridging code
-was allowing forward table entries to be generated even if a device
-was being blocked. The fix is to not add forwarding database entries
-unless the port is active.
+On 30/08/2007, Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org> wrote:
+> Jesper Juhl wrote:
+> > Since kmalloc() returns a void pointer there is no reason to cast
+> > its return value.
+> > This patch also removes a pointless initialization of a variable.
+>
+> NAK: adds a sparse warning
+> zd_chip.c:116:15: warning: implicit cast to nocast type
+>
+Ok, I must admit I didn't check with sparse since it seemed pointless
+- we usually never cast void pointers to other pointer types,
+specifically because the C language nicely guarantees that the right
+thing will happen without the cast.  Sometimes we have to cast them to
+integer types, su sure we need the cast there.   But what on earth
+makes a "zd_addr_t *" so special that we have to explicitly cast a
+"void *" to that type?
 
-The bug arose as part of the conversion to processing STP frames
-through normal receive path (in 2.6.17).
+I see it's defined as
+  typedef u32 __nocast zd_addr_t;
+in drivers/net/wireless/zd1211rw/zd_types.h , but why the __nocast ?
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+What would be wrong in applying my patch that removes the cast of the
+kmalloc() return value and then also remove the "__nocast" here?
 
---- a/net/bridge/br_fdb.c	2007-08-30 07:49:01.000000000 -0700
-+++ b/net/bridge/br_fdb.c	2007-08-30 11:40:36.000000000 -0700
-@@ -384,6 +384,11 @@ void br_fdb_update(struct net_bridge *br
- 	if (hold_time(br) == 0)
- 		return;
- 
-+	/* ignore packets unless we are using this port */
-+	if (!(source->state == BR_STATE_LEARNING ||
-+	      source->state == BR_STATE_FORWARDING))
-+		return;
-+
- 	fdb = fdb_find(head, addr);
- 	if (likely(fdb)) {
- 		/* attempt to update an entry for a local interface */
---- a/net/bridge/br_input.c	2007-08-30 07:49:01.000000000 -0700
-+++ b/net/bridge/br_input.c	2007-08-30 12:19:57.000000000 -0700
-@@ -101,9 +101,8 @@ static int br_handle_local_finish(struct
- {
- 	struct net_bridge_port *p = rcu_dereference(skb->dev->br_port);
- 
--	if (p && p->state != BR_STATE_DISABLED)
-+	if (p)
- 		br_fdb_update(p->br, p, eth_hdr(skb)->h_source);
--
- 	return 0;	 /* process further */
- }
- 
+
+-- 
+Jesper Juhl <jesper.juhl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
+Plain text mails only, please      http://www.expita.com/nomime.html
