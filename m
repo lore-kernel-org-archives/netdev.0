@@ -1,79 +1,47 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 Subject: Re: oops with recent wireless-dev tree
-Date: Thu, 30 Aug 2007 07:49:49 -0700
-Message-ID: <20070830074949.7cd25b04@freepuppy.rosehill.hemminger.net>
+Date: Thu, 30 Aug 2007 16:58:44 +0200
+Message-ID: <1188485924.3978.29.camel@johannes.berg>
 References: <20070829223752.GA6969@seehuhn.de>
-	<1188475530.2963.20.camel@johannes.berg>
+	 <1188475530.2963.20.camel@johannes.berg>
+	 <20070830074949.7cd25b04@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bridge@linux-foundation.org, Matthew Wilcox <matthew@wil.cx>,
-        netdev <netdev@vger.kernel.org>, Jochen Voss <voss@seehuhn.de>,
-        linux wireless list <linux-wireless@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1188475530.2963.20.camel@johannes.berg>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-e/pzZd08VyQocGqzUEwy"
+Cc: Jochen Voss <voss-52ZyvxujusuELgA04lAiVw@public.gmane.org>,
+	linux wireless list <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Matthew Wilcox <matthew-Ztpu424NOJ8@public.gmane.org>, bridge-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
+To: Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070830074949.7cd25b04-s08KbqtN0aBORcJjwVk88+YtYHrY8QCHmKZK+fsXvFM@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 30 Aug 2007 14:05:30 +0200
-Johannes Berg <johannes@sipsolutions.net> wrote:
 
-> Hi Jochen,
-> 
-> [added CCs since it affects bridge code]
-> 
-> > If I read this correctly, the EIP in the last line corresponds to
-> > net/bridge/br_if.c, line 36:
-> > 
-> >     static int port_cost(struct net_device *dev)
-> >     {
-> > 	    if (dev->ethtool_ops->get_settings) {
-> >                                ^^^^
-> > 
-> > As far as I can figure out, dev->ethtool_ops is NULL and the crash
-> > happens while trying to derefernce ...->get_settings.
-> > 
-> > Is dev->ethtool_ops allowed to be NULL?  In this case the appended
-> > patch might be the correct fix.  At least it makes the oops disappear
-> > for me.  Another possible fix would be to add an ethtool_ops structure
-> > to the device created by b43.
-> 
-> I don't think adding ethtool_ops in mac80211 should be necessary.
-> Stephen?
+--=-e/pzZd08VyQocGqzUEwy
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Devices aren't required to have ethtool_ops. The code there used to
-call ethtool directly, and it would handle the error cases. I'll rollup
-a fix this morning.
+On Thu, 2007-08-30 at 07:49 -0700, Stephen Hemminger wrote:
 
-The bug was introduced by this:
+> Devices aren't required to have ethtool_ops. The code there used to
+> call ethtool directly, and it would handle the error cases. I'll rollup
+> a fix this morning.
 
-commit 61a44b9c4b20d40c41fd1b70a4ceb13b75ea79a4
-Author: Matthew Wilcox <matthew@wil.cx>
-Date:   Tue Jul 31 14:00:02 2007 -0700
+Great, thanks.
 
-    [NET]: ethtool ops are the only way
-    
-    During the transition to the ethtool_ops way of doing things, we supported
-    calling the device's ->do_ioctl method to allow unconverted drivers to
-    continue working.  Those days are long behind us, all in-tree drivers
-    use the ethtool_ops way, and so we no longer need to support this.
-    
-    The bonding driver is the biggest beneficiary of this; it no longer
-    needs to call ioctl() as a fallback if ethtool_ops aren't supported.
-    
-    Also put a proper copyright statement on ethtool.c.
-    
-    Signed-off-by: Matthew Wilcox <matthew@wil.cx>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+johannes
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+--=-e/pzZd08VyQocGqzUEwy
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBG1tsk/ETPhpq3jKURArRzAKCI95spHuYoLcI/8Le/U4ktyw6h3QCdHv8M
+hNzNWtoKtWsIYKmIYQPgTy0=
+=mkeL
+-----END PGP SIGNATURE-----
+
+--=-e/pzZd08VyQocGqzUEwy--
