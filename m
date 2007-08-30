@@ -1,47 +1,85 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Subject: Re: [PATCH] bridge: fix OOPS when bridging device without ethtool
-Date: Thu, 30 Aug 2007 10:48:13 -0600
-Message-ID: <20070830164812.GW14130@parisc-linux.org>
-References: <20070829223752.GA6969@seehuhn.de> <1188475530.2963.20.camel@johannes.berg> <20070830074949.7cd25b04@freepuppy.rosehill.hemminger.net> <20070830145840.GU14130@parisc-linux.org> <20070830082932.71272c3d@freepuppy.rosehill.hemminger.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] make _minimum_ TCP retransmission timeout configurable
+Date: Thu, 30 Aug 2007 10:10:28 -0700
+Message-ID: <46D6FA04.5050808@hp.com>
+References: <OFD89921DD.675E7B9A-ON65257347.001C5D22-65257347.001D84A0@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Jochen Voss <voss@seehuhn.de>,
-	linux wireless list <linux-wireless@vger.kernel.org>,
-	linville@tuxdriver.com, netdev <netdev@vger.kernel.org>,
-	bridge@linux-foundation.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, ian.mcdonald@jandi.co.nz,
+	ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palinux.external.hp.com ([192.25.206.14]:52358 "EHLO
-	mail.parisc-linux.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760488AbXH3QsO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2007 12:48:14 -0400
-Content-Disposition: inline
-In-Reply-To: <20070830082932.71272c3d@freepuppy.rosehill.hemminger.net>
+Received: from palrel12.hp.com ([156.153.255.237]:42007 "EHLO palrel12.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756989AbXH3RL1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Aug 2007 13:11:27 -0400
+In-Reply-To: <OFD89921DD.675E7B9A-ON65257347.001C5D22-65257347.001D84A0@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 30, 2007 at 08:29:32AM -0700, Stephen Hemminger wrote:
-> Bridge code calls ethtool to get speed. The conversion to using
-> only ethtool_ops broke the case of devices without ethtool_ops.
-> This is a new regression in 2.6.23.
+Krishna Kumar2 wrote:
+> Hi Rick,
 > 
-> Rearranged the switch to a logical order, and use gcc initializer.
 > 
-> Ps: speed should have been part of the network device structure from
->     the start rather than burying it in ethtool.
+>>>From: Rick Jones <rick.jones2@hp.com>
+>>>
+>>>>The trace I've been sent shows clean RTTs ranging from ~200
+> 
+> milliseconds
+> 
+>>>>to ~7000 milliseconds.
+>>>
+>>>
+>>>Thanks for the info.
+>>>
+>>>It's pretty easy to generate examples where we might have some sockets
+>>>talking over interfaces on such a network and others which are not.
+>>>Therefore, if we do this, a per-route metric is probably the best bet.
+>>
+>>FWIW, the places where I've seen this come-up thusfar are where we have
+>>a sort of "gateway" or front-end system which is connected on one side
+>>to the cellphone network with the bad delays, and on the other side is
+>>connected to an internal network where actual losses leading to RTO's
+>>are epsilon.  Certainly something which could make a per-route decision
+>>would work there and probably quite well, though a simple sysctl does
+>>seem to be sufficient and would touch fewer places.
+>>
+>>Do you think it is still worthwhile for me to rework the initial patch
+>>to use CTL_UNNUMBERED?
+> 
+> 
+> You could add following cleanup:
+> 
+> static int proc_tcp_rto_min(ctl_table *ctl, int write, struct file *filp,
+>                                         void __user *buffer, size_t *lenp,
+> loff_t *ppos)
+> {
+>       int *valp = ctl->data;
+>       int oldval = *valp;
+>       int ret;
+> 
+>       ret = proc_dointvec_ms_jiffies(ctl, write, filp, buffer, lenp, ppos);
+>       if (ret)
+>             return ret;
+> 
+>       /* some bounds checking would be in order */
+>       if (write && *valp != oldval) {
+>             if (*valp < (int)TCP_RTO_MIN || *valp > (int)TCP_RTO_MAX) {
+>                   *valp = oldval;
+>                   ret = -EINVAL;
+>              }
+>       }
+>       return ret;
+> }
 
-Feel free to do the conversion ;-)  One of the things I like about the
-ethtool framework is it gives us a way to take stuff out of the drivers
-and put it in the midlayer without disturbing userspace.
+Sure.
 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> Also, isn't it enough to use u32 for valp/oldval and remove the "(int)"
+> typecasts?
 
-Acked-by: Matthew Wilcox <matthew@wil.cx>
+I suppose, that was some mimicing of code I'd seen elsewhere but I'll 
+give it a shot.
 
--- 
-Intel are signing my paycheques ... these opinions are still mine
-"Bill, look, we understand that you're interested in selling us this
-operating system, but compare it to ours.  We can't possibly take such
-a retrograde step."
+rick
