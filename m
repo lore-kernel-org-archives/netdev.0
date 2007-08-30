@@ -1,62 +1,43 @@
-From: "Nick Kossifidis" <mickflemm@gmail.com>
-Subject: Re: [PATCH 5/5] Net: ath5k, kconfig changes
-Date: Thu, 30 Aug 2007 04:38:09 +0300
-Message-ID: <40f31dec0708291838p5d33eb34p3b4432d9d270841a@mail.gmail.com>
+From: "Nick Kossifidis" <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/5] Net: ath5k, split hw into hw, phy and initvals
+Date: Thu, 30 Aug 2007 04:50:01 +0300
+Message-ID: <40f31dec0708291850j2d35db6cu9de7c5f0a91e76f7@mail.gmail.com>
 References: <2713029743177393055@pripojeni.net>
-	 <280951420471148977@pripojeni.net>
-	 <20070828171330.GD29343@infradead.org>
+	 <20070828171034.GB29343@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-To: "Christoph Hellwig" <hch@infradead.org>,
-	"Jiri Slaby" <jirislaby@gmail.com>, linville@tuxdriver.com,
-	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.179]:2789 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758923AbXH3BiK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Aug 2007 21:38:10 -0400
-Received: by py-out-1112.google.com with SMTP id u77so2566426pyb
-        for <netdev@vger.kernel.org>; Wed, 29 Aug 2007 18:38:10 -0700 (PDT)
-In-Reply-To: <20070828171330.GD29343@infradead.org>
+Cc: "Jiri Slaby" <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Christoph Hellwig" <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070828171034.GB29343-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-2007/8/28, Christoph Hellwig <hch@infradead.org>:
-> On Tue, Aug 28, 2007 at 12:01:30PM -0400, Jiri Slaby wrote:
-> > +config ATH5K_AR5210
-> > +     bool "Support AR5210"
-> > +     depends on ATH5K
-> > +     default y
-> > +
-> > +config ATH5K_AR5211
-> > +     bool "Support AR5211"
-> > +     depends on ATH5K
-> > +     default y
-> > +
-> > +config ATH5K_AR5212
-> > +     bool "Support AR5212"
-> > +     depends on ATH5K
-> > +     default y
+2007/8/28, Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>:
+> On Tue, Aug 28, 2007 at 11:58:52AM -0400, Jiri Slaby wrote:
+> > -ath5k-objs           = ath5k_base.o ath5k_hw.o ath5k_regdom.o
+> > +ath5k-objs           = ath5k_base.o ath5k_hw.o ath5k_regdom.o \
+> > +                       ath5k_hw_phy.o ath5k_hw_inivals.o
 >
-> Please don't add more default statements.
+> And while I'm at nitpicking :)
 >
-> Also this whole patch seems rather pointless.  It saves only
-> very little and turns the driver into a complete ifdef maze.
+> ath5k_hw_phy.o should probably be ath5k_phy.o by conventions used by
+> most drivers and ath5k_hw_inivals.o mights aswell be something like
+> ath5k_init.o
+>
 
-It saves big chunks of code (not only initial register settings
-arrays) and we'll extend it's use more inside ath5k_hw.c Trust me this
-is a very useful step, eg. check out descriptor processing / setup or
-PHY functions (calibrate/channel set etc). For example AR5210 mac chip
-only comes with RF5110 phy chip so we can get rid of RF5111/RF5112
-code, AR5211 comes with RF5111 so we can get rid of RF5110 and RF5112
-code and AR5212 comes with RF5111 or RF5112 so we get rid of RF5110.
-This thing also saves lots of checks during runtime (some of them
-happen verry frequently, eg. durring descriptor processing). Also most
-people will use 5212 code only, 5211 cards are on some old laptops and
-5210, well i couldn't even find  a 5210 for actual testing :P
+If you check out the code you'll see i'm using the same convention
+inside them, ath5k_hw* files contain hw related functions
+(ath5k_hw_<name>) while driver code has ath5k_<name>. Also ath5k_init
+is misleading, file acually includes initial register settings for
+various chips and the functions to apply them on hw, not the
+initialization/attach/wakeup etc routines (that can be found  in
+ath5k_hw.c), that's why it's inivals, i couldn't find a more
+appropriate name.
+
 
 -- 
 GPG ID: 0xD21DB2DB
