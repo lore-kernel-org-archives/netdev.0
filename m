@@ -1,47 +1,59 @@
 From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH 4/5] Net: ath5k, license is GPLv2
-Date: Thu, 30 Aug 2007 13:59:42 +0200
-Message-ID: <1188475182.2963.15.camel@johannes.berg>
-References: <7515194658758617@pripojeni.net>
-	 <1188381582.19891.6.camel@johannes.berg>
-	 <4af2d03a0708290335x1a9aa38o566e9d416505f280@mail.gmail.com>
-	 <1188393226.1131.319.camel@frg-rhel40-em64t-04>
+Subject: Re: oops with recent wireless-dev tree
+Date: Thu, 30 Aug 2007 14:05:30 +0200
+Message-ID: <1188475530.2963.20.camel@johannes.berg>
+References: <20070829223752.GA6969@seehuhn.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Zf9TLLgNQLJ4S02+oWrc"
-Cc: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Xavier Bestel <xavier.bestel-GANU6spQydw@public.gmane.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-k++eE6lgayPUMaShUuKJ"
+Cc: linux wireless list <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
+To: Jochen Voss <voss-52ZyvxujusuELgA04lAiVw@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1188393226.1131.319.camel@frg-rhel40-em64t-04>
+In-Reply-To: <20070829223752.GA6969-52ZyvxujusuELgA04lAiVw@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
---=-Zf9TLLgNQLJ4S02+oWrc
+--=-k++eE6lgayPUMaShUuKJ
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2007-08-29 at 15:13 +0200, Xavier Bestel wrote:
+Hi Jochen,
 
-> How about asking for changes to be dual-licenced too ?
+[added CCs since it affects bridge code]
 
-In theory, that could work, but in practice relying on functions that
-the Linux kernel offers in GPLv2-only headers etc. will make the result
-GPLv2 anyway, and disentangling it would be a nightmare.
+> If I read this correctly, the EIP in the last line corresponds to
+> net/bridge/br_if.c, line 36:
+>=20
+>     static int port_cost(struct net_device *dev)
+>     {
+> 	    if (dev->ethtool_ops->get_settings) {
+>                                ^^^^
+>=20
+> As far as I can figure out, dev->ethtool_ops is NULL and the crash
+> happens while trying to derefernce ...->get_settings.
+>=20
+> Is dev->ethtool_ops allowed to be NULL?  In this case the appended
+> patch might be the correct fix.  At least it makes the oops disappear
+> for me.  Another possible fix would be to add an ethtool_ops structure
+> to the device created by b43.
+
+I don't think adding ethtool_ops in mac80211 should be necessary.
+Stephen?
 
 johannes
 
---=-Zf9TLLgNQLJ4S02+oWrc
+--=-k++eE6lgayPUMaShUuKJ
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iD8DBQBG1rEu/ETPhpq3jKURAiKOAJ9rw7sEJXX/abTtkYC4KuQg1SV8iQCgj512
-JWtOtMI9iI6sDtJc6l5xv3k=
-=s6+I
+iD8DBQBG1rKK/ETPhpq3jKURAidxAJ43uGOXdW8H7E9VH+Kft4Ix4At+0QCeOtju
+Q4/RpDfYQGtbeINda8xd0ic=
+=NaRp
 -----END PGP SIGNATURE-----
 
---=-Zf9TLLgNQLJ4S02+oWrc--
+--=-k++eE6lgayPUMaShUuKJ--
