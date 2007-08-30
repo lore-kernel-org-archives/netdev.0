@@ -1,21 +1,41 @@
-From: David Newall <david@davidnewall.com>
-Subject: Re: [PATCH 4/5] Net: ath5k, license is GPLv2
-Date: Thu, 30 Aug 2007 22:32:56 +0930
-Message-ID: <46D6C000.30305@davidnewall.com>
-References: <2713029743177393055@pripojeni.net>	 <7515194658758617@pripojeni.net>	 <20070828171155.GC29343@infradead.org>	 <3208.1188408545@turing-police.cc.vt.edu>	 <9e4733910708291101i3783a8b1l38f0d5cfb0c2863d@mail.gmail.com>	 <20070829192858.75aa6542@the-village.bc.nu> <9e4733910708291233h3c4022a9n6e46733c5c50e222@mail.gmail.com>
+From: Meelis Roos <mroos@linux.ee>
+Subject: Re: ipv4_get_l4proto: Frag of proto 17
+Date: Thu, 30 Aug 2007 16:04:00 +0300 (EEST)
+Message-ID: <Pine.SOC.4.64.0708301557400.9520@math.ut.ee>
+References: <Pine.SOC.4.64.0708211355310.24028@math.ut.ee> <46D66D00.7060801@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jon Smirl <jonsmirl@gmail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759454AbXH3NDQ@vger.kernel.org>
-In-Reply-To: <9e4733910708291233h3c4022a9n6e46733c5c50e222@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@lists.netfilter.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.it.da.ut.ee ([193.40.5.67]:35415 "EHLO smtp2.it.da.ut.ee"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751496AbXH3NED (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Aug 2007 09:04:03 -0400
+In-Reply-To: <46D66D00.7060801@trash.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Is it actually necessary to change the license?  With the dual-license, 
-you can keep a single code-base for both BSD and Linux platforms, which 
-seems terribly important to me.  It'd be awful to lose that.  It would 
-be a maintenance nightmare for BSD.  Is it even possible--in real life, 
-I mean--to accept GPLed patches into a BSD project?  Nightmare, I tell you!
+> > Yesterdays git snapsot on a normal home PC spams dmesg with the following
+> > line:
+> > ipv4_get_l4proto: Frag of proto 17
+> 
+> In what situation does this happen?
+
+It happens some times every hour on the average. Seems to be some UDP 
+traffic. Firewall allows in any UDP that is ESTABLISHEFD,RELATED, DHCP 
+(some more UDP rules with counter 0 so not important). Additionally 
+there is internal netowkr that sometimes has a laptop but usually not 
+and the messages have appeared also when there is nothin in the internal 
+network.
+
+Locally mldonkey is probably using UDP, and lsof -i | grep UDP tells 
+that named, avahi-daemon, dhcpd, chronyd, nmbd and cupsd are listening 
+on UDP sockets (most of them on internal network).
+
+But I have no idea what application is causing the messages.
+
+-- 
+Meelis Roos (mroos@linux.ee)
