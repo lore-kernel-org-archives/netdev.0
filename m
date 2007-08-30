@@ -1,50 +1,62 @@
-From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Subject: Re: [PATCH 1/3] netxen: Avoid firmware load in PCI probe
-Date: Thu, 30 Aug 2007 18:58:36 -0300
-Message-ID: <20070830215836.GC17050@ghostprotocols.net>
-References: <20070828115324.839681763@netxen.com> <20070828115603.166212155@netxen.com>
+From: "Nick Kossifidis" <mickflemm@gmail.com>
+Subject: Re: [PATCH 5/5] Net: ath5k, kconfig changes
+Date: Fri, 31 Aug 2007 01:18:31 +0300
+Message-ID: <40f31dec0708301518u5ef32d13jfe1cce09656bf77d@mail.gmail.com>
+References: <2713029743177393055@pripojeni.net>
+	 <280951420471148977@pripojeni.net>
+	 <20070828171330.GD29343@infradead.org>
+	 <40f31dec0708291838p5d33eb34p3b4432d9d270841a@mail.gmail.com>
+	 <20070830123609.GA5140@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jeff@garzik.org, rob@netxen.com
-To: dhananjay@netxen.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "Christoph Hellwig" <hch@infradead.org>,
+	"Jiri Slaby" <jirislaby@gmail.com>, linux-kernel@vger.kernel.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.235]:50470 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753115AbXH3V6p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2007 17:58:45 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so610330wxd
-        for <netdev@vger.kernel.org>; Thu, 30 Aug 2007 14:58:44 -0700 (PDT)
+Received: from py-out-1112.google.com ([64.233.166.183]:39125 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758891AbXH3WSc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2007 18:18:32 -0400
+Received: by py-out-1112.google.com with SMTP id u77so3112531pyb
+        for <netdev@vger.kernel.org>; Thu, 30 Aug 2007 15:18:32 -0700 (PDT)
+In-Reply-To: <20070830123609.GA5140@tuxdriver.com>
 Content-Disposition: inline
-In-Reply-To: <20070828115603.166212155@netxen.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Tue, Aug 28, 2007 at 05:23:25PM +0530, dhananjay@netxen.com escreveu:
-> Loading firmware during PCI probe can lead to incorrect initialization,
-> rendering the card unusable until next reboot.  This was introduced a while
-> ago as a workaround for firmware bug, a better workaround was submitted for
-> this a while ago. So removing original hack that loads firmware during probe.
-> 
-> Signed-off by: Dhananjay Phadke <dhananjay@netxen.com>
+2007/8/30, John W. Linville <linville@tuxdriver.com>:
+> On Thu, Aug 30, 2007 at 04:38:09AM +0300, Nick Kossifidis wrote:
+> > 2007/8/28, Christoph Hellwig <hch@infradead.org>:
+>
+> > > Also this whole patch seems rather pointless.  It saves only
+> > > very little and turns the driver into a complete ifdef maze.
+>
+> > Also most
+> > people will use 5212 code only, 5211 cards are on some old laptops and
+> > 5210, well i couldn't even find  a 5210 for actual testing :P
+>
+> FWIW, I'd bet dollars to donuts that distros will enable them all
+> together.
+>
+> Is saving code space the only reason to turn these off?  How much
+> space do you save?
+>
+> Is there some way you can isolate and/or limit the number of ifdef
+> blocks further?  If so, we might consider a version of this patch
+> that depends on EMBEDDED or somesuch...?
+>
+> John
 
-Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+O.K. as a first step i'll limit 5210 code only then, just an option
+like "support older 5210 chipsets" which is going to be off by default
+instead of 3 options. It's not just saving space, it's also saving
+some runtime checks. It's not really a gain in performance though,
+most checks are done during initialization and dfs setup, i just
+thought it would be usefull to save as much cpu as possible.
 
-I was having these problems and after applying this patch the NIC is
-back working, thank you for fixing this!
-
-- Arnaldo
- 
-> Index: netdev-2.6/drivers/net/netxen/netxen_nic_main.c
-> ===================================================================
-> --- netdev-2.6.orig/drivers/net/netxen/netxen_nic_main.c
-> +++ netdev-2.6/drivers/net/netxen/netxen_nic_main.c
-> @@ -639,10 +639,6 @@ netxen_nic_probe(struct pci_dev *pdev, c
->  			NETXEN_CRB_NORMALIZE(adapter,
->  				NETXEN_ROMUSB_GLB_PEGTUNE_DONE));
->  		/* Handshake with the card before we register the devices. */
-> -		writel(0, NETXEN_CRB_NORMALIZE(adapter, CRB_CMDPEG_STATE));
-> -		netxen_pinit_from_rom(adapter, 0);
-> -		msleep(1);
-> -		netxen_load_firmware(adapter);
->  		netxen_phantom_init(adapter, NETXEN_NIC_PEG_TUNE);
->  	}
+-- 
+GPG ID: 0xD21DB2DB
+As you read this post global entropy rises. Have Fun ;-)
+Nick
