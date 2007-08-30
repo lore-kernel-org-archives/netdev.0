@@ -1,61 +1,54 @@
-From: Lucas Nussbaum <lucas.nussbaum@imag.fr>
-Subject: [PATCH] [NET_SCHED] sch_prio.c: remove duplicate call of
-	tc_classify()
-Date: Thu, 30 Aug 2007 09:28:17 +0200
-Message-ID: <20070830072817.GA9617@xanadu.blop.info>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH 4/5] Net: ath5k, license is GPLv2
+Date: Thu, 30 Aug 2007 10:26:53 +0200
+Message-ID: <20070830082652.GA2669@ff.dom.local>
+References: <200708292137.48834.mb@bu3sch.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>
+Cc: Jon Smirl <jonsmirl@gmail.com>,
+	"Valdis\.Kletnieks\@vt\.edu" <Valdis.Kletnieks@vt.edu>,
+	Christoph Hellwig <hch@infradead.org>,
+	Jiri Slaby <jirislaby@gmail.com>, linville@tuxdriver.com,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xanadu.blop.info ([80.248.208.235]:42572 "EHLO xanadu.blop.info"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753201AbXH3IGP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Aug 2007 04:06:15 -0400
+Received: from mx12.go2.pl ([193.17.41.142]:35441 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755458AbXH3IZc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Aug 2007 04:25:32 -0400
 Content-Disposition: inline
+In-Reply-To: <200708292137.48834.mb@bu3sch.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On 29-08-2007 21:37, Michael Buesch wrote:
+> On Wednesday 29 August 2007 21:33:43 Jon Smirl wrote:
+>> What if a patch spans both code that is pure GPL and code imported
+>> from BSD, how do you license it?
+> 
+> I think it's a valid assumption, if we say that the author
+> of the patch read the license header of a file and agreed with it.
+> So the patch is licensed to whatever the fileheader says. And if
+> there's none, it's licensed with the COPYING terms.
+> If a patch author likes some other license conditions, he must
+> explicitely add them with the patch to the file, saying that this
+> and that part have these and those conditions. Of course they must
+> be compatible with the original license.
+> 
 
-When CONFIG_NET_CLS_ACT is enabled, tc_classify() is called twice in
-prio_classify(). This causes "interesting" behaviour: with the setup
-below, packets are duplicated, sent twice to ifb0, and then loop in and
-out of ifb0.
+I didn't track this thread from the beginning, so maybe I repeat
+somebody's ideas (probably like above), but IMHO: do we have to be
+so selfish/pedantic? Can't we sometimes 'donate' a little bit to our
+'older' bsd cousins or half-brothers? I think, it could be like this:
 
-The patch uses the previously calculated return value in the switch,
-which is probably what Patrick had in mind in commit
-bdba91ec70fb5ccbdeb1c7068319adc6ea9e1a7d -- maybe Patrick can
-double-check this?
+- if our changes are minor and authors of these changes don't mind
+the file could stay BSD licensed only; plus we ask BSD to let it be
+dual licensed (but no big hassle);
 
--- example setup --
-ifconfig ifb0 up
-tc qdisc add dev ifb0 root netem delay 2s
-tc qdisc add dev $ETH root handle 1: prio
-tc filter add dev $ETH parent 1: protocol ip prio 10 u32 \
- match ip dst 172.24.110.6/32 flowid 1:1 \
- action mirred egress redirect dev ifb0
-ping -c1 172.24.110.6
+- otherwise, we should always distinctly mark all GPL parts.
 
-Signed-off-by: Lucas Nussbaum <lucas.nussbaum@imag.fr>
+Regards,
+Jarek P.
 
---- net/sched/sch_prio.c.orig	2007-08-30 07:36:41.000000000 +0200
-+++ net/sched/sch_prio.c	2007-08-30 07:37:24.000000000 +0200
-@@ -42,11 +42,11 @@
- 
- 	*qerr = NET_XMIT_BYPASS;
- 	if (TC_H_MAJ(skb->priority) != sch->handle) {
- 		err = tc_classify(skb, q->filter_list, &res);
- #ifdef CONFIG_NET_CLS_ACT
--		switch (tc_classify(skb, q->filter_list, &res)) {
-+		switch (err) {
- 		case TC_ACT_STOLEN:
- 		case TC_ACT_QUEUED:
- 			*qerr = NET_XMIT_SUCCESS;
- 		case TC_ACT_SHOT:
- 			return NULL;
--- 
-| Lucas Nussbaum                        PhD student |
-| lucas.nussbaum@imag.fr        LIG / Projet MESCAL |
-| jabber: lucas@nussbaum.fr    +33 (0)6 64 71 41 65 |
-| homepage:        http://www-id.imag.fr/~nussbaum/ |
+PS: there is probably some mess with gmail addresses in this thread.
