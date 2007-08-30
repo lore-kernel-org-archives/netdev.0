@@ -1,50 +1,63 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: oops with recent wireless-dev tree
-Date: Thu, 30 Aug 2007 17:01:31 +0200
-Message-ID: <1188486091.3978.32.camel@johannes.berg>
+From: Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: [PATCH] bridge: fix OOPS when bridging device without ethtool
+Date: Thu, 30 Aug 2007 08:29:32 -0700
+Message-ID: <20070830082932.71272c3d@freepuppy.rosehill.hemminger.net>
 References: <20070829223752.GA6969@seehuhn.de>
-	 <1188475530.2963.20.camel@johannes.berg>
-	 <20070830074949.7cd25b04@freepuppy.rosehill.hemminger.net>
+	<1188475530.2963.20.camel@johannes.berg>
+	<20070830074949.7cd25b04@freepuppy.rosehill.hemminger.net>
+	<20070830145840.GU14130@parisc-linux.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-msTEZMDPb3e8RRSHWxSV"
-Cc: Jochen Voss <voss-52ZyvxujusuELgA04lAiVw@public.gmane.org>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Matthew Wilcox <matthew-Ztpu424NOJ8@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Jochen Voss <voss-52ZyvxujusuELgA04lAiVw@public.gmane.org>,
 	linux wireless list <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Matthew Wilcox <matthew-Ztpu424NOJ8@public.gmane.org>, bridge-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
-To: Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+	bridge-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070830074949.7cd25b04-s08KbqtN0aBORcJjwVk88+YtYHrY8QCHmKZK+fsXvFM@public.gmane.org>
+In-Reply-To: <20070830145840.GU14130-6jwH94ZQLHl74goWV3ctuw@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Bridge code calls ethtool to get speed. The conversion to using
+only ethtool_ops broke the case of devices without ethtool_ops.
+This is a new regression in 2.6.23.
 
---=-msTEZMDPb3e8RRSHWxSV
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Rearranged the switch to a logical order, and use gcc initializer.
 
-On Thu, 2007-08-30 at 07:49 -0700, Stephen Hemminger wrote:
+Ps: speed should have been part of the network device structure from
+    the start rather than burying it in ethtool.
 
-> Devices aren't required to have ethtool_ops. The code there used to
-> call ethtool directly, and it would handle the error cases. I'll rollup
-> a fix this morning.
+Signed-off-by: Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 
-Great, thanks.
 
-Jochen had a patch: http://marc.info/?l=3Dlinux-wireless&m=3D11884271502661=
-4&w=3D2
-
-johannes
-
---=-msTEZMDPb3e8RRSHWxSV
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBG1tvL/ETPhpq3jKURAok+AKC7kBAPAr/8QsVZ/N4g9POGLiK2ZgCfdXBz
-D2Zv2GZuwyXdQUg6iphWb14=
-=wpiP
------END PGP SIGNATURE-----
-
---=-msTEZMDPb3e8RRSHWxSV--
+--- a/net/bridge/br_if.c	2007-08-30 07:49:01.000000000 -0700
++++ b/net/bridge/br_if.c	2007-08-30 07:48:16.000000000 -0700
+@@ -33,17 +33,17 @@
+  */
+ static int port_cost(struct net_device *dev)
+ {
+-	if (dev->ethtool_ops->get_settings) {
+-		struct ethtool_cmd ecmd = { ETHTOOL_GSET };
+-		int err = dev->ethtool_ops->get_settings(dev, &ecmd);
+-		if (!err) {
++	if (dev->ethtool_ops && dev->ethtool_ops->get_settings) {
++		struct ethtool_cmd ecmd = { .cmd = ETHTOOL_GSET, };
++
++		if (!dev->ethtool_ops->get_settings(dev, &ecmd)) {
+ 			switch(ecmd.speed) {
+-			case SPEED_100:
+-				return 19;
+-			case SPEED_1000:
+-				return 4;
+ 			case SPEED_10000:
+ 				return 2;
++			case SPEED_1000:
++				return 4;
++			case SPEED_100:
++				return 19;
+ 			case SPEED_10:
+ 				return 100;
+ 			}
