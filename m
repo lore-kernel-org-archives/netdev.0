@@ -1,40 +1,45 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [REVISED PATCH] 3c59x: check return of pci_enable_device()
-Date: Fri, 31 Aug 2007 09:08:37 -0400
-Message-ID: <46D812D5.80904@garzik.org>
-References: <200708102105.l7AL5Jje008968@imap1.linux-foundation.org> <20070814095432.GA13825@hindley.org.uk> <20070815163000.GB619@bayes.mathematik.tu-chemnitz.de> <20070816102840.GG14245@hindley.org.uk>
+Subject: Re: [git patches] net driver fixes
+Date: Fri, 31 Aug 2007 09:10:44 -0400
+Message-ID: <46D81354.3010107@garzik.org>
+References: <20070730212333.GA8049@havoc.gtf.org> <alpine.LFD.0.999.0707310349460.17287@enigma.security.iitk.ac.in> <46AE6861.50004@garzik.org> <alpine.LFD.0.999.0707310425360.17287@enigma.security.iitk.ac.in>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	akpm@linux-foundation.org, netdev@vger.kernel.org
-To: Mark Hindley <mark@hindley.org.uk>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Petko Manolov <petkan@users.sourceforge.net>
+To: Satyam Sharma <satyam@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42109 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:42131 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754375AbXHaNIr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Aug 2007 09:08:47 -0400
-In-Reply-To: <20070816102840.GG14245@hindley.org.uk>
+	id S1755604AbXHaNKs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2007 09:10:48 -0400
+In-Reply-To: <alpine.LFD.0.999.0707310425360.17287@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mark Hindley wrote:
-> Revised patch for this.
+Satyam Sharma wrote:
 > 
-> Mark
+> On Mon, 30 Jul 2007, Jeff Garzik wrote:
 > 
+>> true, we should just remove the dev==NULL check
 > 
-> commit 5cf33391eba81a49038fa8be8cbad8425b80bf7f
-> Author: Mark Hindley <mark@hindley.org.uk>
-> Date:   Thu Aug 16 11:26:35 2007 +0100
+> Patch below:
 > 
->     Check return of pci_enable_device in vortex_up().
->     
->     Also modify vortex_up to return error to callers. Handle failure of vortex_up in
->     vortex_open and vortex_resume.
->     
->     Signed-off-by: Mark Hindley <mark@hindley.org.uk>
+> [PATCH] nmclan_cs: Remove bogus (dev==NULL) check in mace_interrupt()
+> 
+> The (dev == NULL) check in drivers/net/pcmcia/nmclan_cs.c:mace_interrupt()
+> handler is always false, so let's remove it.
+> 
+> Signed-off-by: Satyam Sharma <satyam@infradead.org>
+> 
+> ---
+> 
+>  drivers/net/pcmcia/nmclan_cs.c |    6 ------
+>  1 files changed, 0 insertions(+), 6 deletions(-)
 
-Steffen, did you ACK this?  and/or going to resend it to me?
+ACK, but patch does not apply to netdev-2.6.git#upstream alas
 
 
