@@ -1,53 +1,34 @@
-From: "Robert P. J. Day" <rpjday@mindspring.com>
-Subject: Re: [PATCH] net/, drivers/net/ , missing EXPERIMENTAL in menus
-Date: Fri, 31 Aug 2007 18:10:24 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0708311809450.31415@localhost.localdomain>
-References: <469E75AA.7040109@pimpmylinux.org>
- <Pine.LNX.4.64.0707181620460.13912@localhost.localdomain>
- <20070718134012.cde2f956.randy.dunlap@oracle.com> <469E7BE1.6090401@garzik.org>
- <Pine.LNX.4.64.0707181648330.15343@localhost.localdomain>
- <20070718210903.GM3801@stusta.de> <Pine.LNX.4.64.0707181712340.16513@localhost.localdomain>
- <20070719054742.GN3801@stusta.de> <Pine.LNX.4.64.0707190331330.11902@localhost.localdomain>
- <469F240E.9040205@s5r6.in-berlin.de> <Pine.LNX.4.64.0707190523001.19216@localhost.localdomain>
- <20070719083109.13b2ab56.rdunlap@xenotime.net>
- <Pine.LNX.4.64.0707191213130.8844@localhost.localdomain>
- <469FE045.3070403@simon.arlott.org.uk> <20070831102527.09fb42c0.rdunlap@xenotime.net>
- <Pine.LNX.4.64.0708311318220.18158@localhost.localdomain> <46D858A9.4080506@garzik.org>
- <Pine.LNX.4.64.0708311643080.27345@localhost.localdomain> <46D88FB8.5000503@garzik.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-2.6.24] introduce MAC_FMT/MAC_ARG
+Date: Fri, 31 Aug 2007 15:24:00 -0700
+Message-ID: <1188599040.6062.192.camel@localhost>
+References: <1188250006.18004.144.camel@localhost>
+	 <20070827.143724.38316150.davem@davemloft.net>
+	 <1188335521.6062.56.camel@localhost>
+	 <20070828.142216.99461544.davem@davemloft.net>
+	 <1188598563.6062.191.camel@localhost>
+	 <1188598880.7585.52.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Randy Dunlap <rdunlap@xenotime.net>,
-	Simon Arlott <simon@fire.lp0.eu>, sam@ravnborg.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Adrian Bunk <bunk@stusta.de>,
-	Gabriel C <crazy@pimpmylinux.org>, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nic.NetDirect.CA ([216.16.235.2]:46839 "EHLO
-	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751948AbXHaWXI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 18:23:08 -0400
-In-Reply-To: <46D88FB8.5000503@garzik.org>
+Received: from DSL022.labridge.com ([206.117.136.22]:1847 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751793AbXHaWYi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2007 18:24:38 -0400
+In-Reply-To: <1188598880.7585.52.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 31 Aug 2007, Jeff Garzik wrote:
+On Sat, 2007-09-01 at 00:21 +0200, Johannes Berg wrote:
+> On Fri, 2007-08-31 at 15:16 -0700, Joe Perches wrote:
+> > please pull from:
+> > git pull git://repo.or.cz/linux-2.6/trivial-mods.git net-2.6.24-print_mac
+> got a gitweb for that somewhere?
 
-> 'deprecrated' and 'obsolete' are matters of discussed opinion,
-> describing the utility of the code in question.  'broken' describes
-> the state of the code itself.
->
-> Clear difference.
+Does this work for you?
 
-precisely.  thank you for making my point for me.
+http://repo.or.cz/w/linux-2.6/trivial-mods.git
 
-rday
--- 
-========================================================================
-Robert P. J. Day
-Linux Consulting, Training and Annoying Kernel Pedantry
-Waterloo, Ontario, CANADA
-
-http://crashcourse.ca
-========================================================================
