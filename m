@@ -1,36 +1,28 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: [ofa-general] Re: [PATCH RFC] iw_cxgb3: Support "iwarp-only"
-	interfaces to avoid 4-tuple conflicts with the host stack.
-Date: Thu, 30 Aug 2007 21:27:04 -0700
-Message-ID: <adaveawwcpz.fsf@cisco.com>
-References: <1187905185.5547.13.camel@stevo-desktop>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: [PATCH] make _minimum_ TCP retransmission timeout configurable
+ take 2
+Date: Fri, 31 Aug 2007 00:52:33 -0400
+Message-ID: <46D79E91.2040004@psc.edu>
+References: <200708310009.RAA04175@tardy.cup.hp.com> <20070830.173912.79067694.davem@davemloft.net> <46D769C1.8090808@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, ewg@lists.openfabrics.org,
-	general@lists.openfabrics.org, linux-kernel@vger.kernel.org
-To: Steve Wise <swise@opengridcomputing.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <1187905185.5547.13.camel@stevo-desktop> (Steve Wise's message of
-	"Thu, 23 Aug 2007 16:39:45 -0500")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailer1.psc.edu ([128.182.58.100]:59163 "EHLO mailer1.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751949AbXHaEws (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2007 00:52:48 -0400
+In-Reply-To: <46D769C1.8090808@hp.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > The sysadmin creates "for iwarp use only" alias interfaces of the form
- > "devname:iw*" where devname is the native interface name (eg eth0) for the
- > iwarp netdev device.  The alias label can be anything starting with "iw".
- > The "iw" immediately after the ':' is the key used by the iwarp driver.
+Rick Jones wrote:
+> Like I said the consumers of this are a triffle well, 
+> "anxious" :)
 
-What's wrong with my suggestion of having the iwarp driver create an
-"iwX" interface to go with the normal "ethX" interface?  It seems
-simpler to me, and there's a somewhat similar precedent with how
-mac80211 devices create both wlan0 and wmaster0 interfaces.
+Just curious, did you or this customer try with F-RTO enabled?  Or is 
+this case you're dealing with truly hopeless?
 
- - R.
+   -John
