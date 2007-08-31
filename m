@@ -1,31 +1,46 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 07/12] sky2: use net_device internal stats
-Date: Fri, 31 Aug 2007 06:59:12 -0700
-Message-ID: <20070831065912.319c071f@oldman>
-References: <20070829193922.078561651@linux-foundation.org>
-	<20070829195843.025028477@linux-foundation.org>
-	<46D81B09.6080107@pobox.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/2 v2] PS3: changed the way to handle tx skbs
+Date: Fri, 31 Aug 2007 09:59:57 -0400
+Message-ID: <46D81EDD.5090807@garzik.org>
+References: <20070831220507.C31D.MOKUNO@sm.sony.co.jp> <20070831221800.C323.MOKUNO@sm.sony.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: Linas Vepstas <linas@austin.ibm.com>, netdev@vger.kernel.org,
+	cbe-oss-dev@ozlabs.org, geoffrey.levand@am.sony.com,
+	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+To: Masakazu Mokuno <mokuno@sm.sony.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:58300 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965077AbXHaN7b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 09:59:31 -0400
-In-Reply-To: <46D81B09.6080107@pobox.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:33303 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965255AbXHaOAB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2007 10:00:01 -0400
+In-Reply-To: <20070831221800.C323.MOKUNO@sm.sony.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 31 Aug 2007 09:43:37 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
+Masakazu Mokuno wrote:
+> The PS3 virtual network device requires a vlan tag in the sending packet
+> to select the destination device, ethernet port or wireless. 
+> As the vlan tag field is in the middle of the passed data, 
+> we should insert it into the packet data.
+> To avoid copying much of the packet data, the driver used two tx descriptors
+> for one tx skb; one descriptor was for sending a small static 
+> buffer which contained vlan tag and copied header (two mac addresses),
+> one was for the residual data after the vlan field.
+> 
+> This patch changes the way to insert the vlan tag.  By changing 
+> netdev->hard_header_len, we can make the headroom for moving mac address
+> fields in the skb buffer. Then we can send one tx skb with
+> one tx descriptor.  This also gives us a tx throughut gain of approx.
+> 20% according to netperf results.
+> 
+> Signed-off-by: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+> CC: Geoff Levand <geoffrey.levand@am.sony.com>
+> ---
+>  drivers/net/ps3_gelic_net.c |  140 +++++++++++++++++++-------------------------
+>  1 file changed, 63 insertions(+), 77 deletions(-)
 
-> NAK -- grep around net/core, you want ->get_stats()
-> 
-> 
-> 
+applied 1-2, thanks for the update
 
-Unneeded if device leaves get_stats as NULL, then register_netdevice
-sets it to internal get stats (in net-2.6.24)
+
