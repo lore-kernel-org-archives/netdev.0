@@ -1,7 +1,7 @@
 From: Oliver Neukum <oliver@neukum.org>
 Subject: zd1211rw regression, device does not enumerate
-Date: Fri, 31 Aug 2007 09:58:37 +0200
-Message-ID: <200708310958.38132.oliver@neukum.org>
+Date: Fri, 31 Aug 2007 09:59:20 +0200
+Message-ID: <200708310959.21069.oliver@neukum.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
