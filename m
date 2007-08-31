@@ -1,41 +1,35 @@
-From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Subject: Re: [patch 0/1][RFC] add a private field to the sock structure
-Date: Fri, 31 Aug 2007 08:26:20 -0300
-Message-ID: <20070831112620.GA2532@ghostprotocols.net>
-References: <20070829164114.868188182@f002726.toulouse-stg.fr.ibm.com> <20070829.112316.98862875.davem@davemloft.net> <20070829191831.GA16184@ghostprotocols.net> <20070830.224049.35665219.davem@davemloft.net>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Tc bug (kernel crash) more info
+Date: Fri, 31 Aug 2007 13:28:15 +0200
+Message-ID: <20070831112815.GB3108@ff.dom.local>
+References: <46D68937.7030305@bigtelecom.ru> <20070830123751.GA2778@ff.dom.local> <46D7BD75.3080008@bigtelecom.ru> <20070831075909.GA1772@ff.dom.local> <46D7D072.5060508@bigtelecom.ru> <20070831090509.GC1772@ff.dom.local> <46D7E050.1030303@bigtelecom.ru> <20070831101733.GA3108@ff.dom.local> <46D7F273.5010401@bigtelecom.ru> <46D7F4AB.10009@bigtelecom.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dlezcano@fr.ibm.com, netdev@vger.kernel.org, ralf@linux-mips.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Badalian Vyacheslav <slavon@bigtelecom.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.225]:49446 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753955AbXHaL0a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 07:26:30 -0400
-Received: by wr-out-0506.google.com with SMTP id 36so535801wra
-        for <netdev@vger.kernel.org>; Fri, 31 Aug 2007 04:26:28 -0700 (PDT)
+Received: from mx2.go2.pl ([193.17.41.42]:46381 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755051AbXHaL0v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2007 07:26:51 -0400
 Content-Disposition: inline
-In-Reply-To: <20070830.224049.35665219.davem@davemloft.net>
+In-Reply-To: <46D7F4AB.10009@bigtelecom.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Thu, Aug 30, 2007 at 10:40:49PM -0700, David Miller escreveu:
-> From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-> Date: Wed, 29 Aug 2007 16:18:31 -0300
+On Fri, Aug 31, 2007 at 02:59:55PM +0400, Badalian Vyacheslav wrote:
+> May be this bug eq "[PATCH] [NET_SCHED] sch_prio.c: remove duplicate 
+> call of tc_classify()"?
 > 
-> > Nah, it still there, sk_protinfo, its just ax25 that uses it
-> > (nudge(Ralf)). How do we state that a struct field is deprecated and
-> > will be removed soon(tm)?
+> >I get kernel panic on 2.6.23-rc4-git2
+> >This is netconsole log!
+> ...
 > 
-> You get rid of all the in-tree users and then just kill it :)
-> 
-> More seriously, I don't think we need a deprecation schedule
-> for a struct member, either it's not used in-tree anymore or
-> it isn't.  We'll go crazy with any other policy and it's
-> difficult enough shrinking these things :-)
 
-OK, I think its enough to say to dlezcano that he should avoid using
-sk_protinfo, as soon as we do the work on AX.25 sk_protinfo will be
-removed.
+So, it looks like you have found a really new (unknown) HTB bug,
+congratulations! We've only to find where is it hidden now...
 
-- Arnaldo
+I don't think tc_classify could do such a harm to HTB, and can't
+see similar double calling as in sch_prio.
+
+Jarek P.
