@@ -1,391 +1,233 @@
-From: dacker@roinet.com (David Acker)
-Subject: [PATCH] Fix e100 on systems that have cache incoherent DMA
-Date: Fri, 31 Aug 2007 16:54:30 -0400 (EDT)
-Message-ID: <20070831205430.7209E46C20E@localhost>
-Cc: John Ronciak <john.ronciak@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Milton Miller <miltonm@bga.com>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net,
-	Scott Feldman <sfeldma@pobox.com>
-To: Auke Kok <auke-jan.h.kok@intel.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] make _minimum_ TCP retransmission timeout configurable
+ take 2
+Date: Fri, 31 Aug 2007 13:59:50 -0700
+Message-ID: <46D88146.9090401@hp.com>
+References: <46D769C1.8090808@hp.com>	<20070830.220911.41008322.davem@davemloft.net>	<46D859D9.6030407@hp.com> <20070831.115706.97292718.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-72-92-88-10.phlapa.fios.verizon.net ([72.92.88.10]:45746
-	"EHLO smtp.roinet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966117AbXHaUyb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 16:54:31 -0400
+Received: from palrel12.hp.com ([156.153.255.237]:54089 "EHLO palrel12.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932654AbXHaVAk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2007 17:00:40 -0400
+In-Reply-To: <20070831.115706.97292718.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On the systems that have cache incoherent DMA, including ARM, there is a
-race condition between software allocating a new receive buffer and hardware
-writing into a buffer.  The two race on touching the last Receive Frame
-Descriptor (RFD).  It has its el-bit set and its next link equal to 0.
-When hardware encounters this buffer it attempts to write data to it and
-then update Status Word bits and Actual Count in the RFD.  At the same time
-software may try to clear the el-bit and set the link address to a new buffer.
+I managed to find iproute2 sources (they were debian lenny/testing 
+2.6.20-1) and applied the patch, and figured-out how to add a host route 
+back to one of my systems.  I then did a change to set rto_min to 300. 
+I started a tcpdump and then a netperf, and then forces some 
+retransmissions the old fashioned way - by pulling a cable :)  I then 
+Ctrl-C'd netperf and at that point got this:
 
-Since the entire RFD is once cache-line, the two write operations can collide.
-This can lead to the receive unit stalling or interpreting random memory as
-its receive area.
+Unable to handle kernel NULL pointer dereference (address 0000000000000038)
+swapper[0]: Oops 8813272891392 [1]
+Modules linked in: ipv6 sg sr_mod cdrom dm_snapshot dm_mirror dm_mod 
+loop button shpchp pci_hotplug joydev evdev ext3 jbd mbcache usb_storage 
+usbhid hid ide_core mptspi mptscsih ehci_hcd cciss ohci_hcd mptbase 
+scsi_transport_spi scsi_mod usbcore e1000 thermal processor fan
 
-The fix is to set the el-bit on and the size to 0 on the next to last buffer
-in the chain.  When the hardware encounters this buffer it stops and does not
-write to it at all.  The hardware issues an RNR interrupt with the receive
-unit in the No Resources state.  Software can write to the tail of the list
-because it knows hardware will stop on the previous descriptor that was
-marked as the end of list.
+Pid: 0, CPU 3, comm:              swapper
+psr : 0000101008026038 ifs : 8000000000000001 ip  : [<a000000100477600>] 
+    Not tainted
+ip is at tcp_rto_min+0x20/0x40
+unat: 0000000000000000 pfs : 0000000000000307 rsc : 0000000000000003
+rnat: e0000100f32917e0 bsps: e0000100f32917e8 pr  : 00000000000166a5
+ldrs: 0000000000000000 ccv : 0000000000010001 fpsr: 0009804c0270033f
+csd : 0000000000000000 ssd : 0000000000000000
+b0  : a0000001004777f0 b6  : a000000100230700 b7  : a000000100452e40
+f6  : 000000000000000000000 f7  : 1003e000000000002813f
+f8  : 1003e00000000001c06e2 f9  : 1003e000000000000043f
+f10 : 1003e00000000000fd24b f11 : 1003e0044b82fa09b5a53
+r1  : a0000001009b2710 r2  : 0000000000000000 r3  : e0000100fd317b40
+r8  : 0000000000000032 r9  : 000000000000012c r10 : 0000000000000003
+r11 : e000000ff07b63a0 r12 : e0000100fd317b40 r13 : e0000100fd310000
+r14 : 0000000000000000 r15 : 0000000000000038 r16 : 0000000000000068
+r17 : e000000ff07b6380 r18 : fffffffffffffa58 r19 : 000000008d769671
+r20 : 000000008d769c19 r21 : e000000ff07b62f0 r22 : 000000008d7712e1
+r23 : e000000ff07b62ec r24 : e000000ff07b637c r25 : 000000000000012c
+r26 : 0000000000000032 r27 : e000000ff07b6438 r28 : e000000ff07b5fc8
+r29 : e000000ff215bd80 r30 : e000000ff07b60d0 r31 : e000000ff07b6250
 
-Once it has a new next to last buffer prepared, it can clear the el-bit and
-set the size on the previous one.  The race on this buffer is safe since
-the link already points to a valid next buffer and the software can handle
-the race setting the size (assuming aligned 16 bit writes are atomic with
-respect to the DMA read). If the hardware sees the el-bit cleared without
-the size set, it will move on to the next buffer and skip this one.  If it
-sees the size set but the el-bit still set, it will complete that buffer
-and then RNR interrupt and wait.
+Call Trace:
+  [<a000000100013700>] show_stack+0x40/0xa0
+                                 sp=e0000100fd317710 bsp=e0000100fd311310
+  [<a000000100014000>] show_regs+0x840/0x880
+                                 sp=e0000100fd3178e0 bsp=e0000100fd3112b8
+  [<a0000001000351a0>] die+0x1a0/0x2a0
+                                 sp=e0000100fd3178e0 bsp=e0000100fd311270
+  [<a0000001000579d0>] ia64_do_page_fault+0x8d0/0xa00
+                                 sp=e0000100fd3178e0 bsp=e0000100fd311220
+  [<a00000010000b0c0>] ia64_leave_kernel+0x0/0x270
+                                 sp=e0000100fd317970 bsp=e0000100fd311220
+  [<a000000100477600>] tcp_rto_min+0x20/0x40
+                                 sp=e0000100fd317b40 bsp=e0000100fd311218
+  [<a0000001004777f0>] tcp_rtt_estimator+0x1d0/0x280
+                                 sp=e0000100fd317b40 bsp=e0000100fd3111e0
+  [<a000000100479110>] tcp_ack_saw_tstamp+0x50/0xc0
+                                 sp=e0000100fd317b40 bsp=e0000100fd3111c0
+  [<a00000010047d7a0>] tcp_ack+0x13c0/0x4380
+                                 sp=e0000100fd317b40 bsp=e0000100fd311120
+  [<a000000100486fa0>] tcp_rcv_state_process+0x1420/0x2100
+                                 sp=e0000100fd317b60 bsp=e0000100fd3110d8
+  [<a000000100498760>] tcp_v4_do_rcv+0x960/0xa80
+                                 sp=e0000100fd317b60 bsp=e0000100fd311078
+  [<a00000010049e830>] tcp_v4_rcv+0x19d0/0x1b20
+                                 sp=e0000100fd317b70 bsp=e0000100fd311008
+  [<a0000001004542f0>] ip_local_deliver+0x530/0x7c0
+                                 sp=e0000100fd317b70 bsp=e0000100fd310fd0
+  [<a000000100453cb0>] ip_rcv+0xe70/0xf80
+                                 sp=e0000100fd317b80 bsp=e0000100fd310f98
+  [<a0000001003fcb40>] netif_receive_skb+0xa20/0xb80
+                                 sp=e0000100fd317ba0 bsp=e0000100fd310f50
+  [<a000000213211c20>] e1000_clean_rx_irq+0x9e0/0xc00 [e1000]
+                                 sp=e0000100fd317ba0 bsp=e0000100fd310e90
+  [<a00000021320ce50>] e1000_clean+0x130/0x6e0 [e1000]
+                                 sp=e0000100fd317ba0 bsp=e0000100fd310e38
+  [<a0000001004034c0>] net_rx_action+0x1c0/0x540
+                                 sp=e0000100fd317bb0 bsp=e0000100fd310df0
+  [<a0000001000908f0>] __do_softirq+0xf0/0x240
+                                 sp=e0000100fd317bc0 bsp=e0000100fd310d78
+  [<a000000100090ab0>] do_softirq+0x70/0xc0
+                                 sp=e0000100fd317bc0 bsp=e0000100fd310d18
+  [<a000000100090ca0>] irq_exit+0x80/0xa0
+                                 sp=e0000100fd317bc0 bsp=e0000100fd310d00
+  [<a000000100010cc0>] ia64_handle_irq+0x2a0/0x2e0
+                                 sp=e0000100fd317bc0 bsp=e0000100fd310cd0
+  [<a00000010000b0c0>] ia64_leave_kernel+0x0/0x270
+                                 sp=e0000100fd317bc0 bsp=e0000100fd310cd0
+  [<a0000001000142d0>] default_idle+0x110/0x180
+                                 sp=e0000100fd317d90 bsp=e0000100fd310c90
+  [<a0000001000131b0>] cpu_idle+0x210/0x2e0
+                                 sp=e0000100fd317e30 bsp=e0000100fd310c60
+  [<a00000010063cf50>] start_secondary+0x4b0/0x4e0
+                                 sp=e0000100fd317e30 bsp=e0000100fd310c20
+  [<a00000010050ae00>] __kprobes_text_end+0x340/0x370
+                                 sp=e0000100fd317e30 bsp=e0000100fd310c20
+Kernel panic - not syncing: Aiee, killing interrupt handler!
 
-Flags are kept in the software descriptor to note if the el bit is set and if
-the size was 0.  When software clears the RFD's el bit and set its size, it
-also clears the el flag but leaves the size was 0 bit set.  This way software
-can identify them when the race may have occurred when cleaning the ring.
-On these descriptors, it looks ahead and if the next one is complete then
-hardware must have skipped the current one.  Logic is added to prevent two
-packets in a row being marked while the receiver is running to avoid running
-in lockstep with the hardware and thereby limiting the required lookahead.
+Of course there isn't all that much code to tcp_rto_min:
 
-This is a patch for 2.6.23-rc4.
 
-Signed-off-by: David Acker <dacker@roinet.com>
-
----
-
---- linux-2.6.23-rc4/drivers/net/e100.c.orig	2007-08-30 13:32:10.000000000 -0400
-+++ linux-2.6.23-rc4/drivers/net/e100.c	2007-08-30 15:42:07.000000000 -0400
-@@ -106,6 +106,13 @@
-  *	the RFD, the RFD must be dma_sync'ed to maintain a consistent
-  *	view from software and hardware.
-  *
-+ *	In order to keep updates to the RFD link field from colliding with
-+ *	hardware writes to mark packets complete, we use the feature that
-+ *	hardware will not write to a size 0 descriptor and mark the previous
-+ *	packet as end-of-list (EL).   After updating the link, we remove EL
-+ *	and only then restore the size such that hardware may use the
-+ *	previous-to-end RFD. 
-+ *
-  *	Under typical operation, the  receive unit (RU) is start once,
-  *	and the controller happily fills RFDs as frames arrive.  If
-  *	replacement RFDs cannot be allocated, or the RU goes non-active,
-@@ -281,14 +288,14 @@ struct csr {
- };
- 
- enum scb_status {
-+	rus_no_res       = 0x08,
- 	rus_ready        = 0x10,
- 	rus_mask         = 0x3C,
- };
- 
- enum ru_state  {
--	RU_SUSPENDED = 0,
--	RU_RUNNING	 = 1,
--	RU_UNINITIALIZED = -1,
-+	ru_stopped = 0,
-+	ru_running = 1,
- };
- 
- enum scb_stat_ack {
-@@ -401,10 +408,16 @@ struct rfd {
- 	u16 size;
- };
- 
-+enum rx_flags {
-+	rx_el = 0x01,
-+	rx_s0 = 0x02,
-+};
++static u32 tcp_rto_min(struct sock *sk)
++{
++	struct dst_entry *dst = __sk_dst_get(sk);
++	u32 rto_min = TCP_RTO_MIN;
 +
- struct rx {
- 	struct rx *next, *prev;
- 	struct sk_buff *skb;
- 	dma_addr_t dma_addr;
-+	u8 flags;
- };
- 
- #if defined(__BIG_ENDIAN_BITFIELD)
-@@ -952,7 +965,7 @@ static void e100_get_defaults(struct nic
- 		((nic->mac >= mac_82558_D101_A4) ? cb_cid : cb_i));
- 
- 	/* Template for a freshly allocated RFD */
--	nic->blank_rfd.command = cpu_to_le16(cb_el);
-+	nic->blank_rfd.command = 0;
- 	nic->blank_rfd.rbd = 0xFFFFFFFF;
- 	nic->blank_rfd.size = cpu_to_le16(VLAN_ETH_FRAME_LEN);
- 
-@@ -1753,18 +1766,48 @@ static int e100_alloc_cbs(struct nic *ni
- 	return 0;
- }
- 
--static inline void e100_start_receiver(struct nic *nic, struct rx *rx)
-+static void e100_find_mark_el(struct nic *nic, struct rx *marked_rx, int is_running)
- {
--	if(!nic->rxs) return;
--	if(RU_SUSPENDED != nic->ru_running) return;
-+	struct rx *rx = nic->rx_to_use->prev->prev;
-+	struct rfd *rfd;
-+
-+	if (marked_rx == rx)
-+		return;
-+
-+	rfd = (struct rfd *) rx->skb->data;
-+	rfd->command |= cpu_to_le16(cb_el);
-+	rfd->size = 0;
-+	pci_dma_sync_single_for_device(nic->pdev, rx->dma_addr,
-+		sizeof(struct rfd), PCI_DMA_BIDIRECTIONAL);
-+	rx->flags |= (rx_el | rx_s0);
-+
-+	if (!marked_rx)
-+		return;
-+
-+	rfd = (struct rfd *) marked_rx->skb->data;
-+	rfd->command &= ~cpu_to_le16(cb_el);
-+	pci_dma_sync_single_for_device(nic->pdev, marked_rx->dma_addr,
-+		sizeof(struct rfd), PCI_DMA_BIDIRECTIONAL);
-+
-+	rfd->size = cpu_to_le16(VLAN_ETH_FRAME_LEN);
-+	pci_dma_sync_single_for_device(nic->pdev, marked_rx->dma_addr,
-+		sizeof(struct rfd), PCI_DMA_BIDIRECTIONAL);
- 
--	/* handle init time starts */
--	if(!rx) rx = nic->rxs;
-+	if (is_running)
-+		marked_rx->flags &= ~rx_el;
-+	else
-+		marked_rx->flags &= ~(rx_el | rx_s0);
++	if (dst_metric_locked(dst, RTAX_RTO_MIN))
++		rto_min = dst->metrics[RTAX_RTO_MIN-1];
++	return rto_min;
 +}
 +
-+static inline void e100_start_receiver(struct nic *nic)
-+{
-+	if(!nic->rxs) return;
-+	if (ru_stopped != nic->ru_running) return;
- 
- 	/* (Re)start RU if suspended or idle and RFA is non-NULL */
--	if(rx->skb) {
--		e100_exec_cmd(nic, ruc_start, rx->dma_addr);
--		nic->ru_running = RU_RUNNING;
-+	if (nic->rx_to_clean->skb) {
-+		e100_exec_cmd(nic, ruc_start, nic->rx_to_clean->dma_addr);
-+		nic->ru_running = ru_running;
- 	}
- }
- 
-@@ -1793,8 +1836,6 @@ static int e100_rx_alloc_skb(struct nic 
- 		struct rfd *prev_rfd = (struct rfd *)rx->prev->skb->data;
- 		put_unaligned(cpu_to_le32(rx->dma_addr),
- 			(u32 *)&prev_rfd->link);
--		wmb();
--		prev_rfd->command &= ~cpu_to_le16(cb_el);
- 		pci_dma_sync_single_for_device(nic->pdev, rx->prev->dma_addr,
- 			sizeof(struct rfd), PCI_DMA_TODEVICE);
- 	}
-@@ -1808,6 +1849,7 @@ static int e100_rx_indicate(struct nic *
- 	struct sk_buff *skb = rx->skb;
- 	struct rfd *rfd = (struct rfd *)skb->data;
- 	u16 rfd_status, actual_size;
-+	u8 status;
- 
- 	if(unlikely(work_done && *work_done >= work_to_do))
- 		return -EAGAIN;
-@@ -1819,9 +1861,47 @@ static int e100_rx_indicate(struct nic *
- 
- 	DPRINTK(RX_STATUS, DEBUG, "status=0x%04X\n", rfd_status);
- 
--	/* If data isn't ready, nothing to indicate */
--	if(unlikely(!(rfd_status & cb_complete)))
-+	/* 
-+	 * If data isn't ready, nothing to indicate
-+	 * If both the el and s0 rx flags are set, we have hit the marked
-+	 * buffer but we don't know if hardware has seen it so we check
-+	 * the status.
-+	 * If only the s0 flag is set, we check the next buffer.
-+	 * If it is complete, we know that hardware saw the rfd el bit
-+	 * get cleared but did not see the rfd size get set so it
-+	 * skipped this buffer.  We just return 0 and look at the
-+	 * next buffer.
-+	 * If only the s0 flag is set but the next buffer is
-+	 * not complete, we cleared the el flag as hardware
-+	 * hit this buffer.
-+	 */
-+	if (unlikely(!(rfd_status & cb_complete))) {
-+		u8 maskedFlags = rx->flags & (rx_el | rx_s0);
-+		if (maskedFlags == (rx_el | rx_s0)) {
-+			status = readb(&nic->csr->scb.status);
-+			if (status & rus_no_res)
-+				nic->ru_running = ru_stopped;
-+		} else if (maskedFlags == rx_s0) {
-+			struct rx *next_rx = rx->next;
-+			struct rfd *next_rfd = (struct rfd *)next_rx->skb->data;
-+			pci_dma_sync_single_for_cpu(nic->pdev,
-+				next_rx->dma_addr, sizeof(struct rfd),
-+				PCI_DMA_FROMDEVICE);
-+			if (next_rfd->status & cpu_to_le16(cb_complete)) {
-+				pci_unmap_single(nic->pdev, rx->dma_addr,
-+					RFD_BUF_LEN, PCI_DMA_FROMDEVICE);
-+				dev_kfree_skb_any(skb);
-+				rx->skb = NULL;
-+				rx->flags &= ~rx_s0;
-+				return 0;
-+			} else {
-+				status = readb(&nic->csr->scb.status);
-+				if (status & rus_no_res)
-+					nic->ru_running = ru_stopped;
-+			}
-+		}
- 		return -ENODATA;
-+	}
- 
- 	/* Get actual data size */
- 	actual_size = le16_to_cpu(rfd->actual_size) & 0x3FFF;
-@@ -1832,9 +1912,15 @@ static int e100_rx_indicate(struct nic *
- 	pci_unmap_single(nic->pdev, rx->dma_addr,
- 		RFD_BUF_LEN, PCI_DMA_FROMDEVICE);
- 
--	/* this allows for a fast restart without re-enabling interrupts */
--	if(le16_to_cpu(rfd->command) & cb_el)
--		nic->ru_running = RU_SUSPENDED;
-+	/*
-+	 * This happens when hardward sees the rfd el flag set
-+	 * but then sees the rfd size set as well
-+	 */
-+	if (le16_to_cpu(rfd->command) & cb_el) {
-+		status = readb(&nic->csr->scb.status);
-+		if (status & rus_no_res)
-+			nic->ru_running = ru_stopped;
-+	}
- 
- 	/* Pull off the RFD and put the actual data (minus eth hdr) */
- 	skb_reserve(skb, sizeof(struct rfd));
-@@ -1865,32 +1951,34 @@ static int e100_rx_indicate(struct nic *
- static void e100_rx_clean(struct nic *nic, unsigned int *work_done,
- 	unsigned int work_to_do)
- {
--	struct rx *rx;
-+	struct rx *rx, *marked_rx;
- 	int restart_required = 0;
--	struct rx *rx_to_start = NULL;
--
--	/* are we already rnr? then pay attention!!! this ensures that
--	 * the state machine progression never allows a start with a
--	 * partially cleaned list, avoiding a race between hardware
--	 * and rx_to_clean when in NAPI mode */
--	if(RU_SUSPENDED == nic->ru_running)
--		restart_required = 1;
-+	int err = 0;
- 
- 	/* Indicate newly arrived packets */
- 	for(rx = nic->rx_to_clean; rx->skb; rx = nic->rx_to_clean = rx->next) {
--		int err = e100_rx_indicate(nic, rx, work_done, work_to_do);
--		if(-EAGAIN == err) {
--			/* hit quota so have more work to do, restart once
--			 * cleanup is complete */
--			restart_required = 0;
-+		err = e100_rx_indicate(nic, rx, work_done, work_to_do);
-+		/* Hit quota or no more to clean */
-+		if(-EAGAIN == err || -ENODATA == err)
- 			break;
--		} else if(-ENODATA == err)
--			break; /* No more to clean */
- 	}
- 
--	/* save our starting point as the place we'll restart the receiver */
--	if(restart_required)
--		rx_to_start = nic->rx_to_clean;
-+	/*
-+	 * On EAGAIN, hit quota so have more work to do, restart once
-+	 * cleanup is complete.
-+	 * Else, are we already rnr? then pay attention!!! this ensures that
-+	 * the state machine progression never allows a start with a
-+	 * partially cleaned list, avoiding a race between hardware
-+	 * and rx_to_clean when in NAPI mode
-+	 */
-+	if(-EAGAIN != err && ru_stopped == nic->ru_running)
-+		restart_required = 1;
-+
-+	marked_rx = nic->rx_to_use->prev->prev;
-+	if (!(marked_rx->flags & rx_el)) {
-+		marked_rx = marked_rx->prev;
-+		BUG_ON(!marked_rx->flags & rx_el);
-+	}
- 
- 	/* Alloc new skbs to refill list */
- 	for(rx = nic->rx_to_use; !rx->skb; rx = nic->rx_to_use = rx->next) {
-@@ -1898,10 +1986,12 @@ static void e100_rx_clean(struct nic *ni
- 			break; /* Better luck next time (see watchdog) */
- 	}
- 
-+	e100_find_mark_el(nic, marked_rx, !restart_required);
-+
- 	if(restart_required) {
- 		// ack the rnr?
- 		writeb(stat_ack_rnr, &nic->csr->scb.stat_ack);
--		e100_start_receiver(nic, rx_to_start);
-+		e100_start_receiver(nic);
- 		if(work_done)
- 			(*work_done)++;
- 	}
-@@ -1912,8 +2002,6 @@ static void e100_rx_clean_list(struct ni
- 	struct rx *rx;
- 	unsigned int i, count = nic->params.rfds.count;
- 
--	nic->ru_running = RU_UNINITIALIZED;
--
- 	if(nic->rxs) {
- 		for(rx = nic->rxs, i = 0; i < count; rx++, i++) {
- 			if(rx->skb) {
-@@ -1935,7 +2023,6 @@ static int e100_rx_alloc_list(struct nic
- 	unsigned int i, count = nic->params.rfds.count;
- 
- 	nic->rx_to_use = nic->rx_to_clean = NULL;
--	nic->ru_running = RU_UNINITIALIZED;
- 
- 	if(!(nic->rxs = kcalloc(count, sizeof(struct rx), GFP_ATOMIC)))
- 		return -ENOMEM;
-@@ -1950,7 +2037,9 @@ static int e100_rx_alloc_list(struct nic
- 	}
- 
- 	nic->rx_to_use = nic->rx_to_clean = nic->rxs;
--	nic->ru_running = RU_SUSPENDED;
-+	nic->ru_running = ru_stopped;
-+
-+	e100_find_mark_el(nic, NULL, 0);
- 
- 	return 0;
- }
-@@ -1971,8 +2060,8 @@ static irqreturn_t e100_intr(int irq, vo
- 	iowrite8(stat_ack, &nic->csr->scb.stat_ack);
- 
- 	/* We hit Receive No Resource (RNR); restart RU after cleaning */
--	if(stat_ack & stat_ack_rnr)
--		nic->ru_running = RU_SUSPENDED;
-+	if (stat_ack & stat_ack_rnr)
-+		nic->ru_running = ru_stopped;
- 
- 	if(likely(netif_rx_schedule_prep(netdev))) {
- 		e100_disable_irq(nic);
-@@ -2065,7 +2154,7 @@ static int e100_up(struct nic *nic)
- 	if((err = e100_hw_init(nic)))
- 		goto err_clean_cbs;
- 	e100_set_multicast_list(nic->netdev);
--	e100_start_receiver(nic, NULL);
-+	e100_start_receiver(nic);
- 	mod_timer(&nic->watchdog, jiffies);
- 	if((err = request_irq(nic->pdev->irq, e100_intr, IRQF_SHARED,
- 		nic->netdev->name, nic->netdev)))
-@@ -2146,7 +2235,7 @@ static int e100_loopback_test(struct nic
- 		mdio_write(nic->netdev, nic->mii.phy_id, MII_BMCR,
- 			BMCR_LOOPBACK);
- 
--	e100_start_receiver(nic, NULL);
-+	e100_start_receiver(nic);
- 
- 	if(!(skb = netdev_alloc_skb(nic->netdev, ETH_DATA_LEN))) {
- 		err = -ENOMEM;
+
+So, I went ahead and rebooted and started again:
+
+hpcpc103:~# ./ip route add dev eth0 15.244.56.217
+hpcpc103:~# ./ip route show
+15.244.56.217 dev eth0  scope link
+16.89.84.0/25 dev eth0  proto kernel  scope link  src 16.89.84.103
+default via 16.89.84.1 dev eth0
+hpcpc103:~# netperf -H tardy -l 30
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 
+tardy.cup.hp.com (15.244.56.217) port 0 AF_INET
+
+hpcpc103:~# ./ip route change dev eth0 15.244.56.217 min_rto 300
+Error: either "to" is duplicate, or "min_rto" is a garbage.
+hpcpc103:~# ./ip route change dev eth0 15.244.56.217 rto_min 300
+hpcpc103:~# ./ip route show
+15.244.56.217 dev eth0  scope link  rto_min lock 1200ms
+16.89.84.0/25 dev eth0  proto kernel  scope link  src 16.89.84.103
+default via 16.89.84.1 dev eth0
+
+300 became 1200
+
+hpcpc103:~# ./ip route change dev eth0 15.244.56.217 rto_min 600
+hpcpc103:~# ./ip route show
+15.244.56.217 dev eth0  scope link  rto_min lock 2400ms
+16.89.84.0/25 dev eth0  proto kernel  scope link  src 16.89.84.103
+default via 16.89.84.1 dev eth0
+
+600 became 2400 ms but that is window dressing at the moment.  Go ahead 
+and run netperf and let it finish on its own:
+
+hpcpc103:~# netperf -H tardy
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 
+tardy.cup.hp.com (15.244.56.217) port 0 AF_INET
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
+
+  32768  16384  16384    10.02      72.81
+hpcpc103:~#
+
+now try it and abort netperf in the middle:
+
+hpcpc103:~# netperf -H tardy -l 30
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 
+tardy.cup.hp.com (15.244.56.217) port 0 AF_INET
+
+hpcpc103:~#
+
+hmm, didn't happen again.  Now try with some RTO's forced:
+
+hpcpc103:~# netperf -H tardy -l 30
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 
+tardy.cup.hp.com (15.244.56.217) port 0 AF_INET
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
+
+  32768  16384  16384    30.02      32.69
+
+still happy.  forced RTO's and abort:
+
+hpcpc103:~# netperf -H tardy -l 30
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 
+tardy.cup.hp.com (15.244.56.217) port 0 AF_INET
+
+hpcpc103:~#
+
+ok still happy.  So the failure is at best intermittant.  One final 
+thing - try adding the tcpudmp again:
+
+hpcpc103:~# device eth0 entered promiscuous mode
+audit(1188593799.036:2): dev=eth0 prom=256 old_prom=0 auid=4294967295
+netperf -H tardy -l 30
+TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 
+tardy.cup.hp.com (15.244.56.217) port 0 AF_INET
+
+hpcpc103:~#
+
+still happy.  Sigh, so much for easily reproducing the panic :(
+
+rick
+
+that second tcpdump does show the rto_min being honored:
+
+16:56:46.543603 IP tardy.cup.hp.com.52620 > hpcpc103.cup.hp.com.51691: . 
+ack 29438433 win 32768 <nop,nop,timestamp 7997540 54018>
+16:56:46.543608 IP hpcpc103.cup.hp.com.51691 > tardy.cup.hp.com.52620: . 
+29438433:29454361(15928) ack 1 win 46 <nop,nop,timestamp 54018 7997540>
+16:56:46.543613 IP hpcpc103.cup.hp.com.51691 > tardy.cup.hp.com.52620: P 
+29454361:29470289(15928) ack 1 win 46 <nop,nop,timestamp 54018 7997540>
+16:56:48.956342 IP hpcpc103.cup.hp.com.51691 > tardy.cup.hp.com.52620: . 
+29438433:29439881(1448) ack 1 win 46 <nop,nop,timestamp 54622 7997540>
+16:56:53.788276 IP hpcpc103.cup.hp.com.51691 > tardy.cup.hp.com.52620: . 
+29438433:29439881(1448) ack 1 win 46 <nop,nop,timestamp 55830 7997540>
+16:56:53.855520 IP tardy.cup.hp.com.52620 > hpcpc103.cup.hp.com.51691: . 
+ack 29439881 win 32768 <nop,nop,timestamp 7998272 55830>
+16:56:53.855526 IP hpcpc103.cup.hp.com.51691 > tardy.cup.hp.com.52620: . 
+29439881:29441329(1448) ack 1 win 46 <nop,nop,timestamp 55846 7998272>
+16:56:53.855530 IP hpcpc103.cup.hp.com.51691 > tardy.cup.hp.com.52620: . 
+29441329:29442777(1448) ack 1 win 46 <nop,nop,timestamp 55846 7998272>
+16:56:53.925505 IP tardy.cup.hp.com.52620 > hpcpc103.cup.hp.com.51691: . 
+ack 29442777 win 32768 <nop,nop,timestamp 7998279 55846>
+16:56:53.925511 IP hpcpc103.cup.hp.com.51691 > tardy.cup.hp.com.52620: . 
+29442777:29444225(1448) ack 1 win 46 <nop,nop,timestamp 55864 7998279>
