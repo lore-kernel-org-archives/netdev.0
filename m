@@ -1,36 +1,23 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 9/11] cxgb3 - engine microcode update
-Date: Fri, 31 Aug 2007 09:38:22 -0400
-Message-ID: <46D819CE.5050207@garzik.org>
-References: <20070822034947.9404.87301.stgit@speedy5>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 07/12] sky2: use net_device internal stats
+Date: Fri, 31 Aug 2007 09:43:37 -0400
+Message-ID: <46D81B09.6080107@pobox.com>
+References: <20070829193922.078561651@linux-foundation.org> <20070829195843.025028477@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	swise@opengridcomputing.com
-To: Divy Le Ray <divy@chelsio.com>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:58575 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:56962 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965118AbXHaNiX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Aug 2007 09:38:23 -0400
-In-Reply-To: <20070822034947.9404.87301.stgit@speedy5>
+	id S965156AbXHaNnj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2007 09:43:39 -0400
+In-Reply-To: <20070829195843.025028477@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Divy Le Ray wrote:
-> From: Divy Le Ray <divy@chelsio.com>
-> 
-> Load microcode engine when the interface
-> is configured up.
-> Bump up version to 1.1.0.
-> Allow the driver to be and running with
-> older microcode images.
-> Allow ethtool to log the microcode version.
-> 
-> Signed-off-by: Divy Le Ray <divy@chelsio.com>
+NAK -- grep around net/core, you want ->get_stats()
 
-ACK patches 9-14, but dropped, since they do not apply to #upstream 
-(probably due to fixes sent into 2.6.23-rc)
 
 
