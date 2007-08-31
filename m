@@ -1,47 +1,50 @@
-From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Subject: Re: [PATCH 13/30] net: Don't do pointless kmalloc return value casts in zd1211 driver
-Date: Fri, 31 Aug 2007 17:30:18 +0800
-Message-ID: <E1IR2pW-0007T2-00@gondolin.me.apana.org.au>
-References: <9a8748490708301320o49d8e794vc5c37ffc938006f1@mail.gmail.com>
-Cc: dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jesper.juhl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org (Jesper Juhl),
-	Al Viro <viro-rfM+Q5joDG/XmaaqVzeoHQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <9a8748490708301320o49d8e794vc5c37ffc938006f1-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Subject: Re: Tc bug (kernel crash) more info
+Date: Fri, 31 Aug 2007 13:33:04 +0400
+Message-ID: <46D7E050.1030303@bigtelecom.ru>
+References: <46D56C60.3060702@bigtelecom.ru> <20070829133042.GA4038@ff.dom.local> <20070830001632.ki4u5bx9sow40o4s@mail.himki.net> <20070830063110.GB1677@ff.dom.local> <20070830072718.GC1677@ff.dom.local> <46D68937.7030305@bigtelecom.ru> <20070830123751.GA2778@ff.dom.local> <46D7BD75.3080008@bigtelecom.ru> <20070831075909.GA1772@ff.dom.local> <46D7D072.5060508@bigtelecom.ru> <20070831090509.GC1772@ff.dom.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@o2.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.bigtelecom.ru ([87.255.0.61]:34233 "EHLO
+	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756673AbXHaJdG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 05:33:06 -0400
+In-Reply-To: <20070831090509.GC1772@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesper Juhl <jesper.juhl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On 30/08/2007, Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org> wrote:
->> Jesper Juhl wrote:
->> > Since kmalloc() returns a void pointer there is no reason to cast
->> > its return value.
->> > This patch also removes a pointless initialization of a variable.
->>
->> NAK: adds a sparse warning
->> zd_chip.c:116:15: warning: implicit cast to nocast type
->>
-> Ok, I must admit I didn't check with sparse since it seemed pointless
-> - we usually never cast void pointers to other pointer types,
-> specifically because the C language nicely guarantees that the right
-> thing will happen without the cast.  Sometimes we have to cast them to
-> integer types, su sure we need the cast there.   But what on earth
-> makes a "zd_addr_t *" so special that we have to explicitly cast a
-> "void *" to that type?
-> 
-> I see it's defined as
->  typedef u32 __nocast zd_addr_t;
-> in drivers/net/wireless/zd1211rw/zd_types.h , but why the __nocast ?
 
-Nevermind the __nocast, this looks like a bug in sparse.  Just
-because a base type is __nocast, sparse shouldn't infer that a
-pointer to it should also be __nocast.
+>> i not have testing mashine.
+>> we have 2 mashine and dynamic routing. if 1 mashine down - all traffic 
+>> go to second mashine.
+>> I can test is on this mashines but i need that testing mashine will 
+>> reboot on kernel panic (sysctl message). No freezes =)
+>>
+>> Ok. i try 2.6.23-rc4.
+>>     
+>
+> ...but without testing machine it can be too much risk! New versions
+> of kernel can break your applications (sometimes they should be at
+> least rebuilded).
+>
+> So, maybe you would better try this, 'less testing', version of my patch:
+>
+>   
+I risk only if RC kernel broke hardware. Mashines use only iptables and 
+TC. All Scrips backuped.
+But if i need to reboot PC by hand (if it freeze) i need drive to 
+servers-room =)
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+ > BTW, I think after this BUG could be something more about other CPUs.
+ > Could you check this?
+
+I send to you all info that catch NETCONSOLE. i don't cut any info...
+
+Now 1 mashine work at *"2.6.23-rc4-git2 
+<http://kernel.org/pub/linux/kernel/v2.6/snapshots/patch-2.6.23-rc4-git2.bz2>" 
+Backup mashine use 2.6.18*
+
