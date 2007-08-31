@@ -1,31 +1,46 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2/7] fs_enet: Whitespace cleanup.
-Date: Fri, 31 Aug 2007 09:19:11 -0400
-Message-ID: <46D8154F.4010707@pobox.com>
-References: <20070817175359.GB9218@ld0162-tx32.am.freescale.net>
+From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Subject: Re: [REVISED PATCH] 3c59x: check return of pci_enable_device()
+Date: Fri, 31 Aug 2007 15:21:32 +0200
+Message-ID: <20070831132132.GA2647@newton.mathematik.tu-chemnitz.de>
+References: <200708102105.l7AL5Jje008968@imap1.linux-foundation.org> <20070814095432.GA13825@hindley.org.uk> <20070815163000.GB619@bayes.mathematik.tu-chemnitz.de> <20070816102840.GG14245@hindley.org.uk> <46D812D5.80904@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Scott Wood <scottwood@freescale.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Hindley <mark@hindley.org.uk>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:35583 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755892AbXHaNTQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Aug 2007 09:19:16 -0400
-In-Reply-To: <20070817175359.GB9218@ld0162-tx32.am.freescale.net>
+Received: from lana.hrz.tu-chemnitz.de ([134.109.132.3]:59635 "EHLO
+	lana.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932646AbXHaNVf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 09:21:35 -0400
+Content-Disposition: inline
+In-Reply-To: <46D812D5.80904@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Scott Wood wrote:
-> Signed-off-by: Scott Wood <scottwood@freescale.com>
-> ---
->  drivers/net/fs_enet/fs_enet-main.c |   85 ++++++++++++++++-------------------
->  drivers/net/fs_enet/fs_enet.h      |    4 +-
->  drivers/net/fs_enet/mac-fcc.c      |    1 -
->  drivers/net/fs_enet/mii-fec.c      |    1 -
->  4 files changed, 41 insertions(+), 50 deletions(-)
+On Fri, Aug 31, 2007 at 09:08:37AM -0400, Jeff Garzik wrote:
+> Mark Hindley wrote:
+> >Revised patch for this.
+> >
+> >Mark
+> >
+> >
+> >commit 5cf33391eba81a49038fa8be8cbad8425b80bf7f
+> >Author: Mark Hindley <mark@hindley.org.uk>
+> >Date:   Thu Aug 16 11:26:35 2007 +0100
+> >
+> >    Check return of pci_enable_device in vortex_up().
+> >    
+> >    Also modify vortex_up to return error to callers. Handle failure of 
+> >    vortex_up in
+> >    vortex_open and vortex_resume.
+> >    
+> >    Signed-off-by: Mark Hindley <mark@hindley.org.uk>
+> 
+> Steffen, did you ACK this?  and/or going to resend it to me?
+> 
 
-ACK patches 2-7
+Yes, I did. Andrew has it already in -mm, 
+I guess that he will resend it to you soon.
 
-
+Steffen
