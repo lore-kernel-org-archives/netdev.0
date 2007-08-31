@@ -1,64 +1,50 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Tc bug (kernel crash) more info
-Date: Fri, 31 Aug 2007 11:05:09 +0200
-Message-ID: <20070831090509.GC1772@ff.dom.local>
-References: <46D56C60.3060702@bigtelecom.ru> <20070829133042.GA4038@ff.dom.local> <20070830001632.ki4u5bx9sow40o4s@mail.himki.net> <20070830063110.GB1677@ff.dom.local> <20070830072718.GC1677@ff.dom.local> <46D68937.7030305@bigtelecom.ru> <20070830123751.GA2778@ff.dom.local> <46D7BD75.3080008@bigtelecom.ru> <20070831075909.GA1772@ff.dom.local> <46D7D072.5060508@bigtelecom.ru>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [0/7] [PPP]: Fix shared/cloned/non-linear skb bugs (was: malformed captured packets)
+Date: Fri, 31 Aug 2007 17:06:25 +0800
+Message-ID: <20070831090625.GA28175@gondor.apana.org.au>
+References: <200708281811.34074.toralf.foerster@gmx.de> <46D521BC.1050300@katalix.com> <200708291822.35128.toralf.foerster@gmx.de> <46D69323.3070503@katalix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Cc: Toralf =?iso-8859-1?Q?F=F6rster?= <toralf.foerster@gmx.de>,
+	netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Michal Ostrowski <mostrows@speakeasy.net>,
+	Paul Mackerras <paulus@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:56239 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756900AbXHaJDq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Aug 2007 05:03:46 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:3504 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757969AbXHaJHN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 05:07:13 -0400
 Content-Disposition: inline
-In-Reply-To: <46D7D072.5060508@bigtelecom.ru>
+In-Reply-To: <46D69323.3070503@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 31, 2007 at 12:25:22PM +0400, Badalian Vyacheslav wrote:
-> i not have testing mashine.
-> we have 2 mashine and dynamic routing. if 1 mashine down - all traffic 
-> go to second mashine.
-> I can test is on this mashines but i need that testing mashine will 
-> reboot on kernel panic (sysctl message). No freezes =)
-> 
-> Ok. i try 2.6.23-rc4.
+On Thu, Aug 30, 2007 at 09:51:31AM +0000, James Chapman wrote:
+>
+> The captured PPPoE stream seems to show incorrect data lengths in the
+> PPPoE header for some captured PPPoE packets. The kernel's PPPoE
+> datapath uses this length to extract the PPP frame and send it through
+> to the ppp interface. Since your ppp stream is fine, the actual PPPoE
+> header contents must be correct when it is parsed by the kernel PPPoE
+> code. It seems more likely that this is a wireshark bug to me.
 
-...but without testing machine it can be too much risk! New versions
-of kernel can break your applications (sometimes they should be at
-least rebuilded).
+If he were using the kernel pppoe driver, then this is because
+PPP filtering is writing over a cloned skb without copying it.
 
-So, maybe you would better try this, 'less testing', version of my patch:
+In fact, there seems to be quite a few bugs of this kind in
+the various ppp*.c files.
 
-Jarek P.
+Please try the following patches to see if they make a
+difference.
 
----
+I've audited ppp_generic.c and pppoe.c.  I'll do pppol2tp
+tomorrow.
 
-diff -Nurp linux-2.6.22.5-/net/sched/sch_htb.c linux-2.6.22.5/net/sched/sch_htb.c
---- linux-2.6.22.5-/net/sched/sch_htb.c	2007-07-09 01:32:17.000000000 +0200
-+++ linux-2.6.22.5/net/sched/sch_htb.c	2007-08-31 08:43:45.000000000 +0200
-@@ -688,7 +688,11 @@ static void htb_rate_timer(unsigned long
- 
- 
- 	/* lock queue so that we can muck with it */
--	spin_lock_bh(&sch->dev->queue_lock);
-+	if (!spin_trylock_bh(&sch->dev->queue_lock)) {
-+		q->rttim.expires = jiffies + 1;
-+		add_timer(&q->rttim);
-+		return;
-+	}
- 
- 	q->rttim.expires = jiffies + HZ;
- 	add_timer(&q->rttim);
-@@ -1306,7 +1310,8 @@ static void htb_destroy(struct Qdisc *sc
- 
- 	qdisc_watchdog_cancel(&q->watchdog);
- #ifdef HTB_RATECM
--	del_timer_sync(&q->rttim);
-+	if (!del_timer_sync(&q->rttim))
-+		del_timer(&q->rttim);
- #endif
- 	/* This line used to be after htb_destroy_class call below
- 	   and surprisingly it worked in 2.4. But it must precede it
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
