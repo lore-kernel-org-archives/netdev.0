@@ -1,103 +1,80 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [1/1] Block device throttling [Re: Distributed storage.]
-Date: Fri, 31 Aug 2007 21:33:02 +0400
-Message-ID: <20070831173301.GA3886@2ka.mipt.ru>
-References: <20070731171347.GA14267@2ka.mipt.ru> <200708281408.06618.phillips@phunq.net> <20070829085331.GA16607@2ka.mipt.ru> <200708301620.37965.phillips@phunq.net>
+From: "Robert P. J. Day" <rpjday@mindspring.com>
+Subject: Re: [PATCH] net/, drivers/net/ , missing EXPERIMENTAL in menus
+Date: Fri, 31 Aug 2007 13:23:53 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0708311318220.18158@localhost.localdomain>
+References: <469E75AA.7040109@pimpmylinux.org>
+ <Pine.LNX.4.64.0707181620460.13912@localhost.localdomain>
+ <20070718134012.cde2f956.randy.dunlap@oracle.com> <469E7BE1.6090401@garzik.org>
+ <Pine.LNX.4.64.0707181648330.15343@localhost.localdomain>
+ <20070718210903.GM3801@stusta.de> <Pine.LNX.4.64.0707181712340.16513@localhost.localdomain>
+ <20070719054742.GN3801@stusta.de> <Pine.LNX.4.64.0707190331330.11902@localhost.localdomain>
+ <469F240E.9040205@s5r6.in-berlin.de> <Pine.LNX.4.64.0707190523001.19216@localhost.localdomain>
+ <20070719083109.13b2ab56.rdunlap@xenotime.net>
+ <Pine.LNX.4.64.0707191213130.8844@localhost.localdomain>
+ <469FE045.3070403@simon.arlott.org.uk> <20070831102527.09fb42c0.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: Daniel Phillips <phillips@phunq.net>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <200708301620.37965.phillips@phunq.net>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Arlott <simon@fire.lp0.eu>, sam@ravnborg.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Adrian Bunk <bunk@stusta.de>, Jeff Garzik <jeff@garzik.org>,
+	Gabriel C <crazy@pimpmylinux.org>, netdev@vger.kernel.org
+To: Randy Dunlap <rdunlap@xenotime.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nic.NetDirect.CA ([216.16.235.2]:37307 "EHLO
+	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965436AbXHaRit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 13:38:49 -0400
+In-Reply-To: <20070831102527.09fb42c0.rdunlap@xenotime.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Daniel.
+On Fri, 31 Aug 2007, Randy Dunlap wrote:
 
-On Thu, Aug 30, 2007 at 04:20:35PM -0700, Daniel Phillips (phillips@phunq.net) wrote:
-> On Wednesday 29 August 2007 01:53, Evgeniy Polyakov wrote:
-> > Then, if of course you will want, which I doubt, you can reread
-> > previous mails and find that it was pointed to that race and
-> > possibilities to solve it way too long ago.
-> 
-> What still bothers me about your response is that, while you know the 
-> race exists and do not disagree with my example, you don't seem to see 
-> that that race can eventually lock up the block device by repeatedly 
-> losing throttle counts which are never recovered.  What prevents that?
-
-I posted a trivial hack with pointed possible errors and a question
-about should it be further extended (and race fixed by any of the
-possible methods and so on) or new one should be developed (like in your
-approach when only high level device is charged), instead I got replies
-that it contains bugs, whcih will stop system and kill gene pool of the
-mankind. I know how it works and where problems are. And if we are going
-with this approach I will fix pointed issues.
-
-> > > --- 2.6.22.clean/block/ll_rw_blk.c	2007-07-08 16:32:17.000000000
-> > > -0700 +++ 2.6.22/block/ll_rw_blk.c	2007-08-24 12:07:16.000000000
-> > > -0700 @@ -3237,6 +3237,15 @@ end_io:
-> > >   */
-> > >  void generic_make_request(struct bio *bio)
-> > >  {
-> > > +	struct request_queue *q = bdev_get_queue(bio->bi_bdev);
-> > > +
-> > > +	if (q && q->metric) {
-> > > +		int need = bio->bi_reserved = q->metric(bio);
-> > > +		bio->queue = q;
+> On Thu, 19 Jul 2007 23:05:57 +0100 Simon Arlott wrote:
+>
+> > On 19/07/07 17:19, Robert P. J. Day wrote:
+> > > On Thu, 19 Jul 2007, Randy Dunlap wrote:
+> > >> I think that Stefan means a patch to the kconfig source code,
+> > >> not the the Kconfig files.  Good luck.  I'd still like to see it.
+> > >
+> > > yes, i understand what he wanted now.  as a first step (that
+> > > theoretically shouldn't change any behaviour), i'd patch the Kconfig
+> > > structure to add a new attribute ("maturity") which would be allowed
+> > > to be set to *exactly one* of a pre-defined set of values (say,
+> > > OBSOLETE, DEPRECATED, EXPERIMENTAL, and STILLBLEEDING).  and that's
+> > > it, nothing more.
+> > >
+> > > don't try to do anything with any of that just yet, just add the
+> > > infrastructure to support the (optional) association of a maturity
+> > > level with a config option.  that's step one.
 > >
-> > In case you have stacked device, this entry will be rewritten and you
-> > will lost all your account data.
-> 
-> It is a weakness all right.  Well,
-> 
-> -	if (q && q->metric) {
-> +	if (q && q->metric && !bio->queue) {
-> 
-> which fixes that problem.  Maybe there is a better fix possible.  Thanks 
-> for the catch!
+> > What about something like this? I'm not sure if the addition to sym_init
+> > is desirable... I also had to prefix _ to the name for now otherwise it
+> > conflicts badly with the current symbols. It probably should stop
+> > "depends on _BROKEN" etc. too.
 
-Yes, it should.
+i'm sure i'm going to get shouted down here, but i really disagree
+with "BROKEN" being considered a "maturity level".  IMHO, things like
+EXPERIMENTAL, DEPRECATED and OBSOLETE represent maturity levels, for
+what i think are obvious reasons.
 
-> The original conception was that this block throttling would apply only 
-> to the highest level submission of the bio, the one that crosses the 
-> boundary between filesystem (or direct block device application) and 
-> block layer.  Resubmitting a bio or submitting a dependent bio from 
-> inside a block driver does not need to be throttled because all 
-> resources required to guarantee completion must have been obtained 
-> _before_ the bio was allowed to proceed into the block layer.
+something like BROKEN, though, has *nothing* to do with maturity.  a
+feature can be any of those maturity levels, and simultaneously be
+BROKEN.  i consider BROKEN to be what i call a "status", and different
+status levels might be the default of normal, or KIND_OF_FLAKY or
+TOTALLY_BORKED -- that's where BROKEN would fit in.
 
-We still did not come to the conclusion, but I do not want to start a
-flamewar, you believe that throttling must be done on the top level
-device, so you need to extend bio and convince others that idea worth
-it.
+*please* don't start mixing these different attributes.  it's just
+going to make an irreversible mess of things.  leave BROKEN out of
+this for the time being.
 
-> The other principle we are trying to satisfy is that the throttling 
-> should not be released until bio->endio, which I am not completely sure 
-> about with the patch as modified above.  Your earlier idea of having 
-> the throttle protection only cover the actual bio submission is 
-> interesting and may be effective in some cases, in fact it may cover 
-> the specific case of ddsnap.  But we don't have to look any further 
-> than ddraid (distributed raid) to find a case it doesn't cover - the 
-> additional memory allocated to hold parity data has to be reserved 
-> until parity data is deallocated, long after the submission completes.
-> So while you manage to avoid some logistical difficulties, it also looks 
-> like you didn't solve the general problem.
-
-Block layer does not know and should not be bothered with underlying
-device nature - if you think that in endio callback limit should not be
-rechardged, then provide your own layer on top of bio and thus call
-endio callback only when you think it is ready to be completed.
-
-> Hopefully I will be able to report on whether my patch actually works 
-> soon, when I get back from vacation.  The mechanism in ddsnap this is 
-> supposed to replace is effective, it is just ugly and tricky to verify.
-> 
-> Regards,
-> 
-> Daniel
-
+rday
 -- 
-	Evgeniy Polyakov
+========================================================================
+Robert P. J. Day
+Linux Consulting, Training and Annoying Kernel Pedantry
+Waterloo, Ontario, CANADA
+
+http://crashcourse.ca
+========================================================================
