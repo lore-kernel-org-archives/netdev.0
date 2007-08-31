@@ -1,50 +1,67 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/7] Generic bitbanged MDIO library
-Date: Fri, 31 Aug 2007 09:23:04 -0400
-Message-ID: <46D81638.6050509@pobox.com>
-References: <20070817175357.GA9218@ld0162-tx32.am.freescale.net>
+From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+Subject: [PATCH 2/2 v2] PS3: Remove the workaround no longer needed
+Date: Fri, 31 Aug 2007 22:25:09 +0900
+Message-ID: <20070831222404.C327.MOKUNO@sm.sony.co.jp>
+References: <20070831220507.C31D.MOKUNO@sm.sony.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	Paul Mackerras <paulus@samba.org>
-To: Scott Wood <scottwood@freescale.com>
+Cc: Linas Vepstas <linas@austin.ibm.com>, netdev@vger.kernel.org,
+	cbe-oss-dev@ozlabs.org, geoffrey.levand@am.sony.com,
+	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:36656 "EHLO mail.dvmed.net"
+Received: from NS5.Sony.CO.JP ([137.153.0.45]:58131 "EHLO ns5.sony.co.jp"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965031AbXHaNXJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Aug 2007 09:23:09 -0400
-In-Reply-To: <20070817175357.GA9218@ld0162-tx32.am.freescale.net>
+	id S965017AbXHaNZZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2007 09:25:25 -0400
+In-Reply-To: <20070831220507.C31D.MOKUNO@sm.sony.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Scott Wood wrote:
-> Previously, bitbanged MDIO was only supported in individual
-> hardware-specific drivers.  This code factors out the higher level
-> protocol implementation, reducing the hardware-specific portion to
-> functions setting direction, data, and clock.
-> 
-> Signed-off-by: Scott Wood <scottwood@freescale.com>
-> ---
->  drivers/net/phy/Kconfig        |    9 ++
->  drivers/net/phy/Makefile       |    1 +
->  drivers/net/phy/mdio-bitbang.c |  187 ++++++++++++++++++++++++++++++++++++++++
->  include/linux/mdio-bitbang.h   |   42 +++++++++
->  4 files changed, 239 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/net/phy/mdio-bitbang.c
->  create mode 100644 include/linux/mdio-bitbang.h
+Removed the workaround that was needed for PS3 firmware versions 
+prior to the first release.
 
-I cannot ACK this, nor do I want to see it merged, until users appear 
-and have been reviewed alongside this.  I do not see any fs_enet patches 
-that actually use this.
+Signed-off-by: Masakazu Mokuno <mokuno@sm.sony.co.jp>
+CC: Geoff Levand <geoffrey.levand@am.sony.com>
+---
+ drivers/net/ps3_gelic_net.c |   16 ++++------------
+ 1 file changed, 4 insertions(+), 12 deletions(-)
 
-five-second-glance comments:
+--- a/drivers/net/ps3_gelic_net.c
++++ b/drivers/net/ps3_gelic_net.c
+@@ -732,25 +732,17 @@ static int gelic_net_kick_txdma(struct g
+ 				struct gelic_net_descr *descr)
+ {
+ 	int status = 0;
+-	int count = 10;
+ 
+ 	if (card->tx_dma_progress)
+ 		return 0;
+ 
+ 	if (gelic_net_get_descr_status(descr) == GELIC_NET_DESCR_CARDOWNED) {
+ 		card->tx_dma_progress = 1;
+-		/* sometimes we need retry here */
+-		while (count--) {
+-			status = lv1_net_start_tx_dma(bus_id(card),
+-						      dev_id(card),
+-						      descr->bus_addr, 0);
+-			if (!status)
+-				break;
+-		}
+-		if (!count)
++		status = lv1_net_start_tx_dma(bus_id(card), dev_id(card),
++					      descr->bus_addr, 0);
++		if (status)
+ 			dev_info(ctodev(card), "lv1_net_start_txdma failed," \
+-				"status=%d %#lx\n",
+-				 status, card->irq_status);
++				 "status=%d\n", status);
+ 	}
+ 	return status;
+ }
 
-* "mdio_bitbang_" is a long prefix.  consider "mdiobb_" or somesuch
 
-* the delay (where you call ndelay()) is not guaranteed without a flush 
-of some sort
-
-* how widely applicable is this "generic" library?  have you converted 
-any non-embedded drivers over to it?
+-- 
+Masakazu MOKUNO
 
