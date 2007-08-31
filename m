@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 5/7] [NET] skbuff: Add skb_cow_head
-Date: Fri, 31 Aug 2007 17:11:34 +0800
-Message-ID: <E1IR2XO-0007QL-00@gondolin.me.apana.org.au>
+Subject: [PATCH 7/7] [PPP] generic: Fix receive path data clobbering & non-linear handling
+Date: Fri, 31 Aug 2007 17:11:36 +0800
+Message-ID: <E1IR2XQ-0007QT-00@gondolin.me.apana.org.au>
 References: <20070831090625.GA28175@gondor.apana.org.au>
 To: James Chapman <jchapman@katalix.com>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -9,118 +9,107 @@ To: James Chapman <jchapman@katalix.com>,
 	Paul Mackerras <paulus@samba.org>,
 	Herbert Xu <herbert@gondo
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3599 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:3603 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758494AbXHaJLh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 05:11:37 -0400
+	with ESMTP id S1759061AbXHaJLk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 05:11:40 -0400
 Received: from gondolin.me.apana.org.au ([192.168.0.6] ident=mail)
 	by arnor.apana.org.au with esmtp (Exim 4.50 #1 (Debian))
-	id 1IR2XP-0004RW-7k
-	for <netdev@vger.kernel.org>; Fri, 31 Aug 2007 19:11:35 +1000
+	id 1IR2XR-0004Rg-BK
+	for <netdev@vger.kernel.org>; Fri, 31 Aug 2007 19:11:37 +1000
 Received: from herbert by gondolin.me.apana.org.au with local (Exim 3.36 #1 (Debian))
-	id 1IR2XO-0007QL-00
-	for <netdev@vger.kernel.org>; Fri, 31 Aug 2007 17:11:34 +0800
+	id 1IR2XQ-0007QT-00
+	for <netdev@vger.kernel.org>; Fri, 31 Aug 2007 17:11:36 +0800
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[NET] skbuff: Add skb_cow_head
+[PPP] generic: Fix receive path data clobbering & non-linear handling
 
-This patch adds an optimised version of skb_cow that avoids the copy if
-the header can be modified even if the rest of the payload is cloned.
+This patch adds missing pskb_may_pull calls to deal with non-linear
+packets that may arrive from pppoe or pppol2tp.
 
-This can be used in encapsulating paths where we only need to modify the
-header.  As it is, this can be used in PPPOE and bridging.
+It also copies cloned packets before writing over them.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- drivers/net/pppoe.c       |    2 +-
- include/linux/skbuff.h    |   40 +++++++++++++++++++++++++++++++---------
- net/bridge/br_netfilter.c |    2 +-
- 3 files changed, 33 insertions(+), 11 deletions(-)
+ drivers/net/ppp_generic.c |   44 +++++++++++++++++++++++++-------------------
+ 1 files changed, 25 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
-index bac3654..0d7f570 100644
---- a/drivers/net/pppoe.c
-+++ b/drivers/net/pppoe.c
-@@ -860,7 +860,7 @@ static int __pppoe_xmit(struct sock *sk, struct sk_buff *skb)
- 	/* Copy the data if there is no space for the header or if it's
- 	 * read-only.
- 	 */
--	if (skb_cow(skb, sizeof(*ph) + dev->hard_header_len))
-+	if (skb_cow_head(skb, sizeof(*ph) + dev->hard_header_len))
- 		goto abort;
- 
- 	__skb_push(skb, sizeof(*ph));
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 93c27f7..a656cec 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1352,6 +1352,22 @@ static inline int skb_clone_writable(struct sk_buff *skb, int len)
- 	       skb_headroom(skb) + len <= skb->hdr_len;
- }
- 
-+static inline int __skb_cow(struct sk_buff *skb, unsigned int headroom,
-+			    int cloned)
-+{
-+	int delta = 0;
-+
-+	if (headroom < NET_SKB_PAD)
-+		headroom = NET_SKB_PAD;
-+	if (headroom > skb_headroom(skb))
-+		delta = headroom - skb_headroom(skb);
-+
-+	if (delta || cloned)
-+		return pskb_expand_head(skb, ALIGN(delta, NET_SKB_PAD), 0,
-+					GFP_ATOMIC);
-+	return 0;
-+}
-+
- /**
-  *	skb_cow - copy header of skb when it is required
-  *	@skb: buffer to cow
-@@ -1366,16 +1382,22 @@ static inline int skb_clone_writable(struct sk_buff *skb, int len)
-  */
- static inline int skb_cow(struct sk_buff *skb, unsigned int headroom)
+diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
+index 7e21342..4b49d0e 100644
+--- a/drivers/net/ppp_generic.c
++++ b/drivers/net/ppp_generic.c
+@@ -1525,7 +1525,7 @@ ppp_input_error(struct ppp_channel *chan, int code)
+ static void
+ ppp_receive_frame(struct ppp *ppp, struct sk_buff *skb, struct channel *pch)
  {
--	int delta = (headroom > NET_SKB_PAD ? headroom : NET_SKB_PAD) -
--			skb_headroom(skb);
--
--	if (delta < 0)
--		delta = 0;
-+	return __skb_cow(skb, headroom, skb_cloned(skb));
-+}
+-	if (skb->len >= 2) {
++	if (pskb_may_pull(skb, 2)) {
+ #ifdef CONFIG_PPP_MULTILINK
+ 		/* XXX do channel-level decompression here */
+ 		if (PPP_PROTO(skb) == PPP_MP)
+@@ -1577,7 +1577,7 @@ ppp_receive_nonmp_frame(struct ppp *ppp, struct sk_buff *skb)
+ 		if (ppp->vj == 0 || (ppp->flags & SC_REJ_COMP_TCP))
+ 			goto err;
  
--	if (delta || skb_cloned(skb))
--		return pskb_expand_head(skb, (delta + (NET_SKB_PAD-1)) &
--				~(NET_SKB_PAD-1), 0, GFP_ATOMIC);
--	return 0;
-+/**
-+ *	skb_cow_head - skb_cow but only making the head writable
-+ *	@skb: buffer to cow
-+ *	@headroom: needed headroom
-+ *
-+ *	This function is identical to skb_cow except that we replace the
-+ *	skb_cloned check by skb_header_cloned.  It should be used when
-+ *	you only need to push on some header and do not need to modify
-+ *	the data.
-+ */
-+static inline int skb_cow_head(struct sk_buff *skb, unsigned int headroom)
-+{
-+	return __skb_cow(skb, headroom, skb_header_cloned(skb));
- }
+-		if (skb_tailroom(skb) < 124) {
++		if (skb_tailroom(skb) < 124 || skb_cloned(skb)) {
+ 			/* copy to a new sk_buff with more tailroom */
+ 			ns = dev_alloc_skb(skb->len + 128);
+ 			if (ns == 0) {
+@@ -1648,23 +1648,29 @@ ppp_receive_nonmp_frame(struct ppp *ppp, struct sk_buff *skb)
+ 		/* check if the packet passes the pass and active filters */
+ 		/* the filter instructions are constructed assuming
+ 		   a four-byte PPP header on each packet */
+-		*skb_push(skb, 2) = 0;
+-		if (ppp->pass_filter
+-		    && sk_run_filter(skb, ppp->pass_filter,
+-				     ppp->pass_len) == 0) {
+-			if (ppp->debug & 1)
+-				printk(KERN_DEBUG "PPP: inbound frame not passed\n");
+-			kfree_skb(skb);
+-			return;
+-		}
+-		if (!(ppp->active_filter
+-		      && sk_run_filter(skb, ppp->active_filter,
+-				       ppp->active_len) == 0))
+-			ppp->last_recv = jiffies;
+-		skb_pull(skb, 2);
+-#else
+-		ppp->last_recv = jiffies;
++		if (ppp->pass_filter || ppp->active_filter) {
++			if (skb_cloned(skb) &&
++			    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
++				goto err;
++
++			*skb_push(skb, 2) = 0;
++			if (ppp->pass_filter
++			    && sk_run_filter(skb, ppp->pass_filter,
++					     ppp->pass_len) == 0) {
++				if (ppp->debug & 1)
++					printk(KERN_DEBUG "PPP: inbound frame "
++					       "not passed\n");
++				kfree_skb(skb);
++				return;
++			}
++			if (!(ppp->active_filter
++			      && sk_run_filter(skb, ppp->active_filter,
++					       ppp->active_len) == 0))
++				ppp->last_recv = jiffies;
++			__skb_pull(skb, 2);
++		} else
+ #endif /* CONFIG_PPP_FILTER */
++			ppp->last_recv = jiffies;
  
- /**
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 3ee2022..fc13130 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -183,7 +183,7 @@ int nf_bridge_copy_header(struct sk_buff *skb)
- 	int err;
- 	int header_size = ETH_HLEN + nf_bridge_encap_header_len(skb);
+ 		if ((ppp->dev->flags & IFF_UP) == 0
+ 		    || ppp->npmode[npi] != NPMODE_PASS) {
+@@ -1762,7 +1768,7 @@ ppp_receive_mp_frame(struct ppp *ppp, struct sk_buff *skb, struct channel *pch)
+ 	struct channel *ch;
+ 	int mphdrlen = (ppp->flags & SC_MP_SHORTSEQ)? MPHDRLEN_SSN: MPHDRLEN;
  
--	err = skb_cow(skb, header_size);
-+	err = skb_cow_head(skb, header_size);
- 	if (err)
- 		return err;
+-	if (!pskb_may_pull(skb, mphdrlen) || ppp->mrru == 0)
++	if (!pskb_may_pull(skb, mphdrlen + 1) || ppp->mrru == 0)
+ 		goto err;		/* no good, throw it away */
  
+ 	/* Decode sequence number and begin/end bits */
