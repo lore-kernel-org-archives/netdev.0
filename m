@@ -1,30 +1,47 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [ANNOUNCE] iproute2-2.6.23-rc3
-Date: Fri, 31 Aug 2007 11:15:01 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0708311112001.5681@x2>
-References: <20070822110804.30c2e803@freepuppy.rosehill.hemminger.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org, xemul@openvz.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53459 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758264AbXHaJQN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 05:16:13 -0400
-In-Reply-To: <20070822110804.30c2e803@freepuppy.rosehill.hemminger.net>
-Sender: netdev-owner@vger.kernel.org
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: [PATCH 13/30] net: Don't do pointless kmalloc return value casts in zd1211 driver
+Date: Fri, 31 Aug 2007 17:30:18 +0800
+Message-ID: <E1IR2pW-0007T2-00@gondolin.me.apana.org.au>
+References: <9a8748490708301320o49d8e794vc5c37ffc938006f1@mail.gmail.com>
+Cc: dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: jesper.juhl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org (Jesper Juhl),
+	Al Viro <viro-rfM+Q5joDG/XmaaqVzeoHQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <9a8748490708301320o49d8e794vc5c37ffc938006f1-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 22 Aug 2007, Stephen Hemminger wrote:
+Jesper Juhl <jesper.juhl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On 30/08/2007, Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org> wrote:
+>> Jesper Juhl wrote:
+>> > Since kmalloc() returns a void pointer there is no reason to cast
+>> > its return value.
+>> > This patch also removes a pointless initialization of a variable.
+>>
+>> NAK: adds a sparse warning
+>> zd_chip.c:116:15: warning: implicit cast to nocast type
+>>
+> Ok, I must admit I didn't check with sparse since it seemed pointless
+> - we usually never cast void pointers to other pointer types,
+> specifically because the C language nicely guarantees that the right
+> thing will happen without the cast.  Sometimes we have to cast them to
+> integer types, su sure we need the cast there.   But what on earth
+> makes a "zd_addr_t *" so special that we have to explicitly cast a
+> "void *" to that type?
+> 
+> I see it's defined as
+>  typedef u32 __nocast zd_addr_t;
+> in drivers/net/wireless/zd1211rw/zd_types.h , but why the __nocast ?
 
-> There have been a lot of changes for 2.6.23, so here is a test release
-> of iproute2 that should capture all the submitted patches
->
-> Pavel Emelianov (1):
->      Make ip utility veth driver aware
+Nevermind the __nocast, this looks like a bug in sparse.  Just
+because a base type is __nocast, sparse shouldn't infer that a
+pointer to it should also be __nocast.
 
-
-Why does this add a new ip subcommand instead and uses genetlink
-instead of the rtnl_link API, which was introduced exactly for
-this stuff?
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
