@@ -1,61 +1,36 @@
-From: "Rune Torgersen" <runet@innovsys.com>
-Subject: Ethernet weirdness on 82xx
-Date: Fri, 31 Aug 2007 16:35:19 -0500
-Message-ID: <DCEAAC0833DD314AB0B58112AD99B93B0353A6AB@ismail.innsys.innovsys.com>
+From: Alasdair G Kergon <agk@redhat.com>
+Subject: Re: [1/1] Block device throttling [Re: Distributed storage.]
+Date: Fri, 31 Aug 2007 22:41:37 +0100
+Message-ID: <20070831214137.GD30122@agk.fab.redhat.com>
+References: <20070731171347.GA14267@2ka.mipt.ru> <200708281408.06618.phillips@phunq.net> <20070829085331.GA16607@2ka.mipt.ru> <200708301620.37965.phillips@phunq.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <linuxppc-embedded@ozlabs.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Jens Axboe <jens.axboe@oracle.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>,
+	Neil Brown <neilb@suse.de>
+To: Daniel Phillips <phillips@phunq.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.innovsys.com ([66.115.232.196]:49510 "EHLO
-	mail.innovsys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750699AbXHaVmf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 17:42:35 -0400
-Content-class: urn:content-classes:message
+Received: from mx1.redhat.com ([66.187.233.31]:37832 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756717AbXHaVnc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2007 17:43:32 -0400
+Content-Disposition: inline
+In-Reply-To: <200708301620.37965.phillips@phunq.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I'm not sure if this is by design or an actual bug.
+On Thu, Aug 30, 2007 at 04:20:35PM -0700, Daniel Phillips wrote:
+> Resubmitting a bio or submitting a dependent bio from 
+> inside a block driver does not need to be throttled because all 
+> resources required to guarantee completion must have been obtained 
+> _before_ the bio was allowed to proceed into the block layer.
 
-We have a system witb an 8280 with two active ethernets (fcc2 and fcc3)
-We are running kernel 2.6.18.1 (and won't be upgrading in a while) out
-of arch/ppc
+I'm toying with the idea of keeping track of the maximum device stack
+depth for each stacked device, and only permitting it to increase in
+controlled circumstances.
 
-Eth0 and eth1 are in totally different subnets.
-We happened to have both ehternets connected to the same network, and I
-ran a arping agains the IP on eth0.
-Both ports (eth0 and eth1) responded with the same address, but
-different macs....
-
-sudo /sbin/arping -c1 172.23.12.114
-ARPING 172.23.12.114 from 172.23.15.21 eth0
-Unicast reply from 172.23.12.114 [00:30:D7:00:14:55]  0.838ms
-Unicast reply from 172.23.12.114 [00:30:D7:00:14:54]  0.890ms
-Sent 1 probes (1 broadcast(s))
-Received 2 response(s)
-
-It only gets both responses on the first (broadcast) query from arping
-All responses afterward is then from the wrong port....
-
-The ethernet setup on the target box:
-
-eth0      Link encap:Ethernet  HWaddr 00:30:D7:00:14:54
-          inet addr:172.23.12.114  Bcast:172.23.15.255
-Mask:255.255.248.0
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:473244 errors:0 dropped:2 overruns:0 frame:0
-          TX packets:186655 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:162928671 (155.3 Mb)  TX bytes:42222862 (40.2 Mb)
-          Base address:0x8500
-
-eth1      Link encap:Ethernet  HWaddr 00:30:D7:00:14:55
-          inet addr:192.168.0.100  Bcast:192.168.0.255
-Mask:255.255.255.0
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:1553 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:4 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:203182 (198.4 Kb)  TX bytes:168 (168.0 b)
-          Base address:0x8600
+Alasdair
+-- 
+agk@redhat.com
