@@ -1,47 +1,41 @@
-From: Kim Phillips <kim.phillips@freescale.com>
-Subject: [PATCH] ucc_geth: suppress 'qe_bd_t' undeclared error
-Date: Fri, 31 Aug 2007 11:35:51 -0500
-Message-ID: <20070831113551.ebc91dbd.kim.phillips@freescale.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: wither bounds checking for networking sysctls
+Date: Fri, 31 Aug 2007 10:14:53 -0700
+Message-ID: <46D84C8D.4070009@hp.com>
+References: <46D76A3D.9090207@hp.com> <20070830205939.2f85a567@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Li Yang <leoli@freescale.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Network Development list <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:47655 "EHLO
-	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754219AbXHaQfz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 12:35:55 -0400
-Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
-	by de01egw01.freescale.net (8.12.11/de01egw01) with ESMTP id l7VGZr87021455
-	for <netdev@vger.kernel.org>; Fri, 31 Aug 2007 09:35:53 -0700 (MST)
+Received: from palrel10.hp.com ([156.153.255.245]:56320 "EHLO palrel10.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965417AbXHaRPc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2007 13:15:32 -0400
+In-Reply-To: <20070830205939.2f85a567@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-drivers/net/ucc_geth.c:2151: error: =E2=80=98qe_bd_t=E2=80=99 undeclare=
-d (first use in this function)
+Stephen Hemminger wrote:
+> On Thu, 30 Aug 2007 18:09:17 -0700
+> Rick Jones <rick.jones2@hp.com> wrote:
+> 
+> 
+>>While messing about with "sysctl_tcp_rto_min" I went back and forth a 
+>>bit as to whether there should have been bounds checking (as did some of 
+>>the folks who did some internal review for me).  That leads to the 
+>>question - is it considered worthwhile to add a bit more bounds checking 
+>>to sundry networking sysctls?
+>>
+>>rick jones
+> 
+> 
+> IMHO As long as the any value from sysctl doesn't crash kernel, we
+> should let it go. Enforcing RFC policy or inter-dependencies seems
+> likes a useless exercise.
 
-Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
----
-Leo, this is for 2.6.23.
+I was thinking more along the lines of more fundamental things - like 
+precluding negative values when something is clearly a positive.
 
- drivers/net/ucc_geth.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 12e01b2..9a38dfe 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -2148,7 +2148,7 @@ static void ucc_geth_memclean(struct ucc_geth_pri=
-vate *ugeth)
- 		for (j =3D 0; j < ugeth->ug_info->bdRingLenTx[i]; j++) {
- 			if (ugeth->tx_skbuff[i][j]) {
- 				dma_unmap_single(NULL,
--						 ((qe_bd_t *)bd)->buf,
-+						 ((struct qe_bd *)bd)->buf,
- 						 (in_be32((u32 *)bd) &
- 						  BD_LENGTH_MASK),
- 						 DMA_TO_DEVICE);
---=20
-1.5.2.2
-
+rick jones
