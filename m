@@ -1,34 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-2.6.24 rebased
-Date: Fri, 31 Aug 2007 11:58:01 -0700 (PDT)
-Message-ID: <20070831.115801.78710940.davem@davemloft.net>
-References: <1188475093.2963.13.camel@johannes.berg>
-	<20070830.222129.102575067.davem@davemloft.net>
-	<20070831134432.GA3352@tuxdriver.com>
+From: Jan Engelhardt <jengelh@computergmbh.de>
+Subject: Re: [PATCH] net/, drivers/net/ , missing EXPERIMENTAL in menus
+Date: Fri, 31 Aug 2007 21:29:05 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0708312122550.9413@fbirervta.pbzchgretzou.qr>
+References: <469E75AA.7040109@pimpmylinux.org>
+ <Pine.LNX.4.64.0707181620460.13912@localhost.localdomain>
+ <20070718134012.cde2f956.randy.dunlap@oracle.com> <469E7BE1.6090401@garzik.org>
+ <Pine.LNX.4.64.0707181648330.15343@localhost.localdomain>
+ <20070718210903.GM3801@stusta.de> <Pine.LNX.4.64.0707181712340.16513@localhost.localdomain>
+ <20070719054742.GN3801@stusta.de> <Pine.LNX.4.64.0707190331330.11902@localhost.localdomain>
+ <469F240E.9040205@s5r6.in-berlin.de> <Pine.LNX.4.64.0707190523001.19216@localhost.localdomain>
+ <20070719083109.13b2ab56.rdunlap@xenotime.net>
+ <Pine.LNX.4.64.0707191213130.8844@localhost.localdomain>
+ <469FE045.3070403@simon.arlott.org.uk> <20070831102527.09fb42c0.rdunlap@xenotime.net>
+ <Pine.LNX.4.64.0708311318220.18158@localhost.localdomain> <46D858A9.4080506@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, joe@perches.com, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Robert P. J. Day" <rpjday@mindspring.com>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Simon Arlott <simon@fire.lp0.eu>, sam@ravnborg.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Adrian Bunk <bunk@stusta.de>,
+	Gabriel C <crazy@pimpmylinux.org>, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46219
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965968AbXHaS6B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 14:58:01 -0400
-In-Reply-To: <20070831134432.GA3352@tuxdriver.com>
+Received: from sovereign.computergmbh.de ([85.214.69.204]:33283 "EHLO
+	sovereign.computergmbh.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750928AbXHaT3H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 15:29:07 -0400
+In-Reply-To: <46D858A9.4080506@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 31 Aug 2007 09:44:32 -0400
 
-> Sorry, I sent the patch through Jeff.
-> 
-> 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/upstream-jgarzik/0010-rtl8187-remove-IEEE80211_HW_DATA_NULLFUNC_ACK.patch
-> 
-> But, it sounds like you have taken care of it...?
-> 
-> Let me know if I need to fix this.
+On Aug 31 2007 14:06, Jeff Garzik wrote:
+>> something like BROKEN, though, has *nothing* to do with maturity.  a
+>> feature can be any of those maturity levels, and simultaneously be
+>> BROKEN.  i consider BROKEN to be what i call a "status", and different
+>> status levels might be the default of normal, or KIND_OF_FLAKY or
+>> TOTALLY_BORKED -- that's where BROKEN would fit in.
+>
+> BROKEN is definitely a maturity level.  A more accurate description would be
+> BITROTTING perhaps.  The code in question has passed through bleeding ->
+> experimental -> stable, and come out the other side.
 
-Thanks for tracking this down, that is exactly the change
-I checked into 2.6.24 so everything is good now.
+Software is quite unlike the art of medicine. There, you would go from
+'stable' to 'broken', then someone 'experiments' with you, and if
+it's a bad day, you bleed out. :)
+
+
+	Jan
+-- 
