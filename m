@@ -1,50 +1,39 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.24 3/3]S2io: Updating transceiver information in ethtool
- function
-Date: Fri, 31 Aug 2007 09:28:36 -0400
-Message-ID: <46D81784.5060009@garzik.org>
-References: <Pine.GSO.4.10.10708220345360.29101-100000@guinness>
+From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 5/5] Net: ath5k, kconfig changes
+Date: Fri, 31 Aug 2007 09:30:50 -0400
+Message-ID: <46D8180A.5070902@garzik.org>
+References: <2713029743177393055@pripojeni.net>	 <280951420471148977@pripojeni.net> <20070828171330.GD29343@infradead.org>	 <40f31dec0708291838p5d33eb34p3b4432d9d270841a@mail.gmail.com>	 <20070830123609.GA5140@tuxdriver.com> <1188561531.2668.7.camel@xo-3E-67-34.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, support@neterion.com
-To: Sreenivasa Honnur <Sreenivasa.Honnur@neterion.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60049 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964973AbXHaN2i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Aug 2007 09:28:38 -0400
-In-Reply-To: <Pine.GSO.4.10.10708220345360.29101-100000@guinness>
-Sender: netdev-owner@vger.kernel.org
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Nick Kossifidis <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1188561531.2668.7.camel-xTRJqYXIWqq1Tluu+1bJKiZi+YwRKgec@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Sreenivasa Honnur wrote:
-> - Update transceiver information in ethtool function
->  
-> Signed-off-by: Sreenivasa Honnur <sreenivasa.honnur@neterion.com>
-> Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
-> ---
-> diff -urpN patch2/drivers/net/s2io.c patch3/drivers/net/s2io.c
-> --- patch2/drivers/net/s2io.c	2007-08-18 07:19:21.000000000 +0530
-> +++ patch3/drivers/net/s2io.c	2007-08-18 07:20:27.000000000 +0530
-> @@ -84,7 +84,7 @@
->  #include "s2io.h"
->  #include "s2io-regs.h"
->  
-> -#define DRV_VERSION "2.0.26.4"
-> +#define DRV_VERSION "2.0.26.5"
->  
->  /* S2io Driver name & version. */
->  static char s2io_driver_name[] = "Neterion";
-> @@ -5459,7 +5459,9 @@ static int s2io_ethtool_gset(struct net_
->  	info->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
->  	info->advertising = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
->  	info->port = PORT_FIBRE;
-> -	/* info->transceiver?? TODO */
-> +
-> +	/* info->transceiver */
-> +	info->transceiver = XCVR_EXTERNAL;
+Dan Williams wrote:
+> On Thu, 2007-08-30 at 08:36 -0400, John W. Linville wrote:
+>> On Thu, Aug 30, 2007 at 04:38:09AM +0300, Nick Kossifidis wrote:
+>>> 2007/8/28, Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>:
+>>>> Also this whole patch seems rather pointless.  It saves only
+>>>> very little and turns the driver into a complete ifdef maze.
+>>> Also most
+>>> people will use 5212 code only, 5211 cards are on some old laptops and
+>>> 5210, well i couldn't even find  a 5210 for actual testing :P
+>> FWIW, I'd bet dollars to donuts that distros will enable them all
+>> together.
+> 
+> I would certainly _hope_ that distros enable everything -that is in the
+> kernel- that they can get their hands on, otherwise when you stick a
+> card in, it doesn't just work.
 
-ACK
+Distros definitely -do not- do this.  Plenty of ancient ISA drivers are 
+disabled at build time, for example, in many distros.
 
-
+	Jeff
