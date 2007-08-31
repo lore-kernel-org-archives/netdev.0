@@ -1,82 +1,40 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH] net/, drivers/net/ , missing EXPERIMENTAL in menus
-Date: Fri, 31 Aug 2007 14:25:53 -0700
-Message-ID: <20070831142553.541ade40.rdunlap@xenotime.net>
-References: <469E75AA.7040109@pimpmylinux.org>
-	<Pine.LNX.4.64.0707181620460.13912@localhost.localdomain>
-	<20070718134012.cde2f956.randy.dunlap@oracle.com>
-	<469E7BE1.6090401@garzik.org>
-	<Pine.LNX.4.64.0707181648330.15343@localhost.localdomain>
-	<20070718210903.GM3801@stusta.de>
-	<Pine.LNX.4.64.0707181712340.16513@localhost.localdomain>
-	<20070719054742.GN3801@stusta.de>
-	<Pine.LNX.4.64.0707190331330.11902@localhost.localdomain>
-	<469F240E.9040205@s5r6.in-berlin.de>
-	<Pine.LNX.4.64.0707190523001.19216@localhost.localdomain>
-	<20070719083109.13b2ab56.rdunlap@xenotime.net>
-	<Pine.LNX.4.64.0707191213130.8844@localhost.localdomain>
-	<469FE045.3070403@simon.arlott.org.uk>
-	<20070831102527.09fb42c0.rdunlap@xenotime.net>
-	<Pine.LNX.4.64.0708311318220.18158@localhost.localdomain>
-	<46D858A9.4080506@garzik.org>
-	<20070831131612.312664ef.rdunlap@xenotime.net>
-	<Pine.LNX.4.64.0708311656360.27345@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] make _minimum_ TCP retransmission timeout configurable
+ take 2
+Date: Fri, 31 Aug 2007 14:38:55 -0700 (PDT)
+Message-ID: <20070831.143855.88699905.davem@davemloft.net>
+References: <46D859D9.6030407@hp.com>
+	<20070831.115706.97292718.davem@davemloft.net>
+	<46D88146.9090401@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, Simon Arlott <simon@fire.lp0.eu>,
-	sam@ravnborg.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Adrian Bunk <bunk@stusta.de>,
-	Gabriel C <crazy@pimpmylinux.org>, netdev@vger.kernel.org
-To: "Robert P. J. Day" <rpjday@mindspring.com>
+Cc: netdev@vger.kernel.org
+To: rick.jones2@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([66.160.160.81]:58606 "HELO xenotime.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S965450AbXHaVZ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Aug 2007 17:25:58 -0400
-Received: from midway.site ([96.225.192.201]) by xenotime.net for <netdev@vger.kernel.org>; Fri, 31 Aug 2007 14:25:53 -0700
-In-Reply-To: <Pine.LNX.4.64.0708311656360.27345@localhost.localdomain>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37980
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1761180AbXHaVi4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 17:38:56 -0400
+In-Reply-To: <46D88146.9090401@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 31 Aug 2007 17:00:57 -0400 (EDT) Robert P. J. Day wrote:
+From: Rick Jones <rick.jones2@hp.com>
+Date: Fri, 31 Aug 2007 13:59:50 -0700
 
-> On Fri, 31 Aug 2007, Randy Dunlap wrote:
-> 
-> > What I like about the patch is that it associates some kconfig
-> > symbol with prompt strings, so that we don't have to edit
-> > "(EXPERIMENTAL)" all the darn time (e.g.).
-> >
-> > I'd be quite happy with calling it "status" rather than "maturity",
-> > and with being able to use multiple of the status tags at one time,
-> > such as
-> >
-> > 	config FOO
-> > 	depends on BAR
-> > 	status OBSOLETE BROKEN
-> 
-> grrrrrrrr ... i already made my point in my earlier post.  i'd
-> really, really like it if *this* attribute remained as "maturity".  an
-> entirely *separate* attribute could be defined as a feature "status",
-> which would be entirely orthogonal to maturity level, so that the
-> above would be written as
-> 
-> 	maturity OBSOLETE
-> 	status BROKEN
-> 
-> there's a reason for this -- any feature should have exactly *one*
-> value for any attribute.  that is, in terms of maturity, a feature
-> could be EXPERIMENTAL *or* DEPRECATED *or* OBSOLETE.  it ***can't***
-> be more than one, as in both DEPRECATED *and* OBSOLETE.  to allow that
-> flexibility is to descend into absurdity.
+> ip is at tcp_rto_min+0x20/0x40
 
-
-If Simon (or anyone else) continues to work on it, I'll leave this
-decision up to them...
-
-
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 1ee7212..bbad2cd 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -560,7 +560,7 @@ static u32 tcp_rto_min(struct sock *sk)
+ 	struct dst_entry *dst = __sk_dst_get(sk);
+ 	u32 rto_min = TCP_RTO_MIN;
+ 
+-	if (dst_metric_locked(dst, RTAX_RTO_MIN))
++	if (dst && dst_metric_locked(dst, RTAX_RTO_MIN))
+ 		rto_min = dst->metrics[RTAX_RTO_MIN-1];
+ 	return rto_min;
+ }
