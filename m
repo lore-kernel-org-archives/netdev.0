@@ -1,119 +1,51 @@
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Subject: [PATCH 1/2]: [NET_SCHED]: Make all rate based scheduler work with
-	TSO.
-Date: Fri, 31 Aug 2007 14:22:55 +0200
-Message-ID: <1188562975.18622.11.camel@localhost.localdomain>
-Reply-To: jdb@comx.dk
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Tc bug (kernel crash) more info
+Date: Fri, 31 Aug 2007 14:59:17 +0200
+Message-ID: <20070831125917.GC3108@ff.dom.local>
+References: <20070830072718.GC1677@ff.dom.local> <46D68937.7030305@bigtelecom.ru> <20070830123751.GA2778@ff.dom.local> <46D7BD75.3080008@bigtelecom.ru> <20070831075909.GA1772@ff.dom.local> <46D7D072.5060508@bigtelecom.ru> <20070831090509.GC1772@ff.dom.local> <46D7E050.1030303@bigtelecom.ru> <20070831101733.GA3108@ff.dom.local> <46D7F1FF.1000101@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Jesper Dangaard Brouer <jdb@comx.dk>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Badalian Vyacheslav <slavon@bigtelecom.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:43862 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932646AbXHaM5V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 08:57:21 -0400
+Received: from mx12.go2.pl ([193.17.41.142]:43304 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S964979AbXHaM5z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2007 08:57:55 -0400
+Content-Disposition: inline
+In-Reply-To: <46D7F1FF.1000101@bigtelecom.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-commit 6fdc0f061be94f5e297650961360fb7a9d1cc85d
-Author: Jesper Dangaard Brouer <hawk@comx.dk>
-Date:   Thu Aug 30 17:53:42 2007 +0200
+On Fri, Aug 31, 2007 at 02:48:31PM +0400, Badalian Vyacheslav wrote:
+...
+> I can only see that say netconsole. If i look to monitor i look last 
+> lines. last line is "====...". Scrolling not work
+> netconsole run as module and start after system do full load. Then 
+> netconsole is up - i run generator of tc scripts.
 
-    [NET_SCHED]: Make all rate based scheduler work with TSO.
-    
-     Change L2T (length to time) macros, in all rate based schedulers, to
-     call a common function qdisc_l2t() that does the rate table lookup.
-     This function handles if the packet size lookup is larger than the
-     rate table, which often occurs with TSO enabled.
-    
-     Note: bstats.packets is only incremented correctly for HTB.
-     See: commit c9726d6890f7f3a892c879e067c3ed839f61e745.
-    
-    Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+It would be interesting to know if this bug did ever happen without
+netconsole, or, if it wasn't tested this way, if it's possible to
+do such a test (not necessarily today)?
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 8a67f24..4ebd615 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -302,4 +302,16 @@ drop:
- 	return NET_XMIT_DROP;
- }
- 
-+/* Length to Time (L2T) lookup in a qdisc_rate_table, to determine how
-+   long it will take to send a packet given its size.
-+ */
-+static inline u32 qdisc_l2t(struct qdisc_rate_table* rtab, unsigned int pktlen)
-+{
-+	int slot = pktlen;
-+	slot >>= rtab->rate.cell_log;
-+	if (slot > 255)
-+		return (rtab->data[255]*(slot >> 8) + rtab->data[slot & 0xFF]);
-+	return rtab->data[slot];
-+}
-+
- #endif
-diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-index 6085be5..8599e47 100644
---- a/net/sched/act_police.c
-+++ b/net/sched/act_police.c
-@@ -21,8 +21,8 @@
- #include <net/act_api.h>
- #include <net/netlink.h>
- 
--#define L2T(p,L)   ((p)->tcfp_R_tab->data[(L)>>(p)->tcfp_R_tab->rate.cell_log])
--#define L2T_P(p,L) ((p)->tcfp_P_tab->data[(L)>>(p)->tcfp_P_tab->rate.cell_log])
-+#define L2T(p,L)   ((p)->tcfp_R_tab, L)
-+#define L2T_P(p,L) ((p)->tcfp_P_tab, L)
- 
- #define POL_TAB_MASK     15
- static struct tcf_common *tcf_police_ht[POL_TAB_MASK + 1];
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index e38c283..aed2af2 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -175,7 +175,7 @@ struct cbq_sched_data
- };
- 
- 
--#define L2T(cl,len)	((cl)->R_tab->data[(len)>>(cl)->R_tab->rate.cell_log])
-+#define L2T(cl,len)	qdisc_l2t((cl)->R_tab,len)
- 
- 
- static __inline__ unsigned cbq_hash(u32 h)
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 246a2f9..5e608a6 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -132,10 +132,8 @@ struct htb_class {
- static inline long L2T(struct htb_class *cl, struct qdisc_rate_table *rate,
- 			   int size)
- {
--	int slot = size >> rate->rate.cell_log;
--	if (slot > 255)
--		return (rate->data[255]*(slot >> 8) + rate->data[slot & 0xFF]);
--	return rate->data[slot];
-+	long result = qdisc_l2t(rate, size);
-+	return result;
- }
- 
- struct htb_sched {
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index 8c2639a..b0d8109 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -115,8 +115,8 @@ struct tbf_sched_data
- 	struct qdisc_watchdog watchdog;	/* Watchdog timer */
- };
- 
--#define L2T(q,L)   ((q)->R_tab->data[(L)>>(q)->R_tab->rate.cell_log])
--#define L2T_P(q,L) ((q)->P_tab->data[(L)>>(q)->P_tab->rate.cell_log])
-+#define L2T(q,L)   qdisc_l2t((q)->R_tab,L)
-+#define L2T_P(q,L) qdisc_l2t((q)->P_tab,L)
- 
- static int tbf_enqueue(struct sk_buff *skb, struct Qdisc* sch)
- {
+> >BTW, -git versions are usually more risky than -rc. And, maybe, let
+> >this 2.6.18 better stay away from this testing...
+> >  
+> I look changes between 2.6.23-rc4 and 2.6.23-rc4-git2 and think that 
+> paches look good and no do any critical things =)
+> 
+> Now i do many script runs to simulate bug. if i get it on 2.6.23-rc4 - i 
+> post it here. 2.6.23-rc4 not have htb_timer function.
 
+I'll not be able to assist you until monday (but I'll try to look
+into the code and maybe to prepare some new patch - but it needs
+a lot of checking to not add too much of this locking as well).
+
+I think you can stay with a kernel whichever you like - I'm not sure
+any config changes or even more debugging can change much, but maybe
+I'm wrong. It looks to me like some locking is missing or interrupted.
+If you are working weekends and find something new, don't wait: maybe
+somebody else here could be interested too.
+ 
+Cheers,
+Jarek P. 
