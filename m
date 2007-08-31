@@ -1,40 +1,49 @@
-From: Masakazu Mokuno <mokuno@sm.sony.co.jp>
-Subject: Re: [PATCH 1/2] PS3: improve tx throughput for gelic driver
-Date: Fri, 31 Aug 2007 20:52:21 +0900
-Message-ID: <20070831205058.C31A.MOKUNO@sm.sony.co.jp>
-References: <20070829143537.C2D2.MOKUNO@sm.sony.co.jp> <46D7F3FF.5080503@garzik.org>
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 5/5] Net: ath5k, kconfig changes
+Date: Fri, 31 Aug 2007 07:58:51 -0400
+Message-ID: <1188561531.2668.7.camel@xo-3E-67-34.localdomain>
+References: <2713029743177393055@pripojeni.net>
+	 <280951420471148977@pripojeni.net> <20070828171330.GD29343@infradead.org>
+	 <40f31dec0708291838p5d33eb34p3b4432d9d270841a@mail.gmail.com>
+	 <20070830123609.GA5140@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linas Vepstas <linas@austin.ibm.com>, netdev@vger.kernel.org,
-	cbe-oss-dev@ozlabs.org, geoffrey.levand@am.sony.com,
-	Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from NS4.Sony.CO.JP ([137.153.0.44]:42886 "EHLO ns4.sony.co.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932550AbXHaLwl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Aug 2007 07:52:41 -0400
-In-Reply-To: <46D7F3FF.5080503@garzik.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: Nick Kossifidis <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070830123609.GA5140-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-
-On Fri, 31 Aug 2007 06:57:03 -0400
-Jeff Garzik <jeff@garzik.org> wrote:
-
-> Masakazu Mokuno wrote:
-> > Improve tx throughputs.   
-> >         netperf score gained approximately 20%
+On Thu, 2007-08-30 at 08:36 -0400, John W. Linville wrote:
+> On Thu, Aug 30, 2007 at 04:38:09AM +0300, Nick Kossifidis wrote:
+> > 2007/8/28, Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>:
 > 
-> This is a useless patch description.  It does not adequately summarize 
-> the changes contained within the patch.
+> > > Also this whole patch seems rather pointless.  It saves only
+> > > very little and turns the driver into a complete ifdef maze.
 > 
-> Please resubmit patch with a useful patch description
+> > Also most
+> > people will use 5212 code only, 5211 cards are on some old laptops and
+> > 5210, well i couldn't even find  a 5210 for actual testing :P
+> 
+> FWIW, I'd bet dollars to donuts that distros will enable them all
+> together.
 
-OK, I'll rewrite and resubmit.
+I would certainly _hope_ that distros enable everything -that is in the
+kernel- that they can get their hands on, otherwise when you stick a
+card in, it doesn't just work.
 
+Dan
 
--- 
-Masakazu MOKUNO
-
+> Is saving code space the only reason to turn these off?  How much
+> space do you save?
+> 
+> Is there some way you can isolate and/or limit the number of ifdef
+> blocks further?  If so, we might consider a version of this patch
+> that depends on EMBEDDED or somesuch...?
+> 
+> John
