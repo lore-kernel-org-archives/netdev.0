@@ -1,70 +1,95 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] net/, drivers/net/ , missing EXPERIMENTAL in menus
-Date: Fri, 31 Aug 2007 14:06:33 -0400
-Message-ID: <46D858A9.4080506@garzik.org>
-References: <469E75AA.7040109@pimpmylinux.org> <Pine.LNX.4.64.0707181620460.13912@localhost.localdomain> <20070718134012.cde2f956.randy.dunlap@oracle.com> <469E7BE1.6090401@garzik.org> <Pine.LNX.4.64.0707181648330.15343@localhost.localdomain> <20070718210903.GM3801@stusta.de> <Pine.LNX.4.64.0707181712340.16513@localhost.localdomain> <20070719054742.GN3801@stusta.de> <Pine.LNX.4.64.0707190331330.11902@localhost.localdomain> <469F240E.9040205@s5r6.in-berlin.de> <Pine.LNX.4.64.0707190523001.19216@localhost.localdomain> <20070719083109.13b2ab56.rdunlap@xenotime.net> <Pine.LNX.4.64.0707191213130.8844@localhost.localdomain> <469FE045.3070403@simon.arlott.org.uk> <20070831102527.09fb42c0.rdunlap@xenotime.net> <Pine.LNX.4.64.0708311318220.18158@localhost.localdomain>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] make _minimum_ TCP retransmission timeout configurable
+ take 2
+Date: Fri, 31 Aug 2007 11:11:37 -0700
+Message-ID: <46D859D9.6030407@hp.com>
+References: <200708310009.RAA04175@tardy.cup.hp.com>	<20070830.173912.79067694.davem@davemloft.net>	<46D769C1.8090808@hp.com> <20070830.220911.41008322.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Randy Dunlap <rdunlap@xenotime.net>,
-	Simon Arlott <simon@fire.lp0.eu>, sam@ravnborg.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Adrian Bunk <bunk@stusta.de>,
-	Gabriel C <crazy@pimpmylinux.org>, netdev@vger.kernel.org
-To: "Robert P. J. Day" <rpjday@mindspring.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:55541 "EHLO mail.dvmed.net"
+Received: from palrel10.hp.com ([156.153.255.245]:37706 "EHLO palrel10.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965647AbXHaSG7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Aug 2007 14:06:59 -0400
-In-Reply-To: <Pine.LNX.4.64.0708311318220.18158@localhost.localdomain>
+	id S965726AbXHaSLy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2007 14:11:54 -0400
+In-Reply-To: <20070830.220911.41008322.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Robert P. J. Day wrote:
-> On Fri, 31 Aug 2007, Randy Dunlap wrote:
+David Miller wrote:
+> From: Rick Jones <rick.jones2@hp.com>
+> Date: Thu, 30 Aug 2007 18:07:13 -0700
 > 
->> On Thu, 19 Jul 2007 23:05:57 +0100 Simon Arlott wrote:
->>
->>> On 19/07/07 17:19, Robert P. J. Day wrote:
->>>> On Thu, 19 Jul 2007, Randy Dunlap wrote:
->>>>> I think that Stefan means a patch to the kconfig source code,
->>>>> not the the Kconfig files.  Good luck.  I'd still like to see it.
->>>> yes, i understand what he wanted now.  as a first step (that
->>>> theoretically shouldn't change any behaviour), i'd patch the Kconfig
->>>> structure to add a new attribute ("maturity") which would be allowed
->>>> to be set to *exactly one* of a pre-defined set of values (say,
->>>> OBSOLETE, DEPRECATED, EXPERIMENTAL, and STILLBLEEDING).  and that's
->>>> it, nothing more.
->>>>
->>>> don't try to do anything with any of that just yet, just add the
->>>> infrastructure to support the (optional) association of a maturity
->>>> level with a config option.  that's step one.
->>> What about something like this? I'm not sure if the addition to sym_init
->>> is desirable... I also had to prefix _ to the name for now otherwise it
->>> conflicts badly with the current symbols. It probably should stop
->>> "depends on _BROKEN" etc. too.
 > 
-> i'm sure i'm going to get shouted down here, but i really disagree
-> with "BROKEN" being considered a "maturity level".  IMHO, things like
-> EXPERIMENTAL, DEPRECATED and OBSOLETE represent maturity levels, for
-> what i think are obvious reasons.
+>>Anyhow, I'll try grubbing around the source code (already doing that to 
+>>see about writing a pet tcp cong module) but if pointers to the likely 
+>>relevant files were available I could try to help thrash-out the routing 
+>>metric version.  Like I said the consumers of this are a triffle well, 
+>>"anxious" :)
 > 
-> something like BROKEN, though, has *nothing* to do with maturity.  a
-> feature can be any of those maturity levels, and simultaneously be
-> BROKEN.  i consider BROKEN to be what i call a "status", and different
-> status levels might be the default of normal, or KIND_OF_FLAKY or
-> TOTALLY_BORKED -- that's where BROKEN would fit in.
+> 
+> The change is actually a lot simpler than the sysctl version.
+> 
+> In fact it borders on trivial :-)
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+> index c91476c..dff3192 100644
+> --- a/include/linux/rtnetlink.h
+> +++ b/include/linux/rtnetlink.h
+> @@ -351,6 +351,8 @@ enum
+>  #define RTAX_INITCWND RTAX_INITCWND
+>  	RTAX_FEATURES,
+>  #define RTAX_FEATURES RTAX_FEATURES
+> +	RTAX_RTO_MIN,
+> +#define RTAX_RTO_MIN RTAX_RTO_MIN
+>  	__RTAX_MAX
+>  };
+>  
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 9785df3..1ee7212 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -555,6 +555,16 @@ static void tcp_event_data_recv(struct sock *sk, struct sk_buff *skb)
+>  		tcp_grow_window(sk, skb);
+>  }
+>  
+> +static u32 tcp_rto_min(struct sock *sk)
+> +{
+> +	struct dst_entry *dst = __sk_dst_get(sk);
+> +	u32 rto_min = TCP_RTO_MIN;
+> +
+> +	if (dst_metric_locked(dst, RTAX_RTO_MIN))
+> +		rto_min = dst->metrics[RTAX_RTO_MIN-1];
+> +	return rto_min;
+> +}
+> +
+>  /* Called to compute a smoothed rtt estimate. The data fed to this
+>   * routine either comes from timestamps, or from segments that were
+>   * known _not_ to have been retransmitted [see Karn/Partridge
+> @@ -616,13 +626,13 @@ static void tcp_rtt_estimator(struct sock *sk, const __u32 mrtt)
+>  			if (tp->mdev_max < tp->rttvar)
+>  				tp->rttvar -= (tp->rttvar-tp->mdev_max)>>2;
+>  			tp->rtt_seq = tp->snd_nxt;
+> -			tp->mdev_max = TCP_RTO_MIN;
+> +			tp->mdev_max = tcp_rto_min(sk);
+>  		}
+>  	} else {
+>  		/* no previous measure. */
+>  		tp->srtt = m<<3;	/* take the measured time to be rtt */
+>  		tp->mdev = m<<1;	/* make sure rto = 3*rtt */
+> -		tp->mdev_max = tp->rttvar = max(tp->mdev, TCP_RTO_MIN);
+> +		tp->mdev_max = tp->rttvar = max(tp->mdev, tcp_rto_min(sk));
+>  		tp->rtt_seq = tp->snd_nxt;
+>  	}
+>  }
 
-BROKEN is definitely a maturity level.  A more accurate description 
-would be BITROTTING perhaps.  The code in question has passed through 
-bleeding -> experimental -> stable, and come out the other side.
+At the risk of showing my ignorance (what me worry about that?-) I 
+presume this is then an interface expecting to take-in jiffies?  That 
+means the user has to know the value of HZ which can be (IIRC) one of 
+three different values?
 
-In contrast, OBSOLETE and DEPRECATED reflect high-level status not code 
-quality/maturity.
-
-	Jeff
-
-
-
+rick jones
