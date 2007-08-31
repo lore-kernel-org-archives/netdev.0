@@ -1,7 +1,7 @@
 From: "Robert P. J. Day" <rpjday@mindspring.com>
 Subject: Re: [PATCH] net/, drivers/net/ , missing EXPERIMENTAL in menus
-Date: Fri, 31 Aug 2007 16:49:17 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0708311643080.27345@localhost.localdomain>
+Date: Fri, 31 Aug 2007 17:00:57 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0708311656360.27345@localhost.localdomain>
 References: <469E75AA.7040109@pimpmylinux.org>
  <Pine.LNX.4.64.0707181620460.13912@localhost.localdomain>
  <20070718134012.cde2f956.randy.dunlap@oracle.com> <469E7BE1.6090401@garzik.org>
@@ -13,61 +13,53 @@ References: <469E75AA.7040109@pimpmylinux.org>
  <Pine.LNX.4.64.0707191213130.8844@localhost.localdomain>
  <469FE045.3070403@simon.arlott.org.uk> <20070831102527.09fb42c0.rdunlap@xenotime.net>
  <Pine.LNX.4.64.0708311318220.18158@localhost.localdomain> <46D858A9.4080506@garzik.org>
+ <20070831131612.312664ef.rdunlap@xenotime.net>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Randy Dunlap <rdunlap@xenotime.net>,
-	Simon Arlott <simon@fire.lp0.eu>, sam@ravnborg.org,
+Cc: Jeff Garzik <jeff@garzik.org>, Simon Arlott <simon@fire.lp0.eu>,
+	sam@ravnborg.org,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	Adrian Bunk <bunk@stusta.de>,
 	Gabriel C <crazy@pimpmylinux.org>, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+To: Randy Dunlap <rdunlap@xenotime.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nic.NetDirect.CA ([216.16.235.2]:43529 "EHLO
+Received: from nic.NetDirect.CA ([216.16.235.2]:43921 "EHLO
 	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964824AbXHaVCK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 17:02:10 -0400
-In-Reply-To: <46D858A9.4080506@garzik.org>
+	with ESMTP id S1761114AbXHaVNk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 17:13:40 -0400
+In-Reply-To: <20070831131612.312664ef.rdunlap@xenotime.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 31 Aug 2007, Jeff Garzik wrote:
+On Fri, 31 Aug 2007, Randy Dunlap wrote:
 
-> Robert P. J. Day wrote:
-
-> > i'm sure i'm going to get shouted down here, but i really disagree
-> > with "BROKEN" being considered a "maturity level".  IMHO, things
-> > like EXPERIMENTAL, DEPRECATED and OBSOLETE represent maturity
-> > levels, for what i think are obvious reasons.
-> >
-> > something like BROKEN, though, has *nothing* to do with maturity.
-> > a feature can be any of those maturity levels, and simultaneously
-> > be BROKEN.  i consider BROKEN to be what i call a "status", and
-> > different status levels might be the default of normal, or
-> > KIND_OF_FLAKY or TOTALLY_BORKED -- that's where BROKEN would fit
-> > in.
+> What I like about the patch is that it associates some kconfig
+> symbol with prompt strings, so that we don't have to edit
+> "(EXPERIMENTAL)" all the darn time (e.g.).
 >
-> BROKEN is definitely a maturity level.
+> I'd be quite happy with calling it "status" rather than "maturity",
+> and with being able to use multiple of the status tags at one time,
+> such as
+>
+> 	config FOO
+> 	depends on BAR
+> 	status OBSOLETE BROKEN
 
-no.  it's not.  end of discussion.  you're wrong.
+grrrrrrrr ... i already made my point in my earlier post.  i'd
+really, really like it if *this* attribute remained as "maturity".  an
+entirely *separate* attribute could be defined as a feature "status",
+which would be entirely orthogonal to maturity level, so that the
+above would be written as
 
-the concept of "maturity level" reflects where in the life cycle some
-feature is.  it will typically start as "bleeding edge" or
-"experimental" or something like that, eventually stabilize to be
-normal (which would be the obvious default), after which, when its
-value starts to run out and it begins showing its age, it becomes
-"deprecated" and eventually "obsolete"  it's a natural and obvious
-progression.
+	maturity OBSOLETE
+	status BROKEN
 
-on the other hand, a feature can be "broken" at *any* point in that
-life cycle -- that's why it is absolutely *not* a maturity level.
-please don't fight with me on this, jeff.  you're simply wrong.
-
-> In contrast, OBSOLETE and DEPRECATED reflect high-level status not
-> code quality/maturity.
-
-you have this so backwards, i can't begin to think how to explain it
-to you.
+there's a reason for this -- any feature should have exactly *one*
+value for any attribute.  that is, in terms of maturity, a feature
+could be EXPERIMENTAL *or* DEPRECATED *or* OBSOLETE.  it ***can't***
+be more than one, as in both DEPRECATED *and* OBSOLETE.  to allow that
+flexibility is to descend into absurdity.
 
 rday
 -- 
