@@ -1,34 +1,31 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH v2] [02/10] pasemi_mac: Stop using the pci config space
- accessors for register read/writes
-Date: Fri, 31 Aug 2007 09:54:23 -0400
-Message-ID: <46D81D8F.3060208@pobox.com>
-References: <20070817205413.548020000@lixom.net> <20070822141248.GC16830@lixom.net> <20070823181310.GB31882@lixom.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 07/12] sky2: use net_device internal stats
+Date: Fri, 31 Aug 2007 06:59:12 -0700
+Message-ID: <20070831065912.319c071f@oldman>
+References: <20070829193922.078561651@linux-foundation.org>
+	<20070829195843.025028477@linux-foundation.org>
+	<46D81B09.6080107@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Olof Johansson <olof@lixom.net>
+Cc: netdev@vger.kernel.org, akpm@linux-foundation.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:53456 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965246AbXHaNy0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Aug 2007 09:54:26 -0400
-In-Reply-To: <20070823181310.GB31882@lixom.net>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:58300 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965077AbXHaN7b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 09:59:31 -0400
+In-Reply-To: <46D81B09.6080107@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Olof Johansson wrote:
-> Move away from using the pci config access functions for simple register
-> access.  Our device has all of the registers in the config space (hey,
-> from the hardware point of view it looks reasonable :-), so we need to
-> somehow get to it. Newer firmwares have it in the device tree such that
-> we can just get it and ioremap it there (in case it ever moves in future
-> products). For now, provide a hardcoded fallback for older firmwares.
+On Fri, 31 Aug 2007 09:43:37 -0400
+Jeff Garzik <jgarzik@pobox.com> wrote:
+
+> NAK -- grep around net/core, you want ->get_stats()
 > 
 > 
-> Signed-off-by: Olof Johansson <olof@lixom.net>
+> 
 
-applied 2-10
-
-
+Unneeded if device leaves get_stats as NULL, then register_netdevice
+sets it to internal get stats (in net-2.6.24)
