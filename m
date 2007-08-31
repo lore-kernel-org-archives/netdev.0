@@ -1,64 +1,42 @@
-From: Athanasius <link@miggy.org>
-Subject: Re: [Bugme-new] [Bug 8961] New: BUG triggered by oidentd in netlink code
-Date: Fri, 31 Aug 2007 13:38:25 +0100
-Message-ID: <20070831123825.GW22067@miggy.org>
-References: <bug-8961-10286@http.bugzilla.kernel.org/> <20070830180842.7c8414fe.akpm@linux-foundation.org> <Pine.LNX.4.64.0708311258520.8423@x2>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [REVISED PATCH] 3c59x: check return of pci_enable_device()
+Date: Fri, 31 Aug 2007 09:33:35 -0400
+Message-ID: <46D818AF.3080802@garzik.org>
+References: <200708102105.l7AL5Jje008968@imap1.linux-foundation.org> <20070814095432.GA13825@hindley.org.uk> <20070815163000.GB619@bayes.mathematik.tu-chemnitz.de> <20070816102840.GG14245@hindley.org.uk> <46D812D5.80904@garzik.org> <20070831132132.GA2647@newton.mathematik.tu-chemnitz.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="eMP3JyRexyk9c0Bv"
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, link@miggy.org
-To: Patrick McHardy <kaber@trash.net>,
-	linux-kernel <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Mark Hindley <mark@hindley.org.uk>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org
+To: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fysh.org ([83.170.75.51]:34650 "EHLO bowl.fysh.org"
+Received: from srv5.dvmed.net ([207.36.208.214]:43295 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965045AbXHaNdW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Aug 2007 09:33:22 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0708311258520.8423@x2>
+	id S965056AbXHaNdj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2007 09:33:39 -0400
+In-Reply-To: <20070831132132.GA2647@newton.mathematik.tu-chemnitz.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Steffen Klassert wrote:
+>>> commit 5cf33391eba81a49038fa8be8cbad8425b80bf7f
+>>> Author: Mark Hindley <mark@hindley.org.uk>
+>>> Date:   Thu Aug 16 11:26:35 2007 +0100
+>>>
+>>>    Check return of pci_enable_device in vortex_up().
+>>>    
+>>>    Also modify vortex_up to return error to callers. Handle failure of 
+>>>    vortex_up in
+>>>    vortex_open and vortex_resume.
+>>>    
+>>>    Signed-off-by: Mark Hindley <mark@hindley.org.uk>
+>> Steffen, did you ACK this?  and/or going to resend it to me?
 
---eMP3JyRexyk9c0Bv
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> Yes, I did. Andrew has it already in -mm, 
+> I guess that he will resend it to you soon.
 
-On Fri, Aug 31, 2007 at 01:05:04PM +0200, Patrick McHardy wrote:
-> Seems to be a bug introduced by the netlink_run_queue conversion,
-> since there is no locking and netlink_run_queue doesn't check
-> for NULL results from skb_dequeue, it might pass NULL to
-> netlink_rcv_skb, which crashes.
->=20
-> Does this patch help?
 
-  I'll compile up a new kernel, likely 2.6.22.6, plus this patch, and
-reboot to it tonight.  I still don't know *exactly* how to trigger the
-bug on demand though, it's not reocurred since I posted the bug report
-(but had happened about a week before as well).
+No need for a resend, I just wanted to make sure I wasn't stepping on 
+your toes by applying this patch _instead of_ one that was going to be 
+resent.
 
-thanks,
-
--Ath
---=20
-- Athanasius =3D Athanasius(at)miggy.org / http://www.miggy.org/
-                  Finger athan(at)fysh.org for PGP key
-	   "And it's me who is my enemy. Me who beats me up.
-Me who makes the monsters. Me who strips my confidence." Paula Cole - ME
-
---eMP3JyRexyk9c0Bv
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQFG2AvBIr2uvLNOS8MRAtnKAJ4zRabYY7lO1UuKACAe2Cr2tvQ9AACeOntv
-9ccxGRDbO5AoBPshVsJHweg=
-=nF3G
------END PGP SIGNATURE-----
-
---eMP3JyRexyk9c0Bv--
