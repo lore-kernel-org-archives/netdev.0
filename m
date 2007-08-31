@@ -1,30 +1,40 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2.6.24 1/2]S2io: Change kmalloc+memset to k[zc]alloc
-Date: Fri, 31 Aug 2007 09:06:25 -0400
-Message-ID: <46D81251.80406@garzik.org>
-References: <1187223204.23940.343.camel@flash>
+Subject: Re: [REVISED PATCH] 3c59x: check return of pci_enable_device()
+Date: Fri, 31 Aug 2007 09:08:37 -0400
+Message-ID: <46D812D5.80904@garzik.org>
+References: <200708102105.l7AL5Jje008968@imap1.linux-foundation.org> <20070814095432.GA13825@hindley.org.uk> <20070815163000.GB619@bayes.mathematik.tu-chemnitz.de> <20070816102840.GG14245@hindley.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, support@neterion.com
-To: ram.vepa@neterion.com
+Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
+	akpm@linux-foundation.org, netdev@vger.kernel.org
+To: Mark Hindley <mark@hindley.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42097 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:42109 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753470AbXHaNG0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Aug 2007 09:06:26 -0400
-In-Reply-To: <1187223204.23940.343.camel@flash>
+	id S1754375AbXHaNIr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2007 09:08:47 -0400
+In-Reply-To: <20070816102840.GG14245@hindley.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ramkrishna Vepa wrote:
-> - Changed kmalloc+memset to k[zc]alloc as per Mariusz's patch
->   <m.kozlowski@tuxland.pl>
+Mark Hindley wrote:
+> Revised patch for this.
 > 
-> Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
-> Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
+> Mark
+> 
+> 
+> commit 5cf33391eba81a49038fa8be8cbad8425b80bf7f
+> Author: Mark Hindley <mark@hindley.org.uk>
+> Date:   Thu Aug 16 11:26:35 2007 +0100
+> 
+>     Check return of pci_enable_device in vortex_up().
+>     
+>     Also modify vortex_up to return error to callers. Handle failure of vortex_up in
+>     vortex_open and vortex_resume.
+>     
+>     Signed-off-by: Mark Hindley <mark@hindley.org.uk>
 
-ACK patches 1-2, but dropped due to previous dropped patches (presumed 
-dependencies)
+Steffen, did you ACK this?  and/or going to resend it to me?
 
 
