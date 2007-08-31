@@ -1,90 +1,43 @@
-From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Subject: Re: Please pull 'upstream-jgarzik' branch of wireless-2.6
-Date: Fri, 31 Aug 2007 09:44:49 -0400
-Message-ID: <46D81B51.4060102@garzik.org>
-References: <20070828231731.GB2967@tuxdriver.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: pktgen terminating condition
+Date: Fri, 31 Aug 2007 09:46:31 -0400
+Message-ID: <1188567991.4302.17.camel@localhost>
+References: <1188395183.4274.19.camel@localhost>
+	 <18133.40847.166882.838333@robur.slu.se>
+	 <1188475721.22423.35.camel@localhost>
+	 <20070830.221909.28790079.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070828231731.GB2967-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Robert.Olsson@data.slu.se, mandeep.baines@gmail.com,
+	rick.jones2@hp.com, msb@google.com, netdev@vger.kernel.org,
+	grundler@google.com, robert.olsson@its.uu.se, venza@brownhat.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0910.google.com ([209.85.198.188]:4481 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965047AbXHaNqi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 09:46:38 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so422742rvb
+        for <netdev@vger.kernel.org>; Fri, 31 Aug 2007 06:46:37 -0700 (PDT)
+In-Reply-To: <20070830.221909.28790079.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> Jeff,
->=20
-> A few more for 2.6.24 -- mostly libertas.
->=20
-> Individual patches are available here:
->=20
-> 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/=
-upstream-jgarzik/
->=20
-> Thanks!
->=20
-> John
->=20
-> ---
->=20
-> The following changes since commit e54cfa621f4cca9cca500019aa600c71d2=
-0f0592:
->   Jeff Garzik (1):
->         Merge branch 'upstream-jgarzik' of git://git.kernel.org/.../l=
-inville/wireless-2.6 into upstream
->=20
-> are available in the git repository at:
->=20
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6=
-=2Egit upstream-jgarzik
->=20
-> Andrew Morton (1):
->       libertas: printk warning fixes
->=20
-> Brajesh Dave (1):
->       libertas: advertise 11g ad-hoc rates
->=20
-> Dan Williams (4):
->       libertas: fix inadvertant removal of bits from commit 831441862=
-956fffa17b9801db37e6ea1650b0f69
->       libertas: reorganize and simplify init sequence
->       libertas: don't stomp on interface-specific private data
->       libertas: send reset command directly instead of calling libert=
-as_reset_device
->=20
-> Jesper Juhl (1):
->       net: Kill some unneeded allocation return value casts in libert=
-as
->=20
-> Johannes Berg (1):
->       rtl8187: remove IEEE80211_HW_DATA_NULLFUNC_ACK
->=20
-> John W. Linville (1):
->       libertas: remove unused adhoc_rates_b definition
->=20
-> Marek Va=C5=A1ut (1):
->       libertas: region code values specified as 8bit
->=20
-> Pierre Ossman (1):
->       libertas: properly end commands on hardware failure
->=20
->  drivers/net/wireless/libertas/cmd.c     |    2 +
->  drivers/net/wireless/libertas/cmdresp.c |    6 +-
->  drivers/net/wireless/libertas/debugfs.c |    2 +-
->  drivers/net/wireless/libertas/decl.h    |    3 +-
->  drivers/net/wireless/libertas/dev.h     |    4 -
->  drivers/net/wireless/libertas/ethtool.c |    3 +-
->  drivers/net/wireless/libertas/if_cs.c   |   58 +----
->  drivers/net/wireless/libertas/if_usb.c  |  371 +++++++++++++--------=
---------
->  drivers/net/wireless/libertas/if_usb.h  |    4 +-
->  drivers/net/wireless/libertas/join.c    |    7 +-
->  drivers/net/wireless/libertas/main.c    |  408 +++++++++++++--------=
-----------
->  drivers/net/wireless/rtl8187_dev.c      |    3 +-
->  12 files changed, 354 insertions(+), 517 deletions(-)
+On Thu, 2007-30-08 at 22:19 -0700, David Miller wrote:
 
-pulled
+> You could implement this quite simply using skb->destructor.
+
+Thats what i was thinking ..
+
+> It will add some atomics, so on weaker pktgen source systems
+> it might decrease the generators rate.
+
+Indeed. So maybe a config option instead; it has value afaics in the
+batching case only. Need to experiment.
+
+cheers,
+jamal
+
+
