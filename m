@@ -1,27 +1,30 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Tc bug (kernel crash) more info
-Date: Fri, 31 Aug 2007 11:16:08 +0200
-Message-ID: <20070831091608.GD1772@ff.dom.local>
-References: <20070829133042.GA4038@ff.dom.local> <20070830001632.ki4u5bx9sow40o4s@mail.himki.net> <20070830063110.GB1677@ff.dom.local> <20070830072718.GC1677@ff.dom.local> <46D68937.7030305@bigtelecom.ru> <20070830123751.GA2778@ff.dom.local> <46D7BD75.3080008@bigtelecom.ru> <20070831075909.GA1772@ff.dom.local> <46D7D072.5060508@bigtelecom.ru> <20070831090509.GC1772@ff.dom.local>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [ANNOUNCE] iproute2-2.6.23-rc3
+Date: Fri, 31 Aug 2007 11:15:01 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0708311112001.5681@x2>
+References: <20070822110804.30c2e803@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org, xemul@openvz.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.go2.pl ([193.17.41.42]:57546 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757958AbXHaJOo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Aug 2007 05:14:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20070831090509.GC1772@ff.dom.local>
+Received: from stinky.trash.net ([213.144.137.162]:53459 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758264AbXHaJQN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 05:16:13 -0400
+In-Reply-To: <20070822110804.30c2e803@freepuppy.rosehill.hemminger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 31, 2007 at 11:05:09AM +0200, Jarek Poplawski wrote:
-...
-> So, maybe you would better try this, 'less testing', version of my patch:
+On Wed, 22 Aug 2007, Stephen Hemminger wrote:
 
-Of course, the previous patch should be reverted (patch -p1 -R) or
-clean 2.6.22.5 used for this.
- 
-Jarek P.
+> There have been a lot of changes for 2.6.23, so here is a test release
+> of iproute2 that should capture all the submitted patches
+>
+> Pavel Emelianov (1):
+>      Make ip utility veth driver aware
+
+
+Why does this add a new ip subcommand instead and uses genetlink
+instead of the rtnl_link API, which was introduced exactly for
+this stuff?
