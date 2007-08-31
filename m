@@ -1,33 +1,39 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: Tc bug (kernel crash) more info
-Date: Fri, 31 Aug 2007 09:59:09 +0200
-Message-ID: <20070831075909.GA1772@ff.dom.local>
-References: <20070829113447.GA3575@ff.dom.local> <20070829121408.GB3575@ff.dom.local> <46D56C60.3060702@bigtelecom.ru> <20070829133042.GA4038@ff.dom.local> <20070830001632.ki4u5bx9sow40o4s@mail.himki.net> <20070830063110.GB1677@ff.dom.local> <20070830072718.GC1677@ff.dom.local> <46D68937.7030305@bigtelecom.ru> <20070830123751.GA2778@ff.dom.local> <46D7BD75.3080008@bigtelecom.ru>
+From: Joakim Koskela <joakim.koskela@hiit.fi>
+Subject: tcp user timeout option
+Date: Fri, 31 Aug 2007 11:23:25 +0300
+Message-ID: <200708311123.25559.joakim.koskela@hiit.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Badalian Vyacheslav <slavon@bigtelecom.ru>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx10.go2.pl ([193.17.41.74]:41080 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752936AbXHaH5p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Aug 2007 03:57:45 -0400
+Received: from creon.otaverkko.fi ([212.68.0.5]:50837 "EHLO creon.otaverkko.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754699AbXHaIWy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2007 04:22:54 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by creon.otaverkko.fi (Postfix) with ESMTP id 1FB22256D6A
+	for <netdev@vger.kernel.org>; Fri, 31 Aug 2007 11:22:53 +0300 (EEST)
+Received: from argo.otaverkko.fi (argo.otaverkko.fi [212.68.0.2])
+	by creon.otaverkko.fi (Postfix) with ESMTP id BF74E256D5B
+	for <netdev@vger.kernel.org>; Fri, 31 Aug 2007 11:22:50 +0300 (EEST)
+Received: from vetar.pc.hiit.fi (vetar.pc.hiit.fi [128.214.113.230])
+	by argo.otaverkko.fi (Postfix) with ESMTP id 163F725ED06
+	for <netdev@vger.kernel.org>; Fri, 31 Aug 2007 11:22:50 +0300 (EEST)
 Content-Disposition: inline
-In-Reply-To: <46D7BD75.3080008@bigtelecom.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 31, 2007 at 11:04:21AM +0400, Badalian Vyacheslav wrote:
-> 
-> I try you patch. Also i try add more debug options to kernel. I catch 
-> (BUG: spinlock lockup on CPU#3, tc/6403, f742e200)
-> All info in file. Ready for next patch ;)
+Hi,
 
-I've to look at this, but actually my patch wrongly added this one
-warning. I hope you did this on a testing machine...
+Does anybody know of any effort put into implementing support for the TCP user 
+timeout option in Linux?
 
-Anyway there could be something new but I need some time. If possible,
-2.6.23-rc4 should be the best thing for testing yet.
+The related draft:
+http://www.ietf.org/internet-drafts/draft-ietf-tcpm-tcp-uto-06.txt
 
-Thanks,
-Jarek P.
+Basically its a per-connection parameter which says how long data can remain 
+unacknowledged before the connection is closed.
+
+br, j
