@@ -1,33 +1,36 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: wither bounds checking for networking sysctls
-Date: Thu, 30 Aug 2007 20:59:39 -0700
-Message-ID: <20070830205939.2f85a567@localhost>
-References: <46D76A3D.9090207@hp.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: [ofa-general] Re: [PATCH RFC] iw_cxgb3: Support "iwarp-only"
+	interfaces to avoid 4-tuple conflicts with the host stack.
+Date: Thu, 30 Aug 2007 21:27:04 -0700
+Message-ID: <adaveawwcpz.fsf@cisco.com>
+References: <1187905185.5547.13.camel@stevo-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:46708 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752282AbXHaD7r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Aug 2007 23:59:47 -0400
-In-Reply-To: <46D76A3D.9090207@hp.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, ewg@lists.openfabrics.org,
+	general@lists.openfabrics.org, linux-kernel@vger.kernel.org
+To: Steve Wise <swise@opengridcomputing.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <1187905185.5547.13.camel@stevo-desktop> (Steve Wise's message of
+	"Thu, 23 Aug 2007 16:39:45 -0500")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 30 Aug 2007 18:09:17 -0700
-Rick Jones <rick.jones2@hp.com> wrote:
+ > The sysadmin creates "for iwarp use only" alias interfaces of the form
+ > "devname:iw*" where devname is the native interface name (eg eth0) for the
+ > iwarp netdev device.  The alias label can be anything starting with "iw".
+ > The "iw" immediately after the ':' is the key used by the iwarp driver.
 
-> While messing about with "sysctl_tcp_rto_min" I went back and forth a 
-> bit as to whether there should have been bounds checking (as did some of 
-> the folks who did some internal review for me).  That leads to the 
-> question - is it considered worthwhile to add a bit more bounds checking 
-> to sundry networking sysctls?
-> 
-> rick jones
+What's wrong with my suggestion of having the iwarp driver create an
+"iwX" interface to go with the normal "ethX" interface?  It seems
+simpler to me, and there's a somewhat similar precedent with how
+mac80211 devices create both wlan0 and wmaster0 interfaces.
 
-IMHO As long as the any value from sysctl doesn't crash kernel, we
-should let it go. Enforcing RFC policy or inter-dependencies seems
-likes a useless exercise.
+ - R.
