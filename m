@@ -1,365 +1,413 @@
-From: Badalian Vyacheslav <slavon@bigtelecom.ru>
-Subject: Re: Tc bug (kernel crash) more info
-Date: Fri, 31 Aug 2007 11:04:21 +0400
-Message-ID: <46D7BD75.3080008@bigtelecom.ru>
-References: <46D53D9C.5070204@bigtelecom.ru> <20070829113447.GA3575@ff.dom.local> <20070829121408.GB3575@ff.dom.local> <46D56C60.3060702@bigtelecom.ru> <20070829133042.GA4038@ff.dom.local> <20070830001632.ki4u5bx9sow40o4s@mail.himki.net> <20070830063110.GB1677@ff.dom.local> <20070830072718.GC1677@ff.dom.local> <46D68937.7030305@bigtelecom.ru> <20070830123751.GA2778@ff.dom.local>
+From: Toralf =?iso-8859-1?q?F=F6rster?= <toralf.foerster@gmx.de>
+Subject: Re: malformed captured packets
+Date: Fri, 31 Aug 2007 09:36:55 +0200
+Message-ID: <200708310936.59016.toralf.foerster@gmx.de>
+References: <200708281811.34074.toralf.foerster@gmx.de> <200708291822.35128.toralf.foerster@gmx.de> <46D69323.3070503@katalix.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030801050200020809080400"
-To: Jarek Poplawski <jarkao2@o2.pl>, netdev@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart66035875.88t8HGH72S";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, wireshark-dev@wireshark.org
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bigtelecom.ru ([87.255.0.61]:54315 "EHLO
-	mail.bigtelecom.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759654AbXHaHEZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 03:04:25 -0400
-In-Reply-To: <20070830123751.GA2778@ff.dom.local>
+Received: from mail.gmx.net ([213.165.64.20]:38583 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751527AbXHaHhE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Aug 2007 03:37:04 -0400
+In-Reply-To: <46D69323.3070503@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030801050200020809080400
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+--nextPart66035875.88t8HGH72S
+Content-Type: multipart/mixed;
+  boundary="Boundary-01=_YU81GfPD9/hZdKp"
 Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-
-I try you patch. Also i try add more debug options to kernel. I catch 
-(BUG: spinlock lockup on CPU#3, tc/6403, f742e200)
-All info in file. Ready for next patch ;)
-
->> Jarek Poplawski ??????????:
->>     
-> ...
->   
->>> On the other hand disabling local interrupts shouldn't be enough here,
->>> so it's really strange... Did you get this remotely? Are you sure LOC
->>> only? (Anyway this 2.6.23-rc4 should be interesting.)
->>>       
-> ...
->   
->> Only LOC changes... icmp answer = 50-70ms... after 1-2 hours traffic 
->> level is down and SI on CPU0 and CPU2 change to above 50%. ksoftirqd 
->> free CPU usage. I have this bug 3-4 times in week. If you need info what 
->> i can see only in bug still processing - i may try get this info for you.
->>     
->
-> Any additional info could be helpful. I'm not sure if all these
-> computers do similar htb processing, or it's another problem?
-> As I've written before htb before 2.6.23-rc1 has a problem with
-> timer lockup during qdisc_destroy, so softirqs would be hit.
-> If it's htb's fault 2.6.23-rc4 or my testing patch should help.
->
-> I try to find in htb code another weak points. BTW, if during
-> such lockups any processes are killed 'by hand' etc., without
-> restarting the whole system, please let us know.
->
->   
->> maybe help:
->>
->> 1U server INTEL, mb se7501w2
->>
->> nat-new ~ # lspci
->>     
->
-> lspci -v (or -vv should be more usable - but with dmesg at least)
->
-> Jarek P.
->
->
->   
-
-
---------------030801050200020809080400
+--Boundary-01=_YU81GfPD9/hZdKp
 Content-Type: text/plain;
- name="bug.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="bug.txt"
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
+
+@wireshark-devs:
+
+The topic is related to
+http://www.wireshark.org/lists/wireshark-users/200707/msg00187.html
+and http://bugzilla.kernel.org/show_bug.cgi?id=3D8793
+
+@all:
+Hi,
+
+Am Donnerstag, 30. August 2007 schrieb James Chapman:
+> Toralf F=F6rster wrote:
+> > Am Mittwoch, 29. August 2007 schrieb James Chapman:
+> >=20
+> >> Can you provide more information about the problem, please? Are you=20
+> >> using a simple DSL modem with PPPoE, such that the ppp0 interface is=20
+> >> that of the pppd started by a local PPPoE server? Is this a problem on=
+ly=20
+> >> with packet capture or are you seeing actual data corruption? Did this=
+=20
+> >> work with previous kernels? What is the network topology related to th=
+e=20
+> >> DSL interface?
+> >>
+> >=20
+> > I use a ThinkPad T41 with this Ethernet controller:
+> >=20
+> > n22 ~ # lspci | grep Eth
+> > 02:01.0 Ethernet controller: Intel Corporation 82540EP Gigabit Ethernet=
+ Controller (Mobile) (rev 03)
+> > 02:02.0 Ethernet controller: Atheros Communications, Inc. AR5212 802.11=
+abg NIC (rev 01)
+> >=20
+> > My DSL provider is Alice DSL (formerly Hansenet) in Hamburg. The T41 is=
+ connected
+> > with an Ethernet cable to a Siemens DSL modem. The modem (just a modem,=
+ not a
+> > router) itself is connected to the DSL splitter which itself is plugged=
+ into socket.
+> >=20
+> > The current ppp version I'm using is net-dialup/ppp-2.4.4-r9
+> >=20
+> > Here are my kernel config settings:
+> >=20
+> > n22 ~ # zgrep PPP /proc/config.gz
+> > CONFIG_PPP=3Dm
+> > # CONFIG_PPP_MULTILINK is not set
+> > CONFIG_PPP_FILTER=3Dy
+> > # CONFIG_PPP_ASYNC is not set
+> > # CONFIG_PPP_SYNC_TTY is not set
+> > CONFIG_PPP_DEFLATE=3Dm
+> > # CONFIG_PPP_BSDCOMP is not set
+> > # CONFIG_PPP_MPPE is not set
+> > CONFIG_PPPOE=3Dm
+> >=20
+> > I observed this problem since a long time with different kernel version=
+s (Gentoo,
+> > plain vanilla kernel, git sources) while playing with ethereal - curren=
+tly known
+> > as wireshark.
+> >=20
+> > I'm wondering b/c for kscd eg. it is always the IP packet containing th=
+e content
+> > information of a CD (or even a <CD is unknown> message) with is struggl=
+ed.
+> > This packets prevents me from using the "Follow TCP Strem" feature of w=
+ireshark
+> > for an easy look into the plain text of all TCP packets of this HTTP st=
+ream
+> > (which was in fact the trigger for me to have a deeper look into the sn=
+iffed
+> > stream from ppp0 and eth0).
+> >=20
+> > For other apps I observed similar things which cannot fully be explaine=
+d by
+> > terms like "TCP checksum offloading".=20
+> >=20
+> > I didn't observed any malfunction at application level so it might be a=
+n issue
+> > with the capturing itself.
+> >=20
+> > Why is the ppp stream always ok in opposite to the eth0 stream ?
+>=20
+> Toralf, thanks for providing more info about your setup.
+>=20
+> Are you using kernel-mode PPPoE? I know some PPPoE servers do the PPPoE=20
+> datapath in userspace...
+>=20
+> The captured PPPoE stream seems to show incorrect data lengths in the=20
+> PPPoE header for some captured PPPoE packets. The kernel's PPPoE=20
+> datapath uses this length to extract the PPP frame and send it through=20
+> to the ppp interface. Since your ppp stream is fine, the actual PPPoE=20
+> header contents must be correct when it is parsed by the kernel PPPoE=20
+> code. It seems more likely that this is a wireshark bug to me.
+>=20
+> Is it possible to get captures from ppp0 and eth0 simultaneously such=20
+> that they show the same ppp instance? This might give more clues.
+>=20
+
+Hi,
+
+yes, I'm using kernel-mode PPPoE. I sniffed at both interfaces the same net=
+work stream with the commands:
+
+$>tcpdump -i eth0 -p -s 0 -w tcpdump_eth0.pcap
+$>tcpdump -i eth0 -p -s 0 -w tcpdump_eth0.pcap
+
+After that I made an
+$>rm -rf .cddb/; kscd
+at the 3rd konsole and attached the 2 pcap streams onto this mail.
+
+Thanks for your help.
 
 
-[  133.592929] HTB: quantum of class 10002 is big. Consider r2q change.
-[  133.606638] HTB: quantum of class 10004 is big. Consider r2q change.
-[  133.609442] HTB: quantum of class 10005 is big. Consider r2q change.
-[  133.612331] HTB: quantum of class 10007 is big. Consider r2q change.
-[  133.615099] HTB: quantum of class 10008 is big. Consider r2q change.
-[  133.624105] HTB: quantum of class 10002 is big. Consider r2q change.
-[  133.628133] HTB: quantum of class 10004 is big. Consider r2q change.
-[  133.630870] HTB: quantum of class 10005 is big. Consider r2q change.
-[  133.633649] HTB: quantum of class 10007 is big. Consider r2q change.
-[  133.636379] HTB: quantum of class 10008 is big. Consider r2q change.
-[  133.648717] u32 classifier
-[  133.648839]     Performance counters on
-[  133.648957]     input device check on 
-[  133.649064]     Actions configured 
-[  135.430122] WARNING: at net/sched/sch_htb.c:404 htb_safe_rb_erase()
-[  135.430322]  [<f88394c5>] htb_deactivate_prios+0x135/0x18c [sch_htb]
-[  135.430491]  [<f883addd>] htb_dequeue+0x468/0x6d6 [sch_htb]
-[  135.430643]  [<c02bcf9b>] __qdisc_run+0x1e/0x190
-[  135.430801]  [<c02b352c>] dev_queue_xmit+0x152/0x266
-[  135.430920]  [<c02b7a40>] neigh_resolve_output+0x1f2/0x224
-[  135.431085]  [<c02ceaee>] ip_output+0x28f/0x2bd
-[  135.431261]  [<c02cbd94>] dst_output+0x0/0x7
-[  135.431419]  [<c02ce48b>] ip_build_and_send_pkt+0x1da/0x1ef
-[  135.431560]  [<c02cbd94>] dst_output+0x0/0x7
-[  135.431698]  [<c02dfbed>] tcp_v4_send_synack+0x9f/0xf3
-[  135.431842]  [<c02e140a>] tcp_v4_conn_request+0x379/0x3ae
-[  135.431979]  [<c02c6913>] rt_intern_hash+0x31f/0x331
-[  135.432121]  [<c02da4f5>] tcp_rcv_state_process+0x62/0xad1
-[  135.432265]  [<c02e090a>] tcp_v4_do_rcv+0x2be/0x311
-[  135.432405]  [<c02e2938>] tcp_v4_rcv+0x86a/0x8de
-[  135.432547]  [<c02c9ec9>] ip_local_deliver+0x18b/0x232
-[  135.432683]  [<c02c9608>] ip_local_deliver_finish+0x0/0x1b2
-[  135.432824]  [<c02c9d05>] ip_rcv+0x484/0x4bd
-[  135.432962]  [<c02b155f>] netif_receive_skb+0x2bc/0x32b
-[  135.433105]  [<c023ca05>] e1000_clean_rx_irq+0x375/0x444
-[  135.433252]  [<c023c690>] e1000_clean_rx_irq+0x0/0x444
-[  135.433388]  [<c023baa9>] e1000_clean+0x7a/0x249
-[  135.433528]  [<c02b32e6>] net_rx_action+0x91/0x185
-[  135.433668]  [<c011c8c6>] __do_softirq+0x5d/0xc1
-[  135.433806]  [<c011c95c>] do_softirq+0x32/0x36
-[  135.433939]  [<c01043e6>] do_IRQ+0x7e/0x90
-[  135.434075]  [<c010d65d>] smp_apic_timer_interrupt+0x74/0x80
-[  135.434219]  [<c010c7c5>] smp_call_function_interrupt+0x3c/0x52
-[  135.434352]  [<c0102f1f>] common_interrupt+0x23/0x28
-[  135.434488]  [<c0100ab1>] mwait_idle_with_hints+0x3b/0x3f
-[  135.434627]  [<c0100bbc>] cpu_idle+0x59/0x6e
-[  135.434765]  [<c0421bcd>] start_kernel+0x2ea/0x2f2
-[  135.434908]  [<c0421440>] unknown_bootoption+0x0/0x202
-[  135.435044]  =======================
-[  140.454198] WARNING: at net/sched/sch_htb.c:404 htb_safe_rb_erase()
-[  140.454311]  [<f88394c5>] htb_deactivate_prios+0x135/0x18c [sch_htb]
-[  140.454469]  [<f883addd>] htb_dequeue+0x468/0x6d6 [sch_htb]
-[  140.454616]  [<c02bcf9b>] __qdisc_run+0x1e/0x190
-[  140.454764]  [<c02b352c>] dev_queue_xmit+0x152/0x266
-[  140.454910]  [<c02b7a40>] neigh_resolve_output+0x1f2/0x224
-[  140.455053]  [<c02ceaee>] ip_output+0x28f/0x2bd
-[  140.455199]  [<c02cbd94>] dst_output+0x0/0x7
-[  140.455341]  [<c02cc13d>] ip_push_pending_frames+0x2f2/0x3b6
-[  140.455484]  [<c02cbd94>] dst_output+0x0/0x7
-[  140.455625]  [<c02cde53>] ip_send_reply+0x1a2/0x1f8
-[  140.455772]  [<c0303e1b>] _read_unlock_bh+0x5/0xd
-[  140.455914]  [<c02dfb1f>] tcp_v4_send_reset+0x10c/0x13b
-[  140.456059]  [<c02e2948>] tcp_v4_rcv+0x87a/0x8de
-[  140.456202]  [<c02c9ec9>] ip_local_deliver+0x18b/0x232
-[  140.456343]  [<c02c9608>] ip_local_deliver_finish+0x0/0x1b2
-[  140.456490]  [<c02c9d05>] ip_rcv+0x484/0x4bd
-[  140.456633]  [<c023c5cb>] e1000_alloc_rx_buffers+0x1bb/0x280
-[  140.456784]  [<c02b155f>] netif_receive_skb+0x2bc/0x32b
-[  140.456925]  [<c023ca05>] e1000_clean_rx_irq+0x375/0x444
-[  140.457069]  [<c023c690>] e1000_clean_rx_irq+0x0/0x444
-[  140.457210]  [<c023baa9>] e1000_clean+0x7a/0x249
-[  140.457351]  [<c02b32e6>] net_rx_action+0x91/0x185
-[  140.457493]  [<c011c8c6>] __do_softirq+0x5d/0xc1
-[  140.457637]  [<c011c95c>] do_softirq+0x32/0x36
-[  140.457781]  [<c01043e6>] do_IRQ+0x7e/0x90
-[  140.457924]  [<c010d65d>] smp_apic_timer_interrupt+0x74/0x80
-[  140.458068]  [<c010c7c5>] smp_call_function_interrupt+0x3c/0x52
-[  140.458212]  [<c0102f1f>] common_interrupt+0x23/0x28
-[  140.458354]  [<c0100ab1>] mwait_idle_with_hints+0x3b/0x3f
-[  140.458495]  [<c0100bbc>] cpu_idle+0x59/0x6e
-[  140.458635]  [<c0421bcd>] start_kernel+0x2ea/0x2f2
-[  140.458783]  [<c0421440>] unknown_bootoption+0x0/0x202
-[  140.458925]  =======================
-[  383.290939] BUG: spinlock lockup on CPU#3, tc/6403, f742e200
-[  383.291058]  [<c01c5fe9>] _raw_spin_lock+0xbb/0xdc
-[  383.291203]  [<c02bcb1d>] qdisc_lock_tree+0x14/0x1c
-[  383.291346]  [<f883a22e>] htb_change_class+0x23a/0x505 [sch_htb]
-[  383.291495]  [<c02bda57>] tc_ctl_tclass+0x1ae/0x1fd
-[  383.291633]  [<c02bd8a9>] tc_ctl_tclass+0x0/0x1fd
-[  383.291774]  [<c02b8898>] rtnetlink_rcv_msg+0x18d/0x1a7
-[  383.291911]  [<c02c2a16>] netlink_run_queue+0x65/0xdb
-[  383.292055]  [<c02b870b>] rtnetlink_rcv_msg+0x0/0x1a7
-[  383.292195]  [<c02b86c7>] rtnetlink_rcv+0x25/0x3d
-[  383.292332]  [<c02c2e58>] netlink_data_ready+0x12/0x52
-[  383.292468]  [<c02c1e92>] netlink_sendskb+0x1c/0x33
-[  383.292605]  [<c02c2e3a>] netlink_sendmsg+0x23b/0x247
-[  383.292746]  [<c02a837b>] sock_sendmsg+0xbc/0xd4
-[  383.292890]  [<c0127bad>] autoremove_wake_function+0x0/0x35
-[  383.293035]  [<c0127bad>] autoremove_wake_function+0x0/0x35
-[  383.293179]  [<c01c44a3>] copy_from_user+0x2d/0x59
-[  383.293314]  [<c02ae8d9>] verify_iovec+0x3e/0x6d
-[  383.293452]  [<c02a8527>] sys_sendmsg+0x194/0x1f9
-[  383.293590]  [<c02a8d9b>] sys_recvmsg+0x14d/0x1cf
-[  383.293727]  [<c01c44a3>] copy_from_user+0x2d/0x59
-[  383.293864]  [<c013bfc4>] __alloc_pages+0x63/0x297
-[  383.294004]  [<c0143be0>] __handle_mm_fault+0x7bd/0x7ef
-[  383.294148]  [<c02ab565>] sock_def_write_space+0x15/0x8e
-[  383.294284]  [<c02ab054>] sock_setsockopt+0x4bb/0x4c5
-[  383.295769]  [<c02a949a>] sys_socketcall+0x223/0x242
-[  383.295911]  [<c030520e>] do_page_fault+0x0/0x534
-[  383.296051]  [<c010250e>] sysenter_past_esp+0x5f/0x85
-[  383.296192]  =======================
+=2D-=20
+MfG/Sincerely
 
-############# SYSTEM IS FREEZE. reboot on panic not work. Reboot manual
+Toralf F=F6rster
+pgp finger print: 7B1A 07F4 EC82 0F90 D4C2 8936 872A E508 7DB6 9DA3
 
-[   30.748000] HTB: quantum of class 10002 is big. Consider r2q change.
-[   30.774000] HTB: quantum of class 10004 is big. Consider r2q change.
-[   30.777000] HTB: quantum of class 10005 is big. Consider r2q change.
-[   30.779000] HTB: quantum of class 10007 is big. Consider r2q change.
-[   30.782000] HTB: quantum of class 10008 is big. Consider r2q change.
-[   30.790000] HTB: quantum of class 10002 is big. Consider r2q change.
-[   30.794000] HTB: quantum of class 10004 is big. Consider r2q change.
-[   30.797000] HTB: quantum of class 10005 is big. Consider r2q change.
-[   30.800000] HTB: quantum of class 10007 is big. Consider r2q change.
-[   30.803000] HTB: quantum of class 10008 is big. Consider r2q change.
-[   30.815000] u32 classifier
-[   30.815000]     Performance counters on
-[   30.815000]     input device check on 
-[   30.816000]     Actions configured 
-[   32.684000] WARNING: at net/sched/sch_htb.c:404 htb_safe_rb_erase()
-[   32.684000]  [<f88394c5>] htb_deactivate_prios+0x135/0x18c [sch_htb]
-[   32.684000]  [<f883addd>] htb_dequeue+0x468/0x6d6 [sch_htb]
-[   32.684000]  [<c02bcf9b>] __qdisc_run+0x1e/0x190
-[   32.684000]  [<c02b352c>] dev_queue_xmit+0x152/0x266
-[   32.684000]  [<c02b7a40>] neigh_resolve_output+0x1f2/0x224
-[   32.684000]  [<c02ceaee>] ip_output+0x28f/0x2bd
-[   32.684000]  [<c02cbd94>] dst_output+0x0/0x7
-[   32.684000]  [<c02ce1c2>] ip_queue_xmit+0x319/0x35e
-[   32.684000]  [<c02cbd94>] dst_output+0x0/0x7
-[   32.684000]  [<c02c700a>] __ip_route_output_key+0x6e5/0x6ff
-[   32.684000]  [<c02e0fd3>] tcp_v4_send_check+0x80/0xb6
-[   32.684000]  [<c02dc494>] tcp_transmit_skb+0x65c/0x68f
-[   32.684000]  [<c02ad694>] __alloc_skb+0x49/0xf5
-[   32.684000]  [<c02de876>] tcp_connect+0x2a8/0x327
-[   32.684000]  [<c02e1a15>] tcp_v4_connect+0x468/0x586
-[   32.684000]  [<c02ec4d5>] inet_stream_connect+0x7f/0x1ff
-[   32.684000]  [<c013e195>] mark_page_accessed+0x1c/0x30
-[   32.684000]  [<c01c44a3>] copy_from_user+0x2d/0x59
-[   32.684000]  [<c02a7eca>] sys_connect+0x72/0x9c
-[   32.684000]  [<c02a9d5f>] release_sock+0x13/0x94
-[   32.684000]  [<c02e0b3f>] tcp_v4_init_sock+0x6f/0x141
-[   32.684000]  [<c0303e2d>] _spin_unlock_bh+0x5/0xd
-[   32.684000]  [<c02ab054>] sock_setsockopt+0x4bb/0x4c5
-[   32.684000]  [<c0161002>] d_instantiate+0x3f/0x4c
-[   32.684000]  [<c02a7e22>] sys_setsockopt+0x53/0x89
-[   32.684000]  [<c02a9306>] sys_socketcall+0x8f/0x242
-[   32.684000]  [<c010250e>] sysenter_past_esp+0x5f/0x85
-[   32.684000]  =======================
+--Boundary-01=_YU81GfPD9/hZdKp
+Content-Type: application/octet-stream;
+  name="tcpdump_ppp0.pcap"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+	filename="tcpdump_ppp0.pcap"
 
-### System is freeze. Keyboard not work. reboot on panic not work. Reboot
-manual
+1MOyoQIABAAAAAAAAAAAAP//AABxAAAA1drWRlTxBgBcAAAAXAAAAAAEAgAAAAAAAAAAAAAACABF
+AABMAABAAEARJLrVJ4tV1T3gLAB7AHsAOFAUIwMG7AAADooAAAkv1cviqsqBWR99CgGZyoFZFHSW
+lPfKgVkUgDwXjMqBWVV0dntY1drWRkmkBwBcAAAAXAAAAAAAAgAAAAAAAAAAAAAACABFAABMAABA
+ADYRLrrVPeAs1SeLVQB7AHsAOJ6bJAIG7AAABeUAABKng7wD3sqBVySyFAInyoFZVXR2e1jKgVlV
+dF7NGcqBWVV0X5fi2drWRkckDABMAAAATAAAAAAEAgAAAAAAAAAAAAAACABFAAA8LgBAAEAG27zV
+J4tV1Fv8Jq7cAFBmhA+7AAAAAKACFrC5IQAAAgQFrAQCCAoAESG7AAAAAAEDAwbZ2tZGsesMAEwA
+AABMAAAAAAACAAAAAAAAAAAAAAAIAEUAADwAAEAANgYTvdRb/CbVJ4tVAFCu3BTlLmhmhA+8oBIW
+oGUwAAACBAW0BAIICnnxlq8AESG7AQMDANna1kYP7AwARAAAAEQAAAAABAIAAAAAAAAAAAAAAAgA
+RQAANC4BQABABtvD1SeLVdRb/Cau3ABQZoQPvBTlLmmAEABbqgcAAAEBCAoAESHuefGWr9na1kbi
+7gwAlwIAAJcCAAAABAIAAAAAAAAAAAAAAAgARQAChy4CQABABtlv1SeLVdRb/Cau3ABQZoQPvBTl
+LmmAGABbUmkAAAEBCAoAESHvefGWr0dFVCAvJTdFY2RkYi9jZGRiLmNnaT9jbWQ9Y2RkYiUyMHF1
+ZXJ5JTIwZWMwZmM1MTElMjAxNyUyMDE1MCUyMDE2NzMyJTIwMzU5MDclMjA1MDIwNSUyMDY5Mzcw
+JTIwODMzMDglMjAxMDUwMzklMjAxMjE2NzAlMjAxMzc5MDklMjAxNTk1MzYlMjAxODMwNzMlMjAy
+MDQwMzglMjAyMjEzNDElMjAyNDU4ODIlMjAyNTk4MTglMjAyNzYzMTMlMjAyOTY4OTglMjA0MDM5
+JmhlbGxvPWxpYmtjZGRiLXVzZXIlMjBsb2NhbEhvc3QlMjBsaWJrY2RkYiUyMDAuMzEmcHJvdG89
+NiBIVFRQLzEuMQ0KVXNlci1BZ2VudDogTW96aWxsYS81LjAgKGNvbXBhdGlibGU7IEtvbnF1ZXJv
+ci8zLjUpIEtIVE1MLzMuNS43IChsaWtlIEdlY2tvKQ0KQWNjZXB0OiB0ZXh0L2h0bWwsIGltYWdl
+L2pwZWcsIGltYWdlL3BuZywgdGV4dC8qLCBpbWFnZS8qLCAqLyoNCkFjY2VwdC1FbmNvZGluZzog
+eC1nemlwLCB4LWRlZmxhdGUsIGd6aXAsIGRlZmxhdGUNCkFjY2VwdC1DaGFyc2V0OiBpc28tODg1
+OS0xNSwgdXRmLTg7cT0wLjUsICo7cT0wLjUNCkFjY2VwdC1MYW5ndWFnZTogZGUsIGVuDQpIb3N0
+OiBmcmVlZGIuZnJlZWRiLm9yZw0KQ29ubmVjdGlvbjogS2VlcC1BbGl2ZQ0KDQrZ2tZG8tUNAEQA
+AABEAAAAAAACAAAAAAAAAAAAAAAIAEUAADS4i0AANgZbOdRb/CbVJ4tVAFCu3BTlLmlmhBIPgBAZ
+kY46AAABAQgKefGW8gARIe/Z2tZG0vYOAIsBAACLAQAAAAACAAAAAAAAAAAAAAAIAEUAAXu4jEAA
+NgZZ8dRb/CbVJ4tVAFCu3BTlLmlmhBIPgBgZkfxWAAABAQgKefGXOwARIe9IVFRQLzEuMSAyMDAg
+T0sNCkRhdGU6IFRodSwgMzAgQXVnIDIwMDcgMTQ6NTc6MjkgR01UDQpTZXJ2ZXI6IEFwYWNoZS8y
+LjAuNTQgKERlYmlhbiBHTlUvTGludXgpDQpFeHBpcmVzOiBUaHUgQXVnIDMwIDE2OjU3OjI5IDIw
+MDcNCktlZXAtQWxpdmU6IHRpbWVvdXQ9MTUsIG1heD0xMDANCkNvbm5lY3Rpb246IEtlZXAtQWxp
+dmUNClRyYW5zZmVyLUVuY29kaW5nOiBjaHVua2VkDQpDb250ZW50LVR5cGU6IHRleHQvcGxhaW47
+IGNoYXJzZXQ9VVRGLTgNClgtUGFkOiBhdm9pZCBicm93c2VyIGJ1Zw0KDQoyNA0KMjAwIG1pc2Mg
+ZWMwZmM1MTEgTWlsdmEgLyBNZWluIFdlZw0KDQrZ2tZGLvcOAEQAAABEAAAAAAQCAAAAAAAAAAAA
+AAAIAEUAADQuA0AAQAbbwdUni1XUW/wmrtwAUGaEEg8U5S+wgBAAbKVKAAABAQgKABEidHnxlzvZ
+2tZG2fYOAEkAAABJAAAAAAACAAAAAAAAAAAAAAAIAEUAADm4jUAANgZbMtRb/CbVJ4tVAFCu3BTl
+L7BmhBIPgBgZkUiDAAABAQgKefGXOwARIe8wDQoNCtna1kZO9w4ARAAAAEQAAAAABAIAAAAAAAAA
+AAAAAAgARQAANC4EQABABtvA1SeLVdRb/Cau3ABQZoQSDxTlL7WAEABspUUAAAEBCAoAESJ0efGX
+O9na1kakGw8AAAIAAAACAAAABAIAAAAAAAAAAAAAAAgARQAB8C4FQABABtoD1SeLVdRb/Cau3ABQ
+ZoQSDxTlL7WAGABsjNIAAAEBCAoAESJ+efGXO0dFVCAvJTdFY2RkYi9jZGRiLmNnaT9jbWQ9Y2Rk
+YiUyMHJlYWQlMjBtaXNjJTIwZWMwZmM1MTEmaGVsbG89bGlia2NkZGItdXNlciUyMGxvY2FsSG9z
+dCUyMGxpYmtjZGRiJTIwMC4zMSZwcm90bz02IEhUVFAvMS4xDQpVc2VyLUFnZW50OiBNb3ppbGxh
+LzUuMCAoY29tcGF0aWJsZTsgS29ucXVlcm9yLzMuNSkgS0hUTUwvMy41LjcgKGxpa2UgR2Vja28p
+DQpBY2NlcHQ6IHRleHQvaHRtbCwgaW1hZ2UvanBlZywgaW1hZ2UvcG5nLCB0ZXh0LyosIGltYWdl
+LyosICovKg0KQWNjZXB0LUVuY29kaW5nOiB4LWd6aXAsIHgtZGVmbGF0ZSwgZ3ppcCwgZGVmbGF0
+ZQ0KQWNjZXB0LUNoYXJzZXQ6IGlzby04ODU5LTE1LCB1dGYtODtxPTAuNSwgKjtxPTAuNQ0KQWNj
+ZXB0LUxhbmd1YWdlOiBkZSwgZW4NCkhvc3Q6IGZyZWVkYi5mcmVlZGIub3JnDQpDb25uZWN0aW9u
+OiBLZWVwLUFsaXZlDQoNCtra1kY+tgAARAAAAEQAAAAAAAIAAAAAAAAAAAAAAAgARQAANLiOQAA2
+Bls21Fv8JtUni1UAUK7cFOUvtWaEE8uAEB43hXMAAAEBCAp58Zd8ABEiftra1kYy3wAAHAUAABwF
+AAAAAAIAAAAAAAAAAAAAAAgARQAFDLiPQAA2BlZd1Fv8JtUni1UAUK7cFOUvtWaEE8uAGB432p0A
+AAEBCAp58ZeCABEifkhUVFAvMS4xIDIwMCBPSw0KRGF0ZTogVGh1LCAzMCBBdWcgMjAwNyAxNDo1
+NzozMCBHTVQNClNlcnZlcjogQXBhY2hlLzIuMC41NCAoRGViaWFuIEdOVS9MaW51eCkNCkV4cGly
+ZXM6IFRodSBBdWcgMzAgMTY6NTc6MzAgMjAwNw0KS2VlcC1BbGl2ZTogdGltZW91dD0xNSwgbWF4
+PTk5DQpDb25uZWN0aW9uOiBLZWVwLUFsaXZlDQpUcmFuc2Zlci1FbmNvZGluZzogY2h1bmtlZA0K
+Q29udGVudC1UeXBlOiB0ZXh0L3BsYWluOyBjaGFyc2V0PVVURi04DQpYLVBhZDogYXZvaWQgYnJv
+d3NlciBidWcNCg0KM2I1DQoyMTAgbWlzYyBlYzBmYzUxMSBDRCBkYXRhYmFzZSBlbnRyeSBmb2xs
+b3dzICh1bnRpbCB0ZXJtaW5hdGluZyBgLicpDQojIHhtY2QgQ0QgZGF0YWJhc2UgZmlsZSBnZW5l
+cmF0ZWQgYnkgTE9MQV9GcmVlZGIgdjAuOWJldGEwDQojIA0KIyBUcmFjayBmcmFtZSBvZmZzZXRz
+Og0KIyAgICAgIDE1MA0KIyAgICAgIDE2NzMyDQojICAgICAgMzU5MDcNCiMgICAgICA1MDIwNQ0K
+IyAgICAgIDY5MzcwDQojICAgICAgODMzMDgNCiMgICAgICAxMDUwMzkNCiMgICAgICAxMjE2NzAN
+CiMgICAgICAxMzc5MDkNCiMgICAgICAxNTk1MzYNCiMgICAgICAxODMwNzMNCiMgICAgICAyMDQw
+MzgNCiMgICAgICAyMjEzNDENCiMgICAgICAyNDU4ODINCiMgICAgICAyNTk4MTgNCiMgICAgICAy
+NzYzMTMNCiMgICAgICAyOTY4OTgNCiMgDQojIERpc2MgbGVuZ3RoOiA0MDM5IHNlY29uZHMNCiMg
+DQojIFJldmlzaW9uOiA0IA0KIyBQcm9jZXNzZWQgYnk6IGNkZGJkIHYxLjUuMlBMMCBDb3B5cmln
+aHQgKGMpIFN0ZXZlIFNjaGVyZiBldCBhbC4NCiMgU3VibWl0dGVkIHZpYTogTE9MQV9GcmVlZGIg
+djAuOWJldGEwDQojIA0KRElTQ0lEPWVjMGZjNTExDQpEVElUTEU9TWlsdmEgLyBNZWluIFdlZw0K
+RFlFQVI9MTkwMA0KREdFTlJFPVVua25vd24NClRUSVRMRTA9TWlsdmEgLyBadXNhbW1lbmxlYmVu
+IChsaXZlKQ0KVFRJVExFMT1NaWx2YSAvIEljaCBoYWIga2VpbmUgQW5nc3QNClRUSVRMRTI9TWls
+dmEgLyBIdXJyYSwgd2lyIGxlYmVuIG5vY2gNClRUSVRMRTM9QWxleGFuZGVycGxhdHogKGxpdmUp
+DQpUVElUTEU0PUZyZWloZWl0IGluIG1laW5lciBTcHJhY2hlDQpUVElUTEU1PVdlbm4gZGVyIFdp
+bmQgc2ljaCBkcmVodA0KVFRJVExFNj1Lb21tIHp1csO8Y2sgenUgbWlyDQpUVElUTEU3PUljaCB3
+ZWlzcyBlcyBzZWxiZXIgbmljaHQgZ2VuYXUNClRUSVRMRTg9S2VpbmUgU3R1bmRlIHR1dCBtDQra
+2tZGNN8AANIBAADSAQAAAAACAAAAAAAAAAAAAAAIAEUAAcK4kEAANgZZptRb/CbVJ4tVAFCu3BTl
+NI1mhBPLgBgeNzo9AAABAQgKefGXggARIn4xODcNCmlyIGxlaWQNClRUSVRMRTk9TWlsdmEgLyBU
+YXVzZW5kdW5kZWluZSBOYWNodA0KVFRJVExFMTA9RWluIEtvbW1lbiB1bmQgR2VoZW4NClRUSVRM
+RTExPUzCtFVsdGltYSBDYXJtZW4NClRUSVRMRTEyPUR1IGdpYnN0IG1pciBtZWhyDQpUVElUTEUx
+Mz1EdSBoYXN0IGVzIGd1dA0KVFRJVExFMTQ9R3VhcHBhcmlhDQpUVElUTEUxNT1NdXR0ZXINClRU
+SVRMRTE2PURhIG9iZW4gaXN0IHNlaW4gWmltbWVyDQpFWFREPQ0KRVhUVDA9DQpFWFRUMT0NCkVY
+VFQyPQ0KRVhUVDM9DQpFWFRUND0NCkVYVFQ1PQ0KRVhUVDY9DQpFWFRUNz0NCkVYVFQ4PQ0KRVhU
+VDk9DQpFWFRUMTA9DQpFWFRUMTE9DQpFWFRUMTI9DQpFWFRUMTM9DQpFWFRUMTQ9DQpFWFRUMTU9
+DQpFWFRUMTY9DQpQTEFZT1JERVI9DQoNCtra1kZ93wAARAAAAEQAAAAABAIAAAAAAAAAAAAAAAgA
+RQAANC4GQABABtu+1SeLVdRb/Cau3ABQZoQTyxTlNhuAEAC5nEIAAAEBCAoAESLBefGXgtra1kY4
+3wAATAAAAEwAAAAAAAIAAAAAAAAAAAAAAAgARQAAPLiRQAA2Blsr1Fv8JtUni1UAUK7cFOU2G2aE
+E8uAGB43J6cAAAEBCAp58ZeDABEifjMNCi4NCg0K2trWRlt7AQBEAAAARAAAAAAEAgAAAAAAAAAA
+AAAACABFAAA0LgdAAEAG273VJ4tV1Fv8Jq7cAFBmhBPLFOU2I4AQALmcEQAAAQEICgARIul58ZeD
+2trWRteQAQBJAAAASQAAAAAAAgAAAAAAAAAAAAAACABFAAA5uJJAADYGWy3UW/wm1SeLVQBQrtwU
+5TYjZoQTy4AYHjc6YwAAAQEICnnxl7QAESLBMA0KDQra2tZGN5EBAEQAAABEAAAAAAQCAAAAAAAA
+AAAAAAAIAEUAADQuCEAAQAbbvNUni1XUW/wmrtwAUGaEE8sU5TYogBAAuZvWAAABAQgKABEi7nnx
+l7Td2tZGCrABAPYBAAD2AQAAAAACAAAAAAAAAAAAAAAIAEUAAeYAAEAALRE9X93Q0FrVJ4tVoBUE
+AgHSGM0EACgAEAAAAAAAAAAAAAAAAAAAAAAAAAD4kXtaAP/QEamyAMBPtub8AiVdy9Y7C8Ryi98s
+meKpzgAAAAABAAAAAAAAAAAA/////3oBAAAAABAAAAAAAAAAEAAAAEZST00AAAAAAAAAAAAAAAAQ
+AAAAAAAAABAAAABUTwAAAAAAAAAAAAAAAAAANgEAAAAAAAA2AQAAU1RPUCEgV0lORE9XUyBSRVFV
+SVJFUyBJTU1FRElBVEUgQVRURU5USU9OLgoKV2luZG93cyBoYXMgZm91bmQgNTUgQ3JpdGljYWwg
+U3lzdGVtIEVycm9ycy4KClRvIGZpeCB0aGUgZXJyb3JzIHBsZWFzZSBkbyB0aGUgZm9sbG93aW5n
+OgoKMS4gRG93bmxvYWQgUmVnaXN0cnkgVXBkYXRlIGZyb206IHd3dy5oZWxwZml4cGMuY29tCjIu
+IEluc3RhbGwgUmVnaXN0cnkgVXBkYXRlCjMuIFJ1biBSZWdpc3RyeSBVcGRhdGUKNC4gUmVib290
+IHlvdXIgY29tcHV0ZXIKCkZBSUxVUkUgVE8gQUNUIE5PVyBNQVkgTEVBRCBUTyBTWVNURU0gRkFJ
+TFVSRSEKAN3a1kYBsQEA9gEAAPYBAAAAAAIAAAAAAAAAAAAAAAgARQAB5gAAQAAtET1f3dDQWtUn
+i1WgFQQDAdIYzAQAKAAQAAAAAAAAAAAAAAAAAAAAAAAAAPiRe1oA/9ARqbIAwE+25vwCJV3L1jsL
+xHKL3yyZ4qnOAAAAAAEAAAAAAAAAAAD/////egEAAAAAEAAAAAAAAAAQAAAARlJPTQAAAAAAAAAA
+AAAAABAAAAAAAAAAEAAAAFRPAAAAAAAAAAAAAAAAAAA2AQAAAAAAADYBAABTVE9QISBXSU5ET1dT
+IFJFUVVJUkVTIElNTUVESUFURSBBVFRFTlRJT04uCgpXaW5kb3dzIGhhcyBmb3VuZCA1NSBDcml0
+aWNhbCBTeXN0ZW0gRXJyb3JzLgoKVG8gZml4IHRoZSBlcnJvcnMgcGxlYXNlIGRvIHRoZSBmb2xs
+b3dpbmc6CgoxLiBEb3dubG9hZCBSZWdpc3RyeSBVcGRhdGUgZnJvbTogd3d3LmhlbHBmaXhwYy5j
+b20KMi4gSW5zdGFsbCBSZWdpc3RyeSBVcGRhdGUKMy4gUnVuIFJlZ2lzdHJ5IFVwZGF0ZQo0LiBS
+ZWJvb3QgeW91ciBjb21wdXRlcgoKRkFJTFVSRSBUTyBBQ1QgTk9XIE1BWSBMRUFEIFRPIFNZU1RF
+TSBGQUlMVVJFIQoA3drWRqERAwBEAAAARAAAAAAEAgAAAAAAAAAAAAAACABFAAA0LglAAEAG27vV
+J4tV1Fv8Jq7cAFBmhBPLFOU2KIARALmPugAAAQEICgARLwl58Ze03drWRjG7AwBEAAAARAAAAAAA
+AgAAAAAAAAAAAAAACABFAAA0uJNAADYGWzHUW/wm1SeLVQBQrtwU5TYoZoQTzIARHjdl8wAAAQEI
+Cnnxo/wAES8J3drWRnu7AwBEAAAARAAAAAAEAgAAAAAAAAAAAAAACABFAAA0LgpAAEAG27rVJ4tV
+1Fv8Jq7cAFBmhBPMFOU2KYAQALmDRgAAAQEICgARLzR58aP84NrWRljxBgBcAAAAXAAAAAAEAgAA
+AAAAAAAAAAAACABFAABMAABAAEARIa7VJ4tV1cviqgB7AHsAOJVvIwMG7AAADooAAAk51cviqsqB
+WR99CgGZyoFZH3luMznKgVkffQoBmcqBWWB0dqjR4NrWRrV0BwBcAAAAXAAAAAAAAgAAAAAAAAAA
+AAAACABFAABMAABAADgRKa7Vy+Kq1SeLVQB7AHsAOPMoJAIG7gAABfgAAAOzwDVnbMqBWEb5UKdq
+yoFZYHR2qNHKgVlgeb6R5sqBWWB5v8RX
 
-[  127.698542] HTB: quantum of class 10002 is big. Consider r2q change.
-[  127.722805] HTB: quantum of class 10004 is big. Consider r2q change.
-[  127.725820] HTB: quantum of class 10005 is big. Consider r2q change.
-[  127.728585] HTB: quantum of class 10007 is big. Consider r2q change.
-[  127.731314] HTB: quantum of class 10008 is big. Consider r2q change.
-[  127.743386] HTB: quantum of class 10002 is big. Consider r2q change.
-[  127.747382] HTB: quantum of class 10004 is big. Consider r2q change.
-[  127.750136] HTB: quantum of class 10005 is big. Consider r2q change.
-[  127.752952] HTB: quantum of class 10007 is big. Consider r2q change.
-[  127.755631] WARNING: at net/sched/sch_htb.c:404 htb_safe_rb_erase()
-[  127.755692] HTB: quantum of class 10008 is big. Consider r2q change.
-[  127.755853]  [<f88394c5>] htb_deactivate_prios+0x135/0x18c [sch_htb]
-[  127.756000]  [<f883addd>] htb_dequeue+0x468/0x6d6 [sch_htb]
-[  127.756144]  [<c01d7148>] extract_entropy+0x45/0x89
-[  127.756289]  [<c02bcf9b>] __qdisc_run+0x1e/0x190
-[  127.756434]  [<c02b352c>] dev_queue_xmit+0x152/0x266
-[  127.756574]  [<c02e80d0>] arp_send+0x4c/0x64
-[  127.756720]  [<c02e76d2>] arp_xmit+0x4d/0x51
-[  127.756857]  [<c02e839b>] arp_process+0x2b3/0x50b
-[  127.757001]  [<c013a5dc>] mempool_free+0x66/0x6b
-[  127.757151]  [<c0303ed7>] _spin_lock_irqsave+0x9/0xd
-[  127.757291]  [<c01d6c48>] __add_entropy_words+0x58/0x184
-[  127.757430]  [<c02e86e2>] arp_rcv+0xef/0x103
-[  127.757567]  [<c02b155f>] netif_receive_skb+0x2bc/0x32b
-[  127.757705]  [<c023ca05>] e1000_clean_rx_irq+0x375/0x444
-[  127.757853]  [<c023c690>] e1000_clean_rx_irq+0x0/0x444
-[  127.757990]  [<c023baa9>] e1000_clean+0x7a/0x249
-[  127.758126]  [<c02b32e6>] net_rx_action+0x91/0x185
-[  127.758264]  [<c011c8c6>] __do_softirq+0x5d/0xc1
-[  127.758404]  [<c011c95c>] do_softirq+0x32/0x36
-[  127.758547]  [<c01043e6>] do_IRQ+0x7e/0x90
-[  127.758696]  [<c010d65d>] smp_apic_timer_interrupt+0x74/0x80
-[  127.758840]  [<c010c7c5>] smp_call_function_interrupt+0x3c/0x52
-[  127.758978]  [<c0102f1f>] common_interrupt+0x23/0x28
-[  127.759115]  [<c0100ab1>] mwait_idle_with_hints+0x3b/0x3f
-[  127.759254]  [<c0100bbc>] cpu_idle+0x59/0x6e
-[  127.759390]  [<c0421bcd>] start_kernel+0x2ea/0x2f2
-[  127.759534]  [<c0421440>] unknown_bootoption+0x0/0x202
-[  127.759672]  =======================
-[  127.765948] u32 classifier
-[  127.766062]     Performance counters on
-[  127.766177]     input device check on 
-[  127.766293]     Actions configured 
-[  128.857330] WARNING: at net/sched/sch_htb.c:404 htb_safe_rb_erase()
-[  128.857449]  [<f88394c5>] htb_deactivate_prios+0x135/0x18c [sch_htb]
-[  128.857606]  [<f883addd>] htb_dequeue+0x468/0x6d6 [sch_htb]
-[  128.857754]  [<c02bcf9b>] __qdisc_run+0x1e/0x190
-[  128.857901]  [<c02b352c>] dev_queue_xmit+0x152/0x266
-[  128.858048]  [<c02e80d0>] arp_send+0x4c/0x64
-[  128.858191]  [<c02e76d2>] arp_xmit+0x4d/0x51
-[  128.858331]  [<c02e8936>] arp_solicit+0x132/0x190
-[  128.858469]  [<c02b814f>] neigh_timer_handler+0x238/0x281
-[  128.858606]  [<c02b7f17>] neigh_timer_handler+0x0/0x281
-[  128.858744]  [<c011f798>] run_timer_softirq+0xfa/0x15d
-[  128.858887]  [<c011c8c6>] __do_softirq+0x5d/0xc1
-[  128.859027]  [<c011c95c>] do_softirq+0x32/0x36
-[  128.859166]  [<c010d65d>] smp_apic_timer_interrupt+0x74/0x80
-[  128.859307]  [<c010c7c5>] smp_call_function_interrupt+0x3c/0x52
-[  128.859449]  [<c0102fdc>] apic_timer_interrupt+0x28/0x30
-[  128.859589]  [<c0100ab1>] mwait_idle_with_hints+0x3b/0x3f
-[  128.859727]  [<c0100bbc>] cpu_idle+0x59/0x6e
-[  128.859862]  [<c0421bcd>] start_kernel+0x2ea/0x2f2
-[  128.860007]  [<c0421440>] unknown_bootoption+0x0/0x202
-[  128.860144]  =======================
-[  189.139227] megaraid: aborting-1187 cmd=28 <c=2 t=0 l=0>
-[  189.139337] megaraid: 1187:11[255:0], abort from completed list
+--Boundary-01=_YU81GfPD9/hZdKp
+Content-Type: application/octet-stream;
+  name="tcpdump_eth0.pcap"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+	filename="tcpdump_eth0.pcap"
 
-### System is freeze. Keyboard not work. reboot on panic not work. Reboot
-manual
+1MOyoQIABAAAAAAAAAAAAP//AAABAAAA1drWRmPxBgBiAAAAYgAAAACQGqBXhAANYHstm4hkEQAc
+WABOACFFAABMAABAAEARJLrVJ4tV1T3gLAB7AHsAOFAUIwMG7AAADooAAAkv1cviqsqBWR99CgGZ
+yoFZFHSWlPfKgVkUgDwXjMqBWVV0dntY1drWRkmkBwBiAAAAYgAAAAANYHstmwCQGqBXhIhkEQAc
+WABOACFFAABMAABAADYRLrrVPeAs1SeLVQB7AHsAOJ6bJAIG7AAABeUAABKng7wD3sqBVySyFAIn
+yoFZVXR2e1jKgVlVdF7NGcqBWVV0X5fi2drWRlAkDABSAAAAUgAAAACQGqBXhAANYHstm4hkEQAc
+WAA+ACFFAAA8LgBAAEAG27zVJ4tV1Fv8Jq7cAFBmhA+7AAAAAKACFrC5IQAAAgQFrAQCCAoAESG7
+AAAAAAEDAwbZ2tZGsesMAFIAAABSAAAAAA1gey2bAJAaoFeEiGQRABxYAD4AIUUAADwAAEAANgYT
+vdRb/CbVJ4tVAFCu3BTlLmhmhA+8oBIWoGUwAAACBAW0BAIICnnxlq8AESG7AQMDANna1kYX7AwA
+SgAAAEoAAAAAkBqgV4QADWB7LZuIZBEAHFgANgAhRQAANC4BQABABtvD1SeLVdRb/Cau3ABQZoQP
+vBTlLmmAEABbqgcAAAEBCAoAESHuefGWr9na1kbp7gwAnQIAAJ0CAAAAkBqgV4QADWB7LZuIZBEA
+HFgCiQAhRQAChy4CQABABtlv1SeLVdRb/Cau3ABQZoQPvBTlLmmAGABbUmkAAAEBCAoAESHvefGW
+r0dFVCAvJTdFY2RkYi9jZGRiLmNnaT9jbWQ9Y2RkYiUyMHF1ZXJ5JTIwZWMwZmM1MTElMjAxNyUy
+MDE1MCUyMDE2NzMyJTIwMzU5MDclMjA1MDIwNSUyMDY5MzcwJTIwODMzMDglMjAxMDUwMzklMjAx
+MjE2NzAlMjAxMzc5MDklMjAxNTk1MzYlMjAxODMwNzMlMjAyMDQwMzglMjAyMjEzNDElMjAyNDU4
+ODIlMjAyNTk4MTglMjAyNzYzMTMlMjAyOTY4OTglMjA0MDM5JmhlbGxvPWxpYmtjZGRiLXVzZXIl
+MjBsb2NhbEhvc3QlMjBsaWJrY2RkYiUyMDAuMzEmcHJvdG89NiBIVFRQLzEuMQ0KVXNlci1BZ2Vu
+dDogTW96aWxsYS81LjAgKGNvbXBhdGlibGU7IEtvbnF1ZXJvci8zLjUpIEtIVE1MLzMuNS43IChs
+aWtlIEdlY2tvKQ0KQWNjZXB0OiB0ZXh0L2h0bWwsIGltYWdlL2pwZWcsIGltYWdlL3BuZywgdGV4
+dC8qLCBpbWFnZS8qLCAqLyoNCkFjY2VwdC1FbmNvZGluZzogeC1nemlwLCB4LWRlZmxhdGUsIGd6
+aXAsIGRlZmxhdGUNCkFjY2VwdC1DaGFyc2V0OiBpc28tODg1OS0xNSwgdXRmLTg7cT0wLjUsICo7
+cT0wLjUNCkFjY2VwdC1MYW5ndWFnZTogZGUsIGVuDQpIb3N0OiBmcmVlZGIuZnJlZWRiLm9yZw0K
+Q29ubmVjdGlvbjogS2VlcC1BbGl2ZQ0KDQrZ2tZG8tUNAEoAAABKAAAAAA1gey2bAJAaoFeEiGQR
+ABxYADYAIUUAADS4i0AANgZbOdRb/CbVJ4tVAFCu3BTlLmlmhBIPgBAZkY46AAABAQgKefGW8gAR
+Ie/Z2tZG0vYOAJEBAACRAQAAAA1gey2bAJAaoFeEiGQRABxYAH0AIUUAAXu4jEAANgZZ8dRb/CbV
+J4tVAFCu3BTlLmlmhBIPgBgZkfxWAAABAQgKefGXOwARIe9IVFRQLzEuMSAyMDAgT0sNCkRhdGU6
+IFRodSwgMzAgQXVnIDIwMDcgMTQ6NTc6MjkgR01UDQpTZXJ2ZXI6IEFwYWNoZS8yLjAuNTQgKERl
+YmlhbiBHTlUvTGludXgpDQpFeHBpcmVzOiBUaHUgQXVnIDMwIDE2OjU3OjI5IDIwMDcNCktlZXAt
+QWxpdmU6IHRpbWVvdXQ9MTUsIG1heD0xMDANCkNvbm5lY3Rpb246IEtlZXAtQWxpdmUNClRyYW5z
+ZmVyLUVuY29kaW5nOiBjaHVua2VkDQpDb250ZW50LVR5cGU6IHRleHQvcGxhaW47IGNoYXJzZXQ9
+VVRGLTgNClgtUGFkOiBhdm9pZCBicm93c2VyIGJ1Zw0KDQoyNA0KMjAwIG1pc2MgZWMwZmM1MTEg
+TWlsdmEgLyBNZWluIFdlZw0KDQrZ2tZG2fYOAE8AAABPAAAAAA1gey2bAJAaoFeEiGQRABxYADsA
+IUUAADm4jUAANgZbMtRb/CbVJ4tVAFCu3BTlL7BmhBIPgBgZkUiDAAABAQgKefGXOwARIe8wDQoN
+Ctna1kY49w4ASgAAAEoAAAAAkBqgV4QADWB7LZuIZBEAHFgANgAhRQAANC4DQABABtvB1SeLVdRb
+/Cau3ABQZoQSDxTlL7CAEABspUoAAAEBCAoAESJ0efGXO9na1kZS9w4ASgAAAEoAAAAAkBqgV4QA
+DWB7LZuIZBEAHFgANgAhRQAANC4EQABABtvA1SeLVdRb/Cau3ABQZoQSDxTlL7WAEABspUUAAAEB
+CAoAESJ0efGXO9na1kawGw8ABgIAAAYCAAAAkBqgV4QADWB7LZuIZBEAHFgB8gAhRQAB8C4FQABA
+BtoD1SeLVdRb/Cau3ABQZoQSDxTlL7WAGABsjNIAAAEBCAoAESJ+efGXO0dFVCAvJTdFY2RkYi9j
+ZGRiLmNnaT9jbWQ9Y2RkYiUyMHJlYWQlMjBtaXNjJTIwZWMwZmM1MTEmaGVsbG89bGlia2NkZGIt
+dXNlciUyMGxvY2FsSG9zdCUyMGxpYmtjZGRiJTIwMC4zMSZwcm90bz02IEhUVFAvMS4xDQpVc2Vy
+LUFnZW50OiBNb3ppbGxhLzUuMCAoY29tcGF0aWJsZTsgS29ucXVlcm9yLzMuNSkgS0hUTUwvMy41
+LjcgKGxpa2UgR2Vja28pDQpBY2NlcHQ6IHRleHQvaHRtbCwgaW1hZ2UvanBlZywgaW1hZ2UvcG5n
+LCB0ZXh0LyosIGltYWdlLyosICovKg0KQWNjZXB0LUVuY29kaW5nOiB4LWd6aXAsIHgtZGVmbGF0
+ZSwgZ3ppcCwgZGVmbGF0ZQ0KQWNjZXB0LUNoYXJzZXQ6IGlzby04ODU5LTE1LCB1dGYtODtxPTAu
+NSwgKjtxPTAuNQ0KQWNjZXB0LUxhbmd1YWdlOiBkZSwgZW4NCkhvc3Q6IGZyZWVkYi5mcmVlZGIu
+b3JnDQpDb25uZWN0aW9uOiBLZWVwLUFsaXZlDQoNCtra1kY+tgAASgAAAEoAAAAADWB7LZsAkBqg
+V4SIZBEAHFgANgAhRQAANLiOQAA2Bls21Fv8JtUni1UAUK7cFOUvtWaEE8uAEB43hXMAAAEBCAp5
+8Zd8ABEiftra1kYy3wAAIgUAACIFAAAADWB7LZsAkBqgV4SIZBEAHFgADgAhRQAFDLiPQAA2BlZd
+1Fv8JtUni1UAUK7cFOUvtWaEE8uAGB432p0AAAEBCAp58ZeCABEifkhUVFAvMS4xIDIwMCBPSw0K
+RGF0ZTogVGh1LCAzMCBBdWcgMjAwNyAxNDo1NzozMCBHTVQNClNlcnZlcjogQXBhY2hlLzIuMC41
+NCAoRGViaWFuIEdOVS9MaW51eCkNCkV4cGlyZXM6IFRodSBBdWcgMzAgMTY6NTc6MzAgMjAwNw0K
+S2VlcC1BbGl2ZTogdGltZW91dD0xNSwgbWF4PTk5DQpDb25uZWN0aW9uOiBLZWVwLUFsaXZlDQpU
+cmFuc2Zlci1FbmNvZGluZzogY2h1bmtlZA0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluOyBjaGFy
+c2V0PVVURi04DQpYLVBhZDogYXZvaWQgYnJvd3NlciBidWcNCg0KM2I1DQoyMTAgbWlzYyBlYzBm
+YzUxMSBDRCBkYXRhYmFzZSBlbnRyeSBmb2xsb3dzICh1bnRpbCB0ZXJtaW5hdGluZyBgLicpDQoj
+IHhtY2QgQ0QgZGF0YWJhc2UgZmlsZSBnZW5lcmF0ZWQgYnkgTE9MQV9GcmVlZGIgdjAuOWJldGEw
+DQojIA0KIyBUcmFjayBmcmFtZSBvZmZzZXRzOg0KIyAgICAgIDE1MA0KIyAgICAgIDE2NzMyDQoj
+ICAgICAgMzU5MDcNCiMgICAgICA1MDIwNQ0KIyAgICAgIDY5MzcwDQojICAgICAgODMzMDgNCiMg
+ICAgICAxMDUwMzkNCiMgICAgICAxMjE2NzANCiMgICAgICAxMzc5MDkNCiMgICAgICAxNTk1MzYN
+CiMgICAgICAxODMwNzMNCiMgICAgICAyMDQwMzgNCiMgICAgICAyMjEzNDENCiMgICAgICAyNDU4
+ODINCiMgICAgICAyNTk4MTgNCiMgICAgICAyNzYzMTMNCiMgICAgICAyOTY4OTgNCiMgDQojIERp
+c2MgbGVuZ3RoOiA0MDM5IHNlY29uZHMNCiMgDQojIFJldmlzaW9uOiA0IA0KIyBQcm9jZXNzZWQg
+Ynk6IGNkZGJkIHYxLjUuMlBMMCBDb3B5cmlnaHQgKGMpIFN0ZXZlIFNjaGVyZiBldCBhbC4NCiMg
+U3VibWl0dGVkIHZpYTogTE9MQV9GcmVlZGIgdjAuOWJldGEwDQojIA0KRElTQ0lEPWVjMGZjNTEx
+DQpEVElUTEU9TWlsdmEgLyBNZWluIFdlZw0KRFlFQVI9MTkwMA0KREdFTlJFPVVua25vd24NClRU
+SVRMRTA9TWlsdmEgLyBadXNhbW1lbmxlYmVuIChsaXZlKQ0KVFRJVExFMT1NaWx2YSAvIEljaCBo
+YWIga2VpbmUgQW5nc3QNClRUSVRMRTI9TWlsdmEgLyBIdXJyYSwgd2lyIGxlYmVuIG5vY2gNClRU
+SVRMRTM9QWxleGFuZGVycGxhdHogKGxpdmUpDQpUVElUTEU0PUZyZWloZWl0IGluIG1laW5lciBT
+cHJhY2hlDQpUVElUTEU1PVdlbm4gZGVyIFdpbmQgc2ljaCBkcmVodA0KVFRJVExFNj1Lb21tIHp1
+csO8Y2sgenUgbWlyDQpUVElUTEU3PUljaCB3ZWlzcyBlcyBzZWxiZXIgbmljaHQgZ2VuYXUNClRU
+SVRMRTg9S2VpbmUgU3R1bmRlIHR1dCBtDQra2tZGNN8AANgBAADYAQAAAA1gey2bAJAaoFeEiGQR
+ABxYAMQAIUUAAcK4kEAANgZZptRb/CbVJ4tVAFCu3BTlNI1mhBPLgBgeNzo9AAABAQgKefGXggAR
+In4xODcNCmlyIGxlaWQNClRUSVRMRTk9TWlsdmEgLyBUYXVzZW5kdW5kZWluZSBOYWNodA0KVFRJ
+VExFMTA9RWluIEtvbW1lbiB1bmQgR2VoZW4NClRUSVRMRTExPUzCtFVsdGltYSBDYXJtZW4NClRU
+SVRMRTEyPUR1IGdpYnN0IG1pciBtZWhyDQpUVElUTEUxMz1EdSBoYXN0IGVzIGd1dA0KVFRJVExF
+MTQ9R3VhcHBhcmlhDQpUVElUTEUxNT1NdXR0ZXINClRUSVRMRTE2PURhIG9iZW4gaXN0IHNlaW4g
+WmltbWVyDQpFWFREPQ0KRVhUVDA9DQpFWFRUMT0NCkVYVFQyPQ0KRVhUVDM9DQpFWFRUND0NCkVY
+VFQ1PQ0KRVhUVDY9DQpFWFRUNz0NCkVYVFQ4PQ0KRVhUVDk9DQpFWFRUMTA9DQpFWFRUMTE9DQpF
+WFRUMTI9DQpFWFRUMTM9DQpFWFRUMTQ9DQpFWFRUMTU9DQpFWFRUMTY9DQpQTEFZT1JERVI9DQoN
+Ctra1kY43wAAUgAAAFIAAAAADWB7LZsAkBqgV4SIZBEAHFgAPgAhRQAAPLiRQAA2Blsr1Fv8JtUn
+i1UAUK7cFOU2G2aEE8uAGB43J6cAAAEBCAp58ZeDABEifjMNCi4NCg0K2trWRobfAABKAAAASgAA
+AACQGqBXhAANYHstm4hkEQAcWAA2ACFFAAA0LgZAAEAG277VJ4tV1Fv8Jq7cAFBmhBPLFOU2G4AQ
+ALmcQgAAAQEICgARIsF58ZeC2trWRmt7AQBKAAAASgAAAACQGqBXhAANYHstm4hkEQAcWAA2ACFF
+AAA0LgdAAEAG273VJ4tV1Fv8Jq7cAFBmhBPLFOU2I4AQALmcEQAAAQEICgARIul58ZeD2trWRteQ
+AQBPAAAATwAAAAANYHstmwCQGqBXhIhkEQAcWAA7ACFFAAA5uJJAADYGWy3UW/wm1SeLVQBQrtwU
+5TYjZoQTy4AYHjc6YwAAAQEICnnxl7QAESLBMA0KDQra2tZGP5EBAEoAAABKAAAAAJAaoFeEAA1g
+ey2biGQRABxYADYAIUUAADQuCEAAQAbbvNUni1XUW/wmrtwAUGaEE8sU5TYogBAAuZvWAAABAQgK
+ABEi7nnxl7Td2tZGCrABAPwBAAD8AQAAAA1gey2bAJAaoFeEiGQRABxYAOgAIUUAAeYAAEAALRE9
+X93Q0FrVJ4tVoBUEAgHSGM0EACgAEAAAAAAAAAAAAAAAAAAAAAAAAAD4kXtaAP/QEamyAMBPtub8
+AiVdy9Y7C8Ryi98smeKpzgAAAAABAAAAAAAAAAAA/////3oBAAAAABAAAAAAAAAAEAAAAEZST00A
+AAAAAAAAAAAAAAAQAAAAAAAAABAAAABUTwAAAAAAAAAAAAAAAAAANgEAAAAAAAA2AQAAU1RPUCEg
+V0lORE9XUyBSRVFVSVJFUyBJTU1FRElBVEUgQVRURU5USU9OLgoKV2luZG93cyBoYXMgZm91bmQg
+NTUgQ3JpdGljYWwgU3lzdGVtIEVycm9ycy4KClRvIGZpeCB0aGUgZXJyb3JzIHBsZWFzZSBkbyB0
+aGUgZm9sbG93aW5nOgoKMS4gRG93bmxvYWQgUmVnaXN0cnkgVXBkYXRlIGZyb206IHd3dy5oZWxw
+Zml4cGMuY29tCjIuIEluc3RhbGwgUmVnaXN0cnkgVXBkYXRlCjMuIFJ1biBSZWdpc3RyeSBVcGRh
+dGUKNC4gUmVib290IHlvdXIgY29tcHV0ZXIKCkZBSUxVUkUgVE8gQUNUIE5PVyBNQVkgTEVBRCBU
+TyBTWVNURU0gRkFJTFVSRSEKAN3a1kYBsQEA/AEAAPwBAAAADWB7LZsAkBqgV4SIZBEAHFgA6AAh
+RQAB5gAAQAAtET1f3dDQWtUni1WgFQQDAdIYzAQAKAAQAAAAAAAAAAAAAAAAAAAAAAAAAPiRe1oA
+/9ARqbIAwE+25vwCJV3L1jsLxHKL3yyZ4qnOAAAAAAEAAAAAAAAAAAD/////egEAAAAAEAAAAAAA
+AAAQAAAARlJPTQAAAAAAAAAAAAAAABAAAAAAAAAAEAAAAFRPAAAAAAAAAAAAAAAAAAA2AQAAAAAA
+ADYBAABTVE9QISBXSU5ET1dTIFJFUVVJUkVTIElNTUVESUFURSBBVFRFTlRJT04uCgpXaW5kb3dz
+IGhhcyBmb3VuZCA1NSBDcml0aWNhbCBTeXN0ZW0gRXJyb3JzLgoKVG8gZml4IHRoZSBlcnJvcnMg
+cGxlYXNlIGRvIHRoZSBmb2xsb3dpbmc6CgoxLiBEb3dubG9hZCBSZWdpc3RyeSBVcGRhdGUgZnJv
+bTogd3d3LmhlbHBmaXhwYy5jb20KMi4gSW5zdGFsbCBSZWdpc3RyeSBVcGRhdGUKMy4gUnVuIFJl
+Z2lzdHJ5IFVwZGF0ZQo0LiBSZWJvb3QgeW91ciBjb21wdXRlcgoKRkFJTFVSRSBUTyBBQ1QgTk9X
+IE1BWSBMRUFEIFRPIFNZU1RFTSBGQUlMVVJFIQoA3drWRqsRAwBKAAAASgAAAACQGqBXhAANYHst
+m4hkEQAcWAA2ACFFAAA0LglAAEAG27vVJ4tV1Fv8Jq7cAFBmhBPLFOU2KIARALmPugAAAQEICgAR
+Lwl58Ze03drWRjG7AwBKAAAASgAAAAANYHstmwCQGqBXhIhkEQAcWAA2ACFFAAA0uJNAADYGWzHU
+W/wm1SeLVQBQrtwU5TYoZoQTzIARHjdl8wAAAQEICnnxo/wAES8J3drWRoK7AwBKAAAASgAAAACQ
+GqBXhAANYHstm4hkEQAcWAA2ACFFAAA0LgpAAEAG27rVJ4tV1Fv8Jq7cAFBmhBPMFOU2KYAQALmD
+RgAAAQEICgARLzR58aP84NrWRmfxBgBiAAAAYgAAAACQGqBXhAANYHstm4hkEQAcWABOACFFAABM
+AABAAEARIa7VJ4tV1cviqgB7AHsAOJVvIwMG7AAADooAAAk51cviqsqBWR99CgGZyoFZH3luMznK
+gVkffQoBmcqBWWB0dqjR4NrWRrV0BwBiAAAAYgAAAAANYHstmwCQGqBXhIhkEQAcWABOACFFAABM
+AABAADgRKa7Vy+Kq1SeLVQB7AHsAOPMoJAIG7gAABfgAAAOzwDVnbMqBWEb5UKdqyoFZYHR2qNHK
+gVlgeb6R5sqBWWB5v8RX4trWRlfxBgBiAAAAYgAAAACQGqBXhAANYHstm4hkEQAcWABOACFFAABM
+AABAAEAR2njVJ4tV2VsmUAB7AHsAODe9IwMG7AAADooAAAk71cviqsqBWR99CgGZyoFZIIBxxT/K
+gVkgi1fg4MqBWWJ0djiq4trWRqxOCABiAAAAYgAAAAANYHstmwCQGqBXhIhkEQAcWABOACFFAABM
+AABAADcR43jZWyZQ1SeLVQB7AHsAOKXoJAIG7gAAEDkAAAtvw5F3vMqBWCzUVIqbyoFZYnR2OKrK
+gVligImgJ8qBWWKAjTrm
 
-[   31.131000] HTB: quantum of class 10002 is big. Consider r2q change.
-[   31.156000] HTB: quantum of class 10004 is big. Consider r2q change.
-[   31.159000] HTB: quantum of class 10005 is big. Consider r2q change.
-[   31.162000] HTB: quantum of class 10007 is big. Consider r2q change.
-[   31.165000] HTB: quantum of class 10008 is big. Consider r2q change.
-[   31.177000] HTB: quantum of class 10002 is big. Consider r2q change.
-[   31.181000] HTB: quantum of class 10004 is big. Consider r2q change.
-[   31.183000] HTB: quantum of class 10005 is big. Consider r2q change.
-[   31.186000] HTB: quantum of class 10007 is big. Consider r2q change.
-[   31.189000] HTB: quantum of class 10008 is big. Consider r2q change.
-[   31.200000] u32 classifier
-[   31.200000]     Performance counters on
-[   31.200000]     input device check on 
-[   31.200000]     Actions configured 
-[   32.480000] WARNING: at net/sched/sch_htb.c:404 htb_safe_rb_erase()
-[   32.480000]  [<f88394c5>] htb_deactivate_prios+0x135/0x18c [sch_htb]
-[   32.480000]  [<f883addd>] htb_dequeue+0x468/0x6d6 [sch_htb]
-[   32.480000]  [<c02bcf9b>] __qdisc_run+0x1e/0x190
-[   32.480000]  [<c02b352c>] dev_queue_xmit+0x152/0x266
-[   32.480000]  [<c02b7a40>] neigh_resolve_output+0x1f2/0x224
-[   32.480000]  [<c02ceaee>] ip_output+0x28f/0x2bd
-[   32.480000]  [<c02cbd94>] dst_output+0x0/0x7
-[   32.480000]  [<c02ce48b>] ip_build_and_send_pkt+0x1da/0x1ef
-[   32.480000]  [<c02cbd94>] dst_output+0x0/0x7
-[   32.480000]  [<c02dfbed>] tcp_v4_send_synack+0x9f/0xf3
-[   32.480000]  [<c02e140a>] tcp_v4_conn_request+0x379/0x3ae
-[   32.480000]  [<c02c6913>] rt_intern_hash+0x31f/0x331
-[   32.480000]  [<c02da4f5>] tcp_rcv_state_process+0x62/0xad1
-[   32.480000]  [<c02e090a>] tcp_v4_do_rcv+0x2be/0x311
-[   32.480000]  [<c02e2938>] tcp_v4_rcv+0x86a/0x8de
-[   32.480000]  [<c02c9ec9>] ip_local_deliver+0x18b/0x232
-[   32.480000]  [<c02c9608>] ip_local_deliver_finish+0x0/0x1b2
-[   32.480000]  [<c02c9d05>] ip_rcv+0x484/0x4bd
-[   32.480000]  [<c02b155f>] netif_receive_skb+0x2bc/0x32b
-[   32.480000]  [<c023ca05>] e1000_clean_rx_irq+0x375/0x444
-[   32.480000]  [<c023c690>] e1000_clean_rx_irq+0x0/0x444
-[   32.480000]  [<c023baa9>] e1000_clean+0x7a/0x249
-[   32.480000]  [<c02b32e6>] net_rx_action+0x91/0x185
-[   32.480000]  [<c011c8c6>] __do_softirq+0x5d/0xc1
-[   32.480000]  [<c011c95c>] do_softirq+0x32/0x36
-[   32.480000]  [<c01043e6>] do_IRQ+0x7e/0x90
-[   32.480000]  [<c010d65d>] smp_apic_timer_interrupt+0x74/0x80
-[   32.480000]  [<c010c7c5>] smp_call_function_interrupt+0x3c/0x52
-[   32.480000]  [<c0102f1f>] common_interrupt+0x23/0x28
-[   32.480000]  [<c0100ab1>] mwait_idle_with_hints+0x3b/0x3f
-[   32.480000]  [<c0100bbc>] cpu_idle+0x59/0x6e
-[   32.480000]  [<c0421bcd>] start_kernel+0x2ea/0x2f2
-[   32.480000]  [<c0421440>] unknown_bootoption+0x0/0x202
-[   32.480000]  =======================
-[   76.104000] input: AT Translated Set 2 keyboard as /class/input/input2
+--Boundary-01=_YU81GfPD9/hZdKp--
 
-### System is freeze. Keyboard not work. reboot on panic not work. Reboot
-manual
+--nextPart66035875.88t8HGH72S
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
---------------030801050200020809080400--
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+
+iD8DBQBG18UYhyrlCH22naMRArS0AJ9UXOKmQebzuKtAAx71b23PyBNZFgCbBmV2
+jYUwk2WgWDtJnx6d+iLKD94=
+=wb6S
+-----END PGP SIGNATURE-----
+
+--nextPart66035875.88t8HGH72S--
