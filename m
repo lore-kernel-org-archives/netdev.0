@@ -1,46 +1,45 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: 2.6.23-rc4-mm1 "no CRC" MODPOST warnings
-Date: Sun, 2 Sep 2007 00:40:46 +0200
-Message-ID: <20070901224046.GP9260@stusta.de>
-References: <20070831215822.26e1432b.akpm@linux-foundation.org> <alpine.LFD.0.999.0709020327260.20781@enigma.security.iitk.ac.in>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [Bugme-new] [Bug 8961] New: BUG triggered by oidentd in netlink
+ code
+Date: Sun, 02 Sep 2007 00:53:29 +0200
+Message-ID: <46D9ED69.7030706@trash.net>
+References: <bug-8961-10286@http.bugzilla.kernel.org/> <20070830180842.7c8414fe.akpm@linux-foundation.org> <Pine.LNX.4.64.0708311258520.8423@x2> <20070831123825.GW22067@miggy.org> <46D9957F.4020101@trash.net> <20070901173944.GB3693@miggy.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Sam Ravnborg <sam@ravnborg.org>
-To: Satyam Sharma <satyam@infradead.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Athanasius <link@miggy.org>, Patrick McHardy <kaber@trash.net>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, bugme-d
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:56574 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757470AbXIAWkp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2007 18:40:45 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.0.999.0709020327260.20781@enigma.security.iitk.ac.in>
+Received: from stinky.trash.net ([213.144.137.162]:34355 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752507AbXIAWxq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2007 18:53:46 -0400
+In-Reply-To: <20070901173944.GB3693@miggy.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 02, 2007 at 03:36:08AM +0530, Satyam Sharma wrote:
+Athanasius wrote:
+> On Sat, Sep 01, 2007 at 06:38:23PM +0200, Patrick McHardy wrote:
+>>
+>> You might be able to trigger it without this patch by running
+>> "while true; do ss -tn; done" while doing ident queries, but
+>> just running the while loop a couple of times in parallel
+>> doesn't seem to trigger it here.
 > 
+>   I went for setting up a dummy listener in inetd, using tcpd, and
+> setting hosts.allow to specify myuser@ip.  Then a few while loops
+> spamming it with connections using nc.
 > 
-> On Fri, 31 Aug 2007, Andrew Morton wrote:
-> > 
-> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.23-rc4/2.6.23-rc4-mm1/
+>   Anyway, on the old kernel that managed to trigger the BUG twice in
+> about 30 minutes.  I'm now on 2.6.22.6 plus your patch and coming up on
+> an hour (55+ mins) of the same and no sign of the BUG.
 > 
-> Got these on an i386 build with CONFIG_MODVERSIONS=y ...
-> 
-> WARNING: "div64_64" [net/netfilter/xt_connbytes.ko] has no CRC!
-> WARNING: "div64_64" [net/ipv4/tcp_cubic.ko] has no CRC!
->...
+>   So that looks like fixed to me.  I'll weigh in again if the daily
+> logcheck throws up another.
 
-That's expected since the fix is in git-kbuild.
 
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+Thanks a lot for testing, I'll send a version for current -rc
+upstream tommorrow.
 
