@@ -1,45 +1,73 @@
-From: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
-Subject: Re: 2.6.23-rc4-mm1
-Date: Sat, 01 Sep 2007 17:25:27 +0530
-Message-ID: <46D9532F.4080209@linux.vnet.ibm.com>
-References: <20070831215822.26e1432b.akpm@linux-foundation.org> <20070901155353.8a09db69.kamezawa.hiroyu@jp.fujitsu.com> <20070831235815.a09c7865.akpm@linux-foundation.org>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [PATCH] net/, drivers/net/ , missing EXPERIMENTAL in menus
+Date: Sat, 1 Sep 2007 14:49:01 +0200
+Message-ID: <20070901124901.GA2935@uranus.ravnborg.org>
+References: <Pine.LNX.4.64.0707181712340.16513@localhost.localdomain> <20070719054742.GN3801@stusta.de> <Pine.LNX.4.64.0707190331330.11902@localhost.localdomain> <469F240E.9040205@s5r6.in-berlin.de> <Pine.LNX.4.64.0707190523001.19216@localhost.localdomain> <20070719083109.13b2ab56.rdunlap@xenotime.net> <Pine.LNX.4.64.0707191213130.8844@localhost.localdomain> <469FE045.3070403@simon.arlott.org.uk> <20070831102527.09fb42c0.rdunlap@xenotime.net> <Pine.LNX.4.64.0709010641540.31472@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755221AbXIALzq@vger.kernel.org>
-In-Reply-To: <20070831235815.a09c7865.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Randy Dunlap <rdunlap@xenotime.net>,
+	Simon Arlott <simon@fire.lp0.eu>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Adrian Bunk <bunk@stusta.de>, Jeff Garzik <jeff@garzik.org>,
+	Gabriel C <crazy@pimpmylinux.org>, netdev@vger.kernel.org
+To: "Robert P. J. Day" <rpjday@mindspring.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pasmtpa.tele.dk ([80.160.77.114]:50006 "EHLO pasmtpA.tele.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751655AbXIAMrm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Sep 2007 08:47:42 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0709010641540.31472@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
->> On Sat, 1 Sep 2007 15:53:53 +0900 KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com> wrote:
->> I met 2 troubles while I compiled rc4-mm1 on x86/UP system,
->>
->> One on pcnet32.c (patch is attaced below).
->> One on crypto CONFIG.
->>
->> == compile log ==
->> drivers/net/pcnet32.c: In function 'pcnet32_netif_stop':
->> drivers/net/pcnet32.c:445: warning: unused variable 'lp'
->> drivers/net/pcnet32.c: In function 'pcnet32_netif_start':
->> drivers/net/pcnet32.c:455: warning: unused variable 'lp'
->> drivers/net/pcnet32.c: In function 'pcnet32_interrupt':
->> drivers/net/pcnet32.c:2622: error: 'struct net_device' has no member named 'napi'
->>     
->
-> Only git-net touches pcnet32.c
->
->   
-<snip>
-Hi Kamezawa,
+On Sat, Sep 01, 2007 at 06:44:06AM -0400, Robert P. J. Day wrote:
+> 
+> > >  	while (1) {
+> > >  		printf("%*s%s ", indent - 1, "", menu->prompt->text);
+> > > +		switch (sym->maturity) {
+> > > +		case M_EXPERIMENTAL:
+> > > +			printf("(EXPERIMENTAL) ");
+> > > +			break;
+> > > +		case M_DEPRECATED:
+> > > +			printf("(DEPRECATED) ");
+> > > +			break;
+> > > +		case M_OBSOLETE:
+> > > +			printf("(OBSOLETE) ");
+> > > +			break;
+> > > +		case M_BROKEN:
+> > > +			printf("(BROKEN) ");
+> > > +			break;
+> > > +		default:
+> > > +			break;
+> > > +		}
+> > >  		if (sym->name)
+> > >  			printf("(%s) ", sym->name);
+> > >  		type = sym_get_type(sym);
+> 
+> for now, simon, why not just reduce this to supporting only DEPRECATED
+> and OBSOLETE so that it can be at least tested as "proof of concept?"
 
-I got the pcnet32.c compile failure and after applying the patch compile 
-does not fails.
+The principle with letting a dependency add text to the promts are good.
+But the implementation done by Simon with a language extension is not good.
+A simple and better approach would be to use the newly added option
+support for this and let the backend generate the promtps.
 
-Thanks & Regards,
-Kamalesh Babulal.
+I have not yet tried to cook up a patch for it, but it should be
+quite generaic and doable.
+
+config EXPERIMENTAL
+	option appendprompt=" (EXPERIMENTAL)
+
+config DEPRECATED
+	option appendprompt=" (DEPRECATED)
+
+Then the dependency added will automatically append to the prompt.
+
+It would probarly have be done in two steps. One that introduce a helper
+function to retreive the prompt text and introduce it. And next a patch to
+add a text if a symbol has a dependency on a symbol with a specific option
+assigned.
+
+	Sam
