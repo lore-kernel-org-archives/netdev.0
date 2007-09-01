@@ -1,39 +1,84 @@
-From: Daniele Venzano <venza@brownhat.org>
-Subject: Re: pktgen terminating condition
-Date: Sat, 01 Sep 2007 12:47:24 +0200
-Message-ID: <1188643644-77674666b52f8e4df330ca0982689109@brownhat.org>
+From: "Robert P. J. Day" <rpjday@mindspring.com>
+Subject: Re: [PATCH] net/, drivers/net/ , missing EXPERIMENTAL in menus
+Date: Sat, 1 Sep 2007 06:44:06 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0709010641540.31472@localhost.localdomain>
+References: <469E75AA.7040109@pimpmylinux.org>
+ <Pine.LNX.4.64.0707181620460.13912@localhost.localdomain>
+ <20070718134012.cde2f956.randy.dunlap@oracle.com> <469E7BE1.6090401@garzik.org>
+ <Pine.LNX.4.64.0707181648330.15343@localhost.localdomain>
+ <20070718210903.GM3801@stusta.de> <Pine.LNX.4.64.0707181712340.16513@localhost.localdomain>
+ <20070719054742.GN3801@stusta.de> <Pine.LNX.4.64.0707190331330.11902@localhost.localdomain>
+ <469F240E.9040205@s5r6.in-berlin.de> <Pine.LNX.4.64.0707190523001.19216@localhost.localdomain>
+ <20070719083109.13b2ab56.rdunlap@xenotime.net>
+ <Pine.LNX.4.64.0707191213130.8844@localhost.localdomain>
+ <469FE045.3070403@simon.arlott.org.uk> <20070831102527.09fb42c0.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Mandeep Baines <mandeep.baines@gmail.com>, davem@davemloft.net,
-	rick.jones2@hp.com, msb@google.com, netdev@vger.kernel.org,
-	grundler@google.com, robert.olsson@its.uu.se, jeff@garzik.org,
-	nhorman@tuxdriver.com
-To: hadi@cyberus.ca
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Arlott <simon@fire.lp0.eu>, Sam Ravnborg <sam@ravnborg.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Adrian Bunk <bunk@stusta.de>, Jeff Garzik <jeff@garzik.org>,
+	Gabriel C <crazy@pimpmylinux.org>, netdev@vger.kernel.org
+To: Randy Dunlap <rdunlap@xenotime.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.infomaniak.ch ([84.16.68.90]:59458 "EHLO
-	smtp2.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752057AbXIAKsw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2007 06:48:52 -0400
+Received: from nic.NetDirect.CA ([216.16.235.2]:35613 "EHLO
+	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753322AbXIAK5F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2007 06:57:05 -0400
+In-Reply-To: <20070831102527.09fb42c0.rdunlap@xenotime.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------ Message d'origine -----
-De: jamal <hadi@cyberus.ca>
-Date: Fri, 31 Aug 2007 09:50:03 -0400
-Sujet: Re: Re: pktgen terminating condition
+On Fri, 31 Aug 2007, Randy Dunlap wrote:
 
->I dont know if you followed the discussion - by defering the freeing of
->skbs, you will be slowing down socket apps sending from the local
->machine. It may be ok if the socket buffers were huge, but that comes at
->the cost of system memory (which may not be a big deal)
->Do you by any chance recall why you used the idle interupt instead of
->txok to kick the prunning of tx descriptors?
+> On Thu, 19 Jul 2007 23:05:57 +0100 Simon Arlott wrote:
 
-That should be asked to the original author of the driver, that I wasn't able to contact when I took over the maintainership several years ago.
-I think that since this chip is usually used on cheap/low performance (relatively speaking) devices it was felt that generating an interrupt for each transmitted packet was going to affect the performance of the system too much. At the start, if I remember correctly, this was a chip thought for consumer use, where transmissions won't happen continuously for long periods of time. Then the sis900 started to get used everywhere, from embedded systems to (cheap) server motherboards and the usage scenario changed.
+> > What about something like this? I'm not sure if the addition to
+> > sym_init is desirable... I also had to prefix _ to the name for
+> > now otherwise it conflicts badly with the current symbols. It
+> > probably should stop "depends on _BROKEN" etc. too.
+>
+> Hi Simon,
+>
+> (sorry for the delay)
+>
+> I like this patch very much... I just can't get it to build (on
+> 2.6.23-rc4).
 
+i got a patch from simon a while back, and it failed with
+"shift/reduce" conflicts.  is that what you're seeing?
 
---
-Daniele Venzano
-venza@brownhat.org
+> >  	while (1) {
+> >  		printf("%*s%s ", indent - 1, "", menu->prompt->text);
+> > +		switch (sym->maturity) {
+> > +		case M_EXPERIMENTAL:
+> > +			printf("(EXPERIMENTAL) ");
+> > +			break;
+> > +		case M_DEPRECATED:
+> > +			printf("(DEPRECATED) ");
+> > +			break;
+> > +		case M_OBSOLETE:
+> > +			printf("(OBSOLETE) ");
+> > +			break;
+> > +		case M_BROKEN:
+> > +			printf("(BROKEN) ");
+> > +			break;
+> > +		default:
+> > +			break;
+> > +		}
+> >  		if (sym->name)
+> >  			printf("(%s) ", sym->name);
+> >  		type = sym_get_type(sym);
+
+for now, simon, why not just reduce this to supporting only DEPRECATED
+and OBSOLETE so that it can be at least tested as "proof of concept?"
+
+rday
+-- 
+========================================================================
+Robert P. J. Day
+Linux Consulting, Training and Annoying Kernel Pedantry
+Waterloo, Ontario, CANADA
+
+http://crashcourse.ca
+========================================================================
