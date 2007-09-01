@@ -1,100 +1,51 @@
-From: Benoit PAPILLAULT <benoit.papillault@free.fr>
-Subject: UDP broadcast packets not looped back
-Date: Sat, 01 Sep 2007 16:30:39 +0200
-Message-ID: <46D9778F.9070403@free.fr>
+From: Meelis Roos <mroos@linux.ee>
+Subject: Re: ipv4_get_l4proto: Frag of proto 17
+Date: Sat, 1 Sep 2007 18:04:16 +0300 (EEST)
+Message-ID: <Pine.SOC.4.64.0709011803450.14157@math.ut.ee>
+References: <Pine.SOC.4.64.0708211355310.24028@math.ut.ee> <46D66D00.7060801@trash.net>
+ <Pine.SOC.4.64.0708301557400.9520@math.ut.ee> <46D8F87A.1080604@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020604090103010605000801"
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org,
+	Netfilter Development Mailinglist
+	<netfilter-devel@lists.netfilter.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1-g19.free.fr ([212.27.42.27]:60219 "EHLO smtp1-g19.free.fr"
+Received: from smtp2.it.da.ut.ee ([193.40.5.67]:36051 "EHLO smtp2.it.da.ut.ee"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753084AbXIAOar (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Sep 2007 10:30:47 -0400
-Received: from smtp1-g19.free.fr (localhost.localdomain [127.0.0.1])
-	by smtp1-g19.free.fr (Postfix) with ESMTP id 9EA841AB2D4
-	for <netdev@vger.kernel.org>; Sat,  1 Sep 2007 16:30:46 +0200 (CEST)
-Received: from [192.168.1.62] (ns.popipo.fr [88.163.232.53])
-	by smtp1-g19.free.fr (Postfix) with ESMTP id 6B55E1AB2B9
-	for <netdev@vger.kernel.org>; Sat,  1 Sep 2007 16:30:46 +0200 (CEST)
+	id S1753380AbXIAPFP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Sep 2007 11:05:15 -0400
+In-Reply-To: <46D8F87A.1080604@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020604090103010605000801
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+> I'm guessing that its ICMP errors containing UDP fragments.
+> 
+> Could you add a WARN_ON(1) to ipv4_get_l4proto() in
+> net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c to verify
+> this?
 
-Hi there,
+Yes, it seems to be an ICMP error:
 
-I've already sent this email to lkml (see 
-http://lkml.org/lkml/2007/8/13/1144) and got no feedback so far. I was 
-told that netdev might be a more appropriate list, so here I am!
+WARNING: at net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c:93 ipv4_get_l4proto()
+ [<c0103447>] show_trace_log_lvl+0x1a/0x2f
+ [<c0103f2e>] show_trace+0x12/0x14
+ [<c0103f45>] dump_stack+0x15/0x17
+ [<f8cc60fc>] ipv4_get_l4proto+0x78/0xc0 [nf_conntrack_ipv4]
+ [<f8d14fc4>] nf_ct_get_tuplepr+0x45/0xae [nf_conntrack]
+ [<f8cc6777>] icmp_error+0x185/0x1f6 [nf_conntrack_ipv4]
+ [<f8d1548f>] nf_conntrack_in+0xc0/0x409 [nf_conntrack]
+ [<f8cc6251>] ipv4_conntrack_in+0x11/0x13 [nf_conntrack_ipv4]
+ [<c028f16e>] nf_iterate+0x36/0x67
+ [<c028f519>] nf_hook_slow+0x57/0xd6
+ [<c0294a97>] ip_rcv+0x1d9/0x489
+ [<c027a38e>] netif_receive_skb+0x2c9/0x34a
+ [<f88ca79d>] rtl8139_poll+0x2a5/0x410 [8139too]
+ [<c027bfa4>] net_rx_action+0x56/0xd5
+ [<c011af47>] __do_softirq+0x38/0x7a
+ [<c01048e5>] do_softirq+0x41/0x91
+ =======================
+ipv4_get_l4proto: Frag of proto 17
 
-I wrote a small C program using the BSD socket API to send a UDP
-broadcast packet to all interfaces on my machine. To do so, i sendto()
-it to 255.255.255.255 after using setsockopt(SO_BINDTODEVICE) on the
-correct interface. It works perfectly.
-
-However, in the same program, either using the same socket or another on
-the same UDP port, I found out that I just received packets i'm sending 
-as well. And do not want it. I perfectly understand that some program 
-might be interested in broadcast packets they sent, but i don't.
-
-I have seen that in the multicast world, every program can choose this
-behaviour throught the setsockopt IP_MULTICAST_LOOP. I do not want to
-use multicast since I don't want my packets to be routed (if there was
-ever a multicast router on the link). But I admit I could use a TTL=1
-packet in this case.
-
-Anyway, I dig five minutes into the kernel source code I have at hand
-and wrote a small patch to add IP_MULTICAST_LOOP to broadcast packets.
-Since it might be interesting to other people, I just submit it here. It
-has been testing on Ubuntu and kernel 2.6.23-rc1 from the wireless.git
-repository. It should be very easy to adapt to other kernel version.
-
-I have not seen this feature as being standard throught the OpenGroup
-specification
-(http://www.opengroup.org/onlinepubs/009695399/functions/setsockopt.html),
-but it might be usefull anyway.
-
-Comments welcome,
-Benoit
-
---------------020604090103010605000801
-Content-Type: text/x-patch;
- name="wireless-dev-udp-broadcast.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="wireless-dev-udp-broadcast.diff"
-
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index c9e2b5e..1052a6e 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -232,6 +232,9 @@ int ip_mc_output(struct sk_buff *skb)
- 	skb->dev = dev;
- 	skb->protocol = htons(ETH_P_IP);
- 
-+	printk("rt->rt_flags = %x mc_loop=%d\n",
-+		rt->rt_flags, sk ? inet_sk(sk)->mc_loop : 0);
-+
- 	/*
- 	 *	Multicasts are looped back for other local users
- 	 */
-@@ -266,10 +269,12 @@ int ip_mc_output(struct sk_buff *skb)
- 	}
- 
- 	if (rt->rt_flags&RTCF_BROADCAST) {
-+		if (!sk || inet_sk(sk)->mc_loop) {
- 		struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
- 		if (newskb)
- 			NF_HOOK(PF_INET, NF_IP_POST_ROUTING, newskb, NULL,
- 				newskb->dev, ip_dev_loopback_xmit);
-+		}
- 	}
- 
- 	return NF_HOOK_COND(PF_INET, NF_IP_POST_ROUTING, skb, NULL, skb->dev,
-
-
---------------020604090103010605000801--
+-- 
+Meelis Roos (mroos@linux.ee)
