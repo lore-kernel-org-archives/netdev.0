@@ -1,73 +1,42 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: 2.6.23-rc4-mm1
-Date: Fri, 31 Aug 2007 23:58:15 -0700
-Message-ID: <20070831235815.a09c7865.akpm@linux-foundation.org>
-References: <20070831215822.26e1432b.akpm@linux-foundation.org>
-	<20070901155353.8a09db69.kamezawa.hiroyu@jp.fujitsu.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/2]: [NET_SCHED]: Make all rate based scheduler work
+ with	TSO.
+Date: Sat, 01 Sep 2007 09:09:47 +0200
+Message-ID: <46D9103B.7090905@trash.net>
+References: <1188562975.18622.11.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: jdb@comx.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:47907 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751987AbXIAG7Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2007 02:59:25 -0400
-In-Reply-To: <20070901155353.8a09db69.kamezawa.hiroyu@jp.fujitsu.com>
+Received: from stinky.trash.net ([213.144.137.162]:48285 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752121AbXIAHLU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2007 03:11:20 -0400
+In-Reply-To: <1188562975.18622.11.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> On Sat, 1 Sep 2007 15:53:53 +0900 KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com> wrote:
-> I met 2 troubles while I compiled rc4-mm1 on x86/UP system,
+Jesper Dangaard Brouer wrote:
+> commit 6fdc0f061be94f5e297650961360fb7a9d1cc85d
+> Author: Jesper Dangaard Brouer <hawk@comx.dk>
+> Date:   Thu Aug 30 17:53:42 2007 +0200
 > 
-> One on pcnet32.c (patch is attaced below).
-> One on crypto CONFIG.
-> 
-> == compile log ==
-> drivers/net/pcnet32.c: In function 'pcnet32_netif_stop':
-> drivers/net/pcnet32.c:445: warning: unused variable 'lp'
-> drivers/net/pcnet32.c: In function 'pcnet32_netif_start':
-> drivers/net/pcnet32.c:455: warning: unused variable 'lp'
-> drivers/net/pcnet32.c: In function 'pcnet32_interrupt':
-> drivers/net/pcnet32.c:2622: error: 'struct net_device' has no member named 'napi'
+>     [NET_SCHED]: Make all rate based scheduler work with TSO.
+>     
+>      Change L2T (length to time) macros, in all rate based schedulers, to
+>      call a common function qdisc_l2t() that does the rate table lookup.
+>      This function handles if the packet size lookup is larger than the
+>      rate table, which often occurs with TSO enabled.
 
-Only git-net touches pcnet32.c
 
-> crypto/built-in.o: In function `update2':
-> digest.c:(.text+0x94a): undefined reference to `crypto_km_types'
-> digest.c:(.text+0x9bf): undefined reference to `crypto_km_types'
-> 
-> digest.c (CONFIG_CRYPTO) uses crypto/scatterwalk.c's object (CONFIG_CRYPTO_ALGAPI)
-> I meet this when CONFIG_CRYPTO_ALGAPI=m. I need to make CONFIG_CRYPTO_ALGAPI=y.
+It still won't work properly with TSO (TBF for example already drops
+oversized packets during ->enqueue), but its a good cleanup anyway.
 
-cc herbert..
+ > +#define L2T(p,L)   ((p)->tcfp_R_tab, L)
+ > +#define L2T_P(p,L) ((p)->tcfp_P_tab, L)
 
-> Regards,
-> -Kame.
-> == cut from here ==
-> 
->  tiny bug fix for pcnet32.c (maybe works well. please confirm.)
-> 
->  Signed-off-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-> 
->  drivers/net/pcnet32.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> Index: devel-2.6.23-rc4-mm1/drivers/net/pcnet32.c
-> ===================================================================
-> --- devel-2.6.23-rc4-mm1.orig/drivers/net/pcnet32.c
-> +++ devel-2.6.23-rc4-mm1/drivers/net/pcnet32.c
-> @@ -2619,7 +2619,7 @@ pcnet32_interrupt(int irq, void *dev_id)
->  			break;
->  		}
->  #else
-> -		pcnet32_rx(dev, dev->napi.weight);
-> +		pcnet32_rx(dev, lp->napi.weight);
->  		if (pcnet32_tx(dev)) {
->  			/* reset the chip to clear the error condition, then restart */
->  			lp->a.reset(ioaddr);
 
-cc netdev, thanks.
+I'd prefer to get rid of these L2T macros completely.
