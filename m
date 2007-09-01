@@ -1,322 +1,140 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [IPROUTE]: vlan support
-Date: Sat, 01 Sep 2007 18:47:19 +0200
-Message-ID: <46D99797.6050209@trash.net>
+From: "Constantine A. Murenin" <mureninc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Fwd: That whole "Linux stealing our code" thing
+Date: Sat, 1 Sep 2007 12:48:40 -0400
+Message-ID: <f34ca13c0709010948v67b04b58lb098713dc38c4d6a@mail.gmail.com>
+References: <200709010140.l811eq9H005896@cvs.openbsd.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070904030307050905080202"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60452 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752234AbXIAQra (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2007 12:47:30 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200709010140.l811eq9H005896-VON6Tr2NNtkmbxgs1yVkuA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070904030307050905080202
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+This will hopefully help diminish certain myths about the code licensing.
 
-This is a resend of the iproute VLAN patch with the if_link.h changes
-edited out since the headers are already synced.
+C.
+
+---------- Forwarded message ----------
+From: Theo de Raadt <deraadt-VON6Tr2NNtkmbxgs1yVkuA@public.gmane.org>
+Date: 31-Aug-2007 21:40
+Subject: That whole "Linux stealing our code" thing
+To: misc-7YlrpqBBQ3VAfugRpC6u6w@public.gmane.org
 
 
+[bcc'd to Eben Moglen so that people don't flood him]
 
---------------070904030307050905080202
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+I stopped making public statements in the recent controversy because
+Eben Moglen started working behind the scenes to 'improve' what Linux
+people are doing wrong with licensing, and he asked me to give him
+pause, so his team could work.  Honestly, I was greatly troubled by
+the situation, because even people like Alan Cox were giving other
+Linux developers advice to ... break the law.  And furthermore, there
+are even greater potential risks for how the various communities
+interact.
 
-[IPROUTE]: VLAN support
+For the record -- I was right and the Linux developers cannot change
+the licenses in any of those ways proposed in those diffs, or that
+conversation (http://lkml.org/lkml/2007/8/28/157).
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
----
-commit 90727b2bf5b4a7ef9d0638ca80206083b965a0b5
-tree 173722acd855b7fe1eb1a5f22cf7706814f72c8f
-parent 4feb48d12295eb41850c39996f3a8c1dd7909ed5
-author Patrick McHardy <kaber@trash.net> Wed, 13 Jun 2007 18:46:21 +0200
-committer Patrick McHardy <kaber@trash.net> Wed, 13 Jun 2007 18:46:21 +0200
+It is illegal to modify a license unless you are the owner/author,
+because it is a legal document.  If there are multiple owners/authors,
+they must all agree.  A person who receives the file under two
+licenses can use the file in either way....  but if they distribute
+the file (modified or unmodified!), they must distribute it with the
+existing license intact, because the licenses we all use have
+statements which say that the license may not be removed.
 
- include/linux/if_link.h |   34 +++++++++
- include/linux/if_vlan.h |   61 ++++++++++++++++
- ip/Makefile             |    2 +
- ip/iplink_vlan.c        |  184 +++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 281 insertions(+), 0 deletions(-)
+It may seem that the licenses let one _distribute_ it under either
+license, but this interpretation of the license is false -- it is
+still illegal to break up, cut up, or modify someone else's legal
+document, and, it cannot be replaced by another license because it may
+not be removed.  Hence, a dual licensed file always remains dual
+licensed, every time it is distributed.
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-new file mode 100644
-index 0000000..4014ba9
---- /dev/null
-+++ b/include/linux/if_vlan.h
-@@ -0,0 +1,61 @@
-+/*
-+ * VLAN		An implementation of 802.1Q VLAN tagging.
-+ *
-+ * Authors:	Ben Greear <greearb@candelatech.com>
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ */
-+
-+#ifndef _LINUX_IF_VLAN_H_
-+#define _LINUX_IF_VLAN_H_
-+
-+
-+/* VLAN IOCTLs are found in sockios.h */
-+
-+/* Passed in vlan_ioctl_args structure to determine behaviour. */
-+enum vlan_ioctl_cmds {
-+	ADD_VLAN_CMD,
-+	DEL_VLAN_CMD,
-+	SET_VLAN_INGRESS_PRIORITY_CMD,
-+	SET_VLAN_EGRESS_PRIORITY_CMD,
-+	GET_VLAN_INGRESS_PRIORITY_CMD,
-+	GET_VLAN_EGRESS_PRIORITY_CMD,
-+	SET_VLAN_NAME_TYPE_CMD,
-+	SET_VLAN_FLAG_CMD,
-+	GET_VLAN_REALDEV_NAME_CMD, /* If this works, you know it's a VLAN device, btw */
-+	GET_VLAN_VID_CMD /* Get the VID of this VLAN (specified by name) */
-+};
-+
-+enum vlan_flags {
-+	VLAN_FLAG_REORDER_HDR	= 0x1,
-+};
-+
-+enum vlan_name_types {
-+	VLAN_NAME_TYPE_PLUS_VID, /* Name will look like:  vlan0005 */
-+	VLAN_NAME_TYPE_RAW_PLUS_VID, /* name will look like:  eth1.0005 */
-+	VLAN_NAME_TYPE_PLUS_VID_NO_PAD, /* Name will look like:  vlan5 */
-+	VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD, /* Name will look like:  eth0.5 */
-+	VLAN_NAME_TYPE_HIGHEST
-+};
-+
-+struct vlan_ioctl_args {
-+	int cmd; /* Should be one of the vlan_ioctl_cmds enum above. */
-+	char device1[24];
-+
-+        union {
-+		char device2[24];
-+		int VID;
-+		unsigned int skb_priority;
-+		unsigned int name_type;
-+		unsigned int bind_type;
-+		unsigned int flag; /* Matches vlan_dev_info flags */
-+        } u;
-+
-+	short vlan_qos;   
-+};
-+
-+#endif /* !(_LINUX_IF_VLAN_H_) */
-diff --git a/ip/Makefile b/ip/Makefile
-index 9a5bfe3..b6d8693 100644
---- a/ip/Makefile
-+++ b/ip/Makefile
-@@ -3,6 +3,8 @@ IPOBJ=ip.o ipaddress.o iproute.o iprule.o \
-     ipmaddr.o ipmonitor.o ipmroute.o ipprefix.o \
-     ipxfrm.o xfrm_state.o xfrm_policy.o xfrm_monitor.o
- 
-+IPOBJ += iplink_vlan.o
-+
- RTMONOBJ=rtmon.o
- 
- ALLOBJ=$(IPOBJ) $(RTMONOBJ)
-diff --git a/ip/iplink_vlan.c b/ip/iplink_vlan.c
-new file mode 100644
-index 0000000..ef05fbc
---- /dev/null
-+++ b/ip/iplink_vlan.c
-@@ -0,0 +1,184 @@
-+/*
-+ * iplink_vlan.c	VLAN device support
-+ *
-+ *              This program is free software; you can redistribute it and/or
-+ *              modify it under the terms of the GNU General Public License
-+ *              as published by the Free Software Foundation; either version
-+ *              2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:     Patrick McHardy <kaber@trash.net>
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <linux/if_vlan.h>
-+
-+#include "rt_names.h"
-+#include "utils.h"
-+#include "ip_common.h"
-+
-+static void explain(void)
-+{
-+	fprintf(stderr,
-+		"Usage: ... vlan id VLANID [ FLAG-LIST ]\n"
-+		"                          [ ingress-qos-map QOS-MAP ] [ egress-qos-map QOS-MAP ]\n"
-+		"\n"
-+		"VLANID := 0-4095\n"
-+		"FLAG-LIST := [ FLAG-LIST ] FLAG\n"
-+		"FLAG := [ reorder_hdr { on | off } ]\n"
-+		"QOS-MAP := [ QOS-MAP ] QOS-MAPPING\n"
-+		"QOS-MAPPING := FROM:TO\n"
-+	);
-+}
-+
-+static int on_off(char *msg)
-+{
-+	fprintf(stderr, "Error: argument of \"%s\" must be \"on\" or \"off\"\n", msg);
-+	return -1;
-+}
-+
-+static int vlan_parse_qos_map(int *argcp, char ***argvp, struct nlmsghdr *n,
-+			      int attrtype)
-+{
-+	int argc = *argcp;
-+	char **argv = *argvp;
-+	struct ifla_vlan_qos_mapping m;
-+	struct rtattr *tail;
-+
-+	tail = NLMSG_TAIL(n);
-+	addattr_l(n, 1024, attrtype, NULL, 0);
-+
-+	while (argc > 0) {
-+		char *colon = strchr(*argv, ':');
-+
-+		if (!colon)
-+			break;
-+		*colon = '\0';
-+
-+		if (get_u32(&m.from, *argv, 0))
-+			return 1;
-+		if (get_u32(&m.to, colon + 1, 0))
-+			return 1;
-+		argc--, argv++;
-+
-+		addattr_l(n, 1024, IFLA_VLAN_QOS_MAPPING, &m, sizeof(m));
-+	}
-+
-+	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *)tail;
-+
-+	*argcp = argc;
-+	*argvp = argv;
-+	return 0;
-+}
-+
-+static int vlan_parse_opt(struct link_util *lu, int argc, char **argv,
-+			  struct nlmsghdr *n)
-+{
-+	struct ifla_vlan_flags flags = { 0 };
-+	__u16 id;
-+
-+	while (argc > 0) {
-+		if (matches(*argv, "id") == 0) {
-+			NEXT_ARG();
-+			if (get_u16(&id, *argv, 0))
-+				invarg("id is invalid", *argv);
-+			addattr_l(n, 1024, IFLA_VLAN_ID, &id, 2);
-+		} else if (matches(*argv, "reorder_hdr") == 0) {
-+			NEXT_ARG();
-+			flags.mask |= VLAN_FLAG_REORDER_HDR;
-+			if (strcmp(*argv, "on") == 0)
-+				flags.flags |= VLAN_FLAG_REORDER_HDR;
-+			else if (strcmp(*argv, "off") == 0)
-+				flags.flags &= ~VLAN_FLAG_REORDER_HDR;
-+			else
-+				return on_off("reorder_hdr");
-+		} else if (matches(*argv, "ingress-qos-map") == 0) {
-+			NEXT_ARG();
-+			if (vlan_parse_qos_map(&argc, &argv, n,
-+					       IFLA_VLAN_INGRESS_QOS))
-+				invarg("invalid ingress-qos-map", *argv);
-+			continue;
-+		} else if (matches(*argv, "egress-qos-map") == 0) {
-+			NEXT_ARG();
-+			if (vlan_parse_qos_map(&argc, &argv, n,
-+					       IFLA_VLAN_EGRESS_QOS))
-+				invarg("invalid egress-qos-map", *argv);
-+			continue;
-+		} else if (matches(*argv, "help") == 0) {
-+			explain();
-+			return -1;
-+		} else {
-+			fprintf(stderr, "vlan: what is \"%s\"?\n", *argv);
-+			explain();
-+			return -1;
-+		}
-+		argc--, argv++;
-+	}
-+
-+	if (flags.mask)
-+		addattr_l(n, 1024, IFLA_VLAN_FLAGS, &flags, sizeof(flags));
-+
-+	return 0;
-+}
-+
-+static void vlan_print_map(FILE *f, char *name, struct rtattr *attr)
-+{
-+	struct ifla_vlan_qos_mapping *m;
-+	struct rtattr *i;
-+	int rem;
-+
-+	fprintf(f, "\n      %s { ", name);
-+
-+	rem = RTA_PAYLOAD(attr);
-+	for (i = RTA_DATA(attr); RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
-+		m = RTA_DATA(i);
-+		fprintf(f, "%u:%u ", m->from, m->to);
-+	}
-+	fprintf(f, "} ");
-+}
-+
-+static void vlan_print_flags(FILE *fp, __u32 flags)
-+{
-+	fprintf(fp, "<");
-+#define _PF(f)	if (flags & VLAN_FLAG_##f) { \
-+			flags &= ~ VLAN_FLAG_##f; \
-+			fprintf(fp, #f "%s", flags ? "," : ""); \
-+		}
-+	_PF(REORDER_HDR);
-+#undef _PF
-+	if (flags)
-+		fprintf(fp, "%x", flags);
-+	fprintf(fp, "> ");
-+}
-+
-+static void vlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
-+{
-+	struct ifla_vlan_flags *flags;
-+	if (!tb)
-+		return;
-+
-+	if (!tb[IFLA_VLAN_ID] ||
-+	    RTA_PAYLOAD(tb[IFLA_VLAN_ID]) < sizeof(__u16))
-+		return;
-+
-+	fprintf(f, "id %u ", *(__u16 *)RTA_DATA(tb[IFLA_VLAN_ID]));
-+
-+	if (tb[IFLA_VLAN_FLAGS]) {
-+		if (RTA_PAYLOAD(tb[IFLA_VLAN_FLAGS]) < sizeof(*flags))
-+			return;
-+		flags = RTA_DATA(tb[IFLA_VLAN_FLAGS]);
-+		vlan_print_flags(f, flags->flags);
-+	}
-+	if (tb[IFLA_VLAN_INGRESS_QOS])
-+		vlan_print_map(f, "ingress-qos-map", tb[IFLA_VLAN_INGRESS_QOS]);
-+	if (tb[IFLA_VLAN_EGRESS_QOS])
-+		vlan_print_map(f, "egress-qos-map", tb[IFLA_VLAN_EGRESS_QOS]);
-+}
-+
-+struct link_util vlan_link_util = {
-+	.id		= "vlan",
-+	.maxattr	= IFLA_VLAN_MAX,
-+	.parse_opt	= vlan_parse_opt,
-+	.print_opt	= vlan_print_opt,
-+};
+Now I've been nice enough to give Eben and his team a few days time to
+communicate inside the Linux community, to convince them that what
+they have proposed/discussed is wrong at a legal level.  I think that
+Eben also agrees with me that there are grave concerns about how this
+leads to problems at the ethical and community levels (at some level,
+a ethos is needed for Linux developers to work with *BSD developers).
+And there are possibilities that similar issues could loom in the
+larger open source communities who are writing applications.
 
---------------070904030307050905080202--
+Eben has thus far chosen not to make a public statement, but since
+time is running out on people's memory, I am making one.  Also, I feel
+that a lot of Linux "relicencing" meme-talkin' trolls basically have
+attacked me very unfairly again, so I am not going to wait for Eben to
+say something public about this.
+
+In http://lkml.org/lkml/2007/8/29/183, Alan Cox managed to summarize
+what Jiri Slaby and Luis Rodriguez were trying to do by proposing a
+modification of a Dual Licenced file without the consent of all the
+authors.  Alan asks "So whats the problem ?".  Well, Alan, I must
+caution you -- your post is advising people to break the law.
+
+I will attempt to describe in simple terms, based on what I have been
+taught, how one must handle such licenses:
+
+- If you receive dual licensed code, you may not delete the license
+  you don't like and then distribute it.  It has to stay, because you
+  may not edit someone's else's license -- which is a three-part legal
+  document (For instance: Copyright notice, BSD, followed by GPL).
+
+- If you receive ISC or BSD licensed code, you may not delete the
+  license.  Same principle, since the notice says so.  It's the law.
+  Really.
+
+- If you add "large pieces of originality" to the code which are valid
+  for copyright protection on their own, you may choose to put a different
+  and seperate (must be non-conflicting...) license at the top of the file
+  above the existing license.
+
+    (Warning: things become less clear as to what the combination of
+    licenses mean, though -- there are ethical traps, too).
+
+- If you wish for everyone to remain friends, you should give code back.
+
+  That means (at some ethical or friendliness level) you probably do
+  not want to put a GPL at the top of a BSD or ISC file, because you
+  would be telling the people who wrote the BSD or ISC file:
+
+     "Thanks for what you wrote, but this is a one-way street, you give
+     us code, and we take it, we give you you nothing back.  screw off."
+
+In either case, I think a valuable lessons has been taught us here in
+the BSD world -- there are many many GPL loving people who are going
+to try to find any way to not give back and share (I will mention one
+name: Luis Rodriguez has been a fanatic pushing us for dual licensed,
+and I feel he is to blame for this particular problem).  Many of those
+same people have been saying for years that BSD code can be stolen,
+and that is why people should GPL their code.
+
+Well, the lesson they have really taught us is that they consider the
+GPL their best tool to take from us!
+
+GPL fans said the great problem we would face is that companies would
+take our BSD code, modify it, and not give back.  Nope -- the great
+problem we face is that people would wrap the GPL around our code, and
+lock us out in the same way that these supposed companies would lock
+us out.  Just like the Linux community, we have many companies giving
+us code back, all the time.  But once the code is GPL'd, we cannot get
+it back.
+
+Ironic.
+
+I hope some people in the GPL community will give that some thought.
+Your license may benefit you, but you could lose friends you need.
+The GPL users have an opportunity to 'develop community', to keep an
+ethic of sharing alive.
+
+If the Linux developers wrap GPL's around things we worked very hard
+on, it will definately not be viewed as community development.
+
+Thank you for thinking about this.
+
+[I ask that one person make sure that one copy of this ends up on the
+linux kernel mailing list]
