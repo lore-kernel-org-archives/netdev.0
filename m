@@ -1,47 +1,57 @@
-From: "Nick Kossifidis" <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/5] Net: ath5k, split hw into hw, phy and initvals
-Date: Sat, 1 Sep 2007 06:12:28 +0300
-Message-ID: <40f31dec0708312012i59bae9a0v1a1fb4b997d7bc72@mail.gmail.com>
-References: <2713029743177393055@pripojeni.net>
-	 <20070828171034.GB29343@infradead.org>
-	 <40f31dec0708291850j2d35db6cu9de7c5f0a91e76f7@mail.gmail.com>
-	 <20070830123849.GB5140@tuxdriver.com>
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: zd1211rw regression, device does not enumerate
+Date: Fri, 31 Aug 2007 23:21:21 -0400
+Message-ID: <46D8DAB1.3090503@gentoo.org>
+References: <200708310958.38132.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Christoph Hellwig" <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	"Jiri Slaby" <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070830123849.GB5140-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org,
+	Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
+	linux-usb-devel@lists.sourceforge.net,
+	"John W.Linville" <linville@tuxdriver.com>
+To: Oliver Neukum <oliver@neukum.org>
+Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <200708310958.38132.oliver@neukum.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
+List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
+List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: linux-usb-devel-bounces@lists.sourceforge.net
+Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-2007/8/30, John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>:
-> On Thu, Aug 30, 2007 at 04:50:01AM +0300, Nick Kossifidis wrote:
-> > 2007/8/28, Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>:
->
-> > > ath5k_hw_phy.o should probably be ath5k_phy.o by conventions used by
-> > > most drivers and ath5k_hw_inivals.o mights aswell be something like
-> > > ath5k_init.o
->
-> > If you check out the code you'll see i'm using the same convention
-> > inside them, ath5k_hw* files contain hw related functions
-> > (ath5k_hw_<name>) while driver code has ath5k_<name>. Also ath5k_init
-> > is misleading, file acually includes initial register settings for
->
-> I have to agree w/ Christoph -- the extra "_hw" in the names is just
-> a bit unwieldy.
->
-> John
->
-> P.S.  "ath5k_initvals.c" seems acceptable to me.
+Oliver Neukum wrote:
+> after bisection it boils down to this patch:
+> 
+> oliver@oenone:/home/olli2/Trees/linux-2.6> git bisect bad
+> 74553aedd46b3a2cae986f909cf2a3f99369decc is first bad commit
+> commit 74553aedd46b3a2cae986f909cf2a3f99369decc
+> Author: Daniel Drake <dsd@gentoo.org>
+> Date:   Sun Jul 1 18:22:32 2007 +0100
+> 
+>     [PATCH] zd1211rw: Defer firmware load until first ifup
+> 
+> that plugging in my device I get an error:
+> Aug 16 13:17:11 oenone kernel: zd1211rw 3-4.3:1.0: zd1211b chip 0ace:1215 v4810 high 00-02-72 AL2230_RF pa0 g--NS
+> Aug 16 13:17:12 oenone ifup: Cannot enable interface eth2.
 
-ACK, i'll remove _hw ;-)
+Can you enable CONFIG_ZD1211RW_DEBUG and post new logs?
 
--- 
-GPG ID: 0xD21DB2DB
-As you read this post global entropy rises. Have Fun ;-)
-Nick
+Would also be nice to have a bug on the kernel bugzilla to track this.
+
+Thanks,
+Daniel
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >>  http://get.splunk.com/
+_______________________________________________
+linux-usb-devel@lists.sourceforge.net
+To unsubscribe, use the last form field at:
+https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
