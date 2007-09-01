@@ -1,47 +1,65 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: ipv4_get_l4proto: Frag of proto 17
-Date: Sat, 01 Sep 2007 07:28:26 +0200
-Message-ID: <46D8F87A.1080604@trash.net>
-References: <Pine.SOC.4.64.0708211355310.24028@math.ut.ee>	<46D66D00.7060801@trash.net> <Pine.SOC.4.64.0708301557400.9520@math.ut.ee>
+From: "Nick Kossifidis" <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 5/5] Net: ath5k, kconfig changes
+Date: Sat, 1 Sep 2007 08:58:15 +0300
+Message-ID: <40f31dec0708312258h1d77fc4eu54460bf70f119d27@mail.gmail.com>
+References: <2713029743177393055@pripojeni.net>
+	 <280951420471148977@pripojeni.net>
+	 <20070828171330.GD29343@infradead.org>
+	 <40f31dec0708291838p5d33eb34p3b4432d9d270841a@mail.gmail.com>
+	 <20070830123609.GA5140@tuxdriver.com>
+	 <40f31dec0708301518u5ef32d13jfe1cce09656bf77d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Netfilter Development Mailinglist
-	<netfilter-devel@lists.netfilter.org>
-To: Meelis Roos <mroos@linux.ee>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:46522 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751113AbXIAF34 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2007 01:29:56 -0400
-In-Reply-To: <Pine.SOC.4.64.0708301557400.9520@math.ut.ee>
-Sender: netdev-owner@vger.kernel.org
+Cc: "Christoph Hellwig" <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	"Jiri Slaby" <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <40f31dec0708301518u5ef32d13jfe1cce09656bf77d-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Meelis Roos wrote:
->>> Yesterdays git snapsot on a normal home PC spams dmesg with the following
->>> line:
->>> ipv4_get_l4proto: Frag of proto 17
->> In what situation does this happen?
-> 
-> It happens some times every hour on the average. Seems to be some UDP 
-> traffic. Firewall allows in any UDP that is ESTABLISHEFD,RELATED, DHCP 
-> (some more UDP rules with counter 0 so not important). Additionally 
-> there is internal netowkr that sometimes has a laptop but usually not 
-> and the messages have appeared also when there is nothin in the internal 
-> network.
-> 
-> Locally mldonkey is probably using UDP, and lsof -i | grep UDP tells 
-> that named, avahi-daemon, dhcpd, chronyd, nmbd and cupsd are listening 
-> on UDP sockets (most of them on internal network).
-> 
-> But I have no idea what application is causing the messages.
+2007/8/31, Nick Kossifidis <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
+> 2007/8/30, John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>:
+> > On Thu, Aug 30, 2007 at 04:38:09AM +0300, Nick Kossifidis wrote:
+> > > 2007/8/28, Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>:
+> >
+> > > > Also this whole patch seems rather pointless.  It saves only
+> > > > very little and turns the driver into a complete ifdef maze.
+> >
+> > > Also most
+> > > people will use 5212 code only, 5211 cards are on some old laptops and
+> > > 5210, well i couldn't even find  a 5210 for actual testing :P
+> >
+> > FWIW, I'd bet dollars to donuts that distros will enable them all
+> > together.
+> >
+> > Is saving code space the only reason to turn these off?  How much
+> > space do you save?
+> >
+> > Is there some way you can isolate and/or limit the number of ifdef
+> > blocks further?  If so, we might consider a version of this patch
+> > that depends on EMBEDDED or somesuch...?
+> >
+> > John
+>
+> O.K. as a first step i'll limit 5210 code only then, just an option
+> like "support older 5210 chipsets" which is going to be off by default
+> instead of 3 options. It's not just saving space, it's also saving
+> some runtime checks. It's not really a gain in performance though,
+> most checks are done during initialization and dfs setup, i just
+> thought it would be usefull to save as much cpu as possible.
+>
+
+Well after some thought i removed them all, there is no real gain from
+this in most cases (that ppl will use newer 5212 chips and
+combatibles).
 
 
-I'm guessing that its ICMP errors containing UDP fragments.
 
-Could you add a WARN_ON(1) to ipv4_get_l4proto() in
-net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c to verify
-this?
-
+-- 
+GPG ID: 0xD21DB2DB
+As you read this post global entropy rises. Have Fun ;-)
+Nick
