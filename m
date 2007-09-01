@@ -1,31 +1,52 @@
-From: Satyam Sharma <satyam@infradead.org>
-Subject: Re: 2.6.23-rc4-mm1 "no CRC" MODPOST warnings
-Date: Sun, 2 Sep 2007 03:36:08 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0709020327260.20781@enigma.security.iitk.ac.in>
-References: <20070831215822.26e1432b.akpm@linux-foundation.org>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: [PATCH 2/2]: [NET_SCHED]: Making rate table lookups more flexible.
+Date: Sat, 1 Sep 2007 23:56:00 +0200 (CEST)
+Message-ID: <Pine.LNX.4.61.0709012338320.29796@ask.diku.dk>
+References: <1188562978.18622.13.camel@localhost.localdomain>
+ <46D91082.7050609@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, Sam Ravnborg <sam@ravnborg.org>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: jdb@comx.dk, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:45230 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756925AbXIAVxB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2007 17:53:01 -0400
-In-Reply-To: <20070831215822.26e1432b.akpm@linux-foundation.org>
+Received: from mgw1.diku.dk ([130.225.96.91]:44426 "EHLO mgw1.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756660AbXIAV4I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Sep 2007 17:56:08 -0400
+In-Reply-To: <46D91082.7050609@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
+On Sat, 1 Sep 2007, Patrick McHardy wrote:
 
-On Fri, 31 Aug 2007, Andrew Morton wrote:
-> 
-> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.23-rc4/2.6.23-rc4-mm1/
+> Jesper Dangaard Brouer wrote:
+>> 
+>> [NET_SCHED]: Making rate table lookups more flexible.  Extend the
+>> tc_ratespec struct, with two parameters: 1) "cell_align" that allow
+>> adjusting the alignment of the rate table. 2) "overhead" that allow
+>> adding a packet overhead before the lookup.
+>
+>
+> Am I guessing right that the intention is to resurrect the ATM patch?
 
-Got these on an i386 build with CONFIG_MODVERSIONS=y ...
+Yes, you are right.
+Remember, Jamal ACKed the patch, and you redrew your NAK.
 
-WARNING: "div64_64" [net/netfilter/xt_connbytes.ko] has no CRC!
-WARNING: "div64_64" [net/ipv4/tcp_cubic.ko] has no CRC!
+This is not a ATM/ADSL only patch.  This patch simply adds more 
+flexibility to the rate tables.  Afterwards we can start the discussion 
+about how to use this new flexibility in tc/iproute2.
 
-Full .config at: http://www.cse.iitk.ac.in/users/ssatyam/config-mm
+BTW. The reason you could not measure any improvements on your SHDSL line 
+is that it uses HDLC and not ATM as data link layer.
+
+See your,
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
