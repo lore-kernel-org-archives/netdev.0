@@ -1,68 +1,65 @@
-From: Sam Leffler <sam-zZXckVAlHaQAvxtiuMwx3w@public.gmane.org>
-Subject: Re: Fwd: That whole "Linux stealing our code" thing
-Date: Sat, 01 Sep 2007 15:03:36 -0700
-Message-ID: <46D9E1B8.2060300@errno.com>
-References: <200709010140.l811eq9H005896@cvs.openbsd.org> <f34ca13c0709010948v67b04b58lb098713dc38c4d6a@mail.gmail.com> <46D99FB7.6030505@garzik.org> <f34ca13c0709011037p221cb40fjf69651d1858df212@mail.gmail.com> <20070901205457.GK9260@stusta.de>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: [PATCH 1/2]: [NET_SCHED]: Make all rate based scheduler work
+ with TSO.
+Date: Sat, 1 Sep 2007 23:38:23 +0200 (CEST)
+Message-ID: <Pine.LNX.4.61.0709012325080.29796@ask.diku.dk>
+References: <1188562975.18622.11.camel@localhost.localdomain>
+ <46D9103B.7090905@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070901205457.GK9260-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: jdb@comx.dk, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw1.diku.dk ([130.225.96.91]:40983 "EHLO mgw1.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756169AbXIAWE5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Sep 2007 18:04:57 -0400
+In-Reply-To: <46D9103B.7090905@trash.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
-> On Sat, Sep 01, 2007 at 01:37:18PM -0400, Constantine A. Murenin wrote:
->   
->> On 01/09/07, Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org> wrote:
->>     
->>> Constantine A. Murenin wrote:
->>>       
->>>> This will hopefully help diminish certain myths about the code licensing.
->>>>         
->>> What myth?  The myth that Theo understands dual licensing?
->>>       
->> Reyk's code was never dual licensed, so it's not like it even matters
->> to the original dispute.
->>     
->
-> It's no longer dual licenced in the FreeBSD tree because the FreeBSD 
-> people removed the GPL choice of the dual licenced code 3 months ago.
->
-> So all of Theo's accusations of people breaking the law by making this 
-> dual licenced code GPL-only apply as well to the FreeBSD people...
->   
 
-Sigh, why actually check the facts when you can make them up.   The code 
-in question is my code.  It has my copyright (modulo bits shared with 
-onoe-san who was consulted on the switch from dual-bsd/gpl to bsd only 
-in freebsd).  Of course what was amusing was how after I changed the 
-license on the current code in freebsd certain folks retroactively 
-applied the license changes to code that was 3 years old.
+On Sat, 1 Sep 2007, Patrick McHardy wrote:
 
-But is there a point to all this nonsense?  I dual-licensed the code so 
-folks could adopt and use it however they saw fit.  As I've said before 
-I don't care what people do with the work I give away so long as they 
-don't claim it's their own.
-
->   
->> That said, I don't see what exact wording you consider inaccurate.
->>     
+> Jesper Dangaard Brouer wrote:
+>> commit 6fdc0f061be94f5e297650961360fb7a9d1cc85d
+>> Author: Jesper Dangaard Brouer <hawk@comx.dk>
+>> Date:   Thu Aug 30 17:53:42 2007 +0200
+>> 
+>> [NET_SCHED]: Make all rate based scheduler work with TSO.
+>> 
+>> Change L2T (length to time) macros, in all rate based schedulers, to
+>> call a common function qdisc_l2t() that does the rate table lookup.
+>> This function handles if the packet size lookup is larger than the
+>> rate table, which often occurs with TSO enabled.
 >
-> Both the FreeBSD and Linux people draw the logical conclusion that this 
-> "Alternatively" means everyone can always choose to remove one of the 
-> two choices alternatively offered.
 >
-> According to Theo, that is "breaking the law"...
+> It still won't work properly with TSO (TBF for example already drops
+> oversized packets during ->enqueue), but its a good cleanup anyway.
+
+Then lets call it a cleanup of the L2T macros.  In the next step we will 
+fix the different schedulers, to use the ability to lookup larger sized 
+packets. (I did notice the TBF scheduler would drop oversized packets).
+
+
+>> +#define L2T(p,L)   ((p)->tcfp_R_tab, L)
+>> +#define L2T_P(p,L) ((p)->tcfp_P_tab, L)
 >
->   
+>
+> I'd prefer to get rid of these L2T macros completely.
 
-I've yet to see "FreeBSD people" speak up so again you're just spouting 
-jibberish.  I am speaking up as the author of the code that set the dual 
-license in place.  I have the definitive say and I have said that any of 
-my code that is dual-licensed can be made gpl only.
+Lets take it one step at a time, but I agree.
 
-    Sam
+
+Will you ack the patch as a cleanup?
+
+Hilsen
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
