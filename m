@@ -1,26 +1,23 @@
-From: "Constantine A. Murenin" <mureninc@gmail.com>
+From: Adrian Bunk <bunk@kernel.org>
 Subject: Re: Fwd: That whole "Linux stealing our code" thing
-Date: Sat, 1 Sep 2007 17:51:49 -0400
-Message-ID: <f34ca13c0709011451p67ca96f8o184c0b32efa6b55b@mail.gmail.com>
-References: <200709010140.l811eq9H005896@cvs.openbsd.org>
-	 <f34ca13c0709010948v67b04b58lb098713dc38c4d6a@mail.gmail.com>
-	 <46D99FB7.6030505@garzik.org>
-	 <f34ca13c0709011037p221cb40fjf69651d1858df212@mail.gmail.com>
-	 <20070901205457.GK9260@stusta.de> <20070901211642.GL9260@stusta.de>
+Date: Sat, 1 Sep 2007 23:52:25 +0200
+Message-ID: <20070901215225.GM9260@stusta.de>
+References: <200709010140.l811eq9H005896@cvs.openbsd.org> <f34ca13c0709010948v67b04b58lb098713dc38c4d6a@mail.gmail.com> <46D99FB7.6030505@garzik.org> <f34ca13c0709011037p221cb40fjf69651d1858df212@mail.gmail.com> <20070901205457.GK9260@stusta.de> <f34ca13c0709011427u7a9cc97bp75c035afed3e5a63@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Jeff Garzik" <jeff@garzik.org>, linux-kernel@vger.kernel.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: "Adrian Bunk" <bunk@kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932660AbXIAVwA@vger.kernel.org>
-In-Reply-To: <20070901211642.GL9260@stusta.de>
+Content-Type: text/plain; charset=utf-8
+Cc: Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Jiri Slaby <jirislaby@gmail.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>
+To: "Constantine A. Murenin" <mureninc@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932792AbXIAVwk@vger.kernel.org>
 Content-Disposition: inline
+In-Reply-To: <f34ca13c0709011427u7a9cc97bp75c035afed3e5a63@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/09/07, Adrian Bunk <bunk@kernel.org> wrote:
-> On Sat, Sep 01, 2007 at 10:54:57PM +0200, Adrian Bunk wrote:
+On Sat, Sep 01, 2007 at 05:27:03PM -0400, Constantine A. Murenin wrote:
+> On 01/09/07, Adrian Bunk <bunk@kernel.org> wrote:
 > > On Sat, Sep 01, 2007 at 01:37:18PM -0400, Constantine A. Murenin wrote:
 > > > On 01/09/07, Jeff Garzik <jeff@garzik.org> wrote:
 > > > > Constantine A. Murenin wrote:
@@ -30,51 +27,61 @@ On 01/09/07, Adrian Bunk <bunk@kernel.org> wrote:
 > > >
 > > > Reyk's code was never dual licensed, so it's not like it even matters
 > > > to the original dispute.
->
-> Oh, and if you look at the OpenBSD CVS you see versions 4 months old
-> with dozens of contributions by Reyk and with:
->
-> /*      $OpenBSD: ath.c,v 1.63 2007/05/09 16:41:14 reyk Exp $  */
-> /*      $NetBSD: ath.c,v 1.37 2004/08/18 21:59:39 dyoung Exp $        */
->
-> /*-
->  * Copyright (c) 2002-2004 Sam Leffler, Errno Consulting
->  * All rights reserved.
->  *
->  * Redistribution and use in source and binary forms, with or without
->  * modification, are permitted provided that the following conditions
->  * are met:
->  * 1. Redistributions of source code must retain the above copyright
->  *    notice, this list of conditions and the following disclaimer,
->  *    without modification.
->  * 2. Redistributions in binary form must reproduce at minimum a disclaimer
->  *    similar to the "NO WARRANTY" disclaimer below ("Disclaimer") and any
->  *    redistribution must be conditioned upon including a substantially
->  *    similar Disclaimer requirement for further binary redistribution.
->  * 3. Neither the names of the above-listed copyright holders nor the names
->  *    of any contributors may be used to endorse or promote products derived
->  *    from this software without specific prior written permission.
->  *
->  * Alternatively, this software may be distributed under the terms of the
->  * GNU General Public License ("GPL") version 2 as published by the Free
->  * Software Foundation.
->  *
->  * NO WARRANTY
->  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
->  * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
->  * LIMITED TO, THE IMPLIED WARRANTIES OF NONINFRINGEMENT, MERCHANTIBILITY
->  * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
->  * THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY,
->  * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
->  * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
->  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
->  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
->  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
->  * THE POSSIBILITY OF SUCH DAMAGES.
->  */
+> >
+> > It's no longer dual licenced in the FreeBSD tree because the FreeBSD
+> > people removed the GPL choice of the dual licenced code 3 months ago.
+> 
+> FreeBSD doesn't have Reyk's ath(4) HAL, which OpenHAL is based on.
+> 
+> FreeBSD has a driver written by Sam, and a binary-only HAL, also written by Sam.
+> 
+> > So all of Theo's accusations of people breaking the law by making this
+> > dual licenced code GPL-only apply as well to the FreeBSD people...
+> 
+> How? FreeBSD doesn't have Reyk's ath(4) HAL from OpenBSD, so there are
+> no possible licensing accusations and violations.
 
-Where exactly do you see Reyk's copyright in the above quote?
+OK, I begin to understand this, there seem to be three different types 
+of files changed by Jiri's patch:
+1. dual licenced files planned to make GPL-only
+2. previously dual licenced files with a too recent version used planned 
+   to make GPL-only
+3. never dual licenced files planned to make GPL-only
 
-http://www.openbsd.org/cgi-bin/man.cgi?query=ath&sektion=4#AUTHORS
+For files under 1. and 2. Reyk did contribute to dual licenced code 
+without touching the licence, but I missed that there's also code unter 3.
 
-C.
+So there is a problem, but not with the code under 1. (unless you plan 
+to change the semantics of the word "alternatively"), the problem is 
+with some headers under 2. plus the code under 3.
+
+It's funny how Theo missed the part of Jiri's patch that actually is a 
+copyright violation and instead complains about the part that is OK...
+
+> > > That said, I don't see what exact wording you consider inaccurate.
+> >
+> > Both the FreeBSD and Linux people draw the logical conclusion that this
+> > "Alternatively" means everyone can always choose to remove one of the
+> > two choices alternatively offered.
+> >
+> > According to Theo, that is "breaking the law"...
+> 
+> FreeBSD's ath(4) code, both the driver and the HAL, is entirely
+> written by Sam Leffler, who can licence it in whichever way he seems
+> reasonable. The driver part of Sam's code is also present in OpenBSD,
+> but the HALs in OpenBSD and FreeBSD are entirely different.
+
+Sam also changed the licence of a file additionally containing an
+  Copyright (c) 2004 Video54 Technologies, Inc.
+
+> C.
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
