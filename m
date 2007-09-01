@@ -1,73 +1,45 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: Re: [PATCH] net/, drivers/net/ , missing EXPERIMENTAL in menus
-Date: Sat, 1 Sep 2007 14:49:01 +0200
-Message-ID: <20070901124901.GA2935@uranus.ravnborg.org>
-References: <Pine.LNX.4.64.0707181712340.16513@localhost.localdomain> <20070719054742.GN3801@stusta.de> <Pine.LNX.4.64.0707190331330.11902@localhost.localdomain> <469F240E.9040205@s5r6.in-berlin.de> <Pine.LNX.4.64.0707190523001.19216@localhost.localdomain> <20070719083109.13b2ab56.rdunlap@xenotime.net> <Pine.LNX.4.64.0707191213130.8844@localhost.localdomain> <469FE045.3070403@simon.arlott.org.uk> <20070831102527.09fb42c0.rdunlap@xenotime.net> <Pine.LNX.4.64.0709010641540.31472@localhost.localdomain>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] skge: unbalanced parenthesis fix
+Date: Sat, 1 Sep 2007 13:55:39 +0100
+Message-ID: <20070901135539.40557930@oldman>
+References: <200709010810.12798.m.kozlowski@tuxland.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Randy Dunlap <rdunlap@xenotime.net>,
-	Simon Arlott <simon@fire.lp0.eu>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Adrian Bunk <bunk@stusta.de>, Jeff Garzik <jeff@garzik.org>,
-	Gabriel C <crazy@pimpmylinux.org>, netdev@vger.kernel.org
-To: "Robert P. J. Day" <rpjday@mindspring.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	lkml <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pasmtpa.tele.dk ([80.160.77.114]:50006 "EHLO pasmtpA.tele.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751655AbXIAMrm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Sep 2007 08:47:42 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0709010641540.31472@localhost.localdomain>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:34279 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750965AbXIAMzT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2007 08:55:19 -0400
+In-Reply-To: <200709010810.12798.m.kozlowski@tuxland.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 01, 2007 at 06:44:06AM -0400, Robert P. J. Day wrote:
+On Sat, 1 Sep 2007 08:10:12 +0200
+Mariusz Kozlowski <m.kozlowski@tuxland.pl> wrote:
+
+> Hello,
 > 
-> > >  	while (1) {
-> > >  		printf("%*s%s ", indent - 1, "", menu->prompt->text);
-> > > +		switch (sym->maturity) {
-> > > +		case M_EXPERIMENTAL:
-> > > +			printf("(EXPERIMENTAL) ");
-> > > +			break;
-> > > +		case M_DEPRECATED:
-> > > +			printf("(DEPRECATED) ");
-> > > +			break;
-> > > +		case M_OBSOLETE:
-> > > +			printf("(OBSOLETE) ");
-> > > +			break;
-> > > +		case M_BROKEN:
-> > > +			printf("(BROKEN) ");
-> > > +			break;
-> > > +		default:
-> > > +			break;
-> > > +		}
-> > >  		if (sym->name)
-> > >  			printf("(%s) ", sym->name);
-> > >  		type = sym_get_type(sym);
+> 	This patch fixes unbalanced parenthesis.
 > 
-> for now, simon, why not just reduce this to supporting only DEPRECATED
-> and OBSOLETE so that it can be at least tested as "proof of concept?"
+> Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+> 
+>  drivers/net/skge.h |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> --- linux-2.6.23-rc4-mm1-a/drivers/net/skge.h	2007-09-01 07:23:52.000000000 +0200
+> +++ linux-2.6.23-rc4-mm1-b/drivers/net/skge.h	2007-09-01 07:37:55.000000000 +0200
+> @@ -1351,7 +1351,7 @@ enum {
+>  	PHY_M_PC_EN_DET_PLUS	= 3<<8, /* Energy Detect Plus (Mode 2) */
+>  };
+> 
+> -#define PHY_M_PC_MDI_XMODE(x)	((((u16)(x)<<5) & PHY_M_PC_MDIX_MSK)
+> +#define PHY_M_PC_MDI_XMODE(x)	(((u16)(x)<<5) & PHY_M_PC_MDIX_MSK)
+> 
+>  enum {
+>  	PHY_M_PC_MAN_MDI	= 0, /* 00 = Manual MDI configuration */
 
-The principle with letting a dependency add text to the promts are good.
-But the implementation done by Simon with a language extension is not good.
-A simple and better approach would be to use the newly added option
-support for this and let the backend generate the promtps.
-
-I have not yet tried to cook up a patch for it, but it should be
-quite generaic and doable.
-
-config EXPERIMENTAL
-	option appendprompt=" (EXPERIMENTAL)
-
-config DEPRECATED
-	option appendprompt=" (DEPRECATED)
-
-Then the dependency added will automatically append to the prompt.
-
-It would probarly have be done in two steps. One that introduce a helper
-function to retreive the prompt text and introduce it. And next a patch to
-add a text if a symbol has a dependency on a symbol with a specific option
-assigned.
-
-	Sam
+Since the macro is unused, I would rather just drop it.
