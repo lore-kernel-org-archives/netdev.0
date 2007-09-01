@@ -1,88 +1,42 @@
-From: Bob Beck <beck-B8nDeHyzpwgue2609Ts4vbeKQFjJmrJW@public.gmane.org>
-Subject: [beck-B8nDeHyzpwgue2609Ts4vbeKQFjJmrJW@public.gmane.org: I respect the GPL immensely, really I do - but I believe this type of action weakens us all.]
-Date: Sat, 1 Sep 2007 16:41:12 -0600
-Message-ID: <20070901224112.GC24887@bofh.cns.ualberta.ca>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: 2.6.23-rc4-mm1 "no CRC" MODPOST warnings
+Date: Sun, 2 Sep 2007 01:15:54 +0200
+Message-ID: <20070901231554.GA7318@uranus.ravnborg.org>
+References: <20070831215822.26e1432b.akpm@linux-foundation.org> <alpine.LFD.0.999.0709020327260.20781@enigma.security.iitk.ac.in>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Satyam Sharma <satyam@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pasmtpa.tele.dk ([80.160.77.114]:58213 "EHLO pasmtpA.tele.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757151AbXIAXOe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Sep 2007 19:14:34 -0400
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <alpine.LFD.0.999.0709020327260.20781@enigma.security.iitk.ac.in>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------ Forwarded message from Bob Beck <beck-B8nDeHyzpwgue2609Ts4vbeKQFjJmrJW@public.gmane.org> -----
+On Sun, Sep 02, 2007 at 03:36:08AM +0530, Satyam Sharma wrote:
+> 
+> 
+> On Fri, 31 Aug 2007, Andrew Morton wrote:
+> > 
+> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.23-rc4/2.6.23-rc4-mm1/
+> 
+> Got these on an i386 build with CONFIG_MODVERSIONS=y ...
+> 
+> WARNING: "div64_64" [net/netfilter/xt_connbytes.ko] has no CRC!
+> WARNING: "div64_64" [net/ipv4/tcp_cubic.ko] has no CRC!
 
-From: Bob Beck <beck-B8nDeHyzpwgue2609Ts4vbeKQFjJmrJW@public.gmane.org>
-To: misc-7YlrpqBBQ3VAfugRpC6u6w@public.gmane.org
-Subject: I respect the GPL immensely, really I do - but I believe this type of action weakens us all.
-X-Spam-Checker-Version: SpamAssassin 3.1.8 (2007-02-13) on bofh.cns.ualberta.ca
-X-Spam-Level: 
-X-Spam-Status: No, score=-2.8 required=3.0 tests=AWL,BAYES_00,
-	DNS_FROM_RFC_ABUSE,FORGED_RCVD_HELO autolearn=no version=3.1.8
-Date: Sat, 1 Sep 2007 16:22:43 -0600
-User-Agent: Mutt/1.5.12-2006-07-14
+As Adrian already commented it is fixed in kbuild.git.
+It happes bacause genksyms did not know __extension__ and error recovery
+in the parser were bad. I only managed to add support for __extension__ but
+the error receovery are not fixed :-(
 
- [ A copy of this is going to the linux kernel mailing list, regarding the
-recent license modifications to reyk's files]
+kbuild.git is not part of this -mm due to me fucking up the above fix.
+That is corrected now so it will be in next -mm.
 
->Oh, and if you look at the OpenBSD CVS you see versions 4 months old 
->with dozens of contributions by Reyk and with:
->
->/*      $OpenBSD: ath.c,v 1.63 2007/05/09 16:41:14 reyk Exp $  */
->/*      $NetBSD: ath.c,v 1.37 2004/08/18 21:59:39 dyoung Exp $        */
->/*-
-> * Copyright (c) 2002-2004 Sam Leffler, Errno Consulting
-> * All rights reserved.
-
-   Of course you do! because some of reyk's work used some of Sam's
-work, and unlike what it seems a portion of the Linux community seems
-to be willing to do in their Zealotry for the GPL, reyk is not
-*removing and modifying* the licenses granted by the original authors.
-That's the point. He's not saying he wrote this piece, and he's not
-*changing* the conditions under which Sam distributed the code in the
-first place. However what scares me more is the seeming willingness to
-make the authors of a derivative work appear to be the primary authors
-of something, and a willingness to change an authors copyright
-statement (on reyk's code) without his permission. 
-
-   I have always immensely respected the GPL - it has very noble
-goals, they are very appropriate in some cases, they don't happen to
-be mine, but that's fine, I don't release my code under it - but
-that's fine, it's my choice.  Just like many smart people who I know
-and respect do their work in GPL land, and this is great too. However,
-when it comes time to be looking at someone else's work above all we
-have to respect the various authors choice of how they want their hard
-work shared with the community. 
-
-  To me, this seems like a portion of the Linux community seems to be
-wanting to make their own rules, chosing to rewrite a license at any
-time they choose without the original author's agreement. This appalls
-and scares me. Why? not only does it show a huge lack of respect for
-someone who has worked very hard to produce something the whole
-community can use, but seriously undermines software freedom as a
-whole. This is a slippery slope. If one community starts modifying the
-others licenses for no purpose other than zealotry, I see only two
-consequences:
-
-   1) a hugh rift of mistrust between the developers of both camps,
-meaning no cooperating to make the world a better place.
-
-   2) A weakening of the respect for licensing on all sides of the
-community, which weakens the credibility of both BSD *AND* the GPL
-license when tested from the outside. Frankly, this scares the hell
-out of me and dismays me. 
-
-   I seriously hope that saner more mature and forward thinking heads
-inside the Linux community will stop bashing the things that Theo and
-the rest of our community is saying just because it's coming from
-Theo, and he's a great target to bash, and start thinking about what
-you are doing to free software as a whole. I think you are on the
-verge of doing irreparable damage that will seriously weaken the
-ability for all of our projects to move forward, and protect our
-rights as code authors in the future.
-
-	-Bob
-
-
------ End forwarded message -----
+	Sam
