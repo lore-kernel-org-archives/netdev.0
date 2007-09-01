@@ -1,40 +1,48 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: 2.6.23-rc4-mm1 OOPS in forcedeth?
-Date: Sat, 01 Sep 2007 15:05:19 -0400
-Message-ID: <46D9B7EF.2050109@garzik.org>
-References: <20070831215822.26e1432b.akpm@linux-foundation.org> <20070901181352.GA4156@amd64.of.nowhere>
+From: "Karl Meyer" <adhocrocker@gmail.com>
+Subject: Re: PROBLEM: 2.6.23-rc "NETDEV WATCHDOG: eth0: transmit timed out"
+Date: Sat, 1 Sep 2007 21:24:36 +0200
+Message-ID: <be1b757c0709011224tafebaaby697d03ab5377e20f@mail.gmail.com>
+References: <be1b757c0708130435y689b9dd8raf9ac9f9c0fcc976@mail.gmail.com>
+	 <20070813165821.GA19356@electric-eye.fr.zoreil.com>
+	 <be1b757c0708131027v5c57822as2d9bd3190fd19b71@mail.gmail.com>
+	 <20070814070901.GA14693@electric-eye.fr.zoreil.com>
+	 <be1b757c0708141425qd887581n3922702b84a21758@mail.gmail.com>
+	 <20070814224629.GB3495@electric-eye.fr.zoreil.com>
+	 <20070816141122.GA6625@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: thunder7@xs4all.nl
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756489AbXIATFg@vger.kernel.org>
-In-Reply-To: <20070901181352.GA4156@amd64.of.nowhere>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Francois Romieu" <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757286AbXIATYw@vger.kernel.org>
+In-Reply-To: <20070816141122.GA6625@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-thunder7@xs4all.nl wrote:
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Date: Fri, Aug 31, 2007 at 09:58:22PM -0700
->> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.23-rc4/2.6.23-rc4-mm1/
->>
-> On this machine (Athlon 64 X2 4600, 4 GiB memory, lots of disks),
-> 2.6.23-rc1-mm2 runs fine. 2.6.23-rc4-mm1 reproducably dies within seconds of starting
-> a rsync session on another PC against this machine.
-> 
-> NULL pointer dereference
-> code:	nv_napi_poll+0x108
-> trace:	net_rx_action+0xab
-> 	__do_softirq+0x74
-> 	call_softirq+0x1c
-> 	do_softirq+0x3d
-> 	irq_exit+0x85
-> 	do_IRQ+0x85
-> 	ret_from_intr+0x0
+This is what happened today:
 
-(added netdev to CC)
+Sep  1 21:08:01 frege NETDEV WATCHDOG: eth0: transmit timed out
+frege ~ # uname -r
+2.6.22.5-cfs-v20.5
 
-I'm guessing that this is net-2.6.24.git's NAPI update.
 
-	Jeff
+2007/8/16, Francois Romieu <romieu@fr.zoreil.com>:
+> (please do not remove the netdev Cc:)
+>
+> Francois Romieu <romieu@fr.zoreil.com> :
+> [...]
+> > If it does not work I'll dissect 0e4851502f846b13b29b7f88f1250c980d57e944
+> > tomorrow.
+>
+> You will find a tgz archive in attachment which contains a serie of patches
+> (0001-... to 0005-...) to walk from 6dccd16b7c2703e8bbf8bca62b5cf248332afbe2
+> to 0e4851502f846b13b29b7f88f1250c980d57e944 in smaller steps.
+>
+> Please apply 0001 on top of 6dccd16b7c2703e8bbf8bca62b5cf248332afbe2. If it
+> still works, apply 0002 on top of 0001, etc.
+>
+> --
+> Ueimor
+>
+>
