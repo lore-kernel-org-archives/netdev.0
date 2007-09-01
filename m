@@ -1,84 +1,45 @@
-From: "Robert P. J. Day" <rpjday@mindspring.com>
-Subject: Re: [PATCH] net/, drivers/net/ , missing EXPERIMENTAL in menus
-Date: Sat, 1 Sep 2007 06:44:06 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0709010641540.31472@localhost.localdomain>
-References: <469E75AA.7040109@pimpmylinux.org>
- <Pine.LNX.4.64.0707181620460.13912@localhost.localdomain>
- <20070718134012.cde2f956.randy.dunlap@oracle.com> <469E7BE1.6090401@garzik.org>
- <Pine.LNX.4.64.0707181648330.15343@localhost.localdomain>
- <20070718210903.GM3801@stusta.de> <Pine.LNX.4.64.0707181712340.16513@localhost.localdomain>
- <20070719054742.GN3801@stusta.de> <Pine.LNX.4.64.0707190331330.11902@localhost.localdomain>
- <469F240E.9040205@s5r6.in-berlin.de> <Pine.LNX.4.64.0707190523001.19216@localhost.localdomain>
- <20070719083109.13b2ab56.rdunlap@xenotime.net>
- <Pine.LNX.4.64.0707191213130.8844@localhost.localdomain>
- <469FE045.3070403@simon.arlott.org.uk> <20070831102527.09fb42c0.rdunlap@xenotime.net>
+From: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+Subject: Re: 2.6.23-rc4-mm1
+Date: Sat, 01 Sep 2007 17:25:27 +0530
+Message-ID: <46D9532F.4080209@linux.vnet.ibm.com>
+References: <20070831215822.26e1432b.akpm@linux-foundation.org> <20070901155353.8a09db69.kamezawa.hiroyu@jp.fujitsu.com> <20070831235815.a09c7865.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Simon Arlott <simon@fire.lp0.eu>, Sam Ravnborg <sam@ravnborg.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Adrian Bunk <bunk@stusta.de>, Jeff Garzik <jeff@garzik.org>,
-	Gabriel C <crazy@pimpmylinux.org>, netdev@vger.kernel.org
-To: Randy Dunlap <rdunlap@xenotime.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nic.NetDirect.CA ([216.16.235.2]:35613 "EHLO
-	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753322AbXIAK5F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2007 06:57:05 -0400
-In-Reply-To: <20070831102527.09fb42c0.rdunlap@xenotime.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755221AbXIALzq@vger.kernel.org>
+In-Reply-To: <20070831235815.a09c7865.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 31 Aug 2007, Randy Dunlap wrote:
-
-> On Thu, 19 Jul 2007 23:05:57 +0100 Simon Arlott wrote:
-
-> > What about something like this? I'm not sure if the addition to
-> > sym_init is desirable... I also had to prefix _ to the name for
-> > now otherwise it conflicts badly with the current symbols. It
-> > probably should stop "depends on _BROKEN" etc. too.
+Andrew Morton wrote:
+>> On Sat, 1 Sep 2007 15:53:53 +0900 KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com> wrote:
+>> I met 2 troubles while I compiled rc4-mm1 on x86/UP system,
+>>
+>> One on pcnet32.c (patch is attaced below).
+>> One on crypto CONFIG.
+>>
+>> == compile log ==
+>> drivers/net/pcnet32.c: In function 'pcnet32_netif_stop':
+>> drivers/net/pcnet32.c:445: warning: unused variable 'lp'
+>> drivers/net/pcnet32.c: In function 'pcnet32_netif_start':
+>> drivers/net/pcnet32.c:455: warning: unused variable 'lp'
+>> drivers/net/pcnet32.c: In function 'pcnet32_interrupt':
+>> drivers/net/pcnet32.c:2622: error: 'struct net_device' has no member named 'napi'
+>>     
 >
-> Hi Simon,
+> Only git-net touches pcnet32.c
 >
-> (sorry for the delay)
->
-> I like this patch very much... I just can't get it to build (on
-> 2.6.23-rc4).
+>   
+<snip>
+Hi Kamezawa,
 
-i got a patch from simon a while back, and it failed with
-"shift/reduce" conflicts.  is that what you're seeing?
+I got the pcnet32.c compile failure and after applying the patch compile 
+does not fails.
 
-> >  	while (1) {
-> >  		printf("%*s%s ", indent - 1, "", menu->prompt->text);
-> > +		switch (sym->maturity) {
-> > +		case M_EXPERIMENTAL:
-> > +			printf("(EXPERIMENTAL) ");
-> > +			break;
-> > +		case M_DEPRECATED:
-> > +			printf("(DEPRECATED) ");
-> > +			break;
-> > +		case M_OBSOLETE:
-> > +			printf("(OBSOLETE) ");
-> > +			break;
-> > +		case M_BROKEN:
-> > +			printf("(BROKEN) ");
-> > +			break;
-> > +		default:
-> > +			break;
-> > +		}
-> >  		if (sym->name)
-> >  			printf("(%s) ", sym->name);
-> >  		type = sym_get_type(sym);
-
-for now, simon, why not just reduce this to supporting only DEPRECATED
-and OBSOLETE so that it can be at least tested as "proof of concept?"
-
-rday
--- 
-========================================================================
-Robert P. J. Day
-Linux Consulting, Training and Annoying Kernel Pedantry
-Waterloo, Ontario, CANADA
-
-http://crashcourse.ca
-========================================================================
+Thanks & Regards,
+Kamalesh Babulal.
