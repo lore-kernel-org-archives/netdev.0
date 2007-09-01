@@ -1,67 +1,64 @@
-From: Denis Cheng <crquan@gmail.com>
-Subject: [PATCH 3/3] netlink: use a statically allocated nl_table instead
-Date: Sun,  2 Sep 2007 03:45:59 +0800
-Message-ID: <11886759772663-git-send-email-crquan@gmail.com>
-References: <1188675959178-git-send-email-crquan@gmail.com>
- <11886759682348-git-send-email-crquan@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	cr_quan@163.com
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932119AbXIATrP@vger.kernel.org>
-In-Reply-To: <11886759682348-git-send-email-crquan@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Or Gerlitz" <or.gerlitz@gmail.com>
+Subject: Re: [ofa-general] [PATCH V4 0/10] net/bonding: ADD IPoIB support for
+	the bonding driver
+Date: Sat, 1 Sep 2007 23:19:04 +0300
+Message-ID: <15ddcffd0709011319n3d458a9cm3c97344807a72c43@mail.gmail.com>
+References: <46C9B474.5020202@voltaire.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: general@lists.openfabrics.org, netdev@vger.kernel.org
+To: rdreier@cisco.com, davem@davemloft.net, fubar@us.ibm.com
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <46C9B474.5020202@voltaire.com>
+Content-Disposition: inline
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-if the table is always fixed size with MAX_LINKS entries, why not use a statically
-allocated table straightforwardly?
+On 8/20/07, Moni Shoua <monis@voltaire.com> wrote:
+> This patch series is the fourth version (see below link to V3) of the
+> suggested changes to the bonding driver so it would be able to support
+> non ARPHRD_ETHER netdevices for its High-Availability (active-backup) mode.
+>
+> The motivation is to enable the bonding driver on its HA mode to work with
+> the IP over Infiniband (IPoIB) driver. With these patches I was able to enslave
+> IPoIB netdevices and run TCP, UDP, IP (UDP) Multicast and ICMP traffic with
+> fail-over and fail-back working fine. The working environment was the net-2.6 git.
+>
+> This series also includes patches to the IPoIB driver that fix some fix
+> some neighboring related issues.
+>
+> Major changes from the previous version:
+>
+> 1) Addressing the issue of safety when unloading the IPoIB module before
+> the bonding module
+> 2) style changes
+>
+>
+> Links to earlier discussion:
+>
+> 1. A discussion in netdev about bonding support for IPoIB.
+> http://lists.openwall.net/netdev/2006/11/30/46
+>
+> 2. A discussion in openfabrics regarding changes in the IPoIB that
+> enable using it as a slave for bonding.
+> http://lists.openfabrics.org/pipermail/general/2007-July/038914.html
 
-Signed-off-by: Denis Cheng <crquan@gmail.com>
----
- net/netlink/af_netlink.c |   11 ++---------
- 1 files changed, 2 insertions(+), 9 deletions(-)
+Roland, Jay, Dave
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index ac3b100..c527f87 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -115,7 +115,7 @@ struct netlink_table {
- 	int registered;
- };
- 
--static struct netlink_table *nl_table;
-+static struct netlink_table nl_table[MAX_LINKS];
- 
- static DECLARE_WAIT_QUEUE_HEAD(nl_table_wait);
- 
-@@ -1894,10 +1894,6 @@ static int __init netlink_proto_init(void)
- 
- 	BUILD_BUG_ON(sizeof(struct netlink_skb_parms) > sizeof(dummy_skb->cb));
- 
--	nl_table = kcalloc(MAX_LINKS, sizeof(*nl_table), GFP_KERNEL);
--	if (!nl_table)
--		goto panic;
--
- 	if (num_physpages >= (128 * 1024))
- 		limit = num_physpages >> (21 - PAGE_SHIFT);
- 	else
-@@ -1915,8 +1911,7 @@ static int __init netlink_proto_init(void)
- 			while (i-- > 0)
- 				nl_pid_hash_free(nl_table[i].hash.table,
- 						 1 * sizeof(*hash->table));
--			kfree(nl_table);
--			goto panic;
-+			goto out;
- 		}
- 		memset(hash->table, 0, 1 * sizeof(*hash->table));
- 		hash->max_shift = order;
-@@ -1933,8 +1928,6 @@ static int __init netlink_proto_init(void)
- 	rtnetlink_init();
- out:
- 	return err;
--panic:
--	panic("netlink_init: Cannot allocate nl_table\n");
- }
- 
- core_initcall(netlink_proto_init);
--- 
-1.5.3.rc7
+These patches hang around for about a year now where the V4 took care
+of the open issues pointed during the review process. Aiming for
+2.6.24, the merge window becomes close, can you provide your take
+here?
+
+thanks,
+
+Or.
