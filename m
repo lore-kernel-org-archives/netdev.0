@@ -1,64 +1,47 @@
-From: "Ramkrishna Vepa" <Ramkrishna.Vepa@neterion.com>
-Subject: RE: [PATCH 2.6.24 4/5]S2io: Check for CARD_DOWN before handling traffic
-Date: Fri, 31 Aug 2007 21:43:37 -0400
-Message-ID: <78C9135A3D2ECE4B8162EBDCE82CAD7702243AEB@nekter>
-References: <46D811BB.5060007@garzik.org>
+From: "Nick Kossifidis" <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/5] Net: ath5k, split hw into hw, phy and initvals
+Date: Sat, 1 Sep 2007 06:12:28 +0300
+Message-ID: <40f31dec0708312012i59bae9a0v1a1fb4b997d7bc72@mail.gmail.com>
+References: <2713029743177393055@pripojeni.net>
+	 <20070828171034.GB29343@infradead.org>
+	 <40f31dec0708291850j2d35db6cu9de7c5f0a91e76f7@mail.gmail.com>
+	 <20070830123849.GB5140@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, "support" <support@neterion.com>
-To: "Jeff Garzik" <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:19065 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751780AbXIABnl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Aug 2007 21:43:41 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <46D811BB.5060007@garzik.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "Christoph Hellwig" <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	"Jiri Slaby" <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070830123849.GB5140-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Jeff,
-> > - Added check to return from the traffic handling function, if the
-card
-> status
-> >   is DOWN.
-> >
-> > Signed-off-by: Sivakumar Subramani
-<sivakumar.subramani@neterion.com>
-> > Signed-off-by: Santosh Rastapur <santosh.rastapur@neterion.com>
-> > Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
-> > ---
-> > diff -Nurp patch3/drivers/net/s2io.c patch4/drivers/net/s2io.c
-> > --- patch3/drivers/net/s2io.c	2007-08-15 08:57:32.000000000
--0700
-> > +++ patch4/drivers/net/s2io.c	2007-08-15 08:42:14.000000000
--0700
-> > @@ -2927,6 +2927,11 @@ static int s2io_poll(struct net_device *
-> >  	int i;
-> >
-> >  	atomic_inc(&nic->isr_cnt);
-> > +	if (unlikely(atomic_read(&nic->card_state) == CARD_DOWN)) {
-> > +		atomic_dec(&nic->isr_cnt);
-> > +		return IRQ_NONE;
-> > +	}
-> > +
-> >  	mac_control = &nic->mac_control;
-> >  	config = &nic->config;
-> >
-> 
-> invalid return value, for this function
-> 
-> Overall, this looks quite racy -- why does the card state differ from
-> net_device state in the first place?
-[Ram] Agreed, it is racy. Will use test_and_set_bit(), set_bit() and
-clear_bit().
-The card reset could be initiated due to an internal error detected in
-one of the blocks in the chip, while interrupts are still occurring.
-There is a  net_device state (LINK_STATE_START) set at open and reset at
-close but none for temporary disabled/enabled states. Did you want us to
-use this enum along with the CARRIER states?
+2007/8/30, John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>:
+> On Thu, Aug 30, 2007 at 04:50:01AM +0300, Nick Kossifidis wrote:
+> > 2007/8/28, Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>:
+>
+> > > ath5k_hw_phy.o should probably be ath5k_phy.o by conventions used by
+> > > most drivers and ath5k_hw_inivals.o mights aswell be something like
+> > > ath5k_init.o
+>
+> > If you check out the code you'll see i'm using the same convention
+> > inside them, ath5k_hw* files contain hw related functions
+> > (ath5k_hw_<name>) while driver code has ath5k_<name>. Also ath5k_init
+> > is misleading, file acually includes initial register settings for
+>
+> I have to agree w/ Christoph -- the extra "_hw" in the names is just
+> a bit unwieldy.
+>
+> John
+>
+> P.S.  "ath5k_initvals.c" seems acceptable to me.
 
-Ram
+ACK, i'll remove _hw ;-)
 
+-- 
+GPG ID: 0xD21DB2DB
+As you read this post global entropy rises. Have Fun ;-)
+Nick
