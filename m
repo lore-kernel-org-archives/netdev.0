@@ -1,48 +1,38 @@
-From: "Karl Meyer" <adhocrocker@gmail.com>
-Subject: Re: PROBLEM: 2.6.23-rc "NETDEV WATCHDOG: eth0: transmit timed out"
-Date: Sat, 1 Sep 2007 21:24:36 +0200
-Message-ID: <be1b757c0709011224tafebaaby697d03ab5377e20f@mail.gmail.com>
-References: <be1b757c0708130435y689b9dd8raf9ac9f9c0fcc976@mail.gmail.com>
-	 <20070813165821.GA19356@electric-eye.fr.zoreil.com>
-	 <be1b757c0708131027v5c57822as2d9bd3190fd19b71@mail.gmail.com>
-	 <20070814070901.GA14693@electric-eye.fr.zoreil.com>
-	 <be1b757c0708141425qd887581n3922702b84a21758@mail.gmail.com>
-	 <20070814224629.GB3495@electric-eye.fr.zoreil.com>
-	 <20070816141122.GA6625@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: "Francois Romieu" <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757286AbXIATYw@vger.kernel.org>
-In-Reply-To: <20070816141122.GA6625@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+From: Denis Cheng <crquan@gmail.com>
+Subject: [PATCH 1/3] netlink: use the macro min(x,y) provided by <linux/kernel.h> instead
+Date: Sun,  2 Sep 2007 03:45:57 +0800
+Message-ID: <1188675959178-git-send-email-crquan@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	cr_quan@163.com
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rv-out-0910.google.com ([209.85.198.188]:61914 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752599AbXIATqW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2007 15:46:22 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so653843rvb
+        for <netdev@vger.kernel.org>; Sat, 01 Sep 2007 12:46:21 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is what happened today:
+Signed-off-by: Denis Cheng <crquan@gmail.com>
+---
+ net/netlink/af_netlink.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Sep  1 21:08:01 frege NETDEV WATCHDOG: eth0: transmit timed out
-frege ~ # uname -r
-2.6.22.5-cfs-v20.5
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 5681ce3..8bb14e3 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1905,7 +1905,7 @@ static int __init netlink_proto_init(void)
+ 
+ 	order = get_bitmask_order(max) - 1 + PAGE_SHIFT;
+ 	max = (1UL << order) / sizeof(struct hlist_head);
+-	order = get_bitmask_order(max > UINT_MAX ? UINT_MAX : max) - 1;
++	order = get_bitmask_order(min(max, (unsigned long)UINT_MAX)) - 1;
+ 
+ 	for (i = 0; i < MAX_LINKS; i++) {
+ 		struct nl_pid_hash *hash = &nl_table[i].hash;
+-- 
+1.5.3.rc7
 
-
-2007/8/16, Francois Romieu <romieu@fr.zoreil.com>:
-> (please do not remove the netdev Cc:)
->
-> Francois Romieu <romieu@fr.zoreil.com> :
-> [...]
-> > If it does not work I'll dissect 0e4851502f846b13b29b7f88f1250c980d57e944
-> > tomorrow.
->
-> You will find a tgz archive in attachment which contains a serie of patches
-> (0001-... to 0005-...) to walk from 6dccd16b7c2703e8bbf8bca62b5cf248332afbe2
-> to 0e4851502f846b13b29b7f88f1250c980d57e944 in smaller steps.
->
-> Please apply 0001 on top of 6dccd16b7c2703e8bbf8bca62b5cf248332afbe2. If it
-> still works, apply 0002 on top of 0001, etc.
->
-> --
-> Ueimor
->
->
