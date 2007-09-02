@@ -1,33 +1,42 @@
-From: Bodo Eggert <7eggert@gmx.de>
-Subject: Re: Fwd: That whole "Linux stealing our code" thing
-Date: Sun, 02 Sep 2007 16:47:19 +0200
-Message-ID: <E1IRqjP-0000qI-9q@be1.lrz>
-References: <8YEkG-1ed-19@gated-at.bofh.it> <8YEkG-1ed-17@gated-at.bofh.it> <8YEXm-2hs-11@gated-at.bofh.it> <8YF6Z-2tM-1@gated-at.bofh.it> <8YIeP-7fC-29@gated-at.bofh.it> <8YUSv-1Bl-7@gated-at.bofh.it> <8YWhJ-3Gj-41@gated-at.bofh.it> <8YWhJ-3Gj-39@gated-at.bofh.it> <8YWKF-4y9-5@gated-at.bofh.it>
-Reply-To: 7eggert@gmx.de
+From: "Nick Kossifidis" <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 3/5] Net: ath5k, use int as retval
+Date: Sun, 2 Sep 2007 18:55:15 +0300
+Message-ID: <40f31dec0709020855q10d9227bld6e594ea57ba8142@mail.gmail.com>
+References: <2713029743177393055@pripojeni.net>
+	 <2440910618305782004@pripojeni.net>
+	 <20070830124054.GC5140@tuxdriver.com> <46D9C6A8.7070600@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7Bit
-To: Igor Sobrado <igor@condmat1.ciencias.uniovi.es>,
-	Adrian Bunk <bunk@kernel.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	"Constantine A. Murenin" <mureninc@gmail.com>,
-	Jeff Garzik <jeff@
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.188]:51641 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933469AbXIBOra (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Sep 2007 10:47:30 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Jiri Slaby" <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <46D9C6A8.7070600-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Igor Sobrado <igor@condmat1.ciencias.uniovi.es> wrote:
+2007/9/1, Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
+> John W. Linville napsal(a):
+> > On Tue, Aug 28, 2007 at 12:00:09PM -0400, Jiri Slaby wrote:
+> >> ath5k, use int as retval
+> >>
+> >> Convert some functions to return int and proper negative return value on
+> >> error as we are used to.
+> >
+> > Since I didn't apply 1/5, this one didn't apply either.  It seems
+> > fine overall, so if you rediff I'll be happy to apply.
+>
+> Ok, I'll do it, thanks,
 
-> When code is multi-licensed it must be distributed under *all* these
-> licensing terms concurrently.
+Can somebody commit my resent changes from madwifi-svn (cleanups,
+kconfig, remove_hw_ from filenames etc) ? I don't have git repository
+;-(
 
-No. E.g.:
 
-If I don't agree to the GPL (or if I had violated it and therefore have lost
-it's privileges), I MUST NOT redistribute it under the GPL because I have no
-license to do that, but the BSD license would still allow me to redistribute.
-
+-- 
+GPG ID: 0xD21DB2DB
+As you read this post global entropy rises. Have Fun ;-)
+Nick
