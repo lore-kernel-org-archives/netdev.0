@@ -1,56 +1,44 @@
-From: Igor Sobrado <igor-wnk7FUYfzmtu2DZcH3qp6zJQgOOX0AMFMQBsIrBqeMw@public.gmane.org>
-Subject: Re: Fwd: That whole "Linux stealing our code" thing
-Date: Sun, 02 Sep 2007 15:00:46 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0709021446550.6181@condmat1.ciencias.uniovi.es>
-References: <200709010140.l811eq9H005896@cvs.openbsd.org>
- <f34ca13c0709010948v67b04b58lb098713dc38c4d6a@mail.gmail.com>
- <46D99FB7.6030505@garzik.org>
- <f34ca13c0709011037p221cb40fjf69651d1858df212@mail.gmail.com>
- <20070901205457.GK9260@stusta.de> <20070902113638.78fbd202@the-village.bc.nu>
- <Pine.LNX.4.64.0709021303001.4312@condmat1.ciencias.uniovi.es>
- <20070902115041.GM16016@stusta.de>
- <Pine.LNX.4.64.0709021416130.6181@condmat1.ciencias.uniovi.es>
- <20070902134612.28a88761@the-village.bc.nu>
+From: Christian Kujau <lists@nerdbynature.de>
+Subject: 2.6.23-rc5: possible irq lock inversion dependency detected
+Date: Sun, 2 Sep 2007 15:11:29 +0200 (CEST)
+Message-ID: <alpine.DEB.0.999.0709021455510.7103@sheep.housecafe.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"Constantine A. Murenin" <mureninc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-reply-to: <20070902134612.28a88761-v58gJUvfdfWUJIigds3554dd74u8MsAO@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: TEXT/PLAIN; format=flowed; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns2.g-housing.de ([81.169.133.75]:41812 "EHLO mail.g-house.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965132AbXIBNLh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Sep 2007 09:11:37 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2 Sep 2007, Alan Cox wrote:
+Hi,
 
->> So, a multi-licensed file remains multi-licensed except when all authors
->> agree about a change in the licensing terms.  And it is clear on the BSD
->
-> Not strictly true. They can either agree to a change and issue one or
-> they can convey to other parties the right to change the terms. The GPL
-> for example does this for version selection.
+after upgrading to 2.6.23-rc5 (and applying davem's fix [0]), lockdep 
+was quite noisy when I tried to shape my external (wireless) interface:
 
-So, under a dual-licensed BSD/GPL code the latter license allows a 
-developer to remove the GPL license itself and release a single-licensed 
-BSD code if other parties want to do it?
+[ 6400.534545] FahCore_78.exe/3552 just changed the state of lock:
+[ 6400.534713]  (&dev->ingress_lock){-+..}, at: [<c038d595>] netif_receive_skb+0x2d5/0x3c0
+[ 6400.534941] but this lock took another, soft-read-irq-unsafe lock in the past:
+[ 6400.535145]  (police_lock){-.--}
 
-> A multi-licensed work (note work not file - don't assume a file is a
-> boundary of a work) which conveys the choice of licence (as some bits of
-> ath5k did) allows a receiving party to choose the licence it wishes.
-> Failing that OpenBSD would have turned itself GPL by adding that file as
-> according to your argument "it must be distributed under *all* these
-> licensing terms concurrently".
+This happened when I executed: http://nerdbynature.de/bits/2.6.23-rc5/qos.sh.txt
+(using iproute2-ss070313). The is still running, I just noticed a short 
+hickup, probably when it was busy writing the warning to the disk.
 
-I would assume a file as a boundary of a work in the case that file is 
-under different licensing terms to the rest of the software package.  On a 
-lot of software packages different modules are covered under different 
-licensing terms.
+More details and .config: http://nerdbynature.de/bits/2.6.23-rc5/
 
-We can choose what license terms we will honor; however, we do not have 
-the ability to remove the licensing terms we do not like.
+I'm not really sure what the application mentioned in the message above 
+has to do with this: the application[1] has been running since bootup as 
+a non-privileged user and did so for earlier kernel versions too.
 
-Igor.
+Christian.
+
+[0] http://lkml.org/lkml/2007/9/2/6
+[1] http://folding.stanford.edu/linux.html
+-- 
+BOFH excuse #294:
+
+PCMCIA slave driver
