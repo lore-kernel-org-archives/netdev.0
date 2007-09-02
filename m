@@ -1,134 +1,59 @@
-From: tsbogend@alpha.franken.de (Thomas Bogendoerfer)
-Subject: [PATCH] remove setup of platform device from jazzsonic.c
-Date: Sun, 2 Sep 2007 10:41:01 +0200
-Message-ID: <20070902084101.GA12461@alpha.franken.de>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: That whole "Linux stealing our code" thing
+Date: Sun, 2 Sep 2007 11:18:24 +0100
+Message-ID: <20070902111824.153bc036@the-village.bc.nu>
+References: <200709010140.l811eq9H005896@cvs.openbsd.org>
+	<f34ca13c0709010948v67b04b58lb098713dc38c4d6a@mail.gmail.com>
+	<46D99FB7.6030505@garzik.org>
+	<f34ca13c0709011037p221cb40fjf69651d1858df212@mail.gmail.com>
+	<20070901205457.GK9260@stusta.de>
+	<3A831845-B630-42AD-B52F-DC9EA2060BAE@dixongroup.net>
+	<20070902022253.GA18201@mail.netspace.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: akpm@linux-foundation.org, jgarzik@pobox.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jason Dixon <jason@dixongroup.net>, bunk@kernel.org,
+	mureninc@gmail.com, jeff@garzik.org, linux-kernel@vger.kernel.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	jirislaby@gmail.com
+To: Jonathan Gray <jsg@goblin.cx>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elvis.franken.de ([193.175.24.41]:58246 "EHLO elvis.franken.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755287AbXIBJtO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Sep 2007 05:49:14 -0400
-Content-Disposition: inline
+Received: from outpipe-village-512-1.bc.nu ([81.2.110.250]:33360 "EHLO
+	the-village.bc.nu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755187AbXIBKKT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Sep 2007 06:10:19 -0400
+In-Reply-To: <20070902022253.GA18201@mail.netspace.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+> co-operation. Together we advance our detective work and knowledge of
+> the Macintosh platforms to the good of all Macintosh users dumped"
+> 
+> Alan Cox circa 1999.
+> 
+> http://lists.freedesktop.org/archives/xorg/2007-August/027419.html
+> 
+> "well I'd be quite happy to see X go GPL but I'm aware
+> thats not the intention of the project ;)"
+> Alan Cox circa 2007.
+> 
+> What changed? 
 
-remove setup platform device from jazzsonic, which is done in arch code now
+Nothing that I am aware of. You can't take Linux/Mac68K code back into
+BSD either. BSD code is being used according to the BSD licence. You
+could adopt a different licence if the way your code is being used
+bothers you, thats.
 
-Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
----
+Where I've reused BSD code I've aways tried to contribute it back to the
+BSD people or share the knowledge (and the knowledge far more than the
+code mattered both ways for Mac68K systems)
 
-diff --git a/drivers/net/jazzsonic.c b/drivers/net/jazzsonic.c
-index 75f6f44..435060a 100644
---- a/drivers/net/jazzsonic.c
-+++ b/drivers/net/jazzsonic.c
-@@ -45,7 +45,6 @@
- #include <asm/jazzdma.h>
- 
- static char jazz_sonic_string[] = "jazzsonic";
--static struct platform_device *jazz_sonic_device;
- 
- #define SONIC_MEM_SIZE	0x100
- 
-@@ -70,14 +69,6 @@ static unsigned int sonic_debug = 1;
- #endif
- 
- /*
-- * Base address and interrupt of the SONIC controller on JAZZ boards
-- */
--static struct {
--	unsigned int port;
--	unsigned int irq;
--} sonic_portlist[] = { {JAZZ_ETHERNET_BASE, JAZZ_ETHERNET_IRQ}, {0, 0}};
--
--/*
-  * We cannot use station (ethernet) address prefixes to detect the
-  * sonic controller since these are board manufacturer depended.
-  * So we check for known Silicon Revision IDs instead.
-@@ -215,13 +206,12 @@ static int __init jazz_sonic_probe(struct platform_device *pdev)
- {
- 	struct net_device *dev;
- 	struct sonic_local *lp;
-+	struct resource *res;
- 	int err = 0;
- 	int i;
- 
--	/*
--	 * Don't probe if we're not running on a Jazz board.
--	 */
--	if (mips_machgroup != MACH_GROUP_JAZZ)
-+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	if (!res)
- 		return -ENODEV;
- 
- 	dev = alloc_etherdev(sizeof(struct sonic_local));
-@@ -235,20 +225,9 @@ static int __init jazz_sonic_probe(struct platform_device *pdev)
- 
- 	netdev_boot_setup_check(dev);
- 
--	if (dev->base_addr >= KSEG0) { /* Check a single specified location. */
--		err = sonic_probe1(dev);
--	} else if (dev->base_addr != 0) { /* Don't probe at all. */
--		err = -ENXIO;
--	} else {
--		for (i = 0; sonic_portlist[i].port; i++) {
--			dev->base_addr = sonic_portlist[i].port;
--			dev->irq = sonic_portlist[i].irq;
--			if (sonic_probe1(dev) == 0)
--				break;
--		}
--		if (!sonic_portlist[i].port)
--			err = -ENODEV;
--	}
-+	dev->base_addr = res->start;
-+	dev->irq = platform_get_irq(pdev, 0);
-+	err = sonic_probe1(dev);
- 	if (err)
- 		goto out;
- 	err = register_netdev(dev);
-@@ -303,38 +282,12 @@ static struct platform_driver jazz_sonic_driver = {
- 
- static int __init jazz_sonic_init_module(void)
- {
--	int err;
--
--	if ((err = platform_driver_register(&jazz_sonic_driver))) {
--		printk(KERN_ERR "Driver registration failed\n");
--		return err;
--	}
--
--	jazz_sonic_device = platform_device_alloc(jazz_sonic_string, 0);
--	if (!jazz_sonic_device)
--		goto out_unregister;
--
--	if (platform_device_add(jazz_sonic_device)) {
--		platform_device_put(jazz_sonic_device);
--		jazz_sonic_device = NULL;
--	}
--
--	return 0;
--
--out_unregister:
--	platform_driver_unregister(&jazz_sonic_driver);
--
--	return -ENOMEM;
-+	return platform_driver_register(&jazz_sonic_driver);
- }
- 
- static void __exit jazz_sonic_cleanup_module(void)
- {
- 	platform_driver_unregister(&jazz_sonic_driver);
--
--	if (jazz_sonic_device) {
--		platform_device_unregister(jazz_sonic_device);
--		jazz_sonic_device = NULL;
--	}
- }
- 
- module_init(jazz_sonic_init_module);
--- 
-Crap can work. Given enough thrust pigs will fly, but it's not necessary a
-good idea.                                                [ RFC1925, 2.3 ]
+I suggest you read drivers/net/wan/syncppp.c, which is I think the only
+BSD derived bit of code of mine left in the kernel - and its quite
+specific what it says.
+
+Ath5k isn't my code so I don't get to pick. Having the OpenBSD maintainer
+make bogus remarks about that doesn't help anyone, especially when he's
+wrong and doesn't appear to know about the subject in the first place.
+
+Alan
