@@ -1,99 +1,56 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: [beck@bofh.cns.ualberta.ca: I respect the GPL immensely,
-	really I do - but I believe this type of action weakens us all.]
-Date: Sun, 2 Sep 2007 01:49:52 +0200
-Message-ID: <20070901234952.GA16016@stusta.de>
-References: <20070901224112.GC24887@bofh.cns.ualberta.ca>
+From: Bob Beck <beck-B8nDeHyzpwgue2609Ts4vbeKQFjJmrJW@public.gmane.org>
+Subject: Re: Fwd: That whole "Linux stealing our code" thing
+Date: Sat, 1 Sep 2007 18:02:26 -0600
+Message-ID: <20070902000226.GE24887@bofh.cns.ualberta.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Bob Beck <beck@bofh.cns.ualberta.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:50750 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932230AbXIAXtv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2007 19:49:51 -0400
+Content-Type: text/plain; charset=us-ascii
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, misc-7YlrpqBBQ3VAfugRpC6u6w@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20070901224112.GC24887@bofh.cns.ualberta.ca>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 01, 2007 at 04:41:12PM -0600, Bob Beck wrote:
-> ----- Forwarded message from Bob Beck <beck@bofh.cns.ualberta.ca> -----
-> 
-> From: Bob Beck <beck@bofh.cns.ualberta.ca>
-> To: misc@openbsd.org
-> Subject: I respect the GPL immensely, really I do - but I believe this type of action weakens us all.
-> X-Spam-Checker-Version: SpamAssassin 3.1.8 (2007-02-13) on bofh.cns.ualberta.ca
-> X-Spam-Level: 
-> X-Spam-Status: No, score=-2.8 required=3.0 tests=AWL,BAYES_00,
-> 	DNS_FROM_RFC_ABUSE,FORGED_RCVD_HELO autolearn=no version=3.1.8
-> Date: Sat, 1 Sep 2007 16:22:43 -0600
-> User-Agent: Mutt/1.5.12-2006-07-14
-> 
->  [ A copy of this is going to the linux kernel mailing list, regarding the
-> recent license modifications to reyk's files]
-> 
-> >Oh, and if you look at the OpenBSD CVS you see versions 4 months old 
-> >with dozens of contributions by Reyk and with:
-> >
-> >/*      $OpenBSD: ath.c,v 1.63 2007/05/09 16:41:14 reyk Exp $  */
-> >/*      $NetBSD: ath.c,v 1.37 2004/08/18 21:59:39 dyoung Exp $        */
-> >/*-
-> > * Copyright (c) 2002-2004 Sam Leffler, Errno Consulting
-> > * All rights reserved.
-> 
->    Of course you do! because some of reyk's work used some of Sam's
-> work, and unlike what it seems a portion of the Linux community seems
-> to be willing to do in their Zealotry for the GPL, reyk is not
-> *removing and modifying* the licenses granted by the original authors.
-> That's the point. He's not saying he wrote this piece, and he's not
-> *changing* the conditions under which Sam distributed the code in the
-> first place. However what scares me more is the seeming willingness to
-> make the authors of a derivative work appear to be the primary authors
-> of something, and a willingness to change an authors copyright
-> statement (on reyk's code) without his permission. 
->...
+>As a free software user and developer, the question I have is how come
+>the Linux community feels that they can take the BSD code that was
+>reverse-engineered at OpenBSD, and put a more restrictive licence onto
+>it, such that there will be no possibility of the changes going back
+>to OpenBSD, given that the main work on the code has happened at
+>OpenBSD? (Obviously, such a scenario it is permitted by the licence,
+>but my question is an ethical one -- after all, most components of
+>OpenHAL were specifically based on the OpenBSD's ath(4) HAL code.)
+>
+>You can see that Christoph Hellwig agrees with this ethical problem,
+>as in the message below.
+>
+>C.
+>
+>
+>>On 28/08/07, Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org> wrote:
+>> On Tue, Aug 28, 2007 at 12:00:50PM -0400, Jiri Slaby wrote:
+>> > ath5k, license is GPLv2
+>> >
+>> > The files are available only under GPLv2 since now.
+>>
+>> Is this really a good idea?  Most of the reverse-engineering was
+>> done by the OpenBSD folks, and it would certainly be helpful to
+>> work together with them on new hardware revisions, etc..
 
-You miss the whole point of dual licencing:
+I couldn't agree more. The point is, while we BSD license fans know and
+expect people from private industry to take our stuff and use it, at
+least private industry does not come to the table with "hey, let's
+cooperate" - we know who the corporate whores are, and we act accordingly. 
 
-Sam has stated in the licence that the code can be distributed under the 
-terms of the BSD licence, or alternatively it can be distributed under 
-the terms of the GPLv2.
+However, when a linux developer comes to us and say "hey lets cooperate"
+usually there is a thought of "this is a kindred spirit who understands
+what our mutual goals are and won't stab us in the back".  My concern
+is that this situation will change if this is not rectified. 
 
-Noone removed Sam's licence.
+I think the community needs to decide, should cooperation be based on
+morals and trust, or does the Linux community need to be regarded with
+less trust than a Corporation, something to be avoided, as while
+corporations can be counted on to act without morals, the knife is up
+front and visible. They do not come to you with one hand of
+cooperation extended and a knife kept behind their back.
 
-Sam has offered a choice, and if you choose one of the two offered 
-licences when distributing his code that complies with what he stated
-in his copyright notice.
-
-IANAL, but if reyk contributed to dual licenced code keeping the file 
-dual licenced it's hard to argue that he did not make the changes he 
-made available dual licenced.
-
->    I seriously hope that saner more mature and forward thinking heads
-> inside the Linux community will stop bashing the things that Theo and
-> the rest of our community is saying just because it's coming from
-> Theo, and he's a great target to bash, and start thinking about what
-> you are doing to free software as a whole. I think you are on the
-> verge of doing irreparable damage that will seriously weaken the
-> ability for all of our projects to move forward, and protect our
-> rights as code authors in the future.
-
-The funny thing is that it seems Jiri's patch contained copyright 
-violations - and the parts of his patch Theo attacks are the parts
-that are OK...
-
-> 	-Bob
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+ -Bob 
