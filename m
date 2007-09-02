@@ -1,42 +1,49 @@
-From: "Nick Kossifidis" <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 3/5] Net: ath5k, use int as retval
-Date: Sun, 2 Sep 2007 18:55:15 +0300
-Message-ID: <40f31dec0709020855q10d9227bld6e594ea57ba8142@mail.gmail.com>
-References: <2713029743177393055@pripojeni.net>
-	 <2440910618305782004@pripojeni.net>
-	 <20070830124054.GC5140@tuxdriver.com> <46D9C6A8.7070600@gmail.com>
+From: Igor Sobrado <igor-wnk7FUYfzmtu2DZcH3qp6zJQgOOX0AMFMQBsIrBqeMw@public.gmane.org>
+Subject: Re: Fwd: That whole "Linux stealing our code" thing
+Date: Sun, 02 Sep 2007 17:58:41 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0709021754250.6772@condmat1.ciencias.uniovi.es>
+References: <200709010140.l811eq9H005896@cvs.openbsd.org>
+ <f34ca13c0709010948v67b04b58lb098713dc38c4d6a@mail.gmail.com>
+ <46D99FB7.6030505@garzik.org>
+ <f34ca13c0709011037p221cb40fjf69651d1858df212@mail.gmail.com>
+ <20070901205457.GK9260@stusta.de> <20070902113638.78fbd202@the-village.bc.nu>
+ <Pine.LNX.4.64.0709021303001.4312@condmat1.ciencias.uniovi.es>
+ <20070902115041.GM16016@stusta.de>
+ <Pine.LNX.4.64.0709021416130.6181@condmat1.ciencias.uniovi.es>
+ <20070902134612.28a88761@the-village.bc.nu>
+ <Pine.LNX.4.64.0709021446550.6181@condmat1.ciencias.uniovi.es>
+ <m3642txj91.fsf@maximus.localdomain> <46DAC482.5090107@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"Constantine A. Murenin" <mureninc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
 	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Jiri Slaby" <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <46D9C6A8.7070600-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Content-Disposition: inline
+In-reply-to: <46DAC482.5090107-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-2007/9/1, Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>:
-> John W. Linville napsal(a):
-> > On Tue, Aug 28, 2007 at 12:00:09PM -0400, Jiri Slaby wrote:
-> >> ath5k, use int as retval
-> >>
-> >> Convert some functions to return int and proper negative return value on
-> >> error as we are used to.
-> >
-> > Since I didn't apply 1/5, this one didn't apply either.  It seems
-> > fine overall, so if you rediff I'll be happy to apply.
+On Sun, 2 Sep 2007, Jeff Garzik wrote:
+
+> Krzysztof Halasa wrote:
+>>  WRT Atheros driver I'd probably leave the thing as is (i.e., BSD/GPL
+>>  = in fact BSD), unless something like 50+% of the code is rewritten -
+>>  it's mostly their hard work after all, isn't it? Not legal
+>>  requirement, though.
 >
-> Ok, I'll do it, thanks,
+> Yes.  This deserves to be reinforced:
+>
+> There is definite value in sharing the ath5k HAL between OpenBSD and Linux.
 
-Can somebody commit my resent changes from madwifi-svn (cleanups,
-kconfig, remove_hw_ from filenames etc) ? I don't have git repository
-;-(
+Of course.  Sharing knowledge and efforts can only improve both the GPL 
+and BSD licensed code.  It is important in all cases, but becomes critical 
+when support from manufacturers is limited or even non existent.  In these 
+cases, shared efforts are required to write successful code.
 
-
--- 
-GPG ID: 0xD21DB2DB
-As you read this post global entropy rises. Have Fun ;-)
-Nick
+Cheers,
+Igor.
