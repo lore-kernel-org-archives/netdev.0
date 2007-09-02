@@ -1,50 +1,38 @@
-From: Valdis.Kletnieks-PjAqaU27lzQ@public.gmane.org
-Subject: Re: That whole "Linux stealing our code" thing
-Date: Sat, 01 Sep 2007 23:47:23 -0400
-Message-ID: <5619.1188704843@turing-police.cc.vt.edu>
-References: <200709010140.l811eq9H005896@cvs.openbsd.org> <f34ca13c0709010948v67b04b58lb098713dc38c4d6a@mail.gmail.com> <46D99FB7.6030505@garzik.org> <f34ca13c0709011037p221cb40fjf69651d1858df212@mail.gmail.com> <20070901205457.GK9260@stusta.de> <20070901215225.GM9260@stusta.de> <3A831845-B630-42AD-B52F-DC9EA2060BAE@dixongroup.net>
-            <20070902015537.GH16016@stusta.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1188704843_2988P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: Jason Dixon <jason-a0y0GdpcbPLlcHVOVdbKLw@public.gmane.org>, mureninc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org
-To: Adrian Bunk <bunk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: Your message of "Sun, 02 Sep 2007 03:55:37 +0200."
-             <20070902015537.GH16016-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Bugme-new] [Bug 8961] New: BUG triggered by oidentd in netlink code
+Date: Sun, 02 Sep 2007 12:04:45 +0800
+Message-ID: <E1IRghZ-0004EL-00@gondolin.me.apana.org.au>
+References: <46D9957F.4020101@trash.net>
+Cc: link@miggy.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: kaber@trash.net (Patrick McHardy)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:1899 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750748AbXIBEFL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Sep 2007 00:05:11 -0400
+In-Reply-To: <46D9957F.4020101@trash.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1188704843_2988P
-Content-Type: text/plain; charset=us-ascii
-
-On Sun, 02 Sep 2007 03:55:37 +0200, Adrian Bunk said:
-
-> Jiri's patch would have wrongly not only removed the BSD statement from 
-> dual licenced files but also from not dual licenced files.
+Patrick McHardy <kaber@trash.net> wrote:
 > 
-> This was a mistake in this patch (that was never merged into the tree) 
-> neither Jiri nor Alan noticed.
+> Thanks. I'm not sure either, it would require two concurrent requests
+> to be processed, but AFAICS oidentd only uses a single netlink socket.
+> Perhaps multiple running instances or something else using the inet_diag
+> interface?
 
-You know, we *could* have solved this a *hell* of a lot easier if people quit
-flaming about it, and we did something *productive* instead.
+Since identd serves requests from the outside world it is
+quite possible for two identd instances to run simultaneously
+serving two requests.
 
-Like submit a corrected patch. :)
+I'm not familiar with oidentd but this is certainly pidentd
+works.
 
---==_Exmh_1188704843_2988P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFG2jJLcC3lWbTT17ARAqnWAKCZl1ZGOKLm+aLrQObjEXvA57BpwgCg4yUc
-jVGLFH3EmZZIkHM7ft+wogk=
-=6xDY
------END PGP SIGNATURE-----
-
---==_Exmh_1188704843_2988P--
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
