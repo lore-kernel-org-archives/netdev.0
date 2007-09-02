@@ -1,35 +1,48 @@
-From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Subject: Re: That whole "Linux stealing our code" thing
-Date: Sat, 01 Sep 2007 21:43:31 -0400
-Message-ID: <46DA1543.7030505@garzik.org>
-References: <200709010140.l811eq9H005896@cvs.openbsd.org>	 <f34ca13c0709010948v67b04b58lb098713dc38c4d6a@mail.gmail.com>	 <46D99FB7.6030505@garzik.org>	 <f34ca13c0709011037p221cb40fjf69651d1858df212@mail.gmail.com>	 <20070901205457.GK9260@stusta.de> <20070901215225.GM9260@stusta.de>	 <3A831845-B630-42AD-B52F-DC9EA2060BAE@dixongroup.net>	 <46DA1315.9060002@garzik.org> <f34ca13c0709011839yb32f419s20c259cbaabdd132@mail.gmail.com>
+From: "Constantine A. Murenin" <mureninc@gmail.com>
+Subject: Re: Fwd: That whole "Linux stealing our code" thing
+Date: Sat, 1 Sep 2007 21:52:31 -0400
+Message-ID: <f34ca13c0709011852w7f2c14cevdd08582a0ba5ddf5@mail.gmail.com>
+References: <20070902000226.GE24887@bofh.cns.ualberta.ca>
+	 <200709020036.l820aaNf014181@cvs.openbsd.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jason Dixon <jason-a0y0GdpcbPLlcHVOVdbKLw@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org
-To: "Constantine A. Murenin" <mureninc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <f34ca13c0709011839yb32f419s20c259cbaabdd132-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "Bob Beck" <beck@bofh.cns.ualberta.ca>,
+	linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, misc@openbsd.org
+To: "Theo de Raadt" <deraadt@cvs.openbsd.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wx-out-0506.google.com ([66.249.82.230]:29326 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933014AbXIBBwc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2007 21:52:32 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1166481wxd
+        for <netdev@vger.kernel.org>; Sat, 01 Sep 2007 18:52:31 -0700 (PDT)
+In-Reply-To: <200709020036.l820aaNf014181@cvs.openbsd.org>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Constantine A. Murenin wrote:
-> On 01/09/07, Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org> wrote:
->> Jason Dixon wrote:
->>> Once the grantor (Reyk) releases his code under that license, it must
->>> remain.  You are free to derive work and redistribute under your
->>> license, but the original copyright and license permission remains
->>> intact.  Many other entities (Microsoft, Apple, Sun, etc) have used BSD
->>> code and have no problem understanding this.  Why is this so difficult
->>> for the Linux brain share to absorb?
->> Why is it so difficult to understand dual licensing?
-> 
-> Maybe because Reyk's code was never dual-licensed?
+On 01/09/07, Theo de Raadt <deraadt@cvs.openbsd.org> wrote:
+> When companies have taken our wireless device drivers, many many of
+> them have given changes and fixes back.  Some maybe didn't, but that
+> is OK.
+>
+> When Linux took our changes back, they immediately locked the door
+> against changes moving back, by putting a GPL license on guard.
+>
+> Why does our brother Linux take a file that is 90% BSD licensed,
+> and refuse to let us see the 10% he adds?
 
-And yet a good portion of Theo's response, in particular his accusations 
-of Alan Cox exhorting people to break the law, were directly related to 
-dual licensing.
+Indeed, it's upsetting that people like Luis Rodriguez push for the
+lawyers to be involved to (fight?) an open source project. Why, may I
+ask?
 
-	Jeff
+Why Luis puts the phrase "legal hell" next to entirely free software?
+[0] Why is he trying to go against the BSD community, which gave him
+the entire HAL framework for the driver in question?
+
+Best regards,
+Constantine.
+
+[0] http://marc.info/?l=linux-wireless&m=118857712529898&w=2
