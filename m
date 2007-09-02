@@ -1,43 +1,38 @@
-From: Satyam Sharma <satyam@infradead.org>
-Subject: Re: 2.6.23-rc4-mm1: unpingable box and NULL dereference at
- tcp_rto_min()
-Date: Sun, 2 Sep 2007 10:32:06 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0709021016470.20781@enigma.security.iitk.ac.in>
-References: <20070831215822.26e1432b.akpm@linux-foundation.org>
- <20070902023618.GA2537@martell.zuzino.mipt.ru>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Alexey Dobriyan <adobriyan@gmail.com>
+From: Denis Cheng <crquan@gmail.com>
+Subject: [PATCH] net/ipv4/af_inet.c: use ARRAY_SIZE macro from kernel.h instead
+Date: Sun,  2 Sep 2007 12:59:07 +0800
+Message-ID: <11887091471748-git-send-email-crquan@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	cr_quan@163.com
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:54849 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750972AbXIBEtA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Sep 2007 00:49:00 -0400
-In-Reply-To: <20070902023618.GA2537@martell.zuzino.mipt.ru>
+Received: from rv-out-0910.google.com ([209.85.198.187]:32191 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750749AbXIBE7b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Sep 2007 00:59:31 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so696693rvb
+        for <netdev@vger.kernel.org>; Sat, 01 Sep 2007 21:59:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Signed-off-by: Denis Cheng <crquan@gmail.com>
+---
+ net/ipv4/af_inet.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index e681034..d5e8b67 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -939,7 +939,7 @@ static struct inet_protosw inetsw_array[] =
+        }
+ };
+ 
+-#define INETSW_ARRAY_LEN (sizeof(inetsw_array) / sizeof(struct inet_protosw))
++#define INETSW_ARRAY_LEN ARRAY_SIZE(inetsw_array)
+ 
+ void inet_register_protosw(struct inet_protosw *p)
+ {
+-- 
+1.5.3.rc7
 
-On Sun, 2 Sep 2007, Alexey Dobriyan wrote:
-> 
-> Unable to handle kernel NULL pointer dereference at 0000000000000039 RIP: 
->  [<ffffffff803b6f7c>] tcp_rto_min+0xc/0x20
-
-tcp_rto_min() lacks a check-for-NULL. You want 5c127c58ae9bf196 from
-the net-2.6.git tree -- so this will be gone in -rc6.
-
-> P.S.: uh-oh, it's "[TCP] Allow minnimum RTO ..." aka 05bb1fad1cde
-
-Yup, it came from this last commit in net-2.6 before -rc5.
-
-[ Considering it's pretty core code (and thus the oops fairly easily
-  reproducible), I initially thought this must've come from net-2.6.24.
-  I suspect lot of testers might hit this, so would be wise to put that
-  patch up as a hot-fix ? ]
-
-
-Satyam
