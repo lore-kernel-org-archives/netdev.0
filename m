@@ -1,83 +1,28 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: Fwd: That whole "Linux stealing our code" thing
-Date: Sun, 2 Sep 2007 03:32:36 +0200
-Message-ID: <20070902013236.GF16016@stusta.de>
-References: <20070902000226.GE24887@bofh.cns.ualberta.ca>
+From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
+Subject: Re: That whole "Linux stealing our code" thing
+Date: Sat, 01 Sep 2007 21:34:13 -0400
+Message-ID: <46DA1315.9060002@garzik.org>
+References: <200709010140.l811eq9H005896@cvs.openbsd.org> <f34ca13c0709010948v67b04b58lb098713dc38c4d6a@mail.gmail.com> <46D99FB7.6030505@garzik.org> <f34ca13c0709011037p221cb40fjf69651d1858df212@mail.gmail.com> <20070901205457.GK9260@stusta.de> <f34ca13c0709011427u <20070901215225.GM9260@stusta.de> <3A831845-B630-42AD-B52F-DC9EA2060BAE@dixongroup.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, misc@openbsd.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:50337 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932487AbXIBBcf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Sep 2007 21:32:35 -0400
-Content-Disposition: inline
-In-Reply-To: <20070902000226.GE24887@bofh.cns.ualberta.ca>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: mureninc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org
+To: Jason Dixon <jason-a0y0GdpcbPLlcHVOVdbKLw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <3A831845-B630-42AD-B52F-DC9EA2060BAE-a0y0GdpcbPLlcHVOVdbKLw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 01, 2007 at 06:02:26PM -0600, Bob Beck wrote:
-> >As a free software user and developer, the question I have is how come
-> >the Linux community feels that they can take the BSD code that was
-> >reverse-engineered at OpenBSD, and put a more restrictive licence onto
-> >it, such that there will be no possibility of the changes going back
-> >to OpenBSD, given that the main work on the code has happened at
-> >OpenBSD? (Obviously, such a scenario it is permitted by the licence,
-> >but my question is an ethical one -- after all, most components of
-> >OpenHAL were specifically based on the OpenBSD's ath(4) HAL code.)
-> >
-> >You can see that Christoph Hellwig agrees with this ethical problem,
-> >as in the message below.
-> >
-> >C.
-> >
-> >
-> >>On 28/08/07, Christoph Hellwig <hch@infradead.org> wrote:
-> >> On Tue, Aug 28, 2007 at 12:00:50PM -0400, Jiri Slaby wrote:
-> >> > ath5k, license is GPLv2
-> >> >
-> >> > The files are available only under GPLv2 since now.
-> >>
-> >> Is this really a good idea?  Most of the reverse-engineering was
-> >> done by the OpenBSD folks, and it would certainly be helpful to
-> >> work together with them on new hardware revisions, etc..
-> 
-> I couldn't agree more. The point is, while we BSD license fans know and
-> expect people from private industry to take our stuff and use it, at
-> least private industry does not come to the table with "hey, let's
-> cooperate" - we know who the corporate whores are, and we act accordingly. 
-> 
-> However, when a linux developer comes to us and say "hey lets cooperate"
-> usually there is a thought of "this is a kindred spirit who understands
-> what our mutual goals are and won't stab us in the back".  My concern
-> is that this situation will change if this is not rectified. 
-> 
-> I think the community needs to decide, should cooperation be based on
-> morals and trust, or does the Linux community need to be regarded with
-> less trust than a Corporation, something to be avoided, as while
-> corporations can be counted on to act without morals, the knife is up
-> front and visible. They do not come to you with one hand of
-> cooperation extended and a knife kept behind their back.
+Jason Dixon wrote:
+> Once the grantor (Reyk) releases his code under that license, it must 
+> remain.  You are free to derive work and redistribute under your 
+> license, but the original copyright and license permission remains 
+> intact.  Many other entities (Microsoft, Apple, Sun, etc) have used BSD 
+> code and have no problem understanding this.  Why is this so difficult 
+> for the Linux brain share to absorb?
 
-Theo explicitely accused Alan that telling people that it was OK to 
-choose one licence for dual licenced code was "advising people to break 
-the law".
+Why is it so difficult to understand dual licensing?
 
-I hope you agree when talking about "cooperation [...] based on morals 
-and trust" that such accusations should either be proven correct or the 
-moral position of the person who made such accusations becomes quiet 
-weak.
-
->  -Bob 
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+	Jeff
