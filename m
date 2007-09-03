@@ -1,32 +1,50 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Ath5k panic fix
-Date: Mon, 03 Sep 2007 20:35:52 +0200
-Message-ID: <m3ejhfvbp3.fsf@maximus.localdomain>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169: jumbo frames
+Date: Mon, 3 Sep 2007 22:57:56 +0200
+Message-ID: <20070903205756.GA4444@electric-eye.fr.zoreil.com>
+References: <20070902165904.GA11650@csy.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jiri Slaby <jirislaby@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Shane <shane@csy.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from khc.piap.pl ([195.187.100.11]:59253 "EHLO khc.piap.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752502AbXICSfy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Sep 2007 14:35:54 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:51446 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752939AbXICVBi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Sep 2007 17:01:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20070902165904.GA11650@csy.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ath5k panics on ath_open() because sc->pdev is never set, fixed.
+Shane <shane@csy.ca> :
+[...]
+> Just wanted to report that when setting a mtu of 4074, I'm
+> getting slow Samba performance with an r8169 based NIC even
+> with the fix for this posted here applied.  all dmesg shows
+> is:
+> NETDEV WATCHDOG: eth0: transmit timed out
 
-Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
+It is a bit terse:
+- which kernel ?
+- which fix exactly (Message-Id or URL) ? The one I sent the
+  29 of 08/2007 or something else ?
+- which chipset (lspci -vvx) ?
 
---- a/drivers/net/wireless/ath5k_base.c
-+++ b/drivers/net/wireless/ath5k_base.c
-@@ -2295,6 +2295,7 @@ static int __devinit ath_pci_probe(struct pci_dev *pdev,
- 	hw->max_rssi = 127; /* FIXME: get a real value for this. */
- 	sc = hw->priv;
- 	sc->hw = hw;
-+	sc->pdev = pdev;
- 
- 	/*
- 	 * Mark the device as detached to avoid processing
+Fwiw, I have rediffed the patchkit against 2.6.23-rc5. See:
+http://www.fr.zoreil.com/people/francois/misc/20070903-2.6.23-rc5-r8169-test.patch
+or:
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.23-rc5/r8169-20070903/
+
+If you have not done so already, I would appreciate that you try
+to reproduce the problem with a 1500 bytes MTU with/without the
+aforementioned patch.
+
+> The mtu value is due to Windows workstations which support
+> this value and 9k MTU but the r8169 doesn't appear to like
+> 9k although that's where I'd like it to be on this network.
+
+The 8169 will not fly above 7200, be it on Linux or Windows. :o/
+
+-- 
+Ueimor
