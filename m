@@ -1,46 +1,38 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: 82557/8/9 Ethernet Pro 100 interrupt mitigation support
-Date: Mon, 03 Sep 2007 14:33:35 +0100
-Message-ID: <46DC0D2F.2040902@katalix.com>
-References: <46DBE393.30300@free.fr>
+From: Al Viro <viro@ftp.linux.org.uk>
+Subject: [PATCH] fix net_device leak in vlan
+Date: Mon, 3 Sep 2007 14:35:20 +0100
+Message-ID: <20070903133520.GV21089@ftp.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org
-To: John Sigler <linux.kernel@free.fr>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:33777 "EHLO s36.avahost.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751455AbXICNdi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Sep 2007 09:33:38 -0400
-In-Reply-To: <46DBE393.30300@free.fr>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:41809 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751792AbXICNfd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2007 09:35:33 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John Sigler wrote:
-> 
-> Hello everyone,
-> 
-> I have several systems with three integrated Intel 82559 (I *think*).
-> 
-> Does someone know if these boards support hardware interrupt mitigation?
+In "[VLAN]: Move device registation to seperate function" (commit
+e89fe42cd03c8fd3686df82d8390a235717a66de), a pile of code got moved
+to register_vlan_dev(), including grabbing a reference to underlying
+device.  However, original dev_hold() had been left behind, so we
+leak a reference to net_device now...
 
-82558/9 hardware does, sort of. But the e100 driver doesn't use it 
-because it uses NAPI to minimize rx & tx interrupts.
-
-> I.e. is it possible to configure them to raise an IRQ only if their
-> hardware buffer is full OR if some given time (say 1 ms) has passed and
-> packets are available in their hardware buffer.
-> 
-> I've been using the eepro100 driver up to now, but I'm about to try the
-> e100 driver. Would I have to use NAPI? Or is this an orthogonal feature?
-
-Use NAPI. The e100 driver has been NAPI-only for a while.
-
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
-
-
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+---
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 1583c5e..2a54691 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -562,8 +562,6 @@ static int register_vlan_device(struct net_device *real_dev,
+ 	if (err < 0)
+ 		goto out_free_newdev;
+ 
+-	/* Account for reference in struct vlan_dev_info */
+-	dev_hold(real_dev);
+ #ifdef VLAN_DEBUG
+ 	printk(VLAN_DBG "Allocated new device successfully, returning.\n");
+ #endif
