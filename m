@@ -1,144 +1,82 @@
-From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Subject: Re: [2/2] 2.6.23-rc5: known regressions with patches
-Date: Mon, 03 Sep 2007 12:11:18 +0200
-Message-ID: <46DBDDC6.9030602@googlemail.com>
-References: <46DBDCF4.6040805@googlemail.com>
+From: John Sigler <linux.kernel@free.fr>
+Subject: 82557/8/9 Ethernet Pro 100 interrupt mitigation support
+Date: Mon, 03 Sep 2007 12:36:03 +0200
+Message-ID: <46DBE393.30300@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	kbuild-devel@lists.sourceforge.net,
-	Roman Zippel <zippel@linux-m68k.org>,
-	Sam Ravnborg <sam@ravnborg.org>,
-	Hugh Dickins <hugh@veritas.com>,
-	Pierre Ossman <drzeus-mmc@drzeus.cx>,
-	Christian Casteyde <casteyde.christian@free.fr>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	linux-mtd@lists.infradead.org,
-	David Woodhouse <dwmw2@infradead.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	"David S. Miller" <davem@sunset.davemloft.net>,
-	netdev@vger.kernel.org, Mark Hindley <mark@hindley.org.uk>,
-	linux-ide@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Grant Wilson <grant.wilson@zen.co.uk>,
-	Ondrej Zary <linux@rainbow-software.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.235]:33534 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758185AbXICKMC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2007 06:12:02 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1468714wxd
-        for <netdev@vger.kernel.org>; Mon, 03 Sep 2007 03:12:01 -0700 (PDT)
-In-Reply-To: <46DBDCF4.6040805@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------060301060402000502060103"
+To: netdev@vger.kernel.org, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+This is a multi-part message in MIME format.
+--------------060301060402000502060103
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Here is a list of some known regressions in 2.6.23-rc5
-with patches available.
+(Please ignore previous message, it was sent from the wrong account.)
 
-Feel free to add new regressions/remove fixed etc.
-http://kernelnewbies.org/known_regressions
+Hello everyone,
 
-List of Aces
+I have several systems with three integrated Intel 82559 (I *think*).
 
-Name                    Regressions fixed since 21-Jun-2007
-Adrian Bunk                            9
-Linus Torvalds                         6
-Andi Kleen                             5
-Hugh Dickins                           5
-Andrew Morton                          4
-Al Viro                                3
-Alan Stern                             3
-Alexey Starikovskiy                    3
-Cornelia Huck                          3
-Jens Axboe                             3
-Stephen Hemminger                      3
-Tejun Heo                              3
+Does someone know if these boards support hardware interrupt mitigation?
+I.e. is it possible to configure them to raise an IRQ only if their
+hardware buffer is full OR if some given time (say 1 ms) has passed and
+packets are available in their hardware buffer.
+
+I've been using the eepro100 driver up to now, but I'm about to try the
+e100 driver. Would I have to use NAPI? Or is this an orthogonal feature?
+
+Regards.
 
 
+--------------060301060402000502060103
+Content-Type: text/plain;
+ name="adlink.lspci"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="adlink.lspci"
 
-Kconfig
+00:08.0 Ethernet controller: Intel Corporation 82557/8/9 Ethernet Pro 100 (rev 08)
+	Subsystem: Intel Corporation EtherExpress PRO/100B (TX)
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 32 (2000ns min, 14000ns max), Cache Line Size: 32 bytes
+	Interrupt: pin A routed to IRQ 10
+	Region 0: Memory at e6400000 (32-bit, non-prefetchable) [size=4K]
+	Region 1: I/O ports at d800 [size=64]
+	Region 2: Memory at e6100000 (32-bit, non-prefetchable) [size=1M]
+	Capabilities: [dc] Power Management version 2
+		Flags: PMEClk- DSI+ D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+		Status: D0 PME-Enable- DSel=0 DScale=2 PME-
 
-Subject         : CONFIG_HOTPLUG_CPU: kconfig bug?
-References      : http://lkml.org/lkml/2007/8/27/204
-Last known good : ?
-Submitter       : Hugh Dickins <hugh@veritas.com>
-Caused-By       : ?
-Handled-By      : Roman Zippel <zippel@linux-m68k.org>
-                  Sam Ravnborg <sam@ravnborg.org>
-Patch           : http://lkml.org/lkml/2007/8/29/301
-Status          : patch available
+00:09.0 Ethernet controller: Intel Corporation 82557/8/9 Ethernet Pro 100 (rev 08)
+	Subsystem: Intel Corporation EtherExpress PRO/100B (TX)
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 32 (2000ns min, 14000ns max), Cache Line Size: 32 bytes
+	Interrupt: pin A routed to IRQ 11
+	Region 0: Memory at e6403000 (32-bit, non-prefetchable) [size=4K]
+	Region 1: I/O ports at dc00 [size=64]
+	Region 2: Memory at e6200000 (32-bit, non-prefetchable) [size=1M]
+	Capabilities: [dc] Power Management version 2
+		Flags: PMEClk- DSI+ D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+		Status: D0 PME-Enable- DSel=0 DScale=2 PME-
 
-
-
-MMC
-
-Subject         : Unable to access memory card reader anymore
-References      : http://bugzilla.kernel.org/show_bug.cgi?id=8885
-Last known good : ?
-Submitter       : Christian Casteyde <casteyde.christian@free.fr>
-Caused-By       : ?
-Handled-By      : Alan Stern <stern@rowland.harvard.edu>
-Patch           : http://bugzilla.kernel.org/attachment.cgi?id=12438
-Status          : patch available
-
-
-
-MTD
-
-Subject         : error: implicit declaration of function 'cfi_interleave'
-References      : http://lkml.org/lkml/2007/8/6/272
-Last known good : ?
-Submitter       : Ingo Molnar <mingo@elte.hu>
-Caused-By       : ?
-Handled-By      : David Woodhouse <dwmw2@infradead.org>
-Patch           : http://lkml.org/lkml/2007/8/9/586
-Status          : patch available
-
-
-
-Networking
-
-Subject         : [OOPS] 2.6.23-rc5 ? network/via-rhine
-References      : http://lkml.org/lkml/2007/9/2/58
-Last known good : ?
-Submitter       : Mark Hindley <mark@hindley.org.uk>
-Caused-By       : ?
-Handled-By      : David S. Miller <davem@sunset.davemloft.net>
-Patch           : http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=5c127c58ae9bf196d787815b1bd6b0aec5aee816
-Status          : patch available
+00:0a.0 Ethernet controller: Intel Corporation 82557/8/9 Ethernet Pro 100 (rev 08)
+	Subsystem: Intel Corporation EtherExpress PRO/100B (TX)
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 32 (2000ns min, 14000ns max), Cache Line Size: 32 bytes
+	Interrupt: pin A routed to IRQ 12
+	Region 0: Memory at e6402000 (32-bit, non-prefetchable) [size=4K]
+	Region 1: I/O ports at e000 [size=64]
+	Region 2: Memory at e6000000 (32-bit, non-prefetchable) [size=1M]
+	Capabilities: [dc] Power Management version 2
+		Flags: PMEClk- DSI+ D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+		Status: D0 PME-Enable- DSel=0 DScale=2 PME-
 
 
-
-PATA/SATA
-
-Subject         : sata_via: write errors on PATA drive connected to VT6421
-References      : http://lkml.org/lkml/2007/8/20/248
-Last known good : ?
-Submitter       : Ondrej Zary <linux@rainbow-software.org>
-Caused-By       : ?
-Handled-By      : Ondrej Zary <linux@rainbow-software.org>
-Patch           : http://lkml.org/lkml/2007/8/31/310
-Status          : patch available
-
-Subject         : NULL pointer dereference in ata_piix
-References      : http://lkml.org/lkml/2007/9/1/33
-Last known good : ?
-Submitter       : Grant Wilson <grant.wilson@zen.co.uk>
-Caused-By       : ?
-Handled-By      : Jeff Garzik <jeff@garzik.org>
-Patch           : http://lkml.org/lkml/2007/9/1/46
-Status          : patch available
-
-
-
-Regards,
-Michal
-
---
-LOG
-http://www.stardust.webpages.pl/log/
+--------------060301060402000502060103--
