@@ -1,42 +1,44 @@
 From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Subject: Re: [3/4] 2.6.23-rc5: known regressions
-Date: Mon, 03 Sep 2007 12:10:22 +0200
-Message-ID: <46DBDD8E.6050802@googlemail.com>
-References: <46DBD982.3080102@googlemail.com>
+Subject: Re: [2/2] 2.6.23-rc5: known regressions with patches
+Date: Mon, 03 Sep 2007 12:11:18 +0200
+Message-ID: <46DBDDC6.9030602@googlemail.com>
+References: <46DBDCF4.6040805@googlemail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-2
 Content-Transfer-Encoding: 7bit
 Cc: Andrew Morton <akpm@linux-foundation.org>,
 	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>, Shish <shish@shishnet.org>,
-	Karl Meyer <adhocrocker@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	linux-wireless@vger.kernel.org,
+	kbuild-devel@lists.sourceforge.net,
+	Roman Zippel <zippel@linux-m68k.org>,
+	Sam Ravnborg <sam@ravnborg.org>,
+	Hugh Dickins <hugh@veritas.com>,
+	Pierre Ossman <drzeus-mmc@drzeus.cx>,
 	Christian Casteyde <casteyde.christian@free.fr>,
-	Martin Langer <martin-langer@gmx.de>,
-	Stefano Brivio <st3@riseup.net>,
-	Michael Buesch <mbuesch@freenet.de>,
-	Danny van Dyk <kugelfang@gentoo.org>,
-	Andreas Jaggi <andreas.jaggi@waterwave.ch>,
-	Daniel Drake <dsd@gentoo.org>,
-	Oliver Neukum <oliver@neukum.org>,
-	linux-usb-devel@lists.sourceforge.net,
-	Florian Lohoff <flo@rfc822.org>
+	Alan Stern <stern@rowland.harvard.edu>,
+	linux-mtd@lists.infradead.org,
+	David Woodhouse <dwmw2@infradead.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	"David S. Miller" <davem@sunset.davemloft.net>,
+	netdev@vger.kernel.org, Mark Hindley <mark@hindley.org.uk>,
+	linux-ide@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Grant Wilson <grant.wilson@zen.co.uk>,
+	Ondrej Zary <linux@rainbow-software.org>
 To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:12353 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753940AbXICKK6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2007 06:10:58 -0400
-Received: by nf-out-0910.google.com with SMTP id f5so1166045nfh
-        for <netdev@vger.kernel.org>; Mon, 03 Sep 2007 03:10:57 -0700 (PDT)
-In-Reply-To: <46DBD982.3080102@googlemail.com>
+Received: from wx-out-0506.google.com ([66.249.82.235]:33534 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758185AbXICKMC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2007 06:12:02 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1468714wxd
+        for <netdev@vger.kernel.org>; Mon, 03 Sep 2007 03:12:01 -0700 (PDT)
+In-Reply-To: <46DBDCF4.6040805@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi all,
 
-Here is a list of some known regressions in 2.6.23-rc5.
+Here is a list of some known regressions in 2.6.23-rc5
+with patches available.
 
 Feel free to add new regressions/remove fixed etc.
 http://kernelnewbies.org/known_regressions
@@ -59,48 +61,78 @@ Tejun Heo                              3
 
 
 
-Networking
+Kconfig
 
-Subject         : ifconfig eth1 - scheduling while atomic: ifconfig/0x00000002/4170
-References      : http://lkml.org/lkml/2007/9/2/165
+Subject         : CONFIG_HOTPLUG_CPU: kconfig bug?
+References      : http://lkml.org/lkml/2007/8/27/204
 Last known good : ?
-Submitter       : Florian Lohoff <flo@rfc822.org> 
+Submitter       : Hugh Dickins <hugh@veritas.com>
 Caused-By       : ?
-Handled-By      : ?
-Status          : unknown
+Handled-By      : Roman Zippel <zippel@linux-m68k.org>
+                  Sam Ravnborg <sam@ravnborg.org>
+Patch           : http://lkml.org/lkml/2007/8/29/301
+Status          : patch available
 
-Subject         : zd1211rw regression, device does not enumerate
-References      : http://marc.info/?l=linux-usb-devel&m=118854967709322&w=2
-Last known good : ?
-Submitter       : Oliver Neukum <oliver@neukum.org>
-Caused-By       : Daniel Drake <dsd@gentoo.org>
-                  commit 74553aedd46b3a2cae986f909cf2a3f99369decc
-Handled-By      : ?
-Status          : unknown
 
-Subject         : System freeze when restarting network connection with Broadcom driver
-References      : http://bugzilla.kernel.org/show_bug.cgi?id=8934
+
+MMC
+
+Subject         : Unable to access memory card reader anymore
+References      : http://bugzilla.kernel.org/show_bug.cgi?id=8885
 Last known good : ?
 Submitter       : Christian Casteyde <casteyde.christian@free.fr>
 Caused-By       : ?
-Handled-By      : ?
-Status          : problem is being debugged
+Handled-By      : Alan Stern <stern@rowland.harvard.edu>
+Patch           : http://bugzilla.kernel.org/attachment.cgi?id=12438
+Status          : patch available
 
-Subject         : NETDEV WATCHDOG: eth0: transmit timed out
-References      : http://lkml.org/lkml/2007/8/13/737
-Last known good : ?
-Submitter       : Karl Meyer <adhocrocker@gmail.com>
-Caused-By       : ?
-Handled-By      : Francois Romieu <romieu@fr.zoreil.com>
-Status          : problem is being debugged
 
-Subject         : Weird network problems with 2.6.23-rc2
-References      : http://lkml.org/lkml/2007/8/11/40
+
+MTD
+
+Subject         : error: implicit declaration of function 'cfi_interleave'
+References      : http://lkml.org/lkml/2007/8/6/272
 Last known good : ?
-Submitter       : Shish <shish@shishnet.org>
+Submitter       : Ingo Molnar <mingo@elte.hu>
 Caused-By       : ?
-Handled-By      : ?
-Status          : unknown
+Handled-By      : David Woodhouse <dwmw2@infradead.org>
+Patch           : http://lkml.org/lkml/2007/8/9/586
+Status          : patch available
+
+
+
+Networking
+
+Subject         : [OOPS] 2.6.23-rc5 ? network/via-rhine
+References      : http://lkml.org/lkml/2007/9/2/58
+Last known good : ?
+Submitter       : Mark Hindley <mark@hindley.org.uk>
+Caused-By       : ?
+Handled-By      : David S. Miller <davem@sunset.davemloft.net>
+Patch           : http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commit;h=5c127c58ae9bf196d787815b1bd6b0aec5aee816
+Status          : patch available
+
+
+
+PATA/SATA
+
+Subject         : sata_via: write errors on PATA drive connected to VT6421
+References      : http://lkml.org/lkml/2007/8/20/248
+Last known good : ?
+Submitter       : Ondrej Zary <linux@rainbow-software.org>
+Caused-By       : ?
+Handled-By      : Ondrej Zary <linux@rainbow-software.org>
+Patch           : http://lkml.org/lkml/2007/8/31/310
+Status          : patch available
+
+Subject         : NULL pointer dereference in ata_piix
+References      : http://lkml.org/lkml/2007/9/1/33
+Last known good : ?
+Submitter       : Grant Wilson <grant.wilson@zen.co.uk>
+Caused-By       : ?
+Handled-By      : Jeff Garzik <jeff@garzik.org>
+Patch           : http://lkml.org/lkml/2007/9/1/46
+Status          : patch available
 
 
 
