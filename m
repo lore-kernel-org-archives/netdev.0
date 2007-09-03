@@ -1,36 +1,45 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169: slow samba performance
-Date: Mon, 3 Sep 2007 23:03:22 +0200
-Message-ID: <20070903210322.GB4444@electric-eye.fr.zoreil.com>
-References: <46CC66D3.8030602@gmail.com> <20070822182116.GA5445@csy.ca> <46CC9290.3040501@gmail.com> <Pine.SOC.4.64.0708271631330.871@katana>
+From: Satyam Sharma <satyam@infradead.org>
+Subject: [PATCH -mm 1/2] 3c59x: Fix uninitialized variable bug
+Date: Tue, 4 Sep 2007 03:45:55 +0530 (IST)
+Message-ID: <alpine.LFD.0.999.0709040340250.8504@enigma.security.iitk.ac.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bruce Cole <bacole@gmail.com>, netdev@vger.kernel.org
-To: john@BlueSkyTours.com
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux Netdev Mailing List <netdev@vger.kernel.org>,
+	Jeff Garzik <jeff@garzik.org>
+To: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:51458 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754428AbXICVFJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Sep 2007 17:05:09 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.SOC.4.64.0708271631330.871@katana>
+Received: from pentafluge.infradead.org ([213.146.154.40]:55690 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751661AbXICWCv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2007 18:02:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-john@BlueSkyTours.com <john@BlueSkyTours.com> :
-[...]
-> I have had abysmal performance trying to remotely run X apps via ssh on a
-> computer with a RTL8111 NIC.  Saw this message and decided to give this
-> patch a try --- success!  Much, much better.
 
-Can you give a try to:
+drivers/net/3c59x.c: In function 'vortex_up':
+drivers/net/3c59x.c:1495: warning: 'err' may be used uninitialized in this function
 
-http://www.fr.zoreil.com/people/francois/misc/20070903-2.6.23-rc5-r8169-test.patch
+is a genuine bug. The function returns an uninitialized value of 'err'
+back to the caller, which expects it to be 0 for success cases. Let's
+fix this by explicitly initializing 'err' to zero.
 
-or just patches #0001 + #0002 at:
+Signed-off-by: Satyam Sharma <satyam@infradead.org>
 
-http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.23-rc5/r8169-20070903/
+---
 
+ drivers/net/3c59x.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
--- 
-Ueimor
+--- linux-2.6.23-rc4-mm1/drivers/net/3c59x.c~fix	2007-09-04 03:29:40.000000000 +0530
++++ linux-2.6.23-rc4-mm1/drivers/net/3c59x.c	2007-09-04 03:30:08.000000000 +0530
+@@ -1492,7 +1492,8 @@ vortex_up(struct net_device *dev)
+ 	struct vortex_private *vp = netdev_priv(dev);
+ 	void __iomem *ioaddr = vp->ioaddr;
+ 	unsigned int config;
+-	int i, mii_reg1, mii_reg5, err;
++	int i, mii_reg1, mii_reg5;
++	int err = 0;
+ 
+ 	if (VORTEX_PCI(vp)) {
+ 		pci_set_power_state(VORTEX_PCI(vp), PCI_D0);	/* Go active */
