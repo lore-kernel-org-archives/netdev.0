@@ -1,125 +1,202 @@
-From: Dhananjay Phadke <dhananjay@netxen.com>
-Subject: [PATCH 3/3] netxen: ethtool fixes
-Date: Mon, 3 Sep 2007 10:33:35 +0530 (IST)
-Message-ID: <Pine.LNX.4.64.0709031029110.2882@stellar.unminc.com>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: Tc bug (kernel crash) more info
+Date: Mon, 3 Sep 2007 09:31:00 +0200
+Message-ID: <20070903073059.GA1899@ff.dom.local>
+References: <46D7BD75.3080008@bigtelecom.ru> <20070831075909.GA1772@ff.dom.local> <46D7D072.5060508@bigtelecom.ru> <20070831090509.GC1772@ff.dom.local> <46D7E050.1030303@bigtelecom.ru> <20070831101733.GA3108@ff.dom.local> <46D7F1FF.1000101@bigtelecom.ru> <20070831125917.GC3108@ff.dom.local> <46D8265B.6000405@bigtelecom.ru> <46D82AEC.5010404@bigtelecom.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: jeff@garzik.org, rob@netxen.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Badalian Vyacheslav <slavon@bigtelecom.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 66-126-254-34.unm.net ([66.126.254.34]:33192 "EHLO
-	nxmail.netxen.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750890AbXICFDk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2007 01:03:40 -0400
+Received: from mx10.go2.pl ([193.17.41.74]:42302 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751676AbXICH33 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Sep 2007 03:29:29 -0400
+Content-Disposition: inline
+In-Reply-To: <46D82AEC.5010404@bigtelecom.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Aug 31, 2007 at 06:51:24PM +0400, Badalian Vyacheslav wrote:
+> I found that bug in this place
+> 
+> (gdb) l *0xc01c8973
+> 0xc01c8973 is in rb_insert_color (lib/rbtree.c:80).
+...
+> if i not wrong understand message "unable to handle kernel NULL pointer 
+> dereference at virtual address 00000008" its was known that "gparent == 
+> Null"?
+> Or i hope or i try find a mare's-nest?
 
-Resubmitting the patch. 
+Your errors trigger in rbtree, which does indexing for HTB, but since
+it's something quite rare I think there is a very small probability
+that it's caused by HTB class/level handling (but it's possible, too),
+but more probable (to me) these indexes are corrupted by something e.g.
+like accessing them without proper locking.
 
-This patch improves ethtool support for printing correct ring statistics,
-segmentation offload status, etc.
+Below I attach a patch for testing: it adds some lock debugging (plus
+one place: htb_put is locked). There is mainly checking of locks
+needed for writing to rbtree, but it doesn't check all readings yet,
+so there will be still something to check if this patch doesn't help
+to find anything.
 
-Signed-off by: Dhananjay Phadke <dhananjay@netxen.com>
+It should be applied to 2.6.23-rc4, but if you prefer 2.6.22.5 version
+let me know (BTW, I hope you let us know if you have to apply any
+other patches/changes to these kernels...).
 
-Index: netdev-2.6/drivers/net/netxen/netxen_nic.h
-===================================================================
---- netdev-2.6.orig/drivers/net/netxen/netxen_nic.h
-+++ netdev-2.6/drivers/net/netxen/netxen_nic.h
-@@ -918,7 +918,7 @@ struct netxen_adapter {
- 	u16 link_duplex;
- 	u16 state;
- 	u16 link_autoneg;
--	int rcsum;
-+	int rx_csum;
- 	int status;
- 	spinlock_t stats_lock;
+> 
+> >Ok =) I hope in next week you found bug place and fix it!
+> >
+> >PS. if you ask where i can read "kernel panic dump logic" literature 
+> >and try find bugline in code.
+> >I read dump and see that bug in function "rb_insert_color" + some 
+> >shift (in asm?) that called from htb_dequeue? But in htb_dequeue not 
+> >have calling rb_insert_color =( Or some nodes in trace was skipped?
+> >
+> >Its for change up my education ;)
+
+I didn't learn much about this, but usually objdump is enough for me.
+Here are some links for kernel education:
+
+http://kernelnewbies.org/
+http://www.tux.org/lkml/
+http://en.tldp.org/LDP/khg/HyperNews/get/khg.html
+http://www.stardust.webpages.pl/files/handbook/tmp-en/
+
+Regards,
+Jarek P.
+
+---
+
+diff -Nurp linux-2.6.23-rc4-/net/sched/sch_htb.c linux-2.6.23-rc4/net/sched/sch_htb.c
+--- linux-2.6.23-rc4-/net/sched/sch_htb.c	2007-08-28 19:52:25.000000000 +0200
++++ linux-2.6.23-rc4/net/sched/sch_htb.c	2007-09-02 10:34:39.000000000 +0200
+@@ -52,6 +52,7 @@
+     one less than their parent.
+ */
  
-Index: netdev-2.6/drivers/net/netxen/netxen_nic_ethtool.c
-===================================================================
---- netdev-2.6.orig/drivers/net/netxen/netxen_nic_ethtool.c
-+++ netdev-2.6/drivers/net/netxen/netxen_nic_ethtool.c
-@@ -518,17 +518,17 @@ netxen_nic_get_ringparam(struct net_devi
- 	ring->rx_jumbo_pending = 0;
- 	for (i = 0; i < MAX_RCV_CTX; ++i) {
- 		ring->rx_pending += adapter->recv_ctx[i].
--		    rcv_desc[RCV_DESC_NORMAL_CTXID].rcv_pending;
-+		    rcv_desc[RCV_DESC_NORMAL_CTXID].max_rx_desc_count;
- 		ring->rx_jumbo_pending += adapter->recv_ctx[i].
--		    rcv_desc[RCV_DESC_JUMBO_CTXID].rcv_pending;
-+		    rcv_desc[RCV_DESC_JUMBO_CTXID].max_rx_desc_count;
- 	}
-+	ring->tx_pending = adapter->max_tx_desc_count;
- 
--	ring->rx_max_pending = adapter->max_rx_desc_count;
--	ring->tx_max_pending = adapter->max_tx_desc_count;
--	ring->rx_jumbo_max_pending = adapter->max_jumbo_rx_desc_count;
-+	ring->rx_max_pending = MAX_RCV_DESCRIPTORS;
-+	ring->tx_max_pending = MAX_CMD_DESCRIPTORS_HOST;
-+	ring->rx_jumbo_max_pending = MAX_JUMBO_RCV_DESCRIPTORS;
- 	ring->rx_mini_max_pending = 0;
- 	ring->rx_mini_pending = 0;
--	ring->rx_jumbo_pending = 0;
- }
- 
- static void
-@@ -731,6 +731,19 @@ netxen_nic_get_ethtool_stats(struct net_
- 	}
- }
- 
-+static u32 netxen_nic_get_rx_csum(struct net_device *dev)
-+{
-+	struct netxen_adapter *adapter = netdev_priv(dev);
-+	return adapter->rx_csum;
-+}
-+
-+static int netxen_nic_set_rx_csum(struct net_device *dev, u32 data)
-+{
-+	struct netxen_adapter *adapter = netdev_priv(dev);
-+	adapter->rx_csum = !!data;
-+	return 0;
-+}
-+
- struct ethtool_ops netxen_nic_ethtool_ops = {
- 	.get_settings = netxen_nic_get_settings,
- 	.set_settings = netxen_nic_set_settings,
-@@ -755,4 +768,7 @@ struct ethtool_ops netxen_nic_ethtool_op
- 	.get_strings = netxen_nic_get_strings,
- 	.get_stats_count = netxen_nic_get_stats_count,
- 	.get_ethtool_stats = netxen_nic_get_ethtool_stats,
-+	.get_rx_csum = netxen_nic_get_rx_csum,
-+	.set_rx_csum = netxen_nic_set_rx_csum,
-+	.get_ufo = ethtool_op_get_ufo,
++#define DEBUG_HTB
+ #define HTB_HSIZE 16		/* classid hash size */
+ #define HTB_HYSTERESIS 1	/* whether to use mode hysteresis for speedup */
+ #define HTB_VER 0x30011		/* major must be matched with number suplied by TC as version */
+@@ -127,6 +128,9 @@ struct htb_class {
+ 	int prio;		/* For parent to leaf return possible here */
+ 	int quantum;		/* we do backup. Finally full replacement  */
+ 				/* of un.leaf originals should be done. */
++#ifdef DEBUG_HTB
++	struct Qdisc *sch;
++#endif
  };
-Index: netdev-2.6/drivers/net/netxen/netxen_nic_main.c
-===================================================================
---- netdev-2.6.orig/drivers/net/netxen/netxen_nic_main.c
-+++ netdev-2.6/drivers/net/netxen/netxen_nic_main.c
-@@ -408,6 +408,7 @@ netxen_nic_probe(struct pci_dev *pdev, c
- 	/* This will be reset for mezz cards  */
- 	adapter->portnum = pci_func_id;
- 	adapter->status   &= ~NETXEN_NETDEV_STATUS;
-+	adapter->rx_csum = 1;
  
- 	netdev->open		   = netxen_nic_open;
- 	netdev->stop		   = netxen_nic_close;
-Index: netdev-2.6/drivers/net/netxen/netxen_nic_init.c
-===================================================================
---- netdev-2.6.orig/drivers/net/netxen/netxen_nic_init.c
-+++ netdev-2.6/drivers/net/netxen/netxen_nic_init.c
-@@ -1118,10 +1118,13 @@ netxen_process_rcv(struct netxen_adapter
+ static inline long L2T(struct htb_class *cl, struct qdisc_rate_table *rate,
+@@ -175,6 +179,23 @@ struct htb_sched {
+ 	long direct_pkts;
+ };
  
- 	skb = (struct sk_buff *)buffer->skb;
- 
--	if (likely(netxen_get_sts_status(desc) == STATUS_CKSUM_OK)) {
-+	if (likely(adapter->rx_csum &&
-+				netxen_get_sts_status(desc) == STATUS_CKSUM_OK)) {
- 		adapter->stats.csummed++;
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
--	}
-+	} else
-+		skb->ip_summed = CHECKSUM_NONE;
++#ifdef DEBUG_HTB
++static inline int htb_queue_locked(struct htb_class *cl)
++{
++	if (cl->sch) {
++		if (!spin_is_locked(&cl->sch->dev->queue_lock) ||
++						!in_softirq()) {
++			cl->sch = NULL;
++			return 0;
++		}
++	}
++	return 1;
++}
++#define DEBUG_QUEUE_LOCKED(cl)	WARN_ON(!htb_queue_locked(cl))
++#else
++#define DEBUG_QUEUE_LOCKED(dev)	do { } while (0)
++#endif
 +
- 	skb->dev = netdev;
- 	if (desc_ctx == RCV_DESC_LRO_CTXID) {
- 		/* True length was only available on the last pkt */
+ /* compute hash of size HTB_HSIZE for given handle */
+ static inline int htb_hash(u32 h)
+ {
+@@ -280,6 +301,7 @@ static void htb_add_to_id_tree(struct rb
+ {
+ 	struct rb_node **p = &root->rb_node, *parent = NULL;
+ 
++	DEBUG_QUEUE_LOCKED(cl);
+ 	while (*p) {
+ 		struct htb_class *c;
+ 		parent = *p;
+@@ -306,6 +328,7 @@ static void htb_add_to_wait_tree(struct 
+ {
+ 	struct rb_node **p = &q->wait_pq[cl->level].rb_node, *parent = NULL;
+ 
++	DEBUG_QUEUE_LOCKED(cl);
+ 	cl->pq_key = q->now + delay;
+ 	if (cl->pq_key == q->now)
+ 		cl->pq_key++;
+@@ -378,6 +401,7 @@ static inline void htb_remove_class_from
+ {
+ 	int m = 0;
+ 
++	DEBUG_QUEUE_LOCKED(cl);
+ 	while (mask) {
+ 		int prio = ffz(~mask);
+ 
+@@ -438,6 +462,7 @@ static void htb_deactivate_prios(struct 
+ 	struct htb_class *p = cl->parent;
+ 	long m, mask = cl->prio_activity;
+ 
++	DEBUG_QUEUE_LOCKED(cl);
+ 	while (cl->cmode == HTB_MAY_BORROW && p && mask) {
+ 		m = mask;
+ 		mask = 0;
+@@ -668,6 +693,7 @@ static void htb_charge_class(struct htb_
+ 	if (toks <= -cl->mbuffer) toks = 1-cl->mbuffer; \
+ 	cl->T = toks
+ 
++	DEBUG_QUEUE_LOCKED(cl);
+ 	while (cl) {
+ 		diff = psched_tdiff_bounded(q->now, cl->t_c, cl->mbuffer);
+ 		if (cl->level >= level) {
+@@ -724,6 +750,7 @@ static psched_time_t htb_do_events(struc
+ 		if (cl->pq_key > q->now)
+ 			return cl->pq_key;
+ 
++		DEBUG_QUEUE_LOCKED(cl);
+ 		htb_safe_rb_erase(p, q->wait_pq + level);
+ 		diff = psched_tdiff_bounded(q->now, cl->t_c, cl->mbuffer);
+ 		htb_change_class_mode(q, cl, &diff);
+@@ -822,6 +849,7 @@ static struct sk_buff *htb_dequeue_tree(
+ 	start = cl = htb_lookup_leaf(q->row[level] + prio, prio,
+ 				     q->ptr[level] + prio,
+ 				     q->last_ptr_id[level] + prio);
++	DEBUG_QUEUE_LOCKED(cl);
+ 
+ 	do {
+ next:
+@@ -1197,6 +1225,7 @@ static void htb_destroy_class(struct Qdi
+ {
+ 	struct htb_sched *q = qdisc_priv(sch);
+ 
++	DEBUG_QUEUE_LOCKED(cl);
+ 	if (!cl->level) {
+ 		BUG_TRAP(cl->un.leaf.q);
+ 		qdisc_destroy(cl->un.leaf.q);
+@@ -1291,8 +1320,11 @@ static void htb_put(struct Qdisc *sch, u
+ {
+ 	struct htb_class *cl = (struct htb_class *)arg;
+ 
+-	if (--cl->refcnt == 0)
++	if (--cl->refcnt == 0) {
++		sch_tree_lock(sch);
+ 		htb_destroy_class(sch, cl);
++		sch_tree_unlock(sch);
++	}
+ }
+ 
+ static int htb_change_class(struct Qdisc *sch, u32 classid,
+@@ -1367,6 +1399,9 @@ static int htb_change_class(struct Qdisc
+ 		for (prio = 0; prio < TC_HTB_NUMPRIO; prio++)
+ 			RB_CLEAR_NODE(&cl->node[prio]);
+ 
++#ifdef DEBUG_HTB
++		cl->sch = sch;
++#endif
+ 		/* create leaf qdisc early because it uses kmalloc(GFP_KERNEL)
+ 		   so that can't be used inside of sch_tree_lock
+ 		   -- thanks to Karlis Peisenieks */
