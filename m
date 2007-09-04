@@ -1,69 +1,60 @@
-From: "Mandeep Baines" <mandeep.baines@gmail.com>
-Subject: Re: [PATCH] [sis900] convert to NAPI, WAS Re: pktgen terminating condition
-Date: Tue, 4 Sep 2007 10:24:17 -0700
-Message-ID: <535ddc6b0709041024r1c386426ye6ee99ce78295069@mail.gmail.com>
-References: <20070904032036.GA11153@ludhiana>
-	 <1188925008-ced672f60b90353067426d0b9f74506a@brownhat.org>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH 1/2]: [NET_SCHED]: Make all rate based scheduler work
+ with TSO.
+Date: Tue, 4 Sep 2007 13:40:15 -0400
+Message-ID: <20070904134015.18a3e7ca.billfink@mindspring.com>
+References: <1188562975.18622.11.camel@localhost.localdomain>
+	<46D9103B.7090905@trash.net>
+	<Pine.LNX.4.61.0709012325080.29796@ask.diku.dk>
+	<20070903233456.0e738183.billfink@mindspring.com>
+	<46DD867E.6020307@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, davem@davemloft.net, rick.jones2@hp.com,
-	msb@google.com, netdev@vger.kernel.org, grundler@google.com,
-	robert.olsson@its.uu.se, jeff@garzik.org, nhorman@tuxdriver.com
-To: "Daniele Venzano" <venza@brownhat.org>
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>, jdb@comx.dk,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.185]:31495 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754891AbXIDRYT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2007 13:24:19 -0400
-Received: by fk-out-0910.google.com with SMTP id z23so1704005fkz
-        for <netdev@vger.kernel.org>; Tue, 04 Sep 2007 10:24:17 -0700 (PDT)
-In-Reply-To: <1188925008-ced672f60b90353067426d0b9f74506a@brownhat.org>
-Content-Disposition: inline
+Received: from elasmtp-spurfowl.atl.sa.earthlink.net ([209.86.89.66]:58761
+	"EHLO elasmtp-spurfowl.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754839AbXIDRkX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2007 13:40:23 -0400
+In-Reply-To: <46DD867E.6020307@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cool. I'll try to see if I can clock my pc lower and run the
-experiments again. I'll measure cpu utilization also this time around.
-That should be useful for extrapolating.
+On Tue, 04 Sep 2007, Patrick McHardy wrote:
 
-Regards,
-Mandeep
+> Bill Fink wrote:
+> > On Sat, 1 Sep 2007, Jesper Dangaard Brouer wrote:
+> >
+> >>On Sat, 1 Sep 2007, Patrick McHardy wrote:
+> >>>
+> >>>It still won't work properly with TSO (TBF for example already drops
+> >>>oversized packets during ->enqueue), but its a good cleanup anyway.
+> >>
+> >>Then lets call it a cleanup of the L2T macros.  In the next step we will 
+> >>fix the different schedulers, to use the ability to lookup larger sized 
+> >>packets. (I did notice the TBF scheduler would drop oversized packets).
+> > 
+> > Hmmm.  I guess this is also why TBF doesn't seem to work with 9000 byte
+> > jumbo frames.
+> > 
+> > [root@lang4 ~]# tc qdisc add dev eth2 root tbf rate 2gbit buffer 5000000 limit 18000
+> 
+> Yes, you need to specify the MTU on the command line for
+> jumbo frames.
 
-On 9/4/07, Daniele Venzano <venza@brownhat.org> wrote:
-> ----- Message d'origine -----
-> De: Mandeep Singh Baines <mandeep.baines@gmail.com>
-> Date: Mon, 3 Sep 2007 20:20:36 -0700
-> Sujet: [PATCH] [sis900] convert to NAPI, WAS Re: pktgen terminating condition
->
-> >Hi Daniele,
-> >
-> >Attached is a patch for converting the sis900 driver to NAPI. Please take a
-> >look at let me know what you think. I'm not 100% sure if I'm handling the
-> >rotting packet issue correctly or that I have the locking right in tx_timeout.
-> >These might be areas to look at closely.
-> >
-> >I didn't see much saving in interrupts on my machine (too fast, I guess). But
-> >I still think its beneficial: pushing work out of the interrupt handler into
-> >a bottom half is a good thing and we no longer need to disable interrupts
-> >in start_xmit.
-> >
-> >I did see a significant boost to tx performance by optimizing start_xmit: more
-> >than double pps in pktgen.
-> >
-> >I'm also attaching some test results for various iterations of development.
->
-> The patch looks good and I think it can be pushed higher (-mm ?) for some wider
-> testing. I don't have the hardware available to do some tests myself,
-> unfortunately, but it would be similar to yours anyway.
->
-> I'd like to know how this works for people with less memory and slower CPU, but any
-> kind of test run will be appreciated.
->
-> Thanks, bye.
->
->
-> --
-> Daniele Venzano
-> venza@brownhat.org
->
+Thanks!  Works much better now, although it does slightly exceed
+the specified rate.
+
+[root@lang4 ~]# tc qdisc add dev eth2 root tbf rate 2gbit buffer 5000000 limit 18000 mtu 9000
+
+[root@lang4 ~]# ./nuttcp-5.5.5 -w10m 192.168.88.14
+ 2465.6729 MB /  10.08 sec = 2051.8241 Mbps 19 %TX 13 %RX
+
+[root@lang4 ~]# ./nuttcp-5.5.5 -M1460 -w10m 192.168.88.14
+ 2785.5000 MB /  10.00 sec = 2335.6569 Mbps 100 %TX 26 %RX
+
+						-Bill
