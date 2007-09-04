@@ -1,49 +1,42 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH RFC] iw_cxgb3: Support "iwarp-only" interfaces to avoid
- 4-tuple conflicts with the host stack.
-Date: Tue, 04 Sep 2007 10:13:51 -0500
-Message-ID: <46DD762F.80904@opengridcomputing.com>
-References: <1187905185.5547.13.camel@stevo-desktop> <adaveawwcpz.fsf@cisco.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: 82557/8/9 Ethernet Pro 100 interrupt mitigation support
+Date: Tue, 04 Sep 2007 08:56:04 -0700
+Message-ID: <46DD8014.7000408@intel.com>
+References: <46DBE2E7.7070906@mediatvcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: general@lists.openfabrics.org, ewg@lists.openfabrics.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sean.hefty@intel.com
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.opengridcomputing.com ([71.42.183.126]:50971 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754515AbXIDPNv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2007 11:13:51 -0400
-In-Reply-To: <adaveawwcpz.fsf@cisco.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org
+To: Marc Sigler <marc.sigler@mediatvcom.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <46DBE2E7.7070906@mediatvcom.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-Roland Dreier wrote:
->  > The sysadmin creates "for iwarp use only" alias interfaces of the form
->  > "devname:iw*" where devname is the native interface name (eg eth0) for the
->  > iwarp netdev device.  The alias label can be anything starting with "iw".
->  > The "iw" immediately after the ':' is the key used by the iwarp driver.
+Marc Sigler wrote:
+> Hello everyone,
 > 
-> What's wrong with my suggestion of having the iwarp driver create an
-> "iwX" interface to go with the normal "ethX" interface?  It seems
-> simpler to me, and there's a somewhat similar precedent with how
-> mac80211 devices create both wlan0 and wmaster0 interfaces.
+> I have several systems with three integrated Intel 82559 (I *think*).
 > 
->  - R.
+> Does someone know if these boards support hardware interrupt mitigation? 
+> I.e. is it possible to configure them to raise an IRQ only if their 
+> hardware buffer is full OR if some given time (say 1 ms) has passed and 
+> packets are available in their hardware buffer.
+> 
+> I've been using the eepro100 driver up to now, but I'm about to try the 
+> e100 driver. Would I have to use NAPI? Or is this an orthogonal feature?
 
-It seemed much more painful for me to implement. :-)
+the software developers manual for this part is available on our e1000.sf.net 
+page here:
+ 
+http://downloads.sourceforge.net/e1000/OpenSDM_55x_10c.pdf?modtime=1040083200&big_mirror=0
 
-I'll look into this, but I think for this to be done, the changes must 
-be in the cxgb3 driver, not the rdma driver, because the guts of the 
-netdev struct are all private to cxgb3.  Remember that this interface 
-needs to still do non TCP traffic (like ARP and UDP)...
+e100 hardware (as far as I can see from the specs) doesn't support any irq 
+mitigation, so you'll need to run in NAPI mode if you want to throttle irq's. 
+the in-kernel e100 already runs in NAPI mode, so that's already covered.
 
-Maybe you have something in mind here that I'm not thinking about?
+beware that the eepro100 driver is scheduled for removal (2.6.25 or so).
 
+Cheers,
 
-Steve.
-
+Auke
