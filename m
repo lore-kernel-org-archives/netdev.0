@@ -1,66 +1,58 @@
-From: John Sigler <linux.kernel@free.fr>
-Subject: Re: 82557/8/9 Ethernet Pro 100 interrupt mitigation support
-Date: Tue, 04 Sep 2007 18:41:41 +0200
-Message-ID: <46DD8AC5.1070508@free.fr>
-References: <36D9DB17C6DE9E40B059440DB8D95F520344439B@orsmsx418.amr.corp.intel.com>
+From: Daniele Venzano <venza@brownhat.org>
+Subject: Re: [PATCH] [sis900] convert to NAPI, WAS Re: pktgen terminating
+	 condition
+Date: Tue, 04 Sep 2007 18:56:48 +0200
+Message-ID: <1188925008-ced672f60b90353067426d0b9f74506a@brownhat.org>
+References: <20070904032036.GA11153@ludhiana>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
-	linux-net@vger.kernel.org
-To: jesse.brandeburg@intel.com
-Return-path: <linux-net-owner@vger.kernel.org>
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F520344439B@orsmsx418.amr.corp.intel.com>
-Sender: linux-net-owner@vger.kernel.org
+Cc: hadi@cyberus.ca, Mandeep Baines <mandeep.baines@gmail.com>,
+	davem@davemloft.net, rick.jones2@hp.com, msb@google.com,
+	netdev@vger.kernel.org, grundler@google.com,
+	robert.olsson@its.uu.se, jeff@garzik.org, nhorman@tuxdriver.com
+To: Mandeep Singh Baines <mandeep.baines@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.infomaniak.ch ([84.16.68.89]:49218 "EHLO
+	smtp1.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752316AbXIDQ5w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2007 12:57:52 -0400
+In-Reply-To: <20070904032036.GA11153@ludhiana>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesse Brandeburg wrote:
+----- Message d'origine -----
+De: Mandeep Singh Baines <mandeep.baines@gmail.com>
+Date: Mon, 3 Sep 2007 20:20:36 -0700
+Sujet: [PATCH] [sis900] convert to NAPI, WAS Re: pktgen terminating condition
 
-> Auke Kok wrote:
-> 
->> Marc Sigler wrote:
->> 
->>> I have several systems with three integrated Intel 82559 (I *think*).
->>> 
->>> Does someone know if these boards support hardware interrupt
->>> mitigation? I.e. is it possible to configure them to raise an IRQ
->>> only if their hardware buffer is full OR if some given time (say 1
->>> ms) has passed and packets are available in their hardware buffer.
->>> 
->>> I've been using the eepro100 driver up to now, but I'm about to try
->>> the e100 driver. Would I have to use NAPI? Or is this an orthogonal
->>> feature? 
->> 
->> e100 hardware (as far as I can see from the specs) doesn't support
->> any irq mitigation, so you'll need to run in NAPI mode if you want to
->> throttle irq's. the in-kernel e100 already runs in NAPI mode, so
->> that's already covered. 
->> 
->> beware that the eepro100 driver is scheduled for removal (2.6.25 or so).
-> 
-> We support mitigation of interrupts in a downloadable microcode on only
-> a few pieces of hardware (revision id specific) in e100.c (see
-> e100_setup_ucode)
+>Hi Daniele,
+>
+>Attached is a patch for converting the sis900 driver to NAPI. Please take a
+>look at let me know what you think. I'm not 100% sure if I'm handling the
+>rotting packet issue correctly or that I have the locking right in tx_timeout.
+>These might be areas to look at closely.
+>
+>I didn't see much saving in interrupts on my machine (too fast, I guess). But
+>I still think its beneficial: pushing work out of the interrupt handler into
+>a bottom half is a good thing and we no longer need to disable interrupts 
+>in start_xmit. 
+>
+>I did see a significant boost to tx performance by optimizing start_xmit: more
+>than double pps in pktgen.
+>
+>I'm also attaching some test results for various iterations of development.
 
-http://lxr.linux.no/source/drivers/net/e100.c#L1176
+The patch looks good and I think it can be pushed higher (-mm ?) for some wider 
+testing. I don't have the hardware available to do some tests myself, 
+unfortunately, but it would be similar to yours anyway.
 
-OK.
+I'd like to know how this works for people with less memory and slower CPU, but any 
+kind of test run will be appreciated.
 
-How do I tell which revision id I have?
+Thanks, bye.
 
-00:08.0 0200: 8086:1229 (rev 08)
-00:09.0 0200: 8086:1229 (rev 08)
-00:0a.0 0200: 8086:1229 (rev 08)
 
-How much memory is available on the board to bundle packets? 3000 bytes?
-
-> If you really really wanted mitigation you could probably backport the
-> microcode from the e100 driver in the 2.4.35 kernel for your specific
-> hardware.  This driver is versioned 2.X.
-
-I forgot to mention I'm running 2.6.22.1-rt9.
-I'm not sure why you mention 2.4.35?
-The problem with e100 is that it fails to properly set up all three 
-interfaces, which is why I'm stuck with eepro100.
-
-Regards.
+--
+Daniele Venzano
+venza@brownhat.org
