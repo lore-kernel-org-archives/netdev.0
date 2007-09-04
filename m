@@ -1,68 +1,59 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH 1/2]: [NET_SCHED]: Make all rate based scheduler work
- with TSO.
-Date: Mon, 3 Sep 2007 23:34:56 -0400
-Message-ID: <20070903233456.0e738183.billfink@mindspring.com>
-References: <1188562975.18622.11.camel@localhost.localdomain>
-	<46D9103B.7090905@trash.net>
-	<Pine.LNX.4.61.0709012325080.29796@ask.diku.dk>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: af_packet: don't enable global timestamps
+Date: Tue, 4 Sep 2007 06:35:25 +0100
+Message-ID: <20070904063525.060e7a77@oldman>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, jdb@comx.dk,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jesper Dangaard Brouer <hawk@diku.dk>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>, Andi Kleen <ak@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-spurfowl.atl.sa.earthlink.net ([209.86.89.66]:35718
-	"EHLO elasmtp-spurfowl.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751537AbXIDDfK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Sep 2007 23:35:10 -0400
-In-Reply-To: <Pine.LNX.4.61.0709012325080.29796@ask.diku.dk>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:59236 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750980AbXIDFey (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2007 01:34:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 1 Sep 2007, Jesper Dangaard Brouer wrote:
+Andi mentioned he did something like this already, but never
+submitted it.
 
-> On Sat, 1 Sep 2007, Patrick McHardy wrote:
-> 
-> > Jesper Dangaard Brouer wrote:
-> >> commit 6fdc0f061be94f5e297650961360fb7a9d1cc85d
-> >> Author: Jesper Dangaard Brouer <hawk@comx.dk>
-> >> Date:   Thu Aug 30 17:53:42 2007 +0200
-> >> 
-> >> [NET_SCHED]: Make all rate based scheduler work with TSO.
-> >> 
-> >> Change L2T (length to time) macros, in all rate based schedulers, to
-> >> call a common function qdisc_l2t() that does the rate table lookup.
-> >> This function handles if the packet size lookup is larger than the
-> >> rate table, which often occurs with TSO enabled.
-> >
-> >
-> > It still won't work properly with TSO (TBF for example already drops
-> > oversized packets during ->enqueue), but its a good cleanup anyway.
-> 
-> Then lets call it a cleanup of the L2T macros.  In the next step we will 
-> fix the different schedulers, to use the ability to lookup larger sized 
-> packets. (I did notice the TBF scheduler would drop oversized packets).
+The dhcp client application uses AF_PACKET with a packet filter to
+receive data. The application doesn't even use timestamps, but because
+the AF_PACKET API has timestamps, they get turned on globally which
+causes an expensive time of day lookup for every packet received
+on any system that uses the standard DHCP client.
 
-Hmmm.  I guess this is also why TBF doesn't seem to work with 9000 byte
-jumbo frames.
+The fix is to not enable the timestamp (but use if if available).
+This causes the time lookup to only occur on those packets
+that are destined for the AF_PACKET socket. 
+The timestamping occurs after packet filtering
+so all packets dropped by filtering to not cause a clock call.
 
-[root@lang4 ~]# tc qdisc add dev eth2 root tbf rate 2gbit buffer 5000000 limit 18000
-[root@lang4 ~]# tc qdisc show                                                   qdisc pfifo_fast 0: dev eth0 root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
-qdisc tbf 8002: dev eth2 rate 2000Mbit burst 5000000b lat 4.3s
+The one downside of this a a few microseconds additional delay
+added from the normal timestamping location (netif_rx) until the
+receive callback in AF_PACKET. But since the offset is fairly consistent
+it should not upset applications that do want really use timestamps,
+like wireshark.
 
-With 9000 byte jumbo frames:
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-[root@lang4 ~]# ./nuttcp-5.5.5 -w10m 192.168.88.14
-    0.0000 MB /   5.00 sec =    0.0000 Mbps 0 %TX 0 %RX
 
-But reducing the MSS to 1460 to emulate a standard 1500 byte Ethernet MTU:
-
-[root@lang4 ~]# ./nuttcp-5.5.5 -M1460 -w10m 192.168.88.14
- 2335.7048 MB /  10.05 sec = 1950.3419 Mbps 62 %TX 22 %RX
-
-This is on a 2.6.20.7 kernel.
-
-						-Bill
+--- a/net/packet/af_packet.c	2007-07-23 09:31:26.000000000 +0100
++++ b/net/packet/af_packet.c	2007-09-03 14:55:00.000000000 +0100
+@@ -640,11 +640,10 @@ static int tpacket_rcv(struct sk_buff *s
+ 	h->tp_snaplen = snaplen;
+ 	h->tp_mac = macoff;
+ 	h->tp_net = netoff;
+-	if (skb->tstamp.tv64 == 0) {
+-		__net_timestamp(skb);
+-		sock_enable_timestamp(sk);
+-	}
+-	tv = ktime_to_timeval(skb->tstamp);
++	if (skb->tstamp.tv64)
++		tv = ktime_to_timeval(skb->tstamp);
++	else
++		do_gettimeofday(&tv);
+ 	h->tp_sec = tv.tv_sec;
+ 	h->tp_usec = tv.tv_usec;
+ 
