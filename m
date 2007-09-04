@@ -1,74 +1,45 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: af_packet: don't enable global timestamps
-Date: Tue, 4 Sep 2007 09:59:58 +0200
-Message-ID: <20070904095958.53c86337.dada1@cosmosbay.com>
-References: <20070904063525.060e7a77@oldman>
+From: Micah Gruber <micah.gruber@gmail.com>
+Subject: [PATCH] Fix a potential NULL pointer dereference in uli526x_interrupt()
+ in drivers/net/tulip/uli526x.c
+Date: Tue, 04 Sep 2007 16:06:50 +0800
+Message-ID: <46DD121A.2010404@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, Andi Kleen <ak@suse.de>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:58818 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751859AbXIDIAA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Sep 2007 04:00:00 -0400
-In-Reply-To: <20070904063525.060e7a77@oldman>
+Received: from wx-out-0506.google.com ([66.249.82.225]:40362 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751309AbXIDIFn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2007 04:05:43 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1736660wxd
+        for <netdev@vger.kernel.org>; Tue, 04 Sep 2007 01:05:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 4 Sep 2007 06:35:25 +0100
-Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+This patch fixes a potential null dereference bug where we dereference dev before a null check. This patch simply moves the dereferencing after the null check.
 
-> Andi mentioned he did something like this already, but never
-> submitted it.
-> 
-> The dhcp client application uses AF_PACKET with a packet filter to
-> receive data. The application doesn't even use timestamps, but because
-> the AF_PACKET API has timestamps, they get turned on globally which
-> causes an expensive time of day lookup for every packet received
-> on any system that uses the standard DHCP client.
-> 
-> The fix is to not enable the timestamp (but use if if available).
-> This causes the time lookup to only occur on those packets
-> that are destined for the AF_PACKET socket. 
-> The timestamping occurs after packet filtering
-> so all packets dropped by filtering to not cause a clock call.
-> 
-> The one downside of this a a few microseconds additional delay
-> added from the normal timestamping location (netif_rx) until the
-> receive callback in AF_PACKET. But since the offset is fairly consistent
-> it should not upset applications that do want really use timestamps,
-> like wireshark.
+Signed-off-by: Micah Gruber <micah.gruber@gmail.com>
+---
 
-This patch seems the correct fix for this longstanding problem.
-
-Please note that if wireshark/tcpdump processes really want precise timestamps, 
-they still can ask this by using setsockopt(SO_TIMESTAMP or SO_TIMESTAMPNS) on their private socket.
-
-(We already know that running a sniffer has a cost anyway)
-
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-> 
-> 
-> --- a/net/packet/af_packet.c	2007-07-23 09:31:26.000000000 +0100
-> +++ b/net/packet/af_packet.c	2007-09-03 14:55:00.000000000 +0100
-> @@ -640,11 +640,10 @@ static int tpacket_rcv(struct sk_buff *s
->  	h->tp_snaplen = snaplen;
->  	h->tp_mac = macoff;
->  	h->tp_net = netoff;
-> -	if (skb->tstamp.tv64 == 0) {
-> -		__net_timestamp(skb);
-> -		sock_enable_timestamp(sk);
-> -	}
-> -	tv = ktime_to_timeval(skb->tstamp);
-> +	if (skb->tstamp.tv64)
-> +		tv = ktime_to_timeval(skb->tstamp);
-> +	else
-> +		do_gettimeofday(&tv);
->  	h->tp_sec = tv.tv_sec;
->  	h->tp_usec = tv.tv_usec;
->  
+--- a/drivers/net/tulip/uli526x.c
++++ b/drivers/net/tulip/uli526x.c
+@@ -663,7 +663,7 @@
+ {
+ 	struct net_device *dev = dev_id;
+ 	struct uli526x_board_info *db = netdev_priv(dev);
+-	unsigned long ioaddr;
++	unsigned long ioaddr = dev->base_addr;
+ 	unsigned long flags;
+ 
+ 	if (!dev) {
+@@ -671,8 +671,6 @@
+ 		return IRQ_NONE;
+ 	}
+ 
+-	ioaddr = dev->base_addr;
+-
+ 	spin_lock_irqsave(&db->lock, flags);
+ 	outl(0, ioaddr + DCR7);
 
