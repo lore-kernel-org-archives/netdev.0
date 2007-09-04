@@ -1,230 +1,94 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: [PATCH] [RFC] allow admin/users to specify rto_min in milliseconds rather than jiffies
-Date: Tue, 4 Sep 2007 13:20:47 -0700 (PDT)
-Message-ID: <200709042020.NAA29612@tardy.cup.hp.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: 82557/8/9 Ethernet Pro 100 interrupt mitigation support
+Date: Tue, 4 Sep 2007 13:32:34 -0700
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F520344487A@orsmsx418.amr.corp.intel.com>
+References: <46DD8AC5.1070508@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=X-roman8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	<netdev@vger.kernel.org>, <linux-net@vger.kernel.org>
+To: "John Sigler" <linux.kernel@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel12.hp.com ([156.153.255.237]:43585 "EHLO palrel12.hp.com"
+Received: from mga03.intel.com ([143.182.124.21]:32712 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752310AbXIDUVO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Sep 2007 16:21:14 -0400
-Received: from tardy.cup.hp.com (tardy.cup.hp.com [15.244.56.217])
-	by palrel12.hp.com (Postfix) with ESMTP id 6EEBD35FF8
-	for <netdev@vger.kernel.org>; Tue,  4 Sep 2007 13:20:53 -0700 (PDT)
-Received: (from raj@localhost)
-	by tardy.cup.hp.com (8.9.3 (PHNE_28810)/8.9.3 SMKit7.02) id NAA29612
-	for netdev@vger.kernel.org; Tue, 4 Sep 2007 13:20:47 -0700 (PDT)
+	id S1753474AbXIDUch convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2007 16:32:37 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <46DD8AC5.1070508@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Build upon David Miller's initial patches to set the per-route rto_min
-so users can specify the rto_min in the same units (milliseconds) in
-which they are displayed.  This is desirable because asking users to
-convert to and from jiffies themselves, when there can be different
-values of HZ from system to system would be error prone.
+John Sigler wrote:
+> Jesse Brandeburg wrote:
+> 
+>> Auke Kok wrote:
+>> 
+>>> Marc Sigler wrote:
+>>> 
+>>>> I have several systems with three integrated Intel 82559 (I
+>>>> *think*). 
+>>>> 
+>>>> Does someone know if these boards support hardware interrupt
+>>>> mitigation? I.e. is it possible to configure them to raise an IRQ
+>>>> only if their hardware buffer is full OR if some given time (say 1
+>>>> ms) has passed and packets are available in their hardware buffer.
+>>>> 
+>>>> I've been using the eepro100 driver up to now, but I'm about to try
+>>>> the e100 driver. Would I have to use NAPI? Or is this an orthogonal
+>>>> feature?
+>>> 
+>>> e100 hardware (as far as I can see from the specs) doesn't support
+>>> any irq mitigation, so you'll need to run in NAPI mode if you want
+>>> to throttle irq's. the in-kernel e100 already runs in NAPI mode, so
+>>> that's already covered.
+>>> 
+>>> beware that the eepro100 driver is scheduled for removal (2.6.25 or
+>>> so). 
+>> 
+>> We support mitigation of interrupts in a downloadable microcode on
+>> only a few pieces of hardware (revision id specific) in e100.c (see
+>> e100_setup_ucode)
+> 
+> http://lxr.linux.no/source/drivers/net/e100.c#L1176
+> 
+> OK.
+> 
+> How do I tell which revision id I have?
+> 
+> 00:08.0 0200: 8086:1229 (rev 08)
+> 00:09.0 0200: 8086:1229 (rev 08)
+> 00:0a.0 0200: 8086:1229 (rev 08)
+                           ^^^^^^ 
+rev 8
 
-Signed-off-by: Rick Jones <rick.jones2@hp.com>
----
+> How much memory is available on the board to bundle packets? 3000
+> bytes? 
 
-*** ./lib/utils.c.orig	2007-09-04 13:11:01.000000000 -0700
---- ./lib/utils.c	2007-09-04 13:06:11.000000000 -0700
-***************
-*** 61,66 ****
---- 61,141 ----
-  	return 0;
-  }
-  
-+ /* liberally lifted from kernel/time.c. raj */
-+ unsigned int jiffies_to_msecs(const unsigned long j)
-+ {
-+ 	if (__iproute2_hz_internal == 0)
-+ 		__iproute2_hz_internal = __get_hz();
-+  
-+ 	if ((__iproute2_hz_internal <= 1000) && 
-+ 		!(1000 % __iproute2_hz_internal))
-+ 		return (1000 / __iproute2_hz_internal) * j;
-+ 	else if (__iproute2_hz_internal > 1000 && 
-+ 		!(__iproute2_hz_internal % 1000))
-+ 		return (j + (__iproute2_hz_internal / 1000) - 1) /
-+ 			(__iproute2_hz_internal / 1000);
-+ 	else
-+         	return (j * 1000) / __iproute2_hz_internal;
-+ }
-+ 
-+ /* liberally lifted from kernel/time.c  raj */
-+ unsigned long msecs_to_jiffies(const unsigned int m)
-+ {
-+ 
-+ 	if (__iproute2_hz_internal == 0)
-+ 		__iproute2_hz_internal = __get_hz();
-+ 
-+ 	if (__iproute2_hz_internal <= 1000 && 
-+ 		!(1000 % __iproute2_hz_internal))
-+         	/*
-+          	 * HZ is equal to or smaller than 1000, and 1000 is a nice
-+          	 * round multiple of HZ, divide with the factor between them,
-+          	 * but round upwards:
-+          	 */
-+ 		return (m + (1000 / __iproute2_hz_internal) - 1) / 
-+ 			(1000 / __iproute2_hz_internal);
-+ 	else if (__iproute2_hz_internal > 1000 && 
-+ 		!(__iproute2_hz_internal % 1000)) {
-+         	/*
-+           	 * HZ is larger than 1000, and HZ is a nice round multiple of
-+          	 * 1000 - simply multiply with the factor between them.
-+          	 *
-+          	 * But first make sure the multiplication result cannot
-+          	 * overflow:
-+          	 */
-+         	if (m > jiffies_to_msecs(MAX_JIFFY_OFFSET))
-+                 	return MAX_JIFFY_OFFSET;
-+ 
-+ 		return m * (__iproute2_hz_internal / 1000);
-+ 	}
-+ 	else {
-+         	/*
-+          	 * Generic case - multiply, round and divide. But first
-+          	 * check that if we are doing a net multiplication, that
-+          	 * we wouldnt overflow:
-+          	 */
-+         	if (__iproute2_hz_internal > 1000 && 
-+ 			m > jiffies_to_msecs(MAX_JIFFY_OFFSET))
-+                 	return MAX_JIFFY_OFFSET;
-+ 
-+ 		return (m * __iproute2_hz_internal + 1000 - 1) / 1000;
-+ 	}
-+ }
-+ 
-+ int get_unsigned_ms_to_jiffies(unsigned *val, const char *arg, int base)
-+ {
-+ 	int ret;
-+ 	unsigned myval = *val;
-+ 
-+ 	if (__iproute2_hz_internal == 0)
-+ 		__iproute2_hz_internal = __get_hz();
-+ 	ret = get_unsigned(&myval,arg,base);
-+ 	if (ret == -1 || myval > (UINT_MAX / __iproute2_hz_internal))
-+ 		return -1;
-+ 	*val = msecs_to_jiffies(myval);
-+ 	return 0;
-+ }	
-+ 
-  int get_u64(__u64 *val, const char *arg, int base)
-  {
-  	unsigned long long res;
-*** ./include/utils.h.orig	2007-09-04 12:56:09.000000000 -0700
---- ./include/utils.h	2007-09-04 12:55:56.000000000 -0700
-***************
-*** 69,74 ****
---- 69,78 ----
-  	u_int8_t  ipx_node[IPX_NODE_LEN];
-  };
-  
-+ #ifndef MAX_JIFFY_OFFSET
-+ #define MAX_JIFFY_OFFSET ((LONG_MAX >> 1)-1)
-+ #endif
-+ 
-  extern __u32 get_addr32(const char *name);
-  extern int get_addr_1(inet_prefix *dst, const char *arg, int family);
-  extern int get_prefix_1(inet_prefix *dst, char *arg, int family);
-***************
-*** 77,82 ****
---- 81,87 ----
-  
-  extern int get_integer(int *val, const char *arg, int base);
-  extern int get_unsigned(unsigned *val, const char *arg, int base);
-+ extern int get_unsigned_ms_to_jiffies(unsigned *val, const char *arg, int base);
-  #define get_byte get_u8
-  #define get_ushort get_u16
-  #define get_short get_s16
-*** ./include/linux/rtnetlink.h.orig	2007-03-13 14:50:56.000000000 -0700
---- ./include/linux/rtnetlink.h	2007-08-31 13:27:36.000000000 -0700
-***************
-*** 352,357 ****
---- 352,359 ----
-  #define RTAX_INITCWND RTAX_INITCWND
-  	RTAX_FEATURES,
-  #define RTAX_FEATURES RTAX_FEATURES
-+ 	RTAX_RTO_MIN,
-+ #define RTAX_RTO_MIN RTAX_RTO_MIN
-  	__RTAX_MAX
-  };
-  
-*** ./ip/iproute.c.orig	2007-08-31 13:15:45.000000000 -0700
---- ./ip/iproute.c	2007-09-04 13:02:42.000000000 -0700
-***************
-*** 51,56 ****
---- 51,57 ----
-  	[RTAX_HOPLIMIT] = "hoplimit",
-  	[RTAX_INITCWND] = "initcwnd",
-  	[RTAX_FEATURES] = "features",
-+ 	[RTAX_RTO_MIN]	= "rto_min",
-  };
-  static void usage(void) __attribute__((noreturn));
-  
-***************
-*** 74,79 ****
---- 75,81 ----
-  	fprintf(stderr, "           [ rtt NUMBER ] [ rttvar NUMBER ]\n");
-  	fprintf(stderr, "           [ window NUMBER] [ cwnd NUMBER ] [ initcwnd NUMBER ]\n");
-  	fprintf(stderr, "           [ ssthresh NUMBER ] [ realms REALM ]\n");
-+ 	fprintf(stderr, "           [ rto_min NUMBER ]\n");
-  	fprintf(stderr, "TYPE := [ unicast | local | broadcast | multicast | throw |\n");
-  	fprintf(stderr, "          unreachable | prohibit | blackhole | nat ]\n");
-  	fprintf(stderr, "TABLE_ID := [ local | main | default | all | NUMBER ]\n");
-***************
-*** 516,522 ****
-  			if (mxlock & (1<<i))
-  				fprintf(fp, " lock");
-  
-! 			if (i != RTAX_RTT && i != RTAX_RTTVAR)
-  				fprintf(fp, " %u", *(unsigned*)RTA_DATA(mxrta[i]));
-  			else {
-  				unsigned val = *(unsigned*)RTA_DATA(mxrta[i]);
---- 518,525 ----
-  			if (mxlock & (1<<i))
-  				fprintf(fp, " lock");
-  
-! 			if (i != RTAX_RTT && i != RTAX_RTTVAR &&
-! 			    i != RTAX_RTO_MIN)
-  				fprintf(fp, " %u", *(unsigned*)RTA_DATA(mxrta[i]));
-  			else {
-  				unsigned val = *(unsigned*)RTA_DATA(mxrta[i]);
-***************
-*** 524,530 ****
-  				val *= 1000;
-  				if (i == RTAX_RTT)
-  					val /= 8;
-! 				else
-  					val /= 4;
-  				if (val >= hz)
-  					fprintf(fp, " %ums", val/hz);
---- 527,533 ----
-  				val *= 1000;
-  				if (i == RTAX_RTT)
-  					val /= 8;
-! 				else if (i == RTAX_RTTVAR)
-  					val /= 4;
-  				if (val >= hz)
-  					fprintf(fp, " %ums", val/hz);
-***************
-*** 823,828 ****
---- 826,840 ----
-  			if (get_unsigned(&rtt, *argv, 0))
-  				invarg("\"rtt\" value is invalid\n", *argv);
-  			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_RTT, rtt);
-+ 		} else if (strcmp(*argv, "rto_min") == 0) {
-+ 			unsigned rto_min;
-+ 			NEXT_ARG();
-+ 			mxlock |= (1<<RTAX_RTO_MIN);
-+ 			if (get_unsigned_ms_to_jiffies(&rto_min, *argv, 0))
-+ 				invarg("\"rto_min\" value is invalid\n",
-+ 				       *argv);
-+ 			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_RTO_MIN,
-+ 				      rto_min);
-  		} else if (matches(*argv, "window") == 0) {
-  			unsigned win;
-  			NEXT_ARG();
+yes, well, 3kB.  I don't remember if the chip actually bundles
+interrupts after the dma complets or pends the dma while delaying the
+interrupt (I would guess it is the former)
+
+>> If you really really wanted mitigation you could probably backport
+>> the microcode from the e100 driver in the 2.4.35 kernel for your
+>> specific hardware.  This driver is versioned 2.X.
+> 
+> I forgot to mention I'm running 2.6.22.1-rt9.
+> I'm not sure why you mention 2.4.35?
+
+because 2.4.35 has the "old" e100 driver from Intel, which has all sorts
+of support (and all sorts of complexity) for offloading and interrupt
+bundling, etc.
+
+> The problem with e100 is that it fails to properly set up all three
+> interfaces, which is why I'm stuck with eepro100.
+
+I remember working with you on this, but we left the issue with no
+solution because it appears your hardware has some specific issue with
+strange eeprom timings that we cannot reproduce.
+
+you can try loading the ucode (that matches your revision id) using
+eepro100.
+
+Jesse
