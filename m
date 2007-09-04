@@ -1,45 +1,38 @@
-From: Micah Gruber <micah.gruber@gmail.com>
-Subject: [CORRECTION][PATCH] Fix a potential NULL pointer dereference in uli526x_interrupt()
- in drivers/net/tulip/uli526x.c
-Date: Tue, 04 Sep 2007 16:14:06 +0800
-Message-ID: <46DD13CE.6010905@gmail.com>
+From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Subject: Re: [PATCH -mm 1/2] 3c59x: Fix uninitialized variable bug
+Date: Tue, 4 Sep 2007 10:16:02 +0200
+Message-ID: <20070904081602.GB4241@newton.mathematik.tu-chemnitz.de>
+References: <alpine.LFD.0.999.0709040340250.8504@enigma.security.iitk.ac.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux Netdev Mailing List <netdev@vger.kernel.org>,
+	Jeff Garzik <jeff@garzik.org>,
+	Mark Hindley <mark@hindley.org.uk>
+To: Satyam Sharma <satyam@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.177]:32821 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751616AbXIDIM6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2007 04:12:58 -0400
-Received: by py-out-1112.google.com with SMTP id u77so5340189pyb
-        for <netdev@vger.kernel.org>; Tue, 04 Sep 2007 01:12:58 -0700 (PDT)
+Received: from john.hrz.tu-chemnitz.de ([134.109.132.2]:59792 "EHLO
+	john.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751616AbXIDIQF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2007 04:16:05 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.0.999.0709040340250.8504@enigma.security.iitk.ac.in>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes a potential null dereference bug where we dereference dev before a null check. This patch simply moves the dereferencing after the null check.
+On Tue, Sep 04, 2007 at 03:45:55AM +0530, Satyam Sharma wrote:
+> 
+> drivers/net/3c59x.c: In function 'vortex_up':
+> drivers/net/3c59x.c:1495: warning: 'err' may be used uninitialized in this function
 
-Signed-off-by: Micah Gruber <micah.gruber@gmail.com>
----
+This came in with the recently applied 3c59x-check-return-of-pci_enable_device patch
+from Mark Hindley. I just compiled it on a PCI only machine so far, therefore I did
+not notice the warning yet.
 
---- a/drivers/net/tulip/uli526x.c
-+++ b/drivers/net/tulip/uli526x.c
-@@ -663,7 +663,7 @@
- {
- 	struct net_device *dev = dev_id;
- 	struct uli526x_board_info *db = netdev_priv(dev);
--	unsigned long ioaddr = dev->base_addr;
-+	unsigned long ioaddr;
- 	unsigned long flags;
- 
- 	if (!dev) {
-@@ -671,6 +671,8 @@
- 		return IRQ_NONE;
- 	}
- 
-+	ioaddr = dev->base_addr;
-+
- 	spin_lock_irqsave(&db->lock, flags);
- 	outl(0, ioaddr + DCR7);
-
+> 
+> is a genuine bug. The function returns an uninitialized value of 'err'
+> back to the caller, which expects it to be 0 for success cases. Let's
+> fix this by explicitly initializing 'err' to zero.
+> 
+> Signed-off-by: Satyam Sharma <satyam@infradead.org>
+Acked-by: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
