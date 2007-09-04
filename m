@@ -1,65 +1,66 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/2]: [NET_SCHED]: Making rate table lookups more	flexible.
-Date: Tue, 04 Sep 2007 18:25:29 +0200
-Message-ID: <46DD86F9.8000902@trash.net>
-References: <1188562978.18622.13.camel@localhost.localdomain>	 <46D91082.7050609@trash.net>	 <Pine.LNX.4.61.0709012338320.29796@ask.diku.dk>	 <46DACA48.2060602@trash.net>	 <Pine.LNX.4.61.0709022006380.20071@ask.diku.dk>	 <46DB2846.2030400@trash.net> <1188829151.16405.10.camel@localhost.localdomain>
+From: John Sigler <linux.kernel@free.fr>
+Subject: Re: 82557/8/9 Ethernet Pro 100 interrupt mitigation support
+Date: Tue, 04 Sep 2007 18:41:41 +0200
+Message-ID: <46DD8AC5.1070508@free.fr>
+References: <36D9DB17C6DE9E40B059440DB8D95F520344439B@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: jdb@comx.dk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:45185 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753023AbXIDQ0X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Sep 2007 12:26:23 -0400
-In-Reply-To: <1188829151.16405.10.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Cc: auke-jan.h.kok@intel.com, netdev@vger.kernel.org,
+	linux-net@vger.kernel.org
+To: jesse.brandeburg@intel.com
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F520344439B@orsmsx418.amr.corp.intel.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesper Dangaard Brouer wrote:
-> On Sun, 2007-09-02 at 23:16 +0200, Patrick McHardy wrote:
+Jesse Brandeburg wrote:
+
+> Auke Kok wrote:
 > 
->>Jesper Dangaard Brouer wrote:
->>
->>>On Sun, 2 Sep 2007, Patrick McHardy wrote:
->>>
->>>Lets focus on the general case, where the functionality actually is 
->>>needed right away.
->>>
->>>In the general case:
->>>
->>>- The rate table needs to be aligned (cell_align=-1).
->>>  (currently, we miscalculates up to 7 bytes on every lookup)
->>
->>We will always do that, thats a consequence of storing the
->>transmission times for multiples of 8b.
+>> Marc Sigler wrote:
+>> 
+>>> I have several systems with three integrated Intel 82559 (I *think*).
+>>> 
+>>> Does someone know if these boards support hardware interrupt
+>>> mitigation? I.e. is it possible to configure them to raise an IRQ
+>>> only if their hardware buffer is full OR if some given time (say 1
+>>> ms) has passed and packets are available in their hardware buffer.
+>>> 
+>>> I've been using the eepro100 driver up to now, but I'm about to try
+>>> the e100 driver. Would I have to use NAPI? Or is this an orthogonal
+>>> feature? 
+>> 
+>> e100 hardware (as far as I can see from the specs) doesn't support
+>> any irq mitigation, so you'll need to run in NAPI mode if you want to
+>> throttle irq's. the in-kernel e100 already runs in NAPI mode, so
+>> that's already covered. 
+>> 
+>> beware that the eepro100 driver is scheduled for removal (2.6.25 or so).
 > 
-> 
-> The issue is that we use the lower boundary for calculating the transmit
-> cost. Thus, a 15 bytes packet only have a transmit cost of 8 bytes.
+> We support mitigation of interrupts in a downloadable microcode on only
+> a few pieces of hardware (revision id specific) in e100.c (see
+> e100_setup_ucode)
 
+http://lxr.linux.no/source/drivers/net/e100.c#L1176
 
-I believe this is something that should be fixed anyway,
-its better to overestimate than underestimate to stay
-in control of the queue. We could additionally make the
-rate tables more finegrained (optionally).
+OK.
 
->>>- The existing tc overhead calc can be made more accurate.
->>>  (by adding overhead before doing the lookup, instead of the
->>>   current solution where the rate table is modified with its
->>>   limited resolution)
->>
->>Please demonstrate this with patches (one for the overhead
->>calculation, one for the cell_align thing), then we can
->>continue this discussion.
-> 
-> 
-> I have attached a patch for the overhead calculation.
+How do I tell which revision id I have?
 
+00:08.0 0200: 8086:1229 (rev 08)
+00:09.0 0200: 8086:1229 (rev 08)
+00:0a.0 0200: 8086:1229 (rev 08)
 
-Thanks, I probably won't get to looking into this until
-after the netfilter workshop next week.
+How much memory is available on the board to bundle packets? 3000 bytes?
 
+> If you really really wanted mitigation you could probably backport the
+> microcode from the e100 driver in the 2.4.35 kernel for your specific
+> hardware.  This driver is versioned 2.X.
 
+I forgot to mention I'm running 2.6.22.1-rt9.
+I'm not sure why you mention 2.4.35?
+The problem with e100 is that it fails to properly set up all three 
+interfaces, which is why I'm stuck with eepro100.
+
+Regards.
