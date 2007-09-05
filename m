@@ -1,36 +1,45 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] 3c59x: sparse warning fix
-Date: Wed, 5 Sep 2007 21:22:35 +0200
-Message-ID: <20070905192235.GA1507@electric-eye.fr.zoreil.com>
-References: <20070905152359.26215f89@oldman> <1189011425.13308.30.camel@localhost>
+From: "Andy Gospodarek" <andy@greyhouse.net>
+Subject: Re: [TG3]: Workaround MSI bug on 5714/5780.
+Date: Wed, 5 Sep 2007 15:38:19 -0400
+Message-ID: <bdfc5d6e0709051238q1184bf73r50ebb0e354c4bdaf@mail.gmail.com>
+References: <1189022828.4960.2.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	klassert@mathematik.tu-chemnitz.de, Jeff Garzik <jeff@garzik.org>,
-	netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: "Michael Chan" <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:36184 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756246AbXIET0G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Sep 2007 15:26:06 -0400
+Received: from an-out-0708.google.com ([209.85.132.240]:4097 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932133AbXIETiU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2007 15:38:20 -0400
+Received: by an-out-0708.google.com with SMTP id d31so419813and
+        for <netdev@vger.kernel.org>; Wed, 05 Sep 2007 12:38:19 -0700 (PDT)
+In-Reply-To: <1189022828.4960.2.camel@dell>
 Content-Disposition: inline
-In-Reply-To: <1189011425.13308.30.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Joe Perches <joe@perches.com> :
-[...]
-> Shouldn't this be:
-> 
-> 	if (pkt_len < rx_copybreak) {
-> 		skb = dev_alloc_skb(pkt_len + 2);
-> 		if (!skb) {
-> 			bad_news! (like the refill rx ring buffers block)
-> 		}
+On 9/5/07, Michael Chan <mchan@broadcom.com> wrote:
+> [TG3]: Workaround MSI bug on 5714/5780.
+>
+> A hardware bug was revealed after a recent PCI MSI patch was made to
+> always disable legacy INTX when enabling MSI.  The 5714/5780 chips
+> will not generate MSI when INTX is disabled, causing MSI failure
+> messages to be reported, and another patch was made to workaround the
+> problem by disabling MSI on ServerWorks HT1000 bridge chips commonly
+> found with the 5714.
+>
+> We workaround this chip bug by enabling INTX after we enable MSI and
+> after we resume from suspend.
+>
+> Update version to 3.81.
+>
+> This problem was discovered by David Miller.
+>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+>
 
-It is not that bad a news: the rx_copybreak optimization is lost but it
-is still possible to push the data up the stack.
+Seems reasonable.
 
--- 
-Ueimor
+Acked-by: Andy Gospodarek <andy@greyhouse.net>
