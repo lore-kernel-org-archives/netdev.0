@@ -1,78 +1,47 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH RFC] iw_cxgb3: Support "iwarp-only" interfaces to avoid
- 4-tuple conflicts with the host stack.
-Date: Wed, 05 Sep 2007 12:27:09 -0500
-Message-ID: <46DEE6ED.7070000@opengridcomputing.com>
-References: <1187905185.5547.13.camel@stevo-desktop>	<adaveawwcpz.fsf@cisco.com> <46DD762F.80904@opengridcomputing.com> <ada642puonr.fsf@cisco.com> <46DECDED.90903@opengridcomputing.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] [RFC] allow admin/users to specify rto_min in	milliseconds
+ rather than jiffies
+Date: Wed, 05 Sep 2007 10:11:12 -0700
+Message-ID: <46DEE330.40502@hp.com>
+References: <200709042020.NAA29612@tardy.cup.hp.com> <20070905073801.2f12991b@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: general@lists.openfabrics.org, ewg@lists.openfabrics.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sean.hefty@intel.com
-To: Roland Dreier <rdreier@cisco.com>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.opengridcomputing.com ([71.42.183.126]:45414 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752442AbXIER1K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2007 13:27:10 -0400
-In-Reply-To: <46DECDED.90903@opengridcomputing.com>
+Received: from palrel12.hp.com ([156.153.255.237]:56168 "EHLO palrel12.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752940AbXIESVy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Sep 2007 14:21:54 -0400
+In-Reply-To: <20070905073801.2f12991b@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-Steve Wise wrote:
+Stephen Hemminger wrote:
+> On Tue, 4 Sep 2007 13:20:47 -0700 (PDT)
+> Rick Jones <rick.jones2@hp.com> wrote:
 > 
 > 
-> Roland Dreier wrote:
->>  > > What's wrong with my suggestion of having the iwarp driver create an
->>  > > "iwX" interface to go with the normal "ethX" interface?  It seems
->>  > > simpler to me, and there's a somewhat similar precedent with how
->>  > > mac80211 devices create both wlan0 and wmaster0 interfaces.
->>  > >  - R.
->>  >  > It seemed much more painful for me to implement. :-)
->>  >  > I'll look into this, but I think for this to be done, the 
->> changes must
->>  > be in the cxgb3 driver, not the rdma driver, because the guts of the
->>  > netdev struct are all private to cxgb3.  Remember that this interface
->>  > needs to still do non TCP traffic (like ARP and UDP)...
->>  >  > Maybe you have something in mind here that I'm not thinking about?
+>>Build upon David Miller's initial patches to set the per-route rto_min
+>>so users can specify the rto_min in the same units (milliseconds) in
+>>which they are displayed.  This is desirable because asking users to
+>>convert to and from jiffies themselves, when there can be different
+>>values of HZ from system to system would be error prone.
 >>
->> No, I was just spouting off.
->>
+>>Signed-off-by: Rick Jones <rick.jones2@hp.com>
+>>---
 > 
-> At least someone is looking at my patch. ;-)
 > 
->> But the whole "create a magic alias" seems kind of unfriendly to the
->> user.  Maybe as you said, the cxgb3 net driver could create the alias
->> for the iw_cxgb3 driver?
-> 
-> I agree that it is not very user friendly.
-> 
-> My current patch just utilizes the IP address alias logic in the IP 
-> stack.  So when you do 'ifconfig ethxx:blah ipaddr up' it creates a 
-> struct in_ifaddr which contains a ptr to the real struct net_device that 
-> services this alias.  However, from what I can tell, I cannot just 
-> create one of these without binding an address.  So the driver cannot 
-> create the alias interface until it knows the ipaddr/netmask/etc.  IE: 
-> if you say 'ifconfig ethxx:blah up' it fails...  You must supply an 
-> address to get one of these created.
-> 
-> To have the cxgb3 driver create something like 'iw0', I think it would 
-> need to create a full net_device struct.  This makes the change much 
-> more complex.  But perhaps its the right thing to do...
-> 
-> Steve.
-> 
+> The api in netlink should be in milliseconds rather than compensating
+> in the application (iproute2).
 
-Also, I could defer registering the device with the rdma core until the 
-alias interface is created by the user.  Thus the T3 device wouldn't be 
-available for use until the ethxx:iw interface is created.
+In unrelated work I found myself using tc to setup some WAN emulation. 
+There I noticed that one can specify times using a units suffix. So, one 
+can say 100ms, 100us, or 100s.
 
-And I could log a WARN or INFO message if the iw_cxgb3 module is loaded 
-and no ethxx:iw alias exists.  This would help clue in the user...
+That seems like a nice, friendly interface.  I've not looked yet to see 
+if it was converting up in tc and then passing a consistent unit to the 
+kernel, or if all the conversion was happening in the kernel.
 
-Steve.
-
-
+rick jones
