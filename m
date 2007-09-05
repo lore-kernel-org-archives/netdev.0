@@ -1,7 +1,7 @@
 From: Divy Le Ray <divy@chelsio.com>
-Subject: [PATCH 6/7] cxgb3 - Add T3C rev
-Date: Wed, 05 Sep 2007 15:58:36 -0700
-Message-ID: <20070905225835.17308.87147.stgit@speedy5>
+Subject: [PATCH 3/7 RESEND] cxgb3 - remove false positive in xgmac workaround
+Date: Wed, 05 Sep 2007 15:58:20 -0700
+Message-ID: <20070905225820.17254.83706.stgit@speedy5>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -9,47 +9,64 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	swise@opengridcomputing.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.22.49.110]:18974 "EHLO
+Received: from stargate.chelsio.com ([12.22.49.110]:26426 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757161AbXIEW6m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2007 18:58:42 -0400
+	with ESMTP id S1757601AbXIEW61 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2007 18:58:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Divy Le Ray <divy@chelsio.com>
 
-add driver recognition for T3C rev board. 
+Qualify toggling of xgmac tx enable with not getting pause frames, 
+we might not make forward progress because the peer is sending 
+lots of pause frames.
 
 Signed-off-by: Divy Le Ray <divy@chelsio.com>
 ---
 
- drivers/net/cxgb3/common.h     |    1 +
- drivers/net/cxgb3/cxgb3_main.c |    3 +++
- 2 files changed, 4 insertions(+), 0 deletions(-)
+ drivers/net/cxgb3/common.h |    1 +
+ drivers/net/cxgb3/xgmac.c  |    4 +++-
+ 2 files changed, 4 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/cxgb3/common.h b/drivers/net/cxgb3/common.h
-index 7e9e43d..d3f276c 100644
+index ada5e4b..7e9e43d 100644
 --- a/drivers/net/cxgb3/common.h
 +++ b/drivers/net/cxgb3/common.h
-@@ -438,6 +438,7 @@ enum {					    /* chip revisions */
- 	T3_REV_A  = 0,
- 	T3_REV_B  = 2,
- 	T3_REV_B2 = 3,
-+	T3_REV_C  = 4,
+@@ -513,6 +513,7 @@ struct cmac {
+ 	u64 rx_mcnt;
+ 	unsigned int toggle_cnt;
+ 	unsigned int txen;
++	u64 rx_pause;
+ 	struct mac_stats stats;
  };
  
- struct trace_params {
-diff --git a/drivers/net/cxgb3/cxgb3_main.c b/drivers/net/cxgb3/cxgb3_main.c
-index ae9c213..9d360eb 100644
---- a/drivers/net/cxgb3/cxgb3_main.c
-+++ b/drivers/net/cxgb3/cxgb3_main.c
-@@ -768,6 +768,9 @@ static inline char t3rev2char(struct adapter *adapter)
- 	case T3_REV_B2:
- 		rev = 'b';
- 		break;
-+	case T3_REV_C:
-+		rev = 'c';
-+		break;
- 	}
- 	return rev;
- }
+diff --git a/drivers/net/cxgb3/xgmac.c b/drivers/net/cxgb3/xgmac.c
+index 1d1c391..ff9e9dc 100644
+--- a/drivers/net/cxgb3/xgmac.c
++++ b/drivers/net/cxgb3/xgmac.c
+@@ -452,6 +452,7 @@ int t3_mac_enable(struct cmac *mac, int which)
+ 						A_XGM_TX_SPI4_SOP_EOP_CNT +
+ 						oft)));
+ 		mac->rx_mcnt = s->rx_frames;
++		mac->rx_pause = s->rx_pause;
+ 		mac->rx_xcnt = (G_TXSPI4SOPCNT(t3_read_reg(adap,
+ 						A_XGM_RX_SPI4_SOP_EOP_CNT +
+ 						oft)));
+@@ -504,7 +505,7 @@ int t3b2_mac_watchdog_task(struct cmac *mac)
+ 	tx_xcnt = 1;		/* By default tx_xcnt is making progress */
+ 	tx_tcnt = mac->tx_tcnt;	/* If tx_mcnt is progressing ignore tx_tcnt */
+ 	rx_xcnt = 1;		/* By default rx_xcnt is making progress */
+-	if (tx_mcnt == mac->tx_mcnt) {
++	if (tx_mcnt == mac->tx_mcnt && mac->rx_pause == s->rx_pause) {
+ 		tx_xcnt = (G_TXSPI4SOPCNT(t3_read_reg(adap,
+ 						A_XGM_TX_SPI4_SOP_EOP_CNT +
+ 					       	mac->offset)));
+@@ -560,6 +561,7 @@ out:
+ 	mac->tx_mcnt = s->tx_frames;
+ 	mac->rx_xcnt = rx_xcnt;
+ 	mac->rx_mcnt = s->rx_frames;
++	mac->rx_pause = s->rx_pause;
+ 	if (status == 1) {
+ 		t3_write_reg(adap, A_XGM_TX_CTRL + mac->offset, 0);
+ 		t3_read_reg(adap, A_XGM_TX_CTRL + mac->offset);  /* flush */
