@@ -1,46 +1,61 @@
-From: Ben Woodard <woodard@redhat.com>
-Subject: WiFi and changed MAC addrs
-Date: Wed, 05 Sep 2007 08:20:44 -0700
-Message-ID: <46DEC94C.9010301@redhat.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: kernel crashes inside MV643xx driver
+Date: Wed, 5 Sep 2007 08:24:52 -0700
+Message-ID: <20070905082452.4a20387b.akpm@linux-foundation.org>
+References: <46C93701.7050509@alcatel-lucent.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org,
+	Dale Farnsworth <dale@farnsworth.org>, netdev@vger.kernel.org
+To: gshan <gshan@alcatel-lucent.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:40309 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757119AbXIEPVj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Sep 2007 11:21:39 -0400
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.13.1/8.13.1) with ESMTP id l85FLbur009369
-	for <netdev@vger.kernel.org>; Wed, 5 Sep 2007 11:21:37 -0400
-Received: from pobox.corp.redhat.com (pobox.corp.redhat.com [10.11.255.20])
-	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id l85FLbxk013361
-	for <netdev@vger.kernel.org>; Wed, 5 Sep 2007 11:21:37 -0400
-Received: from [10.11.15.17] (vpn-15-17.rdu.redhat.com [10.11.15.17])
-	by pobox.corp.redhat.com (8.13.1/8.13.1) with ESMTP id l85FLYP9014890
-	for <netdev@vger.kernel.org>; Wed, 5 Sep 2007 11:21:35 -0400
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:40800 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756367AbXIEP0R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2007 11:26:17 -0400
+In-Reply-To: <46C93701.7050509@alcatel-lucent.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I just spent basically a day of my weekend grappling with this problem 
-http://wiki.xensource.com/xenwiki/XenWifi
-before I understood it well enough to realize that the fact that Xen 
-changed the MAC addr for my WiFi card was the root cause of the problem. 
-This got me thinking:
+> On Mon, 20 Aug 2007 14:38:57 +0800 gshan <gshan@alcatel-lucent.com> wrote:
+> Hi All,
+> 
+> After I started the NFS server, it crashed:
+> 
+> <3>Badness in local_bh_enable at 
+> /home/cli4/sandbox/main/TelicaRoot/components/mvlinux/cge/devkit/lsp/7xx/linux/kernel/softirq.c:195
+> Badness in local_bh_enable at 
+> /home/cli4/sandbox/main/TelicaRoot/components/mvlinux/cge/devkit/lsp/7xx/linux/kernel/softirq.c:195
+> Call trace:
+>  [c0005340] check_bug_trap+0xbc/0x11c
+>  [c0005604] ProgramCheckException+0x264/0x2bc
+>  [c0004ac4] ret_from_except_full+0x0/0x4c
+>  [c0022ae4] local_bh_enable+0x18/0x80
+>  [c024648c] skb_copy_bits+0x168/0x3b8
+>  [c024db44] __skb_linearize+0x90/0x150
+>  [c020e8a4] mv643xx_eth_start_xmit+0x4c0/0x5bc
+>  [c025c934] qdisc_restart+0xac/0x2bc
+>  [c024de9c] dev_queue_xmit+0x298/0x34c
+>  [c0269814] ip_finish_output+0x140/0x2b8
+>  [c026a3ac] ip_fragment+0x3cc/0x6e0
+>  [c026bac8] ip_push_pending_frames+0x3dc/0x46c
+>  [c0289ec4] udp_push_pending_frames+0x10c/0x1cc
+>  [c028a7c4] udp_sendpage+0x104/0x188
+>  [c0292fc8] inet_sendpage+0x90/0xb8
+> 
+> I searched the webs and found the similar problems:
+> http://www.mail-archive.com/netdev@vger.kernel.org/msg05199.html
+> http://oss.sgi.com/archives/netdev/2005-09/msg00025.html
+> 
+> Who knew there are fixes for the problem?
+> 
 
-If a particular piece of hardware will refuse to send frames after the 
-MAC address has been changed, then shouldn't the card's driver refuse to 
-allow a change of the MAC address and return an error in response to the 
-IOCTL that tries to change it? I can't think of a situation where this 
-wouldn't be the right thing to do. However, before I submit a patch to 
-fix this, does anyone else know of any special cases that I might need 
-to deal with?
+Well that got a tremendous response, didn't it?
 
-Also is behavior of refusing to send frames with a non-hardware 
-specified MAC address part of the WiFi spec or is it particular to 
-certain WiFi cards? IOW at what level do I need to fix it? Should I just 
-fix it for the Intel cards that I've tested or do I need to fix it for 
-all WiFi cards?
+What do you mean by "crashed"?  The above is a warning and the system
+should have survived.
 
--ben
+Which kernel version is being used?
+
+
