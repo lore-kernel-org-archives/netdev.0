@@ -1,51 +1,69 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] 3c59x: sparse warning fix
-Date: Wed, 05 Sep 2007 09:57:05 -0700
-Message-ID: <1189011425.13308.30.camel@localhost>
-References: <20070905152359.26215f89@oldman>
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: Re: kernel crashes inside MV643xx driver
+Date: Wed, 5 Sep 2007 09:54:52 -0700
+Message-ID: <20070905165452.GA18396@xyzzy.farnsworth.org>
+References: <46C93701.7050509@alcatel-lucent.com> <20070905082452.4a20387b.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: klassert@mathematik.tu-chemnitz.de, Jeff Garzik <jeff@garzik.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: gshan <gshan@alcatel-lucent.com>, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:4782 "EHLO perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752803AbXIEQ50 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Sep 2007 12:57:26 -0400
-In-Reply-To: <20070905152359.26215f89@oldman>
+Received: from xyzzy.farnsworth.org ([65.39.95.219]:60647 "HELO farnsworth.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1755061AbXIERCQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Sep 2007 13:02:16 -0400
+Content-Disposition: inline
+In-Reply-To: <20070905082452.4a20387b.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-09-05 at 15:23 +0100, Stephen Hemminger wrote:
-> --- a/drivers/net/3c59x.c	2007-09-05 15:15:16.000000000 +0100
-> +++ b/drivers/net/3c59x.c	2007-09-05 15:16:29.000000000 +0100
-> @@ -1122,7 +1122,7 @@ static int __devinit vortex_probe1(struc
->  					   + sizeof(struct boom_tx_desc) * TX_RING_SIZE,
->  					   &vp->rx_ring_dma);
->  	retval = -ENOMEM;
-> -	if (vp->rx_ring == 0)
-> +	if (!vp->rx_ring)
->  		goto free_region;
->  
->  	vp->tx_ring = (struct boom_tx_desc *)(vp->rx_ring + RX_RING_SIZE);
-> @@ -2476,7 +2476,8 @@ boomerang_rx(struct net_device *dev)
->  
->  			/* Check if the packet is long enough to just accept without
->  			   copying to a properly sized skbuff. */
-> -			if (pkt_len < rx_copybreak && (skb = dev_alloc_skb(pkt_len + 2)) != 0) {
-> +			if (pkt_len < rx_copybreak &&
-> +			    (skb = dev_alloc_skb(pkt_len + 2)) ) {
->  				skb_reserve(skb, 2);	/* Align IP on 16 byte boundaries */
->  				pci_dma_sync_single_for_cpu(VORTEX_PCI(vp), dma, PKT_BUF_SZ, PCI_DMA_FROMDEVICE);
->  				/* 'skb_put()' points to the start of sk_buff data area. */
+On Wed, Sep 05, 2007 at 08:24:52AM -0700, Andrew Morton wrote:
+> > On Mon, 20 Aug 2007 14:38:57 +0800 gshan <gshan@alcatel-lucent.com> wrote:
+> > Hi All,
+> > 
+> > After I started the NFS server, it crashed:
+> > 
+> > <3>Badness in local_bh_enable at 
+> > /home/cli4/sandbox/main/TelicaRoot/components/mvlinux/cge/devkit/lsp/7xx/linux/kernel/softirq.c:195
+> > Badness in local_bh_enable at 
+> > /home/cli4/sandbox/main/TelicaRoot/components/mvlinux/cge/devkit/lsp/7xx/linux/kernel/softirq.c:195
+> > Call trace:
+> >  [c0005340] check_bug_trap+0xbc/0x11c
+> >  [c0005604] ProgramCheckException+0x264/0x2bc
+> >  [c0004ac4] ret_from_except_full+0x0/0x4c
+> >  [c0022ae4] local_bh_enable+0x18/0x80
+> >  [c024648c] skb_copy_bits+0x168/0x3b8
+> >  [c024db44] __skb_linearize+0x90/0x150
+> >  [c020e8a4] mv643xx_eth_start_xmit+0x4c0/0x5bc
+> >  [c025c934] qdisc_restart+0xac/0x2bc
+> >  [c024de9c] dev_queue_xmit+0x298/0x34c
+> >  [c0269814] ip_finish_output+0x140/0x2b8
+> >  [c026a3ac] ip_fragment+0x3cc/0x6e0
+> >  [c026bac8] ip_push_pending_frames+0x3dc/0x46c
+> >  [c0289ec4] udp_push_pending_frames+0x10c/0x1cc
+> >  [c028a7c4] udp_sendpage+0x104/0x188
+> >  [c0292fc8] inet_sendpage+0x90/0xb8
+> > 
+> > I searched the webs and found the similar problems:
+> > http://www.mail-archive.com/netdev@vger.kernel.org/msg05199.html
+> > http://oss.sgi.com/archives/netdev/2005-09/msg00025.html
+> > 
+> > Who knew there are fixes for the problem?
+> > 
+> 
+> Well that got a tremendous response, didn't it?
+> 
+> What do you mean by "crashed"?  The above is a warning and the system
+> should have survived.
+> 
+> Which kernel version is being used?
 
-Shouldn't this be:
+That is the key question.  From the pathnames, I suspect that gshan is
+using a MontaVista version.  I'm still (especially) interested, since
+MontaVista pays me.
 
-	if (pkt_len < rx_copybreak) {
-		skb = dev_alloc_skb(pkt_len + 2);
-		if (!skb) {
-			bad_news! (like the refill rx ring buffers block)
-		}
+BTW, I never received the original message on netdev or linux-kernel.
+Hmm.  Thanks to Andrew for replying.
 
+-Dale
