@@ -1,67 +1,69 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: WiFi and changed MAC addrs
-Date: Wed, 05 Sep 2007 17:34:44 +0200
-Message-ID: <1189006484.9942.113.camel@johannes.berg>
-References: <46DEC94C.9010301@redhat.com>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [ofa-general] Re: [PATCH RFC] iw_cxgb3: Support "iwarp-only"
+ interfaces to avoid 4-tuple conflicts with the host stack.
+Date: Wed, 05 Sep 2007 10:40:29 -0500
+Message-ID: <46DECDED.90903@opengridcomputing.com>
+References: <1187905185.5547.13.camel@stevo-desktop>	<adaveawwcpz.fsf@cisco.com>
+	<46DD762F.80904@opengridcomputing.com> <ada642puonr.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-BWi9W9xByjoLLGBbK50N"
-Cc: netdev@vger.kernel.org
-To: Ben Woodard <woodard@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:46871 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755938AbXIEPdT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2007 11:33:19 -0400
-In-Reply-To: <46DEC94C.9010301@redhat.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ewg@lists.openfabrics.org,
+	general@lists.openfabrics.org, linux-kernel@vger.kernel.org
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <ada642puonr.fsf@cisco.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
 
---=-BWi9W9xByjoLLGBbK50N
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2007-09-05 at 08:20 -0700, Ben Woodard wrote:
+Roland Dreier wrote:
+>  > > What's wrong with my suggestion of having the iwarp driver create an
+>  > > "iwX" interface to go with the normal "ethX" interface?  It seems
+>  > > simpler to me, and there's a somewhat similar precedent with how
+>  > > mac80211 devices create both wlan0 and wmaster0 interfaces.
+>  > >  - R.
+>  > 
+>  > It seemed much more painful for me to implement. :-)
+>  > 
+>  > I'll look into this, but I think for this to be done, the changes must
+>  > be in the cxgb3 driver, not the rdma driver, because the guts of the
+>  > netdev struct are all private to cxgb3.  Remember that this interface
+>  > needs to still do non TCP traffic (like ARP and UDP)...
+>  > 
+>  > Maybe you have something in mind here that I'm not thinking about?
+> 
+> No, I was just spouting off.
+>
 
-> If a particular piece of hardware will refuse to send frames after the=20
-> MAC address has been changed, then shouldn't the card's driver refuse to=20
-> allow a change of the MAC address and return an error in response to the=20
-> IOCTL that tries to change it?
+At least someone is looking at my patch. ;-)
 
-Yes.
+> But the whole "create a magic alias" seems kind of unfriendly to the
+> user.  Maybe as you said, the cxgb3 net driver could create the alias
+> for the iw_cxgb3 driver?
 
-> I can't think of a situation where this=20
-> wouldn't be the right thing to do. However, before I submit a patch to=20
-> fix this, does anyone else know of any special cases that I might need=20
-> to deal with?
+I agree that it is not very user friendly.
 
-That wouldn't make sense now, would it?
+My current patch just utilizes the IP address alias logic in the IP 
+stack.  So when you do 'ifconfig ethxx:blah ipaddr up' it creates a 
+struct in_ifaddr which contains a ptr to the real struct net_device that 
+services this alias.  However, from what I can tell, I cannot just 
+create one of these without binding an address.  So the driver cannot 
+create the alias interface until it knows the ipaddr/netmask/etc.  IE: 
+if you say 'ifconfig ethxx:blah up' it fails...  You must supply an 
+address to get one of these created.
 
-> Also is behavior of refusing to send frames with a non-hardware=20
-> specified MAC address part of the WiFi spec or is it particular to=20
-> certain WiFi cards? IOW at what level do I need to fix it? Should I just=20
-> fix it for the Intel cards that I've tested or do I need to fix it for=20
-> all WiFi cards?
+To have the cxgb3 driver create something like 'iw0', I think it would 
+need to create a full net_device struct.  This makes the change much 
+more complex.  But perhaps its the right thing to do...
 
-Most wifi cards don't care at all what MAC address you send, in fact
-allowing you to send with various MAC addresses. So this is something
-intel specific. Oh are we talking about iwlwifi? If so, please report to
-their maintainers immediately, they're lazy bastards and don't even
-upload the new MAC address to the card even if they could.
-
-johannes
-
---=-BWi9W9xByjoLLGBbK50N
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBG3syT/ETPhpq3jKURAt+qAJ9sAIybbZy+DERHWVAMjpZgZRZqEgCgoPMT
-Mgq0O6jG2txel11NagCbv/s=
-=1oDs
------END PGP SIGNATURE-----
-
---=-BWi9W9xByjoLLGBbK50N--
-
+Steve.
