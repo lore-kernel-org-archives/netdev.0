@@ -1,50 +1,81 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] [sis900] convert to NAPI, WAS Re: pktgen terminating
-	condition
-Date: Wed, 05 Sep 2007 08:33:39 -0400
-Message-ID: <1188995619.4238.5.camel@localhost>
-References: <20070904032036.GA11153@ludhiana>
-	 <1188925008-ced672f60b90353067426d0b9f74506a@brownhat.org>
-	 <20070905074411.GA4815@ludhiana>  <46DE9B09.7060603@katalix.com>
-Reply-To: hadi@cyberus.ca
+From: Neil Brown <neilb@suse.de>
+Subject: Re: Oops in 2.6.22.1: skb_copy_and_csum_datagram_iovec()
+Date: Wed, 5 Sep 2007 13:50:21 +0100
+Message-ID: <18142.42509.447265.575323@notabene.brown>
+References: <46CB453B.5040005@redhat.com>
+	<E1INkpM-00007x-00@gondolin.me.apana.org.au>
+	<18142.39804.387020.852675@notabene.brown>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Mandeep Singh Baines <mandeep.baines@gmail.com>,
-	Daniele Venzano <venza@brownhat.org>, davem@davemloft.net,
-	rick.jones2@hp.com, msb@google.com, netdev@vger.kernel.org,
-	grundler@google.com, robert.olsson@its.uu.se, jeff@garzik.org,
-	nhorman@tuxdriver.com
-To: James Chapman <jchapman@katalix.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	cebbert@redhat.com (Chuck Ebbert), netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.230]:48753 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753972AbXIEMdq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2007 08:33:46 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so2095799wxd
-        for <netdev@vger.kernel.org>; Wed, 05 Sep 2007 05:33:46 -0700 (PDT)
-In-Reply-To: <46DE9B09.7060603@katalix.com>
+Received: from cantor2.suse.de ([195.135.220.15]:48090 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753713AbXIEMuX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Sep 2007 08:50:23 -0400
+In-Reply-To: message from Neil Brown on Wednesday September 5
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-05-09 at 13:03 +0100, James Chapman wrote:
+On Wednesday September 5, neilb@suse.de wrote:
+> On Wednesday August 22, herbert@gondor.apana.org.au wrote:
+> > Chuck Ebbert <cebbert@redhat.com> wrote:
+> > > https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=253290
+> > > 
+> > > 18:57:54 osama kernel:  [<c05be67f>] kernel_recvmsg+0x31/0x40
+> > > 18:57:54 osama kernel:  [<e0bc52d4>] svc_udp_recvfrom+0x114/0x368 [sunrpc]
+> > 
+> > svc_udp_recvfrom is calling kernel_recvmsg with iov == NULL.
+> 
+> iov == NULL used to work.
+> 
+> I think it stopped working at 
+>    commit 759e5d006462d53fb708daa8284b4ad909415da1
+> 
+> Previously, as len==0, MSG_TRUNC would get set, so copy_only would get
+> set, so skb_copy_datagram_iovec would get called, and that handles a
+> len of 0.
+> 
+> Now, skb_copy_and_csum_datagram_iovec gets called unless
+> skb_csum_unnecessary(skb), which now kills us.
 
-> I have a patch that solves the high interrupt rate problem by keeping 
-> the driver in polled mode longer. It's written for the latest NAPI 
-> version that DaveM posted recently. I'll try to get some time to write 
-> it up and post it for comment.
+Actually, the new code is broken for more reasons than that.
+In core/datagram.c, the comment for skb_copy_and_csum_datagram_iovec,
+it says:
+ *	Caller _must_ check that skb will fit to this iovec.
 
-Theres interesting challenges to be tackled with resolving that. 
-Just so you dont reinvent the wheel or to help invent a better one;
-please read:
-http://kernel.org/pub/linux/kernel/people/hadi/docs/UKUUG2005.pdf
+but udp_recvmsg doesn't.
 
-if you have, what are the differences in your approach - and when
-do you find it useful?
+It seems to try:
+	if (copied < ulen || UDP_SKB_CB(skb)->partial_cov) {
+		if (udp_lib_checksum_complete(skb))
+			goto csum_copy_err;
+	}
 
-cheers,
-jamal
+	if (skb_csum_unnecessary(skb))
+		err = skb_copy_datagram_iovec(skb, sizeof(struct udphdr),
+					      msg->msg_iov, copied       );
 
-PS:- Mandeep, i was going to suggest thresholds but you beat me to it
-with your latest patch.
+so it doesn't call skb_copy_datagram_iovec if "copied < ulen".
 
+However earlier there is:
+	ulen = skb->len - sizeof(struct udphdr);
+	copied = len;
+	if (copied > ulen)
+		copied = ulen;
+
+so if the 'len' (of the iovec) is too small, we end up with "copied == ulen", 
+
+so udp_lib_checksum_complete doesn't get called....
+
+
+> 
+> We could 'fix' it by making skb_copy_and_csum_datagram_iovec just
+> return if len==0, or don't call it from udp_recvmsg in that case.
+> 
+
+So the latter of these is needed.
+
+NeilBrown
