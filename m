@@ -1,60 +1,299 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH] [sis900] convert to NAPI, WAS Re: pktgen terminating
- condition
-Date: Wed, 05 Sep 2007 14:55:17 +0100
-Message-ID: <46DEB545.3030509@katalix.com>
-References: <20070904032036.GA11153@ludhiana>	 <1188925008-ced672f60b90353067426d0b9f74506a@brownhat.org>	 <20070905074411.GA4815@ludhiana>  <46DE9B09.7060603@katalix.com> <1188995619.4238.5.camel@localhost>
+From: Jesper Dangaard Brouer <jdb@comx.dk>
+Subject: Re: [PATCH 2/2]: [NET_SCHED]: Making rate table lookups
+	more	flexible.
+Date: Wed, 05 Sep 2007 15:58:18 +0200
+Message-ID: <1189000698.28083.22.camel@localhost.localdomain>
+References: <1188562978.18622.13.camel@localhost.localdomain>
+	 <46D91082.7050609@trash.net>
+	 <Pine.LNX.4.61.0709012338320.29796@ask.diku.dk>
+	 <46DACA48.2060602@trash.net>
+	 <Pine.LNX.4.61.0709022006380.20071@ask.diku.dk>
+	 <46DB2846.2030400@trash.net>
+	 <1188829151.16405.10.camel@localhost.localdomain>
+	 <46DD86F9.8000902@trash.net>
+Reply-To: jdb@comx.dk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Mandeep Singh Baines <mandeep.baines@gmail.com>,
-	Daniele Venzano <venza@brownhat.org>, davem@davemloft.net,
-	rick.jones2@hp.com, msb@google.com, netdev@vger.kernel.org,
-	grundler@google.com, robert.olsson@its.uu.se, jeff@garzik.org,
-	nhorman@tuxdriver.com
-To: hadi@cyberus.ca
+Content-Type: multipart/mixed; boundary="=-x7Dfs1fL95BYYdhOn+T0"
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:53264 "EHLO s36.avahost.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757045AbXIENzf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Sep 2007 09:55:35 -0400
-In-Reply-To: <1188995619.4238.5.camel@localhost>
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:56467 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754609AbXIEN6F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2007 09:58:05 -0400
+In-Reply-To: <46DD86F9.8000902@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Wed, 2007-05-09 at 13:03 +0100, James Chapman wrote:
-> 
->> I have a patch that solves the high interrupt rate problem by keeping 
->> the driver in polled mode longer. It's written for the latest NAPI 
->> version that DaveM posted recently. I'll try to get some time to write 
->> it up and post it for comment.
-> 
-> Theres interesting challenges to be tackled with resolving that. 
-> Just so you dont reinvent the wheel or to help invent a better one;
-> please read:
-> http://kernel.org/pub/linux/kernel/people/hadi/docs/UKUUG2005.pdf
-> 
-> if you have, what are the differences in your approach - and when
-> do you find it useful?
 
-Thanks Jamal. Yes, I'd already read your paper. I think my idea is 
-different to the ideas described in your paper and I'm in the process of 
-writing it up as an RFC to post to netdev. Briefly though, the driver's 
-->poll() holds off doing netif_rx_complete() for 1-2 jiffies and keeps 
-itself in poll_on mode for that time, consuming no quota. The net_rx 
-softirq processing loop is modified to detect the case when the only 
-devices in its poll list are doing no work (consuming no quota). The 
-driver's ->poll() samples jiffies while it is considering when to do the 
-netif_rx_complete() like your Parked state - no timers are used.
+--=-x7Dfs1fL95BYYdhOn+T0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-If I missed that this approach has already been tried before and 
-rejected, please let me know. I see better throughput and latency in my 
-packet forwarding and LAN setups using it.
+On Tue, 2007-09-04 at 18:25 +0200, Patrick McHardy wrote:
+> Jesper Dangaard Brouer wrote:
+> > On Sun, 2007-09-02 at 23:16 +0200, Patrick McHardy wrote:
+> > 
+> >>Jesper Dangaard Brouer wrote:
+> >>
+> >>>On Sun, 2 Sep 2007, Patrick McHardy wrote:
+> >>>
+> >>>Lets focus on the general case, where the functionality actually is 
+> >>>needed right away.
+> >>>
+> >>>In the general case:
+> >>>
+> >>>- The rate table needs to be aligned (cell_align=-1).
+> >>>  (currently, we miscalculates up to 7 bytes on every lookup)
+> >>
+> >>We will always do that, thats a consequence of storing the
+> >>transmission times for multiples of 8b.
+> > 
+> > 
+> > The issue is that we use the lower boundary for calculating the transmit
+> > cost. Thus, a 15 bytes packet only have a transmit cost of 8 bytes.
+> 
+> I believe this is something that should be fixed anyway,
+> its better to overestimate than underestimate to stay
+> in control of the queue. 
+
+Well, I have attached a patch that uses the upper boundry instead.
+The patch uses the cell_align feature.
+
+The patch is very simple it self, but figure out what happens the rtab
+array requires a little illustration:
+
+Illustrating the rate table array:
+ Legend description
+  rtab[x]   : Array index x of rtab[x]
+  xmit_sz   : Transmit size contained in rtab[x] (normal transmit time)
+  maps[a-b] : Packet sizes from a to b, will map into rtab[x]
+
+Current/old rate table mapping (cell_log:3):
+ rtab[0]:=xmit_sz:0  maps[0-7]
+ rtab[1]:=xmit_sz:8  maps[8-15]
+ rtab[2]:=xmit_sz:16 maps[16-23]
+ rtab[3]:=xmit_sz:24 maps[24-31]
+ rtab[4]:=xmit_sz:32 maps[32-39]
+ rtab[5]:=xmit_sz:40 maps[40-47]
+ rtab[6]:=xmit_sz:48 maps[48-55]
+
+New rate table mapping, with kernel cell_align support.
+ rtab[0]:=xmit_sz:8  maps[0-8]
+ rtab[1]:=xmit_sz:16 maps[9-16]
+ rtab[2]:=xmit_sz:24 maps[17-24]
+ rtab[3]:=xmit_sz:32 maps[25-32]
+ rtab[4]:=xmit_sz:40 maps[33-40]
+ rtab[5]:=xmit_sz:48 maps[41-48]
+ rtab[6]:=xmit_sz:56 maps[49-56]
+
+New TC util on a kernel WITHOUT support for cell_align
+ rtab[0]:=xmit_sz:8 maps[0-7]
+ rtab[1]:=xmit_sz:16 maps[8-15]
+ rtab[2]:=xmit_sz:24 maps[16-23]
+ rtab[3]:=xmit_sz:32 maps[24-31]
+ rtab[4]:=xmit_sz:40 maps[32-39]
+ rtab[5]:=xmit_sz:48 maps[40-47]
+ rtab[6]:=xmit_sz:56 maps[48-55]
+
+Notice that without the kernel cell_align feature, we are only off by
+one byte.  That should be acceptable, when somebody uses a new TC util
+on a old kernel. 
+
+> We could additionally make the
+> rate tables more finegrained (optionally).
+
+That is actually already possible with the approach used to handle
+overflow of the rate table ("TSO" large packet support).  By setting
+cell_log=0, and letting the overflow code handle the rest, we get a very
+fingrained lookup.
+
+
+> >>>- The existing tc overhead calc can be made more accurate.
+> >>>  (by adding overhead before doing the lookup, instead of the
+> >>>   current solution where the rate table is modified with its
+> >>>   limited resolution)
+> >>
+> >>Please demonstrate this with patches (one for the overhead
+> >>calculation, one for the cell_align thing), then we can
+> >>continue this discussion.
+> > 
+> > 
+> > I have attached a patch for the overhead calculation.
+
+Attached is a patch that uses "the cell_align thing".
+
+> Thanks, I probably won't get to looking into this until
+> after the netfilter workshop next week.
+
+Okay, but I'll see you at the workshop, so I might bug you there ;-)
 
 -- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network developer
+  Cand. Scient Datalog / MSc.
+  Author of http://adsl-optimizer.dk
 
+--=-x7Dfs1fL95BYYdhOn+T0
+Content-Disposition: attachment; filename=upperbound_rate_table_aligned.patch
+Content-Type: text/x-patch; name=upperbound_rate_table_aligned.patch; charset=us-ascii
+Content-Transfer-Encoding: base64
+
+Y29tbWl0IDlhMjFlOGJkNTZhNWYwNTdmYzlmNjA1ZTA2MWMyMmQyNjRlYzI3ZWYNCkF1dGhvcjog
+SmVzcGVyIERhbmdhYXJkIEJyb3VlciA8aGF3a0Bjb214LmRrPg0KRGF0ZTogICBXZWQgU2VwIDUg
+MTU6MjQ6NTEgMjAwNyArMDIwMA0KDQogICAgW0lQUk9VVEUyXTogQ2hhbmdlIHRoZSByYXRlIHRh
+YmxlIGNhbGMgb2YgdHJhbnNtaXQgY29zdCB0byB1c2UgdXBwZXIgYm91bmQgdmFsdWUuDQogICAg
+DQogICAgUGF0cmljayBNY0hhcmR5LCBDaXRlOiAnaXRzIGJldHRlciB0byBvdmVyZXN0aW1hdGUg
+dGhhbiB1bmRlcmVzdGltYXRlDQogICAgdG8gc3RheSBpbiBjb250cm9sIG9mIHRoZSBxdWV1ZScu
+DQogICAgDQogICAgSWxsdXN0cmF0aW5nIHRoZSByYXRlIHRhYmxlIGFycmF5Og0KICAgICBMZWdl
+bmQgZGVzY3JpcHRpb24NCiAgICAgICBydGFiW3hdICAgOiBBcnJheSBpbmRleCB4IG9mIHJ0YWJb
+eF0NCiAgICAgICB4bWl0X3N6ICAgOiBUcmFuc21pdCBzaXplIGNvbnRhaW5lZCBpbiBydGFiW3hd
+IChub3JtYWxseSB0cmFuc21pdCB0aW1lKQ0KICAgICAgIG1hcHNbYS1iXSA6IFBhY2tldCBzaXpl
+cyBmcm9tIGEgdG8gYiwgd2lsbCBtYXAgaW50byBydGFiW3hdDQogICAgDQogICAgQ3VycmVudC9v
+bGQgcmF0ZSB0YWJsZSBtYXBwaW5nIChjZWxsX2xvZzozKToNCiAgICAgcnRhYlswXTo9eG1pdF9z
+ejowICBtYXBzWzAtN10NCiAgICAgcnRhYlsxXTo9eG1pdF9zejo4ICBtYXBzWzgtMTVdDQogICAg
+IHJ0YWJbMl06PXhtaXRfc3o6MTYgbWFwc1sxNi0yM10NCiAgICAgcnRhYlszXTo9eG1pdF9zejoy
+NCBtYXBzWzI0LTMxXQ0KICAgICBydGFiWzRdOj14bWl0X3N6OjMyIG1hcHNbMzItMzldDQogICAg
+IHJ0YWJbNV06PXhtaXRfc3o6NDAgbWFwc1s0MC00N10NCiAgICAgcnRhYls2XTo9eG1pdF9zejo0
+OCBtYXBzWzQ4LTU1XQ0KICAgIA0KICAgIE5ldyByYXRlIHRhYmxlIG1hcHBpbmcsIHdpdGgga2Vy
+bmVsIGNlbGxfYWxpZ24gc3VwcG9ydC4NCiAgICAgcnRhYlswXTo9eG1pdF9zejo4ICBtYXBzWzAt
+OF0NCiAgICAgcnRhYlsxXTo9eG1pdF9zejoxNiBtYXBzWzktMTZdDQogICAgIHJ0YWJbMl06PXht
+aXRfc3o6MjQgbWFwc1sxNy0yNF0NCiAgICAgcnRhYlszXTo9eG1pdF9zejozMiBtYXBzWzI1LTMy
+XQ0KICAgICBydGFiWzRdOj14bWl0X3N6OjQwIG1hcHNbMzMtNDBdDQogICAgIHJ0YWJbNV06PXht
+aXRfc3o6NDggbWFwc1s0MS00OF0NCiAgICAgcnRhYls2XTo9eG1pdF9zejo1NiBtYXBzWzQ5LTU2
+XQ0KICAgIA0KICAgIE5ldyBUQyB1dGlsIG9uIGEga2VybmVsIFdJVEhPVVQgc3VwcG9ydCBmb3Ig
+Y2VsbF9hbGlnbg0KICAgICBydGFiWzBdOj14bWl0X3N6OjggbWFwc1swLTddDQogICAgIHJ0YWJb
+MV06PXhtaXRfc3o6MTYgbWFwc1s4LTE1XQ0KICAgICBydGFiWzJdOj14bWl0X3N6OjI0IG1hcHNb
+MTYtMjNdDQogICAgIHJ0YWJbM106PXhtaXRfc3o6MzIgbWFwc1syNC0zMV0NCiAgICAgcnRhYls0
+XTo9eG1pdF9zejo0MCBtYXBzWzMyLTM5XQ0KICAgICBydGFiWzVdOj14bWl0X3N6OjQ4IG1hcHNb
+NDAtNDddDQogICAgIHJ0YWJbNl06PXhtaXRfc3o6NTYgbWFwc1s0OC01NV0NCiAgICANCiAgICBT
+aWduZWQtb2ZmLWJ5OiBKZXNwZXIgRGFuZ2FhcmQgQnJvdWVyIDxoYXdrQGNvbXguZGs+DQoNCmRp
+ZmYgLS1naXQgYS90Yy90Y19jb3JlLmMgYi90Yy90Y19jb3JlLmMNCmluZGV4IGM3MTNhMTguLjc1
+MmIwN2MgMTAwNjQ0DQotLS0gYS90Yy90Y19jb3JlLmMNCisrKyBiL3RjL3RjX2NvcmUuYw0KQEAg
+LTg0LDExICs4NCwxMiBAQCBpbnQgdGNfY2FsY19ydGFibGUoc3RydWN0IHRjX3JhdGVzcGVjICpy
+LCBfX3UzMiAqcnRhYiwgaW50IGNlbGxfbG9nLCB1bnNpZ25lZCBtdA0KIAkJCWNlbGxfbG9nKys7
+DQogCX0NCiAJZm9yIChpPTA7IGk8MjU2OyBpKyspIHsNCi0JCXVuc2lnbmVkIHN6ID0gKGk8PGNl
+bGxfbG9nKTsNCisJCXVuc2lnbmVkIHN6ID0gKChpKzEpPDxjZWxsX2xvZyk7DQogCQlpZiAoc3og
+PCBtcHUpDQogCQkJc3ogPSBtcHU7DQogCQlydGFiW2ldID0gdGNfY2FsY194bWl0dGltZShicHMs
+IHN6KTsNCiAJfQ0KKwlyLT5jZWxsX2FsaWduPS0xOyAvLyBEdWUgdG8gdGhlIHN6IGNhbGMNCiAJ
+ci0+Y2VsbF9sb2c9Y2VsbF9sb2c7DQogCXJldHVybiBjZWxsX2xvZzsNCiB9DQo=
+
+
+--=-x7Dfs1fL95BYYdhOn+T0
+Content-Disposition: attachment; filename=cleanup_tc_calc_rtable_git.patch
+Content-Type: text/x-patch; name=cleanup_tc_calc_rtable_git.patch; charset=us-ascii
+Content-Transfer-Encoding: base64
+
+Y29tbWl0IDI5MDQ0YWMzN2UzMGQ5NjYyYWQxYmI4MzI5MGEwMDdjNDkyYWQ3YjINCkF1dGhvcjog
+SmVzcGVyIERhbmdhYXJkIEJyb3VlciA8aGF3a0Bjb214LmRrPg0KRGF0ZTogICBXZWQgU2VwIDUg
+MTA6NDc6NDcgMjAwNyArMDIwMA0KDQogICAgW0lQUk9VVEUyXTogQ2xlYW51cDogdGNfY2FsY19y
+dGFibGUoKS4NCiAgICANCiAgICBDaGFuZ2UgdGNfY2FsY19ydGFibGUoKSB0byB0YWtlIGEgdGNf
+cmF0ZXNwZWMgc3RydWN0IGFzIGFuDQogICAgYXJndW1lbnQuIChjZWxsX2xvZyBzdGlsbCBuZWVk
+cyB0byBiZSBwYXNzZWQgb24gYXMgYSBwYXJhbWV0ZXIsDQogICAgYmVjYXVzZSAtMSBpbmRpY2F0
+ZSB0aGF0IHRoZSBjZWxsX2xvZyBuZWVkcyB0byBiZSBjb21wdXRlZCBieSB0aGUNCiAgICBmdW5j
+dGlvbi4pLg0KICAgIA0KICAgIFNpZ25lZC1vZmYtYnk6IEplc3BlciBEYW5nYWFyZCBCcm91ZXIg
+PGhhd2tAY29teC5kaz4NCg0KZGlmZiAtLWdpdCBhL3RjL21fcG9saWNlLmMgYi90Yy9tX3BvbGlj
+ZS5jDQppbmRleCA1ZDI1MjhiLi5hY2RmZDIyIDEwMDY0NA0KLS0tIGEvdGMvbV9wb2xpY2UuYw0K
+KysrIGIvdGMvbV9wb2xpY2UuYw0KQEAgLTI2MywyMiArMjYzLDIwIEBAIGludCBhY3RfcGFyc2Vf
+cG9saWNlKHN0cnVjdCBhY3Rpb25fdXRpbCAqYSxpbnQgKmFyZ2NfcCwgY2hhciAqKiphcmd2X3As
+IGludCB0Y2FfDQogCX0NCiANCiAJaWYgKHAucmF0ZS5yYXRlKSB7DQotCQlpZiAoKFJjZWxsX2xv
+ZyA9IHRjX2NhbGNfcnRhYmxlKHAucmF0ZS5yYXRlLCBydGFiLCBSY2VsbF9sb2csIG10dSwgbXB1
+KSkgPCAwKSB7DQorCQlwLnJhdGUubXB1ID0gbXB1Ow0KKwkJaWYgKHRjX2NhbGNfcnRhYmxlKCZw
+LnJhdGUsIHJ0YWIsIFJjZWxsX2xvZywgbXR1KSA8IDApIHsNCiAJCQlmcHJpbnRmKHN0ZGVyciwg
+IlRCRjogZmFpbGVkIHRvIGNhbGN1bGF0ZSByYXRlIHRhYmxlLlxuIik7DQogCQkJcmV0dXJuIC0x
+Ow0KIAkJfQ0KIAkJcC5idXJzdCA9IHRjX2NhbGNfeG1pdHRpbWUocC5yYXRlLnJhdGUsIGJ1ZmZl
+cik7DQotCQlwLnJhdGUuY2VsbF9sb2cgPSBSY2VsbF9sb2c7DQotCQlwLnJhdGUubXB1ID0gbXB1
+Ow0KIAl9DQogCXAubXR1ID0gbXR1Ow0KIAlpZiAocC5wZWFrcmF0ZS5yYXRlKSB7DQotCQlpZiAo
+KFBjZWxsX2xvZyA9IHRjX2NhbGNfcnRhYmxlKHAucGVha3JhdGUucmF0ZSwgcHRhYiwgUGNlbGxf
+bG9nLCBtdHUsIG1wdSkpIDwgMCkgew0KKwkJcC5wZWFrcmF0ZS5tcHUgPSBtcHU7DQorCQlpZiAo
+dGNfY2FsY19ydGFibGUoJnAucGVha3JhdGUsIHB0YWIsIFBjZWxsX2xvZywgbXR1KSA8IDApIHsN
+CiAJCQlmcHJpbnRmKHN0ZGVyciwgIlBPTElDRTogZmFpbGVkIHRvIGNhbGN1bGF0ZSBwZWFrIHJh
+dGUgdGFibGUuXG4iKTsNCiAJCQlyZXR1cm4gLTE7DQogCQl9DQotCQlwLnBlYWtyYXRlLmNlbGxf
+bG9nID0gUGNlbGxfbG9nOw0KLQkJcC5wZWFrcmF0ZS5tcHUgPSBtcHU7DQogCX0NCiANCiAJdGFp
+bCA9IE5MTVNHX1RBSUwobik7DQpkaWZmIC0tZ2l0IGEvdGMvcV9jYnEuYyBiL3RjL3FfY2JxLmMN
+CmluZGV4IGYyYjRjZTguLmRmOTgzMTIgMTAwNjQ0DQotLS0gYS90Yy9xX2NicS5jDQorKysgYi90
+Yy9xX2NicS5jDQpAQCAtMTM3LDEyICsxMzcsMTEgQEAgc3RhdGljIGludCBjYnFfcGFyc2Vfb3B0
+KHN0cnVjdCBxZGlzY191dGlsICpxdSwgaW50IGFyZ2MsIGNoYXIgKiphcmd2LCBzdHJ1Y3QgbmwN
+CiAJaWYgKGFsbG90IDwgKGF2cGt0KjMpLzIpDQogCQlhbGxvdCA9IChhdnBrdCozKS8yOw0KIA0K
+LQlpZiAoKGNlbGxfbG9nID0gdGNfY2FsY19ydGFibGUoci5yYXRlLCBydGFiLCBjZWxsX2xvZywg
+YWxsb3QsIG1wdSkpIDwgMCkgew0KKwlyLm1wdSA9IG1wdTsNCisJaWYgKHRjX2NhbGNfcnRhYmxl
+KCZyLCBydGFiLCBjZWxsX2xvZywgYWxsb3QpIDwgMCkgew0KIAkJZnByaW50ZihzdGRlcnIsICJD
+QlE6IGZhaWxlZCB0byBjYWxjdWxhdGUgcmF0ZSB0YWJsZS5cbiIpOw0KIAkJcmV0dXJuIC0xOw0K
+IAl9DQotCXIuY2VsbF9sb2cgPSBjZWxsX2xvZzsNCi0Jci5tcHUgPSBtcHU7DQogDQogCWlmIChl
+d21hX2xvZyA8IDApDQogCQlld21hX2xvZyA9IFRDX0NCUV9ERUZfRVdNQTsNCkBAIC0zMzYsMTIg
+KzMzNSwxMSBAQCBzdGF0aWMgaW50IGNicV9wYXJzZV9jbGFzc19vcHQoc3RydWN0IHFkaXNjX3V0
+aWwgKnF1LCBpbnQgYXJnYywgY2hhciAqKmFyZ3YsIHN0cg0KIAkJdW5zaWduZWQgcGt0c2l6ZSA9
+IHdyci5hbGxvdDsNCiAJCWlmICh3cnIuYWxsb3QgPCAobHNzLmF2cGt0KjMpLzIpDQogCQkJd3Jy
+LmFsbG90ID0gKGxzcy5hdnBrdCozKS8yOw0KLQkJaWYgKChjZWxsX2xvZyA9IHRjX2NhbGNfcnRh
+YmxlKHIucmF0ZSwgcnRhYiwgY2VsbF9sb2csIHBrdHNpemUsIG1wdSkpIDwgMCkgew0KKwkJci5t
+cHUgPSBtcHU7DQorCQlpZiAodGNfY2FsY19ydGFibGUoJnIsIHJ0YWIsIGNlbGxfbG9nLCBwa3Rz
+aXplKSA8IDApIHsNCiAJCQlmcHJpbnRmKHN0ZGVyciwgIkNCUTogZmFpbGVkIHRvIGNhbGN1bGF0
+ZSByYXRlIHRhYmxlLlxuIik7DQogCQkJcmV0dXJuIC0xOw0KIAkJfQ0KLQkJci5jZWxsX2xvZyA9
+IGNlbGxfbG9nOw0KLQkJci5tcHUgPSBtcHU7DQogCX0NCiAJaWYgKGV3bWFfbG9nIDwgMCkNCiAJ
+CWV3bWFfbG9nID0gVENfQ0JRX0RFRl9FV01BOw0KZGlmZiAtLWdpdCBhL3RjL3FfaHRiLmMgYi90
+Yy9xX2h0Yi5jDQppbmRleCBiNTc5ZWJlLi5jY2E3N2ZhIDEwMDY0NA0KLS0tIGEvdGMvcV9odGIu
+Yw0KKysrIGIvdGMvcV9odGIuYw0KQEAgLTIxMiwxOSArMjEyLDE3IEBAIHN0YXRpYyBpbnQgaHRi
+X3BhcnNlX2NsYXNzX29wdChzdHJ1Y3QgcWRpc2NfdXRpbCAqcXUsIGludCBhcmdjLCBjaGFyICoq
+YXJndiwgc3RyDQogCW9wdC5jZWlsLm1wdSA9IG1wdTsNCiAJb3B0LnJhdGUubXB1ID0gbXB1Ow0K
+IA0KLQlpZiAoKGNlbGxfbG9nID0gdGNfY2FsY19ydGFibGUob3B0LnJhdGUucmF0ZSwgcnRhYiwg
+Y2VsbF9sb2csIG10dSwgbXB1KSkgPCAwKSB7DQorCWlmICh0Y19jYWxjX3J0YWJsZSgmb3B0LnJh
+dGUsIHJ0YWIsIGNlbGxfbG9nLCBtdHUpIDwgMCkgew0KIAkJZnByaW50ZihzdGRlcnIsICJodGI6
+IGZhaWxlZCB0byBjYWxjdWxhdGUgcmF0ZSB0YWJsZS5cbiIpOw0KIAkJcmV0dXJuIC0xOw0KIAl9
+DQogCW9wdC5idWZmZXIgPSB0Y19jYWxjX3htaXR0aW1lKG9wdC5yYXRlLnJhdGUsIGJ1ZmZlcik7
+DQotCW9wdC5yYXRlLmNlbGxfbG9nID0gY2VsbF9sb2c7DQogDQotCWlmICgoY2NlbGxfbG9nID0g
+dGNfY2FsY19ydGFibGUob3B0LmNlaWwucmF0ZSwgY3RhYiwgY2VsbF9sb2csIG10dSwgbXB1KSkg
+PCAwKSB7DQorCWlmICh0Y19jYWxjX3J0YWJsZSgmb3B0LmNlaWwsIGN0YWIsIGNjZWxsX2xvZywg
+bXR1KSA8IDApIHsNCiAJCWZwcmludGYoc3RkZXJyLCAiaHRiOiBmYWlsZWQgdG8gY2FsY3VsYXRl
+IGNlaWwgcmF0ZSB0YWJsZS5cbiIpOw0KIAkJcmV0dXJuIC0xOw0KIAl9DQogCW9wdC5jYnVmZmVy
+ID0gdGNfY2FsY194bWl0dGltZShvcHQuY2VpbC5yYXRlLCBjYnVmZmVyKTsNCi0Jb3B0LmNlaWwu
+Y2VsbF9sb2cgPSBjY2VsbF9sb2c7DQogDQogCXRhaWwgPSBOTE1TR19UQUlMKG4pOw0KIAlhZGRh
+dHRyX2wobiwgMTAyNCwgVENBX09QVElPTlMsIE5VTEwsIDApOw0KZGlmZiAtLWdpdCBhL3RjL3Ff
+dGJmLmMgYi90Yy9xX3RiZi5jDQppbmRleCAxZmMwNWY0Li5jN2I0ZjBmIDEwMDY0NA0KLS0tIGEv
+dGMvcV90YmYuYw0KKysrIGIvdGMvcV90YmYuYw0KQEAgLTE3MCwyMSArMTcwLDIwIEBAIHN0YXRp
+YyBpbnQgdGJmX3BhcnNlX29wdChzdHJ1Y3QgcWRpc2NfdXRpbCAqcXUsIGludCBhcmdjLCBjaGFy
+ICoqYXJndiwgc3RydWN0IG5sDQogCQlvcHQubGltaXQgPSBsaW07DQogCX0NCiANCi0JaWYgKChS
+Y2VsbF9sb2cgPSB0Y19jYWxjX3J0YWJsZShvcHQucmF0ZS5yYXRlLCBydGFiLCBSY2VsbF9sb2cs
+IG10dSwgbXB1KSkgPCAwKSB7DQorCW9wdC5yYXRlLm1wdSA9IG1wdTsNCisJaWYgKHRjX2NhbGNf
+cnRhYmxlKCZvcHQucmF0ZSwgcnRhYiwgUmNlbGxfbG9nLCBtdHUpIDwgMCkgew0KIAkJZnByaW50
+ZihzdGRlcnIsICJUQkY6IGZhaWxlZCB0byBjYWxjdWxhdGUgcmF0ZSB0YWJsZS5cbiIpOw0KIAkJ
+cmV0dXJuIC0xOw0KIAl9DQogCW9wdC5idWZmZXIgPSB0Y19jYWxjX3htaXR0aW1lKG9wdC5yYXRl
+LnJhdGUsIGJ1ZmZlcik7DQotCW9wdC5yYXRlLmNlbGxfbG9nID0gUmNlbGxfbG9nOw0KLQlvcHQu
+cmF0ZS5tcHUgPSBtcHU7DQorDQogCWlmIChvcHQucGVha3JhdGUucmF0ZSkgew0KLQkJaWYgKChQ
+Y2VsbF9sb2cgPSB0Y19jYWxjX3J0YWJsZShvcHQucGVha3JhdGUucmF0ZSwgcHRhYiwgUGNlbGxf
+bG9nLCBtdHUsIG1wdSkpIDwgMCkgew0KKwkJb3B0LnBlYWtyYXRlLm1wdSA9IG1wdTsNCisJCWlm
+ICh0Y19jYWxjX3J0YWJsZSgmb3B0LnBlYWtyYXRlLCBwdGFiLCBQY2VsbF9sb2csIG10dSkgPCAw
+KSB7DQogCQkJZnByaW50ZihzdGRlcnIsICJUQkY6IGZhaWxlZCB0byBjYWxjdWxhdGUgcGVhayBy
+YXRlIHRhYmxlLlxuIik7DQogCQkJcmV0dXJuIC0xOw0KIAkJfQ0KIAkJb3B0Lm10dSA9IHRjX2Nh
+bGNfeG1pdHRpbWUob3B0LnBlYWtyYXRlLnJhdGUsIG10dSk7DQotCQlvcHQucGVha3JhdGUuY2Vs
+bF9sb2cgPSBQY2VsbF9sb2c7DQotCQlvcHQucGVha3JhdGUubXB1ID0gbXB1Ow0KIAl9DQogDQog
+CXRhaWwgPSBOTE1TR19UQUlMKG4pOw0KZGlmZiAtLWdpdCBhL3RjL3RjX2NvcmUuYyBiL3RjL3Rj
+X2NvcmUuYw0KaW5kZXggMWFiMGJhMC4uYzcxM2ExOCAxMDA2NDQNCi0tLSBhL3RjL3RjX2NvcmUu
+Yw0KKysrIGIvdGMvdGNfY29yZS5jDQpAQCAtNjksMTAgKzY5LDExIEBAIHVuc2lnbmVkIHRjX2Nh
+bGNfeG1pdHNpemUodW5zaWduZWQgcmF0ZSwgdW5zaWduZWQgdGlja3MpDQogICAgcnRhYltwa3Rf
+bGVuPj5jZWxsX2xvZ10gPSBwa3RfeG1pdF90aW1lDQogICovDQogDQotaW50IHRjX2NhbGNfcnRh
+YmxlKHVuc2lnbmVkIGJwcywgX191MzIgKnJ0YWIsIGludCBjZWxsX2xvZywgdW5zaWduZWQgbXR1
+LA0KLQkJICAgdW5zaWduZWQgbXB1KQ0KK2ludCB0Y19jYWxjX3J0YWJsZShzdHJ1Y3QgdGNfcmF0
+ZXNwZWMgKnIsIF9fdTMyICpydGFiLCBpbnQgY2VsbF9sb2csIHVuc2lnbmVkIG10dSkNCiB7DQog
+CWludCBpOw0KKwl1bnNpZ25lZCBicHMgPSByLT5yYXRlOw0KKwl1bnNpZ25lZCBtcHUgPSByLT5t
+cHU7DQogDQogCWlmIChtdHUgPT0gMCkNCiAJCW10dSA9IDIwNDc7DQpAQCAtODgsNiArODksNyBA
+QCBpbnQgdGNfY2FsY19ydGFibGUodW5zaWduZWQgYnBzLCBfX3UzMiAqcnRhYiwgaW50IGNlbGxf
+bG9nLCB1bnNpZ25lZCBtdHUsDQogCQkJc3ogPSBtcHU7DQogCQlydGFiW2ldID0gdGNfY2FsY194
+bWl0dGltZShicHMsIHN6KTsNCiAJfQ0KKwlyLT5jZWxsX2xvZz1jZWxsX2xvZzsNCiAJcmV0dXJu
+IGNlbGxfbG9nOw0KIH0NCiANCmRpZmYgLS1naXQgYS90Yy90Y19jb3JlLmggYi90Yy90Y19jb3Jl
+LmgNCmluZGV4IGExMzlkYTYuLmU5OGE3YjQgMTAwNjQ0DQotLS0gYS90Yy90Y19jb3JlLmgNCisr
+KyBiL3RjL3RjX2NvcmUuaA0KQEAgLTEzLDcgKzEzLDcgQEAgbG9uZyB0Y19jb3JlX3RpbWUya3Rp
+bWUobG9uZyB0aW1lKTsNCiBsb25nIHRjX2NvcmVfa3RpbWUydGltZShsb25nIGt0aW1lKTsNCiB1
+bnNpZ25lZCB0Y19jYWxjX3htaXR0aW1lKHVuc2lnbmVkIHJhdGUsIHVuc2lnbmVkIHNpemUpOw0K
+IHVuc2lnbmVkIHRjX2NhbGNfeG1pdHNpemUodW5zaWduZWQgcmF0ZSwgdW5zaWduZWQgdGlja3Mp
+Ow0KLWludCB0Y19jYWxjX3J0YWJsZSh1bnNpZ25lZCBicHMsIF9fdTMyICpydGFiLCBpbnQgY2Vs
+bF9sb2csIHVuc2lnbmVkIG10dSwgdW5zaWduZWQgbXB1KTsNCitpbnQgdGNfY2FsY19ydGFibGUo
+c3RydWN0IHRjX3JhdGVzcGVjICpyLCBfX3UzMiAqcnRhYiwgaW50IGNlbGxfbG9nLCB1bnNpZ25l
+ZCBtdHUpOw0KIA0KIGludCB0Y19zZXR1cF9lc3RpbWF0b3IodW5zaWduZWQgQSwgdW5zaWduZWQg
+dGltZV9jb25zdCwgc3RydWN0IHRjX2VzdGltYXRvciAqZXN0KTsNCiANCg==
+
+
+--=-x7Dfs1fL95BYYdhOn+T0--
