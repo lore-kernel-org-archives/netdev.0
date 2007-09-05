@@ -1,81 +1,83 @@
-From: Neil Brown <neilb@suse.de>
-Subject: Re: Oops in 2.6.22.1: skb_copy_and_csum_datagram_iovec()
-Date: Wed, 5 Sep 2007 13:50:21 +0100
-Message-ID: <18142.42509.447265.575323@notabene.brown>
-References: <46CB453B.5040005@redhat.com>
-	<E1INkpM-00007x-00@gondolin.me.apana.org.au>
-	<18142.39804.387020.852675@notabene.brown>
+From: "David H. Lynch Jr." <dhlii@dlasys.net>
+Subject: Re: Fwd: That whole "Linux stealing our code" thing
+Date: Wed, 05 Sep 2007 09:22:21 -0400
+Message-ID: <46DEAD8D.9020008@dlasys.net>
+References: <200709010140.l811eq9H005896@cvs.openbsd.org> <f34ca13c0709010948v67b04b58lb098713dc38c4d6a@mail.gmail.com> <46D99FB7.6030505@garzik.org> <f34ca13c0709011037p221cb40fjf69651d1858df212@mail.gmail.com> <20070901205457.GK9260@stusta.de> <20070902113638.78fbd202@the-village.bc.nu> <Pine.LNX.4.64.0709021303001.4312@condmat1.ciencias.uniovi.es> <20070902115041.GM16016@stusta.de> <Pine.LNX.4.64.0709021416130.6181@condmat1.ciencias.uniovi.es> <20070902134612.28a88761@the-village.bc.nu> <Pine.LNX.4.64.0709021446550.6181@condmat1.ciencias.uniovi.es> <m3642txj91.fsf@maximus.localdomain> <46DAC482.5090107@garzik.org> <Pine.LNX.4.64.0709021754250.6772@condmat1.ciencias.uniovi.es>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	cebbert@redhat.com (Chuck Ebbert), netdev@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:48090 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753713AbXIEMuX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Sep 2007 08:50:23 -0400
-In-Reply-To: message from Neil Brown on Wednesday September 5
+Received: from 24.152.192.123.res-cmts.eph.ptd.net ([24.152.192.123]:54356
+	"EHLO mx.dlasys.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754137AbXIENvR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2007 09:51:17 -0400
+Received: from l-dhlii-o.dlasys.net ([206.223.20.150])
+	by mx.dlasys.net with esmtp (Exim 4.67 #1 (Debian))
+	id 1ISumW-0003EJ-Eg
+	for <netdev@vger.kernel.org>; Wed, 05 Sep 2007 09:18:56 -0400
+In-Reply-To: <Pine.LNX.4.64.0709021754250.6772@condmat1.ciencias.uniovi.es>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday September 5, neilb@suse.de wrote:
-> On Wednesday August 22, herbert@gondor.apana.org.au wrote:
-> > Chuck Ebbert <cebbert@redhat.com> wrote:
-> > > https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=253290
-> > > 
-> > > 18:57:54 osama kernel:  [<c05be67f>] kernel_recvmsg+0x31/0x40
-> > > 18:57:54 osama kernel:  [<e0bc52d4>] svc_udp_recvfrom+0x114/0x368 [sunrpc]
-> > 
-> > svc_udp_recvfrom is calling kernel_recvmsg with iov == NULL.
-> 
-> iov == NULL used to work.
-> 
-> I think it stopped working at 
->    commit 759e5d006462d53fb708daa8284b4ad909415da1
-> 
-> Previously, as len==0, MSG_TRUNC would get set, so copy_only would get
-> set, so skb_copy_datagram_iovec would get called, and that handles a
-> len of 0.
-> 
-> Now, skb_copy_and_csum_datagram_iovec gets called unless
-> skb_csum_unnecessary(skb), which now kills us.
+Igor Sobrado wrote:
+>>
+>> There is definite value in sharing the ath5k HAL between OpenBSD and 
+>> Linux.
+>
+> Of course. Sharing knowledge and efforts can only improve both the GPL 
+> and BSD licensed code. It is important in all cases, but becomes 
+> critical when support from manufacturers is limited or even non existent.
 
-Actually, the new code is broken for more reasons than that.
-In core/datagram.c, the comment for skb_copy_and_csum_datagram_iovec,
-it says:
- *	Caller _must_ check that skb will fit to this iovec.
+Cooperation between OpenBSD developers and Linux developers, wwould be 
+wonderful, but this appears to just be the latest of a number of 
+disputes that have devolved into legalism and acrimony.
 
-but udp_recvmsg doesn't.
+The time wasted fighting over this seems significantly larger than the 
+effort need to solve it.
 
-It seems to try:
-	if (copied < ulen || UDP_SKB_CB(skb)->partial_cov) {
-		if (udp_lib_checksum_complete(skb))
-			goto csum_copy_err;
-	}
+The respective BSD and GPL licensed code is open documentation for the 
+programming of the typically closed device.
+What is wrong with chosing to rewrite the drivers in contention ?
+If the level of bile is sufficiently high it might make sense to do so 
+using "clean room" techniques, where one developer uses the source 
+licensed driver as the basis for writing documentation
+and another developer uses the documentation as the basis for writing a 
+new driver. The original author could/should still be credited.
 
-	if (skb_csum_unnecessary(skb))
-		err = skb_copy_datagram_iovec(skb, sizeof(struct udphdr),
-					      msg->msg_iov, copied       );
+It might even make sense to use projects like this as a means of 
+recruiting new driver developers and building their skills - drafting 
+prospective kernel developers from kernel-newbies, or asking for
+volunteers on the appropriate lists.
+Not having looked at the code for either the Linux or BSD atheros 
+driver, but having some limited linux network driver experience, I would 
+be happy to make an attempt at writing a clean Linux GPL
+driver for atheros cards.
 
-so it doesn't call skb_copy_datagram_iovec if "copied < ulen".
-
-However earlier there is:
-	ulen = skb->len - sizeof(struct udphdr);
-	copied = len;
-	if (copied > ulen)
-		copied = ulen;
-
-so if the 'len' (of the iovec) is too small, we end up with "copied == ulen", 
-
-so udp_lib_checksum_complete doesn't get called....
+Another benefit to this approach is it might cool tempers. Neither the 
+GPL not the BSD/ISC Licenses protect the information their authors have 
+painstakingly extracted about the hardware.
+If both sides recognize that copyright - particularly Open Source 
+copyright licenses do not somehow make the ideas and information they 
+express proprietary, and that all that is really
+in contention is credit and a reduction in labor, then maybe it would be 
+easier to get them to agree to modifying licenses.
 
 
-> 
-> We could 'fix' it by making skb_copy_and_csum_datagram_iovec just
-> return if len==0, or don't call it from udp_recvmsg in that case.
-> 
 
-So the latter of these is needed.
 
-NeilBrown
+
+
+
+
+
+
+Dave Lynch 					  	    DLA Systems
+Software Development:  				         Embedded Linux
+717.627.3770 	       dhlii@dlasys.net 	  http://www.dlasys.net
+fax: 1.253.369.9244 			           Cell: 1.717.587.7774
+Over 25 years' experience in platforms, languages, and technologies too numerous to list.
+
+"Any intelligent fool can make things bigger and more complex... It takes a touch of genius - and a lot of courage to move in the opposite direction."
+Albert Einstein
+
