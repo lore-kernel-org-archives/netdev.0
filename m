@@ -1,78 +1,78 @@
-From: dlezcano@fr.ibm.com
-Subject: [patch 1/1] Fix some Kconfigs on net-2.6.24
-Date: Wed, 05 Sep 2007 19:07:30 +0200
-Message-ID: <20070905170853.740970916@dyn-9-101-17-26.toulouse-stg.fr.ibm.com>
-References: <20070905170729.127852231@dyn-9-101-17-26.toulouse-stg.fr.ibm.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [PATCH RFC] iw_cxgb3: Support "iwarp-only" interfaces to avoid
+ 4-tuple conflicts with the host stack.
+Date: Wed, 05 Sep 2007 12:27:09 -0500
+Message-ID: <46DEE6ED.7070000@opengridcomputing.com>
+References: <1187905185.5547.13.camel@stevo-desktop>	<adaveawwcpz.fsf@cisco.com> <46DD762F.80904@opengridcomputing.com> <ada642puonr.fsf@cisco.com> <46DECDED.90903@opengridcomputing.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: general@lists.openfabrics.org, ewg@lists.openfabrics.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sean.hefty@intel.com
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.uk.ibm.com ([195.212.29.138]:29662 "EHLO
-	mtagate5.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754467AbXIERKN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2007 13:10:13 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate5.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l85HA4WX185692
-	for <netdev@vger.kernel.org>; Wed, 5 Sep 2007 17:10:04 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l85HA4dV3006640
-	for <netdev@vger.kernel.org>; Wed, 5 Sep 2007 18:10:04 +0100
-Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l85H9m7d020619
-	for <netdev@vger.kernel.org>; Wed, 5 Sep 2007 18:09:48 +0100
-Content-Disposition: inline; filename=net-2.6.24-fix-Kconfig.patch
+Received: from smtp.opengridcomputing.com ([71.42.183.126]:45414 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752442AbXIER1K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2007 13:27:10 -0400
+In-Reply-To: <46DECDED.90903@opengridcomputing.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
 
-Three fixes for Kconfigs.
 
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+Steve Wise wrote:
+> 
+> 
+> Roland Dreier wrote:
+>>  > > What's wrong with my suggestion of having the iwarp driver create an
+>>  > > "iwX" interface to go with the normal "ethX" interface?  It seems
+>>  > > simpler to me, and there's a somewhat similar precedent with how
+>>  > > mac80211 devices create both wlan0 and wmaster0 interfaces.
+>>  > >  - R.
+>>  >  > It seemed much more painful for me to implement. :-)
+>>  >  > I'll look into this, but I think for this to be done, the 
+>> changes must
+>>  > be in the cxgb3 driver, not the rdma driver, because the guts of the
+>>  > netdev struct are all private to cxgb3.  Remember that this interface
+>>  > needs to still do non TCP traffic (like ARP and UDP)...
+>>  >  > Maybe you have something in mind here that I'm not thinking about?
+>>
+>> No, I was just spouting off.
+>>
+> 
+> At least someone is looking at my patch. ;-)
+> 
+>> But the whole "create a magic alias" seems kind of unfriendly to the
+>> user.  Maybe as you said, the cxgb3 net driver could create the alias
+>> for the iw_cxgb3 driver?
+> 
+> I agree that it is not very user friendly.
+> 
+> My current patch just utilizes the IP address alias logic in the IP 
+> stack.  So when you do 'ifconfig ethxx:blah ipaddr up' it creates a 
+> struct in_ifaddr which contains a ptr to the real struct net_device that 
+> services this alias.  However, from what I can tell, I cannot just 
+> create one of these without binding an address.  So the driver cannot 
+> create the alias interface until it knows the ipaddr/netmask/etc.  IE: 
+> if you say 'ifconfig ethxx:blah up' it fails...  You must supply an 
+> address to get one of these created.
+> 
+> To have the cxgb3 driver create something like 'iw0', I think it would 
+> need to create a full net_device struct.  This makes the change much 
+> more complex.  But perhaps its the right thing to do...
+> 
+> Steve.
+> 
 
----
- drivers/input/misc/Kconfig |    2 +-
- drivers/leds/Kconfig       |    2 +-
- drivers/telephony/Kconfig  |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+Also, I could defer registering the device with the rdma core until the 
+alias interface is created by the user.  Thus the T3 device wouldn't be 
+available for use until the ethxx:iw interface is created.
 
-Index: net-2.6.24/drivers/input/misc/Kconfig
-===================================================================
---- net-2.6.24.orig/drivers/input/misc/Kconfig
-+++ net-2.6.24/drivers/input/misc/Kconfig
-@@ -152,7 +152,7 @@
- 
- config INPUT_YEALINK
- 	tristate "Yealink usb-p1k voip phone"
--	depends EXPERIMENTAL
-+	depends on EXPERIMENTAL
- 	depends on USB_ARCH_HAS_HCD
- 	select USB
- 	help
-Index: net-2.6.24/drivers/leds/Kconfig
-===================================================================
---- net-2.6.24.orig/drivers/leds/Kconfig
-+++ net-2.6.24/drivers/leds/Kconfig
-@@ -83,7 +83,7 @@
- 
- config LEDS_H1940
- 	tristate "LED Support for iPAQ H1940 device"
--	depends LEDS_CLASS && ARCH_H1940
-+	depends on LEDS_CLASS && ARCH_H1940
- 	help
- 	  This option enables support for the LEDs on the h1940.
- 
-Index: net-2.6.24/drivers/telephony/Kconfig
-===================================================================
---- net-2.6.24.orig/drivers/telephony/Kconfig
-+++ net-2.6.24/drivers/telephony/Kconfig
-@@ -19,7 +19,7 @@
- 
- config PHONE_IXJ
- 	tristate "QuickNet Internet LineJack/PhoneJack support"
--	depends ISA || PCI
-+	depends on ISA || PCI
- 	---help---
- 	  Say M if you have a telephony card manufactured by Quicknet
- 	  Technologies, Inc.  These include the Internet PhoneJACK and
+And I could log a WARN or INFO message if the iw_cxgb3 module is loaded 
+and no ethxx:iw alias exists.  This would help clue in the user...
 
--- 
+Steve.
+
+
