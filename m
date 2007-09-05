@@ -1,43 +1,34 @@
-From: Micah Gruber <micah.gruber@gmail.com>
-Subject: [PATCH] Remove unneeded pointer newdp from dccp_v4_request_recv_sock()
- in net/dccp/ipv4.c
-Date: Wed, 05 Sep 2007 13:47:05 +0800
-Message-ID: <46DE42D9.2040200@gmail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] [RFC] allow admin/users to specify rto_min in
+ milliseconds rather than jiffies
+Date: Wed, 5 Sep 2007 07:38:01 +0100
+Message-ID: <20070905073801.2f12991b@oldman>
+References: <200709042020.NAA29612@tardy.cup.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.185]:24825 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754227AbXIEFpz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2007 01:45:55 -0400
-Received: by rv-out-0910.google.com with SMTP id k20so1365163rvb
-        for <netdev@vger.kernel.org>; Tue, 04 Sep 2007 22:45:54 -0700 (PDT)
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:32829 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752445AbXIEGhT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2007 02:37:19 -0400
+In-Reply-To: <200709042020.NAA29612@tardy.cup.hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This trivial patch removes the unneeded pointer newdp, which is never used.
+On Tue, 4 Sep 2007 13:20:47 -0700 (PDT)
+Rick Jones <rick.jones2@hp.com> wrote:
 
-Signed-off-by: Micah Gruber <micah.gruber@gmail.com>
----
+> Build upon David Miller's initial patches to set the per-route rto_min
+> so users can specify the rto_min in the same units (milliseconds) in
+> which they are displayed.  This is desirable because asking users to
+> convert to and from jiffies themselves, when there can be different
+> values of HZ from system to system would be error prone.
+> 
+> Signed-off-by: Rick Jones <rick.jones2@hp.com>
+> ---
 
---- a/net/dccp/ipv4.c	2007-09-04 23:18:42.000000000 +0800
-+++ b/net/dccp/ipv4.c	2007-09-05 00:49:54.000000000 +0800
-@@ -381,7 +381,6 @@
- {
- 	struct inet_request_sock *ireq;
- 	struct inet_sock *newinet;
--	struct dccp_sock *newdp;
- 	struct sock *newsk;
- 
- 	if (sk_acceptq_is_full(sk))
-@@ -396,7 +395,6 @@
- 
- 	sk_setup_caps(newsk, dst);
- 
--	newdp		   = dccp_sk(newsk);
- 	newinet		   = inet_sk(newsk);
- 	ireq		   = inet_rsk(req);
- 	newinet->daddr	   = ireq->rmt_addr;
-
+The api in netlink should be in milliseconds rather than compensating
+in the application (iproute2).
