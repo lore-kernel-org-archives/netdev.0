@@ -1,460 +1,549 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [Lksctp-developers] SCTP: Fix dead loop while received unexpected
- chunk with length set to zero
-Date: Wed, 05 Sep 2007 16:57:37 -0400
-Message-ID: <46DF1841.8040901@hp.com>
-References: <46D223A0.3080604@cn.fujitsu.com> <46D44630.8070802@hp.com> <46D51F91.90101@cn.fujitsu.com> <46D5901C.3010802@hp.com> <46D658B8.8070801@cn.fujitsu.com> <46D6C9F2.5020702@hp.com> <46D7EBA7.5080807@cn.fujitsu.com>
+From: "Anil Veerabhadrappa" <anilgv@broadcom.com>
+Subject: Re: [PATCH v3 2/2][BNX2]: Add iSCSI support to BNX2 devices.
+Date: Wed, 05 Sep 2007 14:27:02 -0700
+Message-ID: <1189027622.19638.42.camel@dhcp-10-13-106-205.broadcom.com>
+References: <1188599815.5176.12.camel@dell>
+ <46DEF69D.3090901@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:51409 "EHLO atlrel6.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752966AbXIEVBI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Sep 2007 17:01:08 -0400
-In-Reply-To: <46D7EBA7.5080807@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: "Michael Chan" <mchan@broadcom.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, open-iscsi@googlegroups.com,
+	talm@broadcom.com, lusinsky@broadcom.com, uri@broadcom.com,
+	"SCSI Mailing List" <linux-scsi@vger.kernel.org>
+To: "Mike Christie" <mchristi@redhat.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <46DEF69D.3090901@redhat.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Wei Yongjun wrote:
-
-> Packet changed:
-> 1. Used sctp_sf_ootb() to handle OOTB packet
-> 2. Remove length check from sctp_sf_tabort_8_4_8() in last patch
-> 3. Add length check to sctp_sf_ootb()
-> 4. Changed validity check order in sctp_sf_do_5_1B_init() and other
-> functions to fix possible attack.
-
-Can you explain a little what the attack vector on this order.
-
-See below...
-
+On Wed, 2007-09-05 at 13:34 -0500, Mike Christie wrote:
+> Michael Chan wrote:
+> > +* This file defines HSI constants for the iSCSI flows
+> > +*/
+> > +
+> > +/* iSCSI request op codes */
+> > +#define ISCSI_OPCODE_NOP_OUT 			(0 | 0x40)
+> > +#define ISCSI_OPCODE_SCSI_CMD 			(1)
+> > +#define ISCSI_OPCODE_TMF_REQUEST 		(2 | 0x40)
+> > +#define ISCSI_OPCODE_LOGIN_REQUEST 		(3 | 0x40)
+> > +#define ISCSI_OPCODE_TEXT_REQUEST 		(4 | 0x40)
+> > +#define ISCSI_OPCODE_DATA_OUT 			(5)
+> > +#define ISCSI_OPCODE_LOGOUT_REQUEST 		(6 | 0x00)
+> > +#define ISCSI_OPCODE_CLEANUP_REQUEST		(7)
 > 
-> This patch may be correct.
 > 
-> 
-> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-> 
-> diff -Nurp a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-> --- a/net/sctp/sm_statefuns.c    2007-08-17 06:17:14.000000000 -0400
-> +++ b/net/sctp/sm_statefuns.c    2007-08-19 07:52:17.000000000 -0400
-> @@ -98,6 +98,7 @@ static sctp_disposition_t sctp_stop_t1_a
->                        struct sctp_transport *transport);
-> 
-> static sctp_disposition_t sctp_sf_abort_violation(
-> +                     const struct sctp_endpoint *ep,
->                      const struct sctp_association *asoc,
->                      void *arg,
->                      sctp_cmd_seq_t *commands,
-> @@ -181,6 +182,14 @@ sctp_disposition_t sctp_sf_do_4_C(const     struct
-> sctp_chunk *chunk = arg;
->     struct sctp_ulpevent *ev;
-> 
-> +    if (!sctp_vtag_verify_either(chunk, asoc))
-> +        return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-> +
-> +    /* Make sure that the SHUTDOWN_COMPLETE chunk has a valid length. */
-> +    if (!sctp_chunk_length_valid(chunk, sizeof(sctp_chunkhdr_t)))
-> +        return sctp_sf_violation_chunklen(ep, asoc, type, arg,
-> +                          commands);
-> +
->     /* RFC 2960 6.10 Bundling
->      *
->      * An endpoint MUST NOT bundle INIT, INIT ACK or
-> @@ -189,9 +198,6 @@ sctp_disposition_t sctp_sf_do_4_C(const     if
-> (!chunk->singleton)
->         return SCTP_DISPOSITION_VIOLATION;
-> 
-> -    if (!sctp_vtag_verify_either(chunk, asoc))
-> -        return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-> -
->     /* RFC 2960 10.2 SCTP-to-ULP
->      *
->      * H) SHUTDOWN COMPLETE notification
+> What is ISCSI_OPCODE_CLEANUP_REQUEST?
 
-OK, I can see how moving this resolves the attack on SHUTDOWN COMPLETE,
-but that was because we reported a rather silly violation message and
-not really skipping the chunk properly.
-
-I looking at other handling of SHUDOWN COMPLETE, one could make an
-argument for simply discarding the packet packet in both cases.
-
-On the other hand, if one protocol violation deserves an abort, then
-why not the other.  They are both very blatant.
+This is a local message between iSCSI driver and the firmware to cleanup
+iSCSI task resources held by chip. This operation is required to reclaim
+SCSI command related resources after the TMF response is received for a
+task and before it is completed to SCSI-ML
 
 
-> @@ -267,6 +273,20 @@ sctp_disposition_t sctp_sf_do_5_1B_init(
->     struct sock *sk;
->     int len;
 > 
-> +    /* Make sure that the INIT chunk has a valid length.
-> +     * Normally, this would cause an ABORT with a Protocol Violation
-> +     * error, but since we don't have an association, we'll
-> +     * just discard the packet.
-> +     */
-> +    if (!sctp_chunk_length_valid(chunk, sizeof(sctp_init_chunk_t)))
-> +        return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-> +
-> +    /* 3.1 A packet containing an INIT chunk MUST have a zero Verification
-> +     * Tag.
-> +     */
-> +    if (chunk->sctp_hdr->vtag != 0)
-> +        return sctp_sf_tabort_8_4_8(ep, asoc, type, arg, commands);
-> +
->     /* 6.10 Bundling
->      * An endpoint MUST NOT bundle INIT, INIT ACK or
->      * SHUTDOWN COMPLETE with any other chunks.
-> @@ -295,20 +315,6 @@ sctp_disposition_t sctp_sf_do_5_1B_init(
->          sk_acceptq_is_full(sk)))
->         return sctp_sf_tabort_8_4_8(ep, asoc, type, arg, commands);
 > 
-> -    /* 3.1 A packet containing an INIT chunk MUST have a zero Verification
-> -     * Tag.
-> -     */
-> -    if (chunk->sctp_hdr->vtag != 0)
-> -        return sctp_sf_tabort_8_4_8(ep, asoc, type, arg, commands);
-> -
-> -    /* Make sure that the INIT chunk has a valid length.
-> -     * Normally, this would cause an ABORT with a Protocol Violation
-> -     * error, but since we don't have an association, we'll
-> -     * just discard the packet.
-> -     */
-> -    if (!sctp_chunk_length_valid(chunk, sizeof(sctp_init_chunk_t)))
-> -        return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-> -
->     /* Verify the INIT chunk before processing it. */
->     err_chunk = NULL;
->     if (!sctp_verify_init(asoc, chunk->chunk_hdr->type,
+> > +
+> > +/* iSCSI response/messages op codes */
+> > +#define ISCSI_OPCODE_NOP_IN 			(0x20)
+> > +#define ISCSI_OPCODE_SCSI_RESPONSE 		(0x21)
+> > +#define ISCSI_OPCODE_TMF_RESPONSE 		(0x22)
+> > +#define ISCSI_OPCODE_LOGIN_RESPONSE 		(0x23)
+> > +#define ISCSI_OPCODE_TEXT_RESPONSE 		(0x24)
+> > +#define ISCSI_OPCODE_DATA_IN			(0x25)
+> > +#define ISCSI_OPCODE_LOGOUT_RESPONSE 		(0x26)
+> > +#define ISCSI_OPCODE_CLEANUP_RESPONSE 		(0x27)
+> > +#define ISCSI_OPCODE_R2T			(0x31)
+> > +#define ISCSI_OPCODE_ASYNC_MSG 			(0x32)
+> > +#define ISCSI_OPCODE_REJECT 			(0x3f)
+> > +#define ISCSI_OPCODE_NOPOUT_LOCAL_COMPLETION	(0)
+> 
+> 
+> What does the LOCAL_COMPLETION on the nopout mean?
 
-Why re-order here?  Is it because sctp_sf_tabort_8_4_8() doesn't discard
-the packet?
-
-An interesting problem with reordering this is that we now respond with
-an abort when previously we were silently discarding.  This is the bundled
-INIT case.  
-
-I spent some time looking at sctp_sf_tabort_8_4_8().  Based on the spec,
-that function should discard the packet.  I finally had time to really
-look at all the callers and I looks like they will be ok with that.
-This was something I asked before, but never got an answer to.
-
-> @@ -591,12 +597,6 @@ sctp_disposition_t sctp_sf_do_5_1D_ce(co
->     int error = 0;
->     struct sctp_chunk *err_chk_p;
-> 
-> -    /* If the packet is an OOTB packet which is temporarily on the
-> -     * control endpoint, respond with an ABORT.
-> -     */
-> -    if (ep == sctp_sk((sctp_get_ctl_sock()))->ep)
-> -        return sctp_sf_ootb(ep, asoc, type, arg, commands);
-> -
->     /* Make sure that the COOKIE_ECHO chunk has a valid length.
->      * In this case, we check that we have enough for at least a
->      * chunk header.  More detailed verification is done
-> @@ -605,6 +605,12 @@ sctp_disposition_t sctp_sf_do_5_1D_ce(co
->     if (!sctp_chunk_length_valid(chunk, sizeof(sctp_chunkhdr_t)))
->         return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-> 
-> +    /* If the packet is an OOTB packet which is temporarily on the
-> +     * control endpoint, respond with an ABORT.
-> +     */
-> +    if (ep == sctp_sk((sctp_get_ctl_sock()))->ep)
-> +        return sctp_sf_tabort_8_4_8(ep, asoc, type, arg, commands);
-> +
->     /* "Decode" the chunk.  We have no optional parameters so we
->      * are in good shape.
->      */
-> @@ -1281,6 +1287,20 @@ static sctp_disposition_t sctp_sf_do_une
->     sctp_unrecognized_param_t *unk_param;
->     int len;
-> 
-> +    /* Make sure that the INIT chunk has a valid length.
-> +     * In this case, we generate a protocol violation since we have
-> +     * an association established.
-> +     */
-> +    if (!sctp_chunk_length_valid(chunk, sizeof(sctp_init_chunk_t)))
-> +        return sctp_sf_violation_chunklen(ep, asoc, type, arg,
-> +                          commands);
-> +
-> +    /* 3.1 A packet containing an INIT chunk MUST have a zero Verification
-> +     * Tag.
-> +     */
-> +    if (chunk->sctp_hdr->vtag != 0)
-> +        return sctp_sf_tabort_8_4_8(ep, asoc, type, arg, commands);
-> +
->     /* 6.10 Bundling
->      * An endpoint MUST NOT bundle INIT, INIT ACK or
->      * SHUTDOWN COMPLETE with any other chunks.
-> @@ -1293,19 +1313,6 @@ static sctp_disposition_t sctp_sf_do_une
->     if (!chunk->singleton)
->         return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-> 
-> -    /* 3.1 A packet containing an INIT chunk MUST have a zero Verification
-> -     * Tag.
-> -     */
-> -    if (chunk->sctp_hdr->vtag != 0)
-> -        return sctp_sf_tabort_8_4_8(ep, asoc, type, arg, commands);
-> -
-> -    /* Make sure that the INIT chunk has a valid length.
-> -     * In this case, we generate a protocol violation since we have
-> -     * an association established.
-> -     */
-> -    if (!sctp_chunk_length_valid(chunk, sizeof(sctp_init_chunk_t)))
-> -        return sctp_sf_violation_chunklen(ep, asoc, type, arg,
-> -                          commands);
->     /* Grab the INIT header.  */
->     chunk->subh.init_hdr = (sctp_inithdr_t *) chunk->skb->data;
-> 
-
-The same question as for the INIT processing above applies here as
-well.
-
-> @@ -2495,6 +2502,11 @@ sctp_disposition_t sctp_sf_do_9_2_reshut
->     struct sctp_chunk *chunk = (struct sctp_chunk *) arg;
->     struct sctp_chunk *reply;
-> 
-> +    /* Make sure that the chunk has a valid length */
-> +    if (!sctp_chunk_length_valid(chunk, sizeof(sctp_chunkhdr_t)))
-> +        return sctp_sf_violation_chunklen(ep, asoc, type, arg,
-> +                          commands);
-> +
->     /* Since we are not going to really process this INIT, there
->      * is no point in verifying chunk boundries.  Just generate
->      * the SHUTDOWN ACK.
-> @@ -3146,6 +3158,11 @@ sctp_disposition_t sctp_sf_ootb(const st
->         ch = (sctp_chunkhdr_t *) ch_end;
->     } while (ch_end < skb_tail_pointer(skb));
-> 
-> +    /* Make sure that the chunk has a valid length. */
-> +    if (!sctp_chunk_length_valid(chunk, sizeof(sctp_chunkhdr_t)))
-> +        return sctp_sf_violation_chunklen(ep, asoc, type, arg,
-> +                          commands);
-> +
->     if (ootb_shut_ack)
->         sctp_sf_shut_8_4_5(ep, asoc, type, arg, commands);
->     else
-
-Hm..  I think you can just replace the 'break' lines in the loop
-with a call to sctp_sf_violation_chunklen() can get rid of yet
-another conditional.
+This is the completion notification for NOPOUT pdus which does not
+involve response from the target. Following two NOPOUTs are classified
+under this -
+1. Initiator's proactive nopout with ITT=0xFFFFFFFF
+2. Initiator's response to target nopin with TTT != 0xFFFFFFFF
 
 
-The rest looks good
-Thanks
--vlad
+> 
+> 
+> > +
+> > +/* iSCSI stages */
+> > +#define ISCSI_STAGE_SECURITY_NEGOTIATION (0)
+> > +#define ISCSI_STAGE_LOGIN_OPERATIONAL_NEGOTIATION (1)
+> > +#define ISCSI_STAGE_FULL_FEATURE_PHASE (3)
+> > +/* Logout response codes */
+> > +#define ISCSI_LOGOUT_RESPONSE_CONNECTION_CLOSED (0)
+> > +#define ISCSI_LOGOUT_RESPONSE_CID_NOT_FOUND (1)
+> > +#define ISCSI_LOGOUT_RESPONSE_CLEANUP_FAILED (3)
+> > +
+> > +/* iSCSI task types */
+> > +#define ISCSI_TASK_TYPE_READ    (0)
+> > +#define ISCSI_TASK_TYPE_WRITE   (1)
+> > +#define ISCSI_TASK_TYPE_MPATH   (2)
+> 
+> 
+> 
+> 
+> All of these iscsi code shoulds be in iscsi_proto.h or should be added 
+> there.
+This is a very tricky proposal as this header file is automatically
+generated by a well defined process and is shared between various driver
+supporting multiple platform/OS and the firmware. If it is not of a big
+issue I would like to keep it the way it is.
 
-> @@ -3240,6 +3257,13 @@ sctp_disposition_t sctp_sf_do_8_5_1_E_sa
->                       void *arg,
->                       sctp_cmd_seq_t *commands)
-> {
-> +    struct sctp_chunk *chunk = arg;
-> +
-> +    /* Make sure that the SHUTDOWN_ACK chunk has a valid length. */
-> +    if (!sctp_chunk_length_valid(chunk, sizeof(sctp_chunkhdr_t)))
-> +        return sctp_sf_violation_chunklen(ep, asoc, type, arg,
-> +                          commands);
-> +
->     /* Although we do have an association in this case, it corresponds
->      * to a restarted association. So the packet is treated as an OOTB
->      * packet and the state function that handles OOTB SHUTDOWN_ACK is
-> @@ -3654,6 +3678,16 @@ sctp_disposition_t sctp_sf_discard_chunk
->                      void *arg,
->                      sctp_cmd_seq_t *commands)
-> {
-> +    struct sctp_chunk *chunk = arg;
-> +
-> +    /* Make sure that the chunk has a valid length.
-> +     * Since we don't know the chunk type, we use a general
-> +     * chunkhdr structure to make a comparison.
-> +     */
-> +    if (!sctp_chunk_length_valid(chunk, sizeof(sctp_chunkhdr_t)))
-> +        return sctp_sf_violation_chunklen(ep, asoc, type, arg,
-> +                          commands);
-> +
->     SCTP_DEBUG_PRINTK("Chunk %d is discarded\n", type.chunk);
->     return SCTP_DISPOSITION_DISCARD;
-> }
-> @@ -3709,6 +3743,13 @@ sctp_disposition_t sctp_sf_violation(con
->                      void *arg,
->                      sctp_cmd_seq_t *commands)
-> {
-> +    struct sctp_chunk *chunk = arg;
-> +
-> +    /* Make sure that the chunk has a valid length. */
-> +    if (!sctp_chunk_length_valid(chunk, sizeof(sctp_chunkhdr_t)))
-> +        return sctp_sf_violation_chunklen(ep, asoc, type, arg,
-> +                          commands);
-> +
->     return SCTP_DISPOSITION_VIOLATION;
-> }
-> 
-> @@ -3716,12 +3757,14 @@ sctp_disposition_t sctp_sf_violation(con
->  * Common function to handle a protocol violation.
->  */
-> static sctp_disposition_t sctp_sf_abort_violation(
-> +                     const struct sctp_endpoint *ep,
->                      const struct sctp_association *asoc,
->                      void *arg,
->                      sctp_cmd_seq_t *commands,
->                      const __u8 *payload,
->                      const size_t paylen)
-> {
-> +    struct sctp_packet *packet = NULL;
->     struct sctp_chunk *chunk =  arg;
->     struct sctp_chunk *abort = NULL;
-> 
-> @@ -3730,22 +3773,41 @@ static sctp_disposition_t sctp_sf_abort_
->     if (!abort)
->         goto nomem;
-> 
-> -    sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
-> -    SCTP_INC_STATS(SCTP_MIB_OUTCTRLCHUNKS);
-> +    if (asoc) {
-> +        sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
-> +        SCTP_INC_STATS(SCTP_MIB_OUTCTRLCHUNKS);
-> 
-> -    if (asoc->state <= SCTP_STATE_COOKIE_ECHOED) {
-> -        sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_STOP,
-> -                SCTP_TO(SCTP_EVENT_TIMEOUT_T1_INIT));
-> -        sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
-> -                SCTP_ERROR(ECONNREFUSED));
-> -        sctp_add_cmd_sf(commands, SCTP_CMD_INIT_FAILED,
-> -                SCTP_PERR(SCTP_ERROR_PROTO_VIOLATION));
-> +        if (asoc->state <= SCTP_STATE_COOKIE_ECHOED) {
-> +            sctp_add_cmd_sf(commands, SCTP_CMD_TIMER_STOP,
-> +                    SCTP_TO(SCTP_EVENT_TIMEOUT_T1_INIT));
-> +            sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
-> +                    SCTP_ERROR(ECONNREFUSED));
-> +            sctp_add_cmd_sf(commands, SCTP_CMD_INIT_FAILED,
-> +                    SCTP_PERR(SCTP_ERROR_PROTO_VIOLATION));
-> +        } else {
-> +            sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
-> +                    SCTP_ERROR(ECONNABORTED));
-> +            sctp_add_cmd_sf(commands, SCTP_CMD_ASSOC_FAILED,
-> +                    SCTP_PERR(SCTP_ERROR_PROTO_VIOLATION));
-> +            SCTP_DEC_STATS(SCTP_MIB_CURRESTAB);
-> +        }
->     } else {
-> -        sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
-> -                SCTP_ERROR(ECONNABORTED));
-> -        sctp_add_cmd_sf(commands, SCTP_CMD_ASSOC_FAILED,
-> -                SCTP_PERR(SCTP_ERROR_PROTO_VIOLATION));
-> -        SCTP_DEC_STATS(SCTP_MIB_CURRESTAB);
-> +        packet = sctp_ootb_pkt_new(asoc, chunk);
-> +
-> +        if (!packet)
-> +            goto nomem;
-> +
-> +        if (sctp_test_T_bit(abort))
-> +            packet->vtag = ntohl(chunk->sctp_hdr->vtag);
-> +
-> +        abort->skb->sk = ep->base.sk;
-> +
-> +        sctp_packet_append_chunk(packet, abort);
-> +
-> +        sctp_add_cmd_sf(commands, SCTP_CMD_SEND_PKT, +           
-> SCTP_PACKET(packet));
-> +
-> +        SCTP_INC_STATS(SCTP_MIB_OUTCTRLCHUNKS);
->     }
-> 
->     sctp_add_cmd_sf(commands, SCTP_CMD_DISCARD_PACKET, SCTP_NULL());
-> @@ -3786,7 +3848,7 @@ static sctp_disposition_t sctp_sf_violat
-> {
->     char err_str[]="The following chunk had invalid length:";
-> 
-> -    return sctp_sf_abort_violation(asoc, arg, commands, err_str,
-> +    return sctp_sf_abort_violation(ep, asoc, arg, commands, err_str,
->                     sizeof(err_str));
-> }
-> 
-> @@ -3805,7 +3867,7 @@ static sctp_disposition_t sctp_sf_violat
-> {
->     char err_str[]="The cumulative tsn ack beyond the max tsn currently
-> sent:";
-> 
-> -    return sctp_sf_abort_violation(asoc, arg, commands, err_str,
-> +    return sctp_sf_abort_violation(ep, asoc, arg, commands, err_str,
->                     sizeof(err_str));
-> }
-> 
-> diff -Nurp a/net/sctp/sm_statetable.c b/net/sctp/sm_statetable.c
-> --- a/net/sctp/sm_statetable.c    2007-08-09 11:58:11.000000000 -0400
-> +++ b/net/sctp/sm_statetable.c    2007-08-19 05:44:29.000000000 -0400
-> @@ -110,7 +110,7 @@ const sctp_sm_table_entry_t *sctp_sm_loo
->     /* SCTP_STATE_EMPTY */ \
->     TYPE_SCTP_FUNC(sctp_sf_ootb), \
->     /* SCTP_STATE_CLOSED */ \
-> -    TYPE_SCTP_FUNC(sctp_sf_tabort_8_4_8), \
-> +    TYPE_SCTP_FUNC(sctp_sf_ootb), \
->     /* SCTP_STATE_COOKIE_WAIT */ \
->     TYPE_SCTP_FUNC(sctp_sf_discard_chunk), \
->     /* SCTP_STATE_COOKIE_ECHOED */ \
-> @@ -173,7 +173,7 @@ const sctp_sm_table_entry_t *sctp_sm_loo
->     /*  SCTP_STATE_EMPTY */ \
->     TYPE_SCTP_FUNC(sctp_sf_ootb), \
->     /* SCTP_STATE_CLOSED */ \
-> -    TYPE_SCTP_FUNC(sctp_sf_tabort_8_4_8), \
-> +    TYPE_SCTP_FUNC(sctp_sf_ootb), \
->     /* SCTP_STATE_COOKIE_WAIT */ \
->     TYPE_SCTP_FUNC(sctp_sf_discard_chunk), \
->     /* SCTP_STATE_COOKIE_ECHOED */ \
-> @@ -194,7 +194,7 @@ const sctp_sm_table_entry_t *sctp_sm_loo
->     /*  SCTP_STATE_EMPTY */ \
->     TYPE_SCTP_FUNC(sctp_sf_ootb), \
->     /* SCTP_STATE_CLOSED */ \
-> -    TYPE_SCTP_FUNC(sctp_sf_tabort_8_4_8), \
-> +    TYPE_SCTP_FUNC(sctp_sf_ootb), \
->     /* SCTP_STATE_COOKIE_WAIT */ \
->     TYPE_SCTP_FUNC(sctp_sf_discard_chunk), \
->     /* SCTP_STATE_COOKIE_ECHOED */ \
-> @@ -216,7 +216,7 @@ const sctp_sm_table_entry_t *sctp_sm_loo
->     /*  SCTP_STATE_EMPTY */ \
->     TYPE_SCTP_FUNC(sctp_sf_ootb), \
->     /* SCTP_STATE_CLOSED */ \
-> -    TYPE_SCTP_FUNC(sctp_sf_tabort_8_4_8), \
-> +    TYPE_SCTP_FUNC(sctp_sf_ootb), \
->     /* SCTP_STATE_COOKIE_WAIT */ \
->     TYPE_SCTP_FUNC(sctp_sf_violation), \
->     /* SCTP_STATE_COOKIE_ECHOED */ \
-> @@ -258,7 +258,7 @@ const sctp_sm_table_entry_t *sctp_sm_loo
->     /* SCTP_STATE_EMPTY */ \
->     TYPE_SCTP_FUNC(sctp_sf_ootb), \
->     /* SCTP_STATE_CLOSED */ \
-> -    TYPE_SCTP_FUNC(sctp_sf_tabort_8_4_8), \
-> +    TYPE_SCTP_FUNC(sctp_sf_ootb), \
->     /* SCTP_STATE_COOKIE_WAIT */ \
->     TYPE_SCTP_FUNC(sctp_sf_discard_chunk), \
->     /* SCTP_STATE_COOKIE_ECHOED */ \
-> @@ -300,7 +300,7 @@ const sctp_sm_table_entry_t *sctp_sm_loo
->     /* SCTP_STATE_EMPTY */ \
->     TYPE_SCTP_FUNC(sctp_sf_ootb), \
->     /* SCTP_STATE_CLOSED */ \
-> -    TYPE_SCTP_FUNC(sctp_sf_tabort_8_4_8), \
-> +    TYPE_SCTP_FUNC(sctp_sf_ootb), \
->     /* SCTP_STATE_COOKIE_WAIT */ \
->     TYPE_SCTP_FUNC(sctp_sf_discard_chunk), \
->     /* SCTP_STATE_COOKIE_ECHOED */ \
-> @@ -499,7 +499,7 @@ static const sctp_sm_table_entry_t addip
->     /* SCTP_STATE_EMPTY */ \
->     TYPE_SCTP_FUNC(sctp_sf_ootb), \
->     /* SCTP_STATE_CLOSED */ \
-> -    TYPE_SCTP_FUNC(sctp_sf_tabort_8_4_8), \
-> +    TYPE_SCTP_FUNC(sctp_sf_ootb), \
->     /* SCTP_STATE_COOKIE_WAIT */ \
->     TYPE_SCTP_FUNC(sctp_sf_discard_chunk), \
->     /* SCTP_STATE_COOKIE_ECHOED */ \
-> @@ -528,7 +528,7 @@ chunk_event_table_unknown[SCTP_STATE_NUM
->     /* SCTP_STATE_EMPTY */
->     TYPE_SCTP_FUNC(sctp_sf_ootb),
->     /* SCTP_STATE_CLOSED */
-> -    TYPE_SCTP_FUNC(sctp_sf_tabort_8_4_8),
-> +    TYPE_SCTP_FUNC(sctp_sf_ootb),
->     /* SCTP_STATE_COOKIE_WAIT */
->     TYPE_SCTP_FUNC(sctp_sf_unk_chunk),
->     /* SCTP_STATE_COOKIE_ECHOED */
+
 > 
 > 
+> > +
+> > +#endif
+> > diff --git a/drivers/scsi/bnx2i/bnx2i_hwi.c b/drivers/scsi/bnx2i/bnx2i_hwi.c
+> > new file mode 100644
+> > index 0000000..b74a93c
+> > --- /dev/null
+> > +++ b/drivers/scsi/bnx2i/bnx2i_hwi.c
+> > @@ -0,0 +1,1977 @@
+> > +
+> > +	if (tmf_cqe->response == ISCSI_TMF_RSP_COMPLETE) {
+> > +		if (aborted_cmd->scsi_cmd) {
+> > +			aborted_cmd->scsi_cmd->result = DID_ABORT << 16;
+> > +			aborted_cmd->scsi_cmd->resid =
+> 
+> should use resid wrappers throughout driver.
+> 
+> > +				aborted_cmd->scsi_cmd->request_bufflen;
+> 
+> Should use bufflen wrappers throught driver.
+
+Will look into this.
+
+
+> > +	cmd->cmd_state = ISCSI_CMD_STATE_INITIATED;
+> > +	sc->SCp.ptr = (char *) cmd;
+> > +
+> > +	if (cmd->req.itt != ITT_INVALID_SIGNATURE) {
+> > +		bnx2i_send_iscsi_scsicmd(conn, cmd);
+> > +		list_add_tail(&cmd->link, &sess->active_cmds);
+> > +		sess->num_active_cmds++;
+> > +	}
+> > +	return 0;
+> > +
+> > +iscsi_win_closed:
+> > +cmd_not_accepted:
+> > +	return SCSI_MLQUEUE_HOST_BUSY;
+> > +
+> > +dev_not_found:
+> > +	sc->sense_buffer[0] = 0x70;
+> > +	sc->sense_buffer[2] = NOT_READY;
+> > +	sc->sense_buffer[7] = 0x6;
+> > +	sc->sense_buffer[12] = 0x08;
+> > +	sc->sense_buffer[13] = 0x00;
+> 
+> 
+> do not fake sense and do not face sense and set a host byte of 
+> DID_NO_CONNECT. DID_NO_CONNECT is fine.
+
+ok, thanks.
+
+> 
+> 
+> > +	sc->result = (DID_NO_CONNECT << 16);
+> > +	sc->resid = sc->request_bufflen;
+> > +	sc->scsi_done(sc);
+> > +	return 0;
+> > +}
+> > +
+> > +
+> > +
+> > +/*
+> > + * TMF request timeout handler
+> > + */
+> > +static void bnx2i_iscsi_tmf_timer(unsigned long data)
+> > +{
+> > +	struct bnx2i_cmd *cmd = (struct bnx2i_cmd *) data;
+> > +
+> > +	printk(KERN_ALERT "TMF timer: abort failed, cmd 0x%p\n", cmd);
+> > +	cmd->cmd_state = ISCSI_CMD_STATE_TMF_TIMEOUT;
+> > +	cmd->conn->sess->recovery_state = ISCSI_SESS_RECOVERY_OPEN_ISCSI;
+> > +	iscsi_conn_error(cmd->conn->cls_conn, ISCSI_ERR_CONN_FAILED);
+> > +}
+> > +
+> > +
+> > +/*
+> > + * initiate command abort process by requesting CNIC to send
+> > + *	an iSCSI TMF request to target
+> > + */
+> > +static int bnx2i_initiate_abort_cmd(struct scsi_cmnd *sc)
+> > +{
+> > +	struct bnx2i_cmd *cmd = (struct bnx2i_cmd *) sc->SCp.ptr;
+> > +	struct bnx2i_cmd *tmf_cmd;
+> > +	struct Scsi_Host *shost = cmd->scsi_cmd->device->host;
+> > +	struct bnx2i_conn *conn = cmd->conn;
+> > +	struct bnx2i_sess *sess;
+> > +	struct bnx2i_hba *hba;
+> > +
+> > +	shost = cmd->scsi_cmd->device->host;
+> > +	sess = iscsi_hostdata(shost->hostdata);
+> > +	BUG_ON(shost != sess->host);
+> > +
+> > +	if (sess && (is_sess_active(sess)))
+> > +		hba = sess->hba;
+> > +	else
+> > +		return FAILED;
+> > +
+> > +	if (test_bit(ADAPTER_STATE_LINK_DOWN, &hba->adapter_state))
+> > +		return FAILED;
+> > +
+> > +	bnx2i_setup_ictx_dump(hba, conn);
+> > +
+> > +	if (cmd->scsi_cmd != sc)
+> > +		/* command already completed to scsi mid-layer */
+> > +		goto cmd_not_active;
+> > +
+> > +	tmf_cmd = bnx2i_alloc_cmd(sess);
+> > +	if (tmf_cmd == NULL)
+> > +		goto lack_of_resc;
+> > +
+> > +	tmf_cmd->conn = conn = sess->lead_conn;
+> > +	tmf_cmd->scsi_cmd = NULL;
+> > +	tmf_cmd->iscsi_opcode = ISCSI_OPCODE_TMF_REQUEST;
+> > +	tmf_cmd->req.cmd_sn = sess->cmdsn;
+> > +	tmf_cmd->tmf_ref_itt = cmd->req.itt;
+> > +	tmf_cmd->tmf_ref_cmd = cmd;
+> > +	tmf_cmd->tmf_ref_sc = cmd->scsi_cmd;
+> > +	cmd->cmd_state = ISCSI_CMD_STATE_ABORT_PEND;
+> > +	tmf_cmd->cmd_state = ISCSI_CMD_STATE_INITIATED;
+> > +
+> > +#define BNX2I_TMF_TIMEOUT	10 * HZ
+> > +	sess->abort_timer.expires = BNX2I_TMF_TIMEOUT + jiffies;
+> > +	sess->abort_timer.function = bnx2i_iscsi_tmf_timer;
+> > +	sess->abort_timer.data = (unsigned long)tmf_cmd;
+> > +	add_timer(&sess->abort_timer);
+> > +
+> > +	bnx2i_send_iscsi_tmf(conn, tmf_cmd);
+> > +
+> > +	/* update iSCSI context for this conn, wait for CNIC to complete */
+> > +	wait_event_interruptible(sess->er_wait, (!conn->ep ||
+> > +		 			 (tmf_cmd->cmd_state ==
+> > +					  ISCSI_CMD_STATE_FAILED) ||
+> > +					 (tmf_cmd->cmd_state ==
+> > +					  ISCSI_CMD_STATE_COMPLETED)));
+> > +
+> > +	if (signal_pending(current))
+> > +		flush_signals(current);
+> > +
+> > +	del_timer_sync(&sess->abort_timer);
+> > +
+> > +	if (tmf_cmd->cmd_state == ISCSI_CMD_STATE_TMF_TIMEOUT) {
+> > +		printk(KERN_ALERT "abort: abort failed, cmd 0x%p\n", tmf_cmd);
+> > +		/* TMF timed out, return error status and let SCSI-ML do
+> > +		 * session recovery.
+> > +		 */
+> > +		list_del_init(&tmf_cmd->link);
+> > +		bnx2i_free_cmd(sess, tmf_cmd);
+> > +		return SUCCESS;
+> > +	}
+> > +
+> > +	list_del_init(&tmf_cmd->link);
+> > +	bnx2i_free_cmd(sess, tmf_cmd);
+> > +
+> > +	if ((cmd->scsi_cmd->result & 0xFF0000) == (DID_ABORT << 16)) {
+> > +		cmd->cmd_state = ISCSI_CMD_STATE_CLEANUP_PEND;
+> > +		bnx2i_send_cmd_cleanup_req(hba, cmd);
+> > +		wait_event_interruptible_timeout(sess->er_wait,
+> > +						 (cmd->cmd_state ==
+> > +						  ISCSI_CMD_STATE_CLEANUP_CMPL),
+> > +						 msecs_to_jiffies(
+> > +						  ISCSI_CMD_CLEANUP_TIMEOUT));
+> > +
+> > +		if (signal_pending(current))
+> > +			flush_signals(current);
+> > +	} else
+> > +		cmd->scsi_cmd->result = (DID_ABORT << 16);
+> > +
+> > +	cmd->conn->sess->num_active_cmds--;
+> > +	list_del_init(&cmd->link);
+> > +	bnx2i_return_failed_command(sess, cmd, DID_ABORT);
+> > +	bnx2i_free_cmd(sess, cmd);
+> > +
+> > +cmd_not_active:
+> > +	return SUCCESS;
+> > +
+> > +lack_of_resc:
+> > +	return FAILED;
+> > +}
+> > +
+> > +
+> > +/*
+> > + * SCSI abort request handler.
+> > + */
+> > +int bnx2i_abort(struct scsi_cmnd *sc)
+> > +{
+> > +	int reason;
+> > +	struct bnx2i_cmd *cmd = (struct bnx2i_cmd *) sc->SCp.ptr;
+> > +
+> > +	if (unlikely(!cmd)) {
+> > +		/* command already completed to scsi mid-layer */
+> > +		printk(KERN_INFO "bnx2i_abort: sc 0x%p, not active\n", sc);
+> > +		return SUCCESS;
+> > +	}
+> > +
+> > +	reason = bnx2i_initiate_abort_cmd(sc);
+> > +	return reason;
+> > +}
+> > +
+> > +
+> > +
+> > +/*
+> > + * hardware reset
+> > + */
+> > +int bnx2i_reset(struct scsi_cmnd *sc)
+> > +{
+> > +	return 0;
+> > +}
+> 
+> 
+> So what is up with this one? It seems like if there is a way to reset 
+> hardware then you would want it as the scsi eh host reset callout 
+> instead of dropping the session. We could add some transport level 
+> recovery callouts for the iscsi specifics.
+
+We may not be able to support HBA cold reset as bnx2 driver is the
+primary owner of chip reset and initialization. This is the drawback of
+sharing network interface with the NIC driver. If there is a need for
+administrator to reset the iSCSI port same can be achieved by running
+'ifdown eth#' and 'ifup eth#'.
+Current driver even allows ethernet interface reset when there are
+active iSCSI connection, all active iscsi sessions will be reinstated
+when the network link comes back live
+ 
+
+
+
+> 
+> 
+> > +
+> > +
+> > +void bnx2i_return_failed_command(struct bnx2i_sess *sess,
+> > +				 struct bnx2i_cmd *cmd, int err_code)
+> > +{
+> > +	struct scsi_cmnd *sc = cmd->scsi_cmd;
+> > +	sc->result = err_code << 16;
+> > +	sc->resid = cmd->scsi_cmd->request_bufflen;
+> > +	cmd->scsi_cmd = NULL;
+> > +	sess->num_active_cmds--;
+> > +	sc->SCp.ptr = NULL;
+> > +	sc->scsi_done(sc);
+> > +}
+> > +
+> > +
+> > +
+> > +/*
+> > + * SCSI host reset handler - iSCSI session recovery
+> > + */
+> > +int bnx2i_host_reset(struct scsi_cmnd *sc)
+> > +{
+> > +	struct Scsi_Host *shost;
+> > +	struct bnx2i_sess *sess;
+> > +	int rc = 0;
+> > +
+> > +	shost = sc->device->host;
+> > +	sess = iscsi_hostdata(shost->hostdata);
+> > +	printk(KERN_INFO "bnx2i: attempting to reset host, #%d\n",
+> > +			  sess->host->host_no);
+> > +
+> > +	BUG_ON(shost != sess->host);
+> > +	rc = bnx2i_do_iscsi_sess_recovery(sess, DID_RESET);
+> > +
+> > +	return rc;
+> > +}
+> > +
+> > +
+> > +
+> > +/**********************************************************************
+> > + *		open-iscsi interface
+> > + **********************************************************************/
+> > +
+> > +
+> > +#define get_bnx2_device(_hba, _devc) 	do {				\
+> > +		if ((_hba->pci_did == PCI_DEVICE_ID_NX2_5706) ||	\
+> > +			(_hba->pci_did == PCI_DEVICE_ID_NX2_5706S)) {	\
+> > +			_devc = '6';					\
+> > +		} else if ((_hba->pci_did == PCI_DEVICE_ID_NX2_5708) ||	\
+> > +			(_hba->pci_did == PCI_DEVICE_ID_NX2_5708S)) {	\
+> > +			_devc = '8';					\
+> > +		} else if ((_hba->pci_did == PCI_DEVICE_ID_NX2_5709) ||	\
+> > +			(_hba->pci_did == PCI_DEVICE_ID_NX2_5709S)) {	\
+> > +			_devc = '9';					\
+> > +		}							\
+> > +	} while (0)
+> > +
+> > +/* from open-iscsi project */
+> > +/*
+> > + * iSCSI Session's hostdata organization:
+> > + *
+> > + *    *------------------* <== hostdata_session(host->hostdata)
+> > + *    | ptr to class sess|
+> > + *    |------------------| <== iscsi_hostdata(host->hostdata)
+> > + *    | iscsi_session    |
+> > + *    *------------------*
+> > + */
+> 
+> 
+> 
+> I think it is going to be nicer to not allocate the host with the 
+> session for bnx2i like was done for qla4xxx. If you are going to 
+> allocate the host with the session then it seems like you should be able 
+> to intergrate into libiscsi like was done with iscsi_tcp and ib_iser. 
+> And even if you do not allocate a host per session it seems like you 
+> should be able to better integreate with libiscsi like was done with 
+> iscsi_tcp and ib_iser. Right now, it is sort of a mix of qla4xxx's model 
+> and iscsi_tcp/ib_iser's model which is not going to work well in the 
+> long run.
+Either way will work for us, will investigate more on the code changes
+required in bnx2i  
+
+
+> You can change libiscsi so that you do not run in the host's workq and 
+> so data structs are better optimized for you and whatever else is 
+> needed. I mean feel free to change that code so it better suits your 
+> model. Your code is probably closer to ib_iser since that module does 
+> not have to handle operations like responding to r2ts and has to make 
+> its own connections.
+
+Right.
+
+
+> 
+> There seem to be some bugs from when you might have modeled bnx2i's 
+> callouts after a older iscsi_tcp or ib_iser. Those bugs got fixed for 
+> both modules for free when libiscsi got fixed.
+> 
+> 
+> > +
+> > +#define hostdata_privsize(_sz)	(sizeof(unsigned long) + _sz + \
+> > +				 _sz % sizeof(unsigned long))
+> > +
+> > +#define hostdata_session(_hostdata) (iscsi_ptr(*(unsigned long *)_hostdata))
+> > +
+> > +#define session_to_cls(_sess) 	hostdata_session(_sess->host->hostdata)
+> > +
+> > +
+> > +
+> > +
+> > +/*
+> > + * Function: bnx2i_register_xport
+> > + * Description: this routine will allocate memory for SCSI host template,
+> > + * 		iSCSI template and registers one instance of NX2 device with
+> > + *		iSCSI Transport Kernel module.
+> > + */
+> > +int bnx2i_register_xport(struct bnx2i_hba *hba)
+> > +{
+> > +	void *mem_ptr;
+> > +	char dev_id = '8';
+> > +
+> > +	get_bnx2_device(hba, dev_id);
+> > +
+> > +	mem_ptr = kmalloc(sizeof(struct scsi_host_template), GFP_KERNEL);
+> > +	hba->scsi_template = mem_ptr;
+> > +	if (hba->scsi_template == NULL) {
+> > +		printk(KERN_ALERT "bnx2i: failed to alloc memory for sht\n");
+> > +		return -ENOMEM;
+> > +	}
+> > +
+> > +	mem_ptr = kmalloc(sizeof(struct iscsi_transport), GFP_KERNEL);
+> > +	hba->iscsi_transport = mem_ptr;
+> > +	if (hba->iscsi_transport == NULL) {
+> > +		printk(KERN_ALERT "mem error for iscsi_transport template\n");
+> > +		goto iscsi_xport_err;
+> > +	}
+> > +
+> > +	mem_ptr = kmalloc(BRCM_ISCSI_XPORT_NAME_SIZE_MAX, GFP_KERNEL);
+> > +	if (mem_ptr == NULL) {
+> > +		printk(KERN_ALERT "failed to alloc memory for xport name\n");
+> > +		goto scsi_name_mem_err;
+> > +	}
+> > +
+> > +	memcpy(hba->scsi_template, (const void *) &bnx2i_host_template,
+> > +	       sizeof(struct scsi_host_template));
+> > +	hba->scsi_template->name = mem_ptr;
+> > +	memcpy((void *) hba->scsi_template->name,
+> > +	       (const void *) bnx2i_host_template.name,
+> > +	       strlen(bnx2i_host_template.name) + 1);
+> > +
+> > +	mem_ptr = kmalloc(BRCM_ISCSI_XPORT_NAME_SIZE_MAX, GFP_KERNEL);
+> > +	if (mem_ptr == NULL) {
+> > +		printk(KERN_ALERT "failed to alloc proc name mem\n");
+> > +		goto scsi_proc_name_mem_err;
+> > +	}
+> > +	hba->scsi_template->proc_name = mem_ptr;
+> > +
+> > +	memcpy((void *) hba->iscsi_transport,
+> > +	       (const void *) &bnx2i_iscsi_transport,
+> > +	       sizeof(struct iscsi_transport));
+> > +
+> > +	hba->iscsi_transport->host_template = hba->scsi_template;
+> > +
+> > +	mem_ptr = kmalloc(BRCM_ISCSI_XPORT_NAME_SIZE_MAX, GFP_KERNEL);
+> > +	if (mem_ptr == NULL) {
+> > +		printk(KERN_ALERT "mem alloc error, iscsi xport name\n");
+> > +		goto xport_name_mem_err;
+> > +	}
+> > +	hba->iscsi_transport->name = mem_ptr;
+> > +	sprintf(mem_ptr, "%s%c-%.2x%.2x%.2x", BRCM_ISCSI_XPORT_NAME_PREFIX,
+> > +			 dev_id, (u8)hba->pci_dev->bus->number,
+> > +			 hba->pci_devno, (u8)hba->pci_func);
+> > +
+> > +	memcpy((void *) hba->scsi_template->proc_name, (const void *) mem_ptr,
+> > +	       strlen(mem_ptr) + 1);
+> > +
+> > +	hba->shost_template = iscsi_register_transport(hba->iscsi_transport);
+> > +	if (!hba->shost_template) {
+> > +		printk(KERN_ALERT "bnx2i: xport reg failed, hba 0x%p\n", hba);
+> > +		goto failed_registration;
+> > +	}
+> 
+> 
+> The transport should be allocated like qla4xxx or iscsi_tcp/ib_iser. 
+> Userspace then sets everything up based on usersettings like with 
+> qla4xxx and iscsi_tcp and ib_iser.
+> 
+> I started that patch that I sent to you guys to modify 
+> scsi_transport_iscsi abd libiscsi for you guys, but have not finished it 
+> yet. I am trying to finish merging Olafs iscsi_tcp patches. Feel free to 
+> change iscsid, scsi_transport_iscsi and libiscsi for me.
+> 
+> 
+> > +}
+> > +
+> > +int bnx2i_sysfs_setup(void)
+> > +{
+> > +	int ret;
+> > +	ret = class_register(&bnx2i_class);
+> > +
+> > +	bnx2i_register_port_class_dev(&port_class_dev);
+> > +	return ret;
+> > +}
+> > +
+> > +void bnx2i_sysfs_cleanup(void)
+> > +{
+> > +	class_device_unregister(&port_class_dev);
+> > +	class_unregister(&bnx2i_class);
+> > +}
+> 
+> The sysfs bits related to the hba should be use one of the scsi sysfs 
+> facilities or if they are related to iscsi bits and are generic then 
+> through the iscsi hba
+
+bnx2i needs 2 sysfs entries -
+1. QP size info - this is used to size per connection shared data
+structures to issue work requests to chip (login, scsi cmd, tmf, nopin)
+and get completions from the chip (scsi completions, async messages,
+etc'). This is a iSCSI HBA attribute
+2. port mapper - we can be more flexible on classifying this as either
+iSCSI HBA attribute or bnx2i driver global attribute
+Can hooks be added to iSCSI transport class to include these?
 
