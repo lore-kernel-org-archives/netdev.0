@@ -1,49 +1,55 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH] [sis900] convert to NAPI, WAS Re: pktgen terminating
- condition
-Date: Wed, 05 Sep 2007 13:03:21 +0100
-Message-ID: <46DE9B09.7060603@katalix.com>
-References: <20070904032036.GA11153@ludhiana> <1188925008-ced672f60b90353067426d0b9f74506a@brownhat.org> <20070905074411.GA4815@ludhiana>
+From: Neil Brown <neilb@suse.de>
+Subject: Re: Oops in 2.6.22.1: skb_copy_and_csum_datagram_iovec()
+Date: Wed, 5 Sep 2007 13:05:16 +0100
+Message-ID: <18142.39804.387020.852675@notabene.brown>
+References: <46CB453B.5040005@redhat.com>
+	<E1INkpM-00007x-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Daniele Venzano <venza@brownhat.org>, hadi@cyberus.ca,
-	davem@davemloft.net, rick.jones2@hp.com, msb@google.com,
-	netdev@vger.kernel.org, grundler@google.com,
-	robert.olsson@its.uu.se, jeff@garzik.org, nhorman@tuxdriver.com
-To: Mandeep Singh Baines <mandeep.baines@gmail.com>
+Cc: cebbert@redhat.com (Chuck Ebbert), netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:60868 "EHLO s36.avahost.net"
+Received: from cantor2.suse.de ([195.135.220.15]:44927 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753360AbXIEMDi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Sep 2007 08:03:38 -0400
-In-Reply-To: <20070905074411.GA4815@ludhiana>
+	id S1753343AbXIEMFT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Sep 2007 08:05:19 -0400
+In-Reply-To: message from Herbert Xu on Wednesday August 22
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mandeep Singh Baines wrote:
-> Daniele Venzano (venza@brownhat.org) wrote:
->> The patch looks good and I think it can be pushed higher (-mm ?) for some wider 
->> testing. I don't have the hardware available to do some tests myself, 
->> unfortunately, but it would be similar to yours anyway.
->>
->> I'd like to know how this works for people with less memory and slower CPU, but any 
->> kind of test run will be appreciated.
+On Wednesday August 22, herbert@gondor.apana.org.au wrote:
+> Chuck Ebbert <cebbert@redhat.com> wrote:
+> > https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=253290
+> > 
+> > 18:57:54 osama kernel:  [<c05be67f>] kernel_recvmsg+0x31/0x40
+> > 18:57:54 osama kernel:  [<e0bc52d4>] svc_udp_recvfrom+0x114/0x368 [sunrpc]
 > 
-> Hi Daniele,
-> 
-> I tested the driver under different setting of CPU clock. Under a lower clock,
-> I get less interrupts (what I was hoping for) and slightly less performance.
-> Under higher clock, I get better performance and almost 1 interrupt per packet.
+> svc_udp_recvfrom is calling kernel_recvmsg with iov == NULL.
 
-I have a patch that solves the high interrupt rate problem by keeping 
-the driver in polled mode longer. It's written for the latest NAPI 
-version that DaveM posted recently. I'll try to get some time to write 
-it up and post it for comment.
+iov == NULL used to work.
 
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+I think it stopped working at 
+   commit 759e5d006462d53fb708daa8284b4ad909415da1
 
+Previously, as len==0, MSG_TRUNC would get set, so copy_only would get
+set, so skb_copy_datagram_iovec would get called, and that handles a
+len of 0.
+
+Now, skb_copy_and_csum_datagram_iovec gets called unless
+skb_csum_unnecessary(skb), which now kills us.
+
+We could 'fix' it by making skb_copy_and_csum_datagram_iovec just
+return if len==0, or don't call it from udp_recvmsg in that case.
+
+The reason that I call kernel_recvmsg with iov == NULL is that I want
+to collect the source/dest addresses of the packet, but I don't want
+to actually read the data - I want to just get a reference to the skb
+(to avoid needless copy where possible) later.
+So I call kernel_recvmsg with MSG_PEEK, and don't bother with an
+iovec.
+
+I guess a could send an empty iovec rather than a NULL, but it used to
+work.... 
+
+NeilBrown
