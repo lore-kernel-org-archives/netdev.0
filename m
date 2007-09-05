@@ -1,56 +1,43 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [PATCH 9/11] cxgb3 - engine microcode update
-Date: Wed, 05 Sep 2007 09:36:57 -0500
-Message-ID: <46DEBF09.5080808@opengridcomputing.com>
-References: <20070822034947.9404.87301.stgit@speedy5> <46D819CE.5050207@garzik.org> <46DEB664.2090704@opengridcomputing.com> <20070905143029.GC19543@havoc.gtf.org>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH RFC] iw_cxgb3: Support "iwarp-only" interfaces to avoid 4-tuple conflicts with the host stack.
+Date: Wed, 05 Sep 2007 08:18:00 -0700
+Message-ID: <ada642puonr.fsf@cisco.com>
+References: <1187905185.5547.13.camel@stevo-desktop>
+	<adaveawwcpz.fsf@cisco.com> <46DD762F.80904@opengridcomputing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Divy Le Ray <divy@chelsio.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: general@lists.openfabrics.org, ewg@lists.openfabrics.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sean.hefty@intel.com
+To: Steve Wise <swise@opengridcomputing.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.opengridcomputing.com ([71.42.183.126]:42265 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932072AbXIEOg6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2007 10:36:58 -0400
-In-Reply-To: <20070905143029.GC19543@havoc.gtf.org>
+Received: from sj-iport-4.cisco.com ([171.68.10.86]:30827 "EHLO
+	sj-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756692AbXIEPSF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2007 11:18:05 -0400
+In-Reply-To: <46DD762F.80904@opengridcomputing.com> (Steve Wise's message of "Tue, 04 Sep 2007 10:13:51 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+ > > What's wrong with my suggestion of having the iwarp driver create an
+ > > "iwX" interface to go with the normal "ethX" interface?  It seems
+ > > simpler to me, and there's a somewhat similar precedent with how
+ > > mac80211 devices create both wlan0 and wmaster0 interfaces.
+ > >  - R.
+ > 
+ > It seemed much more painful for me to implement. :-)
+ > 
+ > I'll look into this, but I think for this to be done, the changes must
+ > be in the cxgb3 driver, not the rdma driver, because the guts of the
+ > netdev struct are all private to cxgb3.  Remember that this interface
+ > needs to still do non TCP traffic (like ARP and UDP)...
+ > 
+ > Maybe you have something in mind here that I'm not thinking about?
 
+No, I was just spouting off.
 
-Jeff Garzik wrote:
-> On Wed, Sep 05, 2007 at 09:00:04AM -0500, Steve Wise wrote:
->>
->> Jeff Garzik wrote:
->>> Divy Le Ray wrote:
->>>> From: Divy Le Ray <divy@chelsio.com>
->>>>
->>>> Load microcode engine when the interface
->>>> is configured up.
->>>> Bump up version to 1.1.0.
->>>> Allow the driver to be and running with
->>>> older microcode images.
->>>> Allow ethtool to log the microcode version.
->>>>
->>>> Signed-off-by: Divy Le Ray <divy@chelsio.com>
->>> ACK patches 9-14, but dropped, since they do not apply to #upstream 
->>> (probably due to fixes sent into 2.6.23-rc)
->>>
->> Hey Jeff,
->>
->> I think 9-14 still need to be incorporated.  I don't see them in your 
->> upstream branch, and they aren't in linus' tree either.
-> 
-> I am not the blocker here.  Re-read the email you quoted.
-> 
-> 	Jeff, still waiting for the patches
-> 
+But the whole "create a magic alias" seems kind of unfriendly to the
+user.  Maybe as you said, the cxgb3 net driver could create the alias
+for the iw_cxgb3 driver?
 
-Ok.  I didn't get that you were stating that the patches should be 
-resent because they're busted :)
-
-
-Steve.
-
+ - R.
