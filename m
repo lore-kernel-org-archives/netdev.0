@@ -1,37 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: net-2.6.24 rebased
-Date: Thu, 06 Sep 2007 03:57:56 -0700 (PDT)
-Message-ID: <20070906.035756.41664070.davem@davemloft.net>
+Subject: Re: [TG3]: Workaround MSI bug on 5714/5780.
+Date: Thu, 06 Sep 2007 04:02:35 -0700 (PDT)
+Message-ID: <20070906.040235.71121480.davem@davemloft.net>
+References: <1189022828.4960.2.camel@dell>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, andy@greyhouse.net
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:58531
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:59494
 	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755173AbXIFK55 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 06:57:57 -0400
-Received: from localhost (picasso.davemloft.net [127.0.0.1])
-	by picasso.davemloft.net (8.13.8/8.13.8) with ESMTP id l86Avu8D000850
-	for <netdev@vger.kernel.org>; Thu, 6 Sep 2007 03:57:56 -0700
+	by vger.kernel.org with ESMTP id S1751008AbXIFLCk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 07:02:40 -0400
+In-Reply-To: <1189022828.4960.2.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 05 Sep 2007 13:07:08 -0700
 
-Upstream got a backport of my netdev->priv fixes for the
-cxgb3 driver, creating a bunch of conflicts with the napi_struct
-changes, so I took the opportunity to refresh the tree and
-combine some bug fixes into the changes that introduced those
-bugs :-) (bug fix attributions were added to the changelogs
-as needed)
+> [TG3]: Workaround MSI bug on 5714/5780.
+> 
+> A hardware bug was revealed after a recent PCI MSI patch was made to
+> always disable legacy INTX when enabling MSI.  The 5714/5780 chips
+> will not generate MSI when INTX is disabled, causing MSI failure
+> messages to be reported, and another patch was made to workaround the
+> problem by disabling MSI on ServerWorks HT1000 bridge chips commonly
+> found with the 5714.
+> 
+> We workaround this chip bug by enabling INTX after we enable MSI and
+> after we resume from suspend.
+> 
+> Update version to 3.81.
+> 
+> This problem was discovered by David Miller.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.24.git
-
-I've tried to sanity check this rebase as best as possible
-but mistakes are always possible especially since I'm doing
-this from the kernel summit in Cambridge :-)
-
-I've kept the previous tree around as "bak-net-2.6.24.git"
-so it can be referenced for researching potential mistakes.
-
-Enjoy!
+Thanks a lot Michael, I'll apply this and work on reverting that
+incorrect MSI chipset quirk too.
