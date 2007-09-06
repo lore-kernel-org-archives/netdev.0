@@ -1,45 +1,44 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] [RFC] allow admin/users to specify rto_min in	milliseconds
- rather than jiffies
-Date: Thu, 06 Sep 2007 14:17:48 -0700
-Message-ID: <46E06E7C.4000407@hp.com>
-References: <200709042020.NAA29612@tardy.cup.hp.com> <20070905073801.2f12991b@oldman>
+From: Mark Hindley <mark@hindley.org.uk>
+Subject: Re: [PATCH -mm 1/2] 3c59x: Fix uninitialized variable bug
+Date: Thu, 6 Sep 2007 22:40:08 +0100
+Message-ID: <20070906214008.GA11224@hindley.org.uk>
+References: <alpine.LFD.0.999.0709040340250.8504@enigma.security.iitk.ac.in> <20070904081602.GB4241@newton.mathematik.tu-chemnitz.de> <20070904085331.GH5944@hindley.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux Netdev Mailing List <netdev@vger.kernel.org>,
+	Jeff Garzik <jeff@garzik.org>
+To: Satyam Sharma <satyam@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel12.hp.com ([156.153.255.237]:55462 "EHLO palrel12.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932382AbXIFVSR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Sep 2007 17:18:17 -0400
-In-Reply-To: <20070905073801.2f12991b@oldman>
+Received: from 83-216-141-215.markhi700.adsl.metronet.co.uk ([83.216.141.215]:4303
+	"EHLO mx.hindley.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932382AbXIFVkd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 17:40:33 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Tue, 4 Sep 2007 13:20:47 -0700 (PDT)
-> Rick Jones <rick.jones2@hp.com> wrote:
+On Thu, Sep 06, 2007 at 03:25:55PM +0530, Satyam Sharma wrote:
+ 
+> This is a GCC bug (regression, actually, as you've found out) -- no two
+> ways about it. Although different from the kind Jeff mentioned couple days
+> back -- that was about wising GCC up to false positives and /not/ emitting
+> warnings. But here a genuine problem was not complained about, so this is
+> more serious. Do you plan to open up a bug at gcc.gnu.org/bugzilla/ ?
 > 
-> 
->>Build upon David Miller's initial patches to set the per-route rto_min
->>so users can specify the rto_min in the same units (milliseconds) in
->>which they are displayed.  This is desirable because asking users to
->>convert to and from jiffies themselves, when there can be different
->>values of HZ from system to system would be error prone.
->>
->>Signed-off-by: Rick Jones <rick.jones2@hp.com>
->>---
-> 
-> 
-> The api in netlink should be in milliseconds rather than compensating
-> in the application (iproute2).
 
-My understanding of the in-kernel rtnetlink code is far from complete, 
-but it doesn't seem to have much in the way of provisions for unit 
-conversion, which would suggest no nice suffix-based ui as in tc, and ip 
-is already doing some massaging of units on the display side for a 
-couple of the other parameters, so I'm at something of a loss.
+Yes, I have just narrowed down a test case, which is remarkably simple!
 
-rick jones
+int 
+main(int i)
+{
+  int err;
+    
+  if (i) {
+    err = 1;
+  }
+  return err;
+}
+
+Mark
