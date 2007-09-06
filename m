@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
 Subject: Re: BUG: scheduling while atomic: ifconfig/0x00000002/4170
-Date: Thu, 6 Sep 2007 16:20:08 +0800
-Message-ID: <20070906082008.GA21929@gondor.apana.org.au>
+Date: Thu, 6 Sep 2007 16:23:01 +0800
+Message-ID: <20070906082301.GB21929@gondor.apana.org.au>
 References: <20070902184439.GA14306@paradigm.rfc822.org> <6bffcb0e0709021659o3856cd06gabc054c949a84397@mail.gmail.com> <alpine.LFD.0.999.0709060923340.26804@enigma.security.iitk.ac.in>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -19,12 +19,12 @@ List-Id: netdev.vger.kernel.org
 
 On Thu, Sep 06, 2007 at 10:32:33AM +0530, Satyam Sharma wrote:
 > 
-> Probably tangential, but Herbert, is the call to synchronize_rcu() in
-> dev_deactivate() really correct?
+> > > [  382.529041]  [<c02c8abc>] dev_close+0x24/0x67
+> > > [  382.529052]  [<e01f402b>] ieee80211_master_stop+0x4a/0x6d [mac80211]
 
-Yes it's still correct as of today's tree.  Of course patches
-such as preemptible RCU may change things but they'll need to
-audit this anyway.
+This is where the bug is.  You cannot call dev_close from an
+atomic context as i33380211_master_stop does it within spin
+locks.
 
 Cheers,
 -- 
