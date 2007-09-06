@@ -1,42 +1,36 @@
-From: Bernhard Walle <bernhard@bwalle.de>
-Subject: [PATCH] Fix config requirements of IPv6
-Date: Thu, 6 Sep 2007 22:01:52 +0200
-Message-ID: <20070906200151.GA28306@mail1.bwalle.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Fix config requirements of IPv6
+Date: Thu, 06 Sep 2007 13:49:04 -0700 (PDT)
+Message-ID: <20070906.134904.59659883.davem@davemloft.net>
+References: <20070906200151.GA28306@mail1.bwalle.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@linux-foundation.org
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: bernhard@bwalle.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mail.vrmd.de ([81.28.232.18]:48483 "EHLO
-	relay1.mail.vrmd.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933050AbXIFUpc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 16:45:32 -0400
-Content-Disposition: inline
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:53391
+	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756597AbXIFUtm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 16:49:42 -0400
+In-Reply-To: <20070906200151.GA28306@mail1.bwalle.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[PATCH] Fix config requirements of IPv6
+From: Bernhard Walle <bernhard@bwalle.de>
+Date: Thu, 6 Sep 2007 22:01:52 +0200
 
-net/ipv6/inet6_connection_sock.c in function __inet6_csk_dst_store() requires
-flow_cache_genid which is defined in net/core/flow.c which is compiled when
-CONFIG_XFRM is set.
+> [PATCH] Fix config requirements of IPv6
+> 
+> net/ipv6/inet6_connection_sock.c in function __inet6_csk_dst_store() requires
+> flow_cache_genid which is defined in net/core/flow.c which is compiled when
+> CONFIG_XFRM is set.
+> 
+> This patch expresses that dependency.
+> 
+> 
+> Signed-off-by: Bernhard Walle <bernhard@bwalle.de>
 
-This patch expresses that dependency.
-
-
-Signed-off-by: Bernhard Walle <bernhard@bwalle.de>
-
----
- net/ipv6/Kconfig |    1 +
- 1 file changed, 1 insertion(+)
-
---- a/net/ipv6/Kconfig
-+++ b/net/ipv6/Kconfig
-@@ -5,6 +5,7 @@
- #   IPv6 as module will cause a CRASH if you try to unload it
- config IPV6
- 	tristate "The IPv6 protocol"
-+	select XFRM
- 	default m
- 	---help---
- 	  This is complemental support for the IP version 6.
+IPV6 should not require XFRM, a proper fix for this issue
+was added to the net-2.6.24 tree earlier today already.
