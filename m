@@ -1,113 +1,81 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [TOMOYO 15/15] LSM expansion for TOMOYO Linux.
-Date: Thu, 6 Sep 2007 22:04:01 +0900
-Message-ID: <200709062204.DFH97819.JLOHVOOSFMtFQF@I-love.SAKURA.ne.jp>
-References: <46CED214.6050505@gmail.com>
-	<200709040753.32204.paul.moore@hp.com>
-	<200709042302.CDE26023.MJOOLQVFFOtHSF@I-love.SAKURA.ne.jp>
-	<200709051006.28429.paul.moore@hp.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] [sis900] convert to NAPI, WAS Re: pktgen terminating
+	condition
+Date: Thu, 06 Sep 2007 09:22:05 -0400
+Message-ID: <1189084926.4229.19.camel@localhost>
+References: <20070904032036.GA11153@ludhiana>
+	 <1188925008-ced672f60b90353067426d0b9f74506a@brownhat.org>
+	 <20070905074411.GA4815@ludhiana> <46DE9B09.7060603@katalix.com>
+	 <1188995619.4238.5.camel@localhost> <46DEB545.3030509@katalix.com>
+	 <1189002087.4228.26.camel@localhost>  <20070906050629.GA4262@ludhiana>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org, chrisw@sous-sol.org,
-	netdev@vger.kernel.org
-To: paul.moore@hp.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <200709051006.28429.paul.moore@hp.com>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: James Chapman <jchapman@katalix.com>,
+	Daniele Venzano <venza@brownhat.org>, davem@davemloft.net,
+	rick.jones2@hp.com, msb@google.com, netdev@vger.kernel.org,
+	grundler@google.com, robert.olsson@its.uu.se, jeff@garzik.org,
+	nhorman@tuxdriver.com
+To: Mandeep Singh Baines <mandeep.baines@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from an-out-0708.google.com ([209.85.132.249]:50531 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756082AbXIFNWK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 09:22:10 -0400
+Received: by an-out-0708.google.com with SMTP id d31so23290and
+        for <netdev@vger.kernel.org>; Thu, 06 Sep 2007 06:22:09 -0700 (PDT)
+In-Reply-To: <20070906050629.GA4262@ludhiana>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Wed, 2007-05-09 at 22:06 -0700, Mandeep Singh Baines wrote:
+> jamal (hadi@cyberus.ca) wrote:
 
-Thank you very much for your time, Paul.
-Yes, you understood what I wanted to do.
+> > If you read the paper: There are no issues with high throughput - NAPI
+> > kicks in.
+> > The challenge to be overcome is at low traffic, if you have a real fast
+> > processor your cpu-cycles-used/bits-processed ratio is high....
+> 
+> I'm not sure cpu-cycles-used/bits-processed is the correct metric to use.
+> An alternative would be to look at cpu-cycles-used/unit-time (i.e.
+> CPU utilization or load) for a given bit-rate or packet-rate. 
 
-TOMOYO Linux's approach:
+I wasnt explicit but we are saying the same thing. The paper is more
+specific: if you make the packet count used constant - this translates
+to a unit of time given low traffic rate. If you fix the time,
+cpu-cycles are easier to extrapolate from.
 
-(1) It uses userspace intervention to allow/reject
-    connections and/or packets based on the application's domain.
-    Since existent hooks can't be used for this purpose,
-    I inserted a new hook post_recv_datagram() at skb_recv_datagram()
-    and I modified socket_post_accept() to return error so that
-    I can drop/disconnect based on the application's domain.
+> This would make an interesting graph.
 
-    I think skb_recv_datagram() is the only place that can remove
-    a message picked up with MSG_PEEK flags from the receive queue.
-    To remove a message picked up with MSG_PEEK flags, I noticed that
-    I have to do skb_kill_datagram()-like operation so that
-    "the head message that must not be delivered to the caller" won't prevent
-    picking up of "the non-head message that should be delivered to the caller"
-    when the caller repeats only recv(MSG_PEEK) requests.
-    Since skb_recv_datagram() can be called from interrupt context,
-    I have to use spin_lock_irqsave() instead for spin_lock_bh(), am I right?
+If you are to plot a cpu-util vs packet rate, on most modern hardware you will 
+see a spike before you hit the MLFRR and then utilization will go down and slowly 
+start going up.
 
-/* from net/core/datagram.c */
-@@ -178,6 +179,27 @@ struct sk_buff *skb_recv_datagram(struct
- 		} else
- 			skb = skb_dequeue(&sk->sk_receive_queue);
- 
-+		error = security_post_recv_datagram(sk, skb, flags);
-+		if (error) {
-+			unsigned long cpu_flags;
-+
-+			if (!(flags & MSG_PEEK))
-+				goto no_peek;
-+
-+			spin_lock_irqsave(&sk->sk_receive_queue.lock,
-+					  cpu_flags);
-+			if (skb == skb_peek(&sk->sk_receive_queue)) {
-+				__skb_unlink(skb,
-+					     &sk->sk_receive_queue);
-+				atomic_dec(&skb->users);
-+			}
-+			spin_unlock_irqrestore(&sk->sk_receive_queue.lock,
-+					       cpu_flags);
-+no_peek:
-+			skb_free_datagram(sk, skb);
-+			goto no_packet;
-+		}
-+
- 		if (skb)
- 			return skb;
+> At low packet-rate, CPU utilization is low so doing extra work per packet
+> is probably OK. 
 
+Thats the arguement weve used in the past ;-> Unfortunately, with the
+relative cost of IO going up you cant keep making that arguement (at
+least thats the position presented in the paper). 
+Your mileage may vary. If you are running a machine dishing out bulk
+transfers probably not a big deal. If you are doing database
+transactions, you loose in benchmarks etc.
 
+> Utilizing 2% of CPU vesus 1% is negligible. But at higher
+> rate, when there is more CPU utilization, using 40% of CPU versus 60% is
+> significant. I think the absolute different in CPU utilization is more
+> important than the relative difference. iow, 2% versus 1%, even though 
+> a 2x difference in cpu-cycles/packet, is negligible compared to 40% 
+> versus 60%.
 
-    By the way, why can't socket_post_accept() fail?
-    Someone may wish to do memory allocation at socket_post_accept().
-    socket_accept() is too early for memory allocation because
-    there is no chance to free allocated memory
-    when sock->ops->accept() failed.
-    I think socket_post_accept() should be able to fail.
+Refer to above.
 
-(2) It allows the administrator judge interactively
-    using a userspace agent.
-    Thus, the new hook has to be inserted at blockable location,
-    Since skb_recv_datagram() can be called from interrupt context,
-    I do nothing in post_recv_datagram() if called from interrupt context.
+> Using a timer might also behave better in a tick-less (CONFIG_NO_HZ) 
+> configuration.
 
-+static int tmy_post_recv_datagram(struct sock *sk,
-+				  struct sk_buff *skb,
-+				  unsigned int flags)
-+{
-+	int error = 0;
-+	const unsigned int type = sk->sk_type;
-+
-+	/* skb_recv_datagram() didn't dequeue. */
-+	if (!skb)
-+		return 0;
-+
-+	/* skb_recv_datagram() can be called from interrupt context. */
-+	if (in_interrupt())
-+		return 0;
-+	/* I don't check if called by kernel process. */
-+	if (segment_eq(get_fs(), KERNEL_DS))
-+		return 0;
-+
-+	if (type != SOCK_DGRAM && type != SOCK_RAW)
-+		return 0;
-...(sniped)...
-+}
+good point.
 
+cheers,
+jamal
 
-
-Regards.
