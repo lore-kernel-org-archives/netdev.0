@@ -1,71 +1,70 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [TG3]: Workaround MSI bug on 5714/5780.
-Date: Thu, 06 Sep 2007 12:05:30 -0700
-Message-ID: <1189105530.4852.8.camel@dell>
-References: <1189022828.4960.2.camel@dell>
- <20070906.040235.71121480.davem@davemloft.net>
- <20070906134508.GA10317@gospo.rdu.redhat.com>
- <20070906.073423.74747465.davem@davemloft.net>
- <20070906154123.GC10317@gospo.rdu.redhat.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] devinet: show all addresses assigned to interface
+Date: Thu, 06 Sep 2007 20:15:40 +0200
+Message-ID: <46E043CC.4090800@trash.net>
+References: <20070906161000.74923fff@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	"netdev" <netdev@vger.kernel.org>
-To: "Andy Gospodarek" <andy@greyhouse.net>
+Content-Type: multipart/mixed;
+ boundary="------------000907030907050001000707"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4355 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755095AbXIFSIS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Sep 2007 14:08:18 -0400
-In-Reply-To: <20070906154123.GC10317@gospo.rdu.redhat.com>
+Received: from stinky.trash.net ([213.144.137.162]:38263 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755869AbXIFSSI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 14:18:08 -0400
+In-Reply-To: <20070906161000.74923fff@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-09-06 at 11:41 -0400, Andy Gospodarek wrote:
-> On Thu, Sep 06, 2007 at 07:34:23AM -0700, David Miller wrote:
-> > From: Andy Gospodarek <andy@greyhouse.net>
-> > Date: Thu, 6 Sep 2007 09:45:16 -0400
-> > 
-> > > Is is really necessary to get rid of the HT1000 patch?
-> > 
-> > Yes, absolutely and without a single doubt.
-> > 
-> > > commit e3008dedff4bdc96a5f67224cd3d8d12237082a0
-> > > Author: Andy Gospodarek <andy@greyhouse.net>
-> > > Date:   Thu May 10 22:58:57 2007 -0700
-> > > 
-> > >     PCI: disable MSI by default on systems with Serverworks HT1000 chips
-> > > 
-> > > This patch was designed to address tg3 and bnx2 messages printed on
-> > > systems with HT1000 chips IIRC.  Are we going back to those messages on
-> > > bnx2 or is there a workaround in that driver needed too?
-> > 
-> > Every report of that problem is with tg3 chips afflicted by this
-> > INTX bug which is now worked around properly.
-> > 
-> 
-> Not according to this:
-> 
-> https://bugzilla.redhat.com/show_bug.cgi?id=227657
-> 
-> Which was precisely why I chose to look at it as a chipset issue.
+This is a multi-part message in MIME format.
+--------------000907030907050001000707
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-The HT1000 bridge may very well have an MSI issue.  I'm checking with
-ServerWorks and I will do some testing to confirm.  If confirmed, we can
-disable MSI behind the HT1000 bridge instead of globally.  The 5714
-issue is not caused by the HT1000 as it is not behind the HT1000.
+Stephen Hemminger wrote:
+> Bug: http://bugzilla.kernel.org/show_bug.cgi?id=8876
+>
+> Not all ips are shown by "ip addr show" command when IPs number assigned to an
+> interface is more than 60-80 (in fact it depends on broadcast/label etc
+> presence on each address).
+>
+> Steps to reproduce:
+> It's terribly simple to reproduce:
+>
+> # for i in $(seq 1 100); do ip ad add 10.0.$i.1/24 dev eth10 ; done
+> # ip addr show
+>
+> this will _not_ show all IPs.
+> Looks like the problem is in netlink/ipv4 message processing.
+>
+> This is fix from bug submitter, it looks correct.
+>   
 
-> 
-> > Even my Niagara T1000 box was hit by this absolutely stupid and
-> > wrong MSI quirk, which is how I found this problem to begin with.
-> > 
-> > I'm reverting it.
-> > 
-> 
-> If that's the case, do we need to consider that some of the bnx2
-> hardware (like in this case the 5706) needs a similar workaround?
+The same bug was introduced in decnet. Both are 2.6.22 regressions.
 
-5706 doesn't have this same MSI problem as the 5714.
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
 
+--------------000907030907050001000707
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+diff --git a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
+index fa6604f..8def682 100644
+--- a/net/decnet/dn_dev.c
++++ b/net/decnet/dn_dev.c
+@@ -814,7 +814,7 @@ static int dn_nl_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
+ 		for (ifa = dn_db->ifa_list, dn_idx = 0; ifa;
+ 		     ifa = ifa->ifa_next, dn_idx++) {
+ 			if (dn_idx < skip_naddr)
+-				goto cont;
++				continue;
+ 
+ 			if (dn_nl_fill_ifaddr(skb, ifa, NETLINK_CB(cb->skb).pid,
+ 					      cb->nlh->nlmsg_seq, RTM_NEWADDR,
+
+--------------000907030907050001000707--
