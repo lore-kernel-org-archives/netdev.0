@@ -1,40 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.24 1/1] tg3: remove sparse warnings
-Date: Thu, 06 Sep 2007 12:42:56 -0700 (PDT)
-Message-ID: <20070906.124256.41638433.davem@davemloft.net>
-References: <20070906190739.GA10916@gospo.rdu.redhat.com>
+Subject: Re: [PATCH] ixgbe: driver for Intel(R) 82598 PCI-Express 10GbE
+ adapters (v4)
+Date: Thu, 06 Sep 2007 12:44:22 -0700 (PDT)
+Message-ID: <20070906.124422.71092816.davem@davemloft.net>
+References: <20070906181733.19332.10926.stgit@localhost.localdomain>
+	<46E04793.6040901@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mchan@broadcom.com,
-	shemminger@linux-foundation.org
-To: andy@greyhouse.net
+Cc: netdev@vger.kernel.org, jeff@garzik.org,
+	ayyappan.veeraiyan@intel.com, akpm@linux-foundation.org,
+	arjan@linux.intel.com, hch@infradead.org, billfink@mindspring.com,
+	shemminger@linux-foundation.org, rick.jones2@hp.com,
+	inaky@linux.intel.com, mb@bu3sch.de, nhorman@tuxdriver.com
+To: auke-jan.h.kok@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:35012
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:58098
 	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755211AbXIFTnI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 15:43:08 -0400
-In-Reply-To: <20070906190739.GA10916@gospo.rdu.redhat.com>
+	by vger.kernel.org with ESMTP id S1751532AbXIFTp2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 15:45:28 -0400
+In-Reply-To: <46E04793.6040901@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andy Gospodarek <andy@greyhouse.net>
-Date: Thu, 6 Sep 2007 15:07:40 -0400
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Date: Thu, 06 Sep 2007 11:31:47 -0700
 
+> Also available through git:// and http:// here:
 > 
-> Removed sparse warnings from tg3 driver.  The new logic seems fine (I
-> don't immediately see where we are running over values for any of the
-> variables that need to be saved).
+>    http://foo-projects.org/~sofar/ixgbe-20070905-submission.patch
+>    http://foo-projects.org/~sofar/ixgbe-20070905-submission.patch.bz2
+>    (git-am formatted!)
 > 
-> This patch compiles fine and I'm currently using a tg3 with the patched
-> driver to post this patch as a basic proof of concept.
-> 
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> Cc: Michael Chan <mchan@broadcom.com>
-> Cc: Stephen Hemminger <shemminger@linux-foundation.org>
-> Cc: David S. Miller <davem@davemloft.net>
+>    git://lost.foo-projects.org/~ahkok/linux-2.6 ixgbe-20070905-submission
 
-I went over this with a fine toothed comb, and it looks fine.
+To be honest I have absolutely no problems with this driver and we
+should just cut the crap and merge it in now.
 
-Patch applied to net-2.6.24, thanks!
-
+Any objections anyone makes at this point is frankly nit picking crap
+which we can cure with followon cleanups and corrections.
