@@ -1,66 +1,34 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: net-26.24 broken with XFRM off
-Date: Thu, 6 Sep 2007 10:13:26 +0200
-Message-ID: <20070906101326.34a81abb.dada1@cosmosbay.com>
-References: <46DFAB7F.7060406@chelsio.com>
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: BUG: scheduling while atomic: ifconfig/0x00000002/4170
+Date: Thu, 6 Sep 2007 16:20:08 +0800
+Message-ID: <20070906082008.GA21929@gondor.apana.org.au>
+References: <20070902184439.GA14306@paradigm.rfc822.org> <6bffcb0e0709021659o3856cd06gabc054c949a84397@mail.gmail.com> <alpine.LFD.0.999.0709060923340.26804@enigma.security.iitk.ac.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, takamiya@po.ntts.co.jp
-To: Divy Le Ray <divy@chelsio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:56125 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753157AbXIFIN2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Sep 2007 04:13:28 -0400
-In-Reply-To: <46DFAB7F.7060406@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Lohoff <flo-BCn6idZOOBwdnm+yROfE0A@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Michal Piotrowski <michal.k.k.piotrowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: Satyam Sharma <satyam-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.0.999.0709060923340.26804-cF9xTIDbLT5E1qDFBaZ7QYsk13R+tSIrn9A1Ff6Mc9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 06 Sep 2007 00:25:51 -0700
-Divy Le Ray <divy@chelsio.com> wrote:
-
-> Hi Dave,
+On Thu, Sep 06, 2007 at 10:32:33AM +0530, Satyam Sharma wrote:
 > 
-> I get this error compiling net-2.6.24 with XFRM off:
-> 
-> [root@aries net-2.6.24]# make O=/opt/build/net-2.6.24
-> fatal: corrupted pack file 
-> .git/objects/pack/pack-39c494e9d4c6488e5911ee5c06926450679e6b78.pack
-> fatal: corrupted pack file 
-> .git/objects/pack/pack-39c494e9d4c6488e5911ee5c06926450679e6b78.pack
->   Using /mnt/net-2.6.24 as source for kernel
->   GEN     /opt/build/net-2.6.24/Makefile
->   CHK     include/linux/version.h
->   CHK     include/linux/utsrelease.h
->   CALL    /mnt/net-2.6.24/scripts/checksyscalls.sh
->   CHK     include/linux/compile.h
->   GEN     .version
->   CHK     include/linux/compile.h
->   UPD     include/linux/compile.h
->   CC      init/version.o
->   LD      init/built-in.o
->   LD      .tmp_vmlinux1
-> net/built-in.o(.text+0x73ac2): In function `inet6_csk_xmit':
-> : undefined reference to `flow_cache_genid'
-> net/built-in.o(.text+0x73b9e): In function `inet6_csk_xmit':
-> : undefined reference to `flow_cache_genid'
-> make[1]: *** [.tmp_vmlinux1] Error 1
-> make: *** [_all] Error 2
-> 
-> I believe this commit introduced it:
-> commit a85d5450ddeb959bdf9e4603f9c06e9d79217cfa
-> Author: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-> Date:   Fri Aug 24 23:31:39 2007 -0700
-> 
->     [IPV6] XFRM: Fix connected socket to use transformation.
-> 
+> Probably tangential, but Herbert, is the call to synchronize_rcu() in
+> dev_deactivate() really correct?
 
-Hi Divy
+Yes it's still correct as of today's tree.  Of course patches
+such as preemptible RCU may change things but they'll need to
+audit this anyway.
 
-I believe this problem is known.
-
-Please check http://marc.info/?l=linux-netdev&m=118881627028135&w=2 
-
-Eric
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
