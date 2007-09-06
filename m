@@ -1,229 +1,352 @@
 From: Sivakumar Subramani <Sivakumar.Subramani@neterion.com>
-Subject: [PATCH 2.6.24 4/5]S2io: Check for device state before handling
- traffic
-Date: Thu, 6 Sep 2007 06:51:14 -0400 (EDT)
-Message-ID: <Pine.GSO.4.10.10709060646150.19944-100000@guinness>
+Subject: [PATCH 2.6.24 5/5]S2io: code Optimization of isr function
+Date: Thu, 6 Sep 2007 06:53:20 -0400 (EDT)
+Message-ID: <Pine.GSO.4.10.10709060651180.19944-100000@guinness>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: support@neterion.com
 To: netdev@vger.kernel.org, jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda.s2io.com ([72.1.205.138]:36866 "EHLO
+Received: from barracuda.s2io.com ([72.1.205.138]:36892 "EHLO
 	barracuda.s2io.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754129AbXIFKvQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 06:51:16 -0400
+	with ESMTP id S1750741AbXIFKxW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 06:53:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-- Added check to return from the traffic handling function, if the card status
-  is DOWN.
-- Implemented Jeff's comments on incorrect return value in s2io_poll function.
+- Code Optimization of s2io_isr function.
+- Isr check using per device napi variable instead of driver global.
+- Reduced from 3 to 1 if condition before check for processing packet receive
+  packets.
+- Implemented Jeff's comment to use synchronize_irq. Removed the isr_cnt
+  variable as it became redundant.
+- One time de assert the interrupts by writing all F's to the general_int_mask
+  register instead of de asserting by clearing the source of interrupts with
+  multiple writes which causes loss of interrupts (race conditions). It is
+  entirely possible that before the driver has a chance to mask the asserted
+  alarm bit, another alarm/traffic interrupt bit gets asserted as well. In
+  this case Herc will keep the INTA line asserted and the bridge will not
+  send a new Assert_INTA message upstream.
 
 Signed-off-by: Sivakumar Subramani <sivakumar.subramani@neterion.com>
 Signed-off-by: Santosh Rastapur <santosh.rastapur@neterion.com>
 Signed-off-by: Ramkrishna Vepa <ram.vepa@neterion.com>
 ---
-diff -urpN patch_3/drivers/net/s2io.c patch_4/drivers/net/s2io.c
---- patch_3/drivers/net/s2io.c	2007-09-05 13:50:34.000000000 +0530
-+++ patch_4/drivers/net/s2io.c	2007-09-05 14:11:17.000000000 +0530
-@@ -130,6 +130,11 @@ static inline int rx_buffer_level(struct
- 	return 0;
- }
+diff -Nurp 2.0.26.2-4/drivers/net/s2io.c 2.0.26.2-5/drivers/net/s2io.c
+--- 2.0.26.2-4/drivers/net/s2io.c	2007-09-05 09:24:07.000000000 -0700
++++ 2.0.26.2-5/drivers/net/s2io.c	2007-09-05 10:14:38.000000000 -0700
+@@ -84,7 +84,7 @@
+ #include "s2io.h"
+ #include "s2io-regs.h"
  
-+static inline int is_s2io_card_up(const struct s2io_nic * sp)
-+{
-+	return test_bit(__S2IO_STATE_CARD_UP, &sp->state);
-+}
-+
- /* Ethtool related variables and Macros. */
- static char s2io_gstrings[][ETH_GSTRING_LEN] = {
- 	"Register test\t(offline)",
-@@ -2710,6 +2715,12 @@ static int s2io_poll(struct net_device *
+-#define DRV_VERSION "2.0.26.1"
++#define DRV_VERSION "2.0.26.2"
+ 
+ /* S2io Driver name & version. */
+ static char s2io_driver_name[] = "Neterion";
+@@ -2714,12 +2714,8 @@ static int s2io_poll(struct net_device *
+ 	struct XENA_dev_config __iomem *bar0 = nic->bar0;
  	int i;
  
- 	atomic_inc(&nic->isr_cnt);
-+
-+	if (!is_s2io_card_up(nic)) {
-+		atomic_dec(&nic->isr_cnt);
-+		return 0;
-+	}
-+
+-	atomic_inc(&nic->isr_cnt);
+-
+-	if (!is_s2io_card_up(nic)) {
+-		atomic_dec(&nic->isr_cnt);
++	if (!is_s2io_card_up(nic)) 
+ 		return 0;
+-	}
+ 
+ 	mac_control = &nic->mac_control;
+ 	config = &nic->config;
+@@ -2757,7 +2753,6 @@ static int s2io_poll(struct net_device *
+ 	/* Re enable the Rx interrupts. */
+ 	writeq(0x0, &bar0->rx_traffic_mask);
+ 	readl(&bar0->rx_traffic_mask);
+-	atomic_dec(&nic->isr_cnt);
+ 	return 0;
+ 
+ no_rx:
+@@ -2771,7 +2766,6 @@ no_rx:
+ 			break;
+ 		}
+ 	}
+-	atomic_dec(&nic->isr_cnt);
+ 	return 1;
+ }
+ 
+@@ -2799,7 +2793,6 @@ static void s2io_netpoll(struct net_devi
+ 
+ 	disable_irq(dev->irq);
+ 
+-	atomic_inc(&nic->isr_cnt);
  	mac_control = &nic->mac_control;
  	config = &nic->config;
  
-@@ -2845,12 +2856,6 @@ static void rx_intr_handler(struct ring_
- 	struct RxD3* rxdp3;
+@@ -2824,7 +2817,6 @@ static void s2io_netpoll(struct net_devi
+ 			break;
+ 		}
+ 	}
+-	atomic_dec(&nic->isr_cnt);
+ 	enable_irq(dev->irq);
+ 	return;
+ }
+@@ -4191,17 +4183,12 @@ static irqreturn_t s2io_msix_ring_handle
+ 	struct ring_info *ring = (struct ring_info *)dev_id;
+ 	struct s2io_nic *sp = ring->nic;
  
- 	spin_lock(&nic->rx_lock);
--	if (atomic_read(&nic->card_state) == CARD_DOWN) {
--		DBG_PRINT(INTR_DBG, "%s: %s going down for reset\n",
--			  __FUNCTION__, dev->name);
--		spin_unlock(&nic->rx_lock);
--		return;
+-	atomic_inc(&sp->isr_cnt);
+-
+-	if (!is_s2io_card_up(sp)) {
+-		atomic_dec(&sp->isr_cnt);
++	if (!is_s2io_card_up(sp)) 
+ 		return IRQ_HANDLED;
 -	}
  
- 	get_info = ring_data->rx_curr_get_info;
- 	get_block = get_info.block_index;
-@@ -3994,7 +3999,7 @@ static int s2io_xmit(struct sk_buff *skb
- }
- 
- 	spin_lock_irqsave(&sp->tx_lock, flags);
--	if (atomic_read(&sp->card_state) == CARD_DOWN) {
-+	if (!is_s2io_card_up(sp)) {
- 		DBG_PRINT(TX_DBG, "%s: Card going down for reset\n",
- 			  dev->name);
- 		spin_unlock_irqrestore(&sp->tx_lock, flags);
-@@ -4188,6 +4193,11 @@ static irqreturn_t s2io_msix_ring_handle
- 
- 	atomic_inc(&sp->isr_cnt);
- 
-+	if (!is_s2io_card_up(sp)) {
-+		atomic_dec(&sp->isr_cnt);
-+		return IRQ_HANDLED;
-+	}
-+
  	rx_intr_handler(ring);
  	s2io_chk_rx_buffers(sp, ring->ring_no);
  
-@@ -4201,6 +4211,12 @@ static irqreturn_t s2io_msix_fifo_handle
+-	atomic_dec(&sp->isr_cnt);
+ 	return IRQ_HANDLED;
+ }
+ 
+@@ -4210,15 +4197,10 @@ static irqreturn_t s2io_msix_fifo_handle
+ 	struct fifo_info *fifo = (struct fifo_info *)dev_id;
  	struct s2io_nic *sp = fifo->nic;
  
- 	atomic_inc(&sp->isr_cnt);
-+
-+	if (!is_s2io_card_up(sp)) {
-+		atomic_dec(&sp->isr_cnt);
-+		return IRQ_HANDLED;
-+	}
-+
+-	atomic_inc(&sp->isr_cnt);
+-
+-	if (!is_s2io_card_up(sp)) {
+-		atomic_dec(&sp->isr_cnt);
++	if (!is_s2io_card_up(sp)) 
+ 		return IRQ_HANDLED;
+-	}
+ 
  	tx_intr_handler(fifo);
- 	atomic_dec(&sp->isr_cnt);
+-	atomic_dec(&sp->isr_cnt);
  	return IRQ_HANDLED;
-@@ -4308,7 +4324,7 @@ static void s2io_handle_errors(void * de
- 	struct swStat *sw_stat = &sp->mac_control.stats_info->sw_stat;
- 	struct xpakStat *stats = &sp->mac_control.stats_info->xpak_stat;
- 
--	if (unlikely(atomic_read(&sp->card_state) == CARD_DOWN))
-+	if (!is_s2io_card_up(sp))
- 		return;
- 
+ }
+ static void s2io_txpic_intr_handle(struct s2io_nic *sp)
+@@ -4594,12 +4576,8 @@ static irqreturn_t s2io_isr(int irq, voi
  	if (pci_channel_offline(sp->pdev))
-@@ -4579,6 +4595,12 @@ static irqreturn_t s2io_isr(int irq, voi
  		return IRQ_NONE;
  
- 	atomic_inc(&sp->isr_cnt);
+-	atomic_inc(&sp->isr_cnt);
+-
+-	if (!is_s2io_card_up(sp)) {
+-		atomic_dec(&sp->isr_cnt);
++	if (!is_s2io_card_up(sp)) 
+ 		return IRQ_NONE;
+-	}
+ 
+ 	mac_control = &sp->mac_control;
+ 	config = &sp->config;
+@@ -4610,73 +4588,74 @@ static irqreturn_t s2io_isr(int irq, voi
+ 	 * 1. Rx of packet.
+ 	 * 2. Tx complete.
+ 	 * 3. Link down.
+-	 * 4. Error in any functional blocks of the NIC.
+ 	 */
+ 	reason = readq(&bar0->general_int_status);
+ 
+-	if (!reason) {
+-		/* The interrupt was not raised by us. */
+-		atomic_dec(&sp->isr_cnt);
+-		return IRQ_NONE;
+-	}
+-	else if (unlikely(reason == S2IO_MINUS_ONE) ) {
+-		/* Disable device and get out */
+-		atomic_dec(&sp->isr_cnt);
+-		return IRQ_NONE;
++	if (unlikely(reason == S2IO_MINUS_ONE) ) {
++		/* Nothing much can be done. Get out */
++		return IRQ_HANDLED;
+ 	}
+ 
+-	if (napi) {
+-		if (reason & GEN_INTR_RXTRAFFIC) {
+-			if ( likely ( netif_rx_schedule_prep(dev)) ) {
+-				__netif_rx_schedule(dev);
+-				writeq(S2IO_MINUS_ONE, &bar0->rx_traffic_mask);
++	if (reason & (GEN_INTR_RXTRAFFIC |
++		GEN_INTR_TXTRAFFIC | GEN_INTR_TXPIC))
++	{
++		writeq(S2IO_MINUS_ONE, &bar0->general_int_mask);
 +
-+	if (!is_s2io_card_up(sp)) {
-+		atomic_dec(&sp->isr_cnt);
++		if (config->napi) {
++			if (reason & GEN_INTR_RXTRAFFIC) {
++				if ( likely (netif_rx_schedule_prep(dev)) ) {
++					__netif_rx_schedule(dev);
++					writeq(S2IO_MINUS_ONE,
++						&bar0->rx_traffic_mask);
++				} else
++					writeq(S2IO_MINUS_ONE,
++						&bar0->rx_traffic_int);
+ 			}
+-			else
++		} else {
++			/*
++			 * rx_traffic_int reg is an R1 register, writing all 1's
++			 * will ensure that the actual interrupt causing bit
++			 * get's cleared and hence a read can be avoided.
++			 */
++			if (reason & GEN_INTR_RXTRAFFIC)
+ 				writeq(S2IO_MINUS_ONE, &bar0->rx_traffic_int);
++
++			for (i = 0; i < config->rx_ring_num; i++)
++				rx_intr_handler(&mac_control->rings[i]);
+ 		}
+-	} else {
++
+ 		/*
+-		 * Rx handler is called by default, without checking for the
+-		 * cause of interrupt.
+-		 * rx_traffic_int reg is an R1 register, writing all 1's
++		 * tx_traffic_int reg is an R1 register, writing all 1's
+ 		 * will ensure that the actual interrupt causing bit get's
+ 		 * cleared and hence a read can be avoided.
+ 		 */
+-		if (reason & GEN_INTR_RXTRAFFIC)
+-			writeq(S2IO_MINUS_ONE, &bar0->rx_traffic_int);
++		if (reason & GEN_INTR_TXTRAFFIC)
++			writeq(S2IO_MINUS_ONE, &bar0->tx_traffic_int);
+ 
+-		for (i = 0; i < config->rx_ring_num; i++) {
+-			rx_intr_handler(&mac_control->rings[i]);
+-		}
+-	}
++		for (i = 0; i < config->tx_fifo_num; i++)
++			tx_intr_handler(&mac_control->fifos[i]);
+ 
+-	/*
+-	 * tx_traffic_int reg is an R1 register, writing all 1's
+-	 * will ensure that the actual interrupt causing bit get's
+-	 * cleared and hence a read can be avoided.
+-	 */
+-	if (reason & GEN_INTR_TXTRAFFIC)
+-		writeq(S2IO_MINUS_ONE, &bar0->tx_traffic_int);
++		if (reason & GEN_INTR_TXPIC)
++			s2io_txpic_intr_handle(sp);
+ 
+-	for (i = 0; i < config->tx_fifo_num; i++)
+-		tx_intr_handler(&mac_control->fifos[i]);
++		/*
++		 * Reallocate the buffers from the interrupt handler itself.
++		 */
++		if (!config->napi) {
++			for (i = 0; i < config->rx_ring_num; i++)
++				s2io_chk_rx_buffers(sp, i);
++		}
++		writeq(sp->general_int_mask, &bar0->general_int_mask);
++		readl(&bar0->general_int_status);
+ 
+-	if (reason & GEN_INTR_TXPIC)
+-		s2io_txpic_intr_handle(sp);
+-	/*
+-	 * If the Rx buffer count is below the panic threshold then
+-	 * reallocate the buffers from the interrupt handler itself,
+-	 * else schedule a tasklet to reallocate the buffers.
+-	 */
+-	if (!napi) {
+-		for (i = 0; i < config->rx_ring_num; i++)
+-			s2io_chk_rx_buffers(sp, i);
+-	}
++		return IRQ_HANDLED;
+ 
+-	writeq(0, &bar0->general_int_mask);
+-	readl(&bar0->general_int_status);
++	}
++	else if (!reason) {
++		/* The interrupt was not raised by us */
 +		return IRQ_NONE;
 +	}
+ 
+-	atomic_dec(&sp->isr_cnt);
+ 	return IRQ_HANDLED;
+ }
+ 
+@@ -6798,7 +6777,6 @@ static int s2io_add_isr(struct s2io_nic 
+ }
+ static void s2io_rem_isr(struct s2io_nic * sp)
+ {
+-	int cnt = 0;
+ 	struct net_device *dev = sp->dev;
+ 	struct swStat *stats = &sp->mac_control.stats_info->sw_stat;
+ 
+@@ -6811,6 +6789,7 @@ static void s2io_rem_isr(struct s2io_nic
+ 			int vector = sp->entries[i].vector;
+ 			void *arg = sp->s2io_entries[i].arg;
+ 
++			synchronize_irq(vector);
+ 			free_irq(vector, arg);
+ 		}
+ 
+@@ -6829,16 +6808,9 @@ static void s2io_rem_isr(struct s2io_nic
+ 
+ 		pci_disable_msix(sp->pdev);
+ 	} else {
++		synchronize_irq(sp->pdev->irq);
+ 		free_irq(sp->pdev->irq, dev);
+ 	}
+-	/* Waiting till all Interrupt handlers are complete */
+-	cnt = 0;
+-	do {
+-		msleep(10);
+-		if (!atomic_read(&sp->isr_cnt))
+-			break;
+-		cnt++;
+-	} while(cnt < 5);
+ }
+ 
+ static void do_s2io_card_down(struct s2io_nic * sp, int do_io)
+@@ -7368,19 +7340,12 @@ static int s2io_verify_parm(struct pci_d
+ 	if (*dev_intr_type != INTA)
+ 		napi = 0;
+ 
+-#ifndef CONFIG_PCI_MSI
+-	if (*dev_intr_type != INTA) {
+-		DBG_PRINT(ERR_DBG, "s2io: This kernel does not support"
+-			  "MSI/MSI-X. Defaulting to INTA\n");
+-		*dev_intr_type = INTA;
+-	}
+-#else
+ 	if ((*dev_intr_type != INTA) && (*dev_intr_type != MSI_X)) {
+ 		DBG_PRINT(ERR_DBG, "s2io: Wrong intr_type requested. "
+ 			  "Defaulting to INTA\n");
+ 		*dev_intr_type = INTA;
+ 	}
+-#endif
 +
+ 	if ((*dev_intr_type == MSI_X) &&
+ 			((pdev->device != PCI_DEVICE_ID_HERC_WIN) &&
+ 			(pdev->device != PCI_DEVICE_ID_HERC_UNI))) {
+@@ -7538,6 +7503,8 @@ s2io_init_nic(struct pci_dev *pdev, cons
  	mac_control = &sp->mac_control;
  	config = &sp->config;
  
-@@ -4667,7 +4689,7 @@ static void s2io_updt_stats(struct s2io_
- 	u64 val64;
- 	int cnt = 0;
- 
--	if (atomic_read(&sp->card_state) == CARD_UP) {
-+	if (is_s2io_card_up(sp)) {
- 		/* Apprx 30us on a 133 MHz bus */
- 		val64 = SET_UPDT_CLICKS(10) |
- 			STAT_CFG_ONE_SHOT_EN | STAT_CFG_STAT_EN;
-@@ -6463,7 +6485,7 @@ static void s2io_set_link(struct work_st
- 	if (!netif_running(dev))
- 		goto out_unlock;
- 
--	if (test_and_set_bit(0, &(nic->link_state))) {
-+	if (test_and_set_bit(__S2IO_STATE_LINK_TASK, &(nic->state))) {
- 		/* The card is being reset, no point doing anything */
- 		goto out_unlock;
- 	}
-@@ -6519,7 +6541,7 @@ static void s2io_set_link(struct work_st
- 		writeq(val64, &bar0->adapter_control);
- 		s2io_link(nic, LINK_DOWN);
- 	}
--	clear_bit(0, &(nic->link_state));
-+	clear_bit(__S2IO_STATE_LINK_TASK, &(nic->state));
- 
- out_unlock:
- 	rtnl_unlock();
-@@ -6828,10 +6850,10 @@ static void do_s2io_card_down(struct s2i
- 
- 	del_timer_sync(&sp->alarm_timer);
- 	/* If s2io_set_link task is executing, wait till it completes. */
--	while (test_and_set_bit(0, &(sp->link_state))) {
-+	while (test_and_set_bit(__S2IO_STATE_LINK_TASK, &(sp->state))) {
- 		msleep(50);
- 	}
--	atomic_set(&sp->card_state, CARD_DOWN);
-+	clear_bit(__S2IO_STATE_CARD_UP, &sp->state);
- 
- 	/* disable Tx and Rx traffic on the NIC */
- 	if (do_io)
-@@ -6882,7 +6904,7 @@ static void do_s2io_card_down(struct s2i
- 	free_rx_buffers(sp);
- 	spin_unlock_irqrestore(&sp->rx_lock, flags);
- 
--	clear_bit(0, &(sp->link_state));
-+	clear_bit(__S2IO_STATE_LINK_TASK, &(sp->state));
- }
- 
- static void s2io_card_down(struct s2io_nic * sp)
-@@ -6975,8 +6997,7 @@ static int s2io_card_up(struct s2io_nic 
- 		en_dis_able_nic_intrs(sp, interruptible, ENABLE_INTRS);
- 	}
- 
--
--	atomic_set(&sp->card_state, CARD_UP);
-+	set_bit(__S2IO_STATE_CARD_UP, &sp->state);
- 	return 0;
- }
- 
-@@ -7705,9 +7726,8 @@ s2io_init_nic(struct pci_dev *pdev, cons
- 	 * Initialize the tasklet status and link state flags
- 	 * and the card state parameter
- 	 */
--	atomic_set(&(sp->card_state), 0);
- 	sp->tasklet_status = 0;
--	sp->link_state = 0;
-+	sp->state = 0;
- 
- 	/* Initialize spinlocks */
- 	spin_lock_init(&sp->tx_lock);
-diff -urpN patch_3/drivers/net/s2io.h patch_4/drivers/net/s2io.h
---- patch_3/drivers/net/s2io.h	2007-09-05 13:50:37.000000000 +0530
-+++ patch_4/drivers/net/s2io.h	2007-09-05 14:07:16.000000000 +0530
-@@ -802,6 +802,13 @@ struct lro {
- 	u8		saw_ts;
- };
- 
-+/* These flags represent the devices temporary state */
-+enum s2io_device_state_t
-+{
-+	__S2IO_STATE_LINK_TASK=0,
-+	__S2IO_STATE_CARD_UP
-+};
++	config->napi = napi;
 +
- /* Structure representing one instance of the NIC */
- struct s2io_nic {
- 	int rxd_mode;
-@@ -879,10 +886,6 @@ struct s2io_nic {
+ 	/* Tx side parameters. */
+ 	config->tx_fifo_num = tx_fifo_num;
+ 	for (i = 0; i < MAX_TX_FIFOS; i++) {
+@@ -7585,9 +7552,6 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 	for (i = 0; i < config->rx_ring_num; i++)
+ 		atomic_set(&sp->rx_bufs_left[i], 0);
  
- 	int task_flag;
- 	unsigned long long start_time;
--#define CARD_DOWN 1
--#define CARD_UP 2
--	atomic_t card_state;
--	volatile unsigned long link_state;
- 	struct vlan_group *vlgrp;
- #define MSIX_FLG                0xA5
- 	struct msix_entry *entries;
-@@ -905,6 +908,7 @@ struct s2io_nic {
- 	unsigned long	sending_both;
- 	u8		lro;
+-	/* Initialize the number of ISRs currently running */
+-	atomic_set(&sp->isr_cnt, 0);
+-
+ 	/*  initialize the shared memory used by the NIC and the host */
+ 	if (init_shared_mem(sp)) {
+ 		DBG_PRINT(ERR_DBG, "%s: Memory allocation failed\n",
+diff -Nurp 2.0.26.2-4/drivers/net/s2io.h 2.0.26.2-5/drivers/net/s2io.h
+--- 2.0.26.2-4/drivers/net/s2io.h	2007-09-05 09:24:10.000000000 -0700
++++ 2.0.26.2-5/drivers/net/s2io.h	2007-09-05 09:31:30.000000000 -0700
+@@ -910,7 +910,6 @@ struct s2io_nic {
  	u16		lro_max_aggr_per_sess;
-+	volatile unsigned long state;
+ 	volatile unsigned long state;
  	spinlock_t	rx_lock;
- 	atomic_t	isr_cnt;
+-	atomic_t	isr_cnt;
  	u64		general_int_mask;
+ 	u64 *ufo_in_band_v;
+ #define VPD_STRING_LEN 80
 
