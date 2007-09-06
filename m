@@ -1,172 +1,278 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: RFC: possible NAPI improvements to reduce interrupt rates for
-	low traffic rates
-Date: Thu, 06 Sep 2007 19:06:59 -0400
-Message-ID: <1189120020.4259.68.camel@localhost>
-References: <200709061416.l86EG0Vb017675@quickie.katalix.com>
-Reply-To: hadi@cyberus.ca
+From: Matteo Croce <technoboy85@gmail.com>
+Subject: Re: [PATCH][MIPS][7/7] AR7: ethernet
+Date: Fri, 7 Sep 2007 01:21:41 +0200
+Message-ID: <200709070121.42629.technoboy85@gmail.com>
+References: <200708201704.11529.technoboy85@gmail.com> <200709061734.11170.technoboy85@gmail.com> <20070906153025.7cb71cb1.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jeff@garzik.org,
-	mandeep.baines@gmail.com, ossthema@de.ibm.com
-To: James Chapman <jchapman@katalix.com>
+Cc: linux-mips@linux-mips.org, ejka@imfi.kspu.ru, jgarzik@pobox.com,
+	netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@coreworks.de
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.241]:15493 "EHLO
+Received: from an-out-0708.google.com ([209.85.132.249]:23221 "EHLO
 	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932537AbXIFXHG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 19:07:06 -0400
-Received: by an-out-0708.google.com with SMTP id d31so54014and
-        for <netdev@vger.kernel.org>; Thu, 06 Sep 2007 16:07:05 -0700 (PDT)
-In-Reply-To: <200709061416.l86EG0Vb017675@quickie.katalix.com>
+	with ESMTP id S932432AbXIFXVq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 19:21:46 -0400
+Received: by an-out-0708.google.com with SMTP id d31so54392and
+        for <netdev@vger.kernel.org>; Thu, 06 Sep 2007 16:21:45 -0700 (PDT)
+In-Reply-To: <20070906153025.7cb71cb1.akpm@linux-foundation.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-06-09 at 15:16 +0100, James Chapman wrote:
-
-> First, do we need to encourage consistency in NAPI poll drivers? A 
-> survey of current NAPI drivers shows different strategies being used 
-> in their poll(). Some such as r8169 do the napi_complete() if poll() 
-> does less work than their allowed budget. Others such as e100 and tg3 
-> do napi_complete() only if they do no work at all. And some drivers use 
-> NAPI only for receive handling, perhaps setting txdone interrupts for 
-> 1 in N transmitted packets, while others do all "interrupt" processing in 
-> their poll(). Should we encourage more consistency? Should we encourage more 
-> NAPI driver maintainers to minimize interrupts by doing all rx _and_ tx 
-> processing in the poll(), and do napi_complete() only when the poll does _no_ work?
-
-not to stiffle the discussion, but Stephen Hemminger is planning to
-write a new howto; that would be a good time to bring up the topic. The 
-challenge is that there may be hardware issues that will result in small
-deviations.
-
-> Clearly, keeping a device in polled mode for 1-2 jiffies after it would otherwise 
-> have gone idle means 
-> that it might be called many times by the NAPI softirq while it has no work to do. 
-> This wastes CPU cycles. It would be important therefore to implement the driver's 
-> poll() to make this case as efficient as possible, perhaps testing for it early.
-
-> When a device is in polled mode while idle, there are 2 scheduling cases to consider:-
+Il Friday 07 September 2007 00:30:25 Andrew Morton ha scritto:
+> > On Thu, 6 Sep 2007 17:34:10 +0200 Matteo Croce <technoboy85@gmail.com> wrote:
+> > Driver for the cpmac 100M ethernet driver.
+> > It works fine disabling napi support, enabling it gives a kernel panic
+> > when the first IPv6 packet has to be forwarded.
+> > Other than that works fine.
+> > 
 > 
-> 1. One or more other netdevs is not idle and is consuming quota on each poll. The net_rx 
-> softirq 
-> will loop until the next jiffy tick or when quota is exceeded, calling each device 
-> in its polled 
-> list. Since the idle device is still in the poll list, it will be polled very rapidly.
+> I'm not too sure why I got cc'ed on this (and not on patches 1-6?) but
+> whatever.
 
-One suggestion on limiting the amount of polls is to actually have the
-driver chew something off the quota even on empty polls - easier by just
-changing the driver. A simple case will be say 1 packet (more may make
-more sense, machine dependent) every time poll is invoked by the core.
-This way the core algorithm continues to be fair and when the jiffies
-are exceeded you bail out from the driver.
+I mailed every maintainer in the respective section in the file MAINTAINERS
+and you were in the "NETWORK DEVICE DRIVERS" section
 
-> 2. No other active device is in the poll list. The net_rx softirq will poll 
-> the idle device twice 
-> and then exit the softirq processing loop as if quota is exceeded. See the 
-> net_rx_action() changes 
-> in the patch which force the loop to exit if no work is being done by any 
-> device in the poll list.
+> This patch introduces quite a number of basic coding-style mistakes. 
+> Please run it through scripts/checkpatch.pl and review the output.
+
+Already done. I'm collecting other suggestions before committing
+
+> The patch introduces vast number of volatile structure fields.  Please see
+> Documentation/volatile-considered-harmful.txt.
+
+Removing them and the kernel hangs at module load
+
+> The patch inroduces a modest number of unneeded (and undesirable) casts of
+> void*, such as
 > 
-> In both cases described above, the scheduler will continue NAPI processing 
-> from ksoftirqd. This 
-> might be very soon, especially if the system is otherwise idle. But if the 
-> system is idle, do we 
-> really care that idle network devices will be polled for 1-2 jiffies? 
-
-Unfortunately the folks who have brought this up as an issue would
-answer affirmatively. 
-OTOH, if you can demonstrate that you spend less cycles polling rather
-than letting NAPI do its thing, you will be able to make a compelling
-case.
-
-> If the system is otherwise 
-> busy, ksoftirqd will share the CPU with other threads/processes which will reduce the poll rate 
-> anyway.
+> +	struct cpmac_mdio_regs *regs = (struct cpmac_mdio_regs *)bus->priv;
 > 
-> In testing, I see significant reduction in interrupt rate for typical traffic patterns. A flood ping, 
-> for example, keeps the device in polled mode, generating no interrupts. 
+> please check for those and fix them up.
 
-Must be a fast machine.
+Done
 
-> In a test, 8510 packets are sent/received versus 6200 previously; 
+> The driver implements a driver-private skb pool.  I don't know if this is
+> something which we like net drivers doing?  If it is approved then surely
+> there should be a common implementation for it somewhere?
 
-The other packets are dropped? What are the rtt numbers like?
+Are you referring at cpmac_poll?
 
-> CPU load is 100% versus 62% previously; 
+> The driver has some LINUX_VERSION_CODE ifdefs.  We usually prefer that such
+> code not be present in a merged-up driver.
 
-not good.
+I will remove in the final release, now I need for testing: my running kernel
+is older than current git
 
-> and 1 netdev interrupt occurs versus 12400 previously. 
+> 
+> > +			priv->regs->mac_hash_low = 0xffffffff;
+> > +			priv->regs->mac_hash_high = 0xffffffff;
+> > +		} else {
+> > +			for (i = 0, iter = dev->mc_list; i < dev->mc_count;
+> > +			    i++, iter = iter->next) {
+> > +				hash = 0;
+> > +				tmp = iter->dmi_addr[0];
+> > +				hash  ^= (tmp >> 2) ^ (tmp << 4);
+> > +				tmp = iter->dmi_addr[1];
+> > +				hash  ^= (tmp >> 4) ^ (tmp << 2);
+> > +				tmp = iter->dmi_addr[2];
+> > +				hash  ^= (tmp >> 6) ^ tmp;
+> > +				tmp = iter->dmi_addr[4];
+> > +				hash  ^= (tmp >> 2) ^ (tmp << 4);
+> > +				tmp = iter->dmi_addr[5];
+> > +				hash  ^= (tmp >> 4) ^ (tmp << 2);
+> > +				tmp = iter->dmi_addr[6];
+> > +				hash  ^= (tmp >> 6) ^ tmp;
+> > +				hash &= 0x3f;
+> > +				if (hash < 32) {
+> > +					hashlo |= 1<<hash;
+> > +				} else {
+> > +					hashhi |= 1<<(hash - 32);
+> > +				}
+> > +			}
+> > +
+> > +			priv->regs->mac_hash_low = hashlo;
+> > +			priv->regs->mac_hash_high = hashhi;
+> > +		}
+> 
+> Do we not have a library function anywhere which will perform this little
+> multicasting hash?
 
-good - maybe ;->
+Can you tell me the function so i'll implement it?
 
-> Performance and CPU load under extreme 
-> network load (using pktgen) is unchanged, as expected. 
-> Most importantly though, it is no longer possible to find a combination 
-> of CPU performance and traffic pattern that induce high interrupt rates. 
-> And because hardware interrupt mitigation isn't used, packet latency is minimized.
+> > +static inline struct sk_buff *cpmac_rx_one(struct net_device *dev,
+> > +					   struct cpmac_priv *priv,
+> > +					   struct cpmac_desc *desc)
+> > +{
+> > +	unsigned long flags;
+> > +	char *data;
+> > +	struct sk_buff *skb, *result = NULL;
+> > +
+> > +	priv->regs->rx_ack[0] = virt_to_phys(desc);
+> > +	if (unlikely(!desc->datalen)) {
+> > +		if (printk_ratelimit())
+> > +			printk(KERN_WARNING "%s: rx: spurious interrupt\n",
+> > +			       dev->name);
+> > +		priv->stats.rx_errors++;
+> > +		return NULL;
+> > +	}
+> > +
+> > +	spin_lock_irqsave(&priv->lock, flags);
+> > +	skb = cpmac_get_skb(dev);
+> > +	if (likely(skb)) {
+> > +		data = (char *)phys_to_virt(desc->hw_data);
+> > +		dma_cache_inv((u32)data, desc->datalen);
+> > +		skb_put(desc->skb, desc->datalen);
+> > +		desc->skb->protocol = eth_type_trans(desc->skb, dev);
+> > +		desc->skb->ip_summed = CHECKSUM_NONE;
+> > +		priv->stats.rx_packets++;
+> > +		priv->stats.rx_bytes += desc->datalen;
+> > +		result = desc->skb;
+> > +		desc->skb = skb;
+> > +	} else {
+> > +#ifdef CPMAC_DEBUG
+> > +		if (printk_ratelimit())
+> > +			printk("%s: low on skbs, dropping packet\n",
+> > +			       dev->name);
+> > +#endif
+> > +		priv->stats.rx_dropped++;
+> > +	}
+> > +	spin_unlock_irqrestore(&priv->lock, flags);
+> > +
+> > +	desc->hw_data = virt_to_phys(desc->skb->data);
+> > +	desc->buflen = CPMAC_SKB_SIZE;
+> > +	desc->dataflags = CPMAC_OWN;
+> > +	dma_cache_wback((u32)desc, 16);
+> > +
+> > +	return result;
+> > +}
+> 
+> This function is far too large to be inlined.
+> 
+> > +static irqreturn_t cpmac_irq(int irq, void *dev_id)
+> > +{
+> > +	struct net_device *dev = (struct net_device *)dev_id;
+> 
+> unneeded cast
 
-I dont think youd find much win against NAPI in this case; 
+fixed
 
-> The increase in CPU load isn't surprising for a flood ping test since the CPU 
-> is working to bounce packets as fast as it can. The increase in packet rate 
-> is a good indicator of how much the interrupt and NAPI scheduling overhead is. 
+> > +static int __devinit cpmac_probe(struct platform_device *pdev)
+> > +{
+> > +	int i, rc, phy_id;
+> > +	struct resource *res;
+> > +	struct cpmac_priv *priv;
+> > +	struct net_device *dev;
+> > +	struct plat_cpmac_data *pdata;
+> > +
+> > +	if (strcmp(pdev->name, "cpmac") != 0)
+> > +		return -ENODEV;
+> 
+> I don't think this can happen?  If it can, something is pretty screwed up?
 
-Your results above showed decreased tput and increased cpu - did you
-mistype that?
+Hehe, so screwed that you won't care about your ethernet ;)
 
-> The CPU load shows 100% because ksoftirqd is always wanting the CPU for the duration 
-> of the flood ping. The beauty of NAPI is that the scheduler gets to decide which thread 
-> gets the CPU, not hardware CPU interrupt priorities. On my desktop system, I perceive 
-> _better_ system response (smoother X cursor movement etc) during the flood ping test, 
+> > +	pdata = pdev->dev.platform_data;
+> > +
+> > +	for (phy_id = 0; phy_id < PHY_MAX_ADDR; phy_id++) {
+> > +		if (!(pdata->phy_mask & (1 << phy_id)))
+> > +			continue;
+> > +		if (!cpmac_mii.phy_map[phy_id])
+> > +			continue;
+> > +		break;
+> > +	}
+> > +
+> > +	if (phy_id == PHY_MAX_ADDR) {
+> > +		if (external_switch) {
+> > +			phy_id = 0;
+> > +		} else {
+> > +			printk("cpmac: no PHY present\n");
+> > +			return -ENODEV;
+> > +		}
+> > +	}
+> > +
+> > +	dev = alloc_etherdev(sizeof(struct cpmac_priv));
+> > +
+> > +	if (!dev) {
+> > +		printk(KERN_ERR "cpmac: Unable to allocate net_device structure!\n");
+> > +		return -ENOMEM;
+> > +	}
+> > +
+> > +	SET_MODULE_OWNER(dev);
+> > +	platform_set_drvdata(pdev, dev);
+> > +	priv = netdev_priv(dev);
+> > +
+> > +	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "regs");
+> > +	if (!res) {
+> > +		rc = -ENODEV;
+> > +		goto fail;
+> > +	}
+> > +
+> > +	dev->mem_start = res->start;
+> > +	dev->mem_end = res->end;
+> > +	dev->irq = platform_get_irq_byname(pdev, "irq");
+> > +
+> > +	dev->mtu                = 1500;
+> > +	dev->open               = cpmac_open;
+> > +	dev->stop               = cpmac_stop;
+> > +	dev->set_config         = cpmac_config;
+> > +	dev->hard_start_xmit    = cpmac_start_xmit;
+> > +	dev->do_ioctl           = cpmac_ioctl;
+> > +	dev->get_stats          = cpmac_stats;
+> > +	dev->change_mtu         = cpmac_change_mtu;
+> > +	dev->set_mac_address    = cpmac_set_mac_address;
+> > +	dev->set_multicast_list = cpmac_set_multicast_list;
+> > +	dev->tx_timeout         = cpmac_tx_timeout;
+> > +	dev->ethtool_ops        = &cpmac_ethtool_ops;
+> > +	if (!disable_napi) {
+> > +		dev->poll = cpmac_poll;
+> > +		dev->weight = min(rx_ring_size, 64);
+> > +	}
+> > +
+> > +	memset(priv, 0, sizeof(struct cpmac_priv));
+> 
+> I think alloc_etherdev() already did that?
 
-interesting - i think i did not notice something similar on my laptop
-but i couldnt quantify it and it didnt seem to make sense.
+What? zeroing the memory or other stuff?
 
-> despite the CPU load being increased. For a system whose main job is processing network 
-> traffic quickly, like an embedded router or a network server, this approach might be very 
-> beneficial.
+> > +	spin_lock_init(&priv->lock);
+> > +	priv->msg_enable = netif_msg_init(NETIF_MSG_WOL, 0x3fff);
+> > +	priv->config = pdata;
+> > +	priv->dev = dev;
+> > +	memcpy(dev->dev_addr, priv->config->dev_addr, sizeof(dev->dev_addr));
+> > +	if (phy_id == 31) {
+> > +		snprintf(priv->phy_name, BUS_ID_SIZE, PHY_ID_FMT,
+> > +			 cpmac_mii.id, phy_id);
+> > +	} else {
+> > +		snprintf(priv->phy_name, BUS_ID_SIZE, "fixed@%d:%d", 100, 1);
+> > +	}
+> > +
+> > +	if ((rc = register_netdev(dev))) {
+> > +		printk("cpmac: error %i registering device %s\n",
+> > +		       rc, dev->name);
+> > +		goto fail;
+> > +	}
+> > +
+> > +	printk("cpmac: device %s (regs: %p, irq: %d, phy: %s, mac: ",
+> > +	       dev->name, (u32 *)dev->mem_start, dev->irq,
+> > +	       priv->phy_name);
+> > +	for (i = 0; i < 6; i++)
+> > +		printk("%02x%s", dev->dev_addr[i], i < 5 ? ":" : ")\n");
+> > +
+> > +	return 0;
+> > +
+> > +fail:
+> > +	free_netdev(dev);
+> > +	return rc;
+> > +}
+> > +
 
-I am not sure i buy that James;-> The router types really have not much
-of a challenge in this area.
+What about this?
 
->  For a desktop, I'm less sure, although as I said above, I've noticed no performance 
-> issues in my setups to date.
-
-> Is this worth pursuing further? I'm considering doing more work to measure the effects at 
-> various relatively low packet rates. 
-
-The standard litmus test applies since this is about performance.
-Ignoring memory, the three standard net resources to worry about are
-cpu, throughput and latency.  If you can show one or more of those
-resources got better consistently without affecting the others across
-different scenarios - you have a case to make.
-For example in my experiments:
-At high traffic rates, i didnt affect any of those axes.
-At low rates, I was able to reduce cpu abuse, make throughput consistent
-but make latency a lot worse. So this meant it was not fit to push
-forward.
-
-> I also want to investigate using High Res Timers rather 
-> than jiffy sampling to reduce the idle poll time.
-
-Mandeep also mentioned tickless - it would be interesting to see both.
-
->  Perhaps it is also worth trying HRT in the 
-> net_rx softirq too. 
-
-You may wanna also try the approach i did with hrt+/tickless by changing
-only the driver and not the core.
-
-> I thought it would be worth throwing the ideas out there 
-> first to get early feedback.
-
-You are doing the right thing by following the path on perfomance
-analysis. I hope you dont get discouraged because the return on
-investment may be very low in such work - the majority of the work is in
-the testing and analysis (not in puking code endlessly). 
-
-cheers,
-jamal
-
+Thanks for Your attention,
+Matteo Croce
