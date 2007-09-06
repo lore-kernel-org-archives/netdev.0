@@ -1,81 +1,64 @@
-From: Satyam Sharma <satyam@infradead.org>
-Subject: Re: kernel crashes inside MV643xx driver
-Date: Thu, 6 Sep 2007 05:10:05 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0709060455350.26804@enigma.security.iitk.ac.in>
-References: <46C93701.7050509@alcatel-lucent.com>
- <20070905082452.4a20387b.akpm@linux-foundation.org>
- <20070905165452.GA18396@xyzzy.farnsworth.org>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: [PATCH 1/2]: [NET_SCHED]: Make all rate based scheduler work
+ with TSO.
+Date: Wed, 5 Sep 2007 23:59:54 -0400
+Message-ID: <20070905235954.a2b4e3d2.billfink@mindspring.com>
+References: <1188562975.18622.11.camel@localhost.localdomain>
+	<46D9103B.7090905@trash.net>
+	<Pine.LNX.4.61.0709012325080.29796@ask.diku.dk>
+	<20070903233456.0e738183.billfink@mindspring.com>
+	<46DD867E.6020307@trash.net>
+	<20070904134015.18a3e7ca.billfink@mindspring.com>
+	<1188983830.16405.21.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	gshan <gshan@alcatel-lucent.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Netdev Mailing List <netdev@vger.kernel.org>
-To: Dale Farnsworth <dale@farnsworth.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: jdb@comx.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:40202 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754275AbXIEX06 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Sep 2007 19:26:58 -0400
-In-Reply-To: <20070905165452.GA18396@xyzzy.farnsworth.org>
+Received: from elasmtp-dupuy.atl.sa.earthlink.net ([209.86.89.62]:49407 "EHLO
+	elasmtp-dupuy.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750717AbXIFEAe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 00:00:34 -0400
+In-Reply-To: <1188983830.16405.21.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 05 Sep 2007, Jesper Dangaard Brouer wrote:
 
-
-On Wed, 5 Sep 2007, Dale Farnsworth wrote:
-
-> On Wed, Sep 05, 2007 at 08:24:52AM -0700, Andrew Morton wrote:
-> > > On Mon, 20 Aug 2007 14:38:57 +0800 gshan <gshan@alcatel-lucent.com> wrote:
-> > > Hi All,
-> > > 
-> > > After I started the NFS server, it crashed:
-> > > 
-> > > <3>Badness in local_bh_enable at 
-> > > /home/cli4/sandbox/main/TelicaRoot/components/mvlinux/cge/devkit/lsp/7xx/linux/kernel/softirq.c:195
-> > > Badness in local_bh_enable at 
-> > > /home/cli4/sandbox/main/TelicaRoot/components/mvlinux/cge/devkit/lsp/7xx/linux/kernel/softirq.c:195
-> > > Call trace:
-> > >  [c0005340] check_bug_trap+0xbc/0x11c
-> > >  [c0005604] ProgramCheckException+0x264/0x2bc
-> > >  [c0004ac4] ret_from_except_full+0x0/0x4c
-> > >  [c0022ae4] local_bh_enable+0x18/0x80
-> > >  [c024648c] skb_copy_bits+0x168/0x3b8
-> > >  [c024db44] __skb_linearize+0x90/0x150
-> > >  [c020e8a4] mv643xx_eth_start_xmit+0x4c0/0x5bc
-> > >  [c025c934] qdisc_restart+0xac/0x2bc
-> > >  [c024de9c] dev_queue_xmit+0x298/0x34c
-> > >  [c0269814] ip_finish_output+0x140/0x2b8
-> > >  [c026a3ac] ip_fragment+0x3cc/0x6e0
-> > >  [c026bac8] ip_push_pending_frames+0x3dc/0x46c
-> > >  [c0289ec4] udp_push_pending_frames+0x10c/0x1cc
-> > >  [c028a7c4] udp_sendpage+0x104/0x188
-> > >  [c0292fc8] inet_sendpage+0x90/0xb8
-> > > 
-> > > I searched the webs and found the similar problems:
-
-> > > http://www.mail-archive.com/netdev@vger.kernel.org/msg05199.html
-
-> > > http://oss.sgi.com/archives/netdev/2005-09/msg00025.html
-> > > 
-> > > Who knew there are fixes for the problem?
+> On Tue, 2007-09-04 at 13:40 -0400, Bill Fink wrote:
+> > On Tue, 04 Sep 2007, Patrick McHardy wrote:
 > > 
-> > Well that got a tremendous response, didn't it?
-
-I thought of replying to this post when I saw it couple weeks back, but
-didn't because (1) that's an ancient kernel and (2) the first link that
-was mentioned up there in the original post itself pointed to a patch to
-solve it (which I verified was since applied to mainline too).
-
-
-> > What do you mean by "crashed"?  The above is a warning and the system
-> > should have survived.
+> > > Bill Fink wrote:
+> > > > On Sat, 1 Sep 2007, Jesper Dangaard Brouer wrote:
+> > > >
+> > > Yes, you need to specify the MTU on the command line for
+> > > jumbo frames.
 > > 
-> > Which kernel version is being used?
+> > Thanks!  Works much better now, although it does slightly exceed
+> > the specified rate.
 > 
-> That is the key question.  From the pathnames, I suspect that gshan is
-> using a MontaVista version.  I'm still (especially) interested, since
-> MontaVista pays me.
+> Thats what happens, with the current rate table system, as we use the
+> lower boundry (when doing the packet to time lookups). Especially with a
+> high MTU, as the "resolution" of the rate table diminish (mpu=9000 gives
+> cell_log=6, 2^6=64 bytes "resolution" buckets).
 > 
-> BTW, I never received the original message on netdev or linux-kernel.
-> Hmm.  Thanks to Andrew for replying.
+> > [root@lang4 ~]# tc qdisc add dev eth2 root tbf rate 2gbit buffer 5000000 limit 18000 mtu 9000
+> > 
+> > [root@lang4 ~]# ./nuttcp-5.5.5 -w10m 192.168.88.14
+> >  2465.6729 MB /  10.08 sec = 2051.8241 Mbps 19 %TX 13 %RX
+
+That doesn't seem to account for the magnitude of the rate exceeding.
+In the worst case (rough calculation):
+
+	(1+64/9000)*2000 = 2014.2222 Mbps
+
+Now if that were 256 rather than 64:
+
+	(1+256/9000)*2000 = 2056.8888 Mbps
+
+Or maybe the packet overhead is calculated wrong for the 9000 MTU case
+(just wild speculation on my part).
+
+						-Bill
