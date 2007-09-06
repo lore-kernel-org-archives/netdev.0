@@ -1,97 +1,102 @@
-From: FNST-Wang Chen <wangchen@cn.fujitsu.com>
-Subject: Re: [Spam-fortigate] Re: [PATCH 1/1] netcore: minor cleanup for register_netdevice
-Date: Thu, 06 Sep 2007 13:37:55 +0800
-Message-ID: <46DF9233.5030809@cn.fujitsu.com>
-References: <46DF8FBC.20106@cn.fujitsu.com> <20070906.143402.07329837.yoshfuji@linux-ipv6.org>
+From: Mandeep Singh Baines <mandeep.baines@gmail.com>
+Subject: Re: [PATCH] [sis900] convert to NAPI, WAS Re: pktgen terminating
+	condition
+Date: Wed, 5 Sep 2007 22:06:29 -0700
+Message-ID: <20070906050629.GA4262@ludhiana>
+References: <20070904032036.GA11153@ludhiana> <1188925008-ced672f60b90353067426d0b9f74506a@brownhat.org> <20070905074411.GA4815@ludhiana> <46DE9B09.7060603@katalix.com> <1188995619.4238.5.camel@localhost> <46DEB545.3030509@katalix.com> <1189002087.4228.26.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, ellre923@gmail.com, krkumar2@in.ibm.com
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: James Chapman <jchapman@katalix.com>,
+	Mandeep Singh Baines <mandeep.baines@gmail.com>,
+	Daniele Venzano <venza@brownhat.org>, davem@davemloft.net,
+	rick.jones2@hp.com, msb@google.com, netdev@vger.kernel.org,
+	grundler@google.com, robert.olsson@its.uu.se, jeff@garzik.org,
+	nhorman@tuxdriver.com
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [222.73.24.84] ([222.73.24.84]:63204 "EHLO song.cn.fujitsu.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751886AbXIFFiZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Sep 2007 01:38:25 -0400
-In-Reply-To: <20070906.143402.07329837.yoshfuji@linux-ipv6.org>
+Received: from rv-out-0910.google.com ([209.85.198.189]:21415 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757956AbXIFFkv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 01:40:51 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so53375rvb
+        for <netdev@vger.kernel.org>; Wed, 05 Sep 2007 22:40:50 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1189002087.4228.26.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-oops
-i am wrong
+jamal (hadi@cyberus.ca) wrote:
+> On Wed, 2007-05-09 at 14:55 +0100, James Chapman wrote:
+> 
+> > Thanks Jamal. Yes, I'd already read your paper. I think my idea is 
+> > different to the ideas described in your paper 
+> 
+> I am hoping you can pick from the lessons of what has been tried and
+> failed and the justification for critiqueing something as "Failed". 
+> If you have - i feel i accomplished something useful writting the paper.
+> 
+> > and I'm in the process of 
+> > writing it up as an RFC to post to netdev. 
+> 
+> Please cc me if you want my feedback - I am backlogged by about 3000
+> messages on netdev.
+> 
+> > Briefly though, the driver's 
+> > ->poll() holds off doing netif_rx_complete() for 1-2 jiffies and keeps 
+> > itself in poll_on mode for that time, consuming no quota. 
+> > The net_rx 
+> > softirq processing loop is modified to detect the case when the only 
+> > devices in its poll list are doing no work (consuming no quota). The 
+> > driver's ->poll() samples jiffies while it is considering when to do the 
+> > netif_rx_complete() like your Parked state - no timers are used.
+> 
+> Ok, so the difference seems to be you actually poll instead for those
+> jiffies instead starting a timer in the parked state - is that right?
+> 
+> > If I missed that this approach has already been tried before and 
+> > rejected, please let me know. I see better throughput and latency in my 
+> > packet forwarding and LAN setups using it.
+> 
+> If you read the paper: There are no issues with high throughput - NAPI
+> kicks in.
+> The challenge to be overcome is at low traffic, if you have a real fast
+> processor your cpu-cycles-used/bits-processed ratio is high....
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E said the follo=
-wing on 2007-9-6 13:34:
-> I disagree.  Some of "dev->init()" functions set up dev->iflink;
-> e.g., ipip_tunnel_init() etc.
->
-> In article <46DF8FBC.20106@cn.fujitsu.com> (at Thu, 06 Sep 2007 13:27=
-:24 +0800), FNST-Wang Chen <wangchen@cn.fujitsu.com> says:
->
->  =20
->> - minor logic cleanup
->>
->> Signed-off-by: Wang Chen <wangchen@cn.fujitsu.com>
->>
->> diff -Nurp linux-2.6.22.4.org/net/core/dev.c  linux-2.6.22.4/net/cor=
-e/dev.c
->> --- linux-2.6.22.4.org/net/core/dev.c    2007-08-22 15:33:40.0000000=
-00=20
->> +0800
->> +++ linux-2.6.22.4/net/core/dev.c    2007-09-06 13:27:35.000000000 +=
-0800
->> @@ -3075,8 +3075,6 @@ int register_netdevice(struct net_device
->>     dev->xmit_lock_owner =3D -1;
->>     spin_lock_init(&dev->ingress_lock);
->>
->> -    dev->iflink =3D -1;
->> -
->>     /* Init, if this function is available */
->>     if (dev->init) {
->>         ret =3D dev->init(dev);
->> @@ -3093,8 +3091,7 @@ int register_netdevice(struct net_device
->>     }
->>
->>     dev->ifindex =3D dev_new_index();
->> -    if (dev->iflink =3D=3D -1)
->> -        dev->iflink =3D dev->ifindex;
->> +    dev->iflink =3D dev->ifindex;
->>
->>     /* Check for existence of name */
->>     head =3D dev_name_hash(dev->name);
->>
->>
->>
->>
->>
->> -
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>    =20
->
->
->
->  =20
+I'm not sure cpu-cycles-used/bits-processed is the correct metric to use.
+An alternative would be to look at cpu-cycles-used/unit-time (i.e.
+CPU utilization or load) for a given bit-rate or packet-rate. This would
+make an interesting graph.
 
+At low packet-rate, CPU utilization is low so doing extra work per packet
+is probably OK. Utilizing 2% of CPU vesus 1% is negligible. But at higher
+rate, when there is more CPU utilization, using 40% of CPU versus 60% is
+significant. I think the absolute different in CPU utilization is more
+important than the relative difference. iow, 2% versus 1%, even though 
+a 2x difference in cpu-cycles/packet, is negligible compared to 40% 
+versus 60%.
 
---=20
-Best Regards,
-A new email address of FJWAN is launched from Apr.1 2007.
-The updated address is: wangchen@cn.fujitsu.com
---------------------------------------------------
-Wang Chen
-Development Dept.I
-Nanjing Fujitsu Nanda Software Tech. Co., Ltd.(FNST)
-8/F., Civil Defense Building, No.189 Guangzhou Road,
-Nanjing, 210029, China
-TEL=EF=BC=9A+86+25-86630566-850
-=46UJITSU INTERNAL=EF=BC=9A79955-850
-=46AX=EF=BC=9A+86+25-83317685
-MAIL=EF=BC=9Awangchen@cn.fujitsu.com
---------------------------------------------------
+> If you are polling (softirqs have high prio and depending on the cpu,
+> there could be a few gazillion within those 1-2 jiffies), then isnt the
+> end result still a high cpu-cycles used?
+> Thats what the timer tries to avoid (do nothing until some deffered
+> point).
 
+Using a timer might also behave better in a tick-less (CONFIG_NO_HZ) 
+configuration.
 
-
+> If you waste cpu cycles and poll, I can see that (to emphasize: For
+> FastCPU-LowTraffic scenario), you will end up _not_ having latency
+> issues i pointed out, but you surely have digressed from the original
+> goal which is to address the cpu abuse at low traffic (because you abuse
+> more cpu).
+> 
+> One thing that may be valuable is to show that the timers and polls are
+> not much different in terms of cpu abuse (It's theoretically not true,
+> but reality may not match).
+> The other thing is now hrestimers are on, can you try using a piece of
+> hardware that can get those kicked and see if you see any useful results
+> on latency.
+> 
+> cheers,
+> jamal
+> 
