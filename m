@@ -1,51 +1,60 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: RFC: possible NAPI improvements to reduce interrupt rates for
- low traffic rates
-Date: Thu, 6 Sep 2007 16:37:03 +0100
-Message-ID: <20070906163703.4fc12d32@oldman>
-References: <200709061416.l86EG0Vb017675@quickie.katalix.com>
-	<20070906153700.57a0c448@oldman>
-	<46E01D16.5000609@katalix.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [TG3]: Workaround MSI bug on 5714/5780.
+Date: Thu, 6 Sep 2007 11:41:26 -0400
+Message-ID: <20070906154123.GC10317@gospo.rdu.redhat.com>
+References: <1189022828.4960.2.camel@dell> <20070906.040235.71121480.davem@davemloft.net> <20070906134508.GA10317@gospo.rdu.redhat.com> <20070906.073423.74747465.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hadi@cyberus.ca, davem@davemloft.net,
-	jeff@garzik.org, mandeep.baines@gmail.com, ossthema@de.ibm.com
-To: James Chapman <jchapman@katalix.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: andy@greyhouse.net, mchan@broadcom.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:44311 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755421AbXIFPhs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 11:37:48 -0400
-In-Reply-To: <46E01D16.5000609@katalix.com>
+Received: from mx1.redhat.com ([66.187.233.31]:60752 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755421AbXIFPla (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Sep 2007 11:41:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20070906.073423.74747465.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 06 Sep 2007 16:30:30 +0100
-James Chapman <jchapman@katalix.com> wrote:
+On Thu, Sep 06, 2007 at 07:34:23AM -0700, David Miller wrote:
+> From: Andy Gospodarek <andy@greyhouse.net>
+> Date: Thu, 6 Sep 2007 09:45:16 -0400
+> 
+> > Is is really necessary to get rid of the HT1000 patch?
+> 
+> Yes, absolutely and without a single doubt.
+> 
+> > commit e3008dedff4bdc96a5f67224cd3d8d12237082a0
+> > Author: Andy Gospodarek <andy@greyhouse.net>
+> > Date:   Thu May 10 22:58:57 2007 -0700
+> > 
+> >     PCI: disable MSI by default on systems with Serverworks HT1000 chips
+> > 
+> > This patch was designed to address tg3 and bnx2 messages printed on
+> > systems with HT1000 chips IIRC.  Are we going back to those messages on
+> > bnx2 or is there a workaround in that driver needed too?
+> 
+> Every report of that problem is with tg3 chips afflicted by this
+> INTX bug which is now worked around properly.
+> 
 
-> Stephen Hemminger wrote:
-> 
-> > What about the latency that NAPI imposes? Right now there are certain applications that
-> > don't like NAPI because it add several more microseconds, and this may make it worse.
-> 
-> Latency is something that I think this approach will actually improve, 
-> at the expense of additional polling. Or is it the ksoftirqd scheduling 
-> latency that you are referring to?
+Not according to this:
 
-The problem is that you leave interrupts disabled, right. Also you are busy during
-idle which kills powersaving and no hz clock.
+https://bugzilla.redhat.com/show_bug.cgi?id=227657
 
-> > Maybe a per-device flag or tuning parameters (like weight sysfs value)? or some other
-> > way to set low-latency values.
+Which was precisely why I chose to look at it as a chipset issue.
+
+> Even my Niagara T1000 box was hit by this absolutely stupid and
+> wrong MSI quirk, which is how I found this problem to begin with.
 > 
-> Yes. I'd like to think good defaults could be derived though, perhaps 
-> based on settings like CONFIG_PREEMPT, CONFIG_HIGH_RES_TIMER, CONFIG_HZ 
-> and maybe even bogomips / nr_cpus.
+> I'm reverting it.
 > 
-> -- 
-> James Chapman
-> Katalix Systems Ltd
-> http://www.katalix.com
-> Catalysts for your Embedded Linux software development
-> 
+
+If that's the case, do we need to consider that some of the bnx2
+hardware (like in this case the 5706) needs a similar workaround?
+
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
