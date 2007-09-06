@@ -1,58 +1,29 @@
-From: Satyam Sharma <satyam@infradead.org>
-Subject: Re: [PATCH -mm 1/2] 3c59x: Fix uninitialized variable bug
-Date: Thu, 6 Sep 2007 15:25:55 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0709061515090.3781@enigma.security.iitk.ac.in>
-References: <alpine.LFD.0.999.0709040340250.8504@enigma.security.iitk.ac.in>
- <20070904081602.GB4241@newton.mathematik.tu-chemnitz.de>
- <20070904085331.GH5944@hindley.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-26.24 broken with XFRM off
+Date: Thu, 06 Sep 2007 02:50:46 -0700 (PDT)
+Message-ID: <20070906.025046.74721747.davem@davemloft.net>
+References: <46DFAB7F.7060406@chelsio.com>
+	<20070906101326.34a81abb.dada1@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Netdev Mailing List <netdev@vger.kernel.org>,
-	Jeff Garzik <jeff@garzik.org>
-To: Mark Hindley <mark@hindley.org.uk>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: divy@chelsio.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, takamiya@po.ntts.co.jp
+To: dada1@cosmosbay.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:50640 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752932AbXIFJm5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 05:42:57 -0400
-In-Reply-To: <20070904085331.GH5944@hindley.org.uk>
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:47582
+	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750967AbXIFJvY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 05:51:24 -0400
+In-Reply-To: <20070906101326.34a81abb.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Eric Dumazet <dada1@cosmosbay.com>
+Date: Thu, 6 Sep 2007 10:13:26 +0200
 
-
-On Tue, 4 Sep 2007, Mark Hindley wrote:
-
-> On Tue, Sep 04, 2007 at 02:09:47PM +0530, Satyam Sharma wrote:
-> > Hi Steffen,
-> > 
-> > 
-> > On Tue, 4 Sep 2007, Steffen Klassert wrote:
-> > 
-> > > On Tue, Sep 04, 2007 at 03:45:55AM +0530, Satyam Sharma wrote:
-> > > > 
-> > > > drivers/net/3c59x.c: In function 'vortex_up':
-> > > > drivers/net/3c59x.c:1495: warning: 'err' may be used uninitialized in this function
-> > > 
-> > > This came in with the recently applied 3c59x-check-return-of-pci_enable_device patch
-> > > from Mark Hindley. I just compiled it on a PCI only machine so far, therefore I did
-> > > not notice the warning yet.
-> > 
-> > Hmm, the .config I built with had PCI=y as well. Probably a compiler
-> > version difference -- Jeff also mentioned yesterday that some newer
-> > GCC versions fail to warn about uninitialized variables cases.
-> > 
+> I believe this problem is known.
 > 
-> Sorry, this is my bad. I have just checked: there is no warning with gcc
-> 4.2 or 4.1, but 3.3 emits the warning. 
+> Please check http://marc.info/?l=linux-netdev&m=118881627028135&w=2 
 
-This is a GCC bug (regression, actually, as you've found out) -- no two
-ways about it. Although different from the kind Jeff mentioned couple days
-back -- that was about wising GCC up to false positives and /not/ emitting
-warnings. But here a genuine problem was not complained about, so this is
-more serious. Do you plan to open up a bug at gcc.gnu.org/bugzilla/ ?
-
-
-Satyam
+I'll toss that fix into the tree, thanks.
