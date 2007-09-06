@@ -1,58 +1,63 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: BUG: scheduling while atomic: ifconfig/0x00000002/4170
-Date: Thu, 06 Sep 2007 17:19:55 +0200
-Message-ID: <1189091995.28781.99.camel@johannes.berg>
-References: <20070902184439.GA14306@paradigm.rfc822.org>
-	 <6bffcb0e0709021659o3856cd06gabc054c949a84397@mail.gmail.com>
-	 <alpine.LFD.0.999.0709060923340.26804@enigma.security.iitk.ac.in>
-	 <20070906082301.GB21929@gondor.apana.org.au>
+From: Paul Moore <paul.moore@hp.com>
+Subject: Re: [TOMOYO 15/15] LSM expansion for TOMOYO Linux.
+Date: Thu, 6 Sep 2007 11:25:39 -0400
+Message-ID: <200709061125.39815.paul.moore@hp.com>
+References: <46CED214.6050505@gmail.com> <200709051006.28429.paul.moore@hp.com> <200709062204.DFH97819.JLOHVOOSFMtFQF@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-P0JM25PSs9MHCk1RoLrB"
-Cc: Satyam Sharma <satyam-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Florian Lohoff <flo-BCn6idZOOBwdnm+yROfE0A@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Michal Piotrowski <michal.k.k.piotrowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070906082301.GB21929-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org, chrisw@sous-sol.org,
+	netdev@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atlrel6.hp.com ([156.153.255.205]:57487 "EHLO atlrel6.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755421AbXIFP0V convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 11:26:21 -0400
+In-Reply-To: <200709062204.DFH97819.JLOHVOOSFMtFQF@I-love.SAKURA.ne.jp>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thursday, September 6 2007 9:04:01 am Tetsuo Handa wrote:
+> (1) It uses userspace intervention to allow/reject
+>     connections and/or packets based on the application's domain.
+>     Since existent hooks can't be used for this purpose,
+>     I inserted a new hook post_recv_datagram() at skb_recv_datagram()
+>     and I modified socket_post_accept() to return error so that
+>     I can drop/disconnect based on the application's domain.
+>
+>     I think skb_recv_datagram() is the only place that can remove
+>     a message picked up with MSG_PEEK flags from the receive queue.
+>     To remove a message picked up with MSG_PEEK flags, I noticed that
+>     I have to do skb_kill_datagram()-like operation so that
+>     "the head message that must not be delivered to the caller" won't
+> prevent picking up of "the non-head message that should be delivered to the
+> caller" when the caller repeats only recv(MSG_PEEK) requests.
+>     Since skb_recv_datagram() can be called from interrupt context,
+>     I have to use spin_lock_irqsave() instead for spin_lock_bh(), am I
+> right?
 
---=-P0JM25PSs9MHCk1RoLrB
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+There are almost certainly better people to answer locking questions, but here 
+is my take on it ... If you are accessing data both in a bottom half and 
+elsewhere you need to make sure you disable bottom halfs from running before 
+you access the data outside the bottom half (spin_lock_bh()).  If you are 
+accessing data both in an interrupt handler and elsewhere you need to make 
+sure you disable interrupts when accessing data outside the irq handler 
+(spin_lock_irqsave()).
 
-On Thu, 2007-09-06 at 16:23 +0800, Herbert Xu wrote:
-> On Thu, Sep 06, 2007 at 10:32:33AM +0530, Satyam Sharma wrote:
-> >=20
-> > > > [  382.529041]  [<c02c8abc>] dev_close+0x24/0x67
-> > > > [  382.529052]  [<e01f402b>] ieee80211_master_stop+0x4a/0x6d [mac80=
-211]
->=20
-> This is where the bug is.  You cannot call dev_close from an
-> atomic context as i33380211_master_stop does it within spin
-> locks.
+>     By the way, why can't socket_post_accept() fail?
+>     Someone may wish to do memory allocation at socket_post_accept().
+>     socket_accept() is too early for memory allocation because
+>     there is no chance to free allocated memory
+>     when sock->ops->accept() failed.
+>     I think socket_post_accept() should be able to fail.
 
-Oh btw. Can we stick a might_sleep() into dev_close() *before* the test
-whether the device is up? That way, we'd have seen the bug, but
-apparently nobody before Florian ever did a 'ip link set wmaster0 down'
-while the other interfaces were still open.
+>From my experience the community disapproves of approaches which go through 
+the entire TCP handshake and then terminate the connection, which is what 
+allowing security_socket_post_accept() to fail would do.
 
-johannes
-
---=-P0JM25PSs9MHCk1RoLrB
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBG4Bqb/ETPhpq3jKURAodYAJ9Ue7BZ2OM/mODT3BxY5BZTViKo5gCgrEkC
-LpH1f969DmQIZpNHoSH2Ank=
-=vRYa
------END PGP SIGNATURE-----
-
---=-P0JM25PSs9MHCk1RoLrB--
+-- 
+paul moore
+linux security @ hp
