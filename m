@@ -1,43 +1,37 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: error(s) in 2.6.23-rc5 bonding.txt ?
-Date: Fri, 07 Sep 2007 15:02:41 -0700
-Message-ID: <46E1CA81.6050808@hp.com>
+From: Jason Lunz <lunz@gehennom.net>
+Subject: Re: RFC: possible NAPI improvements to reduce interrupt rates for
+	low traffic rates
+Date: Fri, 7 Sep 2007 16:20:47 -0500
+Message-ID: <20070907212044.GA9786@falooley.org>
+References: <200709061416.l86EG0Vb017675@quickie.katalix.com> <1189120020.4259.68.camel@localhost> <46E11A61.9030409@katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Linux Network Development list <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jeff@garzik.org,
+	mandeep.baines@gmail.com, ossthema@de.ibm.com, hadi@cyberus.ca,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel11.hp.com ([156.153.255.246]:54991 "EHLO palrel11.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753943AbXIGWDE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Sep 2007 18:03:04 -0400
-Received: from tardy.cup.hp.com (tardy.cup.hp.com [15.244.56.217])
-	by palrel11.hp.com (Postfix) with ESMTP id B5B703603F
-	for <netdev@vger.kernel.org>; Fri,  7 Sep 2007 15:02:52 -0700 (PDT)
-Received: from [127.0.0.1] (localhost [127.0.0.1])
-	by tardy.cup.hp.com (8.9.3 (PHNE_28810)/8.9.3 SMKit7.02) with ESMTP id PAA18040
-	for <netdev@vger.kernel.org>; Fri, 7 Sep 2007 15:02:41 -0700 (PDT)
+Received: from li6-103.members.linode.com ([66.160.141.103]:2905 "EHLO
+	smtp.falooley.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758476AbXIGWDG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2007 18:03:06 -0400
+Content-Disposition: inline
+In-Reply-To: <46E11A61.9030409@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I was perusing Documentation/networking/bonding.txt in a 2.6.23-rc5 tree 
-and came across the following discussing the round-robin scheduling:
+In gmane.linux.network, you wrote:
+> But the CPU has done more work. The flood ping will always show 
+> increased CPU with these changes because the driver always stays in the 
+> NAPI poll list. For typical LAN traffic, the average CPU usage doesn't 
+> increase as much, though more measurements would be useful.
 
->         Note that this out of order delivery occurs when both the
->         sending and receiving systems are utilizing a multiple
->         interface bond.  Consider a configuration in which a
->         balance-rr bond feeds into a single higher capacity network
->         channel (e.g., multiple 100Mb/sec ethernets feeding a single
->         gigabit ethernet via an etherchannel capable switch).  In this
->         configuration, traffic sent from the multiple 100Mb devices to
->         a destination connected to the gigabit device will not see
->         packets out of order.  
+I'd be particularly interested to see what happens to your latency when
+other apps are hogging the cpu. I assume from your description that your
+cpu is mostly free to schedule the niced softirqd for the device polling
+duration, but this won't always be the case. If other tasks are running
+at high priority, it could be nearly a full jiffy before softirqd gets
+to check the poll list again and the latency introduced could be much
+higher than you've yet measured.
 
-My first reaction was that this was incorrect - it didn't matter if the 
-receiver was using a single link or not because the packets flowing 
-across the multiple 100Mb links could hit the intermediate device out of 
-order and so stay that way across the GbE link.
-
-Before I go and patch-out that text I thought I'd double check.
-
-rick jones
+Jason
