@@ -1,47 +1,34 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [CORRECTION][PATCH] Fix a potential NULL pointer dereference
- in uli526x_interrupt() in drivers/net/tulip/uli526x.c
-Date: Fri, 07 Sep 2007 19:20:56 -0400
-Message-ID: <46E1DCD8.9030004@pobox.com>
-References: <46DD13CE.6010905@gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch 02/18] sundance: PHY address form 0, only for device I
+  D 0x0200 (IP100A) (20070605)
+Date: Fri, 07 Sep 2007 19:23:30 -0400
+Message-ID: <46E1DD72.1080608@garzik.org>
+References: <AA68EB0EBA29BA40A06B700C33343EEF018686DF@fileserver.icplus.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Micah Gruber <micah.gruber@gmail.com>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
+To: =?UTF-8?B?6buD5bu66IiILUplc3Nl?= <Jesse@icplus.com.tw>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:35061 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:35082 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750986AbXIGXU6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Sep 2007 19:20:58 -0400
-In-Reply-To: <46DD13CE.6010905@gmail.com>
+	id S1751130AbXIGXXh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Sep 2007 19:23:37 -0400
+In-Reply-To: <AA68EB0EBA29BA40A06B700C33343EEF018686DF@fileserver.icplus.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Micah Gruber wrote:
-> This patch fixes a potential null dereference bug where we dereference dev before a null check. This patch simply moves the dereferencing after the null check.
-> 
-> Signed-off-by: Micah Gruber <micah.gruber@gmail.com>
-> ---
-> 
-> --- a/drivers/net/tulip/uli526x.c
-> +++ b/drivers/net/tulip/uli526x.c
-> @@ -663,7 +663,7 @@
->  {
->  	struct net_device *dev = dev_id;
->  	struct uli526x_board_info *db = netdev_priv(dev);
-> -	unsigned long ioaddr = dev->base_addr;
-> +	unsigned long ioaddr;
->  	unsigned long flags;
->  
->  	if (!dev) {
-> @@ -671,6 +671,8 @@
->  		return IRQ_NONE;
->  	}
->  
-> +	ioaddr = dev->base_addr;
-> +
+Just so I understand you correctly,
 
-as satyam noted, just remove the !dev test
+	1) IP100A support requires modified sundance.c
+
+	2) IP1000A support requires new driver
+
+Is this correct?
+
+If so, please resend the IP1000A driver, I don't have it in my email.
+
+	Jeff
+
 
 
