@@ -1,51 +1,39 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: [PATCH 2/2][RESEND] ehea: fix last_rx update
-Date: Fri, 7 Sep 2007 12:30:24 +0200
-Message-ID: <200709071230.25008.ossthema@de.ibm.com>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH] Freeing alive inet6 address
+Date: Fri, 7 Sep 2007 14:21:18 +0400
+Message-ID: <20070907102118.GA27780@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	"Jan-Bernd Themann" <themann@de.ibm.com>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"linux-ppc" <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, devel@openvz.org
+To: den@openvz.org, adobriyan@openvz.org, xemul@openvz.org,
+	dev@openvz.org, kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([195.212.29.140]:58058 "EHLO
-	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965091AbXIGKad (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2007 06:30:33 -0400
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:56604 "EHLO iris"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S965128AbXIGLAy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Sep 2007 07:00:54 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Update last_rx in registered device struct instead of
-in the dummy device.
+From: Denis V. Lunev <den@openvz.org>
 
-Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
+addrconf_dad_failure calls addrconf_dad_stop which takes referenced address
+and drops the count. So, in6_ifa_put perrformed at out: is extra. This
+results in message: "Freeing alive inet6 address" and not released dst entries.
 
----
- drivers/net/ehea/ehea_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+Signed-off-by: Alexey Dobriyan <adobriyan@openvz.org>
 
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index 1e9fd6f..717b129 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -471,7 +471,7 @@ static struct ehea_cqe *ehea_proc_rwqes(struct net_device *dev,
- 			else
- 				netif_receive_skb(skb);
- 
--			dev->last_rx = jiffies;
-+			port->netdev->last_rx = jiffies;
- 		} else {
- 			pr->p_stats.poll_receive_errors++;
- 			port_reset = ehea_treat_poll_error(pr, rq, cqe,
--- 
-1.5.2
-
+--- ./net/ipv6/ndisc.c.ipv6dad	2007-09-03 16:54:32.000000000 +0400
++++ ./net/ipv6/ndisc.c	2007-09-07 13:34:30.000000000 +0400
+@@ -736,7 +736,7 @@ static void ndisc_recv_ns(struct sk_buff
+ 				 * so fail our DAD process
+ 				 */
+ 				addrconf_dad_failure(ifp);
+-				goto out;
++				return;
+ 			} else {
+ 				/*
+ 				 * This is not a dad solicitation.
