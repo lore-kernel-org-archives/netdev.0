@@ -1,67 +1,66 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: new NAPI interface broken
-Date: Fri, 7 Sep 2007 11:37:02 +0200
-Message-ID: <200709071137.02801.ossthema@de.ibm.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: RFC: possible NAPI improvements to reduce interrupt rates for
+ low traffic rates
+Date: Fri, 07 Sep 2007 10:38:15 +0100
+Message-ID: <46E11C07.50307@katalix.com>
+References: <200709061416.l86EG0Vb017675@quickie.katalix.com> <20070907035528.GA3755@ludhiana>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, themann@de.ibm.com,
-	Christoph Raisch <raisch@de.ibm.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org, hadi@cyberus.ca, davem@davemloft.net,
+	jeff@garzik.org, ossthema@de.ibm.com,
+	Stephen Hemminger <shemminger@osdl.org>
+To: Mandeep Singh Baines <mandeep.baines@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.de.ibm.com ([195.212.29.155]:51594 "EHLO
-	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965034AbXIGJhH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2007 05:37:07 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate6.de.ibm.com (8.13.8/8.13.8) with ESMTP id l879b5kT1140318
-	for <netdev@vger.kernel.org>; Fri, 7 Sep 2007 09:37:05 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l879b5TA2277628
-	for <netdev@vger.kernel.org>; Fri, 7 Sep 2007 11:37:05 +0200
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l879b47Q013688
-	for <netdev@vger.kernel.org>; Fri, 7 Sep 2007 11:37:05 +0200
-Content-Disposition: inline
+Received: from s36.avahost.net ([74.53.95.194]:51661 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965051AbXIGJiT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Sep 2007 05:38:19 -0400
+In-Reply-To: <20070907035528.GA3755@ludhiana>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+Hi Mandeep,
 
-I saw that you developed most of the new NAPI interface.
-I already addressed this issue a while ago. Please correct me if I got
-it wrong. I think there is still a serious problem with the NAPI
-changes to make NAPI polling independent of struct net_device objects.
-Its about the question who inserts and removes devices from the poll list.
+Mandeep Singh Baines wrote:
+> Hi James,
+> 
+> I like the idea of staying in poll longer.
+> 
+> My comments are similar to what Jamal and Stephen have already said.
+> 
+> A tunable (via sysfs) would be nice.
+> 
+> A timer might be preferred to jiffy polling. Jiffy polling will not increase 
+> latency the way a timer would. However, jiffy polling will consume a lot more
+> CPU than a timer would. Hence more power. For jiffy polling, you could have 
+> thousands of calls to poll for a single packet received. While in a timer 
+> approach the numbers of polls per packet is upper bound to 2. 
 
-netif_rx_schedule: sets NAPI_STATE_SCHED flag, insert device in poll list.
-netif_rx_complete: clears NAPI_STATE_SCHED
-netif_rx_reschedule: sets NAPI_STATE_SCHED, insert device in poll list.
-net_rx_action: 
- -removes dev from poll list
- -calls poll function
- -adds dev to poll list if NAPI_STATE_SCHED still set
+Why would using a timer to hold off the napi_complete() rather than 
+jiffy count limit the polls per packet to 2?
 
-1) netif_rx_complete and netif_rx_reschedule don't work together
-2) On SMP systems: after netif_rx_complete has been called on CPU1
-   (+interruts enabled), netif_rx_schedule could be called on CPU2 
-   (irq handler) before net_rx_action on CPU1 has checked NAPI_STATE_SCHED. 
-   In that case the device would be added to poll lists of CPU1 and CPU2
-   as net_rx_action would see NAPI_STATE_SCHED set.
-   This must not happen. It will be caught when netif_rx_complete is
-   called the second time (BUG() called)
+> I think it may difficult to make poll efficient for the no packet case because,
+> at a minimum, you have to poll the device state via the has_work method.
 
-This would mean we have a problem on all SMP machines right now.
+Why wouldn't it be efficient? It would usually be done by reading an 
+"interrupt pending" register.
 
-If I got all this right then we probably need a further flag to tell
-net_rx_action whether to poll again or to stop (with the possibility
-that the device has been scheduled on a different CPU in between).
-The "old" NAPI interface uses the return value of poll to determine
-if the device has to be polled again or not. 
-We can either switch back or in case we want to stick to
-the new return value, we might have to add something similar to 
-the NAPI_STATE_SCHED flag or a new parameter...
+> If you go to a timer implementation then having a tunable will be important.
+> Different appications will have different requirements on delay and jitter.
+> Some applications may want to trade delay/jitter for less CPU/power 
+> consumption and some may not.
 
-Regards,
-Jan-Bernd
+I agree. I'm leaning towards a new ethtool parameter to control this to 
+be consistent with other per-device tunables.
+
+> imho, the work should definately be pursued further:)
+
+Thanks Mandeep. I'll try. :)
+
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
+
