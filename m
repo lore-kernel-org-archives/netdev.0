@@ -1,45 +1,66 @@
-From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference<1>
-Date: Sat, 8 Sep 2007 01:48:36 +0200
-Message-ID: <6bffcb0e0709071648y3e18fe23s24fdff3923690448@mail.gmail.com>
-References: <20070907052720.GA3122@king.bitgnome.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: 2.6.23-rc4-mm1: e1000e napi lockup
+Date: Fri, 07 Sep 2007 19:49:37 -0400
+Message-ID: <46E1E391.7090907@garzik.org>
+References: <46E0FB82.2040000@gmail.com>
+	<20070907.010338.41638771.davem@davemloft.net>
+	<46E17B41.4060200@intel.com> <46E1DF6E.6050801@garzik.org>
+	<46E1E15E.7080406@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>
-To: "Mark Nipper" <nipsy@bitgnome.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.184]:29074 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751452AbXIGXsg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2007 19:48:36 -0400
-Received: by rv-out-0910.google.com with SMTP id k20so556626rvb
-        for <netdev@vger.kernel.org>; Fri, 07 Sep 2007 16:48:36 -0700 (PDT)
-In-Reply-To: <20070907052720.GA3122@king.bitgnome.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, David Miller <davem@davemloft.net>,
+	jirislaby@gmail.com
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <46E1E15E.7080406@intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: e1000-devel-bounces@lists.sourceforge.net
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Hi Mark,
+Kok, Auke wrote:
+> Jeff Garzik wrote:
+>> Kok, Auke wrote:
+>>> David Miller wrote:
+>>>> From: Jiri Slaby <jirislaby@gmail.com>
+>>>> Date: Fri, 07 Sep 2007 09:19:30 +0200
+>>>>
+>>>>> I found a regression in 2.6.23-rc4-mm1 (since -rc3-mm1) in e1000e 
+>>>>> driver.
+>>>>> napi_disable(&adapter->napi) in e1000_probe freezes the kernel on 
+>>>>> boot.
+>>>> Yes, the semantics changed slightly in the net-2.6.24 tree the
+>>>> other week and someone needs to fix it up.
+>>>>
+>>>> The netif_napi_add() implicitly does a napi_disable() call.  Device
+>>>> open must explicitly napi_enable() and device close must explicitly
+>>>> napi_disable(), and if done elsewhere these calls must be strictly
+>>>> balanced.
+>>> I'll fix it... it's my patch that adds the new napi code to it and I 
+>>> need to get it ready for the merge window anyway.
+>>
+>> well....  since its close to the merge window opening, we could see 
+>> what happens if DaveM pulls branch 'upstream' of 
+>> git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
+>>
+>> That should make this class of pre-merge-window annoyance go away.
+> 
+> If I do that now I get a big merge conflict:
 
-[Adding netdev to CC]
+oh you are _guaranteed_ conflicts.  most of that is NAPI-area code that 
+got changed by both.
 
-On 07/09/2007, Mark Nipper <nipsy@bitgnome.net> wrote:
->         I've received two oopses now from my kernel while running
-> the 2.6.22 series.  The first was with 2.6.22.1 back in July and
-> the second which happened just within the last day is 2.6.22.5.
-> They both appear to be the same bug and I don't think it's
-> hardware related.  I'm attaching the entries from logcheck which
-> I received when they happened.
->
->         I'm not subscribed to the mailing list, so please make
-> sure to copy me directly on any replies.  And let me know if
-> anyone needs any additional information to try to track this
-> down.  Thanks for reading...
 
-Regards,
-Michal
 
--- 
-LOG
-http://www.stardust.webpages.pl/log/
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
