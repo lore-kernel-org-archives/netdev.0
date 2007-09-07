@@ -1,30 +1,41 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH][MIPS][7/7] AR7: ethernet
-Date: Thu, 6 Sep 2007 17:41:02 -0700
-Message-ID: <20070906174102.cc5a59e5.akpm@linux-foundation.org>
-References: <200708201704.11529.technoboy85@gmail.com>
-	<200709061734.11170.technoboy85@gmail.com>
-	<20070906153025.7cb71cb1.akpm@linux-foundation.org>
-	<200709070121.42629.technoboy85@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+From: Joseph Southwell <joseph@ontoserve.com>
+Subject: bug in arp handling 2.6.20
+Date: Thu, 6 Sep 2007 19:41:08 -0500
+Message-ID: <50155211-787D-48AE-B9D8-7FD18406C8E3@ontoserve.com>
+Mime-Version: 1.0 (Apple Message framework v752.3)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, ejka@imfi.kspu.ru, jgarzik@pobox.com,
-	netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@coreworks.de
-To: Matteo Croce <technoboy85@gmail.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <200709070121.42629.technoboy85@gmail.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rrcs-71-42-144-3.sw.biz.rr.com ([71.42.144.3]:56941 "EHLO
+	mail.ontoserve.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964944AbXIGBFK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Sep 2007 21:05:10 -0400
+Received: from [71.42.144.208] (host208.ontoserve.com [71.42.144.208])
+	(using TLSv1 with cipher AES128-SHA (128/128 bits))
+	(No client certificate requested)
+	by mail.ontoserve.com (Postfix) with ESMTP id 6641A8B40BC
+	for <netdev@vger.kernel.org>; Thu,  6 Sep 2007 19:41:08 -0500 (CDT)
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> On Fri, 7 Sep 2007 01:21:41 +0200 Matteo Croce <technoboy85@gmail.com> wrote:
-> > The patch introduces vast number of volatile structure fields.  Please see
-> > Documentation/volatile-considered-harmful.txt.
-> 
-> Removing them and the kernel hangs at module load
+scenario
+Machine A
+eth0 is plugged  into network.
+192.168.1.201
+eth0:1
+192.168.1.2
 
-They can't just be removed.  Please see the document.  There are I/O APIs
-which, if properly used, make volatile unneeded.
+
+Machine B
+eth1 is plugged into network.
+192.168.1.101
+eth0 is not plugged into network. so I can test locally before  
+switching the wire.
+192.168.1.201
+eth0:1
+192.168.1.2
+
+arp request for 192.168.1.2 is responded to by eth1 on machine B.  
+That seems buggy to me. worse, it continues to do it after  
+unconfiguring eth0:1 and eth0.
