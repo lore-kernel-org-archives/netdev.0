@@ -1,79 +1,49 @@
-From: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
-Subject: problems with lockd in 2.6.22.6
-Date: Fri, 7 Sep 2007 17:49:55 +0200
-Message-ID: <200709071749.55760.wolfgang.walter@studentenwerk.mhn.de>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: BUG: scheduling while atomic: ifconfig/0x00000002/4170
+Date: Fri, 7 Sep 2007 18:01:34 +0200
+Message-ID: <200709071801.34909.mb@bu3sch.de>
+References: <E1ITGb2-0006Be-00@gondolin.me.apana.org.au> <20070906154612.GD8030@linux.vnet.ibm.com> <1189171635.28781.134.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, nfs@lists.sourceforge.net
-To: neilb@suse.de
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: paulmck@linux.vnet.ibm.com,
+	Herbert Xu <herbert@gondor.apana.org.au>, satyam@infradead.org,
+	flo@rfc822.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	michal.k.k.piotrowski@gmail.com,
+	ipw3945-devel@lists.sourceforge.net, yi.zhu@intel.com,
+	flamingice@sourmilk.net
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailin.studentenwerk.mhn.de ([141.84.225.229]:38887 "EHLO
-	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932404AbXIGPt5 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Sep 2007 11:49:57 -0400
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:48615
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932474AbXIGQCd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2007 12:02:33 -0400
+In-Reply-To: <1189171635.28781.134.camel@johannes.berg>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Friday 07 September 2007, Johannes Berg wrote:
+> On Thu, 2007-09-06 at 08:46 -0700, Paul E. McKenney wrote:
+> 
+> > Looks good to me from an RCU viewpoint.  I cannot claim familiarity with
+> > this code.  I therefore especially like the indications of where RTNL
+> > is held and not!!!
+> 
+> :)
+> 
+> > Some questions below based on a quick scan.  And a global question:
+> > should the comments about RTNL being held be replaced by ASSERT_RTNL()?
+> 
+> I don't like ASSERT_RTNL() much because it actually tries to lock it.
+> I'd be much happer if it was WARN_ON(!mutex_locked(&rtnl_mutex)) or
+> something equivalent.
 
-we upgraded the kernel of a nfs-server from 2.6.17.11 to 2.6.22.6. Sinc=
-e then we get the message
-
-lockd: too many open TCP sockets, consider increasing the number of nfs=
-d threads
-lockd: last TCP connect from ^\\236^\=C9^D
-
-1) These random characters in the second line are caused by a bug in sv=
-c_tcp_accept.
-I already posted this patch on netdev@vger.kernel.org:
-
-Signed-off-by: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
---- linux-2.6.22.6/net/sunrpc/svcsock.c	2007-08-27 18:10:14.000000000 +=
-0200
-+++ linux-2.6.22.6w/net/sunrpc/svcsock.c	2007-09-03 18:27:30.000000000 =
-+0200
-@@ -1090,7 +1090,7 @@
- 						   serv->sv_name);
- 				printk(KERN_NOTICE
- 				       "%s: last TCP connect from %s\n",
--				       serv->sv_name, buf);
-+				       serv->sv_name, __svc_print_addr(sin, buf, sizeof(buf)));
- 			}
- 			/*
- 			 * Always select the oldest socket. It's not fair,
-
-
-with this patch applied one gets something like
-
-lockd: too many open TCP sockets, consider increasing the number of nfs=
-d threads
-lockd: last TCP connect from 10.11.0.12, port=3D784
-
-
-2) The number of nfsd threads we are running on the machine is 1024. So=
- this is not
-the problem. It seems, though, that in the case of lockd svc_tcp_accept=
- does not
-check the number of nfsd threads but the number of lockd threads which =
-is one.
-As soon as the number of open lockd sockets surpasses 80 this message g=
-ets logged.
-This usually happens every evening when a lot of people shutdown their =
-workstation.
-
-3) For unknown reason these sockets then remain open. In the morning wh=
-en people
-start their workstation again we therefor not only get a lot of these m=
-essages
-again but often the nfs-server does not proberly work any more. Restart=
-ing the
-nfs-daemon is a workaround.
-
-Reagrds,
---=20
-Wolfgang Walter
-Studentenwerk M=FCnchen
-Anstalt des =F6ffentlichen Rechts
+What's the problem with trying to lock it?
+In the paths where you insert this assertion, you will be locked.
+So the trylock will fail and not cause any blocking or something else.
+It's basically not more expensive than your mutex_locked test.
+And the !mutex_locked test might not work on UP (Not sure, about
+the current implementation.)
