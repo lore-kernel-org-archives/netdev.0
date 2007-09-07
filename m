@@ -1,57 +1,51 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] bonding: update some distro-specific documentation
-Date: Fri, 07 Sep 2007 11:27:49 -0700
-Message-ID: <21001.1189189669@death>
-References: <20070830212429.GA12676@gospo.rdu.redhat.com>
-Cc: netdev@vger.kernel.org
-To: Andy Gospodarek <andy@greyhouse.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:49858 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757676AbXIGS2L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2007 14:28:11 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e31.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l87IRvHQ012489
-	for <netdev@vger.kernel.org>; Fri, 7 Sep 2007 14:27:57 -0400
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l87IRuob429520
-	for <netdev@vger.kernel.org>; Fri, 7 Sep 2007 12:27:56 -0600
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l87IRtkh030970
-	for <netdev@vger.kernel.org>; Fri, 7 Sep 2007 12:27:55 -0600
-In-reply-to: <20070830212429.GA12676@gospo.rdu.redhat.com> 
-Sender: netdev-owner@vger.kernel.org
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: BUG: scheduling while atomic: ifconfig/0x00000002/4170
+Date: Fri, 07 Sep 2007 21:17:50 +0200
+Message-ID: <1189192671.28781.191.camel@johannes.berg>
+References: <E1ITGb2-0006Be-00@gondolin.me.apana.org.au>
+	 <20070906154612.GD8030@linux.vnet.ibm.com>
+	 <1189171635.28781.134.camel@johannes.berg>
+	 <200709071801.34909.mb@bu3sch.de>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-qm8tG29p0YzHqNLT+RI2"
+Cc: paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>, satyam-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
+	flo-BCn6idZOOBwdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	michal.k.k.piotrowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200709071801.34909.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Andy Gospodarek <andy@greyhouse.net> wrote:
 
-	This all looks fine except for one nit (well, request for extra
-detail, really):
+--=-qm8tG29p0YzHqNLT+RI2
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
->@@ -802,15 +802,20 @@ BROADCAST=192.168.1.255
-> ONBOOT=yes
-> BOOTPROTO=none
-> USERCTL=no
->+BONDING_OPTS="mode=balance-alb miimon=100"
->
-> 	Be sure to change the networking specific lines (IPADDR,
-> NETMASK, NETWORK and BROADCAST) to match your network configuration.
->+You also need to set the BONDING_OPTS= line to specify the desired
->+options for your bond0 interface.  Specifying bonding options in this
->+way is the preferred method for configuring bonding interfaces.
+On Fri, 2007-09-07 at 18:01 +0200, Michael Buesch wrote:
 
-	Can you add something here that mentions that, for the
-arp_ip_target option, it has to be supplied as "arp_ip_target=+10.0.0.1"
-and not just "arp_ip_target=10.0.0.1"?  Also, multiple targets require
-multiple instances of the arp_ip_target option; it doesn't work to put
-multiple IP addresses as in the module option (i.e.,
-"arp_ip_target=10.0.0.1,10.0.0.2").
+> What's the problem with trying to lock it?
 
-	This is necessary because ifup-eth isn't adding the "+" when it
-translates the option for use with sysfs or parsing the multiple IP
-address syntax.
+I think I had a problem with it once when I inserted it into some code
+that was atomic and it all blew up badly ;) Nothing important really but
+it sort of made me not like it much.
 
-	-J
+johannes
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+--=-qm8tG29p0YzHqNLT+RI2
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBG4aPe/ETPhpq3jKURAjYfAJ9HadGEto39HmJSGYkB5drHHTJMnQCeIkoW
+b3tas7IMlLzntMI/l/eOg/I=
+=9P2b
+-----END PGP SIGNATURE-----
+
+--=-qm8tG29p0YzHqNLT+RI2--
