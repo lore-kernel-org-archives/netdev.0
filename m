@@ -1,61 +1,38 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: 2.6.23-rc4-mm1: e1000e napi lockup
-Date: Fri, 07 Sep 2007 19:31:58 -0400
-Message-ID: <46E1DF6E.6050801@garzik.org>
-References: <46E0FB82.2040000@gmail.com>
-	<20070907.010338.41638771.davem@davemloft.net>
-	<46E17B41.4060200@intel.com>
+From: Chris Snook <csnook@redhat.com>
+Subject: [PATCH 0/2] atl1: Introduce CONFIG_ATL1_EXPERIMENTAL
+Date: Fri, 07 Sep 2007 19:41:32 -0400
+Message-ID: <46E1E1AC.5030801@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	"Kok,  Auke" <auke-jan.h.kok@intel.com>, jirislaby@gmail.com,
-	akpm@linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <46E17B41.4060200@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: atl1-devel@lists.sourceforge.net,
+	Jay Cliburn <jacliburn@bellsouth.net>,
+	Chris Snook <csnook@redhat.com>, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([66.187.233.31]:50155 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751323AbXIGXlp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Sep 2007 19:41:45 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke wrote:
-> David Miller wrote:
->> From: Jiri Slaby <jirislaby@gmail.com>
->> Date: Fri, 07 Sep 2007 09:19:30 +0200
->>
->>> I found a regression in 2.6.23-rc4-mm1 (since -rc3-mm1) in e1000e 
->>> driver.
->>> napi_disable(&adapter->napi) in e1000_probe freezes the kernel on boot.
->>
->> Yes, the semantics changed slightly in the net-2.6.24 tree the
->> other week and someone needs to fix it up.
->>
->> The netif_napi_add() implicitly does a napi_disable() call.  Device
->> open must explicitly napi_enable() and device close must explicitly
->> napi_disable(), and if done elsewhere these calls must be strictly
->> balanced.
-> 
-> I'll fix it... it's my patch that adds the new napi code to it and I 
-> need to get it ready for the merge window anyway.
+The atl1 driver is currently marked EXPERIMENTAL, because a few supposedly 
+performance-enhancing features still have problems.  When these features are 
+disabled, the driver is completely stable, fully functional, and performs well.
 
-well....  since its close to the merge window opening, we could see what 
-happens if DaveM pulls branch 'upstream' of 
-git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
+Patch 1/2 Creates the kconfig option CONFIG_ATL1_EXPERIMENTAL, and removes the 
+EXPERIMENTAL designation from CONFIG_ATL1
 
-That should make this class of pre-merge-window annoyance go away.
+Patch 2/2 Wraps some currently-disabled features in #ifdef 
+CONFIG_ATL1_EXPERIMENTAL, so developers and testers can play with these features 
+more easily, and distributions will still get a fast, stable driver with 
+existing .config files.
 
-	Jeff
+We'll also be using this to wrap around various new features we'll be 
+experimenting with in coming months.  Instead of using a half dozen different 
+kconfig options for each of them, like some drivers do, we'll just use this, and 
+make sure things are safe for everyone before we take them out of the 
+experimental wrapper.
 
-
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2005.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+	-- Chris
