@@ -1,72 +1,57 @@
-From: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
-Subject: Re: problems with lockd in 2.6.22.6
-Date: Fri, 7 Sep 2007 20:05:28 +0200
-Message-ID: <200709072005.28802.wolfgang.walter@studentenwerk.mhn.de>
-References: <200709071749.55760.wolfgang.walter@studentenwerk.mhn.de>
-	<20070907161945.GI24638@fieldses.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: neilb@suse.de, netdev@vger.kernel.org, nfs@lists.sourceforge.net
-To: "J. Bruce Fields" <bfields@fieldses.org>
-Return-path: <nfs-bounces@lists.sourceforge.net>
-In-Reply-To: <20070907161945.GI24638@fieldses.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
-	<mailto:nfs-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=nfs>
-List-Post: <mailto:nfs@lists.sourceforge.net>
-List-Help: <mailto:nfs-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
-	<mailto:nfs-request@lists.sourceforge.net?subject=subscribe>
-Sender: nfs-bounces@lists.sourceforge.net
-Errors-To: nfs-bounces@lists.sourceforge.net
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] bonding: update some distro-specific documentation
+Date: Fri, 07 Sep 2007 11:27:49 -0700
+Message-ID: <21001.1189189669@death>
+References: <20070830212429.GA12676@gospo.rdu.redhat.com>
+Cc: netdev@vger.kernel.org
+To: Andy Gospodarek <andy@greyhouse.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:49858 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757676AbXIGS2L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2007 14:28:11 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e31.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l87IRvHQ012489
+	for <netdev@vger.kernel.org>; Fri, 7 Sep 2007 14:27:57 -0400
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l87IRuob429520
+	for <netdev@vger.kernel.org>; Fri, 7 Sep 2007 12:27:56 -0600
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l87IRtkh030970
+	for <netdev@vger.kernel.org>; Fri, 7 Sep 2007 12:27:55 -0600
+In-reply-to: <20070830212429.GA12676@gospo.rdu.redhat.com> 
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-QW0gRnJlaXRhZywgNy4gU2VwdGVtYmVyIDIwMDcgMTg6MTkgc2NocmllYmVuIFNpZToKPiBPbiBG
-cmksIFNlcCAwNywgMjAwNyBhdCAwNTo0OTo1NVBNICswMjAwLCBXb2xmZ2FuZyBXYWx0ZXIgd3Jv
-dGU6Cj4gPiBIZWxsbywKPiA+Cj4gPiB3ZSB1cGdyYWRlZCB0aGUga2VybmVsIG9mIGEgbmZzLXNl
-cnZlciBmcm9tIDIuNi4xNy4xMSB0byAyLjYuMjIuNi4gU2luY2UKPiA+IHRoZW4gd2UgZ2V0IHRo
-ZSBtZXNzYWdlCj4gPgo+ID4gbG9ja2Q6IHRvbyBtYW55IG9wZW4gVENQIHNvY2tldHMsIGNvbnNp
-ZGVyIGluY3JlYXNpbmcgdGhlIG51bWJlciBvZiBuZnNkCj4gPiB0aHJlYWRzIGxvY2tkOiBsYXN0
-IFRDUCBjb25uZWN0IGZyb20gXlxcMjM2XlzDiV5ECgo+ID4KPiA+IDIpIFRoZSBudW1iZXIgb2Yg
-bmZzZCB0aHJlYWRzIHdlIGFyZSBydW5uaW5nIG9uIHRoZSBtYWNoaW5lIGlzIDEwMjQuCj4gPiBT
-byB0aGlzIGlzIG5vdCB0aGUgcHJvYmxlbS4gSXQgc2VlbXMsIHRob3VnaCwgdGhhdCBpbiB0aGUg
-Y2FzZSBvZgo+ID4gbG9ja2Qgc3ZjX3RjcF9hY2NlcHQgZG9lcyBub3QgY2hlY2sgdGhlIG51bWJl
-ciBvZiBuZnNkIHRocmVhZHMgYnV0IHRoZQo+ID4gbnVtYmVyIG9mIGxvY2tkIHRocmVhZHMgd2hp
-Y2ggaXMgb25lLiAgQXMgc29vbiBhcyB0aGUgbnVtYmVyIG9mIG9wZW4KPiA+IGxvY2tkIHNvY2tl
-dHMgc3VycGFzc2VzIDgwIHRoaXMgbWVzc2FnZSBnZXRzIGxvZ2dlZC4gIFRoaXMgdXN1YWxseQo+
-ID4gaGFwcGVucyBldmVyeSBldmVuaW5nIHdoZW4gYSBsb3Qgb2YgcGVvcGxlIHNodXRkb3duIHRo
-ZWlyIHdvcmtzdGF0aW9uLgo+Cj4gU28gdG8gYmUgY2xlYXI6IHRoZXJlJ3Mgbm90IGFuIGFjdHVh
-bCBwcm9ibGVtIGhlcmUgb3RoZXIgdGhhbiB0aGF0IHRoZQo+IGxvZ3MgYXJlIGdldHRpbmcgc3Bh
-bW1lZD8gIChOb3QgdGhhdCB0aGF0IGlzbid0IGEgcHJvYmxlbSBpbiBpdHNlbGYuKQo+CgpXaGVu
-IG1vcmUgdGhhbiA4MCBuZnMgY2xpZW50cyB0cnkgdG8gbG9jayBmaWxlcyBhdCB0aGUgc2FtZSB0
-aW1lIHRoZW4gaXQKcHJvYmFibHkgd291bGQuCgo+ID4gMykgRm9yIHVua25vd24gcmVhc29uIHRo
-ZXNlIHNvY2tldHMgdGhlbiByZW1haW4gb3Blbi4gSW4gdGhlIG1vcm5pbmcKPiA+IHdoZW4gcGVv
-cGxlIHN0YXJ0IHRoZWlyIHdvcmtzdGF0aW9uIGFnYWluIHdlIHRoZXJlZm9yIG5vdCBvbmx5IGdl
-dCBhCj4gPiBsb3Qgb2YgdGhlc2UgbWVzc2FnZXMgYWdhaW4gYnV0IG9mdGVuIHRoZSBuZnMtc2Vy
-dmVyIGRvZXMgbm90IHByb3Blcmx5Cj4gPiB3b3JrIGFueSBtb3JlLiBSZXN0YXJ0aW5nIHRoZSBu
-ZnMtZGFlbW9uIGlzIGEgd29ya2Fyb3VuZC4KPgo+IEhtLCB0aGFua3MuCj4KCkkgZG9uJ3Qga25v
-dyBpZiB0aGUgbG9ja2QgdGhpbmcgaXMgdGhlIHJlYXNvbiwgdGhvdWdoLgoKMi42LjIyLjYgcGVy
-IHNlIHJ1bnMgc3RhYmxlIChubyBvb3BzLCBubyBjcmFzaCBldGMpIGJ1dCBrZXJuZWwgbmZzIHNl
-ZW1zCnRvIGJlIGEgbGl0dGxlIGJpdCB1bnN0YWJsZS4gMi42LjE3LjExIHJ1biBmb3IgbW9udGhz
-IHdpdGhvdXQgYW55IG5mc2QtcmVsYXRlZCAKcHJvYmxlbXMgd2hlcmVhcyBpbiAyLjYuMjIuNiBu
-ZnMgbmVlZHMgdG8gYmUgcmVzdGFydGVkIGFsbW9zdCBldmVyeSBkYXkuIApTb21ldGltZXMgdGhp
-cyBmYWlscyB3aXRoCgpsb2NrZF9kb3duOiBsb2NrZCBmYWlsZWQgdG8gZXhpdCwgY2xlYXJpbmcg
-cGlkCm5mc2Q6IGxhc3Qgc2VydmVyIGhhcyBleGl0ZWQKbmZzZDogdW5leHBvcnRpbmcgYWxsIGZp
-bGVzeXN0ZW1zCmxvY2tkX3VwOiBtYWtlc29jayBmYWlsZWQsIGVycm9yPS05OAoKYWZ0ZXIgd2hp
-Y2ggdGhlIHNlcnZlciBtdXN0IGJlIHJlYm9vdGVkLgoKSSB0aGluayB0aGVyZSBpcyBzb21ldGhp
-bmcgd2l0aCBsb2NrZCBiZWNhdXNlIHRoZXJlIGFyZSBubyBwcm9ibGVtcyBvdmVyIHRoZSAKZGF5
-LiBJdCBpcyBpbiB0aGUgbW9ybmluZyB3aGVuIGEgbG90IG9mIHBlb3BsZSBsb2cgaW50byB0aGVp
-ciBtYWNoaW5lcyBhbmQgCnN0YXJ0IHRoZWlyIGRlc2t0b3BzIChJIHRoaW5rIGtkZSBsb2NrcyBp
-dHMgY29uZmlnIGZpbGVzIHdoZW4gaXQgcmVhZHMgdGhlbSkuCgpSZWdhcmRzCi0tIApXb2xmZ2Fu
-ZyBXYWx0ZXIKU3R1ZGVudGVud2VyayBNw7xuY2hlbgpBbnN0YWx0IGRlcyDDtmZmZW50bGljaGVu
-IFJlY2h0cwoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpUaGlzIFNGLm5ldCBlbWFpbCBpcyBzcG9uc29yZWQg
-Ynk6IFNwbHVuayBJbmMuClN0aWxsIGdyZXBwaW5nIHRocm91Z2ggbG9nIGZpbGVzIHRvIGZpbmQg
-cHJvYmxlbXM/ICBTdG9wLgpOb3cgU2VhcmNoIGxvZyBldmVudHMgYW5kIGNvbmZpZ3VyYXRpb24g
-ZmlsZXMgdXNpbmcgQUpBWCBhbmQgYSBicm93c2VyLgpEb3dubG9hZCB5b3VyIEZSRUUgY29weSBv
-ZiBTcGx1bmsgbm93ID4+ICBodHRwOi8vZ2V0LnNwbHVuay5jb20vCl9fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCk5GUyBtYWlsbGlzdCAgLSAgTkZTQGxpc3Rz
-LnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0
-aW5mby9uZnMK
+Andy Gospodarek <andy@greyhouse.net> wrote:
+
+	This all looks fine except for one nit (well, request for extra
+detail, really):
+
+>@@ -802,15 +802,20 @@ BROADCAST=192.168.1.255
+> ONBOOT=yes
+> BOOTPROTO=none
+> USERCTL=no
+>+BONDING_OPTS="mode=balance-alb miimon=100"
+>
+> 	Be sure to change the networking specific lines (IPADDR,
+> NETMASK, NETWORK and BROADCAST) to match your network configuration.
+>+You also need to set the BONDING_OPTS= line to specify the desired
+>+options for your bond0 interface.  Specifying bonding options in this
+>+way is the preferred method for configuring bonding interfaces.
+
+	Can you add something here that mentions that, for the
+arp_ip_target option, it has to be supplied as "arp_ip_target=+10.0.0.1"
+and not just "arp_ip_target=10.0.0.1"?  Also, multiple targets require
+multiple instances of the arp_ip_target option; it doesn't work to put
+multiple IP addresses as in the module option (i.e.,
+"arp_ip_target=10.0.0.1,10.0.0.2").
+
+	This is necessary because ifup-eth isn't adding the "+" when it
+translates the option for use with sysfs or parsing the multiple IP
+address syntax.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
