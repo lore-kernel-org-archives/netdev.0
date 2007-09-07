@@ -1,14 +1,14 @@
 From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
 Subject: Re: BUG: scheduling while atomic: ifconfig/0x00000002/4170
-Date: Fri, 07 Sep 2007 16:30:15 +0200
-Message-ID: <1189175415.28781.165.camel@johannes.berg>
+Date: Fri, 07 Sep 2007 16:35:59 +0200
+Message-ID: <1189175759.28781.169.camel@johannes.berg>
 References: <E1ITGb2-0006Be-00@gondolin.me.apana.org.au>
 	 <1189085815.28781.78.camel@johannes.berg>
 	 <20070906154612.GD8030@linux.vnet.ibm.com>
 	 <1189171635.28781.134.camel@johannes.berg>
 	 <20070907142538.GC8864@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-4XdgTktjVHwooodKhzoa"
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-IdO4tpi0nZG8DJ8ISM4+"
 Cc: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>, satyam-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
 	flo-BCn6idZOOBwdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -22,41 +22,41 @@ Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
---=-4XdgTktjVHwooodKhzoa
+--=-IdO4tpi0nZG8DJ8ISM4+
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
 On Fri, 2007-09-07 at 07:25 -0700, Paul E. McKenney wrote:
 
-> > I don't like ASSERT_RTNL() much because it actually tries to lock it.
-> > I'd be much happer if it was WARN_ON(!mutex_locked(&rtnl_mutex)) or
-> > something equivalent.
+> > > > @@ -226,22 +225,22 @@ void ieee80211_if_reinit(struct net_devi
+> > > >  		/* Remove all virtual interfaces that use this BSS
+> > > >  		 * as their sdata->bss */
+> > > >  		struct ieee80211_sub_if_data *tsdata, *n;
+> > > > -		LIST_HEAD(tmp_list);
+> > > >=20
+> > > > -		write_lock_bh(&local->sub_if_lock);
+> > >=20
+> > > This code is also protected by RTNL?
+> >=20
+> > Yes.
 >=20
-> Ah!  It would indeed be nice to have a lower-overhead ASSERT_RTNL_LIGHT()
-> or whatever.
+> Comment?  (Or is it in the function header?)
 
-I don't know why it tries that anyway. Maybe it's from semaphore days
-where you couldn't check _is_locked()?
-
-> > In any case, I have an updated patch I'll be sending soon, and it
-> > requires a new list walking primitive I'll also send.
->=20
-> Look forward to seeing it!
-
-Will send in a minute.
+Oh, forgot to say: yes, there is a comment further up and even an
+ASSERT_RTNL()
 
 johannes
 
---=-4XdgTktjVHwooodKhzoa
+--=-IdO4tpi0nZG8DJ8ISM4+
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Comment: Johannes Berg (powerbook)
 
-iD8DBQBG4WB3/ETPhpq3jKURAmOZAJ9TOGSuLJfpuooUTU6yWlbckOv5NACggVSj
-Ken1ushUM1w6gKLvDZtlbCo=
-=iT/x
+iD8DBQBG4WHP/ETPhpq3jKURAr3DAKCDiqVlmDTgtNA0MrlPeedNvxUItACgnz5U
+LagOxuLcia2E1MN7EXK3TPA=
+=f/3v
 -----END PGP SIGNATURE-----
 
---=-4XdgTktjVHwooodKhzoa--
+--=-IdO4tpi0nZG8DJ8ISM4+--
