@@ -1,101 +1,91 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: RFC: possible NAPI improvements to reduce interrupt rates for
-	low traffic rates
-Date: Fri, 07 Sep 2007 09:22:50 -0400
-Message-ID: <1189171370.4234.38.camel@localhost>
-References: <200709061416.l86EG0Vb017675@quickie.katalix.com>
-	 <1189120020.4259.68.camel@localhost>  <46E11A61.9030409@katalix.com>
-Reply-To: hadi@cyberus.ca
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: BUG: scheduling while atomic: ifconfig/0x00000002/4170
+Date: Fri, 07 Sep 2007 15:27:15 +0200
+Message-ID: <1189171635.28781.134.camel@johannes.berg>
+References: <E1ITGb2-0006Be-00@gondolin.me.apana.org.au>
+	 <1189085815.28781.78.camel@johannes.berg>
+	 <20070906154612.GD8030@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jeff@garzik.org,
-	mandeep.baines@gmail.com, ossthema@de.ibm.com,
-	Stephen Hemminger <shemminger@osdl.org>
-To: James Chapman <jchapman@katalix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.229]:34833 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965371AbXIGNWz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2007 09:22:55 -0400
-Received: by wr-out-0506.google.com with SMTP id 36so181912wra
-        for <netdev@vger.kernel.org>; Fri, 07 Sep 2007 06:22:55 -0700 (PDT)
-In-Reply-To: <46E11A61.9030409@katalix.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-imVPaHEyew32QsvR1ZR0"
+Cc: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>, satyam-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
+	flo-BCn6idZOOBwdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	michal.k.k.piotrowski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	ipw3945-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org
+To: paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070906154612.GD8030-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-07-09 at 10:31 +0100, James Chapman wrote:
-> Not really. I used 3-year-old, single CPU x86 boxes with e100 
-> interfaces. 
-> The idle poll change keeps them in polled mode. Without idle 
-> poll, I get twice as many interrupts as packets, one for txdone and one 
-> for rx. NAPI is continuously scheduled in/out.
 
-Certainly faster than the machine in the paper (which was about 2 years
-old in 2005).
-I could never get ping -f to do that for me - so things must be getting
-worse with newer machines then.
+--=-imVPaHEyew32QsvR1ZR0
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-> No. Since I did a flood ping from the machine under test, the improved 
-> latency meant that the ping response was handled more quickly, causing 
-> the next packet to be sent sooner. So more packets were transmitted in 
-> the allotted time (10 seconds).
+On Thu, 2007-09-06 at 08:46 -0700, Paul E. McKenney wrote:
 
-ok.
+> Looks good to me from an RCU viewpoint.  I cannot claim familiarity with
+> this code.  I therefore especially like the indications of where RTNL
+> is held and not!!!
 
-> With current NAPI:
-> rtt min/avg/max/mdev = 0.902/1.843/101.727/4.659 ms, pipe 9, ipg/ewma 
-> 1.611/1.421 ms
-> 
-> With idle poll changes:
-> rtt min/avg/max/mdev = 0.898/1.117/28.371/0.689 ms, pipe 3, ipg/ewma 
-> 1.175/1.236 ms
+:)
 
-Not bad in terms of latency. The deviation certainly looks better.
+> Some questions below based on a quick scan.  And a global question:
+> should the comments about RTNL being held be replaced by ASSERT_RTNL()?
 
-> But the CPU has done more work. 
+I don't like ASSERT_RTNL() much because it actually tries to lock it.
+I'd be much happer if it was WARN_ON(!mutex_locked(&rtnl_mutex)) or
+something equivalent.
 
-I am going to be the devil's advocate[1]:
-If the problem i am trying to solve is "reduce cpu use at lower rate",
-then this is not the right answer because your cpu use has gone up.
-Your latency numbers have not improved that much (looking at the avg)
-and your throughput is not that much higher. Will i be willing to pay
-more cpu (of an already piggish cpu use by NAPI at that rate with 2
-interupts per packet)?
+In any case, I have an updated patch I'll be sending soon, and it
+requires a new list walking primitive I'll also send.
 
-Another test: try a simple ping and compare the rtts.
+> > -	write_lock_bh(&local->sub_if_lock);
+> > +	/* we're under RTNL so all this is fine */
+> >  	if (unlikely(local->reg_state =3D=3D IEEE80211_DEV_UNREGISTERED)) {
+> > -		write_unlock_bh(&local->sub_if_lock);
+> >  		__ieee80211_if_del(local, sdata);
+> >  		return -ENODEV;
+> >  	}
+> > -	list_add(&sdata->list, &local->sub_if_list);
+> > +	list_add_tail_rcu(&sdata->list, &local->interfaces);
+>=20
+> The _rcu is required because this list isn't protected by RTNL?
 
-> The problem I started thinking about was the one where NAPI thrashes 
-> in/out of polled mode at higher and higher rates as network interface 
-> speeds and CPU speeds increase. A flood ping demonstrates this even on 
-> 100M links on my boxes. 
+Yes, not all walkers of the list are protected by the RTNL.
 
-things must be getting worse in the state of average hardware out there.
-It will be worthwile exercise to compare on an even faster machine
-and see what transpires there.
- 
-> Networking boxes want consistent 
-> performance/latency for all traffic patterns and they need to avoid 
-> interrupt livelock. Current practice seems to be to use hardware 
-> interrupt mitigation or timers to limit interrupt rate but this just 
-> hurts latency, as you noted. So I'm trying to find a way to limit the 
-> NAPI interrupt rate without increasing latency. My comment about this 
-> approach being suitable for routers and networked servers is that these 
-> boxes care more about minimizing packet latency than they do about 
-> wasting CPU cycles by polling idle devices.
+> > @@ -226,22 +225,22 @@ void ieee80211_if_reinit(struct net_devi
+> >  		/* Remove all virtual interfaces that use this BSS
+> >  		 * as their sdata->bss */
+> >  		struct ieee80211_sub_if_data *tsdata, *n;
+> > -		LIST_HEAD(tmp_list);
+> >=20
+> > -		write_lock_bh(&local->sub_if_lock);
+>=20
+> This code is also protected by RTNL?
 
-I think the arguement of "who cares about a little more cpu" is valid
-for the case of routers. It is a double edged sword, because it applies
-to the case of "who cares if NAPI uses a little more cpu at low rates"
-and "who cares if James turns on polling and abuses a little more-more
-cpu". Since NAPI is the incumbent, the onus(sp?) is to do better. You
-must do better sir!
+Yes.
 
-Look at the timers, she said - that way you may be able to cut the cpu
-abuse.
+> >  	ASSERT_RTNL();
+>=20
+> I -like- this!!!  ;-)
 
-cheers,
-jamal
+:)
 
-[1] historically the devils advocate was a farce really ;->
+johannes
 
+--=-imVPaHEyew32QsvR1ZR0
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Comment: Johannes Berg (powerbook)
+
+iD8DBQBG4VGz/ETPhpq3jKURAk4uAJ44/b4KhPZcg9DshBthgJxOqAeCsACfeQEB
+OLpwbHwLWsKVa05IHgHA+Vk=
+=VyBx
+-----END PGP SIGNATURE-----
+
+--=-imVPaHEyew32QsvR1ZR0--
