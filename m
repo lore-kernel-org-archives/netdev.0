@@ -1,58 +1,45 @@
-From: Chris Snook <csnook@redhat.com>
-Subject: [PATCH 1/2] atl1: add CONFIG_ATL1_EXPERIMENTAL to kconfig
-Date: Fri, 7 Sep 2007 19:47:46 -0400
-Message-ID: <20070907234746.GA12055@shell.boston.redhat.com>
-References: <46E1E1AC.5030801@redhat.com>
+From: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>
+Subject: Re: BUG: unable to handle kernel NULL pointer dereference<1>
+Date: Sat, 8 Sep 2007 01:48:36 +0200
+Message-ID: <6bffcb0e0709071648y3e18fe23s24fdff3923690448@mail.gmail.com>
+References: <20070907052720.GA3122@king.bitgnome.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: atl1-devel@lists.sourceforge.net,
-	Jay Cliburn <jacliburn@bellsouth.net>, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Netdev <netdev@vger.kernel.org>
+To: "Mark Nipper" <nipsy@bitgnome.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:51474 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751176AbXIGXr5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Sep 2007 19:47:57 -0400
+Received: from rv-out-0910.google.com ([209.85.198.184]:29074 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751452AbXIGXsg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2007 19:48:36 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so556626rvb
+        for <netdev@vger.kernel.org>; Fri, 07 Sep 2007 16:48:36 -0700 (PDT)
+In-Reply-To: <20070907052720.GA3122@king.bitgnome.net>
 Content-Disposition: inline
-In-Reply-To: <46E1E1AC.5030801@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Chris Snook <csnook@redhat.com>
+Hi Mark,
 
-Introduce Kconfig ATL1_EXPERIMENTAL to separate mature code from less mature
-code in the atl1 driver, and remove EXPERIMENTAL designation for ATL1.
+[Adding netdev to CC]
 
-Signed-off-by: Chris Snook <csnook@redhat.com>
-Acked-by: Jay Cliburn <jacliburn@bellsouth.net>
+On 07/09/2007, Mark Nipper <nipsy@bitgnome.net> wrote:
+>         I've received two oopses now from my kernel while running
+> the 2.6.22 series.  The first was with 2.6.22.1 back in July and
+> the second which happened just within the last day is 2.6.22.5.
+> They both appear to be the same bug and I don't think it's
+> hardware related.  I'm attaching the entries from logcheck which
+> I received when they happened.
+>
+>         I'm not subscribed to the mailing list, so please make
+> sure to copy me directly on any replies.  And let me know if
+> anyone needs any additional information to try to track this
+> down.  Thanks for reading...
 
---- a/drivers/net/Kconfig	2007-09-04 10:12:38.000000000 -0400
-+++ b/drivers/net/Kconfig	2007-09-04 10:37:34.000000000 -0400
-@@ -2329,8 +2329,8 @@ config QLA3XXX
- 	  will be called qla3xxx.
- 
- config ATL1
--	tristate "Attansic L1 Gigabit Ethernet support (EXPERIMENTAL)"
--	depends on PCI && EXPERIMENTAL
-+	tristate "Attansic L1 Gigabit Ethernet support"
-+	depends on PCI
- 	select CRC32
- 	select MII
- 	help
-@@ -2339,6 +2339,16 @@ config ATL1
- 	  To compile this driver as a module, choose M here.  The module
- 	  will be called atl1.
- 
-+config ATL1_EXPERIMENTAL
-+	bool "atl1 experimental features"
-+	depends on ATL1 && EXPERIMENTAL
-+	help
-+	  This option enables various features that have not yet reached
-+	  the maturity of the rest of the atl1 driver.  The driver will
-+	  still work fine without this option enabled.
-+
-+	  If unsure, say N.
-+
- endif # NETDEV_1000
- 
- #
+Regards,
+Michal
+
+-- 
+LOG
+http://www.stardust.webpages.pl/log/
