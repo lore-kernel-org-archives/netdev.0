@@ -1,67 +1,41 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [NFS] problems with lockd in 2.6.22.6
-Date: Fri, 7 Sep 2007 12:19:45 -0400
-Message-ID: <20070907161945.GI24638@fieldses.org>
-References: <200709071749.55760.wolfgang.walter@studentenwerk.mhn.de>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: 2.6.23-rc4-mm1: e1000e napi lockup
+Date: Fri, 07 Sep 2007 09:24:33 -0700
+Message-ID: <46E17B41.4060200@intel.com>
+References: <46E0FB82.2040000@gmail.com> <20070907.010338.41638771.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: neilb@suse.de, netdev@vger.kernel.org, nfs@lists.sourceforge.net
-To: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net
+To: David Miller <davem@davemloft.net>, jirislaby@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.fieldses.org ([66.93.2.214]:49784 "EHLO fieldses.org"
+Received: from mga11.intel.com ([192.55.52.93]:43758 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757606AbXIGQTs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Sep 2007 12:19:48 -0400
-Content-Disposition: inline
-In-Reply-To: <200709071749.55760.wolfgang.walter@studentenwerk.mhn.de>
+	id S1757697AbXIGQYp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Sep 2007 12:24:45 -0400
+In-Reply-To: <20070907.010338.41638771.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 07, 2007 at 05:49:55PM +0200, Wolfgang Walter wrote:
-> Hello,
->=20
-> we upgraded the kernel of a nfs-server from 2.6.17.11 to 2.6.22.6. Si=
-nce then we get the message
->=20
-> lockd: too many open TCP sockets, consider increasing the number of n=
-fsd threads
-> lockd: last TCP connect from ^\\236^\=C3=89^D
->=20
-> 1) These random characters in the second line are caused by a bug in =
-svc_tcp_accept.
-> I already posted this patch on netdev@vger.kernel.org:
+David Miller wrote:
+> From: Jiri Slaby <jirislaby@gmail.com>
+> Date: Fri, 07 Sep 2007 09:19:30 +0200
+> 
+>> I found a regression in 2.6.23-rc4-mm1 (since -rc3-mm1) in e1000e driver.
+>> napi_disable(&adapter->napi) in e1000_probe freezes the kernel on boot.
+> 
+> Yes, the semantics changed slightly in the net-2.6.24 tree the
+> other week and someone needs to fix it up.
+> 
+> The netif_napi_add() implicitly does a napi_disable() call.  Device
+> open must explicitly napi_enable() and device close must explicitly
+> napi_disable(), and if done elsewhere these calls must be strictly
+> balanced.
 
-Thanks, I've applied that.  (The bug is a little subtle: there's
-actually two previous __svc_print_addr() calls which might have
-initialized "buf" correctly, and it's not obvious that the second isn't
-always called (since it's in a dprintk, which is a macro that expands
-into a printk inside a conditional)).
+I'll fix it... it's my patch that adds the new napi code to it and I need to get 
+it ready for the merge window anyway.
 
-> with this patch applied one gets something like
->=20
-> lockd: too many open TCP sockets, consider increasing the number of
-> nfsd threads lockd: last TCP connect from 10.11.0.12, port=3D784
->=20
->=20
-> 2) The number of nfsd threads we are running on the machine is 1024.
-> So this is not the problem. It seems, though, that in the case of
-> lockd svc_tcp_accept does not check the number of nfsd threads but th=
-e
-> number of lockd threads which is one.  As soon as the number of open
-> lockd sockets surpasses 80 this message gets logged.  This usually
-> happens every evening when a lot of people shutdown their workstation=
-=2E
+thanks for testing.
 
-So to be clear: there's not an actual problem here other than that the
-logs are getting spammed?  (Not that that isn't a problem in itself.)
-
-> 3) For unknown reason these sockets then remain open. In the morning
-> when people start their workstation again we therefor not only get a
-> lot of these messages again but often the nfs-server does not proberl=
-y
-> work any more. Restarting the nfs-daemon is a workaround.
-
-Hm, thanks.
-
---b.
+Auke
