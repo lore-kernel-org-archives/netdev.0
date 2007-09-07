@@ -1,48 +1,53 @@
-From: PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-Subject: [PATCH] DOC: Update networking/multiqueue.txt with correct
-	information.
-Date: Fri, 07 Sep 2007 15:50:12 -0700
-Message-ID: <20070907225012.14742.7522.stgit@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH][MIPS][7/7] AR7: ethernet
+Date: Fri, 07 Sep 2007 19:04:15 -0400
+Message-ID: <46E1D8EF.7010608@pobox.com>
+References: <200708201704.11529.technoboy85@gmail.com> <200709061734.11170.technoboy85@gmail.com> <20070906153025.7cb71cb1.akpm@linux-foundation.org> <200709070121.42629.technoboy85@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: davem@davemloft.net
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-mips@linux-mips.org, ejka@imfi.kspu.ru,
+	netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@coreworks.de
+To: Matteo Croce <technoboy85@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:6189 "EHLO mga02.intel.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:47435 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750758AbXIGWuQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Sep 2007 18:50:16 -0400
+	id S1750744AbXIGXEk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Sep 2007 19:04:40 -0400
+In-Reply-To: <200709070121.42629.technoboy85@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Updated the multiqueue.txt document to call out the correct kernel options
-to select to enable multiqueue.
+Matteo Croce wrote:
+> Il Friday 07 September 2007 00:30:25 Andrew Morton ha scritto:
+>>> On Thu, 6 Sep 2007 17:34:10 +0200 Matteo Croce <technoboy85@gmail.com> wrote:
+>>> Driver for the cpmac 100M ethernet driver.
+>>> It works fine disabling napi support, enabling it gives a kernel panic
+>>> when the first IPv6 packet has to be forwarded.
+>>> Other than that works fine.
+>>>
+>> I'm not too sure why I got cc'ed on this (and not on patches 1-6?) but
+>> whatever.
+> 
+> I mailed every maintainer in the respective section in the file MAINTAINERS
+> and you were in the "NETWORK DEVICE DRIVERS" section
+> 
+>> This patch introduces quite a number of basic coding-style mistakes. 
+>> Please run it through scripts/checkpatch.pl and review the output.
+> 
+> Already done. I'm collecting other suggestions before committing
 
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
----
+cool, I'll wait for the resend before reviewing, then.
 
- Documentation/networking/multiqueue.txt |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
+As an author I understand that fixing up coding style / cosmetic stuff 
+rather than "meat" is annoying.
 
-diff --git a/Documentation/networking/multiqueue.txt b/Documentation/networking/multiqueue.txt
-index 00b60cc..ea5a42e 100644
---- a/Documentation/networking/multiqueue.txt
-+++ b/Documentation/networking/multiqueue.txt
-@@ -58,9 +58,13 @@ software, so it's a straight round-robin qdisc.  It uses the same syntax and
- classification priomap that sch_prio uses, so it should be intuitive to
- configure for people who've used sch_prio.
- 
--The PRIO qdisc naturally plugs into a multiqueue device.  If PRIO has been
--built with NET_SCH_PRIO_MQ, then upon load, it will make sure the number of
--bands requested is equal to the number of queues on the hardware.  If they
-+In order to utilitize the multiqueue features of the qdiscs, the network
-+device layer needs to enable multiple queue support.  This can be done by
-+selecting NETDEVICES_MULTIQUEUE under Drivers.
-+
-+The PRIO qdisc naturally plugs into a multiqueue device.  If
-+NETDEVICES_MULTIQUEUE is selected, then on qdisc load, the number of
-+bands requested is compared to the number of queues on the hardware.  If they
- are equal, it sets a one-to-one mapping up between the queues and bands.  If
- they're not equal, it will not load the qdisc.  This is the same behavior
- for RR.  Once the association is made, any skb that is classified will have
+But it is important to emphasize that a "clean" driver is what makes a 
+good, thorough, effective review possible.
+
+	Jeff
+
+
