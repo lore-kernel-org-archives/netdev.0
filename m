@@ -1,47 +1,58 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: error(s) in 2.6.23-rc5 bonding.txt ?
-Date: Fri, 07 Sep 2007 16:46:54 -0700
-Message-ID: <46E1E2EE.7080202@hp.com>
-References: <46E1CA81.6050808@hp.com> <32121.1189207861@death>
+From: Chris Snook <csnook@redhat.com>
+Subject: [PATCH 1/2] atl1: add CONFIG_ATL1_EXPERIMENTAL to kconfig
+Date: Fri, 7 Sep 2007 19:47:46 -0400
+Message-ID: <20070907234746.GA12055@shell.boston.redhat.com>
+References: <46E1E1AC.5030801@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: atl1-devel@lists.sourceforge.net,
+	Jay Cliburn <jacliburn@bellsouth.net>, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:38119 "EHLO palrel10.hp.com"
+Received: from mx1.redhat.com ([66.187.233.31]:51474 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751483AbXIGXrb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Sep 2007 19:47:31 -0400
-In-Reply-To: <32121.1189207861@death>
+	id S1751176AbXIGXr5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Sep 2007 19:47:57 -0400
+Content-Disposition: inline
+In-Reply-To: <46E1E1AC.5030801@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> 	That said, it's certainly plausible that, for a given set of N
-> ethernets all enslaved to a single bonding balance-rr, the individual
-> ethernets could get out of sync, as it were (e.g., one running a fuller
-> tx ring, and thus running "behind" the others). 
+From: Chris Snook <csnook@redhat.com>
 
-That is the scenario of which I was thinking.
+Introduce Kconfig ATL1_EXPERIMENTAL to separate mature code from less mature
+code in the atl1 driver, and remove EXPERIMENTAL designation for ATL1.
 
-> If bonding is the only feeder of the devices, then for a continuous
-> flow of traffic, all the slaves will generally receive packets (from
-> the kernel, for transmission) at pretty much the same rate, and so
-> they won't tend to get ahead or behind.
+Signed-off-by: Chris Snook <csnook@redhat.com>
+Acked-by: Jay Cliburn <jacliburn@bellsouth.net>
 
-I could see that if there was just one TCP connection going doing bulk 
-or something, but if there were a bulk transmitter coupled with an 
-occasional request/response (ie netperf TCP_STREAM and a TCP_RR) i'd 
-think the tx rings would no longer remain balanced.
-
-> 	I haven't investigated into this deeply for a few years, but
-> this is my recollection of what happened with the tests I did then.  I
-> did testing with multiple 100Mb devices feeding either other sets of
-> 100Mb devices or single gigabit devices.  I'm willing to believe that
-> things have changed, and an N feeding into one configuration can
-> reorder, but I haven't seen it (or really looked for it; balance-rr
-> isn't much the rage these days).
-
-Are you OK with that block of text simply being yanked?
-
-rick
+--- a/drivers/net/Kconfig	2007-09-04 10:12:38.000000000 -0400
++++ b/drivers/net/Kconfig	2007-09-04 10:37:34.000000000 -0400
+@@ -2329,8 +2329,8 @@ config QLA3XXX
+ 	  will be called qla3xxx.
+ 
+ config ATL1
+-	tristate "Attansic L1 Gigabit Ethernet support (EXPERIMENTAL)"
+-	depends on PCI && EXPERIMENTAL
++	tristate "Attansic L1 Gigabit Ethernet support"
++	depends on PCI
+ 	select CRC32
+ 	select MII
+ 	help
+@@ -2339,6 +2339,16 @@ config ATL1
+ 	  To compile this driver as a module, choose M here.  The module
+ 	  will be called atl1.
+ 
++config ATL1_EXPERIMENTAL
++	bool "atl1 experimental features"
++	depends on ATL1 && EXPERIMENTAL
++	help
++	  This option enables various features that have not yet reached
++	  the maturity of the rest of the atl1 driver.  The driver will
++	  still work fine without this option enabled.
++
++	  If unsure, say N.
++
+ endif # NETDEV_1000
+ 
+ #
