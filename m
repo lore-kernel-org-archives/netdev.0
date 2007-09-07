@@ -1,29 +1,54 @@
-From: "Vivian" <yiannisashb@prescot.gr>
-Subject: your free lifetime membership
-Date: Fri, 7 Sep 2007 11:28:44 +0200
-Message-ID: <7222179364.20070907112844@agfpegebije>
-Reply-To: "Vivian Orr" <yiannisashb@prescot.gr>
+From: =?UTF-8?Q?P=C3=A1draig_Brady?= <P@draigBrady.com>
+Subject: auto recycling of TIME_WAIT connections
+Date: Fri, 7 Sep 2007 10:21:45 +0100
+Message-ID: <46E11829.4090607@draigBrady.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from node-28-129.tula.net ([212.12.28.129]:11427 "HELO prescot.gr"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-	id S965039AbXIGJcw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Sep 2007 05:32:52 -0400
-Received: from vger.kernel.org
-	by 212.12.29.129 (Postfix) with ESMTP id 1kqX4rD0AzoW
-	for <netdev@vger.kernel.org>; Fri, 7 Sep 2007 11:28:44 +0200
-Received: from unknown (223.172.246.17)
-	by vger.kernel.org with SMTP id 2Uu0buZlKfMQ
-	for <netdev@vger.kernel.org>; Fri, 7 Sep 2007 11:28:44 +0200
+Received: from smtp.parkwest.mxsweep.com ([89.149.149.67]:1276 "EHLO
+	smtp1.mxsweep.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965029AbXIGJe3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Sep 2007 05:34:29 -0400
+Content-Class: urn:content-classes:message
+Received: from jumpgate ([84.203.137.218] helo=[192.168.2.25]) by yzordderrex.lincor.com with asmtp (Exim 3.35 #1 (Debian)) id 1ITa3T-0007Gl-00 for <netdev@vger.kernel.org>; Fri, 07 Sep 2007 10:23:11 +0100
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-uncrucified
+As I see it, TIME_WAIT state is required for 2 reasons:
 
-no cent to pay! http://shesissy.cn
+  to handle wandering duplicate packets
+  (so a reincarnation of a connection will not be corrupted by these pa=
+ckets)
 
-sailing
+  To handle last ack from active closer (client) not being received by =
+remote.
+  If that happened, the server which is in LAST_ACK state would retrans=
+mit its FIN
+  (which may contain data also) so the client must be in TIME_WAIT stat=
+e to handle that.
+  If client is not in TIME_WAIT state, then it could only indicate to t=
+he server
+  that data was maybe lost (with an RST).
 
+The first issue, requires a large timeout, and
+the TIME_WAIT timeout is currently 60 seconds on linux.
+That timeout effectively limits the connection rate between
+local TCP clients and a server to 32k/60s or around 500 connections/sec=
+ond.
+
+But that issue can't really happen when the client
+and server are on the same machine can it, and
+even if it could, the timeouts involved would be shorter.
+
+Now linux does have an (undocumented) /proc/sys/net/ipv4/tcp_tw_recycle=
+ flag
+to enable recycling of TIME_WAIT connections. This is global however an=
+d could cause
+problems in general for external connections.
+
+So how about auto enabling recycling for local connections?
+
+cheers,
+P=C3=A1draig.
