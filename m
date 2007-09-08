@@ -1,113 +1,134 @@
-From: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
-Subject: Re: [NFS] problems with lockd in 2.6.22.6
-Date: Sat, 8 Sep 2007 20:20:52 +0200
-Message-ID: <200709082020.52694.wolfgang.walter@studentenwerk.mhn.de>
-References: <200709071749.55760.wolfgang.walter@studentenwerk.mhn.de> <20070907161945.GI24638@fieldses.org>
+From: tsbogend@alpha.franken.de (Thomas Bogendoerfer)
+Subject: [PATCH, 2nd try] remove setup of platform device from jazzsonic.c
+Date: Sat, 8 Sep 2007 21:46:49 +0200
+Message-ID: <20070908194649.GB7427@alpha.franken.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: neilb@suse.de, netdev@vger.kernel.org, nfs@lists.sourceforge.net
-To: "J. Bruce Fields" <bfields@fieldses.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: akpm@linux-foundation.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:59669 "EHLO
-	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753259AbXIHSUz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Sep 2007 14:20:55 -0400
-In-Reply-To: <20070907161945.GI24638@fieldses.org>
+Received: from elvis.franken.de ([193.175.24.41]:60554 "EHLO elvis.franken.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755128AbXIHTrH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Sep 2007 15:47:07 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 07 September 2007, J. Bruce Fields wrote:
-> On Fri, Sep 07, 2007 at 05:49:55PM +0200, Wolfgang Walter wrote:
-> > Hello,
-> >=20
 
-> > 3) For unknown reason these sockets then remain open. In the mornin=
-g
-> > when people start their workstation again we therefor not only get =
-a
-> > lot of these messages again but often the nfs-server does not probe=
-rly
-> > work any more. Restarting the nfs-daemon is a workaround.
->=20
+remove setup platform device from jazzsonic, which is done in arch code now
 
-I wonder why these sockets remain open, by the way. Even if they aren't=
- used
-for days. Such a socket only gets deleted when the 81. socket must be o=
-pened.
+Signed-off-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+---
 
-If I do not misunderstand the idea then temporary sockets should be des=
-troyed
-after some time without activity by svc_age_temp_sockets.
-
-Now I wonder how svc_age_temp_sockets works. Does it ever close and del=
-ete a
-temporary socket at all?
-
-
-static void
-svc_age_temp_sockets(unsigned long closure)
-{
-	struct svc_serv *serv =3D (struct svc_serv *)closure;
-	struct svc_sock *svsk;
-	struct list_head *le, *next;
-	LIST_HEAD(to_be_aged);
-
-	dprintk("svc_age_temp_sockets\n");
-
-	if (!spin_trylock_bh(&serv->sv_lock)) {
-		/* busy, try again 1 sec later */
-		dprintk("svc_age_temp_sockets: busy\n");
-		mod_timer(&serv->sv_temptimer, jiffies + HZ);
-		return;
-	}
-
-	list_for_each_safe(le, next, &serv->sv_tempsocks) {
-		svsk =3D list_entry(le, struct svc_sock, sk_list);
-
-		if (!test_and_set_bit(SK_OLD, &svsk->sk_flags))
-			continue;
-		if (atomic_read(&svsk->sk_inuse) || test_bit(SK_BUSY, &svsk->sk_flags=
-))
-			continue;
-####
-doesn't this mean that svsk->sk_inuse must be zero which means that SK_=
-DEAD is set?
-and wouldn't that mean that svc_delete_socket already has been called f=
-or that socket
-(and probably is already closed) ?
-and wouldn't that mean that svc_sock_enqueue which is called later does=
- not make any
-sense (it checks for SK_DEAD)?
-####
-
-		atomic_inc(&svsk->sk_inuse);
-		list_move(le, &to_be_aged);
-		set_bit(SK_CLOSE, &svsk->sk_flags);
-		set_bit(SK_DETACHED, &svsk->sk_flags);
-	}
-	spin_unlock_bh(&serv->sv_lock);
-
-	while (!list_empty(&to_be_aged)) {
-		le =3D to_be_aged.next;
-		/* fiddling the sk_list node is safe 'cos we're SK_DETACHED */
-		list_del_init(le);
-		svsk =3D list_entry(le, struct svc_sock, sk_list);
-
-		dprintk("queuing svsk %p for closing, %lu seconds old\n",
-			svsk, get_seconds() - svsk->sk_lastrecv);
-
-		/* a thread will dequeue and close it soon */
-		svc_sock_enqueue(svsk);
-		svc_sock_put(svsk);
-	}
-
-	mod_timer(&serv->sv_temptimer, jiffies + svc_conn_age_period * HZ);
-}
-
-Regards,
---=20
-Wolfgang Walter
-Studentenwerk M=FCnchen
-Anstalt des =F6ffentlichen Rechts
+diff --git a/drivers/net/jazzsonic.c b/drivers/net/jazzsonic.c
+index 75f6f44..435060a 100644
+--- a/drivers/net/jazzsonic.c
++++ b/drivers/net/jazzsonic.c
+@@ -45,7 +45,6 @@
+ #include <asm/jazzdma.h>
+ 
+ static char jazz_sonic_string[] = "jazzsonic";
+-static struct platform_device *jazz_sonic_device;
+ 
+ #define SONIC_MEM_SIZE	0x100
+ 
+@@ -70,14 +69,6 @@ static unsigned int sonic_debug = 1;
+ #endif
+ 
+ /*
+- * Base address and interrupt of the SONIC controller on JAZZ boards
+- */
+-static struct {
+-	unsigned int port;
+-	unsigned int irq;
+-} sonic_portlist[] = { {JAZZ_ETHERNET_BASE, JAZZ_ETHERNET_IRQ}, {0, 0}};
+-
+-/*
+  * We cannot use station (ethernet) address prefixes to detect the
+  * sonic controller since these are board manufacturer depended.
+  * So we check for known Silicon Revision IDs instead.
+@@ -215,13 +206,12 @@ static int __init jazz_sonic_probe(struct platform_device *pdev)
+ {
+ 	struct net_device *dev;
+ 	struct sonic_local *lp;
++	struct resource *res;
+ 	int err = 0;
+ 	int i;
+ 
+-	/*
+-	 * Don't probe if we're not running on a Jazz board.
+-	 */
+-	if (mips_machgroup != MACH_GROUP_JAZZ)
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!res)
+ 		return -ENODEV;
+ 
+ 	dev = alloc_etherdev(sizeof(struct sonic_local));
+@@ -235,20 +225,9 @@ static int __init jazz_sonic_probe(struct platform_device *pdev)
+ 
+ 	netdev_boot_setup_check(dev);
+ 
+-	if (dev->base_addr >= KSEG0) { /* Check a single specified location. */
+-		err = sonic_probe1(dev);
+-	} else if (dev->base_addr != 0) { /* Don't probe at all. */
+-		err = -ENXIO;
+-	} else {
+-		for (i = 0; sonic_portlist[i].port; i++) {
+-			dev->base_addr = sonic_portlist[i].port;
+-			dev->irq = sonic_portlist[i].irq;
+-			if (sonic_probe1(dev) == 0)
+-				break;
+-		}
+-		if (!sonic_portlist[i].port)
+-			err = -ENODEV;
+-	}
++	dev->base_addr = res->start;
++	dev->irq = platform_get_irq(pdev, 0);
++	err = sonic_probe1(dev);
+ 	if (err)
+ 		goto out;
+ 	err = register_netdev(dev);
+@@ -303,38 +282,12 @@ static struct platform_driver jazz_sonic_driver = {
+ 
+ static int __init jazz_sonic_init_module(void)
+ {
+-	int err;
+-
+-	if ((err = platform_driver_register(&jazz_sonic_driver))) {
+-		printk(KERN_ERR "Driver registration failed\n");
+-		return err;
+-	}
+-
+-	jazz_sonic_device = platform_device_alloc(jazz_sonic_string, 0);
+-	if (!jazz_sonic_device)
+-		goto out_unregister;
+-
+-	if (platform_device_add(jazz_sonic_device)) {
+-		platform_device_put(jazz_sonic_device);
+-		jazz_sonic_device = NULL;
+-	}
+-
+-	return 0;
+-
+-out_unregister:
+-	platform_driver_unregister(&jazz_sonic_driver);
+-
+-	return -ENOMEM;
++	return platform_driver_register(&jazz_sonic_driver);
+ }
+ 
+ static void __exit jazz_sonic_cleanup_module(void)
+ {
+ 	platform_driver_unregister(&jazz_sonic_driver);
+-
+-	if (jazz_sonic_device) {
+-		platform_device_unregister(jazz_sonic_device);
+-		jazz_sonic_device = NULL;
+-	}
+ }
+ 
+ module_init(jazz_sonic_init_module);
+-- 
+Crap can work. Given enough thrust pigs will fly, but it's not necessary a
+good idea.                                                [ RFC1925, 2.3 ]
