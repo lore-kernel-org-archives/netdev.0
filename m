@@ -1,95 +1,67 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [TG3]: Workaround MSI bug on 5714/5780.
-Date: Fri, 07 Sep 2007 19:26:21 -0700
-Message-ID: <1189218381.5210.67.camel@dell>
-References: <20070906.073423.74747465.davem@davemloft.net>
- <20070906154123.GC10317@gospo.rdu.redhat.com>
- <1189105530.4852.8.camel@dell>
- <20070906.125019.104036964.davem@davemloft.net>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: error(s) in 2.6.23-rc5 bonding.txt ?
+Date: Sat, 8 Sep 2007 02:05:11 -0400
+Message-ID: <20070908020511.1285c043.billfink@mindspring.com>
+References: <46E1CA81.6050808@hp.com>
+	<32121.1189207861@death>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: andy@greyhouse.net, "netdev" <netdev@vger.kernel.org>,
-	ananth@broadcom.com, nsankar@broadcom.com
-To: "David Miller" <davem@davemloft.net>
+Cc: Rick Jones <rick.jones2@hp.com>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2204 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752009AbXIHB24 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Sep 2007 21:28:56 -0400
-In-Reply-To: <20070906.125019.104036964.davem@davemloft.net>
+Received: from elasmtp-kukur.atl.sa.earthlink.net ([209.86.89.65]:51961 "EHLO
+	elasmtp-kukur.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750929AbXIHGFY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Sep 2007 02:05:24 -0400
+In-Reply-To: <32121.1189207861@death>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-09-06 at 12:50 -0700, David Miller wrote:
-> From: "Michael Chan" <mchan@broadcom.com>
-> Date: Thu, 06 Sep 2007 12:05:30 -0700
-> 
-> > The HT1000 bridge may very well have an MSI issue.  I'm checking with
-> > ServerWorks and I will do some testing to confirm.  If confirmed, we can
-> > disable MSI behind the HT1000 bridge instead of globally.  The 5714
-> > issue is not caused by the HT1000 as it is not behind the HT1000.
-> 
-> What I'm going to do at this point is just merge the tg3
-> fix into the current 2.6.23 tree right now.
-> 
-> Meanwhile I'll have the HT1000 MSI quirk revert ready and,
-> unless we find a reason not to, I'll ask Greg KH to merge
-> that patch into 2.6.24
-> 
-David, I see that you have already done the revert in your 2.6.23 tree.
-So the following patch assumes the revert is already done.  I think it
-is quite safe for this to go into 2.6.23.
+On Fri, 07 Sep 2007, Jay Vosburgh wrote:
 
-[PCI]: Add MSI quirk for ServerWorks HT1000 PCIX bridge.
+> Rick Jones <rick.jones2@hp.com> wrote:
+> [...]
+> >>         Note that this out of order delivery occurs when both the
+> >>         sending and receiving systems are utilizing a multiple
+> >>         interface bond.  Consider a configuration in which a
+> >>         balance-rr bond feeds into a single higher capacity network
+> >>         channel (e.g., multiple 100Mb/sec ethernets feeding a single
+> >>         gigabit ethernet via an etherchannel capable switch).  In this
+> >>         configuration, traffic sent from the multiple 100Mb devices to
+> >>         a destination connected to the gigabit device will not see
+> >>         packets out of order.  
 
-This is the fix for the following problem:
+I would just change the last part of the last sentence to:
 
-https://bugzilla.redhat.com/show_bug.cgi?id=227657
+	configuration, traffic sent from the multiple 100Mb devices to
+	a destination connected to the gigabit device will not usually
+	see packets out of order in the absence of congestion on the
+	outgoing gigabit ethernet interface.
 
-The bnx2 device 5706 complains about MSI not working behind a
-ServerWorks HT1000 PCIX bridge. An earlier commit to fix the problem:
+If there was momentary congestion on the outgoing gigabit ethernet
+interface, I suppose it would be possible to get out of order delivery
+if some of the incoming packets on the striped round-robin interfaces
+had to be buffered a short while before delivery was possible.
 
-e3008dedff4bdc96a5f67224cd3d8d12237082a0:
+> 	The text probably is lacking in some detail, though.  The real
+> key is that the last sender before getting to the destination system has
+> to do the round-robin striping.  Most switches that I'm familiar with
+> (again, never seen one, but willing to believe there is one) don't have
+> round-robin as a load balance option for etherchannel, and thus won't
+> evenly stripe traffic, but instead do some math on the packets so that a
+> given "connection" isn't split across ports.
 
-"PCI: disable MSI by default on systems with Serverworks HT1000 chips"
+Just FYI, the "i" series of Extreme switches (and some of their other
+switches) support round-robin load balancing.  We consider this an
+extremely useful feature (but only use it for switch-to-switch link
+aggregation), and bemoan its lack in their newer switch offerings.
+Force10 switches also have a pseudo round-robin load balancing capability
+which they call packet-based, which works by distributing packets based
+on the IP Identification field (and only works for IPv4).  One downside
+of the Force10 feature is that it is a global setting and thus affects
+all link aggregated links (the Extreme feature can be set on a per
+link aggregated link basis).
 
-was not entirely correct, and has been reverted.
-
-MSI does not work on the PCIX bus because the BIOS did not set the
-HT_MSI_FLAGS_ENABLE bit in the HyperTransport MSI capability on the
-bridge.  We use the existing quirk_msi_ht_cap() to detect the problem
-and disable MSI in all buses behind it.
-
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Cc: Anantha Subramanyam <ananth@broadcom.com>
-Cc: Naren Sankar <nsankar@broadcom.com>
-
-diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index 6da5a5d..c58429b 100644
---- a/drivers/pci/quirks.c
-+++ b/drivers/pci/quirks.c
-@@ -1703,6 +1703,9 @@ static void __devinit quirk_msi_ht_cap(struct pci_dev *dev)
- }
- DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_SERVERWORKS, PCI_DEVICE_ID_SERVERWORKS_HT2000_PCIE,
- 			quirk_msi_ht_cap);
-+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_SERVERWORKS,
-+			PCI_DEVICE_ID_SERVERWORKS_HT1000_PXB,
-+			quirk_msi_ht_cap);
- 
- /* The nVidia CK804 chipset may have 2 HT MSI mappings.
-  * MSI are supported if the MSI capability set in any of these mappings.
-diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
-index 3e34dc0..1bdf8be 100644
---- a/include/linux/pci_ids.h
-+++ b/include/linux/pci_ids.h
-@@ -1428,6 +1428,7 @@
- #define PCI_DEVICE_ID_SERVERWORKS_HE	  0x0008
- #define PCI_DEVICE_ID_SERVERWORKS_LE	  0x0009
- #define PCI_DEVICE_ID_SERVERWORKS_GCNB_LE 0x0017
-+#define PCI_DEVICE_ID_SERVERWORKS_HT1000_PXB	0x0036
- #define PCI_DEVICE_ID_SERVERWORKS_EPB	  0x0103
- #define PCI_DEVICE_ID_SERVERWORKS_HT2000_PCIE	0x0132
- #define PCI_DEVICE_ID_SERVERWORKS_OSB4	  0x0200
-
-
+						-Bill
