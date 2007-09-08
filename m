@@ -1,81 +1,76 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 00/16] core network namespace support
-Date: Sat, 08 Sep 2007 15:07:37 -0600
-Message-ID: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com>
+Subject: [PATCH 01/16] appletalk: In notifier handlers convert the void pointer to a netdevice
+Date: Sat, 08 Sep 2007 15:09:36 -0600
+Message-ID: <m1myvwx3sf.fsf@ebiederm.dsl.xmission.com>
+References: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: <netdev@vger.kernel.org>,
 	Linux Containers <containers@lists.osdl.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:56865 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:42977 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752292AbXIHVId (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Sep 2007 17:08:33 -0400
+	with ESMTP id S1752429AbXIHVKA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Sep 2007 17:10:00 -0400
+In-Reply-To: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com> (Eric W. Biederman's
+	message of "Sat, 08 Sep 2007 15:07:37 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-The following patchset was built against the latest net-2.6.24
-tree, and should be safe to apply assume not issues are found during
-the review.  In the interest of keeping the patcheset to a reviewable
-size, just the core of the network stack has been covered.
+This slightly improves code safetly and clarity.
 
+Later network namespace patches touch this code so this is a
+preliminary cleanup.
 
-The 10,000 foot overview.  We want to make it look to user space 
-like the kernel implements multiple network stacks.
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ net/appletalk/aarp.c |    7 ++++---
+ net/appletalk/ddp.c  |    4 +++-
+ 2 files changed, 7 insertions(+), 4 deletions(-)
 
-To implement this some of the currently global variables in the
-network stack need to have one instance per network namespace,
-or the global data structure needs to have a network namespace
-field.
+diff --git a/net/appletalk/aarp.c b/net/appletalk/aarp.c
+index 3d1655f..80b5414 100644
+--- a/net/appletalk/aarp.c
++++ b/net/appletalk/aarp.c
+@@ -330,15 +330,16 @@ static void aarp_expire_timeout(unsigned long unused)
+ static int aarp_device_event(struct notifier_block *this, unsigned long event,
+ 			     void *ptr)
+ {
++	struct net_device *dev = ptr;
+ 	int ct;
+ 
+ 	if (event == NETDEV_DOWN) {
+ 		write_lock_bh(&aarp_lock);
+ 
+ 		for (ct = 0; ct < AARP_HASH_SIZE; ct++) {
+-			__aarp_expire_device(&resolved[ct], ptr);
+-			__aarp_expire_device(&unresolved[ct], ptr);
+-			__aarp_expire_device(&proxies[ct], ptr);
++			__aarp_expire_device(&resolved[ct], dev);
++			__aarp_expire_device(&unresolved[ct], dev);
++			__aarp_expire_device(&proxies[ct], dev);
+ 		}
+ 
+ 		write_unlock_bh(&aarp_lock);
+diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+index fbdfb12..594b597 100644
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -647,9 +647,11 @@ static inline void atalk_dev_down(struct net_device *dev)
+ static int ddp_device_event(struct notifier_block *this, unsigned long event,
+ 			    void *ptr)
+ {
++	struct net_device *dev = ptr;
++
+ 	if (event == NETDEV_DOWN)
+ 		/* Discard any use of this */
+-		atalk_dev_down(ptr);
++		atalk_dev_down(dev);
+ 
+ 	return NOTIFY_DONE;
+ }
+-- 
+1.5.3.rc6.17.g1911
 
-Currently control enters the network stack in one of 4 major ways.
-Through operations on a socket, through a packet coming in
-from a network device, through miscellaneous syscalls from
-a process, and through operations on a virtual filesystem.
-So the current design calls for placing a pointer to 
-struct net (the network namespace structure) on network
-devices, sockets, processes, and on filesystems so we
-have a clear understanding of which network namespace
-operations should be done in the context of.
-
-Packets do not contain a pointer to a network device structure.
-Instead their network device is derived from which network
-device or which socket they are passing through.
-
-On the input path we only need to look at the network namespace
-to determine which routing tables to use, and which sockets the
-packet can be destined for.
-
-Similarly on the output path we only need to consult the network
-namespace for the output routing tables which point to which
-network devices we can use.
-
-So while there are accesses to the network namespace as
-we process each packet they are in well contained spots that occur
-rarely.
-
-Where the network namespace appears most is on the control,
-setup, and clean up code paths, in the network stack that we
-change rarely.  There we currently don't have anything except
-a global context so modifications are necessary, but since
-the network parameter is not implicit it should not require
-much thought to use.
-
-The implementation strategy follows the classic global
-lock reduction pattern.  First all of the interfaces
-at a given level in the network stack are made to filter
-out traffic from anything except the initial network namespace,
-and then those interfaces are allowed to see packets from
-any network namespace.  Then some subset of those interfaces
-are taught to handle packets from all namespaces, after the
-more specific protocol layers below them have been made to
-filter those packets.
-
-What this means is that we start out with large intrusive
-stupid patches and end up with small patches that enable
-small bits of functionality in the secondary network
-namespaces.
-
-Eric
