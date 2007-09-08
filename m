@@ -1,66 +1,76 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [PATCH] [-MM, FIX V3] e1000e: incorporate napi_struct changes
- from net-2.6.24.git
-Date: Sat, 8 Sep 2007 09:53:49 +0200
-Message-ID: <18146.21773.295381.108336@robur.slu.se>
-References: <20070908002730.27700.3774.stgit@localhost.localdomain>
-	<46E1ED43.4070506@intel.com>
+From: FUJITA Tomonori <tomof@acm.org>
+Subject: Re: [PATCH v3 2/2][BNX2]: Add iSCSI support to BNX2 devices.
+Date: Sat, 8 Sep 2007 16:41:09 +0900
+Message-ID: <20070908084127G.tomof@acm.org>
+References: <1188599815.5176.12.camel@dell>
+	<46E1D27F.2040701@cs.wisc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, akpm@linux-foundation.org, jeff@garzik.org,
-	netdev@vger.kernel.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Cc: davem@davemloft.net, mchristi@redhat.com, netdev@vger.kernel.org,
+	anilgv@broadcom.com, talm@broadcom.com, lusinsky@broadcom.com,
+	uri@broadcom.com
+To: open-iscsi@googlegroups.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.slu.se ([130.238.96.70]:47217 "EHLO mx1.slu.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751344AbXIHHyL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Sep 2007 03:54:11 -0400
-In-Reply-To: <46E1ED43.4070506@intel.com>
+Received: from mfo11.iij4u.or.jp ([210.138.174.81]:33802 "EHLO
+	mfo11.iij4u.or.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751282AbXIHH4U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Sep 2007 03:56:20 -0400
+Cc: fujita.tomonori@lab.ntt.co.jp
+In-Reply-To: <46E1D27F.2040701@cs.wisc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 07 Sep 2007 17:36:47 -0500
+Mike Christie <michaelc@cs.wisc.edu> wrote:
 
-Kok, Auke writes:
+> > +/*
+> > + * map SG list
+> > + */
+> > +static int bnx2i_map_sg(struct bnx2i_hba *hba, struct bnx2i_cmd *cmd)
+> > +{
+> > +	struct scsi_cmnd *sc = cmd->scsi_cmd;
+> > +	struct iscsi_bd *bd = cmd->bd_tbl->bd_tbl;
+> > +	struct scatterlist *sg;
+> > +	int byte_count = 0;
+> > +	int sg_frags;
+> > +	int bd_count = 0;
+> > +	int sg_count;
+> > +	int sg_len;
+> > +	u64 addr;
+> > +	int i;
+> > +
+> > +	sg = sc->request_buffer;
+> > +	sg_count = pci_map_sg(hba->pci_dev, sg, sc->use_sg,
+> > +			      sc->sc_data_direction);
 
-> david,
- > 
- > while testing this patch I noticed that the poll routine is now called 
- > 100% of the time, and since I'm not doing much different than before, I 
- > suspec that something in the new napi code is staying in polling mode 
- > forever? Since e1000e is pretty much the same code as e1000, I doubt the 
- > problem is there, but you can probably tell better. ideas?
-
- Hello,
- 
- Yes a correct observation. I've spotted this bug too and it caused by the 
- policy change in the NAPI scheduling. Look at tx_cleaned. 
-
-
- I suggest we revert this change for now.
- 
-
- Cheers
-					--ro
-
-
-Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
-
-
- diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 7b0bcdb..5cb883a 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -3944,7 +3944,7 @@ e1000_clean(struct napi_struct *napi, int budget)
- 	                  &work_done, budget);
- 
- 	/* If no Tx and not enough Rx work done, exit the polling mode */
--	if ((tx_cleaned && (work_done < budget)) ||
-+	if ((!tx_cleaned && (work_done == 0)) ||
- 	   !netif_running(poll_dev)) {
- quit_polling:
- 		if (likely(adapter->itr_setting & 3))
+Can you use scsi_dma_map() here?
 
 
+> > +	for (i = 0; i < sg_count; i++) {
+> > +		sg_len = sg_dma_len(sg);
+> > +		addr = sg_dma_address(sg);
+> > +		if (sg_len > MAX_BD_LENGTH)
+> > +			sg_frags = bnx2i_split_bd(cmd, addr, sg_len,
+> > +						  bd_count);
+
+Please use scsi_for_each_sg().
+
+You can't directly access to use_sg, request_buffer, request_bufflen,
+and resid in scsi_cmnd structure. Please use the scsi data accessors
+in scsi_cmnd.h: scsi_sg_count, scsi_sglist, scsi_bufflen,
+scsi_set_resid, and scsi_get_resid.
 
 
+> If you call blk_queue_max_segment_size() in the slave_configure callout 
+> you can limit the size of the segments that the block layer builds so 
+> they are smaller than MAX_BD_LENGTH. However, I am not sure how useful 
+> that is. I think DMA-API.txt states that the mapping code is ok to 
+> merged mutliple sglists entries into one so I think that means that we 
+> can still end up with an entry that is larger than MAX_BD_LENGTH. Not 
+> sure if there is way to tell the pci/dma map_sg code to limit this too.
+
+Yeah, iommu code ignores the lld limitations (the problem is that the
+lld limitations are in request_queue and iommu code can't access to
+request_queue). There is no way to tell iommu code about the lld
+limitations.
