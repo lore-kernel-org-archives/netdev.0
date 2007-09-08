@@ -1,67 +1,66 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: error(s) in 2.6.23-rc5 bonding.txt ?
-Date: Sat, 8 Sep 2007 02:05:11 -0400
-Message-ID: <20070908020511.1285c043.billfink@mindspring.com>
-References: <46E1CA81.6050808@hp.com>
-	<32121.1189207861@death>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: [PATCH] [-MM, FIX V3] e1000e: incorporate napi_struct changes
+ from net-2.6.24.git
+Date: Sat, 8 Sep 2007 09:53:49 +0200
+Message-ID: <18146.21773.295381.108336@robur.slu.se>
+References: <20070908002730.27700.3774.stgit@localhost.localdomain>
+	<46E1ED43.4070506@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hp.com>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: davem@davemloft.net, akpm@linux-foundation.org, jeff@garzik.org,
+	netdev@vger.kernel.org
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-kukur.atl.sa.earthlink.net ([209.86.89.65]:51961 "EHLO
-	elasmtp-kukur.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750929AbXIHGFY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Sep 2007 02:05:24 -0400
-In-Reply-To: <32121.1189207861@death>
+Received: from mx1.slu.se ([130.238.96.70]:47217 "EHLO mx1.slu.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751344AbXIHHyL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Sep 2007 03:54:11 -0400
+In-Reply-To: <46E1ED43.4070506@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 07 Sep 2007, Jay Vosburgh wrote:
 
-> Rick Jones <rick.jones2@hp.com> wrote:
-> [...]
-> >>         Note that this out of order delivery occurs when both the
-> >>         sending and receiving systems are utilizing a multiple
-> >>         interface bond.  Consider a configuration in which a
-> >>         balance-rr bond feeds into a single higher capacity network
-> >>         channel (e.g., multiple 100Mb/sec ethernets feeding a single
-> >>         gigabit ethernet via an etherchannel capable switch).  In this
-> >>         configuration, traffic sent from the multiple 100Mb devices to
-> >>         a destination connected to the gigabit device will not see
-> >>         packets out of order.  
+Kok, Auke writes:
 
-I would just change the last part of the last sentence to:
+> david,
+ > 
+ > while testing this patch I noticed that the poll routine is now called 
+ > 100% of the time, and since I'm not doing much different than before, I 
+ > suspec that something in the new napi code is staying in polling mode 
+ > forever? Since e1000e is pretty much the same code as e1000, I doubt the 
+ > problem is there, but you can probably tell better. ideas?
 
-	configuration, traffic sent from the multiple 100Mb devices to
-	a destination connected to the gigabit device will not usually
-	see packets out of order in the absence of congestion on the
-	outgoing gigabit ethernet interface.
+ Hello,
+ 
+ Yes a correct observation. I've spotted this bug too and it caused by the 
+ policy change in the NAPI scheduling. Look at tx_cleaned. 
 
-If there was momentary congestion on the outgoing gigabit ethernet
-interface, I suppose it would be possible to get out of order delivery
-if some of the incoming packets on the striped round-robin interfaces
-had to be buffered a short while before delivery was possible.
 
-> 	The text probably is lacking in some detail, though.  The real
-> key is that the last sender before getting to the destination system has
-> to do the round-robin striping.  Most switches that I'm familiar with
-> (again, never seen one, but willing to believe there is one) don't have
-> round-robin as a load balance option for etherchannel, and thus won't
-> evenly stripe traffic, but instead do some math on the packets so that a
-> given "connection" isn't split across ports.
+ I suggest we revert this change for now.
+ 
 
-Just FYI, the "i" series of Extreme switches (and some of their other
-switches) support round-robin load balancing.  We consider this an
-extremely useful feature (but only use it for switch-to-switch link
-aggregation), and bemoan its lack in their newer switch offerings.
-Force10 switches also have a pseudo round-robin load balancing capability
-which they call packet-based, which works by distributing packets based
-on the IP Identification field (and only works for IPv4).  One downside
-of the Force10 feature is that it is a global setting and thus affects
-all link aggregated links (the Extreme feature can be set on a per
-link aggregated link basis).
+ Cheers
+					--ro
 
-						-Bill
+
+Signed-off-by: Robert Olsson <robert.olsson@its.uu.se>
+
+
+ diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 7b0bcdb..5cb883a 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -3944,7 +3944,7 @@ e1000_clean(struct napi_struct *napi, int budget)
+ 	                  &work_done, budget);
+ 
+ 	/* If no Tx and not enough Rx work done, exit the polling mode */
+-	if ((tx_cleaned && (work_done < budget)) ||
++	if ((!tx_cleaned && (work_done == 0)) ||
+ 	   !netif_running(poll_dev)) {
+ quit_polling:
+ 		if (likely(adapter->itr_setting & 3))
+
+
+
+
