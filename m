@@ -1,71 +1,95 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: error(s) in 2.6.23-rc5 bonding.txt ?
-Date: Fri, 07 Sep 2007 18:01:38 -0700
-Message-ID: <3360.1189213298@death>
-References: <46E1CA81.6050808@hp.com> <32121.1189207861@death> <46E1E2EE.7080202@hp.com>
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [TG3]: Workaround MSI bug on 5714/5780.
+Date: Fri, 07 Sep 2007 19:26:21 -0700
+Message-ID: <1189218381.5210.67.camel@dell>
+References: <20070906.073423.74747465.davem@davemloft.net>
+ <20070906154123.GC10317@gospo.rdu.redhat.com>
+ <1189105530.4852.8.camel@dell>
+ <20070906.125019.104036964.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: andy@greyhouse.net, "netdev" <netdev@vger.kernel.org>,
+	ananth@broadcom.com, nsankar@broadcom.com
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:51088 "EHLO e5.ny.us.ibm.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2204 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750843AbXIHBBo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Sep 2007 21:01:44 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8811f9U032367
-	for <netdev@vger.kernel.org>; Fri, 7 Sep 2007 21:01:41 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8811f5R569124
-	for <netdev@vger.kernel.org>; Fri, 7 Sep 2007 21:01:41 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8811eot009995
-	for <netdev@vger.kernel.org>; Fri, 7 Sep 2007 21:01:41 -0400
-In-reply-to: <46E1E2EE.7080202@hp.com> 
+	id S1752009AbXIHB24 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Sep 2007 21:28:56 -0400
+In-Reply-To: <20070906.125019.104036964.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rick Jones <rick.jones2@hp.com> wrote:
-[...]
->> If bonding is the only feeder of the devices, then for a continuous
->> flow of traffic, all the slaves will generally receive packets (from
->> the kernel, for transmission) at pretty much the same rate, and so
->> they won't tend to get ahead or behind.
->
->I could see that if there was just one TCP connection going doing bulk or
->something, but if there were a bulk transmitter coupled with an occasional
->request/response (ie netperf TCP_STREAM and a TCP_RR) i'd think the tx
->rings would no longer remain balanced.
+On Thu, 2007-09-06 at 12:50 -0700, David Miller wrote:
+> From: "Michael Chan" <mchan@broadcom.com>
+> Date: Thu, 06 Sep 2007 12:05:30 -0700
+> 
+> > The HT1000 bridge may very well have an MSI issue.  I'm checking with
+> > ServerWorks and I will do some testing to confirm.  If confirmed, we can
+> > disable MSI behind the HT1000 bridge instead of globally.  The 5714
+> > issue is not caused by the HT1000 as it is not behind the HT1000.
+> 
+> What I'm going to do at this point is just merge the tg3
+> fix into the current 2.6.23 tree right now.
+> 
+> Meanwhile I'll have the HT1000 MSI quirk revert ready and,
+> unless we find a reason not to, I'll ask Greg KH to merge
+> that patch into 2.6.24
+> 
+David, I see that you have already done the revert in your 2.6.23 tree.
+So the following patch assumes the revert is already done.  I think it
+is quite safe for this to go into 2.6.23.
 
-	I'm not sure that would be the case, because even the traffic
-"bump" from the TCP_RR would be funneled through the round-robin.  So,
-the next packet of the bulk transmit would simply be "pushed back" to
-the next available interface.
+[PCI]: Add MSI quirk for ServerWorks HT1000 PCIX bridge.
 
-	Perhaps varying packet sizes would throw things out of whack, if
-the small ones happened to line up all one one interface (regardless of
-the other traffic).
+This is the fix for the following problem:
 
-	A PAUSE frame to one interface would almost certainly get things
-out of whack, but I don't know how long it would stay out of whack (or,
-really, how likely getting a PAUSE is).  Probably just as long as all of
-the slaves are running at full speed.
+https://bugzilla.redhat.com/show_bug.cgi?id=227657
 
->> 	I haven't investigated into this deeply for a few years, but
->> this is my recollection of what happened with the tests I did then.  I
->> did testing with multiple 100Mb devices feeding either other sets of
->> 100Mb devices or single gigabit devices.  I'm willing to believe that
->> things have changed, and an N feeding into one configuration can
->> reorder, but I haven't seen it (or really looked for it; balance-rr
->> isn't much the rage these days).
->
->Are you OK with that block of text simply being yanked?
+The bnx2 device 5706 complains about MSI not working behind a
+ServerWorks HT1000 PCIX bridge. An earlier commit to fix the problem:
 
-	Mmm... I'm an easy sell for a "usually" or other suitable caveat
-added in strategic places (avoiding absolute statements and all that).
-The text does reflect the results of experiments I ran at the time, so
-I'm reluctant to toss it wholesale simply because we speculate over how
-it might not be accurate.
+e3008dedff4bdc96a5f67224cd3d8d12237082a0:
 
-	-J
+"PCI: disable MSI by default on systems with Serverworks HT1000 chips"
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+was not entirely correct, and has been reverted.
+
+MSI does not work on the PCIX bus because the BIOS did not set the
+HT_MSI_FLAGS_ENABLE bit in the HyperTransport MSI capability on the
+bridge.  We use the existing quirk_msi_ht_cap() to detect the problem
+and disable MSI in all buses behind it.
+
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+Cc: Anantha Subramanyam <ananth@broadcom.com>
+Cc: Naren Sankar <nsankar@broadcom.com>
+
+diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
+index 6da5a5d..c58429b 100644
+--- a/drivers/pci/quirks.c
++++ b/drivers/pci/quirks.c
+@@ -1703,6 +1703,9 @@ static void __devinit quirk_msi_ht_cap(struct pci_dev *dev)
+ }
+ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_SERVERWORKS, PCI_DEVICE_ID_SERVERWORKS_HT2000_PCIE,
+ 			quirk_msi_ht_cap);
++DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_SERVERWORKS,
++			PCI_DEVICE_ID_SERVERWORKS_HT1000_PXB,
++			quirk_msi_ht_cap);
+ 
+ /* The nVidia CK804 chipset may have 2 HT MSI mappings.
+  * MSI are supported if the MSI capability set in any of these mappings.
+diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+index 3e34dc0..1bdf8be 100644
+--- a/include/linux/pci_ids.h
++++ b/include/linux/pci_ids.h
+@@ -1428,6 +1428,7 @@
+ #define PCI_DEVICE_ID_SERVERWORKS_HE	  0x0008
+ #define PCI_DEVICE_ID_SERVERWORKS_LE	  0x0009
+ #define PCI_DEVICE_ID_SERVERWORKS_GCNB_LE 0x0017
++#define PCI_DEVICE_ID_SERVERWORKS_HT1000_PXB	0x0036
+ #define PCI_DEVICE_ID_SERVERWORKS_EPB	  0x0103
+ #define PCI_DEVICE_ID_SERVERWORKS_HT2000_PCIE	0x0132
+ #define PCI_DEVICE_ID_SERVERWORKS_OSB4	  0x0200
+
+
