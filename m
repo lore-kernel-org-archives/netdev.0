@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 10/16] net: Make packet reception network namespace safe
-Date: Sat, 08 Sep 2007 15:25:43 -0600
-Message-ID: <m1k5r0voh4.fsf_-_@ebiederm.dsl.xmission.com>
+Subject: [PATCH 11/16] net: Make device event notification network namespace safe
+Date: Sat, 08 Sep 2007 15:27:11 -0600
+Message-ID: <m1fy1ovoeo.fsf_-_@ebiederm.dsl.xmission.com>
 References: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com>
 	<m1myvwx3sf.fsf@ebiederm.dsl.xmission.com>
 	<m1ir6kx3mn.fsf_-_@ebiederm.dsl.xmission.com>
@@ -11,544 +11,664 @@ References: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com>
 	<m11wd8x3a3.fsf_-_@ebiederm.dsl.xmission.com>
 	<m1sl5ovolm.fsf_-_@ebiederm.dsl.xmission.com>
 	<m1odgcvoje.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1k5r0voh4.fsf_-_@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: <netdev@vger.kernel.org>,
 	Linux Containers <containers@lists.osdl.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:46784 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:46788 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752960AbXIHV0J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Sep 2007 17:26:09 -0400
-In-Reply-To: <m1odgcvoje.fsf_-_@ebiederm.dsl.xmission.com> (Eric
-	W. Biederman's message of "Sat, 08 Sep 2007 15:24:21 -0600")
+	with ESMTP id S1752977AbXIHV1h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Sep 2007 17:27:37 -0400
+In-Reply-To: <m1k5r0voh4.fsf_-_@ebiederm.dsl.xmission.com> (Eric
+	W. Biederman's message of "Sat, 08 Sep 2007 15:25:43 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-This patch modifies every packet receive function
-registered with dev_add_pack() to drop packets if they
-are not from the initial network namespace.
+Every user of the network device notifiers is either a protocol
+stack or a pseudo device.  If a protocol stack that does not have
+support for multiple network namespaces receives an event for a
+device that is not in the initial network namespace it quite possibly
+can get confused and do the wrong thing.
 
-This should ensure that the various network stacks do
-not receive packets in a anything but the initial network
-namespace until the code has been converted and is ready
-for them.
+To avoid problems until all of the protocol stacks are converted
+this patch modifies all netdev event handlers to ignore events on
+devices that are not in the initial network namespace.
+
+As the rest of the code is made network namespace aware these
+checks can be removed.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- drivers/block/aoe/aoenet.c      |    4 ++++
- drivers/net/bonding/bond_3ad.c  |    4 ++++
- drivers/net/bonding/bond_alb.c  |    3 +++
- drivers/net/bonding/bond_main.c |    3 +++
- drivers/net/hamradio/bpqether.c |    3 +++
- drivers/net/pppoe.c             |    6 ++++++
- drivers/net/wan/hdlc.c          |    7 +++++++
- drivers/net/wan/lapbether.c     |    3 +++
- drivers/net/wan/syncppp.c       |    6 ++++++
- net/8021q/vlan_dev.c            |    5 +++++
- net/appletalk/aarp.c            |    3 +++
- net/appletalk/ddp.c             |    6 ++++++
- net/ax25/ax25_in.c              |    5 +++++
- net/bridge/br_stp_bpdu.c        |    4 ++++
- net/decnet/dn_route.c           |    3 +++
- net/econet/af_econet.c          |    3 +++
- net/ipv4/arp.c                  |    3 +++
- net/ipv4/ip_input.c             |    3 +++
- net/ipv4/ipconfig.c             |    6 ++++++
- net/ipv6/ip6_input.c            |    5 +++++
- net/ipx/af_ipx.c                |    3 +++
- net/irda/irlap_frame.c          |    3 +++
- net/llc/llc_input.c             |    4 ++++
- net/packet/af_packet.c          |    9 +++++++++
- net/tipc/eth_media.c            |    6 ++++++
- net/x25/x25_dev.c               |    3 +++
- 26 files changed, 113 insertions(+), 0 deletions(-)
+ arch/ia64/hp/sim/simeth.c           |    3 +++
+ drivers/net/bonding/bond_main.c     |    3 +++
+ drivers/net/hamradio/bpqether.c     |    3 +++
+ drivers/net/pppoe.c                 |    3 +++
+ drivers/net/wan/dlci.c              |    3 +++
+ drivers/net/wan/hdlc.c              |    3 +++
+ drivers/net/wan/lapbether.c         |    3 +++
+ net/8021q/vlan.c                    |    4 ++++
+ net/appletalk/aarp.c                |    3 +++
+ net/appletalk/ddp.c                 |    3 +++
+ net/atm/clip.c                      |    3 +++
+ net/atm/mpc.c                       |    4 ++++
+ net/ax25/af_ax25.c                  |    3 +++
+ net/bridge/br_notify.c              |    4 ++++
+ net/core/dst.c                      |    4 ++++
+ net/core/fib_rules.c                |    4 ++++
+ net/core/pktgen.c                   |    3 +++
+ net/core/rtnetlink.c                |    4 ++++
+ net/decnet/af_decnet.c              |    3 +++
+ net/econet/af_econet.c              |    3 +++
+ net/ipv4/arp.c                      |    3 +++
+ net/ipv4/devinet.c                  |    3 +++
+ net/ipv4/fib_frontend.c             |    3 +++
+ net/ipv4/ipmr.c                     |    7 ++++++-
+ net/ipv4/netfilter/ip_queue.c       |    3 +++
+ net/ipv4/netfilter/ipt_MASQUERADE.c |    3 +++
+ net/ipv6/addrconf.c                 |    3 +++
+ net/ipv6/ndisc.c                    |    3 +++
+ net/ipv6/netfilter/ip6_queue.c      |    3 +++
+ net/ipx/af_ipx.c                    |    3 +++
+ net/netfilter/nfnetlink_queue.c     |    3 +++
+ net/netrom/af_netrom.c              |    3 +++
+ net/packet/af_packet.c              |    3 +++
+ net/rose/af_rose.c                  |    3 +++
+ net/tipc/eth_media.c                |    3 +++
+ net/x25/af_x25.c                    |    3 +++
+ net/xfrm/xfrm_policy.c              |    5 +++++
+ security/selinux/netif.c            |    4 ++++
+ 38 files changed, 126 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/block/aoe/aoenet.c b/drivers/block/aoe/aoenet.c
-index f9ddfda..4dc0fb7 100644
---- a/drivers/block/aoe/aoenet.c
-+++ b/drivers/block/aoe/aoenet.c
-@@ -8,6 +8,7 @@
- #include <linux/blkdev.h>
- #include <linux/netdevice.h>
- #include <linux/moduleparam.h>
-+#include <net/net_namespace.h>
- #include <asm/unaligned.h>
- #include "aoe.h"
- 
-@@ -114,6 +115,9 @@ aoenet_rcv(struct sk_buff *skb, struct net_device *ifp, struct packet_type *pt,
- 	struct aoe_hdr *h;
- 	u32 n;
- 
-+	if (ifp->nd_net != &init_net)
-+		goto exit;
-+
- 	skb = skb_share_check(skb, GFP_ATOMIC);
- 	if (skb == NULL)
- 		return 0;
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index f829e4a..94bd739 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -29,6 +29,7 @@
- #include <linux/ethtool.h>
- #include <linux/if_bonding.h>
- #include <linux/pkt_sched.h>
-+#include <net/net_namespace.h>
- #include "bonding.h"
- #include "bond_3ad.h"
- 
-@@ -2448,6 +2449,9 @@ int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct net_device *dev, struct pac
- 	struct slave *slave = NULL;
- 	int ret = NET_RX_DROP;
+diff --git a/arch/ia64/hp/sim/simeth.c b/arch/ia64/hp/sim/simeth.c
+index f26077a..93d6004 100644
+--- a/arch/ia64/hp/sim/simeth.c
++++ b/arch/ia64/hp/sim/simeth.c
+@@ -300,6 +300,9 @@ simeth_device_event(struct notifier_block *this,unsigned long event, void *ptr)
+ 		return NOTIFY_DONE;
+ 	}
  
 +	if (dev->nd_net != &init_net)
-+		goto out;
++		return NOTIFY_DONE;
 +
- 	if (!(dev->flags & IFF_MASTER))
- 		goto out;
+ 	if ( event != NETDEV_UP && event != NETDEV_DOWN ) return NOTIFY_DONE;
  
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 92c3b6f..419a9f8 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -345,6 +345,9 @@ static int rlb_arp_recv(struct sk_buff *skb, struct net_device *bond_dev, struct
- 	struct arp_pkt *arp = (struct arp_pkt *)skb->data;
- 	int res = NET_RX_DROP;
- 
-+	if (bond_dev->nd_net != &init_net)
-+		goto out;
-+
- 	if (!(bond_dev->flags & IFF_MASTER))
- 		goto out;
- 
+ 	/*
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 5de648f..e4e5fdc 100644
+index e4e5fdc..cf97d8a 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -2458,6 +2458,9 @@ static int bond_arp_rcv(struct sk_buff *skb, struct net_device *dev, struct pack
- 	unsigned char *arp_ptr;
- 	u32 sip, tip;
+@@ -3299,6 +3299,9 @@ static int bond_netdev_event(struct notifier_block *this, unsigned long event, v
+ {
+ 	struct net_device *event_dev = (struct net_device *)ptr;
  
-+	if (dev->nd_net != &init_net)
-+		goto out;
++	if (event_dev->nd_net != &init_net)
++		return NOTIFY_DONE;
 +
- 	if (!(dev->priv_flags & IFF_BONDING) || !(dev->flags & IFF_MASTER))
- 		goto out;
- 
+ 	dprintk("event_dev: %s, event: %lx\n",
+ 		(event_dev ? event_dev->name : "None"),
+ 		event);
 diff --git a/drivers/net/hamradio/bpqether.c b/drivers/net/hamradio/bpqether.c
-index 1699d42..85fb8e7 100644
+index 85fb8e7..df09210 100644
 --- a/drivers/net/hamradio/bpqether.c
 +++ b/drivers/net/hamradio/bpqether.c
-@@ -173,6 +173,9 @@ static int bpq_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_ty
- 	struct ethhdr *eth;
- 	struct bpqdev *bpq;
+@@ -563,6 +563,9 @@ static int bpq_device_event(struct notifier_block *this,unsigned long event, voi
+ {
+ 	struct net_device *dev = (struct net_device *)ptr;
  
 +	if (dev->nd_net != &init_net)
-+		goto drop;
++		return NOTIFY_DONE;
 +
- 	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
- 		return NET_RX_DROP;
+ 	if (!dev_is_ethdev(dev))
+ 		return NOTIFY_DONE;
  
 diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
-index f8bf5fc..a29ea22 100644
+index a29ea22..b4ba584 100644
 --- a/drivers/net/pppoe.c
 +++ b/drivers/net/pppoe.c
-@@ -386,6 +386,9 @@ static int pppoe_rcv(struct sk_buff *skb,
- 	struct pppoe_hdr *ph;
- 	struct pppox_sock *po;
+@@ -301,6 +301,9 @@ static int pppoe_device_event(struct notifier_block *this,
+ {
+ 	struct net_device *dev = (struct net_device *) ptr;
  
 +	if (dev->nd_net != &init_net)
-+		goto drop;
++		return NOTIFY_DONE;
 +
- 	if (!pskb_may_pull(skb, sizeof(struct pppoe_hdr)))
- 		goto drop;
- 
-@@ -418,6 +421,9 @@ static int pppoe_disc_rcv(struct sk_buff *skb,
- 	struct pppoe_hdr *ph;
- 	struct pppox_sock *po;
+ 	/* Only look at sockets that are using this specific device. */
+ 	switch (event) {
+ 	case NETDEV_CHANGEMTU:
+diff --git a/drivers/net/wan/dlci.c b/drivers/net/wan/dlci.c
+index 66be20c..61041d5 100644
+--- a/drivers/net/wan/dlci.c
++++ b/drivers/net/wan/dlci.c
+@@ -513,6 +513,9 @@ static int dlci_dev_event(struct notifier_block *unused,
+ {
+ 	struct net_device *dev = (struct net_device *) ptr;
  
 +	if (dev->nd_net != &init_net)
-+		goto abort;
++		return NOTIFY_DONE;
 +
- 	if (!pskb_may_pull(skb, sizeof(struct pppoe_hdr)))
- 		goto abort;
+ 	if (event == NETDEV_UNREGISTER) {
+ 		struct dlci_local *dlp;
  
 diff --git a/drivers/net/wan/hdlc.c b/drivers/net/wan/hdlc.c
-index 65ad2e2..3b57350 100644
+index 3b57350..ee23b91 100644
 --- a/drivers/net/wan/hdlc.c
 +++ b/drivers/net/wan/hdlc.c
-@@ -36,6 +36,7 @@
- #include <linux/rtnetlink.h>
- #include <linux/notifier.h>
- #include <linux/hdlc.h>
-+#include <net/net_namespace.h>
- 
- 
- static const char* version = "HDLC support module revision 1.21";
-@@ -66,6 +67,12 @@ static int hdlc_rcv(struct sk_buff *skb, struct net_device *dev,
- 		    struct packet_type *p, struct net_device *orig_dev)
- {
- 	struct hdlc_device_desc *desc = dev_to_desc(dev);
+@@ -109,6 +109,9 @@ static int hdlc_device_event(struct notifier_block *this, unsigned long event,
+ 	unsigned long flags;
+ 	int on;
+  
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
 +
-+	if (dev->nd_net != &init_net) {
-+		kfree_skb(skb);
-+		return 0;
-+	}
-+
- 	if (desc->netif_rx)
- 		return desc->netif_rx(skb);
- 
+ 	if (dev->get_stats != hdlc_get_stats)
+ 		return NOTIFY_DONE; /* not an HDLC device */
+  
 diff --git a/drivers/net/wan/lapbether.c b/drivers/net/wan/lapbether.c
-index 6c302e9..ca8b3c3 100644
+index ca8b3c3..699b934 100644
 --- a/drivers/net/wan/lapbether.c
 +++ b/drivers/net/wan/lapbether.c
-@@ -91,6 +91,9 @@ static int lapbeth_rcv(struct sk_buff *skb, struct net_device *dev, struct packe
- 	int len, err;
+@@ -394,6 +394,9 @@ static int lapbeth_device_event(struct notifier_block *this,
  	struct lapbethdev *lapbeth;
+ 	struct net_device *dev = ptr;
  
 +	if (dev->nd_net != &init_net)
-+		goto drop;
++		return NOTIFY_DONE;
 +
- 	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
- 		return NET_RX_DROP;
+ 	if (!dev_is_ethdev(dev))
+ 		return NOTIFY_DONE;
  
-diff --git a/drivers/net/wan/syncppp.c b/drivers/net/wan/syncppp.c
-index 67fc67c..5c71af6 100644
---- a/drivers/net/wan/syncppp.c
-+++ b/drivers/net/wan/syncppp.c
-@@ -51,6 +51,7 @@
- #include <linux/spinlock.h>
- #include <linux/rcupdate.h>
- 
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 1583c5e..55f2dbb 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -31,6 +31,7 @@
+ #include <net/arp.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/notifier.h>
 +#include <net/net_namespace.h>
- #include <net/syncppp.h>
  
- #include <asm/byteorder.h>
-@@ -1445,6 +1446,11 @@ static void sppp_print_bytes (u_char *p, u16 len)
+ #include <linux/if_vlan.h>
+ #include "vlan.h"
+@@ -605,6 +606,9 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
+ 	int i, flgs;
+ 	struct net_device *vlandev;
  
- static int sppp_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *p, struct net_device *orig_dev)
- {
-+	if (dev->nd_net != &init_net) {
-+		kfree_skb(skb);
-+		return 0;
-+	}
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
 +
- 	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
- 		return NET_RX_DROP;
- 	sppp_input(dev,skb);
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 328759c..6644e8f 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -122,6 +122,11 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
- 	unsigned short vlan_TCI;
- 	__be16 proto;
- 
-+	if (dev->nd_net != &init_net) {
-+		kfree_skb(skb);
-+		return -1;
-+	}
-+
- 	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
- 		return -1;
+ 	if (!grp)
+ 		goto out;
  
 diff --git a/net/appletalk/aarp.c b/net/appletalk/aarp.c
-index 80b5414..9267f48 100644
+index 9267f48..e9a51a6 100644
 --- a/net/appletalk/aarp.c
 +++ b/net/appletalk/aarp.c
-@@ -713,6 +713,9 @@ static int aarp_rcv(struct sk_buff *skb, struct net_device *dev,
- 	struct atalk_addr sa, *ma, da;
- 	struct atalk_iface *ifa;
+@@ -333,6 +333,9 @@ static int aarp_device_event(struct notifier_block *this, unsigned long event,
+ 	struct net_device *dev = ptr;
+ 	int ct;
  
 +	if (dev->nd_net != &init_net)
-+		goto out0;
++		return NOTIFY_DONE;
 +
- 	/* We only do Ethernet SNAP AARP. */
- 	if (dev->type != ARPHRD_ETHER)
- 		goto out0;
+ 	if (event == NETDEV_DOWN) {
+ 		write_lock_bh(&aarp_lock);
+ 
 diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
-index fd1d52f..c1f1367 100644
+index c1f1367..36fcdbf 100644
 --- a/net/appletalk/ddp.c
 +++ b/net/appletalk/ddp.c
-@@ -1403,6 +1403,9 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
- 	int origlen;
- 	__u16 len_hops;
- 
-+	if (dev->nd_net != &init_net)
-+		goto freeit;
-+
- 	/* Don't mangle buffer if shared */
- 	if (!(skb = skb_share_check(skb, GFP_ATOMIC)))
- 		goto out;
-@@ -1488,6 +1491,9 @@ freeit:
- static int ltalk_rcv(struct sk_buff *skb, struct net_device *dev,
- 		     struct packet_type *pt, struct net_device *orig_dev)
+@@ -649,6 +649,9 @@ static int ddp_device_event(struct notifier_block *this, unsigned long event,
  {
-+	if (dev->nd_net != &init_net)
-+		goto freeit;
-+
- 	/* Expand any short form frames */
- 	if (skb_mac_header(skb)[2] == 1) {
- 		struct ddpehdr *ddp;
-diff --git a/net/ax25/ax25_in.c b/net/ax25/ax25_in.c
-index 0ddaff0..3b7d172 100644
---- a/net/ax25/ax25_in.c
-+++ b/net/ax25/ax25_in.c
-@@ -451,6 +451,11 @@ int ax25_kiss_rcv(struct sk_buff *skb, struct net_device *dev,
- 	skb->sk = NULL;		/* Initially we don't know who it's for */
- 	skb->destructor = NULL;	/* Who initializes this, dammit?! */
+ 	struct net_device *dev = ptr;
  
-+	if (dev->nd_net != &init_net) {
-+		kfree_skb(skb);
-+		return 0;
-+	}
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
 +
- 	if ((*skb->data & 0x0F) != 0) {
- 		kfree_skb(skb);	/* Not a KISS data frame */
- 		return 0;
-diff --git a/net/bridge/br_stp_bpdu.c b/net/bridge/br_stp_bpdu.c
-index 14f0c88..0edbd2a 100644
---- a/net/bridge/br_stp_bpdu.c
-+++ b/net/bridge/br_stp_bpdu.c
-@@ -17,6 +17,7 @@
- #include <linux/netfilter_bridge.h>
- #include <linux/etherdevice.h>
- #include <linux/llc.h>
+ 	if (event == NETDEV_DOWN)
+ 		/* Discard any use of this */
+ 		atalk_dev_down(dev);
+diff --git a/net/atm/clip.c b/net/atm/clip.c
+index 806ea98..741742f 100644
+--- a/net/atm/clip.c
++++ b/net/atm/clip.c
+@@ -612,6 +612,9 @@ static int clip_device_event(struct notifier_block *this, unsigned long event,
+ {
+ 	struct net_device *dev = arg;
+ 
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
++
+ 	if (event == NETDEV_UNREGISTER) {
+ 		neigh_ifdown(&clip_tbl, dev);
+ 		return NOTIFY_DONE;
+diff --git a/net/atm/mpc.c b/net/atm/mpc.c
+index 7c85aa5..0968430 100644
+--- a/net/atm/mpc.c
++++ b/net/atm/mpc.c
+@@ -956,6 +956,10 @@ static int mpoa_event_listener(struct notifier_block *mpoa_notifier, unsigned lo
+ 	struct lec_priv *priv;
+ 
+ 	dev = (struct net_device *)dev_ptr;
++
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
++
+ 	if (dev->name == NULL || strncmp(dev->name, "lec", 3))
+ 		return NOTIFY_DONE; /* we are only interested in lec:s */
+ 
+diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+index def6c42..8d13a8b 100644
+--- a/net/ax25/af_ax25.c
++++ b/net/ax25/af_ax25.c
+@@ -104,6 +104,9 @@ static int ax25_device_event(struct notifier_block *this, unsigned long event,
+ {
+ 	struct net_device *dev = (struct net_device *)ptr;
+ 
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
++
+ 	/* Reject non AX.25 devices */
+ 	if (dev->type != ARPHRD_AX25)
+ 		return NOTIFY_DONE;
+diff --git a/net/bridge/br_notify.c b/net/bridge/br_notify.c
+index c8451d3..07ac3ae 100644
+--- a/net/bridge/br_notify.c
++++ b/net/bridge/br_notify.c
+@@ -15,6 +15,7 @@
+ 
+ #include <linux/kernel.h>
+ #include <linux/rtnetlink.h>
 +#include <net/net_namespace.h>
- #include <net/llc.h>
- #include <net/llc_pdu.h>
- #include <asm/unaligned.h>
-@@ -141,6 +142,9 @@ int br_stp_rcv(struct sk_buff *skb, struct net_device *dev,
+ 
+ #include "br_private.h"
+ 
+@@ -36,6 +37,9 @@ static int br_device_event(struct notifier_block *unused, unsigned long event, v
+ 	struct net_bridge_port *p = dev->br_port;
  	struct net_bridge *br;
- 	const unsigned char *buf;
  
 +	if (dev->nd_net != &init_net)
-+		goto err;
++		return NOTIFY_DONE;
 +
- 	if (!p)
- 		goto err;
+ 	/* not a port of a bridge */
+ 	if (p == NULL)
+ 		return NOTIFY_DONE;
+diff --git a/net/core/dst.c b/net/core/dst.c
+index c6a0587..32267a1 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -15,6 +15,7 @@
+ #include <linux/skbuff.h>
+ #include <linux/string.h>
+ #include <linux/types.h>
++#include <net/net_namespace.h>
  
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index 4cfea95..580e786 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -584,6 +584,9 @@ int dn_route_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type
- 	struct dn_dev *dn = (struct dn_dev *)dev->dn_ptr;
- 	unsigned char padlen = 0;
+ #include <net/dst.h>
+ 
+@@ -252,6 +253,9 @@ static int dst_dev_event(struct notifier_block *this, unsigned long event, void
+ 	struct net_device *dev = ptr;
+ 	struct dst_entry *dst;
  
 +	if (dev->nd_net != &init_net)
-+		goto dump_it;
++		return NOTIFY_DONE;
 +
- 	if (dn == NULL)
- 		goto dump_it;
+ 	switch (event) {
+ 	case NETDEV_UNREGISTER:
+ 	case NETDEV_DOWN:
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 8c5474e..9eabe1a 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -11,6 +11,7 @@
+ #include <linux/types.h>
+ #include <linux/kernel.h>
+ #include <linux/list.h>
++#include <net/net_namespace.h>
+ #include <net/fib_rules.h>
  
+ static LIST_HEAD(rules_ops);
+@@ -596,6 +597,9 @@ static int fib_rules_event(struct notifier_block *this, unsigned long event,
+ 	struct net_device *dev = ptr;
+ 	struct fib_rules_ops *ops;
+ 
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
++
+ 	ASSERT_RTNL();
+ 	rcu_read_lock();
+ 
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index fa15cc7..21ae955 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -1966,6 +1966,9 @@ static int pktgen_device_event(struct notifier_block *unused,
+ {
+ 	struct net_device *dev = ptr;
+ 
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
++
+ 	/* It is OK that we do not hold the group lock right now,
+ 	 * as we run under the RTNL lock.
+ 	 */
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index dca9e80..4185950 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1286,6 +1286,10 @@ static void rtnetlink_rcv(struct sock *sk, int len)
+ static int rtnetlink_event(struct notifier_block *this, unsigned long event, void *ptr)
+ {
+ 	struct net_device *dev = ptr;
++
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
++
+ 	switch (event) {
+ 	case NETDEV_UNREGISTER:
+ 		rtmsg_ifinfo(RTM_DELLINK, dev, ~0U);
+diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
+index aca4c49..83398da 100644
+--- a/net/decnet/af_decnet.c
++++ b/net/decnet/af_decnet.c
+@@ -2089,6 +2089,9 @@ static int dn_device_event(struct notifier_block *this, unsigned long event,
+ {
+ 	struct net_device *dev = (struct net_device *)ptr;
+ 
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
++
+ 	switch(event) {
+ 		case NETDEV_UP:
+ 			dn_dev_up(dev);
 diff --git a/net/econet/af_econet.c b/net/econet/af_econet.c
-index a2429db..7de3006 100644
+index 7de3006..f877f3b 100644
 --- a/net/econet/af_econet.c
 +++ b/net/econet/af_econet.c
-@@ -1065,6 +1065,9 @@ static int econet_rcv(struct sk_buff *skb, struct net_device *dev, struct packet
- 	struct sock *sk;
- 	struct ec_device *edev = dev->ec_ptr;
+@@ -1122,6 +1122,9 @@ static int econet_notifier(struct notifier_block *this, unsigned long msg, void
+ 	struct net_device *dev = (struct net_device *)data;
+ 	struct ec_device *edev;
  
 +	if (dev->nd_net != &init_net)
-+		goto drop;
++		return NOTIFY_DONE;
 +
- 	if (skb->pkt_type == PACKET_OTHERHOST)
- 		goto drop;
- 
+ 	switch (msg) {
+ 	case NETDEV_UNREGISTER:
+ 		/* A device has gone down - kill any data we hold for it. */
 diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 78dd344..bde1297 100644
+index bde1297..a11e7a5 100644
 --- a/net/ipv4/arp.c
 +++ b/net/ipv4/arp.c
-@@ -932,6 +932,9 @@ static int arp_rcv(struct sk_buff *skb, struct net_device *dev,
+@@ -1205,6 +1205,9 @@ static int arp_netdev_event(struct notifier_block *this, unsigned long event, vo
  {
- 	struct arphdr *arp;
+ 	struct net_device *dev = ptr;
  
 +	if (dev->nd_net != &init_net)
-+		goto freeskb;
++		return NOTIFY_DONE;
 +
- 	/* ARP header, plus 2 device addresses, plus 2 IP addresses.  */
- 	if (!pskb_may_pull(skb, (sizeof(struct arphdr) +
- 				 (2 * dev->addr_len) +
-diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index 9706939..41d8964 100644
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -382,6 +382,9 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
- 	struct iphdr *iph;
- 	u32 len;
+ 	switch (event) {
+ 	case NETDEV_CHANGEADDR:
+ 		neigh_changeaddr(&arp_tbl, dev);
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 5b77bda..9996b57 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1051,6 +1051,9 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
+ 	struct net_device *dev = ptr;
+ 	struct in_device *in_dev = __in_dev_get_rtnl(dev);
  
 +	if (dev->nd_net != &init_net)
-+		goto drop;
++		return NOTIFY_DONE;
 +
- 	/* When the interface is in promisc. mode, drop all the crap
- 	 * that it receives, do not try to analyse it.
- 	 */
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 5ae4849..08ff623 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -426,6 +426,9 @@ ic_rarp_recv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
- 	unsigned char *sha, *tha;		/* s for "source", t for "target" */
- 	struct ic_device *d;
+ 	ASSERT_RTNL();
+ 
+ 	if (!in_dev) {
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index eff6bce..cefb55e 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -860,6 +860,9 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
+ 	struct net_device *dev = ptr;
+ 	struct in_device *in_dev = __in_dev_get_rtnl(dev);
  
 +	if (dev->nd_net != &init_net)
-+		goto drop;
++		return NOTIFY_DONE;
 +
- 	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
- 		return NET_RX_DROP;
+ 	if (event == NETDEV_UNREGISTER) {
+ 		fib_disable_ip(dev, 2);
+ 		return NOTIFY_DONE;
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 35683e1..0365988 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1083,13 +1083,18 @@ int ipmr_ioctl(struct sock *sk, int cmd, void __user *arg)
  
-@@ -835,6 +838,9 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
- 	struct ic_device *d;
- 	int len, ext_len;
+ static int ipmr_device_event(struct notifier_block *this, unsigned long event, void *ptr)
+ {
++	struct net_device *dev = ptr;
+ 	struct vif_device *v;
+ 	int ct;
++
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
++
+ 	if (event != NETDEV_UNREGISTER)
+ 		return NOTIFY_DONE;
+ 	v=&vif_table[0];
+ 	for (ct=0;ct<maxvif;ct++,v++) {
+-		if (v->dev==ptr)
++		if (v->dev==dev)
+ 			vif_delete(ct);
+ 	}
+ 	return NOTIFY_DONE;
+diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
+index cb5e61a..d918560 100644
+--- a/net/ipv4/netfilter/ip_queue.c
++++ b/net/ipv4/netfilter/ip_queue.c
+@@ -557,6 +557,9 @@ ipq_rcv_dev_event(struct notifier_block *this,
+ {
+ 	struct net_device *dev = ptr;
  
 +	if (dev->nd_net != &init_net)
-+		goto drop;
++		return NOTIFY_DONE;
 +
- 	/* Perform verifications before taking the lock.  */
- 	if (skb->pkt_type == PACKET_OTHERHOST)
- 		goto drop;
-diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 30a5cb1..7d18cac 100644
---- a/net/ipv6/ip6_input.c
-+++ b/net/ipv6/ip6_input.c
-@@ -61,6 +61,11 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
- 	u32 		pkt_len;
- 	struct inet6_dev *idev;
+ 	/* Drop any packets associated with the downed device */
+ 	if (event == NETDEV_DOWN)
+ 		ipq_dev_drop(dev->ifindex);
+diff --git a/net/ipv4/netfilter/ipt_MASQUERADE.c b/net/ipv4/netfilter/ipt_MASQUERADE.c
+index 7c4e4be..3e0b562 100644
+--- a/net/ipv4/netfilter/ipt_MASQUERADE.c
++++ b/net/ipv4/netfilter/ipt_MASQUERADE.c
+@@ -125,6 +125,9 @@ static int masq_device_event(struct notifier_block *this,
+ {
+ 	const struct net_device *dev = ptr;
  
-+	if (dev->nd_net != &init_net) {
-+		kfree_skb(skb);
-+		return 0;
-+	}
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
 +
- 	if (skb->pkt_type == PACKET_OTHERHOST) {
- 		kfree_skb(skb);
- 		return 0;
+ 	if (event == NETDEV_DOWN) {
+ 		/* Device was downed.  Search entire table for
+ 		   conntracks which were associated with that device,
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 5e62ee5..5b191a3 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2259,6 +2259,9 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 	int run_pending = 0;
+ 	int err;
+ 
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
++
+ 	switch(event) {
+ 	case NETDEV_REGISTER:
+ 		if (!idev && dev->mtu >= IPV6_MIN_MTU) {
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 0358e60..4d03d35 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1524,6 +1524,9 @@ static int ndisc_netdev_event(struct notifier_block *this, unsigned long event,
+ {
+ 	struct net_device *dev = ptr;
+ 
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
++
+ 	switch (event) {
+ 	case NETDEV_CHANGEADDR:
+ 		neigh_changeaddr(&nd_tbl, dev);
+diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
+index dfc58fb..64536a3 100644
+--- a/net/ipv6/netfilter/ip6_queue.c
++++ b/net/ipv6/netfilter/ip6_queue.c
+@@ -547,6 +547,9 @@ ipq_rcv_dev_event(struct notifier_block *this,
+ {
+ 	struct net_device *dev = ptr;
+ 
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
++
+ 	/* Drop any packets associated with the downed device */
+ 	if (event == NETDEV_DOWN)
+ 		ipq_dev_drop(dev->ifindex);
 diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
-index ee28bab..f7b4d38 100644
+index f7b4d38..24921f1 100644
 --- a/net/ipx/af_ipx.c
 +++ b/net/ipx/af_ipx.c
-@@ -1647,6 +1647,9 @@ static int ipx_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_ty
- 	u16 ipx_pktsize;
- 	int rc = 0;
+@@ -347,6 +347,9 @@ static int ipxitf_device_event(struct notifier_block *notifier,
+ 	struct net_device *dev = ptr;
+ 	struct ipx_interface *i, *tmp;
  
 +	if (dev->nd_net != &init_net)
-+		goto drop;
++		return NOTIFY_DONE;
 +
- 	/* Not ours */
- 	if (skb->pkt_type == PACKET_OTHERHOST)
- 		goto drop;
-diff --git a/net/irda/irlap_frame.c b/net/irda/irlap_frame.c
-index 25a3444..77ac27e 100644
---- a/net/irda/irlap_frame.c
-+++ b/net/irda/irlap_frame.c
-@@ -1326,6 +1326,9 @@ int irlap_driver_rcv(struct sk_buff *skb, struct net_device *dev,
- 	int command;
- 	__u8 control;
+ 	if (event != NETDEV_DOWN && event != NETDEV_UP)
+ 		goto out;
+ 
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index bb65a38..5a8e8ff 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -734,6 +734,9 @@ nfqnl_rcv_dev_event(struct notifier_block *this,
+ {
+ 	struct net_device *dev = ptr;
  
 +	if (dev->nd_net != &init_net)
-+		goto out;
++		return NOTIFY_DONE;
 +
- 	/* FIXME: should we get our own field? */
- 	self = (struct irlap_cb *) dev->atalk_ptr;
- 
-diff --git a/net/llc/llc_input.c b/net/llc/llc_input.c
-index 099ed8f..c40c9b2 100644
---- a/net/llc/llc_input.c
-+++ b/net/llc/llc_input.c
-@@ -12,6 +12,7 @@
-  * See the GNU General Public License for more details.
-  */
- #include <linux/netdevice.h>
-+#include <net/net_namespace.h>
- #include <net/llc.h>
- #include <net/llc_pdu.h>
- #include <net/llc_sap.h>
-@@ -145,6 +146,9 @@ int llc_rcv(struct sk_buff *skb, struct net_device *dev,
- 	int (*rcv)(struct sk_buff *, struct net_device *,
- 		   struct packet_type *, struct net_device *);
+ 	/* Drop any packets associated with the downed device */
+ 	if (event == NETDEV_DOWN)
+ 		nfqnl_dev_drop(dev->ifindex);
+diff --git a/net/netrom/af_netrom.c b/net/netrom/af_netrom.c
+index e969d1b..3a4d479 100644
+--- a/net/netrom/af_netrom.c
++++ b/net/netrom/af_netrom.c
+@@ -106,6 +106,9 @@ static int nr_device_event(struct notifier_block *this, unsigned long event, voi
+ {
+ 	struct net_device *dev = (struct net_device *)ptr;
  
 +	if (dev->nd_net != &init_net)
-+		goto drop;
++		return NOTIFY_DONE;
 +
- 	/*
- 	 * When the interface is in promisc. mode, drop all the crap that it
- 	 * receives, do not try to analyse it.
+ 	if (event != NETDEV_DOWN)
+ 		return NOTIFY_DONE;
+ 
 diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 72ff099..51b0d5c 100644
+index 51b0d5c..30f2143 100644
 --- a/net/packet/af_packet.c
 +++ b/net/packet/af_packet.c
-@@ -252,6 +252,9 @@ static int packet_rcv_spkt(struct sk_buff *skb, struct net_device *dev,  struct
- 	struct sock *sk;
- 	struct sockaddr_pkt *spkt;
+@@ -1478,6 +1478,9 @@ static int packet_notifier(struct notifier_block *this, unsigned long msg, void
+ 	struct hlist_node *node;
+ 	struct net_device *dev = data;
  
 +	if (dev->nd_net != &init_net)
-+		goto out;
++		return NOTIFY_DONE;
 +
- 	/*
- 	 *	When we registered the protocol we saved the socket in the data
- 	 *	field for just this event.
-@@ -452,6 +455,9 @@ static int packet_rcv(struct sk_buff *skb, struct net_device *dev, struct packet
- 	int skb_len = skb->len;
- 	unsigned int snaplen, res;
+ 	read_lock(&packet_sklist_lock);
+ 	sk_for_each(sk, node, &packet_sklist) {
+ 		struct packet_sock *po = pkt_sk(sk);
+diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
+index 67e06ab..509defe 100644
+--- a/net/rose/af_rose.c
++++ b/net/rose/af_rose.c
+@@ -197,6 +197,9 @@ static int rose_device_event(struct notifier_block *this, unsigned long event,
+ {
+ 	struct net_device *dev = (struct net_device *)ptr;
  
 +	if (dev->nd_net != &init_net)
-+		goto drop;
++		return NOTIFY_DONE;
 +
- 	if (skb->pkt_type == PACKET_LOOPBACK)
- 		goto drop;
- 
-@@ -568,6 +574,9 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev, struct packe
- 	struct sk_buff *copy_skb = NULL;
- 	struct timeval tv;
- 
-+	if (dev->nd_net != &init_net)
-+		goto drop;
-+
- 	if (skb->pkt_type == PACKET_LOOPBACK)
- 		goto drop;
+ 	if (event != NETDEV_DOWN)
+ 		return NOTIFY_DONE;
  
 diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
-index 711ca4b..d2ed237 100644
+index d2ed237..406f0d2 100644
 --- a/net/tipc/eth_media.c
 +++ b/net/tipc/eth_media.c
-@@ -38,6 +38,7 @@
- #include <net/tipc/tipc_bearer.h>
- #include <net/tipc/tipc_msg.h>
- #include <linux/netdevice.h>
-+#include <net/net_namespace.h>
+@@ -198,6 +198,9 @@ static int recv_notification(struct notifier_block *nb, unsigned long evt,
+ 	struct eth_bearer *eb_ptr = &eth_bearers[0];
+ 	struct eth_bearer *stop = &eth_bearers[MAX_ETH_BEARERS];
  
- #define MAX_ETH_BEARERS		2
- #define ETH_LINK_PRIORITY	TIPC_DEF_LINK_PRI
-@@ -100,6 +101,11 @@ static int recv_msg(struct sk_buff *buf, struct net_device *dev,
- 	struct eth_bearer *eb_ptr = (struct eth_bearer *)pt->af_packet_priv;
- 	u32 size;
- 
-+	if (dev->nd_net != &init_net) {
-+		kfree_skb(buf);
-+		return 0;
-+	}
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
 +
- 	if (likely(eb_ptr->bearer)) {
- 		if (likely(buf->pkt_type <= PACKET_BROADCAST)) {
- 			size = msg_size((struct tipc_msg *)buf->data);
-diff --git a/net/x25/x25_dev.c b/net/x25/x25_dev.c
-index 848a6b6..f0679d2 100644
---- a/net/x25/x25_dev.c
-+++ b/net/x25/x25_dev.c
-@@ -95,6 +95,9 @@ int x25_lapb_receive_frame(struct sk_buff *skb, struct net_device *dev,
- 	struct sk_buff *nskb;
+ 	while ((eb_ptr->dev != dev)) {
+ 		if (++eb_ptr == stop)
+ 			return NOTIFY_DONE;	/* couldn't find device */
+diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+index 2e99315..fc416f9 100644
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -191,6 +191,9 @@ static int x25_device_event(struct notifier_block *this, unsigned long event,
+ 	struct net_device *dev = ptr;
  	struct x25_neigh *nb;
  
 +	if (dev->nd_net != &init_net)
-+		goto drop;
++		return NOTIFY_DONE;
 +
- 	nskb = skb_copy(skb, GFP_ATOMIC);
- 	if (!nskb)
- 		goto drop;
+ 	if (dev->type == ARPHRD_X25
+ #if defined(CONFIG_LLC) || defined(CONFIG_LLC_MODULE)
+ 	 || dev->type == ARPHRD_ETHER
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 6ab81b1..bc316bc 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2358,6 +2358,11 @@ static void xfrm_policy_unlock_afinfo(struct xfrm_policy_afinfo *afinfo)
+ 
+ static int xfrm_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
+ {
++	struct net_device *dev = ptr;
++
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
++
+ 	switch (event) {
+ 	case NETDEV_DOWN:
+ 		xfrm_flush_bundles();
+diff --git a/security/selinux/netif.c b/security/selinux/netif.c
+index b10c34e..e87ab94 100644
+--- a/security/selinux/netif.c
++++ b/security/selinux/netif.c
+@@ -20,6 +20,7 @@
+ #include <linux/notifier.h>
+ #include <linux/netdevice.h>
+ #include <linux/rcupdate.h>
++#include <net/net_namespace.h>
+ 
+ #include "security.h"
+ #include "objsec.h"
+@@ -234,6 +235,9 @@ static int sel_netif_netdev_notifier_handler(struct notifier_block *this,
+ {
+ 	struct net_device *dev = ptr;
+ 
++	if (dev->nd_net != &init_net)
++		return NOTIFY_DONE;
++
+ 	if (event == NETDEV_DOWN)
+ 		sel_netif_kill(dev);
+ 
 -- 
 1.5.3.rc6.17.g1911
 
