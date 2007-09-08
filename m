@@ -1,76 +1,73 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 01/16] appletalk: In notifier handlers convert the void pointer to a netdevice
-Date: Sat, 08 Sep 2007 15:09:36 -0600
-Message-ID: <m1myvwx3sf.fsf@ebiederm.dsl.xmission.com>
+Subject: [PATCH 02/16] net: Don't implement dev_ifname32 inline
+Date: Sat, 08 Sep 2007 15:13:04 -0600
+Message-ID: <m1ir6kx3mn.fsf_-_@ebiederm.dsl.xmission.com>
 References: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com>
+	<m1myvwx3sf.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: <netdev@vger.kernel.org>,
 	Linux Containers <containers@lists.osdl.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:42977 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:42983 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752429AbXIHVKA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Sep 2007 17:10:00 -0400
-In-Reply-To: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com> (Eric W. Biederman's
-	message of "Sat, 08 Sep 2007 15:07:37 -0600")
+	with ESMTP id S1752556AbXIHVN2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Sep 2007 17:13:28 -0400
+In-Reply-To: <m1myvwx3sf.fsf@ebiederm.dsl.xmission.com> (Eric W. Biederman's
+	message of "Sat, 08 Sep 2007 15:09:36 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-This slightly improves code safetly and clarity.
-
-Later network namespace patches touch this code so this is a
-preliminary cleanup.
+The current implementation of dev_ifname makes maintenance difficult
+because updates to the implementation of the ioctl have to made in two
+places.  So this patch updates dev_ifname32 to do a classic 32/64
+structure conversion and call sys_ioctl like the rest of the
+compat calls do.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/appletalk/aarp.c |    7 ++++---
- net/appletalk/ddp.c  |    4 +++-
- 2 files changed, 7 insertions(+), 4 deletions(-)
+ fs/compat_ioctl.c |   21 ++++++++++-----------
+ 1 files changed, 10 insertions(+), 11 deletions(-)
 
-diff --git a/net/appletalk/aarp.c b/net/appletalk/aarp.c
-index 3d1655f..80b5414 100644
---- a/net/appletalk/aarp.c
-+++ b/net/appletalk/aarp.c
-@@ -330,15 +330,16 @@ static void aarp_expire_timeout(unsigned long unused)
- static int aarp_device_event(struct notifier_block *this, unsigned long event,
- 			     void *ptr)
+diff --git a/fs/compat_ioctl.c b/fs/compat_ioctl.c
+index a6c9078..361b994 100644
+--- a/fs/compat_ioctl.c
++++ b/fs/compat_ioctl.c
+@@ -324,22 +324,21 @@ struct ifconf32 {
+ 
+ static int dev_ifname32(unsigned int fd, unsigned int cmd, unsigned long arg)
  {
-+	struct net_device *dev = ptr;
- 	int ct;
+-	struct net_device *dev;
+-	struct ifreq32 ifr32;
++	struct ifreq __user *uifr;
+ 	int err;
  
- 	if (event == NETDEV_DOWN) {
- 		write_lock_bh(&aarp_lock);
+-	if (copy_from_user(&ifr32, compat_ptr(arg), sizeof(ifr32)))
++	uifr = compat_alloc_user_space(sizeof(struct ifreq));
++	if (copy_in_user(uifr, compat_ptr(arg), sizeof(struct ifreq32)));
+ 		return -EFAULT;
  
- 		for (ct = 0; ct < AARP_HASH_SIZE; ct++) {
--			__aarp_expire_device(&resolved[ct], ptr);
--			__aarp_expire_device(&unresolved[ct], ptr);
--			__aarp_expire_device(&proxies[ct], ptr);
-+			__aarp_expire_device(&resolved[ct], dev);
-+			__aarp_expire_device(&unresolved[ct], dev);
-+			__aarp_expire_device(&proxies[ct], dev);
- 		}
+-	dev = dev_get_by_index(ifr32.ifr_ifindex);
+-	if (!dev)
+-		return -ENODEV;
++	err = sys_ioctl(fd, SIOCGIFNAME, (unsigned long)uifr);
++	if (err)
++		return err;
  
- 		write_unlock_bh(&aarp_lock);
-diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
-index fbdfb12..594b597 100644
---- a/net/appletalk/ddp.c
-+++ b/net/appletalk/ddp.c
-@@ -647,9 +647,11 @@ static inline void atalk_dev_down(struct net_device *dev)
- static int ddp_device_event(struct notifier_block *this, unsigned long event,
- 			    void *ptr)
- {
-+	struct net_device *dev = ptr;
+-	strlcpy(ifr32.ifr_name, dev->name, sizeof(ifr32.ifr_name));
+-	dev_put(dev);
+-	
+-	err = copy_to_user(compat_ptr(arg), &ifr32, sizeof(ifr32));
+-	return (err ? -EFAULT : 0);
++	if (copy_in_user(compat_ptr(arg), uifr, sizeof(struct ifreq32)))
++		return -EFAULT;
 +
- 	if (event == NETDEV_DOWN)
- 		/* Discard any use of this */
--		atalk_dev_down(ptr);
-+		atalk_dev_down(dev);
- 
- 	return NOTIFY_DONE;
++	return 0;
  }
+ 
+ static int dev_ifconf(unsigned int fd, unsigned int cmd, unsigned long arg)
 -- 
 1.5.3.rc6.17.g1911
 
