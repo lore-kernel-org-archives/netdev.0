@@ -1,7 +1,7 @@
 From: Ivo van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [RFC 1/3] rfkill: Remove IRDA
-Date: Sat, 8 Sep 2007 17:11:30 +0200
-Message-ID: <200709081711.30679.IvDoorn@gmail.com>
+Subject: [RFC 3/3] rfkill: Add rfkill documentation
+Date: Sat, 8 Sep 2007 17:12:14 +0200
+Message-ID: <200709081712.14240.IvDoorn@gmail.com>
 References: <200709081710.56744.IvDoorn@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -16,81 +16,109 @@ Content-Disposition: inline
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-As Dmitry pointed out earlier, rfkill-input.c
-doesn't support irda because there are no users
-and we shouldn't add unrequired KEY_ defines.
-
-However, RFKILL_TYPE_IRDA was defined in the
-rfkill.h header file and would confuse people
-about whether it is implemented or not.
-
-This patch removes IRDA support completely,
-so it can be added whenever a driver wants the
-feature.
+Add a documentation file which contains
+a short description about rfkill with some
+notes about drivers and the userspace interface.
 
 Signed-off-by: Ivo van Doorn <IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- include/linux/rfkill.h |    8 +++-----
- net/rfkill/Kconfig     |    2 +-
- net/rfkill/rfkill.c    |    5 +----
- 3 files changed, 5 insertions(+), 10 deletions(-)
+ Documentation/rfkill.txt |   88 ++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 88 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/rfkill.txt
 
-diff --git a/include/linux/rfkill.h b/include/linux/rfkill.h
-index a8a6ea8..c4546e1 100644
---- a/include/linux/rfkill.h
-+++ b/include/linux/rfkill.h
-@@ -31,13 +31,11 @@
-  * enum rfkill_type - type of rfkill switch.
-  * RFKILL_TYPE_WLAN: switch is no a Wireless network devices.
-  * RFKILL_TYPE_BlUETOOTH: switch is on a bluetooth device.
-- * RFKILL_TYPE_IRDA: switch is on an infrared devices.
-  */
- enum rfkill_type {
--	RFKILL_TYPE_WLAN = 0,
--	RFKILL_TYPE_BLUETOOTH = 1,
--	RFKILL_TYPE_IRDA = 2,
--	RFKILL_TYPE_MAX = 3,
-+	RFKILL_TYPE_WLAN ,
-+	RFKILL_TYPE_BLUETOOTH,
-+	RFKILL_TYPE_MAX,
- };
- 
- enum rfkill_state {
-diff --git a/net/rfkill/Kconfig b/net/rfkill/Kconfig
-index 8b31759..d28a6d9 100644
---- a/net/rfkill/Kconfig
-+++ b/net/rfkill/Kconfig
-@@ -5,7 +5,7 @@ menuconfig RFKILL
- 	tristate "RF switch subsystem support"
- 	help
- 	  Say Y here if you want to have control over RF switches
--	  found on many WiFi, Bluetooth and IRDA cards.
-+	  found on many WiFi and Bluetooth cards.
- 
- 	  To compile this driver as a module, choose M here: the
- 	  module will be called rfkill.
-diff --git a/net/rfkill/rfkill.c b/net/rfkill/rfkill.c
-index db3395b..50e0102 100644
---- a/net/rfkill/rfkill.c
-+++ b/net/rfkill/rfkill.c
-@@ -106,9 +106,6 @@ static ssize_t rfkill_type_show(struct device *dev,
- 	case RFKILL_TYPE_BLUETOOTH:
- 		type = "bluetooth";
- 		break;
--	case RFKILL_TYPE_IRDA:
--		type = "irda";
--		break;
- 	default:
- 		BUG();
- 	}
-@@ -281,7 +278,7 @@ static void rfkill_remove_switch(struct rfkill *rfkill)
- /**
-  * rfkill_allocate - allocate memory for rfkill structure.
-  * @parent: device that has rf switch on it
-- * @type: type of the switch (wlan, bluetooth, irda)
-+ * @type: type of the switch (RFKILL_TYPE_*)
-  *
-  * This function should be called by the network driver when it needs
-  * rfkill structure. Once the structure is allocated the driver shoud
+diff --git a/Documentation/rfkill.txt b/Documentation/rfkill.txt
+new file mode 100644
+index 0000000..93c76fc
+--- /dev/null
++++ b/Documentation/rfkill.txt
+@@ -0,0 +1,88 @@
++rfkill - RF switch subsystem support
++====================================
++
++1 Implementation details
++2 Driver support
++3 Userspace support
++
++===============================================================================
++1: Implementation details
++
++The rfkill switch subsystem offers support for keys often found on laptops
++to enable wireless devices like WiFi and Bluetooth.
++
++This is done by providing the user 3 possibilities:
++ - The rfkill system handles all events, userspace is not aware of events.
++ - The rfkill system handles all events, userspace is informed about the event.
++ - The rfkill system does not handle events, userspace handles all events.
++
++The buttons to enable and disable the wireless radios are important in
++situations where the user is for example using his laptop on a location where
++wireless radios _must_ be disabled (e.g airplanes).
++Because of this requirement, userspace support for the keys should not be
++made mandatory. Because userspace might want to perform some additional smarter
++tasks when the key is pressed, rfkill still provides userspace the possibility
++to take over the task to handle the key events.
++
++The system inside the kernel has been split into 2 seperate sections:
++	1 - RFKILL
++	2 - RFKILL_INPUT
++
++The first option enables rfkill support and will make sure userspace will
++be notified of any events through the input device. It also creates several
++sysfs entries which can be used by userspace. See section "Userspace support".
++
++The second option provides a rfkill input handler. This handler will
++listen to all rfkill key events and will toggle the radio accordingly,
++with this option enabled userspace could either do nothing or simply
++perform monitoring tasks.
++
++====================================
++2: Driver support
++
++Drivers who wish to build in rfkill subsystem support should
++make sure their driver depends of the Kconfig option RFKILL, it should
++_not_ depend on RFKILL_INPUT.
++
++Unless key events trigger a interrupt to which the driver listens, polling
++will be required to determine the key state changes. For this the input
++layer providers the input-polldev handler.
++
++A driver should implement a few steps to correctly make use of the
++rfkill subsystem. First for non-polling drivers:
++
++	- rfkill_allocate()
++	- input_allocate_device()
++	- rfkill_register()
++	- input_register_device()
++
++For polling drivers:
++
++	- rfkill_allocate()
++	- input_allocate_polled_device()
++	- rfkill_register()
++	- input_register_polled_device()
++
++When a key event has been detected, the correct event should be
++send over the input device which has been registered by the driver.
++
++====================================
++3: Userspace support
++
++For each key a input device will be created which will send out the correct
++key event when the rfkill key has been pressed.
++
++The following sysfs entries will be created:
++
++	name: Name assigned by driver to this key (interface or driver name).
++	type: Name of the key type ("wlan", "bluetooth", etc).
++	state: Current state of the key. 1: On, 0: Off.
++	claim: 1: Userspace handles events, 0: Kernel handles events
++
++Both the "state" and "claim" entries are also writable. For the "state" entry
++this means that when 1 or 0 is written all radios will be toggled accordingly.
++For the "claim" entry writing 1 to it will mean that the kernel will no longer
++handle key events even though RFKILL_INPUT input was enabled. When "claim" has
++been set to 0, userspace should make sure it will listen for the input events
++or check the sysfs "state" entry regularly to correctly perform the required
++tasks when the rkfill key is pressed.
 -- 
 1.5.3
