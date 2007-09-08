@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 11/16] net: Make device event notification network namespace safe
-Date: Sat, 08 Sep 2007 15:27:11 -0600
-Message-ID: <m1fy1ovoeo.fsf_-_@ebiederm.dsl.xmission.com>
+Subject: [PATCH 12/16] net: Support multiple network namespaces with netlink
+Date: Sat, 08 Sep 2007 15:28:27 -0600
+Message-ID: <m1bqccvock.fsf_-_@ebiederm.dsl.xmission.com>
 References: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com>
 	<m1myvwx3sf.fsf@ebiederm.dsl.xmission.com>
 	<m1ir6kx3mn.fsf_-_@ebiederm.dsl.xmission.com>
@@ -12,663 +12,741 @@ References: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com>
 	<m1sl5ovolm.fsf_-_@ebiederm.dsl.xmission.com>
 	<m1odgcvoje.fsf_-_@ebiederm.dsl.xmission.com>
 	<m1k5r0voh4.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1fy1ovoeo.fsf_-_@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: <netdev@vger.kernel.org>,
 	Linux Containers <containers@lists.osdl.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:46788 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:46792 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752977AbXIHV1h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Sep 2007 17:27:37 -0400
-In-Reply-To: <m1k5r0voh4.fsf_-_@ebiederm.dsl.xmission.com> (Eric
-	W. Biederman's message of "Sat, 08 Sep 2007 15:25:43 -0600")
+	with ESMTP id S1753067AbXIHV24 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Sep 2007 17:28:56 -0400
+In-Reply-To: <m1fy1ovoeo.fsf_-_@ebiederm.dsl.xmission.com> (Eric
+	W. Biederman's message of "Sat, 08 Sep 2007 15:27:11 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Every user of the network device notifiers is either a protocol
-stack or a pseudo device.  If a protocol stack that does not have
-support for multiple network namespaces receives an event for a
-device that is not in the initial network namespace it quite possibly
-can get confused and do the wrong thing.
+Each netlink socket will live in exactly one network namespace,
+this includes the controlling kernel sockets.
 
-To avoid problems until all of the protocol stacks are converted
-this patch modifies all netdev event handlers to ignore events on
-devices that are not in the initial network namespace.
+This patch updates all of the existing netlink protocols
+to only support the initial network namespace.  Request
+by clients in other namespaces will get -ECONREFUSED.
+As they would if the kernel did not have the support for
+that netlink protocol compiled in.
 
-As the rest of the code is made network namespace aware these
-checks can be removed.
+As each netlink protocol is updated to be multiple network
+namespace safe it can register multiple kernel sockets
+to acquire a presence in the rest of the network namespaces.
+
+The implementation in af_netlink is a simple filter implementation
+at hash table insertion and hash table look up time.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- arch/ia64/hp/sim/simeth.c           |    3 +++
- drivers/net/bonding/bond_main.c     |    3 +++
- drivers/net/hamradio/bpqether.c     |    3 +++
- drivers/net/pppoe.c                 |    3 +++
- drivers/net/wan/dlci.c              |    3 +++
- drivers/net/wan/hdlc.c              |    3 +++
- drivers/net/wan/lapbether.c         |    3 +++
- net/8021q/vlan.c                    |    4 ++++
- net/appletalk/aarp.c                |    3 +++
- net/appletalk/ddp.c                 |    3 +++
- net/atm/clip.c                      |    3 +++
- net/atm/mpc.c                       |    4 ++++
- net/ax25/af_ax25.c                  |    3 +++
- net/bridge/br_notify.c              |    4 ++++
- net/core/dst.c                      |    4 ++++
- net/core/fib_rules.c                |    4 ++++
- net/core/pktgen.c                   |    3 +++
- net/core/rtnetlink.c                |    4 ++++
- net/decnet/af_decnet.c              |    3 +++
- net/econet/af_econet.c              |    3 +++
- net/ipv4/arp.c                      |    3 +++
- net/ipv4/devinet.c                  |    3 +++
- net/ipv4/fib_frontend.c             |    3 +++
- net/ipv4/ipmr.c                     |    7 ++++++-
- net/ipv4/netfilter/ip_queue.c       |    3 +++
- net/ipv4/netfilter/ipt_MASQUERADE.c |    3 +++
- net/ipv6/addrconf.c                 |    3 +++
- net/ipv6/ndisc.c                    |    3 +++
- net/ipv6/netfilter/ip6_queue.c      |    3 +++
- net/ipx/af_ipx.c                    |    3 +++
- net/netfilter/nfnetlink_queue.c     |    3 +++
- net/netrom/af_netrom.c              |    3 +++
- net/packet/af_packet.c              |    3 +++
- net/rose/af_rose.c                  |    3 +++
- net/tipc/eth_media.c                |    3 +++
- net/x25/af_x25.c                    |    3 +++
- net/xfrm/xfrm_policy.c              |    5 +++++
- security/selinux/netif.c            |    4 ++++
- 38 files changed, 126 insertions(+), 1 deletions(-)
+ drivers/connector/connector.c       |    2 +-
+ drivers/scsi/scsi_netlink.c         |    2 +-
+ drivers/scsi/scsi_transport_iscsi.c |    2 +-
+ fs/ecryptfs/netlink.c               |    2 +-
+ include/linux/netlink.h             |    6 ++-
+ kernel/audit.c                      |    4 +-
+ lib/kobject_uevent.c                |    5 +-
+ net/bridge/netfilter/ebt_ulog.c     |    5 +-
+ net/core/rtnetlink.c                |    4 +-
+ net/decnet/netfilter/dn_rtmsg.c     |    3 +-
+ net/ipv4/fib_frontend.c             |    4 +-
+ net/ipv4/inet_diag.c                |    4 +-
+ net/ipv4/netfilter/ip_queue.c       |    6 +-
+ net/ipv4/netfilter/ipt_ULOG.c       |    3 +-
+ net/ipv6/netfilter/ip6_queue.c      |    6 +-
+ net/netfilter/nfnetlink.c           |    2 +-
+ net/netfilter/nfnetlink_log.c       |    3 +-
+ net/netfilter/nfnetlink_queue.c     |    3 +-
+ net/netlink/af_netlink.c            |  106 ++++++++++++++++++++++++++---------
+ net/netlink/genetlink.c             |    4 +-
+ net/xfrm/xfrm_user.c                |    2 +-
+ security/selinux/netlink.c          |    5 +-
+ 22 files changed, 122 insertions(+), 61 deletions(-)
 
-diff --git a/arch/ia64/hp/sim/simeth.c b/arch/ia64/hp/sim/simeth.c
-index f26077a..93d6004 100644
---- a/arch/ia64/hp/sim/simeth.c
-+++ b/arch/ia64/hp/sim/simeth.c
-@@ -300,6 +300,9 @@ simeth_device_event(struct notifier_block *this,unsigned long event, void *ptr)
- 		return NOTIFY_DONE;
+diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
+index a7b9e9b..5690709 100644
+--- a/drivers/connector/connector.c
++++ b/drivers/connector/connector.c
+@@ -446,7 +446,7 @@ static int __devinit cn_init(void)
+ 	dev->id.idx = cn_idx;
+ 	dev->id.val = cn_val;
+ 
+-	dev->nls = netlink_kernel_create(NETLINK_CONNECTOR,
++	dev->nls = netlink_kernel_create(&init_net, NETLINK_CONNECTOR,
+ 					 CN_NETLINK_USERS + 0xf,
+ 					 dev->input, NULL, THIS_MODULE);
+ 	if (!dev->nls)
+diff --git a/drivers/scsi/scsi_netlink.c b/drivers/scsi/scsi_netlink.c
+index 4bf9aa5..163acf6 100644
+--- a/drivers/scsi/scsi_netlink.c
++++ b/drivers/scsi/scsi_netlink.c
+@@ -167,7 +167,7 @@ scsi_netlink_init(void)
+ 		return;
  	}
  
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	if ( event != NETDEV_UP && event != NETDEV_DOWN ) return NOTIFY_DONE;
+-	scsi_nl_sock = netlink_kernel_create(NETLINK_SCSITRANSPORT,
++	scsi_nl_sock = netlink_kernel_create(&init_net, NETLINK_SCSITRANSPORT,
+ 				SCSI_NL_GRP_CNT, scsi_nl_rcv, NULL,
+ 				THIS_MODULE);
+ 	if (!scsi_nl_sock) {
+diff --git a/drivers/scsi/scsi_transport_iscsi.c b/drivers/scsi/scsi_transport_iscsi.c
+index 34c1860..4916f01 100644
+--- a/drivers/scsi/scsi_transport_iscsi.c
++++ b/drivers/scsi/scsi_transport_iscsi.c
+@@ -1523,7 +1523,7 @@ static __init int iscsi_transport_init(void)
+ 	if (err)
+ 		goto unregister_conn_class;
  
- 	/*
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index e4e5fdc..cf97d8a 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3299,6 +3299,9 @@ static int bond_netdev_event(struct notifier_block *this, unsigned long event, v
+-	nls = netlink_kernel_create(NETLINK_ISCSI, 1, iscsi_if_rx, NULL,
++	nls = netlink_kernel_create(&init_net, NETLINK_ISCSI, 1, iscsi_if_rx, NULL,
+ 			THIS_MODULE);
+ 	if (!nls) {
+ 		err = -ENOBUFS;
+diff --git a/fs/ecryptfs/netlink.c b/fs/ecryptfs/netlink.c
+index fe91863..056519c 100644
+--- a/fs/ecryptfs/netlink.c
++++ b/fs/ecryptfs/netlink.c
+@@ -227,7 +227,7 @@ int ecryptfs_init_netlink(void)
  {
- 	struct net_device *event_dev = (struct net_device *)ptr;
+ 	int rc;
  
-+	if (event_dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
+-	ecryptfs_nl_sock = netlink_kernel_create(NETLINK_ECRYPTFS, 0,
++	ecryptfs_nl_sock = netlink_kernel_create(&init_net, NETLINK_ECRYPTFS, 0,
+ 						 ecryptfs_receive_nl_message,
+ 						 NULL, THIS_MODULE);
+ 	if (!ecryptfs_nl_sock) {
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index 83d8239..d2843ae 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -27,6 +27,8 @@
+ 
+ #define MAX_LINKS 32		
+ 
++struct net;
 +
- 	dprintk("event_dev: %s, event: %lx\n",
- 		(event_dev ? event_dev->name : "None"),
- 		event);
-diff --git a/drivers/net/hamradio/bpqether.c b/drivers/net/hamradio/bpqether.c
-index 85fb8e7..df09210 100644
---- a/drivers/net/hamradio/bpqether.c
-+++ b/drivers/net/hamradio/bpqether.c
-@@ -563,6 +563,9 @@ static int bpq_device_event(struct notifier_block *this,unsigned long event, voi
+ struct sockaddr_nl
  {
- 	struct net_device *dev = (struct net_device *)ptr;
+ 	sa_family_t	nl_family;	/* AF_NETLINK	*/
+@@ -157,7 +159,8 @@ struct netlink_skb_parms
+ #define NETLINK_CREDS(skb)	(&NETLINK_CB((skb)).creds)
  
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	if (!dev_is_ethdev(dev))
- 		return NOTIFY_DONE;
  
-diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
-index a29ea22..b4ba584 100644
---- a/drivers/net/pppoe.c
-+++ b/drivers/net/pppoe.c
-@@ -301,6 +301,9 @@ static int pppoe_device_event(struct notifier_block *this,
+-extern struct sock *netlink_kernel_create(int unit, unsigned int groups,
++extern struct sock *netlink_kernel_create(struct net *net,
++					  int unit,unsigned int groups,
+ 					  void (*input)(struct sock *sk, int len),
+ 					  struct mutex *cb_mutex,
+ 					  struct module *module);
+@@ -206,6 +209,7 @@ struct netlink_callback
+ 
+ struct netlink_notify
  {
- 	struct net_device *dev = (struct net_device *) ptr;
++	struct net *net;
+ 	int pid;
+ 	int protocol;
+ };
+diff --git a/kernel/audit.c b/kernel/audit.c
+index eb0f916..f3c390f 100644
+--- a/kernel/audit.c
++++ b/kernel/audit.c
+@@ -876,8 +876,8 @@ static int __init audit_init(void)
  
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	/* Only look at sockets that are using this specific device. */
- 	switch (event) {
- 	case NETDEV_CHANGEMTU:
-diff --git a/drivers/net/wan/dlci.c b/drivers/net/wan/dlci.c
-index 66be20c..61041d5 100644
---- a/drivers/net/wan/dlci.c
-+++ b/drivers/net/wan/dlci.c
-@@ -513,6 +513,9 @@ static int dlci_dev_event(struct notifier_block *unused,
+ 	printk(KERN_INFO "audit: initializing netlink socket (%s)\n",
+ 	       audit_default ? "enabled" : "disabled");
+-	audit_sock = netlink_kernel_create(NETLINK_AUDIT, 0, audit_receive,
+-					   NULL, THIS_MODULE);
++	audit_sock = netlink_kernel_create(&init_net, NETLINK_AUDIT, 0,
++					   audit_receive, NULL, THIS_MODULE);
+ 	if (!audit_sock)
+ 		audit_panic("cannot initialize netlink socket");
+ 	else
+diff --git a/lib/kobject_uevent.c b/lib/kobject_uevent.c
+index df02814..e06a8dc 100644
+--- a/lib/kobject_uevent.c
++++ b/lib/kobject_uevent.c
+@@ -280,9 +280,8 @@ EXPORT_SYMBOL_GPL(add_uevent_var);
+ #if defined(CONFIG_NET)
+ static int __init kobject_uevent_init(void)
  {
- 	struct net_device *dev = (struct net_device *) ptr;
+-	uevent_sock = netlink_kernel_create(NETLINK_KOBJECT_UEVENT, 1, NULL,
+-					    NULL, THIS_MODULE);
+-
++	uevent_sock = netlink_kernel_create(&init_net, NETLINK_KOBJECT_UEVENT,
++					    1, NULL, NULL, THIS_MODULE);
+ 	if (!uevent_sock) {
+ 		printk(KERN_ERR
+ 		       "kobject_uevent: unable to create netlink socket!\n");
+diff --git a/net/bridge/netfilter/ebt_ulog.c b/net/bridge/netfilter/ebt_ulog.c
+index 204c968..e7cfd30 100644
+--- a/net/bridge/netfilter/ebt_ulog.c
++++ b/net/bridge/netfilter/ebt_ulog.c
+@@ -300,8 +300,9 @@ static int __init ebt_ulog_init(void)
+ 		spin_lock_init(&ulog_buffers[i].lock);
+ 	}
  
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	if (event == NETDEV_UNREGISTER) {
- 		struct dlci_local *dlp;
- 
-diff --git a/drivers/net/wan/hdlc.c b/drivers/net/wan/hdlc.c
-index 3b57350..ee23b91 100644
---- a/drivers/net/wan/hdlc.c
-+++ b/drivers/net/wan/hdlc.c
-@@ -109,6 +109,9 @@ static int hdlc_device_event(struct notifier_block *this, unsigned long event,
- 	unsigned long flags;
- 	int on;
-  
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	if (dev->get_stats != hdlc_get_stats)
- 		return NOTIFY_DONE; /* not an HDLC device */
-  
-diff --git a/drivers/net/wan/lapbether.c b/drivers/net/wan/lapbether.c
-index ca8b3c3..699b934 100644
---- a/drivers/net/wan/lapbether.c
-+++ b/drivers/net/wan/lapbether.c
-@@ -394,6 +394,9 @@ static int lapbeth_device_event(struct notifier_block *this,
- 	struct lapbethdev *lapbeth;
- 	struct net_device *dev = ptr;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	if (!dev_is_ethdev(dev))
- 		return NOTIFY_DONE;
- 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 1583c5e..55f2dbb 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -31,6 +31,7 @@
- #include <net/arp.h>
- #include <linux/rtnetlink.h>
- #include <linux/notifier.h>
-+#include <net/net_namespace.h>
- 
- #include <linux/if_vlan.h>
- #include "vlan.h"
-@@ -605,6 +606,9 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 	int i, flgs;
- 	struct net_device *vlandev;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	if (!grp)
- 		goto out;
- 
-diff --git a/net/appletalk/aarp.c b/net/appletalk/aarp.c
-index 9267f48..e9a51a6 100644
---- a/net/appletalk/aarp.c
-+++ b/net/appletalk/aarp.c
-@@ -333,6 +333,9 @@ static int aarp_device_event(struct notifier_block *this, unsigned long event,
- 	struct net_device *dev = ptr;
- 	int ct;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	if (event == NETDEV_DOWN) {
- 		write_lock_bh(&aarp_lock);
- 
-diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
-index c1f1367..36fcdbf 100644
---- a/net/appletalk/ddp.c
-+++ b/net/appletalk/ddp.c
-@@ -649,6 +649,9 @@ static int ddp_device_event(struct notifier_block *this, unsigned long event,
- {
- 	struct net_device *dev = ptr;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	if (event == NETDEV_DOWN)
- 		/* Discard any use of this */
- 		atalk_dev_down(dev);
-diff --git a/net/atm/clip.c b/net/atm/clip.c
-index 806ea98..741742f 100644
---- a/net/atm/clip.c
-+++ b/net/atm/clip.c
-@@ -612,6 +612,9 @@ static int clip_device_event(struct notifier_block *this, unsigned long event,
- {
- 	struct net_device *dev = arg;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	if (event == NETDEV_UNREGISTER) {
- 		neigh_ifdown(&clip_tbl, dev);
- 		return NOTIFY_DONE;
-diff --git a/net/atm/mpc.c b/net/atm/mpc.c
-index 7c85aa5..0968430 100644
---- a/net/atm/mpc.c
-+++ b/net/atm/mpc.c
-@@ -956,6 +956,10 @@ static int mpoa_event_listener(struct notifier_block *mpoa_notifier, unsigned lo
- 	struct lec_priv *priv;
- 
- 	dev = (struct net_device *)dev_ptr;
-+
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	if (dev->name == NULL || strncmp(dev->name, "lec", 3))
- 		return NOTIFY_DONE; /* we are only interested in lec:s */
- 
-diff --git a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
-index def6c42..8d13a8b 100644
---- a/net/ax25/af_ax25.c
-+++ b/net/ax25/af_ax25.c
-@@ -104,6 +104,9 @@ static int ax25_device_event(struct notifier_block *this, unsigned long event,
- {
- 	struct net_device *dev = (struct net_device *)ptr;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	/* Reject non AX.25 devices */
- 	if (dev->type != ARPHRD_AX25)
- 		return NOTIFY_DONE;
-diff --git a/net/bridge/br_notify.c b/net/bridge/br_notify.c
-index c8451d3..07ac3ae 100644
---- a/net/bridge/br_notify.c
-+++ b/net/bridge/br_notify.c
-@@ -15,6 +15,7 @@
- 
- #include <linux/kernel.h>
- #include <linux/rtnetlink.h>
-+#include <net/net_namespace.h>
- 
- #include "br_private.h"
- 
-@@ -36,6 +37,9 @@ static int br_device_event(struct notifier_block *unused, unsigned long event, v
- 	struct net_bridge_port *p = dev->br_port;
- 	struct net_bridge *br;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	/* not a port of a bridge */
- 	if (p == NULL)
- 		return NOTIFY_DONE;
-diff --git a/net/core/dst.c b/net/core/dst.c
-index c6a0587..32267a1 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -15,6 +15,7 @@
- #include <linux/skbuff.h>
- #include <linux/string.h>
- #include <linux/types.h>
-+#include <net/net_namespace.h>
- 
- #include <net/dst.h>
- 
-@@ -252,6 +253,9 @@ static int dst_dev_event(struct notifier_block *this, unsigned long event, void
- 	struct net_device *dev = ptr;
- 	struct dst_entry *dst;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	switch (event) {
- 	case NETDEV_UNREGISTER:
- 	case NETDEV_DOWN:
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 8c5474e..9eabe1a 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -11,6 +11,7 @@
- #include <linux/types.h>
- #include <linux/kernel.h>
- #include <linux/list.h>
-+#include <net/net_namespace.h>
- #include <net/fib_rules.h>
- 
- static LIST_HEAD(rules_ops);
-@@ -596,6 +597,9 @@ static int fib_rules_event(struct notifier_block *this, unsigned long event,
- 	struct net_device *dev = ptr;
- 	struct fib_rules_ops *ops;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	ASSERT_RTNL();
- 	rcu_read_lock();
- 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index fa15cc7..21ae955 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -1966,6 +1966,9 @@ static int pktgen_device_event(struct notifier_block *unused,
- {
- 	struct net_device *dev = ptr;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	/* It is OK that we do not hold the group lock right now,
- 	 * as we run under the RTNL lock.
- 	 */
+-	ebtulognl = netlink_kernel_create(NETLINK_NFLOG, EBT_ULOG_MAXNLGROUPS,
+-					  NULL, NULL, THIS_MODULE);
++	ebtulognl = netlink_kernel_create(&init_net, NETLINK_NFLOG,
++					  EBT_ULOG_MAXNLGROUPS, NULL, NULL,
++					  THIS_MODULE);
+ 	if (!ebtulognl)
+ 		ret = -ENOMEM;
+ 	else if ((ret = ebt_register_watcher(&ulog)))
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index dca9e80..4185950 100644
+index 4185950..416768d 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
-@@ -1286,6 +1286,10 @@ static void rtnetlink_rcv(struct sock *sk, int len)
- static int rtnetlink_event(struct notifier_block *this, unsigned long event, void *ptr)
+@@ -1327,8 +1327,8 @@ void __init rtnetlink_init(void)
+ 	if (!rta_buf)
+ 		panic("rtnetlink_init: cannot allocate rta_buf\n");
+ 
+-	rtnl = netlink_kernel_create(NETLINK_ROUTE, RTNLGRP_MAX, rtnetlink_rcv,
+-				     &rtnl_mutex, THIS_MODULE);
++	rtnl = netlink_kernel_create(&init_net, NETLINK_ROUTE, RTNLGRP_MAX,
++				     rtnetlink_rcv, &rtnl_mutex, THIS_MODULE);
+ 	if (rtnl == NULL)
+ 		panic("rtnetlink_init: cannot initialize rtnetlink\n");
+ 	netlink_set_nonroot(NETLINK_ROUTE, NL_NONROOT_RECV);
+diff --git a/net/decnet/netfilter/dn_rtmsg.c b/net/decnet/netfilter/dn_rtmsg.c
+index 6962346..ebb38fe 100644
+--- a/net/decnet/netfilter/dn_rtmsg.c
++++ b/net/decnet/netfilter/dn_rtmsg.c
+@@ -137,7 +137,8 @@ static int __init dn_rtmsg_init(void)
  {
- 	struct net_device *dev = ptr;
-+
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	switch (event) {
- 	case NETDEV_UNREGISTER:
- 		rtmsg_ifinfo(RTM_DELLINK, dev, ~0U);
-diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
-index aca4c49..83398da 100644
---- a/net/decnet/af_decnet.c
-+++ b/net/decnet/af_decnet.c
-@@ -2089,6 +2089,9 @@ static int dn_device_event(struct notifier_block *this, unsigned long event,
- {
- 	struct net_device *dev = (struct net_device *)ptr;
+ 	int rv = 0;
  
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	switch(event) {
- 		case NETDEV_UP:
- 			dn_dev_up(dev);
-diff --git a/net/econet/af_econet.c b/net/econet/af_econet.c
-index 7de3006..f877f3b 100644
---- a/net/econet/af_econet.c
-+++ b/net/econet/af_econet.c
-@@ -1122,6 +1122,9 @@ static int econet_notifier(struct notifier_block *this, unsigned long msg, void
- 	struct net_device *dev = (struct net_device *)data;
- 	struct ec_device *edev;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	switch (msg) {
- 	case NETDEV_UNREGISTER:
- 		/* A device has gone down - kill any data we hold for it. */
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index bde1297..a11e7a5 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -1205,6 +1205,9 @@ static int arp_netdev_event(struct notifier_block *this, unsigned long event, vo
- {
- 	struct net_device *dev = ptr;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	switch (event) {
- 	case NETDEV_CHANGEADDR:
- 		neigh_changeaddr(&arp_tbl, dev);
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 5b77bda..9996b57 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1051,6 +1051,9 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
- 	struct net_device *dev = ptr;
- 	struct in_device *in_dev = __in_dev_get_rtnl(dev);
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	ASSERT_RTNL();
- 
- 	if (!in_dev) {
+-	dnrmg = netlink_kernel_create(NETLINK_DNRTMSG, DNRNG_NLGRP_MAX,
++	dnrmg = netlink_kernel_create(&init_net,
++				      NETLINK_DNRTMSG, DNRNG_NLGRP_MAX,
+ 				      dnrmg_receive_user_sk, NULL, THIS_MODULE);
+ 	if (dnrmg == NULL) {
+ 		printk(KERN_ERR "dn_rtmsg: Cannot create netlink socket");
 diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index eff6bce..cefb55e 100644
+index cefb55e..140bf7a 100644
 --- a/net/ipv4/fib_frontend.c
 +++ b/net/ipv4/fib_frontend.c
-@@ -860,6 +860,9 @@ static int fib_netdev_event(struct notifier_block *this, unsigned long event, vo
- 	struct net_device *dev = ptr;
- 	struct in_device *in_dev = __in_dev_get_rtnl(dev);
+@@ -816,8 +816,8 @@ static void nl_fib_input(struct sock *sk, int len)
  
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	if (event == NETDEV_UNREGISTER) {
- 		fib_disable_ip(dev, 2);
- 		return NOTIFY_DONE;
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 35683e1..0365988 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -1083,13 +1083,18 @@ int ipmr_ioctl(struct sock *sk, int cmd, void __user *arg)
- 
- static int ipmr_device_event(struct notifier_block *this, unsigned long event, void *ptr)
+ static void nl_fib_lookup_init(void)
  {
-+	struct net_device *dev = ptr;
- 	struct vif_device *v;
- 	int ct;
-+
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	if (event != NETDEV_UNREGISTER)
- 		return NOTIFY_DONE;
- 	v=&vif_table[0];
- 	for (ct=0;ct<maxvif;ct++,v++) {
--		if (v->dev==ptr)
-+		if (v->dev==dev)
- 			vif_delete(ct);
- 	}
- 	return NOTIFY_DONE;
-diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
-index cb5e61a..d918560 100644
---- a/net/ipv4/netfilter/ip_queue.c
-+++ b/net/ipv4/netfilter/ip_queue.c
-@@ -557,6 +557,9 @@ ipq_rcv_dev_event(struct notifier_block *this,
- {
- 	struct net_device *dev = ptr;
+-      netlink_kernel_create(NETLINK_FIB_LOOKUP, 0, nl_fib_input, NULL,
+-			    THIS_MODULE);
++	netlink_kernel_create(&init_net, NETLINK_FIB_LOOKUP, 0, nl_fib_input,
++				NULL, THIS_MODULE);
+ }
  
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	/* Drop any packets associated with the downed device */
- 	if (event == NETDEV_DOWN)
- 		ipq_dev_drop(dev->ifindex);
-diff --git a/net/ipv4/netfilter/ipt_MASQUERADE.c b/net/ipv4/netfilter/ipt_MASQUERADE.c
-index 7c4e4be..3e0b562 100644
---- a/net/ipv4/netfilter/ipt_MASQUERADE.c
-+++ b/net/ipv4/netfilter/ipt_MASQUERADE.c
-@@ -125,6 +125,9 @@ static int masq_device_event(struct notifier_block *this,
- {
- 	const struct net_device *dev = ptr;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	if (event == NETDEV_DOWN) {
- 		/* Device was downed.  Search entire table for
- 		   conntracks which were associated with that device,
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 5e62ee5..5b191a3 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2259,6 +2259,9 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
- 	int run_pending = 0;
- 	int err;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	switch(event) {
- 	case NETDEV_REGISTER:
- 		if (!idev && dev->mtu >= IPV6_MIN_MTU) {
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 0358e60..4d03d35 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1524,6 +1524,9 @@ static int ndisc_netdev_event(struct notifier_block *this, unsigned long event,
- {
- 	struct net_device *dev = ptr;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	switch (event) {
- 	case NETDEV_CHANGEADDR:
- 		neigh_changeaddr(&nd_tbl, dev);
-diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
-index dfc58fb..64536a3 100644
---- a/net/ipv6/netfilter/ip6_queue.c
-+++ b/net/ipv6/netfilter/ip6_queue.c
-@@ -547,6 +547,9 @@ ipq_rcv_dev_event(struct notifier_block *this,
- {
- 	struct net_device *dev = ptr;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	/* Drop any packets associated with the downed device */
- 	if (event == NETDEV_DOWN)
- 		ipq_dev_drop(dev->ifindex);
-diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
-index f7b4d38..24921f1 100644
---- a/net/ipx/af_ipx.c
-+++ b/net/ipx/af_ipx.c
-@@ -347,6 +347,9 @@ static int ipxitf_device_event(struct notifier_block *notifier,
- 	struct net_device *dev = ptr;
- 	struct ipx_interface *i, *tmp;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	if (event != NETDEV_DOWN && event != NETDEV_UP)
+ static void fib_disable_ip(struct net_device *dev, int force)
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 06922da..169026d 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -893,8 +893,8 @@ static int __init inet_diag_init(void)
+ 	if (!inet_diag_table)
  		goto out;
  
+-	idiagnl = netlink_kernel_create(NETLINK_INET_DIAG, 0, inet_diag_rcv,
+-					NULL, THIS_MODULE);
++	idiagnl = netlink_kernel_create(&init_net, NETLINK_INET_DIAG, 0,
++					inet_diag_rcv, NULL, THIS_MODULE);
+ 	if (idiagnl == NULL)
+ 		goto out_free_table;
+ 	err = 0;
+diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
+index d918560..82fda92 100644
+--- a/net/ipv4/netfilter/ip_queue.c
++++ b/net/ipv4/netfilter/ip_queue.c
+@@ -579,7 +579,7 @@ ipq_rcv_nl_event(struct notifier_block *this,
+ 	if (event == NETLINK_URELEASE &&
+ 	    n->protocol == NETLINK_FIREWALL && n->pid) {
+ 		write_lock_bh(&queue_lock);
+-		if (n->pid == peer_pid)
++		if ((n->net == &init_net) && (n->pid == peer_pid))
+ 			__ipq_reset();
+ 		write_unlock_bh(&queue_lock);
+ 	}
+@@ -671,8 +671,8 @@ static int __init ip_queue_init(void)
+ 	struct proc_dir_entry *proc;
+ 
+ 	netlink_register_notifier(&ipq_nl_notifier);
+-	ipqnl = netlink_kernel_create(NETLINK_FIREWALL, 0, ipq_rcv_sk,
+-				      NULL, THIS_MODULE);
++	ipqnl = netlink_kernel_create(&init_net, NETLINK_FIREWALL, 0,
++				      ipq_rcv_sk, NULL, THIS_MODULE);
+ 	if (ipqnl == NULL) {
+ 		printk(KERN_ERR "ip_queue: failed to create netlink socket\n");
+ 		goto cleanup_netlink_notifier;
+diff --git a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
+index 6ca43e4..c636d6d 100644
+--- a/net/ipv4/netfilter/ipt_ULOG.c
++++ b/net/ipv4/netfilter/ipt_ULOG.c
+@@ -409,7 +409,8 @@ static int __init ipt_ulog_init(void)
+ 	for (i = 0; i < ULOG_MAXNLGROUPS; i++)
+ 		setup_timer(&ulog_buffers[i].timer, ulog_timer, i);
+ 
+-	nflognl = netlink_kernel_create(NETLINK_NFLOG, ULOG_MAXNLGROUPS, NULL,
++	nflognl = netlink_kernel_create(&init_net,
++					NETLINK_NFLOG, ULOG_MAXNLGROUPS, NULL,
+ 					NULL, THIS_MODULE);
+ 	if (!nflognl)
+ 		return -ENOMEM;
+diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
+index 64536a3..2f5a524 100644
+--- a/net/ipv6/netfilter/ip6_queue.c
++++ b/net/ipv6/netfilter/ip6_queue.c
+@@ -569,7 +569,7 @@ ipq_rcv_nl_event(struct notifier_block *this,
+ 	if (event == NETLINK_URELEASE &&
+ 	    n->protocol == NETLINK_IP6_FW && n->pid) {
+ 		write_lock_bh(&queue_lock);
+-		if (n->pid == peer_pid)
++		if ((n->net == &init_net) && (n->pid == peer_pid))
+ 			__ipq_reset();
+ 		write_unlock_bh(&queue_lock);
+ 	}
+@@ -661,8 +661,8 @@ static int __init ip6_queue_init(void)
+ 	struct proc_dir_entry *proc;
+ 
+ 	netlink_register_notifier(&ipq_nl_notifier);
+-	ipqnl = netlink_kernel_create(NETLINK_IP6_FW, 0, ipq_rcv_sk, NULL,
+-				      THIS_MODULE);
++	ipqnl = netlink_kernel_create(&init_net, NETLINK_IP6_FW, 0, ipq_rcv_sk,
++					NULL, THIS_MODULE);
+ 	if (ipqnl == NULL) {
+ 		printk(KERN_ERR "ip6_queue: failed to create netlink socket\n");
+ 		goto cleanup_netlink_notifier;
+diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+index 8797e69..fa974e8 100644
+--- a/net/netfilter/nfnetlink.c
++++ b/net/netfilter/nfnetlink.c
+@@ -264,7 +264,7 @@ static int __init nfnetlink_init(void)
+ {
+ 	printk("Netfilter messages via NETLINK v%s.\n", nfversion);
+ 
+-	nfnl = netlink_kernel_create(NETLINK_NETFILTER, NFNLGRP_MAX,
++	nfnl = netlink_kernel_create(&init_net, NETLINK_NETFILTER, NFNLGRP_MAX,
+ 				     nfnetlink_rcv, NULL, THIS_MODULE);
+ 	if (!nfnl) {
+ 		printk(KERN_ERR "cannot initialize nfnetlink!\n");
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index e185a5b..994fff0 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -705,7 +705,8 @@ nfulnl_rcv_nl_event(struct notifier_block *this,
+ 
+ 			hlist_for_each_entry_safe(inst, tmp, t2, head, hlist) {
+ 				UDEBUG("node = %p\n", inst);
+-				if (n->pid == inst->peer_pid)
++				if ((n->net == &init_net) &&
++				    (n->pid == inst->peer_pid))
+ 					__instance_destroy(inst);
+ 			}
+ 		}
 diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
-index bb65a38..5a8e8ff 100644
+index 5a8e8ff..c97369f 100644
 --- a/net/netfilter/nfnetlink_queue.c
 +++ b/net/netfilter/nfnetlink_queue.c
-@@ -734,6 +734,9 @@ nfqnl_rcv_dev_event(struct notifier_block *this,
+@@ -765,7 +765,8 @@ nfqnl_rcv_nl_event(struct notifier_block *this,
+ 			struct hlist_head *head = &instance_table[i];
+ 
+ 			hlist_for_each_entry_safe(inst, tmp, t2, head, hlist) {
+-				if (n->pid == inst->peer_pid)
++				if ((n->net == &init_net) &&
++				    (n->pid == inst->peer_pid))
+ 					__instance_destroy(inst);
+ 			}
+ 		}
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 406a493..6726957 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -211,7 +211,7 @@ netlink_unlock_table(void)
+ 		wake_up(&nl_table_wait);
+ }
+ 
+-static __inline__ struct sock *netlink_lookup(int protocol, u32 pid)
++static __inline__ struct sock *netlink_lookup(struct net *net, int protocol, u32 pid)
  {
- 	struct net_device *dev = ptr;
+ 	struct nl_pid_hash *hash = &nl_table[protocol].hash;
+ 	struct hlist_head *head;
+@@ -221,7 +221,7 @@ static __inline__ struct sock *netlink_lookup(int protocol, u32 pid)
+ 	read_lock(&nl_table_lock);
+ 	head = nl_pid_hashfn(hash, pid);
+ 	sk_for_each(sk, node, head) {
+-		if (nlk_sk(sk)->pid == pid) {
++		if ((sk->sk_net == net) && (nlk_sk(sk)->pid == pid)) {
+ 			sock_hold(sk);
+ 			goto found;
+ 		}
+@@ -328,7 +328,7 @@ netlink_update_listeners(struct sock *sk)
+ 	 * makes sure updates are visible before bind or setsockopt return. */
+ }
  
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	/* Drop any packets associated with the downed device */
- 	if (event == NETDEV_DOWN)
- 		nfqnl_dev_drop(dev->ifindex);
-diff --git a/net/netrom/af_netrom.c b/net/netrom/af_netrom.c
-index e969d1b..3a4d479 100644
---- a/net/netrom/af_netrom.c
-+++ b/net/netrom/af_netrom.c
-@@ -106,6 +106,9 @@ static int nr_device_event(struct notifier_block *this, unsigned long event, voi
+-static int netlink_insert(struct sock *sk, u32 pid)
++static int netlink_insert(struct sock *sk, struct net *net, u32 pid)
  {
- 	struct net_device *dev = (struct net_device *)ptr;
+ 	struct nl_pid_hash *hash = &nl_table[sk->sk_protocol].hash;
+ 	struct hlist_head *head;
+@@ -341,7 +341,7 @@ static int netlink_insert(struct sock *sk, u32 pid)
+ 	head = nl_pid_hashfn(hash, pid);
+ 	len = 0;
+ 	sk_for_each(osk, node, head) {
+-		if (nlk_sk(osk)->pid == pid)
++		if ((osk->sk_net == net) && (nlk_sk(osk)->pid == pid))
+ 			break;
+ 		len++;
+ 	}
+@@ -419,9 +419,6 @@ static int netlink_create(struct net *net, struct socket *sock, int protocol)
+ 	struct netlink_sock *nlk;
+ 	int err = 0;
  
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
+-	if (net != &init_net)
+-		return -EAFNOSUPPORT;
+-
+ 	sock->state = SS_UNCONNECTED;
+ 
+ 	if (sock->type != SOCK_RAW && sock->type != SOCK_DGRAM)
+@@ -481,6 +478,7 @@ static int netlink_release(struct socket *sock)
+ 
+ 	if (nlk->pid && !nlk->subscriptions) {
+ 		struct netlink_notify n = {
++						.net = sk->sk_net,
+ 						.protocol = sk->sk_protocol,
+ 						.pid = nlk->pid,
+ 					  };
+@@ -509,6 +507,7 @@ static int netlink_release(struct socket *sock)
+ static int netlink_autobind(struct socket *sock)
+ {
+ 	struct sock *sk = sock->sk;
++	struct net *net = sk->sk_net;
+ 	struct nl_pid_hash *hash = &nl_table[sk->sk_protocol].hash;
+ 	struct hlist_head *head;
+ 	struct sock *osk;
+@@ -522,6 +521,8 @@ retry:
+ 	netlink_table_grab();
+ 	head = nl_pid_hashfn(hash, pid);
+ 	sk_for_each(osk, node, head) {
++		if ((osk->sk_net != net))
++			continue;
+ 		if (nlk_sk(osk)->pid == pid) {
+ 			/* Bind collision, search negative pid values. */
+ 			pid = rover--;
+@@ -533,7 +534,7 @@ retry:
+ 	}
+ 	netlink_table_ungrab();
+ 
+-	err = netlink_insert(sk, pid);
++	err = netlink_insert(sk, net, pid);
+ 	if (err == -EADDRINUSE)
+ 		goto retry;
+ 
+@@ -598,6 +599,7 @@ static int netlink_realloc_groups(struct sock *sk)
+ static int netlink_bind(struct socket *sock, struct sockaddr *addr, int addr_len)
+ {
+ 	struct sock *sk = sock->sk;
++	struct net *net = sk->sk_net;
+ 	struct netlink_sock *nlk = nlk_sk(sk);
+ 	struct sockaddr_nl *nladdr = (struct sockaddr_nl *)addr;
+ 	int err;
+@@ -619,7 +621,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr, int addr_len
+ 			return -EINVAL;
+ 	} else {
+ 		err = nladdr->nl_pid ?
+-			netlink_insert(sk, nladdr->nl_pid) :
++			netlink_insert(sk, net, nladdr->nl_pid) :
+ 			netlink_autobind(sock);
+ 		if (err)
+ 			return err;
+@@ -703,10 +705,12 @@ static void netlink_overrun(struct sock *sk)
+ static struct sock *netlink_getsockbypid(struct sock *ssk, u32 pid)
+ {
+ 	int protocol = ssk->sk_protocol;
++	struct net *net;
+ 	struct sock *sock;
+ 	struct netlink_sock *nlk;
+ 
+-	sock = netlink_lookup(protocol, pid);
++	net = ssk->sk_net;
++	sock = netlink_lookup(net, protocol, pid);
+ 	if (!sock)
+ 		return ERR_PTR(-ECONNREFUSED);
+ 
+@@ -887,6 +891,7 @@ static __inline__ int netlink_broadcast_deliver(struct sock *sk, struct sk_buff
+ 
+ struct netlink_broadcast_data {
+ 	struct sock *exclude_sk;
++	struct net *net;
+ 	u32 pid;
+ 	u32 group;
+ 	int failure;
+@@ -909,6 +914,9 @@ static inline int do_one_broadcast(struct sock *sk,
+ 	    !test_bit(p->group - 1, nlk->groups))
+ 		goto out;
+ 
++	if ((sk->sk_net != p->net))
++		goto out;
 +
- 	if (event != NETDEV_DOWN)
- 		return NOTIFY_DONE;
- 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 51b0d5c..30f2143 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1478,6 +1478,9 @@ static int packet_notifier(struct notifier_block *this, unsigned long msg, void
+ 	if (p->failure) {
+ 		netlink_overrun(sk);
+ 		goto out;
+@@ -947,6 +955,7 @@ out:
+ int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, u32 pid,
+ 		      u32 group, gfp_t allocation)
+ {
++	struct net *net = ssk->sk_net;
+ 	struct netlink_broadcast_data info;
  	struct hlist_node *node;
- 	struct net_device *dev = data;
+ 	struct sock *sk;
+@@ -954,6 +963,7 @@ int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, u32 pid,
+ 	skb = netlink_trim(skb, allocation);
  
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
+ 	info.exclude_sk = ssk;
++	info.net = net;
+ 	info.pid = pid;
+ 	info.group = group;
+ 	info.failure = 0;
+@@ -1002,6 +1012,9 @@ static inline int do_one_set_err(struct sock *sk,
+ 	if (sk == p->exclude_sk)
+ 		goto out;
+ 
++	if (sk->sk_net != p->exclude_sk->sk_net)
++		goto out;
 +
- 	read_lock(&packet_sklist_lock);
- 	sk_for_each(sk, node, &packet_sklist) {
- 		struct packet_sock *po = pkt_sk(sk);
-diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
-index 67e06ab..509defe 100644
---- a/net/rose/af_rose.c
-+++ b/net/rose/af_rose.c
-@@ -197,6 +197,9 @@ static int rose_device_event(struct notifier_block *this, unsigned long event,
+ 	if (nlk->pid == p->pid || p->group - 1 >= nlk->ngroups ||
+ 	    !test_bit(p->group - 1, nlk->groups))
+ 		goto out;
+@@ -1304,7 +1317,7 @@ static void netlink_data_ready(struct sock *sk, int len)
+  */
+ 
+ struct sock *
+-netlink_kernel_create(int unit, unsigned int groups,
++netlink_kernel_create(struct net *net, int unit, unsigned int groups,
+ 		      void (*input)(struct sock *sk, int len),
+ 		      struct mutex *cb_mutex, struct module *module)
  {
- 	struct net_device *dev = (struct net_device *)ptr;
+@@ -1321,7 +1334,7 @@ netlink_kernel_create(int unit, unsigned int groups,
+ 	if (sock_create_lite(PF_NETLINK, SOCK_DGRAM, unit, &sock))
+ 		return NULL;
  
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
+-	if (__netlink_create(&init_net, sock, cb_mutex, unit) < 0)
++	if (__netlink_create(net, sock, cb_mutex, unit) < 0)
+ 		goto out_sock_release;
+ 
+ 	if (groups < 32)
+@@ -1336,18 +1349,20 @@ netlink_kernel_create(int unit, unsigned int groups,
+ 	if (input)
+ 		nlk_sk(sk)->data_ready = input;
+ 
+-	if (netlink_insert(sk, 0))
++	if (netlink_insert(sk, net, 0))
+ 		goto out_sock_release;
+ 
+ 	nlk = nlk_sk(sk);
+ 	nlk->flags |= NETLINK_KERNEL_SOCKET;
+ 
+ 	netlink_table_grab();
+-	nl_table[unit].groups = groups;
+-	nl_table[unit].listeners = listeners;
+-	nl_table[unit].cb_mutex = cb_mutex;
+-	nl_table[unit].module = module;
+-	nl_table[unit].registered = 1;
++	if (!nl_table[unit].registered) {
++		nl_table[unit].groups = groups;
++		nl_table[unit].listeners = listeners;
++		nl_table[unit].cb_mutex = cb_mutex;
++		nl_table[unit].module = module;
++		nl_table[unit].registered = 1;
++	}
+ 	netlink_table_ungrab();
+ 
+ 	return sk;
+@@ -1513,7 +1528,7 @@ int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
+ 	atomic_inc(&skb->users);
+ 	cb->skb = skb;
+ 
+-	sk = netlink_lookup(ssk->sk_protocol, NETLINK_CB(skb).pid);
++	sk = netlink_lookup(ssk->sk_net, ssk->sk_protocol, NETLINK_CB(skb).pid);
+ 	if (sk == NULL) {
+ 		netlink_destroy_callback(cb);
+ 		return -ECONNREFUSED;
+@@ -1555,7 +1570,8 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
+ 	if (!skb) {
+ 		struct sock *sk;
+ 
+-		sk = netlink_lookup(in_skb->sk->sk_protocol,
++		sk = netlink_lookup(in_skb->sk->sk_net,
++				    in_skb->sk->sk_protocol,
+ 				    NETLINK_CB(in_skb).pid);
+ 		if (sk) {
+ 			sk->sk_err = ENOBUFS;
+@@ -1706,6 +1722,7 @@ int nlmsg_notify(struct sock *sk, struct sk_buff *skb, u32 pid,
+ 
+ #ifdef CONFIG_PROC_FS
+ struct nl_seq_iter {
++	struct net *net;
+ 	int link;
+ 	int hash_idx;
+ };
+@@ -1723,6 +1740,8 @@ static struct sock *netlink_seq_socket_idx(struct seq_file *seq, loff_t pos)
+ 
+ 		for (j = 0; j <= hash->mask; j++) {
+ 			sk_for_each(s, node, &hash->table[j]) {
++				if (iter->net != s->sk_net)
++					continue;
+ 				if (off == pos) {
+ 					iter->link = i;
+ 					iter->hash_idx = j;
+@@ -1752,11 +1771,14 @@ static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ 	if (v == SEQ_START_TOKEN)
+ 		return netlink_seq_socket_idx(seq, 0);
+ 
+-	s = sk_next(v);
++	iter = seq->private;
++	s = v;
++	do {
++		s = sk_next(s);
++	} while (s && (iter->net != s->sk_net));
+ 	if (s)
+ 		return s;
+ 
+-	iter = seq->private;
+ 	i = iter->link;
+ 	j = iter->hash_idx + 1;
+ 
+@@ -1765,6 +1787,8 @@ static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ 
+ 		for (; j <= hash->mask; j++) {
+ 			s = sk_head(&hash->table[j]);
++			while (s && (iter->net != s->sk_net))
++				s = sk_next(s);
+ 			if (s) {
+ 				iter->link = i;
+ 				iter->hash_idx = j;
+@@ -1835,15 +1859,24 @@ static int netlink_seq_open(struct inode *inode, struct file *file)
+ 
+ 	seq = file->private_data;
+ 	seq->private = iter;
++	iter->net = get_net(PROC_NET(inode));
+ 	return 0;
+ }
+ 
++static int netlink_seq_release(struct inode *inode, struct file *file)
++{
++	struct seq_file *seq = file->private_data;
++	struct nl_seq_iter *iter = seq->private;
++	put_net(iter->net);
++	return seq_release_private(inode, file);
++}
 +
- 	if (event != NETDEV_DOWN)
- 		return NOTIFY_DONE;
+ static const struct file_operations netlink_seq_fops = {
+ 	.owner		= THIS_MODULE,
+ 	.open		= netlink_seq_open,
+ 	.read		= seq_read,
+ 	.llseek		= seq_lseek,
+-	.release	= seq_release_private,
++	.release	= netlink_seq_release,
+ };
  
-diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
-index d2ed237..406f0d2 100644
---- a/net/tipc/eth_media.c
-+++ b/net/tipc/eth_media.c
-@@ -198,6 +198,9 @@ static int recv_notification(struct notifier_block *nb, unsigned long evt,
- 	struct eth_bearer *eb_ptr = &eth_bearers[0];
- 	struct eth_bearer *stop = &eth_bearers[MAX_ETH_BEARERS];
+ #endif
+@@ -1885,6 +1918,27 @@ static struct net_proto_family netlink_family_ops = {
+ 	.owner	= THIS_MODULE,	/* for consistency 8) */
+ };
  
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
++static int netlink_net_init(struct net *net)
++{
++#ifdef CONFIG_PROC_FS
++	if (!proc_net_fops_create(net, "netlink", 0, &netlink_seq_fops))
++		return -ENOMEM;
++#endif
++	return 0;
++}
 +
- 	while ((eb_ptr->dev != dev)) {
- 		if (++eb_ptr == stop)
- 			return NOTIFY_DONE;	/* couldn't find device */
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index 2e99315..fc416f9 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -191,6 +191,9 @@ static int x25_device_event(struct notifier_block *this, unsigned long event,
- 	struct net_device *dev = ptr;
- 	struct x25_neigh *nb;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
++static void netlink_net_exit(struct net *net)
++{
++#ifdef CONFIG_PROC_FS
++	proc_net_remove(net, "netlink");
++#endif
++}
 +
- 	if (dev->type == ARPHRD_X25
- #if defined(CONFIG_LLC) || defined(CONFIG_LLC_MODULE)
- 	 || dev->type == ARPHRD_ETHER
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 6ab81b1..bc316bc 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2358,6 +2358,11 @@ static void xfrm_policy_unlock_afinfo(struct xfrm_policy_afinfo *afinfo)
- 
- static int xfrm_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
++static struct pernet_operations netlink_net_ops = {
++	.init = netlink_net_init,
++	.exit = netlink_net_exit,
++};
++
+ static int __init netlink_proto_init(void)
  {
-+	struct net_device *dev = ptr;
-+
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	switch (event) {
- 	case NETDEV_DOWN:
- 		xfrm_flush_bundles();
-diff --git a/security/selinux/netif.c b/security/selinux/netif.c
-index b10c34e..e87ab94 100644
---- a/security/selinux/netif.c
-+++ b/security/selinux/netif.c
-@@ -20,6 +20,7 @@
- #include <linux/notifier.h>
- #include <linux/netdevice.h>
- #include <linux/rcupdate.h>
+ 	struct sk_buff *dummy_skb;
+@@ -1930,10 +1984,8 @@ static int __init netlink_proto_init(void)
+ 	}
+ 
+ 	sock_register(&netlink_family_ops);
+-#ifdef CONFIG_PROC_FS
+-	proc_net_fops_create(&init_net, "netlink", 0, &netlink_seq_fops);
+-#endif
+-	/* The netlink device handler may be needed early. */
++	register_pernet_subsys(&netlink_net_ops);
++	/* The netlink device handler may be needed early. */ 
+ 	rtnetlink_init();
+ out:
+ 	return err;
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 8c11ca4..af8fe26 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -782,8 +782,8 @@ static int __init genl_init(void)
+ 	netlink_set_nonroot(NETLINK_GENERIC, NL_NONROOT_RECV);
+ 
+ 	/* we'll bump the group number right afterwards */
+-	genl_sock = netlink_kernel_create(NETLINK_GENERIC, 0, genl_rcv,
+-					  NULL, THIS_MODULE);
++	genl_sock = netlink_kernel_create(&init_net, NETLINK_GENERIC, 0,
++					  genl_rcv, NULL, THIS_MODULE);
+ 	if (genl_sock == NULL)
+ 		panic("GENL: Cannot initialize generic netlink\n");
+ 
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 46076f5..2035d62 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -2391,7 +2391,7 @@ static int __init xfrm_user_init(void)
+ 
+ 	printk(KERN_INFO "Initializing XFRM netlink socket\n");
+ 
+-	nlsk = netlink_kernel_create(NETLINK_XFRM, XFRMNLGRP_MAX,
++	nlsk = netlink_kernel_create(&init_net, NETLINK_XFRM, XFRMNLGRP_MAX,
+ 				     xfrm_netlink_rcv, NULL, THIS_MODULE);
+ 	if (nlsk == NULL)
+ 		return -ENOMEM;
+diff --git a/security/selinux/netlink.c b/security/selinux/netlink.c
+index f49046d..b59871d 100644
+--- a/security/selinux/netlink.c
++++ b/security/selinux/netlink.c
+@@ -17,6 +17,7 @@
+ #include <linux/skbuff.h>
+ #include <linux/netlink.h>
+ #include <linux/selinux_netlink.h>
 +#include <net/net_namespace.h>
  
- #include "security.h"
- #include "objsec.h"
-@@ -234,6 +235,9 @@ static int sel_netif_netdev_notifier_handler(struct notifier_block *this,
+ static struct sock *selnl;
+ 
+@@ -104,8 +105,8 @@ void selnl_notify_policyload(u32 seqno)
+ 
+ static int __init selnl_init(void)
  {
- 	struct net_device *dev = ptr;
- 
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
- 	if (event == NETDEV_DOWN)
- 		sel_netif_kill(dev);
- 
+-	selnl = netlink_kernel_create(NETLINK_SELINUX, SELNLGRP_MAX, NULL, NULL,
+-	                              THIS_MODULE);
++	selnl = netlink_kernel_create(&init_net, NETLINK_SELINUX,
++				      SELNLGRP_MAX, NULL, NULL, THIS_MODULE);
+ 	if (selnl == NULL)
+ 		panic("SELinux:  Cannot create netlink socket.");
+ 	netlink_set_nonroot(NETLINK_SELINUX, NL_NONROOT_RECV);	
 -- 
 1.5.3.rc6.17.g1911
 
