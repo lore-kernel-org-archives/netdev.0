@@ -1,76 +1,114 @@
-From: FUJITA Tomonori <tomof@acm.org>
-Subject: Re: [PATCH v3 2/2][BNX2]: Add iSCSI support to BNX2 devices.
-Date: Sat, 8 Sep 2007 16:41:09 +0900
-Message-ID: <20070908084127G.tomof@acm.org>
-References: <1188599815.5176.12.camel@dell>
-	<46E1D27F.2040701@cs.wisc.edu>
+From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Subject: Re: [3/4] 2.6.23-rc5: known regressions v2
+Date: Sat, 08 Sep 2007 13:11:20 +0200
+Message-ID: <46E28358.9020408@googlemail.com>
+References: <46E27DEF.7060109@googlemail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-2
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, mchristi@redhat.com, netdev@vger.kernel.org,
-	anilgv@broadcom.com, talm@broadcom.com, lusinsky@broadcom.com,
-	uri@broadcom.com
-To: open-iscsi@googlegroups.com
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>, Len Brown <lenb@kernel.org>,
+	dth <dth@dth.net>, Netdev <netdev@vger.kernel.org>,
+	Shish <shish@shishnet.org>, Karl Meyer <adhocrocker@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Daniel Drake <dsd@gentoo.org>,
+	Oliver Neukum <oliver@neukum.org>,
+	linux-usb-devel@lists.sourceforge.net,
+	Christian Kujau <lists@nerdbynature.de>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mfo11.iij4u.or.jp ([210.138.174.81]:33802 "EHLO
-	mfo11.iij4u.or.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751282AbXIHH4U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Sep 2007 03:56:20 -0400
-Cc: fujita.tomonori@lab.ntt.co.jp
-In-Reply-To: <46E1D27F.2040701@cs.wisc.edu>
+Received: from ug-out-1314.google.com ([66.249.92.171]:7419 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753149AbXIHLMt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Sep 2007 07:12:49 -0400
+Received: by ug-out-1314.google.com with SMTP id z38so345355ugc
+        for <netdev@vger.kernel.org>; Sat, 08 Sep 2007 04:12:48 -0700 (PDT)
+In-Reply-To: <46E27DEF.7060109@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 07 Sep 2007 17:36:47 -0500
-Mike Christie <michaelc@cs.wisc.edu> wrote:
+Hi all,
 
-> > +/*
-> > + * map SG list
-> > + */
-> > +static int bnx2i_map_sg(struct bnx2i_hba *hba, struct bnx2i_cmd *cmd)
-> > +{
-> > +	struct scsi_cmnd *sc = cmd->scsi_cmd;
-> > +	struct iscsi_bd *bd = cmd->bd_tbl->bd_tbl;
-> > +	struct scatterlist *sg;
-> > +	int byte_count = 0;
-> > +	int sg_frags;
-> > +	int bd_count = 0;
-> > +	int sg_count;
-> > +	int sg_len;
-> > +	u64 addr;
-> > +	int i;
-> > +
-> > +	sg = sc->request_buffer;
-> > +	sg_count = pci_map_sg(hba->pci_dev, sg, sc->use_sg,
-> > +			      sc->sc_data_direction);
+Here is a list of some known regressions in 2.6.23-rc5.
 
-Can you use scsi_dma_map() here?
+Feel free to add new regressions/remove fixed etc.
+http://kernelnewbies.org/known_regressions
 
+List of Aces
 
-> > +	for (i = 0; i < sg_count; i++) {
-> > +		sg_len = sg_dma_len(sg);
-> > +		addr = sg_dma_address(sg);
-> > +		if (sg_len > MAX_BD_LENGTH)
-> > +			sg_frags = bnx2i_split_bd(cmd, addr, sg_len,
-> > +						  bd_count);
-
-Please use scsi_for_each_sg().
-
-You can't directly access to use_sg, request_buffer, request_bufflen,
-and resid in scsi_cmnd structure. Please use the scsi data accessors
-in scsi_cmnd.h: scsi_sg_count, scsi_sglist, scsi_bufflen,
-scsi_set_resid, and scsi_get_resid.
+Name                    Regressions fixed since 21-Jun-2007
+Adrian Bunk                            10
+Linus Torvalds                         6
+Andi Kleen                             5
+Hugh Dickins                           5
+Trond Myklebust                        5
+Andrew Morton                          4
+Al Viro                                3
+Alan Stern                             3
+Alexey Starikovskiy                    3
+Cornelia Huck                          3
+David S. Miller                        3
+Jens Axboe                             3
+Stephen Hemminger                      3
+Tejun Heo                              3
 
 
-> If you call blk_queue_max_segment_size() in the slave_configure callout 
-> you can limit the size of the segments that the block layer builds so 
-> they are smaller than MAX_BD_LENGTH. However, I am not sure how useful 
-> that is. I think DMA-API.txt states that the mapping code is ok to 
-> merged mutliple sglists entries into one so I think that means that we 
-> can still end up with an entry that is larger than MAX_BD_LENGTH. Not 
-> sure if there is way to tell the pci/dma map_sg code to limit this too.
 
-Yeah, iommu code ignores the lld limitations (the problem is that the
-lld limitations are in request_queue and iommu code can't access to
-request_queue). There is no way to tell iommu code about the lld
-limitations.
+CPUFREQ
+
+Subject         : ide problems: 2.6.22-git17 working, 2.6.23-rc1* is not
+References      : http://lkml.org/lkml/2007/7/27/298
+                  http://lkml.org/lkml/2007/7/29/371
+Last known good : ?
+Submitter       : dth <dth@dth.net>
+Caused-By       : Len Brown <lenb@kernel.org>
+                  commit f79e3185dd0f8650022518d7624c876d8929061b
+Handled-By      : Len Brown <lenb@kernel.org>
+Status          : problem is being debugged
+
+
+
+Networking
+
+Subject         : 2.6.23-rc5: possible irq lock inversion dependency detected
+References      : http://lkml.org/lkml/2007/9/2/97
+Last known good : ?
+Submitter       : Christian Kujau <lists@nerdbynature.de>
+Caused-By       : ?
+Handled-By      : ?
+Status          : unknown
+
+Subject         : zd1211rw regression, device does not enumerate
+References      : http://marc.info/?l=linux-usb-devel&m=118854967709322&w=2
+                  http://bugzilla.kernel.org/show_bug.cgi?id=8972
+Last known good : ?
+Submitter       : Oliver Neukum <oliver@neukum.org>
+Caused-By       : Daniel Drake <dsd@gentoo.org>
+                  commit 74553aedd46b3a2cae986f909cf2a3f99369decc
+Handled-By      : ?
+Status          : unknown
+
+Subject         : NETDEV WATCHDOG: eth0: transmit timed out
+References      : http://lkml.org/lkml/2007/8/13/737
+Last known good : ?
+Submitter       : Karl Meyer <adhocrocker@gmail.com>
+Caused-By       : ?
+Handled-By      : Francois Romieu <romieu@fr.zoreil.com>
+Status          : problem is being debugged
+
+Subject         : Weird network problems with 2.6.23-rc2
+References      : http://lkml.org/lkml/2007/8/11/40
+Last known good : ?
+Submitter       : Shish <shish@shishnet.org>
+Caused-By       : ?
+Handled-By      : ?
+Status          : unknown
+
+
+
+Regards,
+Michal
+
+--
+LOG
+http://www.stardust.webpages.pl/log/
