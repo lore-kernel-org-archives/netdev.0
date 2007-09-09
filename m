@@ -1,65 +1,82 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: Re: 2.6.23-rc4-mm1: e1000e napi lockup
-Date: Sun, 09 Sep 2007 11:58:17 +0200
-Message-ID: <46E3C3B9.4010500@gmail.com>
-References: <46E0FB82.2040000@gmail.com>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Bluetooth patches for 2.6.23-rc5
+Date: Sun, 09 Sep 2007 11:37:43 +0200
+Message-ID: <1189330664.687.21.camel@violet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net,
-	Auke Kok <auke-jan.h.kok@intel.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: unlisted-recipients:; (no To-header on input)
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.172]:8657 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756119AbXIIJ6W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Sep 2007 05:58:22 -0400
-Received: by ug-out-1314.google.com with SMTP id z38so386275ugc
-        for <netdev@vger.kernel.org>; Sun, 09 Sep 2007 02:58:21 -0700 (PDT)
-In-Reply-To: <46E0FB82.2040000@gmail.com>
+Received: from coyote.holtmann.net ([217.160.111.169]:43457 "EHLO
+	mail.holtmann.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756158AbXIIKJG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Sep 2007 06:09:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/07/2007 09:19 AM, Jiri Slaby wrote:
-> Hi,
-> 
-> I found a regression in 2.6.23-rc4-mm1 (since -rc3-mm1) in e1000e driver.
-> napi_disable(&adapter->napi) in e1000_probe freezes the kernel on boot.
+Hi Dave,
 
-Ok, after these changes:
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index c1c64e2..f8ec537 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -1693,10 +1693,7 @@ quit_polling:
-                if (adapter->itr_setting & 3)
-                        e1000_set_itr(adapter);
-                netif_rx_complete(poll_dev, napi);
--               if (test_bit(__E1000_DOWN, &adapter->state))
--                       atomic_dec(&adapter->irq_sem);
--               else
--                       e1000_irq_enable(adapter);
-+               e1000_irq_enable(adapter);
-                return 0;
-        }
+here are four additional patches that should go into 2.6.23 before its
+final release. Please pull and send them to Linus.
 
-@@ -4257,7 +4254,6 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
-        /* tell the stack to leave us alone until e1000_open() is called */
-        netif_carrier_off(netdev);
-        netif_stop_queue(netdev);
--       napi_disable(&adapter->napi);
+Regards
 
-        strcpy(netdev->name, "eth%d");
-        err = register_netdev(netdev);
+Marcel
 
 
-I still have problems with the driver. When I do `ip link set eth0 up', ksoftirq
-runs with 100 % cpu time, so I think you endlessly re-schedule some timer (or
-the new napi layer?)
+Please pull from
 
-regards,
--- 
-Jiri Slaby (jirislaby@gmail.com)
-Faculty of Informatics, Masaryk University
+        git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
+
+This will update the following files:
+
+ drivers/bluetooth/hci_usb.c |    5 ++++-
+ net/bluetooth/hci_core.c    |    8 +++-----
+ net/bluetooth/hci_sock.c    |   27 +++++++++++++++++++++------
+ 3 files changed, 28 insertions(+), 12 deletions(-)
+
+through these ChangeSets:
+
+Commit: 89f2783ded0a4fc98852cb9552bb27a80cd6a41a 
+Author: Marcel Holtmann <marcel@holtmann.org> Sun, 09 Sep 2007 08:39:49 +0200 
+
+    [Bluetooth] Fix parameter list for event filter command
+    
+    On device initialization the event filters are cleared. In case of
+    clearing the filters the extra condition type shall be omitted.
+    
+    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+
+Commit: 7c631a67601f116d303cfb98a3d964a150090e38 
+Author: Marcel Holtmann <marcel@holtmann.org> Sun, 09 Sep 2007 08:39:43 +0200 
+
+    [Bluetooth] Update security filter for Bluetooth 2.1
+    
+    This patch updates the HCI security filter with support for the
+    Bluetooth 2.1 commands and events.
+    
+    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+
+Commit: 767c5eb5d35aeb85987143f0a730bc21d3ecfb3d 
+Author: Marcel Holtmann <marcel@holtmann.org> Sun, 09 Sep 2007 08:39:34 +0200 
+
+    [Bluetooth] Add compat handling for timestamp structure
+    
+    The timestamp structure needs special handling in case of compat
+    programs. Use the same wrapping method the network core uses.
+    
+    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+
+Commit: 26a4a06e7ff2874154eb3f4b4ba0514dc563b100 
+Author: Marcel Holtmann <marcel@holtmann.org> Sun, 09 Sep 2007 08:39:27 +0200 
+
+    [Bluetooth] Add missing stat.byte_rx counter modification
+    
+    With the support for hci_recv_fragment() the call to increase the
+    stat.byte_rx counter got accidentally removed. This patch fixes it.
+    
+    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+
+
+
