@@ -1,50 +1,81 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: wither bounds checking for networking sysctls
-Date: Sun, 09 Sep 2007 09:26:51 -0600
-Message-ID: <m1y7ffsvus.fsf@ebiederm.dsl.xmission.com>
-References: <46D76A3D.9090207@hp.com> <20070830205939.2f85a567@localhost>
-	<46D84C8D.4070009@hp.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169: slow samba performance
+Date: Sun, 9 Sep 2007 17:33:12 +0200
+Message-ID: <20070909153312.GA29586@electric-eye.fr.zoreil.com>
+References: <ec7e30370709090044m55efbbcl3cb9e9489f2d5e6e@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
+Cc: netdev@vger.kernel.org
+To: David Madsen <david.madsen@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:43772 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757454AbXIIP1S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Sep 2007 11:27:18 -0400
-In-Reply-To: <46D84C8D.4070009@hp.com> (Rick Jones's message of "Fri, 31 Aug
-	2007 10:14:53 -0700")
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:42255 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757594AbXIIPh1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Sep 2007 11:37:27 -0400
+Content-Disposition: inline
+In-Reply-To: <ec7e30370709090044m55efbbcl3cb9e9489f2d5e6e@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rick Jones <rick.jones2@hp.com> writes:
+David Madsen <david.madsen@gmail.com> :
+> >Does "acceptable" mean that there is a noticeable difference when compared
+> >to the patch based on a busy-waiting loop ?
+> 
+> I noticed a somewhat significant difference between patch #0002 and a
+> busy wait loop with ndelay(10). Write performance was equivalent in
+> both cases as should be the case.  Read perfomance for me maxed out
 
-> Stephen Hemminger wrote:
->> On Thu, 30 Aug 2007 18:09:17 -0700
->> Rick Jones <rick.jones2@hp.com> wrote:
->>
->>
->>> While messing about with "sysctl_tcp_rto_min" I went back and forth a bit as
->>> to whether there should have been bounds checking (as did some of the folks
->>> who did some internal review for me).  That leads to the question - is it
->>> considered worthwhile to add a bit more bounds checking to sundry networking
->>> sysctls?
->>>
->>>rick jones
->>
->>
->> IMHO As long as the any value from sysctl doesn't crash kernel, we
->> should let it go. Enforcing RFC policy or inter-dependencies seems
->> likes a useless exercise.
->
-> I was thinking more along the lines of more fundamental things - like precluding
-> negative values when something is clearly a positive.
+Do you have some (gross) figure for the write performance ?
 
-The sysctl infrastructure has some fairly simple support for
-doing min/max type things.  So if it makes sense it isn't hard to
-make proc_dointvec_minmax the method and then set extra1 to point to
-the min and extra2 to be the max. 
+> around 150ish megabit whereas switching to the ndelay(10) loop brought
+> up average performance around 350ish megabit while reading the same
+> files over samba.
 
-Eric
+Hardly extatic. :o/
+
+Do you see a difference in the system load too, say a few lines of 'vmstat 1' ?
+
+Can you add the patch below on top of #0002 and see if there is some
+benefit from it ?
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index b85ab4a..8d8fff3 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -2457,6 +2457,7 @@ static int rtl8169_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	smp_wmb();
+ 
+ 	RTL_W8(TxPoll, NPQ);	/* set polling bit */
++	RTL_R8(TxPoll);
+ 
+ 	if (TX_BUFFS_AVAIL(tp) < MAX_SKB_FRAGS) {
+ 		netif_stop_queue(dev);
+
+
+I'd welcome if you could try the patch below on top of #0002 too:
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index b85ab4a..840df3b 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -2457,6 +2457,17 @@ static int rtl8169_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	smp_wmb();
+ 
+ 	RTL_W8(TxPoll, NPQ);	/* set polling bit */
++{
++	static unsigned int wait_max = 0;
++	unsigned i;
++
++	for (i = 0; (RTL_R8(TxPoll) & NPQ) && (i < 1000); i++)
++		ndelay(10);
++	if (i > wait_max) {
++		wait_max = i;
++		printk(KERN_INFO "%s: wait_max = %d\n", dev->name, wait_max);
++	}
++}
+ 
+ 	if (TX_BUFFS_AVAIL(tp) < MAX_SKB_FRAGS) {
+ 		netif_stop_queue(dev);
+
+-- 
+Ueimor
