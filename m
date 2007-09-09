@@ -1,54 +1,55 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [PATCH 03/16] net: Basic network namespace infrastructure.
-Date: Sun, 09 Sep 2007 04:18:22 -0600
-Message-ID: <m1642kta4x.fsf@ebiederm.dsl.xmission.com>
-References: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com>
-	<m1myvwx3sf.fsf@ebiederm.dsl.xmission.com>
-	<m1ir6kx3mn.fsf_-_@ebiederm.dsl.xmission.com>
-	<m1ejh8x3ih.fsf_-_@ebiederm.dsl.xmission.com>
-	<46E3B281.4030105@cosmosbay.com>
+From: FUJITA Tomonori <tomof@acm.org>
+Subject: Re: [PATCH v3 2/2][BNX2]: Add iSCSI support to BNX2 devices.
+Date: Mon, 10 Sep 2007 00:05:20 +0900
+Message-ID: <20070909061551G.tomof@acm.org>
+References: <20070908084127G.tomof@acm.org>
+	<46E2884B.2070107@garzik.org>
+	<20070908120036.GB8478@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <46E3B281.4030105-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org> (Eric Dumazet's message of "Sun,
-	09 Sep 2007 10:44:49 +0200")
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, tomof@acm.org, open-iscsi@googlegroups.com,
+	davem@davemloft.net, mchristi@redhat.com, netdev@vger.kernel.org,
+	anilgv@broadcom.com, talm@broadcom.com, lusinsky@broadcom.com,
+	uri@broadcom.com, fujita.tomonori@lab.ntt.co.jp
+To: hch@infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo11.iij4u.or.jp ([210.138.174.79]:45275 "EHLO mo11.iij4u.or.jp"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756723AbXIIPF7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Sep 2007 11:05:59 -0400
+In-Reply-To: <20070908120036.GB8478@infradead.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org> writes:
->
-> Nice work Eric !
+On Sat, 8 Sep 2007 13:00:36 +0100
+Christoph Hellwig <hch@infradead.org> wrote:
 
-Thanks.
+> On Sat, Sep 08, 2007 at 07:32:27AM -0400, Jeff Garzik wrote:
+> > FUJITA Tomonori wrote:
+> > >Yeah, iommu code ignores the lld limitations (the problem is that the
+> > >lld limitations are in request_queue and iommu code can't access to
+> > >request_queue). There is no way to tell iommu code about the lld
+> > >limitations.
+> > 
+> > 
+> > This fact very much wants fixing.
+> 
+> 
+> Absolutely.  Unfortunately everyone wastes their time on creating workarounds
+> instead of fixing the underlying problem.
 
-> "struct net" is not a very descriptive name imho, why dont stick "ns" or
-> "namespace" somewhere ?
+Any ideas on how to fix this?
 
-My fingers rebelled, and struct net seems to be sufficiently descriptive.
-However that is a cosmetic detail and if there is a general consensus
-that renaming it to be struct netns or whatever would be a more
-readable/maintainable name I can change it.
+I chatted to Jens and James on this last week.
 
-> Do we really need yet another "struct kmem_cache *net_cachep;" ?
-> The object is so small that the standard caches should be OK (kzalloc())
+- we could just copies the lld limitations to device structure. it's
+hacky but device structure already has hacky stuff.
 
-The practical issue at this point in the cycle is visibility.  With a
-kmem cache it is easy to spot ref counting leaks or other problems
-if they happen.  Without it debugging is much more difficult.  While I
-am touched with your faith in my ability to write perfect patches I
-think it makes a lot of sense to keep the cache at least until
-sometime after the network namespace code is merged and people
-generally have confidence in the implementation.
+- we could just link device structure to request_queue structure so
+that iommu code can see request_queue structure.
 
-Eric
+- we could remove the lld limitations in request_queue strucutre and
+have a new strucutre (something like struct io_restrictions). then
+somehow we could link the new structure with request_queue and device
+strucutres.
