@@ -1,47 +1,71 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Sun, 9 Sep 2007 19:18:39 +0100
-Message-ID: <20070909191839.1fa10e88@laptopd505.fenrus.org>
-References: <18115.52863.638655.658466@cargo.ozlabs.ibm.com>
-	<46C59717.4020108@cyberone.com.au>
-	<alpine.LFD.0.999.0708170929580.30176@woody.linux-foundation.org>
-	<200709091902.55388.vda.linux@googlemail.com>
+From: Chris Rankin <rankincj@yahoo.com>
+Subject: ne driver crashes when unloaded in 2.6.22.6
+Date: Sun, 9 Sep 2007 20:46:14 +0100 (BST)
+Message-ID: <311869.99402.qm@web52909.mail.re2.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Nick Piggin <piggin@cyberone.com.au>,
-	Satyam Sharma <satyam@infradead.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Paul Mackerras <paulus@samba.org>,
-	Christoph Lameter <clameter@sgi.com>,
-	Chris Snook <csnook@redhat.com>,
-	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>, ak@suse.de,
-	heiko.carstens@de.ibm.com, David Miller <davem@davemloft.net>,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
-To: Denys Vlasenko <vda.linux@googlemail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758980AbXIISVq@vger.kernel.org>
-In-Reply-To: <200709091902.55388.vda.linux@googlemail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from web52909.mail.re2.yahoo.com ([206.190.49.19]:26593 "HELO
+	web52909.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751592AbXIITwz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Sep 2007 15:52:55 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 9 Sep 2007 19:02:54 +0100
-Denys Vlasenko <vda.linux@googlemail.com> wrote:
+Hi,
 
-> Why is all this fixation on "volatile"? I don't think
-> people want "volatile" keyword per se, they want atomic_read(&x) to
-> _always_ compile into an memory-accessing instruction, not register
-> access.
+While trying to get my NE2000 ISA card working with NetworkManager and Linux 2.6.22.6, I
+discovered that the ne module will cause the kernel to oops when it is unloaded. The problem is
+that the module's clean-up function tries to unregister a platform driver unconditionally,
+although the platform driver may never have been registered in the first place. I have created a
+patch which seems to work OK. The idea behind the patch is to de-initialise the unregistered
+ne_driver structure to the point where the unregister function will abort without error:
 
-and ... why is that?
-is there any valid, non-buggy code sequence that makes that a
-reasonable requirement?
+--- drivers/net/ne.c.orig       2007-07-21 17:00:52.000000000 +0100
++++ drivers/net/ne.c    2007-09-09 20:04:28.000000000 +0100
+@@ -272,6 +272,7 @@
+                                pnp_device_detach(idev);
+                                return -ENXIO;
+                        }
++                       SET_NETDEV_DEV(dev, &idev->dev);
+                        ei_status.priv = (unsigned long)idev;
+                        break;
+                }
+@@ -827,6 +828,7 @@
+                free_netdev(dev);
+                return err;
+        }
++       SET_NETDEV_DEV(dev, &pdev->dev);
+        platform_set_drvdata(pdev, dev);
+        return 0;
+ }
+@@ -909,11 +911,14 @@
+ is at boot) and so the probe will get confused by any other 8390 cards.
+ ISA device autoprobes on a running machine are not recommended anyway. */
+ 
+int __init init_module(void)
+ {
+        int this_dev, found = 0;
+        int plat_found = !ne_init();
+ 
++       if ( !plat_found )
++               ne_driver.driver.bus = NULL;
++
+        for (this_dev = 0; this_dev < MAX_NE_CARDS; this_dev++) {
+                struct net_device *dev = alloc_ei_netdev();
+                if (!dev)
+
+The patch also contains a few SET_NETDEV_DEV() statements, which I am hoping will help these
+network cards work with NetworkManager. This isn't a complete solution because it still doesn't
+address the non-PnP ISA case. However, I think it's a start... At the moment, my eth device
+appears in /sys/class/net but is also completely ignored by lshal.
+
+Cheers,
+Chris
+
+
+
+      ___________________________________________________________ 
+Want ideas for reducing your carbon footprint? Visit Yahoo! For Good  http://uk.promotions.yahoo.com/forgood/environment.html
