@@ -1,43 +1,52 @@
 From: Adrian Bunk <bunk@kernel.org>
-Subject: [-mm patch] unexport raise_softirq_irqoff
-Date: Sun, 9 Sep 2007 22:25:44 +0200
-Message-ID: <20070909202544.GV3563@stusta.de>
+Subject: [-mm patch] make tcp_splice_data_recv() static
+Date: Sun, 9 Sep 2007 22:25:58 +0200
+Message-ID: <20070909202558.GZ3563@stusta.de>
 References: <20070831215822.26e1432b.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>, davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759654AbXIIU32@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Jens Axboe <jens.axboe@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout.stusta.mhn.de ([141.84.69.5]:60762 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1759392AbXIIUZv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Sep 2007 16:25:51 -0400
 Content-Disposition: inline
 In-Reply-To: <20070831215822.26e1432b.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Fri, Aug 31, 2007 at 09:58:22PM -0700, Andrew Morton wrote:
 >...
 > Changes since 2.6.23-rc3-mm1:
 >...
->  git-net.patch
+>  git-block.patch
 >...
 >  git trees
 >...
 
-raise_softirq_irqoff no longer has any modular user.
+tcp_splice_data_recv() can become static.
 
 Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
 ---
-eff0407b63757cdd4164a0bdde0313e8f154b6dc 
-diff --git a/kernel/softirq.c b/kernel/softirq.c
-index abae56c..ce38b56 100644
---- a/kernel/softirq.c
-+++ b/kernel/softirq.c
-@@ -335,8 +335,6 @@ inline fastcall void raise_softirq_irqoff(unsigned int nr)
- 		wakeup_softirqd();
+233aefd2a215430c16bd02eca06fb8a4b6079f7a 
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 22576e4..6623796 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -515,8 +515,9 @@ static inline void tcp_push(struct sock *sk, int flags, int mss_now,
+ 	}
  }
  
--EXPORT_SYMBOL(raise_softirq_irqoff);
--
- void fastcall raise_softirq(unsigned int nr)
+-int tcp_splice_data_recv(read_descriptor_t *rd_desc, struct sk_buff *skb,
+-			 unsigned int offset, size_t len)
++static int tcp_splice_data_recv(read_descriptor_t *rd_desc,
++				struct sk_buff *skb,
++				unsigned int offset, size_t len)
  {
- 	unsigned long flags;
+ 	struct tcp_splice_state *tss = rd_desc->arg.data;
+ 
+
