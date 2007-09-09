@@ -1,134 +1,54 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
 Subject: Re: [PATCH 03/16] net: Basic network namespace infrastructure.
-Date: Sun, 09 Sep 2007 04:04:45 -0600
-Message-ID: <m1fy1otarm.fsf@ebiederm.dsl.xmission.com>
+Date: Sun, 09 Sep 2007 04:18:22 -0600
+Message-ID: <m1642kta4x.fsf@ebiederm.dsl.xmission.com>
 References: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com>
 	<m1myvwx3sf.fsf@ebiederm.dsl.xmission.com>
 	<m1ir6kx3mn.fsf_-_@ebiederm.dsl.xmission.com>
 	<m1ejh8x3ih.fsf_-_@ebiederm.dsl.xmission.com>
-	<20070909003308.GA10417@linux.vnet.ibm.com>
+	<46E3B281.4030105@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linux Containers <containers@lists.osdl.org>
-To: paulmck@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:57551 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756176AbXIIKJU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Sep 2007 06:09:20 -0400
-In-Reply-To: <20070909003308.GA10417@linux.vnet.ibm.com> (Paul E. McKenney's
-	message of "Sat, 8 Sep 2007 17:33:08 -0700")
-Sender: netdev-owner@vger.kernel.org
+Cc: Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <46E3B281.4030105-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org> (Eric Dumazet's message of "Sun,
+	09 Sep 2007 10:44:49 +0200")
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-"Paul E. McKenney" <paulmck@linux.vnet.ibm.com> writes:
-
-> On Sat, Sep 08, 2007 at 03:15:34PM -0600, Eric W. Biederman wrote:
->> 
->> This is the basic infrastructure needed to support network
->> namespaces.  This infrastructure is:
->> - Registration functions to support initializing per network
->>   namespace data when a network namespaces is created or destroyed.
->> 
->> - struct net.  The network namespace data structure.
->>   This structure will grow as variables are made per network
->>   namespace but this is the minimal starting point.
->> 
->> - Functions to grab a reference to the network namespace.
->>   I provide both get/put functions that keep a network namespace
->>   from being freed.  And hold/release functions serve as weak references
->>   and will warn if their count is not zero when the data structure
->>   is freed.  Useful for dealing with more complicated data structures
->>   like the ipv4 route cache.
->> 
->> - A list of all of the network namespaces so we can iterate over them.
->> 
->> - A slab for the network namespace data structure allowing leaks
->>   to be spotted.
+Eric Dumazet <dada1-fPLkHRcR87vqlBn2x/YWAg@public.gmane.org> writes:
 >
-> If I understand this correctly, the only way to get to a namespace is
-> via get_net_ns_by_pid(), which contains the rcu_read_lock() that matches
-> the rcu_barrier() below.
+> Nice work Eric !
 
-Not quite.  That is the convoluted case for getting a namespace someone
-else is using.  current->nsproxy->net_ns works and should require no
-locking to read (only the current process may modify it) and does hold
-a reference to the network namespace.  Similarly for sock->sk_net.
+Thanks.
 
-> So, is the get_net() in sock_copy() in this patch adding a reference to
-> an element that is guaranteed to already have at least one reference?
+> "struct net" is not a very descriptive name imho, why dont stick "ns" or
+> "namespace" somewhere ?
 
-Yes.
+My fingers rebelled, and struct net seems to be sufficiently descriptive.
+However that is a cosmetic detail and if there is a general consensus
+that renaming it to be struct netns or whatever would be a more
+readable/maintainable name I can change it.
 
-> If not, how are we preventing sock_copy() from running concurrently with
-> cleanup_net()?  Ah, I see -- in sock_copy() we are getting a reference
-> to the new struct sock that no one else can get a reference to, so OK.
-> Ditto for the get_net() in sk_alloc().
+> Do we really need yet another "struct kmem_cache *net_cachep;" ?
+> The object is so small that the standard caches should be OK (kzalloc())
 
-> But I still don't understand what is protecting the get_net() in
-> dev_seq_open().  Is there an existing reference? 
-
-Sort of.  The directories under /proc/net are created when create
-a network namespace and they are destroyed when the network namespace
-is removed.  And those directories remember which network namespace
-they are for and that is what dev_seq_open is referencing.
-
-So the tricky case what happens if we open a directory under /proc/net
-as we are cleaning up a network namespace.
-
-> If so, how do we know
-> that it won't be removed just as we are trying to add our reference
-> (while at the same time cleanup_net() is running)?  Ditto for the other
-> _open() operations in the same patch.  And for netlink_seq_open().
->
-> Enlightenment?
-
-Good spotting. It looks like you have found a legitimate race.  Grr.
-I thought I had a reference to the network namespace there.  I need to
-step back and think about this a bit, and see if I can come up with a
-legitimate idiom.
-
-I know the network namespace exists and I have not finished
-cleanup_net because I can still get to the /proc entries.
-
-I know I cannot use get_net for the reference in in /proc because
-otherwise I could not release the network namespace unless I was to
-unmount the filesystem, which is not a desirable property.
-
-I think I can change the idiom to:
-
-struct net *maybe_get_net(struct net *net)
-{
-        if (!atomic_inc_not_zero(&net->count))
-        	net = NULL;
-	return net;               
-}
-
-Which would make dev_seq_open be:
-
-static int dev_seq_open(struct inode *inode, struct file *file)
-{
-	struct seq_file *seq;
-	int res;
-	res =  seq_open(file, &dev_seq_ops);
-	if (!res) {
-		seq = file->private_data;
-		seq->private = maybe_get_net(PROC_NET(inode));
-		if (!seq->private) {
-			res = -ENOENT;
-                        seq_release(inode, file);
-		}
-	}
-	return res;
-}
-
-I'm still asking myself if I need any kind of locking to ensure
-struct net does not go away in the mean time, if so rcu_read_lock()
-should be sufficient.
-
-I will read through the generic proc code very carefully after
-I have slept and see if there is what I the code above is sufficient,
-and if so update the patchset.
+The practical issue at this point in the cycle is visibility.  With a
+kmem cache it is easy to spot ref counting leaks or other problems
+if they happen.  Without it debugging is much more difficult.  While I
+am touched with your faith in my ability to write perfect patches I
+think it makes a lot of sense to keep the cache at least until
+sometime after the network namespace code is merged and people
+generally have confidence in the implementation.
 
 Eric
