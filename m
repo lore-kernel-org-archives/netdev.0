@@ -1,101 +1,52 @@
 From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] make sctp_addto_param() static
-Date: Sun, 9 Sep 2007 22:25:50 +0200
-Message-ID: <20070909202550.GX3563@stusta.de>
+Subject: [-mm patch] net/sctp/socket.c: make 3 variables static
+Date: Sun, 9 Sep 2007 22:25:54 +0200
+Message-ID: <20070909202554.GY3563@stusta.de>
+References: <20070831215822.26e1432b.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Cc: linux-kernel@vger.kernel.org,
 	lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
-To: Wei Yongjun <yjwei@cn.fujitsu.com>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>, sri@us.ibm.com,
-	davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout.stusta.mhn.de ([141.84.69.5]:60750 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759535AbXIIUZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Sep 2007 16:25:43 -0400
+To: Andrew Morton <akpm@linux-foundation.org>,
+	vladislav.yasevich@hp.com, sri@us.ibm.com, davem@davemloft.net
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760120AbXIIUa5@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070831215822.26e1432b.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-sctp_addto_param() can become static.
+On Fri, Aug 31, 2007 at 09:58:22PM -0700, Andrew Morton wrote:
+>...
+> Changes since 2.6.23-rc3-mm1:
+>...
+>  git-net.patch
+>...
+>  git trees
+>...
+
+This patch makes the following needlessly globalvariables static:
+- sctp_memory_pressure
+- sctp_memory_allocated
+- sctp_sockets_allocated
 
 Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
 ---
-
- include/net/sctp/structs.h |    1 
- net/sctp/sm_make_chunk.c   |   39 ++++++++++++++++++-------------------
- 2 files changed, 20 insertions(+), 20 deletions(-)
-
-38f8064114b9e89a6a911b2e3625a41cdb477bcd 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index c0d5848..ee4559b 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -726,7 +726,6 @@ int sctp_user_addto_chunk(struct sctp_chunk *chunk, int off, int len,
- 			  struct iovec *data);
- void sctp_chunk_free(struct sctp_chunk *);
- void  *sctp_addto_chunk(struct sctp_chunk *, int len, const void *data);
--void  *sctp_addto_param(struct sctp_chunk *, int len, const void *data);
- struct sctp_chunk *sctp_chunkify(struct sk_buff *,
- 				 const struct sctp_association *,
- 				 struct sock *);
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 79856c9..cf3b560 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -839,6 +839,26 @@ err_chunk:
- 	return retval;
- }
+3c211ad074038414ebc156b1abbc3df78dc60cb2 
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 37e7306..f53545a 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -112,9 +112,9 @@ extern int sysctl_sctp_mem[3];
+ extern int sysctl_sctp_rmem[3];
+ extern int sysctl_sctp_wmem[3];
  
-+/* Append bytes to the end of a parameter.  Will panic if chunk is not big
-+ * enough.
-+ */
-+static void *sctp_addto_param(struct sctp_chunk *chunk, int len,
-+			      const void *data)
-+{
-+	void *target;
-+	int chunklen = ntohs(chunk->chunk_hdr->length);
-+
-+	target = skb_put(chunk->skb, len);
-+
-+	memcpy(target, data, len);
-+
-+	/* Adjust the chunk length field.  */
-+	chunk->chunk_hdr->length = htons(chunklen + len);
-+	chunk->chunk_end = skb_tail_pointer(chunk->skb);
-+
-+	return target;
-+}
-+
- /* Make an ABORT chunk with a PROTOCOL VIOLATION cause code. */
- struct sctp_chunk *sctp_make_abort_violation(
- 	const struct sctp_association *asoc,
-@@ -1146,25 +1166,6 @@ void *sctp_addto_chunk(struct sctp_chunk *chunk, int len, const void *data)
- 	return target;
- }
+-int sctp_memory_pressure;
+-atomic_t sctp_memory_allocated;
+-atomic_t sctp_sockets_allocated;
++static int sctp_memory_pressure;
++static atomic_t sctp_memory_allocated;
++static atomic_t sctp_sockets_allocated;
  
--/* Append bytes to the end of a parameter.  Will panic if chunk is not big
-- * enough.
-- */
--void *sctp_addto_param(struct sctp_chunk *chunk, int len, const void *data)
--{
--	void *target;
--	int chunklen = ntohs(chunk->chunk_hdr->length);
--
--	target = skb_put(chunk->skb, len);
--
--	memcpy(target, data, len);
--
--	/* Adjust the chunk length field.  */
--	chunk->chunk_hdr->length = htons(chunklen + len);
--	chunk->chunk_end = skb_tail_pointer(chunk->skb);
--
--	return target;
--}
--
- /* Append bytes from user space to the end of a chunk.  Will panic if
-  * chunk is not big enough.
-  * Returns a kernel err value.
-
+ static void sctp_enter_memory_pressure(void)
+ {
