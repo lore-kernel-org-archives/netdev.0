@@ -1,81 +1,152 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169: slow samba performance
-Date: Sun, 9 Sep 2007 17:33:12 +0200
-Message-ID: <20070909153312.GA29586@electric-eye.fr.zoreil.com>
-References: <ec7e30370709090044m55efbbcl3cb9e9489f2d5e6e@mail.gmail.com>
+From: "Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH 03/16] net: Basic network namespace infrastructure.
+Date: Sun, 9 Sep 2007 09:45:47 -0700
+Message-ID: <20070909164547.GD10417@linux.vnet.ibm.com>
+References: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com>
+	<m1myvwx3sf.fsf@ebiederm.dsl.xmission.com>
+	<m1ir6kx3mn.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1ejh8x3ih.fsf_-_@ebiederm.dsl.xmission.com>
+	<20070909003308.GA10417@linux.vnet.ibm.com>
+	<m1fy1otarm.fsf@ebiederm.dsl.xmission.com>
+Reply-To: paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Madsen <david.madsen@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:42255 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757594AbXIIPh1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Sep 2007 11:37:27 -0400
+Cc: Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <ec7e30370709090044m55efbbcl3cb9e9489f2d5e6e@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <m1fy1otarm.fsf-T1Yj925okcoyDheHMi7gv2pdwda3JcWeAL8bYrjMMd8@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-David Madsen <david.madsen@gmail.com> :
-> >Does "acceptable" mean that there is a noticeable difference when compared
-> >to the patch based on a busy-waiting loop ?
+On Sun, Sep 09, 2007 at 04:04:45AM -0600, Eric W. Biederman wrote:
+> "Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org> writes:
 > 
-> I noticed a somewhat significant difference between patch #0002 and a
-> busy wait loop with ndelay(10). Write performance was equivalent in
-> both cases as should be the case.  Read perfomance for me maxed out
+> > On Sat, Sep 08, 2007 at 03:15:34PM -0600, Eric W. Biederman wrote:
+> >> 
+> >> This is the basic infrastructure needed to support network
+> >> namespaces.  This infrastructure is:
+> >> - Registration functions to support initializing per network
+> >>   namespace data when a network namespaces is created or destroyed.
+> >> 
+> >> - struct net.  The network namespace data structure.
+> >>   This structure will grow as variables are made per network
+> >>   namespace but this is the minimal starting point.
+> >> 
+> >> - Functions to grab a reference to the network namespace.
+> >>   I provide both get/put functions that keep a network namespace
+> >>   from being freed.  And hold/release functions serve as weak references
+> >>   and will warn if their count is not zero when the data structure
+> >>   is freed.  Useful for dealing with more complicated data structures
+> >>   like the ipv4 route cache.
+> >> 
+> >> - A list of all of the network namespaces so we can iterate over them.
+> >> 
+> >> - A slab for the network namespace data structure allowing leaks
+> >>   to be spotted.
+> >
+> > If I understand this correctly, the only way to get to a namespace is
+> > via get_net_ns_by_pid(), which contains the rcu_read_lock() that matches
+> > the rcu_barrier() below.
+> 
+> Not quite.  That is the convoluted case for getting a namespace someone
+> else is using.  current->nsproxy->net_ns works and should require no
+> locking to read (only the current process may modify it) and does hold
+> a reference to the network namespace.  Similarly for sock->sk_net.
 
-Do you have some (gross) figure for the write performance ?
+Ah!  Got it, thank you for the explanation.
 
-> around 150ish megabit whereas switching to the ndelay(10) loop brought
-> up average performance around 350ish megabit while reading the same
-> files over samba.
+> > So, is the get_net() in sock_copy() in this patch adding a reference to
+> > an element that is guaranteed to already have at least one reference?
+> 
+> Yes.
+> 
+> > If not, how are we preventing sock_copy() from running concurrently with
+> > cleanup_net()?  Ah, I see -- in sock_copy() we are getting a reference
+> > to the new struct sock that no one else can get a reference to, so OK.
+> > Ditto for the get_net() in sk_alloc().
+> 
+> > But I still don't understand what is protecting the get_net() in
+> > dev_seq_open().  Is there an existing reference? 
+> 
+> Sort of.  The directories under /proc/net are created when create
+> a network namespace and they are destroyed when the network namespace
+> is removed.  And those directories remember which network namespace
+> they are for and that is what dev_seq_open is referencing.
+> 
+> So the tricky case what happens if we open a directory under /proc/net
+> as we are cleaning up a network namespace.
 
-Hardly extatic. :o/
+Yep!  ;-)
 
-Do you see a difference in the system load too, say a few lines of 'vmstat 1' ?
+> > If so, how do we know
+> > that it won't be removed just as we are trying to add our reference
+> > (while at the same time cleanup_net() is running)?  Ditto for the other
+> > _open() operations in the same patch.  And for netlink_seq_open().
+> >
+> > Enlightenment?
+> 
+> Good spotting. It looks like you have found a legitimate race.  Grr.
+> I thought I had a reference to the network namespace there.  I need to
+> step back and think about this a bit, and see if I can come up with a
+> legitimate idiom.
+> 
+> I know the network namespace exists and I have not finished
+> cleanup_net because I can still get to the /proc entries.
 
-Can you add the patch below on top of #0002 and see if there is some
-benefit from it ?
+OK.  Hmmm...  I need to go review locking for /proc...
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index b85ab4a..8d8fff3 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -2457,6 +2457,7 @@ static int rtl8169_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	smp_wmb();
- 
- 	RTL_W8(TxPoll, NPQ);	/* set polling bit */
-+	RTL_R8(TxPoll);
- 
- 	if (TX_BUFFS_AVAIL(tp) < MAX_SKB_FRAGS) {
- 		netif_stop_queue(dev);
+> I know I cannot use get_net for the reference in in /proc because
+> otherwise I could not release the network namespace unless I was to
+> unmount the filesystem, which is not a desirable property.
+> 
+> I think I can change the idiom to:
+> 
+> struct net *maybe_get_net(struct net *net)
+> {
+>         if (!atomic_inc_not_zero(&net->count))
+>         	net = NULL;
+> 	return net;               
+> }
+> 
+> Which would make dev_seq_open be:
+> 
+> static int dev_seq_open(struct inode *inode, struct file *file)
+> {
+> 	struct seq_file *seq;
+> 	int res;
+> 	res =  seq_open(file, &dev_seq_ops);
+> 	if (!res) {
+> 		seq = file->private_data;
+> 		seq->private = maybe_get_net(PROC_NET(inode));
+> 		if (!seq->private) {
+> 			res = -ENOENT;
+>                         seq_release(inode, file);
+> 		}
+> 	}
+> 	return res;
+> }
+> 
+> I'm still asking myself if I need any kind of locking to ensure
+> struct net does not go away in the mean time, if so rcu_read_lock()
+> should be sufficient.
 
+Agreed -- and it might be possible to leverage the existing locking
+in the /proc code.
 
-I'd welcome if you could try the patch below on top of #0002 too:
+						Thanx, Paul
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index b85ab4a..840df3b 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -2457,6 +2457,17 @@ static int rtl8169_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	smp_wmb();
- 
- 	RTL_W8(TxPoll, NPQ);	/* set polling bit */
-+{
-+	static unsigned int wait_max = 0;
-+	unsigned i;
-+
-+	for (i = 0; (RTL_R8(TxPoll) & NPQ) && (i < 1000); i++)
-+		ndelay(10);
-+	if (i > wait_max) {
-+		wait_max = i;
-+		printk(KERN_INFO "%s: wait_max = %d\n", dev->name, wait_max);
-+	}
-+}
- 
- 	if (TX_BUFFS_AVAIL(tp) < MAX_SKB_FRAGS) {
- 		netif_stop_queue(dev);
-
--- 
-Ueimor
+> I will read through the generic proc code very carefully after
+> I have slept and see if there is what I the code above is sufficient,
+> and if so update the patchset.
+> 
+> Eric
