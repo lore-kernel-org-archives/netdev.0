@@ -1,52 +1,37 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [-mm patch] net/sctp/socket.c: make 3 variables static
-Date: Sun, 9 Sep 2007 22:25:54 +0200
-Message-ID: <20070909202554.GY3563@stusta.de>
-References: <20070831215822.26e1432b.akpm@linux-foundation.org>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [-mm patch] unexport raise_softirq_irqoff
+Date: Sun, 9 Sep 2007 21:41:53 +0100
+Message-ID: <20070909204153.GB11764@infradead.org>
+References: <20070831215822.26e1432b.akpm@linux-foundation.org> <20070909202544.GV3563@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>,
-	vladislav.yasevich@hp.com, sri@us.ibm.com, davem@davemloft.net
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760120AbXIIUa5@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Adrian Bunk <bunk@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pentafluge.infradead.org ([213.146.154.40]:52660 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754321AbXIIUl6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Sep 2007 16:41:58 -0400
 Content-Disposition: inline
-In-Reply-To: <20070831215822.26e1432b.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20070909202544.GV3563@stusta.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 31, 2007 at 09:58:22PM -0700, Andrew Morton wrote:
->...
-> Changes since 2.6.23-rc3-mm1:
->...
->  git-net.patch
->...
->  git trees
->...
+On Sun, Sep 09, 2007 at 10:25:44PM +0200, Adrian Bunk wrote:
+> On Fri, Aug 31, 2007 at 09:58:22PM -0700, Andrew Morton wrote:
+> >...
+> > Changes since 2.6.23-rc3-mm1:
+> >...
+> >  git-net.patch
+> >...
+> >  git trees
+> >...
+> 
+> raise_softirq_irqoff no longer has any modular user.
+> 
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-This patch makes the following needlessly globalvariables static:
-- sctp_memory_pressure
-- sctp_memory_allocated
-- sctp_sockets_allocated
+This should probably go in through Dave's tree as it's removing this
+rather annoying user.
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
-
----
-3c211ad074038414ebc156b1abbc3df78dc60cb2 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 37e7306..f53545a 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -112,9 +112,9 @@ extern int sysctl_sctp_mem[3];
- extern int sysctl_sctp_rmem[3];
- extern int sysctl_sctp_wmem[3];
- 
--int sctp_memory_pressure;
--atomic_t sctp_memory_allocated;
--atomic_t sctp_sockets_allocated;
-+static int sctp_memory_pressure;
-+static atomic_t sctp_memory_allocated;
-+static atomic_t sctp_sockets_allocated;
- 
- static void sctp_enter_memory_pressure(void)
- {
