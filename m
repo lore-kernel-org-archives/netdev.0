@@ -1,152 +1,94 @@
-From: "Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 03/16] net: Basic network namespace infrastructure.
-Date: Sun, 9 Sep 2007 09:45:47 -0700
-Message-ID: <20070909164547.GD10417@linux.vnet.ibm.com>
-References: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com>
-	<m1myvwx3sf.fsf@ebiederm.dsl.xmission.com>
-	<m1ir6kx3mn.fsf_-_@ebiederm.dsl.xmission.com>
-	<m1ejh8x3ih.fsf_-_@ebiederm.dsl.xmission.com>
-	<20070909003308.GA10417@linux.vnet.ibm.com>
-	<m1fy1otarm.fsf@ebiederm.dsl.xmission.com>
-Reply-To: paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Sun, 9 Sep 2007 19:02:54 +0100
+Message-ID: <200709091902.55388.vda.linux@googlemail.com>
+References: <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <46C59717.4020108@cyberone.com.au> <alpine.LFD.0.999.0708170929580.30176@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Nick Piggin <piggin@cyberone.com.au>,
+	Satyam Sharma <satyam@infradead.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Paul Mackerras <paulus@samba.org>,
+	Christoph Lameter <clameter@sgi.com>,
+	Chris Snook <csnook@redhat.com>,
+	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>, ak@suse.de,
+	heiko.carstens@de.ibm.com, David Miller <davem@davemloft.net>,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758895AbXIISD0@vger.kernel.org>
+In-Reply-To: <alpine.LFD.0.999.0708170929580.30176@woody.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <m1fy1otarm.fsf-T1Yj925okcoyDheHMi7gv2pdwda3JcWeAL8bYrjMMd8@public.gmane.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 09, 2007 at 04:04:45AM -0600, Eric W. Biederman wrote:
-> "Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org> writes:
+On Friday 17 August 2007 17:48, Linus Torvalds wrote:
 > 
-> > On Sat, Sep 08, 2007 at 03:15:34PM -0600, Eric W. Biederman wrote:
-> >> 
-> >> This is the basic infrastructure needed to support network
-> >> namespaces.  This infrastructure is:
-> >> - Registration functions to support initializing per network
-> >>   namespace data when a network namespaces is created or destroyed.
-> >> 
-> >> - struct net.  The network namespace data structure.
-> >>   This structure will grow as variables are made per network
-> >>   namespace but this is the minimal starting point.
-> >> 
-> >> - Functions to grab a reference to the network namespace.
-> >>   I provide both get/put functions that keep a network namespace
-> >>   from being freed.  And hold/release functions serve as weak references
-> >>   and will warn if their count is not zero when the data structure
-> >>   is freed.  Useful for dealing with more complicated data structures
-> >>   like the ipv4 route cache.
-> >> 
-> >> - A list of all of the network namespaces so we can iterate over them.
-> >> 
-> >> - A slab for the network namespace data structure allowing leaks
-> >>   to be spotted.
-> >
-> > If I understand this correctly, the only way to get to a namespace is
-> > via get_net_ns_by_pid(), which contains the rcu_read_lock() that matches
-> > the rcu_barrier() below.
+> On Fri, 17 Aug 2007, Nick Piggin wrote:
+> > 
+> > That's not obviously just taste to me. Not when the primitive has many
+> > (perhaps, the majority) of uses that do not require said barriers. And
+> > this is not solely about the code generation (which, as Paul says, is
+> > relatively minor even on x86). I prefer people to think explicitly
+> > about barriers in their lockless code.
 > 
-> Not quite.  That is the convoluted case for getting a namespace someone
-> else is using.  current->nsproxy->net_ns works and should require no
-> locking to read (only the current process may modify it) and does hold
-> a reference to the network namespace.  Similarly for sock->sk_net.
+> Indeed.
+> 
+> I think the important issues are:
+> 
+>  - "volatile" itself is simply a badly/weakly defined issue. The semantics 
+>    of it as far as the compiler is concerned are really not very good, and 
+>    in practice tends to boil down to "I will generate so bad code that 
+>    nobody can accuse me of optimizing anything away".
+> 
+>  - "volatile" - regardless of how well or badly defined it is - is purely 
+>    a compiler thing. It has absolutely no meaning for the CPU itself, so 
+>    it at no point implies any CPU barriers. As a result, even if the 
+>    compiler generates crap code and doesn't re-order anything, there's 
+>    nothing that says what the CPU will do.
+> 
+>  - in other words, the *only* possible meaning for "volatile" is a purely 
+>    single-CPU meaning. And if you only have a single CPU involved in the 
+>    process, the "volatile" is by definition pointless (because even 
+>    without a volatile, the compiler is required to make the C code appear 
+>    consistent as far as a single CPU is concerned).
+> 
+> So, let's take the example *buggy* code where we use "volatile" to wait 
+> for other CPU's:
+> 
+> 	atomic_set(&var, 0);
+> 	while (!atomic_read(&var))
+> 		/* nothing */;
+> 
+> 
+> which generates an endless loop if we don't have atomic_read() imply 
+> volatile.
+> 
+> The point here is that it's buggy whether the volatile is there or not! 
+> Exactly because the user expects multi-processing behaviour, but 
+> "volatile" doesn't actually give any real guarantees about it. Another CPU 
+> may have done:
+> 
+> 	external_ptr = kmalloc(..);
+> 	/* Setup is now complete, inform the waiter */
+> 	atomic_inc(&var);
+> 
+> but the fact is, since the other CPU isn't serialized in any way, the 
+> "while-loop" (even in the presense of "volatile") doesn't actually work 
+> right! Whatever the "atomic_read()" was waiting for may not have 
+> completed, because we have no barriers!
 
-Ah!  Got it, thank you for the explanation.
-
-> > So, is the get_net() in sock_copy() in this patch adding a reference to
-> > an element that is guaranteed to already have at least one reference?
-> 
-> Yes.
-> 
-> > If not, how are we preventing sock_copy() from running concurrently with
-> > cleanup_net()?  Ah, I see -- in sock_copy() we are getting a reference
-> > to the new struct sock that no one else can get a reference to, so OK.
-> > Ditto for the get_net() in sk_alloc().
-> 
-> > But I still don't understand what is protecting the get_net() in
-> > dev_seq_open().  Is there an existing reference? 
-> 
-> Sort of.  The directories under /proc/net are created when create
-> a network namespace and they are destroyed when the network namespace
-> is removed.  And those directories remember which network namespace
-> they are for and that is what dev_seq_open is referencing.
-> 
-> So the tricky case what happens if we open a directory under /proc/net
-> as we are cleaning up a network namespace.
-
-Yep!  ;-)
-
-> > If so, how do we know
-> > that it won't be removed just as we are trying to add our reference
-> > (while at the same time cleanup_net() is running)?  Ditto for the other
-> > _open() operations in the same patch.  And for netlink_seq_open().
-> >
-> > Enlightenment?
-> 
-> Good spotting. It looks like you have found a legitimate race.  Grr.
-> I thought I had a reference to the network namespace there.  I need to
-> step back and think about this a bit, and see if I can come up with a
-> legitimate idiom.
-> 
-> I know the network namespace exists and I have not finished
-> cleanup_net because I can still get to the /proc entries.
-
-OK.  Hmmm...  I need to go review locking for /proc...
-
-> I know I cannot use get_net for the reference in in /proc because
-> otherwise I could not release the network namespace unless I was to
-> unmount the filesystem, which is not a desirable property.
-> 
-> I think I can change the idiom to:
-> 
-> struct net *maybe_get_net(struct net *net)
-> {
->         if (!atomic_inc_not_zero(&net->count))
->         	net = NULL;
-> 	return net;               
-> }
-> 
-> Which would make dev_seq_open be:
-> 
-> static int dev_seq_open(struct inode *inode, struct file *file)
-> {
-> 	struct seq_file *seq;
-> 	int res;
-> 	res =  seq_open(file, &dev_seq_ops);
-> 	if (!res) {
-> 		seq = file->private_data;
-> 		seq->private = maybe_get_net(PROC_NET(inode));
-> 		if (!seq->private) {
-> 			res = -ENOENT;
->                         seq_release(inode, file);
-> 		}
-> 	}
-> 	return res;
-> }
-> 
-> I'm still asking myself if I need any kind of locking to ensure
-> struct net does not go away in the mean time, if so rcu_read_lock()
-> should be sufficient.
-
-Agreed -- and it might be possible to leverage the existing locking
-in the /proc code.
-
-						Thanx, Paul
-
-> I will read through the generic proc code very carefully after
-> I have slept and see if there is what I the code above is sufficient,
-> and if so update the patchset.
-> 
-> Eric
+Why is all this fixation on "volatile"? I don't think
+people want "volatile" keyword per se, they want atomic_read(&x) to
+_always_ compile into an memory-accessing instruction, not register access.
+--
+vda
