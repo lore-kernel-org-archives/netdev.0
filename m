@@ -1,78 +1,74 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: ne driver crashes when unloaded in 2.6.22.6
-Date: Sun, 09 Sep 2007 17:55:58 -0400
-Message-ID: <1189374958.6221.4.camel@xo-3E-67-34.localdomain>
-References: <311869.99402.qm@web52909.mail.re2.yahoo.com>
+From: Bernhard Schmidt <berni@birkenwald.de>
+Subject: [IPv6] BUG: NULL pointer dereference in(?) ip6_flush_pending_frames
+Date: Mon, 10 Sep 2007 00:24:00 +0200
+Message-ID: <20070909222400.GC7591@obelix.birkenwald.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Chris Rankin <rankincj@yahoo.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:60361 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750816AbXIIV4f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Sep 2007 17:56:35 -0400
-In-Reply-To: <311869.99402.qm@web52909.mail.re2.yahoo.com>
+Received: from vs02.svr02.mucip.net ([83.170.6.69]:53933 "EHLO
+	mailout.mucip.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752518AbXIIWdH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Sep 2007 18:33:07 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2007-09-09 at 20:46 +0100, Chris Rankin wrote:
-> Hi,
-> 
-> While trying to get my NE2000 ISA card working with NetworkManager and Linux 2.6.22.6, I
-> discovered that the ne module will cause the kernel to oops when it is unloaded. The problem is
-> that the module's clean-up function tries to unregister a platform driver unconditionally,
-> although the platform driver may never have been registered in the first place. I have created a
-> patch which seems to work OK. The idea behind the patch is to de-initialise the unregistered
-> ne_driver structure to the point where the unregister function will abort without error:
-> 
-> --- drivers/net/ne.c.orig       2007-07-21 17:00:52.000000000 +0100
-> +++ drivers/net/ne.c    2007-09-09 20:04:28.000000000 +0100
-> @@ -272,6 +272,7 @@
->                                 pnp_device_detach(idev);
->                                 return -ENXIO;
->                         }
-> +                       SET_NETDEV_DEV(dev, &idev->dev);
->                         ei_status.priv = (unsigned long)idev;
->                         break;
->                 }
-> @@ -827,6 +828,7 @@
->                 free_netdev(dev);
->                 return err;
->         }
-> +       SET_NETDEV_DEV(dev, &pdev->dev);
->         platform_set_drvdata(pdev, dev);
->         return 0;
->  }
-> @@ -909,11 +911,14 @@
->  is at boot) and so the probe will get confused by any other 8390 cards.
->  ISA device autoprobes on a running machine are not recommended anyway. */
->  
-> int __init init_module(void)
->  {
->         int this_dev, found = 0;
->         int plat_found = !ne_init();
->  
-> +       if ( !plat_found )
-> +               ne_driver.driver.bus = NULL;
-> +
->         for (this_dev = 0; this_dev < MAX_NE_CARDS; this_dev++) {
->                 struct net_device *dev = alloc_ei_netdev();
->                 if (!dev)
-> 
-> The patch also contains a few SET_NETDEV_DEV() statements, which I am hoping will help these
-> network cards work with NetworkManager. This isn't a complete solution because it still doesn't
-> address the non-PnP ISA case. However, I think it's a start... At the moment, my eth device
-> appears in /sys/class/net but is also completely ignored by lshal.
+Hi,
 
-Awesome.  SET_NETDEV_DEV is required because it establishes the 'device'
-link in sysfs that HAL uses for additional information about the card.
-At some point all drivers should get audited for SET_NETDEV_DEV (or
-rather lack of it) and get fixed if they don't have it.
+I'm running a public Teredo relay (IPv4-to-IPv6 migration protocol)
+using Miredo. Every once in a while (a few minutes to days after
+daemon restart) it becomes unusable and I see the following kernel
+message:
 
-Offhand question, does your ne2000 card support carrier detection?
+BUG: unable to handle kernel NULL pointer dereference at virtual address
+0000008c
+ printing eip:
+c02640e6
+*pde = 00000000
+Oops: 0000 [#17]
+SMP
+Modules linked in: ip6table_filter ip6_tables af_packet tun bitrev crc32
+ipt_LOG xt_tcpudp iptable_filter iptable_mangle ip_tables x_tables
+dm_mod capability commoncap iTCO_wdt floppy e1000 rtc unix
+CPU:    0
+EIP:    0060:[<c02640e6>]    Not tainted VLI
+EFLAGS: 00210246   (2.6.21.3-iabg-pe750 #1)
+EIP is at ip6_flush_pending_frames+0x97/0x121
+eax: 00000000   ebx: d3e3ca80   ecx: db590380   edx: d3e3caf0
+esi: d3e3cc80   edi: db590380   ebp: 00000002   esp: d4af7cd4
+ds: 007b   es: 007b   fs: 00d8  gs: 0033  ss: 0068
+Process miredo (pid: 17615, ti=d4af6000 task=cfd60030 task.ti=d4af6000)
+Stack: 000005d0 00000000 d4af7d44 d4af7d54 d4af7d54 00000000 db590380
+c0275ab5
+       00000000 00000000 00000040 00000000 00000000 d4af7d48 df4c6780
+00000040
+       d4af7f44 d3e3ca80 3a000000 00000000 0000001c 003a0000 00000000
+00000000
+Call Trace:
+ [<c0275ab5>] rawv6_sendmsg+0x840/0xa63
+ [<c0258a09>] inet_sendmsg+0x3b/0x45
+ [<c021df73>] sock_sendmsg+0xbc/0xd4
+ [<c0123f99>] autoremove_wake_function+0x0/0x35
+ [<e087c911>] tun_chr_aio_read+0x29e/0x2a8 [tun]
+ [<c011025a>] default_wake_function+0x0/0xc
+ [<c021e29c>] sys_sendto+0x118/0x138
+ [<c014d03c>] do_readv_writev+0x17d/0x187
+ [<e087c673>] tun_chr_aio_read+0x0/0x2a8 [tun]
+ [<c021ef2e>] sys_socketcall+0x15e/0x242
+ [<c0102560>] syscall_call+0x7/0xb
+ =======================
+Code: 8d 43 70 8b 48 04 39 c1 74 31 85 c9 74 2d ff 48 08 8b 11 8b 41 04
+c7 41 04 00 00 00 00 c7 01 00 00 00 00 89 42 04 89 10 8b 41 28 <8b> b8
+8c 00 00 00 85 ff 0f 85 6b ff ff ff eb 94 83 a3 84 01 00
+EIP: [<c02640e6>] ip6_flush_pending_frames+0x97/0x121 SS:ESP
+0068:d4af7cd4
 
-Dan
+I have not found anything related on netdev, I'll try a new kernel to be
+sure. Do you need any more information to debug this issue?
 
+Hardware is a Dell PowerEdge 750 (i386 P4 HT), vanilla kernel 2.6.21.3
+running Debian testing.
 
+Thanks,
+Bernhard
