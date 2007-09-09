@@ -1,82 +1,134 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Bluetooth patches for 2.6.23-rc5
-Date: Sun, 09 Sep 2007 11:37:43 +0200
-Message-ID: <1189330664.687.21.camel@violet>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 03/16] net: Basic network namespace infrastructure.
+Date: Sun, 09 Sep 2007 04:04:45 -0600
+Message-ID: <m1fy1otarm.fsf@ebiederm.dsl.xmission.com>
+References: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com>
+	<m1myvwx3sf.fsf@ebiederm.dsl.xmission.com>
+	<m1ir6kx3mn.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1ejh8x3ih.fsf_-_@ebiederm.dsl.xmission.com>
+	<20070909003308.GA10417@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([217.160.111.169]:43457 "EHLO
-	mail.holtmann.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756158AbXIIKJG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Sep 2007 06:09:06 -0400
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:57551 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756176AbXIIKJU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Sep 2007 06:09:20 -0400
+In-Reply-To: <20070909003308.GA10417@linux.vnet.ibm.com> (Paul E. McKenney's
+	message of "Sat, 8 Sep 2007 17:33:08 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+"Paul E. McKenney" <paulmck@linux.vnet.ibm.com> writes:
 
-here are four additional patches that should go into 2.6.23 before its
-final release. Please pull and send them to Linus.
+> On Sat, Sep 08, 2007 at 03:15:34PM -0600, Eric W. Biederman wrote:
+>> 
+>> This is the basic infrastructure needed to support network
+>> namespaces.  This infrastructure is:
+>> - Registration functions to support initializing per network
+>>   namespace data when a network namespaces is created or destroyed.
+>> 
+>> - struct net.  The network namespace data structure.
+>>   This structure will grow as variables are made per network
+>>   namespace but this is the minimal starting point.
+>> 
+>> - Functions to grab a reference to the network namespace.
+>>   I provide both get/put functions that keep a network namespace
+>>   from being freed.  And hold/release functions serve as weak references
+>>   and will warn if their count is not zero when the data structure
+>>   is freed.  Useful for dealing with more complicated data structures
+>>   like the ipv4 route cache.
+>> 
+>> - A list of all of the network namespaces so we can iterate over them.
+>> 
+>> - A slab for the network namespace data structure allowing leaks
+>>   to be spotted.
+>
+> If I understand this correctly, the only way to get to a namespace is
+> via get_net_ns_by_pid(), which contains the rcu_read_lock() that matches
+> the rcu_barrier() below.
 
-Regards
+Not quite.  That is the convoluted case for getting a namespace someone
+else is using.  current->nsproxy->net_ns works and should require no
+locking to read (only the current process may modify it) and does hold
+a reference to the network namespace.  Similarly for sock->sk_net.
 
-Marcel
+> So, is the get_net() in sock_copy() in this patch adding a reference to
+> an element that is guaranteed to already have at least one reference?
 
+Yes.
 
-Please pull from
+> If not, how are we preventing sock_copy() from running concurrently with
+> cleanup_net()?  Ah, I see -- in sock_copy() we are getting a reference
+> to the new struct sock that no one else can get a reference to, so OK.
+> Ditto for the get_net() in sk_alloc().
 
-        git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-2.6.git
+> But I still don't understand what is protecting the get_net() in
+> dev_seq_open().  Is there an existing reference? 
 
-This will update the following files:
+Sort of.  The directories under /proc/net are created when create
+a network namespace and they are destroyed when the network namespace
+is removed.  And those directories remember which network namespace
+they are for and that is what dev_seq_open is referencing.
 
- drivers/bluetooth/hci_usb.c |    5 ++++-
- net/bluetooth/hci_core.c    |    8 +++-----
- net/bluetooth/hci_sock.c    |   27 +++++++++++++++++++++------
- 3 files changed, 28 insertions(+), 12 deletions(-)
+So the tricky case what happens if we open a directory under /proc/net
+as we are cleaning up a network namespace.
 
-through these ChangeSets:
+> If so, how do we know
+> that it won't be removed just as we are trying to add our reference
+> (while at the same time cleanup_net() is running)?  Ditto for the other
+> _open() operations in the same patch.  And for netlink_seq_open().
+>
+> Enlightenment?
 
-Commit: 89f2783ded0a4fc98852cb9552bb27a80cd6a41a 
-Author: Marcel Holtmann <marcel@holtmann.org> Sun, 09 Sep 2007 08:39:49 +0200 
+Good spotting. It looks like you have found a legitimate race.  Grr.
+I thought I had a reference to the network namespace there.  I need to
+step back and think about this a bit, and see if I can come up with a
+legitimate idiom.
 
-    [Bluetooth] Fix parameter list for event filter command
-    
-    On device initialization the event filters are cleared. In case of
-    clearing the filters the extra condition type shall be omitted.
-    
-    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+I know the network namespace exists and I have not finished
+cleanup_net because I can still get to the /proc entries.
 
-Commit: 7c631a67601f116d303cfb98a3d964a150090e38 
-Author: Marcel Holtmann <marcel@holtmann.org> Sun, 09 Sep 2007 08:39:43 +0200 
+I know I cannot use get_net for the reference in in /proc because
+otherwise I could not release the network namespace unless I was to
+unmount the filesystem, which is not a desirable property.
 
-    [Bluetooth] Update security filter for Bluetooth 2.1
-    
-    This patch updates the HCI security filter with support for the
-    Bluetooth 2.1 commands and events.
-    
-    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+I think I can change the idiom to:
 
-Commit: 767c5eb5d35aeb85987143f0a730bc21d3ecfb3d 
-Author: Marcel Holtmann <marcel@holtmann.org> Sun, 09 Sep 2007 08:39:34 +0200 
+struct net *maybe_get_net(struct net *net)
+{
+        if (!atomic_inc_not_zero(&net->count))
+        	net = NULL;
+	return net;               
+}
 
-    [Bluetooth] Add compat handling for timestamp structure
-    
-    The timestamp structure needs special handling in case of compat
-    programs. Use the same wrapping method the network core uses.
-    
-    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+Which would make dev_seq_open be:
 
-Commit: 26a4a06e7ff2874154eb3f4b4ba0514dc563b100 
-Author: Marcel Holtmann <marcel@holtmann.org> Sun, 09 Sep 2007 08:39:27 +0200 
+static int dev_seq_open(struct inode *inode, struct file *file)
+{
+	struct seq_file *seq;
+	int res;
+	res =  seq_open(file, &dev_seq_ops);
+	if (!res) {
+		seq = file->private_data;
+		seq->private = maybe_get_net(PROC_NET(inode));
+		if (!seq->private) {
+			res = -ENOENT;
+                        seq_release(inode, file);
+		}
+	}
+	return res;
+}
 
-    [Bluetooth] Add missing stat.byte_rx counter modification
-    
-    With the support for hci_recv_fragment() the call to increase the
-    stat.byte_rx counter got accidentally removed. This patch fixes it.
-    
-    Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+I'm still asking myself if I need any kind of locking to ensure
+struct net does not go away in the mean time, if so rcu_read_lock()
+should be sufficient.
 
+I will read through the generic proc code very carefully after
+I have slept and see if there is what I the code above is sufficient,
+and if so update the patchset.
 
-
+Eric
