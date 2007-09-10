@@ -1,59 +1,47 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Mon, 10 Sep 2007 15:51:56 +0100
-Message-ID: <20070910155156.2c1453fc@laptopd505.fenrus.org>
-References: <18115.52863.638655.658466@cargo.ozlabs.ibm.com>
-	<200709091902.55388.vda.linux@googlemail.com>
-	<20070909191839.1fa10e88@laptopd505.fenrus.org>
-	<200709101156.30010.vda.linux@googlemail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [Lksctp-developers] [-mm patch] net/sctp/socket.c: make 3 variables static
+Date: Mon, 10 Sep 2007 10:05:07 -0400
+Message-ID: <20070910140507.GD14606@hmsendeavour.rdu.redhat.com>
+References: <20070831215822.26e1432b.akpm@linux-foundation.org> <20070909202554.GY3563@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Nick Piggin <piggin@cyberone.com.au>,
-	Satyam Sharma <satyam@infradead.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Paul Mackerras <paulus@samba.org>,
-	Christoph Lameter <clameter@sgi.com>,
-	Chris Snook <csnook@redhat.com>,
-	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>, ak@suse.de,
-	heiko.carstens@de.ibm.com, David Miller <davem@davemloft.net>,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
-To: Denys Vlasenko <vda.linux@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:34164 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754235AbXIJNxI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 09:53:08 -0400
-In-Reply-To: <200709101156.30010.vda.linux@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	vladislav.yasevich@hp.com, sri@us.ibm.com, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net
+To: Adrian Bunk <bunk@kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759968AbXIJOHy@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20070909202554.GY3563@stusta.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Sep 2007 11:56:29 +0100
-Denys Vlasenko <vda.linux@googlemail.com> wrote:
+On Sun, Sep 09, 2007 at 10:25:54PM +0200, Adrian Bunk wrote:
+> On Fri, Aug 31, 2007 at 09:58:22PM -0700, Andrew Morton wrote:
+> >...
+> > Changes since 2.6.23-rc3-mm1:
+> >...
+> >  git-net.patch
+> >...
+> >  git trees
+> >...
+> 
+> This patch makes the following needlessly globalvariables static:
+> - sctp_memory_pressure
+> - sctp_memory_allocated
+> - sctp_sockets_allocated
+> 
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> 
+Looks fine to me
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
->=20
-> Well, if you insist on having it again:
->=20
-> Waiting for atomic value to be zero:
->=20
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0while (atomic_read(&x=
-))
-> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0continue;
->=20
+Neil
 
-and this I would say is buggy code all the way.
-
-Not from a pure C level semantics, but from a "busy waiting is buggy"
-semantics level and a "I'm inventing my own locking" semantics level.
-
+-- 
+/***************************************************
+ *Neil Horman
+ *nhorman@tuxdriver.com
+ *gpg keyid: 1024D / 0x92A74FA1
+ *http://pgp.mit.edu
+ ***************************************************/
