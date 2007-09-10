@@ -1,44 +1,34 @@
-From: Bernhard Schmidt <berni@birkenwald.de>
-Subject: Re: [IPv6] BUG: NULL pointer dereference in(?) ip6_flush_pending_frames
-Date: Mon, 10 Sep 2007 10:18:14 +0200
-Message-ID: <46E4FDC6.3060809@birkenwald.de>
-References: <20070909222400.GC7591@obelix.birkenwald.de> <20070910.083847.40751994.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, miyazawa@linux-ipv6.org
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
-	<yoshfuji@linux-ipv6.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH resend] Fix a lock problem in generic phy code
+Date: Mon, 10 Sep 2007 16:58:59 +0800
+Message-ID: <E1IUf6h-0006qu-00@gondolin.me.apana.org.au>
+References: <200709092336.25634.hjk@linutronix.de>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jeff@garzik.org, afleming@freescale.com
+To: hjk@linutronix.de (Hans-J??rgen Koch)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vs02.svr02.mucip.net ([83.170.6.69]:48216 "EHLO
-	mailout.mucip.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755136AbXIJISO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 04:18:14 -0400
-In-Reply-To: <20070910.083847.40751994.yoshfuji@linux-ipv6.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:4123 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751130AbXIJI7d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 04:59:33 -0400
+In-Reply-To: <200709092336.25634.hjk@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E:
+Hans-J??rgen Koch <hjk@linutronix.de> wrote:
+>
+> The following patch fixes it. Tested on an AT91SAM9263-EK board, kernel 2.6.23-rc4 and -rc3-mm1.
 
-Hi,
+Could you please audit all instances of physdev->lock and add
+_bh where necessary?  I can see that at least phys_stop also
+needs the _bh.
 
->> BUG: unable to handle kernel NULL pointer dereference at virtual add=
-ress
->> 0000008c
-> :
->> EIP is at ip6_flush_pending_frames+0x97/0x121
->=20
-> I think I've found a bug.
-[...]
-> Anyway, please try this.
+We should also consider whether it makes sense to move the
+timer into a work queue.
 
-=46TR, I tried 2.6.22.6 without the patch and it failed as well. The=20
-patched kernel is running since yesterday evening (about 8h now) and=20
-seems to be stable so far. Too early to tell for sure, but I guess we=20
-have a fix.
-
-Thanks Yoshifuji!
-
-Regards,
-Bernhard
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
