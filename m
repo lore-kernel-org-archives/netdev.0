@@ -1,16 +1,13 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Mon, 10 Sep 2007 18:02:17 +0100
-Message-ID: <20070910180217.7cc9878b@laptopd505.fenrus.org>
-References: <18115.52863.638655.658466@cargo.ozlabs.ibm.com>
-	<200709101156.30010.vda.linux@googlemail.com>
-	<20070910155156.2c1453fc@laptopd505.fenrus.org>
-	<200709101538.25132.vda.linux@googlemail.com>
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Mon, 10 Sep 2007 17:46:33 +0100
+Message-ID: <200709101746.34513.vda.linux@googlemail.com>
+References: <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <200709101516.03234.vda.linux@googlemail.com> <alpine.LFD.0.999.0709100807260.16478@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+Cc: Kyle Moffett <mrmacman_g4@mac.com>,
+	Arjan van de Ven <arjan@infradead.org>,
 	Nick Piggin <piggin@cyberone.com.au>,
 	Satyam Sharma <satyam@infradead.org>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
@@ -28,45 +25,84 @@ Cc: Linus Torvalds <torvalds@linux-foundation.org>,
 	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
 	rpjday@mindspring.com, jesper.juhl@gmail.com,
 	segher@kernel.crashing.org
-To: Denys Vlasenko <vda.linux@googlemail.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:42964 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964836AbXIJQDp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 12:03:45 -0400
-In-Reply-To: <200709101538.25132.vda.linux@googlemail.com>
+Received: from qb-out-0506.google.com ([72.14.204.230]:6731 "EHLO
+	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756099AbXIJQqr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 12:46:47 -0400
+Received: by qb-out-0506.google.com with SMTP id e11so1200184qbe
+        for <netdev@vger.kernel.org>; Mon, 10 Sep 2007 09:46:46 -0700 (PDT)
+In-Reply-To: <alpine.LFD.0.999.0709100807260.16478@woody.linux-foundation.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Sep 2007 15:38:23 +0100
-Denys Vlasenko <vda.linux@googlemail.com> wrote:
-
-> On Monday 10 September 2007 15:51, Arjan van de Ven wrote:
-> > On Mon, 10 Sep 2007 11:56:29 +0100
-> > Denys Vlasenko <vda.linux@googlemail.com> wrote:
+On Monday 10 September 2007 16:09, Linus Torvalds wrote:
+> On Mon, 10 Sep 2007, Denys Vlasenko wrote:
+> > static inline int
+> > qla2x00_wait_for_loop_ready(scsi_qla_host_t *ha)
+> > {
+> >         int      return_status =3D QLA_SUCCESS;
+> >         unsigned long loop_timeout ;
+> >         scsi_qla_host_t *pha =3D to_qla_parent(ha);
 > >=20
-> > >=20
-> > > Well, if you insist on having it again:
-> > >=20
-> > > Waiting for atomic value to be zero:
-> > >=20
-> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0while (atomic_rea=
-d(&x))
-> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0continue;
-> > >=20
+> >         /* wait for 5 min at the max for loop to be ready */
+> >         loop_timeout =3D jiffies + (MAX_LOOP_TIMEOUT * HZ);
 > >=20
-> > and this I would say is buggy code all the way.
-> >
-> > Not from a pure C level semantics, but from a "busy waiting is
-> > buggy" semantics level and a "I'm inventing my own locking"
-> > semantics level.
+> >         while ((!atomic_read(&pha->loop_down_timer) &&
+> >             atomic_read(&pha->loop_state) =3D=3D LOOP_DOWN) ||
+> >             atomic_read(&pha->loop_state) !=3D LOOP_READY) {
+> >                 if (atomic_read(&pha->loop_state) =3D=3D LOOP_DEAD)=
+ {
+> ...
+> > Is above correct or buggy? Correct, because msleep is a barrier.
+> > Is it obvious? No.
 >=20
-> After inspecting arch/*, I cannot agree with you.
+> It's *buggy*. But it has nothing to do with any msleep() in the loop,=
+ or=20
+> anything else.
+>=20
+> And more importantly, it would be equally buggy even *with* a "volati=
+le"=20
+> atomic_read().
 
-the arch/ people obviously are allowed to do their own locking stuff...
-BECAUSE THEY HAVE TO IMPLEMENT THAT!
+I am not saying that this code is okay, this isn't the point.
+(The code is in fact awful for several more reasons).
 
+My point is that people are confused as to what atomic_read()
+exactly means, and this is bad. Same for cpu_relax().
+=46irst one says "read", and second one doesn't say "barrier".
 
-the arch maintainers know EXACTLY how their hw behaves (well, we hope)
-so they tend to be the exception to many rules in the kernel....
+This is real code from current kernel which demonstrates this:
+
+"I don't know that cpu_relax() is a barrier already":
+
+drivers/kvm/kvm_main.c
+=A0 =A0 =A0 =A0 while (atomic_read(&completed) !=3D needed) {
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 cpu_relax();
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 barrier();
+=A0 =A0 =A0 =A0 }
+
+"I think that atomic_read() is a read from memory and therefore
+I don't need a barrier":
+
+arch/x86_64/kernel/crash.c
+=A0 =A0 =A0 =A0 msecs =3D 1000; /* Wait at most a second for the other =
+cpus to stop */
+=A0 =A0 =A0 =A0 while ((atomic_read(&waiting_for_crash_ipi) > 0) && mse=
+cs) {
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 mdelay(1);
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 msecs--;
+=A0 =A0 =A0 =A0 }
+
+Since neither camp seems to give up, I am proposing renaming
+them to something less confusing, and make everybody happy.
+
+cpu_relax_barrier()
+atomic_value(&x)
+atomic_fetch(&x)
+
+I'm not native English speaker, do these sound better?
+--
+vda
