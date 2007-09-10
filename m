@@ -1,178 +1,92 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH 3/3] rfkill: Add rfkill documentation
-Date: Mon, 10 Sep 2007 11:26:25 -0700
-Message-ID: <20070910112625.376efc50.randy.dunlap@oracle.com>
-References: <200709101954.50852.IvDoorn@gmail.com>
-	<200709101956.03861.IvDoorn@gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: [PATCH] include listenq max backlog in /proc/net/tcp and include in tcp_info
+Date: Mon, 10 Sep 2007 16:13:55 -0700 (PDT)
+Message-ID: <200709102313.QAA01722@tardy.cup.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=X-roman8
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Dmitry Torokhov <dtor@insightbb.com>,
-	netdev@vger.kernel.org,
-	Inaky Perez-Gonzalez <inaky@linux.intel.com>
-To: Ivo van Doorn <ivdoorn@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:12239 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755191AbXIJXTE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 19:19:04 -0400
-In-Reply-To: <200709101956.03861.IvDoorn@gmail.com>
+Received: from palrel11.hp.com ([156.153.255.246]:55037 "EHLO palrel11.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753362AbXIJXOH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Sep 2007 19:14:07 -0400
+Received: from tardy.cup.hp.com (tardy.cup.hp.com [15.244.56.217])
+	by palrel11.hp.com (Postfix) with ESMTP id 4B4DC345D4
+	for <netdev@vger.kernel.org>; Mon, 10 Sep 2007 16:13:56 -0700 (PDT)
+Received: (from raj@localhost)
+	by tardy.cup.hp.com (8.9.3 (PHNE_28810)/8.9.3 SMKit7.02) id QAA01722
+	for netdev@vger.kernel.org; Mon, 10 Sep 2007 16:13:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Sep 2007 19:56:03 +0200 Ivo van Doorn wrote:
+Return some useful information such as the maximum listen backlog and
+the current listen backlog in the tcp_info structure and have that 
+match what one can see in /proc/net/tcp and /proc/net/tcp6.
 
-> Add a documentation file which contains
-> a short description about rfkill with some
-> notes about drivers and the userspace interface.
-
-Thanks.  I have noted a few typo/editorial changes below.
-
-
-> Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
-> Acked-by: Dmitry Torokhov <dtor@mail.ru>
-> ---
->  Documentation/rfkill.txt |   88 ++++++++++++++++++++++++++++++++++++++++++++++
->  1 files changed, 88 insertions(+), 0 deletions(-)
->  create mode 100644 Documentation/rfkill.txt
-> 
-> diff --git a/Documentation/rfkill.txt b/Documentation/rfkill.txt
-> new file mode 100644
-> index 0000000..93c76fc
-> --- /dev/null
-> +++ b/Documentation/rfkill.txt
-> @@ -0,0 +1,88 @@
-> +rfkill - RF switch subsystem support
-> +====================================
-> +
-> +1 Implementation details
-> +2 Driver support
-> +3 Userspace support
-> +
-> +===============================================================================
-> +1: Implementation details
-> +
-> +The rfkill switch subsystem offers support for keys often found on laptops
-> +to enable wireless devices like WiFi and Bluetooth.
-> +
-> +This is done by providing the user 3 possibilities:
-> + - The rfkill system handles all events, userspace is not aware of events.
-> + - The rfkill system handles all events, userspace is informed about the event.
-> + - The rfkill system does not handle events, userspace handles all events.
-
-I would s/,/;/ in the 3 lines above.
-
-> +The buttons to enable and disable the wireless radios are important in
-> +situations where the user is for example using his laptop on a location where
-> +wireless radios _must_ be disabled (e.g airplanes).
-> +Because of this requirement, userspace support for the keys should not be
-> +made mandatory. Because userspace might want to perform some additional smarter
-> +tasks when the key is pressed, rfkill still provides userspace the possibility
-> +to take over the task to handle the key events.
-> +
-> +The system inside the kernel has been split into 2 seperate sections:
-
-                                                      separate
-
-> +	1 - RFKILL
-> +	2 - RFKILL_INPUT
-> +
-> +The first option enables rfkill support and will make sure userspace will
-> +be notified of any events through the input device. It also creates several
-> +sysfs entries which can be used by userspace. See section "Userspace support".
-> +
-> +The second option provides a rfkill input handler. This handler will
-
-                              an
-
-> +listen to all rfkill key events and will toggle the radio accordingly,
-
-end above with ; or .  If '.', s/with/With/ on next line.
-
-> +with this option enabled userspace could either do nothing or simply
-> +perform monitoring tasks.
-> +
-> +====================================
-> +2: Driver support
-> +
-> +Drivers who wish to build in rfkill subsystem support should
-
-   Drivers that
-
-But, drivers can't/don't wish, so it would be better to say something
-like:
-
-To build a driver with rfkill subsystem support, the driver should
-depend on the Kconfig symbol RFKILL; it should _not_ depend on
-RKFILL_INPUT.
-
-
-> +make sure their driver depends of the Kconfig option RFKILL, it should
-> +_not_ depend on RFKILL_INPUT.
-> +
-> +Unless key events trigger a interrupt to which the driver listens, polling
-
-                             an interrupt
-
-> +will be required to determine the key state changes. For this the input
-> +layer providers the input-polldev handler.
-> +
-> +A driver should implement a few steps to correctly make use of the
-> +rfkill subsystem. First for non-polling drivers:
-> +
-> +	- rfkill_allocate()
-> +	- input_allocate_device()
-> +	- rfkill_register()
-> +	- input_register_device()
-> +
-> +For polling drivers:
-> +
-> +	- rfkill_allocate()
-> +	- input_allocate_polled_device()
-> +	- rfkill_register()
-> +	- input_register_polled_device()
-> +
-> +When a key event has been detected, the correct event should be
-> +send over the input device which has been registered by the driver.
-
-   sent
-
-> +
-> +====================================
-> +3: Userspace support
-> +
-> +For each key a input device will be created which will send out the correct
-
-                an
-
-> +key event when the rfkill key has been pressed.
-> +
-> +The following sysfs entries will be created:
-> +
-> +	name: Name assigned by driver to this key (interface or driver name).
-> +	type: Name of the key type ("wlan", "bluetooth", etc).
-> +	state: Current state of the key. 1: On, 0: Off.
-> +	claim: 1: Userspace handles events, 0: Kernel handles events
-> +
-> +Both the "state" and "claim" entries are also writable. For the "state" entry
-> +this means that when 1 or 0 is written all radios will be toggled accordingly.
-
-will be written even if they are already in that state?
-
-> +For the "claim" entry writing 1 to it will mean that the kernel will no longer
-
-s/will mean/means/
-s/will no longer handle/no longer handles/
-
-> +handle key events even though RFKILL_INPUT input was enabled. When "claim" has
-> +been set to 0, userspace should make sure it will listen for the input events
-
-s/it will listen/that it listens/
-
-> +or check the sysfs "state" entry regularly to correctly perform the required
-> +tasks when the rkfill key is pressed.
-> -- 
-
+Signed-off-by: Rick Jones <rick.jones2@hp.com>
 ---
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+
+diff -r bdcdd0e1ee9d Documentation/networking/proc_net_tcp.txt
+--- a/Documentation/networking/proc_net_tcp.txt	Sat Sep 01 07:00:31 2007 +0000
++++ b/Documentation/networking/proc_net_tcp.txt	Mon Sep 10 16:09:46 2007 -0700
+@@ -20,8 +20,8 @@ up into 3 parts because of the length of
+       |        |     |     |       |--> number of unrecovered RTO timeouts
+       |        |     |     |----------> number of jiffies until timer expires
+       |        |     |----------------> timer_active (see below)
+-      |        |----------------------> receive-queue
+-      |-------------------------------> transmit-queue
++      |        |----------------------> receive-queue or connection backlog
++      |-------------------------------> transmit-queue or connection limit
+ 
+    1000        0 54165785 4 cd1e6040 25 4 27 3 -1
+     |          |    |     |    |     |  | |  | |--> slow start size threshold, 
+diff -r bdcdd0e1ee9d net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c	Sat Sep 01 07:00:31 2007 +0000
++++ b/net/ipv4/tcp.c	Mon Sep 10 16:09:46 2007 -0700
+@@ -2030,8 +2030,14 @@ void tcp_get_info(struct sock *sk, struc
+ 	info->tcpi_snd_mss = tp->mss_cache;
+ 	info->tcpi_rcv_mss = icsk->icsk_ack.rcv_mss;
+ 
+-	info->tcpi_unacked = tp->packets_out;
+-	info->tcpi_sacked = tp->sacked_out;
++	if (sk->sk_state == TCP_LISTEN) {
++		info->tcpi_unacked = sk->sk_ack_backlog;
++		info->tcpi_sacked = sk->sk_max_ack_backlog;
++	}
++	else {
++		info->tcpi_unacked = tp->packets_out;
++		info->tcpi_sacked = tp->sacked_out;
++	}
+ 	info->tcpi_lost = tp->lost_out;
+ 	info->tcpi_retrans = tp->retrans_out;
+ 	info->tcpi_fackets = tp->fackets_out;
+diff -r bdcdd0e1ee9d net/ipv4/tcp_ipv4.c
+--- a/net/ipv4/tcp_ipv4.c	Sat Sep 01 07:00:31 2007 +0000
++++ b/net/ipv4/tcp_ipv4.c	Mon Sep 10 16:09:46 2007 -0700
+@@ -2320,7 +2320,8 @@ static void get_tcp4_sock(struct sock *s
+ 	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X %02X %08X:%08X %02X:%08lX "
+ 			"%08X %5d %8d %lu %d %p %u %u %u %u %d",
+ 		i, src, srcp, dest, destp, sk->sk_state,
+-		tp->write_seq - tp->snd_una,
++		sk->sk_state == TCP_LISTEN ? sk->sk_max_ack_backlog :
++					     (tp->write_seq - tp->snd_una),
+ 		sk->sk_state == TCP_LISTEN ? sk->sk_ack_backlog :
+ 					     (tp->rcv_nxt - tp->copied_seq),
+ 		timer_active,
+diff -r bdcdd0e1ee9d net/ipv6/tcp_ipv6.c
+--- a/net/ipv6/tcp_ipv6.c	Sat Sep 01 07:00:31 2007 +0000
++++ b/net/ipv6/tcp_ipv6.c	Mon Sep 10 16:09:46 2007 -0700
+@@ -2005,8 +2005,10 @@ static void get_tcp6_sock(struct seq_fil
+ 		   dest->s6_addr32[0], dest->s6_addr32[1],
+ 		   dest->s6_addr32[2], dest->s6_addr32[3], destp,
+ 		   sp->sk_state,
+-		   tp->write_seq-tp->snd_una,
+-		   (sp->sk_state == TCP_LISTEN) ? sp->sk_ack_backlog : (tp->rcv_nxt - tp->copied_seq),
++		   (sp->sk_state == TCP_LISTEN) ? sp->sk_max_ack_backlog:
++						  tp->write_seq-tp->snd_una,
++		   (sp->sk_state == TCP_LISTEN) ? sp->sk_ack_backlog : 
++					(tp->rcv_nxt - tp->copied_seq),
+ 		   timer_active,
+ 		   jiffies_to_clock_t(timer_expires - jiffies),
+ 		   icsk->icsk_retransmits,
