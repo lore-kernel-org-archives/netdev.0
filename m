@@ -1,113 +1,108 @@
-From: Paul Mundt <lethal@linux-sh.org>
-Subject: Re: sh: add support for ax88796 and 93cx6 to highlander boards
-Date: Mon, 10 Sep 2007 16:15:28 +0900
-Message-ID: <20070910071528.GB13672@linux-sh.org>
-References: <20070910063626.2300.75144.sendpatchset@clockwork.opensource.se>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [INET_DIAG]: Fix oops in netlink_rcv_skb
+Date: Mon, 10 Sep 2007 09:50:57 +0200
+Message-ID: <46E4F761.4050902@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com, ben-linux@fluff.org
-To: Magnus Damm <magnus.damm@gmail.com>
+Content-Type: multipart/mixed;
+ boundary="------------030805080609090800030402"
+Cc: Linux Netdev List <netdev@vger.kernel.org>, stable@kernel.org,
+	Athanasius <link@miggy.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ocgnet.org ([64.20.243.3]:34590 "EHLO smtp.ocgnet.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754561AbXIJHPi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Sep 2007 03:15:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20070910063626.2300.75144.sendpatchset@clockwork.opensource.se>
+Received: from stinky.trash.net ([213.144.137.162]:55158 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753239AbXIJHyK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 03:54:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 10, 2007 at 03:36:26PM +0900, Magnus Damm wrote:
-> --- 0004/arch/sh/boards/renesas/r7780rp/setup.c
-> +++ work/arch/sh/boards/renesas/r7780rp/setup.c	2007-09-06 15:35:49.000000000 +0900
-> @@ -21,6 +21,7 @@
->  #include <asm/clock.h>
->  #include <asm/heartbeat.h>
->  #include <asm/io.h>
-> +#include <net/ax88796.h>
->  
->  static struct resource r8a66597_usb_host_resources[] = {
->  	[0] = {
-> @@ -136,11 +137,50 @@ static struct platform_device heartbeat_
->  	.resource	= heartbeat_resources,
->  };
->  
-> +static struct ax_plat_data ax88796_platdata = {
-> +	.flags          = AXFLG_HAS_93CX6,
-> +	.wordlength     = 2,
-> +	.dcr_val        = 0x1,
-> +	.rcr_val        = 0x40,
-> +};
-> +
-> +static struct resource ax88796_resources[] = {
-> +	{
-> +#ifdef CONFIG_SH_R7780RP
-> +		.start  = 0xa5800400,
-> +		.end    = 0xa5800400 + (0x20 * 0x2) - 1,
-> +#else
-> +		.start  = 0xa4100400,
-> +		.end    = 0xa4100400 + (0x20 * 0x2) - 1,
-> +#endif
-> +		.flags  = IORESOURCE_MEM,
-> +	},
-> +	{
-> +		.start  = IRQ_AX88796,
-> +		.end    = IRQ_AX88796,
-> +		.flags  = IORESOURCE_IRQ,
-> +	},
-> +};
-> +
-> +static struct platform_device ax88796_device = {
-> +	.name           = "ax88796",
-> +	.id             = 0,
-> +
-> +	.dev    = {
-> +		.platform_data = &ax88796_platdata,
-> +	},
-> +
-> +	.num_resources  = ARRAY_SIZE(ax88796_resources),
-> +	.resource       = ax88796_resources,
-> +};
-> +
-> +
->  static struct platform_device *r7780rp_devices[] __initdata = {
->  	&r8a66597_usb_host_device,
->  	&m66592_usb_peripheral_device,
->  	&cf_ide_device,
->  	&heartbeat_device,
-> +	&ax88796_device,
->  };
->  
->  static int __init r7780rp_devices_setup(void)
+This is a multi-part message in MIME format.
+--------------030805080609090800030402
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-These bits I'll merge separately once the other patches have been
-applied.
+Fix the oidentd oops reported by Athanasius <link@miggy.org> in
+http://bugzilla.kernel.org/show_bug.cgi?id=8961
 
-> --- 0001/drivers/net/Kconfig
-> +++ work/drivers/net/Kconfig	2007-09-06 15:35:41.000000000 +0900
-> @@ -218,13 +218,20 @@ source "drivers/net/arm/Kconfig"
->  
->  config AX88796
->  	tristate "ASIX AX88796 NE2000 clone support"
-> -	depends on ARM || MIPS
-> +	depends on ARM || MIPS || SUPERH
->  	select CRC32
->  	select MII
->  	help
->  	  AX88796 driver, using platform bus to provide
->  	  chip detection and resources
->  
-> +config AX88796_93CX6
-> +	bool "ASIX AX88796 external 93CX6 eeprom support"
-> +	depends on AX88796
-> +	select EEPROM_93CX6
-> +	help
-> +	  Select this if your platform comes with an external 93CX6 eeprom.
-> +
->  config MACE
->  	tristate "MACE (Power Mac ethernet) support"
->  	depends on PPC_PMAC && PPC32
+The oops is a 2.6.22 regression and triggerable by normal users.
+The patch applies cleanly to current -git and stable-2.6.22.
 
-There are two different changes here, these should probably be split up
-and applied independently of each other, given that there's no real
-dependency between them.
+
+--------------030805080609090800030402
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+[INET_DIAG]: Fix oops in netlink_rcv_skb
+
+netlink_run_queue() doesn't handle multiple processes processing the
+queue concurrently. Serialize queue processing in inet_diag to fix
+a oops in netlink_rcv_skb caused by netlink_run_queue passing a
+NULL for the skb.
+
+BUG: unable to handle kernel NULL pointer dereference at virtual address 00000054
+[349587.500454]  printing eip:
+[349587.500457] c03318ae
+[349587.500459] *pde = 00000000
+[349587.500464] Oops: 0000 [#1]
+[349587.500466] PREEMPT SMP
+[349587.500474] Modules linked in: w83627hf hwmon_vid i2c_isa
+[349587.500483] CPU:    0
+[349587.500485] EIP:    0060:[<c03318ae>]    Not tainted VLI
+[349587.500487] EFLAGS: 00010246   (2.6.22.3 #1)
+[349587.500499] EIP is at netlink_rcv_skb+0xa/0x7e
+[349587.500506] eax: 00000000   ebx: 00000000   ecx: c148d2a0   edx: c0398819
+[349587.500510] esi: 00000000   edi: c0398819   ebp: c7a21c8c   esp: c7a21c80
+[349587.500517] ds: 007b   es: 007b   fs: 00d8  gs: 0033  ss: 0068
+[349587.500521] Process oidentd (pid: 17943, ti=c7a20000 task=cee231c0 task.ti=c7a20000)
+[349587.500527] Stack: 00000000 c7a21cac f7c8ba78 c7a21ca4 c0331962 c0398819 f7c8ba00 0000004c
+[349587.500542]        f736f000 c7a21cb4 c03988e3 00000001 f7c8ba00 c7a21cc4 c03312a5 0000004c
+[349587.500558]        f7c8ba00 c7a21cd4 c0330681 f7c8ba00 e4695280 c7a21d00 c03307c6 7fffffff
+[349587.500578] Call Trace:
+[349587.500581]  [<c010361a>] show_trace_log_lvl+0x1c/0x33
+[349587.500591]  [<c01036d4>] show_stack_log_lvl+0x8d/0xaa
+[349587.500595]  [<c010390e>] show_registers+0x1cb/0x321
+[349587.500604]  [<c0103bff>] die+0x112/0x1e1
+[349587.500607]  [<c01132d2>] do_page_fault+0x229/0x565
+[349587.500618]  [<c03c8d3a>] error_code+0x72/0x78
+[349587.500625]  [<c0331962>] netlink_run_queue+0x40/0x76
+[349587.500632]  [<c03988e3>] inet_diag_rcv+0x1f/0x2c
+[349587.500639]  [<c03312a5>] netlink_data_ready+0x57/0x59
+[349587.500643]  [<c0330681>] netlink_sendskb+0x24/0x45
+[349587.500651]  [<c03307c6>] netlink_unicast+0x100/0x116
+[349587.500656]  [<c0330f83>] netlink_sendmsg+0x1c2/0x280
+[349587.500664]  [<c02fcce9>] sock_sendmsg+0xba/0xd5
+[349587.500671]  [<c02fe4d1>] sys_sendmsg+0x17b/0x1e8
+[349587.500676]  [<c02fe92d>] sys_socketcall+0x230/0x24d
+[349587.500684]  [<c01028d2>] syscall_call+0x7/0xb
+[349587.500691]  =======================
+[349587.500693] Code: f0 ff 4e 18 0f 94 c0 84 c0 0f 84 66 ff ff ff 89 f0 e8 86 e2 fc ff e9 5a ff ff ff f0 ff 40 10 eb be 55 89 e5 57 89 d7 56 89 c6 53 <8b> 50 54 83 fa 10 72 55 8b 9e 9c 00 00 00 31 c9 8b 03 83 f8 0f
+
+Reported by Athanasius <link@miggy.org>
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index dbeacd8..def007e 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -836,12 +836,16 @@ static int inet_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	return inet_diag_get_exact(skb, nlh);
+ }
+ 
++static DEFINE_MUTEX(inet_diag_mutex);
++
+ static void inet_diag_rcv(struct sock *sk, int len)
+ {
+ 	unsigned int qlen = 0;
+ 
+ 	do {
++		mutex_lock(&inet_diag_mutex);
+ 		netlink_run_queue(sk, &qlen, &inet_diag_rcv_msg);
++		mutex_unlock(&inet_diag_mutex);
+ 	} while (qlen);
+ }
+ 
+
+--------------030805080609090800030402--
