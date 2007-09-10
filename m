@@ -1,8 +1,7 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [PATCH 17/16] net: Disable netfilter sockopts when not in the
-	initial network namespace
-Date: Mon, 10 Sep 2007 09:27:54 -0600
-Message-ID: <m1hcm2r151.fsf@ebiederm.dsl.xmission.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 12/16] net: Support multiple network namespaces with netlink
+Date: Mon, 10 Sep 2007 09:24:23 -0600
+Message-ID: <m1lkber1aw.fsf@ebiederm.dsl.xmission.com>
 References: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com>
 	<m1myvwx3sf.fsf@ebiederm.dsl.xmission.com>
 	<m1ir6kx3mn.fsf_-_@ebiederm.dsl.xmission.com>
@@ -15,44 +14,41 @@ References: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com>
 	<m1k5r0voh4.fsf_-_@ebiederm.dsl.xmission.com>
 	<m1fy1ovoeo.fsf_-_@ebiederm.dsl.xmission.com>
 	<m1bqccvock.fsf_-_@ebiederm.dsl.xmission.com>
-	<m17in0vo0d.fsf_-_@ebiederm.dsl.xmission.com>
-	<m13axovnyf.fsf_-_@ebiederm.dsl.xmission.com>
-	<m1y7fgu9ax.fsf_-_@ebiederm.dsl.xmission.com>
-	<m1tzq4u92n.fsf_-_@ebiederm.dsl.xmission.com>
-	<m1ps0su8wv.fsf_-_@ebiederm.dsl.xmission.com>
-	<46E54B96.8060105@openvz.org>
+	<46E54AC8.7000609@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <46E54B96.8060105-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org> (Pavel Emelyanov's message of "Mon,
-	10 Sep 2007 17:50:14 +0400")
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>
+To: Pavel Emelyanov <xemul@openvz.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:53692 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757833AbXIJPYx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 11:24:53 -0400
+In-Reply-To: <46E54AC8.7000609@openvz.org> (Pavel Emelyanov's message of "Mon,
+	10 Sep 2007 17:46:48 +0400")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org> writes:
-
-> Eric W. Biederman wrote:
->> Until we support multiple network namespaces with netfilter only allow
->> netfilter configuration in the initial network namespace.
+Pavel Emelyanov <xemul@openvz.org> writes:
 >
-> PATCH 17/16? :)
+> Rrrrrr. This is the 5th or even the 6th patch that changes tens of files
+> but (!) most of these changes are just propagating some core thing into
+> protocols, drivers, etc. E.g. you add an argument to some function and
+> then make all the rest use it, but the chunk adding the argument itself
+> is buried in these changes.
+>
+> Why not make a reviewers' lifes easier and make (with hands) the core 
+> hunks go first and the "propagation" ones at the end? For RFC purpose 
+> I would even break the git-bisect safeness and splitted these patches 
+> into 2 parts: those with the core and those with the propagation.
 
-Exactly!
+Agreed, this is an issue for easy review. My apologies.
 
-If my target was the core of the networking stack I figured I better
-include the change that keeps netfilter commands isolated to the
-initial network namespace, and in my review of completeness I had
-missed that in my first pass through my patches.
+I guess it was a failure in my imagination on how to prepare these
+patches for review, in a way that was both reviewer and preparer friendly.
+
+There is at least one /proc idiom change that needs to be made so I
+will keep this in mind for the resend.
 
 Eric
