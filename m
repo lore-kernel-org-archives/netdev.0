@@ -1,51 +1,49 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [RFC PATH 0/2] Add RCU locking to SCTP address management
-Date: Mon, 10 Sep 2007 15:46:28 -0400
-Message-ID: <11894535901969-git-send-email-vladislav.yasevich@hp.com>
-Cc: lksctp-developers@lists.sourceforge.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:42190 "EHLO atlrel9.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756728AbXIJTqs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Sep 2007 15:46:48 -0400
-Sender: netdev-owner@vger.kernel.org
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Mon, 10 Sep 2007 13:54:34 -0700
+Message-ID: <20070910205434.GF11801@linux.vnet.ibm.com>
+References: <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in> <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au> <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au> <Pine.LNX.4.64.0708161743500.13267@kivilampi-30.cs.helsinki.fi> <46C4ABA5.9010804@redhat.com> <Pine.LNX.4.64.0708161319000.17777@schroedinger.engr.sgi.com> <c298f0e3f9e49c9dd2d326115d156084@kernel.crashing.org> <Pine.LNX.4.64.0709101157060.24491@schroedinger.engr.sgi.com>
+Reply-To: paulmck@linux.vnet.ibm.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Segher Boessenkool <segher@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>, heiko.carstens@de.ibm.com,
+	horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Satyam Sharma <satyam@infradead.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	ak@suse.de, cfriesen@nortel.com, rpjday@mindspring.com,
+	Netdev <netdev@vger.kernel.org>, jesper.juhl@gmail.com,
+	linux-arch@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
+	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Christoph Lameter <clameter@sgi.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761559AbXIJUyz@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0709101157060.24491@schroedinger.engr.sgi.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi All
+On Mon, Sep 10, 2007 at 11:59:29AM -0700, Christoph Lameter wrote:
+> On Fri, 17 Aug 2007, Segher Boessenkool wrote:
+> 
+> > "volatile" has nothing to do with reordering.  atomic_dec() writes
+> > to memory, so it _does_ have "volatile semantics", implicitly, as
+> > long as the compiler cannot optimise the atomic variable away
+> > completely -- any store counts as a side effect.
+> 
+> Stores can be reordered. Only x86 has (mostly) implicit write ordering. So 
+> no atomic_dec has no volatile semantics and may be reordered on a variety 
+> of processors. Writes to memory may not follow code order on several 
+> processors.
 
-This is my first attempt to add RCU synchronization to pieces of SCTP
-and I want to make sure I do this right.
+The one exception to this being the case where process-level code is
+communicating to an interrupt handler running on that same CPU -- on
+all CPUs that I am aware of, a given CPU always sees its own writes
+in order.
 
-The RCU docs a somewhat outdated, and the calling conventions differ
-between subsystems, so I am using what I've been able to find.
-
-A bit of a background...
-
-The whole problem started with a panic that led me to NULL deref while
-walking a global list of addresses that SCTP maitains.  That list
-is modified curing the NETDEV_UP and NETDEV_DOWN notifier processing
-and all readers are run in user context.  It looks like the list was
-modified while a user app was walking it and we crashed.
-
-Easy enough to fix by adding locking.  However, some notifiers
-(ipv6 addrconf) run in atomic context and it says that they can't sleep.
-(Q1.  Why are ipv6 notifiers atomic, while IPv4 notifires are blocking?)
-
-So, I decided to add RCU locking around that list.  These events are
-already synchronized, so no additional locking on the writer side are need,
-so should be make for a nice RCU conversion.
-
-While doing this conversion, I saw that the same structures are used to
-maintain a list of bound addresses.  This seemed like another opportunity
-to use RCU.  In this case, the readers are wide spread, but there are
-only 2 wirters: BH processing of specific chunks, and bind() calls.
-Again the writers are already synchronized on the socket lock, so they
-will keep out of each others way.  Readers are widespread, but rcu takes
-care of that nicely.
-
-So, can folks please take a look and make sure I didn't mess up the
-rcu conventions.
-
-Thanks a lot
--vlad
+							Thanx, Paul
