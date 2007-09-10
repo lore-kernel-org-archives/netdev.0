@@ -1,43 +1,56 @@
 From: Christoph Lameter <clameter@sgi.com>
 Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
  architectures
-Date: Mon, 10 Sep 2007 11:59:35 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0709101154310.24491@schroedinger.engr.sgi.com>
-References: <18115.52863.638655.658466@cargo.ozlabs.ibm.com>
- <6370BBDF-0C79-41EB-BD2A-02AA0D216924@mac.com> <200709101438.36710.vda.linux@googlemail.com>
- <200709101516.03234.vda.linux@googlemail.com>
- <alpine.LFD.0.999.0709100807260.16478@woody.linux-foundation.org>
+Date: Mon, 10 Sep 2007 11:59:29 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0709101157060.24491@schroedinger.engr.sgi.com>
+References: <20070816003948.GY9645@linux.vnet.ibm.com>
+ <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com>
+ <18115.44462.622801.683446@cargo.ozlabs.ibm.com> <20070816020042.GA30650@gondor.apana.org.au>
+ <18115.45316.702491.681906@cargo.ozlabs.ibm.com>
+ <alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in>
+ <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in>
+ <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au>
+ <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au>
+ <Pine.LNX.4.64.0708161743500.13267@kivilampi-30.cs.helsinki.fi>
+ <46C4ABA5.9010804@redhat.com> <Pine.LNX.4.64.0708161319000.17777@schroedinger.engr.sgi.com>
+ <c298f0e3f9e49c9dd2d326115d156084@kernel.crashing.org>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Denys Vlasenko <vda.linux@googlemail.com>,
-	Kyle Moffett <mrmacman_g4@mac.com>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Nick Piggin <piggin@cyberone.com.au>,
+Cc: Paul Mackerras <paulus@samba.org>, heiko.carstens@de.ibm.com,
+	horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	Satyam Sharma <satyam@infradead.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Paul Mackerras <paulus@samba.org>,
-	Chris Snook <csnook@redhat.com>,
-	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>, ak@suse.de,
-	heiko.carstens@de.ibm.com, David Miller <davem@davemloft.net>,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760027AbXIJTAU@vger.kernel.org>
-In-Reply-To: <alpine.LFD.0.999.0709100807260.16478@woody.linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
+	David Miller <davem@davemloft.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
+	ak@suse.de, cfriesen@nortel.com, rpjday@mindspring.com,
+	Netdev <netdev@vger.kernel.org>, jesper.juhl@gmail.com,
+	linux-arch@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
+	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	wensong@linux-vs.org, wjiang@resilience.com
+To: Segher Boessenkool <segher@kernel.crashing.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from netops-testserver-3-out.sgi.com ([192.48.171.28]:43833 "EHLO
+	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751651AbXIJS7d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 14:59:33 -0400
+In-Reply-To: <c298f0e3f9e49c9dd2d326115d156084@kernel.crashing.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Sep 2007, Linus Torvalds wrote:
+On Fri, 17 Aug 2007, Segher Boessenkool wrote:
 
-> The fact is, "volatile" *only* makes things worse. It generates worse 
-> code, and never fixes any real bugs. This is a *fact*.
+> "volatile" has nothing to do with reordering.  atomic_dec() writes
+> to memory, so it _does_ have "volatile semantics", implicitly, as
+> long as the compiler cannot optimise the atomic variable away
+> completely -- any store counts as a side effect.
 
-Yes, lets just drop the volatiles now! We need a patch that gets rid of 
-them.... Volunteers?
+Stores can be reordered. Only x86 has (mostly) implicit write ordering. So 
+no atomic_dec has no volatile semantics and may be reordered on a variety 
+of processors. Writes to memory may not follow code order on several 
+processors.
+
+
