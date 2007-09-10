@@ -1,44 +1,76 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: Re: 2.6.23-rc4-mm1: e1000e napi lockup
-Date: Mon, 10 Sep 2007 08:24:05 +0200
-Message-ID: <46E4E305.6010406@gmail.com>
-References: <46E0FB82.2040000@gmail.com> <46E3C3B9.4010500@gmail.com> <46E478BE.2030202@intel.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 03/16] net: Basic network namespace infrastructure.
+Date: Mon, 10 Sep 2007 00:32:43 -0600
+Message-ID: <m1ejh7rpx0.fsf@ebiederm.dsl.xmission.com>
+References: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com>
+	<m1myvwx3sf.fsf@ebiederm.dsl.xmission.com>
+	<m1ir6kx3mn.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1ejh8x3ih.fsf_-_@ebiederm.dsl.xmission.com>
+	<20070909003308.GA10417@linux.vnet.ibm.com>
+	<m1fy1otarm.fsf@ebiederm.dsl.xmission.com>
+	<20070909164547.GD10417@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net,
-	"David S. Miller" <davem@davemloft.net>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:40994 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753159AbXIJGYJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 02:24:09 -0400
-Received: by nf-out-0910.google.com with SMTP id f5so725683nfh
-        for <netdev@vger.kernel.org>; Sun, 09 Sep 2007 23:24:08 -0700 (PDT)
-In-Reply-To: <46E478BE.2030202@intel.com>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:57706 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753674AbXIJGdO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 02:33:14 -0400
+In-Reply-To: <20070909164547.GD10417@linux.vnet.ibm.com> (Paul E. McKenney's
+	message of "Sun, 9 Sep 2007 09:45:47 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke napsal(a):
-> Jiri Slaby wrote:
->> I still have problems with the driver. When I do `ip link set eth0
->> up', ksoftirq
->> runs with 100 % cpu time, so I think you endlessly re-schedule some
->> timer (or
->> the new napi layer?)
-> 
-> something changed in the logic and e1000e apparently does something
-> wrong. I'll look into it on monday and resubmit a fixup patch (see
-> robert olsson's mail as well discussing this issue)
+"Paul E. McKenney" <paulmck@linux.vnet.ibm.com> writes:
 
-he's posted me a patch, but no change on my side :(.
+>> I know I cannot use get_net for the reference in in /proc because
+>> otherwise I could not release the network namespace unless I was to
+>> unmount the filesystem, which is not a desirable property.
+>> 
+>> I think I can change the idiom to:
+>> 
+>> struct net *maybe_get_net(struct net *net)
+>> {
+>>         if (!atomic_inc_not_zero(&net->count))
+>>         	net = NULL;
+>> 	return net;               
+>> }
+>> 
+>> Which would make dev_seq_open be:
+>> 
+>> static int dev_seq_open(struct inode *inode, struct file *file)
+>> {
+>> 	struct seq_file *seq;
+>> 	int res;
+>> 	res =  seq_open(file, &dev_seq_ops);
+>> 	if (!res) {
+>> 		seq = file->private_data;
+>> 		seq->private = maybe_get_net(PROC_NET(inode));
+>> 		if (!seq->private) {
+>> 			res = -ENOENT;
+>>                         seq_release(inode, file);
+>> 		}
+>> 	}
+>> 	return res;
+>> }
+>> 
+>> I'm still asking myself if I need any kind of locking to ensure
+>> struct net does not go away in the mean time, if so rcu_read_lock()
+>> should be sufficient.
+>
+> Agreed -- and it might be possible to leverage the existing locking
+> in the /proc code.
 
-Anyway, I'm going away of the box on monday (today). will be back on fri to
-test patches :).
+Yes.  The generic /proc code takes care of this.  It appears
+to ensure that any ongoing operations will be waited for and
+no more operations will be started once remove_proc_entry
+is called.  So I just need the maybe_get_net thing to have
+safe ref counting.
 
-thanks,
--- 
-http://www.fi.muni.cz/~xslaby/            Jiri Slaby
-faculty of informatics, masaryk university, brno, cz
+That is what I thought but I figured I would review that part while
+I was looking at everything.
+
+Eric
