@@ -1,10 +1,9 @@
 From: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 12/16] net: Support multiple network namespaces with
-	netlink
-Date: Mon, 10 Sep 2007 17:46:48 +0400
-Message-ID: <46E54AC8.7000609@openvz.org>
-References: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com>	<m1myvwx3sf.fsf@ebiederm.dsl.xmission.com>	<m1ir6kx3mn.fsf_-_@ebiederm.dsl.xmission.com>	<m1ejh8x3ih.fsf_-_@ebiederm.dsl.xmission.com>	<m1abrwx3g0.fsf_-_@ebiederm.dsl.xmission.com>	<m1642kx3e3.fsf_-_@ebiederm.dsl.xmission.com>	<m11wd8x3a3.fsf_-_@ebiederm.dsl.xmission.com>	<m1sl5ovolm.fsf_-_@ebiederm.dsl.xmission.com>	<m1odgcvoje.fsf_-_@ebiederm.dsl.xmission.com>	<m1k5r0voh4.fsf_-_@ebiederm.dsl.xmission.com>	<m1fy1ovoeo.fsf_-_@ebiederm.dsl.xmission.com>
-	<m1bqccvock.fsf_-_@ebiederm.dsl.xmission.com>
+Subject: Re: [PATCH 03/16] net: Basic network namespace infrastructure.
+Date: Mon, 10 Sep 2007 17:16:16 +0400
+Message-ID: <46E543A0.7010104@openvz.org>
+References: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com>	<m1myvwx3sf.fsf@ebiederm.dsl.xmission.com>	<m1ir6kx3mn.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1ejh8x3ih.fsf_-_@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -12,7 +11,7 @@ Cc: Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>, netde
         David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <m1bqccvock.fsf_-_-T1Yj925okcoyDheHMi7gv2pdwda3JcWeAL8bYrjMMd8@public.gmane.org>
+In-Reply-To: <m1ejh8x3ih.fsf_-_-T1Yj925okcoyDheHMi7gv2pdwda3JcWeAL8bYrjMMd8@public.gmane.org>
 List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
 	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
@@ -25,58 +24,228 @@ Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public
 List-Id: netdev.vger.kernel.org
 
 Eric W. Biederman wrote:
-> Each netlink socket will live in exactly one network namespace,
-> this includes the controlling kernel sockets.
-> 
-> This patch updates all of the existing netlink protocols
-> to only support the initial network namespace.  Request
-> by clients in other namespaces will get -ECONREFUSED.
-> As they would if the kernel did not have the support for
-> that netlink protocol compiled in.
-> 
-> As each netlink protocol is updated to be multiple network
-> namespace safe it can register multiple kernel sockets
-> to acquire a presence in the rest of the network namespaces.
-> 
-> The implementation in af_netlink is a simple filter implementation
-> at hash table insertion and hash table look up time.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-> ---
->  drivers/connector/connector.c       |    2 +-
->  drivers/scsi/scsi_netlink.c         |    2 +-
->  drivers/scsi/scsi_transport_iscsi.c |    2 +-
->  fs/ecryptfs/netlink.c               |    2 +-
->  include/linux/netlink.h             |    6 ++-
->  kernel/audit.c                      |    4 +-
->  lib/kobject_uevent.c                |    5 +-
->  net/bridge/netfilter/ebt_ulog.c     |    5 +-
->  net/core/rtnetlink.c                |    4 +-
->  net/decnet/netfilter/dn_rtmsg.c     |    3 +-
->  net/ipv4/fib_frontend.c             |    4 +-
->  net/ipv4/inet_diag.c                |    4 +-
->  net/ipv4/netfilter/ip_queue.c       |    6 +-
->  net/ipv4/netfilter/ipt_ULOG.c       |    3 +-
->  net/ipv6/netfilter/ip6_queue.c      |    6 +-
->  net/netfilter/nfnetlink.c           |    2 +-
->  net/netfilter/nfnetlink_log.c       |    3 +-
->  net/netfilter/nfnetlink_queue.c     |    3 +-
->  net/netlink/af_netlink.c            |  106 ++++++++++++++++++++++++++---------
->  net/netlink/genetlink.c             |    4 +-
->  net/xfrm/xfrm_user.c                |    2 +-
->  security/selinux/netlink.c          |    5 +-
->  22 files changed, 122 insertions(+), 61 deletions(-)
 
-Rrrrrr. This is the 5th or even the 6th patch that changes tens of files
-but (!) most of these changes are just propagating some core thing into
-protocols, drivers, etc. E.g. you add an argument to some function and
-then make all the rest use it, but the chunk adding the argument itself
-is buried in these changes.
+[snip]
 
-Why not make a reviewers' lifes easier and make (with hands) the core 
-hunks go first and the "propagation" ones at the end? For RFC purpose 
-I would even break the git-bisect safeness and splitted these patches 
-into 2 parts: those with the core and those with the propagation.
+> --- /dev/null
+> +++ b/include/net/net_namespace.h
+> @@ -0,0 +1,68 @@
+> +/*
+> + * Operations on the network namespace
+> + */
+> +#ifndef __NET_NET_NAMESPACE_H
+> +#define __NET_NET_NAMESPACE_H
+> +
+> +#include <asm/atomic.h>
+> +#include <linux/workqueue.h>
+> +#include <linux/list.h>
+> +
+> +struct net {
+
+Isn't this name is too generic? Why not net_namespace?
+
+> +	atomic_t		count;		/* To decided when the network
+> +						 *  namespace should be freed.
+> +						 */
+> +	atomic_t		use_count;	/* To track references we
+> +						 * destroy on demand
+> +						 */
+> +	struct list_head	list;		/* list of network namespaces */
+> +	struct work_struct	work;		/* work struct for freeing */
+> +};
+
+[snip]
+
+> --- /dev/null
+> +++ b/net/core/net_namespace.c
+
+[snip]
+
+> +static int setup_net(struct net *net)
+> +{
+> +	/* Must be called with net_mutex held */
+> +	struct pernet_operations *ops;
+> +	struct list_head *ptr;
+> +	int error;
+> +
+> +	memset(net, 0, sizeof(struct net));
+> +	atomic_set(&net->count, 1);
+> +	atomic_set(&net->use_count, 0);
+> +
+> +	error = 0;
+> +	list_for_each(ptr, &pernet_list) {
+> +		ops = list_entry(ptr, struct pernet_operations, list);
+> +		if (ops->init) {
+> +			error = ops->init(net);
+> +			if (error < 0)
+> +				goto out_undo;
+> +		}
+> +	}
+> +out:
+> +	return error;
+> +out_undo:
+> +	/* Walk through the list backwards calling the exit functions
+> +	 * for the pernet modules whose init functions did not fail.
+> +	 */
+> +	for (ptr = ptr->prev; ptr != &pernet_list; ptr = ptr->prev) {
+
+Good reason for adding list_for_each_continue_reverse :)
+
+> +		ops = list_entry(ptr, struct pernet_operations, list);
+> +		if (ops->exit)
+> +			ops->exit(net);
+> +	}
+> +	goto out;
+> +}
+> +
+> +static int __init net_ns_init(void)
+> +{
+> +	int err;
+> +
+> +	printk(KERN_INFO "net_namespace: %zd bytes\n", sizeof(struct net));
+> +	net_cachep = kmem_cache_create("net_namespace", sizeof(struct net),
+> +					SMP_CACHE_BYTES,
+> +					SLAB_PANIC, NULL);
+> +	mutex_lock(&net_mutex);
+> +	err = setup_net(&init_net);
+> +
+> +	net_lock();
+> +	list_add_tail(&init_net.list, &net_namespace_list);
+> +	net_unlock();
+> +
+> +	mutex_unlock(&net_mutex);
+> +	if (err)
+> +		panic("Could not setup the initial network namespace");
+> +
+> +	return 0;
+> +}
+> +
+> +pure_initcall(net_ns_init);
+> +
+> +static int register_pernet_operations(struct list_head *list,
+> +				      struct pernet_operations *ops)
+> +{
+> +	struct net *net, *undo_net;
+> +	int error;
+> +
+> +	error = 0;
+> +	list_add_tail(&ops->list, list);
+> +	for_each_net(net) {
+> +		if (ops->init) {
+
+Maybe it's better to do it vice-versa?
+if (ops->init)
+   for_each_net(net)
+       ops->init(net);
+...
+
+> +			error = ops->init(net);
+> +			if (error)
+> +				goto out_undo;
+> +		}
+> +	}
+> +out:
+> +	return error;
+> +
+> +out_undo:
+> +	/* If I have an error cleanup all namespaces I initialized */
+> +	list_del(&ops->list);
+> +	for_each_net(undo_net) {
+> +		if (undo_net == net)
+> +			goto undone;
+> +		if (ops->exit)
+> +			ops->exit(undo_net);
+> +	}
+> +undone:
+> +	goto out;
+> +}
+> +
+> +static void unregister_pernet_operations(struct pernet_operations *ops)
+> +{
+> +	struct net *net;
+> +
+> +	list_del(&ops->list);
+> +	for_each_net(net)
+> +		if (ops->exit)
+
+The same here.
+
+> +			ops->exit(net);
+> +}
+> +
+> +/**
+> + *      register_pernet_subsys - register a network namespace subsystem
+> + *	@ops:  pernet operations structure for the subsystem
+> + *
+> + *	Register a subsystem which has init and exit functions
+> + *	that are called when network namespaces are created and
+> + *	destroyed respectively.
+> + *
+> + *	When registered all network namespace init functions are
+> + *	called for every existing network namespace.  Allowing kernel
+> + *	modules to have a race free view of the set of network namespaces.
+> + *
+> + *	When a new network namespace is created all of the init
+> + *	methods are called in the order in which they were registered.
+> + *
+> + *	When a network namespace is destroyed all of the exit methods
+> + *	are called in the reverse of the order with which they were
+> + *	registered.
+> + */
+> +int register_pernet_subsys(struct pernet_operations *ops)
+> +{
+> +	int error;
+> +	mutex_lock(&net_mutex);
+> +	error =  register_pernet_operations(first_device, ops);
+> +	mutex_unlock(&net_mutex);
+> +	return error;
+> +}
+> +EXPORT_SYMBOL_GPL(register_pernet_subsys);
+> +
+> +/**
+> + *      unregister_pernet_subsys - unregister a network namespace subsystem
+> + *	@ops: pernet operations structure to manipulate
+> + *
+> + *	Remove the pernet operations structure from the list to be
+> + *	used when network namespaces are created or destoryed.  In
+> + *	addition run the exit method for all existing network
+> + *	namespaces.
+> + */
+> +void unregister_pernet_subsys(struct pernet_operations *module)
+> +{
+> +	mutex_lock(&net_mutex);
+> +	unregister_pernet_operations(module);
+> +	mutex_unlock(&net_mutex);
+> +}
+> +EXPORT_SYMBOL_GPL(unregister_pernet_subsys);
+> +
+> +/**
+> + *      register_pernet_device - register a network namespace device
+> + *	@ops:  pernet operations structure for the subsystem
+> + *
+> + *	Register a device which has init and exit functions
+> + *	that are called when network namespaces are created and
+> + *	destroyed respectively.
+> + *
+> + *	When registered all network namespace init functions are
+> + *	called for every existing network namespace.  Allowing kernel
+> + *	modules to have a race free view of the set of network namespaces.
+> + *
+> + *	When a new network namespace is created all of the init
+> + *	methods are called in the order in which they were registered.
+> + *
+> + *	When a network namespace is destroyed all of the exit methods
+> + *	are called in the reverse of the order with which they were
+> + *	registered.
+> + */
+> +int register_pernet_device(struct pernet_operations *ops)
+> +{
+> +	int error;
+> +	mutex_lock(&net_mutex);
+> +	error = register_pernet_operations(&pernet_list, ops);
+> +	if (!error && (first_device == &pernet_list))
+
+Very minor: why do you give the name "device" to some pernet_operations?
 
 Thanks,
 Pavel
