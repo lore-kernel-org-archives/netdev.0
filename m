@@ -1,56 +1,83 @@
-From: Christoph Lameter <clameter@sgi.com>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Mon, 10 Sep 2007 11:59:29 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0709101157060.24491@schroedinger.engr.sgi.com>
-References: <20070816003948.GY9645@linux.vnet.ibm.com>
- <Pine.LNX.4.64.0708151740570.10497@schroedinger.engr.sgi.com>
- <18115.44462.622801.683446@cargo.ozlabs.ibm.com> <20070816020042.GA30650@gondor.apana.org.au>
- <18115.45316.702491.681906@cargo.ozlabs.ibm.com>
- <alpine.LFD.0.999.0708160800130.24380@enigma.security.iitk.ac.in>
- <alpine.LFD.0.999.0708160815510.24380@enigma.security.iitk.ac.in>
- <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <20070816053945.GB32442@gondor.apana.org.au>
- <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au>
- <Pine.LNX.4.64.0708161743500.13267@kivilampi-30.cs.helsinki.fi>
- <46C4ABA5.9010804@redhat.com> <Pine.LNX.4.64.0708161319000.17777@schroedinger.engr.sgi.com>
- <c298f0e3f9e49c9dd2d326115d156084@kernel.crashing.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 16/16] net: netlink support for moving devices between network namespaces.
+Date: Mon, 10 Sep 2007 13:30:46 -0600
+Message-ID: <m1fy1me2s9.fsf@ebiederm.dsl.xmission.com>
+References: <m11wd8x3a3.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1sl5ovolm.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1odgcvoje.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1k5r0voh4.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1fy1ovoeo.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1bqccvock.fsf_-_@ebiederm.dsl.xmission.com>
+	<m17in0vo0d.fsf_-_@ebiederm.dsl.xmission.com>
+	<m13axovnyf.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1y7fgu9ax.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1tzq4u92n.fsf_-_@ebiederm.dsl.xmission.com>
+	<20070910190708.GA6872@sergelap.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Paul Mackerras <paulus@samba.org>, heiko.carstens@de.ibm.com,
-	horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Satyam Sharma <satyam@infradead.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	=?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	ak@suse.de, cfriesen@nortel.com, rpjday@mindspring.com,
-	Netdev <netdev@vger.kernel.org>, jesper.juhl@gmail.com,
-	linux-arch@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
-	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	wensong@linux-vs.org, wjiang@resilience.com
-To: Segher Boessenkool <segher@kernel.crashing.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org
+To: "Serge E. Hallyn" <serue@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netops-testserver-3-out.sgi.com ([192.48.171.28]:43833 "EHLO
-	relay.sgi.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751651AbXIJS7d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 14:59:33 -0400
-In-Reply-To: <c298f0e3f9e49c9dd2d326115d156084@kernel.crashing.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:56544 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932811AbXIJTgz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 15:36:55 -0400
+In-Reply-To: <20070910190708.GA6872@sergelap.austin.ibm.com> (Serge
+	E. Hallyn's message of "Mon, 10 Sep 2007 14:07:08 -0500")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 17 Aug 2007, Segher Boessenkool wrote:
+"Serge E. Hallyn" <serue@us.ibm.com> writes:
+>> 
+>> +static struct net *get_net_ns_by_pid(pid_t pid)
+>> +{
+>> +	struct task_struct *tsk;
+>> +	struct net *net;
+>> +
+>> +	/* Lookup the network namespace */
+>> +	net = ERR_PTR(-ESRCH);
+>> +	rcu_read_lock();
+>> +	tsk = find_task_by_pid(pid);
+>> +	if (tsk) {
+>> +		task_lock(tsk);
+>> +		if (tsk->nsproxy)
+>> +			net = get_net(tsk->nsproxy->net_ns);
+>> +		task_unlock(tsk);
+>
+> Thinking...  Ok, I'm not sure this is 100% safe in the target tree, but
+> the long-term correct way probably isn't yet implemented in the net-
+> tree.  Eventually you will want to:
+>
+> 	net_ns = NULL;
+> 	rcu_read_lock();
+> 	tsk = find_task_by_pid();  /* or _pidns equiv? */
+> 	nsproxy = task_nsproxy(tsk);
+> 	if (nsproxy)
+> 		net_ns = get_net(nsproxy->net_ns);
+> 	rcu_read_unlock;
+>
+> What you have here is probably unsafe if tsk is the last task pointing
+> to it's nsproxy and it does an unshare, bc unshare isn't protected by
+> task_lock, and you're not rcu_dereferencing tsk->nsproxy (which
+> task_nsproxy does).  At one point we floated a patch to reuse the same
+> nsproxy in that case which would prevent you having to worry about it,
+> but that isn't being done in -mm now so i doubt it's in -net.
 
-> "volatile" has nothing to do with reordering.  atomic_dec() writes
-> to memory, so it _does_ have "volatile semantics", implicitly, as
-> long as the compiler cannot optimise the atomic variable away
-> completely -- any store counts as a side effect.
 
-Stores can be reordered. Only x86 has (mostly) implicit write ordering. So 
-no atomic_dec has no volatile semantics and may be reordered on a variety 
-of processors. Writes to memory may not follow code order on several 
-processors.
+That change isn't merged upstream yet, so it isn't in David's
+net-2.6.24 tree.  Currently task->nsproxy is protected but
+task_lock(current). So the code is fine.
 
+I am aware that removing the task_lock(current) for the setting
+of current->nsproxy is currently in the works, and I have planned
+to revisit this later when all of these pieces come together.
 
+For now the code is fine.
+
+If need be we can drop this patch to remove the potential merge
+conflict.  But I figured it was useful for this part of the user space
+interface to be available for review.
+
+Eric
