@@ -1,78 +1,113 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [PATCH 03/16] net: Basic network namespace infrastructure.
-Date: Mon, 10 Sep 2007 00:40:15 -0600
-Message-ID: <m1abrvrpkg.fsf@ebiederm.dsl.xmission.com>
-References: <OF55551EA4.A3E6920C-ON65257352.001D6A3E-65257352.001FBEA7@in.ibm.com>
+From: Paul Mundt <lethal@linux-sh.org>
+Subject: Re: sh: add support for ax88796 and 93cx6 to highlander boards
+Date: Mon, 10 Sep 2007 16:15:28 +0900
+Message-ID: <20070910071528.GB13672@linux-sh.org>
+References: <20070910063626.2300.75144.sendpatchset@clockwork.opensource.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Krishna Kumar2 <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <OF55551EA4.A3E6920C-ON65257352.001D6A3E-65257352.001FBEA7-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org>
-	(Krishna Kumar's message of "Mon, 10 Sep 2007 11:16:44 +0530")
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, ben-linux@fluff.org
+To: Magnus Damm <magnus.damm@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.ocgnet.org ([64.20.243.3]:34590 "EHLO smtp.ocgnet.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754561AbXIJHPi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Sep 2007 03:15:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20070910063626.2300.75144.sendpatchset@clockwork.opensource.se>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Krishna Kumar2 <krkumar2-xthvdsQ13ZrQT0dZR+AlfA@public.gmane.org> writes:
+On Mon, Sep 10, 2007 at 03:36:26PM +0900, Magnus Damm wrote:
+> --- 0004/arch/sh/boards/renesas/r7780rp/setup.c
+> +++ work/arch/sh/boards/renesas/r7780rp/setup.c	2007-09-06 15:35:49.000000000 +0900
+> @@ -21,6 +21,7 @@
+>  #include <asm/clock.h>
+>  #include <asm/heartbeat.h>
+>  #include <asm/io.h>
+> +#include <net/ax88796.h>
+>  
+>  static struct resource r8a66597_usb_host_resources[] = {
+>  	[0] = {
+> @@ -136,11 +137,50 @@ static struct platform_device heartbeat_
+>  	.resource	= heartbeat_resources,
+>  };
+>  
+> +static struct ax_plat_data ax88796_platdata = {
+> +	.flags          = AXFLG_HAS_93CX6,
+> +	.wordlength     = 2,
+> +	.dcr_val        = 0x1,
+> +	.rcr_val        = 0x40,
+> +};
+> +
+> +static struct resource ax88796_resources[] = {
+> +	{
+> +#ifdef CONFIG_SH_R7780RP
+> +		.start  = 0xa5800400,
+> +		.end    = 0xa5800400 + (0x20 * 0x2) - 1,
+> +#else
+> +		.start  = 0xa4100400,
+> +		.end    = 0xa4100400 + (0x20 * 0x2) - 1,
+> +#endif
+> +		.flags  = IORESOURCE_MEM,
+> +	},
+> +	{
+> +		.start  = IRQ_AX88796,
+> +		.end    = IRQ_AX88796,
+> +		.flags  = IORESOURCE_IRQ,
+> +	},
+> +};
+> +
+> +static struct platform_device ax88796_device = {
+> +	.name           = "ax88796",
+> +	.id             = 0,
+> +
+> +	.dev    = {
+> +		.platform_data = &ax88796_platdata,
+> +	},
+> +
+> +	.num_resources  = ARRAY_SIZE(ax88796_resources),
+> +	.resource       = ax88796_resources,
+> +};
+> +
+> +
+>  static struct platform_device *r7780rp_devices[] __initdata = {
+>  	&r8a66597_usb_host_device,
+>  	&m66592_usb_peripheral_device,
+>  	&cf_ide_device,
+>  	&heartbeat_device,
+> +	&ax88796_device,
+>  };
+>  
+>  static int __init r7780rp_devices_setup(void)
 
-> Eric W. Biederman wrote on 09/09/2007 02:45:34 AM:
->
-> Hi Eric,
->
->> +static int register_pernet_operations(struct list_head *list,
->> +                  struct pernet_operations *ops)
->> +{
->> <snip>
->> +out:
->> +   return error;
->> +
->> +out_undo:
->> +   /* If I have an error cleanup all namespaces I initialized */
->> +   list_del(&ops->list);
->> +   for_each_net(undo_net) {
->> +      if (undo_net == net)
->> +         goto undone;
->> +      if (ops->exit)
->> +         ops->exit(undo_net);
->> +   }
->> +undone:
->> +   goto out;
->> +}
->
-> You could remove "undone" label (and associated) goto with a "break".
+These bits I'll merge separately once the other patches have been
+applied.
 
-I could but there is there is no guarantee that the for_each_net macro is
-implemented with standard C looping construct such that break will work,
-and in one of the earlier versions that wasn't the case.  So my paranoia
-says an explicit label safer and just as clear.
+> --- 0001/drivers/net/Kconfig
+> +++ work/drivers/net/Kconfig	2007-09-06 15:35:41.000000000 +0900
+> @@ -218,13 +218,20 @@ source "drivers/net/arm/Kconfig"
+>  
+>  config AX88796
+>  	tristate "ASIX AX88796 NE2000 clone support"
+> -	depends on ARM || MIPS
+> +	depends on ARM || MIPS || SUPERH
+>  	select CRC32
+>  	select MII
+>  	help
+>  	  AX88796 driver, using platform bus to provide
+>  	  chip detection and resources
+>  
+> +config AX88796_93CX6
+> +	bool "ASIX AX88796 external 93CX6 eeprom support"
+> +	depends on AX88796
+> +	select EEPROM_93CX6
+> +	help
+> +	  Select this if your platform comes with an external 93CX6 eeprom.
+> +
+>  config MACE
+>  	tristate "MACE (Power Mac ethernet) support"
+>  	depends on PPC_PMAC && PPC32
 
->> +static void unregister_pernet_operations(struct pernet_operations *ops)
->> +{
->> +   struct net *net;
->> +
->> +   list_del(&ops->list);
->> +   for_each_net(net)
->> +      if (ops->exit)
->> +         ops->exit(net);
->> +}
->
-> Don't you require something like for_each_net_backwards to 'exit' in
-> reverse order? Same comment for unregister_subnet_subsys(). Should this
-> be done for failure in register_pernet_operations too?
-
-There are no ordering guarantees between the initialization and
-cleanup of different network namespaces.   The only real guarantee
-is that the initial network namespace is always present.  Which
-means any order will work so always doing it in a forwards order
-in the list should be fine.
-
-Eric
+There are two different changes here, these should probably be split up
+and applied independently of each other, given that there's no real
+dependency between them.
