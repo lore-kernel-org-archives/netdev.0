@@ -1,56 +1,52 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
-Date: Mon, 10 Sep 2007 14:50:41 -0700
-Message-ID: <20070910215041.GJ11801@linux.vnet.ibm.com>
-References: <20070816053945.GB32442@gondor.apana.org.au> <18115.62741.807704.969977@cargo.ozlabs.ibm.com> <20070816070907.GA964@gondor.apana.org.au> <Pine.LNX.4.64.0708161743500.13267@kivilampi-30.cs.helsinki.fi> <46C4ABA5.9010804@redhat.com> <Pine.LNX.4.64.0708161319000.17777@schroedinger.engr.sgi.com> <c298f0e3f9e49c9dd2d326115d156084@kernel.crashing.org> <Pine.LNX.4.64.0709101157060.24491@schroedinger.engr.sgi.com> <20070910205434.GF11801@linux.vnet.ibm.com> <Pine.LNX.4.64.0709101433090.26043@schroedinger.engr.sgi.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: why does tcp_v[46]_conn_request not inc MIB stats
+Date: Mon, 10 Sep 2007 14:54:43 -0700
+Message-ID: <1189461284.11066.10.camel@w-sridhar2.beaverton.ibm.com>
+References: <46E5900A.3010009@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Segher Boessenkool <segher@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>, heiko.carstens@de.ibm.com,
-	horms@verge.net.au, Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Satyam Sharma <satyam@infradead.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>,
-	ak@suse.de, cfriesen@nortel.com, rpjday@mindspring.com,
-	Netdev <netdev@vger.kernel.org>, jesper.juhl@gmail.com,
-	linux-arch@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>, zlynx@acm.org,
-	schwidefsky@de.ibm.com, Chris Snook <csnook@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	wensong@linux-vs.org, wjiang@resilience.com
-To: Christoph Lameter <clameter@sgi.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linux Network Development list <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:48347 "EHLO e4.ny.us.ibm.com"
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:35333 "EHLO e4.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757425AbXIJVup (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Sep 2007 17:50:45 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0709101433090.26043@schroedinger.engr.sgi.com>
+	id S1755219AbXIJV6V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Sep 2007 17:58:21 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8ALwKjR011712
+	for <netdev@vger.kernel.org>; Mon, 10 Sep 2007 17:58:20 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8ALwK75667878
+	for <netdev@vger.kernel.org>; Mon, 10 Sep 2007 17:58:20 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8ALwJDC031452
+	for <netdev@vger.kernel.org>; Mon, 10 Sep 2007 17:58:19 -0400
+In-Reply-To: <46E5900A.3010009@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 10, 2007 at 02:36:26PM -0700, Christoph Lameter wrote:
-> On Mon, 10 Sep 2007, Paul E. McKenney wrote:
-> 
-> > The one exception to this being the case where process-level code is
-> > communicating to an interrupt handler running on that same CPU -- on
-> > all CPUs that I am aware of, a given CPU always sees its own writes
-> > in order.
-> 
-> Yes but that is due to the code path effectively continuing in the 
-> interrupt handler. The cpu makes sure that op codes being executed always 
-> see memory in a consistent way. The basic ordering problem with out of 
-> order writes is therefore coming from other processors concurrently 
-> executing code and holding variables in registers that are modified 
-> elsewhere. The only solution that I know of are one or the other form of 
-> barrier.
+On Mon, 2007-09-10 at 11:42 -0700, Rick Jones wrote:
+> I've been digging around to see about inducing /proc/net/tcp to show 
+> some "interesting" things for listen sockets (eg backlog depth, its max, 
+> and dropped connection requests).
 
-So we are agreed then -- volatile accesses may be of some assistance when
-interacting with interrupt handlers running on the same CPU (presumably
-when using per-CPU variables), but are generally useless when sharing
-variables among CPUs.  Correct?
+backlog depth(acceptq length) for a listening socket should be available
+with the newer kernels. The following patch exports this value via the rx_queue
+field in /proc/net/tcp.
+ http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=47da8ee681d04e68ca1b1812c10e28162150d453
 
-							Thanx, Paul
+>   While there I've noticed that both 
+> tcp_v[46]_syn_recv_sock and tcp_v[46]conn_request both check that the 
+> listen queue is full, but only tcp_v[46]_syn_recv_sock increments some 
+> mib stats for dropped connection requests.
+> 
+> Is that deliberate, or is that a hole in the stats?
+
+looks like it is a hole in the stats. I think we should increment
+LISTENOVERFLOWS or LISTENDROPS in tcp_v[46]_conn_request too if the
+SYN is dropped.
+
+Thanks
+Sridhar
+
