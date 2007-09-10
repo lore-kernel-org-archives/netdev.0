@@ -1,164 +1,143 @@
-From: Pierre-Yves Ritschard <pyritschard@echo.fr>
-Subject: sky2.c: length mismatch errors with vlan frames
-Date: Mon, 10 Sep 2007 16:35:38 +0200
-Message-ID: <20070910163538.3b23e842@gamma.echo-net.net>
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all architectures
+Date: Mon, 10 Sep 2007 15:16:02 +0100
+Message-ID: <200709101516.03234.vda.linux@googlemail.com>
+References: <18115.52863.638655.658466@cargo.ozlabs.ibm.com> <6370BBDF-0C79-41EB-BD2A-02AA0D216924@mac.com> <200709101438.36710.vda.linux@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>
-To: <netdev@vger.kernel.org>
+Cc: Arjan van de Ven <arjan@infradead.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Nick Piggin <piggin@cyberone.com.au>,
+	Satyam Sharma <satyam@infradead.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Paul Mackerras <paulus@samba.org>,
+	Christoph Lameter <clameter@sgi.com>,
+	Chris Snook <csnook@redhat.com>,
+	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-arch@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>, ak@suse.de,
+	heiko.carstens@de.ibm.com, David Miller <davem@davemloft.net>,
+	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
+	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
+	rpjday@mindspring.com, jesper.juhl@gmail.com,
+	segher@kernel.crashing
+To: Kyle Moffett <mrmacman_g4@mac.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout02s1.x-echo.com ([193.252.149.38]:37938 "EHLO
-	smtpout02s1.x-echo.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756353AbXIJOqO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 10:46:14 -0400
+Received: from qb-out-0506.google.com ([72.14.204.229]:41635 "EHLO
+	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759967AbXIJOQO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 10:16:14 -0400
+Received: by qb-out-0506.google.com with SMTP id e11so1107404qbe
+        for <netdev@vger.kernel.org>; Mon, 10 Sep 2007 07:16:13 -0700 (PDT)
+In-Reply-To: <200709101438.36710.vda.linux@googlemail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi list,
+On Monday 10 September 2007 14:38, Denys Vlasenko wrote:
+> You are basically trying to educate me how to use atomic properly.
+> You don't need to do it, as I am (currently) not a driver author.
+> 
+> I am saying that people who are already using atomic_read()
+> (and who unfortunately did not read your explanation above)
+> will still sometimes use atomic_read() as a way to read atomic value
+> *from memory*, and will create nasty heisenbugs for you to debug.
 
-I have been running recent linux kernel on nexcom NSA 1086's equipped
-with sysconnect NICs.
-
-Like some people previously have on this list I am running into
-problems with these NICs and seeing frequent errors in my dmesg:
-
-sky2 eth4: rx error, status 0x402300 length 60
-printk: 17 messages suppressed.
-sky2 eth4: rx error, status 0x402300 length 60
-printk: 32 messages suppressed.
-sky2 eth4: rx error, status 0x602300 length 92
-printk: 25 messages suppressed.
-sky2 eth4: rx error, status 0x6e2300 length 106
-printk: 16 messages suppressed.
-sky2 eth4: rx error, status 0x402300 length 60
-printk: 10 messages suppressed.
-sky2 eth4: rx error, status 0x402300 length 60
-printk: 17 messages suppressed.
-sky2 eth4: rx error, status 0x402300 length 60
-
-
-I have investigated a bit and status doesn't match any of the errors in
-GMR_FS_ANY_ERR.
-The block generating the error is now len_mismatch, due to the fact
-that on packets having the GMR_FS_VLAN bit set, the length argument to
-sky2_receive is 4 bytes shorter that the 16 bit value in status (status
-``right shift'' 16).
-
-Since both these values are read from the card I don't know how to
-solve this other than by incrementing the length arg by 4 when
-GMR_FS_VLAN is set in status. So here's a diff that does this, although
-I'm not sure its an elegant solution:
-
---- sky2.c.orig	2007-09-10 15:34:15.000000000 +0200
-+++ sky2.c	2007-09-10 16:20:28.000000000 +0200
-@@ -2059,13 +2059,16 @@ static struct sk_buff *sky2_receive(stru
- 	sky2->rx_next = (sky2->rx_next + 1) % sky2->rx_pending;
- 	prefetch(sky2->rx_ring + sky2->rx_next);
- 
-+	if (status & GMR_FS_VLAN)
-+		length += 4;
-+
- 	if (status & GMR_FS_ANY_ERR)
- 		goto error;
- 
- 	if (!(status & GMR_FS_RX_OK))
- 		goto resubmit;
- 
--	if (status >> 16 != length)
-+	if ((status >> 16) != length)
- 		goto len_mismatch;
- 
- 	if (length < copybreak)
-@@ -2081,6 +2084,8 @@ len_mismatch:
- 	/* Truncation of overlength packets
- 	   causes PHY length to not match MAC length */
- 	++sky2->net_stats.rx_length_errors;
-+	printk(KERN_INFO PFX "%s: rx length mismatch: length %d != %d\n",
-+	       dev->name, length, status >> 16);
- 
- error:
- 	++sky2->net_stats.rx_errors;
-
-Any thoughts on how to solve this ?
-Further testing shows that sometimes there are packets without the
-GMR_FS_VLAN bit set which have a 4 bytes length difference, has shown
-by this log excerpt:
-
-sky2 eth4: rx length mismatch: length 243 != 247
-sky2 eth4: rx error, status 0xf70300 length 243
-
-For debugging purposes, I here is the little program with
-excerpts from sky2.c I use to see what bits are set in the status field:
-
-#include <sys/types.h>
-#include <limits.h>
-#include <stdlib.h>
-#include <stdio.h>
-
-enum {
-        GMR_FS_LEN      = 0xffff<<16, /* Bit 31..16:    Rx Frame Length */
-        GMR_FS_VLAN     = 1<<13, /* VLAN Packet */
-        GMR_FS_JABBER   = 1<<12, /* Jabber Packet */
-        GMR_FS_UN_SIZE  = 1<<11, /* Undersize Packet */
-        GMR_FS_MC       = 1<<10, /* Multicast Packet */
-        GMR_FS_BC       = 1<<9,  /* Broadcast Packet */
-        GMR_FS_RX_OK    = 1<<8,  /* Receive OK (Good Packet) */
-        GMR_FS_GOOD_FC  = 1<<7,  /* Good Flow-Control Packet */
-        GMR_FS_BAD_FC   = 1<<6,  /* Bad  Flow-Control Packet */
-        GMR_FS_MII_ERR  = 1<<5,  /* MII Error */
-        GMR_FS_LONG_ERR = 1<<4,  /* Too Long Packet */
-        GMR_FS_FRAGMENT = 1<<3,  /* Fragment */
-
-        GMR_FS_CRC_ERR  = 1<<1,  /* CRC Error */
-        GMR_FS_RX_FF_OV = 1<<0,  /* Rx FIFO Overflow */
-
-        GMR_FS_ANY_ERR  = GMR_FS_RX_FF_OV | GMR_FS_CRC_ERR |
-                          GMR_FS_FRAGMENT | GMR_FS_LONG_ERR |
-                          GMR_FS_MII_ERR | GMR_FS_BAD_FC |
-                          GMR_FS_UN_SIZE | GMR_FS_JABBER,
-};
-
-struct bitdesc {
-	const char 	*name;
-	u_int32_t 	 field;
-};
-
-struct bitdesc bits[] = {
-        { "GMR_FS_VLAN", 1 << 13 },
-        { "GMR_FS_JABBER", 1 << 12 },
-        { "GMR_FS_UN_SIZE", 1 << 11 },
-        { "GMR_FS_MC", 1 << 10 },
-        { "GMR_FS_BC", 1 << 9 },
-        { "GMR_FS_RX_OK", 1 << 8 },
-        { "GMR_FS_GOOD_FC", 1 << 7 },
-        { "GMR_FS_BAD_FC", 1 << 6 },
-        { "GMR_FS_MII_ERR", 1 << 5 },
-        { "GMR_FS_LONG_ERR", 1 << 4 },
-        { "GMR_FS_FRAGMENT", 1 << 3 },
-        { "GMR_FS_CRC_ERR", 1 << 1 },
-        { "GMR_FS_RX_FF_OV", 1 << 0 }
-};
-
-int
-main(int argc, const char *argv[])
+static inline int
+qla2x00_wait_for_loop_ready(scsi_qla_host_t *ha)
 {
-	int	status;
-	int	i;
+        int      return_status = QLA_SUCCESS;
+        unsigned long loop_timeout ;
+        scsi_qla_host_t *pha = to_qla_parent(ha);
 
-	if (argc < 2)
-		return (1);
+        /* wait for 5 min at the max for loop to be ready */
+        loop_timeout = jiffies + (MAX_LOOP_TIMEOUT * HZ);
 
-	status = strtol(argv[1], NULL, 16);
-	printf("status: 0x%08x\n", status);
-	if (status & GMR_FS_ANY_ERR)
-		printf("packet has an error\n");
-	printf("length: %u\n", status >> 16);
-
-	for (i = 0; i < (sizeof(bits) / sizeof(bits[0])); i++) {
-		if (status & bits[i].field) {
-			printf("has bit %s\n", bits[i].name);
-		}
-	}
-	return (0);
+        while ((!atomic_read(&pha->loop_down_timer) &&
+            atomic_read(&pha->loop_state) == LOOP_DOWN) ||
+            atomic_read(&pha->loop_state) != LOOP_READY) {
+                if (atomic_read(&pha->loop_state) == LOOP_DEAD) {
+                        return_status = QLA_FUNCTION_FAILED;
+                        break;
+                }
+                msleep(1000);
+                if (time_after_eq(jiffies, loop_timeout)) {
+                        return_status = QLA_FUNCTION_FAILED;
+                        break;
+                }
+        }
+        return (return_status);
 }
+
+Is above correct or buggy? Correct, because msleep is a barrier.
+Is it obvious? No.
+
+static void
+qla2x00_rst_aen(scsi_qla_host_t *ha)
+{
+        if (ha->flags.online && !ha->flags.reset_active &&
+            !atomic_read(&ha->loop_down_timer) &&
+            !(test_bit(ABORT_ISP_ACTIVE, &ha->dpc_flags))) {
+                do {
+                        clear_bit(RESET_MARKER_NEEDED, &ha->dpc_flags);
+
+                        /*
+                         * Issue marker command only when we are going to start
+                         * the I/O.
+                         */
+                        ha->marker_needed = 1;
+                } while (!atomic_read(&ha->loop_down_timer) &&
+                    (test_bit(RESET_MARKER_NEEDED, &ha->dpc_flags)));
+        }
+}
+
+Is above correct? I honestly don't know. Correct, because set_bit is
+a barrier on _all _memory_? Will it break if set_bit will be changed
+to be a barrier only on its operand? Probably yes.
+
+drivers/kvm/kvm_main.c
+
+        while (atomic_read(&completed) != needed) {
+                cpu_relax();
+                barrier();
+        }
+
+Obviously author did not know that cpu_relax is already a barrier.
+See why I think driver authors will be confused?
+
+arch/x86_64/kernel/crash.c
+
+static void nmi_shootdown_cpus(void)
+{
+...
+        msecs = 1000; /* Wait at most a second for the other cpus to stop */
+        while ((atomic_read(&waiting_for_crash_ipi) > 0) && msecs) {
+                mdelay(1);
+                msecs--;
+        }
+...
+}
+
+Is mdelay(1) a barrier? Yes, because it is a function on x86_64.
+Absolutely the same code will be buggy on an arch where
+mdelay(1) == udelay(1000), and udelay is implemented
+as inline busy-wait.
+
+arch/sparc64/kernel/smp.c
+
+        /* Wait for response */
+        while (atomic_read(&data.finished) != cpus)
+                cpu_relax();
+...later in the same file...
+                while (atomic_read(&smp_capture_registry) != ncpus)
+                        rmb();
+
+I'm confused. Do we need cpu_relax() or rmb()? Does cpu_relax() imply rmb()?
+(No it doesn't). Which of those two while loops needs correcting?
+--
+vda
