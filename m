@@ -1,47 +1,33 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [Lksctp-developers] [-mm patch] net/sctp/socket.c: make 3 variables static
-Date: Mon, 10 Sep 2007 10:05:07 -0400
-Message-ID: <20070910140507.GD14606@hmsendeavour.rdu.redhat.com>
-References: <20070831215822.26e1432b.akpm@linux-foundation.org> <20070909202554.GY3563@stusta.de>
+From: Moni Shoua <monis@voltaire.com>
+Subject: Re: [ofa-general] [PATCH V4 0/10] net/bonding: ADD IPoIB support
+ for the bonding driver
+Date: Mon, 10 Sep 2007 17:31:56 +0300
+Message-ID: <46E5555C.7060606@voltaire.com>
+References: <46C9B474.5020202@voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	vladislav.yasevich@hp.com, sri@us.ibm.com, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net
-To: Adrian Bunk <bunk@kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759968AbXIJOHy@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20070909202554.GY3563@stusta.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
+To: "Michael S. Tsirkin" <mst@mellanox.co.il>, rdreier@cisco.com,
+	davem@davemloft.net, fubar@us.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fwil.voltaire.com ([193.47.165.2]:37684 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755462AbXIJOcX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Sep 2007 10:32:23 -0400
+In-Reply-To: <46C9B474.5020202@voltaire.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 09, 2007 at 10:25:54PM +0200, Adrian Bunk wrote:
-> On Fri, Aug 31, 2007 at 09:58:22PM -0700, Andrew Morton wrote:
-> >...
-> > Changes since 2.6.23-rc3-mm1:
-> >...
-> >  git-net.patch
-> >...
-> >  git trees
-> >...
-> 
-> This patch makes the following needlessly globalvariables static:
-> - sctp_memory_pressure
-> - sctp_memory_allocated
-> - sctp_sockets_allocated
-> 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
-> 
-Looks fine to me
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Hi all,
+This patch series is a bit neglected.
+Since our goal is to have bonding support for IPoIB in kernel 2.6.24 it is 
+very important for us to get comments soon.
 
-Neil
+We would appreciate if you take some time to look at this and help us push this code upstream.
 
--- 
-/***************************************************
- *Neil Horman
- *nhorman@tuxdriver.com
- *gpg keyid: 1024D / 0x92A74FA1
- *http://pgp.mit.edu
- ***************************************************/
+thanks
+
+ MoniS  
+
+
