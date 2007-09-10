@@ -1,108 +1,44 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [INET_DIAG]: Fix oops in netlink_rcv_skb
-Date: Mon, 10 Sep 2007 09:50:57 +0200
-Message-ID: <46E4F761.4050902@trash.net>
+From: Bernhard Schmidt <berni@birkenwald.de>
+Subject: Re: [IPv6] BUG: NULL pointer dereference in(?) ip6_flush_pending_frames
+Date: Mon, 10 Sep 2007 10:18:14 +0200
+Message-ID: <46E4FDC6.3060809@birkenwald.de>
+References: <20070909222400.GC7591@obelix.birkenwald.de> <20070910.083847.40751994.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030805080609090800030402"
-Cc: Linux Netdev List <netdev@vger.kernel.org>, stable@kernel.org,
-	Athanasius <link@miggy.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, miyazawa@linux-ipv6.org
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55158 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753239AbXIJHyK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 03:54:10 -0400
+Received: from vs02.svr02.mucip.net ([83.170.6.69]:48216 "EHLO
+	mailout.mucip.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755136AbXIJISO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 04:18:14 -0400
+In-Reply-To: <20070910.083847.40751994.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030805080609090800030402
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E:
 
-Fix the oidentd oops reported by Athanasius <link@miggy.org> in
-http://bugzilla.kernel.org/show_bug.cgi?id=8961
+Hi,
 
-The oops is a 2.6.22 regression and triggerable by normal users.
-The patch applies cleanly to current -git and stable-2.6.22.
+>> BUG: unable to handle kernel NULL pointer dereference at virtual add=
+ress
+>> 0000008c
+> :
+>> EIP is at ip6_flush_pending_frames+0x97/0x121
+>=20
+> I think I've found a bug.
+[...]
+> Anyway, please try this.
 
+=46TR, I tried 2.6.22.6 without the patch and it failed as well. The=20
+patched kernel is running since yesterday evening (about 8h now) and=20
+seems to be stable so far. Too early to tell for sure, but I guess we=20
+have a fix.
 
---------------030805080609090800030402
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+Thanks Yoshifuji!
 
-[INET_DIAG]: Fix oops in netlink_rcv_skb
-
-netlink_run_queue() doesn't handle multiple processes processing the
-queue concurrently. Serialize queue processing in inet_diag to fix
-a oops in netlink_rcv_skb caused by netlink_run_queue passing a
-NULL for the skb.
-
-BUG: unable to handle kernel NULL pointer dereference at virtual address 00000054
-[349587.500454]  printing eip:
-[349587.500457] c03318ae
-[349587.500459] *pde = 00000000
-[349587.500464] Oops: 0000 [#1]
-[349587.500466] PREEMPT SMP
-[349587.500474] Modules linked in: w83627hf hwmon_vid i2c_isa
-[349587.500483] CPU:    0
-[349587.500485] EIP:    0060:[<c03318ae>]    Not tainted VLI
-[349587.500487] EFLAGS: 00010246   (2.6.22.3 #1)
-[349587.500499] EIP is at netlink_rcv_skb+0xa/0x7e
-[349587.500506] eax: 00000000   ebx: 00000000   ecx: c148d2a0   edx: c0398819
-[349587.500510] esi: 00000000   edi: c0398819   ebp: c7a21c8c   esp: c7a21c80
-[349587.500517] ds: 007b   es: 007b   fs: 00d8  gs: 0033  ss: 0068
-[349587.500521] Process oidentd (pid: 17943, ti=c7a20000 task=cee231c0 task.ti=c7a20000)
-[349587.500527] Stack: 00000000 c7a21cac f7c8ba78 c7a21ca4 c0331962 c0398819 f7c8ba00 0000004c
-[349587.500542]        f736f000 c7a21cb4 c03988e3 00000001 f7c8ba00 c7a21cc4 c03312a5 0000004c
-[349587.500558]        f7c8ba00 c7a21cd4 c0330681 f7c8ba00 e4695280 c7a21d00 c03307c6 7fffffff
-[349587.500578] Call Trace:
-[349587.500581]  [<c010361a>] show_trace_log_lvl+0x1c/0x33
-[349587.500591]  [<c01036d4>] show_stack_log_lvl+0x8d/0xaa
-[349587.500595]  [<c010390e>] show_registers+0x1cb/0x321
-[349587.500604]  [<c0103bff>] die+0x112/0x1e1
-[349587.500607]  [<c01132d2>] do_page_fault+0x229/0x565
-[349587.500618]  [<c03c8d3a>] error_code+0x72/0x78
-[349587.500625]  [<c0331962>] netlink_run_queue+0x40/0x76
-[349587.500632]  [<c03988e3>] inet_diag_rcv+0x1f/0x2c
-[349587.500639]  [<c03312a5>] netlink_data_ready+0x57/0x59
-[349587.500643]  [<c0330681>] netlink_sendskb+0x24/0x45
-[349587.500651]  [<c03307c6>] netlink_unicast+0x100/0x116
-[349587.500656]  [<c0330f83>] netlink_sendmsg+0x1c2/0x280
-[349587.500664]  [<c02fcce9>] sock_sendmsg+0xba/0xd5
-[349587.500671]  [<c02fe4d1>] sys_sendmsg+0x17b/0x1e8
-[349587.500676]  [<c02fe92d>] sys_socketcall+0x230/0x24d
-[349587.500684]  [<c01028d2>] syscall_call+0x7/0xb
-[349587.500691]  =======================
-[349587.500693] Code: f0 ff 4e 18 0f 94 c0 84 c0 0f 84 66 ff ff ff 89 f0 e8 86 e2 fc ff e9 5a ff ff ff f0 ff 40 10 eb be 55 89 e5 57 89 d7 56 89 c6 53 <8b> 50 54 83 fa 10 72 55 8b 9e 9c 00 00 00 31 c9 8b 03 83 f8 0f
-
-Reported by Athanasius <link@miggy.org>
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index dbeacd8..def007e 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -836,12 +836,16 @@ static int inet_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	return inet_diag_get_exact(skb, nlh);
- }
- 
-+static DEFINE_MUTEX(inet_diag_mutex);
-+
- static void inet_diag_rcv(struct sock *sk, int len)
- {
- 	unsigned int qlen = 0;
- 
- 	do {
-+		mutex_lock(&inet_diag_mutex);
- 		netlink_run_queue(sk, &qlen, &inet_diag_rcv_msg);
-+		mutex_unlock(&inet_diag_mutex);
- 	} while (qlen);
- }
- 
-
---------------030805080609090800030402--
+Regards,
+Bernhard
