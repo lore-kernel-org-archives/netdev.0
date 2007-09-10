@@ -1,82 +1,118 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH 0/24] make atomic_read() behave consistently across all
- architectures
-Date: Mon, 10 Sep 2007 08:09:08 -0700 (PDT)
-Message-ID: <alpine.LFD.0.999.0709100807260.16478@woody.linux-foundation.org>
-References: <18115.52863.638655.658466@cargo.ozlabs.ibm.com>
- <6370BBDF-0C79-41EB-BD2A-02AA0D216924@mac.com> <200709101438.36710.vda.linux@googlemail.com>
- <200709101516.03234.vda.linux@googlemail.com>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [PATCH 03/16] net: Basic network namespace infrastructure.
+Date: Mon, 10 Sep 2007 09:53:55 -0600
+Message-ID: <m1ejh6qzxo.fsf@ebiederm.dsl.xmission.com>
+References: <m1r6l8x3vq.fsf@ebiederm.dsl.xmission.com>
+	<m1myvwx3sf.fsf@ebiederm.dsl.xmission.com>
+	<m1ir6kx3mn.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1ejh8x3ih.fsf_-_@ebiederm.dsl.xmission.com>
+	<46E543A0.7010104@openvz.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Kyle Moffett <mrmacman_g4@mac.com>,
-	Arjan van de Ven <arjan@infradead.org>,
-	Nick Piggin <piggin@cyberone.com.au>,
-	Satyam Sharma <satyam@infradead.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Paul Mackerras <paulus@samba.org>,
-	Christoph Lameter <clameter@sgi.com>,
-	Chris Snook <csnook@redhat.com>,
-	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	linux-arch@vger.kernel.org, Netdev <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>, ak@suse.de,
-	heiko.carstens@de.ibm.com, David Miller <davem@davemloft.net>,
-	schwidefsky@de.ibm.com, wensong@linux-vs.org, horms@verge.net.au,
-	wjiang@resilience.com, cfriesen@nortel.com, zlynx@acm.org,
-	rpjday@mindspring.com, jesper.juhl@gmail.com,
-	segher@kernel.crashing.org
-To: Denys Vlasenko <vda.linux@googlemail.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760804AbXIJPMO@vger.kernel.org>
-In-Reply-To: <200709101516.03234.vda.linux@googlemail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <46E543A0.7010104-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org> (Pavel Emelyanov's message of "Mon,
+	10 Sep 2007 17:16:16 +0400")
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org> writes:
 
-On Mon, 10 Sep 2007, Denys Vlasenko wrote:
-> 
-> static inline int
-> qla2x00_wait_for_loop_ready(scsi_qla_host_t *ha)
-> {
->         int      return_status = QLA_SUCCESS;
->         unsigned long loop_timeout ;
->         scsi_qla_host_t *pha = to_qla_parent(ha);
-> 
->         /* wait for 5 min at the max for loop to be ready */
->         loop_timeout = jiffies + (MAX_LOOP_TIMEOUT * HZ);
-> 
->         while ((!atomic_read(&pha->loop_down_timer) &&
->             atomic_read(&pha->loop_state) == LOOP_DOWN) ||
->             atomic_read(&pha->loop_state) != LOOP_READY) {
->                 if (atomic_read(&pha->loop_state) == LOOP_DEAD) {
-...
-> Is above correct or buggy? Correct, because msleep is a barrier.
-> Is it obvious? No.
+> Eric W. Biederman wrote:
+>
+> [snip]
+>
+>> --- /dev/null
+>> +++ b/include/net/net_namespace.h
+>> @@ -0,0 +1,68 @@
+>> +/*
+>> + * Operations on the network namespace
+>> + */
+>> +#ifndef __NET_NET_NAMESPACE_H
+>> +#define __NET_NET_NAMESPACE_H
+>> +
+>> +#include <asm/atomic.h>
+>> +#include <linux/workqueue.h>
+>> +#include <linux/list.h>
+>> +
+>> +struct net {
+>
+> Isn't this name is too generic? Why not net_namespace?
 
-It's *buggy*. But it has nothing to do with any msleep() in the loop, or 
-anything else.
+My fingers went on strike.  struct netns probably wouldn't be bad.
+The very long and spelled out version seemed painful.  I don't really
+care except that not changing it is easier for me.  I'm happy to do
+whatever is considered most maintainable.
 
-And more importantly, it would be equally buggy even *with* a "volatile" 
-atomic_read().
+>> +	/* Walk through the list backwards calling the exit functions
+>> +	 * for the pernet modules whose init functions did not fail.
+>> +	 */
+>> +	for (ptr = ptr->prev; ptr != &pernet_list; ptr = ptr->prev) {
+>
+> Good reason for adding list_for_each_continue_reverse :)
 
-Why is this so hard for people to understand? You're all acting like 
-morons.
+Sounds reasonable.
 
-The reason it is buggy has absolutely nothing to do with whether the read 
-is done or not, it has to do with the fact that the CPU may re-order the 
-reads *regardless* of whether the read is done in some specific order by 
-the compiler ot not! In effect, there is zero ordering between all those 
-three reads, and if you don't have memory barriers (or a lock or other 
-serialization), that code is buggy.
+>> +static int register_pernet_operations(struct list_head *list,
+>> +				      struct pernet_operations *ops)
+>> +{
+>> +	struct net *net, *undo_net;
+>> +	int error;
+>> +
+>> +	error = 0;
+>> +	list_add_tail(&ops->list, list);
+>> +	for_each_net(net) {
+>> +		if (ops->init) {
+>
+> Maybe it's better to do it vice-versa?
+> if (ops->init)
+>    for_each_net(net)
+>        ops->init(net);
+> ...
 
-So stop this idiotic discussion thread already. The above kind of code 
-needs memory barriers to be non-buggy. The whole "volatile or not" 
-discussion is totally idiotic, and pointless, and anybody who doesn't 
-understand that by now needs to just shut up and think about it more, 
-rather than make this discussion drag out even further.
+My gut feel says it is more readable with the test on the inside.
+Although something like
+if (ops->init)
+   goto out;
 
-The fact is, "volatile" *only* makes things worse. It generates worse 
-code, and never fixes any real bugs. This is a *fact*.
+might be more readable.
 
-			Linus
+>> +int register_pernet_device(struct pernet_operations *ops)
+>> +{
+>> +	int error;
+>> +	mutex_lock(&net_mutex);
+>> +	error = register_pernet_operations(&pernet_list, ops);
+>> +	if (!error && (first_device == &pernet_list))
+>
+> Very minor: why do you give the name "device" to some pernet_operations?
+
+Subsystems need to be initialized before and cleaned up after network
+devices.  We don't have much in the way that needs this distinction,
+but we have just enough that it is useful to make this distinction.
+
+Looking at my complete patchset all I have in this category is the
+loopback device, and it is important on the teardown side of things
+that the loopback device be unregistered before I clean up the
+protocols or else I get weird leaks.
+
+Reflecting on it I'm not quite certain about the setup side of things.
+I'm on the fence if I need to completely dynamically allocate the
+loopback device or if I need to embed it struct net.
+
+There also may be a call for some other special network devices
+to have one off instances in each network namespace.    With the
+new netlink creation API it isn't certain we need that idiom anymore
+but before that point I was certain we would have other network
+devices besides the loopback that would care.
+
+Eric
