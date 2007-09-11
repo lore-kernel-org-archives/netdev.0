@@ -1,132 +1,162 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: Re: sk98lin for 2.6.23-rc1
-Date: Tue, 11 Sep 2007 17:03:57 +0200
-Message-ID: <20070911150357.GN3563@stusta.de>
-References: <20070905102230.10b0bdcf@oldman> <782111.42803.qm@web90413.mail.mud.yahoo.com> <46E2DF74.7040307@tmr.com> <20070908191132.GD3563@stusta.de> <46E35D8C.1070909@krose.org> <20070909111326.GF3563@stusta.de> <20070911100526.6aa5d463@oldman> <20070911115456.GM3563@stusta.de> <46E6A65B.2050209@tmr.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Kyle Rose <krose@krose.org>,
-	James Corey <ploversegg@yahoo.com>,
-	Rob Sims <lkml-z@robsims.com>, linux-kernel@vger.kernel.org,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
-To: Bill Davidsen <davidsen@tmr.com>
+From: Emil Medve <Emilian.Medve@Freescale.com>
+Subject: [PATCH] Move the definition of pr_err() into kernel.h
+Date: Tue, 11 Sep 2007 09:56:05 -0500
+Message-ID: <11895225651521-git-send-email-Emilian.Medve@Freescale.com>
+Cc: Emil Medve <Emilian.Medve@Freescale.com>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	i2c@lm-sensors.org, linux-omap-open-source@linux.omap.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:47017 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752164AbXIKPDt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2007 11:03:49 -0400
-Content-Disposition: inline
-In-Reply-To: <46E6A65B.2050209@tmr.com>
+Received: from az33egw02.freescale.net ([192.88.158.103]:41501 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751314AbXIKPIU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2007 11:08:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 11, 2007 at 10:29:47AM -0400, Bill Davidsen wrote:
-> Adrian Bunk wrote:
->> On Tue, Sep 11, 2007 at 10:05:26AM +0200, Stephen Hemminger wrote:
->>   
->>> There are several different problems in this thread:
->>> 1. The removal of old sk98lin driver caused some users to be forced to 
->>> use
->>>     skge. These users have uncovered issues with the dual port fiber 
->>> based versions
->>>     of the board.      Short term: The sk98lin driver should be restored 
->>> to previous state,        and the PCI table should be used to limit the 
->>> usage to only fiber systems.
->>>        If Adrian doesn't do it, I'll do it when I return from Germany.
->>> ...
->>>     
->>
->> No problem with this, but since it was Jeff's patch it should better be 
->> him who reverts it (and he's anyway one step nearer to Linus).
->>
->> But the underlying general problem still remains:
->>
->> How can we get people to test and report bugs with the new drivers before 
->> removing the old driver?
->>
->>   
-> Sorry for a long answer, I'm trying to provide insight on two recent cases.
->
-> Thinking back to several drivers, when e100 was new I tried it because I 
-> had problems with eepro100 in the area of multiple cards, multiple cables 
-> on a single card, and jumbo packets. For a while I used both, until e100 
-> worked where I need it. So I initially tried it because it had features I 
-> needed, and then dropped to older driver just to avoid having to decide.
->
-> With sk98lin, the driver worked flawlessly with all (3-4) systems, so I had 
-> no reason to try any other. When removing sk98lin was first proposed, I 
-> tried skge, first measurements showed it was 5-8% slower, NOT what I want, 
-> so I went back. For me there was no reliability issue, but I never tried it 
-> in a system with more than on NIC on the driver. Would "it's a little 
-> slower" be a valid bug report? Or would I have gotten "works fine for me" 
-> from people not beating it over Gbit?
->...
+Other pr_*() macros are already defined in kernel.h, but pr_err() was defined
+multiple times in several other places
 
-If you get less throughput that is a regression, and it should be 
-reported and fixed.
+Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
+---
+ drivers/i2c/chips/menelaus.c     |   10 ++++------
+ drivers/net/spider_net.h         |    3 ---
+ drivers/video/omap/lcd_h3.c      |    6 ++----
+ drivers/video/omap/lcd_inn1610.c |    6 ++----
+ include/linux/kernel.h           |    2 ++
+ 5 files changed, 10 insertions(+), 17 deletions(-)
 
-I doubt anybody would have told you otherwise.
-
-Is this bug still present as of 2.6.23-rc6?
-
->> That's a question especially for the people who now had problems after 
->> sk98lin was removed.
->
-> So if you want people to try a new driver, I think it really has to have 
-> some benefits to the users, in terms of performance, reliability, or 
-> features. "Cleaner design" doesn't motivate, and it does raise the question 
-> of why the old driver wasn't just cleaned up. I've been doing software for 
-> decades, I appreciate why, but users in general just want to use their 
-> system. Which raises the question of why to delete drivers which work for 
-> many or even most users?
-
-As I already explained, there is a long term advantage for all users if 
-there is only one driver in the kernel. Therefore all users should 
-switch away from obsolete drivers to the replacement drivers, and the 
-obsolete driver will be removed at some point in time. The only question 
-is how to do it.
-
-> Testing a new kernel is no longer a drop in a boot 
-> operation if modprobe.conf must be edited to get the network up, and the 
-> typical user isn't going to write that shell script to try one or the other 
-> driver.
-
-The typical user will let his distribution handle this.
-
-And MODULE_ALIAS can also handle this.
-
-> Honestly, new drivers which offer little benefit to most users are the 
-> exception rather than the rule, so this may a corner case I would like to 
-> see sk98lin back in the kernel, for a while I can build my own kernels and 
-> patch it in, but until other drivers are drop-in, I probably won't change.
-
-That a new driver offers benefits that cause most users to switch isn't 
-realistic.
-
-You mention e100 as an example - well, I'm using this driver in my 
-computer, but I doubt anything would be worse for me if I'd use the 
-obsolete eepro100 driver instead since I'm not using any of the fancy 
-e100 features you mentioned as advantages.
-
-There is a long term advantage for all users if there is only one driver 
-in the kernel. Therefore all users should switch away from obsolete 
-drivers to the replacement drivers, and the obsolete driver will be 
-removed at some point in time. The only question is how to do it.
-
-> Separate but related: why keep skge and sky2? Are we going through this 
-> again in a year? Is the benefit worth the effort?
->...
-
-skge and sky2 support distinct hardware.
-
-cu
-Adrian
-
+diff --git a/drivers/i2c/chips/menelaus.c b/drivers/i2c/chips/menelaus.c
+index d9c92c5..fc5eed4 100644
+--- a/drivers/i2c/chips/menelaus.c
++++ b/drivers/i2c/chips/menelaus.c
+@@ -49,8 +49,6 @@
+ 
+ #define DRIVER_NAME			"menelaus"
+ 
+-#define pr_err(fmt, arg...)	printk(KERN_ERR DRIVER_NAME ": ", ## arg);
+-
+ #define MENELAUS_I2C_ADDRESS		0x72
+ 
+ #define MENELAUS_REV			0x01
+@@ -155,7 +153,7 @@ static int menelaus_write_reg(int reg, u8 value)
+ 	int val = i2c_smbus_write_byte_data(the_menelaus->client, reg, value);
+ 
+ 	if (val < 0) {
+-		pr_err("write error");
++		pr_err(DRIVER_NAME ":write error");
+ 		return val;
+ 	}
+ 
+@@ -167,7 +165,7 @@ static int menelaus_read_reg(int reg)
+ 	int val = i2c_smbus_read_byte_data(the_menelaus->client, reg);
+ 
+ 	if (val < 0)
+-		pr_err("read error");
++		pr_err(DRIVER_NAME ":read error");
+ 
+ 	return val;
+ }
+@@ -1177,7 +1175,7 @@ static int menelaus_probe(struct i2c_client *client)
+ 	/* If a true probe check the device */
+ 	rev = menelaus_read_reg(MENELAUS_REV);
+ 	if (rev < 0) {
+-		pr_err("device not found");
++		pr_err(DRIVER_NAME ":device not found");
+ 		err = -ENODEV;
+ 		goto fail1;
+ 	}
+@@ -1258,7 +1256,7 @@ static int __init menelaus_init(void)
+ 
+ 	res = i2c_add_driver(&menelaus_i2c_driver);
+ 	if (res < 0) {
+-		pr_err("driver registration failed\n");
++		pr_err(DRIVER_NAME ":driver registration failed\n");
+ 		return res;
+ 	}
+ 
+diff --git a/drivers/net/spider_net.h b/drivers/net/spider_net.h
+index dbbdb8c..c67b11d 100644
+--- a/drivers/net/spider_net.h
++++ b/drivers/net/spider_net.h
+@@ -493,7 +493,4 @@ struct spider_net_card {
+ 	struct spider_net_descr darray[0];
+ };
+ 
+-#define pr_err(fmt,arg...) \
+-	printk(KERN_ERR fmt ,##arg)
+-
+ #endif
+diff --git a/drivers/video/omap/lcd_h3.c b/drivers/video/omap/lcd_h3.c
+index 51807b4..c81271d 100644
+--- a/drivers/video/omap/lcd_h3.c
++++ b/drivers/video/omap/lcd_h3.c
+@@ -28,8 +28,6 @@
+ 
+ #define MODULE_NAME	"omapfb-lcd_h3"
+ 
+-#define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
+-
+ static int h3_panel_init(struct lcd_panel *panel, struct omapfb_device *fbdev)
+ {
+ 	return 0;
+@@ -48,7 +46,7 @@ static int h3_panel_enable(struct lcd_panel *panel)
+ 	if (!r)
+ 		r = tps65010_set_gpio_out_value(GPIO2, HIGH);
+ 	if (r)
+-		pr_err("Unable to turn on LCD panel\n");
++		pr_err(MODULE_NAME ":Unable to turn on LCD panel\n");
+ 
+ 	return r;
+ }
+@@ -62,7 +60,7 @@ static void h3_panel_disable(struct lcd_panel *panel)
+ 	if (!r)
+ 		tps65010_set_gpio_out_value(GPIO2, LOW);
+ 	if (r)
+-		pr_err("Unable to turn off LCD panel\n");
++		pr_err(MODULE_NAME ":Unable to turn off LCD panel\n");
+ }
+ 
+ static unsigned long h3_panel_get_caps(struct lcd_panel *panel)
+diff --git a/drivers/video/omap/lcd_inn1610.c b/drivers/video/omap/lcd_inn1610.c
+index 95604ca..ea85cb9 100644
+--- a/drivers/video/omap/lcd_inn1610.c
++++ b/drivers/video/omap/lcd_inn1610.c
+@@ -27,20 +27,18 @@
+ 
+ #define MODULE_NAME	"omapfb-lcd_h3"
+ 
+-#define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
+-
+ static int innovator1610_panel_init(struct lcd_panel *panel,
+ 				    struct omapfb_device *fbdev)
+ {
+ 	int r = 0;
+ 
+ 	if (omap_request_gpio(14)) {
+-		pr_err("can't request GPIO 14\n");
++		pr_err(MODULE_NAME ":can't request GPIO 14\n");
+ 		r = -1;
+ 		goto exit;
+ 	}
+ 	if (omap_request_gpio(15)) {
+-		pr_err("can't request GPIO 15\n");
++		pr_err(MODULE_NAME ":can't request GPIO 15\n");
+ 		omap_free_gpio(14);
+ 		r = -1;
+ 		goto exit;
+diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+index f592df7..c51936a 100644
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -242,6 +242,8 @@ static inline int __attribute__ ((format (printf, 1, 2))) pr_debug(const char *
+ 
+ #define pr_info(fmt,arg...) \
+ 	printk(KERN_INFO fmt,##arg)
++#define pr_err(fmt, arg...) \
++	printk(KERN_ERR fmt, ##arg)
+ 
+ /*
+  *      Display an IP address in readable format.
 -- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+1.5.3.GIT
 
