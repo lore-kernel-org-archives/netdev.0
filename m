@@ -1,34 +1,31 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH][2/2] Add ICMPMsgStats MIB (RFC 4293)
-Date: Tue, 11 Sep 2007 17:50:53 +0900 (JST)
-Message-ID: <20070911.175053.104206872.yoshfuji@linux-ipv6.org>
-References: <OF6477A060.C15FF1F3-ON88257353.000D3AA5-88257353.000D637A@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: dlstevens@us.ibm.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [OOPS] 2.6.23-rc5 in tcp/net/nfsd
+Date: Tue, 11 Sep 2007 17:00:13 +0800
+Message-ID: <E1IV1bR-0001CT-00@gondolin.me.apana.org.au>
+References: <20070911083200.GA3409@hindley.org.uk>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	nfs@lists.sourceforge.net, neilb@suse.de
+To: mark@hindley.org.uk (Mark Hindley)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:43978 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932256AbXIKItZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2007 04:49:25 -0400
-In-Reply-To: <OF6477A060.C15FF1F3-ON88257353.000D3AA5-88257353.000D637A@us.ibm.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:3353 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1759271AbXIKJAy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2007 05:00:54 -0400
+In-Reply-To: <20070911083200.GA3409@hindley.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <OF6477A060.C15FF1F3-ON88257353.000D3AA5-88257353.000D637A@us.ibm.com> (at Mon, 10 Sep 2007 20:27:03 -0600), David Stevens <dlstevens@us.ibm.com> says:
+Mark Hindley <mark@hindley.org.uk> wrote:
+>
+> Code: 01 00 00 03 75 0e 8b 42 18 8b 40 0c 8b 80 c4 00 00 00 eb 0a 8b 4c 24 08 8b 41 18 8b 40 28 0f c8 89 04 24 8b 44 24 08 b9 04 00 00 <00> ba 03 00 00 00 bf a6 ff ff
+> EIP: [<c02625bf>] ip_fragment+0x7f/0x680 SS:ESP 0068:ccb48b3c
 
-> These patches "remove" (but not really) the existing counters, and
-> replace them with the ICMPMsgStats tables for v4 and v6.
-> It includes the named counters in the /proc places they were, but gets the
-> values for them from the new tables. It also counts packets generated
-> from raw socket output (e.g., OutEchoes, MLD queries, RA's from
-> radvd, etc).
+The EIP is off by one byte.  So either a hardware problem or a
+really unlikely result of stack corruption.
 
-Dave, we've been supporting per-interface stats for IPv6, and
-you seem to remove them.  Please keep them.  Thank you.
-
---yoshfuji
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
