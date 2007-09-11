@@ -1,35 +1,36 @@
 From: Rick Jones <rick.jones2@hp.com>
-Subject: [PATCH] include listenq max/backlog in tcp_info and related reports
-Date: Tue, 11 Sep 2007 11:31:00 -0700 (PDT)
-Message-ID: <200709111831.LAA06892@tardy.cup.hp.com>
+Subject: [PATCH] include listenq max/backlog in tcp_info and related reports - correct version
+Date: Tue, 11 Sep 2007 11:31:34 -0700 (PDT)
+Message-ID: <200709111831.LAA06901@tardy.cup.hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=X-roman8
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:54257 "EHLO palrel10.hp.com"
+Received: from palrel12.hp.com ([156.153.255.237]:38583 "EHLO palrel12.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761766AbXIKSbM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Sep 2007 14:31:12 -0400
+	id S1762705AbXIKSbp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Sep 2007 14:31:45 -0400
 Received: from tardy.cup.hp.com (tardy.cup.hp.com [15.244.56.217])
-	by palrel10.hp.com (Postfix) with ESMTP id C1C513416C
-	for <netdev@vger.kernel.org>; Tue, 11 Sep 2007 11:31:01 -0700 (PDT)
+	by palrel12.hp.com (Postfix) with ESMTP id ED84837D6A
+	for <netdev@vger.kernel.org>; Tue, 11 Sep 2007 11:31:34 -0700 (PDT)
 Received: (from raj@localhost)
-	by tardy.cup.hp.com (8.9.3 (PHNE_28810)/8.9.3 SMKit7.02) id LAA06892
-	for netdev@vger.kernel.org; Tue, 11 Sep 2007 11:31:00 -0700 (PDT)
+	by tardy.cup.hp.com (8.9.3 (PHNE_28810)/8.9.3 SMKit7.02) id LAA06901
+	for netdev@vger.kernel.org; Tue, 11 Sep 2007 11:31:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Return some useful information such as the maximum listen backlog and
-the current listen backlog in the tcp_info structure and have that 
-match what one can see in /proc/net/tcp and /proc/net/tcp6.
+Return some useful information such as the maximum listen backlog and the
+current listen backlog in the tcp_info structure and have that match what
+one can see in /proc/net/tcp, /proc/net/tcp6, and INET_DIAG_INFO.
 
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 Signed-off-by: Rick Jones <rick.jones2@hp.com>
 ---
 
 diff -r bdcdd0e1ee9d Documentation/networking/proc_net_tcp.txt
 --- a/Documentation/networking/proc_net_tcp.txt	Sat Sep 01 07:00:31 2007 +0000
-+++ b/Documentation/networking/proc_net_tcp.txt	Mon Sep 10 16:09:46 2007 -0700
++++ b/Documentation/networking/proc_net_tcp.txt	Tue Sep 11 10:38:23 2007 -0700
 @@ -20,8 +20,8 @@ up into 3 parts because of the length of
        |        |     |     |       |--> number of unrecovered RTO timeouts
        |        |     |     |----------> number of jiffies until timer expires
@@ -43,7 +44,7 @@ diff -r bdcdd0e1ee9d Documentation/networking/proc_net_tcp.txt
      |          |    |     |    |     |  | |  | |--> slow start size threshold, 
 diff -r bdcdd0e1ee9d net/ipv4/tcp.c
 --- a/net/ipv4/tcp.c	Sat Sep 01 07:00:31 2007 +0000
-+++ b/net/ipv4/tcp.c	Mon Sep 10 16:09:46 2007 -0700
++++ b/net/ipv4/tcp.c	Tue Sep 11 10:38:23 2007 -0700
 @@ -2030,8 +2030,14 @@ void tcp_get_info(struct sock *sk, struc
  	info->tcpi_snd_mss = tp->mss_cache;
  	info->tcpi_rcv_mss = icsk->icsk_ack.rcv_mss;
@@ -61,9 +62,30 @@ diff -r bdcdd0e1ee9d net/ipv4/tcp.c
  	info->tcpi_lost = tp->lost_out;
  	info->tcpi_retrans = tp->retrans_out;
  	info->tcpi_fackets = tp->fackets_out;
+diff -r bdcdd0e1ee9d net/ipv4/tcp_diag.c
+--- a/net/ipv4/tcp_diag.c	Sat Sep 01 07:00:31 2007 +0000
++++ b/net/ipv4/tcp_diag.c	Tue Sep 11 10:38:23 2007 -0700
+@@ -25,11 +25,14 @@ static void tcp_diag_get_info(struct soc
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+ 	struct tcp_info *info = _info;
+ 
+-	if (sk->sk_state == TCP_LISTEN)
++	if (sk->sk_state == TCP_LISTEN) {
+ 		r->idiag_rqueue = sk->sk_ack_backlog;
+-	else
++		r->idiag_wqueue = sk->sk_max_ack_backlog;
++	}
++	else {
+ 		r->idiag_rqueue = tp->rcv_nxt - tp->copied_seq;
+-	r->idiag_wqueue = tp->write_seq - tp->snd_una;
++		r->idiag_wqueue = tp->write_seq - tp->snd_una;
++	}
+ 	if (info != NULL)
+ 		tcp_get_info(sk, info);
+ }
 diff -r bdcdd0e1ee9d net/ipv4/tcp_ipv4.c
 --- a/net/ipv4/tcp_ipv4.c	Sat Sep 01 07:00:31 2007 +0000
-+++ b/net/ipv4/tcp_ipv4.c	Mon Sep 10 16:09:46 2007 -0700
++++ b/net/ipv4/tcp_ipv4.c	Tue Sep 11 10:38:23 2007 -0700
 @@ -2320,7 +2320,8 @@ static void get_tcp4_sock(struct sock *s
  	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X %02X %08X:%08X %02X:%08lX "
  			"%08X %5d %8d %lu %d %p %u %u %u %u %d",
@@ -76,7 +98,7 @@ diff -r bdcdd0e1ee9d net/ipv4/tcp_ipv4.c
  		timer_active,
 diff -r bdcdd0e1ee9d net/ipv6/tcp_ipv6.c
 --- a/net/ipv6/tcp_ipv6.c	Sat Sep 01 07:00:31 2007 +0000
-+++ b/net/ipv6/tcp_ipv6.c	Mon Sep 10 16:09:46 2007 -0700
++++ b/net/ipv6/tcp_ipv6.c	Tue Sep 11 10:38:23 2007 -0700
 @@ -2005,8 +2005,10 @@ static void get_tcp6_sock(struct seq_fil
  		   dest->s6_addr32[0], dest->s6_addr32[1],
  		   dest->s6_addr32[2], dest->s6_addr32[3], destp,
