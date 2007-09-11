@@ -1,175 +1,189 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH] Move the definition of pr_err() into kernel.h
-Date: Tue, 11 Sep 2007 08:41:06 -0700
-Message-ID: <20070911084106.54654bd6.randy.dunlap@oracle.com>
-References: <11895225651521-git-send-email-Emilian.Medve@Freescale.com>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: [PATCH 3/3] rfkill: Add rfkill documentation
+Date: Tue, 11 Sep 2007 18:51:47 +0200
+Message-ID: <200709111851.48089.IvDoorn@gmail.com>
+References: <200709101954.50852.IvDoorn@gmail.com> <200709101956.03861.IvDoorn@gmail.com> <20070910112625.376efc50.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	i2c@lm-sensors.org, linux-omap-open-source@linux.omap.com
-To: Emil Medve <Emilian.Medve@Freescale.com>
+Cc: davem@davemloft.net, Dmitry Torokhov <dtor@insightbb.com>,
+	netdev@vger.kernel.org,
+	Inaky Perez-Gonzalez <inaky@linux.intel.com>
+To: Randy Dunlap <randy.dunlap@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:19070 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751588AbXIKPrx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2007 11:47:53 -0400
-In-Reply-To: <11895225651521-git-send-email-Emilian.Medve@Freescale.com>
+Received: from an-out-0708.google.com ([209.85.132.242]:64288 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752814AbXIKQkb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2007 12:40:31 -0400
+Received: by an-out-0708.google.com with SMTP id d31so216055and
+        for <netdev@vger.kernel.org>; Tue, 11 Sep 2007 09:40:30 -0700 (PDT)
+In-Reply-To: <20070910112625.376efc50.randy.dunlap@oracle.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 11 Sep 2007 09:56:05 -0500 Emil Medve wrote:
-
-> Other pr_*() macros are already defined in kernel.h, but pr_err() was defined
-> multiple times in several other places
+On Monday 10 September 2007, Randy Dunlap wrote:
+> On Mon, 10 Sep 2007 19:56:03 +0200 Ivo van Doorn wrote:
 > 
-> Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
+> > Add a documentation file which contains
+> > a short description about rfkill with some
+> > notes about drivers and the userspace interface.
+> 
+> Thanks.  I have noted a few typo/editorial changes below.
+
+Thanks!
+I'll resend this patch within a few minutes. :)
+
+Ivo
+
+> > Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
+> > Acked-by: Dmitry Torokhov <dtor@mail.ru>
+> > ---
+> >  Documentation/rfkill.txt |   88 ++++++++++++++++++++++++++++++++++++++++++++++
+> >  1 files changed, 88 insertions(+), 0 deletions(-)
+> >  create mode 100644 Documentation/rfkill.txt
+> > 
+> > diff --git a/Documentation/rfkill.txt b/Documentation/rfkill.txt
+> > new file mode 100644
+> > index 0000000..93c76fc
+> > --- /dev/null
+> > +++ b/Documentation/rfkill.txt
+> > @@ -0,0 +1,88 @@
+> > +rfkill - RF switch subsystem support
+> > +====================================
+> > +
+> > +1 Implementation details
+> > +2 Driver support
+> > +3 Userspace support
+> > +
+> > +===============================================================================
+> > +1: Implementation details
+> > +
+> > +The rfkill switch subsystem offers support for keys often found on laptops
+> > +to enable wireless devices like WiFi and Bluetooth.
+> > +
+> > +This is done by providing the user 3 possibilities:
+> > + - The rfkill system handles all events, userspace is not aware of events.
+> > + - The rfkill system handles all events, userspace is informed about the event.
+> > + - The rfkill system does not handle events, userspace handles all events.
+> 
+> I would s/,/;/ in the 3 lines above.
+> 
+> > +The buttons to enable and disable the wireless radios are important in
+> > +situations where the user is for example using his laptop on a location where
+> > +wireless radios _must_ be disabled (e.g airplanes).
+> > +Because of this requirement, userspace support for the keys should not be
+> > +made mandatory. Because userspace might want to perform some additional smarter
+> > +tasks when the key is pressed, rfkill still provides userspace the possibility
+> > +to take over the task to handle the key events.
+> > +
+> > +The system inside the kernel has been split into 2 seperate sections:
+> 
+>                                                       separate
+> 
+> > +	1 - RFKILL
+> > +	2 - RFKILL_INPUT
+> > +
+> > +The first option enables rfkill support and will make sure userspace will
+> > +be notified of any events through the input device. It also creates several
+> > +sysfs entries which can be used by userspace. See section "Userspace support".
+> > +
+> > +The second option provides a rfkill input handler. This handler will
+> 
+>                               an
+> 
+> > +listen to all rfkill key events and will toggle the radio accordingly,
+> 
+> end above with ; or .  If '.', s/with/With/ on next line.
+> 
+> > +with this option enabled userspace could either do nothing or simply
+> > +perform monitoring tasks.
+> > +
+> > +====================================
+> > +2: Driver support
+> > +
+> > +Drivers who wish to build in rfkill subsystem support should
+> 
+>    Drivers that
+> 
+> But, drivers can't/don't wish, so it would be better to say something
+> like:
+> 
+> To build a driver with rfkill subsystem support, the driver should
+> depend on the Kconfig symbol RFKILL; it should _not_ depend on
+> RKFILL_INPUT.
+> 
+> 
+> > +make sure their driver depends of the Kconfig option RFKILL, it should
+> > +_not_ depend on RFKILL_INPUT.
+> > +
+> > +Unless key events trigger a interrupt to which the driver listens, polling
+> 
+>                              an interrupt
+> 
+> > +will be required to determine the key state changes. For this the input
+> > +layer providers the input-polldev handler.
+> > +
+> > +A driver should implement a few steps to correctly make use of the
+> > +rfkill subsystem. First for non-polling drivers:
+> > +
+> > +	- rfkill_allocate()
+> > +	- input_allocate_device()
+> > +	- rfkill_register()
+> > +	- input_register_device()
+> > +
+> > +For polling drivers:
+> > +
+> > +	- rfkill_allocate()
+> > +	- input_allocate_polled_device()
+> > +	- rfkill_register()
+> > +	- input_register_polled_device()
+> > +
+> > +When a key event has been detected, the correct event should be
+> > +send over the input device which has been registered by the driver.
+> 
+>    sent
+> 
+> > +
+> > +====================================
+> > +3: Userspace support
+> > +
+> > +For each key a input device will be created which will send out the correct
+> 
+>                 an
+> 
+> > +key event when the rfkill key has been pressed.
+> > +
+> > +The following sysfs entries will be created:
+> > +
+> > +	name: Name assigned by driver to this key (interface or driver name).
+> > +	type: Name of the key type ("wlan", "bluetooth", etc).
+> > +	state: Current state of the key. 1: On, 0: Off.
+> > +	claim: 1: Userspace handles events, 0: Kernel handles events
+> > +
+> > +Both the "state" and "claim" entries are also writable. For the "state" entry
+> > +this means that when 1 or 0 is written all radios will be toggled accordingly.
+> 
+> will be written even if they are already in that state?
+> 
+> > +For the "claim" entry writing 1 to it will mean that the kernel will no longer
+> 
+> s/will mean/means/
+> s/will no longer handle/no longer handles/
+> 
+> > +handle key events even though RFKILL_INPUT input was enabled. When "claim" has
+> > +been set to 0, userspace should make sure it will listen for the input events
+> 
+> s/it will listen/that it listens/
+> 
+> > +or check the sysfs "state" entry regularly to correctly perform the required
+> > +tasks when the rkfill key is pressed.
+> > -- 
+> 
 > ---
->  drivers/i2c/chips/menelaus.c     |   10 ++++------
->  drivers/net/spider_net.h         |    3 ---
->  drivers/video/omap/lcd_h3.c      |    6 ++----
->  drivers/video/omap/lcd_inn1610.c |    6 ++----
->  include/linux/kernel.h           |    2 ++
->  5 files changed, 10 insertions(+), 17 deletions(-)
+> ~Randy
+> *** Remember to use Documentation/SubmitChecklist when testing your code ***
 > 
-> diff --git a/drivers/i2c/chips/menelaus.c b/drivers/i2c/chips/menelaus.c
-> index d9c92c5..fc5eed4 100644
-> --- a/drivers/i2c/chips/menelaus.c
-> +++ b/drivers/i2c/chips/menelaus.c
-> @@ -49,8 +49,6 @@
->  
->  #define DRIVER_NAME			"menelaus"
->  
-> -#define pr_err(fmt, arg...)	printk(KERN_ERR DRIVER_NAME ": ", ## arg);
-> -
->  #define MENELAUS_I2C_ADDRESS		0x72
->  
->  #define MENELAUS_REV			0x01
-> @@ -155,7 +153,7 @@ static int menelaus_write_reg(int reg, u8 value)
->  	int val = i2c_smbus_write_byte_data(the_menelaus->client, reg, value);
->  
->  	if (val < 0) {
-> -		pr_err("write error");
-> +		pr_err(DRIVER_NAME ":write error");
 
-Hi,
-Please keep the space after the ":" in all cases...
 
->  		return val;
->  	}
->  
-> @@ -167,7 +165,7 @@ static int menelaus_read_reg(int reg)
->  	int val = i2c_smbus_read_byte_data(the_menelaus->client, reg);
->  
->  	if (val < 0)
-> -		pr_err("read error");
-> +		pr_err(DRIVER_NAME ":read error");
->  
->  	return val;
->  }
-> @@ -1177,7 +1175,7 @@ static int menelaus_probe(struct i2c_client *client)
->  	/* If a true probe check the device */
->  	rev = menelaus_read_reg(MENELAUS_REV);
->  	if (rev < 0) {
-> -		pr_err("device not found");
-> +		pr_err(DRIVER_NAME ":device not found");
->  		err = -ENODEV;
->  		goto fail1;
->  	}
-> @@ -1258,7 +1256,7 @@ static int __init menelaus_init(void)
->  
->  	res = i2c_add_driver(&menelaus_i2c_driver);
->  	if (res < 0) {
-> -		pr_err("driver registration failed\n");
-> +		pr_err(DRIVER_NAME ":driver registration failed\n");
->  		return res;
->  	}
->  
-> diff --git a/drivers/net/spider_net.h b/drivers/net/spider_net.h
-> index dbbdb8c..c67b11d 100644
-> --- a/drivers/net/spider_net.h
-> +++ b/drivers/net/spider_net.h
-> @@ -493,7 +493,4 @@ struct spider_net_card {
->  	struct spider_net_descr darray[0];
->  };
->  
-> -#define pr_err(fmt,arg...) \
-> -	printk(KERN_ERR fmt ,##arg)
-> -
->  #endif
-> diff --git a/drivers/video/omap/lcd_h3.c b/drivers/video/omap/lcd_h3.c
-> index 51807b4..c81271d 100644
-> --- a/drivers/video/omap/lcd_h3.c
-> +++ b/drivers/video/omap/lcd_h3.c
-> @@ -28,8 +28,6 @@
->  
->  #define MODULE_NAME	"omapfb-lcd_h3"
->  
-> -#define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
-> -
->  static int h3_panel_init(struct lcd_panel *panel, struct omapfb_device *fbdev)
->  {
->  	return 0;
-> @@ -48,7 +46,7 @@ static int h3_panel_enable(struct lcd_panel *panel)
->  	if (!r)
->  		r = tps65010_set_gpio_out_value(GPIO2, HIGH);
->  	if (r)
-> -		pr_err("Unable to turn on LCD panel\n");
-> +		pr_err(MODULE_NAME ":Unable to turn on LCD panel\n");
->  
->  	return r;
->  }
-> @@ -62,7 +60,7 @@ static void h3_panel_disable(struct lcd_panel *panel)
->  	if (!r)
->  		tps65010_set_gpio_out_value(GPIO2, LOW);
->  	if (r)
-> -		pr_err("Unable to turn off LCD panel\n");
-> +		pr_err(MODULE_NAME ":Unable to turn off LCD panel\n");
->  }
->  
->  static unsigned long h3_panel_get_caps(struct lcd_panel *panel)
-> diff --git a/drivers/video/omap/lcd_inn1610.c b/drivers/video/omap/lcd_inn1610.c
-> index 95604ca..ea85cb9 100644
-> --- a/drivers/video/omap/lcd_inn1610.c
-> +++ b/drivers/video/omap/lcd_inn1610.c
-> @@ -27,20 +27,18 @@
->  
->  #define MODULE_NAME	"omapfb-lcd_h3"
->  
-> -#define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
-> -
->  static int innovator1610_panel_init(struct lcd_panel *panel,
->  				    struct omapfb_device *fbdev)
->  {
->  	int r = 0;
->  
->  	if (omap_request_gpio(14)) {
-> -		pr_err("can't request GPIO 14\n");
-> +		pr_err(MODULE_NAME ":can't request GPIO 14\n");
->  		r = -1;
->  		goto exit;
->  	}
->  	if (omap_request_gpio(15)) {
-> -		pr_err("can't request GPIO 15\n");
-> +		pr_err(MODULE_NAME ":can't request GPIO 15\n");
->  		omap_free_gpio(14);
->  		r = -1;
->  		goto exit;
-> diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-> index f592df7..c51936a 100644
-> --- a/include/linux/kernel.h
-> +++ b/include/linux/kernel.h
-> @@ -242,6 +242,8 @@ static inline int __attribute__ ((format (printf, 1, 2))) pr_debug(const char *
->  
->  #define pr_info(fmt,arg...) \
->  	printk(KERN_INFO fmt,##arg)
-> +#define pr_err(fmt, arg...) \
-> +	printk(KERN_ERR fmt, ##arg)
->  
->  /*
->   *      Display an IP address in readable format.
-> -- 
-
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
