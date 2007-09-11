@@ -1,49 +1,175 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH][2/2] Add ICMPMsgStats MIB (RFC 4293)
-Date: Tue, 11 Sep 2007 08:21:54 -0700
-Message-ID: <OFB359CEB3.1D9E338E-ON88257353.00529BF9-88257353.00545412@us.ibm.com>
-References: <20070911.175053.104206872.yoshfuji@linux-ipv6.org>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH] Move the definition of pr_err() into kernel.h
+Date: Tue, 11 Sep 2007 08:41:06 -0700
+Message-ID: <20070911084106.54654bd6.randy.dunlap@oracle.com>
+References: <11895225651521-git-send-email-Emilian.Medve@Freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	i2c@lm-sensors.org, linux-omap-open-source@linux.omap.com
+To: Emil Medve <Emilian.Medve@Freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:42885 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754117AbXIKPWT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2007 11:22:19 -0400
-In-Reply-To: <20070911.175053.104206872.yoshfuji@linux-ipv6.org>
+Received: from agminet01.oracle.com ([141.146.126.228]:19070 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751588AbXIKPrx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2007 11:47:53 -0400
+In-Reply-To: <11895225651521-git-send-email-Emilian.Medve@Freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yoshifuji Hideaki <yoshfuji@linux-ipv6.org> wrote on 09/11/2007 01:50:53 
-AM:
+On Tue, 11 Sep 2007 09:56:05 -0500 Emil Medve wrote:
 
-> Dave, we've been supporting per-interface stats for IPv6, and
-> you seem to remove them.  Please keep them.  Thank you.
+> Other pr_*() macros are already defined in kernel.h, but pr_err() was defined
+> multiple times in several other places
+> 
+> Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
+> ---
+>  drivers/i2c/chips/menelaus.c     |   10 ++++------
+>  drivers/net/spider_net.h         |    3 ---
+>  drivers/video/omap/lcd_h3.c      |    6 ++----
+>  drivers/video/omap/lcd_inn1610.c |    6 ++----
+>  include/linux/kernel.h           |    2 ++
+>  5 files changed, 10 insertions(+), 17 deletions(-)
+> 
+> diff --git a/drivers/i2c/chips/menelaus.c b/drivers/i2c/chips/menelaus.c
+> index d9c92c5..fc5eed4 100644
+> --- a/drivers/i2c/chips/menelaus.c
+> +++ b/drivers/i2c/chips/menelaus.c
+> @@ -49,8 +49,6 @@
+>  
+>  #define DRIVER_NAME			"menelaus"
+>  
+> -#define pr_err(fmt, arg...)	printk(KERN_ERR DRIVER_NAME ": ", ## arg);
+> -
+>  #define MENELAUS_I2C_ADDRESS		0x72
+>  
+>  #define MENELAUS_REV			0x01
+> @@ -155,7 +153,7 @@ static int menelaus_write_reg(int reg, u8 value)
+>  	int val = i2c_smbus_write_byte_data(the_menelaus->client, reg, value);
+>  
+>  	if (val < 0) {
+> -		pr_err("write error");
+> +		pr_err(DRIVER_NAME ":write error");
 
-        The reason I didn't for ICMPMsgStats is the size. The RFC requires
-in & out counters for all types, whether or not they are known by the OS,
-so that's 512 stats.
+Hi,
+Please keep the space after the ":" in all cases...
 
-Because the MIB variables in the existing infrastructure are not 
-dynamically
-allocated, that's:
+>  		return val;
+>  	}
+>  
+> @@ -167,7 +165,7 @@ static int menelaus_read_reg(int reg)
+>  	int val = i2c_smbus_read_byte_data(the_menelaus->client, reg);
+>  
+>  	if (val < 0)
+> -		pr_err("read error");
+> +		pr_err(DRIVER_NAME ":read error");
+>  
+>  	return val;
+>  }
+> @@ -1177,7 +1175,7 @@ static int menelaus_probe(struct i2c_client *client)
+>  	/* If a true probe check the device */
+>  	rev = menelaus_read_reg(MENELAUS_REV);
+>  	if (rev < 0) {
+> -		pr_err("device not found");
+> +		pr_err(DRIVER_NAME ":device not found");
+>  		err = -ENODEV;
+>  		goto fail1;
+>  	}
+> @@ -1258,7 +1256,7 @@ static int __init menelaus_init(void)
+>  
+>  	res = i2c_add_driver(&menelaus_i2c_driver);
+>  	if (res < 0) {
+> -		pr_err("driver registration failed\n");
+> +		pr_err(DRIVER_NAME ":driver registration failed\n");
+>  		return res;
+>  	}
+>  
+> diff --git a/drivers/net/spider_net.h b/drivers/net/spider_net.h
+> index dbbdb8c..c67b11d 100644
+> --- a/drivers/net/spider_net.h
+> +++ b/drivers/net/spider_net.h
+> @@ -493,7 +493,4 @@ struct spider_net_card {
+>  	struct spider_net_descr darray[0];
+>  };
+>  
+> -#define pr_err(fmt,arg...) \
+> -	printk(KERN_ERR fmt ,##arg)
+> -
+>  #endif
+> diff --git a/drivers/video/omap/lcd_h3.c b/drivers/video/omap/lcd_h3.c
+> index 51807b4..c81271d 100644
+> --- a/drivers/video/omap/lcd_h3.c
+> +++ b/drivers/video/omap/lcd_h3.c
+> @@ -28,8 +28,6 @@
+>  
+>  #define MODULE_NAME	"omapfb-lcd_h3"
+>  
+> -#define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
+> -
+>  static int h3_panel_init(struct lcd_panel *panel, struct omapfb_device *fbdev)
+>  {
+>  	return 0;
+> @@ -48,7 +46,7 @@ static int h3_panel_enable(struct lcd_panel *panel)
+>  	if (!r)
+>  		r = tps65010_set_gpio_out_value(GPIO2, HIGH);
+>  	if (r)
+> -		pr_err("Unable to turn on LCD panel\n");
+> +		pr_err(MODULE_NAME ":Unable to turn on LCD panel\n");
+>  
+>  	return r;
+>  }
+> @@ -62,7 +60,7 @@ static void h3_panel_disable(struct lcd_panel *panel)
+>  	if (!r)
+>  		tps65010_set_gpio_out_value(GPIO2, LOW);
+>  	if (r)
+> -		pr_err("Unable to turn off LCD panel\n");
+> +		pr_err(MODULE_NAME ":Unable to turn off LCD panel\n");
+>  }
+>  
+>  static unsigned long h3_panel_get_caps(struct lcd_panel *panel)
+> diff --git a/drivers/video/omap/lcd_inn1610.c b/drivers/video/omap/lcd_inn1610.c
+> index 95604ca..ea85cb9 100644
+> --- a/drivers/video/omap/lcd_inn1610.c
+> +++ b/drivers/video/omap/lcd_inn1610.c
+> @@ -27,20 +27,18 @@
+>  
+>  #define MODULE_NAME	"omapfb-lcd_h3"
+>  
+> -#define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
+> -
+>  static int innovator1610_panel_init(struct lcd_panel *panel,
+>  				    struct omapfb_device *fbdev)
+>  {
+>  	int r = 0;
+>  
+>  	if (omap_request_gpio(14)) {
+> -		pr_err("can't request GPIO 14\n");
+> +		pr_err(MODULE_NAME ":can't request GPIO 14\n");
+>  		r = -1;
+>  		goto exit;
+>  	}
+>  	if (omap_request_gpio(15)) {
+> -		pr_err("can't request GPIO 15\n");
+> +		pr_err(MODULE_NAME ":can't request GPIO 15\n");
+>  		omap_free_gpio(14);
+>  		r = -1;
+>  		goto exit;
+> diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+> index f592df7..c51936a 100644
+> --- a/include/linux/kernel.h
+> +++ b/include/linux/kernel.h
+> @@ -242,6 +242,8 @@ static inline int __attribute__ ((format (printf, 1, 2))) pr_debug(const char *
+>  
+>  #define pr_info(fmt,arg...) \
+>  	printk(KERN_INFO fmt,##arg)
+> +#define pr_err(fmt, arg...) \
+> +	printk(KERN_ERR fmt, ##arg)
+>  
+>  /*
+>   *      Display an IP address in readable format.
+> -- 
 
-512 * numInterfaces * numCPUs * 2protos
-
-That seems like a lot of mostly-zero memory. Changing them to be run-time
-allocated (and re-allocated when new types are seen) is another 
-alternative,
-but more significant changes.
-
-"Memory is Cheap."
-        -- Doug Comer
-
-So maybe it's not so bad -- I'll roll another per-interface version
-to see.
-
-                                                        +-DLS
-
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
