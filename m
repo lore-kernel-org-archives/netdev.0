@@ -1,66 +1,34 @@
-From: Neil Brown <neilb@suse.de>
-Subject: Re: [OOPS] 2.6.23-rc5 in tcp/net/nfsd
-Date: Tue, 11 Sep 2007 11:26:52 +0200
-Message-ID: <18150.24412.855004.90148@notabene.brown>
-References: <20070911083200.GA3409@hindley.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [IPv6] BUG: NULL pointer dereference in(?)
+ ip6_flush_pending_frames
+Date: Tue, 11 Sep 2007 02:32:18 -0700 (PDT)
+Message-ID: <20070911.023218.39155851.davem@davemloft.net>
+References: <20070909222400.GC7591@obelix.birkenwald.de>
+	<20070910.083847.40751994.yoshfuji@linux-ipv6.org>
+	<46E4FDC6.3060809@birkenwald.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	nfs@lists.sourceforge.net
-To: Mark Hindley <mark@hindley.org.uk>
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	miyazawa@linux-ipv6.org
+To: berni@birkenwald.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:57727 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933638AbXIKJ0t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Sep 2007 05:26:49 -0400
-In-Reply-To: message from Mark Hindley on Tuesday September 11
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:51824
+	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752447AbXIKJc1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2007 05:32:27 -0400
+In-Reply-To: <46E4FDC6.3060809@birkenwald.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday September 11, mark@hindley.org.uk wrote:
-> This oops appeared over night on a box running 2.6.23-rc5 (recent with the
-> tcp_input.c fix).
+From: Bernhard Schmidt <berni@birkenwald.de>
+Date: Mon, 10 Sep 2007 10:18:14 +0200
+
+> FTR, I tried 2.6.22.6 without the patch and it failed as well. The 
+> patched kernel is running since yesterday evening (about 8h now) and 
+> seems to be stable so far. Too early to tell for sure, but I guess we 
+> have a fix.
 > 
-> I can't find a similar one reported.
+> Thanks Yoshifuji!
 
-
-Okay..... this is weird.
-> 
-> Mark
-> 
-> 
-> BUG: unable to handle kernel NULL pointer dereference at virtual address 0000007e 
-                                                                           ^^^^^^^^
-
-That is the bad address,
-
-> EFLAGS: 00010246   (2.6.23-rc5-2-mcyrixiii #1)
-> EIP is at ip_fragment+0x7f/0x680
-> eax: c3c09c00   ebx: 00000000   ecx: b524d006   edx: 0000007b
-                                                  ^^^^^^^^^^^^^
-
-It looks like an offset of 3 from edx.  I got that from decoding:
-
-> Code: .... <00> ba 03 00 00 00 bf a6 ff ff
-
-which is 
-   0:   00 ba 03 00 00 00         add    %bh,0x3(%rdx)
-
-However that instruction doesn't appear in ip_fragment.
-The code in ip_fragment reads:
-  27:   b9 04 00 00 00            mov    $0x4,%ecx
-                    ^^
-  2c:   ba 03 00 00 00            mov    $0x3,%edx
-        ^^^^^^^^^^^^^^
-
-which contains the bytes of the offending instruction.
-Note that $0x4 is ICMP_FRAG_NEEDED and $0x3 is ICMP_DEST_UNREACH:
-these are args to icmp_send.  So the latter is the correct disassembly
-based on the C code.
-
-So somehow the kernel is jumping to a bad address.  I don't know how
-that would happening.... maybe a single bit error in memory or a
-register???
-
-NeilBrown
+I've applied this fix, thanks!
