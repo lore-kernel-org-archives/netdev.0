@@ -1,31 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [OOPS] 2.6.23-rc5 in tcp/net/nfsd
-Date: Tue, 11 Sep 2007 17:00:13 +0800
-Message-ID: <E1IV1bR-0001CT-00@gondolin.me.apana.org.au>
-References: <20070911083200.GA3409@hindley.org.uk>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	nfs@lists.sourceforge.net, neilb@suse.de
-To: mark@hindley.org.uk (Mark Hindley)
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Freeing alive inet6 address
+Date: Tue, 11 Sep 2007 02:08:18 -0700 (PDT)
+Message-ID: <20070911.020818.71091588.davem@davemloft.net>
+References: <20070907102118.GA27780@iris.sw.ru>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: adobriyan@openvz.org, xemul@openvz.org, dev@openvz.org,
+	kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, devel@openvz.org
+To: den@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3353 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759271AbXIKJAy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2007 05:00:54 -0400
-In-Reply-To: <20070911083200.GA3409@hindley.org.uk>
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:41334
+	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S933195AbXIKJIw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2007 05:08:52 -0400
+In-Reply-To: <20070907102118.GA27780@iris.sw.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mark Hindley <mark@hindley.org.uk> wrote:
->
-> Code: 01 00 00 03 75 0e 8b 42 18 8b 40 0c 8b 80 c4 00 00 00 eb 0a 8b 4c 24 08 8b 41 18 8b 40 28 0f c8 89 04 24 8b 44 24 08 b9 04 00 00 <00> ba 03 00 00 00 bf a6 ff ff
-> EIP: [<c02625bf>] ip_fragment+0x7f/0x680 SS:ESP 0068:ccb48b3c
+From: "Denis V. Lunev" <den@openvz.org>
+Date: Fri, 7 Sep 2007 14:21:18 +0400
 
-The EIP is off by one byte.  So either a hardware problem or a
-really unlikely result of stack corruption.
+> From: Denis V. Lunev <den@openvz.org>
+> 
+> addrconf_dad_failure calls addrconf_dad_stop which takes referenced address
+> and drops the count. So, in6_ifa_put perrformed at out: is extra. This
+> results in message: "Freeing alive inet6 address" and not released dst entries.
+> 
+> Signed-off-by: Denis V. Lunev <den@openvz.org>
+> Signed-off-by: Alexey Dobriyan <adobriyan@openvz.org>
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I've seen this bug myself just a week before heading to
+Europe for conferences and intended to look into it.
+
+Thanks a lot for fixing this, patch applied.
