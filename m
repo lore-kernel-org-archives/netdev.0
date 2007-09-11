@@ -1,65 +1,82 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: BUG: skge ethernet breakage (PCI: Unable to reserve mem region)
-Date: Tue, 11 Sep 2007 10:21:10 +0200
-Message-ID: <20070911102110.1f32fa7e@oldman>
-References: <1189183355.3784.11.camel@localhost>
+From: Mark Hindley <mark@hindley.org.uk>
+Subject: [OOPS] 2.6.23-rc5 in tcp/net/nfsd
+Date: Tue, 11 Sep 2007 09:32:00 +0100
+Message-ID: <20070911083200.GA3409@hindley.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jan Gukelberger <g.u.g.i@gmx.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, nfs@lists.sourceforge.net, neilb@suse.de
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:56893 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760614AbXIKIUa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2007 04:20:30 -0400
-In-Reply-To: <1189183355.3784.11.camel@localhost>
+Received: from 83-216-141-215.markhi700.adsl.metronet.co.uk ([83.216.141.215]:4856
+	"EHLO mx.hindley.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754745AbXIKIcF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2007 04:32:05 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 07 Sep 2007 18:42:35 +0200
-Jan Gukelberger <g.u.g.i@gmx.de> wrote:
+This oops appeared over night on a box running 2.6.23-rc5 (recent with the
+tcp_input.c fix).
 
-> Hi,
-> 
-> I originally reported this bug to the Debian BTS:
-> http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=441232
-> There I was told to talk directly to upstream.
-> 
-> I am pasting the original bug report below. The referenced text files
-> can be found at the mentioned BTS URL. 
-> Additionally, I have just tried Linux 2.6.23-rc5 and am attaching the
-> corresponding dmesg output.
-> 
-> Thanks in advance for any help,
-> Jan
-> 
-> 
-> With recent kernels my on-board network adapter does not work any more.
-> This is a Marvell Gigabit Ethernet Controller on an Asus P5B-V
-> mainboard.
-> 
-> This is the same bug as #428452 reported earlier against
-> linux-image-2.6.21-1-amd64. (Sorry for the duplicate, I didn't know how
-> to extend the old report to newer kernel versions.)
-> In fact, the network adapter hasn't been working since then, i.e. the
-> last working kernel image was 2.6.20-1-amd64 (which I am using now). The
-> following images 2.6.2[12]-[12]-amd64 have all exposed the same problem.
-> 
-> The key problem seem to be the following lines in dmesg:
-> ------------------------------------------------------------------------
-> ACPI: PCI Interrupt 0000:04:04.0[A] -> GSI 19 (level, low) -> IRQ 19
-> PCI: Unable to reserve mem region #1:4000@ff9f8000 for device 0000:04:04.0
-> skge 0000:04:04.0: cannot obtain PCI resources
-> ACPI: PCI interrupt for device 0000:04:04.0 disabled
-> skge: probe of 0000:04:04.0 failed with error -16
-> ------------------------------------------------------------------------
-> 
-> I'm attaching full 'dmesg' output from working (2.6.20-1) and broken
-> (2.6.22-2) kernel versions as well as the output of 'lspci -vvv' on the
-> most recent kernel.
-> 
-> If you need any other information or I can try something please let me
-> know.
+I can't find a similar one reported.
 
-There is some kind of device conflict, please provide lspci -vvvxx output.
+Mark
+
+
+BUG: unable to handle kernel NULL pointer dereference at virtual address 0000007e 
+ printing eip: 
+c02625bf 
+*pde = 00000000 
+Oops: 0002 [#1] 
+PREEMPT
+Modules linked in: softdog nfs cpufreq_userspace nfsd exportfs lockd sunrpc ppdev lp ac battery ipv6 cpufreq_ondemand cpufreq_powersave longhaul af_packet tcp_diag inev
+CPU:    0
+EIP:    0060:[<c02625bf>]    Not tainted VLI
+EFLAGS: 00010246   (2.6.23-rc5-2-mcyrixiii #1)
+EIP is at ip_fragment+0x7f/0x680
+eax: c3c09c00   ebx: 00000000   ecx: b524d006   edx: 0000007b
+esi: c1f77810   edi: c1f77e00   ebp: 00000000   esp: ccb48b3c
+ds: 007b   es: 007b   fs: 0000  gs: 0000  ss: 0068
+Process nfsd (pid: 2942, ti=ccb48000 task=cf78c530 task.ti=ccb48000)
+Stack: 00000060 00000060 c0262dd0 c3c09c00 c0382600 00000158 000005c8 00000014
+       cbbc5424 00000158 00000000 00008b80 00000000 c1134a40 c3c09c00 00000000
+       cee8b780 c0382600 c0264115 00000282 ceabbe40 00000158 c026306c 00000000
+Call Trace:
+ [<c0262dd0>] ip_finish_output2+0x0/0x1c0
+ [<c0264115>] ip_output+0xd5/0x290
+ [<c026306c>] ip_generic_getfrag+0x4c/0xa0
+ [<c025d3e8>] __ip_select_ident+0x58/0xc0
+ [<c02619ef>] ip_push_pending_frames+0x2df/0x3a0
+ [<c0263020>] ip_generic_getfrag+0x0/0xa0
+ [<c027afab>] udp_push_pending_frames+0x2ab/0x2d0
+ [<c027bfc9>] udp_sendmsg+0x469/0x590
+ [<c025c470>] __ip_route_output_key+0x6f0/0x710
+ [<c0261f8f>] ip_append_data+0x4df/0x970
+ [<c01203d0>] irq_exit+0x40/0x70
+ [<c02811fb>] inet_sendmsg+0x3b/0x50
+ [<c023a79b>] sock_sendmsg+0xbb/0xe0
+ [<c012bf80>] autoremove_wake_function+0x0/0x40
+ [<c02811fb>] inet_sendmsg+0x3b/0x50
+ [<c023ba57>] kernel_sendmsg+0x27/0x40
+ [<c023c53a>] sock_no_sendpage+0x5a/0x70
+ [<c027c766>] udp_sendpage+0xd6/0x130
+ [<d030a5a0>] nfsd_acceptable+0x0/0xd0 [nfsd]
+ [<c027c690>] udp_sendpage+0x0/0x130
+ [<c0281265>] inet_sendpage+0x55/0x90
+ [<c0281210>] inet_sendpage+0x0/0x90
+ [<c0239acf>] kernel_sendpage+0x3f/0x50
+ [<d02e7893>] svc_sendto+0x1b3/0x280 [sunrpc]
+ [<d031312a>] encode_post_op_attr+0x4a/0x60 [nfsd]
+ [<c01593e5>] __slab_free+0x55/0x280
+ [<d02e7971>] svc_udp_sendto+0x11/0x30 [sunrpc]
+ [<d02e8737>] svc_send+0xb7/0x100 [sunrpc]
+ [<d02ea34b>] svcauth_unix_release+0x3b/0x50 [sunrpc]
+ [<d0312ed0>] nfs3svc_release_fhandle+0x0/0x10 [nfsd]
+ [<d02e7178>] svc_process+0x418/0x690 [sunrpc]
+ [<d02e9f1a>] svc_recv+0x35a/0x3d0 [sunrpc]
+ [<d0308775>] nfsd+0x185/0x2a0 [nfsd]
+ [<d03085f0>] nfsd+0x0/0x2a0 [nfsd]
+ [<c0105027>] kernel_thread_helper+0x7/0x10
+ =======================
+Code: 01 00 00 03 75 0e 8b 42 18 8b 40 0c 8b 80 c4 00 00 00 eb 0a 8b 4c 24 08 8b 41 18 8b 40 28 0f c8 89 04 24 8b 44 24 08 b9 04 00 00 <00> ba 03 00 00 00 bf a6 ff ff
+EIP: [<c02625bf>] ip_fragment+0x7f/0x680 SS:ESP 0068:ccb48b3c
