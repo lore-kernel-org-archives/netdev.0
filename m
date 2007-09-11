@@ -1,63 +1,79 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: sky2.c: length mismatch errors with vlan frames
-Date: Tue, 11 Sep 2007 10:10:48 +0200
-Message-ID: <20070911101048.02509747@oldman>
-References: <20070910163538.3b23e842@gamma.echo-net.net>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH] ipconfig.c: De-clutter IP configuration report
+Date: Tue, 11 Sep 2007 09:11:11 +0100
+Message-ID: <46E64D9F.1010700@katalix.com>
+References: <Pine.LNX.4.64N.0709101249230.25038@blysk.ds.pg.gda.pl> <Pine.LNX.4.64.0709102351090.5368@fbirervta.pbzchgretzou.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Pierre-Yves Ritschard <pyritschard@echo.fr>
+Cc: "Maciej W. Rozycki" <macro@linux-mips.org>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: Jan Engelhardt <jengelh@computergmbh.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:50469 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759141AbXIKIKT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2007 04:10:19 -0400
-In-Reply-To: <20070910163538.3b23e842@gamma.echo-net.net>
+Received: from s36.avahost.net ([74.53.95.194]:48403 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756732AbXIKILR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Sep 2007 04:11:17 -0400
+In-Reply-To: <Pine.LNX.4.64.0709102351090.5368@fbirervta.pbzchgretzou.qr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Sep 2007 16:35:38 +0200
-Pierre-Yves Ritschard <pyritschard@echo.fr> wrote:
+Jan Engelhardt wrote:
+> On Sep 10 2007 13:09, Maciej W. Rozycki wrote:
+>> The new code builds fine; no semantic changes.
+>>
+>> Please apply,
+>>
+>>  Maciej
+>>
+>> patch-mips-2.6.23-rc5-20070904-ipconfig-printk-2
+>> diff -up --recursive --new-file linux-mips-2.6.23-rc5-20070904.macro/net/ipv4/ipconfig.c linux-mips-2.6.23-rc5-20070904/net/ipv4/ipconfig.c
+>> --- linux-mips-2.6.23-rc5-20070904.macro/net/ipv4/ipconfig.c	2007-09-04 04:56:22.000000000 +0000
+>> +++ linux-mips-2.6.23-rc5-20070904/net/ipv4/ipconfig.c	2007-09-10 11:53:19.000000000 +0000
+>> @@ -1364,17 +1364,17 @@ static int __init ip_auto_config(void)
+>> 	/*
+>> 	 * Clue in the operator.
+>> 	 */
+>> -	printk("IP-Config: Complete:");
+>> -	printk("\n      device=%s", ic_dev->name);
+>> -	printk(", addr=%u.%u.%u.%u", NIPQUAD(ic_myaddr));
+>> -	printk(", mask=%u.%u.%u.%u", NIPQUAD(ic_netmask));
+>> -	printk(", gw=%u.%u.%u.%u", NIPQUAD(ic_gateway));
+>> -	printk(",\n     host=%s, domain=%s, nis-domain=%s",
+>> -	       utsname()->nodename, ic_domain, utsname()->domainname);
+>> -	printk(",\n     bootserver=%u.%u.%u.%u", NIPQUAD(ic_servaddr));
+>> -	printk(", rootserver=%u.%u.%u.%u", NIPQUAD(root_server_addr));
+>> -	printk(", rootpath=%s", root_server_path);
+>> -	printk("\n");
+>> +	pr_info("IP-Config: Complete:\n");
+>> +	pr_info("      device=%s, addr=%u.%u.%u.%u, "
+>> +		"mask=%u.%u.%u.%u, gw=%u.%u.%u.%u,\n",
+>> +		ic_dev->name, NIPQUAD(ic_myaddr),
+>> +		NIPQUAD(ic_netmask), NIPQUAD(ic_gateway));
+>> +	pr_info("      host=%s, domain=%s, nis-domain=%s,\n",
+>> +		utsname()->nodename, ic_domain, utsname()->domainname);
+>> +	pr_info("      bootserver=%u.%u.%u.%u, "
+>> +		"rootserver=%u.%u.%u.%u, rootpath=%s\n",
+>> +		NIPQUAD(ic_servaddr),
+>> +		NIPQUAD(root_server_addr), root_server_path);
+>> #endif /* !SILENT */
+>>
+>> 	return 0;
+> 
+> It should really be done in userspace. And ripped from the kernel.
 
-> Hi list,
-> 
-> I have been running recent linux kernel on nexcom NSA 1086's equipped
-> with sysconnect NICs.
-> 
-> Like some people previously have on this list I am running into
-> problems with these NICs and seeing frequent errors in my dmesg:
-> 
-> sky2 eth4: rx error, status 0x402300 length 60
-> printk: 17 messages suppressed.
-> sky2 eth4: rx error, status 0x402300 length 60
-> printk: 32 messages suppressed.
-> sky2 eth4: rx error, status 0x602300 length 92
-> printk: 25 messages suppressed.
-> sky2 eth4: rx error, status 0x6e2300 length 106
-> printk: 16 messages suppressed.
-> sky2 eth4: rx error, status 0x402300 length 60
-> printk: 10 messages suppressed.
-> sky2 eth4: rx error, status 0x402300 length 60
-> printk: 17 messages suppressed.
-> sky2 eth4: rx error, status 0x402300 length 60
-> 
-> 
-> I have investigated a bit and status doesn't match any of the errors in
-> GMR_FS_ANY_ERR.
-> The block generating the error is now len_mismatch, due to the fact
-> that on packets having the GMR_FS_VLAN bit set, the length argument to
-> sky2_receive is 4 bytes shorter that the 16 bit value in status (status
-> ``right shift'' 16).
-> 
-> Since both these values are read from the card I don't know how to
-> solve this other than by incrementing the length arg by 4 when
-> GMR_FS_VLAN is set in status. So here's a diff that does this, although
-> I'm not sure its an elegant solution:
->
+The output is useful when debugging boot problems on systems whose 
+rootfs is on the network. So I think the patch is ok.
 
-My bad, I hadn't tested VLAN acceleration code in a while so must
-have broken it when more error checking was added.
+However, it would be useful to make the parameters available to 
+userspace for use by boot scripts etc. A proc file listing variables and 
+values in /bin/sh syntax would be easy to use. I've been meaning to do 
+this for ages so I'll roll a patch.
 
-Your fix looks right. Could you format properly for kernel patch inclusion.
-Also, instead of hard coding 4, please use VLAN_HLEN.
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
+
