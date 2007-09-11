@@ -1,79 +1,65 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH] ipconfig.c: De-clutter IP configuration report
-Date: Tue, 11 Sep 2007 09:11:11 +0100
-Message-ID: <46E64D9F.1010700@katalix.com>
-References: <Pine.LNX.4.64N.0709101249230.25038@blysk.ds.pg.gda.pl> <Pine.LNX.4.64.0709102351090.5368@fbirervta.pbzchgretzou.qr>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: BUG: skge ethernet breakage (PCI: Unable to reserve mem region)
+Date: Tue, 11 Sep 2007 10:21:10 +0200
+Message-ID: <20070911102110.1f32fa7e@oldman>
+References: <1189183355.3784.11.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Maciej W. Rozycki" <macro@linux-mips.org>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org
-To: Jan Engelhardt <jengelh@computergmbh.de>
+Cc: netdev@vger.kernel.org
+To: Jan Gukelberger <g.u.g.i@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:48403 "EHLO s36.avahost.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756732AbXIKILR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Sep 2007 04:11:17 -0400
-In-Reply-To: <Pine.LNX.4.64.0709102351090.5368@fbirervta.pbzchgretzou.qr>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:56893 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760614AbXIKIUa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2007 04:20:30 -0400
+In-Reply-To: <1189183355.3784.11.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jan Engelhardt wrote:
-> On Sep 10 2007 13:09, Maciej W. Rozycki wrote:
->> The new code builds fine; no semantic changes.
->>
->> Please apply,
->>
->>  Maciej
->>
->> patch-mips-2.6.23-rc5-20070904-ipconfig-printk-2
->> diff -up --recursive --new-file linux-mips-2.6.23-rc5-20070904.macro/net/ipv4/ipconfig.c linux-mips-2.6.23-rc5-20070904/net/ipv4/ipconfig.c
->> --- linux-mips-2.6.23-rc5-20070904.macro/net/ipv4/ipconfig.c	2007-09-04 04:56:22.000000000 +0000
->> +++ linux-mips-2.6.23-rc5-20070904/net/ipv4/ipconfig.c	2007-09-10 11:53:19.000000000 +0000
->> @@ -1364,17 +1364,17 @@ static int __init ip_auto_config(void)
->> 	/*
->> 	 * Clue in the operator.
->> 	 */
->> -	printk("IP-Config: Complete:");
->> -	printk("\n      device=%s", ic_dev->name);
->> -	printk(", addr=%u.%u.%u.%u", NIPQUAD(ic_myaddr));
->> -	printk(", mask=%u.%u.%u.%u", NIPQUAD(ic_netmask));
->> -	printk(", gw=%u.%u.%u.%u", NIPQUAD(ic_gateway));
->> -	printk(",\n     host=%s, domain=%s, nis-domain=%s",
->> -	       utsname()->nodename, ic_domain, utsname()->domainname);
->> -	printk(",\n     bootserver=%u.%u.%u.%u", NIPQUAD(ic_servaddr));
->> -	printk(", rootserver=%u.%u.%u.%u", NIPQUAD(root_server_addr));
->> -	printk(", rootpath=%s", root_server_path);
->> -	printk("\n");
->> +	pr_info("IP-Config: Complete:\n");
->> +	pr_info("      device=%s, addr=%u.%u.%u.%u, "
->> +		"mask=%u.%u.%u.%u, gw=%u.%u.%u.%u,\n",
->> +		ic_dev->name, NIPQUAD(ic_myaddr),
->> +		NIPQUAD(ic_netmask), NIPQUAD(ic_gateway));
->> +	pr_info("      host=%s, domain=%s, nis-domain=%s,\n",
->> +		utsname()->nodename, ic_domain, utsname()->domainname);
->> +	pr_info("      bootserver=%u.%u.%u.%u, "
->> +		"rootserver=%u.%u.%u.%u, rootpath=%s\n",
->> +		NIPQUAD(ic_servaddr),
->> +		NIPQUAD(root_server_addr), root_server_path);
->> #endif /* !SILENT */
->>
->> 	return 0;
+On Fri, 07 Sep 2007 18:42:35 +0200
+Jan Gukelberger <g.u.g.i@gmx.de> wrote:
+
+> Hi,
 > 
-> It should really be done in userspace. And ripped from the kernel.
+> I originally reported this bug to the Debian BTS:
+> http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=441232
+> There I was told to talk directly to upstream.
+> 
+> I am pasting the original bug report below. The referenced text files
+> can be found at the mentioned BTS URL. 
+> Additionally, I have just tried Linux 2.6.23-rc5 and am attaching the
+> corresponding dmesg output.
+> 
+> Thanks in advance for any help,
+> Jan
+> 
+> 
+> With recent kernels my on-board network adapter does not work any more.
+> This is a Marvell Gigabit Ethernet Controller on an Asus P5B-V
+> mainboard.
+> 
+> This is the same bug as #428452 reported earlier against
+> linux-image-2.6.21-1-amd64. (Sorry for the duplicate, I didn't know how
+> to extend the old report to newer kernel versions.)
+> In fact, the network adapter hasn't been working since then, i.e. the
+> last working kernel image was 2.6.20-1-amd64 (which I am using now). The
+> following images 2.6.2[12]-[12]-amd64 have all exposed the same problem.
+> 
+> The key problem seem to be the following lines in dmesg:
+> ------------------------------------------------------------------------
+> ACPI: PCI Interrupt 0000:04:04.0[A] -> GSI 19 (level, low) -> IRQ 19
+> PCI: Unable to reserve mem region #1:4000@ff9f8000 for device 0000:04:04.0
+> skge 0000:04:04.0: cannot obtain PCI resources
+> ACPI: PCI interrupt for device 0000:04:04.0 disabled
+> skge: probe of 0000:04:04.0 failed with error -16
+> ------------------------------------------------------------------------
+> 
+> I'm attaching full 'dmesg' output from working (2.6.20-1) and broken
+> (2.6.22-2) kernel versions as well as the output of 'lspci -vvv' on the
+> most recent kernel.
+> 
+> If you need any other information or I can try something please let me
+> know.
 
-The output is useful when debugging boot problems on systems whose 
-rootfs is on the network. So I think the patch is ok.
-
-However, it would be useful to make the parameters available to 
-userspace for use by boot scripts etc. A proc file listing variables and 
-values in /bin/sh syntax would be easy to use. I've been meaning to do 
-this for ages so I'll roll a patch.
-
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
-
+There is some kind of device conflict, please provide lspci -vvvxx output.
