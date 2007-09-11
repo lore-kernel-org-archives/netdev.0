@@ -1,92 +1,68 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: [PATCH] include listenq max backlog in /proc/net/tcp and include in tcp_info
-Date: Mon, 10 Sep 2007 16:13:55 -0700 (PDT)
-Message-ID: <200709102313.QAA01722@tardy.cup.hp.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: 2.6.23-rc5: possible irq lock inversion dependency detected
+Date: Mon, 10 Sep 2007 20:04:41 -0400
+Message-ID: <1189469081.14002.3.camel@localhost>
+References: <alpine.DEB.0.999.0709021455510.7103@sheep.housecafe.de>
+	 <20070910130024.GA27939@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=X-roman8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel11.hp.com ([156.153.255.246]:55037 "EHLO palrel11.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753362AbXIJXOH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Sep 2007 19:14:07 -0400
-Received: from tardy.cup.hp.com (tardy.cup.hp.com [15.244.56.217])
-	by palrel11.hp.com (Postfix) with ESMTP id 4B4DC345D4
-	for <netdev@vger.kernel.org>; Mon, 10 Sep 2007 16:13:56 -0700 (PDT)
-Received: (from raj@localhost)
-	by tardy.cup.hp.com (8.9.3 (PHNE_28810)/8.9.3 SMKit7.02) id QAA01722
-	for netdev@vger.kernel.org; Mon, 10 Sep 2007 16:13:55 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="=-AXrL5eGz+7zP0sPzLQwn"
+Cc: Christian Kujau <lists@nerdbynature.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762009AbXIKAE7@vger.kernel.org>
+In-Reply-To: <20070910130024.GA27939@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Return some useful information such as the maximum listen backlog and
-the current listen backlog in the tcp_info structure and have that 
-match what one can see in /proc/net/tcp and /proc/net/tcp6.
 
-Signed-off-by: Rick Jones <rick.jones2@hp.com>
----
+--=-AXrL5eGz+7zP0sPzLQwn
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-diff -r bdcdd0e1ee9d Documentation/networking/proc_net_tcp.txt
---- a/Documentation/networking/proc_net_tcp.txt	Sat Sep 01 07:00:31 2007 +0000
-+++ b/Documentation/networking/proc_net_tcp.txt	Mon Sep 10 16:09:46 2007 -0700
-@@ -20,8 +20,8 @@ up into 3 parts because of the length of
-       |        |     |     |       |--> number of unrecovered RTO timeouts
-       |        |     |     |----------> number of jiffies until timer expires
-       |        |     |----------------> timer_active (see below)
--      |        |----------------------> receive-queue
--      |-------------------------------> transmit-queue
-+      |        |----------------------> receive-queue or connection backlog
-+      |-------------------------------> transmit-queue or connection limit
+On Mon, 2007-10-09 at 21:00 +0800, Herbert Xu wrote:
+
+
+> The minimal fix would be to make sure that we disable BH on
+> the first CPU. 
+
+disabling BH would make it more symmetric to the way we handle
+egress. I couldnt reproduce the issue, but this should hopefully resolve
+it.
+Christian, can you test with this patch?
+
+cheers,
+jamal
+
+
+
+
+
+--=-AXrL5eGz+7zP0sPzLQwn
+Content-Disposition: attachment; filename=ing1
+Content-Type: text/plain; name=ing1; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+[NET_SCHED] make ingress qlock symmetric to egress
+
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+--- a/net/sched/sch_generic.c	2007/09/10 23:19:45	1.1
++++ b/net/sched/sch_generic.c	2007/09/10 23:52:45
+@@ -42,12 +42,12 @@
+ void qdisc_lock_tree(struct net_device *dev)
+ {
+ 	spin_lock_bh(&dev->queue_lock);
+-	spin_lock(&dev->ingress_lock);
++	spin_lock_bh(&dev->ingress_lock);
+ }
  
-    1000        0 54165785 4 cd1e6040 25 4 27 3 -1
-     |          |    |     |    |     |  | |  | |--> slow start size threshold, 
-diff -r bdcdd0e1ee9d net/ipv4/tcp.c
---- a/net/ipv4/tcp.c	Sat Sep 01 07:00:31 2007 +0000
-+++ b/net/ipv4/tcp.c	Mon Sep 10 16:09:46 2007 -0700
-@@ -2030,8 +2030,14 @@ void tcp_get_info(struct sock *sk, struc
- 	info->tcpi_snd_mss = tp->mss_cache;
- 	info->tcpi_rcv_mss = icsk->icsk_ack.rcv_mss;
+ void qdisc_unlock_tree(struct net_device *dev)
+ {
+-	spin_unlock(&dev->ingress_lock);
++	spin_unlock_bh(&dev->ingress_lock);
+ 	spin_unlock_bh(&dev->queue_lock);
+ }
  
--	info->tcpi_unacked = tp->packets_out;
--	info->tcpi_sacked = tp->sacked_out;
-+	if (sk->sk_state == TCP_LISTEN) {
-+		info->tcpi_unacked = sk->sk_ack_backlog;
-+		info->tcpi_sacked = sk->sk_max_ack_backlog;
-+	}
-+	else {
-+		info->tcpi_unacked = tp->packets_out;
-+		info->tcpi_sacked = tp->sacked_out;
-+	}
- 	info->tcpi_lost = tp->lost_out;
- 	info->tcpi_retrans = tp->retrans_out;
- 	info->tcpi_fackets = tp->fackets_out;
-diff -r bdcdd0e1ee9d net/ipv4/tcp_ipv4.c
---- a/net/ipv4/tcp_ipv4.c	Sat Sep 01 07:00:31 2007 +0000
-+++ b/net/ipv4/tcp_ipv4.c	Mon Sep 10 16:09:46 2007 -0700
-@@ -2320,7 +2320,8 @@ static void get_tcp4_sock(struct sock *s
- 	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X %02X %08X:%08X %02X:%08lX "
- 			"%08X %5d %8d %lu %d %p %u %u %u %u %d",
- 		i, src, srcp, dest, destp, sk->sk_state,
--		tp->write_seq - tp->snd_una,
-+		sk->sk_state == TCP_LISTEN ? sk->sk_max_ack_backlog :
-+					     (tp->write_seq - tp->snd_una),
- 		sk->sk_state == TCP_LISTEN ? sk->sk_ack_backlog :
- 					     (tp->rcv_nxt - tp->copied_seq),
- 		timer_active,
-diff -r bdcdd0e1ee9d net/ipv6/tcp_ipv6.c
---- a/net/ipv6/tcp_ipv6.c	Sat Sep 01 07:00:31 2007 +0000
-+++ b/net/ipv6/tcp_ipv6.c	Mon Sep 10 16:09:46 2007 -0700
-@@ -2005,8 +2005,10 @@ static void get_tcp6_sock(struct seq_fil
- 		   dest->s6_addr32[0], dest->s6_addr32[1],
- 		   dest->s6_addr32[2], dest->s6_addr32[3], destp,
- 		   sp->sk_state,
--		   tp->write_seq-tp->snd_una,
--		   (sp->sk_state == TCP_LISTEN) ? sp->sk_ack_backlog : (tp->rcv_nxt - tp->copied_seq),
-+		   (sp->sk_state == TCP_LISTEN) ? sp->sk_max_ack_backlog:
-+						  tp->write_seq-tp->snd_una,
-+		   (sp->sk_state == TCP_LISTEN) ? sp->sk_ack_backlog : 
-+					(tp->rcv_nxt - tp->copied_seq),
- 		   timer_active,
- 		   jiffies_to_clock_t(timer_expires - jiffies),
- 		   icsk->icsk_retransmits,
+
+--=-AXrL5eGz+7zP0sPzLQwn--
