@@ -1,355 +1,614 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] NET : convert IP route cache garbage colleciton from
- softirq processing to a workqueue
-Date: Tue, 11 Sep 2007 14:56:13 +0200
-Message-ID: <20070911145613.4762c534.dada1@cosmosbay.com>
+From: Jan Gukelberger <g.u.g.i@gmx.de>
+Subject: Re: BUG: skge ethernet breakage (PCI: Unable to reserve mem region)
+Date: Tue, 11 Sep 2007 15:39:01 +0200
+Message-ID: <1189517941.4069.15.camel@localhost>
+References: <1189183355.3784.11.camel@localhost>
+	 <20070911102110.1f32fa7e@oldman> <1189508304.4069.5.camel@localhost>
+	 <20070911143701.628c8d18@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed; boundary="=-piyPvoO5zPjPnU5hgUHf"
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:56904 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756271AbXIKM4Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Sep 2007 08:56:16 -0400
+Received: from mail.gmx.net ([213.165.64.20]:41494 "HELO mail.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751723AbXIKNjG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Sep 2007 09:39:06 -0400
+In-Reply-To: <20070911143701.628c8d18@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Herbert and all
 
-When the periodic IP route cache flush is done (every 600 seconds on 
-default configuration), some hosts suffer a lot and eventually trigger
-the "soft lockup" message.
+--=-piyPvoO5zPjPnU5hgUHf
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-dst_run_gc() is doing a scan of a possibly huge list of dst_entries,
-eventually freeing some (less than 1%) of them, while holding the 
-dst_lock spinlock for the whole scan.
+On Tue, 2007-09-11 at 14:37 +0200, Stephen Hemminger wrote:
+> On Tue, 11 Sep 2007 12:58:24 +0200
+> Jan Gukelberger <g.u.g.i@gmx.de> wrote:
+> 
+> > On Tue, 2007-09-11 at 10:21 +0200, Stephen Hemminger wrote:
+> > > On Fri, 07 Sep 2007 18:42:35 +0200
+> > > Jan Gukelberger <g.u.g.i@gmx.de> wrote:
+> > [...]
+> > > > The key problem seem to be the following lines in dmesg:
+> > > > ------------------------------------------------------------------------
+> > > > ACPI: PCI Interrupt 0000:04:04.0[A] -> GSI 19 (level, low) -> IRQ 19
+> > > > PCI: Unable to reserve mem region #1:4000@ff9f8000 for device 0000:04:04.0
+> > > > skge 0000:04:04.0: cannot obtain PCI resources
+> > > > ACPI: PCI interrupt for device 0000:04:04.0 disabled
+> > > > skge: probe of 0000:04:04.0 failed with error -16
+> > > > ------------------------------------------------------------------------
+> > > > 
+> > > 
+> > > There is some kind of device conflict, please provide lspci -vvvxx output.
+> > 
+> > I'm attaching the output of 'lspci -vvvxx' on the working 2.6.20 kernel
+> > as well as the output of 'lspci -vvxxx' on 2.6.23-rc5 which I recorded
+> > earlier.
+> > I you specifically need 'lspci -vvvxx' on 2.6.23-rc5 please drop me a
+> > note and I'll reboot quickly.
+> > 
+> > Thanks,
+> > Jan
+> 
+> All looks in order, on the PCI tables. There is a firewire control just
+> above the skge device, perhaps you enabled one of the firewire stacks
+> in the configuration? 
 
-Then it rearms a timer to redo the full thing 1/10 s later...
-The slowdown can last one minute or so, depending on how active are
-the tcp sessions.
+I did a quick diff of the respective kernel .config's (this is the
+configuration you mean, right?) and haven't found any notable
+differences in the firewire options.
 
-This second version of the patch converts the processing from a softirq
-based one to a workqueue.
+>  Perhaps the console (dmesg) output will show some clue.
 
-Even if the list of entries in garbage_list is huge, host is still
-responsive to softirqs and can make progress.
+I'm attaching a diff between dmesg of a working and a non-working boot.
+You can find the full dmesg records in my first mail and in the Debian
+BTS respectively.
 
-Instead of reseting gc timer to 0.1 second if one entry was freed in a
-gc run, we do this if more than 10% of entries were freed.
+The only thing I can see there is the old  kernel having some problems
+with the SATA controller - even though I did never notice any unusual
+behaviour apart from these messages:
+------------------------------------------------------------------------
+PCI: Device 0000:02:00.0 not available because of resource collisions
+ahci: probe of 0000:02:00.0 failed with error -22
+JMB363: IDE controller at PCI slot 0000:02:00.0
+PCI: Device 0000:02:00.0 not available because of resource collisions
+ACPI: PCI Interrupt 0000:02:00.0[A] -> GSI 16 (level, low) -> IRQ 16
+JMB363: BIOS configuration fixed.
+------------------------------------------------------------------------
 
+Don't know whether this could be related?
 
-Before patch :
+Thanks,
+Jan
 
-Aug 16 06:21:37 SRV1 kernel: BUG: soft lockup detected on CPU#0!
-Aug 16 06:21:37 SRV1 kernel: 
-Aug 16 06:21:37 SRV1 kernel: Call Trace:
-Aug 16 06:21:37 SRV1 kernel:  <IRQ>  [<ffffffff802286f0>] wake_up_process+0x10/0x20
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80251e09>] softlockup_tick+0xe9/0x110
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803cd380>] dst_run_gc+0x0/0x140
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff802376f3>] run_local_timers+0x13/0x20
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff802379c7>] update_process_times+0x57/0x90
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80216034>] smp_local_timer_interrupt+0x34/0x60
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff802165cc>] smp_apic_timer_interrupt+0x5c/0x80
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff8020a816>] apic_timer_interrupt+0x66/0x70
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803cd3d3>] dst_run_gc+0x53/0x140
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803cd3c6>] dst_run_gc+0x46/0x140
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80237148>] run_timer_softirq+0x148/0x1c0
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff8023340c>] __do_softirq+0x6c/0xe0
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff8020ad6c>] call_softirq+0x1c/0x30
-Aug 16 06:21:37 SRV1 kernel:  <EOI>  [<ffffffff8020cb34>] do_softirq+0x34/0x90
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff802331cf>] local_bh_enable_ip+0x3f/0x60
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80422913>] _spin_unlock_bh+0x13/0x20
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803dfde8>] rt_garbage_collect+0x1d8/0x320
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803cd4dd>] dst_alloc+0x1d/0xa0
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803e1433>] __ip_route_output_key+0x573/0x800
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803c02e2>] sock_common_recvmsg+0x32/0x50
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803e16dc>] ip_route_output_flow+0x1c/0x60
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80400160>] tcp_v4_connect+0x150/0x610
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803ebf07>] inet_bind_bucket_create+0x17/0x60
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff8040cd16>] inet_stream_connect+0xa6/0x2c0
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80422981>] _spin_lock_bh+0x11/0x30
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803c0bdf>] lock_sock_nested+0xcf/0xe0
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80422981>] _spin_lock_bh+0x11/0x30
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803be551>] sys_connect+0x71/0xa0
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803eee3f>] tcp_setsockopt+0x1f/0x30
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803c030f>] sock_common_setsockopt+0xf/0x20
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803be4bd>] sys_setsockopt+0x9d/0xc0
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff8028881e>] sys_ioctl+0x5e/0x80
-Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80209c4e>] system_call+0x7e/0x83
+--=-piyPvoO5zPjPnU5hgUHf
+Content-Disposition: attachment; filename=dmesg.diff
+Content-Type: text/x-patch; name=dmesg.diff; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-After patch : (RT_CACHE_DEBUG set to 2 to get following traces)
+--- /home/jan/dmesg-2.6.20	2007-09-07 17:17:09.000000000 +0200
++++ dmesg-2.6.23-rc5	2007-09-07 18:13:09.000000000 +0200
+@@ -1,4 +1,4 @@
+-Linux version 2.6.20-1-amd64 (Debian 2.6.20-3) (waldi@debian.org) (gcc version 4.1.2 20061115 (prerelease) (Debian 4.1.1-21)) #1 SMP Tue Apr 24 21:10:58 UTC 2007
++Linux version 2.6.23-rc5-amd64 (Debian 2.6.23~rc5-1~experimental.1~snapshot.9462) (waldi@debian.org) (gcc version 4.1.3 20070718 (prerelease) (Debian 4.1.2-14+1)) #1 SMP Thu Sep 6 06:18:52 UTC 2007
+ Command line: root=/dev/sda6 ro quiet vga=791 
+ BIOS-provided physical RAM map:
+  BIOS-e820: 0000000000000000 - 000000000009ec00 (usable)
+@@ -14,18 +14,19 @@
+ Entering add_active_range(0, 256, 520080) 1 entries of 3200 used
+ end_pfn_map = 1048576
+ DMI 2.4 present.
+-ACPI: RSDP (v002 ACPIAM                                ) @ 0x00000000000fad70
+-ACPI: XSDT (v001 NEC             0x05000730 MSFT 0x00000097) @ 0x000000007ef90100
+-ACPI: FADT (v003 MSTEST OEMFACP  0x05000730 MSFT 0x00000097) @ 0x000000007ef90290
+-ACPI: MADT (v001 MSTEST OEMAPIC  0x05000730 MSFT 0x00000097) @ 0x000000007ef90390
+-ACPI: MCFG (v001 MSTEST OEMMCFG  0x05000730 MSFT 0x00000097) @ 0x000000007ef90400
+-ACPI: SLIC (v001 NEC             0x05000730 MSFT 0x00000097) @ 0x000000007ef90440
+-ACPI: OEMB (v001 MSTEST AMI_OEM  0x05000730 MSFT 0x00000097) @ 0x000000007ef9e040
+-ACPI: HPET (v001 MSTEST OEMHPET  0x05000730 MSFT 0x00000097) @ 0x000000007ef9a250
+-ACPI: GSCI (v001 MSTEST GMCHSCI  0x05000730 MSFT 0x00000097) @ 0x000000007ef9e0c0
+-ACPI: SSDT (v001    AMI   CPU1PM 0x00000001 INTL 0x20060113) @ 0x000000007efa00f0
+-ACPI: SSDT (v001    AMI   CPU2PM 0x00000001 INTL 0x20060113) @ 0x000000007efa02b0
+-ACPI: DSDT (v001  A0579 A0579000 0x00000000 INTL 0x20060113) @ 0x0000000000000000
++ACPI: RSDP 000FAD70, 0024 (r2 ACPIAM)
++ACPI: XSDT 7EF90100, 006C (r1 NEC              5000730 MSFT       97)
++ACPI: FACP 7EF90290, 00F4 (r3 MSTEST OEMFACP   5000730 MSFT       97)
++ACPI: DSDT 7EF905C0, 9C85 (r1  A0579 A0579000        0 INTL 20060113)
++ACPI: FACS 7EF9E000, 0040
++ACPI: APIC 7EF90390, 006C (r1 MSTEST OEMAPIC   5000730 MSFT       97)
++ACPI: MCFG 7EF90400, 003C (r1 MSTEST OEMMCFG   5000730 MSFT       97)
++ACPI: SLIC 7EF90440, 0176 (r1 NEC              5000730 MSFT       97)
++ACPI: OEMB 7EF9E040, 007B (r1 MSTEST AMI_OEM   5000730 MSFT       97)
++ACPI: HPET 7EF9A250, 0038 (r1 MSTEST OEMHPET   5000730 MSFT       97)
++ACPI: GSCI 7EF9E0C0, 2024 (r1 MSTEST GMCHSCI   5000730 MSFT       97)
++ACPI: SSDT 7EFA00F0, 01BF (r1    AMI   CPU1PM        1 INTL 20060113)
++ACPI: SSDT 7EFA02B0, 0133 (r1    AMI   CPU2PM        1 INTL 20060113)
+ No NUMA configuration found
+ Faking a node at 0000000000000000-000000007ef90000
+ Entering add_active_range(0, 0, 158) 0 entries of 3200 used
+@@ -35,16 +36,18 @@
+   DMA             0 ->     4096
+   DMA32        4096 ->  1048576
+   Normal    1048576 ->  1048576
++Movable zone start PFN for each node
+ early_node_map[2] active PFN ranges
+     0:        0 ->      158
+     0:      256 ->   520080
+ On node 0 totalpages: 519982
+   DMA zone: 56 pages used for memmap
+-  DMA zone: 972 pages reserved
+-  DMA zone: 2970 pages, LIFO batch:0
++  DMA zone: 1044 pages reserved
++  DMA zone: 2898 pages, LIFO batch:0
+   DMA32 zone: 7054 pages used for memmap
+   DMA32 zone: 508930 pages, LIFO batch:31
+   Normal zone: 0 pages used for memmap
++  Movable zone: 0 pages used for memmap
+ ACPI: PM-Timer IO Port: 0x808
+ ACPI: Local APIC address 0xfee00000
+ ACPI: LAPIC (acpi_id[0x01] lapic_id[0x00] enabled)
+@@ -60,31 +63,35 @@
+ ACPI: IRQ0 used by override.
+ ACPI: IRQ2 used by override.
+ ACPI: IRQ9 used by override.
+-Setting APIC routing to physical flat
++Setting APIC routing to flat
+ ACPI: HPET id: 0x8086a202 base: 0xfed00000
+ Using ACPI (MADT) for SMP configuration information
+-Nosave address range: 000000000009e000 - 000000000009f000
+-Nosave address range: 000000000009f000 - 00000000000a0000
+-Nosave address range: 00000000000a0000 - 00000000000e4000
+-Nosave address range: 00000000000e4000 - 0000000000100000
++swsusp: Registered nosave memory region: 000000000009e000 - 000000000009f000
++swsusp: Registered nosave memory region: 000000000009f000 - 00000000000a0000
++swsusp: Registered nosave memory region: 00000000000a0000 - 00000000000e4000
++swsusp: Registered nosave memory region: 00000000000e4000 - 0000000000100000
+ Allocating PCI resources starting at 80000000 (gap: 7f000000:7fe00000)
+ SMP: Allowing 4 CPUs, 2 hotplug CPUs
+-PERCPU: Allocating 36992 bytes of per cpu data
+-Built 1 zonelists.  Total pages: 511900
++PERCPU: Allocating 35176 bytes of per cpu data
++Built 1 zonelists in Node order.  Total pages: 511828
++Policy zone: DMA32
+ Kernel command line: root=/dev/sda6 ro quiet vga=791 
+ Initializing CPU#0
+ PID hash table entries: 4096 (order: 12, 32768 bytes)
++Extended CMOS year: 2000
++time.c: Detected 2399.997 MHz processor.
+ Console: colour dummy device 80x25
+-Dentry cache hash table entries: 262144 (order: 9, 2097152 bytes)
+-Inode-cache hash table entries: 131072 (order: 8, 1048576 bytes)
++console [tty0] enabled
+ Checking aperture...
+ Calgary: detecting Calgary via BIOS EBDA area
+ Calgary: Unable to locate Rio Grande table in EBDA - bailing!
+-Memory: 2038324k/2080320k available (1970k kernel code, 41604k reserved, 920k data, 284k init)
+-Calibrating delay using timer specific routine.. 4804.04 BogoMIPS (lpj=9608092)
++Memory: 2041096k/2080320k available (2066k kernel code, 38832k reserved, 977k data, 304k init)
++Calibrating delay using timer specific routine.. 4803.34 BogoMIPS (lpj=9606690)
+ Security Framework v1.0.0 initialized
+ SELinux:  Disabled at boot.
+ Capability LSM initialized
++Dentry cache hash table entries: 262144 (order: 9, 2097152 bytes)
++Inode-cache hash table entries: 131072 (order: 8, 1048576 bytes)
+ Mount-cache hash table entries: 256
+ CPU: L1 I cache: 32K, L1 D cache: 32K
+ CPU: L2 cache: 4096K
+@@ -94,14 +101,14 @@
+ CPU: Processor Core ID: 0
+ CPU0: Thermal monitoring enabled (TM2)
+ SMP alternatives: switching to UP code
+-ACPI: Core revision 20060707
++ACPI: Core revision 20070126
+ Using local APIC timer interrupts.
+-result 16666675
++result 16666629
+ Detected 16.666 MHz APIC timer.
+ SMP alternatives: switching to SMP code
+ Booting processor 1/2 APIC 0x1
+ Initializing CPU#1
+-Calibrating delay using timer specific routine.. 4800.01 BogoMIPS (lpj=9600034)
++Calibrating delay using timer specific routine.. 4800.03 BogoMIPS (lpj=9600060)
+ CPU: L1 I cache: 32K, L1 D cache: 32K
+ CPU: L2 cache: 4096K
+ CPU 1/1 -> Node 0
+@@ -109,25 +116,20 @@
+ CPU: Processor Core ID: 1
+ CPU1: Thermal monitoring enabled (TM2)
+ Intel(R) Core(TM)2 CPU          6600  @ 2.40GHz stepping 06
++checking TSC synchronization [CPU#0 -> CPU#1]: passed.
+ Brought up 2 CPUs
+-testing NMI watchdog ... OK.
+-time.c: Using 14.318180 MHz WALL HPET GTOD HPET/TSC timer.
+-time.c: Detected 2400.003 MHz processor.
+-migration_cost=20
+ NET: Registered protocol family 16
+ ACPI: bus type pci registered
+ PCI: BIOS Bug: MCFG area at e0000000 is not E820-reserved
+ PCI: Not using MMCONFIG.
+ PCI: Using configuration type 1
++ACPI: EC: Look up EC in DSDT
+ ACPI: Interpreter enabled
++ACPI: (supports S0 S1 S3)
+ ACPI: Using IOAPIC for interrupt routing
+ ACPI: PCI Root Bridge [PCI0] (0000:00)
+-PCI: Probing PCI hardware (bus 00)
+ PCI quirk: region 0800-087f claimed by ICH6 ACPI/GPIO/TCO
+ PCI quirk: region 0480-04bf claimed by ICH6 GPIO
+-Boot video device is 0000:01:00.0
+-0000:02:00.0: cannot adjust BAR2 (not I/O)
+-0000:02:00.0: cannot adjust BAR3 (not I/O)
+ PCI: Transparent bridge - 0000:00:1e.0
+ ACPI: PCI Interrupt Routing Table [\_SB_.PCI0._PRT]
+ ACPI: PCI Interrupt Routing Table [\_SB_.PCI0.P0P2._PRT]
+@@ -142,8 +144,10 @@
+ ACPI: PCI Interrupt Link [LNKF] (IRQs 3 4 5 6 7 10 11 12 *14 15)
+ ACPI: PCI Interrupt Link [LNKG] (IRQs *3 4 5 6 7 10 11 12 14 15)
+ ACPI: PCI Interrupt Link [LNKH] (IRQs 3 4 5 6 *7 10 11 12 14 15)
++ACPI Warning (tbutils-0217): Incorrect checksum in table [OEMB] -  CD, should be C4 [20070126]
+ Linux Plug and Play Support v0.97 (c) Adam Belay
+ pnp: PnP ACPI init
++ACPI: bus type pnp registered
+ pnp: ACPI device : hid PNP0A08
+ pnp: ACPI device : hid PNP0C01
+ pnp: ACPI device : hid PNP0200
+@@ -161,26 +165,39 @@
+ pnp: ACPI device : hid PNP0C02
+ pnp: ACPI device : hid PNP0C01
+ pnp: PnP ACPI: found 16 devices
++ACPI: ACPI bus type pnp unregistered
+ usbcore: registered new interface driver usbfs
+ usbcore: registered new interface driver hub
+ usbcore: registered new device driver usb
+ PCI: Using ACPI for IRQ routing
+ PCI: If a device doesn't work, try "pci=routeirq".  If it helps, post a report
+-PCI: Cannot allocate resource region 2 of device 0000:02:00.0
+-PCI: Cannot allocate resource region 3 of device 0000:02:00.0
+ NET: Registered protocol family 8
+ NET: Registered protocol family 20
++PCI-GART: No AMD northbridge found.
+ hpet0: at MMIO 0xfed00000, IRQs 2, 8, 0
+ hpet0: 3 64-bit timers, 14318180 Hz
+-PCI-GART: No AMD northbridge found.
++ACPI: RTC can wake from S4
++Time: tsc clocksource has been installed.
+ pnp: the driver 'system' has been registered
+ pnp: match found with the PnP device '00:01' and the driver 'system'
++pnp: 00:01: iomem range 0xfed14000-0xfed19fff has been reserved
+ pnp: match found with the PnP device '00:08' and the driver 'system'
+ pnp: 00:08: ioport range 0x290-0x297 has been reserved
+ pnp: match found with the PnP device '00:09' and the driver 'system'
++pnp: 00:09: iomem range 0xfed1c000-0xfed1ffff has been reserved
++pnp: 00:09: iomem range 0xfed20000-0xfed8ffff has been reserved
++pnp: 00:09: iomem range 0xff9fa000-0xff9fafff has been reserved
++pnp: 00:09: iomem range 0xfff00000-0xfffffffe could not be reserved
+ pnp: match found with the PnP device '00:0b' and the driver 'system'
++pnp: 00:0b: iomem range 0xfec00000-0xfec00fff has been reserved
++pnp: 00:0b: iomem range 0xfee00000-0xfee00fff could not be reserved
+ pnp: match found with the PnP device '00:0e' and the driver 'system'
++pnp: 00:0e: iomem range 0xe0000000-0xefffffff has been reserved
+ pnp: match found with the PnP device '00:0f' and the driver 'system'
++pnp: 00:0f: iomem range 0x0-0x9ffff could not be reserved
++pnp: 00:0f: iomem range 0xc0000-0xcffff has been reserved
++pnp: 00:0f: iomem range 0xe0000-0xfffff could not be reserved
++pnp: 00:0f: iomem range 0x100000-0x7effffff could not be reserved
+ PCI: Bridge: 0000:00:01.0
+   IO window: 8000-afff
+   MEM window: ff700000-ff7fffff
+@@ -206,20 +223,21 @@
+ PCI: Setting latency timer of device 0000:00:1e.0 to 64
+ NET: Registered protocol family 2
+ IP route cache hash table entries: 65536 (order: 7, 524288 bytes)
+-TCP established hash table entries: 262144 (order: 10, 4194304 bytes)
++TCP established hash table entries: 262144 (order: 10, 6291456 bytes)
+ TCP bind hash table entries: 65536 (order: 8, 1048576 bytes)
+ TCP: Hash tables configured (established 262144 bind 65536)
+ TCP reno registered
+ checking if image is initramfs... it is
+-Freeing initrd memory: 5937k freed
++Freeing initrd memory: 5950k freed
+ audit: initializing netlink socket (disabled)
+-audit(1181990747.912:1): initialized
++audit(1189181505.780:1): initialized
+ VFS: Disk quotas dquot_6.5.1
+ Dquot-cache hash table entries: 512 (order 0, 4096 bytes)
+ io scheduler noop registered
+ io scheduler anticipatory registered
+ io scheduler deadline registered
+ io scheduler cfq registered (default)
++Boot video device is 0000:01:00.0
+ PCI: Setting latency timer of device 0000:00:01.0 to 64
+ assign_interrupt_mode Found MSI capability
+ Allocate Port Service[0000:00:01.0:pcie00]
+@@ -231,7 +249,7 @@
+ assign_interrupt_mode Found MSI capability
+ Allocate Port Service[0000:00:1c.4:pcie00]
+ Allocate Port Service[0000:00:1c.4:pcie02]
+-vesafb: framebuffer at 0xc0000000, mapped to 0xffffc20000080000, using 3072k, total 16384k
++vesafb: framebuffer at 0xc0000000, mapped to 0xffffc20000b00000, using 3072k, total 16384k
+ vesafb: mode is 1024x768x16, linelength=2048, pages=9
+ vesafb: scrolling: redraw
+ vesafb: Truecolor: size=0:5:6:5, shift=0:11:5:0
+@@ -239,7 +257,7 @@
+ fb0: VESA VGA frame buffer device
+ Real Time Clock Driver v1.12ac
+ hpet_resources: 0xfed00000 is busy
+-Linux agpgart interface v0.101 (c) Dave Jones
++Linux agpgart interface v0.102
+ Serial: 8250/16550 driver $Revision: 1.90 $ 4 ports, IRQ sharing enabled
+ serial8250: ttyS0 at I/O 0x3f8 (irq = 4) is a 16550A
+ pnp: the driver 'serial' has been registered
+@@ -257,11 +275,10 @@
+ TCP bic registered
+ NET: Registered protocol family 1
+ NET: Registered protocol family 17
+-ACPI: (supports S0 S1 S3 S4 S5)
+-Freeing unused kernel memory: 284k freed
++Freeing unused kernel memory: 304k freed
+ input: AT Translated Set 2 keyboard as /class/input/input0
+-ACPI Exception (acpi_processor-0677): AE_NOT_FOUND, Processor Device is not present [20060707]
+-ACPI Exception (acpi_processor-0677): AE_NOT_FOUND, Processor Device is not present [20060707]
++ACPI Exception (processor_core-0797): AE_NOT_FOUND, Processor Device is not present [20070126]
++ACPI Exception (processor_core-0797): AE_NOT_FOUND, Processor Device is not present [20070126]
+ USB Universal Host Controller Interface driver v3.0
+ ACPI: PCI Interrupt 0000:00:1a.0[A] -> GSI 16 (level, low) -> IRQ 16
+ PCI: Setting latency timer of device 0000:00:1a.0 to 64
+@@ -274,10 +291,9 @@
+ Uniform Multi-Platform E-IDE driver Revision: 7.00alpha2
+ ide: Assuming 33MHz system bus speed for PIO modes; override with idebus=xx
+ pnp: the driver 'ide' has been registered
+-SCSI subsystem initialized
+-ieee1394: Initialized config rom entry `ip1394'
+ Floppy drive(s): fd0 is 1.44M
+-libata version 2.00 loaded.
++SCSI subsystem initialized
++libata version 2.21 loaded.
+ FDC 0 is a post-1991 82077
+ ACPI: PCI Interrupt 0000:00:1a.1[B] -> GSI 17 (level, low) -> IRQ 17
+ PCI: Setting latency timer of device 0000:00:1a.1 to 64
+@@ -312,8 +328,42 @@
+ hub 5-0:1.0: USB hub found
+ hub 5-0:1.0: 2 ports detected
+ ACPI: PCI Interrupt 0000:04:04.0[A] -> GSI 19 (level, low) -> IRQ 19
+-skge 1.9 addr 0xff9f8000 irq 19 chip Yukon-Lite rev 9
+-skge eth0: addr 00:18:f3:90:8e:7b
++PCI: Unable to reserve mem region #1:4000@ff9f8000 for device 0000:04:04.0
++skge 0000:04:04.0: cannot obtain PCI resources
++ACPI: PCI interrupt for device 0000:04:04.0 disabled
++skge: probe of 0000:04:04.0 failed with error -16
++ACPI: PCI Interrupt 0000:04:03.0[A] -> GSI 21 (level, low) -> IRQ 21
++firewire_ohci: Added fw-ohci device 0000:04:03.0, OHCI version 1.10
++ahci 0000:00:1f.2: version 2.3
++ACPI: PCI Interrupt 0000:00:1f.2[B] -> GSI 19 (level, low) -> IRQ 19
++firewire_core: created new fw device fw0 (0 config rom retries, S400)
++ahci 0000:00:1f.2: AHCI 0001.0100 32 slots 4 ports 3 Gbps 0x33 impl SATA mode
++ahci 0000:00:1f.2: flags: 64bit ncq sntf ilck stag pm led clo pmp pio slum part 
++PCI: Setting latency timer of device 0000:00:1f.2 to 64
++scsi0 : ahci
++scsi1 : ahci
++scsi2 : ahci
++scsi3 : ahci
++scsi4 : ahci
++scsi5 : ahci
++ata1: SATA max UDMA/133 cmd 0xffffc20000ac2900 ctl 0x0000000000000000 bmdma 0x0000000000000000 irq 1276
++ata2: SATA max UDMA/133 cmd 0xffffc20000ac2980 ctl 0x0000000000000000 bmdma 0x0000000000000000 irq 1276
++ata3: DUMMY
++ata4: DUMMY
++ata5: SATA max UDMA/133 cmd 0xffffc20000ac2b00 ctl 0x0000000000000000 bmdma 0x0000000000000000 irq 1276
++ata6: SATA max UDMA/133 cmd 0xffffc20000ac2b80 ctl 0x0000000000000000 bmdma 0x0000000000000000 irq 1276
++ata1: SATA link up 3.0 Gbps (SStatus 123 SControl 300)
++ata1.00: ATA-7: SAMSUNG HD401LJ, ZZ100-15, max UDMA7
++ata1.00: 781422768 sectors, multi 0: LBA48 NCQ (not used)
++ata1.00: configured for UDMA/133
++ata2: SATA link up 1.5 Gbps (SStatus 113 SControl 300)
++ata2.00: ATAPI: HL-DT-STDVD-RAM GSA-H30N, 1.01, max UDMA/100
++ata2.00: configured for UDMA/100
++ata5: SATA link down (SStatus 0 SControl 300)
++ata6: SATA link down (SStatus 0 SControl 300)
++scsi 0:0:0:0: Direct-Access     ATA      SAMSUNG HD401LJ  ZZ10 PQ: 0 ANSI: 5
++scsi 1:0:0:0: CD-ROM            HL-DT-ST DVD-RAM GSA-H30N 1.01 PQ: 0 ANSI: 5
++ACPI: PCI Interrupt 0000:02:00.0[A] -> GSI 16 (level, low) -> IRQ 16
+ ACPI: PCI Interrupt 0000:00:1a.7[C] -> GSI 18 (level, low) -> IRQ 18
+ PCI: Setting latency timer of device 0000:00:1a.7 to 64
+ ehci_hcd 0000:00:1a.7: EHCI Host Controller
+@@ -325,6 +375,15 @@
+ usb usb6: configuration #1 chosen from 1 choice
+ hub 6-0:1.0: USB hub found
+ hub 6-0:1.0: 4 ports detected
++ahci 0000:02:00.0: AHCI 0001.0000 32 slots 2 ports 3 Gbps 0x3 impl SATA mode
++ahci 0000:02:00.0: flags: 64bit ncq pm led clo pmp pio slum part 
++PCI: Setting latency timer of device 0000:02:00.0 to 64
++scsi6 : ahci
++scsi7 : ahci
++ata7: SATA max UDMA/133 cmd 0xffffc20000ac4100 ctl 0x0000000000000000 bmdma 0x0000000000000000 irq 16
++ata8: SATA max UDMA/133 cmd 0xffffc20000ac4180 ctl 0x0000000000000000 bmdma 0x0000000000000000 irq 16
++ata7: SATA link down (SStatus 0 SControl 300)
++ata8: SATA link down (SStatus 0 SControl 300)
+ ACPI: PCI Interrupt 0000:00:1d.7[A] -> GSI 23 (level, low) -> IRQ 23
+ PCI: Setting latency timer of device 0000:00:1d.7 to 64
+ ehci_hcd 0000:00:1d.7: EHCI Host Controller
+@@ -336,114 +395,69 @@
+ usb usb7: configuration #1 chosen from 1 choice
+ hub 7-0:1.0: USB hub found
+ hub 7-0:1.0: 6 ports detected
+-ACPI: PCI Interrupt 0000:04:03.0[A] -> GSI 21 (level, low) -> IRQ 21
+-ohci1394: fw-host0: OHCI-1394 1.1 (PCI): IRQ=[21]  MMIO=[ff9ff000-ff9ff7ff]  Max Packet=[2048]  IR/IT contexts=[4/8]
+-ahci 0000:00:1f.2: version 2.0
+-ACPI: PCI Interrupt 0000:00:1f.2[B] -> GSI 19 (level, low) -> IRQ 19
+-PCI: Setting latency timer of device 0000:00:1f.2 to 64
+-ahci 0000:00:1f.2: AHCI 0001.0100 32 slots 4 ports 3 Gbps 0x33 impl SATA mode
+-ahci 0000:00:1f.2: flags: 64bit ncq ilck stag pm led clo pmp pio slum part 
+-ata1: SATA max UDMA/133 cmd 0xFFFFC20000056900 ctl 0x0 bmdma 0x0 irq 1276
+-ata2: SATA max UDMA/133 cmd 0xFFFFC20000056980 ctl 0x0 bmdma 0x0 irq 1276
+-ata3: DUMMY
+-ata4: DUMMY
+-ata5: SATA max UDMA/133 cmd 0xFFFFC20000056B00 ctl 0x0 bmdma 0x0 irq 1276
+-ata6: SATA max UDMA/133 cmd 0xFFFFC20000056B80 ctl 0x0 bmdma 0x0 irq 1276
+-scsi0 : ahci
+-ieee1394: Host added: ID:BUS[0-00:1023]  GUID[0011d80000ec51d2]
+-ata1: SATA link up 3.0 Gbps (SStatus 123 SControl 300)
+-ata1.00: ATA-7, max UDMA7, 781422768 sectors: LBA48 NCQ (depth 31/32)
+-ata1.00: configured for UDMA/133
+-scsi1 : ahci
+-ata2: SATA link up 1.5 Gbps (SStatus 113 SControl 300)
+-ata2.00: ATAPI, max UDMA/100
+-ata2.00: configured for UDMA/100
+-scsi2 : ahci
+-scsi3 : ahci
+-scsi4 : ahci
+-ata5: SATA link down (SStatus 0 SControl 300)
+-scsi5 : ahci
+-ata6: SATA link down (SStatus 0 SControl 300)
+-scsi 0:0:0:0: Direct-Access     ATA      SAMSUNG HD401LJ  ZZ10 PQ: 0 ANSI: 5
+-scsi 1:0:0:0: CD-ROM            HL-DT-ST DVD-RAM GSA-H30N 1.01 PQ: 0 ANSI: 5
+-PCI: Device 0000:02:00.0 not available because of resource collisions
+-ahci: probe of 0000:02:00.0 failed with error -22
+-JMB363: IDE controller at PCI slot 0000:02:00.0
+-PCI: Device 0000:02:00.0 not available because of resource collisions
+-ACPI: PCI Interrupt 0000:02:00.0[A] -> GSI 16 (level, low) -> IRQ 16
+-JMB363: BIOS configuration fixed.
++sd 0:0:0:0: [sda] 781422768 512-byte hardware sectors (400088 MB)
++sd 0:0:0:0: [sda] Write Protect is off
++sd 0:0:0:0: [sda] Mode Sense: 00 3a 00 00
++sd 0:0:0:0: [sda] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
++sd 0:0:0:0: [sda] 781422768 512-byte hardware sectors (400088 MB)
++sd 0:0:0:0: [sda] Write Protect is off
++sd 0:0:0:0: [sda] Mode Sense: 00 3a 00 00
++sd 0:0:0:0: [sda] Write cache: enabled, read cache: enabled, doesn't support DPO or FUA
++ sda: sda1 sda2 sda3 < sda5 sda6 sda7 >
++sd 0:0:0:0: [sda] Attached SCSI disk
++JMB363: IDE controller at PCI slot 0000:02:00.1
++PCI: Enabling device 0000:02:00.1 (0000 -> 0001)
++ACPI: PCI Interrupt 0000:02:00.1[B] -> GSI 17 (level, low) -> IRQ 17
+ JMB363: chipset revision 2
+-JMB363: 100% native mode on irq 16
+-JMB363: dma_base is invalid
+-ide0: JMB363 Bus-Master DMA disabled (BIOS)
+-JMB363: dma_base is invalid
+-ide1: JMB363 Bus-Master DMA disabled (BIOS)
++JMB363: 100% native mode on irq 17
++PCI: Setting latency timer of device 0000:02:00.1 to 64
++    ide0: BM-DMA at 0xb400-0xb407, BIOS settings: hda:DMA, hdb:DMA
++    ide1: BM-DMA at 0xb408-0xb40f, BIOS settings: hdc:pio, hdd:pio
+ Probing IDE interface ide0...
+-SCSI device sda: 781422768 512-byte hdwr sectors (400088 MB)
+-sda: Write Protect is off
+-sda: Mode Sense: 00 3a 00 00
+-SCSI device sda: write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+-SCSI device sda: 781422768 512-byte hdwr sectors (400088 MB)
+-sda: Write Protect is off
+-sda: Mode Sense: 00 3a 00 00
+-SCSI device sda: write cache: enabled, read cache: enabled, doesn't support DPO or FUA
+- sda: sda1 sda2 sda3 < sda5 sda6 >
+-sd 0:0:0:0: Attached scsi disk sda
+ sr0: scsi3-mmc drive: 48x/48x writer dvd-ram cd/rw xa/form2 cdda tray
+ Uniform CD-ROM driver Revision: 3.20
+ sr 1:0:0:0: Attached scsi CD-ROM sr0
+ sd 0:0:0:0: Attached scsi generic sg0 type 0
+ sr 1:0:0:0: Attached scsi generic sg1 type 5
++hdb: WDC WD400BB-00AUA1, ATA DISK drive
++hdb: selected mode 0x45
++ide0 at 0xbc00-0xbc07,0xb882 on irq 17
+ Probing IDE interface ide1...
+-JMB363: IDE controller at PCI slot 0000:02:00.1
+-PCI: Enabling device 0000:02:00.1 (0000 -> 0001)
+-ACPI: PCI Interrupt 0000:02:00.1[B] -> GSI 17 (level, low) -> IRQ 17
+-JMB363: chipset revision 2
+-JMB363: 100% native mode on irq 17
+-PCI: Setting latency timer of device 0000:02:00.1 to 64
+-    ide2: BM-DMA at 0xb400-0xb407, BIOS settings: hde:DMA, hdf:DMA
+-    ide3: BM-DMA at 0xb408-0xb40f, BIOS settings: hdg:pio, hdh:pio
+-Probing IDE interface ide2...
+-hdf: WDC WD400BB-00AUA1, ATA DISK drive
+-hdf: hw_config=6b00
+-hdf: hw_config=6b00
+-ide2 at 0xbc00-0xbc07,0xb882 on irq 17
+-Probing IDE interface ide3...
+-hdf: max request size: 128KiB
+-hdf: 78165360 sectors (40020 MB) w/2048KiB Cache, CHS=65535/16/63<6>hdf: hw_config=6b00
+-, UDMA(100)
+-hdf: cache flushes not supported
+- hdf: hdf1 hdf2 < hdf5 hdf6 hdf7 hdf8 hdf9 hdf10 hdf11 >
++hdb: max request size: 128KiB
++hdb: 78165360 sectors (40020 MB) w/2048KiB Cache, CHS=65535/16/63, UDMA(100)
++hdb: cache flushes not supported
++ hdb: hdb1 hdb2 < hdb5 hdb6 hdb7 hdb8 hdb9 hdb10 hdb11 >
+ kjournald starting.  Commit interval 5 seconds
+ EXT3-fs: mounted filesystem with ordered data mode.
+-eth1394: eth1: IEEE-1394 IPv4 over 1394 Ethernet (fw-host0)
+-PCI: Enabling device 0000:00:1f.3 (0001 -> 0003)
+-ACPI: PCI Interrupt 0000:00:1f.3[C] -> GSI 18 (level, low) -> IRQ 18
+-agpgart: Detected an Intel 965G Chipset.
+-agpgart: AGP aperture is 256M @ 0x0
+-iTCO_wdt: Intel TCO WatchDog Timer Driver v1.01 (11-Nov-2006)
++input: PC Speaker as /class/input/input1
++iTCO_wdt: Intel TCO WatchDog Timer Driver v1.02 (26-Jul-2007)
+ iTCO_wdt: Found a ICH8 or ICH8R TCO device (Version=2, TCOBASE=0x0860)
+ iTCO_wdt: initialized. heartbeat=30 sec (nowayout=0)
+-input: PC Speaker as /class/input/input1
++input: Power Button (FF) as /class/input/input2
++ACPI: Power Button (FF) [PWRF]
++input: Power Button (CM) as /class/input/input3
++ACPI: Power Button (CM) [PWRB]
++ACPI: PCI Interrupt 0000:00:1b.0[A] -> GSI 22 (level, low) -> IRQ 22
++PCI: Setting latency timer of device 0000:00:1b.0 to 64
++hda_codec: Unknown model for AD1988, trying auto-probe from BIOS...
+ Linux video capture interface: v2.00
++PCI: Enabling device 0000:00:1f.3 (0001 -> 0003)
++ACPI: PCI Interrupt 0000:00:1f.3[C] -> GSI 18 (level, low) -> IRQ 18
+ logips2pp: Detected unknown logitech mouse model 95
+ saa7146: register extension 'dvb'.
+ ACPI: PCI Interrupt 0000:04:01.0[A] -> GSI 22 (level, low) -> IRQ 22
+-saa7146: found saa7146 @ mem ffffc2000039c800 (revision 1, irq 22) (0x13c2,0x0003).
+-DVB: registering new adapter (Technotrend/Hauppauge WinTV Nexus-S rev2.X).
+-ACPI: PCI Interrupt 0000:00:1b.0[A] -> GSI 22 (level, low) -> IRQ 22
+-PCI: Setting latency timer of device 0000:00:1b.0 to 64
++saa7146: found saa7146 @ mem ffffc20000ace800 (revision 1, irq 22) (0x13c2,0x0003).
++DVB: registering new adapter (Technotrend/Hauppauge WinTV Nexus-S rev2.X)
+ adapter has MAC addr = 00:d0:5c:22:68:cc
+ dvb-ttpci: gpioirq unknown type=0 len=0
+ dvb-ttpci: info @ card 0: firm f0240009, rtsl b0250018, vid 71010068, app 80002622
+ dvb-ttpci: firmware @ card 0 supports CI link layer interface
+-hda_codec: Unknown model for AD1988, trying auto-probe from BIOS...
+-input: ImExPS/2 Logitech Explorer Mouse as /class/input/input2
++input: ImExPS/2 Logitech Explorer Mouse as /class/input/input4
+ dvb-ttpci: adac type set to 0 @ card 0
+ saa7146_vv: saa7146 (0): registered device video0 [v4l2]
+ saa7146_vv: saa7146 (0): registered device vbi0 [v4l2]
+ DVB: registering frontend 0 (ST STV0299 DVB-S)...
+-input: DVB on-card IR receiver as /class/input/input3
++input: DVB on-card IR receiver as /class/input/input5
+ dvb-ttpci: found av7110-0.
+ EXT3 FS on sda6, internal journal
+ device-mapper: ioctl: 4.11.0-ioctl (2006-10-12) initialised: dm-devel@redhat.com
+@@ -452,23 +466,16 @@
+ EXT3-fs: mounted filesystem with ordered data mode.
+ kjournald starting.  Commit interval 5 seconds
+ EXT3-fs warning: maximal mount count reached, running e2fsck is recommended
+-EXT3 FS on hdf10, internal journal
++EXT3 FS on sda7, internal journal
+ EXT3-fs: mounted filesystem with ordered data mode.
+-skge eth0: enabling interface
+-skge eth0: Link is up at 1000 Mbps, full duplex, flow control both
+ NET: Registered protocol family 10
+ lo: Disabled Privacy Extensions
+-input: Power Button (FF) as /class/input/input4
+-ACPI: Power Button (FF) [PWRF]
+-input: Power Button (CM) as /class/input/input5
+-ACPI: Power Button (CM) [PWRB]
+ pnp: the driver 'parport_pc' has been registered
+ lp: driver loaded but no devices found
+ ppdev: user-space parallel port driver
+-eth0: no IPv6 routers present
+ [drm] Initialized drm 1.1.0 20060810
+ ACPI: PCI Interrupt 0000:01:00.0[A] -> GSI 16 (level, low) -> IRQ 16
+-[drm] Initialized radeon 1.25.0 20060524 on minor 0
++[drm] Initialized radeon 1.28.0 20060524 on minor 0
+ [drm] Setting GART location based on new memory map
+ [drm] Loading R300 Microcode
+ [drm] writeback test succeeded in 1 usecs
 
-dst_total: 75469 delayed: 74109 work_perf: 141 expires: 150 elapsed: 8092 us
-dst_total: 78725 delayed: 73366 work_perf: 743 expires: 400 elapsed: 8542 us
-dst_total: 86126 delayed: 71844 work_perf: 1522 expires: 775 elapsed: 8849 us
-dst_total: 100173 delayed: 68791 work_perf: 3053 expires: 1256 elapsed: 9748 us
-dst_total: 121798 delayed: 64711 work_perf: 4080 expires: 1997 elapsed: 10146 us
-dst_total: 154522 delayed: 58316 work_perf: 6395 expires: 25 elapsed: 11402 us
-dst_total: 154957 delayed: 58252 work_perf: 64 expires: 150 elapsed: 6148 us
-dst_total: 157377 delayed: 57843 work_perf: 409 expires: 400 elapsed: 6350 us
-dst_total: 163745 delayed: 56679 work_perf: 1164 expires: 775 elapsed: 7051 us
-dst_total: 176577 delayed: 53965 work_perf: 2714 expires: 1389 elapsed: 8120 us
-dst_total: 198993 delayed: 49627 work_perf: 4338 expires: 1997 elapsed: 8909 us
-dst_total: 226638 delayed: 46865 work_perf: 2762 expires: 2748 elapsed: 7351 us
+--=-piyPvoO5zPjPnU5hgUHf--
 
-I successfully reduced the IP route cache of many hosts by a four factor 
-thanks to this patch. Previously, I had to disable "ip route flush cache"
-to avoid crashes.
-
-Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-
-diff --git a/net/core/dst.c b/net/core/dst.c
-index c6a0587..527b4c2 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -9,6 +9,7 @@
- #include <linux/errno.h>
- #include <linux/init.h>
- #include <linux/kernel.h>
-+#include <linux/workqueue.h>
- #include <linux/mm.h>
- #include <linux/module.h>
- #include <linux/netdevice.h>
-@@ -18,50 +19,67 @@
- 
- #include <net/dst.h>
- 
--/* Locking strategy:
-- * 1) Garbage collection state of dead destination cache
-- *    entries is protected by dst_lock.
-- * 2) GC is run only from BH context, and is the only remover
-- *    of entries.
-- * 3) Entries are added to the garbage list from both BH
-- *    and non-BH context, so local BH disabling is needed.
-- * 4) All operations modify state, so a spinlock is used.
-+/*
-+ * Theory of operations:
-+ * 1) We use a list, protected by a spinlock, to add
-+ *    new entries from both BH and non-BH context.
-+ * 2) In order to keep spinlock held for a small delay,
-+ *    we use a second list where are stored long lived
-+ *    entries, that are handled by the garbage collect thread
-+ *    fired by a workqueue.
-+ * 3) This list is guarded by a mutex,
-+ *    so that the gc_task and dst_dev_event() can be synchronized.
-  */
--static struct dst_entry 	*dst_garbage_list;
- #if RT_CACHE_DEBUG >= 2
- static atomic_t			 dst_total = ATOMIC_INIT(0);
- #endif
--static DEFINE_SPINLOCK(dst_lock);
- 
--static unsigned long dst_gc_timer_expires;
--static unsigned long dst_gc_timer_inc = DST_GC_MAX;
--static void dst_run_gc(unsigned long);
-+static struct {
-+	spinlock_t		lock;
-+	struct dst_entry 	*list;
-+	unsigned long		timer_inc;
-+	unsigned long		timer_expires;
-+} dst_garbage = {
-+	.lock = __SPIN_LOCK_UNLOCKED(dst_garbage.lock),
-+	.timer_inc = DST_GC_MAX,
-+};
-+static void dst_gc_task(struct work_struct *work);
- static void ___dst_free(struct dst_entry * dst);
- 
--static DEFINE_TIMER(dst_gc_timer, dst_run_gc, DST_GC_MIN, 0);
-+DECLARE_DELAYED_WORK(dst_gc_work, dst_gc_task);
-+
-+static DEFINE_MUTEX(dst_gc_mutex);
-+/*
-+ * long lived entries are maintained in this list, guarded by dst_gc_mutex
-+ */
-+static struct dst_entry         *dst_busy_list;
- 
--static void dst_run_gc(unsigned long dummy)
-+static void dst_gc_task(struct work_struct *work)
- {
- 	int    delayed = 0;
--	int    work_performed;
--	struct dst_entry * dst, **dstp;
-+	int    work_performed = 0;
-+	unsigned long expires = ~0L;
-+	struct dst_entry *dst, *next, head;
-+	struct dst_entry *last = &head;
-+#if RT_CACHE_DEBUG >= 2
-+	ktime_t time_start = ktime_get();
-+	struct timespec elapsed;
-+#endif
- 
--	if (!spin_trylock(&dst_lock)) {
--		mod_timer(&dst_gc_timer, jiffies + HZ/10);
--		return;
--	}
-+	mutex_lock(&dst_gc_mutex);
-+	next = dst_busy_list;
- 
--	del_timer(&dst_gc_timer);
--	dstp = &dst_garbage_list;
--	work_performed = 0;
--	while ((dst = *dstp) != NULL) {
--		if (atomic_read(&dst->__refcnt)) {
--			dstp = &dst->next;
-+loop:
-+	while ((dst = next) != NULL) {
-+		next = dst->next;
-+		__builtin_prefetch(&next->next, 1, 0);
-+		if (likely(atomic_read(&dst->__refcnt))) {
-+			last->next = dst;
-+			last = dst;
- 			delayed++;
- 			continue;
- 		}
--		*dstp = dst->next;
--		work_performed = 1;
-+		work_performed++;
- 
- 		dst = dst_destroy(dst);
- 		if (dst) {
-@@ -77,38 +95,56 @@ static void dst_run_gc(unsigned long dummy)
- 				continue;
- 
- 			___dst_free(dst);
--			dst->next = *dstp;
--			*dstp = dst;
--			dstp = &dst->next;
-+			dst->next = next;
-+			next = dst;
- 		}
- 	}
--	if (!dst_garbage_list) {
--		dst_gc_timer_inc = DST_GC_MAX;
--		goto out;
-+
-+	spin_lock_bh(&dst_garbage.lock);
-+	next = dst_garbage.list;
-+	if (next) {
-+		dst_garbage.list = NULL;
-+		spin_unlock_bh(&dst_garbage.lock);
-+		goto loop;
- 	}
--	if (!work_performed) {
--		if ((dst_gc_timer_expires += dst_gc_timer_inc) > DST_GC_MAX)
--			dst_gc_timer_expires = DST_GC_MAX;
--		dst_gc_timer_inc += DST_GC_INC;
--	} else {
--		dst_gc_timer_inc = DST_GC_INC;
--		dst_gc_timer_expires = DST_GC_MIN;
-+	last->next = NULL;
-+	dst_busy_list = head.next;
-+	if (!dst_busy_list)
-+		dst_garbage.timer_inc = DST_GC_MAX;
-+	else {
-+		/*
-+		 * if we freed less than 1/10 of delayed entries,
-+		 * we can sleep longer.
-+		 */
-+		if (work_performed <= delayed/10) {
-+			dst_garbage.timer_expires += dst_garbage.timer_inc;
-+			if (dst_garbage.timer_expires > DST_GC_MAX)
-+				dst_garbage.timer_expires = DST_GC_MAX;
-+			dst_garbage.timer_inc += DST_GC_INC;
-+		} else {
-+			dst_garbage.timer_inc = DST_GC_INC;
-+			dst_garbage.timer_expires = DST_GC_MIN;
-+		}
-+		expires = dst_garbage.timer_expires;
-+		/*
-+		 * if the next desired timer is more than 4 seconds in the future
-+		 * then round the timer to whole seconds
-+		 */
-+		if (expires > 4*HZ)
-+			expires = round_jiffies_relative(expires);
-+		schedule_delayed_work(&dst_gc_work, expires);
- 	}
-+
-+	spin_unlock_bh(&dst_garbage.lock);
-+	mutex_unlock(&dst_gc_mutex);
- #if RT_CACHE_DEBUG >= 2
--	printk("dst_total: %d/%d %ld\n",
--	       atomic_read(&dst_total), delayed,  dst_gc_timer_expires);
-+	elapsed = ktime_to_timespec(ktime_sub(ktime_get(), time_start));
-+	printk(KERN_DEBUG "dst_total: %d delayed: %d work_perf: %d"
-+		" expires: %lu elapsed: %lu us\n",
-+		atomic_read(&dst_total), delayed, work_performed,
-+		expires,
-+		elapsed.tv_sec * USEC_PER_SEC + elapsed.tv_nsec / NSEC_PER_USEC);
- #endif
--	/* if the next desired timer is more than 4 seconds in the future
--	 * then round the timer to whole seconds
--	 */
--	if (dst_gc_timer_expires > 4*HZ)
--		mod_timer(&dst_gc_timer,
--			round_jiffies(jiffies + dst_gc_timer_expires));
--	else
--		mod_timer(&dst_gc_timer, jiffies + dst_gc_timer_expires);
--
--out:
--	spin_unlock(&dst_lock);
- }
- 
- static int dst_discard(struct sk_buff *skb)
-@@ -153,16 +189,16 @@ static void ___dst_free(struct dst_entry * dst)
- 
- void __dst_free(struct dst_entry * dst)
- {
--	spin_lock_bh(&dst_lock);
-+	spin_lock_bh(&dst_garbage.lock);
- 	___dst_free(dst);
--	dst->next = dst_garbage_list;
--	dst_garbage_list = dst;
--	if (dst_gc_timer_inc > DST_GC_INC) {
--		dst_gc_timer_inc = DST_GC_INC;
--		dst_gc_timer_expires = DST_GC_MIN;
--		mod_timer(&dst_gc_timer, jiffies + dst_gc_timer_expires);
-+	dst->next = dst_garbage.list;
-+	dst_garbage.list = dst;
-+	if (dst_garbage.timer_inc > DST_GC_INC) {
-+		dst_garbage.timer_inc = DST_GC_INC;
-+		dst_garbage.timer_expires = DST_GC_MIN;
-+		schedule_delayed_work(&dst_gc_work, dst_garbage.timer_expires);
- 	}
--	spin_unlock_bh(&dst_lock);
-+	spin_unlock_bh(&dst_garbage.lock);
- }
- 
- struct dst_entry *dst_destroy(struct dst_entry * dst)
-@@ -250,16 +286,30 @@ static inline void dst_ifdown(struct dst_entry *dst, struct net_device *dev,
- static int dst_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
- {
- 	struct net_device *dev = ptr;
--	struct dst_entry *dst;
-+	struct dst_entry *dst, *last = NULL;
- 
- 	switch (event) {
- 	case NETDEV_UNREGISTER:
- 	case NETDEV_DOWN:
--		spin_lock_bh(&dst_lock);
--		for (dst = dst_garbage_list; dst; dst = dst->next) {
-+		mutex_lock(&dst_gc_mutex);
-+		for (dst = dst_busy_list; dst; dst = dst->next) {
-+			last = dst;
-+			dst_ifdown(dst, dev, event != NETDEV_DOWN);
-+		}
-+
-+		spin_lock_bh(&dst_garbage.lock);
-+		dst = dst_garbage.list;
-+		dst_garbage.list = NULL;
-+		spin_unlock_bh(&dst_garbage.lock);
-+
-+		if (last)
-+			last->next = dst;
-+		else
-+			dst_busy_list = dst;
-+		for (; dst; dst = dst->next) {
- 			dst_ifdown(dst, dev, event != NETDEV_DOWN);
- 		}
--		spin_unlock_bh(&dst_lock);
-+		mutex_unlock(&dst_gc_mutex);
- 		break;
- 	}
- 	return NOTIFY_DONE;
