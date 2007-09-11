@@ -1,51 +1,36 @@
-From: "Rob Hussey" <robjhussey@gmail.com>
-Subject: Re: [PATCH] cfg80211: fix initialisation if built-in
-Date: Mon, 10 Sep 2007 21:18:11 -0400
-Message-ID: <6b8cef970709101818g72366544ve1a75804f79499e3@mail.gmail.com>
-References: <1189424685.4506.63.camel@johannes.berg>
-	 <aec7e5c30709101804p337084e9o63b5bcb4f007828@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.23-rc5: possible irq lock inversion dependency detected
+Date: Tue, 11 Sep 2007 10:18:12 +0800
+Message-ID: <20070911021812.GA1544@gondor.apana.org.au>
+References: <alpine.DEB.0.999.0709021455510.7103@sheep.housecafe.de> <20070910130024.GA27939@gondor.apana.org.au> <1189469081.14002.3.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Johannes Berg" <johannes@sipsolutions.net>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, stable@kernel.org
-To: "Magnus Damm" <magnus.damm@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.180]:40029 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932821AbXIKBSO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 21:18:14 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so1775930wah
-        for <netdev@vger.kernel.org>; Mon, 10 Sep 2007 18:18:11 -0700 (PDT)
-In-Reply-To: <aec7e5c30709101804p337084e9o63b5bcb4f007828@mail.gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christian Kujau <lists@nerdbynature.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: jamal <hadi@cyberus.ca>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762253AbXIKCSh@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <1189469081.14002.3.camel@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/10/07, Magnus Damm <magnus.damm@gmail.com> wrote:
-> -module_init(rate_control_simple_init);
-> +//module_init(rate_control_simple_init);
-> +postcore_initcall(rate_control_simple_init);
->  module_exit(rate_control_simple_exit);
+On Mon, Sep 10, 2007 at 08:04:41PM -0400, jamal wrote:
 >
->  MODULE_DESCRIPTION("Simple rate control algorithm for ieee80211");
+> disabling BH would make it more symmetric to the way we handle
+> egress. I couldnt reproduce the issue, but this should hopefully resolve
+> it.
+> Christian, can you test with this patch?
 
-Same problem here, except with the rt2x00 driver. I changed it to
-subsys_initcall(rate_control_simple_init), which also worked. I also
-found that without this change, it was failing at this point in
-ieee80211_rate.c:
+Jamal, it's the police_lock that we need to make _bh.  The
+ingress_lock is already _bh because of the spin_lock_bh that
+directly precedes it.
 
-ieee80211_try_rate_control_ops_get(const char *name)
-{
-        struct rate_control_alg *alg;
-        struct rate_control_ops *ops = NULL;
+Oh and I think the same thing applies for the other actions
+too.
 
-        mutex_lock(&rate_ctrl_mutex);
-        list_for_each_entry(alg, &rate_ctrl_algs, list) {   <===== Here
-                if (!name || !strcmp(alg->ops->name, name))
-                        if (try_module_get(alg->ops->module)) {
-                                ops = alg->ops;
-                                break;
-                        }
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
