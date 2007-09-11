@@ -1,173 +1,92 @@
-From: Emil Medve <Emilian.Medve@Freescale.com>
-Subject: [PATCH v2] Move the definition of pr_err() into kernel.h
-Date: Tue, 11 Sep 2007 13:13:41 -0500
-Message-ID: <11895344211267-git-send-email-Emilian.Medve@Freescale.com>
-Cc: Emil Medve <Emilian.Medve@Freescale.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	i2c@lm-sensors.org, linux-omap-open-source@linux.omap.com
+From: Rick Jones <rick.jones2@hp.com>
+Subject: [PATCH] include listenq max/backlog in tcp_info and related reports
+Date: Tue, 11 Sep 2007 11:31:00 -0700 (PDT)
+Message-ID: <200709111831.LAA06892@tardy.cup.hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=X-roman8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:35813 "EHLO
-	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759974AbXIKSZT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2007 14:25:19 -0400
+Received: from palrel10.hp.com ([156.153.255.245]:54257 "EHLO palrel10.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761766AbXIKSbM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Sep 2007 14:31:12 -0400
+Received: from tardy.cup.hp.com (tardy.cup.hp.com [15.244.56.217])
+	by palrel10.hp.com (Postfix) with ESMTP id C1C513416C
+	for <netdev@vger.kernel.org>; Tue, 11 Sep 2007 11:31:01 -0700 (PDT)
+Received: (from raj@localhost)
+	by tardy.cup.hp.com (8.9.3 (PHNE_28810)/8.9.3 SMKit7.02) id LAA06892
+	for netdev@vger.kernel.org; Tue, 11 Sep 2007 11:31:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Other pr_*() macros are already defined in kernel.h, but pr_err() was defined
-multiple times in several other places
+Return some useful information such as the maximum listen backlog and
+the current listen backlog in the tcp_info structure and have that 
+match what one can see in /proc/net/tcp and /proc/net/tcp6.
 
-Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
+Signed-off-by: Rick Jones <rick.jones2@hp.com>
 ---
 
-I'm writing a driver and I've been using the pr_*() macros from kernel.h and I
-was surprised not to find there pr_err() but defined multiple times (in four
-different files). I didn't want to define it yet one more time so I did this
-cleanup
-
-This patch is against Linus' tree v2.6.23-rc6 (0d4cbb5e7f60b2f1a4d8b7f6ea4cc264262c7a01)
-
-linux-2.6> scripts/checkpatch.pl 0001-Move-the-definition-of-pr_err-into-kernel.h.patch
-Your patch has no obvious style problems and is ready for submission.
-
- drivers/i2c/chips/menelaus.c     |   10 ++++------
- drivers/net/spider_net.h         |    3 ---
- drivers/video/omap/lcd_h3.c      |    6 ++----
- drivers/video/omap/lcd_inn1610.c |    6 ++----
- include/linux/kernel.h           |    2 ++
- 5 files changed, 10 insertions(+), 17 deletions(-)
-
-diff --git a/drivers/i2c/chips/menelaus.c b/drivers/i2c/chips/menelaus.c
-index d9c92c5..66436ba 100644
---- a/drivers/i2c/chips/menelaus.c
-+++ b/drivers/i2c/chips/menelaus.c
-@@ -49,8 +49,6 @@
+diff -r bdcdd0e1ee9d Documentation/networking/proc_net_tcp.txt
+--- a/Documentation/networking/proc_net_tcp.txt	Sat Sep 01 07:00:31 2007 +0000
++++ b/Documentation/networking/proc_net_tcp.txt	Mon Sep 10 16:09:46 2007 -0700
+@@ -20,8 +20,8 @@ up into 3 parts because of the length of
+       |        |     |     |       |--> number of unrecovered RTO timeouts
+       |        |     |     |----------> number of jiffies until timer expires
+       |        |     |----------------> timer_active (see below)
+-      |        |----------------------> receive-queue
+-      |-------------------------------> transmit-queue
++      |        |----------------------> receive-queue or connection backlog
++      |-------------------------------> transmit-queue or connection limit
  
- #define DRIVER_NAME			"menelaus"
+    1000        0 54165785 4 cd1e6040 25 4 27 3 -1
+     |          |    |     |    |     |  | |  | |--> slow start size threshold, 
+diff -r bdcdd0e1ee9d net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c	Sat Sep 01 07:00:31 2007 +0000
++++ b/net/ipv4/tcp.c	Mon Sep 10 16:09:46 2007 -0700
+@@ -2030,8 +2030,14 @@ void tcp_get_info(struct sock *sk, struc
+ 	info->tcpi_snd_mss = tp->mss_cache;
+ 	info->tcpi_rcv_mss = icsk->icsk_ack.rcv_mss;
  
--#define pr_err(fmt, arg...)	printk(KERN_ERR DRIVER_NAME ": ", ## arg);
--
- #define MENELAUS_I2C_ADDRESS		0x72
- 
- #define MENELAUS_REV			0x01
-@@ -155,7 +153,7 @@ static int menelaus_write_reg(int reg, u8 value)
- 	int val = i2c_smbus_write_byte_data(the_menelaus->client, reg, value);
- 
- 	if (val < 0) {
--		pr_err("write error");
-+		pr_err(DRIVER_NAME ": write error");
- 		return val;
- 	}
- 
-@@ -167,7 +165,7 @@ static int menelaus_read_reg(int reg)
- 	int val = i2c_smbus_read_byte_data(the_menelaus->client, reg);
- 
- 	if (val < 0)
--		pr_err("read error");
-+		pr_err(DRIVER_NAME ": read error");
- 
- 	return val;
- }
-@@ -1177,7 +1175,7 @@ static int menelaus_probe(struct i2c_client *client)
- 	/* If a true probe check the device */
- 	rev = menelaus_read_reg(MENELAUS_REV);
- 	if (rev < 0) {
--		pr_err("device not found");
-+		pr_err(DRIVER_NAME ": device not found");
- 		err = -ENODEV;
- 		goto fail1;
- 	}
-@@ -1258,7 +1256,7 @@ static int __init menelaus_init(void)
- 
- 	res = i2c_add_driver(&menelaus_i2c_driver);
- 	if (res < 0) {
--		pr_err("driver registration failed\n");
-+		pr_err(DRIVER_NAME ": driver registration failed\n");
- 		return res;
- 	}
- 
-diff --git a/drivers/net/spider_net.h b/drivers/net/spider_net.h
-index dbbdb8c..c67b11d 100644
---- a/drivers/net/spider_net.h
-+++ b/drivers/net/spider_net.h
-@@ -493,7 +493,4 @@ struct spider_net_card {
- 	struct spider_net_descr darray[0];
- };
- 
--#define pr_err(fmt,arg...) \
--	printk(KERN_ERR fmt ,##arg)
--
- #endif
-diff --git a/drivers/video/omap/lcd_h3.c b/drivers/video/omap/lcd_h3.c
-index 51807b4..c604d93 100644
---- a/drivers/video/omap/lcd_h3.c
-+++ b/drivers/video/omap/lcd_h3.c
-@@ -28,8 +28,6 @@
- 
- #define MODULE_NAME	"omapfb-lcd_h3"
- 
--#define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
--
- static int h3_panel_init(struct lcd_panel *panel, struct omapfb_device *fbdev)
- {
- 	return 0;
-@@ -48,7 +46,7 @@ static int h3_panel_enable(struct lcd_panel *panel)
- 	if (!r)
- 		r = tps65010_set_gpio_out_value(GPIO2, HIGH);
- 	if (r)
--		pr_err("Unable to turn on LCD panel\n");
-+		pr_err(MODULE_NAME ": Unable to turn on LCD panel\n");
- 
- 	return r;
- }
-@@ -62,7 +60,7 @@ static void h3_panel_disable(struct lcd_panel *panel)
- 	if (!r)
- 		tps65010_set_gpio_out_value(GPIO2, LOW);
- 	if (r)
--		pr_err("Unable to turn off LCD panel\n");
-+		pr_err(MODULE_NAME ": Unable to turn off LCD panel\n");
- }
- 
- static unsigned long h3_panel_get_caps(struct lcd_panel *panel)
-diff --git a/drivers/video/omap/lcd_inn1610.c b/drivers/video/omap/lcd_inn1610.c
-index 95604ca..5ef119c 100644
---- a/drivers/video/omap/lcd_inn1610.c
-+++ b/drivers/video/omap/lcd_inn1610.c
-@@ -27,20 +27,18 @@
- 
- #define MODULE_NAME	"omapfb-lcd_h3"
- 
--#define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
--
- static int innovator1610_panel_init(struct lcd_panel *panel,
- 				    struct omapfb_device *fbdev)
- {
- 	int r = 0;
- 
- 	if (omap_request_gpio(14)) {
--		pr_err("can't request GPIO 14\n");
-+		pr_err(MODULE_NAME ": can't request GPIO 14\n");
- 		r = -1;
- 		goto exit;
- 	}
- 	if (omap_request_gpio(15)) {
--		pr_err("can't request GPIO 15\n");
-+		pr_err(MODULE_NAME ": can't request GPIO 15\n");
- 		omap_free_gpio(14);
- 		r = -1;
- 		goto exit;
-diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-index f592df7..c51936a 100644
---- a/include/linux/kernel.h
-+++ b/include/linux/kernel.h
-@@ -242,6 +242,8 @@ static inline int __attribute__ ((format (printf, 1, 2))) pr_debug(const char *
- 
- #define pr_info(fmt,arg...) \
- 	printk(KERN_INFO fmt,##arg)
-+#define pr_err(fmt, arg...) \
-+	printk(KERN_ERR fmt, ##arg)
- 
- /*
-  *      Display an IP address in readable format.
--- 
-1.5.3.GIT
-
+-	info->tcpi_unacked = tp->packets_out;
+-	info->tcpi_sacked = tp->sacked_out;
++	if (sk->sk_state == TCP_LISTEN) {
++		info->tcpi_unacked = sk->sk_ack_backlog;
++		info->tcpi_sacked = sk->sk_max_ack_backlog;
++	}
++	else {
++		info->tcpi_unacked = tp->packets_out;
++		info->tcpi_sacked = tp->sacked_out;
++	}
+ 	info->tcpi_lost = tp->lost_out;
+ 	info->tcpi_retrans = tp->retrans_out;
+ 	info->tcpi_fackets = tp->fackets_out;
+diff -r bdcdd0e1ee9d net/ipv4/tcp_ipv4.c
+--- a/net/ipv4/tcp_ipv4.c	Sat Sep 01 07:00:31 2007 +0000
++++ b/net/ipv4/tcp_ipv4.c	Mon Sep 10 16:09:46 2007 -0700
+@@ -2320,7 +2320,8 @@ static void get_tcp4_sock(struct sock *s
+ 	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X %02X %08X:%08X %02X:%08lX "
+ 			"%08X %5d %8d %lu %d %p %u %u %u %u %d",
+ 		i, src, srcp, dest, destp, sk->sk_state,
+-		tp->write_seq - tp->snd_una,
++		sk->sk_state == TCP_LISTEN ? sk->sk_max_ack_backlog :
++					     (tp->write_seq - tp->snd_una),
+ 		sk->sk_state == TCP_LISTEN ? sk->sk_ack_backlog :
+ 					     (tp->rcv_nxt - tp->copied_seq),
+ 		timer_active,
+diff -r bdcdd0e1ee9d net/ipv6/tcp_ipv6.c
+--- a/net/ipv6/tcp_ipv6.c	Sat Sep 01 07:00:31 2007 +0000
++++ b/net/ipv6/tcp_ipv6.c	Mon Sep 10 16:09:46 2007 -0700
+@@ -2005,8 +2005,10 @@ static void get_tcp6_sock(struct seq_fil
+ 		   dest->s6_addr32[0], dest->s6_addr32[1],
+ 		   dest->s6_addr32[2], dest->s6_addr32[3], destp,
+ 		   sp->sk_state,
+-		   tp->write_seq-tp->snd_una,
+-		   (sp->sk_state == TCP_LISTEN) ? sp->sk_ack_backlog : (tp->rcv_nxt - tp->copied_seq),
++		   (sp->sk_state == TCP_LISTEN) ? sp->sk_max_ack_backlog:
++						  tp->write_seq-tp->snd_una,
++		   (sp->sk_state == TCP_LISTEN) ? sp->sk_ack_backlog : 
++					(tp->rcv_nxt - tp->copied_seq),
+ 		   timer_active,
+ 		   jiffies_to_clock_t(timer_expires - jiffies),
+ 		   icsk->icsk_retransmits,
