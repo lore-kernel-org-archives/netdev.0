@@ -1,54 +1,51 @@
-From: "Magnus Damm" <magnus.damm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: "Rob Hussey" <robjhussey@gmail.com>
 Subject: Re: [PATCH] cfg80211: fix initialisation if built-in
-Date: Tue, 11 Sep 2007 10:04:16 +0900
-Message-ID: <aec7e5c30709101804p337084e9o63b5bcb4f007828@mail.gmail.com>
+Date: Mon, 10 Sep 2007 21:18:11 -0400
+Message-ID: <6b8cef970709101818g72366544ve1a75804f79499e3@mail.gmail.com>
 References: <1189424685.4506.63.camel@johannes.berg>
+	 <aec7e5c30709101804p337084e9o63b5bcb4f007828@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Rob Hussey" <robjhussey-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: "Johannes Berg" <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1189424685.4506.63.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org>
+Cc: "Johannes Berg" <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, stable@kernel.org
+To: "Magnus Damm" <magnus.damm@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wa-out-1112.google.com ([209.85.146.180]:40029 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932821AbXIKBSO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Sep 2007 21:18:14 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so1775930wah
+        for <netdev@vger.kernel.org>; Mon, 10 Sep 2007 18:18:11 -0700 (PDT)
+In-Reply-To: <aec7e5c30709101804p337084e9o63b5bcb4f007828@mail.gmail.com>
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/10/07, Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
-> When cfg80211 is built into the kernel it needs to init earlier
-> so that device registrations are run after it has initialised.
+On 9/10/07, Magnus Damm <magnus.damm@gmail.com> wrote:
+> -module_init(rate_control_simple_init);
+> +//module_init(rate_control_simple_init);
+> +postcore_initcall(rate_control_simple_init);
+>  module_exit(rate_control_simple_exit);
 >
-> Signed-off-by: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+>  MODULE_DESCRIPTION("Simple rate control algorithm for ieee80211");
 
-Yep, I need this fix as well. Without it the ath5k driver built in
-bombs out during module_init(). Something with kref and a struct
-device pointing to an uninitialized ieee80211_class.
+Same problem here, except with the rt2x00 driver. I changed it to
+subsys_initcall(rate_control_simple_init), which also worked. I also
+found that without this change, it was failing at this point in
+ieee80211_rate.c:
 
-I need a similar fix for net/mac80211/rc80211_simple.c as well to get
-ath5k working though, not sure why at the moment. There may be some
-bug with request_module() not being called properly.
-ieee80211_register_hw() calls ieee80211_init_rate_ctrl_alg() with NULL
-as name which calls rate_control_alloc() with NULL which always seems
-to fail when built in.
+ieee80211_try_rate_control_ops_get(const char *name)
+{
+        struct rate_control_alg *alg;
+        struct rate_control_ops *ops = NULL;
 
-This hack works around that problem, not sure what the real fix is.
-
---- 0002/net/mac80211/rc80211_simple.c
-+++ work/net/mac80211/rc80211_simple.c  2007-09-09 18:11:48.000000000 +0900
-@@ -431,7 +431,8 @@ static void __exit rate_control_simple_e
- }
-
-
--module_init(rate_control_simple_init);
-+//module_init(rate_control_simple_init);
-+postcore_initcall(rate_control_simple_init);
- module_exit(rate_control_simple_exit);
-
- MODULE_DESCRIPTION("Simple rate control algorithm for ieee80211");
-
-Thanks,
-
-/ magnus
+        mutex_lock(&rate_ctrl_mutex);
+        list_for_each_entry(alg, &rate_ctrl_algs, list) {   <===== Here
+                if (!name || !strcmp(alg->ops->name, name))
+                        if (try_module_get(alg->ops->module)) {
+                                ops = alg->ops;
+                                break;
+                        }
