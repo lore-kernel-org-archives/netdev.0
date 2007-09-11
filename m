@@ -1,52 +1,30 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: BUG: skge ethernet breakage (PCI: Unable to reserve mem region)
-Date: Tue, 11 Sep 2007 14:37:01 +0200
-Message-ID: <20070911143701.628c8d18@oldman>
-References: <1189183355.3784.11.camel@localhost>
-	<20070911102110.1f32fa7e@oldman>
-	<1189508304.4069.5.camel@localhost>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.23-rc5: possible irq lock inversion dependency detected
+Date: Tue, 11 Sep 2007 20:43:27 +0800
+Message-ID: <20070911124327.GA6183@gondor.apana.org.au>
+References: <alpine.DEB.0.999.0709021455510.7103@sheep.housecafe.de> <20070910130024.GA27939@gondor.apana.org.au> <1189469081.14002.3.camel@localhost> <20070911021812.GA1544@gondor.apana.org.au> <1189512106.4231.6.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jan Gukelberger <g.u.g.i@gmx.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christian Kujau <lists@nerdbynature.de>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: jamal <hadi@cyberus.ca>, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:32894 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965294AbXIKMgU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2007 08:36:20 -0400
-In-Reply-To: <1189508304.4069.5.camel@localhost>
+Received: from rhun.apana.org.au ([64.62.148.172]:4911 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1762464AbXIKMns (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Sep 2007 08:43:48 -0400
+Content-Disposition: inline
+In-Reply-To: <1189512106.4231.6.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 11 Sep 2007 12:58:24 +0200
-Jan Gukelberger <g.u.g.i@gmx.de> wrote:
+On Tue, Sep 11, 2007 at 08:01:46AM -0400, jamal wrote:
+>
+> [NET_SCHED] protect action config/dump from irqs
 
-> On Tue, 2007-09-11 at 10:21 +0200, Stephen Hemminger wrote:
-> > On Fri, 07 Sep 2007 18:42:35 +0200
-> > Jan Gukelberger <g.u.g.i@gmx.de> wrote:
-> [...]
-> > > The key problem seem to be the following lines in dmesg:
-> > > ------------------------------------------------------------------------
-> > > ACPI: PCI Interrupt 0000:04:04.0[A] -> GSI 19 (level, low) -> IRQ 19
-> > > PCI: Unable to reserve mem region #1:4000@ff9f8000 for device 0000:04:04.0
-> > > skge 0000:04:04.0: cannot obtain PCI resources
-> > > ACPI: PCI interrupt for device 0000:04:04.0 disabled
-> > > skge: probe of 0000:04:04.0 failed with error -16
-> > > ------------------------------------------------------------------------
-> > > 
-> > 
-> > There is some kind of device conflict, please provide lspci -vvvxx output.
-> 
-> I'm attaching the output of 'lspci -vvvxx' on the working 2.6.20 kernel
-> as well as the output of 'lspci -vvxxx' on 2.6.23-rc5 which I recorded
-> earlier.
-> I you specifically need 'lspci -vvvxx' on 2.6.23-rc5 please drop me a
-> note and I'll reboot quickly.
-> 
-> Thanks,
-> Jan
-
-All looks in order, on the PCI tables. There is a firewire control just
-above the skge device, perhaps you enabled one of the firewire stacks
-in the configuration?  Perhaps the console (dmesg) output will show some clue.
+Looks good! Thanks Jamal.
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
