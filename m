@@ -1,42 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: RFC: possible NAPI improvements to reduce interrupt rates for
- low traffic rates
-Date: Wed, 12 Sep 2007 08:12:11 -0700 (PDT)
-Message-ID: <20070912.081211.13753718.davem@davemloft.net>
-References: <200709061416.l86EG0Vb017675@quickie.katalix.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 4/4] [IPROUTE2] iproute2: link_veth support bug fixes.
+Date: Wed, 12 Sep 2007 09:13:02 -0600
+Message-ID: <m1ir6fapdt.fsf@ebiederm.dsl.xmission.com>
+References: <m14pi0cac5.fsf@ebiederm.dsl.xmission.com>
+	<m1zlzsavla.fsf@ebiederm.dsl.xmission.com>
+	<m1veagavjr.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1r6l4avhp.fsf_-_@ebiederm.dsl.xmission.com>
+	<46E7F8B1.5090907@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hadi@cyberus.ca, jeff@garzik.org,
-	mandeep.baines@gmail.com, ossthema@de.ibm.com
-To: jchapman@katalix.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:48908
-	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965914AbXILPMk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 11:12:40 -0400
-In-Reply-To: <200709061416.l86EG0Vb017675@quickie.katalix.com>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:55709 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S967341AbXILPNf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 11:13:35 -0400
+In-Reply-To: <46E7F8B1.5090907@openvz.org> (Pavel Emelyanov's message of "Wed,
+	12 Sep 2007 18:33:21 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: James Chapman <jchapman@katalix.com>
-Date: Thu, 6 Sep 2007 15:16:00 +0100
+Pavel Emelyanov <xemul@openvz.org> writes:
 
-> First, do we need to encourage consistency in NAPI poll drivers? A
-> survey of current NAPI drivers shows different strategies being used
-> in their poll(). Some such as r8169 do the napi_complete() if poll()
-> does less work than their allowed budget. Others such as e100 and
-> tg3 do napi_complete() only if they do no work at all.
+> [snip]
+>
+>> @@ -25,6 +26,3 @@ clean:
+>>  
+>>  LDLIBS	+= -ldl
+>>  LDFLAGS	+= -Wl,-export-dynamic
+>> -
+>> -%.so: %.c
+>> -	$(CC) $(CFLAGS) -shared $< -o $@
+>
+> %) How do we get the .so file then?
 
-Actually, I want to clarify this situation.  In reality these
-drivers are more consistent than different.
+The code was built into iproute2, so we don't need the .so file.
+That rule does not work on arch/x86_64 so I had to do something
+and the easiest was to simply compile the code in.  Like Patrick
+did with his recent VLAN support.
 
-For some chips the cheapest way to figure out if there is more
-RX work is simply to see if the amount of work processed is
-less than "budget".  It's too expensive to recheck the hardware.
+The usefulness of a .so file seems to be distributing the code
+outside of /bin/ip.  Although I think we currently have some issues with
+mixed 32bit and 64bit systems because we have "/usr/lib/ip/link_*.so"
+hard coded.
 
-On some chips like tg3, it's extremely cheap to see if new work
-arrived between the completion of processing the RX queue and
-the NAPI completion check, so they do it.
+A .so file always seems to override the compiled in version so I don't
+think we loose any flexibility on that front.
 
-But logically they are testing the same exact high level thing.
+Eric
