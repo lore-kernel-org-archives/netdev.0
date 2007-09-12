@@ -1,65 +1,58 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] [-MM, FIX] ixgbe: incorporate napi_struct changes from
- net-2.6.24.git
-Date: Wed, 12 Sep 2007 16:29:40 -0700
-Message-ID: <46E87664.6040905@intel.com>
-References: <20070912181307.13189.33476.stgit@localhost.localdomain>	<20070912151643.cb0e070b.akpm@linux-foundation.org>	<46E86611.60307@intel.com> <20070912161419.f6764d34.akpm@linux-foundation.org>
+From: DHAJOGLO <DHAJOGLO@smumn.edu>
+Subject: cc: Re: skb configured but can't get data allocated
+Date: Wed, 12 Sep 2007 18:41:41 -0500
+Message-ID: <200709122341418320c60701@mail.smumn.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
-	jesse.brandeburg@intel.com
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: kernelnewbies@nl.linux.org, macnish@gmail.com,
+	netdev@vger.kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:11157 "EHLO mga11.intel.com"
+Received: from mail.smumn.edu ([140.190.136.243]:2775 "EHLO mail.smumn.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751585AbXILX3l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Sep 2007 19:29:41 -0400
-In-Reply-To: <20070912161419.f6764d34.akpm@linux-foundation.org>
+	id S1754363AbXILXlm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 19:41:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> On Wed, 12 Sep 2007 15:20:01 -0700
-> "Kok, Auke" <auke-jan.h.kok@intel.com> wrote:
-> 
->> Andrew Morton wrote:
->>> On Wed, 12 Sep 2007 11:13:07 -0700
->>> Auke Kok <auke-jan.h.kok@intel.com> wrote:
->>>
->>>> This incorporates the new napi_struct changes into ixgbe.
->>> I get a reject storm.
->>>
->>>> --- a/drivers/net/ixgbe/ixgbe_main.c
->>>> +++ b/drivers/net/ixgbe/ixgbe_main.c
->>>> @@ -557,14 +557,15 @@ static irqreturn_t ixgbe_msix_clean_rx(int irq, void *data)
->>>>  	struct ixgbe_adapter *adapter = rxr->adapter;
->>>>  
->>>>  	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMC, rxr->eims_value);
->>>> -	netif_rx_schedule(adapter->netdev);
->>>> +	netif_rx_schedule(adapter->netdev, &adapter->napi);
->>>>  	return IRQ_HANDLED;
->>>>  }
->>>>  
->>> For example, my copy of ixgbe_msix_clean_rx(), from
->>> git://lost.foo-projects.org/~aveerani/git/linux-2.6#ixgbe is:
->> please drop that tree, and get the one I posted last week instead:
->>
->> git://lost.foo-projects.org/~ahkok/linux-2.6 ixgbe-20070905-submission
-> 
-> I think I just ignored that branch.  It looks like some frozen-week-old
-> snapshot, whereas I like to get the latest tip-of-tree.
+To All, Thanks for the help.  I ended up adding my data packet after the ip headers and then updated the IP length:
+
+ /* Allocate space for our exp_packet data payload and set the data */
+        d_out = (struct exp_packet *)skb_put(skb,sizeof(struct exp_packet));
+        d_out->headbits = (reply<<4) & 0xF0;
+        d_out->sequence = pkthr.m_seq;
+        d_out->payload = htons(pkthr.p_hash);
+
+        /* adjust the total length of this IP packet */
+        iplen = skb->tail - (unsigned char *)skb->nh.iph;
+        iph->tot_len = htons(iplen);
+        ip_send_check(iph);
+
+This is my first venture into the kernel!
+
+On Wednesday, September 12, 2007  3:12 PM, Vlad Yasevich wrote:
+>
+>Date: Wed, 12 Sep 2007 16:12:37 -0400
+>From: Vlad Yasevich
+>To: DHAJOGLO <DHAJOGLO@smumn.edu>
+>Subject: Re: skb configured but can't get data allocated
+>
+>You may want to read this page:
+>http://vger.kernel.org/~davem/skb.html
+>
+>You will then see you problem.
+>
+>Essentially, you are writing your data into an
+>area that is never sent.
+>
+>What you are end up is this:
+>
+>---------------------------------------------
+>| your data| space | ll-header | IPv4 header|
+>---------------------------------------------
+>
+>-vlad
 
 
-I usually don't update the branches on that machine all that often, the machine 
-is horribly slow and a git-checkout of a new branch takes 5 minutes. However, it 
-*is* the very latest version of ixgbe and the one I intend to get Jeff to merge ;).
 
-If you want to automatically pull all the changes I make for all the drivers, I 
-would probably prefer going to a git.kernel.org tree instead, which is something 
-I have been contemplating already, and I might just do so
-
-in any case, you do want to drop the ~aveerani/git/linux-2.6#ixgbe branch, which 
-is quite a bit older than that.
-
-Auke
