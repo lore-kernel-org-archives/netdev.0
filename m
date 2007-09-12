@@ -1,52 +1,29 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 4/4] [IPROUTE2] iproute2: link_veth support bug fixes.
-Date: Wed, 12 Sep 2007 09:13:02 -0600
-Message-ID: <m1ir6fapdt.fsf@ebiederm.dsl.xmission.com>
-References: <m14pi0cac5.fsf@ebiederm.dsl.xmission.com>
-	<m1zlzsavla.fsf@ebiederm.dsl.xmission.com>
-	<m1veagavjr.fsf_-_@ebiederm.dsl.xmission.com>
-	<m1r6l4avhp.fsf_-_@ebiederm.dsl.xmission.com>
-	<46E7F8B1.5090907@openvz.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [RFC 0/3] rfkill
+Date: Wed, 12 Sep 2007 08:14:23 -0700 (PDT)
+Message-ID: <20070912.081423.58437149.davem@davemloft.net>
+References: <200709081710.56744.IvDoorn@gmail.com>
+	<200709100004.56664.dtor@insightbb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: Pavel Emelyanov <xemul@openvz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:55709 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967341AbXILPNf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 11:13:35 -0400
-In-Reply-To: <46E7F8B1.5090907@openvz.org> (Pavel Emelyanov's message of "Wed,
-	12 Sep 2007 18:33:21 +0400")
-Sender: netdev-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, inaky-VuQAYsv1563Yd54FQh9/CA@public.gmane.org
+To: dtor-xOqKmqBdiMhF6kxbq+BtvQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200709100004.56664.dtor-xOqKmqBdiMhF6kxbq+BtvQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Emelyanov <xemul@openvz.org> writes:
+From: Dmitry Torokhov <dtor-xOqKmqBdiMhF6kxbq+BtvQ@public.gmane.org>
+Date: Mon, 10 Sep 2007 00:04:55 -0400
 
-> [snip]
->
->> @@ -25,6 +26,3 @@ clean:
->>  
->>  LDLIBS	+= -ldl
->>  LDFLAGS	+= -Wl,-export-dynamic
->> -
->> -%.so: %.c
->> -	$(CC) $(CFLAGS) -shared $< -o $@
->
-> %) How do we get the .so file then?
+> Looks good, feel free to add
+> 
+> 	Acked-by: Dmitry Torokhov <dtor-JGs/UdohzUI@public.gmane.org>
 
-The code was built into iproute2, so we don't need the .so file.
-That rule does not work on arch/x86_64 so I had to do something
-and the easiest was to simply compile the code in.  Like Patrick
-did with his recent VLAN support.
+I've been loosely following these patches, they have
+gone through several revisions.
 
-The usefulness of a .so file seems to be distributing the code
-outside of /bin/ip.  Although I think we currently have some issues with
-mixed 32bit and 64bit systems because we have "/usr/lib/ip/link_*.so"
-hard coded.
-
-A .so file always seems to override the compiled in version so I don't
-think we loose any flexibility on that front.
-
-Eric
+Please resubmit all of these patches if they are ready
+to go in right now, thanks.
