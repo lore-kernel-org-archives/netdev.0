@@ -1,124 +1,59 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH] phy: implement release function
-Date: Wed, 12 Sep 2007 15:26:01 +0400
-Message-ID: <20070912112601.GE15556@localhost.localdomain>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH] Fix e100 on systems that have cache incoherent DMA
+Date: Wed, 12 Sep 2007 12:30:29 +0100
+Message-ID: <46E7CDD5.3060306@katalix.com>
+References: <20070831205430.7209E46C20E@localhost> <46E17CD7.8080605@intel.com> <46E1B75C.6090208@roinet.com> <46E1DDC5.8040202@pobox.com> <46E700A3.5010000@roinet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Cc: linuxppc-dev@ozlabs.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Milton Miller <miltonm@bga.com>, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net,
+	Scott Feldman <sfeldma@pobox.com>
+To: David Acker <dacker@roinet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:2517 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1764384AbXILLWz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 07:22:55 -0400
-Content-Disposition: inline
+Received: from s36.avahost.net ([74.53.95.194]:48299 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1764742AbXILLau (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Sep 2007 07:30:50 -0400
+In-Reply-To: <46E700A3.5010000@roinet.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lately I've got this nice badness on mdio bus removal:
+David Acker wrote:
+> Jeff Garzik wrote:
+>> David Acker wrote:
+>>> Let me know if there is any other information I can provide you.  I 
+>>> will look through the code to see what could be going on with your 
+>>> machine.  I will also look into reproducing these results with a 
+>>> newer kernel.  This may be tricky since compulab's patches are pretty 
+>>> stale and don't always apply easily.
+>>
+>>
+>> pktgen outputs for the various cases modified/unmodified[/others?] 
+>> would be nice, if you have a spot of time.
+>>
+>>     Jeff
+> 
+> I am not familiar with pktgen but I seem to have it working for a simple 
+> test.
+> I edited the 1-1 example from 
+> ftp://robur.slu.se/pub/Linux/net-development/pktgen-testing/examples/ .  
+> The results with and without the patch are below. 
 
-Device 'e0103120:06' does not have a release() function, it is broken and must be fixed.
-------------[ cut here ]------------
-Badness at drivers/base/core.c:107
-NIP: c015c1a8 LR: c015c1a8 CTR: c0157488
-REGS: c34bdcf0 TRAP: 0700   Not tainted  (2.6.23-rc5-g9ebadfbb-dirty)
-MSR: 00029032 <EE,ME,IR,DR>  CR: 24088422  XER: 00000000
-...
-[c34bdda0] [c015c1a8] device_release+0x78/0x80 (unreliable)
-[c34bddb0] [c01354cc] kobject_cleanup+0x80/0xbc
-[c34bddd0] [c01365f0] kref_put+0x54/0x6c
-[c34bdde0] [c013543c] kobject_put+0x24/0x34
-[c34bddf0] [c015c384] put_device+0x1c/0x2c
-[c34bde00] [c0180e84] mdiobus_unregister+0x2c/0x58
-...
+It looks like you ran pktgen on the embedded system, which exercised 
+only the transmit path. Auke indicated that the lockup was in the RU. 
+Have you run pktgen on a test system to fire packets at the embedded 
+system at max rate? Also test what happens when you fire packets in both 
+directions simultaneously.
 
-Though actually there is nothing broken, it just device
-subsystem core expects another "pattern" of resource managment.
-
-This patch implement phy device's release function, thus
-we're getting rid of this badness.
-
-Also small hidden bug fixed, hope none other introduced. ;-)
-
-Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
----
- drivers/net/phy/mdio_bus.c   |    9 +++++----
- drivers/net/phy/phy_device.c |   13 +++++++++++++
- include/linux/phy.h          |    1 +
- 3 files changed, 19 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index fc2f0e6..c30196d 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -91,9 +91,12 @@ int mdiobus_register(struct mii_bus *bus)
- 
- 			err = device_register(&phydev->dev);
- 
--			if (err)
-+			if (err) {
- 				printk(KERN_ERR "phy %d failed to register\n",
- 						i);
-+				phy_device_free(phydev);
-+				phydev = NULL;
-+			}
- 		}
- 
- 		bus->phy_map[i] = phydev;
-@@ -110,10 +113,8 @@ void mdiobus_unregister(struct mii_bus *bus)
- 	int i;
- 
- 	for (i = 0; i < PHY_MAX_ADDR; i++) {
--		if (bus->phy_map[i]) {
-+		if (bus->phy_map[i])
- 			device_unregister(&bus->phy_map[i]->dev);
--			kfree(bus->phy_map[i]);
--		}
- 	}
- }
- EXPORT_SYMBOL(mdiobus_unregister);
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index e275df8..80c283c 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -44,6 +44,17 @@ static struct phy_driver genphy_driver;
- extern int mdio_bus_init(void);
- extern void mdio_bus_exit(void);
- 
-+void phy_device_free(struct phy_device *phydev)
-+{
-+	kfree(phydev);
-+}
-+EXPORT_SYMBOL(phy_device_free);
-+
-+static void phy_device_release(struct device *dev)
-+{
-+	phy_device_free(to_phy_device(dev));
-+}
-+
- struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
- {
- 	struct phy_device *dev;
-@@ -54,6 +65,8 @@ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
- 	if (NULL == dev)
- 		return (struct phy_device*) PTR_ERR((void*)-ENOMEM);
- 
-+	dev->dev.release = phy_device_release;
-+
- 	dev->speed = 0;
- 	dev->duplex = -1;
- 	dev->pause = dev->asym_pause = 0;
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 2a65978..9ec1363 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -398,6 +398,7 @@ int phy_mii_ioctl(struct phy_device *phydev,
- int phy_start_interrupts(struct phy_device *phydev);
- void phy_print_status(struct phy_device *phydev);
- struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id);
-+void phy_device_free(struct phy_device *phydev);
- 
- extern struct bus_type mdio_bus_type;
- #endif /* __PHY_H */
 -- 
-1.5.0.6
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
+
