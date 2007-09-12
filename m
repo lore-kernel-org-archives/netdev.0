@@ -1,46 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 09/16] net: Initialize the network namespace of network
- devices.
-Date: Wed, 12 Sep 2007 03:58:19 -0700 (PDT)
-Message-ID: <20070912.035819.23024601.davem@davemloft.net>
-References: <m11wd8x3a3.fsf_-_@ebiederm.dsl.xmission.com>
-	<m1sl5ovolm.fsf_-_@ebiederm.dsl.xmission.com>
-	<m1odgcvoje.fsf_-_@ebiederm.dsl.xmission.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] Move the definition of pr_err() into kernel.h
+Date: Wed, 12 Sep 2007 12:59:15 +0200
+Message-ID: <20070912125915.5b5d8aa5@oldman>
+References: <11895225651521-git-send-email-Emilian.Medve@Freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, containers@lists.osdl.org
-To: ebiederm@xmission.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	i2c@lm-sensors.org, linux-omap-open-source@linux.omap.com,
+	Emil Medve <Emilian.Medve@Freescale.com>
+To: Emil Medve <Emilian.Medve@Freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:35393
-	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S965891AbXILK6W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 06:58:22 -0400
-In-Reply-To: <m1odgcvoje.fsf_-_@ebiederm.dsl.xmission.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:33033 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1764265AbXILK7X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 06:59:23 -0400
+In-Reply-To: <11895225651521-git-send-email-Emilian.Medve@Freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Sat, 08 Sep 2007 15:24:21 -0600
+On Tue, 11 Sep 2007 09:56:05 -0500
+Emil Medve <Emilian.Medve@Freescale.com> wrote:
 
+> Other pr_*() macros are already defined in kernel.h, but pr_err() was defined
+> multiple times in several other places
 > 
-> Except for carefully selected pseudo devices all network
-> interfaces should start out in the initial network namespace.
-> Ultimately it will be register_netdev that examines what
-> dev->nd_net is set to and places a device in a network namespace.
-> 
-> This patch modifies alloc_netdev to initialize the network
-> namespace a device is in with the initial network namespace.
-> This gets it right for the vast majority of devices so their
-> drivers need not be modified and for those few pseudo devices
-> that need something different they can change this parameter
-> before calling register_netdevice.
-> 
-> The network namespace parameter on a network device is not
-> reference counted as the devices are inside of a network namespace
-> and cannot remain in that namespace past the lifetime of the
-> network namespace.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
 
-Applied to net-2.6.24, thanks.
+pr_error seems better than pr_err
+
+Please add the full set:
+	pr_alert
+	pr_critical
+        pr_error
+        pr_warn
+        pr_notice
+
+
