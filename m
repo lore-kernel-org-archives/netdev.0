@@ -1,59 +1,37 @@
-From: "Robert P. J. Day" <rpjday@mindspring.com>
-Subject: dscc4.c tests for "#ifndef MODULE" even though it must be modular
-Date: Wed, 12 Sep 2007 09:25:04 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.0709120918520.21350@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: new NAPI interface broken for POWER architecture?
+Date: Wed, 12 Sep 2007 06:27:32 -0700 (PDT)
+Message-ID: <20070912.062732.68054135.davem@davemloft.net>
+References: <200709071137.02801.ossthema@de.ibm.com>
+	<20070912.055004.88490155.davem@davemloft.net>
+	<OF2D6ED296.BDB04FBF-ONC1257354.00473703-C1257354.0048406C@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: romieu@fr.zoreil.com
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: THEMANN@de.ibm.com, netdev@vger.kernel.org,
+	ossthema@linux.vnet.ibm.com, shemminger@linux-foundation.org,
+	ARNDB@de.ibm.com, pmac@au1.ibm.com, ellerman@au1.ibm.com,
+	linuxppc-dev@ozlabs.org
+To: RAISCH@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nic.NetDirect.CA ([216.16.235.2]:54927 "EHLO
-	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752507AbXILN1Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 09:27:25 -0400
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:36243
+	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754988AbXILN2l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 09:28:41 -0400
+In-Reply-To: <OF2D6ED296.BDB04FBF-ONC1257354.00473703-C1257354.0048406C@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Christoph Raisch <RAISCH@de.ibm.com>
+Date: Wed, 12 Sep 2007 15:10:08 +0200
 
-  from drivers/net/wan/dscc4.c:
+> This is definitely not something we can change in the HEA device driver
+> alone.
 
-=====
-#ifndef MODULE
-static int __init dscc4_setup(char *str)
-{
-        int *args[] = { &debug, &quartz, NULL }, **p = args;
+And it shouldn't be, x86 implements the policy in irq balance
+daemon, powerpc should do it wherever it would be appropriate
+there.
 
-        while (*p && (get_option(&str, *p) == 2))
-                p++;
-        return 1;
-}
+> Paul, Michael, Arndt, what is your opinion here?
 
-__setup("dscc4.setup=", dscc4_setup);
-#endif
-=====
-
-  but from drivers/net/wan/Kconfig:
-
-...
-config DSCC4
-        tristate "Etinc PCISYNC serial board support"
-        depends on HDLC && PCI && m
-...
-
-  if i read this correctly, doesn't the depends on of "&& m" mean that
-that Kconfig selection can be *at most* modular, so that that
-preprocessor conditional can never be satisfied?  a quick test under
-"make menuconfig" seems to confirm that.
-
-  besides, the kernel parm being defined in that call to __setup()
-really violates the spirit of defining kernel parms. :-)
-
-rday
--- 
-========================================================================
-Robert P. J. Day
-Linux Consulting, Training and Annoying Kernel Pedantry
-Waterloo, Ontario, CANADA
-
-http://crashcourse.ca
-========================================================================
+I'm all ears too :)
