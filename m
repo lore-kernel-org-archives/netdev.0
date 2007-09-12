@@ -1,72 +1,49 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [patch] sunrpc: make closing of old temporary sockets
-	work	(was: problems with lockd in 2.6.22.6)
-Date: Wed, 12 Sep 2007 15:55:12 -0400
-Message-ID: <20070912195512.GC13792@fieldses.org>
-References: <200709121407.11151.wolfgang.walter@studentenwerk.mhn.de>
-	<18151.62510.891210.485277@notabene.brown>
-	<20070912184222.GG4274@fieldses.org>
-	<200709122140.57783.wolfgang.walter@studentenwerk.mhn.de>
+From: David Acker <dacker@roinet.com>
+Subject: Re: [PATCH] Fix e100 on systems that have cache incoherent DMA
+Date: Wed, 12 Sep 2007 16:11:21 -0400
+Message-ID: <46E847E9.4010601@roinet.com>
+References: <20070831205430.7209E46C20E@localhost> <46E17CD7.8080605@intel.com> <46E1B75C.6090208@roinet.com> <46E1DDC5.8040202@pobox.com> <46E700A3.5010000@roinet.com> <46E7CDD5.3060306@katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Neil Brown <neilb@suse.de>, netdev@vger.kernel.org,
-	nfs@lists.sourceforge.net, linux-kernel@vger.kernel.org,
-	trond.myklebust@fys.uio.no
-To: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
-Return-path: <nfs-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <200709122140.57783.wolfgang.walter@studentenwerk.mhn.de>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
-	<mailto:nfs-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=nfs>
-List-Post: <mailto:nfs@lists.sourceforge.net>
-List-Help: <mailto:nfs-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
-	<mailto:nfs-request@lists.sourceforge.net?subject=subscribe>
-Sender: nfs-bounces@lists.sourceforge.net
-Errors-To: nfs-bounces@lists.sourceforge.net
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	"Kok, Auke" <auke-jan.h.kok@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Milton Miller <miltonm@bga.com>, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net,
+	Scott Feldman <sfeldma@pobox.com>
+To: James Chapman <jchapman@katalix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static-72-92-88-10.phlapa.fios.verizon.net ([72.92.88.10]:56275
+	"EHLO smtp.roinet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752293AbXILULV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 16:11:21 -0400
+In-Reply-To: <46E7CDD5.3060306@katalix.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 12, 2007 at 09:40:57PM +0200, Wolfgang Walter wrote:
-> On Wednesday 12 September 2007, J. Bruce Fields wrote:
-> > On Wed, Sep 12, 2007 at 04:14:06PM +0200, Neil Brown wrote:
-> > > So it is in 2.6.21 and later and should probably go to .stable for .21
-> > > and .22.
-> > > 
-> > > Bruce:  for you :-)
-> > 
-> > OK, thanks!  But, (as is alas often the case) I'm still confused:
-> > 
-> > >  		if (!test_and_set_bit(SK_OLD, &svsk->sk_flags))
-> > >  			continue;
-> > > -		if (atomic_read(&svsk->sk_inuse) || test_bit(SK_BUSY, &svsk->sk_flags))
-> > > +		if (atomic_read(&svsk->sk_inuse) > 1
-> > > +		    || test_bit(SK_BUSY, &svsk->sk_flags))
-> > >  			continue;
-> > >  		atomic_inc(&svsk->sk_inuse);
-> > >  		list_move(le, &to_be_aged);
-> > 
-> > What is it that ensures svsk->sk_inuse isn't incremented or SK_BUSY set
-> > after that test?  Not all the code that does either of those is under
-> > the same serv->sv_lock lock that this code is.
-> > 
+James Chapman wrote:
+> David Acker wrote:
+>> Jeff Garzik wrote:
+>>> pktgen outputs for the various cases modified/unmodified[/others?] 
+>>> would be nice, if you have a spot of time.
+>>>
+>>>     Jeff
+>>
+>> I am not familiar with pktgen but I seem to have it working for a 
+>> simple test.
+>> I edited the 1-1 example from 
+>> ftp://robur.slu.se/pub/Linux/net-development/pktgen-testing/examples/ 
+>> .  The results with and without the patch are below. 
 > 
-> This should not matter - SK_CLOSED may be set at any time.
+> It looks like you ran pktgen on the embedded system, which exercised 
+> only the transmit path. Auke indicated that the lockup was in the RU. 
+> Have you run pktgen on a test system to fire packets at the embedded 
+> system at max rate? Also test what happens when you fire packets in both 
+> directions simultaneously.
 > 
-> svc_age_temp_sockets only detaches the socket, sets SK_CLOSED and then 
-> enqueues it. If SK_BUSY is set its already enqueued and svc_sock_enqueue 
-> ensures that it is not enqueued twice.
-
-Oh, got it.  And the list manipulation is safe thanks to sv_lock.  Neat,
-thanks.  Can you verify that this solves your problem?
-
---b.
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2005.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
-_______________________________________________
-NFS maillist  -  NFS@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/nfs
+It appears that running pktgen between my pc and the embedded device at the same time eventually hangs the RU.  I will 
+be looking into this failure in detail and report back when I know more.  Thanks for bearing with me on this!
+-Ack
