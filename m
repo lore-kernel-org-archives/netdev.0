@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][2/2] Add ICMPMsgStats MIB (RFC 4293)
-Date: Wed, 12 Sep 2007 07:31:54 -0700 (PDT)
-Message-ID: <20070912.073154.68144419.davem@davemloft.net>
-References: <20070911.175053.104206872.yoshfuji@linux-ipv6.org>
-	<OFB359CEB3.1D9E338E-ON88257353.00529BF9-88257353.00545412@us.ibm.com>
+Subject: Re: 2.6.23-rc5: possible irq lock inversion dependency detected
+Date: Wed, 12 Sep 2007 07:33:44 -0700 (PDT)
+Message-ID: <20070912.073344.27797445.davem@davemloft.net>
+References: <20070911021812.GA1544@gondor.apana.org.au>
+	<1189512106.4231.6.camel@localhost>
+	<20070911124327.GA6183@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: dlstevens@us.ibm.com
+Cc: hadi@cyberus.ca, lists@nerdbynature.de,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:51237
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:57420
 	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S966222AbXILOcF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 10:32:05 -0400
-In-Reply-To: <OFB359CEB3.1D9E338E-ON88257353.00529BF9-88257353.00545412@us.ibm.com>
+	by vger.kernel.org with ESMTP id S967691AbXILOd5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 10:33:57 -0400
+In-Reply-To: <20070911124327.GA6183@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Stevens <dlstevens@us.ibm.com>
-Date: Tue, 11 Sep 2007 08:21:54 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 11 Sep 2007 20:43:27 +0800
 
-> So maybe it's not so bad -- I'll roll another per-interface version
-> to see.
+> On Tue, Sep 11, 2007 at 08:01:46AM -0400, jamal wrote:
+> >
+> > [NET_SCHED] protect action config/dump from irqs
+> 
+> Looks good! Thanks Jamal.
 
-Let us know how it goes.
+Applied, I'll try to push this in some time soon.
