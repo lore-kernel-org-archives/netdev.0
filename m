@@ -1,44 +1,60 @@
-From: "Andy Gospodarek" <andy@greyhouse.net>
-Subject: Re: [PATCH] bonding: update some distro-specific documentation
-Date: Wed, 12 Sep 2007 15:40:04 -0400
-Message-ID: <bdfc5d6e0709121240u2e8367cbx620d4d03194f1e85@mail.gmail.com>
-References: <20070830212429.GA12676@gospo.rdu.redhat.com>
-	 <21001.1189189669@death> <20070912181839.GD3754@gospo.rdu.redhat.com>
-	 <1085.1189622856@death>
+From: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
+Subject: Re: [patch] sunrpc: make closing of old temporary sockets work (was: problems with lockd in 2.6.22.6)
+Date: Wed, 12 Sep 2007 21:40:57 +0200
+Message-ID: <200709122140.57783.wolfgang.walter@studentenwerk.mhn.de>
+References: <200709121407.11151.wolfgang.walter@studentenwerk.mhn.de> <18151.62510.891210.485277@notabene.brown> <20070912184222.GG4274@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Jay Vosburgh" <fubar@us.ibm.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Neil Brown <neilb@suse.de>, trond.myklebust@fys.uio.no,
+	netdev@vger.kernel.org, nfs@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org
+To: "J. Bruce Fields" <bfields@fieldses.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.242]:10869 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754035AbXILTkF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 15:40:05 -0400
-Received: by an-out-0708.google.com with SMTP id d31so44293and
-        for <netdev@vger.kernel.org>; Wed, 12 Sep 2007 12:40:04 -0700 (PDT)
-In-Reply-To: <1085.1189622856@death>
+Received: from mailin.studentenwerk.mhn.de ([141.84.225.229]:44334 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756520AbXILTlA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 15:41:00 -0400
+In-Reply-To: <20070912184222.GG4274@fieldses.org>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/12/07, Jay Vosburgh <fubar@us.ibm.com> wrote:
-> Andy Gospodarek <andy@greyhouse.net> wrote:
->
-> >I could do that, or we could just take this as-is and get initscripts
-> >fixed up to account for this.  Does that seem reasonable?
->
->         Changing initscripts is fine, too, but is there then going to be
-> some (perhaps small) installed base for which the documentation will be
-> incorrect?
->
+On Wednesday 12 September 2007, J. Bruce Fields wrote:
+> On Wed, Sep 12, 2007 at 04:14:06PM +0200, Neil Brown wrote:
+> > So it is in 2.6.21 and later and should probably go to .stable for =
+=2E21
+> > and .22.
+> >=20
+> > Bruce:  for you :-)
+>=20
+> OK, thanks!  But, (as is alas often the case) I'm still confused:
+>=20
+> >  		if (!test_and_set_bit(SK_OLD, &svsk->sk_flags))
+> >  			continue;
+> > -		if (atomic_read(&svsk->sk_inuse) || test_bit(SK_BUSY, &svsk->sk_=
+flags))
+> > +		if (atomic_read(&svsk->sk_inuse) > 1
+> > +		    || test_bit(SK_BUSY, &svsk->sk_flags))
+> >  			continue;
+> >  		atomic_inc(&svsk->sk_inuse);
+> >  		list_move(le, &to_be_aged);
+>=20
+> What is it that ensures svsk->sk_inuse isn't incremented or SK_BUSY s=
+et
+> after that test?  Not all the code that does either of those is under
+> the same serv->sv_lock lock that this code is.
+>=20
 
-Sure, but it could be wrong if we updated the kernel doc again after
-initscripts was fixed and some chose not to update initscripts on
-their boxes.  There could be a note about running a particular version
-of initscripts, but I'd rather not start down the path of turning the
-kernel doc into something that looks like distro release notes.
+This should not matter - SK_CLOSED may be set at any time.
 
-Either way it seems like there could be a chance for something to be
-out of sync, so I guess we just have to pick the one that seems 'least
-bad.'  I'd vote for whatever creates the fewest kernel patches. ;-)
+svc_age_temp_sockets only detaches the socket, sets SK_CLOSED and then=20
+enqueues it. If SK_BUSY is set its already enqueued and svc_sock_enqueu=
+e=20
+ensures that it is not enqueued twice.
+
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
