@@ -1,42 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.23-rc5] ipsec interfamily route handling fix
-Date: Wed, 12 Sep 2007 05:46:56 -0700 (PDT)
-Message-ID: <20070912.054656.102561172.davem@davemloft.net>
-References: <200709061900.10508.joakim.koskela@hiit.fi>
+Subject: Re: new NAPI interface broken
+Date: Wed, 12 Sep 2007 05:50:04 -0700 (PDT)
+Message-ID: <20070912.055004.88490155.davem@davemloft.net>
+References: <200709071137.02801.ossthema@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: joakim.koskela@hiit.fi
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	themann@de.ibm.com, raisch@de.ibm.com
+To: ossthema@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:52897
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:40650
 	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S967513AbXILMrA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 08:47:00 -0400
-In-Reply-To: <200709061900.10508.joakim.koskela@hiit.fi>
+	by vger.kernel.org with ESMTP id S967251AbXILMul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 08:50:41 -0400
+In-Reply-To: <200709071137.02801.ossthema@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joakim Koskela <joakim.koskela@hiit.fi>
-Date: Thu, 6 Sep 2007 19:00:10 +0300
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Date: Fri, 7 Sep 2007 11:37:02 +0200
 
-> This patch addresses a couple of issues related to interfamily ipsec
-> modes. The problem is that the structure of the routing info changes
-> with the family during the __xfrmX_bundle_create, which hasn't been
-> taken properly into account. Seems that by coincidence it hasn't
-> caused problems on 32bit platforms, but crashes for example on x86_64
-> in 6-4 around line 209 of xfrm6_policy.c as rt doesn't point to a
-> rt6_info anymore, but actually a struct rtable. With 64bit pointers,
-> the rt->rt6i_node pointer seems to hit something usually not null in
-> the rtable that rt now points to, making it go for the path_cookie
-> assignment and subsequently crashing.
+> 2) On SMP systems: after netif_rx_complete has been called on CPU1
+>    (+interruts enabled), netif_rx_schedule could be called on CPU2 
+>    (irq handler) before net_rx_action on CPU1 has checked NAPI_STATE_SCHED. 
+>    In that case the device would be added to poll lists of CPU1 and CPU2
+>    as net_rx_action would see NAPI_STATE_SCHED set.
+>    This must not happen. It will be caught when netif_rx_complete is
+>    called the second time (BUG() called)
 > 
-> Tested on both 32/64bit with all four (44/46/64/66) combinations of
-> transformation. I'm still a bit worried about how for example nested
-> transformations work with all of this and would appreciate if someone
-> more familiar with the details of these structs could comment.
-> 
-> Signed-off-by: Joakim Koskela <jookos@gmail.com>
+> This would mean we have a problem on all SMP machines right now.
 
-This fix basically looks fine to me, but I'd like at least one
-other person to review it too.
+This is not a correct statement.
+
+Only on your platform do network device interrupts get moved
+around, no other platform does this.
+
+Sparc64 doesn't, all interrupts stay in one location after
+the cpu is initially choosen.
+
+x86 and x86_64 specifically do not move around network
+device interrupts, even though other device types do
+get dynamic IRQ cpu distribution.
+
+That's why you are the only person seeing this problem.
+
+I agree that it should be fixed, but we should also fix the IRQ
+distribution scheme used on powerpc platforms which is totally
+broken in these cases.
