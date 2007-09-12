@@ -1,38 +1,45 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 4/6] [IPROUTE2]: Overhead calculation is now done in the
- kernel
-Date: Wed, 12 Sep 2007 13:05:09 +0200
-Message-ID: <20070912130509.0a6dea32@oldman>
-References: <1189592079.26927.25.camel@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 12/16] net: Support multiple network namespaces with
+ netlink
+Date: Wed, 12 Sep 2007 04:06:16 -0700 (PDT)
+Message-ID: <20070912.040616.38701475.davem@davemloft.net>
+References: <m1k5r0voh4.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1fy1ovoeo.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1bqccvock.fsf_-_@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: jdb@comx.dk
+Cc: netdev@vger.kernel.org, containers@lists.osdl.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:35069 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759933AbXILLE1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 07:04:27 -0400
-In-Reply-To: <1189592079.26927.25.camel@localhost.localdomain>
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:44738
+	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1760675AbXILLGT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 07:06:19 -0400
+In-Reply-To: <m1bqccvock.fsf_-_@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 12 Sep 2007 12:14:39 +0200
-Jesper Dangaard Brouer <jdb@comx.dk> wrote:
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Sat, 08 Sep 2007 15:28:27 -0600
 
-> commit 07a74a2613440fc1a68d0faa7235ed7027532d78
-> Author: Jesper Dangaard Brouer <hawk@comx.dk>
-> Date:   Tue Sep 11 16:59:58 2007 +0200
 > 
->     [IPROUTE2]: Overhead calculation is now done in the kernel.
->     
->     The only current user is HTB. HTB overhead argument is now passed on
->     to the kernel (in the struct tc_ratespec). Also correct the data
->     types.
->     
->     Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+> Each netlink socket will live in exactly one network namespace,
+> this includes the controlling kernel sockets.
+> 
+> This patch updates all of the existing netlink protocols
+> to only support the initial network namespace.  Request
+> by clients in other namespaces will get -ECONREFUSED.
+> As they would if the kernel did not have the support for
+> that netlink protocol compiled in.
+> 
+> As each netlink protocol is updated to be multiple network
+> namespace safe it can register multiple kernel sockets
+> to acquire a presence in the rest of the network namespaces.
+> 
+> The implementation in af_netlink is a simple filter implementation
+> at hash table insertion and hash table look up time.
+> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
-How is this binary compatable with older kernels?
+Applied to net-2.6.24, thanks.
