@@ -1,40 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 07/16] net: Make /proc/net per network namespace
-Date: Wed, 12 Sep 2007 03:02:11 -0700 (PDT)
-Message-ID: <20070912.030211.102564635.davem@davemloft.net>
-References: <m1abrwx3g0.fsf_-_@ebiederm.dsl.xmission.com>
-	<m1642kx3e3.fsf_-_@ebiederm.dsl.xmission.com>
+Subject: Re: [PATCH 08/16] net: Make socket creation namespace safe.
+Date: Wed, 12 Sep 2007 03:04:27 -0700 (PDT)
+Message-ID: <20070912.030427.88485717.davem@davemloft.net>
+References: <m1642kx3e3.fsf_-_@ebiederm.dsl.xmission.com>
 	<m11wd8x3a3.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1sl5ovolm.fsf_-_@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, containers@lists.osdl.org
 To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:35495
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:43272
 	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932700AbXILKCQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 06:02:16 -0400
-In-Reply-To: <m11wd8x3a3.fsf_-_@ebiederm.dsl.xmission.com>
+	by vger.kernel.org with ESMTP id S932860AbXILKEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 06:04:30 -0400
+In-Reply-To: <m1sl5ovolm.fsf_-_@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Sat, 08 Sep 2007 15:20:36 -0600
+Date: Sat, 08 Sep 2007 15:23:01 -0600
 
 > 
-> This patch makes /proc/net per network namespace.  It modifies the global
-> variables proc_net and proc_net_stat to be per network namespace.
-> The proc_net file helpers are modified to take a network namespace argument,
-> and all of their callers are fixed to pass &init_net for that argument.
-> This ensures that all of the /proc/net files are only visible and
-> usable in the initial network namespace until the code behind them
-> has been updated to be handle multiple network namespaces.
+> This patch passes in the namespace a new socket should be created in
+> and has the socket code do the appropriate reference counting.  By
+> virtue of this all socket create methods are touched.  In addition
+> the socket create methods are modified so that they will fail if
+> you attempt to create a socket in a non-default network namespace.
 > 
-> Making /proc/net per namespace is necessary as at least some files
-> in /proc/net depend upon the set of network devices which is per
-> network namespace, and even more files in /proc/net have contents
-> that are relevant to a single network namespace.
+> Failing if we attempt to create a socket outside of the default
+> network namespace ensures that as we incrementally make the network stack
+> network namespace aware we will not export functionality that someone
+> has not audited and made certain is network namespace safe.
+> Allowing us to partially enable network namespaces before all of the
+> exotic protocols are supported.
+> 
+> Any protocol layers I have missed will fail to compile because I now
+> pass an extra parameter into the socket creation code.
 > 
 > Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
