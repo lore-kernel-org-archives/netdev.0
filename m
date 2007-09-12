@@ -1,46 +1,48 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [PATCH] RDMA/CMA: Use neigh_event_send() to initiate neighbour discovery.
-Date: Wed, 12 Sep 2007 05:00:25 -0500
-Message-ID: <20070912100025.3190.89259.stgit@dell3.ogc.int>
-Content-Type: text/plain; charset=utf-8; format=fixed
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: rdreier@cisco.com, sean.hefty@intel.com
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH] NET : convert IP route cache garbage colleciton from softirq processing to a workqueue
+Date: Wed, 12 Sep 2007 11:00:54 +0100
+Message-ID: <20070912100054.GA3649@infradead.org>
+References: <20070911145613.4762c534.dada1@cosmosbay.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.opengridcomputing.com ([71.42.183.126]:46887 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753954AbXILKAZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 06:00:25 -0400
+Received: from pentafluge.infradead.org ([213.146.154.40]:46680 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932597AbXILKBr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 06:01:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20070911145613.4762c534.dada1@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This looks nice in general, getting things out of softirq context is
+always good.
 
-RDMA/CMA: Use neigh_event_send() to initiate neighbour discovery.
+On Tue, Sep 11, 2007 at 02:56:13PM +0200, Eric Dumazet wrote:
+>  #if RT_CACHE_DEBUG >= 2
+>  static atomic_t			 dst_total = ATOMIC_INIT(0);
+>  #endif
+> -static unsigned long dst_gc_timer_expires;
+> -static unsigned long dst_gc_timer_inc = DST_GC_MAX;
+> -static void dst_run_gc(unsigned long);
+> +static struct {
+> +	spinlock_t		lock;
+> +	struct dst_entry 	*list;
+> +	unsigned long		timer_inc;
+> +	unsigned long		timer_expires;
+> +} dst_garbage = {
+> +	.lock = __SPIN_LOCK_UNLOCKED(dst_garbage.lock),
+> +	.timer_inc = DST_GC_MAX,
+> +};
 
-Calling arp_send() to initiate neighbour discovery (ND) doesn't do the
-full ND protocol.  Namely, it doesn't handle retransmitting the arp
-request if it is dropped. The function neigh_event_send() does all this.
-Without doing full ND, rdma address resolution fails in the presence of
-dropped arp bcast packets.
+Can you please et rid of this useless struct?  It just complicates
+the code and means we can't use the proper DEFINE_SPINLOCK initializer.
 
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
----
+> +DECLARE_DELAYED_WORK(dst_gc_work, dst_gc_task);
 
- drivers/infiniband/core/addr.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+This should be static.
 
-diff --git a/drivers/infiniband/core/addr.c b/drivers/infiniband/core/addr.c
-index c5c33d3..5381c80 100644
---- a/drivers/infiniband/core/addr.c
-+++ b/drivers/infiniband/core/addr.c
-@@ -161,8 +161,7 @@ static void addr_send_arp(struct sockadd
- 	if (ip_route_output_key(&rt, &fl))
- 		return;
- 
--	arp_send(ARPOP_REQUEST, ETH_P_ARP, rt->rt_gateway, rt->idev->dev,
--		 rt->rt_src, NULL, rt->idev->dev->dev_addr, NULL);
-+	neigh_event_send(rt->u.dst.neighbour, NULL);
- 	ip_rt_put(rt);
- }
- 
