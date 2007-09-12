@@ -1,85 +1,124 @@
 From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH] [POWERPC] ucc_geth: fix module removal
-Date: Wed, 12 Sep 2007 15:25:14 +0400
-Message-ID: <20070912112514.GB15556@localhost.localdomain>
+Subject: [PATCH] phy: implement release function
+Date: Wed, 12 Sep 2007 15:26:01 +0400
+Message-ID: <20070912112601.GE15556@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf8
-Cc: netdev@vger.kernel.org
-To: linuxppc-dev@ozlabs.org
+Cc: linuxppc-dev@ozlabs.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:2503 "EHLO
+Received: from rtsoft3.corbina.net ([85.21.88.6]:2517 "EHLO
 	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1764610AbXILLWN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 07:22:13 -0400
+	by vger.kernel.org with ESMTP id S1764384AbXILLWz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 07:22:55 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-- uccf should be set to NULL to not double-free memory on
-  subsequent calls;
-- ind_hash_q and group_hash_q lists should be initialized in the
-  probe() function, instead of struct_init() (called by open()),
-  otherwise there will be an oops if ucc_geth_driver removed
-  prior 'ifconfig ethX up';
-- add unregister_netdev();
-- reorder geth_remove() steps.
+Lately I've got this nice badness on mdio bus removal:
+
+Device 'e0103120:06' does not have a release() function, it is broken and must be fixed.
+------------[ cut here ]------------
+Badness at drivers/base/core.c:107
+NIP: c015c1a8 LR: c015c1a8 CTR: c0157488
+REGS: c34bdcf0 TRAP: 0700   Not tainted  (2.6.23-rc5-g9ebadfbb-dirty)
+MSR: 00029032 <EE,ME,IR,DR>  CR: 24088422  XER: 00000000
+...
+[c34bdda0] [c015c1a8] device_release+0x78/0x80 (unreliable)
+[c34bddb0] [c01354cc] kobject_cleanup+0x80/0xbc
+[c34bddd0] [c01365f0] kref_put+0x54/0x6c
+[c34bdde0] [c013543c] kobject_put+0x24/0x34
+[c34bddf0] [c015c384] put_device+0x1c/0x2c
+[c34bde00] [c0180e84] mdiobus_unregister+0x2c/0x58
+...
+
+Though actually there is nothing broken, it just device
+subsystem core expects another "pattern" of resource managment.
+
+This patch implement phy device's release function, thus
+we're getting rid of this badness.
+
+Also small hidden bug fixed, hope none other introduced. ;-)
 
 Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
 ---
- drivers/net/ucc_geth.c |   17 ++++++++++-------
- 1 files changed, 10 insertions(+), 7 deletions(-)
+ drivers/net/phy/mdio_bus.c   |    9 +++++----
+ drivers/net/phy/phy_device.c |   13 +++++++++++++
+ include/linux/phy.h          |    1 +
+ 3 files changed, 19 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 9a38dfe..bc2b3bf 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -2080,8 +2080,10 @@ static void ucc_geth_memclean(struct ucc_geth_private *ugeth)
- 	if (!ugeth)
- 		return;
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index fc2f0e6..c30196d 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -91,9 +91,12 @@ int mdiobus_register(struct mii_bus *bus)
  
--	if (ugeth->uccf)
-+	if (ugeth->uccf) {
- 		ucc_fast_free(ugeth->uccf);
-+		ugeth->uccf = NULL;
-+	}
+ 			err = device_register(&phydev->dev);
  
- 	if (ugeth->p_thread_data_tx) {
- 		qe_muram_free(ugeth->thread_dat_tx_offset);
-@@ -2312,10 +2314,6 @@ static int ucc_struct_init(struct ucc_geth_private *ugeth)
- 	ug_info = ugeth->ug_info;
- 	uf_info = &ug_info->uf_info;
+-			if (err)
++			if (err) {
+ 				printk(KERN_ERR "phy %d failed to register\n",
+ 						i);
++				phy_device_free(phydev);
++				phydev = NULL;
++			}
+ 		}
  
--	/* Create CQs for hash tables */
--	INIT_LIST_HEAD(&ugeth->group_hash_q);
--	INIT_LIST_HEAD(&ugeth->ind_hash_q);
--
- 	if (!((uf_info->bd_mem_part == MEM_PART_SYSTEM) ||
- 	      (uf_info->bd_mem_part == MEM_PART_MURAM))) {
- 		if (netif_msg_probe(ugeth))
-@@ -3949,6 +3947,10 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
- 	ugeth = netdev_priv(dev);
- 	spin_lock_init(&ugeth->lock);
+ 		bus->phy_map[i] = phydev;
+@@ -110,10 +113,8 @@ void mdiobus_unregister(struct mii_bus *bus)
+ 	int i;
  
-+	/* Create CQs for hash tables */
-+	INIT_LIST_HEAD(&ugeth->group_hash_q);
-+	INIT_LIST_HEAD(&ugeth->ind_hash_q);
-+
- 	dev_set_drvdata(device, dev);
- 
- 	/* Set the dev->base_addr to the gfar reg region */
-@@ -4002,9 +4004,10 @@ static int ucc_geth_remove(struct of_device* ofdev)
- 	struct net_device *dev = dev_get_drvdata(device);
- 	struct ucc_geth_private *ugeth = netdev_priv(dev);
- 
--	dev_set_drvdata(device, NULL);
--	ucc_geth_memclean(ugeth);
-+	unregister_netdev(dev);
- 	free_netdev(dev);
-+	ucc_geth_memclean(ugeth);
-+	dev_set_drvdata(device, NULL);
- 
- 	return 0;
+ 	for (i = 0; i < PHY_MAX_ADDR; i++) {
+-		if (bus->phy_map[i]) {
++		if (bus->phy_map[i])
+ 			device_unregister(&bus->phy_map[i]->dev);
+-			kfree(bus->phy_map[i]);
+-		}
+ 	}
  }
+ EXPORT_SYMBOL(mdiobus_unregister);
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index e275df8..80c283c 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -44,6 +44,17 @@ static struct phy_driver genphy_driver;
+ extern int mdio_bus_init(void);
+ extern void mdio_bus_exit(void);
+ 
++void phy_device_free(struct phy_device *phydev)
++{
++	kfree(phydev);
++}
++EXPORT_SYMBOL(phy_device_free);
++
++static void phy_device_release(struct device *dev)
++{
++	phy_device_free(to_phy_device(dev));
++}
++
+ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
+ {
+ 	struct phy_device *dev;
+@@ -54,6 +65,8 @@ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
+ 	if (NULL == dev)
+ 		return (struct phy_device*) PTR_ERR((void*)-ENOMEM);
+ 
++	dev->dev.release = phy_device_release;
++
+ 	dev->speed = 0;
+ 	dev->duplex = -1;
+ 	dev->pause = dev->asym_pause = 0;
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 2a65978..9ec1363 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -398,6 +398,7 @@ int phy_mii_ioctl(struct phy_device *phydev,
+ int phy_start_interrupts(struct phy_device *phydev);
+ void phy_print_status(struct phy_device *phydev);
+ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id);
++void phy_device_free(struct phy_device *phydev);
+ 
+ extern struct bus_type mdio_bus_type;
+ #endif /* __PHY_H */
 -- 
 1.5.0.6
-
