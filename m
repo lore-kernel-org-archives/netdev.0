@@ -1,34 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 06/16] net: Add a network namespace parameter to struct
- sock
-Date: Wed, 12 Sep 2007 02:58:50 -0700 (PDT)
-Message-ID: <20070912.025850.28798873.davem@davemloft.net>
-References: <m1abrwx3g0.fsf_-_@ebiederm.dsl.xmission.com>
-	<m1642kx3e3.fsf_-_@ebiederm.dsl.xmission.com>
-	<m1wsv0vony.fsf_-_@ebiederm.dsl.xmission.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, containers@lists.osdl.org
-To: ebiederm@xmission.com
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [PATCH] RDMA/CMA: Use neigh_event_send() to initiate neighbour discovery.
+Date: Wed, 12 Sep 2007 05:00:25 -0500
+Message-ID: <20070912100025.3190.89259.stgit@dell3.ogc.int>
+Content-Type: text/plain; charset=utf-8; format=fixed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org
+To: rdreier@cisco.com, sean.hefty@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:35491
-	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758415AbXILJ6x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 05:58:53 -0400
-In-Reply-To: <m1wsv0vony.fsf_-_@ebiederm.dsl.xmission.com>
+Received: from smtp.opengridcomputing.com ([71.42.183.126]:46887 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753954AbXILKAZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 06:00:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Sat, 08 Sep 2007 15:21:37 -0600
 
-> 
-> Sockets need to get a reference to their network namespace,
-> or possibly a simple hold if someone registers on the network
-> namespace notifier and will free the sockets when the namespace
-> is going to be destroyed.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+RDMA/CMA: Use neigh_event_send() to initiate neighbour discovery.
 
-Applied, thanks.
+Calling arp_send() to initiate neighbour discovery (ND) doesn't do the
+full ND protocol.  Namely, it doesn't handle retransmitting the arp
+request if it is dropped. The function neigh_event_send() does all this.
+Without doing full ND, rdma address resolution fails in the presence of
+dropped arp bcast packets.
+
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+---
+
+ drivers/infiniband/core/addr.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/infiniband/core/addr.c b/drivers/infiniband/core/addr.c
+index c5c33d3..5381c80 100644
+--- a/drivers/infiniband/core/addr.c
++++ b/drivers/infiniband/core/addr.c
+@@ -161,8 +161,7 @@ static void addr_send_arp(struct sockadd
+ 	if (ip_route_output_key(&rt, &fl))
+ 		return;
+ 
+-	arp_send(ARPOP_REQUEST, ETH_P_ARP, rt->rt_gateway, rt->idev->dev,
+-		 rt->rt_src, NULL, rt->idev->dev->dev_addr, NULL);
++	neigh_event_send(rt->u.dst.neighbour, NULL);
+ 	ip_rt_put(rt);
+ }
+ 
