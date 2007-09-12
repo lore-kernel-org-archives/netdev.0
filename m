@@ -1,59 +1,61 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH] Fix e100 on systems that have cache incoherent DMA
-Date: Wed, 12 Sep 2007 12:30:29 +0100
-Message-ID: <46E7CDD5.3060306@katalix.com>
-References: <20070831205430.7209E46C20E@localhost> <46E17CD7.8080605@intel.com> <46E1B75C.6090208@roinet.com> <46E1DDC5.8040202@pobox.com> <46E700A3.5010000@roinet.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH 3/3]: sk98lin: neuter device to only SysKonnect boards
+Date: Wed, 12 Sep 2007 13:30:43 +0200
+Message-ID: <20070912133043.1a15aabe@oldman>
+References: <6278d2220707271227g51cb147ch2f6dbc05c73f618d@mail.gmail.com>
+ <20070911132423.62347d5c@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Milton Miller <miltonm@bga.com>, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net,
-	Scott Feldman <sfeldma@pobox.com>
-To: David Acker <dacker@roinet.com>
+Cc: "Linux Netdev" <netdev@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:48299 "EHLO s36.avahost.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1764742AbXILLau (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Sep 2007 07:30:50 -0400
-In-Reply-To: <46E700A3.5010000@roinet.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:57967 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1765106AbXILLbA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 07:31:00 -0400
+In-Reply-To: <20070911132423.62347d5c@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Acker wrote:
-> Jeff Garzik wrote:
->> David Acker wrote:
->>> Let me know if there is any other information I can provide you.  I 
->>> will look through the code to see what could be going on with your 
->>> machine.  I will also look into reproducing these results with a 
->>> newer kernel.  This may be tricky since compulab's patches are pretty 
->>> stale and don't always apply easily.
->>
->>
->> pktgen outputs for the various cases modified/unmodified[/others?] 
->> would be nice, if you have a spot of time.
->>
->>     Jeff
-> 
-> I am not familiar with pktgen but I seem to have it working for a simple 
-> test.
-> I edited the 1-1 example from 
-> ftp://robur.slu.se/pub/Linux/net-development/pktgen-testing/examples/ .  
-> The results with and without the patch are below. 
+The skge driver works better for all boards except older SysKonnect
+boards.
 
-It looks like you ran pktgen on the embedded system, which exercised 
-only the transmit path. Auke indicated that the lockup was in the RU. 
-Have you run pktgen on a test system to fire packets at the embedded 
-system at max rate? Also test what happens when you fire packets in both 
-directions simultaneously.
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+---
+ drivers/net/sk98lin/skge.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/sk98lin/skge.c b/drivers/net/sk98lin/skge.c
+index bf21862..7dc9c9e 100644
+--- a/drivers/net/sk98lin/skge.c
++++ b/drivers/net/sk98lin/skge.c
+@@ -5168,10 +5168,17 @@ err_out:
+ #endif
+ 
+ static struct pci_device_id skge_pci_tbl[] = {
++#ifdef SK98LIN_ALL_DEVICES
+ 	{ PCI_VENDOR_ID_3COM, 0x1700, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+ 	{ PCI_VENDOR_ID_3COM, 0x80eb, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
++#endif
++#ifdef GENESIS
++	/* Generic SysKonnect SK-98xx Gigabit Ethernet Server Adapter */	
+ 	{ PCI_VENDOR_ID_SYSKONNECT, 0x4300, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
++#endif
++	/* Generic SysKonnect SK-98xx V2.0 Gigabit Ethernet Adapter */	
+ 	{ PCI_VENDOR_ID_SYSKONNECT, 0x4320, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
++#ifdef SK98LIN_ALL_DEVICES
+ /* DLink card does not have valid VPD so this driver gags
+  *	{ PCI_VENDOR_ID_DLINK, 0x4c00, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+  */
+@@ -5180,6 +5187,7 @@ static struct pci_device_id skge_pci_tbl[] = {
+ 	{ PCI_VENDOR_ID_CNET, 0x434e, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+ 	{ PCI_VENDOR_ID_LINKSYS, 0x1032, PCI_ANY_ID, 0x0015, },
+ 	{ PCI_VENDOR_ID_LINKSYS, 0x1064, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
++#endif
+ 	{ 0 }
+ };
+ 
 -- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+1.5.2.5
 
