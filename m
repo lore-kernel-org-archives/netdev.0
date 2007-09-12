@@ -1,53 +1,268 @@
-From: Daniel Lezcano <dlezcano@fr.ibm.com>
-Subject: Re: [net-2.6.24][NETNS][patch 1/3] fix export symbols
-Date: Wed, 12 Sep 2007 14:57:33 +0200
-Message-ID: <46E7E23D.1050201@fr.ibm.com>
-References: <20070912123811.075269132@mai.toulouse-stg.fr.ibm.com> <20070912124414.640551634@mai.toulouse-stg.fr.ibm.com> <20070912.055307.23027518.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 2/6] [IPROUTE2] Introduce iplink_parse() routine
+Date: Wed, 12 Sep 2007 06:58:57 -0600
+Message-ID: <m1zlzsavla.fsf@ebiederm.dsl.xmission.com>
+References: <m14pi0cac5.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, containers@lists.osdl.org,
-	netdev@vger.kernel.org, markn@au1.ibm.com, benjamin.thery@bull.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: <netdev@vger.kernel.org>, Pavel Emelyanov <xemul@openvz.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.29.154]:31149 "EHLO
-	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966196AbXILM7R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 08:59:17 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate5.de.ibm.com (8.13.8/8.13.8) with ESMTP id l8CCxFTw158300
-	for <netdev@vger.kernel.org>; Wed, 12 Sep 2007 12:59:15 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8CCxF0j2015358
-	for <netdev@vger.kernel.org>; Wed, 12 Sep 2007 14:59:15 +0200
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8CCxEuP004933
-	for <netdev@vger.kernel.org>; Wed, 12 Sep 2007 14:59:15 +0200
-In-Reply-To: <20070912.055307.23027518.davem@davemloft.net>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:57205 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966220AbXILM71 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 08:59:27 -0400
+In-Reply-To: <m14pi0cac5.fsf@ebiederm.dsl.xmission.com> (Eric W. Biederman's
+	message of "Wed, 12 Sep 2007 06:55:06 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: dlezcano@fr.ibm.com
-> Date: Wed, 12 Sep 2007 14:38:12 +0200
-> 
->> From: Daniel Lezcano <dlezcano@fr.ibm.com>
->>
->> Add the appropriate EXPORT_SYMBOLS for proc_net_create,
->> proc_net_fops_create and proc_net_remove to fix errors when
->> compiling allmodconfig
->>
->> Signed-off-by: Mark Nelson <markn@au1.ibm.com>
->> Acked-by: Benjamin Thery <benjamin.thery@bull.net>
-> 
-> Applied to net-2.6.24, thanks.
-> 
-> Why aren't you signing off on these patches?  Please
-> do so in the future.
-> 
-> Because "From: " usually means you are the patch author, and I can't
-> tell who wrote these patches, you or these other people listed in the
-> signoff area.
-> 
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Thu, 19 Jul 2007 13:32:31 +0400
 
-Sorry for that, I will take care of that next time. Thanks.
+This routine parses CLI attributes, describing generic link
+parameters such as name, address, etc.
+
+This is mostly copy-pasted from iplink_modify().
+
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Acked-by: Patrick McHardy <kaber@trash.net>
+---
+ include/utils.h |    3 +
+ ip/iplink.c     |  127 +++++++++++++++++++++++++++++++-----------------------
+ 2 files changed, 76 insertions(+), 54 deletions(-)
+
+diff --git a/include/utils.h b/include/utils.h
+index a3fd335..3fd851d 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -146,4 +146,7 @@ extern int cmdlineno;
+ extern size_t getcmdline(char **line, size_t *len, FILE *in);
+ extern int makeargs(char *line, char *argv[], int maxargs);
+ 
++struct iplink_req;
++int iplink_parse(int argc, char **argv, struct iplink_req *req,
++		char **name, char **type, char **link, char **dev);
+ #endif /* __UTILS_H__ */
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 4060845..64989b2 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -142,140 +142,159 @@ static int iplink_have_newlink(void)
+ }
+ #endif /* ! IPLINK_IOCTL_COMPAT */
+ 
+-static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
++struct iplink_req {
++	struct nlmsghdr		n;
++	struct ifinfomsg	i;
++	char			buf[1024];
++};
++
++int iplink_parse(int argc, char **argv, struct iplink_req *req,
++		char **name, char **type, char **link, char **dev)
+ {
++	int ret, len;
++	char abuf[32];
+ 	int qlen = -1;
+ 	int mtu = -1;
+-	int len;
+-	char abuf[32];
+-	char *dev = NULL;
+-	char *name = NULL;
+-	char *link = NULL;
+-	char *type = NULL;
+-	struct link_util *lu = NULL;
+-	struct {
+-		struct nlmsghdr		n;
+-		struct ifinfomsg	i;
+-		char			buf[1024];
+-	} req;
+ 
+-	memset(&req, 0, sizeof(req));
+-
+-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+-	req.n.nlmsg_flags = NLM_F_REQUEST|flags;
+-	req.n.nlmsg_type = cmd;
+-	req.i.ifi_family = preferred_family;
++	ret = argc;
+ 
+ 	while (argc > 0) {
+ 		if (strcmp(*argv, "up") == 0) {
+-			req.i.ifi_change |= IFF_UP;
+-			req.i.ifi_flags |= IFF_UP;
++			req->i.ifi_change |= IFF_UP;
++			req->i.ifi_flags |= IFF_UP;
+ 		} else if (strcmp(*argv, "down") == 0) {
+-			req.i.ifi_change |= IFF_UP;
+-			req.i.ifi_flags &= ~IFF_UP;
++			req->i.ifi_change |= IFF_UP;
++			req->i.ifi_flags &= ~IFF_UP;
+ 		} else if (strcmp(*argv, "name") == 0) {
+ 			NEXT_ARG();
+-			name = *argv;
++			*name = *argv;
+ 		} else if (matches(*argv, "link") == 0) {
+ 			NEXT_ARG();
+-			link = *argv;
++			*link = *argv;
+ 		} else if (matches(*argv, "address") == 0) {
+ 			NEXT_ARG();
+ 			len = ll_addr_a2n(abuf, sizeof(abuf), *argv);
+-			addattr_l(&req.n, sizeof(req), IFLA_ADDRESS, abuf, len);
++			addattr_l(&req->n, sizeof(*req), IFLA_ADDRESS, abuf, len);
+ 		} else if (matches(*argv, "broadcast") == 0 ||
+-			   strcmp(*argv, "brd") == 0) {
++				strcmp(*argv, "brd") == 0) {
+ 			NEXT_ARG();
+ 			len = ll_addr_a2n(abuf, sizeof(abuf), *argv);
+-			addattr_l(&req.n, sizeof(req), IFLA_BROADCAST, abuf, len);
++			addattr_l(&req->n, sizeof(*req), IFLA_BROADCAST, abuf, len);
+ 		} else if (matches(*argv, "txqueuelen") == 0 ||
+-			   strcmp(*argv, "qlen") == 0 ||
+-			   matches(*argv, "txqlen") == 0) {
++				strcmp(*argv, "qlen") == 0 ||
++				matches(*argv, "txqlen") == 0) {
+ 			NEXT_ARG();
+ 			if (qlen != -1)
+ 				duparg("txqueuelen", *argv);
+ 			if (get_integer(&qlen,  *argv, 0))
+ 				invarg("Invalid \"txqueuelen\" value\n", *argv);
+-			addattr_l(&req.n, sizeof(req), IFLA_TXQLEN, &qlen, 4);
++			addattr_l(&req->n, sizeof(*req), IFLA_TXQLEN, &qlen, 4);
+ 		} else if (strcmp(*argv, "mtu") == 0) {
+ 			NEXT_ARG();
+ 			if (mtu != -1)
+ 				duparg("mtu", *argv);
+ 			if (get_integer(&mtu, *argv, 0))
+ 				invarg("Invalid \"mtu\" value\n", *argv);
+-			addattr_l(&req.n, sizeof(req), IFLA_MTU, &mtu, 4);
++			addattr_l(&req->n, sizeof(*req), IFLA_MTU, &mtu, 4);
+ 		} else if (strcmp(*argv, "multicast") == 0) {
+ 			NEXT_ARG();
+-			req.i.ifi_change |= IFF_MULTICAST;
++			req->i.ifi_change |= IFF_MULTICAST;
+ 			if (strcmp(*argv, "on") == 0) {
+-				req.i.ifi_flags |= IFF_MULTICAST;
++				req->i.ifi_flags |= IFF_MULTICAST;
+ 			} else if (strcmp(*argv, "off") == 0) {
+-				req.i.ifi_flags &= ~IFF_MULTICAST;
++				req->i.ifi_flags &= ~IFF_MULTICAST;
+ 			} else
+ 				return on_off("multicast");
+ 		} else if (strcmp(*argv, "allmulticast") == 0) {
+ 			NEXT_ARG();
+-			req.i.ifi_change |= IFF_ALLMULTI;
++			req->i.ifi_change |= IFF_ALLMULTI;
+ 			if (strcmp(*argv, "on") == 0) {
+-				req.i.ifi_flags |= IFF_ALLMULTI;
++				req->i.ifi_flags |= IFF_ALLMULTI;
+ 			} else if (strcmp(*argv, "off") == 0) {
+-				req.i.ifi_flags &= ~IFF_ALLMULTI;
++				req->i.ifi_flags &= ~IFF_ALLMULTI;
+ 			} else
+ 				return on_off("allmulticast");
+ 		} else if (strcmp(*argv, "promisc") == 0) {
+ 			NEXT_ARG();
+-			req.i.ifi_change |= IFF_PROMISC;
++			req->i.ifi_change |= IFF_PROMISC;
+ 			if (strcmp(*argv, "on") == 0) {
+-				req.i.ifi_flags |= IFF_PROMISC;
++				req->i.ifi_flags |= IFF_PROMISC;
+ 			} else if (strcmp(*argv, "off") == 0) {
+-				req.i.ifi_flags &= ~IFF_PROMISC;
++				req->i.ifi_flags &= ~IFF_PROMISC;
+ 			} else
+ 				return on_off("promisc");
+ 		} else if (strcmp(*argv, "trailers") == 0) {
+ 			NEXT_ARG();
+-			req.i.ifi_change |= IFF_NOTRAILERS;
++			req->i.ifi_change |= IFF_NOTRAILERS;
+ 			if (strcmp(*argv, "off") == 0) {
+-				req.i.ifi_flags |= IFF_NOTRAILERS;
++				req->i.ifi_flags |= IFF_NOTRAILERS;
+ 			} else if (strcmp(*argv, "on") == 0) {
+-				req.i.ifi_flags &= ~IFF_NOTRAILERS;
++				req->i.ifi_flags &= ~IFF_NOTRAILERS;
+ 			} else
+ 				return on_off("trailers");
+ 		} else if (strcmp(*argv, "arp") == 0) {
+ 			NEXT_ARG();
+-			req.i.ifi_change |= IFF_NOARP;
++			req->i.ifi_change |= IFF_NOARP;
+ 			if (strcmp(*argv, "on") == 0) {
+-				req.i.ifi_flags &= ~IFF_NOARP;
++				req->i.ifi_flags &= ~IFF_NOARP;
+ 			} else if (strcmp(*argv, "off") == 0) {
+-				req.i.ifi_flags |= IFF_NOARP;
++				req->i.ifi_flags |= IFF_NOARP;
+ 			} else
+ 				return on_off("noarp");
+ #ifdef IFF_DYNAMIC
+ 		} else if (matches(*argv, "dynamic") == 0) {
+ 			NEXT_ARG();
+-			req.i.ifi_change |= IFF_DYNAMIC;
++			req->i.ifi_change |= IFF_DYNAMIC;
+ 			if (strcmp(*argv, "on") == 0) {
+-				req.i.ifi_flags |= IFF_DYNAMIC;
++				req->i.ifi_flags |= IFF_DYNAMIC;
+ 			} else if (strcmp(*argv, "off") == 0) {
+-				req.i.ifi_flags &= ~IFF_DYNAMIC;
++				req->i.ifi_flags &= ~IFF_DYNAMIC;
+ 			} else
+ 				return on_off("dynamic");
+ #endif
+ 		} else if (matches(*argv, "type") == 0) {
+ 			NEXT_ARG();
+-			type = *argv;
++			*type = *argv;
+ 			argc--; argv++;
+ 			break;
+ 		} else {
+-                        if (strcmp(*argv, "dev") == 0) {
++			if (strcmp(*argv, "dev") == 0) {
+ 				NEXT_ARG();
+ 			}
+-			if (dev)
++			if (*dev)
+ 				duparg2("dev", *argv);
+-			dev = *argv;
++			*dev = *argv;
+ 		}
+ 		argc--; argv++;
+ 	}
+ 
++	return ret - argc;
++}
++
++static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
++{
++	int len;
++	char *dev = NULL;
++	char *name = NULL;
++	char *link = NULL;
++	char *type = NULL;
++	struct link_util *lu = NULL;
++	struct iplink_req req;
++	int ret;
++
++	memset(&req, 0, sizeof(req));
++
++	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
++	req.n.nlmsg_flags = NLM_F_REQUEST|flags;
++	req.n.nlmsg_type = cmd;
++	req.i.ifi_family = preferred_family;
++
++	ret = iplink_parse(argc, argv, &req, &name, &type, &link, &dev);
++	if (ret < 0)
++		return ret;
++
++	argc -= ret;
++	argv += ret;
+ 	ll_init_map(&rth);
+ 
+ 	if (type) {
+-- 
+1.5.3.rc6.17.g1911
+
