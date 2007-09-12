@@ -1,34 +1,50 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: skb configured but can't get data allocated
-Date: Wed, 12 Sep 2007 16:12:37 -0400
-Message-ID: <46E84835.1040206@hp.com>
-References: <200709121731456120c5e4ad@mail.smumn.edu>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] [RFC] allow admin/users to specify rto_min in	milliseconds
+ rather than jiffies
+Date: Wed, 12 Sep 2007 13:28:42 -0700
+Message-ID: <46E84BFA.2070101@hp.com>
+References: <200709042020.NAA29612@tardy.cup.hp.com>	<20070905073801.2f12991b@oldman> <46E06E7C.4000407@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernelnewbies@nl.linux.org
-To: DHAJOGLO <DHAJOGLO@smumn.edu>
+Cc: Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:35709 "EHLO atlrel8.hp.com"
+Received: from palrel11.hp.com ([156.153.255.246]:46794 "EHLO palrel11.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753804AbXILUM7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Sep 2007 16:12:59 -0400
-In-Reply-To: <200709121731456120c5e4ad@mail.smumn.edu>
+	id S1757369AbXILU3M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Sep 2007 16:29:12 -0400
+In-Reply-To: <46E06E7C.4000407@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-You may want to read this page:
-http://vger.kernel.org/~davem/skb.html
+>> The api in netlink should be in milliseconds rather than compensating
+>> in the application (iproute2).
+> 
+> 
+> My understanding of the in-kernel rtnetlink code is far from complete, 
+> but it doesn't seem to have much in the way of provisions for unit 
+> conversion, which would suggest no nice suffix-based ui as in tc, and ip 
+> is already doing some massaging of units on the display side for a 
+> couple of the other parameters, so I'm at something of a loss.
 
-You will then see you problem.
+So, I used the source and looked and saw that tc seems to convert 
+everything to nanoseconds and passes that to the kernel.  The user can 
+give it seconds, milliseconds, microseconds or nanoseconds by using a 
+suffix. It then does something ostensibly intelligent to display those 
+to the user.
 
-Essentially, you are writing your data into an
-area that is never sent.
+Ip converts nothing when passing things to the kernel (rtt rttvar or rto 
+- when/if at least the intial rto changes are included - were they?), 
+but when they come-out of the kernel ip converts them to milliseconds. 
+  So the units in != the units out.
 
-What you are end up is this:
+Tc seems much more friendly and less prone to user error.
 
----------------------------------------------
-| your data| space | ll-header | IPv4 header|
----------------------------------------------
+I'm still not sure how "easily" rtnetlink can do conversions itself - 
+feedback there would be _very_ welcome - but at the very least, having 
+ip provide at least the illusion of what tc does would seem to be a good 
+thing.
 
--vlad
+rick jones
