@@ -1,117 +1,164 @@
 From: Ivo van Doorn <ivdoorn@gmail.com>
-Subject: [PATCH 2/3 v4] rfkill: Add support for ultrawideband
-Date: Wed, 12 Sep 2007 20:14:29 +0200
-Message-ID: <200709122014.29435.IvDoorn@gmail.com>
+Subject: [PATCH 3/3 v4] rfkill: Add rfkill documentation
+Date: Wed, 12 Sep 2007 20:14:39 +0200
+Message-ID: <200709122014.39600.IvDoorn@gmail.com>
 References: <200709101954.50852.IvDoorn@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Dmitry Torokhov <dtor@insightbb.com>, netdev@vger.kernel.org,
-	Inaky Perez-Gonzalez <inaky@linux.intel.com>
+	Inaky Perez-Gonzalez <inaky@linux.intel.com>,
+	Randy Dunlap <randy.dunlap@oracle.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:40478 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764945AbXILSDC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 14:03:02 -0400
-Received: by ug-out-1314.google.com with SMTP id z38so267442ugc
-        for <netdev@vger.kernel.org>; Wed, 12 Sep 2007 11:03:01 -0700 (PDT)
+Received: from nf-out-0910.google.com ([64.233.182.186]:52786 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S967663AbXILSDK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 14:03:10 -0400
+Received: by nf-out-0910.google.com with SMTP id g13so243364nfb
+        for <netdev@vger.kernel.org>; Wed, 12 Sep 2007 11:03:09 -0700 (PDT)
 In-Reply-To: <200709101954.50852.IvDoorn@gmail.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch will add support for UWB keys to rfkill,
-support for this has been requested by Inaky.
+Add a documentation file which contains
+a short description about rfkill with some
+notes about drivers and the userspace interface.
+
+Changes since v1 and v2:
+=A0- Spellchecking
 
 Signed-off-by: Ivo van Doorn <IvDoorn@gmail.com>
-CC: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-CC: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Acked-by: Dmitry Torokhov <dtor@mail.ru>
+Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
 ---
- include/linux/input.h     |    1 +
- include/linux/rfkill.h    |    2 ++
- net/rfkill/rfkill-input.c |    9 +++++++++
- net/rfkill/rfkill.c       |    3 +++
- 4 files changed, 15 insertions(+), 0 deletions(-)
+ Documentation/rfkill.txt |   89 ++++++++++++++++++++++++++++++++++++++=
+++++++++
+ 1 files changed, 89 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/rfkill.txt
 
-diff --git a/include/linux/input.h b/include/linux/input.h
-index cf2b561..8e5828d 100644
---- a/include/linux/input.h
-+++ b/include/linux/input.h
-@@ -360,6 +360,7 @@ struct input_absinfo {
- 
- #define KEY_BLUETOOTH		237
- #define KEY_WLAN		238
-+#define KEY_UWB			239
- 
- #define KEY_UNKNOWN		240
- 
-diff --git a/include/linux/rfkill.h b/include/linux/rfkill.h
-index c4546e1..f9a50da 100644
---- a/include/linux/rfkill.h
-+++ b/include/linux/rfkill.h
-@@ -31,10 +31,12 @@
-  * enum rfkill_type - type of rfkill switch.
-  * RFKILL_TYPE_WLAN: switch is no a Wireless network devices.
-  * RFKILL_TYPE_BlUETOOTH: switch is on a bluetooth device.
-+ * RFKILL_TYPE_UWB: switch is on a Ultra wideband device.
-  */
- enum rfkill_type {
- 	RFKILL_TYPE_WLAN ,
- 	RFKILL_TYPE_BLUETOOTH,
-+	RFKILL_TYPE_UWB,
- 	RFKILL_TYPE_MAX,
- };
- 
-diff --git a/net/rfkill/rfkill-input.c b/net/rfkill/rfkill-input.c
-index 9f746be..8e4516a 100644
---- a/net/rfkill/rfkill-input.c
-+++ b/net/rfkill/rfkill-input.c
-@@ -81,6 +81,7 @@ static void rfkill_schedule_toggle(struct rfkill_task *task)
- 
- static DEFINE_RFKILL_TASK(rfkill_wlan, RFKILL_TYPE_WLAN);
- static DEFINE_RFKILL_TASK(rfkill_bt, RFKILL_TYPE_BLUETOOTH);
-+static DEFINE_RFKILL_TASK(rfkill_uwb, RFKILL_TYPE_UWB);
- 
- static void rfkill_event(struct input_handle *handle, unsigned int type,
- 			unsigned int code, int down)
-@@ -93,6 +94,9 @@ static void rfkill_event(struct input_handle *handle, unsigned int type,
- 		case KEY_BLUETOOTH:
- 			rfkill_schedule_toggle(&rfkill_bt);
- 			break;
-+		case KEY_UWB:
-+			rfkill_schedule_toggle(&rfkill_uwb);
-+			break;
- 		default:
- 			break;
- 		}
-@@ -148,6 +152,11 @@ static const struct input_device_id rfkill_ids[] = {
- 		.evbit = { BIT(EV_KEY) },
- 		.keybit = { [LONG(KEY_BLUETOOTH)] = BIT(KEY_BLUETOOTH) },
- 	},
-+	{
-+		.flags = INPUT_DEVICE_ID_MATCH_EVBIT | INPUT_DEVICE_ID_MATCH_KEYBIT,
-+		.evbit = { BIT(EV_KEY) },
-+		.keybit = { [LONG(KEY_UWB)] = BIT(KEY_UWB) },
-+	},
- 	{ }
- };
- 
-diff --git a/net/rfkill/rfkill.c b/net/rfkill/rfkill.c
-index 50e0102..03ed7fd 100644
---- a/net/rfkill/rfkill.c
-+++ b/net/rfkill/rfkill.c
-@@ -106,6 +106,9 @@ static ssize_t rfkill_type_show(struct device *dev,
- 	case RFKILL_TYPE_BLUETOOTH:
- 		type = "bluetooth";
- 		break;
-+	case RFKILL_TYPE_UWB:
-+		type = "ultrawideband";
-+		break;
- 	default:
- 		BUG();
- 	}
--- 
+diff --git a/Documentation/rfkill.txt b/Documentation/rfkill.txt
+new file mode 100644
+index 0000000..a83ff23
+--- /dev/null
++++ b/Documentation/rfkill.txt
+@@ -0,0 +1,89 @@
++rfkill - RF switch subsystem support
++=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
++
++1 Implementation details
++2 Driver support
++3 Userspace support
++
++=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
++1: Implementation details
++
++The rfkill switch subsystem offers support for keys often found on lap=
+tops
++to enable wireless devices like WiFi and Bluetooth.
++
++This is done by providing the user 3 possibilities:
++ 1 - The rfkill system handles all events; userspace is not aware of e=
+vents.
++ 2 - The rfkill system handles all events; userspace is informed about=
+ the events.
++ 3 - The rfkill system does not handle events; userspace handles all e=
+vents.
++
++The buttons to enable and disable the wireless radios are important in
++situations where the user is for example using his laptop on a locatio=
+n where
++wireless radios _must_ be disabled (e.g. airplanes).
++Because of this requirement, userspace support for the keys should not=
+ be
++made mandatory. Because userspace might want to perform some additiona=
+l smarter
++tasks when the key is pressed, rfkill still provides userspace the pos=
+sibility
++to take over the task to handle the key events.
++
++The system inside the kernel has been split into 2 separate sections:
++	1 - RFKILL
++	2 - RFKILL_INPUT
++
++The first option enables rfkill support and will make sure userspace w=
+ill
++be notified of any events through the input device. It also creates se=
+veral
++sysfs entries which can be used by userspace. See section "Userspace s=
+upport".
++
++The second option provides an rfkill input handler. This handler will
++listen to all rfkill key events and will toggle the radio accordingly.
++With this option enabled userspace could either do nothing or simply
++perform monitoring tasks.
++
++=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
++2: Driver support
++
++To build a driver with rfkill subsystem support, the driver should
++depend on the Kconfig symbol RFKILL; it should _not_ depend on
++RKFILL_INPUT.
++
++Unless key events trigger an interrupt to which the driver listens, po=
+lling
++will be required to determine the key state changes. For this the inpu=
+t
++layer providers the input-polldev handler.
++
++A driver should implement a few steps to correctly make use of the
++rfkill subsystem. First for non-polling drivers:
++
++	- rfkill_allocate()
++	- input_allocate_device()
++	- rfkill_register()
++	- input_register_device()
++
++For polling drivers:
++
++	- rfkill_allocate()
++	- input_allocate_polled_device()
++	- rfkill_register()
++	- input_register_polled_device()
++
++When a key event has been detected, the correct event should be
++sent over the input device which has been registered by the driver.
++
++=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
++3: Userspace support
++
++For each key an input device will be created which will send out the c=
+orrect
++key event when the rfkill key has been pressed.
++
++The following sysfs entries will be created:
++
++	name: Name assigned by driver to this key (interface or driver name).
++	type: Name of the key type ("wlan", "bluetooth", etc).
++	state: Current state of the key. 1: On, 0: Off.
++	claim: 1: Userspace handles events, 0: Kernel handles events
++
++Both the "state" and "claim" entries are also writable. For the "state=
+" entry
++this means that when 1 or 0 is written all radios, not yet in the requ=
+ested
++state, will be will be toggled accordingly.
++For the "claim" entry writing 1 to it means that the kernel no longer =
+handles
++key events even though RFKILL_INPUT input was enabled. When "claim" ha=
+s been
++set to 0, userspace should make sure that it listens for the input eve=
+nts or
++check the sysfs "state" entry regularly to correctly perform the requi=
+red
++tasks when the rkfill key is pressed.
+--=20
 1.5.3
 
