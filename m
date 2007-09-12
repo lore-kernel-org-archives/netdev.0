@@ -1,81 +1,58 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH] bonding: update some distro-specific documentation
-Date: Wed, 12 Sep 2007 14:18:40 -0400
-Message-ID: <20070912181839.GD3754@gospo.rdu.redhat.com>
-References: <20070830212429.GA12676@gospo.rdu.redhat.com> <21001.1189189669@death>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [patch] sunrpc: make closing of old temporary sockets
+	work	(was: problems with lockd in 2.6.22.6)
+Date: Wed, 12 Sep 2007 14:42:22 -0400
+Message-ID: <20070912184222.GG4274@fieldses.org>
+References: <200709121407.11151.wolfgang.walter@studentenwerk.mhn.de>
+	<18151.62510.891210.485277@notabene.brown>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:54731 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S967457AbXILSXp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Sep 2007 14:23:45 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, trond.myklebust@fys.uio.no,
+	nfs@lists.sourceforge.net, linux-kernel@vger.kernel.org,
+	Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
+To: Neil Brown <neilb@suse.de>
+Return-path: <nfs-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-In-Reply-To: <21001.1189189669@death>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <18151.62510.891210.485277@notabene.brown>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
+	<mailto:nfs-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=nfs>
+List-Post: <mailto:nfs@lists.sourceforge.net>
+List-Help: <mailto:nfs-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
+	<mailto:nfs-request@lists.sourceforge.net?subject=subscribe>
+Sender: nfs-bounces@lists.sourceforge.net
+Errors-To: nfs-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 07, 2007 at 11:27:49AM -0700, Jay Vosburgh wrote:
-> Andy Gospodarek <andy@greyhouse.net> wrote:
+On Wed, Sep 12, 2007 at 04:14:06PM +0200, Neil Brown wrote:
+> So it is in 2.6.21 and later and should probably go to .stable for .21
+> and .22.
 > 
-> 	This all looks fine except for one nit (well, request for extra
-> detail, really):
-> 
-> >@@ -802,15 +802,20 @@ BROADCAST=192.168.1.255
-> > ONBOOT=yes
-> > BOOTPROTO=none
-> > USERCTL=no
-> >+BONDING_OPTS="mode=balance-alb miimon=100"
-> >
-> > 	Be sure to change the networking specific lines (IPADDR,
-> > NETMASK, NETWORK and BROADCAST) to match your network configuration.
-> >+You also need to set the BONDING_OPTS= line to specify the desired
-> >+options for your bond0 interface.  Specifying bonding options in this
-> >+way is the preferred method for configuring bonding interfaces.
-> 
-> 	Can you add something here that mentions that, for the
-> arp_ip_target option, it has to be supplied as "arp_ip_target=+10.0.0.1"
-> and not just "arp_ip_target=10.0.0.1"?  Also, multiple targets require
-> multiple instances of the arp_ip_target option; it doesn't work to put
-> multiple IP addresses as in the module option (i.e.,
-> "arp_ip_target=10.0.0.1,10.0.0.2").
-> 
-> 	This is necessary because ifup-eth isn't adding the "+" when it
-> translates the option for use with sysfs or parsing the multiple IP
-> address syntax.
-> 
+> Bruce:  for you :-)
 
-Jay,
+OK, thanks!  But, (as is alas often the case) I'm still confused:
 
-I could do that, or we could just take this as-is and get initscripts
-fixed up to account for this.  Does that seem reasonable?
+>  		if (!test_and_set_bit(SK_OLD, &svsk->sk_flags))
+>  			continue;
+> -		if (atomic_read(&svsk->sk_inuse) || test_bit(SK_BUSY, &svsk->sk_flags))
+> +		if (atomic_read(&svsk->sk_inuse) > 1
+> +		    || test_bit(SK_BUSY, &svsk->sk_flags))
+>  			continue;
+>  		atomic_inc(&svsk->sk_inuse);
+>  		list_move(le, &to_be_aged);
 
-I'd rather go that route, and I've even got a patch that *seems* to work
-already:
+What is it that ensures svsk->sk_inuse isn't incremented or SK_BUSY set
+after that test?  Not all the code that does either of those is under
+the same serv->sv_lock lock that this code is.
 
---- initscripts-8.45.17.EL/sysconfig/network-scripts/ifup-eth.orig
-+++ initscripts-8.45.17.EL/sysconfig/network-scripts/ifup-eth
-@@ -125,7 +125,16 @@ if [ "$ISALIAS" = no ] && is_bonding_dev
-     for arg in $BONDING_OPTS ; do   
-         key=${arg%%=*};
-         value=${arg##*=};
--        echo $value > /sys/class/net/${DEVICE}/bonding/$key
-+        OLDIFS=$IFS;
-+        IFS=',';
-+        if [ "${key}" = "arp_ip_target" ]; then
-+           for arp_ip in $value; do
-+             echo +$arp_ip > /sys/class/net/${DEVICE}/bonding/$key
-+           done
-+        else
-+           echo $value > /sys/class/net/${DEVICE}/bonding/$key
-+        fi
-+        IFS=$OLDIFS;
-     done
- 
-     /sbin/ip link set dev ${DEVICE} up
+--b.
 
--andy
-
-
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+_______________________________________________
+NFS maillist  -  NFS@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/nfs
