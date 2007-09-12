@@ -1,44 +1,71 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 2/3] sk98lin: ethtool perm_addr build fix
-Date: Wed, 12 Sep 2007 13:30:01 +0200
-Message-ID: <20070912133001.0896f0e7@oldman>
-References: <6278d2220707271227g51cb147ch2f6dbc05c73f618d@mail.gmail.com>
-	<20070911132423.62347d5c@oldman>
-	<20070911132819.2cc5bbf4@oldman>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 13/16] net: Make the device list and device lookups per
+ namespace.
+Date: Wed, 12 Sep 2007 04:39:47 -0700 (PDT)
+Message-ID: <20070912.043947.26286162.davem@davemloft.net>
+References: <m1fy1ovoeo.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1bqccvock.fsf_-_@ebiederm.dsl.xmission.com>
+	<m17in0vo0d.fsf_-_@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Linux Netdev" <netdev@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>
+Cc: netdev@vger.kernel.org, containers@lists.osdl.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:58211 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1764797AbXILLa4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 07:30:56 -0400
-In-Reply-To: <20070911132819.2cc5bbf4@oldman>
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:40538
+	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1765872AbXILLjz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 07:39:55 -0400
+In-Reply-To: <m17in0vo0d.fsf_-_@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Deal with API changes while sk98lin was removed.
-ethtool_ops no longer has a perm_addr hook.
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Sat, 08 Sep 2007 15:35:46 -0600
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
----
- drivers/net/sk98lin/skethtool.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+> 
+> This patch makes most of the generic device layer network
+> namespace safe.  This patch makes dev_base_head a
+> network namespace variable, and then it picks up
+> a few associated variables.  The functions:
+> dev_getbyhwaddr
+> dev_getfirsthwbytype
+> dev_get_by_flags
+> dev_get_by_name
+> __dev_get_by_name
+> dev_get_by_index
+> __dev_get_by_index
+> dev_ioctl
+> dev_ethtool
+> dev_load
+> wireless_process_ioctl
+> 
+> were modified to take a network namespace argument, and
+> deal with it.
+> 
+> vlan_ioctl_set and brioctl_set were modified so their
+> hooks will receive a network namespace argument.
+> 
+> So basically anthing in the core of the network stack that was
+> affected to by the change of dev_base was modified to handle
+> multiple network namespaces.  The rest of the network stack was
+> simply modified to explicitly use &init_net the initial network
+> namespace.  This can be fixed when those components of the network
+> stack are modified to handle multiple network namespaces.
+> 
+> For now the ifindex generator is left global.
+> 
+> Fundametally ifindex numbers are per namespace, or else
+> we will have corner case problems with migration when
+> we get that far.
+> 
+> At the same time there are assumptions in the network stack
+> that the ifindex of a network device won't change.  Making
+> the ifindex number global seems a good compromise until
+> the network stack can cope with ifindex changes when
+> you change namespaces, and the like.
+> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
-diff --git a/drivers/net/sk98lin/skethtool.c b/drivers/net/sk98lin/skethtool.c
-index 3646069..5a6da89 100644
---- a/drivers/net/sk98lin/skethtool.c
-+++ b/drivers/net/sk98lin/skethtool.c
-@@ -616,7 +616,6 @@ const struct ethtool_ops SkGeEthtoolOps = {
- 	.get_pauseparam		= getPauseParams,
- 	.set_pauseparam		= setPauseParams,
- 	.get_link		= ethtool_op_get_link,
--	.get_perm_addr		= ethtool_op_get_perm_addr,
- 	.get_sg			= ethtool_op_get_sg,
- 	.set_sg			= setScatterGather,
- 	.get_tx_csum		= ethtool_op_get_tx_csum,
--- 
-1.5.2.5
+Applied to net-2.6.24, thanks.
 
