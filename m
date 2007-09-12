@@ -1,45 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 12/16] net: Support multiple network namespaces with
- netlink
-Date: Wed, 12 Sep 2007 04:06:16 -0700 (PDT)
-Message-ID: <20070912.040616.38701475.davem@davemloft.net>
-References: <m1k5r0voh4.fsf_-_@ebiederm.dsl.xmission.com>
-	<m1fy1ovoeo.fsf_-_@ebiederm.dsl.xmission.com>
-	<m1bqccvock.fsf_-_@ebiederm.dsl.xmission.com>
+Subject: Re: [PATCH] NET : convert IP route cache garbage colleciton from
+ softirq processing to a workqueue
+Date: Wed, 12 Sep 2007 04:10:18 -0700 (PDT)
+Message-ID: <20070912.041018.35029512.davem@davemloft.net>
+References: <20070911145613.4762c534.dada1@cosmosbay.com>
+	<20070912100054.GA3649@infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, containers@lists.osdl.org
-To: ebiederm@xmission.com
+Cc: dada1@cosmosbay.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: hch@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:44738
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:56859
 	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1760675AbXILLGT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 07:06:19 -0400
-In-Reply-To: <m1bqccvock.fsf_-_@ebiederm.dsl.xmission.com>
+	by vger.kernel.org with ESMTP id S967027AbXILLLG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 07:11:06 -0400
+In-Reply-To: <20070912100054.GA3649@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Sat, 08 Sep 2007 15:28:27 -0600
+From: Christoph Hellwig <hch@infradead.org>
+Date: Wed, 12 Sep 2007 11:00:54 +0100
 
-> 
-> Each netlink socket will live in exactly one network namespace,
-> this includes the controlling kernel sockets.
-> 
-> This patch updates all of the existing netlink protocols
-> to only support the initial network namespace.  Request
-> by clients in other namespaces will get -ECONREFUSED.
-> As they would if the kernel did not have the support for
-> that netlink protocol compiled in.
-> 
-> As each netlink protocol is updated to be multiple network
-> namespace safe it can register multiple kernel sockets
-> to acquire a presence in the rest of the network namespaces.
-> 
-> The implementation in af_netlink is a simple filter implementation
-> at hash table insertion and hash table look up time.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> Can you please et rid of this useless struct?  It just complicates
+> the code and means we can't use the proper DEFINE_SPINLOCK initializer.
 
-Applied to net-2.6.24, thanks.
+As long as the linker can move global variables around we need
+to do things like this to keep objects together when that's
+what we want.
+
+So it's not really useless, but perhaps deserves a comment.
