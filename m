@@ -1,34 +1,38 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 1/4] [IPROUTE2] Revert "Make ip utility veth driver aware"
-Date: Wed, 12 Sep 2007 07:09:00 -0600
-Message-ID: <m1ejh4av4j.fsf@ebiederm.dsl.xmission.com>
-References: <m14pi0cac5.fsf@ebiederm.dsl.xmission.com>
-	<46E7E1BF.6070108@openvz.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [-mm patch] really unexport do_softirq
+Date: Wed, 12 Sep 2007 06:14:01 -0700 (PDT)
+Message-ID: <20070912.061401.38698144.davem@davemloft.net>
+References: <20070831215822.26e1432b.akpm@linux-foundation.org>
+	<20070909202540.GU3563@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, robert.olsson@its.uu.se,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: bunk@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:42625 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751773AbXILNJ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 09:09:29 -0400
-In-Reply-To: <46E7E1BF.6070108@openvz.org> (Pavel Emelyanov's message of "Wed,
-	12 Sep 2007 16:55:27 +0400")
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:35962
+	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757901AbXILNOT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 09:14:19 -0400
+In-Reply-To: <20070909202540.GU3563@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Emelyanov <xemul@openvz.org> writes:
+From: Adrian Bunk <bunk@kernel.org>
+Date: Sun, 9 Sep 2007 22:25:40 +0200
 
-> Eric W. Biederman wrote:
->> Stephen it looks like you weren't cc'd on the latest version
->> of the veth support.  So this patchset first reverts the old
->
-> He was. The latest version looks completely different from what
-> is reversed in this patch.
+> On Fri, Aug 31, 2007 at 09:58:22PM -0700, Andrew Morton wrote:
+> >...
+> > Changes since 2.6.23-rc3-mm1:
+> >...
+> >  git-net.patch
+> >...
+> >  git trees
+> >...
+> 
+> This hydra had more than one head...
+> 
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-This is against the latest snapshot I could find.  My apologies
-if I missed some of the communication.
-
-Eric
+Applied, thanks.
