@@ -1,39 +1,37 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] Move the definition of pr_err() into kernel.h
-Date: Wed, 12 Sep 2007 12:59:15 +0200
-Message-ID: <20070912125915.5b5d8aa5@oldman>
-References: <11895225651521-git-send-email-Emilian.Medve@Freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 10/16] net: Make packet reception network namespace safe
+Date: Wed, 12 Sep 2007 04:00:47 -0700 (PDT)
+Message-ID: <20070912.040047.70208873.davem@davemloft.net>
+References: <m1sl5ovolm.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1odgcvoje.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1k5r0voh4.fsf_-_@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	i2c@lm-sensors.org, linux-omap-open-source@linux.omap.com,
-	Emil Medve <Emilian.Medve@Freescale.com>
-To: Emil Medve <Emilian.Medve@Freescale.com>
+Cc: netdev@vger.kernel.org, containers@lists.osdl.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:33033 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1764265AbXILK7X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 06:59:23 -0400
-In-Reply-To: <11895225651521-git-send-email-Emilian.Medve@Freescale.com>
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:35397
+	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S965213AbXILLAu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 07:00:50 -0400
+In-Reply-To: <m1k5r0voh4.fsf_-_@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 11 Sep 2007 09:56:05 -0500
-Emil Medve <Emilian.Medve@Freescale.com> wrote:
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Sat, 08 Sep 2007 15:25:43 -0600
 
-> Other pr_*() macros are already defined in kernel.h, but pr_err() was defined
-> multiple times in several other places
 > 
-> Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
+> This patch modifies every packet receive function
+> registered with dev_add_pack() to drop packets if they
+> are not from the initial network namespace.
+> 
+> This should ensure that the various network stacks do
+> not receive packets in a anything but the initial network
+> namespace until the code has been converted and is ready
+> for them.
+> 
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
-pr_error seems better than pr_err
-
-Please add the full set:
-	pr_alert
-	pr_critical
-        pr_error
-        pr_warn
-        pr_notice
-
-
+Applied to net-2.6.24, thanks.
