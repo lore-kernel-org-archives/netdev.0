@@ -1,208 +1,67 @@
-From: Emil Medve <Emilian.Medve@Freescale.com>
-Subject: [PATCH v3] Make the pr_*() family of macros in kernel.h complete
-Date: Wed, 12 Sep 2007 11:39:40 -0500
-Message-ID: <11896151802410-git-send-email-Emilian.Medve@Freescale.com>
-Cc: Emil Medve <Emilian.Medve@Freescale.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	i2c@lm-sensors.org, linux-omap-open-source@linux.omap.com
+From: "Ed Swierk" <eswierk@arastra.com>
+Subject: Re: [PATCH] Configurable tap interface MTU
+Date: Wed, 12 Sep 2007 09:54:35 -0700
+Message-ID: <e6c711510709120954i29a8f86bg9ea7bb337a039b5a@mail.gmail.com>
+References: <e6c711510709110742v4d2da644ha63b0a6d47c1230b@mail.gmail.com>
+	 <E1IVIv8-0003Uc-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_Part_9046_10205655.1189616075340"
+To: "Herbert Xu" <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	maxk@qualcomm.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:54083 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932376AbXILQvd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 12:51:33 -0400
+Received: from rv-out-0910.google.com ([209.85.198.185]:36233 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932510AbXILQyg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 12:54:36 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so233688rvb
+        for <netdev@vger.kernel.org>; Wed, 12 Sep 2007 09:54:35 -0700 (PDT)
+In-Reply-To: <E1IVIv8-0003Uc-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Other/Some pr_*() macros are already defined in kernel.h, but pr_err() was defined
-multiple times in several other places
+------=_Part_9046_10205655.1189616075340
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
----
+On 9/11/07, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> Please make it 65535 without an Ethernet header and 65521
+> with an Ethernet header.
 
-I'm writing a driver and I've been using the pr_*() macros from kernel.h and I
-was surprised not to find there pr_err() but defined multiple times (in four
-different files). I didn't want to define it yet one more time so I did this
-cleanup
+Here is a revised patch that allows MTUs up to 65535 for tap
+interfaces and up to 65521 for tun interfaces.
 
-As per community request/suggestion, I added the rest of the missing pr_*()
-macros to complete the family. The names of the macros are based on the KERN_*
-loglevel names and are macthing the naming convention of the dev_*() print
-macros from device.h. The macros are defined in the ascending order of the
-loglevel
+(If I set the MTU to 65521 on a tun interface, ping complains "message
+too long" when I send a 65521-byte packet; 65520 works okay, though.)
 
-This patch is against Linus' tree (577107e8e4cf9f6f4f5ef8350ac9a8faa6c3796d)
+--Ed
 
-linux-2.6> scripts/checkpatch.pl 0001-Make-the-pr_-family-of-macros-in-kernel.h-complet.patch 
-Your patch has no obvious style problems and is ready for submission.
+------=_Part_9046_10205655.1189616075340
+Content-Type: application/octet-stream; name="tap-change-mtu.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="tap-change-mtu.patch"
+X-Attachment-Id: f_f6i2ljzm
 
- drivers/i2c/chips/menelaus.c     |   10 ++++------
- drivers/net/spider_net.h         |    3 ---
- drivers/video/omap/lcd_h3.c      |    6 ++----
- drivers/video/omap/lcd_inn1610.c |    6 ++----
- include/linux/kernel.h           |   22 +++++++++++++++++-----
- 5 files changed, 25 insertions(+), 22 deletions(-)
-
-diff --git a/drivers/i2c/chips/menelaus.c b/drivers/i2c/chips/menelaus.c
-index d9c92c5..66436ba 100644
---- a/drivers/i2c/chips/menelaus.c
-+++ b/drivers/i2c/chips/menelaus.c
-@@ -49,8 +49,6 @@
- 
- #define DRIVER_NAME			"menelaus"
- 
--#define pr_err(fmt, arg...)	printk(KERN_ERR DRIVER_NAME ": ", ## arg);
--
- #define MENELAUS_I2C_ADDRESS		0x72
- 
- #define MENELAUS_REV			0x01
-@@ -155,7 +153,7 @@ static int menelaus_write_reg(int reg, u8 value)
- 	int val = i2c_smbus_write_byte_data(the_menelaus->client, reg, value);
- 
- 	if (val < 0) {
--		pr_err("write error");
-+		pr_err(DRIVER_NAME ": write error");
- 		return val;
- 	}
- 
-@@ -167,7 +165,7 @@ static int menelaus_read_reg(int reg)
- 	int val = i2c_smbus_read_byte_data(the_menelaus->client, reg);
- 
- 	if (val < 0)
--		pr_err("read error");
-+		pr_err(DRIVER_NAME ": read error");
- 
- 	return val;
- }
-@@ -1177,7 +1175,7 @@ static int menelaus_probe(struct i2c_client *client)
- 	/* If a true probe check the device */
- 	rev = menelaus_read_reg(MENELAUS_REV);
- 	if (rev < 0) {
--		pr_err("device not found");
-+		pr_err(DRIVER_NAME ": device not found");
- 		err = -ENODEV;
- 		goto fail1;
- 	}
-@@ -1258,7 +1256,7 @@ static int __init menelaus_init(void)
- 
- 	res = i2c_add_driver(&menelaus_i2c_driver);
- 	if (res < 0) {
--		pr_err("driver registration failed\n");
-+		pr_err(DRIVER_NAME ": driver registration failed\n");
- 		return res;
- 	}
- 
-diff --git a/drivers/net/spider_net.h b/drivers/net/spider_net.h
-index dbbdb8c..c67b11d 100644
---- a/drivers/net/spider_net.h
-+++ b/drivers/net/spider_net.h
-@@ -493,7 +493,4 @@ struct spider_net_card {
- 	struct spider_net_descr darray[0];
- };
- 
--#define pr_err(fmt,arg...) \
--	printk(KERN_ERR fmt ,##arg)
--
- #endif
-diff --git a/drivers/video/omap/lcd_h3.c b/drivers/video/omap/lcd_h3.c
-index 51807b4..c604d93 100644
---- a/drivers/video/omap/lcd_h3.c
-+++ b/drivers/video/omap/lcd_h3.c
-@@ -28,8 +28,6 @@
- 
- #define MODULE_NAME	"omapfb-lcd_h3"
- 
--#define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
--
- static int h3_panel_init(struct lcd_panel *panel, struct omapfb_device *fbdev)
- {
- 	return 0;
-@@ -48,7 +46,7 @@ static int h3_panel_enable(struct lcd_panel *panel)
- 	if (!r)
- 		r = tps65010_set_gpio_out_value(GPIO2, HIGH);
- 	if (r)
--		pr_err("Unable to turn on LCD panel\n");
-+		pr_err(MODULE_NAME ": Unable to turn on LCD panel\n");
- 
- 	return r;
- }
-@@ -62,7 +60,7 @@ static void h3_panel_disable(struct lcd_panel *panel)
- 	if (!r)
- 		tps65010_set_gpio_out_value(GPIO2, LOW);
- 	if (r)
--		pr_err("Unable to turn off LCD panel\n");
-+		pr_err(MODULE_NAME ": Unable to turn off LCD panel\n");
- }
- 
- static unsigned long h3_panel_get_caps(struct lcd_panel *panel)
-diff --git a/drivers/video/omap/lcd_inn1610.c b/drivers/video/omap/lcd_inn1610.c
-index 95604ca..5ef119c 100644
---- a/drivers/video/omap/lcd_inn1610.c
-+++ b/drivers/video/omap/lcd_inn1610.c
-@@ -27,20 +27,18 @@
- 
- #define MODULE_NAME	"omapfb-lcd_h3"
- 
--#define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": " fmt, ## args)
--
- static int innovator1610_panel_init(struct lcd_panel *panel,
- 				    struct omapfb_device *fbdev)
- {
- 	int r = 0;
- 
- 	if (omap_request_gpio(14)) {
--		pr_err("can't request GPIO 14\n");
-+		pr_err(MODULE_NAME ": can't request GPIO 14\n");
- 		r = -1;
- 		goto exit;
- 	}
- 	if (omap_request_gpio(15)) {
--		pr_err("can't request GPIO 15\n");
-+		pr_err(MODULE_NAME ": can't request GPIO 15\n");
- 		omap_free_gpio(14);
- 		r = -1;
- 		goto exit;
-diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-index 47160fe..166a822 100644
---- a/include/linux/kernel.h
-+++ b/include/linux/kernel.h
-@@ -230,10 +230,25 @@ extern void print_hex_dump_bytes(const char *prefix_str, int prefix_type,
- 			const void *buf, size_t len);
- #define hex_asc(x)	"0123456789abcdef"[x]
- 
-+#define pr_emerg(fmt, arg...) \
-+	printk(KERN_EMERG fmt, ##arg)
-+#define pr_alert(fmt, arg...) \
-+	printk(KERN_ALERT fmt, ##arg)
-+#define pr_crit(fmt, arg...) \
-+	printk(KERN_CRIT fmt, ##arg)
-+#define pr_err(fmt, arg...) \
-+	printk(KERN_ERR fmt, ##arg)
-+#define pr_warning(fmt, arg...) \
-+	printk(KERN_WARNING fmt, ##arg)
-+#define pr_notice(fmt, arg...) \
-+	printk(KERN_NOTICE fmt, ##arg)
-+#define pr_info(fmt, arg...) \
-+	printk(KERN_INFO fmt, ##arg)
-+
- #ifdef DEBUG
- /* If you are writing a driver, please use dev_dbg instead */
--#define pr_debug(fmt,arg...) \
--	printk(KERN_DEBUG fmt,##arg)
-+#define pr_debug(fmt, arg...) \
-+	printk(KERN_DEBUG fmt, ##arg)
- #else
- static inline int __attribute__ ((format (printf, 1, 2))) pr_debug(const char * fmt, ...)
- {
-@@ -241,9 +256,6 @@ static inline int __attribute__ ((format (printf, 1, 2))) pr_debug(const char *
- }
- #endif
- 
--#define pr_info(fmt,arg...) \
--	printk(KERN_INFO fmt,##arg)
--
- /*
-  *      Display an IP address in readable format.
-  */
--- 
-1.5.3.GIT
-
+SW5kZXg6IGxpbnV4LTIuNi4yMi42L2RyaXZlcnMvbmV0L3R1bi5jCj09PT09PT09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KLS0tIGxp
+bnV4LTIuNi4yMi42Lm9yaWcvZHJpdmVycy9uZXQvdHVuLmMKKysrIGxpbnV4LTIuNi4yMi42L2Ry
+aXZlcnMvbmV0L3R1bi5jCkBAIC0xNzEsNiArMTcxLDE4IEBAIHR1bl9uZXRfbWNsaXN0KHN0cnVj
+dCBuZXRfZGV2aWNlICpkZXYpCiAJfQogfQogCisjZGVmaW5lIE1JTl9NVFUgNjgKKyNkZWZpbmUg
+TUFYX01UVSA2NTUzNQorCitzdGF0aWMgaW50Cit0dW5fbmV0X2NoYW5nZV9tdHUoc3RydWN0IG5l
+dF9kZXZpY2UgKmRldiwgaW50IG5ld19tdHUpCit7CisJaWYgKG5ld19tdHUgPCBNSU5fTVRVIHx8
+IG5ld19tdHUgKyBkZXYtPmhhcmRfaGVhZGVyX2xlbiA+IE1BWF9NVFUpCisJCXJldHVybiAtRUlO
+VkFMOworCWRldi0+bXR1ID0gbmV3X210dTsKKwlyZXR1cm4gMDsKK30KKwogc3RhdGljIHN0cnVj
+dCBuZXRfZGV2aWNlX3N0YXRzICp0dW5fbmV0X3N0YXRzKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYp
+CiB7CiAJc3RydWN0IHR1bl9zdHJ1Y3QgKnR1biA9IG5ldGRldl9wcml2KGRldik7CkBAIC0xODgs
+NiArMjAwLDcgQEAgc3RhdGljIHZvaWQgdHVuX25ldF9pbml0KHN0cnVjdCBuZXRfZGV2aQogCQlk
+ZXYtPmhhcmRfaGVhZGVyX2xlbiA9IDA7CiAJCWRldi0+YWRkcl9sZW4gPSAwOwogCQlkZXYtPm10
+dSA9IDE1MDA7CisJCWRldi0+Y2hhbmdlX210dSA9IHR1bl9uZXRfY2hhbmdlX210dTsKIAogCQkv
+KiBaZXJvIGhlYWRlciBsZW5ndGggKi8KIAkJZGV2LT50eXBlID0gQVJQSFJEX05PTkU7CkBAIC0y
+MDAsNiArMjEzLDcgQEAgc3RhdGljIHZvaWQgdHVuX25ldF9pbml0KHN0cnVjdCBuZXRfZGV2aQog
+CQlkZXYtPnNldF9tdWx0aWNhc3RfbGlzdCA9IHR1bl9uZXRfbWNsaXN0OwogCiAJCWV0aGVyX3Nl
+dHVwKGRldik7CisJCWRldi0+Y2hhbmdlX210dSA9IHR1bl9uZXRfY2hhbmdlX210dTsKIAogCQkv
+KiByYW5kb20gYWRkcmVzcyBhbHJlYWR5IGNyZWF0ZWQgZm9yIHVzIGJ5IHR1bl9zZXRfaWZmLCB1
+c2UgaXQgKi8KIAkJbWVtY3B5KGRldi0+ZGV2X2FkZHIsIHR1bi0+ZGV2X2FkZHIsIG1pbihzaXpl
+b2YodHVuLT5kZXZfYWRkciksIHNpemVvZihkZXYtPmRldl9hZGRyKSkgKTsK
+------=_Part_9046_10205655.1189616075340--
