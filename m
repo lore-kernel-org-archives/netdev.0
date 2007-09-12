@@ -1,63 +1,72 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] [-MM, FIX] ixgbe: incorporate napi_struct changes from
- net-2.6.24.git
-Date: Wed, 12 Sep 2007 15:16:43 -0700
-Message-ID: <20070912151643.cb0e070b.akpm@linux-foundation.org>
-References: <20070912181307.13189.33476.stgit@localhost.localdomain>
+From: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
+Subject: Re: [patch] sunrpc: make closing of old temporary sockets work (was: problems with lockd in 2.6.22.6)
+Date: Thu, 13 Sep 2007 00:18:55 +0200
+Message-ID: <200709130018.55728.wolfgang.walter@studentenwerk.mhn.de>
+References: <200709121407.11151.wolfgang.walter@studentenwerk.mhn.de> <200709122140.57783.wolfgang.walter@studentenwerk.mhn.de> <20070912195512.GC13792@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jeff@garzik.org,
-	jesse.brandeburg@intel.com
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Neil Brown <neilb@suse.de>, trond.myklebust@fys.uio.no,
+	netdev@vger.kernel.org, nfs@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org
+To: "J. Bruce Fields" <bfields@fieldses.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:60398 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755385AbXILWQw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 18:16:52 -0400
-In-Reply-To: <20070912181307.13189.33476.stgit@localhost.localdomain>
+Received: from mailin.studentenwerk.mhn.de ([141.84.225.229]:53971 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755963AbXILWS7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 18:18:59 -0400
+In-Reply-To: <20070912195512.GC13792@fieldses.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 12 Sep 2007 11:13:07 -0700
-Auke Kok <auke-jan.h.kok@intel.com> wrote:
+On Wednesday 12 September 2007, J. Bruce Fields wrote:
+> On Wed, Sep 12, 2007 at 09:40:57PM +0200, Wolfgang Walter wrote:
+> > On Wednesday 12 September 2007, J. Bruce Fields wrote:
+> > > On Wed, Sep 12, 2007 at 04:14:06PM +0200, Neil Brown wrote:
+> > > > So it is in 2.6.21 and later and should probably go to .stable =
+for .21
+> > > > and .22.
+> > > >=20
+> > > > Bruce:  for you :-)
+> > >=20
+> > > OK, thanks!  But, (as is alas often the case) I'm still confused:
+> > >=20
+> > > >  		if (!test_and_set_bit(SK_OLD, &svsk->sk_flags))
+> > > >  			continue;
+> > > > -		if (atomic_read(&svsk->sk_inuse) || test_bit(SK_BUSY,=20
+&svsk->sk_flags))
+> > > > +		if (atomic_read(&svsk->sk_inuse) > 1
+> > > > +		    || test_bit(SK_BUSY, &svsk->sk_flags))
+> > > >  			continue;
+> > > >  		atomic_inc(&svsk->sk_inuse);
+> > > >  		list_move(le, &to_be_aged);
+> > >=20
+> > > What is it that ensures svsk->sk_inuse isn't incremented or SK_BU=
+SY set
+> > > after that test?  Not all the code that does either of those is u=
+nder
+> > > the same serv->sv_lock lock that this code is.
+> > >=20
+> >=20
+> > This should not matter - SK_CLOSED may be set at any time.
+> >=20
+> > svc_age_temp_sockets only detaches the socket, sets SK_CLOSED and t=
+hen=20
+> > enqueues it. If SK_BUSY is set its already enqueued and svc_sock_en=
+queue=20
+> > ensures that it is not enqueued twice.
+>=20
+> Oh, got it.  And the list manipulation is safe thanks to sv_lock.  Ne=
+at,
+> thanks.  Can you verify that this solves your problem?
+>=20
 
-> This incorporates the new napi_struct changes into ixgbe.
+I'll test it tomorrow. So friday morning I'll know and mail you for sur=
+e.
 
-I get a reject storm.
-
-> --- a/drivers/net/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> @@ -557,14 +557,15 @@ static irqreturn_t ixgbe_msix_clean_rx(int irq, void *data)
->  	struct ixgbe_adapter *adapter = rxr->adapter;
->  
->  	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMC, rxr->eims_value);
-> -	netif_rx_schedule(adapter->netdev);
-> +	netif_rx_schedule(adapter->netdev, &adapter->napi);
->  	return IRQ_HANDLED;
->  }
->  
-
-For example, my copy of ixgbe_msix_clean_rx(), from
-git://lost.foo-projects.org/~aveerani/git/linux-2.6#ixgbe is:
-
-static irqreturn_t ixgbe_msix_clean_rx(int irq, void *data)
-{
-	struct ixgbe_ring *rxr = data;
-	struct ixgbe_adapter *adapter = rxr->adapter;
-
-#ifndef CONFIG_IXGBE_NAPI
-	int i;
-
-	for (i = 0; i < IXGBE_MAX_INTR; i++)
-		if (unlikely(!ixgbe_clean_rx_irq(adapter, rxr)))
-			break;
-#else
-	IXGBE_WRITE_REG(&adapter->hw, IXGBE_EIMC, rxr->eims_value);
-	netif_rx_schedule(adapter->netdev);
-#endif
-	return IRQ_HANDLED;
-}
-
-
-which is quite different from the function whcih you're altering here?
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
