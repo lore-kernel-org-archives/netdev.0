@@ -1,81 +1,112 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-2.6.24 build problem
-Date: Wed, 12 Sep 2007 07:18:47 -0700 (PDT)
-Message-ID: <20070912.071847.10311963.davem@davemloft.net>
-References: <20070912160833.73af789d@oldman>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [RFT] sky2: receive hang check
+Date: Wed, 12 Sep 2007 16:19:57 +0200
+Message-ID: <20070912161957.701eddff@oldman>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:59595
-	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S968692AbXILOSu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 10:18:50 -0400
-In-Reply-To: <20070912160833.73af789d@oldman>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:34702 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S968754AbXILOTK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 10:19:10 -0400
+Received: from oldman (15.telemaxx.net [213.144.15.9] (may be forged))
+	(authenticated bits=0)
+	by smtp2.linux-foundation.org (8.13.5.20060308/8.13.5/Debian-3ubuntu1.1) with ESMTP id l8CEJ5JU001741
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 12 Sep 2007 07:19:08 -0700
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Wed, 12 Sep 2007 16:08:33 +0200
+Would some of the users of 2.6.23-rc5 or later who still experience
+hangs please test this.
+IT IS EXPERIMENTAL AND NOT TESTED YET.
 
-> ERROR: "xfrm_audit_state_delete" [net/key/af_key.ko] undefined!
-> ERROR: "xfrm_audit_state_add" [net/key/af_key.ko] undefined!
-> ERROR: "xfrm_audit_policy_add" [net/key/af_key.ko] undefined!
-> ERROR: "xfrm_audit_policy_delete" [net/key/af_key.ko] undefined
+I am sending it out to see if it detects anything.
 
-I just checked in the following fix for this:
-
->From 2c2d4ef06a1bdb25b721372ab63adde1523e34ec Mon Sep 17 00:00:00 2001
-From: David S. Miller <davem@kimchee.(none)>
-Date: Wed, 12 Sep 2007 16:17:36 +0200
-Subject: [PATCH] [XFRM]: Add missing auditing symbol exports.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/xfrm/xfrm_policy.c |    2 ++
- net/xfrm/xfrm_state.c  |    2 ++
- 2 files changed, 4 insertions(+), 0 deletions(-)
-
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index de0ff51..50682d3 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2341,6 +2341,7 @@ xfrm_audit_policy_add(struct xfrm_policy *xp, int result, u32 auid, u32 sid)
- 	xfrm_audit_common_policyinfo(xp, audit_buf);
- 	audit_log_end(audit_buf);
- }
-+EXPORT_SYMBOL_GPL(xfrm_audit_policy_add);
+--- a/drivers/net/sky2.c	2007-09-12 14:52:18.000000000 +0200
++++ b/drivers/net/sky2.c	2007-09-12 15:53:16.000000000 +0200
+@@ -1304,6 +1304,7 @@ static int sky2_up(struct net_device *de
+ 	/* Register is number of 4K blocks on internal RAM buffer. */
+ 	ramsize = sky2_read8(hw, B2_E_0) * 4;
+ 	printk(KERN_INFO PFX "%s: ram buffer %dK\n", dev->name, ramsize);
++	memset(&sky2->check, 0, sizeof(sky2->check));
  
- void
- xfrm_audit_policy_delete(struct xfrm_policy *xp, int result, u32 auid, u32 sid)
-@@ -2357,6 +2358,7 @@ xfrm_audit_policy_delete(struct xfrm_policy *xp, int result, u32 auid, u32 sid)
- 	xfrm_audit_common_policyinfo(xp, audit_buf);
- 	audit_log_end(audit_buf);
+ 	if (ramsize > 0) {
+ 		u32 rxspace;
+@@ -2446,11 +2447,42 @@ static void sky2_le_error(struct sky2_hw
+ 	sky2_write32(hw, Q_ADDR(q, Q_CSR), BMU_CLR_IRQ_CHK);
  }
-+EXPORT_SYMBOL_GPL(xfrm_audit_policy_delete);
+ 
+-/* Check for lost IRQ once a second */
++static void sky2_rx_check(struct net_device *dev)
++{
++	struct sky2_port *sky2 = netdev_priv(dev);
++	struct sky2_hw *hw = sky2->hw;
++	unsigned port = sky2->port;
++	unsigned rxq = rxqaddr[port];
++	u32 mac_rp = sky2_read32(hw, SK_REG(port, RX_GMF_RP));
++	u8 mac_lev = sky2_read8(hw, SK_REG(port, RX_GMF_RLEV));
++	u8 fifo_rp = sky2_read8(hw, Q_ADDR(rxq, Q_RP));
++	u8 fifo_lev = sky2_read8(hw, Q_ADDR(rxq, Q_RL));
++
++	/* If not idle and MAC or PCI is stuck */
++	if (sky2->check.last != dev->last_rx &&
++	    ((mac_rp == sky2->check.mac_rp &&
++		     mac_lev != 0 && mac_lev >= sky2->check.mac_lev) ||
++		    /* Check if the PCI RX hang */
++		    (fifo_rp == sky2->check.fifo_rp &&
++		     fifo_lev != 0 && fifo_lev >= sky2->check.fifo_lev))) {
++
++		pr_info(PFX "%s: receiver hang detected\n", dev->name);
++		schedule_work(&hw->restart_work);
++	}
++
++	sky2->check.last = dev->last_rx;
++	sky2->check.mac_rp = mac_rp;
++	sky2->check.mac_lev = mac_lev;
++	sky2->check.fifo_rp = fifo_rp;
++	sky2->check.fifo_lev = fifo_lev;
++}
++
+ static void sky2_watchdog(unsigned long arg)
+ {
+ 	struct sky2_hw *hw = (struct sky2_hw *) arg;
++	int i;
+ 
++	/* Check for lost IRQ */
+ 	if (sky2_read32(hw, B0_ISRC)) {
+ 		struct net_device *dev = hw->dev[0];
+ 
+@@ -2458,6 +2490,13 @@ static void sky2_watchdog(unsigned long 
+ 			__netif_rx_schedule(dev);
+ 	}
+ 
++	/* Check for stuck receiver */
++	if (sky2_read8(hw, B2_E_0) != 0)
++		for (i = 0; i < hw->ports; i++)
++			if (netif_running(hw->dev[i]))
++			    sky2_rx_check(hw->dev[i]);
++
++
+ 	if (hw->active > 0)
+ 		mod_timer(&hw->watchdog_timer, round_jiffies(jiffies + HZ));
+ }
+--- a/drivers/net/sky2.h	2007-09-05 14:21:59.000000000 +0200
++++ b/drivers/net/sky2.h	2007-09-12 15:36:59.000000000 +0200
+@@ -2017,6 +2017,14 @@ struct sky2_port {
+ 	u16		     rx_tag;
+ 	struct vlan_group    *vlgrp;
  #endif
++	struct {
++		unsigned long last;
++		u32	mac_rp;
++		u8	mac_lev;
++		u8	fifo_rp;
++		u8	fifo_lev;
++	} check;
++
  
- #ifdef CONFIG_XFRM_MIGRATE
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index f64621c..15734ad 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1865,6 +1865,7 @@ xfrm_audit_state_add(struct xfrm_state *x, int result, u32 auid, u32 sid)
- 			 (unsigned long)x->id.spi, (unsigned long)x->id.spi);
- 	audit_log_end(audit_buf);
- }
-+EXPORT_SYMBOL_GPL(xfrm_audit_state_add);
- 
- void
- xfrm_audit_state_delete(struct xfrm_state *x, int result, u32 auid, u32 sid)
-@@ -1883,4 +1884,5 @@ xfrm_audit_state_delete(struct xfrm_state *x, int result, u32 auid, u32 sid)
- 			 (unsigned long)x->id.spi, (unsigned long)x->id.spi);
- 	audit_log_end(audit_buf);
- }
-+EXPORT_SYMBOL_GPL(xfrm_audit_state_delete);
- #endif /* CONFIG_AUDITSYSCALL */
--- 
-1.5.2.4
-
+ 	dma_addr_t	     rx_le_map;
+ 	dma_addr_t	     tx_le_map;
