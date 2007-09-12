@@ -1,62 +1,25 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH] veth: Cleanly handle a missing peer_tb argument on creation.
-Date: Wed, 12 Sep 2007 18:49:08 +0400
-Message-ID: <46E7FC64.5030604@openvz.org>
-References: <m17imwaumb.fsf@ebiederm.dsl.xmission.com>	<46E7F466.1060704@openvz.org> <m1odg89byw.fsf@ebiederm.dsl.xmission.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 1/1] ipv6: corrects sended rtnetlink message
+Date: Wed, 12 Sep 2007 16:53:23 +0200
+Message-ID: <20070912145323.GE18480@postel.suug.ch>
+References: <20070815143322.GA25640@wq.cz> <20070821.002058.102575162.davem@davemloft.net> <20070829215119.GB15856@wq.cz> <20070906104711.GV18480@postel.suug.ch> <20070906210550.GA13542@wq.cz> <20070907101137.GX18480@postel.suug.ch> <20070912145030.GA29748@wq.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Milan Kocian <milon@wq.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:53418 "EHLO sacred.ru"
+Received: from postel.suug.ch ([194.88.212.233]:33962 "EHLO postel.suug.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966819AbXILOvt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Sep 2007 10:51:49 -0400
-In-Reply-To: <m1odg89byw.fsf@ebiederm.dsl.xmission.com>
+	id S965975AbXILOxD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Sep 2007 10:53:03 -0400
+Content-Disposition: inline
+In-Reply-To: <20070912145030.GA29748@wq.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> Pavel Emelyanov <xemul@openvz.org> writes:
-> 
->>> +	}
->>>  
->>> -		tbp = peer_tb;
->>> -	} else
->>> -		tbp = tb;
->> The intention of this part was to get the same parameters for
->> peer as for the first device if no "peer" argument was specified
->> for ip utility. Does it still work?
-> 
-> I know it is problematic because we try to assign the same name
-> to both network devices, if we assign a name to the primary
-> network device.  That can't work.
+* Milan Kocian <milon@wq.cz> 2007-09-12 16:50
+> However I still think that this notitfication is redundant. I tried to look
+> at XORP, bird, USAGI , quagga and to see RTM_DELLINK handling. And imho
+> nobody depends on RTM_DELLINK message from ipv6.
 
-This can - as you can see I reallocate the name lower.
-
-> Beyond that I had some really weird crashes while testing this
-> piece of code, especially when I did not specify a peer parameter.
-
-Can you please give me the exact command that caused an oops.
-I try simple ip link add type veth and everything is just fine.
-
-> So it was just easier to avoid the problem with this patch then
-> to completely root cause it.
-
-Let me handle this problem. AFAIR this was one of wishes from 
-Patrick that we make two equal devices in case peer is not given, 
-not just the default peer.
-
-> I think the easiest semantic is to not have any peer parameters
-> if they were not specified, then to try and to figure out which
-> subset of parameters to copy.  If I hadn't been getting weird
-> kernel crashes I would not have cared.
-> 
-> Eric
-> 
-
-Thanks,
-Pavel
+Send a patch to remove and we'll see if anyone complains.
