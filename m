@@ -1,90 +1,96 @@
-From: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
-Subject: [patch] sunrpc: make closing of old temporary sockets work (was: problems with lockd in 2.6.22.6)
-Date: Wed, 12 Sep 2007 14:07:10 +0200
-Message-ID: <200709121407.11151.wolfgang.walter@studentenwerk.mhn.de>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: RFC: possible NAPI improvements to reduce interrupt rates for
+	low traffic rates
+Date: Wed, 12 Sep 2007 08:12:22 -0400
+Message-ID: <1189599142.4326.38.camel@localhost>
+References: <200709061416.l86EG0Vb017675@quickie.katalix.com>
+	 <1189120020.4259.68.camel@localhost> <46E11A61.9030409@katalix.com>
+	 <1189171370.4234.38.camel@localhost>
+	 <20070912030428.16059af6.billfink@mindspring.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, nfs@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org
-To: trond.myklebust@fys.uio.no, bfields@fieldses.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: James Chapman <jchapman@katalix.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, jeff@garzik.org, mandeep.baines@gmail.com,
+	ossthema@de.ibm.com, Stephen Hemminger <shemminger@osdl.org>
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dresden.studentenwerk.mhn.de ([141.84.225.229]:36964 "EHLO
-	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1765744AbXILMHN convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Sep 2007 08:07:13 -0400
-Content-Disposition: inline
+Received: from an-out-0708.google.com ([209.85.132.245]:52207 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966458AbXILMM1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 08:12:27 -0400
+Received: by an-out-0708.google.com with SMTP id d31so17166and
+        for <netdev@vger.kernel.org>; Wed, 12 Sep 2007 05:12:26 -0700 (PDT)
+In-Reply-To: <20070912030428.16059af6.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Wed, 2007-12-09 at 03:04 -0400, Bill Fink wrote:
+> On Fri, 07 Sep 2007, jamal wrote:
 
-as already described old temporary sockets (client is gone) of lockd ar=
-en't
-closed after some time. So, with enough clients and some time gone, the=
-re
-are 80 open dangling sockets and you start getting messages of the form=
-:
+> > I am going to be the devil's advocate[1]:
+> 
+> So let me be the angel's advocate.  :-)
 
-lockd: too many open TCP sockets, consider increasing the number of nfs=
-d threads.
+I think this would make you God's advocate ;->
+(http://en.wikipedia.org/wiki/God%27s_advocate)
 
-If I understand the code then the intention was that the server closes
-temporary sockets after about 6 to 12 minutes:
+> I view his results much more favorably.  
 
-	a timer is started which calls svc_age_temp_sockets every 6 minutes.
+The challenge is, under _low traffic_: bad bad CPU use.
+Thats what is at stake, correct?
 
-	svc_age_temp_sockets:
-		if a socket is marked OLD it gets closed.
-		sockets which are not marked as OLD are marked OLD
+Lets bury the stats for a sec ...
 
-	every time the sockets receives something OLD is cleared.
+1) Has that CPU situation improved? No, it has gotten worse.
+2) Was there a throughput problem? No. 
+Remember, this is _low traffic and the complaint is not NAPI doesnt do
+high throughput. I am not willing to spend 34% more cpu to get a few
+hundred pps (under low traffic!). 
+3)Latency improvement is good. But is 34% cost worthwile for the corner
+case of low traffic?
 
-But svc_age_temp_sockets never closes any socket though because it only
-closes sockets with svsk->sk_inuse =3D=3D 0. This seems to be a bug.
+Heres an analogy:
+I went to buy bread and complained that 66cents was too much for such
+a tiny sliced loaf.
+You tell me you have solved my problem: asking me to pay a dollar
+because you made the bread slices crispier. I was complaining on the _66
+cents price_ not on the crispiness of the slices ;-> Crispier slices are
+good - but am i, the person who was complaining about price, willing to
+pay 40-50% more? People are bitching about NAPI abusing CPU, is the 
+answer to abuse more CPU than NAPI?;->
+The answer could be "I am not solving that problem anymore" - at least
+thats what James is saying;->
 
-Here is a patch against 2.6.22.6 which changes the test to
-svsk->sk_inuse <=3D 0 which was probably meant. The patched kernel runs=
- fine
-here. Unused sockets get closed (after 6 to 12 minutes)
+Note: I am not saying theres no problem - just saying the result is not
+addressing the problem.
 
-Signed-off-by: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
+> You can't always improve on all metrics of a workload.  
 
---- ../linux-2.6.22.6/net/sunrpc/svcsock.c	2007-08-27 18:10:14.00000000=
-0 +0200
-+++ net/sunrpc/svcsock.c	2007-09-11 11:07:13.000000000 +0200
-@@ -1572,7 +1575,7 @@
-=20
- 		if (!test_and_set_bit(SK_OLD, &svsk->sk_flags))
- 			continue;
--		if (atomic_read(&svsk->sk_inuse) || test_bit(SK_BUSY, &svsk->sk_flag=
-s))
-+		if (atomic_read(&svsk->sk_inuse) <=3D 0 || test_bit(SK_BUSY, &svsk->=
-sk_flags))
- 			continue;
- 		atomic_inc(&svsk->sk_inuse);
- 		list_move(le, &to_be_aged);
+But you gotta try to be consistent. 
+If, for example, one packet size/rate got negative results but the next
+got positive results - thats lacking consistency. 
 
+> Sometimes there
+> are tradeoffs to be made to be decided by the user based on what's most
+> important to that user and his specific workload.  And the suggested
+> ethtool option (defaulting to current behavior) would enable the user
+> to make that decision.
 
-As svc_age_temp_sockets did not do anything before this change may trig=
-ger
-hidden bugs.
+And the challenge is:
+What workload is willing to invest that much cpu for low traffic?
+Can you name one? One that may come close is database benchmarks for
+latency - but those folks wouldnt touch this with a mile-long pole if
+you told them their cpu use is going to get worse than what NAPI (that
+big bad CPU hog under low traffic) is giving them.
 
-To be true I don't see why this check
+> 
+> P.S.  I agree that some tests run in parallel with some CPU hogs also
+>       running might be beneficial and enlightening.
 
-(atomic_read(&svsk->sk_inuse) <=3D 0 || test_bit(SK_BUSY, &svsk->sk_fla=
-gs))
+indeed.
 
-is needed at all (it can only be an optimation) as this fields change a=
-fter
-the check. In svc_tcp_accept there is no such check when a temporary so=
-cket
-is closed.
+cheers,
+jamal
 
-
-Regards,
---=20
-Wolfgang Walter
-Studentenwerk M=FCnchen
-Anstalt des =F6ffentlichen Rechts
