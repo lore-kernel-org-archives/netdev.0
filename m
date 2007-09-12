@@ -1,47 +1,37 @@
-From: Joy Latten <latten@austin.ibm.com>
-Subject: Re: net-2.6.24 build problem
-Date: Wed, 12 Sep 2007 10:00:57 -0500
-Message-ID: <1189609257.15699.803.camel@faith.austin.ibm.com>
-References: <20070912160833.73af789d@oldman>
-	 <20070912.071847.10311963.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: SO_BINDTODEVICE mismatch with man page & comments.
+Date: Wed, 12 Sep 2007 08:08:32 -0700 (PDT)
+Message-ID: <20070912.080832.52182952.davem@davemloft.net>
+References: <46DDDFFA.6090705@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:57110 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752300AbXILPEa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Sep 2007 11:04:30 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8CF4TbV011320
-	for <netdev@vger.kernel.org>; Wed, 12 Sep 2007 11:04:29 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8CF4Sae675856
-	for <netdev@vger.kernel.org>; Wed, 12 Sep 2007 11:04:28 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8CF4Sdi028227
-	for <netdev@vger.kernel.org>; Wed, 12 Sep 2007 11:04:28 -0400
-In-Reply-To: <20070912.071847.10311963.davem@davemloft.net>
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:48899
+	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S965835AbXILPIh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 11:08:37 -0400
+In-Reply-To: <46DDDFFA.6090705@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-09-12 at 07:18 -0700, David Miller wrote:
-> From: Stephen Hemminger <shemminger@linux-foundation.org>
-> Date: Wed, 12 Sep 2007 16:08:33 +0200
+From: Ben Greear <greearb@candelatech.com>
+Date: Tue, 04 Sep 2007 15:45:14 -0700
+
+> According to the comment in the net/core/sock.c code (in 2.6.20), I should be able to pass a zero
+> optlen to the setsockopt method for SO_BINDTODEVICE:
+ ...
 > 
-> > ERROR: "xfrm_audit_state_delete" [net/key/af_key.ko] undefined!
-> > ERROR: "xfrm_audit_state_add" [net/key/af_key.ko] undefined!
-> > ERROR: "xfrm_audit_policy_add" [net/key/af_key.ko] undefined!
-> > ERROR: "xfrm_audit_policy_delete" [net/key/af_key.ko] undefined
+> However, earlier in that method it returns -EINVAL if optlen is < sizeof(int).
 > 
-> I just checked in the following fix for this:
-> 
+> The man page has comments similar to that in the code above.
 
-Thanks. I took note for future reference, so it
-won't happen again.
+Yes, the comment definitely does not match the code and
+should be fixed one way or the other.
 
-Joy
+I'll do some code history research to try and figure out
+if this optlen==0 case ever worked properly.
 
-
+Thanks.
