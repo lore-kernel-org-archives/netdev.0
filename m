@@ -1,7 +1,8 @@
 From: Jesper Dangaard Brouer <jdb@comx.dk>
-Subject: [PATCH 0/6] NET_SCHED: Rate table fixes
-Date: Wed, 12 Sep 2007 12:13:40 +0200
-Message-ID: <1189592020.26927.20.camel@localhost.localdomain>
+Subject: [PATCH 1/6] [NET_SCHED]: Cleanup L2T macros and handle oversized
+	packets
+Date: Wed, 12 Sep 2007 12:13:51 +0200
+Message-ID: <1189592031.26927.22.camel@localhost.localdomain>
 Reply-To: jdb@comx.dk
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,87 +12,105 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Stephen Hemminger <shemminger@linux-foundation.org>
 To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:39707 "EHLO
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:39712 "EHLO
 	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933056AbXILKOP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 06:14:15 -0400
+	with ESMTP id S933008AbXILKOZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 06:14:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+commit a28343c933f6cfc3df1be86e0ebe8d99fa8d5f77
+Author: Jesper Dangaard Brouer <hawk@comx.dk>
+Date:   Wed Sep 12 10:01:00 2007 +0200
 
-This set of patches, aim at fixing an issue with the rate table used
-by the rate based schedulers.
+    [NET_SCHED]: Cleanup L2T macros and handle oversized packets
+    
+    Change L2T (length to time) macros, in all rate based schedulers, to
+    call a common function qdisc_l2t() that does the rate table lookup.
+    This function handles if the packet size lookup is larger than the
+    rate table, which often occurs with TSO enabled.
+    
+    Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
 
-Currently we use the lower-boundry value, which result in
-under-estimating the actual bandwidth usage.  The patches will change
-this to use the upper-boundry L2T (length to time) value.
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 8a67f24..4ebd615 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -302,4 +302,16 @@ drop:
+ 	return NET_XMIT_DROP;
+ }
+ 
++/* Length to Time (L2T) lookup in a qdisc_rate_table, to determine how
++   long it will take to send a packet given its size.
++ */
++static inline u32 qdisc_l2t(struct qdisc_rate_table* rtab, unsigned int pktlen)
++{
++	int slot = pktlen;
++	slot >>= rtab->rate.cell_log;
++	if (slot > 255)
++		return (rtab->data[255]*(slot >> 8) + rtab->data[slot & 0xFF]);
++	return rtab->data[slot];
++}
++
+ #endif
+diff --git a/net/sched/act_police.c b/net/sched/act_police.c
+index 6085be5..46deb5f 100644
+--- a/net/sched/act_police.c
++++ b/net/sched/act_police.c
+@@ -21,8 +21,8 @@
+ #include <net/act_api.h>
+ #include <net/netlink.h>
+ 
+-#define L2T(p,L)   ((p)->tcfp_R_tab->data[(L)>>(p)->tcfp_R_tab->rate.cell_log])
+-#define L2T_P(p,L) ((p)->tcfp_P_tab->data[(L)>>(p)->tcfp_P_tab->rate.cell_log])
++#define L2T(p,L)   qdisc_l2t((p)->tcfp_R_tab, L)
++#define L2T_P(p,L) qdisc_l2t((p)->tcfp_P_tab, L)
+ 
+ #define POL_TAB_MASK     15
+ static struct tcf_common *tcf_police_ht[POL_TAB_MASK + 1];
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index e38c283..aed2af2 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -175,7 +175,7 @@ struct cbq_sched_data
+ };
+ 
+ 
+-#define L2T(cl,len)	((cl)->R_tab->data[(len)>>(cl)->R_tab->rate.cell_log])
++#define L2T(cl,len)	qdisc_l2t((cl)->R_tab,len)
+ 
+ 
+ static __inline__ unsigned cbq_hash(u32 h)
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 246a2f9..5e608a6 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -132,10 +132,8 @@ struct htb_class {
+ static inline long L2T(struct htb_class *cl, struct qdisc_rate_table *rate,
+ 			   int size)
+ {
+-	int slot = size >> rate->rate.cell_log;
+-	if (slot > 255)
+-		return (rate->data[255]*(slot >> 8) + rate->data[slot & 0xFF]);
+-	return rate->data[slot];
++	long result = qdisc_l2t(rate, size);
++	return result;
+ }
+ 
+ struct htb_sched {
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index 8c2639a..b0d8109 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -115,8 +115,8 @@ struct tbf_sched_data
+ 	struct qdisc_watchdog watchdog;	/* Watchdog timer */
+ };
+ 
+-#define L2T(q,L)   ((q)->R_tab->data[(L)>>(q)->R_tab->rate.cell_log])
+-#define L2T_P(q,L) ((q)->P_tab->data[(L)>>(q)->P_tab->rate.cell_log])
++#define L2T(q,L)   qdisc_l2t((q)->R_tab,L)
++#define L2T_P(q,L) qdisc_l2t((q)->P_tab,L)
+ 
+ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc* sch)
+ {
 
-The patches include both changes to the kernel and iproute2 userspace
-utility. The kernel changes, only adds flexibility to allow userspace
-to do the rate table alignment. The patches has been splitup in
-cleanup and actual functional change patches.
-
-The patches also moves the overhead calculation (currently only used
-by HTB) into the kernel, which makes it more precise (as it won't miss-align
-the contents of the rate table).
-
-This should raise some questions,
- 1. How does the current/old rate table mapping look like.
- 2. How does new aligned rate table mapping look like.
- 3. What happens when only the TC util is changed and used on a old kernel.
-
-Lets look at how the layout of the rate tables looks like:
-
-Illustrating the rate table array:
-  Legend description
-    rtab[x]   : Array index x of rtab[x]
-    xmit_sz   : Transmit size contained in rtab[x] (normally transmit time)
-    maps[a-b] : Packet sizes from a to b, will map into rtab[x]
-
-(1) Current/old rate table mapping (cell_log:3):
-  rtab[0]:=xmit_sz:0  maps[0-7]
-  rtab[1]:=xmit_sz:8  maps[8-15]
-  rtab[2]:=xmit_sz:16 maps[16-23]
-  rtab[3]:=xmit_sz:24 maps[24-31]
-  rtab[4]:=xmit_sz:32 maps[32-39]
-  rtab[5]:=xmit_sz:40 maps[40-47]
-  rtab[6]:=xmit_sz:48 maps[48-55]
-
-The above illustrates that we are using the lower-boundry transmit
-size (xmit_sz).
-
-(2) New iproute rate table mapping, with kernel cell_align support.
-  rtab[0]:=xmit_sz:8  maps[0-8]
-  rtab[1]:=xmit_sz:16 maps[9-16]
-  rtab[2]:=xmit_sz:24 maps[17-24]
-  rtab[3]:=xmit_sz:32 maps[25-32]
-  rtab[4]:=xmit_sz:40 maps[33-40]
-  rtab[5]:=xmit_sz:48 maps[41-48]
-  rtab[6]:=xmit_sz:56 maps[49-56]
-
-The above illustrates that we are using the upper-boundry transmit
-size (xmit_sz), when mapping packets sizes.
-
-The interesting question is what about compatibility.  If a old
-iproute utility is used on a new kernel, we simply get the old rate
-table (lower-bound) alignment. The interesting case is what happens
-with a new iproute util on a old kernel. The table below, shows that
-what happens is that we use the upper-bound+1byte.  I believe that
-this is a good and acceptable solution.
-
-(3) New TC util on a kernel WITHOUT support for cell_align
-  rtab[0]:=xmit_sz:8 maps[0-7]
-  rtab[1]:=xmit_sz:16 maps[8-15]
-  rtab[2]:=xmit_sz:24 maps[16-23]
-  rtab[3]:=xmit_sz:32 maps[24-31]
-  rtab[4]:=xmit_sz:40 maps[32-39]
-  rtab[5]:=xmit_sz:48 maps[40-47]
-  rtab[6]:=xmit_sz:56 maps[48-55]
-
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network developer
-  Cand. Scient Datalog / MSc.
-  Author of http://adsl-optimizer.dk
