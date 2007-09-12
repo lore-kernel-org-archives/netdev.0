@@ -1,154 +1,93 @@
-From: Neil Brown <neilb@suse.de>
-Subject: Re: [patch] sunrpc: make closing of old temporary sockets
-	work (was: problems with lockd in 2.6.22.6)
-Date: Wed, 12 Sep 2007 16:14:06 +0200
-Message-ID: <18151.62510.891210.485277@notabene.brown>
-References: <200709121407.11151.wolfgang.walter@studentenwerk.mhn.de>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH] veth: Cleanly handle a missing peer_tb argument on creation.
+Date: Wed, 12 Sep 2007 18:15:02 +0400
+Message-ID: <46E7F466.1060704@openvz.org>
+References: <m17imwaumb.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: bfields@fieldses.org, netdev@vger.kernel.org,
-	nfs@lists.sourceforge.net, linux-kernel@vger.kernel.org,
-	trond.myklebust@fys.uio.no
-To: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
-Return-path: <nfs-bounces@lists.sourceforge.net>
-In-Reply-To: message from Wolfgang Walter on Wednesday September 12
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
-	<mailto:nfs-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=nfs>
-List-Post: <mailto:nfs@lists.sourceforge.net>
-List-Help: <mailto:nfs-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
-	<mailto:nfs-request@lists.sourceforge.net?subject=subscribe>
-Sender: nfs-bounces@lists.sourceforge.net
-Errors-To: nfs-bounces@lists.sourceforge.net
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sacred.ru ([62.205.161.221]:34975 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965354AbXILORm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Sep 2007 10:17:42 -0400
+In-Reply-To: <m17imwaumb.fsf@ebiederm.dsl.xmission.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday September 12, wolfgang.walter@studentenwerk.mhn.de wrote:
-> Hello,
+Eric W. Biederman wrote:
+> I was getting strange kernel crashes when attempting to
+> create veth devices when I did not specify a peer argument
+> to /bin/ip.
 > 
-> as already described old temporary sockets (client is gone) of lockd aren't
-> closed after some time. So, with enough clients and some time gone, there
-> are 80 open dangling sockets and you start getting messages of the form:
+> So this patch defaults peer_tb to all zeros and doesn't attempt to
+> reuse the netlink attributes for the primary link to create the
+> secondary link and now I can't reproduce the failures.
 > 
-> lockd: too many open TCP sockets, consider increasing the number of nfsd threads.
+> Given that some of the most interesting netlink attributes to specify
+> like a mac address or a network device name seem are generally
+> the wrong thing to do this seems like the right approach.
 > 
-> If I understand the code then the intention was that the server closes
-> temporary sockets after about 6 to 12 minutes:
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> ---
+>  drivers/net/veth.c |   16 +++++++---------
+>  1 files changed, 7 insertions(+), 9 deletions(-)
 > 
-> 	a timer is started which calls svc_age_temp_sockets every 6 minutes.
-> 
-> 	svc_age_temp_sockets:
-> 		if a socket is marked OLD it gets closed.
-> 		sockets which are not marked as OLD are marked OLD
-> 
-> 	every time the sockets receives something OLD is cleared.
-> 
-> But svc_age_temp_sockets never closes any socket though because it only
-> closes sockets with svsk->sk_inuse == 0. This seems to be a bug.
-> 
-> Here is a patch against 2.6.22.6 which changes the test to
-> svsk->sk_inuse <= 0 which was probably meant. The patched kernel runs fine
-> here. Unused sockets get closed (after 6 to 12 minutes)
-> 
-> Signed-off-by: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
-> 
-> --- ../linux-2.6.22.6/net/sunrpc/svcsock.c	2007-08-27 18:10:14.000000000 +0200
-> +++ net/sunrpc/svcsock.c	2007-09-11 11:07:13.000000000 +0200
-> @@ -1572,7 +1575,7 @@
+> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+> index 9e6a746..d49bd2c 100644
+> --- a/drivers/net/veth.c
+> +++ b/drivers/net/veth.c
+> @@ -313,7 +313,7 @@ static int veth_newlink(struct net_device *dev,
+>  	struct net_device *peer;
+>  	struct veth_priv *priv;
+>  	char ifname[IFNAMSIZ];
+> -	struct nlattr *peer_tb[IFLA_MAX + 1], **tbp;
+> +	struct nlattr *peer_tb[IFLA_MAX + 1];
 >  
->  		if (!test_and_set_bit(SK_OLD, &svsk->sk_flags))
->  			continue;
-> -		if (atomic_read(&svsk->sk_inuse) || test_bit(SK_BUSY, &svsk->sk_flags))
-> +		if (atomic_read(&svsk->sk_inuse) <= 0 || test_bit(SK_BUSY, &svsk->sk_flags))
->  			continue;
->  		atomic_inc(&svsk->sk_inuse);
->  		list_move(le, &to_be_aged);
-> 
-> 
-> As svc_age_temp_sockets did not do anything before this change may trigger
-> hidden bugs.
-> 
-> To be true I don't see why this check
-> 
-> (atomic_read(&svsk->sk_inuse) <= 0 || test_bit(SK_BUSY, &svsk->sk_flags))
-> 
-> is needed at all (it can only be an optimation) as this fields change after
-> the check. In svc_tcp_accept there is no such check when a temporary socket
-> is closed.
+>  	/*
+>  	 * create and register peer first
+> @@ -322,6 +322,7 @@ static int veth_newlink(struct net_device *dev,
+>  	 * skip it since no info from it is useful yet
+>  	 */
+>  
+> +	memset(peer_tb, 0, sizeof(peer_tb));
+>  	if (data != NULL && data[VETH_INFO_PEER] != NULL) {
+>  		struct nlattr *nla_peer;
+>  
+> @@ -336,21 +337,18 @@ static int veth_newlink(struct net_device *dev,
+>  		err = veth_validate(peer_tb, NULL);
+>  		if (err < 0)
+>  			return err;
+> +	}
+>  
+> -		tbp = peer_tb;
+> -	} else
+> -		tbp = tb;
 
-Thanks for looking into this.
+The intention of this part was to get the same parameters for
+peer as for the first device if no "peer" argument was specified
+for ip utility. Does it still work?
 
-I think the correct change is to test
-		if (atomic_read(&svsk->sk_inuse) > 1 || test_bit(SK_BUSY, &svsk->sk_flags))
-or even
-		if (atomic_read(&svsk->sk_inuse) != 1 || test_bit(SK_BUSY, &svsk->sk_flags))
+> -
+> -	if (tbp[IFLA_IFNAME])
+> -		nla_strlcpy(ifname, tbp[IFLA_IFNAME], IFNAMSIZ);
+> +	if (peer_tb[IFLA_IFNAME])
+> +		nla_strlcpy(ifname, peer_tb[IFLA_IFNAME], IFNAMSIZ);
+>  	else
+>  		snprintf(ifname, IFNAMSIZ, DRV_NAME "%%d");
+>  
+> -	peer = rtnl_create_link(dev->nd_net, ifname, &veth_link_ops, tbp);
+> +	peer = rtnl_create_link(dev->nd_net, ifname, &veth_link_ops, peer_tb);
+>  	if (IS_ERR(peer))
+>  		return PTR_ERR(peer);
+>  
+> -	if (tbp[IFLA_ADDRESS] == NULL)
+> +	if (peer_tb[IFLA_ADDRESS] == NULL)
+>  		random_ether_addr(peer->dev_addr);
+>  
+>  	err = register_netdevice(peer);
 
-sk_inuse contains a bias of '1' until SK_DEAD is set.  So a normal,
-active socket will have an inuse count of 1 or more.  If it is exactly
-1, then either it is SK_DEAD (in which case there is nothing for this
-code to do), or it has no users, in which case it is appropriate to
-close the socket if it is old.
-Note that this test is for "the socket should not be closed", so we
-test if it is *not* 1, or > 1.
-
-The tests are needed because we don't want to close a socket that
-might be inuse elsewhere.  The SK_BUSY bit combined with the sk_inuse
-count combine to check if the socket is in use at all or not.
-
-You change effectively disabled the test, as sk_inuse is never <= 0
-(except when SK_DEAD is set).
-
-This bug has been present since 
-commit aaf68cfbf2241d24d46583423f6bff5c47e088b3
-Author: NeilBrown <neilb@suse.de>
-Date:   Thu Feb 8 14:20:30 2007 -0800
-
-(i.e. it is my fault).
-So it is in 2.6.21 and later and should probably go to .stable for .21
-and .22.
-
-Bruce:  for you :-)
----------------------------
-Correctly close old nfsd/lockd sockets.
-
-From: NeilBrown <neilb@suse.de>
-
-Commit aaf68cfbf2241d24d46583423f6bff5c47e088b3 added a bias
-to sk_inuse, so this test for an unused socket now fails.  So no
-sockets gets closed because they are old (they might get closed
-if the client closed them).
-
-This bug has existed since 2.6.21-rc1.
-
-Thanks to Wolfgang Walter for finding and reporting the bug.
-
-
-Cc: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
-Signed-off-by: Neil Brown <neilb@suse.de>
-
-### Diffstat output
- ./net/sunrpc/svcsock.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff .prev/net/sunrpc/svcsock.c ./net/sunrpc/svcsock.c
---- .prev/net/sunrpc/svcsock.c	2007-09-12 16:05:23.000000000 +0200
-+++ ./net/sunrpc/svcsock.c	2007-09-12 16:06:01.000000000 +0200
-@@ -1592,7 +1592,8 @@ svc_age_temp_sockets(unsigned long closu
- 
- 		if (!test_and_set_bit(SK_OLD, &svsk->sk_flags))
- 			continue;
--		if (atomic_read(&svsk->sk_inuse) || test_bit(SK_BUSY, &svsk->sk_flags))
-+		if (atomic_read(&svsk->sk_inuse) > 1
-+		    || test_bit(SK_BUSY, &svsk->sk_flags))
- 			continue;
- 		atomic_inc(&svsk->sk_inuse);
- 		list_move(le, &to_be_aged);
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2005.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
-_______________________________________________
-NFS maillist  -  NFS@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/nfs
