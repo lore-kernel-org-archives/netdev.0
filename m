@@ -1,61 +1,84 @@
-From: Arnd Bergmann <ARNDB@de.ibm.com>
-Subject: Re: new NAPI interface broken for POWER architecture?
-Date: Wed, 12 Sep 2007 17:18:36 +0200
-Message-ID: <200709121718.37820.ARNDB@de.ibm.com>
-References: <200709071137.02801.ossthema@de.ibm.com> <20070912.055004.88490155.davem@davemloft.net>  <OF2D6ED296.BDB04FBF-ONC1257354.00473703-C1257354.0048406C@de.ibm.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] veth: Cleanly handle a missing peer_tb argument on creation.
+Date: Wed, 12 Sep 2007 09:25:45 -0600
+Message-ID: <m1ejh3aosm.fsf@ebiederm.dsl.xmission.com>
+References: <m17imwaumb.fsf@ebiederm.dsl.xmission.com>
+	<46E7F466.1060704@openvz.org>
+	<m1odg89byw.fsf@ebiederm.dsl.xmission.com>
+	<46E7FC64.5030604@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>,
-	Jan-Bernd Themann <THEMANN@de.ibm.com>, netdev@vger.kernel.org,
-	ossthema@linux.vnet.ibm.com, shemminger@linux-foundation.org,
-	Paul Mackerras <pmac@au1.ibm.com>,
-	Michael Ellerman <ellerman@au1.ibm.com>,
-	linuxppc-dev@ozlabs.org
-To: Christoph Raisch <RAISCH@de.ibm.com>
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:33333 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933205AbXILPVz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Sep 2007 11:21:55 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8CFLt9b019842
-	for <netdev@vger.kernel.org>; Wed, 12 Sep 2007 11:21:55 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8CFLsDC546824
-	for <netdev@vger.kernel.org>; Wed, 12 Sep 2007 11:21:54 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8CFLrf2016494
-	for <netdev@vger.kernel.org>; Wed, 12 Sep 2007 11:21:54 -0400
-In-Reply-To: <OF2D6ED296.BDB04FBF-ONC1257354.00473703-C1257354.0048406C@de.ibm.com>
-Content-Disposition: inline
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:46304 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933522AbXILP0S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 11:26:18 -0400
+In-Reply-To: <46E7FC64.5030604@openvz.org> (Pavel Emelyanov's message of "Wed,
+	12 Sep 2007 18:49:08 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 12 September 2007, Christoph Raisch wrote:
-> David Miller <davem@davemloft.net> wrote on 12.09.2007 14:50:04:
+Pavel Emelyanov <xemul@openvz.org> writes:
+
+> Eric W. Biederman wrote:
+>> Pavel Emelyanov <xemul@openvz.org> writes:
+>> 
+>>>> +	}
+>>>>  
+>>>> -		tbp = peer_tb;
+>>>> -	} else
+>>>> -		tbp = tb;
+>>> The intention of this part was to get the same parameters for
+>>> peer as for the first device if no "peer" argument was specified
+>>> for ip utility. Does it still work?
+>> 
+>> I know it is problematic because we try to assign the same name
+>> to both network devices, if we assign a name to the primary
+>> network device.  That can't work.
 >
-> > I agree that it should be fixed, but we should also fix the IRQ
-> > distribution scheme used on powerpc platforms which is totally
-> > broken in these cases.
-> 
-> This is definitely not something we can change in the HEA device driver
-> alone.
-> It could also affect any other networking cards on POWER (e1000,s2io...).
-> 
-> Paul, Michael, Arndt, what is your opinion here?
+> This can - as you can see I reallocate the name lower.
 
-The situation on Cell with the existing south bridge chips is that
-interrupts _never_ get moved around, but are routed to specific
-SMT threads by the firmware, while Linux does not interfere with
-this.
+Hmm. I just see:
+	if (tbp[IFLA_IFNAME])
+		nla_strlcpy(ifname, tbp[IFLA_IFNAME], IFNAMSIZ);
 
-We have been thinking about changing this so we can distribute
-interrupts over all SMT threads in a given NUMA node, or even
-over all logical CPUs in the system by reprogramming the
-interrupt controller after each interrupt, but the current Axon bridge
-chip will always have all devices routed to the same target CPU,
-so it's unclear whether that is even an advantage.
+Then lower I see:
+	if (tb[IFLA_IFNAME])
+		nla_strlcpy(dev->name, tb[IFLA_IFNAME], IFNAMSIZ);
 
-	Arnd <><
+If (tb == tbp) then dev->name == ifname
+Unless I'm completely misreading that code.
+
+>> Beyond that I had some really weird crashes while testing this
+>> piece of code, especially when I did not specify a peer parameter.
+>
+> Can you please give me the exact command that caused an oops.
+> I try simple ip link add type veth and everything is just fine.
+
+It might have been 64bit specific. 
+
+What I have in my history is:
+./ip/ip link add veth23 type veth
+
+I forget exactly how it failed but as I recall it wasn't as
+nice as an oops.  My memory may be a bit foggy though.
+
+If I haven't provided a bit enough clue I guess I can go back
+and remove the patch and try to reproduce the failure again.
+
+>> So it was just easier to avoid the problem with this patch then
+>> to completely root cause it.
+>
+> Let me handle this problem. AFAIR this was one of wishes from 
+> Patrick that we make two equal devices in case peer is not given, 
+> not just the default peer.
+
+Ok.  I have if we can track down the weird cases I have no problem
+if we handle this.  I think it still might be simpler if just
+copy tb onto peer_tb instead of using tbp.
+
+Eric
