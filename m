@@ -1,72 +1,41 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [patch] sunrpc: make closing of old temporary
-	sockets	work (was: problems with lockd in 2.6.22.6)
-Date: Wed, 12 Sep 2007 09:37:29 -0400
-Message-ID: <20070912133729.GA24998@fieldses.org>
-References: <200709121407.11151.wolfgang.walter@studentenwerk.mhn.de>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] [IPROUTE2] Add support for moving links between network
+ namespaces
+Date: Wed, 12 Sep 2007 15:39:09 +0200
+Message-ID: <20070912153909.6b80448f@oldman>
+References: <m14pi0cac5.fsf@ebiederm.dsl.xmission.com>
+	<m1zlzsavla.fsf@ebiederm.dsl.xmission.com>
+	<m1veagavjr.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1r6l4avhp.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1myvsavdn.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1ir6gava1.fsf_-_@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nfs@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org, trond.myklebust@fys.uio.no
-To: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
-Return-path: <nfs-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <200709121407.11151.wolfgang.walter@studentenwerk.mhn.de>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
-	<mailto:nfs-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=nfs>
-List-Post: <mailto:nfs@lists.sourceforge.net>
-List-Help: <mailto:nfs-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
-	<mailto:nfs-request@lists.sourceforge.net?subject=subscribe>
-Sender: nfs-bounces@lists.sourceforge.net
-Errors-To: nfs-bounces@lists.sourceforge.net
+Cc: <netdev@vger.kernel.org>, Pavel Emelyanov <xemul@openvz.org>,
+	Patrick McHardy <kaber@trash.net>
+To: ebiederm@xmission.com (Eric W. Biederman)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:41879 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965613AbXILNi1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 09:38:27 -0400
+In-Reply-To: <m1ir6gava1.fsf_-_@ebiederm.dsl.xmission.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 12, 2007 at 02:07:10PM +0200, Wolfgang Walter wrote:
-> as already described old temporary sockets (client is gone) of lockd aren't
-> closed after some time. So, with enough clients and some time gone, there
-> are 80 open dangling sockets and you start getting messages of the form:
-> 
-> lockd: too many open TCP sockets, consider increasing the number of nfsd threads.
+On Wed, 12 Sep 2007 07:05:42 -0600
+ebiederm@xmission.com (Eric W. Biederman) wrote:
 
-Thanks for working on this problem!
-
-> If I understand the code then the intention was that the server closes
-> temporary sockets after about 6 to 12 minutes:
 > 
-> 	a timer is started which calls svc_age_temp_sockets every 6 minutes.
+> This adds support for setting the IFLA_NET_NS_PID attribute
+> on links allowing them to be moved between network namespaces.
 > 
-> 	svc_age_temp_sockets:
-> 		if a socket is marked OLD it gets closed.
-> 		sockets which are not marked as OLD are marked OLD
-> 
-> 	every time the sockets receives something OLD is cleared.
-> 
-> But svc_age_temp_sockets never closes any socket though because it only
-> closes sockets with svsk->sk_inuse == 0. This seems to be a bug.
-> 
-> Here is a patch against 2.6.22.6 which changes the test to
-> svsk->sk_inuse <= 0 which was probably meant. The patched kernel runs fine
-> here. Unused sockets get closed (after 6 to 12 minutes)
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> ---
+>  include/linux/if_link.h |    1 +
+>  ip/iplink.c             |    9 +++++++++
+>  2 files changed, 10 insertions(+), 0 deletions(-)
 
-So the fact that this changes the behavior means that sk_inuse is taking
-on negative values.  This can't be right--how can something like
-svc_sock_put() (which does an atomic_dec_and_test) work in that case?
-
-I wish I had time today to figure out what's going on in this case.  But
-from a quick through svsock.c for sk_inuse, it looks odd; I'm suspicious
-of anything without the stereotyped behavior--initializing to one,
-atomic_inc()ing whenever someone takes a reference, and
-atomic_dec_and_test()ing whenever someone drops it....
-
---b.
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2005.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
-_______________________________________________
-NFS maillist  -  NFS@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/nfs
+Please don't mix header file updates with command changes.
+As a first step, I always install standard kernel santized headers.
