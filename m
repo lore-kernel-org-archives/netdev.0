@@ -1,84 +1,54 @@
-From: Jesper Dangaard Brouer <jdb@comx.dk>
-Subject: [PATCH 6/6] [IPROUTE2]: Change the rate table calc of transmit
-	cost to use upper bound value
-Date: Wed, 12 Sep 2007 12:14:57 +0200
-Message-ID: <1189592097.26927.27.camel@localhost.localdomain>
-Reply-To: jdb@comx.dk
+From: "Robert P. J. Day" <rpjday@mindspring.com>
+Subject: net/bluetooth/hci_sock.c:352: error: storage size of 'ctv' isn't
+ known
+Date: Wed, 12 Sep 2007 06:15:20 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0709120612110.476@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1756516192-1189592120=:476"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:36431 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964940AbXILKPa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 06:15:30 -0400
+Received: from nic.NetDirect.CA ([216.16.235.2]:49700 "EHLO
+	rubicon.netdirect.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933124AbXILKRV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 06:17:21 -0400
+Received: from [192.168.1.100] (CPE0018396a01fc-CM001225dbafb6.cpe.net.cable.rogers.com [72.143.66.27])
+	(authenticated bits=0)
+	by rubicon.netdirect.ca (8.13.1/8.13.1) with ESMTP id l8CAGweb006220
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 12 Sep 2007 06:17:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-commit 2e3edbef7913ac43899c8258ee59d9032778cee1
-Author: Jesper Dangaard Brouer <hawk@comx.dk>
-Date:   Wed Sep 5 15:24:51 2007 +0200
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-    [IPROUTE2]: Change the rate table calc of transmit cost to use upper bound value.
-    
-    Patrick McHardy, Cite: 'its better to overestimate than underestimate
-    to stay in control of the queue'.
-    
-    Illustrating the rate table array:
-     Legend description
-       rtab[x]   : Array index x of rtab[x]
-       xmit_sz   : Transmit size contained in rtab[x] (normally transmit time)
-       maps[a-b] : Packet sizes from a to b, will map into rtab[x]
-    
-    Current/old rate table mapping (cell_log:3):
-     rtab[0]:=xmit_sz:0  maps[0-7]
-     rtab[1]:=xmit_sz:8  maps[8-15]
-     rtab[2]:=xmit_sz:16 maps[16-23]
-     rtab[3]:=xmit_sz:24 maps[24-31]
-     rtab[4]:=xmit_sz:32 maps[32-39]
-     rtab[5]:=xmit_sz:40 maps[40-47]
-     rtab[6]:=xmit_sz:48 maps[48-55]
-    
-    New rate table mapping, with kernel cell_align support.
-     rtab[0]:=xmit_sz:8  maps[0-8]
-     rtab[1]:=xmit_sz:16 maps[9-16]
-     rtab[2]:=xmit_sz:24 maps[17-24]
-     rtab[3]:=xmit_sz:32 maps[25-32]
-     rtab[4]:=xmit_sz:40 maps[33-40]
-     rtab[5]:=xmit_sz:48 maps[41-48]
-     rtab[6]:=xmit_sz:56 maps[49-56]
-    
-    New TC util on a kernel WITHOUT support for cell_align
-     rtab[0]:=xmit_sz:8 maps[0-7]
-     rtab[1]:=xmit_sz:16 maps[8-15]
-     rtab[2]:=xmit_sz:24 maps[16-23]
-     rtab[3]:=xmit_sz:32 maps[24-31]
-     rtab[4]:=xmit_sz:40 maps[32-39]
-     rtab[5]:=xmit_sz:48 maps[40-47]
-     rtab[6]:=xmit_sz:56 maps[48-55]
-    
-    Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
+--8323328-1756516192-1189592120=:476
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-diff --git a/tc/tc_core.c b/tc/tc_core.c
-index c713a18..752b07c 100644
---- a/tc/tc_core.c
-+++ b/tc/tc_core.c
-@@ -84,11 +84,12 @@ int tc_calc_rtable(struct tc_ratespec *r, __u32 *rtab, int cell_log, unsigned mt
- 			cell_log++;
- 	}
- 	for (i=0; i<256; i++) {
--		unsigned sz = (i<<cell_log);
-+		unsigned sz = ((i+1)<<cell_log);
- 		if (sz < mpu)
- 			sz = mpu;
- 		rtab[i] = tc_calc_xmittime(bps, sz);
- 	}
-+	r->cell_align=-1; // Due to the sz calc
- 	r->cell_log=cell_log;
- 	return cell_log;
- }
 
+  latest git pull, "make allyesconfig" on i386:
+
+  ...
+  CC      net/bluetooth/hci_sock.o
+net/bluetooth/hci_sock.c: In function ‘hci_sock_cmsg’:
+net/bluetooth/hci_sock.c:352: error: storage size of ‘ctv’ isn’t known
+net/bluetooth/hci_sock.c:352: warning: unused variable ‘ctv’
+make[2]: *** [net/bluetooth/hci_sock.o] Error 1
+make[1]: *** [net/bluetooth] Error 2
+make: *** [net] Error 2
+
+
+rday
+
+p.s. dumb question -- what locale should i be using to get those
+quotes to not make such a mess of my screen?  thanks.
+-- 
+========================================================================
+Robert P. J. Day
+Linux Consulting, Training and Annoying Kernel Pedantry
+Waterloo, Ontario, CANADA
+
+http://crashcourse.ca
+========================================================================
+--8323328-1756516192-1189592120=:476--
