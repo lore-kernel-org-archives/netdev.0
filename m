@@ -1,79 +1,41 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] [-MM, FIX V3] e1000e: incorporate napi_struct changes
- from net-2.6.24.git
-Date: Wed, 12 Sep 2007 09:42:29 -0700
-Message-ID: <46E816F5.9010409@intel.com>
-References: <20070908002730.27700.3774.stgit@localhost.localdomain>	<46E1ED43.4070506@intel.com>	<18146.21773.295381.108336@robur.slu.se> <20070912.075324.98878193.davem@davemloft.net>
+From: "Mandeep Baines" <mandeep.baines@gmail.com>
+Subject: Re: RFC: possible NAPI improvements to reduce interrupt rates for low traffic rates
+Date: Wed, 12 Sep 2007 09:47:46 -0700
+Message-ID: <535ddc6b0709120947x3458c87dk7dac9a2b8edf26f6@mail.gmail.com>
+References: <200709061416.l86EG0Vb017675@quickie.katalix.com>
+	 <1189120020.4259.68.camel@localhost> <46E11A61.9030409@katalix.com>
+	 <1189171370.4234.38.camel@localhost>
+	 <20070912030428.16059af6.billfink@mindspring.com>
+	 <1189599142.4326.38.camel@localhost> <46E7EE89.9060006@katalix.com>
+	 <20070912160239.70a580e8@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, akpm@linux-foundation.org,
-	jeff@garzik.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: "James Chapman" <jchapman@katalix.com>, hadi@cyberus.ca,
+	"Bill Fink" <billfink@mindspring.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, jeff@garzik.org, ossthema@de.ibm.com
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:7701 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751807AbXILQmf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Sep 2007 12:42:35 -0400
-In-Reply-To: <20070912.075324.98878193.davem@davemloft.net>
+Received: from fk-out-0910.google.com ([209.85.128.191]:1033 "EHLO
+	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763430AbXILQrs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 12:47:48 -0400
+Received: by fk-out-0910.google.com with SMTP id z23so227826fkz
+        for <netdev@vger.kernel.org>; Wed, 12 Sep 2007 09:47:47 -0700 (PDT)
+In-Reply-To: <20070912160239.70a580e8@oldman>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Robert Olsson <Robert.Olsson@data.slu.se>
-> Date: Sat, 8 Sep 2007 09:53:49 +0200
-> 
->>  Yes a correct observation. I've spotted this bug too and it caused by the 
->>  policy change in the NAPI scheduling. Look at tx_cleaned. 
->>
->>  I suggest we revert this change for now.
-> 
-> The tx_cleaned logic change was not intentional, and
-> that's the bug that makes e1000 spin endlessly in NAPI.
-> 
-> The other part, the work_done < budget part, was intentional
-> so I'm going to keep it in there for now.  I've checked
-> in the patch below to deal with this.
-> 
-> I suspect the check "work_done == 0" is some shamans dance
-> to get slightly better performance, but it's 1) wrong and
-> 2) at best needs to be explained in a comment and fully
-> quantified.
+On 9/12/07, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+> But if you compare this to non-NAPI driver the same softirq
+> overhead happens. The problem is that for many older devices disabling IRQ's
+> require an expensive non-cached PCI access. Smarter, newer devices
+> all use MSI which is pure edge triggered and with proper register
+> usage, NAPI should be no worse than non-NAPI.
 
-it probably gives us one more poll, so it might help, this isn't crucial and I 
-agree that it might offset the budgetting.
-
-> From e8cbb449155000eecc6e855ea71510fecfc7d5ee Mon Sep 17 00:00:00 2001
-> From: David S. Miller <davem@kimchee.(none)>
-> Date: Wed, 12 Sep 2007 16:50:32 +0200
-> Subject: [PATCH] [E1000]: Fix unintended NAPI breakout logic change.
-> 
-> The inversion of the !tx_cleaned test in e1000_clean()
-> was not intentional, we just wanted to change the
-> "work_done == 0" to "work_done < budget"
-> 
-> Noticed by Robert Olsson.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  drivers/net/e1000/e1000_main.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-> index 7b0bcdb..58bb758 100644
-> --- a/drivers/net/e1000/e1000_main.c
-> +++ b/drivers/net/e1000/e1000_main.c
-> @@ -3944,7 +3944,7 @@ e1000_clean(struct napi_struct *napi, int budget)
->  	                  &work_done, budget);
->  
->  	/* If no Tx and not enough Rx work done, exit the polling mode */
-> -	if ((tx_cleaned && (work_done < budget)) ||
-> +	if ((!tx_cleaned && (work_done < budget)) ||
->  	   !netif_running(poll_dev)) {
->  quit_polling:
->  		if (likely(adapter->itr_setting & 3))
-
-
-Ack, this is exactly what I did to fix e1000e as well.
-
-Auke
+Why would disabling IRQ's be expensive on non-MSI PCI devices?
+Wouldn't it just require a single MMIO write to clear the interrupt
+mask of the device. These are write-buffered so the latency should be
+minimal. As mentioned in Jamal's UKUUG paper, any MMIO reading could
+be avoided by caching the interrupt mask.
