@@ -1,50 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: new NAPI interface broken
-Date: Wed, 12 Sep 2007 05:50:04 -0700 (PDT)
-Message-ID: <20070912.055004.88490155.davem@davemloft.net>
-References: <200709071137.02801.ossthema@de.ibm.com>
+Subject: Re: [net-2.6.24][NETNS][patch 1/3] fix export symbols
+Date: Wed, 12 Sep 2007 05:53:07 -0700 (PDT)
+Message-ID: <20070912.055307.23027518.davem@davemloft.net>
+References: <20070912123811.075269132@mai.toulouse-stg.fr.ibm.com>
+	<20070912124414.640551634@mai.toulouse-stg.fr.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	themann@de.ibm.com, raisch@de.ibm.com
-To: ossthema@de.ibm.com
+Cc: ebiederm@xmission.com, containers@lists.osdl.org,
+	netdev@vger.kernel.org, markn@au1.ibm.com, benjamin.thery@bull.net
+To: dlezcano@fr.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:40650
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:36386
 	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S967251AbXILMul (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 08:50:41 -0400
-In-Reply-To: <200709071137.02801.ossthema@de.ibm.com>
+	by vger.kernel.org with ESMTP id S965897AbXILMzB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 08:55:01 -0400
+In-Reply-To: <20070912124414.640551634@mai.toulouse-stg.fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Date: Fri, 7 Sep 2007 11:37:02 +0200
+From: dlezcano@fr.ibm.com
+Date: Wed, 12 Sep 2007 14:38:12 +0200
 
-> 2) On SMP systems: after netif_rx_complete has been called on CPU1
->    (+interruts enabled), netif_rx_schedule could be called on CPU2 
->    (irq handler) before net_rx_action on CPU1 has checked NAPI_STATE_SCHED. 
->    In that case the device would be added to poll lists of CPU1 and CPU2
->    as net_rx_action would see NAPI_STATE_SCHED set.
->    This must not happen. It will be caught when netif_rx_complete is
->    called the second time (BUG() called)
+> From: Daniel Lezcano <dlezcano@fr.ibm.com>
 > 
-> This would mean we have a problem on all SMP machines right now.
+> Add the appropriate EXPORT_SYMBOLS for proc_net_create,
+> proc_net_fops_create and proc_net_remove to fix errors when
+> compiling allmodconfig
+> 
+> Signed-off-by: Mark Nelson <markn@au1.ibm.com>
+> Acked-by: Benjamin Thery <benjamin.thery@bull.net>
 
-This is not a correct statement.
+Applied to net-2.6.24, thanks.
 
-Only on your platform do network device interrupts get moved
-around, no other platform does this.
+Why aren't you signing off on these patches?  Please
+do so in the future.
 
-Sparc64 doesn't, all interrupts stay in one location after
-the cpu is initially choosen.
-
-x86 and x86_64 specifically do not move around network
-device interrupts, even though other device types do
-get dynamic IRQ cpu distribution.
-
-That's why you are the only person seeing this problem.
-
-I agree that it should be fixed, but we should also fix the IRQ
-distribution scheme used on powerpc platforms which is totally
-broken in these cases.
+Because "From: " usually means you are the patch author, and I can't
+tell who wrote these patches, you or these other people listed in the
+signoff area.
