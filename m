@@ -1,50 +1,33 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] [RFC] allow admin/users to specify rto_min in	milliseconds
- rather than jiffies
-Date: Wed, 12 Sep 2007 13:28:42 -0700
-Message-ID: <46E84BFA.2070101@hp.com>
-References: <200709042020.NAA29612@tardy.cup.hp.com>	<20070905073801.2f12991b@oldman> <46E06E7C.4000407@hp.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: PROBLEM: 2.6.23-rc "NETDEV WATCHDOG: eth0: transmit timed out"
+Date: Wed, 12 Sep 2007 22:50:25 +0200
+Message-ID: <20070912205025.GA31709@electric-eye.fr.zoreil.com>
+References: <be1b757c0708130435y689b9dd8raf9ac9f9c0fcc976@mail.gmail.com> <20070813165821.GA19356@electric-eye.fr.zoreil.com> <be1b757c0708131027v5c57822as2d9bd3190fd19b71@mail.gmail.com> <20070814070901.GA14693@electric-eye.fr.zoreil.com> <be1b757c0708141425qd887581n3922702b84a21758@mail.gmail.com> <20070814224629.GB3495@electric-eye.fr.zoreil.com> <20070816141122.GA6625@electric-eye.fr.zoreil.com> <be1b757c0709011224tafebaaby697d03ab5377e20f@mail.gmail.com> <6bffcb0e0709021515v586f078cjce04f877e2f27aa2@mail.gmail.com> <be1b757c0709021521q850f2bdq3f88c24c02c26b1b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel11.hp.com ([156.153.255.246]:46794 "EHLO palrel11.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757369AbXILU3M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Sep 2007 16:29:12 -0400
-In-Reply-To: <46E06E7C.4000407@hp.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Karl Meyer <adhocrocker@gmail.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1765520AbXILUxz@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <be1b757c0709021521q850f2bdq3f88c24c02c26b1b@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> The api in netlink should be in milliseconds rather than compensating
->> in the application (iproute2).
-> 
-> 
-> My understanding of the in-kernel rtnetlink code is far from complete, 
-> but it doesn't seem to have much in the way of provisions for unit 
-> conversion, which would suggest no nice suffix-based ui as in tc, and ip 
-> is already doing some massaging of units on the display side for a 
-> couple of the other parameters, so I'm at something of a loss.
+Karl Meyer <adhocrocker@gmail.com> :
+[...]
+> am am looking for this issue for some time now, but there where no
+> errors in 2.6.22-r2 (gentoo speak, I guess this is 2.6.22.2
+> officially), I also ran git-bisect (for more information see the older
+> messages in this thread).
 
-So, I used the source and looked and saw that tc seems to convert 
-everything to nanoseconds and passes that to the kernel.  The user can 
-give it seconds, milliseconds, microseconds or nanoseconds by using a 
-suffix. It then does something ostensibly intelligent to display those 
-to the user.
+2.6.22-r2 in gentoo is based on 2.6.22.1. It is way before
+0e4851502f846b13b29b7f88f1250c980d57e944 that you reported to work.
+Thus it is not surprizing that it works.
 
-Ip converts nothing when passing things to the kernel (rtt rttvar or rto 
-- when/if at least the intial rto changes are included - were they?), 
-but when they come-out of the kernel ip converts them to milliseconds. 
-  So the units in != the units out.
+Any update regarding the patchkit that I sent on 2007/08/16 ?
 
-Tc seems much more friendly and less prone to user error.
+It would help to narrow the culprit.
 
-I'm still not sure how "easily" rtnetlink can do conversions itself - 
-feedback there would be _very_ welcome - but at the very least, having 
-ip provide at least the illusion of what tc does would seem to be a good 
-thing.
-
-rick jones
+-- 
+Ueimor
