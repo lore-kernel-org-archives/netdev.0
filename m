@@ -1,77 +1,97 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [PATCH] NET : convert IP route cache garbage colleciton from
- softirq processing to a workqueue
-Date: Wed, 12 Sep 2007 12:08:45 +0200
-Message-ID: <20070912120845.1b2d77dc.dada1@cosmosbay.com>
-References: <20070911145613.4762c534.dada1@cosmosbay.com>
-	<20070912.020525.39165997.davem@davemloft.net>
+From: Jesper Dangaard Brouer <jdb@comx.dk>
+Subject: [PATCH 0/6] NET_SCHED: Rate table fixes
+Date: Wed, 12 Sep 2007 12:13:40 +0200
+Message-ID: <1189592020.26927.20.camel@localhost.localdomain>
+Reply-To: jdb@comx.dk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pfx2.jmh.fr ([194.153.89.55]:47428 "EHLO pfx2.jmh.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932648AbXILKKw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Sep 2007 06:10:52 -0400
-In-Reply-To: <20070912.020525.39165997.davem@davemloft.net>
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:39707 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933056AbXILKOP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 06:14:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 12 Sep 2007 02:05:25 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
 
-> From: Eric Dumazet <dada1@cosmosbay.com>
-> Date: Tue, 11 Sep 2007 14:56:13 +0200
-> 
-> > When the periodic IP route cache flush is done (every 600 seconds on 
-> > default configuration), some hosts suffer a lot and eventually trigger
-> > the "soft lockup" message.
-> > 
-> > dst_run_gc() is doing a scan of a possibly huge list of dst_entries,
-> > eventually freeing some (less than 1%) of them, while holding the 
-> > dst_lock spinlock for the whole scan.
-> > 
-> > Then it rearms a timer to redo the full thing 1/10 s later...
-> > The slowdown can last one minute or so, depending on how active are
-> > the tcp sessions.
-> > 
-> > This second version of the patch converts the processing from a softirq
-> > based one to a workqueue.
-> > 
-> > Even if the list of entries in garbage_list is huge, host is still
-> > responsive to softirqs and can make progress.
-> > 
-> > Instead of reseting gc timer to 0.1 second if one entry was freed in a
-> > gc run, we do this if more than 10% of entries were freed.
-> 
-> I like this patch a lot, some minor fix is needed though:
+This set of patches, aim at fixing an issue with the rate table used
+by the rate based schedulers.
 
-Thank you
+Currently we use the lower-boundry value, which result in
+under-estimating the actual bandwidth usage.  The patches will change
+this to use the upper-boundry L2T (length to time) value.
 
-I also spoted a missing static before 
-DECLARE_DELAYED_WORK(dst_gc_work, dst_gc_task);
- no need to stress Adrian on this :)
+The patches include both changes to the kernel and iproute2 userspace
+utility. The kernel changes, only adds flexibility to allow userspace
+to do the rate table alignment. The patches has been splitup in
+cleanup and actual functional change patches.
 
-> 
-> > +		__builtin_prefetch(&next->next, 1, 0);
-> 
-> Please use prefetch() instead of a direct explicit
-> call to a gcc-specific routine :-)
+The patches also moves the overhead calculation (currently only used
+by HTB) into the kernel, which makes it more precise (as it won't miss-align
+the contents of the rate table).
 
-Unfortunatly, there is no equivalent for this one. 
-This gives on my Opterons a nice "prefetchnta"
+This should raise some questions,
+ 1. How does the current/old rate table mapping look like.
+ 2. How does new aligned rate table mapping look like.
+ 3. What happens when only the TC util is changed and used on a old kernel.
 
-prefetch(addr) is more like __builtin_prefetch(addr, 0, 3)
+Lets look at how the layout of the rate tables looks like:
 
-I would like to avoid to zap L2 cache with useless data.
+Illustrating the rate table array:
+  Legend description
+    rtab[x]   : Array index x of rtab[x]
+    xmit_sz   : Transmit size contained in rtab[x] (normally transmit time)
+    maps[a-b] : Packet sizes from a to b, will map into rtab[x]
 
-__builtin_prefetch() is included from gcc 3.1 (2002), so every 
-platform should support it, as linux-2.6 requires gcc 3.2 at least.
+(1) Current/old rate table mapping (cell_log:3):
+  rtab[0]:=xmit_sz:0  maps[0-7]
+  rtab[1]:=xmit_sz:8  maps[8-15]
+  rtab[2]:=xmit_sz:16 maps[16-23]
+  rtab[3]:=xmit_sz:24 maps[24-31]
+  rtab[4]:=xmit_sz:32 maps[32-39]
+  rtab[5]:=xmit_sz:40 maps[40-47]
+  rtab[6]:=xmit_sz:48 maps[48-55]
 
-I guess you are going to tell me to first publish a patch to lkml :)
+The above illustrates that we are using the lower-boundry transmit
+size (xmit_sz).
 
-Thank you
+(2) New iproute rate table mapping, with kernel cell_align support.
+  rtab[0]:=xmit_sz:8  maps[0-8]
+  rtab[1]:=xmit_sz:16 maps[9-16]
+  rtab[2]:=xmit_sz:24 maps[17-24]
+  rtab[3]:=xmit_sz:32 maps[25-32]
+  rtab[4]:=xmit_sz:40 maps[33-40]
+  rtab[5]:=xmit_sz:48 maps[41-48]
+  rtab[6]:=xmit_sz:56 maps[49-56]
 
-Eric
+The above illustrates that we are using the upper-boundry transmit
+size (xmit_sz), when mapping packets sizes.
+
+The interesting question is what about compatibility.  If a old
+iproute utility is used on a new kernel, we simply get the old rate
+table (lower-bound) alignment. The interesting case is what happens
+with a new iproute util on a old kernel. The table below, shows that
+what happens is that we use the upper-bound+1byte.  I believe that
+this is a good and acceptable solution.
+
+(3) New TC util on a kernel WITHOUT support for cell_align
+  rtab[0]:=xmit_sz:8 maps[0-7]
+  rtab[1]:=xmit_sz:16 maps[8-15]
+  rtab[2]:=xmit_sz:24 maps[16-23]
+  rtab[3]:=xmit_sz:32 maps[24-31]
+  rtab[4]:=xmit_sz:40 maps[32-39]
+  rtab[5]:=xmit_sz:48 maps[40-47]
+  rtab[6]:=xmit_sz:56 maps[48-55]
+
+-- 
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network developer
+  Cand. Scient Datalog / MSc.
+  Author of http://adsl-optimizer.dk
