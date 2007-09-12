@@ -1,39 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET : convert IP route cache garbage colleciton from
- softirq processing to a workqueue
-Date: Wed, 12 Sep 2007 04:12:00 -0700 (PDT)
-Message-ID: <20070912.041200.15253216.davem@davemloft.net>
-References: <20070911145613.4762c534.dada1@cosmosbay.com>
-	<20070912.020525.39165997.davem@davemloft.net>
-	<20070912120845.1b2d77dc.dada1@cosmosbay.com>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: [PATCH] [POWERPC] ucc_geth: fix module removal
+Date: Wed, 12 Sep 2007 15:25:14 +0400
+Message-ID: <20070912112514.GB15556@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Content-Type: text/plain; charset=utf8
+Cc: netdev@vger.kernel.org
+To: linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:56863
-	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S966300AbXILLMd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 07:12:33 -0400
-In-Reply-To: <20070912120845.1b2d77dc.dada1@cosmosbay.com>
+Received: from rtsoft3.corbina.net ([85.21.88.6]:2503 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1764610AbXILLWN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 07:22:13 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Wed, 12 Sep 2007 12:08:45 +0200
+- uccf should be set to NULL to not double-free memory on
+  subsequent calls;
+- ind_hash_q and group_hash_q lists should be initialized in the
+  probe() function, instead of struct_init() (called by open()),
+  otherwise there will be an oops if ucc_geth_driver removed
+  prior 'ifconfig ethX up';
+- add unregister_netdev();
+- reorder geth_remove() steps.
 
-> Unfortunatly, there is no equivalent for this one. 
-> This gives on my Opterons a nice "prefetchnta"
-> 
-> prefetch(addr) is more like __builtin_prefetch(addr, 0, 3)
-> 
-> I would like to avoid to zap L2 cache with useless data.
-> 
-> __builtin_prefetch() is included from gcc 3.1 (2002), so every 
-> platform should support it, as linux-2.6 requires gcc 3.2 at least.
-> 
-> I guess you are going to tell me to first publish a patch to lkml :)
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+---
+ drivers/net/ucc_geth.c |   17 ++++++++++-------
+ 1 files changed, 10 insertions(+), 7 deletions(-)
 
-Basically, yes :-)  You won't be the only person to find this
-useful.
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 9a38dfe..bc2b3bf 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -2080,8 +2080,10 @@ static void ucc_geth_memclean(struct ucc_geth_private *ugeth)
+ 	if (!ugeth)
+ 		return;
+ 
+-	if (ugeth->uccf)
++	if (ugeth->uccf) {
+ 		ucc_fast_free(ugeth->uccf);
++		ugeth->uccf = NULL;
++	}
+ 
+ 	if (ugeth->p_thread_data_tx) {
+ 		qe_muram_free(ugeth->thread_dat_tx_offset);
+@@ -2312,10 +2314,6 @@ static int ucc_struct_init(struct ucc_geth_private *ugeth)
+ 	ug_info = ugeth->ug_info;
+ 	uf_info = &ug_info->uf_info;
+ 
+-	/* Create CQs for hash tables */
+-	INIT_LIST_HEAD(&ugeth->group_hash_q);
+-	INIT_LIST_HEAD(&ugeth->ind_hash_q);
+-
+ 	if (!((uf_info->bd_mem_part == MEM_PART_SYSTEM) ||
+ 	      (uf_info->bd_mem_part == MEM_PART_MURAM))) {
+ 		if (netif_msg_probe(ugeth))
+@@ -3949,6 +3947,10 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 	ugeth = netdev_priv(dev);
+ 	spin_lock_init(&ugeth->lock);
+ 
++	/* Create CQs for hash tables */
++	INIT_LIST_HEAD(&ugeth->group_hash_q);
++	INIT_LIST_HEAD(&ugeth->ind_hash_q);
++
+ 	dev_set_drvdata(device, dev);
+ 
+ 	/* Set the dev->base_addr to the gfar reg region */
+@@ -4002,9 +4004,10 @@ static int ucc_geth_remove(struct of_device* ofdev)
+ 	struct net_device *dev = dev_get_drvdata(device);
+ 	struct ucc_geth_private *ugeth = netdev_priv(dev);
+ 
+-	dev_set_drvdata(device, NULL);
+-	ucc_geth_memclean(ugeth);
++	unregister_netdev(dev);
+ 	free_netdev(dev);
++	ucc_geth_memclean(ugeth);
++	dev_set_drvdata(device, NULL);
+ 
+ 	return 0;
+ }
+-- 
+1.5.0.6
+
