@@ -1,93 +1,81 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH] veth: Cleanly handle a missing peer_tb argument on creation.
-Date: Wed, 12 Sep 2007 18:15:02 +0400
-Message-ID: <46E7F466.1060704@openvz.org>
-References: <m17imwaumb.fsf@ebiederm.dsl.xmission.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-2.6.24 build problem
+Date: Wed, 12 Sep 2007 07:18:47 -0700 (PDT)
+Message-ID: <20070912.071847.10311963.davem@davemloft.net>
+References: <20070912160833.73af789d@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:34975 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965354AbXILORm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Sep 2007 10:17:42 -0400
-In-Reply-To: <m17imwaumb.fsf@ebiederm.dsl.xmission.com>
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:59595
+	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S968692AbXILOSu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 10:18:50 -0400
+In-Reply-To: <20070912160833.73af789d@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> I was getting strange kernel crashes when attempting to
-> create veth devices when I did not specify a peer argument
-> to /bin/ip.
-> 
-> So this patch defaults peer_tb to all zeros and doesn't attempt to
-> reuse the netlink attributes for the primary link to create the
-> secondary link and now I can't reproduce the failures.
-> 
-> Given that some of the most interesting netlink attributes to specify
-> like a mac address or a network device name seem are generally
-> the wrong thing to do this seems like the right approach.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-> ---
->  drivers/net/veth.c |   16 +++++++---------
->  1 files changed, 7 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-> index 9e6a746..d49bd2c 100644
-> --- a/drivers/net/veth.c
-> +++ b/drivers/net/veth.c
-> @@ -313,7 +313,7 @@ static int veth_newlink(struct net_device *dev,
->  	struct net_device *peer;
->  	struct veth_priv *priv;
->  	char ifname[IFNAMSIZ];
-> -	struct nlattr *peer_tb[IFLA_MAX + 1], **tbp;
-> +	struct nlattr *peer_tb[IFLA_MAX + 1];
->  
->  	/*
->  	 * create and register peer first
-> @@ -322,6 +322,7 @@ static int veth_newlink(struct net_device *dev,
->  	 * skip it since no info from it is useful yet
->  	 */
->  
-> +	memset(peer_tb, 0, sizeof(peer_tb));
->  	if (data != NULL && data[VETH_INFO_PEER] != NULL) {
->  		struct nlattr *nla_peer;
->  
-> @@ -336,21 +337,18 @@ static int veth_newlink(struct net_device *dev,
->  		err = veth_validate(peer_tb, NULL);
->  		if (err < 0)
->  			return err;
-> +	}
->  
-> -		tbp = peer_tb;
-> -	} else
-> -		tbp = tb;
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Wed, 12 Sep 2007 16:08:33 +0200
 
-The intention of this part was to get the same parameters for
-peer as for the first device if no "peer" argument was specified
-for ip utility. Does it still work?
+> ERROR: "xfrm_audit_state_delete" [net/key/af_key.ko] undefined!
+> ERROR: "xfrm_audit_state_add" [net/key/af_key.ko] undefined!
+> ERROR: "xfrm_audit_policy_add" [net/key/af_key.ko] undefined!
+> ERROR: "xfrm_audit_policy_delete" [net/key/af_key.ko] undefined
 
-> -
-> -	if (tbp[IFLA_IFNAME])
-> -		nla_strlcpy(ifname, tbp[IFLA_IFNAME], IFNAMSIZ);
-> +	if (peer_tb[IFLA_IFNAME])
-> +		nla_strlcpy(ifname, peer_tb[IFLA_IFNAME], IFNAMSIZ);
->  	else
->  		snprintf(ifname, IFNAMSIZ, DRV_NAME "%%d");
->  
-> -	peer = rtnl_create_link(dev->nd_net, ifname, &veth_link_ops, tbp);
-> +	peer = rtnl_create_link(dev->nd_net, ifname, &veth_link_ops, peer_tb);
->  	if (IS_ERR(peer))
->  		return PTR_ERR(peer);
->  
-> -	if (tbp[IFLA_ADDRESS] == NULL)
-> +	if (peer_tb[IFLA_ADDRESS] == NULL)
->  		random_ether_addr(peer->dev_addr);
->  
->  	err = register_netdevice(peer);
+I just checked in the following fix for this:
+
+>From 2c2d4ef06a1bdb25b721372ab63adde1523e34ec Mon Sep 17 00:00:00 2001
+From: David S. Miller <davem@kimchee.(none)>
+Date: Wed, 12 Sep 2007 16:17:36 +0200
+Subject: [PATCH] [XFRM]: Add missing auditing symbol exports.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/xfrm/xfrm_policy.c |    2 ++
+ net/xfrm/xfrm_state.c  |    2 ++
+ 2 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index de0ff51..50682d3 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2341,6 +2341,7 @@ xfrm_audit_policy_add(struct xfrm_policy *xp, int result, u32 auid, u32 sid)
+ 	xfrm_audit_common_policyinfo(xp, audit_buf);
+ 	audit_log_end(audit_buf);
+ }
++EXPORT_SYMBOL_GPL(xfrm_audit_policy_add);
+ 
+ void
+ xfrm_audit_policy_delete(struct xfrm_policy *xp, int result, u32 auid, u32 sid)
+@@ -2357,6 +2358,7 @@ xfrm_audit_policy_delete(struct xfrm_policy *xp, int result, u32 auid, u32 sid)
+ 	xfrm_audit_common_policyinfo(xp, audit_buf);
+ 	audit_log_end(audit_buf);
+ }
++EXPORT_SYMBOL_GPL(xfrm_audit_policy_delete);
+ #endif
+ 
+ #ifdef CONFIG_XFRM_MIGRATE
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index f64621c..15734ad 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -1865,6 +1865,7 @@ xfrm_audit_state_add(struct xfrm_state *x, int result, u32 auid, u32 sid)
+ 			 (unsigned long)x->id.spi, (unsigned long)x->id.spi);
+ 	audit_log_end(audit_buf);
+ }
++EXPORT_SYMBOL_GPL(xfrm_audit_state_add);
+ 
+ void
+ xfrm_audit_state_delete(struct xfrm_state *x, int result, u32 auid, u32 sid)
+@@ -1883,4 +1884,5 @@ xfrm_audit_state_delete(struct xfrm_state *x, int result, u32 auid, u32 sid)
+ 			 (unsigned long)x->id.spi, (unsigned long)x->id.spi);
+ 	audit_log_end(audit_buf);
+ }
++EXPORT_SYMBOL_GPL(xfrm_audit_state_delete);
+ #endif /* CONFIG_AUDITSYSCALL */
+-- 
+1.5.2.4
 
