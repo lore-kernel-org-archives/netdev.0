@@ -1,35 +1,33 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [PATCH] sb1250-mac.c: De-typedef, de-volatile, de-etc...
-Date: Thu, 13 Sep 2007 15:13:06 +0100 (BST)
-Message-ID: <Pine.LNX.4.64N.0709131506040.31069@blysk.ds.pg.gda.pl>
-References: <Pine.LNX.4.64N.0709101310030.25038@blysk.ds.pg.gda.pl>
- <46E8B56E.7060705@pobox.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [CORRECTION][PATCH] Fix a potential NULL pointer dereference
+ in uli526x_interrupt() in drivers/net/tulip/uli526x.c
+Date: Thu, 13 Sep 2007 10:16:42 -0400
+Message-ID: <46E9464A.2020905@pobox.com>
+References: <46DD13CE.6010905@gmail.com> <20070913020346.979647c1.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	linux-mips@linux-mips.org, linux-kernel@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cerber.ds.pg.gda.pl ([153.19.208.18]:33830 "EHLO
-	cerber.ds.pg.gda.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756419AbXIMONQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 10:13:16 -0400
-In-Reply-To: <46E8B56E.7060705@pobox.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Micah Gruber <micah.gruber@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Grant Grundler <grundler@parisc-linux.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757451AbXIMORE@vger.kernel.org>
+In-Reply-To: <20070913020346.979647c1.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 12 Sep 2007, Jeff Garzik wrote:
+Andrew Morton wrote:
+> --- a/drivers/net/tulip/uli526x.c~fix-a-potential-null-pointer-dereference-in-uli526x_interrupt
+> +++ a/drivers/net/tulip/uli526x.c
+> @@ -666,11 +666,6 @@ static irqreturn_t uli526x_interrupt(int
+>  	unsigned long ioaddr = dev->base_addr;
+>  	unsigned long flags;
+>  
+> -	if (!dev) {
+> -		ULI526X_DBUG(1, "uli526x_interrupt() without DEVICE arg", 0);
+> -		return IRQ_NONE;
+> -	}
+> -
 
-> > Remove typedefs, volatiles and convert kmalloc()/memset() pairs to
-> > kcalloc().  Also reformat the surrounding clutter.
-> > 
-> > Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
-> > ---
-> 
-> ACK, but patch does not apply cleanly to netdev-2.6.git#upstream (nor -mm)
 
- Hmm, works fine with linux-2.6.git#master.  I do not recall any recent 
-activity with this driver -- I wonder what the difference is.  Let me 
-see...
-
-  Maciej
+correct / ACK
