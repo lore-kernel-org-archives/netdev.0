@@ -1,74 +1,35 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [RFC v2 PATCH 1/2] SCTP: Add RCU synchronization around	sctp_localaddr_list
-Date: Thu, 13 Sep 2007 09:46:24 -0400
-Message-ID: <46E93F30.5040909@hp.com>
-References: <11896263983281-git-send-email-vladislav.yasevich@hp.com>	 <11896263982464-git-send-email-vladislav.yasevich@hp.com> <1189638236.27182.12.camel@w-sridhar2.beaverton.ibm.com>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: Re: [PATCH] sb1250-mac.c: De-typedef, de-volatile, de-etc...
+Date: Thu, 13 Sep 2007 15:13:06 +0100 (BST)
+Message-ID: <Pine.LNX.4.64N.0709131506040.31069@blysk.ds.pg.gda.pl>
+References: <Pine.LNX.4.64N.0709101310030.25038@blysk.ds.pg.gda.pl>
+ <46E8B56E.7060705@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: Sridhar Samudrala <sri@us.ibm.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org, linux-kernel@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:44841 "EHLO atlrel6.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751378AbXIMNqg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Sep 2007 09:46:36 -0400
-In-Reply-To: <1189638236.27182.12.camel@w-sridhar2.beaverton.ibm.com>
+Received: from cerber.ds.pg.gda.pl ([153.19.208.18]:33830 "EHLO
+	cerber.ds.pg.gda.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756419AbXIMONQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 10:13:16 -0400
+In-Reply-To: <46E8B56E.7060705@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sridhar
+On Wed, 12 Sep 2007, Jeff Garzik wrote:
 
-Sridhar Samudrala wrote:
-> Vlad,
+> > Remove typedefs, volatiles and convert kmalloc()/memset() pairs to
+> > kcalloc().  Also reformat the surrounding clutter.
+> > 
+> > Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+> > ---
 > 
-> few minor comments inline.
-> otherwise, looks good.
-> 
-> Thanks
-> Sridhar
-> 
->> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
->> index f8aa23d..54ff472 100644
->> --- a/net/sctp/ipv6.c
->> +++ b/net/sctp/ipv6.c
->> @@ -77,13 +77,18 @@
->>
->>  #include <asm/uaccess.h>
->>
->> -/* Event handler for inet6 address addition/deletion events.  */
->> +/* Event handler for inet6 address addition/deletion events.
->> + * This even is part of the atomic notifier call chain
->> + * and thus happens atomically and can NOT sleep.  As a result
->> + * we can't and really don't need to add any locks to guard the
->> + * RCU.
->> + */
-> 
-> Now that we are adding a spin_lock, the above comment is not valid.
-> It should be fixed saying that we still need a lock because we use the 
-> same list for both inet and inet6 address events and they can happen in
-> parallel.
+> ACK, but patch does not apply cleanly to netdev-2.6.git#upstream (nor -mm)
 
-Yes, I forgot to fix this comment.  Will do.
+ Hmm, works fine with linux-2.6.git#master.  I do not recall any recent 
+activity with this driver -- I wonder what the difference is.  Let me 
+see...
 
-
->> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
->> index e98579b..4688559 100644
->> --- a/net/sctp/protocol.c
->> +++ b/net/sctp/protocol.c
->> @@ -153,6 +153,8 @@ static void sctp_v4_copy_addrlist(struct list_head *addrlist,
->>  			addr->a.v4.sin_family = AF_INET;
->>  			addr->a.v4.sin_port = 0;
->>  			addr->a.v4.sin_addr.s_addr = ifa->ifa_local;
->> +			addr->valid = 1;
->> +			INIT_RCU_HEAD(&addr->rcu);
-> 
-> This has nothing to do with this patch, but i noticed that
-> INIT_LIST_HEAD(&addr->list) is missing here when comparing with
-> earlier v6 version of this routine.
-
-Hmm...  I thought it looked a little different, but didn't pay too much
-attention to it.  I'll add a follow-on patch to fix this.
-
-Thanks
--vlad
+  Maciej
