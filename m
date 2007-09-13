@@ -1,46 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [-MM, FIX V3] e1000e: incorporate napi_struct changes
- from net-2.6.24.git
-Date: Wed, 12 Sep 2007 23:55:21 -0700 (PDT)
-Message-ID: <20070912.235521.41654166.davem@davemloft.net>
-References: <18146.21773.295381.108336@robur.slu.se>
-	<20070912.075324.98878193.davem@davemloft.net>
-	<46E816F5.9010409@intel.com>
+Subject: Re: RFC: possible NAPI improvements to reduce interrupt rates for
+ low traffic rates
+Date: Wed, 12 Sep 2007 23:57:11 -0700 (PDT)
+Message-ID: <20070912.235711.71114960.davem@davemloft.net>
+References: <46E7EE89.9060006@katalix.com>
+	<20070912160239.70a580e8@oldman>
+	<535ddc6b0709120947x3458c87dk7dac9a2b8edf26f6@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, akpm@linux-foundation.org,
-	jeff@garzik.org, netdev@vger.kernel.org
-To: auke-jan.h.kok@intel.com
+Cc: shemminger@linux-foundation.org, jchapman@katalix.com,
+	hadi@cyberus.ca, billfink@mindspring.com, netdev@vger.kernel.org,
+	jeff@garzik.org, ossthema@de.ibm.com
+To: mandeep.baines@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:38184
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:50980
 	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758250AbXIMGzj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 02:55:39 -0400
-In-Reply-To: <46E816F5.9010409@intel.com>
+	by vger.kernel.org with ESMTP id S1760020AbXIMG7f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 02:59:35 -0400
+In-Reply-To: <535ddc6b0709120947x3458c87dk7dac9a2b8edf26f6@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Date: Wed, 12 Sep 2007 09:42:29 -0700
+From: "Mandeep Baines" <mandeep.baines@gmail.com>
+Date: Wed, 12 Sep 2007 09:47:46 -0700
 
-> David Miller wrote:
-> > 
-> > diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-> > index 7b0bcdb..58bb758 100644
-> > --- a/drivers/net/e1000/e1000_main.c
-> > +++ b/drivers/net/e1000/e1000_main.c
-> > @@ -3944,7 +3944,7 @@ e1000_clean(struct napi_struct *napi, int budget)
-> >  	                  &work_done, budget);
-> >  
-> >  	/* If no Tx and not enough Rx work done, exit the polling mode */
-> > -	if ((tx_cleaned && (work_done < budget)) ||
-> > +	if ((!tx_cleaned && (work_done < budget)) ||
-> >  	   !netif_running(poll_dev)) {
-> >  quit_polling:
-> >  		if (likely(adapter->itr_setting & 3))
-> 
-> 
-> Ack, this is exactly what I did to fix e1000e as well.
+> Why would disabling IRQ's be expensive on non-MSI PCI devices?
+> Wouldn't it just require a single MMIO write to clear the interrupt
+> mask of the device.
 
-Thanks for reviewing.
+MMIO's are the most expensive part of the whole interrupt
+servicing routines and minimizing them is absolutely
+crucial.
+
+This is why many devices do things like report status purely
+in memory data structures, automatically disable interrupts
+on either MSI delivery or status register read, etc.
+
+Often you will see the first MMIO access in the interrupt
+handler at the top of the profiles.
