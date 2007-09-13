@@ -1,72 +1,59 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH for 2.6.24] SCTP: Move sysctl_sctp_[rw]mem definitions to
- protocol.c
-Date: Thu, 13 Sep 2007 17:03:45 -0400
-Message-ID: <46E9A5B1.5070202@hp.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [ofa-general] InfiniBand/RDMA merge plans for 2.6.24
+Date: Thu, 13 Sep 2007 14:11:29 -0700
+Message-ID: <adaps0ml18e.fsf@cisco.com>
+References: <adahclymos8.fsf@cisco.com>
+	<46E97BB0.9030106@opengridcomputing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "lksctp-developers@lists.sourceforge.net"
-	<lksctp-developers@lists.sourceforge.net>,
-	David Miller <davem@davemloft.net>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:52767 "EHLO atlrel8.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753251AbXIMVEI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Sep 2007 17:04:08 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org
+To: Steve Wise <swise@opengridcomputing.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <46E97BB0.9030106@opengridcomputing.com> (Steve Wise's message of
+	"Thu, 13 Sep 2007 13:04:32 -0500")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-The sctp_[rw]mem definitions should really be in protocol.c
-since that is where they are initialized.  This also allows
-one to build a kernel without sysctl support.
+ > I was about to post v2 of my patch to avoid port space collisions with
+ > the native stack.  Can we get that 2.6.24?  It is high priority
+ > IMO. I've tried to solicit review on it, but I think folks are
+ > reluctant... ;-)
 
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- net/sctp/protocol.c |    6 +++---
- net/sctp/sysctl.c   |   11 +++--------
- 2 files changed, 6 insertions(+), 11 deletions(-)
+I would like to get this in, but I'm still at least a little
+reluctant, since we would be committing to a user interface that seems
+a little awkward at best, so I'd like to try and find something
+better.  Just to summarize my understanding:
 
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 193835d..c49eb99 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -84,9 +84,9 @@ static struct sctp_af *sctp_af_v6_specific;
- struct kmem_cache *sctp_chunk_cachep __read_mostly;
- struct kmem_cache *sctp_bucket_cachep __read_mostly;
- 
--extern int sysctl_sctp_mem[3];
--extern int sysctl_sctp_rmem[3];
--extern int sysctl_sctp_wmem[3];
-+int sysctl_sctp_mem[3];
-+int sysctl_sctp_rmem[3];
-+int sysctl_sctp_wmem[3];
- 
- /* Return the address of the control sock. */
- struct sock *sctp_get_ctl_sock(void)
-diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-index ba75ef4..39b10ee 100644
---- a/net/sctp/sysctl.c
-+++ b/net/sctp/sysctl.c
-@@ -52,14 +52,9 @@ static int int_max = INT_MAX;
- static long sack_timer_min = 1;
- static long sack_timer_max = 500;
- 
--int sysctl_sctp_mem[3];
--int sysctl_sctp_rmem[3];
--int sysctl_sctp_wmem[3];
--
--/*
-- * per assoc memory limitationf for sends
-- */
--int sysctl_sctp_wmem[3];
-+extern int sysctl_sctp_mem[3];
-+extern int sysctl_sctp_rmem[3];
-+extern int sysctl_sctp_wmem[3];
- 
- static ctl_table sctp_table[] = {
- 	{
--- 
-1.5.2.4
+ - your patch requires the administration to configure an ethX:iwY
+   alias address to use iwarp.  (By the way is there anything other
+   than "don't do that" that avoids assigning the same address to the
+   iwarp alias and a non-iwarp interface?)
 
+ - it would be nicer to create the alias automatically, but an alias
+   without an address doesn't make sense.  Creating a whole separate
+   net device causes problems because the iwarp stuff still needs to
+   use the main net device to do ARP etc.
+
+ - so I'm out of better ideas but I still want to push back a little
+   before we commit to something ugly.
+
+I've been meaning to track down the bnx2 iscsi offload patch to look
+and see if this issue is addressed, since the same problem seems to
+exist: it seems an iscsi connection and a main stack tcp connection
+might share the same 4-tuple unless something is done to avoid that
+happening.
+
+Also, I think it behooves us to get some agreement on this approach
+with NetEffect and Kanoj (NetXen?) at least, since their iwarp drivers
+seem to be imminent.
+
+ - R.
