@@ -1,28 +1,45 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] sky2: restore multicast list on resume and other ops
-Date: Thu, 13 Sep 2007 00:02:59 -0400
-Message-ID: <46E8B673.5040001@garzik.org>
-References: <200708312010.38276.timo@tiwe.de> <20070905165619.093513af@oldman>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: ne driver crashes when unloaded in 2.6.22.6
+Date: Thu, 13 Sep 2007 00:02:43 -0400
+Message-ID: <1189656163.30762.3.camel@xo-3E-67-34.localdomain>
+References: <313644.18131.qm@web52907.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?Timo_Weing=E4rtner?= <timo@tiwe.de>,
-	netdev@vger.kernel.org, akpm@linux-foundation.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: Chris Rankin <rankincj@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:40670 "EHLO mail.dvmed.net"
+Received: from mx1.redhat.com ([66.187.233.31]:53006 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751285AbXIMEDE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Sep 2007 00:03:04 -0400
-In-Reply-To: <20070905165619.093513af@oldman>
+	id S1751147AbXIMEDq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Sep 2007 00:03:46 -0400
+In-Reply-To: <313644.18131.qm@web52907.mail.re2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Need to restore multicast settings on resume and after 'ethtool -r'.
+On Wed, 2007-09-12 at 19:23 +0100, Chris Rankin wrote:
+> --- Dan Williams <dcbw@redhat.com> wrote:
+> > > > Offhand question, does your ne2000 card support carrier detection?
+> > > 
+> > > Err... there is a /sys/class/net/eth0/carrier entry 
+> > 
+> > Does it read '0' when you unplug the cable?
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> Hmm, apparently not. The light on the card goes out though, so could this just be a lack of driver
+> support?
 
-applied to #upstream-fixes
+Likely, yes.
 
+dan
+
+
+> Cheers,
+> Chris
+> 
+> 
+> 
+>       ___________________________________________________________
+> Yahoo! Answers - Got a question? Someone out there knows the answer. Try it
+> now.
+> http://uk.answers.yahoo.com/ 
 
