@@ -1,33 +1,43 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [BUG] tg3 cannot do PXE (loses MAC address) after soft
- reboot
-Date: Thu, 13 Sep 2007 13:47:52 -0700
-Message-ID: <1189716472.9540.106.camel@dell>
-References: <20070913083918.GA5386@xanadu.blop.info>
- <1551EAE59135BE47B544934E30FC4FC002AABA5B@nt-irva-0751.brcm.ad.broadcom.com>
- <20070913154110.GA25781@xanadu.blop.info>
- <1189706701.9540.84.camel@dell>
- <20070913192812.GA12053@xanadu.blop.info>
+From: Sean Hefty <mshefty@ichips.intel.com>
+Subject: Re: [ofa-general] [PATCH v2] iw_cxgb3: Support "iwarp-only" interfaces
+	to avoid 4-tuple conflicts.
+Date: Thu, 13 Sep 2007 12:54:46 -0700
+Message-ID: <46E99586.90905@ichips.intel.com>
+References: <20070913191617.30937.95960.stgit@dell3.ogc.int>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev" <netdev@vger.kernel.org>
-To: "Lucas Nussbaum" <lucas.nussbaum@imag.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3376 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753577AbXIMTuw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Sep 2007 15:50:52 -0400
-In-Reply-To: <20070913192812.GA12053@xanadu.blop.info>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, general@lists.openfabrics.org,
+	linux-kernel@vger.kernel.org
+To: Steve Wise <swise@opengridcomputing.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070913191617.30937.95960.stgit@dell3.ogc.int>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-09-13 at 21:28 +0200, Lucas Nussbaum wrote:
+> The iWARP driver must translate all listens on address 0.0.0.0 to the
+> set of rdma-only ip addresses for the device in question.  This prevents
+> incoming connect requests to the TCP ipaddresses from going up the
+> rdma stack.
 
-> Erm, Wouldn't it be possible to print a warning when the driver loads,
-> saying that the firmware is outdated ?
+I've only given this a high level review at this point, and while the 
+patch looks okay on first pass, is there a way to move some of this 
+functionality to either the rdma_cm or iw_cm?  I don't like the idea of 
+every iwarp driver having to implement address/listen list maintenance. 
+  I may have some ideas after re-examining it.
 
-It's possible, but would require the driver to parse the version string.
-The driver currently reports the version string for information and for
-the human to parse it.
+> Implementation Details:
 
+There are a couple of areas that I made a note to look at in more detail 
+(because I didn't understand everything that was happening), but I did 
+have one minor nit - most uses of list_del_init can just be list_del.
+
+- Sean
