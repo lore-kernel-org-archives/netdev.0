@@ -1,38 +1,60 @@
-From: Lucas Nussbaum <lucas.nussbaum@imag.fr>
-Subject: Re: [BUG] tg3 cannot do PXE (loses MAC address) after soft reboot
-Date: Thu, 13 Sep 2007 21:28:12 +0200
-Message-ID: <20070913192812.GA12053@xanadu.blop.info>
-References: <20070913083918.GA5386@xanadu.blop.info> <1551EAE59135BE47B544934E30FC4FC002AABA5B@nt-irva-0751.brcm.ad.broadcom.com> <20070913154110.GA25781@xanadu.blop.info> <1189706701.9540.84.camel@dell>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [Lksctp-developers] [RFC v3 PATCH 2/21] SCTP: Convert	bind_addr_list
+ locking to RCU
+Date: Thu, 13 Sep 2007 15:33:34 -0400
+Message-ID: <46E9908E.6000905@hp.com>
+References: <46E85344.1030402@hp.com>	<11896310224146-git-send-email-vladislav.yasevich@hp.com>	<20070912223352.GJ9830@linux.vnet.ibm.com> <1189706346.2748.20.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net
+To: Sridhar Samudrala <sri@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xanadu.blop.info ([80.248.208.235]:47654 "EHLO xanadu.blop.info"
+Received: from atlrel8.hp.com ([156.153.255.206]:58002 "EHLO atlrel8.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752164AbXIMT2Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Sep 2007 15:28:16 -0400
-Content-Disposition: inline
-In-Reply-To: <1189706701.9540.84.camel@dell>
+	id S1753302AbXIMTeM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Sep 2007 15:34:12 -0400
+In-Reply-To: <1189706346.2748.20.camel@w-sridhar2.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 13/09/07 at 11:05 -0700, Michael Chan wrote:
-> On Thu, 2007-09-13 at 17:41 +0200, Lucas Nussbaum wrote:
-> 
-> > # ethtool -i eth0
-> > driver: tg3
-> > version: 3.65
-> > firmware-version: 5703-v2.21a
-> > bus-info: 0000:02:02.0
-> 
-> The firmware is quite old and needs to be upgraded to fix the problem.
-> I'll have someone contact you to get it upgraded.
+Hi Sridhar
 
-Erm, Wouldn't it be possible to print a warning when the driver loads,
-saying that the firmware is outdated ?
--- 
-| Lucas Nussbaum                        PhD student |
-| lucas.nussbaum@imag.fr        LIG / Projet MESCAL |
-| jabber: lucas@nussbaum.fr    +33 (0)6 64 71 41 65 |
-| homepage:        http://www-id.imag.fr/~nussbaum/ |
+Sridhar Samudrala wrote:
+> On Wed, 2007-09-12 at 15:33 -0700, Paul E. McKenney wrote:
+>> On Wed, Sep 12, 2007 at 05:03:42PM -0400, Vlad Yasevich wrote:
+>>> [... and here is the updated version as promissed ...]
+>>>
+>>> Since the sctp_sockaddr_entry is now RCU enabled as part of
+>>> the patch to synchronize sctp_localaddr_list, it makes sense to
+>>> change all handling of these entries to RCU.  This includes the
+>>> sctp_bind_addrs structure and it's list of bound addresses.
+>>>
+>>> This list is currently protected by an external rw_lock and that
+>>> looks like an overkill.  There are only 2 writers to the list:
+>>> bind()/bindx() calls, and BH processing of ASCONF-ACK chunks.
+>>> These are already seriealized via the socket lock, so they will
+>>> not step on each other.  These are also relatively rare, so we
+>>> should be good with RCU.
+>>>
+>>> The readers are varied and they are easily converted to RCU.
+>> Looks good from an RCU viewpoint -- I must defer to others on
+>> the networking aspects.
+>>
+>> Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> 
+> looks good to me too. some minor typos and some comments on
+> RCU usage comments inline.
+> 
+> Also, I guess we can remove the sctp_[read/write]_[un]lock macros
+> from sctp.h now that you removed the all the users of rwlocks
+> in SCTP
+> 
+
+Looks like some of the hashing calls still use sctp_write_[un]lock
+macros, but use normal read_lock() for the read side.
+
+I'll clean that up after these patches are accepted.
+
+-vlad
