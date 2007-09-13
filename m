@@ -1,36 +1,58 @@
-From: Milan Kocian <milon@wq.cz>
-Subject: [PATCH 1/1] ipv6: remove redundant RTM_DELLINK message
-Date: Thu, 13 Sep 2007 11:57:38 +0200
-Message-ID: <20070913095738.GA4168@wq.cz>
-References: <20070815143322.GA25640@wq.cz> <20070821.002058.102575162.davem@davemloft.net> <20070829215119.GB15856@wq.cz> <20070906104711.GV18480@postel.suug.ch> <20070906210550.GA13542@wq.cz> <20070907101137.GX18480@postel.suug.ch> <20070912145030.GA29748@wq.cz> <20070912145323.GE18480@postel.suug.ch>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 4/4] [IPROUTE2] iproute2: link_veth support bug fixes.
+Date: Thu, 13 Sep 2007 12:30:25 +0200
+Message-ID: <20070913123025.0077d421@oldman>
+References: <m14pi0cac5.fsf@ebiederm.dsl.xmission.com>
+	<m1zlzsavla.fsf@ebiederm.dsl.xmission.com>
+	<m1veagavjr.fsf_-_@ebiederm.dsl.xmission.com>
+	<m1r6l4avhp.fsf_-_@ebiederm.dsl.xmission.com>
+	<46E7F8B1.5090907@openvz.org>
+	<m1ir6fapdt.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Pavel Emelyanov <xemul@openvz.org>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: ebiederm@xmission.com (Eric W. Biederman)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-sitel.lam.cz ([212.71.129.172]:38501 "EHLO nt.wq.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752385AbXIMJ5n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Sep 2007 05:57:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20070912145323.GE18480@postel.suug.ch>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:40369 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750818AbXIMK3l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 06:29:41 -0400
+In-Reply-To: <m1ir6fapdt.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-remove useless message. We get right message from other subsystem.
----
+On Wed, 12 Sep 2007 09:13:02 -0600
+ebiederm@xmission.com (Eric W. Biederman) wrote:
 
---- a/net/ipv6/addrconf.c	2007-09-13 11:22:31.087494976 +0200
-+++ b/net/ipv6/addrconf.c	2007-09-13 11:25:56.056225711 +0200
-@@ -2486,9 +2486,7 @@ static int addrconf_ifdown(struct net_de
- 	else
- 		ipv6_mc_down(idev);
- 
--	/* Step 5: netlink notification of this interface */
- 	idev->tstamp = jiffies;
--	inet6_ifinfo_notify(RTM_DELLINK, idev);
- 
- 	/* Shot the device (if unregistered) */
- 
-Signed-off-by: Milan Kocian <milon@wq.cz>
+> Pavel Emelyanov <xemul@openvz.org> writes:
+> 
+> > [snip]
+> >
+> >> @@ -25,6 +26,3 @@ clean:
+> >>  
+> >>  LDLIBS	+= -ldl
+> >>  LDFLAGS	+= -Wl,-export-dynamic
+> >> -
+> >> -%.so: %.c
+> >> -	$(CC) $(CFLAGS) -shared $< -o $@
+> >
+> > %) How do we get the .so file then?
+> 
+> The code was built into iproute2, so we don't need the .so file.
+> That rule does not work on arch/x86_64 so I had to do something
+> and the easiest was to simply compile the code in.  Like Patrick
+> did with his recent VLAN support.
+> 
+> The usefulness of a .so file seems to be distributing the code
+> outside of /bin/ip.  Although I think we currently have some issues with
+> mixed 32bit and 64bit systems because we have "/usr/lib/ip/link_*.so"
+> hard coded.
+> 
+> A .so file always seems to override the compiled in version so I don't
+> think we loose any flexibility on that front.
+> 
+> Eric
 
+Fixing the 64 bit library path is on my to fix list.
