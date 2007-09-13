@@ -1,27 +1,30 @@
-From: Kyle McMartin <kyle@mcmartin.ca>
-Subject: Re: [CORRECTION][PATCH] Fix a potential NULL pointer dereference in uli526x_interrupt() in drivers/net/tulip/uli526x.c
-Date: Thu, 13 Sep 2007 05:03:18 -0400
-Message-ID: <20070913090318.GA6196@fattire.cabal.ca>
-References: <46DD13CE.6010905@gmail.com> <20070913020346.979647c1.akpm@linux-foundation.org>
+From: =?iso-8859-1?q?Hans-J=FCrgen_Koch?= <hjk@linutronix.de>
+Subject: Re: [PATCH] Fix a lock problem in generic phy code
+Date: Thu, 13 Sep 2007 11:50:29 +0200
+Message-ID: <200709131150.30609.hjk@linutronix.de>
+References: <200708311430.09590.hjk@linutronix.de> <46E8B8C4.5010203@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Micah Gruber <micah.gruber@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jgarzik@pobox.com, Grant Grundler <grundler@parisc-linux.org>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stout.engsoc.carleton.ca ([134.117.69.22]:45593 "EHLO
-	stout.engsoc.carleton.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756057AbXIMJSv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 05:18:51 -0400
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	afleming@freescale.com
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754344AbXIMJum@vger.kernel.org>
+In-Reply-To: <46E8B8C4.5010203@garzik.org>
 Content-Disposition: inline
-In-Reply-To: <20070913020346.979647c1.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 13, 2007 at 02:03:46AM -0700, Andrew Morton wrote:
-> I suspect the fix we want is:
-> 
+Am Donnerstag 13 September 2007 schrieb Jeff Garzik:
+> Hans-J=FCrgen Koch wrote:
+> > Lock debugging finds a problem in phy.c and phy_device.c,
+> > this patch fixes it. Tested on an AT91SAM9263-EK board,
+> > kernel 2.6.23-rc4.
+> >
+> > Signed-off-by: Hans J. Koch <hjk@linutronix.de>
+>
+> applied
 
-ack. The trend seems to be to avoid this redundant check in the
-interrupt handler.
+Thanks! Andrew applied it to -mm, too.
+
+Hans
