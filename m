@@ -1,51 +1,72 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [ofa-general] InfiniBand/RDMA merge plans for 2.6.24
-Date: Thu, 13 Sep 2007 14:02:57 -0700
-Message-ID: <adatzpyl1mm.fsf@cisco.com>
-References: <adahclymos8.fsf@cisco.com>
-	<000401c7f632$c993e8e0$65cc180a@amr.corp.intel.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [PATCH for 2.6.24] SCTP: Move sysctl_sctp_[rw]mem definitions to
+ protocol.c
+Date: Thu, 13 Sep 2007 17:03:45 -0400
+Message-ID: <46E9A5B1.5070202@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <general@lists.openfabrics.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: "Sean Hefty" <sean.hefty@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "lksctp-developers@lists.sourceforge.net"
+	<lksctp-developers@lists.sourceforge.net>,
+	David Miller <davem@davemloft.net>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:46028 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754247AbXIMVDG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 17:03:06 -0400
-In-Reply-To: <000401c7f632$c993e8e0$65cc180a@amr.corp.intel.com> (Sean Hefty's message of "Thu, 13 Sep 2007 11:20:38 -0700")
+Received: from atlrel8.hp.com ([156.153.255.206]:52767 "EHLO atlrel8.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753251AbXIMVEI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Sep 2007 17:04:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > > - My user_mad P_Key index support patch.  I'll test the ioctl to
- > >   change to the new mode and merge this I guess, since Hal and Sean
- > >   have tested this out.
- > 
- > I can give this patch a reviewed-by: too, and I will also try to review a couple
- > of the pending ipoib patches.
+The sctp_[rw]mem definitions should really be in protocol.c
+since that is where they are initialized.  This also allows
+one to build a kernel without sysctl support.
 
-Thanks!
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+---
+ net/sctp/protocol.c |    6 +++---
+ net/sctp/sysctl.c   |   11 +++--------
+ 2 files changed, 6 insertions(+), 11 deletions(-)
 
- > > - Sean's QoS changes.  These look fine at first glance, and I just
- > >   plan to understand the backwards compatibility story (ie how this
- > >   works with an old SM) and merge.  Anyone who objects let me know.
- > 
- > The new QoS fields fall into fields that are currently reserved, which should be
- > ignored by an older SM.  I've only tested this against openSM however.
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 193835d..c49eb99 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -84,9 +84,9 @@ static struct sctp_af *sctp_af_v6_specific;
+ struct kmem_cache *sctp_chunk_cachep __read_mostly;
+ struct kmem_cache *sctp_bucket_cachep __read_mostly;
+ 
+-extern int sysctl_sctp_mem[3];
+-extern int sysctl_sctp_rmem[3];
+-extern int sysctl_sctp_wmem[3];
++int sysctl_sctp_mem[3];
++int sysctl_sctp_rmem[3];
++int sysctl_sctp_wmem[3];
+ 
+ /* Return the address of the control sock. */
+ struct sock *sctp_get_ctl_sock(void)
+diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
+index ba75ef4..39b10ee 100644
+--- a/net/sctp/sysctl.c
++++ b/net/sctp/sysctl.c
+@@ -52,14 +52,9 @@ static int int_max = INT_MAX;
+ static long sack_timer_min = 1;
+ static long sack_timer_max = 500;
+ 
+-int sysctl_sctp_mem[3];
+-int sysctl_sctp_rmem[3];
+-int sysctl_sctp_wmem[3];
+-
+-/*
+- * per assoc memory limitationf for sends
+- */
+-int sysctl_sctp_wmem[3];
++extern int sysctl_sctp_mem[3];
++extern int sysctl_sctp_rmem[3];
++extern int sysctl_sctp_wmem[3];
+ 
+ static ctl_table sctp_table[] = {
+ 	{
+-- 
+1.5.2.4
 
-That seems OK -- I'm OK with breaking things if an SM is clearly buggy
-(and not ignoring fields that are defined to be ignored in the spec
-would certainly be a clear bug to me).
-
- > This patch was generated in response to an Intel MPI issue.  We've seen MPI take
- > several minutes to respond to a connection request during the middle of large
- > application runs.  When this happens, the active side times out the connection.
- > In OFED, we added module parameters to adjust the rdma_cm connection timeout on
- > the active side, but I believe that sending an MRA from the passive side is a
- > better solution.
-
-OK -- just to make sure I'm understanding what you're saying: have you
-confirmed that your proposed patches actually fix the issue?
-
- - R.
