@@ -1,17 +1,19 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH for 2.6.24] SCTP: Implete the Supported Extensions Parameter
-Date: Thu, 13 Sep 2007 14:39:59 -0400
-Message-ID: <1189708799108-git-send-email-vladislav.yasevich@hp.com>
+Subject: [v2 PATCH for 2.6.24] SCTP: Implement the Supported Extensions Parameter
+Date: Thu, 13 Sep 2007 14:45:49 -0400
+Message-ID: <11897091493925-git-send-email-vladislav.yasevich@hp.com>
 Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net,
 	Vlad Yasevich <vladislav.yasevich@hp.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:41053 "EHLO atlrel6.hp.com"
+Received: from atlrel7.hp.com ([156.153.255.213]:45109 "EHLO atlrel7.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752239AbXIMSkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Sep 2007 14:40:16 -0400
+	id S1752983AbXIMSqI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Sep 2007 14:46:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+[... i can't seem to spell to save my life lately...]
 
 SCTP Supported Extenions parameter is specified in Section 4.2.7
 of the ADD-IP draft (soon to be RFC).  The parameter is
@@ -29,13 +31,13 @@ encoded as:
      | CHUNK TYPE N  |      PAD      |      PAD      |      PAD      |
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-It contains the list of chunks that a particular SCTP extension
-usues.  Current extensions supported are Partial Reliability
+It contains a list of chunks that a particular SCTP extension
+uses.  Current extensions supported are Partial Reliability
 (FWD-TSN) and ADD-IP (ASCONF and ASCONF-ACK).
 
 When implementing new extensions (AUTH, PKT-DROP, etc..), new
 chunks need to be added to this parameter.  Parameter processing
-would be modified to negotiate support for these features.
+would be modified to negotiate support for these new features.
 
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
