@@ -1,52 +1,43 @@
-From: Lucas Nussbaum <lucas.nussbaum@imag.fr>
-Subject: Re: [BUG] tg3 cannot do PXE (loses MAC address) after soft reboot
-Date: Thu, 13 Sep 2007 17:41:10 +0200
-Message-ID: <20070913154110.GA25781@xanadu.blop.info>
-References: <20070913083918.GA5386@xanadu.blop.info> <1551EAE59135BE47B544934E30FC4FC002AABA5B@nt-irva-0751.brcm.ad.broadcom.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] sb1250-mac.c: De-typedef, de-volatile, de-etc...
+Date: Thu, 13 Sep 2007 11:51:27 -0400
+Message-ID: <46E95C7F.1050302@pobox.com>
+References: <Pine.LNX.4.64N.0709101310030.25038@blysk.ds.pg.gda.pl> <46E8B56E.7060705@pobox.com> <Pine.LNX.4.64N.0709131506040.31069@blysk.ds.pg.gda.pl> <20070913151452.GB29665@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Maciej W. Rozycki" <macro@linux-mips.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-mips@linux-mips.org,
+	linux-kernel@vger.kernel.org
+To: Ralf Baechle <ralf@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xanadu.blop.info ([80.248.208.235]:39395 "EHLO xanadu.blop.info"
+Received: from srv5.dvmed.net ([207.36.208.214]:54833 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752760AbXIMPle (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Sep 2007 11:41:34 -0400
-Content-Disposition: inline
-In-Reply-To: <1551EAE59135BE47B544934E30FC4FC002AABA5B@nt-irva-0751.brcm.ad.broadcom.com>
+	id S1753288AbXIMPvn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Sep 2007 11:51:43 -0400
+In-Reply-To: <20070913151452.GB29665@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 13/09/07 at 08:15 -0700, Michael Chan wrote:
-> Lucas Nussbaum wrote:
+Ralf Baechle wrote:
+> On Thu, Sep 13, 2007 at 03:13:06PM +0100, Maciej W. Rozycki wrote:
 > 
-> > This used to work, and broke between 2.6.16 and 2.6.17. Using 
-> > git bissect,
-> > I could trace this back to that commit:
-> > commit bc1c756741b065cfebf850e4164c0e2aae9d527f
-> > Author: Michael Chan <mchan@broadcom.com>
-> > Date:   Mon Mar 20 17:48:03 2006 -0800
-> >     [TG3]: Support shutdown WoL.
+>>  Hmm, works fine with linux-2.6.git#master.  I do not recall any recent 
+>> activity with this driver -- I wonder what the difference is.  Let me 
+>> see...
 > 
-> This may be caused by bugs in early versions of bootcode or
-> PXE code.  When tg3 powers down the PHY during shutdown, the
-> MAC address will become zero in the MAC address register.  The
-> PXE code or bootcode needs to fetch the MAC address again from
-> The NVRAM.
-> 
-> Can you also send me ethtool -i eth0 which will provide the
-> bootcode version?  What machine are you using?  Thanks.
+> Hmm...  HEAD du jour has no differences for the sb1250-mac between lmo
+> and kernel.org.
 
-# ethtool -i eth0
-driver: tg3
-version: 3.65
-firmware-version: 5703-v2.21a
-bus-info: 0000:02:02.0
+Net driver patches should apply on top of netdev-2.6.git#upstream, which 
+is where changes to net drivers are queued for the next release.
 
-What do you mean by "what machine" ? The systems are Dell PowerEdge
-1600SC, but the NICs were bought separately AFAIK.
--- 
-| Lucas Nussbaum                        PhD student |
-| lucas.nussbaum@imag.fr        LIG / Projet MESCAL |
-| jabber: lucas@nussbaum.fr    +33 (0)6 64 71 41 65 |
-| homepage:        http://www-id.imag.fr/~nussbaum/ |
+The closer we get to the merge window, the greater the diff between 
+netdev-2.6.git#upstream and linux-2.6.git#master, so 
+linux-2.6.git#master is not a useful comparison.
+
+	Jeff
+
+
+
