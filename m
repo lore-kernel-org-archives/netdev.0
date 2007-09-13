@@ -1,59 +1,68 @@
-From: Lucas Nussbaum <lucas.nussbaum@imag.fr>
-Subject: [BUG] tg3 cannot do PXE (loses MAC address) after soft reboot
-Date: Thu, 13 Sep 2007 10:39:18 +0200
-Message-ID: <20070913083918.GA5386@xanadu.blop.info>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [CORRECTION][PATCH] Fix a potential NULL pointer dereference in
+ uli526x_interrupt() in drivers/net/tulip/uli526x.c
+Date: Thu, 13 Sep 2007 02:03:46 -0700
+Message-ID: <20070913020346.979647c1.akpm@linux-foundation.org>
+References: <46DD13CE.6010905@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mchan@broadcom.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jgarzik@pobox.com, Grant Grundler <grundler@parisc-linux.org>
+To: Micah Gruber <micah.gruber@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xanadu.blop.info ([80.248.208.235]:46807 "EHLO xanadu.blop.info"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754351AbXIMIwZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Sep 2007 04:52:25 -0400
-Content-Disposition: inline
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:35485 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754504AbXIMJED (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 05:04:03 -0400
+In-Reply-To: <46DD13CE.6010905@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, 04 Sep 2007 16:14:06 +0800 Micah Gruber <micah.gruber@gmail.com> wrote:
 
-We use PXE with Broadcom NetXtreme cards. After a soft reboot (using the
-"reboot" command), the system cannot get an IP address using DHCP. On
-the console, a MAC address of 00 00 00 00 00 00 is shown. When rebooting
-with "reboot -f" or with the reset button, everything works as expected.
+> This patch fixes a potential null dereference bug where we dereference dev before a null check. This patch simply moves the dereferencing after the null check.
+> 
+> Signed-off-by: Micah Gruber <micah.gruber@gmail.com>
+> ---
+> 
+> --- a/drivers/net/tulip/uli526x.c
+> +++ b/drivers/net/tulip/uli526x.c
+> @@ -663,7 +663,7 @@
+>  {
+>  	struct net_device *dev = dev_id;
+>  	struct uli526x_board_info *db = netdev_priv(dev);
+> -	unsigned long ioaddr = dev->base_addr;
+> +	unsigned long ioaddr;
+>  	unsigned long flags;
+>  
+>  	if (!dev) {
+> @@ -671,6 +671,8 @@
+>  		return IRQ_NONE;
+>  	}
+>  
+> +	ioaddr = dev->base_addr;
+> +
+>  	spin_lock_irqsave(&db->lock, flags);
+>  	outl(0, ioaddr + DCR7);
+> 
 
-This used to work, and broke between 2.6.16 and 2.6.17. Using git bissect,
-I could trace this back to that commit:
-commit bc1c756741b065cfebf850e4164c0e2aae9d527f
-Author: Michael Chan <mchan@broadcom.com>
-Date:   Mon Mar 20 17:48:03 2006 -0800
-    [TG3]: Support shutdown WoL.
+I suspect the fix we want is:
 
-During boot, the following messages are displayed:
-Broadcom NetXtreme Gigabit Ethernet Boot Agent v2.2.8
-[...]
-Broadcom UNDI, PXE-2.1 (build 082) v2.2.8
-[...]
-CLIENT MAC ADDR: 00 10 18 01 E5 2F GUID: 44454C4C 4800 1052 8032
-B9C04F53304A
 
-After a soft reboot, the last line is changed to:
-CLIENT MAC ADDR: 00 00 00 00 00 00 GUID: 44454C4C 4800 1052 8032
-B9C04F53304A
+--- a/drivers/net/tulip/uli526x.c~fix-a-potential-null-pointer-dereference-in-uli526x_interrupt
++++ a/drivers/net/tulip/uli526x.c
+@@ -666,11 +666,6 @@ static irqreturn_t uli526x_interrupt(int
+ 	unsigned long ioaddr = dev->base_addr;
+ 	unsigned long flags;
+ 
+-	if (!dev) {
+-		ULI526X_DBUG(1, "uli526x_interrupt() without DEVICE arg", 0);
+-		return IRQ_NONE;
+-	}
+-
+ 	spin_lock_irqsave(&db->lock, flags);
+ 	outl(0, ioaddr + DCR7);
+ 
+_
 
-lspci -v for the card:
-02:02.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5703X Gigabit Ethernet (rev 02)
-        Subsystem: Broadcom Corporation NetXtreme BCM5703 1000Base-T
-        Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 177
-        Memory at fcf00000 (64-bit, non-prefetchable) [size=64K]
-        Capabilities: [40] PCI-X non-bridge device
-        Capabilities: [48] Power Management version 2
-        Capabilities: [50] Vital Product Data
-        Capabilities: [58] Message Signalled Interrupts: Mask- 64bit+ Queue=0/3 Enable-
-
-Thank you,
--- 
-| Lucas Nussbaum                        PhD student |
-| lucas.nussbaum@imag.fr        LIG / Projet MESCAL |
-| jabber: lucas@nussbaum.fr    +33 (0)6 64 71 41 65 |
-| homepage:        http://www-id.imag.fr/~nussbaum/ |
