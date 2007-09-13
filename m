@@ -1,200 +1,153 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [ofa-general] InfiniBand/RDMA merge plans for 2.6.24
-Date: Thu, 13 Sep 2007 13:04:32 -0500
-Message-ID: <46E97BB0.9030106@opengridcomputing.com>
-References: <adahclymos8.fsf@cisco.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [RFC v3 PATCH 2/21] SCTP: Convert bind_addr_list locking to RCU
+Date: Thu, 13 Sep 2007 14:15:42 -0400
+Message-ID: <46E97E4E.6090505@hp.com>
+References: <46E85344.1030402@hp.com>	 <11896310224146-git-send-email-vladislav.yasevich@hp.com>	 <20070912223352.GJ9830@linux.vnet.ibm.com> <1189706346.2748.20.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <adahclymos8.fsf@cisco.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	lksctp-developers@lists.sourceforge.net
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atlrel6.hp.com ([156.153.255.205]:35319 "EHLO atlrel6.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753651AbXIMSQf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Sep 2007 14:16:35 -0400
+In-Reply-To: <1189706346.2748.20.camel@w-sridhar2.beaverton.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hey Roland,
+Hi Sridhar
 
-I was about to post v2 of my patch to avoid port space collisions with 
-the native stack.  Can we get that 2.6.24?  It is high priority IMO. 
-I've tried to solicit review on it, but I think folks are reluctant... ;-)
+Sridhar Samudrala wrote:
+> 
+> looks good to me too. some minor typos and some comments on
+> RCU usage comments inline.
+> 
+> Also, I guess we can remove the sctp_[read/write]_[un]lock macros
+> from sctp.h now that you removed the all the users of rwlocks
+> in SCTP
 
-Steve.
+Ok.  I guess I pull them.
+
+> 
+> Thanks
+> Sridhar
+>>> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+>>> ---
+>>>  include/net/sctp/structs.h |    7 +--
+>>>  net/sctp/associola.c       |   14 +-----
+>>>  net/sctp/bind_addr.c       |   68 ++++++++++++++++++++----------
+>>>  net/sctp/endpointola.c     |   27 +++---------
+>>>  net/sctp/ipv6.c            |   12 ++---
+>>>  net/sctp/protocol.c        |   25 ++++-------
+>>>  net/sctp/sm_make_chunk.c   |   18 +++-----
+>>>  net/sctp/socket.c          |   98 ++++++++++++-------------------------------
+>>>  8 files changed, 106 insertions(+), 163 deletions(-)
+>>>
+>>>
+>>> diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
+>>> index 7fc369f..d16055f 100644
+>>> --- a/net/sctp/bind_addr.c
+>>> +++ b/net/sctp/bind_addr.c
+>>> @@ -167,7 +167,11 @@ int sctp_add_bind_addr(struct sctp_bind_addr *bp, union sctp_addr *new,
+>>>
+>>>  	INIT_LIST_HEAD(&addr->list);
+>>>  	INIT_RCU_HEAD(&addr->rcu);
+>>> -	list_add_tail(&addr->list, &bp->address_list);
+>>> +
+>>> +	/* We always hold a socket lock when calling this function,
+>>> +	 * so rcu_read_lock is not needed.
+>>> +	 */
+>>> +	list_add_tail_rcu(&addr->list, &bp->address_list);
+> 
+> I am little confused with the comment above.
+> Isn't this an update-side of RCU. If so, this should be protected
+> by a spin-lock or a mutex rather than rcu_read_lock().
+> 
+
+Yes, the comment is confusing.  I put it there because I removed the rcu_read_lock() that
+was also taken in prior version of the patch.  The comment should really say, that since
+the socket is held, we don't need another synchronizing spin lock in this case.
+
+>>>  	SCTP_DBG_OBJCNT_INC(addr);
+>>>
+>>>  	return 0;
+>>> @@ -176,23 +180,35 @@ int sctp_add_bind_addr(struct sctp_bind_addr *bp, union sctp_addr *new,
+>>>  /* Delete an address from the bind address list in the SCTP_bind_addr
+>>>   * structure.
+>>>   */
+>>> -int sctp_del_bind_addr(struct sctp_bind_addr *bp, union sctp_addr *del_addr)
+>>> +int sctp_del_bind_addr(struct sctp_bind_addr *bp, union sctp_addr *del_addr,
+>>> +			void (*rcu_call)(struct rcu_head *head,
+>>> +					 void (*func)(struct rcu_head *head)))
+>>>  {
+>>> -	struct list_head *pos, *temp;
+>>> -	struct sctp_sockaddr_entry *addr;
+>>> +	struct sctp_sockaddr_entry *addr, *temp;
+>>>
+>>> -	list_for_each_safe(pos, temp, &bp->address_list) {
+>>> -		addr = list_entry(pos, struct sctp_sockaddr_entry, list);
+>>> +	/* We hold the socket lock when calling this function, so
+>>> +	 * rcu_read_lock is not needed.
+>>> +	 */
+> 
+> Same as above. This is also an update-side of RCU protected 
+> by socket lock.
+
+Same reason.  Prior versions used rcu_spin_lock and I was just making a note that
+that not needed.  I'll remove.
+
+> 
+>>> +	list_for_each_entry_safe(addr, temp, &bp->address_list, list) {
+>>>  		if (sctp_cmp_addr_exact(&addr->a, del_addr)) {
+>>>  			/* Found the exact match. */
+>>> -			list_del(pos);
+>>> -			kfree(addr);
+>>> -			SCTP_DBG_OBJCNT_DEC(addr);
+>>> -
+>>> -			return 0;
+>>> +			addr->valid = 0;
+>>> +			list_del_rcu(&addr->list);
+>>> +			break;
+>>>  		}
+>>>  	}
+>>>
+>>> +	/* Call the rcu callback provided in the args.  This function is
+>>> +	 * called by both BH packet processing and user side socket option
+>>> +	 * processing, but it works on different lists in those 2 contexts.
+>>> +	 * Each context provides it's own callback, whether call_rc_bh()
+> s/call_rc_bh/call_rcu_bh
+
+yep.
+
+> 
+>>> +	 * or call_rcu(), to make sure that we wait an for appropriate time.
+> s/an for/for an
+
+yep.  fat fingered...
+
+>>> @@ -295,20 +285,17 @@ struct sctp_association *sctp_endpoint_lookup_assoc(
+>>>  int sctp_endpoint_is_peeled_off(struct sctp_endpoint *ep,
+>>>  				const union sctp_addr *paddr)
+>>>  {
+>>> -	struct list_head *pos;
+>>>  	struct sctp_sockaddr_entry *addr;
+>>>  	struct sctp_bind_addr *bp;
+>>>
+>>> -	sctp_read_lock(&ep->base.addr_lock);
+>>>  	bp = &ep->base.bind_addr;
+>>> -	list_for_each(pos, &bp->address_list) {
+>>> -		addr = list_entry(pos, struct sctp_sockaddr_entry, list);
+>>> -		if (sctp_has_association(&addr->a, paddr)) {
+>>> -			sctp_read_unlock(&ep->base.addr_lock);
+>>> +	/* This function is called whith the socket lock held,
+> s/whith/with
+
+ok
 
 
+Thanks
+-vlad
 
-Roland Dreier wrote:
-> With 2.6.24 probably opening in the not-too-distant future, it's
-> probably a good time to review what my plans are for when the merge
-> window opens.
-> 
-> At the kernel summit, we discussed patch review (doing a web search
-> for "kernel summit" "reviewed-by:" should turn up lots of info on
-> this).  Due to an unfortunate combination of vacation and conference
-> travel, summer colds, and other inconveniences, I am very backed up on
-> reviewing.  And in any case, I've allowed too much code review to be
-> dumped on me -- when there are dozens of people working on IB and RDMA
-> stuff, it obviously doesn't work to expect me to do all the reviewing.
-> 
-> Unfortunately, due to the length of the backlog and the fact that
-> 2.6.23 seems fairly close, some of the things listed below are going
-> to miss the 2.6.24 merge window.  So, although the plan is to phase in
-> requiring "Reviewed-by:" gently, for this merge, if you can get
-> someone other than me to review your work, then the chances of it
-> being merged increase dramatically.  I'm talking about a real review--
-> ideally, someone independent (from another company would be good) who
-> is willing to provide a "Reviewed-by:" line that means the reviewer
-> has really looked at and thought about the patch.  There should be a
-> mailing list thread you can point me at where the reviewer comments on
-> the patch and a new version of that patch addressing all comments is
-> posted (or in exceptional cases, where the patch is perfect to start
-> with, where the reviewer says the patch is great).
-> 
-> For example, given the number of IPoIB changes pending, it might be a
-> good idea for the people submitting them to get together and trade
-> reviews (ie "If you review my patch, I'll review your patch").  There
-> are a few cases where getting a review may not be necessary.  First of
-> all, trivial and obvious patches don't need a review.  It's a
-> judgement call what is trivial or obvious, and it's always a good idea
-> to provide a changelog that makes it clear why a patch is trivial and
-> obviously correct.  Second, hardware driver patches may not make sense
-> to anyone outside of the company whose hardware the driver is for.
-> Still, in this case, an internal Reviewed-by: would be nice, and also
-> a changelog that explains the reason for the change always helps
-> (don't just tell me what your patch does, but also explain what the
-> patch fixes and what the impact of the current situation is).
-> 
-> Anyway, here are all the pending things that I'm aware of.  As usual,
-> if something isn't already in my tree and isn't listed below, I
-> probably missed it or dropped it by mistake.  Please remind me again
-> in that case.
-> 
-> Core:
-> 
->  - My user_mad P_Key index support patch.  I'll test the ioctl to
->    change to the new mode and merge this I guess, since Hal and Sean
->    have tested this out.
-> 
->  - A fix to the user_mad 32-bit big-endian userspace 64/32 problem
->    with the method_mask when registering agents.  I'll write a patch
->    to handle this in a way that doesn't change the ABI for anything
->    other than the broken case and hope to get someone to review this
->    so it can be merged.
-> 
->  - Sean's QoS changes.  These look fine at first glance, and I just
->    plan to understand the backwards compatibility story (ie how this
->    works with an old SM) and merge.  Anyone who objects let me know.
-> 
->  - Sean's IB CM MRA interface changes.  Don't know at this point.  It
->    seems OK but I'm not clear on what if any real-world improvement
->    this gives us.
-> 
-> ULPs:
-> 
->  - Pradeep's IPoIB CM support for devices that don't have SRQs.  I
->    think the basic approach makes sense (I don't think faking SRQs at
->    some other layer is really feasible) and I need to find time to
->    look at the details to see if the current patch looks workable.  I'm
->    likely to merge this; getting an independent Reviewed-by: would
->    certainly be appreciated too.
-> 
->  - Moni's IPoIB bonding support.  This seems mostly an issue of
->    getting the core bonding maintainer's attention.  However getting a
->    Reviewed-by: for the IPoIB changes wouldn't hurt too.
-> 
->  - Rolf's IPoIB MGID scope changes.  Certainly we want to fix this
->    issue but the specific changes need review.
-> 
->  - Eli and Michael's IPoIB stateless offload (checksum offload, LSO,
->    LRO, etc).  It's a big series that makes quite a few core changes.
->    I think it needs some careful review and is probably at risk of
->    missing this merge window.  Sorting in order of invasiveness so we
->    can merge at least some of it (if splitting it makes sense) might
->    be a good idea.
-> 
-> HW specific:
-> 
->  - I already merged patches to enable MSI-X by default for mthca and
->    mlx4.  I hope there aren't too many systems that get hosed if a
->    MSI-X interrupt is generated.
-> 
->  - Jack and Michael's mlx4 FMR support.  Will merge I guess, although
->    I do hope to have time to address the DMA API abuse that is being
->    copied from mthca, so that mlx4 and mthca work in Xen domU.
-> 
->  - ehca patch queue.  Will merge, pending fixes for the few minor
->    issues I commented on.
-> 
->  - Steve's mthca router mode support.  Would be nice to see a review
->    from someone at Mellanox.
-> 
->  - Arthur's mthca doorbell alignment fixes.  I will experiment with a
->    few different approaches and post what I like (and fix mlx4 as
->    well).  I hope Arthur can review.
-> 
->  - Michael's mlx4 WQE shrinking patch.  Not sure yet; I'll reply to
->    the latest patch directly.
-> 
-> Here are a few topics that I believe will not be ready in time for the
-> 2.6.24 window and will need to wait for 2.6.25:
-> 
->  - Multiple CQ event vector support.  I haven't seen any discussions
->    about how ULPs or userspace apps should decide which vector to use,
->    and hence no progress has been made since we deferred this during
->    the 2.6.23 merge window.
-> 
->  - XRC.  Given the length of the backlog above and the fact that a
->    first draft of this code has not been posted yet, I don't see any
->    way that we could have something this major ready in time.
-> 
-> Here is the complete list of patches I have in my for-2.6.24 branch
-> waiting for the merge window so far.  Mostly I haven't merged anything
-> big out of my backlog, so this is essentially all
-> 
-> Ali Ayoub (1):
->       IB/sa: Error handling thinko fix
-> 
-> Anton Blanchard (3):
->       IB/fmr_pool: Clean up some error messages in fmr_pool.c
->       IB/ehca: Make output clearer by removing some debug messages
->       IB/ehca: Export module parameters in sysfs
-> 
-> Dotan Barak (1):
->       mlx4_core: Use enum value GO_BIT_TIMEOUT_MSECS
-> 
-> Eli Cohen (2):
->       IPoIB: Fix typo to end statement with ';' instead of ','
->       IPoIB: Fix error path memory leak
-> 
-> Michael S. Tsirkin (2):
->       mlx4_core: Enable MSI-X by default
->       IB/mthca: Enable MSI-X by default
-> 
-> Peter Oruba (1):
->       IB/mthca: Use PCI-X/PCI-Express read control interfaces
-> 
-> Roland Dreier (6):
->       IPoIB: Make sure no receives are handled when stopping device
->       IB: find_first_zero_bit() takes unsigned pointer
->       mlx4_core: Don't free special QPs in QP number bitmap
->       IB/mlx4: Use set_data_seg() in mlx4_ib_post_recv()
->       IB/ehca: Include <linux/mutex.h> from ehca_classes.h
->       IB/mlx4: Fix up SRQ limit_watermark endianness
-> 
-> Steve Wise (1):
->       RDMA/cxgb3: Make the iw_cxgb3 module parameters writable
-> _______________________________________________
-> general mailing list
-> general@lists.openfabrics.org
-> http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general
-> 
-> To unsubscribe, please visit http://openib.org/mailman/listinfo/openib-general
