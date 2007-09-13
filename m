@@ -1,100 +1,44 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [RFC] af_packet: allow disabling timestamps
-Date: Thu, 13 Sep 2007 12:42:53 +0200
-Message-ID: <20070913124253.60da52f2@oldman>
-References: <1186669314.24669.56.camel@localhost.localdomain>
-	<20070809143322.GA5345@2ka.mipt.ru>
-	<1186683234.24669.65.camel@localhost.localdomain>
-	<20070809181823.GA32449@2ka.mipt.ru>
-	<1186685450.24669.81.camel@localhost.localdomain>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH][MIPS][7/7] AR7: ethernet
+Date: Thu, 13 Sep 2007 12:35:47 +0100
+Message-ID: <20070913113547.GC31940@linux-mips.org>
+References: <200709080143.12345.technoboy85@gmail.com> <200709080223.00613.technoboy85@gmail.com> <20070912165029.GG4571@linux-mips.org> <20070913014246.GB15247@networkno.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org
-To: Unai Uribarri <unai.uribarri@optenet.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Matteo Croce <technoboy85@gmail.com>, linux-mips@linux-mips.org,
+	Eugene Konev <ejka@imfi.kspu.ru>, netdev@vger.kernel.org,
+	davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@coreworks.de,
+	openwrt-devel@lists.openwrt.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>
+To: Thiemo Seufer <ths@networkno.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:45111 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751786AbXIMKmr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 06:42:47 -0400
-In-Reply-To: <1186685450.24669.81.camel@localhost.localdomain>
+Received: from ftp.linux-mips.org ([194.74.144.162]:60533 "EHLO
+	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751647AbXIMLgF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 07:36:05 -0400
+Received: from localhost.localdomain ([127.0.0.1]:55234 "EHLO
+	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
+	id S20021755AbXIMLgE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Sep 2007 12:36:04 +0100
+Content-Disposition: inline
+In-Reply-To: <20070913014246.GB15247@networkno.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently, af_packet does not allow disabling timestamps. This patch changes
-that but doesn't force global timestamps on.
+On Thu, Sep 13, 2007 at 02:42:46AM +0100, Thiemo Seufer wrote:
 
-This shows up in bugzilla as:
-	http://bugzilla.kernel.org/show_bug.cgi?id=4809
+> > All struct members here are sized such that there is no padding needed, so
+> > the packed attribute doesn't buy you anything - unless of course the
+> > entire structure is missaligned but I don't see how that would be possible
+> > in this driver so the __attribute__ ((packed)) should go - it result in
+> > somwhat larger and slower code.
+> 
+> FWIW, a modern gcc will warn about such superfluous packed attributes,
+> that's another reason to remove those.
 
-Patch against net-2.6.24 tree.
+I doubt it will in this case; the packed structure is dereferenced by a
+pointer so no way for gcc to know the alignment.
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-
---- a/net/core/sock.c	2007-09-12 15:08:43.000000000 +0200
-+++ b/net/core/sock.c	2007-09-13 12:10:19.000000000 +0200
-@@ -259,7 +259,8 @@ static void sock_disable_timestamp(struc
- {
- 	if (sock_flag(sk, SOCK_TIMESTAMP)) {
- 		sock_reset_flag(sk, SOCK_TIMESTAMP);
--		net_disable_timestamp();
-+		if (sk->sk_family != PF_PACKET)
-+			net_disable_timestamp();
- 	}
- }
- 
-@@ -1645,7 +1646,8 @@ void sock_enable_timestamp(struct sock *
- {
- 	if (!sock_flag(sk, SOCK_TIMESTAMP)) {
- 		sock_set_flag(sk, SOCK_TIMESTAMP);
--		net_enable_timestamp();
-+		if (sk->sk_family != PF_PACKET)
-+			net_enable_timestamp();
- 	}
- }
- EXPORT_SYMBOL(sock_enable_timestamp);
---- a/net/packet/af_packet.c	2007-09-12 17:07:00.000000000 +0200
-+++ b/net/packet/af_packet.c	2007-09-13 12:09:10.000000000 +0200
-@@ -572,7 +572,6 @@ static int tpacket_rcv(struct sk_buff *s
- 	unsigned long status = TP_STATUS_LOSING|TP_STATUS_USER;
- 	unsigned short macoff, netoff;
- 	struct sk_buff *copy_skb = NULL;
--	struct timeval tv;
- 
- 	if (dev->nd_net != &init_net)
- 		goto drop;
-@@ -650,12 +649,19 @@ static int tpacket_rcv(struct sk_buff *s
- 	h->tp_snaplen = snaplen;
- 	h->tp_mac = macoff;
- 	h->tp_net = netoff;
--	if (skb->tstamp.tv64)
--		tv = ktime_to_timeval(skb->tstamp);
--	else
--		do_gettimeofday(&tv);
--	h->tp_sec = tv.tv_sec;
--	h->tp_usec = tv.tv_usec;
-+
-+	if (sock_flag(sk, SOCK_TIMESTAMP)) {
-+		struct timeval tv;
-+		if (skb->tstamp.tv64)
-+			tv = ktime_to_timeval(skb->tstamp);
-+		else
-+			do_gettimeofday(&tv);
-+		h->tp_sec = tv.tv_sec;
-+		h->tp_usec = tv.tv_usec;
-+	} else {
-+		h->tp_sec = 0;
-+		h->tp_usec = 0;
-+	}
- 
- 	sll = (struct sockaddr_ll*)((u8*)h + TPACKET_ALIGN(sizeof(*h)));
- 	sll->sll_halen = 0;
-@@ -1014,6 +1020,7 @@ static int packet_create(struct net *net
- 		sock->ops = &packet_ops_spkt;
- 
- 	sock_init_data(sock, sk);
-+	sock_set_flag(sk, SOCK_TIMESTAMP);
- 
- 	po = pkt_sk(sk);
- 	sk->sk_family = PF_PACKET;
+  Ralf
