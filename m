@@ -1,47 +1,52 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH] ucc_geth: fix compilation
-Date: Thu, 13 Sep 2007 19:23:33 +0400
-Message-ID: <20070913152333.GA2381@localhost.localdomain>
-References: <20070912112456.GA15556@localhost.localdomain>
+From: Lucas Nussbaum <lucas.nussbaum@imag.fr>
+Subject: Re: [BUG] tg3 cannot do PXE (loses MAC address) after soft reboot
+Date: Thu, 13 Sep 2007 17:41:10 +0200
+Message-ID: <20070913154110.GA25781@xanadu.blop.info>
+References: <20070913083918.GA5386@xanadu.blop.info> <1551EAE59135BE47B544934E30FC4FC002AABA5B@nt-irva-0751.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: linuxppc-dev@ozlabs.org
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:4976 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750922AbXIMPUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 11:20:35 -0400
+Received: from xanadu.blop.info ([80.248.208.235]:39395 "EHLO xanadu.blop.info"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752760AbXIMPle (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Sep 2007 11:41:34 -0400
 Content-Disposition: inline
-In-Reply-To: <20070912112456.GA15556@localhost.localdomain>
+In-Reply-To: <1551EAE59135BE47B544934E30FC4FC002AABA5B@nt-irva-0751.brcm.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently qe_bd_t is used in the macro call -- dma_unmap_single,
-which is a no-op on PPC32, thus error is hidden today. Starting
-with 2.6.24, macro will be replaced by the empty static function,
-and erroneous use of qe_bd_t will trigger compilation error.
+On 13/09/07 at 08:15 -0700, Michael Chan wrote:
+> Lucas Nussbaum wrote:
+> 
+> > This used to work, and broke between 2.6.16 and 2.6.17. Using 
+> > git bissect,
+> > I could trace this back to that commit:
+> > commit bc1c756741b065cfebf850e4164c0e2aae9d527f
+> > Author: Michael Chan <mchan@broadcom.com>
+> > Date:   Mon Mar 20 17:48:03 2006 -0800
+> >     [TG3]: Support shutdown WoL.
+> 
+> This may be caused by bugs in early versions of bootcode or
+> PXE code.  When tg3 powers down the PHY during shutdown, the
+> MAC address will become zero in the MAC address register.  The
+> PXE code or bootcode needs to fetch the MAC address again from
+> The NVRAM.
+> 
+> Can you also send me ethtool -i eth0 which will provide the
+> bootcode version?  What machine are you using?  Thanks.
 
-Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
----
+# ethtool -i eth0
+driver: tg3
+version: 3.65
+firmware-version: 5703-v2.21a
+bus-info: 0000:02:02.0
 
-Reposting this to include netdev in Cc.
-
- drivers/net/ucc_geth.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 12e01b2..9a38dfe 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -2148,7 +2148,7 @@ static void ucc_geth_memclean(struct ucc_geth_private *ugeth)
- 		for (j = 0; j < ugeth->ug_info->bdRingLenTx[i]; j++) {
- 			if (ugeth->tx_skbuff[i][j]) {
- 				dma_unmap_single(NULL,
--						 ((qe_bd_t *)bd)->buf,
-+						 ((struct qe_bd *)bd)->buf,
- 						 (in_be32((u32 *)bd) &
- 						  BD_LENGTH_MASK),
- 						 DMA_TO_DEVICE);
+What do you mean by "what machine" ? The systems are Dell PowerEdge
+1600SC, but the NICs were bought separately AFAIK.
 -- 
-1.5.0.6
+| Lucas Nussbaum                        PhD student |
+| lucas.nussbaum@imag.fr        LIG / Projet MESCAL |
+| jabber: lucas@nussbaum.fr    +33 (0)6 64 71 41 65 |
+| homepage:        http://www-id.imag.fr/~nussbaum/ |
