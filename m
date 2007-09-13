@@ -1,47 +1,30 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [ofa-general] InfiniBand/RDMA merge plans for 2.6.24
-Date: Thu, 13 Sep 2007 13:59:21 -0500
-Message-ID: <46E98889.1080706@opengridcomputing.com>
-References: <adahclymos8.fsf@cisco.com>
-	<46E97BB0.9030106@opengridcomputing.com>
-	<46E987E0.2010605@garzik.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] Add IP1000A Driver
+Date: Thu, 13 Sep 2007 21:02:56 +0200
+Message-ID: <20070913190256.GA25849@electric-eye.fr.zoreil.com>
+References: <AA68EB0EBA29BA40A06B700C33343EEF01901340@fileserver.icplus.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
-	linux-kernel@vger.kernel.org, general@lists.openfabrics.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <46E987E0.2010605@garzik.org>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=unknown-8bit
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jeff@garzik.org, akpm@linux-foundation.org, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: =?unknown-8bit?B?6buD5bu66IiILUplc3Nl?= <Jesse@icplus.com.tw>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:49632 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756933AbXIMTF7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Sep 2007 15:05:59 -0400
+Content-Disposition: inline
+In-Reply-To: <AA68EB0EBA29BA40A06B700C33343EEF01901340@fileserver.icplus.com.tw>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+=E9=BB=83=E5=BB=BA=E8=88=88-Jesse <Jesse@icplus.com.tw> :
+[...]
+> I wish to list three people you, me and, my leader Sorbica in this fi=
+le.
 
+Yes.
 
-Jeff Garzik wrote:
-> Steve Wise wrote:
->> I was about to post v2 of my patch to avoid port space collisions with 
->> the native stack.  Can we get that 2.6.24?  It is high priority IMO. 
->> I've tried to solicit review on it, but I think folks are reluctant... 
->> ;-)
-> 
-> Well, if it involves /sharing/ port space with the native stack, i.e. 
-> where port 1234 is IB but 1235 is Linux, pretty much all the networking 
-> devs have NAK'd that approach AFAICS.
-> 
-
-Jeff, I posted a fix that doesn't do this.  No port sharing.  The iwarp 
-device will use its own ip address and subnet to avoid collisions.  You 
-should review the patch when I post v2.
-
-Thanks,
-
-Steve.
+--=20
+Ueimor
