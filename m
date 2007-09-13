@@ -1,95 +1,110 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Distributed storage. Security attributes and ducumentation update.
-Date: Thu, 13 Sep 2007 16:22:59 +0400
-Message-ID: <20070913122259.GA20714@2ka.mipt.ru>
-References: <20070831160611.GA21660@2ka.mipt.ru> <20070910221445.GL11801@linux.vnet.ibm.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [RFC] af_packet: allow disabling timestamps
+Date: Thu, 13 Sep 2007 14:24:06 +0200
+Message-ID: <20070913142406.299944c3.dada1@cosmosbay.com>
+References: <1186669314.24669.56.camel@localhost.localdomain>
+	<20070809143322.GA5345@2ka.mipt.ru>
+	<1186683234.24669.65.camel@localhost.localdomain>
+	<20070809181823.GA32449@2ka.mipt.ru>
+	<1186685450.24669.81.camel@localhost.localdomain>
+	<20070913124253.60da52f2@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20070910221445.GL11801@linux.vnet.ibm.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Unai Uribarri <unai.uribarri@optenet.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pfx2.jmh.fr ([194.153.89.55]:33140 "EHLO pfx2.jmh.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753137AbXIMMYJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Sep 2007 08:24:09 -0400
+In-Reply-To: <20070913124253.60da52f2@oldman>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Paul.
+On Thu, 13 Sep 2007 12:42:53 +0200
+Stephen Hemminger <shemminger@linux-foundation.org> wrote:
 
-On Mon, Sep 10, 2007 at 03:14:45PM -0700, Paul E. McKenney (paulmck@linux.vnet.ibm.com) wrote:
-> > Further TODO list includes:
-> > * implement optional saving of mirroring/linear information on the remote
-> > 	nodes (simple)
-> > * implement netlink based setup (simple)
-> > * new redundancy algorithm (complex)
-> > 
-> > Homepage:
-> > http://tservice.net.ru/~s0mbre/old/?section=projects&item=dst
+> Currently, af_packet does not allow disabling timestamps. This patch changes
+> that but doesn't force global timestamps on.
 > 
-> A couple questions below, but otherwise looks good from an RCU viewpoint.
+> This shows up in bugzilla as:
+> 	http://bugzilla.kernel.org/show_bug.cgi?id=4809
 > 
-> 							Thanx, Paul
-
-Thanks for your comments, and sorry for late reply I was at KS/London
-trip.
-> > +	if (--num) {
-> > +		list_for_each_entry_rcu(n, &node->shared, shared) {
+> Patch against net-2.6.24 tree.
 > 
-> This function is called under rcu_read_lock() or similar, right?
-> (Can't tell from this patch.)  It is also OK to call it from under the
-> update-side mutex, of course.
 
-Actually not, but it does not require it, since entry can not be removed
-during this operations since appropriate reference counter for given node is
-being held. It should not be RCU at all.
+I am not sure I understood this patch.
 
-> > +static int dst_mirror_read(struct dst_request *req)
-> > +{
-> > +	struct dst_node *node = req->node, *n, *min_dist_node;
-> > +	struct dst_mirror_priv *priv = node->priv;
-> > +	u64 dist, d;
-> > +	int err;
-> > +
-> > +	req->bio_endio = &dst_mirror_read_endio;
-> > +
-> > +	do {
-> > +		err = -ENODEV;
-> > +		min_dist_node = NULL;
-> > +		dist = -1ULL;
-> > + 
-> > +		/*
-> > +		 * Reading is never performed from the node under resync.
-> > +		 * If this will cause any troubles (like all nodes must be
-> > +		 * resynced between each other), this check can be removed
-> > +		 * and per-chunk dirty bit can be tested instead.
-> > +		 */
-> > +
-> > +		if (!test_bit(DST_NODE_NOTSYNC, &node->flags)) {
-> > +			priv = node->priv;
-> > +			if (req->start > priv->last_start)
-> > +				dist = req->start - priv->last_start;
-> > +			else
-> > +				dist = priv->last_start - req->start;
-> > +			min_dist_node = req->node;
-> > +		}
-> > +
-> > +		list_for_each_entry_rcu(n, &node->shared, shared) {
-> 
-> I see one call to this function that appears to be under the update-side
-> mutex, but I cannot tell if the other calls are safe.  (Safe as in either
-> under the update-side mutex or under rcu_read_lock() and friends.)
+This means that tcpdump/ethereal wont get precise timestamps 
+(gathered when packet is received), but imprecise ones (gathered when the sniffer reads the packet)
 
-The same here - those processing function are called from
-generic_make_request() from any lock on top of them. Each node is linked
-into the list of the first added node, which reference counter is
-increased in higher layer. Right now there is no way to add or remove
-nodes after array was started, such functionality requires storage tree
-lock to be taken and RCU can not be used (since it requires sleeping and
-I did not investigate sleepable RCU for this purpose).
+I added some time ago ktime infrastructure to eventually get nanosecond 
+precision in libpcap, so I would prefer a step in the right direction :)
 
-So, essentially RCU is not used in DST :)
+Should'nt we use something like :
 
-Thanks for review, Paul.
+[PATCH] af_packet : allow disabling timestamps, or requesting nanosecond precision.
 
--- 
-	Evgeniy Polyakov
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 5a16e38..1c10b9d 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -563,6 +563,7 @@ set_rcvbuf:
+ 		} else {
+ 			sock_reset_flag(sk, SOCK_RCVTSTAMP);
+ 			sock_reset_flag(sk, SOCK_RCVTSTAMPNS);
++			sock_disable_timestamp(sk);
+ 		}
+ 		break;
+ 
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 745e2cb..409de44 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -650,12 +650,27 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev, struct packe
+ 	h->tp_snaplen = snaplen;
+ 	h->tp_mac = macoff;
+ 	h->tp_net = netoff;
+-	if (skb->tstamp.tv64)
+-		tv = ktime_to_timeval(skb->tstamp);
+-	else
+-		do_gettimeofday(&tv);
+-	h->tp_sec = tv.tv_sec;
+-	h->tp_usec = tv.tv_usec;
++	h->tp_sec = 0;
++	h->tp_usec = 0;
++	if ((sock_flag(sk, SOCK_TIMESTAMP))) {
++		if (sock_flag(sk, SOCK_RCVTSTAMPNS)) {
++			struct timespec ts;
++			if (skb->tstamp.tv64)
++				ts = ktime_to_timespec(skb->tstamp);
++			else
++				getnstimeofday(&ts);
++			h->tp_sec = ts.tv_sec;
++			h->tp_usec = ts.tv_nsec; /* cheat a litle bit */
++		}
++		else {
++			if (skb->tstamp.tv64)
++				tv = ktime_to_timeval(skb->tstamp);
++			else
++				do_gettimeofday(&tv);
++			h->tp_sec = tv.tv_sec;
++			h->tp_usec = tv.tv_usec;
++		}
++	}
+ 
+ 	sll = (struct sockaddr_ll*)((u8*)h + TPACKET_ALIGN(sizeof(*h)));
+ 	sll->sll_halen = 0;
+@@ -1014,6 +1029,7 @@ static int packet_create(struct net *net, struct socket *sock, int protocol)
+ 		sock->ops = &packet_ops_spkt;
+ 
+ 	sock_init_data(sock, sk);
++	sock_enable_timestamp(sk);
+ 
+ 	po = pkt_sk(sk);
+ 	sk->sk_family = PF_PACKET;
