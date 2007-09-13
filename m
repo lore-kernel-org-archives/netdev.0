@@ -1,60 +1,59 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] [RFC] allow admin/users to specify rto_min in
- milliseconds rather than jiffies
-Date: Thu, 13 Sep 2007 10:39:57 +0200
-Message-ID: <20070913103957.5354ea5d@oldman>
-References: <200709042020.NAA29612@tardy.cup.hp.com>
-	<20070905073801.2f12991b@oldman>
-	<46E06E7C.4000407@hp.com>
-	<46E84BFA.2070101@hp.com>
+From: Lucas Nussbaum <lucas.nussbaum@imag.fr>
+Subject: [BUG] tg3 cannot do PXE (loses MAC address) after soft reboot
+Date: Thu, 13 Sep 2007 10:39:18 +0200
+Message-ID: <20070913083918.GA5386@xanadu.blop.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Rick Jones <rick.jones2@hp.com>, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: mchan@broadcom.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:58072 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753210AbXIMIjU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 04:39:20 -0400
-In-Reply-To: <46E84BFA.2070101@hp.com>
+Received: from xanadu.blop.info ([80.248.208.235]:46807 "EHLO xanadu.blop.info"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754351AbXIMIwZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Sep 2007 04:52:25 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 12 Sep 2007 13:28:42 -0700
-Rick Jones <rick.jones2@hp.com> wrote:
+Hi,
 
-> >> The api in netlink should be in milliseconds rather than compensating
-> >> in the application (iproute2).
-> > 
-> > 
-> > My understanding of the in-kernel rtnetlink code is far from complete, 
-> > but it doesn't seem to have much in the way of provisions for unit 
-> > conversion, which would suggest no nice suffix-based ui as in tc, and ip 
-> > is already doing some massaging of units on the display side for a 
-> > couple of the other parameters, so I'm at something of a loss.
-> 
-> So, I used the source and looked and saw that tc seems to convert 
-> everything to nanoseconds and passes that to the kernel.  The user can 
-> give it seconds, milliseconds, microseconds or nanoseconds by using a 
-> suffix. It then does something ostensibly intelligent to display those 
-> to the user.
-> 
-> Ip converts nothing when passing things to the kernel (rtt rttvar or rto 
-> - when/if at least the intial rto changes are included - were they?), 
-> but when they come-out of the kernel ip converts them to milliseconds. 
->   So the units in != the units out.
-> 
-> Tc seems much more friendly and less prone to user error.
-> 
-> I'm still not sure how "easily" rtnetlink can do conversions itself - 
-> feedback there would be _very_ welcome - but at the very least, having 
-> ip provide at least the illusion of what tc does would seem to be a good 
-> thing.
-> 
-> rick jones
+We use PXE with Broadcom NetXtreme cards. After a soft reboot (using the
+"reboot" command), the system cannot get an IP address using DHCP. On
+the console, a MAC address of 00 00 00 00 00 00 is shown. When rebooting
+with "reboot -f" or with the reset button, everything works as expected.
 
-Your observations are correct. rtnetlink can't/shouldn't be doing conversions
-itself.  The 'ip' command should use a consistent unit for all values and
-do conversions if necessary.
+This used to work, and broke between 2.6.16 and 2.6.17. Using git bissect,
+I could trace this back to that commit:
+commit bc1c756741b065cfebf850e4164c0e2aae9d527f
+Author: Michael Chan <mchan@broadcom.com>
+Date:   Mon Mar 20 17:48:03 2006 -0800
+    [TG3]: Support shutdown WoL.
+
+During boot, the following messages are displayed:
+Broadcom NetXtreme Gigabit Ethernet Boot Agent v2.2.8
+[...]
+Broadcom UNDI, PXE-2.1 (build 082) v2.2.8
+[...]
+CLIENT MAC ADDR: 00 10 18 01 E5 2F GUID: 44454C4C 4800 1052 8032
+B9C04F53304A
+
+After a soft reboot, the last line is changed to:
+CLIENT MAC ADDR: 00 00 00 00 00 00 GUID: 44454C4C 4800 1052 8032
+B9C04F53304A
+
+lspci -v for the card:
+02:02.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5703X Gigabit Ethernet (rev 02)
+        Subsystem: Broadcom Corporation NetXtreme BCM5703 1000Base-T
+        Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 177
+        Memory at fcf00000 (64-bit, non-prefetchable) [size=64K]
+        Capabilities: [40] PCI-X non-bridge device
+        Capabilities: [48] Power Management version 2
+        Capabilities: [50] Vital Product Data
+        Capabilities: [58] Message Signalled Interrupts: Mask- 64bit+ Queue=0/3 Enable-
+
+Thank you,
+-- 
+| Lucas Nussbaum                        PhD student |
+| lucas.nussbaum@imag.fr        LIG / Projet MESCAL |
+| jabber: lucas@nussbaum.fr    +33 (0)6 64 71 41 65 |
+| homepage:        http://www-id.imag.fr/~nussbaum/ |
