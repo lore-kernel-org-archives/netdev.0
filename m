@@ -1,43 +1,59 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] sb1250-mac.c: De-typedef, de-volatile, de-etc...
-Date: Thu, 13 Sep 2007 11:51:27 -0400
-Message-ID: <46E95C7F.1050302@pobox.com>
-References: <Pine.LNX.4.64N.0709101310030.25038@blysk.ds.pg.gda.pl> <46E8B56E.7060705@pobox.com> <Pine.LNX.4.64N.0709131506040.31069@blysk.ds.pg.gda.pl> <20070913151452.GB29665@linux-mips.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] net: Fix the prototype of call_netdevice_notifiers
+Date: Thu, 13 Sep 2007 09:59:05 -0600
+Message-ID: <m1y7fa5zg6.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Maciej W. Rozycki" <macro@linux-mips.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-mips@linux-mips.org,
-	linux-kernel@vger.kernel.org
-To: Ralf Baechle <ralf@linux-mips.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:54833 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753288AbXIMPvn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Sep 2007 11:51:43 -0400
-In-Reply-To: <20070913151452.GB29665@linux-mips.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:52894 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751562AbXIMP73 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 11:59:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ralf Baechle wrote:
-> On Thu, Sep 13, 2007 at 03:13:06PM +0100, Maciej W. Rozycki wrote:
-> 
->>  Hmm, works fine with linux-2.6.git#master.  I do not recall any recent 
->> activity with this driver -- I wonder what the difference is.  Let me 
->> see...
-> 
-> Hmm...  HEAD du jour has no differences for the sb1250-mac between lmo
-> and kernel.org.
 
-Net driver patches should apply on top of netdev-2.6.git#upstream, which 
-is where changes to net drivers are queued for the next release.
+This replaces the void * parameter with a struct net_device * which
+is what is actually required.
 
-The closer we get to the merge window, the greater the diff between 
-netdev-2.6.git#upstream and linux-2.6.git#master, so 
-linux-2.6.git#master is not a useful comparison.
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ include/linux/netdevice.h |    2 +-
+ net/core/dev.c            |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-	Jeff
-
-
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 0106fa6..90aecc3 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -779,7 +779,7 @@ extern void		free_netdev(struct net_device *dev);
+ extern void		synchronize_net(void);
+ extern int 		register_netdevice_notifier(struct notifier_block *nb);
+ extern int		unregister_netdevice_notifier(struct notifier_block *nb);
+-extern int		call_netdevice_notifiers(unsigned long val, void *v);
++extern int call_netdevice_notifiers(unsigned long val, struct net_device *dev);
+ extern struct net_device	*dev_get_by_index(struct net *net, int ifindex);
+ extern struct net_device	*__dev_get_by_index(struct net *net, int ifindex);
+ extern int		dev_restart(struct net_device *dev);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f119dc0..cc343dd 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1206,9 +1206,9 @@ int unregister_netdevice_notifier(struct notifier_block *nb)
+  *	are as for raw_notifier_call_chain().
+  */
+ 
+-int call_netdevice_notifiers(unsigned long val, void *v)
++int call_netdevice_notifiers(unsigned long val, struct net_device *dev)
+ {
+-	return raw_notifier_call_chain(&netdev_chain, val, v);
++	return raw_notifier_call_chain(&netdev_chain, val, dev);
+ }
+ 
+ /* When > 0 there are consumers of rx skb time stamps */
+-- 
+1.5.3.rc6.17.g1911
 
