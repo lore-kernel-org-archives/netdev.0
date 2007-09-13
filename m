@@ -1,74 +1,47 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [BUG] tg3 cannot do PXE (loses MAC address) after soft
- reboot
-Date: Thu, 13 Sep 2007 08:15:10 -0700
-Message-ID: <1551EAE59135BE47B544934E30FC4FC002AABA5B@nt-irva-0751.brcm.ad.broadcom.com>
-References: <20070913083918.GA5386@xanadu.blop.info>
+From: Anton Vorontsov <avorontsov@ru.mvista.com>
+Subject: [PATCH] ucc_geth: fix compilation
+Date: Thu, 13 Sep 2007 19:23:33 +0400
+Message-ID: <20070913152333.GA2381@localhost.localdomain>
+References: <20070912112456.GA15556@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-To: "Lucas Nussbaum" <lucas.nussbaum@imag.fr>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf8
+Cc: netdev@vger.kernel.org
+To: linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3317 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755573AbXIMPPg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 11:15:36 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20070913083918.GA5386@xanadu.blop.info>
+Received: from rtsoft3.corbina.net ([85.21.88.6]:4976 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750922AbXIMPUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 11:20:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20070912112456.GA15556@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lucas Nussbaum wrote:
+Currently qe_bd_t is used in the macro call -- dma_unmap_single,
+which is a no-op on PPC32, thus error is hidden today. Starting
+with 2.6.24, macro will be replaced by the empty static function,
+and erroneous use of qe_bd_t will trigger compilation error.
 
-> This used to work, and broke between 2.6.16 and 2.6.17. Using 
-> git bissect,
-> I could trace this back to that commit:
-> commit bc1c756741b065cfebf850e4164c0e2aae9d527f
-> Author: Michael Chan <mchan@broadcom.com>
-> Date:   Mon Mar 20 17:48:03 2006 -0800
->     [TG3]: Support shutdown WoL.
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+---
 
-This may be caused by bugs in early versions of bootcode or
-PXE code.  When tg3 powers down the PHY during shutdown, the
-MAC address will become zero in the MAC address register.  The
-PXE code or bootcode needs to fetch the MAC address again from
-The NVRAM.
+Reposting this to include netdev in Cc.
 
-Can you also send me ethtool -i eth0 which will provide the
-bootcode version?  What machine are you using?  Thanks.
+ drivers/net/ucc_geth.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-> 
-> During boot, the following messages are displayed:
-> Broadcom NetXtreme Gigabit Ethernet Boot Agent v2.2.8
-> [...]
-> Broadcom UNDI, PXE-2.1 (build 082) v2.2.8
-> [...]
-> CLIENT MAC ADDR: 00 10 18 01 E5 2F GUID: 44454C4C 4800 1052 8032
-> B9C04F53304A
-> 
-> After a soft reboot, the last line is changed to:
-> CLIENT MAC ADDR: 00 00 00 00 00 00 GUID: 44454C4C 4800 1052 8032
-> B9C04F53304A
-> 
-> lspci -v for the card:
-> 02:02.0 Ethernet controller: Broadcom Corporation NetXtreme 
-> BCM5703X Gigabit Ethernet (rev 02)
->         Subsystem: Broadcom Corporation NetXtreme BCM5703 1000Base-T
->         Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 177
->         Memory at fcf00000 (64-bit, non-prefetchable) [size=64K]
->         Capabilities: [40] PCI-X non-bridge device
->         Capabilities: [48] Power Management version 2
->         Capabilities: [50] Vital Product Data
->         Capabilities: [58] Message Signalled Interrupts: 
-> Mask- 64bit+ Queue=0/3 Enable-
-> 
-> Thank you,
-> -- 
-> | Lucas Nussbaum                        PhD student |
-> | lucas.nussbaum@imag.fr        LIG / Projet MESCAL |
-> | jabber: lucas@nussbaum.fr    +33 (0)6 64 71 41 65 |
-> | homepage:        http://www-id.imag.fr/~nussbaum/ |
-> 
-> 
-
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 12e01b2..9a38dfe 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -2148,7 +2148,7 @@ static void ucc_geth_memclean(struct ucc_geth_private *ugeth)
+ 		for (j = 0; j < ugeth->ug_info->bdRingLenTx[i]; j++) {
+ 			if (ugeth->tx_skbuff[i][j]) {
+ 				dma_unmap_single(NULL,
+-						 ((qe_bd_t *)bd)->buf,
++						 ((struct qe_bd *)bd)->buf,
+ 						 (in_be32((u32 *)bd) &
+ 						  BD_LENGTH_MASK),
+ 						 DMA_TO_DEVICE);
+-- 
+1.5.0.6
