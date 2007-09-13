@@ -1,60 +1,32 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [Lksctp-developers] [RFC v3 PATCH 2/21] SCTP: Convert	bind_addr_list
- locking to RCU
-Date: Thu, 13 Sep 2007 15:33:34 -0400
-Message-ID: <46E9908E.6000905@hp.com>
-References: <46E85344.1030402@hp.com>	<11896310224146-git-send-email-vladislav.yasevich@hp.com>	<20070912223352.GJ9830@linux.vnet.ibm.com> <1189706346.2748.20.camel@w-sridhar2.beaverton.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net
-To: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [v3 PATCH 0/2] Add RCU locking to SCTPaddress management
+Date: Thu, 13 Sep 2007 15:34:35 -0400
+Message-ID: <11897120771278-git-send-email-vladislav.yasevich@hp.com>
+Cc: lksctp@hp.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:58002 "EHLO atlrel8.hp.com"
+Received: from atlrel9.hp.com ([156.153.255.214]:60535 "EHLO atlrel9.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753302AbXIMTeM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Sep 2007 15:34:12 -0400
-In-Reply-To: <1189706346.2748.20.camel@w-sridhar2.beaverton.ibm.com>
+	id S1753851AbXIMTei (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Sep 2007 15:34:38 -0400
+Received: from smtp2.fc.hp.com (smtp2.fc.hp.com [15.11.136.114])
+	by atlrel9.hp.com (Postfix) with ESMTP id 2062935F4B
+	for <netdev@vger.kernel.org>; Thu, 13 Sep 2007 15:34:38 -0400 (EDT)
+Received: from galen.zko.hp.com (galen.zko.hp.com [16.116.97.23])
+	by smtp2.fc.hp.com (Postfix) with ESMTP id CD0FD22674A
+	for <netdev@vger.kernel.org>; Thu, 13 Sep 2007 19:34:37 +0000 (UTC)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sridhar
+Hi All
 
-Sridhar Samudrala wrote:
-> On Wed, 2007-09-12 at 15:33 -0700, Paul E. McKenney wrote:
->> On Wed, Sep 12, 2007 at 05:03:42PM -0400, Vlad Yasevich wrote:
->>> [... and here is the updated version as promissed ...]
->>>
->>> Since the sctp_sockaddr_entry is now RCU enabled as part of
->>> the patch to synchronize sctp_localaddr_list, it makes sense to
->>> change all handling of these entries to RCU.  This includes the
->>> sctp_bind_addrs structure and it's list of bound addresses.
->>>
->>> This list is currently protected by an external rw_lock and that
->>> looks like an overkill.  There are only 2 writers to the list:
->>> bind()/bindx() calls, and BH processing of ASCONF-ACK chunks.
->>> These are already seriealized via the socket lock, so they will
->>> not step on each other.  These are also relatively rare, so we
->>> should be good with RCU.
->>>
->>> The readers are varied and they are easily converted to RCU.
->> Looks good from an RCU viewpoint -- I must defer to others on
->> the networking aspects.
->>
->> Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> 
-> looks good to me too. some minor typos and some comments on
-> RCU usage comments inline.
-> 
-> Also, I guess we can remove the sctp_[read/write]_[un]lock macros
-> from sctp.h now that you removed the all the users of rwlocks
-> in SCTP
-> 
+Thanks to Sridhar Samudral and Paul McKenney for all the help and comments.
+I think this is a final version, unless someone else can spot more problems.
+I've ran this under heavy load and it the patches behaves well.
 
-Looks like some of the hashing calls still use sctp_write_[un]lock
-macros, but use normal read_lock() for the read side.
+I think patch 1 is a candidate for 2.6.23 since it fixes a bug, but splitting
+these seems a bit odd to me.  I'll leave it to DaveM to decide where to
+put them.
 
-I'll clean that up after these patches are accepted.
-
+Thanks
 -vlad
