@@ -1,42 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6.24][NETNS][patch 1/1] fix allnoconfig compilation
- error
-Date: Thu, 13 Sep 2007 00:17:22 -0700 (PDT)
-Message-ID: <20070913.001722.112600272.davem@davemloft.net>
-References: <20070913060151.898030855@mai.toulouse-stg.fr.ibm.com>
-	<20070913060545.740930015@mai.toulouse-stg.fr.ibm.com>
+Subject: Re: [PATCH] net: Fix race when opening a proc file while a network
+ namespace is exiting.
+Date: Thu, 13 Sep 2007 00:19:55 -0700 (PDT)
+Message-ID: <20070913.001955.85390949.davem@davemloft.net>
+References: <m14phzam2l.fsf@ebiederm.dsl.xmission.com>
+	<20070912224653.GK9830@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, containers@lists.osdl.org,
-	netdev@vger.kernel.org
-To: dlezcano@fr.ibm.com
+Cc: ebiederm@xmission.com, netdev@vger.kernel.org,
+	containers@lists.osdl.org
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:49781
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:43401
 	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751312AbXIMHRb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 03:17:31 -0400
-In-Reply-To: <20070913060545.740930015@mai.toulouse-stg.fr.ibm.com>
+	by vger.kernel.org with ESMTP id S1751677AbXIMHUH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 03:20:07 -0400
+In-Reply-To: <20070912224653.GK9830@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: dlezcano@fr.ibm.com
-Date: Thu, 13 Sep 2007 08:01:52 +0200
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Date: Wed, 12 Sep 2007 15:46:53 -0700
 
-> From: Daniel Lezcano <dlezcano@fr.ibm.com>
+> Looks much better!
 > 
-> When CONFIG_NET=no, init_net is unresolved because net_namespace.c
-> is not compiled and the include pull init_net definition.
-> 
-> This problem was very similar with the ipc namespace where the kernel
-> can be compiled with SYSV ipc out.
-> 
-> This patch fix that defining a macro which simply remove init_net
-> initialization from nsproxy namespace aggregator.
-> 
-> Compiled and booted on qemu-i386 with CONFIG_NET=no and CONFIG_NET=yes.
-> 
-> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
-> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> Acked-by: Paul E. McKenney <paulmck@us.ibm.com>
 
-Applied to net-2.6.24, thanks.
+Applied, thanks everyone.
