@@ -1,79 +1,424 @@
 From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [Lksctp-developers] [RFC v3 PATCH 2/21] SCTP:
-	Convert	bind_addr_list locking to RCU
-Date: Thu, 13 Sep 2007 12:56:25 -0700
-Message-ID: <1189713386.2748.28.camel@w-sridhar2.beaverton.ibm.com>
-References: <46E85344.1030402@hp.com>
-	 <11896310224146-git-send-email-vladislav.yasevich@hp.com>
-	 <20070912223352.GJ9830@linux.vnet.ibm.com>
-	 <1189706346.2748.20.camel@w-sridhar2.beaverton.ibm.com>
-	 <46E9908E.6000905@hp.com>
+Subject: Re: [v3 PATCH 1/2] SCTP: Add RCU synchronization around
+	sctp_localaddr_list
+Date: Thu, 13 Sep 2007 12:57:00 -0700
+Message-ID: <1189713420.2748.30.camel@w-sridhar2.beaverton.ibm.com>
+References: <11897120771278-git-send-email-vladislav.yasevich@hp.com>
+	 <1189712077711-git-send-email-vladislav.yasevich@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	lksctp-developers@lists.sourceforge.net
+Cc: netdev@vger.kernel.org, lksctp@hp.com
 To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:54028 "EHLO e3.ny.us.ibm.com"
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:41343 "EHLO e5.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755066AbXIMUA7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Sep 2007 16:00:59 -0400
+	id S1760008AbXIMUBg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Sep 2007 16:01:36 -0400
 Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e3.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8DK0xJD011688
-	for <netdev@vger.kernel.org>; Thu, 13 Sep 2007 16:00:59 -0400
+	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8DK1Z4v024964
+	for <netdev@vger.kernel.org>; Thu, 13 Sep 2007 16:01:35 -0400
 Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8DK0xFZ604000
-	for <netdev@vger.kernel.org>; Thu, 13 Sep 2007 16:00:59 -0400
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8DK1YEJ635798
+	for <netdev@vger.kernel.org>; Thu, 13 Sep 2007 16:01:34 -0400
 Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8DK0wHf030375
-	for <netdev@vger.kernel.org>; Thu, 13 Sep 2007 16:00:59 -0400
-In-Reply-To: <46E9908E.6000905@hp.com>
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8DK1XRM032208
+	for <netdev@vger.kernel.org>; Thu, 13 Sep 2007 16:01:33 -0400
+In-Reply-To: <1189712077711-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-09-13 at 15:33 -0400, Vlad Yasevich wrote:
-> Hi Sridhar
+On Thu, 2007-09-13 at 15:34 -0400, Vlad Yasevich wrote:
+> sctp_localaddr_list is modified dynamically via NETDEV_UP
+> and NETDEV_DOWN events, but there is not synchronization
+> between writer (even handler) and readers.  As a result,
+> the readers can access an entry that has been freed and
+> crash the sytem.
 > 
-> Sridhar Samudrala wrote:
-> > On Wed, 2007-09-12 at 15:33 -0700, Paul E. McKenney wrote:
-> >> On Wed, Sep 12, 2007 at 05:03:42PM -0400, Vlad Yasevich wrote:
-> >>> [... and here is the updated version as promissed ...]
-> >>>
-> >>> Since the sctp_sockaddr_entry is now RCU enabled as part of
-> >>> the patch to synchronize sctp_localaddr_list, it makes sense to
-> >>> change all handling of these entries to RCU.  This includes the
-> >>> sctp_bind_addrs structure and it's list of bound addresses.
-> >>>
-> >>> This list is currently protected by an external rw_lock and that
-> >>> looks like an overkill.  There are only 2 writers to the list:
-> >>> bind()/bindx() calls, and BH processing of ASCONF-ACK chunks.
-> >>> These are already seriealized via the socket lock, so they will
-> >>> not step on each other.  These are also relatively rare, so we
-> >>> should be good with RCU.
-> >>>
-> >>> The readers are varied and they are easily converted to RCU.
-> >> Looks good from an RCU viewpoint -- I must defer to others on
-> >> the networking aspects.
-> >>
-> >> Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> > 
-> > looks good to me too. some minor typos and some comments on
-> > RCU usage comments inline.
-> > 
-> > Also, I guess we can remove the sctp_[read/write]_[un]lock macros
-> > from sctp.h now that you removed the all the users of rwlocks
-> > in SCTP
-> > 
-> 
-> Looks like some of the hashing calls still use sctp_write_[un]lock
-> macros, but use normal read_lock() for the read side.
-> 
-> I'll clean that up after these patches are accepted.
+> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 
-OK. You may also consider looking into the generic inet_hashtable
-infrastructure and see if we can use it for SCTP.
+Acked-by: Sridhar Samdurala <sri@us.ibm.com>
 
 Thanks
 Sridhar
+> ---
+>  include/net/sctp/sctp.h    |    1 +
+>  include/net/sctp/structs.h |    6 +++++
+>  net/sctp/bind_addr.c       |    2 +
+>  net/sctp/ipv6.c            |   34 +++++++++++++++++++--------
+>  net/sctp/protocol.c        |   54 +++++++++++++++++++++++++++++++------------
+>  net/sctp/socket.c          |   38 ++++++++++++++++++++----------
+>  6 files changed, 97 insertions(+), 38 deletions(-)
+> 
+> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+> index d529045..c9cc00c 100644
+> --- a/include/net/sctp/sctp.h
+> +++ b/include/net/sctp/sctp.h
+> @@ -123,6 +123,7 @@
+>   * sctp/protocol.c
+>   */
+>  extern struct sock *sctp_get_ctl_sock(void);
+> +extern void sctp_local_addr_free(struct rcu_head *head);
+>  extern int sctp_copy_local_addr_list(struct sctp_bind_addr *,
+>  				     sctp_scope_t, gfp_t gfp,
+>  				     int flags);
+> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> index c0d5848..a89e361 100644
+> --- a/include/net/sctp/structs.h
+> +++ b/include/net/sctp/structs.h
+> @@ -207,6 +207,9 @@ extern struct sctp_globals {
+>  	 * It is a list of sctp_sockaddr_entry.
+>  	 */
+>  	struct list_head local_addr_list;
+> +
+> +	/* Lock that protects the local_addr_list writers */
+> +	spinlock_t addr_list_lock;
+>  	
+>  	/* Flag to indicate if addip is enabled. */
+>  	int addip_enable;
+> @@ -242,6 +245,7 @@ extern struct sctp_globals {
+>  #define sctp_port_alloc_lock		(sctp_globals.port_alloc_lock)
+>  #define sctp_port_hashtable		(sctp_globals.port_hashtable)
+>  #define sctp_local_addr_list		(sctp_globals.local_addr_list)
+> +#define sctp_local_addr_lock		(sctp_globals.addr_list_lock)
+>  #define sctp_addip_enable		(sctp_globals.addip_enable)
+>  #define sctp_prsctp_enable		(sctp_globals.prsctp_enable)
+> 
+> @@ -737,8 +741,10 @@ const union sctp_addr *sctp_source(const struct sctp_chunk *chunk);
+>  /* This is a structure for holding either an IPv6 or an IPv4 address.  */
+>  struct sctp_sockaddr_entry {
+>  	struct list_head list;
+> +	struct rcu_head	rcu;
+>  	union sctp_addr a;
+>  	__u8 use_as_src;
+> +	__u8 valid;
+>  };
+> 
+>  typedef struct sctp_chunk *(sctp_packet_phandler_t)(struct sctp_association *);
+> diff --git a/net/sctp/bind_addr.c b/net/sctp/bind_addr.c
+> index fdb287a..7fc369f 100644
+> --- a/net/sctp/bind_addr.c
+> +++ b/net/sctp/bind_addr.c
+> @@ -163,8 +163,10 @@ int sctp_add_bind_addr(struct sctp_bind_addr *bp, union sctp_addr *new,
+>  		addr->a.v4.sin_port = htons(bp->port);
+> 
+>  	addr->use_as_src = use_as_src;
+> +	addr->valid = 1;
+> 
+>  	INIT_LIST_HEAD(&addr->list);
+> +	INIT_RCU_HEAD(&addr->rcu);
+>  	list_add_tail(&addr->list, &bp->address_list);
+>  	SCTP_DBG_OBJCNT_INC(addr);
+> 
+> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+> index f8aa23d..e12fa0a 100644
+> --- a/net/sctp/ipv6.c
+> +++ b/net/sctp/ipv6.c
+> @@ -77,13 +77,18 @@
+> 
+>  #include <asm/uaccess.h>
+> 
+> -/* Event handler for inet6 address addition/deletion events.  */
+> +/* Event handler for inet6 address addition/deletion events.
+> + * The sctp_local_addr_list needs to be protocted by a spin lock since
+> + * multiple notifiers (say IPv4 and IPv6) may be running at the same
+> + * time and thus corrupt the list.
+> + * The reader side is protected with RCU.
+> + */
+>  static int sctp_inet6addr_event(struct notifier_block *this, unsigned long ev,
+>  				void *ptr)
+>  {
+>  	struct inet6_ifaddr *ifa = (struct inet6_ifaddr *)ptr;
+> -	struct sctp_sockaddr_entry *addr;
+> -	struct list_head *pos, *temp;
+> +	struct sctp_sockaddr_entry *addr = NULL;
+> +	struct sctp_sockaddr_entry *temp;
+> 
+>  	switch (ev) {
+>  	case NETDEV_UP:
+> @@ -94,19 +99,26 @@ static int sctp_inet6addr_event(struct notifier_block *this, unsigned long ev,
+>  			memcpy(&addr->a.v6.sin6_addr, &ifa->addr,
+>  				 sizeof(struct in6_addr));
+>  			addr->a.v6.sin6_scope_id = ifa->idev->dev->ifindex;
+> -			list_add_tail(&addr->list, &sctp_local_addr_list);
+> +			addr->valid = 1;
+> +			spin_lock_bh(&sctp_local_addr_lock);
+> +			list_add_tail_rcu(&addr->list, &sctp_local_addr_list);
+> +			spin_unlock_bh(&sctp_local_addr_lock);
+>  		}
+>  		break;
+>  	case NETDEV_DOWN:
+> -		list_for_each_safe(pos, temp, &sctp_local_addr_list) {
+> -			addr = list_entry(pos, struct sctp_sockaddr_entry, list);
+> -			if (ipv6_addr_equal(&addr->a.v6.sin6_addr, &ifa->addr)) {
+> -				list_del(pos);
+> -				kfree(addr);
+> +		spin_lock_bh(&sctp_local_addr_lock);
+> +		list_for_each_entry_safe(addr, temp,
+> +					&sctp_local_addr_list, list) {
+> +			if (ipv6_addr_equal(&addr->a.v6.sin6_addr,
+> +					     &ifa->addr)) {
+> +				addr->valid = 0;
+> +				list_del_rcu(&addr->list);
+>  				break;
+>  			}
+>  		}
+> -
+> +		spin_unlock_bh(&sctp_local_addr_lock);
+> +		if (addr && !addr->valid)
+> +			call_rcu(&addr->rcu, sctp_local_addr_free);
+>  		break;
+>  	}
+> 
+> @@ -367,7 +379,9 @@ static void sctp_v6_copy_addrlist(struct list_head *addrlist,
+>  			addr->a.v6.sin6_port = 0;
+>  			addr->a.v6.sin6_addr = ifp->addr;
+>  			addr->a.v6.sin6_scope_id = dev->ifindex;
+> +			addr->valid = 1;
+>  			INIT_LIST_HEAD(&addr->list);
+> +			INIT_RCU_HEAD(&addr->rcu);
+>  			list_add_tail(&addr->list, addrlist);
+>  		}
+>  	}
+> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+> index e98579b..7ee120e 100644
+> --- a/net/sctp/protocol.c
+> +++ b/net/sctp/protocol.c
+> @@ -153,6 +153,9 @@ static void sctp_v4_copy_addrlist(struct list_head *addrlist,
+>  			addr->a.v4.sin_family = AF_INET;
+>  			addr->a.v4.sin_port = 0;
+>  			addr->a.v4.sin_addr.s_addr = ifa->ifa_local;
+> +			addr->valid = 1;
+> +			INIT_LIST_HEAD(&addr->list);
+> +			INIT_RCU_HEAD(&addr->rcu);
+>  			list_add_tail(&addr->list, addrlist);
+>  		}
+>  	}
+> @@ -192,16 +195,24 @@ static void sctp_free_local_addr_list(void)
+>  	}
+>  }
+> 
+> +void sctp_local_addr_free(struct rcu_head *head)
+> +{
+> +	struct sctp_sockaddr_entry *e = container_of(head,
+> +				struct sctp_sockaddr_entry, rcu);
+> +	kfree(e);
+> +}
+> +
+>  /* Copy the local addresses which are valid for 'scope' into 'bp'.  */
+>  int sctp_copy_local_addr_list(struct sctp_bind_addr *bp, sctp_scope_t scope,
+>  			      gfp_t gfp, int copy_flags)
+>  {
+>  	struct sctp_sockaddr_entry *addr;
+>  	int error = 0;
+> -	struct list_head *pos, *temp;
+> 
+> -	list_for_each_safe(pos, temp, &sctp_local_addr_list) {
+> -		addr = list_entry(pos, struct sctp_sockaddr_entry, list);
+> +	rcu_read_lock();
+> +	list_for_each_entry_rcu(addr, &sctp_local_addr_list, list) {
+> +		if (!addr->valid)
+> +			continue;
+>  		if (sctp_in_scope(&addr->a, scope)) {
+>  			/* Now that the address is in scope, check to see if
+>  			 * the address type is really supported by the local
+> @@ -221,6 +232,7 @@ int sctp_copy_local_addr_list(struct sctp_bind_addr *bp, sctp_scope_t scope,
+>  	}
+> 
+>  end_copy:
+> +	rcu_read_unlock();
+>  	return error;
+>  }
+> 
+> @@ -600,13 +612,18 @@ static void sctp_v4_seq_dump_addr(struct seq_file *seq, union sctp_addr *addr)
+>  	seq_printf(seq, "%d.%d.%d.%d ", NIPQUAD(addr->v4.sin_addr));
+>  }
+> 
+> -/* Event handler for inet address addition/deletion events.  */
+> +/* Event handler for inet address addition/deletion events.
+> + * The sctp_local_addr_list needs to be protocted by a spin lock since
+> + * multiple notifiers (say IPv4 and IPv6) may be running at the same
+> + * time and thus corrupt the list.
+> + * The reader side is protected with RCU.
+> + */
+>  static int sctp_inetaddr_event(struct notifier_block *this, unsigned long ev,
+>  			       void *ptr)
+>  {
+>  	struct in_ifaddr *ifa = (struct in_ifaddr *)ptr;
+> -	struct sctp_sockaddr_entry *addr;
+> -	struct list_head *pos, *temp;
+> +	struct sctp_sockaddr_entry *addr = NULL;
+> +	struct sctp_sockaddr_entry *temp;
+> 
+>  	switch (ev) {
+>  	case NETDEV_UP:
+> @@ -615,19 +632,25 @@ static int sctp_inetaddr_event(struct notifier_block *this, unsigned long ev,
+>  			addr->a.v4.sin_family = AF_INET;
+>  			addr->a.v4.sin_port = 0;
+>  			addr->a.v4.sin_addr.s_addr = ifa->ifa_local;
+> -			list_add_tail(&addr->list, &sctp_local_addr_list);
+> +			addr->valid = 1;
+> +			spin_lock_bh(&sctp_local_addr_lock);
+> +			list_add_tail_rcu(&addr->list, &sctp_local_addr_list);
+> +			spin_unlock_bh(&sctp_local_addr_lock);
+>  		}
+>  		break;
+>  	case NETDEV_DOWN:
+> -		list_for_each_safe(pos, temp, &sctp_local_addr_list) {
+> -			addr = list_entry(pos, struct sctp_sockaddr_entry, list);
+> +		spin_lock_bh(&sctp_local_addr_lock);
+> +		list_for_each_entry_safe(addr, temp,
+> +					&sctp_local_addr_list, list) {
+>  			if (addr->a.v4.sin_addr.s_addr == ifa->ifa_local) {
+> -				list_del(pos);
+> -				kfree(addr);
+> +				addr->valid = 0;
+> +				list_del_rcu(&addr->list);
+>  				break;
+>  			}
+>  		}
+> -
+> +		spin_unlock_bh(&sctp_local_addr_lock);
+> +		if (addr && !addr->valid)
+> +			call_rcu(&addr->rcu, sctp_local_addr_free);
+>  		break;
+>  	}
+> 
+> @@ -1160,6 +1183,7 @@ SCTP_STATIC __init int sctp_init(void)
+> 
+>  	/* Initialize the local address list. */
+>  	INIT_LIST_HEAD(&sctp_local_addr_list);
+> +	spin_lock_init(&sctp_local_addr_lock);
+>  	sctp_get_local_addr_list();
+> 
+>  	/* Register notifier for inet address additions/deletions. */
+> @@ -1227,6 +1251,9 @@ SCTP_STATIC __exit void sctp_exit(void)
+>  	sctp_v6_del_protocol();
+>  	inet_del_protocol(&sctp_protocol, IPPROTO_SCTP);
+> 
+> +	/* Unregister notifier for inet address additions/deletions. */
+> +	unregister_inetaddr_notifier(&sctp_inetaddr_notifier);
+> +
+>  	/* Free the local address list.  */
+>  	sctp_free_local_addr_list();
+> 
+> @@ -1240,9 +1267,6 @@ SCTP_STATIC __exit void sctp_exit(void)
+>  	inet_unregister_protosw(&sctp_stream_protosw);
+>  	inet_unregister_protosw(&sctp_seqpacket_protosw);
+> 
+> -	/* Unregister notifier for inet address additions/deletions. */
+> -	unregister_inetaddr_notifier(&sctp_inetaddr_notifier);
+> -
+>  	sctp_sysctl_unregister();
+>  	list_del(&sctp_ipv4_specific.list);
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 3335460..a3acf78 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -4057,9 +4057,9 @@ static int sctp_getsockopt_local_addrs_num_old(struct sock *sk, int len,
+>  					       int __user *optlen)
+>  {
+>  	sctp_assoc_t id;
+> +	struct list_head *pos;
+>  	struct sctp_bind_addr *bp;
+>  	struct sctp_association *asoc;
+> -	struct list_head *pos, *temp;
+>  	struct sctp_sockaddr_entry *addr;
+>  	rwlock_t *addr_lock;
+>  	int cnt = 0;
+> @@ -4096,15 +4096,19 @@ static int sctp_getsockopt_local_addrs_num_old(struct sock *sk, int len,
+>  		addr = list_entry(bp->address_list.next,
+>  				  struct sctp_sockaddr_entry, list);
+>  		if (sctp_is_any(&addr->a)) {
+> -			list_for_each_safe(pos, temp, &sctp_local_addr_list) {
+> -				addr = list_entry(pos,
+> -						  struct sctp_sockaddr_entry,
+> -						  list);
+> +			rcu_read_lock();
+> +			list_for_each_entry_rcu(addr,
+> +						&sctp_local_addr_list, list) {
+> +				if (!addr->valid)
+> +					continue;
+> +
+>  				if ((PF_INET == sk->sk_family) &&
+>  				    (AF_INET6 == addr->a.sa.sa_family))
+>  					continue;
+> +
+>  				cnt++;
+>  			}
+> +			rcu_read_unlock();
+>  		} else {
+>  			cnt = 1;
+>  		}
+> @@ -4127,14 +4131,16 @@ static int sctp_copy_laddrs_old(struct sock *sk, __u16 port,
+>  					int max_addrs, void *to,
+>  					int *bytes_copied)
+>  {
+> -	struct list_head *pos, *next;
+>  	struct sctp_sockaddr_entry *addr;
+>  	union sctp_addr temp;
+>  	int cnt = 0;
+>  	int addrlen;
+> 
+> -	list_for_each_safe(pos, next, &sctp_local_addr_list) {
+> -		addr = list_entry(pos, struct sctp_sockaddr_entry, list);
+> +	rcu_read_lock();
+> +	list_for_each_entry_rcu(addr, &sctp_local_addr_list, list) {
+> +		if (!addr->valid)
+> +			continue;
+> +
+>  		if ((PF_INET == sk->sk_family) &&
+>  		    (AF_INET6 == addr->a.sa.sa_family))
+>  			continue;
+> @@ -4149,6 +4155,7 @@ static int sctp_copy_laddrs_old(struct sock *sk, __u16 port,
+>  		cnt ++;
+>  		if (cnt >= max_addrs) break;
+>  	}
+> +	rcu_read_unlock();
+> 
+>  	return cnt;
+>  }
+> @@ -4156,14 +4163,16 @@ static int sctp_copy_laddrs_old(struct sock *sk, __u16 port,
+>  static int sctp_copy_laddrs(struct sock *sk, __u16 port, void *to,
+>  			    size_t space_left, int *bytes_copied)
+>  {
+> -	struct list_head *pos, *next;
+>  	struct sctp_sockaddr_entry *addr;
+>  	union sctp_addr temp;
+>  	int cnt = 0;
+>  	int addrlen;
+> 
+> -	list_for_each_safe(pos, next, &sctp_local_addr_list) {
+> -		addr = list_entry(pos, struct sctp_sockaddr_entry, list);
+> +	rcu_read_lock();
+> +	list_for_each_entry_rcu(addr, &sctp_local_addr_list, list) {
+> +		if (!addr->valid)
+> +			continue;
+> +
+>  		if ((PF_INET == sk->sk_family) &&
+>  		    (AF_INET6 == addr->a.sa.sa_family))
+>  			continue;
+> @@ -4171,8 +4180,10 @@ static int sctp_copy_laddrs(struct sock *sk, __u16 port, void *to,
+>  		sctp_get_pf_specific(sk->sk_family)->addr_v4map(sctp_sk(sk),
+>  								&temp);
+>  		addrlen = sctp_get_af_specific(temp.sa.sa_family)->sockaddr_len;
+> -		if (space_left < addrlen)
+> -			return -ENOMEM;
+> +		if (space_left < addrlen) {
+> +			cnt =  -ENOMEM;
+> +			break;
+> +		}
+>  		memcpy(to, &temp, addrlen);
+> 
+>  		to += addrlen;
+> @@ -4180,6 +4191,7 @@ static int sctp_copy_laddrs(struct sock *sk, __u16 port, void *to,
+>  		space_left -= addrlen;
+>  		*bytes_copied += addrlen;
+>  	}
+> +	rcu_read_unlock();
+> 
+>  	return cnt;
+>  }
 
