@@ -1,60 +1,42 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: BUG: scheduling while atomic: ifconfig/0x00000002/4170
-Date: Thu, 13 Sep 2007 09:16:27 +0200
-Message-ID: <1189667787.6161.83.camel@johannes.berg>
-References: <alpine.LFD.0.999.0709060923340.26804@enigma.security.iitk.ac.in>
-	 <20070906082301.GB21929@gondor.apana.org.au>
-	 <1189091995.28781.99.camel@johannes.berg>
-	 <20070912.053411.21914920.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-2.6.24][NETNS][patch 1/1] fix allnoconfig compilation
+ error
+Date: Thu, 13 Sep 2007 00:17:22 -0700 (PDT)
+Message-ID: <20070913.001722.112600272.davem@davemloft.net>
+References: <20070913060151.898030855@mai.toulouse-stg.fr.ibm.com>
+	<20070913060545.740930015@mai.toulouse-stg.fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-5q22gSmlNtum6WvC184l"
-Cc: herbert@gondor.apana.org.au, satyam@infradead.org, flo@rfc822.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, michal.k.k.piotrowski@gmail.com,
-	ipw3945-devel@lists.sourceforge.net, yi.zhu@intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, containers@lists.osdl.org,
+	netdev@vger.kernel.org
+To: dlezcano@fr.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:51731 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751016AbXIMHPI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 03:15:08 -0400
-In-Reply-To: <20070912.053411.21914920.davem@davemloft.net>
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:49781
+	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751312AbXIMHRb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Sep 2007 03:17:31 -0400
+In-Reply-To: <20070913060545.740930015@mai.toulouse-stg.fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: dlezcano@fr.ibm.com
+Date: Thu, 13 Sep 2007 08:01:52 +0200
 
---=-5q22gSmlNtum6WvC184l
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> From: Daniel Lezcano <dlezcano@fr.ibm.com>
+> 
+> When CONFIG_NET=no, init_net is unresolved because net_namespace.c
+> is not compiled and the include pull init_net definition.
+> 
+> This problem was very similar with the ipc namespace where the kernel
+> can be compiled with SYSV ipc out.
+> 
+> This patch fix that defining a macro which simply remove init_net
+> initialization from nsproxy namespace aggregator.
+> 
+> Compiled and booted on qemu-i386 with CONFIG_NET=no and CONFIG_NET=yes.
+> 
+> Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
+> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-On Wed, 2007-09-12 at 05:34 -0700, David Miller wrote:
-> From: Johannes Berg <johannes@sipsolutions.net>
-> Date: Thu, 06 Sep 2007 17:19:55 +0200
->=20
-> >=20
-> > Oh btw. Can we stick a might_sleep() into dev_close() *before* the test
-> > whether the device is up? That way, we'd have seen the bug, but
-> > apparently nobody before Florian ever did a 'ip link set wmaster0 down'
-> > while the other interfaces were still open.
->=20
-> I've added this to net-2.6.24
-
-Great, thanks. Now I just hope John gets around to merging all the
-accumulated fixes :)
-
-johannes
-
---=-5q22gSmlNtum6WvC184l
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBG6OPL/ETPhpq3jKURAiTOAJwMn5glpAN/OmX5HDwzBuMV07lF5wCdEnkk
-FOg8XO6khHJn/9NbCUHx7Ys=
-=y5gF
------END PGP SIGNATURE-----
-
---=-5q22gSmlNtum6WvC184l--
-
+Applied to net-2.6.24, thanks.
