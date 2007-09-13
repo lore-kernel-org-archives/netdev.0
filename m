@@ -1,58 +1,45 @@
-From: DHAJOGLO <DHAJOGLO@smumn.edu>
-Subject: cc: Re: skb configured but can't get data allocated
-Date: Wed, 12 Sep 2007 18:41:41 -0500
-Message-ID: <200709122341418320c60701@mail.smumn.edu>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [PATCH 1/4] [IPV6]: Fix unbalanced socket reference with
+ MSG_CONFIRM.
+Date: Thu, 13 Sep 2007 09:30:39 +0900 (JST)
+Message-ID: <20070913.093039.76110425.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: kernelnewbies@nl.linux.org, macnish@gmail.com,
-	netdev@vger.kernel.org
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.smumn.edu ([140.190.136.243]:2775 "EHLO mail.smumn.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754363AbXILXlm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 19:41:42 -0400
+Received: from yue.linux-ipv6.org ([203.178.140.15]:44022 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751591AbXIMA3M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Sep 2007 20:29:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-To All, Thanks for the help.  I ended up adding my data packet after the ip headers and then updated the IP length:
+Also applicable for stable releases.
 
- /* Allocate space for our exp_packet data payload and set the data */
-        d_out = (struct exp_packet *)skb_put(skb,sizeof(struct exp_packet));
-        d_out->headbits = (reply<<4) & 0xF0;
-        d_out->sequence = pkthr.m_seq;
-        d_out->payload = htons(pkthr.p_hash);
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-        /* adjust the total length of this IP packet */
-        iplen = skb->tail - (unsigned char *)skb->nh.iph;
-        iph->tot_len = htons(iplen);
-        ip_send_check(iph);
+-- 
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index a58459a..fc5cb83 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -858,11 +858,10 @@ back_from_confirm:
+ 			ip6_flush_pending_frames(sk);
+ 		else if (!(msg->msg_flags & MSG_MORE))
+ 			err = rawv6_push_pending_frames(sk, &fl, rp);
++		release_sock(sk);
+ 	}
+ done:
+ 	dst_release(dst);
+-	if (!inet->hdrincl)
+-		release_sock(sk);
+ out:
+ 	fl6_sock_release(flowlabel);
+ 	return err<0?err:len;
 
-This is my first venture into the kernel!
-
-On Wednesday, September 12, 2007  3:12 PM, Vlad Yasevich wrote:
->
->Date: Wed, 12 Sep 2007 16:12:37 -0400
->From: Vlad Yasevich
->To: DHAJOGLO <DHAJOGLO@smumn.edu>
->Subject: Re: skb configured but can't get data allocated
->
->You may want to read this page:
->http://vger.kernel.org/~davem/skb.html
->
->You will then see you problem.
->
->Essentially, you are writing your data into an
->area that is never sent.
->
->What you are end up is this:
->
->---------------------------------------------
->| your data| space | ll-header | IPv4 header|
->---------------------------------------------
->
->-vlad
-
-
-
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
