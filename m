@@ -1,71 +1,86 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH 01/11] IB/ipoib: Export call to call_netdevice_notifiers and add new private flag
-Date: Fri, 14 Sep 2007 16:40:20 -0700
-Message-ID: <11898132322950-git-send-email-fubar@us.ibm.com>
+Subject: [ofa-general] [PATCH 02/11] IB/ipoib: Notify the world before doing
+	unregister
+Date: Fri, 14 Sep 2007 16:40:21 -0700
+Message-ID: <1189813234208-git-send-email-fubar@us.ibm.com>
 References: <11898132301664-git-send-email-fubar@us.ibm.com>
-Cc: monisonlists@gmail.com, ogerlitz@voltaire.com, jgarzik@pobox.com,
-	davem@davemloft.net, general@lists.openfabrics.org,
-	Moni Shoua <monis@voltaire.com>
+	<11898132322950-git-send-email-fubar@us.ibm.com>
+Cc: general@lists.openfabrics.org, jgarzik@pobox.com, davem@davemloft.net
 To: netdev@vger.kernel.org, rdreier@cisco.com, monis@voltaire.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:46924 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753517AbXINXkh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Sep 2007 19:40:37 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8ENg1MR009326
-	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:42:01 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8ENeZSR661404
-	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:40:35 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8ENeYfU008507
-	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:40:34 -0400
-In-Reply-To: <11898132301664-git-send-email-fubar@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <11898132322950-git-send-email-fubar@us.ibm.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-From: Moni Shoua <monisonlists@gmail.com>
+From: Moni Shoua <monis@voltaire.com>
 
-Export the call to raw_notifier_call_chain so modules can send notifications
-on netdev events to the netdev_chain.
-Add IFF_SLAVE_DETACH to the list of priv_flags for net_device.
-This flag is set by a slave that is about to unregisster from the kernel.
-
-Both changes are used in bonding slaves that wish to inform the bonding master
-about coming detachment.
+When the bonding device enslaves IPoIB devices it takes pointers to
+functions in the ib_ipoib module. This is fine as long as the ib_ipoib
+nodule remains loaded while the references to its functions exist.
+So, to help bonding do a cleanup on time, when the IPoIB net device is a
+slave of a bonding master, let the master know that the IPoIB device is
+about to unregister (but before calling unregister).
 
 Signed-off-by: Moni Shoua <monis@voltaire.com>
 Acked-by: Jay Vosburgh <fubar@us.ibm.com>
 ---
- include/linux/if.h |    1 +
- net/core/dev.c     |    1 +
- 2 files changed, 2 insertions(+), 0 deletions(-)
+ drivers/infiniband/ulp/ipoib/ipoib_main.c |   15 +++++++++++++++
+ 1 files changed, 15 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/if.h b/include/linux/if.h
-index 32bf419..b302b22 100644
---- a/include/linux/if.h
-+++ b/include/linux/if.h
-@@ -61,6 +61,7 @@
- #define IFF_MASTER_ALB	0x10		/* bonding master, balance-alb.	*/
- #define IFF_BONDING	0x20		/* bonding master or slave	*/
- #define IFF_SLAVE_NEEDARP 0x40		/* need ARPs for validation	*/
-+#define IFF_SLAVE_DETACH 0x80		/* slave is about to unregister */
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+index 894b1dc..97a9661 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+@@ -48,6 +48,7 @@
+ #include <linux/in.h>
  
- #define IF_GET_IFACE	0x0001		/* for querying only */
- #define IF_GET_PROTO	0x0002
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a76021c..5322add 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1148,6 +1148,7 @@ int call_netdevice_notifiers(unsigned long val, void *v)
- {
- 	return raw_notifier_call_chain(&netdev_chain, val, v);
+ #include <net/dst.h>
++#include <linux/netdevice.h>
+ 
+ MODULE_AUTHOR("Roland Dreier");
+ MODULE_DESCRIPTION("IP-over-InfiniBand net driver");
+@@ -772,6 +773,18 @@ static void ipoib_timeout(struct net_device *dev)
+ 	/* XXX reset QP, etc. */
  }
-+EXPORT_SYMBOL(call_netdevice_notifiers);
  
- /* When > 0 there are consumers of rx skb time stamps */
- static atomic_t netstamp_needed = ATOMIC_INIT(0);
++static int ipoib_slave_detach(struct net_device *dev)
++{
++	int ret = 0;
++	if (dev->flags & IFF_SLAVE) {
++		dev->priv_flags |= IFF_SLAVE_DETACH;
++		rtnl_lock();
++		ret = call_netdevice_notifiers(NETDEV_CHANGE, dev);
++		rtnl_unlock();
++	}
++	return ret;
++}
++
+ static int ipoib_hard_header(struct sk_buff *skb,
+ 			     struct net_device *dev,
+ 			     unsigned short type,
+@@ -921,6 +934,7 @@ void ipoib_dev_cleanup(struct net_device *dev)
+ 
+ 	/* Delete any child interfaces first */
+ 	list_for_each_entry_safe(cpriv, tcpriv, &priv->child_intfs, list) {
++		ipoib_slave_detach(cpriv->dev);
+ 		unregister_netdev(cpriv->dev);
+ 		ipoib_dev_cleanup(cpriv->dev);
+ 		free_netdev(cpriv->dev);
+@@ -1208,6 +1222,7 @@ static void ipoib_remove_one(struct ib_device *device)
+ 		ib_unregister_event_handler(&priv->event_handler);
+ 		flush_scheduled_work();
+ 
++		ipoib_slave_detach(priv->dev);
+ 		unregister_netdev(priv->dev);
+ 		ipoib_dev_cleanup(priv->dev);
+ 		free_netdev(priv->dev);
 -- 
 1.5.2-rc2.GIT
-
