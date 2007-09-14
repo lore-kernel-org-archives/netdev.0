@@ -1,40 +1,33 @@
-From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
-Subject: Re: [PATCH][NETNS] Use list_for_each_entry_continue_reverse in
-	setup_net
-Date: Fri, 14 Sep 2007 11:33:00 -0600
-Message-ID: <m1vead17ar.fsf@ebiederm.dsl.xmission.com>
-References: <46EA3AB4.7060904@openvz.org>
+From: "Sean Hefty" <sean.hefty@intel.com>
+Subject: RE: [ofa-general] InfiniBand/RDMA merge plans for 2.6.24
+Date: Fri, 14 Sep 2007 10:45:23 -0700
+Message-ID: <000001c7f6f7$074584e0$9c98070a@amr.corp.intel.com>
+References: <adahclymos8.fsf@cisco.com><000401c7f632$c993e8e0$65cc180a@amr.corp.intel.com> <adatzpyl1mm.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <46EA3AB4.7060904-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org> (Pavel Emelyanov's message of "Fri,
-	14 Sep 2007 11:39:32 +0400")
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <general@lists.openfabrics.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: "'Roland Dreier'" <rdreier@cisco.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:39160 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753259AbXINRp6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2007 13:45:58 -0400
+In-Reply-To: <adatzpyl1mm.fsf@cisco.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org> writes:
+>OK -- just to make sure I'm understanding what you're saying: have you
+>confirmed that your proposed patches actually fix the issue?
 
-> I proposed introducing a list_for_each_entry_continue_reverse
-> macro to be used in setup_net() when unrolling the failed
-> ->init callback.
->
-> Here is the macro and some more cleanup in the setup_net() itself
-> to remove one variable from the stack :) Minor, but the code
-> looks nicer.
->
-> Signed-off-by: Pavel Emelyanov <xemul-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Not directly.  I cannot easily test kernel patches on our larger, production
+clusters.  We've seen the issue with specific applications on 512 and 1024
+cores, but I've only been able to test the patch on a 48-core cluster.  I have
+verified that it successfully increases the timeout to where it *should* work,
+but cannot absolutely confirm that it will fix the problem.  I'm unlikely to
+know that until the production clusters move to an OFED release (1.3?)
+containing this patch.
 
-Acked-by: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-
-Eric
+- Sean
