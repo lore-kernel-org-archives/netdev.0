@@ -1,53 +1,89 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.23-rc5] ipsec interfamily route handling fix
-Date: Fri, 14 Sep 2007 13:42:52 -0700 (PDT)
-Message-ID: <20070914.134252.112612041.davem@davemloft.net>
-References: <200709061900.10508.joakim.koskela@hiit.fi>
+From: Al Boldi <a1426z@gawab.com>
+Subject: Re: Distributed storage. Move away from char device ioctls.
+Date: Fri, 14 Sep 2007 23:46:51 +0300
+Message-ID: <200709142346.51126.a1426z@gawab.com>
+References: <20070914185429.GA9439@2ka.mipt.ru> <46EADC02.9070409@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: joakim.koskela@hiit.fi
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:46431
-	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754749AbXINUnA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 16:43:00 -0400
-In-Reply-To: <200709061900.10508.joakim.koskela@hiit.fi>
+Received: from [212.12.190.212] ([212.12.190.212]:33011 "EHLO raad.intranet"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752444AbXINUr6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2007 16:47:58 -0400
+In-Reply-To: <46EADC02.9070409@garzik.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joakim Koskela <joakim.koskela@hiit.fi>
-Date: Thu, 6 Sep 2007 19:00:10 +0300
+Jeff Garzik wrote:
+> Evgeniy Polyakov wrote:
+> > Hi.
+> >
+> > I'm pleased to announce fourth release of the distributed storage
+> > subsystem, which allows to form a storage on top of remote and local
+> > nodes, which in turn can be exported to another storage as a node to
+> > form tree-like storages.
+> >
+> > This release includes new configuration interface (kernel connector over
+> > netlink socket) and number of fixes of various bugs found during move
+> > to it (in error path).
+> >
+> > Further TODO list includes:
+> > * implement optional saving of mirroring/linear information on the
+> > remote nodes (simple)
+> > * new redundancy algorithm (complex)
+> > * some thoughts about distributed filesystem tightly connected to DST
+> > 	(far-far planes so far)
+> >
+> > Homepage:
+> > http://tservice.net.ru/~s0mbre/old/?section=projects&item=dst
+> >
+> > Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+>
+> My thoughts.  But first a disclaimer:   Perhaps you will recall me as
+> one of the people who really reads all your patches, and examines your
+> code and proposals closely.  So, with that in mind...
+>
+> I question the value of distributed block services (DBS), whether its
+> your version or the others out there.  DBS are not very useful, because
+> it still relies on a useful filesystem sitting on top of the DBS.  It
+> devolves into one of two cases:  (1) multi-path much like today's SCSI,
+> with distributed filesystem arbitrarion to ensure coherency, or (2) the
+> filesystem running on top of the DBS is on a single host, and thus, a
+> single point of failure (SPOF).
+>
+> It is quite logical to extend the concepts of RAID across the network,
+> but ultimately you are still bound by the inflexibility and simplicity
+> of the block device.
+>
+> In contrast, a distributed filesystem offers far more scalability,
+> eliminates single points of failure, and offers more room for
+> optimization and redundancy across the cluster.
+>
+> A distributed filesystem is also much more complex, which is why
+> distributed block devices are so appealing :)
+>
+> With a redundant, distributed filesystem, you simply do not need any
+> complexity at all at the block device level.  You don't even need RAID.
+>
+> It is my hope that you will put your skills towards a distributed
+> filesystem :)  Of the current solutions, GFS (currently in kernel)
+> scales poorly, and NFS v4.1 is amazingly bloated and overly complex.
+>
+> I've been waiting for years for a smart person to come along and write a
+> POSIX-only distributed filesystem.
 
-> This patch addresses a couple of issues related to interfamily ipsec
-> modes. The problem is that the structure of the routing info changes
-> with the family during the __xfrmX_bundle_create, which hasn't been
-> taken properly into account. Seems that by coincidence it hasn't
-> caused problems on 32bit platforms, but crashes for example on x86_64
-> in 6-4 around line 209 of xfrm6_policy.c as rt doesn't point to a
-> rt6_info anymore, but actually a struct rtable. With 64bit pointers,
-> the rt->rt6i_node pointer seems to hit something usually not null in
-> the rtable that rt now points to, making it go for the path_cookie
-> assignment and subsequently crashing.
-> 
-> Tested on both 32/64bit with all four (44/46/64/66) combinations of
-> transformation. I'm still a bit worried about how for example nested
-> transformations work with all of this and would appreciate if someone
-> more familiar with the details of these structs could comment.
-> 
-> Signed-off-by: Joakim Koskela <jookos@gmail.com>
+This http://lkml.org/lkml/2007/8/12/159 may provide a fast-path to reaching 
+that goal.
 
-Since nobody else found time to review this, I did :-)
 
-It's line wrapped so doesn't apply cleanly, but it has technical
-issues too.
+Thanks!
 
-It sets encap_type in the inner loop, but what if we find multiple
-entries some ipv4 and some ipv6?  This logic can't be right.
-
-Instead, we need to treat these objects on an individual basis, I
-think, and that requires a bit more changes.
-
-These tunnel handling code blocks are getting messy, perhaps it's
-time for a little bit of indirection based upon AF type?
+--
+Al
