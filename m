@@ -1,119 +1,151 @@
 From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH 0/10 REV5] Implement skb batching and support in IPoIB/E1000
-Date: Fri, 14 Sep 2007 14:30:58 +0530
-Message-ID: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
-Cc: jagana@us.ibm.com, Robert.Olsson@data.slu.se, rick.jones2@hp.com,
+Subject: [PATCH 1/10 REV5] [Doc] HOWTO Documentation for batching
+Date: Fri, 14 Sep 2007 14:31:18 +0530
+Message-ID: <20070914090118.17589.43799.sendpatchset@K50wks273871wss.in.ibm.com>
+References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
+Cc: jagana@us.ibm.com, Robert.Olsson@data.slu.se,
+	peter.p.waskiewicz.jr@intel.com, kumarkr@linux.ibm.com,
 	xma@us.ibm.com, gaagaan@gmail.com, netdev@vger.kernel.org,
-	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
-	mcarlson@broadcom.com, jeff@garzik.org, mchan@broadcom.com,
-	general@lists.openfabrics.org, kumarkr@linux.ibm.com,
+	rdreier@cisco.com, rick.jones2@hp.com, mcarlson@broadcom.com,
+	jeff@garzik.org, general@lists.openfabrics.org, mchan@broadcom.com,
 	tgraf@suug.ch, randy.dunlap@oracle.com,
 	Krishna Kumar <krkumar2@in.ibm.com>, sri@us.ibm.com
 To: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, hadi@cyberus.ca,
 	kaber@trash.net, shemminger@linux-foundation.org,
 	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:33036 "EHLO e6.ny.us.ibm.com"
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:36175 "EHLO e5.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751223AbXINI67 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Sep 2007 04:58:59 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8E90P0f007680
-	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 05:00:25 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8E8wwms684510
-	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 04:58:58 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8E8wt9P005731
-	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 04:58:58 -0400
+	id S1751385AbXINI7S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2007 04:59:18 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8E8xIn7009673
+	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 04:59:18 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8E8xH3s546580
+	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 04:59:17 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8E8xE3b021600
+	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 04:59:17 -0400
+In-Reply-To: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This set of patches implements the batching xmit capability, and adds support
-for batching in IPoIB and E1000 (E1000 driver changes is ported, thanks to
-changes taken from Jamal's code from an old kernel).
+Add Documentation describing batching skb xmit capability.
 
-List of changes from previous revision:
-----------------------------------------
-1. [Dave] Enable batching as default (change in register_netdev).
-2. [Randy] Update documentation (however ethtool cmd to get/set batching is
-	not implemented, hence I am guessing the usage).
-3. [KK] When changing tx_batch_skb, qdisc xmits need to be blocked since
-	qdisc_restart() drops queue_lock before calling driver xmit, and
-	driver could find blist change under it.
-4. [KK] sched: requeue could wrongly requeue skb already put in the batching
-	list (in case a single skb was sent to the device but not sent as the
-	device was full, resulting in the skb getting added to blist). This
-	also results in slight optimization of batching behavior where for
-	getting skbs #2 onwards don't require to check for gso_skb as that
-	is the first skb that is processed.
-4. [KK] Change documentation to explain this behavior.
-5. [KK] sched: Fix panic when GSO is enabled in driver.
-6. [KK] IPoIB: Small optimization in ipoib_ib_handle_tx_wc
-7. [KK] netdevice: Needed to change NETIF_F_GSO_SHIFT/NETIF_F_GSO_MASK as
-	BATCH_SKBS is now defined as 65536 (earlier it was using 8192 which
-	was taken up by NETIF_F_NETNS_LOCAL).
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+---
+ batching_skb_xmit.txt |  107 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 107 insertions(+)
 
-
-Will submit in the next 1-2 days:
----------------------------------
-1. [Auke] Enable batching in e1000e.
-
-
-Extras that I can do later:
----------------------------
-1. [Patrick] Use skb_blist statically in netdevice. This could also be used
-	to integrate GSO and batching.
-2. [Evgeniy] Useful to splice lists dev_add_skb_to_blist (and this can be
-	done for regular xmit's of GSO skbs too for #1 above).
-
-Patches are described as:
-		 Mail 0/10:  This mail
-		 Mail 1/10:  HOWTO documentation
-		 Mail 2/10:  Introduce skb_blist, NETIF_F_BATCH_SKBS, use
-		 	     single API for batching/no-batching, etc.
-		 Mail 3/10:  Modify qdisc_run() to support batching
-		 Mail 4/10:  Add ethtool support to enable/disable batching
-		 Mail 5/10:  IPoIB: Header file changes to use batching
-		 Mail 6/10:  IPoIB: CM & Multicast changes
-		 Mail 7/10:  IPoIB: Verbs changes to use batching
-		 Mail 8/10:  IPoIB: Internal post and work completion handler
-		 Mail 9/10:  IPoIB: Implement the new batching capability
-		 Mail 10/10: E1000: Implement the new batching capability
-
-Issues:
---------
-The retransmission problem reported earlier seems to happen when mthca is
-used as the underlying device, but when I tested ehca the retransmissions
-dropped to normal levels (around 2 times the regular code). The performance
-improvement is around 55% for TCP.
-
-Please review and provide feedback; and consider for inclusion.
-
-Thanks,
-
-- KK
-
-----------------------------------------------------
-			TCP
-			----
-Size:32 Procs:1		2728	3544	29.91
-Size:128 Procs:1	11803	13679	15.89
-Size:512 Procs:1	43279	49665	14.75
-Size:4096 Procs:1	147952	101246	-31.56
-Size:16384 Procs:1	149852	141897	-5.30
-
-Size:32 Procs:4		10562	11349	7.45
-Size:128 Procs:4	41010	40832	-.43
-Size:512 Procs:4	75374	130943	73.72
-Size:4096 Procs:4	167996	368218	119.18
-Size:16384 Procs:4	123176	379524	208.11
-
-Size:32 Procs:8		21125	21990	4.09
-Size:128 Procs:8	77419	78605	1.53
-Size:512 Procs:8	234678	265047	12.94
-Size:4096 Procs:8	218063	367604	68.57
-Size:16384 Procs:8	184283	370972	101.30
-
-Average:	1509300 -> 2345115 = 55.38%
-----------------------------------------------------
+diff -ruNp org/Documentation/networking/batching_skb_xmit.txt new/Documentation/networking/batching_skb_xmit.txt
+--- org/Documentation/networking/batching_skb_xmit.txt	1970-01-01 05:30:00.000000000 +0530
++++ new/Documentation/networking/batching_skb_xmit.txt	2007-09-14 10:25:36.000000000 +0530
+@@ -0,0 +1,107 @@
++		 HOWTO for batching skb xmit support
++		 -----------------------------------
++
++Section 1: What is batching skb xmit
++Section 2: How batching xmit works vs the regular xmit
++Section 3: How drivers can support batching
++Section 4: Nitty gritty details for drivers
++Section 5: How users can work with batching
++
++
++Introduction: Kernel support for batching skb
++----------------------------------------------
++
++A new capability to support xmit of multiple skbs is provided in the netdevice
++layer. Drivers which enable this capability should be able to process multiple
++skbs in a single call to their xmit handler.
++
++
++Section 1: What is batching skb xmit
++-------------------------------------
++
++	This capability is optionally enabled by a driver by setting the
++	NETIF_F_BATCH_SKBS bit in dev->features. The prerequisite for a
++	driver to use this capability is that it should have a reasonably-
++	sized hardware queue that can process multiple skbs.
++
++
++Section 2: How batching xmit works vs the regular xmit
++-------------------------------------------------------
++
++	The network stack gets called from upper layer protocols with a single
++	skb to transmit. This skb is first enqueued and an attempt is made to
++	transmit it immediately (via qdisc_run). However, events like tx lock
++	contention, tx queue stopped, etc., can result in the skb not getting
++	sent out and it remains in the queue. When the next xmit is called or
++	when the queue is re-enabled, qdisc_run could potentially find
++	multiple packets in the queue, and iteratively send them all out
++	one-by-one.
++
++	Batching skb xmit is a mechanism to exploit this situation where all
++	skbs can be passed in one shot to the device. This reduces driver
++	processing, locking at the driver (or in stack for ~LLTX drivers)
++	gets amortized over multiple skbs, and in case of specific drivers
++	where every xmit results in a completion processing (like IPoIB) -
++	optimizations can be made in the driver to request a completion for
++	only the last skb that was sent which results in saving interrupts
++	for every (but the last) skb that was sent in the same batch.
++
++	Batching can result in significant performance gains for systems that
++	have multiple data stream paths over the same network interface card.
++
++
++Section 3: How drivers can support batching
++---------------------------------------------
++
++	Batching requires the driver to set the NETIF_F_BATCH_SKBS bit in
++	dev->features.
++
++	The driver's xmit handler should be modified to process multiple skbs
++	instead of one skb. The driver's xmit handler is called either with
++	an skb to transmit or NULL skb, where the latter case should be
++	handled as a call to xmit multiple skbs. This is done by sending out
++	all skbs in the dev->skb_blist list (where it was added by the core
++	stack).
++
++
++Section 4: Nitty gritty details for driver writers
++--------------------------------------------------
++
++	Batching is enabled from core networking stack only from softirq
++	context (NET_TX_SOFTIRQ), and dev_queue_xmit() doesn't use batching.
++
++	This leads to the following situation:
++		A skb was not sent out as either driver lock was contested or
++		the device was blocked. When the softirq handler runs, it
++		moves all skbs from the device queue to the batch list, but
++		then it too could fail to send due to lock contention. The
++		next xmit (of a single skb) called from dev_queue_xmit() will
++		not use batching and try to xmit skb, while previous skbs are
++		still present in the batch list. This results in the receiver
++		getting out-of-order packets, and in case of TCP the sender
++		would have unnecessary retransmissions.
++
++	To fix this problem, error cases where driver xmit gets called with a
++	skb must code as follows:
++		1. If driver xmit cannot get tx lock, return NETDEV_TX_LOCKED
++		   as usual. This allows qdisc to requeue the skb.
++		2. If driver xmit got the lock but failed to send the skb, it
++		   should return NETDEV_TX_BUSY but before that it should have
++		   queue'd the skb to the batch list. In this case, the qdisc
++		   does not requeue the skb.
++
++
++Section 5: How users can work with batching
++--------------------------------------------
++
++	Batching can be disabled for a particular device, e.g. on desktop
++	systems if only one stream of network activity for that device is
++	taking place, since performance could be slightly affected due to
++	extra processing that batching adds (unless packets are getting
++	sent fast resulting in queue getting stopped). Batching can be enabled
++	if more than one stream of network activity per device is being done,
++	e.g. on servers; or even desktop usage with multiple browser, chat,
++	file transfer sessions, etc.
++
++	Per device batching can be enabled/disabled by:
++		ethtool <dev> batching on/off
