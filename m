@@ -1,48 +1,53 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [git patches] net driver fixes
-Date: Fri, 14 Sep 2007 13:39:44 -0700
-Message-ID: <31488.1189802384@death>
-References: <20070913053022.GA16891@havoc.gtf.org> <1189793598.2508.4.camel@xo-3E-67-34.localdomain> <46EAD049.4020107@garzik.org> <1189794677.2508.19.camel@xo-3E-67-34.localdomain> <32620.1189797572@death> <1189800717.20386.13.camel@xo-3E-67-34.localdomain>
-Cc: Jeff Garzik <jeff@garzik.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Dan Williams <dcbw@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.23-rc5] ipsec interfamily route handling fix
+Date: Fri, 14 Sep 2007 13:42:52 -0700 (PDT)
+Message-ID: <20070914.134252.112612041.davem@davemloft.net>
+References: <200709061900.10508.joakim.koskela@hiit.fi>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: joakim.koskela@hiit.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:53713 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752717AbXINUjr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Sep 2007 16:39:47 -0400
-In-reply-to: <1189800717.20386.13.camel@xo-3E-67-34.localdomain> 
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:46431
+	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754749AbXINUnA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 16:43:00 -0400
+In-Reply-To: <200709061900.10508.joakim.koskela@hiit.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dan Williams <dcbw@redhat.com> wrote:
-[...]
->So essentially the ehea device has a 1(+) external ports that may/may
->not be connected, but all lpars share the physical hardware itself,
->which is quite happy to let all the lpars talk to each other essentially
->via loopback even if there is no actual carrier detected on the external
->port(s)? [...]
+From: Joakim Koskela <joakim.koskela@hiit.fi>
+Date: Thu, 6 Sep 2007 19:00:10 +0300
 
-	Yes.
+> This patch addresses a couple of issues related to interfamily ipsec
+> modes. The problem is that the structure of the routing info changes
+> with the family during the __xfrmX_bundle_create, which hasn't been
+> taken properly into account. Seems that by coincidence it hasn't
+> caused problems on 32bit platforms, but crashes for example on x86_64
+> in 6-4 around line 209 of xfrm6_policy.c as rt doesn't point to a
+> rt6_info anymore, but actually a struct rtable. With 64bit pointers,
+> the rt->rt6i_node pointer seems to hit something usually not null in
+> the rtable that rt now points to, making it go for the path_cookie
+> assignment and subsequently crashing.
+> 
+> Tested on both 32/64bit with all four (44/46/64/66) combinations of
+> transformation. I'm still a bit worried about how for example nested
+> transformations work with all of this and would appreciate if someone
+> more familiar with the details of these structs could comment.
+> 
+> Signed-off-by: Joakim Koskela <jookos@gmail.com>
 
->[...]  How does addressing work here, is it just L2 addresses?  
+Since nobody else found time to review this, I did :-)
 
-	Yes.  The logical ports all have unique MAC addresses.
+It's line wrapped so doesn't apply cleanly, but it has technical
+issues too.
 
-> [...] Feel
->free to point me to some docs and tell me to shut up :)
+It sets encap_type in the inner loop, but what if we find multiple
+entries some ipv4 and some ipv6?  This logic can't be right.
 
-http://www.redbooks.ibm.com/redpieces/abstracts/redp4340.html
+Instead, we need to treat these objects on an individual basis, I
+think, and that requires a bit more changes.
 
-	I found this via google; I haven't read it in detail, but it
-seems to cover the HEA architecture at a high level.  It talks about the
-whole "IVE" (integrated virtual ethernet: the adapter, hypervisor, etc)
-system, but HEA is part of that, so it's probably got the answers you're
-looking for.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+These tunnel handling code blocks are getting messy, perhaps it's
+time for a little bit of indirection based upon AF type?
