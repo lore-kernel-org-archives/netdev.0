@@ -1,49 +1,29 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] tehuti: driver for Tehuti 10GbE network adapters
-Date: Fri, 14 Sep 2007 11:59:25 -0400
-Message-ID: <46EAAFDD.6010905@garzik.org>
-References: <20070911164033.GA3754@gospo.rdu.redhat.com> <20070914153629.GA9140@gospo.rdu.redhat.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH v2] iw_cxgb3: Support "iwarp-only" interfaces to avoid 4-tuple conflicts.
+Date: Fri, 14 Sep 2007 09:06:56 -0700
+Message-ID: <ada4phxkz8f.fsf@cisco.com>
+References: <20070913191617.30937.95960.stgit@dell3.ogc.int>
+	<20070914130941.GG18517@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, baum@tehutinetworks.net
-To: Andy Gospodarek <andy@greyhouse.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Steve Wise <swise@opengridcomputing.com>, sean.hefty@intel.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:59487 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750822AbXINP7d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Sep 2007 11:59:33 -0400
-In-Reply-To: <20070914153629.GA9140@gospo.rdu.redhat.com>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:5382 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755246AbXINQG6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 12:06:58 -0400
+In-Reply-To: <20070914130941.GG18517@2ka.mipt.ru> (Evgeniy Polyakov's message of "Fri, 14 Sep 2007 17:09:41 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andy Gospodarek wrote:
-> On Tue, Sep 11, 2007 at 12:40:34PM -0400, Andy Gospodarek wrote:
->> This introduces support for a line of 10GbE adapters made by Tehuti
->> Networks.  An attempt to get this included was made a few months ago and
->> since the driver has been re-factored based on Jeff's suggestions.
->>
->> You can download a patch against Jeff's netdev-2.6#upstream tree here:
->>
->> http://git.greyhouse.net/gospo/tehuti-netdev-26-upstream.patch
->>
->> and I setup a git tree last night based off Linus' tree.  You can sync
->> with that here if you like:
->>
->> http://git.greyhouse.net/gospo/tehuti-2.6.git
->>
-> 
-> I moved this to:
-> 
-> git://git.greyhouse.net/gospo/tehuti-2.6.git
-> 
-> since I got some complaints that the http-based git tree wasn't working
-> well.
+ > Maybe you should automatically create an alias each time new interface
+ > is added so that admin would not care about proper aliases?
 
-Maybe you forgot git-update-server-info, after pushing ?
+I agree that makes much more sense from a user interface point of
+view.  Unfortunately an alias without an address doesn't make sense,
+so there doesn't seem to be a way to implement that.
 
-	Jeff
-
-
-
+ - R.
