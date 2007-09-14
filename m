@@ -1,76 +1,99 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [patch] sunrpc: make closing of old temporary sockets
-	work	(was: problems with lockd in 2.6.22.6)
-Date: Fri, 14 Sep 2007 10:29:15 -0400
-Message-ID: <20070914142915.GE20606@fieldses.org>
-References: <200709121407.11151.wolfgang.walter@studentenwerk.mhn.de>
-	<200709122140.57783.wolfgang.walter@studentenwerk.mhn.de>
-	<20070912195512.GC13792@fieldses.org>
-	<200709141112.30634.wolfgang.walter@studentenwerk.mhn.de>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH][NETNS] Use list_for_each_entry_continue_reverse in setup_net
+Date: Fri, 14 Sep 2007 08:41:07 -0600
+Message-ID: <m1lkb92tto.fsf@ebiederm.dsl.xmission.com>
+References: <46EA3AB4.7060904@openvz.org> <20070914144938.3ba643a5@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Neil Brown <neilb@suse.de>, netdev@vger.kernel.org,
-	nfs@lists.sourceforge.net, linux-kernel@vger.kernel.org,
-	trond.myklebust@fys.uio.no
-To: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
-Return-path: <nfs-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <200709141112.30634.wolfgang.walter@studentenwerk.mhn.de>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
-	<mailto:nfs-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=nfs>
-List-Post: <mailto:nfs@lists.sourceforge.net>
-List-Help: <mailto:nfs-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/nfs>,
-	<mailto:nfs-request@lists.sourceforge.net?subject=subscribe>
-Sender: nfs-bounces@lists.sourceforge.net
-Errors-To: nfs-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Pavel Emelyanov <xemul@openvz.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>, devel@openvz.org,
+	Daniel Lezcano <dlezcano@fr.ibm.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:45792 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754586AbXINOll (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 10:41:41 -0400
+In-Reply-To: <20070914144938.3ba643a5@oldman> (Stephen Hemminger's message of
+	"Fri, 14 Sep 2007 14:49:38 +0200")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 14, 2007 at 11:12:30AM +0200, Wolfgang Walter wrote:
-> Am Mittwoch, 12. September 2007 21:55 schrieb J. Bruce Fields:
-> > On Wed, Sep 12, 2007 at 09:40:57PM +0200, Wolfgang Walter wrote:
-> > > On Wednesday 12 September 2007, J. Bruce Fields wrote:
-> > > > On Wed, Sep 12, 2007 at 04:14:06PM +0200, Neil Brown wrote:
-> > > > > So it is in 2.6.21 and later and should probably go to .stable for
-> > > > > .21 and .22.
-> > > > >
-> > > > > Bruce:  for you :-)
-> > > >
-> > > > OK, thanks!  But, (as is alas often the case) I'm still confused:
-> > > > >  		if (!test_and_set_bit(SK_OLD, &svsk->sk_flags))
-> > > > >  			continue;
-> > > > > -		if (atomic_read(&svsk->sk_inuse) || test_bit(SK_BUSY,
-> > > > > &svsk->sk_flags)) +		if (atomic_read(&svsk->sk_inuse) > 1
-> > > > > +		    || test_bit(SK_BUSY, &svsk->sk_flags))
-> > > > >  			continue;
-> > > > >  		atomic_inc(&svsk->sk_inuse);
-> > > > >  		list_move(le, &to_be_aged);
-> > > >
-> > > > What is it that ensures svsk->sk_inuse isn't incremented or SK_BUSY set
-> > > > after that test?  Not all the code that does either of those is under
-> > > > the same serv->sv_lock lock that this code is.
-> > >
-> > > This should not matter - SK_CLOSED may be set at any time.
-> > >
-> > > svc_age_temp_sockets only detaches the socket, sets SK_CLOSED and then
-> > > enqueues it. If SK_BUSY is set its already enqueued and svc_sock_enqueue
-> > > ensures that it is not enqueued twice.
-> >
-> > Oh, got it.  And the list manipulation is safe thanks to sv_lock.  Neat,
-> > thanks.  Can you verify that this solves your problem?
+Stephen Hemminger <shemminger@linux-foundation.org> writes:
+
+> On Fri, 14 Sep 2007 11:39:32 +0400
+> Pavel Emelyanov <xemul@openvz.org> wrote:
+>
+>> I proposed introducing a list_for_each_entry_continue_reverse
+>> macro to be used in setup_net() when unrolling the failed
+>> ->init callback.
+>> 
+>> Here is the macro and some more cleanup in the setup_net() itself
+>> to remove one variable from the stack :) Minor, but the code
+>> looks nicer.
+>> 
+>> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+>
+> Maybe it is time to just eliminate the init hook from the API.
+> It has very few users, and there is no reason the setup needed
+> could be done before or after registering in most cases.
+
+I guess only have 5 out of the 29 users I have in my full patchset
+is few.  But that is to be expected because so far only the core
+has been converted.
+
+I looked again at the initialization to see if you had a point about
+the initialization but in every instance I looked at the function
+was performing work that needed to happen during the creation of
+each network namespace.  So the work very much needs to be done there.
+
+Ok looking some more I can see why this isn't obvious yet.  copy_net_ns
+hasn't been merged yet, and that is where we create new network namespaces.
+And call setup_net on each new network namespace.
+
+I will take a look at that patch and see if I can come up with a
+safe version of it to merge to allow for a little more transparency.
+
+> struct net *copy_net_ns(unsigned long flags, struct net *old_net)
+> {
+>         struct net *new_net = NULL;
+>         int err;
 > 
-> Patch works fine here.
+>         get_net(old_net);
+> 
+>         if (!(flags & CLONE_NEWNET))
+>                 return old_net;
+> 
+>         err = -EPERM;
+>         if (!capable(CAP_SYS_ADMIN))
+>                 goto out;
+> 
+>         err = -ENOMEM;
+>         new_net = net_alloc();
+>         if (!new_net)
+>                 goto out;
+> 
+>         mutex_lock(&net_mutex);
+>         err = setup_net(new_net);
+>         if (err)
+>                 goto out_unlock;
+> 
+>         net_lock();
+>         list_add_tail(&new_net->list, &net_namespace_list);
+>         net_unlock();
+> 
+> 
+> out_unlock:
+>         mutex_unlock(&net_mutex);
+> out:
+>         put_net(old_net);
+>         if (err) {
+>                 net_free(new_net);
+>                 new_net = ERR_PTR(err);
+>         }
+>         return new_net;
+> }
 
-Great, thanks again!
+Eric
 
---b.
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2005.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
-_______________________________________________
-NFS maillist  -  NFS@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/nfs
