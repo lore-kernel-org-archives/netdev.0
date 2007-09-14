@@ -1,120 +1,160 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFC] af_packet: allow disabling timestamps
-Date: Fri, 14 Sep 2007 12:26:42 +0200
-Message-ID: <20070914122642.5343b128@oldman>
-References: <1186669314.24669.56.camel@localhost.localdomain>
-	<20070809143322.GA5345@2ka.mipt.ru>
-	<1186683234.24669.65.camel@localhost.localdomain>
-	<20070809181823.GA32449@2ka.mipt.ru>
-	<1186685450.24669.81.camel@localhost.localdomain>
-	<20070913124253.60da52f2@oldman>
-	<20070913142406.299944c3.dada1@cosmosbay.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH] Cleanup calling netdev notifiers
+Date: Fri, 14 Sep 2007 14:34:22 +0400
+Message-ID: <46EA63AE.3070100@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Unai Uribarri <unai.uribarri@optenet.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:44400 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752659AbXINK1n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 06:27:43 -0400
-In-Reply-To: <20070913142406.299944c3.dada1@cosmosbay.com>
+Received: from sacred.ru ([62.205.161.221]:50262 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751152AbXINKgy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2007 06:36:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 13 Sep 2007 14:24:06 +0200
-Eric Dumazet <dada1@cosmosbay.com> wrote:
+The call_netdev_notifiers routine can successfully be used in
+the net/core_dev.c itself.
 
-> On Thu, 13 Sep 2007 12:42:53 +0200
-> Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> 
-> > Currently, af_packet does not allow disabling timestamps. This patch changes
-> > that but doesn't force global timestamps on.
-> > 
-> > This shows up in bugzilla as:
-> > 	http://bugzilla.kernel.org/show_bug.cgi?id=4809
-> > 
-> > Patch against net-2.6.24 tree.
-> > 
-> 
-> I am not sure I understood this patch.
-> 
-> This means that tcpdump/ethereal wont get precise timestamps 
-> (gathered when packet is received), but imprecise ones (gathered when the sniffer reads the packet)
-> 
-> I added some time ago ktime infrastructure to eventually get nanosecond 
-> precision in libpcap, so I would prefer a step in the right direction :)
-> 
-> Should'nt we use something like :
-> 
-> [PATCH] af_packet : allow disabling timestamps, or requesting nanosecond precision.
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> 
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 5a16e38..1c10b9d 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -563,6 +563,7 @@ set_rcvbuf:
->  		} else {
->  			sock_reset_flag(sk, SOCK_RCVTSTAMP);
->  			sock_reset_flag(sk, SOCK_RCVTSTAMPNS);
-> +			sock_disable_timestamp(sk);
->  		}
->  		break;
->  
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 745e2cb..409de44 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -650,12 +650,27 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev, struct packe
->  	h->tp_snaplen = snaplen;
->  	h->tp_mac = macoff;
->  	h->tp_net = netoff;
-> -	if (skb->tstamp.tv64)
-> -		tv = ktime_to_timeval(skb->tstamp);
-> -	else
-> -		do_gettimeofday(&tv);
-> -	h->tp_sec = tv.tv_sec;
-> -	h->tp_usec = tv.tv_usec;
-> +	h->tp_sec = 0;
-> +	h->tp_usec = 0;
-> +	if ((sock_flag(sk, SOCK_TIMESTAMP))) {
-> +		if (sock_flag(sk, SOCK_RCVTSTAMPNS)) {
-> +			struct timespec ts;
-> +			if (skb->tstamp.tv64)
-> +				ts = ktime_to_timespec(skb->tstamp);
-> +			else
-> +				getnstimeofday(&ts);
-> +			h->tp_sec = ts.tv_sec;
-> +			h->tp_usec = ts.tv_nsec; /* cheat a litle bit */
-> +		}
-> +		else {
-> +			if (skb->tstamp.tv64)
-> +				tv = ktime_to_timeval(skb->tstamp);
-> +			else
-> +				do_gettimeofday(&tv);
-> +			h->tp_sec = tv.tv_sec;
-> +			h->tp_usec = tv.tv_usec;
-> +		}
-> +	}
->  
->  	sll = (struct sockaddr_ll*)((u8*)h + TPACKET_ALIGN(sizeof(*h)));
->  	sll->sll_halen = 0;
-> @@ -1014,6 +1029,7 @@ static int packet_create(struct net *net, struct socket *sock, int protocol)
->  		sock->ops = &packet_ops_spkt;
->  
->  	sock_init_data(sock, sk);
-> +	sock_enable_timestamp(sk);
->  
->  	po = pkt_sk(sk);
->  	sk->sk_family = PF_PACKET;
+This will save 6 lines of code and 62 ;) bytes of .text section.
 
-No, then we end up timestamping all the packets, even if they get dropped by
-packet filter. The change in 2.6.24 allows dhclient (and rstp) to only call
-hires clock source for packets they want, not all packets.
+62 is rather small, but I have one more patch saving ~30 bytes
+from netns code (sent to Eric), so altogether they can save 
+some more noticeable amount.
 
-Perhaps the timestamping needs to change into a tristate flag?
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+
+ net/core/dev.c |   32 +++++++++++++-------------------
+ 1 files changed, 13 insertions(+), 19 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a76021c..c1c292f 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -850,7 +850,7 @@ rollback:
+ 	hlist_add_head(&dev->name_hlist, dev_name_hash(dev->name));
+ 	write_unlock_bh(&dev_base_lock);
+ 
+-	ret = raw_notifier_call_chain(&netdev_chain, NETDEV_CHANGENAME, dev);
++	ret = call_netdevice_notifiers(NETDEV_CHANGENAME, dev);
+ 	ret = notifier_to_errno(ret);
+ 
+ 	if (ret) {
+@@ -876,7 +876,7 @@ rollback:
+  */
+ void netdev_features_change(struct net_device *dev)
+ {
+-	raw_notifier_call_chain(&netdev_chain, NETDEV_FEAT_CHANGE, dev);
++	call_netdevice_notifiers(NETDEV_FEAT_CHANGE, dev);
+ }
+ EXPORT_SYMBOL(netdev_features_change);
+ 
+@@ -891,8 +891,7 @@ EXPORT_SYMBOL(netdev_features_change);
+ void netdev_state_change(struct net_device *dev)
+ {
+ 	if (dev->flags & IFF_UP) {
+-		raw_notifier_call_chain(&netdev_chain,
+-				NETDEV_CHANGE, dev);
++		call_netdevice_notifiers(NETDEV_CHANGE, dev);
+ 		rtmsg_ifinfo(RTM_NEWLINK, dev, 0);
+ 	}
+ }
+@@ -988,7 +987,7 @@ int dev_open(struct net_device *dev)
+ 		/*
+ 		 *	... and announce new interface.
+ 		 */
+-		raw_notifier_call_chain(&netdev_chain, NETDEV_UP, dev);
++		call_netdevice_notifiers(NETDEV_UP, dev);
+ 	}
+ 	return ret;
+ }
+@@ -1011,7 +1010,7 @@ int dev_close(struct net_device *dev)
+ 	 *	Tell people we are going down, so that they can
+ 	 *	prepare to death, when device is still operating.
+ 	 */
+-	raw_notifier_call_chain(&netdev_chain, NETDEV_GOING_DOWN, dev);
++	call_netdevice_notifiers(NETDEV_GOING_DOWN, dev);
+ 
+ 	dev_deactivate(dev);
+ 
+@@ -1048,7 +1047,7 @@ int dev_close(struct net_device *dev)
+ 	/*
+ 	 * Tell people we are down
+ 	 */
+-	raw_notifier_call_chain(&netdev_chain, NETDEV_DOWN, dev);
++	call_netdevice_notifiers(NETDEV_DOWN, dev);
+ 
+ 	return 0;
+ }
+@@ -2906,8 +2905,7 @@ int dev_change_flags(struct net_device *
+ 	if (dev->flags & IFF_UP &&
+ 	    ((old_flags ^ dev->flags) &~ (IFF_UP | IFF_PROMISC | IFF_ALLMULTI |
+ 					  IFF_VOLATILE)))
+-		raw_notifier_call_chain(&netdev_chain,
+-				NETDEV_CHANGE, dev);
++		call_netdevice_notifiers(NETDEV_CHANGE, dev);
+ 
+ 	if ((flags ^ dev->gflags) & IFF_PROMISC) {
+ 		int inc = (flags & IFF_PROMISC) ? +1 : -1;
+@@ -2953,8 +2951,7 @@ int dev_set_mtu(struct net_device *dev, 
+ 	else
+ 		dev->mtu = new_mtu;
+ 	if (!err && dev->flags & IFF_UP)
+-		raw_notifier_call_chain(&netdev_chain,
+-				NETDEV_CHANGEMTU, dev);
++		call_netdevice_notifiers(NETDEV_CHANGEMTU, dev);
+ 	return err;
+ }
+ 
+@@ -2970,8 +2967,7 @@ int dev_set_mac_address(struct net_devic
+ 		return -ENODEV;
+ 	err = dev->set_mac_address(dev, sa);
+ 	if (!err)
+-		raw_notifier_call_chain(&netdev_chain,
+-				NETDEV_CHANGEADDR, dev);
++		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+ 	return err;
+ }
+ 
+@@ -3027,8 +3023,7 @@ static int dev_ifsioc(struct ifreq *ifr,
+ 				return -EINVAL;
+ 			memcpy(dev->broadcast, ifr->ifr_hwaddr.sa_data,
+ 			       min(sizeof ifr->ifr_hwaddr.sa_data, (size_t) dev->addr_len));
+-			raw_notifier_call_chain(&netdev_chain,
+-					    NETDEV_CHANGEADDR, dev);
++			call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+ 			return 0;
+ 
+ 		case SIOCGIFMAP:
+@@ -3475,7 +3470,7 @@ int register_netdevice(struct net_device
+ 	write_unlock_bh(&dev_base_lock);
+ 
+ 	/* Notify protocols, that a new device appeared. */
+-	ret = raw_notifier_call_chain(&netdev_chain, NETDEV_REGISTER, dev);
++	ret = call_netdevice_notifiers(NETDEV_REGISTER, dev);
+ 	ret = notifier_to_errno(ret);
+ 	if (ret)
+ 		unregister_netdevice(dev);
+@@ -3546,8 +3541,7 @@ static void netdev_wait_allrefs(struct n
+ 			rtnl_lock();
+ 
+ 			/* Rebroadcast unregister notification */
+-			raw_notifier_call_chain(&netdev_chain,
+-					    NETDEV_UNREGISTER, dev);
++			call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
+ 
+ 			if (test_bit(__LINK_STATE_LINKWATCH_PENDING,
+ 				     &dev->state)) {
+@@ -3794,7 +3788,7 @@ void unregister_netdevice(struct net_dev
+ 	/* Notify protocols, that we are about to destroy
+ 	   this device. They should clean all the things.
+ 	*/
+-	raw_notifier_call_chain(&netdev_chain, NETDEV_UNREGISTER, dev);
++	call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
+ 
+ 	/*
+ 	 *	Flush the unicast and multicast chains
