@@ -1,66 +1,71 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: SO_BINDTODEVICE mismatch with man page & comments.
-Date: Fri, 14 Sep 2007 16:09:38 -0700
-Message-ID: <46EB14B2.8010805@candelatech.com>
-References: <46EB071B.9070308@candelatech.com>	<20070914.152912.74747426.davem@davemloft.net>	<46EB0D39.4030609@candelatech.com> <20070914.154316.59469764.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: David Miller <davem@davemloft.net>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [PATCH 01/11] IB/ipoib: Export call to call_netdevice_notifiers and add new private flag
+Date: Fri, 14 Sep 2007 16:40:20 -0700
+Message-ID: <11898132322950-git-send-email-fubar@us.ibm.com>
+References: <11898132301664-git-send-email-fubar@us.ibm.com>
+Cc: monisonlists@gmail.com, ogerlitz@voltaire.com, jgarzik@pobox.com,
+	davem@davemloft.net, general@lists.openfabrics.org,
+	Moni Shoua <monis@voltaire.com>
+To: netdev@vger.kernel.org, rdreier@cisco.com, monis@voltaire.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:34048 "EHLO ns2.lanforge.com"
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:46924 "EHLO e6.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753713AbXINXJr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Sep 2007 19:09:47 -0400
-In-Reply-To: <20070914.154316.59469764.davem@davemloft.net>
+	id S1753517AbXINXkh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2007 19:40:37 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8ENg1MR009326
+	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:42:01 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8ENeZSR661404
+	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:40:35 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8ENeYfU008507
+	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:40:34 -0400
+In-Reply-To: <11898132301664-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Ben Greear <greearb@candelatech.com>
-> Date: Fri, 14 Sep 2007 15:37:45 -0700
-> 
->> I will try the patch, but it will probably not be until Monday.
->> The existing code actually can be made to work by passing in
->> a 4+ byte string and setting the first byte to zero, and as
->> far as I can see, that remains the same with the new patch.
-> 
-> You said the route wasn't cleared correctly in your test, and that's
-> one part I'm concerned about making sure is fixed.
+From: Moni Shoua <monisonlists@gmail.com>
 
-> To be honest I'm slightly angry at you.  I can travel for 24 hours
-> non-stop on trains and planes and still be mostly responsive to people
-> and apply patches.  But I simply ask you to test a simple patch for a
-> test case you said you already have and you can't do it until
-> Monday?!?!?
-> 
-> This is why I typically low priority all reports from you, sorry for
-> not doing so this time too. :-/
+Export the call to raw_notifier_call_chain so modules can send notifications
+on netdev events to the netdev_chain.
+Add IFF_SLAVE_DETACH to the list of priv_flags for net_device.
+This flag is set by a slave that is about to unregisster from the kernel.
 
-My previous report was because I was trying to get Xorp to work with BINDTODEVICE, and
-Xorp's a huge complicated beast.  Due to it's actual use of the socket it would be very
-hard to trigger (or notice) the route bug, and since we use a 4-byte null
-string instead of depending on the bool value, I think it works around
-it anyway.
+Both changes are used in bonding slaves that wish to inform the bonding master
+about coming detachment.
 
-The reason xorp wasn't working for me when I made the report was a problem
-with the netlink headers I was compiling against (didn't support the > 255 routing
-tables), but I didn't figure that out until later.  Since the BINDTODEVICE route clearing
-code in the kernel appeared to be broken, I thought that might have been the
-problem, but in that I was wrong.  I _do_ think the logic was/is wrong, it's just
-that I was hitting something else in this particular case.
+Signed-off-by: Moni Shoua <monis@voltaire.com>
+Acked-by: Jay Vosburgh <fubar@us.ibm.com>
+---
+ include/linux/if.h |    1 +
+ net/core/dev.c     |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
 
-So, I will have to write a whole new app to test your fix properly, and I
-plan to do so, but it will probably be next week.
-
-I appreciate your responsiveness on the patch, as always, and will not be
-overly offended if you choose to ignore subsequent reports from me.
-
-Thanks,
-Ben
-
+diff --git a/include/linux/if.h b/include/linux/if.h
+index 32bf419..b302b22 100644
+--- a/include/linux/if.h
++++ b/include/linux/if.h
+@@ -61,6 +61,7 @@
+ #define IFF_MASTER_ALB	0x10		/* bonding master, balance-alb.	*/
+ #define IFF_BONDING	0x20		/* bonding master or slave	*/
+ #define IFF_SLAVE_NEEDARP 0x40		/* need ARPs for validation	*/
++#define IFF_SLAVE_DETACH 0x80		/* slave is about to unregister */
+ 
+ #define IF_GET_IFACE	0x0001		/* for querying only */
+ #define IF_GET_PROTO	0x0002
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a76021c..5322add 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1148,6 +1148,7 @@ int call_netdevice_notifiers(unsigned long val, void *v)
+ {
+ 	return raw_notifier_call_chain(&netdev_chain, val, v);
+ }
++EXPORT_SYMBOL(call_netdevice_notifiers);
+ 
+ /* When > 0 there are consumers of rx skb time stamps */
+ static atomic_t netstamp_needed = ATOMIC_INIT(0);
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+1.5.2-rc2.GIT
 
