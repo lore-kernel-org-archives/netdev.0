@@ -1,43 +1,72 @@
-From: "Satyam Sharma" <satyam.sharma@gmail.com>
-Subject: Re: [PATCH v3] Make the pr_*() family of macros in kernel.h complete
-Date: Fri, 14 Sep 2007 22:11:59 +0530
-Message-ID: <a781481a0709140941w4ec76582j40ee53a189b99b05@mail.gmail.com>
-References: <11896151802410-git-send-email-Emilian.Medve@Freescale.com>
-	 <598D5675D34BE349929AF5EDE9B03E270155578C@az33exm24.fsl.freescale.net>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: e1000 driver and samba
+Date: Fri, 14 Sep 2007 10:18:19 -0700
+Message-ID: <46EAC25B.2060404@intel.com>
+References: <780b6f780709131904j41148fb4p827e87530b15d6e9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, i2c@lm-sensors.org,
-	linux-omap-open-source@linux.omap.com
-To: "Medve Emilian-EMMEDVE1" <Emilian.Medve@freescale.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758740AbXINQmW@vger.kernel.org>
-In-Reply-To: <598D5675D34BE349929AF5EDE9B03E270155578C@az33exm24.fsl.freescale.net>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: L F <lfabio.linux@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:37144 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752367AbXINRSa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2007 13:18:30 -0400
+In-Reply-To: <780b6f780709131904j41148fb4p827e87530b15d6e9@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > -----Original Message-----
-> > From: Medve Emilian-EMMEDVE1
-> > Sent: Wednesday, September 12, 2007 11:40 AM
-> > To: linux-kernel@vger.kernel.org; netdev@vger.kernel.org;
-> > i2c@lm-sensors.org; linux-omap-open-source@linux.omap.com
-> > Cc: Medve Emilian-EMMEDVE1
+L F wrote:
+> Folks,
+> I've been playing with multiple gigabit ethernet drivers to get samba
+> 3.0.25+ to work reliably. The situation is as follows.
+> I have a network, one of the machines on the network is a
+> server/firewall. It contains an Intel PRO1000 dual port PCI Express
+> card and runs Debian-testing.
+> The machine is running shorewall 3.4.5 and at present, one port of the
+> PRO1000 is configured as the WAN port, the other is bridged to a tap
+> device for virtualbox and is running as the LAN port.
+> Samba 3.0.25+ will either lose connection or - more worrisomely -
+> corrupt data in files upon sustained traffic.
+> One of the tests that consistently fails is mounting a samba share
+> onto any WinXP client, then trying to unzip a file from the
+> mounted/mapped drive into the drive itself (i.e. unzipping
+> Z:\Stuff\qqq.zip to Z:\Stuff\qqq\* ).
+> If the zip file is of any significant size, one of two things will
+> happen. Either the client will complain about losing connection to the
+> share - with a corrisponding error in the samba logs - or everything
+> will be fine.. except the files will be corrupt.
+> The unusual thing is that going through the TAP interface from a
+> Virtualbox machine yields no problems even when transferring tens of
+> GBs of data.
+> Copying a large file (500MB+) also has the same effect.
+> Now, the machine worked when it was using an onboard Realtek 8169
+> chipset on a 945G board from ASUS, but it worked slowly.
 
-... no maintainer explicitly copied on the original mail who'd push this in.
-Little thing, but LKML is too noisy, so you need to Cc: folks explicitly ...
+this slowness might have been masking the issue
 
-> > Subject: [PATCH v3] Make the pr_*() family of macros in
-> > kernel.h complete
-> >
-> > Other/Some pr_*() macros are already defined in kernel.h, but
-> > pr_err() was defined
-> > multiple times in several other places
-> >
-> > Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
+> I upgraded to
+> a P965 chipset, started using the realtek driver for the 8110B on that
+> board.. and started getting consistent samba errors. I therefore
+> killed the onboard LAN, switched to the Intel board, tried both the
+> 7.6.5 driver on the Intel website AND the driver in the 2.6.20+
+> kernels - 7.2.x IIRC - and it fails, less than it did with the
+> realtek, but it fails. Switching back and forth between 2.6.18,
+> 2.6.20.x and 2.6.22.x yielded no improvements. I could use some help,
+> because I refuse to believe that there isn't a reliable PCIexpress
+> gigeth/samba combo available.
 
-I think it's a useful cleanup, patch looks good to me ...
+I have not yet seen other reports of this issue, and it would be interesting to 
+see if the stack or driver is seeing errors. Please post `ethtool -S eth0` after 
+the samba connection resets or fails.
 
-Reviewed-by: Satyam Sharma <satyam@infradead.org>
+Just as a precaution, try a different ethernet cable. Even the switch in between 
+the target and you might have issues.
 
-[ Original diff is at: http://lkml.org/lkml/diff/2007/9/12/182/1 ]
+I know our lab folks do plenty of samba testing but I will see if they can run a 
+stress test against a smb target in the way that you describe.
+
+Cheers,
+
+Auke
