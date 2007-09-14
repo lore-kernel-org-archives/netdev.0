@@ -1,55 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: SO_BINDTODEVICE mismatch with man page & comments.
-Date: Fri, 14 Sep 2007 15:29:12 -0700 (PDT)
-Message-ID: <20070914.152912.74747426.davem@davemloft.net>
-References: <46DDDFFA.6090705@candelatech.com>
-	<20070914.131225.78720330.davem@davemloft.net>
-	<46EB071B.9070308@candelatech.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: Distributed storage. Move away from char device ioctls.
+Date: Fri, 14 Sep 2007 18:32:11 -0400
+Message-ID: <46EB0BEB.2090808@garzik.org>
+References: <20070914185429.GA9439@2ka.mipt.ru> <46EADC02.9070409@garzik.org> <20070914211210.GB12444@fieldses.org> <46EAF9CD.1090808@garzik.org> <20070914211828.GC12444@fieldses.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: greearb@candelatech.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41677
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755123AbXINW3O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 18:29:14 -0400
-In-Reply-To: <46EB071B.9070308@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: "J. Bruce Fields" <bfields@fieldses.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20070914211828.GC12444@fieldses.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Fri, 14 Sep 2007 15:11:39 -0700
-
->  From user-space, does this imply that the 'empty string' we use to
-> unbind must be at least 4 bytes long, but with the first byte /0?
->
-> If so, I think it might be confusing for the comments to say use ""
-> to unbind, since that would not be a long enough chunk of memory.
+J. Bruce Fields wrote:
+> On Fri, Sep 14, 2007 at 05:14:53PM -0400, Jeff Garzik wrote:
+>> J. Bruce Fields wrote:
+>>> On Fri, Sep 14, 2007 at 03:07:46PM -0400, Jeff Garzik wrote:
+>>>> I've been waiting for years for a smart person to come along and write a 
+>>>> POSIX-only distributed filesystem.
+>>> What exactly do you mean by "POSIX-only"?
+>> Don't bother supporting attributes, file modes, and other details not 
+>> supported by POSIX.  The prime example being NFSv4, which is larded down 
+>> with Windows features.
 > 
-> Maybe something like "Use a character array of at least 4 bytes in
-> length with the first byte set to '/0'."
+> I am sympathetic....  Cutting those out may still leave you with
+> something pretty complicated, though.
 
-I realize this, I'll try to come up with some clean way to
-deal with this.
+Far less complicated than NFSv4.1 though (which is easy :))
 
-I don't want to touch that "if (optlen < sizeof(int))" test
-at all because it makes all of the logic incredibly complicated
-because you then have to forcefully initialize the 'val' and
-'valbool' if you bypass reading the int.
 
-> This brings up another issue as well:  What if the device name is "tr1",
-> to bind to it we'd have to pass in "tr1/0" and optlen of 4.  Not that this
-> is difficult to do, but it does seem like a weird thing to have to do.
+>> NFSv4.1 adds to the fun, by throwing interoperability completely out the 
+>> window.
+> 
+> What parts are you worried about in particular?
 
-You always to account for the NULL termination, thus you always have
-to pass in "strlen(X) + 1" as optlen.
+I'm not worried; I'm stating facts as they exist today (draft 13):
 
-But I see your point, and my answer is the same as the first one.
+NFS v4.1 does something completely without precedent in the history of 
+NFS:  the specification is defined such that interoperability is 
+-impossible- to guarantee.
 
-Instead of nit-picking, can you instead try the patch and let me
-know if it makes things work for you?
+pNFS permits private and unspecified layout types.  This means it is 
+impossible to guarantee that one NFSv4.1 implementation will be able to 
+talk another NFSv4.1 implementation.
 
-Thanks.
+Even if Linux supports the entire NFSv4.1 RFC (as it stands in draft 13 
+anyway), there is no guarantee at all that Linux will be able to store 
+and retrieve data, since it's entirely possible that a proprietary 
+protocol is required to access your data.
+
+NFSv4.1 is no longer a completely open architecture.
+
+	Jeff
+
+
+
 
