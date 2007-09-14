@@ -1,58 +1,41 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: Distributed storage. Move away from char device ioctls.
-Date: Fri, 14 Sep 2007 18:42:12 -0400
-Message-ID: <20070914224212.GJ12444@fieldses.org>
-References: <20070914185429.GA9439@2ka.mipt.ru> <46EADC02.9070409@garzik.org> <20070914211210.GB12444@fieldses.org> <46EAF9CD.1090808@garzik.org> <20070914211828.GC12444@fieldses.org> <46EB0BEB.2090808@garzik.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: SO_BINDTODEVICE mismatch with man page & comments.
+Date: Fri, 14 Sep 2007 15:43:16 -0700 (PDT)
+Message-ID: <20070914.154316.59469764.davem@davemloft.net>
+References: <46EB071B.9070308@candelatech.com>
+	<20070914.152912.74747426.davem@davemloft.net>
+	<46EB0D39.4030609@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <46EB0BEB.2090808@garzik.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: greearb@candelatech.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58974
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753481AbXINWnR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 18:43:17 -0400
+In-Reply-To: <46EB0D39.4030609@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 14, 2007 at 06:32:11PM -0400, Jeff Garzik wrote:
-> J. Bruce Fields wrote:
->> On Fri, Sep 14, 2007 at 05:14:53PM -0400, Jeff Garzik wrote:
->>> J. Bruce Fields wrote:
->>>> On Fri, Sep 14, 2007 at 03:07:46PM -0400, Jeff Garzik wrote:
->>>>> I've been waiting for years for a smart person to come along and write 
->>>>> a POSIX-only distributed filesystem.
->>>> What exactly do you mean by "POSIX-only"?
->>> Don't bother supporting attributes, file modes, and other details not 
->>> supported by POSIX.  The prime example being NFSv4, which is larded down 
->>> with Windows features.
->> I am sympathetic....  Cutting those out may still leave you with
->> something pretty complicated, though.
->
-> Far less complicated than NFSv4.1 though (which is easy :))
+From: Ben Greear <greearb@candelatech.com>
+Date: Fri, 14 Sep 2007 15:37:45 -0700
 
-One would hope so.
+> I will try the patch, but it will probably not be until Monday.
+> The existing code actually can be made to work by passing in
+> a 4+ byte string and setting the first byte to zero, and as
+> far as I can see, that remains the same with the new patch.
 
->>> NFSv4.1 adds to the fun, by throwing interoperability completely out the 
->>> window.
->> What parts are you worried about in particular?
->
-> I'm not worried; I'm stating facts as they exist today (draft 13):
->
-> NFS v4.1 does something completely without precedent in the history of NFS: 
->  the specification is defined such that interoperability is -impossible- to 
-> guarantee.
->
-> pNFS permits private and unspecified layout types.  This means it is 
-> impossible to guarantee that one NFSv4.1 implementation will be able to 
-> talk another NFSv4.1 implementation.
+You said the route wasn't cleared correctly in your test, and that's
+one part I'm concerned about making sure is fixed.
 
-No, servers are required to support ordinary nfs operations to the
-metadata server.
+To be honest I'm slightly angry at you.  I can travel for 24 hours
+non-stop on trains and planes and still be mostly responsive to people
+and apply patches.  But I simply ask you to test a simple patch for a
+test case you said you already have and you can't do it until
+Monday?!?!?
 
-At least, that's the way it was last I heard, which was a while ago.  I
-agree that it'd stink (for any number of reasons) if you ever *had* to
-get a layout to access some file.
+This is why I typically low priority all reports from you, sorry for
+not doing so this time too. :-/
 
-Was that your main concern?
-
---b.
