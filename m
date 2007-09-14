@@ -1,65 +1,65 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [ofa-general] [PATCH 00/11] IPoIB support for bonding
-Date: Fri, 14 Sep 2007 16:40:19 -0700
-Message-ID: <11898132301664-git-send-email-fubar@us.ibm.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>, general@lists.openfabrics.org,
-	jgarzik@pobox.com, davem@davemloft.net
+Subject: [PATCH 04/11] IB/ipoib: Verify address handle validity on send
+Date: Fri, 14 Sep 2007 16:40:23 -0700
+Message-ID: <11898132372856-git-send-email-fubar@us.ibm.com>
+References: <11898132301664-git-send-email-fubar@us.ibm.com>
+ <11898132322950-git-send-email-fubar@us.ibm.com>
+ <1189813234208-git-send-email-fubar@us.ibm.com>
+ <11898132352341-git-send-email-fubar@us.ibm.com>
+Cc: monisonlists@gmail.com, ogerlitz@voltaire.com, jgarzik@pobox.com,
+	davem@davemloft.net, general@lists.openfabrics.org,
+	Moni Shoua <monis@voltaire.com>
 To: netdev@vger.kernel.org, rdreier@cisco.com, monis@voltaire.com
-Return-path: <general-bounces@lists.openfabrics.org>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:59914 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757756AbXINXkk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2007 19:40:40 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e5.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8ENedNB005127
+	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:40:39 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8ENedCE551942
+	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:40:39 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8ENecqp008617
+	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:40:39 -0400
+In-Reply-To: <11898132352341-git-send-email-fubar@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-	Following is patch set to provide IPoIB support for bonding in
-active-backup mode.  Patches 1 - 10 were originally posted by Moni Shoua
-<monis@voltaire.com>.  The changes look reasonable to me, but others (for
-IB and net/core changes) probably need to ack.
+From: Moni Shoua <monis@voltaire.com>
 
-	Patch 11 modifies the IB "don't copy MAC to all slaves" code in
-bonding to also be optional for ethernet devices; this is occasionally
-useful.
+When the bonding device senses a carrier loss of its active slave it replaces
+that slave with a new one. In between the times when the carrier of an IPoIB
+device goes down and ipoib_neigh is destroyed, it is possible that the
+bonding driver will send a packet on a new slave that uses an old ipoib_neigh.
+This patch detects and prevents this from happenning.
 
-Original preface for patches 1 - 10 from Moni Shoua <monis@voltaire.com>:
+Signed-off-by: Moni Shoua <monis@voltaire.com>
+Signed-off-by: Or Gerlitz <ogerlitz@voltaire.com>
+Acked-by: Jay Vosburgh <fubar@us.ibm.com>
+---
+ drivers/infiniband/ulp/ipoib/ipoib_main.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-This patch series is the fourth version (see below link to V3) of the 
-suggested changes to the bonding driver so it would be able to support 
-non ARPHRD_ETHER netdevices for its High-Availability (active-backup) mode. 
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+index cb26cfd..6c4e9fb 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+@@ -686,9 +686,10 @@ static int ipoib_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 				goto out;
+ 			}
+ 		} else if (neigh->ah) {
+-			if (unlikely(memcmp(&neigh->dgid.raw,
++			if (unlikely((memcmp(&neigh->dgid.raw,
+ 					    skb->dst->neighbour->ha + 4,
+-					    sizeof(union ib_gid)))) {
++					    sizeof(union ib_gid))) ||
++						 (neigh->dev != dev))) {
+ 				spin_lock(&priv->lock);
+ 				/*
+ 				 * It's safe to call ipoib_put_ah() inside
+-- 
+1.5.2-rc2.GIT
 
-The motivation is to enable the bonding driver on its HA mode to work with
-the IP over Infiniband (IPoIB) driver. With these patches I was able to
-enslave IPoIB netdevices and run TCP, UDP, IP (UDP) Multicast and ICMP
-traffic with fail-over and fail-back working fine. The working environment
-was the net-2.6 git.
-
-More over, as IPoIB is also the IB ARP provider for the RDMA CM driver which 
-is used by native IB ULPs whose addressing scheme is based on IP (e.g. iSER, 
-SDP, Lustre, NFSoRDMA, RDS), bonding support for IPoIB devices **enables** HA 
-for these ULPs. This holds as when the ULP is informed by the IB HW on the 
-failure of the current IB connection, it just need to reconnect, where the 
-bonding device will now issue the IB ARP over the active IPoIB slave. 
-
-This series also includes patches to the IPoIB driver that fix some fix 
-some neighboring related issues. 
-
-Major changes from the previous version:
-
-1) Addressing the issue of safety when unloading the IPoIB module before
-the bonding module
-2) style changes
-
-
-Links to earlier discussion: 
-
-1. A discussion in netdev about bonding support for IPoIB.
-http://lists.openwall.net/netdev/2006/11/30/46
-
-2. A discussion in openfabrics regarding changes in the IPoIB that 
-enable using it as a slave for bonding.
-http://lists.openfabrics.org/pipermail/general/2007-July/038914.html
