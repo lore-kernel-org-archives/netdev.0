@@ -1,23 +1,20 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [ofa-general] Re: [PATCH 0/10 REV5] Implement skb batching and
-	support in IPoIB/E1000
-Date: Fri, 14 Sep 2007 16:49:07 +0400
-Message-ID: <20070914124906.GE18517@2ka.mipt.ru>
-References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
+Subject: Re: [ofa-general] InfiniBand/RDMA merge plans for 2.6.24
+Date: Fri, 14 Sep 2007 16:55:38 +0400
+Message-ID: <20070914125536.GF18517@2ka.mipt.ru>
+References: <adahclymos8.fsf@cisco.com>
+	<46E97BB0.9030106@opengridcomputing.com>
+	<46E987E0.2010605@garzik.org>
+	<46E98889.1080706@opengridcomputing.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jagana@us.ibm.com, Robert.Olsson@data.slu.se,
-	peter.p.waskiewicz.jr@intel.com, kumarkr@linux.ibm.com,
-	herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	netdev@vger.kernel.org, rdreier@cisco.com, hadi@cyberus.ca,
-	kaber@trash.net, randy.dunlap@oracle.com, jeff@garzik.org,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	mcarlson@broadcom.com, sri@us.ibm.com,
-	shemminger@linux-foundation.org, davem@davemloft.net
-To: Krishna Kumar <krkumar2@in.ibm.com>
+Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
+	general@lists.openfabrics.org, Jeff Garzik <jeff@garzik.org>,
+	linux-kernel@vger.kernel.org
+To: Steve Wise <swise@opengridcomputing.com>
 Return-path: <general-bounces@lists.openfabrics.org>
 Content-Disposition: inline
-In-Reply-To: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
+In-Reply-To: <46E98889.1080706@opengridcomputing.com>
 List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
 	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
 List-Archive: <http://lists.openfabrics.org/pipermail/general>
@@ -29,16 +26,16 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Hi Krishna.
+On Thu, Sep 13, 2007 at 01:59:21PM -0500, Steve Wise (swise@opengridcomputing.com) wrote:
+> >Well, if it involves /sharing/ port space with the native stack, i.e. 
+> >where port 1234 is IB but 1235 is Linux, pretty much all the networking 
+> >devs have NAK'd that approach AFAICS.
+> 
+> Jeff, I posted a fix that doesn't do this.  No port sharing.  The iwarp 
+> device will use its own ip address and subnet to avoid collisions.  You 
+> should review the patch when I post v2.
 
-On Fri, Sep 14, 2007 at 02:30:58PM +0530, Krishna Kumar (krkumar2@in.ibm.com) wrote:
-> --------
-> The retransmission problem reported earlier seems to happen when mthca is
-> used as the underlying device, but when I tested ehca the retransmissions
-> dropped to normal levels (around 2 times the regular code). The performance
-> improvement is around 55% for TCP.
-
-And what about latency for this patchset?
+Could you please resend it, since I missed it in netdev@.
 
 -- 
 	Evgeniy Polyakov
