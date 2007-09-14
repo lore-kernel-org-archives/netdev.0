@@ -1,110 +1,266 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: RFC: possible NAPI improvements to reduce interrupt rates for
-	low traffic rates
-Date: Fri, 14 Sep 2007 09:14:30 -0400
-Message-ID: <1189775670.4266.50.camel@localhost>
-References: <200709061416.l86EG0Vb017675@quickie.katalix.com>
-	 <1189120020.4259.68.camel@localhost> <46E11A61.9030409@katalix.com>
-	 <1189171370.4234.38.camel@localhost>
-	 <20070912030428.16059af6.billfink@mindspring.com>
-	 <1189599142.4326.38.camel@localhost>  <46E7EE89.9060006@katalix.com>
-Reply-To: hadi@cyberus.ca
+From: "Medve Emilian-EMMEDVE1" <Emilian.Medve@freescale.com>
+Subject: RE: [PATCH v3] Make the pr_*() family of macros in kernel.h complete
+Date: Fri, 14 Sep 2007 06:27:04 -0700
+Message-ID: <598D5675D34BE349929AF5EDE9B03E270155578C@az33exm24.fsl.freescale.net>
+References: <11896151802410-git-send-email-Emilian.Medve@Freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Bill Fink <billfink@mindspring.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, jeff@garzik.org, mandeep.baines@gmail.com,
-	ossthema@de.ibm.com, Stephen Hemminger <shemminger@osdl.org>,
-	Rick Jones <rick.jones2@hp.com>
-To: James Chapman <jchapman@katalix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.224]:11171 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756768AbXINNOg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 09:14:36 -0400
-Received: by nz-out-0506.google.com with SMTP id s18so656293nze
-        for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 06:14:35 -0700 (PDT)
-In-Reply-To: <46E7EE89.9060006@katalix.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<i2c@lm-sensors.org>, <linux-omap-open-source@linux.omap.com>
+To: <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S932074AbXINN1Y@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <11896151802410-git-send-email-Emilian.Medve@Freescale.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-12-09 at 14:50 +0100, James Chapman wrote:
+Hello Andrew,
 
-> By low traffic, I assume you mean a rate at which the NAPI driver 
-> doesn't stay in polled mode. 
 
-i.e:
-"one interupt per packet per napi poll" which cause about 1-2 more IOs
-in comparison to the case where you didnt do NAPI.
+I realize this e-mail might be nuisance and time waster for you but I'm
+in need of advice. I apologize in advance for any commonsense cultural
+conventions I'm breaking.
 
-> The problem is that that rate is getting 
-> higher all the time, as interface and CPU speeds increase. 
+I sent the below patch to four e-mail lists and it lead to orthogonal
+conversations about how the entire kernel logging system/mechanisms need
+to be re-written and thus such incremental improvements as these get out
+of focus...
 
-indeed;
-While i dont want to throw more work at you, with some of the things
-that improve the IO cost like PCI express, MSI, and some of the
-intelligent things the tg3 does, is this problem still rampant etc? I
-think if you can find (seems you have) one "modern" machine (with MSI
-and a tg3 etc) that has this problem circa 2007 that will be a good
-start.
+In this case I started needing pr_err() and discovered that is defined
+already four times but not with global visibility as some other pr_*()
+from kernel.h (a subset of the entire family). I chose not to define it
+yet the fifth time but clean up the existing definitions and complete
+the family. For some reason it didn't go through even though I had some
+positive feedback. Now it seems I'm encouraged to really define the
+pr_err() for the fifth time...  Not quite sure what to do...
 
-> This results 
-> in too many interrupts and NAPI thrashing in/out of polled mode very 
-> quickly.
 
-indeed.
+Cheers,
+Emil.
 
-> Yes please. We need an analysis of what happens to cpu usage, latency, 
-> pps etc when various factors are changed, e.g. input pps, NAPI busy-idle 
-> delay etc. The main purpose of my RFC wasn't to push a patch into the 
-> kernel right now, it was to highlight the issue and to find out if 
-> others were already working on it. The feedback has been good so far. I 
-> just need to find some time to do some testing. :)
 
-I love your message. From a blackbox perspective, yes we have some
-challenges for NAPI below certain thresholds of traffic. 
-My claim (in the paper) was the discrepancy between the cost of IO
-access vs cost of RAM vs cost of caches vs CPU speeds has gotten too
-high.
-CPU Vendors have been paying close attention to most but IO. So avoiding
-IO when you can is a good thing.
-
-> Jamal, do you have more details? Are people saying NAPI gets too much of 
-> the CPU pie because they profiled it?
-
-In the old days Manfred Spraul actually did profile.
-Most of the other folks were running benchmarks which account for cpu
-use in addition to resources like bandwidth and latency. And so while
-bandwidth and latency didnt affect them that much, they observed their
-benchmarks didnt look good at low rates (even when they looked excellent
-at high rates) because of CPU.
-
->  Are they complaining that system 
-> behavior degrades too much under certain network traffic conditions?
-
-yes - Under low traffic, high speed cpu youd notice a slightly higher
-cpu use.
-
+> -----Original Message-----
+> From: Medve Emilian-EMMEDVE1 
+> Sent: Wednesday, September 12, 2007 11:40 AM
+> To: linux-kernel@vger.kernel.org; netdev@vger.kernel.org; 
+> i2c@lm-sensors.org; linux-omap-open-source@linux.omap.com
+> Cc: Medve Emilian-EMMEDVE1
+> Subject: [PATCH v3] Make the pr_*() family of macros in 
+> kernel.h complete
+> 
+> Other/Some pr_*() macros are already defined in kernel.h, but 
+> pr_err() was defined
+> multiple times in several other places
+> 
+> Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
+> ---
+> 
+> I'm writing a driver and I've been using the pr_*() macros 
+> from kernel.h and I
+> was surprised not to find there pr_err() but defined multiple 
+> times (in four
+> different files). I didn't want to define it yet one more 
+> time so I did this
+> cleanup
+> 
+> As per community request/suggestion, I added the rest of the 
+> missing pr_*()
+> macros to complete the family. The names of the macros are 
+> based on the KERN_*
+> loglevel names and are macthing the naming convention of the 
+> dev_*() print
+> macros from device.h. The macros are defined in the ascending 
+> order of the
+> loglevel
+> 
+> This patch is against Linus' tree 
+> (577107e8e4cf9f6f4f5ef8350ac9a8faa6c3796d)
+> 
+> linux-2.6> scripts/checkpatch.pl 
+> 0001-Make-the-pr_-family-of-macros-in-kernel.h-complet.patch 
+> Your patch has no obvious style problems and is ready for submission.
+> 
+>  drivers/i2c/chips/menelaus.c     |   10 ++++------
+>  drivers/net/spider_net.h         |    3 ---
+>  drivers/video/omap/lcd_h3.c      |    6 ++----
+>  drivers/video/omap/lcd_inn1610.c |    6 ++----
+>  include/linux/kernel.h           |   22 +++++++++++++++++-----
+>  5 files changed, 25 insertions(+), 22 deletions(-)
+> 
+> diff --git a/drivers/i2c/chips/menelaus.c 
+> b/drivers/i2c/chips/menelaus.c
+> index d9c92c5..66436ba 100644
+> --- a/drivers/i2c/chips/menelaus.c
+> +++ b/drivers/i2c/chips/menelaus.c
+> @@ -49,8 +49,6 @@
 >  
-> Mouse cursor movement jittery? Real-time apps such as music/video 
-> players starved of CPU? Is it possible they blame NAPI because they see 
-> tangible effects on their system, not because measured CPU usage is 
-> high? 
-
-If i recall correctly transactional type benchmarks is where this was
-observed. Some IBM and Intel people bring it up every few months and
-maybe Rick Jones once in a while.
-Rick, care to comment on the benchmarks?
-
-> I say this because my music/video player and mouse cursor behave 
-> _much_ better with my NAPI changes during general use, despite the 
-> increase in measured cpu load. Even ftp can make my system's mouse 
-> cursor jitter...
-
-Like i told you in my other email - i did notice something similar, i
-just couldnt put my finger to it and at some points thought i was
-imagining it.
-
-cheers,
-jamal
-
+>  #define DRIVER_NAME			"menelaus"
+>  
+> -#define pr_err(fmt, arg...)	printk(KERN_ERR DRIVER_NAME ": 
+> ", ## arg);
+> -
+>  #define MENELAUS_I2C_ADDRESS		0x72
+>  
+>  #define MENELAUS_REV			0x01
+> @@ -155,7 +153,7 @@ static int menelaus_write_reg(int reg, u8 value)
+>  	int val = 
+> i2c_smbus_write_byte_data(the_menelaus->client, reg, value);
+>  
+>  	if (val < 0) {
+> -		pr_err("write error");
+> +		pr_err(DRIVER_NAME ": write error");
+>  		return val;
+>  	}
+>  
+> @@ -167,7 +165,7 @@ static int menelaus_read_reg(int reg)
+>  	int val = i2c_smbus_read_byte_data(the_menelaus->client, reg);
+>  
+>  	if (val < 0)
+> -		pr_err("read error");
+> +		pr_err(DRIVER_NAME ": read error");
+>  
+>  	return val;
+>  }
+> @@ -1177,7 +1175,7 @@ static int menelaus_probe(struct 
+> i2c_client *client)
+>  	/* If a true probe check the device */
+>  	rev = menelaus_read_reg(MENELAUS_REV);
+>  	if (rev < 0) {
+> -		pr_err("device not found");
+> +		pr_err(DRIVER_NAME ": device not found");
+>  		err = -ENODEV;
+>  		goto fail1;
+>  	}
+> @@ -1258,7 +1256,7 @@ static int __init menelaus_init(void)
+>  
+>  	res = i2c_add_driver(&menelaus_i2c_driver);
+>  	if (res < 0) {
+> -		pr_err("driver registration failed\n");
+> +		pr_err(DRIVER_NAME ": driver registration failed\n");
+>  		return res;
+>  	}
+>  
+> diff --git a/drivers/net/spider_net.h b/drivers/net/spider_net.h
+> index dbbdb8c..c67b11d 100644
+> --- a/drivers/net/spider_net.h
+> +++ b/drivers/net/spider_net.h
+> @@ -493,7 +493,4 @@ struct spider_net_card {
+>  	struct spider_net_descr darray[0];
+>  };
+>  
+> -#define pr_err(fmt,arg...) \
+> -	printk(KERN_ERR fmt ,##arg)
+> -
+>  #endif
+> diff --git a/drivers/video/omap/lcd_h3.c b/drivers/video/omap/lcd_h3.c
+> index 51807b4..c604d93 100644
+> --- a/drivers/video/omap/lcd_h3.c
+> +++ b/drivers/video/omap/lcd_h3.c
+> @@ -28,8 +28,6 @@
+>  
+>  #define MODULE_NAME	"omapfb-lcd_h3"
+>  
+> -#define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": 
+> " fmt, ## args)
+> -
+>  static int h3_panel_init(struct lcd_panel *panel, struct 
+> omapfb_device *fbdev)
+>  {
+>  	return 0;
+> @@ -48,7 +46,7 @@ static int h3_panel_enable(struct lcd_panel *panel)
+>  	if (!r)
+>  		r = tps65010_set_gpio_out_value(GPIO2, HIGH);
+>  	if (r)
+> -		pr_err("Unable to turn on LCD panel\n");
+> +		pr_err(MODULE_NAME ": Unable to turn on LCD panel\n");
+>  
+>  	return r;
+>  }
+> @@ -62,7 +60,7 @@ static void h3_panel_disable(struct 
+> lcd_panel *panel)
+>  	if (!r)
+>  		tps65010_set_gpio_out_value(GPIO2, LOW);
+>  	if (r)
+> -		pr_err("Unable to turn off LCD panel\n");
+> +		pr_err(MODULE_NAME ": Unable to turn off LCD panel\n");
+>  }
+>  
+>  static unsigned long h3_panel_get_caps(struct lcd_panel *panel)
+> diff --git a/drivers/video/omap/lcd_inn1610.c 
+> b/drivers/video/omap/lcd_inn1610.c
+> index 95604ca..5ef119c 100644
+> --- a/drivers/video/omap/lcd_inn1610.c
+> +++ b/drivers/video/omap/lcd_inn1610.c
+> @@ -27,20 +27,18 @@
+>  
+>  #define MODULE_NAME	"omapfb-lcd_h3"
+>  
+> -#define pr_err(fmt, args...) printk(KERN_ERR MODULE_NAME ": 
+> " fmt, ## args)
+> -
+>  static int innovator1610_panel_init(struct lcd_panel *panel,
+>  				    struct omapfb_device *fbdev)
+>  {
+>  	int r = 0;
+>  
+>  	if (omap_request_gpio(14)) {
+> -		pr_err("can't request GPIO 14\n");
+> +		pr_err(MODULE_NAME ": can't request GPIO 14\n");
+>  		r = -1;
+>  		goto exit;
+>  	}
+>  	if (omap_request_gpio(15)) {
+> -		pr_err("can't request GPIO 15\n");
+> +		pr_err(MODULE_NAME ": can't request GPIO 15\n");
+>  		omap_free_gpio(14);
+>  		r = -1;
+>  		goto exit;
+> diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+> index 47160fe..166a822 100644
+> --- a/include/linux/kernel.h
+> +++ b/include/linux/kernel.h
+> @@ -230,10 +230,25 @@ extern void print_hex_dump_bytes(const 
+> char *prefix_str, int prefix_type,
+>  			const void *buf, size_t len);
+>  #define hex_asc(x)	"0123456789abcdef"[x]
+>  
+> +#define pr_emerg(fmt, arg...) \
+> +	printk(KERN_EMERG fmt, ##arg)
+> +#define pr_alert(fmt, arg...) \
+> +	printk(KERN_ALERT fmt, ##arg)
+> +#define pr_crit(fmt, arg...) \
+> +	printk(KERN_CRIT fmt, ##arg)
+> +#define pr_err(fmt, arg...) \
+> +	printk(KERN_ERR fmt, ##arg)
+> +#define pr_warning(fmt, arg...) \
+> +	printk(KERN_WARNING fmt, ##arg)
+> +#define pr_notice(fmt, arg...) \
+> +	printk(KERN_NOTICE fmt, ##arg)
+> +#define pr_info(fmt, arg...) \
+> +	printk(KERN_INFO fmt, ##arg)
+> +
+>  #ifdef DEBUG
+>  /* If you are writing a driver, please use dev_dbg instead */
+> -#define pr_debug(fmt,arg...) \
+> -	printk(KERN_DEBUG fmt,##arg)
+> +#define pr_debug(fmt, arg...) \
+> +	printk(KERN_DEBUG fmt, ##arg)
+>  #else
+>  static inline int __attribute__ ((format (printf, 1, 2))) 
+> pr_debug(const char * fmt, ...)
+>  {
+> @@ -241,9 +256,6 @@ static inline int __attribute__ ((format 
+> (printf, 1, 2))) pr_debug(const char *
+>  }
+>  #endif
+>  
+> -#define pr_info(fmt,arg...) \
+> -	printk(KERN_INFO fmt,##arg)
+> -
+>  /*
+>   *      Display an IP address in readable format.
+>   */
+> -- 
+> 1.5.3.GIT
