@@ -1,86 +1,92 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [ofa-general] [PATCH 02/11] IB/ipoib: Notify the world before doing
-	unregister
-Date: Fri, 14 Sep 2007 16:40:21 -0700
-Message-ID: <1189813234208-git-send-email-fubar@us.ibm.com>
+Subject: [PATCH 07/11] net/bonding: Enable IP multicast for bonding IPoIB devices
+Date: Fri, 14 Sep 2007 16:40:26 -0700
+Message-ID: <11898132441599-git-send-email-fubar@us.ibm.com>
 References: <11898132301664-git-send-email-fubar@us.ibm.com>
-	<11898132322950-git-send-email-fubar@us.ibm.com>
-Cc: general@lists.openfabrics.org, jgarzik@pobox.com, davem@davemloft.net
+ <11898132322950-git-send-email-fubar@us.ibm.com>
+ <1189813234208-git-send-email-fubar@us.ibm.com>
+ <11898132352341-git-send-email-fubar@us.ibm.com>
+ <11898132372856-git-send-email-fubar@us.ibm.com>
+ <11898132411426-git-send-email-fubar@us.ibm.com>
+ <1189813242354-git-send-email-fubar@us.ibm.com>
+Cc: monisonlists@gmail.com, ogerlitz@voltaire.com, jgarzik@pobox.com,
+	davem@davemloft.net, general@lists.openfabrics.org,
+	Moni Shoua <monis@voltaire.com>
 To: netdev@vger.kernel.org, rdreier@cisco.com, monis@voltaire.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <11898132322950-git-send-email-fubar@us.ibm.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:45714 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758559AbXINXkr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2007 19:40:47 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8ENekNx025087
+	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:40:46 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8ENekA6545368
+	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:40:46 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8ENejln008825
+	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:40:46 -0400
+In-Reply-To: <1189813242354-git-send-email-fubar@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Moni Shoua <monis@voltaire.com>
 
-When the bonding device enslaves IPoIB devices it takes pointers to
-functions in the ib_ipoib module. This is fine as long as the ib_ipoib
-nodule remains loaded while the references to its functions exist.
-So, to help bonding do a cleanup on time, when the IPoIB net device is a
-slave of a bonding master, let the master know that the IPoIB device is
-about to unregister (but before calling unregister).
+Allow to enslave devices when the bonding device is not up. Over the discussion
+held at the previous post this seemed to be the most clean way to go, where it
+is not expected to cause instabilities.
+
+Normally, the bonding driver is UP before any enslavement takes place.
+Once a netdevice is UP, the network stack acts to have it join some multicast groups
+(eg the all-hosts 224.0.0.1). Now, since ether_setup() have set the bonding device
+type to be ARPHRD_ETHER and address len to be ETHER_ALEN, the net core code
+computes a wrong multicast link address. This is b/c ip_eth_mc_map() is called
+where for multicast joins taking place after the enslavement another ip_xxx_mc_map()
+is called (eg ip_ib_mc_map() when the bond type is ARPHRD_INFINIBAND)
 
 Signed-off-by: Moni Shoua <monis@voltaire.com>
+Signed-off-by: Or Gerlitz <ogerlitz@voltaire.com>
 Acked-by: Jay Vosburgh <fubar@us.ibm.com>
 ---
- drivers/infiniband/ulp/ipoib/ipoib_main.c |   15 +++++++++++++++
- 1 files changed, 15 insertions(+), 0 deletions(-)
+ drivers/net/bonding/bond_main.c  |    5 +++--
+ drivers/net/bonding/bond_sysfs.c |    6 ++----
+ 2 files changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-index 894b1dc..97a9661 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-@@ -48,6 +48,7 @@
- #include <linux/in.h>
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index d937bae..a1fe87a 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1285,8 +1285,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
  
- #include <net/dst.h>
-+#include <linux/netdevice.h>
+ 	/* bond must be initialized by bond_open() before enslaving */
+ 	if (!(bond_dev->flags & IFF_UP)) {
+-		dprintk("Error, master_dev is not up\n");
+-		return -EPERM;
++		printk(KERN_WARNING DRV_NAME
++			" %s: master_dev is not up in bond_enslave\n",
++			bond_dev->name);
+ 	}
  
- MODULE_AUTHOR("Roland Dreier");
- MODULE_DESCRIPTION("IP-over-InfiniBand net driver");
-@@ -772,6 +773,18 @@ static void ipoib_timeout(struct net_device *dev)
- 	/* XXX reset QP, etc. */
- }
+ 	/* already enslaved */
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 9afd172..073841f 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -265,11 +265,9 @@ static ssize_t bonding_store_slaves(struct device *d,
  
-+static int ipoib_slave_detach(struct net_device *dev)
-+{
-+	int ret = 0;
-+	if (dev->flags & IFF_SLAVE) {
-+		dev->priv_flags |= IFF_SLAVE_DETACH;
-+		rtnl_lock();
-+		ret = call_netdevice_notifiers(NETDEV_CHANGE, dev);
-+		rtnl_unlock();
-+	}
-+	return ret;
-+}
-+
- static int ipoib_hard_header(struct sk_buff *skb,
- 			     struct net_device *dev,
- 			     unsigned short type,
-@@ -921,6 +934,7 @@ void ipoib_dev_cleanup(struct net_device *dev)
+ 	/* Quick sanity check -- is the bond interface up? */
+ 	if (!(bond->dev->flags & IFF_UP)) {
+-		printk(KERN_ERR DRV_NAME
+-		       ": %s: Unable to update slaves because interface is down.\n",
++		printk(KERN_WARNING DRV_NAME
++		       ": %s: doing slave updates when interface is down.\n",
+ 		       bond->dev->name);
+-		ret = -EPERM;
+-		goto out;
+ 	}
  
- 	/* Delete any child interfaces first */
- 	list_for_each_entry_safe(cpriv, tcpriv, &priv->child_intfs, list) {
-+		ipoib_slave_detach(cpriv->dev);
- 		unregister_netdev(cpriv->dev);
- 		ipoib_dev_cleanup(cpriv->dev);
- 		free_netdev(cpriv->dev);
-@@ -1208,6 +1222,7 @@ static void ipoib_remove_one(struct ib_device *device)
- 		ib_unregister_event_handler(&priv->event_handler);
- 		flush_scheduled_work();
- 
-+		ipoib_slave_detach(priv->dev);
- 		unregister_netdev(priv->dev);
- 		ipoib_dev_cleanup(priv->dev);
- 		free_netdev(priv->dev);
+ 	/* Note:  We can't hold bond->lock here, as bond_create grabs it. */
 -- 
 1.5.2-rc2.GIT
+
