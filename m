@@ -1,29 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] Add IP1000A Driver into Kernel (2007/09/12)
-Date: Fri, 14 Sep 2007 23:11:08 +0200
-Message-ID: <20070914211108.GB22975@electric-eye.fr.zoreil.com>
-References: <1189774938.3353.1.camel@localhost.localdomain>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: Distributed storage. Move away from char device ioctls.
+Date: Fri, 14 Sep 2007 17:14:53 -0400
+Message-ID: <46EAF9CD.1090808@garzik.org>
+References: <20070914185429.GA9439@2ka.mipt.ru> <46EADC02.9070409@garzik.org> <20070914211210.GB12444@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, akpm@linux-foundation.org, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, s.l-h@gmx.de
-To: Jesse Huang <jesse@icplus.com.tw>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: "J. Bruce Fields" <bfields@fieldses.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:59586 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756661AbXINVOP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Sep 2007 17:14:15 -0400
-Content-Disposition: inline
-In-Reply-To: <1189774938.3353.1.camel@localhost.localdomain>
+Received: from srv5.dvmed.net ([207.36.208.214]:38109 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756635AbXINVO4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2007 17:14:56 -0400
+In-Reply-To: <20070914211210.GB12444@fieldses.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesse Huang <jesse@icplus.com.tw> :
-[...]
-> Change Logs: Add IP1000A Driver to kernel tree.
+J. Bruce Fields wrote:
+> On Fri, Sep 14, 2007 at 03:07:46PM -0400, Jeff Garzik wrote:
+>> I've been waiting for years for a smart person to come along and write a 
+>> POSIX-only distributed filesystem.
 
-It misses the needed Kconfig, Makefile and pci_ids changes
-from Stefan Lippers-Hollmann.
+> What exactly do you mean by "POSIX-only"?
 
--- 
-Ueimor
+Don't bother supporting attributes, file modes, and other details not 
+supported by POSIX.  The prime example being NFSv4, which is larded down 
+with Windows features.
+
+NFSv4.1 adds to the fun, by throwing interoperability completely out the 
+window.
+
+	Jeff
+
+
+
