@@ -1,43 +1,49 @@
-From: Andy Gospodarek <andy@greyhouse.net>
+From: Jeff Garzik <jeff@garzik.org>
 Subject: Re: [PATCH] tehuti: driver for Tehuti 10GbE network adapters
-Date: Fri, 14 Sep 2007 11:36:31 -0400
-Message-ID: <20070914153629.GA9140@gospo.rdu.redhat.com>
-References: <20070911164033.GA3754@gospo.rdu.redhat.com>
+Date: Fri, 14 Sep 2007 11:59:25 -0400
+Message-ID: <46EAAFDD.6010905@garzik.org>
+References: <20070911164033.GA3754@gospo.rdu.redhat.com> <20070914153629.GA9140@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andy@greyhouse.net, baum@tehutinetworks.net
-To: jeff@garzik.org, davem@davemloft.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, baum@tehutinetworks.net
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:60994 "EHLO mx1.redhat.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:59487 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751452AbXINPhA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Sep 2007 11:37:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20070911164033.GA3754@gospo.rdu.redhat.com>
+	id S1750822AbXINP7d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2007 11:59:33 -0400
+In-Reply-To: <20070914153629.GA9140@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 11, 2007 at 12:40:34PM -0400, Andy Gospodarek wrote:
+Andy Gospodarek wrote:
+> On Tue, Sep 11, 2007 at 12:40:34PM -0400, Andy Gospodarek wrote:
+>> This introduces support for a line of 10GbE adapters made by Tehuti
+>> Networks.  An attempt to get this included was made a few months ago and
+>> since the driver has been re-factored based on Jeff's suggestions.
+>>
+>> You can download a patch against Jeff's netdev-2.6#upstream tree here:
+>>
+>> http://git.greyhouse.net/gospo/tehuti-netdev-26-upstream.patch
+>>
+>> and I setup a git tree last night based off Linus' tree.  You can sync
+>> with that here if you like:
+>>
+>> http://git.greyhouse.net/gospo/tehuti-2.6.git
+>>
 > 
-> This introduces support for a line of 10GbE adapters made by Tehuti
-> Networks.  An attempt to get this included was made a few months ago and
-> since the driver has been re-factored based on Jeff's suggestions.
+> I moved this to:
 > 
-> You can download a patch against Jeff's netdev-2.6#upstream tree here:
+> git://git.greyhouse.net/gospo/tehuti-2.6.git
 > 
-> http://git.greyhouse.net/gospo/tehuti-netdev-26-upstream.patch
-> 
-> and I setup a git tree last night based off Linus' tree.  You can sync
-> with that here if you like:
-> 
-> http://git.greyhouse.net/gospo/tehuti-2.6.git
-> 
+> since I got some complaints that the http-based git tree wasn't working
+> well.
 
-I moved this to:
+Maybe you forgot git-update-server-info, after pushing ?
 
-git://git.greyhouse.net/gospo/tehuti-2.6.git
+	Jeff
 
-since I got some complaints that the http-based git tree wasn't working
-well.
+
 
