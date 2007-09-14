@@ -1,40 +1,58 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: SO_BINDTODEVICE mismatch with man page & comments.
-Date: Fri, 14 Sep 2007 15:37:45 -0700
-Message-ID: <46EB0D39.4030609@candelatech.com>
-References: <46DDDFFA.6090705@candelatech.com>	<20070914.131225.78720330.davem@davemloft.net>	<46EB071B.9070308@candelatech.com> <20070914.152912.74747426.davem@davemloft.net>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: Distributed storage. Move away from char device ioctls.
+Date: Fri, 14 Sep 2007 18:42:12 -0400
+Message-ID: <20070914224212.GJ12444@fieldses.org>
+References: <20070914185429.GA9439@2ka.mipt.ru> <46EADC02.9070409@garzik.org> <20070914211210.GB12444@fieldses.org> <46EAF9CD.1090808@garzik.org> <20070914211828.GC12444@fieldses.org> <46EB0BEB.2090808@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:34434 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756661AbXINWhu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Sep 2007 18:37:50 -0400
-In-Reply-To: <20070914.152912.74747426.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <46EB0BEB.2090808@garzik.org>
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
+On Fri, Sep 14, 2007 at 06:32:11PM -0400, Jeff Garzik wrote:
+> J. Bruce Fields wrote:
+>> On Fri, Sep 14, 2007 at 05:14:53PM -0400, Jeff Garzik wrote:
+>>> J. Bruce Fields wrote:
+>>>> On Fri, Sep 14, 2007 at 03:07:46PM -0400, Jeff Garzik wrote:
+>>>>> I've been waiting for years for a smart person to come along and write 
+>>>>> a POSIX-only distributed filesystem.
+>>>> What exactly do you mean by "POSIX-only"?
+>>> Don't bother supporting attributes, file modes, and other details not 
+>>> supported by POSIX.  The prime example being NFSv4, which is larded down 
+>>> with Windows features.
+>> I am sympathetic....  Cutting those out may still leave you with
+>> something pretty complicated, though.
+>
+> Far less complicated than NFSv4.1 though (which is easy :))
 
-> Instead of nit-picking, can you instead try the patch and let me
-> know if it makes things work for you?
+One would hope so.
 
-I don't mean to complain, just trying to make sure that you
-had thought about the length and were happy with how it works
-before I try to get the man page changed.
+>>> NFSv4.1 adds to the fun, by throwing interoperability completely out the 
+>>> window.
+>> What parts are you worried about in particular?
+>
+> I'm not worried; I'm stating facts as they exist today (draft 13):
+>
+> NFS v4.1 does something completely without precedent in the history of NFS: 
+>  the specification is defined such that interoperability is -impossible- to 
+> guarantee.
+>
+> pNFS permits private and unspecified layout types.  This means it is 
+> impossible to guarantee that one NFSv4.1 implementation will be able to 
+> talk another NFSv4.1 implementation.
 
-I will try the patch, but it will probably not be until Monday.
-The existing code actually can be made to work by passing in
-a 4+ byte string and setting the first byte to zero, and as
-far as I can see, that remains the same with the new patch.
+No, servers are required to support ordinary nfs operations to the
+metadata server.
 
-Thanks,
-Ben
+At least, that's the way it was last I heard, which was a while ago.  I
+agree that it'd stink (for any number of reasons) if you ever *had* to
+get a layout to access some file.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Was that your main concern?
 
+--b.
