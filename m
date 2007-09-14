@@ -1,99 +1,65 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH][NETNS] Use list_for_each_entry_continue_reverse in setup_net
-Date: Fri, 14 Sep 2007 08:41:07 -0600
-Message-ID: <m1lkb92tto.fsf@ebiederm.dsl.xmission.com>
-References: <46EA3AB4.7060904@openvz.org> <20070914144938.3ba643a5@oldman>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: wireless vs. network namespaces
+Date: Fri, 14 Sep 2007 09:31:09 -0600
+Message-ID: <m1bqc52ria.fsf@ebiederm.dsl.xmission.com>
+References: <1189763513.3974.26.camel@johannes.berg>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Emelyanov <xemul@openvz.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Containers <containers@lists.osdl.org>, devel@openvz.org,
-	Daniel Lezcano <dlezcano@fr.ibm.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:45792 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754586AbXINOll (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 10:41:41 -0400
-In-Reply-To: <20070914144938.3ba643a5@oldman> (Stephen Hemminger's message of
-	"Fri, 14 Sep 2007 14:49:38 +0200")
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1189763513.3974.26.camel-YfaajirXv214zXjbi5bjpg@public.gmane.org> (Johannes Berg's message
+	of "Fri, 14 Sep 2007 11:51:53 +0200")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@linux-foundation.org> writes:
+Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> writes:
 
-> On Fri, 14 Sep 2007 11:39:32 +0400
-> Pavel Emelyanov <xemul@openvz.org> wrote:
+> Now that the network namespace work is in net-2.6.24, I'm wondering how
+> wireless will be handling this. Is there any benefit at all to a
+> wireless device supporting network namespaces?
+
+Good question.  Network namespaces are designed as a general tool
+so if we can support network namespaces in the wireless stack without
+killing ourselves there should be value in it.
+
+> Should we, for now, set the new NETIF_F_NETNS_LOCAL flag for all
+> mac80211 devices?
 >
->> I proposed introducing a list_for_each_entry_continue_reverse
->> macro to be used in setup_net() when unrolling the failed
->> ->init callback.
->> 
->> Here is the macro and some more cleanup in the setup_net() itself
->> to remove one variable from the stack :) Minor, but the code
->> looks nicer.
->> 
->> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
->
-> Maybe it is time to just eliminate the init hook from the API.
-> It has very few users, and there is no reason the setup needed
-> could be done before or after registering in most cases.
+> If we do want to support moving, then we'll have to make cfg80211
+> (preferably, though mac80211 might be easier at first) migrate *all*
+> virtual interfaces associated with the same wiphy because otherwise
+> we'll get into trouble when moving one virtual interface and then
+> somebody in the other namespace changes its operating channel.
 
-I guess only have 5 out of the 29 users I have in my full patchset
-is few.  But that is to be expected because so far only the core
-has been converted.
+Ok.  This appears at least to be an atomicity issue and possibly more.
 
-I looked again at the initialization to see if you had a point about
-the initialization but in every instance I looked at the function
-was performing work that needed to happen during the creation of
-each network namespace.  So the work very much needs to be done there.
+I don't currently understand the way the wireless interfaces interact
+well enough to make a judgement call.
 
-Ok looking some more I can see why this isn't obvious yet.  copy_net_ns
-hasn't been merged yet, and that is where we create new network namespaces.
-And call setup_net on each new network namespace.
+There are two basic usage models I can currently think of.
+1) Super chroot.  Where a group of processes has distinct mount,
+   network, uts, ipc, and pid namespaces.  So in this case on the
+   inside we will only see processes that only belong to our own
+   network namespace.  So in this scenario you get whatever the person
+   who sets up the environment gives you.
 
-I will take a look at that patch and see if I can come up with a
-safe version of it to merge to allow for a little more transparency.
+   If one of the network devices only allows access to a subset of
+   the wireless networking  (say just sending packets but not
+   controlling the radio aspects) I can see and advantage in only
+   having that device in the restricted network namespace.
 
-> struct net *copy_net_ns(unsigned long flags, struct net *old_net)
-> {
->         struct net *new_net = NULL;
->         int err;
-> 
->         get_net(old_net);
-> 
->         if (!(flags & CLONE_NEWNET))
->                 return old_net;
-> 
->         err = -EPERM;
->         if (!capable(CAP_SYS_ADMIN))
->                 goto out;
-> 
->         err = -ENOMEM;
->         new_net = net_alloc();
->         if (!new_net)
->                 goto out;
-> 
->         mutex_lock(&net_mutex);
->         err = setup_net(new_net);
->         if (err)
->                 goto out_unlock;
-> 
->         net_lock();
->         list_add_tail(&new_net->list, &net_namespace_list);
->         net_unlock();
-> 
-> 
-> out_unlock:
->         mutex_unlock(&net_mutex);
-> out:
->         put_net(old_net);
->         if (err) {
->                 net_free(new_net);
->                 new_net = ERR_PTR(err);
->         }
->         return new_net;
-> }
+2) Advanced routing.  Where someone is doing some weird thing like 
+   testing sending packets and receiving them on the same machine.
+
+Currently creation of a network namespace requires CAP_SYS_ADMIN
+and for device movement we only require CAP_NET_ADMIN.  So these are
+all privileged operations.  So the scenario you are concerned about
+may just be a "don't do that then".
+
+If this doesn't give you enough information to make the call can
+you describe for me how the separation of wireless network interfaces
+work?
 
 Eric
-
