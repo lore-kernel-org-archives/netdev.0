@@ -1,827 +1,611 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 7/8] SCTP: API updates to suport SCTP-AUTH extensions.
-Date: Fri, 14 Sep 2007 14:44:58 -0400
-Message-ID: <1189795500886-git-send-email-vladislav.yasevich@hp.com>
+Subject: [PATCH 6/8] SCTP: Implement the receive and verification of AUTH chunk
+Date: Fri, 14 Sep 2007 14:44:57 -0400
+Message-ID: <11897955003311-git-send-email-vladislav.yasevich@hp.com>
 References: <1189795499444-git-send-email-vladislav.yasevich@hp.com>
 Cc: netdev@vger.kernel.org, Vlad Yasevich <vladislav.yasevich@hp.com>
 To: lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:33817 "EHLO atlrel9.hp.com"
+Received: from atlrel6.hp.com ([156.153.255.205]:49232 "EHLO atlrel6.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752278AbXINSpC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Sep 2007 14:45:02 -0400
+	id S1753770AbXINSpM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2007 14:45:12 -0400
 In-Reply-To: <1189795499444-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add SCTP-AUTH API.  The API implemented here was
-agreed to between implementors at the 9th SCTP Interop.
-It will be documented in the next revision of the
-SCTP socket API spec.
+This patch implements the receive path needed to process authenticated
+chunks.  Add ability to process the AUTH chunk and handle edge cases
+for authenticated COOKIE-ECHO as well.
 
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
- include/net/sctp/auth.h     |   16 +++
- include/net/sctp/ulpevent.h |    4 +
- include/net/sctp/user.h     |   90 +++++++++++++
- net/sctp/auth.c             |  193 +++++++++++++++++++++++++++
- net/sctp/sm_statefuns.c     |   13 ++
- net/sctp/socket.c           |  304 +++++++++++++++++++++++++++++++++++++++++++
- net/sctp/ulpevent.c         |   37 +++++
- 7 files changed, 657 insertions(+), 0 deletions(-)
+ include/net/sctp/constants.h |    4 +-
+ include/net/sctp/sm.h        |    1 +
+ include/net/sctp/structs.h   |    8 ++
+ net/sctp/associola.c         |   10 ++
+ net/sctp/endpointola.c       |   29 ++++++
+ net/sctp/input.c             |   65 +++++++++++--
+ net/sctp/inqueue.c           |   19 ++++
+ net/sctp/sm_statefuns.c      |  218 +++++++++++++++++++++++++++++++++++++++++-
+ net/sctp/sm_statetable.c     |   33 +++++++
+ 9 files changed, 374 insertions(+), 13 deletions(-)
 
-diff --git a/include/net/sctp/auth.h b/include/net/sctp/auth.h
-index 10c8010..4945954 100644
---- a/include/net/sctp/auth.h
-+++ b/include/net/sctp/auth.h
-@@ -43,6 +43,7 @@
- struct sctp_endpoint;
- struct sctp_association;
- struct sctp_authkey;
-+struct sctp_hmacalgo;
+diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
+index 777118f..da8354e 100644
+--- a/include/net/sctp/constants.h
++++ b/include/net/sctp/constants.h
+@@ -183,7 +183,9 @@ typedef enum {
+ 	SCTP_IERROR_NO_DATA,
+ 	SCTP_IERROR_BAD_STREAM,
+ 	SCTP_IERROR_BAD_PORTS,
+-
++	SCTP_IERROR_AUTH_BAD_HMAC,
++	SCTP_IERROR_AUTH_BAD_KEYID,
++	SCTP_IERROR_PROTO_VIOLATION,
+ } sctp_ierror_t;
  
- /*
-  * Define a generic struct that will hold all the info
-@@ -109,4 +110,19 @@ int sctp_auth_recv_cid(sctp_cid_t chunk, const struct sctp_association *asoc);
- void sctp_auth_calculate_hmac(const struct sctp_association *asoc,
- 			    struct sk_buff *skb,
- 			    struct sctp_auth_chunk *auth, gfp_t gfp);
-+
-+/* API Helpers */
-+int sctp_auth_ep_add_chunkid(struct sctp_endpoint *ep, __u8 chunk_id);
-+int sctp_auth_ep_set_hmacs(struct sctp_endpoint *ep,
-+			    struct sctp_hmacalgo *hmacs);
-+int sctp_auth_set_key(struct sctp_endpoint *ep,
-+		      struct sctp_association *asoc,
-+		      struct sctp_authkey *auth_key);
-+int sctp_auth_set_active_key(struct sctp_endpoint *ep,
-+		      struct sctp_association *asoc,
-+		      __u16 key_id);
-+int sctp_auth_del_key_id(struct sctp_endpoint *ep,
-+		      struct sctp_association *asoc,
-+		      __u16 key_id);
-+
- #endif
-diff --git a/include/net/sctp/ulpevent.h b/include/net/sctp/ulpevent.h
-index de88ed5..922a151 100644
---- a/include/net/sctp/ulpevent.h
-+++ b/include/net/sctp/ulpevent.h
-@@ -128,6 +128,10 @@ struct sctp_ulpevent *sctp_ulpevent_make_rcvmsg(struct sctp_association *asoc,
- 	struct sctp_chunk *chunk,
- 	gfp_t gfp);
  
-+struct sctp_ulpevent *sctp_ulpevent_make_authkey(
-+	const struct sctp_association *asoc, __u16 key_id,
-+	__u32 indication, gfp_t gfp);
-+
- void sctp_ulpevent_read_sndrcvinfo(const struct sctp_ulpevent *event,
- 	struct msghdr *);
- __u16 sctp_ulpevent_get_notification_type(const struct sctp_ulpevent *event);
-diff --git a/include/net/sctp/user.h b/include/net/sctp/user.h
-index 6d2b577..00848b6 100644
---- a/include/net/sctp/user.h
-+++ b/include/net/sctp/user.h
-@@ -103,6 +103,21 @@ enum sctp_optname {
- #define SCTP_PARTIAL_DELIVERY_POINT SCTP_PARTIAL_DELIVERY_POINT
- 	SCTP_MAX_BURST,		/* Set/Get max burst */
- #define SCTP_MAX_BURST SCTP_MAX_BURST
-+	SCTP_AUTH_CHUNK,	/* Set only: add a chunk type to authenticat */
-+#define SCTP_AUTH_CHUNK SCTP_AUTH_CHUNK
-+	SCTP_HMAC_IDENT,
-+#define SCTP_HMAC_IDENT SCTP_HMAC_IDENT
-+	SCTP_AUTH_KEY,
-+#define SCTP_AUTH_KEY SCTP_AUTH_KEY
-+	SCTP_AUTH_ACTIVE_KEY,
-+#define SCTP_AUTH_ACTIVE_KEY SCTP_AUTH_ACTIVE_KEY
-+	SCTP_AUTH_DELETE_KEY,
-+#define SCTP_AUTH_DELETE_KEY SCTP_AUTH_DELETE_KEY
-+	SCTP_PEER_AUTH_CHUNKS,		/* Read only */
-+#define SCTP_PEER_AUTH_CHUNKS SCTP_PEER_AUTH_CHUNKS
-+	SCTP_LOCAL_AUTH_CHUNKS,		/* Read only */
-+#define SCTP_LOCAL_AUTH_CHUNKS SCTP_LOCAL_AUTH_CHUNKS
-+
+diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
+index ee62897..4357307 100644
+--- a/include/net/sctp/sm.h
++++ b/include/net/sctp/sm.h
+@@ -144,6 +144,7 @@ sctp_state_fn_t sctp_sf_do_asconf_ack;
+ sctp_state_fn_t sctp_sf_do_9_2_reshutack;
+ sctp_state_fn_t sctp_sf_eat_fwd_tsn;
+ sctp_state_fn_t sctp_sf_eat_fwd_tsn_fast;
++sctp_state_fn_t sctp_sf_eat_auth;
  
- 	/* Internal Socket Options. Some of the sctp library functions are 
- 	 * implemented using these socket options.
-@@ -370,6 +385,19 @@ struct sctp_pdapi_event {
+ /* Prototypes for primitive event state functions.  */
+ sctp_state_fn_t sctp_sf_do_prm_asoc;
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 8cb7bc4..3215da4 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -719,6 +719,13 @@ struct sctp_chunk {
+ 	 */
+ 	struct sctp_transport *transport;
  
- enum { SCTP_PARTIAL_DELIVERY_ABORTED=0, };
- 
-+struct sctp_authkey_event {
-+	__u16 auth_type;
-+	__u16 auth_flags;
-+	__u32 auth_length;
-+	__u16 auth_keynumber;
-+	__u16 auth_altkeynumber;
-+	__u32 auth_indication;
-+	sctp_assoc_t auth_assoc_id;
-+};
-+
-+enum { SCTP_AUTH_NEWKEY = 0, };
-+
-+
- /*
-  * Described in Section 7.3
-  *   Ancillary Data and Notification Interest Options
-@@ -405,6 +433,7 @@ union sctp_notification {
- 	struct sctp_shutdown_event sn_shutdown_event;
- 	struct sctp_adaptation_event sn_adaptation_event;
- 	struct sctp_pdapi_event sn_pdapi_event;
-+	struct sctp_authkey_event sn_authkey_event;
- };
- 
- /* Section 5.3.1
-@@ -421,6 +450,7 @@ enum sctp_sn_type {
- 	SCTP_SHUTDOWN_EVENT,
- 	SCTP_PARTIAL_DELIVERY_EVENT,
- 	SCTP_ADAPTATION_INDICATION,
-+	SCTP_AUTHENTICATION_EVENT,
- };
- 
- /* Notification error codes used to fill up the error fields in some
-@@ -539,6 +569,54 @@ struct sctp_paddrparams {
- 	__u32			spp_flags;
- } __attribute__((packed, aligned(4)));
- 
-+/*
-+ * 7.1.18.  Add a chunk that must be authenticated (SCTP_AUTH_CHUNK)
-+ *
-+ * This set option adds a chunk type that the user is requesting to be
-+ * received only in an authenticated way.  Changes to the list of chunks
-+ * will only effect future associations on the socket.
-+ */
-+struct sctp_authchunk {
-+	__u8		sauth_chunk;
-+};
-+
-+/*
-+ * 7.1.19.  Get or set the list of supported HMAC Identifiers (SCTP_HMAC_IDENT)
-+ *
-+ * This option gets or sets the list of HMAC algorithms that the local
-+ * endpoint requires the peer to use.
-+*/
-+struct sctp_hmacalgo {
-+	__u16		shmac_num_idents;
-+	__u16		shmac_idents[];
-+};
-+
-+/*
-+ * 7.1.20.  Set a shared key (SCTP_AUTH_KEY)
-+ *
-+ * This option will set a shared secret key which is used to build an
-+ * association shared key.
-+ */
-+struct sctp_authkey {
-+	sctp_assoc_t	sca_assoc_id;
-+	__u16		sca_keynumber;
-+	__u16		sca_keylen;
-+	__u8		sca_key[];
-+};
-+
-+/*
-+ * 7.1.21.  Get or set the active shared key (SCTP_AUTH_ACTIVE_KEY)
-+ *
-+ * This option will get or set the active shared key to be used to build
-+ * the association shared key.
-+ */
-+
-+struct sctp_authkeyid {
-+	sctp_assoc_t	scact_assoc_id;
-+	__u16		scact_keynumber;
-+};
-+
-+
- /* 7.1.23. Delayed Ack Timer (SCTP_DELAYED_ACK_TIME)
-  *
-  *   This options will get or set the delayed ack timer.  The time is set
-@@ -608,6 +686,18 @@ struct sctp_status {
- };
- 
- /*
-+ * 7.2.3.  Get the list of chunks the peer requires to be authenticated
-+ *         (SCTP_PEER_AUTH_CHUNKS)
-+ *
-+ * This option gets a list of chunks for a specified association that
-+ * the peer requires to be received authenticated only.
-+ */
-+struct sctp_authchunks {
-+	sctp_assoc_t            gauth_assoc_id;
-+	uint8_t                 gauth_chunks[];
-+};
-+
-+/*
-  * 8.3, 8.5 get all peer/local addresses in an association.
-  * This parameter struct is used by SCTP_GET_PEER_ADDRS and 
-  * SCTP_GET_LOCAL_ADDRS socket options used internally to implement
-diff --git a/net/sctp/auth.c b/net/sctp/auth.c
-index 1fee43e..c2b3999 100644
---- a/net/sctp/auth.c
-+++ b/net/sctp/auth.c
-@@ -742,3 +742,196 @@ free:
- 	if (free_key)
- 		sctp_auth_key_put(asoc_key);
- }
-+
-+/* API Helpers */
-+
-+/* Add a chunk to the endpoint authenticated chunk list */
-+int sctp_auth_ep_add_chunkid(struct sctp_endpoint *ep, __u8 chunk_id)
-+{
-+	struct sctp_chunks_param *p = ep->auth_chunk_list;
-+	__u16 nchunks;
-+	__u16 param_len;
-+
-+	/* If this chunk is already specified, we are done */
-+	if (__sctp_auth_cid(chunk_id, p))
-+		return 0;
-+
-+	/* Check if we can add this chunk to the array */
-+	param_len = ntohs(p->param_hdr.length);
-+	nchunks = param_len - sizeof(sctp_paramhdr_t);
-+	if (nchunks == SCTP_NUM_CHUNK_TYPES)
-+		return -EINVAL;
-+
-+	p->chunks[nchunks] = chunk_id;
-+	p->param_hdr.length = htons(param_len + 1);
-+	return 0;
-+}
-+
-+/* Add hmac identifires to the endpoint list of supported hmac ids */
-+int sctp_auth_ep_set_hmacs(struct sctp_endpoint *ep,
-+			   struct sctp_hmacalgo *hmacs)
-+{
-+	int has_sha1 = 0;
-+	__u16 id;
-+	int i;
-+
-+	/* Scan the list looking for unsupported id.  Also make sure that
-+	 * SHA1 is specified.
++	/* SCTP-AUTH:  For the special case inbound processing of COOKIE-ECHO
++	 * we need save a pointer to the AUTH chunk, since the SCTP-AUTH
++	 * spec violates the principle premis that all chunks are processed
++	 * in order.
 +	 */
-+	for (i = 0; i < hmacs->shmac_num_idents; i++) {
-+		id = hmacs->shmac_idents[i];
++	struct sk_buff *auth_chunk;
 +
-+		if (SCTP_AUTH_HMAC_ID_SHA1 == id)
-+			has_sha1 = 1;
+ 	__u8 rtt_in_progress;	/* Is this chunk used for RTT calculation? */
+ 	__u8 resent;		/* Has this chunk ever been retransmitted. */
+ 	__u8 has_tsn;		/* Does this chunk have a TSN yet? */
+@@ -1060,6 +1067,7 @@ void sctp_inq_init(struct sctp_inq *);
+ void sctp_inq_free(struct sctp_inq *);
+ void sctp_inq_push(struct sctp_inq *, struct sctp_chunk *packet);
+ struct sctp_chunk *sctp_inq_pop(struct sctp_inq *);
++struct sctp_chunkhdr *sctp_inq_peek(struct sctp_inq *);
+ void sctp_inq_set_th_handler(struct sctp_inq *, work_func_t);
+ 
+ /* This is the structure we use to hold outbound chunks.  You push
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index 09e592b..5bf2009 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -1015,6 +1015,16 @@ static void sctp_assoc_bh_rcv(struct work_struct *work)
+ 		state = asoc->state;
+ 		subtype = SCTP_ST_CHUNK(chunk->chunk_hdr->type);
+ 
++		/* SCTP-AUTH, Section 6.3:
++		 *    The receiver has a list of chunk types which it expects
++		 *    to be received only after an AUTH-chunk.  This list has
++		 *    been sent to the peer during the association setup.  It
++		 *    MUST silently discard these chunks if they are not placed
++		 *    after an AUTH chunk in the packet.
++		 */
++		if (sctp_auth_recv_cid(subtype.chunk, asoc) && !chunk->auth)
++			continue;
 +
-+		if (!sctp_hmac_list[id].hmac_name)
-+			return -EOPNOTSUPP;
-+	}
+ 		/* Remember where the last DATA chunk came from so we
+ 		 * know where to send the SACK.
+ 		 */
+diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+index 84843ed..71aa266 100644
+--- a/net/sctp/endpointola.c
++++ b/net/sctp/endpointola.c
+@@ -413,6 +413,7 @@ static void sctp_endpoint_bh_rcv(struct work_struct *work)
+ 	sctp_subtype_t subtype;
+ 	sctp_state_t state;
+ 	int error = 0;
++	int first_time = 1;	/* is this the first time through the looop */
+ 
+ 	if (ep->base.dead)
+ 		return;
+@@ -424,6 +425,29 @@ static void sctp_endpoint_bh_rcv(struct work_struct *work)
+ 	while (NULL != (chunk = sctp_inq_pop(inqueue))) {
+ 		subtype = SCTP_ST_CHUNK(chunk->chunk_hdr->type);
+ 
++		/* If the first chunk in the packet is AUTH, do special
++		 * processing specified in Section 6.3 of SCTP-AUTH spec
++		 */
++		if (first_time && (subtype.chunk == SCTP_CID_AUTH)) {
++			struct sctp_chunkhdr *next_hdr;
 +
-+	if (!has_sha1)
-+		return -EINVAL;
++			next_hdr = sctp_inq_peek(inqueue);
++			if (!next_hdr)
++				goto normal;
 +
-+	memcpy(ep->auth_hmacs_list->hmac_ids, &hmacs->shmac_idents[0],
-+		hmacs->shmac_num_idents * sizeof(__u16));
-+	ep->auth_hmacs_list->param_hdr.length = htons(sizeof(sctp_paramhdr_t) +
-+				hmacs->shmac_num_idents * sizeof(__u16));
-+	return 0;
-+}
-+
-+/* Set a new shared key on either endpoint or association.  If the
-+ * the key with a same ID already exists, replace the key (remove the
-+ * old key and add a new one).
-+ */
-+int sctp_auth_set_key(struct sctp_endpoint *ep,
-+		      struct sctp_association *asoc,
-+		      struct sctp_authkey *auth_key)
-+{
-+	struct sctp_shared_key *cur_key = NULL;
-+	struct sctp_auth_bytes *key;
-+	struct list_head *sh_keys;
-+	int replace = 0;
-+
-+	/* Try to find the given key id to see if
-+	 * we are doing a replace, or adding a new key
-+	 */
-+	if (asoc)
-+		sh_keys = &asoc->endpoint_shared_keys;
-+	else
-+		sh_keys = &ep->endpoint_shared_keys;
-+
-+	key_for_each(cur_key, sh_keys) {
-+		if (cur_key->key_id == auth_key->sca_keynumber) {
-+			replace = 1;
-+			break;
++			/* If the next chunk is COOKIE-ECHO, skip the AUTH
++			 * chunk while saving a pointer to it so we can do
++			 * Authentication later (during cookie-echo
++			 * processing).
++			 */
++			if (next_hdr->type == SCTP_CID_COOKIE_ECHO) {
++				chunk->auth_chunk = skb_clone(chunk->skb,
++								GFP_ATOMIC);
++				chunk->auth = 1;
++				continue;
++			}
 +		}
-+	}
-+
-+	/* If we are not replacing a key id, we need to allocate
-+	 * a shared key.
-+	 */
-+	if (!replace) {
-+		cur_key = sctp_auth_shkey_create(auth_key->sca_keynumber,
-+						 GFP_KERNEL);
-+		if (!cur_key)
-+			return -ENOMEM;
-+	}
-+
-+	/* Create a new key data based on the info passed in */
-+	key = sctp_auth_create_key(auth_key->sca_keylen, GFP_KERNEL);
-+	if (!key)
-+		goto nomem;
-+
-+	memcpy(key->data, &auth_key->sca_key[0], auth_key->sca_keylen);
-+
-+	/* If we are replacing, remove the old keys data from the
-+	 * key id.  If we are adding new key id, add it to the
-+	 * list.
-+	 */
-+	if (replace)
-+		sctp_auth_key_put(cur_key->key);
-+	else
-+		list_add(&cur_key->key_list, sh_keys);
-+
-+	cur_key->key = key;
-+	sctp_auth_key_hold(key);
-+
-+	return 0;
-+nomem:
-+	if (!replace)
-+		sctp_auth_shkey_free(cur_key);
-+
-+	return -ENOMEM;
-+}
-+
-+int sctp_auth_set_active_key(struct sctp_endpoint *ep,
-+			     struct sctp_association *asoc,
-+			     __u16  key_id)
-+{
-+	struct sctp_shared_key *key;
-+	struct list_head *sh_keys;
-+	int found = 0;
-+
-+	/* The key identifier MUST correst to an existing key */
-+	if (asoc)
-+		sh_keys = &asoc->endpoint_shared_keys;
-+	else
-+		sh_keys = &ep->endpoint_shared_keys;
-+
-+	key_for_each(key, sh_keys) {
-+		if (key->key_id == key_id) {
-+			found = 1;
-+			break;
-+		}
-+	}
-+
-+	if (!found)
-+		return -EINVAL;
-+
-+	if (asoc) {
-+		asoc->active_key_id = key_id;
-+		sctp_auth_asoc_init_active_key(asoc, GFP_KERNEL);
-+	} else
-+		ep->active_key_id = key_id;
-+
-+	return 0;
-+}
-+
-+int sctp_auth_del_key_id(struct sctp_endpoint *ep,
-+			 struct sctp_association *asoc,
-+			 __u16  key_id)
-+{
-+	struct sctp_shared_key *key;
-+	struct list_head *sh_keys;
-+	int found = 0;
-+
-+	/* The key identifier MUST NOT be the current active key
-+	 * The key identifier MUST correst to an existing key
-+	 */
-+	if (asoc) {
-+		if (asoc->active_key_id == key_id)
-+			return -EINVAL;
-+
-+		sh_keys = &asoc->endpoint_shared_keys;
-+	} else {
-+		if (ep->active_key_id == key_id)
-+			return -EINVAL;
-+
-+		sh_keys = &ep->endpoint_shared_keys;
-+	}
-+
-+	key_for_each(key, sh_keys) {
-+		if (key->key_id == key_id) {
-+			found = 1;
-+			break;
-+		}
-+	}
-+
-+	if (!found)
-+		return -EINVAL;
-+
-+	/* Delete the shared key */
-+	list_del_init(&key->key_list);
-+	sctp_auth_shkey_free(key);
-+
-+	return 0;
-+}
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 21b0f48..a9b46d2 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -3776,6 +3776,19 @@ sctp_disposition_t sctp_sf_eat_auth(const struct sctp_endpoint *ep,
++normal:
+ 		/* We might have grown an association since last we
+ 		 * looked, so try again.
+ 		 *
+@@ -439,6 +463,8 @@ static void sctp_endpoint_bh_rcv(struct work_struct *work)
+ 		}
+ 
+ 		state = asoc ? asoc->state : SCTP_STATE_CLOSED;
++		if (sctp_auth_recv_cid(subtype.chunk, asoc) && !chunk->auth)
++			continue;
+ 
+ 		/* Remember where the last DATA chunk came from so we
+ 		 * know where to send the SACK.
+@@ -462,5 +488,8 @@ static void sctp_endpoint_bh_rcv(struct work_struct *work)
+ 		 */
+ 		if (!sctp_sk(sk)->ep)
  			break;
++
++		if (first_time)
++			first_time = 0;
  	}
- 
-+	if (asoc->active_key_id != ntohs(auth_hdr->shkey_id)) {
-+		struct sctp_ulpevent *ev;
-+
-+		ev = sctp_ulpevent_make_authkey(asoc, ntohs(auth_hdr->shkey_id),
-+				    SCTP_AUTH_NEWKEY, GFP_ATOMIC);
-+
-+		if (!ev)
-+			return -ENOMEM;
-+
-+		sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
-+				SCTP_ULPEVENT(ev));
-+	}
-+
- 	return SCTP_DISPOSITION_CONSUME;
  }
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index 47e5601..5a97716 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -903,15 +903,6 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct sk_buff *skb,
  
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index f53545a..8e48fe4 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -2968,6 +2968,164 @@ static int sctp_setsockopt_maxburst(struct sock *sk,
- 	return 0;
- }
+ 	ch = (sctp_chunkhdr_t *) skb->data;
  
-+/*
-+ * 7.1.18.  Add a chunk that must be authenticated (SCTP_AUTH_CHUNK)
-+ *
-+ * This set option adds a chunk type that the user is requesting to be
-+ * received only in an authenticated way.  Changes to the list of chunks
-+ * will only effect future associations on the socket.
-+ */
-+static int sctp_setsockopt_auth_chunk(struct sock *sk,
-+				    char __user *optval,
-+				    int optlen)
-+{
-+	struct sctp_authchunk val;
-+
-+	if (optlen != sizeof(struct sctp_authchunk))
-+		return -EINVAL;
-+	if (copy_from_user(&val, optval, optlen))
-+		return -EFAULT;
-+
-+	switch (val.sauth_chunk) {
-+		case SCTP_CID_INIT:
-+		case SCTP_CID_INIT_ACK:
-+		case SCTP_CID_SHUTDOWN_COMPLETE:
-+		case SCTP_CID_AUTH:
-+			return -EINVAL;
-+	}
-+
-+	/* add this chunk id to the endpoint */
-+	return sctp_auth_ep_add_chunkid(sctp_sk(sk)->ep, val.sauth_chunk);
-+}
-+
-+/*
-+ * 7.1.19.  Get or set the list of supported HMAC Identifiers (SCTP_HMAC_IDENT)
-+ *
-+ * This option gets or sets the list of HMAC algorithms that the local
-+ * endpoint requires the peer to use.
-+ */
-+static int sctp_setsockopt_hmac_ident(struct sock *sk,
-+				    char __user *optval,
-+				    int optlen)
-+{
-+	struct sctp_hmacalgo *hmacs;
-+	int err;
-+
-+	if (optlen < sizeof(struct sctp_hmacalgo))
-+		return -EINVAL;
-+
-+	hmacs = kmalloc(optlen, GFP_KERNEL);
-+	if (!hmacs)
-+		return -ENOMEM;
-+
-+	if (copy_from_user(hmacs, optval, optlen)) {
-+		err = -EFAULT;
-+		goto out;
-+	}
-+
-+	if (hmacs->shmac_num_idents == 0 ||
-+	    hmacs->shmac_num_idents > SCTP_AUTH_NUM_HMACS) {
-+		err = -EINVAL;
-+		goto out;
-+	}
-+
-+	err = sctp_auth_ep_set_hmacs(sctp_sk(sk)->ep, hmacs);
-+out:
-+	kfree(hmacs);
-+	return err;
-+}
-+
-+/*
-+ * 7.1.20.  Set a shared key (SCTP_AUTH_KEY)
-+ *
-+ * This option will set a shared secret key which is used to build an
-+ * association shared key.
-+ */
-+static int sctp_setsockopt_auth_key(struct sock *sk,
-+				    char __user *optval,
-+				    int optlen)
-+{
-+	struct sctp_authkey *authkey;
-+	struct sctp_association *asoc;
-+	int ret;
-+
-+	if (optlen <= sizeof(struct sctp_authkey))
-+		return -EINVAL;
-+
-+	authkey = kmalloc(optlen, GFP_KERNEL);
-+	if (!authkey)
-+		return -ENOMEM;
-+
-+	if (copy_from_user(authkey, optval, optlen)) {
-+		ret = -EFAULT;
-+		goto out;
-+	}
-+
-+	asoc = sctp_id2assoc(sk, authkey->sca_assoc_id);
-+	if (!asoc && authkey->sca_assoc_id && sctp_style(sk, UDP)) {
-+		ret = -EINVAL;
-+		goto out;
-+	}
-+
-+	ret = sctp_auth_set_key(sctp_sk(sk)->ep, asoc, authkey);
-+out:
-+	kfree(authkey);
-+	return ret;
-+}
-+
-+/*
-+ * 7.1.21.  Get or set the active shared key (SCTP_AUTH_ACTIVE_KEY)
-+ *
-+ * This option will get or set the active shared key to be used to build
-+ * the association shared key.
-+ */
-+static int sctp_setsockopt_active_key(struct sock *sk,
-+					char __user *optval,
-+					int optlen)
-+{
-+	struct sctp_authkeyid val;
-+	struct sctp_association *asoc;
-+
-+	if (optlen != sizeof(struct sctp_authkeyid))
-+		return -EINVAL;
-+	if (copy_from_user(&val, optval, optlen))
-+		return -EFAULT;
-+
-+	asoc = sctp_id2assoc(sk, val.scact_assoc_id);
-+	if (!asoc && val.scact_assoc_id && sctp_style(sk, UDP))
-+		return -EINVAL;
-+
-+	return sctp_auth_set_active_key(sctp_sk(sk)->ep, asoc,
-+					val.scact_keynumber);
-+}
-+
-+/*
-+ * 7.1.22.  Delete a shared key (SCTP_AUTH_DELETE_KEY)
-+ *
-+ * This set option will delete a shared secret key from use.
-+ */
-+static int sctp_setsockopt_del_key(struct sock *sk,
-+					char __user *optval,
-+					int optlen)
-+{
-+	struct sctp_authkeyid val;
-+	struct sctp_association *asoc;
-+
-+	if (optlen != sizeof(struct sctp_authkeyid))
-+		return -EINVAL;
-+	if (copy_from_user(&val, optval, optlen))
-+		return -EFAULT;
-+
-+	asoc = sctp_id2assoc(sk, val.scact_assoc_id);
-+	if (!asoc && val.scact_assoc_id && sctp_style(sk, UDP))
-+		return -EINVAL;
-+
-+	return sctp_auth_del_key_id(sctp_sk(sk)->ep, asoc,
-+				    val.scact_keynumber);
-+
-+}
-+
-+
- /* API 6.2 setsockopt(), getsockopt()
-  *
-  * Applications use setsockopt() and getsockopt() to set or retrieve
-@@ -3091,6 +3249,21 @@ SCTP_STATIC int sctp_setsockopt(struct sock *sk, int level, int optname,
- 	case SCTP_MAX_BURST:
- 		retval = sctp_setsockopt_maxburst(sk, optval, optlen);
- 		break;
-+	case SCTP_AUTH_CHUNK:
-+		retval = sctp_setsockopt_auth_chunk(sk, optval, optlen);
-+		break;
-+	case SCTP_HMAC_IDENT:
-+		retval = sctp_setsockopt_hmac_ident(sk, optval, optlen);
-+		break;
-+	case SCTP_AUTH_KEY:
-+		retval = sctp_setsockopt_auth_key(sk, optval, optlen);
-+		break;
-+	case SCTP_AUTH_ACTIVE_KEY:
-+		retval = sctp_setsockopt_active_key(sk, optval, optlen);
-+		break;
-+	case SCTP_AUTH_DELETE_KEY:
-+		retval = sctp_setsockopt_del_key(sk, optval, optlen);
-+		break;
- 	default:
- 		retval = -ENOPROTOOPT;
- 		break;
-@@ -4870,6 +5043,118 @@ static int sctp_getsockopt_maxburst(struct sock *sk, int len,
- 	return -ENOTSUPP;
- }
- 
-+static int sctp_getsockopt_hmac_ident(struct sock *sk, int len,
-+				    char __user *optval, int __user *optlen)
-+{
-+	struct sctp_hmac_algo_param *hmacs;
-+	__u16 param_len;
-+
-+	hmacs = sctp_sk(sk)->ep->auth_hmacs_list;
-+	param_len = ntohs(hmacs->param_hdr.length);
-+
-+	if (len < param_len)
-+		return -EINVAL;
-+	if (put_user(len, optlen))
-+		return -EFAULT;
-+	if (copy_to_user(optval, hmacs->hmac_ids, len))
-+		return -EFAULT;
-+
-+	return 0;
-+}
-+
-+static int sctp_getsockopt_active_key(struct sock *sk, int len,
-+				    char __user *optval, int __user *optlen)
-+{
-+	struct sctp_authkeyid val;
-+	struct sctp_association *asoc;
-+
-+	if (len < sizeof(struct sctp_authkeyid))
-+		return -EINVAL;
-+	if (copy_from_user(&val, optval, sizeof(struct sctp_authkeyid)))
-+		return -EFAULT;
-+
-+	asoc = sctp_id2assoc(sk, val.scact_assoc_id);
-+	if (!asoc && val.scact_assoc_id && sctp_style(sk, UDP))
-+		return -EINVAL;
-+
-+	if (asoc)
-+		val.scact_keynumber = asoc->active_key_id;
-+	else
-+		val.scact_keynumber = sctp_sk(sk)->ep->active_key_id;
-+
-+	return 0;
-+}
-+
-+static int sctp_getsockopt_peer_auth_chunks(struct sock *sk, int len,
-+				    char __user *optval, int __user *optlen)
-+{
-+	struct sctp_authchunks val;
-+	struct sctp_association *asoc;
-+	struct sctp_chunks_param *ch;
-+	char __user *to;
-+
-+	if (len <= sizeof(struct sctp_authchunks))
-+		return -EINVAL;
-+
-+	if (copy_from_user(&val, optval, sizeof(struct sctp_authchunks)))
-+		return -EFAULT;
-+
-+	to = val.gauth_chunks;
-+	asoc = sctp_id2assoc(sk, val.gauth_assoc_id);
-+	if (!asoc)
-+		return -EINVAL;
-+
-+	ch = asoc->peer.peer_chunks;
-+
-+	/* See if the user provided enough room for all the data */
-+	if (len < ntohs(ch->param_hdr.length))
-+		return -EINVAL;
-+
-+	len = ntohs(ch->param_hdr.length);
-+	if (put_user(len, optlen))
-+		return -EFAULT;
-+	if (copy_to_user(to, ch->chunks, len))
-+		return -EFAULT;
-+
-+	return 0;
-+}
-+
-+static int sctp_getsockopt_local_auth_chunks(struct sock *sk, int len,
-+				    char __user *optval, int __user *optlen)
-+{
-+	struct sctp_authchunks val;
-+	struct sctp_association *asoc;
-+	struct sctp_chunks_param *ch;
-+	char __user *to;
-+
-+	if (len <= sizeof(struct sctp_authchunks))
-+		return -EINVAL;
-+
-+	if (copy_from_user(&val, optval, sizeof(struct sctp_authchunks)))
-+		return -EFAULT;
-+
-+	to = val.gauth_chunks;
-+	asoc = sctp_id2assoc(sk, val.gauth_assoc_id);
-+	if (!asoc && val.gauth_assoc_id && sctp_style(sk, UDP))
-+		return -EINVAL;
-+
-+	if (asoc)
-+		ch = (struct sctp_chunks_param*)asoc->c.auth_chunks;
-+	else
-+		ch = sctp_sk(sk)->ep->auth_chunk_list;
-+
-+	if (len < ntohs(ch->param_hdr.length))
-+		return -EINVAL;
-+
-+	len = ntohs(ch->param_hdr.length);
-+	if (put_user(len, optlen))
-+		return -EFAULT;
-+	if (copy_to_user(to, ch->chunks, len))
-+		return -EFAULT;
-+
-+	return 0;
-+}
-+
- SCTP_STATIC int sctp_getsockopt(struct sock *sk, int level, int optname,
- 				char __user *optval, int __user *optlen)
- {
-@@ -4993,6 +5278,25 @@ SCTP_STATIC int sctp_getsockopt(struct sock *sk, int level, int optname,
- 	case SCTP_MAX_BURST:
- 		retval = sctp_getsockopt_maxburst(sk, len, optval, optlen);
- 		break;
-+	case SCTP_AUTH_KEY:
-+	case SCTP_AUTH_CHUNK:
-+	case SCTP_AUTH_DELETE_KEY:
-+		retval = -EOPNOTSUPP;
-+		break;
-+	case SCTP_HMAC_IDENT:
-+		retval = sctp_getsockopt_hmac_ident(sk, len, optval, optlen);
-+		break;
-+	case SCTP_AUTH_ACTIVE_KEY:
-+		retval = sctp_getsockopt_active_key(sk, len, optval, optlen);
-+		break;
-+	case SCTP_PEER_AUTH_CHUNKS:
-+		retval = sctp_getsockopt_peer_auth_chunks(sk, len, optval,
-+							optlen);
-+		break;
-+	case SCTP_LOCAL_AUTH_CHUNKS:
-+		retval = sctp_getsockopt_local_auth_chunks(sk, len, optval,
-+							optlen);
-+		break;
- 	default:
- 		retval = -ENOPROTOOPT;
- 		break;
-diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
-index 5dc094b..2c17c7e 100644
---- a/net/sctp/ulpevent.c
-+++ b/net/sctp/ulpevent.c
-@@ -813,6 +813,43 @@ fail:
+-	/* If this is INIT/INIT-ACK look inside the chunk too. */
+-	switch (ch->type) {
+-	case SCTP_CID_INIT:
+-	case SCTP_CID_INIT_ACK:
+-		break;
+-	default:
+-		return NULL;
+-	}
+-
+ 	/* The code below will attempt to walk the chunk and extract
+ 	 * parameter information.  Before we do that, we need to verify
+ 	 * that the chunk length doesn't cause overflow.  Otherwise, we'll
+@@ -956,6 +947,60 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct sk_buff *skb,
  	return NULL;
  }
  
-+struct sctp_ulpevent *sctp_ulpevent_make_authkey(
-+	const struct sctp_association *asoc, __u16 key_id,
-+	__u32 indication, gfp_t gfp)
++/* SCTP-AUTH, Section 6.3:
++*    If the receiver does not find a STCB for a packet containing an AUTH
++*    chunk as the first chunk and not a COOKIE-ECHO chunk as the second
++*    chunk, it MUST use the chunks after the AUTH chunk to look up an existing
++*    association.
++*
++* This means that any chunks that can help us identify the association need
++* to be looked at to find this assocation.
++*
++* TODO: The only chunk currently defined that can do that is ASCONF, but we
++* don't support that functionality yet.
++*/
++static struct sctp_association *__sctp_rcv_auth_lookup(struct sk_buff *skb,
++				      const union sctp_addr *paddr,
++				      const union sctp_addr *laddr,
++				      struct sctp_transport **transportp)
 +{
-+	struct sctp_ulpevent *event;
-+	struct sctp_authkey_event *ak;
-+	struct sk_buff *skb;
-+
-+	event = sctp_ulpevent_new(sizeof(struct sctp_authkey_event),
-+				  MSG_NOTIFICATION, gfp);
-+	if (!event)
-+		goto fail;
-+
-+	skb = sctp_event2skb(event);
-+	ak = (struct sctp_authkey_event *)
-+		skb_put(skb, sizeof(struct sctp_authkey_event));
-+
-+	ak->auth_type = SCTP_AUTHENTICATION_EVENT;
-+	ak->auth_flags = 0;
-+	ak->auth_length = sizeof(struct sctp_authkey_event);
-+
-+	ak->auth_keynumber = key_id;
-+	ak->auth_altkeynumber = 0;
-+	ak->auth_indication = indication;
-+
-+	/*
-+	 * The association id field, holds the identifier for the association.
++	/* XXX - walk through the chunks looking for something that can
++	 * help us find the association.  INIT, and INIT-ACK are not permitted.
++	 * That leaves ASCONF, but we don't support that yet.
 +	 */
-+	sctp_ulpevent_set_owner(event, asoc);
-+	ak->auth_assoc_id = sctp_assoc2id(asoc);
-+
-+	return event;
-+fail:
 +	return NULL;
 +}
 +
++/*
++ * There are circumstances when we need to look inside the SCTP packet
++ * for information to help us find the association.   Examples
++ * include looking inside of INIT/INIT-ACK chunks or after the AUTH
++ * chunks.
++ */
++static struct sctp_association *__sctp_rcv_lookup_harder(struct sk_buff *skb,
++				      const union sctp_addr *paddr,
++				      const union sctp_addr *laddr,
++				      struct sctp_transport **transportp)
++{
++	sctp_chunkhdr_t *ch;
 +
- /* Return the notification type, assuming this is a notification
-  * event.
-  */
++	ch = (sctp_chunkhdr_t *) skb->data;
++
++	/* If this is INIT/INIT-ACK look inside the chunk too. */
++	switch (ch->type) {
++	case SCTP_CID_INIT:
++	case SCTP_CID_INIT_ACK:
++		return __sctp_rcv_init_lookup(skb, laddr, transportp);
++		break;
++
++	case SCTP_CID_AUTH:
++		return __sctp_rcv_auth_lookup(skb, paddr, laddr, transportp);
++		break;
++	}
++
++	return NULL;
++}
++
+ /* Lookup an association for an inbound skb. */
+ static struct sctp_association *__sctp_rcv_lookup(struct sk_buff *skb,
+ 				      const union sctp_addr *paddr,
+@@ -971,7 +1016,7 @@ static struct sctp_association *__sctp_rcv_lookup(struct sk_buff *skb,
+ 	 * parameters within the INIT or INIT-ACK.
+ 	 */
+ 	if (!asoc)
+-		asoc = __sctp_rcv_init_lookup(skb, laddr, transportp);
++		asoc = __sctp_rcv_lookup_harder(skb, paddr, laddr, transportp);
+ 
+ 	return asoc;
+ }
+diff --git a/net/sctp/inqueue.c b/net/sctp/inqueue.c
+index 88aa224..2e48613 100644
+--- a/net/sctp/inqueue.c
++++ b/net/sctp/inqueue.c
+@@ -100,6 +100,25 @@ void sctp_inq_push(struct sctp_inq *q, struct sctp_chunk *chunk)
+ 	q->immediate.func(&q->immediate);
+ }
+ 
++/* Peek at the next chunk on the inqeue. */
++struct sctp_chunkhdr *sctp_inq_peek(struct sctp_inq *queue)
++{
++	struct sctp_chunk *chunk;
++	sctp_chunkhdr_t *ch = NULL;
++
++	chunk = queue->in_progress;
++	/* If there is no more chunks in this packet, say so */
++	if (chunk->singleton ||
++	    chunk->end_of_packet ||
++	    chunk->pdiscard)
++		    return NULL;
++
++	ch = (sctp_chunkhdr_t *)chunk->chunk_end;
++
++	return ch;
++}
++
++
+ /* Extract a chunk from an SCTP inqueue.
+  *
+  * WARNING:  If you need to put the chunk on another queue, you need to
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 7d8e92f..21b0f48 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -118,6 +118,11 @@ static sctp_disposition_t sctp_sf_violation_ctsn(
+ 				     void *arg,
+ 				     sctp_cmd_seq_t *commands);
+ 
++static sctp_ierror_t sctp_sf_authenticate(const struct sctp_endpoint *ep,
++				    const struct sctp_association *asoc,
++				    const sctp_subtype_t type,
++				    struct sctp_chunk *chunk);
++
+ /* Small helper function that checks if the chunk length
+  * is of the appropriate length.  The 'required_length' argument
+  * is set to be the size of a specific chunk we are testing.
+@@ -470,8 +475,6 @@ sctp_disposition_t sctp_sf_do_5_1C_ack(const struct sctp_endpoint *ep,
+ 			      (sctp_init_chunk_t *)chunk->chunk_hdr, chunk,
+ 			      &err_chunk)) {
+ 
+-		SCTP_INC_STATS(SCTP_MIB_ABORTEDS);
+-
+ 		/* This chunk contains fatal error. It is to be discarded.
+ 		 * Send an ABORT, with causes if there is any.
+ 		 */
+@@ -496,6 +499,22 @@ sctp_disposition_t sctp_sf_do_5_1C_ack(const struct sctp_endpoint *ep,
+ 			sctp_sf_tabort_8_4_8(ep, asoc, type, arg, commands);
+ 			error = SCTP_ERROR_INV_PARAM;
+ 		}
++
++		/* SCTP-AUTH, Section 6.3:
++		 *    It should be noted that if the receiver wants to tear
++		 *    down an association in an authenticated way only, the
++		 *    handling of malformed packets should not result in
++		 *    tearing down the association.
++		 *
++		 * This means that if we only want to abort associations
++		 * in an authenticated way (i.e AUTH+ABORT), then we
++		 * can't destory this association just becuase the packet
++		 * was malformed.
++		 */
++		if (sctp_auth_recv_cid(SCTP_CID_ABORT, asoc))
++			return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
++
++		SCTP_INC_STATS(SCTP_MIB_ABORTEDS);
+ 		return sctp_stop_t1_and_abort(commands, error, ECONNREFUSED,
+ 						asoc, chunk->transport);
+ 	}
+@@ -674,6 +693,36 @@ sctp_disposition_t sctp_sf_do_5_1D_ce(const struct sctp_endpoint *ep,
+ 	if (error)
+ 		goto nomem_init;
+ 
++	/* SCTP-AUTH:  auth_chunk pointer is only set when the cookie-echo
++	 * is supposed to be authenticated and we have to do delayed
++	 * authentication.  We've just recreated the association using
++	 * the information in the cookie and now it's much easier to
++	 * do the authentication.
++	 */
++	if (chunk->auth_chunk) {
++		struct sctp_chunk auth;
++		sctp_ierror_t ret;
++
++		/* set-up our fake chunk so that we can process it */
++		auth.skb = chunk->auth_chunk;
++		auth.asoc = chunk->asoc;
++		auth.sctp_hdr = chunk->sctp_hdr;
++		auth.chunk_hdr = (sctp_chunkhdr_t *)skb_push(chunk->auth_chunk,
++					    sizeof(sctp_chunkhdr_t));
++		skb_pull(chunk->auth_chunk, sizeof(sctp_chunkhdr_t));
++		auth.transport = chunk->transport;
++
++		ret = sctp_sf_authenticate(ep, new_asoc, type, &auth);
++
++		/* We can now safely free the auth_chunk clone */
++		kfree_skb(chunk->auth_chunk);
++
++		if (ret != SCTP_IERROR_NO_ERROR) {
++			sctp_association_free(new_asoc);
++			return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
++		}
++	}
++
+ 	repl = sctp_make_cookie_ack(new_asoc, chunk);
+ 	if (!repl)
+ 		goto nomem_init;
+@@ -3581,6 +3630,156 @@ gen_shutdown:
+ }
+ 
+ /*
++ * SCTP-AUTH Section 6.3 Receving authenticated chukns
++ *
++ *    The receiver MUST use the HMAC algorithm indicated in the HMAC
++ *    Identifier field.  If this algorithm was not specified by the
++ *    receiver in the HMAC-ALGO parameter in the INIT or INIT-ACK chunk
++ *    during association setup, the AUTH chunk and all chunks after it MUST
++ *    be discarded and an ERROR chunk SHOULD be sent with the error cause
++ *    defined in Section 4.1.
++ *
++ *    If an endpoint with no shared key receives a Shared Key Identifier
++ *    other than 0, it MUST silently discard all authenticated chunks.  If
++ *    the endpoint has at least one endpoint pair shared key for the peer,
++ *    it MUST use the key specified by the Shared Key Identifier if a
++ *    key has been configured for that Shared Key Identifier.  If no
++ *    endpoint pair shared key has been configured for that Shared Key
++ *    Identifier, all authenticated chunks MUST be silently discarded.
++ *
++ * Verification Tag:  8.5 Verification Tag [Normal verification]
++ *
++ * The return value is the disposition of the chunk.
++ */
++static sctp_ierror_t sctp_sf_authenticate(const struct sctp_endpoint *ep,
++				    const struct sctp_association *asoc,
++				    const sctp_subtype_t type,
++				    struct sctp_chunk *chunk)
++{
++	struct sctp_authhdr *auth_hdr;
++	struct sctp_hmac *hmac;
++	unsigned int sig_len;
++	__u16 key_id;
++	__u8 *save_digest;
++	__u8 *digest;
++
++	/* Pull in the auth header, so we can do some more verification */
++	auth_hdr = (struct sctp_authhdr *)chunk->skb->data;
++	chunk->subh.auth_hdr = auth_hdr;
++	skb_pull(chunk->skb, sizeof(struct sctp_authhdr));
++
++	/* Make sure that we suport the HMAC algorithm from the auth
++	 * chunk.
++	 */
++	if (!sctp_auth_asoc_verify_hmac_id(asoc, auth_hdr->hmac_id))
++		return SCTP_IERROR_AUTH_BAD_HMAC;
++
++	/* Make sure that the provided shared key identifier has been
++	 * configured
++	 */
++	key_id = ntohs(auth_hdr->shkey_id);
++	if (key_id != asoc->active_key_id && !sctp_auth_get_shkey(asoc, key_id))
++		return SCTP_IERROR_AUTH_BAD_KEYID;
++
++
++	/* Make sure that the length of the signature matches what
++	 * we expect.
++	 */
++	sig_len = ntohs(chunk->chunk_hdr->length) - sizeof(sctp_auth_chunk_t);
++	hmac = sctp_auth_get_hmac(ntohs(auth_hdr->hmac_id));
++	if (sig_len != hmac->hmac_len)
++		return SCTP_IERROR_PROTO_VIOLATION;
++
++	/* Now that we've done validation checks, we can compute and
++	 * verify the hmac.  The steps involved are:
++	 *  1. Save the digest from the chunk.
++	 *  2. Zero out the digest in the chunk.
++	 *  3. Compute the new digest
++	 *  4. Compare saved and new digests.
++	 */
++	digest = auth_hdr->hmac;
++	skb_pull(chunk->skb, sig_len);
++
++	save_digest = kmemdup(digest, sig_len, GFP_ATOMIC);
++	if (!save_digest)
++		goto nomem;
++
++	memset(digest, 0, sig_len);
++
++	sctp_auth_calculate_hmac(asoc, chunk->skb,
++				(struct sctp_auth_chunk *)chunk->chunk_hdr,
++				GFP_ATOMIC);
++
++	/* Discard the packet if the digests do not match */
++	if (memcmp(save_digest, digest, sig_len)) {
++		kfree(save_digest);
++		return SCTP_IERROR_BAD_SIG;
++	}
++
++	kfree(save_digest);
++	chunk->auth = 1;
++
++	return SCTP_IERROR_NO_ERROR;
++nomem:
++	return SCTP_IERROR_NOMEM;
++}
++
++sctp_disposition_t sctp_sf_eat_auth(const struct sctp_endpoint *ep,
++				    const struct sctp_association *asoc,
++				    const sctp_subtype_t type,
++				    void *arg,
++				    sctp_cmd_seq_t *commands)
++{
++	struct sctp_authhdr *auth_hdr;
++	struct sctp_chunk *chunk = arg;
++	struct sctp_chunk *err_chunk;
++	sctp_ierror_t error;
++
++	if (!sctp_vtag_verify(chunk, asoc)) {
++		sctp_add_cmd_sf(commands, SCTP_CMD_REPORT_BAD_TAG,
++				SCTP_NULL());
++		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
++	}
++
++	/* Make sure that the AUTH chunk has valid length.  */
++	if (!sctp_chunk_length_valid(chunk, sizeof(struct sctp_auth_chunk)))
++		return sctp_sf_violation_chunklen(ep, asoc, type, arg,
++						  commands);
++
++	auth_hdr = (struct sctp_authhdr *)chunk->skb->data;
++	error = sctp_sf_authenticate(ep, asoc, type, chunk);
++	switch (error) {
++		case SCTP_IERROR_AUTH_BAD_HMAC:
++			/* Generate the ERROR chunk and discard the rest
++			 * of the packet
++			 */
++			err_chunk = sctp_make_op_error(asoc, chunk,
++							SCTP_ERROR_UNSUP_HMAC,
++							&auth_hdr->hmac_id,
++							sizeof(__u16));
++			if (err_chunk) {
++				sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
++						SCTP_CHUNK(err_chunk));
++			}
++			/* Fall Through */
++		case SCTP_IERROR_AUTH_BAD_KEYID:
++		case SCTP_IERROR_BAD_SIG:
++			return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
++			break;
++		case SCTP_IERROR_PROTO_VIOLATION:
++			return sctp_sf_violation_chunklen(ep, asoc, type, arg,
++							  commands);
++			break;
++		case SCTP_IERROR_NOMEM:
++			return SCTP_DISPOSITION_NOMEM;
++		default:
++			break;
++	}
++
++	return SCTP_DISPOSITION_CONSUME;
++}
++
++/*
+  * Process an unknown chunk.
+  *
+  * Section: 3.2. Also, 2.1 in the implementor's guide.
+@@ -3766,6 +3965,20 @@ static sctp_disposition_t sctp_sf_abort_violation(
+ 	if (!abort)
+ 		goto nomem;
+ 
++	/* SCTP-AUTH, Section 6.3:
++	 *    It should be noted that if the receiver wants to tear
++	 *    down an association in an authenticated way only, the
++	 *    handling of malformed packets should not result in
++	 *    tearing down the association.
++	 *
++	 * This means that if we only want to abort associations
++	 * in an authenticated way (i.e AUTH+ABORT), then we
++	 * can't destory this association just becuase the packet
++	 * was malformed.
++	 */
++	if (sctp_auth_recv_cid(SCTP_CID_ABORT, asoc))
++		goto discard;
++
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
+ 	SCTP_INC_STATS(SCTP_MIB_OUTCTRLCHUNKS);
+ 
+@@ -3784,6 +3997,7 @@ static sctp_disposition_t sctp_sf_abort_violation(
+ 		SCTP_DEC_STATS(SCTP_MIB_CURRESTAB);
+ 	}
+ 
++discard:
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_DISCARD_PACKET, SCTP_NULL());
+ 
+ 	SCTP_INC_STATS(SCTP_MIB_ABORTEDS);
+diff --git a/net/sctp/sm_statetable.c b/net/sctp/sm_statetable.c
+index 70a91ec..e7efccf 100644
+--- a/net/sctp/sm_statetable.c
++++ b/net/sctp/sm_statetable.c
+@@ -523,6 +523,34 @@ static const sctp_sm_table_entry_t prsctp_chunk_event_table[SCTP_NUM_PRSCTP_CHUN
+ 	TYPE_SCTP_FWD_TSN,
+ }; /*state_fn_t prsctp_chunk_event_table[][] */
+ 
++#define TYPE_SCTP_AUTH { \
++	/* SCTP_STATE_EMPTY */ \
++	TYPE_SCTP_FUNC(sctp_sf_ootb), \
++	/* SCTP_STATE_CLOSED */ \
++	TYPE_SCTP_FUNC(sctp_sf_tabort_8_4_8), \
++	/* SCTP_STATE_COOKIE_WAIT */ \
++	TYPE_SCTP_FUNC(sctp_sf_discard_chunk), \
++	/* SCTP_STATE_COOKIE_ECHOED */ \
++	TYPE_SCTP_FUNC(sctp_sf_eat_auth), \
++	/* SCTP_STATE_ESTABLISHED */ \
++	TYPE_SCTP_FUNC(sctp_sf_eat_auth), \
++	/* SCTP_STATE_SHUTDOWN_PENDING */ \
++	TYPE_SCTP_FUNC(sctp_sf_eat_auth), \
++	/* SCTP_STATE_SHUTDOWN_SENT */ \
++	TYPE_SCTP_FUNC(sctp_sf_eat_auth), \
++	/* SCTP_STATE_SHUTDOWN_RECEIVED */ \
++	TYPE_SCTP_FUNC(sctp_sf_eat_auth), \
++	/* SCTP_STATE_SHUTDOWN_ACK_SENT */ \
++	TYPE_SCTP_FUNC(sctp_sf_eat_auth), \
++} /* TYPE_SCTP_AUTH */
++
++/* The primary index for this table is the chunk type.
++ * The secondary index for this table is the state.
++ */
++static const sctp_sm_table_entry_t auth_chunk_event_table[SCTP_NUM_AUTH_CHUNK_TYPES][SCTP_STATE_NUM_STATES] = {
++	TYPE_SCTP_AUTH,
++}; /*state_fn_t auth_chunk_event_table[][] */
++
+ static const sctp_sm_table_entry_t
+ chunk_event_table_unknown[SCTP_STATE_NUM_STATES] = {
+ 	/* SCTP_STATE_EMPTY */
+@@ -976,5 +1004,10 @@ static const sctp_sm_table_entry_t *sctp_chunk_event_lookup(sctp_cid_t cid,
+ 			return &addip_chunk_event_table[1][state];
+ 	}
+ 
++	if (sctp_auth_enable) {
++		if (cid == SCTP_CID_AUTH)
++			return &auth_chunk_event_table[0][state];
++	}
++
+ 	return &chunk_event_table_unknown[state];
+ }
 -- 
 1.5.2.4
 
