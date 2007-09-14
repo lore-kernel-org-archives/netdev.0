@@ -1,60 +1,53 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Distributed storage. Move away from char device ioctls.
-Date: Fri, 14 Sep 2007 18:32:11 -0400
-Message-ID: <46EB0BEB.2090808@garzik.org>
-References: <20070914185429.GA9439@2ka.mipt.ru> <46EADC02.9070409@garzik.org> <20070914211210.GB12444@fieldses.org> <46EAF9CD.1090808@garzik.org> <20070914211828.GC12444@fieldses.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [TG3]: Workaround MSI bug on 5714/5780.
+Date: Fri, 14 Sep 2007 15:33:15 -0700 (PDT)
+Message-ID: <20070914.153315.39168469.davem@davemloft.net>
+References: <1189105530.4852.8.camel@dell>
+	<20070906.125019.104036964.davem@davemloft.net>
+	<1189218381.5210.67.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org
-To: "J. Bruce Fields" <bfields@fieldses.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20070914211828.GC12444@fieldses.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Cc: andy@greyhouse.net, netdev@vger.kernel.org, ananth@broadcom.com,
+	nsankar@broadcom.com
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:40082
+	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757521AbXINWdU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 18:33:20 -0400
+In-Reply-To: <1189218381.5210.67.camel@dell>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-J. Bruce Fields wrote:
-> On Fri, Sep 14, 2007 at 05:14:53PM -0400, Jeff Garzik wrote:
->> J. Bruce Fields wrote:
->>> On Fri, Sep 14, 2007 at 03:07:46PM -0400, Jeff Garzik wrote:
->>>> I've been waiting for years for a smart person to come along and write a 
->>>> POSIX-only distributed filesystem.
->>> What exactly do you mean by "POSIX-only"?
->> Don't bother supporting attributes, file modes, and other details not 
->> supported by POSIX.  The prime example being NFSv4, which is larded down 
->> with Windows features.
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Fri, 07 Sep 2007 19:26:21 -0700
+
+> [PCI]: Add MSI quirk for ServerWorks HT1000 PCIX bridge.
 > 
-> I am sympathetic....  Cutting those out may still leave you with
-> something pretty complicated, though.
-
-Far less complicated than NFSv4.1 though (which is easy :))
-
-
->> NFSv4.1 adds to the fun, by throwing interoperability completely out the 
->> window.
+> This is the fix for the following problem:
 > 
-> What parts are you worried about in particular?
+> https://bugzilla.redhat.com/show_bug.cgi?id=227657
+> 
+> The bnx2 device 5706 complains about MSI not working behind a
+> ServerWorks HT1000 PCIX bridge. An earlier commit to fix the problem:
+> 
+> e3008dedff4bdc96a5f67224cd3d8d12237082a0:
+> 
+> "PCI: disable MSI by default on systems with Serverworks HT1000 chips"
+> 
+> was not entirely correct, and has been reverted.
+> 
+> MSI does not work on the PCIX bus because the BIOS did not set the
+> HT_MSI_FLAGS_ENABLE bit in the HyperTransport MSI capability on the
+> bridge.  We use the existing quirk_msi_ht_cap() to detect the problem
+> and disable MSI in all buses behind it.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Cc: Anantha Subramanyam <ananth@broadcom.com>
+> Cc: Naren Sankar <nsankar@broadcom.com>
 
-I'm not worried; I'm stating facts as they exist today (draft 13):
+Michael, I've queued this and my revert patch into a tree which
+I will push to the PCI maintainer for 2.6.24
 
-NFS v4.1 does something completely without precedent in the history of 
-NFS:  the specification is defined such that interoperability is 
--impossible- to guarantee.
-
-pNFS permits private and unspecified layout types.  This means it is 
-impossible to guarantee that one NFSv4.1 implementation will be able to 
-talk another NFSv4.1 implementation.
-
-Even if Linux supports the entire NFSv4.1 RFC (as it stands in draft 13 
-anyway), there is no guarantee at all that Linux will be able to store 
-and retrieve data, since it's entirely possible that a proprietary 
-protocol is required to access your data.
-
-NFSv4.1 is no longer a completely open architecture.
-
-	Jeff
-
-
-
-
+Thanks.
