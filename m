@@ -1,7 +1,7 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH 10/11] net/bonding: Destroy bonding master when last slave is gone
-Date: Fri, 14 Sep 2007 16:40:29 -0700
-Message-ID: <11898132492312-git-send-email-fubar@us.ibm.com>
+Subject: [PATCH 11/11] bonding: Optionally allow ethernet slaves to keep own MAC
+Date: Fri, 14 Sep 2007 16:40:30 -0700
+Message-ID: <11898132504165-git-send-email-fubar@us.ibm.com>
 References: <11898132301664-git-send-email-fubar@us.ibm.com>
  <11898132322950-git-send-email-fubar@us.ibm.com>
  <1189813234208-git-send-email-fubar@us.ibm.com>
@@ -12,155 +12,345 @@ References: <11898132301664-git-send-email-fubar@us.ibm.com>
  <11898132441599-git-send-email-fubar@us.ibm.com>
  <11898132452802-git-send-email-fubar@us.ibm.com>
  <11898132472055-git-send-email-fubar@us.ibm.com>
+ <11898132492312-git-send-email-fubar@us.ibm.com>
 Cc: monisonlists@gmail.com, ogerlitz@voltaire.com, jgarzik@pobox.com,
 	davem@davemloft.net, general@lists.openfabrics.org,
-	Moni Shoua <monis@voltaire.com>
+	Jay Vosburgh <fubar@us.ibm.com>
 To: netdev@vger.kernel.org, rdreier@cisco.com, monis@voltaire.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:45859 "EHLO e4.ny.us.ibm.com"
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:47055 "EHLO e6.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757981AbXINXkw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Sep 2007 19:40:52 -0400
+	id S1758731AbXINXky (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2007 19:40:54 -0400
 Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8ENepwT032067
-	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:40:51 -0400
+	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8ENgKjZ009498
+	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:42:20 -0400
 Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8ENepeU641410
-	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:40:51 -0400
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8ENer28673698
+	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:40:53 -0400
 Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8ENeonh008989
-	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:40:51 -0400
-In-Reply-To: <11898132472055-git-send-email-fubar@us.ibm.com>
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8ENeqRa009052
+	for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:40:53 -0400
+In-Reply-To: <11898132492312-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Moni Shoua <monis@voltaire.com>
+ 	Update the "don't change MAC of slaves" functionality added in
+previous changes to be a generic option, rather than something tied to IB
+devices, as it's occasionally useful for regular ethernet devices as well.
 
-When bonding enslaves non Ethernet devices it takes pointers to functions
-in the module that owns the slaves. In this case it becomes unsafe
-to keep the bonding master registered after last slave was unenslaved
-because we don't know if the pointers are still valid.  Destroying the bond when slave_cnt is zero
-ensures that these functions be used anymore.
+	Adds "fail_over_mac" option (which is automatically enabled for IB
+slaves), applicable only to active-backup mode.
 
-Signed-off-by: Moni Shoua <monis@voltaire.com>
-Acked-by: Jay Vosburgh <fubar@us.ibm.com>
+	Includes documentation update.
+
+	Updates bonding driver version to 3.2.0.
+
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 ---
- drivers/net/bonding/bond_main.c |   45 ++++++++++++++++++++++++++++++++++++++-
- drivers/net/bonding/bonding.h   |    3 ++
- 2 files changed, 47 insertions(+), 1 deletions(-)
+ Documentation/networking/bonding.txt |   33 +++++++++++++++++++
+ drivers/net/bonding/bond_main.c      |   57 +++++++++++++++++++++------------
+ drivers/net/bonding/bond_sysfs.c     |   49 +++++++++++++++++++++++++++++
+ drivers/net/bonding/bonding.h        |    6 ++--
+ 4 files changed, 121 insertions(+), 24 deletions(-)
 
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 1da5666..1134062 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -281,6 +281,39 @@ downdelay
+ 	will be rounded down to the nearest multiple.  The default
+ 	value is 0.
+ 
++fail_over_mac
++
++	Specifies whether active-backup mode should set all slaves to
++	the same MAC address (the traditional behavior), or, when
++	enabled, change the bond's MAC address when changing the
++	active interface (i.e., fail over the MAC address itself).
++
++	Fail over MAC is useful for devices that cannot ever alter
++	their MAC address, or for devices that refuse incoming
++	broadcasts with their own source MAC (which interferes with
++	the ARP monitor).
++
++	The down side of fail over MAC is that every device on the
++	network must be updated via gratuitous ARP, vs. just updating
++	a switch or set of switches (which often takes place for any
++	traffic, not just ARP traffic, if the switch snoops incoming
++	traffic to update its tables) for the traditional method.  If
++	the gratuitous ARP is lost, communication may be disrupted.
++
++	When fail over MAC is used in conjuction with the mii monitor,
++	devices which assert link up prior to being able to actually
++	transmit and receive are particularly susecptible to loss of
++	the gratuitous ARP, and an appropriate updelay setting may be
++	required.
++
++	A value of 0 disables fail over MAC, and is the default.  A
++	value of 1 enables fail over MAC.  This option is enabled
++	automatically if the first slave added cannot change its MAC
++	address.  This option may be modified via sysfs only when no
++	slaves are present in the bond.
++
++	This option was added in bonding version 3.2.0.
++
+ lacp_rate
+ 
+ 	Option specifying the rate in which we'll ask our link partner
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index dfbfb00..77caca3 100644
+index 77caca3..c01ff9d 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -1256,6 +1256,7 @@ static int bond_compute_features(struct bonding *bond)
- static void bond_setup_by_slave(struct net_device *bond_dev,
- 				struct net_device *slave_dev)
- {
-+	struct bonding *bond = bond_dev->priv;
- 	bond_dev->hard_header	        = slave_dev->hard_header;
- 	bond_dev->rebuild_header        = slave_dev->rebuild_header;
- 	bond_dev->hard_header_cache	= slave_dev->hard_header_cache;
-@@ -1270,6 +1271,7 @@ static void bond_setup_by_slave(struct net_device *bond_dev,
+@@ -97,6 +97,7 @@ static char *xmit_hash_policy = NULL;
+ static int arp_interval = BOND_LINK_ARP_INTERV;
+ static char *arp_ip_target[BOND_MAX_ARP_TARGETS] = { NULL, };
+ static char *arp_validate = NULL;
++static int fail_over_mac = 0;
+ struct bond_params bonding_defaults;
  
- 	memcpy(bond_dev->broadcast, slave_dev->broadcast,
- 		slave_dev->addr_len);
-+	bond->setup_by_slave = 1;
- }
+ module_param(max_bonds, int, 0);
+@@ -130,6 +131,8 @@ module_param_array(arp_ip_target, charp, NULL, 0);
+ MODULE_PARM_DESC(arp_ip_target, "arp targets in n.n.n.n form");
+ module_param(arp_validate, charp, 0);
+ MODULE_PARM_DESC(arp_validate, "validate src/dst of ARP probes: none (default), active, backup or all");
++module_param(fail_over_mac, int, 0);
++MODULE_PARM_DESC(fail_over_mac, "For active-backup, do not set all slaves to the same MAC.  0 of off (default), 1 for on.");
  
- /* enslave device <slave> to bond device <master> */
-@@ -1838,6 +1840,35 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- }
+ /*----------------------------- Global variables ----------------------------*/
+ 
+@@ -1099,7 +1102,7 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ 		/* when bonding does not set the slave MAC address, the bond MAC
+ 		 * address is the one of the active slave.
+ 		 */
+-		if (new_active && !bond->do_set_mac_addr)
++		if (new_active && bond->params.fail_over_mac)
+ 			memcpy(bond->dev->dev_addr,  new_active->dev->dev_addr,
+ 				new_active->dev->addr_len);
+ 		if (bond->curr_active_slave &&
+@@ -1371,16 +1374,16 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	if (slave_dev->set_mac_address == NULL) {
+ 		if (bond->slave_cnt == 0) {
+ 			printk(KERN_WARNING DRV_NAME
+-				": %s: Warning: The first slave device you "
+-				"specified does not support setting the MAC "
+-				"address. This bond MAC address would be that "
+-				"of the active slave.\n", bond_dev->name);
+-			bond->do_set_mac_addr = 0;
+-		} else if (bond->do_set_mac_addr) {
++			       ": %s: Warning: The first slave device "
++			       "specified does not support setting the MAC "
++			       "address. Enabling the fail_over_mac option.",
++			       bond_dev->name);
++			bond->params.fail_over_mac = 1;
++		} else if (!bond->params.fail_over_mac) {
+ 			printk(KERN_ERR DRV_NAME
+-				": %s: Error: The slave device you specified "
+-				"does not support setting the MAC addres,."
+-				"but this bond uses this practice. \n"
++				": %s: Error: The slave device specified "
++				"does not support setting the MAC address, "
++				"but fail_over_mac is not enabled.\n"
+ 				, bond_dev->name);
+ 			res = -EOPNOTSUPP;
+ 			goto err_undo_flags;
+@@ -1405,7 +1408,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	 */
+ 	memcpy(new_slave->perm_hwaddr, slave_dev->dev_addr, ETH_ALEN);
+ 
+-	if (bond->do_set_mac_addr) {
++	if (!bond->params.fail_over_mac) {
+ 		/*
+ 		 * Set slave to master's mac address.  The application already
+ 		 * set the master's mac address to that of the first slave
+@@ -1641,7 +1644,7 @@ err_close:
+ 	dev_close(slave_dev);
+ 
+ err_restore_mac:
+-	if (bond->do_set_mac_addr) {
++	if (!bond->params.fail_over_mac) {
+ 		memcpy(addr.sa_data, new_slave->perm_hwaddr, ETH_ALEN);
+ 		addr.sa_family = slave_dev->type;
+ 		dev_set_mac_address(slave_dev, &addr);
+@@ -1823,7 +1826,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	/* close slave before restoring its mac address */
+ 	dev_close(slave_dev);
+ 
+-	if (bond->do_set_mac_addr) {
++	if (!bond->params.fail_over_mac) {
+ 		/* restore original ("permanent") mac address */
+ 		memcpy(addr.sa_data, slave->perm_hwaddr, ETH_ALEN);
+ 		addr.sa_family = slave_dev->type;
+@@ -1944,7 +1947,7 @@ static int bond_release_all(struct net_device *bond_dev)
+ 		/* close slave before restoring its mac address */
+ 		dev_close(slave_dev);
+ 
+-		if (bond->do_set_mac_addr) {
++		if (!bond->params.fail_over_mac) {
+ 			/* restore original ("permanent") mac address*/
+ 			memcpy(addr.sa_data, slave->perm_hwaddr, ETH_ALEN);
+ 			addr.sa_family = slave_dev->type;
+@@ -3066,9 +3069,15 @@ static void bond_info_show_master(struct seq_file *seq)
+ 	curr = bond->curr_active_slave;
+ 	read_unlock(&bond->curr_slave_lock);
+ 
+-	seq_printf(seq, "Bonding Mode: %s\n",
++	seq_printf(seq, "Bonding Mode: %s",
+ 		   bond_mode_name(bond->params.mode));
+ 
++	if (bond->params.mode == BOND_MODE_ACTIVEBACKUP &&
++	    bond->params.fail_over_mac)
++		seq_printf(seq, " (fail_over_mac)");
++
++	seq_printf(seq, "\n");
++
+ 	if (bond->params.mode == BOND_MODE_XOR ||
+ 		bond->params.mode == BOND_MODE_8023AD) {
+ 		seq_printf(seq, "Transmit Hash Policy: %s (%d)\n",
+@@ -4008,8 +4017,12 @@ static int bond_set_mac_address(struct net_device *bond_dev, void *addr)
+ 
+ 	dprintk("bond=%p, name=%s\n", bond, (bond_dev ? bond_dev->name : "None"));
+ 
+-	if (!bond->do_set_mac_addr)
+-		return -EOPNOTSUPP;
++	/*
++	 * If fail_over_mac is enabled, do nothing and return success.
++	 * Returning an error causes ifenslave to fail.
++	 */
++	if (bond->params.fail_over_mac)
++		return 0;
+ 
+ 	if (!is_valid_ether_addr(sa->sa_data)) {
+ 		return -EADDRNOTAVAIL;
+@@ -4402,10 +4415,6 @@ static int bond_init(struct net_device *bond_dev, struct bond_params *params)
+ #ifdef CONFIG_PROC_FS
+ 	bond_create_proc_entry(bond);
+ #endif
+-
+-	/* set do_set_mac_addr to true on startup */
+-	bond->do_set_mac_addr = 1;
+-
+ 	list_add_tail(&bond->bond_list, &bond_dev_list);
+ 
+ 	return 0;
+@@ -4739,6 +4748,11 @@ static int bond_check_params(struct bond_params *params)
+ 		primary = NULL;
+ 	}
+ 
++	if (fail_over_mac && (bond_mode != BOND_MODE_ACTIVEBACKUP))
++		printk(KERN_WARNING DRV_NAME
++		       ": Warning: fail_over_mac only affects "
++		       "active-backup mode.\n");
++
+ 	/* fill params struct with the proper values */
+ 	params->mode = bond_mode;
+ 	params->xmit_policy = xmit_hashtype;
+@@ -4750,6 +4764,7 @@ static int bond_check_params(struct bond_params *params)
+ 	params->use_carrier = use_carrier;
+ 	params->lacp_fast = lacp_fast;
+ 	params->primary[0] = 0;
++	params->fail_over_mac = fail_over_mac;
+ 
+ 	if (primary) {
+ 		strncpy(params->primary, primary, IFNAMSIZ);
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 71db5d9..a907b68 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -567,6 +567,54 @@ static ssize_t bonding_store_arp_validate(struct device *d,
+ static DEVICE_ATTR(arp_validate, S_IRUGO | S_IWUSR, bonding_show_arp_validate, bonding_store_arp_validate);
  
  /*
-+* Destroy a bonding device.
-+* Must be under rtnl_lock when this function is called.
-+*/
-+void bond_destroy(struct bonding *bond)
++ * Show and store fail_over_mac.  User only allowed to change the
++ * value when there are no slaves.
++ */
++static ssize_t bonding_show_fail_over_mac(struct device *d, struct device_attribute *attr, char *buf)
 +{
-+	bond_deinit(bond->dev);
-+	bond_destroy_sysfs_entry(bond);
-+	unregister_netdevice(bond->dev);
++	struct bonding *bond = to_bond(d);
++
++	return sprintf(buf, "%d\n", bond->params.fail_over_mac) + 1;
 +}
 +
-+/*
-+* First release a slave and than destroy the bond if no more slaves iare left.
-+* Must be under rtnl_lock when this function is called.
-+*/
-+int  bond_release_and_destroy(struct net_device *bond_dev, struct net_device *slave_dev)
++static ssize_t bonding_store_fail_over_mac(struct device *d, struct device_attribute *attr, const char *buf, size_t count)
 +{
-+	struct bonding *bond = bond_dev->priv;
-+	int ret;
++	int new_value;
++	int ret = count;
++	struct bonding *bond = to_bond(d);
 +
-+	ret = bond_release(bond_dev, slave_dev);
-+	if ((ret == 0) && (bond->slave_cnt == 0)) {
-+		printk(KERN_INFO DRV_NAME " %s: destroying bond for.\n",
-+					bond_dev->name);
-+		bond_destroy(bond);
++	if (bond->slave_cnt != 0) {
++		printk(KERN_ERR DRV_NAME
++		       ": %s: Can't alter fail_over_mac with slaves in bond.\n",
++		       bond->dev->name);
++		ret = -EPERM;
++		goto out;
 +	}
++
++	if (sscanf(buf, "%d", &new_value) != 1) {
++		printk(KERN_ERR DRV_NAME
++		       ": %s: no fail_over_mac value specified.\n",
++		       bond->dev->name);
++		ret = -EINVAL;
++		goto out;
++	}
++
++	if ((new_value == 0) || (new_value == 1)) {
++		bond->params.fail_over_mac = new_value;
++		printk(KERN_INFO DRV_NAME ": %s: Setting fail_over_mac to %d.\n",
++		       bond->dev->name, new_value);
++	} else {
++		printk(KERN_INFO DRV_NAME
++		       ": %s: Ignoring invalid fail_over_mac value %d.\n",
++		       bond->dev->name, new_value);
++	}
++out:
 +	return ret;
 +}
 +
++static DEVICE_ATTR(fail_over_mac, S_IRUGO | S_IWUSR, bonding_show_fail_over_mac, bonding_store_fail_over_mac);
++
 +/*
-  * This function releases all slaves.
-  */
- static int bond_release_all(struct net_device *bond_dev)
-@@ -3322,7 +3353,11 @@ static int bond_slave_netdev_event(unsigned long event, struct net_device *slave
- 	switch (event) {
- 	case NETDEV_UNREGISTER:
- 		if (bond_dev) {
--			bond_release(bond_dev, slave_dev);
-+			dprintk("slave %s unregisters\n", slave_dev->name);
-+			if (bond->setup_by_slave)
-+				bond_release_and_destroy(bond_dev, slave_dev);
-+			else
-+				bond_release(bond_dev, slave_dev);
- 		}
- 		break;
- 	case NETDEV_CHANGE:
-@@ -3331,6 +3366,13 @@ static int bond_slave_netdev_event(unsigned long event, struct net_device *slave
- 		 * sets up a hierarchical bond, then rmmod's
- 		 * one of the slave bonding devices?
- 		 */
-+		if (slave_dev->priv_flags & IFF_SLAVE_DETACH) {
-+			dprintk("slave %s detaching\n", slave_dev->name);
-+			if (bond->setup_by_slave)
-+				bond_release_and_destroy(bond_dev, slave_dev);
-+			else
-+				bond_release(bond_dev, slave_dev);
-+		}
- 		break;
- 	case NETDEV_DOWN:
- 		/*
-@@ -4311,6 +4353,7 @@ static int bond_init(struct net_device *bond_dev, struct bond_params *params)
- 	bond->primary_slave = NULL;
- 	bond->dev = bond_dev;
- 	bond->send_grat_arp = 0;
-+	bond->setup_by_slave = 0;
- 	INIT_LIST_HEAD(&bond->vlan_list);
- 
- 	/* Initialize the device entry points */
+  * Show and set the arp timer interval.  There are two tricky bits
+  * here.  First, if ARP monitoring is activated, then we must disable
+  * MII monitoring.  Second, if the ARP timer isn't running, we must
+@@ -1390,6 +1438,7 @@ static DEVICE_ATTR(ad_partner_mac, S_IRUGO, bonding_show_ad_partner_mac, NULL);
+ static struct attribute *per_bond_attrs[] = {
+ 	&dev_attr_slaves.attr,
+ 	&dev_attr_mode.attr,
++	&dev_attr_fail_over_mac.attr,
+ 	&dev_attr_arp_validate.attr,
+ 	&dev_attr_arp_interval.attr,
+ 	&dev_attr_arp_ip_target.attr,
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index b1cdb1f..ed0f587 100644
+index ed0f587..9d6153e 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -188,6 +188,7 @@ struct bonding {
+@@ -22,8 +22,8 @@
+ #include "bond_3ad.h"
+ #include "bond_alb.h"
+ 
+-#define DRV_VERSION	"3.1.3"
+-#define DRV_RELDATE	"June 13, 2007"
++#define DRV_VERSION	"3.2.0"
++#define DRV_RELDATE	"September 13, 2007"
+ #define DRV_NAME	"bonding"
+ #define DRV_DESCRIPTION	"Ethernet Channel Bonding Driver"
+ 
+@@ -128,6 +128,7 @@ struct bond_params {
+ 	int arp_interval;
+ 	int arp_validate;
+ 	int use_carrier;
++	int fail_over_mac;
+ 	int updelay;
+ 	int downdelay;
+ 	int lacp_fast;
+@@ -186,7 +187,6 @@ struct bonding {
+ 	struct   timer_list mii_timer;
+ 	struct   timer_list arp_timer;
  	s8       kill_timers;
- 	s8       do_set_mac_addr;
+-	s8       do_set_mac_addr;
  	s8	 send_grat_arp;
-+	s8	 setup_by_slave;
+ 	s8	 setup_by_slave;
  	struct   net_device_stats stats;
- #ifdef CONFIG_PROC_FS
- 	struct   proc_dir_entry *proc_entry;
-@@ -295,6 +296,8 @@ static inline void bond_unset_master_alb_flags(struct bonding *bond)
- struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr);
- int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev);
- int bond_create(char *name, struct bond_params *params, struct bonding **newbond);
-+void bond_destroy(struct bonding *bond);
-+int  bond_release_and_destroy(struct net_device *bond_dev, struct net_device *slave_dev);
- void bond_deinit(struct net_device *bond_dev);
- int bond_create_sysfs(void);
- void bond_destroy_sysfs(void);
 -- 
 1.5.2-rc2.GIT
 
