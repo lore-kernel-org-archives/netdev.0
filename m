@@ -1,76 +1,54 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [ofa-general] Re: [PATCH 3/10 REV5] [sched] Modify qdisc_run to
-	support batching
-Date: Fri, 14 Sep 2007 16:15:19 +0400
-Message-ID: <20070914121518.GB18517@2ka.mipt.ru>
-References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
-	<20070914090156.17589.61701.sendpatchset@K50wks273871wss.in.ibm.com>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: [PATCH] sb1250-mac.c: Fix "stats" references
+Date: Fri, 14 Sep 2007 13:25:55 +0100 (BST)
+Message-ID: <Pine.LNX.4.64N.0709141316410.1926@blysk.ds.pg.gda.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jagana@us.ibm.com, Robert.Olsson@data.slu.se, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, kumarkr@linux.ibm.com, rdreier@cisco.com,
-	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
-	netdev@vger.kernel.org, kaber@trash.net, randy.dunlap@oracle.com,
-	jeff@garzik.org, general@lists.openfabrics.org,
-	mchan@broadcom.com, tgraf@suug.ch, mcarlson@broadcom.com,
-	sri@us.ibm.com, shemminger@linux-foundation.org, davem@davemloft.net
-To: Krishna Kumar <krkumar2@in.ibm.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-Disposition: inline
-In-Reply-To: <20070914090156.17589.61701.sendpatchset@K50wks273871wss.in.ibm.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
+	linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cerber.ds.pg.gda.pl ([153.19.208.18]:43488 "EHLO
+	cerber.ds.pg.gda.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751263AbXINM0D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 08:26:03 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Krishna.
+ Fix build errors resulting from a recent commit that added references to 
+"stats" through "dev" from sbdma_rx_process() and sbdma_tx_process(), but 
+no definitions of that variable.
 
-On Fri, Sep 14, 2007 at 02:31:56PM +0530, Krishna Kumar (krkumar2@in.ibm.com) wrote:
-> +int dev_add_skb_to_blist(struct sk_buff *skb, struct net_device *dev)
-> +{
-> +	if (!list_empty(&ptype_all))
-> +		dev_queue_xmit_nit(skb, dev);
-> +
-> +	if (netif_needs_gso(dev, skb)) {
-> +		if (unlikely(dev_gso_segment(skb))) {
-> +			kfree_skb(skb);
-> +			return 0;
-> +		}
-> +
-> +		if (skb->next) {
-> +			int count = 0;
-> +
-> +			do {
-> +				struct sk_buff *nskb = skb->next;
-> +
-> +				skb->next = nskb->next;
-> +				__skb_queue_tail(dev->skb_blist, nskb);
-> +				count++;
-> +			} while (skb->next);
+Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+---
+ This is probably the simplest fix possible, though at this point it is of 
+question whether it is still "struct sbmac_softc *" that should be passed 
+to these functions.  I'll leave it to another occasion though.
 
-Could it be list_move()-like function for skb lists?
-I'm pretty sure if you change first and the last skbs and ke of the
-queue in one shot, result will be the same.
-Actually how many skbs are usually batched in your load?
+ Applies under patch-netdev-2.6.23-rc6-20070913-sb1250-mac-typedef-8.
 
-> +			/* Reset destructor for kfree_skb to work */
-> +			skb->destructor = DEV_GSO_CB(skb)->destructor;
-> +			kfree_skb(skb);
+ Please apply,
 
-Why do you free first skb in the chain?
+  Maciej
 
-> +			return count;
-> +		}
-> +	}
-> +	__skb_queue_tail(dev->skb_blist, skb);
-> +	return 1;
-> +}
-
--- 
-	Evgeniy Polyakov
+patch-netdev-2.6.23-rc6-20070913-sb1250-mac-fix-1
+diff -up --recursive --new-file linux-netdev-2.6.23-rc6-20070913.macro/drivers/net/sb1250-mac.c linux-netdev-2.6.23-rc6-20070913/drivers/net/sb1250-mac.c
+--- linux-netdev-2.6.23-rc6-20070913.macro/drivers/net/sb1250-mac.c	2007-09-13 17:27:52.000000000 +0000
++++ linux-netdev-2.6.23-rc6-20070913/drivers/net/sb1250-mac.c	2007-09-14 12:06:15.000000000 +0000
+@@ -1187,6 +1187,7 @@ static void sbmac_netpoll(struct net_dev
+ static int sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d,
+                              int work_to_do, int poll)
+ {
++	struct net_device *dev = sc->sbm_dev;
+ 	int curidx;
+ 	int hwidx;
+ 	sbdmadscr_t *dsc;
+@@ -1348,6 +1349,7 @@ done:
+ 
+ static void sbdma_tx_process(struct sbmac_softc *sc,sbmacdma_t *d, int poll)
+ {
++	struct net_device *dev = sc->sbm_dev;
+ 	int curidx;
+ 	int hwidx;
+ 	sbdmadscr_t *dsc;
