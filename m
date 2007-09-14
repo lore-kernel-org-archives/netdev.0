@@ -1,33 +1,45 @@
-From: "Sean Hefty" <sean.hefty@intel.com>
-Subject: RE: [ofa-general] InfiniBand/RDMA merge plans for 2.6.24
-Date: Fri, 14 Sep 2007 10:45:23 -0700
-Message-ID: <000001c7f6f7$074584e0$9c98070a@amr.corp.intel.com>
-References: <adahclymos8.fsf@cisco.com><000401c7f632$c993e8e0$65cc180a@amr.corp.intel.com> <adatzpyl1mm.fsf@cisco.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [BUG] tg3 cannot do PXE (loses MAC address) after soft
+ reboot
+Date: Fri, 14 Sep 2007 11:52:22 -0700
+Message-ID: <1189795942.9540.155.camel@dell>
+References: <20070913083918.GA5386@xanadu.blop.info>
+ <20070913192812.GA12053@xanadu.blop.info>
+ <1189716472.9540.106.camel@dell> <200709141014.20635.netdev@axxeo.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: <general@lists.openfabrics.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: "'Roland Dreier'" <rdreier@cisco.com>
+Cc: "Lucas Nussbaum" <lucas.nussbaum@imag.fr>,
+	"netdev" <netdev@vger.kernel.org>
+To: "Ingo Oeser" <netdev@axxeo.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:39160 "EHLO mga03.intel.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1497 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753259AbXINRp6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Sep 2007 13:45:58 -0400
-In-Reply-To: <adatzpyl1mm.fsf@cisco.com>
+	id S1753762AbXINRzF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2007 13:55:05 -0400
+In-Reply-To: <200709141014.20635.netdev@axxeo.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->OK -- just to make sure I'm understanding what you're saying: have you
->confirmed that your proposed patches actually fix the issue?
+On Fri, 2007-09-14 at 10:14 +0200, Ingo Oeser wrote:
+> Michael Chan schrieb:
+> > On Thu, 2007-09-13 at 21:28 +0200, Lucas Nussbaum wrote:
+> > > Erm, Wouldn't it be possible to print a warning when the driver loads,
+> > > saying that the firmware is outdated ?
+> > 
+> > It's possible, but would require the driver to parse the version string.
+> > The driver currently reports the version string for information and for
+> > the human to parse it.
+> 
+> Yes, but most humans don't know all valid firmware versions of their 
+> components.
+> 
+> Is it enough to parse the first number in the firmware via simple_strtoul()?
 
-Not directly.  I cannot easily test kernel patches on our larger, production
-clusters.  We've seen the issue with specific applications on 512 and 1024
-cores, but I've only been able to test the patch on a 48-core cluster.  I have
-verified that it successfully increases the timeout to where it *should* work,
-but cannot absolutely confirm that it will fix the problem.  I'm unlikely to
-know that until the production clusters move to an OFED release (1.3?)
-containing this patch.
+No, it's not.  We need to check the number after the '.' and possibly an
+alphabet at the end as well.  Worse yet, the version may be different
+for different chips.
 
-- Sean
+We'll see if we can come up with a simple way to detect the problem.
+
+
