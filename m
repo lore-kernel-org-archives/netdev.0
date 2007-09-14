@@ -1,74 +1,74 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: Distributed storage. Move away from char device ioctls.
-Date: Fri, 14 Sep 2007 15:07:46 -0400
-Message-ID: <46EADC02.9070409@garzik.org>
-References: <20070914185429.GA9439@2ka.mipt.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758696AbXINTIH@vger.kernel.org>
-In-Reply-To: <20070914185429.GA9439@2ka.mipt.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: [v2 PATCH 8/8] SCTP: Tie ADD-IP and AUTH functionality as required by spec.
+Date: Fri, 14 Sep 2007 15:14:50 -0400
+Message-ID: <1189797290519-git-send-email-vladislav.yasevich@hp.com>
+References: <11897955003232-git-send-email-vladislav.yasevich@hp.com>
+Cc: netdev@vger.kernel.org, Vlad Yasevich <vladislav.yasevich@hp.com>
+To: lksctp-developers@lists.sourceforge.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atlrel7.hp.com ([156.153.255.213]:33549 "EHLO atlrel7.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752144AbXINTPC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2007 15:15:02 -0400
+In-Reply-To: <11897955003232-git-send-email-vladislav.yasevich@hp.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov wrote:
-> Hi.
-> 
-> I'm pleased to announce fourth release of the distributed storage
-> subsystem, which allows to form a storage on top of remote and local
-> nodes, which in turn can be exported to another storage as a node to
-> form tree-like storages.
-> 
-> This release includes new configuration interface (kernel connector over
-> netlink socket) and number of fixes of various bugs found during move 
-> to it (in error path).
-> 
-> Further TODO list includes:
-> * implement optional saving of mirroring/linear information on the remote
-> 	nodes (simple)
-> * new redundancy algorithm (complex)
-> * some thoughts about distributed filesystem tightly connected to DST
-> 	(far-far planes so far)
-> 
-> Homepage:
-> http://tservice.net.ru/~s0mbre/old/?section=projects&item=dst
-> 
-> Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+[.. forgot to refresh the patch, the other version has compile problems ..]
 
-My thoughts.  But first a disclaimer:   Perhaps you will recall me as 
-one of the people who really reads all your patches, and examines your 
-code and proposals closely.  So, with that in mind...
+ADD-IP spec requires AUTH. It is, in fact, dangerous without AUTH.
+So, disable ADD-IP functionality if the peer claims to support
+ADD-IP, but not AUTH.
 
-I question the value of distributed block services (DBS), whether its 
-your version or the others out there.  DBS are not very useful, because 
-it still relies on a useful filesystem sitting on top of the DBS.  It 
-devolves into one of two cases:  (1) multi-path much like today's SCSI, 
-with distributed filesystem arbitrarion to ensure coherency, or (2) the 
-filesystem running on top of the DBS is on a single host, and thus, a 
-single point of failure (SPOF).
+Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+---
+ include/net/sctp/structs.h |    1 +
+ net/sctp/sm_make_chunk.c   |   13 ++++++++++++-
+ 2 files changed, 13 insertions(+), 1 deletions(-)
 
-It is quite logical to extend the concepts of RAID across the network, 
-but ultimately you are still bound by the inflexibility and simplicity 
-of the block device.
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 3215da4..a29c59a 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -1537,6 +1537,7 @@ struct sctp_association {
+ 		__u8    asconf_capable;  /* Does peer support ADDIP? */
+ 		__u8    prsctp_capable;  /* Can peer do PR-SCTP? */
+ 		__u8	auth_capable;	 /* Is peer doing SCTP-AUTH? */
++		__u8	addip_capable;	 /* Can peer do ADD-IP */
+ 
+ 		__u32   adaptation_ind;	 /* Adaptation Code point. */
+ 
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index 7cd8241..5521841 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -1851,7 +1851,8 @@ static void sctp_process_ext_param(struct sctp_association *asoc,
+ 			    break;
+ 		    case SCTP_CID_ASCONF:
+ 		    case SCTP_CID_ASCONF_ACK:
+-			    /* don't need to do anything for ASCONF */
++			    asoc->peer.addip_capable = 1;
++			    break;
+ 		    default:
+ 			    break;
+ 		}
+@@ -2137,6 +2138,16 @@ int sctp_process_init(struct sctp_association *asoc, sctp_cid_t cid,
+ 					!asoc->peer.peer_hmacs))
+ 		asoc->peer.auth_capable = 0;
+ 
++
++	/* If the peer claims support for ADD-IP without support
++	 * for AUTH, disable support for ADD-IP.
++	 */
++	if (asoc->peer.addip_capable && !asoc->peer.auth_capable) {
++		asoc->peer.addip_disabled_mask |= (SCTP_PARAM_ADD_IP |
++						  SCTP_PARAM_DEL_IP |
++						  SCTP_PARAM_SET_PRIMARY);
++	}
++
+ 	/* Walk list of transports, removing transports in the UNKNOWN state. */
+ 	list_for_each_safe(pos, temp, &asoc->peer.transport_addr_list) {
+ 		transport = list_entry(pos, struct sctp_transport, transports);
+-- 
+1.5.2.4
 
-In contrast, a distributed filesystem offers far more scalability, 
-eliminates single points of failure, and offers more room for 
-optimization and redundancy across the cluster.
-
-A distributed filesystem is also much more complex, which is why 
-distributed block devices are so appealing :)
-
-With a redundant, distributed filesystem, you simply do not need any 
-complexity at all at the block device level.  You don't even need RAID.
-
-It is my hope that you will put your skills towards a distributed 
-filesystem :)  Of the current solutions, GFS (currently in kernel) 
-scales poorly, and NFS v4.1 is amazingly bloated and overly complex.
-
-I've been waiting for years for a smart person to come along and write a 
-POSIX-only distributed filesystem.
-
-	Jeff
