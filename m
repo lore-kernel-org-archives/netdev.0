@@ -1,65 +1,46 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH][NETNS] Use list_for_each_entry_continue_reverse in
- setup_net
-Date: Fri, 14 Sep 2007 22:07:14 +0200
-Message-ID: <20070914220714.3a1e87f8@oldman>
-References: <46EA3AB4.7060904@openvz.org>
-	<20070914144938.3ba643a5@oldman>
-	<m1lkb92tto.fsf@ebiederm.dsl.xmission.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [ofa-general] InfiniBand/RDMA merge plans for 2.6.24
+Date: Fri, 14 Sep 2007 14:09:46 -0700
+Message-ID: <1189804186.9540.173.camel@dell>
+References: <adahclymos8.fsf@cisco.com>
+	<46E97BB0.9030106@opengridcomputing.com> <adaps0ml18e.fsf@cisco.com>
+	<1189724358.9540.113.camel@dell> <adaveadjk5i.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Pavel Emelyanov <xemul@openvz.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Containers <containers@lists.osdl.org>, devel@openvz.org,
-	Daniel Lezcano <dlezcano@fr.ibm.com>
-To: ebiederm@xmission.com (Eric W. Biederman)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:34921 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751398AbXINUGg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 16:06:36 -0400
-In-Reply-To: <m1lkb92tto.fsf@ebiederm.dsl.xmission.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: lusinsky@broadcom.com, general@lists.openfabrics.org, talm@broadcom.com,
+	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+	anilgv@broadcom.com, uri@broadcom.com
+To: "Roland Dreier" <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <adaveadjk5i.fsf@cisco.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 14 Sep 2007 08:41:07 -0600
-ebiederm@xmission.com (Eric W. Biederman) wrote:
+On Fri, 2007-09-14 at 09:18 -0700, Roland Dreier wrote:
 
-> Stephen Hemminger <shemminger@linux-foundation.org> writes:
-> 
-> > On Fri, 14 Sep 2007 11:39:32 +0400
-> > Pavel Emelyanov <xemul@openvz.org> wrote:
-> >
-> >> I proposed introducing a list_for_each_entry_continue_reverse
-> >> macro to be used in setup_net() when unrolling the failed
-> >> ->init callback.
-> >> 
-> >> Here is the macro and some more cleanup in the setup_net() itself
-> >> to remove one variable from the stack :) Minor, but the code
-> >> looks nicer.
-> >> 
-> >> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> >
-> > Maybe it is time to just eliminate the init hook from the API.
-> > It has very few users, and there is no reason the setup needed
-> > could be done before or after registering in most cases.
-> 
-> I guess only have 5 out of the 29 users I have in my full patchset
-> is few.  But that is to be expected because so far only the core
-> has been converted.
-> 
-> I looked again at the initialization to see if you had a point about
-> the initialization but in every instance I looked at the function
-> was performing work that needed to happen during the creation of
-> each network namespace.  So the work very much needs to be done there.
-> 
-> Ok looking some more I can see why this isn't obvious yet.  copy_net_ns
-> hasn't been merged yet, and that is where we create new network namespaces.
-> And call setup_net on each new network namespace.
-> 
-> I will take a look at that patch and see if I can come up with a
-> safe version of it to merge to allow for a little more transparency.
+> However, do you have any plans to support iSCSI offload for targets?
+> Also, looking at the first CNIC patch, I can't help but notice that
+> you seem to have at least some support for iWARP there.  How does the
+> CNIC look?  Does it share the same interface/addresses as the
+> non-offload NIC, or does it create a completely separate netdevice?
 
-Could we just make it so dev->init is not allowed to fail? Then it
-can be a void function and the nasty unwind code can go?
+We will support iWARP in the future and it should be similar to the way
+we do iSCSI - using the same interface/addresses as the bnx2 NIC.
+
+> 
+> I want to make sure that whatever solution we come up with for cxgb3
+> doesn't cause problems for you.  And of course if you have a better
+> idea than what Steve has come up with, that would be great :)
+> 
+
+We are looking at these discussions with great interest.  If we have any
+new ideas, we'll definitely let everyone know.  Thanks.
