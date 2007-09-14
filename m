@@ -1,82 +1,65 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [ofa-general] Re: [PATCH 1/10 REV5] [Doc] HOWTO Documentation for
-	batching
-Date: Fri, 14 Sep 2007 11:37:09 -0700
-Message-ID: <20070914113709.80baba4d.randy.dunlap@oracle.com>
-References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
-	<20070914090118.17589.43799.sendpatchset@K50wks273871wss.in.ibm.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH][NETNS] Use list_for_each_entry_continue_reverse in
+ setup_net
+Date: Fri, 14 Sep 2007 22:07:14 +0200
+Message-ID: <20070914220714.3a1e87f8@oldman>
+References: <46EA3AB4.7060904@openvz.org>
+	<20070914144938.3ba643a5@oldman>
+	<m1lkb92tto.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, jagana@us.ibm.com, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
-	kumarkr@linux.ibm.com, rdreier@cisco.com,
-	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
-	kaber@trash.net, jeff@garzik.org, general@lists.openfabrics.org,
-	netdev@vger.kernel.org, tgraf@suug.ch, mcarlson@broadcom.com,
-	sri@us.ibm.com, shemminger@linux-foundation.org,
-	davem@davemloft.net, mchan@broadcom.com
-To: Krishna Kumar <krkumar2@in.ibm.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070914090118.17589.43799.sendpatchset@K50wks273871wss.in.ibm.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: Pavel Emelyanov <xemul@openvz.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>, devel@openvz.org,
+	Daniel Lezcano <dlezcano@fr.ibm.com>
+To: ebiederm@xmission.com (Eric W. Biederman)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:34921 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751398AbXINUGg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 16:06:36 -0400
+In-Reply-To: <m1lkb92tto.fsf@ebiederm.dsl.xmission.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 14 Sep 2007 14:31:18 +0530 Krishna Kumar wrote:
+On Fri, 14 Sep 2007 08:41:07 -0600
+ebiederm@xmission.com (Eric W. Biederman) wrote:
 
-> Add Documentation describing batching skb xmit capability.
+> Stephen Hemminger <shemminger@linux-foundation.org> writes:
 > 
-> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
-> ---
->  batching_skb_xmit.txt |  107 ++++++++++++++++++++++++++++++++++++++++++++++++++
->  1 files changed, 107 insertions(+)
+> > On Fri, 14 Sep 2007 11:39:32 +0400
+> > Pavel Emelyanov <xemul@openvz.org> wrote:
+> >
+> >> I proposed introducing a list_for_each_entry_continue_reverse
+> >> macro to be used in setup_net() when unrolling the failed
+> >> ->init callback.
+> >> 
+> >> Here is the macro and some more cleanup in the setup_net() itself
+> >> to remove one variable from the stack :) Minor, but the code
+> >> looks nicer.
+> >> 
+> >> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> >
+> > Maybe it is time to just eliminate the init hook from the API.
+> > It has very few users, and there is no reason the setup needed
+> > could be done before or after registering in most cases.
 > 
-> diff -ruNp org/Documentation/networking/batching_skb_xmit.txt new/Documentation/networking/batching_skb_xmit.txt
-> --- org/Documentation/networking/batching_skb_xmit.txt	1970-01-01 05:30:00.000000000 +0530
-> +++ new/Documentation/networking/batching_skb_xmit.txt	2007-09-14 10:25:36.000000000 +0530
-> @@ -0,0 +1,107 @@
-> +
-> +Section 4: Nitty gritty details for driver writers
-> +--------------------------------------------------
-> +
-> +	Batching is enabled from core networking stack only from softirq
-> +	context (NET_TX_SOFTIRQ), and dev_queue_xmit() doesn't use batching.
-> +
-> +	This leads to the following situation:
-> +		A skb was not sent out as either driver lock was contested or
-> +		the device was blocked. When the softirq handler runs, it
-> +		moves all skbs from the device queue to the batch list, but
-> +		then it too could fail to send due to lock contention. The
-> +		next xmit (of a single skb) called from dev_queue_xmit() will
-> +		not use batching and try to xmit skb, while previous skbs are
-> +		still present in the batch list. This results in the receiver
-> +		getting out-of-order packets, and in case of TCP the sender
-> +		would have unnecessary retransmissions.
-> +
-> +	To fix this problem, error cases where driver xmit gets called with a
-> +	skb must code as follows:
-> +		1. If driver xmit cannot get tx lock, return NETDEV_TX_LOCKED
-> +		   as usual. This allows qdisc to requeue the skb.
-> +		2. If driver xmit got the lock but failed to send the skb, it
-> +		   should return NETDEV_TX_BUSY but before that it should have
-> +		   queue'd the skb to the batch list. In this case, the qdisc
+> I guess only have 5 out of the 29 users I have in my full patchset
+> is few.  But that is to be expected because so far only the core
+> has been converted.
+> 
+> I looked again at the initialization to see if you had a point about
+> the initialization but in every instance I looked at the function
+> was performing work that needed to happen during the creation of
+> each network namespace.  So the work very much needs to be done there.
+> 
+> Ok looking some more I can see why this isn't obvious yet.  copy_net_ns
+> hasn't been merged yet, and that is where we create new network namespaces.
+> And call setup_net on each new network namespace.
+> 
+> I will take a look at that patch and see if I can come up with a
+> safe version of it to merge to allow for a little more transparency.
 
-                   queued
-
-> +		   does not requeue the skb.
-
-and then
-Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
-
-Thanks,
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+Could we just make it so dev->init is not allowed to fail? Then it
+can be a void function and the nasty unwind code can go?
