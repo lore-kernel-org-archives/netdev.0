@@ -1,39 +1,44 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH][NETNS] Use list_for_each_entry_continue_reverse in
- setup_net
-Date: Fri, 14 Sep 2007 14:49:38 +0200
-Message-ID: <20070914144938.3ba643a5@oldman>
-References: <46EA3AB4.7060904@openvz.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [ofa-general] Re: [PATCH 0/10 REV5] Implement skb batching and
+	support in IPoIB/E1000
+Date: Fri, 14 Sep 2007 16:49:07 +0400
+Message-ID: <20070914124906.GE18517@2ka.mipt.ru>
+References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Containers <containers@lists.osdl.org>, devel@openvz.org,
-	Daniel Lezcano <dlezcano@fr.ibm.com>
-To: Pavel Emelyanov <xemul@openvz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:46003 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752427AbXINMs7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 08:48:59 -0400
-In-Reply-To: <46EA3AB4.7060904@openvz.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jagana@us.ibm.com, Robert.Olsson@data.slu.se,
+	peter.p.waskiewicz.jr@intel.com, kumarkr@linux.ibm.com,
+	herbert@gondor.apana.org.au, gaagaan@gmail.com,
+	netdev@vger.kernel.org, rdreier@cisco.com, hadi@cyberus.ca,
+	kaber@trash.net, randy.dunlap@oracle.com, jeff@garzik.org,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	mcarlson@broadcom.com, sri@us.ibm.com,
+	shemminger@linux-foundation.org, davem@davemloft.net
+To: Krishna Kumar <krkumar2@in.ibm.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-Disposition: inline
+In-Reply-To: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 14 Sep 2007 11:39:32 +0400
-Pavel Emelyanov <xemul@openvz.org> wrote:
+Hi Krishna.
 
-> I proposed introducing a list_for_each_entry_continue_reverse
-> macro to be used in setup_net() when unrolling the failed
-> ->init callback.
-> 
-> Here is the macro and some more cleanup in the setup_net() itself
-> to remove one variable from the stack :) Minor, but the code
-> looks nicer.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+On Fri, Sep 14, 2007 at 02:30:58PM +0530, Krishna Kumar (krkumar2@in.ibm.com) wrote:
+> --------
+> The retransmission problem reported earlier seems to happen when mthca is
+> used as the underlying device, but when I tested ehca the retransmissions
+> dropped to normal levels (around 2 times the regular code). The performance
+> improvement is around 55% for TCP.
 
-Maybe it is time to just eliminate the init hook from the API.
-It has very few users, and there is no reason the setup needed
-could be done before or after registering in most cases.
+And what about latency for this patchset?
+
+-- 
+	Evgeniy Polyakov
