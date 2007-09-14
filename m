@@ -1,53 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [TG3]: Workaround MSI bug on 5714/5780.
-Date: Fri, 14 Sep 2007 15:33:15 -0700 (PDT)
-Message-ID: <20070914.153315.39168469.davem@davemloft.net>
-References: <1189105530.4852.8.camel@dell>
-	<20070906.125019.104036964.davem@davemloft.net>
-	<1189218381.5210.67.camel@dell>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: SO_BINDTODEVICE mismatch with man page & comments.
+Date: Fri, 14 Sep 2007 15:37:45 -0700
+Message-ID: <46EB0D39.4030609@candelatech.com>
+References: <46DDDFFA.6090705@candelatech.com>	<20070914.131225.78720330.davem@davemloft.net>	<46EB071B.9070308@candelatech.com> <20070914.152912.74747426.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: andy@greyhouse.net, netdev@vger.kernel.org, ananth@broadcom.com,
-	nsankar@broadcom.com
-To: mchan@broadcom.com
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:40082
-	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757521AbXINWdU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 18:33:20 -0400
-In-Reply-To: <1189218381.5210.67.camel@dell>
+Received: from ns2.lanforge.com ([66.165.47.211]:34434 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756661AbXINWhu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2007 18:37:50 -0400
+In-Reply-To: <20070914.152912.74747426.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Fri, 07 Sep 2007 19:26:21 -0700
+David Miller wrote:
 
-> [PCI]: Add MSI quirk for ServerWorks HT1000 PCIX bridge.
-> 
-> This is the fix for the following problem:
-> 
-> https://bugzilla.redhat.com/show_bug.cgi?id=227657
-> 
-> The bnx2 device 5706 complains about MSI not working behind a
-> ServerWorks HT1000 PCIX bridge. An earlier commit to fix the problem:
-> 
-> e3008dedff4bdc96a5f67224cd3d8d12237082a0:
-> 
-> "PCI: disable MSI by default on systems with Serverworks HT1000 chips"
-> 
-> was not entirely correct, and has been reverted.
-> 
-> MSI does not work on the PCIX bus because the BIOS did not set the
-> HT_MSI_FLAGS_ENABLE bit in the HyperTransport MSI capability on the
-> bridge.  We use the existing quirk_msi_ht_cap() to detect the problem
-> and disable MSI in all buses behind it.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-> Cc: Anantha Subramanyam <ananth@broadcom.com>
-> Cc: Naren Sankar <nsankar@broadcom.com>
+> Instead of nit-picking, can you instead try the patch and let me
+> know if it makes things work for you?
 
-Michael, I've queued this and my revert patch into a tree which
-I will push to the PCI maintainer for 2.6.24
+I don't mean to complain, just trying to make sure that you
+had thought about the length and were happy with how it works
+before I try to get the man page changed.
 
-Thanks.
+I will try the patch, but it will probably not be until Monday.
+The existing code actually can be made to work by passing in
+a 4+ byte string and setting the first byte to zero, and as
+far as I can see, that remains the same with the new patch.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
