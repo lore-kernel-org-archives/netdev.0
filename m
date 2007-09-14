@@ -1,186 +1,96 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH]: New SO_BINDTODEVICE fix.
-Date: Fri, 14 Sep 2007 16:42:43 -0700 (PDT)
-Message-ID: <20070914.164243.41634621.davem@davemloft.net>
+From: "Kok, Auke" <sofar@foo-projects.org>
+Subject: Re: [git patches] net driver fixes
+Date: Fri, 14 Sep 2007 14:09:48 -0700
+Message-ID: <46EAF89C.4080808@foo-projects.org>
+References: <20070913053022.GA16891@havoc.gtf.org>
+ <1189793598.2508.4.camel@xo-3E-67-34.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, kaber@trash.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Dan Williams <dcbw@redhat.com>, netdev@vger.kernel.org,
+	Jan-Bernd Themann <ossthema@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45410
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758670AbXINXmo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 19:42:44 -0400
+Received: from vms046pub.verizon.net ([206.46.252.46]:54381 "EHLO
+	vms046pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755189AbXIOANt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 20:13:49 -0400
+In-reply-to: <1189793598.2508.4.camel@xo-3E-67-34.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Dan Williams wrote:
+> On Thu, 2007-09-13 at 01:30 -0400, Jeff Garzik wrote:
+>> Please pull from 'upstream-linus' branch of
+>> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git u=
+pstream-linus
+>>
+>> to receive the following updates:
+>>
+>>  drivers/net/atl1/atl1_main.c |   19 +++++++------------
+>>  drivers/net/ehea/ehea.h      |    5 ++++-
+>>  drivers/net/ehea/ehea_main.c |   16 ++++++++++++++--
+>>  drivers/net/phy/phy.c        |    4 ++--
+>>  drivers/net/phy/phy_device.c |    4 ++--
+>>  drivers/net/sky2.c           |    9 ++++++++-
+>>  drivers/net/spider_net.c     |   12 ++++--------
+>>  7 files changed, 41 insertions(+), 28 deletions(-)
+>>
+>> Hans-J=C3=BCrgen Koch (1):
+>>       Fix a lock problem in generic phy code
+>>
+>> Ishizaki Kou (1):
+>>       spidernet: fix interrupt reason recognition
+>>
+>> Jan-Bernd Themann (2):
+>>       ehea: propagate physical port state
+>>       ehea: fix last_rx update
+>>
 
-Ok, I changed my mind and decided to retain the optlen==0
-intended behavior.  It fell out of fixing the small
-string length case.
+maybe a little bit late with this comment:
 
-This is likely what I'll push to Linus and later -stable
-as a fix for this stuff.
+>>  			ehea_error("Failed setting port speed");
+>>  		}
+>>  	}
+>> -	netif_carrier_on(port->netdev);
+>> +	if (!prop_carrier_state || (port->phy_link =3D=3D EHEA_PHY_LINK_UP=
+))
+>> +		netif_carrier_on(port->netdev);
+>> +
+>>  	kfree(cb4);
+>>  out:
+>>  	return ret;
+>> @@ -869,13 +875,19 @@ static void ehea_parse_eqe(struct ehea_adapter=
+ *adapter, u64 eqe)
+>>  			}
+>> =20
+>>  		if (EHEA_BMASK_GET(NEQE_EXTSWITCH_PORT_UP, eqe)) {
+>> +			port->phy_link =3D EHEA_PHY_LINK_UP;
+>>  			if (netif_msg_link(port))
+>>  				ehea_info("%s: Physical port up",
+>>  					  port->netdev->name);
+>> +			if (prop_carrier_state)
+>> +				netif_carrier_on(port->netdev);
+>>  		} else {
+>> +			port->phy_link =3D EHEA_PHY_LINK_DOWN;
+>>  			if (netif_msg_link(port))
+>>  				ehea_info("%s: Physical port down",
+>>  					  port->netdev->name);
+>> +			if (prop_carrier_state)
+>> +				netif_carrier_off(port->netdev);
 
-Thanks.
+maybe it was better to code this as 'ehea_carrier_off/on()' which then =
+tests=20
+(prop_carrier_state) - this now begs for regressions where this isn't p=
+roperly=20
+done in future commits, and on top of that there are all these extra co=
+nditions now.
 
-commit 4878809f711981a602cc562eb47994fc81ea0155
-Author: David S. Miller <davem@sunset.davemloft.net>
-Date:   Fri Sep 14 16:41:03 2007 -0700
+Cheers,
 
-    [NET]: Fix two issues wrt. SO_BINDTODEVICE.
-    
-    1) Comments suggest that setting optlen to zero will unbind
-       the socket from whatever device it might be attached to.  This
-       hasn't been the case since at least 2.2.x because the first thing
-       this function does is return -EINVAL if 'optlen' is less than
-       sizeof(int).
-    
-       This check also means that passing in a two byte string doesn't
-       work so well.  It's almost as if this code was testing with "eth?"
-       patterned strings and nothing else :-)
-    
-       Fix this by breaking the logic of this facility out into a
-       seperate function which validates optlen more appropriately.
-    
-       The optlen==0 and small string cases now work properly.
-    
-    2) We should reset the cached route of the socket after we have made
-       the device binding changes, not before.
-    
-    Reported by Ben Greear.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Auke
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index cfed7d4..190de61 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -362,6 +362,61 @@ struct dst_entry *sk_dst_check(struct sock *sk, u32 cookie)
- }
- EXPORT_SYMBOL(sk_dst_check);
- 
-+static int sock_bindtodevice(struct sock *sk, char __user *optval, int optlen)
-+{
-+	int ret = -ENOPROTOOPT;
-+#ifdef CONFIG_NETDEVICES
-+	char devname[IFNAMSIZ];
-+	int index;
-+
-+	/* Sorry... */
-+	ret = -EPERM;
-+	if (!capable(CAP_NET_RAW))
-+		goto out;
-+
-+	ret = -EINVAL;
-+	if (optlen < 0)
-+		goto out;
-+
-+	/* Bind this socket to a particular device like "eth0",
-+	 * as specified in the passed interface name. If the
-+	 * name is "" or the option length is zero the socket
-+	 * is not bound.
-+	 */
-+	if (optlen > IFNAMSIZ - 1)
-+		optlen = IFNAMSIZ - 1;
-+	memset(devname, 0, sizeof(devname));
-+
-+	ret = -EFAULT;
-+	if (copy_from_user(devname, optval, optlen))
-+		goto out;
-+
-+	if (devname[0] == '\0') {
-+		index = 0;
-+	} else {
-+		struct net_device *dev = dev_get_by_name(devname);
-+
-+		ret = -ENODEV;
-+		if (!dev)
-+			goto out;
-+
-+		index = dev->ifindex;
-+		dev_put(dev);
-+	}
-+
-+	lock_sock(sk);
-+	sk->sk_bound_dev_if = index;
-+	sk_dst_reset(sk);
-+	release_sock(sk);
-+
-+	ret = 0;
-+
-+out:
-+#endif
-+
-+	return ret;
-+}
-+
- /*
-  *	This is meant for all protocols to use and covers goings on
-  *	at the socket level. Everything here is generic.
-@@ -390,6 +445,9 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
- 	}
- #endif
- 
-+	if (optname == SO_BINDTODEVICE)
-+		return sock_bindtodevice(sk, optval, optlen);
-+
- 	if (optlen < sizeof(int))
- 		return -EINVAL;
- 
-@@ -578,54 +636,6 @@ set_rcvbuf:
- 		ret = sock_set_timeout(&sk->sk_sndtimeo, optval, optlen);
- 		break;
- 
--#ifdef CONFIG_NETDEVICES
--	case SO_BINDTODEVICE:
--	{
--		char devname[IFNAMSIZ];
--
--		/* Sorry... */
--		if (!capable(CAP_NET_RAW)) {
--			ret = -EPERM;
--			break;
--		}
--
--		/* Bind this socket to a particular device like "eth0",
--		 * as specified in the passed interface name. If the
--		 * name is "" or the option length is zero the socket
--		 * is not bound.
--		 */
--
--		if (!valbool) {
--			sk->sk_bound_dev_if = 0;
--		} else {
--			if (optlen > IFNAMSIZ - 1)
--				optlen = IFNAMSIZ - 1;
--			memset(devname, 0, sizeof(devname));
--			if (copy_from_user(devname, optval, optlen)) {
--				ret = -EFAULT;
--				break;
--			}
--
--			/* Remove any cached route for this socket. */
--			sk_dst_reset(sk);
--
--			if (devname[0] == '\0') {
--				sk->sk_bound_dev_if = 0;
--			} else {
--				struct net_device *dev = dev_get_by_name(devname);
--				if (!dev) {
--					ret = -ENODEV;
--					break;
--				}
--				sk->sk_bound_dev_if = dev->ifindex;
--				dev_put(dev);
--			}
--		}
--		break;
--	}
--#endif
--
--
- 	case SO_ATTACH_FILTER:
- 		ret = -EINVAL;
- 		if (optlen == sizeof(struct sock_fprog)) {
