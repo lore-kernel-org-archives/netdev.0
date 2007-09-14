@@ -1,54 +1,54 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: [PATCH] sb1250-mac.c: Fix "stats" references
-Date: Fri, 14 Sep 2007 13:25:55 +0100 (BST)
-Message-ID: <Pine.LNX.4.64N.0709141316410.1926@blysk.ds.pg.gda.pl>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [ofa-general] Re: [PATCH 2/10 REV5] [core] Add skb_blist & support
+	for batching
+Date: Fri, 14 Sep 2007 16:46:38 +0400
+Message-ID: <20070914124637.GC18517@2ka.mipt.ru>
+References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
+	<20070914090137.17589.60322.sendpatchset@K50wks273871wss.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org,
-	linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cerber.ds.pg.gda.pl ([153.19.208.18]:43488 "EHLO
-	cerber.ds.pg.gda.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751263AbXINM0D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 08:26:03 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jagana@us.ibm.com, Robert.Olsson@data.slu.se,
+	peter.p.waskiewicz.jr@intel.com, herbert@gondor.apana.org.au,
+	gaagaan@gmail.com, kumarkr@linux.ibm.com, rdreier@cisco.com,
+	hadi@cyberus.ca, kaber@trash.net, randy.dunlap@oracle.com,
+	jeff@garzik.org, general@lists.openfabrics.org,
+	netdev@vger.kernel.org, tgraf@suug.ch, mcarlson@broadcom.com,
+	sri@us.ibm.com, shemminger@linux-foundation.org,
+	davem@davemloft.net, mchan@broadcom.com
+To: Krishna Kumar <krkumar2@in.ibm.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-Disposition: inline
+In-Reply-To: <20070914090137.17589.60322.sendpatchset@K50wks273871wss.in.ibm.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
- Fix build errors resulting from a recent commit that added references to 
-"stats" through "dev" from sbdma_rx_process() and sbdma_tx_process(), but 
-no definitions of that variable.
+On Fri, Sep 14, 2007 at 02:31:37PM +0530, Krishna Kumar (krkumar2@in.ibm.com) wrote:
+> @@ -3566,6 +3579,13 @@ int register_netdevice(struct net_device
+>  		}
+>  	}
+>  
+> +	if (dev->features & NETIF_F_BATCH_SKBS) {
+> +		/* Driver supports batching skb */
+> +		dev->skb_blist = kmalloc(sizeof *dev->skb_blist, GFP_KERNEL);
+> +		if (dev->skb_blist)
+> +			skb_queue_head_init(dev->skb_blist);
+> +	}
+> +
 
-Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
----
- This is probably the simplest fix possible, though at this point it is of 
-question whether it is still "struct sbmac_softc *" that should be passed 
-to these functions.  I'll leave it to another occasion though.
+A nitpick is that you should use sizeof(struct ...) and I think it
+requires flag clearing in cae of failed initialization?
 
- Applies under patch-netdev-2.6.23-rc6-20070913-sb1250-mac-typedef-8.
+>  	/*
+>  	 *	nil rebuild_header routine,
+>  	 *	that should be never called and used as just bug trap.
 
- Please apply,
-
-  Maciej
-
-patch-netdev-2.6.23-rc6-20070913-sb1250-mac-fix-1
-diff -up --recursive --new-file linux-netdev-2.6.23-rc6-20070913.macro/drivers/net/sb1250-mac.c linux-netdev-2.6.23-rc6-20070913/drivers/net/sb1250-mac.c
---- linux-netdev-2.6.23-rc6-20070913.macro/drivers/net/sb1250-mac.c	2007-09-13 17:27:52.000000000 +0000
-+++ linux-netdev-2.6.23-rc6-20070913/drivers/net/sb1250-mac.c	2007-09-14 12:06:15.000000000 +0000
-@@ -1187,6 +1187,7 @@ static void sbmac_netpoll(struct net_dev
- static int sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d,
-                              int work_to_do, int poll)
- {
-+	struct net_device *dev = sc->sbm_dev;
- 	int curidx;
- 	int hwidx;
- 	sbdmadscr_t *dsc;
-@@ -1348,6 +1349,7 @@ done:
- 
- static void sbdma_tx_process(struct sbmac_softc *sc,sbmacdma_t *d, int poll)
- {
-+	struct net_device *dev = sc->sbm_dev;
- 	int curidx;
- 	int hwidx;
- 	sbdmadscr_t *dsc;
+-- 
+	Evgeniy Polyakov
