@@ -1,90 +1,58 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][NETNS] Consolidate hashes creation in netdev_init()
-Date: Fri, 14 Sep 2007 12:40:49 +0400
-Message-ID: <46EA4911.9070401@openvz.org>
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [BUG] tg3 cannot do PXE (loses MAC address) after soft reboot
+Date: Fri, 14 Sep 2007 10:14:20 +0200
+Message-ID: <200709141014.20635.netdev@axxeo.de>
+References: <20070913083918.GA5386@xanadu.blop.info> <20070913192812.GA12053@xanadu.blop.info> <1189716472.9540.106.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Containers <containers@lists.osdl.org>, devel@openvz.org,
-	Daniel Lezcano <dlezcano@fr.ibm.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: "Lucas Nussbaum" <lucas.nussbaum@imag.fr>,
+	"netdev" <netdev@vger.kernel.org>
+To: "Michael Chan" <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:52979 "EHLO sacred.ru"
+Received: from mail.axxeo.de ([82.100.226.146]:4837 "EHLO mail.axxeo.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751806AbXINIn4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Sep 2007 04:43:56 -0400
+	id S1751476AbXINIsj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2007 04:48:39 -0400
+In-Reply-To: <1189716472.9540.106.camel@dell>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The dev_name_hash and the dev_index_hash are now booth kmalloc-ed
-(and each element is properly initialized as usually) so I think
-it's worth consolidating this code making it look nicer (and 
-saving 28 bytes of .text section ;) )
+Michael Chan schrieb:
+> On Thu, 2007-09-13 at 21:28 +0200, Lucas Nussbaum wrote:
+> > Erm, Wouldn't it be possible to print a warning when the driver loads,
+> > saying that the firmware is outdated ?
+> 
+> It's possible, but would require the driver to parse the version string.
+> The driver currently reports the version string for information and for
+> the human to parse it.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Yes, but most humans don't know all valid firmware versions of their 
+components.
 
----
+Is it enough to parse the first number in the firmware via simple_strtoul()?
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a22a95d..1a60ed2 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4258,32 +4258,39 @@ int netdev_compute_features(unsigned lon
- }
- EXPORT_SYMBOL(netdev_compute_features);
- 
-+static struct hlist_head *netdev_create_hash(void)
-+{
-+	int i;
-+	struct hlist_head *hash;
-+
-+	hash = kmalloc(sizeof(*hash) * NETDEV_HASHENTRIES, GFP_KERNEL);
-+	if (hash != NULL)
-+		for (i = 0; i < NETDEV_HASHENTRIES; i++)
-+			INIT_HLIST_HEAD(&hash[i]);
-+
-+	return hash;
-+}
-+
- /* Initialize per network namespace state */
- static int netdev_init(struct net *net)
- {
--	int i;
- 	INIT_LIST_HEAD(&net->dev_base_head);
- 	rwlock_init(&dev_base_lock);
- 
--	net->dev_name_head = kmalloc(
--		sizeof(*net->dev_name_head)*NETDEV_HASHENTRIES, GFP_KERNEL);
--	if (!net->dev_name_head)
--		return -ENOMEM;
--
--	net->dev_index_head = kmalloc(
--		sizeof(*net->dev_index_head)*NETDEV_HASHENTRIES, GFP_KERNEL);
--	if (!net->dev_index_head) {
--		kfree(net->dev_name_head);
--		return -ENOMEM;
--	}
--
--	for (i = 0; i < NETDEV_HASHENTRIES; i++)
--		INIT_HLIST_HEAD(&net->dev_name_head[i]);
--
--	for (i = 0; i < NETDEV_HASHENTRIES; i++)
--		INIT_HLIST_HEAD(&net->dev_index_head[i]);
-+	net->dev_name_head = netdev_create_hash();
-+	if (net->dev_name_head == NULL)
-+		goto err_name;
-+
-+	net->dev_index_head = netdev_create_hash();
-+	if (net->dev_index_head == NULL)
-+		goto err_idx;
- 
- 	return 0;
-+
-+err_idx:
-+	kfree(net->dev_name_head);
-+err_name:
-+	return -ENOMEM;
- }
- 
- static void netdev_exit(struct net *net)
+Then we could do this (pseudo-kernel-code :-)):
+
+
+firmare_version = simple_strtoul(version_string, NULL, 0);
+
+if (firmware_version < oldest_supported) {
+	printk(KERN_WARNING "Please upgrade the firmware (you have %s, we need at least %d)\n", 
+		version_string, oldest_supported);
+} else if (firmware_version > newest_supported) {
+	printk(KERN_INFO "Firmware version %s (latest supported: %d). You might need a newer driver.\n", 
+		version_string, oldest_supported);
+} else if (firmware_version != newest_supported) {
+	dprintk("Firmware version %s (latest supported: %d). You might consider a firmware upgrade.\n", 
+		version_string, oldest_supported);
+}
+
+Maybe that mechanism should be global somewhere? Having this kind of information available
+would help system maintenance in heterogenous hardware environments.
+
+Best regards
+
+Ingo Oeser
