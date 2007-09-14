@@ -1,139 +1,89 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: SO_BINDTODEVICE mismatch with man page & comments.
-Date: Fri, 14 Sep 2007 13:12:25 -0700 (PDT)
-Message-ID: <20070914.131225.78720330.davem@davemloft.net>
-References: <46DDDFFA.6090705@candelatech.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [git patches] net driver fixes
+Date: Fri, 14 Sep 2007 16:11:57 -0400
+Message-ID: <1189800717.20386.13.camel@xo-3E-67-34.localdomain>
+References: <20070913053022.GA16891@havoc.gtf.org>
+	 <1189793598.2508.4.camel@xo-3E-67-34.localdomain>
+	 <46EAD049.4020107@garzik.org>
+	 <1189794677.2508.19.camel@xo-3E-67-34.localdomain> <32620.1189797572@death>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: greearb@candelatech.com
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:36496
-	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758803AbXINUMd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 16:12:33 -0400
-In-Reply-To: <46DDDFFA.6090705@candelatech.com>
+Received: from mx1.redhat.com ([66.187.233.31]:57844 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755068AbXINUNa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Sep 2007 16:13:30 -0400
+In-Reply-To: <32620.1189797572@death>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Tue, 04 Sep 2007 15:45:14 -0700
-
-> According to the comment in the net/core/sock.c code (in 2.6.20), I should be able to pass a zero
-> optlen to the setsockopt method for SO_BINDTODEVICE:
- ...
-> However, earlier in that method it returns -EINVAL if optlen is < sizeof(int).
+On Fri, 2007-09-14 at 12:19 -0700, Jay Vosburgh wrote:
+> Dan Williams <dcbw@redhat.com> wrote:
+> [...]
+> >I admit that I probably don't understand the system architecture of
+> >where ehea would be used, but would this
+> >cause /sys/class/net/ethX/carrier to be TRUE even if the device has no
+> >carrier?  That seems quite wrong IMHO.  When does ehea not have a
+> >carrier?  And in that case, does sysfs say 1 or 0 for the carrier?
 > 
-> The man page has comments similar to that in the code above.
+> 	I don't work on ehea, but I'm generally familiar with it, and
+> particularly with this patch.
 > 
-> Also, even when I get the un-bind call working with code similar to:
+> 	The usual environment for ehea devices is on large systems
+> subdivided into multiple logical partitions.  One ehea device serves
+> many partitions.  By having ehea always report "link up" to the logical
+> ports (the ports seen by the partitions), the partitions can communicate
+> amongst themselves even if the external ports (the ports that go to the
+> switch or whatever) have no link.  
+
+(forgive my ignorance of course)
+
+So essentially the ehea device has a 1(+) external ports that may/may
+not be connected, but all lpars share the physical hardware itself,
+which is quite happy to let all the lpars talk to each other essentially
+via loopback even if there is no actual carrier detected on the external
+port(s)?  How does addressing work here, is it just L2 addresses?  Feel
+free to point me to some docs and tell me to shut up :)
+
+At least these days module parameters can be changed at runtime through
+sysfs.  Stuff that can only be set at module load doesn't provide
+userspace the flexibility it needs to configure stuff on the fly.
+
+Dan
+
+> 	The ehea device, more or less, acts as a switch connecting the
+> partitions together.  This switch type of functionality is not dependent
+> upon the link state of the external ports (any more than the
+> functionality of any switch is dependent upon whether or not it is
+> connected to a gateway).
 > 
-> int z = 0;
-> setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, &z, sizeof(z));
+> 	This, if I'm not mistaken, is the way ehea has always operated
+> until this particular patch was added.
 > 
-> The app I'm working on (Xorp) does not appear to work.  Perhaps because
-> the kernel does not clean up the cached route when you un-bind
-> as it does in the (re)bind logic?
+> 	This patch (to optionally pass carrier state to the logical
+> ports) was added largely for bonding, so that the bonding driver can
+> detect link failures on the external ports (when so desired).  The
+> default behavior remains the original behavior, i.e., do not pass
+> external port link state to the logical ports.
 > 
->                                  /* Remove any cached route for this socket. */
->                                  sk_dst_reset(sk);
+> 	Anyway, to answer your question, the carrier state reported for
+> the ehea interface on the partition will always be true.  Think of it as
+> reporting the link state from the logical interface to the "switch" that
+> connects the partitions; that link exists only within the ehea device
+> itself, and really can't fail unless the ehea device itself fails.
 > 
-
-Ok, the patch below is how I'm dealing with this.
-
-Let me know if things work better now, and also I would appreciate
-it if you could contact the man page maintainers to remove the
-optlen==0 language.
-
-Thanks.
-
->From 136f55cf4ad0a3b0185bfc97c68f9e4d74ddcfe7 Mon Sep 17 00:00:00 2001
-From: David S. Miller <davem@sunset.davemloft.net>
-Date: Fri, 14 Sep 2007 13:10:17 -0700
-Subject: [PATCH] [NET]: Fix two issues wrt. SO_BINDTODEVICE.
-
-1) Comments suggest that setting optlen to zero will unbind
-   the socket from whatever device it might be attached to.  This
-   hasn't been the case since at least 2.2.x because the first thing
-   this function does is return -EINVAL if 'optlen' is less than
-   sizeof(int).
-
-   Furthermore, there are not "optlen == 0" tests in the
-   SO_BINDTODEVICE code either.
-
-   This also means we can toss the "!valbool" code block because if
-   that is true we'll also see the first byte of the passed in name
-   buffer as '\0' and this will also unbind the socket.
-
-2) We should reset the cached route of the socket after we have made
-   the device binding changes, not before.
-
-Reported by Ben Greear.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/core/sock.c |   39 +++++++++++++++++----------------------
- 1 files changed, 17 insertions(+), 22 deletions(-)
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index cfed7d4..96be0ed 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -591,36 +591,31 @@ set_rcvbuf:
- 
- 		/* Bind this socket to a particular device like "eth0",
- 		 * as specified in the passed interface name. If the
--		 * name is "" or the option length is zero the socket
--		 * is not bound.
-+		 * name is "", the socket is not bound.
- 		 */
-+		if (optlen > IFNAMSIZ - 1)
-+			optlen = IFNAMSIZ - 1;
-+		memset(devname, 0, sizeof(devname));
-+		if (copy_from_user(devname, optval, optlen)) {
-+			ret = -EFAULT;
-+			break;
-+		}
- 
--		if (!valbool) {
-+		if (devname[0] == '\0') {
- 			sk->sk_bound_dev_if = 0;
- 		} else {
--			if (optlen > IFNAMSIZ - 1)
--				optlen = IFNAMSIZ - 1;
--			memset(devname, 0, sizeof(devname));
--			if (copy_from_user(devname, optval, optlen)) {
--				ret = -EFAULT;
-+			struct net_device *dev = dev_get_by_name(devname);
-+			if (!dev) {
-+				ret = -ENODEV;
- 				break;
- 			}
-+			sk->sk_bound_dev_if = dev->ifindex;
-+			dev_put(dev);
-+		}
- 
--			/* Remove any cached route for this socket. */
--			sk_dst_reset(sk);
-+		/* Remove any cached route for this socket. */
-+		sk_dst_reset(sk);
- 
--			if (devname[0] == '\0') {
--				sk->sk_bound_dev_if = 0;
--			} else {
--				struct net_device *dev = dev_get_by_name(devname);
--				if (!dev) {
--					ret = -ENODEV;
--					break;
--				}
--				sk->sk_bound_dev_if = dev->ifindex;
--				dev_put(dev);
--			}
--		}
- 		break;
- 	}
- #endif
--- 
-1.5.2.4
+> 	With the new option enabled, then ehea is more or less mimicing
+> a trunk failover type of function, and passing the carrier state of the
+> "external switch port" to the internal port.
+> 
+> 	-J
+> 
+> ---
+> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
 
