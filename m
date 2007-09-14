@@ -1,292 +1,110 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [ofa-general] Re: [PATCH v2] iw_cxgb3: Support "iwarp-only"
-	interfaces to avoid 4-tuple conflicts.
-Date: Fri, 14 Sep 2007 17:09:41 +0400
-Message-ID: <20070914130941.GG18517@2ka.mipt.ru>
-References: <20070913191617.30937.95960.stgit@dell3.ogc.int>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: RFC: possible NAPI improvements to reduce interrupt rates for
+	low traffic rates
+Date: Fri, 14 Sep 2007 09:14:30 -0400
+Message-ID: <1189775670.4266.50.camel@localhost>
+References: <200709061416.l86EG0Vb017675@quickie.katalix.com>
+	 <1189120020.4259.68.camel@localhost> <46E11A61.9030409@katalix.com>
+	 <1189171370.4234.38.camel@localhost>
+	 <20070912030428.16059af6.billfink@mindspring.com>
+	 <1189599142.4326.38.camel@localhost>  <46E7EE89.9060006@katalix.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, rdreier@cisco.com, general@lists.openfabrics.org,
-	linux-kernel@vger.kernel.org
-To: Steve Wise <swise@opengridcomputing.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-Disposition: inline
-In-Reply-To: <20070913191617.30937.95960.stgit@dell3.ogc.int>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Bill Fink <billfink@mindspring.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, jeff@garzik.org, mandeep.baines@gmail.com,
+	ossthema@de.ibm.com, Stephen Hemminger <shemminger@osdl.org>,
+	Rick Jones <rick.jones2@hp.com>
+To: James Chapman <jchapman@katalix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nz-out-0506.google.com ([64.233.162.224]:11171 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756768AbXINNOg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 09:14:36 -0400
+Received: by nz-out-0506.google.com with SMTP id s18so656293nze
+        for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 06:14:35 -0700 (PDT)
+In-Reply-To: <46E7EE89.9060006@katalix.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 13, 2007 at 02:16:17PM -0500, Steve Wise (swise@opengridcomputing.com) wrote:
-> 
-> iw_cxgb3: Support "iwarp-only" interfaces to avoid 4-tuple conflicts.
-> 
-> Version 2:
-> 
-> - added a per-device mutex for the address and listening endpoints lists.
-> 
-> - wait for all replies if sending multiple passive_open requests to rnic.
-> 
-> - log warning if no addresses are available when a listen is issued.
-> 
-> - tested
-> 
-> ---
-> 
-> Design:
-> 
-> The sysadmin creates "for iwarp use only" alias interfaces of the form
-> "devname:iw*" where devname is the native interface name (eg eth0) for the
-> iwarp netdev device.  The alias label can be anything starting with "iw".
-> The "iw" immediately after the ':' is the key used by the iw_cxgb3 driver.
-> 
-> EG:
-> 	ifconfig eth0 192.168.70.123 up
-> 	ifconfig eth0:iw1 192.168.71.123 up
-> 	ifconfig eth0:iw2 192.168.72.123 up
-> 
-> In the above example, 192.168.70/24 is for TCP traffic, while
-> 192.168.71/24 and 192.168.72/24 are for iWARP/RDMA use.
-> 
-> The rdma-only interface must be on its own IP subnet. This allows routing
-> all rdma traffic onto this interface.
-> 
-> The iWARP driver must translate all listens on address 0.0.0.0 to the
-> set of rdma-only ip addresses for the device in question.  This prevents
-> incoming connect requests to the TCP ipaddresses from going up the
-> rdma stack.
+On Wed, 2007-12-09 at 14:50 +0100, James Chapman wrote:
 
-If the only solutions to solve a problem with hardware are to steal
-packets or became a real device, then real device is much more
-appropriate. Is that correct?
+> By low traffic, I assume you mean a rate at which the NAPI driver 
+> doesn't stay in polled mode. 
 
-> +static void insert_ifa(struct iwch_dev *rnicp, struct in_ifaddr *ifa)
-> +{
-> +	struct iwch_addrlist *addr;
-> +
-> +	addr = kmalloc(sizeof *addr, GFP_KERNEL);
+i.e:
+"one interupt per packet per napi poll" which cause about 1-2 more IOs
+in comparison to the case where you didnt do NAPI.
 
-As a small nitpick: this wants to be sizeof(struct in_ifaddr)
+> The problem is that that rate is getting 
+> higher all the time, as interface and CPU speeds increase. 
 
-> +	if (!addr) {
-> +		printk(KERN_ERR MOD "%s - failed to alloc memory!\n",
-> +		       __FUNCTION__);
-> +		return;
-> +	}
-> +	addr->ifa = ifa;
-> +	mutex_lock(&rnicp->mutex);
-> +	list_add_tail(&addr->entry, &rnicp->addrlist);
-> +	mutex_unlock(&rnicp->mutex);
-> +}
+indeed;
+While i dont want to throw more work at you, with some of the things
+that improve the IO cost like PCI express, MSI, and some of the
+intelligent things the tg3 does, is this problem still rampant etc? I
+think if you can find (seems you have) one "modern" machine (with MSI
+and a tg3 etc) that has this problem circa 2007 that will be a good
+start.
 
-What about providing error back to caller and fail to register?
+> This results 
+> in too many interrupts and NAPI thrashing in/out of polled mode very 
+> quickly.
 
-> +static void remove_ifa(struct iwch_dev *rnicp, struct in_ifaddr *ifa)
-> +{
-> +	struct iwch_addrlist *addr, *tmp;
-> +
-> +	mutex_lock(&rnicp->mutex);
-> +	list_for_each_entry_safe(addr, tmp, &rnicp->addrlist, entry) {
-> +		if (addr->ifa == ifa) {
-> +			list_del_init(&addr->entry);
-> +			kfree(addr);
-> +			goto out;
-> +		}
-> +	}
-> +out:
-> +	mutex_unlock(&rnicp->mutex);
-> +}
-> +
-> +static int netdev_is_ours(struct iwch_dev *rnicp, struct net_device *netdev)
-> +{
-> +	int i;
-> +
-> +	for (i = 0; i < rnicp->rdev.port_info.nports; i++)
-> +		if (netdev == rnicp->rdev.port_info.lldevs[i])
-> +			return 1;
-> +	return 0;
-> +}
-> +
-> +static inline int is_iwarp_label(char *label)
-> +{
-> +	char *colon;
-> +
-> +	colon = strchr(label, ':');
-> +	if (colon && !strncmp(colon+1, "iw", 2))
-> +		return 1;
-> +	return 0;
-> +}
+indeed.
 
-I.e. it is not allowed to create ':iw' alias for anyone else?
-Well, looks crappy, but if it is the only solution...
+> Yes please. We need an analysis of what happens to cpu usage, latency, 
+> pps etc when various factors are changed, e.g. input pps, NAPI busy-idle 
+> delay etc. The main purpose of my RFC wasn't to push a patch into the 
+> kernel right now, it was to highlight the issue and to find out if 
+> others were already working on it. The feedback has been good so far. I 
+> just need to find some time to do some testing. :)
 
-> +static int nb_callback(struct notifier_block *self, unsigned long event,
-> +		       void *ctx)
-> +{
-> +	struct in_ifaddr *ifa = ctx;
-> +	struct iwch_dev *rnicp = container_of(self, struct iwch_dev, nb);
-> +
-> +	PDBG("%s rnicp %p event %lx\n", __FUNCTION__, rnicp, event);
-> +
-> +	switch (event) {
-> +	case NETDEV_UP:
-> +		if (netdev_is_ours(rnicp, ifa->ifa_dev->dev) &&
-> +		    is_iwarp_label(ifa->ifa_label)) {
-> +			PDBG("%s label %s addr 0x%x added\n",
-> +				__FUNCTION__, ifa->ifa_label, ifa->ifa_address);
-> +			insert_ifa(rnicp, ifa);
-> +			iwch_listeners_add_addr(rnicp, ifa->ifa_address);
-> +		}
-> +		break;
-> +	case NETDEV_DOWN:
-> +		if (netdev_is_ours(rnicp, ifa->ifa_dev->dev) &&
-> +		    is_iwarp_label(ifa->ifa_label)) {
-> +			PDBG("%s label %s addr 0x%x deleted\n",
-> +				__FUNCTION__, ifa->ifa_label, ifa->ifa_address);
-> +			iwch_listeners_del_addr(rnicp, ifa->ifa_address);
-> +			remove_ifa(rnicp, ifa);
-> +		}
-> +		break;
-> +	default:
-> +		break;
-> +	}
-> +	return 0;
-> +}
-> +
-> +static void delete_addrlist(struct iwch_dev *rnicp)
-> +{
-> +	struct iwch_addrlist *addr, *tmp;
-> +
-> +	mutex_lock(&rnicp->mutex);
-> +	list_for_each_entry_safe(addr, tmp, &rnicp->addrlist, entry) {
-> +		list_del_init(&addr->entry);
-> +		kfree(addr);
-> +	}
-> +	mutex_unlock(&rnicp->mutex);
-> +}
-> +
-> +static void populate_addrlist(struct iwch_dev *rnicp)
-> +{
-> +	int i;
-> +	struct in_device *indev;
-> +
-> +	for (i = 0; i < rnicp->rdev.port_info.nports; i++) {
-> +		indev = in_dev_get(rnicp->rdev.port_info.lldevs[i]);
-> +		if (!indev)
-> +			continue;
-> +		for_ifa(indev)
-> +			if (is_iwarp_label(ifa->ifa_label)) {
-> +				PDBG("%s label %s addr 0x%x added\n",
-> +				     __FUNCTION__, ifa->ifa_label,
-> +				     ifa->ifa_address);
-> +				insert_ifa(rnicp, ifa);
-> +			}
-> +		endfor_ifa(indev);
-> +	}
-> +}
-> +
->  static void rnic_init(struct iwch_dev *rnicp)
->  {
->  	PDBG("%s iwch_dev %p\n", __FUNCTION__,  rnicp);
-> @@ -70,6 +187,12 @@ static void rnic_init(struct iwch_dev *r
->  	idr_init(&rnicp->qpidr);
->  	idr_init(&rnicp->mmidr);
->  	spin_lock_init(&rnicp->lock);
-> +	INIT_LIST_HEAD(&rnicp->addrlist);
-> +	INIT_LIST_HEAD(&rnicp->listen_eps);
-> +	mutex_init(&rnicp->mutex);
-> +	rnicp->nb.notifier_call = nb_callback;
-> +	populate_addrlist(rnicp);
-> +	register_inetaddr_notifier(&rnicp->nb);
+I love your message. From a blackbox perspective, yes we have some
+challenges for NAPI below certain thresholds of traffic. 
+My claim (in the paper) was the discrepancy between the cost of IO
+access vs cost of RAM vs cost of caches vs CPU speeds has gotten too
+high.
+CPU Vendors have been paying close attention to most but IO. So avoiding
+IO when you can is a good thing.
+
+> Jamal, do you have more details? Are people saying NAPI gets too much of 
+> the CPU pie because they profiled it?
+
+In the old days Manfred Spraul actually did profile.
+Most of the other folks were running benchmarks which account for cpu
+use in addition to resources like bandwidth and latency. And so while
+bandwidth and latency didnt affect them that much, they observed their
+benchmarks didnt look good at low rates (even when they looked excellent
+at high rates) because of CPU.
+
+>  Are they complaining that system 
+> behavior degrades too much under certain network traffic conditions?
+
+yes - Under low traffic, high speed cpu youd notice a slightly higher
+cpu use.
+
 >  
->  	rnicp->attr.vendor_id = 0x168;
->  	rnicp->attr.vendor_part_id = 7;
-> @@ -148,6 +271,8 @@ static void close_rnic_dev(struct t3cdev
->  	mutex_lock(&dev_mutex);
->  	list_for_each_entry_safe(dev, tmp, &dev_list, entry) {
->  		if (dev->rdev.t3cdev_p == tdev) {
-> +			unregister_inetaddr_notifier(&dev->nb);
-> +			delete_addrlist(dev);
->  			list_del(&dev->entry);
->  			iwch_unregister_device(dev);
->  			cxio_rdev_close(&dev->rdev);
-> diff --git a/drivers/infiniband/hw/cxgb3/iwch.h b/drivers/infiniband/hw/cxgb3/iwch.h
-> index caf4e60..7fa0a47 100644
-> --- a/drivers/infiniband/hw/cxgb3/iwch.h
-> +++ b/drivers/infiniband/hw/cxgb3/iwch.h
-> @@ -36,6 +36,8 @@ #include <linux/mutex.h>
->  #include <linux/list.h>
->  #include <linux/spinlock.h>
->  #include <linux/idr.h>
-> +#include <linux/notifier.h>
-> +#include <linux/inetdevice.h>
->  
->  #include <rdma/ib_verbs.h>
->  
-> @@ -101,6 +103,11 @@ struct iwch_rnic_attributes {
->  	u32 cq_overflow_detection;
->  };
->  
-> +struct iwch_addrlist {
-> +	struct list_head entry;
-> +	struct in_ifaddr *ifa;
-> +};
-> +
->  struct iwch_dev {
->  	struct ib_device ibdev;
->  	struct cxio_rdev rdev;
-> @@ -111,6 +118,10 @@ struct iwch_dev {
->  	struct idr mmidr;
->  	spinlock_t lock;
->  	struct list_head entry;
-> +	struct notifier_block nb;
-> +	struct list_head addrlist;
-> +	struct list_head listen_eps;
-> +	struct mutex mutex;
->  };
->  
->  static inline struct iwch_dev *to_iwch_dev(struct ib_device *ibdev)
-> diff --git a/drivers/infiniband/hw/cxgb3/iwch_cm.c b/drivers/infiniband/hw/cxgb3/iwch_cm.c
-> index 1cdfcd4..954069f 100644
-> --- a/drivers/infiniband/hw/cxgb3/iwch_cm.c
-> +++ b/drivers/infiniband/hw/cxgb3/iwch_cm.c
-> @@ -1127,23 +1127,149 @@ static int act_open_rpl(struct t3cdev *t
->  	return CPL_RET_BUF_DONE;
->  }
->  
-> -static int listen_start(struct iwch_listen_ep *ep)
-> +static int wait_for_reply(struct iwch_ep_common *epc)
-> +{
-> +	PDBG("%s ep %p waiting\n", __FUNCTION__, epc);
-> +	wait_event(epc->waitq, epc->rpl_done);
-> +	PDBG("%s ep %p done waiting err %d\n", __FUNCTION__, epc, epc->rpl_err);
-> +	return epc->rpl_err;
-> +}
-> +
-> +static struct iwch_listen_entry *alloc_listener(struct iwch_listen_ep *ep,
-> +						  __be32 addr)
+> Mouse cursor movement jittery? Real-time apps such as music/video 
+> players starved of CPU? Is it possible they blame NAPI because they see 
+> tangible effects on their system, not because measured CPU usage is 
+> high? 
 
-Do you know, that cxgb3 function names suck? :)
-Especially get_skb().
+If i recall correctly transactional type benchmarks is where this was
+observed. Some IBM and Intel people bring it up every few months and
+maybe Rick Jones once in a while.
+Rick, care to comment on the benchmarks?
 
-> +{
-> +	struct iwch_dev *h = to_iwch_dev(ep->com.cm_id->device);
-> +	struct iwch_listen_entry *le;
-> +
-> +	le = kmalloc(sizeof *le, GFP_KERNEL);
+> I say this because my music/video player and mouse cursor behave 
+> _much_ better with my NAPI changes during general use, despite the 
+> increase in measured cpu load. Even ftp can make my system's mouse 
+> cursor jitter...
 
-Wants to be sizeof(struct iwch_listen_entry) and in other places too.
+Like i told you in my other email - i did notice something similar, i
+just couldnt put my finger to it and at some points thought i was
+imagining it.
 
-I skipped rdma internals of the patch, since I do not know it enough 
-to judge, but your approach looks good from core network point of view.
-Maybe you should automatically create an alias each time new interface
-is added so that admin would not care about proper aliases?
+cheers,
+jamal
 
--- 
-	Evgeniy Polyakov
