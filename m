@@ -1,53 +1,43 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [ofa-general] InfiniBand/RDMA merge plans for 2.6.24
-Date: Fri, 14 Sep 2007 09:18:01 -0700
-Message-ID: <adaveadjk5i.fsf@cisco.com>
-References: <adahclymos8.fsf@cisco.com>
-	<46E97BB0.9030106@opengridcomputing.com> <adaps0ml18e.fsf@cisco.com>
-	<1189724358.9540.113.camel@dell>
+From: "Satyam Sharma" <satyam.sharma@gmail.com>
+Subject: Re: [PATCH v3] Make the pr_*() family of macros in kernel.h complete
+Date: Fri, 14 Sep 2007 22:11:59 +0530
+Message-ID: <a781481a0709140941w4ec76582j40ee53a189b99b05@mail.gmail.com>
+References: <11896151802410-git-send-email-Emilian.Medve@Freescale.com>
+	 <598D5675D34BE349929AF5EDE9B03E270155578C@az33exm24.fsl.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Steve Wise" <swise@opengridcomputing.com>,
-	"netdev" <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org, anilgv@broadcom.com,
-	uri@broadcom.com
-To: "Michael Chan" <mchan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-3-in.cisco.com ([171.71.176.72]:6601 "EHLO
-	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764614AbXINQSO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 12:18:14 -0400
-In-Reply-To: <1189724358.9540.113.camel@dell> (Michael Chan's message of "Thu, 13 Sep 2007 15:59:18 -0700")
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, i2c@lm-sensors.org,
+	linux-omap-open-source@linux.omap.com
+To: "Medve Emilian-EMMEDVE1" <Emilian.Medve@freescale.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758740AbXINQmW@vger.kernel.org>
+In-Reply-To: <598D5675D34BE349929AF5EDE9B03E270155578C@az33exm24.fsl.freescale.net>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > > I've been meaning to track down the bnx2 iscsi offload patch to look
- > > and see if this issue is addressed, since the same problem seems to
- > > exist: it seems an iscsi connection and a main stack tcp connection
- > > might share the same 4-tuple unless something is done to avoid that
- > > happening.
+> > -----Original Message-----
+> > From: Medve Emilian-EMMEDVE1
+> > Sent: Wednesday, September 12, 2007 11:40 AM
+> > To: linux-kernel@vger.kernel.org; netdev@vger.kernel.org;
+> > i2c@lm-sensors.org; linux-omap-open-source@linux.omap.com
+> > Cc: Medve Emilian-EMMEDVE1
 
- > iSCSI does not do passive listens, only active connections to the
- > target.  But you're right, the port space is still shared between iSCSI
- > and the main stack.  We currently rely on user apps binding to the main
- > stack to reserve certain ephemeral ports, and telling the iSCSI driver
- > which ports to use.
+... no maintainer explicitly copied on the original mail who'd push this in.
+Little thing, but LKML is too noisy, so you need to Cc: folks explicitly ...
 
-Got it... I wasn't thinking that clearly, but it is clear that a full
-4-tuple collision with only active connections is quite unlikely.  I
-guess you would have to make both an offloaded and a non-offloaded
-iSCSI connection to the same target and get really unlucky with
-ephemeral port allocation.  So in practice I guess it's not an issue
-at all with your driver yet.
+> > Subject: [PATCH v3] Make the pr_*() family of macros in
+> > kernel.h complete
+> >
+> > Other/Some pr_*() macros are already defined in kernel.h, but
+> > pr_err() was defined
+> > multiple times in several other places
+> >
+> > Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
 
-However, do you have any plans to support iSCSI offload for targets?
-Also, looking at the first CNIC patch, I can't help but notice that
-you seem to have at least some support for iWARP there.  How does the
-CNIC look?  Does it share the same interface/addresses as the
-non-offload NIC, or does it create a completely separate netdevice?
+I think it's a useful cleanup, patch looks good to me ...
 
-I want to make sure that whatever solution we come up with for cxgb3
-doesn't cause problems for you.  And of course if you have a better
-idea than what Steve has come up with, that would be great :)
+Reviewed-by: Satyam Sharma <satyam@infradead.org>
 
- - R.
+[ Original diff is at: http://lkml.org/lkml/diff/2007/9/12/182/1 ]
