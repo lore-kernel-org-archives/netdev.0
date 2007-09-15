@@ -1,51 +1,112 @@
-From: "L F" <lfabio.linux@gmail.com>
-Subject: Re: e1000 driver and samba
-Date: Sat, 15 Sep 2007 08:27:18 -0400
-Message-ID: <780b6f780709150527v50ff71b2sf9e5d17b62afeb86@mail.gmail.com>
-References: <780b6f780709131904j41148fb4p827e87530b15d6e9@mail.gmail.com>
-	 <46EAC25B.2060404@intel.com>
-	 <780b6f780709141140l1fd586c9p2aa8efe6ed803d38@mail.gmail.com>
-	 <46EAF644.1040006@intel.com>
-	 <780b6f780709141737w4e17f0a8r944555f27f7344dd@mail.gmail.com>
-	 <20070915010916.d8bd035d.billfink@mindspring.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Distributed storage. Move away from char device ioctls.
+Date: Sat, 15 Sep 2007 16:29:57 +0400
+Message-ID: <20070915122957.GA25752@2ka.mipt.ru>
+References: <20070914185429.GA9439@2ka.mipt.ru> <46EADC02.9070409@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Kok, Auke" <auke-jan.h.kok@intel.com>
-To: "Bill Fink" <billfink@mindspring.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.180]:22612 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750780AbXIOM1S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Sep 2007 08:27:18 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so1309216wah
-        for <netdev@vger.kernel.org>; Sat, 15 Sep 2007 05:27:18 -0700 (PDT)
-In-Reply-To: <20070915010916.d8bd035d.billfink@mindspring.com>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:50538 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750927AbXIOMaN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Sep 2007 08:30:13 -0400
 Content-Disposition: inline
+In-Reply-To: <46EADC02.9070409@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/15/07, Bill Fink <billfink@mindspring.com> wrote:
-> Would it be worth a shot to try disabling the receiver hardware
-> checksumming (ethtool -K ethX rx off)?
-I just did, unfortunately it doesn't seem to change much.
-In the various attempts, however, I seem to have improved something,
-maybe. As I mentioned, the machine work as both a gateway and a samba
-server. It seems that as long as the one samba operation is the only
-activity that goes on between a specific client and the samba server,
-at least I do not get timeouts. I have to investigate further on file
-corruption, but the timeout doesn't occur.
-As soon as I try to perform a second samba operation - even on read -
-or I generate singificant net traffic, the samba connection times out.
-I have to assume that the added load is just enough to overload the
-link.
-The other curious fact is that occasionally the writing effectively
-pauses for 1-2s. It then resumes, with no ill effect. I have to assume
-that when the timeouts occur, the same thing happens for a
-sufficiently long period of time and the connection drops.
-For further reference, in case any of it is relevant, the samba shares
-are ext3 filesystems residing on a SATA based RAID5 (md) array. I
-include this because at a certain point I started suspecting the
-filesystem before the network, but it doesn't make too much sense.
+Hi Jeff.
 
-LF
+On Fri, Sep 14, 2007 at 03:07:46PM -0400, Jeff Garzik (jeff@garzik.org) wrote:
+> >Further TODO list includes:
+> >* implement optional saving of mirroring/linear information on the remote
+> >	nodes (simple)
+> >* new redundancy algorithm (complex)
+> >* some thoughts about distributed filesystem tightly connected to DST
+> >	(far-far planes so far)
+> >
+> >Homepage:
+> >http://tservice.net.ru/~s0mbre/old/?section=projects&item=dst
+> >
+> >Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+> 
+> My thoughts.  But first a disclaimer:   Perhaps you will recall me as 
+> one of the people who really reads all your patches, and examines your 
+> code and proposals closely.  So, with that in mind...
+
+:)
+
+> I question the value of distributed block services (DBS), whether its 
+> your version or the others out there.  DBS are not very useful, because 
+> it still relies on a useful filesystem sitting on top of the DBS.  It 
+> devolves into one of two cases:  (1) multi-path much like today's SCSI, 
+> with distributed filesystem arbitrarion to ensure coherency, or (2) the 
+> filesystem running on top of the DBS is on a single host, and thus, a 
+> single point of failure (SPOF).
+> 
+> It is quite logical to extend the concepts of RAID across the network, 
+> but ultimately you are still bound by the inflexibility and simplicity 
+> of the block device.
+
+Yes, block device itself is not able to scale well, but it is the place
+for redundancy, since filesystem will just fail if underlying device
+does not work correctly and FS actually does not know about where it
+should place redundancy bits - it might happen to be the same broken 
+disk, so I created a low-level device which distribute requests itself.
+It is not allowed to mount it via multiple points, that is where
+distributed filesystem must enter the show - multiple remote nodes
+export its devices via network, each client gets address of the remote
+node to work with, connect to it and process requests. All those bits
+are already in the DST, next logical step is to connect it with
+higher-layer filesystem.
+
+> In contrast, a distributed filesystem offers far more scalability, 
+> eliminates single points of failure, and offers more room for 
+> optimization and redundancy across the cluster.
+> 
+> A distributed filesystem is also much more complex, which is why 
+> distributed block devices are so appealing :)
+> 
+> With a redundant, distributed filesystem, you simply do not need any 
+> complexity at all at the block device level.  You don't even need RAID.
+> 
+> It is my hope that you will put your skills towards a distributed 
+> filesystem :)  Of the current solutions, GFS (currently in kernel) 
+> scales poorly, and NFS v4.1 is amazingly bloated and overly complex.
+> 
+> I've been waiting for years for a smart person to come along and write a 
+> POSIX-only distributed filesystem.
+
+Well, originally (about half a year ago) I started to draft a generic
+filesystem which would be just superior to existing designs, not
+overbloated like zfs, and just faster.
+I do believe it can be implemented.
+Further I added network capabilities (since what I saw that time 
+(AFS was proposed) I did not like - I'm not saying it is bad or 
+something like that at all, but I would implement things differently) 
+into design drafts.
+
+When Chris Mason announced btrfs, I found that quite a few new ideas 
+are already implemented there, so I postponed project (although
+direction of the developement of the btrfs seems to move to the zfs side
+with some questionable imho points, so I think I can jump to the wagon
+of new filesystems right now). 
+
+DST is low level for my (theoretical so far) filesystem (actually its 
+network part) like kevent was a low level system for network AIO (originally).
+
+No matter what filesystem works with network it implements some kind 
+of logic completed in DST.
+Sometimes it is very simple, sometimes a bit more complex, but
+eventually it is a network entity with parts of stuff I put into DST.
+Since I postponed the project (looking at btrfs and its results), I
+completed DST as a standalone block device.
+
+So, essentially, a filesystem with simple distributed facilities is on
+(my) radar, but so far you are first who requested it :)
+
+-- 
+	Evgeniy Polyakov
