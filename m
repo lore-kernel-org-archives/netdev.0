@@ -1,286 +1,129 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] ipg: add IP1000A driver to kernel tree
-Date: Fri, 14 Sep 2007 19:21:40 -0700
-Message-ID: <20070914192140.15b18ecb.akpm@linux-foundation.org>
-References: <1189774938.3353.1.camel@localhost.localdomain>
-	<20070914211108.GB22975@electric-eye.fr.zoreil.com>
-	<20070914212105.GA28233@electric-eye.fr.zoreil.com>
+From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Subject: Re: [2/3] 2.6.23-rc6: known regressions v2
+Date: Sat, 15 Sep 2007 04:29:05 +0200
+Message-ID: <46EB4371.307@googlemail.com>
+References: <46EB3E94.7080704@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, Jesse Huang <jesse@icplus.com.tw>,
-	netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	s.l-h@gmx.de
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	linux-fsdevel@vger.kernel.org,
+	Dave Kleikamp <shaggy@austin.ibm.com>,
+	jfs-discussion@lists.sourceforge.net,
+	Andy Whitcroft <apw@shadowen.org>, sct@redhat.com,
+	adilger@clusterfs.com, linux-ext4@vger.kernel.org,
+	netdev@vger.kernel.org, Shish <shish@shishnet.org>,
+	Karl Meyer <adhocrocker@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Daniel Drake <dsd@gentoo.org>,
+	Oliver Neukum <oliver@neukum.org>,
+	linux-usb-devel@lists.sourceforge.net,
+	Florian Lohoff <flo@rfc822.org>,
+	=?ISO-8859-2?Q?Toralf_F=F6rster?= <toralf.foerster@gmx.de>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:40849 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751842AbXIOCW1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 22:22:27 -0400
-In-Reply-To: <20070914212105.GA28233@electric-eye.fr.zoreil.com>
+Received: from ug-out-1314.google.com ([66.249.92.169]:20414 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760015AbXIOC30 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 22:29:26 -0400
+Received: by ug-out-1314.google.com with SMTP id z38so589484ugc
+        for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:29:24 -0700 (PDT)
+In-Reply-To: <46EB3E94.7080704@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 14 Sep 2007 23:21:05 +0200 Francois Romieu <romieu@fr.zoreil.com> wrote:
+Hi all,
 
-> ...
->
-> +
-> +static void ipg_dump_tfdlist(struct net_device *dev)
-> +{
-> +	struct ipg_nic_private *sp = netdev_priv(dev);
-> +	void __iomem *ioaddr = sp->ioaddr;
-> +	unsigned int i;
-> +	u32 offset;
-> +
-> +	IPG_DEBUG_MSG("_dump_tfdlist\n");
-> +
-> +	printk(KERN_INFO "tx_current         = %2.2x\n", sp->tx_current);
-> +	printk(KERN_INFO "tx_dirty = %2.2x\n", sp->tx_dirty);
-> +	printk(KERN_INFO "TFDList start address = %16.16lx\n",
-> +	       (unsigned long) sp->txd_map);
-> +	printk(KERN_INFO "TFDListPtr register   = %8.8x%8.8x\n",
-> +	       ipg_r32(IPG_TFDLISTPTR1), ipg_r32(IPG_TFDLISTPTR0));
-> +
-> +	for (i = 0; i < IPG_TFDLIST_LENGTH; i++) {
-> +		offset = (u32) &sp->txd[i].next_desc - (u32) sp->txd;
-> +		printk(KERN_INFO "%2.2x %4.4x TFDNextPtr = %16.16lx\n", i,
-> +		       offset, (unsigned long) sp->txd[i].next_desc);
-> +
-> +		offset = (u32) &sp->txd[i].tfc - (u32) sp->txd;
+Here is a list of some known regressions in 2.6.23-rc6.
 
-Is the u32 cast safe here on all architectures?
+=46eel free to add new regressions/remove fixed etc.
+http://kernelnewbies.org/known_regressions
 
-> +		printk(KERN_INFO "%2.2x %4.4x TFC        = %16.16lx\n", i,
-> +		       offset, (unsigned long) sp->txd[i].tfc);
-> +		offset = (u32) &sp->txd[i].frag_info - (u32) sp->txd;
-> +		printk(KERN_INFO "%2.2x %4.4x frag_info   = %16.16lx\n", i,
-> +		       offset, (unsigned long) sp->txd[i].frag_info);
-> +	}
-> +}
->
-> ...
->
-> +static int mdio_read(struct net_device * dev, int phy_id, int phy_reg)
-> +{
-> +	void __iomem *ioaddr = ipg_ioaddr(dev);
-> +	/*
-> +	 * The GMII mangement frame structure for a read is as follows:
-> +	 *
-> +	 * |Preamble|st|op|phyad|regad|ta|      data      |idle|
-> +	 * |< 32 1s>|01|10|AAAAA|RRRRR|z0|DDDDDDDDDDDDDDDD|z   |
-> +	 *
-> +	 * <32 1s> = 32 consecutive logic 1 values
-> +	 * A = bit of Physical Layer device address (MSB first)
-> +	 * R = bit of register address (MSB first)
-> +	 * z = High impedance state
-> +	 * D = bit of read data (MSB first)
-> +	 *
-> +	 * Transmission order is 'Preamble' field first, bits transmitted
-> +	 * left to right (first to last).
-> +	 */
-> +	struct {
-> +		u32 field;
-> +		unsigned int len;
-> +	} p[] = {
-> +		{ GMII_PREAMBLE,	32 },	/* Preamble */
-> +		{ GMII_ST,		2  },	/* ST */
-> +		{ GMII_READ,		2  },	/* OP */
-> +		{ phy_id,		5  },	/* PHYAD */
-> +		{ phy_reg,		5  },	/* REGAD */
-> +		{ 0x0000,		2  },	/* TA */
-> +		{ 0x0000,		16 },	/* DATA */
-> +		{ 0x0000,		1  }	/* IDLE */
-> +	};
+List of Aces
 
-This will be built on the stack at runtime.
+Name                    Regressions fixed since 21-Jun-2007
+Adrian Bunk                            10
+Andi Kleen                             7
+Linus Torvalds                         6
+Alan Stern                             5
+Hugh Dickins                           5
+Trond Myklebust                        5
+Andrew Morton                          4
+David S. Miller                        4
+Al Viro                                3
+Alexey Starikovskiy                    3
+Cornelia Huck                          3
+Jens Axboe                             3
+Stephen Hemminger                      3
+Tejun Heo                              3
 
-> +	unsigned int i, j;
-> +	u8 polarity, data;
-> +
-> +	polarity  = ipg_r8(PHY_CTRL);
-> +	polarity &= (IPG_PC_DUPLEX_POLARITY | IPG_PC_LINK_POLARITY);
-> +
-> +	/* Create the Preamble, ST, OP, PHYAD, and REGAD field. */
-> +	for (j = 0; j < 5; j++) {
-> +		for (i = 0; i < p[j].len; i++) {
-> +			/* For each variable length field, the MSB must be
-> +			 * transmitted first. Rotate through the field bits,
-> +			 * starting with the MSB, and move each bit into the
-> +			 * the 1st (2^1) bit position (this is the bit position
-> +			 * corresponding to the MgmtData bit of the PhyCtrl
-> +			 * register for the IPG).
-> +			 *
-> +			 * Example: ST = 01;
-> +			 *
-> +			 *          First write a '0' to bit 1 of the PhyCtrl
-> +			 *          register, then write a '1' to bit 1 of the
-> +			 *          PhyCtrl register.
-> +			 *
-> +			 * To do this, right shift the MSB of ST by the value:
-> +			 * [field length - 1 - #ST bits already written]
-> +			 * then left shift this result by 1.
-> +			 */
-> +			data  = (p[j].field >> (p[j].len - 1 - i)) << 1;
-> +			data &= IPG_PC_MGMTDATA;
-> +			data |= polarity | IPG_PC_MGMTDIR;
-> +
-> +			ipg_drive_phy_ctl_low_high(ioaddr, data);
-> +		}
-> +	}
-> +
-> +	send_three_state(ioaddr, polarity);
-> +
-> +	read_phy_bit(ioaddr, polarity);
-> +
-> +	/*
-> +	 * For a read cycle, the bits for the next two fields (TA and
-> +	 * DATA) are driven by the PHY (the IPG reads these bits).
-> +	 */
-> +	for (i = 0; i < p[6].len; i++) {
-> +		p[6].field |=
-> +		    (read_phy_bit(ioaddr, polarity) << (p[6].len - 1 - i));
-> +	}
 
-Simply because we're using p[6] as a temporary variable.
 
-This can be tightened up.
+=46S
 
-> +	send_three_state(ioaddr, polarity);
-> +	send_three_state(ioaddr, polarity);
-> +	send_three_state(ioaddr, polarity);
-> +	send_end(ioaddr, polarity);
-> +
-> +	/* Return the value of the DATA field. */
-> +	return p[6].field;
-> +}
-> +
-> +/*
-> + * Write to a register from the Physical Layer device located
-> + * on the IPG NIC, using the IPG PHYCTRL register.
-> + */
-> +static void mdio_write(struct net_device *dev, int phy_id, int phy_reg, int val)
-> +{
-> +	void __iomem *ioaddr = ipg_ioaddr(dev);
-> +	/*
-> +	 * The GMII mangement frame structure for a read is as follows:
-> +	 *
-> +	 * |Preamble|st|op|phyad|regad|ta|      data      |idle|
-> +	 * |< 32 1s>|01|10|AAAAA|RRRRR|z0|DDDDDDDDDDDDDDDD|z   |
-> +	 *
-> +	 * <32 1s> = 32 consecutive logic 1 values
-> +	 * A = bit of Physical Layer device address (MSB first)
-> +	 * R = bit of register address (MSB first)
-> +	 * z = High impedance state
-> +	 * D = bit of write data (MSB first)
-> +	 *
-> +	 * Transmission order is 'Preamble' field first, bits transmitted
-> +	 * left to right (first to last).
-> +	 */
-> +	struct {
-> +		u32 field;
-> +		unsigned int len;
-> +	} p[] = {
-> +		{ GMII_PREAMBLE,	32 },	/* Preamble */
-> +		{ GMII_ST,		2  },	/* ST */
-> +		{ GMII_WRITE,		2  },	/* OP */
-> +		{ phy_id,		5  },	/* PHYAD */
-> +		{ phy_reg,		5  },	/* REGAD */
-> +		{ 0x0002,		2  },	/* TA */
-> +		{ val & 0xffff,		16 },	/* DATA */
-> +		{ 0x0000,		1  }	/* IDLE */
-> +	};
+Subject         : hanging ext3 dbench tests
+References      : http://lkml.org/lkml/2007/9/11/176
+Last known good : ?
+Submitter       : Andy Whitcroft <apw@shadowen.org>
+Caused-By       : ?
+Handled-By      : ?
+Status          : under test -- unreproducible at present
 
-similar here
+Subject         : umount triggers a warning in jfs and takes almost a m=
+inute
+References      : http://lkml.org/lkml/2007/9/4/73
+Last known good : ?
+Submitter       : Oliver Neukum <oliver@neukum.org>
+Caused-By       : ?
+Handled-By      : ?
+Status          : unknown
 
-> +	unsigned int i, j;
-> +	u8 polarity, data;
-> +
-> +	polarity  = ipg_r8(PHY_CTRL);
-> +	polarity &= (IPG_PC_DUPLEX_POLARITY | IPG_PC_LINK_POLARITY);
-> +
-> +	/* Create the Preamble, ST, OP, PHYAD, and REGAD field. */
-> +	for (j = 0; j < 7; j++) {
-> +		for (i = 0; i < p[j].len; i++) {
-> +			/* For each variable length field, the MSB must be
-> +			 * transmitted first. Rotate through the field bits,
-> +			 * starting with the MSB, and move each bit into the
-> +			 * the 1st (2^1) bit position (this is the bit position
-> +			 * corresponding to the MgmtData bit of the PhyCtrl
-> +			 * register for the IPG).
-> +			 *
-> +			 * Example: ST = 01;
-> +			 *
-> +			 *          First write a '0' to bit 1 of the PhyCtrl
-> +			 *          register, then write a '1' to bit 1 of the
-> +			 *          PhyCtrl register.
-> +			 *
-> +			 * To do this, right shift the MSB of ST by the value:
-> +			 * [field length - 1 - #ST bits already written]
-> +			 * then left shift this result by 1.
-> +			 */
-> +			data  = (p[j].field >> (p[j].len - 1 - i)) << 1;
-> +			data &= IPG_PC_MGMTDATA;
-> +			data |= polarity | IPG_PC_MGMTDIR;
-> +
-> +			ipg_drive_phy_ctl_low_high(ioaddr, data);
-> +		}
-> +	}
-> +
-> +	/* The last cycle is a tri-state, so read from the PHY. */
-> +	for (j = 7; j < 8; j++) {
-> +		for (i = 0; i < p[j].len; i++) {
-> +			ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_LO | polarity);
-> +
-> +			p[j].field |= ((ipg_r8(PHY_CTRL) &
-> +				IPG_PC_MGMTDATA) >> 1) << (p[j].len - 1 - i);
-> +
-> +			ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_HI | polarity);
-> +		}
-> +	}
 
-although it might be tricky to avoid
 
-> +}
-> +
->
-> ...
->
-> +static int ipg_reset(struct net_device *dev, u32 resetflags)
-> +{
-> +	/* Assert functional resets via the IPG AsicCtrl
-> +	 * register as specified by the 'resetflags' input
-> +	 * parameter.
-> +	 */
-> +	void __iomem *ioaddr = ipg_ioaddr(dev);	//JES20040127EEPROM:
-> +	unsigned int timeout_count = 0;
-> +
-> +	IPG_DEBUG_MSG("_reset\n");
-> +
-> +	ipg_w32(ipg_r32(ASIC_CTRL) | resetflags, ASIC_CTRL);
-> +
-> +	/* Delay added to account for problem with 10Mbps reset. */
-> +	mdelay(IPG_AC_RESETWAIT);
-> +
-> +	while (IPG_AC_RESET_BUSY & ipg_r32(ASIC_CTRL)) {
-> +		mdelay(IPG_AC_RESETWAIT);
-> +		if (++timeout_count > IPG_AC_RESET_TIMEOUT)
-> +			return -ETIME;
+Networking
 
-Is ETIME an appropriate errno here?  Zillions of drivers use it, but I
-think it's for posix timers or something like that?
+Subject         : build #301 failed for 2.6.23-rc6-g0d4cbb5 in linux/dr=
+ivers/net/wireless/libertas/
+References      : http://lkml.org/lkml/2007/9/11/150
+Last known good : ?
+Submitter       : Toralf F=F6rster <toralf.foerster@gmx.de>
+Caused-By       : ?
+Handled-By      : ?
+Status          : unknown
 
-> +	}
-> +	/* Set LED Mode in Asic Control JES20040127EEPROM */
-> +	ipg_set_led_mode(dev);
-> +
-> +	/* Set PHYSet Register Value JES20040127EEPROM */
-> +	ipg_set_phy_set(dev);
-> +	return 0;
-> +}
-> +
-> 
-> [vast amounts trimmed]
->
+Subject         : zd1211rw regression, device does not enumerate
+References      : http://marc.info/?l=3Dlinux-usb-devel&m=3D11885496770=
+9322&w=3D2
+                  http://bugzilla.kernel.org/show_bug.cgi?id=3D8972
+Last known good : ?
+Submitter       : Oliver Neukum <oliver@neukum.org>
+Caused-By       : Daniel Drake <dsd@gentoo.org>
+                  commit 74553aedd46b3a2cae986f909cf2a3f99369decc
+Handled-By      : ?
+Status          : unknown
 
-Attention span expired, sorry.  ETIME.
+Subject         : NETDEV WATCHDOG: eth0: transmit timed out
+References      : http://lkml.org/lkml/2007/8/13/737
+Last known good : ?
+Submitter       : Karl Meyer <adhocrocker@gmail.com>
+Caused-By       : ?
+Handled-By      : Francois Romieu <romieu@fr.zoreil.com>
+Status          : problem is being debugged
+
+Subject         : Weird network problems with 2.6.23-rc2
+References      : http://lkml.org/lkml/2007/8/11/40
+Last known good : ?
+Submitter       : Shish <shish@shishnet.org>
+Caused-By       : ?
+Handled-By      : ?
+Status          : unknown
+
+
+
+=46arewell!
+Michal
+
+--
+LOGOUT
+http://www.stardust.webpages.pl/
