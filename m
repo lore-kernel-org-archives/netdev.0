@@ -1,42 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: READ ME Major net-2.6.24 rebase
-Date: Sat, 15 Sep 2007 15:39:36 -0700 (PDT)
-Message-ID: <20070915.153936.41632998.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: READ ME Major net-2.6.24 rebase
+Date: Sat, 15 Sep 2007 18:41:05 -0400
+Message-ID: <46EC5F81.7030803@garzik.org>
+References: <20070915.153936.41632998.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, linville@tuxdriver.com, akpm@linux-foundation.org
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linville@tuxdriver.com,
+	akpm@linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46942
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751954AbXIOWjh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Sep 2007 18:39:37 -0400
+Received: from srv5.dvmed.net ([207.36.208.214]:40651 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751896AbXIOWlL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Sep 2007 18:41:11 -0400
+In-Reply-To: <20070915.153936.41632998.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+David Miller wrote:
+> Andrew, this means you can stop pulling in Jeff's tree for the
+> time being, everything is in my tree above.
 
-I've fully rebased the tree at:
+ACK
 
-	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.24.git
-
-Also, I've fully integrated both John Linville's wireless
-infrastructure and driver updates, as well as Jeff Garzik's
-upstream netdevice changes.
-
-This should resolve all of the merging conflicts that were
-occuring between these trees, and from now until the
-2.6.24 merge window opens Jeff and I will keep our
-trees close together so that there is no divergence.
-
-I've sanity-strapped this thing by doing a make allmodconfig
-on sparc64, and I'm running this tree on my SunBlade1500
-workstation with no problems so far.
-
-With this much churn there is guarenteed to be a small issue
-here or there, and we'll fix those up.
-
-Andrew, this means you can stop pulling in Jeff's tree for the
-time being, everything is in my tree above.
-
-Enjoy.
