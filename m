@@ -1,19 +1,27 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Please pull 'upstream-jgarzik' branch of wireless-2.6
-Date: Sat, 15 Sep 2007 09:21:34 -0400
-Message-ID: <20070915132134.GD6060@tuxdriver.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Please pull 'fixes-davem' branch of wireless-2.6
+Date: Sat, 15 Sep 2007 09:15:43 -0400
+Message-ID: <20070915131543.GB6060@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ra.tuxdriver.com ([70.61.120.52]:4614 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752257AbXIONlD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Sep 2007 09:41:03 -0400
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff,
+Dave,
 
-A few more for 2.6.24...
+A few more fixes targetted for 2.6.23, including a couple of warning fixes.
+
+As usual, the individual patches are available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/fixes-davem/
 
 Thanks,
 
@@ -21,75 +29,100 @@ John
 
 ---
 
-The following changes since commit 18d256761aa268fd2fb113c4fd26c400431f1dc1:
-  Jeff Garzik (1):
-        Merge branch 'stats' into upstream
+The following changes since commit 0d4cbb5e7f60b2f1a4d8b7f6ea4cc264262c7a01:
+  Linus Torvalds (1):
+        Linux 2.6.23-rc6
 
 are available in the git repository at:
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-jgarzik
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git fixes-davem
 
-Jesper Juhl (1):
-      zd1211rw: Don't needlessly initialize variable to NULL in zd_chip
+Johannes Berg (3):
+      cfg80211: fix initialisation if built-in
+      net/mac80211/wme.c: fix sparse warning
+      mac80211: fix initialisation when built-in
 
-Larry Finger (1):
-      bcm43xx: Change radio hardware switch status printk from debug to regular
+Satyam Sharma (1):
+      net/wireless/sysfs.c: Shut up build warning
 
-Ulrich Kunitz (1):
-      zd1211rw: add USB id for Telegent TG54USB WLAN adapter
+ net/mac80211/ieee80211.c      |    2 +-
+ net/mac80211/rc80211_simple.c |    2 +-
+ net/mac80211/wme.c            |    2 +-
+ net/wireless/core.c           |    2 +-
+ net/wireless/sysfs.c          |    2 ++
+ 5 files changed, 6 insertions(+), 4 deletions(-)
 
- drivers/net/wireless/bcm43xx/bcm43xx_main.c |    4 ++--
- drivers/net/wireless/zd1211rw/zd_chip.c     |    2 +-
- drivers/net/wireless/zd1211rw/zd_usb.c      |    1 +
- 3 files changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_main.c b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-index 618d1a2..4d84631 100644
---- a/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-+++ b/drivers/net/wireless/bcm43xx/bcm43xx_main.c
-@@ -2380,7 +2380,7 @@ static int bcm43xx_chip_init(struct bcm43xx_private *bcm)
- 		goto err_gpio_cleanup;
- 	bcm43xx_radio_turn_on(bcm);
- 	bcm->radio_hw_enable = bcm43xx_is_hw_radio_enabled(bcm);
--	dprintk(KERN_INFO PFX "Radio %s by hardware\n",
-+	printk(KERN_INFO PFX "Radio %s by hardware\n",
- 		(bcm->radio_hw_enable == 0) ? "disabled" : "enabled");
+diff --git a/net/mac80211/ieee80211.c b/net/mac80211/ieee80211.c
+index 7286c38..ff2172f 100644
+--- a/net/mac80211/ieee80211.c
++++ b/net/mac80211/ieee80211.c
+@@ -5259,7 +5259,7 @@ static void __exit ieee80211_exit(void)
+ }
  
- 	bcm43xx_write16(bcm, 0x03E6, 0x0000);
-@@ -3129,7 +3129,7 @@ static void bcm43xx_periodic_every1sec(struct bcm43xx_private *bcm)
- 	radio_hw_enable = bcm43xx_is_hw_radio_enabled(bcm);
- 	if (unlikely(bcm->radio_hw_enable != radio_hw_enable)) {
- 		bcm->radio_hw_enable = radio_hw_enable;
--		dprintk(KERN_INFO PFX "Radio hardware status changed to %s\n",
-+		printk(KERN_INFO PFX "Radio hardware status changed to %s\n",
- 		       (radio_hw_enable == 0) ? "disabled" : "enabled");
- 		bcm43xx_leds_update(bcm, 0);
- 	}
-diff --git a/drivers/net/wireless/zd1211rw/zd_chip.c b/drivers/net/wireless/zd1211rw/zd_chip.c
-index 4959042..06244d8 100644
---- a/drivers/net/wireless/zd1211rw/zd_chip.c
-+++ b/drivers/net/wireless/zd1211rw/zd_chip.c
-@@ -106,7 +106,7 @@ int zd_ioread32v_locked(struct zd_chip *chip, u32 *values, const zd_addr_t *addr
+ 
+-module_init(ieee80211_init);
++subsys_initcall(ieee80211_init);
+ module_exit(ieee80211_exit);
+ 
+ MODULE_DESCRIPTION("IEEE 802.11 subsystem");
+diff --git a/net/mac80211/rc80211_simple.c b/net/mac80211/rc80211_simple.c
+index f6780d6..17b9f46 100644
+--- a/net/mac80211/rc80211_simple.c
++++ b/net/mac80211/rc80211_simple.c
+@@ -431,7 +431,7 @@ static void __exit rate_control_simple_exit(void)
+ }
+ 
+ 
+-module_init(rate_control_simple_init);
++subsys_initcall(rate_control_simple_init);
+ module_exit(rate_control_simple_exit);
+ 
+ MODULE_DESCRIPTION("Simple rate control algorithm for ieee80211");
+diff --git a/net/mac80211/wme.c b/net/mac80211/wme.c
+index 89ce815..7ab82b3 100644
+--- a/net/mac80211/wme.c
++++ b/net/mac80211/wme.c
+@@ -424,7 +424,7 @@ static int wme_qdiscop_init(struct Qdisc *qd, struct rtattr *opt)
+ 		skb_queue_head_init(&q->requeued[i]);
+ 		q->queues[i] = qdisc_create_dflt(qd->dev, &pfifo_qdisc_ops,
+ 						 qd->handle);
+-		if (q->queues[i] == 0) {
++		if (!q->queues[i]) {
+ 			q->queues[i] = &noop_qdisc;
+ 			printk(KERN_ERR "%s child qdisc %i creation failed", dev->name, i);
+ 		}
+diff --git a/net/wireless/core.c b/net/wireless/core.c
+index 7eabd55..9771451 100644
+--- a/net/wireless/core.c
++++ b/net/wireless/core.c
+@@ -213,7 +213,7 @@ out_fail_notifier:
+ out_fail_sysfs:
+ 	return err;
+ }
+-module_init(cfg80211_init);
++subsys_initcall(cfg80211_init);
+ 
+ static void cfg80211_exit(void)
  {
- 	int r;
- 	int i;
--	zd_addr_t *a16 = (zd_addr_t *)NULL;
-+	zd_addr_t *a16;
- 	u16 *v16;
- 	unsigned int count16;
+diff --git a/net/wireless/sysfs.c b/net/wireless/sysfs.c
+index 88aaacd..2d5d225 100644
+--- a/net/wireless/sysfs.c
++++ b/net/wireless/sysfs.c
+@@ -52,12 +52,14 @@ static void wiphy_dev_release(struct device *dev)
+ 	cfg80211_dev_free(rdev);
+ }
  
-diff --git a/drivers/net/wireless/zd1211rw/zd_usb.c b/drivers/net/wireless/zd1211rw/zd_usb.c
-index e49628b..895ff84 100644
---- a/drivers/net/wireless/zd1211rw/zd_usb.c
-+++ b/drivers/net/wireless/zd1211rw/zd_usb.c
-@@ -55,6 +55,7 @@ static struct usb_device_id usb_ids[] = {
- 	{ USB_DEVICE(0x14ea, 0xab13), .driver_info = DEVICE_ZD1211 },
- 	{ USB_DEVICE(0x13b1, 0x001e), .driver_info = DEVICE_ZD1211 },
- 	{ USB_DEVICE(0x0586, 0x3407), .driver_info = DEVICE_ZD1211 },
-+	{ USB_DEVICE(0x129b, 0x1666), .driver_info = DEVICE_ZD1211 },
- 	/* ZD1211B */
- 	{ USB_DEVICE(0x0ace, 0x1215), .driver_info = DEVICE_ZD1211B },
- 	{ USB_DEVICE(0x157e, 0x300d), .driver_info = DEVICE_ZD1211B },
++#ifdef CONFIG_HOTPLUG
+ static int wiphy_uevent(struct device *dev, char **envp,
+ 			int num_envp, char *buf, int size)
+ {
+ 	/* TODO, we probably need stuff here */
+ 	return 0;
+ }
++#endif
+ 
+ struct class ieee80211_class = {
+ 	.name = "ieee80211",
 -- 
 John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+linville@tuxdriver.com
