@@ -1,64 +1,39 @@
-From: "Mike Snitzer" <snitzer@gmail.com>
-Subject: Re: Distributed storage. Move away from char device ioctls.
-Date: Fri, 14 Sep 2007 22:54:56 -0400
-Message-ID: <170fa0d20709141954m4cff4650pa3b2bfd347e23f74@mail.gmail.com>
-References: <20070914185429.GA9439@2ka.mipt.ru> <46EADC02.9070409@garzik.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: why does tcp_v[46]_conn_request not inc MIB stats
+Date: Fri, 14 Sep 2007 20:10:34 -0700 (PDT)
+Message-ID: <20070914.201034.38702610.davem@davemloft.net>
+References: <46E5900A.3010009@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org
-To: "Jeff Garzik" <jeff@garzik.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <46EADC02.9070409@garzik.org>
-Content-Disposition: inline
-Sender: linux-fsdevel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: rick.jones2@hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:57387
+	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753109AbXIODKh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 23:10:37 -0400
+In-Reply-To: <46E5900A.3010009@hp.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/14/07, Jeff Garzik <jeff@garzik.org> wrote:
-> Evgeniy Polyakov wrote:
-> > Hi.
-> >
-> > I'm pleased to announce fourth release of the distributed storage
-> > subsystem, which allows to form a storage on top of remote and local
-> > nodes, which in turn can be exported to another storage as a node to
-> > form tree-like storages.
-> >
-> > This release includes new configuration interface (kernel connector over
-> > netlink socket) and number of fixes of various bugs found during move
-> > to it (in error path).
-> >
-> > Further TODO list includes:
-> > * implement optional saving of mirroring/linear information on the remote
-> >       nodes (simple)
-> > * new redundancy algorithm (complex)
-> > * some thoughts about distributed filesystem tightly connected to DST
-> >       (far-far planes so far)
-> >
-> > Homepage:
-> > http://tservice.net.ru/~s0mbre/old/?section=projects&item=dst
-> >
-> > Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
->
-> My thoughts.  But first a disclaimer:   Perhaps you will recall me as
-> one of the people who really reads all your patches, and examines your
-> code and proposals closely.  So, with that in mind...
->
-> I question the value of distributed block services (DBS), whether its
-> your version or the others out there.  DBS are not very useful, because
-> it still relies on a useful filesystem sitting on top of the DBS.  It
-> devolves into one of two cases:  (1) multi-path much like today's SCSI,
-> with distributed filesystem arbitrarion to ensure coherency, or (2) the
-> filesystem running on top of the DBS is on a single host, and thus, a
-> single point of failure (SPOF).
+From: Rick Jones <rick.jones2@hp.com>
+Date: Mon, 10 Sep 2007 11:42:18 -0700
 
-This distributed storage is very much needed; even if it were to act
-as a more capable/performant replacement for NBD (or MD+NBD) in the
-near term.  Many high availability applications don't _need_ all the
-additional complexity of a full distributed filesystem.  So given
-that, its discouraging to see you trying to gently push Evgeniy away
-from all the promising work he has published.
+> I've been digging around to see about inducing /proc/net/tcp to show 
+> some "interesting" things for listen sockets (eg backlog depth, its max, 
+> and dropped connection requests).  While there I've noticed that both 
+> tcp_v[46]_syn_recv_sock and tcp_v[46]conn_request both check that the 
+> listen queue is full, but only tcp_v[46]_syn_recv_sock increments some 
+> mib stats for dropped connection requests.
 
-Evgeniy, please continue your current work.
+They are checking two different things.
 
-Mike
+tcp_v{4,6}_conn_request is checking whether we are hitting the limit
+for allowing the initial SYN and creating a new embryonic mini-socket.
+Exceeding that is not a listen overflow.
+
+tcp_v{4,6}_syn_recv_sock() is processing the end of the 3-way
+handshake and wants to create a full established state socket to queue
+into the listening parent.  This is checking the listening socket
+queue limits, and indeed is a listen queue overflow if exceeded.
