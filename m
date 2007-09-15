@@ -1,39 +1,36 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Distributed storage. Move away from char device ioctls.
-Date: Sat, 15 Sep 2007 16:34:18 +0400
-Message-ID: <20070915123418.GB25752@2ka.mipt.ru>
-References: <20070914185429.GA9439@2ka.mipt.ru> <46EADC02.9070409@garzik.org> <170fa0d20709141954m4cff4650pa3b2bfd347e23f74@mail.gmail.com>
+From: "L F" <lfabio.linux@gmail.com>
+Subject: Re: e1000 driver and samba
+Date: Sat, 15 Sep 2007 08:44:00 -0400
+Message-ID: <780b6f780709150544m219002fdocab86a6646f611ae@mail.gmail.com>
+References: <780b6f780709131904j41148fb4p827e87530b15d6e9@mail.gmail.com>
+	 <46EAC25B.2060404@intel.com>
+	 <780b6f780709141140l1fd586c9p2aa8efe6ed803d38@mail.gmail.com>
+	 <46EAF644.1040006@intel.com>
+	 <780b6f780709141737w4e17f0a8r944555f27f7344dd@mail.gmail.com>
+	 <20070915010916.d8bd035d.billfink@mindspring.com>
+	 <780b6f780709150527v50ff71b2sf9e5d17b62afeb86@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org
-To: Mike Snitzer <snitzer@gmail.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Kok, Auke" <auke-jan.h.kok@intel.com>
+To: "Bill Fink" <billfink@mindspring.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wa-out-1112.google.com ([209.85.146.183]:53917 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751342AbXIOMoB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Sep 2007 08:44:01 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so1312954wah
+        for <netdev@vger.kernel.org>; Sat, 15 Sep 2007 05:44:00 -0700 (PDT)
+In-Reply-To: <780b6f780709150527v50ff71b2sf9e5d17b62afeb86@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <170fa0d20709141954m4cff4650pa3b2bfd347e23f74@mail.gmail.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Mike.
+I also upgraded to samba-3.0.26-1 and so far the problem seems
+significantly less frequent and limited, unfortunately, to the
+'silent' corruption. I am still running with HW checksumming off, with
+a new cable (cat6, even though it's 50cm long, so I could probably be
+running chicken wire), on the original switch port.
+I wonder why this isn't more widespread?
 
-On Fri, Sep 14, 2007 at 10:54:56PM -0400, Mike Snitzer (snitzer@gmail.com) wrote:
-> This distributed storage is very much needed; even if it were to act
-> as a more capable/performant replacement for NBD (or MD+NBD) in the
-> near term.  Many high availability applications don't _need_ all the
-> additional complexity of a full distributed filesystem.  So given
-> that, its discouraging to see you trying to gently push Evgeniy away
-> from all the promising work he has published.
-> 
-> Evgeniy, please continue your current work.
-
-Thanks Mike, I work on this and will until feel it is completed.
-
-Distributed filesystem is a logical continuation of the whoe idea of
-storing data on the several remote nodes - DST and FS must exist
-together for the maximum performance, but that does not mean that block
-layer itself should be abandoned. As you probably noticed from my mail
-to Jeff, distributed storage was originally part of the overall
-filesystem design.
-
--- 
-	Evgeniy Polyakov
+LF / now very puzzled
