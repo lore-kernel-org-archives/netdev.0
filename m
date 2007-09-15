@@ -1,2850 +1,1614 @@
 From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Please pull 'adm8211' branch of wireless-2.6
-Date: Sat, 15 Sep 2007 09:22:20 -0400
-Message-ID: <20070915132220.GE6060@tuxdriver.com>
+Subject: Please pull 'upstream-davem' branch of wireless-2.6
+Date: Sat, 15 Sep 2007 09:20:47 -0400
+Message-ID: <20070915132047.GC6060@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org
+Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Jeff,
+Dave,
 
-A new driver for 2.6.24...this one has been around for a while in
--mm and Fedora.  It is reverse-engineered and still has more magic
-initialization numbers than I'd like, but overall I think it would
-be better to have this upstream than not.
+Some more stuff for 2.6.24...
 
-Thanks,
+Individual patches here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/upstream-davem/
+
+I hope you had a nice time in .eu! :-)
 
 John
 
+P.S.  Jeff, there is a one-line change to rtl8187 in there too...
+
 ---
 
-The following changes since commit 0d4cbb5e7f60b2f1a4d8b7f6ea4cc264262c7a01:
-  Linus Torvalds (1):
-        Linux 2.6.23-rc6
+The following changes since commit c36c8b002265e1abb25d372556d6df738f6515c0:
+  Ivo van Doorn (1):
+        [RFKILL]: Add rfkill documentation
 
 are available in the git repository at:
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git adm8211
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-davem
 
-Michael Wu (1):
-      Add adm8211 802.11b wireless driver
+Johannes Berg (10):
+      mac80211: remove spy wext ioctls
+      mac80211: don't send invalid QoS frames
+      mac80211: fix race conditions with keys
+      mac80211: remove turbo modes
+      mac80211: rework hardware crypto flags
+      mac80211: remove set_key_idx callback
+      mac80211: some more documentation
+      mac80211: remove HW_KEY_IDX_INVALID
+      mac80211: remove TKIP mixing for hw accel again
+      mac80211: remove/change some comments about Michael MIC hardware offload
 
- MAINTAINERS                    |    8 +
- drivers/net/wireless/Kconfig   |   27 +
- drivers/net/wireless/Makefile  |    2 +
- drivers/net/wireless/adm8211.c | 2063 ++++++++++++++++++++++++++++++++++++++++
- drivers/net/wireless/adm8211.h |  659 +++++++++++++
- 5 files changed, 2759 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wireless/adm8211.c
- create mode 100644 drivers/net/wireless/adm8211.h
+Stephen Hemminger (1):
+      mac80211: use internal network device stats
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 9c54a5e..af85a5e 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -284,6 +284,14 @@ M:	corentin.labbe-Um+J1D3rkBVWj0EZb7rXcA@public.gmane.org
- L:	lm-sensors-GZX6beZjE8VD60Wz+7aTrA@public.gmane.org
- S:	Maintained
+Tomas Winkler (1):
+      mac80211: PS mode fix
+
+Volker Braun (1):
+      mac80211: ignore key index on pairwise key (WEP only)
+
+warmcat (1):
+      mac80211: get STA after tx radiotap snipped
+
+ drivers/net/wireless/rtl8187_dev.c |    3 +-
+ include/net/mac80211.h             |  215 +++++++++++++++++++-----------------
+ net/mac80211/debugfs.c             |    2 -
+ net/mac80211/ieee80211.c           |   32 +-----
+ net/mac80211/ieee80211_common.h    |    2 -
+ net/mac80211/ieee80211_i.h         |    2 -
+ net/mac80211/ieee80211_ioctl.c     |   94 ++++++++++++----
+ net/mac80211/ieee80211_sta.c       |   19 +---
+ net/mac80211/key.c                 |   51 +++++----
+ net/mac80211/regdomain.c           |    6 -
+ net/mac80211/rx.c                  |   82 +++++++-------
+ net/mac80211/tx.c                  |   69 +++++++++---
+ net/mac80211/util.c                |   11 +--
+ net/mac80211/wpa.c                 |   60 +++--------
+ 14 files changed, 328 insertions(+), 320 deletions(-)
+
+diff --git a/drivers/net/wireless/rtl8187_dev.c b/drivers/net/wireless/rtl8187_dev.c
+index 9db9ece..7dbf11e 100644
+--- a/drivers/net/wireless/rtl8187_dev.c
++++ b/drivers/net/wireless/rtl8187_dev.c
+@@ -605,8 +605,7 @@ static int __devinit rtl8187_probe(struct usb_interface *intf,
+ 	priv->modes[1].channels = priv->channels;
+ 	priv->mode = IEEE80211_IF_TYPE_MGMT;
+ 	dev->flags = IEEE80211_HW_HOST_BROADCAST_PS_BUFFERING |
+-		     IEEE80211_HW_RX_INCLUDES_FCS |
+-		     IEEE80211_HW_WEP_INCLUDE_IV;
++		     IEEE80211_HW_RX_INCLUDES_FCS;
+ 	dev->extra_tx_headroom = sizeof(struct rtl8187_tx_hdr);
+ 	dev->queues = 1;
+ 	dev->max_rssi = 65;
+diff --git a/include/net/mac80211.h b/include/net/mac80211.h
+index ec8c739..a2c14f9 100644
+--- a/include/net/mac80211.h
++++ b/include/net/mac80211.h
+@@ -73,14 +73,13 @@ struct ieee80211_channel {
+ #define IEEE80211_RATE_SUPPORTED 0x00000010
+ #define IEEE80211_RATE_OFDM 0x00000020
+ #define IEEE80211_RATE_CCK 0x00000040
+-#define IEEE80211_RATE_TURBO 0x00000080
+ #define IEEE80211_RATE_MANDATORY 0x00000100
  
-+ADM8211 WIRELESS DRIVER
-+P:	Michael Wu
-+M:	flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org
-+L:	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-+W:	http://linuxwireless.org/
-+T:	git kernel.org:/pub/scm/linux/kernel/git/mwu/mac80211-drivers.git
-+S:	Maintained
-+
- ADT746X FAN DRIVER
- P:	Colin Leroy
- M:	colin-5s/l0yV9g/OsTnJN9+BGXg@public.gmane.org
-diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
-index ae27af0..86480af 100644
---- a/drivers/net/wireless/Kconfig
-+++ b/drivers/net/wireless/Kconfig
-@@ -558,6 +558,33 @@ config RTL8187
+ #define IEEE80211_RATE_CCK_2 (IEEE80211_RATE_CCK | IEEE80211_RATE_PREAMBLE2)
+ #define IEEE80211_RATE_MODULATION(f) \
+ 	(f & (IEEE80211_RATE_CCK | IEEE80211_RATE_OFDM))
  
- 	  Thanks to Realtek for their support!
+-/* Low-level driver should set PREAMBLE2, OFDM, CCK, and TURBO flags.
++/* Low-level driver should set PREAMBLE2, OFDM and CCK flags.
+  * BASIC, SUPPORTED, ERP, and MANDATORY flags are set in 80211.o based on the
+  * configuration. */
+ struct ieee80211_rate {
+@@ -101,12 +100,10 @@ struct ieee80211_rate {
  
-+config ADM8211
-+	tristate "ADMtek ADM8211 support"
-+	depends on MAC80211 && PCI && WLAN_80211 && EXPERIMENTAL
-+	select CRC32
-+	select EEPROM_93CX6
-+	---help---
-+	  This driver is for ADM8211A, ADM8211B, and ADM8211C based cards.
-+	  These are PCI/mini-PCI/Cardbus 802.11b chips found in cards such as:
-+
-+	  Xterasys Cardbus XN-2411b
-+	  Blitz NetWave Point PC
-+	  TrendNet 221pc
-+	  Belkin F5D6001
-+	  SMC 2635W
-+	  Linksys WPC11 v1
-+	  Fiberline FL-WL-200X
-+	  3com Office Connect (3CRSHPW796)
-+	  Corega WLPCIB-11
-+	  SMC 2602W V2 EU
-+	  D-Link DWL-520 Revision C
-+
-+	  However, some of these cards have been replaced with other chips
-+	  like the RTL8180L (Xterasys Cardbus XN-2411b, Belkin F5D6001) or
-+	  the Ralink RT2400 (SMC2635W) without a model number change.
-+
-+	  Thanks to Infineon-ADMtek for their support of this driver.
-+
- source "drivers/net/wireless/hostap/Kconfig"
- source "drivers/net/wireless/bcm43xx/Kconfig"
- source "drivers/net/wireless/zd1211rw/Kconfig"
-diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
-index ef35bc6..88f5547 100644
---- a/drivers/net/wireless/Makefile
-+++ b/drivers/net/wireless/Makefile
-@@ -47,3 +47,5 @@ obj-$(CONFIG_LIBERTAS_USB)     += libertas/
+ /* 802.11g is backwards-compatible with 802.11b, so a wlan card can
+  * actually be both in 11b and 11g modes at the same time. */
+-enum {
++enum ieee80211_phymode {
+ 	MODE_IEEE80211A, /* IEEE 802.11a */
+ 	MODE_IEEE80211B, /* IEEE 802.11b only */
+-	MODE_ATHEROS_TURBO, /* Atheros Turbo mode (2x.11a at 5 GHz) */
+ 	MODE_IEEE80211G, /* IEEE 802.11g (and 802.11b compatibility) */
+-	MODE_ATHEROS_TURBOG, /* Atheros Turbo mode (2x.11g at 2.4 GHz) */
  
- rtl8187-objs		:= rtl8187_dev.o rtl8187_rtl8225.o
- obj-$(CONFIG_RTL8187)	+= rtl8187.o
+ 	/* keep last */
+ 	NUM_IEEE80211_MODES
+@@ -167,7 +164,6 @@ struct ieee80211_low_level_stats {
+ /* Transmit control fields. This data structure is passed to low-level driver
+  * with each TX frame. The low-level driver is responsible for configuring
+  * the hardware to use given values (depending on what is supported). */
+-#define HW_KEY_IDX_INVALID -1
+ 
+ struct ieee80211_tx_control {
+ 	int tx_rate; /* Transmit rate, given as the hw specific value for the
+@@ -193,23 +189,21 @@ struct ieee80211_tx_control {
+ #define IEEE80211_TXCTL_REQUEUE		(1<<7)
+ #define IEEE80211_TXCTL_FIRST_FRAGMENT	(1<<8) /* this is a first fragment of
+ 						* the frame */
+-#define IEEE80211_TXCTL_TKIP_NEW_PHASE1_KEY (1<<9)
+ #define IEEE80211_TXCTL_LONG_RETRY_LIMIT (1<<10) /* this frame should be send
+ 						  * using the through
+ 						  * set_retry_limit configured
+ 						  * long retry value */
+ 	u32 flags;			       /* tx control flags defined
+ 						* above */
++	u8 key_idx;		/* keyidx from hw->set_key(), undefined if
++				 * IEEE80211_TXCTL_DO_NOT_ENCRYPT is set */
+ 	u8 retry_limit;		/* 1 = only first attempt, 2 = one retry, ..
+ 				 * This could be used when set_retry_limit
+ 				 * is not implemented by the driver */
+ 	u8 power_level;		/* per-packet transmit power level, in dBm */
+ 	u8 antenna_sel_tx; 	/* 0 = default/diversity, 1 = Ant0, 2 = Ant1 */
+-	s8 key_idx;		/* HW_KEY_IDX_INVALID = do not encrypt,
+-				 * other values: keyidx from hw->set_key() */
+ 	u8 icv_len;		/* length of the ICV/MIC field in octets */
+ 	u8 iv_len;		/* length of the IV field in octets */
+-	u8 tkip_key[16];	/* generated phase2/phase1 key for hw TKIP */
+ 	u8 queue;		/* hardware queue to use for this frame;
+ 				 * 0 = highest, hw->queues-1 = lowest */
+ 	u8 sw_retry_attempt;	/* number of times hw has tried to
+@@ -227,22 +221,56 @@ struct ieee80211_tx_control {
+ 	int ifindex;	/* internal */
+ };
+ 
+-/* Receive status. The low-level driver should provide this information
+- * (the subset supported by hardware) to the 802.11 code with each received
+- * frame. */
 +
-+obj-$(CONFIG_ADM8211)	+= adm8211.o
-diff --git a/drivers/net/wireless/adm8211.c b/drivers/net/wireless/adm8211.c
-new file mode 100644
-index 0000000..eec01fc
---- /dev/null
-+++ b/drivers/net/wireless/adm8211.c
-@@ -0,0 +1,2063 @@
++/**
++ * enum mac80211_rx_flags - receive flags
++ *
++ * These flags are used with the @flag member of &struct ieee80211_rx_status.
++ * @RX_FLAG_MMIC_ERROR: Michael MIC error was reported on this frame.
++ *	Use together with %RX_FLAG_MMIC_STRIPPED.
++ * @RX_FLAG_DECRYPTED: This frame was decrypted in hardware.
++ * @RX_FLAG_RADIOTAP: This frame starts with a radiotap header.
++ * @RX_FLAG_MMIC_STRIPPED: the Michael MIC is stripped off this frame,
++ *	verification has been done by the hardware.
++ * @RX_FLAG_IV_STRIPPED: The IV/ICV are stripped from this frame.
++ *	If this flag is set, the stack cannot do any replay detection
++ *	hence the driver or hardware will have to do that.
++ */
++enum mac80211_rx_flags {
++	RX_FLAG_MMIC_ERROR	= 1<<0,
++	RX_FLAG_DECRYPTED	= 1<<1,
++	RX_FLAG_RADIOTAP	= 1<<2,
++	RX_FLAG_MMIC_STRIPPED	= 1<<3,
++	RX_FLAG_IV_STRIPPED	= 1<<4,
++};
++
++/**
++ * struct ieee80211_rx_status - receive status
++ *
++ * The low-level driver should provide this information (the subset
++ * supported by hardware) to the 802.11 code with each received
++ * frame.
++ * @mactime: MAC timestamp as defined by 802.11
++ * @freq: frequency the radio was tuned to when receiving this frame, in MHz
++ * @channel: channel the radio was tuned to
++ * @phymode: active PHY mode
++ * @ssi: signal strength when receiving this frame
++ * @signal: used as 'qual' in statistics reporting
++ * @noise: PHY noise when receiving this frame
++ * @antenna: antenna used
++ * @rate: data rate
++ * @flag: %RX_FLAG_*
++ */
+ struct ieee80211_rx_status {
+ 	u64 mactime;
+-	int freq; /* receive frequency in Mhz */
++	int freq;
+ 	int channel;
+ 	int phymode;
+ 	int ssi;
+-	int signal; /* used as qual in statistics reporting */
++	int signal;
+ 	int noise;
+ 	int antenna;
+ 	int rate;
+-#define RX_FLAG_MMIC_ERROR	(1<<0)
+-#define RX_FLAG_DECRYPTED	(1<<1)
+-#define RX_FLAG_RADIOTAP	(1<<2)
+ 	int flag;
+ };
+ 
+@@ -392,52 +420,86 @@ struct ieee80211_if_conf {
+ 	struct ieee80211_tx_control *beacon_control;
+ };
+ 
+-typedef enum {
++/**
++ * enum ieee80211_key_alg - key algorithm
++ * @ALG_NONE: Unset key algorithm, will never be passed to the driver
++ * @ALG_WEP: WEP40 or WEP104
++ * @ALG_TKIP: TKIP
++ * @ALG_CCMP: CCMP (AES)
++ */
++typedef enum ieee80211_key_alg {
+ 	ALG_NONE,
+ 	ALG_WEP,
+ 	ALG_TKIP,
+ 	ALG_CCMP,
+ } ieee80211_key_alg;
+ 
+-/*
+- * This flag indiciates that the station this key is being
+- * configured for may use QoS. If your hardware cannot handle
+- * that situation it should reject that key.
++
++/**
++ * enum ieee80211_key_flags - key flags
++ *
++ * These flags are used for communication about keys between the driver
++ * and mac80211, with the @flags parameter of &struct ieee80211_key_conf.
++ *
++ * @IEEE80211_KEY_FLAG_WMM_STA: Set by mac80211, this flag indicates
++ *	that the STA this key will be used with could be using QoS.
++ * @IEEE80211_KEY_FLAG_GENERATE_IV: This flag should be set by the
++ *	driver to indicate that it requires IV generation for this
++ *	particular key.
++ * @IEEE80211_KEY_FLAG_GENERATE_MMIC: This flag should be set by
++ *	the driver for a TKIP key if it requires Michael MIC
++ *	generation in software.
+  */
+-#define IEEE80211_KEY_FLAG_WMM_STA	(1<<0)
++enum ieee80211_key_flags {
++	IEEE80211_KEY_FLAG_WMM_STA	= 1<<0,
++	IEEE80211_KEY_FLAG_GENERATE_IV	= 1<<1,
++	IEEE80211_KEY_FLAG_GENERATE_MMIC= 1<<2,
++};
+ 
++/**
++ * struct ieee80211_key_conf - key information
++ *
++ * This key information is given by mac80211 to the driver by
++ * the set_key() callback in &struct ieee80211_ops.
++ *
++ * @hw_key_idx: To be set by the driver, this is the key index the driver
++ *	wants to be given when a frame is transmitted and needs to be
++ *	encrypted in hardware.
++ * @alg: The key algorithm.
++ * @flags: key flags, see &enum ieee80211_key_flags.
++ * @keyidx: the key index (0-3)
++ * @keylen: key material length
++ * @key: key material
++ */
+ struct ieee80211_key_conf {
+-	/*
+-	 * To be set by the driver to the key index it would like to
+-	 * get in the ieee80211_tx_control.key_idx which defaults
+-	 * to HW_KEY_IDX_INVALID so that shouldn't be used.
+-	 */
+-	int hw_key_idx;
+-
+-	/* key algorithm, ALG_NONE should never be seen by the driver */
+ 	ieee80211_key_alg alg;
+-
+-	/* key flags, see above */
++	u8 hw_key_idx;
+ 	u8 flags;
+-
+-	/* key index: 0-3 */
+ 	s8 keyidx;
+-
+-	/* length of key material */
+ 	u8 keylen;
+-
+-	/* the key material */
+ 	u8 key[0];
+ };
+ 
+ #define IEEE80211_SEQ_COUNTER_RX	0
+ #define IEEE80211_SEQ_COUNTER_TX	1
+ 
+-typedef enum {
++/**
++ * enum set_key_cmd - key command
++ *
++ * Used with the set_key() callback in &struct ieee80211_ops, this
++ * indicates whether a key is being removed or added.
++ *
++ * @SET_KEY: a key is set
++ * @DISABLE_KEY: a key must be disabled
++ */
++typedef enum set_key_cmd {
+ 	SET_KEY, DISABLE_KEY,
+ } set_key_cmd;
+ 
+-/* This is driver-visible part of the per-hw state the stack keeps. */
++/**
++ * struct ieee80211_hw - hardware information and state
++ * TODO: move documentation into kernel-doc format
++ */
+ struct ieee80211_hw {
+ 	/* points to the cfg80211 wiphy for this piece. Note
+ 	 * that you must fill in the perm_addr and dev fields
+@@ -468,17 +530,7 @@ struct ieee80211_hw {
+ 	 */
+ #define IEEE80211_HW_HOST_GEN_BEACON_TEMPLATE (1<<1)
+ 
+-	/*
+-	 * Some devices handle decryption internally and do not
+-	 * indicate whether the frame was encrypted (unencrypted frames
+-	 * will be dropped by the hardware, unless specifically allowed
+-	 * through.)
+-	 * It is permissible to not handle all encrypted frames and fall
+-	 * back to software encryption; however, if this flag is set
+-	 * unencrypted frames must be dropped unless the driver is told
+-	 * otherwise via the set_ieee8021x() callback.
+-	 */
+-#define IEEE80211_HW_DEVICE_HIDES_WEP (1<<2)
++/* hole at 2 */
+ 
+ 	/* Whether RX frames passed to ieee80211_rx() include FCS in the end */
+ #define IEEE80211_HW_RX_INCLUDES_FCS (1<<3)
+@@ -491,32 +543,13 @@ struct ieee80211_hw {
+ 	 * can fetch them with ieee80211_get_buffered_bc(). */
+ #define IEEE80211_HW_HOST_BROADCAST_PS_BUFFERING (1<<4)
+ 
+-	/*
+-	 * This flag is only relevant if hardware encryption is used.
+-	 * If set, it has two meanings:
+-	 *  1) the IV and ICV are present in received frames that have
+-	 *     been decrypted (unless IEEE80211_HW_DEVICE_HIDES_WEP is
+-	 *     also set)
+-	 *  2) on transmission, the IV should be generated in software.
+-	 *
+-	 * Please let us know if you *don't* use this flag, the stack would
+-	 * really like to be able to get the IV to keep key statistics
+-	 * accurate.
+-	 */
+-#define IEEE80211_HW_WEP_INCLUDE_IV (1<<5)
++/* hole at 5 */
+ 
+ /* hole at 6 */
+ 
+ /* hole at 7 */
+ 
+-	/*
+-	 * Some devices handle Michael MIC internally and do not include MIC in
+-	 * the received packets passed up. This flag must be set for such
+-	 * devices. The 'encryption' frame control bit is expected to be still
+-	 * set in the IEEE 802.11 header with this option unlike with the
+-	 * IEEE80211_HW_DEVICE_HIDES_WEP flag.
+-	 */
+-#define IEEE80211_HW_DEVICE_STRIPS_MIC (1<<8)
++/* hole at 8 */
+ 
+ 	/* Device is capable of performing full monitor mode even during
+ 	 * normal operation. */
+@@ -530,15 +563,6 @@ struct ieee80211_hw {
+ 	 * specified in the device's EEPROM */
+ #define IEEE80211_HW_DEFAULT_REG_DOMAIN_CONFIGURED (1<<11)
+ 
+-	/* calculate Michael MIC for an MSDU when doing hwcrypto */
+-#define IEEE80211_HW_TKIP_INCLUDE_MMIC (1<<12)
+-	/* Do TKIP phase1 key mixing in stack to support cards only do
+-	 * phase2 key mixing when doing hwcrypto */
+-#define IEEE80211_HW_TKIP_REQ_PHASE1_KEY (1<<13)
+-	/* Do TKIP phase1 and phase2 key mixing in stack and send the generated
+-	 * per-packet RC4 key with each TX frame when doing hwcrypto */
+-#define IEEE80211_HW_TKIP_REQ_PHASE2_KEY (1<<14)
+-
+ 	u32 flags;			/* hardware flags defined above */
+ 
+ 	/* Set to the size of a needed device specific skb headroom for TX skbs. */
+@@ -651,9 +675,15 @@ struct ieee80211_ops {
+ 	 * selected by the low-level driver.
+ 	 *
+ 	 * Return 0 if the key is now in use, -EOPNOTSUPP or -ENOSPC if it
+-	 * couldn't be added; if you return 0 then hw_key_idx must be
+-	 * assigned to something other than HW_KEY_IDX_INVALID. When the cmd
+-	 * is DISABLE_KEY then it must succeed.
++	 * couldn't be added; if you return 0 then hw_key_idx must be assigned
++	 * to the hardware key index, you are free to use the full u8 range.
++	 *
++	 * When the cmd is DISABLE_KEY then it must succeed.
++	 *
++	 * Note that it is permissible to not decrypt a frame even if a key
++	 * for it has been uploaded to hardware, the stack will not make any
++	 * decision based on whether a key has been uploaded or not but rather
++	 * based on the receive flags.
+ 	 *
+ 	 * This callback can sleep, and is only called between add_interface
+ 	 * and remove_interface calls, i.e. while the interface with the
+@@ -667,19 +697,6 @@ struct ieee80211_ops {
+ 		       const u8 *local_address, const u8 *address,
+ 		       struct ieee80211_key_conf *key);
+ 
+-	/*
+-	 * Set TX key index for default/broadcast keys. This is needed in cases
+-	 * where wlan card is doing full WEP/TKIP encapsulation (wep_include_iv
+-	 * is not set), in other cases, this function pointer can be set to
+-	 * NULL since the IEEE 802.11 module takes care of selecting the key
+-	 * index for each TX frame.
+-	 *
+-	 * TODO: If you use this callback in your driver tell us if you need
+-	 *	 any other information from it to make it easier, like the
+-	 *	 key_conf instead.
+-	 */
+-	int (*set_key_idx)(struct ieee80211_hw *hw, int idx);
+-
+ 	/* Enable/disable IEEE 802.1X. This item requests wlan card to pass
+ 	 * unencrypted EAPOL-Key frames even when encryption is configured.
+ 	 * If the wlan card does not require such a configuration, this
+diff --git a/net/mac80211/debugfs.c b/net/mac80211/debugfs.c
+index dc5ed1a..12db9ad 100644
+--- a/net/mac80211/debugfs.c
++++ b/net/mac80211/debugfs.c
+@@ -28,8 +28,6 @@ static const char *ieee80211_mode_str(int mode)
+ 		return "IEEE 802.11b";
+ 	case MODE_IEEE80211G:
+ 		return "IEEE 802.11g";
+-	case MODE_ATHEROS_TURBO:
+-		return "Atheros Turbo (5 GHz)";
+ 	default:
+ 		return "UNKNOWN";
+ 	}
+diff --git a/net/mac80211/ieee80211.c b/net/mac80211/ieee80211.c
+index 5ea86f5..cb5582f 100644
+--- a/net/mac80211/ieee80211.c
++++ b/net/mac80211/ieee80211.c
+@@ -47,13 +47,6 @@ struct ieee80211_tx_status_rtap_hdr {
+ 
+ /* common interface routines */
+ 
+-static struct net_device_stats *ieee80211_get_stats(struct net_device *dev)
+-{
+-	struct ieee80211_sub_if_data *sdata;
+-	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+-	return &(sdata->stats);
+-}
+-
+ static int header_parse_80211(struct sk_buff *skb, unsigned char *haddr)
+ {
+ 	memcpy(haddr, skb_mac_header(skb) + 10, ETH_ALEN); /* addr2 */
+@@ -118,10 +111,6 @@ ieee80211_fill_frame_info(struct ieee80211_local *local,
+ 		case MODE_IEEE80211G:
+ 			fi->phytype = htonl(ieee80211_phytype_pbcc_dot11_g);
+ 			break;
+-		case MODE_ATHEROS_TURBO:
+-			fi->phytype =
+-				htonl(ieee80211_phytype_dsss_dot11_turbo);
+-			break;
+ 		default:
+ 			fi->phytype = htonl(0xAAAAAAAA);
+ 			break;
+@@ -172,11 +161,9 @@ ieee80211_rx_mgmt(struct ieee80211_local *local, struct sk_buff *skb,
+ {
+ 	struct ieee80211_frame_info *fi;
+ 	const size_t hlen = sizeof(struct ieee80211_frame_info);
+-	struct ieee80211_sub_if_data *sdata;
++	struct net_device *dev = local->apdev;
+ 
+-	skb->dev = local->apdev;
+-
+-	sdata = IEEE80211_DEV_TO_SUB_IF(local->apdev);
++	skb->dev = dev;
+ 
+ 	if (skb_headroom(skb) < hlen) {
+ 		I802_DEBUG_INC(local->rx_expand_skb_head);
+@@ -191,8 +178,8 @@ ieee80211_rx_mgmt(struct ieee80211_local *local, struct sk_buff *skb,
+ 	ieee80211_fill_frame_info(local, fi, status);
+ 	fi->msg_type = htonl(msg_type);
+ 
+-	sdata->stats.rx_packets++;
+-	sdata->stats.rx_bytes += skb->len;
++	dev->stats.rx_packets++;
++	dev->stats.rx_bytes += skb->len;
+ 
+ 	skb_set_mac_header(skb, 0);
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+@@ -273,7 +260,6 @@ void ieee80211_if_mgmt_setup(struct net_device *dev)
+ 	ether_setup(dev);
+ 	dev->hard_start_xmit = ieee80211_mgmt_start_xmit;
+ 	dev->change_mtu = ieee80211_change_mtu_apdev;
+-	dev->get_stats = ieee80211_get_stats;
+ 	dev->open = ieee80211_mgmt_open;
+ 	dev->stop = ieee80211_mgmt_stop;
+ 	dev->type = ARPHRD_IEEE80211_PRISM;
+@@ -603,7 +589,6 @@ void ieee80211_if_setup(struct net_device *dev)
+ 	dev->wireless_handlers = &ieee80211_iw_handler_def;
+ 	dev->set_multicast_list = ieee80211_set_multicast_list;
+ 	dev->change_mtu = ieee80211_change_mtu;
+-	dev->get_stats = ieee80211_get_stats;
+ 	dev->open = ieee80211_open;
+ 	dev->stop = ieee80211_stop;
+ 	dev->uninit = ieee80211_if_reinit;
+@@ -1225,7 +1210,7 @@ struct ieee80211_hw *ieee80211_alloc_hw(size_t priv_data_len,
+ 	local->long_retry_limit = 4;
+ 	local->hw.conf.radio_enabled = 1;
+ 
+-	local->enabled_modes = (unsigned int) -1;
++	local->enabled_modes = ~0;
+ 
+ 	INIT_LIST_HEAD(&local->modes_list);
+ 
+@@ -1465,13 +1450,6 @@ void ieee80211_free_hw(struct ieee80211_hw *hw)
+ }
+ EXPORT_SYMBOL(ieee80211_free_hw);
+ 
+-struct net_device_stats *ieee80211_dev_stats(struct net_device *dev)
+-{
+-	struct ieee80211_sub_if_data *sdata;
+-	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+-	return &sdata->stats;
+-}
+-
+ static int __init ieee80211_init(void)
+ {
+ 	struct sk_buff *skb;
+diff --git a/net/mac80211/ieee80211_common.h b/net/mac80211/ieee80211_common.h
+index d0bbd00..5b5fb7b 100644
+--- a/net/mac80211/ieee80211_common.h
++++ b/net/mac80211/ieee80211_common.h
+@@ -73,8 +73,6 @@ enum ieee80211_phytype {
+ 	ieee80211_phytype_ofdm_dot11_g   = 6,
+ 	ieee80211_phytype_pbcc_dot11_g   = 7,
+ 	ieee80211_phytype_ofdm_dot11_a   = 8,
+-	ieee80211_phytype_dsss_dot11_turbog = 255,
+-	ieee80211_phytype_dsss_dot11_turbo = 256,
+ };
+ 
+ enum ieee80211_ssi_type {
+diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
+index 0149f90..14e8c36 100644
+--- a/net/mac80211/ieee80211_i.h
++++ b/net/mac80211/ieee80211_i.h
+@@ -301,7 +301,6 @@ struct ieee80211_sub_if_data {
+ 
+ 	unsigned int flags;
+ 
+-	struct net_device_stats stats;
+ 	int drop_unencrypted;
+ 	int eapol; /* 0 = process EAPOL frames as normal data frames,
+ 		    * 1 = send EAPOL frames through wlan#ap to hostapd
+@@ -723,7 +722,6 @@ void ieee80211_tx_set_iswep(struct ieee80211_txrx_data *tx);
+ int ieee80211_if_update_wds(struct net_device *dev, u8 *remote_addr);
+ void ieee80211_if_setup(struct net_device *dev);
+ void ieee80211_if_mgmt_setup(struct net_device *dev);
+-struct net_device_stats *ieee80211_dev_stats(struct net_device *dev);
+ struct ieee80211_rate *ieee80211_get_rate(struct ieee80211_local *local,
+ 					  int phymode, int hwrate);
+ void ieee80211_key_threshold_notify(struct net_device *dev,
+diff --git a/net/mac80211/ieee80211_ioctl.c b/net/mac80211/ieee80211_ioctl.c
+index 383ad5f..51dca21 100644
+--- a/net/mac80211/ieee80211_ioctl.c
++++ b/net/mac80211/ieee80211_ioctl.c
+@@ -26,6 +26,41 @@
+ #include "wpa.h"
+ #include "aes_ccm.h"
+ 
 +
 +/*
-+ * Linux device driver for ADMtek ADM8211 (IEEE 802.11b MAC/BBP)
-+ *
-+ * Copyright (c) 2003, Jouni Malinen <j@w1.fi>
-+ * Copyright (c) 2004-2007, Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
-+ * Some parts copyright (c) 2003 by David Young <dyoung-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
-+ * and used with permission.
-+ *
-+ * Much thanks to Infineon-ADMtek for their support of this driver.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation. See README and COPYING for
-+ * more details.
++ * Wow. This ioctl interface is such crap, it's tied
++ * to internal definitions. I hope it dies soon.
 + */
-+
-+#include <linux/init.h>
-+#include <linux/if.h>
-+#include <linux/skbuff.h>
-+#include <linux/etherdevice.h>
-+#include <linux/pci.h>
-+#include <linux/delay.h>
-+#include <linux/crc32.h>
-+#include <linux/eeprom_93cx6.h>
-+#include <net/mac80211.h>
-+
-+#include "adm8211.h"
-+
-+MODULE_AUTHOR("Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>");
-+MODULE_AUTHOR("Jouni Malinen <j@w1.fi>");
-+MODULE_DESCRIPTION("Driver for IEEE 802.11b wireless cards based on ADMtek ADM8211");
-+MODULE_SUPPORTED_DEVICE("ADM8211");
-+MODULE_LICENSE("GPL");
-+
-+static unsigned int tx_ring_size __read_mostly = 16;
-+static unsigned int rx_ring_size __read_mostly = 16;
-+
-+module_param(tx_ring_size, uint, 0);
-+module_param(rx_ring_size, uint, 0);
-+
-+static const char version[] = KERN_INFO "adm8211: "
-+"Copyright 2003, Jouni Malinen <j@w1.fi>; "
-+"Copyright 2004-2007, Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>\n";
-+
-+
-+static struct pci_device_id adm8211_pci_id_table[] __devinitdata = {
-+	/* ADMtek ADM8211 */
-+	{ PCI_DEVICE(0x10B7, 0x6000) }, /* 3Com 3CRSHPW796 */
-+	{ PCI_DEVICE(0x1200, 0x8201) }, /* ? */
-+	{ PCI_DEVICE(0x1317, 0x8201) }, /* ADM8211A */
-+	{ PCI_DEVICE(0x1317, 0x8211) }, /* ADM8211B/C */
-+	{ 0 }
-+};
-+
-+static void adm8211_eeprom_register_read(struct eeprom_93cx6 *eeprom)
++static int mode_to_hostapd_mode(enum ieee80211_phymode mode)
 +{
-+	struct adm8211_priv *priv = eeprom->data;
-+	u32 reg = ADM8211_CSR_READ(SPR);
-+
-+	eeprom->reg_data_in = reg & ADM8211_SPR_SDI;
-+	eeprom->reg_data_out = reg & ADM8211_SPR_SDO;
-+	eeprom->reg_data_clock = reg & ADM8211_SPR_SCLK;
-+	eeprom->reg_chip_select = reg & ADM8211_SPR_SCS;
-+}
-+
-+static void adm8211_eeprom_register_write(struct eeprom_93cx6 *eeprom)
-+{
-+	struct adm8211_priv *priv = eeprom->data;
-+	u32 reg = 0x4000 | ADM8211_SPR_SRS;
-+
-+	if (eeprom->reg_data_in)
-+		reg |= ADM8211_SPR_SDI;
-+	if (eeprom->reg_data_out)
-+		reg |= ADM8211_SPR_SDO;
-+	if (eeprom->reg_data_clock)
-+		reg |= ADM8211_SPR_SCLK;
-+	if (eeprom->reg_chip_select)
-+		reg |= ADM8211_SPR_SCS;
-+
-+	ADM8211_CSR_WRITE(SPR, reg);
-+	ADM8211_CSR_READ(SPR);		/* eeprom_delay */
-+}
-+
-+static int adm8211_read_eeprom(struct ieee80211_hw *dev)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	unsigned int words, i;
-+	struct ieee80211_chan_range chan_range;
-+	u16 cr49;
-+	struct eeprom_93cx6 eeprom = {
-+		.data		= priv,
-+		.register_read	= adm8211_eeprom_register_read,
-+		.register_write	= adm8211_eeprom_register_write
-+	};
-+
-+	if (ADM8211_CSR_READ(CSR_TEST0) & ADM8211_CSR_TEST0_EPTYP) {
-+		/* 256 * 16-bit = 512 bytes */
-+		eeprom.width = PCI_EEPROM_WIDTH_93C66;
-+		words = 256;
-+	} else {
-+		/* 64 * 16-bit = 128 bytes */
-+		eeprom.width = PCI_EEPROM_WIDTH_93C46;
-+		words = 64;
-+	}
-+
-+	priv->eeprom_len = words * 2;
-+	priv->eeprom = kmalloc(priv->eeprom_len, GFP_KERNEL);
-+	if (!priv->eeprom)
-+		return -ENOMEM;
-+
-+	eeprom_93cx6_multiread(&eeprom, 0, (__le16 __force *)priv->eeprom, words);
-+
-+	cr49 = le16_to_cpu(priv->eeprom->cr49);
-+	priv->rf_type = (cr49 >> 3) & 0x7;
-+	switch (priv->rf_type) {
-+	case ADM8211_TYPE_INTERSIL:
-+	case ADM8211_TYPE_RFMD:
-+	case ADM8211_TYPE_MARVEL:
-+	case ADM8211_TYPE_AIROHA:
-+	case ADM8211_TYPE_ADMTEK:
-+		break;
-+
-+	default:
-+		if (priv->revid < ADM8211_REV_CA)
-+			priv->rf_type = ADM8211_TYPE_RFMD;
-+		else
-+			priv->rf_type = ADM8211_TYPE_AIROHA;
-+
-+		printk(KERN_WARNING "%s (adm8211): Unknown RFtype %d\n",
-+		       pci_name(priv->pdev), (cr49 >> 3) & 0x7);
-+	}
-+
-+	priv->bbp_type = cr49 & 0x7;
-+	switch (priv->bbp_type) {
-+	case ADM8211_TYPE_INTERSIL:
-+	case ADM8211_TYPE_RFMD:
-+	case ADM8211_TYPE_MARVEL:
-+	case ADM8211_TYPE_AIROHA:
-+	case ADM8211_TYPE_ADMTEK:
-+		break;
-+	default:
-+		if (priv->revid < ADM8211_REV_CA)
-+			priv->bbp_type = ADM8211_TYPE_RFMD;
-+		else
-+			priv->bbp_type = ADM8211_TYPE_ADMTEK;
-+
-+		printk(KERN_WARNING "%s (adm8211): Unknown BBPtype: %d\n",
-+		       pci_name(priv->pdev), cr49 >> 3);
-+	}
-+
-+	if (priv->eeprom->country_code >= ARRAY_SIZE(cranges)) {
-+		printk(KERN_WARNING "%s (adm8211): Invalid country code (%d)\n",
-+		       pci_name(priv->pdev), priv->eeprom->country_code);
-+
-+		chan_range = cranges[2];
-+	} else
-+		chan_range = cranges[priv->eeprom->country_code];
-+
-+	printk(KERN_DEBUG "%s (adm8211): Channel range: %d - %d\n",
-+	       pci_name(priv->pdev), (int)chan_range.min, (int)chan_range.max);
-+
-+	priv->modes[0].num_channels = chan_range.max - chan_range.min + 1;
-+	priv->modes[0].channels = priv->channels;
-+
-+	memcpy(priv->channels, adm8211_channels, sizeof(adm8211_channels));
-+
-+	for (i = 1; i <= ARRAY_SIZE(adm8211_channels); i++)
-+		if (i >= chan_range.min && i <= chan_range.max)
-+			priv->channels[i - 1].flag =
-+				IEEE80211_CHAN_W_SCAN |
-+				IEEE80211_CHAN_W_ACTIVE_SCAN |
-+				IEEE80211_CHAN_W_IBSS;
-+
-+	switch (priv->eeprom->specific_bbptype) {
-+	case ADM8211_BBP_RFMD3000:
-+	case ADM8211_BBP_RFMD3002:
-+	case ADM8211_BBP_ADM8011:
-+		priv->specific_bbptype = priv->eeprom->specific_bbptype;
-+		break;
-+
-+	default:
-+		if (priv->revid < ADM8211_REV_CA)
-+			priv->specific_bbptype = ADM8211_BBP_RFMD3000;
-+		else
-+			priv->specific_bbptype = ADM8211_BBP_ADM8011;
-+
-+		printk(KERN_WARNING "%s (adm8211): Unknown specific BBP: %d\n",
-+		       pci_name(priv->pdev), priv->eeprom->specific_bbptype);
-+	}
-+
-+	switch (priv->eeprom->specific_rftype) {
-+	case ADM8211_RFMD2948:
-+	case ADM8211_RFMD2958:
-+	case ADM8211_RFMD2958_RF3000_CONTROL_POWER:
-+	case ADM8211_MAX2820:
-+	case ADM8211_AL2210L:
-+		priv->transceiver_type = priv->eeprom->specific_rftype;
-+		break;
-+
-+	default:
-+		if (priv->revid == ADM8211_REV_BA)
-+			priv->transceiver_type = ADM8211_RFMD2958_RF3000_CONTROL_POWER;
-+		else if (priv->revid == ADM8211_REV_CA)
-+			priv->transceiver_type = ADM8211_AL2210L;
-+		else if (priv->revid == ADM8211_REV_AB)
-+			priv->transceiver_type = ADM8211_RFMD2948;
-+
-+		printk(KERN_WARNING "%s (adm8211): Unknown transceiver: %d\n",
-+		       pci_name(priv->pdev), priv->eeprom->specific_rftype);
-+
++	switch (mode) {
++	case MODE_IEEE80211A:
++		return 0;
++	case MODE_IEEE80211B:
++		return 1;
++	case MODE_IEEE80211G:
++		return 3;
++	case NUM_IEEE80211_MODES:
++		WARN_ON(1);
 +		break;
 +	}
-+
-+	printk(KERN_DEBUG "%s (adm8211): RFtype=%d BBPtype=%d Specific BBP=%d "
-+               "Transceiver=%d\n", pci_name(priv->pdev), priv->rf_type,
-+	       priv->bbp_type, priv->specific_bbptype, priv->transceiver_type);
-+
-+	return 0;
++	WARN_ON(1);
++	return -1;
 +}
 +
-+static inline void adm8211_write_sram(struct ieee80211_hw *dev,
-+				      u32 addr, u32 data)
++static enum ieee80211_phymode hostapd_mode_to_mode(int hostapd_mode)
 +{
-+	struct adm8211_priv *priv = dev->priv;
-+
-+	ADM8211_CSR_WRITE(WEPCTL, addr | ADM8211_WEPCTL_TABLE_WR |
-+			  (priv->revid < ADM8211_REV_BA ?
-+			   0 : ADM8211_WEPCTL_SEL_WEPTABLE ));
-+	ADM8211_CSR_READ(WEPCTL);
-+	msleep(1);
-+
-+	ADM8211_CSR_WRITE(WESK, data);
-+	ADM8211_CSR_READ(WESK);
-+	msleep(1);
-+}
-+
-+static void adm8211_write_sram_bytes(struct ieee80211_hw *dev,
-+				     unsigned int addr, u8 *buf,
-+				     unsigned int len)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	u32 reg = ADM8211_CSR_READ(WEPCTL);
-+	unsigned int i;
-+
-+	if (priv->revid < ADM8211_REV_BA) {
-+		for (i = 0; i < len; i += 2) {
-+			u16 val = buf[i] | (buf[i + 1] << 8);
-+			adm8211_write_sram(dev, addr + i / 2, val);
-+		}
-+	} else {
-+		for (i = 0; i < len; i += 4) {
-+			u32 val = (buf[i + 0] << 0 ) | (buf[i + 1] << 8 ) |
-+				  (buf[i + 2] << 16) | (buf[i + 3] << 24);
-+			adm8211_write_sram(dev, addr + i / 4, val);
-+		}
++	switch (hostapd_mode) {
++	case 0:
++		return MODE_IEEE80211A;
++	case 1:
++		return MODE_IEEE80211B;
++	case 3:
++		return MODE_IEEE80211G;
 +	}
-+
-+	ADM8211_CSR_WRITE(WEPCTL, reg);
++	return NUM_IEEE80211_MODES;
 +}
 +
-+static void adm8211_clear_sram(struct ieee80211_hw *dev)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	u32 reg = ADM8211_CSR_READ(WEPCTL);
-+	unsigned int addr;
-+
-+	for (addr = 0; addr < ADM8211_SRAM_SIZE; addr++)
-+		adm8211_write_sram(dev, addr, 0);
-+
-+	ADM8211_CSR_WRITE(WEPCTL, reg);
-+}
-+
-+static int adm8211_get_stats(struct ieee80211_hw *dev,
-+			     struct ieee80211_low_level_stats *stats)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+
-+	memcpy(stats, &priv->stats, sizeof(*stats));
-+
-+	return 0;
-+}
-+
-+static void adm8211_set_rx_mode(struct ieee80211_hw *dev,
-+				unsigned short flags, int mc_count)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	unsigned int bit_nr;
-+	u32 mc_filter[2];
-+	struct dev_mc_list *mclist;
-+	void *tmp;
-+
-+	if (flags & IFF_PROMISC) {
-+		priv->nar |= ADM8211_NAR_PR;
-+		priv->nar &= ~ADM8211_NAR_MM;
-+		mc_filter[1] = mc_filter[0] = ~0;
-+	} else if ((flags & IFF_ALLMULTI) || (mc_count > -1)) {
-+		priv->nar &= ~ADM8211_NAR_PR;
-+		priv->nar |= ADM8211_NAR_MM;
-+		mc_filter[1] = mc_filter[0] = ~0;
-+	} else {
-+		priv->nar &= ~(ADM8211_NAR_MM | ADM8211_NAR_PR);
-+		mc_filter[1] = mc_filter[0] = 0;
-+		mclist = NULL;
-+		while ((mclist = ieee80211_get_mc_list_item(dev, mclist, &tmp))) {
-+			bit_nr = ether_crc(ETH_ALEN, mclist->dmi_addr) >> 26;
-+
-+			bit_nr &= 0x3F;
-+			mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
-+		}
-+	}
-+
-+	ADM8211_IDLE_RX();
-+
-+	ADM8211_CSR_WRITE(MAR0, mc_filter[0]);
-+	ADM8211_CSR_WRITE(MAR1, mc_filter[1]);
-+	ADM8211_CSR_READ(NAR);
-+
-+	if (flags & IFF_PROMISC)
-+		dev->flags |= IEEE80211_HW_RX_INCLUDES_FCS;
-+	else
-+		dev->flags &= ~IEEE80211_HW_RX_INCLUDES_FCS;
-+
-+	ADM8211_RESTORE();
-+}
-+
-+static int adm8211_get_tx_stats(struct ieee80211_hw *dev,
-+				struct ieee80211_tx_queue_stats *stats)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	struct ieee80211_tx_queue_stats_data *data = &stats->data[0];
-+
-+	data->len = priv->cur_tx - priv->dirty_tx;
-+	data->limit = priv->tx_ring_size - 2;
-+	data->count = priv->dirty_tx;
-+
-+	return 0;
-+}
-+
-+static void adm8211_interrupt_tci(struct ieee80211_hw *dev)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	unsigned int dirty_tx;
-+
-+	spin_lock(&priv->lock);
-+
-+	for (dirty_tx = priv->dirty_tx; priv->cur_tx - dirty_tx; dirty_tx++) {
-+		unsigned int entry = dirty_tx % priv->tx_ring_size;
-+		u32 status = le32_to_cpu(priv->tx_ring[entry].status);
-+		struct adm8211_tx_ring_info *info;
-+		struct sk_buff *skb;
-+
-+		if (status & TDES0_CONTROL_OWN ||
-+		    !(status & TDES0_CONTROL_DONE))
-+			break;
-+
-+		info = &priv->tx_buffers[entry];
-+		skb = info->skb;
-+
-+		/* TODO: check TDES0_STATUS_TUF and TDES0_STATUS_TRO */
-+
-+		pci_unmap_single(priv->pdev, info->mapping,
-+				 info->skb->len, PCI_DMA_TODEVICE);
-+
-+		if (info->tx_control.flags & IEEE80211_TXCTL_REQ_TX_STATUS) {
-+			struct ieee80211_tx_status tx_status = {{0}};
-+			struct ieee80211_hdr *hdr;
-+			size_t hdrlen = info->hdrlen;
-+
-+			skb_pull(skb, sizeof(struct adm8211_tx_hdr));
-+			hdr = (struct ieee80211_hdr *)skb_push(skb, hdrlen);
-+			memcpy(hdr, skb->cb, hdrlen);
-+			memcpy(&tx_status.control, &info->tx_control,
-+			       sizeof(tx_status.control));
-+			if (!(status & TDES0_STATUS_ES))
-+				tx_status.flags |= IEEE80211_TX_STATUS_ACK;
-+			ieee80211_tx_status_irqsafe(dev, skb, &tx_status);
-+		} else
-+			dev_kfree_skb_irq(skb);
-+		info->skb = NULL;
-+	}
-+
-+	if (priv->cur_tx - dirty_tx < priv->tx_ring_size - 2)
-+		ieee80211_wake_queue(dev, 0);
-+
-+	priv->dirty_tx = dirty_tx;
-+	spin_unlock(&priv->lock);
-+}
-+
-+
-+static void adm8211_interrupt_rci(struct ieee80211_hw *dev)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	unsigned int entry = priv->cur_rx % priv->rx_ring_size;
-+	u32 status;
-+	unsigned int pktlen;
-+	struct sk_buff *skb, *newskb;
-+	unsigned int limit = priv->rx_ring_size;
-+	static const u8 rate_tbl[] = {10, 20, 55, 110, 220};
-+	u8 rssi, rate;
-+
-+	while (!(priv->rx_ring[entry].status & cpu_to_le32(RDES0_STATUS_OWN))) {
-+		if (!limit--)
-+			break;
-+
-+		status = le32_to_cpu(priv->rx_ring[entry].status);
-+		rate = (status & RDES0_STATUS_RXDR) >> 12;
-+		rssi = le32_to_cpu(priv->rx_ring[entry].length) &
-+			RDES1_STATUS_RSSI;
-+
-+		pktlen = status & RDES0_STATUS_FL;
-+		if (pktlen > RX_PKT_SIZE) {
-+			if (net_ratelimit())
-+				printk(KERN_DEBUG "%s: frame too long (%d)\n",
-+				       wiphy_name(dev->wiphy), pktlen);
-+			pktlen = RX_PKT_SIZE;
-+		}
-+
-+		if (!priv->soft_rx_crc && status & RDES0_STATUS_ES) {
-+			skb = NULL; /* old buffer will be reused */
-+			/* TODO: update RX error stats */
-+			/* TODO: check RDES0_STATUS_CRC*E */
-+		} else if (pktlen < RX_COPY_BREAK) {
-+			skb = dev_alloc_skb(pktlen);
-+			if (skb) {
-+				pci_dma_sync_single_for_cpu(
-+					priv->pdev,
-+					priv->rx_buffers[entry].mapping,
-+					pktlen, PCI_DMA_FROMDEVICE);
-+				memcpy(skb_put(skb, pktlen),
-+				       skb_tail_pointer(priv->rx_buffers[entry].skb),
-+				       pktlen);
-+				pci_dma_sync_single_for_device(
-+					priv->pdev,
-+					priv->rx_buffers[entry].mapping,
-+					RX_PKT_SIZE, PCI_DMA_FROMDEVICE);
-+			}
-+		} else {
-+			newskb = dev_alloc_skb(RX_PKT_SIZE);
-+			if (newskb) {
-+				skb = priv->rx_buffers[entry].skb;
-+				skb_put(skb, pktlen);
-+				pci_unmap_single(
-+					priv->pdev,
-+					priv->rx_buffers[entry].mapping,
-+					RX_PKT_SIZE, PCI_DMA_FROMDEVICE);
-+				priv->rx_buffers[entry].skb = newskb;
-+				priv->rx_buffers[entry].mapping =
-+					pci_map_single(priv->pdev,
-+						       skb_tail_pointer(newskb),
-+						       RX_PKT_SIZE,
-+						       PCI_DMA_FROMDEVICE);
-+			} else {
-+				skb = NULL;
-+				/* TODO: update rx dropped stats */
-+			}
-+
-+			priv->rx_ring[entry].buffer1 =
-+				cpu_to_le32(priv->rx_buffers[entry].mapping);
-+		}
-+
-+		priv->rx_ring[entry].status = cpu_to_le32(RDES0_STATUS_OWN |
-+							  RDES0_STATUS_SQL);
-+		priv->rx_ring[entry].length =
-+			cpu_to_le32(RX_PKT_SIZE |
-+				    (entry == priv->rx_ring_size - 1 ?
-+				     RDES1_CONTROL_RER : 0));
-+
-+		if (skb) {
-+			struct ieee80211_rx_status rx_status = {0};
-+
-+			if (priv->revid < ADM8211_REV_CA)
-+				rx_status.ssi = rssi;
-+			else
-+				rx_status.ssi = 100 - rssi;
-+
-+			if (rate <= 4)
-+				rx_status.rate = rate_tbl[rate];
-+
-+			rx_status.channel = priv->channel;
-+			rx_status.freq = adm8211_channels[priv->channel - 1].freq;
-+			rx_status.phymode = MODE_IEEE80211B;
-+
-+			ieee80211_rx_irqsafe(dev, skb, &rx_status);
-+		}
-+
-+		entry = (++priv->cur_rx) % priv->rx_ring_size;
-+	}
-+
-+	/* TODO: check LPC and update stats? */
-+}
-+
-+
-+static irqreturn_t adm8211_interrupt(int irq, void *dev_id)
-+{
-+#define ADM8211_INT(x)							   \
-+do {									   \
-+	if (unlikely(stsr & ADM8211_STSR_ ## x))			   \
-+		printk(KERN_DEBUG "%s: " #x "\n", wiphy_name(dev->wiphy)); \
-+} while (0)
-+
-+	struct ieee80211_hw *dev = dev_id;
-+	struct adm8211_priv *priv = dev->priv;
-+	unsigned int count = 0;
-+	u32 stsr;
-+
-+	do {
-+		stsr = ADM8211_CSR_READ(STSR);
-+		ADM8211_CSR_WRITE(STSR, stsr);
-+		if (stsr == 0xffffffff)
-+			return IRQ_HANDLED;
-+
-+		if (!(stsr & (ADM8211_STSR_NISS | ADM8211_STSR_AISS)))
-+			break;
-+
-+		if (stsr & ADM8211_STSR_RCI)
-+			adm8211_interrupt_rci(dev);
-+		if (stsr & ADM8211_STSR_TCI)
-+			adm8211_interrupt_tci(dev);
-+
-+		/*ADM8211_INT(LinkOn);*/
-+		/*ADM8211_INT(LinkOff);*/
-+
-+		ADM8211_INT(PCF);
-+		ADM8211_INT(BCNTC);
-+		ADM8211_INT(GPINT);
-+		ADM8211_INT(ATIMTC);
-+		ADM8211_INT(TSFTF);
-+		ADM8211_INT(TSCZ);
-+		ADM8211_INT(SQL);
-+		ADM8211_INT(WEPTD);
-+		ADM8211_INT(ATIME);
-+		/*ADM8211_INT(TBTT);*/
-+		ADM8211_INT(TEIS);
-+		ADM8211_INT(FBE);
-+		ADM8211_INT(REIS);
-+		ADM8211_INT(GPTT);
-+		ADM8211_INT(RPS);
-+		ADM8211_INT(RDU);
-+		ADM8211_INT(TUF);
-+		/*ADM8211_INT(TRT);*/
-+		/*ADM8211_INT(TLT);*/
-+		/*ADM8211_INT(TDU);*/
-+		ADM8211_INT(TPS);
-+
-+	} while (count++ < 20);
-+
-+	return IRQ_RETVAL(count);
-+
-+#undef ADM8211_INT
-+}
-+
-+#define WRITE_SYN(name,v_mask,v_shift,a_mask,a_shift,bits,prewrite,postwrite)\
-+static void adm8211_rf_write_syn_ ## name (struct ieee80211_hw *dev,	     \
-+					   u16 addr, u32 value) {	     \
-+	struct adm8211_priv *priv = dev->priv;				     \
-+	unsigned int i;							     \
-+	u32 reg, bitbuf;						     \
-+									     \
-+	value &= v_mask;						     \
-+	addr &= a_mask;							     \
-+	bitbuf = (value << v_shift) | (addr << a_shift);		     \
-+									     \
-+	ADM8211_CSR_WRITE(SYNRF, ADM8211_SYNRF_IF_SELECT_1);		     \
-+	ADM8211_CSR_READ(SYNRF);					     \
-+	ADM8211_CSR_WRITE(SYNRF, ADM8211_SYNRF_IF_SELECT_0);		     \
-+	ADM8211_CSR_READ(SYNRF);					     \
-+									     \
-+	if (prewrite) {							     \
-+		ADM8211_CSR_WRITE(SYNRF, ADM8211_SYNRF_WRITE_SYNDATA_0);     \
-+		ADM8211_CSR_READ(SYNRF);				     \
-+	}								     \
-+									     \
-+	for (i = 0; i <= bits; i++) {					     \
-+		if (bitbuf & (1 << (bits - i)))				     \
-+			reg = ADM8211_SYNRF_WRITE_SYNDATA_1;		     \
-+		else							     \
-+			reg = ADM8211_SYNRF_WRITE_SYNDATA_0;		     \
-+									     \
-+		ADM8211_CSR_WRITE(SYNRF, reg);				     \
-+		ADM8211_CSR_READ(SYNRF);				     \
-+									     \
-+		ADM8211_CSR_WRITE(SYNRF, reg | ADM8211_SYNRF_WRITE_CLOCK_1); \
-+		ADM8211_CSR_READ(SYNRF);				     \
-+		ADM8211_CSR_WRITE(SYNRF, reg | ADM8211_SYNRF_WRITE_CLOCK_0); \
-+		ADM8211_CSR_READ(SYNRF);				     \
-+	}								     \
-+									     \
-+	if (postwrite == 1) {						     \
-+		ADM8211_CSR_WRITE(SYNRF, reg | ADM8211_SYNRF_IF_SELECT_0);   \
-+		ADM8211_CSR_READ(SYNRF);				     \
-+	}								     \
-+	if (postwrite == 2) {						     \
-+		ADM8211_CSR_WRITE(SYNRF, reg | ADM8211_SYNRF_IF_SELECT_1);   \
-+		ADM8211_CSR_READ(SYNRF);				     \
-+	}								     \
-+									     \
-+	ADM8211_CSR_WRITE(SYNRF, 0);					     \
-+	ADM8211_CSR_READ(SYNRF);					     \
-+}
-+
-+WRITE_SYN(max2820,  0x00FFF, 0, 0x0F, 12, 15, 1, 1)
-+WRITE_SYN(al2210l,  0xFFFFF, 4, 0x0F,  0, 23, 1, 1)
-+WRITE_SYN(rfmd2958, 0x3FFFF, 0, 0x1F, 18, 23, 0, 1)
-+WRITE_SYN(rfmd2948, 0x0FFFF, 4, 0x0F,  0, 21, 0, 2)
-+
-+#undef WRITE_SYN
-+
-+static int adm8211_write_bbp(struct ieee80211_hw *dev, u8 addr, u8 data)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	unsigned int timeout;
-+	u32 reg;
-+
-+	timeout = 10;
-+	while (timeout > 0) {
-+		reg = ADM8211_CSR_READ(BBPCTL);
-+		if (!(reg & (ADM8211_BBPCTL_WR | ADM8211_BBPCTL_RD)))
-+			break;
-+		timeout--;
-+		msleep(2);
-+	}
-+
-+	if (timeout == 0) {
-+		printk(KERN_DEBUG "%s: adm8211_write_bbp(%d,%d) failed"
-+		       " prewrite (reg=0x%08x)\n",
-+		       wiphy_name(dev->wiphy), addr, data, reg);
-+		return -ETIMEDOUT;
-+	}
-+
-+	switch (priv->bbp_type) {
-+	case ADM8211_TYPE_INTERSIL:
-+		reg = ADM8211_BBPCTL_MMISEL;	/* three wire interface */
-+		break;
-+	case ADM8211_TYPE_RFMD:
-+		reg = (0x20 << 24) | ADM8211_BBPCTL_TXCE | ADM8211_BBPCTL_CCAP |
-+		      (0x01 << 18);
-+		break;
-+	case ADM8211_TYPE_ADMTEK:
-+		reg = (0x20 << 24) | ADM8211_BBPCTL_TXCE | ADM8211_BBPCTL_CCAP |
-+		      (0x05 << 18);
-+		break;
-+	}
-+	reg |= ADM8211_BBPCTL_WR | (addr << 8) | data;
-+
-+	ADM8211_CSR_WRITE(BBPCTL, reg);
-+
-+	timeout = 10;
-+	while (timeout > 0) {
-+		reg = ADM8211_CSR_READ(BBPCTL);
-+		if (!(reg & ADM8211_BBPCTL_WR))
-+			break;
-+		timeout--;
-+		msleep(2);
-+	}
-+
-+	if (timeout == 0) {
-+		ADM8211_CSR_WRITE(BBPCTL, ADM8211_CSR_READ(BBPCTL) &
-+				  ~ADM8211_BBPCTL_WR);
-+		printk(KERN_DEBUG "%s: adm8211_write_bbp(%d,%d) failed"
-+		       " postwrite (reg=0x%08x)\n",
-+		       wiphy_name(dev->wiphy), addr, data, reg);
-+		return -ETIMEDOUT;
-+	}
-+
-+	return 0;
-+}
-+
-+static int adm8211_rf_set_channel(struct ieee80211_hw *dev, unsigned int chan)
-+{
-+	static const u32 adm8211_rfmd2958_reg5[] =
-+		{0x22BD, 0x22D2, 0x22E8, 0x22FE, 0x2314, 0x232A, 0x2340,
-+		 0x2355, 0x236B, 0x2381, 0x2397, 0x23AD, 0x23C2, 0x23F7};
-+	static const u32 adm8211_rfmd2958_reg6[] =
-+		{0x05D17, 0x3A2E8, 0x2E8BA, 0x22E8B, 0x1745D, 0x0BA2E, 0x00000,
-+		 0x345D1, 0x28BA2, 0x1D174, 0x11745, 0x05D17, 0x3A2E8, 0x11745};
-+
-+	struct adm8211_priv *priv = dev->priv;
-+	u8 ant_power = priv->ant_power > 0x3F ?
-+		priv->eeprom->antenna_power[chan - 1] : priv->ant_power;
-+	u8 tx_power = priv->tx_power > 0x3F ?
-+		priv->eeprom->tx_power[chan - 1] : priv->tx_power;
-+	u8 lpf_cutoff = priv->lpf_cutoff == 0xFF ?
-+		priv->eeprom->lpf_cutoff[chan - 1] : priv->lpf_cutoff;
-+	u8 lnags_thresh = priv->lnags_threshold == 0xFF ?
-+		priv->eeprom->lnags_threshold[chan - 1] : priv->lnags_threshold;
-+	u32 reg;
-+
-+	ADM8211_IDLE();
-+
-+	/* Program synthesizer to new channel */
-+	switch (priv->transceiver_type) {
-+	case ADM8211_RFMD2958:
-+	case ADM8211_RFMD2958_RF3000_CONTROL_POWER:
-+		adm8211_rf_write_syn_rfmd2958(dev, 0x00, 0x04007);
-+		adm8211_rf_write_syn_rfmd2958(dev, 0x02, 0x00033);
-+
-+		adm8211_rf_write_syn_rfmd2958(dev, 0x05,
-+			adm8211_rfmd2958_reg5[chan - 1]);
-+		adm8211_rf_write_syn_rfmd2958(dev, 0x06,
-+			adm8211_rfmd2958_reg6[chan - 1]);
-+		break;
-+
-+	case ADM8211_RFMD2948:
-+		adm8211_rf_write_syn_rfmd2948(dev, SI4126_MAIN_CONF,
-+					      SI4126_MAIN_XINDIV2);
-+		adm8211_rf_write_syn_rfmd2948(dev, SI4126_POWERDOWN,
-+					      SI4126_POWERDOWN_PDIB |
-+					      SI4126_POWERDOWN_PDRB);
-+		adm8211_rf_write_syn_rfmd2948(dev, SI4126_PHASE_DET_GAIN, 0);
-+		adm8211_rf_write_syn_rfmd2948(dev, SI4126_RF2_N_DIV,
-+					      (chan == 14 ?
-+					       2110 : (2033 + (chan * 5))));
-+		adm8211_rf_write_syn_rfmd2948(dev, SI4126_IF_N_DIV, 1496);
-+		adm8211_rf_write_syn_rfmd2948(dev, SI4126_RF2_R_DIV, 44);
-+		adm8211_rf_write_syn_rfmd2948(dev, SI4126_IF_R_DIV, 44);
-+		break;
-+
-+	case ADM8211_MAX2820:
-+		adm8211_rf_write_syn_max2820(dev, 0x3,
-+			(chan == 14 ? 0x054 : (0x7 + (chan * 5))));
-+		break;
-+
-+	case ADM8211_AL2210L:
-+		adm8211_rf_write_syn_al2210l(dev, 0x0,
-+			(chan == 14 ? 0x229B4 : (0x22967 + (chan * 5))));
-+		break;
-+
-+	default:
-+		printk(KERN_DEBUG "%s: unsupported transceiver type %d\n",
-+		       wiphy_name(dev->wiphy), priv->transceiver_type);
-+		break;
-+	}
-+
-+	/* write BBP regs */
-+	if (priv->bbp_type == ADM8211_TYPE_RFMD) {
-+
-+	/* SMC 2635W specific? adm8211b doesn't use the 2948 though.. */
-+	/* TODO: remove if SMC 2635W doesn't need this */
-+	if (priv->transceiver_type == ADM8211_RFMD2948) {
-+		reg = ADM8211_CSR_READ(GPIO);
-+		reg &= 0xfffc0000;
-+		reg |= ADM8211_CSR_GPIO_EN0;
-+		if (chan != 14)
-+			reg |= ADM8211_CSR_GPIO_O0;
-+		ADM8211_CSR_WRITE(GPIO, reg);
-+	}
-+
-+	if (priv->transceiver_type == ADM8211_RFMD2958) {
-+		/* set PCNT2 */
-+		adm8211_rf_write_syn_rfmd2958(dev, 0x0B, 0x07100);
-+		/* set PCNT1 P_DESIRED/MID_BIAS */
-+		reg = le16_to_cpu(priv->eeprom->cr49);
-+		reg >>= 13;
-+		reg <<= 15;
-+		reg |= ant_power << 9;
-+		adm8211_rf_write_syn_rfmd2958(dev, 0x0A, reg);
-+		/* set TXRX TX_GAIN */
-+		adm8211_rf_write_syn_rfmd2958(dev, 0x09, 0x00050 |
-+			(priv->revid < ADM8211_REV_CA ? tx_power : 0));
-+	} else {
-+		reg = ADM8211_CSR_READ(PLCPHD);
-+		reg &= 0xff00ffff;
-+		reg |= tx_power << 18;
-+		ADM8211_CSR_WRITE(PLCPHD, reg);
-+	}
-+
-+	ADM8211_CSR_WRITE(SYNRF, ADM8211_SYNRF_SELRF |
-+			  ADM8211_SYNRF_PE1 | ADM8211_SYNRF_PHYRST);
-+	ADM8211_CSR_READ(SYNRF);
-+	msleep(30);
-+
-+	/* RF3000 BBP */
-+	if (priv->transceiver_type != ADM8211_RFMD2958)
-+		adm8211_write_bbp(dev, RF3000_TX_VAR_GAIN__TX_LEN_EXT,
-+				  tx_power<<2);
-+	adm8211_write_bbp(dev, RF3000_LOW_GAIN_CALIB, lpf_cutoff);
-+	adm8211_write_bbp(dev, RF3000_HIGH_GAIN_CALIB, lnags_thresh);
-+	adm8211_write_bbp(dev, 0x1c, priv->revid == ADM8211_REV_BA ?
-+				     priv->eeprom->cr28 : 0);
-+	adm8211_write_bbp(dev, 0x1d, priv->eeprom->cr29);
-+
-+	ADM8211_CSR_WRITE(SYNRF, 0);
-+
-+	/* Nothing to do for ADMtek BBP */
-+	} else if (priv->bbp_type != ADM8211_TYPE_ADMTEK)
-+		printk(KERN_DEBUG "%s: unsupported BBP type %d\n",
-+		       wiphy_name(dev->wiphy), priv->bbp_type);
-+
-+	ADM8211_RESTORE();
-+
-+	/* update current channel for adhoc (and maybe AP mode) */
-+	reg = ADM8211_CSR_READ(CAP0);
-+	reg &= ~0xF;
-+	reg |= chan;
-+	ADM8211_CSR_WRITE(CAP0, reg);
-+
-+	return 0;
-+}
-+
-+static void adm8211_update_mode(struct ieee80211_hw *dev)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+
-+	ADM8211_IDLE();
-+
-+	priv->soft_rx_crc = 0;
-+	switch (priv->mode) {
-+	case IEEE80211_IF_TYPE_STA:
-+		priv->nar &= ~(ADM8211_NAR_PR | ADM8211_NAR_EA);
-+		priv->nar |= ADM8211_NAR_ST | ADM8211_NAR_SR;
-+		break;
-+	case IEEE80211_IF_TYPE_IBSS:
-+		priv->nar &= ~ADM8211_NAR_PR;
-+		priv->nar |= ADM8211_NAR_EA | ADM8211_NAR_ST | ADM8211_NAR_SR;
-+
-+		/* don't trust the error bits on rev 0x20 and up in adhoc */
-+		if (priv->revid >= ADM8211_REV_BA)
-+			priv->soft_rx_crc = 1;
-+		break;
-+	case IEEE80211_IF_TYPE_MNTR:
-+		priv->nar &= ~(ADM8211_NAR_EA | ADM8211_NAR_ST);
-+		priv->nar |= ADM8211_NAR_PR | ADM8211_NAR_SR;
-+		break;
-+	}
-+
-+	ADM8211_RESTORE();
-+}
-+
-+static void adm8211_hw_init_syn(struct ieee80211_hw *dev)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+
-+	switch (priv->transceiver_type) {
-+	case ADM8211_RFMD2958:
-+	case ADM8211_RFMD2958_RF3000_CONTROL_POWER:
-+		/* comments taken from ADMtek vendor driver */
-+
-+		/* Reset RF2958 after power on */
-+		adm8211_rf_write_syn_rfmd2958(dev, 0x1F, 0x00000);
-+		/* Initialize RF VCO Core Bias to maximum */
-+		adm8211_rf_write_syn_rfmd2958(dev, 0x0C, 0x3001F);
-+		/* Initialize IF PLL */
-+		adm8211_rf_write_syn_rfmd2958(dev, 0x01, 0x29C03);
-+		/* Initialize IF PLL Coarse Tuning */
-+		adm8211_rf_write_syn_rfmd2958(dev, 0x03, 0x1FF6F);
-+		/* Initialize RF PLL */
-+		adm8211_rf_write_syn_rfmd2958(dev, 0x04, 0x29403);
-+		/* Initialize RF PLL Coarse Tuning */
-+		adm8211_rf_write_syn_rfmd2958(dev, 0x07, 0x1456F);
-+		/* Initialize TX gain and filter BW (R9) */
-+		adm8211_rf_write_syn_rfmd2958(dev, 0x09,
-+			(priv->transceiver_type == ADM8211_RFMD2958 ?
-+			 0x10050 : 0x00050));
-+		/* Initialize CAL register */
-+		adm8211_rf_write_syn_rfmd2958(dev, 0x08, 0x3FFF8);
-+		break;
-+
-+	case ADM8211_MAX2820:
-+		adm8211_rf_write_syn_max2820(dev, 0x1, 0x01E);
-+		adm8211_rf_write_syn_max2820(dev, 0x2, 0x001);
-+		adm8211_rf_write_syn_max2820(dev, 0x3, 0x054);
-+		adm8211_rf_write_syn_max2820(dev, 0x4, 0x310);
-+		adm8211_rf_write_syn_max2820(dev, 0x5, 0x000);
-+		break;
-+
-+	case ADM8211_AL2210L:
-+		adm8211_rf_write_syn_al2210l(dev, 0x0, 0x0196C);
-+		adm8211_rf_write_syn_al2210l(dev, 0x1, 0x007CB);
-+		adm8211_rf_write_syn_al2210l(dev, 0x2, 0x3582F);
-+		adm8211_rf_write_syn_al2210l(dev, 0x3, 0x010A9);
-+		adm8211_rf_write_syn_al2210l(dev, 0x4, 0x77280);
-+		adm8211_rf_write_syn_al2210l(dev, 0x5, 0x45641);
-+		adm8211_rf_write_syn_al2210l(dev, 0x6, 0xEA130);
-+		adm8211_rf_write_syn_al2210l(dev, 0x7, 0x80000);
-+		adm8211_rf_write_syn_al2210l(dev, 0x8, 0x7850F);
-+		adm8211_rf_write_syn_al2210l(dev, 0x9, 0xF900C);
-+		adm8211_rf_write_syn_al2210l(dev, 0xA, 0x00000);
-+		adm8211_rf_write_syn_al2210l(dev, 0xB, 0x00000);
-+		break;
-+
-+	case ADM8211_RFMD2948:
-+	default:
-+		break;
-+	}
-+}
-+
-+static int adm8211_hw_init_bbp(struct ieee80211_hw *dev)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	u32 reg;
-+
-+	/* write addresses */
-+	if (priv->bbp_type == ADM8211_TYPE_INTERSIL) {
-+		ADM8211_CSR_WRITE(MMIWA,  0x100E0C0A);
-+		ADM8211_CSR_WRITE(MMIRD0, 0x00007C7E);
-+		ADM8211_CSR_WRITE(MMIRD1, 0x00100000);
-+	} else if (priv->bbp_type == ADM8211_TYPE_RFMD ||
-+		   priv->bbp_type == ADM8211_TYPE_ADMTEK) {
-+		/* check specific BBP type */
-+		switch (priv->specific_bbptype) {
-+		case ADM8211_BBP_RFMD3000:
-+		case ADM8211_BBP_RFMD3002:
-+			ADM8211_CSR_WRITE(MMIWA,  0x00009101);
-+			ADM8211_CSR_WRITE(MMIRD0, 0x00000301);
-+			break;
-+
-+		case ADM8211_BBP_ADM8011:
-+			ADM8211_CSR_WRITE(MMIWA,  0x00008903);
-+			ADM8211_CSR_WRITE(MMIRD0, 0x00001716);
-+
-+			reg = ADM8211_CSR_READ(BBPCTL);
-+			reg &= ~ADM8211_BBPCTL_TYPE;
-+			reg |= 0x5 << 18;
-+			ADM8211_CSR_WRITE(BBPCTL, reg);
-+			break;
-+		}
-+
-+		switch (priv->revid) {
-+		case ADM8211_REV_CA:
-+			if (priv->transceiver_type == ADM8211_RFMD2958 ||
-+			    priv->transceiver_type == ADM8211_RFMD2958_RF3000_CONTROL_POWER ||
-+			    priv->transceiver_type == ADM8211_RFMD2948)
-+				ADM8211_CSR_WRITE(SYNCTL, 0x1 << 22);
-+			else if (priv->transceiver_type == ADM8211_MAX2820 ||
-+				 priv->transceiver_type == ADM8211_AL2210L)
-+				ADM8211_CSR_WRITE(SYNCTL, 0x3 << 22);
-+			break;
-+
-+		case ADM8211_REV_BA:
-+			reg  = ADM8211_CSR_READ(MMIRD1);
-+			reg &= 0x0000FFFF;
-+			reg |= 0x7e100000;
-+			ADM8211_CSR_WRITE(MMIRD1, reg);
-+			break;
-+
-+		case ADM8211_REV_AB:
-+		case ADM8211_REV_AF:
-+		default:
-+			ADM8211_CSR_WRITE(MMIRD1, 0x7e100000);
-+			break;
-+		}
-+
-+		/* For RFMD */
-+		ADM8211_CSR_WRITE(MACTEST, 0x800);
-+	}
-+
-+	adm8211_hw_init_syn(dev);
-+
-+	/* Set RF Power control IF pin to PE1+PHYRST# */
-+	ADM8211_CSR_WRITE(SYNRF, ADM8211_SYNRF_SELRF |
-+			  ADM8211_SYNRF_PE1 | ADM8211_SYNRF_PHYRST);
-+	ADM8211_CSR_READ(SYNRF);
-+	msleep(20);
-+
-+	/* write BBP regs */
-+	if (priv->bbp_type == ADM8211_TYPE_RFMD) {
-+		/* RF3000 BBP */
-+		/* another set:
-+		 * 11: c8
-+		 * 14: 14
-+		 * 15: 50 (chan 1..13; chan 14: d0)
-+		 * 1c: 00
-+		 * 1d: 84
-+		 */
-+		adm8211_write_bbp(dev, RF3000_CCA_CTRL, 0x80);
-+		/* antenna selection: diversity */
-+		adm8211_write_bbp(dev, RF3000_DIVERSITY__RSSI, 0x80);
-+		adm8211_write_bbp(dev, RF3000_TX_VAR_GAIN__TX_LEN_EXT, 0x74);
-+		adm8211_write_bbp(dev, RF3000_LOW_GAIN_CALIB, 0x38);
-+		adm8211_write_bbp(dev, RF3000_HIGH_GAIN_CALIB, 0x40);
-+
-+		if (priv->eeprom->major_version < 2) {
-+			adm8211_write_bbp(dev, 0x1c, 0x00);
-+			adm8211_write_bbp(dev, 0x1d, 0x80);
-+		} else {
-+			if (priv->revid == ADM8211_REV_BA)
-+				adm8211_write_bbp(dev, 0x1c, priv->eeprom->cr28);
-+			else
-+				adm8211_write_bbp(dev, 0x1c, 0x00);
-+
-+			adm8211_write_bbp(dev, 0x1d, priv->eeprom->cr29);
-+		}
-+	} else if (priv->bbp_type == ADM8211_TYPE_ADMTEK) {
-+		/* reset baseband */
-+		adm8211_write_bbp(dev, 0x00, 0xFF);
-+		/* antenna selection: diversity */
-+		adm8211_write_bbp(dev, 0x07, 0x0A);
-+
-+		/* TODO: find documentation for this */
-+		switch (priv->transceiver_type) {
-+		case ADM8211_RFMD2958:
-+		case ADM8211_RFMD2958_RF3000_CONTROL_POWER:
-+			adm8211_write_bbp(dev, 0x00, 0x00);
-+			adm8211_write_bbp(dev, 0x01, 0x00);
-+			adm8211_write_bbp(dev, 0x02, 0x00);
-+			adm8211_write_bbp(dev, 0x03, 0x00);
-+			adm8211_write_bbp(dev, 0x06, 0x0f);
-+			adm8211_write_bbp(dev, 0x09, 0x00);
-+			adm8211_write_bbp(dev, 0x0a, 0x00);
-+			adm8211_write_bbp(dev, 0x0b, 0x00);
-+			adm8211_write_bbp(dev, 0x0c, 0x00);
-+			adm8211_write_bbp(dev, 0x0f, 0xAA);
-+			adm8211_write_bbp(dev, 0x10, 0x8c);
-+			adm8211_write_bbp(dev, 0x11, 0x43);
-+			adm8211_write_bbp(dev, 0x18, 0x40);
-+			adm8211_write_bbp(dev, 0x20, 0x23);
-+			adm8211_write_bbp(dev, 0x21, 0x02);
-+			adm8211_write_bbp(dev, 0x22, 0x28);
-+			adm8211_write_bbp(dev, 0x23, 0x30);
-+			adm8211_write_bbp(dev, 0x24, 0x2d);
-+			adm8211_write_bbp(dev, 0x28, 0x35);
-+			adm8211_write_bbp(dev, 0x2a, 0x8c);
-+			adm8211_write_bbp(dev, 0x2b, 0x81);
-+			adm8211_write_bbp(dev, 0x2c, 0x44);
-+			adm8211_write_bbp(dev, 0x2d, 0x0A);
-+			adm8211_write_bbp(dev, 0x29, 0x40);
-+			adm8211_write_bbp(dev, 0x60, 0x08);
-+			adm8211_write_bbp(dev, 0x64, 0x01);
-+			break;
-+
-+		case ADM8211_MAX2820:
-+			adm8211_write_bbp(dev, 0x00, 0x00);
-+			adm8211_write_bbp(dev, 0x01, 0x00);
-+			adm8211_write_bbp(dev, 0x02, 0x00);
-+			adm8211_write_bbp(dev, 0x03, 0x00);
-+			adm8211_write_bbp(dev, 0x06, 0x0f);
-+			adm8211_write_bbp(dev, 0x09, 0x05);
-+			adm8211_write_bbp(dev, 0x0a, 0x02);
-+			adm8211_write_bbp(dev, 0x0b, 0x00);
-+			adm8211_write_bbp(dev, 0x0c, 0x0f);
-+			adm8211_write_bbp(dev, 0x0f, 0x55);
-+			adm8211_write_bbp(dev, 0x10, 0x8d);
-+			adm8211_write_bbp(dev, 0x11, 0x43);
-+			adm8211_write_bbp(dev, 0x18, 0x4a);
-+			adm8211_write_bbp(dev, 0x20, 0x20);
-+			adm8211_write_bbp(dev, 0x21, 0x02);
-+			adm8211_write_bbp(dev, 0x22, 0x23);
-+			adm8211_write_bbp(dev, 0x23, 0x30);
-+			adm8211_write_bbp(dev, 0x24, 0x2d);
-+			adm8211_write_bbp(dev, 0x2a, 0x8c);
-+			adm8211_write_bbp(dev, 0x2b, 0x81);
-+			adm8211_write_bbp(dev, 0x2c, 0x44);
-+			adm8211_write_bbp(dev, 0x29, 0x4a);
-+			adm8211_write_bbp(dev, 0x60, 0x2b);
-+			adm8211_write_bbp(dev, 0x64, 0x01);
-+			break;
-+
-+		case ADM8211_AL2210L:
-+			adm8211_write_bbp(dev, 0x00, 0x00);
-+			adm8211_write_bbp(dev, 0x01, 0x00);
-+			adm8211_write_bbp(dev, 0x02, 0x00);
-+			adm8211_write_bbp(dev, 0x03, 0x00);
-+			adm8211_write_bbp(dev, 0x06, 0x0f);
-+			adm8211_write_bbp(dev, 0x07, 0x05);
-+			adm8211_write_bbp(dev, 0x08, 0x03);
-+			adm8211_write_bbp(dev, 0x09, 0x00);
-+			adm8211_write_bbp(dev, 0x0a, 0x00);
-+			adm8211_write_bbp(dev, 0x0b, 0x00);
-+			adm8211_write_bbp(dev, 0x0c, 0x10);
-+			adm8211_write_bbp(dev, 0x0f, 0x55);
-+			adm8211_write_bbp(dev, 0x10, 0x8d);
-+			adm8211_write_bbp(dev, 0x11, 0x43);
-+			adm8211_write_bbp(dev, 0x18, 0x4a);
-+			adm8211_write_bbp(dev, 0x20, 0x20);
-+			adm8211_write_bbp(dev, 0x21, 0x02);
-+			adm8211_write_bbp(dev, 0x22, 0x23);
-+			adm8211_write_bbp(dev, 0x23, 0x30);
-+			adm8211_write_bbp(dev, 0x24, 0x2d);
-+			adm8211_write_bbp(dev, 0x2a, 0xaa);
-+			adm8211_write_bbp(dev, 0x2b, 0x81);
-+			adm8211_write_bbp(dev, 0x2c, 0x44);
-+			adm8211_write_bbp(dev, 0x29, 0xfa);
-+			adm8211_write_bbp(dev, 0x60, 0x2d);
-+			adm8211_write_bbp(dev, 0x64, 0x01);
-+			break;
-+
-+		case ADM8211_RFMD2948:
-+			break;
-+
-+		default:
-+			printk(KERN_DEBUG "%s: unsupported transceiver %d\n",
-+			       wiphy_name(dev->wiphy), priv->transceiver_type);
-+			break;
-+		}
-+	} else
-+		printk(KERN_DEBUG "%s: unsupported BBP %d\n",
-+		       wiphy_name(dev->wiphy), priv->bbp_type);
-+
-+	ADM8211_CSR_WRITE(SYNRF, 0);
-+
-+	/* Set RF CAL control source to MAC control */
-+	reg = ADM8211_CSR_READ(SYNCTL);
-+	reg |= ADM8211_SYNCTL_SELCAL;
-+	ADM8211_CSR_WRITE(SYNCTL, reg);
-+
-+	return 0;
-+}
-+
-+/* configures hw beacons/probe responses */
-+static int adm8211_set_rate(struct ieee80211_hw *dev)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	u32 reg;
-+	int i = 0;
-+	u8 rate_buf[12] = {0};
-+
-+	/* write supported rates */
-+	if (priv->revid != ADM8211_REV_BA) {
-+		rate_buf[0] = ARRAY_SIZE(adm8211_rates);
-+		for (i = 0; i < ARRAY_SIZE(adm8211_rates); i++)
-+			rate_buf[i + 1] = (adm8211_rates[i].rate / 5) | 0x80;
-+	} else {
-+		/* workaround for rev BA specific bug */
-+		rate_buf[0] = 0x04;
-+		rate_buf[1] = 0x82;
-+		rate_buf[2] = 0x04;
-+		rate_buf[3] = 0x0b;
-+		rate_buf[4] = 0x16;
-+	}
-+
-+	adm8211_write_sram_bytes(dev, ADM8211_SRAM_SUPP_RATE, rate_buf,
-+				 ARRAY_SIZE(adm8211_rates) + 1);
-+
-+	reg = ADM8211_CSR_READ(PLCPHD) & 0x00FFFFFF; /* keep bits 0-23 */
-+	reg |= 1 << 15;	/* short preamble */
-+	reg |= 110 << 24;
-+	ADM8211_CSR_WRITE(PLCPHD, reg);
-+
-+	/* MTMLT   = 512 TU (max TX MSDU lifetime)
-+	 * BCNTSIG = plcp_signal (beacon, probe resp, and atim TX rate)
-+	 * SRTYLIM = 224 (short retry limit, TX header value is default) */
-+	ADM8211_CSR_WRITE(TXLMT, (512 << 16) | (110 << 8) | (224 << 0));
-+
-+	return 0;
-+}
-+
-+static void adm8211_hw_init(struct ieee80211_hw *dev)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	u32 reg;
-+	u8 cline;
-+
-+	reg = le32_to_cpu(ADM8211_CSR_READ(PAR));
-+	reg |= ADM8211_PAR_MRLE | ADM8211_PAR_MRME;
-+	reg &= ~(ADM8211_PAR_BAR | ADM8211_PAR_CAL);
-+
-+	if (!pci_set_mwi(priv->pdev)) {
-+		reg |= 0x1 << 24;
-+		pci_read_config_byte(priv->pdev, PCI_CACHE_LINE_SIZE, &cline);
-+
-+		switch (cline) {
-+		case  0x8: reg |= (0x1 << 14);
-+			   break;
-+		case 0x16: reg |= (0x2 << 14);
-+			   break;
-+		case 0x32: reg |= (0x3 << 14);
-+			   break;
-+		  default: reg |= (0x0 << 14);
-+			   break;
-+		}
-+	}
-+
-+	ADM8211_CSR_WRITE(PAR, reg);
-+
-+	reg = ADM8211_CSR_READ(CSR_TEST1);
-+	reg &= ~(0xF << 28);
-+	reg |= (1 << 28) | (1 << 31);
-+	ADM8211_CSR_WRITE(CSR_TEST1, reg);
-+
-+	/* lose link after 4 lost beacons */
-+	reg = (0x04 << 21) | ADM8211_WCSR_TSFTWE | ADM8211_WCSR_LSOE;
-+	ADM8211_CSR_WRITE(WCSR, reg);
-+
-+	/* Disable APM, enable receive FIFO threshold, and set drain receive
-+	 * threshold to store-and-forward */
-+	reg = ADM8211_CSR_READ(CMDR);
-+	reg &= ~(ADM8211_CMDR_APM | ADM8211_CMDR_DRT);
-+	reg |= ADM8211_CMDR_RTE | ADM8211_CMDR_DRT_SF;
-+	ADM8211_CSR_WRITE(CMDR, reg);
-+
-+	adm8211_set_rate(dev);
-+
-+	/* 4-bit values:
-+	 * PWR1UP   = 8 * 2 ms
-+	 * PWR0PAPE = 8 us or 5 us
-+	 * PWR1PAPE = 1 us or 3 us
-+	 * PWR0TRSW = 5 us
-+	 * PWR1TRSW = 12 us
-+	 * PWR0PE2  = 13 us
-+	 * PWR1PE2  = 1 us
-+	 * PWR0TXPE = 8 or 6 */
-+	if (priv->revid < ADM8211_REV_CA)
-+		ADM8211_CSR_WRITE(TOFS2, 0x8815cd18);
-+	else
-+		ADM8211_CSR_WRITE(TOFS2, 0x8535cd16);
-+
-+	/* Enable store and forward for transmit */
-+	priv->nar = ADM8211_NAR_SF | ADM8211_NAR_PB;
-+	ADM8211_CSR_WRITE(NAR, priv->nar);
-+
-+	/* Reset RF */
-+	ADM8211_CSR_WRITE(SYNRF, ADM8211_SYNRF_RADIO);
-+	ADM8211_CSR_READ(SYNRF);
-+	msleep(10);
-+	ADM8211_CSR_WRITE(SYNRF, 0);
-+	ADM8211_CSR_READ(SYNRF);
-+	msleep(5);
-+
-+	/* Set CFP Max Duration to 0x10 TU */
-+	reg = ADM8211_CSR_READ(CFPP);
-+	reg &= ~(0xffff << 8);
-+	reg |= 0x0010 << 8;
-+	ADM8211_CSR_WRITE(CFPP, reg);
-+
-+	/* USCNT = 0x16 (number of system clocks, 22 MHz, in 1us
-+	 * TUCNT = 0x3ff - Tu counter 1024 us  */
-+	ADM8211_CSR_WRITE(TOFS0, (0x16 << 24) | 0x3ff);
-+
-+	/* SLOT=20 us, SIFS=110 cycles of 22 MHz (5 us),
-+	 * DIFS=50 us, EIFS=100 us */
-+	if (priv->revid < ADM8211_REV_CA)
-+		ADM8211_CSR_WRITE(IFST, (20 << 23) | (110 << 15) |
-+					(50 << 9)  | 100);
-+	else
-+		ADM8211_CSR_WRITE(IFST, (20 << 23) | (24 << 15) |
-+					(50 << 9)  | 100);
-+
-+	/* PCNT = 1 (MAC idle time awake/sleep, unit S)
-+	 * RMRD = 2346 * 8 + 1 us (max RX duration)  */
-+	ADM8211_CSR_WRITE(RMD, (1 << 16) | 18769);
-+
-+	/* MART=65535 us, MIRT=256 us, TSFTOFST=0 us */
-+	ADM8211_CSR_WRITE(RSPT, 0xffffff00);
-+
-+	/* Initialize BBP (and SYN) */
-+	adm8211_hw_init_bbp(dev);
-+
-+	/* make sure interrupts are off */
-+	ADM8211_CSR_WRITE(IER, 0);
-+
-+	/* ACK interrupts */
-+	ADM8211_CSR_WRITE(STSR, ADM8211_CSR_READ(STSR));
-+
-+	/* Setup WEP (turns it off for now) */
-+	reg = ADM8211_CSR_READ(MACTEST);
-+	reg &= ~(7 << 20);
-+	ADM8211_CSR_WRITE(MACTEST, reg);
-+
-+	reg = ADM8211_CSR_READ(WEPCTL);
-+	reg &= ~ADM8211_WEPCTL_WEPENABLE;
-+	reg |= ADM8211_WEPCTL_WEPRXBYP;
-+	ADM8211_CSR_WRITE(WEPCTL, reg);
-+
-+	/* Clear the missed-packet counter. */
-+	ADM8211_CSR_READ(LPC);
-+
-+	if (!priv->mac_addr)
-+		return;
-+
-+	/* set mac address */
-+	ADM8211_CSR_WRITE(PAR0, *(u32 *)priv->mac_addr);
-+	ADM8211_CSR_WRITE(PAR1, *(u16 *)&priv->mac_addr[4]);
-+}
-+
-+static int adm8211_hw_reset(struct ieee80211_hw *dev)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	u32 reg, tmp;
-+	int timeout = 100;
-+
-+	/* Power-on issue */
-+	/* TODO: check if this is necessary */
-+	ADM8211_CSR_WRITE(FRCTL, 0);
-+
-+	/* Reset the chip */
-+	tmp = ADM8211_CSR_READ(PAR);
-+	ADM8211_CSR_WRITE(PAR, ADM8211_PAR_SWR);
-+
-+	while ((ADM8211_CSR_READ(PAR) & ADM8211_PAR_SWR) && timeout--)
-+		msleep(50);
-+
-+	if (timeout <= 0)
-+		return -ETIMEDOUT;
-+
-+	ADM8211_CSR_WRITE(PAR, tmp);
-+
-+	if (priv->revid == ADM8211_REV_BA &&
-+	    (priv->transceiver_type == ADM8211_RFMD2958_RF3000_CONTROL_POWER ||
-+	     priv->transceiver_type == ADM8211_RFMD2958)) {
-+		reg = ADM8211_CSR_READ(CSR_TEST1);
-+		reg |= (1 << 4) | (1 << 5);
-+		ADM8211_CSR_WRITE(CSR_TEST1, reg);
-+	} else if (priv->revid == ADM8211_REV_CA) {
-+		reg = ADM8211_CSR_READ(CSR_TEST1);
-+		reg &= ~((1 << 4) | (1 << 5));
-+		ADM8211_CSR_WRITE(CSR_TEST1, reg);
-+	}
-+
-+	ADM8211_CSR_WRITE(FRCTL, 0);
-+
-+	reg = ADM8211_CSR_READ(CSR_TEST0);
-+	reg |= ADM8211_CSR_TEST0_EPRLD;	/* EEPROM Recall */
-+	ADM8211_CSR_WRITE(CSR_TEST0, reg);
-+
-+	adm8211_clear_sram(dev);
-+
-+	return 0;
-+}
-+
-+static u64 adm8211_get_tsft(struct ieee80211_hw *dev)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	u32 tsftl;
-+	u64 tsft;
-+
-+	tsftl = ADM8211_CSR_READ(TSFTL);
-+	tsft = ADM8211_CSR_READ(TSFTH);
-+	tsft <<= 32;
-+	tsft |= tsftl;
-+
-+	return tsft;
-+}
-+
-+static void adm8211_set_interval(struct ieee80211_hw *dev,
-+				 unsigned short bi, unsigned short li)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	u32 reg;
-+
-+	/* BP (beacon interval) = data->beacon_interval
-+	 * LI (listen interval) = data->listen_interval (in beacon intervals) */
-+	reg = (bi << 16) | li;
-+	ADM8211_CSR_WRITE(BPLI, reg);
-+}
-+
-+static void adm8211_set_bssid(struct ieee80211_hw *dev, u8 *bssid)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	u32 reg;
-+
-+	reg = bssid[0] | (bssid[1] << 8) | (bssid[2] << 16) | (bssid[3] << 24);
-+	ADM8211_CSR_WRITE(BSSID0, reg);
-+	reg = ADM8211_CSR_READ(ABDA1);
-+	reg &= 0x0000ffff;
-+	reg |= (bssid[4] << 16) | (bssid[5] << 24);
-+	ADM8211_CSR_WRITE(ABDA1, reg);
-+}
-+
-+static int adm8211_set_ssid(struct ieee80211_hw *dev, u8 *ssid, size_t ssid_len)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	u8 buf[36];
-+
-+	if (ssid_len > 32)
+ static int ieee80211_set_encryption(struct net_device *dev, u8 *sta_addr,
+ 				    int idx, int alg, int set_tx_key,
+ 				    const u8 *_key, size_t key_len)
+@@ -38,17 +73,23 @@ static int ieee80211_set_encryption(struct net_device *dev, u8 *sta_addr,
+ 
+ 	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+ 
++	if (idx < 0 || idx >= NUM_DEFAULT_KEYS) {
++		printk(KERN_DEBUG "%s: set_encrypt - invalid idx=%d\n",
++		       dev->name, idx);
 +		return -EINVAL;
-+
-+	memset(buf, 0, sizeof(buf));
-+	buf[0] = ssid_len;
-+	memcpy(buf + 1, ssid, ssid_len);
-+	adm8211_write_sram_bytes(dev, ADM8211_SRAM_SSID, buf, 33);
-+	/* TODO: configure beacon for adhoc? */
-+	return 0;
-+}
-+
-+static int adm8211_config(struct ieee80211_hw *dev, struct ieee80211_conf *conf)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+
-+	if (conf->channel != priv->channel) {
-+		priv->channel = conf->channel;
-+		adm8211_rf_set_channel(dev, priv->channel);
 +	}
 +
-+	return 0;
-+}
-+
-+static int adm8211_config_interface(struct ieee80211_hw *dev, int if_id,
-+				    struct ieee80211_if_conf *conf)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+
-+	if (memcmp(conf->bssid, priv->bssid, ETH_ALEN)) {
-+		adm8211_set_bssid(dev, conf->bssid);
-+		memcpy(priv->bssid, conf->bssid, ETH_ALEN);
-+	}
-+
-+	if (conf->ssid_len != priv->ssid_len ||
-+	    memcmp(conf->ssid, priv->ssid, conf->ssid_len)) {
-+		adm8211_set_ssid(dev, conf->ssid, conf->ssid_len);
-+		priv->ssid_len = conf->ssid_len;
-+		memcpy(priv->ssid, conf->ssid, conf->ssid_len);
-+	}
-+
-+	return 0;
-+}
-+
-+static int adm8211_add_interface(struct ieee80211_hw *dev,
-+				 struct ieee80211_if_init_conf *conf)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	/* NOTE: using IEEE80211_IF_TYPE_MGMT to indicate no mode selected */
-+	if (priv->mode != IEEE80211_IF_TYPE_MGMT)
-+		return -1;
-+
-+	switch (conf->type) {
-+	case IEEE80211_IF_TYPE_STA:
-+	case IEEE80211_IF_TYPE_MNTR:
-+		priv->mode = conf->type;
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
-+	priv->mac_addr = conf->mac_addr;
-+
-+	return 0;
-+}
-+
-+static void adm8211_remove_interface(struct ieee80211_hw *dev,
-+				     struct ieee80211_if_init_conf *conf)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	priv->mode = IEEE80211_IF_TYPE_MGMT;
-+}
-+
-+static int adm8211_init_rings(struct ieee80211_hw *dev)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	struct adm8211_desc *desc = NULL;
-+	struct adm8211_rx_ring_info *rx_info;
-+	struct adm8211_tx_ring_info *tx_info;
-+	unsigned int i;
-+
-+	for (i = 0; i < priv->rx_ring_size; i++) {
-+		desc = &priv->rx_ring[i];
-+		desc->status = 0;
-+		desc->length = cpu_to_le32(RX_PKT_SIZE);
-+		priv->rx_buffers[i].skb = NULL;
-+	}
-+	/* Mark the end of RX ring; hw returns to base address after this
-+	 * descriptor */
-+	desc->length |= cpu_to_le32(RDES1_CONTROL_RER);
-+
-+	for (i = 0; i < priv->rx_ring_size; i++) {
-+		desc = &priv->rx_ring[i];
-+		rx_info = &priv->rx_buffers[i];
-+
-+		rx_info->skb = dev_alloc_skb(RX_PKT_SIZE);
-+		if (rx_info->skb == NULL)
-+			break;
-+		rx_info->mapping = pci_map_single(priv->pdev,
-+						  skb_tail_pointer(rx_info->skb),
-+						  RX_PKT_SIZE,
-+						  PCI_DMA_FROMDEVICE);
-+		desc->buffer1 = cpu_to_le32(rx_info->mapping);
-+		desc->status = cpu_to_le32(RDES0_STATUS_OWN | RDES0_STATUS_SQL);
-+	}
-+
-+	/* Setup TX ring. TX buffers descriptors will be filled in as needed */
-+	for (i = 0; i < priv->tx_ring_size; i++) {
-+		desc = &priv->tx_ring[i];
-+		tx_info = &priv->tx_buffers[i];
-+
-+		tx_info->skb = NULL;
-+		tx_info->mapping = 0;
-+		desc->status = 0;
-+	}
-+	desc->length = cpu_to_le32(TDES1_CONTROL_TER);
-+
-+	priv->cur_rx = priv->cur_tx = priv->dirty_tx = 0;
-+	ADM8211_CSR_WRITE(RDB, priv->rx_ring_dma);
-+	ADM8211_CSR_WRITE(TDBD, priv->tx_ring_dma);
-+
-+	return 0;
-+}
-+
-+static void adm8211_free_rings(struct ieee80211_hw *dev)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	unsigned int i;
-+
-+	for (i = 0; i < priv->rx_ring_size; i++) {
-+		if (!priv->rx_buffers[i].skb)
-+			continue;
-+
-+		pci_unmap_single(
-+			priv->pdev,
-+			priv->rx_buffers[i].mapping,
-+			RX_PKT_SIZE, PCI_DMA_FROMDEVICE);
-+
-+		dev_kfree_skb(priv->rx_buffers[i].skb);
-+	}
-+
-+	for (i = 0; i < priv->tx_ring_size; i++) {
-+		if (!priv->tx_buffers[i].skb)
-+			continue;
-+
-+		pci_unmap_single(priv->pdev,
-+				 priv->tx_buffers[i].mapping,
-+				 priv->tx_buffers[i].skb->len,
-+				 PCI_DMA_TODEVICE);
-+
-+		dev_kfree_skb(priv->tx_buffers[i].skb);
-+	}
-+}
-+
-+static int adm8211_open(struct ieee80211_hw *dev)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	int retval;
-+
-+	/* Power up MAC and RF chips */
-+	retval = adm8211_hw_reset(dev);
-+	if (retval) {
-+		printk(KERN_ERR "%s: hardware reset failed\n",
-+		       wiphy_name(dev->wiphy));
-+		goto fail;
-+	}
-+
-+	retval = adm8211_init_rings(dev);
-+	if (retval) {
-+		printk(KERN_ERR "%s: failed to initialize rings\n",
-+		       wiphy_name(dev->wiphy));
-+		goto fail;
-+	}
-+
-+	/* Init hardware */
-+	adm8211_hw_init(dev);
-+	adm8211_rf_set_channel(dev, priv->channel);
-+
-+	retval = request_irq(priv->pdev->irq, &adm8211_interrupt,
-+			     IRQF_SHARED, "adm8211", dev);
-+	if (retval) {
-+		printk(KERN_ERR "%s: failed to register IRQ handler\n",
-+		       wiphy_name(dev->wiphy));
-+		goto fail;
-+	}
-+
-+	ADM8211_CSR_WRITE(IER, ADM8211_IER_NIE | ADM8211_IER_AIE |
-+			       ADM8211_IER_RCIE | ADM8211_IER_TCIE |
-+			       ADM8211_IER_TDUIE | ADM8211_IER_GPTIE);
-+	adm8211_update_mode(dev);
-+	ADM8211_CSR_WRITE(RDR, 0);
-+
-+	adm8211_set_interval(dev, 100, 10);
-+	return 0;
-+
-+fail:
-+	return retval;
-+}
-+
-+static int adm8211_stop(struct ieee80211_hw *dev)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+
-+	priv->nar = 0;
-+	ADM8211_CSR_WRITE(NAR, 0);
-+	ADM8211_CSR_WRITE(IER, 0);
-+	ADM8211_CSR_READ(NAR);
-+
-+	free_irq(priv->pdev->irq, dev);
-+
-+	adm8211_free_rings(dev);
-+	return 0;
-+}
-+
-+static void adm8211_calc_durations(int *dur, int *plcp, size_t payload_len, int len,
-+				   int plcp_signal, int short_preamble)
-+{
-+	/* Alternative calculation from NetBSD: */
-+
-+/* IEEE 802.11b durations for DSSS PHY in microseconds */
-+#define IEEE80211_DUR_DS_LONG_PREAMBLE	144
-+#define IEEE80211_DUR_DS_SHORT_PREAMBLE	72
-+#define IEEE80211_DUR_DS_FAST_PLCPHDR	24
-+#define IEEE80211_DUR_DS_SLOW_PLCPHDR	48
-+#define IEEE80211_DUR_DS_SLOW_ACK	112
-+#define IEEE80211_DUR_DS_FAST_ACK	56
-+#define IEEE80211_DUR_DS_SLOW_CTS	112
-+#define IEEE80211_DUR_DS_FAST_CTS	56
-+#define IEEE80211_DUR_DS_SLOT		20
-+#define IEEE80211_DUR_DS_SIFS		10
-+
-+	int remainder;
-+
-+	*dur = (80 * (24 + payload_len) + plcp_signal - 1)
-+		/ plcp_signal;
-+
-+	if (plcp_signal <= PLCP_SIGNAL_2M)
-+		/* 1-2Mbps WLAN: send ACK/CTS at 1Mbps */
-+		*dur += 3 * (IEEE80211_DUR_DS_SIFS +
-+			     IEEE80211_DUR_DS_SHORT_PREAMBLE +
-+			     IEEE80211_DUR_DS_FAST_PLCPHDR) +
-+			     IEEE80211_DUR_DS_SLOW_CTS + IEEE80211_DUR_DS_SLOW_ACK;
-+	else
-+		/* 5-11Mbps WLAN: send ACK/CTS at 2Mbps */
-+		*dur += 3 * (IEEE80211_DUR_DS_SIFS +
-+			     IEEE80211_DUR_DS_SHORT_PREAMBLE +
-+			     IEEE80211_DUR_DS_FAST_PLCPHDR) +
-+			     IEEE80211_DUR_DS_FAST_CTS + IEEE80211_DUR_DS_FAST_ACK;
-+
-+	/* lengthen duration if long preamble */
-+	if (!short_preamble)
-+		*dur +=	3 * (IEEE80211_DUR_DS_LONG_PREAMBLE -
-+			     IEEE80211_DUR_DS_SHORT_PREAMBLE) +
-+			3 * (IEEE80211_DUR_DS_SLOW_PLCPHDR -
-+			     IEEE80211_DUR_DS_FAST_PLCPHDR);
-+
-+
-+	*plcp = (80 * len) / plcp_signal;
-+	remainder = (80 * len) % plcp_signal;
-+	if (plcp_signal == PLCP_SIGNAL_11M &&
-+	    remainder <= 30 && remainder > 0)
-+		*plcp = (*plcp | 0x8000) + 1;
-+	else if (remainder)
-+		(*plcp)++;
-+}
-+
-+/* Transmit skb w/adm8211_tx_hdr (802.11 header created by hardware) */
-+static void adm8211_tx_raw(struct ieee80211_hw *dev, struct sk_buff *skb,
-+			   u16 plcp_signal,
-+			   struct ieee80211_tx_control *control,
-+			   size_t hdrlen)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	unsigned long flags;
-+	dma_addr_t mapping;
-+	unsigned int entry;
-+	u32 flag;
-+
-+	mapping = pci_map_single(priv->pdev, skb->data, skb->len,
-+				 PCI_DMA_TODEVICE);
-+
-+	spin_lock_irqsave(&priv->lock, flags);
-+
-+	if (priv->cur_tx - priv->dirty_tx == priv->tx_ring_size / 2)
-+		flag = TDES1_CONTROL_IC | TDES1_CONTROL_LS | TDES1_CONTROL_FS;
-+	else
-+		flag = TDES1_CONTROL_LS | TDES1_CONTROL_FS;
-+
-+	if (priv->cur_tx - priv->dirty_tx == priv->tx_ring_size - 2)
-+		ieee80211_stop_queue(dev, 0);
-+
-+	entry = priv->cur_tx % priv->tx_ring_size;
-+
-+	priv->tx_buffers[entry].skb = skb;
-+	priv->tx_buffers[entry].mapping = mapping;
-+	memcpy(&priv->tx_buffers[entry].tx_control, control, sizeof(*control));
-+	priv->tx_buffers[entry].hdrlen = hdrlen;
-+	priv->tx_ring[entry].buffer1 = cpu_to_le32(mapping);
-+
-+	if (entry == priv->tx_ring_size - 1)
-+		flag |= TDES1_CONTROL_TER;
-+	priv->tx_ring[entry].length = cpu_to_le32(flag | skb->len);
-+
-+	/* Set TX rate (SIGNAL field in PLCP PPDU format) */
-+	flag = TDES0_CONTROL_OWN | (plcp_signal << 20) | 8 /* ? */;
-+	priv->tx_ring[entry].status = cpu_to_le32(flag);
-+
-+	priv->cur_tx++;
-+
-+	spin_unlock_irqrestore(&priv->lock, flags);
-+
-+	/* Trigger transmit poll */
-+	ADM8211_CSR_WRITE(TDR, 0);
-+}
-+
-+/* Put adm8211_tx_hdr on skb and transmit */
-+static int adm8211_tx(struct ieee80211_hw *dev, struct sk_buff *skb,
-+		      struct ieee80211_tx_control *control)
-+{
-+	struct adm8211_tx_hdr *txhdr;
-+	u16 fc;
-+	size_t payload_len, hdrlen;
-+	int plcp, dur, len, plcp_signal, short_preamble;
-+	struct ieee80211_hdr *hdr;
-+
-+	if (control->tx_rate < 0) {
-+		short_preamble = 1;
-+		plcp_signal = -control->tx_rate;
-+	} else {
-+		short_preamble = 0;
-+		plcp_signal = control->tx_rate;
-+	}
-+
-+	hdr = (struct ieee80211_hdr *)skb->data;
-+	fc = le16_to_cpu(hdr->frame_control) & ~IEEE80211_FCTL_PROTECTED;
-+	hdrlen = ieee80211_get_hdrlen(fc);
-+	memcpy(skb->cb, skb->data, hdrlen);
-+	hdr = (struct ieee80211_hdr *)skb->cb;
-+	skb_pull(skb, hdrlen);
-+	payload_len = skb->len;
-+
-+	txhdr = (struct adm8211_tx_hdr *) skb_push(skb, sizeof(*txhdr));
-+	memset(txhdr, 0, sizeof(*txhdr));
-+	memcpy(txhdr->da, ieee80211_get_DA(hdr), ETH_ALEN);
-+	txhdr->signal = plcp_signal;
-+	txhdr->frame_body_size = cpu_to_le16(payload_len);
-+	txhdr->frame_control = hdr->frame_control;
-+
-+	len = hdrlen + payload_len + FCS_LEN;
-+	if (fc & IEEE80211_FCTL_PROTECTED)
-+		len += 8;
-+
-+	txhdr->frag = cpu_to_le16(0x0FFF);
-+	adm8211_calc_durations(&dur, &plcp, payload_len,
-+			       len, plcp_signal, short_preamble);
-+	txhdr->plcp_frag_head_len = cpu_to_le16(plcp);
-+	txhdr->plcp_frag_tail_len = cpu_to_le16(plcp);
-+	txhdr->dur_frag_head = cpu_to_le16(dur);
-+	txhdr->dur_frag_tail = cpu_to_le16(dur);
-+
-+	txhdr->header_control = cpu_to_le16(ADM8211_TXHDRCTL_ENABLE_EXTEND_HEADER);
-+
-+	if (short_preamble)
-+		txhdr->header_control |= cpu_to_le16(ADM8211_TXHDRCTL_SHORT_PREAMBLE);
-+
-+	if (control->flags & IEEE80211_TXCTL_USE_RTS_CTS)
-+		txhdr->header_control |= cpu_to_le16(ADM8211_TXHDRCTL_ENABLE_RTS);
-+
-+	if (fc & IEEE80211_FCTL_PROTECTED)
-+		txhdr->header_control |= cpu_to_le16(ADM8211_TXHDRCTL_ENABLE_WEP_ENGINE);
-+
-+	txhdr->retry_limit = control->retry_limit;
-+
-+	adm8211_tx_raw(dev, skb, plcp_signal, control, hdrlen);
-+
-+	return NETDEV_TX_OK;
-+}
-+
-+static int adm8211_alloc_rings(struct ieee80211_hw *dev)
-+{
-+	struct adm8211_priv *priv = dev->priv;
-+	unsigned int ring_size;
-+
-+	priv->rx_buffers = kmalloc(sizeof(*priv->rx_buffers) * priv->rx_ring_size +
-+				   sizeof(*priv->tx_buffers) * priv->tx_ring_size, GFP_KERNEL);
-+	if (!priv->rx_buffers)
-+		return -ENOMEM;
-+
-+	priv->tx_buffers = (void *)priv->rx_buffers +
-+			   sizeof(*priv->rx_buffers) * priv->rx_ring_size;
-+
-+	/* Allocate TX/RX descriptors */
-+	ring_size = sizeof(struct adm8211_desc) * priv->rx_ring_size +
-+		    sizeof(struct adm8211_desc) * priv->tx_ring_size;
-+	priv->rx_ring = pci_alloc_consistent(priv->pdev, ring_size,
-+					     &priv->rx_ring_dma);
-+
-+	if (!priv->rx_ring) {
-+		kfree(priv->rx_buffers);
-+		priv->rx_buffers = NULL;
-+		priv->tx_buffers = NULL;
-+		return -ENOMEM;
-+	}
-+
-+	priv->tx_ring = (struct adm8211_desc *)(priv->rx_ring +
-+						priv->rx_ring_size);
-+	priv->tx_ring_dma = priv->rx_ring_dma +
-+			    sizeof(struct adm8211_desc) * priv->rx_ring_size;
-+
-+	return 0;
-+}
-+
-+static const struct ieee80211_ops adm8211_ops = {
-+	.tx			= adm8211_tx,
-+	.open			= adm8211_open,
-+	.stop			= adm8211_stop,
-+	.add_interface		= adm8211_add_interface,
-+	.remove_interface	= adm8211_remove_interface,
-+	.config			= adm8211_config,
-+	.config_interface	= adm8211_config_interface,
-+	.set_multicast_list	= adm8211_set_rx_mode,
-+	.get_stats		= adm8211_get_stats,
-+	.get_tx_stats		= adm8211_get_tx_stats,
-+	.get_tsf		= adm8211_get_tsft
-+};
-+
-+static int __devinit adm8211_probe(struct pci_dev *pdev,
-+				   const struct pci_device_id *id)
-+{
-+	struct ieee80211_hw *dev;
-+	struct adm8211_priv *priv;
-+	unsigned long mem_addr, mem_len;
-+	unsigned int io_addr, io_len;
-+	int err;
-+	u32 reg;
-+	u8 perm_addr[ETH_ALEN];
-+
-+#ifndef MODULE
-+	static unsigned int cardidx;
-+	if (!cardidx++)
-+		printk(version);
-+#endif
-+
-+	err = pci_enable_device(pdev);
-+	if (err) {
-+		printk(KERN_ERR "%s (adm8211): Cannot enable new PCI device\n",
-+		       pci_name(pdev));
-+		return err;
-+	}
-+
-+	io_addr = pci_resource_start(pdev, 0);
-+	io_len = pci_resource_len(pdev, 0);
-+	mem_addr = pci_resource_start(pdev, 1);
-+	mem_len = pci_resource_len(pdev, 1);
-+	if (io_len < 256 || mem_len < 1024) {
-+		printk(KERN_ERR "%s (adm8211): Too short PCI resources\n",
-+		       pci_name(pdev));
-+		goto err_disable_pdev;
-+	}
-+
-+
-+	/* check signature */
-+	pci_read_config_dword(pdev, 0x80 /* CR32 */, &reg);
-+	if (reg != ADM8211_SIG1 && reg != ADM8211_SIG2) {
-+		printk(KERN_ERR "%s (adm8211): Invalid signature (0x%x)\n",
-+		       pci_name(pdev), reg);
-+		goto err_disable_pdev;
-+	}
-+
-+	err = pci_request_regions(pdev, "adm8211");
-+	if (err) {
-+		printk(KERN_ERR "%s (adm8211): Cannot obtain PCI resources\n",
-+		       pci_name(pdev));
-+		return err; /* someone else grabbed it? don't disable it */
-+	}
-+
-+	if (pci_set_dma_mask(pdev, DMA_32BIT_MASK) ||
-+	    pci_set_consistent_dma_mask(pdev, DMA_32BIT_MASK)) {
-+		printk(KERN_ERR "%s (adm8211): No suitable DMA available\n",
-+		       pci_name(pdev));
-+		goto err_free_reg;
-+	}
-+
-+	pci_set_master(pdev);
-+
-+	dev = ieee80211_alloc_hw(sizeof(*priv), &adm8211_ops);
-+	if (!dev) {
-+		printk(KERN_ERR "%s (adm8211): ieee80211 alloc failed\n",
-+		       pci_name(pdev));
-+		err = -ENOMEM;
-+		goto err_free_reg;
-+	}
-+	priv = dev->priv;
-+	priv->pdev = pdev;
-+
-+	spin_lock_init(&priv->lock);
-+
-+	SET_IEEE80211_DEV(dev, &pdev->dev);
-+
-+	pci_set_drvdata(pdev, dev);
-+
-+	priv->map = pci_iomap(pdev, 1, mem_len);
-+	if (!priv->map)
-+		priv->map = pci_iomap(pdev, 0, io_len);
-+
-+	if (!priv->map) {
-+		printk(KERN_ERR "%s (adm8211): Cannot map device memory\n",
-+		       pci_name(pdev));
-+		goto err_free_dev;
-+	}
-+
-+	priv->rx_ring_size = rx_ring_size;
-+	priv->tx_ring_size = tx_ring_size;
-+
-+	if (adm8211_alloc_rings(dev)) {
-+		printk(KERN_ERR "%s (adm8211): Cannot allocate TX/RX ring\n",
-+		       pci_name(pdev));
-+		goto err_iounmap;
-+	}
-+
-+	pci_read_config_byte(pdev, PCI_CLASS_REVISION, &priv->revid);
-+
-+	*(u32 *)perm_addr = le32_to_cpu((__force __le32)ADM8211_CSR_READ(PAR0));
-+	*(u16 *)&perm_addr[4] =
-+		le16_to_cpu((__force __le16)ADM8211_CSR_READ(PAR1) & 0xFFFF);
-+
-+	if (!is_valid_ether_addr(perm_addr)) {
-+		printk(KERN_WARNING "%s (adm8211): Invalid hwaddr in EEPROM!\n",
-+		       pci_name(pdev));
-+		random_ether_addr(perm_addr);
-+	}
-+	SET_IEEE80211_PERM_ADDR(dev, perm_addr);
-+
-+	dev->extra_tx_headroom = sizeof(struct adm8211_tx_hdr);
-+	dev->flags = IEEE80211_HW_DEFAULT_REG_DOMAIN_CONFIGURED;
-+	/* IEEE80211_HW_RX_INCLUDES_FCS in promisc mode */
-+
-+	dev->channel_change_time = 1000;
-+	dev->max_rssi = 100;	/* FIXME: find better value */
-+
-+	priv->modes[0].mode = MODE_IEEE80211B;
-+	/* channel info filled in by adm8211_read_eeprom */
-+	memcpy(priv->rates, adm8211_rates, sizeof(adm8211_rates));
-+	priv->modes[0].num_rates = ARRAY_SIZE(adm8211_rates);
-+	priv->modes[0].rates = priv->rates;
-+
-+	dev->queues = 1; /* ADM8211C supports more, maybe ADM8211B too */
-+
-+	priv->retry_limit = 3;
-+	priv->ant_power = 0x40;
-+	priv->tx_power = 0x40;
-+	priv->lpf_cutoff = 0xFF;
-+	priv->lnags_threshold = 0xFF;
-+	priv->mode = IEEE80211_IF_TYPE_MGMT;
-+
-+	/* Power-on issue. EEPROM won't read correctly without */
-+	if (priv->revid >= ADM8211_REV_BA) {
-+		ADM8211_CSR_WRITE(FRCTL, 0);
-+		ADM8211_CSR_READ(FRCTL);
-+		ADM8211_CSR_WRITE(FRCTL, 1);
-+		ADM8211_CSR_READ(FRCTL);
-+		msleep(100);
-+	}
-+
-+	err = adm8211_read_eeprom(dev);
-+	if (err) {
-+		printk(KERN_ERR "%s (adm8211): Can't alloc eeprom buffer\n",
-+		       pci_name(pdev));
-+		goto err_free_desc;
-+	}
-+
-+	priv->channel = priv->modes[0].channels[0].chan;
-+
-+	err = ieee80211_register_hwmode(dev, &priv->modes[0]);
-+	if (err) {
-+		printk(KERN_ERR "%s (adm8211): Can't register hwmode\n",
-+		       pci_name(pdev));
-+		goto err_free_desc;
-+	}
-+
-+	err = ieee80211_register_hw(dev);
-+	if (err) {
-+		printk(KERN_ERR "%s (adm8211): Cannot register device\n",
-+		       pci_name(pdev));
-+		goto err_free_desc;
-+	}
-+
-+	printk(KERN_INFO "%s: hwaddr " MAC_FMT ", Rev 0x%02x\n",
-+	       wiphy_name(dev->wiphy), MAC_ARG(dev->wiphy->perm_addr),
-+	       priv->revid);
-+
-+	return 0;
-+
-+ err_free_desc:
-+	pci_free_consistent(pdev,
-+			    sizeof(struct adm8211_desc) * priv->rx_ring_size +
-+			    sizeof(struct adm8211_desc) * priv->tx_ring_size,
-+			    priv->rx_ring, priv->rx_ring_dma);
-+	kfree(priv->rx_buffers);
-+
-+ err_iounmap:
-+	pci_iounmap(pdev, priv->map);
-+
-+ err_free_dev:
-+	pci_set_drvdata(pdev, NULL);
-+	ieee80211_free_hw(dev);
-+
-+ err_free_reg:
-+	pci_release_regions(pdev);
-+
-+ err_disable_pdev:
-+	pci_disable_device(pdev);
-+	return err;
-+}
-+
-+
-+static void __devexit adm8211_remove(struct pci_dev *pdev)
-+{
-+	struct ieee80211_hw *dev = pci_get_drvdata(pdev);
-+	struct adm8211_priv *priv;
-+
-+	if (!dev)
-+		return;
-+
-+	ieee80211_unregister_hw(dev);
-+
-+	priv = dev->priv;
-+
-+	pci_free_consistent(pdev,
-+			    sizeof(struct adm8211_desc) * priv->rx_ring_size +
-+			    sizeof(struct adm8211_desc) * priv->tx_ring_size,
-+			    priv->rx_ring, priv->rx_ring_dma);
-+
-+	kfree(priv->rx_buffers);
-+	kfree(priv->eeprom);
-+	pci_iounmap(pdev, priv->map);
-+	pci_release_regions(pdev);
-+	pci_disable_device(pdev);
-+	ieee80211_free_hw(dev);
-+}
-+
-+
-+#ifdef CONFIG_PM
-+static int adm8211_suspend(struct pci_dev *pdev, pm_message_t state)
-+{
-+	struct ieee80211_hw *dev = pci_get_drvdata(pdev);
-+	struct adm8211_priv *priv = dev->priv;
-+
-+	if (priv->mode != IEEE80211_IF_TYPE_MGMT) {
-+		ieee80211_stop_queues(dev);
-+		adm8211_stop(dev);
-+	}
-+
-+	pci_save_state(pdev);
-+	pci_set_power_state(pdev, pci_choose_state(pdev, state));
-+	return 0;
-+}
-+
-+static int adm8211_resume(struct pci_dev *pdev)
-+{
-+	struct ieee80211_hw *dev = pci_get_drvdata(pdev);
-+	struct adm8211_priv *priv = dev->priv;
-+
-+	pci_set_power_state(pdev, PCI_D0);
-+	pci_restore_state(pdev);
-+
-+	if (priv->mode != IEEE80211_IF_TYPE_MGMT) {
-+		adm8211_open(dev);
-+		ieee80211_start_queues(dev);
-+	}
-+
-+	return 0;
-+}
-+#endif /* CONFIG_PM */
-+
-+
-+MODULE_DEVICE_TABLE(pci, adm8211_pci_id_table);
-+
-+/* TODO: implement enable_wake */
-+static struct pci_driver adm8211_driver = {
-+	.name		= "adm8211",
-+	.id_table	= adm8211_pci_id_table,
-+	.probe		= adm8211_probe,
-+	.remove		= __devexit_p(adm8211_remove),
-+#ifdef CONFIG_PM
-+	.suspend	= adm8211_suspend,
-+	.resume		= adm8211_resume,
-+#endif /* CONFIG_PM */
-+};
-+
-+
-+
-+static int __init adm8211_init(void)
-+{
-+#ifdef MODULE
-+	printk(version);
-+#endif
-+
-+	return pci_register_driver(&adm8211_driver);
-+}
-+
-+
-+static void __exit adm8211_exit(void)
-+{
-+	pci_unregister_driver(&adm8211_driver);
-+}
-+
-+
-+module_init(adm8211_init);
-+module_exit(adm8211_exit);
-diff --git a/drivers/net/wireless/adm8211.h b/drivers/net/wireless/adm8211.h
-new file mode 100644
-index 0000000..795d895
---- /dev/null
-+++ b/drivers/net/wireless/adm8211.h
-@@ -0,0 +1,659 @@
-+#ifndef ADM8211_H
-+#define ADM8211_H
-+
-+/* ADM8211 Registers */
-+
-+/* CR32 (SIG) signature */
-+#define ADM8211_SIG1		0x82011317 /* ADM8211A */
-+#define ADM8211_SIG2		0x82111317 /* ADM8211B/ADM8211C */
-+
-+#define ADM8211_CSR_READ(r) ioread32(&priv->map->r)
-+#define ADM8211_CSR_WRITE(r, val) iowrite32((val), &priv->map->r)
-+
-+/* CSR (Host Control and Status Registers) */
-+struct adm8211_csr {
-+	__le32 PAR;		/* 0x00 CSR0 */
-+	__le32 FRCTL;		/* 0x04 CSR0A */
-+	__le32 TDR;		/* 0x08 CSR1 */
-+	__le32 WTDP;		/* 0x0C CSR1A */
-+	__le32 RDR;		/* 0x10 CSR2 */
-+	__le32 WRDP;		/* 0x14 CSR2A */
-+	__le32 RDB;		/* 0x18 CSR3 */
-+	__le32 TDBH;		/* 0x1C CSR3A */
-+	__le32 TDBD;		/* 0x20 CSR4 */
-+	__le32 TDBP;		/* 0x24 CSR4A */
-+	__le32 STSR;		/* 0x28 CSR5 */
-+	__le32 TDBB;		/* 0x2C CSR5A */
-+	__le32 NAR;		/* 0x30 CSR6 */
-+	__le32 CSR6A;		/* reserved */
-+	__le32 IER;		/* 0x38 CSR7 */
-+	__le32 TKIPSCEP;	/* 0x3C CSR7A */
-+	__le32 LPC;		/* 0x40 CSR8 */
-+	__le32 CSR_TEST1;	/* 0x44 CSR8A */
-+	__le32 SPR;		/* 0x48 CSR9 */
-+	__le32 CSR_TEST0;	/* 0x4C CSR9A */
-+	__le32 WCSR;		/* 0x50 CSR10 */
-+	__le32 WPDR;		/* 0x54 CSR10A */
-+	__le32 GPTMR;		/* 0x58 CSR11 */
-+	__le32 GPIO;		/* 0x5C CSR11A */
-+	__le32 BBPCTL;		/* 0x60 CSR12 */
-+	__le32 SYNCTL;		/* 0x64 CSR12A */
-+	__le32 PLCPHD;		/* 0x68 CSR13 */
-+	__le32 MMIWA;		/* 0x6C CSR13A */
-+	__le32 MMIRD0;		/* 0x70 CSR14 */
-+	__le32 MMIRD1;		/* 0x74 CSR14A */
-+	__le32 TXBR;		/* 0x78 CSR15 */
-+	__le32 SYNDATA;		/* 0x7C CSR15A */
-+	__le32 ALCS;		/* 0x80 CSR16 */
-+	__le32 TOFS2;		/* 0x84 CSR17 */
-+	__le32 CMDR;		/* 0x88 CSR18 */
-+	__le32 PCIC;		/* 0x8C CSR19 */
-+	__le32 PMCSR;		/* 0x90 CSR20 */
-+	__le32 PAR0;		/* 0x94 CSR21 */
-+	__le32 PAR1;		/* 0x98 CSR22 */
-+	__le32 MAR0;		/* 0x9C CSR23 */
-+	__le32 MAR1;		/* 0xA0 CSR24 */
-+	__le32 ATIMDA0;		/* 0xA4 CSR25 */
-+	__le32 ABDA1;		/* 0xA8 CSR26 */
-+	__le32 BSSID0;		/* 0xAC CSR27 */
-+	__le32 TXLMT;		/* 0xB0 CSR28 */
-+	__le32 MIBCNT;		/* 0xB4 CSR29 */
-+	__le32 BCNT;		/* 0xB8 CSR30 */
-+	__le32 TSFTH;		/* 0xBC CSR31 */
-+	__le32 TSC;		/* 0xC0 CSR32 */
-+	__le32 SYNRF;		/* 0xC4 CSR33 */
-+	__le32 BPLI;		/* 0xC8 CSR34 */
-+	__le32 CAP0;		/* 0xCC CSR35 */
-+	__le32 CAP1;		/* 0xD0 CSR36 */
-+	__le32 RMD;		/* 0xD4 CSR37 */
-+	__le32 CFPP;		/* 0xD8 CSR38 */
-+	__le32 TOFS0;		/* 0xDC CSR39 */
-+	__le32 TOFS1;		/* 0xE0 CSR40 */
-+	__le32 IFST;		/* 0xE4 CSR41 */
-+	__le32 RSPT;		/* 0xE8 CSR42 */
-+	__le32 TSFTL;		/* 0xEC CSR43 */
-+	__le32 WEPCTL;		/* 0xF0 CSR44 */
-+	__le32 WESK;		/* 0xF4 CSR45 */
-+	__le32 WEPCNT;		/* 0xF8 CSR46 */
-+	__le32 MACTEST;		/* 0xFC CSR47 */
-+	__le32 FER;		/* 0x100 */
-+	__le32 FEMR;		/* 0x104 */
-+	__le32 FPSR;		/* 0x108 */
-+	__le32 FFER;		/* 0x10C */
-+} __attribute__ ((packed));
-+
-+/* CSR0 - PAR (PCI Address Register) */
-+#define ADM8211_PAR_MWIE	(1 << 24)
-+#define ADM8211_PAR_MRLE	(1 << 23)
-+#define ADM8211_PAR_MRME	(1 << 21)
-+#define ADM8211_PAR_RAP		((1 << 18) | (1 << 17))
-+#define ADM8211_PAR_CAL		((1 << 15) | (1 << 14))
-+#define ADM8211_PAR_PBL		0x00003f00
-+#define ADM8211_PAR_BLE		(1 << 7)
-+#define ADM8211_PAR_DSL		0x0000007c
-+#define ADM8211_PAR_BAR		(1 << 1)
-+#define ADM8211_PAR_SWR		(1 << 0)
-+
-+/* CSR1 - FRCTL (Frame Control Register) */
-+#define ADM8211_FRCTL_PWRMGT	(1 << 31)
-+#define ADM8211_FRCTL_MAXPSP	(1 << 27)
-+#define ADM8211_FRCTL_DRVPRSP	(1 << 26)
-+#define ADM8211_FRCTL_DRVBCON	(1 << 25)
-+#define ADM8211_FRCTL_AID	0x0000ffff
-+#define ADM8211_FRCTL_AID_ON	0x0000c000
-+
-+/* CSR5 - STSR (Status Register) */
-+#define ADM8211_STSR_PCF	(1 << 31)
-+#define ADM8211_STSR_BCNTC	(1 << 30)
-+#define ADM8211_STSR_GPINT	(1 << 29)
-+#define ADM8211_STSR_LinkOff	(1 << 28)
-+#define ADM8211_STSR_ATIMTC	(1 << 27)
-+#define ADM8211_STSR_TSFTF	(1 << 26)
-+#define ADM8211_STSR_TSCZ	(1 << 25)
-+#define ADM8211_STSR_LinkOn	(1 << 24)
-+#define ADM8211_STSR_SQL	(1 << 23)
-+#define ADM8211_STSR_WEPTD	(1 << 22)
-+#define ADM8211_STSR_ATIME	(1 << 21)
-+#define ADM8211_STSR_TBTT	(1 << 20)
-+#define ADM8211_STSR_NISS	(1 << 16)
-+#define ADM8211_STSR_AISS	(1 << 15)
-+#define ADM8211_STSR_TEIS	(1 << 14)
-+#define ADM8211_STSR_FBE	(1 << 13)
-+#define ADM8211_STSR_REIS	(1 << 12)
-+#define ADM8211_STSR_GPTT	(1 << 11)
-+#define ADM8211_STSR_RPS	(1 << 8)
-+#define ADM8211_STSR_RDU	(1 << 7)
-+#define ADM8211_STSR_RCI	(1 << 6)
-+#define ADM8211_STSR_TUF	(1 << 5)
-+#define ADM8211_STSR_TRT	(1 << 4)
-+#define ADM8211_STSR_TLT	(1 << 3)
-+#define ADM8211_STSR_TDU	(1 << 2)
-+#define ADM8211_STSR_TPS	(1 << 1)
-+#define ADM8211_STSR_TCI	(1 << 0)
-+
-+/* CSR6 - NAR (Network Access Register) */
-+#define ADM8211_NAR_TXCF	(1 << 31)
-+#define ADM8211_NAR_HF		(1 << 30)
-+#define ADM8211_NAR_UTR		(1 << 29)
-+#define ADM8211_NAR_SQ		(1 << 28)
-+#define ADM8211_NAR_CFP		(1 << 27)
-+#define ADM8211_NAR_SF		(1 << 21)
-+#define ADM8211_NAR_TR		((1 << 15) | (1 << 14))
-+#define ADM8211_NAR_ST		(1 << 13)
-+#define ADM8211_NAR_OM		((1 << 11) | (1 << 10))
-+#define ADM8211_NAR_MM		(1 << 7)
-+#define ADM8211_NAR_PR		(1 << 6)
-+#define ADM8211_NAR_EA		(1 << 5)
-+#define ADM8211_NAR_PB		(1 << 3)
-+#define ADM8211_NAR_STPDMA	(1 << 2)
-+#define ADM8211_NAR_SR		(1 << 1)
-+#define ADM8211_NAR_CTX		(1 << 0)
-+
-+#define ADM8211_IDLE() 							   \
-+do { 									   \
-+	if (priv->nar & (ADM8211_NAR_SR | ADM8211_NAR_ST)) {		   \
-+		ADM8211_CSR_WRITE(NAR, priv->nar &			   \
-+				       ~(ADM8211_NAR_SR | ADM8211_NAR_ST));\
-+		ADM8211_CSR_READ(NAR);					   \
-+		msleep(20);						   \
-+	}								   \
-+} while (0)
-+
-+#define ADM8211_IDLE_RX() 						\
-+do {									\
-+	if (priv->nar & ADM8211_NAR_SR) {				\
-+		ADM8211_CSR_WRITE(NAR, priv->nar & ~ADM8211_NAR_SR);	\
-+		ADM8211_CSR_READ(NAR);					\
-+		mdelay(20);						\
-+	}								\
-+} while (0)
-+
-+#define ADM8211_RESTORE()					\
-+do {								\
-+	if (priv->nar & (ADM8211_NAR_SR | ADM8211_NAR_ST))	\
-+		ADM8211_CSR_WRITE(NAR, priv->nar);		\
-+} while (0)
-+
-+/* CSR7 - IER (Interrupt Enable Register) */
-+#define ADM8211_IER_PCFIE	(1 << 31)
-+#define ADM8211_IER_BCNTCIE	(1 << 30)
-+#define ADM8211_IER_GPIE	(1 << 29)
-+#define ADM8211_IER_LinkOffIE	(1 << 28)
-+#define ADM8211_IER_ATIMTCIE	(1 << 27)
-+#define ADM8211_IER_TSFTFIE	(1 << 26)
-+#define ADM8211_IER_TSCZE	(1 << 25)
-+#define ADM8211_IER_LinkOnIE	(1 << 24)
-+#define ADM8211_IER_SQLIE	(1 << 23)
-+#define ADM8211_IER_WEPIE	(1 << 22)
-+#define ADM8211_IER_ATIMEIE	(1 << 21)
-+#define ADM8211_IER_TBTTIE	(1 << 20)
-+#define ADM8211_IER_NIE		(1 << 16)
-+#define ADM8211_IER_AIE		(1 << 15)
-+#define ADM8211_IER_TEIE	(1 << 14)
-+#define ADM8211_IER_FBEIE	(1 << 13)
-+#define ADM8211_IER_REIE	(1 << 12)
-+#define ADM8211_IER_GPTIE	(1 << 11)
-+#define ADM8211_IER_RSIE	(1 << 8)
-+#define ADM8211_IER_RUIE	(1 << 7)
-+#define ADM8211_IER_RCIE	(1 << 6)
-+#define ADM8211_IER_TUIE	(1 << 5)
-+#define ADM8211_IER_TRTIE	(1 << 4)
-+#define ADM8211_IER_TLTTIE	(1 << 3)
-+#define ADM8211_IER_TDUIE	(1 << 2)
-+#define ADM8211_IER_TPSIE	(1 << 1)
-+#define ADM8211_IER_TCIE	(1 << 0)
-+
-+/* CSR9 - SPR (Serial Port Register) */
-+#define ADM8211_SPR_SRS		(1 << 11)
-+#define ADM8211_SPR_SDO		(1 << 3)
-+#define ADM8211_SPR_SDI		(1 << 2)
-+#define ADM8211_SPR_SCLK	(1 << 1)
-+#define ADM8211_SPR_SCS		(1 << 0)
-+
-+/* CSR9A - CSR_TEST0 */
-+#define ADM8211_CSR_TEST0_EPNE	(1 << 18)
-+#define ADM8211_CSR_TEST0_EPSNM	(1 << 17)
-+#define ADM8211_CSR_TEST0_EPTYP	(1 << 16)
-+#define ADM8211_CSR_TEST0_EPRLD	(1 << 15)
-+
-+/* CSR10 - WCSR (Wake-up Control/Status Register) */
-+#define ADM8211_WCSR_CRCT	(1 << 30)
-+#define ADM8211_WCSR_TSFTWE	(1 << 20)
-+#define ADM8211_WCSR_TIMWE	(1 << 19)
-+#define ADM8211_WCSR_ATIMWE	(1 << 18)
-+#define ADM8211_WCSR_KEYWE	(1 << 17)
-+#define ADM8211_WCSR_MPRE	(1 << 9)
-+#define ADM8211_WCSR_LSOE	(1 << 8)
-+#define ADM8211_WCSR_KEYUP	(1 << 6)
-+#define ADM8211_WCSR_TSFTW	(1 << 5)
-+#define ADM8211_WCSR_TIMW	(1 << 4)
-+#define ADM8211_WCSR_ATIMW	(1 << 3)
-+#define ADM8211_WCSR_MPR	(1 << 1)
-+#define ADM8211_WCSR_LSO	(1 << 0)
-+
-+/* CSR11A - GPIO */
-+#define ADM8211_CSR_GPIO_EN5	(1 << 17)
-+#define ADM8211_CSR_GPIO_EN4	(1 << 16)
-+#define ADM8211_CSR_GPIO_EN3	(1 << 15)
-+#define ADM8211_CSR_GPIO_EN2	(1 << 14)
-+#define ADM8211_CSR_GPIO_EN1	(1 << 13)
-+#define ADM8211_CSR_GPIO_EN0	(1 << 12)
-+#define ADM8211_CSR_GPIO_O5	(1 << 11)
-+#define ADM8211_CSR_GPIO_O4	(1 << 10)
-+#define ADM8211_CSR_GPIO_O3	(1 << 9)
-+#define ADM8211_CSR_GPIO_O2	(1 << 8)
-+#define ADM8211_CSR_GPIO_O1	(1 << 7)
-+#define ADM8211_CSR_GPIO_O0	(1 << 6)
-+#define ADM8211_CSR_GPIO_IN	0x0000003f
-+
-+/* CSR12 - BBPCTL (BBP Control port) */
-+#define ADM8211_BBPCTL_MMISEL	(1 << 31)
-+#define ADM8211_BBPCTL_SPICADD  (0x7F << 24)
-+#define ADM8211_BBPCTL_RF3000	(0x20 << 24)
-+#define ADM8211_BBPCTL_TXCE	(1 << 23)
-+#define ADM8211_BBPCTL_RXCE	(1 << 22)
-+#define ADM8211_BBPCTL_CCAP	(1 << 21)
-+#define ADM8211_BBPCTL_TYPE	0x001c0000
-+#define ADM8211_BBPCTL_WR	(1 << 17)
-+#define ADM8211_BBPCTL_RD	(1 << 16)
-+#define ADM8211_BBPCTL_ADDR	0x0000ff00
-+#define ADM8211_BBPCTL_DATA	0x000000ff
-+
-+/* CSR12A - SYNCTL (Synthesizer Control port) */
-+#define ADM8211_SYNCTL_WR	(1 << 31)
-+#define ADM8211_SYNCTL_RD	(1 << 30)
-+#define ADM8211_SYNCTL_CS0	(1 << 29)
-+#define ADM8211_SYNCTL_CS1	(1 << 28)
-+#define ADM8211_SYNCTL_CAL	(1 << 27)
-+#define ADM8211_SYNCTL_SELCAL	(1 << 26)
-+#define ADM8211_SYNCTL_RFtype	((1 << 24) || (1 << 23) || (1 << 22))
-+#define ADM8211_SYNCTL_RFMD	(1 << 22)
-+#define ADM8211_SYNCTL_GENERAL	(0x7 << 22)
-+/* SYNCTL 21:0 Data (Si4126: 18-bit data, 4-bit address) */
-+
-+/* CSR18 - CMDR (Command Register) */
-+#define ADM8211_CMDR_PM		(1 << 19)
-+#define ADM8211_CMDR_APM	(1 << 18)
-+#define ADM8211_CMDR_RTE	(1 << 4)
-+#define ADM8211_CMDR_DRT	((1 << 3) | (1 << 2))
-+#define ADM8211_CMDR_DRT_8DW	(0x0 << 2)
-+#define ADM8211_CMDR_DRT_16DW	(0x1 << 2)
-+#define ADM8211_CMDR_DRT_SF	(0x2 << 2)
-+
-+/* CSR33 - SYNRF (SYNRF direct control) */
-+#define ADM8211_SYNRF_SELSYN	(1 << 31)
-+#define ADM8211_SYNRF_SELRF	(1 << 30)
-+#define ADM8211_SYNRF_LERF	(1 << 29)
-+#define ADM8211_SYNRF_LEIF	(1 << 28)
-+#define ADM8211_SYNRF_SYNCLK	(1 << 27)
-+#define ADM8211_SYNRF_SYNDATA	(1 << 26)
-+#define ADM8211_SYNRF_PE1	(1 << 25)
-+#define ADM8211_SYNRF_PE2	(1 << 24)
-+#define ADM8211_SYNRF_PA_PE	(1 << 23)
-+#define ADM8211_SYNRF_TR_SW	(1 << 22)
-+#define ADM8211_SYNRF_TR_SWN	(1 << 21)
-+#define ADM8211_SYNRF_RADIO	(1 << 20)
-+#define ADM8211_SYNRF_CAL_EN	(1 << 19)
-+#define ADM8211_SYNRF_PHYRST	(1 << 18)
-+
-+#define ADM8211_SYNRF_IF_SELECT_0 	(1 << 31)
-+#define ADM8211_SYNRF_IF_SELECT_1 	((1 << 31) | (1 << 28))
-+#define ADM8211_SYNRF_WRITE_SYNDATA_0	(1 << 31)
-+#define ADM8211_SYNRF_WRITE_SYNDATA_1	((1 << 31) | (1 << 26))
-+#define ADM8211_SYNRF_WRITE_CLOCK_0	(1 << 31)
-+#define ADM8211_SYNRF_WRITE_CLOCK_1	((1 << 31) | (1 << 27))
-+
-+/* CSR44 - WEPCTL (WEP Control) */
-+#define ADM8211_WEPCTL_WEPENABLE   (1 << 31)
-+#define ADM8211_WEPCTL_WPAENABLE   (1 << 30)
-+#define ADM8211_WEPCTL_CURRENT_TABLE (1 << 29)
-+#define ADM8211_WEPCTL_TABLE_WR	(1 << 28)
-+#define ADM8211_WEPCTL_TABLE_RD	(1 << 27)
-+#define ADM8211_WEPCTL_WEPRXBYP	(1 << 25)
-+#define ADM8211_WEPCTL_SEL_WEPTABLE (1 << 23)
-+#define ADM8211_WEPCTL_ADDR	(0x000001ff)
-+
-+/* CSR45 - WESK (Data Entry for Share/Individual Key) */
-+#define ADM8211_WESK_DATA	(0x0000ffff)
-+
-+/* FER (Function Event Register) */
-+#define ADM8211_FER_INTR_EV_ENT	(1 << 15)
-+
-+
-+/* Si4126 RF Synthesizer - Control Registers */
-+#define SI4126_MAIN_CONF	0
-+#define SI4126_PHASE_DET_GAIN	1
-+#define SI4126_POWERDOWN	2
-+#define SI4126_RF1_N_DIV	3 /* only Si4136 */
-+#define SI4126_RF2_N_DIV	4
-+#define SI4126_IF_N_DIV		5
-+#define SI4126_RF1_R_DIV	6 /* only Si4136 */
-+#define SI4126_RF2_R_DIV	7
-+#define SI4126_IF_R_DIV		8
-+
-+/* Main Configuration */
-+#define SI4126_MAIN_XINDIV2	(1 << 6)
-+#define SI4126_MAIN_IFDIV	((1 << 11) | (1 << 10))
-+/* Powerdown */
-+#define SI4126_POWERDOWN_PDIB	(1 << 1)
-+#define SI4126_POWERDOWN_PDRB	(1 << 0)
-+
-+
-+/* RF3000 BBP - Control Port Registers */
-+/* 0x00 - reserved */
-+#define RF3000_MODEM_CTRL__RX_STATUS 0x01
-+#define RF3000_CCA_CTRL 0x02
-+#define RF3000_DIVERSITY__RSSI 0x03
-+#define RF3000_RX_SIGNAL_FIELD 0x04
-+#define RF3000_RX_LEN_MSB 0x05
-+#define RF3000_RX_LEN_LSB 0x06
-+#define RF3000_RX_SERVICE_FIELD 0x07
-+#define RF3000_TX_VAR_GAIN__TX_LEN_EXT 0x11
-+#define RF3000_TX_LEN_MSB 0x12
-+#define RF3000_TX_LEN_LSB 0x13
-+#define RF3000_LOW_GAIN_CALIB 0x14
-+#define RF3000_HIGH_GAIN_CALIB 0x15
-+
-+/* ADM8211 revisions */
-+#define ADM8211_REV_AB 0x11
-+#define ADM8211_REV_AF 0x15
-+#define ADM8211_REV_BA 0x20
-+#define ADM8211_REV_CA 0x30
-+
-+struct adm8211_desc {
-+	__le32 status;
-+	__le32 length;
-+	__le32 buffer1;
-+	__le32 buffer2;
-+};
-+
-+#define RDES0_STATUS_OWN	(1 << 31)
-+#define RDES0_STATUS_ES		(1 << 30)
-+#define RDES0_STATUS_SQL	(1 << 29)
-+#define RDES0_STATUS_DE		(1 << 28)
-+#define RDES0_STATUS_FS		(1 << 27)
-+#define RDES0_STATUS_LS		(1 << 26)
-+#define RDES0_STATUS_PCF	(1 << 25)
-+#define RDES0_STATUS_SFDE	(1 << 24)
-+#define RDES0_STATUS_SIGE	(1 << 23)
-+#define RDES0_STATUS_CRC16E	(1 << 22)
-+#define RDES0_STATUS_RXTOE	(1 << 21)
-+#define RDES0_STATUS_CRC32E	(1 << 20)
-+#define RDES0_STATUS_ICVE	(1 << 19)
-+#define RDES0_STATUS_DA1	(1 << 17)
-+#define RDES0_STATUS_DA0	(1 << 16)
-+#define RDES0_STATUS_RXDR	((1 << 15) | (1 << 14) | (1 << 13) | (1 << 12))
-+#define RDES0_STATUS_FL		(0x00000fff)
-+
-+#define RDES1_CONTROL_RER	(1 << 25)
-+#define RDES1_CONTROL_RCH	(1 << 24)
-+#define RDES1_CONTROL_RBS2	(0x00fff000)
-+#define RDES1_CONTROL_RBS1	(0x00000fff)
-+
-+#define RDES1_STATUS_RSSI	(0x0000007f)
-+
-+
-+#define TDES0_CONTROL_OWN	(1 << 31)
-+#define TDES0_CONTROL_DONE	(1 << 30)
-+#define TDES0_CONTROL_TXDR	(0x0ff00000)
-+
-+#define TDES0_STATUS_OWN	(1 << 31)
-+#define TDES0_STATUS_DONE	(1 << 30)
-+#define TDES0_STATUS_ES		(1 << 29)
-+#define TDES0_STATUS_TLT	(1 << 28)
-+#define TDES0_STATUS_TRT	(1 << 27)
-+#define TDES0_STATUS_TUF	(1 << 26)
-+#define TDES0_STATUS_TRO	(1 << 25)
-+#define TDES0_STATUS_SOFBR	(1 << 24)
-+#define TDES0_STATUS_ACR	(0x00000fff)
-+
-+#define TDES1_CONTROL_IC	(1 << 31)
-+#define TDES1_CONTROL_LS	(1 << 30)
-+#define TDES1_CONTROL_FS	(1 << 29)
-+#define TDES1_CONTROL_TER	(1 << 25)
-+#define TDES1_CONTROL_TCH	(1 << 24)
-+#define TDES1_CONTROL_RBS2	(0x00fff000)
-+#define TDES1_CONTROL_RBS1	(0x00000fff)
-+
-+/* SRAM offsets */
-+#define ADM8211_SRAM(x) (priv->revid < ADM8211_REV_BA ? \
-+        ADM8211_SRAM_A_ ## x : ADM8211_SRAM_B_ ## x)
-+
-+#define ADM8211_SRAM_INDIV_KEY   0x0000
-+#define ADM8211_SRAM_A_SHARE_KEY 0x0160
-+#define ADM8211_SRAM_B_SHARE_KEY 0x00c0
-+
-+#define ADM8211_SRAM_A_SSID      0x0180
-+#define ADM8211_SRAM_B_SSID      0x00d4
-+#define ADM8211_SRAM_SSID ADM8211_SRAM(SSID)
-+
-+#define ADM8211_SRAM_A_SUPP_RATE 0x0191
-+#define ADM8211_SRAM_B_SUPP_RATE 0x00dd
-+#define ADM8211_SRAM_SUPP_RATE ADM8211_SRAM(SUPP_RATE)
-+
-+#define ADM8211_SRAM_A_SIZE      0x0200
-+#define ADM8211_SRAM_B_SIZE      0x01c0
-+#define ADM8211_SRAM_SIZE ADM8211_SRAM(SIZE)
-+
-+struct adm8211_rx_ring_info {
-+	struct sk_buff *skb;
-+	dma_addr_t mapping;
-+};
-+
-+struct adm8211_tx_ring_info {
-+	struct sk_buff *skb;
-+	dma_addr_t mapping;
-+	struct ieee80211_tx_control tx_control;
-+	size_t hdrlen;
-+};
-+
-+#define PLCP_SIGNAL_1M		0x0a
-+#define PLCP_SIGNAL_2M		0x14
-+#define PLCP_SIGNAL_5M5		0x37
-+#define PLCP_SIGNAL_11M		0x6e
-+
-+struct adm8211_tx_hdr {
-+	u8 da[6];
-+	u8 signal; /* PLCP signal / TX rate in 100 Kbps */
-+	u8 service;
-+	__le16 frame_body_size;
-+	__le16 frame_control;
-+	__le16 plcp_frag_tail_len;
-+	__le16 plcp_frag_head_len;
-+	__le16 dur_frag_tail;
-+	__le16 dur_frag_head;
-+	u8 addr4[6];
-+
-+#define ADM8211_TXHDRCTL_SHORT_PREAMBLE		(1 <<  0)
-+#define ADM8211_TXHDRCTL_MORE_FRAG		(1 <<  1)
-+#define ADM8211_TXHDRCTL_MORE_DATA		(1 <<  2)
-+#define ADM8211_TXHDRCTL_FRAG_NO		(1 <<  3) /* ? */
-+#define ADM8211_TXHDRCTL_ENABLE_RTS		(1 <<  4)
-+#define ADM8211_TXHDRCTL_ENABLE_WEP_ENGINE	(1 <<  5)
-+#define ADM8211_TXHDRCTL_ENABLE_EXTEND_HEADER	(1 << 15) /* ? */
-+	__le16 header_control;
-+	__le16 frag;
-+	u8 reserved_0;
-+	u8 retry_limit;
-+
-+	u32 wep2key0;
-+	u32 wep2key1;
-+	u32 wep2key2;
-+	u32 wep2key3;
-+
-+	u8 keyid;
-+	u8 entry_control;	// huh??
-+	u16 reserved_1;
-+	u32 reserved_2;
-+} __attribute__ ((packed));
-+
-+
-+#define RX_COPY_BREAK 128
-+#define RX_PKT_SIZE 2500
-+
-+struct adm8211_eeprom {
-+	__le16	signature;		/* 0x00 */
-+	u8	major_version;		/* 0x02 */
-+	u8	minor_version;		/* 0x03 */
-+	u8	reserved_1[4];		/* 0x04 */
-+	u8	hwaddr[6];		/* 0x08 */
-+	u8	reserved_2[8];		/* 0x1E */
-+	__le16	cr49;			/* 0x16 */
-+	u8	cr03;			/* 0x18 */
-+	u8	cr28;			/* 0x19 */
-+	u8	cr29;			/* 0x1A */
-+	u8	country_code;		/* 0x1B */
-+
-+/* specific bbp types */
-+#define ADM8211_BBP_RFMD3000	0x00
-+#define ADM8211_BBP_RFMD3002	0x01
-+#define ADM8211_BBP_ADM8011	0x04
-+	u8	specific_bbptype;	/* 0x1C */
-+	u8	specific_rftype;	/* 0x1D */
-+	u8	reserved_3[2];		/* 0x1E */
-+	__le16	device_id;		/* 0x20 */
-+	__le16	vendor_id;		/* 0x22 */
-+	__le16	subsystem_id;		/* 0x24 */
-+	__le16	subsystem_vendor_id;	/* 0x26 */
-+	u8	maxlat;			/* 0x28 */
-+	u8	mingnt;			/* 0x29 */
-+	__le16	cis_pointer_low;	/* 0x2A */
-+	__le16	cis_pointer_high;	/* 0x2C */
-+	__le16	csr18;			/* 0x2E */
-+	u8	reserved_4[16];		/* 0x30 */
-+	u8	d1_pwrdara;		/* 0x40 */
-+	u8	d0_pwrdara;		/* 0x41 */
-+	u8	d3_pwrdara;		/* 0x42 */
-+	u8	d2_pwrdara;		/* 0x43 */
-+	u8	antenna_power[14];	/* 0x44 */
-+	__le16	cis_wordcnt;		/* 0x52 */
-+	u8	tx_power[14];		/* 0x54 */
-+	u8	lpf_cutoff[14];		/* 0x62 */
-+	u8	lnags_threshold[14];	/* 0x70 */
-+	__le16	checksum;		/* 0x7E */
-+	u8	cis_data[0];		/* 0x80, 384 bytes */
-+} __attribute__ ((packed));
-+
-+static const struct ieee80211_rate adm8211_rates[] = {
-+	{ .rate = 10,
-+	  .val = 10,
-+	  .val2 = -10,
-+	  .flags = IEEE80211_RATE_CCK_2 },
-+	{ .rate = 20,
-+	  .val = 20,
-+	  .val2 = -20,
-+	  .flags = IEEE80211_RATE_CCK_2 },
-+	{ .rate = 55,
-+	  .val = 55,
-+	  .val2 = -55,
-+	  .flags = IEEE80211_RATE_CCK_2 },
-+	{ .rate = 110,
-+	  .val = 110,
-+	  .val2 = -110,
-+	  .flags = IEEE80211_RATE_CCK_2 }
-+};
-+
-+struct ieee80211_chan_range {
-+	u8 min;
-+	u8 max;
-+};
-+
-+static const struct ieee80211_channel adm8211_channels[] = {
-+	{ .chan = 1,
-+	  .freq = 2412},
-+	{ .chan = 2,
-+	  .freq = 2417},
-+	{ .chan = 3,
-+	  .freq = 2422},
-+	{ .chan = 4,
-+	  .freq = 2427},
-+	{ .chan = 5,
-+	  .freq = 2432},
-+	{ .chan = 6,
-+	  .freq = 2437},
-+	{ .chan = 7,
-+	  .freq = 2442},
-+	{ .chan = 8,
-+	  .freq = 2447},
-+	{ .chan = 9,
-+	  .freq = 2452},
-+	{ .chan = 10,
-+	  .freq = 2457},
-+	{ .chan = 11,
-+	  .freq = 2462},
-+	{ .chan = 12,
-+	  .freq = 2467},
-+	{ .chan = 13,
-+	  .freq = 2472},
-+	{ .chan = 14,
-+	  .freq = 2484},
-+};
-+
-+struct adm8211_priv {
-+	struct pci_dev *pdev;
-+	spinlock_t lock;
-+	struct adm8211_csr __iomem *map;
-+	struct adm8211_desc *rx_ring;
-+	struct adm8211_desc *tx_ring;
-+	dma_addr_t rx_ring_dma;
-+	dma_addr_t tx_ring_dma;
-+	struct adm8211_rx_ring_info *rx_buffers;
-+	struct adm8211_tx_ring_info *tx_buffers;
-+	unsigned int rx_ring_size, tx_ring_size;
-+	unsigned int cur_tx, dirty_tx, cur_rx;
-+
-+	struct ieee80211_low_level_stats stats;
-+	struct ieee80211_hw_mode modes[1];
-+	struct ieee80211_channel channels[ARRAY_SIZE(adm8211_channels)];
-+	struct ieee80211_rate rates[ARRAY_SIZE(adm8211_rates)];
+ 	if (is_broadcast_ether_addr(sta_addr)) {
+ 		sta = NULL;
+-		if (idx >= NUM_DEFAULT_KEYS) {
+-			printk(KERN_DEBUG "%s: set_encrypt - invalid idx=%d\n",
+-			       dev->name, idx);
+-			return -EINVAL;
+-		}
+ 		key = sdata->keys[idx];
+ 	} else {
+ 		set_tx_key = 0;
+-		if (idx != 0) {
++		/*
++		 * According to the standard, the key index of a pairwise
++		 * key must be zero. However, some AP are broken when it
++		 * comes to WEP key indices, so we work around this.
++		 */
++		if (idx != 0 && alg != ALG_WEP) {
+ 			printk(KERN_DEBUG "%s: set_encrypt - non-zero idx for "
+ 			       "individual key\n", dev->name);
+ 			return -EINVAL;
+@@ -73,11 +114,8 @@ static int ieee80211_set_encryption(struct net_device *dev, u8 *sta_addr,
+ 		key = NULL;
+ 	} else {
+ 		/*
+-		 * Need to free it before allocating a new one with
+-		 * with the same index or the ordering to the driver's
+-		 * set_key() callback becomes confused.
++		 * Automatically frees any old key if present.
+ 		 */
+-		ieee80211_key_free(key);
+ 		key = ieee80211_key_alloc(sdata, sta, alg, idx, key_len, _key);
+ 		if (!key) {
+ 			ret = -ENOMEM;
+@@ -144,9 +182,6 @@ static int ieee80211_ioctl_giwname(struct net_device *dev,
+ 	case MODE_IEEE80211G:
+ 		strcpy(name, "IEEE 802.11g");
+ 		break;
+-	case MODE_ATHEROS_TURBO:
+-		strcpy(name, "5GHz Turbo");
+-		break;
+ 	default:
+ 		strcpy(name, "IEEE 802.11");
+ 		break;
+@@ -597,9 +632,6 @@ static int ieee80211_ioctl_siwrate(struct net_device *dev,
+ 		struct ieee80211_rate *rates = &mode->rates[i];
+ 		int this_rate = rates->rate;
+ 
+-		if (mode->mode == MODE_ATHEROS_TURBO ||
+-		    mode->mode == MODE_ATHEROS_TURBOG)
+-			this_rate *= 2;
+ 		if (target_rate == this_rate) {
+ 			sdata->bss->max_ratectrl_rateidx = i;
+ 			if (rate->fixed)
+@@ -789,6 +821,7 @@ static int ieee80211_ioctl_prism2_param(struct net_device *dev,
+ 	int param = *i;
+ 	int value = *(i + 1);
+ 	int ret = 0;
 +	int mode;
+ 
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+@@ -843,7 +876,7 @@ static int ieee80211_ioctl_prism2_param(struct net_device *dev,
+ 		break;
+ 
+ 	case PRISM2_PARAM_NEXT_MODE:
+-		local->next_mode = value;
++		local->next_mode = hostapd_mode_to_mode(value);
+ 		break;
+ 
+ 	case PRISM2_PARAM_KEY_TX_RX_THRESHOLD:
+@@ -871,7 +904,15 @@ static int ieee80211_ioctl_prism2_param(struct net_device *dev,
+ 		break;
+ 
+ 	case PRISM2_PARAM_HW_MODES:
+-		local->enabled_modes = value;
++		mode = 1;
++		local->enabled_modes = 0;
++		while (value) {
++			if (value & 1)
++				local->enabled_modes |=
++					hostapd_mode_to_mode(mode);
++			mode <<= 1;
++			value >>= 1;
++		}
+ 		break;
+ 
+ 	case PRISM2_PARAM_CREATE_IBSS:
+@@ -912,6 +953,7 @@ static int ieee80211_ioctl_get_prism2_param(struct net_device *dev,
+ 	struct ieee80211_sub_if_data *sdata;
+ 	int *param = (int *) extra;
+ 	int ret = 0;
++	int mode;
+ 
+ 	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+ 
+@@ -949,7 +991,13 @@ static int ieee80211_ioctl_get_prism2_param(struct net_device *dev,
+ 		break;
+ 
+ 	case PRISM2_PARAM_HW_MODES:
+-		*param = local->enabled_modes;
++		mode = 0;
++		*param = 0;
++		while (mode < NUM_IEEE80211_MODES) {
++			if (local->enabled_modes & (1<<mode))
++				*param |= mode_to_hostapd_mode(1<<mode);
++			mode++;
++		}
+ 		break;
+ 
+ 	case PRISM2_PARAM_CREATE_IBSS:
+@@ -1268,10 +1316,10 @@ static const iw_handler ieee80211_handler[] =
+ 	(iw_handler) NULL /* kernel code */,		/* SIOCGIWPRIV */
+ 	(iw_handler) NULL /* not used */,		/* SIOCSIWSTATS */
+ 	(iw_handler) NULL /* kernel code */,		/* SIOCGIWSTATS */
+-	iw_handler_set_spy,				/* SIOCSIWSPY */
+-	iw_handler_get_spy,				/* SIOCGIWSPY */
+-	iw_handler_set_thrspy,				/* SIOCSIWTHRSPY */
+-	iw_handler_get_thrspy,				/* SIOCGIWTHRSPY */
++	(iw_handler) NULL,				/* SIOCSIWSPY */
++	(iw_handler) NULL,				/* SIOCGIWSPY */
++	(iw_handler) NULL,				/* SIOCSIWTHRSPY */
++	(iw_handler) NULL,				/* SIOCGIWTHRSPY */
+ 	(iw_handler) ieee80211_ioctl_siwap,		/* SIOCSIWAP */
+ 	(iw_handler) ieee80211_ioctl_giwap,		/* SIOCGIWAP */
+ 	(iw_handler) ieee80211_ioctl_siwmlme,		/* SIOCSIWMLME */
+diff --git a/net/mac80211/ieee80211_sta.c b/net/mac80211/ieee80211_sta.c
+index 1b4ebe8..8fdbd38 100644
+--- a/net/mac80211/ieee80211_sta.c
++++ b/net/mac80211/ieee80211_sta.c
+@@ -618,8 +618,6 @@ static void ieee80211_send_assoc(struct net_device *dev,
+ 	*pos++ = len;
+ 	for (i = 0; i < len; i++) {
+ 		int rate = mode->rates[i].rate;
+-		if (mode->mode == MODE_ATHEROS_TURBO)
+-			rate /= 2;
+ 		*pos++ = (u8) (rate / 5);
+ 	}
+ 
+@@ -629,8 +627,6 @@ static void ieee80211_send_assoc(struct net_device *dev,
+ 		*pos++ = mode->num_rates - len;
+ 		for (i = len; i < mode->num_rates; i++) {
+ 			int rate = mode->rates[i].rate;
+-			if (mode->mode == MODE_ATHEROS_TURBO)
+-				rate /= 2;
+ 			*pos++ = (u8) (rate / 5);
+ 		}
+ 	}
+@@ -889,10 +885,7 @@ static void ieee80211_send_probe_req(struct net_device *dev, u8 *dst,
+ 			pos = skb_put(skb, 1);
+ 			supp_rates[1]++;
+ 		}
+-		if (mode->mode == MODE_ATHEROS_TURBO)
+-			*pos = rate->rate / 10;
+-		else
+-			*pos = rate->rate / 5;
++		*pos = rate->rate / 5;
+ 	}
+ 
+ 	ieee80211_sta_tx(dev, skb, 0);
+@@ -1285,16 +1278,12 @@ static void ieee80211_rx_mgmt_assoc_resp(struct net_device *dev,
+ 	mode = local->oper_hw_mode;
+ 	for (i = 0; i < elems.supp_rates_len; i++) {
+ 		int rate = (elems.supp_rates[i] & 0x7f) * 5;
+-		if (mode->mode == MODE_ATHEROS_TURBO)
+-			rate *= 2;
+ 		for (j = 0; j < mode->num_rates; j++)
+ 			if (mode->rates[j].rate == rate)
+ 				rates |= BIT(j);
+ 	}
+ 	for (i = 0; i < elems.ext_supp_rates_len; i++) {
+ 		int rate = (elems.ext_supp_rates[i] & 0x7f) * 5;
+-		if (mode->mode == MODE_ATHEROS_TURBO)
+-			rate *= 2;
+ 		for (j = 0; j < mode->num_rates; j++)
+ 			if (mode->rates[j].rate == rate)
+ 				rates |= BIT(j);
+@@ -1514,8 +1503,6 @@ static void ieee80211_rx_bss_info(struct net_device *dev,
+ 				rate = elems.ext_supp_rates
+ 					[i - elems.supp_rates_len];
+ 			own_rate = 5 * (rate & 0x7f);
+-			if (mode->mode == MODE_ATHEROS_TURBO)
+-				own_rate *= 2;
+ 			for (j = 0; j < num_rates; j++)
+ 				if (rates[j].rate == own_rate)
+ 					supp_rates |= BIT(j);
+@@ -2344,8 +2331,6 @@ static int ieee80211_sta_join_ibss(struct net_device *dev,
+ 		mode = local->oper_hw_mode;
+ 		for (i = 0; i < bss->supp_rates_len; i++) {
+ 			int bitrate = (bss->supp_rates[i] & 0x7f) * 5;
+-			if (mode->mode == MODE_ATHEROS_TURBO)
+-				bitrate *= 2;
+ 			for (j = 0; j < mode->num_rates; j++)
+ 				if (mode->rates[j].rate == bitrate)
+ 					rates |= BIT(j);
+@@ -2418,8 +2403,6 @@ static int ieee80211_sta_create_ibss(struct net_device *dev,
+ 	pos = bss->supp_rates;
+ 	for (i = 0; i < mode->num_rates; i++) {
+ 		int rate = mode->rates[i].rate;
+-		if (mode->mode == MODE_ATHEROS_TURBO)
+-			rate /= 2;
+ 		*pos++ = (u8) (rate / 5);
+ 	}
+ 
+diff --git a/net/mac80211/key.c b/net/mac80211/key.c
+index 178f00c..dd6fc4a 100644
+--- a/net/mac80211/key.c
++++ b/net/mac80211/key.c
+@@ -12,6 +12,7 @@
+ #include <linux/if_ether.h>
+ #include <linux/etherdevice.h>
+ #include <linux/list.h>
++#include <linux/rcupdate.h>
+ #include <net/mac80211.h>
+ #include "ieee80211_i.h"
+ #include "debugfs_key.h"
+@@ -72,8 +73,6 @@ static void ieee80211_key_enable_hw_accel(struct ieee80211_key *key)
+ 				       key->sdata->dev->dev_addr, addr,
+ 				       &key->conf);
+ 
+-	WARN_ON(!ret && (key->conf.hw_key_idx == HW_KEY_IDX_INVALID));
+-
+ 	if (!ret)
+ 		key->flags |= KEY_FLAG_UPLOADED_TO_HARDWARE;
+ 
+@@ -108,7 +107,6 @@ static void ieee80211_key_disable_hw_accel(struct ieee80211_key *key)
+ 		       key->conf.keyidx, MAC_ARG(addr), ret);
+ 
+ 	key->flags &= ~KEY_FLAG_UPLOADED_TO_HARDWARE;
+-	key->conf.hw_key_idx = HW_KEY_IDX_INVALID;
+ }
+ 
+ struct ieee80211_key *ieee80211_key_alloc(struct ieee80211_sub_if_data *sdata,
+@@ -120,6 +118,7 @@ struct ieee80211_key *ieee80211_key_alloc(struct ieee80211_sub_if_data *sdata,
+ {
+ 	struct ieee80211_key *key;
+ 
++	BUG_ON(idx < 0 || idx >= NUM_DEFAULT_KEYS);
+ 	BUG_ON(alg == ALG_NONE);
+ 
+ 	key = kzalloc(sizeof(struct ieee80211_key) + key_len, GFP_KERNEL);
+@@ -130,7 +129,6 @@ struct ieee80211_key *ieee80211_key_alloc(struct ieee80211_sub_if_data *sdata,
+ 	 * Default to software encryption; we'll later upload the
+ 	 * key to the hardware if possible.
+ 	 */
+-	key->conf.hw_key_idx = HW_KEY_IDX_INVALID;
+ 	key->conf.flags = 0;
+ 	key->flags = 0;
+ 
+@@ -157,9 +155,15 @@ struct ieee80211_key *ieee80211_key_alloc(struct ieee80211_sub_if_data *sdata,
+ 
+ 	ieee80211_debugfs_key_add(key->local, key);
+ 
++	/* remove key first */
++	if (sta)
++		ieee80211_key_free(sta->key);
++	else
++		ieee80211_key_free(sdata->keys[idx]);
 +
-+	int channel;
-+	u8 bssid[ETH_ALEN];
-+	u8 ssid[32];
-+	size_t ssid_len;
-+	u8 *mac_addr;
+ 	if (sta) {
+ 		ieee80211_debugfs_key_sta_link(key, sta);
+-		sta->key = key;
 +
-+	u8 soft_rx_crc;
-+	u8 retry_limit;
+ 		/*
+ 		 * some hardware cannot handle TKIP with QoS, so
+ 		 * we indicate whether QoS could be in use.
+@@ -179,21 +183,19 @@ struct ieee80211_key *ieee80211_key_alloc(struct ieee80211_sub_if_data *sdata,
+ 				sta_info_put(ap);
+ 			}
+ 		}
+-
+-		if (idx >= 0 && idx < NUM_DEFAULT_KEYS) {
+-			if (!sdata->keys[idx])
+-				sdata->keys[idx] = key;
+-			else
+-				WARN_ON(1);
+-		} else
+-			WARN_ON(1);
+ 	}
+ 
+-	list_add(&key->list, &sdata->key_list);
+-
++	/* enable hwaccel if appropriate */
+ 	if (netif_running(key->sdata->dev))
+ 		ieee80211_key_enable_hw_accel(key);
+ 
++	if (sta)
++		rcu_assign_pointer(sta->key, key);
++	else
++		rcu_assign_pointer(sdata->keys[idx], key);
 +
-+	u8 ant_power;
-+	u8 tx_power;
-+	u8 lpf_cutoff;
-+	u8 lnags_threshold;
-+	struct adm8211_eeprom *eeprom;
-+	size_t eeprom_len;
++	list_add(&key->list, &sdata->key_list);
 +
-+	u8 revid;
+ 	return key;
+ }
+ 
+@@ -202,20 +204,25 @@ void ieee80211_key_free(struct ieee80211_key *key)
+ 	if (!key)
+ 		return;
+ 
+-	ieee80211_key_disable_hw_accel(key);
+-
+ 	if (key->sta) {
+-		key->sta->key = NULL;
++		rcu_assign_pointer(key->sta->key, NULL);
+ 	} else {
+ 		if (key->sdata->default_key == key)
+ 			ieee80211_set_default_key(key->sdata, -1);
+ 		if (key->conf.keyidx >= 0 &&
+ 		    key->conf.keyidx < NUM_DEFAULT_KEYS)
+-			key->sdata->keys[key->conf.keyidx] = NULL;
++			rcu_assign_pointer(key->sdata->keys[key->conf.keyidx],
++					   NULL);
+ 		else
+ 			WARN_ON(1);
+ 	}
+ 
++	/* wait for all key users to complete */
++	synchronize_rcu();
 +
-+	u32 nar;
++	/* remove from hwaccel if appropriate */
++	ieee80211_key_disable_hw_accel(key);
 +
-+#define ADM8211_TYPE_INTERSIL	0x00
-+#define ADM8211_TYPE_RFMD	0x01
-+#define ADM8211_TYPE_MARVEL	0x02
-+#define ADM8211_TYPE_AIROHA	0x03
-+#define ADM8211_TYPE_ADMTEK     0x05
-+	unsigned int rf_type:3;
-+	unsigned int bbp_type:3;
+ 	if (key->conf.alg == ALG_CCMP)
+ 		ieee80211_aes_key_free(key->u.ccmp.tfm);
+ 	ieee80211_debugfs_key_remove(key);
+@@ -235,14 +242,10 @@ void ieee80211_set_default_key(struct ieee80211_sub_if_data *sdata, int idx)
+ 	if (sdata->default_key != key) {
+ 		ieee80211_debugfs_key_remove_default(sdata);
+ 
+-		sdata->default_key = key;
++		rcu_assign_pointer(sdata->default_key, key);
+ 
+ 		if (sdata->default_key)
+ 			ieee80211_debugfs_key_add_default(sdata);
+-
+-		if (sdata->local->ops->set_key_idx)
+-			sdata->local->ops->set_key_idx(
+-				local_to_hw(sdata->local), idx);
+ 	}
+ }
+ 
+diff --git a/net/mac80211/regdomain.c b/net/mac80211/regdomain.c
+index b697a2a..f42678f 100644
+--- a/net/mac80211/regdomain.c
++++ b/net/mac80211/regdomain.c
+@@ -82,12 +82,6 @@ static void ieee80211_unmask_channel(int mode, struct ieee80211_channel *chan)
+ 
+ 	chan->flag = 0;
+ 
+-	if (ieee80211_regdom == 64 &&
+-	    (mode == MODE_ATHEROS_TURBO || mode == MODE_ATHEROS_TURBOG)) {
+-		/* Do not allow Turbo modes in Japan. */
+-		return;
+-	}
+-
+ 	for (i = 0; channel_range[i].start_freq; i++) {
+ 		const struct ieee80211_channel_range *r = &channel_range[i];
+ 		if (r->start_freq <= chan->freq && r->end_freq >= chan->freq) {
+diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+index 4fb8c70..c985c7a 100644
+--- a/net/mac80211/rx.c
++++ b/net/mac80211/rx.c
+@@ -13,6 +13,7 @@
+ #include <linux/skbuff.h>
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
++#include <linux/rcupdate.h>
+ #include <net/mac80211.h>
+ #include <net/ieee80211_radiotap.h>
+ 
+@@ -93,8 +94,6 @@ ieee80211_rx_h_load_stats(struct ieee80211_txrx_data *rx)
+ 	 * 1 usec = 1/8 * (1080 / 10) = 13.5 */
+ 
+ 	if (mode->mode == MODE_IEEE80211A ||
+-	    mode->mode == MODE_ATHEROS_TURBO ||
+-	    mode->mode == MODE_ATHEROS_TURBOG ||
+ 	    (mode->mode == MODE_IEEE80211G &&
+ 	     rate->flags & IEEE80211_RATE_ERP))
+ 		hdrtime = CHAN_UTIL_HDR_SHORT;
+@@ -138,7 +137,6 @@ ieee80211_rx_monitor(struct net_device *dev, struct sk_buff *skb,
+ 		     struct ieee80211_rx_status *status)
+ {
+ 	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
+-	struct ieee80211_sub_if_data *sdata;
+ 	struct ieee80211_rate *rate;
+ 	struct ieee80211_rtap_hdr {
+ 		struct ieee80211_radiotap_header hdr;
+@@ -151,8 +149,6 @@ ieee80211_rx_monitor(struct net_device *dev, struct sk_buff *skb,
+ 
+ 	skb->dev = dev;
+ 
+-	sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+-
+ 	if (status->flag & RX_FLAG_RADIOTAP)
+ 		goto out;
+ 
+@@ -185,8 +181,8 @@ ieee80211_rx_monitor(struct net_device *dev, struct sk_buff *skb,
+ 	rthdr->antsignal = status->ssi;
+ 
+  out:
+-	sdata->stats.rx_packets++;
+-	sdata->stats.rx_bytes += skb->len;
++	dev->stats.rx_packets++;
++	dev->stats.rx_bytes += skb->len;
+ 
+ 	skb_set_mac_header(skb, 0);
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+@@ -311,6 +307,7 @@ ieee80211_rx_h_load_key(struct ieee80211_txrx_data *rx)
+ 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) rx->skb->data;
+ 	int keyidx;
+ 	int hdrlen;
++	struct ieee80211_key *stakey = NULL;
+ 
+ 	/*
+ 	 * Key selection 101
+@@ -348,8 +345,11 @@ ieee80211_rx_h_load_key(struct ieee80211_txrx_data *rx)
+ 	if (!(rx->flags & IEEE80211_TXRXD_RXRA_MATCH))
+ 		return TXRX_CONTINUE;
+ 
+-	if (!is_multicast_ether_addr(hdr->addr1) && rx->sta && rx->sta->key) {
+-		rx->key = rx->sta->key;
++	if (rx->sta)
++		stakey = rcu_dereference(rx->sta->key);
 +
-+	u8 specific_bbptype;
-+	enum {
-+		ADM8211_RFMD2948 = 0x0,
-+		ADM8211_RFMD2958 = 0x1,
-+		ADM8211_RFMD2958_RF3000_CONTROL_POWER = 0x2,
-+		ADM8211_MAX2820 = 0x8,
-+		ADM8211_AL2210L = 0xC,	/* Airoha */
-+	} transceiver_type;
-+};
++	if (!is_multicast_ether_addr(hdr->addr1) && stakey) {
++		rx->key = stakey;
+ 	} else {
+ 		/*
+ 		 * The device doesn't give us the IV so we won't be
+@@ -360,7 +360,8 @@ ieee80211_rx_h_load_key(struct ieee80211_txrx_data *rx)
+ 		 * we somehow allow the driver to tell us which key
+ 		 * the hardware used if this flag is set?
+ 		 */
+-		if (!(rx->local->hw.flags & IEEE80211_HW_WEP_INCLUDE_IV))
++		if ((rx->u.rx.status->flag & RX_FLAG_DECRYPTED) &&
++		    (rx->u.rx.status->flag & RX_FLAG_IV_STRIPPED))
+ 			return TXRX_CONTINUE;
+ 
+ 		hdrlen = ieee80211_get_hdrlen(rx->fc);
+@@ -374,7 +375,7 @@ ieee80211_rx_h_load_key(struct ieee80211_txrx_data *rx)
+ 		 */
+ 		keyidx = rx->skb->data[hdrlen + 3] >> 6;
+ 
+-		rx->key = rx->sdata->keys[keyidx];
++		rx->key = rcu_dereference(rx->sdata->keys[keyidx]);
+ 
+ 		/*
+ 		 * RSNA-protected unicast frames should always be sent with
+@@ -531,8 +532,8 @@ ieee80211_rx_h_wep_weak_iv_detection(struct ieee80211_txrx_data *rx)
+ 		return TXRX_CONTINUE;
+ 
+ 	/* Check for weak IVs, if hwaccel did not remove IV from the frame */
+-	if ((rx->local->hw.flags & IEEE80211_HW_WEP_INCLUDE_IV) ||
+-	    !(rx->key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE))
++	if (!(rx->u.rx.status->flag & RX_FLAG_IV_STRIPPED) ||
++	    !(rx->u.rx.status->flag & RX_FLAG_DECRYPTED))
+ 		if (ieee80211_wep_is_weak_iv(rx->skb, rx->key))
+ 			rx->sta->wep_weak_iv_count++;
+ 
+@@ -556,15 +557,14 @@ ieee80211_rx_h_wep_decrypt(struct ieee80211_txrx_data *rx)
+ 		return TXRX_DROP;
+ 	}
+ 
+-	if (!(rx->u.rx.status->flag & RX_FLAG_DECRYPTED) ||
+-	    !(rx->key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE)) {
++	if (!(rx->u.rx.status->flag & RX_FLAG_DECRYPTED)) {
+ 		if (ieee80211_wep_decrypt(rx->local, rx->skb, rx->key)) {
+ 			if (net_ratelimit())
+ 				printk(KERN_DEBUG "%s: RX WEP frame, decrypt "
+ 				       "failed\n", rx->dev->name);
+ 			return TXRX_DROP;
+ 		}
+-	} else if (rx->local->hw.flags & IEEE80211_HW_WEP_INCLUDE_IV) {
++	} else if (!(rx->u.rx.status->flag & RX_FLAG_IV_STRIPPED)) {
+ 		ieee80211_wep_remove_iv(rx->local, rx->skb, rx->key);
+ 		/* remove ICV */
+ 		skb_trim(rx->skb, rx->skb->len - 4);
+@@ -895,13 +895,10 @@ static ieee80211_txrx_result
+ ieee80211_rx_h_drop_unencrypted(struct ieee80211_txrx_data *rx)
+ {
+ 	/*
+-	 * Pass through unencrypted frames if the hardware might have
+-	 * decrypted them already without telling us, but that can only
+-	 * be true if we either didn't find a key or the found key is
+-	 * uploaded to the hardware.
++	 * Pass through unencrypted frames if the hardware has
++	 * decrypted them already.
+ 	 */
+-	if ((rx->local->hw.flags & IEEE80211_HW_DEVICE_HIDES_WEP) &&
+-	    (!rx->key || (rx->key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE)))
++	if (rx->u.rx.status->flag & RX_FLAG_DECRYPTED)
+ 		return TXRX_CONTINUE;
+ 
+ 	/* Drop unencrypted frames if key is set. */
+@@ -1053,8 +1050,8 @@ ieee80211_rx_h_data(struct ieee80211_txrx_data *rx)
+ 
+ 	skb2 = NULL;
+ 
+-	sdata->stats.rx_packets++;
+-	sdata->stats.rx_bytes += skb->len;
++	dev->stats.rx_packets++;
++	dev->stats.rx_bytes += skb->len;
+ 
+ 	if (local->bridge_packets && (sdata->type == IEEE80211_IF_TYPE_AP
+ 	    || sdata->type == IEEE80211_IF_TYPE_VLAN) &&
+@@ -1182,8 +1179,6 @@ static void ieee80211_rx_michael_mic_report(struct net_device *dev,
+ 	else
+ 		keyidx = -1;
+ 
+-	/* TODO: verify that this is not triggered by fragmented
+-	 * frames (hw does not verify MIC for them). */
+ 	if (net_ratelimit())
+ 		printk(KERN_DEBUG "%s: TKIP hwaccel reported Michael MIC "
+ 		       "failure from " MAC_FMT " to " MAC_FMT " keyidx=%d\n",
+@@ -1191,9 +1186,10 @@ static void ieee80211_rx_michael_mic_report(struct net_device *dev,
+ 		       keyidx);
+ 
+ 	if (!sta) {
+-		/* Some hardware versions seem to generate incorrect
+-		 * Michael MIC reports; ignore them to avoid triggering
+-		 * countermeasures. */
++		/*
++		 * Some hardware seem to generate incorrect Michael MIC
++		 * reports; ignore them to avoid triggering countermeasures.
++		 */
+ 		if (net_ratelimit())
+ 			printk(KERN_DEBUG "%s: ignored spurious Michael MIC "
+ 			       "error for unknown address " MAC_FMT "\n",
+@@ -1204,17 +1200,18 @@ static void ieee80211_rx_michael_mic_report(struct net_device *dev,
+ 	if (!(rx->fc & IEEE80211_FCTL_PROTECTED)) {
+ 		if (net_ratelimit())
+ 			printk(KERN_DEBUG "%s: ignored spurious Michael MIC "
+-			       "error for a frame with no ISWEP flag (src "
++			       "error for a frame with no PROTECTED flag (src "
+ 			       MAC_FMT ")\n", dev->name, MAC_ARG(hdr->addr2));
+ 		goto ignore;
+ 	}
+ 
+-	if ((rx->local->hw.flags & IEEE80211_HW_WEP_INCLUDE_IV) &&
+-	    rx->sdata->type == IEEE80211_IF_TYPE_AP && keyidx) {
+-		/* AP with Pairwise keys support should never receive Michael
+-		 * MIC errors for non-zero keyidx because these are reserved
+-		 * for group keys and only the AP is sending real multicast
+-		 * frames in BSS. */
++	if (rx->sdata->type == IEEE80211_IF_TYPE_AP && keyidx) {
++		/*
++		 * APs with pairwise keys should never receive Michael MIC
++		 * errors for non-zero keyidx because these are reserved for
++		 * group keys and only the AP is sending real multicast
++		 * frames in the BSS.
++		 */
+ 		if (net_ratelimit())
+ 			printk(KERN_DEBUG "%s: ignored Michael MIC error for "
+ 			       "a frame with non-zero keyidx (%d)"
+@@ -1234,10 +1231,6 @@ static void ieee80211_rx_michael_mic_report(struct net_device *dev,
+ 		goto ignore;
+ 	}
+ 
+-	/* TODO: consider verifying the MIC error report with software
+-	 * implementation if we get too many spurious reports from the
+-	 * hardware. */
+-
+ 	mac80211_ev_michael_mic_failure(rx->dev, keyidx, hdr);
+  ignore:
+ 	dev_kfree_skb(rx->skb);
+@@ -1364,6 +1357,12 @@ void __ieee80211_rx(struct ieee80211_hw *hw, struct sk_buff *skb,
+ 		skb_pull(skb, radiotap_len);
+ 	}
+ 
++	/*
++	 * key references are protected using RCU and this requires that
++	 * we are in a read-site RCU section during receive processing
++	 */
++	rcu_read_lock();
 +
-+static const struct ieee80211_chan_range cranges[] = {
-+	{1,  11},	/* FCC */
-+	{1,  11},	/* IC */
-+	{1,  13},	/* ETSI */
-+	{10, 11},	/* SPAIN */
-+	{10, 13},	/* FRANCE */
-+	{14, 14},	/* MMK */
-+	{1,  14},	/* MMK2 */
-+};
+ 	hdr = (struct ieee80211_hdr *) skb->data;
+ 	memset(&rx, 0, sizeof(rx));
+ 	rx.skb = skb;
+@@ -1404,6 +1403,7 @@ void __ieee80211_rx(struct ieee80211_hw *hw, struct sk_buff *skb,
+ 		ieee80211_invoke_rx_handlers(local, local->rx_handlers, &rx,
+ 					     rx.sta);
+ 		sta_info_put(sta);
++		rcu_read_unlock();
+ 		return;
+ 	}
+ 
+@@ -1465,6 +1465,8 @@ void __ieee80211_rx(struct ieee80211_hw *hw, struct sk_buff *skb,
+ 	read_unlock(&local->sub_if_lock);
+ 
+  end:
++	rcu_read_unlock();
 +
-+#endif /* ADM8211_H */
+ 	if (sta)
+ 		sta_info_put(sta);
+ }
+diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
+index 9e952e3..ca262a9 100644
+--- a/net/mac80211/tx.c
++++ b/net/mac80211/tx.c
+@@ -17,6 +17,7 @@
+ #include <linux/skbuff.h>
+ #include <linux/etherdevice.h>
+ #include <linux/bitmap.h>
++#include <linux/rcupdate.h>
+ #include <net/net_namespace.h>
+ #include <net/ieee80211_radiotap.h>
+ #include <net/cfg80211.h>
+@@ -427,20 +428,22 @@ ieee80211_tx_h_ps_buf(struct ieee80211_txrx_data *tx)
+ static ieee80211_txrx_result
+ ieee80211_tx_h_select_key(struct ieee80211_txrx_data *tx)
+ {
+-	tx->u.tx.control->key_idx = HW_KEY_IDX_INVALID;
++	struct ieee80211_key *key;
+ 
+ 	if (unlikely(tx->u.tx.control->flags & IEEE80211_TXCTL_DO_NOT_ENCRYPT))
+ 		tx->key = NULL;
+-	else if (tx->sta && tx->sta->key)
+-		tx->key = tx->sta->key;
+-	else if (tx->sdata->default_key)
+-		tx->key = tx->sdata->default_key;
++	else if (tx->sta && (key = rcu_dereference(tx->sta->key)))
++		tx->key = key;
++	else if ((key = rcu_dereference(tx->sdata->default_key)))
++		tx->key = key;
+ 	else if (tx->sdata->drop_unencrypted &&
+ 		 !(tx->sdata->eapol && ieee80211_is_eapol(tx->skb))) {
+ 		I802_DEBUG_INC(tx->local->tx_handlers_drop_unencrypted);
+ 		return TXRX_DROP;
+-	} else
++	} else {
+ 		tx->key = NULL;
++		tx->u.tx.control->flags |= IEEE80211_TXCTL_DO_NOT_ENCRYPT;
++	}
+ 
+ 	if (tx->key) {
+ 		tx->key->tx_rx_count++;
+@@ -542,9 +545,8 @@ static int wep_encrypt_skb(struct ieee80211_txrx_data *tx, struct sk_buff *skb)
+ 			return -1;
+ 	} else {
+ 		tx->u.tx.control->key_idx = tx->key->conf.hw_key_idx;
+-		if (tx->local->hw.flags & IEEE80211_HW_WEP_INCLUDE_IV) {
+-			if (ieee80211_wep_add_iv(tx->local, skb, tx->key) ==
+-			    NULL)
++		if (tx->key->conf.flags & IEEE80211_KEY_FLAG_GENERATE_IV) {
++			if (!ieee80211_wep_add_iv(tx->local, skb, tx->key))
+ 				return -1;
+ 		}
+ 	}
+@@ -722,6 +724,15 @@ ieee80211_tx_h_misc(struct ieee80211_txrx_data *tx)
+ 		}
+ 	}
+ 
++	/*
++	 * Tell hardware to not encrypt when we had sw crypto.
++	 * Because we use the same flag to internally indicate that
++	 * no (software) encryption should be done, we have to set it
++	 * after all crypto handlers.
++	 */
++	if (tx->key && !(tx->key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE))
++		tx->u.tx.control->flags |= IEEE80211_TXCTL_DO_NOT_ENCRYPT;
++
+ 	return TXRX_CONTINUE;
+ }
+ 
+@@ -744,8 +755,6 @@ ieee80211_tx_h_load_stats(struct ieee80211_txrx_data *tx)
+ 	 * 1 usec = 1/8 * (1080 / 10) = 13.5 */
+ 
+ 	if (mode->mode == MODE_IEEE80211A ||
+-	    mode->mode == MODE_ATHEROS_TURBO ||
+-	    mode->mode == MODE_ATHEROS_TURBOG ||
+ 	    (mode->mode == MODE_IEEE80211G &&
+ 	     tx->u.tx.rate->flags & IEEE80211_RATE_ERP))
+ 		hdrtime = CHAN_UTIL_HDR_SHORT;
+@@ -833,7 +842,6 @@ __ieee80211_parse_tx_radiotap(
+ 	 */
+ 
+ 	control->retry_limit = 1; /* no retry */
+-	control->key_idx = HW_KEY_IDX_INVALID;
+ 	control->flags &= ~(IEEE80211_TXCTL_USE_RTS_CTS |
+ 			    IEEE80211_TXCTL_USE_CTS_PROTECT);
+ 	control->flags |= IEEE80211_TXCTL_DO_NOT_ENCRYPT |
+@@ -951,8 +959,6 @@ __ieee80211_tx_prepare(struct ieee80211_txrx_data *tx,
+ 	tx->dev = dev; /* use original interface */
+ 	tx->local = local;
+ 	tx->sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+-	tx->sta = sta_info_get(local, hdr->addr1);
+-	tx->fc = le16_to_cpu(hdr->frame_control);
+ 
+ 	/*
+ 	 * set defaults for things that can be set by
+@@ -977,6 +983,8 @@ __ieee80211_tx_prepare(struct ieee80211_txrx_data *tx,
+ 		res = TXRX_QUEUED; /* indication it was monitor packet */
+ 	}
+ 
++	tx->sta = sta_info_get(local, hdr->addr1);
++	tx->fc = le16_to_cpu(hdr->frame_control);
+ 	tx->u.tx.control = control;
+ 	if (is_multicast_ether_addr(hdr->addr1)) {
+ 		tx->flags &= ~IEEE80211_TXRXD_TXUNICAST;
+@@ -1112,6 +1120,12 @@ static int ieee80211_tx(struct net_device *dev, struct sk_buff *skb,
+ 		return 0;
+ 	}
+ 
++	/*
++	 * key references are protected using RCU and this requires that
++	 * we are in a read-site RCU section during receive processing
++	 */
++	rcu_read_lock();
++
+ 	sta = tx.sta;
+ 	tx.u.tx.mgmt_interface = mgmt;
+ 	tx.u.tx.mode = local->hw.conf.mode;
+@@ -1139,6 +1153,7 @@ static int ieee80211_tx(struct net_device *dev, struct sk_buff *skb,
+ 
+ 	if (unlikely(res == TXRX_QUEUED)) {
+ 		I802_DEBUG_INC(local->tx_handlers_queued);
++		rcu_read_unlock();
+ 		return 0;
+ 	}
+ 
+@@ -1196,6 +1211,7 @@ retry:
+ 		store->last_frag_rate_ctrl_probe =
+ 			!!(tx.flags & IEEE80211_TXRXD_TXPROBE_LAST_FRAG);
+ 	}
++	rcu_read_unlock();
+ 	return 0;
+ 
+  drop:
+@@ -1205,6 +1221,7 @@ retry:
+ 		if (tx.u.tx.extra_frag[i])
+ 			dev_kfree_skb(tx.u.tx.extra_frag[i]);
+ 	kfree(tx.u.tx.extra_frag);
++	rcu_read_unlock();
+ 	return 0;
+ }
+ 
+@@ -1487,7 +1504,20 @@ int ieee80211_subif_start_xmit(struct sk_buff *skb,
+ 		nh_pos += encaps_len;
+ 		h_pos += encaps_len;
+ 	}
+-	memcpy(skb_push(skb, hdrlen), &hdr, hdrlen);
++
++	if (fc & IEEE80211_STYPE_QOS_DATA) {
++		__le16 *qos_control;
++
++		qos_control = (__le16*) skb_push(skb, 2);
++		memcpy(skb_push(skb, hdrlen - 2), &hdr, hdrlen - 2);
++		/*
++		 * Maybe we could actually set some fields here, for now just
++		 * initialise to zero to indicate no special operation.
++		 */
++		*qos_control = 0;
++	} else
++		memcpy(skb_push(skb, hdrlen), &hdr, hdrlen);
++
+ 	nh_pos += hdrlen;
+ 	h_pos += hdrlen;
+ 
+@@ -1498,8 +1528,8 @@ int ieee80211_subif_start_xmit(struct sk_buff *skb,
+ 		pkt_data->flags |= IEEE80211_TXPD_MGMT_IFACE;
+ 
+ 	skb->dev = local->mdev;
+-	sdata->stats.tx_packets++;
+-	sdata->stats.tx_bytes += skb->len;
++	dev->stats.tx_packets++;
++	dev->stats.tx_bytes += skb->len;
+ 
+ 	/* Update skb pointers to various headers since this modified frame
+ 	 * is going to go through Linux networking code that may potentially
+@@ -1572,8 +1602,8 @@ int ieee80211_mgmt_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (!(fc & IEEE80211_FCTL_PROTECTED))
+ 		pkt_data->flags |= IEEE80211_TXPD_DO_NOT_ENCRYPT;
+ 
+-	sdata->stats.tx_packets++;
+-	sdata->stats.tx_bytes += skb->len;
++	dev->stats.tx_packets++;
++	dev->stats.tx_bytes += skb->len;
+ 
+ 	dev_queue_xmit(skb);
+ 
+@@ -1871,6 +1901,7 @@ ieee80211_get_buffered_bc(struct ieee80211_hw *hw, int if_id,
+ 	}
+ 	sta = tx.sta;
+ 	tx.flags |= IEEE80211_TXRXD_TXPS_BUFFERED;
++	tx.u.tx.mode = local->hw.conf.mode;
+ 
+ 	for (handler = local->tx_handlers; *handler != NULL; handler++) {
+ 		res = (*handler)(&tx);
+diff --git a/net/mac80211/util.c b/net/mac80211/util.c
+index c970996..29c0a0e 100644
+--- a/net/mac80211/util.c
++++ b/net/mac80211/util.c
+@@ -93,11 +93,6 @@ void ieee80211_prepare_rates(struct ieee80211_local *local,
+ 			if (rate->rate == 10 || rate->rate == 20)
+ 				rate->flags |= IEEE80211_RATE_BASIC;
+ 			break;
+-		case MODE_ATHEROS_TURBO:
+-			if (rate->rate == 120 || rate->rate == 240 ||
+-			    rate->rate == 480)
+-				rate->flags |= IEEE80211_RATE_BASIC;
+-			break;
+ 		case MODE_IEEE80211G:
+ 			if (rate->rate == 10 || rate->rate == 20 ||
+ 			    rate->rate == 55 || rate->rate == 110)
+@@ -116,8 +111,6 @@ void ieee80211_prepare_rates(struct ieee80211_local *local,
+ 			if (rate->rate == 10)
+ 				rate->flags |= IEEE80211_RATE_MANDATORY;
+ 			break;
+-		case MODE_ATHEROS_TURBO:
+-			break;
+ 		case MODE_IEEE80211G:
+ 			if (rate->rate == 10 || rate->rate == 20 ||
+ 			    rate->rate == 55 || rate->rate == 110 ||
+@@ -273,8 +266,7 @@ int ieee80211_frame_duration(struct ieee80211_local *local, size_t len,
+ 	 * DIV_ROUND_UP() operations.
+ 	 */
+ 
+-	if (local->hw.conf.phymode == MODE_IEEE80211A || erp ||
+-	    local->hw.conf.phymode == MODE_ATHEROS_TURBO) {
++	if (local->hw.conf.phymode == MODE_IEEE80211A || erp) {
+ 		/*
+ 		 * OFDM:
+ 		 *
+@@ -288,7 +280,6 @@ int ieee80211_frame_duration(struct ieee80211_local *local, size_t len,
+ 		 * 802.11g - 19.8.4: aSIFSTime = 10 usec +
+ 		 *	signal ext = 6 usec
+ 		 */
+-		/* FIX: Atheros Turbo may have different (shorter) duration? */
+ 		dur = 16; /* SIFS + signal ext */
+ 		dur += 16; /* 17.3.2.3: T_PREAMBLE = 16 usec */
+ 		dur += 4; /* 17.3.2.3: T_SIGNAL = 4 usec */
+diff --git a/net/mac80211/wpa.c b/net/mac80211/wpa.c
+index 775f89e..6e12638 100644
+--- a/net/mac80211/wpa.c
++++ b/net/mac80211/wpa.c
+@@ -91,7 +91,7 @@ ieee80211_tx_h_michael_mic_add(struct ieee80211_txrx_data *tx)
+ 
+ 	if ((tx->key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE) &&
+ 	    !(tx->flags & IEEE80211_TXRXD_FRAGMENTED) &&
+-	    !(tx->local->hw.flags & IEEE80211_HW_TKIP_INCLUDE_MMIC) &&
++	    !(tx->key->conf.flags & IEEE80211_KEY_FLAG_GENERATE_MMIC) &&
+ 	    !wpa_test) {
+ 		/* hwaccel - with no need for preallocated room for Michael MIC
+ 		 */
+@@ -138,26 +138,13 @@ ieee80211_rx_h_michael_mic_verify(struct ieee80211_txrx_data *rx)
+ 	/*
+ 	 * No way to verify the MIC if the hardware stripped it
+ 	 */
+-	if (rx->local->hw.flags & IEEE80211_HW_DEVICE_STRIPS_MIC)
++	if (rx->u.rx.status->flag & RX_FLAG_MMIC_STRIPPED)
+ 		return TXRX_CONTINUE;
+ 
+ 	if (!rx->key || rx->key->conf.alg != ALG_TKIP ||
+ 	    !(rx->fc & IEEE80211_FCTL_PROTECTED) || !WLAN_FC_DATA_PRESENT(fc))
+ 		return TXRX_CONTINUE;
+ 
+-	if ((rx->u.rx.status->flag & RX_FLAG_DECRYPTED) &&
+-	    (rx->key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE)) {
+-		if (rx->local->hw.flags & IEEE80211_HW_WEP_INCLUDE_IV) {
+-			if (skb->len < MICHAEL_MIC_LEN)
+-				return TXRX_DROP;
+-		}
+-		/* Need to verify Michael MIC sometimes in software even when
+-		 * hwaccel is used. Atheros ar5212: fragmented frames and QoS
+-		 * frames. */
+-		if (!(rx->flags & IEEE80211_TXRXD_FRAGMENTED) && !wpa_test)
+-			goto remove_mic;
+-	}
+-
+ 	if (ieee80211_get_hdr_info(skb, &sa, &da, &qos_tid, &data, &data_len)
+ 	    || data_len < MICHAEL_MIC_LEN)
+ 		return TXRX_DROP;
+@@ -184,7 +171,6 @@ ieee80211_rx_h_michael_mic_verify(struct ieee80211_txrx_data *rx)
+ 		return TXRX_DROP;
+ 	}
+ 
+- remove_mic:
+ 	/* remove Michael MIC from payload */
+ 	skb_trim(skb, skb->len - MICHAEL_MIC_LEN);
+ 
+@@ -228,7 +214,6 @@ static int tkip_encrypt_skb(struct ieee80211_txrx_data *tx,
+ 		key->u.tkip.iv32++;
+ 
+ 	if (tx->key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE) {
+-		u32 flags = tx->local->hw.flags;
+ 		hdr = (struct ieee80211_hdr *)skb->data;
+ 
+ 		/* hwaccel - with preallocated room for IV */
+@@ -238,22 +223,6 @@ static int tkip_encrypt_skb(struct ieee80211_txrx_data *tx,
+ 					    0x7f),
+ 				      (u8) key->u.tkip.iv16);
+ 
+-		if (flags & IEEE80211_HW_TKIP_REQ_PHASE2_KEY)
+-			ieee80211_tkip_gen_rc4key(key, hdr->addr2,
+-						  tx->u.tx.control->tkip_key);
+-		else if (flags & IEEE80211_HW_TKIP_REQ_PHASE1_KEY) {
+-			if (key->u.tkip.iv16 == 0 ||
+-			    !key->u.tkip.tx_initialized) {
+-				ieee80211_tkip_gen_phase1key(key, hdr->addr2,
+-					    (u16 *)tx->u.tx.control->tkip_key);
+-				key->u.tkip.tx_initialized = 1;
+-				tx->u.tx.control->flags |=
+-					    IEEE80211_TXCTL_TKIP_NEW_PHASE1_KEY;
+-			} else
+-				tx->u.tx.control->flags &=
+-					    ~IEEE80211_TXCTL_TKIP_NEW_PHASE1_KEY;
+-		}
+-
+ 		tx->u.tx.control->key_idx = tx->key->conf.hw_key_idx;
+ 		return 0;
+ 	}
+@@ -287,7 +256,7 @@ ieee80211_tx_h_tkip_encrypt(struct ieee80211_txrx_data *tx)
+ 	ieee80211_tx_set_iswep(tx);
+ 
+ 	if ((tx->key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE) &&
+-	    !(tx->local->hw.flags & IEEE80211_HW_WEP_INCLUDE_IV) &&
++	    !(tx->key->conf.flags & IEEE80211_KEY_FLAG_GENERATE_IV) &&
+ 	    !wpa_test) {
+ 		/* hwaccel - with no need for preallocated room for IV/ICV */
+ 		tx->u.tx.control->key_idx = tx->key->conf.hw_key_idx;
+@@ -330,11 +299,13 @@ ieee80211_rx_h_tkip_decrypt(struct ieee80211_txrx_data *rx)
+ 	if (!rx->sta || skb->len - hdrlen < 12)
+ 		return TXRX_DROP;
+ 
+-	if ((rx->u.rx.status->flag & RX_FLAG_DECRYPTED) &&
+-	    (key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE)) {
+-		if (!(rx->local->hw.flags & IEEE80211_HW_WEP_INCLUDE_IV)) {
+-			/* Hardware takes care of all processing, including
+-			 * replay protection, so no need to continue here. */
++	if (rx->u.rx.status->flag & RX_FLAG_DECRYPTED) {
++		if (rx->u.rx.status->flag & RX_FLAG_IV_STRIPPED) {
++			/*
++			 * Hardware took care of all processing, including
++			 * replay protection, and stripped the ICV/IV so
++			 * we cannot do any checks here.
++			 */
+ 			return TXRX_CONTINUE;
+ 		}
+ 
+@@ -538,7 +509,7 @@ ieee80211_tx_h_ccmp_encrypt(struct ieee80211_txrx_data *tx)
+ 	ieee80211_tx_set_iswep(tx);
+ 
+ 	if ((tx->key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE) &&
+-	    !(tx->local->hw.flags & IEEE80211_HW_WEP_INCLUDE_IV)) {
++	    !(tx->key->conf.flags & IEEE80211_KEY_FLAG_GENERATE_IV)) {
+ 		/* hwaccel - with no need for preallocated room for CCMP "
+ 		 * header or MIC fields */
+ 		tx->u.tx.control->key_idx = tx->key->conf.hw_key_idx;
+@@ -585,8 +556,7 @@ ieee80211_rx_h_ccmp_decrypt(struct ieee80211_txrx_data *rx)
+ 		return TXRX_DROP;
+ 
+ 	if ((rx->u.rx.status->flag & RX_FLAG_DECRYPTED) &&
+-	    (key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE) &&
+-	    !(rx->local->hw.flags & IEEE80211_HW_WEP_INCLUDE_IV))
++	    (rx->u.rx.status->flag & RX_FLAG_IV_STRIPPED))
+ 		return TXRX_CONTINUE;
+ 
+ 	(void) ccmp_hdr2pn(pn, skb->data + hdrlen);
+@@ -605,10 +575,8 @@ ieee80211_rx_h_ccmp_decrypt(struct ieee80211_txrx_data *rx)
+ 		return TXRX_DROP;
+ 	}
+ 
+-	if ((rx->u.rx.status->flag & RX_FLAG_DECRYPTED) &&
+-	    (key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE)) {
+-		/* hwaccel has already decrypted frame and verified MIC */
+-	} else {
++	if (!(rx->u.rx.status->flag & RX_FLAG_DECRYPTED)) {
++		/* hardware didn't decrypt/verify MIC */
+ 		u8 *scratch, *b_0, *aad;
+ 
+ 		scratch = key->u.ccmp.rx_crypto_buf;
 -- 
 John W. Linville
 linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
