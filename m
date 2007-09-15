@@ -1,25 +1,31 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 3/3]: sk98lin: neuter device to only SysKonnect boards
-Date: Sat, 15 Sep 2007 19:36:09 -0400
-Message-ID: <46EC6C69.1020507@garzik.org>
-References: <6278d2220707271227g51cb147ch2f6dbc05c73f618d@mail.gmail.com> <20070911132423.62347d5c@oldman> <20070912133043.1a15aabe@oldman>
+Subject: Re: [PATCH 3/3] netxen: ethtool fixes
+Date: Sat, 15 Sep 2007 19:36:36 -0400
+Message-ID: <46EC6C84.7020501@garzik.org>
+References: <Pine.LNX.4.64.0709031029110.2882@stellar.unminc.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org, rob@netxen.com
+To: Dhananjay Phadke <dhananjay@netxen.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:36817 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:36828 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752677AbXIOXgM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Sep 2007 19:36:12 -0400
-In-Reply-To: <20070912133043.1a15aabe@oldman>
+	id S1753288AbXIOXgi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Sep 2007 19:36:38 -0400
+In-Reply-To: <Pine.LNX.4.64.0709031029110.2882@stellar.unminc.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-applied 1-3 as a single commit, so that git-bisect will not break
+Dhananjay Phadke wrote:
+> Resubmitting the patch. 
+> 
+> This patch improves ethtool support for printing correct ring statistics,
+> segmentation offload status, etc.
+> 
+> Signed-off by: Dhananjay Phadke <dhananjay@netxen.com>
+> 
 
-	Jeff
-
+is this for 2.6.23 or 2.6.24?
 
 
