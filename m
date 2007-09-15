@@ -1,113 +1,64 @@
-From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Subject: 2.6.23-rc6: known regressions with patches v2
-Date: Sat, 15 Sep 2007 04:29:11 +0200
-Message-ID: <46EB4377.7040200@googlemail.com>
+From: "Mike Snitzer" <snitzer@gmail.com>
+Subject: Re: Distributed storage. Move away from char device ioctls.
+Date: Fri, 14 Sep 2007 22:54:56 -0400
+Message-ID: <170fa0d20709141954m4cff4650pa3b2bfd347e23f74@mail.gmail.com>
+References: <20070914185429.GA9439@2ka.mipt.ru> <46EADC02.9070409@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Gabriel C <nix.or.die@googlemail.com>,
-	Satyam Sharma <satyam.sharma@gmail.com>,
-	Vitaly Bordug <vitb@kernel.crashing.org>,
-	linux-acpi@vger.kernel.org, Len Brown <lenb@kernel.org>,
-	Chuck Ebbert <cebbert@redhat.com>,
-	Alexey Starikovskiy <aystarik@gmail.com>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-	Greg KH <gregkh@suse.de>,
-	Anssi Hannula <anssi.hannula@gmail.com>,
-	Christian Kujau <lists@nerdbynature.de>,
-	jamal <hadi@cyberus.ca>, netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Sender: linux-acpi-owner@vger.kernel.org
+Cc: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: "Jeff Garzik" <jeff@garzik.org>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <46EADC02.9070409@garzik.org>
+Content-Disposition: inline
+Sender: linux-fsdevel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On 9/14/07, Jeff Garzik <jeff@garzik.org> wrote:
+> Evgeniy Polyakov wrote:
+> > Hi.
+> >
+> > I'm pleased to announce fourth release of the distributed storage
+> > subsystem, which allows to form a storage on top of remote and local
+> > nodes, which in turn can be exported to another storage as a node to
+> > form tree-like storages.
+> >
+> > This release includes new configuration interface (kernel connector over
+> > netlink socket) and number of fixes of various bugs found during move
+> > to it (in error path).
+> >
+> > Further TODO list includes:
+> > * implement optional saving of mirroring/linear information on the remote
+> >       nodes (simple)
+> > * new redundancy algorithm (complex)
+> > * some thoughts about distributed filesystem tightly connected to DST
+> >       (far-far planes so far)
+> >
+> > Homepage:
+> > http://tservice.net.ru/~s0mbre/old/?section=projects&item=dst
+> >
+> > Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+>
+> My thoughts.  But first a disclaimer:   Perhaps you will recall me as
+> one of the people who really reads all your patches, and examines your
+> code and proposals closely.  So, with that in mind...
+>
+> I question the value of distributed block services (DBS), whether its
+> your version or the others out there.  DBS are not very useful, because
+> it still relies on a useful filesystem sitting on top of the DBS.  It
+> devolves into one of two cases:  (1) multi-path much like today's SCSI,
+> with distributed filesystem arbitrarion to ensure coherency, or (2) the
+> filesystem running on top of the DBS is on a single host, and thus, a
+> single point of failure (SPOF).
 
-Here is a list of some known regressions in 2.6.23-rc6
-with patches available.
+This distributed storage is very much needed; even if it were to act
+as a more capable/performant replacement for NBD (or MD+NBD) in the
+near term.  Many high availability applications don't _need_ all the
+additional complexity of a full distributed filesystem.  So given
+that, its discouraging to see you trying to gently push Evgeniy away
+from all the promising work he has published.
 
-Feel free to add new regressions/remove fixed etc.
-http://kernelnewbies.org/known_regressions
+Evgeniy, please continue your current work.
 
-List of Aces
-
-Name                    Regressions fixed since 21-Jun-2007
-Adrian Bunk                            10
-Andi Kleen                             7
-Linus Torvalds                         6
-Alan Stern                             5
-Hugh Dickins                           5
-Trond Myklebust                        5
-Andrew Morton                          4
-David S. Miller                        4
-Al Viro                                3
-Alexey Starikovskiy                    3
-Cornelia Huck                          3
-Jens Axboe                             3
-Stephen Hemminger                      3
-Tejun Heo                              3
-
-
-
-Unclassified
-
-Subject         : Oops while modprobing phy fixed module
-References      : http://lkml.org/lkml/2007/7/14/63
-Last known good : ?
-Submitter       : Gabriel C <nix.or.die@googlemail.com>
-Caused-By       : ?
-Handled-By      : Satyam Sharma <satyam.sharma@gmail.com>
-                  Vitaly Bordug <vitb@kernel.crashing.org>
-Patch1          : http://lkml.org/lkml/2007/7/18/506
-Status          : patch available
-
-
-
-ACPI
-
-Subject         : 2.6.23-rc5 hangs on boot, apparently when initializing the EC
-References      : http://lkml.org/lkml/2007/9/11/369
-Last known good : ?
-Submitter       : Chuck Ebbert <cebbert@redhat.com>
-Caused-By       : ?
-Handled-By      : Alexey Starikovskiy <aystarik@gmail.com>
-Patch           : http://bugzilla.kernel.org/attachment.cgi?id=12673
-Status          : patch was suggested
-
-
-
-Drivercore
-
-Subject         : sysfs change of input/event devices in 2.6.23rc breaks udev
-References      : http://lkml.org/lkml/2007/9/8/86
-Last known good : ?
-Submitter       : Anssi Hannula <anssi.hannula@gmail.com>
-Caused-By       : ?
-Handled-By      : Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Patch           : http://lkml.org/lkml/2007/9/10/3
-Status          : patch available
-
-
-
-Networking
-
-Subject         : 2.6.23-rc5: possible irq lock inversion dependency detected
-References      : http://lkml.org/lkml/2007/9/2/97
-Last known good : ?
-Submitter       : Christian Kujau <lists@nerdbynature.de>
-Caused-By       : ?
-Handled-By      : jamal <hadi@cyberus.ca>
-Patch           : http://lkml.org/lkml/2007/9/11/159
-Status          : patch available
-
-
-
-Farewell!
-Michal
-
---
-LOGOUT
-http://www.stardust.webpages.pl/
+Mike
