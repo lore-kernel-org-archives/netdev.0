@@ -1,53 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] IPV4 : convert rt_check_expire() from softirq
- processing to workqueue
-Date: Sat, 15 Sep 2007 10:58:08 -0700 (PDT)
-Message-ID: <20070915.105808.15258300.davem@davemloft.net>
-References: <20070912153444.bb564a6f.dada1@cosmosbay.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: Please pull 'adm8211' branch of wireless-2.6
+Date: Sat, 15 Sep 2007 11:25:49 -0700 (PDT)
+Message-ID: <20070915.112549.79067357.davem@davemloft.net>
+References: <20070915132220.GE6060@tuxdriver.com>
+	<20070915170018.GC18930@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dada1@cosmosbay.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:49072
-	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751919AbXIOR7U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Sep 2007 13:59:20 -0400
-In-Reply-To: <20070912153444.bb564a6f.dada1@cosmosbay.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070915170018.GC18930-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Wed, 12 Sep 2007 15:34:44 +0200
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Sat, 15 Sep 2007 13:00:18 -0400
 
-> On loaded/big hosts, rt_check_expire() if of litle use, because it
-> generally breaks out of its main loop because of a jiffies change.
+> Come to think of it, this driver will depend on some of the mac80211
+> patches Dave M. has queued for net-2.6.24.  Perhaps it would be better
+> if Dave were to merge it with his tree?
 > 
-> It can take a long time (read : timer invocations) to actually
-> scan the whole hash table, freeing unused entries.
-> 
-> Converting it to use a workqueue instead of softirq is a nice
-> move because we can allow rt_check_expire() to do the scan
-> it is supposed to do, without hogging the CPU.
-> 
-> This has an impact on the average number of entries in cache, 
-> reducing ram usage. Cache is more responsive to parameter
-> changes (/proc/sys/net/ipv4/route/gc_timeout and
-> /proc/sys/net/ipv4/route/gc_interval)
-> 
-> Note: Maybe the default value of gc_interval (60 seconds)
-> is too high, since this means we actually need 5 (300/60)
-> invocations to scan the whole table.
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> Jeff, if you have no objection then please sign-off/ack/whatever so
+> davem can see it.  Dave, in that case please pull this to net-2.6.24.
 
-Applied, thanks Eric.  I'm rebasing my net-2.6.24 tree over the
-weekend so it may take a little time for this to show up.
+There are a lot of things to sort out :-)
 
-It just occurred to me that we need to fix something in these two
-workqueue conversions.  If it runs for more than a jiffy this can
-unfairly penalize other tasks that want to run on that cpu.
+What I'm going to try and accomplish right now is:
 
-Therefore, we need to add a need_resched() or similar check in the
-loop.
+1) Rebase my tree, I just finished that.
+2) Integrate linville's upstream-davem stuff into net-2.6.24
+3) Integrate Jeff's upstream branch into net-2.6.24
+4) Integrate linville's adm8211 driver into net-2.6.24
+
+We'll see how well that goes.
