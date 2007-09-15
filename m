@@ -1,67 +1,56 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: Distributed storage. Move away from char device ioctls.
-Date: Sat, 15 Sep 2007 00:40:30 -0400
-Message-ID: <20070915044030.GA702@fieldses.org>
-References: <20070914185429.GA9439@2ka.mipt.ru> <46EADC02.9070409@garzik.org> <20070914211210.GB12444@fieldses.org> <46EAF9CD.1090808@garzik.org> <20070914211828.GC12444@fieldses.org> <46EB0BEB.2090808@garzik.org> <20070914224212.GJ12444@fieldses.org> <46EB5ACA.5000207@garzik.org>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: e1000 driver and samba
+Date: Sat, 15 Sep 2007 01:09:16 -0400
+Message-ID: <20070915010916.d8bd035d.billfink@mindspring.com>
+References: <780b6f780709131904j41148fb4p827e87530b15d6e9@mail.gmail.com>
+	<46EAC25B.2060404@intel.com>
+	<780b6f780709141140l1fd586c9p2aa8efe6ed803d38@mail.gmail.com>
+	<46EAF644.1040006@intel.com>
+	<780b6f780709141737w4e17f0a8r944555f27f7344dd@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-fsdevel@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <46EB5ACA.5000207@garzik.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org
+To: "L F" <lfabio.linux@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from elasmtp-junco.atl.sa.earthlink.net ([209.86.89.63]:50053 "EHLO
+	elasmtp-junco.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750716AbXIOFJ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Sep 2007 01:09:29 -0400
+In-Reply-To: <780b6f780709141737w4e17f0a8r944555f27f7344dd@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 15, 2007 at 12:08:42AM -0400, Jeff Garzik wrote:
-> J. Bruce Fields wrote:
->> No, servers are required to support ordinary nfs operations to the
->> metadata server.
->> At least, that's the way it was last I heard, which was a while ago.  I
->> agree that it'd stink (for any number of reasons) if you ever *had* to
->> get a layout to access some file.
->> Was that your main concern?
->
-> I just sorta assumed you could fall back to the NFSv4.0 mode of operation, 
-> going through the metadata server for all data accesses.
+On Fri, 14 Sep 2007, L F wrote:
 
-Right.  So any two pNFS implementations *will* be able to talk to each
-other; they just may not be able to use the (possibly higher-bandwidth)
-read/write path that pNFS gives them.
+> > can you describe your setup a bit more in detail? you're writing from a linux
+> > client to a windows smb server? or even to a linux server? which end sees the
+> > connection drop? the samba server? the samba linux client?
+> Certainly.
+> I have a LAN, with two switches in a stack. There currently are 7
+> WinXP clients and one linux machine. The linux machine acts as a samba
+> server and as a firewall/gateway.
+> The two ports of the PRO/1000 in the linux box are connected to the
+> LAN (eth4) and to a Comcast modem (eth3) respectively. Shorewall 3.4.5
+> is running on the linux machine, with a strong firewall + NAT setup.
+> Further, the linux machine currently has a tap device bridged into the
+> LAN side, for virtualbox.
+> Therefore, eth3 is a plain ethernet interface. br0, on the lan side,
+> is tap0 + eth4.
+> If I get any client on the LAN side, I can read from the linux box
+> without a problem. However, if I attempt to write to the linux box
+> from a LANside client, it will fail. If traffic is low, the failures
+> are sporadic. If traffic is high (large file and/or multiple incoming
+> files) the failure is guaranteed, either in 'delayed write fail' mode
+> on the client or in silent corruption of the file (much worse). If
+> read/write activity is combined, for instance when I unzip a zip
+> archive to its own directory, failure is guaranteed and rapid, with a
+> 'delayed write fail' on the client after 50MB or so.
+> I can post .config and anything else you may want if you require it. I
+> tried changing cable as you suggested with little success. I'll try
+> changing switch port, just to cover all bases.
 
-> But look at that choice in practice:  you can either ditch pNFS completely, 
-> or use a proprietary solution.  The market incentives are CLEARLY tilted in 
-> favor of makers of proprietary solutions.
+Would it be worth a shot to try disabling the receiver hardware
+checksumming (ethtool -K ethX rx off)?
 
-I doubt somebody would go to all the trouble to implement pNFS and then
-present their customers with that kind of choice.  But maybe I'm missing
-something.  What market incentives do you see that would make that more
-attractive than either 1) using a standard fully-specified layout type,
-or 2) just implementing your own proprietary protocol instead of pNFS?
-
-> Overall, my main concern is that NFSv4.1 is no longer an open architecture 
-> solution.  The "no-pNFS or proprietary platform" choice merely illustrate 
-> one of many negative aspects of this architecture.
-
-It's always been possible to extend NFS in various ways if you want.
-You could use sideband protocols with v2 and v3, for example.  People
-have done that.  Some of them have been standardized and widely
-implemented, some haven't.  You could probably add your own compound ops
-to v4 if you wanted, I guess.
-
-And there's advantages to experimenting with extensions first and then
-standardizing when you figure out what works.  I wish it happened that
-way more often.
-
-> Now, for the first time in NFS's history (AFAIK), the protocol is no longer 
-> completely specified, completely known.  No longer a "closed loop."  
-> Private layout types mean that it is _highly_ unlikely that any OS or 
-> appliance or implementation will be able to claim "full NFS compatibility."
-
-Do you know of any such "private layout types"?
-
-This is kind of a boring argument, isn't it?  I'd rather hear whatever
-ideas you have for a new distributed filesystem protocol.
-
---b.
+						-Bill
