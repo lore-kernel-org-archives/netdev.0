@@ -1,43 +1,35 @@
 From: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-Subject: Re: [2/3] 2.6.23-rc6: known regressions v2
-Date: Sat, 15 Sep 2007 04:29:05 +0200
-Message-ID: <46EB4371.307@googlemail.com>
-References: <46EB3E94.7080704@googlemail.com>
+Subject: 2.6.23-rc6: known regressions with patches v2
+Date: Sat, 15 Sep 2007 04:29:11 +0200
+Message-ID: <46EB4377.7040200@googlemail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Transfer-Encoding: 7bit
 Cc: Andrew Morton <akpm@linux-foundation.org>,
 	LKML <linux-kernel@vger.kernel.org>,
-	linux-fsdevel@vger.kernel.org,
-	Dave Kleikamp <shaggy@austin.ibm.com>,
-	jfs-discussion@lists.sourceforge.net,
-	Andy Whitcroft <apw@shadowen.org>, sct@redhat.com,
-	adilger@clusterfs.com, linux-ext4@vger.kernel.org,
-	netdev@vger.kernel.org, Shish <shish@shishnet.org>,
-	Karl Meyer <adhocrocker@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Daniel Drake <dsd@gentoo.org>,
-	Oliver Neukum <oliver@neukum.org>,
-	linux-usb-devel@lists.sourceforge.net,
-	Florian Lohoff <flo@rfc822.org>,
-	=?ISO-8859-2?Q?Toralf_F=F6rster?= <toralf.foerster@gmx.de>
+	Gabriel C <nix.or.die@googlemail.com>,
+	Satyam Sharma <satyam.sharma@gmail.com>,
+	Vitaly Bordug <vitb@kernel.crashing.org>,
+	linux-acpi@vger.kernel.org, Len Brown <lenb@kernel.org>,
+	Chuck Ebbert <cebbert@redhat.com>,
+	Alexey Starikovskiy <aystarik@gmail.com>,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+	Greg KH <gregkh@suse.de>,
+	Anssi Hannula <anssi.hannula@gmail.com>,
+	Christian Kujau <lists@nerdbynature.de>,
+	jamal <hadi@cyberus.ca>, netdev@vger.kernel.org
 To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.169]:20414 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760015AbXIOC30 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Sep 2007 22:29:26 -0400
-Received: by ug-out-1314.google.com with SMTP id z38so589484ugc
-        for <netdev@vger.kernel.org>; Fri, 14 Sep 2007 19:29:24 -0700 (PDT)
-In-Reply-To: <46EB3E94.7080704@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <linux-acpi-owner@vger.kernel.org>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi all,
 
-Here is a list of some known regressions in 2.6.23-rc6.
+Here is a list of some known regressions in 2.6.23-rc6
+with patches available.
 
-=46eel free to add new regressions/remove fixed etc.
+Feel free to add new regressions/remove fixed etc.
 http://kernelnewbies.org/known_regressions
 
 List of Aces
@@ -60,68 +52,60 @@ Tejun Heo                              3
 
 
 
-=46S
+Unclassified
 
-Subject         : hanging ext3 dbench tests
-References      : http://lkml.org/lkml/2007/9/11/176
+Subject         : Oops while modprobing phy fixed module
+References      : http://lkml.org/lkml/2007/7/14/63
 Last known good : ?
-Submitter       : Andy Whitcroft <apw@shadowen.org>
+Submitter       : Gabriel C <nix.or.die@googlemail.com>
 Caused-By       : ?
-Handled-By      : ?
-Status          : under test -- unreproducible at present
+Handled-By      : Satyam Sharma <satyam.sharma@gmail.com>
+                  Vitaly Bordug <vitb@kernel.crashing.org>
+Patch1          : http://lkml.org/lkml/2007/7/18/506
+Status          : patch available
 
-Subject         : umount triggers a warning in jfs and takes almost a m=
-inute
-References      : http://lkml.org/lkml/2007/9/4/73
+
+
+ACPI
+
+Subject         : 2.6.23-rc5 hangs on boot, apparently when initializing the EC
+References      : http://lkml.org/lkml/2007/9/11/369
 Last known good : ?
-Submitter       : Oliver Neukum <oliver@neukum.org>
+Submitter       : Chuck Ebbert <cebbert@redhat.com>
 Caused-By       : ?
-Handled-By      : ?
-Status          : unknown
+Handled-By      : Alexey Starikovskiy <aystarik@gmail.com>
+Patch           : http://bugzilla.kernel.org/attachment.cgi?id=12673
+Status          : patch was suggested
+
+
+
+Drivercore
+
+Subject         : sysfs change of input/event devices in 2.6.23rc breaks udev
+References      : http://lkml.org/lkml/2007/9/8/86
+Last known good : ?
+Submitter       : Anssi Hannula <anssi.hannula@gmail.com>
+Caused-By       : ?
+Handled-By      : Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Patch           : http://lkml.org/lkml/2007/9/10/3
+Status          : patch available
 
 
 
 Networking
 
-Subject         : build #301 failed for 2.6.23-rc6-g0d4cbb5 in linux/dr=
-ivers/net/wireless/libertas/
-References      : http://lkml.org/lkml/2007/9/11/150
+Subject         : 2.6.23-rc5: possible irq lock inversion dependency detected
+References      : http://lkml.org/lkml/2007/9/2/97
 Last known good : ?
-Submitter       : Toralf F=F6rster <toralf.foerster@gmx.de>
+Submitter       : Christian Kujau <lists@nerdbynature.de>
 Caused-By       : ?
-Handled-By      : ?
-Status          : unknown
-
-Subject         : zd1211rw regression, device does not enumerate
-References      : http://marc.info/?l=3Dlinux-usb-devel&m=3D11885496770=
-9322&w=3D2
-                  http://bugzilla.kernel.org/show_bug.cgi?id=3D8972
-Last known good : ?
-Submitter       : Oliver Neukum <oliver@neukum.org>
-Caused-By       : Daniel Drake <dsd@gentoo.org>
-                  commit 74553aedd46b3a2cae986f909cf2a3f99369decc
-Handled-By      : ?
-Status          : unknown
-
-Subject         : NETDEV WATCHDOG: eth0: transmit timed out
-References      : http://lkml.org/lkml/2007/8/13/737
-Last known good : ?
-Submitter       : Karl Meyer <adhocrocker@gmail.com>
-Caused-By       : ?
-Handled-By      : Francois Romieu <romieu@fr.zoreil.com>
-Status          : problem is being debugged
-
-Subject         : Weird network problems with 2.6.23-rc2
-References      : http://lkml.org/lkml/2007/8/11/40
-Last known good : ?
-Submitter       : Shish <shish@shishnet.org>
-Caused-By       : ?
-Handled-By      : ?
-Status          : unknown
+Handled-By      : jamal <hadi@cyberus.ca>
+Patch           : http://lkml.org/lkml/2007/9/11/159
+Status          : patch available
 
 
 
-=46arewell!
+Farewell!
 Michal
 
 --
