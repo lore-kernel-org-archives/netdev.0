@@ -1,33 +1,52 @@
-From: David Miller <davem@davemloft.net>
+From: Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
 Subject: Re: Please pull 'adm8211' branch of wireless-2.6
-Date: Sat, 15 Sep 2007 21:50:53 -0700 (PDT)
-Message-ID: <20070915.215053.74746915.davem@davemloft.net>
-References: <200709152017.02646.flamingice@sourmilk.net>
-	<46EC7F33.2050206@garzik.org>
-	<200709160047.45128.flamingice@sourmilk.net>
+Date: Sun, 16 Sep 2007 01:00:37 -0400
+Message-ID: <200709160100.48055.flamingice@sourmilk.net>
+References: <200709152017.02646.flamingice@sourmilk.net> <200709160047.45128.flamingice@sourmilk.net> <20070915.215053.74746915.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed;
+  boundary="nextPart8097998.hlQ87qHbmv";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, linville@tuxdriver.com, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: flamingice@sourmilk.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42003
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750773AbXIPEuy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 00:50:54 -0400
-In-Reply-To: <200709160047.45128.flamingice@sourmilk.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070915.215053.74746915.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Michael Wu <flamingice@sourmilk.net>
-Date: Sun, 16 Sep 2007 00:47:40 -0400
+--nextPart8097998.hlQ87qHbmv
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-> Huh? How does a driver use NAPI if it can't pass a struct net_device?
+On Sunday 16 September 2007 00:50, David Miller wrote:
+> From: Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
+> Date: Sun, 16 Sep 2007 00:47:40 -0400
+>
+> > Huh? How does a driver use NAPI if it can't pass a struct net_device?
+>
+> It is now managed by a struct napi_struct which you can embed into any
+> object you like.
+>
+> NAPI is now totally disconnected from the network device structure.
+> This was necessary for proper support of multi-queue cards.
+Ah, very nice.
 
-It is now managed by a struct napi_struct which you can embed into any
-object you like.
+-Michael Wu
 
-NAPI is now totally disconnected from the network device structure.
-This was necessary for proper support of multi-queue cards.
+--nextPart8097998.hlQ87qHbmv
+Content-Type: application/pgp-signature
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQBG7LiAT3Oqt9AH4aERAlQBAKDYllqzSaN4FMKHcWt40T3P4aDFkwCfZZQD
++Iw30pC/cd2UBldOSQLSEwI=
+=cYB4
+-----END PGP SIGNATURE-----
+
+--nextPart8097998.hlQ87qHbmv--
