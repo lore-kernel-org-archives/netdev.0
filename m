@@ -1,49 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][NET_SCHED] explict hold dev tx lock
-Date: Sun, 16 Sep 2007 12:31:58 -0700 (PDT)
-Message-ID: <20070916.123158.92582301.davem@davemloft.net>
-References: <1189959274.4241.30.camel@localhost>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: e1000 driver and samba
+Date: Sun, 16 Sep 2007 13:03:31 -0700
+Message-ID: <46ED8C13.3010303@intel.com>
+References: <780b6f780709131904j41148fb4p827e87530b15d6e9@mail.gmail.com>
+ <46EAC25B.2060404@intel.com>
+ <780b6f780709141140l1fd586c9p2aa8efe6ed803d38@mail.gmail.com>
+ <46EAF644.1040006@intel.com> <46EC1A00.2000304@katalix.com>
+ <46EC2D5A.7080504@intel.com> <46ED58AF.1070000@katalix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	kaber@trash.net, dada1@cosmosbay.com, johnpol@2ka.mipt.ru
-To: hadi@cyberus.ca
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	L F <lfabio.linux@gmail.com>, netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36715
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751957AbXIPTb6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 15:31:58 -0400
-In-Reply-To: <1189959274.4241.30.camel@localhost>
+Received: from vms042pub.verizon.net ([206.46.252.42]:39082 "EHLO
+	vms042pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752226AbXIPUEL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 16:04:11 -0400
+Received: from ahkok-mobl.jf.intel.com ([71.182.85.189])
+ by vms042.mailsrvcs.net
+ (Sun Java System Messaging Server 6.2-6.01 (built Apr  3 2006))
+ with ESMTPA id <0JOH0019092A81M5@vms042.mailsrvcs.net> for
+ netdev@vger.kernel.org; Sun, 16 Sep 2007 15:03:46 -0500 (CDT)
+In-reply-to: <46ED58AF.1070000@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Sun, 16 Sep 2007 12:14:34 -0400
+James Chapman wrote:
+> Kok, Auke wrote:
+>> James Chapman wrote:
+>>> Kok, Auke wrote:
+> 
+>>>>>      rx_long_byte_count: 34124849453
+>>>
+>>> Are these long frames expected in your network? What is the MTU of
+>>> the transmitting clients? Perhaps this might explain why reads work
+>>> (because data is coming from the Linux box so the packets have
+>>> smaller MTU) while writes cause delays or packet loss because the
+>>> clients are sending long frames which are getting fragmented?
+>>
+>> those are not "long frames" but the number of bytes the hardware
+>> counted in its "long" data type based byte counter.
+> 
+> Thanks for correcting me, Auke.
+> 
+> Should this counter be renamed to avoid someone else making this mistake
+> in the future? Just a thought.
 
-> Changes:
-> I made changes to the code path as defined in the patch included to 
-> and noticed a slight increase (2-3%) in performance with both e1000 and
-> tg3; which was a relief because i thought the spinlock_irq (which is
-> needed because some drivers grab tx lock in interupts) may have negative
-> effects. The fact it didnt reduce performance was a good thing.
-> Note: This is the highest end machine ive ever laid hands on, so this
-> may be misleading.
->  
-> So - what side effects do people see in doing this? If none, i will
-> clean it up and submit.
+well, that would break tools that read this value. And for all of these stats
+we can say that you should read our SDM's to figure out what they really
+mean anyway, hence my caution to interpret the other value at first.
 
-I tried this 4 years ago, it doesn't work.  :-)
-
-Many drivers, particularly very old ones that PIO packets into
-a device which can take a long time, absolutely depend upon
-interrupts being enabled fully during ->hard_start_xmit()
-so that other high periority devices (such as simpler serial
-controllers) can have their interrupts serviced during this
-slow operation.
-
-I don't think we want to do it anyways, whatever performance
-we gain from it is offset by the badness of disabling interrupts
-during this reasonably length stretch of code.
-
-The -rt folks as a result would notice this too and spank us :-)
+Auke
