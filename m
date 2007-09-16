@@ -1,144 +1,45 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [RFC][NET_SCHED] explict hold dev tx lock
-Date: Sun, 16 Sep 2007 12:14:34 -0400
-Message-ID: <1189959274.4241.30.camel@localhost>
-Reply-To: hadi@cyberus.ca
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: e1000 driver and samba
+Date: Sun, 16 Sep 2007 17:24:15 +0100
+Message-ID: <46ED58AF.1070000@katalix.com>
+References: <780b6f780709131904j41148fb4p827e87530b15d6e9@mail.gmail.com> <46EAC25B.2060404@intel.com> <780b6f780709141140l1fd586c9p2aa8efe6ed803d38@mail.gmail.com> <46EAF644.1040006@intel.com> <46EC1A00.2000304@katalix.com> <46EC2D5A.7080504@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-wDTibh3ERbKq8FWkIFPC"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <dada1@cosmosbay.com>,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: L F <lfabio.linux@gmail.com>, netdev@vger.kernel.org
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.241]:46884 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751602AbXIPQOi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 12:14:38 -0400
-Received: by an-out-0708.google.com with SMTP id d31so194589and
-        for <netdev@vger.kernel.org>; Sun, 16 Sep 2007 09:14:37 -0700 (PDT)
+Received: from s36.avahost.net ([74.53.95.194]:40297 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751821AbXIPQYS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Sep 2007 12:24:18 -0400
+In-Reply-To: <46EC2D5A.7080504@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Kok, Auke wrote:
+> James Chapman wrote:
+>> Kok, Auke wrote:
 
---=-wDTibh3ERbKq8FWkIFPC
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+>>>>      rx_long_byte_count: 34124849453
+>>
+>> Are these long frames expected in your network? What is the MTU of the 
+>> transmitting clients? Perhaps this might explain why reads work 
+>> (because data is coming from the Linux box so the packets have smaller 
+>> MTU) while writes cause delays or packet loss because the clients are 
+>> sending long frames which are getting fragmented?
+> 
+> those are not "long frames" but the number of bytes the hardware counted 
+> in its "long" data type based byte counter.
 
+Thanks for correcting me, Auke.
 
-While trying to port my batching changes to net-2.6.24 from this morning
-i realized this is something i had wanted to probe people on....
+Should this counter be renamed to avoid someone else making this mistake 
+in the future? Just a thought.
 
-Challenge:
-For N Cpus, with full throttle traffic on all N CPUs, funneling traffic
-to the same ethernet device, the devices queue lock is contended by all
-N CPUs constantly. The TX lock is only contended by a max of 2 CPUS. 
-In the current mode of operation, after all the work of entering the
-dequeue region, we may endup aborting the path if we are unable to get
-the tx lock and go back to contend for the queue lock. As N goes up,
-this gets worse.
-
-Testing:
-I did some testing with a 4 cpu (2xdual core) with no irq binding. I run
-about 10 runs of 30M packets each from the stack with a udp app i wrote
-which is intended to run keep all 4 cpus busy -  and to my suprise i
-found that we only bail out less than 0.1%. I may need a better test
-case.
-
-Changes:
-I made changes to the code path as defined in the patch included to 
-and noticed a slight increase (2-3%) in performance with both e1000 and
-tg3; which was a relief because i thought the spinlock_irq (which is
-needed because some drivers grab tx lock in interupts) may have negative
-effects. The fact it didnt reduce performance was a good thing.
-Note: This is the highest end machine ive ever laid hands on, so this
-may be misleading.
- 
-So - what side effects do people see in doing this? If none, i will
-clean it up and submit.
-
-cheers,
-jamal
-
---=-wDTibh3ERbKq8FWkIFPC
-Content-Disposition: attachment; filename=nsqr1
-Content-Type: text/x-patch; name=nsqr1; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index dc5e35f..ab9966f 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1271,6 +1271,12 @@ static inline void netif_tx_lock(struct net_device *dev)
- 	dev->xmit_lock_owner = smp_processor_id();
- }
- 
-+static inline void netif_tx_lock_irq(struct net_device *dev)
-+{
-+	spin_lock_irq(&dev->_xmit_lock);
-+	dev->xmit_lock_owner = smp_processor_id();
-+}
-+
- static inline void netif_tx_lock_bh(struct net_device *dev)
- {
- 	spin_lock_bh(&dev->_xmit_lock);
-@@ -1291,6 +1297,12 @@ static inline void netif_tx_unlock(struct net_device *dev)
- 	spin_unlock(&dev->_xmit_lock);
- }
- 
-+static inline void netif_tx_unlock_irq(struct net_device *dev)
-+{
-+	dev->xmit_lock_owner = -1;
-+	spin_unlock_irq(&dev->_xmit_lock);
-+}
-+
- static inline void netif_tx_unlock_bh(struct net_device *dev)
- {
- 	dev->xmit_lock_owner = -1;
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index e970e8e..f75a924 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -134,34 +134,23 @@ static inline int qdisc_restart(struct net_device *dev)
- {
- 	struct Qdisc *q = dev->qdisc;
- 	struct sk_buff *skb;
--	unsigned lockless;
-+	unsigned lockless = (dev->features & NETIF_F_LLTX);
- 	int ret;
- 
- 	/* Dequeue packet */
- 	if (unlikely((skb = dev_dequeue_skb(dev, q)) == NULL))
- 		return 0;
- 
--	/*
--	 * When the driver has LLTX set, it does its own locking in
--	 * start_xmit. These checks are worth it because even uncongested
--	 * locks can be quite expensive. The driver can do a trylock, as
--	 * is being done here; in case of lock contention it should return
--	 * NETDEV_TX_LOCKED and the packet will be requeued.
--	 */
--	lockless = (dev->features & NETIF_F_LLTX);
--
--	if (!lockless && !netif_tx_trylock(dev)) {
--		/* Another CPU grabbed the driver tx lock */
--		return handle_dev_cpu_collision(skb, dev, q);
--	}
--
- 	/* And release queue */
- 	spin_unlock(&dev->queue_lock);
- 
-+	if (!lockless)
-+		netif_tx_lock_irq(dev);
-+
- 	ret = dev_hard_start_xmit(skb, dev);
- 
- 	if (!lockless)
--		netif_tx_unlock(dev);
-+		netif_tx_unlock_irq(dev);
- 
- 	spin_lock(&dev->queue_lock);
- 	q = dev->qdisc;
-
---=-wDTibh3ERbKq8FWkIFPC--
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
 
