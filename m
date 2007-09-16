@@ -1,56 +1,88 @@
-From: Michael Wu <flamingice@sourmilk.net>
+From: Jeff Garzik <jeff@garzik.org>
 Subject: Re: Please pull 'adm8211' branch of wireless-2.6
-Date: Sat, 15 Sep 2007 20:37:11 -0400
-Message-ID: <200709152037.15580.flamingice@sourmilk.net>
-References: <20070915132220.GE6060@tuxdriver.com>
+Date: Sat, 15 Sep 2007 20:56:19 -0400
+Message-ID: <46EC7F33.2050206@garzik.org>
+References: <20070915132220.GE6060@tuxdriver.com> <46EC4F78.4050700@garzik.org> <200709152017.02646.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1416498.K8ZN9iTnvH";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: Michael Wu <flamingice@sourmilk.net>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.rutgers.edu ([128.6.72.243]:41940 "EHLO
-	annwn13.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753360AbXIPAhk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Sep 2007 20:37:40 -0400
-In-Reply-To: <20070915132220.GE6060@tuxdriver.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:55948 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752278AbXIPA4Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Sep 2007 20:56:25 -0400
+In-Reply-To: <200709152017.02646.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1416498.K8ZN9iTnvH
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Michael Wu wrote:
+> On Saturday 15 September 2007 17:32, Jeff Garzik wrote:
+>> Review summary:  many minor issues, only one major one:  irq handler loop
+>>
+> CCing me would help.
 
-On Saturday 15 September 2007 09:22, John W. Linville wrote:
-> It is reverse-engineered and still has more magic
-> initialization numbers than I'd like, but overall I think it would
-> be better to have this upstream than not.
->
-Not entirely accurate, as ADMtek released specs (publically downloadable, n=
-o=20
-NDA), released their Linux driver source (under GPL), sent hardware samples=
-,=20
-and offered an engineer's help a few months after the first release of the=
-=20
-adm8211 driver.
+Sorry.  I just hit 'reply to all'...  apparently you were not CC'd on 
+the submission.
 
-=2DMichael Wu
 
---nextPart1416498.K8ZN9iTnvH
-Content-Type: application/pgp-signature
+>>> +	if (flags & IFF_PROMISC)
+>>> +		dev->flags |= IEEE80211_HW_RX_INCLUDES_FCS;
+>>> +	else
+>>> +		dev->flags &= ~IEEE80211_HW_RX_INCLUDES_FCS;
+>> why does promisc dictate inclusion of FCS?
+>>
+> Because that's the way the hardware works.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
+Why not always include it, regardless of promisc?
 
-iD8DBQBG7Hq7T3Oqt9AH4aERAlp/AJ4mvYcwCtk5jXRtCG5zGnozUFPkLwCglN9C
-6jHyunBje3lB3iic2z3YX5k=
-=1rRv
------END PGP SIGNATURE-----
 
---nextPart1416498.K8ZN9iTnvH--
+>>> +	} while (count++ < 20);
+>> NAK -- talk about back to the past.
+>>
+>> It's bogus to loop in the interrupt handler, then loop again in both RX
+>> and TX paths.  You are getting close to reinventing the wheel here.
+>>
+>> Use NAPI rather than doing such a loop.
+>>
+> This is old interrupt handler code from Jouni's original driver. I never 
+> bothered to replace it with the simpler designs used in newer drivers I've 
+> worked on.
+> 
+> Also - mac80211 drivers have no access to NAPI.
+
+Not true as of net-2.6.24.
+
+
+
+>>> +/* CSR (Host Control and Status Registers) */
+>>> +struct adm8211_csr {
+>> [snip]
+>>> +} __attribute__ ((packed));
+>> attributed(packed) is unneccesary here, and its use results in
+>> sub-optimal code
+>>
+> How? Doesn't this just turn into a bunch of offsets?
+
+It depends on how its used in the code.
+
+
+>> enums are preferred.  they do not disappear at the cpp stage, and confer
+>> type information.
+>>
+> I'd rather not.
+
+Elaboration?
+
+Remember this code is not just for you, but for all people working with 
+the code.  It makes debugging (and sometimes tracebacks) much more 
+readable, since it hasn't been eaten by cpp.
+
+Thanks,
+
+	Jeff
+
+
