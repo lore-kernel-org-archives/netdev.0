@@ -1,64 +1,41 @@
-From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: Re: [ofa-general] [PATCH] RDMA/CMA: Use neigh_event_send() to initiate
-	neighbour discovery.
-Date: Sun, 16 Sep 2007 10:34:23 +0300
-Message-ID: <46ECDC7F.2070805@voltaire.com>
-References: <20070912100025.3190.89259.stgit@dell3.ogc.int>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] jumbo all-NICs ethtool count cleanup
+Date: Sun, 16 Sep 2007 03:39:12 -0400
+Message-ID: <46ECDDA0.3070701@garzik.org>
+References: <20070916061015.GA11373@havoc.gtf.org> <20070916062722.GA5498@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdreier@cisco.com, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070912100025.3190.89259.stgit@dell3.ogc.int>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Sam Ravnborg <sam@ravnborg.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:34427 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751231AbXIPHjN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Sep 2007 03:39:13 -0400
+In-Reply-To: <20070916062722.GA5498@uranus.ravnborg.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Steve Wise wrote:
-> RDMA/CMA: Use neigh_event_send() to initiate neighbour discovery.
+Sam Ravnborg wrote:
+> Hi Jeff.
 > 
-> Calling arp_send() to initiate neighbour discovery (ND) doesn't do the
-> full ND protocol.  Namely, it doesn't handle retransmitting the arp
-> request if it is dropped. The function neigh_event_send() does all this.
-> Without doing full ND, rdma address resolution fails in the presence of
-> dropped arp bcast packets.
-
-Jay,
-
-Is there a way to deploy something similar for the gratuitous arp being 
-sent by the bonding driver at bond_arp_send()?
-
-We have seen rare situations where the skb was dropped by the stack and 
-hence bonding fail-over was detected by the remote peer only when its 
-neighboring subsystem probe failures dictated that a new arp must be issued.
-
-Or.
+> You wrote:
+>> The hooks ->self_test_count() and ->get_stats_count() are now unused
+>> in the main tree.
 > 
-> Signed-off-by: Steve Wise <swise@opengridcomputing.com>
-> ---
+> So I'm suprised to see more lines added than deleted:
+>>  35 files changed, 346 insertions(+), 246 deletions(-)
 > 
->  drivers/infiniband/core/addr.c |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/infiniband/core/addr.c b/drivers/infiniband/core/addr.c
-> index c5c33d3..5381c80 100644
-> --- a/drivers/infiniband/core/addr.c
-> +++ b/drivers/infiniband/core/addr.c
-> @@ -161,8 +161,7 @@ static void addr_send_arp(struct sockadd
->  	if (ip_route_output_key(&rt, &fl))
->  		return;
->  
-> -	arp_send(ARPOP_REQUEST, ETH_P_ARP, rt->rt_gateway, rt->idev->dev,
-> -		 rt->rt_src, NULL, rt->idev->dev->dev_addr, NULL);
-> +	neigh_event_send(rt->u.dst.neighbour, NULL);
->  	ip_rt_put(rt);
->  }
+> Puzzled - may need a bit more coffee (morning here)..
+
+The new interface that supercedes these is ->get_sset_count(), which was 
+added to provide additional functionality without having to add a new 
+hook each time we want to return a new integer value.  This new 
+interface also (intentionally) aligns with the existing ->get_strings() 
+interface.  ("sset" in get_sset_count stands for "string set")
+
+	Jeff
+
+
+
