@@ -1,42 +1,51 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: 2.6.23-rc regression: bcm43xx does not work after commit 4cf92a3c
-Date: Mon, 17 Sep 2007 04:24:18 +0900 (JST)
-Message-ID: <20070917.042418.19962472.yoshfuji@linux-ipv6.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH|[NET]: migrate HARD_TX_LOCK to header file
+Date: Sun, 16 Sep 2007 12:28:42 -0700 (PDT)
+Message-ID: <20070916.122842.59467739.davem@davemloft.net>
+References: <1189957725.4241.4.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: davem@davemloft.net, jeff@garzik.org,
-	Jean Tourrilhes <jt@hpl.hp.com>
+Cc: netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:44064 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752658AbXIPTWr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 15:22:47 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36711
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751429AbXIPT2n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 15:28:43 -0400
+In-Reply-To: <1189957725.4241.4.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+From: jamal <hadi@cyberus.ca>
+Date: Sun, 16 Sep 2007 11:48:45 -0400
 
-With latest git tree, bcm43xx driver does not work.
-By bisect, I've found the commit 4cf92a3c is the first "bad" commit.
+> I wanted to get rid of the extrenous cpu arguement and ended moving this
+> to the header files since it looks common enough an operation that could
+> be used elsewhere.
+> It is a trivial change - i could resend with leaving it in dev.c and
+> just getting rid of the cpu arguement.
 
-    [PATCH] softmac: Fix ESSID problem
+The only reason the cpu argument is superfluous is because
+we don't provide a way to pass it on down to netif_tx_lock().
 
-    Victor Porton reported that the SoftMAC layer had random problem when setting the ESSID :
-    http://bugzilla.kernel.org/show_bug.cgi?id=8686 After investigation, it turned out to be
-    worse, the SoftMAC layer is left in an inconsistent state. The fix is pretty trivial.
-    
-    Signed-off-by: Jean Tourrilhes <jt@hpl.hp.com>
-    Acked-by: Michael Buesch <mb@bu3sch.df>
-    Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
-    Signed-off-by: John W. Linville <linville@tuxdriver.com>
+So instead netif_tx_lock() recomputes that value in this case which is
+extra unnecessary work.
 
-After reverting this commit, the driver starts working again.
+I would instead suggest, in netdevice.h:
 
-Regards,
+static inline void __netif_tx_lock(struct net_device *dev, int cpu)
+{
+	spin_lock(&dev->_xmit_lock);
+	dev->xmit_lock_owner = cpu;
+}
 
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+static inline void netif_tx_lock(struct net_device *dev)
+{
+	__netif_tx_lock(dev, smp_processor_id());
+}
+
+And make the HARD_TX_LOCK() call __netif_tx_lock() and pass in
+the already computed 'cpu' parameter.
+
+Thanks.
