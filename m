@@ -1,64 +1,117 @@
-From: "Constantine A. Murenin" <mureninc@gmail.com>
-Subject: Re: Statement by SFLC (was Re: Wasting our Freedom)
-Date: Sun, 16 Sep 2007 10:42:45 -0400
-Message-ID: <f34ca13c0709160742p526703c4pa1cdef38fad1f28d__21224.4641887539$1189953779$gmane$org@mail.gmail.com>
-References: <5C8C3794-C62A-4935-8267-81080CCF6867@dixongroup.net>
-	 <200709160052.45493.jcroberts@designtools.org>
-	 <46ECE554.5030308@garzik.org>
-	 <200709160217.55933.jcroberts@designtools.org>
-	 <1993-Sun16Sep2007091741-0400-eben@softwarefreedom.org>
-	 <20070916140034.GA238@lain.home>
+From: jamal <hadi@cyberus.ca>
+Subject: [PATCH|[NET]: migrate HARD_TX_LOCK to header file
+Date: Sun, 16 Sep 2007 11:48:45 -0400
+Message-ID: <1189957725.4241.4.camel@localhost>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: espie@nerim.net, "Eben Moglen" <moglen@softwarefreedom.org>,
-	jcroberts@designtools.org, jeff@garzik.org, mrmacman_g4@mac.com,
-	jason@dixongroup.net, misc@openbsd.org, lessig_from_web@po
+Content-Type: multipart/mixed; boundary="=-JugxfVA+kXzfC3+j4X6k"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.225]:56404 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750838AbXIPOmr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 10:42:47 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1135773wxd
-        for <netdev@vger.kernel.org>; Sun, 16 Sep 2007 07:42:46 -0700 (PDT)
-In-Reply-To: <20070916140034.GA238@lain.home>
-Content-Disposition: inline
+Received: from an-out-0708.google.com ([209.85.132.247]:29837 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750872AbXIPPst (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 11:48:49 -0400
+Received: by an-out-0708.google.com with SMTP id d31so193892and
+        for <netdev@vger.kernel.org>; Sun, 16 Sep 2007 08:48:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 16/09/2007, Marc Espie <espie@nerim.net> wrote:
-> On Sun, Sep 16, 2007 at 09:17:41AM -0400, Eben Moglen wrote:
-> > We will make no more public statements until the work is complete, and
-> > we will be neither hurried nor intimidated by people who shout at us
-> > instead of helping.
->
-> http://www.softwarefreedom.org/news/2007/jul/31/openhal/
->
-> As I said in a former email, this has several glaring problems.
->
-> As far as I understand, this is a public statement, even if it predates
-> the issue at hand.
->
-> Please fix it in a timely manner, or take it down for now.
 
-Most noticeably, I fail to see any credits to Reyk Floeter in the
-above press release.
+--=-JugxfVA+kXzfC3+j4X6k
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Moreover, back when the release was first posted at the above address,
-there was no credit even to the OpenBSD project, which I found simply
-outrageous!  Only after I (and possibly others) have complained to
-SFLC did they append the release to give some really vague mention
-that OpenHAL is based on OpenBSD's ath(4) HAL.
+I wanted to get rid of the extrenous cpu arguement and ended moving this
+to the header files since it looks common enough an operation that could
+be used elsewhere.
+It is a trivial change - i could resend with leaving it in dev.c and
+just getting rid of the cpu arguement.
 
-Eben, is this the work that you are doing in bringing the communities
-together, by omitting such vital information as giving credit to the
-people and projects who performed most of the work?  After all of
-these mistakes, after ignoring the ethical side of the relicensing,
-after failing to inform when relicensing is even legally an option,
-are you seriously even surprised about the negative attention that
-SFLC is getting now?  Taking a step aside, don't you agree it is
-well-deserved?
 
-http://bsd.slashdot.org/article.pl?sid=07/09/13/156258
+cheers,
+jamal
 
-C.
+
+--=-JugxfVA+kXzfC3+j4X6k
+Content-Disposition: attachment; filename=htxp1
+Content-Type: text/plain; name=htxp1; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+[NET]: migrate HARD_TX_LOCK to header file
+
+HARD_TX_LOCK micro is a nice aggregation that could be used
+in other spots. move it to netdevice.h
+Also get rid of superflous cpu arguement while doing this ..
+
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+---
+commit 1bc3a7393737ab1f5239bd8dc2f2953dcee5391e
+tree 83a7f39b61fe45282eee825286996ba4bf72c0f6
+parent 1f08657fc9b0b56039a9378ca030c2c8ed7bd8ac
+author Jamal Hadi Salim <hadi@cyberus.ca> Sun, 16 Sep 2007 11:29:48 -0400
+committer Jamal Hadi Salim <hadi@cyberus.ca> Sun, 16 Sep 2007 11:29:48 -0400
+
+ include/linux/netdevice.h |   12 ++++++++++++
+ net/core/dev.c            |   14 +-------------
+ 2 files changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index dc5e35f..c83e667 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1297,6 +1297,18 @@ static inline void netif_tx_unlock_bh(struct net_device *dev)
+ 	spin_unlock_bh(&dev->_xmit_lock);
+ }
+ 
++#define HARD_TX_LOCK(dev) {			\
++	if ((dev->features & NETIF_F_LLTX) == 0) {	\
++		netif_tx_lock(dev);			\
++	}						\
++}
++
++#define HARD_TX_UNLOCK(dev) {				\
++	if ((dev->features & NETIF_F_LLTX) == 0) {	\
++		netif_tx_unlock(dev);			\
++	}						\
++}
++
+ static inline void netif_tx_disable(struct net_device *dev)
+ {
+ 	netif_tx_lock_bh(dev);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 2897352..7934d28 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1574,18 +1574,6 @@ out_kfree_skb:
+ 	return 0;
+ }
+ 
+-#define HARD_TX_LOCK(dev, cpu) {			\
+-	if ((dev->features & NETIF_F_LLTX) == 0) {	\
+-		netif_tx_lock(dev);			\
+-	}						\
+-}
+-
+-#define HARD_TX_UNLOCK(dev) {				\
+-	if ((dev->features & NETIF_F_LLTX) == 0) {	\
+-		netif_tx_unlock(dev);			\
+-	}						\
+-}
+-
+ /**
+  *	dev_queue_xmit - transmit a buffer
+  *	@skb: buffer to transmit
+@@ -1710,7 +1698,7 @@ gso:
+ 
+ 		if (dev->xmit_lock_owner != cpu) {
+ 
+-			HARD_TX_LOCK(dev, cpu);
++			HARD_TX_LOCK(dev);
+ 
+ 			if (!netif_queue_stopped(dev) &&
+ 			    !netif_subqueue_stopped(dev, skb->queue_mapping)) {
+
+--=-JugxfVA+kXzfC3+j4X6k--
+
