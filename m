@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net/: all net/ cleanup with ARRAY_SIZE
-Date: Sun, 16 Sep 2007 16:42:03 -0700 (PDT)
-Message-ID: <20070916.164203.38709930.davem@davemloft.net>
-References: <Pine.LNX.4.64.0709020235420.22012@localhost.localdomain>
-	<11887290181154-git-send-email-crquan@gmail.com>
+Subject: Re: [PATCH] fix net_device leak in vlan
+Date: Sun, 16 Sep 2007 16:43:30 -0700 (PDT)
+Message-ID: <20070916.164330.32095291.davem@davemloft.net>
+References: <20070903133520.GV21089@ftp.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rpjday@mindspring.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, cr_quan@163.com
-To: crquan@gmail.com
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: viro@ftp.linux.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38151
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42503
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754002AbXIPXmD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 19:42:03 -0400
-In-Reply-To: <11887290181154-git-send-email-crquan@gmail.com>
+	by vger.kernel.org with ESMTP id S1753194AbXIPXna (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 19:43:30 -0400
+In-Reply-To: <20070903133520.GV21089@ftp.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Denis Cheng <crquan@gmail.com>
-Date: Sun,  2 Sep 2007 18:30:17 +0800
+From: Al Viro <viro@ftp.linux.org.uk>
+Date: Mon, 3 Sep 2007 14:35:20 +0100
 
-> Signed-off-by: Denis Cheng <crquan@gmail.com>
+> In "[VLAN]: Move device registation to seperate function" (commit
+> e89fe42cd03c8fd3686df82d8390a235717a66de), a pile of code got moved
+> to register_vlan_dev(), including grabbing a reference to underlying
+> device.  However, original dev_hold() had been left behind, so we
+> leak a reference to net_device now...
+> 
+> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 
-You already submitted the net/ipv4/af_inet.c case
-seperately, so I had to remove it from this patch for
-it to apply properly.
-
-Please keep your patches straight to avoid problems
-like this.
-
-Thans.
+Patch applied, thanks Al.
