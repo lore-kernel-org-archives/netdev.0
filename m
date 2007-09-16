@@ -1,38 +1,34 @@
-From: "L F" <lfabio.linux@gmail.com>
-Subject: Re: e1000 driver and samba
-Date: Sun, 16 Sep 2007 00:07:29 -0400
-Message-ID: <780b6f780709152107j7ae44c4fg7c27420664ff0157@mail.gmail.com>
-References: <780b6f780709131904j41148fb4p827e87530b15d6e9@mail.gmail.com>
-	 <46EAC25B.2060404@intel.com>
-	 <780b6f780709141140l1fd586c9p2aa8efe6ed803d38@mail.gmail.com>
-	 <46EAF644.1040006@intel.com> <46EC1A00.2000304@katalix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] CIPSO: remove duplicated code in the
+ cipso_v4_*_getattr() functions
+Date: Sat, 15 Sep 2007 21:45:49 -0700 (PDT)
+Message-ID: <20070915.214549.26284935.davem@davemloft.net>
+References: <20070912192305.18318.11911.stgit@flek.americas.hpqcorp.net>
+	<20070912192938.18318.22897.stgit@flek.americas.hpqcorp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "James Chapman" <jchapman@katalix.com>
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+To: paul.moore@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.176]:1678 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750878AbXIPEHa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 00:07:30 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so1533147wah
-        for <netdev@vger.kernel.org>; Sat, 15 Sep 2007 21:07:29 -0700 (PDT)
-In-Reply-To: <46EC1A00.2000304@katalix.com>
-Content-Disposition: inline
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:54315
+	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750714AbXIPEpz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 00:45:55 -0400
+In-Reply-To: <20070912192938.18318.22897.stgit@flek.americas.hpqcorp.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/15/07, James Chapman <jchapman@katalix.com> wrote:
-> Are these long frames expected in your network? What is the MTU of the
-> transmitting clients? Perhaps this might explain why reads work (because
-> data is coming from the Linux box so the packets have smaller MTU) while
-> writes cause delays or packet loss because the clients are sending long
-> frames which are getting fragmented?
-I doublechecked in any case. All machines on the network have the
-default XP MTU of 1500. So does the linux machine. I therefore foresee
-no problem there.
+From: Paul Moore <paul.moore@hp.com>
+Date: Wed, 12 Sep 2007 15:29:38 -0400
 
-> James Chapman
+> The bulk of the CIPSO option parsing/processing in the cipso_v4_sock_getattr()
+> and cipso_v4_skb_getattr() functions are identical, the only real difference
+> being where the functions obtain the CIPSO option itself.  This patch creates
+> a new function, cipso_v4_getattr(), which contains the common CIPSO option
+> parsing/processing code and modifies the existing functions to call this new
+> helper function.
+> 
+> Signed-off-by: Paul Moore <paul.moore@hp.com>
 
-LF
+Applied to net-2.6.24, thanks Paul.
