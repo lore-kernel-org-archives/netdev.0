@@ -1,117 +1,144 @@
 From: jamal <hadi@cyberus.ca>
-Subject: [PATCH|[NET]: migrate HARD_TX_LOCK to header file
-Date: Sun, 16 Sep 2007 11:48:45 -0400
-Message-ID: <1189957725.4241.4.camel@localhost>
+Subject: [RFC][NET_SCHED] explict hold dev tx lock
+Date: Sun, 16 Sep 2007 12:14:34 -0400
+Message-ID: <1189959274.4241.30.camel@localhost>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-JugxfVA+kXzfC3+j4X6k"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed; boundary="=-wDTibh3ERbKq8FWkIFPC"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.247]:29837 "EHLO
+Received: from an-out-0708.google.com ([209.85.132.241]:46884 "EHLO
 	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750872AbXIPPst (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 11:48:49 -0400
-Received: by an-out-0708.google.com with SMTP id d31so193892and
-        for <netdev@vger.kernel.org>; Sun, 16 Sep 2007 08:48:48 -0700 (PDT)
+	with ESMTP id S1751602AbXIPQOi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 12:14:38 -0400
+Received: by an-out-0708.google.com with SMTP id d31so194589and
+        for <netdev@vger.kernel.org>; Sun, 16 Sep 2007 09:14:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-JugxfVA+kXzfC3+j4X6k
+--=-wDTibh3ERbKq8FWkIFPC
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 
-I wanted to get rid of the extrenous cpu arguement and ended moving this
-to the header files since it looks common enough an operation that could
-be used elsewhere.
-It is a trivial change - i could resend with leaving it in dev.c and
-just getting rid of the cpu arguement.
 
+While trying to port my batching changes to net-2.6.24 from this morning
+i realized this is something i had wanted to probe people on....
+
+Challenge:
+For N Cpus, with full throttle traffic on all N CPUs, funneling traffic
+to the same ethernet device, the devices queue lock is contended by all
+N CPUs constantly. The TX lock is only contended by a max of 2 CPUS. 
+In the current mode of operation, after all the work of entering the
+dequeue region, we may endup aborting the path if we are unable to get
+the tx lock and go back to contend for the queue lock. As N goes up,
+this gets worse.
+
+Testing:
+I did some testing with a 4 cpu (2xdual core) with no irq binding. I run
+about 10 runs of 30M packets each from the stack with a udp app i wrote
+which is intended to run keep all 4 cpus busy -  and to my suprise i
+found that we only bail out less than 0.1%. I may need a better test
+case.
+
+Changes:
+I made changes to the code path as defined in the patch included to 
+and noticed a slight increase (2-3%) in performance with both e1000 and
+tg3; which was a relief because i thought the spinlock_irq (which is
+needed because some drivers grab tx lock in interupts) may have negative
+effects. The fact it didnt reduce performance was a good thing.
+Note: This is the highest end machine ive ever laid hands on, so this
+may be misleading.
+ 
+So - what side effects do people see in doing this? If none, i will
+clean it up and submit.
 
 cheers,
 jamal
 
-
---=-JugxfVA+kXzfC3+j4X6k
-Content-Disposition: attachment; filename=htxp1
-Content-Type: text/plain; name=htxp1; charset=us-ascii
+--=-wDTibh3ERbKq8FWkIFPC
+Content-Disposition: attachment; filename=nsqr1
+Content-Type: text/x-patch; name=nsqr1; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 
-[NET]: migrate HARD_TX_LOCK to header file
-
-HARD_TX_LOCK micro is a nice aggregation that could be used
-in other spots. move it to netdevice.h
-Also get rid of superflous cpu arguement while doing this ..
-
-Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
-
----
-commit 1bc3a7393737ab1f5239bd8dc2f2953dcee5391e
-tree 83a7f39b61fe45282eee825286996ba4bf72c0f6
-parent 1f08657fc9b0b56039a9378ca030c2c8ed7bd8ac
-author Jamal Hadi Salim <hadi@cyberus.ca> Sun, 16 Sep 2007 11:29:48 -0400
-committer Jamal Hadi Salim <hadi@cyberus.ca> Sun, 16 Sep 2007 11:29:48 -0400
-
- include/linux/netdevice.h |   12 ++++++++++++
- net/core/dev.c            |   14 +-------------
- 2 files changed, 13 insertions(+), 13 deletions(-)
-
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index dc5e35f..c83e667 100644
+index dc5e35f..ab9966f 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -1297,6 +1297,18 @@ static inline void netif_tx_unlock_bh(struct net_device *dev)
- 	spin_unlock_bh(&dev->_xmit_lock);
+@@ -1271,6 +1271,12 @@ static inline void netif_tx_lock(struct net_device *dev)
+ 	dev->xmit_lock_owner = smp_processor_id();
  }
  
-+#define HARD_TX_LOCK(dev) {			\
-+	if ((dev->features & NETIF_F_LLTX) == 0) {	\
-+		netif_tx_lock(dev);			\
-+	}						\
++static inline void netif_tx_lock_irq(struct net_device *dev)
++{
++	spin_lock_irq(&dev->_xmit_lock);
++	dev->xmit_lock_owner = smp_processor_id();
 +}
 +
-+#define HARD_TX_UNLOCK(dev) {				\
-+	if ((dev->features & NETIF_F_LLTX) == 0) {	\
-+		netif_tx_unlock(dev);			\
-+	}						\
-+}
-+
- static inline void netif_tx_disable(struct net_device *dev)
+ static inline void netif_tx_lock_bh(struct net_device *dev)
  {
- 	netif_tx_lock_bh(dev);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 2897352..7934d28 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1574,18 +1574,6 @@ out_kfree_skb:
- 	return 0;
+ 	spin_lock_bh(&dev->_xmit_lock);
+@@ -1291,6 +1297,12 @@ static inline void netif_tx_unlock(struct net_device *dev)
+ 	spin_unlock(&dev->_xmit_lock);
  }
  
--#define HARD_TX_LOCK(dev, cpu) {			\
--	if ((dev->features & NETIF_F_LLTX) == 0) {	\
--		netif_tx_lock(dev);			\
--	}						\
--}
++static inline void netif_tx_unlock_irq(struct net_device *dev)
++{
++	dev->xmit_lock_owner = -1;
++	spin_unlock_irq(&dev->_xmit_lock);
++}
++
+ static inline void netif_tx_unlock_bh(struct net_device *dev)
+ {
+ 	dev->xmit_lock_owner = -1;
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index e970e8e..f75a924 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -134,34 +134,23 @@ static inline int qdisc_restart(struct net_device *dev)
+ {
+ 	struct Qdisc *q = dev->qdisc;
+ 	struct sk_buff *skb;
+-	unsigned lockless;
++	unsigned lockless = (dev->features & NETIF_F_LLTX);
+ 	int ret;
+ 
+ 	/* Dequeue packet */
+ 	if (unlikely((skb = dev_dequeue_skb(dev, q)) == NULL))
+ 		return 0;
+ 
+-	/*
+-	 * When the driver has LLTX set, it does its own locking in
+-	 * start_xmit. These checks are worth it because even uncongested
+-	 * locks can be quite expensive. The driver can do a trylock, as
+-	 * is being done here; in case of lock contention it should return
+-	 * NETDEV_TX_LOCKED and the packet will be requeued.
+-	 */
+-	lockless = (dev->features & NETIF_F_LLTX);
 -
--#define HARD_TX_UNLOCK(dev) {				\
--	if ((dev->features & NETIF_F_LLTX) == 0) {	\
--		netif_tx_unlock(dev);			\
--	}						\
--}
+-	if (!lockless && !netif_tx_trylock(dev)) {
+-		/* Another CPU grabbed the driver tx lock */
+-		return handle_dev_cpu_collision(skb, dev, q);
+-	}
 -
- /**
-  *	dev_queue_xmit - transmit a buffer
-  *	@skb: buffer to transmit
-@@ -1710,7 +1698,7 @@ gso:
+ 	/* And release queue */
+ 	spin_unlock(&dev->queue_lock);
  
- 		if (dev->xmit_lock_owner != cpu) {
++	if (!lockless)
++		netif_tx_lock_irq(dev);
++
+ 	ret = dev_hard_start_xmit(skb, dev);
  
--			HARD_TX_LOCK(dev, cpu);
-+			HARD_TX_LOCK(dev);
+ 	if (!lockless)
+-		netif_tx_unlock(dev);
++		netif_tx_unlock_irq(dev);
  
- 			if (!netif_queue_stopped(dev) &&
- 			    !netif_subqueue_stopped(dev, skb->queue_mapping)) {
+ 	spin_lock(&dev->queue_lock);
+ 	q = dev->qdisc;
 
---=-JugxfVA+kXzfC3+j4X6k--
+--=-wDTibh3ERbKq8FWkIFPC--
 
