@@ -1,51 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH|[NET]: migrate HARD_TX_LOCK to header file
-Date: Sun, 16 Sep 2007 12:28:42 -0700 (PDT)
-Message-ID: <20070916.122842.59467739.davem@davemloft.net>
-References: <1189957725.4241.4.camel@localhost>
+Subject: Re: [RFC][NET_SCHED] explict hold dev tx lock
+Date: Sun, 16 Sep 2007 12:31:58 -0700 (PDT)
+Message-ID: <20070916.123158.92582301.davem@davemloft.net>
+References: <1189959274.4241.30.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	kaber@trash.net, dada1@cosmosbay.com, johnpol@2ka.mipt.ru
 To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36711
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36715
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751429AbXIPT2n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 15:28:43 -0400
-In-Reply-To: <1189957725.4241.4.camel@localhost>
+	by vger.kernel.org with ESMTP id S1751957AbXIPTb6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 15:31:58 -0400
+In-Reply-To: <1189959274.4241.30.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: jamal <hadi@cyberus.ca>
-Date: Sun, 16 Sep 2007 11:48:45 -0400
+Date: Sun, 16 Sep 2007 12:14:34 -0400
 
-> I wanted to get rid of the extrenous cpu arguement and ended moving this
-> to the header files since it looks common enough an operation that could
-> be used elsewhere.
-> It is a trivial change - i could resend with leaving it in dev.c and
-> just getting rid of the cpu arguement.
+> Changes:
+> I made changes to the code path as defined in the patch included to 
+> and noticed a slight increase (2-3%) in performance with both e1000 and
+> tg3; which was a relief because i thought the spinlock_irq (which is
+> needed because some drivers grab tx lock in interupts) may have negative
+> effects. The fact it didnt reduce performance was a good thing.
+> Note: This is the highest end machine ive ever laid hands on, so this
+> may be misleading.
+>  
+> So - what side effects do people see in doing this? If none, i will
+> clean it up and submit.
 
-The only reason the cpu argument is superfluous is because
-we don't provide a way to pass it on down to netif_tx_lock().
+I tried this 4 years ago, it doesn't work.  :-)
 
-So instead netif_tx_lock() recomputes that value in this case which is
-extra unnecessary work.
+Many drivers, particularly very old ones that PIO packets into
+a device which can take a long time, absolutely depend upon
+interrupts being enabled fully during ->hard_start_xmit()
+so that other high periority devices (such as simpler serial
+controllers) can have their interrupts serviced during this
+slow operation.
 
-I would instead suggest, in netdevice.h:
+I don't think we want to do it anyways, whatever performance
+we gain from it is offset by the badness of disabling interrupts
+during this reasonably length stretch of code.
 
-static inline void __netif_tx_lock(struct net_device *dev, int cpu)
-{
-	spin_lock(&dev->_xmit_lock);
-	dev->xmit_lock_owner = cpu;
-}
-
-static inline void netif_tx_lock(struct net_device *dev)
-{
-	__netif_tx_lock(dev, smp_processor_id());
-}
-
-And make the HARD_TX_LOCK() call __netif_tx_lock() and pass in
-the already computed 'cpu' parameter.
-
-Thanks.
+The -rt folks as a result would notice this too and spank us :-)
