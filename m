@@ -1,43 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Configurable tap interface MTU
-Date: Sun, 16 Sep 2007 12:22:17 -0700 (PDT)
-Message-ID: <20070916.122217.68050499.davem@davemloft.net>
-References: <e6c711510709110742v4d2da644ha63b0a6d47c1230b@mail.gmail.com>
-	<E1IVIv8-0003Uc-00@gondolin.me.apana.org.au>
-	<e6c711510709120954i29a8f86bg9ea7bb337a039b5a@mail.gmail.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: 2.6.23-rc regression: bcm43xx does not work after commit 4cf92a3c
+Date: Mon, 17 Sep 2007 04:24:18 +0900 (JST)
+Message-ID: <20070917.042418.19962472.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	maxk@qualcomm.com, linux-kernel@vger.kernel.org
-To: eswierk@arastra.com
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: davem@davemloft.net, jeff@garzik.org,
+	Jean Tourrilhes <jt@hpl.hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:54352
-	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751027AbXIPTWo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 15:22:44 -0400
-In-Reply-To: <e6c711510709120954i29a8f86bg9ea7bb337a039b5a@mail.gmail.com>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:44064 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752658AbXIPTWr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 15:22:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Ed Swierk" <eswierk@arastra.com>
-Date: Wed, 12 Sep 2007 09:54:35 -0700
+Hello.
 
-> On 9/11/07, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> > Please make it 65535 without an Ethernet header and 65521
-> > with an Ethernet header.
-> 
-> Here is a revised patch that allows MTUs up to 65535 for tap
-> interfaces and up to 65521 for tun interfaces.
-> 
-> (If I set the MTU to 65521 on a tun interface, ping complains "message
-> too long" when I send a 65521-byte packet; 65520 works okay, though.)
+With latest git tree, bcm43xx driver does not work.
+By bisect, I've found the commit 4cf92a3c is the first "bad" commit.
 
-Applied to net-2.6.24
+    [PATCH] softmac: Fix ESSID problem
 
-Please provide a proper Signed-off-by: line and a full
-changelog with every patch submission and revision in
-the future.
+    Victor Porton reported that the SoftMAC layer had random problem when setting the ESSID :
+    http://bugzilla.kernel.org/show_bug.cgi?id=8686 After investigation, it turned out to be
+    worse, the SoftMAC layer is left in an inconsistent state. The fix is pretty trivial.
+    
+    Signed-off-by: Jean Tourrilhes <jt@hpl.hp.com>
+    Acked-by: Michael Buesch <mb@bu3sch.df>
+    Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
+    Signed-off-by: John W. Linville <linville@tuxdriver.com>
 
-Thanks.
+After reverting this commit, the driver starts working again.
 
+Regards,
+
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
