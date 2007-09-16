@@ -1,45 +1,43 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: e1000 driver and samba
-Date: Sun, 16 Sep 2007 17:24:15 +0100
-Message-ID: <46ED58AF.1070000@katalix.com>
-References: <780b6f780709131904j41148fb4p827e87530b15d6e9@mail.gmail.com> <46EAC25B.2060404@intel.com> <780b6f780709141140l1fd586c9p2aa8efe6ed803d38@mail.gmail.com> <46EAF644.1040006@intel.com> <46EC1A00.2000304@katalix.com> <46EC2D5A.7080504@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Configurable tap interface MTU
+Date: Sun, 16 Sep 2007 12:22:17 -0700 (PDT)
+Message-ID: <20070916.122217.68050499.davem@davemloft.net>
+References: <e6c711510709110742v4d2da644ha63b0a6d47c1230b@mail.gmail.com>
+	<E1IVIv8-0003Uc-00@gondolin.me.apana.org.au>
+	<e6c711510709120954i29a8f86bg9ea7bb337a039b5a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: L F <lfabio.linux@gmail.com>, netdev@vger.kernel.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	maxk@qualcomm.com, linux-kernel@vger.kernel.org
+To: eswierk@arastra.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:40297 "EHLO s36.avahost.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751821AbXIPQYS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Sep 2007 12:24:18 -0400
-In-Reply-To: <46EC2D5A.7080504@intel.com>
+Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:54352
+	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751027AbXIPTWo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 15:22:44 -0400
+In-Reply-To: <e6c711510709120954i29a8f86bg9ea7bb337a039b5a@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke wrote:
-> James Chapman wrote:
->> Kok, Auke wrote:
+From: "Ed Swierk" <eswierk@arastra.com>
+Date: Wed, 12 Sep 2007 09:54:35 -0700
 
->>>>      rx_long_byte_count: 34124849453
->>
->> Are these long frames expected in your network? What is the MTU of the 
->> transmitting clients? Perhaps this might explain why reads work 
->> (because data is coming from the Linux box so the packets have smaller 
->> MTU) while writes cause delays or packet loss because the clients are 
->> sending long frames which are getting fragmented?
+> On 9/11/07, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> > Please make it 65535 without an Ethernet header and 65521
+> > with an Ethernet header.
 > 
-> those are not "long frames" but the number of bytes the hardware counted 
-> in its "long" data type based byte counter.
+> Here is a revised patch that allows MTUs up to 65535 for tap
+> interfaces and up to 65521 for tun interfaces.
+> 
+> (If I set the MTU to 65521 on a tun interface, ping complains "message
+> too long" when I send a 65521-byte packet; 65520 works okay, though.)
 
-Thanks for correcting me, Auke.
+Applied to net-2.6.24
 
-Should this counter be renamed to avoid someone else making this mistake 
-in the future? Just a thought.
+Please provide a proper Signed-off-by: line and a full
+changelog with every patch submission and revision in
+the future.
 
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+Thanks.
 
