@@ -1,46 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/10 REV5] Implement skb batching and support in
- IPoIB/E1000
-Date: Sun, 16 Sep 2007 18:02:32 -0700 (PDT)
-Message-ID: <20070916.180232.101592975.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: [ofa-general] Re: [PATCH 0/10 REV5] Implement skb batching and
+	support in IPoIB/E1000
+Date: Sun, 16 Sep 2007 22:14:21 -0400
+Message-ID: <1189995261.4230.61.camel@localhost>
 References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
 	<20070916.161748.48388692.davem@davemloft.net>
 	<1189988958.4230.55.camel@localhost>
+	<20070916.180232.101592975.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, johnpol@2ka.mipt.ru,
-	herbert@gondor.apana.org.au, kaber@trash.net,
-	shemminger@linux-foundation.org, jagana@us.ibm.com,
-	Robert.Olsson@data.slu.se, rick.jones2@hp.com, xma@us.ibm.com,
-	gaagaan@gmail.com, netdev@vger.kernel.org, rdreier@cisco.com,
-	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
-	jeff@garzik.org, mchan@broadcom.com, general@lists.openfabrics.org,
-	kumarkr@linux.ibm.com, tgraf@suug.ch, randy.dunlap@oracle.com,
-	sri@us.ibm.com
-To: hadi@cyberus.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48624
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752252AbXIQBCd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 21:02:33 -0400
-In-Reply-To: <1189988958.4230.55.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
+Cc: johnpol@2ka.mipt.ru, peter.p.waskiewicz.jr@intel.com, kumarkr@linux.ibm.com,
+	herbert@gondor.apana.org.au, gaagaan@gmail.com,
+	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
+	rdreier@cisco.com, mcarlson@broadcom.com,
+	randy.dunlap@oracle.com, jagana@us.ibm.com,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	jeff@garzik.org, sri@us.ibm.com, shemminger@linux-foundation.org,
+	kaber@trash.net
+To: David Miller <davem@davemloft.net>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070916.180232.101592975.davem@davemloft.net>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Sun, 16 Sep 2007 20:29:18 -0400
+On Sun, 2007-16-09 at 18:02 -0700, David Miller wrote:
 
-> On Sun, 2007-16-09 at 16:17 -0700, David Miller wrote:
+> I do.
 > 
-> > The only major complaint I have about this patch series is that
-> > the IPoIB part should just be one big changeset. 
+> And I'm reviewing and applying several hundred patches a day.
 > 
-> Dave, you do realize that i have been investing my time working on
-> batching as well, right? 
+> What's the point? :-)
 
-I do.
+Reading the commentary made me think you were about to swallow that with
+one more change by the time i wake up;->
+I still think this work - despite my vested interest - needs more
+scrutiny from a performance perspective.
+I tend to send a url to my work, but it may be time to start posting
+patches.
 
-And I'm reviewing and applying several hundred patches a day.
-
-What's the point? :-)
+cheers,
+jamal
