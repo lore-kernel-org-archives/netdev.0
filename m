@@ -1,14 +1,13 @@
-From: jamal <hadi@cyberus.ca>
+From: David Miller <davem@davemloft.net>
 Subject: [ofa-general] Re: [PATCH 0/10 REV5] Implement skb batching and
-	support in IPoIB/E1000
-Date: Sun, 16 Sep 2007 22:14:21 -0400
-Message-ID: <1189995261.4230.61.camel@localhost>
-References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
-	<20070916.161748.48388692.davem@davemloft.net>
-	<1189988958.4230.55.camel@localhost>
+ support in IPoIB/E1000
+Date: Sun, 16 Sep 2007 19:25:02 -0700 (PDT)
+Message-ID: <20070916.192502.123919711.davem@davemloft.net>
+References: <1189988958.4230.55.camel@localhost>
 	<20070916.180232.101592975.davem@davemloft.net>
+	<1189995261.4230.61.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: johnpol@2ka.mipt.ru, peter.p.waskiewicz.jr@intel.com, kumarkr@linux.ibm.com,
 	herbert@gondor.apana.org.au, gaagaan@gmail.com,
@@ -18,9 +17,9 @@ Cc: johnpol@2ka.mipt.ru, peter.p.waskiewicz.jr@intel.com, kumarkr@linux.ibm.com,
 	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
 	jeff@garzik.org, sri@us.ibm.com, shemminger@linux-foundation.org,
 	kaber@trash.net
-To: David Miller <davem@davemloft.net>
+To: hadi@cyberus.ca
 Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070916.180232.101592975.davem@davemloft.net>
+In-Reply-To: <1189995261.4230.61.camel@localhost>
 List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
 	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
 List-Archive: <http://lists.openfabrics.org/pipermail/general>
@@ -32,20 +31,24 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2007-16-09 at 18:02 -0700, David Miller wrote:
+From: jamal <hadi@cyberus.ca>
+Date: Sun, 16 Sep 2007 22:14:21 -0400
 
-> I do.
-> 
-> And I'm reviewing and applying several hundred patches a day.
-> 
-> What's the point? :-)
+> I still think this work - despite my vested interest - needs more
+> scrutiny from a performance perspective.
 
-Reading the commentary made me think you were about to swallow that with
-one more change by the time i wake up;->
-I still think this work - despite my vested interest - needs more
-scrutiny from a performance perspective.
-I tend to send a url to my work, but it may be time to start posting
-patches.
+Absolutely.
 
-cheers,
-jamal
+There are tertiary issues I'm personally interested in, for example
+how well this stuff works when we enable software GSO on a non-TSO
+capable card.
+
+In such a case the GSO segment should be split right before we hit the
+driver and then all the sub-segments of the original GSO frame batched
+in one shot down to the device driver.
+
+In this way you'll get a large chunk of the benefit of TSO without
+explicit hardware support for the feature.
+
+There are several cards (some even 10GB) that will benefit immensely
+from this.
