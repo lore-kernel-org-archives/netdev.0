@@ -1,64 +1,114 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: Re: [PATCH] [-MM,
- FIX V4] e1000e: incorporate napi_struct changes from net-2.6.24.git
-Date: Mon, 17 Sep 2007 21:33:04 +0200
-Message-ID: <46EED670.60107@gmail.com>
-References: <20070910233503.19058.29051.stgit@localhost.localdomain>
-	<46EE5FA1.3080501@gmail.com> <46EEAB79.4040306@intel.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: [PATCH] include listenq max/backlog in tcp_info and related reports - correct version/signorder
+Date: Mon, 17 Sep 2007 12:50:38 -0700 (PDT)
+Message-ID: <200709171950.MAA14825@tardy.cup.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=X-roman8
 Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, jeff@garzik.org,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, davem@davemloft.net
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <46EEAB79.4040306@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: e1000-devel-bounces@lists.sourceforge.net
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from palrel10.hp.com ([156.153.255.245]:45566 "EHLO palrel10.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758292AbXIQTus (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Sep 2007 15:50:48 -0400
+Received: from tardy.cup.hp.com (tardy.cup.hp.com [15.244.56.217])
+	by palrel10.hp.com (Postfix) with ESMTP id C5EA2354F4
+	for <netdev@vger.kernel.org>; Mon, 17 Sep 2007 12:50:50 -0700 (PDT)
+Received: (from raj@localhost)
+	by tardy.cup.hp.com (8.9.3 (PHNE_28810)/8.9.3 SMKit7.02) id MAA14825
+	for netdev@vger.kernel.org; Mon, 17 Sep 2007 12:50:38 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/17/2007 06:29 PM, Kok, Auke wrote:
-> Jiri Slaby wrote:
->> On 12/23/-28158 08:59 PM, Auke Kok wrote:
->>> This incorporates the new napi_struct changes into e1000e. Included
->>> bugfix for ifdown hang from Krishna Kumar for e1000.
->>>
->>> Disabling polling is no longer needed at init time, so remove
->>> napi_disable() call from _probe().
->>>
->>> This also fixes an endless polling loop where the driver signalled
->>> "polling done" improperly back to the stack.
->>>
->>> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+Return some useful information such as the maximum listen backlog and the
+current listen backlog in the tcp_info structure and have that match what
+one can see in /proc/net/tcp, /proc/net/tcp6, and INET_DIAG_INFO.
 
-Tested-by: Jiri Slaby <jirislaby@gmail.com>
+Signed-off-by: Rick Jones <rick.jones2@hp.com>
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+---
 
->>> ---
->>>
->>>  drivers/net/e1000e/e1000.h  |    2 ++
->>>  drivers/net/e1000e/netdev.c |   40 ++++++++++++++++------------------------
->>>  2 files changed, 18 insertions(+), 24 deletions(-)
-[...]
-> I have no lockups here as well anymore, so I'm wondering if you accidentally used
-> V3 of the patch.
-
-And so am I, it works, I ported one change to e1000 (non-e) driver and missed
-the return 0; removal. Fixed both of them now, so one of them caused it.
-
-thanks a lot,
--- 
-Jiri Slaby (jirislaby@gmail.com)
-Faculty of Informatics, Masaryk University
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2005.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+diff -r bdcdd0e1ee9d Documentation/networking/proc_net_tcp.txt
+--- a/Documentation/networking/proc_net_tcp.txt	Sat Sep 01 07:00:31 2007 +0000
++++ b/Documentation/networking/proc_net_tcp.txt	Tue Sep 11 10:38:23 2007 -0700
+@@ -20,8 +20,8 @@ up into 3 parts because of the length of
+       |        |     |     |       |--> number of unrecovered RTO timeouts
+       |        |     |     |----------> number of jiffies until timer expires
+       |        |     |----------------> timer_active (see below)
+-      |        |----------------------> receive-queue
+-      |-------------------------------> transmit-queue
++      |        |----------------------> receive-queue or connection backlog
++      |-------------------------------> transmit-queue or connection limit
+ 
+    1000        0 54165785 4 cd1e6040 25 4 27 3 -1
+     |          |    |     |    |     |  | |  | |--> slow start size threshold, 
+diff -r bdcdd0e1ee9d net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c	Sat Sep 01 07:00:31 2007 +0000
++++ b/net/ipv4/tcp.c	Tue Sep 11 10:38:23 2007 -0700
+@@ -2030,8 +2030,14 @@ void tcp_get_info(struct sock *sk, struc
+ 	info->tcpi_snd_mss = tp->mss_cache;
+ 	info->tcpi_rcv_mss = icsk->icsk_ack.rcv_mss;
+ 
+-	info->tcpi_unacked = tp->packets_out;
+-	info->tcpi_sacked = tp->sacked_out;
++	if (sk->sk_state == TCP_LISTEN) {
++		info->tcpi_unacked = sk->sk_ack_backlog;
++		info->tcpi_sacked = sk->sk_max_ack_backlog;
++	}
++	else {
++		info->tcpi_unacked = tp->packets_out;
++		info->tcpi_sacked = tp->sacked_out;
++	}
+ 	info->tcpi_lost = tp->lost_out;
+ 	info->tcpi_retrans = tp->retrans_out;
+ 	info->tcpi_fackets = tp->fackets_out;
+diff -r bdcdd0e1ee9d net/ipv4/tcp_diag.c
+--- a/net/ipv4/tcp_diag.c	Sat Sep 01 07:00:31 2007 +0000
++++ b/net/ipv4/tcp_diag.c	Tue Sep 11 10:38:23 2007 -0700
+@@ -25,11 +25,14 @@ static void tcp_diag_get_info(struct soc
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+ 	struct tcp_info *info = _info;
+ 
+-	if (sk->sk_state == TCP_LISTEN)
++	if (sk->sk_state == TCP_LISTEN) {
+ 		r->idiag_rqueue = sk->sk_ack_backlog;
+-	else
++		r->idiag_wqueue = sk->sk_max_ack_backlog;
++	}
++	else {
+ 		r->idiag_rqueue = tp->rcv_nxt - tp->copied_seq;
+-	r->idiag_wqueue = tp->write_seq - tp->snd_una;
++		r->idiag_wqueue = tp->write_seq - tp->snd_una;
++	}
+ 	if (info != NULL)
+ 		tcp_get_info(sk, info);
+ }
+diff -r bdcdd0e1ee9d net/ipv4/tcp_ipv4.c
+--- a/net/ipv4/tcp_ipv4.c	Sat Sep 01 07:00:31 2007 +0000
++++ b/net/ipv4/tcp_ipv4.c	Tue Sep 11 10:38:23 2007 -0700
+@@ -2320,7 +2320,8 @@ static void get_tcp4_sock(struct sock *s
+ 	sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X %02X %08X:%08X %02X:%08lX "
+ 			"%08X %5d %8d %lu %d %p %u %u %u %u %d",
+ 		i, src, srcp, dest, destp, sk->sk_state,
+-		tp->write_seq - tp->snd_una,
++		sk->sk_state == TCP_LISTEN ? sk->sk_max_ack_backlog :
++					     (tp->write_seq - tp->snd_una),
+ 		sk->sk_state == TCP_LISTEN ? sk->sk_ack_backlog :
+ 					     (tp->rcv_nxt - tp->copied_seq),
+ 		timer_active,
+diff -r bdcdd0e1ee9d net/ipv6/tcp_ipv6.c
+--- a/net/ipv6/tcp_ipv6.c	Sat Sep 01 07:00:31 2007 +0000
++++ b/net/ipv6/tcp_ipv6.c	Tue Sep 11 10:38:23 2007 -0700
+@@ -2005,8 +2005,10 @@ static void get_tcp6_sock(struct seq_fil
+ 		   dest->s6_addr32[0], dest->s6_addr32[1],
+ 		   dest->s6_addr32[2], dest->s6_addr32[3], destp,
+ 		   sp->sk_state,
+-		   tp->write_seq-tp->snd_una,
+-		   (sp->sk_state == TCP_LISTEN) ? sp->sk_ack_backlog : (tp->rcv_nxt - tp->copied_seq),
++		   (sp->sk_state == TCP_LISTEN) ? sp->sk_max_ack_backlog:
++						  tp->write_seq-tp->snd_una,
++		   (sp->sk_state == TCP_LISTEN) ? sp->sk_ack_backlog : 
++					(tp->rcv_nxt - tp->copied_seq),
+ 		   timer_active,
+ 		   jiffies_to_clock_t(timer_expires - jiffies),
+ 		   icsk->icsk_retransmits,
