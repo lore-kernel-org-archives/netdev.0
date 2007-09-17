@@ -1,42 +1,36 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [ofa-general] Re: [PATCH v2] iw_cxgb3: Support "iwarp-only"
-	interfaces to avoid 4-tuple conflicts.
-Date: Mon, 17 Sep 2007 20:17:07 +0400
-Message-ID: <20070917161706.GA28431@2ka.mipt.ru>
-References: <20070913191617.30937.95960.stgit@dell3.ogc.int>
-	<20070914130941.GG18517@2ka.mipt.ru>
-	<46EC00BE.3020801@opengridcomputing.com>
-	<46EEA6A2.2080001@ichips.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-2.6.24 plans
+Date: Mon, 17 Sep 2007 09:22:38 -0700 (PDT)
+Message-ID: <20070917.092238.78709262.davem@davemloft.net>
+References: <20070916.202258.03371690.davem@davemloft.net>
+	<46EDFE40.5060306@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, rdreier@cisco.com, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: Sean Hefty <mshefty@ichips.intel.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-Disposition: inline
-In-Reply-To: <46EEA6A2.2080001@ichips.intel.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: jeff@garzik.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59141
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752027AbXIQQWj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 12:22:39 -0400
+In-Reply-To: <46EDFE40.5060306@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 17, 2007 at 09:09:06AM -0700, Sean Hefty (mshefty@ichips.intel.com) wrote:
-> >>>+    addr = kmalloc(sizeof *addr, GFP_KERNEL);
-> >>
-> >>As a small nitpick: this wants to be sizeof(struct in_ifaddr)
+From: Jeff Garzik <jeff@garzik.org>
+Date: Mon, 17 Sep 2007 00:10:40 -0400
+
+> David Miller wrote:
+> > We've touched so much in net-2.6.24 that we really should be auditing
+> > the thing and fixing any bugs that have been added.  If you're bored
+> > and looking for something to do, pick an odd NAPI driver and audit it
+> > in the net-2.6.24 tree.
 > 
-> See chapter 14 of CodingStyle document.  kmalloc(sizeof *addr... is correct.
+> You could try that weird "post patches on the list" thing for review.
+> 
+> I dunno about sparc64, but IMO any networking work you do yourself and 
+> commit yourself should also be sent to the list for review.
 
-Come on, do not start a flame war about how parameters into kmalloc
-should be provided - there are much more serious issues unresolved yes. It
-does help grepping the code, but if you feel that this is a serious threat,
-then use your preferred way.
-
--- 
-	Evgeniy Polyakov
+I sent every single revision of the NAPI struct patch to netdev
+Jeff.
