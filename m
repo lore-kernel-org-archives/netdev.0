@@ -1,108 +1,139 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: 2.6.23-rc4-mm1 OOPS in forcedeth?
-Date: Mon, 17 Sep 2007 17:00:22 -0400
-Message-ID: <46EEEAE6.8050106@hp.com>
-References: <20070831215822.26e1432b.akpm@linux-foundation.org> <20070901181352.GA4156@amd64.of.nowhere> <46D9B7EF.2050109@garzik.org> <alpine.LFD.0.999.0709020610590.20781@enigma.security.iitk.ac.in> <20070902061900.GA5595@amd64.of.nowhere> <alpine.LFD.0.999.0709021504550.22654@enigma.security.iitk.ac.in> <20070913235133.0df3c590.ajwade+00@andrew.wade.networklinux.net> <20070917135729.GA19802@linux.vnet.ibm.com> <46EE8A13.1070102@sw.ru>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] ethtool: marvell register update
+Date: Mon, 17 Sep 2007 14:08:09 -0700
+Message-ID: <20070917140809.2c73cfc2@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Dhaval Giani <dhaval@linux.vnet.ibm.com>,
-	ajwade+00@andrew.wade.mooo.com,
-	Satyam Sharma <satyam@infradead.org>, thunder7@xs4all.nl,
-	Jeff Garzik <jeff@garzik.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: "Denis V. Lunev" <den@sw.ru>
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:45945 "EHLO atlrel9.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755428AbXIQVBn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2007 17:01:43 -0400
-In-Reply-To: <46EE8A13.1070102@sw.ru>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:35449 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932515AbXIQVOm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 17:14:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Denis V. Lunev wrote:
-> I have also seen this OOPS on e1000 card. So, looks like driver independent.
-> 
-> By the way, this one has been triggered in a semi-stable way by the
-> 'git-pull'
+Update the decode of sky2 registers.
 
-Do you have this patch:
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-commit 5c127c58ae9bf196d787815b1bd6b0aec5aee816
-Author: David S. Miller <davem@sunset.davemloft.net>
-Date:   Fri Aug 31 14:39:44 2007 -0700
-
-    [TCP]: 'dst' can be NULL in tcp_rto_min()
-    
-    Reported by Rick Jones.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 1ee7212..bbad2cd 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -560,7 +560,7 @@ static u32 tcp_rto_min(struct sock *sk)
-        struct dst_entry *dst = __sk_dst_get(sk);
-        u32 rto_min = TCP_RTO_MIN;
+--- a/marvell.c	2007-09-17 14:03:08.000000000 -0700
++++ b/marvell.c	2007-09-17 14:05:44.000000000 -0700
+@@ -183,6 +183,7 @@ static void dump_mac(const u8 *r)
+ 	case 0xb4:	printf("Yukon-2 EC Ultra");	break;
+ 	case 0xb6:	printf("Yukon-2 EC");	break;
+  	case 0xb7:	printf("Yukon-2 FE");	break;
++	case 0xb8:	printf("Yukon-2 FE Plus"); break;
+ 	default:	printf("(Unknown)");	break;
+ 	}
  
--       if (dst_metric_locked(dst, RTAX_RTO_MIN))
-+       if (dst && dst_metric_locked(dst, RTAX_RTO_MIN))
-                rto_min = dst->metrics[RTAX_RTO_MIN-1];
-        return rto_min;
+@@ -247,6 +248,12 @@ static void dump_control(u8 *r)
+ 	printf("Interrupt Mask                   0x%08X\n", *(u32 *) (r + 0xc));
+ 	printf("Interrupt Hardware Error Source  0x%08X\n", *(u32 *) (r + 0x10));
+ 	printf("Interrupt Hardware Error Mask    0x%08X\n", *(u32 *) (r + 0x14));
++	printf("Interrupt Control                0x%08X\n", *(u32 *) (r + 0x2c));
++	printf("Interrupt Moderation Mask        0x%08X\n", *(u32 *) (r + 0x14c));
++	printf("Hardware Moderation Mask         0x%08X\n", *(u32 *) (r + 0x150));
++	dump_timer("Moderation Timer", r + 0x140);
++
++	printf("General Purpose  I/O             0x%08X\n", *(u32 *) (r + 0x15c));
  }
+ 
+ int skge_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+@@ -273,7 +280,6 @@ int skge_dump_regs(struct ethtool_drvinf
+ 	dump_gmac("GMAC 1", regs->data + 0x2800);
+ 
+ 	dump_timer("Timer", regs->data + 0x130);
+-	dump_timer("IRQ Moderation", regs->data +0x140);
+ 	dump_timer("Blink Source", regs->data +0x170);
+ 
+ 	dump_queue("Receive Queue 1", regs->data +0x400, 1);
+@@ -342,7 +348,7 @@ static void dump_queue2(const char *name
+ 	printf("Request                          0x%08X%08X\n",
+ 	       d->req_hi, d->req_lo);
+ 	if (rx) {
+-		printf("Csum1      Offset %4d Position   %d\n",
++		printf("Csum1      Offset %4d Position  %d\n",
+ 		       d->csum1, d->csum1_start);
+ 		printf("Csum2      Offset %4d Position  %d\n",
+ 		       d->csum2, d->csum2_start);
+@@ -351,6 +357,25 @@ static void dump_queue2(const char *name
+ 		       d->csum1, d->csum2_start, d->csum1_start);
+ }
+ 
++static void dump_prefetch(const char *name, const void *r)
++{
++	const u32 *reg = r;
++
++	printf("\n%s Prefetch\n", name);
++	printf("Control               0x%08X\n", reg[0]);
++	printf("Last Index            %u\n", reg[1]);
++	printf("Start Address         0x%08x%08x\n", reg[3], reg[2]);
++	if (*name == 'S') { /* Status unit */
++		printf("TX1 report            %u\n", reg[4]);
++		printf("TX2 report            %u\n", reg[5]);
++		printf("TX threshold          %u\n", reg[6]);
++		printf("Put Index             %u\n", reg[7]);
++	} else {
++		printf("Get Index             %u\n", reg[4]);
++		printf("Put Index             %u\n", reg[5]);
++	}
++}
++
+ int sky2_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+ {
+ 	const u32 *r = (const u32 *) regs->data;
+@@ -375,23 +400,14 @@ int sky2_dump_regs(struct ethtool_drvinf
+ 
+ 	dump_mac(regs->data);
+ 
+-	printf("\nStatus BMU:\n-----------\n");
+-	printf("Control                                0x%08X\n",
+-	       *(u32 *) (regs->data + 0x0e80));
+-	printf("Last Index                             0x%04X\n",
+-	       *(u16 *) (regs->data + 0x0e84));
+-	printf("Put Index                              0x%04X\n",
+-	       *(u16 *) (regs->data + 0x0e9c));
+-	printf("List Address                           0x%08X%08X\n",
+-	       *(u32 *) (regs->data + 0x0e8c),
+-	       *(u32 *) (regs->data + 0x0e88));
+-	printf("Transmit 1 done index                  0x%04X\n",
+-	       *(u16 *) (regs->data + 0x0e90));
+-	if (dual)
+-		printf("Transmit 2 done index                  0x%04X\n",
+-		       *(u16 *) (regs->data + 0x0e94));
+-	printf("Transmit index threshold               0x%04X\n",
+-	       *(u16 *) (regs->data + 0x0e98));
++	dump_prefetch("Status", regs->data + 0xe80);
++	dump_prefetch("Receive 1", regs->data + 0x450);
++	dump_prefetch("Transmit 1", regs->data + 0x450 + 0x280);
++
++	if (dual) {
++		dump_prefetch("Receive 2", regs->data + 0x450 + 0x80);
++		dump_prefetch("Transmit 2", regs->data + 0x450 + 0x380);
++	}
+ 
+ 	printf("\nStatus FIFO\n");
+   	printf("\tWrite Pointer            0x%02X\n", regs->data[0xea0]);
+@@ -399,6 +415,7 @@ int sky2_dump_regs(struct ethtool_drvinf
+   	printf("\tLevel                    0x%02X\n", regs->data[0xea8]);
+   	printf("\tWatermark                0x%02X\n", regs->data[0xeac]);
+   	printf("\tISR Watermark            0x%02X\n", regs->data[0xead]);
++
+ 	dump_timer("Status level", regs->data + 0xeb0);
+ 	dump_timer("TX status", regs->data + 0xec0);
+ 	dump_timer("ISR", regs->data + 0xed0);
+@@ -415,7 +432,6 @@ int sky2_dump_regs(struct ethtool_drvinf
+ 	dump_queue("Sync Transmit Queue 1", regs->data +0x600, 0);
+ 	dump_queue2("Async Transmit Queue 1", regs->data +0x680, 0);
+ 
+-
+ 	dump_ram("Receive RAMbuffer 1", regs->data+0x800);
+ 	dump_ram("Sync Transmit RAMbuffer 1", regs->data+0xa00);
+ 	dump_ram("Async Transmit RAMbuffer 1", regs->data+0xa80);
 
 
-
-> 
-> Regards,
-> 	Den
-> 
-> Dhaval Giani wrote:
->> On Thu, Sep 13, 2007 at 11:51:33PM -0400, Andrew James Wade wrote:
->>> I have an Oops that may be related:
->>>
->>> BUG: unable to handle kernel NULL pointer dereference at virtual address 00000025
->>> printing eip: c037d81b *pde = 00000000
->>> Oops: 0000 [#1]
->>> last sysfs file: /devices/pci0000:00/0000:00:01.0/0000:01:00.0/class
->>>
->>> Pid: 0, comm: swapper Not tainted (2.6.23-rc4-mm1-config2 #2)
->>> EIP: 0060:[<c037d81b>] EFLAGS: 00010246 CPU: 0
->>> EIP is at tcp_rto_min+0xb/0x15
->>> EAX: 00000032 EBX: c4c98b68 ECX: fffffffe EDX: 00000000
->>> ESI: c4c98b68 EDI: c055f600 EBP: c4432e40 ESP: c0596dec
->>>  DS: 007b ES: 007b FS: 0000 GS: 0000 SS: 0068
->>> Process swapper (pid: 0, ti=c0596000 task=c052a340 task.ti=c0568000)
->>> Stack: c037d8de c4c98b68 c4c98b68 c037e0ec 00000001 c037f879 c052a8b4 c052a340
->>>        00000000 00000001 c25e1e60 00000000 00000000 00000001 8c176265 8c17678a
->>>        00000000 00000001 00000001 00000000 8c17678a 86000000 ffffffff 007d8b21
->>> Call Trace:
->>>  [<c037d8de>] tcp_rtt_estimator+0xb9/0xfe
->>>  [<c037e0ec>] tcp_ack_saw_tstamp+0x14/0x43
->>>  [<c037f879>] tcp_ack+0x6b8/0x17b8
->>>  [<c03833cc>] tcp_rcv_established+0x519/0x5f1
->>>  [<c038838d>] tcp_v4_do_rcv+0x28/0x2f8
->>>  [<c038a4ce>] tcp_v4_rcv+0x7df/0x83d
->>>  [<c0372542>] ip_local_deliver+0xcc/0x148
->>>  [<c0372975>] ip_rcv+0x3b7/0x3de
->>>  [<c035fa0e>] netif_receive_skb+0x17a/0x1c2
->>>  [<c02cc121>] rtl8139_poll+0x2d9/0x425
->>>  [<c03616d7>] net_rx_action+0xa8/0xc8
->>>  [<c011e8e0>] __do_softirq+0x40/0x90
->>>  [<c010635d>] do_softirq+0x4d/0xb6
->>>  =======================
->>> INFO: lockdep is turned off.
->>> Code: 24 8b 82 88 03 00 00 89 82 40 05 00 00 a1 a0 23 53 c0 89 82 44 05 00 00 83 c4 0c 5b 5e 5f 5d c3 8b 90 88 00 00 00 b8 32 00 00 00 <f6> 42 25 20 74 03 8b 42 54 c3 56
->>>  85 d2 b9 01 00 00 00 0f 45 ca
->>> EIP: [<c037d81b>] tcp_rto_min+0xb/0x15 SS:ESP 0068:c0596dec
->>> Kernel panic - not syncing: Fatal exception in interrupt
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
