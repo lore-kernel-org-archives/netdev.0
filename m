@@ -1,35 +1,38 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH 02/11] IB/ipoib: Notify the world before doing unregister
-Date: Mon, 17 Sep 2007 16:33:39 -0700
-Message-ID: <adaps0glve4.fsf@cisco.com>
-References: <11898132301664-git-send-email-fubar@us.ibm.com>
-	<11898132322950-git-send-email-fubar@us.ibm.com>
-	<1189813234208-git-send-email-fubar@us.ibm.com>
-	<adatzptkjyk.fsf@cisco.com> <18593.1190071438@death>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-2.6.24 plans
+Date: Mon, 17 Sep 2007 16:39:29 -0700 (PDT)
+Message-ID: <20070917.163929.107941522.davem@davemloft.net>
+References: <20070916.202258.03371690.davem@davemloft.net>
+	<20070917.141826.70218261.davem@davemloft.net>
+	<20070917144037.100b3fc1.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, monis@voltaire.com, monisonlists@gmail.com,
-	ogerlitz@voltaire.com, jgarzik@pobox.com, davem@davemloft.net,
-	general@lists.openfabrics.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linville@tuxdriver.com, jgarzik@pobox.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:59364 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755064AbXIQXdr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 19:33:47 -0400
-In-Reply-To: <18593.1190071438@death> (Jay Vosburgh's message of "Mon, 17 Sep 2007 16:23:58 -0700")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43081
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755071AbXIQXja (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 19:39:30 -0400
+In-Reply-To: <20070917144037.100b3fc1.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > 	Conceptually, I see your point and I'm ok with doing it either
- > way.  My only question is, would this change would make the ipoib module
- > dependent upon having the bonding module loaded (to resolve all of the
- > symbols)?
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Mon, 17 Sep 2007 14:40:37 -0700
 
-Yes, I guess so, if that function is in bonding.  Hmm, that wouldn't
-be a good change.
+> These two:
+> 
+> git://porch.greyhouse.net/gospo/tehuti-2.6.git
+> ipg-add-ip1000a-driver-to-kernel-tree.patch
+> 
+> plus boatloads of stuff in wireless.
 
-Maybe this new notification function should be in net/core/dev.c
-instead of exporting call_netdevice_notifiers()?
+Andrew, can you send these two to me under seperate cover?  I'll
+integrate them once I have them in my inbox.
 
- - R.
+Why don't we sit a bit on the wireless tree, and John please start to
+merge that stuff to net-2.6.24 and toss the patches my way?
+
+Thanks!
