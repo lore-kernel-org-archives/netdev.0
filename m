@@ -1,130 +1,67 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] [-MM,	FIX V4] e1000e: incorporate napi_struct changes
- from net-2.6.24.git
-Date: Mon, 17 Sep 2007 09:29:45 -0700
-Message-ID: <46EEAB79.4040306@intel.com>
-References: <20070910233503.19058.29051.stgit@localhost.localdomain> <46EE5FA1.3080501@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: [ofa-general] Re: [PATCH 0/10 REV5] Implement skb batching and
+ support in IPoIB/E1000
+Date: Mon, 17 Sep 2007 09:37:15 -0700 (PDT)
+Message-ID: <20070917.093715.106267826.davem@davemloft.net>
+References: <1189998103.4230.76.camel@localhost>
+	<20070916.201318.71091570.davem@davemloft.net>
+	<1190033500.4230.102.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, davem@davemloft.net,
-	netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	Robert.Olsson@data.slu.se, jeff@garzik.org
-To: Jiri Slaby <jirislaby@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:10678 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754849AbXIQQ34 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2007 12:29:56 -0400
-In-Reply-To: <46EE5FA1.3080501@gmail.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: johnpol@2ka.mipt.ru, jagana@us.ibm.com, peter.p.waskiewicz.jr@intel.com,
+	kumarkr@linux.ibm.com, herbert@gondor.apana.org.au,
+	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
+	netdev@vger.kernel.org, rdreier@cisco.com, mcarlson@broadcom.com,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	randy.dunlap@oracle.com, sri@us.ibm.com,
+	shemminger@linux-foundation.org, kaber@trash.net
+To: hadi@cyberus.ca
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <1190033500.4230.102.camel@localhost>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Jiri Slaby wrote:
-> On 12/23/-28158 08:59 PM, Auke Kok wrote:
->> This incorporates the new napi_struct changes into e1000e. Included
->> bugfix for ifdown hang from Krishna Kumar for e1000.
->>
->> Disabling polling is no longer needed at init time, so remove
->> napi_disable() call from _probe().
->>
->> This also fixes an endless polling loop where the driver signalled
->> "polling done" improperly back to the stack.
->>
->> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
->> ---
->>
->>  drivers/net/e1000e/e1000.h  |    2 ++
->>  drivers/net/e1000e/netdev.c |   40 ++++++++++++++++------------------------
->>  2 files changed, 18 insertions(+), 24 deletions(-)
->>
->> diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
->> index c57e35a..d2499bb 100644
->> --- a/drivers/net/e1000e/e1000.h
->> +++ b/drivers/net/e1000e/e1000.h
->> @@ -187,6 +187,8 @@ struct e1000_adapter {
->>  	struct e1000_ring *tx_ring /* One per active queue */
->>  						____cacheline_aligned_in_smp;
->>  
->> +	struct napi_struct napi;
->> +
->>  	unsigned long tx_queue_len;
->>  	unsigned int restart_queue;
->>  	u32 txd_cmd;
->> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
->> index 372da46..eeb40cc 100644
->> --- a/drivers/net/e1000e/netdev.c
->> +++ b/drivers/net/e1000e/netdev.c
->> @@ -1149,12 +1149,12 @@ static irqreturn_t e1000_intr_msi(int irq, void *data)
->>  			mod_timer(&adapter->watchdog_timer, jiffies + 1);
->>  	}
->>  
->> -	if (netif_rx_schedule_prep(netdev)) {
->> +	if (netif_rx_schedule_prep(netdev, &adapter->napi)) {
->>  		adapter->total_tx_bytes = 0;
->>  		adapter->total_tx_packets = 0;
->>  		adapter->total_rx_bytes = 0;
->>  		adapter->total_rx_packets = 0;
->> -		__netif_rx_schedule(netdev);
->> +		__netif_rx_schedule(netdev, &adapter->napi);
->>  	} else {
->>  		atomic_dec(&adapter->irq_sem);
->>  	}
->> @@ -1212,12 +1212,12 @@ static irqreturn_t e1000_intr(int irq, void *data)
->>  			mod_timer(&adapter->watchdog_timer, jiffies + 1);
->>  	}
->>  
->> -	if (netif_rx_schedule_prep(netdev)) {
->> +	if (netif_rx_schedule_prep(netdev, &adapter->napi)) {
->>  		adapter->total_tx_bytes = 0;
->>  		adapter->total_tx_packets = 0;
->>  		adapter->total_rx_bytes = 0;
->>  		adapter->total_rx_packets = 0;
->> -		__netif_rx_schedule(netdev);
->> +		__netif_rx_schedule(netdev, &adapter->napi);
->>  	} else {
->>  		atomic_dec(&adapter->irq_sem);
->>  	}
->> @@ -1662,10 +1662,10 @@ set_itr_now:
->>   * e1000_clean - NAPI Rx polling callback
->>   * @adapter: board private structure
->>   **/
->> -static int e1000_clean(struct net_device *poll_dev, int *budget)
->> +static int e1000_clean(struct napi_struct *napi, int budget)
->>  {
->> -	struct e1000_adapter *adapter;
->> -	int work_to_do = min(*budget, poll_dev->quota);
->> +	struct e1000_adapter *adapter = container_of(napi, struct e1000_adapter, napi);
->> +	struct net_device *poll_dev = adapter->netdev;
->>  	int tx_cleaned = 0, work_done = 0;
->>  
->>  	/* Must NOT use netdev_priv macro here. */
->> @@ -1684,25 +1684,19 @@ static int e1000_clean(struct net_device *poll_dev, int *budget)
->>  		spin_unlock(&adapter->tx_queue_lock);
->>  	}
->>  
->> -	adapter->clean_rx(adapter, &work_done, work_to_do);
->> -	*budget -= work_done;
->> -	poll_dev->quota -= work_done;
->> +	adapter->clean_rx(adapter, &work_done, budget);
->>  
->>  	/* If no Tx and not enough Rx work done, exit the polling mode */
->> -	if ((!tx_cleaned && (work_done == 0)) ||
->> +	if ((!tx_cleaned && (work_done < budget)) ||
+From: jamal <hadi@cyberus.ca>
+Date: Mon, 17 Sep 2007 08:51:40 -0400
+
+> On Sun, 2007-16-09 at 20:13 -0700, David Miller wrote:
 > 
-> Hi,
+> > This only makes sense for devices which can 1) scatter-gather
+> > and 2) checksum on transmit.  
 > 
-> sorry to say that, but this change since last your patch changes nothing on my
-> machine (ksoftirq spinning at 100 % of CPU usage), I have some traces for you if
-> it helps:
+> If you have knowledge there are enough descriptors in the driver to
+> cover all skbs you are passing, do you need to have #1? 
+> Note i dont touch fragments, i am assuming the driver is smart enough to
+> handle them otherwise it wont advertise it can handle scatter-gather
 
+Yes, because you can have multiple descriptors per SKB
+because we have the head part in skb->data and the rest
+in the page vector.
 
-davem pulled all the drivers and fixups into net-2.6.24 including e1000e (and
-tested it yesterday)... Perhaps you can give that tree a try?
+Thus the device must be able to handle multiple descriptors
+representing one packet.
 
-I have no lockups here as well anymore, so I'm wondering if you accidentally used
-V3 of the patch.
+> > Otherwise we make too many copies and/or passes over the data.
+> 
+> I didnt understand this last bit - you are still going to go over the
+> list regardless of whether you call ->hard_start_xmit() once or
+> multiple times over the same list, no? In the later case i am assuming
+> a trimmed down ->hard_start_xmit()
 
-Can you give today's net-2.6.24 a try?
+If the device can't checksum, we have to pass over the data to
+compute the checksum and stick it into the headers.
 
-Auke
+If the device can't scatter-gather, we have to allocate and
+copy into a linear buffer.
+
+Otherwise it's just bumping page reference counts and adjusting
+offsets, no data touching at all.
