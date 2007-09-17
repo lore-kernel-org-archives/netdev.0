@@ -1,33 +1,39 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: net-2.6.24 plans
-Date: Mon, 17 Sep 2007 00:10:40 -0400
-Message-ID: <46EDFE40.5060306@garzik.org>
-References: <20070916.202258.03371690.davem@davemloft.net>
+Subject: [ofa-general] Re: [PATCH 1/10 REV5] [Doc] HOWTO Documentation for
+	batching
+Date: Mon, 17 Sep 2007 00:13:05 -0400
+Message-ID: <46EDFED1.6010000@garzik.org>
+References: <OF47B92F3A.6C42637F-ON65257359.0016D45D-65257359.0016F1B4@in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:58176 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751247AbXIQEKo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2007 00:10:44 -0400
-In-Reply-To: <20070916.202258.03371690.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: Randy Dunlap <randy.dunlap@oracle.com>, jagana@us.ibm.com,
+	herbert@gondor.apana.org.au, gaagaan@gmail.com,
+	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
+	mcarlson@broadcom.com, peter.p.waskiewicz.jr@intel.com,
+	hadi@cyberus.ca, kaber@trash.net, netdev@vger.kernel.org,
+	sri@us.ibm.com, general@lists.openfabrics.org,
+	mchan@broadcom.com, tgraf@suug.ch, johnpol@2ka.mipt.ru,
+	shemminger@linux-foundation.org, davem@davemloft.net, rdreier@cisco.com
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <OF47B92F3A.6C42637F-ON65257359.0016D45D-65257359.0016F1B4@in.ibm.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> We've touched so much in net-2.6.24 that we really should be auditing
-> the thing and fixing any bugs that have been added.  If you're bored
-> and looking for something to do, pick an odd NAPI driver and audit it
-> in the net-2.6.24 tree.
+Please remove me from the CC list.
 
-You could try that weird "post patches on the list" thing for review.
+I get this via netdev, and not having said a single thing in the thread, 
+I don't feel the need to be CC'd on every email.
 
-I dunno about sparc64, but IMO any networking work you do yourself and 
-commit yourself should also be sent to the list for review.
+The CC list is pretty massive as it is, anyway.
 
 	Jeff
-
-
