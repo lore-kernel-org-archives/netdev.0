@@ -1,65 +1,68 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: [ofa-general] Re: [PATCH 0/10 REV5] Implement skb batching and
-	support in IPoIB/E1000
-Date: Mon, 17 Sep 2007 10:16:02 +0530
-Message-ID: <OFEC575300.46D36636-ON65257359.001958ED-65257359.001A303C@in.ibm.com>
-References: <20070916.192502.123919711.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 9031] New: TPC window is to cautious on send
+Date: Sun, 16 Sep 2007 23:43:40 -0700
+Message-ID: <20070916234340.dfe2e94e.akpm@linux-foundation.org>
+References: <bug-9031-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
-	kumarkr@linux.ibm.com, rdreier@cisco.com,
-	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
-	mcarlson@broadcom.com, netdev@vger.kernel.org,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	randy.dunlap@oracle.com, shemminger@linux-foundation.org,
-	kaber@trash.net, sri@us.ibm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070916.192502.123919711.davem@davemloft.net>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Transfer-Encoding: 7bit
+Cc: bugme-daemon@bugzilla.kernel.org, a@oo.ms
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:55796 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751854AbXIQGoa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 02:44:30 -0400
+In-Reply-To: <bug-9031-10286@http.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[Removing Jeff as requested from thread :) ]
+On Sun, 16 Sep 2007 17:02:46 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
 
-Hi Dave,
+> http://bugzilla.kernel.org/show_bug.cgi?id=9031
+> 
+>            Summary: TPC window is to cautious on send
+>            Product: Networking
+>            Version: 2.5
+>      KernelVersion: Any
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV4
+>         AssignedTo: shemminger@osdl.org
+>         ReportedBy: a@oo.ms
+> 
+> 
+> This has been a longstanding "bug" of sorts when talking to a system that has
+> extremely small windows (under 1.5k).
+> 
+> The only way to give the stack on the other side a nudge is to ACK twice.
+> 
+> Here is a sample transcript, with a max window size of 1025 bytes.
+> 
+> 18:25:43.968358 IP dr.ea.ms.http > 192.168.80.2.40246: . 37377:37633(256) ack
+> 120 win 5840
+> 18:25:43.992402 IP 192.168.80.2.40246 > dr.ea.ms.http: . ack 37121 win 769 <mss
+> 256>
+> 18:25:44.390305 IP 192.168.80.2.40246 > dr.ea.ms.http: . ack 37121 win 1025
+> <mss 256>
+> 18:25:44.823084 IP dr.ea.ms.http > 192.168.80.2.40246: . 37633:37889(256) ack
+> 120 win 5840
+> 
+> If I take the "nudge" code out of my IP stack, it sits for an aweful long time,
+> waiting on the next packet, when there clearly is room for a few more.
+> 
+> Should I:
+> 1: Have my IP stack lie about the window till it is important?
+> 2: Something else?
+> 
+> I can't see any good reason for the large delay, since it is on a serial link,
+> via SLIP.
+> 
+> I can point you to source code that will allow you to verify the problem for
+> yourself, if you would like.
+> 
 
-David Miller <davem@davemloft.net> wrote on 09/17/2007 07:55:02 AM:
-
-> From: jamal <hadi@cyberus.ca>
-> Date: Sun, 16 Sep 2007 22:14:21 -0400
->
-> > I still think this work - despite my vested interest - needs more
-> > scrutiny from a performance perspective.
->
-> Absolutely.
->
-> There are tertiary issues I'm personally interested in, for example
-> how well this stuff works when we enable software GSO on a non-TSO
-> capable card.
->
-> In such a case the GSO segment should be split right before we hit the
-> driver and then all the sub-segments of the original GSO frame batched
-> in one shot down to the device driver.
->
-> In this way you'll get a large chunk of the benefit of TSO without
-> explicit hardware support for the feature.
->
-> There are several cards (some even 10GB) that will benefit immensely
-> from this.
-
-I have tried this on ehca which does not support TSO. I added GSO flag at
-the ipoib layer (and that resulted in a panic/fix that is mentioned in
-this patchset). I will re-run tests for this and submit results.
-
-Thanks,
-
-- KK
