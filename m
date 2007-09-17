@@ -1,67 +1,70 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 0/10 REV5] Implement skb batching and support in
-	IPoIB/E1000
-Date: Mon, 17 Sep 2007 08:51:40 -0400
-Message-ID: <1190033500.4230.102.camel@localhost>
-References: <1189995261.4230.61.camel@localhost>
-	 <20070916.192502.123919711.davem@davemloft.net>
-	 <1189998103.4230.76.camel@localhost>
-	 <20070916.201318.71091570.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: Hal Rosenstock <hrosenstock@xsigo.com>
+Subject: RE: [ofa-general] InfiniBand/RDMA merge plans for 2.6.24
+Date: Mon, 17 Sep 2007 06:00:15 -0700
+Message-ID: <1190034015.6272.83.camel@hrosenstock-ws.xsigo.com>
+References: <adahclymos8.fsf@cisco.com>
+	<000401c7f632$c993e8e0$65cc180a@amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, kaber@trash.net,
-	shemminger@linux-foundation.org, jagana@us.ibm.com,
-	Robert.Olsson@data.slu.se, rick.jones2@hp.com, xma@us.ibm.com,
-	gaagaan@gmail.com, netdev@vger.kernel.org, rdreier@cisco.com,
-	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
-	mchan@broadcom.com, general@lists.openfabrics.org,
-	kumarkr@linux.ibm.com, tgraf@suug.ch, randy.dunlap@oracle.com,
-	sri@us.ibm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.249]:53483 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752357AbXIQMvq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 08:51:46 -0400
-Received: by an-out-0708.google.com with SMTP id d31so219994and
-        for <netdev@vger.kernel.org>; Mon, 17 Sep 2007 05:51:45 -0700 (PDT)
-In-Reply-To: <20070916.201318.71091570.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, 'Roland Dreier' <rdreier@cisco.com>,
+	linux-kernel@vger.kernel.org, general@lists.openfabrics.org
+To: Sean Hefty <sean.hefty@intel.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <000401c7f632$c993e8e0$65cc180a@amr.corp.intel.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2007-16-09 at 20:13 -0700, David Miller wrote:
+On Thu, 2007-09-13 at 11:20 -0700, Sean Hefty wrote:
+> > - My user_mad P_Key index support patch.  I'll test the ioctl to
+> >   change to the new mode and merge this I guess, since Hal and Sean
+> >   have tested this out.
+> 
+> I can give this patch a reviewed-by: too, and I will also try to review a couple
+> of the pending ipoib patches.
+> 
+> > - Sean's QoS changes.  These look fine at first glance, and I just
+> >   plan to understand the backwards compatibility story (ie how this
+> >   works with an old SM) and merge.  Anyone who objects let me know.
+> 
+> The new QoS fields fall into fields that are currently reserved, which should be
+> ignored by an older SM.
 
-> What Herbert and I want to do is basically turn on TSO for
-> devices that can't do it in hardware, and rely upon the GSO
-> framework to do the segmenting in software right before we
-> hit the device.
+By older, you mean one which doesn't support QoS (as indicated by the
+setting in SA's ClassPortInfo).
 
-Sensible. 
+>   I've only tested this against openSM however.
 
-> This only makes sense for devices which can 1) scatter-gather
-> and 2) checksum on transmit.  
+in non QoS mode, right ?
 
-If you have knowledge there are enough descriptors in the driver to
-cover all skbs you are passing, do you need to have #1? 
-Note i dont touch fragments, i am assuming the driver is smart enough to
-handle them otherwise it wont advertise it can handle scatter-gather
+Has anyone tested these with QoS actually be used ? I suppose this
+requires Connect-X.
 
-> Otherwise we make too many copies and/or passes over the data.
+-- Hal
 
-I didnt understand this last bit - you are still going to go over the
-list regardless of whether you call ->hard_start_xmit() once or
-multiple times over the same list, no? In the later case i am assuming
-a trimmed down ->hard_start_xmit()
-
-> UDP is too easy a test case in fact :-)
-
-I learnt a lot about the behavior out of doing udp (and before that with
-pktgen); theres a lot of driver habits that may need to be tuned before
-batching becomes really effective - which is easier to see with udp than
-with tcp.
-
-cheers,
-jamal
-
+> > - Sean's IB CM MRA interface changes.  Don't know at this point.  It
+> >   seems OK but I'm not clear on what if any real-world improvement
+> >   this gives us.
+> 
+> This patch was generated in response to an Intel MPI issue.  We've seen MPI take
+> several minutes to respond to a connection request during the middle of large
+> application runs.  When this happens, the active side times out the connection.
+> In OFED, we added module parameters to adjust the rdma_cm connection timeout on
+> the active side, but I believe that sending an MRA from the passive side is a
+> better solution.
+> 
+> - Sean
+> _______________________________________________
+> general mailing list
+> general@lists.openfabrics.org
+> http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general
+> 
+> To unsubscribe, please visit http://openib.org/mailman/listinfo/openib-general
