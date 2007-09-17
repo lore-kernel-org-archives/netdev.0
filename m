@@ -1,56 +1,97 @@
-From: Martin Josefsson <gandalf@wlug.westbo.se>
-Subject: Re: [RFT] sky2: receive hang check
-Date: Mon, 17 Sep 2007 12:08:36 +0200 (CEST)
-Message-ID: <Pine.LNX.4.62.0709171206180.17234@wlug.westbo.se>
-References: <20070912161957.701eddff@oldman>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][NETNS] Use list_for_each_entry_continue_reverse in setup_net
+Date: Mon, 17 Sep 2007 15:02:53 +0400
+Message-ID: <46EE5EDD.1030005@openvz.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mjufs.se ([85.195.4.233]:55412 "EHLO wlug.westbo.se"
+Received: from sacred.ru ([62.205.161.221]:47785 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751414AbXIQKjr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2007 06:39:47 -0400
-In-Reply-To: <20070912161957.701eddff@oldman>
+	id S1752119AbXIQLFZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Sep 2007 07:05:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 12 Sep 2007, Stephen Hemminger wrote:
+I proposed introducing a list_for_each_entry_continue_reverse
+macro to be used in setup_net() when unrolling the failed
+->init callback.
 
-> -/* Check for lost IRQ once a second */
-> +static void sky2_rx_check(struct net_device *dev)
-> +{
-> +	struct sky2_port *sky2 = netdev_priv(dev);
-> +	struct sky2_hw *hw = sky2->hw;
-> +	unsigned port = sky2->port;
-> +	unsigned rxq = rxqaddr[port];
-> +	u32 mac_rp = sky2_read32(hw, SK_REG(port, RX_GMF_RP));
-> +	u8 mac_lev = sky2_read8(hw, SK_REG(port, RX_GMF_RLEV));
-> +	u8 fifo_rp = sky2_read8(hw, Q_ADDR(rxq, Q_RP));
-> +	u8 fifo_lev = sky2_read8(hw, Q_ADDR(rxq, Q_RL));
-> +
-> +	/* If not idle and MAC or PCI is stuck */
-> +	if (sky2->check.last != dev->last_rx &&
+Here is the macro and some more cleanup in the setup_net() itself
+to remove one variable from the stack :) Minor, but the code
+looks nicer.
 
-Don't you want == here? You want to run the rest of this test when no 
-packets has been received for a while.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-> +	    ((mac_rp == sky2->check.mac_rp &&
-> +		     mac_lev != 0 && mac_lev >= sky2->check.mac_lev) ||
-> +		    /* Check if the PCI RX hang */
-> +		    (fifo_rp == sky2->check.fifo_rp &&
-> +		     fifo_lev != 0 && fifo_lev >= sky2->check.fifo_lev))) {
-> +
-> +		pr_info(PFX "%s: receiver hang detected\n", dev->name);
-> +		schedule_work(&hw->restart_work);
-> +	}
-> +
-> +	sky2->check.last = dev->last_rx;
-> +	sky2->check.mac_rp = mac_rp;
-> +	sky2->check.mac_lev = mac_lev;
-> +	sky2->check.fifo_rp = fifo_rp;
-> +	sky2->check.fifo_lev = fifo_lev;
-> +}
+---
 
-/Martin
+ include/linux/list.h     |   14 ++++++++++++++
+ net/core/net_namespace.c |    8 +++-----
+ 2 files changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/include/linux/list.h b/include/linux/list.h
+index f29fc9c..ad9dcb9 100644
+--- a/include/linux/list.h
++++ b/include/linux/list.h
+@@ -525,6 +525,20 @@ static inline void list_splice_init_rcu(
+ 	     pos = list_entry(pos->member.next, typeof(*pos), member))
+ 
+ /**
++ * list_for_each_entry_continue_reverse - iterate backwards from the given point
++ * @pos:	the type * to use as a loop cursor.
++ * @head:	the head for your list.
++ * @member:	the name of the list_struct within the struct.
++ *
++ * Start to iterate over list of given type backwards, continuing after
++ * the current position.
++ */
++#define list_for_each_entry_continue_reverse(pos, head, member)		\
++	for (pos = list_entry(pos->member.prev, typeof(*pos), member);	\
++	     prefetch(pos->member.prev), &pos->member != (head);	\
++	     pos = list_entry(pos->member.prev, typeof(*pos), member))
++
++/**
+  * list_for_each_entry_from - iterate over list of given type from the current point
+  * @pos:	the type * to use as a loop cursor.
+  * @head:	the head for your list.
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 1fc513c..a9dd261 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -102,7 +102,6 @@ static int setup_net(struct net *net)
+ {
+ 	/* Must be called with net_mutex held */
+ 	struct pernet_operations *ops;
+-	struct list_head *ptr;
+ 	int error;
+ 
+ 	memset(net, 0, sizeof(struct net));
+@@ -110,8 +109,7 @@ static int setup_net(struct net *net)
+ 	atomic_set(&net->use_count, 0);
+ 
+ 	error = 0;
+-	list_for_each(ptr, &pernet_list) {
+-		ops = list_entry(ptr, struct pernet_operations, list);
++	list_for_each_entry(ops, &pernet_list, list) {
+ 		if (ops->init) {
+ 			error = ops->init(net);
+ 			if (error < 0)
+@@ -120,12 +118,12 @@ static int setup_net(struct net *net)
+ 	}
+ out:
+ 	return error;
++
+ out_undo:
+ 	/* Walk through the list backwards calling the exit functions
+ 	 * for the pernet modules whose init functions did not fail.
+ 	 */
+-	for (ptr = ptr->prev; ptr != &pernet_list; ptr = ptr->prev) {
+-		ops = list_entry(ptr, struct pernet_operations, list);
++	list_for_each_entry_continue_reverse(ops, &pernet_list, list) {
+ 		if (ops->exit)
+ 			ops->exit(net);
+ 	}
