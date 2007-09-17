@@ -1,100 +1,156 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: net-2.6.24 plans
-Date: Mon, 17 Sep 2007 14:40:37 -0700
-Message-ID: <20070917144037.100b3fc1.akpm@linux-foundation.org>
-References: <20070916.202258.03371690.davem@davemloft.net>
-	<20070917.141826.70218261.davem@davemloft.net>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH] bonding: update some distro-specific documentation
+Date: Mon, 17 Sep 2007 17:46:29 -0400
+Message-ID: <20070917214628.GB9140@gospo.rdu.redhat.com>
+References: <20070830212429.GA12676@gospo.rdu.redhat.com> <21001.1189189669@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linville@tuxdriver.com, jgarzik@pobox.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:56035 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754454AbXIQVlo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 17:41:44 -0400
-In-Reply-To: <20070917.141826.70218261.davem@davemloft.net>
+Received: from mx1.redhat.com ([66.187.233.31]:45188 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756221AbXIQVqe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Sep 2007 17:46:34 -0400
+Content-Disposition: inline
+In-Reply-To: <21001.1189189669@death>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 17 Sep 2007 14:18:26 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
-
-> From: David Miller <davem@davemloft.net>
-> Date: Sun, 16 Sep 2007 20:22:58 -0700 (PDT)
+On Fri, Sep 07, 2007 at 11:27:49AM -0700, Jay Vosburgh wrote:
+> Andy Gospodarek <andy@greyhouse.net> wrote:
 > 
-> > Tomorrow (Monday) I want to rebase the net-2.6.24 tree one more time
-> > to deal with all of the conflicts which exist between
-> > linux-2.6/net-2.6 and net-2.6.24, but I'll likely defer that
-> > until the net-2.6 fixes I just pushed to Linus are integrated.
+> 	This all looks fine except for one nit (well, request for extra
+> detail, really):
 > 
-> I've just completed this rebase.
+> >@@ -802,15 +802,20 @@ BROADCAST=192.168.1.255
+> > ONBOOT=yes
+> > BOOTPROTO=none
+> > USERCTL=no
+> >+BONDING_OPTS="mode=balance-alb miimon=100"
+> >
+> > 	Be sure to change the networking specific lines (IPADDR,
+> > NETMASK, NETWORK and BROADCAST) to match your network configuration.
+> >+You also need to set the BONDING_OPTS= line to specify the desired
+> >+options for your bond0 interface.  Specifying bonding options in this
+> >+way is the preferred method for configuring bonding interfaces.
 > 
-> Andrew, I removed the troublesome IOAT patch.  The only conflicts
-> and fixes you should need at this point are:
+> 	Can you add something here that mentions that, for the
+> arp_ip_target option, it has to be supplied as "arp_ip_target=+10.0.0.1"
+> and not just "arp_ip_target=10.0.0.1"?  Also, multiple targets require
+> multiple instances of the arp_ip_target option; it doesn't work to put
+> multiple IP addresses as in the module option (i.e.,
+> "arp_ip_target=10.0.0.1,10.0.0.2").
 > 
-> 1) Removal of SET_MODULE_OWNER() from any extra drivers you import
->    into your tree.
+> 	This is necessary because ifup-eth isn't adding the "+" when it
+> translates the option for use with sysfs or parsing the multiple IP
+> address syntax.
 > 
-> 2) dev_get_by_*() needs &init_net added as first parameter in any
->    other code you import outside of the net tree.
+> 	-J
 
-yup, I think I have all of those done now.
+Jay,
 
-> I guess a lot of this could be avoided if I simply merge in whatever
-> external stuff you're sucking in.
+I took your advice -- here's an updated patch.
 
-external stuff is mainly drivers.  These two:
+-andy
 
-git://porch.greyhouse.net/gospo/tehuti-2.6.git
-ipg-add-ip1000a-driver-to-kernel-tree.patch
 
-plus boatloads of stuff in wireless.
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+---
 
->  I imagine this is just one of
-> Linville's trees (I'm surprised that hasn't been sent to me frankly)
-> and some specific new drivers you're merging in.
+ bonding.txt |   53 ++++++++++++++++++++++++++++++++---------------------
+ 1 files changed, 32 insertions(+), 21 deletions(-)
 
-Yeah, git-net versus git-wireless isn't pretty.  The huge amount of pending
-wireless stuff has been a bit of a nuisance for some months.  But it's
-probably a bigger nuisance for John ;)
-
-I don't know what remains to be done there, but it would be good to dig in
-and get it all merged up.  Given the damage which net-2.6.24 does to
-git-wireless, that might be tricky, dunno.
-
-> I don't want to sound like a control freak or a whiner, but these
-> merge conflicts are growing painful at an astronomic rate and I'd
-> therefore prefer if we simply push everything through the net-2.6.24
-> tree from now until the merge window.
-
-Works for me.
-
-> Today's rebase took several hours and it took significantly longer to
-> suck in Jeff's netdev tree over the weekend.  I'm tired of playing
-> patch monkey, so I can sympathize with how life must be every day
-> for Andrew :-)
-
-I'm finding that most problems are caused by maintainers committing stuff
-to their git trees which affects code which other git-tree owners maintain.
-Things like git-net playing with git-wireless code, git-block playing with
-git-scsi-misc code, etc.
-
-It would suit _me_ better if people were to try harder to merge changes via
-the correct maintainer rather than going out-of-scope like this.  But it
-would make life quite a lot harder for the people who are doing this
-development, so it isn't clear where the line is best drawn.
-
->  But on a more serious note there are things I have
-> to actually hack on myself so anything that decreases the amount of
-> time I spend doing mindless patch whacking in the net-2.6.24 tree is
-> appreciated.
-> 
-> What say you?
-
-My current aggregate diff against 2.6.23-rc6 is 28.8MB.  I'm just sitting
-here with my head spinning ;)
-
-(I actually got it all to build, boot and run ltp, which was rather
-stunning)
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 1da5666..2402412 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -755,9 +755,9 @@ the system /etc/modules.conf or /etc/modprobe.conf configuration file.
+ ------------------------------------------
+ 
+ 	This section applies to distros using a version of initscripts
+-with bonding support, for example, Red Hat Linux 9 or Red Hat
+-Enterprise Linux version 3 or 4.  On these systems, the network
+-initialization scripts have some knowledge of bonding, and can be
++with bonding support, for example, Red Hat Linux 9, Red Hat Enterprise
++Linux version 3, 4 or 5, Fedora, etc.  On these systems, the network
++initialization scripts have some knowledge of bonding, and can be 
+ configured to control bonding devices.
+ 
+ 	These distros will not automatically load the network adapter
+@@ -802,18 +802,27 @@ BROADCAST=192.168.1.255
+ ONBOOT=yes
+ BOOTPROTO=none
+ USERCTL=no
++BONDING_OPTS="mode=active-backup arp_monitor=+192.168.1.254"
+ 
+ 	Be sure to change the networking specific lines (IPADDR,
+ NETMASK, NETWORK and BROADCAST) to match your network configuration.
+-
+-	Finally, it is necessary to edit /etc/modules.conf (or
++You also need to set the BONDING_OPTS= line to specify the desired
++options for your bond0 interface.  Specifying bonding options in this
++way is the preferred method for configuring bonding interfaces.  The
++options specified in BONDING_OPTS are identical to the bonding module
++parameters except for the arp_monitor field.  Each target should be
++included as a separate address and should be preceded by a '+' to 
++indicate it should be added to the list of queried targets.
++
++	It is no longer necessary to edit /etc/modules.conf (or
+ /etc/modprobe.conf, depending upon your distro) to load the bonding
+ module with your desired options when the bond0 interface is brought
+ up.  The following lines in /etc/modules.conf (or modprobe.conf) will
+-load the bonding module, and select its options:
++load the bonding module, and select its options but this is no longer
++the preferred method.
+ 
+ alias bond0 bonding
+-options bond0 mode=balance-alb miimon=100
++options bond0 mode=active-backup arp_monitor=192.168.1.254
+ 
+ 	Replace the sample parameters with the appropriate set of
+ options for your configuration.
+@@ -826,8 +835,9 @@ up and running.
+ ---------------------------------
+ 
+ 	Recent versions of initscripts (the version supplied with
+-Fedora Core 3 and Red Hat Enterprise Linux 4 is reported to work) do
+-have support for assigning IP information to bonding devices via DHCP.
++Fedora Core 3 and Red Hat Enterprise Linux 4 and later is reported to
++work) do have support for assigning IP information to bonding devices
++via DHCP.
+ 
+ 	To configure bonding for DHCP, configure it as described
+ above, except replace the line "BOOTPROTO=none" with "BOOTPROTO=dhcp"
+@@ -837,18 +847,19 @@ is case sensitive.
+ 3.2.2 Configuring Multiple Bonds with Initscripts
+ -------------------------------------------------
+ 
+-	At this writing, the initscripts package does not directly
+-support loading the bonding driver multiple times, so the process for
+-doing so is the same as described in the "Configuring Multiple Bonds
+-Manually" section, below.
+-
+-	NOTE: It has been observed that some Red Hat supplied kernels
+-are apparently unable to rename modules at load time (the "-o bond1"
+-part).  Attempts to pass that option to modprobe will produce an
+-"Operation not permitted" error.  This has been reported on some
+-Fedora Core kernels, and has been seen on RHEL 4 as well.  On kernels
+-exhibiting this problem, it will be impossible to configure multiple
+-bonds with differing parameters.
++	Initscripts packages that are included with Fedora 7 and Red
++Hat Enterprise Linux 5 support multiple bonding interfaces by simply
++specifying the appropriate BONDING_OPTS= in ifcfg-bondX where X is
++the number of the bond.  Other distros may not include support in
++initscripts for multiple bonding interfaces, so you may need to follow
++the process as described in the "Configuring Multiple Bonds Manually"
++section, below.
++
++	It has been observed that much older kernels are apparently
++unable to rename modules at load time (the "-o bond1" part).  Attempts
++to pass that option to modprobe will produce an "Operation not 
++permitted" error.  On kernels exhibiting this problem, it will be 
++impossible to configure multiple bonds with differing parameters.
+ 
+ 3.3 Configuring Bonding Manually with Ifenslave
+ -----------------------------------------------
