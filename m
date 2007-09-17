@@ -1,45 +1,52 @@
 From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: e1000 driver and samba
-Date: Mon, 17 Sep 2007 11:02:58 -0700
-Message-ID: <46EEC152.8090005@hp.com>
-References: <780b6f780709131904j41148fb4p827e87530b15d6e9@mail.gmail.com>	<46EAC25B.2060404@intel.com>	<780b6f780709141140l1fd586c9p2aa8efe6ed803d38@mail.gmail.com>	<46EAF644.1040006@intel.com> <46EC1A00.2000304@katalix.com>	<46EC2D5A.7080504@intel.com>	<780b6f780709152106q3d7f1042t72126c1be16ed1fd@mail.gmail.com> <46ECB95F.2090100@intel.com>
+Subject: Re: why does tcp_v[46]_conn_request not inc MIB stats
+Date: Mon, 17 Sep 2007 11:13:05 -0700
+Message-ID: <46EEC3B1.4@hp.com>
+References: <46E5900A.3010009@hp.com> <20070914.201034.38702610.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: L F <lfabio.linux@gmail.com>, James Chapman <jchapman@katalix.com>,
-	netdev@vger.kernel.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:55003 "EHLO palrel10.hp.com"
+Received: from palrel12.hp.com ([156.153.255.237]:53338 "EHLO palrel12.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752130AbXIQSE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2007 14:04:29 -0400
-In-Reply-To: <46ECB95F.2090100@intel.com>
+	id S1753706AbXIQSNg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Sep 2007 14:13:36 -0400
+In-Reply-To: <20070914.201034.38702610.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke wrote:
-> L F wrote:
-> 
->>>>>>tx_deferred_ok: 486
->>>
->>>this one I wonder about, and might cause delays, I'll have to look
->>>up what it exactly could implicate though.
->>
->>Please do and let me know. samba 3.0.26 helped, but the issue is
->>still there.
+David Miller wrote:
+> From: Rick Jones <rick.jones2@hp.com>
+> Date: Mon, 10 Sep 2007 11:42:18 -0700
 > 
 > 
-> ok, from the spec: tx_deferred_ok is what is in the DC stats register. DC stands
-> for "Deferred Count". This initially is meant to track how often the TX unit cannot
-> send because the medium is busy in a Half-Duplex link state.
+>>I've been digging around to see about inducing /proc/net/tcp to show 
+>>some "interesting" things for listen sockets (eg backlog depth, its max, 
+>>and dropped connection requests).  While there I've noticed that both 
+>>tcp_v[46]_syn_recv_sock and tcp_v[46]conn_request both check that the 
+>>listen queue is full, but only tcp_v[46]_syn_recv_sock increments some 
+>>mib stats for dropped connection requests.
 > 
-> To me it suggests that your speed is not full-duplex. Check `ethtool eth0` output
-> and see if your link is full duplex or not. also check previous kernel messages
-> and see what the e1000 driver posted there for link speed messages (as in "e1000:
->  Link is UP speed XXX duplex YYY")
+> 
+> They are checking two different things.
+> 
+> tcp_v{4,6}_conn_request is checking whether we are hitting the limit
+> for allowing the initial SYN and creating a new embryonic mini-socket.
+> Exceeding that is not a listen overflow.
 
-Shouldn't there then have been at least _some_ collisions reported in 
-the stats?  And perhaps some late collisions?
+I'll risk some toe chewing and ask - is the embryonic limit set based on 
+  what one sets in the listen() call and/or system configs?
+
+Seems that _some_ sort of stat should be incremented, even if it isn't 
+the listen queue overflow one?
 
 rick jones
+
+> tcp_v{4,6}_syn_recv_sock() is processing the end of the 3-way
+> handshake and wants to create a full established state socket to queue
+> into the listening parent.  This is checking the listening socket
+> queue limits, and indeed is a listen queue overflow if exceeded.
+
+
