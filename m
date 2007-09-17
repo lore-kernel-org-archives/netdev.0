@@ -1,48 +1,88 @@
-From: Ingo Oeser <netdev@axxeo.de>
-Subject: Re: [BUG] tg3 cannot do PXE (loses MAC address) after soft reboot
-Date: Mon, 17 Sep 2007 13:29:35 +0200
-Message-ID: <200709171329.35656.netdev@axxeo.de>
-References: <20070913083918.GA5386@xanadu.blop.info> <200709141014.20635.netdev@axxeo.de> <1189795942.9540.155.camel@dell>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Lucas Nussbaum" <lucas.nussbaum@imag.fr>,
-	"netdev" <netdev@vger.kernel.org>
-To: "Michael Chan" <mchan@broadcom.com>
+From: Urs Thuermann <urs@isnogud.escape.de>
+Subject: [PATCH 6/7] CAN: Add maintainer entries
+Date: Mon, 17 Sep 2007 12:03:27 +0200
+Message-ID: <20070917100440.18347.6@janus.isnogud.escape.de>
+References: <20070917100321.18347.0@janus.isnogud.escape.de>
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver@hartkopp.net>,
+	Urs Thuermann <urs@isnogud.escape.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.axxeo.de ([82.100.226.146]:3203 "EHLO mail.axxeo.de"
+Received: from oker.escape.de ([194.120.234.254]:42014 "EHLO oker.escape.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755297AbXIQL3t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2007 07:29:49 -0400
-In-Reply-To: <1189795942.9540.155.camel@dell>
-Content-Disposition: inline
+	id S1750716AbXIQMuA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Sep 2007 08:50:00 -0400
+Content-Disposition: inline; filename=06-can-maintainers.diff
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Michael Chan schrieb:
-> On Fri, 2007-09-14 at 10:14 +0200, Ingo Oeser wrote:
-> > Is it enough to parse the first number in the firmware via simple_strtoul()?
-> 
-> No, it's not.  We need to check the number after the '.' and possibly an
-> alphabet at the end as well.  Worse yet, the version may be different
-> for different chips.
+This patch adds entries in the CREDITS and MAINTAINERS file for CAN.
 
-Ah, I see. I thought the first number is some constantly increasing
-internal version number from your SCM[1] and the other is the 
-"marketing release number".
+Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
-Thank you for explaining this. And that different version for different
-chips issue make it really hard. I can see that now.
+---
+ CREDITS     |   16 ++++++++++++++++
+ MAINTAINERS |    9 +++++++++
+ 2 files changed, 25 insertions(+)
+
+Index: net-2.6.24/CREDITS
+===================================================================
+--- net-2.6.24.orig/CREDITS	2007-09-17 10:26:57.000000000 +0200
++++ net-2.6.24/CREDITS	2007-09-17 10:27:21.000000000 +0200
+@@ -1331,6 +1331,14 @@
+ S: 5623 HZ Eindhoven
+ S: The Netherlands
  
-> We'll see if we can come up with a simple way to detect the problem.
++N: Oliver Hartkopp
++E: oliver.hartkopp@volkswagen.de
++W: http://www.volkswagen.de
++D: Controller Area Network (network layer core)
++S: Brieffach 1776
++S: 38436 Wolfsburg
++S: Germany
++
+ N: Andrew Haylett
+ E: ajh@primag.co.uk
+ D: Selection mechanism
+@@ -3284,6 +3292,14 @@
+ S: F-35042 Rennes Cedex
+ S: France
+ 
++N: Urs Thuermann
++E: urs.thuermann@volkswagen.de
++W: http://www.volkswagen.de
++D: Controller Area Network (network layer core)
++S: Brieffach 1776
++S: 38436 Wolfsburg
++S: Germany
++
+ N: Jon Tombs
+ E: jon@gte.esi.us.es
+ W: http://www.esi.us.es/~jon
+Index: net-2.6.24/MAINTAINERS
+===================================================================
+--- net-2.6.24.orig/MAINTAINERS	2007-09-17 10:26:57.000000000 +0200
++++ net-2.6.24/MAINTAINERS	2007-09-17 10:27:21.000000000 +0200
+@@ -975,6 +975,15 @@
+ L:	video4linux-list@redhat.com
+ S:	Maintained
+ 
++CAN NETWORK LAYER
++P:	Urs Thuermann
++M:	urs.thuermann@volkswagen.de
++P:	Oliver Hartkopp
++M:	oliver.hartkopp@volkswagen.de
++L:	socketcan-core@lists.berlios.de
++W:	http://developer.berlios.de/projects/socketcan/
++S:	Maintained
++
+ CALGARY x86-64 IOMMU
+ P:	Muli Ben-Yehuda
+ M:	muli@il.ibm.com
 
-That would help your users (like the customers of my employer).
-Admins and system vendors will love you for that :-)
-
-
-Best Regards
-
-Ingo Oeser
-
-[1] Source Control Management e.g. cvs, subversion, git
+--
