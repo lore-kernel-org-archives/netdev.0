@@ -1,37 +1,55 @@
-From: Urs Thuermann <urs@isnogud.escape.de>
-Subject: Re: [PATCH 7/7] CAN: Add documentation
-Date: 18 Sep 2007 01:19:16 +0200
-Message-ID: <ygfhclsswwb.fsf@janus.isnogud.escape.de>
-References: <20070917100321.18347.0@janus.isnogud.escape.de>
-	<20070917100441.18347.7@janus.isnogud.escape.de>
-	<20070917103003.109ae665.randy.dunlap@oracle.com>
-	<ygfps0hrqj5.fsf@janus.isnogud.escape.de>
-	<1190061421.2995.44.camel@chaos>
-	<ygflkb5rp9d.fsf@janus.isnogud.escape.de>
-	<20070917155718.ee2cc803.randy.dunlap@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Oliver Hartkopp <oliver@hartkopp.net>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Urs Thuermann <urs@isnogud.escape.de>
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:60465 "EHLO oker.escape.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752799AbXIQXV3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2007 19:21:29 -0400
-In-Reply-To: <20070917155718.ee2cc803.randy.dunlap@oracle.com>; from Randy Dunlap on Mon, 17 Sep 2007 15:57:18 -0700
-Sender: netdev-owner@vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [ofa-general] Re: [PATCH 02/11] IB/ipoib: Notify the world before
+	doing unregister
+Date: Mon, 17 Sep 2007 16:23:58 -0700
+Message-ID: <18593.1190071438@death>
+References: <11898132301664-git-send-email-fubar@us.ibm.com>
+	<11898132322950-git-send-email-fubar@us.ibm.com>
+	<1189813234208-git-send-email-fubar@us.ibm.com>
+	<adatzptkjyk.fsf@cisco.com>
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org, jgarzik@pobox.com,
+	davem@davemloft.net
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-reply-to: <adatzptkjyk.fsf@cisco.com> 
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Hi Randy,
+Roland Dreier <rdreier@cisco.com> wrote:
 
-> Just a few more minor changes...  Thanks again.
+>Actually, thinking about this some more... would it be cleaner to more
+>the knowledge about bonding out of the ipoib driver?  in other words,
+>export something similar to
+>
+> > +static int ipoib_slave_detach(struct net_device *dev)
+> > +{
+> > +	int ret = 0;
+> > +	if (dev->flags & IFF_SLAVE) {
+> > +		dev->priv_flags |= IFF_SLAVE_DETACH;
+> > +		rtnl_lock();
+> > +		ret = call_netdevice_notifiers(NETDEV_CHANGE, dev);
+> > +		rtnl_unlock();
+> > +	}
+> > +	return ret;
+> > +}
+>
+>for drivers to use, rather than putting use of IFF_SLAVE and
+>IFF_SLAVE_DETACH outside of the bonding driver.
 
-Again, thank you.  I have applied these two typo fixes, too.
+	Conceptually, I see your point and I'm ok with doing it either
+way.  My only question is, would this change would make the ipoib module
+dependent upon having the bonding module loaded (to resolve all of the
+symbols)?
 
+	-J
 
-urs
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
