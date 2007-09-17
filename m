@@ -1,7 +1,7 @@
 From: Urs Thuermann <urs@isnogud.escape.de>
-Subject: [PATCH 6/7] CAN: Add maintainer entries
-Date: Mon, 17 Sep 2007 12:03:27 +0200
-Message-ID: <20070917100440.18347.6@janus.isnogud.escape.de>
+Subject: [PATCH 1/7] CAN: Allocate protocol numbers for PF_CAN
+Date: Mon, 17 Sep 2007 12:03:22 +0200
+Message-ID: <20070917100437.18347.1@janus.isnogud.escape.de>
 References: <20070917100321.18347.0@janus.isnogud.escape.de>
 Cc: David Miller <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>,
@@ -14,75 +14,113 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from oker.escape.de ([194.120.234.254]:42014 "EHLO oker.escape.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750716AbXIQMuA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2007 08:50:00 -0400
-Content-Disposition: inline; filename=06-can-maintainers.diff
+	id S1752706AbXIQMuE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Sep 2007 08:50:04 -0400
+Content-Disposition: inline; filename=01-can-proto-numbers.diff
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds entries in the CREDITS and MAINTAINERS file for CAN.
+This patch adds a protocol/address family number, ARP hardware type,
+ethernet packet type, and a line discipline number for the SocketCAN
+implementation.
 
 Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
- CREDITS     |   16 ++++++++++++++++
- MAINTAINERS |    9 +++++++++
- 2 files changed, 25 insertions(+)
+ include/linux/if_arp.h   |    1 +
+ include/linux/if_ether.h |    1 +
+ include/linux/socket.h   |    2 ++
+ include/linux/tty.h      |    3 ++-
+ net/core/sock.c          |    4 ++--
+ 5 files changed, 8 insertions(+), 3 deletions(-)
 
-Index: net-2.6.24/CREDITS
+Index: net-2.6.24/include/linux/if_arp.h
 ===================================================================
---- net-2.6.24.orig/CREDITS	2007-09-17 10:26:57.000000000 +0200
-+++ net-2.6.24/CREDITS	2007-09-17 10:27:21.000000000 +0200
-@@ -1331,6 +1331,14 @@
- S: 5623 HZ Eindhoven
- S: The Netherlands
- 
-+N: Oliver Hartkopp
-+E: oliver.hartkopp@volkswagen.de
-+W: http://www.volkswagen.de
-+D: Controller Area Network (network layer core)
-+S: Brieffach 1776
-+S: 38436 Wolfsburg
-+S: Germany
-+
- N: Andrew Haylett
- E: ajh@primag.co.uk
- D: Selection mechanism
-@@ -3284,6 +3292,14 @@
- S: F-35042 Rennes Cedex
- S: France
- 
-+N: Urs Thuermann
-+E: urs.thuermann@volkswagen.de
-+W: http://www.volkswagen.de
-+D: Controller Area Network (network layer core)
-+S: Brieffach 1776
-+S: 38436 Wolfsburg
-+S: Germany
-+
- N: Jon Tombs
- E: jon@gte.esi.us.es
- W: http://www.esi.us.es/~jon
-Index: net-2.6.24/MAINTAINERS
+--- net-2.6.24.orig/include/linux/if_arp.h	2007-09-17 10:26:58.000000000 +0200
++++ net-2.6.24/include/linux/if_arp.h	2007-09-17 10:27:06.000000000 +0200
+@@ -52,6 +52,7 @@
+ #define ARPHRD_ROSE	270
+ #define ARPHRD_X25	271		/* CCITT X.25			*/
+ #define ARPHRD_HWX25	272		/* Boards with X.25 in firmware	*/
++#define ARPHRD_CAN	280		/* Controller Area Network      */
+ #define ARPHRD_PPP	512
+ #define ARPHRD_CISCO	513		/* Cisco HDLC	 		*/
+ #define ARPHRD_HDLC	ARPHRD_CISCO
+Index: net-2.6.24/include/linux/if_ether.h
 ===================================================================
---- net-2.6.24.orig/MAINTAINERS	2007-09-17 10:26:57.000000000 +0200
-+++ net-2.6.24/MAINTAINERS	2007-09-17 10:27:21.000000000 +0200
-@@ -975,6 +975,15 @@
- L:	video4linux-list@redhat.com
- S:	Maintained
+--- net-2.6.24.orig/include/linux/if_ether.h	2007-09-17 10:26:58.000000000 +0200
++++ net-2.6.24/include/linux/if_ether.h	2007-09-17 10:27:06.000000000 +0200
+@@ -90,6 +90,7 @@
+ #define ETH_P_WAN_PPP   0x0007          /* Dummy type for WAN PPP frames*/
+ #define ETH_P_PPP_MP    0x0008          /* Dummy type for PPP MP frames */
+ #define ETH_P_LOCALTALK 0x0009		/* Localtalk pseudo type 	*/
++#define ETH_P_CAN	0x000C		/* Controller Area Network      */
+ #define ETH_P_PPPTALK	0x0010		/* Dummy type for Atalk over PPP*/
+ #define ETH_P_TR_802_2	0x0011		/* 802.2 frames 		*/
+ #define ETH_P_MOBITEX	0x0015		/* Mobitex (kaz@cafe.net)	*/
+Index: net-2.6.24/include/linux/socket.h
+===================================================================
+--- net-2.6.24.orig/include/linux/socket.h	2007-09-17 10:26:58.000000000 +0200
++++ net-2.6.24/include/linux/socket.h	2007-09-17 10:27:06.000000000 +0200
+@@ -185,6 +185,7 @@
+ #define AF_PPPOX	24	/* PPPoX sockets		*/
+ #define AF_WANPIPE	25	/* Wanpipe API Sockets */
+ #define AF_LLC		26	/* Linux LLC			*/
++#define AF_CAN		29	/* Controller Area Network      */
+ #define AF_TIPC		30	/* TIPC sockets			*/
+ #define AF_BLUETOOTH	31	/* Bluetooth sockets 		*/
+ #define AF_IUCV		32	/* IUCV sockets			*/
+@@ -220,6 +221,7 @@
+ #define PF_PPPOX	AF_PPPOX
+ #define PF_WANPIPE	AF_WANPIPE
+ #define PF_LLC		AF_LLC
++#define PF_CAN		AF_CAN
+ #define PF_TIPC		AF_TIPC
+ #define PF_BLUETOOTH	AF_BLUETOOTH
+ #define PF_IUCV		AF_IUCV
+Index: net-2.6.24/include/linux/tty.h
+===================================================================
+--- net-2.6.24.orig/include/linux/tty.h	2007-09-17 10:26:58.000000000 +0200
++++ net-2.6.24/include/linux/tty.h	2007-09-17 10:27:06.000000000 +0200
+@@ -24,7 +24,7 @@
+ #define NR_PTYS	CONFIG_LEGACY_PTY_COUNT   /* Number of legacy ptys */
+ #define NR_UNIX98_PTY_DEFAULT	4096      /* Default maximum for Unix98 ptys */
+ #define NR_UNIX98_PTY_MAX	(1 << MINORBITS) /* Absolute limit */
+-#define NR_LDISCS		17
++#define NR_LDISCS		18
  
-+CAN NETWORK LAYER
-+P:	Urs Thuermann
-+M:	urs.thuermann@volkswagen.de
-+P:	Oliver Hartkopp
-+M:	oliver.hartkopp@volkswagen.de
-+L:	socketcan-core@lists.berlios.de
-+W:	http://developer.berlios.de/projects/socketcan/
-+S:	Maintained
-+
- CALGARY x86-64 IOMMU
- P:	Muli Ben-Yehuda
- M:	muli@il.ibm.com
+ /* line disciplines */
+ #define N_TTY		0
+@@ -45,6 +45,7 @@
+ #define N_SYNC_PPP	14	/* synchronous PPP */
+ #define N_HCI		15	/* Bluetooth HCI UART */
+ #define N_GIGASET_M101	16	/* Siemens Gigaset M101 serial DECT adapter */
++#define N_SLCAN		17	/* Serial / USB serial CAN Adaptors */
+ 
+ /*
+  * This character is the same as _POSIX_VDISABLE: it cannot be used as
+Index: net-2.6.24/net/core/sock.c
+===================================================================
+--- net-2.6.24.orig/net/core/sock.c	2007-09-17 10:26:58.000000000 +0200
++++ net-2.6.24/net/core/sock.c	2007-09-17 10:27:06.000000000 +0200
+@@ -154,7 +154,7 @@
+   "sk_lock-AF_ASH"   , "sk_lock-AF_ECONET"   , "sk_lock-AF_ATMSVC"   ,
+   "sk_lock-21"       , "sk_lock-AF_SNA"      , "sk_lock-AF_IRDA"     ,
+   "sk_lock-AF_PPPOX" , "sk_lock-AF_WANPIPE"  , "sk_lock-AF_LLC"      ,
+-  "sk_lock-27"       , "sk_lock-28"          , "sk_lock-29"          ,
++  "sk_lock-27"       , "sk_lock-28"          , "sk_lock-AF_CAN"      ,
+   "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
+   "sk_lock-AF_RXRPC" , "sk_lock-AF_MAX"
+ };
+@@ -168,7 +168,7 @@
+   "slock-AF_ASH"   , "slock-AF_ECONET"   , "slock-AF_ATMSVC"   ,
+   "slock-21"       , "slock-AF_SNA"      , "slock-AF_IRDA"     ,
+   "slock-AF_PPPOX" , "slock-AF_WANPIPE"  , "slock-AF_LLC"      ,
+-  "slock-27"       , "slock-28"          , "slock-29"          ,
++  "slock-27"       , "slock-28"          , "slock-AF_CAN"      ,
+   "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
+   "slock-AF_RXRPC" , "slock-AF_MAX"
+ };
 
 --
