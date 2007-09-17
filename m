@@ -1,68 +1,41 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9031] New: TPC window is to cautious on send
-Date: Sun, 16 Sep 2007 23:43:40 -0700
-Message-ID: <20070916234340.dfe2e94e.akpm@linux-foundation.org>
-References: <bug-9031-10286@http.bugzilla.kernel.org/>
+From: "Ian Brown" <ianbrn@gmail.com>
+Subject: [RFC][PATCH] trivial typo correction in net/ipv4/xfrm4_policy.c
+Date: Mon, 17 Sep 2007 09:50:15 +0200
+Message-ID: <d0383f90709170050k3694b52id8fdcd90c4ece005@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, a@oo.ms
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:55796 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751854AbXIQGoa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 02:44:30 -0400
-In-Reply-To: <bug-9031-10286@http.bugzilla.kernel.org/>
+Received: from py-out-1112.google.com ([64.233.166.182]:55226 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752208AbXIQHuQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 03:50:16 -0400
+Received: by py-out-1112.google.com with SMTP id u77so3004271pyb
+        for <netdev@vger.kernel.org>; Mon, 17 Sep 2007 00:50:15 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 16 Sep 2007 17:02:46 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+Hello,
+  This is a  trivial typo correction in net/ipv4/xfrm4_policy.c which
+hunted my eye...
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=9031
-> 
->            Summary: TPC window is to cautious on send
->            Product: Networking
->            Version: 2.5
->      KernelVersion: Any
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@osdl.org
->         ReportedBy: a@oo.ms
-> 
-> 
-> This has been a longstanding "bug" of sorts when talking to a system that has
-> extremely small windows (under 1.5k).
-> 
-> The only way to give the stack on the other side a nudge is to ACK twice.
-> 
-> Here is a sample transcript, with a max window size of 1025 bytes.
-> 
-> 18:25:43.968358 IP dr.ea.ms.http > 192.168.80.2.40246: . 37377:37633(256) ack
-> 120 win 5840
-> 18:25:43.992402 IP 192.168.80.2.40246 > dr.ea.ms.http: . ack 37121 win 769 <mss
-> 256>
-> 18:25:44.390305 IP 192.168.80.2.40246 > dr.ea.ms.http: . ack 37121 win 1025
-> <mss 256>
-> 18:25:44.823084 IP dr.ea.ms.http > 192.168.80.2.40246: . 37633:37889(256) ack
-> 120 win 5840
-> 
-> If I take the "nudge" code out of my IP stack, it sits for an aweful long time,
-> waiting on the next packet, when there clearly is room for a few more.
-> 
-> Should I:
-> 1: Have my IP stack lie about the window till it is important?
-> 2: Something else?
-> 
-> I can't see any good reason for the large delay, since it is on a serial link,
-> via SLIP.
-> 
-> I can point you to source code that will allow you to verify the problem for
-> yourself, if you would like.
-> 
+Regards,
+Ian Brown
 
+Signed-off-by: ianbrn@gmail.com
+
+
+--- linux-2.6.23-rc5-clean/net/ipv4/xfrm4_policy.c	2007-09-01
+09:08:24.000000000 +0300
++++ linux-2.6.23-rc5/net/ipv4/xfrm4_policy.c	2007-09-17 09:36:04.000000000 +0200
+@@ -166,7 +166,7 @@
+ 		dst_prev->trailer_len	= trailer_len;
+ 		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
+
+-		/* Copy neighbout for reachability confirmation */
++		/* Copy neighbour for reachability confirmation */
+ 		dst_prev->neighbour	= neigh_clone(rt->u.dst.neighbour);
+ 		dst_prev->input		= rt->u.dst.input;
+ 		/* XXX: When IPv6 module can be unloaded, we should manage reference
