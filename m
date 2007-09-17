@@ -1,16 +1,18 @@
 From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [ofa-general] InfiniBand/RDMA merge plans for 2.6.24
-Date: Mon, 17 Sep 2007 15:11:14 -0700
-Message-ID: <adak5qplz7h.fsf@cisco.com>
-References: <adahclymos8.fsf@cisco.com> <46ECEE3F.60301@voltaire.com>
+Subject: [ofa-general] Re: [PATCH 01/11] IB/ipoib: Export call to
+	call_netdevice_notifiers and add new private flag
+Date: Mon, 17 Sep 2007 15:17:14 -0700
+Message-ID: <adabqc1lyxh.fsf@cisco.com>
+References: <11898132301664-git-send-email-fubar@us.ibm.com>
+	<11898132322950-git-send-email-fubar@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	linux-kernel@vger.kernel.org, general@lists.openfabrics.org
-To: Or Gerlitz <ogerlitz@voltaire.com>
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org, jgarzik@pobox.com,
+	davem@davemloft.net
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <46ECEE3F.60301@voltaire.com> (Or Gerlitz's message of "Sun,
-	16 Sep 2007 11:50:07 +0300")
+In-Reply-To: <11898132322950-git-send-email-fubar@us.ibm.com> (Jay Vosburgh's
+	message of "Fri, 14 Sep 2007 16:40:20 -0700")
 List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
 	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
 List-Archive: <http://lists.openfabrics.org/pipermail/general>
@@ -22,11 +24,6 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
- > The IGMP enabling patch posted by me on September 2nd isn't on your list
- > http://lists.openfabrics.org/pipermail/general/2007-September/040250.html
- > can you add it?
-
-Yes, I lost that somehow.  I will add it to my list of things to take
-a look at (no opinion yet).
-
- - R.
+I tried to look at the ipoib stuff in this series... this patch looks
+fine but it doesn't actually touch ipoib, so the subject line is a bit
+misleading...
