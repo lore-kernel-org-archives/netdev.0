@@ -1,153 +1,129 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH] bonding: update some distro-specific documentation
-Date: Mon, 17 Sep 2007 17:53:07 -0400
-Message-ID: <20070917215306.GC9140@gospo.rdu.redhat.com>
-References: <20070830212429.GA12676@gospo.rdu.redhat.com> <21001.1189189669@death>
+From: "Jon Smirl" <jonsmirl@gmail.com>
+Subject: Re: [PATCH] phy: export phy_mii_ioctl
+Date: Mon, 17 Sep 2007 18:08:27 -0400
+Message-ID: <9e4733910709171508s76c842c8hca236249617cbb44@mail.gmail.com>
+References: <20070810095153.GC13994@moe.telargo.com>
+	 <20070902074143.GB2642@nd47.coderock.org>
+	 <fa686aa40709030857j6c36c87ek60215f812864ee0f@mail.gmail.com>
+	 <20070915121444.GA19857@nd47.coderock.org>
+	 <20070917095334.GA4546@powerlinux.fr>
+	 <20070917202140.GB2642@nd47.coderock.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Jeff Garzik" <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linuxppc-embedded@ozlabs.org
+To: "Domen Puncer" <domen@coderock.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:47953 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932113AbXIQVyT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2007 17:54:19 -0400
+Received: from wa-out-1112.google.com ([209.85.146.179]:16260 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756643AbXIQWI3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 18:08:29 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so2188608wah
+        for <netdev@vger.kernel.org>; Mon, 17 Sep 2007 15:08:28 -0700 (PDT)
+In-Reply-To: <20070917202140.GB2642@nd47.coderock.org>
 Content-Disposition: inline
-In-Reply-To: <21001.1189189669@death>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 07, 2007 at 11:27:49AM -0700, Jay Vosburgh wrote:
-> Andy Gospodarek <andy@greyhouse.net> wrote:
-> 
-> 	This all looks fine except for one nit (well, request for extra
-> detail, really):
-> 
-> >@@ -802,15 +802,20 @@ BROADCAST=192.168.1.255
-> > ONBOOT=yes
-> > BOOTPROTO=none
-> > USERCTL=no
-> >+BONDING_OPTS="mode=balance-alb miimon=100"
+On 9/17/07, Domen Puncer <domen@coderock.org> wrote:
+> Export phy_mii_ioctl, so network drivers can use it when built
+> as modules too.
+
+Domen, do you want to collect all of these changes for MPC5200 FEC in
+to a single patch series? The code is getting scattered around, I'll
+check it over to make sure it is all working. I have these patches
+applied individually and they all work.
+
+It builds on this series:
+[PATCH 0/7] MPC52xx Bestcomm submission for 2.6.24
+
+If you can put this together is a clean series, I should be able to
+layer support for the Phytec pcm030 on top of it.
+
+It would be these three combined...
+
+http://coderock.org/tmp/fec-v3rc1/
+
+diff --git a/drivers/net/fec_mpc52xx/fec.c b/drivers/net/fec_mpc52xx/fec.c
+index 922e9a8..c4442e0 100644
+--- a/drivers/net/fec_mpc52xx/fec.c
++++ b/drivers/net/fec_mpc52xx/fec.c
+@@ -1087,11 +1087,13 @@ static struct of_platform_driver mpc52xx_fec_driver = {
+ /* ======================================================================== */
+ /* Module                                                                   */
+ /* ======================================================================== */
++extern int fec_mdio_init(void);
++void fec_mdio_exit(void);
+
+ static int __init
+ mpc52xx_fec_init(void)
+ {
+-#ifdef FEC_MPC52xx_MDIO
++#ifdef CONFIG_FEC_MPC52xx_MDIO
+       int ret;
+       ret = fec_mdio_init();
+       if (ret) {
+@@ -1106,7 +1108,7 @@ static void __exit
+ mpc52xx_fec_exit(void)
+ {
+       of_unregister_platform_driver(&mpc52xx_fec_driver);
+-#ifdef FEC_MPC52xx_MDIO
++#ifdef CONFIG_FEC_MPC52xx_MDIO
+       fec_mdio_exit();
+ #endif
+ }
+
+
+>
+> Signed-off-by: Domen Puncer <domen@coderock.org>
+>
+> ---
+> On 17/09/07 11:53 +0200, Sven Luther wrote:
+> > On Sat, Sep 15, 2007 at 02:14:44PM +0200, Domen Puncer wrote:
+> > > Updated and split version at:
+> > > http://coderock.org/tmp/fec-v3rc1/
+> > >
+> > > I'll repost to lists once I run-test them.
 > >
-> > 	Be sure to change the networking specific lines (IPADDR,
-> > NETMASK, NETWORK and BROADCAST) to match your network configuration.
-> >+You also need to set the BONDING_OPTS= line to specify the desired
-> >+options for your bond0 interface.  Specifying bonding options in this
-> >+way is the preferred method for configuring bonding interfaces.
-> 
-> 	Can you add something here that mentions that, for the
-> arp_ip_target option, it has to be supplied as "arp_ip_target=+10.0.0.1"
-> and not just "arp_ip_target=10.0.0.1"?  Also, multiple targets require
-> multiple instances of the arp_ip_target option; it doesn't work to put
-> multiple IP addresses as in the module option (i.e.,
-> "arp_ip_target=10.0.0.1,10.0.0.2").
-> 
-> 	This is necessary because ifup-eth isn't adding the "+" when it
-> translates the option for use with sysfs or parsing the multiple IP
-> address syntax.
-> 
-> 	-J
-> 
+> > When applying those patches, the build did die with :
+> >
+> >
+> >   ERROR: "phy_mii_ioctl" [drivers/net/fec_mpc52xx/fec_mpc52xx.ko] undefined!
+> >
+> > Apparently, phy_mii_ioctl is not an exported symbol.
+> >
+> > Domen, did you maybe forget a little snipplet when you cut the patches
+> > in different pieces ? Or did i mess up applying them ?
+> >
+> > Friendly,
+> >
+> > Sven Luther
+>
+>
+>  drivers/net/phy/phy.c |    1 +
+>  1 files changed, 1 insertion(+)
+>
+> Index: linux.git/drivers/net/phy/phy.c
+> ===================================================================
+> --- linux.git.orig/drivers/net/phy/phy.c
+> +++ linux.git/drivers/net/phy/phy.c
+> @@ -409,6 +409,7 @@ int phy_mii_ioctl(struct phy_device *phy
+>
+>         return 0;
+>  }
+> +EXPORT_SYMBOL(phy_mii_ioctl);
+>
+>  /**
+>   * phy_start_aneg - start auto-negotiation for this PHY device
+>
+> _______________________________________________
+> Linuxppc-embedded mailing list
+> Linuxppc-embedded@ozlabs.org
+> https://ozlabs.org/mailman/listinfo/linuxppc-embedded
+>
 
-Crap, I just realized I had arp_monitor (huh?) instead of arp_ip_target.
 
-
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
----
-
- bonding.txt |   53 ++++++++++++++++++++++++++++++++---------------------
- 1 files changed, 32 insertions(+), 21 deletions(-)
-
-diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
-index 1da5666..2402412 100644
---- a/Documentation/networking/bonding.txt
-+++ b/Documentation/networking/bonding.txt
-@@ -755,9 +755,9 @@ the system /etc/modules.conf or /etc/modprobe.conf configuration file.
- ------------------------------------------
- 
- 	This section applies to distros using a version of initscripts
--with bonding support, for example, Red Hat Linux 9 or Red Hat
--Enterprise Linux version 3 or 4.  On these systems, the network
--initialization scripts have some knowledge of bonding, and can be
-+with bonding support, for example, Red Hat Linux 9, Red Hat Enterprise
-+Linux version 3, 4 or 5, Fedora, etc.  On these systems, the network
-+initialization scripts have some knowledge of bonding, and can be 
- configured to control bonding devices.
- 
- 	These distros will not automatically load the network adapter
-@@ -802,18 +802,27 @@ BROADCAST=192.168.1.255
- ONBOOT=yes
- BOOTPROTO=none
- USERCTL=no
-+BONDING_OPTS="mode=active-backup arp_ip_target=+192.168.1.254"
- 
- 	Be sure to change the networking specific lines (IPADDR,
- NETMASK, NETWORK and BROADCAST) to match your network configuration.
--
--	Finally, it is necessary to edit /etc/modules.conf (or
-+You also need to set the BONDING_OPTS= line to specify the desired
-+options for your bond0 interface.  Specifying bonding options in this
-+way is the preferred method for configuring bonding interfaces.  The
-+options specified in BONDING_OPTS are identical to the bonding module
-+parameters except for the arp_ip_target field.  Each target should be
-+included as a separate address and should be preceded by a '+' to 
-+indicate it should be added to the list of queried targets.
-+
-+	It is no longer necessary to edit /etc/modules.conf (or
- /etc/modprobe.conf, depending upon your distro) to load the bonding
- module with your desired options when the bond0 interface is brought
- up.  The following lines in /etc/modules.conf (or modprobe.conf) will
--load the bonding module, and select its options:
-+load the bonding module, and select its options but this is no longer
-+the preferred method.
- 
- alias bond0 bonding
--options bond0 mode=balance-alb miimon=100
-+options bond0 mode=active-backup arp_ip_target=192.168.1.254
- 
- 	Replace the sample parameters with the appropriate set of
- options for your configuration.
-@@ -826,8 +835,9 @@ up and running.
- ---------------------------------
- 
- 	Recent versions of initscripts (the version supplied with
--Fedora Core 3 and Red Hat Enterprise Linux 4 is reported to work) do
--have support for assigning IP information to bonding devices via DHCP.
-+Fedora Core 3 and Red Hat Enterprise Linux 4 and later is reported to
-+work) do have support for assigning IP information to bonding devices
-+via DHCP.
- 
- 	To configure bonding for DHCP, configure it as described
- above, except replace the line "BOOTPROTO=none" with "BOOTPROTO=dhcp"
-@@ -837,18 +847,19 @@ is case sensitive.
- 3.2.2 Configuring Multiple Bonds with Initscripts
- -------------------------------------------------
- 
--	At this writing, the initscripts package does not directly
--support loading the bonding driver multiple times, so the process for
--doing so is the same as described in the "Configuring Multiple Bonds
--Manually" section, below.
--
--	NOTE: It has been observed that some Red Hat supplied kernels
--are apparently unable to rename modules at load time (the "-o bond1"
--part).  Attempts to pass that option to modprobe will produce an
--"Operation not permitted" error.  This has been reported on some
--Fedora Core kernels, and has been seen on RHEL 4 as well.  On kernels
--exhibiting this problem, it will be impossible to configure multiple
--bonds with differing parameters.
-+	Initscripts packages that are included with Fedora 7 and Red
-+Hat Enterprise Linux 5 support multiple bonding interfaces by simply
-+specifying the appropriate BONDING_OPTS= in ifcfg-bondX where X is
-+the number of the bond.  Other distros may not include support in
-+initscripts for multiple bonding interfaces, so you may need to follow
-+the process as described in the "Configuring Multiple Bonds Manually"
-+section, below.
-+
-+	It has been observed that much older kernels are apparently
-+unable to rename modules at load time (the "-o bond1" part).  Attempts
-+to pass that option to modprobe will produce an "Operation not 
-+permitted" error.  On kernels exhibiting this problem, it will be 
-+impossible to configure multiple bonds with differing parameters.
- 
- 3.3 Configuring Bonding Manually with Ifenslave
- -----------------------------------------------
+-- 
+Jon Smirl
+jonsmirl@gmail.com
