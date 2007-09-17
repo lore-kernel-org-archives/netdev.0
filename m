@@ -1,144 +1,41 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] include listenq max/backlog in tcp_info and related	reports
- - correct version/signorder
-Date: Mon, 17 Sep 2007 13:30:12 -0700
-Message-ID: <46EEE3D4.2070906@hp.com>
-References: <200709171950.MAA14825@tardy.cup.hp.com> <46EEDE35.8090102@psc.edu>
+From: Urs Thuermann <urs@isnogud.escape.de>
+Subject: Re: [PATCH 7/7] CAN: Add documentation
+Date: 17 Sep 2007 22:22:06 +0200
+Message-ID: <ygfps0hrqj5.fsf@janus.isnogud.escape.de>
+References: <20070917100321.18347.0@janus.isnogud.escape.de>
+	<20070917100441.18347.7@janus.isnogud.escape.de>
+	<20070917103003.109ae665.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: John Heffner <jheffner@psc.edu>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver@hartkopp.net>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs@isnogud.escape.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>
+To: Randy Dunlap <randy.dunlap@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel11.hp.com ([156.153.255.246]:41963 "EHLO palrel11.hp.com"
+Received: from oker.escape.de ([194.120.234.254]:49978 "EHLO oker.escape.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755110AbXIQUan (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2007 16:30:43 -0400
-In-Reply-To: <46EEDE35.8090102@psc.edu>
+	id S1756119AbXIQUbV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Sep 2007 16:31:21 -0400
+In-Reply-To: <20070917103003.109ae665.randy.dunlap@oracle.com>; from Randy Dunlap on Mon, 17 Sep 2007 10:30:03 -0700
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John Heffner wrote:
-> Any reason you're overloading tcpi_unacked and tcpi_sacked?  It seems 
-> that setting idiag_rqueue and idiag_wqueue are sufficient.
+Hi Randy,
 
-Different fields for different structures.   The tcp_info struct doesn't 
-have the idiag_mumble, so to get the two values shown in /proc/net/tcp I 
-use tcpi_unacked and tcpi_sacked.
-
-For the INET_DIAG_INFO stuff the idiag_mumble fields are used and that 
-then covers ss.
-
-rick
-
+> Thanks for all of this informative documentation.
 > 
->   -John
-> 
-> 
-> Rick Jones wrote:
-> 
->> Return some useful information such as the maximum listen backlog and the
->> current listen backlog in the tcp_info structure and have that match what
->> one can see in /proc/net/tcp, /proc/net/tcp6, and INET_DIAG_INFO.
->>
->> Signed-off-by: Rick Jones <rick.jones2@hp.com>
->> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
->> ---
->>
->> diff -r bdcdd0e1ee9d Documentation/networking/proc_net_tcp.txt
->> --- a/Documentation/networking/proc_net_tcp.txt    Sat Sep 01 07:00:31 
->> 2007 +0000
->> +++ b/Documentation/networking/proc_net_tcp.txt    Tue Sep 11 10:38:23 
->> 2007 -0700
->> @@ -20,8 +20,8 @@ up into 3 parts because of the length of
->>        |        |     |     |       |--> number of unrecovered RTO 
->> timeouts
->>        |        |     |     |----------> number of jiffies until timer 
->> expires
->>        |        |     |----------------> timer_active (see below)
->> -      |        |----------------------> receive-queue
->> -      |-------------------------------> transmit-queue
->> +      |        |----------------------> receive-queue or connection 
->> backlog
->> +      |-------------------------------> transmit-queue or connection 
->> limit
->>  
->>     1000        0 54165785 4 cd1e6040 25 4 27 3 -1
->>      |          |    |     |    |     |  | |  | |--> slow start size 
->> threshold, diff -r bdcdd0e1ee9d net/ipv4/tcp.c
->> --- a/net/ipv4/tcp.c    Sat Sep 01 07:00:31 2007 +0000
->> +++ b/net/ipv4/tcp.c    Tue Sep 11 10:38:23 2007 -0700
->> @@ -2030,8 +2030,14 @@ void tcp_get_info(struct sock *sk, struc
->>      info->tcpi_snd_mss = tp->mss_cache;
->>      info->tcpi_rcv_mss = icsk->icsk_ack.rcv_mss;
->>  
->> -    info->tcpi_unacked = tp->packets_out;
->> -    info->tcpi_sacked = tp->sacked_out;
->> +    if (sk->sk_state == TCP_LISTEN) {
->> +        info->tcpi_unacked = sk->sk_ack_backlog;
->> +        info->tcpi_sacked = sk->sk_max_ack_backlog;
->> +    }
->> +    else {
->> +        info->tcpi_unacked = tp->packets_out;
->> +        info->tcpi_sacked = tp->sacked_out;
->> +    }
->>      info->tcpi_lost = tp->lost_out;
->>      info->tcpi_retrans = tp->retrans_out;
->>      info->tcpi_fackets = tp->fackets_out;
->> diff -r bdcdd0e1ee9d net/ipv4/tcp_diag.c
->> --- a/net/ipv4/tcp_diag.c    Sat Sep 01 07:00:31 2007 +0000
->> +++ b/net/ipv4/tcp_diag.c    Tue Sep 11 10:38:23 2007 -0700
->> @@ -25,11 +25,14 @@ static void tcp_diag_get_info(struct soc
->>      const struct tcp_sock *tp = tcp_sk(sk);
->>      struct tcp_info *info = _info;
->>  
->> -    if (sk->sk_state == TCP_LISTEN)
->> +    if (sk->sk_state == TCP_LISTEN) {
->>          r->idiag_rqueue = sk->sk_ack_backlog;
->> -    else
->> +        r->idiag_wqueue = sk->sk_max_ack_backlog;
->> +    }
->> +    else {
->>          r->idiag_rqueue = tp->rcv_nxt - tp->copied_seq;
->> -    r->idiag_wqueue = tp->write_seq - tp->snd_una;
->> +        r->idiag_wqueue = tp->write_seq - tp->snd_una;
->> +    }
->>      if (info != NULL)
->>          tcp_get_info(sk, info);
->>  }
->> diff -r bdcdd0e1ee9d net/ipv4/tcp_ipv4.c
->> --- a/net/ipv4/tcp_ipv4.c    Sat Sep 01 07:00:31 2007 +0000
->> +++ b/net/ipv4/tcp_ipv4.c    Tue Sep 11 10:38:23 2007 -0700
->> @@ -2320,7 +2320,8 @@ static void get_tcp4_sock(struct sock *s
->>      sprintf(tmpbuf, "%4d: %08X:%04X %08X:%04X %02X %08X:%08X 
->> %02X:%08lX "
->>              "%08X %5d %8d %lu %d %p %u %u %u %u %d",
->>          i, src, srcp, dest, destp, sk->sk_state,
->> -        tp->write_seq - tp->snd_una,
->> +        sk->sk_state == TCP_LISTEN ? sk->sk_max_ack_backlog :
->> +                         (tp->write_seq - tp->snd_una),
->>          sk->sk_state == TCP_LISTEN ? sk->sk_ack_backlog :
->>                           (tp->rcv_nxt - tp->copied_seq),
->>          timer_active,
->> diff -r bdcdd0e1ee9d net/ipv6/tcp_ipv6.c
->> --- a/net/ipv6/tcp_ipv6.c    Sat Sep 01 07:00:31 2007 +0000
->> +++ b/net/ipv6/tcp_ipv6.c    Tue Sep 11 10:38:23 2007 -0700
->> @@ -2005,8 +2005,10 @@ static void get_tcp6_sock(struct seq_fil
->>             dest->s6_addr32[0], dest->s6_addr32[1],
->>             dest->s6_addr32[2], dest->s6_addr32[3], destp,
->>             sp->sk_state,
->> -           tp->write_seq-tp->snd_una,
->> -           (sp->sk_state == TCP_LISTEN) ? sp->sk_ack_backlog : 
->> (tp->rcv_nxt - tp->copied_seq),
->> +           (sp->sk_state == TCP_LISTEN) ? sp->sk_max_ack_backlog:
->> +                          tp->write_seq-tp->snd_una,
->> +           (sp->sk_state == TCP_LISTEN) ? sp->sk_ack_backlog : 
->> +                    (tp->rcv_nxt - tp->copied_seq),
->>             timer_active,
->>             jiffies_to_clock_t(timer_expires - jiffies),
->>             icsk->icsk_retransmits,
->> -
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> I have some typo/spello corrections below.
 
+Thank you very much.  I have applied all your suggestions to our SVN
+repository.  To reduce traffic on the list, I only repeat the pointer
+to the repository:
+
+http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/net-2.6.24
+
+If you request, I could send PATCH 7/7 on the list again.
+
+urs
