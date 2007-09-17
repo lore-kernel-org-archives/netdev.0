@@ -1,98 +1,152 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH 7/7] CAN: Add documentation
-Date: Mon, 17 Sep 2007 15:57:18 -0700
-Message-ID: <20070917155718.ee2cc803.randy.dunlap@oracle.com>
-References: <20070917100321.18347.0@janus.isnogud.escape.de>
-	<20070917100441.18347.7@janus.isnogud.escape.de>
-	<20070917103003.109ae665.randy.dunlap@oracle.com>
-	<ygfps0hrqj5.fsf@janus.isnogud.escape.de>
-	<1190061421.2995.44.camel@chaos>
-	<ygflkb5rp9d.fsf@janus.isnogud.escape.de>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH] bonding: update some distro-specific documentation
+Date: Mon, 17 Sep 2007 19:00:30 -0400
+Message-ID: <20070917230030.GD9140@gospo.rdu.redhat.com>
+References: <20070830212429.GA12676@gospo.rdu.redhat.com> <21001.1189189669@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Oliver Hartkopp <oliver@hartkopp.net>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-To: Urs Thuermann <urs@isnogud.escape.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:25284 "EHLO
-	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754170AbXIQW6w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 18:58:52 -0400
-In-Reply-To: <ygflkb5rp9d.fsf@janus.isnogud.escape.de>
+Received: from mx1.redhat.com ([66.187.233.31]:43444 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753400AbXIQXCp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Sep 2007 19:02:45 -0400
+Content-Disposition: inline
+In-Reply-To: <21001.1189189669@death>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 17 Sep 2007 22:49:34 +0200 Urs Thuermann wrote:
-
-> Thomas Gleixner <tglx@linutronix.de> writes:
+On Fri, Sep 07, 2007 at 11:27:49AM -0700, Jay Vosburgh wrote:
+> Andy Gospodarek <andy@greyhouse.net> wrote:
 > 
-> > Please do, having the patch in mail makes it easier to review and to
-> > comment.
+> 	This all looks fine except for one nit (well, request for extra
+> detail, really):
 > 
-> OK, here it is:
+> >@@ -802,15 +802,20 @@ BROADCAST=192.168.1.255
+> > ONBOOT=yes
+> > BOOTPROTO=none
+> > USERCTL=no
+> >+BONDING_OPTS="mode=balance-alb miimon=100"
+> >
+> > 	Be sure to change the networking specific lines (IPADDR,
+> > NETMASK, NETWORK and BROADCAST) to match your network configuration.
+> >+You also need to set the BONDING_OPTS= line to specify the desired
+> >+options for your bond0 interface.  Specifying bonding options in this
+> >+way is the preferred method for configuring bonding interfaces.
+> 
+> 	Can you add something here that mentions that, for the
+> arp_ip_target option, it has to be supplied as "arp_ip_target=+10.0.0.1"
+> and not just "arp_ip_target=10.0.0.1"?  Also, multiple targets require
+> multiple instances of the arp_ip_target option; it doesn't work to put
+> multiple IP addresses as in the module option (i.e.,
+> "arp_ip_target=10.0.0.1,10.0.0.2").
+> 
+> 	This is necessary because ifup-eth isn't adding the "+" when it
+> translates the option for use with sysfs or parsing the multiple IP
+> address syntax.
+> 
 
-Just a few more minor changes...  Thanks again.
+Third time's the charm, right?
 
+(an arp_interval parameter would be nice)
 
-> +3. Socket CAN concept
-> +---------------------
-> +
-> +  As described in chapter 2 it is the main goal of Socket CAN to
-> +  provide a socket interface to user space applications which builds
-> +  upon the Linux networklayer. In contrast to the commonly known
-
-                    network layer.
-
-> +  TCP/IP and ethernet networking, the CAN bus is a broadcast-only(!)
-> +  medium that has no MAC-layer addressing like ethernet. The CAN-identifier
-> +  (can_id) is used for arbitration on the CAN-bus. Therefore the CAN-IDs
-> +  have to be chosen uniquely on the bus. When designing a CAN-ECU
-> +  network the CAN-IDs are mapped to be sent by a specific ECU.
-> +  For this reason a CAN-ID can be treated best as a kind of source address.
-> +
-> +  3.2 loopback
-> +
-> +  As known from other networking concepts the data exchanging
-> +  applications may run on the same or different nodes without any
-> +  change (except for the according addressing information):
-> +
-> +         ___   ___   ___                   _______   ___
-> +        | _ | | _ | | _ |                 | _   _ | | _ |
-> +        ||A|| ||B|| ||C||                 ||A| |B|| ||C||
-> +        |___| |___| |___|                 |_______| |___|
-> +          |     |     |                       |       |
-> +        -----------------(1)- CAN bus -(2)---------------
-> +
-> +  To ensure that application A receives the same information in the
-> +  example (2) as it would receive in example (1) there is need for
-> +  some kind of local loopback on the appropriate node.
-> +
-> +  The Linux network devices (by default) just can handle the
-> +  transmission and reception of media dependent frames. Due to the
-> +  arbritration on the CAN bus the transmission of a low prio CAN-ID
-> +  may be delayed by the recepition of a high prio CAN frame. To
-
-                           reception
-
-> +  reflect the correct* traffic on the node the loopback of the sent
-> +  data has to be performed right after a successful transmission. If
-> +  the CAN network interface is not capable of performing the loopback for
-> +  some reason the SocketCAN core can do this task as a fallback solution.
-> +  See chapter 6.2 for details (recommended).
-> +
-> +  The loopback functionality is enabled by default to reflect standard
-> +  networking behaviour for CAN applications. Due to some requests from
-> +  the RT-SocketCAN group the loopback optionally may be disabled for each
-> +  separate socket. See sockopts from the CAN RAW sockets in chapter 4.1.
-> +
-> +  * = you really like to have this when you're running analyser tools
-> +      like 'candump' or 'cansniffer' on the (same) node.
-> +
-
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 ---
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+
+ bonding.txt |   53 ++++++++++++++++++++++++++++++++---------------------
+ 1 files changed, 32 insertions(+), 21 deletions(-)
+
+diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+index 1da5666..2402412 100644
+--- a/Documentation/networking/bonding.txt
++++ b/Documentation/networking/bonding.txt
+@@ -755,9 +755,9 @@ the system /etc/modules.conf or /etc/modprobe.conf configuration file.
+ ------------------------------------------
+ 
+ 	This section applies to distros using a version of initscripts
+-with bonding support, for example, Red Hat Linux 9 or Red Hat
+-Enterprise Linux version 3 or 4.  On these systems, the network
+-initialization scripts have some knowledge of bonding, and can be
++with bonding support, for example, Red Hat Linux 9, Red Hat Enterprise
++Linux version 3, 4 or 5, Fedora, etc.  On these systems, the network
++initialization scripts have some knowledge of bonding, and can be 
+ configured to control bonding devices.
+ 
+ 	These distros will not automatically load the network adapter
+@@ -802,18 +802,27 @@ BROADCAST=192.168.1.255
+ ONBOOT=yes
+ BOOTPROTO=none
+ USERCTL=no
++BONDING_OPTS="mode=active-backup arp_interval=60 arp_ip_target=+192.168.1.254"
+ 
+ 	Be sure to change the networking specific lines (IPADDR,
+ NETMASK, NETWORK and BROADCAST) to match your network configuration.
+-
+-	Finally, it is necessary to edit /etc/modules.conf (or
++You also need to set the BONDING_OPTS= line to specify the desired
++options for your bond0 interface.  Specifying bonding options in this
++way is the preferred method for configuring bonding interfaces.  The
++options specified in BONDING_OPTS are identical to the bonding module
++parameters except for the arp_ip_target field.  Each target should be
++included as a separate address and should be preceded by a '+' to 
++indicate it should be added to the list of queried targets.
++
++	It is no longer necessary to edit /etc/modules.conf (or
+ /etc/modprobe.conf, depending upon your distro) to load the bonding
+ module with your desired options when the bond0 interface is brought
+ up.  The following lines in /etc/modules.conf (or modprobe.conf) will
+-load the bonding module, and select its options:
++load the bonding module, and select its options but this is no longer
++the preferred method.
+ 
+ alias bond0 bonding
+-options bond0 mode=balance-alb miimon=100
++options bond0 mode=active-backup arp_interval=60 arp_ip_target=192.168.1.254
+ 
+ 	Replace the sample parameters with the appropriate set of
+ options for your configuration.
+@@ -826,8 +835,9 @@ up and running.
+ ---------------------------------
+ 
+ 	Recent versions of initscripts (the version supplied with
+-Fedora Core 3 and Red Hat Enterprise Linux 4 is reported to work) do
+-have support for assigning IP information to bonding devices via DHCP.
++Fedora Core 3 and Red Hat Enterprise Linux 4 and later is reported to
++work) do have support for assigning IP information to bonding devices
++via DHCP.
+ 
+ 	To configure bonding for DHCP, configure it as described
+ above, except replace the line "BOOTPROTO=none" with "BOOTPROTO=dhcp"
+@@ -837,18 +847,19 @@ is case sensitive.
+ 3.2.2 Configuring Multiple Bonds with Initscripts
+ -------------------------------------------------
+ 
+-	At this writing, the initscripts package does not directly
+-support loading the bonding driver multiple times, so the process for
+-doing so is the same as described in the "Configuring Multiple Bonds
+-Manually" section, below.
+-
+-	NOTE: It has been observed that some Red Hat supplied kernels
+-are apparently unable to rename modules at load time (the "-o bond1"
+-part).  Attempts to pass that option to modprobe will produce an
+-"Operation not permitted" error.  This has been reported on some
+-Fedora Core kernels, and has been seen on RHEL 4 as well.  On kernels
+-exhibiting this problem, it will be impossible to configure multiple
+-bonds with differing parameters.
++	Initscripts packages that are included with Fedora 7 and Red
++Hat Enterprise Linux 5 support multiple bonding interfaces by simply
++specifying the appropriate BONDING_OPTS= in ifcfg-bondX where X is
++the number of the bond.  Other distros may not include support in
++initscripts for multiple bonding interfaces, so you may need to follow
++the process as described in the "Configuring Multiple Bonds Manually"
++section, below.
++
++	It has been observed that much older kernels are apparently
++unable to rename modules at load time (the "-o bond1" part).  Attempts
++to pass that option to modprobe will produce an "Operation not 
++permitted" error.  On kernels exhibiting this problem, it will be 
++impossible to configure multiple bonds with differing parameters.
+ 
+ 3.3 Configuring Bonding Manually with Ifenslave
+ -----------------------------------------------
