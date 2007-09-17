@@ -1,34 +1,38 @@
-From: David Miller <davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
 Subject: Re: net-2.6.24 plans
-Date: Mon, 17 Sep 2007 16:42:57 -0700 (PDT)
-Message-ID: <20070917.164257.116355036.davem@davemloft.net>
-References: <20070917.141826.70218261.davem@davemloft.net>
+Date: Mon, 17 Sep 2007 16:49:29 -0700
+Message-ID: <20070917164929.b53ac118.akpm@linux-foundation.org>
+References: <20070916.202258.03371690.davem@davemloft.net>
+	<20070917.141826.70218261.davem@davemloft.net>
 	<20070917144037.100b3fc1.akpm@linux-foundation.org>
 	<20070917231830.GG9282@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 	jgarzik@pobox.com
-To: linville@tuxdriver.com
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36571
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753739AbXIQXnB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 19:43:01 -0400
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:52654 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753424AbXIQXuL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 19:50:11 -0400
 In-Reply-To: <20070917231830.GG9282@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Mon, 17 Sep 2007 19:18:30 -0400
+On Mon, 17 Sep 2007 19:18:30 -0400
+"John W. Linville" <linville@tuxdriver.com> wrote:
 
-> I just (minutes ago) finished the mop-up of the patch mess which
-> had accumulated on me during my KS-related travel and the subsequent
-> period of catching-up.  (I'm sure I still missed something or botched
-> something).  I think I can get an -mm suitable patch together within
-> the next few hours.
+> P.S.  Andrew, I'll send you a link to a new git-wireless.patch --
+> I'm sure you don't want a complicated git invocation...  Until then,
+> I don't think you should try pulling wireless-dev...
 
-I'm happy you're taking care of this, but it would be nice if
-you could sent this to me as patches for net-2.6.24 inclusion
-as well :-)
+OK, thanks.
+
+The stuff I have now does actually compile, although the chances of it
+actually working are epsilon.
+
+So I'd rather not breathe on it today: I'l shove it out the door as-is
+with a big "this is probably broken" label on it.   I'll at least test
+ipw2200 before doing so.
