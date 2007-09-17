@@ -1,52 +1,35 @@
-From: Rick Jones <rick.jones2@hp.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: why does tcp_v[46]_conn_request not inc MIB stats
-Date: Mon, 17 Sep 2007 11:13:05 -0700
-Message-ID: <46EEC3B1.4@hp.com>
-References: <46E5900A.3010009@hp.com> <20070914.201034.38702610.davem@davemloft.net>
+Date: Mon, 17 Sep 2007 11:26:50 -0700 (PDT)
+Message-ID: <20070917.112650.28789345.davem@davemloft.net>
+References: <46E5900A.3010009@hp.com>
+	<20070914.201034.38702610.davem@davemloft.net>
+	<46EEC3B1.4@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: rick.jones2@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel12.hp.com ([156.153.255.237]:53338 "EHLO palrel12.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753706AbXIQSNg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2007 14:13:36 -0400
-In-Reply-To: <20070914.201034.38702610.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53312
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753017AbXIQS0x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 14:26:53 -0400
+In-Reply-To: <46EEC3B1.4@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Rick Jones <rick.jones2@hp.com>
-> Date: Mon, 10 Sep 2007 11:42:18 -0700
-> 
-> 
->>I've been digging around to see about inducing /proc/net/tcp to show 
->>some "interesting" things for listen sockets (eg backlog depth, its max, 
->>and dropped connection requests).  While there I've noticed that both 
->>tcp_v[46]_syn_recv_sock and tcp_v[46]conn_request both check that the 
->>listen queue is full, but only tcp_v[46]_syn_recv_sock increments some 
->>mib stats for dropped connection requests.
-> 
-> 
-> They are checking two different things.
-> 
-> tcp_v{4,6}_conn_request is checking whether we are hitting the limit
-> for allowing the initial SYN and creating a new embryonic mini-socket.
-> Exceeding that is not a listen overflow.
 
-I'll risk some toe chewing and ask - is the embryonic limit set based on 
-  what one sets in the listen() call and/or system configs?
+I'm rebasing a 500 patch tree which has tons of merge conflicts today,
+so I lack the time to answer your question.
 
-Seems that _some_ sort of stat should be incremented, even if it isn't 
-the listen queue overflow one?
+Suffice it to say you could do a little bit of legwork to figure out
+the answer by researching inet_csk_reqsk_queue_is_full() and
+determining what sets the state tested by that function.
 
-rick jones
+But you typically don't do this, you always push the queries back
+instead of figuring it out yourself, and that doesn't scale.
 
-> tcp_v{4,6}_syn_recv_sock() is processing the end of the 3-way
-> handshake and wants to create a full established state socket to queue
-> into the listening parent.  This is checking the listening socket
-> queue limits, and indeed is a listen queue overflow if exceeded.
-
+It can't be all me folks, people have to be as self-sufficient as
+possible in order for the work to be distributed properly.
 
