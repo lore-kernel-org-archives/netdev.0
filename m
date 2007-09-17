@@ -1,44 +1,36 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [v3 PATCH 0/2] Add RCU locking to SCTPaddress management
-Date: Mon, 17 Sep 2007 09:44:45 -0400
-Message-ID: <46EE84CD.2070104@hp.com>
-References: <11897120771278-git-send-email-vladislav.yasevich@hp.com> <20070916.160102.54198849.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: dlezcano@fr.ibm.com
+Subject: [net-2.6.24][patch 0/2] Dynamically allocate the loopback
+Date: Mon, 17 Sep 2007 15:45:09 +0200
+Message-ID: <20070917134509.222896190@mai.toulouse-stg.fr.ibm.com>
+Cc: netdev@vger.kernel.org, containers@lists.osdl.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:37557 "EHLO atlrel6.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753166AbXIQNpB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2007 09:45:01 -0400
-In-Reply-To: <20070916.160102.54198849.davem@davemloft.net>
+Received: from mtagate5.de.ibm.com ([195.212.29.154]:4915 "EHLO
+	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753850AbXIQNxm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 09:53:42 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate5.de.ibm.com (8.13.8/8.13.8) with ESMTP id l8HDreh4204558
+	for <netdev@vger.kernel.org>; Mon, 17 Sep 2007 13:53:40 GMT
+Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8HDrdqi1994972
+	for <netdev@vger.kernel.org>; Mon, 17 Sep 2007 15:53:40 +0200
+Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8HDrdTZ028290
+	for <netdev@vger.kernel.org>; Mon, 17 Sep 2007 15:53:40 +0200
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Vlad Yasevich <vladislav.yasevich@hp.com>
-> Date: Thu, 13 Sep 2007 15:34:35 -0400
-> 
->> Thanks to Sridhar Samudral and Paul McKenney for all the help and comments.
->> I think this is a final version, unless someone else can spot more problems.
->> I've ran this under heavy load and it the patches behaves well.
->>
->> I think patch 1 is a candidate for 2.6.23 since it fixes a bug, but splitting
->> these seems a bit odd to me.  I'll leave it to DaveM to decide where to
->> put them.
-> 
-> Since you tested this well, I've decided to put both of these
-> patches into net-2.6
-> 
-> I agree it's stupid to split them up.
-> 
-> There'll be some merge hassles when I rebase net-2.6.24, but
-> that tree is such a monster that this is inevitable for every
-> bug fix I queue up for 2.6.23 :-)
-> 
+This patch allows to dynamically allocate the loopback
+like an usual network device.
 
-Thanks Dave.  If you want me to take a look at these issues, let me know.
+This global static variable loopback_dev has been replaced by a
+netdev pointer and the init function does the usual allocation,
+initialization and registering of the loopback.
 
--vlad
+This patchset is splitted in two parts, the first one is a big but
+trivial patch which replace the usage of the static variable loopback_dev
+by the usage of a pointer. The second patch is the interesting part where
+the loopback is dynamically allocated.
+
+-- 
