@@ -1,33 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [v2 PATCH 8/8] SCTP: Tie ADD-IP and AUTH functionality as
- required by spec.
-Date: Sun, 16 Sep 2007 19:35:12 -0700 (PDT)
-Message-ID: <20070916.193512.14943365.davem@davemloft.net>
-References: <11897955003232-git-send-email-vladislav.yasevich@hp.com>
-	<1189797290519-git-send-email-vladislav.yasevich@hp.com>
+From: Robin Getz <rgetz@blackfin.uclinux.org>
+Subject: Re: [PATCH 3/3] Blackfin EMAC driver: Add phyabstraction layer supporting in bfin_emac driver
+Date: Sun, 16 Sep 2007 22:51:01 -0400
+Message-ID: <200709162251.01558.rgetz@blackfin.uclinux.org>
+References: <1189911475.9901.8.camel@roc-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: lksctp-developers@lists.sourceforge.net, netdev@vger.kernel.org
-To: vladislav.yasevich@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60046
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751576AbXIQCfN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 22:35:13 -0400
-In-Reply-To: <1189797290519-git-send-email-vladislav.yasevich@hp.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: jeff@garzik.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: bryan.wu@analog.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1754287AbXIQCuz@vger.kernel.org>
+In-Reply-To: <1189911475.9901.8.camel@roc-laptop>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Fri, 14 Sep 2007 15:14:50 -0400
-
-> [.. forgot to refresh the patch, the other version has compile problems ..]
+On Sat 15 Sep 2007 22:57, Bryan Wu pondered:
 > 
-> ADD-IP spec requires AUTH. It is, in fact, dangerous without AUTH.
-> So, disable ADD-IP functionality if the peer claims to support
-> ADD-IP, but not AUTH.
-> 
-> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+>  - add MDIO functions and register mdio bus
+>  - add phy abstraction layer (PAL) functions and use PAL API
+>  - test on STAMP537 board
 
-Aha, I caught this and applied the correct patch.
+Today, the Kconfig for the Blackfin just includes:
+
+> config BFIN_MAC
+>         tristate "Blackfin 536/537 on-chip mac support"
+>         depends on NET_ETHERNET && (BF537 || BF536) && (!BF537_PORT_H)
+>         select CRC32
+>         select BFIN_MAC_USE_L1 if DMA_UNCACHED_NONE
+>         help
+>           This is the driver for blackfin on-chip mac device. Say Y if you
+> want it compiled into the kernel. This driver is also available as a module
+> ( = code which can be inserted in and removed from the running kernel
+> whenever you want). The module will be called bfin_mac.
+
+Since you are adding requirement for the PHYLIB with this patch, should there
+be a select for that?
+
+-Robin
