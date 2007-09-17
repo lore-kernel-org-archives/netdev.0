@@ -1,40 +1,38 @@
-From: Sven Luther <sven@powerlinux.fr>
-Subject: Re: [RFC PATCH v0.2] net driver: mpc52xx fec
-Date: Mon, 17 Sep 2007 11:53:34 +0200
-Message-ID: <20070917095334.GA4546@powerlinux.fr>
-References: <20070810095153.GC13994@moe.telargo.com> <20070902074143.GB2642@nd47.coderock.org> <fa686aa40709030857j6c36c87ek60215f812864ee0f@mail.gmail.com> <20070915121444.GA19857@nd47.coderock.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [RFC][NET_SCHED] explict hold dev tx lock
+Date: Mon, 17 Sep 2007 14:27:40 +0400
+Message-ID: <20070917102738.GA3087@2ka.mipt.ru>
+References: <1189959274.4241.30.camel@localhost> <20070916.123158.92582301.davem@davemloft.net> <1189975284.4230.14.camel@localhost> <1189975939.4230.19.camel@localhost> <1189977000.4230.25.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Grant Likely <grant.likely@secretlab.ca>, netdev@vger.kernel.org,
-	linuxppc-embedded@ozlabs.org
-To: Domen Puncer <domen@coderock.org>
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, kaber@trash.net, dada1@cosmosbay.com
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from archon.plz.fr ([194.50.78.210]:48053 "EHLO archon.plz.fr"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:42956 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753193AbXIQKVO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2007 06:21:14 -0400
+	id S1751069AbXIQK3i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Sep 2007 06:29:38 -0400
 Content-Disposition: inline
-In-Reply-To: <20070915121444.GA19857@nd47.coderock.org>
+In-Reply-To: <1189977000.4230.25.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 15, 2007 at 02:14:44PM +0200, Domen Puncer wrote:
-> Updated and split version at:
-> http://coderock.org/tmp/fec-v3rc1/
+On Sun, Sep 16, 2007 at 05:10:00PM -0400, jamal (hadi@cyberus.ca) wrote:
+> On Sun, 2007-16-09 at 16:52 -0400, jamal wrote:
 > 
-> I'll repost to lists once I run-test them.
+> > What i should say is
+> > if i grabbed the lock explicitly without disabling irqs it wont be much
+> > different than what is done today and should always work.
+> > No?
+> 
+> And to be more explicit, heres a patch using the macros from previous
+> patch. So far tested on 3 NICs.
 
-When applying those patches, the build did die with :
+How many cpu collisions you are seeing?
+Did I understand you right, that you replaced trylock with lock and
+thus removed collision handling and got better results?
 
 
-  ERROR: "phy_mii_ioctl" [drivers/net/fec_mpc52xx/fec_mpc52xx.ko] undefined!
-
-Apparently, phy_mii_ioctl is not an exported symbol.
-
-Domen, did you maybe forget a little snipplet when you cut the patches
-in different pieces ? Or did i mess up applying them ?
-
-Friendly,
-
-Sven Luther
-
+-- 
+	Evgeniy Polyakov
