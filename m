@@ -1,38 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][NETNS] Use list_for_each_entry_continue_reverse in
- setup_net
-Date: Sun, 16 Sep 2007 17:07:00 -0700 (PDT)
-Message-ID: <20070916.170700.116353255.davem@davemloft.net>
-References: <20070914220714.3a1e87f8@oldman>
-	<20070916.164914.15264075.davem@davemloft.net>
-	<m1odg2w3yv.fsf@ebiederm.dsl.xmission.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 0/10 REV5] Implement skb batching and support in
+	IPoIB/E1000
+Date: Sun, 16 Sep 2007 20:29:18 -0400
+Message-ID: <1189988958.4230.55.camel@localhost>
+References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
+	 <20070916.161748.48388692.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, xemul@openvz.org,
-	netdev@vger.kernel.org, containers@lists.osdl.org,
-	devel@openvz.org, dlezcano@fr.ibm.com
-To: ebiederm@xmission.com
+Cc: krkumar2@in.ibm.com, johnpol@2ka.mipt.ru,
+	herbert@gondor.apana.org.au, kaber@trash.net,
+	shemminger@linux-foundation.org, jagana@us.ibm.com,
+	Robert.Olsson@data.slu.se, rick.jones2@hp.com, xma@us.ibm.com,
+	gaagaan@gmail.com, netdev@vger.kernel.org, rdreier@cisco.com,
+	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
+	jeff@garzik.org, mchan@broadcom.com, general@lists.openfabrics.org,
+	kumarkr@linux.ibm.com, tgraf@suug.ch, randy.dunlap@oracle.com,
+	sri@us.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48021
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752212AbXIQAHA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 20:07:00 -0400
-In-Reply-To: <m1odg2w3yv.fsf@ebiederm.dsl.xmission.com>
+Received: from wx-out-0506.google.com ([66.249.82.237]:26487 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751347AbXIQA3X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Sep 2007 20:29:23 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1210634wxd
+        for <netdev@vger.kernel.org>; Sun, 16 Sep 2007 17:29:22 -0700 (PDT)
+In-Reply-To: <20070916.161748.48388692.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Sun, 16 Sep 2007 18:06:00 -0600
+On Sun, 2007-16-09 at 16:17 -0700, David Miller wrote:
 
-> I did that audit when I replied to Stephen the first time and I just
-> redid it to verify myself.  We are calling functions that can fail
-> from the init function (kmalloc in the most common).  So the
-> init function can fail.
-> 
-> So short of adding a bunch of BUG_ON's to the kernel to trap those
-> failure cases we can't remove the backwards list walk.  Especially
-> since I can initiate this code path as root by calling 
-> "clone(CLONE_NEWNET...)".
+> The only major complaint I have about this patch series is that
+> the IPoIB part should just be one big changeset. 
 
-I just noticed that posting and thanks for reiterating.
+Dave, you do realize that i have been investing my time working on
+batching as well, right? 
+
+cheers,
+jamal
+
+
