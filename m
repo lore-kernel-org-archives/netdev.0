@@ -1,70 +1,51 @@
-From: Hal Rosenstock <hrosenstock@xsigo.com>
-Subject: RE: [ofa-general] InfiniBand/RDMA merge plans for 2.6.24
-Date: Mon, 17 Sep 2007 06:00:15 -0700
-Message-ID: <1190034015.6272.83.camel@hrosenstock-ws.xsigo.com>
-References: <adahclymos8.fsf@cisco.com>
-	<000401c7f632$c993e8e0$65cc180a@amr.corp.intel.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC][NET_SCHED] explict hold dev tx lock
+Date: Mon, 17 Sep 2007 09:03:58 -0400
+Message-ID: <1190034238.4230.113.camel@localhost>
+References: <1189959274.4241.30.camel@localhost>
+	 <20070916.123158.92582301.davem@davemloft.net>
+	 <1189975284.4230.14.camel@localhost> <1189975939.4230.19.camel@localhost>
+	 <1189977000.4230.25.camel@localhost>  <20070917102738.GA3087@2ka.mipt.ru>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, 'Roland Dreier' <rdreier@cisco.com>,
-	linux-kernel@vger.kernel.org, general@lists.openfabrics.org
-To: Sean Hefty <sean.hefty@intel.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <000401c7f632$c993e8e0$65cc180a@amr.corp.intel.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, kaber@trash.net, dada1@cosmosbay.com
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from an-out-0708.google.com ([209.85.132.249]:63705 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754587AbXIQNEB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 09:04:01 -0400
+Received: by an-out-0708.google.com with SMTP id d31so220525and
+        for <netdev@vger.kernel.org>; Mon, 17 Sep 2007 06:04:00 -0700 (PDT)
+In-Reply-To: <20070917102738.GA3087@2ka.mipt.ru>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-09-13 at 11:20 -0700, Sean Hefty wrote:
-> > - My user_mad P_Key index support patch.  I'll test the ioctl to
-> >   change to the new mode and merge this I guess, since Hal and Sean
-> >   have tested this out.
-> 
-> I can give this patch a reviewed-by: too, and I will also try to review a couple
-> of the pending ipoib patches.
-> 
-> > - Sean's QoS changes.  These look fine at first glance, and I just
-> >   plan to understand the backwards compatibility story (ie how this
-> >   works with an old SM) and merge.  Anyone who objects let me know.
-> 
-> The new QoS fields fall into fields that are currently reserved, which should be
-> ignored by an older SM.
+On Mon, 2007-17-09 at 14:27 +0400, Evgeniy Polyakov wrote:
 
-By older, you mean one which doesn't support QoS (as indicated by the
-setting in SA's ClassPortInfo).
-
->   I've only tested this against openSM however.
-
-in non QoS mode, right ?
-
-Has anyone tested these with QoS actually be used ? I suppose this
-requires Connect-X.
-
--- Hal
-
-> > - Sean's IB CM MRA interface changes.  Don't know at this point.  It
-> >   seems OK but I'm not clear on what if any real-world improvement
-> >   this gives us.
 > 
-> This patch was generated in response to an Intel MPI issue.  We've seen MPI take
-> several minutes to respond to a connection request during the middle of large
-> application runs.  When this happens, the active side times out the connection.
-> In OFED, we added module parameters to adjust the rdma_cm connection timeout on
-> the active side, but I believe that sending an MRA from the passive side is a
-> better solution.
-> 
-> - Sean
-> _______________________________________________
-> general mailing list
-> general@lists.openfabrics.org
-> http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general
-> 
-> To unsubscribe, please visit http://openib.org/mailman/listinfo/openib-general
+> How many cpu collisions you are seeing?
+
+On 4 CPUs which were always transmitting very few - there was contention
+in the range of 100 per million attempts.
+Note: it doesnt matter that 4 cpus were busy, this lock is contended at
+max (for all NAPI drivers i poked into) between two CPUs.
+
+> Did I understand you right, that you replaced trylock with lock and
+> thus removed collision handling and got better results?
+
+Yes, a small one with the 4 CPUs and no irq binding. Note that in the
+test cases i run, the contention for queue lock was high (since all CPUs
+were busy processing traffic). 
+I think as the the number of CPUs go up, this will become more
+prominent. The choice is between contending for queue lock or this lock.
+One lock is contended by max of two cpus, the other by N cpus. As N goes
+up, you want to have more mercy on the one that is contended by N cpus.
+Did that make sense?
+
+cheers,
+jamal
+
