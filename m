@@ -1,41 +1,40 @@
-From: "Ian Brown" <ianbrn@gmail.com>
-Subject: [RFC][PATCH] trivial typo correction in net/ipv4/xfrm4_policy.c
-Date: Mon, 17 Sep 2007 09:50:15 +0200
-Message-ID: <d0383f90709170050k3694b52id8fdcd90c4ece005@mail.gmail.com>
+From: Sven Luther <sven@powerlinux.fr>
+Subject: Re: [RFC PATCH v0.2] net driver: mpc52xx fec
+Date: Mon, 17 Sep 2007 11:53:34 +0200
+Message-ID: <20070917095334.GA4546@powerlinux.fr>
+References: <20070810095153.GC13994@moe.telargo.com> <20070902074143.GB2642@nd47.coderock.org> <fa686aa40709030857j6c36c87ek60215f812864ee0f@mail.gmail.com> <20070915121444.GA19857@nd47.coderock.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Grant Likely <grant.likely@secretlab.ca>, netdev@vger.kernel.org,
+	linuxppc-embedded@ozlabs.org
+To: Domen Puncer <domen@coderock.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.182]:55226 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752208AbXIQHuQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 03:50:16 -0400
-Received: by py-out-1112.google.com with SMTP id u77so3004271pyb
-        for <netdev@vger.kernel.org>; Mon, 17 Sep 2007 00:50:15 -0700 (PDT)
+Received: from archon.plz.fr ([194.50.78.210]:48053 "EHLO archon.plz.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753193AbXIQKVO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Sep 2007 06:21:14 -0400
 Content-Disposition: inline
+In-Reply-To: <20070915121444.GA19857@nd47.coderock.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
-  This is a  trivial typo correction in net/ipv4/xfrm4_policy.c which
-hunted my eye...
+On Sat, Sep 15, 2007 at 02:14:44PM +0200, Domen Puncer wrote:
+> Updated and split version at:
+> http://coderock.org/tmp/fec-v3rc1/
+> 
+> I'll repost to lists once I run-test them.
 
-Regards,
-Ian Brown
-
-Signed-off-by: ianbrn@gmail.com
+When applying those patches, the build did die with :
 
 
---- linux-2.6.23-rc5-clean/net/ipv4/xfrm4_policy.c	2007-09-01
-09:08:24.000000000 +0300
-+++ linux-2.6.23-rc5/net/ipv4/xfrm4_policy.c	2007-09-17 09:36:04.000000000 +0200
-@@ -166,7 +166,7 @@
- 		dst_prev->trailer_len	= trailer_len;
- 		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
+  ERROR: "phy_mii_ioctl" [drivers/net/fec_mpc52xx/fec_mpc52xx.ko] undefined!
 
--		/* Copy neighbout for reachability confirmation */
-+		/* Copy neighbour for reachability confirmation */
- 		dst_prev->neighbour	= neigh_clone(rt->u.dst.neighbour);
- 		dst_prev->input		= rt->u.dst.input;
- 		/* XXX: When IPv6 module can be unloaded, we should manage reference
+Apparently, phy_mii_ioctl is not an exported symbol.
+
+Domen, did you maybe forget a little snipplet when you cut the patches
+in different pieces ? Or did i mess up applying them ?
+
+Friendly,
+
+Sven Luther
+
