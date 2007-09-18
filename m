@@ -1,67 +1,48 @@
-From: "Jon Smirl" <jonsmirl@gmail.com>
-Subject: Re: [PATCH] phy: export phy_mii_ioctl
-Date: Tue, 18 Sep 2007 15:17:37 -0400
-Message-ID: <9e4733910709181217v417438s85bb9e6b4ad4b475@mail.gmail.com>
-References: <20070810095153.GC13994@moe.telargo.com>
-	 <20070902074143.GB2642@nd47.coderock.org>
-	 <fa686aa40709030857j6c36c87ek60215f812864ee0f@mail.gmail.com>
-	 <20070915121444.GA19857@nd47.coderock.org>
-	 <20070917095334.GA4546@powerlinux.fr>
-	 <20070917202140.GB2642@nd47.coderock.org>
-	 <9e4733910709171508s76c842c8hca236249617cbb44@mail.gmail.com>
-	 <20070918151622.GD32628@nd47.coderock.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: bnx2 dirver's firmware images
+Date: Tue, 18 Sep 2007 12:20:34 -0700 (PDT)
+Message-ID: <20070918.122034.83625273.davem@davemloft.net>
+References: <1190141114.9540.216.camel@dell>
+	<20070918.112337.74737433.davem@davemloft.net>
+	<46F01BDE.6020902@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org,
-	sven@powerlinux.fr
-To: "Domen Puncer" <domen@coderock.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.191]:28974 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753364AbXIRTRi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 15:17:38 -0400
-Received: by rv-out-0910.google.com with SMTP id k20so1682540rvb
-        for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 12:17:37 -0700 (PDT)
-In-Reply-To: <20070918151622.GD32628@nd47.coderock.org>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: mchan@broadcom.com, vda.linux@googlemail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: hpa@zytor.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758626AbXIRTVo@vger.kernel.org>
+In-Reply-To: <46F01BDE.6020902@zytor.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/18/07, Domen Puncer <domen@coderock.org> wrote:
-> More testing and getting it to work properly on Phytec pcm030 would
-> be great.
+From: "H. Peter Anvin" <hpa@zytor.com>
+Date: Tue, 18 Sep 2007 11:41:34 -0700
 
-I compiled it as a module:
-  CC [M]  drivers/net/fec_mpc52xx/fec.o
-drivers/net/fec_mpc52xx/fec.c:613: warning: 'mpc52xx_fec_mac_setup'
-defined but not used
+> David Miller wrote:
+> > 
+> > I don't like it because it means people have to setup full initrd's
+> > in order to do network booting with such network cards.
+> > 
+> 
+> klibc could help with that, if there is interest in exploring that
+> avenue again.
 
-This code needs to be enclosed in "#ifndef MODULE". But why aren't you
-using module_param() to make a string parameter and then copy it into
-mpc52xx_fec_mac_addr[] if the parameter is not null?
+I appreciate the effort you put into klibc and the offer to
+make initrd's easier to build.
 
-If it is a module param you need to use
-fec_mpc52xx_phy.mpc52xx-mac="xxxx" instead of just mpc52xx-mac. The
-way it is not you can't use mpc52xx-mac when built as a module.
+But the point is that the initrd shouldn't be necessary in the first
+place.  There becomes zero point in building these drivers statically
+into the kernel, which many of us do specifically to avoid module
+loading, initrds, and all that fuss.  Because the driver is totally
+crippled even though it's been fully built into the main kernel image.
 
-static int __init mpc52xx_fec_mac_setup(char *mac_address)
-{
-        int i;
-        u64 val64;
+I mean, it's so incredibly stupid and makes kernel development that
+much more difficult.
 
-        val64 = simple_strtoull(mac_address, NULL, 16);
+Every new dependency, be it requiring initrd or something else,
+is one more barrier added to kernel development.
 
-        for (i = 0; i < 6; i++)
-                mpc52xx_fec_mac_addr[5-i] = val64 >> (i*8);
-
-        return 0;
-}
-
-__setup("mpc52xx-mac=", mpc52xx_fec_mac_setup);
-
-
-
--- 
-Jon Smirl
-jonsmirl@gmail.com
+I really pine for the days where everything was so simple, and initrd
+and modules were the odd ball cases, most developers built everything
+into their kernel image.
