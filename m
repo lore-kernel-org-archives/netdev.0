@@ -1,133 +1,95 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: [PATCH 7/7] CAN: Add documentation
-Date: Tue, 18 Sep 2007 02:51:44 -0400
-Message-ID: <20070918025144.71dcb85b.billfink@mindspring.com>
-References: <20070917100321.18347.0@janus.isnogud.escape.de>
-	<20070917100441.18347.7@janus.isnogud.escape.de>
-	<20070917103003.109ae665.randy.dunlap@oracle.com>
-	<ygfps0hrqj5.fsf@janus.isnogud.escape.de>
-	<1190061421.2995.44.camel@chaos>
-	<ygflkb5rp9d.fsf@janus.isnogud.escape.de>
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Subject: Re: [ofa-general] InfiniBand/RDMA merge plans for 2.6.24
+Date: Tue, 18 Sep 2007 09:09:49 +0200
+Message-ID: <200709180909.50029.jackm@dev.mellanox.co.il>
+References: <adahclymos8.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Randy Dunlap <randy.dunlap@oracle.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Oliver Hartkopp <oliver@hartkopp.net>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-To: Urs Thuermann <urs@isnogud.escape.de>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Roland Dreier <rdreier@cisco.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, tziporet@mellanox.co.il
+To: general@lists.openfabrics.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-junco.atl.sa.earthlink.net ([209.86.89.63]:35817 "EHLO
-	elasmtp-junco.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753986AbXIRGwg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 02:52:36 -0400
-In-Reply-To: <ygflkb5rp9d.fsf@janus.isnogud.escape.de>
+Received: from ug-out-1314.google.com ([66.249.92.169]:62692 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754189AbXIRHFW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 03:05:22 -0400
+Received: by ug-out-1314.google.com with SMTP id z38so50372ugc
+        for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 00:05:20 -0700 (PDT)
+In-Reply-To: <adahclymos8.fsf@cisco.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 17 Sep 2007, Urs Thuermann wrote:
+On Thursday 13 September 2007 20:57, Roland Dreier wrote:
+> HW specific:
+>=20
+> =A0- I already merged patches to enable MSI-X by default for mthca an=
+d
+> =A0 =A0mlx4. =A0I hope there aren't too many systems that get hosed i=
+f a
+> =A0 =A0MSI-X interrupt is generated.
+>=20
+> =A0- Jack and Michael's mlx4 FMR support. =A0Will merge I guess, alth=
+ough
+> =A0 =A0I do hope to have time to address the DMA API abuse that is be=
+ing
+> =A0 =A0copied from mthca, so that mlx4 and mthca work in Xen domU.
+>=20
+> =A0- ehca patch queue. =A0Will merge, pending fixes for the few minor
+> =A0 =A0issues I commented on.
+>=20
+> =A0- Steve's mthca router mode support. =A0Would be nice to see a rev=
+iew
+> =A0 =A0from someone at Mellanox.
+>=20
+> =A0- Arthur's mthca doorbell alignment fixes. =A0I will experiment wi=
+th a
+> =A0 =A0few different approaches and post what I like (and fix mlx4 as
+> =A0 =A0well). =A0I hope Arthur can review.
+>=20
+> =A0- Michael's mlx4 WQE shrinking patch. =A0Not sure yet; I'll reply =
+to
+> =A0 =A0the latest patch directly.
+>=20
+Missing from this list (IMPORTANT patch!):
+[ofa-general] [PATCH 2 of 2] IB/mlx4: Handle new FW requirement for sen=
+d request prefetching, for WQE sg lists
+(Posted by me to list on Sept 4)
+{patch header:=20
+This is an addendum to Roland's commit 0e6e74162164d908edf7889ac66dca09=
+e7505745
+(June 18). This addendum adds prefetch headroom marking processing for =
+s/g segments.
 
-> Thomas Gleixner <tglx@linutronix.de> writes:
-> 
-> > Please do, having the patch in mail makes it easier to review and to
-> > comment.
-> 
-> OK, here it is:
+We write s/g segments in reverse order into the WQE, in order to guaran=
+tee
+that the first dword of all cachelines containing s/g segments is writt=
+en last
+(overwriting the headroom invalidation pattern). The entire cacheline w=
+ill thus
+contain valid data when the invalidation pattern is overwritten.
+}
+This patch series (1 of 2 is for libmlx4, the same issue).
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
 
-One more typo.
+Also, I'm now posting (in a separate post) the following patch to mlx4,=
+ which is important:
+  display the following device information via sysfs:
+  board_id, fw_ver, hw_rev, hca_type.
 
-> This patch adds documentation for the PF_CAN protocol family.
-> 
-> Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-> Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
-> 
-> ---
->  Documentation/networking/00-INDEX |    2 
->  Documentation/networking/can.txt  |  635 ++++++++++++++++++++++++++++++++++++++
->  2 files changed, 637 insertions(+)
-> 
-> Index: net-2.6.24/Documentation/networking/can.txt
-> ===================================================================
-> --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-> +++ net-2.6.24/Documentation/networking/can.txt	2007-09-17 21:57:29.000000000 +0200
-> @@ -0,0 +1,635 @@
-> +============================================================================
-> +
-> +can.txt
-> +
-> +Readme file for the Controller Area Network Protocol Family (aka Socket CAN)
-> +
-> +This file contains
-> +
-> +  1 Overview / What is Socket CAN
-> +
-> +  2 Motivation / Why using the socket API
-> +
+  The info is displayed under directory /sys/class/infiniband/mlx4_x, w=
+here x is
+  the pci bus sequence number (starting from zero).
 
-...
+  This patch makes information available to ibstat and ibv_devinfo unde=
+r the
+  same directory as is used for tavor/arbel/sinai -- thus requiring no =
+userspace
+  modifications.
 
-> +============================================================================
-> +
-> +1. Overview / What is Socket CAN
-> +--------------------------------
-> +
-> +The socketcan package is an implementation of CAN protocols
-> +(Controller Area Network) for Linux.  CAN is a networking technology
-> +which has widespread use in automation, embedded devices, and
-> +automotive fields.  While there have been other CAN implementations
-> +for Linux based on character devices, Socket CAN uses the Berkeley
-> +socket API, the Linux network stack and implements the CAN device
-> +drivers as network interfaces.  The CAN socket API has been designed
-> +as similar as possible to the TCP/IP protocols to allow programmers,
-> +familiar with network programming, to easily learn how to use CAN
-> +sockets.
-> +
-> +2. Motivation / Why using the socket API
-> +----------------------------------------
-> +
-> +There have been CAN implementations for Linux before Socket CAN so the
-> +question arises, why we have started another project.  Most existing
-> +implementations come as a device driver for some CAN hardware, they
-> +are based on character devices and provide comparatively little
-> +functionality.  Usually, there is only a hardware-specific device
-> +driver which provides a character device interface to send and
-> +receive raw CAN frames, directly to/from the controller hardware.
-> +Queueing of frames and higher-level transport protocols like ISO-TP
-> +have to be implemented in user space applications.  Also, most
-> +character-device implementations support only one single process to
-> +open the device at a time, similar to a serial interface.  Exchanging
-> +the CAN controller requires employment of another device driver and
-> +often the need for adaption of large parts of the application to the
-> +new driver's API.
-> +
-> +Socket CAN was designed to overcome all of these limitations.  A new
-> +protocol family has been implemented which provides a socket interface
-> +to user space applications and which builds upon the Linux network
-> +layer, so to use all of the provided queueing functionality.  A device
-> +driver for CAN controller hardware registers itself with the Linux
-> +network layer as a network device, so that CAN frames from the
-> +controller can be passed up to the network layer and on to the CAN
-> +protocol family module and also vice-versa.  Also, the protocol family
-> +module provides an API for transport protocol modules to register, so
-> +that any number of transport protocols can be loaded or unloaded
-> +dynamically.  In fact, the can core module alone does not provide any
-> +protocol and cannot be used without loading at least one additional
-> +protocol module.  Multiple sockets can be opened at the same time,
-> +on different or the same protocol module and they can listen/send
-> +frames on different or the same CAN IDs.  Several sockets listening on
-> +the same interface for frames with the same CAN ID are all passed the
-> +same received matching CAN frames.  An application wishing to
-> +communicate using a specific transport protocol, e.g. ISO-TP, just
-> +selects that protocol when opening the socket, and then can read and
-> +write application data byte streams, without having to deal with
-> +CAN-IDs, frames, etc.
-> +
-> +Similar functionality visible from user-space could be provided by a
-> +character decive, too, but this would lead to a technically inelegant
-> +solution for a couple of reasons:
+- Jack
 
-"decive" -> "device" above.
 
-						-Bill
