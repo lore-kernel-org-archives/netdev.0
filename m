@@ -1,34 +1,35 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: bnx2 dirver's firmware images
-Date: Tue, 18 Sep 2007 13:05:51 -0700
-Message-ID: <1190145951.9540.230.camel@dell>
-References: <200709181823.26429.vda.linux@googlemail.com>
- <1190141114.9540.216.camel@dell>
- <20070918.112337.74737433.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: new NAPI interface broken
+Date: Tue, 18 Sep 2007 12:08:10 -0700 (PDT)
+Message-ID: <20070918.120810.108807713.davem@davemloft.net>
+References: <200709071137.02801.ossthema@de.ibm.com>
+	<20070914.151252.85399360.davem@davemloft.net>
+	<200709181815.45954.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vda.linux@googlemail.com, linux-kernel@vger.kernel.org,
-	"netdev" <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757997AbXIRTIT@vger.kernel.org>
-In-Reply-To: <20070918.112337.74737433.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	themann@de.ibm.com, raisch@de.ibm.com
+To: ossthema@de.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51614
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754662AbXIRTIZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 15:08:25 -0400
+In-Reply-To: <200709181815.45954.ossthema@de.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-09-18 at 11:23 -0700, David Miller wrote:
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Date: Tue, 18 Sep 2007 18:15:45 +0200
 
-> I don't like it because it means people have to setup full initrd's
-> in order to do network booting with such network cards.
-> 
-> But the days of my opinion mattering on that issue are long gone,
-> the momentum is just too greatly behind using request_firmware()
-> across the board, so there is no reason for bnx2 to be any different.
-> 
+> One other thing I observed is that I can not unload the module as the
+> ref counter of the eth device is too low. I haven't tracked down the 
+> source of this problem yet.
 
-The bnx2 firmware changes quite frequently.  A new driver quite often
-requires new firmware to work correctly.  Splitting them up makes things
-difficult for the user.
+This is probably because of the resched device refcounting
+bug that Roland Dreier just posted a fix for.
 
-The firmware in tg3 is a lot more mature and I don't expect it to
-change.  I think tg3 is better suited for using request_firmware().
+Look for subject "Fix refcounting problem with netif_rx_reschedule()"
+
+I merge that in shortly to net-2.6.24 as well.
