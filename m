@@ -1,55 +1,70 @@
-From: "Jon Smirl" <jonsmirl@gmail.com>
-Subject: Re: [PATCH] phy: export phy_mii_ioctl
-Date: Tue, 18 Sep 2007 15:29:09 -0400
-Message-ID: <9e4733910709181229m4afe7ecr56e2411f52a84232@mail.gmail.com>
-References: <20070810095153.GC13994@moe.telargo.com>
-	 <20070902074143.GB2642@nd47.coderock.org>
-	 <fa686aa40709030857j6c36c87ek60215f812864ee0f@mail.gmail.com>
-	 <20070915121444.GA19857@nd47.coderock.org>
-	 <20070917095334.GA4546@powerlinux.fr>
-	 <20070917202140.GB2642@nd47.coderock.org>
-	 <9e4733910709171508s76c842c8hca236249617cbb44@mail.gmail.com>
-	 <20070918151622.GD32628@nd47.coderock.org>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: [PATCH] return useful listenq info in tcp_info and INET_DIAG_INFO
+Date: Tue, 18 Sep 2007 12:54:31 -0700 (PDT)
+Message-ID: <200709181954.MAA25525@tardy.cup.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=X-roman8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org,
-	sven@powerlinux.fr
-To: "Domen Puncer" <domen@coderock.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.249]:41651 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753012AbXIRT3O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 15:29:14 -0400
-Received: by an-out-0708.google.com with SMTP id d31so300376and
-        for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 12:29:13 -0700 (PDT)
-In-Reply-To: <20070918151622.GD32628@nd47.coderock.org>
-Content-Disposition: inline
+Received: from palrel12.hp.com ([156.153.255.237]:34770 "EHLO palrel12.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753526AbXIRTyz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Sep 2007 15:54:55 -0400
+Received: from tardy.cup.hp.com (tardy.cup.hp.com [15.244.56.217])
+	by palrel12.hp.com (Postfix) with ESMTP id EF88634559
+	for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 12:54:43 -0700 (PDT)
+Received: (from raj@localhost)
+	by tardy.cup.hp.com (8.9.3 (PHNE_28810)/8.9.3 SMKit7.02) id MAA25525
+	for netdev@vger.kernel.org; Tue, 18 Sep 2007 12:54:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/18/07, Domen Puncer <domen@coderock.org> wrote:
-> More testing and getting it to work properly on Phytec pcm030 would
-> be great.
+Return some useful information such as the maximum listen backlog and the
+current listen backlog in the tcp_info structure and INET_DIAG_INFO.
 
-Do we want to do anything about this?
+Signed-off-by: Rick Jones <rick.jones2@hp.com>
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+---
 
-[    1.569657] net eth0: attached phy 0 to driver Generic PHY
-[    2.576013] Sending DHCP requests .<6>PHY: f0003000:00 - Link is Up
-- 100/Full
-[    4.612000] ., OK
-[    6.764005] IP-Config: Got DHCP answer from 192.168.1.200, my
-address is 192.168.1.5
-
-What is happening is the printk for "<6>PHY: f0003000:00 - Link is Up
-- 100/Full" is done in an interrupt and it comes in the middle of the
-kernel doing DHCP and printing ... without a CR.
-
-Two possible solutions, get rid of the link-up message or wait in in
-the initial driver load until the link is up. Or we could leave it the
-way it is, but some people may report this as a bug.
-
-
--- 
-Jon Smirl
-jonsmirl@gmail.com
+diff -r bdcdd0e1ee9d net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c	Sat Sep 01 07:00:31 2007 +0000
++++ b/net/ipv4/tcp.c	Tue Sep 18 11:02:26 2007 -0700
+@@ -2030,8 +2030,14 @@ void tcp_get_info(struct sock *sk, struc
+ 	info->tcpi_snd_mss = tp->mss_cache;
+ 	info->tcpi_rcv_mss = icsk->icsk_ack.rcv_mss;
+ 
+-	info->tcpi_unacked = tp->packets_out;
+-	info->tcpi_sacked = tp->sacked_out;
++	if (sk->sk_state == TCP_LISTEN) {
++		info->tcpi_unacked = sk->sk_ack_backlog;
++		info->tcpi_sacked = sk->sk_max_ack_backlog;
++	}
++	else {
++		info->tcpi_unacked = tp->packets_out;
++		info->tcpi_sacked = tp->sacked_out;
++	}
+ 	info->tcpi_lost = tp->lost_out;
+ 	info->tcpi_retrans = tp->retrans_out;
+ 	info->tcpi_fackets = tp->fackets_out;
+diff -r bdcdd0e1ee9d net/ipv4/tcp_diag.c
+--- a/net/ipv4/tcp_diag.c	Sat Sep 01 07:00:31 2007 +0000
++++ b/net/ipv4/tcp_diag.c	Tue Sep 18 11:02:26 2007 -0700
+@@ -25,11 +25,14 @@ static void tcp_diag_get_info(struct soc
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+ 	struct tcp_info *info = _info;
+ 
+-	if (sk->sk_state == TCP_LISTEN)
++	if (sk->sk_state == TCP_LISTEN) {
+ 		r->idiag_rqueue = sk->sk_ack_backlog;
+-	else
++		r->idiag_wqueue = sk->sk_max_ack_backlog;
++	}
++	else {
+ 		r->idiag_rqueue = tp->rcv_nxt - tp->copied_seq;
+-	r->idiag_wqueue = tp->write_seq - tp->snd_una;
++		r->idiag_wqueue = tp->write_seq - tp->snd_una;
++	}
+ 	if (info != NULL)
+ 		tcp_get_info(sk, info);
+ }
