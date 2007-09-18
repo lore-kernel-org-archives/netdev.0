@@ -1,46 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: SFQ qdisc crashes with limit of 2 packets
-Date: Tue, 18 Sep 2007 19:57:14 +0200
-Message-ID: <46F0117A.4060807@trash.net>
-References: <46F0087A.3080104@redhat.com> <46F00B80.7050901@trash.net>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: [ofa-general] [PATCH net-2.6.24] Fix documentation for
+	dev_put()/dev_hold()
+Date: Tue, 18 Sep 2007 11:04:22 -0700
+Message-ID: <adasl5bkfyx.fsf_-_@cisco.com>
+References: <20070918111803.1769.60619.sendpatchset@localhost.localdomain>
+	<adawsunkg8i.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: Chuck Ebbert <cebbert@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:43014 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761516AbXIRSDz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 14:03:55 -0400
-In-Reply-To: <46F00B80.7050901@trash.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
+To: davem@davemloft.net
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <adawsunkg8i.fsf@cisco.com> (Roland Dreier's message of "Tue,
+	18 Sep 2007 10:58:37 -0700")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Chuck Ebbert wrote:
-> 
->>Limit of 1 is forbidden, crashes with 2, works with 3:
->>
->>>From disassembling sch_sfq.ko it seems that it is on line 360 of sch_sfq.c:
->>    sch->qstats.backlog -= skb->len;
->>where "skb" is an invalid pointer:
-> 
-> 
-> 
-> Is it a NULL pointer or something random?
+It looks like the comments for dev_put() and dev_hold() got reversed somehow.
 
+Signed-off-by: Roland Dreier <rolandd@cisco.com>
+---
+ include/linux/netdevice.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Never mind, I found the reason. When enqueuing the packet, sfq_enqueue
-contains an off-by-one in the limit check (which IIRC is there for a
-reason, but I can't remember right now) and drops the packet again.
-dev_queue_xmit() calls qdisc_run() anyway and the empty qdisc is
-dequeued, which is not handled by SFQ.
-
-I see three possibilities to fix this (in my preferred order):
-
-1) figure out why the off-by-one is there, if not needed remove
-2) don't dequeue qdiscs even once if empty
-3) check for NULL in sfq_dequeue
-
-So I'll try to remeber why the off-by-one is there ..
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index be5fe05..239ae68 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1030,7 +1030,7 @@ extern int		netdev_budget;
+ extern void netdev_run_todo(void);
+ 
+ /**
+- *	dev_put - get reference to device
++ *	dev_put - release reference to device
+  *	@dev: network device
+  *
+  * Hold reference to device to keep it from being freed.
+@@ -1041,7 +1041,7 @@ static inline void dev_put(struct net_device *dev)
+ }
+ 
+ /**
+- *	dev_hold - release reference to device
++ *	dev_hold - get reference to device
+  *	@dev: network device
+  *
+  * Release reference to device to allow it to be freed.
