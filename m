@@ -1,58 +1,90 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH] ucc_geth: fix compilation
-Date: Tue, 18 Sep 2007 09:04:04 -0500
-Message-ID: <E0E78DB4-3A30-4D2D-83EE-B63D6C3A1D53@kernel.crashing.org>
-References: <20070912112456.GA15556@localhost.localdomain><20070913152333.GA2381@localhost.localdomain> <C844988E-F6B9-44B9-AB78-C44E19A2E605@kernel.crashing.org> <989B956029373F45A0B8AF029708189001763D1E@zch01exm26.fsl.freescale.net>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Jeff Garzik" <jeff@garzik.org>, <linuxppc-dev@ozlabs.org>,
-	"netdev" <netdev@vger.kernel.org>
-To: "Li Yang-r58472" <LeoLi@freescale.com>
+From: "Marco Berizzi" <pupilla@hotmail.com>
+Subject: wrong arp query with policy routing
+Date: Tue, 18 Sep 2007 16:04:31 +0200
+Message-ID: <BAY103-DAV2BC129A14C4A29986CC0CB2B80@phx.gbl>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:57314 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754993AbXIROCI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Sep 2007 10:02:08 -0400
-In-Reply-To: <989B956029373F45A0B8AF029708189001763D1E@zch01exm26.fsl.freescale.net>
+Received: from bay0-omc3-s15.bay0.hotmail.com ([65.54.246.215]:52073 "EHLO
+	bay0-omc3-s15.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754316AbXIROEl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 10:04:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+1234567890123456789012345678901234567890123456789012345678901234567890
+         1         2         3         4         5         6         7
 
-On Sep 18, 2007, at 3:56 AM, Li Yang-r58472 wrote:
+Hello everybody.
+I have a pretty strange problem with linux 2.6.22.6
+This is my 'ip ru sh', 'ip a s', 'ip r s' and
+'iptables -t mangle -nvxL' output:
 
->> -----Original Message-----
->> From: linuxppc-dev-bounces+leoli=freescale.com@ozlabs.org
->> [mailto:linuxppc-dev-bounces+leoli=freescale.com@ozlabs.org]
->> On Behalf Of Kumar Gala
->> Sent: Friday, September 14, 2007 10:08 PM
->> To: Jeff Garzik
->> Cc: linuxppc-dev@ozlabs.org list; netdev
->> Subject: Re: [PATCH] ucc_geth: fix compilation
->>
->>
->> On Sep 13, 2007, at 10:23 AM, Anton Vorontsov wrote:
->>
->>> Currently qe_bd_t is used in the macro call --
->> dma_unmap_single, which
->>> is a no-op on PPC32, thus error is hidden today. Starting
->> with 2.6.24,
->>> macro will be replaced by the empty static function, and
->> erroneous use
->>> of qe_bd_t will trigger compilation error.
->>>
->>> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
->>> ---
->>
->> Jeff, I'm going to pick this up via the powerpc.git tree
->> since its currently only broken in our for-2.6.24 branch
->> (because of other changes in there).  Any issues?
->
-> Kumar,
->
-> Kim Phillips has posted the same patch to netdev list before Anton.
-> Therefore, I do prefer to use his.  Thanks
+0: from all lookup local
+32766: from all lookup main
+32767: from all lookup default
 
-No problem.  Jeff seems to have picked up some version of the fix.
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+qlen 1000
+    link/ether 00:30:05:cb:27:c1 brd ff:ff:ff:ff:ff:ff
+    inet HDSL.254/27 brd HDSL.255 scope global eth0
+3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+qlen 1000
+    link/ether 00:30:05:c2:56:0e brd ff:ff:ff:ff:ff:ff
+    inet HDSL.254/27 brd HDSL.255 scope global eth1
+    inet ADSL.134/29 brd ADSL.135 scope global eth1
+4: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+qlen 100
+    link/ether 00:04:23:d0:0f:02 brd ff:ff:ff:ff:ff:ff
+    inet 172.16.1.1/23 brd 172.16.1.255 scope global eth2
 
-- k
+HDSL.225 dev eth0  scope link
+ADSL.129 dev eth0  scope link  src ADSL.134
+ADSL.128/29 dev eth1  proto kernel  scope link  src ADSL.134
+HDSL.224/27 dev eth1  proto kernel  scope link  src HDSL.254
+172.16.0.0/23 dev eth2  proto kernel  scope link  src 172.16.1.1
+127.0.0.0/8 dev lo  scope link
+default via HDSL.225 dev eth0  metric 1
+
+Chain OUTPUT (policy ACCEPT 2476380 packets, 1183993024 bytes)
+    pkts      bytes target     prot opt in     out     source
+destination
+     312    20583 ACCEPT     all  --  *      *       0.0.0.0/0
+HDSL.224/27
+   61064  8582064 MARK       tcp  --  *      *       0.0.0.0/0
+!172.16.0.0/12       multiport dports
+20,21,80,123,443,2080,8080,8201,10000,8102,1443,81 MARK set 0x1
+       0        0 MARK       udp  --  *      *       0.0.0.0/0
+!172.16.0.0/12       multiport dports 123 MARK set 0x1
+     105     5544 MARK       all  --  *      *       0.0.0.0/0
+!172.16.0.0/12       helper match "ftp" MARK set 0x1
+
+When I try to ping ADSL.129 I get this arp request
+reply:
+
+13:00:45.156697 00:30:05:cb:27:c1 > ff:ff:ff:ff:ff:ff, ethertype ARP
+(0x0806), length 42: arp who-has ADSL.129 tell ADSL.134
+13:00:45.157459 00:1b:90:c8:47:76 > 00:30:05:cb:27:c1, ethertype ARP
+(0x0806), length 60: arp reply ADSL.129 is-at 00:1b:90:c8:47:76
+
+But I get this wrong arp request:
+
+15:12:38.246096 00:30:05:cb:27:c1 > ff:ff:ff:ff:ff:ff, ethertype ARP
+(0x0806), length 42: arp who-has ADSL.129 tell HDSL.254
+15:12:38.248568 00:07:50:7e:65:e0 > 00:30:05:cb:27:c1, ethertype ARP
+(0x0806), length 60: arp reply ADSL.129 is-at 00:07:50:7e:65:e0
+
+when I issue this:
+
+ip rule add fwmark 1 table adsl priority 400
+
+I really don't understand why linux is doing the
+arp request for ADSL.129 from HDSL.254 when
+I insert the above rule.
+This is the output from ip r s table adsl:
+
+default via ADSL.129 dev eth0
+
+
