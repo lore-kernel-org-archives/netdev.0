@@ -1,57 +1,35 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Pull request for 'r8169-for-jeff-20070914' branch
-Date: Tue, 18 Sep 2007 18:06:02 -0400
-Message-ID: <46F04BCA.7080307@pobox.com>
-References: <20070914204731.GA26189@electric-eye.fr.zoreil.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/3] Blackfin EMAC driver: add function to change the
+ MAC	address
+Date: Tue, 18 Sep 2007 18:07:38 -0400
+Message-ID: <46F04C2A.20500@garzik.org>
+References: <1189911423.9901.4.camel@roc-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	David Gundersen <gundy@iinet.net.au>,
-	Edward Hsu <edward_hsu@realtek.com.tw>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42993 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751661AbXIRWGO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Sep 2007 18:06:14 -0400
-In-Reply-To: <20070914204731.GA26189@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org
+To: bryan.wu@analog.com
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759267AbXIRWHz@vger.kernel.org>
+In-Reply-To: <1189911423.9901.4.camel@roc-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Please pull from branch 'r8169-for-jeff-20070914' in repository
+Bryan Wu wrote:
+>>From 157dfddae50708a716c2a42a314eccb9621d8793 Mon Sep 17 00:00:00 2001
+> From: Alex Landau <lirsb@yahoo.com>
+> Date: Sun, 5 Aug 2007 15:58:03 +0800
+> Subject: [PATCH] Blackfin Ethernet MAC driver: add function to change the MAC address
 > 
-> git://electric-eye.fr.zoreil.com/home/romieu/linux-2.6.git r8169-for-jeff-20070914
+> Alex Landau writes in the forums:
+>   Previously, changing the MAC address (e.g. via ifconfig) resulted
+>   in a generic function to be called that only changed a variable in
+>   memory. This patch also updated the Blackfin MAC address registers
+>   to filter the correct new MAC.
 > 
-> to get the fixes below.
-> 
-> Distance from 'netdev-2.6/upstream' (18d256761aa268fd2fb113c4fd26c400431f1dc1)
-> ------------------------------------------------------------------------------
-> 
-> ec580a20c4bec3a011972a49cf5c20fc4502f9d1
-> c8e51194b1979d08c43bc2f6cf6087cd3dd93fb6
-> 
-> Diffstat
-> --------
-> 
->  drivers/net/r8169.c |   14 +++++++++++++-
->  1 files changed, 13 insertions(+), 1 deletions(-)
-> 
-> Shortlog
-> --------
-> 
-> Edward Hsu (1):
->       r8169: correct phy parameters for the 8110SC
-> 
-> Francois Romieu (1):
->       r8169: workaround against ignored TxPoll writes (8168)
+> Signed-off-by: Alex Landau <lirsb@yahoo.com>
+> Signed-off-by: Mike Frysinger <michael.frysinger@analog.com>
+> Signed-off-by: Bryan Wu <bryan.wu@analog.com>
 
-For fixes, please base off of linux-2.6.git.  I can't push this upstream 
-immediately, since it pulls in for-2.6.24 stuff.
-
-	Jeff
-
-
-
-
+ACK patches 1-3... but can you regenerate them against 
+netdev-2.6.git#upstream (or davem/net-2.6.24.git)?
