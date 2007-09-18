@@ -1,44 +1,39 @@
-From: Andrew Morton <akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: net-2.6.24 plans
-Date: Mon, 17 Sep 2007 17:04:32 -0700
-Message-ID: <20070917170432.fe4e973c.akpm@linux-foundation.org>
-References: <20070916.202258.03371690.davem@davemloft.net>
-	<20070917.141826.70218261.davem@davemloft.net>
-	<BAE9DCEF64577A439B3A37F36F9B691C030EF13C@orsmsx418.amr.corp.intel.com>
+Date: Mon, 17 Sep 2007 17:15:24 -0700 (PDT)
+Message-ID: <20070917.171524.43502946.davem@davemloft.net>
+References: <20070917144037.100b3fc1.akpm@linux-foundation.org>
+	<20070917.163929.107941522.davem@davemloft.net>
+	<20070917165318.36a1f1a7.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linville@tuxdriver.com>, <jgarzik@pobox.com>
-To: "Nelson, Shannon" <shannon.nelson@intel.com>
+Cc: netdev@vger.kernel.org, linville@tuxdriver.com, jgarzik@pobox.com,
+	andy@greyhouse.net, romieu@fr.zoreil.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:34522 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758531AbXIRAFV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 20:05:21 -0400
-In-Reply-To: <BAE9DCEF64577A439B3A37F36F9B691C030EF13C@orsmsx418.amr.corp.intel.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39192
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756079AbXIRAPe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 20:15:34 -0400
+In-Reply-To: <20070917165318.36a1f1a7.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 17 Sep 2007 16:57:03 -0700
-"Nelson, Shannon" <shannon.nelson@intel.com> wrote:
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Mon, 17 Sep 2007 16:53:18 -0700
 
-> >From: netdev-owner@vger.kernel.org 
-> >[mailto:netdev-owner@vger.kernel.org] On Behalf Of David Miller
-> >Sent: Monday, September 17, 2007 2:18 PM
-> >To: netdev@vger.kernel.org
-> >Cc: akpm@linux-foundation.org; linville@tuxdriver.com; 
-> >jgarzik@pobox.com
-> >Subject: Re: net-2.6.24 plans
-> [...]
-> >
-> >Andrew, I removed the troublesome IOAT patch.  The only conflicts
-> >and fixes you should need at this point are:
-> >
-> [...]
+> The Tehuti driver you should probably pull from the above git tree.
 > 
-> Which IOAT patch are you referring to?
+> Andy sent me a fix-it-for-net-2.6.24 patch which I'll send.  It applies
+> on top of the git tree.
 > 
+> ipg-add-ip1000a-driver-to-kernel-tree.patch got broken by git-2.6.24 and I
+> just disabled it in Kconfig.  I'll send it anyway but someone will need to
+> repair it.  For some reason this driver doesn't have a changelog.
 
-A dopey one-liner which removes unused variable `u16 chanctrl'.  It caused
-rather a mess due to all the dma changes we have queued.  It's under control.
+I integrated and fixed up the IPG IP1000A driver, I'll work on
+the Tehuti merge after dinner.
+
+Thanks Andrew.
+
