@@ -1,59 +1,40 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: SFQ qdisc crashes with limit of 2 packets
-Date: Tue, 18 Sep 2007 13:18:50 -0400
-Message-ID: <46F0087A.3080104@redhat.com>
+From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+Subject: [ofa-general] Re: InfiniBand/RDMA merge plans for 2.6.24
+Date: Tue, 18 Sep 2007 19:22:39 +0200
+Message-ID: <20070918172239.GA23320@mellanox.co.il>
+References: <adahclymos8.fsf@cisco.com> <20070918163433.GL2050@mellanox.co.il>
+	<adafy1blwok.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:42418 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759436AbXIRRSx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Sep 2007 13:18:53 -0400
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.13.1/8.13.1) with ESMTP id l8IHIpvd022157
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 13:18:51 -0400
-Received: from mail.boston.redhat.com (mail.boston.redhat.com [172.16.76.12])
-	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id l8IHIoHj003141
-	for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 13:18:50 -0400
-Received: from [172.16.83.145] (dhcp83-145.boston.redhat.com [172.16.83.145])
-	by mail.boston.redhat.com (8.13.1/8.13.1) with ESMTP id l8IHIoni005944
-	for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 13:18:50 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@dev.mellanox.co.il>,
+	linux-kernel@vger.kernel.org, general@lists.openfabrics.org
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-Disposition: inline
+In-Reply-To: <adafy1blwok.fsf@cisco.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Limit of 1 is forbidden, crashes with 2, works with 3:
+> Quoting Roland Dreier <rdreier@cisco.com>:
+> Subject: Re: InfiniBand/RDMA merge plans for 2.6.24
+> 
+>  > Roland, could you merge the common TX CQ patch please?
+>  > It actually fixes a real problem.
+> 
+> Yes, I will, but it collides with the net-2.6.24 NAPI rework I think,
+> so it may not go in until a few days after the merge window.
+> 
+> Have you verified that the patch cures the interrupt overload issues?
 
-https://bugzilla.redhat.com/show_bug.cgi?id=219895
+Yes.
 
-=========
-
-If the defect is produced at a console (as in ctrl-alt-f<0-6>) a kernel stack
-trace can be seen the moment "ping" is invoked.  Since the stack trace is not
- written to the /var/log/messages here's part of it (manually copied):
-  syscall_call(()
-    sys_socketcall()
-      sys_sendmsg()
-        sock_sendmsg()
-          inet_sendmsg()
-            raw_sendmsg()      
-              ip_push_pending_frames()
-                ip_output()
-                  neigh_resolve_output()
-                    dev_queue_xmit()
-                      __qdisc_run()
-The location given in __qdisc_run() is 0x30/0x19b.  The value given for EIP is
-sfq_dequeue+0xf6/0x179 in the sch_sfq module.
-
->From disassembling sch_sfq.ko it seems that it is on line 360 of sch_sfq.c:
-    sch->qstats.backlog -= skb->len;
-where "skb" is an invalid pointer:
-    net/sched/sch_sfq.c:360
- 194:   ff 4d 28                decl   0x28(%ebp)
- 197:   8b 14 24                mov    (%esp),%edx
- 19a:   8b 42 60                mov    0x60(%edx),%eax ** crash **
- 19d:   29 45 58                sub    %eax,0x58(%ebp)
-
-
+-- 
+MST
