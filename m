@@ -1,90 +1,239 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: wrong arp query with policy routing
-Date: Tue, 18 Sep 2007 16:04:31 +0200
-Message-ID: <BAY103-DAV2BC129A14C4A29986CC0CB2B80@phx.gbl>
-To: <netdev@vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 3/7] CAN: Add raw protocol
+Date: Tue, 18 Sep 2007 16:13:09 +0200
+Message-ID: <46EFDCF5.3020609@trash.net>
+References: <20070917100321.18347.0@janus.isnogud.escape.de> <20070917100439.18347.3@janus.isnogud.escape.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver@hartkopp.net>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>
+To: Urs Thuermann <urs@isnogud.escape.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc3-s15.bay0.hotmail.com ([65.54.246.215]:52073 "EHLO
-	bay0-omc3-s15.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754316AbXIROEl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 10:04:41 -0400
+Received: from stinky.trash.net ([213.144.137.162]:38409 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753695AbXIROTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 10:19:48 -0400
+In-Reply-To: <20070917100439.18347.3@janus.isnogud.escape.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-1234567890123456789012345678901234567890123456789012345678901234567890
-         1         2         3         4         5         6         7
-
-Hello everybody.
-I have a pretty strange problem with linux 2.6.22.6
-This is my 'ip ru sh', 'ip a s', 'ip r s' and
-'iptables -t mangle -nvxL' output:
-
-0: from all lookup local
-32766: from all lookup main
-32767: from all lookup default
-
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    inet 127.0.0.1/8 scope host lo
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-qlen 1000
-    link/ether 00:30:05:cb:27:c1 brd ff:ff:ff:ff:ff:ff
-    inet HDSL.254/27 brd HDSL.255 scope global eth0
-3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-qlen 1000
-    link/ether 00:30:05:c2:56:0e brd ff:ff:ff:ff:ff:ff
-    inet HDSL.254/27 brd HDSL.255 scope global eth1
-    inet ADSL.134/29 brd ADSL.135 scope global eth1
-4: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-qlen 100
-    link/ether 00:04:23:d0:0f:02 brd ff:ff:ff:ff:ff:ff
-    inet 172.16.1.1/23 brd 172.16.1.255 scope global eth2
-
-HDSL.225 dev eth0  scope link
-ADSL.129 dev eth0  scope link  src ADSL.134
-ADSL.128/29 dev eth1  proto kernel  scope link  src ADSL.134
-HDSL.224/27 dev eth1  proto kernel  scope link  src HDSL.254
-172.16.0.0/23 dev eth2  proto kernel  scope link  src 172.16.1.1
-127.0.0.0/8 dev lo  scope link
-default via HDSL.225 dev eth0  metric 1
-
-Chain OUTPUT (policy ACCEPT 2476380 packets, 1183993024 bytes)
-    pkts      bytes target     prot opt in     out     source
-destination
-     312    20583 ACCEPT     all  --  *      *       0.0.0.0/0
-HDSL.224/27
-   61064  8582064 MARK       tcp  --  *      *       0.0.0.0/0
-!172.16.0.0/12       multiport dports
-20,21,80,123,443,2080,8080,8201,10000,8102,1443,81 MARK set 0x1
-       0        0 MARK       udp  --  *      *       0.0.0.0/0
-!172.16.0.0/12       multiport dports 123 MARK set 0x1
-     105     5544 MARK       all  --  *      *       0.0.0.0/0
-!172.16.0.0/12       helper match "ftp" MARK set 0x1
-
-When I try to ping ADSL.129 I get this arp request
-reply:
-
-13:00:45.156697 00:30:05:cb:27:c1 > ff:ff:ff:ff:ff:ff, ethertype ARP
-(0x0806), length 42: arp who-has ADSL.129 tell ADSL.134
-13:00:45.157459 00:1b:90:c8:47:76 > 00:30:05:cb:27:c1, ethertype ARP
-(0x0806), length 60: arp reply ADSL.129 is-at 00:1b:90:c8:47:76
-
-But I get this wrong arp request:
-
-15:12:38.246096 00:30:05:cb:27:c1 > ff:ff:ff:ff:ff:ff, ethertype ARP
-(0x0806), length 42: arp who-has ADSL.129 tell HDSL.254
-15:12:38.248568 00:07:50:7e:65:e0 > 00:30:05:cb:27:c1, ethertype ARP
-(0x0806), length 60: arp reply ADSL.129 is-at 00:07:50:7e:65:e0
-
-when I issue this:
-
-ip rule add fwmark 1 table adsl priority 400
-
-I really don't understand why linux is doing the
-arp request for ADSL.129 from HDSL.254 when
-I insert the above rule.
-This is the output from ip r s table adsl:
-
-default via ADSL.129 dev eth0
+Urs Thuermann wrote:
+> This patch adds the CAN raw protocol.
+> 
+> Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+> Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 
+Also looks good, a few minor comments below.
+
+> Index: net-2.6.24/net/can/Kconfig
+> ===================================================================
+> --- net-2.6.24.orig/net/can/Kconfig	2007-09-17 10:30:35.000000000 +0200
+> +++ net-2.6.24/net/can/Kconfig	2007-09-17 11:10:10.000000000 +0200
+> @@ -16,6 +16,32 @@
+> +config CAN_RAW_USER
+> +	bool "Allow non-root users to access Raw CAN Protocol sockets"
+> +	depends on CAN_RAW
+> +	default N
+> +	---help---
+> +	  The Controller Area Network is a local field bus transmitting only
+> +	  broadcast messages without any routing and security concepts.
+> +	  In the majority of cases the user application has to deal with
+> +	  raw CAN frames. Therefore it might be reasonable NOT to restrict
+> +	  the CAN access only to the user root
+
+
+Would it be much more trouble for userspace to use capabilities for
+this? This would allow userspace to always know what to expect, I
+don't think distributions will enable this option (which might again
+not matter since they're probably rarely used in cars :)).
+
+> +++ net-2.6.24/net/can/raw.c	2007-09-17 11:11:10.000000000 +0200
+> +
+> +#include <linux/module.h>
+> +#include <linux/init.h>
+> +#include <linux/uio.h>
+> +#include <linux/poll.h>
+> +#include <linux/net.h>
+> +#include <linux/netdevice.h>
+> +#include <linux/socket.h>
+> +#include <linux/if_arp.h>
+> +#include <linux/skbuff.h>
+> +#include <linux/can.h>
+> +#include <linux/can/core.h>
+> +#include <linux/can/raw.h>
+> +#include <net/sock.h>
+> +#include <net/net_namespace.h>
+> +
+> +#define IDENT "raw"
+> +#define CAN_RAW_VERSION CAN_VERSION
+> +static __initdata const char banner[] =
+> +	KERN_INFO "can: raw protocol (rev " CAN_RAW_VERSION ")\n";
+> +
+> +MODULE_DESCRIPTION("PF_CAN raw protocol");
+> +MODULE_LICENSE("Dual BSD/GPL");
+> +MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
+> +
+> +#ifdef CONFIG_CAN_DEBUG_CORE
+> +static int debug;
+> +module_param(debug, int, S_IRUGO);
+> +MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
+> +#endif
+> +
+> +#ifdef CONFIG_CAN_RAW_USER
+> +#define RAW_CAP (-1)
+> +#else
+> +#define RAW_CAP CAP_NET_RAW
+> +#endif
+> +
+> +#define MASK_ALL 0
+> +
+> +/*
+> + * A raw socket has a list of can_filters attached to it, each receiving
+> + * the CAN frames matching that filter.  If the filter list is empty,
+> + * no CAN frames will be received by the socket.  The default after
+> + * opening the socket, is to have one filter which receives all frames.
+> + * The filter list is allocated dynamically with the exception of the
+> + * list containing only one item.  This common case is optimized by
+> + * storing the single filter in dfilter, to avoid using dynamic memory.
+> + */
+> +
+> +struct raw_sock {
+> +	struct sock sk;
+> +	int bound;
+> +	int ifindex;
+> +	struct notifier_block notifier;
+> +	int loopback;
+> +	int recv_own_msgs;
+> +	int count;                 /* number of active filters */
+> +	struct can_filter dfilter; /* default/single filter */
+> +	struct can_filter *filter; /* pointer to filter(s) */
+> +	can_err_mask_t err_mask;
+> +};
+> +
+> +static inline struct raw_sock *raw_sk(const struct sock *sk)
+> +{
+> +	return (struct raw_sock *)sk;
+> +}
+> +
+> +static void raw_rcv(struct sk_buff *skb, void *data)
+> +{
+> +	struct sock *sk = (struct sock *)data;
+> +	struct raw_sock *ro = raw_sk(sk);
+> +	struct sockaddr_can *addr;
+> +	int error;
+> +
+> +	DBG("received skbuff %p, sk %p\n", skb, sk);
+> +	DBG_SKB(skb);
+> +
+> +	if (!ro->recv_own_msgs) {
+> +		/* check the received tx sock reference */
+> +		if (skb->sk == sk) {
+> +			DBG("trashed own tx msg\n");
+> +			kfree_skb(skb);
+> +			return;
+> +		}
+> +	}
+> +
+> +	addr = (struct sockaddr_can *)skb->cb;
+> +	memset(addr, 0, sizeof(*addr));
+> +	addr->can_family  = AF_CAN;
+> +	addr->can_ifindex = skb->dev->ifindex;
+
+
+>From a quick look it looks like there's more than enough space, but
+I guess a BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct sockaddr_can))
+in the module init path wouldn't hurt.
+
+> +
+> +	error = sock_queue_rcv_skb(sk, skb);
+> +	if (error < 0) {
+> +		DBG("sock_queue_rcv_skb failed: %d\n", error);
+> +		DBG("freeing skbuff %p\n", skb);
+> +		kfree_skb(skb);
+> +	}
+> +}
+> +
+> +static void raw_enable_filters(struct net_device *dev, struct sock *sk)
+> +{
+> +	struct raw_sock *ro = raw_sk(sk);
+> +	struct can_filter *filter = ro->filter;
+> +	int i;
+> +
+> +	for (i = 0; i < ro->count; i++) {
+> +		DBG("filter can_id %08X, can_mask %08X%s, sk %p\n",
+> +		    filter[i].can_id, filter[i].can_mask,
+> +		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
+> +
+> +		can_rx_register(dev, filter[i].can_id, filter[i].can_mask,
+> +				raw_rcv, sk, IDENT);
+
+
+Shouldn't this check for errors?
+
+> +	}
+> +}
+> +
+> +static void raw_enable_errfilter(struct net_device *dev, struct sock *sk)
+> +{
+> +	struct raw_sock *ro = raw_sk(sk);
+> +
+> +	if (ro->err_mask)
+> +		can_rx_register(dev, 0, ro->err_mask | CAN_ERR_FLAG,
+> +				raw_rcv, sk, IDENT);
+
+
+Same question here ..
+
+> +}
+> +
+> +static void raw_disable_filters(struct net_device *dev, struct sock *sk)
+> +{
+> +	struct raw_sock *ro = raw_sk(sk);
+> +	struct can_filter *filter = ro->filter;
+> +	int i;
+> +
+> +	for (i = 0; i < ro->count; i++) {
+> +		DBG("filter can_id %08X, can_mask %08X%s, sk %p\n",
+> +		    filter[i].can_id, filter[i].can_mask,
+> +		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
+> +
+> +		can_rx_unregister(dev, filter[i].can_id, filter[i].can_mask,
+> +				  raw_rcv, sk);
+> +	}
+> +}
+> +
+> +static void raw_disable_errfilter(struct net_device *dev, struct sock *sk)
+> +{
+> +	struct raw_sock *ro = raw_sk(sk);
+> +
+> +	if (ro->err_mask)
+> +		can_rx_unregister(dev, 0, ro->err_mask | CAN_ERR_FLAG,
+> +				  raw_rcv, sk);
+> +}
+> +
+> +static int raw_notifier(struct notifier_block *nb,
+> +			unsigned long msg, void *data)
+> +{
+> +	struct net_device *dev = (struct net_device *)data;
+> +	struct raw_sock *ro = container_of(nb, struct raw_sock, notifier);
+> +	struct sock *sk = &ro->sk;
+> +
+> +	DBG("msg %ld for dev %p (%s idx %d) sk %p ro->ifindex %d\n",
+> +	    msg, dev, dev->name, dev->ifindex, sk, ro->ifindex);
+> +
+> +	if (dev->nd_net != &init_net)
+> +		return NOTIFY_DONE;
+> +
+> +	if (dev->type != ARPHRD_CAN)
+> +		return NOTIFY_DONE;
+> +
+> +	if (ro->ifindex != dev->ifindex)
+> +		return NOTIFY_DONE;
+
+
+Wouldn't that be a BUG()?
