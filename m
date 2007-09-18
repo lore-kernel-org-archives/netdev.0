@@ -1,45 +1,28 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: [ofa-general] Re: [PATCH] RDMA/CMA: Use neigh_event_send() to
- initiate neighbour discovery.
-Date: Tue, 18 Sep 2007 12:23:31 -0500
-Message-ID: <46F00993.9080706@opengridcomputing.com>
-References: <20070912100025.3190.89259.stgit@dell3.ogc.int>
-	<000101c7f568$9275b520$ff0da8c0@amr.corp.intel.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: SFQ qdisc crashes with limit of 2 packets
+Date: Tue, 18 Sep 2007 19:31:44 +0200
+Message-ID: <46F00B80.7050901@trash.net>
+References: <46F0087A.3080104@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdreier@cisco.com, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: Sean Hefty <sean.hefty@intel.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <000101c7f568$9275b520$ff0da8c0@amr.corp.intel.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: Netdev <netdev@vger.kernel.org>
+To: Chuck Ebbert <cebbert@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:42542 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755766AbXIRRiY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 13:38:24 -0400
+In-Reply-To: <46F0087A.3080104@redhat.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Once this is applied upstream, I can pull it back in to ofed-1.2.5 and 
-ofed-1.3.
-
-Steve.
-
-Sean Hefty wrote:
->> RDMA/CMA: Use neigh_event_send() to initiate neighbour discovery.
->>
->> Calling arp_send() to initiate neighbour discovery (ND) doesn't do the
->> full ND protocol.  Namely, it doesn't handle retransmitting the arp
->> request if it is dropped. The function neigh_event_send() does all this.
->> Without doing full ND, rdma address resolution fails in the presence of
->> dropped arp bcast packets.
->>
->> Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+Chuck Ebbert wrote:
+> Limit of 1 is forbidden, crashes with 2, works with 3:
 > 
-> Acked-by: Sean Hefty <sean.hefty@intel.com>
-> 
-> Roland - can you please queue this up for 2.6.24?
+>>From disassembling sch_sfq.ko it seems that it is on line 360 of sch_sfq.c:
+>     sch->qstats.backlog -= skb->len;
+> where "skb" is an invalid pointer:
+
+
+Is it a NULL pointer or something random?
