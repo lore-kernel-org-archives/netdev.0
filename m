@@ -1,39 +1,68 @@
-From: Urs Thuermann <urs@isnogud.escape.de>
-Subject: Re: [PATCH 7/7] CAN: Add documentation
-Date: 18 Sep 2007 09:20:53 +0200
-Message-ID: <ygfvea88mne.fsf@janus.isnogud.escape.de>
-References: <20070917100321.18347.0@janus.isnogud.escape.de>
-	<20070917100441.18347.7@janus.isnogud.escape.de>
-	<20070917103003.109ae665.randy.dunlap@oracle.com>
-	<ygfps0hrqj5.fsf@janus.isnogud.escape.de>
-	<1190061421.2995.44.camel@chaos>
-	<ygflkb5rp9d.fsf@janus.isnogud.escape.de>
-	<20070918025144.71dcb85b.billfink@mindspring.com>
+From: "Ian Brown" <ianbrn@gmail.com>
+Subject: Re: [RFC][PATCH] trivial typo correction in net/ipv4/xfrm4_policy.c
+Date: Tue, 18 Sep 2007 09:46:15 +0200
+Message-ID: <d0383f90709180046t35a1262ax124da0776c89e0bd@mail.gmail.com>
+References: <d0383f90709170050k3694b52id8fdcd90c4ece005@mail.gmail.com>
+	 <20070917.095919.48528018.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Randy Dunlap <randy.dunlap@oracle.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Oliver Hartkopp <oliver@hartkopp.net>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Urs Thuermann <urs@isnogud.escape.de>
-To: Bill Fink <billfink@mindspring.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:42130 "EHLO oker.escape.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754051AbXIRH0P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Sep 2007 03:26:15 -0400
-In-Reply-To: <20070918025144.71dcb85b.billfink@mindspring.com>; from Bill Fink on Tue, 18 Sep 2007 02:51:44 -0400
+Received: from py-out-1112.google.com ([64.233.166.177]:26563 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754688AbXIRHqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 03:46:16 -0400
+Received: by py-out-1112.google.com with SMTP id u77so3609681pyb
+        for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 00:46:15 -0700 (PDT)
+In-Reply-To: <20070917.095919.48528018.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bill Fink <billfink@mindspring.com> writes:
+Hello,
 
-> One more typo.
+Now it seems to me ok and I hope it can be applied cleanly. The only
+change here is  "Copy neighbour" instead "Copy neighbout"  in the
+comment in net/ipv4/xfrm4_policy.c
 
-> "decive" -> "device" above.
+Regards,
+Ian Brown
 
-Thank you.  It's fixed now.
+Signed-off-by: ianbrn@gmail.com
 
-urs
+
+--- a/net/ipv4/xfrm4_policy.c	2007-09-01 09:08:24.000000000 +0300
++++ b/net/ipv4/xfrm4_policy.c	2007-09-17 09:36:04.000000000 +0200
+@@ -166,7 +166,7 @@
+ 		dst_prev->trailer_len	= trailer_len;
+ 		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
+
+-		/* Copy neighbout for reachability confirmation */
++		/* Copy neighbour for reachability confirmation */
+ 		dst_prev->neighbour	= neigh_clone(rt->u.dst.neighbour);
+ 		dst_prev->input		= rt->u.dst.input;
+ 		/* XXX: When IPv6 module can be unloaded, we should manage reference
+
+
+
+On 9/17/07, David Miller <davem@davemloft.net> wrote:
+> From: "Ian Brown" <ianbrn@gmail.com>
+> Date: Mon, 17 Sep 2007 09:50:15 +0200
+>
+> > Hello,
+> >   This is a  trivial typo correction in net/ipv4/xfrm4_policy.c which
+> > hunted my eye...
+> >
+> > Regards,
+> > Ian Brown
+> >
+> > Signed-off-by: ianbrn@gmail.com
+>
+> Your mail client word-wrapped the patch so it doesn't apply
+> cleanly, please report with full changelog et al. after
+> you've corrected this.
+>
+> Thanks.
+>
