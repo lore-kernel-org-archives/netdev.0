@@ -1,38 +1,62 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/7] CAN: Add PF_CAN core module
-Date: Tue, 18 Sep 2007 17:07:58 +0200
-Message-ID: <46EFE9CE.4060901@trash.net>
-References: <20070917100321.18347.0@janus.isnogud.escape.de>	<20070917100438.18347.2@janus.isnogud.escape.de>	<46EFD33D.8030905@trash.net> <ygfk5qoyqfa.fsf@janus.isnogud.escape.de>
+From: Domen Puncer <domen@coderock.org>
+Subject: Re: [PATCH] phy: export phy_mii_ioctl
+Date: Tue, 18 Sep 2007 17:16:22 +0200
+Message-ID: <20070918151622.GD32628@nd47.coderock.org>
+References: <20070810095153.GC13994@moe.telargo.com> <20070902074143.GB2642@nd47.coderock.org> <fa686aa40709030857j6c36c87ek60215f812864ee0f@mail.gmail.com> <20070915121444.GA19857@nd47.coderock.org> <20070917095334.GA4546@powerlinux.fr> <20070917202140.GB2642@nd47.coderock.org> <9e4733910709171508s76c842c8hca236249617cbb44@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver@hartkopp.net>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-To: Urs Thuermann <urs@isnogud.escape.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org,
+	sven@powerlinux.fr
+To: Jon Smirl <jonsmirl@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:39542 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757773AbXIRPOg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 11:14:36 -0400
-In-Reply-To: <ygfk5qoyqfa.fsf@janus.isnogud.escape.de>
+Received: from kukmak.uni-mb.si ([164.8.100.3]:50512 "EHLO kukmak.uni-mb.si"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753574AbXIRPQZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Sep 2007 11:16:25 -0400
+Content-Disposition: inline
+In-Reply-To: <9e4733910709171508s76c842c8hca236249617cbb44@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Urs Thuermann wrote:
-> Patrick McHardy <kaber@trash.net> writes:
+(I edited Cc: -jeff, +sven, hope you don't mind)
+
+On 17/09/07 18:08 -0400, Jon Smirl wrote:
+> On 9/17/07, Domen Puncer <domen@coderock.org> wrote:
+> > Export phy_mii_ioctl, so network drivers can use it when built
+> > as modules too.
 > 
+> Domen, do you want to collect all of these changes for MPC5200 FEC in
+> to a single patch series? The code is getting scattered around, I'll
+> check it over to make sure it is all working. I have these patches
+> applied individually and they all work.
 > 
->>Looks pretty good, please see below for a few comments (mostly minor
->>nitpicking, a few things that look like real bugs). Nothing that
->>couldn't be fixed after merging though.
+> It builds on this series:
+> [PATCH 0/7] MPC52xx Bestcomm submission for 2.6.24
 > 
+> If you can put this together is a clean series, I should be able to
+> layer support for the Phytec pcm030 on top of it.
 > 
-> Thank you for your review.  I'll go through it and your other mail
-> this evening/tonight.  From a fast overview it looks like most issues
-> can be fixed/changed quite easily.
+> It would be these three combined...
+> 
+> http://coderock.org/tmp/fec-v3rc1/
+
+http://coderock.org/tmp/fec-v3rc2/
+ export_phy_mii_ioctl    
+ fec_driver-bestcomm     
+ fec_driver-dts          
+ fec_driver-fec
+ fec_driver-phy     
+
+Built (on top of 7 bestcomm patches) and ran it built-in and as module
+on Efika.
+
+Order of applying only matters for phy part, which has to be after
+the fec driver.
 
 
-Agreed. No objections to putting this in 2.6.24 from my side ..
+More testing and getting it to work properly on Phytec pcm030 would
+be great.
 
+
+
+	Domen
