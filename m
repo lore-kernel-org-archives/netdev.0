@@ -1,48 +1,48 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [2/3] 2.6.23-rc6: known regressions v2
-Date: Tue, 18 Sep 2007 16:42:02 +0200
-Message-ID: <200709181642.04053.oliver@neukum.org>
-References: <46EB3E94.7080704@googlemail.com> <46EB4371.307@googlemail.com> <20070918142443.GA13304@atrey.karlin.mff.cuni.cz>
+From: Bill Davidsen <davidsen@tmr.com>
+Subject: Re: [PATCH] 2.6.22.6 NETWORKING [IPV4]: Always use source addr in
+   skb to reply packet
+Date: Tue, 18 Sep 2007 10:43:01 -0400
+Message-ID: <46EFE3F5.5070201@tmr.com>
+References: <20070918021617.GA15540@router.lepton.home> <20070917.192044.48396034.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	linux-fsdevel@vger.kernel.org,
-	Dave Kleikamp <shaggy@austin.ibm.com>,
-	jfs-discussion@lists.sourceforge.net,
-	Andy Whitcroft <apw@shadowen.org>, sct@redhat.com,
-	adilger@clusterfs.com, linux-ext4@vger.kernel.org,
-	netdev@vger.kernel.org, Shish <shish@shishnet.org>,
-	Karl Meyer <adhocrocker@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Daniel Drake <dsd@gentoo.org>,
-	linux-usb-devel@lists.sourceforge.net,
-	Florian Lohoff <flo@rfc822.org>,
-	Toralf F?rster <toralf.foerster@gmx.de>
-To: Jan Kara <jack@suse.cz>
-Return-path: <linux-ext4-owner@vger.kernel.org>
-In-Reply-To: <20070918142443.GA13304@atrey.karlin.mff.cuni.cz>
-Content-Disposition: inline
-Sender: linux-ext4-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ytht.net@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.tmr.com ([64.65.253.246]:51485 "EHLO gaimboi.tmr.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758879AbXIROoY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Sep 2007 10:44:24 -0400
+In-Reply-To: <20070917.192044.48396034.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Dienstag 18 September 2007 schrieb Jan Kara:
-> > Subject =A0 =A0 =A0 =A0 : umount triggers a warning in jfs and take=
-s almost a minute
-> > References =A0 =A0 =A0: http://lkml.org/lkml/2007/9/4/73
-> > Last known good : ?
-> > Submitter =A0 =A0 =A0 : Oliver Neukum <oliver@neukum.org>
-> > Caused-By =A0 =A0 =A0 : ?
-> > Handled-By =A0 =A0 =A0: ?
-> > Status =A0 =A0 =A0 =A0 =A0: unknown
-> =A0 I thought Shaggy asked Oliver about some details (and he did not
-> answer so far) so I'd assume Shaggy is handling this.
+David Miller wrote:
+> From: lepton <ytht.net@gmail.com>
+> Date: Tue, 18 Sep 2007 10:16:17 +0800
+> 
+>> Hi,
+>>   In some situation, icmp_reply and ip_send_reply will send
+>>   out packet with the wrong source addr, the following patch
+>>   will fix this.
+>>
+>>   I don't understand why we must use rt->rt_src in the current
+>>   code, if this is a wrong fix, please correct me.
+>>
+>> Signed-off-by: Lepton Wu <ytht.net@gmail.com>
+> 
+> That the address is wrong is your opinion only :-)
 
-I was without access to the hardware for a week. Testing will start
-tomorrow.
+Mine too, since an ICMP reply from an unexpected source IP is likely to 
+be logged as a probe and dropped.
+> 
+> Source address selection is a rather complex topic, and
+> here we are definitely purposefully using the source
+> address selected by the routing lookup for the reply.
 
-	Regards
-		Oliver
+-- 
+Bill Davidsen <davidsen@tmr.com>
+   "We have more to fear from the bungling of the incompetent than from
+the machinations of the wicked."  - from Slashdot
