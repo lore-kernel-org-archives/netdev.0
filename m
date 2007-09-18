@@ -1,62 +1,73 @@
-From: Domen Puncer <domen@coderock.org>
-Subject: Re: [PATCH] phy: export phy_mii_ioctl
-Date: Tue, 18 Sep 2007 17:16:22 +0200
-Message-ID: <20070918151622.GD32628@nd47.coderock.org>
-References: <20070810095153.GC13994@moe.telargo.com> <20070902074143.GB2642@nd47.coderock.org> <fa686aa40709030857j6c36c87ek60215f812864ee0f@mail.gmail.com> <20070915121444.GA19857@nd47.coderock.org> <20070917095334.GA4546@powerlinux.fr> <20070917202140.GB2642@nd47.coderock.org> <9e4733910709171508s76c842c8hca236249617cbb44@mail.gmail.com>
+From: Vitaly Bordug <vitb@kernel.crashing.org>
+Subject: [PATCH 2/2] [FS_ENET] Add polling support
+Date: Tue, 18 Sep 2007 20:05:35 +0400
+Message-ID: <20070918160535.13525.28254.stgit@localhost.localdomain>
+References: <20070918160527.13525.80935.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org,
-	sven@powerlinux.fr
-To: Jon Smirl <jonsmirl@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@ozlabs.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kukmak.uni-mb.si ([164.8.100.3]:50512 "EHLO kukmak.uni-mb.si"
+Received: from gate.crashing.org ([63.228.1.57]:53423 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753574AbXIRPQZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Sep 2007 11:16:25 -0400
-Content-Disposition: inline
-In-Reply-To: <9e4733910709171508s76c842c8hca236249617cbb44@mail.gmail.com>
+	id S1759433AbXIRQFs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Sep 2007 12:05:48 -0400
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: linuxppc-dev@ozlabs.org
+In-Reply-To: <20070918160527.13525.80935.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(I edited Cc: -jeff, +sven, hope you don't mind)
 
-On 17/09/07 18:08 -0400, Jon Smirl wrote:
-> On 9/17/07, Domen Puncer <domen@coderock.org> wrote:
-> > Export phy_mii_ioctl, so network drivers can use it when built
-> > as modules too.
-> 
-> Domen, do you want to collect all of these changes for MPC5200 FEC in
-> to a single patch series? The code is getting scattered around, I'll
-> check it over to make sure it is all working. I have these patches
-> applied individually and they all work.
-> 
-> It builds on this series:
-> [PATCH 0/7] MPC52xx Bestcomm submission for 2.6.24
-> 
-> If you can put this together is a clean series, I should be able to
-> layer support for the Phytec pcm030 on top of it.
-> 
-> It would be these three combined...
-> 
-> http://coderock.org/tmp/fec-v3rc1/
+Signed-off-by: Vitaly Bordug <vitb@kernel.crashing.org>
 
-http://coderock.org/tmp/fec-v3rc2/
- export_phy_mii_ioctl    
- fec_driver-bestcomm     
- fec_driver-dts          
- fec_driver-fec
- fec_driver-phy     
+---
 
-Built (on top of 7 bestcomm patches) and ran it built-in and as module
-on Efika.
-
-Order of applying only matters for phy part, which has to be after
-the fec driver.
+ drivers/net/fs_enet/fs_enet-main.c |   16 ++++++++++++++++
+ 1 files changed, 16 insertions(+), 0 deletions(-)
 
 
-More testing and getting it to work properly on Phytec pcm030 would
-be great.
+diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
+index 927cd9e..0e2d2b2 100644
+--- a/drivers/net/fs_enet/fs_enet-main.c
++++ b/drivers/net/fs_enet/fs_enet-main.c
+@@ -61,6 +61,9 @@ module_param(fs_enet_debug, int, 0);
+ MODULE_PARM_DESC(fs_enet_debug,
+ 		 "Freescale bitmapped debugging message enable value");
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++static void fs_enet_netpoll(struct net_device *dev);
++#endif
+ 
+ static void fs_set_multicast_list(struct net_device *dev)
+ {
+@@ -1049,6 +1052,10 @@ static struct net_device *fs_init_instance(struct device *dev,
+ 	ndev->stop = fs_enet_close;
+ 	ndev->get_stats = fs_enet_get_stats;
+ 	ndev->set_multicast_list = fs_set_multicast_list;
++
++#ifdef CONFIG_NET_POLL_CONTROLLER
++       ndev->poll_controller = fs_enet_netpoll;
++#endif
+ 	if (fpi->use_napi) {
+ 		ndev->poll = fs_enet_rx_napi;
+ 		ndev->weight = fpi->napi_weight;
+@@ -1275,6 +1282,15 @@ static void __exit fs_cleanup(void)
+ 	cleanup_immap();
+ }
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++static void fs_enet_netpoll(struct net_device *dev)
++{
++       disable_irq(dev->irq);
++       fs_enet_interrupt(dev->irq, dev, NULL);
++       enable_irq(dev->irq);
++}
++#endif
++
+ /**************************************************************************************/
+ 
+ module_init(fs_init);
 
-
-
-	Domen
