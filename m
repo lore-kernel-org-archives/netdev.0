@@ -1,36 +1,64 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: why does tcp_v[46]_conn_request not inc MIB stats
-Date: 18 Sep 2007 13:07:39 +0200
-Message-ID: <p73wsuow7t0.fsf@bingen.suse.de>
-References: <46E5900A.3010009@hp.com>
-	<1189461284.11066.10.camel@w-sridhar2.beaverton.ibm.com>
-	<20070914.201152.35026256.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sri@us.ibm.com, rick.jones2@hp.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:50798 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755234AbXIRLHo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Sep 2007 07:07:44 -0400
-In-Reply-To: <20070914.201152.35026256.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+From: Krishna Kumar <krkumar2@in.ibm.com>
+Subject: [ofa-general] [PATCH 1/2] IPoIB: Fix unregister_netdev hang
+Date: Tue, 18 Sep 2007 16:48:03 +0530
+Message-ID: <20070918111803.1769.60619.sendpatchset@localhost.localdomain>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, general@lists.openfabrics.org
+To: rdreier@cisco.com
+Return-path: <general-bounces@lists.openfabrics.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+While using IPoIB over EHCA (rc6 bits), unregister_netdev hangs with
+the message: "waiting for ib2 to become free.  Usage count = -515276",
+etc.
 
-> This is limiting embryonic mini-socket creation.  The listen overflow
-> should only increment when the 3-way handshake completion is aborted
-> because the listening socket limit is exceeded, which is entirely
-> different from the embryonic limit.
+The problem is that the poll handler does netif_rx_complete (which
+does a dev_put) followed by netif_rx_reschedule() to schedule for
+more receives (which again does a dev_put). This reduces refcount to
+< 0 (depending on how many times netif_rx_complete followed by
+netif_rx_reschedule was called).
 
-That's true, but I think Rick has a point in that there should 
-be some sort of (different) counter counting this.  In general
-I believe every point in the stack who drops a packet should
-have a statistics counter so that it can be later diagnosed.
+The following patch fixes the bug, but I don't know if there is some
+specific IB issue that prevents this approach.
 
-Rick, the best way to get such a counter in is to just send a patch,
-don't ask for it.
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+---
+ ipoib_ib.c |   11 ++++-------
+ 1 files changed, 4 insertions(+), 7 deletions(-)
 
--Andi
+diff -ruNp org/drivers/infiniband/ulp/ipoib/ipoib_ib.c new1/drivers/infiniband/ulp/ipoib/ipoib_ib.c
+--- org/drivers/infiniband/ulp/ipoib/ipoib_ib.c	2007-09-18 15:50:09.000000000 +0530
++++ new1/drivers/infiniband/ulp/ipoib/ipoib_ib.c	2007-09-18 16:14:20.000000000 +0530
+@@ -291,7 +291,6 @@ int ipoib_poll(struct napi_struct *napi,
+ 
+ 	done  = 0;
+ 
+-poll_more:
+ 	while (done < budget) {
+ 		int max = (budget - done);
+ 
+@@ -316,12 +315,10 @@ poll_more:
+ 	}
+ 
+ 	if (done < budget) {
+-		netif_rx_complete(dev, napi);
+-		if (unlikely(ib_req_notify_cq(priv->cq,
+-					      IB_CQ_NEXT_COMP |
+-					      IB_CQ_REPORT_MISSED_EVENTS)) &&
+-		    netif_rx_reschedule(napi))
+-			goto poll_more;
++		if (likely(!ib_req_notify_cq(priv->cq,
++					     IB_CQ_NEXT_COMP |
++					     IB_CQ_REPORT_MISSED_EVENTS)))
++			netif_rx_complete(dev, napi);
+ 	}
+ 
+ 	return done;
