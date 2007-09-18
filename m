@@ -1,39 +1,32 @@
-From: "Andy Gospodarek" <andy@greyhouse.net>
-Subject: Re: net-2.6.24 plans
-Date: Mon, 17 Sep 2007 22:13:45 -0400
-Message-ID: <bdfc5d6e0709171913t524d9959j3c5fd374e8c47bc1@mail.gmail.com>
-References: <20070917144037.100b3fc1.akpm@linux-foundation.org>
-	 <20070917.163929.107941522.davem@davemloft.net>
-	 <20070917165318.36a1f1a7.akpm@linux-foundation.org>
-	 <20070917.185157.26533038.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-2.6.24] introduce MAC_FMT/MAC_ARG
+Date: Mon, 17 Sep 2007 19:14:15 -0700
+Message-ID: <1190081655.19708.255.camel@localhost>
+References: <20070828.142216.99461544.davem@davemloft.net>
+	 <1188598563.6062.191.camel@localhost>
+	 <1189798908.19708.170.camel@localhost>
+	 <20070917.190527.42775386.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linville@tuxdriver.com, jgarzik@pobox.com, romieu@fr.zoreil.com
-To: "David Miller" <davem@davemloft.net>
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, jgarzik@pobox.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fk-out-0910.google.com ([209.85.128.190]:9573 "EHLO
-	fk-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753775AbXIRCNt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 22:13:49 -0400
-Received: by fk-out-0910.google.com with SMTP id z23so1726271fkz
-        for <netdev@vger.kernel.org>; Mon, 17 Sep 2007 19:13:47 -0700 (PDT)
-In-Reply-To: <20070917.185157.26533038.davem@davemloft.net>
-Content-Disposition: inline
+Received: from DSL022.labridge.com ([206.117.136.22]:4850 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754678AbXIRCO7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Sep 2007 22:14:59 -0400
+In-Reply-To: <20070917.190527.42775386.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/17/07, David Miller <davem@davemloft.net> wrote:
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Date: Mon, 17 Sep 2007 16:53:18 -0700
->
-> > The Tehuti driver you should probably pull from the above git tree.
->
-> Ok I added in the Tehuti driver to net-2.6.24 and made sure the
-> napi_struct conversion was good too.
->
-> That only leaves the wireless bits :-)
->
+On Mon, 2007-09-17 at 19:05 -0700, David Miller wrote:
+> Anyways, it would indeed help if you could rebase the patch
+> against net-2.6.24  It would save me a ton of time.
 
-Thanks, Dave!  I'm building it right now....
+I'll rebase it tomorrow against whatever's in
+your current net-2.6.24.
+
+cheers,  Joe
+
