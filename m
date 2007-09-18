@@ -1,30 +1,41 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: Please pull 'upstream-jgarzik' branch of wireless-2.6
-Date: Tue, 18 Sep 2007 09:54:50 +0800
-Message-ID: <1190080490.5718.54.camel@debian.sh.intel.com>
-References: <20070915132134.GD6060@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.24] introduce MAC_FMT/MAC_ARG
+Date: Mon, 17 Sep 2007 19:05:27 -0700 (PDT)
+Message-ID: <20070917.190527.42775386.davem@davemloft.net>
+References: <20070828.142216.99461544.davem@davemloft.net>
+	<1188598563.6062.191.camel@localhost>
+	<1189798908.19708.170.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, jgarzik@pobox.com
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:64441 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754381AbXIRCB4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Sep 2007 22:01:56 -0400
-In-Reply-To: <20070915132134.GD6060@tuxdriver.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44241
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754583AbXIRCFc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 22:05:32 -0400
+In-Reply-To: <1189798908.19708.170.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2007-09-15 at 09:21 -0400, John W. Linville wrote:
-> Jeff,
+From: Joe Perches <joe@perches.com>
+Date: Fri, 14 Sep 2007 12:41:48 -0700
+
+> David?  Did you ever get a chance to look at this?
+> Do you want me to rebase it against your newer net-2.4.26?
 > 
-> A few more for 2.6.24...
+> http://repo.or.cz/w/linux-2.6/trivial-mods.git
 
-Hi John, how is the iwlwifi driver going? Would you like to push it to
-Jeff for .24? Or you'd like me to create a patch against this branch?
+How can I pull from this tree?
 
-Thanks,
--yi
+davem@sunset:~/src/GIT/mac_fmt-2.6$ git pull http://repo.or.cz/w/linux-2.6/trivial-mods.git
+error: pick-rref: HEAD not found
+No such ref HEAD at http://repo.or.cz/w/linux-2.6/trivial-mods.git
+davem@sunset:~/src/GIT/mac_fmt-2.6$ 
+
+Anyways, it would indeed help if you could rebase the patch
+against net-2.6.24  It would save me a ton of time.
+
+Thanks!
