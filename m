@@ -1,8 +1,8 @@
 From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH 1/3] [PPP] L2TP: Disallow non-UDP datagram sockets
-Date: Tue, 18 Sep 2007 21:16:20 +0100
-Message-ID: <46F03214.6000601@katalix.com>
-References: <20070918120438.GA9121@gondor.apana.org.au> <E1IXbqW-0002OB-00@gondolin.me.apana.org.au>
+Subject: Re: [PATCH 2/3] [PPP] L2TP: Fix skb handling in pppol2tp_recv_core
+Date: Tue, 18 Sep 2007 21:17:12 +0100
+Message-ID: <46F03248.80902@katalix.com>
+References: <20070918120438.GA9121@gondor.apana.org.au> <E1IXbqo-0002OW-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -13,21 +13,30 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	netdev@vger.kernel.org
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s36.avahost.net ([74.53.95.194]:50538 "EHLO s36.avahost.net"
+Received: from s36.avahost.net ([74.53.95.194]:50705 "EHLO s36.avahost.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754707AbXIRUQh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Sep 2007 16:16:37 -0400
-In-Reply-To: <E1IXbqW-0002OB-00@gondolin.me.apana.org.au>
+	id S1751312AbXIRURa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Sep 2007 16:17:30 -0400
+In-Reply-To: <E1IXbqo-0002OW-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Herbert Xu wrote:
-> [PPP] L2TP: Disallow non-UDP datagram sockets
+> [PPP] L2TP: Fix skb handling in pppol2tp_recv_core
 > 
-> With the addition of UDP-Lite we need to refine the socket check so that
-> only genuine UDP sockets are allowed through.
+> The function pppol2tp_recv_core doesn't handle non-linear packets properly.
+> It also fails to check the remote offset field.
+> 
+> This patch fixes these problems.  It also removes an unnecessary check on
+> the UDP header which has already been performed by the UDP layer.
 > 
 > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
 Acked-by: James Chapman <jchapman@katalix.com>
+
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
 
