@@ -1,38 +1,73 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [ofa-general] Re: [PATCH 02/11] IB/ipoib: Notify the world before
-	doing unregister
-Date: Tue, 18 Sep 2007 10:42:57 -0700
-Message-ID: <ada3axblvj2.fsf@cisco.com>
-References: <11898132301664-git-send-email-fubar@us.ibm.com>
-	<11898132322950-git-send-email-fubar@us.ibm.com>
-	<1189813234208-git-send-email-fubar@us.ibm.com>
-	<adatzptkjyk.fsf@cisco.com> <18593.1190071438@death>
-	<adaps0glve4.fsf@cisco.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: bnx2 dirver's firmware images
+Date: Tue, 18 Sep 2007 11:45:14 -0700
+Message-ID: <1190141114.9540.216.camel@dell>
+References: <200709181823.26429.vda.linux@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jgarzik@pobox.com, davem@davemloft.net,
-	general@lists.openfabrics.org
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <adaps0glve4.fsf@cisco.com> (Roland Dreier's message of "Mon,
-	17 Sep 2007 16:33:39 -0700")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: "Denys Vlasenko" <vda.linux@googlemail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:1748 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753395AbXIRRrR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Sep 2007 13:47:17 -0400
+In-Reply-To: <200709181823.26429.vda.linux@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > Maybe this new notification function should be in net/core/dev.c
- > instead of exporting call_netdevice_notifiers()?
+On Tue, 2007-09-18 at 18:23 +0100, Denys Vlasenko wrote:
+> Hi Michael,
+> 
+> In bnx2_fw.h I see the following:
+> 
+> static u32 bnx2_RXP_b06FwBss[(0x13dc/4) + 1] = { 0x0 };
+> 
+> static struct fw_info bnx2_rxp_fw_06 = {
+> ...
+>         .bss                            = bnx2_RXP_b06FwBss,
+> ...
+> };
+> 
+> I grepped for the usage of .bss member (grepped for '[.>]bss[^_]')
+> and it is used only here:
+> 
+>         if (fw->bss) {
+>                 int j;
+> 
+>                 for (j = 0; j < (fw->bss_len/4); j++, offset += 4) {
+>                         REG_WR_IND(bp, offset, fw->bss[j]);
+>                 }
+>         }
+> 
+> If I understand it correctly, you read zero words one by one from
+> bnx2_RXP_b06FwBss and writing them into the card. This is very
+> suboptimal usage of nearly 5k of kernel unswappable memory.
+> 
+> Do you plan to fix it?
 
-Or actually, does it work to add the call to the notifiers directly in
-unregister_netdev() so that device drivers don't have to worry about it?
+We can compress all the different sections of the firmware.  Currently,
+we only compress the biggest chunks and the rest are uncompressed.
+These zeros should compress to almost nothing.  But I agree that the
+firmware is still big.
 
-(And is the existing patch missing a call to notifiers in ipoib_vlan_delete()?)
+> 
+> Do you have any plans to switch to request_firmware() interface,
+> which will allow you to avoid keeping firmware in unswappable kernel
+> memory and thus free ~80k?
 
- - R.
+Matching the correct version of the firmware with the driver is the main
+issue.
+
+David, what's your opinion on this?
+
+> 
+> $ size bnx2.o
+>    text    data     bss     dec     hex filename
+>   52255   81551    6360  140166   22386 bnx2.o
+> --
+> vda
+> 
+
