@@ -1,41 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] return useful listenq info in tcp_info and
- INET_DIAG_INFO
-Date: Tue, 18 Sep 2007 13:25:19 -0700 (PDT)
-Message-ID: <20070918.132519.51700943.davem@davemloft.net>
-References: <200709181954.MAA25525@tardy.cup.hp.com>
+Subject: Re: [PATCH 3/3] [PPP] L2TP: Fix skb handling in pppol2tp_xmit
+Date: Tue, 18 Sep 2007 13:32:40 -0700 (PDT)
+Message-ID: <20070918.133240.35800852.davem@davemloft.net>
+References: <20070918120438.GA9121@gondor.apana.org.au>
+	<E1IXbqs-0002Od-00@gondolin.me.apana.org.au>
+	<46F032D5.7020806@katalix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: rick.jones2@hp.com
+Cc: herbert@gondor.apana.org.au, mostrows@speakeasy.net,
+	paulus@samba.org, toralf.foerster@gmx.de, netdev@vger.kernel.org
+To: jchapman@katalix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41023
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53466
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753133AbXIRUZZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 16:25:25 -0400
-In-Reply-To: <200709181954.MAA25525@tardy.cup.hp.com>
+	by vger.kernel.org with ESMTP id S1753241AbXIRUcz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 16:32:55 -0400
+In-Reply-To: <46F032D5.7020806@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Tue, 18 Sep 2007 12:54:31 -0700 (PDT)
+From: James Chapman <jchapman@katalix.com>
+Date: Tue, 18 Sep 2007 21:19:33 +0100
 
-> Return some useful information such as the maximum listen backlog and the
-> current listen backlog in the tcp_info structure and INET_DIAG_INFO.
-> 
-> Signed-off-by: Rick Jones <rick.jones2@hp.com>
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> This one causes my test system to lock up. I'll investigate. Please 
+> don't apply this patch for now.
 
-Thanks Rick, I'll add this to net-2.6.24 with a minor coding
-style fix:
-
-> +	}
-> +	else {
-
-We don't split up closing braces and else clauses like this,
-it eats up a precious extra screen line :-)
-
-	} else {
-
-is the custom.
+I'll make sure not to push this until we figure out what's
+wrong, thanks for checking James.
