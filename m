@@ -1,33 +1,61 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: Please pull 'iwlwifi' branch of wireless-2.6
-Date: Tue, 18 Sep 2007 12:22:58 -0700 (PDT)
-Message-ID: <20070918.122258.82101397.davem@davemloft.net>
-References: <20070918185040.GF4940@tuxdriver.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: bnx2 dirver's firmware images
+Date: Tue, 18 Sep 2007 12:27:04 -0700
+Message-ID: <46F02688.8030507@zytor.com>
+References: <1190141114.9540.216.camel@dell>	<20070918.112337.74737433.davem@davemloft.net>	<46F01BDE.6020902@zytor.com> <20070918.122034.83625273.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070918185040.GF4940-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: mchan@broadcom.com, vda.linux@googlemail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from terminus.zytor.com ([198.137.202.10]:49144 "EHLO
+	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753365AbXIRT1P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 15:27:15 -0400
+In-Reply-To: <20070918.122034.83625273.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Tue, 18 Sep 2007 14:50:40 -0400
-
-> Jeff & Dave,
+David Miller wrote:
+> From: "H. Peter Anvin" <hpa@zytor.com>
+> Date: Tue, 18 Sep 2007 11:41:34 -0700
 > 
-> Here it is -- it's big, it's...well...beautiful in its own way...well,
-> at least it seems to work... :-)
+>> David Miller wrote:
+>>> I don't like it because it means people have to setup full initrd's
+>>> in order to do network booting with such network cards.
+>>>
+>> klibc could help with that, if there is interest in exploring that
+>> avenue again.
 > 
-> There are some outstanding issues.  The driver does more than it
-> probably should under the covers instead of in the stack, and the
-> issue of including headers with a "../../mac80211/..." path remains.
-> Still, I think it would be better to get this mainlined than to keep
-> it out of stream.
+> I appreciate the effort you put into klibc and the offer to
+> make initrd's easier to build.
+>
+> But the point is that the initrd shouldn't be necessary in the first
+> place.  There becomes zero point in building these drivers statically
+> into the kernel, which many of us do specifically to avoid module
+> loading, initrds, and all that fuss.  Because the driver is totally
+> crippled even though it's been fully built into the main kernel image.
+> 
+> I mean, it's so incredibly stupid and makes kernel development that
+> much more difficult.
+> 
+> Every new dependency, be it requiring initrd or something else,
+> is one more barrier added to kernel development.
+> 
+> I really pine for the days where everything was so simple, and initrd
+> and modules were the odd ball cases, most developers built everything
+> into their kernel image.
 
-Jeff, if you have no objections I'll pull this into net-2.6.24
+Well, what I was referring to here, of course, was the initramfs
+integrated in the kernel image, so it all comes out of the kernel build
+tree and produces a single bootable image.  The fact that part of it
+contains userspace code is in that way invisible.
 
-Thanks.
+That was kind of the point here, and the only reason for pushing klibc
+into the kernel build tree at all.  Under the "distros use external
+initrd anyway" school of thought, whatever libc used for that can be
+external anyway.
+
+	-hpa
