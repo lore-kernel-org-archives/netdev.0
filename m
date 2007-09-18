@@ -1,30 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: wrt Age Entry For IPv4 & IPv6 Route Table
-Date: Tue, 18 Sep 2007 11:36:45 -0700 (PDT)
-Message-ID: <20070918.113645.118625147.davem@davemloft.net>
-References: <46EF85A8.5050301@linux.vnet.ibm.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: bnx2 dirver's firmware images
+Date: Tue, 18 Sep 2007 11:41:34 -0700
+Message-ID: <46F01BDE.6020902@zytor.com>
+References: <200709181823.26429.vda.linux@googlemail.com>	<1190141114.9540.216.camel@dell> <20070918.112337.74737433.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, varuncha@in.ibm.com
-To: varunc@linux.vnet.ibm.com
+Cc: mchan@broadcom.com, vda.linux@googlemail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44181
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752355AbXIRSgs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 14:36:48 -0400
-In-Reply-To: <46EF85A8.5050301@linux.vnet.ibm.com>
+Received: from terminus.zytor.com ([198.137.202.10]:35763 "EHLO
+	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754721AbXIRSlu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 14:41:50 -0400
+In-Reply-To: <20070918.112337.74737433.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Varun Chandramohan <varunc@linux.vnet.ibm.com>
-Date: Tue, 18 Sep 2007 13:30:40 +0530
+David Miller wrote:
+> 
+> I don't like it because it means people have to setup full initrd's
+> in order to do network booting with such network cards.
+> 
 
->                   Sorry for bothering you. I see that you are currently
-> very busy. I just wanted to remind you that iam waiting for your
-> feedback on the patch set. Just incase you want me to resend , please
-> let me know. If this work is already in your queue, ignore this mail.
+klibc could help with that, if there is interest in exploring that
+avenue again.
 
-I don't have it in my inbox, and also in order to avoid confusion
-on what is the latest revision, please repost your patch set
-to netdev, thanks.
+	-hpa
