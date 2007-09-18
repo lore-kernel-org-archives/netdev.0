@@ -1,35 +1,112 @@
-From: Varun Chandramohan <varunc@linux.vnet.ibm.com>
-Subject: wrt Age Entry For IPv4 & IPv6 Route Table
-Date: Tue, 18 Sep 2007 13:30:40 +0530
-Message-ID: <46EF85A8.5050301@linux.vnet.ibm.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][NETNS] Cleanup list walking in setup_net and cleanup_net
+Date: Tue, 18 Sep 2007 12:06:53 +0400
+Message-ID: <46EF871D.8050900@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Varun Chandramohan <varuncha@in.ibm.com>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:38692 "EHLO e3.ny.us.ibm.com"
+Received: from sacred.ru ([62.205.161.221]:38202 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754443AbXIRH7b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Sep 2007 03:59:31 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e3.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8I7xUPP004596
-	for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 03:59:30 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8I7xUui695098
-	for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 03:59:30 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8I7xUTO009934
-	for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 03:59:30 -0400
+	id S1751463AbXIRIJY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Sep 2007 04:09:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+I proposed introducing a list_for_each_entry_continue_reverse macro
+to be used in setup_net() when unrolling the failed ->init callback.
 
-                  Sorry for bothering you. I see that you are currently
-very busy. I just wanted to remind you that iam waiting for your
-feedback on the patch set. Just incase you want me to resend , please
-let me know. If this work is already in your queue, ignore this mail.
+Here is the macro and some more cleanup in the setup_net() itself
+to remove one variable from the stack :) The same thing is for the
+cleanup_net() - the existing list_for_each_entry_reverse() is used.
 
-Regards,
-Varun
+Minor, but the code looks nicer.
+
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+
+---
+
+diff --git a/include/linux/list.h b/include/linux/list.h
+index f29fc9c..ad9dcb9 100644
+--- a/include/linux/list.h
++++ b/include/linux/list.h
+@@ -525,6 +525,20 @@ static inline void list_splice_init_rcu(
+ 	     pos = list_entry(pos->member.next, typeof(*pos), member))
+ 
+ /**
++ * list_for_each_entry_continue_reverse - iterate backwards from the given point
++ * @pos:	the type * to use as a loop cursor.
++ * @head:	the head for your list.
++ * @member:	the name of the list_struct within the struct.
++ *
++ * Start to iterate over list of given type backwards, continuing after
++ * the current position.
++ */
++#define list_for_each_entry_continue_reverse(pos, head, member)		\
++	for (pos = list_entry(pos->member.prev, typeof(*pos), member);	\
++	     prefetch(pos->member.prev), &pos->member != (head);	\
++	     pos = list_entry(pos->member.prev, typeof(*pos), member))
++
++/**
+  * list_for_each_entry_from - iterate over list of given type from the current point
+  * @pos:	the type * to use as a loop cursor.
+  * @head:	the head for your list.
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 1fc513c..0e6cb02 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -56,7 +56,6 @@ static void net_free(struct net *net)
+ static void cleanup_net(struct work_struct *work)
+ {
+ 	struct pernet_operations *ops;
+-	struct list_head *ptr;
+ 	struct net *net;
+ 
+ 	net = container_of(work, struct net, work);
+@@ -69,8 +68,7 @@ static void cleanup_net(struct work_stru
+ 	net_unlock();
+ 
+ 	/* Run all of the network namespace exit methods */
+-	list_for_each_prev(ptr, &pernet_list) {
+-		ops = list_entry(ptr, struct pernet_operations, list);
++	list_for_each_entry_reverse(ops, &pernet_list, list) {
+ 		if (ops->exit)
+ 			ops->exit(net);
+ 	}
+@@ -102,7 +100,6 @@ static int setup_net(struct net *net)
+ {
+ 	/* Must be called with net_mutex held */
+ 	struct pernet_operations *ops;
+-	struct list_head *ptr;
+ 	int error;
+ 
+ 	memset(net, 0, sizeof(struct net));
+@@ -110,8 +107,7 @@ static int setup_net(struct net *net)
+ 	atomic_set(&net->use_count, 0);
+ 
+ 	error = 0;
+-	list_for_each(ptr, &pernet_list) {
+-		ops = list_entry(ptr, struct pernet_operations, list);
++	list_for_each_entry(ops, &pernet_list, list) {
+ 		if (ops->init) {
+ 			error = ops->init(net);
+ 			if (error < 0)
+@@ -120,12 +116,12 @@ static int setup_net(struct net *net)
+ 	}
+ out:
+ 	return error;
++
+ out_undo:
+ 	/* Walk through the list backwards calling the exit functions
+ 	 * for the pernet modules whose init functions did not fail.
+ 	 */
+-	for (ptr = ptr->prev; ptr != &pernet_list; ptr = ptr->prev) {
+-		ops = list_entry(ptr, struct pernet_operations, list);
++	list_for_each_entry_continue_reverse(ops, &pernet_list, list) {
+ 		if (ops->exit)
+ 			ops->exit(net);
+ 	}
