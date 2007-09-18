@@ -1,43 +1,31 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: why does tcp_v[46]_conn_request not inc MIB stats
-Date: Tue, 18 Sep 2007 10:14:57 -0700
-Message-ID: <46F00791.2030909@hp.com>
-References: <46E5900A.3010009@hp.com>	<1189461284.11066.10.camel@w-sridhar2.beaverton.ibm.com>	<20070914.201152.35026256.davem@davemloft.net> <p73wsuow7t0.fsf@bingen.suse.de>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: [ofa-general] Re: InfiniBand/RDMA merge plans for 2.6.24
+Date: Tue, 18 Sep 2007 10:18:03 -0700
+Message-ID: <adafy1blwok.fsf@cisco.com>
+References: <adahclymos8.fsf@cisco.com> <20070918163433.GL2050@mellanox.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, sri@us.ibm.com,
-	netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel13.hp.com ([156.153.255.238]:51013 "EHLO palrel13.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755716AbXIRRPu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Sep 2007 13:15:50 -0400
-In-Reply-To: <p73wsuow7t0.fsf@bingen.suse.de>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org
+To: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070918163433.GL2050@mellanox.co.il> (Michael S. Tsirkin's
+	message of "Tue, 18 Sep 2007 18:34:33 +0200")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen wrote:
-> David Miller <davem@davemloft.net> writes:
-> 
-> 
->>This is limiting embryonic mini-socket creation.  The listen overflow
->>should only increment when the 3-way handshake completion is aborted
->>because the listening socket limit is exceeded, which is entirely
->>different from the embryonic limit.
-> 
-> 
-> That's true, but I think Rick has a point in that there should 
-> be some sort of (different) counter counting this.  In general
-> I believe every point in the stack who drops a packet should
-> have a statistics counter so that it can be later diagnosed.
-> 
-> Rick, the best way to get such a counter in is to just send a patch,
-> don't ask for it.
+ > Roland, could you merge the common TX CQ patch please?
+ > It actually fixes a real problem.
 
-I will try to work something up after cleaning-up the other listenq 
-patch to remove the /proc/net/tcp[6] stuff, and an iproute2 patch I have 
-to allow setting rto_min, rtt and rttvar using tc-esque units.
+Yes, I will, but it collides with the net-2.6.24 NAPI rework I think,
+so it may not go in until a few days after the merge window.
 
-rick jones
+Have you verified that the patch cures the interrupt overload issues?
