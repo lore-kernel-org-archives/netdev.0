@@ -1,137 +1,46 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: [PATCH net-2.6.24] Fix refcounting problem with netif_rx_reschedule()
-Date: Tue, 18 Sep 2007 10:58:37 -0700
-Message-ID: <adawsunkg8i.fsf@cisco.com>
-References: <20070918111803.1769.60619.sendpatchset@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: SFQ qdisc crashes with limit of 2 packets
+Date: Tue, 18 Sep 2007 19:57:14 +0200
+Message-ID: <46F0117A.4060807@trash.net>
+References: <46F0087A.3080104@redhat.com> <46F00B80.7050901@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Krishna Kumar <krkumar2@in.ibm.com>, netdev@vger.kernel.org,
-	general@lists.openfabrics.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>
+To: Chuck Ebbert <cebbert@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2-in.cisco.com ([171.71.176.71]:36549 "EHLO
-	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932174AbXIRR71 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 13:59:27 -0400
-In-Reply-To: <20070918111803.1769.60619.sendpatchset@localhost.localdomain> (Krishna Kumar's message of "Tue, 18 Sep 2007 16:48:03 +0530")
+Received: from stinky.trash.net ([213.144.137.162]:43014 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761516AbXIRSDz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 14:03:55 -0400
+In-Reply-To: <46F00B80.7050901@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netif_rx_complete() takes a netdev parameter and does dev_put() on
-that netdev, so netif_rx_reschedule() needs to also take a netdev
-parameter and do dev_hold() on it to avoid reference counts from
-getting becoming negative because of unbalanced dev_put()s.
+Patrick McHardy wrote:
+> Chuck Ebbert wrote:
+> 
+>>Limit of 1 is forbidden, crashes with 2, works with 3:
+>>
+>>>From disassembling sch_sfq.ko it seems that it is on line 360 of sch_sfq.c:
+>>    sch->qstats.backlog -= skb->len;
+>>where "skb" is an invalid pointer:
+> 
+> 
+> 
+> Is it a NULL pointer or something random?
 
-This should fix the problem reported by Krishna Kumar
-<krkumar2@in.ibm.com> with IPoIB waiting forever for netdev refcounts
-to become 0 during module unload.
 
-Signed-off-by: Roland Dreier <rolandd@cisco.com>
----
-Dave, feel free to roll this up into earlier NAPI conversion patches
-(assuming I'm understanding things correctly and this patch actually
-makes sense!).
+Never mind, I found the reason. When enqueuing the packet, sfq_enqueue
+contains an off-by-one in the limit check (which IIRC is there for a
+reason, but I can't remember right now) and drops the packet again.
+dev_queue_xmit() calls qdisc_run() anyway and the empty qdisc is
+dequeued, which is not handled by SFQ.
 
-BTW, it looks like drivers/net/ibm_emac/ibm_emac_mal.c would not have 
-built in the current net-2.6.24 tree, since its call to
-netif_rx_reschedule() was left with the netdev parameter.  So that
-file does not need to be touched in this patch.
+I see three possibilities to fix this (in my preferred order):
 
- drivers/infiniband/ulp/ipoib/ipoib_ib.c |    2 +-
- drivers/net/arm/ep93xx_eth.c            |    2 +-
- drivers/net/ehea/ehea_main.c            |    2 +-
- drivers/net/ibmveth.c                   |    2 +-
- include/linux/netdevice.h               |   21 +++++++++++----------
- 5 files changed, 15 insertions(+), 14 deletions(-)
+1) figure out why the off-by-one is there, if not needed remove
+2) don't dequeue qdiscs even once if empty
+3) check for NULL in sfq_dequeue
 
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_ib.c b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-index 6a2bff4..481e4b6 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
-@@ -320,7 +320,7 @@ poll_more:
- 		if (unlikely(ib_req_notify_cq(priv->cq,
- 					      IB_CQ_NEXT_COMP |
- 					      IB_CQ_REPORT_MISSED_EVENTS)) &&
--		    netif_rx_reschedule(napi))
-+		    netif_rx_reschedule(dev, napi))
- 			goto poll_more;
- 	}
- 
-diff --git a/drivers/net/arm/ep93xx_eth.c b/drivers/net/arm/ep93xx_eth.c
-index f3858d1..7f016f3 100644
---- a/drivers/net/arm/ep93xx_eth.c
-+++ b/drivers/net/arm/ep93xx_eth.c
-@@ -309,7 +309,7 @@ poll_some_more:
- 		}
- 		spin_unlock_irq(&ep->rx_lock);
- 
--		if (more && netif_rx_reschedule(napi))
-+		if (more && netif_rx_reschedule(dev, napi))
- 			goto poll_some_more;
- 	}
- 
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index 4a5ab4a..9a499f4 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -636,7 +636,7 @@ static int ehea_poll(struct napi_struct *napi, int budget)
- 		if (!cqe && !cqe_skb)
- 			return 0;
- 
--		if (!netif_rx_reschedule(napi))
-+		if (!netif_rx_reschedule(dev, napi))
- 			return 0;
- 	}
- 
-diff --git a/drivers/net/ibmveth.c b/drivers/net/ibmveth.c
-index b8d7cec..b94f266 100644
---- a/drivers/net/ibmveth.c
-+++ b/drivers/net/ibmveth.c
-@@ -973,7 +973,7 @@ static int ibmveth_poll(struct napi_struct *napi, int budget)
- 		netif_rx_complete(netdev, napi);
- 
- 		if (ibmveth_rxq_pending_buffer(adapter) &&
--		    netif_rx_reschedule(napi)) {
-+		    netif_rx_reschedule(netdev, napi)) {
- 			lpar_rc = h_vio_signal(adapter->vdev->unit_address,
- 					       VIO_IRQ_DISABLE);
- 			goto restart_poll;
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index be5fe05..0dbf185 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1198,16 +1198,6 @@ static inline u32 netif_msg_init(int debug_value, int default_msg_enable_bits)
- 	return (1 << debug_value) - 1;
- }
- 
--/* Try to reschedule poll. Called by dev->poll() after netif_rx_complete().  */
--static inline int netif_rx_reschedule(struct napi_struct *n)
--{
--	if (napi_schedule_prep(n)) {
--		__napi_schedule(n);
--		return 1;
--	}
--	return 0;
--}
--
- /* Test if receive needs to be scheduled but only if up */
- static inline int netif_rx_schedule_prep(struct net_device *dev,
- 					 struct napi_struct *napi)
-@@ -1234,6 +1224,17 @@ static inline void netif_rx_schedule(struct net_device *dev,
- 		__netif_rx_schedule(dev, napi);
- }
- 
-+/* Try to reschedule poll. Called by dev->poll() after netif_rx_complete().  */
-+static inline int netif_rx_reschedule(struct net_device *dev,
-+				      struct napi_struct *napi)
-+{
-+	if (napi_schedule_prep(napi)) {
-+		__netif_rx_schedule(dev, napi);
-+		return 1;
-+	}
-+	return 0;
-+}
-+
- /* same as netif_rx_complete, except that local_irq_save(flags)
-  * has already been issued
-  */
+So I'll try to remeber why the off-by-one is there ..
