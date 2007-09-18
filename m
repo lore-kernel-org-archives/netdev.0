@@ -1,70 +1,133 @@
 From: Bill Fink <billfink@mindspring.com>
-Subject: Re: e1000 driver and samba
-Date: Tue, 18 Sep 2007 02:03:58 -0400
-Message-ID: <20070918020358.d50653d5.billfink@mindspring.com>
-References: <780b6f780709171158h1016b6c2kfbc977b4ea7c715c@mail.gmail.com>
-	<36D9DB17C6DE9E40B059440DB8D95F5203592D77@orsmsx418.amr.corp.intel.com>
+Subject: Re: [PATCH 7/7] CAN: Add documentation
+Date: Tue, 18 Sep 2007 02:51:44 -0400
+Message-ID: <20070918025144.71dcb85b.billfink@mindspring.com>
+References: <20070917100321.18347.0@janus.isnogud.escape.de>
+	<20070917100441.18347.7@janus.isnogud.escape.de>
+	<20070917103003.109ae665.randy.dunlap@oracle.com>
+	<ygfps0hrqj5.fsf@janus.isnogud.escape.de>
+	<1190061421.2995.44.camel@chaos>
+	<ygflkb5rp9d.fsf@janus.isnogud.escape.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "L F" <lfabio.linux@gmail.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"James Chapman" <jchapman@katalix.com>, <netdev@vger.kernel.org>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Randy Dunlap <randy.dunlap@oracle.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Oliver Hartkopp <oliver@hartkopp.net>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+To: Urs Thuermann <urs@isnogud.escape.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-curtail.atl.sa.earthlink.net ([209.86.89.64]:49597 "EHLO
-	elasmtp-curtail.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753651AbXIRGEN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 02:04:13 -0400
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5203592D77@orsmsx418.amr.corp.intel.com>
+Received: from elasmtp-junco.atl.sa.earthlink.net ([209.86.89.63]:35817 "EHLO
+	elasmtp-junco.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753986AbXIRGwg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 02:52:36 -0400
+In-Reply-To: <ygflkb5rp9d.fsf@janus.isnogud.escape.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 17 Sep 2007, Brandeburg, Jesse wrote:
+On 17 Sep 2007, Urs Thuermann wrote:
 
-> L F wrote:
-> > On 9/17/07, Kok, Auke <auke-jan.h.kok@intel.com> wrote:
-> >> The statistic we were looking at _will_ increase when running in
-> >> half duplex, but if it increases when running in full duplex might
-> >> indicate a hardware failure. Probably you have fixed the issue with
-> >> the CAT6 cable. 
-> > Uhm, 'fixed' may be premature: I restarted the machine and with 22
-> > hours uptime I am getting:
-> > tx_deferred_ok: 36254
-> > 
-> >> Can you run this new configuration with the old cable? that would
-> >> eliminate the cable (or not)
-> > I most certainly can. This seems to have gotten worse by a factor or
-> > 100 or more.. so am I to suspect the new cable?
-> > 
-> >> A single port failure on a switch can also happen, and samba is
-> >> definately 
-> >> a good test for defective hardware. I cannot rule out anything from
-> >> the information we have gotten yet.
-> > True, but I tried changing the switch ports with little change.
-> > Putting a client on the same switch port yielded no errors on the
-> > client, although unfortunately I don't have ethtool statistics on XP.
-> > The switch, btw, is a fairly generic GS108 from Netgear (there
-> > actually are two).
+> Thomas Gleixner <tglx@linutronix.de> writes:
 > 
-> it may be not well documented, but the hardware has several states that
-> it can get into that can cause tx_deferred counter to increment.  None
-> of them are fatal to traffic, it is mainly an informational statistic.
+> > Please do, having the patch in mail makes it easier to review and to
+> > comment.
 > 
-> in this case it is in the "due to receiving flow control; tx is paused"
-> state...
-> 
-> he has 488 rx flow control xoff/xon, which means the switch is being
-> overloaded and sending flow control, or the switch is passing through
-> flow control packets (which it should not since they are multicast) and
-> (some) client is overloaded.
-> 
-> can you turn off flow control at the server?  ethtool -A ethX rx off tx
-> off or load the driver with parameter FlowControl=0  With the 7.6.5
-> driver at least you'll get confirmation of the flow control change on
-> the "Link Up:" line.
+> OK, here it is:
 
-It may also be a useful test to disable hardware TSO support
-via "ethtool -K ethX tso off".
+One more typo.
+
+> This patch adds documentation for the PF_CAN protocol family.
+> 
+> Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+> Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
+> 
+> ---
+>  Documentation/networking/00-INDEX |    2 
+>  Documentation/networking/can.txt  |  635 ++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 637 insertions(+)
+> 
+> Index: net-2.6.24/Documentation/networking/can.txt
+> ===================================================================
+> --- /dev/null	1970-01-01 00:00:00.000000000 +0000
+> +++ net-2.6.24/Documentation/networking/can.txt	2007-09-17 21:57:29.000000000 +0200
+> @@ -0,0 +1,635 @@
+> +============================================================================
+> +
+> +can.txt
+> +
+> +Readme file for the Controller Area Network Protocol Family (aka Socket CAN)
+> +
+> +This file contains
+> +
+> +  1 Overview / What is Socket CAN
+> +
+> +  2 Motivation / Why using the socket API
+> +
+
+...
+
+> +============================================================================
+> +
+> +1. Overview / What is Socket CAN
+> +--------------------------------
+> +
+> +The socketcan package is an implementation of CAN protocols
+> +(Controller Area Network) for Linux.  CAN is a networking technology
+> +which has widespread use in automation, embedded devices, and
+> +automotive fields.  While there have been other CAN implementations
+> +for Linux based on character devices, Socket CAN uses the Berkeley
+> +socket API, the Linux network stack and implements the CAN device
+> +drivers as network interfaces.  The CAN socket API has been designed
+> +as similar as possible to the TCP/IP protocols to allow programmers,
+> +familiar with network programming, to easily learn how to use CAN
+> +sockets.
+> +
+> +2. Motivation / Why using the socket API
+> +----------------------------------------
+> +
+> +There have been CAN implementations for Linux before Socket CAN so the
+> +question arises, why we have started another project.  Most existing
+> +implementations come as a device driver for some CAN hardware, they
+> +are based on character devices and provide comparatively little
+> +functionality.  Usually, there is only a hardware-specific device
+> +driver which provides a character device interface to send and
+> +receive raw CAN frames, directly to/from the controller hardware.
+> +Queueing of frames and higher-level transport protocols like ISO-TP
+> +have to be implemented in user space applications.  Also, most
+> +character-device implementations support only one single process to
+> +open the device at a time, similar to a serial interface.  Exchanging
+> +the CAN controller requires employment of another device driver and
+> +often the need for adaption of large parts of the application to the
+> +new driver's API.
+> +
+> +Socket CAN was designed to overcome all of these limitations.  A new
+> +protocol family has been implemented which provides a socket interface
+> +to user space applications and which builds upon the Linux network
+> +layer, so to use all of the provided queueing functionality.  A device
+> +driver for CAN controller hardware registers itself with the Linux
+> +network layer as a network device, so that CAN frames from the
+> +controller can be passed up to the network layer and on to the CAN
+> +protocol family module and also vice-versa.  Also, the protocol family
+> +module provides an API for transport protocol modules to register, so
+> +that any number of transport protocols can be loaded or unloaded
+> +dynamically.  In fact, the can core module alone does not provide any
+> +protocol and cannot be used without loading at least one additional
+> +protocol module.  Multiple sockets can be opened at the same time,
+> +on different or the same protocol module and they can listen/send
+> +frames on different or the same CAN IDs.  Several sockets listening on
+> +the same interface for frames with the same CAN ID are all passed the
+> +same received matching CAN frames.  An application wishing to
+> +communicate using a specific transport protocol, e.g. ISO-TP, just
+> +selects that protocol when opening the socket, and then can read and
+> +write application data byte streams, without having to deal with
+> +CAN-IDs, frames, etc.
+> +
+> +Similar functionality visible from user-space could be provided by a
+> +character decive, too, but this would lead to a technically inelegant
+> +solution for a couple of reasons:
+
+"decive" -> "device" above.
 
 						-Bill
