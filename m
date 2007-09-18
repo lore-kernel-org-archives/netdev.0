@@ -1,54 +1,39 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: [ofa-general] [PATCH net-2.6.24] Fix documentation for
-	dev_put()/dev_hold()
-Date: Tue, 18 Sep 2007 11:04:22 -0700
-Message-ID: <adasl5bkfyx.fsf_-_@cisco.com>
-References: <20070918111803.1769.60619.sendpatchset@localhost.localdomain>
-	<adawsunkg8i.fsf@cisco.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: bnx2 dirver's firmware images
+Date: Tue, 18 Sep 2007 12:09:52 -0700
+Message-ID: <1190142592.9540.218.camel@dell>
+References: <200709181823.26429.vda.linux@googlemail.com>
+ <1190141114.9540.216.camel@dell>
+ <200709181855.37598.vda.linux@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
-To: davem@davemloft.net
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <adawsunkg8i.fsf@cisco.com> (Roland Dreier's message of "Tue,
-	18 Sep 2007 10:58:37 -0700")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, "David Miller" <davem@davemloft.net>,
+	"netdev" <netdev@vger.kernel.org>
+To: "Denys Vlasenko" <vda.linux@googlemail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3787 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755308AbXIRSMa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Sep 2007 14:12:30 -0400
+In-Reply-To: <200709181855.37598.vda.linux@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It looks like the comments for dev_put() and dev_hold() got reversed somehow.
+On Tue, 2007-09-18 at 18:55 +0100, Denys Vlasenko wrote:
+> On Tuesday 18 September 2007 19:45, Michael Chan wrote:
+> > We can compress all the different sections of the firmware.  Currently,
+> > we only compress the biggest chunks and the rest are uncompressed.
+> 
+> > These zeros should compress to almost nothing.  But I agree that the
+> > firmware is still big.
+> 
+> You don't need to store and fetch zeros at all. You *know* that
+> they are zeros, right? So do this:
+> 
+> -                         REG_WR_IND(bp, offset, fw->bss[j]);
+> +                         REG_WR_IND(bp, offset, 0);
+> 
+Good point.  We can do that.  Looking at the file, there are other non-
+zero data that can be compressed to save some more room.
 
-Signed-off-by: Roland Dreier <rolandd@cisco.com>
----
- include/linux/netdevice.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index be5fe05..239ae68 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1030,7 +1030,7 @@ extern int		netdev_budget;
- extern void netdev_run_todo(void);
- 
- /**
-- *	dev_put - get reference to device
-+ *	dev_put - release reference to device
-  *	@dev: network device
-  *
-  * Hold reference to device to keep it from being freed.
-@@ -1041,7 +1041,7 @@ static inline void dev_put(struct net_device *dev)
- }
- 
- /**
-- *	dev_hold - release reference to device
-+ *	dev_hold - get reference to device
-  *	@dev: network device
-  *
-  * Release reference to device to allow it to be freed.
