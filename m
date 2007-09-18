@@ -1,60 +1,57 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [net-2.6.24][patch 2/2] Dynamically allocate the loopback device
-Date: Mon, 17 Sep 2007 20:44:14 -0600
-Message-ID: <m1r6kwpu9t.fsf@ebiederm.dsl.xmission.com>
-References: <20070917101314.5d1673da@freepuppy.rosehill.hemminger.net>
-	<46EECCD5.5090601@fr.ibm.com>
-	<224b7d320709171212o66734847kbd17efa817b482fc@mail.gmail.com>
-	<20070917.185349.98863851.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC][NET_SCHED] explict hold dev tx lock
+Date: Mon, 17 Sep 2007 22:48:48 -0400
+Message-ID: <1190083728.4237.59.camel@localhost>
+References: <1189959274.4241.30.camel@localhost>
+	 <20070916.123158.92582301.davem@davemloft.net>
+	 <1189975284.4230.14.camel@localhost>
+	 <20070917.190133.79431533.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pjwaskiewicz@gmail.com, dlezcano@fr.ibm.com,
-	shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	containers@lists.osdl.org, benjamin.thery@bull.net
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	kaber@trash.net, dada1@cosmosbay.com, johnpol@2ka.mipt.ru
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:58526 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753728AbXIRCpW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 22:45:22 -0400
-In-Reply-To: <20070917.185349.98863851.davem@davemloft.net> (David Miller's
-	message of "Mon, 17 Sep 2007 18:53:49 -0700 (PDT)")
+Received: from an-out-0708.google.com ([209.85.132.246]:56696 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754617AbXIRCsx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 22:48:53 -0400
+Received: by an-out-0708.google.com with SMTP id d31so261036and
+        for <netdev@vger.kernel.org>; Mon, 17 Sep 2007 19:48:52 -0700 (PDT)
+In-Reply-To: <20070917.190133.79431533.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+On Mon, 2007-17-09 at 19:01 -0700, David Miller wrote:
 
-> From: "Peter Waskiewicz" <pjwaskiewicz@gmail.com>
-> Date: Mon, 17 Sep 2007 12:12:24 -0700
->
->> This would be a good opportunity to remove the single-allocated queue struct
->> in netdevice (at the bottom) that we had to put in to accomodate the static
->> loopback.  Now we can set it back to a zero element list, and have
->> alloc_netdev_mq() just allocate the number of queues requested, not
->> num_queues - 1.
->> 
->> I'll put a patch together based on this patchset.
->
-> Thanks Peter.
->
-> I'll also let this sit so that Eric can provide any feedback
-> he wants and also figure out how he will use this for the
-> namespace stuff.
+> Hardirq should never try to grab the netif_tx_lock(), it is
+> only for base and softirq context.
+> 
+> Any hardirq context code taking that lock needs to be fixed.
+> We could assert this if we don't already.
 
-Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
-Not that it doesn't already have my signed off by.
+I snooped around it looks pretty clean;  An assertion wont hurt,
+but people will find _very quickly_ it hurts when testing a driver if
+they did it wrong;->
 
-I have an earlier version of this patch sitting in my tree,
-along with some additional patches to make this per namespace.
+> It's the only way that it works that we can invoke ->hard_start_xmit()
+> with interrupts fully enabled.
 
-I don't really care which version of this patch goes in and
-I'm happy to give Daniel credit for doing the final work to get this
-patch merged.
+> I notice that your patch bypasses the LLTX logic (I think) and this
+> isn't kosher, it might introduce deadlocks or similar as when we
+> are doing LLTX the driver determines the locking and IRQ context
+> semantics.
 
-I think it is important for bisect reasons that we first dynamically
-allocate the loopback device and then make it per network namespace.
-So someone can determine which part of the work caused a problem if
-there is one.
+Nothing much has changed from what it was before.
+The only difference is we let go of the queue lock before grabbing
+the tx lock which never mattered for LLTX. 
+Once we grab the tx lock it is the same logic and so far is working well
+on both tg3 and e1000 (which is LLTX). 
+I will continue to retest with net-2.6.24 once you complete rebasing
+and look around to see if anyone maybe affected.
 
-Eric
+cheers,
+jamal
 
