@@ -1,43 +1,58 @@
-From: Florian Weimer <fweimer@bfk.de>
-Subject: Re: e1000 driver and samba
-Date: Tue, 18 Sep 2007 15:39:59 +0200
-Message-ID: <82k5qoxfbk.fsf@mid.bfk.de>
-References: <780b6f780709171158h1016b6c2kfbc977b4ea7c715c@mail.gmail.com>
-	<36D9DB17C6DE9E40B059440DB8D95F5203592D77@orsmsx418.amr.corp.intel.com>
-	<20070918020358.d50653d5.billfink@mindspring.com>
-	<ygfps0g8lj0.fsf@janus.isnogud.escape.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Bill Fink <billfink@mindspring.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"L F" <lfabio.linux@gmail.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"James Chapman" <jchapman@katalix.com>, <netdev@vger.kernel.org>
-To: Urs Thuermann <urs@isnogud.escape.de>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH] ucc_geth: fix compilation
+Date: Tue, 18 Sep 2007 09:04:04 -0500
+Message-ID: <E0E78DB4-3A30-4D2D-83EE-B63D6C3A1D53@kernel.crashing.org>
+References: <20070912112456.GA15556@localhost.localdomain><20070913152333.GA2381@localhost.localdomain> <C844988E-F6B9-44B9-AB78-C44E19A2E605@kernel.crashing.org> <989B956029373F45A0B8AF029708189001763D1E@zch01exm26.fsl.freescale.net>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Jeff Garzik" <jeff@garzik.org>, <linuxppc-dev@ozlabs.org>,
+	"netdev" <netdev@vger.kernel.org>
+To: "Li Yang-r58472" <LeoLi@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx01.bfk.de ([193.227.124.2]:53731 "EHLO mx01.bfk.de"
+Received: from gate.crashing.org ([63.228.1.57]:57314 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754371AbXIRN5s convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 09:57:48 -0400
-In-Reply-To: <ygfps0g8lj0.fsf@janus.isnogud.escape.de> (Urs Thuermann's message of "18 Sep 2007 09:45:07 +0200")
+	id S1754993AbXIROCI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Sep 2007 10:02:08 -0400
+In-Reply-To: <989B956029373F45A0B8AF029708189001763D1E@zch01exm26.fsl.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Urs Thuermann:
 
-> How can a corrupted frame pass the TCP checksum check?
+On Sep 18, 2007, at 3:56 AM, Li Yang-r58472 wrote:
 
-The TCP/IP checksums are extremely weak.  If the corruption is due to
-defective SRAM or something like that, it's likely that it causes an
-error pattern which is 16-bit-aligned.  And an even number of
-16-bit-aligned bit flips is not detected by the TCP checksum. 8-(
+>> -----Original Message-----
+>> From: linuxppc-dev-bounces+leoli=freescale.com@ozlabs.org
+>> [mailto:linuxppc-dev-bounces+leoli=freescale.com@ozlabs.org]
+>> On Behalf Of Kumar Gala
+>> Sent: Friday, September 14, 2007 10:08 PM
+>> To: Jeff Garzik
+>> Cc: linuxppc-dev@ozlabs.org list; netdev
+>> Subject: Re: [PATCH] ucc_geth: fix compilation
+>>
+>>
+>> On Sep 13, 2007, at 10:23 AM, Anton Vorontsov wrote:
+>>
+>>> Currently qe_bd_t is used in the macro call --
+>> dma_unmap_single, which
+>>> is a no-op on PPC32, thus error is hidden today. Starting
+>> with 2.6.24,
+>>> macro will be replaced by the empty static function, and
+>> erroneous use
+>>> of qe_bd_t will trigger compilation error.
+>>>
+>>> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+>>> ---
+>>
+>> Jeff, I'm going to pick this up via the powerpc.git tree
+>> since its currently only broken in our for-2.6.24 branch
+>> (because of other changes in there).  Any issues?
+>
+> Kumar,
+>
+> Kim Phillips has posted the same patch to netdev list before Anton.
+> Therefore, I do prefer to use his.  Thanks
 
-Actually, nobody should use TCP without application-level checksums
-for that reason.  But of course, there is HTTP.
+No problem.  Jeff seems to have picked up some version of the fix.
 
---=20
-=46lorian Weimer                <fweimer@bfk.de>
-BFK edv-consulting GmbH       http://www.bfk.de/
-Kriegsstra=DFe 100              tel: +49-721-96201-1
-D-76133 Karlsruhe             fax: +49-721-96201-99
+- k
