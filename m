@@ -1,28 +1,38 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: SFQ qdisc crashes with limit of 2 packets
-Date: Tue, 18 Sep 2007 19:31:44 +0200
-Message-ID: <46F00B80.7050901@trash.net>
-References: <46F0087A.3080104@redhat.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [ofa-general] Re: [PATCH 02/11] IB/ipoib: Notify the world before
+	doing unregister
+Date: Tue, 18 Sep 2007 10:42:57 -0700
+Message-ID: <ada3axblvj2.fsf@cisco.com>
+References: <11898132301664-git-send-email-fubar@us.ibm.com>
+	<11898132322950-git-send-email-fubar@us.ibm.com>
+	<1189813234208-git-send-email-fubar@us.ibm.com>
+	<adatzptkjyk.fsf@cisco.com> <18593.1190071438@death>
+	<adaps0glve4.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: Chuck Ebbert <cebbert@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42542 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755766AbXIRRiY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 13:38:24 -0400
-In-Reply-To: <46F0087A.3080104@redhat.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com, davem@davemloft.net,
+	general@lists.openfabrics.org
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <adaps0glve4.fsf@cisco.com> (Roland Dreier's message of "Mon,
+	17 Sep 2007 16:33:39 -0700")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Chuck Ebbert wrote:
-> Limit of 1 is forbidden, crashes with 2, works with 3:
-> 
->>From disassembling sch_sfq.ko it seems that it is on line 360 of sch_sfq.c:
->     sch->qstats.backlog -= skb->len;
-> where "skb" is an invalid pointer:
+ > Maybe this new notification function should be in net/core/dev.c
+ > instead of exporting call_netdevice_notifiers()?
 
+Or actually, does it work to add the call to the notifiers directly in
+unregister_netdev() so that device drivers don't have to worry about it?
 
-Is it a NULL pointer or something random?
+(And is the existing patch missing a call to notifiers in ipoib_vlan_delete()?)
+
+ - R.
