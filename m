@@ -1,78 +1,71 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [ofa-general] [PATCH] IPoIB: Optimizations in poll handler.
-Date: Tue, 18 Sep 2007 17:09:16 +0530
-Message-ID: <20070918113916.2065.14065.sendpatchset@localhost.localdomain>
-Cc: netdev@vger.kernel.org, davem@davemloft.net, general@lists.openfabrics.org
-To: rdreier@cisco.com
-Return-path: <general-bounces@lists.openfabrics.org>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+From: =?ISO-8859-1?Q?Mikael_Leivisk=E4?= <mikael@zero-kelvin.org>
+Subject: Problems with 3c59x driver (extremely low throughput)
+Date: Tue, 18 Sep 2007 13:32:00 +0200
+Message-ID: <46EFB730.2070201@zero-kelvin.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zero-kelvin.org ([85.8.2.148]:55904 "EHLO www.zero-kelvin.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755488AbXIRMDo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Sep 2007 08:03:44 -0400
+Received: from [192.168.0.13] (unknown [192.168.0.13])
+	by www.zero-kelvin.org (Postfix) with ESMTP id BC4B83FD4
+	for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 13:32:01 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Final follow-up optimizations: If the poll loop executes more than
-once (and it happens on my system with two flood pings):
-	- no need to calculate "budget - done" on every iteration (but
-		will require to do this once, when returning from fn)
-	- check for one variable being non-zero instead of comparing two
-		vars for every iteration.
+OK first of all I'm not really sure if this is the place but was told b=
+y
+ Dave Dillow to send to the netdev kernel mailing list. So that's what
+I'm doing :)
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
----
- ipoib_ib.c |   15 ++++++++-------
- 1 files changed, 8 insertions(+), 7 deletions(-)
+I tried searching the mailing lists and didn't find anything that seeme=
+d
+relevant, it is possible I missed something the archives are huge...
 
-diff -ruNp new2/drivers/infiniband/ulp/ipoib/ipoib_ib.c new3/drivers/infiniband/ulp/ipoib/ipoib_ib.c
---- new2/drivers/infiniband/ulp/ipoib/ipoib_ib.c	2007-09-18 16:31:42.000000000 +0530
-+++ new3/drivers/infiniband/ulp/ipoib/ipoib_ib.c	2007-09-18 17:01:44.000000000 +0530
-@@ -286,36 +286,37 @@ int ipoib_poll(struct napi_struct *napi,
- 	struct ipoib_dev_priv *priv = container_of(napi, struct ipoib_dev_priv, napi);
- 	struct net_device *dev = priv->dev;
- 	int num_wc, max_wc;
--	int done = 0;
-+	int remaining = budget;
- 
- 	do {
- 		int i;
- 
--		max_wc = min(IPOIB_NUM_WC, budget - done);
-+		max_wc = min(IPOIB_NUM_WC, remaining);
- 		num_wc = ib_poll_cq(priv->cq, max_wc, priv->ibwc);
- 
- 		for (i = 0; i < num_wc; i++) {
- 			struct ib_wc *wc = priv->ibwc + i;
- 
- 			if (wc->wr_id & IPOIB_CM_OP_SRQ) {
--				++done;
-+				--remaining;
- 				ipoib_cm_handle_rx_wc(dev, wc);
- 			} else if (wc->wr_id & IPOIB_OP_RECV) {
--				++done;
-+				--remaining;
- 				ipoib_ib_handle_rx_wc(dev, wc);
- 			} else
- 				ipoib_ib_handle_tx_wc(dev, wc);
- 		}
--	} while (num_wc == max_wc && done < budget);
-+	} while (num_wc == max_wc && remaining);
- 
--	if (done < budget) {
-+	if (remaining) {
- 		if (likely(!ib_req_notify_cq(priv->cq,
- 					     IB_CQ_NEXT_COMP |
- 					     IB_CQ_REPORT_MISSED_EVENTS)))
- 			netif_rx_complete(dev, napi);
- 	}
- 
--	return done;
-+	/* return number of receives processed */
-+	return budget - remaining;
- }
- 
- void ipoib_ib_completion(struct ib_cq *cq, void *dev_ptr)
+=46ollowing is the mail I sent originally:
+
+I've run into something of a strange problem lately, I have a network
+card that runs on the Vortex/Boomerang driver. I ran the 2.6.16 kernel
+without any issues, and later switched to 2.6.22 because I couldn't get
+my IPSEC tunnel working with 2.6.16 for some reason (didn't find the
+right switches in menuconfig). And everything was seemingly working fin=
+e
+but soon after my ISP got some problems and they said they had to
+replace some hardware somewhere along my route and now when I access th=
+e
+internet (the machine is setup as router/web-file-mail-server with this
+card as the external interface) I get dreadfully slow speeds, I'll be
+lucky to get 10KB/s on a 10MB/s link. But the funny thing is if I switc=
+h
+to the 2.6.16 kernel, WHAM I get 700KB/s no sweat... The kernel
+configurations are otherwise almost exactly the same bar tickless and
+some switches in network options to get ipsec... The only thing I do is
+change the kernel and things work...
+
+So my questions are,
+Has there been any recent changes to the drivers for the card lately?
+(between .16 and .22)
+Or any changes in the network infrastructure that could be the cause of=
+ it?
+Or is there some other switch in the config that could be the cause of =
+this?
+Or is it my ISP's hardware that's not playing nice?
+Or any other ideas as to what might be the cause.
+
+I've posted the respective kernel configs, and lspci output and my
+cpuinfo on http://www.zero-kelvin.org/pub/kern/
+
+If there is any other info that you need I'll gladly provide it assumin=
+g
+I can get my hands on it   :)
+
+Oh btw, the affected card is:
+00:10.0 Ethernet controller: 3Com Corporation 3c905C-TX/TX-M [Tornado]
+(rev 74)
+
+Kind regards, Mikael Leivisk=E4
+
