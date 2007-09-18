@@ -1,63 +1,98 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: Re: new NAPI interface broken
-Date: Tue, 18 Sep 2007 18:15:45 +0200
-Message-ID: <200709181815.45954.ossthema@de.ibm.com>
-References: <200709071137.02801.ossthema@de.ibm.com> <20070914.151252.85399360.davem@davemloft.net>
+From: "L F" <lfabio.linux@gmail.com>
+Subject: Re: e1000 driver and samba
+Date: Tue, 18 Sep 2007 12:32:09 -0400
+Message-ID: <780b6f780709180932j5944b927p44ace42833e0230b@mail.gmail.com>
+References: <780b6f780709171158h1016b6c2kfbc977b4ea7c715c@mail.gmail.com>
+	 <36D9DB17C6DE9E40B059440DB8D95F5203592D77@orsmsx418.amr.corp.intel.com>
+	 <20070918020358.d50653d5.billfink@mindspring.com>
+	 <ygfps0g8lj0.fsf@janus.isnogud.escape.de> <82k5qoxfbk.fsf@mid.bfk.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	themann@de.ibm.com, raisch@de.ibm.com
-To: David Miller <davem@davemloft.net>
+Cc: "Urs Thuermann" <urs@isnogud.escape.de>,
+	"Bill Fink" <billfink@mindspring.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	"James Chapman" <jchapman@katalix.com>, netdev@vger.kernel.org
+To: "Florian Weimer" <fweimer@bfk.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate6.uk.ibm.com ([195.212.29.139]:34422 "EHLO
-	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759409AbXIRQQX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 12:16:23 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate6.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l8IGGJRs241196
-	for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 16:16:19 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8IGGJgw2838564
-	for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 17:16:19 +0100
-Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8IGG2u4013318
-	for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 17:16:03 +0100
-In-Reply-To: <20070914.151252.85399360.davem@davemloft.net>
+Received: from nz-out-0506.google.com ([64.233.162.226]:18410 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758143AbXIRQcL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 12:32:11 -0400
+Received: by nz-out-0506.google.com with SMTP id s18so1169489nze
+        for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 09:32:10 -0700 (PDT)
+In-Reply-To: <82k5qoxfbk.fsf@mid.bfk.de>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+This is the latest ethtool -S :
+beehive:~# ethtool -S eth4
+NIC statistics:
+     rx_packets: 33491526
+     tx_packets: 41410384
+     rx_bytes: 28384277429
+     tx_bytes: 46178788616
+     rx_broadcast: 3144
+     tx_broadcast: 2068
+     rx_multicast: 79
+     tx_multicast: 0
+     rx_errors: 0
+     tx_errors: 0
+     tx_dropped: 0
+     multicast: 79
+     collisions: 0
+     rx_length_errors: 0
+     rx_over_errors: 0
+     rx_crc_errors: 0
+     rx_frame_errors: 0
+     rx_no_buffer_count: 0
+     rx_missed_errors: 0
+     tx_aborted_errors: 0
+     tx_carrier_errors: 0
+     tx_fifo_errors: 0
+     tx_heartbeat_errors: 0
+     tx_window_errors: 0
+     tx_abort_late_coll: 0
+     tx_deferred_ok: 36256
+     tx_single_coll_ok: 0
+     tx_multi_coll_ok: 0
+     tx_timeout_count: 0
+     tx_restart_queue: 0
+     rx_long_length_errors: 0
+     rx_short_length_errors: 0
+     rx_align_errors: 0
+     tx_tcp_seg_good: 0
+     tx_tcp_seg_failed: 0
+     rx_flow_control_xon: 37420
+     rx_flow_control_xoff: 37420
+     tx_flow_control_xon: 0
+     tx_flow_control_xoff: 0
+     rx_long_byte_count: 28384277429
+     rx_csum_offload_good: 33478553
+     rx_csum_offload_errors: 0
+     rx_header_split: 0
+     alloc_rx_buff_failed: 0
+     tx_smbus: 0
+     rx_smbus: 0
+     dropped_smbus: 0
+There have been no further deferred frames, in accordance to what was
+posted above. However, as Urs very correctly points out, the problem
+is still very much there. I am waiting for new and improved cables
+(third batch) to see if that makes a difference.
+I am also wondering if, perhaps, a layer3 managed switch with port
+statistics may prove helpful.
+To answer Bill's questions, memtest+ 1.70 was run overnight, it
+totalled some fifty passes with no errors. I know that some maintain
+that memtest is not a definitive RAM test, but it certainly catches
+most problems.
+As to the disk side of the equation, that is of course a possible
+concern and I will be running a second, more intensive batch of tests.
+However, the fact that virtualbox (running on the server) reports no
+errors despite running through significant amounts of data (10GB+,
+passing through samba via the tap device that is bridged to the
+problematic ethernet) every day makes me fairly confident that the
+disk side of the equation is not where the problem lies.
 
-On Saturday 15 September 2007 00:12, David Miller wrote:
-> Ok, for now I'm going to try and deal with this by reverting
-> the list handling to something approximating the old NAPI
-> code, as per the patch below.
-> 
-> I've only quickly test booted into this kernel on my workstation.
-> So take care when trying it out.
-> 
-> I took the liberty to add some assertions and comments all over
-> wrt. list and quota handling.  One thing to note that (and this
-> was true previously too) that if ->poll() uses the whole quota
-> it _MUST_ _NOT_ modify the NAPI state by doing a complete or
-> reschedule.  The net_rx_action code still owns the NAPI state in
-> that case, and therefore is allowed to make modifications to the
-> ->poll_list.
-
-I'm currently updating the eHEA polling function to work with this
-scheme. Up to now we had sort of a quota for or TX refill part as well,
-which was also done in the poll function. This was possible as the device
-could be scheduled again even if the quota has not been used
-completely. If I got it right this is not longer possible. 
-The idea was to benefit from the same "fairness" scheme of NAPI as it is
-done for the RX side.
-
-One other thing I observed is that I can not unload the module as the
-ref counter of the eth device is too low. I haven't tracked down the 
-source of this problem yet.
-
-Regards,
-Jan-Bernd
+LF
