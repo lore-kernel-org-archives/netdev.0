@@ -1,49 +1,64 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: SFQ qdisc crashes with limit of 2 packets
-Date: Tue, 18 Sep 2007 13:09:57 -0700 (PDT)
-Message-ID: <20070918.130957.130617077.davem@davemloft.net>
-References: <46F00B80.7050901@trash.net>
-	<46F0117A.4060807@trash.net>
-	<46F023D0.7030307@trash.net>
+Subject: [ofa-general] Re: [PATCH net-2.6.24] Fix refcounting problem with
+ netif_rx_reschedule()
+Date: Tue, 18 Sep 2007 13:15:05 -0700 (PDT)
+Message-ID: <20070918.131505.91210517.davem@davemloft.net>
+References: <20070918111803.1769.60619.sendpatchset@localhost.localdomain>
+	<adawsunkg8i.fsf@cisco.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cebbert@redhat.com, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
-To: kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59659
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753425AbXIRUKD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 16:10:03 -0400
-In-Reply-To: <46F023D0.7030307@trash.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
+To: rdreier@cisco.com
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <adawsunkg8i.fsf@cisco.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 18 Sep 2007 21:15:28 +0200
+From: Roland Dreier <rdreier@cisco.com>
+Date: Tue, 18 Sep 2007 10:58:37 -0700
 
-> OK the off-by-one prevents an out-of-bounds array access, which
-> would cause a crash itself. Despite what I said above, sfq does
-> try to handle dequeues while empty, but forgets to update q->tail
-> when dropping the last packet from the only active queue, probably
-> because it wasn't expected that the queue length is too small to
-> queue even a single packet (and that really doesn't make much sense).
+> netif_rx_complete() takes a netdev parameter and does dev_put() on
+> that netdev, so netif_rx_reschedule() needs to also take a netdev
+> parameter and do dev_hold() on it to avoid reference counts from
+> getting becoming negative because of unbalanced dev_put()s.
 > 
-> So one possibility for fixing this is to update q->tail in sfq_drop
-> when dropping the last packet, but that would still leave the qdisc
-> non-functional because of the off-by-one. I chose a different way:
-> cap the limit at SFQ_DEPTH-1 and remove the off-by-one, which should
-> have no effect on the max (still 127), but prevents the crash since
-> we can now queue at least a single packet and q->tail is properly
-> updated in sfq_dequeue().
+> This should fix the problem reported by Krishna Kumar
+> <krkumar2@in.ibm.com> with IPoIB waiting forever for netdev refcounts
+> to become 0 during module unload.
 > 
-> CCed Alexey just to be safe, but I think the patch should be fine.
-> 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
+> Signed-off-by: Roland Dreier <rolandd@cisco.com>
 
-I've applied this to net-2.6, thanks Patrick.
+Applied to net-2.6.24, thanks Roland.
 
-I'll hold off merging this to Linus until later today so
-that if some issue is found we can address it.
+> BTW, it looks like drivers/net/ibm_emac/ibm_emac_mal.c would not have 
+> built in the current net-2.6.24 tree, since its call to
+> netif_rx_reschedule() was left with the netdev parameter.  So that
+> file does not need to be touched in this patch.
+
+Yes, I know, this is the one NAPI driver that hasn't been converted.
+
+It's a complicated conversion because of how the driver and the data
+structures have been arranged (in short, a mess) which makes it
+insanely difficult to get from a queue instance back up to a network
+device or similar.
+
+Further complicating things is that you need to setup a ppc32
+cross-build environment to even build test a conversion, and I'm not
+comfortable doing the surgery until I can test build the thing.
+
+And this may be hard to believe, but other things have been more
+pressing than setting up a ppc32 cross-build environment :-)
+
+This is a hint of anyone looking for something to do that it'd
+be much appreciated for someone to tackle the ibm_emac conversion.
 
 Thanks.
