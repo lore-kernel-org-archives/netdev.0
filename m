@@ -1,60 +1,64 @@
-From: Jan Kara <jack@suse.cz>
-Subject: Re: [2/3] 2.6.23-rc6: known regressions v2
-Date: Tue, 18 Sep 2007 16:24:43 +0200
-Message-ID: <20070918142443.GA13304@atrey.karlin.mff.cuni.cz>
-References: <46EB3E94.7080704@googlemail.com> <46EB4371.307@googlemail.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH 1/2] IPoIB: Fix unregister_netdev hang
+Date: Tue, 18 Sep 2007 07:27:24 -0700
+Message-ID: <adalkb4kq0j.fsf@cisco.com>
+References: <20070918111803.1769.60619.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	linux-fsdevel@vger.kernel.org,
-	Dave Kleikamp <shaggy@austin.ibm.com>,
-	jfs-discussion@lists.sourceforge.net,
-	Andy Whitcroft <apw@shadowen.org>, sct@redhat.com,
-	adilger@clusterfs.com, linux-ext4@vger.kernel.org,
-	netdev@vger.kernel.org, Shish <shish@shishnet.org>,
-	Karl Meyer <adhocrocker@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Daniel Drake <dsd@gentoo.org>,
-	Oliver Neukum <oliver@neukum.org>,
-	linux-usb-devel@lists.sourceforge.net,
-	Florian Lohoff <flo@rfc822.org>,
-	Toralf F?rster <toralf.foerster@gmx.de>
-To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org,
+	davem@davemloft.net
+To: Krishna Kumar <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atrey.karlin.mff.cuni.cz ([195.113.31.123]:53926 "EHLO
-	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755521AbXIROYo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 10:24:44 -0400
-Content-Disposition: inline
-In-Reply-To: <46EB4371.307@googlemail.com>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:24103 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755274AbXIRO1b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 10:27:31 -0400
+In-Reply-To: <20070918111803.1769.60619.sendpatchset@localhost.localdomain> (Krishna Kumar's message of "Tue, 18 Sep 2007 16:48:03 +0530")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> FS
-> 
-> Subject         : hanging ext3 dbench tests
-> References      : http://lkml.org/lkml/2007/9/11/176
-> Last known good : ?
-> Submitter       : Andy Whitcroft <apw@shadowen.org>
-> Caused-By       : ?
-> Handled-By      : ?
-> Status          : under test -- unreproducible at present
-  Yep... Hard to do anything until Andy is able to reproduce it at least
-once more to gather needed info.
+Thanks for testing on ehca...
 
-> Subject         : umount triggers a warning in jfs and takes almost a minute
-> References      : http://lkml.org/lkml/2007/9/4/73
-> Last known good : ?
-> Submitter       : Oliver Neukum <oliver@neukum.org>
-> Caused-By       : ?
-> Handled-By      : ?
-> Status          : unknown
-  I thought Shaggy asked Oliver about some details (and he did not
-answer so far) so I'd assume Shaggy is handling this.
+ > While using IPoIB over EHCA (rc6 bits), unregister_netdev hangs with
 
-										Honza
--- 
-Jan Kara <jack@suse.cz>
-SuSE CR Labs
+I don't think you're actually using rc6 bits, since in your patch you have:
+
+ > -poll_more:
+
+and I think that is only in Dave's net-2.6.24 tree now, right?
+
+ > The problem is that the poll handler does netif_rx_complete (which
+ > does a dev_put) followed by netif_rx_reschedule() to schedule for
+ > more receives (which again does a dev_put). This reduces refcount to
+ > < 0 (depending on how many times netif_rx_complete followed by
+ > netif_rx_reschedule was called).
+
+Dave, the real problem seems to be that netif_rx_recschedule() calls
+__napi_schedule() rather than __netif_rx_schedule(), so it misses the
+call to dev_hold() that is needed to balance the dev_put() in
+netif_rx_complete().  The current netif_rx_reschedule() looks like it
+really should be napi_reschedule(), and we need a new function that
+takes a netdev too.  Or am I misunderstanding the refcounting?
+
+I'll send a patch once I've had some breakfast and had a chance to at
+least compile it...
+
+Krishna, unfortunately your proposed fix has a race:
+
+ > -		netif_rx_complete(dev, napi);
+ > -		if (unlikely(ib_req_notify_cq(priv->cq,
+ > -					      IB_CQ_NEXT_COMP |
+ > -					      IB_CQ_REPORT_MISSED_EVENTS)) &&
+ > -		    netif_rx_reschedule(napi))
+ > -			goto poll_more;
+ > +		if (likely(!ib_req_notify_cq(priv->cq,
+ > +					     IB_CQ_NEXT_COMP |
+ > +					     IB_CQ_REPORT_MISSED_EVENTS)))
+
+It is possible for an interrupt to happen immediately right here,
+before the netif_rx_complete(), so that netif_rx_schedule() gets
+called while we are still on the poll list.
+
+ > +			netif_rx_complete(dev, napi);
+
+ - R.
