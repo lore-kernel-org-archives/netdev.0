@@ -1,29 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.24] Fix documentation for dev_put()/dev_hold()
-Date: Tue, 18 Sep 2007 13:16:03 -0700 (PDT)
-Message-ID: <20070918.131603.110500348.davem@davemloft.net>
-References: <20070918111803.1769.60619.sendpatchset@localhost.localdomain>
-	<adawsunkg8i.fsf@cisco.com>
-	<adasl5bkfyx.fsf_-_@cisco.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH 1/3] [PPP] L2TP: Disallow non-UDP datagram sockets
+Date: Tue, 18 Sep 2007 21:16:20 +0100
+Message-ID: <46F03214.6000601@katalix.com>
+References: <20070918120438.GA9121@gondor.apana.org.au> <E1IXbqW-0002OB-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
-To: rdreier@cisco.com
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Michal Ostrowski <mostrows@speakeasy.net>,
+	Paul Mackerras <paulus@samba.org>,
+	=?ISO-8859-1?Q?Toralf_F=F6rster?= <toralf.foerster@gmx.de>,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59159
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752391AbXIRUQI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 16:16:08 -0400
-In-Reply-To: <adasl5bkfyx.fsf_-_@cisco.com>
+Received: from s36.avahost.net ([74.53.95.194]:50538 "EHLO s36.avahost.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754707AbXIRUQh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Sep 2007 16:16:37 -0400
+In-Reply-To: <E1IXbqW-0002OB-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Roland Dreier <rdreier@cisco.com>
-Date: Tue, 18 Sep 2007 11:04:22 -0700
-
-> It looks like the comments for dev_put() and dev_hold() got reversed somehow.
+Herbert Xu wrote:
+> [PPP] L2TP: Disallow non-UDP datagram sockets
 > 
-> Signed-off-by: Roland Dreier <rolandd@cisco.com>
+> With the addition of UDP-Lite we need to refine the socket check so that
+> only genuine UDP sockets are allowed through.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied, thanks Roland.
+Acked-by: James Chapman <jchapman@katalix.com>
+
