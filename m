@@ -1,112 +1,70 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][NETNS] Cleanup list walking in setup_net and cleanup_net
-Date: Tue, 18 Sep 2007 12:06:53 +0400
-Message-ID: <46EF871D.8050900@openvz.org>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: e1000 driver and samba
+Date: Tue, 18 Sep 2007 04:47:02 -0400
+Message-ID: <20070918044702.0b5db963.billfink@mindspring.com>
+References: <780b6f780709171158h1016b6c2kfbc977b4ea7c715c@mail.gmail.com>
+	<36D9DB17C6DE9E40B059440DB8D95F5203592D77@orsmsx418.amr.corp.intel.com>
+	<20070918020358.d50653d5.billfink@mindspring.com>
+	<ygfps0g8lj0.fsf@janus.isnogud.escape.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"L F" <lfabio.linux@gmail.com>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	"James Chapman" <jchapman@katalix.com>, <netdev@vger.kernel.org>
+To: Urs Thuermann <urs@isnogud.escape.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:38202 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751463AbXIRIJY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Sep 2007 04:09:24 -0400
+Received: from elasmtp-junco.atl.sa.earthlink.net ([209.86.89.63]:51957 "EHLO
+	elasmtp-junco.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751463AbXIRIr3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 04:47:29 -0400
+In-Reply-To: <ygfps0g8lj0.fsf@janus.isnogud.escape.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I proposed introducing a list_for_each_entry_continue_reverse macro
-to be used in setup_net() when unrolling the failed ->init callback.
+On 18 Sep 2007, Urs Thuermann wrote:
 
-Here is the macro and some more cleanup in the setup_net() itself
-to remove one variable from the stack :) The same thing is for the
-cleanup_net() - the existing list_for_each_entry_reverse() is used.
+> Bill Fink <billfink@mindspring.com> writes:
+> 
+> > It may also be a useful test to disable hardware TSO support
+> > via "ethtool -K ethX tso off".
+> 
+> All suggestions here on the list, i.e. checking for flow control,
+> duplex, cable problems, etc. don't explain (at least to me) why LF
+> sees file corruption.  How can a corrupted frame pass the TCP checksum
+> check?  Does TCP use the hardware checksum of the NIC if available?
+> AFAICS, this would be the only way for a corrupt frame to make it into
+> the file.  But Bill already suggested this and LF reported that it
+> didn't make a difference.
+> 
+> A few months ago I had hadware problems with an embedded device, where
+> transmission from the NIC via the PCI bus to the CPU had some bits
+> flipped.  But tcpdump clearly showed the TCP checksum errors and also
+> TCP recognized the errors and the connection was stalled.  And, BTW,
+> we also observed an increasing percentage of corrupted frames with
+> increasing traffic on that interface, i.e. increasing load on the PCI
+> bus.
+> 
+> So I would run tcpdump -s0 and watch for "incorrect checksum" messages.
 
-Minor, but the code looks nicer.
+I agree TSO is an unlikely candidate since it should only affect
+transmits and the problem as I understand it is with receives.
+But still one of the first things I try doing when dealing with
+weird problems is disabling all hardware assists.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+But I also agree with you that network errors should normally be
+detected by the TCP checksum (unless hardware checksumming was
+messed up), and from what I recall there were no receive checksum
+errors being seen.  That and the fact that the problem was seen
+with two different NICs would lead me to believe that the problem
+is elsewhere in the system.
 
----
+That leaves many possibilities.  It could be a memory problem,
+although it was indicated that memory testing was successfully
+performed (but we don't know how extensive the memory checking
+is enabled via the BIOS).  It could be the PCI bus writes back
+to the disk, or a problem with the disk/controller/fs writes
+themselves (some kind of disk stress test might be useful).
 
-diff --git a/include/linux/list.h b/include/linux/list.h
-index f29fc9c..ad9dcb9 100644
---- a/include/linux/list.h
-+++ b/include/linux/list.h
-@@ -525,6 +525,20 @@ static inline void list_splice_init_rcu(
- 	     pos = list_entry(pos->member.next, typeof(*pos), member))
- 
- /**
-+ * list_for_each_entry_continue_reverse - iterate backwards from the given point
-+ * @pos:	the type * to use as a loop cursor.
-+ * @head:	the head for your list.
-+ * @member:	the name of the list_struct within the struct.
-+ *
-+ * Start to iterate over list of given type backwards, continuing after
-+ * the current position.
-+ */
-+#define list_for_each_entry_continue_reverse(pos, head, member)		\
-+	for (pos = list_entry(pos->member.prev, typeof(*pos), member);	\
-+	     prefetch(pos->member.prev), &pos->member != (head);	\
-+	     pos = list_entry(pos->member.prev, typeof(*pos), member))
-+
-+/**
-  * list_for_each_entry_from - iterate over list of given type from the current point
-  * @pos:	the type * to use as a loop cursor.
-  * @head:	the head for your list.
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 1fc513c..0e6cb02 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -56,7 +56,6 @@ static void net_free(struct net *net)
- static void cleanup_net(struct work_struct *work)
- {
- 	struct pernet_operations *ops;
--	struct list_head *ptr;
- 	struct net *net;
- 
- 	net = container_of(work, struct net, work);
-@@ -69,8 +68,7 @@ static void cleanup_net(struct work_stru
- 	net_unlock();
- 
- 	/* Run all of the network namespace exit methods */
--	list_for_each_prev(ptr, &pernet_list) {
--		ops = list_entry(ptr, struct pernet_operations, list);
-+	list_for_each_entry_reverse(ops, &pernet_list, list) {
- 		if (ops->exit)
- 			ops->exit(net);
- 	}
-@@ -102,7 +100,6 @@ static int setup_net(struct net *net)
- {
- 	/* Must be called with net_mutex held */
- 	struct pernet_operations *ops;
--	struct list_head *ptr;
- 	int error;
- 
- 	memset(net, 0, sizeof(struct net));
-@@ -110,8 +107,7 @@ static int setup_net(struct net *net)
- 	atomic_set(&net->use_count, 0);
- 
- 	error = 0;
--	list_for_each(ptr, &pernet_list) {
--		ops = list_entry(ptr, struct pernet_operations, list);
-+	list_for_each_entry(ops, &pernet_list, list) {
- 		if (ops->init) {
- 			error = ops->init(net);
- 			if (error < 0)
-@@ -120,12 +116,12 @@ static int setup_net(struct net *net)
- 	}
- out:
- 	return error;
-+
- out_undo:
- 	/* Walk through the list backwards calling the exit functions
- 	 * for the pernet modules whose init functions did not fail.
- 	 */
--	for (ptr = ptr->prev; ptr != &pernet_list; ptr = ptr->prev) {
--		ops = list_entry(ptr, struct pernet_operations, list);
-+	list_for_each_entry_continue_reverse(ops, &pernet_list, list) {
- 		if (ops->exit)
- 			ops->exit(net);
- 	}
+						-Bill
