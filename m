@@ -1,108 +1,54 @@
-From: mel@skynet.ie (Mel Gorman)
-Subject: Re: 2.6.23-rc6-mm1: Build failure on ppc64 drivers/net/ehea/ehea_main.c
-Date: Tue, 18 Sep 2007 17:41:26 +0100
-Message-ID: <20070918164126.GB1804@skynet.ie>
-References: <20070918011841.2381bd93.akpm@linux-foundation.org> <20070918162039.GA1804@skynet.ie>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: e1000 driver and samba
+Date: Tue, 18 Sep 2007 12:44:46 -0400
+Message-ID: <20070918124446.89100042.billfink@mindspring.com>
+References: <780b6f780709171158h1016b6c2kfbc977b4ea7c715c@mail.gmail.com>
+	<36D9DB17C6DE9E40B059440DB8D95F5203592D77@orsmsx418.amr.corp.intel.com>
+	<20070918020358.d50653d5.billfink@mindspring.com>
+	<ygfps0g8lj0.fsf@janus.isnogud.escape.de>
+	<82k5qoxfbk.fsf@mid.bfk.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: linux-kernel@vger.kernel.org, themann@de.ibm.com,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Urs Thuermann <urs@isnogud.escape.de>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"L F" <lfabio.linux@gmail.com>,
+	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
+	"James Chapman" <jchapman@katalix.com>, <netdev@vger.kernel.org>
+To: Florian Weimer <fweimer@bfk.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gir.skynet.ie ([193.1.99.77]:55388 "EHLO gir.skynet.ie"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759142AbXIRQl2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Sep 2007 12:41:28 -0400
-Content-Disposition: inline
-In-Reply-To: <20070918162039.GA1804@skynet.ie>
+Received: from elasmtp-curtail.atl.sa.earthlink.net ([209.86.89.64]:34610 "EHLO
+	elasmtp-curtail.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754203AbXIRQpE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 12:45:04 -0400
+In-Reply-To: <82k5qoxfbk.fsf@mid.bfk.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-My apologies for the repost, this should have gone to netdev and Dave Miller
-as well.
+On Tue, 18 Sep 2007, Florian Weimer wrote:
 
-On (18/09/07 17:20), Mel Gorman didst pronounce:
-> Hi Andrew,
+> * Urs Thuermann:
 > 
-> PPC64 failed to build with the driver drivers/net/ehea with the
-> following error
+> > How can a corrupted frame pass the TCP checksum check?
 > 
->   CC [M]  drivers/net/ehea/ehea_main.o
-> drivers/net/ehea/ehea_main.c: In function `ehea_open':
-> drivers/net/ehea/ehea_main.c:2322: error: implicit declaration of function `port_napi_enable'
-> drivers/net/ehea/ehea_main.c: At top level:
-> drivers/net/ehea/ehea_main.c:2340: error: conflicting types for 'port_napi_enable'
-> drivers/net/ehea/ehea_main.c:2322: error: previous implicit declaration of 'port_napi_enable' was here
-> make[1]: *** [drivers/net/ehea/ehea_main.o] Error 1
+> The TCP/IP checksums are extremely weak.  If the corruption is due to
+> defective SRAM or something like that, it's likely that it causes an
+> error pattern which is 16-bit-aligned.  And an even number of
+> 16-bit-aligned bit flips is not detected by the TCP checksum. 8-(
 > 
-> It's buried in git-net.patch and I've cc'd a potential owner based simply
-> on the mention of EHEA in a leader. I've included a candidate fix for the
-> error. It seems to be a simple case of port_napi_enable being defined in
-> the wrong place.
-> 
-> Signed-off-by: Mel Gorman <mel@csn.ul.ie>
-> 
-> ---
->  ehea_main.c |   32 ++++++++++++++++----------------
->  1 file changed, 16 insertions(+), 16 deletions(-)
-> 
-> diff -rup -X /usr/src/patchset-0.6/bin//dontdiff linux-2.6.23-rc6-mm1-005_fix-rpadlpar_sysfs/drivers/net/ehea/ehea_main.c linux-2.6.23-rc6-mm1-010_fix_ehea_main/drivers/net/ehea/ehea_main.c
-> --- linux-2.6.23-rc6-mm1-005_fix-rpadlpar_sysfs/drivers/net/ehea/ehea_main.c	2007-09-18 11:29:28.000000000 +0100
-> +++ linux-2.6.23-rc6-mm1-010_fix_ehea_main/drivers/net/ehea/ehea_main.c	2007-09-18 17:15:27.000000000 +0100
-> @@ -2307,6 +2307,22 @@ out:
->  	return ret;
->  }
->  
-> +static void port_napi_disable(struct ehea_port *port)
-> +{
-> +	int i;
-> +
-> +	for (i = 0; i < port->num_def_qps; i++)
-> +		napi_disable(&port->port_res[i].napi);
-> +}
-> +
-> +static void port_napi_enable(struct ehea_port *port)
-> +{
-> +	int i;
-> +
-> +	for (i = 0; i < port->num_def_qps; i++)
-> +		napi_enable(&port->port_res[i].napi);
-> +}
-> +
->  static int ehea_open(struct net_device *dev)
->  {
->  	int ret;
-> @@ -2328,22 +2344,6 @@ static int ehea_open(struct net_device *
->  	return ret;
->  }
->  
-> -static void port_napi_disable(struct ehea_port *port)
-> -{
-> -	int i;
-> -
-> -	for (i = 0; i < port->num_def_qps; i++)
-> -		napi_disable(&port->port_res[i].napi);
-> -}
-> -
-> -static void port_napi_enable(struct ehea_port *port)
-> -{
-> -	int i;
-> -
-> -	for (i = 0; i < port->num_def_qps; i++)
-> -		napi_enable(&port->port_res[i].napi);
-> -}
-> -
->  static int ehea_down(struct net_device *dev)
->  {
->  	int ret;
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+> Actually, nobody should use TCP without application-level checksums
+> for that reason.  But of course, there is HTTP.
 
--- 
--- 
-Mel Gorman
-Part-time Phd Student                          Linux Technology Center
-University of Limerick                         IBM Dublin Software Lab
+But in this specific case, IIRC there were _no_ receive checksum
+errors seen, and it would seem odd that any bit corruption was
+_always_ an even number of 16-bit-aligned bit flips.
+
+Also, I don't know anything at all about the SAMBA fs/protocol, but
+I would expect it would have some kind of stronger data integrity
+capability that should catch such errors.  Which would be another
+reason implying the data corruption problem is above the network
+layer, and perhaps a hardware error of some kind on the write path
+to the disk (also could possibly be a software bug of some kind
+in that path).
+
+						-Bill
