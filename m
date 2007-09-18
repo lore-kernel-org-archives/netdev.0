@@ -1,35 +1,101 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: new NAPI interface broken
-Date: Tue, 18 Sep 2007 12:08:10 -0700 (PDT)
-Message-ID: <20070918.120810.108807713.davem@davemloft.net>
-References: <200709071137.02801.ossthema@de.ibm.com>
-	<20070914.151252.85399360.davem@davemloft.net>
-	<200709181815.45954.ossthema@de.ibm.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Please pull 'iwlwifi' branch of wireless-2.6
+Date: Tue, 18 Sep 2007 14:50:40 -0400
+Message-ID: <20070918185040.GF4940@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	themann@de.ibm.com, raisch@de.ibm.com
-To: ossthema@de.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51614
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754662AbXIRTIZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 15:08:25 -0400
-In-Reply-To: <200709181815.45954.ossthema@de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Date: Tue, 18 Sep 2007 18:15:45 +0200
+Jeff & Dave,
 
-> One other thing I observed is that I can not unload the module as the
-> ref counter of the eth device is too low. I haven't tracked down the 
-> source of this problem yet.
+Here it is -- it's big, it's...well...beautiful in its own way...well,
+at least it seems to work... :-)
 
-This is probably because of the resched device refcounting
-bug that Roland Dreier just posted a fix for.
+There are some outstanding issues.  The driver does more than it
+probably should under the covers instead of in the stack, and the
+issue of including headers with a "../../mac80211/..." path remains.
+Still, I think it would be better to get this mainlined than to keep
+it out of stream.
 
-Look for subject "Fix refcounting problem with netif_rx_reschedule()"
+Thanks!
 
-I merge that in shortly to net-2.6.24 as well.
+John
+
+---
+
+Patch available here:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/iwlwifi/0001-iwlwifi-add-iwlwifi-wireless-drivers.patch
+
+---
+
+The following changes since commit 0d4cbb5e7f60b2f1a4d8b7f6ea4cc264262c7a01:
+  Linus Torvalds (1):
+        Linux 2.6.23-rc6
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git iwlwifi
+
+Zhu Yi (1):
+      iwlwifi: add iwlwifi wireless drivers
+
+ MAINTAINERS                         |    9 +
+ drivers/net/wireless/Kconfig        |  129 +
+ drivers/net/wireless/Makefile       |   12 +
+ drivers/net/wireless/iwl-3945-hw.h  |  118 +
+ drivers/net/wireless/iwl-3945-rs.c  |  979 ++++
+ drivers/net/wireless/iwl-3945-rs.h  |  191 +
+ drivers/net/wireless/iwl-3945.c     | 2290 +++++++++
+ drivers/net/wireless/iwl-3945.h     |   41 +
+ drivers/net/wireless/iwl-4965-hw.h  |  581 +++
+ drivers/net/wireless/iwl-4965-rs.c  | 2118 ++++++++
+ drivers/net/wireless/iwl-4965-rs.h  |  266 +
+ drivers/net/wireless/iwl-4965.c     | 4719 ++++++++++++++++++
+ drivers/net/wireless/iwl-4965.h     |  341 ++
+ drivers/net/wireless/iwl-channel.h  |  161 +
+ drivers/net/wireless/iwl-commands.h | 1734 +++++++
+ drivers/net/wireless/iwl-debug.h    |  149 +
+ drivers/net/wireless/iwl-eeprom.h   |  336 ++
+ drivers/net/wireless/iwl-helpers.h  |  255 +
+ drivers/net/wireless/iwl-hw.h       |  537 ++
+ drivers/net/wireless/iwl-io.h       |  470 ++
+ drivers/net/wireless/iwl-priv.h     |  308 ++
+ drivers/net/wireless/iwl-prph.h     |  229 +
+ drivers/net/wireless/iwl-spectrum.h |   91 +
+ drivers/net/wireless/iwl3945-base.c | 8732 ++++++++++++++++++++++++++++++++
+ drivers/net/wireless/iwl4965-base.c | 9323 +++++++++++++++++++++++++++++++++++
+ drivers/net/wireless/iwlwifi.h      |  713 +++
+ 26 files changed, 34832 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/wireless/iwl-3945-hw.h
+ create mode 100644 drivers/net/wireless/iwl-3945-rs.c
+ create mode 100644 drivers/net/wireless/iwl-3945-rs.h
+ create mode 100644 drivers/net/wireless/iwl-3945.c
+ create mode 100644 drivers/net/wireless/iwl-3945.h
+ create mode 100644 drivers/net/wireless/iwl-4965-hw.h
+ create mode 100644 drivers/net/wireless/iwl-4965-rs.c
+ create mode 100644 drivers/net/wireless/iwl-4965-rs.h
+ create mode 100644 drivers/net/wireless/iwl-4965.c
+ create mode 100644 drivers/net/wireless/iwl-4965.h
+ create mode 100644 drivers/net/wireless/iwl-channel.h
+ create mode 100644 drivers/net/wireless/iwl-commands.h
+ create mode 100644 drivers/net/wireless/iwl-debug.h
+ create mode 100644 drivers/net/wireless/iwl-eeprom.h
+ create mode 100644 drivers/net/wireless/iwl-helpers.h
+ create mode 100644 drivers/net/wireless/iwl-hw.h
+ create mode 100644 drivers/net/wireless/iwl-io.h
+ create mode 100644 drivers/net/wireless/iwl-priv.h
+ create mode 100644 drivers/net/wireless/iwl-prph.h
+ create mode 100644 drivers/net/wireless/iwl-spectrum.h
+ create mode 100644 drivers/net/wireless/iwl3945-base.c
+ create mode 100644 drivers/net/wireless/iwl4965-base.c
+ create mode 100644 drivers/net/wireless/iwlwifi.h
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
