@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: bnx2 dirver's firmware images
-Date: Tue, 18 Sep 2007 11:23:37 -0700 (PDT)
-Message-ID: <20070918.112337.74737433.davem@davemloft.net>
-References: <200709181823.26429.vda.linux@googlemail.com>
-	<1190141114.9540.216.camel@dell>
+Subject: Re: wrt Age Entry For IPv4 & IPv6 Route Table
+Date: Tue, 18 Sep 2007 11:36:45 -0700 (PDT)
+Message-ID: <20070918.113645.118625147.davem@davemloft.net>
+References: <46EF85A8.5050301@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vda.linux@googlemail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: mchan@broadcom.com
+Cc: netdev@vger.kernel.org, varuncha@in.ibm.com
+To: varunc@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-98-Washington.hfc.comcastbusiness.net ([74.93.104.98]:42123
-	"EHLO picasso.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753563AbXIRSXp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 14:23:45 -0400
-In-Reply-To: <1190141114.9540.216.camel@dell>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44181
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752355AbXIRSgs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 14:36:48 -0400
+In-Reply-To: <46EF85A8.5050301@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Tue, 18 Sep 2007 11:45:14 -0700
+From: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+Date: Tue, 18 Sep 2007 13:30:40 +0530
 
-> On Tue, 2007-09-18 at 18:23 +0100, Denys Vlasenko wrote:
-> > Do you have any plans to switch to request_firmware() interface,
-> > which will allow you to avoid keeping firmware in unswappable kernel
-> > memory and thus free ~80k?
-> 
-> Matching the correct version of the firmware with the driver is the main
-> issue.
-> 
-> David, what's your opinion on this?
+>                   Sorry for bothering you. I see that you are currently
+> very busy. I just wanted to remind you that iam waiting for your
+> feedback on the patch set. Just incase you want me to resend , please
+> let me know. If this work is already in your queue, ignore this mail.
 
-I don't like it because it means people have to setup full initrd's
-in order to do network booting with such network cards.
-
-But the days of my opinion mattering on that issue are long gone,
-the momentum is just too greatly behind using request_firmware()
-across the board, so there is no reason for bnx2 to be any different.
+I don't have it in my inbox, and also in order to avoid confusion
+on what is the latest revision, please repost your patch set
+to netdev, thanks.
