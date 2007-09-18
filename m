@@ -1,39 +1,89 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: bnx2 dirver's firmware images
-Date: Tue, 18 Sep 2007 12:09:52 -0700
-Message-ID: <1190142592.9540.218.camel@dell>
-References: <200709181823.26429.vda.linux@googlemail.com>
- <1190141114.9540.216.camel@dell>
- <200709181855.37598.vda.linux@googlemail.com>
+From: Vernon Mauery <vernux@us.ibm.com>
+Subject: NetXen driver causing slab corruption in -RT kernels
+Date: Tue, 18 Sep 2007 11:17:58 -0700
+Message-ID: <200709181117.59041.vernux@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, "David Miller" <davem@davemloft.net>,
-	"netdev" <netdev@vger.kernel.org>
-To: "Denys Vlasenko" <vda.linux@googlemail.com>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Dhananjay Phadke <dhananjay@netxen.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3787 "EHLO mms1.broadcom.com"
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:55922 "EHLO e1.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755308AbXIRSMa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Sep 2007 14:12:30 -0400
-In-Reply-To: <200709181855.37598.vda.linux@googlemail.com>
+	id S1755357AbXIRSSE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Sep 2007 14:18:04 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-09-18 at 18:55 +0100, Denys Vlasenko wrote:
-> On Tuesday 18 September 2007 19:45, Michael Chan wrote:
-> > We can compress all the different sections of the firmware.  Currently,
-> > we only compress the biggest chunks and the rest are uncompressed.
-> 
-> > These zeros should compress to almost nothing.  But I agree that the
-> > firmware is still big.
-> 
-> You don't need to store and fetch zeros at all. You *know* that
-> they are zeros, right? So do this:
-> 
-> -                         REG_WR_IND(bp, offset, fw->bss[j]);
-> +                         REG_WR_IND(bp, offset, 0);
-> 
-Good point.  We can do that.  Looking at the file, there are other non-
-zero data that can be compressed to save some more room.
+In doing some stress testing of the NetXen driver, I found that my machine was 
+dying in all sorts of weird ways.  I saw several different crashes, BUG 
+messages in the TCP stack and some assert messages in the TCP stack as well.  
+I really didn't think that there could be six different bugs all at once in 
+the TCP/IP stack, so I started looking at possible memory corruption.
 
+I first saw this on 2.6.16-rt22 with a backported netxen driver from 2.6.22.  
+I figured I should try the latest kernel, so I tried it on 2.6.23-rc6-git7 
+but could not trigger the slab corruption messages with CONFIG_DEBUG_SLAB, so 
+I figured the race must only exist in the -RT kernels.  Next I tried 
+2.6.23-rc6-git7-rt1 (I applied patch-2.6.23-rc4-rt1 patch to 2.6.23-rc6-git7 
+and fixed the 5 failing hunks).  After an hour or so, lots of slab corruption 
+messages showed up:
+
+Slab corruption: size-2048 start=f40c4670, len=2048
+Slab corruption: size-2048 start=f313cf48, len=2048
+Redzone: 0x9f911029d74e35b/0x9f911029d74e35b.
+Last user: [<c0166be4>](kfree+0x80/0x95)
+010: 6b 6b 00 0e 1e 00 16 13 00 0e 1e 00 19 3d 08 00
+020: 45 00 05 dc 92 ab 40 00 40 11 8a 5b 0a 02 02 03
+030: 0a 02 02 04 80 0c 80 0d 05 c8 dc 39 00 00 00 00
+040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+050: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+060: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+Prev obj: start=f313c730, len=2048
+Redzone: 0xd84156c5635688c0/0xd84156c5635688c0.
+Last user: [<f8f06186>](netxen_post_rx_buffers_nodb+0x62/0x1f0 [netxen_nic])
+000: 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+010: 5a 5a 00 0e 1e 00 16 13 00 0e 1e 00 19 3d 08 00
+Next obj: start=f313d760, len=2048
+Redzone: 0xd84156c5635688c0/0xd84156c5635688c0.
+Last user: [<f8f06186>](netxen_post_rx_buffers_nodb+0x62/0x1f0 [netxen_nic])
+000: 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+010: 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+Slab corruption: size-2048 start=f395a6f0, len=2048
+Redzone: 0x9f911029d74e35b/0x9f911029d74e35b.
+Last user: [<c0166be4>](kfree+0x80/0x95)
+010: 6b 6b 00 0e 1e 00 16 13 00 0e 1e 00 19 3d 08 00
+020: 45 00 05 dc 92 ac 40 00 40 11 8a 5a 0a 02 02 03
+030: 0a 02 02 04 80 0c 80 0d 05 c8 dc 39 00 00 00 00
+040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+050: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+060: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+Next obj: start=f395af08, len=2048
+Redzone: 0xd84156c5635688c0/0xd84156c5635688c0.
+Last user: [<f8f06186>](netxen_post_rx_buffers_nodb+0x62/0x1f0 [netxen_nic])
+000: 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+010: 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+Redzone: 0x9f911029d74e35b/0x9f911029d74e35b.
+Last user: [<c0166be4>](kfree+0x80/0x95)
+010: 6b 6b 00 0e 1e 00 16 13 00 0e 1e 00 19 3d 08 00
+020: 45 00 05 dc 92 aa 40 00 40 11 8a 5c 0a 02 02 03
+030: 0a 02 02 04 80 0c 80 0d 05 c8 dc 39 00 00 00 00
+040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+050: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+060: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+Next obj: start=f40c4e88, len=2048
+Redzone: 0xd84156c5635688c0/0xd84156c5635688c0.
+Last user: [<f8f06186>](netxen_post_rx_buffers_nodb+0x62/0x1f0 [netxen_nic])
+000: 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a 5a
+010: 5a 5a 00 0e 1e 00 16 13 00 0e 1e 00 19 3d 08 00
+
+The stress test that I am running is basically a mixed bag of stuff I threw 
+together.  It runs eight concurrent netperf TCP streams and two concurrent 
+UDP streams in both directions, (and on both 10GbE interfaces), ping -f in 
+both directions, some more disk/cpu loads in the background and a little bit 
+of NFS traffic thrown in for good measure.
+
+--Vernon
