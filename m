@@ -1,51 +1,56 @@
-From: David Miller <davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
 Subject: Re: bnx2 dirver's firmware images
-Date: Tue, 18 Sep 2007 14:31:34 -0700 (PDT)
-Message-ID: <20070918.143134.112198097.davem@davemloft.net>
+Date: Tue, 18 Sep 2007 16:14:36 -0700
+Message-ID: <1190157276.9540.242.camel@dell>
 References: <1190145951.9540.230.camel@dell>
-	<20070918.122150.124083496.davem@davemloft.net>
-	<20070918213025.GF10199@1wt.eu>
+ <20070918.122150.124083496.davem@davemloft.net>
+ <20070918213025.GF10199@1wt.eu>
+ <20070918.143134.112198097.davem@davemloft.net>
+ <20070918213736.GA31119@1wt.eu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, vda.linux@googlemail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: w@1wt.eu
+Cc: "David Miller" <davem@davemloft.net>, vda.linux@googlemail.com,
+	linux-kernel@vger.kernel.org, "netdev" <netdev@vger.kernel.org>
+To: "Willy Tarreau" <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41506
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753599AbXIRWLC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 18:11:02 -0400
-In-Reply-To: <20070918213025.GF10199@1wt.eu>
+Received: from mms2.broadcom.com ([216.31.210.18]:2450 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752185AbXIRWQ4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Sep 2007 18:16:56 -0400
+In-Reply-To: <20070918213736.GA31119@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Willy Tarreau <w@1wt.eu>
-Date: Tue, 18 Sep 2007 23:30:25 +0200
+On Tue, 2007-09-18 at 23:37 +0200, Willy Tarreau wrote:
 
-> On Tue, Sep 18, 2007 at 12:21:50PM -0700, David Miller wrote:
-> > From: "Michael Chan" <mchan@broadcom.com>
-> > Date: Tue, 18 Sep 2007 13:05:51 -0700
-> > 
-> > > The bnx2 firmware changes quite frequently.  A new driver quite often
-> > > requires new firmware to work correctly.  Splitting them up makes things
-> > > difficult for the user.
+> > > Michael, doesn't a functional-yet-suboptimal firmware exist ? I mean,
+> > > just the same principle as we all have kernels, boot CDs, statically
+> > > built tools, etc... which run everywhere. If you have such a beast,
+> > > maybe it would be a good start to have it in the kernel, and provide
+> > > the users with the ability to upgrade the firmware once the system
+> > > is able to do more complex things.
 > > > 
-> > > The firmware in tg3 is a lot more mature and I don't expect it to
-> > > change.  I think tg3 is better suited for using request_firmware().
+> > > Just a thought...
 > > 
-> > Like I said, I think neither should change and the driver should
-> > be fully functional when built statically into the kernel.
+> > So let's save 60K instead of 80K.
 > 
-> Michael, doesn't a functional-yet-suboptimal firmware exist ? I mean,
-> just the same principle as we all have kernels, boot CDs, statically
-> built tools, etc... which run everywhere. If you have such a beast,
-> maybe it would be a good start to have it in the kernel, and provide
-> the users with the ability to upgrade the firmware once the system
-> is able to do more complex things.
+> That's not for this reason I said this. Michael said the firmware needs
+> to be updated somewhat often. What I was wondering was if it was not
+> possible to stick to a stable one (and hopefully small) so that the
+> driver could require less frequent updates. Sorry if it's not the main
+> point of the discussion, but I grepped on this :-)
 > 
-> Just a thought...
 
-So let's save 60K instead of 80K.
+The bnx2 chip requires a lot of firmware to begin with, so it won't save
+much space no matter what version is used in the kernel.  We update the
+firmware to fix bugs and sometimes to add new features.  New features
+often require matching changes in the driver.  For example, we're
+planning to add S/G support for jumbo rx frames and this requires
+changes in both driver and firmware.
 
-I mean, the entire discussion is just plain silly :)
+It's possible to make the driver work with multiple firmware versions,
+but that adds complexity to enable/disable certain features.  Testing
+also becomes more difficult as it has to cover different combinations.
+
+
