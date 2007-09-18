@@ -1,54 +1,66 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: e1000 driver and samba
-Date: Tue, 18 Sep 2007 12:44:46 -0400
-Message-ID: <20070918124446.89100042.billfink@mindspring.com>
-References: <780b6f780709171158h1016b6c2kfbc977b4ea7c715c@mail.gmail.com>
-	<36D9DB17C6DE9E40B059440DB8D95F5203592D77@orsmsx418.amr.corp.intel.com>
-	<20070918020358.d50653d5.billfink@mindspring.com>
-	<ygfps0g8lj0.fsf@janus.isnogud.escape.de>
-	<82k5qoxfbk.fsf@mid.bfk.de>
+From: "Ed Swierk" <eswierk@arastra.com>
+Subject: [PATCH] forcedeth: power down phy when interface is down
+Date: Tue, 18 Sep 2007 09:58:25 -0700
+Message-ID: <e6c711510709180958j41265e87kd5126b7d5e832c0e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Urs Thuermann <urs@isnogud.escape.de>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"L F" <lfabio.linux@gmail.com>,
-	"Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"James Chapman" <jchapman@katalix.com>, <netdev@vger.kernel.org>
-To: Florian Weimer <fweimer@bfk.de>
+Content-Type: multipart/mixed;
+	boundary="----=_Part_6479_21969355.1190134705313"
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-curtail.atl.sa.earthlink.net ([209.86.89.64]:34610 "EHLO
-	elasmtp-curtail.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754203AbXIRQpE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 12:45:04 -0400
-In-Reply-To: <82k5qoxfbk.fsf@mid.bfk.de>
+Received: from rv-out-0910.google.com ([209.85.198.188]:37868 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760760AbXIRQ60 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 12:58:26 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so1646607rvb
+        for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 09:58:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 18 Sep 2007, Florian Weimer wrote:
+------=_Part_6479_21969355.1190134705313
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-> * Urs Thuermann:
-> 
-> > How can a corrupted frame pass the TCP checksum check?
-> 
-> The TCP/IP checksums are extremely weak.  If the corruption is due to
-> defective SRAM or something like that, it's likely that it causes an
-> error pattern which is 16-bit-aligned.  And an even number of
-> 16-bit-aligned bit flips is not detected by the TCP checksum. 8-(
-> 
-> Actually, nobody should use TCP without application-level checksums
-> for that reason.  But of course, there is HTTP.
+Bring the physical link down when the interface is down, by placing
+the PHY in power-down state. This mirrors the behavior of other
+drivers including e1000 and tg3.
 
-But in this specific case, IIRC there were _no_ receive checksum
-errors seen, and it would seem odd that any bit corruption was
-_always_ an even number of 16-bit-aligned bit flips.
+Signed-off-by: Ed Swierk <eswierk@arastra.com>
 
-Also, I don't know anything at all about the SAMBA fs/protocol, but
-I would expect it would have some kind of stronger data integrity
-capability that should catch such errors.  Which would be another
-reason implying the data corruption problem is above the network
-layer, and perhaps a hardware error of some kind on the write path
-to the disk (also could possibly be a software bug of some kind
-in that path).
+------=_Part_6479_21969355.1190134705313
+Content-Type: application/octet-stream;
+ name="forcedeth-phy-power-down.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="forcedeth-phy-power-down.patch"
+X-Attachment-Id: f_f6qned3j
 
-						-Bill
+QnJpbmcgdGhlIHBoeXNpY2FsIGxpbmsgZG93biB3aGVuIHRoZSBpbnRlcmZhY2UgaXMgZG93biwg
+YnkgcGxhY2luZyB0aGUgUEhZCmluIHBvd2VyLWRvd24gc3RhdGUuICBUaGlzIG1pcnJvcnMgdGhl
+IGJlaGF2aW9yIG9mIG90aGVyIGRyaXZlcnMgaW5jbHVkaW5nCmUxMDAwIGFuZCB0ZzMuCgpTaWdu
+ZWQtb2ZmLWJ5OiBFZCBTd2llcmsgPGVzd2llcmtAYXJhc3RyYS5jb20+CgpJbmRleDogbGludXgt
+Mi42LjIyLjYvZHJpdmVycy9uZXQvZm9yY2VkZXRoLmMKPT09PT09PT09PT09PT09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQotLS0gbGludXgtMi42
+LjIyLjYub3JpZy9kcml2ZXJzL25ldC9mb3JjZWRldGguYworKysgbGludXgtMi42LjIyLjYvZHJp
+dmVycy9uZXQvZm9yY2VkZXRoLmMKQEAgLTEzMDcsOSArMTMwNyw5IEBAIHN0YXRpYyBpbnQgcGh5
+X2luaXQoc3RydWN0IG5ldF9kZXZpY2UgKmQKIAkvKiBzb21lIHBoeXMgY2xlYXIgb3V0IHBhdXNl
+IGFkdmVydGlzbWVudCBvbiByZXNldCwgc2V0IGl0IGJhY2sgKi8KIAltaWlfcncoZGV2LCBucC0+
+cGh5YWRkciwgTUlJX0FEVkVSVElTRSwgcmVnKTsKIAotCS8qIHJlc3RhcnQgYXV0byBuZWdvdGlh
+dGlvbiAqLworCS8qIHJlc3RhcnQgYXV0byBuZWdvdGlhdGlvbiwgcG93ZXIgZG93biBwaHkgKi8K
+IAltaWlfY29udHJvbCA9IG1paV9ydyhkZXYsIG5wLT5waHlhZGRyLCBNSUlfQk1DUiwgTUlJX1JF
+QUQpOwotCW1paV9jb250cm9sIHw9IChCTUNSX0FOUkVTVEFSVCB8IEJNQ1JfQU5FTkFCTEUpOwor
+CW1paV9jb250cm9sIHw9IChCTUNSX0FOUkVTVEFSVCB8IEJNQ1JfQU5FTkFCTEUgfCBCTUNSX1BE
+T1dOKTsKIAlpZiAobWlpX3J3KGRldiwgbnAtPnBoeWFkZHIsIE1JSV9CTUNSLCBtaWlfY29udHJv
+bCkpIHsKIAkJcmV0dXJuIFBIWV9FUlJPUjsKIAl9CkBAIC00NzkyLDYgKzQ3OTIsMTAgQEAgc3Rh
+dGljIGludCBudl9vcGVuKHN0cnVjdCBuZXRfZGV2aWNlICpkZQogCiAJZHByaW50ayhLRVJOX0RF
+QlVHICJudl9vcGVuOiBiZWdpblxuIik7CiAKKwkvKiBwb3dlciB1cCBwaHkgKi8KKwltaWlfcnco
+ZGV2LCBucC0+cGh5YWRkciwgTUlJX0JNQ1IsCisJICAgICAgIG1paV9ydyhkZXYsIG5wLT5waHlh
+ZGRyLCBNSUlfQk1DUiwgTUlJX1JFQUQpICYgfkJNQ1JfUERPV04pOworCiAJLyogZXJhc2UgcHJl
+dmlvdXMgbWlzY29uZmlndXJhdGlvbiAqLwogCWlmIChucC0+ZHJpdmVyX2RhdGEgJiBERVZfSEFT
+X1BPV0VSX0NOVFJMKQogCQludl9tYWNfcmVzZXQoZGV2KTsKQEAgLTQ5NzIsNiArNDk3NiwxMCBA
+QCBzdGF0aWMgaW50IG52X2Nsb3NlKHN0cnVjdCBuZXRfZGV2aWNlICpkCiAJCW52X3N0YXJ0X3J4
+KGRldik7CiAJfQogCisJLyogcG93ZXIgZG93biBwaHkgKi8KKwltaWlfcncoZGV2LCBucC0+cGh5
+YWRkciwgTUlJX0JNQ1IsCisJICAgICAgIG1paV9ydyhkZXYsIG5wLT5waHlhZGRyLCBNSUlfQk1D
+UiwgTUlJX1JFQUQpIHwgQk1DUl9QRE9XTik7CisKIAkvKiBGSVhNRTogcG93ZXIgZG93biBuaWMg
+Ki8KIAogCXJldHVybiAwOwo=
+------=_Part_6479_21969355.1190134705313--
