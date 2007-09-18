@@ -1,48 +1,60 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] 2.6.22.6 NETWORKING [IPV4]: Always use source addr in
- skb to reply packet
-Date: Tue, 18 Sep 2007 11:26:44 +0900 (JST)
-Message-ID: <20070918.112644.28694997.yoshfuji@linux-ipv6.org>
-References: <20070918021617.GA15540@router.lepton.home>
-	<20070917.192044.48396034.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [net-2.6.24][patch 2/2] Dynamically allocate the loopback device
+Date: Mon, 17 Sep 2007 20:44:14 -0600
+Message-ID: <m1r6kwpu9t.fsf@ebiederm.dsl.xmission.com>
+References: <20070917101314.5d1673da@freepuppy.rosehill.hemminger.net>
+	<46EECCD5.5090601@fr.ibm.com>
+	<224b7d320709171212o66734847kbd17efa817b482fc@mail.gmail.com>
+	<20070917.185349.98863851.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, yoshfuji@linux-ipv6.org
-To: ytht.net@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: pjwaskiewicz@gmail.com, dlezcano@fr.ibm.com,
+	shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	containers@lists.osdl.org, benjamin.thery@bull.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:44083 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754566AbXIRCZN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 22:25:13 -0400
-In-Reply-To: <20070917.192044.48396034.davem@davemloft.net>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:58526 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753728AbXIRCpW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Sep 2007 22:45:22 -0400
+In-Reply-To: <20070917.185349.98863851.davem@davemloft.net> (David Miller's
+	message of "Mon, 17 Sep 2007 18:53:49 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20070917.192044.48396034.davem@davemloft.net> (at Mon, 17 Sep 2007 19:20:44 -0700 (PDT)), David Miller <davem@davemloft.net> says:
+David Miller <davem@davemloft.net> writes:
 
-> From: lepton <ytht.net@gmail.com>
-> Date: Tue, 18 Sep 2007 10:16:17 +0800
-> 
-> > Hi,
-> >   In some situation, icmp_reply and ip_send_reply will send
-> >   out packet with the wrong source addr, the following patch
-> >   will fix this.
-> > 
-> >   I don't understand why we must use rt->rt_src in the current
-> >   code, if this is a wrong fix, please correct me.
-> > 
-> > Signed-off-by: Lepton Wu <ytht.net@gmail.com>
-> 
-> That the address is wrong is your opinion only :-)
-> 
-> Source address selection is a rather complex topic, and
-> here we are definitely purposefully using the source
-> address selected by the routing lookup for the reply.
+> From: "Peter Waskiewicz" <pjwaskiewicz@gmail.com>
+> Date: Mon, 17 Sep 2007 12:12:24 -0700
+>
+>> This would be a good opportunity to remove the single-allocated queue struct
+>> in netdevice (at the bottom) that we had to put in to accomodate the static
+>> loopback.  Now we can set it back to a zero element list, and have
+>> alloc_netdev_mq() just allocate the number of queues requested, not
+>> num_queues - 1.
+>> 
+>> I'll put a patch together based on this patchset.
+>
+> Thanks Peter.
+>
+> I'll also let this sit so that Eric can provide any feedback
+> he wants and also figure out how he will use this for the
+> namespace stuff.
 
-And, if you do think something is "wrong", you need to describe it
-in detail, at least.
+Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Not that it doesn't already have my signed off by.
 
---yoshfuji
+I have an earlier version of this patch sitting in my tree,
+along with some additional patches to make this per namespace.
+
+I don't really care which version of this patch goes in and
+I'm happy to give Daniel credit for doing the final work to get this
+patch merged.
+
+I think it is important for bisect reasons that we first dynamically
+allocate the loopback device and then make it per network namespace.
+So someone can determine which part of the work caused a problem if
+there is one.
+
+Eric
+
