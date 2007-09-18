@@ -1,61 +1,55 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: bnx2 dirver's firmware images
-Date: Tue, 18 Sep 2007 12:27:04 -0700
-Message-ID: <46F02688.8030507@zytor.com>
-References: <1190141114.9540.216.camel@dell>	<20070918.112337.74737433.davem@davemloft.net>	<46F01BDE.6020902@zytor.com> <20070918.122034.83625273.davem@davemloft.net>
+From: "Jon Smirl" <jonsmirl@gmail.com>
+Subject: Re: [PATCH] phy: export phy_mii_ioctl
+Date: Tue, 18 Sep 2007 15:29:09 -0400
+Message-ID: <9e4733910709181229m4afe7ecr56e2411f52a84232@mail.gmail.com>
+References: <20070810095153.GC13994@moe.telargo.com>
+	 <20070902074143.GB2642@nd47.coderock.org>
+	 <fa686aa40709030857j6c36c87ek60215f812864ee0f@mail.gmail.com>
+	 <20070915121444.GA19857@nd47.coderock.org>
+	 <20070917095334.GA4546@powerlinux.fr>
+	 <20070917202140.GB2642@nd47.coderock.org>
+	 <9e4733910709171508s76c842c8hca236249617cbb44@mail.gmail.com>
+	 <20070918151622.GD32628@nd47.coderock.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, vda.linux@googlemail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linuxppc-embedded@ozlabs.org,
+	sven@powerlinux.fr
+To: "Domen Puncer" <domen@coderock.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([198.137.202.10]:49144 "EHLO
-	terminus.zytor.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753365AbXIRT1P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 15:27:15 -0400
-In-Reply-To: <20070918.122034.83625273.davem@davemloft.net>
+Received: from an-out-0708.google.com ([209.85.132.249]:41651 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753012AbXIRT3O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 15:29:14 -0400
+Received: by an-out-0708.google.com with SMTP id d31so300376and
+        for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 12:29:13 -0700 (PDT)
+In-Reply-To: <20070918151622.GD32628@nd47.coderock.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: "H. Peter Anvin" <hpa@zytor.com>
-> Date: Tue, 18 Sep 2007 11:41:34 -0700
-> 
->> David Miller wrote:
->>> I don't like it because it means people have to setup full initrd's
->>> in order to do network booting with such network cards.
->>>
->> klibc could help with that, if there is interest in exploring that
->> avenue again.
-> 
-> I appreciate the effort you put into klibc and the offer to
-> make initrd's easier to build.
->
-> But the point is that the initrd shouldn't be necessary in the first
-> place.  There becomes zero point in building these drivers statically
-> into the kernel, which many of us do specifically to avoid module
-> loading, initrds, and all that fuss.  Because the driver is totally
-> crippled even though it's been fully built into the main kernel image.
-> 
-> I mean, it's so incredibly stupid and makes kernel development that
-> much more difficult.
-> 
-> Every new dependency, be it requiring initrd or something else,
-> is one more barrier added to kernel development.
-> 
-> I really pine for the days where everything was so simple, and initrd
-> and modules were the odd ball cases, most developers built everything
-> into their kernel image.
+On 9/18/07, Domen Puncer <domen@coderock.org> wrote:
+> More testing and getting it to work properly on Phytec pcm030 would
+> be great.
 
-Well, what I was referring to here, of course, was the initramfs
-integrated in the kernel image, so it all comes out of the kernel build
-tree and produces a single bootable image.  The fact that part of it
-contains userspace code is in that way invisible.
+Do we want to do anything about this?
 
-That was kind of the point here, and the only reason for pushing klibc
-into the kernel build tree at all.  Under the "distros use external
-initrd anyway" school of thought, whatever libc used for that can be
-external anyway.
+[    1.569657] net eth0: attached phy 0 to driver Generic PHY
+[    2.576013] Sending DHCP requests .<6>PHY: f0003000:00 - Link is Up
+- 100/Full
+[    4.612000] ., OK
+[    6.764005] IP-Config: Got DHCP answer from 192.168.1.200, my
+address is 192.168.1.5
 
-	-hpa
+What is happening is the printk for "<6>PHY: f0003000:00 - Link is Up
+- 100/Full" is done in an interrupt and it comes in the middle of the
+kernel doing DHCP and printing ... without a CR.
+
+Two possible solutions, get rid of the link-up message or wait in in
+the initial driver load until the link is up. Or we could leave it the
+way it is, but some people may report this as a bug.
+
+
+-- 
+Jon Smirl
+jonsmirl@gmail.com
