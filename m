@@ -1,55 +1,32 @@
-From: maximilian attems <max@stro.at>
-Subject: Re: bnx2 dirver's firmware images
-Date: Wed, 19 Sep 2007 18:51:03 +0200
-Message-ID: <20070919165103.GS19918@baikonur.stro.at>
-References: <20070918.112337.74737433.davem@davemloft.net> <1190145951.9540.230.camel@dell> <20070919163318.GG6618@stro.at> <20070919.093832.88002774.davem@davemloft.net>
+From: Sean Hefty <mshefty@ichips.intel.com>
+Subject: Re: [ofa-general] [PATCH] RDMA/CMA: Implement rdma_resolve_ip retry
+ enhancement.
+Date: Wed, 19 Sep 2007 09:52:20 -0700
+Message-ID: <46F153C4.2070008@ichips.intel.com>
+References: <200709190022.l8J0MbWt024754@neteffect.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mchan@broadcom.com, vda.linux@googlemail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: rdreier@cisco.com, netdev@vger.kernel.org,
+	general@lists.openfabrics.org
+To: ggrundstrom@neteffect.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from baikonur.stro.at ([213.239.196.228]:2538 "EHLO baikonur.stro.at"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752124AbXISQvd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Sep 2007 12:51:33 -0400
-Content-Disposition: inline
-In-Reply-To: <20070919.093832.88002774.davem@davemloft.net>
+Received: from mga06.intel.com ([134.134.136.21]:51898 "EHLO
+	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753073AbXISQwZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 12:52:25 -0400
+In-Reply-To: <200709190022.l8J0MbWt024754@neteffect.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-hello dave,
+> If an application is calling rdma_resolve_ip() and a status of -ENODATA is returned from addr_resolve_local/remote(), the timeout mechanism waits until the application's timeout occurs before rechecking the address resolution status; the application will wait until it's full timeout occurs.  This case is seen when the work thread call to process_req() is made before the arp packet is processed.
 
-i appreciate a lot your opinon, but please cool down.
-this is not a four spin on your beloved pipe. :)
+I don't understand the issue.  process_req() is invoked whenever a 
+network event occurs, which rechecks all pending requests.
 
-On Wed, Sep 19, 2007 at 09:38:32AM -0700, David Miller wrote:
-> From: maximilian attems <max@stro.at>
-> Date: Wed, 19 Sep 2007 18:33:18 +0200
-> 
-> > we have to strip the firmware for Debian for the upcoming Lenny release.
-> 
-> Why do you "have to"?  The vendor has given you explicit rights
-> to distribute it:
-> 
->  * Firmware is:
->  *	Derived from proprietary unpublished source code,
->  *	Copyright (C) 2000-2003 Broadcom Corporation.
->  *
->  *	Permission is hereby granted for the distribution of this firmware
->  *	data in hexadecimal or equivalent format, provided this copyright
->  *	notice is accompanying it.
+> This patch is in addition to Steve Wise's neigh_event_send patch to initiate neighbour discovery sent on 9/12/2007.
 
-afair the trouble is that it does not give permission to change
-unlike some other gpl or bsd licensed blob.
-so it is dfsg non-free and not suitable for main distribution.
- 
-> This whole firmware stripping thing in debian is beyond rediculious
-> and only serves to hurt users.
+This patch looks unrelated to Steve's patch.  Can you clarify the 
+relationship?
 
-i'm not of the d-legal department,
-but seeing free firmwares would be cool.
-
--- 
-maks
-
+- Sean
