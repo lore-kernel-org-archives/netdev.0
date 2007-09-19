@@ -1,43 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: new NAPI quota synchronization issue
-Date: Wed, 19 Sep 2007 09:58:25 -0700 (PDT)
-Message-ID: <20070919.095825.39465358.davem@davemloft.net>
+From: maximilian attems <max@stro.at>
+Subject: Re: bnx2 dirver's firmware images
+Date: Wed, 19 Sep 2007 19:10:33 +0200
+Message-ID: <20070919171033.GH6618@stro.at>
+References: <46F01BDE.6020902@zytor.com> <20070918.122034.83625273.davem@davemloft.net> <46F02688.8030507@zytor.com> <20070918.130810.78161599.davem@davemloft.net> <20070918203530.GC27836@uranus.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, hpa@zytor.com,
+	mchan@broadcom.com, vda.linux@googlemail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Sam Ravnborg <sam@ravnborg.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35840
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755618AbXISQ6l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 12:58:41 -0400
+Received: from baikonur.stro.at ([213.239.196.228]:4596 "EHLO baikonur.stro.at"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751181AbXISRKf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Sep 2007 13:10:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20070918203530.GC27836@uranus.ravnborg.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 18 Sep 2007, Sam Ravnborg wrote:
 
-Ok, as has been hinted at with some postings from Krishna and others,
-we still have some mutual exclusion issues in the new NAPI code.
+> Anyway - if we again consider klibc I will do my best to make the
+> build stuff as smooth as possible.
+> 
+> 	Sam
 
-In short, the napi->quota updates happen outside of the sections where
-the code stream "owns" the napi_struct instance, so it can be modified
-in parallel on multiple cpus, the n->quota can go negative, and the
-quota bug checks trigger.
+<nitpicking mode on>
+currently klibc has tendency to rebuild a bit too much if you
+touch some part of it, seen in usr/utils
+for the main klibc i agree that it makes sense
 
-It just seems that gradually I'm reverting every single cleanup done
-by Stephen in his original patch, first the list handling and now the
-quota bits too :-)
-
-Probably a good way to deal with this is to simply make the quota
-handling stateless.
-
-The only reason we handle partial quota usage is to handle the
-global netdev_budget.  But we can simply "round up" and let
-netdev_budget get oversubscribed by one napi->quota's worth
-if necessary.
-
-At that point, n->quota only holds two states when used, full
-and empty.  And at that point there is no reason to maintain
-it's value at all.  Only the weight is necessary.
-
-I'll try to post a patch which implements this later today.
+-- 
+maks
