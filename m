@@ -1,44 +1,35 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: follow-up: discrepancy with POSIX
-Date: Wed, 19 Sep 2007 10:46:54 -0700
-Message-ID: <46F1608E.7060908@redhat.com>
-References: <46F13E8B.4050309@redhat.com> <p73sl5aveqh.fsf@bingen.suse.de> <46F15305.2030507@redhat.com> <20070919172653.GB18045@one.firstfloor.org>
+From: 'Christoph Hellwig' <hch@infradead.org>
+Subject: Re: [PATCH] tehuti: driver for Tehuti 10GbE network adapters
+Date: Wed, 19 Sep 2007 18:41:03 +0100
+Message-ID: <20070919174103.GB22795@infradead.org>
+References: <20070919155258.GA14850@infradead.org> <20070919173724.C810375CC7@mail.tehutinetworks.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: 'Christoph Hellwig' <hch@infradead.org>, jeff@garzik.org,
+	davem@davemloft.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, 'Nadav Shemer' <nadav@tehutinetworks.net>,
+	'Andy Gospodarek' <andy@greyhouse.net>
+To: Alexander Indenbaum <baum@tehutinetworks.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:52173 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750939AbXISRrI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Sep 2007 13:47:08 -0400
-In-Reply-To: <20070919172653.GB18045@one.firstfloor.org>
+Received: from pentafluge.infradead.org ([213.146.154.40]:47662 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763485AbXISRlT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 13:41:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20070919173724.C810375CC7@mail.tehutinetworks.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Wed, Sep 19, 2007 at 07:37:18PM +0200, Alexander Indenbaum wrote:
+> In my understanding unregister_netdev(), in case netdev is still IFF_UP and
+> holds irq, will call dev_close() which will call netdev->stop(), bdx_close()
+> in our case. bdx_close() releases all netdev resources among others calls
+> free_irq().
+> 
+> That's why I'm pretty sure that we do not hold any reference to netdev after
+> unregister_netdev() finishes and we can free_netdev() without any worry :)
+> 
+> What do you think, does it still look fishy?
 
-Andi Kleen wrote:
->> But the spec calls for a "null address" to be used and that's in my
->> understanding something different from using AF_UNSPEC.
->=20
-> memset(&sockaddr, 0, sizeof(sockaddr)) should give you AF_UNSPEC
-
-But the spec calls for <quote>null address for the protocol</quote>.
-
-That means the family for the null address is the same as the family of
-the socket.
-
-- --
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
-
-iD8DBQFG8WCO2ijCOnn/RHQRAgtsAJ9qTFVj5QQbVG/hUflxo/6uPOfl4QCdHSX8
-wi2GX7B0pht8VDaswYLqdpM=3D
-=3DsMSg
------END PGP SIGNATURE-----
+Ok, so you do irq acquire/release in open/close so that bit is fine.
+The code might actually work as is, sorry for the noise.
