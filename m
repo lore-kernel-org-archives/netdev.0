@@ -1,54 +1,52 @@
-From: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: Please pull 'ssb-drivers' branch of wireless-2.6
-Date: Wed, 19 Sep 2007 14:33:56 -0700
-Message-ID: <20070919213356.GB15510@suse.de>
-References: <20070919204428.GE5483@tuxdriver.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: net-2.6.24 plans
+Date: Wed, 19 Sep 2007 17:07:00 -0400
+Message-ID: <20070919210700.GF5483@tuxdriver.com>
+References: <20070916.202258.03371690.davem@davemloft.net> <20070917.141826.70218261.davem@davemloft.net> <20070917144037.100b3fc1.akpm@linux-foundation.org> <20070917231830.GG9282@tuxdriver.com> <20070917164929.b53ac118.akpm@linux-foundation.org> <20070918032328.GB3875@tuxdriver.com> <20070919012752.GA3717@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>,
-	linux-usb-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jgarzik@pobox.com
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ra.tuxdriver.com ([70.61.120.52]:2961 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751424AbXISVlB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Sep 2007 17:41:01 -0400
 Content-Disposition: inline
-In-Reply-To: <20070919204428.GE5483-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20070919012752.GA3717@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 19, 2007 at 04:44:28PM -0400, John W. Linville wrote:
-> Jeff, Greg, Gary, and Dave,
+On Tue, Sep 18, 2007 at 09:27:52PM -0400, John W. Linville wrote:
+> On Mon, Sep 17, 2007 at 11:23:28PM -0400, John W. Linville wrote:
+> > On Mon, Sep 17, 2007 at 04:49:29PM -0700, Andrew Morton wrote:
+> > > On Mon, 17 Sep 2007 19:18:30 -0400
+> > > "John W. Linville" <linville@tuxdriver.com> wrote:
+> > > 
+> > > > P.S.  Andrew, I'll send you a link to a new git-wireless.patch --
+> > > > I'm sure you don't want a complicated git invocation...  Until then,
+> > > > I don't think you should try pulling wireless-dev...
 > 
-> These patches build upon the SSB bus support added to net-2.6.24 to
-> support the b43 wireless driver.  Since Dave has that support in his
-> tree, I'm asking him to merge these patches as well.
+> > Anyway, I do have prepared an omnibus patch for you:
 > 
-> The first patch changes b44 from being a PCI (i.e. SSB-in-drag)
-> device to being a native SSB device.  This has little effect one
-> way or the other for laptop/desktop/server machines.  But, some
-> embedded devices have b44 hardware but no PCI bus (i.e. just SSB).
-> This patch enables the use of the b44 driver on that hardware.
+> Since Dave merged the drivers I sent him, the new omnibus patch you
+> want is this:
 > 
-> The second patch adds a driver for a USB OHCI device which lives on
-> the SSB bus.  Again, this is found on a number of SoC devices used
-> especially in wireless routers and APs.
+> 	http://www.kernel.org/pub/linux/kernel/people/linville/git-wireless-2007-09-18.patch
 > 
-> Thanks for reviewing/ACKing/merging!
-> 
-> John
-> 
-> ---
-> 
-> The patches are available here:
-> 
-> 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/ssb-drivers/0001-b44-port-to-native-ssb-support.patch
-> 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/ssb-drivers/0002-usb-ssb-hosted-OHCI-driver.patch
+> The good news is that it is 1/4 the size of its predecessor!
 
-This one needs to go through the linux-usb-devel list (not the -users
-list) and get acked by David Brownell, the current OHCI maintainer.
+And the latest incarnation:
 
-thanks,
+	http://www.kernel.org/pub/linux/kernel/people/linville/git-wireless-2007-09-19-16-57-43-0500.patch
 
-greg k-h
+And is even smaller...down an additional 30%, or almost 1/6th of the
+original! :-)
+
+Thanks,
+
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
