@@ -1,32 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Please pull 'p54' branch of wireless-2.6
-Date: Wed, 19 Sep 2007 13:20:15 -0700 (PDT)
-Message-ID: <20070919.132015.112854231.davem@davemloft.net>
-References: <20070919195527.GD5483@tuxdriver.com>
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: Re: follow-up: discrepancy with POSIX
+Date: Wed, 19 Sep 2007 10:04:39 -0700
+Message-ID: <46F156A7.5000304@redhat.com>
+References: <46F13E8B.4050309@redhat.com>	<p73sl5aveqh.fsf@bingen.suse.de>	<46F15305.2030507@redhat.com> <20070919.095251.45154496.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, flamingice@sourmilk.net
-To: linville@tuxdriver.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48777
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750786AbXISUUP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 16:20:15 -0400
-In-Reply-To: <20070919195527.GD5483@tuxdriver.com>
+Received: from mx2.redhat.com ([66.187.237.31]:33600 "EHLO mx2.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750871AbXISU0g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Sep 2007 16:26:36 -0400
+In-Reply-To: <20070919.095251.45154496.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 19 Sep 2007 15:55:27 -0400
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-> This patch adds the p54 driver for prism54 hardware using the "soft
-> MAC" firmware.  It includes modules for both PCI and USB drivers.
-> 
-> This driver has been in Fedora (both F7 and rawhide) for some time
-> and has generally performed well.  No doubt there are some problems
-> with the code, but still I think it would be better to mainline the
-> driver than to keep it out of stream.
+David Miller wrote:
+> It just occured to me that AF_UNSPEC might be used simply
+> because "all zeros" might be a valid real bindable address
+> for some address family.  And using AF_UNSPEC avoids that
+> problem entirely.
 
-Merged to net-2.6.24, thanks John.
+Yes, but for IPv4/6 it's not an issue.  Some implementations might
+handle all-zeros and the spec _currently_ calls for it.  In this case a=
+n
+alignment would be good.
+
+I guess I'll just go ahead and file a problem report with the spec.
+Maybe the Unix vendors will test their implementations in provide feedb=
+ack.
+
+- --
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
+t =E2=9E=A7 Mountain View, CA =E2=9D=96
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+
+iD8DBQFG8Vam2ijCOnn/RHQRAlw2AJwPCkD/GdX5YWCjsidhNXkGT71SiQCeLUDX
+XimSWS2NMI9T8QxnnV3FDQ4=3D
+=3D8XbG
+-----END PGP SIGNATURE-----
