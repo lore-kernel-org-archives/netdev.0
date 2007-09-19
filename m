@@ -1,52 +1,56 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: net-2.6.24 plans
-Date: Wed, 19 Sep 2007 17:07:00 -0400
-Message-ID: <20070919210700.GF5483@tuxdriver.com>
-References: <20070916.202258.03371690.davem@davemloft.net> <20070917.141826.70218261.davem@davemloft.net> <20070917144037.100b3fc1.akpm@linux-foundation.org> <20070917231830.GG9282@tuxdriver.com> <20070917164929.b53ac118.akpm@linux-foundation.org> <20070918032328.GB3875@tuxdriver.com> <20070919012752.GA3717@tuxdriver.com>
+Subject: Re: Please pull 'ssb-drivers' branch of
+	wireless-2.6
+Date: Wed, 19 Sep 2007 17:27:56 -0400
+Message-ID: <20070919212756.GA3136@tuxdriver.com>
+References: <20070919204428.GE5483@tuxdriver.com>
+	<20070919.142529.03110023.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jgarzik@pobox.com
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:2961 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751424AbXISVlB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Sep 2007 17:41:01 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org, gregkh@suse.de,
+	linux-wireless@vger.kernel.org,
+	linux-usb-users@lists.sourceforge.net, mb@bu3sch.de,
+	zambrano@broadcom.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-usb-users-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-In-Reply-To: <20070919012752.GA3717@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
+In-Reply-To: <20070919.142529.03110023.davem@davemloft.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-users>,
+	<mailto:linux-usb-users-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-users>
+List-Post: <mailto:linux-usb-users@lists.sourceforge.net>
+List-Help: <mailto:linux-usb-users-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-users>,
+	<mailto:linux-usb-users-request@lists.sourceforge.net?subject=subscribe>
+Sender: linux-usb-users-bounces@lists.sourceforge.net
+Errors-To: linux-usb-users-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 18, 2007 at 09:27:52PM -0400, John W. Linville wrote:
-> On Mon, Sep 17, 2007 at 11:23:28PM -0400, John W. Linville wrote:
-> > On Mon, Sep 17, 2007 at 04:49:29PM -0700, Andrew Morton wrote:
-> > > On Mon, 17 Sep 2007 19:18:30 -0400
-> > > "John W. Linville" <linville@tuxdriver.com> wrote:
-> > > 
-> > > > P.S.  Andrew, I'll send you a link to a new git-wireless.patch --
-> > > > I'm sure you don't want a complicated git invocation...  Until then,
-> > > > I don't think you should try pulling wireless-dev...
-> 
-> > Anyway, I do have prepared an omnibus patch for you:
-> 
-> Since Dave merged the drivers I sent him, the new omnibus patch you
-> want is this:
-> 
-> 	http://www.kernel.org/pub/linux/kernel/people/linville/git-wireless-2007-09-18.patch
-> 
-> The good news is that it is 1/4 the size of its predecessor!
+On Wed, Sep 19, 2007 at 02:25:29PM -0700, David Miller wrote:
+> From: "John W. Linville" <linville@tuxdriver.com>
+> Date: Wed, 19 Sep 2007 16:44:28 -0400
 
-And the latest incarnation:
+> > The second patch adds a driver for a USB OHCI device which lives on
+> > the SSB bus.  Again, this is found on a number of SoC devices used
+> > especially in wireless routers and APs.
 
-	http://www.kernel.org/pub/linux/kernel/people/linville/git-wireless-2007-09-19-16-57-43-0500.patch
+> I'll let Greg take in the OHCI thing.  I would suggest that he
+> queue it up, and then once I get the net-2.6.24 tree into the
+> merge window (which contains the SSB stack) he can push the
+> OHCI change in afterwards.
 
-And is even smaller...down an additional 30%, or almost 1/6th of the
-original! :-)
+ACK
 
-Thanks,
-
-John
 -- 
 John W. Linville
 linville@tuxdriver.com
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+_______________________________________________
+Linux-usb-users@lists.sourceforge.net
+To unsubscribe, use the last form field at:
+https://lists.sourceforge.net/lists/listinfo/linux-usb-users
