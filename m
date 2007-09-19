@@ -1,32 +1,48 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] iproute2: enable setting rto_min, rtt and rttvar in
- tc-esque units
-Date: Wed, 19 Sep 2007 14:51:33 -0700
-Message-ID: <20070919145133.7aff0a5b@freepuppy.rosehill.hemminger.net>
-References: <200709182015.NAA25590@tardy.cup.hp.com>
+From: Joe Perches <joe@perches.com>
+Subject: net-2.6.24 - build failure
+Date: Wed, 19 Sep 2007 14:53:22 -0700
+Message-ID: <1190238802.26101.24.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:52300 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752365AbXISVvq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 17:51:46 -0400
-In-Reply-To: <200709182015.NAA25590@tardy.cup.hp.com>
+Received: from DSL022.labridge.com ([206.117.136.22]:2327 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751658AbXISVxZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Sep 2007 17:53:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 18 Sep 2007 13:15:26 -0700 (PDT)
-Rick Jones <rick.jones2@hp.com> wrote:
+allyesconfig
 
-> Enable users of ip to specify the times for rtt, rttvar and rto_min
-> in human-friendly terms a la "tc" while maintaining backwards 
-> compatability with the previous "raw" mechanism.  Builds upon
-> David Miller's uncommited patch to set rto_min.
-> 
-> Signed-off-by: Rick Jones <rick.jones2@hp.com>
+  CC      drivers/net/wireless/p54pci.o
+  LD      drivers/net/wireless/built-in.o
+drivers/net/wireless/b43legacy/built-in.o: In function `tsf_read_file':
+drivers/net/wireless/b43legacy/debugfs.c:80: multiple definition of `tsf_read_file'
+drivers/net/wireless/b43/built-in.o:net-2.6.24/drivers/net/wireless/b43/debugfs.c:80: first defined here
+drivers/net/wireless/b43legacy/built-in.o: In function `ucode_regs_read_file':
+net-2.6.24/drivers/net/wireless/b43legacy/debugfs.c:106: multiple definition of `ucode_regs_read_file'
+drivers/net/wireless/b43/built-in.o:net-2.6.24/drivers/net/wireless/b43/debugfs.c:106: first defined here
+drivers/net/wireless/b43legacy/built-in.o: In function `restart_write_file':
+net-2.6.24/drivers/net/wireless/b43legacy/debugfs.c:187: multiple definition of `restart_write_file'
+drivers/net/wireless/b43/built-in.o:net-2.6.24/drivers/net/wireless/b43/debugfs.c:266: first defined here
+drivers/net/wireless/b43legacy/built-in.o: In function `tsf_write_file':
+net-2.6.24/drivers/net/wireless/b43legacy/debugfs.c:94: multiple definition of `tsf_write_file'
+drivers/net/wireless/b43/built-in.o:net-2.6.24/drivers/net/wireless/b43/debugfs.c:94: first defined here
+drivers/net/wireless/b43legacy/built-in.o: In function `txstat_read_file':
+net-2.6.24/drivers/net/wireless/b43legacy/debugfs.c:139: multiple definition of `txstat_read_file'
+drivers/net/wireless/b43/built-in.o:net-2.6.24/drivers/net/wireless/b43/debugfs.c:139: first defined here
+drivers/net/wireless/b43legacy/built-in.o: In function `ssb_write32':
+net-2.6.24/include/linux/ssb/ssb.h:385: multiple definition of `rootdir'
+drivers/net/wireless/b43/built-in.o:net-2.6.24/include/linux/ssb/ssb.h:385: first defined here
+drivers/net/wireless/b43legacy/built-in.o: In function `shm_read_file':
+net-2.6.24/drivers/net/wireless/b43legacy/debugfs.c:120: multiple definition of `shm_read_file'
+drivers/net/wireless/b43/built-in.o:net-2.6.24/drivers/net/wireless/b43/debugfs.c:120: first defined here
+make[3]: *** [drivers/net/wireless/built-in.o] Error 1
+make[2]: *** [drivers/net/wireless] Error 2
+make[1]: *** [drivers/net] Error 2
+make: *** [drivers] Error 2
 
-Thanks, I'll put it in the 2.6.24 version of iproute2 (assuming dave
-takes the rto_min patch).
+
