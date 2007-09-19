@@ -1,64 +1,88 @@
-From: Juergen Beisert <jbe@pengutronix.de>
-Subject: Re: [PATCH] phy: export phy_mii_ioctl
-Date: Wed, 19 Sep 2007 12:37:59 +0200
-Message-ID: <200709191238.00183.jbe@pengutronix.de>
-References: <20070810095153.GC13994@moe.telargo.com> <9e4733910709181229m4afe7ecr56e2411f52a84232@mail.gmail.com> <BLU106-W49D16A32DDFE2611E15371CAB90@phx.gbl>
+From: "Alexander Indenbaum" <baum@tehutinetworks.net>
+Subject: RE: [PATCH] tehuti: driver for Tehuti 10GbE network adapters
+Date: Wed, 19 Sep 2007 12:44:33 +0200
+Message-ID: <20070919104438.B1FF775CAD@mail.tehutinetworks.co.il>
+References: <20070918094723.GA2539@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Pedro Luis D. L." <carcadiz@hotmail.com>,
-	Jon Smirl <jonsmirl@gmail.com>,
-	Domen Puncer <domen@coderock.org>, netdev@vger.kernel.org
-To: linuxppc-embedded@ozlabs.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <jeff@garzik.org>, <davem@davemloft.org>,
+	<akpm@linux-foundation.org>, <netdev@vger.kernel.org>,
+	"'Nadav Shemer'" <nadav@tehutinetworks.net>,
+	"'Andy Gospodarek'" <andy@greyhouse.net>
+To: "'Christoph Hellwig'" <hch@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.extern.pengutronix.de ([83.236.181.26]:48145 "EHLO
-	metis.extern.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756169AbXISKiP convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Sep 2007 06:38:15 -0400
-In-Reply-To: <BLU106-W49D16A32DDFE2611E15371CAB90@phx.gbl>
-Content-Disposition: inline
+Received: from bzq-219-225-50.pop.bezeqint.net ([62.219.225.50]:34003 "EHLO
+	mail.tehutinetworks.co.il" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751171AbXISKov (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 06:44:51 -0400
+In-Reply-To: <20070918094723.GA2539@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pedro,
+Christoph,
 
-On Wednesday 19 September 2007 10:54, Pedro Luis D. L. wrote:
-> I=B4m also working with a Phytec pcm030, but I can=B4t get it booted.=
-=2E.
-> Which kernel are you using?
-> I tried to apply the 7 bestcomm patches from Sylvain and patch over t=
-hese
-> with this new ones that Domen released. The base kernel I=B4m using i=
-s
-> 2.6.22.6 from kernel.org.
-> Although I used the patch that creates pcm030.c in arch/platforms/52x=
-x/ and
-> compiled using this file, it gets halted at booting time.
->
-> Bytes transferred =3D 5091 (13e3 hex)
-> ## Booting image at 00500000 ...
->    Image Name:   Linux-2.6.22.6
->    Created:      2007-09-19   8:53:02 UTC
->    Image Type:   PowerPC Linux Kernel Image (gzip compressed)
->    Data Size:    1196911 Bytes =3D  1.1 MB
->    Load Address: 00000000
->    Entry Point:  00000000
->    Verifying Checksum ... OK
->    Uncompressing Kernel Image ... OK
->    Booting using flat device tree at 0x400000
->
-> (No more output and boot is halted)
+Thank you for reviewing the driver and giving us this feedback. Our goal is
+the driver which is in full accordance with all Linux kernel style
+guidelines. Please note the fist Tehuti driver submission to netdev was by
+Andy on Mars 15 and since the driver has been heavily re-factored based on
+Jeff's suggestions. I agree with most of your style remarks and we'll
+release the patch soon.
 
-Check your oftree! Most of the time this behaviour means its a wrong of=
-tree in=20
-use.
+Meanwhile let me ask clarification about two of your remarks bellow that I'm
+not sure I fully understand.
 
-Juergen
+> -----Original Message-----
+> From: Christoph Hellwig [mailto:hch@infradead.org]
+> Sent: Tuesday, September 18, 2007 11:47 AM
+> To: Andy Gospodarek
+> Cc: jeff@garzik.org; davem@davemloft.org; akpm@linux-foundation.org;
+> netdev@vger.kernel.org; baum@tehutinetworks.net
+> Subject: Re: [PATCH] tehuti: driver for Tehuti 10GbE network adapters
+> 
+> 
+> Some comment from looking at the driver in the -mm tree:
+> 
+>  - please kill the CPU_CHIP_SWAP macros and use the normal linux
+>    cpu_to_le*/le*_to_cpu and verify them using sparse.
+>    See Documentation/sparse.txt on how to do that
+>  - please include the linux header in the .c file, not the .h
+>  - please don't redefine the dma mask constants
+>  - please use the firmware loader instead of mebedding a firmware
+>    image
 
---=20
-Dipl.-Ing. Juergen Beisert | http://www.pengutronix.de
-=A0Pengutronix - Linux Solutions for Science and Industry
-=A0   Handelsregister: Amtsgericht Hildesheim, HRA 2686
-=A0 =A0 =A0    Vertretung Sued/Muenchen, Germany
-   Phone: +49-8766-939 228 |  Fax: +49-5121-206917-9
+Could you give us some pointers to docs and examples of "firmware loader"?
+I'm not sure I'm familiar with such mechanism in Linux kernel.
+
+>  - please don't invent your own debugging macros but use
+>    dev_dbg and friends
+>  - please kill the ENTER/RET macros
+>  - please kill BDX_ASSERT
+>  - the unregister_netdev directly followed by free_netdev in
+>    bdx_remove look buggy, but I'm not entirely sure how to handle
+>    multi-port devices properly here.
+
+Putting dual-port issue aside, could you elaborate what is the problem in
+your opinion in bdx_remove() implementation? What is wrong with calling
+free_netdev() right after unregister_netdev()? Could you provide pointers
+for docs and examples to correct PCI network device remove interface
+implementation? 
+
+>  - please declare bdx_ethtool_ops on file-scope and kill
+>    bdx_ethtool_ops
+>  - please don't put assignments into conditionals ala
+> 
+> 	if ((err = pci_request_regions(pdev, BDX_DRV_NAME)))
+> 		goto err_dma;
+> 
+>    but rather write
+> 
+> 	err = pci_request_regions(pdev, BDX_DRV_NAME);
+> 	if (err)
+> 		goto err_dma;
+
+Thank you again for your help,
+Alexander Indenbaum
+
+
