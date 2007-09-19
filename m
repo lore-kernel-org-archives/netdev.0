@@ -1,56 +1,34 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: Please pull 'ssb-drivers' branch of
-	wireless-2.6
-Date: Wed, 19 Sep 2007 17:27:56 -0400
-Message-ID: <20070919212756.GA3136@tuxdriver.com>
-References: <20070919204428.GE5483@tuxdriver.com>
-	<20070919.142529.03110023.davem@davemloft.net>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: Please pull 'p54' branch of wireless-2.6
+Date: Wed, 19 Sep 2007 17:26:07 -0400
+Message-ID: <20070919212607.GA3036@tuxdriver.com>
+References: <20070919195527.GD5483@tuxdriver.com> <20070919210405.GA2231@infradead.org> <20070919.141200.56568833.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, gregkh@suse.de,
-	linux-wireless@vger.kernel.org,
-	linux-usb-users@lists.sourceforge.net, mb@bu3sch.de,
-	zambrano@broadcom.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-usb-users-bounces@lists.sourceforge.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20070919.142529.03110023.davem@davemloft.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-users>,
-	<mailto:linux-usb-users-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-users>
-List-Post: <mailto:linux-usb-users@lists.sourceforge.net>
-List-Help: <mailto:linux-usb-users-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-users>,
-	<mailto:linux-usb-users-request@lists.sourceforge.net?subject=subscribe>
-Sender: linux-usb-users-bounces@lists.sourceforge.net
-Errors-To: linux-usb-users-bounces@lists.sourceforge.net
+In-Reply-To: <20070919.141200.56568833.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 19, 2007 at 02:25:29PM -0700, David Miller wrote:
-> From: "John W. Linville" <linville@tuxdriver.com>
-> Date: Wed, 19 Sep 2007 16:44:28 -0400
+On Wed, Sep 19, 2007 at 02:12:00PM -0700, David Miller wrote:
+> From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+> Date: Wed, 19 Sep 2007 22:04:05 +0100
+> 
+> > PLease put it into a separate subdirectory, thanks.
+> > 
+> > Also net2280.h seems rather oddly named.
+> 
+> The next time I rebase I'll try to take care of this for both
+> this driver and the iwlwifi stuff.
 
-> > The second patch adds a driver for a USB OHCI device which lives on
-> > the SSB bus.  Again, this is found on a number of SoC devices used
-> > especially in wireless routers and APs.
+Fine by me, although I swear I remember complaints about adding separate
+directories for drivers...*shrug*...
 
-> I'll let Greg take in the OHCI thing.  I would suggest that he
-> queue it up, and then once I get the net-2.6.24 tree into the
-> merge window (which contains the SSB stack) he can push the
-> OHCI change in afterwards.
-
-ACK
-
+John
 -- 
 John W. Linville
-linville@tuxdriver.com
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Microsoft
-Defy all challenges. Microsoft(R) Visual Studio 2005.
-http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
-_______________________________________________
-Linux-usb-users@lists.sourceforge.net
-To unsubscribe, use the last form field at:
-https://lists.sourceforge.net/lists/listinfo/linux-usb-users
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
