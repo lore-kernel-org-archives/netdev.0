@@ -1,7 +1,7 @@
 From: "Pedro Luis D. L." <carcadiz@hotmail.com>
 Subject: RE: [PATCH] phy: export phy_mii_ioctl
-Date: Wed, 19 Sep 2007 10:54:13 +0200
-Message-ID: <BLU106-W49D16A32DDFE2611E15371CAB90@phx.gbl>
+Date: Wed, 19 Sep 2007 10:54:39 +0200
+Message-ID: <BLU106-W335FC371C9CDF56DA33F54CAB90@phx.gbl>
 References: <20070810095153.GC13994@moe.telargo.com>
 	<20070902074143.GB2642@nd47.coderock.org>
  	<fa686aa40709030857j6c36c87ek60215f812864ee0f@mail.gmail.com>
@@ -17,11 +17,11 @@ Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: <netdev@vger.kernel.org>, <linuxppc-embedded@ozlabs.org>
 To: Jon Smirl <jonsmirl@gmail.com>, Domen Puncer <domen@coderock.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc2-s6.bay0.hotmail.com ([65.54.246.142]:41348 "EHLO
-	bay0-omc2-s6.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753977AbXISIyO convert rfc822-to-8bit
+Received: from bay0-omc2-s16.bay0.hotmail.com ([65.54.246.152]:35463 "EHLO
+	bay0-omc2-s16.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755064AbXISIyl convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Sep 2007 04:54:14 -0400
+	Wed, 19 Sep 2007 04:54:41 -0400
 In-Reply-To: <9e4733910709181229m4afe7ecr56e2411f52a84232@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
