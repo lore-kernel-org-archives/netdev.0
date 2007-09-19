@@ -1,34 +1,43 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: follow-up: discrepancy with POSIX
-Date: 19 Sep 2007 17:47:50 +0200
-Message-ID: <p73sl5aveqh.fsf@bingen.suse.de>
-References: <46F13E8B.4050309@redhat.com>
+From: 'Christoph Hellwig' <hch@infradead.org>
+Subject: Re: [PATCH] tehuti: driver for Tehuti 10GbE network adapters
+Date: Wed, 19 Sep 2007 16:52:58 +0100
+Message-ID: <20070919155258.GA14850@infradead.org>
+References: <20070918094723.GA2539@infradead.org> <20070919104438.B1FF775CAD@mail.tehutinetworks.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>
-To: Ulrich Drepper <drepper@redhat.com>
+Cc: 'Christoph Hellwig' <hch@infradead.org>, jeff@garzik.org,
+	davem@davemloft.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, 'Nadav Shemer' <nadav@tehutinetworks.net>,
+	'Andy Gospodarek' <andy@greyhouse.net>
+To: Alexander Indenbaum <baum@tehutinetworks.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:60595 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755724AbXISPrv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Sep 2007 11:47:51 -0400
-In-Reply-To: <46F13E8B.4050309@redhat.com>
+Received: from pentafluge.infradead.org ([213.146.154.40]:34563 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761441AbXISPxl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 11:53:41 -0400
+Content-Disposition: inline
+In-Reply-To: <20070919104438.B1FF775CAD@mail.tehutinetworks.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ulrich Drepper <drepper@redhat.com> writes:
-
+On Wed, Sep 19, 2007 at 12:44:33PM +0200, Alexander Indenbaum wrote:
+> >  - please don't redefine the dma mask constants
+> >  - please use the firmware loader instead of mebedding a firmware
+> >    image
 > 
->    fd = socket(AT_INET6, ...)
-> 
->    connect(fd, ...some IPv6 address...)
-> 
->    struct sockaddr_in6 sin6 = { .sin6_family = AF_INET6 };
->    connect(fd, &sin6, sizeof (sin6));
+> Could you give us some pointers to docs and examples of "firmware loader"?
+> I'm not sure I'm familiar with such mechanism in Linux kernel.
 
-The standard way to undo connect is to use AF_UNSPEC. Code to handle
-that for dgram sockets is there. It's the same code for v4 and v6.
+Documentation/firmware_class/ in the kernel tree has the documentation
+for it.  Grep the kernel tree for request_firmware to find various users.
 
--Andi
+> Putting dual-port issue aside, could you elaborate what is the problem in
+> your opinion in bdx_remove() implementation? What is wrong with calling
+> free_netdev() right after unregister_netdev()? Could you provide pointers
+> for docs and examples to correct PCI network device remove interface
+> implementation? 
+
+free_netdev can only be called if you're sure you don't reference your
+netdevice anymore.  Most notably that means you need to call free_irq
+first.
 
