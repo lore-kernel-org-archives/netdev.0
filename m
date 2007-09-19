@@ -1,47 +1,42 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: follow-up: discrepancy with POSIX
-Date: Wed, 19 Sep 2007 10:04:39 -0700
-Message-ID: <46F156A7.5000304@redhat.com>
-References: <46F13E8B.4050309@redhat.com>	<p73sl5aveqh.fsf@bingen.suse.de>	<46F15305.2030507@redhat.com> <20070919.095251.45154496.davem@davemloft.net>
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Subject: Re: bnx2 dirver's firmware images
+Date: Wed, 19 Sep 2007 21:29:22 +0100
+Message-ID: <200709192129.23034.vda.linux@googlemail.com>
+References: <200709181823.26429.vda.linux@googlemail.com> <200709190930.39882.vda.linux@googlemail.com> <1190235642.9540.261.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.redhat.com ([66.187.237.31]:33600 "EHLO mx2.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750871AbXISU0g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Sep 2007 16:26:36 -0400
-In-Reply-To: <20070919.095251.45154496.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	"netdev" <netdev@vger.kernel.org>
+To: "Michael Chan" <mchan@broadcom.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756915AbXISU3q@vger.kernel.org>
+In-Reply-To: <1190235642.9540.261.camel@dell>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Wednesday 19 September 2007 22:00, Michael Chan wrote:
+> On Wed, 2007-09-19 at 09:30 +0100, Denys Vlasenko wrote:
+> +       /* gzip header (1f,8b,08... 10 bytes total + possible asciz filename)
+> +        * is stripped, 32-bit unpacked size (LE) is prepended instead */
+> +       sz = *zbuf++;
+> +       sz = (sz << 8) + *zbuf++;
+> +       sz = (sz << 8) + *zbuf++;
+> +       sz = (sz << 8) + *zbuf++;
+> 
+> I don't have a problem with removing the gzip header.  It doesn't
+> contain very useful information other than a valid header for sanity
+> check.  But I don't think we need to arbitrarily add the unpacked size
+> in front of the gzipped data.  The driver knows the size (e.g. the size
+> of RAM on the chip) and should pass it to the call.  The driver should
+> also allocate the memory for the unpacked data instead of allocating the
+> memory inside the call and freeing it by the caller.  For example, the
+> driver may need to use pci_alloc_consistent() if the firmware is to be
+> DMA'ed to the chip.
+> 
+> Other than that, everything else looks fine.  Thanks.
 
-David Miller wrote:
-> It just occured to me that AF_UNSPEC might be used simply
-> because "all zeros" might be a valid real bindable address
-> for some address family.  And using AF_UNSPEC avoids that
-> problem entirely.
-
-Yes, but for IPv4/6 it's not an issue.  Some implementations might
-handle all-zeros and the spec _currently_ calls for it.  In this case a=
-n
-alignment would be good.
-
-I guess I'll just go ahead and file a problem report with the spec.
-Maybe the Unix vendors will test their implementations in provide feedb=
-ack.
-
-- --
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
-
-iD8DBQFG8Vam2ijCOnn/RHQRAlw2AJwPCkD/GdX5YWCjsidhNXkGT71SiQCeLUDX
-XimSWS2NMI9T8QxnnV3FDQ4=3D
-=3D8XbG
------END PGP SIGNATURE-----
+Are you saying that you successfully run-tested it?
+--
+vda
