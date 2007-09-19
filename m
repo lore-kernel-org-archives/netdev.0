@@ -1,122 +1,64 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: Please pull 'iwlwifi' branch of wireless-2.6
-Date: Wed, 19 Sep 2007 11:13:26 +0100
-Message-ID: <20070919101326.GA32432@infradead.org>
-References: <20070918185040.GF4940@tuxdriver.com>
+From: Juergen Beisert <jbe@pengutronix.de>
+Subject: Re: [PATCH] phy: export phy_mii_ioctl
+Date: Wed, 19 Sep 2007 12:37:59 +0200
+Message-ID: <200709191238.00183.jbe@pengutronix.de>
+References: <20070810095153.GC13994@moe.telargo.com> <9e4733910709181229m4afe7ecr56e2411f52a84232@mail.gmail.com> <BLU106-W49D16A32DDFE2611E15371CAB90@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, jeff@garzik.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Pedro Luis D. L." <carcadiz@hotmail.com>,
+	Jon Smirl <jonsmirl@gmail.com>,
+	Domen Puncer <domen@coderock.org>, netdev@vger.kernel.org
+To: linuxppc-embedded@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:38912 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754140AbXISKOK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 06:14:10 -0400
+Received: from metis.extern.pengutronix.de ([83.236.181.26]:48145 "EHLO
+	metis.extern.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756169AbXISKiP convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Sep 2007 06:38:15 -0400
+In-Reply-To: <BLU106-W49D16A32DDFE2611E15371CAB90@phx.gbl>
 Content-Disposition: inline
-In-Reply-To: <20070918185040.GF4940@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 18, 2007 at 02:50:40PM -0400, John W. Linville wrote:
-> Jeff & Dave,
-> 
-> Here it is -- it's big, it's...well...beautiful in its own way...well,
-> at least it seems to work... :-)
-> 
-> There are some outstanding issues.  The driver does more than it
-> probably should under the covers instead of in the stack, and the
-> issue of including headers with a "../../mac80211/..." path remains.
-> Still, I think it would be better to get this mainlined than to keep
-> it out of stream.
+Pedro,
 
-it really needs to be moved into a directory of it's own.
-The useless per-file CFLAGS need to go most places can trivially
-be made unconditional anyway.
+On Wednesday 19 September 2007 10:54, Pedro Luis D. L. wrote:
+> I=B4m also working with a Phytec pcm030, but I can=B4t get it booted.=
+=2E.
+> Which kernel are you using?
+> I tried to apply the 7 bestcomm patches from Sylvain and patch over t=
+hese
+> with this new ones that Domen released. The base kernel I=B4m using i=
+s
+> 2.6.22.6 from kernel.org.
+> Although I used the patch that creates pcm030.c in arch/platforms/52x=
+x/ and
+> compiled using this file, it gets halted at booting time.
+>
+> Bytes transferred =3D 5091 (13e3 hex)
+> ## Booting image at 00500000 ...
+>    Image Name:   Linux-2.6.22.6
+>    Created:      2007-09-19   8:53:02 UTC
+>    Image Type:   PowerPC Linux Kernel Image (gzip compressed)
+>    Data Size:    1196911 Bytes =3D  1.1 MB
+>    Load Address: 00000000
+>    Entry Point:  00000000
+>    Verifying Checksum ... OK
+>    Uncompressing Kernel Image ... OK
+>    Booting using flat device tree at 0x400000
+>
+> (No more output and boot is halted)
 
-The depends on m for CONFIG_IWL4965 and CONFIG_IWL3945 needs to go,
-we don't put drivers int that need to be modular.
+Check your oftree! Most of the time this behaviour means its a wrong of=
+tree in=20
+use.
 
-This is just a tiny review from the build system point of view.
-> 
-> Thanks!
-> 
-> John
-> 
-> ---
-> 
-> Patch available here:
-> 
-> 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/iwlwifi/0001-iwlwifi-add-iwlwifi-wireless-drivers.patch
-> 
-> ---
-> 
-> The following changes since commit 0d4cbb5e7f60b2f1a4d8b7f6ea4cc264262c7a01:
->   Linus Torvalds (1):
->         Linux 2.6.23-rc6
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git iwlwifi
-> 
-> Zhu Yi (1):
->       iwlwifi: add iwlwifi wireless drivers
-> 
->  MAINTAINERS                         |    9 +
->  drivers/net/wireless/Kconfig        |  129 +
->  drivers/net/wireless/Makefile       |   12 +
->  drivers/net/wireless/iwl-3945-hw.h  |  118 +
->  drivers/net/wireless/iwl-3945-rs.c  |  979 ++++
->  drivers/net/wireless/iwl-3945-rs.h  |  191 +
->  drivers/net/wireless/iwl-3945.c     | 2290 +++++++++
->  drivers/net/wireless/iwl-3945.h     |   41 +
->  drivers/net/wireless/iwl-4965-hw.h  |  581 +++
->  drivers/net/wireless/iwl-4965-rs.c  | 2118 ++++++++
->  drivers/net/wireless/iwl-4965-rs.h  |  266 +
->  drivers/net/wireless/iwl-4965.c     | 4719 ++++++++++++++++++
->  drivers/net/wireless/iwl-4965.h     |  341 ++
->  drivers/net/wireless/iwl-channel.h  |  161 +
->  drivers/net/wireless/iwl-commands.h | 1734 +++++++
->  drivers/net/wireless/iwl-debug.h    |  149 +
->  drivers/net/wireless/iwl-eeprom.h   |  336 ++
->  drivers/net/wireless/iwl-helpers.h  |  255 +
->  drivers/net/wireless/iwl-hw.h       |  537 ++
->  drivers/net/wireless/iwl-io.h       |  470 ++
->  drivers/net/wireless/iwl-priv.h     |  308 ++
->  drivers/net/wireless/iwl-prph.h     |  229 +
->  drivers/net/wireless/iwl-spectrum.h |   91 +
->  drivers/net/wireless/iwl3945-base.c | 8732 ++++++++++++++++++++++++++++++++
->  drivers/net/wireless/iwl4965-base.c | 9323 +++++++++++++++++++++++++++++++++++
->  drivers/net/wireless/iwlwifi.h      |  713 +++
->  26 files changed, 34832 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/net/wireless/iwl-3945-hw.h
->  create mode 100644 drivers/net/wireless/iwl-3945-rs.c
->  create mode 100644 drivers/net/wireless/iwl-3945-rs.h
->  create mode 100644 drivers/net/wireless/iwl-3945.c
->  create mode 100644 drivers/net/wireless/iwl-3945.h
->  create mode 100644 drivers/net/wireless/iwl-4965-hw.h
->  create mode 100644 drivers/net/wireless/iwl-4965-rs.c
->  create mode 100644 drivers/net/wireless/iwl-4965-rs.h
->  create mode 100644 drivers/net/wireless/iwl-4965.c
->  create mode 100644 drivers/net/wireless/iwl-4965.h
->  create mode 100644 drivers/net/wireless/iwl-channel.h
->  create mode 100644 drivers/net/wireless/iwl-commands.h
->  create mode 100644 drivers/net/wireless/iwl-debug.h
->  create mode 100644 drivers/net/wireless/iwl-eeprom.h
->  create mode 100644 drivers/net/wireless/iwl-helpers.h
->  create mode 100644 drivers/net/wireless/iwl-hw.h
->  create mode 100644 drivers/net/wireless/iwl-io.h
->  create mode 100644 drivers/net/wireless/iwl-priv.h
->  create mode 100644 drivers/net/wireless/iwl-prph.h
->  create mode 100644 drivers/net/wireless/iwl-spectrum.h
->  create mode 100644 drivers/net/wireless/iwl3945-base.c
->  create mode 100644 drivers/net/wireless/iwl4965-base.c
->  create mode 100644 drivers/net/wireless/iwlwifi.h
-> -- 
-> John W. Linville
-> linville@tuxdriver.com
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
----end quoted text---
+Juergen
+
+--=20
+Dipl.-Ing. Juergen Beisert | http://www.pengutronix.de
+=A0Pengutronix - Linux Solutions for Science and Industry
+=A0   Handelsregister: Amtsgericht Hildesheim, HRA 2686
+=A0 =A0 =A0    Vertretung Sued/Muenchen, Germany
+   Phone: +49-8766-939 228 |  Fax: +49-5121-206917-9
