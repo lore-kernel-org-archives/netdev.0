@@ -1,50 +1,33 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH]: Preliminary release of Sun Neptune driver
-Date: Wed, 19 Sep 2007 18:40:05 -0400
-Message-ID: <46F1A545.7010700@garzik.org>
-References: <20070918.151528.84360712.davem@davemloft.net>	<20070919145900.759ef19e@freepuppy.rosehill.hemminger.net> <20070919.150755.38714639.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.23-rc6 Resending] NETWORKING : Edge Triggered
+ EPOLLOUT events get missed for TCP sockets
+Date: Wed, 19 Sep 2007 15:44:02 -0700 (PDT)
+Message-ID: <20070919.154402.34760338.davem@davemloft.net>
+References: <130356.85796.qm@web53703.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	Ariel.Hendel@sun.com, greg.onufer@sun.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davidel@xmailserver.org
+To: tomer_iisc@yahoo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:36929 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753440AbXISWkJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Sep 2007 18:40:09 -0400
-In-Reply-To: <20070919.150755.38714639.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39786
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755236AbXISWoF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 18:44:05 -0400
+In-Reply-To: <130356.85796.qm@web53703.mail.re2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
->> Macro's that make assumptions about context (ie variable name np)
->> are evil and bad style.
-> 
-> Too bad, it saves developers who write 20,000 line drivers from carpel
-> tunnel symdrome.
-> 
-> It's so repetitive to state things over and over again, and this macro
-> scheme is 1) established widely (tg3 amonst many other drivers do it)
-> and 2) forces the driver to use a consistent naming convention for
-> primary driver private struct variables.
+From: Nagendra Tomar <tomer_iisc@yahoo.com>
+Date: Wed, 19 Sep 2007 15:37:09 -0700 (PDT)
 
-It also makes review easier -- IMO an important factor.
+> With the SOCK_NOSPACE check in tcp_check_space(), this epoll_wait call will 
+> not return, even when the incoming acks free the buffers.
+>         Note that this patch assumes that the SOCK_NOSPACE check in
+> tcp_check_space is a trivial optimization which can be safely removed.
 
-Which is more clear at a glance:
+I already replied to your patch posting explaining that whatever is
+not setting SOCK_NOSPACE should be fixed instead.
 
-	status = tr32(MAC_STAT_1);
-
-or
-
-	status = foo_mac_read32(priv, MAC_STAT_1);
-
-?
-
-tg3 and other net drivers show that this technique improves code 
-readability.
-
-	Jeff
-
-
+Please address that, thanks.
