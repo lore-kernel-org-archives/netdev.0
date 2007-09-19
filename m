@@ -1,45 +1,32 @@
-From: Timur Tabi <timur@freescale.com>
-Subject: [PATCH] ucc_geth: remove unnecessary asm/ocp.h include from ucc_geth_mii.c
-Date: Wed, 19 Sep 2007 10:30:44 -0500
-Message-ID: <11902158442710-git-send-email-timur@freescale.com>
-Cc: Timur Tabi <timur@freescale.com>
-To: netdev@vger.kernel.org
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: new NAPI interface broken
+Date: Wed, 19 Sep 2007 08:33:51 -0700
+Message-ID: <adafy1ak6u8.fsf@cisco.com>
+References: <200709071137.02801.ossthema@de.ibm.com>
+	<20070914.151252.85399360.davem@davemloft.net>
+	<200709181815.45954.ossthema@de.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	themann@de.ibm.com, raisch@de.ibm.com
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:36896 "EHLO
-	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753505AbXISPay (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 11:30:54 -0400
-Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
-	by de01egw02.freescale.net (8.12.11/de01egw02) with ESMTP id l8JFUlEZ024613
-	for <netdev@vger.kernel.org>; Wed, 19 Sep 2007 08:30:52 -0700 (MST)
+Received: from sj-iport-1-in.cisco.com ([171.71.176.70]:49237 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751756AbXISPdx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 11:33:53 -0400
+In-Reply-To: <200709181815.45954.ossthema@de.ibm.com> (Jan-Bernd Themann's message of "Tue, 18 Sep 2007 18:15:45 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ucc_geth_mii.c includes <asm/ocp.h>, but it never needed it.  With commit
-2f6c9d961081dc7b109eb19166244bcb2a5dfc28, the asm-powerpc => asm-ppc link
-is removed, and so ucc_geth_mii.c can no longer include include/asm-ppc/ocp.h,
-so the compile fails.  This patch removes the #include line.
+ > One other thing I observed is that I can not unload the module as the
+ > ref counter of the eth device is too low. I haven't tracked down the 
+ > source of this problem yet.
 
-Signed-off-by: Timur Tabi <timur@freescale.com>
----
+I suspect that this is because netif_rx_reschedule() was missing a
+dev_hold() to match the dev_put() in netif_rx_complete().  Dave merged
+a fix for that problem yesterday, so current net-2.6.24 should be OK.
+Let us know if it's not OK, because then there's another bug...
 
-This patch is for the net-2.6.24 branch of the netdev-2.6.git repository.
-
- drivers/net/ucc_geth_mii.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
-index 6c257b8..df884f0 100644
---- a/drivers/net/ucc_geth_mii.c
-+++ b/drivers/net/ucc_geth_mii.c
-@@ -32,7 +32,6 @@
- #include <linux/mm.h>
- #include <linux/module.h>
- #include <linux/platform_device.h>
--#include <asm/ocp.h>
- #include <linux/crc32.h>
- #include <linux/mii.h>
- #include <linux/phy.h>
--- 
-1.5.2.4
-
+ - R.
