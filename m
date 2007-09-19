@@ -1,43 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6.24] introduce MAC_FMT/MAC_ARG
-Date: Wed, 19 Sep 2007 11:11:47 -0700 (PDT)
-Message-ID: <20070919.111147.55510143.davem@davemloft.net>
-References: <20070917.190527.42775386.davem@davemloft.net>
-	<1190081655.19708.255.camel@localhost>
-	<1190177401.19708.264.camel@localhost>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: follow-up: discrepancy with POSIX
+Date: Wed, 19 Sep 2007 19:06:04 +0100
+Message-ID: <20070919190604.342363b4@the-village.bc.nu>
+References: <46F13E8B.4050309@redhat.com>
+	<p73sl5aveqh.fsf@bingen.suse.de>
+	<46F15305.2030507@redhat.com>
+	<20070919172653.GB18045@one.firstfloor.org>
+	<46F1608E.7060908@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, jgarzik@pobox.com
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33153
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750839AbXISSLr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 14:11:47 -0400
-In-Reply-To: <1190177401.19708.264.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
+Cc: Andi Kleen <andi@firstfloor.org>, netdev <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+To: Ulrich Drepper <drepper@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756895AbXISR7m@vger.kernel.org>
+In-Reply-To: <46F1608E.7060908@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 18 Sep 2007 21:50:01 -0700
+On Wed, 19 Sep 2007 10:46:54 -0700
+Ulrich Drepper <drepper@redhat.com> wrote:
 
-> I rebased against yesterday's net-2.6.24
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
 > 
-> Please pull from:
+> Andi Kleen wrote:
+> >> But the spec calls for a "null address" to be used and that's in my
+> >> understanding something different from using AF_UNSPEC.
+> > 
+> > memset(&sockaddr, 0, sizeof(sockaddr)) should give you AF_UNSPEC
 > 
-> git://repo.or.cz/linux-2.6/trivial-mods.git net-2.6.24-fordave
+> But the spec calls for <quote>null address for the protocol</quote>.
+> 
+> That means the family for the null address is the same as the family of
+> the socket.
 
-You didn't "rebase" you "merged" and this makes your tree a complete
-mess.
+Which is a valid address in some protocols. If I remember rightly then
+appletalk net 0 node 0 port 0 is valid although I'd want to look in the
+book to check that - ditto AF_ECONET although I doubt anyone cares too
+much 8)
 
-When you do a real "rebase", you clone a fresh new tree from mine and
-add only your patches on top.
-
-Your tree as-is is difficult for me to pull from because it contains
-all kinds of messy merges and merge error fixups.
-
-Can you just extract out one single patch that does the MAC_FMT change
-and get that to me somehow?  Either by adding it into a fresh
-net-2.6.24 clone, or as a patch.  Both ways are fine.
+Alan
