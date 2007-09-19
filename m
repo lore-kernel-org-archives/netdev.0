@@ -1,34 +1,40 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: follow-up: discrepancy with POSIX
-Date: Wed, 19 Sep 2007 17:39:04 +0100
-Message-ID: <20070919173904.3987ec1b@the-village.bc.nu>
-References: <46F13E8B.4050309@redhat.com>
-	<20070919.091510.00787167.davem@davemloft.net>
+From: maximilian attems <max@stro.at>
+Subject: Re: bnx2 dirver's firmware images
+Date: Wed, 19 Sep 2007 18:33:18 +0200
+Message-ID: <20070919163318.GG6618@stro.at>
+References: <200709181823.26429.vda.linux@googlemail.com> <1190141114.9540.216.camel@dell> <20070918.112337.74737433.davem@davemloft.net> <1190145951.9540.230.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: drepper@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761621AbXISQc0@vger.kernel.org>
-In-Reply-To: <20070919.091510.00787167.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, vda.linux@googlemail.com,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from baikonur.stro.at ([213.239.196.228]:2928 "EHLO baikonur.stro.at"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754930AbXISQdW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Sep 2007 12:33:22 -0400
+Content-Disposition: inline
+In-Reply-To: <1190145951.9540.230.camel@dell>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 19 Sep 2007 09:15:10 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+On Tue, 18 Sep 2007, Michael Chan wrote:
 
-> From: Ulrich Drepper <drepper@redhat.com>
-> Date: Wed, 19 Sep 2007 08:21:47 -0700
-> 
-> > If you think the POSIX spec is wrong (and can point to other
-> > implementations doing the same as Linux) let me know and I'll work on
-> > getting the spec changed.
-> 
-> The whole AF_UNSPEC thing I'm almost certain comes from BSD, which has
-> behaved that way for centuries.
+> The bnx2 firmware changes quite frequently.  A new driver quite often
+> requires new firmware to work correctly.  Splitting them up makes things
+> difficult for the user.
 
-We got it from the 1003.4g draft socket specification if I remember
-rightly. Its entirely plausible that got it from 4BSE.
+sorry didn't check, what's the license of the firmware?
+ 
+> The firmware in tg3 is a lot more mature and I don't expect it to
+> change.  I think tg3 is better suited for using request_firmware().
 
-Alan
+well thanks that would help us a lot,
+we have to strip the firmware for Debian for the upcoming Lenny release.
+as the shipping exception for the previous 2 releases will not be granted
+again. so a separate firmware would be great. also afaik only some boards
+need it. it is a pressing need for us as tg3 with stripped firmware of
+course doesn't build.
+
+-- 
+maks
