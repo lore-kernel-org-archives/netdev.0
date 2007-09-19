@@ -1,40 +1,62 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC PATCH] 2.6.22.6 netfilter: sk_setup_caps in ip_make_route_harder
-Date: Wed, 19 Sep 2007 17:17:17 +0200
-Message-ID: <46F13D7D.6010603@trash.net>
-References: <20070919093648.GA7491@router.lepton.home> <46F13999.30700@trash.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [RESEND][PATCH 2/4 Rev-3] Add new timeval_to_sec function
+Date: Wed, 19 Sep 2007 08:29:24 -0700
+Message-ID: <20070919082924.14ca2c1b@freepuppy.rosehill.hemminger.net>
+References: <20070919092407.ecd87071.varunc@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: lepton <ytht.net@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, kaber@trash.net,
+	socketcan@hartkopp.net, krkumar2@in.ibm.com, tgraf@suug.ch,
+	varuncha@in.ibm.com
+To: Varun Chandramohan <varunc@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33956 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753437AbXISPYT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 11:24:19 -0400
-In-Reply-To: <46F13999.30700@trash.net>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:33904 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750978AbXISPaT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 11:30:19 -0400
+In-Reply-To: <20070919092407.ecd87071.varunc@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> lepton wrote:
-> 
->>Hi,
->>  For local src packets, it is better to update sk_route_caps in
->>  ip_route_me_harder.
-> 
-> 
-> 
-> This seems like a good idea to me. But why only for local src
-> (address) packets? This function can also be used for locally
-> generated packet that have been (f.i.) NATed to a foreign
-> address ...
+On Wed, 19 Sep 2007 09:24:07 +0530
+Varun Chandramohan <varunc@linux.vnet.ibm.com> wrote:
 
+> A new function for converting timeval to time_t is added in netlink.h. Its a common function used in differentplaces. The reason for adding this function in netlink.h is that its used by netlink for stats purpose.
+> 
+> Signed-off-by: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+> ---
+>  include/net/netlink.h |   13 +++++++++++++
+>  1 files changed, 13 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/net/netlink.h b/include/net/netlink.h
+> index d7b824b..f86cc59 100644
+> --- a/include/net/netlink.h
+> +++ b/include/net/netlink.h
+> @@ -1100,4 +1100,17 @@ static inline int nla_validate_nested(st
+>  #define nla_for_each_nested(pos, nla, rem) \
+>  	nla_for_each_attr(pos, nla_data(nla), nla_len(nla), rem)
+>  
+> +/**
+> + * timeval_to_sec - Convert timeval to seconds
+> + * @tv:         pointer to the timeval variable to be converted
+> + *
+> + * Returns the seconds representation of timeval parameter.
+> + * Note : Here we round up the value. We dont need accuracy.
+> + * This is mainly used in netlink for stats purpose.
+> + */
+> +static inline time_t timeval_to_sec(const struct timeval *tv)
+> +{
+> +	return (tv->tv_sec + (tv->tv_usec ? 1 : 0));
+> +}
+> +
+>  #endif
 
-Actually, I'm afraid it might break some setups. Rerouting is
-done per packet, but if we cache the dst_entry for the socket,
-all packets from that socket will be routed similar.
+1. If needed it belongs in include/linux/time.h
 
+2. You never adequately explained why the function rounds up? No other
+   statistical or time interface does rounding, why should this API round
+   and others do not?
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
