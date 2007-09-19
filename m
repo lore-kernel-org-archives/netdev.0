@@ -1,38 +1,103 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: Please pull 'z1211' branch of wireless-2.6
-Date: Wed, 19 Sep 2007 23:12:50 +0100
-Message-ID: <46F19EE2.6040402@gentoo.org>
-References: <20070919181005.GB5483@tuxdriver.com>
+From: Nagendra Tomar <tomer_iisc@yahoo.com>
+Subject: [PATCH 2.6.23-rc6 Resending] NETWORKING : Edge Triggered EPOLLOUT events get missed for TCP sockets
+Date: Wed, 19 Sep 2007 15:37:09 -0700 (PDT)
+Message-ID: <130356.85796.qm@web53703.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeff@garzik.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, kune@deine-taler.de
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	Davide Libenzi <davidel@xmailserver.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from clarity.mcc.ac.uk ([130.88.200.144]:60561 "EHLO
-	clarity.mcc.ac.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750965AbXISWdA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 18:33:00 -0400
-In-Reply-To: <20070919181005.GB5483@tuxdriver.com>
+Received: from web53703.mail.re2.yahoo.com ([206.190.37.24]:20025 "HELO
+	web53703.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753017AbXISWhK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 18:37:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> Jeff & Dave,
-> 
-> This patch adds z1211 (previously known as zd1211rw-mac80211),
-> a driver for Zydas ZD1211 hardware.  This driver has proven very
-> robust -- Fedora 7 uses this driver and I don't think I have any open
-> bugzillas for it.  
+The tcp_check_space() function calls tcp_new_space() only if the
+SOCK_NOSPACE bit is set in the socket flags. This is causing Edge Triggered
+EPOLLOUT events to be missed for TCP sockets, as the ep_poll_callback() 
+is not called from the wakeup routine.
 
-BTW: I fairly regularly get email from F7 users complaining about 
-connection intermittancy and other bugs that we don't seem to have for 
-the softmac driver (maybe stack related issues, of which I've fixed a 
-couple that affected me personally, I'm a little surprised that F7 
-jumped so early).
+        The SOCK_NOSPACE bit indicates the user's intent to perform writes
+on that socket (set in tcp_sendmsg and tcp_poll). I believe the idea 
+behind the SOCK_NOSPACE check is to optimize away the tcp_new_space call
+in cases when user is not interested in writing to the socket. These two
+take care of all possible scenarios in which a user can convey his intent
+to write on that socket.
 
-I've been suggesting that such users move to zd1211rw-softmac until both 
-Ulrich and myself are happy and we've made the jump upstream.
+Case 1: tcp_sendmsg detects lack of sndbuf space
+Case 2: tcp_poll returns not writable
 
-Daniel
+This is fine if we do not deal with epoll's Edge Triggered events (EPOLLET).
+With ET events we can have a scenario where the SOCK_NOSPACE bit is not set,
+as the user has neither done a sendmsg nor a poll/epoll call that returned
+with the POLLOUT condition not set. 
+
+        In this case the user will _never_ get an ET POLLOUT event since 
+tcp_check_space() will not call tcp_new_space() (as the SOCK_NOSPACE bit is 
+not set), which does the real work. THIS IS AGAINST THE EPOLL ET PROMISE OF
+DELIVERING AN EVENT WHENEVER THE EVENT ACTUALLY HAPPENS. 
+
+This ET event will be very helpful to implement user level memory management
+for mmap+sendfile zero copy Tx. So typically the application does this
+
+void *alloc_sendfile_buf(void)
+{
+        while(!next_free_buffer)
+        {
+                /*
+                 * No free buffers (all are dispatched to sendfile and are 
+                 * in use). Wait for one or more buffers to become free
+                 * The socket fd is registered with EPOLLET|EPOLLOUT events.
+                 * EPOLLET enables us to check for SIOCOUTQ only when some
+                 * more space becomes available.
+                 *
+                 * One would expect the ET EPOLLOUT event to be notified 
+                 * when TCP space is freed due to some ack coming in. 
+                 */
+                epoll_wait(...); /* wait for some incoming ack to free some
+                                    buffer from the retransmit queue */
+                ioctl(fd, SIOCOUTQ, &in_outq);
+                /*
+                 * see if we can mark some more "complete" buffers free
+                 * If it can mark one or more buffer free, it will set
+                 * next_free_buffer to point to the available buffer to use
+                 */
+                rehash_free_buffers(in_outq);
+        }
+        return next_free_buffer;
+}
+
+With the SOCK_NOSPACE check in tcp_check_space(), this epoll_wait call will 
+not return, even when the incoming acks free the buffers.
+        Note that this patch assumes that the SOCK_NOSPACE check in
+tcp_check_space is a trivial optimization which can be safely removed.
+
+Thanx,
+Tomar
+        
+
+Signed-off-by: Nagendra Singh Tomar <nagendra_tomar@adaptec.com>
+---
+
+--- linux-2.6.23-rc6/net/ipv4/tcp_input.c.orig	2007-09-19 13:58:44.000000000 +0530
++++ linux-2.6.23-rc6/net/ipv4/tcp_input.c	2007-09-19 10:17:36.000000000 +0530
+@@ -3929,8 +3929,7 @@ static void tcp_check_space(struct sock 
+ {
+ 	if (sock_flag(sk, SOCK_QUEUE_SHRUNK)) {
+ 		sock_reset_flag(sk, SOCK_QUEUE_SHRUNK);
+-		if (sk->sk_socket &&
+-		    test_bit(SOCK_NOSPACE, &sk->sk_socket->flags))
++		if (sk->sk_socket)
+ 			tcp_new_space(sk);
+ 	}
+ }
+
+
+      ___________________________________________________________
+Yahoo! Answers - Got a question? Someone out there knows the answer. Try it
+now.
+http://uk.answers.yahoo.com/ 
