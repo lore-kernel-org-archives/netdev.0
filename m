@@ -1,42 +1,39 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 2/6] sky2: ethtool speed report bug
-Date: Wed, 19 Sep 2007 15:36:43 -0700
-Message-ID: <20070919223746.550931886@linux-foundation.org>
-References: <20070919223641.860189786@linux-foundation.org>
-Cc: netdev@vger.kernel.org
-To: Jeff Garzk <jgarzik@pobox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH]: Preliminary release of Sun Neptune driver
+Date: Wed, 19 Sep 2007 16:17:17 -0700 (PDT)
+Message-ID: <20070919.161717.57157258.davem@davemloft.net>
+References: <20070919145900.759ef19e@freepuppy.rosehill.hemminger.net>
+	<20070919.150755.38714639.davem@davemloft.net>
+	<20070919160520.709a6819@freepuppy.rosehill.hemminger.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Ariel.Hendel@sun.com, greg.onufer@sun.com,
+	jeff@garzik.org
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:58668 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755509AbXISXQu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 19:16:50 -0400
-Content-Disposition: inline; filename=sky2-ethtool-100mbit.patch
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36840
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755577AbXISXRR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 19:17:17 -0400
+In-Reply-To: <20070919160520.709a6819@freepuppy.rosehill.hemminger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 100mbit versions, the driver always reports gigabit speed
-available. The correct modes are already computed, then overwritten.
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Wed, 19 Sep 2007 16:05:20 -0700
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> GCC is not as smart as you think... Try the following test:
 
+Indeed, thanks for pointing that out.  I'll have to
+macroize it like this to get the check:
 
---- a/drivers/net/sky2.c	2007-09-19 09:18:50.000000000 -0700
-+++ b/drivers/net/sky2.c	2007-09-19 09:19:35.000000000 -0700
-@@ -2841,13 +2841,6 @@ static int sky2_get_settings(struct net_
- 	ecmd->supported = sky2_supported_modes(hw);
- 	ecmd->phy_address = PHY_ADDR_MARV;
- 	if (sky2_is_copper(hw)) {
--		ecmd->supported = SUPPORTED_10baseT_Half
--		    | SUPPORTED_10baseT_Full
--		    | SUPPORTED_100baseT_Half
--		    | SUPPORTED_100baseT_Full
--		    | SUPPORTED_1000baseT_Half
--		    | SUPPORTED_1000baseT_Full
--		    | SUPPORTED_Autoneg | SUPPORTED_TP;
- 		ecmd->port = PORT_TP;
- 		ecmd->speed = sky2->speed;
- 	} else {
+static int __niu_wait_bits_clear_mac(void *np, unsigned long reg,
+				     int limit, int delay)
+{
+ ...
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
-
+#define niu_wait_bits_clear_mac(NP, REG, LIM, DELAY) \
+({	BUILD_BUG_ON(LIM <= 0 || DELAY < 0); \
+	__niu_wait_bits_clear_mac(NP, REG, LIM, DELAY); \
+})
