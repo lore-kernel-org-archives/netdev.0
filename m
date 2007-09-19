@@ -1,41 +1,38 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+From: Daniel Drake <dsd@gentoo.org>
 Subject: Re: Please pull 'z1211' branch of wireless-2.6
-Date: Wed, 19 Sep 2007 15:32:56 -0700 (PDT)
-Message-ID: <20070919.153256.10296833.davem@davemloft.net>
-References: <46F19DD0.2050605@gentoo.org>
-	<20070919.151446.116351108.davem@davemloft.net>
-	<46F1A23D.8080606@gentoo.org>
+Date: Wed, 19 Sep 2007 23:12:50 +0100
+Message-ID: <46F19EE2.6040402@gentoo.org>
+References: <20070919181005.GB5483@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
-To: dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <46F1A23D.8080606-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: davem@davemloft.net, jeff@garzik.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, kune@deine-taler.de
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from clarity.mcc.ac.uk ([130.88.200.144]:60561 "EHLO
+	clarity.mcc.ac.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750965AbXISWdA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 18:33:00 -0400
+In-Reply-To: <20070919181005.GB5483@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Date: Wed, 19 Sep 2007 23:27:09 +0100
-
-> zd1211rw-mac80211 does not currently add anything to the user experience 
-> over the existing driver, other than automatic rate adaption which is 
-> nice but hasn't proven itself to be of much importance given that the 
-> existing driver has lots of happy users and has never done it.
-
-Ok.
-
-> Also, this merge has been proposed in a form other than what me and 
-> Ulrich were envisioning (at least from earlier discussions). We want to 
-> convert drivers/net/wireless/zd1211rw to mac80211 directly. This would 
-> also avoid a rename and I think would save some hassle.
+John W. Linville wrote:
+> Jeff & Dave,
 > 
-> Sorry to be a pain, but I really would like some more time to catch up 
-> and make some last changes. I haven't yet even looked at Johannes' 
-> minimal filter flags implementation in the driver or Michael's fix.
-> 
-> Would you agree to let this wait until 2.6.25? You can hold me to that, 
-> although Ulrich should also comment on if he thinks he'd be ready by then.
+> This patch adds z1211 (previously known as zd1211rw-mac80211),
+> a driver for Zydas ZD1211 hardware.  This driver has proven very
+> robust -- Fedora 7 uses this driver and I don't think I have any open
+> bugzillas for it.  
 
-Fair enough, I'll remove the Z1211 driver during my next rebase.
+BTW: I fairly regularly get email from F7 users complaining about 
+connection intermittancy and other bugs that we don't seem to have for 
+the softmac driver (maybe stack related issues, of which I've fixed a 
+couple that affected me personally, I'm a little surprised that F7 
+jumped so early).
+
+I've been suggesting that such users move to zd1211rw-softmac until both 
+Ulrich and myself are happy and we've made the jump upstream.
+
+Daniel
