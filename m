@@ -1,42 +1,53 @@
-From: Denys Vlasenko <vda.linux@googlemail.com>
-Subject: Re: bnx2 dirver's firmware images
-Date: Wed, 19 Sep 2007 21:29:22 +0100
-Message-ID: <200709192129.23034.vda.linux@googlemail.com>
-References: <200709181823.26429.vda.linux@googlemail.com> <200709190930.39882.vda.linux@googlemail.com> <1190235642.9540.261.camel@dell>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: follow-up: discrepancy with POSIX
+Date: Wed, 19 Sep 2007 16:33:32 -0400
+Message-ID: <12044.1190234012@turing-police.cc.vt.edu>
+References: <46F13E8B.4050309@redhat.com> <p73sl5aveqh.fsf@bingen.suse.de> <46F15305.2030507@redhat.com> <20070919172653.GB18045@one.firstfloor.org> <46F1608E.7060908@redhat.com> <20070919175700.GC18045@one.firstfloor.org> <46F16418.3070706@redhat.com> <20070919183004.GA18707@one.firstfloor.org>
+            <46F16CC1.9090302@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: multipart/signed; boundary="==_Exmh_1190234012_23458P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	"netdev" <netdev@vger.kernel.org>
-To: "Michael Chan" <mchan@broadcom.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756915AbXISU3q@vger.kernel.org>
-In-Reply-To: <1190235642.9540.261.camel@dell>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from turing-police.cc.vt.edu ([128.173.14.107]:54130 "EHLO
+	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752639AbXISUd7 (ORCPT
+	<RFC822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 16:33:59 -0400
+In-Reply-To: Your message of "Wed, 19 Sep 2007 11:38:57 PDT."
+             <46F16CC1.9090302@hp.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 19 September 2007 22:00, Michael Chan wrote:
-> On Wed, 2007-09-19 at 09:30 +0100, Denys Vlasenko wrote:
-> +       /* gzip header (1f,8b,08... 10 bytes total + possible asciz filename)
-> +        * is stripped, 32-bit unpacked size (LE) is prepended instead */
-> +       sz = *zbuf++;
-> +       sz = (sz << 8) + *zbuf++;
-> +       sz = (sz << 8) + *zbuf++;
-> +       sz = (sz << 8) + *zbuf++;
-> 
-> I don't have a problem with removing the gzip header.  It doesn't
-> contain very useful information other than a valid header for sanity
-> check.  But I don't think we need to arbitrarily add the unpacked size
-> in front of the gzipped data.  The driver knows the size (e.g. the size
-> of RAM on the chip) and should pass it to the call.  The driver should
-> also allocate the memory for the unpacked data instead of allocating the
-> memory inside the call and freeing it by the caller.  For example, the
-> driver may need to use pci_alloc_consistent() if the firmware is to be
-> DMA'ed to the chip.
-> 
-> Other than that, everything else looks fine.  Thanks.
+--==_Exmh_1190234012_23458P
+Content-Type: text/plain; charset=us-ascii
 
-Are you saying that you successfully run-tested it?
---
-vda
+On Wed, 19 Sep 2007 11:38:57 PDT, Rick Jones said:
+
+> One has to set their way-back machine pretty far back to find the *BSD 
+> bits which used 0.0.0.0 as the "all nets, all subnets" (to mis-use a 
+> term) broadcast IPv4 address when sending.  Perhaps as far back as the 
+> time before HP-UX 7 or SunOS4.  The bit errors in my dimm memory get 
+> pretty dense that far back...
+
+That would be BSD4.2 - BSD4.3 went to all-ones, and it *was* quite the
+little mess if you had both flavors of boxes on the same subnet at the same
+time, it would packet-storm *quite* easily.
+
+--==_Exmh_1190234012_23458P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFG8YeccC3lWbTT17ARAqunAKDITtSZTXc/9Um64aoRyoJbUreskgCaArs7
+G7L5Gmde0JIJtWGVSYokWc4=
+=Io+b
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1190234012_23458P--
