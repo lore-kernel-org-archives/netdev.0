@@ -1,177 +1,51 @@
-From: Varun Chandramohan <varunc@linux.vnet.ibm.com>
-Subject: [RESEND][PATCH 4/4 Rev-3] Initialize and fill IPv6 route age
-Date: Wed, 19 Sep 2007 09:25:00 +0530
-Message-ID: <20070919092500.38e74ba0.varunc@linux.vnet.ibm.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: [ofa-general] Re: [PATCH 1/2] IPoIB: Fix unregister_netdev hang
+Date: Wed, 19 Sep 2007 09:54:18 +0530
+Message-ID: <OFA01CE194.AD0117AA-ON6525735B.0018086F-6525735B.001832DF@in.ibm.com>
+References: <adak5qnjpr7.fsf@cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net, socketcan@hartkopp.net,
-	shemminger@linux-foundation.org, krkumar2@in.ibm.com,
-	tgraf@suug.ch, varuncha@in.ibm.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:45235 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752192AbXISDxv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 23:53:51 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e31.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8J3rpZg016056
-	for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 23:53:51 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8J3rpUJ474446
-	for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 21:53:51 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8J3roUW008173
-	for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 21:53:51 -0600
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net, general@lists.openfabrics.org
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <adak5qnjpr7.fsf@cisco.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-The age field of the ipv6 route structures are initilized with the current timeval at the time of route
-creation. When the route dump is called the route age value stored in the structure is subtracted from the
-present timeval and the difference is passed on as the route age.
+Hi Roland,
 
-Signed-off-by: Varun Chandramohan <varunc@linux.vnet.ibm.com>
----
- include/net/ip6_fib.h   |    1 +
- include/net/ip6_route.h |    3 +++
- net/ipv6/addrconf.c     |    5 +++++
- net/ipv6/route.c        |   24 ++++++++++++++++++++----
- 4 files changed, 29 insertions(+), 4 deletions(-)
+> Please double check your tree.  I just very carefully looked at my
+> trees, and the poll_more: label is added in commit 6b460a71 ("[NET]:
+> Make NAPI polling independent of struct net_device objects.") which is
+> only in the net-2.6.24 tree.  Of course Dave did not change the
+> version information in the Makefile since he wouldn't want Linus to
+> pick up any extra strange changes when he pulls, so a net-2.6.24 tree
+> will look like 2.6.23-rc6 as you quoted.
+>
+> And the refcounting bug I fixed is only in net-2.6.24.
 
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index c48ea87..e30a1cf 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -98,6 +98,7 @@ struct rt6_info
- 	
- 	u32				rt6i_flags;
- 	u32				rt6i_metric;
-+	time_t				rt6i_age;
- 	atomic_t			rt6i_ref;
- 	struct fib6_table		*rt6i_table;
- 
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index 5456fdd..fc9716c 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -36,6 +36,9 @@ struct route_info {
- #define RT6_LOOKUP_F_REACHABLE	0x2
- #define RT6_LOOKUP_F_HAS_SADDR	0x4
- 
-+#define RT6_SET_ROUTE_INFO 0x0
-+#define RT6_GET_ROUTE_INFO 0x1
-+
- extern struct rt6_info	ip6_null_entry;
- 
- #ifdef CONFIG_IPV6_MULTIPLE_TABLES
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 91ef3be..666ec28 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4182,6 +4182,7 @@ EXPORT_SYMBOL(unregister_inet6addr_notif
- 
- int __init addrconf_init(void)
- {
-+	struct timeval tv;
- 	int err = 0;
- 
- 	/* The addrconf netdev notifier requires that loopback_dev
-@@ -4209,10 +4210,14 @@ int __init addrconf_init(void)
- 	if (err)
- 		return err;
- 
-+	do_gettimeofday(&tv);
- 	ip6_null_entry.rt6i_idev = in6_dev_get(&loopback_dev);
-+	ip6_null_entry.rt6i_age = timeval_to_sec(&tv);
- #ifdef CONFIG_IPV6_MULTIPLE_TABLES
- 	ip6_prohibit_entry.rt6i_idev = in6_dev_get(&loopback_dev);
-+	ip6_prohibit_entry.rt6i_age = timeval_to_sec(&tv);
- 	ip6_blk_hole_entry.rt6i_idev = in6_dev_get(&loopback_dev);
-+	ip6_blk_hole_entry.rt6i_age = timeval_to_sec(&tv);
- #endif
- 
- 	register_netdevice_notifier(&ipv6_dev_notf);
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 55ea80f..9954187 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -600,7 +600,14 @@ static int __ip6_ins_rt(struct rt6_info
- {
- 	int err;
- 	struct fib6_table *table;
-+	struct timeval tv;
- 
-+	do_gettimeofday(&tv);
-+	/* Update the timeval for new routes
-+	 * We add it here to make it common irrespective
-+	 * of how the new route is added.
-+	 */
-+	rt->rt6i_age = timeval_to_sec(&tv);
- 	table = rt->rt6i_table;
- 	write_lock_bh(&table->tb6_lock);
- 	err = fib6_add(&table->tb6_root, rt, info);
-@@ -2112,6 +2119,7 @@ static inline size_t rt6_nlmsg_size(void
- 	       + nla_total_size(4) /* RTA_IIF */
- 	       + nla_total_size(4) /* RTA_OIF */
- 	       + nla_total_size(4) /* RTA_PRIORITY */
-+	       + nla_total_size(4) /*RTA_AGE*/
- 	       + RTAX_MAX * nla_total_size(4) /* RTA_METRICS */
- 	       + nla_total_size(sizeof(struct rta_cacheinfo));
- }
-@@ -2119,10 +2127,11 @@ static inline size_t rt6_nlmsg_size(void
- static int rt6_fill_node(struct sk_buff *skb, struct rt6_info *rt,
- 			 struct in6_addr *dst, struct in6_addr *src,
- 			 int iif, int type, u32 pid, u32 seq,
--			 int prefix, unsigned int flags)
-+			 int prefix, unsigned int flags, int dumpflg)
- {
- 	struct rtmsg *rtm;
- 	struct nlmsghdr *nlh;
-+	struct timeval tv;
- 	long expires;
- 	u32 table;
- 
-@@ -2186,6 +2195,13 @@ static int rt6_fill_node(struct sk_buff
- 		if (ipv6_get_saddr(&rt->u.dst, dst, &saddr_buf) == 0)
- 			NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
- 	}
-+	
-+	if (dumpflg == RT6_GET_ROUTE_INFO) {
-+		do_gettimeofday(&tv);
-+		NLA_PUT_U32(skb, RTA_AGE, timeval_to_sec(&tv) - rt->rt6i_age);
-+	} else {
-+		NLA_PUT_U32(skb, RTA_AGE, rt->rt6i_age);
-+	}
- 
- 	if (rtnetlink_put_metrics(skb, rt->u.dst.metrics) < 0)
- 		goto nla_put_failure;
-@@ -2223,7 +2239,7 @@ int rt6_dump_route(struct rt6_info *rt,
- 
- 	return rt6_fill_node(arg->skb, rt, NULL, NULL, 0, RTM_NEWROUTE,
- 		     NETLINK_CB(arg->cb->skb).pid, arg->cb->nlh->nlmsg_seq,
--		     prefix, NLM_F_MULTI);
-+		     prefix, NLM_F_MULTI, RT6_GET_ROUTE_INFO);
- }
- 
- static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void *arg)
-@@ -2288,7 +2304,7 @@ static int inet6_rtm_getroute(struct sk_
- 
- 	err = rt6_fill_node(skb, rt, &fl.fl6_dst, &fl.fl6_src, iif,
- 			    RTM_NEWROUTE, NETLINK_CB(in_skb).pid,
--			    nlh->nlmsg_seq, 0, 0);
-+			    nlh->nlmsg_seq, 0, 0, RT6_GET_ROUTE_INFO);
- 	if (err < 0) {
- 		kfree_skb(skb);
- 		goto errout;
-@@ -2317,7 +2333,7 @@ void inet6_rt_notify(int event, struct r
- 	if (skb == NULL)
- 		goto errout;
- 
--	err = rt6_fill_node(skb, rt, NULL, NULL, 0, event, pid, seq, 0, 0);
-+	err = rt6_fill_node(skb, rt, NULL, NULL, 0, event, pid, seq, 0, 0, RT6_SET_ROUTE_INFO);
- 	if (err < 0) {
- 		/* -EMSGSIZE implies BUG in rt6_nlmsg_size() */
- 		WARN_ON(err == -EMSGSIZE);
--- 
-1.4.3.4
+You are absolutely right. My wording was incorrect, I should have said
+net-2.6.24 (which is *at* rev rc6).
 
+>  > To be clear, netif_rx_schedule while we are still in the poll list
+will not
+>  > do any harm as it does nothing since NAPI_STATE_SCHED is still set
+(cleared
+>  > by netif_rx_complete which has not yet run). Effectively we
+lost/delayed
+>  > processing an interrupt, if I understood the code right.
+>
+> Right, we lose an interrupt, and since the CQ events are one-shot, we
+> never get another one, and the interface is effectively dead.
+
+Thanks,
+
+- KK
