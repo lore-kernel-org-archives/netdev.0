@@ -1,49 +1,54 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: follow-up: discrepancy with POSIX
-Date: Wed, 19 Sep 2007 10:27:10 -0700
-Message-ID: <46F15BEE.2050701@redhat.com>
-References: <46F13E8B.4050309@redhat.com>	<p73sl5aveqh.fsf@bingen.suse.de>	<46F15305.2030507@redhat.com> <20070919.095251.45154496.davem@davemloft.net> <46F156A7.5000304@redhat.com>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: bnx2 dirver's firmware images
+Date: Wed, 19 Sep 2007 19:37:04 +0200
+Message-ID: <20070919173704.GA3115@uranus.ravnborg.org>
+References: <46F01BDE.6020902@zytor.com> <20070918.122034.83625273.davem@davemloft.net> <46F02688.8030507@zytor.com> <20070918.130810.78161599.davem@davemloft.net> <20070918203530.GC27836@uranus.ravnborg.org> <20070919171033.GH6618@stro.at> <46F15886.6040701@zytor.com> <20070919171841.GT19918@baikonur.stro.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758341AbXISR1f@vger.kernel.org>
-In-Reply-To: <46F156A7.5000304@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "H. Peter Anvin" <hpa@zytor.com>,
+	David Miller <davem@davemloft.net>, mchan@broadcom.com,
+	vda.linux@googlemail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: maximilian attems <max@stro.at>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pasmtpb.tele.dk ([80.160.77.98]:45484 "EHLO pasmtpB.tele.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762643AbXISRfk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Sep 2007 13:35:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20070919171841.GT19918@baikonur.stro.at>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Hi Maks.
 
-Ulrich Drepper wrote:
-> Yes, but for IPv4/6 it's not an issue.  Some implementations might
-> handle all-zeros and the spec _currently_ calls for it.  In this case=
- an
-> alignment would be good.
+On Wed, Sep 19, 2007 at 07:18:41PM +0200, maximilian attems wrote:
+> On Wed, Sep 19, 2007 at 10:12:38AM -0700, H. Peter Anvin wrote:
+> > 
+> > Could you give a concrete example?
+> > 
+> > 	-hpa
+> 
+> max@dual:~/src/klibc$ touch usr/utils/mount_main.c
+> max@dual:~/src/klibc$ make
+>   KLIBCCC usr/utils/mount_main.o
+>   KLIBCLD usr/utils/static/halt
+>   LN      usr/utils/static/reboot
+>   LN      usr/utils/static/poweroff
+>   KLIBCLD usr/utils/shared/halt
+>   LN      usr/utils/shared/reboot
+>   LN      usr/utils/shared/poweroff
+>   KLIBCLD usr/utils/static/chroot
+>   KLIBCLD usr/utils/static/dd
+>   <snipp>
 
-Searching the web shows up this:
+I do not recall the details at the moment but I recall I had to
+do this tradeoff for some reasons.
+I do not say it is not fixable but when I did the static-y support
+I recall I took a shortcut or two under the assumption that everything
+build by klibc was anyway so simple that compiling a bit too much was no harm.
 
-http://developer.apple.com/documentation/Darwin/Reference/ManPages/man2=
-/connect.2.html
+Too buried with other stuff right now.
+But feel free to poke me in roughly a month and I will take a deeper look.
 
-
-  Datagram sockets may dissolve the association by connecting to an
-  invalid address, such as a null address or an address with the addres=
-s
-  family set to AF_UNSPEC (the error EAFNOSUPPORT will be harmlessly
-  returned).
-
-
-I.e., at least Apple implements both variants.
-
-- --
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
-
-iD8DBQFG8Vvu2ijCOnn/RHQRAsSfAJkBELtiNyul8wMOjVv1x7LfvDWw/ACfR0D0
-cm+k1wfhCsT4GjbF3uac+eY=3D
-=3DnksN
------END PGP SIGNATURE-----
+	Sam
