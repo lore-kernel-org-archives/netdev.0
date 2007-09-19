@@ -1,39 +1,46 @@
-From: maximilian attems <max@stro.at>
-Subject: Re: bnx2 dirver's firmware images
-Date: Wed, 19 Sep 2007 19:18:41 +0200
-Message-ID: <20070919171841.GT19918@baikonur.stro.at>
-References: <46F01BDE.6020902@zytor.com> <20070918.122034.83625273.davem@davemloft.net> <46F02688.8030507@zytor.com> <20070918.130810.78161599.davem@davemloft.net> <20070918203530.GC27836@uranus.ravnborg.org> <20070919171033.GH6618@stro.at> <46F15886.6040701@zytor.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: follow-up: discrepancy with POSIX
+Date: Wed, 19 Sep 2007 19:26:53 +0200
+Message-ID: <20070919172653.GB18045@one.firstfloor.org>
+References: <46F13E8B.4050309@redhat.com> <p73sl5aveqh.fsf@bingen.suse.de> <46F15305.2030507@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Sam Ravnborg <sam@ravnborg.org>,
-	David Miller <davem@davemloft.net>, mchan@broadcom.com,
-	vda.linux@googlemail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "H. Peter Anvin" <hpa@zytor.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756356AbXISRS7@vger.kernel.org>
+Cc: Andi Kleen <andi@firstfloor.org>, netdev <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+To: Ulrich Drepper <drepper@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([213.235.205.2]:55131 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751074AbXISR0y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 13:26:54 -0400
 Content-Disposition: inline
-In-Reply-To: <46F15886.6040701@zytor.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <46F15305.2030507@redhat.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 19, 2007 at 10:12:38AM -0700, H. Peter Anvin wrote:
+On Wed, Sep 19, 2007 at 09:49:09AM -0700, Ulrich Drepper wrote:
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
 > 
-> Could you give a concrete example?
+> Andi Kleen wrote:
+> > The standard way to undo connect is to use AF_UNSPEC. Code to handle
+> > that for dgram sockets is there. It's the same code for v4 and v6.
 > 
-> 	-hpa
+> I quoted the standard and it does not say anything about AF_UNSPEC.  So
+> you cannot simply make such broad statements.
 
-max@dual:~/src/klibc$ touch usr/utils/mount_main.c
-max@dual:~/src/klibc$ make
-  KLIBCCC usr/utils/mount_main.o
-  KLIBCLD usr/utils/static/halt
-  LN      usr/utils/static/reboot
-  LN      usr/utils/static/poweroff
-  KLIBCLD usr/utils/shared/halt
-  LN      usr/utils/shared/reboot
-  LN      usr/utils/shared/poweroff
-  KLIBCLD usr/utils/static/chroot
-  KLIBCLD usr/utils/static/dd
-  <snipp>
+Ok "standard" was perhaps a poor choice of words.
 
--- 
-maks
+AF_UNSPEC used to be introduced long ago by Alan based on some early 
+POSIX draft iirc.
+
+Also incidentially it's a null address:
+
+include/linux/socket.h:#define AF_UNSPEC        0
+
+> But the spec calls for a "null address" to be used and that's in my
+> understanding something different from using AF_UNSPEC.
+
+memset(&sockaddr, 0, sizeof(sockaddr)) should give you AF_UNSPEC
+
+-Andi
