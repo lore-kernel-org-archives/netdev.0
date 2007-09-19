@@ -1,43 +1,64 @@
-From: 'Christoph Hellwig' <hch@infradead.org>
-Subject: Re: [PATCH] tehuti: driver for Tehuti 10GbE network adapters
-Date: Wed, 19 Sep 2007 16:52:58 +0100
-Message-ID: <20070919155258.GA14850@infradead.org>
-References: <20070918094723.GA2539@infradead.org> <20070919104438.B1FF775CAD@mail.tehutinetworks.co.il>
+From: lepton <ytht.net@gmail.com>
+Subject: Re: [RFC PATCH] 2.6.22.6 netfilter: sk_setup_caps in ip_make_route_harder
+Date: Wed, 19 Sep 2007 23:55:54 +0800
+Message-ID: <20070919155554.GA11710@router.lepton.home>
+References: <20070919093648.GA7491@router.lepton.home> <46F13999.30700@trash.net> <46F13D7D.6010603@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: 'Christoph Hellwig' <hch@infradead.org>, jeff@garzik.org,
-	davem@davemloft.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, 'Nadav Shemer' <nadav@tehutinetworks.net>,
-	'Andy Gospodarek' <andy@greyhouse.net>
-To: Alexander Indenbaum <baum@tehutinetworks.net>
+Cc: lepton <ytht.net@gmail.com>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:34563 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761441AbXISPxl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 11:53:41 -0400
+Received: from rv-out-0910.google.com ([209.85.198.188]:10280 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752124AbXISP5D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 11:57:03 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so222087rvb
+        for <netdev@vger.kernel.org>; Wed, 19 Sep 2007 08:57:02 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20070919104438.B1FF775CAD@mail.tehutinetworks.co.il>
+In-Reply-To: <46F13D7D.6010603@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 19, 2007 at 12:44:33PM +0200, Alexander Indenbaum wrote:
-> >  - please don't redefine the dma mask constants
-> >  - please use the firmware loader instead of mebedding a firmware
-> >    image
+Yes, you are right.
+What do you think about this:
+For all packets can be sent out, we just disable 
+all things in sk_route_caps in ip_route_me_harder
+
+diff -X linux-2.6.22.6/Documentation/dontdiff -pru linux-2.6.22.6/net/ipv4/netfilter.c linux-2.6.22.6-lepton/net/ipv4/netfilter.c
+--- linux-2.6.22.6/net/ipv4/netfilter.c	2007-09-14 17:41:18.000000000 +0800
++++ linux-2.6.22.6-lepton/net/ipv4/netfilter.c	2007-09-19 23:52:11.000000000 +0800
+@@ -57,6 +57,10 @@ int ip_route_me_harder(struct sk_buff **
+ 	if ((*pskb)->dst->error)
+ 		return -1;
+ 
++	if((*pskb)->sk&&sk->sk_route_caps) 
++		/* This is overkill, but it is safe and simple */
++		sk->sk_route_caps=0;
++
+ #ifdef CONFIG_XFRM
+ 	if (!(IPCB(*pskb)->flags & IPSKB_XFRM_TRANSFORMED) &&
+ 	    xfrm_decode_session(*pskb, &fl, AF_INET) == 0)
+
+On Wed, Sep 19, 2007 at 05:17:17PM +0200, Patrick McHardy wrote:
+> Patrick McHardy wrote:
+> > lepton wrote:
+> > 
+> >>Hi,
+> >>  For local src packets, it is better to update sk_route_caps in
+> >>  ip_route_me_harder.
+> > 
+> > 
+> > 
+> > This seems like a good idea to me. But why only for local src
+> > (address) packets? This function can also be used for locally
+> > generated packet that have been (f.i.) NATed to a foreign
+> > address ...
 > 
-> Could you give us some pointers to docs and examples of "firmware loader"?
-> I'm not sure I'm familiar with such mechanism in Linux kernel.
-
-Documentation/firmware_class/ in the kernel tree has the documentation
-for it.  Grep the kernel tree for request_firmware to find various users.
-
-> Putting dual-port issue aside, could you elaborate what is the problem in
-> your opinion in bdx_remove() implementation? What is wrong with calling
-> free_netdev() right after unregister_netdev()? Could you provide pointers
-> for docs and examples to correct PCI network device remove interface
-> implementation? 
-
-free_netdev can only be called if you're sure you don't reference your
-netdevice anymore.  Most notably that means you need to call free_irq
-first.
-
+> 
+> Actually, I'm afraid it might break some setups. Rerouting is
+> done per packet, but if we cache the dst_entry for the socket,
+> all packets from that socket will be routed similar.
+> 
