@@ -1,57 +1,88 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: Re: wrong arp query with policy routing
-Date: Wed, 19 Sep 2007 15:04:43 +0200
-Message-ID: <BAY103-DAV12BF0DF9E47B1577FB9814B2B90@phx.gbl>
-References: <BAY103-DAV2BC129A14C4A29986CC0CB2B80@phx.gbl>
-To: <netdev@vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [LARTC] ifb and ppp
+Date: Wed, 19 Sep 2007 15:04:54 +0200
+Message-ID: <46F11E76.8030202@trash.net>
+References: <200709191417.43768.mail@frithjof-hammer.de>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------040600060505090908040406"
+Cc: lartc@mailman.ds9a.nl, Linux Netdev List <netdev@vger.kernel.org>
+To: Frithjof Hammer <mail@frithjof-hammer.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc2-s23.bay0.hotmail.com ([65.54.246.159]:10512 "EHLO
-	bay0-omc2-s23.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753425AbXISNEz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 09:04:55 -0400
+Received: from stinky.trash.net ([213.144.137.162]:63781 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751240AbXISNLy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 09:11:54 -0400
+In-Reply-To: <200709191417.43768.mail@frithjof-hammer.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Marco Berizzi wrote:
+This is a multi-part message in MIME format.
+--------------040600060505090908040406
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 
-> HDSL.225 dev eth0  scope link
-> ADSL.129 dev eth0  scope link  src ADSL.134
-> ADSL.128/29 dev eth1  proto kernel  scope link  src ADSL.134
-> HDSL.224/27 dev eth1  proto kernel  scope link  src HDSL.254
-> 127.0.0.0/8 dev lo  scope link
-> default via HDSL.225 dev eth0  metric 1
-
-> Chain OUTPUT (policy ACCEPT 2476380 packets, 1183993024 bytes)
->     pkts      bytes target     prot opt in     out     source
-> destination
->    61064  8582064 MARK       tcp  --  *      *       0.0.0.0/0
-> !172.16.0.0/12       multiport dports
-> 20,21,80,123,443,2080,8080,8201,10000,8102,1443,81 MARK set 0x1
-
-Me again.
-When this box try to open a connection to
-www.google.com:80 (for example), it send an
-arp request like this:
-
-15:12:38.246096 00:30:05:cb:27:c1 > ff:ff:ff:ff:ff:ff, ethertype ARP
-(0x0806), length 42: arp who-has ADSL.129 tell HDSL.254
-                                          ^^^^^^^^^^^^^
-and the ISP managed cisco 877 router ignore
-it, because the ip source address is from a
-different network (should be ADSL.134 instead
-of HDSL.254). Is this an expected behaviour
-from linux?
-Is there a way to force linux to make an arp
-probe with the source ip belonging to the
-same subnet requesting ip?
-
-This is the 'ip ru sh' output:
-
-0: from all lookup local
-400: from all fwmark 0x1 lookup adsl
-32766: from all lookup main
-32767: from all lookup default
-
-TIA
+Frithjof Hammer wrote:
+> My goal is to setup an ingress traffic shaping on my PPPOE DSL line with ifb. 
+> 
+> My old imq stuff used iptables marks (like 'iptables -t mangle -A 
+> PREROUTING -p tcp --sport 22 -m length --length :500 -j MARK --set-mark 31') 
+> to classify the traffic and since i am lazy, i tried to to reuse them with 
+> ifb. But no luck: iptables marks the packets well, but tc doesn't see the 
+> marks on ifb0.
+> 
+> May be my problem is somewhere between ppp0 and ifb0, so for a basic test, I 
+> tried this:
+> 
+> tc qdisc add dev ppp0 ingress
+> modprobe ifb
+> ip link set up dev ifb0
+> tc filter add dev ppp0 parent ffff: protocol ip prio 10 u32 \
+>    match u32 0 0 flowid 1:1 \
+>    action mirred egress redirect dev ifb0
+> 
+> and run:
+> 
+> root@router:/# tcpdump -i ifb0 -n
+> tcpdump: WARNING: ifb0: no IPv4 address assigned
+> tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+> listening on ifb0, link-type EN10MB (Ethernet), capture size 96 bytes
+> 12:38:29.584451 PPPoE  [ses 0x7dc] IP 217.10.79.2.10000 > 84.189.95.184.1024: 
+> UDP, length 84
+> 12:38:29.585924 PPPoE  [ses 0x7dc] IP 84.189.5.17 > 84.189.95.184: GREv1, call 
+> 24388, seq 1868, ack 3210, length 205: compressed PPP data
+> 12:38:29.600506 PPPoE  [ses 0x7dc] IP truncated-ip - 256 bytes missing! 
+> 24.163.113.160.34247 > 84.189.95.184.9025: UDP, length 359
+> [...]
+> 
+> Looks like the packetes are still pppoe en-capsuled. Is this the correct 
+> behavior? This only occurs on ppp0, on other devices (like eth0) my iptables 
+> marks are matched by tc. What can I do to get my iptables marks working on 
+> ppp0 again?
 
 
+Does this patch help?
+
+
+
+--------------040600060505090908040406
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+index 5795789..7c80f16 100644
+--- a/net/sched/act_mirred.c
++++ b/net/sched/act_mirred.c
+@@ -83,6 +83,7 @@ static int tcf_mirred_init(struct rtattr *rta, struct rtattr *est,
+ 			case ARPHRD_IPGRE:
+ 			case ARPHRD_VOID:
+ 			case ARPHRD_NONE:
++			case ARPHRD_PPP:
+ 				ok_push = 0;
+ 				break;
+ 			default:
+
+--------------040600060505090908040406--
