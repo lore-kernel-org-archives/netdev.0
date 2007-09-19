@@ -1,43 +1,52 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: follow-up: discrepancy with POSIX
-Date: Wed, 19 Sep 2007 19:06:04 +0100
-Message-ID: <20070919190604.342363b4@the-village.bc.nu>
-References: <46F13E8B.4050309@redhat.com>
-	<p73sl5aveqh.fsf@bingen.suse.de>
-	<46F15305.2030507@redhat.com>
-	<20070919172653.GB18045@one.firstfloor.org>
-	<46F1608E.7060908@redhat.com>
+From: "Alexander Indenbaum" <baum@tehutinetworks.net>
+Subject: RE: [PATCH] tehuti: driver for Tehuti 10GbE network adapters
+Date: Wed, 19 Sep 2007 19:37:18 +0200
+Message-ID: <20070919173724.C810375CC7@mail.tehutinetworks.co.il>
+References: <20070919155258.GA14850@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>, netdev <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>
-To: Ulrich Drepper <drepper@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756895AbXISR7m@vger.kernel.org>
-In-Reply-To: <46F1608E.7060908@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <jeff@garzik.org>, <davem@davemloft.org>,
+	<akpm@linux-foundation.org>, <netdev@vger.kernel.org>,
+	"'Nadav Shemer'" <nadav@tehutinetworks.net>,
+	"'Andy Gospodarek'" <andy@greyhouse.net>
+To: "'Christoph Hellwig'" <hch@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bzq-219-225-50.pop.bezeqint.net ([62.219.225.50]:45700 "EHLO
+	mail.tehutinetworks.co.il" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754671AbXISSIq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 14:08:46 -0400
+In-Reply-To: <20070919155258.GA14850@infradead.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 19 Sep 2007 10:46:54 -0700
-Ulrich Drepper <drepper@redhat.com> wrote:
-
-> -----BEGIN PGP SIGNED MESSAGE-----
-> Hash: SHA1
+> -----Original Message-----
+> From: 'Christoph Hellwig' [mailto:hch@infradead.org]
+> Sent: Wednesday, September 19, 2007 5:53 PM
+>
+> > Putting dual-port issue aside, could you elaborate what is the problem
+> in
+> > your opinion in bdx_remove() implementation? What is wrong with calling
+> > free_netdev() right after unregister_netdev()? Could you provide
+> pointers
+> > for docs and examples to correct PCI network device remove interface
+> > implementation?
 > 
-> Andi Kleen wrote:
-> >> But the spec calls for a "null address" to be used and that's in my
-> >> understanding something different from using AF_UNSPEC.
-> > 
-> > memset(&sockaddr, 0, sizeof(sockaddr)) should give you AF_UNSPEC
-> 
-> But the spec calls for <quote>null address for the protocol</quote>.
-> 
-> That means the family for the null address is the same as the family of
-> the socket.
+> free_netdev can only be called if you're sure you don't reference your
+> netdevice anymore.  Most notably that means you need to call free_irq
+> first.
 
-Which is a valid address in some protocols. If I remember rightly then
-appletalk net 0 node 0 port 0 is valid although I'd want to look in the
-book to check that - ditto AF_ECONET although I doubt anyone cares too
-much 8)
+In my understanding unregister_netdev(), in case netdev is still IFF_UP and
+holds irq, will call dev_close() which will call netdev->stop(), bdx_close()
+in our case. bdx_close() releases all netdev resources among others calls
+free_irq().
 
-Alan
+That's why I'm pretty sure that we do not hold any reference to netdev after
+unregister_netdev() finishes and we can free_netdev() without any worry :)
+
+What do you think, does it still look fishy?
+
+Alexander Indenbaum
+
+
