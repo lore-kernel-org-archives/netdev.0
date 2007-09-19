@@ -1,106 +1,87 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: [PATCH net-2.6.24] eHEA: poll function update for new NAPI scheme
-Date: Wed, 19 Sep 2007 17:40:30 +0200
-Message-ID: <200709191740.30640.ossthema@de.ibm.com>
+From: Bryan Wu <bryan.wu@analog.com>
+Subject: [PATCH 2/4] Blackfin EMAC driver: add power management interface
+	and change the bf537mac_reset to bf537mac_disable
+Date: Wed, 19 Sep 2007 23:37:14 +0800
+Message-ID: <1190216234.15707.28.camel@roc-laptop>
+Reply-To: bryan.wu@analog.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	"Jan-Bernd Themann" <themann@de.ibm.com>,
-	"linux-kernel" <linux-kernel@vger.kernel.org>,
-	"linux-ppc" <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.uk.ibm.com ([195.212.29.135]:9870 "EHLO
-	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750978AbXISPkp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 11:40:45 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760862AbXISPnh@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Update of ehea_poll function to work with new NAPI scheme.
 
-Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
-
+Signed-off-by: Bryan Wu <bryan.wu@analog.com>
+Acked-by: Jeff Garzik <jeff@garzik.org>
 ---
-Hi David,
+ drivers/net/bfin_mac.c |   23 +++++++++++++++++++----
+ 1 files changed, 19 insertions(+), 4 deletions(-)
 
-this patch is built upon the patches provided by Mel Gorman
-(2.6.23-rc6-mm1: Build failure on ppc64 drivers/net/ehea/ehea_main.c)
-and Roland Dreier 
-([PATCH net-2.6.24] Fix refcounting problem with netif_rx_reschedule())
-
-
- drivers/net/ehea/ehea_main.c |   29 +++++++++++++++--------------
- 1 files changed, 15 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index c5fc0b1..1bb39a7 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -609,6 +609,7 @@ static struct ehea_cqe *ehea_proc_cqes(struct ehea_port_res *pr, int my_quota)
+diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
+index ead7be9..5cb4433 100644
+--- a/drivers/net/bfin_mac.c
++++ b/drivers/net/bfin_mac.c
+@@ -672,7 +672,7 @@ static void bf537mac_poll(struct net_device *dev)
  }
+ #endif				/* CONFIG_NET_POLL_CONTROLLER */
  
- #define EHEA_NAPI_POLL_NUM_BEFORE_IRQ 16
-+#define EHEA_POLL_MAX_CQES 65535
- 
- static int ehea_poll(struct napi_struct *napi, int budget)
+-static void bf537mac_reset(void)
++static void bf537mac_disable(void)
  {
-@@ -616,15 +617,18 @@ static int ehea_poll(struct napi_struct *napi, int budget)
- 	struct net_device *dev = pr->port->netdev;
- 	struct ehea_cqe *cqe;
- 	struct ehea_cqe *cqe_skb = NULL;
--	int force_irq, wqe_index, rx;
--
--	cqe = ehea_poll_rq1(pr->qp, &wqe_index);
--	cqe_skb = ehea_poll_cq(pr->send_cq);
-+	int force_irq, wqe_index;
-+	int rx = 0;
+ 	unsigned int opmode;
  
- 	force_irq = (pr->poll_counter > EHEA_NAPI_POLL_NUM_BEFORE_IRQ);
-+	cqe_skb = ehea_proc_cqes(pr, EHEA_POLL_MAX_CQES);
-+
-+	if (!force_irq)
-+		rx += ehea_proc_rwqes(dev, pr, budget - rx);
+@@ -730,7 +730,7 @@ static void bf537mac_timeout(struct net_device *dev)
+ {
+ 	pr_debug("%s: %s\n", dev->name, __FUNCTION__);
  
--	if ((!cqe && !cqe_skb) || force_irq) {
-+	while ((rx != budget) || force_irq) {
- 		pr->poll_counter = 0;
-+		force_irq = 0;
- 		netif_rx_complete(dev, napi);
- 		ehea_reset_cq_ep(pr->recv_cq);
- 		ehea_reset_cq_ep(pr->send_cq);
-@@ -634,19 +638,16 @@ static int ehea_poll(struct napi_struct *napi, int budget)
- 		cqe_skb = ehea_poll_cq(pr->send_cq);
+-	bf537mac_reset();
++	bf537mac_disable();
  
- 		if (!cqe && !cqe_skb)
--			return 0;
-+			return rx;
+ 	/* reset tx queue */
+ 	tx_list_tail = tx_list_head->next;
+@@ -810,7 +810,7 @@ static int bf537mac_open(struct net_device *dev)
  
- 		if (!netif_rx_reschedule(dev, napi))
--			return 0;
--	}
-+			return rx;
+ 	bf537mac_setphy(dev);
+ 	setup_system_regs(dev);
+-	bf537mac_reset();
++	bf537mac_disable();
+ 	bf537mac_enable(dev);
  
--	rx = ehea_proc_rwqes(dev, pr, budget);
--	cqe = ehea_poll_rq1(pr->qp, &wqe_index);
--	cqe_skb = ehea_proc_cqes(pr, 300);
--
--	if (cqe || cqe_skb)
--		pr->poll_counter++;
-+		cqe_skb = ehea_proc_cqes(pr, EHEA_POLL_MAX_CQES);
-+		rx += ehea_proc_rwqes(dev, pr, budget - rx);
-+	}
- 
-+	pr->poll_counter++;
- 	return rx;
+ 	pr_debug("hardware init finished\n");
+@@ -968,15 +968,30 @@ static int bfin_mac_remove(struct platform_device *pdev)
+ 	return 0;
  }
  
+-static int bfin_mac_suspend(struct platform_device *pdev, pm_message_t state)
++#ifdef CONFIG_PM
++static int bfin_mac_suspend(struct platform_device *pdev, pm_message_t mesg)
+ {
++	struct net_device *net_dev = platform_get_drvdata(pdev);
++
++	if (netif_running(net_dev))
++		bf537mac_close(net_dev);
++
+ 	return 0;
+ }
+ 
+ static int bfin_mac_resume(struct platform_device *pdev)
+ {
++	struct net_device *net_dev = platform_get_drvdata(pdev);
++
++	if (netif_running(net_dev))
++		bf537mac_open(net_dev);
++
+ 	return 0;
+ }
++#else
++#define bfin_mac_suspend NULL
++#define bfin_mac_resume NULL
++#endif	/* CONFIG_PM */
+ 
+ static struct platform_driver bfin_mac_driver = {
+ 	.probe = bfin_mac_probe,
 -- 
 1.5.2
-
