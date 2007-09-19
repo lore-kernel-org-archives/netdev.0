@@ -1,62 +1,69 @@
-From: Nagendra Tomar <tomer_iisc@yahoo.com>
-Subject: Re: [PATCH 2.6.23-rc6 Resending] NETWORKING : Edge Triggered EPOLLOUT events get missed for TCP sockets
-Date: Wed, 19 Sep 2007 15:55:58 -0700 (PDT)
-Message-ID: <640879.56443.qm@web53701.mail.re2.yahoo.com>
-References: <20070919.154402.34760338.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH]: Preliminary release of Sun Neptune driver
+Date: Wed, 19 Sep 2007 16:05:20 -0700
+Message-ID: <20070919160520.709a6819@freepuppy.rosehill.hemminger.net>
+References: <20070918.151528.84360712.davem@davemloft.net>
+	<20070919145900.759ef19e@freepuppy.rosehill.hemminger.net>
+	<20070919.150755.38714639.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davidel@xmailserver.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Ariel.Hendel@sun.com, greg.onufer@sun.com,
+	jeff@garzik.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web53701.mail.re2.yahoo.com ([206.190.37.22]:46702 "HELO
-	web53701.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751675AbXISWz7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 18:55:59 -0400
-In-Reply-To: <20070919.154402.34760338.davem@davemloft.net>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:41823 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759264AbXISXFv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 19:05:51 -0400
+In-Reply-To: <20070919.150755.38714639.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 19 Sep 2007 15:07:55 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
---- David Miller <davem@davemloft.net> wrote:
-
-> From: Nagendra Tomar <tomer_iisc@yahoo.com>
-> Date: Wed, 19 Sep 2007 15:37:09 -0700 (PDT)
+> From: Stephen Hemminger <shemminger@linux-foundation.org>
+> Date: Wed, 19 Sep 2007 14:59:00 -0700
 > 
-> > With the SOCK_NOSPACE check in tcp_check_space(), this epoll_wait call will 
-> > not return, even when the incoming acks free the buffers.
-> >         Note that this patch assumes that the SOCK_NOSPACE check in
-> > tcp_check_space is a trivial optimization which can be safely removed.
+
+...
+
+> > > +static int niu_wait_bits_clear_mac(struct niu *np, unsigned long reg, u64 bits,
+> > > +				   int limit, int delay)
+> > > +{
+> > > +	BUILD_BUG_ON(limit <= 0 || delay < 0);
+> > 
+> > There is no way compiler can evaluate limit or delay.
 > 
-> I already replied to your patch posting explaining that whatever is
-> not setting SOCK_NOSPACE should be fixed instead.
-> 
-> Please address that, thanks.
+> Check the callers, they all pass contant values.
 
-Dave, 
-     I agree that setting SOCK_NOSPACE would have been a more elegant
-fix. Infact I thought a lot about that before deciding on this fix.
-    But the point here is that the SOCK_NOSPACE bit can be set when 
-the sndbuf space is really less (less than sk_stream_min_wspace())
-and some user action (sendmsg or poll) indicated his intent to write.
-    In the case mentioned none of these is true. Since user wants
-to manage his tranmit buffers himself, his definition of less may
-not match with what kernel feels is less. f.e. user might have 
-dynamically changing mmap'ed buffer resources at his disposal 
-which he wants to use as sendfile buffers. He wants to be notified
-whenever a new incoming ack frees up one or more of his buffers,
-so that he can reuse that buffer.
-    The bigger problem is that user is not indicating his intent
-to write, to the kernel. He is just watching the sendbuf space and
-when it matches his needs he will send new data. 
+GCC is not as smart as you think... Try the following test:
+--------------------
+#include <stdio.h>
 
-Thanx,
-Tomar
+#define BUILD_BUG_ON(condition) ((void)sizeof(char[1 - 2*!!(condition)]))
+#define ENODEV -10
 
- 
+static int niu_wait_bits_clear_mac(void *np, unsigned long reg,
+				   int limit, int delay)
+{
+	BUILD_BUG_ON(limit <= 0 || delay < 0);
 
+	if (limit < 0)
+		return -ENODEV;
+	while (limit > 0)
+		sleep(delay);
+	
+	return 0;
+}
 
+int main(int argc, char **argv) {
+	printf("start\n");
+	niu_wait_bits_clear_mac(NULL, 0, 10, 1);
 
-      ___________________________________________________________ 
-Want ideas for reducing your carbon footprint? Visit Yahoo! For Good  http://uk.promotions.yahoo.com/forgood/environment.html
+	niu_wait_bits_clear_mac(NULL, 0, -1, 0);
+	
+	niu_wait_bits_clear_mac(NULL, 0, 0, -1);
+	return 0;
+}
