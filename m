@@ -1,61 +1,67 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: [PATCH] PHYLIB: Fix an interrupt loop potential when halting
-Date: Wed, 19 Sep 2007 16:09:47 +0100 (BST)
-Message-ID: <Pine.LNX.4.64N.0709191548030.24627@blysk.ds.pg.gda.pl>
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: follow-up: discrepancy with POSIX
+Date: Wed, 19 Sep 2007 08:21:47 -0700
+Message-ID: <46F13E8B.4050309@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andy Fleming <afleming@freescale.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cerber.ds.pg.gda.pl ([153.19.208.18]:43871 "EHLO
-	cerber.ds.pg.gda.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756465AbXISPJy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 11:09:54 -0400
+Received: from mx1.redhat.com ([66.187.233.31]:51372 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752124AbXISPV4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Sep 2007 11:21:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- Ensure the PHY_HALTED state is not entered with the IRQ asserted as it 
-could lead to an interrupt loop.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
----
- There is a small window in phy_stop(), where the state of the PHY machine 
-indicates it has been halted, but its interrupt output might still be 
-unmasked.  If an interrupt goes active right at this moment it will loop 
-as the phy_interrupt() handler exits immediately with IRQ_NONE if the 
-halted state is seen.  It is unsafe to extend the phydev spinlock to cover 
-phy_interrupt().  It is safe to swap the order of the actions though as 
-all the competing places to unmask the interrupt output of the PHY, which 
-are phy_change() and phy_timer() are already covered with the lock as is 
-the sequence in question.
+As a follow up to my question from yesterday on the netdev list what I
+think is a real problem.  Either in the kernel or in the POSIX spec.
 
- Checked with checkpatch.pl and at the run time.
+The POSIX spec currently says this about SOCK_DGRAM sockets:
 
- Please apply.
+  If  address is a null address for the protocol, the socket=E2=80=99s =
+peer
+  address shall be reset.
 
-  Maciej
- 
-patch-mips-2.6.23-rc5-20070904-phy-halt-0
-diff -up --recursive --new-file linux-mips-2.6.23-rc5-20070904.macro/drivers/net/phy/phy.c linux-mips-2.6.23-rc5-20070904/drivers/net/phy/phy.c
---- linux-mips-2.6.23-rc5-20070904.macro/drivers/net/phy/phy.c	2007-09-04 04:55:42.000000000 +0000
-+++ linux-mips-2.6.23-rc5-20070904/drivers/net/phy/phy.c	2007-09-16 17:17:20.000000000 +0000
-@@ -722,8 +722,6 @@ void phy_stop(struct phy_device *phydev)
- 	if (PHY_HALTED == phydev->state)
- 		goto out_unlock;
- 
--	phydev->state = PHY_HALTED;
--
- 	if (phydev->irq != PHY_POLL) {
- 		/* Disable PHY Interrupts */
- 		phy_config_interrupt(phydev, PHY_INTERRUPT_DISABLED);
-@@ -732,6 +730,8 @@ void phy_stop(struct phy_device *phydev)
- 		phy_clear_interrupt(phydev);
- 	}
- 
-+	phydev->state = PHY_HALTED;
-+
- out_unlock:
- 	spin_unlock(&phydev->lock);
- 
+The term "null address" is not further specified but it will usually be
+read to allow the following scenario to work out:
+
+   fd =3D socket(AT_INET6, ...)
+
+   connect(fd, ...some IPv6 address...)
+
+   struct sockaddr_in6 sin6 =3D { .sin6_family =3D AF_INET6 };
+   connect(fd, &sin6, sizeof (sin6));
+
+   connect(fd, ...some new IPv6 address...)
+
+This does not work on Linux in the moment.  The socket remains connecte=
+d
+to the old IPv6 address but the second connect() call does succeed (thi=
+s
+does not sound OK).  What does work is if the connect call to
+disassociate the address uses AF_UNSPEC instead of AF_INET6.
+
+
+The question is: do people here think this is a problem in the POSIX
+spec?  Binding to :: and 0.0.0.0 isn't possible, so maybe the Linux
+implementation should allow this?
+
+If you think the POSIX spec is wrong (and can point to other
+implementations doing the same as Linux) let me know and I'll work on
+getting the spec changed.
+
+- --
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
+t =E2=9E=A7 Mountain View, CA =E2=9D=96
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+
+iD8DBQFG8T6L2ijCOnn/RHQRAnSRAJ9sXDGG9OepEQWQInaPgwxCWlaH6wCghqim
+ULttg5/lU8c1rSpBnoRCjB8=3D
+=3DnGVv
+-----END PGP SIGNATURE-----
