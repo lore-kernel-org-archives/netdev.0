@@ -1,32 +1,32 @@
-From: Sean Hefty <mshefty@ichips.intel.com>
-Subject: Re: [ofa-general] [PATCH] RDMA/CMA: Implement rdma_resolve_ip retry
- enhancement.
-Date: Wed, 19 Sep 2007 09:52:20 -0700
-Message-ID: <46F153C4.2070008@ichips.intel.com>
-References: <200709190022.l8J0MbWt024754@neteffect.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: follow-up: discrepancy with POSIX
+Date: Wed, 19 Sep 2007 09:52:51 -0700 (PDT)
+Message-ID: <20070919.095251.45154496.davem@davemloft.net>
+References: <46F13E8B.4050309@redhat.com>
+	<p73sl5aveqh.fsf@bingen.suse.de>
+	<46F15305.2030507@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, netdev@vger.kernel.org,
-	general@lists.openfabrics.org
-To: ggrundstrom@neteffect.com
+Cc: andi@firstfloor.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: drepper@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.21]:51898 "EHLO
-	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753073AbXISQwZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 12:52:25 -0400
-In-Reply-To: <200709190022.l8J0MbWt024754@neteffect.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57745
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754900AbXISQxG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 12:53:06 -0400
+In-Reply-To: <46F15305.2030507@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> If an application is calling rdma_resolve_ip() and a status of -ENODATA is returned from addr_resolve_local/remote(), the timeout mechanism waits until the application's timeout occurs before rechecking the address resolution status; the application will wait until it's full timeout occurs.  This case is seen when the work thread call to process_req() is made before the arp packet is processed.
+From: Ulrich Drepper <drepper@redhat.com>
+Date: Wed, 19 Sep 2007 09:49:09 -0700
 
-I don't understand the issue.  process_req() is invoked whenever a 
-network event occurs, which rechecks all pending requests.
+> But the spec calls for a "null address" to be used and that's in my
+> understanding something different from using AF_UNSPEC.
 
-> This patch is in addition to Steve Wise's neigh_event_send patch to initiate neighbour discovery sent on 9/12/2007.
-
-This patch looks unrelated to Steve's patch.  Can you clarify the 
-relationship?
-
-- Sean
+It just occured to me that AF_UNSPEC might be used simply
+because "all zeros" might be a valid real bindable address
+for some address family.  And using AF_UNSPEC avoids that
+problem entirely.
