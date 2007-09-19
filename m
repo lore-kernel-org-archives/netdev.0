@@ -1,184 +1,58 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH 3/3] [PPP] L2TP: Fix skb handling in pppol2tp_xmit
-Date: Wed, 19 Sep 2007 09:25:29 +0800
-Message-ID: <20070919012529.GA15046@gondor.apana.org.au>
-References: <20070918120438.GA9121@gondor.apana.org.au> <E1IXbqs-0002Od-00@gondolin.me.apana.org.au> <46F032D5.7020806@katalix.com>
+Date: Wed, 19 Sep 2007 09:30:18 +0800
+Message-ID: <20070919013018.GB15046@gondor.apana.org.au>
+References: <20070918120438.GA9121@gondor.apana.org.au> <E1IXbqs-0002Od-00@gondolin.me.apana.org.au> <46F032D5.7020806@katalix.com> <20070918.133240.35800852.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Michal Ostrowski <mostrows@speakeasy.net>,
-	Paul Mackerras <paulus@samba.org>,
-	Toralf =?iso-8859-1?Q?F=F6rster?= <toralf.foerster@gmx.de>,
-	netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+Cc: jchapman@katalix.com, mostrows@speakeasy.net, paulus@samba.org,
+	toralf.foerster@gmx.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3110 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:3138 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750774AbXISB0W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 21:26:22 -0400
+	with ESMTP id S1750758AbXISBah (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 21:30:37 -0400
 Content-Disposition: inline
-In-Reply-To: <46F032D5.7020806@katalix.com>
+In-Reply-To: <20070918.133240.35800852.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 18, 2007 at 09:19:33PM +0100, James Chapman wrote:
+On Tue, Sep 18, 2007 at 01:32:40PM -0700, David Miller wrote:
 > 
-> This one causes my test system to lock up. I'll investigate. Please 
-> don't apply this patch for now.
+> I'll make sure not to push this until we figure out what's
+> wrong, thanks for checking James.
 
-Sorry, I added a double-free on the skb after ip_queue_xmit.
-Please try this one instead.
+I think it was because of a double-free that I created after
+transmitting the packet.  In fact I had the same bug in PPPOE
+too.
 
-[PPP] L2TP: Fix skb handling in pppol2tp_xmit
+[PPP] pppoe: Fix double-free on skb after transmit failure
 
-This patch makes pppol2tp_xmit call skb_cow_head so that we don't modify
-cloned skb data.  It also gets rid of skb2 we only need to preserve the
-original skb for congestion notification, which is only applicable for
-ppp_async and ppp_sync.
-
-The other semantic change made here is the removal of socket accounting
-for data tranmitted out of pppol2tp_xmit.  The original code leaked any
-existing socket skb accounting.  We could fix this by dropping the
-original skb owner.  However, this is undesirable as the packet has not
-physically left the host yet.
-
-In fact, all other tunnels in the kernel do not account skb's passing
-through to their own socket.  In partciular, ESP over UDP does not do
-so and it is the closest tunnel type to PPPoL2TP.  So this patch simply
-removes the socket accounting in pppol2tp_xmit.  The accounting still
-applies to control packets of course.
-
-I've also added a reminder that the outgoing checksum here doesn't work.
-I suppose existing deployments don't actually enable checksums.
+When I got rid of the second packet in __pppoe_xmit I created
+a double-free on the skb because of the goto abort on failure.
+This patch removes that.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Thanks,
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 --
-diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
-index 266e8b3..6e4c8a7 100644
---- a/drivers/net/pppol2tp.c
-+++ b/drivers/net/pppol2tp.c
-@@ -958,7 +958,6 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
- 	int data_len = skb->len;
- 	struct inet_sock *inet;
- 	__wsum csum = 0;
--	struct sk_buff *skb2 = NULL;
- 	struct udphdr *uh;
- 	unsigned int len;
+diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
+index 0d7f570..9b30cd6 100644
+--- a/drivers/net/pppoe.c
++++ b/drivers/net/pppoe.c
+@@ -879,8 +879,7 @@ static int __pppoe_xmit(struct sock *sk, struct sk_buff *skb)
+ 	dev->hard_header(skb, dev, ETH_P_PPP_SES,
+ 			 po->pppoe_pa.remote, NULL, data_len);
  
-@@ -989,41 +988,30 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
- 	 */
- 	headroom = NET_SKB_PAD + sizeof(struct iphdr) +
- 		sizeof(struct udphdr) + hdr_len + sizeof(ppph);
--	if (skb_headroom(skb) < headroom) {
--		skb2 = skb_realloc_headroom(skb, headroom);
--		if (skb2 == NULL)
--			goto abort;
--	} else
--		skb2 = skb;
--
--	/* Check that the socket has room */
--	if (atomic_read(&sk_tun->sk_wmem_alloc) < sk_tun->sk_sndbuf)
--		skb_set_owner_w(skb2, sk_tun);
--	else
--		goto discard;
-+	if (skb_cow_head(skb, headroom))
-+		goto abort;
+-	if (dev_queue_xmit(skb) < 0)
+-		goto abort;
++	dev_queue_xmit(skb);
  
- 	/* Setup PPP header */
--	skb_push(skb2, sizeof(ppph));
--	skb2->data[0] = ppph[0];
--	skb2->data[1] = ppph[1];
-+	__skb_push(skb, sizeof(ppph));
-+	skb->data[0] = ppph[0];
-+	skb->data[1] = ppph[1];
- 
- 	/* Setup L2TP header */
--	skb_push(skb2, hdr_len);
--	pppol2tp_build_l2tp_header(session, skb2->data);
-+	pppol2tp_build_l2tp_header(session, __skb_push(skb, hdr_len));
- 
- 	/* Setup UDP header */
- 	inet = inet_sk(sk_tun);
--	skb_push(skb2, sizeof(struct udphdr));
--	skb_reset_transport_header(skb2);
--	uh = (struct udphdr *) skb2->data;
-+	__skb_push(skb, sizeof(*uh));
-+	skb_reset_transport_header(skb);
-+	uh = udp_hdr(skb);
- 	uh->source = inet->sport;
- 	uh->dest = inet->dport;
- 	uh->len = htons(sizeof(struct udphdr) + hdr_len + sizeof(ppph) + data_len);
- 	uh->check = 0;
- 
--	/* Calculate UDP checksum if configured to do so */
-+	/* *BROKEN* Calculate UDP checksum if configured to do so */
- 	if (sk_tun->sk_no_check != UDP_CSUM_NOXMIT)
--		csum = udp_csum_outgoing(sk_tun, skb2);
-+		csum = udp_csum_outgoing(sk_tun, skb);
- 
- 	/* Debug */
- 	if (session->send_seq)
-@@ -1036,7 +1024,7 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
- 
- 	if (session->debug & PPPOL2TP_MSG_DATA) {
- 		int i;
--		unsigned char *datap = skb2->data;
-+		unsigned char *datap = skb->data;
- 
- 		printk(KERN_DEBUG "%s: xmit:", session->name);
- 		for (i = 0; i < data_len; i++) {
-@@ -1049,18 +1037,18 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
- 		printk("\n");
- 	}
- 
--	memset(&(IPCB(skb2)->opt), 0, sizeof(IPCB(skb2)->opt));
--	IPCB(skb2)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
--			       IPSKB_REROUTED);
--	nf_reset(skb2);
-+	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
-+	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
-+			      IPSKB_REROUTED);
-+	nf_reset(skb);
- 
- 	/* Get routing info from the tunnel socket */
--	dst_release(skb2->dst);
--	skb2->dst = sk_dst_get(sk_tun);
-+	dst_release(skb->dst);
-+	skb->dst = sk_dst_get(sk_tun);
- 
- 	/* Queue the packet to IP for output */
--	len = skb2->len;
--	rc = ip_queue_xmit(skb2, 1);
-+	len = skb->len;
-+	rc = ip_queue_xmit(skb, 1);
- 
- 	/* Update stats */
- 	if (rc >= 0) {
-@@ -1073,17 +1061,12 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
- 		session->stats.tx_errors++;
- 	}
- 
--	/* Free the original skb */
--	kfree_skb(skb);
--
  	return 1;
  
--discard:
--	/* Free the new skb. Caller will free original skb. */
--	if (skb2 != skb)
--		kfree_skb(skb2);
- abort:
--	return 0;
-+	/* Free the original skb */
-+	kfree_skb(skb);
-+	return 1;
- }
- 
- /*****************************************************************************
