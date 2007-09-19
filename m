@@ -1,84 +1,184 @@
-From: ggrundstrom@neteffect.com
-Subject: [ofa-general] [PATCH] RDMA/CMA: Implement rdma_resolve_ip retry
-	enhancement.
-Date: Tue, 18 Sep 2007 19:22:37 -0500
-Message-ID: <200709190022.l8J0MbWt024754@neteffect.com>
-Cc: , netdev@vger.kernel.org, general@lists.openfabrics.org
-To: rdreier@cisco.com
-Return-path: <general-bounces@lists.openfabrics.org>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 3/3] [PPP] L2TP: Fix skb handling in pppol2tp_xmit
+Date: Wed, 19 Sep 2007 09:25:29 +0800
+Message-ID: <20070919012529.GA15046@gondor.apana.org.au>
+References: <20070918120438.GA9121@gondor.apana.org.au> <E1IXbqs-0002Od-00@gondolin.me.apana.org.au> <46F032D5.7020806@katalix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Michal Ostrowski <mostrows@speakeasy.net>,
+	Paul Mackerras <paulus@samba.org>,
+	Toralf =?iso-8859-1?Q?F=F6rster?= <toralf.foerster@gmx.de>,
+	netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:3110 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750774AbXISB0W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 21:26:22 -0400
+Content-Disposition: inline
+In-Reply-To: <46F032D5.7020806@katalix.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Sep 18, 2007 at 09:19:33PM +0100, James Chapman wrote:
+> 
+> This one causes my test system to lock up. I'll investigate. Please 
+> don't apply this patch for now.
 
-RDMA/CMA: Implement rdma_resolve_ip retry enhancement.
+Sorry, I added a double-free on the skb after ip_queue_xmit.
+Please try this one instead.
 
-If an application is calling rdma_resolve_ip() and a status of -ENODATA is returned from addr_resolve_local/remote(), the timeout mechanism waits until the application's timeout occurs before rechecking the address resolution status; the application will wait until it's full timeout occurs.  This case is seen when the work thread call to process_req() is made before the arp packet is processed.
+[PPP] L2TP: Fix skb handling in pppol2tp_xmit
 
-This patch is in addition to Steve Wise's neigh_event_send patch to initiate neighbour discovery sent on 9/12/2007.
+This patch makes pppol2tp_xmit call skb_cow_head so that we don't modify
+cloned skb data.  It also gets rid of skb2 we only need to preserve the
+original skb for congestion notification, which is only applicable for
+ppp_async and ppp_sync.
 
-Signed-off-by: Glenn Grundstrom <ggrundstrom@neteffect.com>
----
- drivers/infiniband/core/addr.c |   11 +++++++++--
- 1 files changed, 9 insertions(+), 2 deletions(-)
+The other semantic change made here is the removal of socket accounting
+for data tranmitted out of pppol2tp_xmit.  The original code leaked any
+existing socket skb accounting.  We could fix this by dropping the
+original skb owner.  However, this is undesirable as the packet has not
+physically left the host yet.
 
-diff --git a/drivers/infiniband/core/addr.c b/drivers/infiniband/core/addr.c
-index c5c33d3..a953780 100644
---- a/drivers/infiniband/core/addr.c
-+++ b/drivers/infiniband/core/addr.c
-@@ -55,6 +55,7 @@ struct addr_req {
- 	int status;
- };
+In fact, all other tunnels in the kernel do not account skb's passing
+through to their own socket.  In partciular, ESP over UDP does not do
+so and it is the closest tunnel type to PPPoL2TP.  So this patch simply
+removes the socket accounting in pppol2tp_xmit.  The accounting still
+applies to control packets of course.
+
+I've also added a reminder that the outgoing checksum here doesn't work.
+I suppose existing deployments don't actually enable checksums.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/drivers/net/pppol2tp.c b/drivers/net/pppol2tp.c
+index 266e8b3..6e4c8a7 100644
+--- a/drivers/net/pppol2tp.c
++++ b/drivers/net/pppol2tp.c
+@@ -958,7 +958,6 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
+ 	int data_len = skb->len;
+ 	struct inet_sock *inet;
+ 	__wsum csum = 0;
+-	struct sk_buff *skb2 = NULL;
+ 	struct udphdr *uh;
+ 	unsigned int len;
  
-+#define MIN_ADDR_TIMEOUT_MS 500
- static void process_req(struct work_struct *work);
+@@ -989,41 +988,30 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
+ 	 */
+ 	headroom = NET_SKB_PAD + sizeof(struct iphdr) +
+ 		sizeof(struct udphdr) + hdr_len + sizeof(ppph);
+-	if (skb_headroom(skb) < headroom) {
+-		skb2 = skb_realloc_headroom(skb, headroom);
+-		if (skb2 == NULL)
+-			goto abort;
+-	} else
+-		skb2 = skb;
+-
+-	/* Check that the socket has room */
+-	if (atomic_read(&sk_tun->sk_wmem_alloc) < sk_tun->sk_sndbuf)
+-		skb_set_owner_w(skb2, sk_tun);
+-	else
+-		goto discard;
++	if (skb_cow_head(skb, headroom))
++		goto abort;
  
- static DEFINE_MUTEX(lock);
-@@ -136,6 +137,7 @@ static void set_timeout(unsigned long ti
- static void queue_req(struct addr_req *req)
- {
- 	struct addr_req *temp_req;
-+	unsigned long req_timeout = msecs_to_jiffies(MIN_ADDR_TIMEOUT_MS) + jiffies;
+ 	/* Setup PPP header */
+-	skb_push(skb2, sizeof(ppph));
+-	skb2->data[0] = ppph[0];
+-	skb2->data[1] = ppph[1];
++	__skb_push(skb, sizeof(ppph));
++	skb->data[0] = ppph[0];
++	skb->data[1] = ppph[1];
  
- 	mutex_lock(&lock);
- 	list_for_each_entry_reverse(temp_req, &req_list, list) {
-@@ -145,8 +147,10 @@ static void queue_req(struct addr_req *r
+ 	/* Setup L2TP header */
+-	skb_push(skb2, hdr_len);
+-	pppol2tp_build_l2tp_header(session, skb2->data);
++	pppol2tp_build_l2tp_header(session, __skb_push(skb, hdr_len));
  
- 	list_add(&req->list, &temp_req->list);
+ 	/* Setup UDP header */
+ 	inet = inet_sk(sk_tun);
+-	skb_push(skb2, sizeof(struct udphdr));
+-	skb_reset_transport_header(skb2);
+-	uh = (struct udphdr *) skb2->data;
++	__skb_push(skb, sizeof(*uh));
++	skb_reset_transport_header(skb);
++	uh = udp_hdr(skb);
+ 	uh->source = inet->sport;
+ 	uh->dest = inet->dport;
+ 	uh->len = htons(sizeof(struct udphdr) + hdr_len + sizeof(ppph) + data_len);
+ 	uh->check = 0;
  
--	if (req_list.next == &req->list)
-+	if (req_list.next == &req->list) {
-+		req_timeout = min(req_timeout, req->timeout);
- 		set_timeout(req->timeout);
-+	}
- 	mutex_unlock(&lock);
+-	/* Calculate UDP checksum if configured to do so */
++	/* *BROKEN* Calculate UDP checksum if configured to do so */
+ 	if (sk_tun->sk_no_check != UDP_CSUM_NOXMIT)
+-		csum = udp_csum_outgoing(sk_tun, skb2);
++		csum = udp_csum_outgoing(sk_tun, skb);
+ 
+ 	/* Debug */
+ 	if (session->send_seq)
+@@ -1036,7 +1024,7 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
+ 
+ 	if (session->debug & PPPOL2TP_MSG_DATA) {
+ 		int i;
+-		unsigned char *datap = skb2->data;
++		unsigned char *datap = skb->data;
+ 
+ 		printk(KERN_DEBUG "%s: xmit:", session->name);
+ 		for (i = 0; i < data_len; i++) {
+@@ -1049,18 +1037,18 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
+ 		printk("\n");
+ 	}
+ 
+-	memset(&(IPCB(skb2)->opt), 0, sizeof(IPCB(skb2)->opt));
+-	IPCB(skb2)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
+-			       IPSKB_REROUTED);
+-	nf_reset(skb2);
++	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
++	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
++			      IPSKB_REROUTED);
++	nf_reset(skb);
+ 
+ 	/* Get routing info from the tunnel socket */
+-	dst_release(skb2->dst);
+-	skb2->dst = sk_dst_get(sk_tun);
++	dst_release(skb->dst);
++	skb->dst = sk_dst_get(sk_tun);
+ 
+ 	/* Queue the packet to IP for output */
+-	len = skb2->len;
+-	rc = ip_queue_xmit(skb2, 1);
++	len = skb->len;
++	rc = ip_queue_xmit(skb, 1);
+ 
+ 	/* Update stats */
+ 	if (rc >= 0) {
+@@ -1073,17 +1061,12 @@ static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
+ 		session->stats.tx_errors++;
+ 	}
+ 
+-	/* Free the original skb */
+-	kfree_skb(skb);
+-
+ 	return 1;
+ 
+-discard:
+-	/* Free the new skb. Caller will free original skb. */
+-	if (skb2 != skb)
+-		kfree_skb(skb2);
+ abort:
+-	return 0;
++	/* Free the original skb */
++	kfree_skb(skb);
++	return 1;
  }
  
-@@ -220,6 +224,7 @@ static void process_req(struct work_stru
- 	struct addr_req *req, *temp_req;
- 	struct sockaddr_in *src_in, *dst_in;
- 	struct list_head done_list;
-+	unsigned long req_timeout;
- 
- 	INIT_LIST_HEAD(&done_list);
- 
-@@ -238,9 +243,11 @@ static void process_req(struct work_stru
- 		list_move_tail(&req->list, &done_list);
- 	}
- 
-+	req_timeout = msecs_to_jiffies(MIN_ADDR_TIMEOUT_MS) + jiffies;
- 	if (!list_empty(&req_list)) {
- 		req = list_entry(req_list.next, struct addr_req, list);
--		set_timeout(req->timeout);
-+		req_timeout = min(req_timeout, req->timeout);
-+		set_timeout(req_timeout);
- 	}
- 	mutex_unlock(&lock);
- 
+ /*****************************************************************************
