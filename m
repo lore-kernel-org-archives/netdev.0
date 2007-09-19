@@ -1,33 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.23-rc6 Resending] NETWORKING : Edge Triggered
- EPOLLOUT events get missed for TCP sockets
-Date: Wed, 19 Sep 2007 15:44:02 -0700 (PDT)
-Message-ID: <20070919.154402.34760338.davem@davemloft.net>
-References: <130356.85796.qm@web53703.mail.re2.yahoo.com>
+From: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Subject: Re: Please pull 'z1211' branch of wireless-2.6
+Date: Wed, 19 Sep 2007 23:08:16 +0100
+Message-ID: <46F19DD0.2050605@gentoo.org>
+References: <20070919181005.GB5483@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davidel@xmailserver.org
-To: tomer_iisc@yahoo.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39786
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755236AbXISWoF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 18:44:05 -0400
-In-Reply-To: <130356.85796.qm@web53703.mail.re2.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070919181005.GB5483-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Nagendra Tomar <tomer_iisc@yahoo.com>
-Date: Wed, 19 Sep 2007 15:37:09 -0700 (PDT)
+John W. Linville wrote:
+> The maintainers have identified some (IMHO minor) issues with the
+> mac80211 port of this driver.  Some of them are summarized here:
+> 
+> 	http://linuxwireless.org/en/users/Drivers/zd1211rw/mac80211Issues
+> 
+> Still, I think we would be better-off having this driver upstream.
 
-> With the SOCK_NOSPACE check in tcp_check_space(), this epoll_wait call will 
-> not return, even when the incoming acks free the buffers.
->         Note that this patch assumes that the SOCK_NOSPACE check in
-> tcp_check_space is a trivial optimization which can be safely removed.
+I apologise for being inactive over the last few weeks, I've been moving 
+back from the US to the UK and then moving back to university. However I 
+am now just-about-settled and will be active again soon.
 
-I already replied to your patch posting explaining that whatever is
-not setting SOCK_NOSPACE should be fixed instead.
+I would like to this until 2.6.25 until I have had time to clear up some 
+final issues and do more testing myself of zd1211rw-mac80211. I also 
+think we need to discuss the rename...
 
-Please address that, thanks.
+(just to clarify to others: this is the first I heard of this merge 
+before John posted it).
+
+John, thanks a lot for your efforts, I hope you don't mind waiting one 
+extra release cycle for me to sort a few things out.
+
+Thanks,
+Daniel
