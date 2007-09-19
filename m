@@ -1,33 +1,44 @@
-From: Herbert Xu <herbert.xu@redhat.com>
-Subject: Re: [PATCH net-2.6.24] [L2TP] Fix lockup introduced by recent changes
-Date: Wed, 19 Sep 2007 09:37:40 +0800
-Message-ID: <20070919013740.GD15046@gondor.apana.org.au>
-References: <200709182144.l8ILiXrx008249@quickie.katalix.com> <20070918.145106.91759702.davem@davemloft.net>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: net-2.6.24 plans
+Date: Tue, 18 Sep 2007 21:27:52 -0400
+Message-ID: <20070919012752.GA3717@tuxdriver.com>
+References: <20070916.202258.03371690.davem@davemloft.net> <20070917.141826.70218261.davem@davemloft.net> <20070917144037.100b3fc1.akpm@linux-foundation.org> <20070917231830.GG9282@tuxdriver.com> <20070917164929.b53ac118.akpm@linux-foundation.org> <20070918032328.GB3875@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jchapman@katalix.com, netdev@vger.kernel.org,
-	mostrows@speakeasy.net, paulus@samba.org
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jgarzik@pobox.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3171 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750933AbXISBh4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 21:37:56 -0400
+Received: from ra.tuxdriver.com ([70.61.120.52]:2921 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750910AbXISBlj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Sep 2007 21:41:39 -0400
 Content-Disposition: inline
-In-Reply-To: <20070918.145106.91759702.davem@davemloft.net>
+In-Reply-To: <20070918032328.GB3875@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 18, 2007 at 02:51:06PM -0700, David Miller wrote:
-> 
-> Herbert, please take a quick look, thanks.
+On Mon, Sep 17, 2007 at 11:23:28PM -0400, John W. Linville wrote:
+> On Mon, Sep 17, 2007 at 04:49:29PM -0700, Andrew Morton wrote:
+> > On Mon, 17 Sep 2007 19:18:30 -0400
+> > "John W. Linville" <linville@tuxdriver.com> wrote:
+> > 
+> > > P.S.  Andrew, I'll send you a link to a new git-wireless.patch --
+> > > I'm sure you don't want a complicated git invocation...  Until then,
+> > > I don't think you should try pulling wireless-dev...
 
-Yep it looks good.  I should've read my emails from the
-bottom up :)
+> Anyway, I do have prepared an omnibus patch for you:
 
-Cheers,
+Since Dave merged the drivers I sent him, the new omnibus patch you
+want is this:
+
+	http://www.kernel.org/pub/linux/kernel/people/linville/git-wireless-2007-09-18.patch
+
+The good news is that it is 1/4 the size of its predecessor!
+
+Hth!
+
+John
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+John W. Linville
+linville@tuxdriver.com
