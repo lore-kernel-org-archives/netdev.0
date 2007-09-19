@@ -1,75 +1,31 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Please pull 'p54' branch of wireless-2.6
-Date: Wed, 19 Sep 2007 15:55:27 -0400
-Message-ID: <20070919195527.GD5483@tuxdriver.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: Please pull 'z1211' branch of wireless-2.6
+Date: Wed, 19 Sep 2007 13:12:06 -0700 (PDT)
+Message-ID: <20070919.131206.102575245.davem@davemloft.net>
+References: <20070919.115903.75429061.davem@davemloft.net>
+	<200709192123.16884.mb@bu3sch.de>
+	<20070919.125641.62342823.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	Michael Wu <flamingice@sourmilk.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:3118 "EHLO ra.tuxdriver.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751694AbXISUKv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Sep 2007 16:10:51 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org, kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
+To: mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070919.125641.62342823.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Jeff & Dave,
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Date: Wed, 19 Sep 2007 12:56:41 -0700 (PDT)
 
-This patch adds the p54 driver for prism54 hardware using the "soft
-MAC" firmware.  It includes modules for both PCI and USB drivers.
+> I agreed with John to merge this in myself, but this patch
+> applied to the old driver aparently, not the new z1211 one.
+> 
+> Can you resend this patch against the new driver so I can
+> add it to net-2.6.24?
 
-This driver has been in Fedora (both F7 and rawhide) for some time
-and has generally performed well.  No doubt there are some problems
-with the code, but still I think it would be better to mainline the
-driver than to keep it out of stream.
+Nevermind, John showed me that if I just edit the paths
+in the patch it applied cleanly.
 
-Thanks,
-
-John
-
----
-
-The patch is available here:
-
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/p54/0001-p54-add-mac80211-based-driver-for-prism54-softmac.patch
-
----
-
-The following changes since commit 0d4cbb5e7f60b2f1a4d8b7f6ea4cc264262c7a01:
-  Linus Torvalds (1):
-        Linux 2.6.23-rc6
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git p54
-
-Michael Wu (1):
-      p54: add mac80211-based driver for prism54 softmac hardware
-
- MAINTAINERS                      |    8 +
- drivers/net/wireless/Kconfig     |   13 +
- drivers/net/wireless/Makefile    |    4 +
- drivers/net/wireless/net2280.h   |  452 +++++++++++++++++
- drivers/net/wireless/p54.h       |   80 +++
- drivers/net/wireless/p54common.c |  983 ++++++++++++++++++++++++++++++++++++++
- drivers/net/wireless/p54common.h |  329 +++++++++++++
- drivers/net/wireless/p54pci.c    |  689 ++++++++++++++++++++++++++
- drivers/net/wireless/p54pci.h    |  106 ++++
- drivers/net/wireless/p54usb.c    |  904 +++++++++++++++++++++++++++++++++++
- drivers/net/wireless/p54usb.h    |  133 +++++
- 11 files changed, 3701 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/wireless/net2280.h
- create mode 100644 drivers/net/wireless/p54.h
- create mode 100644 drivers/net/wireless/p54common.c
- create mode 100644 drivers/net/wireless/p54common.h
- create mode 100644 drivers/net/wireless/p54pci.c
- create mode 100644 drivers/net/wireless/p54pci.h
- create mode 100644 drivers/net/wireless/p54usb.c
- create mode 100644 drivers/net/wireless/p54usb.h
--- 
-John W. Linville
-linville@tuxdriver.com
+So I did that and pushed it to net-2.6.24, thanks!
