@@ -1,42 +1,46 @@
-From: "Michael S. Tsirkin" <mst@dev.mellanox.co.il>
-Subject: [ofa-general] Re: InfiniBand/RDMA merge plans for 2.6.24
-Date: Wed, 19 Sep 2007 08:19:08 +0200
-Message-ID: <20070919061908.GA31331@mellanox.co.il>
-References: <adahclymos8.fsf@cisco.com>
-	<200709180909.50029.jackm@dev.mellanox.co.il>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [PATCH 5/7] CAN: Add virtual CAN netdevice driver
+Date: Wed, 19 Sep 2007 08:26:48 +0200
+Message-ID: <46F0C128.70601@hartkopp.net>
+References: <20070917100321.18347.0@janus.isnogud.escape.de>	<20070917100440.18347.5@janus.isnogud.escape.de>	<46EFE89D.7050006@trash.net> <ygf7imnzk60.fsf@janus.isnogud.escape.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
-	general@lists.openfabrics.org
-To: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-Disposition: inline
-In-Reply-To: <200709180909.50029.jackm@dev.mellanox.co.il>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+To: Urs Thuermann <urs@isnogud.escape.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:18625 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751726AbXISG2P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 02:28:15 -0400
+In-Reply-To: <ygf7imnzk60.fsf@janus.isnogud.escape.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Missing from this list (IMPORTANT patch!):
-> [ofa-general] [PATCH 2 of 2] IB/mlx4: Handle new FW requirement for send request prefetching, for WQE sg lists
-> (Posted by me to list on Sept 4)
-> {patch header: 
-> This is an addendum to Roland's commit 0e6e74162164d908edf7889ac66dca09e7505745
-> (June 18). This addendum adds prefetch headroom marking processing for s/g segments.
-> 
-> We write s/g segments in reverse order into the WQE, in order to guarantee
-> that the first dword of all cachelines containing s/g segments is written last
-> (overwriting the headroom invalidation pattern). The entire cacheline will thus
-> contain valid data when the invalidation pattern is overwritten.
+Urs Thuermann wrote:
+> Now I think we should consider removing the loopback code from
+> can_send() and demand from each CAN driver that it *has to* implement
+> this itself.
+>   
 
-This actually looks like a bugfix that might even have been appropriate
-for 2.6.23. Roland, do you have this patch? Can you comment on it please?
+I also thought about this solution, which would remove the 'loopback'
+parameter in vcan.c and some loopback code in can_send().
 
--- 
-MST
+My only concern was, that this would break with standard netdev
+behaviour just to send and receive data to/from the medium.
+To break with the standard behaviour might be ok here as the PF_CAN only
+deals with CAN netdevs (ARPHRD_CAN) which can be seen as some closed
+eco-system. But i don't know what should happen, if someone in the
+future gets the idea to route CAN-frames over ethernet devices for any
+reason? In this case we would have to touch every driver we'd like to
+support.
+
+IMO it makes more sense to let the 9 lines of loopback fallback code in
+can_send() than to remove it.
+
+Oliver
+
+
