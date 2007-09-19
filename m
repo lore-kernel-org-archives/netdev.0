@@ -1,34 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] [PPP] L2TP: Fix skb handling in pppol2tp_xmit
-Date: Wed, 19 Sep 2007 10:45:13 -0700 (PDT)
-Message-ID: <20070919.104513.71087294.davem@davemloft.net>
-References: <46F032D5.7020806@katalix.com>
-	<20070918.133240.35800852.davem@davemloft.net>
-	<20070919013018.GB15046@gondor.apana.org.au>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: follow-up: discrepancy with POSIX
+Date: Wed, 19 Sep 2007 19:57:00 +0200
+Message-ID: <20070919175700.GC18045@one.firstfloor.org>
+References: <46F13E8B.4050309@redhat.com> <p73sl5aveqh.fsf@bingen.suse.de> <46F15305.2030507@redhat.com> <20070919172653.GB18045@one.firstfloor.org> <46F1608E.7060908@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jchapman@katalix.com, mostrows@speakeasy.net, paulus@samba.org,
-	toralf.foerster@gmx.de, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45129
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752826AbXISRpO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 13:45:14 -0400
-In-Reply-To: <20070919013018.GB15046@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>, netdev <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+To: Ulrich Drepper <drepper@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1763850AbXISR5X@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <46F1608E.7060908@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 19 Sep 2007 09:30:18 +0800
-
-> [PPP] pppoe: Fix double-free on skb after transmit failure
+On Wed, Sep 19, 2007 at 10:46:54AM -0700, Ulrich Drepper wrote:
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
 > 
-> When I got rid of the second packet in __pppoe_xmit I created
-> a double-free on the skb because of the goto abort on failure.
-> This patch removes that.
+> Andi Kleen wrote:
+> >> But the spec calls for a "null address" to be used and that's in my
+> >> understanding something different from using AF_UNSPEC.
+> > 
+> > memset(&sockaddr, 0, sizeof(sockaddr)) should give you AF_UNSPEC
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> But the spec calls for <quote>null address for the protocol</quote>.
+> 
+> That means the family for the null address is the same as the family of
+> the socket.
 
-Applied.
+Spec doesn't match traditional behaviour then. IPv4 0.0.0.0 is 
+traditionally an synonym for old style all broadcast (255.255.255.255) 
+on UDP/RAW and it's certainly possible to connect() to that. 
+
+-Andi
