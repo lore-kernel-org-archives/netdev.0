@@ -1,437 +1,209 @@
-From: Denys Vlasenko <vda.linux@googlemail.com>
-Subject: Re: bnx2 dirver's firmware images
-Date: Wed, 19 Sep 2007 09:30:39 +0100
-Message-ID: <200709190930.39882.vda.linux@googlemail.com>
-References: <200709181823.26429.vda.linux@googlemail.com> <20070918.112337.74737433.davem@davemloft.net> <1190145951.9540.230.camel@dell>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/7] CAN: Add PF_CAN core module
+Date: Wed, 19 Sep 2007 10:27:58 +0200
+Message-ID: <46F0DD8E.8070808@trash.net>
+References: <20070917100321.18347.0@janus.isnogud.escape.de>	<20070917100438.18347.2@janus.isnogud.escape.de>	<46EFD33D.8030905@trash.net> <ygffy1bzn4c.fsf@janus.isnogud.escape.de>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_v4N8G3YJXrlWNwg"
-Cc: "David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	"netdev" <netdev@vger.kernel.org>
-To: "Michael Chan" <mchan@broadcom.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver@hartkopp.net>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+To: Urs Thuermann <urs@isnogud.escape.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.191]:35521 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754275AbXISIat (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 04:30:49 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so110708nfb
-        for <netdev@vger.kernel.org>; Wed, 19 Sep 2007 01:30:48 -0700 (PDT)
-In-Reply-To: <1190145951.9540.230.camel@dell>
+Received: from stinky.trash.net ([213.144.137.162]:57741 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755474AbXISIey (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 04:34:54 -0400
+In-Reply-To: <ygffy1bzn4c.fsf@janus.isnogud.escape.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_v4N8G3YJXrlWNwg
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Urs Thuermann wrote:
+> Patrick McHardy <kaber@trash.net> writes:
+> 
+>>>+HLIST_HEAD(rx_dev_list);
+>>
+>>
+>>Same here (static).
+> 
+> 
+> Can't be static since it's used in proc.c.  But __read_mostly might
+> make sense.
+> 
+> What exactly is the effect of __read_mostly?  Is that in a separate
+> ELF section?  Where is that finally located?
 
-On Tuesday 18 September 2007 21:05, Michael Chan wrote:
-> The bnx2 firmware changes quite frequently.  A new driver quite often
-> requires new firmware to work correctly.  Splitting them up makes things
-> difficult for the user.
 
-sounds reasonable.
+Its a seperate section to prevent false sharing.
 
-I see that bnx2 has support for unpacking gzipped binary blobs,
-and it it the only such net driver (maybe the only such driver
-in the entire tree, I didn't check).
+> 
+> 
+>>>+		if (ret == -ENOSYS)
+>>>+			printk(KERN_INFO "can: request_module(%s) not"
+>>>+			       " implemented.\n", module_name);
+>>>+		else if (ret)
+>>>+			printk(KERN_ERR "can: request_module(%s) failed\n",
+>>>+			       module_name);
+>>
+>>
+>>Both of these printks seem to be user-triggerable, so they should
+>>be rate-limited (or maybe get removed completely/changed to DBG).
+> 
+> 
+> Hm, I don't think DBG() would be right here, since the messages show
+> problems in the installation to the admin.  OTOH, I see that a user
+> can flood the log by opening sockets with invalid proto numbers.  Rate
+> limiting might solve this, or we should print the message only once
+> per proto number.  I will think about this.
 
-This can be very useful for all other firmware images in other drivers.
 
-Last night I prepared a patch which basically separates unpacking
-function from bnx2-related code. Can you run-test attached patch?
+IMO this is a perfectly normal condition (not finding a module).
+Especially the !KMOD case is hardly an error.
 
-Meanwhile I will prepare follow-on patch which actually moves this
-function out of the driver and into lib/*.
 
-Size difference:
+>>>+	/* check for success and correct type */
+>>>+	cp = proto_tab[protocol];
+>>
+>>
+>>What prevents the module from getting unloaded again (and using
+>>a stale pointer)?
+> 
+> 
+> When the module is unloaded it calls can_proto_unregister() which
+> clears the pointer.  Do you see a race condition here?
 
-# size */bn*.o
-   text    data     bss     dec     hex filename
-  54884   81689    6424  142997   22e95 net/bnx2.o
-  55276   81823    6424  143523   230a3 net.org/bnx2.o
 
-Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
---
-vda
+Yes, you do request_module, load the module, get the cp pointer
+from proto_tab, the module is unloaded again. cp points to
+stable memory. Using module references would fix this.
 
---Boundary-00=_v4N8G3YJXrlWNwg
-Content-Type: text/x-diff;
-  charset="iso-8859-15";
-  name="linux-2.6.23-rc6.gunzip.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="linux-2.6.23-rc6.gunzip.patch"
+>>>+		if (!(skb->dev->flags & IFF_LOOPBACK)) {
+>>>+			/*
+>>>+			 * If the interface is not capable to do loopback
+>>>+			 * itself, we do it here.
+>>>+			 */
+>>>+			struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
+>>>+
+>>>+			if (!newskb) {
+>>>+				kfree_skb(skb);
+>>>+				return -ENOMEM;
+>>>+			}
+>>>+
+>>>+			newskb->sk = skb->sk;
+>>>+			newskb->ip_summed = CHECKSUM_UNNECESSARY;
+>>>+			newskb->pkt_type = PACKET_BROADCAST;
+>>>+			netif_rx(newskb);
+>>
+>>
+>>So the intention here is to send the packet to the non-loopback device
+>>and manually loop it, which means sending it twice?
+> 
+> 
+> CAN is a broadcast message network, so every frame should be (usually)
+> sent to all receivers, on remote hosts and to all local sockets.  If
+> the driver for the interface is not able to loop back the frame for
+> local delivery, the can_send() function will do this as a fallback.
+> For real CAN devices it is preferred that the driver does loopback.
+> For vcan it makes no difference where loopback is done.  The module
+> paramenter for vcan is therefore only useful to test and debug the CAN
+> core module.  It is nothing a normal user will ever use.
 
---- linux-2.6.23-rc6.org/drivers/net/bnx2.c	Tue Sep 11 22:33:54 2007
-+++ linux-2.6.23-rc6.gunzip/drivers/net/bnx2.c	Wed Sep 19 00:01:19 2007
-@@ -2767,93 +2767,61 @@
- 	spin_unlock_bh(&bp->phy_lock);
- }
- 
--#define FW_BUF_SIZE	0x8000
--
-+/* To be moved to generic lib/ */
- static int
--bnx2_gunzip_init(struct bnx2 *bp)
-+bnx2_gunzip(u8 *zbuf, int len, void **outbuf)
- {
--	if ((bp->gunzip_buf = vmalloc(FW_BUF_SIZE)) == NULL)
--		goto gunzip_nomem1;
-+	struct z_stream_s *strm;
-+	void *gunzip_buf;
-+	int rc;
-+	int sz;
- 
--	if ((bp->strm = kmalloc(sizeof(*bp->strm), GFP_KERNEL)) == NULL)
--		goto gunzip_nomem2;
-+	/* gzip header (1f,8b,08... 10 bytes total + possible asciz filename)
-+	 * is stripped, 32-bit unpacked size (LE) is prepended instead */
-+	sz = *zbuf++;
-+	sz = (sz << 8) + *zbuf++;
-+	sz = (sz << 8) + *zbuf++;
-+	sz = (sz << 8) + *zbuf++;
- 
--	bp->strm->workspace = kmalloc(zlib_inflate_workspacesize(), GFP_KERNEL);
--	if (bp->strm->workspace == NULL)
-+	rc = -ENOMEM;
-+	gunzip_buf = vmalloc(sz);
-+	if (gunzip_buf == NULL)
-+		goto gunzip_nomem1;
-+	strm = kmalloc(sizeof(*strm), GFP_KERNEL);
-+	if (strm == NULL)
-+		goto gunzip_nomem2;
-+	strm->workspace = kmalloc(zlib_inflate_workspacesize(), GFP_KERNEL);
-+	if (strm->workspace == NULL)
- 		goto gunzip_nomem3;
- 
--	return 0;
-+	strm->next_in = zbuf;
-+	strm->avail_in = len;
-+	strm->next_out = gunzip_buf;
-+	strm->avail_out = sz;
- 
--gunzip_nomem3:
--	kfree(bp->strm);
--	bp->strm = NULL;
-+	rc = zlib_inflateInit2(strm, -MAX_WBITS);
-+	if (rc == Z_OK) {
-+		rc = zlib_inflate(strm, Z_FINISH);
-+		if (rc == Z_OK) {
-+			rc = sz - strm->avail_out;
-+			*outbuf = gunzip_buf;
-+		} else
-+			rc = -EINVAL;
-+		zlib_inflateEnd(strm);
-+	} else
-+		rc = -EINVAL;
- 
-+	kfree(strm->workspace);
-+gunzip_nomem3:
-+	kfree(strm);
- gunzip_nomem2:
--	vfree(bp->gunzip_buf);
--	bp->gunzip_buf = NULL;
--
-+	if (rc != Z_OK)
-+		vfree(gunzip_buf);
- gunzip_nomem1:
--	printk(KERN_ERR PFX "%s: Cannot allocate firmware buffer for "
--			    "uncompression.\n", bp->dev->name);
--	return -ENOMEM;
-+	return rc; /* returns Z_OK (0) if successful */
- }
- 
- static void
--bnx2_gunzip_end(struct bnx2 *bp)
--{
--	kfree(bp->strm->workspace);
--
--	kfree(bp->strm);
--	bp->strm = NULL;
--
--	if (bp->gunzip_buf) {
--		vfree(bp->gunzip_buf);
--		bp->gunzip_buf = NULL;
--	}
--}
--
--static int
--bnx2_gunzip(struct bnx2 *bp, u8 *zbuf, int len, void **outbuf, int *outlen)
--{
--	int n, rc;
--
--	/* check gzip header */
--	if ((zbuf[0] != 0x1f) || (zbuf[1] != 0x8b) || (zbuf[2] != Z_DEFLATED))
--		return -EINVAL;
--
--	n = 10;
--
--#define FNAME	0x8
--	if (zbuf[3] & FNAME)
--		while ((zbuf[n++] != 0) && (n < len));
--
--	bp->strm->next_in = zbuf + n;
--	bp->strm->avail_in = len - n;
--	bp->strm->next_out = bp->gunzip_buf;
--	bp->strm->avail_out = FW_BUF_SIZE;
--
--	rc = zlib_inflateInit2(bp->strm, -MAX_WBITS);
--	if (rc != Z_OK)
--		return rc;
--
--	rc = zlib_inflate(bp->strm, Z_FINISH);
--
--	*outlen = FW_BUF_SIZE - bp->strm->avail_out;
--	*outbuf = bp->gunzip_buf;
--
--	if ((rc != Z_OK) && (rc != Z_STREAM_END))
--		printk(KERN_ERR PFX "%s: Firmware decompression error: %s\n",
--		       bp->dev->name, bp->strm->msg);
--
--	zlib_inflateEnd(bp->strm);
--
--	if (rc == Z_STREAM_END)
--		return 0;
--
--	return rc;
--}
--
--static void
- load_rv2p_fw(struct bnx2 *bp, u32 *rv2p_code, u32 rv2p_code_len,
- 	u32 rv2p_proc)
- {
-@@ -2902,22 +2870,16 @@
- 	/* Load the Text area. */
- 	offset = cpu_reg->spad_base + (fw->text_addr - cpu_reg->mips_view_base);
- 	if (fw->gz_text) {
--		u32 text_len;
--		void *text;
--
--		rc = bnx2_gunzip(bp, fw->gz_text, fw->gz_text_len, &text,
--				 &text_len);
--		if (rc)
--			return rc;
--
--		fw->text = text;
--	}
--	if (fw->gz_text) {
-+		u32 *text;
- 		int j;
- 
-+		rc = bnx2_gunzip(fw->gz_text, fw->gz_text_len, (void*) &text);
-+		if (rc < 0)
-+			return rc;
- 		for (j = 0; j < (fw->text_len / 4); j++, offset += 4) {
--			REG_WR_IND(bp, offset, cpu_to_le32(fw->text[j]));
-+			REG_WR_IND(bp, offset, cpu_to_le32(text[j]));
- 	        }
-+		vfree(text);
- 	}
- 
- 	/* Load the Data area. */
-@@ -2979,28 +2941,22 @@
- {
- 	struct cpu_reg cpu_reg;
- 	struct fw_info *fw;
--	int rc = 0;
-+	int rc;
- 	void *text;
--	u32 text_len;
- 
--	if ((rc = bnx2_gunzip_init(bp)) != 0)
--		return rc;
--
- 	/* Initialize the RV2P processor. */
--	rc = bnx2_gunzip(bp, bnx2_rv2p_proc1, sizeof(bnx2_rv2p_proc1), &text,
--			 &text_len);
--	if (rc)
-+	rc = bnx2_gunzip(bnx2_rv2p_proc1, sizeof(bnx2_rv2p_proc1), &text);
-+	if (rc < 0)
- 		goto init_cpu_err;
-+	load_rv2p_fw(bp, text, rc /* == len */, RV2P_PROC1);
-+	vfree(text);
- 
--	load_rv2p_fw(bp, text, text_len, RV2P_PROC1);
--
--	rc = bnx2_gunzip(bp, bnx2_rv2p_proc2, sizeof(bnx2_rv2p_proc2), &text,
--			 &text_len);
--	if (rc)
-+	rc = bnx2_gunzip(bnx2_rv2p_proc2, sizeof(bnx2_rv2p_proc2), &text);
-+	if (rc < 0)
- 		goto init_cpu_err;
-+	load_rv2p_fw(bp, text, rc /* == len */, RV2P_PROC2);
-+	vfree(text);
- 
--	load_rv2p_fw(bp, text, text_len, RV2P_PROC2);
--
- 	/* Initialize the RX Processor. */
- 	cpu_reg.mode = BNX2_RXP_CPU_MODE;
- 	cpu_reg.mode_value_halt = BNX2_RXP_CPU_MODE_SOFT_HALT;
-@@ -3115,7 +3071,6 @@
- 			goto init_cpu_err;
- 	}
- init_cpu_err:
--	bnx2_gunzip_end(bp);
- 	return rc;
- }
- 
---- linux-2.6.23-rc6.org/drivers/net/bnx2.h	Tue Sep 11 22:33:54 2007
-+++ linux-2.6.23-rc6.gunzip/drivers/net/bnx2.h	Tue Sep 18 23:27:07 2007
-@@ -6679,9 +6679,6 @@
- 	u32			flash_size;
- 
- 	int			status_stats_size;
--
--	struct z_stream_s	*strm;
--	void			*gunzip_buf;
- };
- 
- static u32 bnx2_reg_rd_ind(struct bnx2 *bp, u32 offset);
-@@ -6739,7 +6736,7 @@
- 	const u32 text_addr;
- 	const u32 text_len;
- 	const u32 text_index;
--	u32 *text;
-+/*	u32 *text;*/
- 	u8 *gz_text;
- 	const u32 gz_text_len;
- 
---- linux-2.6.23-rc6.org/drivers/net/bnx2_fw.h	Mon Jul  9 00:32:17 2007
-+++ linux-2.6.23-rc6.gunzip/drivers/net/bnx2_fw.h	Tue Sep 18 23:38:47 2007
-@@ -15,7 +15,9 @@
-  */
- 
- static u8 bnx2_COM_b06FwText[] = {
--	0x1f, 0x8b, 0x08, 0x00, 0x45, 0x30, 0xe7, 0x45, 0x00, 0x03, 0xdc, 0x5a,
-+	0x00, 0x80, 0x00, 0x00, /* unpack buf size = 0x8000 */
-+/*	0x1f, 0x8b, 0x08, 0x00, 0x45, 0x30, 0xe7, 0x45, 0x00, 0x03, */
-+								    0xdc, 0x5a,
- 	0x6b, 0x6c, 0x1c, 0xd7, 0x75, 0x3e, 0x33, 0x3b, 0x4b, 0xae, 0xc8, 0x15,
- 	0x35, 0xa2, 0xc6, 0xf4, 0x5a, 0xa2, 0xed, 0x5d, 0x72, 0x28, 0x12, 0x96,
- 	0xec, 0x6e, 0x68, 0xda, 0x62, 0x8c, 0x8d, 0xb4, 0xd9, 0xa5, 0x0c, 0xa1,
-@@ -1085,8 +1087,10 @@
- };
- 
- static u8 bnx2_RXP_b06FwText[] = {
--	0x1f, 0x8b, 0x08, 0x08, 0xcb, 0xa3, 0x46, 0x45, 0x00, 0x03, 0x74, 0x65,
--	0x73, 0x74, 0x31, 0x2e, 0x62, 0x69, 0x6e, 0x00, 0xec, 0x5c, 0x6f, 0x6c,
-+	0x00, 0x80, 0x00, 0x00, /* unpack buf size = 0x8000 */
-+/*	0x1f, 0x8b, 0x08, 0x08, 0xcb, 0xa3, 0x46, 0x45, 0x00, 0x03, 0x74, 0x65,
-+	0x73, 0x74, 0x31, 0x2e, 0x62, 0x69, 0x6e, 0x00, */
-+							0xec, 0x5c, 0x6f, 0x6c,
- 	0x1c, 0xc7, 0x75, 0x7f, 0x3b, 0xbb, 0xa4, 0x4e, 0xd4, 0x91, 0x5c, 0x1e,
- 	0x4f, 0xf4, 0x49, 0x66, 0x94, 0x5d, 0x71, 0x25, 0x5e, 0x2d, 0xc6, 0x5d,
- 	0x31, 0x57, 0x9b, 0x08, 0xce, 0xf1, 0x79, 0xef, 0x64, 0xb1, 0x86, 0x0a,
-@@ -1798,8 +1802,10 @@
- };
- 
- static u8 bnx2_rv2p_proc1[] = {
--	0x1f, 0x8b, 0x08, 0x08, 0x5e, 0xd0, 0x41, 0x44, 0x00, 0x03, 0x74, 0x65,
--	0x73, 0x74, 0x31, 0x2e, 0x62, 0x69, 0x6e, 0x00, 0xc5, 0x56, 0xcf, 0x6b,
-+	0x00, 0x80, 0x00, 0x00, /* unpack buf size = 0x8000 */
-+/*	0x1f, 0x8b, 0x08, 0x08, 0x5e, 0xd0, 0x41, 0x44, 0x00, 0x03, 0x74, 0x65,
-+	0x73, 0x74, 0x31, 0x2e, 0x62, 0x69, 0x6e, 0x00, */
-+							0xc5, 0x56, 0xcf, 0x6b,
- 	0x13, 0x51, 0x10, 0x9e, 0xec, 0x6e, 0xb2, 0xdb, 0x74, 0xbb, 0x1b, 0x2b,
- 	0xda, 0xa0, 0xb1, 0x8d, 0x51, 0x6a, 0x7f, 0xa4, 0xb4, 0x11, 0x0f, 0x82,
- 	0x42, 0x25, 0x3d, 0x04, 0x54, 0x44, 0x7a, 0x28, 0x22, 0x82, 0x36, 0x8a,
-@@ -1877,8 +1883,10 @@
- 	0x12, 0x3d, 0x80, 0x0b, 0x00, 0x00, 0x00 };
- 
- static u8 bnx2_rv2p_proc2[] = {
--	0x1f, 0x8b, 0x08, 0x08, 0x7e, 0xd1, 0x41, 0x44, 0x00, 0x03, 0x74, 0x65,
--	0x73, 0x74, 0x31, 0x2e, 0x62, 0x69, 0x6e, 0x00, 0xcd, 0x58, 0x5b, 0x6c,
-+	0x00, 0x80, 0x00, 0x00, /* unpack buf size = 0x8000 */
-+/*	0x1f, 0x8b, 0x08, 0x08, 0x7e, 0xd1, 0x41, 0x44, 0x00, 0x03, 0x74, 0x65,
-+	0x73, 0x74, 0x31, 0x2e, 0x62, 0x69, 0x6e, 0x00, */
-+							0xcd, 0x58, 0x5b, 0x6c,
- 	0x54, 0x55, 0x14, 0x3d, 0xf3, 0xe8, 0xcc, 0x9d, 0xe9, 0xed, 0x9d, 0xf2,
- 	0xb2, 0x03, 0xad, 0x08, 0xe5, 0xd1, 0x56, 0x29, 0xe8, 0x54, 0xab, 0x18,
- 	0x15, 0x2c, 0x5a, 0x8c, 0x26, 0x68, 0xf0, 0xf9, 0x63, 0x14, 0x04, 0xda,
-@@ -2057,8 +2065,10 @@
- 	0x17, 0x00, 0x00, 0x00 };
- 
- static u8 bnx2_TPAT_b06FwText[] = {
--	0x1f, 0x8b, 0x08, 0x08, 0x47, 0xd2, 0x41, 0x44, 0x00, 0x03, 0x74, 0x65,
--	0x73, 0x74, 0x31, 0x2e, 0x62, 0x69, 0x6e, 0x00, 0xc5, 0x57, 0x4d, 0x68,
-+	0x00, 0x80, 0x00, 0x00, /* unpack buf size = 0x8000 */
-+/*	0x1f, 0x8b, 0x08, 0x08, 0x47, 0xd2, 0x41, 0x44, 0x00, 0x03, 0x74, 0x65,
-+	0x73, 0x74, 0x31, 0x2e, 0x62, 0x69, 0x6e, 0x00, */
-+							0xc5, 0x57, 0x4d, 0x68,
- 	0x1c, 0xe7, 0x19, 0x7e, 0xe7, 0x77, 0x47, 0x62, 0x25, 0x8d, 0x93, 0x3d,
- 	0xac, 0x5d, 0xa5, 0x99, 0x91, 0x46, 0x3f, 0x54, 0x26, 0x9e, 0x84, 0xa5,
- 	0x56, 0x61, 0x20, 0xe3, 0x99, 0x95, 0x2c, 0x0c, 0x05, 0x07, 0x42, 0x08,
-@@ -2290,8 +2300,10 @@
- };
- 
- static u8 bnx2_TXP_b06FwText[] = {
--	0x1f, 0x8b, 0x08, 0x08, 0x21, 0xd3, 0x41, 0x44, 0x00, 0x03, 0x74, 0x65,
--	0x73, 0x74, 0x31, 0x2e, 0x62, 0x69, 0x6e, 0x00, 0xed, 0x5c, 0x6d, 0x6c,
-+	0x00, 0x80, 0x00, 0x00, /* unpack buf size = 0x8000 */
-+/*	0x1f, 0x8b, 0x08, 0x08, 0x21, 0xd3, 0x41, 0x44, 0x00, 0x03, 0x74, 0x65,
-+	0x73, 0x74, 0x31, 0x2e, 0x62, 0x69, 0x6e, 0x00, */
-+							0xed, 0x5c, 0x6d, 0x6c,
- 	0x1b, 0xf7, 0x79, 0x7f, 0xee, 0x85, 0xd2, 0x51, 0x96, 0xe9, 0x93, 0xc2,
- 	0x78, 0x6c, 0xc0, 0xa6, 0x77, 0xd6, 0x51, 0x66, 0x20, 0xb5, 0xa0, 0x05,
- 	0x36, 0x55, 0x87, 0x43, 0x73, 0x3e, 0x52, 0x2f, 0x4e, 0x5c, 0x57, 0x71,
---- linux-2.6.23-rc6.org/drivers/net/bnx2_fw2.h	Mon Jul  9 00:32:17 2007
-+++ linux-2.6.23-rc6.gunzip/drivers/net/bnx2_fw2.h	Tue Sep 18 23:37:41 2007
-@@ -15,7 +15,9 @@
-  */
- 
- static u8 bnx2_COM_b09FwText[] = {
--	0x1f, 0x8b, 0x08, 0x00, 0x0e, 0x34, 0xe7, 0x45, 0x00, 0x03, 0xdc, 0x5b,
-+	0x00, 0x80, 0x00, 0x00, /* unpack buf size = 0x8000 */
-+/*	0x1f, 0x8b, 0x08, 0x00, 0x0e, 0x34, 0xe7, 0x45, 0x00, 0x03, */
-+								    0xdc, 0x5b,
- 	0x6d, 0x70, 0x5c, 0xd5, 0x79, 0x7e, 0xef, 0xd9, 0xbb, 0xf2, 0x5a, 0x92,
- 	0xe5, 0x6b, 0x79, 0x23, 0x16, 0x4b, 0xc0, 0xae, 0x75, 0x6d, 0x69, 0xb0,
- 	0x43, 0x16, 0xa1, 0x80, 0x9a, 0xd9, 0xc0, 0xb2, 0x2b, 0x33, 0x9e, 0x0c,
-@@ -1083,7 +1085,9 @@
- };
- 
- static u8 bnx2_CP_b09FwText[] = {
--	0x1f, 0x8b, 0x08, 0x00, 0x0f, 0x34, 0xe7, 0x45, 0x00, 0x03, 0xbd, 0x7d,
-+	0x00, 0x80, 0x00, 0x00, /* unpack buf size = 0x8000 */
-+/*	0x1f, 0x8b, 0x08, 0x00, 0x0f, 0x34, 0xe7, 0x45, 0x00, 0x03, */
-+								    0xbd, 0x7d,
- 	0x0d, 0x74, 0x5c, 0x57, 0x7d, 0xe7, 0xff, 0xdd, 0x19, 0x49, 0x63, 0x59,
- 	0x96, 0x9f, 0xe5, 0x89, 0x32, 0x51, 0x84, 0x3d, 0x23, 0x3d, 0xd9, 0x22,
- 	0x12, 0xe1, 0xc5, 0x11, 0xac, 0xda, 0x2a, 0xe9, 0x30, 0x92, 0x3f, 0x12,
-@@ -2279,7 +2283,9 @@
- };
- 
- static u8 bnx2_RXP_b09FwText[] = {
--	0x1f, 0x8b, 0x08, 0x00, 0x0e, 0x34, 0xe7, 0x45, 0x00, 0x03, 0xec, 0x5c,
-+	0x00, 0x80, 0x00, 0x00, /* unpack buf size = 0x8000 */
-+/*	0x1f, 0x8b, 0x08, 0x00, 0x0e, 0x34, 0xe7, 0x45, 0x00, 0x03, */
-+								    0xec, 0x5c,
- 	0x5d, 0x6c, 0x1c, 0xd7, 0x75, 0x3e, 0xf3, 0x43, 0x6a, 0x49, 0xf1, 0x67,
- 	0xb8, 0x5c, 0xb1, 0x2b, 0x99, 0x96, 0x77, 0xc9, 0x91, 0xc8, 0x58, 0x8a,
- 	0x31, 0xa2, 0x09, 0x5b, 0x48, 0x17, 0xf6, 0x76, 0x76, 0x25, 0xb1, 0xb1,
-@@ -2988,7 +2994,9 @@
- };
- 
- static u8 bnx2_TPAT_b09FwText[] = {
--	0x1f, 0x8b, 0x08, 0x00, 0x0e, 0x34, 0xe7, 0x45, 0x00, 0x03, 0xcd, 0x58,
-+	0x00, 0x80, 0x00, 0x00, /* unpack buf size = 0x8000 */
-+/*	0x1f, 0x8b, 0x08, 0x00, 0x0e, 0x34, 0xe7, 0x45, 0x00, 0x03, */
-+								    0xcd, 0x58,
- 	0x5d, 0x68, 0x1c, 0xd7, 0x15, 0x3e, 0xf3, 0xb7, 0x3b, 0x52, 0x24, 0xeb,
- 	0x5a, 0xd9, 0xa6, 0xeb, 0xa0, 0x34, 0x33, 0xda, 0x91, 0xac, 0x22, 0x13,
- 	0x4f, 0x9d, 0x25, 0x16, 0x65, 0x21, 0x93, 0xd9, 0x91, 0xac, 0x98, 0x3c,
-@@ -3279,7 +3287,9 @@
- };
- 
- static u8 bnx2_TXP_b09FwText[] = {
--	0x1f, 0x8b, 0x08, 0x00, 0x0e, 0x34, 0xe7, 0x45, 0x00, 0x03, 0xcd, 0x7c,
-+	0x00, 0x80, 0x00, 0x00, /* unpack buf size = 0x8000 */
-+/*	0x1f, 0x8b, 0x08, 0x00, 0x0e, 0x34, 0xe7, 0x45, 0x00, 0x03, */
-+								    0xcd, 0x7c,
- 	0x6f, 0x70, 0x5b, 0xd7, 0x95, 0xdf, 0x79, 0xef, 0x81, 0x24, 0x48, 0xd1,
- 	0xd4, 0x13, 0x17, 0x56, 0x60, 0x87, 0x71, 0x00, 0xf1, 0x81, 0x66, 0x42,
- 	0xae, 0x04, 0x2b, 0x4c, 0xc2, 0x6d, 0xd1, 0xf8, 0x05, 0x00, 0x29, 0x48,
 
---Boundary-00=_v4N8G3YJXrlWNwg--
+Thanks for the explanation.
+
+
+>>>+static struct dev_rcv_lists *find_dev_rcv_lists(struct net_device *dev)
+>>>+{
+>>>+	struct dev_rcv_lists *d;
+>>>+	struct hlist_node *n;
+>>>+
+>>>+	....
+>>>+
+>>>+	hlist_for_each_entry(d, n, &rx_dev_list, list) {
+>>
+>>
+>>On the receive path you use RCU, so this should be
+>>hlist_for_each_entry_rcu(), no? The bottem half disabling during
+>>addition/removal also seems unnecessary, but I might be missing
+>>something.
+> 
+> 
+> find_dev_rcv_lists() is called in one place from can_rcv() with RCU
+> lock held, as you write.  The other two calls to find_dev_rcv_lists()
+> are from can_rx_register/unregister() functions which change the
+> receive lists.  Therefore, we can't only use RCU but need protection
+> against simultanous writes.  We do this with the spin_lock_bh().  The
+> _bh variant, because can_rcv() runs in interrupt and we need to block
+> that.  I thought this is pretty standard.
+> 
+> I'll check this again tomorrow, but I have put much time in these
+> locking issues already, changed it quite a few times and hoped to have
+> got it right finally.
+
+
+I'm not saying you should use *only* RCU, you need the lock
+for additions/removal of course, but since the receive path
+doesn't take that lock and relies on RCU, you need to use
+the _rcu list walking variant to avoid races with concurrent
+list changes.
+
+
+>>>+	case NETDEV_REGISTER:
+>>>+
+>>>+		/*
+>>>+		 * create new dev_rcv_lists for this device
+>>>+		 *
+>>>+		 * N.B. zeroing the struct is the correct initialization
+>>>+		 * for the embedded hlist_head structs.
+>>>+		 * Another list type, e.g. list_head, would require
+>>>+		 * explicit initialization.
+>>>+		 */
+>>>+
+>>>+		DBG("creating new dev_rcv_lists for %s\n", dev->name);
+>>>+
+>>>+		d = kzalloc(sizeof(*d),
+>>>+			    in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+>>
+>>
+>>netdevice registration should never happen from interrupt handlers.
+> 
+> 
+> Hm, I seem to remember we had such an occurance with hot-pluggable
+> devices, i.e. USB.  But I may be wrong.  In what context is
+> NETDEV_REGISTER called for e.g. USB devices?  Can we safely write
+> just GFP_KERNEL here?
+
+
+Yes. register_netdevice() takes the rtnl mutex, so it can only
+be used in process context.
+
+>>>+		stattimer.expires = jiffies + HZ;
+>>
+>>round_jiffies?
+> 
+> 
+> Yes.  We don't depend on exact times relative to module load time, but
+> we would like to have the timer expirations 1 second apart.  But we
+> would still get this with round_jiffies(), right?
+
+
+I don't think you will get *exactly* one second, but you also have
+no guarantee for that now.
+
+>>>+ * proc read functions
+>>>+ *
+>>>+ * From known use-cases we expect about 10 entries in a receive list to be
+>>>+ * printed in the proc_fs. So PAGE_SIZE is definitely enough space here.
+>>
+>>
+>>Would be nicer to use seq_file (for all the proc stuff).
+> 
+> 
+> That has already been on my TODO list.  There was some problem which I
+> don't remember ATM, which is why I dropped it temporarily.  Now on my
+> TODO list again.
+
+
+Thanks :)
