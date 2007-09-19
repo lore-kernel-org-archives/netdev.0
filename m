@@ -1,29 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net-2.6.24 - build failure
-Date: Wed, 19 Sep 2007 15:17:12 -0700 (PDT)
-Message-ID: <20070919.151712.66176476.davem@davemloft.net>
-References: <1190238802.26101.24.camel@localhost>
+Subject: Re: net-2.6.24 plans
+Date: Wed, 19 Sep 2007 15:19:28 -0700 (PDT)
+Message-ID: <20070919.151928.122833514.davem@davemloft.net>
+References: <20070918032328.GB3875@tuxdriver.com>
+	<20070919012752.GA3717@tuxdriver.com>
+	<20070919210700.GF5483@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: joe@perches.com
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	jgarzik@pobox.com
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47990
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49248
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750717AbXISWRN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 18:17:13 -0400
-In-Reply-To: <1190238802.26101.24.camel@localhost>
+	by vger.kernel.org with ESMTP id S1750868AbXISWT2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 18:19:28 -0400
+In-Reply-To: <20070919210700.GF5483@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Wed, 19 Sep 2007 14:53:22 -0700
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 19 Sep 2007 17:07:00 -0400
 
-> drivers/net/wireless/b43legacy/built-in.o: In function `tsf_read_file':
-> drivers/net/wireless/b43legacy/debugfs.c:80: multiple definition of `tsf_read_file'
+> And the latest incarnation:
+> 
+> 	http://www.kernel.org/pub/linux/kernel/people/linville/git-wireless-2007-09-19-16-57-43-0500.patch
+> 
+> And is even smaller...down an additional 30%, or almost 1/6th of the
+> original! :-)
 
-Can one of the wireless folks fix b43legacy to not use the same
-global variable and function names as the b43 driver?
+Yes, great progress, thanks John :-)
 
-Thanks.
+So it looks like what's left is:
+
+1) ATH5K driver
+2) ATMEL USB driver
+3) NL80211
+4) misc bits sprinkled around mac80211
