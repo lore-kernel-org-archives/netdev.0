@@ -1,63 +1,54 @@
-From: Nagendra Tomar <tomer_iisc@yahoo.com>
-Subject: Re: [PATCH 2.6.23-rc6 Resending] NETWORKING : Edge Triggered EPOLLOUT events get missed for TCP sockets
-Date: Wed, 19 Sep 2007 16:32:07 -0700 (PDT)
-Message-ID: <608569.12944.qm@web53702.mail.re2.yahoo.com>
-References: <20070919.161037.68156707.davem@davemloft.net>
+From: "Glenn Grundstrom" <ggrundstrom@NetEffect.com>
+Subject: RE: [ofa-general] [PATCH] RDMA/CMA: Implement rdma_resolve_ip retry
+	enhancement.
+Date: Wed, 19 Sep 2007 18:45:28 -0500
+Message-ID: <5E701717F2B2ED4EA60F87C8AA57B7CC076E400D@venom2>
+References: <200709190022.l8J0MbWt024754@neteffect.com>
+	<46F153C4.2070008@ichips.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davidel@xmailserver.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web53702.mail.re2.yahoo.com ([206.190.37.23]:22416 "HELO
-	web53702.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751356AbXISXcI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 19:32:08 -0400
-In-Reply-To: <20070919.161037.68156707.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, general@lists.openfabrics.org
+To: "Sean Hefty" <mshefty@ichips.intel.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <46F153C4.2070008@ichips.intel.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
+> > If an application is calling rdma_resolve_ip() and a status=20
+> of -ENODATA is returned from addr_resolve_local/remote(), the=20
+> timeout mechanism waits until the application's timeout=20
+> occurs before rechecking the address resolution status; the=20
+> application will wait until it's full timeout occurs.  This=20
+> case is seen when the work thread call to process_req() is=20
+> made before the arp packet is processed.
+>=20
+> I don't understand the issue.  process_req() is invoked whenever a=20
+> network event occurs, which rechecks all pending requests.
 
---- David Miller <davem@davemloft.net> wrote:
+Yes, I see the netevent_callback().  I now agree that this patch is not
+necessary.
 
-> From: Nagendra Tomar <tomer_iisc@yahoo.com>
-> Date: Wed, 19 Sep 2007 15:55:58 -0700 (PDT)
-> 
-> >      I agree that setting SOCK_NOSPACE would have been a more elegant
-> > fix. Infact I thought a lot about that before deciding on this fix.
-> 
-> I guess this means you also noticed that you are removing
-> the one and only test of this bit too?
-> 
-> You can't remove this, it's critical for performance.
+Roland, please disregard.
 
-I'm sure you would have seen value in the check that's why the 
-check is there. 
-
-Now we have two critical points to discuss
-
-1. How can we achieve the ET EPOLLOUT event with the SOCK_NOSPACE
-   check in place ?
-2. How much effect will removing the check have (if we cannot 
-   find a way to get the ET EPOLLOUT notification w/ the check
-   in place) ? 
-
-Regding (2), IMHO for a "fast sender" the SOCK_NOSPACE check will
-almost always pass as the sender will come back to write (or poll)
-before the prev data is drained out. If he doesn't do that, he is
-not a "fast sender" by definition". A "fast sender" should always
-have some data to send when he practically (per the sndbuf space) 
-can.
-
-For a "slow sender", do we really care abt the optimization ?
-
-Thanx,
-Tomar
-
-
-
-      ___________________________________________________________
-Yahoo! Answers - Got a question? Someone out there knows the answer. Try it
-now.
-http://uk.answers.yahoo.com/ 
+Glenn.
+=20
+>=20
+> > This patch is in addition to Steve Wise's neigh_event_send=20
+> patch to initiate neighbour discovery sent on 9/12/2007.
+>=20
+> This patch looks unrelated to Steve's patch.  Can you clarify the=20
+> relationship?
+>=20
+> - Sean
+>=20
