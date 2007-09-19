@@ -1,69 +1,32 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH]: Preliminary release of Sun Neptune driver
-Date: Wed, 19 Sep 2007 16:05:20 -0700
-Message-ID: <20070919160520.709a6819@freepuppy.rosehill.hemminger.net>
-References: <20070918.151528.84360712.davem@davemloft.net>
-	<20070919145900.759ef19e@freepuppy.rosehill.hemminger.net>
-	<20070919.150755.38714639.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.23-rc6 Resending] NETWORKING : Edge Triggered
+ EPOLLOUT events get missed for TCP sockets
+Date: Wed, 19 Sep 2007 16:10:37 -0700 (PDT)
+Message-ID: <20070919.161037.68156707.davem@davemloft.net>
+References: <20070919.154402.34760338.davem@davemloft.net>
+	<640879.56443.qm@web53701.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Hendel@sun.com, greg.onufer@sun.com,
-	jeff@garzik.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davidel@xmailserver.org
+To: tomer_iisc@yahoo.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:41823 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759264AbXISXFv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 19:05:51 -0400
-In-Reply-To: <20070919.150755.38714639.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52542
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751377AbXISXKh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 19:10:37 -0400
+In-Reply-To: <640879.56443.qm@web53701.mail.re2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 19 Sep 2007 15:07:55 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+From: Nagendra Tomar <tomer_iisc@yahoo.com>
+Date: Wed, 19 Sep 2007 15:55:58 -0700 (PDT)
 
-> From: Stephen Hemminger <shemminger@linux-foundation.org>
-> Date: Wed, 19 Sep 2007 14:59:00 -0700
-> 
+>      I agree that setting SOCK_NOSPACE would have been a more elegant
+> fix. Infact I thought a lot about that before deciding on this fix.
 
-...
+I guess this means you also noticed that you are removing
+the one and only test of this bit too?
 
-> > > +static int niu_wait_bits_clear_mac(struct niu *np, unsigned long reg, u64 bits,
-> > > +				   int limit, int delay)
-> > > +{
-> > > +	BUILD_BUG_ON(limit <= 0 || delay < 0);
-> > 
-> > There is no way compiler can evaluate limit or delay.
-> 
-> Check the callers, they all pass contant values.
-
-GCC is not as smart as you think... Try the following test:
---------------------
-#include <stdio.h>
-
-#define BUILD_BUG_ON(condition) ((void)sizeof(char[1 - 2*!!(condition)]))
-#define ENODEV -10
-
-static int niu_wait_bits_clear_mac(void *np, unsigned long reg,
-				   int limit, int delay)
-{
-	BUILD_BUG_ON(limit <= 0 || delay < 0);
-
-	if (limit < 0)
-		return -ENODEV;
-	while (limit > 0)
-		sleep(delay);
-	
-	return 0;
-}
-
-int main(int argc, char **argv) {
-	printf("start\n");
-	niu_wait_bits_clear_mac(NULL, 0, 10, 1);
-
-	niu_wait_bits_clear_mac(NULL, 0, -1, 0);
-	
-	niu_wait_bits_clear_mac(NULL, 0, 0, -1);
-	return 0;
-}
+You can't remove this, it's critical for performance.
