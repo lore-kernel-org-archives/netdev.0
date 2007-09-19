@@ -1,38 +1,39 @@
-From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Subject: Re: Please pull 'p54' branch of wireless-2.6
-Date: Wed, 19 Sep 2007 18:01:32 -0400
-Message-ID: <46F19C3C.6090605@garzik.org>
-References: <20070919195527.GD5483@tuxdriver.com> <20070919210405.GA2231@infradead.org> <20070919.141200.56568833.davem@davemloft.net> <20070919212607.GA3036@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] iproute2: enable setting rto_min, rtt and rttvar in
+ tc-esque units
+Date: Wed, 19 Sep 2007 15:03:12 -0700 (PDT)
+Message-ID: <20070919.150312.31444471.davem@davemloft.net>
+References: <200709182015.NAA25590@tardy.cup.hp.com>
+	<20070919145133.7aff0a5b@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070919212607.GA3036-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: rick.jones2@hp.com, netdev@vger.kernel.org
+To: shemminger@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56764
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751147AbXISWDM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 18:03:12 -0400
+In-Reply-To: <20070919145133.7aff0a5b@freepuppy.rosehill.hemminger.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> On Wed, Sep 19, 2007 at 02:12:00PM -0700, David Miller wrote:
->> From: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
->> Date: Wed, 19 Sep 2007 22:04:05 +0100
->>
->>> PLease put it into a separate subdirectory, thanks.
->>>
->>> Also net2280.h seems rather oddly named.
->> The next time I rebase I'll try to take care of this for both
->> this driver and the iwlwifi stuff.
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Wed, 19 Sep 2007 14:51:33 -0700
+
+> On Tue, 18 Sep 2007 13:15:26 -0700 (PDT)
+> Rick Jones <rick.jones2@hp.com> wrote:
 > 
-> Fine by me, although I swear I remember complaints about adding separate
-> directories for drivers...*shrug*...
+> > Enable users of ip to specify the times for rtt, rttvar and rto_min
+> > in human-friendly terms a la "tc" while maintaining backwards 
+> > compatability with the previous "raw" mechanism.  Builds upon
+> > David Miller's uncommited patch to set rto_min.
+> > 
+> > Signed-off-by: Rick Jones <rick.jones2@hp.com>
+> 
+> Thanks, I'll put it in the 2.6.24 version of iproute2 (assuming dave
+> takes the rto_min patch).
 
-There were complaints about the nonsensical wireless/mac80211 directory. 
-  But if there are enough files, a driver should definitely get its own 
-directory.  Like life, it's a balance.  If it's just one or two C files, 
-a directory might be overkill.  If it's more, it definitely warrants a 
-sub-dir.
-
-	Jeff
+If you're talking about the kernel side, Linus's tree already
+has the per-route rto_min stuff.
