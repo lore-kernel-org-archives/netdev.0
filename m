@@ -1,49 +1,42 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: Please pull 'rt2x00' branch of wireless-2.6
-Date: Wed, 19 Sep 2007 20:36:59 +0200
-Message-ID: <200709192036.59443.mb@bu3sch.de>
-References: <20070918213202.GJ4940@tuxdriver.com> <20070919.112137.48806758.davem@davemloft.net> <200709192048.00741.IvDoorn@gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: follow-up: discrepancy with POSIX
+Date: Wed, 19 Sep 2007 11:38:57 -0700
+Message-ID: <46F16CC1.9090302@hp.com>
+References: <46F13E8B.4050309@redhat.com> <p73sl5aveqh.fsf@bingen.suse.de>	<46F15305.2030507@redhat.com>	<20070919172653.GB18045@one.firstfloor.org>	<46F1608E.7060908@redhat.com>	<20070919175700.GC18045@one.firstfloor.org>	<46F16418.3070706@redhat.com> <20070919183004.GA18707@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ivo van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <200709192048.00741.IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762677AbXISSjd@vger.kernel.org>
+In-Reply-To: <20070919183004.GA18707@one.firstfloor.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 19 September 2007 20:47:59 Ivo van Doorn wrote:
-> On Wednesday 19 September 2007, David Miller wrote:
-> > From: Ivo van Doorn <ivdoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > Date: Wed, 19 Sep 2007 20:31:19 +0200
-> > 
-> > > Because I am indeed not really happy with this early merge, but I'll do my
-> > > best to resolve the last outstanding bugs as soon as possible.
-> > 
-> > Relax :-)
+Andi Kleen wrote:
+> On Wed, Sep 19, 2007 at 11:02:00AM -0700, Ulrich Drepper wrote:
 > 
-> :)
+>>>on UDP/RAW and it's certainly possible to connect() to that. 
+>>
+>>Where do you get this from?  And where is this implemented?  I don't
 > 
-> > A merge upstream doesn't mean "bug free", it means "significantly
-> > better than no driver at all" and that is undoubtedly the case
-> > here.
 > 
-> Well I am happy rt2x00 is being considered good enough for upstream already,
-> but I have the habbit of wanting things bug-free before pushing it further upstream.
+> Sorry it's actually loopback, not broadcast as implemented in Linux.
+> In Linux it's implemented in ip_route_output_slow(). Essentially
+> converted to 127.0.0.1
 > 
-> Well most users are happy with current rt2x00 version anyway,
-> so the remaining issues probably aren't that big anyway. (Except for the 2 panics,
-> which should be resolved soon anyway) ;)
+> I think it's traditional BSD behaviour but couldn't find it on
+> a quick look in FreeBSD source (but haven't looked very intensively) 
 
-Well, you have nothing to lose, basically.
-It's impossible for you to create a regression.
-So everything is fine, even if it's buggy and doesn't
-work at all. ;)
+One has to set their way-back machine pretty far back to find the *BSD 
+bits which used 0.0.0.0 as the "all nets, all subnets" (to mis-use a 
+term) broadcast IPv4 address when sending.  Perhaps as far back as the 
+time before HP-UX 7 or SunOS4.  The bit errors in my dimm memory get 
+pretty dense that far back...
 
--- 
-Greetings Michael.
+It has hung-on in various places (stacks) as an "accepted" broadcast IP 
+in the receive path, but not the send path for quite possibly decades now.
+
+rick jones
