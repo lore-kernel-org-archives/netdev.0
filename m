@@ -1,44 +1,43 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Subject: Re: follow-up: discrepancy with POSIX
-Date: Wed, 19 Sep 2007 11:02:00 -0700
-Message-ID: <46F16418.3070706@redhat.com>
-References: <46F13E8B.4050309@redhat.com> <p73sl5aveqh.fsf@bingen.suse.de> <46F15305.2030507@redhat.com> <20070919172653.GB18045@one.firstfloor.org> <46F1608E.7060908@redhat.com> <20070919175700.GC18045@one.firstfloor.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.24] introduce MAC_FMT/MAC_ARG
+Date: Wed, 19 Sep 2007 11:11:47 -0700 (PDT)
+Message-ID: <20070919.111147.55510143.davem@davemloft.net>
+References: <20070917.190527.42775386.davem@davemloft.net>
+	<1190081655.19708.255.camel@localhost>
+	<1190177401.19708.264.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761736AbXISSCd@vger.kernel.org>
-In-Reply-To: <20070919175700.GC18045@one.firstfloor.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, jgarzik@pobox.com
+To: joe@perches.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33153
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750839AbXISSLr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 14:11:47 -0400
+In-Reply-To: <1190177401.19708.264.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+From: Joe Perches <joe@perches.com>
+Date: Tue, 18 Sep 2007 21:50:01 -0700
 
-Andi Kleen wrote:
-> Spec doesn't match traditional behaviour then.
+> I rebased against yesterday's net-2.6.24
+> 
+> Please pull from:
+> 
+> git://repo.or.cz/linux-2.6/trivial-mods.git net-2.6.24-fordave
 
-Well, determining whether that's the case is part of this exercise.
+You didn't "rebase" you "merged" and this makes your tree a complete
+mess.
 
+When you do a real "rebase", you clone a fresh new tree from mine and
+add only your patches on top.
 
-> IPv4 0.0.0.0 is=20
-> traditionally an synonym for old style all broadcast (255.255.255.255=
-)=20
-> on UDP/RAW and it's certainly possible to connect() to that.=20
+Your tree as-is is difficult for me to pull from because it contains
+all kinds of messy merges and merge error fixups.
 
-Where do you get this from?  And where is this implemented?  I don't
-doubt it but I have to convince people to change the standard and
-possibly introduce incompatibility.
-
-- --
-=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
-t =E2=9E=A7 Mountain View, CA =E2=9D=96
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
-
-iD8DBQFG8WQY2ijCOnn/RHQRAlsBAJ9qZRZXNN2VEy136MFIT1daHfju5ACdGiIW
-k0I5e2BGRjvjbJrrAwtehqo=3D
-=3DfX+i
------END PGP SIGNATURE-----
+Can you just extract out one single patch that does the MAC_FMT change
+and get that to me somehow?  Either by adding it into a fresh
+net-2.6.24 clone, or as a patch.  Both ways are fine.
