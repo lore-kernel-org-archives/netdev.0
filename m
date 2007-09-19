@@ -1,30 +1,29 @@
-From: "Alexander Indenbaum" <baum@tehutinetworks.net>
-Subject: RE: [PATCH] tehuti: driver for Tehuti 10GbE network adapters
-Date: Wed, 19 Sep 2007 21:28:32 +0200
-Message-ID: <20070919192818.D5500C01972@relay.tehutinetworks.net>
-References: <20070919174103.GB22795@infradead.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: follow-up: discrepancy with POSIX
+Date: Wed, 19 Sep 2007 21:40:50 +0200
+Message-ID: <20070919194050.GE18707@one.firstfloor.org>
+References: <46F13E8B.4050309@redhat.com> <p73sl5aveqh.fsf@bingen.suse.de> <46F15305.2030507@redhat.com> <20070919172653.GB18045@one.firstfloor.org> <46F1608E.7060908@redhat.com> <20070919175700.GC18045@one.firstfloor.org> <46F16418.3070706@redhat.com> <20070919183004.GA18707@one.firstfloor.org> <46F16CC1.9090302@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <jeff@garzik.org>, <davem@davemloft.org>,
-	<akpm@linux-foundation.org>, <netdev@vger.kernel.org>,
-	"'Nadav Shemer'" <nadav@tehutinetworks.net>,
-	"'Andy Gospodarek'" <andy@greyhouse.net>
-To: "'Christoph Hellwig'" <hch@infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>,
+	Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bzq-219-225-50.pop.bezeqint.net ([62.219.225.50]:42322 "EHLO
-	relay.tehutinetworks.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750727AbXIST2v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 15:28:51 -0400
-In-Reply-To: <20070919174103.GB22795@infradead.org>
+Received: from one.firstfloor.org ([213.235.205.2]:50120 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751174AbXISTkw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 15:40:52 -0400
+Content-Disposition: inline
+In-Reply-To: <46F16CC1.9090302@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- 
-> Ok, so you do irq acquire/release in open/close so that bit is fine.
-> The code might actually work as is, sorry for the noise.
+> It has hung-on in various places (stacks) as an "accepted" broadcast IP 
+> in the receive path, but not the send path for quite possibly decades now.
 
-It is no noise at all. Thank you for your feedback.
+Well it is valid in Linux for sending.  And who knows who relies on it.
 
+-Andi
 
