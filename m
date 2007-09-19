@@ -1,48 +1,51 @@
-From: Bryan Wu <bryan.wu-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 4/4] Blackfin EMAC driver: add a select
-	for the PHYLIB of this driver
-Date: Wed, 19 Sep 2007 23:37:41 +0800
-Message-ID: <1190216261.15707.31.camel@roc-laptop>
-Reply-To: bryan.wu-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org
+From: Jan-Bernd Themann <ossthema@de.ibm.com>
+Subject: Re: new NAPI interface broken
+Date: Wed, 19 Sep 2007 17:43:51 +0200
+Message-ID: <200709191743.51917.ossthema@de.ibm.com>
+References: <200709071137.02801.ossthema@de.ibm.com> <200709181815.45954.ossthema@de.ibm.com> <adafy1ak6u8.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
-        Robin Getz <robin.getz-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
-Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-List-Unsubscribe: <http://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
-	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
-List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
-List-Subscribe: <http://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
-	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
-Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+Cc: David Miller <davem@davemloft.net>,
+	shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	themann@de.ibm.com, raisch@de.ibm.com
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate2.uk.ibm.com ([195.212.29.135]:10005 "EHLO
+	mtagate2.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761207AbXISPoR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 11:44:17 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate2.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l8JFiFVZ157878
+	for <netdev@vger.kernel.org>; Wed, 19 Sep 2007 15:44:15 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8JFiFDM2306104
+	for <netdev@vger.kernel.org>; Wed, 19 Sep 2007 16:44:15 +0100
+Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8JFhwti011491
+	for <netdev@vger.kernel.org>; Wed, 19 Sep 2007 16:43:59 +0100
+In-Reply-To: <adafy1ak6u8.fsf@cisco.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wednesday 19 September 2007 17:33, Roland Dreier wrote:
+>  > One other thing I observed is that I can not unload the module as the
+>  > ref counter of the eth device is too low. I haven't tracked down the 
+>  > source of this problem yet.
+> 
+> I suspect that this is because netif_rx_reschedule() was missing a
+> dev_hold() to match the dev_put() in netif_rx_complete().  Dave merged
+> a fix for that problem yesterday, so current net-2.6.24 should be OK.
+> Let us know if it's not OK, because then there's another bug...
+> 
+>  - R.
+> 
 
-Since we are adding requirement for the PHYLIB for this driver, there should be a select for that
+When I applied this netif_rx_reschedule fix this problem did not occur
+anymore (module could be unloaded). So I guess I hit the problem you
+described.
 
-Cc: Robin Getz <robin.getz-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Bryan Wu <bryan.wu-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
----
- drivers/net/Kconfig |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index fd284a9..ebba92d 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -838,6 +838,8 @@ config BFIN_MAC
- 	tristate "Blackfin 536/537 on-chip mac support"
- 	depends on NET_ETHERNET && (BF537 || BF536) && (!BF537_PORT_H)
- 	select CRC32
-+	select MII
-+	select PHYLIB
- 	select BFIN_MAC_USE_L1 if DMA_UNCACHED_NONE
- 	help
- 	  This is the driver for blackfin on-chip mac device. Say Y if you want it
--- 
-1.5.2
+Thanks,
+Jan-Bernd
