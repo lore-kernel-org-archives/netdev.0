@@ -1,50 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RESEND][PATCH 3/4 Rev-3] Initilize and populate age field
-Date: Wed, 19 Sep 2007 11:20:24 -0700 (PDT)
-Message-ID: <20070919.112024.21594685.davem@davemloft.net>
-References: <20070919092434.0d461f0b.varunc@linux.vnet.ibm.com>
+From: Ivo van Doorn <ivdoorn@gmail.com>
+Subject: Re: Please pull 'rt2x00' branch of wireless-2.6
+Date: Wed, 19 Sep 2007 20:47:59 +0200
+Message-ID: <200709192048.00741.IvDoorn@gmail.com>
+References: <20070918213202.GJ4940@tuxdriver.com> <200709192031.19934.IvDoorn@gmail.com> <20070919.112137.48806758.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net, socketcan@hartkopp.net,
-	shemminger@linux-foundation.org, krkumar2@in.ibm.com,
-	tgraf@suug.ch, varuncha@in.ibm.com
-To: varunc@linux.vnet.ibm.com
+Cc: linville@tuxdriver.com, jeff@garzik.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34366
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751528AbXISSUY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 14:20:24 -0400
-In-Reply-To: <20070919092434.0d461f0b.varunc@linux.vnet.ibm.com>
+Received: from wx-out-0506.google.com ([66.249.82.230]:42285 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752588AbXISSfR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 14:35:17 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so224935wxd
+        for <netdev@vger.kernel.org>; Wed, 19 Sep 2007 11:35:16 -0700 (PDT)
+In-Reply-To: <20070919.112137.48806758.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Varun Chandramohan <varunc@linux.vnet.ibm.com>
-Date: Wed, 19 Sep 2007 09:24:34 +0530
-
-> The age field is filled with the current time at the time of creation of the route. When the routes are dumped
-> then the age value stored in the route structure is subtracted from the current time value and the difference is the age expressed in secs.
+On Wednesday 19 September 2007, David Miller wrote:
+> From: Ivo van Doorn <ivdoorn@gmail.com>
+> Date: Wed, 19 Sep 2007 20:31:19 +0200
 > 
-> Signed-off-by: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+> > Because I am indeed not really happy with this early merge, but I'll do my
+> > best to resolve the last outstanding bugs as soon as possible.
+> 
+> Relax :-)
 
-This doesn't match what your code does:
+:)
 
-> +	/* Note: The ideal place to fill up the time value for a newely created route will be
-> +	** in fn_hash_insert(). But we are delaying the time insert procedure to avoid calling
-> +	** do_gettimeofday() twice.
-> +	*/
-> +	do_gettimeofday(&tv);
-> +	if (!*age) {
-> +		*age = timeval_to_sec(&tv);
-> +		NLA_PUT_U32(skb, RTA_AGE, *age);
-> +	} else {
-> +		NLA_PUT_U32(skb, RTA_AGE, timeval_to_sec(&tv) - *age);
-> +	}
+> A merge upstream doesn't mean "bug free", it means "significantly
+> better than no driver at all" and that is undoubtedly the case
+> here.
 
-In avoiding the age initialization at routing cache insertion time,
-you make the value provided totally inaccurate and essentially
-useless especially the very first time the value is asked for.
+Well I am happy rt2x00 is being considered good enough for upstream already,
+but I have the habbit of wanting things bug-free before pushing it further upstream.
 
-I really don't like these changes, they have had problems every step
-of the way, and the above proves that we could essentially always
-return an age value of zero and still be compliant with the standards.
+Well most users are happy with current rt2x00 version anyway,
+so the remaining issues probably aren't that big anyway. (Except for the 2 panics,
+which should be resolved soon anyway) ;)
+
+Ivo
