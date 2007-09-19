@@ -1,52 +1,63 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: [ofa-general] Re: [PATCH 1/2] IPoIB: Fix unregister_netdev hang
-Date: Tue, 18 Sep 2007 20:30:36 -0700
-Message-ID: <adak5qnjpr7.fsf@cisco.com>
-References: <OF402F2662.AACCDAF2-ON6525735B.00108C17-6525735B.0012AB74@in.ibm.com>
+From: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+Subject: [RESEND][PATCH 0/4 Rev-3] Age Entry For IPv4 & IPv6 Route Table
+Date: Wed, 19 Sep 2007 09:23:18 +0530
+Message-ID: <20070919092318.949372eb.varunc@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, general@lists.openfabrics.org
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <OF402F2662.AACCDAF2-ON6525735B.00108C17-6525735B.0012AB74@in.ibm.com>
-	(Krishna Kumar2's message of "Wed, 19 Sep 2007 08:53:55 +0530")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net, socketcan@hartkopp.net,
+	shemminger@linux-foundation.org, krkumar2@in.ibm.com,
+	tgraf@suug.ch, varuncha@in.ibm.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e36.co.us.ibm.com ([32.97.110.154]:39624 "EHLO
+	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750839AbXISDwa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Sep 2007 23:52:30 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e36.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8J3q90L002649
+	for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 23:52:09 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8J3q9Gx449540
+	for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 21:52:09 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8J3q8We006113
+	for <netdev@vger.kernel.org>; Tue, 18 Sep 2007 21:52:09 -0600
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > > and I think that is only in Dave's net-2.6.24 tree now, right?
- > 
- > Nope, that was what I downloaded yesterday:
- > 
- > VERSION = 2
- > PATCHLEVEL = 6
- > SUBLEVEL = 23
- > EXTRAVERSION =-rc6
- > NAME = Pink Farting Weasel
+Hi Dave,
+	Iam resending the patch set again. Let me know if you need anything else.
 
-Please double check your tree.  I just very carefully looked at my
-trees, and the poll_more: label is added in commit 6b460a71 ("[NET]:
-Make NAPI polling independent of struct net_device objects.") which is
-only in the net-2.6.24 tree.  Of course Dave did not change the
-version information in the Makefile since he wouldn't want Linus to
-pick up any extra strange changes when he pulls, so a net-2.6.24 tree
-will look like 2.6.23-rc6 as you quoted.
+Regards,
+Varun
 
-And the refcounting bug I fixed is only in net-2.6.24.
+Original Comment:
+According to the RFC 4292 (IP Forwarding Table MIB) there is a need for an age entry for all the routes in therouting table. The entry in the RFC is inetCidrRouteAge and oid is inetCidrRouteAge.1.10.
+Many snmp application require this age entry. So iam adding the age field in the routing table for ipv4 and ipv6 and providing the interface for this value netlink.
 
- > To be clear, netif_rx_schedule while we are still in the poll list will not
- > do any harm as it does nothing since NAPI_STATE_SCHED is still set (cleared
- > by netif_rx_complete which has not yet run). Effectively we lost/delayed
- > processing an interrupt, if I understood the code right.
+I made a note of changes i made as per the suggestions given in the community. Here is the changelog.
 
-Right, we lose an interrupt, and since the CQ events are one-shot, we
-never get another one, and the interface is effectively dead.
+Changelog since ver 1:
+---------------------
+        Changes							Suggestion	
+ 
+1)Change in the interface from proc to netlink.
+  It was not approved by David Miller and Yoshifuji.            David Miller & Yoshifuji
 
- - R.
+2)Change from jiffies to timeval.				Eric Dumazet
+
+3)Rounding up timeval						Patrick McHardy, Oliver Hartkopp
+								Eric Dumazet.
+
+4)Relocate timeval_to_sec					Stephen Hemminger, Krishna Kumar
+
+5)Using macro RT6_GET_ROUTE_INFO				Krishna Kumar
+
+6)Add proper comment for timeval_to_sec				Eric Dumazet
+
+7)Add proper comment for timeval insertion			Thomas Graf				  
+
+Signed-off-by: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+---
+
