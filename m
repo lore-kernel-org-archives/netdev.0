@@ -1,67 +1,48 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [ofa-general] [PATCH] RDMA/CMA: Implement rdma_resolve_ip retry
-	enhancement.
-Date: Wed, 19 Sep 2007 08:43:50 -0700
-Message-ID: <adabqbyk6dl.fsf@cisco.com>
-References: <200709190022.l8J0MbWt024754@neteffect.com>
+From: Bryan Wu <bryan.wu-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 4/4] Blackfin EMAC driver: add a select
+	for the PHYLIB of this driver
+Date: Wed, 19 Sep 2007 23:37:41 +0800
+Message-ID: <1190216261.15707.31.camel@roc-laptop>
+Reply-To: bryan.wu-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
-To: ggrundstrom@neteffect.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <200709190022.l8J0MbWt024754@neteffect.com>
-	(ggrundstrom@neteffect.com's message of "Tue,
-	18 Sep 2007 19:22:37 -0500")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
+        Robin Getz <robin.getz-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
+Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+List-Unsubscribe: <http://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
+List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
+List-Subscribe: <http://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
+Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Thanks for the patch...
 
- > If an application is calling rdma_resolve_ip() and a status of -ENODATA is returned from addr_resolve_local/remote(), the timeout mechanism waits until the application's timeout occurs before rechecking the address resolution status; the application will wait until it's full timeout occurs.  This case is seen when the work thread call to process_req() is made before the arp packet is processed.
+Since we are adding requirement for the PHYLIB for this driver, there should be a select for that
 
-I'm having a hard time understanding this changelog.  Could you please
-resend with a description that lets me understand:
+Cc: Robin Getz <robin.getz-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Bryan Wu <bryan.wu-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
+---
+ drivers/net/Kconfig |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
- - What the current behavior is and what is wrong with that;
- - What the behavior should be;
- - And how your patch changes the behavior to be correct.
-
- > This patch is in addition to Steve Wise's neigh_event_send patch to initiate neighbour discovery sent on 9/12/2007.
-
-Does this mean it depends on Steve's patch being applied first?
-
-Also please try to keep lines in the changelog to 72 characters or so...
-
- > @@ -136,6 +137,7 @@ static void set_timeout(unsigned long ti
- >  static void queue_req(struct addr_req *req)
- >  {
- >  	struct addr_req *temp_req;
- > +	unsigned long req_timeout = msecs_to_jiffies(MIN_ADDR_TIMEOUT_MS) + jiffies;
- >  
- >  	mutex_lock(&lock);
- >  	list_for_each_entry_reverse(temp_req, &req_list, list) {
- > @@ -145,8 +147,10 @@ static void queue_req(struct addr_req *r
- >  
- >  	list_add(&req->list, &temp_req->list);
- >  
- > -	if (req_list.next == &req->list)
- > +	if (req_list.next == &req->list) {
- > +		req_timeout = min(req_timeout, req->timeout);
- >  		set_timeout(req->timeout);
- > +	}
- >  	mutex_unlock(&lock);
- >  }
-
-I don't understand this code.  It seems you keep track of the minimum
-timeout, and then ignore the value you computed.  What am I missing?
-
-Thanks,
-  Roland
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index fd284a9..ebba92d 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -838,6 +838,8 @@ config BFIN_MAC
+ 	tristate "Blackfin 536/537 on-chip mac support"
+ 	depends on NET_ETHERNET && (BF537 || BF536) && (!BF537_PORT_H)
+ 	select CRC32
++	select MII
++	select PHYLIB
+ 	select BFIN_MAC_USE_L1 if DMA_UNCACHED_NONE
+ 	help
+ 	  This is the driver for blackfin on-chip mac device. Say Y if you want it
+-- 
+1.5.2
