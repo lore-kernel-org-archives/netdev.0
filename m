@@ -1,54 +1,66 @@
-From: "Glenn Grundstrom" <ggrundstrom@NetEffect.com>
-Subject: RE: [ofa-general] [PATCH] RDMA/CMA: Implement rdma_resolve_ip retry
-	enhancement.
-Date: Wed, 19 Sep 2007 18:45:28 -0500
-Message-ID: <5E701717F2B2ED4EA60F87C8AA57B7CC076E400D@venom2>
-References: <200709190022.l8J0MbWt024754@neteffect.com>
-	<46F153C4.2070008@ichips.intel.com>
+From: Nagendra Tomar <tomer_iisc@yahoo.com>
+Subject: Re: [PATCH 2.6.23-rc6 Resending] NETWORKING : Edge Triggered EPOLLOUT events get missed for TCP sockets
+Date: Wed, 19 Sep 2007 16:50:17 -0700 (PDT)
+Message-ID: <331107.71046.qm@web53704.mail.re2.yahoo.com>
+References: <Pine.LNX.4.64.0709191552171.2989@alien.or.mcafeemobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, rdreier@cisco.com, general@lists.openfabrics.org
-To: "Sean Hefty" <mshefty@ichips.intel.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <46F153C4.2070008@ichips.intel.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: tomer_iisc@yahoo.com, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Davide Libenzi <davidel@xmailserver.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from web53704.mail.re2.yahoo.com ([206.190.37.25]:36624 "HELO
+	web53704.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751042AbXISXuS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 19:50:18 -0400
+In-Reply-To: <Pine.LNX.4.64.0709191552171.2989@alien.or.mcafeemobile.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > If an application is calling rdma_resolve_ip() and a status=20
-> of -ENODATA is returned from addr_resolve_local/remote(), the=20
-> timeout mechanism waits until the application's timeout=20
-> occurs before rechecking the address resolution status; the=20
-> application will wait until it's full timeout occurs.  This=20
-> case is seen when the work thread call to process_req() is=20
-> made before the arp packet is processed.
->=20
-> I don't understand the issue.  process_req() is invoked whenever a=20
-> network event occurs, which rechecks all pending requests.
 
-Yes, I see the netevent_callback().  I now agree that this patch is not
-necessary.
+--- Davide Libenzi <davidel@xmailserver.org> wrote:
 
-Roland, please disregard.
+> On Wed, 19 Sep 2007, David Miller wrote:
+> 
+> > From: Nagendra Tomar <tomer_iisc@yahoo.com>
+> > Date: Wed, 19 Sep 2007 15:37:09 -0700 (PDT)
+> > 
+> > > With the SOCK_NOSPACE check in tcp_check_space(), this epoll_wait call will 
+> > > not return, even when the incoming acks free the buffers.
+> > >         Note that this patch assumes that the SOCK_NOSPACE check in
+> > > tcp_check_space is a trivial optimization which can be safely removed.
+> > 
+> > I already replied to your patch posting explaining that whatever is
+> > not setting SOCK_NOSPACE should be fixed instead.
+> > 
+> > Please address that, thanks.
+> 
+> You're not planning of putting the notion of a SOCK_NOSPACE bit inside a 
+> completely device-unaware interface like epoll, I hope?
+> 
 
-Glenn.
-=20
->=20
-> > This patch is in addition to Steve Wise's neigh_event_send=20
-> patch to initiate neighbour discovery sent on 9/12/2007.
->=20
-> This patch looks unrelated to Steve's patch.  Can you clarify the=20
-> relationship?
->=20
-> - Sean
->=20
+Definitely not ! 
+
+The point is that the "tcp write space available" 
+wakeup does not get called if SOCK_NOSPACE bit is not set. This was
+fine when the wakeup was merely a wakeup (since SOCK_NOSPACE bit 
+indicated that someone really cared abt the wakeup). Now after the
+introduction of callback'ed wakeups, we might have some work to
+do inside the callback even if there is nobody interested in the wakeup
+at that point of time. 
+
+In this particular case the ep_poll_callback is not getting called and
+hence the socket fd is not getting added to the ready list.
+
+Thanx,
+Tomar
+
+
+
+
+      ___________________________________________________________
+Yahoo! Answers - Got a question? Someone out there knows the answer. Try it
+now.
+http://uk.answers.yahoo.com/
