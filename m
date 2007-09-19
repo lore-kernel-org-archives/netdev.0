@@ -1,46 +1,49 @@
-From: Andi Kleen <andi@firstfloor.org>
+From: Ulrich Drepper <drepper@redhat.com>
 Subject: Re: follow-up: discrepancy with POSIX
-Date: Wed, 19 Sep 2007 19:26:53 +0200
-Message-ID: <20070919172653.GB18045@one.firstfloor.org>
-References: <46F13E8B.4050309@redhat.com> <p73sl5aveqh.fsf@bingen.suse.de> <46F15305.2030507@redhat.com>
+Date: Wed, 19 Sep 2007 10:27:10 -0700
+Message-ID: <46F15BEE.2050701@redhat.com>
+References: <46F13E8B.4050309@redhat.com>	<p73sl5aveqh.fsf@bingen.suse.de>	<46F15305.2030507@redhat.com> <20070919.095251.45154496.davem@davemloft.net> <46F156A7.5000304@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, netdev <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>
-To: Ulrich Drepper <drepper@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:55131 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751074AbXISR0y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 13:26:54 -0400
-Content-Disposition: inline
-In-Reply-To: <46F15305.2030507@redhat.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758341AbXISR1f@vger.kernel.org>
+In-Reply-To: <46F156A7.5000304@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 19, 2007 at 09:49:09AM -0700, Ulrich Drepper wrote:
-> -----BEGIN PGP SIGNED MESSAGE-----
-> Hash: SHA1
-> 
-> Andi Kleen wrote:
-> > The standard way to undo connect is to use AF_UNSPEC. Code to handle
-> > that for dgram sockets is there. It's the same code for v4 and v6.
-> 
-> I quoted the standard and it does not say anything about AF_UNSPEC.  So
-> you cannot simply make such broad statements.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Ok "standard" was perhaps a poor choice of words.
+Ulrich Drepper wrote:
+> Yes, but for IPv4/6 it's not an issue.  Some implementations might
+> handle all-zeros and the spec _currently_ calls for it.  In this case=
+ an
+> alignment would be good.
 
-AF_UNSPEC used to be introduced long ago by Alan based on some early 
-POSIX draft iirc.
+Searching the web shows up this:
 
-Also incidentially it's a null address:
+http://developer.apple.com/documentation/Darwin/Reference/ManPages/man2=
+/connect.2.html
 
-include/linux/socket.h:#define AF_UNSPEC        0
 
-> But the spec calls for a "null address" to be used and that's in my
-> understanding something different from using AF_UNSPEC.
+  Datagram sockets may dissolve the association by connecting to an
+  invalid address, such as a null address or an address with the addres=
+s
+  family set to AF_UNSPEC (the error EAFNOSUPPORT will be harmlessly
+  returned).
 
-memset(&sockaddr, 0, sizeof(sockaddr)) should give you AF_UNSPEC
 
--Andi
+I.e., at least Apple implements both variants.
+
+- --
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro S=
+t =E2=9E=A7 Mountain View, CA =E2=9D=96
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7 (GNU/Linux)
+
+iD8DBQFG8Vvu2ijCOnn/RHQRAsSfAJkBELtiNyul8wMOjVv1x7LfvDWw/ACfR0D0
+cm+k1wfhCsT4GjbF3uac+eY=3D
+=3DnksN
+-----END PGP SIGNATURE-----
