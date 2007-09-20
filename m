@@ -1,339 +1,64 @@
-From: Moni Shoua <monis@voltaire.com>
-Subject: [PATCH 11/11] bonding: Optionally allow ethernet slaves to keep own
- MAC
-Date: Thu, 20 Sep 2007 16:07:22 +0200
-Message-ID: <46F27E9A.2010108@voltaire.com>
-References: <46F27692.3070404@voltaire.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: Please pull 'z1211' branch of wireless-2.6
+Date: Thu, 20 Sep 2007 09:47:30 -0400
+Message-ID: <20070920134730.GC6748@tuxdriver.com>
+References: <20070919181005.GB5483@tuxdriver.com> <46F19DD0.2050605@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: OpenFabrics General <general@lists.openfabrics.org>,
-	netdev@vger.kernel.org
-To: Roland Dreier <rdreier@cisco.com>, Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:26171 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754896AbXITOHZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Sep 2007 10:07:25 -0400
-In-Reply-To: <46F27692.3070404@voltaire.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
+To: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <46F19DD0.2050605-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Update the "don't change MAC of slaves" functionality added in
-previous changes to be a generic option, rather than something tied to IB
-devices, as it's occasionally useful for regular ethernet devices as well.
+On Wed, Sep 19, 2007 at 11:08:16PM +0100, Daniel Drake wrote:
 
-	Adds "fail_over_mac" option (which is automatically enabled for IB
-slaves), applicable only to active-backup mode.
+> I would like to this until 2.6.25 until I have had time to clear up some 
+> final issues and do more testing myself of zd1211rw-mac80211. I also 
+> think we need to discuss the rename...
 
-	Includes documentation update.
+Renames being what they are, I was hoping to avoid a "bikeshed"
+discussion about the choice of names.  My main point was to get it
+into the tree with a unique and manageable name.  I'm sure we could
+still rename it again before 2.6.24 ships or even later.
 
-	Updates bonding driver version to 3.2.0.
+I know that you will argue that a rename is unnecessary if we
+simply port the existing driver to mac80211, which is certainly true.
+I just wonder if that is the least bumpy solution for users.  At least
+with a new driver, if something doesn't work then the old driver is
+still there as a fallback.  Plus you can avoid some confusion with
+old howtos and such on the web referring to an old driver instead
+of the new one, etc.  Maybe that isn't a huge issue in this case,
+but I wouldn't underestimate the possible confusion.
 
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
----
- Documentation/networking/bonding.txt |   33 +++++++++++++++++++
- drivers/net/bonding/bond_main.c      |   57 +++++++++++++++++++++------------
- drivers/net/bonding/bond_sysfs.c     |   49 +++++++++++++++++++++++++++++
- drivers/net/bonding/bonding.h        |    6 ++--
- 4 files changed, 121 insertions(+), 24 deletions(-)
+> (just to clarify to others: this is the first I heard of this merge 
+> before John posted it).
 
-diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
-index 1da5666..1134062 100644
---- a/Documentation/networking/bonding.txt
-+++ b/Documentation/networking/bonding.txt
-@@ -281,6 +281,39 @@ downdelay
- 	will be rounded down to the nearest multiple.  The default
- 	value is 0.
- 
-+fail_over_mac
-+
-+	Specifies whether active-backup mode should set all slaves to
-+	the same MAC address (the traditional behavior), or, when
-+	enabled, change the bond's MAC address when changing the
-+	active interface (i.e., fail over the MAC address itself).
-+
-+	Fail over MAC is useful for devices that cannot ever alter
-+	their MAC address, or for devices that refuse incoming
-+	broadcasts with their own source MAC (which interferes with
-+	the ARP monitor).
-+
-+	The down side of fail over MAC is that every device on the
-+	network must be updated via gratuitous ARP, vs. just updating
-+	a switch or set of switches (which often takes place for any
-+	traffic, not just ARP traffic, if the switch snoops incoming
-+	traffic to update its tables) for the traditional method.  If
-+	the gratuitous ARP is lost, communication may be disrupted.
-+
-+	When fail over MAC is used in conjuction with the mii monitor,
-+	devices which assert link up prior to being able to actually
-+	transmit and receive are particularly susecptible to loss of
-+	the gratuitous ARP, and an appropriate updelay setting may be
-+	required.
-+
-+	A value of 0 disables fail over MAC, and is the default.  A
-+	value of 1 enables fail over MAC.  This option is enabled
-+	automatically if the first slave added cannot change its MAC
-+	address.  This option may be modified via sysfs only when no
-+	slaves are present in the bond.
-+
-+	This option was added in bonding version 3.2.0.
-+
- lacp_rate
- 
- 	Option specifying the rate in which we'll ask our link partner
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 77caca3..c01ff9d 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -97,6 +97,7 @@ static char *xmit_hash_policy = NULL;
- static int arp_interval = BOND_LINK_ARP_INTERV;
- static char *arp_ip_target[BOND_MAX_ARP_TARGETS] = { NULL, };
- static char *arp_validate = NULL;
-+static int fail_over_mac = 0;
- struct bond_params bonding_defaults;
- 
- module_param(max_bonds, int, 0);
-@@ -130,6 +131,8 @@ module_param_array(arp_ip_target, charp, NULL, 0);
- MODULE_PARM_DESC(arp_ip_target, "arp targets in n.n.n.n form");
- module_param(arp_validate, charp, 0);
- MODULE_PARM_DESC(arp_validate, "validate src/dst of ARP probes: none (default), active, backup or all");
-+module_param(fail_over_mac, int, 0);
-+MODULE_PARM_DESC(fail_over_mac, "For active-backup, do not set all slaves to the same MAC.  0 of off (default), 1 for on.");
- 
- /*----------------------------- Global variables ----------------------------*/
- 
-@@ -1099,7 +1102,7 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
- 		/* when bonding does not set the slave MAC address, the bond MAC
- 		 * address is the one of the active slave.
- 		 */
--		if (new_active && !bond->do_set_mac_addr)
-+		if (new_active && bond->params.fail_over_mac)
- 			memcpy(bond->dev->dev_addr,  new_active->dev->dev_addr,
- 				new_active->dev->addr_len);
- 		if (bond->curr_active_slave &&
-@@ -1371,16 +1374,16 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	if (slave_dev->set_mac_address == NULL) {
- 		if (bond->slave_cnt == 0) {
- 			printk(KERN_WARNING DRV_NAME
--				": %s: Warning: The first slave device you "
--				"specified does not support setting the MAC "
--				"address. This bond MAC address would be that "
--				"of the active slave.\n", bond_dev->name);
--			bond->do_set_mac_addr = 0;
--		} else if (bond->do_set_mac_addr) {
-+			       ": %s: Warning: The first slave device "
-+			       "specified does not support setting the MAC "
-+			       "address. Enabling the fail_over_mac option.",
-+			       bond_dev->name);
-+			bond->params.fail_over_mac = 1;
-+		} else if (!bond->params.fail_over_mac) {
- 			printk(KERN_ERR DRV_NAME
--				": %s: Error: The slave device you specified "
--				"does not support setting the MAC addres,."
--				"but this bond uses this practice. \n"
-+				": %s: Error: The slave device specified "
-+				"does not support setting the MAC address, "
-+				"but fail_over_mac is not enabled.\n"
- 				, bond_dev->name);
- 			res = -EOPNOTSUPP;
- 			goto err_undo_flags;
-@@ -1405,7 +1408,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	 */
- 	memcpy(new_slave->perm_hwaddr, slave_dev->dev_addr, ETH_ALEN);
- 
--	if (bond->do_set_mac_addr) {
-+	if (!bond->params.fail_over_mac) {
- 		/*
- 		 * Set slave to master's mac address.  The application already
- 		 * set the master's mac address to that of the first slave
-@@ -1641,7 +1644,7 @@ err_close:
- 	dev_close(slave_dev);
- 
- err_restore_mac:
--	if (bond->do_set_mac_addr) {
-+	if (!bond->params.fail_over_mac) {
- 		memcpy(addr.sa_data, new_slave->perm_hwaddr, ETH_ALEN);
- 		addr.sa_family = slave_dev->type;
- 		dev_set_mac_address(slave_dev, &addr);
-@@ -1823,7 +1826,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- 	/* close slave before restoring its mac address */
- 	dev_close(slave_dev);
- 
--	if (bond->do_set_mac_addr) {
-+	if (!bond->params.fail_over_mac) {
- 		/* restore original ("permanent") mac address */
- 		memcpy(addr.sa_data, slave->perm_hwaddr, ETH_ALEN);
- 		addr.sa_family = slave_dev->type;
-@@ -1944,7 +1947,7 @@ static int bond_release_all(struct net_device *bond_dev)
- 		/* close slave before restoring its mac address */
- 		dev_close(slave_dev);
- 
--		if (bond->do_set_mac_addr) {
-+		if (!bond->params.fail_over_mac) {
- 			/* restore original ("permanent") mac address*/
- 			memcpy(addr.sa_data, slave->perm_hwaddr, ETH_ALEN);
- 			addr.sa_family = slave_dev->type;
-@@ -3066,9 +3069,15 @@ static void bond_info_show_master(struct seq_file *seq)
- 	curr = bond->curr_active_slave;
- 	read_unlock(&bond->curr_slave_lock);
- 
--	seq_printf(seq, "Bonding Mode: %s\n",
-+	seq_printf(seq, "Bonding Mode: %s",
- 		   bond_mode_name(bond->params.mode));
- 
-+	if (bond->params.mode == BOND_MODE_ACTIVEBACKUP &&
-+	    bond->params.fail_over_mac)
-+		seq_printf(seq, " (fail_over_mac)");
-+
-+	seq_printf(seq, "\n");
-+
- 	if (bond->params.mode == BOND_MODE_XOR ||
- 		bond->params.mode == BOND_MODE_8023AD) {
- 		seq_printf(seq, "Transmit Hash Policy: %s (%d)\n",
-@@ -4008,8 +4017,12 @@ static int bond_set_mac_address(struct net_device *bond_dev, void *addr)
- 
- 	dprintk("bond=%p, name=%s\n", bond, (bond_dev ? bond_dev->name : "None"));
- 
--	if (!bond->do_set_mac_addr)
--		return -EOPNOTSUPP;
-+	/*
-+	 * If fail_over_mac is enabled, do nothing and return success.
-+	 * Returning an error causes ifenslave to fail.
-+	 */
-+	if (bond->params.fail_over_mac)
-+		return 0;
- 
- 	if (!is_valid_ether_addr(sa->sa_data)) {
- 		return -EADDRNOTAVAIL;
-@@ -4402,10 +4415,6 @@ static int bond_init(struct net_device *bond_dev, struct bond_params *params)
- #ifdef CONFIG_PROC_FS
- 	bond_create_proc_entry(bond);
- #endif
--
--	/* set do_set_mac_addr to true on startup */
--	bond->do_set_mac_addr = 1;
--
- 	list_add_tail(&bond->bond_list, &bond_dev_list);
- 
- 	return 0;
-@@ -4739,6 +4748,11 @@ static int bond_check_params(struct bond_params *params)
- 		primary = NULL;
- 	}
- 
-+	if (fail_over_mac && (bond_mode != BOND_MODE_ACTIVEBACKUP))
-+		printk(KERN_WARNING DRV_NAME
-+		       ": Warning: fail_over_mac only affects "
-+		       "active-backup mode.\n");
-+
- 	/* fill params struct with the proper values */
- 	params->mode = bond_mode;
- 	params->xmit_policy = xmit_hashtype;
-@@ -4750,6 +4764,7 @@ static int bond_check_params(struct bond_params *params)
- 	params->use_carrier = use_carrier;
- 	params->lacp_fast = lacp_fast;
- 	params->primary[0] = 0;
-+	params->fail_over_mac = fail_over_mac;
- 
- 	if (primary) {
- 		strncpy(params->primary, primary, IFNAMSIZ);
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 71db5d9..a907b68 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -567,6 +567,54 @@ static ssize_t bonding_store_arp_validate(struct device *d,
- static DEVICE_ATTR(arp_validate, S_IRUGO | S_IWUSR, bonding_show_arp_validate, bonding_store_arp_validate);
- 
- /*
-+ * Show and store fail_over_mac.  User only allowed to change the
-+ * value when there are no slaves.
-+ */
-+static ssize_t bonding_show_fail_over_mac(struct device *d, struct device_attribute *attr, char *buf)
-+{
-+	struct bonding *bond = to_bond(d);
-+
-+	return sprintf(buf, "%d\n", bond->params.fail_over_mac) + 1;
-+}
-+
-+static ssize_t bonding_store_fail_over_mac(struct device *d, struct device_attribute *attr, const char *buf, size_t count)
-+{
-+	int new_value;
-+	int ret = count;
-+	struct bonding *bond = to_bond(d);
-+
-+	if (bond->slave_cnt != 0) {
-+		printk(KERN_ERR DRV_NAME
-+		       ": %s: Can't alter fail_over_mac with slaves in bond.\n",
-+		       bond->dev->name);
-+		ret = -EPERM;
-+		goto out;
-+	}
-+
-+	if (sscanf(buf, "%d", &new_value) != 1) {
-+		printk(KERN_ERR DRV_NAME
-+		       ": %s: no fail_over_mac value specified.\n",
-+		       bond->dev->name);
-+		ret = -EINVAL;
-+		goto out;
-+	}
-+
-+	if ((new_value == 0) || (new_value == 1)) {
-+		bond->params.fail_over_mac = new_value;
-+		printk(KERN_INFO DRV_NAME ": %s: Setting fail_over_mac to %d.\n",
-+		       bond->dev->name, new_value);
-+	} else {
-+		printk(KERN_INFO DRV_NAME
-+		       ": %s: Ignoring invalid fail_over_mac value %d.\n",
-+		       bond->dev->name, new_value);
-+	}
-+out:
-+	return ret;
-+}
-+
-+static DEVICE_ATTR(fail_over_mac, S_IRUGO | S_IWUSR, bonding_show_fail_over_mac, bonding_store_fail_over_mac);
-+
-+/*
-  * Show and set the arp timer interval.  There are two tricky bits
-  * here.  First, if ARP monitoring is activated, then we must disable
-  * MII monitoring.  Second, if the ARP timer isn't running, we must
-@@ -1390,6 +1438,7 @@ static DEVICE_ATTR(ad_partner_mac, S_IRUGO, bonding_show_ad_partner_mac, NULL);
- static struct attribute *per_bond_attrs[] = {
- 	&dev_attr_slaves.attr,
- 	&dev_attr_mode.attr,
-+	&dev_attr_fail_over_mac.attr,
- 	&dev_attr_arp_validate.attr,
- 	&dev_attr_arp_interval.attr,
- 	&dev_attr_arp_ip_target.attr,
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index ed0f587..9d6153e 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -22,8 +22,8 @@
- #include "bond_3ad.h"
- #include "bond_alb.h"
- 
--#define DRV_VERSION	"3.1.3"
--#define DRV_RELDATE	"June 13, 2007"
-+#define DRV_VERSION	"3.2.0"
-+#define DRV_RELDATE	"September 13, 2007"
- #define DRV_NAME	"bonding"
- #define DRV_DESCRIPTION	"Ethernet Channel Bonding Driver"
- 
-@@ -128,6 +128,7 @@ struct bond_params {
- 	int arp_interval;
- 	int arp_validate;
- 	int use_carrier;
-+	int fail_over_mac;
- 	int updelay;
- 	int downdelay;
- 	int lacp_fast;
-@@ -186,7 +187,6 @@ struct bonding {
- 	struct   timer_list mii_timer;
- 	struct   timer_list arp_timer;
- 	s8       kill_timers;
--	s8       do_set_mac_addr;
- 	s8	 send_grat_arp;
- 	s8	 setup_by_slave;
- 	struct   net_device_stats stats;
--- 1.5.2-rc2.GIT 
+Yes, sorry...permission, forgiveness...forgive? :-)
 
+> John, thanks a lot for your efforts, I hope you don't mind waiting one 
+> extra release cycle for me to sort a few things out.
+
+Well, obviously I would like to get it out now.  The longer we are
+without a mac80211-based driver for zd1211 hardware then the longer
+we must maintain the softmac component (or at least take bug reports
+for it).
+
+If you are determined not to have it in 2.6.24 then I will relent.
+I will also suggest that Larry start sending any softmac bugs to
+you... :-)
+
+If we will be having a port rather than a new driver, how soon after
+2.6.24-rc1 closes can we queue the port for 2.6.25?  I think it
+should be almost immediately, to ensure maximum test exposure and to
+"seal the deal".  What do you think?
+
+Thanks,
+
+John
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
