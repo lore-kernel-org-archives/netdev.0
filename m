@@ -1,55 +1,57 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [PATCH] sb1250-mac.c: De-typedef, de-volatile, de-etc...
-Date: Thu, 20 Sep 2007 15:23:03 +0100 (BST)
-Message-ID: <Pine.LNX.4.64N.0709201354320.30788@blysk.ds.pg.gda.pl>
-References: <Pine.LNX.4.64N.0709101310030.25038@blysk.ds.pg.gda.pl>
- <46E8B56E.7060705@pobox.com> <Pine.LNX.4.64N.0709131506040.31069@blysk.ds.pg.gda.pl>
- <20070913151452.GB29665@linux-mips.org> <46E95C7F.1050302@pobox.com>
- <Pine.LNX.4.64N.0709141135290.1926@blysk.ds.pg.gda.pl> <46F1F2CE.7020300@pobox.com>
+From: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Subject: Re: Please pull 'z1211' branch of wireless-2.6
+Date: Thu, 20 Sep 2007 15:28:04 +0100
+Message-ID: <46F28374.9040106@gentoo.org>
+References: <20070919181005.GB5483@tuxdriver.com> <46F19DD0.2050605@gentoo.org> <20070920134730.GC6748@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ralf Baechle <ralf@linux-mips.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-mips@linux-mips.org,
-	linux-kernel@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cerber.ds.pg.gda.pl ([153.19.208.18]:45187 "EHLO
-	cerber.ds.pg.gda.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750820AbXITOXP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 10:23:15 -0400
-In-Reply-To: <46F1F2CE.7020300@pobox.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070920134730.GC6748-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 20 Sep 2007, Jeff Garzik wrote:
+John W. Linville wrote:
+> I know that you will argue that a rename is unnecessary if we
+> simply port the existing driver to mac80211, which is certainly true.
+> I just wonder if that is the least bumpy solution for users.  At least
+> with a new driver, if something doesn't work then the old driver is
+> still there as a fallback.  Plus you can avoid some confusion with
+> old howtos and such on the web referring to an old driver instead
+> of the new one, etc.  Maybe that isn't a huge issue in this case,
+> but I wouldn't underestimate the possible confusion.
 
-> > You may be pleased (or less so) to hear that the version of sb1250-mac.c in
-> > your tree does not even build (because of
-> > 42d53d6be113f974d8152979c88e1061b953bd12) and the patch below does not
-> > address it.  I ran out of time in the evening, but I will send you a fix
-> > shortly.  To be honest I think even with bulk changes it may be worth
-> > checking whether they do not break stuff. ;-)
+Maybe I'll provide a one-off externally building driver for 2.6.25 or 
+something like that, just as a basis for comparison. I think biting the 
+bullet and simply attacking the issues that come up is the best way.
+
+Old documentation will still be relevant for the mac80211 driver, 
+especially if we don't change the driver/config names -- offhand I can't 
+think of any obvious differences between the user interface to the 2 
+drivers.
+
+>> (just to clarify to others: this is the first I heard of this merge 
+>> before John posted it).
 > 
-> hrm.  I cannot get this to apply on top of linux-2.6.git,
-> netdev-2.6.git#upstream (prior to net-2.6.24 rebase) or
-> netdev-2.6.git#upstream (after net-2.6.24 rebase)
+> Yes, sorry...permission, forgiveness...forgive? :-)
 
- It applies on top of current -mm.  It seems to apply to a copy of 
-netdev-2.6.git#upstream that I have got, but I am probably missing 
-something...  If I try to clone your repository again I get:
+Of course :)
 
-$ git clone git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/linux-netdev-2.6.git linux
-Initialized empty Git repository in /home/macro/GIT-other/linux-netdev/linux/.git/
-fatal: The remote end hung up unexpectedly
-fetch-pack from 'git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/linux-netdev-2.6.git' failed.
-$
+> If you are determined not to have it in 2.6.24 then I will relent.
+> I will also suggest that Larry start sending any softmac bugs to
+> you... :-)
 
-For linux-2.6.git the patch-mips-2.6.23-rc5-20070904-sb1250-mac-typedef-7 
-version applies as submitted originally; I can resubmit this one if you 
-like.
+That's fine.
 
- I am slowly getting lost and I have another big chunk for sb1250-mac.c 
-waiting to be put on top of these...
+> If we will be having a port rather than a new driver, how soon after
+> 2.6.24-rc1 closes can we queue the port for 2.6.25?  I think it
+> should be almost immediately, to ensure maximum test exposure and to
+> "seal the deal".  What do you think?
 
-  Maciej
+I think that's realistic, I'll do what I can.
+
+Thanks,
+Daniel
