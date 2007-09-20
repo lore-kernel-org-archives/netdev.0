@@ -1,60 +1,76 @@
-From: Nagendra Tomar <tomer_iisc@yahoo.com>
-Subject: Re: [PATCH 2.6.23-rc6 Resending] NETWORKING : Edge Triggered EPOLLOUT events get missed for TCP sockets
-Date: Thu, 20 Sep 2007 15:09:23 -0700 (PDT)
-Message-ID: <120313.72141.qm@web53705.mail.re2.yahoo.com>
-References: <Pine.LNX.4.64.0709201033120.8897@alien.or.mcafeemobile.com>
+From: Sylvain Le Gall <sylvain@le-gall.net>
+Subject: Re: Pull request for 'r8169-for-jeff-20070919' branch
+Date: Fri, 21 Sep 2007 00:16:59 +0200
+Message-ID: <20070920221659.GC32491@yocto.gallu.homelinux.org>
+References: <20070919195606.GA3871@electric-eye.fr.zoreil.com> <46F2D24A.6050200@redhat.com> <20070920204437.GB13512@electric-eye.fr.zoreil.com> <46F2E590.1070704@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Davide Libenzi <davidel@xmailserver.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, David Gundersen <gundy@iinet.net.au>,
+	Edward Hsu <edward_hsu@realtek.com.tw>, Roel.Teuwen@advalvas.be
+To: Chuck Ebbert <cebbert@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web53705.mail.re2.yahoo.com ([206.190.37.26]:28167 "HELO
-	web53705.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750987AbXITWJY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 18:09:24 -0400
-In-Reply-To: <Pine.LNX.4.64.0709201033120.8897@alien.or.mcafeemobile.com>
+Received: from smtp27.orange.fr ([80.12.242.94]:45403 "EHLO smtp27.orange.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752316AbXITWRF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2007 18:17:05 -0400
+Received: from me-wanadoo.net (localhost [127.0.0.1])
+	by mwinf2701.orange.fr (SMTP Server) with ESMTP id 4D3441C00098
+	for <netdev@vger.kernel.org>; Fri, 21 Sep 2007 00:17:01 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <46F2E590.1070704@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello,
 
---- Davide Libenzi <davidel@xmailserver.org> wrote:
-
-> Looking back at it, I think the current TCP code is right, once you look 
-> at the "event" to be a output buffer full->with_space transition.
-> If you drop an fd inside epoll with EPOLLOUT|EPOLLET and you get an event 
-> (free space on the output buffer), if you do not consume it (say a 
-> tcp_sendmsg that re-fill the buffer), you can't see other OUT event 
-> anymore since they happen on the full->with_space transition.
-> Yes, I know, the read size (EPOLLIN) works differently and you get an 
-> event for every packet you receive. And yes, I do not like asymmetric 
-> things. But that does not make the EPOLLOUT|EPOLLET wrong IMO.
+On Thu, Sep 20, 2007 at 05:26:40PM -0400, Chuck Ebbert wrote:
+> On 09/20/2007 04:44 PM, Francois Romieu wrote:
+> > Chuck Ebbert <cebbert@redhat.com> :
+> > [...]
+> >> People are still reporting hangs with this card in 2.6.22.6, are there
+> >> any fixes appropriate for that?
+> > 
+> > $ grep 2.6.22.6 ~/Mail/linux/bugs/pending
+> > $ grep 2.6.22.6 ~/Mail/romieu
+> > [nothing besides Sylvain's success with 2.6.22.6 + the r8169 test driver]
+> > $ less +/2.6.22.6 ~/Mail/linux/netdev/200709 
+> > [nada]
+> > $ less +/816[89] ~/Mail/linux/kernel/200737
+> > [...]
+> > 
+> > /me scratches head...
+> > 
+> 
+> Looking again, it may not be r8169's fault, but it is involved. It
+> used to hang and could be restarted by pulling the cable and reinserting
+> it, but now it just locks solid:
+> 
+> https://bugzilla.redhat.com/show_bug.cgi?id=252955
+> 
+> Will ask the reporter to test with a different adapter.
 > 
 
-I agree that ET means the event should happen at the transition
-from nospace->space condition, but isn't the other case (event is 
-delivered every time the event actually happens) more usable.
-Also the epoll man page says so
+I permit myself to reply, since i was CCed.
 
-"... Edge Triggered event distribution delivers events only when 
-events happens on the  monitored file."
+I have this kind of error at the beginning. It was quite strange, but
+caused by IRQ problems: 
+* eth0, cdrom (ide1 or something like that), audio controler, usb on the
+  same IRQ
+* from time to time i get very strange behavior:
+** lost CDROM
+** cannot move mouse
+** strange latency on the network (ping to google go from 65ms to 500ms)
+* when i :
+** use USB
+** use audio
 
-This serves the purpose of ET (reducing the number of poll events) and
-at the same time makes userspace coding easier. My userspace code
-has the liberty of deciding when it can write to the socket. f.e. the
-sendfile buffer management example that I quoted in my earlier post
-will be difficult with the current ET|POLLOUT behaviour. I cannot 
-write in full-buffer units. I'll ve to write partial buffers just to 
-fill the TCP writeq which is needed to trigger the event.
+In fact, that was a hidden IRQ conflict... I solve it by upgrading BIOS.
 
-Thanx,
-Tomar
+Kind regards
+Sylvain Le Gall
 
+ps: maybe it has nothing to do with your problem, if so please forgive
+me for the noise
 
-
-      ___________________________________________________________
-Yahoo! Answers - Got a question? Someone out there knows the answer. Try it
-now.
-http://uk.answers.yahoo.com/ 
