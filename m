@@ -1,45 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/1] revert "8139too: clean up I/O remapping"
-Date: Thu, 20 Sep 2007 14:11:21 -0700 (PDT)
-Message-ID: <20070920.141121.83408904.davem@davemloft.net>
-References: <200709202055.l8KKtWn3002075@imap1.linux-foundation.org>
-	<46F2DF03.1060501@garzik.org>
+From: Chuck Ebbert <cebbert@redhat.com>
+Subject: Re: Pull request for 'r8169-for-jeff-20070919' branch
+Date: Thu, 20 Sep 2007 17:26:40 -0400
+Message-ID: <46F2E590.1070704@redhat.com>
+References: <20070919195606.GA3871@electric-eye.fr.zoreil.com> <46F2D24A.6050200@redhat.com> <20070920204437.GB13512@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, michal.k.k.piotrowski@gmail.com,
-	netdev@vger.kernel.org
-To: jeff@garzik.org
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, David Gundersen <gundy@iinet.net.au>,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	Sylvain Le Gall <sylvain@le-gall.net>,
+	Roel.Teuwen@advalvas.be
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47553
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750931AbXITVLV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 17:11:21 -0400
-In-Reply-To: <46F2DF03.1060501@garzik.org>
+Received: from mx1.redhat.com ([66.187.233.31]:56135 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751493AbXITV1c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2007 17:27:32 -0400
+In-Reply-To: <20070920204437.GB13512@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Thu, 20 Sep 2007 16:58:43 -0400
-
-> akpm@linux-foundation.org wrote:
-> > From: Andrew Morton <akpm@linux-foundation.org>
-> > 
-> > Revert git-netdev-all's 9ee6b32a47b9abc565466a9c3b127a5246b452e5.  Michal was
-> > getting oopses.
-> > 
-> > Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-> > Cc: Jeff Garzik <jeff@garzik.org>
-> > Cc: David S. Miller" <davem@davemloft.net>
-> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> > ---
-> > 
-> >  drivers/net/8139too.c |   50 +++++++++++++++++++++++-----------------
-> >  1 file changed, 29 insertions(+), 21 deletions(-)
+On 09/20/2007 04:44 PM, Francois Romieu wrote:
+> Chuck Ebbert <cebbert@redhat.com> :
+> [...]
+>> People are still reporting hangs with this card in 2.6.22.6, are there
+>> any fixes appropriate for that?
 > 
-> ACK -- DaveM, please remove or revert this patch.
+> $ grep 2.6.22.6 ~/Mail/linux/bugs/pending
+> $ grep 2.6.22.6 ~/Mail/romieu
+> [nothing besides Sylvain's success with 2.6.22.6 + the r8169 test driver]
+> $ less +/2.6.22.6 ~/Mail/linux/netdev/200709 
+> [nada]
+> $ less +/816[89] ~/Mail/linux/kernel/200737
+> [...]
 > 
-> It is incomplete, and not required just "nice to have."  I can easily 
-> recreate later.
+> /me scratches head...
+> 
+> The answer is probably "not yet".
+> 
+> Can you refresh my memory with some #BZ or an url ?
+> 
 
-I'll yank this one out next time I rebase.
+Looking again, it may not be r8169's fault, but it is involved. It
+used to hang and could be restarted by pulling the cable and reinserting
+it, but now it just locks solid:
+
+https://bugzilla.redhat.com/show_bug.cgi?id=252955
+
+Will ask the reporter to test with a different adapter.
+
