@@ -1,51 +1,45 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH - net-2.6.24 0/2] Introduce and use print_ip and	print_ipv6
-Date: Thu, 20 Sep 2007 20:46:31 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0709202044090.7669@kivilampi-30.cs.helsinki.fi>
-References: <1190271211.26101.91.camel@localhost>
- <20070920075532.b20fad42.randy.dunlap@oracle.com> <1190301928.26101.102.camel@localhost>
+From: Davide Libenzi <davidel@xmailserver.org>
+Subject: Re: [PATCH 2.6.23-rc6 Resending] NETWORKING : Edge Triggered EPOLLOUT
+ events get missed for TCP sockets
+Date: Thu, 20 Sep 2007 10:56:14 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0709201048290.8897@alien.or.mcafeemobile.com>
+References: <331107.71046.qm@web53704.mail.re2.yahoo.com> <46F20F24.1020900@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Randy Dunlap <randy.dunlap@oracle.com>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:48363 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754471AbXITRqd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 13:46:33 -0400
-In-Reply-To: <1190301928.26101.102.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Nagendra Tomar <tomer_iisc@yahoo.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <dada1@cosmosbay.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759324AbXITR42@vger.kernel.org>
+In-Reply-To: <46F20F24.1020900@cosmosbay.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 20 Sep 2007, Joe Perches wrote:
+On Thu, 20 Sep 2007, Eric Dumazet wrote:
 
-> On Thu, 2007-09-20 at 07:55 -0700, Randy Dunlap wrote:
-> > How large are the patches if you posted them for review instead
-> > of just referencing gits for them?  (which cuts down on review
-> > possibilities)
+> Does it means that with your patch each ACK on a ET managed socket will
+> trigger an epoll event   ?
 > 
-> The v4 is ~130kb, the v6 ~35kb.
->
-> There is a gitweb available at:
+> Maybe your very sensitive high throuput appication needs to set a flag or
+> something at socket level to ask for such a behavior.
 > 
-> print_ip:
-> http://repo.or.cz/w/linux-2.6/trivial-mods.git?a=shortlog;h=print_ipv4
-> commit diff:
-> http://repo.or.cz/w/linux-2.6/trivial-mods.git?a=commitdiff;h=1e3a30d5d8b49b3accca07cc84ecf6d977cacdd5
-> 
-> print_ipv6:
-> http://repo.or.cz/w/linux-2.6/trivial-mods.git?a=shortlog;h=print_ipv6
-> commit diff:
-> http://repo.or.cz/w/linux-2.6/trivial-mods.git?a=commitdiff;h=e96b794a57a164db84379e2baf5fe2622a5ae3bf
+> The default should stay as is. That is an event should be sent only if someone
+> cared about the wakeup.
 
-...Alternatively you could split it up a bit and send those smaller 
-chunks for reviewing purposes only (even though it would be combined
-to a single big patch in the end).
+Unfortunately f_op->poll() does not let the caller to specify the events 
+it's interested in, that would allow to split send/recevie wait queues and 
+better detect read/write cases.
+The detection of a waitqueue_active(->sk_wr_sleep) would work fine in 
+detecting is someone is actually waiting for a write, w/out the false 
+positives triggered by the read-waiters.
+That would be a very sane thing to do, but would require a big&dumb change 
+to all the ->poll around (that could be automated by a script - devices 
+not caring about the events hint can just continue to use the single queue 
+like they currently do), and a more critical and gradual change of all the 
+devices that wants to take advantage of it.
+That way, no more magic bits are needed, and a simple waitqueue_active() 
+would tell you if someone is waiting for write-space events.
 
--- 
- i.
+
+
+- Davide
