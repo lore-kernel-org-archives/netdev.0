@@ -1,77 +1,102 @@
-From: Moni Shoua <monis@voltaire.com>
-Subject: [ofa-general] [PATCH V5 7/11] net/bonding: Enable IP multicast for
- bonding IPoIB devices
-Date: Thu, 20 Sep 2007 16:58:58 +0300
-Message-ID: <46F27CA2.5050600@voltaire.com>
-References: <46F27692.3070404@voltaire.com>
+From: Frithjof Hammer <mail@frithjof-hammer.de>
+Subject: Re: ifb and ppp
+Date: Thu, 20 Sep 2007 16:00:14 +0200
+Message-ID: <200709201600.15202.mail@frithjof-hammer.de>
+References: <200709191417.43768.mail@frithjof-hammer.de>
+	<46F25F9A.7010007@trash.net> <1190294388.4734.6.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, OpenFabrics General <general@lists.openfabrics.org>
-To: Roland Dreier <rdreier@cisco.com>, Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <46F27692.3070404@voltaire.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_vzn8GCACSzCDWqq"
+Cc: lartc@mailman.ds9a.nl, Linux Netdev List <netdev@vger.kernel.org>
+To: hadi@cyberus.ca
+Return-path: <lartc-bounces@mailman.ds9a.nl>
+In-Reply-To: <1190294388.4734.6.camel@localhost>
+List-Unsubscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
+List-Archive: <http://mailman.ds9a.nl/pipermail/lartc>
+List-Post: <mailto:lartc@mailman.ds9a.nl>
+List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
+List-Subscribe: <http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
+Sender: lartc-bounces@mailman.ds9a.nl
+Errors-To: lartc-bounces@mailman.ds9a.nl
 List-Id: netdev.vger.kernel.org
 
-Allow to enslave devices when the bonding device is not up. Over the discussion
-held at the previous post this seemed to be the most clean way to go, where it
-is not expected to cause instabilities.
+--Boundary-00=_vzn8GCACSzCDWqq
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Normally, the bonding driver is UP before any enslavement takes place.
-Once a netdevice is UP, the network stack acts to have it join some multicast groups
-(eg the all-hosts 224.0.0.1). Now, since ether_setup() have set the bonding device
-type to be ARPHRD_ETHER and address len to be ETHER_ALEN, the net core code
-computes a wrong multicast link address. This is b/c ip_eth_mc_map() is called
-where for multicast joins taking place after the enslavement another ip_xxx_mc_map()
-is called (eg ip_ib_mc_map() when the bond type is ARPHRD_INFINIBAND)
+> Sorry, I didnt follow the thread - what is the goal to be achieved with
+> the setup?
 
-Signed-off-by: Moni Shoua <monis at voltaire.com>
-Signed-off-by: Or Gerlitz <ogerlitz at voltaire.com>
----
- drivers/net/bonding/bond_main.c  |    5 +++--
- drivers/net/bonding/bond_sysfs.c |    6 ++----
- 2 files changed, 5 insertions(+), 6 deletions(-)
+A simple ingress shaping on ppp0 (PPPOE DSL line). I want to replace my old 
+imq ingress shaper in favor of ifb. My former script used iptables marks  to 
+classify the packets. My iptables marks are getting set, as like before with 
+imq. But tc seems not to recognize them: It only uses the default class.
 
-Index: net-2.6/drivers/net/bonding/bond_main.c
-===================================================================
---- net-2.6.orig/drivers/net/bonding/bond_main.c	2007-08-15 10:54:41.000000000 +0300
-+++ net-2.6/drivers/net/bonding/bond_main.c	2007-08-15 10:55:48.431862446 +0300
-@@ -1285,8 +1285,9 @@ int bond_enslave(struct net_device *bond
+So i run tcpdump -i ifb0  and discovered that the packets seems to be still 
+encapsulated on ifb0. I suppose this is why my iptables stuff is not working.
+
+I've attached the ingress part of my shaping script. 
+
+Thanks for your help
+Frithjof
+
+--Boundary-00=_vzn8GCACSzCDWqq
+Content-Type: text/plain; charset="utf-8"; name="trafficshaping_ifb.sh.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="trafficshaping_ifb.sh.txt"
+
+
  
- 	/* bond must be initialized by bond_open() before enslaving */
- 	if (!(bond_dev->flags & IFF_UP)) {
--		dprintk("Error, master_dev is not up\n");
--		return -EPERM;
-+		printk(KERN_WARNING DRV_NAME
-+			" %s: master_dev is not up in bond_enslave\n",
-+			bond_dev->name);
- 	}
- 
- 	/* already enslaved */
-Index: net-2.6/drivers/net/bonding/bond_sysfs.c
-===================================================================
---- net-2.6.orig/drivers/net/bonding/bond_sysfs.c	2007-08-15 10:08:58.000000000 +0300
-+++ net-2.6/drivers/net/bonding/bond_sysfs.c	2007-08-15 10:55:48.432862269 +0300
-@@ -266,11 +266,9 @@ static ssize_t bonding_store_slaves(stru
- 
- 	/* Quick sanity check -- is the bond interface up? */
- 	if (!(bond->dev->flags & IFF_UP)) {
--		printk(KERN_ERR DRV_NAME
--		       ": %s: Unable to update slaves because interface is down.\n",
-+		printk(KERN_WARNING DRV_NAME
-+		       ": %s: doing slave updates when interface is down.\n",
- 		       bond->dev->name);
--		ret = -EPERM;
--		goto out;
- 	}
- 
- 	/* Note:  We can't hold bond->lock here, as bond_create grabs it. */
+tc qdisc del dev ppp0 root    2> /dev/null > /dev/null
+tc qdisc del dev ifb0 root 2> /dev/null > /dev/null
+tc qdisc del dev ppp0 ingress
+
+ modprobe ifb
+ ifconfig ifb0 up
+
+ tc qdisc add dev ppp0 ingress
+ tc filter add dev ppp0 parent ffff: protocol ip u32 match u32 0 0 flowid 1:1 action mirred egress redirect dev ifb0
+
+ tc qdisc add dev ifb0 handle 1: root hfsc default 32
+ tc class add dev ifb0 parent 1: classid 1:1 hfsc sc rate 6000kbit ul rate 6000kbit
+
+ tc class add dev ifb0 parent 1:1 classid 1:30 hfsc rt umax 208b dmax 20ms rate 83kbit ls rate 120kbit
+ tc class add dev ifb0 parent 1:1 classid 1:31 hfsc sc rate $[(6000-120)/3]kbit ul rate 6000kbit
+ tc class add dev ifb0 parent 1:1 classid 1:32 hfsc sc rate $[(6000-120)/3*2]kbit ul rate  6000kbit
+
+ tc qdisc add dev ifb0 parent 1:30 handle 30: sfq perturb 10
+ tc qdisc add dev ifb0 parent 1:31 handle 31: sfq perturb 10
+ tc qdisc add dev ifb0 parent 1:32 handle 32: red limit 1000000 min 5000 max 100000 avpkt 1000 burst 50
+
+ tc filter add dev ifb0 parent 1:0 prio 0 protocol ip handle 30 fw flowid 1:30
+ tc filter add dev ifb0 parent 1:0 prio 0 protocol ip handle 31 fw flowid 1:31
+ tc filter add dev ifb0 parent 1:0 prio 0 protocol ip handle 32 fw flowid 1:32
+
+
+ iptables -t mangle -N MYSHAPER-IN
+ iptables -t mangle -I PREROUTING -i ppp0 -j MYSHAPER-IN
+
+ iptables -t mangle -A MYSHAPER-IN -p tcp -m length --length :64 -j MARK --set-mark 31 # short TCP packets are probably ACKs
+ iptables -t mangle -A MYSHAPER-IN -p tcp --dport 22 -m length --length :500 -j MARK --set-mark 3    # secure shell
+ iptables -t mangle -A MYSHAPER-IN -p tcp --sport 22 -m length --length :500 -j MARK --set-mark 31    # secure shell
+ iptables -t mangle -A MYSHAPER-IN -p ! tcp -j MARK --set-mark 31              # Set non-tcp packets to high priority
+ iptables -t mangle -A MYSHAPER-IN -m mark --mark 0 -j MARK --set-mark 32              # redundant- mark any unmarked packets as 26 (low prio)
+
+[...]
+--Boundary-00=_vzn8GCACSzCDWqq
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+LARTC mailing list
+LARTC@mailman.ds9a.nl
+http://mailman.ds9a.nl/cgi-bin/mailman/listinfo/lartc
+
+--Boundary-00=_vzn8GCACSzCDWqq--
