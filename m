@@ -1,48 +1,28 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] sky2: be more selective about FIFO watchdog
-Date: Thu, 20 Sep 2007 17:46:01 -0400
-Message-ID: <46F2EA19.7040805@pobox.com>
-References: <20070920130349.252ecdb9@freepuppy.rosehill>	<46F2DD41.30909@pobox.com> <20070920143046.61fce43b@freepuppy.rosehill>
+From: Scott Wood <scottwood@freescale.com>
+Subject: [PATCH 0/9] fs enet and mdio bitbang patches
+Date: Thu, 20 Sep 2007 17:00:43 -0500
+Message-ID: <20070920220043.GA28769@loki.buserror.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:34034 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751407AbXITVqD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Sep 2007 17:46:03 -0400
-In-Reply-To: <20070920143046.61fce43b@freepuppy.rosehill>
+Received: from az33egw01.freescale.net ([192.88.158.102]:47688 "EHLO
+	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752252AbXITWBe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 18:01:34 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Thu, 20 Sep 2007 16:51:13 -0400
-> Jeff Garzik <jgarzik@pobox.com> wrote:
-> 
->> Stephen Hemminger wrote:
->>> Be more selective about when to enable the ram buffer watchdog code.
->>> It is unnecessary on XL A3 or later revs, and with Yukon FE
->>> the buffer is so small (4K) that the watchdog detects false positives.
->>>
->>> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
->> With all the sky2 patches flying about, it would be wise to include 
->> notes like "applies to 2.6.23-rc" or "net-2.6.24" after the standard 
->> "---" terminator.
->>
->> is this patch supposed to go on top of the sky2 patches that Linus just 
->> pulled?
->>
->>
-> It can go after previous 6 on both 2.6.23-rc and net-2.6.24 (with fuzz)
+Changes since previous patchset:
 
-Is it _needed_ in 2.6.23-rc, Mr. Maintainer?  :)
+- Changed mdio_bitbang_ to mdiobb_, as requested.
+- Separated mii bitbang conversion to generic MDIO bitbang library from the
+  of_platform conversion.
+- Added register read-backs to flush the writes in mdio bitbang clients.
+- Fixed a couple minor issues.
 
-The answer to that question is not clear to me, given the description 
-and code.
+Jeff, please apply for 2.6.24.
 
-	Jeff
-
-
-
+-Scott
