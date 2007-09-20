@@ -1,922 +1,1000 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: [git patches] net driver fixes
-Date: Thu, 20 Sep 2007 15:33:30 -0400
-Message-ID: <20070920193330.GA9505@havoc.gtf.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Please pull 'nl80211' branch of wireless-2.6
+Date: Thu, 20 Sep 2007 15:12:45 -0400
+Message-ID: <20070920191245.GJ6748@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:41641 "EHLO havoc.gtf.org"
+Received: from ra.tuxdriver.com ([70.61.120.52]:3974 "EHLO ra.tuxdriver.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753146AbXITTdb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Sep 2007 15:33:31 -0400
+	id S1751574AbXITTjT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2007 15:39:19 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Dave,
 
-This includes the sky2 update that you and sch discussed.
+This patch adds the basic nl80211 infrastructure.
 
-Please pull from 'upstream-linus' branch of
-master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-linus
+Thanks!
 
-to receive the following updates:
+John
 
- drivers/net/myri10ge/myri10ge.c |    3 +
- drivers/net/phy/phy.c           |    1 +
- drivers/net/sky2.c              |  368 +++++++++++++++++++++++++++------------
- drivers/net/sky2.h              |   41 ++++-
- 4 files changed, 292 insertions(+), 121 deletions(-)
+---
 
-Brice Goglin (1):
-      myri10ge: Add support for PCI device id 9
+Patch is available here:
 
-Domen Puncer (1):
-      phy: export phy_mii_ioctl
+	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/nl80211/0001-nl80211-add-netlink-interface-to-cfg80211.patch
 
-Stephen Hemminger (6):
-      sky2: fix VLAN receive processing (resend)
-      sky2: ethtool speed report bug
-      sky2: reorganize chip revision features
-      sky2: fe+ chip support
-      sky2: receive FIFO checking
-      sky2: version 1.18
+---
 
-diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
-index 1c42266..556962f 100644
---- a/drivers/net/myri10ge/myri10ge.c
-+++ b/drivers/net/myri10ge/myri10ge.c
-@@ -3094,9 +3094,12 @@ static void myri10ge_remove(struct pci_dev *pdev)
- }
- 
- #define PCI_DEVICE_ID_MYRICOM_MYRI10GE_Z8E 	0x0008
-+#define PCI_DEVICE_ID_MYRICOM_MYRI10GE_Z8E_9	0x0009
- 
- static struct pci_device_id myri10ge_pci_tbl[] = {
- 	{PCI_DEVICE(PCI_VENDOR_ID_MYRICOM, PCI_DEVICE_ID_MYRICOM_MYRI10GE_Z8E)},
-+	{PCI_DEVICE
-+	 (PCI_VENDOR_ID_MYRICOM, PCI_DEVICE_ID_MYRICOM_MYRI10GE_Z8E_9)},
- 	{0},
- };
- 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 0cc4369..cb230f4 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -409,6 +409,7 @@ int phy_mii_ioctl(struct phy_device *phydev,
- 
- 	return 0;
- }
-+EXPORT_SYMBOL(phy_mii_ioctl);
+The following changes since commit 0d4cbb5e7f60b2f1a4d8b7f6ea4cc264262c7a01:
+  Linus Torvalds (1):
+        Linux 2.6.23-rc6
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git nl80211
+
+Johannes Berg (1):
+      nl80211: add netlink interface to cfg80211
+
+ include/linux/nl80211.h      |   97 +++++++++-
+ include/net/cfg80211.h       |   11 +-
+ include/net/iw_handler.h     |    8 +-
+ net/mac80211/ieee80211_cfg.c |    2 +-
+ net/wireless/Kconfig         |   17 ++-
+ net/wireless/Makefile        |    1 +
+ net/wireless/core.c          |  148 +++++++++++++++
+ net/wireless/core.h          |   32 +++
+ net/wireless/nl80211.c       |  431 ++++++++++++++++++++++++++++++++++++++++++
+ net/wireless/nl80211.h       |   24 +++
+ 10 files changed, 762 insertions(+), 9 deletions(-)
+ create mode 100644 net/wireless/nl80211.c
+ create mode 100644 net/wireless/nl80211.h
+
+diff --git a/include/linux/nl80211.h b/include/linux/nl80211.h
+index 9a30ba2..a5dd030 100644
+--- a/include/linux/nl80211.h
++++ b/include/linux/nl80211.h
+@@ -7,7 +7,97 @@
+  */
  
  /**
-  * phy_start_aneg - start auto-negotiation for this PHY device
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 5d812de..eaffe55 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -51,7 +51,7 @@
- #include "sky2.h"
++ * enum nl80211_commands - supported nl80211 commands
++ *
++ * @NL80211_CMD_UNSPEC: unspecified command to catch errors
++ *
++ * @NL80211_CMD_GET_WIPHY: request information about a wiphy or dump request
++ *	to get a list of all present wiphys.
++ * @NL80211_CMD_SET_WIPHY: set wiphy name, needs %NL80211_ATTR_WIPHY and
++ *	%NL80211_ATTR_WIPHY_NAME.
++ * @NL80211_CMD_NEW_WIPHY: Newly created wiphy, response to get request
++ *	or rename notification. Has attributes %NL80211_ATTR_WIPHY and
++ *	%NL80211_ATTR_WIPHY_NAME.
++ * @NL80211_CMD_DEL_WIPHY: Wiphy deleted. Has attributes
++ *	%NL80211_ATTR_WIPHY and %NL80211_ATTR_WIPHY_NAME.
++ *
++ * @NL80211_CMD_GET_INTERFACE: Request an interface's configuration;
++ *	either a dump request on a %NL80211_ATTR_WIPHY or a specific get
++ *	on an %NL80211_ATTR_IFINDEX is supported.
++ * @NL80211_CMD_SET_INTERFACE: Set type of a virtual interface, requires
++ 	%NL80211_ATTR_IFINDEX and %NL80211_ATTR_IFTYPE.
++ * @NL80211_CMD_NEW_INTERFACE: Newly created virtual interface or response
++ *	to %NL80211_CMD_GET_INTERFACE. Has %NL80211_ATTR_IFINDEX,
++ *	%NL80211_ATTR_WIPHY and %NL80211_ATTR_IFTYPE attributes. Can also
++ *	be sent from userspace to request creation of a new virtual interface,
++ *	then requires attributes %NL80211_ATTR_WIPHY, %NL80211_ATTR_IFTYPE and
++ *	%NL80211_ATTR_IFNAME.
++ * @NL80211_CMD_DEL_INTERFACE: Virtual interface was deleted, has attributes
++ *	%NL80211_ATTR_IFINDEX and %NL80211_ATTR_WIPHY. Can also be sent from
++ *	userspace to request deletion of a virtual interface, then requires
++ *	attribute %NL80211_ATTR_IFINDEX.
++ *
++ * @NL80211_CMD_MAX: highest used command number
++ * @__NL80211_CMD_AFTER_LAST: internal use
++ */
++enum nl80211_commands {
++/* don't change the order or add anything inbetween, this is ABI! */
++	NL80211_CMD_UNSPEC,
++
++	NL80211_CMD_GET_WIPHY,		/* can dump */
++	NL80211_CMD_SET_WIPHY,
++	NL80211_CMD_NEW_WIPHY,
++	NL80211_CMD_DEL_WIPHY,
++
++	NL80211_CMD_GET_INTERFACE,	/* can dump */
++	NL80211_CMD_SET_INTERFACE,
++	NL80211_CMD_NEW_INTERFACE,
++	NL80211_CMD_DEL_INTERFACE,
++
++	/* add commands here */
++
++	/* used to define NL80211_CMD_MAX below */
++	__NL80211_CMD_AFTER_LAST,
++	NL80211_CMD_MAX = __NL80211_CMD_AFTER_LAST - 1
++};
++
++
++/**
++ * enum nl80211_attrs - nl80211 netlink attributes
++ *
++ * @NL80211_ATTR_UNSPEC: unspecified attribute to catch errors
++ *
++ * @NL80211_ATTR_WIPHY: index of wiphy to operate on, cf.
++ *	/sys/class/ieee80211/<phyname>/index
++ * @NL80211_ATTR_WIPHY_NAME: wiphy name (used for renaming)
++ *
++ * @NL80211_ATTR_IFINDEX: network interface index of the device to operate on
++ * @NL80211_ATTR_IFNAME: network interface name
++ * @NL80211_ATTR_IFTYPE: type of virtual interface, see &enum nl80211_iftype
++ *
++ * @NL80211_ATTR_MAX: highest attribute number currently defined
++ * @__NL80211_ATTR_AFTER_LAST: internal use
++ */
++enum nl80211_attrs {
++/* don't change the order or add anything inbetween, this is ABI! */
++	NL80211_ATTR_UNSPEC,
++
++	NL80211_ATTR_WIPHY,
++	NL80211_ATTR_WIPHY_NAME,
++
++	NL80211_ATTR_IFINDEX,
++	NL80211_ATTR_IFNAME,
++	NL80211_ATTR_IFTYPE,
++
++	/* add attributes here, update the policy in nl80211.c */
++
++	__NL80211_ATTR_AFTER_LAST,
++	NL80211_ATTR_MAX = __NL80211_ATTR_AFTER_LAST - 1
++};
++
++/**
+  * enum nl80211_iftype - (virtual) interface types
++ *
+  * @NL80211_IFTYPE_UNSPECIFIED: unspecified type, driver decides
+  * @NL80211_IFTYPE_ADHOC: independent BSS member
+  * @NL80211_IFTYPE_STATION: managed BSS member
+@@ -15,9 +105,10 @@
+  * @NL80211_IFTYPE_AP_VLAN: VLAN interface for access points
+  * @NL80211_IFTYPE_WDS: wireless distribution interface
+  * @NL80211_IFTYPE_MONITOR: monitor interface receiving all frames
++ * @NL80211_IFTYPE_MAX: highest interface type number currently defined
+  * @__NL80211_IFTYPE_AFTER_LAST: internal use
+  *
+- * These values are used with the NL80211_ATTR_IFTYPE
++ * These values are used with the %NL80211_ATTR_IFTYPE
+  * to set the type of an interface.
+  *
+  */
+@@ -31,8 +122,8 @@ enum nl80211_iftype {
+ 	NL80211_IFTYPE_MONITOR,
  
- #define DRV_NAME		"sky2"
--#define DRV_VERSION		"1.17"
-+#define DRV_VERSION		"1.18"
- #define PFX			DRV_NAME " "
+ 	/* keep last */
+-	__NL80211_IFTYPE_AFTER_LAST
++	__NL80211_IFTYPE_AFTER_LAST,
++	NL80211_IFTYPE_MAX = __NL80211_IFTYPE_AFTER_LAST - 1
+ };
+-#define NL80211_IFTYPE_MAX (__NL80211_IFTYPE_AFTER_LAST - 1)
+ 
+ #endif /* __LINUX_NL80211_H */
+diff --git a/include/net/cfg80211.h b/include/net/cfg80211.h
+index 7edaef6..d30960e 100644
+--- a/include/net/cfg80211.h
++++ b/include/net/cfg80211.h
+@@ -3,15 +3,15 @@
+ 
+ #include <linux/netlink.h>
+ #include <linux/skbuff.h>
++#include <linux/nl80211.h>
+ #include <net/genetlink.h>
  
  /*
-@@ -118,12 +118,15 @@ static const struct pci_device_id sky2_id_table[] = {
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4351) }, /* 88E8036 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4352) }, /* 88E8038 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4353) }, /* 88E8039 */
-+	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4354) }, /* 88E8040 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4356) }, /* 88EC033 */
-+	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x435A) }, /* 88E8048 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4360) }, /* 88E8052 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4361) }, /* 88E8050 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4362) }, /* 88E8053 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4363) }, /* 88E8055 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4364) }, /* 88E8056 */
-+	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4365) }, /* 88E8070 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4366) }, /* 88EC036 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4367) }, /* 88EC032 */
- 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4368) }, /* 88EC034 */
-@@ -147,6 +150,7 @@ static const char *yukon2_name[] = {
- 	"Extreme",	/* 0xb5 */
- 	"EC",		/* 0xb6 */
- 	"FE",		/* 0xb7 */
-+	"FE+",		/* 0xb8 */
+  * 802.11 configuration in-kernel interface
+  *
+- * Copyright 2006 Johannes Berg <johannes@sipsolutions.net>
++ * Copyright 2006, 2007	Johannes Berg <johannes@sipsolutions.net>
+  */
+ 
+-
+ /* Radiotap header iteration
+  *   implemented in net/wireless/radiotap.c
+  *   docs in Documentation/networking/radiotap-headers.txt
+@@ -68,11 +68,16 @@ struct wiphy;
+  * @add_virtual_intf: create a new virtual interface with the given name
+  *
+  * @del_virtual_intf: remove the virtual interface determined by ifindex.
++ *
++ * @change_virtual_intf: change type of virtual interface
++ *
+  */
+ struct cfg80211_ops {
+ 	int	(*add_virtual_intf)(struct wiphy *wiphy, char *name,
+-				    unsigned int type);
++				    enum nl80211_iftype type);
+ 	int	(*del_virtual_intf)(struct wiphy *wiphy, int ifindex);
++	int	(*change_virtual_intf)(struct wiphy *wiphy, int ifindex,
++				       enum nl80211_iftype type);
  };
  
- static void sky2_set_multicast(struct net_device *dev);
-@@ -217,8 +221,7 @@ static void sky2_power_on(struct sky2_hw *hw)
- 	else
- 		sky2_write8(hw, B2_Y2_CLK_GATE, 0);
- 
--	if (hw->chip_id == CHIP_ID_YUKON_EC_U ||
--	    hw->chip_id == CHIP_ID_YUKON_EX) {
-+	if (hw->flags & SKY2_HW_ADV_POWER_CTL) {
- 		u32 reg;
- 
- 		sky2_pci_write32(hw, PCI_DEV_REG3, 0);
-@@ -311,10 +314,8 @@ static void sky2_phy_init(struct sky2_hw *hw, unsigned port)
- 	struct sky2_port *sky2 = netdev_priv(hw->dev[port]);
- 	u16 ctrl, ct1000, adv, pg, ledctrl, ledover, reg;
- 
--	if (sky2->autoneg == AUTONEG_ENABLE
--	    && !(hw->chip_id == CHIP_ID_YUKON_XL
--		 || hw->chip_id == CHIP_ID_YUKON_EC_U
--		 || hw->chip_id == CHIP_ID_YUKON_EX)) {
-+	if (sky2->autoneg == AUTONEG_ENABLE &&
-+	    !(hw->flags & SKY2_HW_NEWER_PHY)) {
- 		u16 ectrl = gm_phy_read(hw, port, PHY_MARV_EXT_CTRL);
- 
- 		ectrl &= ~(PHY_M_EC_M_DSC_MSK | PHY_M_EC_S_DSC_MSK |
-@@ -334,7 +335,7 @@ static void sky2_phy_init(struct sky2_hw *hw, unsigned port)
- 
- 	ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
- 	if (sky2_is_copper(hw)) {
--		if (hw->chip_id == CHIP_ID_YUKON_FE) {
-+		if (!(hw->flags & SKY2_HW_GIGABIT)) {
- 			/* enable automatic crossover */
- 			ctrl |= PHY_M_PC_MDI_XMODE(PHY_M_PC_ENA_AUTO) >> 1;
- 		} else {
-@@ -346,9 +347,7 @@ static void sky2_phy_init(struct sky2_hw *hw, unsigned port)
- 
- 			/* downshift on PHY 88E1112 and 88E1149 is changed */
- 			if (sky2->autoneg == AUTONEG_ENABLE
--			    && (hw->chip_id == CHIP_ID_YUKON_XL
--				|| hw->chip_id == CHIP_ID_YUKON_EC_U
--				|| hw->chip_id == CHIP_ID_YUKON_EX)) {
-+			    && (hw->flags & SKY2_HW_NEWER_PHY)) {
- 				/* set downshift counter to 3x and enable downshift */
- 				ctrl &= ~PHY_M_PC_DSC_MSK;
- 				ctrl |= PHY_M_PC_DSC(2) | PHY_M_PC_DOWN_S_ENA;
-@@ -364,7 +363,7 @@ static void sky2_phy_init(struct sky2_hw *hw, unsigned port)
- 	gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
- 
- 	/* special setup for PHY 88E1112 Fiber */
--	if (hw->chip_id == CHIP_ID_YUKON_XL && !sky2_is_copper(hw)) {
-+	if (hw->chip_id == CHIP_ID_YUKON_XL && (hw->flags & SKY2_HW_FIBRE_PHY)) {
- 		pg = gm_phy_read(hw, port, PHY_MARV_EXT_ADR);
- 
- 		/* Fiber: select 1000BASE-X only mode MAC Specific Ctrl Reg. */
-@@ -455,7 +454,7 @@ static void sky2_phy_init(struct sky2_hw *hw, unsigned port)
- 
- 	gma_write16(hw, port, GM_GP_CTRL, reg);
- 
--	if (hw->chip_id != CHIP_ID_YUKON_FE)
-+	if (hw->flags & SKY2_HW_GIGABIT)
- 		gm_phy_write(hw, port, PHY_MARV_1000T_CTRL, ct1000);
- 
- 	gm_phy_write(hw, port, PHY_MARV_AUNE_ADV, adv);
-@@ -479,6 +478,23 @@ static void sky2_phy_init(struct sky2_hw *hw, unsigned port)
- 		gm_phy_write(hw, port, PHY_MARV_FE_LED_PAR, ctrl);
- 		break;
- 
-+	case CHIP_ID_YUKON_FE_P:
-+		/* Enable Link Partner Next Page */
-+		ctrl = gm_phy_read(hw, port, PHY_MARV_PHY_CTRL);
-+		ctrl |= PHY_M_PC_ENA_LIP_NP;
-+
-+		/* disable Energy Detect and enable scrambler */
-+		ctrl &= ~(PHY_M_PC_ENA_ENE_DT | PHY_M_PC_DIS_SCRAMB);
-+		gm_phy_write(hw, port, PHY_MARV_PHY_CTRL, ctrl);
-+
-+		/* set LED2 -> ACT, LED1 -> LINK, LED0 -> SPEED */
-+		ctrl = PHY_M_FELP_LED2_CTRL(LED_PAR_CTRL_ACT_BL) |
-+			PHY_M_FELP_LED1_CTRL(LED_PAR_CTRL_LINK) |
-+			PHY_M_FELP_LED0_CTRL(LED_PAR_CTRL_SPEED);
-+
-+		gm_phy_write(hw, port, PHY_MARV_FE_LED_PAR, ctrl);
-+		break;
-+
- 	case CHIP_ID_YUKON_XL:
- 		pg = gm_phy_read(hw, port, PHY_MARV_EXT_ADR);
- 
-@@ -548,7 +564,13 @@ static void sky2_phy_init(struct sky2_hw *hw, unsigned port)
- 
- 		/* set page register to 0 */
- 		gm_phy_write(hw, port, PHY_MARV_EXT_ADR, 0);
-+	} else if (hw->chip_id == CHIP_ID_YUKON_FE_P &&
-+		   hw->chip_rev == CHIP_REV_YU_FE2_A0) {
-+		/* apply workaround for integrated resistors calibration */
-+		gm_phy_write(hw, port, PHY_MARV_PAGE_ADDR, 17);
-+		gm_phy_write(hw, port, PHY_MARV_PAGE_DATA, 0x3f60);
- 	} else if (hw->chip_id != CHIP_ID_YUKON_EX) {
-+		/* no effect on Yukon-XL */
- 		gm_phy_write(hw, port, PHY_MARV_LED_CTRL, ledctrl);
- 
- 		if (sky2->autoneg == AUTONEG_DISABLE || sky2->speed == SPEED_100) {
-@@ -669,25 +691,25 @@ static void sky2_wol_init(struct sky2_port *sky2)
- 
- static void sky2_set_tx_stfwd(struct sky2_hw *hw, unsigned port)
- {
--	if (hw->chip_id == CHIP_ID_YUKON_EX && hw->chip_rev != CHIP_REV_YU_EX_A0) {
-+	struct net_device *dev = hw->dev[port];
-+
-+	if (dev->mtu <= ETH_DATA_LEN)
- 		sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T),
--			     TX_STFW_ENA |
--			     (hw->dev[port]->mtu > ETH_DATA_LEN) ? TX_JUMBO_ENA : TX_JUMBO_DIS);
--	} else {
--		if (hw->dev[port]->mtu > ETH_DATA_LEN) {
--			/* set Tx GMAC FIFO Almost Empty Threshold */
--			sky2_write32(hw, SK_REG(port, TX_GMF_AE_THR),
--				     (ECU_JUMBO_WM << 16) | ECU_AE_THR);
-+			     TX_JUMBO_DIS | TX_STFW_ENA);
- 
--			sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T),
--				     TX_JUMBO_ENA | TX_STFW_DIS);
-+	else if (hw->chip_id != CHIP_ID_YUKON_EC_U)
-+		sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T),
-+			     TX_STFW_ENA | TX_JUMBO_ENA);
-+	else {
-+		/* set Tx GMAC FIFO Almost Empty Threshold */
-+		sky2_write32(hw, SK_REG(port, TX_GMF_AE_THR),
-+			     (ECU_JUMBO_WM << 16) | ECU_AE_THR);
- 
--			/* Can't do offload because of lack of store/forward */
--			hw->dev[port]->features &= ~(NETIF_F_TSO | NETIF_F_SG
--						     | NETIF_F_ALL_CSUM);
--		} else
--			sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T),
--				     TX_JUMBO_DIS | TX_STFW_ENA);
-+		sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T),
-+			     TX_JUMBO_ENA | TX_STFW_DIS);
-+
-+		/* Can't do offload because of lack of store/forward */
-+		dev->features &= ~(NETIF_F_TSO | NETIF_F_SG | NETIF_F_ALL_CSUM);
- 	}
- }
- 
-@@ -773,7 +795,8 @@ static void sky2_mac_init(struct sky2_hw *hw, unsigned port)
- 	/* Configure Rx MAC FIFO */
- 	sky2_write8(hw, SK_REG(port, RX_GMF_CTRL_T), GMF_RST_CLR);
- 	rx_reg = GMF_OPER_ON | GMF_RX_F_FL_ON;
--	if (hw->chip_id == CHIP_ID_YUKON_EX)
-+	if (hw->chip_id == CHIP_ID_YUKON_EX ||
-+	    hw->chip_id == CHIP_ID_YUKON_FE_P)
- 		rx_reg |= GMF_RX_OVER_ON;
- 
- 	sky2_write32(hw, SK_REG(port, RX_GMF_CTRL_T), rx_reg);
-@@ -782,13 +805,18 @@ static void sky2_mac_init(struct sky2_hw *hw, unsigned port)
- 	sky2_write16(hw, SK_REG(port, RX_GMF_FL_MSK), GMR_FS_ANY_ERR);
- 
- 	/* Set threshold to 0xa (64 bytes) + 1 to workaround pause bug  */
--	sky2_write16(hw, SK_REG(port, RX_GMF_FL_THR), RX_GMF_FL_THR_DEF+1);
-+	reg = RX_GMF_FL_THR_DEF + 1;
-+	/* Another magic mystery workaround from sk98lin */
-+	if (hw->chip_id == CHIP_ID_YUKON_FE_P &&
-+	    hw->chip_rev == CHIP_REV_YU_FE2_A0)
-+		reg = 0x178;
-+	sky2_write16(hw, SK_REG(port, RX_GMF_FL_THR), reg);
- 
- 	/* Configure Tx MAC FIFO */
- 	sky2_write8(hw, SK_REG(port, TX_GMF_CTRL_T), GMF_RST_CLR);
- 	sky2_write16(hw, SK_REG(port, TX_GMF_CTRL_T), GMF_OPER_ON);
- 
--	if (hw->chip_id == CHIP_ID_YUKON_EC_U || hw->chip_id == CHIP_ID_YUKON_EX) {
-+	if (!(hw->flags & SKY2_HW_RAMBUFFER)) {
- 		sky2_write8(hw, SK_REG(port, RX_GMF_LP_THR), 768/8);
- 		sky2_write8(hw, SK_REG(port, RX_GMF_UP_THR), 1024/8);
- 
-@@ -967,19 +995,15 @@ static void sky2_rx_unmap_skb(struct pci_dev *pdev, struct rx_ring_info *re)
+ #endif /* __NET_CFG80211_H */
+diff --git a/include/net/iw_handler.h b/include/net/iw_handler.h
+index f23d07c..369d50e 100644
+--- a/include/net/iw_handler.h
++++ b/include/net/iw_handler.h
+@@ -431,7 +431,13 @@ struct iw_public_data {
+  * Those may be called only within the kernel.
   */
- static void rx_set_checksum(struct sky2_port *sky2)
+ 
+-/* functions that may be called by driver modules */
++/* First : function strictly used inside the kernel */
++
++/* Handle /proc/net/wireless, called in net/code/dev.c */
++extern int dev_get_wireless_info(char * buffer, char **start, off_t offset,
++				 int length);
++
++/* Second : functions that may be called by driver modules */
+ 
+ /* Send a single event to user space */
+ extern void wireless_send_event(struct net_device *	dev,
+diff --git a/net/mac80211/ieee80211_cfg.c b/net/mac80211/ieee80211_cfg.c
+index 509096e..d920cda 100644
+--- a/net/mac80211/ieee80211_cfg.c
++++ b/net/mac80211/ieee80211_cfg.c
+@@ -13,7 +13,7 @@
+ #include "ieee80211_cfg.h"
+ 
+ static int ieee80211_add_iface(struct wiphy *wiphy, char *name,
+-			       unsigned int type)
++			       enum nl80211_iftype type)
  {
--	struct sky2_rx_le *le;
-+	struct sky2_rx_le *le = sky2_next_rx(sky2);
+ 	struct ieee80211_local *local = wiphy_priv(wiphy);
+ 	int itype;
+diff --git a/net/wireless/Kconfig b/net/wireless/Kconfig
+index a228d56..6291f13 100644
+--- a/net/wireless/Kconfig
++++ b/net/wireless/Kconfig
+@@ -1,6 +1,19 @@
+ config CFG80211
+         tristate "Improved wireless configuration API"
  
--	if (sky2->hw->chip_id != CHIP_ID_YUKON_EX) {
--		le = sky2_next_rx(sky2);
--		le->addr = cpu_to_le32((ETH_HLEN << 16) | ETH_HLEN);
--		le->ctrl = 0;
--		le->opcode = OP_TCPSTART | HW_OWNER;
--
--		sky2_write32(sky2->hw,
--			     Q_ADDR(rxqaddr[sky2->port], Q_CSR),
--			     sky2->rx_csum ? BMU_ENA_RX_CHKSUM : BMU_DIS_RX_CHKSUM);
--	}
-+	le->addr = cpu_to_le32((ETH_HLEN << 16) | ETH_HLEN);
-+	le->ctrl = 0;
-+	le->opcode = OP_TCPSTART | HW_OWNER;
- 
-+	sky2_write32(sky2->hw,
-+		     Q_ADDR(rxqaddr[sky2->port], Q_CSR),
-+		     sky2->rx_csum ? BMU_ENA_RX_CHKSUM : BMU_DIS_RX_CHKSUM);
- }
- 
- /*
-@@ -1175,7 +1199,8 @@ static int sky2_rx_start(struct sky2_port *sky2)
- 
- 	sky2_prefetch_init(hw, rxq, sky2->rx_le_map, RX_LE_SIZE - 1);
- 
--	rx_set_checksum(sky2);
-+	if (!(hw->flags & SKY2_HW_NEW_LE))
-+		rx_set_checksum(sky2);
- 
- 	/* Space needed for frame data + headers rounded up */
- 	size = roundup(sky2->netdev->mtu + ETH_HLEN + VLAN_HLEN, 8);
-@@ -1246,7 +1271,7 @@ static int sky2_up(struct net_device *dev)
- 	struct sky2_port *sky2 = netdev_priv(dev);
- 	struct sky2_hw *hw = sky2->hw;
- 	unsigned port = sky2->port;
--	u32 ramsize, imask;
-+	u32 imask;
- 	int cap, err = -ENOMEM;
- 	struct net_device *otherdev = hw->dev[sky2->port^1];
- 
-@@ -1301,13 +1326,13 @@ static int sky2_up(struct net_device *dev)
- 
- 	sky2_mac_init(hw, port);
- 
--	/* Register is number of 4K blocks on internal RAM buffer. */
--	ramsize = sky2_read8(hw, B2_E_0) * 4;
--	printk(KERN_INFO PFX "%s: ram buffer %dK\n", dev->name, ramsize);
--
--	if (ramsize > 0) {
-+	if (hw->flags & SKY2_HW_RAMBUFFER) {
-+		/* Register is number of 4K blocks on internal RAM buffer. */
-+		u32 ramsize = sky2_read8(hw, B2_E_0) * 4;
- 		u32 rxspace;
- 
-+		printk(KERN_DEBUG PFX "%s: ram buffer %dK\n", dev->name, ramsize);
++config NL80211
++	bool "nl80211 new netlink interface support"
++	depends CFG80211
++	default y
++	---help---
++         This option turns on the new netlink interface
++         (nl80211) support in cfg80211.
 +
- 		if (ramsize < 16)
- 			rxspace = ramsize / 2;
- 		else
-@@ -1436,13 +1461,15 @@ static int sky2_xmit_frame(struct sk_buff *skb, struct net_device *dev)
- 	/* Check for TCP Segmentation Offload */
- 	mss = skb_shinfo(skb)->gso_size;
- 	if (mss != 0) {
--		if (hw->chip_id != CHIP_ID_YUKON_EX)
++         If =n, drivers using mac80211 will be configured via
++         wireless extension support provided by that subsystem.
 +
-+		if (!(hw->flags & SKY2_HW_NEW_LE))
- 			mss += ETH_HLEN + ip_hdrlen(skb) + tcp_hdrlen(skb);
- 
-   		if (mss != sky2->tx_last_mss) {
-   			le = get_tx_le(sky2);
-   			le->addr = cpu_to_le32(mss);
-- 			if (hw->chip_id == CHIP_ID_YUKON_EX)
++         If unsure, say Y.
 +
-+			if (hw->flags & SKY2_HW_NEW_LE)
- 				le->opcode = OP_MSS | HW_OWNER;
- 			else
- 				le->opcode = OP_LRGLEN | HW_OWNER;
-@@ -1468,8 +1495,7 @@ static int sky2_xmit_frame(struct sk_buff *skb, struct net_device *dev)
- 	/* Handle TCP checksum offload */
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 		/* On Yukon EX (some versions) encoding change. */
-- 		if (hw->chip_id == CHIP_ID_YUKON_EX
--		    && hw->chip_rev != CHIP_REV_YU_EX_B0)
-+ 		if (hw->flags & SKY2_HW_AUTO_TX_SUM)
-  			ctrl |= CALSUM;	/* auto checksum */
- 		else {
- 			const unsigned offset = skb_transport_offset(skb);
-@@ -1622,9 +1648,6 @@ static int sky2_down(struct net_device *dev)
- 	if (netif_msg_ifdown(sky2))
- 		printk(KERN_INFO PFX "%s: disabling interface\n", dev->name);
+ config WIRELESS_EXT
+ 	bool "Wireless extensions"
+ 	default n
+@@ -10,7 +23,9 @@ config WIRELESS_EXT
  
--	if (netif_carrier_ok(dev) && --hw->active == 0)
--		del_timer(&hw->watchdog_timer);
--
- 	/* Stop more packets from being queued */
- 	netif_stop_queue(dev);
+ 	  Wireless extensions will be replaced by cfg80211 and
+ 	  will be required only by legacy drivers that implement
+-	  wireless extension handlers.
++	  wireless extension handlers. This option does not
++	  affect the wireless-extension backward compatibility
++	  code in cfg80211.
  
-@@ -1708,11 +1731,15 @@ static int sky2_down(struct net_device *dev)
+ 	  Say N (if you can) unless you know you need wireless
+ 	  extensions for external modules.
+diff --git a/net/wireless/Makefile b/net/wireless/Makefile
+index 092116e..65710a4 100644
+--- a/net/wireless/Makefile
++++ b/net/wireless/Makefile
+@@ -2,3 +2,4 @@ obj-$(CONFIG_WIRELESS_EXT) += wext.o
+ obj-$(CONFIG_CFG80211) += cfg80211.o
  
- static u16 sky2_phy_speed(const struct sky2_hw *hw, u16 aux)
- {
--	if (!sky2_is_copper(hw))
-+	if (hw->flags & SKY2_HW_FIBRE_PHY)
- 		return SPEED_1000;
+ cfg80211-y += core.o sysfs.o radiotap.o
++cfg80211-$(CONFIG_NL80211) += nl80211.o
+diff --git a/net/wireless/core.c b/net/wireless/core.c
+index 7eabd55..5ddf7a9 100644
+--- a/net/wireless/core.c
++++ b/net/wireless/core.c
+@@ -16,6 +16,7 @@
+ #include <net/genetlink.h>
+ #include <net/cfg80211.h>
+ #include <net/wireless.h>
++#include "nl80211.h"
+ #include "core.h"
+ #include "sysfs.h"
  
--	if (hw->chip_id == CHIP_ID_YUKON_FE)
--		return (aux & PHY_M_PS_SPEED_100) ? SPEED_100 : SPEED_10;
-+	if (!(hw->flags & SKY2_HW_GIGABIT)) {
-+		if (aux & PHY_M_PS_SPEED_100)
-+			return SPEED_100;
-+		else
-+			return SPEED_10;
-+	}
+@@ -36,6 +37,146 @@ static int wiphy_counter;
+ /* for debugfs */
+ static struct dentry *ieee80211_debugfs_dir;
  
- 	switch (aux & PHY_M_PS_SPEED_MSK) {
- 	case PHY_M_PS_SPEED_1000:
-@@ -1745,17 +1772,13 @@ static void sky2_link_up(struct sky2_port *sky2)
- 
- 	netif_carrier_on(sky2->netdev);
- 
--	if (hw->active++ == 0)
--		mod_timer(&hw->watchdog_timer, jiffies + 1);
--
-+	mod_timer(&hw->watchdog_timer, jiffies + 1);
- 
- 	/* Turn on link LED */
- 	sky2_write8(hw, SK_REG(port, LNK_LED_REG),
- 		    LINKLED_ON | LINKLED_BLINK_OFF | LINKLED_LINKSYNC_OFF);
- 
--	if (hw->chip_id == CHIP_ID_YUKON_XL
--	    || hw->chip_id == CHIP_ID_YUKON_EC_U
--	    || hw->chip_id == CHIP_ID_YUKON_EX) {
-+	if (hw->flags & SKY2_HW_NEWER_PHY) {
- 		u16 pg = gm_phy_read(hw, port, PHY_MARV_EXT_ADR);
- 		u16 led = PHY_M_LEDC_LOS_CTRL(1);	/* link active */
- 
-@@ -1800,11 +1823,6 @@ static void sky2_link_down(struct sky2_port *sky2)
- 
- 	netif_carrier_off(sky2->netdev);
- 
--	/* Stop watchdog if both ports are not active */
--	if (--hw->active == 0)
--		del_timer(&hw->watchdog_timer);
--
--
- 	/* Turn on link LED */
- 	sky2_write8(hw, SK_REG(port, LNK_LED_REG), LINKLED_OFF);
- 
-@@ -1847,7 +1865,7 @@ static int sky2_autoneg_done(struct sky2_port *sky2, u16 aux)
- 	/* Since the pause result bits seem to in different positions on
- 	 * different chips. look at registers.
- 	 */
--	if (!sky2_is_copper(hw)) {
-+	if (hw->flags & SKY2_HW_FIBRE_PHY) {
- 		/* Shift for bits in fiber PHY */
- 		advert &= ~(ADVERTISE_PAUSE_CAP|ADVERTISE_PAUSE_ASYM);
- 		lpa &= ~(LPA_PAUSE_CAP|LPA_PAUSE_ASYM);
-@@ -1958,7 +1976,9 @@ static int sky2_change_mtu(struct net_device *dev, int new_mtu)
- 	if (new_mtu < ETH_ZLEN || new_mtu > ETH_JUMBO_MTU)
- 		return -EINVAL;
- 
--	if (new_mtu > ETH_DATA_LEN && hw->chip_id == CHIP_ID_YUKON_FE)
-+	if (new_mtu > ETH_DATA_LEN &&
-+	    (hw->chip_id == CHIP_ID_YUKON_FE ||
-+	     hw->chip_id == CHIP_ID_YUKON_FE_P))
- 		return -EINVAL;
- 
- 	if (!netif_running(dev)) {
-@@ -1975,7 +1995,7 @@ static int sky2_change_mtu(struct net_device *dev, int new_mtu)
- 
- 	synchronize_irq(hw->pdev->irq);
- 
--	if (hw->chip_id == CHIP_ID_YUKON_EC_U || hw->chip_id == CHIP_ID_YUKON_EX)
-+	if (!(hw->flags & SKY2_HW_RAMBUFFER))
- 		sky2_set_tx_stfwd(hw, port);
- 
- 	ctl = gma_read16(hw, port, GM_GP_CTRL);
-@@ -2103,6 +2123,13 @@ static struct sk_buff *sky2_receive(struct net_device *dev,
-  	struct sky2_port *sky2 = netdev_priv(dev);
- 	struct rx_ring_info *re = sky2->rx_ring + sky2->rx_next;
- 	struct sk_buff *skb = NULL;
-+	u16 count = (status & GMR_FS_LEN) >> 16;
-+
-+#ifdef SKY2_VLAN_TAG_USED
-+	/* Account for vlan tag */
-+	if (sky2->vlgrp && (status & GMR_FS_VLAN))
-+		count -= VLAN_HLEN;
-+#endif
- 
- 	if (unlikely(netif_msg_rx_status(sky2)))
- 		printk(KERN_DEBUG PFX "%s: rx slot %u status 0x%x len %d\n",
-@@ -2117,7 +2144,8 @@ static struct sk_buff *sky2_receive(struct net_device *dev,
- 	if (!(status & GMR_FS_RX_OK))
- 		goto resubmit;
- 
--	if (status >> 16 != length)
-+	/* if length reported by DMA does not match PHY, packet was truncated */
-+	if (length != count)
- 		goto len_mismatch;
- 
- 	if (length < copybreak)
-@@ -2133,6 +2161,10 @@ len_mismatch:
- 	/* Truncation of overlength packets
- 	   causes PHY length to not match MAC length */
- 	++sky2->net_stats.rx_length_errors;
-+	if (netif_msg_rx_err(sky2) && net_ratelimit())
-+		pr_info(PFX "%s: rx length mismatch: length %d status %#x\n",
-+			dev->name, length, status);
-+	goto resubmit;
- 
- error:
- 	++sky2->net_stats.rx_errors;
-@@ -2202,7 +2234,7 @@ static int sky2_status_intr(struct sky2_hw *hw, int to_do)
- 			}
- 
- 			/* This chip reports checksum status differently */
--			if (hw->chip_id == CHIP_ID_YUKON_EX) {
-+			if (hw->flags & SKY2_HW_NEW_LE) {
- 				if (sky2->rx_csum &&
- 				    (le->css & (CSS_ISIPV4 | CSS_ISIPV6)) &&
- 				    (le->css & CSS_TCPUDPCSOK))
-@@ -2243,8 +2275,14 @@ static int sky2_status_intr(struct sky2_hw *hw, int to_do)
- 			if (!sky2->rx_csum)
- 				break;
- 
--			if (hw->chip_id == CHIP_ID_YUKON_EX)
-+			/* If this happens then driver assuming wrong format */
-+			if (unlikely(hw->flags & SKY2_HW_NEW_LE)) {
-+				if (net_ratelimit())
-+					printk(KERN_NOTICE "%s: unexpected"
-+					       " checksum status\n",
-+					       dev->name);
- 				break;
-+			}
- 
- 			/* Both checksum counters are programmed to start at
- 			 * the same offset, so unless there is a problem they
-@@ -2436,20 +2474,72 @@ static void sky2_le_error(struct sky2_hw *hw, unsigned port,
- 	sky2_write32(hw, Q_ADDR(q, Q_CSR), BMU_CLR_IRQ_CHK);
- }
- 
--/* Check for lost IRQ once a second */
-+static int sky2_rx_hung(struct net_device *dev)
++/* requires cfg80211_drv_mutex to be held! */
++static struct cfg80211_registered_device *cfg80211_drv_by_wiphy(int wiphy)
 +{
-+	struct sky2_port *sky2 = netdev_priv(dev);
-+	struct sky2_hw *hw = sky2->hw;
-+	unsigned port = sky2->port;
-+	unsigned rxq = rxqaddr[port];
-+	u32 mac_rp = sky2_read32(hw, SK_REG(port, RX_GMF_RP));
-+	u8 mac_lev = sky2_read8(hw, SK_REG(port, RX_GMF_RLEV));
-+	u8 fifo_rp = sky2_read8(hw, Q_ADDR(rxq, Q_RP));
-+	u8 fifo_lev = sky2_read8(hw, Q_ADDR(rxq, Q_RL));
++	struct cfg80211_registered_device *result = NULL, *drv;
 +
-+	/* If idle and MAC or PCI is stuck */
-+	if (sky2->check.last == dev->last_rx &&
-+	    ((mac_rp == sky2->check.mac_rp &&
-+	      mac_lev != 0 && mac_lev >= sky2->check.mac_lev) ||
-+	     /* Check if the PCI RX hang */
-+	     (fifo_rp == sky2->check.fifo_rp &&
-+	      fifo_lev != 0 && fifo_lev >= sky2->check.fifo_lev))) {
-+		printk(KERN_DEBUG PFX "%s: hung mac %d:%d fifo %d (%d:%d)\n",
-+		       dev->name, mac_lev, mac_rp, fifo_lev, fifo_rp,
-+		       sky2_read8(hw, Q_ADDR(rxq, Q_WP)));
-+		return 1;
-+	} else {
-+		sky2->check.last = dev->last_rx;
-+		sky2->check.mac_rp = mac_rp;
-+		sky2->check.mac_lev = mac_lev;
-+		sky2->check.fifo_rp = fifo_rp;
-+		sky2->check.fifo_lev = fifo_lev;
-+		return 0;
++	list_for_each_entry(drv, &cfg80211_drv_list, list) {
++		if (drv->idx == wiphy) {
++			result = drv;
++			break;
++		}
 +	}
++
++	return result;
 +}
 +
- static void sky2_watchdog(unsigned long arg)
- {
- 	struct sky2_hw *hw = (struct sky2_hw *) arg;
++/* requires cfg80211_drv_mutex to be held! */
++static struct cfg80211_registered_device *
++__cfg80211_drv_from_info(struct genl_info *info)
++{
++	int ifindex;
++	struct cfg80211_registered_device *bywiphy = NULL, *byifidx = NULL;
 +	struct net_device *dev;
- 
-+	/* Check for lost IRQ once a second */
- 	if (sky2_read32(hw, B0_ISRC)) {
--		struct net_device *dev = hw->dev[0];
--
-+		dev = hw->dev[0];
- 		if (__netif_rx_schedule_prep(dev))
- 			__netif_rx_schedule(dev);
-+	} else {
-+		int i, active = 0;
++	int err = -EINVAL;
 +
-+		for (i = 0; i < hw->ports; i++) {
-+			dev = hw->dev[i];
-+			if (!netif_running(dev))
-+				continue;
-+			++active;
++	if (info->attrs[NL80211_ATTR_WIPHY]) {
++		bywiphy = cfg80211_drv_by_wiphy(
++				nla_get_u32(info->attrs[NL80211_ATTR_WIPHY]));
++		err = -ENODEV;
++	}
 +
-+			/* For chips with Rx FIFO, check if stuck */
-+			if ((hw->flags & SKY2_HW_RAMBUFFER) &&
-+			     sky2_rx_hung(dev)) {
-+				pr_info(PFX "%s: receiver hang detected\n",
-+					dev->name);
-+				schedule_work(&hw->restart_work);
-+				return;
-+			}
++	if (info->attrs[NL80211_ATTR_IFINDEX]) {
++		ifindex = nla_get_u32(info->attrs[NL80211_ATTR_IFINDEX]);
++		dev = dev_get_by_index(&init_net, ifindex);
++		if (dev) {
++			if (dev->ieee80211_ptr)
++				byifidx =
++					wiphy_to_dev(dev->ieee80211_ptr->wiphy);
++			dev_put(dev);
 +		}
++		err = -ENODEV;
++	}
 +
-+		if (active == 0)
-+			return;
- 	}
- 
--	if (hw->active > 0)
--		mod_timer(&hw->watchdog_timer, round_jiffies(jiffies + HZ));
-+	mod_timer(&hw->watchdog_timer, round_jiffies(jiffies + HZ));
- }
- 
- /* Hardware/software error handling */
-@@ -2546,17 +2636,25 @@ static void sky2_netpoll(struct net_device *dev)
- #endif
- 
- /* Chip internal frequency for clock calculations */
--static inline u32 sky2_mhz(const struct sky2_hw *hw)
-+static u32 sky2_mhz(const struct sky2_hw *hw)
- {
- 	switch (hw->chip_id) {
- 	case CHIP_ID_YUKON_EC:
- 	case CHIP_ID_YUKON_EC_U:
- 	case CHIP_ID_YUKON_EX:
--		return 125;	/* 125 Mhz */
-+		return 125;
++	if (bywiphy && byifidx) {
++		if (bywiphy != byifidx)
++			return ERR_PTR(-EINVAL);
++		else
++			return bywiphy; /* == byifidx */
++	}
++	if (bywiphy)
++		return bywiphy;
 +
- 	case CHIP_ID_YUKON_FE:
--		return 100;	/* 100 Mhz */
--	default:		/* YUKON_XL */
--		return 156;	/* 156 Mhz */
-+		return 100;
++	if (byifidx)
++		return byifidx;
 +
-+	case CHIP_ID_YUKON_FE_P:
-+		return 50;
++	return ERR_PTR(err);
++}
 +
-+	case CHIP_ID_YUKON_XL:
-+		return 156;
++struct cfg80211_registered_device *
++cfg80211_get_dev_from_info(struct genl_info *info)
++{
++	struct cfg80211_registered_device *drv;
 +
-+	default:
-+		BUG();
- 	}
- }
- 
-@@ -2581,23 +2679,62 @@ static int __devinit sky2_init(struct sky2_hw *hw)
- 	sky2_write8(hw, B0_CTST, CS_RST_CLR);
- 
- 	hw->chip_id = sky2_read8(hw, B2_CHIP_ID);
--	if (hw->chip_id < CHIP_ID_YUKON_XL || hw->chip_id > CHIP_ID_YUKON_FE) {
-+	hw->chip_rev = (sky2_read8(hw, B2_MAC_CFG) & CFG_CHIP_R_MSK) >> 4;
++	mutex_lock(&cfg80211_drv_mutex);
++	drv = __cfg80211_drv_from_info(info);
 +
-+	switch(hw->chip_id) {
-+	case CHIP_ID_YUKON_XL:
-+		hw->flags = SKY2_HW_GIGABIT
-+			| SKY2_HW_NEWER_PHY
-+			| SKY2_HW_RAMBUFFER;
-+		break;
++	/* if it is not an error we grab the lock on
++	 * it to assure it won't be going away while
++	 * we operate on it */
++	if (!IS_ERR(drv))
++		mutex_lock(&drv->mtx);
 +
-+	case CHIP_ID_YUKON_EC_U:
-+		hw->flags = SKY2_HW_GIGABIT
-+			| SKY2_HW_NEWER_PHY
-+			| SKY2_HW_ADV_POWER_CTL;
-+		break;
++	mutex_unlock(&cfg80211_drv_mutex);
 +
-+	case CHIP_ID_YUKON_EX:
-+		hw->flags = SKY2_HW_GIGABIT
-+			| SKY2_HW_NEWER_PHY
-+			| SKY2_HW_NEW_LE
-+			| SKY2_HW_ADV_POWER_CTL;
++	return drv;
++}
 +
-+		/* New transmit checksum */
-+		if (hw->chip_rev != CHIP_REV_YU_EX_B0)
-+			hw->flags |= SKY2_HW_AUTO_TX_SUM;
-+		break;
++struct cfg80211_registered_device *
++cfg80211_get_dev_from_ifindex(int ifindex)
++{
++	struct cfg80211_registered_device *drv = ERR_PTR(-ENODEV);
++	struct net_device *dev;
 +
-+	case CHIP_ID_YUKON_EC:
-+		/* This rev is really old, and requires untested workarounds */
-+		if (hw->chip_rev == CHIP_REV_YU_EC_A1) {
-+			dev_err(&hw->pdev->dev, "unsupported revision Yukon-EC rev A1\n");
-+			return -EOPNOTSUPP;
-+		}
-+		hw->flags = SKY2_HW_GIGABIT | SKY2_HW_RAMBUFFER;
-+		break;
++	mutex_lock(&cfg80211_drv_mutex);
++	dev = dev_get_by_index(&init_net, ifindex);
++	if (!dev)
++		goto out;
++	if (dev->ieee80211_ptr) {
++		drv = wiphy_to_dev(dev->ieee80211_ptr->wiphy);
++		mutex_lock(&drv->mtx);
++	} else
++		drv = ERR_PTR(-ENODEV);
++	dev_put(dev);
++ out:
++	mutex_unlock(&cfg80211_drv_mutex);
++	return drv;
++}
 +
-+	case CHIP_ID_YUKON_FE:
-+		hw->flags = SKY2_HW_RAMBUFFER;
-+		break;
++void cfg80211_put_dev(struct cfg80211_registered_device *drv)
++{
++	BUG_ON(IS_ERR(drv));
++	mutex_unlock(&drv->mtx);
++}
 +
-+	case CHIP_ID_YUKON_FE_P:
-+		hw->flags = SKY2_HW_NEWER_PHY
-+			| SKY2_HW_NEW_LE
-+			| SKY2_HW_AUTO_TX_SUM
-+			| SKY2_HW_ADV_POWER_CTL;
-+		break;
-+	default:
- 		dev_err(&hw->pdev->dev, "unsupported chip type 0x%x\n",
- 			hw->chip_id);
- 		return -EOPNOTSUPP;
- 	}
- 
--	hw->chip_rev = (sky2_read8(hw, B2_MAC_CFG) & CFG_CHIP_R_MSK) >> 4;
-+	hw->pmd_type = sky2_read8(hw, B2_PMD_TYP);
-+	if (hw->pmd_type == 'L' || hw->pmd_type == 'S' || hw->pmd_type == 'P')
-+		hw->flags |= SKY2_HW_FIBRE_PHY;
- 
--	/* This rev is really old, and requires untested workarounds */
--	if (hw->chip_id == CHIP_ID_YUKON_EC && hw->chip_rev == CHIP_REV_YU_EC_A1) {
--		dev_err(&hw->pdev->dev, "unsupported revision Yukon-%s (0x%x) rev %d\n",
--			yukon2_name[hw->chip_id - CHIP_ID_YUKON_XL],
--			hw->chip_id, hw->chip_rev);
--		return -EOPNOTSUPP;
--	}
- 
--	hw->pmd_type = sky2_read8(hw, B2_PMD_TYP);
- 	hw->ports = 1;
- 	t8 = sky2_read8(hw, B2_Y2_HW_RES);
- 	if ((t8 & CFG_DUAL_MAC_MSK) == CFG_DUAL_MAC_MSK) {
-@@ -2791,7 +2928,9 @@ static int sky2_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
- 
- 	sky2->wol = wol->wolopts;
- 
--	if (hw->chip_id == CHIP_ID_YUKON_EC_U || hw->chip_id == CHIP_ID_YUKON_EX)
-+	if (hw->chip_id == CHIP_ID_YUKON_EC_U ||
-+	    hw->chip_id == CHIP_ID_YUKON_EX ||
-+	    hw->chip_id == CHIP_ID_YUKON_FE_P)
- 		sky2_write32(hw, B0_CTST, sky2->wol
- 			     ? Y2_HW_WOL_ON : Y2_HW_WOL_OFF);
- 
-@@ -2809,7 +2948,7 @@ static u32 sky2_supported_modes(const struct sky2_hw *hw)
- 			| SUPPORTED_100baseT_Full
- 			| SUPPORTED_Autoneg | SUPPORTED_TP;
- 
--		if (hw->chip_id != CHIP_ID_YUKON_FE)
-+		if (hw->flags & SKY2_HW_GIGABIT)
- 			modes |= SUPPORTED_1000baseT_Half
- 				| SUPPORTED_1000baseT_Full;
- 		return modes;
-@@ -2829,13 +2968,6 @@ static int sky2_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
- 	ecmd->supported = sky2_supported_modes(hw);
- 	ecmd->phy_address = PHY_ADDR_MARV;
- 	if (sky2_is_copper(hw)) {
--		ecmd->supported = SUPPORTED_10baseT_Half
--		    | SUPPORTED_10baseT_Full
--		    | SUPPORTED_100baseT_Half
--		    | SUPPORTED_100baseT_Full
--		    | SUPPORTED_1000baseT_Half
--		    | SUPPORTED_1000baseT_Full
--		    | SUPPORTED_Autoneg | SUPPORTED_TP;
- 		ecmd->port = PORT_TP;
- 		ecmd->speed = sky2->speed;
- 	} else {
-@@ -3791,6 +3923,13 @@ static __devinit struct net_device *sky2_init_netdev(struct sky2_hw *hw,
- 	sky2->hw = hw;
- 	sky2->msg_enable = netif_msg_init(debug, default_msg);
- 
-+	/* This chip has hardware problems that generates
-+	 * bogus PHY receive status so by default shut up the message.
-+	 */
-+	if (hw->chip_id == CHIP_ID_YUKON_FE_P &&
-+	    hw->chip_rev == CHIP_REV_YU_FE2_A0)
-+		sky2->msg_enable &= ~NETIF_MSG_RX_ERR;
++int cfg80211_dev_rename(struct cfg80211_registered_device *rdev,
++			char *newname)
++{
++	int idx, taken = -1, result, digits;
 +
- 	/* Auto speed and flow control */
- 	sky2->autoneg = AUTONEG_ENABLE;
- 	sky2->flow_mode = FC_BOTH;
-@@ -3846,7 +3985,7 @@ static irqreturn_t __devinit sky2_test_intr(int irq, void *dev_id)
- 		return IRQ_NONE;
++	/* prohibit calling the thing phy%d when %d is not its number */
++	sscanf(newname, PHY_NAME "%d%n", &idx, &taken);
++	if (taken == strlen(newname) && idx != rdev->idx) {
++		/* count number of places needed to print idx */
++		digits = 1;
++		while (idx /= 10)
++			digits++;
++		/*
++		 * deny the name if it is phy<idx> where <idx> is printed
++		 * without leading zeroes. taken == strlen(newname) here
++		 */
++		if (taken == strlen(PHY_NAME) + digits)
++			return -EINVAL;
++	}
++
++	/* this will check for collisions */
++	result = device_rename(&rdev->wiphy.dev, newname);
++	if (result)
++		return result;
++
++	if (!debugfs_rename(rdev->wiphy.debugfsdir->d_parent,
++			    rdev->wiphy.debugfsdir,
++			    rdev->wiphy.debugfsdir->d_parent,
++			    newname))
++		printk(KERN_ERR "cfg80211: failed to rename debugfs dir to %s!\n",
++		       newname);
++
++	nl80211_notify_dev_rename(rdev);
++
++	return 0;
++}
++
+ /* exported functions */
  
- 	if (status & Y2_IS_IRQ_SW) {
--		hw->msi = 1;
-+		hw->flags |= SKY2_HW_USE_MSI;
- 		wake_up(&hw->msi_wait);
- 		sky2_write8(hw, B0_CTST, CS_CL_SW_IRQ);
- 	}
-@@ -3874,9 +4013,9 @@ static int __devinit sky2_test_msi(struct sky2_hw *hw)
- 	sky2_write8(hw, B0_CTST, CS_ST_SW_IRQ);
- 	sky2_read8(hw, B0_CTST);
+ struct wiphy *wiphy_new(struct cfg80211_ops *ops, int sizeof_priv)
+@@ -204,10 +345,16 @@ static int cfg80211_init(void)
+ 	if (err)
+ 		goto out_fail_notifier;
  
--	wait_event_timeout(hw->msi_wait, hw->msi, HZ/10);
-+	wait_event_timeout(hw->msi_wait, (hw->flags & SKY2_HW_USE_MSI), HZ/10);
++	err = nl80211_init();
++	if (err)
++		goto out_fail_nl80211;
++
+ 	ieee80211_debugfs_dir = debugfs_create_dir("ieee80211", NULL);
  
--	if (!hw->msi) {
-+	if (!(hw->flags & SKY2_HW_USE_MSI)) {
- 		/* MSI test failed, go back to INTx mode */
- 		dev_info(&pdev->dev, "No interrupt generated using MSI, "
- 			 "switching to INTx mode.\n");
-@@ -4009,7 +4148,8 @@ static int __devinit sky2_probe(struct pci_dev *pdev,
- 		goto err_out_free_netdev;
- 	}
- 
--	err = request_irq(pdev->irq,  sky2_intr, hw->msi ? 0 : IRQF_SHARED,
-+	err = request_irq(pdev->irq, sky2_intr,
-+			  (hw->flags & SKY2_HW_USE_MSI) ? 0 : IRQF_SHARED,
- 			  dev->name, hw);
- 	if (err) {
- 		dev_err(&pdev->dev, "cannot assign irq %d\n", pdev->irq);
-@@ -4042,7 +4182,7 @@ static int __devinit sky2_probe(struct pci_dev *pdev,
  	return 0;
  
- err_out_unregister:
--	if (hw->msi)
-+	if (hw->flags & SKY2_HW_USE_MSI)
- 		pci_disable_msi(pdev);
- 	unregister_netdev(dev);
- err_out_free_netdev:
-@@ -4091,7 +4231,7 @@ static void __devexit sky2_remove(struct pci_dev *pdev)
- 	sky2_read8(hw, B0_CTST);
- 
- 	free_irq(pdev->irq, hw);
--	if (hw->msi)
-+	if (hw->flags & SKY2_HW_USE_MSI)
- 		pci_disable_msi(pdev);
- 	pci_free_consistent(pdev, STATUS_LE_BYTES, hw->st_le, hw->st_dma);
- 	pci_release_regions(pdev);
-@@ -4159,7 +4299,9 @@ static int sky2_resume(struct pci_dev *pdev)
- 	pci_enable_wake(pdev, PCI_D0, 0);
- 
- 	/* Re-enable all clocks */
--	if (hw->chip_id == CHIP_ID_YUKON_EX || hw->chip_id == CHIP_ID_YUKON_EC_U)
-+	if (hw->chip_id == CHIP_ID_YUKON_EX ||
-+	    hw->chip_id == CHIP_ID_YUKON_EC_U ||
-+	    hw->chip_id == CHIP_ID_YUKON_FE_P)
- 		sky2_pci_write32(hw, PCI_DEV_REG3, 0);
- 
- 	sky2_reset(hw);
-diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
-index 72e12b7..69cd984 100644
---- a/drivers/net/sky2.h
-+++ b/drivers/net/sky2.h
-@@ -470,18 +470,24 @@ enum {
- 	CHIP_ID_YUKON_EX   = 0xb5, /* Chip ID for YUKON-2 Extreme */
- 	CHIP_ID_YUKON_EC   = 0xb6, /* Chip ID for YUKON-2 EC */
-  	CHIP_ID_YUKON_FE   = 0xb7, /* Chip ID for YUKON-2 FE */
--
-+ 	CHIP_ID_YUKON_FE_P = 0xb8, /* Chip ID for YUKON-2 FE+ */
-+};
-+enum yukon_ec_rev {
- 	CHIP_REV_YU_EC_A1    = 0,  /* Chip Rev. for Yukon-EC A1/A0 */
- 	CHIP_REV_YU_EC_A2    = 1,  /* Chip Rev. for Yukon-EC A2 */
- 	CHIP_REV_YU_EC_A3    = 2,  /* Chip Rev. for Yukon-EC A3 */
--
-+};
-+enum yukon_ec_u_rev {
- 	CHIP_REV_YU_EC_U_A0  = 1,
- 	CHIP_REV_YU_EC_U_A1  = 2,
- 	CHIP_REV_YU_EC_U_B0  = 3,
--
-+};
-+enum yukon_fe_rev {
- 	CHIP_REV_YU_FE_A1    = 1,
- 	CHIP_REV_YU_FE_A2    = 2,
--
-+};
-+enum yukon_fe_p_rev {
-+	CHIP_REV_YU_FE2_A0   = 0,
- };
- enum yukon_ex_rev {
- 	CHIP_REV_YU_EX_A0    = 1,
-@@ -1668,7 +1674,7 @@ enum {
- 
- /* Receive Frame Status Encoding */
- enum {
--	GMR_FS_LEN	= 0xffff<<16, /* Bit 31..16:	Rx Frame Length */
-+	GMR_FS_LEN	= 0x7fff<<16, /* Bit 30..16:	Rx Frame Length */
- 	GMR_FS_VLAN	= 1<<13, /* VLAN Packet */
- 	GMR_FS_JABBER	= 1<<12, /* Jabber Packet */
- 	GMR_FS_UN_SIZE	= 1<<11, /* Undersize Packet */
-@@ -1729,6 +1735,10 @@ enum {
- 	GMF_RX_CTRL_DEF	= GMF_OPER_ON | GMF_RX_F_FL_ON,
- };
- 
-+/*	TX_GMF_EA		32 bit	Tx GMAC FIFO End Address */
-+enum {
-+	TX_DYN_WM_ENA	= 3,	/* Yukon-FE+ specific */
-+};
- 
- /*	TX_GMF_CTRL_T	32 bit	Tx GMAC FIFO Control/Test */
- enum {
-@@ -2017,6 +2027,14 @@ struct sky2_port {
- 	u16		     rx_tag;
- 	struct vlan_group    *vlgrp;
- #endif
-+	struct {
-+		unsigned long last;
-+		u32	mac_rp;
-+		u8	mac_lev;
-+		u8	fifo_rp;
-+		u8	fifo_lev;
-+	} check;
-+
- 
- 	dma_addr_t	     rx_le_map;
- 	dma_addr_t	     tx_le_map;
-@@ -2040,12 +2058,20 @@ struct sky2_hw {
- 	void __iomem  	     *regs;
- 	struct pci_dev	     *pdev;
- 	struct net_device    *dev[2];
-+	unsigned long	     flags;
-+#define SKY2_HW_USE_MSI		0x00000001
-+#define SKY2_HW_FIBRE_PHY	0x00000002
-+#define SKY2_HW_GIGABIT		0x00000004
-+#define SKY2_HW_NEWER_PHY	0x00000008
-+#define SKY2_HW_RAMBUFFER	0x00000010	/* chip has RAM FIFO */
-+#define SKY2_HW_NEW_LE		0x00000020	/* new LSOv2 format */
-+#define SKY2_HW_AUTO_TX_SUM	0x00000040	/* new IP decode for Tx */
-+#define SKY2_HW_ADV_POWER_CTL	0x00000080	/* additional PHY power regs */
- 
- 	u8	     	     chip_id;
- 	u8		     chip_rev;
- 	u8		     pmd_type;
- 	u8		     ports;
--	u8		     active;
- 
- 	struct sky2_status_le *st_le;
- 	u32		     st_idx;
-@@ -2053,13 +2079,12 @@ struct sky2_hw {
- 
- 	struct timer_list    watchdog_timer;
- 	struct work_struct   restart_work;
--	int		     msi;
- 	wait_queue_head_t    msi_wait;
- };
- 
- static inline int sky2_is_copper(const struct sky2_hw *hw)
++out_fail_nl80211:
++	unregister_netdevice_notifier(&cfg80211_netdev_notifier);
+ out_fail_notifier:
+ 	wiphy_sysfs_exit();
+ out_fail_sysfs:
+@@ -218,6 +365,7 @@ module_init(cfg80211_init);
+ static void cfg80211_exit(void)
  {
--	return !(hw->pmd_type == 'L' || hw->pmd_type == 'S' || hw->pmd_type == 'P');
-+	return !(hw->flags & SKY2_HW_FIBRE_PHY);
+ 	debugfs_remove(ieee80211_debugfs_dir);
++	nl80211_exit();
+ 	unregister_netdevice_notifier(&cfg80211_netdev_notifier);
+ 	wiphy_sysfs_exit();
  }
+diff --git a/net/wireless/core.h b/net/wireless/core.h
+index 158db1e..eb0f846 100644
+--- a/net/wireless/core.h
++++ b/net/wireless/core.h
+@@ -43,7 +43,39 @@ struct cfg80211_registered_device *wiphy_to_dev(struct wiphy *wiphy)
+ extern struct mutex cfg80211_drv_mutex;
+ extern struct list_head cfg80211_drv_list;
  
- /* Register accessor for memory mapped device */
++/*
++ * This function returns a pointer to the driver
++ * that the genl_info item that is passed refers to.
++ * If successful, it returns non-NULL and also locks
++ * the driver's mutex!
++ *
++ * This means that you need to call cfg80211_put_dev()
++ * before being allowed to acquire &cfg80211_drv_mutex!
++ *
++ * This is necessary because we need to lock the global
++ * mutex to get an item off the list safely, and then
++ * we lock the drv mutex so it doesn't go away under us.
++ *
++ * We don't want to keep cfg80211_drv_mutex locked
++ * for all the time in order to allow requests on
++ * other interfaces to go through at the same time.
++ *
++ * The result of this can be a PTR_ERR and hence must
++ * be checked with IS_ERR() for errors.
++ */
++extern struct cfg80211_registered_device *
++cfg80211_get_dev_from_info(struct genl_info *info);
++
++/* identical to cfg80211_get_dev_from_info but only operate on ifindex */
++extern struct cfg80211_registered_device *
++cfg80211_get_dev_from_ifindex(int ifindex);
++
++extern void cfg80211_put_dev(struct cfg80211_registered_device *drv);
++
+ /* free object */
+ extern void cfg80211_dev_free(struct cfg80211_registered_device *drv);
+ 
++extern int cfg80211_dev_rename(struct cfg80211_registered_device *drv,
++			       char *newname);
++
+ #endif /* __NET_WIRELESS_CORE_H */
+diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+new file mode 100644
+index 0000000..48b0d45
+--- /dev/null
++++ b/net/wireless/nl80211.c
+@@ -0,0 +1,431 @@
++/*
++ * This is the new netlink-based wireless configuration interface.
++ *
++ * Copyright 2006, 2007	Johannes Berg <johannes@sipsolutions.net>
++ */
++
++#include <linux/if.h>
++#include <linux/module.h>
++#include <linux/err.h>
++#include <linux/mutex.h>
++#include <linux/list.h>
++#include <linux/if_ether.h>
++#include <linux/ieee80211.h>
++#include <linux/nl80211.h>
++#include <linux/rtnetlink.h>
++#include <linux/netlink.h>
++#include <net/genetlink.h>
++#include <net/cfg80211.h>
++#include "core.h"
++#include "nl80211.h"
++
++/* the netlink family */
++static struct genl_family nl80211_fam = {
++	.id = GENL_ID_GENERATE,	/* don't bother with a hardcoded ID */
++	.name = "nl80211",	/* have users key off the name instead */
++	.hdrsize = 0,		/* no private header */
++	.version = 1,		/* no particular meaning now */
++	.maxattr = NL80211_ATTR_MAX,
++};
++
++/* internal helper: get drv and dev */
++static int get_drv_dev_by_info_ifindex(struct genl_info *info,
++				       struct cfg80211_registered_device **drv,
++				       struct net_device **dev)
++{
++	int ifindex;
++
++	if (!info->attrs[NL80211_ATTR_IFINDEX])
++		return -EINVAL;
++
++	ifindex = nla_get_u32(info->attrs[NL80211_ATTR_IFINDEX]);
++	*dev = dev_get_by_index(&init_net, ifindex);
++	if (!*dev)
++		return -ENODEV;
++
++	*drv = cfg80211_get_dev_from_ifindex(ifindex);
++	if (IS_ERR(*drv)) {
++		dev_put(*dev);
++		return PTR_ERR(*drv);
++	}
++
++	return 0;
++}
++
++/* policy for the attributes */
++static struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] __read_mostly = {
++	[NL80211_ATTR_WIPHY] = { .type = NLA_U32 },
++	[NL80211_ATTR_WIPHY_NAME] = { .type = NLA_NUL_STRING,
++				      .len = BUS_ID_SIZE-1 },
++
++	[NL80211_ATTR_IFTYPE] = { .type = NLA_U32 },
++	[NL80211_ATTR_IFINDEX] = { .type = NLA_U32 },
++	[NL80211_ATTR_IFNAME] = { .type = NLA_NUL_STRING, .len = IFNAMSIZ-1 },
++};
++
++/* message building helper */
++static inline void *nl80211hdr_put(struct sk_buff *skb, u32 pid, u32 seq,
++				   int flags, u8 cmd)
++{
++	/* since there is no private header just add the generic one */
++	return genlmsg_put(skb, pid, seq, &nl80211_fam, flags, cmd);
++}
++
++/* netlink command implementations */
++
++static int nl80211_send_wiphy(struct sk_buff *msg, u32 pid, u32 seq, int flags,
++			      struct cfg80211_registered_device *dev)
++{
++	void *hdr;
++
++	hdr = nl80211hdr_put(msg, pid, seq, flags, NL80211_CMD_NEW_WIPHY);
++	if (!hdr)
++		return -1;
++
++	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY, dev->idx);
++	NLA_PUT_STRING(msg, NL80211_ATTR_WIPHY_NAME, wiphy_name(&dev->wiphy));
++	return genlmsg_end(msg, hdr);
++
++ nla_put_failure:
++	return genlmsg_cancel(msg, hdr);
++}
++
++static int nl80211_dump_wiphy(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	int idx = 0;
++	int start = cb->args[0];
++	struct cfg80211_registered_device *dev;
++
++	mutex_lock(&cfg80211_drv_mutex);
++	list_for_each_entry(dev, &cfg80211_drv_list, list) {
++		if (++idx < start)
++			continue;
++		if (nl80211_send_wiphy(skb, NETLINK_CB(cb->skb).pid,
++				       cb->nlh->nlmsg_seq, NLM_F_MULTI,
++				       dev) < 0)
++			break;
++	}
++	mutex_unlock(&cfg80211_drv_mutex);
++
++	cb->args[0] = idx;
++
++	return skb->len;
++}
++
++static int nl80211_get_wiphy(struct sk_buff *skb, struct genl_info *info)
++{
++	struct sk_buff *msg;
++	struct cfg80211_registered_device *dev;
++
++	dev = cfg80211_get_dev_from_info(info);
++	if (IS_ERR(dev))
++		return PTR_ERR(dev);
++
++	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	if (!msg)
++		goto out_err;
++
++	if (nl80211_send_wiphy(msg, info->snd_pid, info->snd_seq, 0, dev) < 0)
++		goto out_free;
++
++	cfg80211_put_dev(dev);
++
++	return genlmsg_unicast(msg, info->snd_pid);
++
++ out_free:
++	nlmsg_free(msg);
++ out_err:
++	cfg80211_put_dev(dev);
++	return -ENOBUFS;
++}
++
++static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
++{
++	struct cfg80211_registered_device *rdev;
++	int result;
++
++	if (!info->attrs[NL80211_ATTR_WIPHY_NAME])
++		return -EINVAL;
++
++	rdev = cfg80211_get_dev_from_info(info);
++	if (IS_ERR(rdev))
++		return PTR_ERR(rdev);
++
++	result = cfg80211_dev_rename(rdev, nla_data(info->attrs[NL80211_ATTR_WIPHY_NAME]));
++
++	cfg80211_put_dev(rdev);
++	return result;
++}
++
++
++static int nl80211_send_iface(struct sk_buff *msg, u32 pid, u32 seq, int flags,
++			      struct net_device *dev)
++{
++	void *hdr;
++
++	hdr = nl80211hdr_put(msg, pid, seq, flags, NL80211_CMD_NEW_INTERFACE);
++	if (!hdr)
++		return -1;
++
++	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, dev->ifindex);
++	NLA_PUT_STRING(msg, NL80211_ATTR_IFNAME, dev->name);
++	/* TODO: interface type */
++	return genlmsg_end(msg, hdr);
++
++ nla_put_failure:
++	return genlmsg_cancel(msg, hdr);
++}
++
++static int nl80211_dump_interface(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	int wp_idx = 0;
++	int if_idx = 0;
++	int wp_start = cb->args[0];
++	int if_start = cb->args[1];
++	struct cfg80211_registered_device *dev;
++	struct wireless_dev *wdev;
++
++	mutex_lock(&cfg80211_drv_mutex);
++	list_for_each_entry(dev, &cfg80211_drv_list, list) {
++		if (++wp_idx < wp_start)
++			continue;
++		if_idx = 0;
++
++		mutex_lock(&dev->devlist_mtx);
++		list_for_each_entry(wdev, &dev->netdev_list, list) {
++			if (++if_idx < if_start)
++				continue;
++			if (nl80211_send_iface(skb, NETLINK_CB(cb->skb).pid,
++					       cb->nlh->nlmsg_seq, NLM_F_MULTI,
++					       wdev->netdev) < 0)
++				break;
++		}
++		mutex_unlock(&dev->devlist_mtx);
++	}
++	mutex_unlock(&cfg80211_drv_mutex);
++
++	cb->args[0] = wp_idx;
++	cb->args[1] = if_idx;
++
++	return skb->len;
++}
++
++static int nl80211_get_interface(struct sk_buff *skb, struct genl_info *info)
++{
++	struct sk_buff *msg;
++	struct cfg80211_registered_device *dev;
++	struct net_device *netdev;
++	int err;
++
++	err = get_drv_dev_by_info_ifindex(info, &dev, &netdev);
++	if (err)
++		return err;
++
++	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	if (!msg)
++		goto out_err;
++
++	if (nl80211_send_iface(msg, info->snd_pid, info->snd_seq, 0, netdev) < 0)
++		goto out_free;
++
++	dev_put(netdev);
++	cfg80211_put_dev(dev);
++
++	return genlmsg_unicast(msg, info->snd_pid);
++
++ out_free:
++	nlmsg_free(msg);
++ out_err:
++	dev_put(netdev);
++	cfg80211_put_dev(dev);
++	return -ENOBUFS;
++}
++
++static int nl80211_set_interface(struct sk_buff *skb, struct genl_info *info)
++{
++	struct cfg80211_registered_device *drv;
++	int err, ifindex;
++	enum nl80211_iftype type;
++	struct net_device *dev;
++
++	if (info->attrs[NL80211_ATTR_IFTYPE]) {
++		type = nla_get_u32(info->attrs[NL80211_ATTR_IFTYPE]);
++		if (type > NL80211_IFTYPE_MAX)
++			return -EINVAL;
++	} else
++		return -EINVAL;
++
++	err = get_drv_dev_by_info_ifindex(info, &drv, &dev);
++	if (err)
++		return err;
++	ifindex = dev->ifindex;
++	dev_put(dev);
++
++	if (!drv->ops->change_virtual_intf) {
++		err = -EOPNOTSUPP;
++		goto unlock;
++	}
++
++	rtnl_lock();
++	err = drv->ops->change_virtual_intf(&drv->wiphy, ifindex, type);
++	rtnl_unlock();
++
++ unlock:
++	cfg80211_put_dev(drv);
++	return err;
++}
++
++static int nl80211_new_interface(struct sk_buff *skb, struct genl_info *info)
++{
++	struct cfg80211_registered_device *drv;
++	int err;
++	enum nl80211_iftype type = NL80211_IFTYPE_UNSPECIFIED;
++
++	if (!info->attrs[NL80211_ATTR_IFNAME])
++		return -EINVAL;
++
++	if (info->attrs[NL80211_ATTR_IFTYPE]) {
++		type = nla_get_u32(info->attrs[NL80211_ATTR_IFTYPE]);
++		if (type > NL80211_IFTYPE_MAX)
++			return -EINVAL;
++	}
++
++	drv = cfg80211_get_dev_from_info(info);
++	if (IS_ERR(drv))
++		return PTR_ERR(drv);
++
++	if (!drv->ops->add_virtual_intf) {
++		err = -EOPNOTSUPP;
++		goto unlock;
++	}
++
++	rtnl_lock();
++	err = drv->ops->add_virtual_intf(&drv->wiphy,
++		nla_data(info->attrs[NL80211_ATTR_IFNAME]), type);
++	rtnl_unlock();
++
++ unlock:
++	cfg80211_put_dev(drv);
++	return err;
++}
++
++static int nl80211_del_interface(struct sk_buff *skb, struct genl_info *info)
++{
++	struct cfg80211_registered_device *drv;
++	int ifindex, err;
++	struct net_device *dev;
++
++	err = get_drv_dev_by_info_ifindex(info, &drv, &dev);
++	if (err)
++		return err;
++	ifindex = dev->ifindex;
++	dev_put(dev);
++
++	if (!drv->ops->del_virtual_intf) {
++		err = -EOPNOTSUPP;
++		goto out;
++	}
++
++	rtnl_lock();
++	err = drv->ops->del_virtual_intf(&drv->wiphy, ifindex);
++	rtnl_unlock();
++
++ out:
++	cfg80211_put_dev(drv);
++	return err;
++}
++
++static struct genl_ops nl80211_ops[] = {
++	{
++		.cmd = NL80211_CMD_GET_WIPHY,
++		.doit = nl80211_get_wiphy,
++		.dumpit = nl80211_dump_wiphy,
++		.policy = nl80211_policy,
++		/* can be retrieved by unprivileged users */
++	},
++	{
++		.cmd = NL80211_CMD_SET_WIPHY,
++		.doit = nl80211_set_wiphy,
++		.policy = nl80211_policy,
++		.flags = GENL_ADMIN_PERM,
++	},
++	{
++		.cmd = NL80211_CMD_GET_INTERFACE,
++		.doit = nl80211_get_interface,
++		.dumpit = nl80211_dump_interface,
++		.policy = nl80211_policy,
++		/* can be retrieved by unprivileged users */
++	},
++	{
++		.cmd = NL80211_CMD_SET_INTERFACE,
++		.doit = nl80211_set_interface,
++		.policy = nl80211_policy,
++		.flags = GENL_ADMIN_PERM,
++	},
++	{
++		.cmd = NL80211_CMD_NEW_INTERFACE,
++		.doit = nl80211_new_interface,
++		.policy = nl80211_policy,
++		.flags = GENL_ADMIN_PERM,
++	},
++	{
++		.cmd = NL80211_CMD_DEL_INTERFACE,
++		.doit = nl80211_del_interface,
++		.policy = nl80211_policy,
++		.flags = GENL_ADMIN_PERM,
++	},
++};
++
++/* multicast groups */
++static struct genl_multicast_group nl80211_config_mcgrp = {
++	.name = "config",
++};
++
++/* notification functions */
++
++void nl80211_notify_dev_rename(struct cfg80211_registered_device *rdev)
++{
++	struct sk_buff *msg;
++
++	msg = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
++	if (!msg)
++		return;
++
++	if (nl80211_send_wiphy(msg, 0, 0, 0, rdev) < 0) {
++		nlmsg_free(msg);
++		return;
++	}
++
++	genlmsg_multicast(msg, 0, nl80211_config_mcgrp.id, GFP_KERNEL);
++}
++
++/* initialisation/exit functions */
++
++int nl80211_init(void)
++{
++	int err, i;
++
++	err = genl_register_family(&nl80211_fam);
++	if (err)
++		return err;
++
++	for (i = 0; i < ARRAY_SIZE(nl80211_ops); i++) {
++		err = genl_register_ops(&nl80211_fam, &nl80211_ops[i]);
++		if (err)
++			goto err_out;
++	}
++
++	err = genl_register_mc_group(&nl80211_fam, &nl80211_config_mcgrp);
++	if (err)
++		goto err_out;
++
++	return 0;
++ err_out:
++	genl_unregister_family(&nl80211_fam);
++	return err;
++}
++
++void nl80211_exit(void)
++{
++	genl_unregister_family(&nl80211_fam);
++}
+diff --git a/net/wireless/nl80211.h b/net/wireless/nl80211.h
+new file mode 100644
+index 0000000..f3ea5c0
+--- /dev/null
++++ b/net/wireless/nl80211.h
+@@ -0,0 +1,24 @@
++#ifndef __NET_WIRELESS_NL80211_H
++#define __NET_WIRELESS_NL80211_H
++
++#include "core.h"
++
++#ifdef CONFIG_NL80211
++extern int nl80211_init(void);
++extern void nl80211_exit(void);
++extern void nl80211_notify_dev_rename(struct cfg80211_registered_device *rdev);
++#else
++static inline int nl80211_init(void)
++{
++	return 0;
++}
++static inline void nl80211_exit(void)
++{
++}
++static inline void nl80211_notify_dev_rename(
++	struct cfg80211_registered_device *rdev)
++{
++}
++#endif /* CONFIG_NL80211 */
++
++#endif /* __NET_WIRELESS_NL80211_H */
+-- 
+1.5.2.4
+
+-- 
+John W. Linville
+linville@tuxdriver.com
