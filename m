@@ -1,40 +1,23 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/2] [FS_ENET] TX stuff should use fep->tx_lock,	instead
- of fep->lock.
-Date: Thu, 20 Sep 2007 00:18:24 -0400
-Message-ID: <46F1F490.2040605@garzik.org>
-References: <20070918160527.13525.80935.stgit@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch 1/1] From: Ursula Braun <braunu@de.ibm.com>
+Date: Thu, 20 Sep 2007 00:18:31 -0400
+Message-ID: <46F1F497.5050101@pobox.com>
+References: <20070919110901.080242000@linux.vnet.ibm.com> <20070919111027.298899000@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Vitaly Bordug <vitb@kernel.crashing.org>
+Cc: davem@davemloft.net, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: Ursula Braun <braunu@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42227 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:42238 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750886AbXITES1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Sep 2007 00:18:27 -0400
-In-Reply-To: <20070918160527.13525.80935.stgit@localhost.localdomain>
+	id S1754818AbXITESi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2007 00:18:38 -0400
+In-Reply-To: <20070919111027.298899000@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Vitaly Bordug wrote:
-> Signed-off-by: Vitaly Bordug <vitb@kernel.crashing.org>
-> 
-> ---
-> 
->  drivers/net/fs_enet/fs_enet-main.c |    6 ++++--
->  1 files changed, 4 insertions(+), 2 deletions(-)
-
-applied 1-2, after hand-editing the subject line to remove brackets from 
-around "[FS_ENET]"
-
-everything within [ and ] is removed, before copying to changelog, so 
-please be careful
-
-See http://linux.yyz.us/patch-format.html for more info.
-
-	Jeff
+applied
 
 
