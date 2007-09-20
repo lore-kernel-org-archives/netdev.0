@@ -1,45 +1,32 @@
-From: Davide Libenzi <davidel@xmailserver.org>
-Subject: Re: [PATCH 2.6.23-rc6 Resending] NETWORKING : Edge Triggered EPOLLOUT
- events get missed for TCP sockets
-Date: Thu, 20 Sep 2007 10:56:14 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0709201048290.8897@alien.or.mcafeemobile.com>
-References: <331107.71046.qm@web53704.mail.re2.yahoo.com> <46F20F24.1020900@cosmosbay.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.23][BNX2]: Add PHY workaround for 5709 A1.
+Date: Thu, 20 Sep 2007 11:05:20 -0700 (PDT)
+Message-ID: <20070920.110520.24203599.davem@davemloft.net>
+References: <1190311633.6934.1.camel@dell>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Nagendra Tomar <tomer_iisc@yahoo.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759324AbXITR42@vger.kernel.org>
-In-Reply-To: <46F20F24.1020900@cosmosbay.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andy@greyhouse.net, netdev@vger.kernel.org
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49518
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750718AbXITSFU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 14:05:20 -0400
+In-Reply-To: <1190311633.6934.1.camel@dell>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 20 Sep 2007, Eric Dumazet wrote:
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Thu, 20 Sep 2007 11:07:13 -0700
 
-> Does it means that with your patch each ACK on a ET managed socket will
-> trigger an epoll event   ?
+> [BNX2]: Add PHY workaround for 5709 A1.
 > 
-> Maybe your very sensitive high throuput appication needs to set a flag or
-> something at socket level to ask for such a behavior.
+> Add the DIS_EARLY_DAC PHY workaround for 5709 A1.  Without it, link
+> sometimes does not come up.
 > 
-> The default should stay as is. That is an event should be sent only if someone
-> cared about the wakeup.
+> Update version to 1.6.5.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Unfortunately f_op->poll() does not let the caller to specify the events 
-it's interested in, that would allow to split send/recevie wait queues and 
-better detect read/write cases.
-The detection of a waitqueue_active(->sk_wr_sleep) would work fine in 
-detecting is someone is actually waiting for a write, w/out the false 
-positives triggered by the read-waiters.
-That would be a very sane thing to do, but would require a big&dumb change 
-to all the ->poll around (that could be automated by a script - devices 
-not caring about the events hint can just continue to use the single queue 
-like they currently do), and a more critical and gradual change of all the 
-devices that wants to take advantage of it.
-That way, no more magic bits are needed, and a simple waitqueue_active() 
-would tell you if someone is waiting for write-space events.
-
-
-
-- Davide
+Applied, thanks Michael.
