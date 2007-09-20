@@ -1,27 +1,50 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/6] sky2: fix VLAN receive processing (resend)
-Date: Wed, 19 Sep 2007 23:47:35 -0400
-Message-ID: <46F1ED57.4050507@pobox.com>
-References: <20070919223641.860189786@linux-foundation.org> <20070919223746.487138191@linux-foundation.org>
+Subject: Re: [PATCH] sb1250-mac.c: De-typedef, de-volatile, de-etc...
+Date: Thu, 20 Sep 2007 00:10:54 -0400
+Message-ID: <46F1F2CE.7020300@pobox.com>
+References: <Pine.LNX.4.64N.0709101310030.25038@blysk.ds.pg.gda.pl> <46E8B56E.7060705@pobox.com> <Pine.LNX.4.64N.0709131506040.31069@blysk.ds.pg.gda.pl> <20070913151452.GB29665@linux-mips.org> <46E95C7F.1050302@pobox.com> <Pine.LNX.4.64N.0709141135290.1926@blysk.ds.pg.gda.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Pierre-Yves Ritschard <pyr@spootnik.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Ralf Baechle <ralf@linux-mips.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-mips@linux-mips.org,
+	linux-kernel@vger.kernel.org
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:44451 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:55614 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751691AbXITDrm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Sep 2007 23:47:42 -0400
-In-Reply-To: <20070919223746.487138191@linux-foundation.org>
+	id S1750806AbXITELB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2007 00:11:01 -0400
+In-Reply-To: <Pine.LNX.4.64N.0709141135290.1926@blysk.ds.pg.gda.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ACK patches 1-6
+Maciej W. Rozycki wrote:
+>  Remove typedefs, volatiles and convert kmalloc()/memset() pairs to
+> kcalloc().  Also reformat the surrounding clutter.
+> 
+> Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+> ---
+> On Thu, 13 Sep 2007, Jeff Garzik wrote:
+> 
+>> Net driver patches should apply on top of netdev-2.6.git#upstream, which is
+>> where changes to net drivers are queued for the next release.
+> 
+>  I can see Andrew has done some changes to the patch and applied it 
+> anyway, but here's a version I generated against your tree.  Please feel 
+> free to choose either.
+> 
+>  You may be pleased (or less so) to hear that the version of sb1250-mac.c 
+> in your tree does not even build (because of 
+> 42d53d6be113f974d8152979c88e1061b953bd12) and the patch below does not 
+> address it.  I ran out of time in the evening, but I will send you a fix 
+> shortly.  To be honest I think even with bulk changes it may be worth 
+> checking whether they do not break stuff. ;-)
 
-applied 1-2 and 6
+hrm.  I cannot get this to apply on top of linux-2.6.git, 
+netdev-2.6.git#upstream (prior to net-2.6.24 rebase) or 
+netdev-2.6.git#upstream (after net-2.6.24 rebase)
 
-patch #3 failed to apply to netdev-2.6.git#upstream (which is built on 
-top of net-2.6.24)
-
+ACK the changes
 
