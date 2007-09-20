@@ -1,43 +1,50 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH - net-2.6.24 0/2] Introduce and use print_ip and
-	print_ipv6
-Date: Thu, 20 Sep 2007 08:25:27 -0700
-Message-ID: <1190301928.26101.102.camel@localhost>
-References: <1190271211.26101.91.camel@localhost>
-	 <20070920075532.b20fad42.randy.dunlap@oracle.com>
+From: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+Subject: [PATCH 1/3 Rev4] New attribute RTA_AGE
+Date: Thu, 20 Sep 2007 20:57:22 +0530
+Message-ID: <20070920205722.cad6de2e.varunc@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Randy Dunlap <randy.dunlap@oracle.com>
+Cc: netdev@vger.kernel.org, kaber@trash.net, socketcan@hartkopp.net,
+	shemminger@linux-foundation.org, krkumar2@in.ibm.com,
+	tgraf@suug.ch, varuncha@in.ibm.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:2897 "EHLO perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755771AbXITP0E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Sep 2007 11:26:04 -0400
-In-Reply-To: <20070920075532.b20fad42.randy.dunlap@oracle.com>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:36964 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756067AbXITP0X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 11:26:23 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e31.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8KFQHAr008289
+	for <netdev@vger.kernel.org>; Thu, 20 Sep 2007 11:26:17 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8KFQCdU230588
+	for <netdev@vger.kernel.org>; Thu, 20 Sep 2007 09:26:12 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8KFQBSV025258
+	for <netdev@vger.kernel.org>; Thu, 20 Sep 2007 09:26:12 -0600
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-09-20 at 07:55 -0700, Randy Dunlap wrote:
-> How large are the patches if you posted them for review instead
-> of just referencing gits for them?  (which cuts down on review
-> possibilities)
+A new attribute RTA_AGE is added for the age value to be exported to userlevel using netlink
 
-The v4 is ~130kb, the v6 ~35kb.
+Signed-off-by: Varun Chandramohan <varunc@linux.vnet.ibm.com>
+---
+ include/linux/rtnetlink.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-There is a gitweb available at:
-
-print_ip:
-http://repo.or.cz/w/linux-2.6/trivial-mods.git?a=shortlog;h=print_ipv4
-commit diff:
-http://repo.or.cz/w/linux-2.6/trivial-mods.git?a=commitdiff;h=1e3a30d5d8b49b3accca07cc84ecf6d977cacdd5
-
-print_ipv6:
-http://repo.or.cz/w/linux-2.6/trivial-mods.git?a=shortlog;h=print_ipv6
-commit diff:
-http://repo.or.cz/w/linux-2.6/trivial-mods.git?a=commitdiff;h=e96b794a57a164db84379e2baf5fe2622a5ae3bf
-
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index c91476c..68046a4 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -263,6 +263,7 @@ enum rtattr_type_t
+ 	RTA_SESSION,
+ 	RTA_MP_ALGO, /* no longer used */
+ 	RTA_TABLE,
++	RTA_AGE,
+ 	__RTA_MAX
+ };
+ 
+-- 
+1.4.3.4
 
