@@ -1,47 +1,47 @@
-From: Davide Libenzi <davidel@xmailserver.org>
-Subject: Re: [PATCH 2.6.23-rc6 Resending] NETWORKING : Edge Triggered EPOLLOUT
- events get missed for TCP sockets
-Date: Wed, 19 Sep 2007 22:43:21 -0700 (PDT)
-Message-ID: <Pine.LNX.4.64.0709191701050.2989@alien.or.mcafeemobile.com>
-References: <331107.71046.qm@web53704.mail.re2.yahoo.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: [ofa-general] Re: [Bug,
+	PATCH and another Bug] Was: Fix refcounting problem
+	with netif_rx_reschedule()
+Date: Thu, 20 Sep 2007 11:24:01 +0530
+Message-ID: <OF035DCEA7.EE6D8D3A-ON6525735C.001FC9D4-6525735C.00206959@in.ibm.com>
+References: <20070919.221224.26966518.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Nagendra Tomar <tomer_iisc@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from x35.xmailserver.org ([64.71.152.41]:56844 "EHLO
-	x35.xmailserver.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753309AbXITFn3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 01:43:29 -0400
-Received: from alien.or.mcafeemobile.com
-	by x35.xmailserver.org with [XMail 1.25 ESMTP Server]
-	id <S24EAF1> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
-	Thu, 20 Sep 2007 01:43:28 -0400
-In-Reply-To: <331107.71046.qm@web53704.mail.re2.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, ossthema@de.ibm.com,
+	general@lists.openfabrics.org
+To: David Miller <davem@davemloft.net>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070919.221224.26966518.davem@davemloft.net>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 19 Sep 2007, Nagendra Tomar wrote:
+Ran 4/16/64 thread iperf on latest bits with this patch and no issues after
+30 mins. I used to
+consistently get the bug within 1-2 mins with just 4 threads prior to this
+patch.
 
-> Definitely not ! 
-> 
-> The point is that the "tcp write space available" 
-> wakeup does not get called if SOCK_NOSPACE bit is not set. This was
-> fine when the wakeup was merely a wakeup (since SOCK_NOSPACE bit 
-> indicated that someone really cared abt the wakeup). Now after the
-> introduction of callback'ed wakeups, we might have some work to
-> do inside the callback even if there is nobody interested in the wakeup
-> at that point of time. 
-> 
-> In this particular case the ep_poll_callback is not getting called and
-> hence the socket fd is not getting added to the ready list.
+Tested-by: Krishna Kumar <krkumar2@in.ibm.com>
+(if any value in that)
 
-I know, I saw the patch. I was just commenting the point where DaveM was 
-heading to ;)
-This things needs to be looked at a little bit more deeply.
+thanks,
 
+- KK
 
-- Davide
+David Miller <davem@davemloft.net> wrote on 09/20/2007 10:42:24 AM:
 
-
+> From: Krishna Kumar2 <krkumar2@in.ibm.com>
+> Date: Thu, 20 Sep 2007 10:40:33 +0530
+>
+> > I like the clean changes made by Dave to fix this, and will test it
+> > today (if I can get my crashed system to come up).
+>
+> I would very much appreciate this testing, as I'm rather sure we've
+> plugged up the most serious holes at this point.
