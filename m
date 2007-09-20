@@ -1,38 +1,46 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] e1000: Add device IDs of blade version of the 82571 quad
- port
-Date: Thu, 20 Sep 2007 17:41:39 -0400
-Message-ID: <46F2E913.3080204@garzik.org>
-References: <20070830182357.14185.69495.stgit@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] sky2: be more selective about FIFO watchdog
+Date: Thu, 20 Sep 2007 17:46:01 -0400
+Message-ID: <46F2EA19.7040805@pobox.com>
+References: <20070920130349.252ecdb9@freepuppy.rosehill>	<46F2DD41.30909@pobox.com> <20070920143046.61fce43b@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.ronciak@intel.com
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33993 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:34034 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751297AbXITVll (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Sep 2007 17:41:41 -0400
-In-Reply-To: <20070830182357.14185.69495.stgit@localhost.localdomain>
+	id S1751407AbXITVqD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2007 17:46:03 -0400
+In-Reply-To: <20070920143046.61fce43b@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Auke Kok wrote:
-> This blade-specific board form factor is identical to the 82571EB
-> board.
+Stephen Hemminger wrote:
+> On Thu, 20 Sep 2007 16:51:13 -0400
+> Jeff Garzik <jgarzik@pobox.com> wrote:
 > 
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> ---
-> 
->  drivers/net/e1000/e1000_ethtool.c |    1 +
->  drivers/net/e1000/e1000_hw.c      |    1 +
->  drivers/net/e1000/e1000_hw.h      |    1 +
->  drivers/net/e1000/e1000_main.c    |    2 ++
->  4 files changed, 5 insertions(+), 0 deletions(-)
+>> Stephen Hemminger wrote:
+>>> Be more selective about when to enable the ram buffer watchdog code.
+>>> It is unnecessary on XL A3 or later revs, and with Yukon FE
+>>> the buffer is so small (4K) that the watchdog detects false positives.
+>>>
+>>> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+>> With all the sky2 patches flying about, it would be wise to include 
+>> notes like "applies to 2.6.23-rc" or "net-2.6.24" after the standard 
+>> "---" terminator.
+>>
+>> is this patch supposed to go on top of the sky2 patches that Linus just 
+>> pulled?
+>>
+>>
+> It can go after previous 6 on both 2.6.23-rc and net-2.6.24 (with fuzz)
 
-I just found this buried in a dusty corner of my inbox.  is this still 
-needed?
+Is it _needed_ in 2.6.23-rc, Mr. Maintainer?  :)
+
+The answer to that question is not clear to me, given the description 
+and code.
 
 	Jeff
 
