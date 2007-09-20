@@ -1,8 +1,7 @@
 From: Moni Shoua <monis@voltaire.com>
-Subject: [PATCH V5 10/11] net/bonding: Destroy bonding master when last slave
- is gone
-Date: Thu, 20 Sep 2007 16:04:03 +0200
-Message-ID: <46F27DD3.4080806@voltaire.com>
+Subject: [PATCH V5 5/11] net/bonding: Enable bonding to enslave non ARPHRD_ETHER
+Date: Thu, 20 Sep 2007 16:06:34 +0200
+Message-ID: <46F27E6A.5000101@voltaire.com>
 References: <46F27692.3070404@voltaire.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -11,136 +10,88 @@ Cc: OpenFabrics General <general@lists.openfabrics.org>,
 	netdev@vger.kernel.org
 To: Roland Dreier <rdreier@cisco.com>, Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:24721 "EHLO exil.voltaire.com"
+Received: from fwil.voltaire.com ([193.47.165.2]:25766 "EHLO exil.voltaire.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752410AbXITOEI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Sep 2007 10:04:08 -0400
+	id S1754851AbXITOGg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2007 10:06:36 -0400
 In-Reply-To: <46F27692.3070404@voltaire.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When bonding enslaves non Ethernet devices it takes pointers to functions 
-in the module that owns the slaves. In this case it becomes unsafe
-to keep the bonding master registered after last slave was unenslaved 
-because we don't know if the pointers are still valid.  Destroying the bond when slave_cnt is zero
-ensures that these functions be used anymore.
+This patch changes some of the bond netdevice attributes and functions
+to be that of the active slave for the case of the enslaved device not being
+of ARPHRD_ETHER type. Basically it overrides those setting done by ether_setup(),
+which are netdevice **type** dependent and hence might be not appropriate for
+devices of other types. It also enforces mutual exclusion on bonding slaves
+from dissimilar ether types, as was concluded over the v1 discussion.
+
+IPoIB (see Documentation/infiniband/ipoib.txt) MAC address is made of a 3 bytes
+IB QP (Queue Pair) number and 16 bytes IB port GID (Global ID) of the port this
+IPoIB device is bounded to. The QP is a resource created by the IB HW and the
+GID is an identifier burned into the HCA (i have omitted here some details which
+are not important for the bonding RFC).
 
 Signed-off-by: Moni Shoua <monis at voltaire.com>
+Signed-off-by: Or Gerlitz <ogerlitz at voltaire.com>
 ---
- drivers/net/bonding/bond_main.c |   45 +++++++++++++++++++++++++++++++++++++++-
- drivers/net/bonding/bonding.h   |    3 ++
- 2 files changed, 47 insertions(+), 1 deletion(-)
+ drivers/net/bonding/bond_main.c |   39 +++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 39 insertions(+)
 
 Index: net-2.6/drivers/net/bonding/bond_main.c
 ===================================================================
---- net-2.6.orig/drivers/net/bonding/bond_main.c	2007-08-20 14:43:17.123702132 +0300
-+++ net-2.6/drivers/net/bonding/bond_main.c	2007-08-20 14:43:17.850571535 +0300
-@@ -1256,6 +1256,7 @@ static int bond_compute_features(struct 
- static void bond_setup_by_slave(struct net_device *bond_dev,
- 				struct net_device *slave_dev)
- {
-+	struct bonding *bond = bond_dev->priv;
- 	bond_dev->hard_header	        = slave_dev->hard_header;
- 	bond_dev->rebuild_header        = slave_dev->rebuild_header;
- 	bond_dev->hard_header_cache	= slave_dev->hard_header_cache;
-@@ -1270,6 +1271,7 @@ static void bond_setup_by_slave(struct n
- 
- 	memcpy(bond_dev->broadcast, slave_dev->broadcast,
- 		slave_dev->addr_len);
-+	bond->setup_by_slave = 1;
+--- net-2.6.orig/drivers/net/bonding/bond_main.c	2007-08-15 10:08:59.000000000 +0300
++++ net-2.6/drivers/net/bonding/bond_main.c	2007-08-15 10:54:13.424688411 +0300
+@@ -1237,6 +1237,26 @@ static int bond_compute_features(struct 
+ 	return 0;
  }
  
++
++static void bond_setup_by_slave(struct net_device *bond_dev,
++				struct net_device *slave_dev)
++{
++	bond_dev->hard_header	        = slave_dev->hard_header;
++	bond_dev->rebuild_header        = slave_dev->rebuild_header;
++	bond_dev->hard_header_cache	= slave_dev->hard_header_cache;
++	bond_dev->header_cache_update   = slave_dev->header_cache_update;
++	bond_dev->hard_header_parse	= slave_dev->hard_header_parse;
++
++	bond_dev->neigh_setup           = slave_dev->neigh_setup;
++
++	bond_dev->type		    = slave_dev->type;
++	bond_dev->hard_header_len   = slave_dev->hard_header_len;
++	bond_dev->addr_len	    = slave_dev->addr_len;
++
++	memcpy(bond_dev->broadcast, slave_dev->broadcast,
++		slave_dev->addr_len);
++}
++
  /* enslave device <slave> to bond device <master> */
-@@ -1838,6 +1840,35 @@ int bond_release(struct net_device *bond
- }
+ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ {
+@@ -1311,6 +1331,25 @@ int bond_enslave(struct net_device *bond
+ 		goto err_undo_flags;
+ 	}
  
- /*
-+* Destroy a bonding device.
-+* Must be under rtnl_lock when this function is called.
-+*/
-+void bond_destroy(struct bonding *bond)
-+{
-+	bond_deinit(bond->dev);
-+	bond_destroy_sysfs_entry(bond);
-+	unregister_netdevice(bond->dev);
-+}
-+
-+/*
-+* First release a slave and than destroy the bond if no more slaves iare left.
-+* Must be under rtnl_lock when this function is called.
-+*/
-+int  bond_release_and_destroy(struct net_device *bond_dev, struct net_device *slave_dev)
-+{
-+	struct bonding *bond = bond_dev->priv;
-+	int ret;
-+
-+	ret = bond_release(bond_dev, slave_dev);
-+	if ((ret == 0) && (bond->slave_cnt == 0)) {
-+		printk(KERN_INFO DRV_NAME " %s: destroying bond for.\n",
-+					bond_dev->name);
-+		bond_destroy(bond);
++	/* set bonding device ether type by slave - bonding netdevices are
++	 * created with ether_setup, so when the slave type is not ARPHRD_ETHER
++	 * there is a need to override some of the type dependent attribs/funcs.
++	 *
++	 * bond ether type mutual exclusion - don't allow slaves of dissimilar
++	 * ether type (eg ARPHRD_ETHER and ARPHRD_INFINIBAND) share the same bond
++	 */
++	if (bond->slave_cnt == 0) {
++		if (slave_dev->type != ARPHRD_ETHER)
++			bond_setup_by_slave(bond_dev, slave_dev);
++	} else if (bond_dev->type != slave_dev->type) {
++		printk(KERN_ERR DRV_NAME ": %s ether type (%d) is different "
++			"from other slaves (%d), can not enslave it.\n",
++			slave_dev->name,
++			slave_dev->type, bond_dev->type);
++			res = -EINVAL;
++			goto err_undo_flags;
 +	}
-+	return ret;
-+}
 +
-+/*
-  * This function releases all slaves.
-  */
- static int bond_release_all(struct net_device *bond_dev)
-@@ -3322,7 +3353,11 @@ static int bond_slave_netdev_event(unsig
- 	switch (event) {
- 	case NETDEV_UNREGISTER:
- 		if (bond_dev) {
--			bond_release(bond_dev, slave_dev);
-+			dprintk("slave %s unregisters\n", slave_dev->name);
-+			if (bond->setup_by_slave)
-+				bond_release_and_destroy(bond_dev, slave_dev);
-+			else
-+				bond_release(bond_dev, slave_dev);
- 		}
- 		break;
- 	case NETDEV_CHANGE:
-@@ -3331,6 +3366,13 @@ static int bond_slave_netdev_event(unsig
- 		 * sets up a hierarchical bond, then rmmod's
- 		 * one of the slave bonding devices?
- 		 */
-+		if (slave_dev->priv_flags & IFF_SLAVE_DETACH) {
-+			dprintk("slave %s detaching\n", slave_dev->name);
-+			if (bond->setup_by_slave)
-+				bond_release_and_destroy(bond_dev, slave_dev);
-+			else
-+				bond_release(bond_dev, slave_dev);
-+		}
- 		break;
- 	case NETDEV_DOWN:
- 		/*
-@@ -4311,6 +4353,7 @@ static int bond_init(struct net_device *
- 	bond->primary_slave = NULL;
- 	bond->dev = bond_dev;
- 	bond->send_grat_arp = 0;
-+	bond->setup_by_slave = 0;
- 	INIT_LIST_HEAD(&bond->vlan_list);
- 
- 	/* Initialize the device entry points */
-Index: net-2.6/drivers/net/bonding/bonding.h
-===================================================================
---- net-2.6.orig/drivers/net/bonding/bonding.h	2007-08-20 14:43:17.123702132 +0300
-+++ net-2.6/drivers/net/bonding/bonding.h	2007-08-20 14:47:52.845180870 +0300
-@@ -188,6 +188,7 @@ struct bonding {
- 	s8       kill_timers;
- 	s8       do_set_mac_addr;
- 	s8	 send_grat_arp;
-+	s8	 setup_by_slave;
- 	struct   net_device_stats stats;
- #ifdef CONFIG_PROC_FS
- 	struct   proc_dir_entry *proc_entry;
-@@ -295,6 +296,8 @@ static inline void bond_unset_master_alb
- struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr);
- int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev);
- int bond_create(char *name, struct bond_params *params, struct bonding **newbond);
-+void bond_destroy(struct bonding *bond);
-+int  bond_release_and_destroy(struct net_device *bond_dev, struct net_device *slave_dev);
- void bond_deinit(struct net_device *bond_dev);
- int bond_create_sysfs(void);
- void bond_destroy_sysfs(void);
+ 	if (slave_dev->set_mac_address == NULL) {
+ 		printk(KERN_ERR DRV_NAME
+ 			": %s: Error: The slave device you specified does "
 
