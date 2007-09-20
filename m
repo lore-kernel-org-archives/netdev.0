@@ -1,150 +1,50 @@
-From: Moni Shoua <monis@voltaire.com>
-Subject: [ofa-general] [PATCH V5 3/11] IB/ipoib: Bound the net device to the
- ipoib_neigh structue
-Date: Thu, 20 Sep 2007 16:41:37 +0300
-Message-ID: <46F27891.5010909@voltaire.com>
-References: <46F27692.3070404@voltaire.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: Please pull 'ssb-drivers' branch of wireless-2.6
+Date: Thu, 20 Sep 2007 09:19:00 -0400
+Message-ID: <20070920131900.GA6748@tuxdriver.com>
+References: <20070919204428.GE5483@tuxdriver.com> <20070919213356.GB15510@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	OpenFabrics General <general@lists.openfabrics.org>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <46F27692.3070404@voltaire.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>,
+	linux-usb-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org
+To: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20070919213356.GB15510-l3A5Bk7waGM@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-IPoIB uses a two layer neighboring scheme, such that for each struct neighbour
-whose device is an ipoib one, there is a struct ipoib_neigh buddy which is
-created on demand at the tx flow by an ipoib_neigh_alloc(skb->dst->neighbour)
-call.
+On Wed, Sep 19, 2007 at 02:33:56PM -0700, Greg KH wrote:
+> On Wed, Sep 19, 2007 at 04:44:28PM -0400, John W. Linville wrote:
 
-When using the bonding driver, neighbours are created by the net stack on behalf
-of the bonding (master) device. On the tx flow the bonding code gets an skb such
-that skb->dev points to the master device, it changes this skb to point on the
-slave device and calls the slave hard_start_xmit function.
+> > These patches build upon the SSB bus support added to net-2.6.24 to
+> > support the b43 wireless driver.  Since Dave has that support in his
+> > tree, I'm asking him to merge these patches as well.
 
-Under this scheme, ipoib_neigh_destructor assumption that for each struct
-neighbour it gets, n->dev is an ipoib device and hence netdev_priv(n->dev)
-can be casted to struct ipoib_dev_priv is buggy.
+> > The second patch adds a driver for a USB OHCI device which lives on
+> > the SSB bus.  Again, this is found on a number of SoC devices used
+> > especially in wireless routers and APs.
 
-To fix it, this patch adds a dev field to struct ipoib_neigh which is used
-instead of the struct neighbour dev one, when n->dev->flags has the
-IFF_MASTER bit set.
+> > The patches are available here:
+> > 
+> > 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/ssb-drivers/0001-b44-port-to-native-ssb-support.patch
+> > 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/ssb-drivers/0002-usb-ssb-hosted-OHCI-driver.patch
+> 
+> This one needs to go through the linux-usb-devel list (not the -users
+> list) and get acked by David Brownell, the current OHCI maintainer.
 
-Signed-off-by: Moni Shoua <monis at voltaire.com>
-Signed-off-by: Or Gerlitz <ogerlitz at voltaire.com>
----
- drivers/infiniband/ulp/ipoib/ipoib.h           |    4 +++-
- drivers/infiniband/ulp/ipoib/ipoib_main.c      |   24 +++++++++++++++---------
- drivers/infiniband/ulp/ipoib/ipoib_multicast.c |    3 ++-
- 3 files changed, 20 insertions(+), 11 deletions(-)
+Ooops, sorry -- clicked on the wrong line in MAINTAINERS...
 
-Index: net-2.6/drivers/infiniband/ulp/ipoib/ipoib.h
-===================================================================
---- net-2.6.orig/drivers/infiniband/ulp/ipoib/ipoib.h	2007-09-18 17:08:53.245849217 +0200
-+++ net-2.6/drivers/infiniband/ulp/ipoib/ipoib.h	2007-09-18 17:09:26.534874404 +0200
-@@ -328,6 +328,7 @@ struct ipoib_neigh {
- 	struct sk_buff_head queue;
- 
- 	struct neighbour   *neighbour;
-+	struct net_device *dev;
- 
- 	struct list_head    list;
- };
-@@ -344,7 +345,8 @@ static inline struct ipoib_neigh **to_ip
- 				     INFINIBAND_ALEN, sizeof(void *));
- }
- 
--struct ipoib_neigh *ipoib_neigh_alloc(struct neighbour *neigh);
-+struct ipoib_neigh *ipoib_neigh_alloc(struct neighbour *neigh,
-+				      struct net_device *dev);
- void ipoib_neigh_free(struct net_device *dev, struct ipoib_neigh *neigh);
- 
- extern struct workqueue_struct *ipoib_workqueue;
-Index: net-2.6/drivers/infiniband/ulp/ipoib/ipoib_main.c
-===================================================================
---- net-2.6.orig/drivers/infiniband/ulp/ipoib/ipoib_main.c	2007-09-18 17:08:53.245849217 +0200
-+++ net-2.6/drivers/infiniband/ulp/ipoib/ipoib_main.c	2007-09-18 17:23:54.725744661 +0200
-@@ -511,7 +511,7 @@ static void neigh_add_path(struct sk_buf
- 	struct ipoib_path *path;
- 	struct ipoib_neigh *neigh;
- 
--	neigh = ipoib_neigh_alloc(skb->dst->neighbour);
-+	neigh = ipoib_neigh_alloc(skb->dst->neighbour, skb->dev);
- 	if (!neigh) {
- 		++priv->stats.tx_dropped;
- 		dev_kfree_skb_any(skb);
-@@ -830,6 +830,13 @@ static void ipoib_neigh_cleanup(struct n
- 	unsigned long flags;
- 	struct ipoib_ah *ah = NULL;
- 
-+	neigh = *to_ipoib_neigh(n);
-+	if (neigh) {
-+		priv = netdev_priv(neigh->dev);
-+		ipoib_dbg(priv, "neigh_destructor for bonding device: %s\n",
-+			  n->dev->name);
-+	} else
-+		return;
- 	ipoib_dbg(priv,
- 		  "neigh_cleanup for %06x " IPOIB_GID_FMT "\n",
- 		  IPOIB_QPN(n->ha),
-@@ -837,13 +844,10 @@ static void ipoib_neigh_cleanup(struct n
- 
- 	spin_lock_irqsave(&priv->lock, flags);
- 
--	neigh = *to_ipoib_neigh(n);
--	if (neigh) {
--		if (neigh->ah)
--			ah = neigh->ah;
--		list_del(&neigh->list);
--		ipoib_neigh_free(n->dev, neigh);
--	}
-+	if (neigh->ah)
-+		ah = neigh->ah;
-+	list_del(&neigh->list);
-+	ipoib_neigh_free(n->dev, neigh);
- 
- 	spin_unlock_irqrestore(&priv->lock, flags);
- 
-@@ -851,7 +855,8 @@ static void ipoib_neigh_cleanup(struct n
- 		ipoib_put_ah(ah);
- }
- 
--struct ipoib_neigh *ipoib_neigh_alloc(struct neighbour *neighbour)
-+struct ipoib_neigh *ipoib_neigh_alloc(struct neighbour *neighbour,
-+				      struct net_device *dev)
- {
- 	struct ipoib_neigh *neigh;
- 
-@@ -860,6 +865,7 @@ struct ipoib_neigh *ipoib_neigh_alloc(st
- 		return NULL;
- 
- 	neigh->neighbour = neighbour;
-+	neigh->dev = dev;
- 	*to_ipoib_neigh(neighbour) = neigh;
- 	skb_queue_head_init(&neigh->queue);
- 	ipoib_cm_set(neigh, NULL);
-Index: net-2.6/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
-===================================================================
---- net-2.6.orig/drivers/infiniband/ulp/ipoib/ipoib_multicast.c	2007-09-18 17:08:53.245849217 +0200
-+++ net-2.6/drivers/infiniband/ulp/ipoib/ipoib_multicast.c	2007-09-18 17:09:26.536874045 +0200
-@@ -727,7 +727,8 @@ out:
- 		if (skb->dst            &&
- 		    skb->dst->neighbour &&
- 		    !*to_ipoib_neigh(skb->dst->neighbour)) {
--			struct ipoib_neigh *neigh = ipoib_neigh_alloc(skb->dst->neighbour);
-+			struct ipoib_neigh *neigh = ipoib_neigh_alloc(skb->dst->neighbour,
-+									skb->dev);
- 
- 			if (neigh) {
- 				kref_get(&mcast->ah->ref);
+David, please review the patch in the second link above and consider it
+for inclusion in 2.6.24 (once the SSB stuff in net-2.6.24 is merged).
+
+Thanks!
+
+John
+-- 
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
