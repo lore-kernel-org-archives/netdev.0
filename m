@@ -1,45 +1,58 @@
-From: Nagendra Tomar <tomer_iisc@yahoo.com>
-Subject: Re: [PATCH 2.6.23-rc6 Resending] NETWORKING : Edge Triggered EPOLLOUT events get missed for TCP sockets
-Date: Thu, 20 Sep 2007 15:24:53 -0700 (PDT)
-Message-ID: <549830.78824.qm@web53705.mail.re2.yahoo.com>
-References: <Pine.LNX.4.64.0709201048290.8897@alien.or.mcafeemobile.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] sky2: be more selective about FIFO watchdog
+Date: Thu, 20 Sep 2007 15:33:58 -0700
+Message-ID: <20070920153358.7a491456@freepuppy.rosehill>
+References: <20070920130349.252ecdb9@freepuppy.rosehill>
+	<46F2DD41.30909@pobox.com>
+	<20070920143046.61fce43b@freepuppy.rosehill>
+	<46F2EA19.7040805@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Nagendra Tomar <tomer_iisc@yahoo.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Davide Libenzi <davidel@xmailserver.org>,
-	Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756093AbXITWZZ@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0709201048290.8897@alien.or.mcafeemobile.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:59491 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750958AbXITWeN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 18:34:13 -0400
+In-Reply-To: <46F2EA19.7040805@pobox.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 20 Sep 2007 17:46:01 -0400
+Jeff Garzik <jgarzik@pobox.com> wrote:
 
---- Davide Libenzi <davidel@xmailserver.org> wrote:
-
+> Stephen Hemminger wrote:
+> > On Thu, 20 Sep 2007 16:51:13 -0400
+> > Jeff Garzik <jgarzik@pobox.com> wrote:
+> > 
+> >> Stephen Hemminger wrote:
+> >>> Be more selective about when to enable the ram buffer watchdog code.
+> >>> It is unnecessary on XL A3 or later revs, and with Yukon FE
+> >>> the buffer is so small (4K) that the watchdog detects false positives.
+> >>>
+> >>> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> >> With all the sky2 patches flying about, it would be wise to include 
+> >> notes like "applies to 2.6.23-rc" or "net-2.6.24" after the standard 
+> >> "---" terminator.
+> >>
+> >> is this patch supposed to go on top of the sky2 patches that Linus just 
+> >> pulled?
+> >>
+> >>
+> > It can go after previous 6 on both 2.6.23-rc and net-2.6.24 (with fuzz)
 > 
-> Unfortunately f_op->poll() does not let the caller to specify the events 
-> it's interested in, that would allow to split send/recevie wait queues and 
-> better detect read/write cases.
-> The detection of a waitqueue_active(->sk_wr_sleep) would work fine in 
-> detecting is someone is actually waiting for a write, w/out the false 
-> positives triggered by the read-waiters.
-> That would be a very sane thing to do, but would require a big&dumb change 
-> to all the ->poll around (that could be automated by a script - devices 
-> not caring about the events hint can just continue to use the single queue 
-> like they currently do), and a more critical and gradual change of all the 
-> devices that wants to take advantage of it.
-> That way, no more magic bits are needed, and a simple waitqueue_active() 
-> would tell you if someone is waiting for write-space events.
+> Is it _needed_ in 2.6.23-rc, Mr. Maintainer?  :)
 > 
+> The answer to that question is not clear to me, given the description 
+> and code.
 
-I like this.
+Yes, the patch is needed, because when tested on Yukon FE laptop,
+the 2.6.23-rc driver falsely thinks the receiver is stuck. Sorry, I didn't
+catch it sooner, but that is the one flavor of chip I don't have to test
+on.
 
 
-
-
-
-      ___________________________________________________________ 
-To help you stay safe and secure online, we've developed the all new Yahoo! Security Centre. http://uk.security.yahoo.com
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
