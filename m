@@ -1,46 +1,50 @@
-From: "rae l" <crquan@gmail.com>
-Subject: Re: [PATCH 2/3] netlink: the temp variable name max is ambiguous
-Date: Fri, 21 Sep 2007 00:56:35 +0800
-Message-ID: <91b13c310709200956n155ff614p7234d28829a9b8ce@mail.gmail.com>
-References: <1188675959178-git-send-email-crquan@gmail.com>
-	 <11886759682348-git-send-email-crquan@gmail.com>
-	 <20070916.163650.88475186.davem@davemloft.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] sb1250-mac.c: De-typedef, de-volatile, de-etc...
+Date: Thu, 20 Sep 2007 13:01:45 -0400
+Message-ID: <46F2A779.2040904@pobox.com>
+References: <Pine.LNX.4.64N.0709101310030.25038@blysk.ds.pg.gda.pl> <46E8B56E.7060705@pobox.com> <Pine.LNX.4.64N.0709131506040.31069@blysk.ds.pg.gda.pl> <20070913151452.GB29665@linux-mips.org> <46E95C7F.1050302@pobox.com> <Pine.LNX.4.64N.0709141135290.1926@blysk.ds.pg.gda.pl> <46F1F2CE.7020300@pobox.com> <Pine.LNX.4.64N.0709201354320.30788@blysk.ds.pg.gda.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	cr_quan@163.com
-To: "David Miller" <davem@davemloft.net>
+Cc: Ralf Baechle <ralf@linux-mips.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-mips@linux-mips.org,
+	linux-kernel@vger.kernel.org
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:17098 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755240AbXITQ4h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 12:56:37 -0400
-Received: by ug-out-1314.google.com with SMTP id z38so414581ugc
-        for <netdev@vger.kernel.org>; Thu, 20 Sep 2007 09:56:35 -0700 (PDT)
-In-Reply-To: <20070916.163650.88475186.davem@davemloft.net>
-Content-Disposition: inline
+Received: from srv5.dvmed.net ([207.36.208.214]:60101 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751134AbXITRBv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2007 13:01:51 -0400
+In-Reply-To: <Pine.LNX.4.64N.0709201354320.30788@blysk.ds.pg.gda.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 9/17/07, David Miller <davem@davemloft.net> wrote:
-> From: Denis Cheng <crquan@gmail.com>
-> Date: Sun,  2 Sep 2007 03:45:58 +0800
->
-> > with the macro max provided by <linux/kernel.h>, so changed its name to a more proper one: limit
-> >
-> > Signed-off-by: Denis Cheng <crquan@gmail.com>
->
-> Not strictly necessary because CPP knows to differentiate between
-> 'max(' and plain 'max' when evaluating if a CPP macro should be
-> expanded or not.
-I also know the GNU CPP is intelligent, but people are often not.
-I just think the avoidance to use human ambiguous names could give
-more readability.
+Maciej W. Rozycki wrote:
+> On Thu, 20 Sep 2007, Jeff Garzik wrote:
+> 
+>>> You may be pleased (or less so) to hear that the version of sb1250-mac.c in
+>>> your tree does not even build (because of
+>>> 42d53d6be113f974d8152979c88e1061b953bd12) and the patch below does not
+>>> address it.  I ran out of time in the evening, but I will send you a fix
+>>> shortly.  To be honest I think even with bulk changes it may be worth
+>>> checking whether they do not break stuff. ;-)
+>> hrm.  I cannot get this to apply on top of linux-2.6.git,
+>> netdev-2.6.git#upstream (prior to net-2.6.24 rebase) or
+>> netdev-2.6.git#upstream (after net-2.6.24 rebase)
+> 
+>  It applies on top of current -mm.  It seems to apply to a copy of 
+> netdev-2.6.git#upstream that I have got, but I am probably missing 
+> something...  If I try to clone your repository again I get:
+> 
+> $ git clone git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/linux-netdev-2.6.git linux
+> Initialized empty Git repository in /home/macro/GIT-other/linux-netdev/linux/.git/
+> fatal: The remote end hung up unexpectedly
+> fetch-pack from 'git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/linux-netdev-2.6.git' failed.
 
->
-> Nonetheless, applied to net-2.6.24, thanks.
->
+Remove the "linux-" prefix.
 
--- 
-Denis Cheng
+	Jeff
+
+
+
