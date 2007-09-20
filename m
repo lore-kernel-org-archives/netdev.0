@@ -1,113 +1,117 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: 2.6.23-rc6-mm1
-Date: Thu, 20 Sep 2007 12:44:20 -0700
-Message-ID: <20070920124420.2a57ea7b.akpm@linux-foundation.org>
-References: <20070918011841.2381bd93.akpm@linux-foundation.org>
-	<20070919235828.GA31759@nineveh.local>
-	<20070919170934.84f44e05.akpm@linux-foundation.org>
-	<f86d6cc00709200721h6e8f7cf8xa2264e9d1f88883b@mail.gmail.com>
-	<f86d6cc00709200912j37a3218boa882a044c0610779@mail.gmail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] sky2: be more selective about FIFO watchdog
+Date: Thu, 20 Sep 2007 13:03:49 -0700
+Message-ID: <20070920130349.252ecdb9@freepuppy.rosehill>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Joseph Fannin" <jfannin@gmail.com>, linux-kernel@vger.kernel.org,
-	"Mike Travis" <travis@sgi.com>, netdev@vger.kernel.org
-To: "Kamalesh Babulal" <kamalesh.babulal@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:55646 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:45057 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751334AbXITToc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 15:44:32 -0400
-In-Reply-To: <f86d6cc00709200912j37a3218boa882a044c0610779@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1751312AbXITUEX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 16:04:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 20 Sep 2007 21:42:44 +0530
-"Kamalesh Babulal" <kamalesh.babulal@gmail.com> wrote:
+Be more selective about when to enable the ram buffer watchdog code.
+It is unnecessary on XL A3 or later revs, and with Yukon FE
+the buffer is so small (4K) that the watchdog detects false positives.
 
-> ...
->
-> > i have tested the change with cross compiler for power405 with the same
-> > .config
-> > with which the build problem is solved, but the build fails with another
-> > error
-> >
-> >   CC [M]  drivers/net/mace.o
-> > drivers/net/mace.c: In function 'mace_handle_misc_intrs':
-> > drivers/net/mace.c:642: error: 'dev' undeclared (first use in this
-> > function)
-> > drivers/net/mace.c:642: error: (Each undeclared identifier is reported
-> > only once
-> > drivers/net/mace.c:642: error: for each function it appears in.)
-> > make[2]: *** [drivers/net/mace.o] Error 1
-> > make[1]: *** [drivers/net] Error 2
-> > make: *** [drivers] Error 2
-> >
-> > This patch fixes the build failure
-> >
-> > Signed-off-by: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
-> > ---
-> > --- linux-2.6.23-rc6 /drivers/net/mace.c 2007-09-20 17:16:50.000000000+0530
-> > +++ linux-2.6.23-rc6/drivers/net/~mace.c        2007-09-20 17:12:
-> > 47.000000000 +0530
-> > @@ -633,7 +633,7 @@ static void mace_set_multicast(struct ne
-> >      spin_unlock_irqrestore(&mp->lock, flags);
-> >  }
-> >
-> > -static void mace_handle_misc_intrs(struct mace_data *mp, int intr)
-> > +static void mace_handle_misc_intrs(struct mace_data *mp, int intr, struct
-> > net_device *dev)
-> >  {
-> >      volatile struct mace __iomem *mb = mp->mace;
-> >      static int mace_babbles, mace_jabbers;
-> > @@ -669,7 +669,7 @@ static irqreturn_t mace_interrupt(int ir
-> >      spin_lock_irqsave(&mp->lock, flags);
-> >      intr = in_8(&mb->ir);              /* read interrupt register */
-> >      in_8(&mb->xmtrc);                  /* get retries */
-> > -    mace_handle_misc_intrs(mp, intr);
-> > +    mace_handle_misc_intrs(mp, intr, dev);
-> >
-> >      i = mp->tx_empty;
-> >      while (in_8(&mb->pr) & XMTSV) {
-> > @@ -682,7 +682,7 @@ static irqreturn_t mace_interrupt(int ir
-> >          */
-> >         intr = in_8(&mb->ir);
-> >         if (intr != 0)
-> > -           mace_handle_misc_intrs(mp, intr);
-> > +           mace_handle_misc_intrs(mp, intr, dev);
-> >         if (mp->tx_bad_runt) {
-> >             fs = in_8(&mb->xmtfs);
-> >             mp->tx_bad_runt = 0;
-> > @@ -817,7 +817,7 @@ static void mace_tx_timeout(unsigned lon
-> >         goto out;
-> >
-> >      /* update various counters */
-> > -    mace_handle_misc_intrs(mp, in_8(&mb->ir));
-> > +    mace_handle_misc_intrs(mp, in_8(&mb->ir), dev);
-> >
-> >      cp = mp->tx_cmds + NCMDS_TX * mp->tx_empty;
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-Thanks, I will fix the wordwrapping in your patch and shall send it in to
-David. 
-
-> 
-> Hi,
-> 
-> The build fails when compiling with the same .config over cross compiler for
-> powerpc405
-> 
-> drivers/net/mv643xx_eth.c: In function 'mv643xx_eth_int_handler':
-> drivers/net/mv643xx_eth.c:564: error: 'bp' undeclared (first use in this
-> function)
-> drivers/net/mv643xx_eth.c:564: error: (Each undeclared identifier is
-> reported only once
-> drivers/net/mv643xx_eth.c:564: error: for each function it appears in.)
-> drivers/net/mv643xx_eth.c: At top level:
-> drivers/net/mv643xx_eth.c:1010: error: conflicting types for 'mv643xx_poll'
-> drivers/net/mv643xx_eth.c:68: error: previous declaration of 'mv643xx_poll'
-> was here
-> make[2]: *** [drivers/net/mv643xx_eth.o] Error 1
-> make[1]: *** [drivers/net] Error 2
-> make: *** [drivers] Error 2
-
-Yes, rather a lot of net drivers got broken in easy-to-fix ways.
+--- a/drivers/net/sky2.c	2007-09-19 15:36:32.000000000 -0700
++++ b/drivers/net/sky2.c	2007-09-20 10:43:42.000000000 -0700
+@@ -816,7 +816,8 @@ static void sky2_mac_init(struct sky2_hw
+ 	sky2_write8(hw, SK_REG(port, TX_GMF_CTRL_T), GMF_RST_CLR);
+ 	sky2_write16(hw, SK_REG(port, TX_GMF_CTRL_T), GMF_OPER_ON);
+ 
+-	if (!(hw->flags & SKY2_HW_RAMBUFFER)) {
++	/* On chips without ram buffer, pause is controled by MAC level */
++	if (sky2_read8(hw, B2_E_0) == 0) {
+ 		sky2_write8(hw, SK_REG(port, RX_GMF_LP_THR), 768/8);
+ 		sky2_write8(hw, SK_REG(port, RX_GMF_UP_THR), 1024/8);
+ 
+@@ -1271,7 +1272,7 @@ static int sky2_up(struct net_device *de
+ 	struct sky2_port *sky2 = netdev_priv(dev);
+ 	struct sky2_hw *hw = sky2->hw;
+ 	unsigned port = sky2->port;
+-	u32 imask;
++	u32 imask, ramsize;
+ 	int cap, err = -ENOMEM;
+ 	struct net_device *otherdev = hw->dev[sky2->port^1];
+ 
+@@ -1326,13 +1327,12 @@ static int sky2_up(struct net_device *de
+ 
+ 	sky2_mac_init(hw, port);
+ 
+-	if (hw->flags & SKY2_HW_RAMBUFFER) {
+-		/* Register is number of 4K blocks on internal RAM buffer. */
+-		u32 ramsize = sky2_read8(hw, B2_E_0) * 4;
++	/* Register is number of 4K blocks on internal RAM buffer. */
++	ramsize = sky2_read8(hw, B2_E_0) * 4;
++	if (ramsize > 0) {
+ 		u32 rxspace;
+ 
+-		printk(KERN_DEBUG PFX "%s: ram buffer %dK\n", dev->name, ramsize);
+-
++		pr_debug(PFX "%s: ram buffer %dK\n", dev->name, ramsize);
+ 		if (ramsize < 16)
+ 			rxspace = ramsize / 2;
+ 		else
+@@ -1995,7 +1995,7 @@ static int sky2_change_mtu(struct net_de
+ 
+ 	synchronize_irq(hw->pdev->irq);
+ 
+-	if (!(hw->flags & SKY2_HW_RAMBUFFER))
++	if (sky2_read8(hw, B2_E_0) == 0)
+ 		sky2_set_tx_stfwd(hw, port);
+ 
+ 	ctl = gma_read16(hw, port, GM_GP_CTRL);
+@@ -2526,7 +2526,7 @@ static void sky2_watchdog(unsigned long 
+ 			++active;
+ 
+ 			/* For chips with Rx FIFO, check if stuck */
+-			if ((hw->flags & SKY2_HW_RAMBUFFER) &&
++			if ((hw->flags & SKY2_HW_FIFO_HANG_CHECK) &&
+ 			     sky2_rx_hung(dev)) {
+ 				pr_info(PFX "%s: receiver hang detected\n",
+ 					dev->name);
+@@ -2684,8 +2684,10 @@ static int __devinit sky2_init(struct sk
+ 	switch(hw->chip_id) {
+ 	case CHIP_ID_YUKON_XL:
+ 		hw->flags = SKY2_HW_GIGABIT
+-			| SKY2_HW_NEWER_PHY
+-			| SKY2_HW_RAMBUFFER;
++			| SKY2_HW_NEWER_PHY;
++		if (hw->chip_rev < 3)
++			hw->flags |= SKY2_HW_FIFO_HANG_CHECK;
++
+ 		break;
+ 
+ 	case CHIP_ID_YUKON_EC_U:
+@@ -2711,11 +2713,10 @@ static int __devinit sky2_init(struct sk
+ 			dev_err(&hw->pdev->dev, "unsupported revision Yukon-EC rev A1\n");
+ 			return -EOPNOTSUPP;
+ 		}
+-		hw->flags = SKY2_HW_GIGABIT | SKY2_HW_RAMBUFFER;
++		hw->flags = SKY2_HW_GIGABIT | SKY2_HW_FIFO_HANG_CHECK;
+ 		break;
+ 
+ 	case CHIP_ID_YUKON_FE:
+-		hw->flags = SKY2_HW_RAMBUFFER;
+ 		break;
+ 
+ 	case CHIP_ID_YUKON_FE_P:
+--- a/drivers/net/sky2.h	2007-09-19 10:05:28.000000000 -0700
++++ b/drivers/net/sky2.h	2007-09-20 10:44:15.000000000 -0700
+@@ -2063,7 +2063,7 @@ struct sky2_hw {
+ #define SKY2_HW_FIBRE_PHY	0x00000002
+ #define SKY2_HW_GIGABIT		0x00000004
+ #define SKY2_HW_NEWER_PHY	0x00000008
+-#define SKY2_HW_RAMBUFFER	0x00000010	/* chip has RAM FIFO */
++#define SKY2_HW_FIFO_HANG_CHECK	0x00000010
+ #define SKY2_HW_NEW_LE		0x00000020	/* new LSOv2 format */
+ #define SKY2_HW_AUTO_TX_SUM	0x00000040	/* new IP decode for Tx */
+ #define SKY2_HW_ADV_POWER_CTL	0x00000080	/* additional PHY power regs */
