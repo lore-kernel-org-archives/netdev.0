@@ -1,94 +1,98 @@
-From: Nagendra Tomar <tomer_iisc@yahoo.com>
-Subject: Re: [PATCH 2.6.23-rc6 Resending] NETWORKING : Edge Triggered EPOLLOUT events get missed for TCP sockets
-Date: Thu, 20 Sep 2007 01:02:51 -0700 (PDT)
-Message-ID: <712722.8047.qm@web53708.mail.re2.yahoo.com>
-References: <46F20F24.1020900@cosmosbay.com>
+From: Urs Thuermann <urs@isnogud.escape.de>
+Subject: Re: [PATCH 2/7] CAN: Add PF_CAN core module
+Date: 20 Sep 2007 10:53:15 +0200
+Message-ID: <ygfy7f1g1l0.fsf@janus.isnogud.escape.de>
+References: <20070917100321.18347.0@janus.isnogud.escape.de>
+	<20070917100438.18347.2@janus.isnogud.escape.de>
+	<46EFD33D.8030905@trash.net> <ygffy1bzn4c.fsf@janus.isnogud.escape.de>
+	<46F0DD8E.8070808@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Davide Libenzi <davidel@xmailserver.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757518AbXITID0@vger.kernel.org>
-In-Reply-To: <46F20F24.1020900@cosmosbay.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver@hartkopp.net>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs@isnogud.escape.de>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from oker.escape.de ([194.120.234.254]:52246 "EHLO oker.escape.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751127AbXITIzv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2007 04:55:51 -0400
+In-Reply-To: <46F0DD8E.8070808@trash.net>; from Patrick McHardy on Wed, 19 Sep 2007 10:27:58 +0200
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Patrick,
 
---- Eric Dumazet <dada1@cosmosbay.com> wrote:
+I have done allmost all changes to the code as you suggested.  The
+changes to use the return value of can_rx_register() also fixed a
+minor flax with failing bind() and setsockopt() on raw sockets.
 
-> Nagendra Tomar a =E9crit :
-> > --- Davide Libenzi <davidel@xmailserver.org> wrote:
-> >=20
-> >> On Wed, 19 Sep 2007, David Miller wrote:
-> >>
-> >>> From: Nagendra Tomar <tomer_iisc@yahoo.com>
-> >>> Date: Wed, 19 Sep 2007 15:37:09 -0700 (PDT)
-> >>>
-> >>>> With the SOCK_NOSPACE check in tcp_check_space(), this epoll_wai=
-t call will=20
-> >>>> not return, even when the incoming acks free the buffers.
-> >>>>         Note that this patch assumes that the SOCK_NOSPACE check=
- in
-> >>>> tcp_check_space is a trivial optimization which can be safely re=
-moved.
-> >>> I already replied to your patch posting explaining that whatever =
-is
-> >>> not setting SOCK_NOSPACE should be fixed instead.
-> >>>
-> >>> Please address that, thanks.
-> >> You're not planning of putting the notion of a SOCK_NOSPACE bit in=
-side a=20
-> >> completely device-unaware interface like epoll, I hope?
-> >>
-> >=20
-> > Definitely not !=20
-> >=20
-> > The point is that the "tcp write space available"=20
-> > wakeup does not get called if SOCK_NOSPACE bit is not set. This was
-> > fine when the wakeup was merely a wakeup (since SOCK_NOSPACE bit=20
-> > indicated that someone really cared abt the wakeup). Now after the
-> > introduction of callback'ed wakeups, we might have some work to
-> > do inside the callback even if there is nobody interested in the wa=
-keup
-> > at that point of time.=20
-> >=20
-> > In this particular case the ep_poll_callback is not getting called =
-and
-> > hence the socket fd is not getting added to the ready list.
-> >=20
->=20
-> Does it means that with your patch each ACK on a ET managed socket wi=
-ll=20
-> trigger an epoll event   ?
->=20
-> Maybe your very sensitive high throuput appication needs to set a fla=
-g or=20
-> something at socket level to ask for such a behavior.
->=20
-> The default should stay as is. That is an event should be sent only i=
-f someone=20
-> cared about the wakeup.
->=20
+But there are two things left I would like to ask/understand:
 
-A high throughput app will always care about the wakeup, or else it wil=
-l=20
-not be a high throughput app in the first place. An application that
-occasionaly writes and then goes to slumber and then writes again will
-not be a high throughput app.=20
-   =20
-My point is that the SOCK_NOSPACE check does not save us much. For
-high throughput app it will almost always be set, thus making the=20
-check insignificant, and for the low throughput case we care less.
+Patrick McHardy <kaber@trash.net> writes:
 
-Thanx,
-Tomar
+> > When the module is unloaded it calls can_proto_unregister() which
+> > clears the pointer.  Do you see a race condition here?
+> 
+> Yes, you do request_module, load the module, get the cp pointer
+> from proto_tab, the module is unloaded again. cp points to
+> stable memory. Using module references would fix this.
 
+How would I use the module reference counter?  Somehow with
+try_module_get()?  I have thought something like
 
+        cp = proto_tab[protocol];
+        if (!cp ...)
+                return ...;
 
-      ___________________________________________________________
-Yahoo! Answers - Got a question? Someone out there knows the answer. Tr=
-y it
-now.
-http://uk.answers.yahoo.com/=20
+        if (!try_module_get(cp->prot->owner))
+                return ...;
+
+        sk = sk_alloc(...)
+
+        module_put(...);
+        return ret;
+
+But here I see two problems:
+
+1. Between the check !cp...  and referencing cp->prot->owner the
+   module could get unloaded and the reference be invalid.  Is there
+   some lock I can hold that prevents module unloading?  I haven't
+   found something like this in include/linux/module.h
+
+2. If the module gets unloaded after the first check and
+   request_module() but before the call to try_module_get() the
+   socket() syscall will return with error, although module auto
+   loading would normally be successful.  How can I prevent that?
+
+> > find_dev_rcv_lists() is called in one place from can_rcv() with RCU
+> > lock held, as you write.  The other two calls to find_dev_rcv_lists()
+> > are from can_rx_register/unregister() functions which change the
+> > receive lists.  Therefore, we can't only use RCU but need protection
+> > against simultanous writes.  We do this with the spin_lock_bh().  The
+> > _bh variant, because can_rcv() runs in interrupt and we need to block
+> > that.  I thought this is pretty standard.
+> > 
+> > I'll check this again tomorrow, but I have put much time in these
+> > locking issues already, changed it quite a few times and hoped to have
+> > got it right finally.
+> 
+> 
+> I'm not saying you should use *only* RCU, you need the lock
+> for additions/removal of course, but since the receive path
+> doesn't take that lock and relies on RCU, you need to use
+> the _rcu list walking variant to avoid races with concurrent
+> list changes.
+
+I have no objections to add the _rcu suffix for the code changing the
+receive lists, but I don't see why it's necessary.  When I do a
+spin_lock_bh() before writing, can't I be sure that there is no
+interrupt routine running in parallel while I hold this spinlock?  If
+so, there is no reader in parallel because the can_rcv() function runs
+in a softirq.  I'd really like to understand why you think the writers
+should also use the _rcu variant.  I'm sorry if I miss something
+obvious here, but could you try to explain it to me?
+
+urs
