@@ -1,47 +1,75 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: [ofa-general] Re: [Bug,
-	PATCH and another Bug] Was: Fix refcounting problem
-	with netif_rx_reschedule()
-Date: Thu, 20 Sep 2007 11:24:01 +0530
-Message-ID: <OF035DCEA7.EE6D8D3A-ON6525735C.001FC9D4-6525735C.00206959@in.ibm.com>
-References: <20070919.221224.26966518.davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [PATCH 2.6.23-rc6 Resending] NETWORKING : Edge Triggered EPOLLOUT
+ events get missed for TCP sockets
+Date: Thu, 20 Sep 2007 08:11:48 +0200
+Message-ID: <46F20F24.1020900@cosmosbay.com>
+References: <331107.71046.qm@web53704.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org, rdreier@cisco.com, ossthema@de.ibm.com,
-	general@lists.openfabrics.org
-To: David Miller <davem@davemloft.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070919.221224.26966518.davem@davemloft.net>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Davide Libenzi <davidel@xmailserver.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Nagendra Tomar <tomer_iisc@yahoo.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.cosmosbay.com ([86.65.150.130]:37355 "EHLO
+	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750839AbXITGL5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 02:11:57 -0400
+In-Reply-To: <331107.71046.qm@web53704.mail.re2.yahoo.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ran 4/16/64 thread iperf on latest bits with this patch and no issues after
-30 mins. I used to
-consistently get the bug within 1-2 mins with just 4 threads prior to this
-patch.
+Nagendra Tomar a =E9crit :
+> --- Davide Libenzi <davidel@xmailserver.org> wrote:
+>=20
+>> On Wed, 19 Sep 2007, David Miller wrote:
+>>
+>>> From: Nagendra Tomar <tomer_iisc@yahoo.com>
+>>> Date: Wed, 19 Sep 2007 15:37:09 -0700 (PDT)
+>>>
+>>>> With the SOCK_NOSPACE check in tcp_check_space(), this epoll_wait =
+call will=20
+>>>> not return, even when the incoming acks free the buffers.
+>>>>         Note that this patch assumes that the SOCK_NOSPACE check i=
+n
+>>>> tcp_check_space is a trivial optimization which can be safely remo=
+ved.
+>>> I already replied to your patch posting explaining that whatever is
+>>> not setting SOCK_NOSPACE should be fixed instead.
+>>>
+>>> Please address that, thanks.
+>> You're not planning of putting the notion of a SOCK_NOSPACE bit insi=
+de a=20
+>> completely device-unaware interface like epoll, I hope?
+>>
+>=20
+> Definitely not !=20
+>=20
+> The point is that the "tcp write space available"=20
+> wakeup does not get called if SOCK_NOSPACE bit is not set. This was
+> fine when the wakeup was merely a wakeup (since SOCK_NOSPACE bit=20
+> indicated that someone really cared abt the wakeup). Now after the
+> introduction of callback'ed wakeups, we might have some work to
+> do inside the callback even if there is nobody interested in the wake=
+up
+> at that point of time.=20
+>=20
+> In this particular case the ep_poll_callback is not getting called an=
+d
+> hence the socket fd is not getting added to the ready list.
+>=20
 
-Tested-by: Krishna Kumar <krkumar2@in.ibm.com>
-(if any value in that)
+Does it means that with your patch each ACK on a ET managed socket will=
+=20
+trigger an epoll event   ?
 
-thanks,
+Maybe your very sensitive high throuput appication needs to set a flag =
+or=20
+something at socket level to ask for such a behavior.
 
-- KK
+The default should stay as is. That is an event should be sent only if =
+someone=20
+cared about the wakeup.
 
-David Miller <davem@davemloft.net> wrote on 09/20/2007 10:42:24 AM:
-
-> From: Krishna Kumar2 <krkumar2@in.ibm.com>
-> Date: Thu, 20 Sep 2007 10:40:33 +0530
->
-> > I like the clean changes made by Dave to fix this, and will test it
-> > today (if I can get my crashed system to come up).
->
-> I would very much appreciate this testing, as I'm rather sure we've
-> plugged up the most serious holes at this point.
