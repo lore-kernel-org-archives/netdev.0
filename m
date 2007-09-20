@@ -1,24 +1,31 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH] RDMA/CMA: Use neigh_event_send() to initiate neighbour discovery.
-Date: Thu, 20 Sep 2007 09:31:27 -0700
-Message-ID: <ada1wctguxs.fsf@cisco.com>
-References: <20070912100025.3190.89259.stgit@dell3.ogc.int>
-	<000101c7f568$9275b520$ff0da8c0@amr.corp.intel.com>
+From: Larry Finger <larry.finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: Please pull 'z1211' branch of wireless-2.6
+Date: Thu, 20 Sep 2007 11:37:40 -0500
+Message-ID: <46F2A1D4.9030601@lwfinger.net>
+References: <20070919181005.GB5483@tuxdriver.com> <46F19DD0.2050605@gentoo.org> <20070920134730.GC6748@tuxdriver.com> <46F28374.9040106@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'Steve Wise'" <swise@opengridcomputing.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<general@lists.openfabrics.org>
-To: "Sean Hefty" <sean.hefty@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2-in.cisco.com ([171.71.176.71]:64049 "EHLO
-	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756812AbXITQbg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 12:31:36 -0400
-In-Reply-To: <000101c7f568$9275b520$ff0da8c0@amr.corp.intel.com> (Sean Hefty's message of "Wed, 12 Sep 2007 11:13:08 -0700")
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
+To: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <46F28374.9040106-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
- > Roland - can you please queue this up for 2.6.24?
+Daniel Drake wrote:
+> John W. Linville wrote:
 
-Done, thanks.
+>> If you are determined not to have it in 2.6.24 then I will relent.
+>> I will also suggest that Larry start sending any softmac bugs to
+>> you... :-)
+> 
+> That's fine.
+
+You're on. BTW, I will let you be the primary tester of "[PATCH] fix softmac lockdep reports" that
+Johannes posted earlier today. I see you were CC'd. I plan on testing it with bcm43xx, but I won't
+get to it for a couple of days.
+
+Larry
