@@ -1,38 +1,24 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [LARTC] ifb and ppp
-Date: Thu, 20 Sep 2007 17:26:06 +0200
-Message-ID: <46F2910E.9040900@trash.net>
-References: <200709191417.43768.mail@frithjof-hammer.de> <46F25F9A.7010007@trash.net> <1190294388.4734.6.camel@localhost> <200709201600.15202.mail@frithjof-hammer.de>
+From: Chuck Ebbert <cebbert@redhat.com>
+Subject: Re: wrong arp query with policy routing
+Date: Thu, 20 Sep 2007 11:52:33 -0400
+Message-ID: <46F29741.2030505@redhat.com>
+References: <BAY103-DAV2BC129A14C4A29986CC0CB2B80@phx.gbl> <BAY103-DAV12BF0DF9E47B1577FB9814B2B90@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, lartc@mailman.ds9a.nl,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Frithjof Hammer <mail@frithjof-hammer.de>
+Cc: netdev@vger.kernel.org
+To: Marco Berizzi <pupilla@hotmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:40205 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754833AbXITPde (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 11:33:34 -0400
-In-Reply-To: <200709201600.15202.mail@frithjof-hammer.de>
+Received: from mx1.redhat.com ([66.187.233.31]:35676 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756210AbXITPwh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2007 11:52:37 -0400
+In-Reply-To: <BAY103-DAV12BF0DF9E47B1577FB9814B2B90@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Frithjof Hammer wrote:
->>Sorry, I didnt follow the thread - what is the goal to be achieved with
->>the setup?
-> 
-> 
-> A simple ingress shaping on ppp0 (PPPOE DSL line). I want to replace my old 
-> imq ingress shaper in favor of ifb. My former script used iptables marks  to 
-> classify the packets. My iptables marks are getting set, as like before with 
-> imq. But tc seems not to recognize them: It only uses the default class.
-> 
-> So i run tcpdump -i ifb0  and discovered that the packets seems to be still 
-> encapsulated on ifb0. I suppose this is why my iptables stuff is not working.
+> Is there a way to force linux to make an arp
+> probe with the source ip belonging to the
+> same subnet requesting ip?
 
-
-Thats actually a completely different problem. Unlike with imq, packets
-are delivered to ifb *before* they pass through iptables. So at that
-time they're not marked. I don't see a good solution for this that
-allows to keep the iptables rules, I'd suggest to switch to ematches.
+Umm, arp_filter?
