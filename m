@@ -1,93 +1,131 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH 8/9] [TCP]: Enable SACK enhanced FRTO (RFC4138) by default
-Date: Thu, 20 Sep 2007 15:17:51 +0300
-Message-ID: <11902906723907-git-send-email-ilpo.jarvinen@helsinki.fi>
-References: <11902906724088-git-send-email-ilpo.jarvinen@helsinki.fi> <11902906721846-git-send-email-ilpo.jarvinen@helsinki.fi> <11902906723619-git-send-email-ilpo.jarvinen@helsinki.fi> <11902906723822-git-send-email-ilpo.jarvinen@helsinki.fi> <1190290672770-git-send-email-ilpo.jarvinen@helsinki.fi> <11902906721671-git-send-email-ilpo.jarvinen@helsinki.fi> <11902906723159-git-send-email-ilpo.jarvinen@helsinki.fi> <1190290672980-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH 3/9] [TCP]: clear_all_retrans_hints prefixed by tcp_
+Date: Thu, 20 Sep 2007 15:17:46 +0300
+Message-ID: <11902906723822-git-send-email-ilpo.jarvinen@helsinki.fi>
+References: <11902906724088-git-send-email-ilpo.jarvinen@helsinki.fi> <11902906721846-git-send-email-ilpo.jarvinen@helsinki.fi> <11902906723619-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:39950 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:45006 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752042AbXITMR4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 08:17:56 -0400
-In-Reply-To: <1190290672980-git-send-email-ilpo.jarvinen@helsinki.fi>
+	with ESMTP id S1750885AbXITMRy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 08:17:54 -0400
+In-Reply-To: <11902906723619-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Most of the description that follows comes from my mail to
-netdev (some editing done):
-
-Main obstacle to FRTO use is its deployment as it has to be on
-the sender side where as wireless link is often the receiver's
-access link. Take initiative on behalf of unlucky receivers and
-enable it by default in future Linux TCP senders. Also IETF
-seems to interested in advancing FRTO from experimental [1].
-
-How does FRTO help?
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
-=46RTO detects spurious RTOs and avoids a number of unnecessary
-retransmissions and a couple of other problems that can arise
-due to incorrect guess made at RTO (i.e., that segments were
-lost when they actually got delayed which is likely to occur
-e.g. in wireless environments with link-layer retransmission).
-Though FRTO cannot prevent the first (potentially unnecessary)
-retransmission at RTO, I suspect that it won't cost that much
-even if you have to pay for each bit (won't be that high
-percentage out of all packets after all :-)). However, usually
-when you have a spurious RTO, not only the first segment
-unnecessarily retransmitted but the *whole window*. It goes like
-this: all cumulative ACKs got delayed due to in-order delivery,
-then TCP will actually send 1.5*original cwnd worth of data in
-the RTO's slow-start when the delayed ACKs arrive (basically the
-original cwnd worth of it unnecessarily). In case one is
-interested in minimizing unnecessary retransmissions e.g. due to
-cost, those rexmissions must never see daylight. Besides, in the
-worst case the generated burst overloads the bottleneck buffers
-which is likely to significantly delay the further progress of
-the flow. In case of ll rexmissions, ACK compression often
-occurs at the same time making the burst very "sharp edged" (in
-that case TCP often loses most of the segments above high_seq
-=3D> very bad performance too). When FRTO is enabled, those
-unnecessary retransmissions are fully avoided except for the
-first segment and the cwnd behavior after detected spurious RTO
-is determined by the response (one can tune that by sysctl).
-
-Basic version (non-SACK enhanced one), FRTO can fail to detect
-spurious RTO as spurious and falls back to conservative
-behavior. ACK lossage is much less significant than reordering,
-usually the FRTO can detect spurious RTO if at least 2
-cumulative ACKs from original window are preserved (excluding
-the ACK that advances to high_seq). With SACK-enhanced version,
-the detection is quite robust.
-
-=46RTO should remove the need to set a high lower bound for the
-RTO estimator due to delay spikes that occur relatively common
-in some environments (esp. in wireless/cellular ones).
-
-[1] http://www1.ietf.org/mail-archive/web/tcpm/current/msg02862.html
+In addition, fix its function comment spacing.
 
 Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 ---
- net/ipv4/tcp_input.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ include/net/tcp.h     |    4 ++--
+ net/ipv4/tcp_input.c  |   10 +++++-----
+ net/ipv4/tcp_output.c |    6 +++---
+ 3 files changed, 10 insertions(+), 10 deletions(-)
 
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index f28f382..16dfe3c 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1066,8 +1066,8 @@ static inline void tcp_mib_init(void)
+ 	TCP_ADD_STATS_USER(TCP_MIB_MAXCONN, -1);
+ }
+=20
+-/*from STCP */
+-static inline void clear_all_retrans_hints(struct tcp_sock *tp){
++/* from STCP */
++static inline void tcp_clear_all_retrans_hints(struct tcp_sock *tp) {
+ 	tp->lost_skb_hint =3D NULL;
+ 	tp->scoreboard_skb_hint =3D NULL;
+ 	tp->retransmit_skb_hint =3D NULL;
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 948e79a..02b549b 100644
+index 09b6b1d..89162a9 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -85,7 +85,7 @@ int sysctl_tcp_adv_win_scale __read_mostly =3D 2;
- int sysctl_tcp_stdurg __read_mostly;
- int sysctl_tcp_rfc1337 __read_mostly;
- int sysctl_tcp_max_orphans __read_mostly =3D NR_FILE;
--int sysctl_tcp_frto __read_mostly;
-+int sysctl_tcp_frto __read_mostly =3D 2;
- int sysctl_tcp_frto_response __read_mostly;
- int sysctl_tcp_nometrics_save __read_mostly;
+@@ -1670,7 +1670,7 @@ static void tcp_enter_frto_loss(struct sock *sk, =
+int allowed_segments, int flag)
+ 	tp->high_seq =3D tp->frto_highmark;
+ 	TCP_ECN_queue_cwr(tp);
 =20
+-	clear_all_retrans_hints(tp);
++	tcp_clear_all_retrans_hints(tp);
+ }
+=20
+ void tcp_clear_retrans(struct tcp_sock *tp)
+@@ -1741,7 +1741,7 @@ void tcp_enter_loss(struct sock *sk, int how)
+ 	/* Abort FRTO algorithm if one is in progress */
+ 	tp->frto_counter =3D 0;
+=20
+-	clear_all_retrans_hints(tp);
++	tcp_clear_all_retrans_hints(tp);
+ }
+=20
+ static int tcp_check_sack_reneging(struct sock *sk)
+@@ -2106,7 +2106,7 @@ static void tcp_undo_cwr(struct sock *sk, const i=
+nt undo)
+=20
+ 	/* There is something screwy going on with the retrans hints after
+ 	   an undo */
+-	clear_all_retrans_hints(tp);
++	tcp_clear_all_retrans_hints(tp);
+ }
+=20
+ static inline int tcp_may_undo(struct tcp_sock *tp)
+@@ -2199,7 +2199,7 @@ static int tcp_try_undo_loss(struct sock *sk)
+ 			TCP_SKB_CB(skb)->sacked &=3D ~TCPCB_LOST;
+ 		}
+=20
+-		clear_all_retrans_hints(tp);
++		tcp_clear_all_retrans_hints(tp);
+=20
+ 		DBGUNDO(sk, "partial loss");
+ 		tp->lost_out =3D 0;
+@@ -2656,7 +2656,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, _=
+_s32 *seq_rtt_p)
+ 		tp->packets_out -=3D tcp_skb_pcount(skb);
+ 		tcp_unlink_write_queue(skb, sk);
+ 		sk_stream_free_skb(sk, skb);
+-		clear_all_retrans_hints(tp);
++		tcp_clear_all_retrans_hints(tp);
+ 	}
+=20
+ 	if (acked&FLAG_ACKED) {
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index cbe8bf6..f46d24b 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -687,7 +687,7 @@ int tcp_fragment(struct sock *sk, struct sk_buff *s=
+kb, u32 len, unsigned int mss
+=20
+ 	BUG_ON(len > skb->len);
+=20
+-	clear_all_retrans_hints(tp);
++	tcp_clear_all_retrans_hints(tp);
+ 	nsize =3D skb_headlen(skb) - len;
+ 	if (nsize < 0)
+ 		nsize =3D 0;
+@@ -1719,7 +1719,7 @@ static void tcp_retrans_try_collapse(struct sock =
+*sk, struct sk_buff *skb, int m
+ 		       tcp_skb_pcount(next_skb) !=3D 1);
+=20
+ 		/* changing transmit queue under us so clear hints */
+-		clear_all_retrans_hints(tp);
++		tcp_clear_all_retrans_hints(tp);
+=20
+ 		/* Ok.	We will be able to collapse the packet. */
+ 		tcp_unlink_write_queue(next_skb, sk);
+@@ -1792,7 +1792,7 @@ void tcp_simple_retransmit(struct sock *sk)
+ 		}
+ 	}
+=20
+-	clear_all_retrans_hints(tp);
++	tcp_clear_all_retrans_hints(tp);
+=20
+ 	if (!lost)
+ 		return;
 --=20
 1.5.0.6
 
