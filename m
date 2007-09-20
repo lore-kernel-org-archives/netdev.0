@@ -1,34 +1,24 @@
 From: Roland Dreier <rdreier@cisco.com>
-Subject: [ofa-general] Re: [PATCH V5 2/11] IB/ipoib: Notify the world before
-	doing unregister
-Date: Thu, 20 Sep 2007 09:20:57 -0700
-Message-ID: <adaabrhgvfa.fsf@cisco.com>
-References: <46F27692.3070404@voltaire.com> <46F2784C.9070806@voltaire.com>
+Subject: Re: [PATCH] RDMA/CMA: Use neigh_event_send() to initiate neighbour discovery.
+Date: Thu, 20 Sep 2007 09:31:27 -0700
+Message-ID: <ada1wctguxs.fsf@cisco.com>
+References: <20070912100025.3190.89259.stgit@dell3.ogc.int>
+	<000101c7f568$9275b520$ff0da8c0@amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	OpenFabrics General <general@lists.openfabrics.org>
-To: Moni Shoua <monis@voltaire.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <46F2784C.9070806@voltaire.com> (Moni Shoua's message of "Thu,
-	20 Sep 2007 16:40:28 +0300")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: "'Steve Wise'" <swise@opengridcomputing.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<general@lists.openfabrics.org>
+To: "Sean Hefty" <sean.hefty@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-2-in.cisco.com ([171.71.176.71]:64049 "EHLO
+	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756812AbXITQbg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 12:31:36 -0400
+In-Reply-To: <000101c7f568$9275b520$ff0da8c0@amr.corp.intel.com> (Sean Hefty's message of "Wed, 12 Sep 2007 11:13:08 -0700")
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > +		ipoib_slave_detach(cpriv->dev);
- >  		unregister_netdev(cpriv->dev);
+ > Roland - can you please queue this up for 2.6.24?
 
-Maybe you already answered this before, but I'm still not clear why
-this notifier call can't just be added to the start of
-unregister_netdevice(), so we can avoid having driver needing to know
-anything about bonding internals?
-
- - R.
+Done, thanks.
