@@ -1,49 +1,86 @@
 From: Moni Shoua <monis@voltaire.com>
-Subject: [PATCH V5 0/11] net/bonding: ADD IPoIB support for the	bonding driver
-Date: Thu, 20 Sep 2007 16:33:06 +0300
-Message-ID: <46F27692.3070404@voltaire.com>
+Subject: [ofa-general] [PATCH V5 1/11] net/core: add a netdev notification
+	for slave detach
+Date: Thu, 20 Sep 2007 16:39:25 +0300
+Message-ID: <46F2780D.5090702@voltaire.com>
+References: <46F27692.3070404@voltaire.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: OpenFabrics General <general@lists.openfabrics.org>,
-	netdev@vger.kernel.org
-To: Roland Dreier <rdreier@cisco.com>, Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:11346 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751056AbXITNdV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Sep 2007 09:33:21 -0400
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	OpenFabrics General <general@lists.openfabrics.org>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <46F27692.3070404@voltaire.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-This patch series is the fifth version (see below link to V4) of the 
-suggested changes to the bonding driver so it would be able to support 
-non ARPHRD_ETHER netdevices for its High-Availability (active-backup) mode. 
+A slave of a bonding master that wants to send a notification before
+going down should call netdev_slave_detach(). The handling of this notification
+will be done outside the context of unregister_netdevice() which is sometimes
+necessary, as with IPoIB slave for example.
 
-Patches 1-10 were originally submitted in V4 and patch 11 is an addition by Jay.
+Signed-off-by: Moni Shoua <monis at voltaire.com>
+---
+ include/linux/if.h |    1 +
+ net/core/dev.c     |   20 ++++++++++++++++++++
+ 2 files changed, 21 insertions(+)
 
-Jay,
-The bonding patches you acked remain unchanged while I guess I sitll need
-to get an official ack by Roland for the IPoIB patches.
-Is it OK with you to push the entire series to the networking tree?
-Roland has already agreed to do so.
-
-
-Major changes from the previous version:
-----------------------------------------
-1. Style changes
-2. IPoIB - notify slave detach on vlan delete
-3. Add function to net/core for slave detach instead of having it only in
-   ib/ipoib
-4. IPoIB - handle ib device and bonding device the same way in neigh_cleanup
-   function
-
-Links to earlier discussion:
-----------------------------
-
-1. A discussion in netdev about bonding support for IPoIB.
-http://lists.openwall.net/netdev/2006/11/30/46
-
-2. V4 series
-http://lists.openfabrics.org/pipermail/general/2007-August/039825.html
-
+Index: net-2.6/net/core/dev.c
+===================================================================
+--- net-2.6.orig/net/core/dev.c	2007-09-20 08:04:47.164051688 +0200
++++ net-2.6/net/core/dev.c	2007-09-20 09:20:21.493060579 +0200
+@@ -2588,6 +2588,25 @@ int netdev_set_master(struct net_device 
+ 	return 0;
+ }
+ 
++/**
++ *	netdev_slave_detach	-	notify that slave is about to detach from master
++ *	@slave: slave device
++ *
++ *	Raise a flag that slave is about to detach from master
++ *	and notify the netdev  chain.
++ *	The caller must hold the rtnl_mutex.
++ */
++
++int netdev_slave_detach(struct net_device *slave)
++{
++	int ret = 0;
++	if (slave->flags & IFF_SLAVE) {
++		slave->priv_flags |= IFF_SLAVE_DETACH;
++		ret = call_netdevice_notifiers(NETDEV_CHANGE, slave);
++	}
++	return ret;
++}
++
+ static void __dev_set_promiscuity(struct net_device *dev, int inc)
+ {
+ 	unsigned short old_flags = dev->flags;
+@@ -4120,6 +4139,7 @@ EXPORT_SYMBOL(dev_set_mac_address);
+ EXPORT_SYMBOL(free_netdev);
+ EXPORT_SYMBOL(netdev_boot_setup_check);
+ EXPORT_SYMBOL(netdev_set_master);
++EXPORT_SYMBOL(netdev_slave_detach);
+ EXPORT_SYMBOL(netdev_state_change);
+ EXPORT_SYMBOL(netif_receive_skb);
+ EXPORT_SYMBOL(netif_rx);
+Index: net-2.6/include/linux/if.h
+===================================================================
+--- net-2.6.orig/include/linux/if.h	2007-09-20 08:04:47.164051688 +0200
++++ net-2.6/include/linux/if.h	2007-09-20 08:15:29.577729301 +0200
+@@ -61,6 +61,7 @@
+ #define IFF_MASTER_ALB	0x10		/* bonding master, balance-alb.	*/
+ #define IFF_BONDING	0x20		/* bonding master or slave	*/
+ #define IFF_SLAVE_NEEDARP 0x40		/* need ARPs for validation	*/
++#define IFF_SLAVE_DETACH 0x80		/* slave is about to unregister */
+ 
+ #define IF_GET_IFACE	0x0001		/* for querying only */
+ #define IF_GET_PROTO	0x0002
