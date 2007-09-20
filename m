@@ -1,119 +1,61 @@
 From: Tom Quetchenbach <virtualphtn@gmail.com>
-Subject: [PATCH 2/2] David Miller's rbtree patches for 2.6.22.6
-Date: Wed, 19 Sep 2007 18:44:03 -0700
-Message-ID: <46F1D063.6030005@gmail.com>
-References: <46F1CF35.3030606@gmail.com> <46F1D00B.6030108@gmail.com>
+Subject: [PATCH 0/2] David Miller's rbtree patches for 2.6.22.6
+Date: Wed, 19 Sep 2007 18:39:01 -0700
+Message-ID: <46F1CF35.3030606@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outgoing-mail.its.caltech.edu ([131.215.239.19]:24633 "EHLO
+Received: from outgoing-mail.its.caltech.edu ([131.215.239.19]:36149 "EHLO
 	outgoing-mail.its.caltech.edu" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751482AbXITBoG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 21:44:06 -0400
-Received: from fire-dog.its.caltech.edu (fire-dog [192.168.1.4])
-	by wood-ox-postvirus (Postfix) with ESMTP id 5F0FF13F87
-	for <netdev@vger.kernel.org>; Wed, 19 Sep 2007 18:44:05 -0700 (PDT)
+	by vger.kernel.org with ESMTP id S1750795AbXITBu4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Sep 2007 21:50:56 -0400
+Received: from water-dog.its.caltech.edu (water-dog [192.168.1.26])
+	by fire-ox-postvirus (Postfix) with ESMTP id 4474613FA7
+	for <netdev@vger.kernel.org>; Wed, 19 Sep 2007 18:39:03 -0700 (PDT)
 Received: from [10.1.234.14] (mystic.caltech.edu [131.215.220.112])
 	(Authenticated sender: quetchen)
-	by water-ox.its.caltech.edu (Postfix) with ESMTP id E8A021BBEF
-	for <netdev@vger.kernel.org>; Wed, 19 Sep 2007 18:44:03 -0700 (PDT)
-In-Reply-To: <46F1D00B.6030108@gmail.com>
+	by water-ox.its.caltech.edu (Postfix) with ESMTP id C252E1BBE5
+	for <netdev@vger.kernel.org>; Wed, 19 Sep 2007 18:39:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patch 2: fixes to fack_counts and enhancement of SACK fast path
+Hello,
 
+I've been experimenting with David Miller's red-black tree patch for
+SACK processing. We're sending TCP traffic between two machines with
+10Gbps cards over a 1Gbps bottleneck link and were getting very high CPU
+load with large windows. With a few tweaks, this patch seems to provide
+a pretty substantial improvement. David: this seems like excellent work
+so far.
+
+Here are a couple of patches against 2.6.22.6. The first one is just
+David's patches tweaked for 2.6.22.6, with a couple of minor bugfixes to
+get it to compile and not crash. (I also changed
+__tcp_insert_write_queue_tail() to set the fack_count of the new packet
+to the fack_count of the tail plus the packet count of the tail, not the
+packet count of the new skb, because I think that's how it was intended
+to be. Right?
+
+In the second patch there are a couple of significant changes.  One is
+(as Baruch suggested) to modify the existing SACK fast path so that we
+don't tag packets we've already tagged when we advance by a packet.
+
+The other issue is that the cached fack_counts seem to be wrong, because
+they're set when we insert into the queue, but tcp_set_tso_segs() is
+called later, just before we send, so all the fack_counts are zero. My
+solution was to set the fack_count when we advance the send_head. Also I
+changed tcp_reset_fack_counts() so that it exits when it hits an skb
+whose tcp_skb_pcount() is zero or whose fack_count is already correct.
+(This really helps when TSO is on, since there's lots of inserting into
+the middle of the queue.)
+
+Please let me know how I can help get this tested and debugged. Reducing
+the SACK processing load is really going to be essential for us to start
+testing experimental TCP variants with large windows.
+
+Thanks
 -Tom
 
----
-diff -ur linux-2.6.22.6-rbtree-davem-fixed/include/net/tcp.h linux-2.6.22.6-rbtree-tomq/include/net/tcp.h
---- linux-2.6.22.6-rbtree-davem-fixed/include/net/tcp.h	2007-09-19 17:36:07.000000000 -0700
-+++ linux-2.6.22.6-rbtree-tomq/include/net/tcp.h	2007-09-19 12:22:06.000000000 -0700
-@@ -1213,6 +1213,11 @@
- 	sk->sk_send_head = tcp_write_queue_next(sk, skb);
- 	if (sk->sk_send_head == (struct sk_buff *)&sk->sk_write_queue)
- 		sk->sk_send_head = NULL;
-+	else
-+		/* update fack_count of send_head. Since we've sent skb already,
-+ 		 * its packet count must be set by now. */
-+		TCP_SKB_CB(sk->sk_send_head)->fack_count =
-+			TCP_SKB_CB(skb)->fack_count + tcp_skb_pcount(skb);
- 	/* Don't override Nagle indefinately with F-RTO */
- 	if (tp->frto_counter == 2)
- 		tp->frto_counter = 3;
-@@ -1310,19 +1315,22 @@
- /* An insert into the middle of the write queue causes the fack
-  * counts in subsequent packets to become invalid, fix them up.
-  */
--static inline void tcp_reset_fack_counts(struct sock *sk, struct sk_buff *first)
-+static inline void tcp_reset_fack_counts(struct sock *sk, struct sk_buff *skb)
- {
--	struct sk_buff *prev = first->prev;
-+	struct sk_buff *prev = skb->prev;
- 	unsigned int fc = 0;
- 
- 	if (prev != (struct sk_buff *) &sk->sk_write_queue)
- 		fc = TCP_SKB_CB(prev)->fack_count + tcp_skb_pcount(prev);
- 
--	while (first != (struct sk_buff *)&sk->sk_write_queue) {
--		TCP_SKB_CB(first)->fack_count = fc;
-+	while (skb != (struct sk_buff *)&sk->sk_write_queue) {
-+		if (TCP_SKB_CB(skb)->fack_count == fc || !tcp_skb_pcount(skb))
-+			break;
- 
--		fc += tcp_skb_pcount(first);
--		first = first->next;
-+		TCP_SKB_CB(skb)->fack_count = fc;
-+
-+		fc += tcp_skb_pcount(skb);
-+		skb = skb->next;
- 	}
- }
- 
-diff -ur linux-2.6.22.6-rbtree-davem-fixed/net/ipv4/tcp_input.c linux-2.6.22.6-rbtree-tomq/net/ipv4/tcp_input.c
---- linux-2.6.22.6-rbtree-davem-fixed/net/ipv4/tcp_input.c	2007-09-13 18:23:16.000000000 -0700
-+++ linux-2.6.22.6-rbtree-tomq/net/ipv4/tcp_input.c	2007-09-19 12:27:42.000000000 -0700
-@@ -956,6 +956,7 @@
- 	int fack_count_base;
- 	int i;
- 	int first_sack_index;
-+	u32 prev_end_seq = 0;
- 
- 	if (!tp->sacked_out)
- 		tp->fackets_out = 0;
-@@ -1000,6 +1001,7 @@
- 		if (i == 0) {
- 			if (tp->recv_sack_cache[i].start_seq != start_seq)
- 				flag = 0;
-+			prev_end_seq = ntohl(tp->recv_sack_cache[i].end_seq);
- 		} else {
- 			if ((tp->recv_sack_cache[i].start_seq != start_seq) ||
- 			    (tp->recv_sack_cache[i].end_seq != end_seq))
-@@ -1016,9 +1018,16 @@
- 
- 	first_sack_index = 0;
- 	if (flag)
-+		/* all that has changed is end of first SACK block. So all we
-+ 		 * need to do is tag those skbs that were'nt tagged last time. */
- 		num_sacks = 1;
- 	else {
- 		int j;
-+		
-+		/* more than just end of first SACK block has changed; invalidate
-+		 * prev_end_seq */
-+
-+		prev_end_seq = 0;
- 
- 		/* order SACK blocks to allow in order walk of the retrans queue */
- 		for (i = num_sacks-1; i > 0; i--) {
-@@ -1051,6 +1060,8 @@
- 		int fack_count;
- 		int dup_sack = (found_dup_sack && (i == first_sack_index));
- 
-+		if (prev_end_seq) start_seq = prev_end_seq;
-+
- 		skb = tcp_write_queue_find(sk, start_seq);
- 		if (!skb)
- 			continue;
+
