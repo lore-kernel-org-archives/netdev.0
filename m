@@ -1,38 +1,53 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: net-2.6.24 plans
-Date: Thu, 20 Sep 2007 12:56:34 -0400
-Message-ID: <20070920165634.GG6748@tuxdriver.com>
-References: <20070918032328.GB3875@tuxdriver.com> <20070919012752.GA3717@tuxdriver.com> <20070919210700.GF5483@tuxdriver.com> <20070919.151928.122833514.davem@davemloft.net> <20070920141723.GE6748@tuxdriver.com> <1190299852.18521.71.camel@johannes.berg>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 2.6.23][BNX2]: Add PHY workaround for 5709 A1.
+Date: Thu, 20 Sep 2007 11:07:13 -0700
+Message-ID: <1190311633.6934.1.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, jgarzik@pobox.com
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: andy@greyhouse.net, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4961 "EHLO ra.tuxdriver.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3295 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757210AbXITRIZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Sep 2007 13:08:25 -0400
-Content-Disposition: inline
-In-Reply-To: <1190299852.18521.71.camel@johannes.berg>
+	id S1754799AbXITRJe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2007 13:09:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 20, 2007 at 04:50:52PM +0200, Johannes Berg wrote:
-> On Thu, 2007-09-20 at 10:17 -0400, John W. Linville wrote:
-> 
-> > > 2) ATMEL USB driver
-> > 
-> > These are both really new.  I think I'll transfer them to my
-> > wireless-2.6 tree, but still hold them back at least until 2.6.25.
-> 
-> Also, atmel isn't even ported to mac80211 yet, is it?
+[BNX2]: Add PHY workaround for 5709 A1.
 
-Kalle Valo has done some work on this, and I think Eugene Teo has
-joined the effort.  They both are in contact with Pavel to accomplish
-the mac80211 port.
+Add the DIS_EARLY_DAC PHY workaround for 5709 A1.  Without it, link
+sometimes does not come up.
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+Update version to 1.6.5.
+
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 854d80c..66eed22 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -54,8 +54,8 @@
+ 
+ #define DRV_MODULE_NAME		"bnx2"
+ #define PFX DRV_MODULE_NAME	": "
+-#define DRV_MODULE_VERSION	"1.6.4"
+-#define DRV_MODULE_RELDATE	"August 3, 2007"
++#define DRV_MODULE_VERSION	"1.6.5"
++#define DRV_MODULE_RELDATE	"September 20, 2007"
+ 
+ #define RUN_AT(x) (jiffies + (x))
+ 
+@@ -6727,7 +6727,8 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 	} else if (CHIP_NUM(bp) == CHIP_NUM_5706 ||
+ 		   CHIP_NUM(bp) == CHIP_NUM_5708)
+ 		bp->phy_flags |= PHY_CRC_FIX_FLAG;
+-	else if (CHIP_ID(bp) == CHIP_ID_5709_A0)
++	else if (CHIP_ID(bp) == CHIP_ID_5709_A0 ||
++		 CHIP_ID(bp) == CHIP_ID_5709_A1)
+ 		bp->phy_flags |= PHY_DIS_EARLY_DAC_FLAG;
+ 
+ 	if ((CHIP_ID(bp) == CHIP_ID_5708_A0) ||
+
+
