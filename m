@@ -1,66 +1,44 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH 2/7] CAN: Add PF_CAN core module
-Date: Thu, 20 Sep 2007 22:27:42 +0200
-Message-ID: <1190320062.3085.6.camel@chaos>
-References: <20070920184323.3795.0@janus.isnogud.escape.de>
-	 <20070920184532.3795.2@janus.isnogud.escape.de>
-	 <1190318781.26101.148.camel@localhost>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Pull request for 'r8169-for-jeff-20070919' branch
+Date: Thu, 20 Sep 2007 22:44:37 +0200
+Message-ID: <20070920204437.GB13512@electric-eye.fr.zoreil.com>
+References: <20070919195606.GA3871@electric-eye.fr.zoreil.com> <46F2D24A.6050200@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Urs Thuermann <urs@isnogud.escape.de>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Oliver Hartkopp <oliver@hartkopp.net>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Urs Thuermann <urs.thuermann@volkswagen.de>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, David Gundersen <gundy@iinet.net.au>,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	Sylvain Le Gall <sylvain@le-gall.net>,
+	Roel.Teuwen@advalvas.be
+To: Chuck Ebbert <cebbert@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.osadl.org ([213.239.205.134]:54986 "EHLO mail.tglx.de"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751219AbXITU1u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Sep 2007 16:27:50 -0400
-In-Reply-To: <1190318781.26101.148.camel@localhost>
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:60706 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751136AbXITUsx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2007 16:48:53 -0400
+Content-Disposition: inline
+In-Reply-To: <46F2D24A.6050200@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-09-20 at 13:06 -0700, Joe Perches wrote:
-> On Thu, 2007-09-20 at 20:43 +0200, Urs Thuermann wrote:
-> > +#define DBG(...)       (debug & 1 ? \
-> > +                              (printk(KERN_DEBUG "can-%s %s: ", \
-> > +                               IDENT, __func__), printk(args)) : 0)
-> > +#define DBG_FRAME(args...) (debug & 2 ? can_debug_cframe(args) : 0)
-> > +#define DBG_SKB(skb)       (debug & 4 ? can_debug_skb(skb) : 0)
-> > +#else
-> > +#define DBG(args...)
-> > +#define DBG_FRAME(args...)
-> > +#define DBG_SKB(skb)
-> > +#endif
-> 
-> Shouldn't these be like the more common
-> 
-> #define DBG(fmt, args...) \
+Chuck Ebbert <cebbert@redhat.com> :
+[...]
+> People are still reporting hangs with this card in 2.6.22.6, are there
+> any fixes appropriate for that?
 
-> I'd prefer something like this, which removes the unnecessary
-> kmalloc/kfree pairs or the equivalent conversions to functions.
-> 
-> #define can_debug_cframe(cf, fmt, arg...) \
+$ grep 2.6.22.6 ~/Mail/linux/bugs/pending
+$ grep 2.6.22.6 ~/Mail/romieu
+[nothing besides Sylvain's success with 2.6.22.6 + the r8169 test driver]
+$ less +/2.6.22.6 ~/Mail/linux/netdev/200709 
+[nada]
+$ less +/816[89] ~/Mail/linux/kernel/200737
+[...]
 
-That's even worse. If we want to have something better than the DBG
-macros, then please convert the whole stuff into inline functions.
+/me scratches head...
 
-#ifdef DEBUG
-static inline void debug_skb(struct sk_buff *skb)
-{
-	if (debug & 4)
-		...
-}
-#else
-static inline debug_skb(struct sk_buff *skb) {}
-#endif
+The answer is probably "not yet".
 
-Thanks,
+Can you refresh my memory with some #BZ or an url ?
 
-	tglx
-
-
+-- 
+Ueimor
