@@ -1,52 +1,36 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [LARTC] ifb and ppp
-Date: Thu, 20 Sep 2007 13:55:06 +0200
-Message-ID: <46F25F9A.7010007@trash.net>
-References: <200709191417.43768.mail@frithjof-hammer.de>	<46F11E76.8030202@trash.net> <200709192342.03646.mail@frithjof-hammer.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: lartc@mailman.ds9a.nl, Linux Netdev List <netdev@vger.kernel.org>,
-	jamal <hadi@cyberus.ca>
-To: Frithjof Hammer <mail@frithjof-hammer.de>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH net-2.6.24 0/9]: TCP improvements & cleanups
+Date: Thu, 20 Sep 2007 15:17:43 +0300
+Message-ID: <11902906724088-git-send-email-ilpo.jarvinen@helsinki.fi>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35845 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752045AbXITMCa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 08:02:30 -0400
-In-Reply-To: <200709192342.03646.mail@frithjof-hammer.de>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:39950 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752042AbXITMRy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 08:17:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Please keep netdev and myself CCed.
+Hi Dave,
 
-Frithjof Hammer wrote:
->>Does this patch help?
-> 
-> 
-> A further examiniation:
-> [...]
-> printk ("fri: mein type %x\n",dev->type);
->                 switch (dev->type) {
-> 
-> [...]
-> shows this:
-> 
-> root@router:/usr/src/linux-source-2.6.21# dmesg | grep fri
-> fri: mein type 1
-> 
-> that is defined as ARPHRD_ETHER in include/linux/if_arp.h.
-> 
-> As far as i understand this means, that my ppp0 device is recognized as 
-> Ethernetinterface.
-> 
-> Any further help/ideas?
+Just in case you're short on what to do ;-) here are some TCP
+related cleanups & improvements to net-2.6.24. Including FRTO
+undo fix which finally should allow FRTO to be turned on, and
+some simple fastpath tweaks simple enough to the 2.6.24
+schedule. ...I've a larger fastpath_hint removal patch coming
+up later too but it's really a monster which needs more time
+though I guess it could really cut down the SACK processing
+latencies people are experience with high-speed flows (I'll
+probably post it with RFC once you've picked these up).
+
+These were boot (& couple of hours) tested on the top of
+net-2.6.24 (something after the first "large" rebase you did,
+so you could count that as success report of it too :-)).
+Not sure if all those fragment/collapse paths I modified got
+executed though.
+
+--
+ i.
 
 
-I misread the code, the device it looks at in tcf_mirred_init is
-the target device (ifb). So what it does is check whether the
-target device wants a link layer header and if it does restores
-the one from the source device. So currently it seems impossible
-to get rid of the PPP(oE) header.
-
-Jamal, is that how its supposed to work?
