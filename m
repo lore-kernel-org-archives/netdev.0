@@ -1,100 +1,51 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 2/7] CAN: Add PF_CAN core module
-Date: Thu, 20 Sep 2007 13:06:21 -0700
-Message-ID: <1190318781.26101.148.camel@localhost>
-References: <20070920184323.3795.0@janus.isnogud.escape.de>
-	 <20070920184532.3795.2@janus.isnogud.escape.de>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: net-2.6.24 plans
+Date: Thu, 20 Sep 2007 15:50:11 -0400
+Message-ID: <20070920195011.GL6748@tuxdriver.com>
+References: <20070916.202258.03371690.davem@davemloft.net> <20070917.141826.70218261.davem@davemloft.net> <20070917144037.100b3fc1.akpm@linux-foundation.org> <20070917231830.GG9282@tuxdriver.com> <20070917164929.b53ac118.akpm@linux-foundation.org> <20070918032328.GB3875@tuxdriver.com> <20070919012752.GA3717@tuxdriver.com> <20070919210700.GF5483@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver@hartkopp.net>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Urs Thuermann <urs.thuermann@volkswagen.de>
-To: Urs Thuermann <urs@isnogud.escape.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jgarzik@pobox.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:3081 "EHLO perches.com"
+Received: from ra.tuxdriver.com ([70.61.120.52]:4748 "EHLO ra.tuxdriver.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750806AbXITUGk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Sep 2007 16:06:40 -0400
-In-Reply-To: <20070920184532.3795.2@janus.isnogud.escape.de>
+	id S1750800AbXITUIO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2007 16:08:14 -0400
+Content-Disposition: inline
+In-Reply-To: <20070919210700.GF5483@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-09-20 at 20:43 +0200, Urs Thuermann wrote:
-> +#define DBG(...)       (debug & 1 ? \
-> +                              (printk(KERN_DEBUG "can-%s %s: ", \
-> +                               IDENT, __func__), printk(args)) : 0)
-> +#define DBG_FRAME(args...) (debug & 2 ? can_debug_cframe(args) : 0)
-> +#define DBG_SKB(skb)       (debug & 4 ? can_debug_skb(skb) : 0)
-> +#else
-> +#define DBG(args...)
-> +#define DBG_FRAME(args...)
-> +#define DBG_SKB(skb)
-> +#endif
+On Wed, Sep 19, 2007 at 05:07:00PM -0400, John W. Linville wrote:
+> On Tue, Sep 18, 2007 at 09:27:52PM -0400, John W. Linville wrote:
+> > On Mon, Sep 17, 2007 at 11:23:28PM -0400, John W. Linville wrote:
+> > > On Mon, Sep 17, 2007 at 04:49:29PM -0700, Andrew Morton wrote:
+> > > > On Mon, 17 Sep 2007 19:18:30 -0400
+> > > > "John W. Linville" <linville@tuxdriver.com> wrote:
+> > > > 
+> > > > > P.S.  Andrew, I'll send you a link to a new git-wireless.patch --
+> > > > > I'm sure you don't want a complicated git invocation...  Until then,
+> > > > > I don't think you should try pulling wireless-dev...
+> > 
+> > > Anyway, I do have prepared an omnibus patch for you:
+> > 
+> > Since Dave merged the drivers I sent him, the new omnibus patch you
+> > want is this:
 
-Shouldn't these be like the more common
+> > The good news is that it is 1/4 the size of its predecessor!
+> 
+> And the latest incarnation:
 
-#define DBG(fmt, args...) \
-do { \
-	if (debug & 1) \
-		printk(KERN_DEBUG "can-%s %s: " fmt, IDENT, __func__, ##args); \
-} while (0)
+> And is even smaller...down an additional 30%, or almost 1/6th of the
+> original! :-)
 
-#define DBG_FRAME(cf, fmt, args...) \
-do { \
-	if (debug & 2) \
-		can_debug_cframe(cf, fmt, ##args); \
-} while (0)
+	http://www.kernel.org/pub/linux/kernel/people/linville/git-wireless-2007-09-20.patch
 
-#define DBG_SKB(skb) \
-do { \
-	if (debug & 4) \
-		can_debug_skb(skb); \
-while (0)
+Even smaller, about 650k -- 80+% reduction in size, hooray!
 
-> void can_debug_cframe(const char *msg, struct can_frame *cf, ...)
-
-This prototype looks backwards to me.
-
-msg is a printf format string.
-
-I'd prefer something like this, which removes the unnecessary
-kmalloc/kfree pairs or the equivalent conversions to functions.
-
-#define can_debug_cframe(cf, fmt, arg...) \
-do { \
-	char buf[20]; \
-	int dlc = cf->can_dlc; \
-	if (dlc > 8) \
-		dlc = 8; \
-	if (cf->can_id & CAN_EFF_FLAG) \
-		sprintf(buf, "<%08X> [%X] ", cf->can_id & CAN_EFF_MASK, dlc); \
-	else \
-		sprintf(buf, "<%03X> [%X] ", cf->can_id & CAN_SFF_MASK, dlc); \
-	printk(KERN_DEBUG fmt, ##arg); \
-	print_hex_dump(buf, DUMP_PREFIX_NONE, cf->data, dlc); \
-} while (0)
-
-and
-
-#define can_debug_skb(skb) \
-do { \
-	pr_debug("skbuff at %p, dev: %d, proto: %04x\n", \
-		 skb, skb->dev ? skb->dev->ifindex : -1, \
-		 ntohs(skb->protocol)); \
-	pr_debug("users: %d, dataref: %d, nr_frags: %d, " \
-		 "h,d,t,e,l: %p %+d %+d %+d, %d\n", \
-		 atomic_read(&skb->users), \
-		 atomic_read(&(skb_shinfo(skb)->dataref)), \
-		 skb_shinfo(skb)->nr_frags, \
-		 skb->head, skb->data - skb->head, \
-		 skb->tail - skb->head, skb->end - skb->head, skb->len); \
-	print_hex_dump(KERN_DEBUG, "skb_head: ", DUMP_PREFIX_NONE, \
-		       16, 1, skb->head, skb->end - skb->head); \ 
-} while (0)
-
-cheers, Joe
-
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
