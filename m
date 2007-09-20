@@ -1,50 +1,38 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] sb1250-mac.c: De-typedef, de-volatile, de-etc...
-Date: Thu, 20 Sep 2007 13:01:45 -0400
-Message-ID: <46F2A779.2040904@pobox.com>
-References: <Pine.LNX.4.64N.0709101310030.25038@blysk.ds.pg.gda.pl> <46E8B56E.7060705@pobox.com> <Pine.LNX.4.64N.0709131506040.31069@blysk.ds.pg.gda.pl> <20070913151452.GB29665@linux-mips.org> <46E95C7F.1050302@pobox.com> <Pine.LNX.4.64N.0709141135290.1926@blysk.ds.pg.gda.pl> <46F1F2CE.7020300@pobox.com> <Pine.LNX.4.64N.0709201354320.30788@blysk.ds.pg.gda.pl>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: net-2.6.24 plans
+Date: Thu, 20 Sep 2007 12:56:34 -0400
+Message-ID: <20070920165634.GG6748@tuxdriver.com>
+References: <20070918032328.GB3875@tuxdriver.com> <20070919012752.GA3717@tuxdriver.com> <20070919210700.GF5483@tuxdriver.com> <20070919.151928.122833514.davem@davemloft.net> <20070920141723.GE6748@tuxdriver.com> <1190299852.18521.71.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ralf Baechle <ralf@linux-mips.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-mips@linux-mips.org,
-	linux-kernel@vger.kernel.org
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, jgarzik@pobox.com
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60101 "EHLO mail.dvmed.net"
+Received: from ra.tuxdriver.com ([70.61.120.52]:4961 "EHLO ra.tuxdriver.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751134AbXITRBv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Sep 2007 13:01:51 -0400
-In-Reply-To: <Pine.LNX.4.64N.0709201354320.30788@blysk.ds.pg.gda.pl>
+	id S1757210AbXITRIZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2007 13:08:25 -0400
+Content-Disposition: inline
+In-Reply-To: <1190299852.18521.71.camel@johannes.berg>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Maciej W. Rozycki wrote:
-> On Thu, 20 Sep 2007, Jeff Garzik wrote:
+On Thu, Sep 20, 2007 at 04:50:52PM +0200, Johannes Berg wrote:
+> On Thu, 2007-09-20 at 10:17 -0400, John W. Linville wrote:
 > 
->>> You may be pleased (or less so) to hear that the version of sb1250-mac.c in
->>> your tree does not even build (because of
->>> 42d53d6be113f974d8152979c88e1061b953bd12) and the patch below does not
->>> address it.  I ran out of time in the evening, but I will send you a fix
->>> shortly.  To be honest I think even with bulk changes it may be worth
->>> checking whether they do not break stuff. ;-)
->> hrm.  I cannot get this to apply on top of linux-2.6.git,
->> netdev-2.6.git#upstream (prior to net-2.6.24 rebase) or
->> netdev-2.6.git#upstream (after net-2.6.24 rebase)
+> > > 2) ATMEL USB driver
+> > 
+> > These are both really new.  I think I'll transfer them to my
+> > wireless-2.6 tree, but still hold them back at least until 2.6.25.
 > 
->  It applies on top of current -mm.  It seems to apply to a copy of 
-> netdev-2.6.git#upstream that I have got, but I am probably missing 
-> something...  If I try to clone your repository again I get:
-> 
-> $ git clone git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/linux-netdev-2.6.git linux
-> Initialized empty Git repository in /home/macro/GIT-other/linux-netdev/linux/.git/
-> fatal: The remote end hung up unexpectedly
-> fetch-pack from 'git://git.kernel.org/pub/scm/linux/kernel/git/jgarzik/linux-netdev-2.6.git' failed.
+> Also, atmel isn't even ported to mac80211 yet, is it?
 
-Remove the "linux-" prefix.
+Kalle Valo has done some work on this, and I think Eugene Teo has
+joined the effort.  They both are in contact with Pavel to accomplish
+the mac80211 port.
 
-	Jeff
-
-
-
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
