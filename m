@@ -1,41 +1,37 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH] e1000: Add device IDs of blade version of the 82571 quad
- port
-Date: Thu, 20 Sep 2007 16:33:54 -0700
-Message-ID: <46F30362.8070301@intel.com>
-References: <20070830182357.14185.69495.stgit@localhost.localdomain> <46F2E913.3080204@garzik.org>
+From: Bruce Cole <bacole@gmail.com>
+Subject: Re: e1000 driver and samba
+Date: Thu, 20 Sep 2007 16:30:48 -0700
+Message-ID: <46F302A8.7040008@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.ronciak@intel.com
-To: Jeff Garzik <jeff@garzik.org>
+Cc: bacole@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:55838 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751230AbXITXd5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Sep 2007 19:33:57 -0400
-In-Reply-To: <46F2E913.3080204@garzik.org>
+Received: from wa-out-1112.google.com ([209.85.146.180]:16691 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752053AbXITXeA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 19:34:00 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so780957wah
+        for <netdev@vger.kernel.org>; Thu, 20 Sep 2007 16:33:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Auke Kok wrote:
->> This blade-specific board form factor is identical to the 82571EB
->> board.
->>
->> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
->> ---
->>
->>  drivers/net/e1000/e1000_ethtool.c |    1 +
->>  drivers/net/e1000/e1000_hw.c      |    1 +
->>  drivers/net/e1000/e1000_hw.h      |    1 +
->>  drivers/net/e1000/e1000_main.c    |    2 ++
->>  4 files changed, 5 insertions(+), 0 deletions(-)
-> 
-> I just found this buried in a dusty corner of my inbox.  is this still
-> needed?
+>If you look for it on the Realtek cards, there had been sporadic
+>Nissues up to late 2005. The solution posted universally was 'change
+>card'.
 
-yes absolutely, this is a rather good selling part afaik and it's nothing but a
-new board with the same silicon (2x 82571 Fiber dual port behind a pci-e bridge).
+Yes, that *was* the common recommendation.  But recently I narrowed down the
+realtek performance problem most commonly seen with samba (but also applicable
+to other TCP applications), and I also narrowed down the fix as well.
 
-Auke
+The current fix involves re-kicking the TX queue after it becomes stuck.
+Apparently it becomes stuck due to a contention problem between the driver and
+controller.  I suspect the root problem is the driver isn't properly locking
+the TX queue.  It might be worth checking if the queue locking problem exists
+in other net drivers as well. 
+
+Reference:
+http://www.spinics.net/lists/netdev/msg40384.html
+
+
