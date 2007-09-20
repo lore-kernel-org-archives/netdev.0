@@ -1,57 +1,47 @@
-From: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Subject: Re: Please pull 'z1211' branch of wireless-2.6
-Date: Thu, 20 Sep 2007 15:28:04 +0100
-Message-ID: <46F28374.9040106@gentoo.org>
-References: <20070919181005.GB5483@tuxdriver.com> <46F19DD0.2050605@gentoo.org> <20070920134730.GC6748@tuxdriver.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: net-2.6.24 plans
+Date: Thu, 20 Sep 2007 10:17:23 -0400
+Message-ID: <20070920141723.GE6748@tuxdriver.com>
+References: <20070918032328.GB3875@tuxdriver.com> <20070919012752.GA3717@tuxdriver.com> <20070919210700.GF5483@tuxdriver.com> <20070919.151928.122833514.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070920134730.GC6748-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	jgarzik@pobox.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ra.tuxdriver.com ([70.61.120.52]:4102 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751147AbXITOpD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2007 10:45:03 -0400
+Content-Disposition: inline
+In-Reply-To: <20070919.151928.122833514.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> I know that you will argue that a rename is unnecessary if we
-> simply port the existing driver to mac80211, which is certainly true.
-> I just wonder if that is the least bumpy solution for users.  At least
-> with a new driver, if something doesn't work then the old driver is
-> still there as a fallback.  Plus you can avoid some confusion with
-> old howtos and such on the web referring to an old driver instead
-> of the new one, etc.  Maybe that isn't a huge issue in this case,
-> but I wouldn't underestimate the possible confusion.
+On Wed, Sep 19, 2007 at 03:19:28PM -0700, David Miller wrote:
 
-Maybe I'll provide a one-off externally building driver for 2.6.25 or 
-something like that, just as a basis for comparison. I think biting the 
-bullet and simply attacking the issues that come up is the best way.
-
-Old documentation will still be relevant for the mac80211 driver, 
-especially if we don't change the driver/config names -- offhand I can't 
-think of any obvious differences between the user interface to the 2 
-drivers.
-
->> (just to clarify to others: this is the first I heard of this merge 
->> before John posted it).
+> So it looks like what's left is:
 > 
-> Yes, sorry...permission, forgiveness...forgive? :-)
+> 1) ATH5K driver
+> 2) ATMEL USB driver
 
-Of course :)
+These are both really new.  I think I'll transfer them to my
+wireless-2.6 tree, but still hold them back at least until 2.6.25.
 
-> If you are determined not to have it in 2.6.24 then I will relent.
-> I will also suggest that Larry start sending any softmac bugs to
-> you... :-)
+> 3) NL80211
 
-That's fine.
+I need to check w/ Johannes to see if the user-facing portions of
+this have stabilized.
 
-> If we will be having a port rather than a new driver, how soon after
-> 2.6.24-rc1 closes can we queue the port for 2.6.25?  I think it
-> should be almost immediately, to ensure maximum test exposure and to
-> "seal the deal".  What do you think?
+> 4) misc bits sprinkled around mac80211
 
-I think that's realistic, I'll do what I can.
+These bits are mostly pieces with unsettled user inferface issues
+or unsettled features that still need some development.  I'll be
+holding-on to these a while longer.
 
 Thanks,
-Daniel
+
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
