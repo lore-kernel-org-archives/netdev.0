@@ -1,65 +1,57 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: net-2.6.24 plans
-Date: Thu, 20 Sep 2007 16:50:52 +0200
-Message-ID: <1190299852.18521.71.camel@johannes.berg>
-References: <20070918032328.GB3875@tuxdriver.com>
-	 <20070919012752.GA3717@tuxdriver.com> <20070919210700.GF5483@tuxdriver.com>
-	 <20070919.151928.122833514.davem@davemloft.net>
-	 <20070920141723.GE6748@tuxdriver.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH - net-2.6.24 0/2] Introduce and use print_ip and
+ print_ipv6
+Date: Thu, 20 Sep 2007 07:55:32 -0700
+Message-ID: <20070920075532.b20fad42.randy.dunlap@oracle.com>
+References: <1190271211.26101.91.camel@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-/vZK/zCnyd82YIZK0iWc"
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, jgarzik@pobox.com
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:40142 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752731AbXITOtz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 10:49:55 -0400
-In-Reply-To: <20070920141723.GE6748@tuxdriver.com>
+Received: from rgminet01.oracle.com ([148.87.113.118]:62484 "EHLO
+	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752344AbXITO5O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 10:57:14 -0400
+In-Reply-To: <1190271211.26101.91.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 19 Sep 2007 23:53:31 -0700 Joe Perches wrote:
 
---=-/vZK/zCnyd82YIZK0iWc
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> In the same vein as print_mac, the implementations
+> introduce declaration macros:
+> 	DECLARE_IP_BUF(var)
+> 	DECLARE_IPV6_BUF(var)
+> and functions:
+> 	print_ip
+> 	print_ipv6
+> 	print_ipv6_nofmt
+> 
+> IPV4 Use:
+> 
+> 	DECLARE_IP_BUF(ipbuf);
+> 	__be32 addr;
+> 	print_ip(ipbuf, addr);
+> 
+> IPV6 use:
+> 
+> 	DECLARE_IPV6_BUF(ipv6buf);
+> 	const struct in6_addr *addr;
+> 	print_ipv6(ipv6buf, addr);
+> and
+> 	print_ipv6_nofmt(ipv6buf, addr);
+> 
+> compiled x86, defconfig and allyesconfig
 
-On Thu, 2007-09-20 at 10:17 -0400, John W. Linville wrote:
 
-> > 2) ATMEL USB driver
->=20
-> These are both really new.  I think I'll transfer them to my
-> wireless-2.6 tree, but still hold them back at least until 2.6.25.
+How large are the patches if you posted them for review instead
+of just referencing gits for them?  (which cuts down on review
+possibilities)
 
-Also, atmel isn't even ported to mac80211 yet, is it?
-
-> > 3) NL80211
->=20
-> I need to check w/ Johannes to see if the user-facing portions of
-> this have stabilized.
-
-I have a patch to basically remove everything from nl80211 that we're
-not using today, and make the interface well-defined so each type of
-setting has methods to "new, del, get, set", for example create, remove,
-get info or change a virtual interface. If you wish, I can post this
-patch for inclusion into wireless-dev and then copy the resulting
-nl80211 to net-2.6.24, including the mac80211 hooks to make use of it.
-Shouldn't take more than a few hours.
-
-johannes
-
---=-/vZK/zCnyd82YIZK0iWc
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iD8DBQBG8ojM/ETPhpq3jKURAjpbAKCNhpDO5Z140Gg0mSUWvR+wbwiCugCgtyGM
-Idvnz5SeMWLcrTPU+4bAJBs=
-=MM/k
------END PGP SIGNATURE-----
-
---=-/vZK/zCnyd82YIZK0iWc--
-
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
