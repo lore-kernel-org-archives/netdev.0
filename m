@@ -1,39 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: [ofa-general] Re: [Bug,
- PATCH and another Bug] Was: Fix refcounting problem with
- netif_rx_reschedule()
-Date: Thu, 20 Sep 2007 11:12:42 -0700 (PDT)
-Message-ID: <20070920.111242.91444191.davem@davemloft.net>
-References: <20070919.221224.26966518.davem@davemloft.net>
-	<OF035DCEA7.EE6D8D3A-ON6525735C.001FC9D4-6525735C.00206959@in.ibm.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH: 2.6.13-15-SMP 3/3] network: concurrently run softirq
+ network code on SMP
+Date: Thu, 20 Sep 2007 11:11:50 -0700
+Message-ID: <20070920111150.0e4a4914@freepuppy.rosehill>
+References: <003501c7fb86$c04f7250$d6ddfea9@JOHNYE1>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdreier@cisco.com, ossthema@de.ibm.com,
-	general@lists.openfabrics.org
-To: krkumar2@in.ibm.com
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <OF035DCEA7.EE6D8D3A-ON6525735C.001FC9D4-6525735C.00206959@in.ibm.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: <netdev@vger.kernel.org>, <kuznet@ms2.inr.ac.ru>,
+	"John Ye" <johny@asimco.com.cn>
+To: "john ye" <johny@asimco.com.cn>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:35851 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755740AbXITSNW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 14:13:22 -0400
+In-Reply-To: <003501c7fb86$c04f7250$d6ddfea9@JOHNYE1>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Date: Thu, 20 Sep 2007 11:24:01 +0530
+On Thu, 20 Sep 2007 21:04:16 +0800
+"john ye" <johny@asimco.com.cn> wrote:
 
-> Ran 4/16/64 thread iperf on latest bits with this patch and no issues after
-> 30 mins. I used to
-> consistently get the bug within 1-2 mins with just 4 threads prior to this
-> patch.
+> Bottom Softirq Implementation. John Ye, 2007.08.27
 > 
-> Tested-by: Krishna Kumar <krkumar2@in.ibm.com>
-> (if any value in that)
+> Why this patch:
+> Make kernel be able to concurrently execute softirq's net code on SMP 
+> system.
+> Takes full advantages of SMP to handle more packets and greatly raises NIC 
+> throughput.
+> The current kernel's net packet processing logic is:
+> 1) The CPU which handles a hardirq must be executing its related softirq.
+> 2) One softirq instance(irqs handled by 1 CPU) can't be executed on more 
+> than 2 CPUs
+> at the same time.
+> The limitation make kernel network be hard to take the advantages of SMP.
+> 
+> How this patch:
+> It splits the current softirq code into 2 parts: the cpu-sensitive top half,
+> and the cpu-insensitive bottom half, then make bottom half(calld BS) be
+> executed on SMP concurrently.
+> The two parts are not equal in terms of size and load. Top part has constant 
+> code
+> size(mainly, in net/core/dev.c and NIC drivers), while bottom part involves
+> netfilter(iptables) whose load varies very much. An iptalbes with 1000 rules 
+> to match
+> will make the bottom part's load be very high. So, if the bottom part 
+> softirq
+> can be randomly distributed to processors and run concurrently on them, the 
+> network will
+> gain much more packet handling capacity, network throughput will be be 
+> increased
+> remarkably.
+> 
+> Where useful:
+> It's useful on SMP machines that meet the following 2 conditions:
+> 1) have high kernel network load, for example, running iptables with 
+> thousands of rules, etc).
+> 2) have more CPUs than active NICs, e.g. a 4 CPUs machine with 2 NICs).
+> On these system, with the increase of softirq load, some CPUs will be idle
+> while others(number is equal to # of NIC) keeps busy.
+> IRQBALANCE will help, but it only shifts IRQ among CPUS, makes no softirq 
+> concurrency.
+> Balancing the load of each cpus will not remarkably increase network speed.
+> 
+> Where NOT useful:
+> If the bottom half of softirq is too small(without running iptables), or the 
+> network
+> is too idle, BS patch will not be seen to have visible effect. But It has no
+> negative affect either.
+> User can turn on/off BS functionality by /proc/sys/net/bs_enable switch.
+> 
 
-There is much value in that :-)  Thanks a lot Kirshna.
+
+If I read this correctly. You basically changed network processing from softirq
+to workqueue (which is pretty much what -rt does). Perhaps optimizing and/or 
+rearchitecting netfilter rule processing would get more benefit.
+
+But you are ignoring the issue of all the locking assumptions that get changed.
+Any performance gain from getting SMP will probably be lost by the additional
+locking required.
+
+Also patch is formatted badly, has multiple style issues (indentation etc).
+If you want to have it seriously considered, follow the Documentation/CodingStyle guidelines.
+There is even a perl script to check it scripts/checkpatch.pl
+
