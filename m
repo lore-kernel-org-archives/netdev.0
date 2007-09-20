@@ -1,54 +1,49 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [LARTC] ifb and ppp
-Date: Thu, 20 Sep 2007 09:19:48 -0400
-Message-ID: <1190294388.4734.6.camel@localhost>
-References: <200709191417.43768.mail@frithjof-hammer.de>
-	 <46F11E76.8030202@trash.net> <200709192342.03646.mail@frithjof-hammer.de>
-	 <46F25F9A.7010007@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Moni Shoua <monis@voltaire.com>
+Subject: [PATCH V5 0/11] net/bonding: ADD IPoIB support for the	bonding driver
+Date: Thu, 20 Sep 2007 16:33:06 +0300
+Message-ID: <46F27692.3070404@voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Frithjof Hammer <mail@frithjof-hammer.de>, lartc@mailman.ds9a.nl,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Cc: OpenFabrics General <general@lists.openfabrics.org>,
+	netdev@vger.kernel.org
+To: Roland Dreier <rdreier@cisco.com>, Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.229]:59351 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753907AbXITNTy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 09:19:54 -0400
-Received: by wr-out-0506.google.com with SMTP id 36so198443wra
-        for <netdev@vger.kernel.org>; Thu, 20 Sep 2007 06:19:53 -0700 (PDT)
-In-Reply-To: <46F25F9A.7010007@trash.net>
+Received: from fwil.voltaire.com ([193.47.165.2]:11346 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751056AbXITNdV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2007 09:33:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-20-09 at 13:55 +0200, Patrick McHardy wrote:
-> Please keep netdev and myself CCed.
+This patch series is the fifth version (see below link to V4) of the 
+suggested changes to the bonding driver so it would be able to support 
+non ARPHRD_ETHER netdevices for its High-Availability (active-backup) mode. 
 
-and me too (I am way behind on netdev)
+Patches 1-10 were originally submitted in V4 and patch 11 is an addition by Jay.
 
-> Frithjof Hammer wrote:
+Jay,
+The bonding patches you acked remain unchanged while I guess I sitll need
+to get an official ack by Roland for the IPoIB patches.
+Is it OK with you to push the entire series to the networking tree?
+Roland has already agreed to do so.
 
-> > Any further help/ideas?
 
-Sorry, I didnt follow the thread - what is the goal to be achieved with
-the setup?
+Major changes from the previous version:
+----------------------------------------
+1. Style changes
+2. IPoIB - notify slave detach on vlan delete
+3. Add function to net/core for slave detach instead of having it only in
+   ib/ipoib
+4. IPoIB - handle ib device and bonding device the same way in neigh_cleanup
+   function
 
-> I misread the code, the device it looks at in tcf_mirred_init is
-> the target device (ifb). So what it does is check whether the
-> target device wants a link layer header and if it does restores
-> the one from the source device. So currently it seems impossible
-> to get rid of the PPP(oE) header.
+Links to earlier discussion:
+----------------------------
 
-It is tricky to redirect from devices that have disparity
-in their view of link layer headers except for those that we know
-dont expect anything. 
+1. A discussion in netdev about bonding support for IPoIB.
+http://lists.openwall.net/netdev/2006/11/30/46
 
-> Jamal, is that how its supposed to work?
-
-Right - some netdevices on receipt will expect the link layer header.
-
-cheers,
-jamal
+2. V4 series
+http://lists.openfabrics.org/pipermail/general/2007-August/039825.html
 
