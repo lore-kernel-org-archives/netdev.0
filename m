@@ -1,50 +1,50 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: Please pull 'ssb-drivers' branch of wireless-2.6
-Date: Thu, 20 Sep 2007 09:19:00 -0400
-Message-ID: <20070920131900.GA6748@tuxdriver.com>
-References: <20070919204428.GE5483@tuxdriver.com> <20070919213356.GB15510@suse.de>
+From: Moni Shoua <monis@voltaire.com>
+Subject: [PATCH V5 4/11] IB/ipoib: Verify address handle validity on send
+Date: Thu, 20 Sep 2007 16:42:42 +0300
+Message-ID: <46F278D2.6080703@voltaire.com>
+References: <46F27692.3070404@voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>,
-	linux-usb-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org
-To: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20070919213356.GB15510-l3A5Bk7waGM@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: OpenFabrics General <general@lists.openfabrics.org>,
+	netdev@vger.kernel.org
+To: Roland Dreier <rdreier@cisco.com>, Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fwil.voltaire.com ([193.47.165.2]:16092 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754112AbXITNmo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2007 09:42:44 -0400
+In-Reply-To: <46F27692.3070404@voltaire.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 19, 2007 at 02:33:56PM -0700, Greg KH wrote:
-> On Wed, Sep 19, 2007 at 04:44:28PM -0400, John W. Linville wrote:
+When the bonding device senses a carrier loss of its active slave it replaces
+that slave with a new one. In between the times when the carrier of an IPoIB
+device goes down and ipoib_neigh is destroyed, it is possible that the
+bonding driver will send a packet on a new slave that uses an old ipoib_neigh.
+This patch detects and prevents this from happenning.
 
-> > These patches build upon the SSB bus support added to net-2.6.24 to
-> > support the b43 wireless driver.  Since Dave has that support in his
-> > tree, I'm asking him to merge these patches as well.
+Signed-off-by: Moni Shoua <monis at voltaire.com>
+Signed-off-by: Or Gerlitz <ogerlitz at voltaire.com>
+---
+ drivers/infiniband/ulp/ipoib/ipoib_main.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-> > The second patch adds a driver for a USB OHCI device which lives on
-> > the SSB bus.  Again, this is found on a number of SoC devices used
-> > especially in wireless routers and APs.
+Index: net-2.6/drivers/infiniband/ulp/ipoib/ipoib_main.c
+===================================================================
+--- net-2.6.orig/drivers/infiniband/ulp/ipoib/ipoib_main.c	2007-09-18 17:09:26.535874225 +0200
++++ net-2.6/drivers/infiniband/ulp/ipoib/ipoib_main.c	2007-09-18 17:10:22.375853147 +0200
+@@ -686,9 +686,10 @@ static int ipoib_start_xmit(struct sk_bu
+ 				goto out;
+ 			}
+ 		} else if (neigh->ah) {
+-			if (unlikely(memcmp(&neigh->dgid.raw,
++			if (unlikely((memcmp(&neigh->dgid.raw,
+ 					    skb->dst->neighbour->ha + 4,
+-					    sizeof(union ib_gid)))) {
++					    sizeof(union ib_gid))) ||
++					 (neigh->dev != dev))) {
+ 				spin_lock(&priv->lock);
+ 				/*
+ 				 * It's safe to call ipoib_put_ah() inside
 
-> > The patches are available here:
-> > 
-> > 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/ssb-drivers/0001-b44-port-to-native-ssb-support.patch
-> > 	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/ssb-drivers/0002-usb-ssb-hosted-OHCI-driver.patch
-> 
-> This one needs to go through the linux-usb-devel list (not the -users
-> list) and get acked by David Brownell, the current OHCI maintainer.
-
-Ooops, sorry -- clicked on the wrong line in MAINTAINERS...
-
-David, please review the patch in the second link above and consider it
-for inclusion in 2.6.24 (once the SSB stuff in net-2.6.24 is merged).
-
-Thanks!
-
-John
--- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
