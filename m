@@ -1,122 +1,96 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/7] CAN: Add PF_CAN core module
-Date: Thu, 20 Sep 2007 12:33:49 +0200
-Message-ID: <46F24C8D.2020804@trash.net>
-References: <20070917100321.18347.0@janus.isnogud.escape.de>	<20070917100438.18347.2@janus.isnogud.escape.de>	<46EFD33D.8030905@trash.net> <ygffy1bzn4c.fsf@janus.isnogud.escape.de>	<46F0DD8E.8070808@trash.net> <ygfy7f1g1l0.fsf@janus.isnogud.escape.de>
+From: Valentine Barshak <vbarshak@ru.mvista.com>
+Subject: Re: [PATCH] pci: Fix e100 interrupt quirk
+Date: Thu, 20 Sep 2007 15:33:22 +0400
+Message-ID: <46F25A82.8090300@ru.mvista.com>
+References: <20070918111737.GA7026@ru.mvista.com> <20070919233726.9d81b674.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver@hartkopp.net>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-To: Urs Thuermann <urs@isnogud.escape.de>
+Cc: linux-kernel@vger.kernel.org, Auke Kok <auke-jan.h.kok@intel.com>,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:34538 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750717AbXITKlM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 06:41:12 -0400
-In-Reply-To: <ygfy7f1g1l0.fsf@janus.isnogud.escape.de>
+Received: from rtsoft3.corbina.net ([85.21.88.6]:14085 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750758AbXITLe0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 07:34:26 -0400
+In-Reply-To: <20070919233726.9d81b674.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Urs Thuermann wrote:
-> Patrick McHardy <kaber@trash.net> writes:
+Andrew Morton wrote:
+> On Tue, 18 Sep 2007 15:17:37 +0400 Valentine Barshak <vbarshak@ru.mvista.com> wrote:
 > 
->>>When the module is unloaded it calls can_proto_unregister() which
->>>clears the pointer.  Do you see a race condition here?
+>> PCI memory space may have a 64-bit offset on some architectures
+>> (for example, PowerPC 440) and the actual PCI memory address
+>> has to fixed up (an offset to PCI mem space shuld be added)
+>> before remapping. So, pci_iomap should be used instead of
+>> reading and remapping PCI BAR directly. This has been tested
+>> on Sequoia PowerPC 440EPx board.
 >>
->>Yes, you do request_module, load the module, get the cp pointer
->>from proto_tab, the module is unloaded again. cp points to
->>stable memory. Using module references would fix this.
-> 
-> 
-> How would I use the module reference counter?  Somehow with
-> try_module_get()?  I have thought something like
-> 
->         cp = proto_tab[protocol];
->         if (!cp ...)
->                 return ...;
-> 
->         if (!try_module_get(cp->prot->owner))
->                 return ...;
-> 
->         sk = sk_alloc(...)
-> 
->         module_put(...);
->         return ret;
-> 
-> But here I see two problems:
-> 
-> 1. Between the check !cp...  and referencing cp->prot->owner the
->    module could get unloaded and the reference be invalid.  Is there
->    some lock I can hold that prevents module unloading?  I haven't
->    found something like this in include/linux/module.h
-
-
-No, you need to add your own locking to prevent this, something
-list this:
-
-registration/unregistration:
-
-take lock
-change proto_tab[]
-release lock
-
-lookup:
-
-take lock
-cp = proto_tab[]
-if (cp && !try_module_get(cp->owner))
-	cp = NULL
-release lock
-
-> 2. If the module gets unloaded after the first check and
->    request_module() but before the call to try_module_get() the
->    socket() syscall will return with error, although module auto
->    loading would normally be successful.  How can I prevent that?
-
-
-Why do you want to prevent it? The admin unloaded the module,
-so he apparently doesn't want the operation to succeed.
-
->>>find_dev_rcv_lists() is called in one place from can_rcv() with RCU
->>>lock held, as you write.  The other two calls to find_dev_rcv_lists()
->>>are from can_rx_register/unregister() functions which change the
->>>receive lists.  Therefore, we can't only use RCU but need protection
->>>against simultanous writes.  We do this with the spin_lock_bh().  The
->>>_bh variant, because can_rcv() runs in interrupt and we need to block
->>>that.  I thought this is pretty standard.
->>>
->>>I'll check this again tomorrow, but I have put much time in these
->>>locking issues already, changed it quite a few times and hoped to have
->>>got it right finally.
+>> Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
+>> ---
 >>
->>
->>I'm not saying you should use *only* RCU, you need the lock
->>for additions/removal of course, but since the receive path
->>doesn't take that lock and relies on RCU, you need to use
->>the _rcu list walking variant to avoid races with concurrent
->>list changes.
+>> --- linux-2.6.orig/drivers/pci/quirks.c	2007-09-04 21:15:43.000000000 +0400
+>> +++ linux-2.6.bld/drivers/pci/quirks.c	2007-09-05 20:46:14.000000000 +0400
+>> @@ -1444,9 +1444,9 @@
+>>  static void __devinit quirk_e100_interrupt(struct pci_dev *dev)
+>>  {
+>>  	u16 command;
+>> -	u32 bar;
+>>  	u8 __iomem *csr;
+>>  	u8 cmd_hi;
+>> +	int rc;
+>>  
+>>  	switch (dev->device) {
+>>  	/* PCI IDs taken from drivers/net/e100.c */
+>> @@ -1476,16 +1476,17 @@
+>>  	 * re-enable them when it's ready.
+>>  	 */
+>>  	pci_read_config_word(dev, PCI_COMMAND, &command);
+>> -	pci_read_config_dword(dev, PCI_BASE_ADDRESS_0, &bar);
+>>  
+>> -	if (!(command & PCI_COMMAND_MEMORY) || !bar)
+>> +	rc = pci_request_region(dev, 0, "e100_quirk");
+>> +
+>> +	if (!(command & PCI_COMMAND_MEMORY) || (rc < 0))
+>>  		return;
 > 
+> Really?  So if pci_request_region() failed and !(command & PCI_COMMAND_MEMORY),
+> we leak the region?  So the next call to this function will fail?
 > 
-> I have no objections to add the _rcu suffix for the code changing the
-> receive lists, but I don't see why it's necessary.  When I do a
-> spin_lock_bh() before writing, can't I be sure that there is no
-> interrupt routine running in parallel while I hold this spinlock?  If
-> so, there is no reader in parallel because the can_rcv() function runs
-> in a softirq.  I'd really like to understand why you think the writers
-> should also use the _rcu variant. 
 
+I've split command and request region checks and submitted new patch:
+http://lkml.org/lkml/2007/9/19/106
+Please, take a look,
+Thanks,
+Valentine.
 
-I'm saying you need _rcu for the *read side*. All operations changing
-the list already use the _rcu variants.
-
-> I'm sorry if I miss something
-> obvious here, but could you try to explain it to me?
-
-
-spin_lock_bh only disables BHs locally, other CPUs can still process
-softirqs. And since rcv_lists_lock is only used in process context,
-the BH disabling is actually not even necessary.
+> 
+>> -	csr = ioremap(bar, 8);
+>> +	csr = pci_iomap(dev, 0, 8);
+>>  	if (!csr) {
+>>  		printk(KERN_WARNING "PCI: Can't map %s e100 registers\n",
+>>  			pci_name(dev));
+>> -		return;
+>> +		goto e100_quirk_exit;
+>>  	}
+>>  
+>>  	cmd_hi = readb(csr + 3);
+>> @@ -1495,7 +1496,9 @@
+>>  		writeb(1, csr + 3);
+>>  	}
+>>  
+>> -	iounmap(csr);
+>> +	pci_iounmap(dev, csr);
+>> +e100_quirk_exit:
+>> +	pci_release_region(dev, 0);
+>>  }
+>>  DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, PCI_ANY_ID, quirk_e100_interrupt);
+>>  
+>> -
+>> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> Please read the FAQ at  http://www.tux.org/lkml/
 
