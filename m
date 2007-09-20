@@ -1,165 +1,65 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 5/6] sky2: receive FIFO checking
-Date: Wed, 19 Sep 2007 22:06:04 -0700
-Message-ID: <20070920050700.547057779@linux-foundation.org>
-References: <20070920050559.763089637@linux-foundation.org>
-Cc: netdev@vger.kernel.org
-To: Jeff Garzk <jgarzik@pobox.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [Bug, PATCH and another Bug] Was: Fix refcounting problem with netif_rx_reschedule()
+Date: Thu, 20 Sep 2007 10:40:33 +0530
+Message-ID: <OF42EA8B8A.CAFE186B-ON6525735C.001BE132-6525735C.001C6EC0@in.ibm.com>
+References: <200709191523.48874.ossthema@de.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: davem@davemloft.net, general@lists.openfabrics.org,
+	netdev@vger.kernel.org, Christoph Raisch <raisch@de.ibm.com>,
+	rdreier@cisco.com
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:42776 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752171AbXITFH5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 01:07:57 -0400
-Content-Disposition: inline; filename=sky2-rx-watch.patch
+Received: from E23SMTP03.au.ibm.com ([202.81.18.172]:32917 "EHLO
+	e23smtp03.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751987AbXITFJS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 01:09:18 -0400
+Received: from d23relay03.au.ibm.com (d23relay03.au.ibm.com [202.81.18.234])
+	by e23smtp03.au.ibm.com (8.13.1/8.13.1) with ESMTP id l8K59GNb007202
+	for <netdev@vger.kernel.org>; Thu, 20 Sep 2007 15:09:16 +1000
+Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
+	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8K59GCv4546758
+	for <netdev@vger.kernel.org>; Thu, 20 Sep 2007 15:09:16 +1000
+Received: from d23av01.au.ibm.com (loopback [127.0.0.1])
+	by d23av01.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8K57k1j001897
+	for <netdev@vger.kernel.org>; Thu, 20 Sep 2007 15:07:46 +1000
+In-Reply-To: <200709191523.48874.ossthema@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A driver writer from another operating system hinted that
-the versions of Yukon 2 chip with rambuffer (EC and XL) have
-a hardware bug that if the FIFO ever gets completely full it
-will hang. Sounds like a classic ring full vs ring empty wrap around
-bug.
+Hi Jan-Bernd,
 
-As a workaround, use the existing watchdog timer to check for
-ring full lockup.
+Jan-Bernd Themann <ossthema@de.ibm.com> wrote on 09/19/2007 06:53:48 PM:
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> If I understood it right the problem you describe (quota update in
+> __napi_schdule) can cause further problems when you choose the
+> following numbers:
+>
+> CPU1: A. process 99 pkts
+> CPU1: B. netif_rx_complete()
+> CPU2: interrupt occures, netif_rx_schedule is called, net_rx_action
+triggerd:
+> CPU2: C. set quota = 100 (__napi_schedule)
+> CPU2: D. call poll(), process 1 pkt
+> CPU2: D.2 call netif_rx_complete() (quota not exeeded)
+> CPU2: E. net_rx_action: set quota=99
+> CPU1: F. net_rx_action: set qutoa=99 - 99 = 0
+> CPU1: G. modify list (list_move_tail) altough netif_rx_complete has been
+called
+>
+> Step G would fail as the device is not in the list due
+> to netif_rx_complete. This case can occur for all
+> devices running on an SMP system where interrupts are not pinned.
 
---- a/drivers/net/sky2.c	2007-09-19 21:58:08.000000000 -0700
-+++ b/drivers/net/sky2.c	2007-09-19 21:58:09.000000000 -0700
-@@ -1652,9 +1652,6 @@ static int sky2_down(struct net_device *
- 	if (netif_msg_ifdown(sky2))
- 		printk(KERN_INFO PFX "%s: disabling interface\n", dev->name);
- 
--	if (netif_carrier_ok(dev) && --hw->active == 0)
--		del_timer(&hw->watchdog_timer);
--
- 	/* Stop more packets from being queued */
- 	netif_stop_queue(dev);
- 
-@@ -1781,9 +1778,7 @@ static void sky2_link_up(struct sky2_por
- 
- 	netif_carrier_on(sky2->netdev);
- 
--	if (hw->active++ == 0)
--		mod_timer(&hw->watchdog_timer, jiffies + 1);
--
-+	mod_timer(&hw->watchdog_timer, jiffies + 1);
- 
- 	/* Turn on link LED */
- 	sky2_write8(hw, SK_REG(port, LNK_LED_REG),
-@@ -1834,11 +1829,6 @@ static void sky2_link_down(struct sky2_p
- 
- 	netif_carrier_off(sky2->netdev);
- 
--	/* Stop watchdog if both ports are not active */
--	if (--hw->active == 0)
--		del_timer(&hw->watchdog_timer);
--
--
- 	/* Turn on link LED */
- 	sky2_write8(hw, SK_REG(port, LNK_LED_REG), LINKLED_OFF);
- 
-@@ -2484,16 +2474,70 @@ static void sky2_le_error(struct sky2_hw
- 	sky2_write32(hw, Q_ADDR(q, Q_CSR), BMU_CLR_IRQ_CHK);
- }
- 
--/* Check for lost IRQ once a second */
-+static int sky2_rx_hung(struct net_device *dev)
-+{
-+	struct sky2_port *sky2 = netdev_priv(dev);
-+	struct sky2_hw *hw = sky2->hw;
-+	unsigned port = sky2->port;
-+	unsigned rxq = rxqaddr[port];
-+	u32 mac_rp = sky2_read32(hw, SK_REG(port, RX_GMF_RP));
-+	u8 mac_lev = sky2_read8(hw, SK_REG(port, RX_GMF_RLEV));
-+	u8 fifo_rp = sky2_read8(hw, Q_ADDR(rxq, Q_RP));
-+	u8 fifo_lev = sky2_read8(hw, Q_ADDR(rxq, Q_RL));
-+
-+	/* If idle and MAC or PCI is stuck */
-+	if (sky2->check.last == dev->last_rx &&
-+	    ((mac_rp == sky2->check.mac_rp &&
-+	      mac_lev != 0 && mac_lev >= sky2->check.mac_lev) ||
-+	     /* Check if the PCI RX hang */
-+	     (fifo_rp == sky2->check.fifo_rp &&
-+	      fifo_lev != 0 && fifo_lev >= sky2->check.fifo_lev))) {
-+		printk(KERN_DEBUG PFX "%s: hung mac %d:%d fifo %d (%d:%d)\n",
-+		       dev->name, mac_lev, mac_rp, fifo_lev, fifo_rp,
-+		       sky2_read8(hw, Q_ADDR(rxq, Q_WP)));
-+		return 1;
-+	} else {
-+		sky2->check.last = dev->last_rx;
-+		sky2->check.mac_rp = mac_rp;
-+		sky2->check.mac_lev = mac_lev;
-+		sky2->check.fifo_rp = fifo_rp;
-+		sky2->check.fifo_lev = fifo_lev;
-+		return 0;
-+	}
-+}
-+
- static void sky2_watchdog(unsigned long arg)
- {
- 	struct sky2_hw *hw = (struct sky2_hw *) arg;
-+	struct net_device *dev;
- 
-+	/* Check for lost IRQ */
- 	if (sky2_read32(hw, B0_ISRC))
- 		napi_schedule(&hw->napi);
-+	else {
-+		int i, active = 0;
-+
-+		for (i = 0; i < hw->ports; i++) {
-+			dev = hw->dev[i];
-+			if (!netif_running(dev))
-+				continue;
-+			++active;
-+
-+			/* For chips with Rx FIFO, check if stuck */
-+			if ((hw->flags & SKY2_HW_RAMBUFFER) &&
-+			     sky2_rx_hung(dev)) {
-+				pr_info(PFX "%s: receiver hang detected\n",
-+					dev->name);
-+				schedule_work(&hw->restart_work);
-+				return;
-+			}
-+		}
-+
-+		if (active == 0)
-+			return;
-+	}
- 
--	if (hw->active > 0)
--		mod_timer(&hw->watchdog_timer, round_jiffies(jiffies + HZ));
-+	mod_timer(&hw->watchdog_timer, round_jiffies(jiffies + HZ));
- }
- 
- /* Hardware/software error handling */
---- a/drivers/net/sky2.h	2007-09-19 21:58:08.000000000 -0700
-+++ b/drivers/net/sky2.h	2007-09-19 21:58:09.000000000 -0700
-@@ -2008,6 +2008,14 @@ struct sky2_port {
- 	u16		     rx_tag;
- 	struct vlan_group    *vlgrp;
- #endif
-+	struct {
-+		unsigned long last;
-+		u32	mac_rp;
-+		u8	mac_lev;
-+		u8	fifo_rp;
-+		u8	fifo_lev;
-+	} check;
-+
- 
- 	dma_addr_t	     rx_le_map;
- 	dma_addr_t	     tx_le_map;
-@@ -2046,7 +2054,6 @@ struct sky2_hw {
- 	u8		     chip_rev;
- 	u8		     pmd_type;
- 	u8		     ports;
--	u8		     active;
- 
- 	struct sky2_status_le *st_le;
- 	u32		     st_idx;
+I think list_move should be ok whether device is on the list or not.
+But it should not come to that code since work (99) != weight (100).
+If work == weight, then driver would not have done complete, and the
+next/prev would not be set to POISON.
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+I like the clean changes made by Dave to fix this, and will test it
+today (if I can get my crashed system to come up).
+
+Thanks,
+
+- KK
 
