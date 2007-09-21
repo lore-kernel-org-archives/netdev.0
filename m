@@ -1,114 +1,90 @@
-From: lepton <ytht.net@gmail.com>
-Subject: [PATCH RESEND] 2.6.22.6 networking [ipv4]: fix wrong destination when reply packetes
-Date: Fri, 21 Sep 2007 10:23:35 +0800
-Message-ID: <20070921022335.GA2849@router.lepton.home>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH 3/3 Rev4] Initialize and fill IPv6 route age
+Date: Fri, 21 Sep 2007 08:35:11 +0530
+Message-ID: <OF5159F66B.5A5F01B8-ON6525735D.000FD530-6525735D.0010F45F@in.ibm.com>
+References: <20070920205903.e40b37af.varunc@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lkm <linux-kernel@vger.kernel.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org,
+	shemminger@linux-foundation.org, socketcan@hartkopp.net,
+	tgraf@suug.ch, Varun Chandramohan <varuncha@in.ibm.com>
+To: Varun Chandramohan <varunc@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.187]:10041 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752042AbXIUCYe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 22:24:34 -0400
-Received: by rv-out-0910.google.com with SMTP id k20so662263rvb
-        for <netdev@vger.kernel.org>; Thu, 20 Sep 2007 19:24:33 -0700 (PDT)
-Content-Disposition: inline
+Received: from E23SMTP03.au.ibm.com ([202.81.18.172]:50523 "EHLO
+	e23smtp03.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752285AbXIUDDy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 23:03:54 -0400
+Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
+	by e23smtp03.au.ibm.com (8.13.1/8.13.1) with ESMTP id l8L33iDH021869
+	for <netdev@vger.kernel.org>; Fri, 21 Sep 2007 13:03:44 +1000
+Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
+	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8L37HiN058952
+	for <netdev@vger.kernel.org>; Fri, 21 Sep 2007 13:07:18 +1000
+Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
+	by d23av02.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8L33gB5021857
+	for <netdev@vger.kernel.org>; Fri, 21 Sep 2007 13:03:43 +1000
+In-Reply-To: <20070920205903.e40b37af.varunc@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-  This is a resend of this patch with more details. I'd
-  like it can be accepted this time.
-  The problem: In icmp_reply and ip_send_reply function, 
-  we now use rt->rt_src as destination to send out packets.
-  For packets received in loopback device, this is wrong 
-  sometimes.
-  Here is an example (NOTE: eth0 address is set to 10.10.10.1/24):
+Varun Chandramohan <varunc@linux.vnet.ibm.com> wrote on 09/20/2007 08:59:03
+PM:
 
-  #tcpdump -n -i lo icmp &
-  [1] 3155
-  ...
+> @@ -2123,6 +2131,7 @@ static int rt6_fill_node(struct sk_buff
+>  {
+>     struct rtmsg *rtm;
+>     struct nlmsghdr *nlh;
+> +   struct timeval tv;
+>     long expires;
+>     u32 table;
+>
+> @@ -2186,6 +2195,11 @@ static int rt6_fill_node(struct sk_buff
+>        if (ipv6_get_saddr(&rt->u.dst, dst, &saddr_buf) == 0)
+>           NLA_PUT(skb, RTA_PREFSRC, 16, &saddr_buf);
+>     }
+> +
+> +   do_gettimeofday(&tv);
+> +   if (rt->rt6i_age) {
+> +      NLA_PUT_U32(skb, RTA_AGE, (tv.tv_sec - rt->rt6i_age));
+> +   }
 
-  # hping3 --icmp --spoof 10.10.10.3 10.10.10.1
-  ...
-  09:53:49.508449 IP 10.10.10.3 > 10.10.10.1: icmp 8: echo request seq 0
-  09:53:49.508482 IP 10.10.10.1 > 10.10.10.1: icmp 8: echo reply seq 0
-  09:53:50.525560 IP 10.10.10.3 > 10.10.10.1: icmp 8: echo request seq 256
-  09:53:50.525589 IP 10.10.10.1 > 10.10.10.1: icmp 8: echo reply seq 256
+Will rt6i_age ever be zero with this new patch? If it can be zero,
+the code should really be keeping the "tv" declaration and
+do_gettimeofday() inside the "if (rt->rt6i_age)" check.
 
-  The same thing will happend for tcp:
+And from your Patch2/3:
 
-  # hping3 --syn --destport 1234 --spoof 10.10.10.3 10.10.10.1
-  (NOTE: there is no service to listen on port 1234)
-  ...
-  10:02:59.395715 IP 10.10.10.3.2787 > 10.10.10.1.1234: S
-  72057069:72057069(0) win 512 <mss 1414>
-  10:02:59.395746 IP 10.10.10.1.1234 > 10.10.10.1.2787: R 0:0(0) ack
-  72057070 win 0
+int fib_dump_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
+-                          u32 tb_id, u8 type, u8 scope, __be32 dst, int
+dst_len, u8 tos,
++                          u32 tb_id, u8 type, u8 scope, __be32 dst, int
+dst_len, u8 tos, time_t age,
+                           struct fib_info *fi, unsigned int flags)
+ {
+             struct nlmsghdr *nlh;
+             struct rtmsg *rtm;
++            struct timeval tv;
 
-  As you can see, all destination address is wrong.
-  This problem comes from the fact that the route selection for packetes 
-travle on loopback device only happend once. When we send out packets
-from loopback device, the skb->dst is assigned in ip_route_output. It 
-won't be reassinged in packetes recveive path. So the rt->rt_src don't 
-equal to ip_hdr(skb)->saddr.
-  I don't know why we must use rt->rt_src as destionation address. at least 
-  for icmp reply packets, I thin we should use ip_hdr(skb)->saddr as 
-  destionation address. this is according to RFC792:
-   ...
-   Addresses
+             nlh = nlmsg_put(skb, pid, seq, event, sizeof(*rtm), flags);
+             if (nlh == NULL)
+@@ -985,6 +987,11 @@ int fib_dump_info(struct sk_buff *skb, u
+                                     NLA_PUT_U32(skb, RTA_FLOW,
+fi->fib_nh[0].nh_tclassid);
+ #endif
+             }
++
++            do_gettimeofday(&tv);
++            if (age) {
++                        NLA_PUT_U32(skb, RTA_AGE, (tv.tv_sec - age));
++            }
 
-      The address of the source in an echo message will be the
-      destination of the echo reply message.  To form an echo reply
-      message, the source and destination addresses are simply reversed,
-      the type code changed to 0, and the checksum recomputed.
-  
-  A possible fix is to do ip_route_input in ip_rcv_finish for packtes 
-  received in loopback device. But I think just to use ip_hdr(skb)->saddr 
-  instead of rt->rt_src as destination to reply packetes is a more simple fix.
- 
-  Thanks Kenan Kalajdzic <kalajdzic@gmail.com> for help me with more details
-  about this problem.
-  
-Signed-off-by: Lepton Wu <ytht.net@gmail.com>
+Don't you want to return time the first time (and get zero)? Otherwise
+RTA_AGE is not returned to user. Something like:
 
-diff -X linux-2.6.22.6/Documentation/dontdiff -pru linux-2.6.22.6/net/ipv4/icmp.c linux-2.6.22.6-lepton/net/ipv4/icmp.c
---- linux-2.6.22.6/net/ipv4/icmp.c	2007-09-14 17:41:18.000000000 +0800
-+++ linux-2.6.22.6-lepton/net/ipv4/icmp.c	2007-09-18 09:57:30.000000000 +0800
-@@ -382,6 +382,7 @@ static void icmp_reply(struct icmp_bxm *
- 	struct ipcm_cookie ipc;
- 	struct rtable *rt = (struct rtable *)skb->dst;
- 	__be32 daddr;
-+ 	struct iphdr *ip = ip_hdr(skb);
- 
- 	if (ip_options_echo(&icmp_param->replyopts, skb))
- 		return;
-@@ -393,7 +394,7 @@ static void icmp_reply(struct icmp_bxm *
- 	icmp_out_count(icmp_param->data.icmph.type);
- 
- 	inet->tos = ip_hdr(skb)->tos;
--	daddr = ipc.addr = rt->rt_src;
-+ 	daddr = ipc.addr = ip->saddr;
- 	ipc.opt = NULL;
- 	if (icmp_param->replyopts.optlen) {
- 		ipc.opt = &icmp_param->replyopts;
-diff -X linux-2.6.22.6/Documentation/dontdiff -pru linux-2.6.22.6/net/ipv4/ip_output.c linux-2.6.22.6-lepton/net/ipv4/ip_output.c
---- linux-2.6.22.6/net/ipv4/ip_output.c	2007-09-14 17:41:18.000000000 +0800
-+++ linux-2.6.22.6-lepton/net/ipv4/ip_output.c	2007-09-18 09:57:13.000000000 +0800
-@@ -1337,11 +1337,12 @@ void ip_send_reply(struct sock *sk, stru
- 	struct ipcm_cookie ipc;
- 	__be32 daddr;
- 	struct rtable *rt = (struct rtable*)skb->dst;
-+	struct iphdr *ip = ip_hdr(skb);
- 
- 	if (ip_options_echo(&replyopts.opt, skb))
- 		return;
- 
--	daddr = ipc.addr = rt->rt_src;
-+	daddr = ipc.addr = ip->saddr;
- 	ipc.opt = NULL;
- 
- 	if (replyopts.opt.optlen) {
+            do_gettimeofday(&tv);
+            NLA_PUT_U32(skb, RTA_AGE, (tv.tv_sec - age));
 
+Once again, can age ever be zero?
+
+- KK
 
