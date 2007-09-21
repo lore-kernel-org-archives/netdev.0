@@ -1,66 +1,30 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: [PATCH 1/2] bnx2: factor out gzip unpacker
-Date: Fri, 21 Sep 2007 21:33:39 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0709212130490.11228@bizon.gios.gov.pl>
-References: <200709211201.24475.vda.linux@googlemail.com>
- <200709211905.23946.vda.linux@googlemail.com> <15775.1190399812@turing-police.cc.vt.edu>
- <200709212018.06553.vda.linux@googlemail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] sb1250-mac: Driver model & phylib update
+Date: Fri, 21 Sep 2007 12:44:09 -0700
+Message-ID: <20070921124409.7f3d122b.akpm@linux-foundation.org>
+References: <Pine.LNX.4.64N.0709191811040.24627@blysk.ds.pg.gda.pl>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-1802889197-1190403219=:11228"
-Cc: Valdis.Kletnieks@vt.edu, David Miller <davem@davemloft.net>,
-	jeff@garzik.org, mchan@broadcom.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Denys Vlasenko <vda.linux@googlemail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org, linux-kernel@vger.kernel.org
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:38093 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762573AbXIUTd7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 15:33:59 -0400
-In-Reply-To: <200709212018.06553.vda.linux@googlemail.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:57013 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761406AbXIUTpO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 15:45:14 -0400
+In-Reply-To: <Pine.LNX.4.64N.0709191811040.24627@blysk.ds.pg.gda.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Fri, 21 Sep 2007 12:52:10 +0100 (BST)
+"Maciej W. Rozycki" <macro@linux-mips.org> wrote:
 
----187430788-1802889197-1190403219=:11228
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+>  A driver model and phylib update.
 
+akpm:/usr/src/25> diffstat patches/git-net.patch | tail -n 1
+ 1013 files changed, 187667 insertions(+), 23587 deletions(-)
 
-
-On Fri, 21 Sep 2007, Denys Vlasenko wrote:
-
-> On Friday 21 September 2007 19:36, Valdis.Kletnieks@vt.edu wrote:
->> On Fri, 21 Sep 2007 19:05:23 BST, Denys Vlasenko said:
->>
->>> I plan to use gzip compression on following drivers' firmware,
->>> if patches will be accepted:
->>>
->>>    text    data     bss     dec     hex filename
->>>   17653  109968     240  127861   1f375 drivers/net/acenic.o
->>>    6628  120448       4  127080   1f068 drivers/net/dgrs.o
->>>          ^^^^^^
->>
->> Should this be redone to use the existing firmware loading framework to
->> load the firmware instead?
->
-> Not in every case.
->
-> For example, bnx2 maintainer says that driver and
-> firmware are closely tied for his driver. IOW: you upgrade kernel
-> and your NIC is not working anymore.
-Firmware may come with a kernel. We have a "install modules", we can also=
-=20
-add "install firmware".
-
-> Another argument is to make kernel be able to bring up NICs
-> without needing firmware images in initramfs/initrd/hard drive.
-
-It is not possible to bring up things like FC or WiFi without firmware,=20
-what special is in classic NICs?
-
-Best regards,
-
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-1802889197-1190403219=:11228--
+Sorry, but raising networking patches against Linus's crufty
+old mainline tree just isn't viable at present.
