@@ -1,49 +1,43 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: ?^?H?G Re: [linux-usb-devel] Please pull 'ssb-drivers' branch
-	of wireless-2.6  -- aln.
-Date: Fri, 21 Sep 2007 15:19:35 -0700
-Message-ID: <20070921221935.GA8191@suse.de>
-References: <OF5E769610.A64618C1-ON4825735D.000F9F12@sdc.sercomm.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/2] bnx2: factor out gzip unpacker
+Date: Fri, 21 Sep 2007 18:33:39 -0400
+Message-ID: <46F446C3.9050600@garzik.org>
+References: <200709211201.24475.vda.linux@googlemail.com>	<200709211905.23946.vda.linux@googlemail.com>	<15775.1190399812@turing-police.cc.vt.edu>	<200709212018.06553.vda.linux@googlemail.com> <20070921220333.3b31afb5@the-village.bc.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	David Brownell <david-b@pacbell.net>,
-	linux-usb-devel@lists.sourceforge.net, jeff@garzik.org,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-usb-users@lists.sourceforge.net, mb@bu3sch.de,
-	zambrano@broadcom.com, davem@davemloft.net
-To: Alninuo_Li@sdc.sercomm.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Denys Vlasenko <vda.linux@googlemail.com>, Valdis.Kletnieks@vt.edu,
+	David Miller <davem@davemloft.net>, mchan@broadcom.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.suse.de ([195.135.220.2]:56634 "EHLO mx1.suse.de"
+Received: from srv5.dvmed.net ([207.36.208.214]:41974 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752933AbXIUWVV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Sep 2007 18:21:21 -0400
-Content-Disposition: inline
-In-Reply-To: <OF5E769610.A64618C1-ON4825735D.000F9F12@sdc.sercomm.com>
+	id S1764757AbXIUWdq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Sep 2007 18:33:46 -0400
+In-Reply-To: <20070921220333.3b31afb5@the-village.bc.nu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 21, 2007 at 10:58:37AM +0800, Alninuo_Li@sdc.sercomm.com wrote:
+Alan Cox wrote:
+>> For example, bnx2 maintainer says that driver and
+>> firmware are closely tied for his driver. IOW: you upgrade kernel
+>> and your NIC is not working anymore.
+>>
+>> Another argument is to make kernel be able to bring up NICs
+>> without needing firmware images in initramfs/initrd/hard drive.
 > 
-> Hi Greh,
+> dgrs should be using the request_firmware interface. Actually dgrs is
+> probably a good candidate for /dev/null
 
-hm, I don't know of anyone by that name :)
+According to an earlier thread, dgrs was never really maintained, 
+written for hardware that was never really distributed widely, and very 
+likely hasn't had users in years... if ever.
 
-You might not want to take over a totally different thread for your
-question, it doesn't make much sense that way...
+If that picture is accurate (it's a story I was told), then I am 
+definitely queueing up a deletion patch.
 
->       I donot know how to ask question to u, so use this reply.
->       We are focusing on 2.4.20 to make use of usbserial driver work for
-> Notevel U740, but it would crash after long run, seem the Interrupt
-> stopped, and can't send down, stoped at generic_write func call alwways
-> return with busy.
->       And could you tell us some idea or how to debug the code, when we
-> open the usb debug, it would crash quickly, since the printk have huge
-> messages,  is there good idea to debug or how to go?
+	Jeff
 
-No one supports 2.4.20 anymore, sorry.  I suggest you move to the 2.6
-kernel tree instead.
 
-good luck,
 
-greg k-h
