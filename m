@@ -1,30 +1,39 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] sb1250-mac: Driver model & phylib update
-Date: Fri, 21 Sep 2007 12:44:09 -0700
-Message-ID: <20070921124409.7f3d122b.akpm@linux-foundation.org>
-References: <Pine.LNX.4.64N.0709191811040.24627@blysk.ds.pg.gda.pl>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 1/2] bnx2: factor out gzip unpacker
+Date: 21 Sep 2007 22:13:46 +0200
+Message-ID: <p73ps0b93ph.fsf@bingen.suse.de>
+References: <200709211201.24475.vda.linux@googlemail.com>
+	<200709211803.55554.vda.linux@googlemail.com>
+	<20070921.104912.41646795.davem@davemloft.net>
+	<200709211905.23946.vda.linux@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-mips@linux-mips.org, linux-kernel@vger.kernel.org
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, jeff@garzik.org,
+	mchan@broadcom.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Denys Vlasenko <vda.linux@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:57013 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1761406AbXIUTpO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 15:45:14 -0400
-In-Reply-To: <Pine.LNX.4.64N.0709191811040.24627@blysk.ds.pg.gda.pl>
+Received: from ns2.suse.de ([195.135.220.15]:59391 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761455AbXIUUNt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Sep 2007 16:13:49 -0400
+In-Reply-To: <200709211905.23946.vda.linux@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 21 Sep 2007 12:52:10 +0100 (BST)
-"Maciej W. Rozycki" <macro@linux-mips.org> wrote:
+Denys Vlasenko <vda.linux@googlemail.com> writes:
+> 
+> I plan to use gzip compression on following drivers' firmware,
+> if patches will be accepted:
+> 
+>    text    data     bss     dec     hex filename
+>   17653  109968     240  127861   1f375 drivers/net/acenic.o
+>    6628  120448       4  127080   1f068 drivers/net/dgrs.o
+>          ^^^^^^
 
->  A driver model and phylib update.
+Just change the makefiles to always install gzip'ed modules
+modutils knows how to unzip them on the fly.
 
-akpm:/usr/src/25> diffstat patches/git-net.patch | tail -n 1
- 1013 files changed, 187667 insertions(+), 23587 deletions(-)
+That will catch all the firmware and all the other code too.
 
-Sorry, but raising networking patches against Linus's crufty
-old mainline tree just isn't viable at present.
+-Andi
