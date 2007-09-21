@@ -1,46 +1,35 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Pull request for 'r8169-for-jeff-20070919' branch
-Date: Fri, 21 Sep 2007 09:08:49 +0200
-Message-ID: <20070921070849.GA4502@electric-eye.fr.zoreil.com>
-References: <20070919195606.GA3871@electric-eye.fr.zoreil.com> <46F2D24A.6050200@redhat.com> <20070920204437.GB13512@electric-eye.fr.zoreil.com> <46F2E590.1070704@redhat.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: Please pull 'iwlwifi' branch of wireless-2.6
+Date: Fri, 21 Sep 2007 09:05:00 +0100
+Message-ID: <20070921080500.GA29050@infradead.org>
+References: <20070918185040.GF4940@tuxdriver.com> <20070919101326.GA32432@infradead.org> <1190337630.5718.136.camel@debian.sh.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, David Gundersen <gundy@iinet.net.au>,
-	Edward Hsu <edward_hsu@realtek.com.tw>,
-	Sylvain Le Gall <sylvain@le-gall.net>,
-	Roel.Teuwen@advalvas.be
-To: Chuck Ebbert <cebbert@redhat.com>
+Cc: Christoph Hellwig <hch@infradead.org>,
+	"John W. Linville" <linville@tuxdriver.com>, davem@davemloft.net,
+	jeff@garzik.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: Zhu Yi <yi.zhu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:45976 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750717AbXIUHMQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Sep 2007 03:12:16 -0400
+Received: from pentafluge.infradead.org ([213.146.154.40]:55180 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751129AbXIUIFa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 04:05:30 -0400
 Content-Disposition: inline
-In-Reply-To: <46F2E590.1070704@redhat.com>
+In-Reply-To: <1190337630.5718.136.camel@debian.sh.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chuck Ebbert <cebbert@redhat.com> :
-[...]
-> Looking again, it may not be r8169's fault, but it is involved. It
-
-Sort of:
-[...]
-* Hung when moving data off a physical disk in an LVM. Twice during night.
-* Hung when adding a disk to a software Raid. Once.
-
-> used to hang and could be restarted by pulling the cable and reinserting
-> it,
-
-This is already worked around in 2.6.22-stable.
-
-> but now it just locks solid:
+On Fri, Sep 21, 2007 at 09:20:30AM +0800, Zhu Yi wrote:
+> > The depends on m for CONFIG_IWL4965 and CONFIG_IWL3945 needs to go,
+> > we don't put drivers int that need to be modular. 
 > 
-> https://bugzilla.redhat.com/show_bug.cgi?id=252955
+> Since we splited the code base for 3945 and 4965 by a simple "fork" of
+> file iwl-base.c, some non-static functions names remain the same. Make
+> the two drivers build into vmlinux at the same time will cause conflict.
+> So to make them depend on m is a current workaround for .24. We will
+> abstract a common iwl-core.ko and make driver specific iwl3945.ko and
+> iwl4965.ko depend on it in .25 time frame.
 
-A part of it look like the usual samba + 816x failure. The most recent
-changeset in the patch submitted for inclusion should be applied.
-
--- 
-Ueimor
+This kind of stuff is not what we want to leak into mainline.  If you're
+too busy to do that 5 minute sed search and replace I'll do it for you.
