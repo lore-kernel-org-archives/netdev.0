@@ -1,40 +1,67 @@
-From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: Please pull 'iwlwifi' branch of wireless-2.6
-Date: Fri, 21 Sep 2007 09:20:30 +0800
-Message-ID: <1190337630.5718.136.camel@debian.sh.intel.com>
-References: <20070918185040.GF4940@tuxdriver.com>
-	 <20070919101326.GA32432@infradead.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: bnx2 dirver's firmware images
+Date: Thu, 20 Sep 2007 19:12:33 -0700
+Message-ID: <1190340753.6934.25.camel@dell>
+References: <200709181823.26429.vda.linux@googlemail.com>
+ <200709192129.23034.vda.linux@googlemail.com>
+ <1190238233.9540.263.camel@dell>
+ <200709201549.08165.vda.linux@googlemail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070919101326.GA32432-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: "David Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	"netdev" <netdev@vger.kernel.org>
+To: "Denys Vlasenko" <vda.linux@googlemail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:2960 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750778AbXIUBfu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Sep 2007 21:35:50 -0400
+In-Reply-To: <200709201549.08165.vda.linux@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-09-19 at 11:13 +0100, Christoph Hellwig wrote:
-> it really needs to be moved into a directory of it's own.
+On Thu, 2007-09-20 at 15:49 +0100, Denys Vlasenko wrote:
+> 
+> 
+> Please test these two patches.
+> I updated them according to your comments.
+> 
+> 
 
-It used to be... John?
+I've only tested patch #1.  It worked after some minor modifications
+below.
 
-> The useless per-file CFLAGS need to go most places can trivially
-> be made unconditional anyway.
+> 
+> 
+> 
+> 
+> 
+> plain text
+> document
+> attachment
+> (linux-2.6.23-
+> rc6.bnx2-1.patch)
+> 
+> 
+> @@ -2767,89 +2769,44 @@ bnx2_set_rx_mode(struct net_device *dev)
+>         spin_unlock_bh(&bp->phy_lock);
+>  }
+>  
+> -#define FW_BUF_SIZE    0x8000
+> -
+> +/* To be moved to generic lib/ */
+>  static int
+> -bnx2_gunzip_init(struct bnx2 *bp)
+> +bnx2_gunzip(void *gunzip_buf, unsigned sz, u8 *zbuf, int len, void **outbuf)
 
-OK.
+outbuf is no longer needed.
 
-> The depends on m for CONFIG_IWL4965 and CONFIG_IWL3945 needs to go,
-> we don't put drivers int that need to be modular. 
+> +       rc = zlib_inflateInit2(strm, -MAX_WBITS);
+> +       if (rc == Z_OK) {
+> +               rc = zlib_inflate(strm, Z_FINISH);
+> +               if (rc == Z_OK)
 
-Since we splited the code base for 3945 and 4965 by a simple "fork" of
-file iwl-base.c, some non-static functions names remain the same. Make
-the two drivers build into vmlinux at the same time will cause conflict.
-So to make them depend on m is a current workaround for .24. We will
-abstract a common iwl-core.ko and make driver specific iwl3945.ko and
-iwl4965.ko depend on it in .25 time frame.
+rc will always be Z_STREAM_END in this case since we provide a big
+enough gunzip_buf for the whole blob.
 
-Thanks,
--yi
