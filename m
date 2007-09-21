@@ -1,44 +1,57 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH] e1000e: Do not allow requeue of freed skb
-Date: Fri, 21 Sep 2007 09:41:15 -0700
-Message-ID: <20070921164115.31055.49849.stgit@localhost.localdomain>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 2/7] CAN: Add PF_CAN core module
+Date: Fri, 21 Sep 2007 09:58:48 -0700
+Message-ID: <1190393928.32660.22.camel@localhost>
+References: <20070920184323.3795.0@janus.isnogud.escape.de>
+	 <20070920184532.3795.2@janus.isnogud.escape.de>
+	 <1190318781.26101.148.camel@localhost>
+	 <ygf8x705mrq.fsf@janus.isnogud.escape.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, krkumar2@in.ibm.com, netdev@vger.kernel.org
-To: jeff@garzik.org, davem@davemloft.net
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver@hartkopp.net>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+To: Urs Thuermann <urs@isnogud.escape.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:6293 "EHLO mga02.intel.com"
+Received: from DSL022.labridge.com ([206.117.136.22]:3816 "EHLO perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750753AbXIUQlS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Sep 2007 12:41:18 -0400
+	id S1752344AbXIUQ65 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Sep 2007 12:58:57 -0400
+In-Reply-To: <ygf8x705mrq.fsf@janus.isnogud.escape.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Krishna Kumar <krkumar2@in.ibm.com>
+On Fri, 2007-09-21 at 12:35 +0200, Urs Thuermann wrote:
+> I didn't find a way with gcc-2.95 to make the format
+> string a separate macro argument (which I also wanted).
 
-Returning BUSY will make qdisc_restart enqueue the skb which was already
-freed. The bad skb was correctly freed and we should return NETDEV_TX_OK.
+The old 2.x GCC workaround was to use
+	#define DBG(fmt, arg) printk(fmt , ## arg)
+adding a space before the last comma.
 
-First spotted by Jeff Garzik on 08/13/07.
+> I use "do { ... } while(0)" only for statements, not for expressions.
+> But I could have used the && instead of ?: operator.  I don't think
+> the "do { ... } while(0)" looks nicer or has any other advantage.
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
+It's more linux convention.
+It allows the macro to be used in if-else constructs.
 
- drivers/net/e1000e/netdev.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> > > void can_debug_cframe(const char *msg, struct can_frame *cf, ...)
+> > This prototype looks backwards to me.
+> You mean the order or `msg' and `cf'?
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 372da46..03f7472 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -3537,7 +3537,7 @@ static int e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 		/* handle pci_map_single() error in e1000_tx_map */
- 		dev_kfree_skb_any(skb);
- 		spin_unlock_irqrestore(&adapter->tx_queue_lock, irq_flags);
--		return NETDEV_TX_BUSY;
-+		return NETDEV_TX_OK;
- 	}
- 
- 	e1000_tx_queue(adapter, tx_flags, count);
+Yes, I believe the can_frame* should be the first argument.
+
+> Ah, I didn't know print_hex_dump().  That looks nicer.  But as Thomas
+> mentioned, we shouldn't convert these functions into macros.
+
+The first print_hex_dump should actually be print_hex_dump_bytes.
+
+I was typing what I hoped was a readable example.
+I hope you do convert to functions, but not to inline functions.
+
+cheers, Joe
+
