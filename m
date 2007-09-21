@@ -1,41 +1,52 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: change the way e1000 is handling short VLAN frames
-Date: Fri, 21 Sep 2007 10:05:37 -0700
-Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5203643506@orsmsx418.amr.corp.intel.com>
-References: <1190379015.3551.57.camel@magi.nadr>
+From: Davide Libenzi <davidel@xmailserver.org>
+Subject: Re: [PATCH 2.6.23-rc6 Resending] NETWORKING : Edge Triggered EPOLLOUT
+ events get missed for TCP sockets
+Date: Fri, 21 Sep 2007 10:45:47 -0700 (PDT)
+Message-ID: <Pine.LNX.4.64.0709211041050.15361@alien.or.mcafeemobile.com>
+References: <798693.92196.qm@web53705.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>,
-	"netdev mailing list" <netdev@vger.kernel.org>
-To: "Emil Micek" <emil.micek@tkrjasek.cz>, <hadi@cyberus.ca>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Nagendra Tomar <tomer_iisc@yahoo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:33126 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752501AbXIURFu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 13:05:50 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <1190379015.3551.57.camel@magi.nadr>
+Received: from x35.xmailserver.org ([64.71.152.41]:45345 "EHLO
+	x35.xmailserver.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751126AbXIURpt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 13:45:49 -0400
+Received: from alien.or.mcafeemobile.com
+	by x35.xmailserver.org with [XMail 1.25 ESMTP Server]
+	id <S24F08D> for <netdev@vger.kernel.org> from <davidel@xmailserver.org>;
+	Fri, 21 Sep 2007 13:45:48 -0400
+In-Reply-To: <798693.92196.qm@web53705.mail.re2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Emil Micek wrote:
-> What is the right behaviour according to specification? In iee802.3,
-> minFrameSize is 64bytes. I've never seen any document which'd say that
-> VLAN frames should be 68 bytes minimum.
+On Thu, 20 Sep 2007, Nagendra Tomar wrote:
 
-e1000 only hardware pads to 64 bytes, but if you use the vlan module and
-turn off the hardware assistance of inserting tags, by unsetting
-NETIF_F_HW_VLAN_* in netdev->features.
-the software insertion sounds like it should work for you at the cost of
-higher CPU.
+> > That's not what POLLOUT means in the Unix meaning. POLLOUT indicates the 
+> > ability to write, and it is not meant as to signal every time a packet 
+> > (skb) is sent on the wire (and the buffer released).
+> 
+> Aren't they both the same ? Everytime an incoming ACK frees up a buffer
+> from the retransmit queue, the writability condition is freshly asserted,
+> much the same way as the readability condition is asserted everytime a 
+> new data is queued in the socket receive queue (irrespective of 
+> whether there was data already waiting to be read in the receive queue).
+> 
+> This difference in meaning of POLLOUT only arises in the ET case, which was
+> not what traditional Unix poll referred to. 
 
->>> I'd like to change it so it first pads the frame to 64 B and
->>> appends the VLAN tag afterwards, so the resulting VLAN frame would
->>> be 68 bytes minimum.
+Again, events here are "readability" and "writeability" and the fact that 
+the lower network layer freed a buffer is not, per se, an event (unless 
+before, "writeability" was tested and reported as unavailable).
+In you case the solution looks pretty simple. Just create appropriately 
+sized buffers, split the single sendfile into multiple buffer-sized ones, 
+and recycle the buffer once each of them completes.
 
-at least for e1000 this isn't possible in the driver, while still doing
-hardware vlan insertion.
 
-Jesse
+
+- Davide
+
+
