@@ -1,53 +1,73 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [stable] [PATCH] cfg80211: fix initialisation if built-in
-Date: Sat, 22 Sep 2007 00:06:39 +0200
-Message-ID: <1190412399.18521.181.camel@johannes.berg>
-References: <1189424685.4506.63.camel@johannes.berg>
-	 <20070921220253.GA32585@kroah.com>
+From: Bruce Cole <bacole@gmail.com>
+Subject: Re: e1000 driver and samba
+Date: Fri, 21 Sep 2007 15:01:47 -0700
+Message-ID: <46F43F4B.7090903@gmail.com>
+References: <46F302A8.7040008@gmail.com> <20070921214916.GA2386@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-tBE6grxHYA1Oiiwht9ua"
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	stable@kernel.org, Rob Hussey <robjhussey@gmail.com>
-To: Greg KH <greg@kroah.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bacole@gmail.com
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:40125 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761451AbXIUWFW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 18:05:22 -0400
-In-Reply-To: <20070921220253.GA32585@kroah.com>
+Received: from rv-out-0910.google.com ([209.85.198.191]:25891 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761104AbXIUWFK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 18:05:10 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so909007rvb
+        for <netdev@vger.kernel.org>; Fri, 21 Sep 2007 15:05:10 -0700 (PDT)
+In-Reply-To: <20070921214916.GA2386@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Francois Romieu wrote:
+> Bruce Cole <bacole@gmail.com> :
+>   
+>>> If you look for it on the Realtek cards, there had been sporadic
+>>> Nissues up to late 2005. The solution posted universally was 'change
+>>> card'.
+>>>       
+>> Yes, that *was* the common recommendation.
+>>     
+>
+> There was no such thing as a universal solution to sporadic issues.
+>   
+I made no such claim.  I do claim the realtek samba et all issues are 
+not sporadic however.  In fact the
+common problem is readily reproducible as has been shown.
+> [...]
+>   
+>> I suspect the root problem is the driver isn't properly locking
+>> the TX queue.
+>>     
+>
+> Can you be more specific ?
+>   
+Yes per the reference I gave:
+http://www.spinics.net/lists/netdev/msg40384.html
+"Now since this change heals the TX queue stall, it would seem that the real
 
---=-tBE6grxHYA1Oiiwht9ua
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+underlying problem involves a race condition with enqueueing to the TX queue
 
-On Fri, 2007-09-21 at 15:02 -0700, Greg KH wrote:
+while the controller is processing the queue. The ultimate fix for that 
+I bet is either to address locking at TX enqueue time, or there is a 
+controller bug. Any clarification from realtek on the necessary 
+processing for the NPQ bit, or
 
-> When this goes into Linus's tree, please resend it to the
-> stable@kernel.org address so we can add it to our queue.
+a known controller problem?
 
-It's on the way, sitting in net-2.6.24 right now but I don't know
-whether it's scheduled for .23. I'm no longer sure if it really matters
-for -stable since we have no drivers there so typically drivers build as
-out-of-tree modules and the issue doesn't matter.
+PS: I've also received private email that this problem pertains to video
+streaming (to a Kiss DVD player) not just samba or X11 traffic.  Basically
+most all high-level TCP based protocols are affected it seems.  This serious
 
-johannes
+performance problem should be considered to impact a lot more than just 
+samba
 
---=-tBE6grxHYA1Oiiwht9ua
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+users."
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+I could probably help fix the underlying problem but I didn't
+receive any response to my post quoted above.
 
-iD8DBQBG9EBv/ETPhpq3jKURAjyvAJ9lX7GVENiZpEFg4y4qfWKcvmV39ACgr8BJ
-0b4ZUlCBsKtV8LFg38lC3fY=
-=AV/m
------END PGP SIGNATURE-----
 
---=-tBE6grxHYA1Oiiwht9ua--
+
+
 
