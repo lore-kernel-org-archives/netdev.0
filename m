@@ -1,57 +1,46 @@
-From: lepton <ytht.net@gmail.com>
-Subject: Re: [PATCH RESEND] 2.6.22.6 networking [ipv4]: fix wrong destination when reply packetes
-Date: Fri, 21 Sep 2007 14:03:01 +0800
-Message-ID: <20070921060301.GA6019@router.lepton.home>
-References: <20070921022335.GA2849@router.lepton.home> <OFC759A0A2.B923AD69-ON8825735D.0017012F-8825735D.00191D21@us.ibm.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Pull request for 'r8169-for-jeff-20070919' branch
+Date: Fri, 21 Sep 2007 09:08:49 +0200
+Message-ID: <20070921070849.GA4502@electric-eye.fr.zoreil.com>
+References: <20070919195606.GA3871@electric-eye.fr.zoreil.com> <46F2D24A.6050200@redhat.com> <20070920204437.GB13512@electric-eye.fr.zoreil.com> <46F2E590.1070704@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: lepton <ytht.net@gmail.com>, lkm <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, David Gundersen <gundy@iinet.net.au>,
+	Edward Hsu <edward_hsu@realtek.com.tw>,
+	Sylvain Le Gall <sylvain@le-gall.net>,
+	Roel.Teuwen@advalvas.be
+To: Chuck Ebbert <cebbert@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qb-out-0506.google.com ([72.14.204.237]:59643 "EHLO
-	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751907AbXIUGEJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 02:04:09 -0400
-Received: by qb-out-0506.google.com with SMTP id e11so554505qbe
-        for <netdev@vger.kernel.org>; Thu, 20 Sep 2007 23:04:08 -0700 (PDT)
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:45976 "EHLO
+	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750717AbXIUHMQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Sep 2007 03:12:16 -0400
 Content-Disposition: inline
-In-Reply-To: <OFC759A0A2.B923AD69-ON8825735D.0017012F-8825735D.00191D21@us.ibm.com>
+In-Reply-To: <46F2E590.1070704@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now icmp_reply is only called by icmp_echo and icmp_timestamp
-ip_send_reply is only called by tcp_v4_send_reset and tcp_v4_send_ack
+Chuck Ebbert <cebbert@redhat.com> :
+[...]
+> Looking again, it may not be r8169's fault, but it is involved. It
 
-I think in all situations the ip_hdr(skb)->saddr is set and should
-be the destination of reply packets.
+Sort of:
+[...]
+* Hung when moving data off a physical disk in an LVM. Twice during night.
+* Hung when adding a disk to a software Raid. Once.
 
-If using rt->rt_src as destination is correct in some situation, 
-can anyone give me a example? 
+> used to hang and could be restarted by pulling the cable and reinserting
+> it,
 
-I think perhaps it is a copy and paste from code like
-ip_build_and_send_pkt, but reply packets in these situations 
-(icmp_echo and icmp_timestamp and tcp_v4_send_ack and tcp_v4_send_reset) 
-is diffrent, I think we can just use ip_hdr(skb)->saddr as 
-destination address.
+This is already worked around in 2.6.22-stable.
 
-On Thu, Sep 20, 2007 at 09:35:09PM -0700, David Stevens wrote:
-> I'm not sure why it's using rt_src here, but there are relevant cases that
-> your description doesn't cover. For example, what happens if  the source
-> is not set in the original packet?  Does NAT affect this?
+> but now it just locks solid:
 > 
-> You quote RFC text for ICMP echo and the case where the receiving machine
-> is the final destination, but you're modifying code that is used for all 
-> ICMP
-> types and used for ICMP errors generated when acting as an intermediate
-> router.
-> 
-> In ordinary cases, and certainly with ICMP echo when the source is set in
-> the original packet and no rewriting is going on (and the address is not 
-> spoofed),
-> using the original source as the destination is fine. But have you tested 
-> or
-> considered the other cases?
-> 
->                                                 +-DLS
-> 
+> https://bugzilla.redhat.com/show_bug.cgi?id=252955
+
+A part of it look like the usual samba + 816x failure. The most recent
+changeset in the patch submitted for inclusion should be applied.
+
+-- 
+Ueimor
