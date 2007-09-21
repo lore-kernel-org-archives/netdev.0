@@ -1,59 +1,51 @@
-From: Urs Thuermann <urs@isnogud.escape.de>
-Subject: Re: [PATCH 3/7] CAN: Add raw protocol
-Date: 21 Sep 2007 23:05:25 +0200
-Message-ID: <ygfvea3u3u2.fsf@janus.isnogud.escape.de>
-References: <20070920184323.3795.0@janus.isnogud.escape.de>
-	<20070920184533.3795.3@janus.isnogud.escape.de>
-	<46F3BDC1.2020200@trash.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: change the way e1000 is handling short VLAN frames
+Date: Fri, 21 Sep 2007 17:12:40 -0400
+Message-ID: <1190409160.4231.29.camel@localhost>
+References: <1190359905.3551.28.camel@magi.nadr>
+	 <1190375946.4261.42.camel@localhost>  <1190379015.3551.57.camel@magi.nadr>
+	 <1190381841.4231.10.camel@localhost> <1190382366.4231.13.camel@localhost>
+	 <46F3E695.7010604@candelatech.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver@hartkopp.net>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Emil Micek <emil.micek@tkrjasek.cz>,
+	"auke-jan.h.kok@intel.com" <auke-jan.h.kok@intel.com>,
+	netdev mailing list <netdev@vger.kernel.org>,
+	Jesse <jesse.brandeburg@intel.com>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:42553 "EHLO oker.escape.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755238AbXIUVKv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Sep 2007 17:10:51 -0400
-In-Reply-To: <46F3BDC1.2020200@trash.net>; from Patrick McHardy on Fri, 21 Sep 2007 14:49:05 +0200
+Received: from wx-out-0506.google.com ([66.249.82.239]:52292 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755238AbXIUVMn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 17:12:43 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so763864wxd
+        for <netdev@vger.kernel.org>; Fri, 21 Sep 2007 14:12:43 -0700 (PDT)
+In-Reply-To: <46F3E695.7010604@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> writes:
+On Fri, 2007-21-09 at 08:43 -0700, Ben Greear wrote:
 
-> Urs Thuermann wrote:
-> > +config CAN_RAW_USER
-> > +	bool "Allow non-root users to access Raw CAN Protocol sockets"
+> I just re-read the spec, and a bridge *may* pad up to 68, but it is not 
+> required.
+> On page 166, it says equipment must be able to handle 64 byte minimums.
 > 
+> See page 22 (section 7.2) of this document:
 > 
-> If you plan to remove this option, it should happen before merging
-> since it affects userspace visible behaviour.
+> http://standards.ieee.org/getieee802/download/802.1Q-1998.pdf
+> 
+> Also, page 63, 165, 166
 
-We have discussed this and have come to the conclusion that we should
-remove permission checks completely, i.e. any user can open any CAN
-socket (raw, bcm, or whatever will be implemented in the future).
-This is because CAN is a pure broadcast network with no addresses.
-CAN frames can't be directed to only one machine or a group or to only
-one process (say one port).  There is no communication between only
-two (or some number) of stations which must be protected from other
-stations.
+Thanks for the enlightnment. 
+Do we need an ethtool interface to turn off hardware accelerated vlans?
+Jesse is indicating that the intel hardware can only handle the MUST but
+not the SHOULD of the spec.
+Actually a more basic question: Can you select one or the other mode in
+the software based vlans?
 
-On the other hand, requiring a process to have CAP_NET_RAW to open a
-CAN socket would mean that such process would also be able to sniff on
-your ethernet or WLAN interfaces, which one probably wouldn't want.
+cheers,
+jamal
 
-We have added that check when we still allowed the CAN raw socket to
-bind to any interface and we didn't want an unprivileged process to be
-able to read all e.g. TCP/IP traffic.  Now binding is restricted to
-ARPHRD_CAN interfaces.  But even without this restriction the check is
-not necessary, since all CAN sockets can only receive and send
-ETH_P_CAN packets.  So even if there would be an encapsulation of CAN
-frames over ethernet or some other type of network, a normal user
-process opening a CAN socket would only be able to read/write CAN
-traffic, which should be OK without any special capability.
 
-So what do you think about this?
-
-urs
