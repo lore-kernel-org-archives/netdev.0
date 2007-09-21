@@ -1,49 +1,42 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [LARTC] ifb and ppp
-Date: Fri, 21 Sep 2007 08:14:48 -0400
-Message-ID: <1190376888.4261.55.camel@localhost>
-References: <200709191417.43768.mail@frithjof-hammer.de>
-	 <46F25F9A.7010007@trash.net> <1190294388.4734.6.camel@localhost>
-	 <200709201600.15202.mail@frithjof-hammer.de>  <46F2910E.9040900@trash.net>
-	 <1190373789.4261.16.camel@localhost>  <46F3B16F.1060909@trash.net>
+Subject: Re: wrong arp query with policy routing
+Date: Fri, 21 Sep 2007 08:25:40 -0400
+Message-ID: <1190377540.4261.58.camel@localhost>
+References: <BAY103-DAV2BC129A14C4A29986CC0CB2B80@phx.gbl>
+	 <BAY103-DAV12BF0DF9E47B1577FB9814B2B90@phx.gbl>
+	 <46F29741.2030505@redhat.com>
+	 <BAY103-DAV1014588479A3FF5B66EEDDB2BB0@phx.gbl>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Frithjof Hammer <mail@frithjof-hammer.de>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Cc: Chuck Ebbert <cebbert@redhat.com>, netdev@vger.kernel.org
+To: Marco Berizzi <pupilla@hotmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.237]:16444 "EHLO
+Received: from wr-out-0506.google.com ([64.233.184.234]:21158 "EHLO
 	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752368AbXIUMOx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 08:14:53 -0400
-Received: by wr-out-0506.google.com with SMTP id 36so326959wra
-        for <netdev@vger.kernel.org>; Fri, 21 Sep 2007 05:14:53 -0700 (PDT)
-In-Reply-To: <46F3B16F.1060909@trash.net>
+	with ESMTP id S1756537AbXIUMZp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 08:25:45 -0400
+Received: by wr-out-0506.google.com with SMTP id 36so329380wra
+        for <netdev@vger.kernel.org>; Fri, 21 Sep 2007 05:25:44 -0700 (PDT)
+In-Reply-To: <BAY103-DAV1014588479A3FF5B66EEDDB2BB0@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-21-09 at 13:56 +0200, Patrick McHardy wrote:
 
-> This doesn't help much since he uses the iptables marks for
-> classification on the ifb device, so he might as well just
-> classify directly using u32. 
+On Fri, 2007-21-09 at 11:08 +0200, Marco Berizzi wrote:
 
-true.
+> thanks for the reply.
+> I have tried to 'echo 1 > /proc/sys/net/ipv4/conf/eth0',
+> but the 'arp whos-has' behaviour doesn't change.
+> Other hints?
 
-> I think it would be nice to
-> have an ematch equivalent to the ipt action for matches.
+Give a man a fish and he'll eat for a day....
 
-yes, that would help in his case.
-
-> Should be pretty easy to write 
-> (slightly above 60 seconds
-> according to the documentation :)).
-
-Ah, i hadnt paid attention to that before;-> I'd like to use
-that whole thing on a tshirt.
+Documentation/networking/ip-sysctl.txt
 
 cheers,
 jamal
+
+
 
