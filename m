@@ -1,43 +1,42 @@
-From: Jeff Garzik <jeff@garzik.org>
+From: Denys Vlasenko <vda.linux@googlemail.com>
 Subject: Re: [PATCH 1/2] bnx2: factor out gzip unpacker
-Date: Fri, 21 Sep 2007 18:33:39 -0400
-Message-ID: <46F446C3.9050600@garzik.org>
-References: <200709211201.24475.vda.linux@googlemail.com>	<200709211905.23946.vda.linux@googlemail.com>	<15775.1190399812@turing-police.cc.vt.edu>	<200709212018.06553.vda.linux@googlemail.com> <20070921220333.3b31afb5@the-village.bc.nu>
+Date: Fri, 21 Sep 2007 23:37:52 +0100
+Message-ID: <200709212337.53043.vda.linux@googlemail.com>
+References: <200709211201.24475.vda.linux@googlemail.com> <200709211905.23946.vda.linux@googlemail.com> <p73ps0b93ph.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Denys Vlasenko <vda.linux@googlemail.com>, Valdis.Kletnieks@vt.edu,
-	David Miller <davem@davemloft.net>, mchan@broadcom.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Cc: David Miller <davem@davemloft.net>, jeff@garzik.org,
+	mchan@broadcom.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:41974 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1764757AbXIUWdq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Sep 2007 18:33:46 -0400
-In-Reply-To: <20070921220333.3b31afb5@the-village.bc.nu>
+Received: from ug-out-1314.google.com ([66.249.92.172]:29629 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932134AbXIUWi1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 18:38:27 -0400
+Received: by ug-out-1314.google.com with SMTP id z38so597098ugc
+        for <netdev@vger.kernel.org>; Fri, 21 Sep 2007 15:38:25 -0700 (PDT)
+In-Reply-To: <p73ps0b93ph.fsf@bingen.suse.de>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alan Cox wrote:
->> For example, bnx2 maintainer says that driver and
->> firmware are closely tied for his driver. IOW: you upgrade kernel
->> and your NIC is not working anymore.
->>
->> Another argument is to make kernel be able to bring up NICs
->> without needing firmware images in initramfs/initrd/hard drive.
+On Friday 21 September 2007 21:13, Andi Kleen wrote:
+> Denys Vlasenko <vda.linux@googlemail.com> writes:
+> > 
+> > I plan to use gzip compression on following drivers' firmware,
+> > if patches will be accepted:
+> > 
+> >    text    data     bss     dec     hex filename
+> >   17653  109968     240  127861   1f375 drivers/net/acenic.o
+> >    6628  120448       4  127080   1f068 drivers/net/dgrs.o
+> >          ^^^^^^
 > 
-> dgrs should be using the request_firmware interface. Actually dgrs is
-> probably a good candidate for /dev/null
+> Just change the makefiles to always install gzip'ed modules
+> modutils knows how to unzip them on the fly.
 
-According to an earlier thread, dgrs was never really maintained, 
-written for hardware that was never really distributed widely, and very 
-likely hasn't had users in years... if ever.
-
-If that picture is accurate (it's a story I was told), then I am 
-definitely queueing up a deletion patch.
-
-	Jeff
-
-
-
+But I compile net/* into bzImage. I like netbooting :)
+--
+vda
