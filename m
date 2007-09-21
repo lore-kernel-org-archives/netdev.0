@@ -1,29 +1,64 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC PATCH] 2.6.22.6 netfilter: sk_setup_caps in ip_make_route_harder
-Date: Fri, 21 Sep 2007 16:57:42 +0200
-Message-ID: <46F3DBE6.90205@trash.net>
-References: <20070919093648.GA7491@router.lepton.home> <46F13999.30700@trash.net> <46F13D7D.6010603@trash.net> <20070919155554.GA11710@router.lepton.home> <46F3BB9E.4000105@trash.net> <20070921140720.GA10419@router.lepton.home>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: [ofa-general] Re: [PATCH v2] iw_cxgb3: Support "iwarp-only"
+ interfaces to avoid 4-tuple conflicts.
+Date: Fri, 21 Sep 2007 10:10:46 -0500
+Message-ID: <46F3DEF6.3010404@opengridcomputing.com>
+References: <20070913191617.30937.95960.stgit@dell3.ogc.int>
+	<20070914130941.GG18517@2ka.mipt.ru>
+	<46EC00BE.3020801@opengridcomputing.com>
+	<20070916142241.GA26848@2ka.mipt.ru>
+	<46EE9C50.7070406@opengridcomputing.com>
+	<20070919105612.GA31158@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: lepton <ytht.net@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20070921140720.GA10419@router.lepton.home>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, general@lists.openfabrics.org,
+	linux-kernel@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20070919105612.GA31158@2ka.mipt.ru>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-lepton wrote:
-> My situation is:
-> The default route device is a e1000 network card that can do TSO.
-> So the tcp stack will try send big skb to netfilter frame work.
-> But after rerouting, the packtes will go out from a device  that
-> can not do TSO. the packet is just get dropped..
+
+
+Evgeniy Polyakov wrote:
+> Hi Steve.
 > 
-> I thinks if we can't get a way to tell tcp stack the sk_route_caps of 
-> the real out device, we can just disable all things for safety.
+> On Mon, Sep 17, 2007 at 10:25:04AM -0500, Steve Wise (swise@opengridcomputing.com) wrote:
+>>> Does creating the whole new netdevice is a too big overhead, or is it
+>>> considered bad idea?
+>> I think its too big overhead, and pretty invasive on the low level cxgb3 
+>> driver.  I think having a device in the 'ifconfig -a' after iw_cxgb3 is 
+>> loaded and devices discovered would be a good thing for the admin.  This 
+>> is the angle Roland suggested.  I'm just not sure how to implement it.
+>>
+>> But if someone could explain how I might create this full netdevice as a 
+>> pseudo device on top of the real one, maybe I could implement it.
+>>
+>> Note that non TCP traffic still needs to utilize this interface for ND 
+>> to work properly with the RDMA core.
+> 
+> Just a though - what about allowing secondary addresses with the same
+> address as main one? I.e. change bit of the core code to allow creating
+> aliases with the same address as main device, so that you would be able
+> to create ':iw' alias during rdma device initialization?
+> 
 
+The problem is that on rdma route/address resolution the rdma core CM 
+uses the routing table to look up which local device to use.  So what we 
+need is separate ip subnets for rdma vs non rdma tcp.
 
-As you already noticed yourself (in private email), this is
-handled properly in current kernels.
+Also, to avoid the original issue of 4-tuple conflicts, the rdma device 
+_must_ listen on specific local "rdma-only" ip addresses and thus they 
+must be not the same address as that used for native host tcp traffic.
 
+Steve.
