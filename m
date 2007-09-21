@@ -1,55 +1,49 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] PHYLIB: IRQ event workqueue handling fixes
-Date: Fri, 21 Sep 2007 11:42:07 -0700
-Message-ID: <20070921114207.f0b54b3b.akpm@linux-foundation.org>
-References: <Pine.LNX.4.64N.0709171750220.17606@blysk.ds.pg.gda.pl>
-	<20070920165348.0b25be3d.akpm@linux-foundation.org>
-	<Pine.LNX.4.64N.0709211334420.2724@blysk.ds.pg.gda.pl>
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Subject: Re: [PATCH 1/2] bnx2: factor out gzip unpacker
+Date: Fri, 21 Sep 2007 20:18:06 +0100
+Message-ID: <200709212018.06553.vda.linux@googlemail.com>
+References: <200709211201.24475.vda.linux@googlemail.com> <200709211905.23946.vda.linux@googlemail.com> <15775.1190399812@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: Andy Fleming <afleming@freescale.com>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
+Cc: David Miller <davem@davemloft.net>, jeff@garzik.org,
+	mchan@broadcom.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Valdis.Kletnieks@vt.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:47812 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1761243AbXIUSmu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 14:42:50 -0400
-In-Reply-To: <Pine.LNX.4.64N.0709211334420.2724@blysk.ds.pg.gda.pl>
+Received: from ug-out-1314.google.com ([66.249.92.172]:54865 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752243AbXIUTSN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 15:18:13 -0400
+Received: by ug-out-1314.google.com with SMTP id z38so575223ugc
+        for <netdev@vger.kernel.org>; Fri, 21 Sep 2007 12:18:12 -0700 (PDT)
+In-Reply-To: <15775.1190399812@turing-police.cc.vt.edu>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 21 Sep 2007 13:51:12 +0100 (BST)
-"Maciej W. Rozycki" <macro@linux-mips.org> wrote:
-
-> On Thu, 20 Sep 2007, Andrew Morton wrote:
+On Friday 21 September 2007 19:36, Valdis.Kletnieks@vt.edu wrote:
+> On Fri, 21 Sep 2007 19:05:23 BST, Denys Vlasenko said:
 > 
-> > You always put boring, crappy, insufficient text in the for-the-changelog
-> > section and interesting, useful, sufficient text in the not-for-the-changelog
-> > section.
+> > I plan to use gzip compression on following drivers' firmware,
+> > if patches will be accepted:
+> > 
+> >    text    data     bss     dec     hex filename
+> >   17653  109968     240  127861   1f375 drivers/net/acenic.o
+> >    6628  120448       4  127080   1f068 drivers/net/dgrs.o
+> >          ^^^^^^
 > 
->  I'll swap the sections in the future then. ;-)  Frankly I was not sure 
-> whether the changelog was happy about being fed with lengthy explanations 
-> and it has not spoken out.
+> Should this be redone to use the existing firmware loading framework to
+> load the firmware instead?
 
-I think it's worth putting plenty of details in the changelog: it's compressed
-on-disk and on-the-wire and is overall pretty cheap.  If people don't
-actually seek the information out, it has close to zero impact on them.
+Not in every case.
 
-But on those occasions when people _do_ seek the information out (and it
-can be years later) then they want every drop of information they can get.
+For example, bnx2 maintainer says that driver and
+firmware are closely tied for his driver. IOW: you upgrade kernel
+and your NIC is not working anymore.
 
-Numerous times I've gone back to the 2.5.x mm/ changelogs to work out
-what on earth we were thinking when we did something, and it has proved
-quite useful in explaining the existing code, or in suggesting possible
-problems which we had forgotten about by 2007.
-
-
-otoh, you can get a lot of handy info by googling for strategic parts of
-the kernel code, or by googling snippets of the existing-but-short
-changelog.  For example, this patch: google for "Keep track of
-disable_irq_nosync() invocations" and voila.  Perhaps we don't need
-changelogs at all ;)
-
+Another argument is to make kernel be able to bring up NICs
+without needing firmware images in initramfs/initrd/hard drive.
+--
+vda
