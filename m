@@ -1,53 +1,55 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: [PATCH 1/2] bnx2: factor out gzip unpacker
-Date: Fri, 21 Sep 2007 14:36:52 -0400
-Message-ID: <15775.1190399812@turing-police.cc.vt.edu>
-References: <200709211201.24475.vda.linux@googlemail.com> <200709211803.55554.vda.linux@googlemail.com> <20070921.104912.41646795.davem@davemloft.net>
-            <200709211905.23946.vda.linux@googlemail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] PHYLIB: IRQ event workqueue handling fixes
+Date: Fri, 21 Sep 2007 11:42:07 -0700
+Message-ID: <20070921114207.f0b54b3b.akpm@linux-foundation.org>
+References: <Pine.LNX.4.64N.0709171750220.17606@blysk.ds.pg.gda.pl>
+	<20070920165348.0b25be3d.akpm@linux-foundation.org>
+	<Pine.LNX.4.64N.0709211334420.2724@blysk.ds.pg.gda.pl>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1190399812_2847P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, jeff@garzik.org,
-	mchan@broadcom.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Denys Vlasenko <vda.linux@googlemail.com>
+Cc: Andy Fleming <afleming@freescale.com>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from turing-police.cc.vt.edu ([128.173.14.107]:38182 "EHLO
-	turing-police.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753097AbXIUShC (ORCPT
-	<RFC822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 14:37:02 -0400
-In-Reply-To: Your message of "Fri, 21 Sep 2007 19:05:23 BST."
-             <200709211905.23946.vda.linux@googlemail.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:47812 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1761243AbXIUSmu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 14:42:50 -0400
+In-Reply-To: <Pine.LNX.4.64N.0709211334420.2724@blysk.ds.pg.gda.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1190399812_2847P
-Content-Type: text/plain; charset=us-ascii
+On Fri, 21 Sep 2007 13:51:12 +0100 (BST)
+"Maciej W. Rozycki" <macro@linux-mips.org> wrote:
 
-On Fri, 21 Sep 2007 19:05:23 BST, Denys Vlasenko said:
-
-> I plan to use gzip compression on following drivers' firmware,
-> if patches will be accepted:
+> On Thu, 20 Sep 2007, Andrew Morton wrote:
 > 
->    text    data     bss     dec     hex filename
->   17653  109968     240  127861   1f375 drivers/net/acenic.o
->    6628  120448       4  127080   1f068 drivers/net/dgrs.o
->          ^^^^^^
+> > You always put boring, crappy, insufficient text in the for-the-changelog
+> > section and interesting, useful, sufficient text in the not-for-the-changelog
+> > section.
+> 
+>  I'll swap the sections in the future then. ;-)  Frankly I was not sure 
+> whether the changelog was happy about being fed with lengthy explanations 
+> and it has not spoken out.
 
-Should this be redone to use the existing firmware loading framework to
-load the firmware instead?
+I think it's worth putting plenty of details in the changelog: it's compressed
+on-disk and on-the-wire and is overall pretty cheap.  If people don't
+actually seek the information out, it has close to zero impact on them.
 
---==_Exmh_1190399812_2847P
-Content-Type: application/pgp-signature
+But on those occasions when people _do_ seek the information out (and it
+can be years later) then they want every drop of information they can get.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
+Numerous times I've gone back to the 2.5.x mm/ changelogs to work out
+what on earth we were thinking when we did something, and it has proved
+quite useful in explaining the existing code, or in suggesting possible
+problems which we had forgotten about by 2007.
 
-iD8DBQFG9A9EcC3lWbTT17ARAiYhAKCqI4hIp4QmE5WjzMk/i9i1SwxEwACfZMl3
-PB4PUEVlBwH+6zqjLgMX6yI=
-=tT+I
------END PGP SIGNATURE-----
 
---==_Exmh_1190399812_2847P--
+otoh, you can get a lot of handy info by googling for strategic parts of
+the kernel code, or by googling snippets of the existing-but-short
+changelog.  For example, this patch: google for "Keep track of
+disable_irq_nosync() invocations" and voila.  Perhaps we don't need
+changelogs at all ;)
+
