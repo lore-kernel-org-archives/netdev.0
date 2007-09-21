@@ -1,37 +1,41 @@
-From: Urs Thuermann <urs@isnogud.escape.de>
-Subject: Re: [PATCH 2/7] CAN: Add PF_CAN core module
-Date: 21 Sep 2007 20:01:23 +0200
-Message-ID: <ygfzlzfuccs.fsf@janus.isnogud.escape.de>
-References: <20070920184323.3795.0@janus.isnogud.escape.de>
-	<20070920184532.3795.2@janus.isnogud.escape.de>
-	<46F3BD75.6010904@trash.net>
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Subject: Re: [PATCH 1/2] bnx2: factor out gzip unpacker
+Date: Fri, 21 Sep 2007 19:05:23 +0100
+Message-ID: <200709211905.23946.vda.linux@googlemail.com>
+References: <200709211201.24475.vda.linux@googlemail.com> <200709211803.55554.vda.linux@googlemail.com> <20070921.104912.41646795.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver@hartkopp.net>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:36063 "EHLO oker.escape.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761468AbXIUSFq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Sep 2007 14:05:46 -0400
-In-Reply-To: <46F3BD75.6010904@trash.net>; from Patrick McHardy on Fri, 21 Sep 2007 14:47:49 +0200
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, mchan@broadcom.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761460AbXIUSFp@vger.kernel.org>
+In-Reply-To: <20070921.104912.41646795.davem@davemloft.net>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> writes:
+On Friday 21 September 2007 18:49, David Miller wrote:
+> From: Denys Vlasenko <vda.linux@googlemail.com>
+> Date: Fri, 21 Sep 2007 18:03:55 +0100
+> 
+> > Do patches look ok to you?
+> 
+> I'm travelling so I haven't looked closely yet :-)
+> 
+> Michael can take a look and I'll try to do so as well
+> tonight.
 
-> You drop the module reference again when leaving this function.
-> So sock->ops might contain a stale pointer if the module is
-> unloaded after this. You need to either keep the module reference
-> while the socket is alive or remove stale references when
-> unregistering the protocol.
+Good.
 
-I don't think that can happen.  Before we drop the module reference we
-call sk_alloc() which gets another module reference via its cp->prot
-argument.  If sk_alloc() fails we return with error from can_create()
-I assume sock->ops won't be used after that.
+I plan to use gzip compression on following drivers' firmware,
+if patches will be accepted:
 
-urs
+   text    data     bss     dec     hex filename
+  17653  109968     240  127861   1f375 drivers/net/acenic.o
+   6628  120448       4  127080   1f068 drivers/net/dgrs.o
+         ^^^^^^
+
+--
+vda
