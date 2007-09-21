@@ -1,37 +1,44 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: net-2.6.24 - build failure
-Date: Fri, 21 Sep 2007 18:18:04 +0200
-Message-ID: <200709211818.05232.mb@bu3sch.de>
-References: <1190238802.26101.24.camel@localhost> <20070919.151712.66176476.davem@davemloft.net>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] e1000e: Do not allow requeue of freed skb
+Date: Fri, 21 Sep 2007 09:41:15 -0700
+Message-ID: <20070921164115.31055.49849.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: hadi@cyberus.ca, krkumar2@in.ibm.com, netdev@vger.kernel.org
+To: jeff@garzik.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:41021
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759476AbXIUQUh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 12:20:37 -0400
-In-Reply-To: <20070919.151712.66176476.davem@davemloft.net>
-Content-Disposition: inline
+Received: from mga02.intel.com ([134.134.136.20]:6293 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750753AbXIUQlS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Sep 2007 12:41:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 20 September 2007 00:17:12 David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Wed, 19 Sep 2007 14:53:22 -0700
-> 
-> > drivers/net/wireless/b43legacy/built-in.o: In function `tsf_read_file':
-> > drivers/net/wireless/b43legacy/debugfs.c:80: multiple definition of `tsf_read_file'
-> 
-> Can one of the wireless folks fix b43legacy to not use the same
-> global variable and function names as the b43 driver?
+From: Krishna Kumar <krkumar2@in.ibm.com>
 
-Fixes are already submitted.
-This was only an accident (forgot static).
+Returning BUSY will make qdisc_restart enqueue the skb which was already
+freed. The bad skb was correctly freed and we should return NETDEV_TX_OK.
 
--- 
-Greetings Michael.
+First spotted by Jeff Garzik on 08/13/07.
+
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
+
+ drivers/net/e1000e/netdev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 372da46..03f7472 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -3537,7 +3537,7 @@ static int e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 		/* handle pci_map_single() error in e1000_tx_map */
+ 		dev_kfree_skb_any(skb);
+ 		spin_unlock_irqrestore(&adapter->tx_queue_lock, irq_flags);
+-		return NETDEV_TX_BUSY;
++		return NETDEV_TX_OK;
+ 	}
+ 
+ 	e1000_tx_queue(adapter, tx_flags, count);
