@@ -1,35 +1,40 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH 6/9] fs_enet: Be an of_platform device when CONFIG_PPC_CPM_NEW_BINDING is set.
-Date: Thu, 20 Sep 2007 19:44:06 -0500
-Message-ID: <20070921004406.GA19279@ld0162-tx32.am.freescale.net>
-References: <20070920220043.GA28769@loki.buserror.net> <20070920220121.GF28784@loki.buserror.net> <20070921100841.6904f2bc.sfr@canb.auug.org.au>
+From: Zhu Yi <yi.zhu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: Please pull 'iwlwifi' branch of wireless-2.6
+Date: Fri, 21 Sep 2007 09:20:30 +0800
+Message-ID: <1190337630.5718.136.camel@debian.sh.intel.com>
+References: <20070918185040.GF4940@tuxdriver.com>
+	 <20070919101326.GA32432@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:48134 "EHLO
-	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752336AbXIUAok (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Sep 2007 20:44:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20070921100841.6904f2bc.sfr@canb.auug.org.au>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20070919101326.GA32432-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 21, 2007 at 10:08:41AM +1000, Stephen Rothwell wrote:
-> On Thu, 20 Sep 2007 17:01:21 -0500 Scott Wood <scottwood@freescale.com> wrote:
-> >
-> > +++ b/drivers/net/fs_enet/fs_enet-main.c
-> > @@ -44,12 +44,18 @@
-> >  #include <asm/irq.h>
-> >  #include <asm/uaccess.h>
-> >  
-> > +#ifdef CONFIG_PPC_CPM_NEW_BINDING
-> > +#include <asm/of_platform.h>
-> 
-> Hmm, didn't I already ask you to change this to linux/of_platform.h?
+On Wed, 2007-09-19 at 11:13 +0100, Christoph Hellwig wrote:
+> it really needs to be moved into a directory of it's own.
 
-Grrr, I thought I'd gotten them all.
- 
--Scott
+It used to be... John?
+
+> The useless per-file CFLAGS need to go most places can trivially
+> be made unconditional anyway.
+
+OK.
+
+> The depends on m for CONFIG_IWL4965 and CONFIG_IWL3945 needs to go,
+> we don't put drivers int that need to be modular. 
+
+Since we splited the code base for 3945 and 4965 by a simple "fork" of
+file iwl-base.c, some non-static functions names remain the same. Make
+the two drivers build into vmlinux at the same time will cause conflict.
+So to make them depend on m is a current workaround for .24. We will
+abstract a common iwl-core.ko and make driver specific iwl3945.ko and
+iwl4965.ko depend on it in .25 time frame.
+
+Thanks,
+-yi
