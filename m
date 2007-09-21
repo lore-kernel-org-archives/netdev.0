@@ -1,50 +1,51 @@
-From: "Marco Berizzi" <pupilla@hotmail.com>
-Subject: Re: wrong arp query with policy routing
-Date: Fri, 21 Sep 2007 14:56:55 +0200
-Message-ID: <BAY103-DAV13C9EFE297F41FFC4007EAB2BB0@phx.gbl>
-References: <BAY103-DAV2BC129A14C4A29986CC0CB2B80@phx.gbl> <BAY103-DAV12BF0DF9E47B1577FB9814B2B90@phx.gbl> <46F29741.2030505@redhat.com> <BAY103-DAV1014588479A3FF5B66EEDDB2BB0@phx.gbl> <1190377540.4261.58.camel@localhost>
-Cc: "Chuck Ebbert" <cebbert@redhat.com>, <netdev@vger.kernel.org>
-To: <hadi@cyberus.ca>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [RFC/PATCH 0/3] UDP memory usage accounting
+Date: Fri, 21 Sep 2007 16:58:43 +0400
+Message-ID: <20070921125843.GA15810@2ka.mipt.ru>
+References: <46F3B67F.4030007@hitachi.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, haoki@redhat.com,
+	=?utf8?B?5ZCJ6JekIOiLseaYjg==?= <yoshfuji@linux-ipv6.org>
+To: Satoshi OSHIMA <satoshi.oshima.fk@hitachi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bay0-omc3-s35.bay0.hotmail.com ([65.54.246.235]:58378 "EHLO
-	bay0-omc3-s35.bay0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751449AbXIUM5H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 08:57:07 -0400
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:45035 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751198AbXIUM7M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Sep 2007 08:59:12 -0400
+Content-Disposition: inline
+In-Reply-To: <46F3B67F.4030007@hitachi.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
+Hi.
 
-> On Fri, 2007-21-09 at 11:08 +0200, Marco Berizzi wrote:
->
-> > thanks for the reply.
-> > I have tried to 'echo 1 > /proc/sys/net/ipv4/conf/eth0',
-> > but the 'arp whos-has' behaviour doesn't change.
-> > Other hints?
->
-> Give a man a fish and he'll eat for a day....
->
-> Documentation/networking/ip-sysctl.txt
+On Fri, Sep 21, 2007 at 09:18:07PM +0900, Satoshi OSHIMA (satoshi.oshima.fk@hitachi.com) wrote:
+> This patch set try to introduce memory usage accounting for
+> UDP(currently ipv4 only).
+> 
+> Currently, memory usage of UDP can be observed as the sam of
+> usage of tx_queue and rx_queue. But I believe that the system
+> wide accounting is usefull when heavy loaded condition.
+> 
+> In the next step, I would like to add memory usage quota
+> for UDP to avoid unlimited memory consumption problem
+> under DDOS attack.
 
-Thanks for the tip Jamal.
-I have done a 'grep -i arp' on that file and
-arp_announce should do the trick. But I always
-get the same behaviour, after:
+Could you please desribed such attack in more details?
+Each UDP socket has its queue length which can not be exceeded
+(roughly), no new sockets are created when remote side sends a packet
+(like after special steps in TCP), so where is possibility to eat all
+the mem?
 
-echo 2 > /proc/sys/net/ipv4/conf/eth0/arp_announce
-echo 2 > /proc/sys/net/ipv4/conf/all/arp_announce
+> This patch set is for 2.6.23-rc7.
 
-Here is:
-14:43:26.096574 00:01:02:ad:db:82 > ff:ff:ff:ff:ff:ff, ethertype ARP
-(0x0806),
-length 42: arp who-has 1.1.1.254 tell 172.16.1.247
+I seriously doubt you want to put udp specific hacks and zillions of
+atomic ops all around the code just to know exact number of bytes eaten
+for UDP.
 
-Here is my 'ip a s' output:
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-qlen 1000
-    link/ether 00:01:02:ad:db:82 brd ff:ff:ff:ff:ff:ff
-    inet 172.16.1.247/23 brd 172.16.1.255 scope global eth0
-    inet 1.1.1.1/32 scope global eth0
+Please use udp specific code (like udp_sendmsg()) for proper accounting
+if you need that, but not hacks in generic ip code.
 
-
-
+-- 
+	Evgeniy Polyakov
