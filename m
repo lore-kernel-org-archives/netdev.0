@@ -1,94 +1,56 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH 0/2] David Miller's rbtree patches for 2.6.22.6
-Date: Fri, 21 Sep 2007 17:08:07 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0709211327420.9514@kivilampi-30.cs.helsinki.fi>
-References: <46F1CF35.3030606@gmail.com>
+From: "L F" <lfabio.linux@gmail.com>
+Subject: Re: e1000 driver and samba
+Date: Fri, 21 Sep 2007 10:08:33 -0400
+Message-ID: <780b6f780709210708k59c7b9al6d1241bac8419a5b@mail.gmail.com>
+References: <780b6f780709171158h1016b6c2kfbc977b4ea7c715c@mail.gmail.com>
+	 <36D9DB17C6DE9E40B059440DB8D95F5203592D77@orsmsx418.amr.corp.intel.com>
+	 <20070918020358.d50653d5.billfink@mindspring.com>
+	 <ygfps0g8lj0.fsf@janus.isnogud.escape.de> <82k5qoxfbk.fsf@mid.bfk.de>
+	 <780b6f780709180932j5944b927p44ace42833e0230b@mail.gmail.com>
+	 <08FE5CC30C9A3F41BF819A502CF7BF6E02045257@fmsmsx411.amr.corp.intel.com>
+	 <780b6f780709190753qd52d099id937a6c75e5d560e@mail.gmail.com>
+	 <20070919225105.1e80e91d.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: Tom Quetchenbach <virtualphtn@gmail.com>
+Cc: netdev@vger.kernel.org
+To: "Bill Fink" <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:50531 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757014AbXIUOIK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 10:08:10 -0400
-In-Reply-To: <46F1CF35.3030606@gmail.com>
+Received: from wa-out-1112.google.com ([209.85.146.177]:33018 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759513AbXIUOIf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 10:08:35 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so995537wah
+        for <netdev@vger.kernel.org>; Fri, 21 Sep 2007 07:08:34 -0700 (PDT)
+In-Reply-To: <20070919225105.1e80e91d.billfink@mindspring.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 19 Sep 2007, Tom Quetchenbach wrote:
+On 9/19/07, Bill Fink <billfink@mindspring.com> wrote:
+> Just my personal opinion, but unless you want to do more testing,
+> since you now seem to have a working setup, I would tend to leave
+> it the way it is.
+Quite sensible, yes. Performance even seems to be good - I am getting
+40-40MBps reads and 24-26MBps writes - so it'll stay the way it is.
 
-> Here are a couple of patches against 2.6.22.6. The first one is just
-> David's patches tweaked for 2.6.22.6, with a couple of minor bugfixes to
-> get it to compile and not crash.
+> By any chance did you happen to power cycle some equipment in this
+> process that you didn't previously power cycle during earlier testing
+> and debugging?  If so, perhaps that hardware had somehow gotten into
+> a funky state, and the power cycling might have cleared it up.
+Not that I am aware of: one of the first things that I did - and
+repeated basically every step of the way - was to powercycle the two
+switches, following the same line of reasoning you did. The clients
+were turned off every night and turned back on every morning and the
+WAN Comcast CPE wasn't touched for the duration. The only thing that
+did change is that in an impetus of efficiency or perhaps desperation
+I changed that cable too (to CAT6, 3' long), but I can't imagine that
+would affect the LAN side of operations.
+Thanks again - to everyone - for the help. I am still puzzled, but at
+least I am puzzled with a consistent situation.
+To Mr. Romieu: the patch you provided seems to work, in that 'regular'
+loads don't trip samba up. I have to check the CRCs, though.
 
-Why did you combine original patches to a single larger one, I think Dave 
-made them separate on purpose.
+>                                                 -Bill
 
-> (I also changed
-> __tcp_insert_write_queue_tail() to set the fack_count of the new packet
-> to the fack_count of the tail plus the packet count of the tail, not the
-> packet count of the new skb, because I think that's how it was intended
-> to be. Right?
-
-I think I noticed similar "off-by-pcount" error when I looked that long 
-time ago, so I guess you're correct. We're only interested in delta 
-of it anyway and add the current skb's pcount to it (which is not 
-fixed until tcp_fragment in sacktag is past).
-
-> In the second patch there are a couple of significant changes.  One is
-> (as Baruch suggested) to modify the existing SACK fast path so that we
-> don't tag packets we've already tagged when we advance by a packet.
-
-This solution would still spend extensive amount of time in processing  
-loop, whenever recv_sack_cache fast-path is not taken, that is, e.g. when 
-cumulative ACK after retransmissions arrive or new hole becomes visible 
-(which are not very exceptional events after all :-)). In the cumulative 
-ACK case especially, this processing is very likely _fully_ wasted 
-walking.
-
-So there is still room for large improvements. I've made an improved 
-version of the current sacktag walk couple of days ago (it's in a state 
-where it didn't crash but likely very buggy still), I'll post it here 
-soon... Idea is embed recv_sack_cache checking fully into the walking 
-loop. By doing that an previously known work is not duplicated. The patch
-is currently against non-rbtree stuff but incorporating rb-tree things on 
-top of it should be very trivial and synergy benefits with rbtree should 
-be considerable because non-rbtree has to do "fast walk" skipping for skbs 
-that are under highest_sack which is prone to cache misses. 
-
-> The other issue is that the cached fack_counts seem to be wrong, because
-> they're set when we insert into the queue, but tcp_set_tso_segs() is
-> called later, just before we send, so all the fack_counts are zero. My
-> solution was to set the fack_count when we advance the send_head.
-
-I think it's better solution anyway, since we might have to do 
-reset_fack_counts() in between and there's no need to update past 
-sk_send_head.
-
-> Also I
-> changed tcp_reset_fack_counts() so that it exits when it hits an skb
-> whose tcp_skb_pcount() is zero
-
-Do you mind to explain what's the purpose of that?
-
-> or whose fack_count is already correct.
-> (This really helps when TSO is on, since there's lots of inserting into
-> the middle of the queue.)
-
-Good point.
-
-> Please let me know how I can help get this tested and debugged.
-
-Most network development happens against latest net-2.6(.x) trees. 
-In addition, there's experimental tcp-2.6 tree but it's currently a bit 
-outdated already (and DaveM is very busy with the phenomenal merge 
-they're doing for 2.6.24 :-) so it's not too likely to be updated very 
-soon).
-
-...Anyway, thanks for your interest in these things.
-
-
--- 
- i.
+Luigi Fabio
