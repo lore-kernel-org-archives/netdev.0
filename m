@@ -1,34 +1,46 @@
-From: lepton <ytht.net@gmail.com>
-Subject: Re: [RFC PATCH] 2.6.22.6 netfilter: sk_setup_caps in ip_make_route_harder
-Date: Fri, 21 Sep 2007 22:07:20 +0800
-Message-ID: <20070921140720.GA10419@router.lepton.home>
-References: <20070919093648.GA7491@router.lepton.home> <46F13999.30700@trash.net> <46F13D7D.6010603@trash.net> <20070919155554.GA11710@router.lepton.home> <46F3BB9E.4000105@trash.net>
+From: "L F" <lfabio.linux@gmail.com>
+Subject: Re: e1000 driver and samba
+Date: Fri, 21 Sep 2007 10:13:44 -0400
+Message-ID: <780b6f780709210713s62f6d51s90eb0a54cda2a3fb@mail.gmail.com>
+References: <46F302A8.7040008@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Bruce Cole" <bacole@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wa-out-1112.google.com ([209.85.146.178]:43000 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758308AbXIUONq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 10:13:46 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so997051wah
+        for <netdev@vger.kernel.org>; Fri, 21 Sep 2007 07:13:45 -0700 (PDT)
+In-Reply-To: <46F302A8.7040008@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <46F3BB9E.4000105@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yes.
-My situation is:
-The default route device is a e1000 network card that can do TSO.
-So the tcp stack will try send big skb to netfilter frame work.
-But after rerouting, the packtes will go out from a device  that
-can not do TSO. the packet is just get dropped..
+On 9/20/07, Bruce Cole <bacole@gmail.com> wrote:
+> Yes, that *was* the common recommendation.  But recently I narrowed down the
+> realtek performance problem most commonly seen with samba (but also applicable
+> to other TCP applications), and I also narrowed down the fix as well.
+>
+> The current fix involves re-kicking the TX queue after it becomes stuck.
+> Apparently it becomes stuck due to a contention problem between the driver and
+> controller.  I suspect the root problem is the driver isn't properly locking
+> the TX queue.  It might be worth checking if the queue locking problem exists
+> in other net drivers as well.
+Aha. This doesn't seem to be in mr. Romieu's patch above: should it go
+in on top of that?
+I ask because with the forementioned patch the newer integrated NICs
+seem to be recognised correctly and preliminary testing shows no
+disconnect issues, but performance is nothing to write home about (one
+of these days I'll get into a rant about samba speed vs. ftp speed,
+but this is not the time nor place).
 
-I thinks if we can't get a way to tell tcp stack the sk_route_caps of 
-the real out device, we can just disable all things for safety.
+> Reference:
+> http://www.spinics.net/lists/netdev/msg40384.html
 
-On Fri, Sep 21, 2007 at 02:39:58PM +0200, Patrick McHardy wrote:
-> lepton wrote:
-> > Yes, you are right.
-> > What do you think about this:
-> > For all packets can be sent out, we just disable 
-> > all things in sk_route_caps in ip_route_me_harder
-> 
-> 
-> Whats the point of doing that? Is rerouting breaking anything for you?
+> Bruce Cole
+
+LF
