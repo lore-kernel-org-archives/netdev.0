@@ -1,34 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] note that NETIF_F_LLTX is deprecated (was: [kvm-devel][PATCH 3/6] virtio net driver)
-Date: Sat, 22 Sep 2007 08:57:10 +0800
-Message-ID: <20070922005709.GA17022@gondor.apana.org.au>
-References: <1190289808.7262.223.camel@localhost.localdomain> <200709211436.43964.borntraeger@de.ibm.com> <20070921140833.GA12242@gondor.apana.org.au> <200709211659.54935.borntraeger@de.ibm.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH 1/2] bnx2: factor out gzip unpacker
+Date: Fri, 21 Sep 2007 19:47:17 -0700
+Message-ID: <1190429237.4957.6.camel@dell>
+References: <200709211201.24475.vda.linux@googlemail.com>
+ <20070921.091432.74736040.davem@davemloft.net>
+ <200709211803.55554.vda.linux@googlemail.com>
+ <20070921.104912.41646795.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Christian Borntraeger <borntraeger@de.ibm.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: vda.linux@googlemail.com, jeff@garzik.org,
+	linux-kernel@vger.kernel.org, "netdev" <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2547 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754425AbXIVA6I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Sep 2007 20:58:08 -0400
-Content-Disposition: inline
-In-Reply-To: <200709211659.54935.borntraeger@de.ibm.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:3780 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754962AbXIVBtE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Sep 2007 21:49:04 -0400
+In-Reply-To: <20070921.104912.41646795.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 21, 2007 at 04:59:54PM +0200, Christian Borntraeger wrote:
+On Fri, 2007-09-21 at 10:49 -0700, David Miller wrote:
+> From: Denys Vlasenko <vda.linux@googlemail.com>
+> Date: Fri, 21 Sep 2007 18:03:55 +0100
 > 
-> I suggest to document that LLTX is deprecated. 
+> > Do patches look ok to you?
 > 
-> Signed-off-by: Christian Borntraeger <borntraeger@de.ibm.com>
+> I'm travelling so I haven't looked closely yet :-)
+> 
+> Michael can take a look and I'll try to do so as well
+> tonight.
+> 
 
-This looks good to me.
+I've already reviewed the earlier versions of the patch and have made
+some suggestions.  This latest one looks ok to me and tested ok.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I'll follow up later with another patch to remove all the zeros in other
+firmware sections, and to remove the gzip headers completely.
+
+Acked-by: Michael Chan <mchan@broadcom.com>
+
