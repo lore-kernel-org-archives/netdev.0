@@ -1,33 +1,33 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: Alan Cox <alan@redhat.com>
 Subject: Re: bind and O_NONBLOCK
-Date: Sat, 22 Sep 2007 21:19:51 +0400
-Message-ID: <20070922171950.GA1737@2ka.mipt.ru>
-References: <46F35DD9.4000909@redhat.com> <20070922161414.GA29637@2ka.mipt.ru> <46F540F2.1090109@redhat.com> <20070922165938.GA11234@2ka.mipt.ru> <46F54CA5.8020200@redhat.com>
+Date: Sat, 22 Sep 2007 13:35:56 -0400
+Message-ID: <20070922173556.GA26346@devserv.devel.redhat.com>
+References: <46F35DD9.4000909@redhat.com> <20070922161414.GA29637@2ka.mipt.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, Alan Cox <alan@redhat.com>
-To: Ulrich Drepper <drepper@redhat.com>
+Cc: Ulrich Drepper <drepper@redhat.com>,
+	netdev <netdev@vger.kernel.org>, Alan Cox <alan@redhat.com>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:41363 "EHLO 2ka.mipt.ru"
+Received: from mx1.redhat.com ([66.187.233.31]:53632 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750721AbXIVRUJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Sep 2007 13:20:09 -0400
+	id S1757418AbXIVRgI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Sep 2007 13:36:08 -0400
 Content-Disposition: inline
-In-Reply-To: <46F54CA5.8020200@redhat.com>
+In-Reply-To: <20070922161414.GA29637@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 22, 2007 at 10:11:01AM -0700, Ulrich Drepper (drepper@redhat.com) wrote:
-> Evgeniy Polyakov wrote:
-> > Could you point to the original Alan's proposal, I only found short note
-> > (as in you original mail) at opengroup.org and failed to correctly
-> > googlify it in the web.
+On Sat, Sep 22, 2007 at 08:14:15PM +0400, Evgeniy Polyakov wrote:
+> of operations. There are four ways where bind can fail:
 > 
-> There was no public mail.  I asked RH engineering for proposals for
-> changes to the POSIX spec and Alan replied.
+> 1. unsufficient rights - nothing can help here
+> 2. there is no memory - async binding can not help here too, since it
+> 	some memory just has to be allocated to save async request
+> 	somewhere.
+> 3. socket is locked.
+> 4. addres is being bound is in use.
 
-Then I belive RH engineers will implement this issue and you should
-not send this to netdev@ (maybe only as a warning for all others :)
+For most protocols yes - but not all. For things like IP specifying O_NDELAY
+is meaningless on a bind it will always complete on the spot as you say
 
--- 
-	Evgeniy Polyakov
