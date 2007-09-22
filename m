@@ -1,127 +1,63 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Please pull 'fixes-davem' branch of wireless-2.6 (for 2.6.23)
-Date: Sat, 22 Sep 2007 11:41:42 -0400
-Message-ID: <20070922154142.GA4738@tuxdriver.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: bind and O_NONBLOCK
+Date: Sat, 22 Sep 2007 20:14:15 +0400
+Message-ID: <20070922161414.GA29637@2ka.mipt.ru>
+References: <46F35DD9.4000909@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev <netdev@vger.kernel.org>, Alan Cox <alan@redhat.com>
+To: Ulrich Drepper <drepper@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:46773 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753957AbXIVQOd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Sep 2007 12:14:33 -0400
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <46F35DD9.4000909@redhat.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave,
+Hi Ulrich.
 
-These are a few more minor fixes that I would like to have in 2.6.23 if
-at all possible.
+On Thu, Sep 20, 2007 at 10:59:53PM -0700, Ulrich Drepper (drepper@redhat.com) wrote:
+> Some time back Alan asked about adding O_NONBLOCK support to bind in the
+> POSIX spec.  I brought this up and the following text will be in the
+> next revision of the POSIX spec:
+> 
+> =======================
+> If the socket address cannot be assigned immediately and O_NONBLOCK is
+> set for the file descriptor for the socket, bind( ) shall fail and set
+> errno to [EINPROGRESS], but the assignment request shall not be aborted,
+> and the assignment shall be completed asynchronously. Subsequent calls
+> to bind() for the same socket, before the assignment is completed, shall
+> fail and set errno to [EALREADY].
+> 
+> When the assignment has been performed asynchronously, pselect(),
+> select(), and poll() shall indicate that the file descriptor for the
+> socket is ready for reading and writing.
+> =======================
+> 
+> It would be ideal if we'd have such an implementation in the next few
+> months so that we, in theory, can check whether the text in the
+> specification makes sense.
 
-Thanks!
+On behalf of which process this is supposed to be done?
+Network does not have any async processing units to perform this kind 
+of operations. There are four ways where bind can fail:
 
-John
+1. unsufficient rights - nothing can help here
+2. there is no memory - async binding can not help here too, since it
+	some memory just has to be allocated to save async request
+	somewhere.
+3. socket is locked.
+4. addres is being bound is in use.
 
----
+We can wait until it is released and perform binding on behalf of some 
+other process in both situations, although I think we do not want 4'th
+variant in some cases.
 
-Individual patches are available here:
+So, did I understand you correctly, that you want to introduce network
+AIO here? (for example on behalf of work queue or something else?)
 
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-2.6/fixes-davem/
-
----
-
-The following changes since commit 81cfe79b9c577139a873483654640eb3f6e78c39:
-  Linus Torvalds (1):
-        Linux 2.6.23-rc7
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git fixes-davem
-
-Johannes Berg (3):
-      cfg80211: fix initialisation if built-in
-      net/mac80211/wme.c: fix sparse warning
-      mac80211: fix initialisation when built-in
-
-Satyam Sharma (1):
-      net/wireless/sysfs.c: Shut up build warning
-
- net/mac80211/ieee80211.c      |    2 +-
- net/mac80211/rc80211_simple.c |    2 +-
- net/mac80211/wme.c            |    2 +-
- net/wireless/core.c           |    2 +-
- net/wireless/sysfs.c          |    2 ++
- 5 files changed, 6 insertions(+), 4 deletions(-)
-
-diff --git a/net/mac80211/ieee80211.c b/net/mac80211/ieee80211.c
-index 7286c38..ff2172f 100644
---- a/net/mac80211/ieee80211.c
-+++ b/net/mac80211/ieee80211.c
-@@ -5259,7 +5259,7 @@ static void __exit ieee80211_exit(void)
- }
- 
- 
--module_init(ieee80211_init);
-+subsys_initcall(ieee80211_init);
- module_exit(ieee80211_exit);
- 
- MODULE_DESCRIPTION("IEEE 802.11 subsystem");
-diff --git a/net/mac80211/rc80211_simple.c b/net/mac80211/rc80211_simple.c
-index f6780d6..17b9f46 100644
---- a/net/mac80211/rc80211_simple.c
-+++ b/net/mac80211/rc80211_simple.c
-@@ -431,7 +431,7 @@ static void __exit rate_control_simple_exit(void)
- }
- 
- 
--module_init(rate_control_simple_init);
-+subsys_initcall(rate_control_simple_init);
- module_exit(rate_control_simple_exit);
- 
- MODULE_DESCRIPTION("Simple rate control algorithm for ieee80211");
-diff --git a/net/mac80211/wme.c b/net/mac80211/wme.c
-index 89ce815..7ab82b3 100644
---- a/net/mac80211/wme.c
-+++ b/net/mac80211/wme.c
-@@ -424,7 +424,7 @@ static int wme_qdiscop_init(struct Qdisc *qd, struct rtattr *opt)
- 		skb_queue_head_init(&q->requeued[i]);
- 		q->queues[i] = qdisc_create_dflt(qd->dev, &pfifo_qdisc_ops,
- 						 qd->handle);
--		if (q->queues[i] == 0) {
-+		if (!q->queues[i]) {
- 			q->queues[i] = &noop_qdisc;
- 			printk(KERN_ERR "%s child qdisc %i creation failed", dev->name, i);
- 		}
-diff --git a/net/wireless/core.c b/net/wireless/core.c
-index 7eabd55..9771451 100644
---- a/net/wireless/core.c
-+++ b/net/wireless/core.c
-@@ -213,7 +213,7 @@ out_fail_notifier:
- out_fail_sysfs:
- 	return err;
- }
--module_init(cfg80211_init);
-+subsys_initcall(cfg80211_init);
- 
- static void cfg80211_exit(void)
- {
-diff --git a/net/wireless/sysfs.c b/net/wireless/sysfs.c
-index 88aaacd..2d5d225 100644
---- a/net/wireless/sysfs.c
-+++ b/net/wireless/sysfs.c
-@@ -52,12 +52,14 @@ static void wiphy_dev_release(struct device *dev)
- 	cfg80211_dev_free(rdev);
- }
- 
-+#ifdef CONFIG_HOTPLUG
- static int wiphy_uevent(struct device *dev, char **envp,
- 			int num_envp, char *buf, int size)
- {
- 	/* TODO, we probably need stuff here */
- 	return 0;
- }
-+#endif
- 
- struct class ieee80211_class = {
- 	.name = "ieee80211",
 -- 
-John W. Linville
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+	Evgeniy Polyakov
