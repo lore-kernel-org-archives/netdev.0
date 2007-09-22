@@ -1,48 +1,41 @@
-From: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
-Subject: Re: Please pull 'z1211' branch of wireless-2.6
-Date: Sat, 22 Sep 2007 16:47:45 +0200
-Message-ID: <200709221647.45715.mb@bu3sch.de>
-References: <20070919181005.GB5483@tuxdriver.com> <200709221411.12128.mb@bu3sch.de> <20070922144254.GB12907@deine-taler.de>
+From: Greg KH <gregkh-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: ?^?H?G Re: ?^?H?G Re: [linux-usb-devel] Please pull
+	'ssb-drivers' branch of wireless-2.6  -- aln.
+Date: Sat, 22 Sep 2007 08:13:35 -0700
+Message-ID: <20070922151335.GA5428@suse.de>
+References: <OF2983FA30.A28D686E-ON4825735E.004F310B-4825735E.004F7C82@sdc.sercomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ulrich Kunitz <kune-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
+	David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>,
+	linux-usb-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org,
+	zambrano-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Alninuo_Li-mw3RyXb2L4OHSoWHlOhhYg@public.gmane.org
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070922144254.GB12907-hUSrv6EASfkEnNRfnnE9gw@public.gmane.org>
 Content-Disposition: inline
+In-Reply-To: <OF2983FA30.A28D686E-ON4825735E.004F310B-4825735E.004F7C82-mw3RyXb2L4OHSoWHlOhhYg@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 22 September 2007, Ulrich Kunitz wrote:
-> Michael Buesch wrote:
-> 
-> > On Saturday 22 September 2007 11:48:00 Ulrich Kunitz wrote:
-> > > A real high-quality driver will require Johannes' proposed
-> > > mac80211 driver interface changes to be merged and TX
-> > > confirmations handled in a way, that the semantics can really be
-> > > supported by the driver. (Michael Buesh's patch is taping over the
-> > > issue.)
-> > 
-> > No it is not. It is fixing the issue. It fixes the following issues:
-> 
-> > * You must ignore the Txstat-requested bit in the driver.
-> 
-> If that is really the case the flag should be removed from
-> mac80211. There is no way for somebody looking at the code to know
-> this.
+On Sat, Sep 22, 2007 at 10:28:23PM +0800, Alninuo_Li-mw3RyXb2L4OHSoWHlOhhYg@public.gmane.org wrote:
+> Hi Greg, 
+>         It should be the right name now, apologize for the typo., anyway, 
+> glad to get the response from u.
+>         I think the usbserial crash, or the printk crash is a small bug, 
+> likely interrupt handling, but since I have no much idea for the driver, 
+> so I need some helpful advice to debug on, 
+>         And also for now, we have no much time to move from 2.4 to 2.6, 
+> since the time to market is no room for us, which means the full 
+> integration for other feature points.
 
-It is used internally in mac80211.
+Again, no one supports 2.4 anymore, so you are on your own.  Remember,
+the 2.4.20 kernel was released almost 5 _years_ ago.  There are numerous
+security holes in that kernel, as well as bugs that have been fixed in
+newer releases.  If you insist on using that release, you are on your
+own.
 
-> > * You must report bad frames with the excessive_retries set.
-> 
-> All bad frames or only those with actual excessive retries? Your patch
-> set the excessive_retries flag for packets that couldn't be
-> transmitted to the device because of an USB error. If the flag
-> should be set for all kinds of errors it should be renamed.
+good luck,
 
-Well, there is no better flag to set, currently.
+greg k-h
