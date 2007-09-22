@@ -1,82 +1,42 @@
 From: Satyam Sharma <satyam@infradead.org>
-Subject: [PATCH -mm] pasemi_mac: Build fix after recent netdev stats
- changes
-Date: Sat, 22 Sep 2007 13:10:32 +0530 (IST)
-Message-ID: <alpine.LFD.0.999.0709221308300.22517@enigma.security.iitk.ac.in>
+Subject: [PATCH -mm] mv643xx_eth: Remove redundant multiple initialization
+Date: Sat, 22 Sep 2007 13:24:08 +0530 (IST)
+Message-ID: <alpine.LFD.0.999.0709221322360.22517@enigma.security.iitk.ac.in>
 References: <20070918011841.2381bd93.akpm@linux-foundation.org>
- <20070920132512.GF24105@skynet.ie>
- <alpine.LFD.0.999.0709201903180.17093@enigma.security.iitk.ac.in>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=UTF-8
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Netdev Mailing List <netdev@vger.kernel.org>,
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Jeff Garzik <jeff@garzik.org>,
-	David Miller <davem@davemloft.net>
-To: Mel Gorman <mel@skynet.ie>
+	Linux Netdev Mailing List <netdev@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:59561 "EHLO
+Received: from pentafluge.infradead.org ([213.146.154.40]:54989 "EHLO
 	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751230AbXIVHhg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Sep 2007 03:37:36 -0400
-In-Reply-To: <alpine.LFD.0.999.0709201903180.17093@enigma.security.iitk.ac.in>
+	with ESMTP id S1752382AbXIVHvV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Sep 2007 03:51:21 -0400
+In-Reply-To: <20070918011841.2381bd93.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-
-On Thu, 20 Sep 2007, Satyam Sharma wrote:
-> 
-> BTW ppc64_defconfig didn't quite like 2.6.23-rc6-mm1 either ...
-> IIRC I got build failures in:
-
-> drivers/net/pasemi_mac.c
-
-
-[PATCH -mm] pasemi_mac: Build fix after recent netdev stats changes
-
-Unbreak the following:
-
-drivers/net/pasemi_mac.c: In function 'pasemi_mac_clean_rx':
-drivers/net/pasemi_mac.c:533: error: 'dev' undeclared (first use in this function)
-drivers/net/pasemi_mac.c:533: error: (Each undeclared identifier is reported only once
-drivers/net/pasemi_mac.c:533: error: for each function it appears in.)
-
-And remove an unused static function:
-
-drivers/net/pasemi_mac.c: At top level:
-drivers/net/pasemi_mac.c:89: warning: 'read_iob_reg' defined but not used
+Of ethtool_ops->get_stats_count and ethtool_ops->get_ethtool_stats.
 
 Signed-off-by: Satyam Sharma <satyam@infradead.org>
 
 ---
 
- drivers/net/pasemi_mac.c |    9 ++-------
- 1 file changed, 2 insertions(+), 7 deletions(-)
+ drivers/net/mv643xx_eth.c |    2 --
+ 1 file changed, 2 deletions(-)
 
-diff -ruNp a/drivers/net/pasemi_mac.c b/drivers/net/pasemi_mac.c
---- a/drivers/net/pasemi_mac.c	2007-09-22 06:26:39.000000000 +0530
-+++ b/drivers/net/pasemi_mac.c	2007-09-22 13:03:04.000000000 +0530
-@@ -85,11 +85,6 @@ MODULE_PARM_DESC(debug, "PA Semi MAC bit
+diff -ruNp a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+--- a/drivers/net/mv643xx_eth.c	2007-09-22 06:26:39.000000000 +0530
++++ b/drivers/net/mv643xx_eth.c	2007-09-22 13:15:41.000000000 +0530
+@@ -2740,8 +2740,6 @@ static const struct ethtool_ops mv643xx_
+ 	.get_stats_count        = mv643xx_get_stats_count,
+ 	.get_ethtool_stats      = mv643xx_get_ethtool_stats,
+ 	.get_strings            = mv643xx_get_strings,
+-	.get_stats_count        = mv643xx_get_stats_count,
+-	.get_ethtool_stats      = mv643xx_get_ethtool_stats,
+ 	.nway_reset		= mv643xx_eth_nway_restart,
+ };
  
- static struct pasdma_status *dma_status;
- 
--static unsigned int read_iob_reg(struct pasemi_mac *mac, unsigned int reg)
--{
--	return in_le32(mac->iob_regs+reg);
--}
--
- static void write_iob_reg(struct pasemi_mac *mac, unsigned int reg,
- 			  unsigned int val)
- {
-@@ -530,8 +525,8 @@ static int pasemi_mac_clean_rx(struct pa
- 		} else
- 			skb->ip_summed = CHECKSUM_NONE;
- 
--		dev->stats.rx_bytes += len;
--		dev->stats.rx_packets++;
-+		mac->netdev->stats.rx_bytes += len;
-+		mac->netdev->stats.rx_packets++;
- 
- 		skb->protocol = eth_type_trans(skb, mac->netdev);
- 		netif_receive_skb(skb);
