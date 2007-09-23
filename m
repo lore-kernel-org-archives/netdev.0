@@ -1,31 +1,50 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: pktgen question
-Date: Sun, 23 Sep 2007 11:12:12 -0500
-Message-ID: <46F6905C.6030309@opengridcomputing.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [ofa-general] Re: [PATCH V5 2/11] IB/ipoib: Notify the world
+	before	doing unregister
+Date: Sun, 23 Sep 2007 09:34:46 -0700
+Message-ID: <adar6kpwdax.fsf@cisco.com>
+References: <46F27692.3070404@voltaire.com> <46F2784C.9070806@voltaire.com>
+	<adaabrhgvfa.fsf@cisco.com> <46F61BF6.3000203@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 209-198-142-2-host.prismnet.net ([209.198.142.2]:51295 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753859AbXIWQMM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2007 12:12:12 -0400
-Received: from [10.10.0.213] (stevo-desktop.ogc.int [10.10.0.213])
-	by smtp.opengridcomputing.com (Postfix) with ESMTP id 8EFD97C793
-	for <netdev@vger.kernel.org>; Sun, 23 Sep 2007 11:12:12 -0500 (CDT)
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	OpenFabrics General <general@lists.openfabrics.org>
+To: Moni Shoua <monisonlists@gmail.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <46F61BF6.3000203@gmail.com> (Moni Shoua's message of "Sun,
+	23 Sep 2007 09:55:34 +0200")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-The pktgen module provides a way to "clone" the skb its using for 
-transmission, and allows passing N clones of the originally created skb 
-to the driver under test.    However, it doesn't really use skb_clone(), 
-but rather it just bumps the skb->users count for each "clone" and 
-passes the same skb ptr to the driver.
+ > The action in bonding to a detach of slave is to unregister the master (see patch 10).
+ > This can't be done from the context of unregister_netdevice itself (it is protected by rtnl_lock).
 
-Q: Is that a valid use of skb->users or should pktgen really be cloning 
-the skbuff?
+I'm confused.  Your patch has:
 
-Thanks,
+ > +		ipoib_slave_detach(cpriv->dev);
+ >  		unregister_netdev(cpriv->dev);
 
-Steve.
+And ipoib_slave_detach() is:
+
+ > +static inline void ipoib_slave_detach(struct net_device *dev)
+ > +{
+ > +	rtnl_lock();
+ > +	netdev_slave_detach(dev);
+ > +	rtnl_unlock();
+ > +}
+
+so you are calling netdev_slave_detach() with the rtnl lock held.
+Why can't you make the same call from the start of unregister_netdevice()?
+
+Anyway, if the rtnl lock is a problem, can you just add the call to
+netdev_slave_detach() to unregister_netdev() before it takes the rtnl lock?
+
+ - R.
