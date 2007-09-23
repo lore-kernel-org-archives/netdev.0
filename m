@@ -1,50 +1,95 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [ofa-general] Re: [PATCH V5 2/11] IB/ipoib: Notify the world
-	before	doing unregister
-Date: Sun, 23 Sep 2007 09:34:46 -0700
-Message-ID: <adar6kpwdax.fsf@cisco.com>
-References: <46F27692.3070404@voltaire.com> <46F2784C.9070806@voltaire.com>
-	<adaabrhgvfa.fsf@cisco.com> <46F61BF6.3000203@gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: [PATCHES] TX batching
+Date: Sun, 23 Sep 2007 13:53:07 -0400
+Message-ID: <1190569987.4256.52.camel@localhost>
+References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
+	 <20070916.161748.48388692.davem@davemloft.net>
+	 <1189988958.4230.55.camel@localhost>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	OpenFabrics General <general@lists.openfabrics.org>
-To: Moni Shoua <monisonlists@gmail.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <46F61BF6.3000203@gmail.com> (Moni Shoua's message of "Sun,
-	23 Sep 2007 09:55:34 +0200")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: krkumar2@in.ibm.com, johnpol@2ka.mipt.ru,
+	herbert@gondor.apana.org.au, kaber@trash.net,
+	shemminger@linux-foundation.org, jagana@us.ibm.com,
+	Robert.Olsson@data.slu.se, rick.jones2@hp.com, xma@us.ibm.com,
+	gaagaan@gmail.com, netdev@vger.kernel.org, rdreier@cisco.com,
+	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
+	jeff@garzik.org, mchan@broadcom.com, general@lists.openfabrics.org,
+	kumarkr@linux.ibm.com, tgraf@suug.ch, randy.dunlap@oracle.com,
+	sri@us.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from an-out-0708.google.com ([209.85.132.247]:53882 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753619AbXIWRxN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2007 13:53:13 -0400
+Received: by an-out-0708.google.com with SMTP id d31so196026and
+        for <netdev@vger.kernel.org>; Sun, 23 Sep 2007 10:53:12 -0700 (PDT)
+In-Reply-To: <1189988958.4230.55.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > The action in bonding to a detach of slave is to unregister the master (see patch 10).
- > This can't be done from the context of unregister_netdevice itself (it is protected by rtnl_lock).
 
-I'm confused.  Your patch has:
+I had plenty of time this weekend so i have been doing a _lot_ of
+testing.  My next emails will send a set of patches:
+ 
+Patch 1: Introduces explicit tx locking
+Patch 2: Introduces batching interface
+Patch 3: Core uses batching interface
+Patch 4: get rid of dev->gso_skb
 
- > +		ipoib_slave_detach(cpriv->dev);
- >  		unregister_netdev(cpriv->dev);
+Testing
+-------
+Each of these patches has been performance tested and the results
+are in the logs on a per-patch basis. 
+My system under test hardware is a 2xdual core opteron with a couple of 
+tg3s. 
+My test tool generates udp traffic of different sizes for upto 60 
+seconds per run or a total of 30M packets. I have 4 threads each 
+running on a specific CPU which keep all the CPUs as busy as they can 
+sending packets targetted at a directly connected box's udp discard
+port.
 
-And ipoib_slave_detach() is:
+All 4 CPUs target a single tg3 to send. The receiving box has a tc rule 
+which counts and drops all incoming udp packets to discard port - this
+allows me to make sure that the receiver is not the bottleneck in the
+testing. Packet sizes sent are {64B, 128B, 256B, 512B, 1024B}. Each
+packet size run is repeated 10 times to ensure that there are no
+transients. The average of all 10 runs is then computed and collected.
 
- > +static inline void ipoib_slave_detach(struct net_device *dev)
- > +{
- > +	rtnl_lock();
- > +	netdev_slave_detach(dev);
- > +	rtnl_unlock();
- > +}
+I have not run testing on patch #4 because i had to let the machine
+go, but will have some access to it tommorow early morning where i can
+run some tests.
 
-so you are calling netdev_slave_detach() with the rtnl lock held.
-Why can't you make the same call from the start of unregister_netdevice()?
+Comments
+--------
+Iam trying to kill ->hard_batch_xmit() but it would be tricky to do
+without it for LLTX drivers. Anything i try will require a few extra
+checks. OTOH, I could kill LLTX for the drivers i am using that
+are LLTX and then drop that interface or I could say "no support
+for LLTX". I am in a dilema.
 
-Anyway, if the rtnl lock is a problem, can you just add the call to
-netdev_slave_detach() to unregister_netdev() before it takes the rtnl lock?
+Dave please let me know if this meets your desires to allow devices
+which are SG and able to compute CSUM benefit just in case i
+misunderstood. 
+Herbert, if you can look at at least patch 4 i will appreaciate it.
 
- - R.
+More patches to follow  - i didnt want to overload people by dumping 
+too many patches. Most of these patches below are ready to go; some are
+need some testing and others need a little porting from an earlier
+kernel: 
+- tg3 driver (tested and works well, but dont want to send 
+- tun driver
+- pktgen
+- netiron driver
+- e1000 driver
+- ethtool interface
+- There is at least one other driver promised to me
+
+I am also going to update the two documents i posted earlier.
+Hopefully i can do that today.
+
+cheers,
+jamal
+
