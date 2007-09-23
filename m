@@ -1,35 +1,48 @@
-From: Alan Cox <alan@redhat.com>
-Subject: Re: bind and O_NONBLOCK
-Date: Sun, 23 Sep 2007 16:43:52 -0400
-Message-ID: <20070923204352.GA11596@devserv.devel.redhat.com>
-References: <46F540F2.1090109@redhat.com> <20070922165938.GA11234@2ka.mipt.ru> <46F54CA5.8020200@redhat.com> <20070922.225818.74741259.davem@davemloft.net>
+From: Krzysztof Oledzki <olel@ans.pl>
+Subject: Re: incorrect cksum with tcp/udp on lo with 2.6.20/2.6.21/2.6.22
+Date: Sun, 23 Sep 2007 23:18:58 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0709232317001.24758@bizon.gios.gov.pl>
+References: <E1IZJFo-0006ta-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: drepper@redhat.com, johnpol@2ka.mipt.ru, netdev@vger.kernel.org,
-	alan@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-868810198-1190582338=:24758"
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:42323 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751935AbXIWUoM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Sep 2007 16:44:12 -0400
-Content-Disposition: inline
-In-Reply-To: <20070922.225818.74741259.davem@davemloft.net>
+Received: from bizon.gios.gov.pl ([212.244.124.8]:37790 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752255AbXIWVTQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2007 17:19:16 -0400
+In-Reply-To: <E1IZJFo-0006ta-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 22, 2007 at 10:58:18PM -0700, David Miller wrote:
-> From: Ulrich Drepper <drepper@redhat.com>
-> Date: Sat, 22 Sep 2007 10:11:01 -0700
-> 
-> > There was no public mail.  I asked RH engineering for proposals for
-> > changes to the POSIX spec and Alan replied.
-> 
-> Please do not discuss such proposals only privately, especially when
-> the ramifications affect the entire community.
-> 
-> It is important the things get hashed out on a public forum where
-> all networking developers can add their insight into the problem.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-It was - about six years ago while netbeui/netbios merging was being
-discussed. It got tagged then and finally ended up here.
+---187430788-868810198-1190582338=:24758
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+
+
+
+On Sun, 23 Sep 2007, Herbert Xu wrote:
+
+> Krzysztof Oledzki <olel@ans.pl> wrote:
+>>
+>> It seems that after some not very recent changes udp and tcp packes
+>> carring data send by a loopback have incorrect cksum:
+>
+> This correct.  The loopback interfaces has the no checksum flag
+> set so we only provide a partial checksum on output (i.e., the
+> pseudoheader without the payload).
+>
+> We even export this to user-space via a flag.  So you should fix
+> tcpdump to read this flag and ignore the checksum.
+
+Thank you for the information. Is there any easy way to turn them on? I=20
+need it for LVS.
+
+Best regards,
+
+ =09=09=09=09Krzysztof Ol=EAdzki
+---187430788-868810198-1190582338=:24758--
