@@ -1,312 +1,287 @@
 From: jamal <hadi@cyberus.ca>
-Subject: [ofa-general] [PATCH 2/4] [NET_BATCH] Introduce batching interface
-Date: Sun, 23 Sep 2007 13:58:37 -0400
-Message-ID: <1190570317.4256.59.camel@localhost>
+Subject: [PATCH 3/4][NET_BATCH] net core use batching
+Date: Sun, 23 Sep 2007 14:00:09 -0400
+Message-ID: <1190570409.4256.62.camel@localhost>
 References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
-	<20070916.161748.48388692.davem@davemloft.net>
-	<1189988958.4230.55.camel@localhost>
-	<1190569987.4256.52.camel@localhost>
-	<1190570205.4256.56.camel@localhost>
+	 <20070916.161748.48388692.davem@davemloft.net>
+	 <1189988958.4230.55.camel@localhost>  <1190569987.4256.52.camel@localhost>
+	 <1190570205.4256.56.camel@localhost>  <1190570317.4256.59.camel@localhost>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-aTNOPypeD2VshzvwhHht"
-Cc: johnpol@2ka.mipt.ru, peter.p.waskiewicz.jr@intel.com, kumarkr@linux.ibm.com,
-	herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
-	rdreier@cisco.com, mcarlson@broadcom.com,
-	randy.dunlap@oracle.com, jagana@us.ibm.com,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	jeff@garzik.org, sri@us.ibm.com, shemminger@linux-foundation.org,
-	kaber@trash.net
+Content-Type: multipart/mixed; boundary="=-vEHYhKyABmQwNSneO0jT"
+Cc: krkumar2@in.ibm.com, johnpol@2ka.mipt.ru,
+	herbert@gondor.apana.org.au, kaber@trash.net,
+	shemminger@linux-foundation.org, jagana@us.ibm.com,
+	Robert.Olsson@data.slu.se, rick.jones2@hp.com, xma@us.ibm.com,
+	gaagaan@gmail.com, netdev@vger.kernel.org, rdreier@cisco.com,
+	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
+	jeff@garzik.org, mchan@broadcom.com, general@lists.openfabrics.org,
+	kumarkr@linux.ibm.com, tgraf@suug.ch, randy.dunlap@oracle.com,
+	sri@us.ibm.com
 To: David Miller <davem@davemloft.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <1190570205.4256.56.camel@localhost>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from an-out-0708.google.com ([209.85.132.240]:57675 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755234AbXIWSAO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2007 14:00:14 -0400
+Received: by an-out-0708.google.com with SMTP id d31so196167and
+        for <netdev@vger.kernel.org>; Sun, 23 Sep 2007 11:00:14 -0700 (PDT)
+In-Reply-To: <1190570317.4256.59.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-aTNOPypeD2VshzvwhHht
+--=-vEHYhKyABmQwNSneO0jT
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 
-
-This patch introduces the netdevice interface for batching.
+This patch adds the usage of batching within the core.
 
 cheers,
 jamal
 
 
---=-aTNOPypeD2VshzvwhHht
-Content-Disposition: attachment; filename=patch20f4
-Content-Type: text/plain; name=patch20f4; charset=us-ascii
+--=-vEHYhKyABmQwNSneO0jT
+Content-Disposition: attachment; filename=patch30f4
+Content-Type: text/plain; name=patch30f4; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 
-[NET_BATCH] Introduce batching interface
+[NET_BATCH] net core use batching
 
-This patch introduces the netdevice interface for batching.
+This patch adds the usage of batching within the core.
+The same test methodology used in introducing txlock is used, with
+the following results on different kernels:
 
-A typical driver dev->hard_start_xmit() has 4 parts:
-a) packet formating (example vlan, mss, descriptor counting etc)
-b) chip specific formatting
-c) enqueueing the packet on a DMA ring
-d) IO operations to complete packet transmit, tell DMA engine to chew on,
-tx completion interupts etc
+        +------------+--------------+-------------+------------+--------+
+        |       64B  |  128B        | 256B        | 512B       |1024B   |
+        +------------+--------------+-------------+------------+--------+
+Original| 467482     | 463061       | 388267      | 216308     | 114704 |
+        |            |              |             |            |        |
+txlock  | 468922     | 464060       | 388298      | 216316     | 114709 |
+        |            |              |             |            |        |
+tg3nobtx| 468012     | 464079       | 388293      | 216314     | 114704 |
+        |            |              |             |            |        |
+tg3btxdr| 480794     | 475102       | 388298      | 216316     | 114705 |
+        |            |              |             |            |        |
+tg3btxco| 481059     | 475423       | 388285      | 216308     | 114706 |
+        +------------+--------------+-------------+------------+--------+
 
-[For code cleanliness/readability sake, regardless of this work,
-one should break the dev->hard_start_xmit() into those 4 functions
-anyways].
+The first two colums "Original" and "txlock" were introduced in an earlier
+patch and demonstrate a slight increase in performance with txlock.
+"tg3nobtx" shows the tg3 driver with no changes to support batching.
+The purpose of this test is to demonstrate the effect of introducing
+the core changes to a driver that doesnt support them.
+Although this patch brings down perfomance slightly compared to txlock
+for such netdevices, it is still better compared to just the original kernel.
+"tg3btxdr" demonstrates the effect of using ->hard_batch_xmit() with tg3
+driver. "tg3btxco" demonstrates the effect of letting the core do all the
+work. As can be seen the last two are not very different in performance.
+The difference is ->hard_batch_xmit() introduces a new method which
+is intrusive.
 
-With the api introduced in this patch, a driver which has all
-4 parts and needing to support batching is advised to split its
-dev->hard_start_xmit() in the following manner:
-1)use its dev->hard_prep_xmit() method to achieve #a
-2)use its dev->hard_end_xmit() method to achieve #d
-3)#b and #c can stay in ->hard_start_xmit() (or whichever way you want
-to do this)
-Note: There are drivers which may need not support any of the two
-methods (example the tun driver i patched) so the two methods are
-optional.
-
-The core will first do the packet formatting by invoking your supplied
-dev->hard_prep_xmit() method. It will then pass you the packet via
-your dev->hard_start_xmit() method and lastly will invoke your
-dev->hard_end_xmit() when it completes passing you all the packets
-queued for you. dev->hard_prep_xmit() is invoked without holding any
-tx lock but the rest are under TX_LOCK().
-
-LLTX present a challenge in that we have to introduce a deviation
-from the norm and introduce the ->hard_batch_xmit() method. An LLTX
-driver presents us with ->hard_batch_xmit() to which we pass it a list
-of packets in a dev->blist skb queue. It is then the responsibility
-of the ->hard_batch_xmit() to exercise steps #b and #c for all packets
-and #d when the batching is complete. Step #a is already done for you
-by the time you get the packets in dev->blist.
-And last xmit_win variable is introduced to ensure that when we pass
-the driver a list of packets it will swallow all of them - which is
-useful because we dont requeue to the qdisc (and avoids burning
-unnecessary cpu cycles or introducing any strange re-ordering). The driver
-tells us when it invokes netif_wake_queue how much space it has for
-descriptors by setting this variable.
-
-Some decisions i had to make:
-- every driver will have a xmit_win variable and the core will set it
-to 1 which means the behavior of non-batching drivers stays the same.
-- the batch list, blist, is no longer a pointer; wastes a little extra
-memmory i plan to recoup by killing gso_skb in later patches.
-
-Theres a lot of history and reasoning of why batching in a document
-i am writting which i may submit as a patch.
-Thomas Graf (who doesnt know this probably) gave me the impetus to
-start looking at this back in 2004 when he invited me to the linux
-conference he was organizing. Parts of what i presented in SUCON in
-2004 talk about batching. Herbert Xu forced me to take a second look around
-2.6.18 - refer to my netconf 2006 presentation. Krishna Kumar provided
-me with more motivation in May 2007 when he posted on netdev and engaged me.
-Sridhar Samudrala, Krishna Kumar, Matt Carlson, Michael Chan,
-Jeremy Ethridge, Evgeniy Polyakov, Sivakumar Subramani, and
-David Miller, have contributed in one or more of {bug fixes, enhancements,
-testing, lively discussion}. The Broadcom and netiron folks have been
-outstanding in their help.
+I have #if-0ed some of the old functions so the patch is more readable.
 
 Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
 ---
-commit ab4b07ef2e4069c115c9c1707d86ae2344a5ded5
-tree 994b42b03bbfcc09ac8b7670c53c12e0b2a71dc7
-parent b0e36991c5850dfe930f80ee508b08fdcabc18d1
-author Jamal Hadi Salim <hadi@cyberus.ca> Sun, 23 Sep 2007 10:30:32 -0400
-committer Jamal Hadi Salim <hadi@cyberus.ca> Sun, 23 Sep 2007 10:30:32 -0400
+commit e26705f6ef7db034df7af3f4fccd7cd40b8e46e0
+tree b99c469497a0145ca5c0651dc4229ce17da5b31c
+parent 6b8e2f76f86c35a6b2cee3698c633d20495ae0c0
+author Jamal Hadi Salim <hadi@cyberus.ca> Sun, 23 Sep 2007 11:35:25 -0400
+committer Jamal Hadi Salim <hadi@cyberus.ca> Sun, 23 Sep 2007 11:35:25 -0400
 
- include/linux/netdevice.h |   17 +++++++
- net/core/dev.c            |  106 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 123 insertions(+), 0 deletions(-)
+ net/sched/sch_generic.c |  127 +++++++++++++++++++++++++++++++++++++++++++----
+ 1 files changed, 115 insertions(+), 12 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index cf89ce6..443cded 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -453,6 +453,7 @@ struct net_device
- #define NETIF_F_NETNS_LOCAL	8192	/* Does not change network namespaces */
- #define NETIF_F_MULTI_QUEUE	16384	/* Has multiple TX/RX queues */
- #define NETIF_F_LRO		32768	/* large receive offload */
-+#define NETIF_F_BTX		65536	/* Capable of batch tx */
- 
- 	/* Segmentation offload features */
- #define NETIF_F_GSO_SHIFT	16
-@@ -578,6 +579,15 @@ struct net_device
- 	void			*priv;	/* pointer to private data	*/
- 	int			(*hard_start_xmit) (struct sk_buff *skb,
- 						    struct net_device *dev);
-+	/* hard_batch_xmit is needed for LLTX, kill it when those
-+	 * disappear or better kill it now and dont support LLTX
-+	*/
-+	int			(*hard_batch_xmit) (struct net_device *dev);
-+	int			(*hard_prep_xmit) (struct sk_buff *skb,
-+						   struct net_device *dev);
-+	void			(*hard_end_xmit) (struct net_device *dev);
-+	int			xmit_win;
-+
- 	/* These may be needed for future network-power-down code. */
- 	unsigned long		trans_start;	/* Time (in jiffies) of last Tx	*/
- 
-@@ -592,6 +602,7 @@ struct net_device
- 
- 	/* delayed register/unregister */
- 	struct list_head	todo_list;
-+	struct sk_buff_head     blist;
- 	/* device index hash chain */
- 	struct hlist_node	index_hlist;
- 
-@@ -1022,6 +1033,12 @@ extern int		dev_set_mac_address(struct net_device *,
- 					    struct sockaddr *);
- extern int		dev_hard_start_xmit(struct sk_buff *skb,
- 					    struct net_device *dev);
-+extern int		dev_batch_xmit(struct net_device *dev);
-+extern int		prepare_gso_skb(struct sk_buff *skb,
-+					struct net_device *dev,
-+					struct sk_buff_head *skbs);
-+extern int		xmit_prepare_skb(struct sk_buff *skb,
-+					 struct net_device *dev);
- 
- extern int		netdev_budget;
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 91c31e6..25d01fd 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1531,6 +1531,110 @@ static int dev_gso_segment(struct sk_buff *skb)
- 	return 0;
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 95ae119..86a3f9d 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -56,6 +56,7 @@ static inline int qdisc_qlen(struct Qdisc *q)
+ 	return q->q.qlen;
  }
  
-+int prepare_gso_skb(struct sk_buff *skb, struct net_device *dev,
-+		    struct sk_buff_head *skbs)
-+{
-+	int tdq = 0;
-+	do {
-+		struct sk_buff *nskb = skb->next;
-+
-+		skb->next = nskb->next;
-+		nskb->next = NULL;
-+
-+		if (dev->hard_prep_xmit) {
-+			/* note: skb->cb is set in hard_prep_xmit(),
-+			 * it should not be trampled somewhere
-+			 * between here and the driver picking it
-+			 * The VLAN code wrongly assumes it owns it
-+			 * so the driver needs to be careful; for
-+			 * good handling look at tg3 driver ..
-+			*/
-+			int ret = dev->hard_prep_xmit(nskb, dev);
-+			if (ret != NETDEV_TX_OK)
-+				continue;
-+		}
-+		/* Driver likes this packet .. */
-+		tdq++;
-+		__skb_queue_tail(skbs, nskb);
-+	} while (skb->next);
-+	skb->destructor = DEV_GSO_CB(skb)->destructor;
-+	kfree_skb(skb);
-+
-+	return tdq;
-+}
-+
-+int xmit_prepare_skb(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct sk_buff_head *skbs = &dev->blist;
-+
-+	if (netif_needs_gso(dev, skb)) {
-+		if (unlikely(dev_gso_segment(skb))) {
-+			kfree_skb(skb);
-+			return 0;
-+		}
-+		if (skb->next)
-+			return prepare_gso_skb(skb, dev, skbs);
-+	}
-+
-+	if (dev->hard_prep_xmit) {
-+		int ret = dev->hard_prep_xmit(skb, dev);
-+		if (ret != NETDEV_TX_OK)
-+			return 0;
-+	}
-+	__skb_queue_tail(skbs, skb);
-+	return 1;
-+}
-+
-+int dev_batch_xmit(struct net_device *dev)
-+{
-+	struct sk_buff_head *skbs = &dev->blist;
-+	int rc = NETDEV_TX_OK;
-+	struct sk_buff *skb;
-+	int orig_w = dev->xmit_win;
-+	int orig_pkts = skb_queue_len(skbs);
-+
-+	if (dev->hard_batch_xmit) { /* only for LLTX devices */
-+		rc = dev->hard_batch_xmit(dev);
-+	} else {
-+		while ((skb = __skb_dequeue(skbs)) != NULL) {
-+			if (!list_empty(&ptype_all))
-+				dev_queue_xmit_nit(skb, dev);
-+			rc = dev->hard_start_xmit(skb, dev);
-+			if (unlikely(rc))
-+				break;
-+			/*
-+			 * XXX: multiqueue may need closer srutiny..
-+			*/
-+			if (unlikely(netif_queue_stopped(dev) ||
-+			     netif_subqueue_stopped(dev, skb->queue_mapping))) {
-+				rc = NETDEV_TX_BUSY;
-+				break;
-+			}
-+		}
-+	}
-+
-+	/* driver is likely buggy and lied to us on how much
-+	 * space it had. Damn you driver ..
-+	*/
-+	if (unlikely(skb_queue_len(skbs))) {
-+		printk(KERN_WARNING "Likely bug %s %s (%d) "
-+				"left %d/%d window now %d, orig %d\n",
-+			dev->name, rc?"busy":"locked",
-+			netif_queue_stopped(dev),
-+			skb_queue_len(skbs),
-+			orig_pkts,
-+			dev->xmit_win,
-+			orig_w);
-+			rc = NETDEV_TX_BUSY;
-+	}
-+
-+	if (orig_pkts > skb_queue_len(skbs))
-+		if (dev->hard_end_xmit)
-+			dev->hard_end_xmit(dev);
-+
-+	return rc;
-+}
-+
- int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
++#if 0
+ static inline int dev_requeue_skb(struct sk_buff *skb, struct net_device *dev,
+ 				  struct Qdisc *q)
  {
- 	if (likely(!skb->next)) {
-@@ -3565,6 +3669,8 @@ int register_netdevice(struct net_device *dev)
- 		}
+@@ -110,6 +111,97 @@ static inline int handle_dev_cpu_collision(struct sk_buff *skb,
+ 
+ 	return ret;
+ }
++#endif
++
++static inline int handle_dev_cpu_collision(struct net_device *dev)
++{
++	if (unlikely(dev->xmit_lock_owner == smp_processor_id())) {
++		if (net_ratelimit())
++			printk(KERN_WARNING
++				"Dead loop on netdevice %s, fix it urgently!\n",
++				dev->name);
++		return 1;
++	}
++	__get_cpu_var(netdev_rx_stat).cpu_collision++;
++	return 0;
++}
++
++static inline int
++dev_requeue_skbs(struct sk_buff_head *skbs, struct net_device *dev,
++	       struct Qdisc *q)
++{
++
++	struct sk_buff *skb;
++
++	while ((skb = __skb_dequeue(skbs)) != NULL)
++		q->ops->requeue(skb, q);
++
++	netif_schedule(dev);
++	return 0;
++}
++
++static inline int
++xmit_islocked(struct sk_buff_head *skbs, struct net_device *dev,
++	    struct Qdisc *q)
++{
++	int ret = handle_dev_cpu_collision(dev);
++
++	if (ret) {
++		if (!skb_queue_empty(skbs))
++			skb_queue_purge(skbs);
++		return qdisc_qlen(q);
++	}
++
++	return dev_requeue_skbs(skbs, dev, q);
++}
++
++static int xmit_count_skbs(struct sk_buff *skb)
++{
++	int count = 0;
++	for (; skb; skb = skb->next) {
++		count += skb_shinfo(skb)->nr_frags;
++		count += 1;
++	}
++	return count;
++}
++
++static int xmit_get_pkts(struct net_device *dev,
++			   struct Qdisc *q,
++			   struct sk_buff_head *pktlist)
++{
++	struct sk_buff *skb;
++	int count = dev->xmit_win;
++
++	if (count  && dev->gso_skb) {
++		skb = dev->gso_skb;
++		dev->gso_skb = NULL;
++		count -= xmit_count_skbs(skb);
++		__skb_queue_tail(pktlist, skb);
++	}
++
++	while (count > 0) {
++		skb = q->dequeue(q);
++		if (!skb)
++			break;
++
++		count -= xmit_count_skbs(skb);
++		__skb_queue_tail(pktlist, skb);
++	}
++
++	return skb_queue_len(pktlist);
++}
++
++static int xmit_prepare_pkts(struct net_device *dev,
++			     struct sk_buff_head *tlist)
++{
++	struct sk_buff *skb;
++	struct sk_buff_head *flist = &dev->blist;
++
++	while ((skb = __skb_dequeue(tlist)) != NULL)
++		xmit_prepare_skb(skb, dev);
++
++	return skb_queue_len(flist);
++}
+ 
+ /*
+  * NOTE: Called under dev->queue_lock with locally disabled BH.
+@@ -130,22 +222,27 @@ static inline int handle_dev_cpu_collision(struct sk_buff *skb,
+  *				>0 - queue is not empty.
+  *
+  */
+-static inline int qdisc_restart(struct net_device *dev)
++
++static inline int qdisc_restart(struct net_device *dev,
++				struct sk_buff_head *tpktlist)
+ {
+ 	struct Qdisc *q = dev->qdisc;
+-	struct sk_buff *skb;
+-	int ret;
++	int ret = 0;
+ 
+-	/* Dequeue packet */
+-	if (unlikely((skb = dev_dequeue_skb(dev, q)) == NULL))
+-		return 0;
++	ret = xmit_get_pkts(dev, q, tpktlist);
+ 
++	if (!ret)
++		return 0;
+ 
+-	/* And release queue */
++	/* We got em packets */
+ 	spin_unlock(&dev->queue_lock);
+ 
++	/* prepare to embark */
++	xmit_prepare_pkts(dev, tpktlist);
++
++	/* bye packets ....*/
+ 	HARD_TX_LOCK(dev, smp_processor_id());
+-	ret = dev_hard_start_xmit(skb, dev);
++	ret = dev_batch_xmit(dev);
+ 	HARD_TX_UNLOCK(dev);
+ 
+ 	spin_lock(&dev->queue_lock);
+@@ -158,8 +255,8 @@ static inline int qdisc_restart(struct net_device *dev)
+ 		break;
+ 
+ 	case NETDEV_TX_LOCKED:
+-		/* Driver try lock failed */
+-		ret = handle_dev_cpu_collision(skb, dev, q);
++		/* Driver lock failed */
++		ret = xmit_islocked(&dev->blist, dev, q);
+ 		break;
+ 
+ 	default:
+@@ -168,7 +265,7 @@ static inline int qdisc_restart(struct net_device *dev)
+ 			printk(KERN_WARNING "BUG %s code %d qlen %d\n",
+ 			       dev->name, ret, q->q.qlen);
+ 
+-		ret = dev_requeue_skb(skb, dev, q);
++		ret = dev_requeue_skbs(&dev->blist, dev, q);
+ 		break;
  	}
  
+@@ -177,8 +274,11 @@ static inline int qdisc_restart(struct net_device *dev)
+ 
+ void __qdisc_run(struct net_device *dev)
+ {
++	struct sk_buff_head tpktlist;
++	skb_queue_head_init(&tpktlist);
++
+ 	do {
+-		if (!qdisc_restart(dev))
++		if (!qdisc_restart(dev, &tpktlist))
+ 			break;
+ 	} while (!netif_queue_stopped(dev));
+ 
+@@ -564,6 +664,9 @@ void dev_deactivate(struct net_device *dev)
+ 
+ 	skb = dev->gso_skb;
+ 	dev->gso_skb = NULL;
++	if (!skb_queue_empty(&dev->blist))
++		skb_queue_purge(&dev->blist);
 +	dev->xmit_win = 1;
-+	skb_queue_head_init(&dev->blist);
- 	/*
- 	 *	nil rebuild_header routine,
- 	 *	that should be never called and used as just bug trap.
+ 	spin_unlock_bh(&dev->queue_lock);
+ 
+ 	kfree_skb(skb);
 
---=-aTNOPypeD2VshzvwhHht
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+--=-vEHYhKyABmQwNSneO0jT--
 
-
---=-aTNOPypeD2VshzvwhHht--
