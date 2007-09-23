@@ -1,48 +1,47 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: incorrect cksum with tcp/udp on lo with 2.6.20/2.6.21/2.6.22
-Date: Sun, 23 Sep 2007 23:18:58 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0709232317001.24758@bizon.gios.gov.pl>
-References: <E1IZJFo-0006ta-00@gondolin.me.apana.org.au>
+From: jamal <hadi@cyberus.ca>
+Subject: [ofa-general] Re: [PATCHES] TX batching
+Date: Sun, 23 Sep 2007 17:20:48 -0400
+Message-ID: <1190582448.4240.2.camel@localhost>
+References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
+	<20070916.161748.48388692.davem@davemloft.net>
+	<1189988958.4230.55.camel@localhost>
+	<1190569987.4256.52.camel@localhost>
+	<46F6AE18.7080708@garzik.org> <1190574713.5030.4.camel@localhost>
+	<46F6C059.6000600@intel.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-868810198-1190582338=:24758"
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:37790 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752255AbXIWVTQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2007 17:19:16 -0400
-In-Reply-To: <E1IZJFo-0006ta-00@gondolin.me.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: randy.dunlap@oracle.com, Robert.Olsson@data.slu.se, gaagaan@gmail.com,
+	kumarkr@linux.ibm.com, peter.p.waskiewicz.jr@intel.com,
+	shemminger@linux-foundation.org, johnpol@2ka.mipt.ru,
+	herbert@gondor.apana.org.au, Jeff Garzik <jeff@garzik.org>,
+	rdreier@cisco.com, mcarlson@broadcom.com,
+	general@lists.openfabrics.org, sri@us.ibm.com, jagana@us.ibm.com,
+	mchan@broadcom.com, netdev@vger.kernel.org, kaber@trash.net,
+	tgraf@suug.ch, David Miller <davem@davemloft.net>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <46F6C059.6000600@intel.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Sun, 2007-23-09 at 12:36 -0700, Kok, Auke wrote:
 
----187430788-868810198-1190582338=:24758
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+> please be reminded that we're going to strip down e1000 and most of the features
+> should go into e1000e, which has much less hardware workarounds. I'm still
+> reluctant to putting in new stuff in e1000 - I really want to chop it down first ;)
 
+sure - the question then is, will you take those changes if i use
+e1000e? theres a few cleanups that have nothing to do with batching;
+take a look at the modified e1000 on the git tree.
 
-
-On Sun, 23 Sep 2007, Herbert Xu wrote:
-
-> Krzysztof Oledzki <olel@ans.pl> wrote:
->>
->> It seems that after some not very recent changes udp and tcp packes
->> carring data send by a loopback have incorrect cksum:
->
-> This correct.  The loopback interfaces has the no checksum flag
-> set so we only provide a partial checksum on output (i.e., the
-> pseudoheader without the payload).
->
-> We even export this to user-space via a flag.  So you should fix
-> tcpdump to read this flag and ignore the checksum.
-
-Thank you for the information. Is there any easy way to turn them on? I=20
-need it for LVS.
-
-Best regards,
-
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-868810198-1190582338=:24758--
+cheers,
+jamal
