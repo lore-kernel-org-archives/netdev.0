@@ -1,34 +1,32 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: incorrect cksum with tcp/udp on lo with 2.6.20/2.6.21/2.6.22
-Date: Sun, 23 Sep 2007 12:39:36 +0800
-Message-ID: <E1IZJFo-0006ta-00@gondolin.me.apana.org.au>
-References: <Pine.LNX.4.64.0709131942370.27961@bizon.gios.gov.pl>
-Cc: netdev@vger.kernel.org
-To: olel@ans.pl (Krzysztof Oledzki)
+From: David Miller <davem@davemloft.net>
+Subject: Re: bind and O_NONBLOCK
+Date: Sat, 22 Sep 2007 22:58:18 -0700 (PDT)
+Message-ID: <20070922.225818.74741259.davem@davemloft.net>
+References: <46F540F2.1090109@redhat.com>
+	<20070922165938.GA11234@2ka.mipt.ru>
+	<46F54CA5.8020200@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johnpol@2ka.mipt.ru, netdev@vger.kernel.org, alan@redhat.com
+To: drepper@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4452 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752926AbXIWEjo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2007 00:39:44 -0400
-In-Reply-To: <Pine.LNX.4.64.0709131942370.27961@bizon.gios.gov.pl>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44919
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752878AbXIWF6S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2007 01:58:18 -0400
+In-Reply-To: <46F54CA5.8020200@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Krzysztof Oledzki <olel@ans.pl> wrote:
-> 
-> It seems that after some not very recent changes udp and tcp packes 
-> carring data send by a loopback have incorrect cksum:
+From: Ulrich Drepper <drepper@redhat.com>
+Date: Sat, 22 Sep 2007 10:11:01 -0700
 
-This correct.  The loopback interfaces has the no checksum flag
-set so we only provide a partial checksum on output (i.e., the
-pseudoheader without the payload).
+> There was no public mail.  I asked RH engineering for proposals for
+> changes to the POSIX spec and Alan replied.
 
-We even export this to user-space via a flag.  So you should fix
-tcpdump to read this flag and ignore the checksum.
+Please do not discuss such proposals only privately, especially when
+the ramifications affect the entire community.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+It is important the things get hashed out on a public forum where
+all networking developers can add their insight into the problem.
