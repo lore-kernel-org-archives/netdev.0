@@ -1,42 +1,48 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: pktgen question
-Date: Sun, 23 Sep 2007 14:18:47 -0400
-Message-ID: <1190571527.4256.78.camel@localhost>
-References: <46F6905C.6030309@opengridcomputing.com>
-	 <20070923172803.GA11997@2ka.mipt.ru>
-	 <46F6A887.1030301@opengridcomputing.com>
-Reply-To: hadi@cyberus.ca
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCHES] TX batching
+Date: Sun, 23 Sep 2007 14:19:04 -0400
+Message-ID: <46F6AE18.7080708@garzik.org>
+References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>	 <20070916.161748.48388692.davem@davemloft.net>	 <1189988958.4230.55.camel@localhost> <1190569987.4256.52.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
-	Robert Olsson <Robert.Olsson@data.slu.se>
-To: Steve Wise <swise@opengridcomputing.com>
+Cc: David Miller <davem@davemloft.net>, krkumar2@in.ibm.com,
+	johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, kaber@trash.net,
+	shemminger@linux-foundation.org, jagana@us.ibm.com,
+	Robert.Olsson@data.slu.se, rick.jones2@hp.com, xma@us.ibm.com,
+	gaagaan@gmail.com, netdev@vger.kernel.org, rdreier@cisco.com,
+	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
+	mchan@broadcom.com, general@lists.openfabrics.org,
+	kumarkr@linux.ibm.com, tgraf@suug.ch, randy.dunlap@oracle.com,
+	sri@us.ibm.com
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.247]:2989 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755024AbXIWSSv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2007 14:18:51 -0400
-Received: by an-out-0708.google.com with SMTP id d31so196561and
-        for <netdev@vger.kernel.org>; Sun, 23 Sep 2007 11:18:51 -0700 (PDT)
-In-Reply-To: <46F6A887.1030301@opengridcomputing.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:40712 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756007AbXIWSTv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Sep 2007 14:19:51 -0400
+In-Reply-To: <1190569987.4256.52.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2007-23-09 at 12:55 -0500, Steve Wise wrote:
+jamal wrote:
+> More patches to follow  - i didnt want to overload people by dumping 
+> too many patches. Most of these patches below are ready to go; some are
+> need some testing and others need a little porting from an earlier
+> kernel: 
+> - tg3 driver (tested and works well, but dont want to send 
+> - tun driver
+> - pktgen
+> - netiron driver
+> - e1000 driver
 
-> Its a hack that breaks cxgb3 because cxgb3 uses the skb->cb area for 
-> each skb passed down.  So cxgb3 is at fault then?  IE a driver cannot 
-> use the skb->cb field if the users count is > 1?  Or maybe a driver can 
-> _never_ use the cb field?
 
-any layer can use the cb structure whichever way they wish. There are
-violations, e.g:
-the vlan code also uses the cb field to pass vlan details for hardware
-acceleration. How does pktgen affect it though, clone() will just copy
-the cb field and pktgen doesnt touch it.
-In retrospect, pktgen may have to use clone - ccing Robert Olsson.
+You should post at least a couple driver patches to see how its used on 
+Real Hardware(tm)...   :)
 
-cheers,
-jamal
+The batching idea has always seemed like a no-brainer to me, so I'm very 
+interested to see how this turns out.
+
+	Jeff
+
 
