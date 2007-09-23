@@ -1,95 +1,49 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [PATCHES] TX batching
-Date: Sun, 23 Sep 2007 13:53:07 -0400
-Message-ID: <1190569987.4256.52.camel@localhost>
-References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
-	 <20070916.161748.48388692.davem@davemloft.net>
-	 <1189988958.4230.55.camel@localhost>
-Reply-To: hadi@cyberus.ca
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: pktgen question
+Date: Sun, 23 Sep 2007 12:55:19 -0500
+Message-ID: <46F6A887.1030301@opengridcomputing.com>
+References: <46F6905C.6030309@opengridcomputing.com> <20070923172803.GA11997@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, johnpol@2ka.mipt.ru,
-	herbert@gondor.apana.org.au, kaber@trash.net,
-	shemminger@linux-foundation.org, jagana@us.ibm.com,
-	Robert.Olsson@data.slu.se, rick.jones2@hp.com, xma@us.ibm.com,
-	gaagaan@gmail.com, netdev@vger.kernel.org, rdreier@cisco.com,
-	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
-	jeff@garzik.org, mchan@broadcom.com, general@lists.openfabrics.org,
-	kumarkr@linux.ibm.com, tgraf@suug.ch, randy.dunlap@oracle.com,
-	sri@us.ibm.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.247]:53882 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753619AbXIWRxN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2007 13:53:13 -0400
-Received: by an-out-0708.google.com with SMTP id d31so196026and
-        for <netdev@vger.kernel.org>; Sun, 23 Sep 2007 10:53:12 -0700 (PDT)
-In-Reply-To: <1189988958.4230.55.camel@localhost>
+Received: from 209-198-142-2-host.prismnet.net ([209.198.142.2]:50436 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754571AbXIWRzT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2007 13:55:19 -0400
+In-Reply-To: <20070923172803.GA11997@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-I had plenty of time this weekend so i have been doing a _lot_ of
-testing.  My next emails will send a set of patches:
- 
-Patch 1: Introduces explicit tx locking
-Patch 2: Introduces batching interface
-Patch 3: Core uses batching interface
-Patch 4: get rid of dev->gso_skb
 
-Testing
--------
-Each of these patches has been performance tested and the results
-are in the logs on a per-patch basis. 
-My system under test hardware is a 2xdual core opteron with a couple of 
-tg3s. 
-My test tool generates udp traffic of different sizes for upto 60 
-seconds per run or a total of 30M packets. I have 4 threads each 
-running on a specific CPU which keep all the CPUs as busy as they can 
-sending packets targetted at a directly connected box's udp discard
-port.
+Evgeniy Polyakov wrote:
+> Hi Steve.
+> 
+> On Sun, Sep 23, 2007 at 11:12:12AM -0500, Steve Wise (swise@opengridcomputing.com) wrote:
+>> The pktgen module provides a way to "clone" the skb its using for 
+>> transmission, and allows passing N clones of the originally created skb 
+>> to the driver under test.    However, it doesn't really use skb_clone(), 
+>> but rather it just bumps the skb->users count for each "clone" and 
+>> passes the same skb ptr to the driver.
+>>
+>> Q: Is that a valid use of skb->users or should pktgen really be cloning 
+>> the skbuff?
+> 
+> It's a hack, but since skb is owned by pktgen only (no copies in some
+> outside queues or some other access) it is allowed just to bump reference
+> counter (i.e. 'share' skb in usual notation).
+>
 
-All 4 CPUs target a single tg3 to send. The receiving box has a tc rule 
-which counts and drops all incoming udp packets to discard port - this
-allows me to make sure that the receiver is not the bottleneck in the
-testing. Packet sizes sent are {64B, 128B, 256B, 512B, 1024B}. Each
-packet size run is repeated 10 times to ensure that there are no
-transients. The average of all 10 runs is then computed and collected.
+Its a hack that breaks cxgb3 because cxgb3 uses the skb->cb area for 
+each skb passed down.  So cxgb3 is at fault then?  IE a driver cannot 
+use the skb->cb field if the users count is > 1?  Or maybe a driver can 
+_never_ use the cb field?
 
-I have not run testing on patch #4 because i had to let the machine
-go, but will have some access to it tommorow early morning where i can
-run some tests.
+Steve.
 
-Comments
---------
-Iam trying to kill ->hard_batch_xmit() but it would be tricky to do
-without it for LLTX drivers. Anything i try will require a few extra
-checks. OTOH, I could kill LLTX for the drivers i am using that
-are LLTX and then drop that interface or I could say "no support
-for LLTX". I am in a dilema.
 
-Dave please let me know if this meets your desires to allow devices
-which are SG and able to compute CSUM benefit just in case i
-misunderstood. 
-Herbert, if you can look at at least patch 4 i will appreaciate it.
 
-More patches to follow  - i didnt want to overload people by dumping 
-too many patches. Most of these patches below are ready to go; some are
-need some testing and others need a little porting from an earlier
-kernel: 
-- tg3 driver (tested and works well, but dont want to send 
-- tun driver
-- pktgen
-- netiron driver
-- e1000 driver
-- ethtool interface
-- There is at least one other driver promised to me
-
-I am also going to update the two documents i posted earlier.
-Hopefully i can do that today.
-
-cheers,
-jamal
 
