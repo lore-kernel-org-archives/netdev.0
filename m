@@ -1,39 +1,89 @@
-From: Moni Shoua <monisonlists@gmail.com>
-Subject: Re: [ofa-general] Re: [PATCH V5 2/11] IB/ipoib: Notify the world
- before	doing unregister
-Date: Sun, 23 Sep 2007 09:55:34 +0200
-Message-ID: <46F61BF6.3000203@gmail.com>
-References: <46F27692.3070404@voltaire.com> <46F2784C.9070806@voltaire.com> <adaabrhgvfa.fsf@cisco.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH: 2.6.13-15-SMP 3/3] network: concurrently run
+	softirqnetwork code on SMP
+Date: Sun, 23 Sep 2007 08:43:41 -0400
+Message-ID: <1190551422.4256.36.camel@localhost>
+References: <004901c7fd9c$94370df0$d6ddfea9@JOHNYE1>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Moni Shoua <monis@voltaire.com>, netdev@vger.kernel.org,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	OpenFabrics General <general@lists.openfabrics.org>
-To: Roland Dreier <rdreier@cisco.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	kaber@coreworks.de
+To: john ye <johny@asimco.com.cn>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:14100 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750753AbXIWHzn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Sep 2007 03:55:43 -0400
-In-Reply-To: <adaabrhgvfa.fsf@cisco.com>
+Received: from wx-out-0506.google.com ([66.249.82.235]:3384 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751927AbXIWMnq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2007 08:43:46 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1006089wxd
+        for <netdev@vger.kernel.org>; Sun, 23 Sep 2007 05:43:45 -0700 (PDT)
+In-Reply-To: <004901c7fd9c$94370df0$d6ddfea9@JOHNYE1>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Roland Dreier wrote:
->  > +		ipoib_slave_detach(cpriv->dev);
->  >  		unregister_netdev(cpriv->dev);
+On Sun, 2007-23-09 at 12:45 +0800, john ye wrote:
+
+>  I do randomly select a CPU to dispatch the skb to. Previously, I
+> dispatch
+>  skb evenly to all CPUs( round robin, one by one). but I didn't find a
+> quick
+>  coding. for_each_online_cpu is not quick enough.
+
+for_each_online_cpu doenst look that expensive - but even round robin
+wont fix the reordering problem. What you need to do is make sure that a
+flow always goes to the same cpu over some period of time.
+
+>  According to my test result, it did make packet INPUT speed doubled
+> because
+>  another CPU is used concurrently.
+
+How did you measure "speed" - was it throughput? Did you measure how
+much cpu was being utilized?
+
+>  It seems the packets still keep "roughly ordering" after turning on
+> BS patch.
+
+Linux TCP is very resilient to reordering compared to other OSes, but
+even then if you hit it with enough packets it is going to start
+sweating it.
+
+>  The test is simple: use an 2400 lines of iptables -t filter -A INPUT
+> -p
+>  tcp -s x.x.x.x --dport yy -j XXXX.
+>  these rules make the current softirq be very busy on one CPU and make
+> the
+>  incoming net very slow. after turning on BS, the speed doubled.
 > 
-> Maybe you already answered this before, but I'm still not clear why
-> this notifier call can't just be added to the start of
-> unregister_netdevice(), so we can avoid having driver needing to know
-> anything about bonding internals?
+Ok, but how do you observe "doubled"?
+Do you have conntrack on? It maybe that what you have just found is
+netfilter needs to have its work defered from packet rcv.
+You need some real fast traffic generator; possibly one that can do
+thousands of tcp sessions.
+
+>  For NAT test, I didn't get a good result like INPUT because real 
+> environment limitation.
+>  The test is very basic and is far from "full".
+
+What happens when you totally compile out netfilter and you just use
+this machine as a server?
+
+>  It seems to me that the cross-cpu spinlock_xxxx for the queue doesn't
+> have
+>  big cost and is allowable in terms of CPU time consumption, compared
+> with
+>  the gains by making other CPUs joint in the work.
 > 
->  - R.
+>  I have made BS patch into a loadable module.
+>  http://linux.chinaunix.net/bbs/thread-909725-2-1.html and let others
+> help with testing.
 
-The action in bonding to a detach of slave is to unregister the master (see patch 10).
-This can't be done from the context of unregister_netdevice itself (it is protected by rtnl_lock).
+It is still very hard to read; and i am not sure how you are going to
+get the performance you claim eventually - you are registering as a tap
+for ip packets, which means you will process two of each incoming
+packets.
 
-That's why I had to notify the detach before unregister begins.
-
+cheers,
+jamal
 
