@@ -1,33 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: incorrect cksum with tcp/udp on lo with 2.6.20/2.6.21/2.6.22
-Date: Mon, 24 Sep 2007 09:30:05 +0800
-Message-ID: <20070924013005.GB22054@gondor.apana.org.au>
-References: <E1IZJFo-0006ta-00@gondolin.me.apana.org.au> <Pine.LNX.4.64.0709232317001.24758@bizon.gios.gov.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Krzysztof Oledzki <olel@ans.pl>
+From: "John Ye" <johny@asimco.com.cn>
+Subject: Re: [PATCH: 2.6.13-15-SMP 3/3] network: concurrentlyrunsoftirqnetwork code on SMP
+Date: Mon, 24 Sep 2007 11:48:21 +0800
+Message-ID: <002401c7fe5d$c098c700$ca8510ac@asimco>
+References: <004901c7fd9c$94370df0$d6ddfea9@JOHNYE1> <1190551422.4256.36.camel@localhost> <000501c7fdf8$c7f7c8d0$d6ddfea9@JOHNYE1> <1190570864.4256.70.camel@localhost>
+Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<kuznet@ms2.inr.ac.ru>, <pekkas@netcore.fi>, <jmorris@namei.org>,
+	<kaber@coreworks.de>, <iceburgue@gmail.com>
+To: <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3175 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753493AbXIXBaI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2007 21:30:08 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0709232317001.24758@bizon.gios.gov.pl>
+Received: from mail.asimco-na.com ([207.138.153.195]:24429 "EHLO
+	mail.asimco-na.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753493AbXIXDqY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2007 23:46:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 23, 2007 at 11:18:58PM +0200, Krzysztof Oledzki wrote:
+Dear Jamal,
+
+Thanks, bothered you all.
+
+I will look into the 2 issues. re-ordering and spinlock, and do extensive
+test.
+Once having result, no matter positive or negative, I will contact you.
+The format will not be a mess any more.
+
+John Ye
+
+----- Original Message -----
+From: "jamal" <hadi@cyberus.ca>
+To: "john ye" <johny@asimco.com.cn>
+Cc: "David Miller" <davem@davemloft.net>; <netdev@vger.kernel.org>;
+<kuznet@ms2.inr.ac.ru>; <pekkas@netcore.fi>; <jmorris@namei.org>;
+<kaber@coreworks.de>; <iceburgue@gmail.com>
+Sent: Monday, September 24, 2007 2:07 AM
+Subject: Re: [PATCH: 2.6.13-15-SMP 3/3] network:
+concurrentlyrunsoftirqnetwork code on SMP
+
+
+> John,
+> It will NEVER be an acceptable solution as long as you have re-ordering.
+> I will look at it - but i have to run out for now. In the meantime,
+> I have indented it for you to be in proper kernel format so others can
+> also look it. Attached.
 >
-> Thank you for the information. Is there any easy way to turn them on? I 
-> need it for LVS.
+> cheers,
+> jamal
+>
+>
 
-Do you really need it? The packets should be checksummed at
-the point where they physically leave the host.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
