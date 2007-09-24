@@ -1,30 +1,36 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: [PATCH 1/2] bnx2: factor out gzip unpacker
-Date: Mon, 24 Sep 2007 13:32:23 -0400
-Message-ID: <20070924173223.GL5386@csclub.uwaterloo.ca>
-References: <200709211201.24475.vda.linux@googlemail.com> <200709211905.23946.vda.linux@googlemail.com> <p73ps0b93ph.fsf@bingen.suse.de> <200709212337.53043.vda.linux@googlemail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pktgen question
+Date: Mon, 24 Sep 2007 10:40:16 -0700 (PDT)
+Message-ID: <20070924.104016.74732763.davem@davemloft.net>
+References: <1190571527.4256.78.camel@localhost>
+	<46F75968.4010307@candelatech.com>
+	<46F7C185.1030202@opengridcomputing.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, jeff@garzik.org,
-	mchan@broadcom.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Denys Vlasenko <vda.linux@googlemail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: greearb@candelatech.com, hadi@cyberus.ca, johnpol@2ka.mipt.ru,
+	netdev@vger.kernel.org, Robert.Olsson@data.slu.se
+To: swise@opengridcomputing.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.csclub.uwaterloo.ca ([129.97.134.17]:46450 "EHLO
-	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756798AbXIXRcY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2007 13:32:24 -0400
-Content-Disposition: inline
-In-Reply-To: <200709212337.53043.vda.linux@googlemail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48099
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751117AbXIXRkQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2007 13:40:16 -0400
+In-Reply-To: <46F7C185.1030202@opengridcomputing.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 21, 2007 at 11:37:52PM +0100, Denys Vlasenko wrote:
-> But I compile net/* into bzImage. I like netbooting :)
+From: Steve Wise <swise@opengridcomputing.com>
+Date: Mon, 24 Sep 2007 08:54:13 -0500
 
-Isn't it possible to netboot with an initramfs image?  I am pretty sure
-I have seen some systems do exactly that.
+> I think pktgen should be cloning the skbs using skb_clone().  Then it 
+> will work for all devices, eh?
 
---
-Len Sorensen
+The problem is that skb_clone() is (relatively) expensive and
+pktgen is trying to just grab a reference to the SKB in
+the absolutely cheapest way possible.
+
+In my personal opinion, I think what the drivers that don't
+work with pktgen are doing is wrong and they should find
+another way to pass state around other than to depend upon
+being able to use the ->cb[] area at-will.
