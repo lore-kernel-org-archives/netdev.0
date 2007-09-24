@@ -1,56 +1,64 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: [ofa-general] Re: [PATCHES] TX batching
-Date: Mon, 24 Sep 2007 00:00:23 -0700
-Message-ID: <46F76087.8030109@intel.com>
-References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
-	<20070916.161748.48388692.davem@davemloft.net>
-	<1189988958.4230.55.camel@localhost>
-	<1190569987.4256.52.camel@localhost>
-	<46F6AE18.7080708@garzik.org> <1190574713.5030.4.camel@localhost>
-	<46F6C059.6000600@intel.com> <1190582448.4240.2.camel@localhost>
+From: Olaf Hering <olaf@aepfle.de>
+Subject: [PATCH] fix mace_handle_misc_intrs compilation
+Date: Mon, 24 Sep 2007 10:15:01 +0200
+Message-ID: <20070924081501.GA1797@aepfle.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: randy.dunlap@oracle.com, Robert.Olsson@data.slu.se, gaagaan@gmail.com,
-	kumarkr@linux.ibm.com, peter.p.waskiewicz.jr@intel.com,
-	shemminger@linux-foundation.org, johnpol@2ka.mipt.ru,
-	herbert@gondor.apana.org.au, Jeff Garzik <jeff@garzik.org>,
-	rdreier@cisco.com, mcarlson@broadcom.com,
-	general@lists.openfabrics.org, sri@us.ibm.com, jagana@us.ibm.com,
-	mchan@broadcom.com, "Kok, Auke" <auke-jan.h.kok@intel.com>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	tgraf@suug.ch, kaber@trash.net
-To: hadi@cyberus.ca
-Return-path: <general-bounces@lists.openfabrics.org>
-In-reply-to: <1190582448.4240.2.camel@localhost>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=utf-8
+To: Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.10]:49560 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751836AbXIXIOB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2007 04:14:01 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Sun, 2007-23-09 at 12:36 -0700, Kok, Auke wrote:
-> 
->> please be reminded that we're going to strip down e1000 and most of the features
->> should go into e1000e, which has much less hardware workarounds. I'm still
->> reluctant to putting in new stuff in e1000 - I really want to chop it down first ;)
-> 
-> sure - the question then is, will you take those changes if i use
-> e1000e? theres a few cleanups that have nothing to do with batching;
-> take a look at the modified e1000 on the git tree.
 
-that's bad to begin with :) - please send those separately so I can fasttrack them
-into e1000e and e1000 where applicable.
+Fix compilation after incomplete struct net_device changes.
 
-But yes, I'm very inclined to merge more features into e1000e than e1000. I intend
-to put multiqueue support into e1000e, as *all* of the hardware that it will
-support has multiple queues. Putting in any other performance feature like tx
-batching would absolutely be interesting.
+Signed-off-by: Olaf Hering <olaf@aepfle.de>
 
-Auke
+---
+ drivers/net/mace.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+--- a/drivers/net/mace.c
++++ b/drivers/net/mace.c
+@@ -633,7 +633,7 @@ static void mace_set_multicast(struct ne
+     spin_unlock_irqrestore(&mp->lock, flags);
+ }
+ 
+-static void mace_handle_misc_intrs(struct mace_data *mp, int intr)
++static void mace_handle_misc_intrs(struct mace_data *mp, int intr, struct net_device *dev)
+ {
+     volatile struct mace __iomem *mb = mp->mace;
+     static int mace_babbles, mace_jabbers;
+@@ -669,7 +669,7 @@ static irqreturn_t mace_interrupt(int ir
+     spin_lock_irqsave(&mp->lock, flags);
+     intr = in_8(&mb->ir);		/* read interrupt register */
+     in_8(&mb->xmtrc);			/* get retries */
+-    mace_handle_misc_intrs(mp, intr);
++    mace_handle_misc_intrs(mp, intr, dev);
+ 
+     i = mp->tx_empty;
+     while (in_8(&mb->pr) & XMTSV) {
+@@ -682,7 +682,7 @@ static irqreturn_t mace_interrupt(int ir
+ 	 */
+ 	intr = in_8(&mb->ir);
+ 	if (intr != 0)
+-	    mace_handle_misc_intrs(mp, intr);
++	    mace_handle_misc_intrs(mp, intr, dev);
+ 	if (mp->tx_bad_runt) {
+ 	    fs = in_8(&mb->xmtfs);
+ 	    mp->tx_bad_runt = 0;
+@@ -817,7 +817,7 @@ static void mace_tx_timeout(unsigned lon
+ 	goto out;
+ 
+     /* update various counters */
+-    mace_handle_misc_intrs(mp, in_8(&mb->ir));
++    mace_handle_misc_intrs(mp, in_8(&mb->ir), dev);
+ 
+     cp = mp->tx_cmds + NCMDS_TX * mp->tx_empty;
+ 
