@@ -1,47 +1,47 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [SCTP PULL Request]: Bug fixes for 2.6.23
-Date: Mon, 24 Sep 2007 16:59:25 -0400
-Message-ID: <46F8252D.3090803@hp.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [RFC] Zero-length write() does not generate a datagram on connected
+ socket
+Date: Mon, 24 Sep 2007 15:34:35 -0700
+Message-ID: <20070924153435.14249225@freepuppy.rosehill>
+References: <bug-5731-100@http.bugzilla.kernel.org/>
+	<20070922094432.E9BEA108010@picon.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"lksctp-developers@lists.sourceforge.net"
-	<lksctp-developers@lists.sourceforge.net>
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:51598 "EHLO atlrel9.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753245AbXIXU71 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Sep 2007 16:59:27 -0400
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:33378 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754511AbXIXWfM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2007 18:35:12 -0400
+Received: from freepuppy.rosehill (069-064-229-129.pdx.net [69.64.229.129])
+	(authenticated bits=0)
+	by smtp2.linux-foundation.org (8.13.5.20060308/8.13.5/Debian-3ubuntu1.1) with ESMTP id l8OMYt4D016528
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 24 Sep 2007 15:35:07 -0700
+In-Reply-To: <20070922094432.E9BEA108010@picon.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David
+The bug http://bugzilla.kernel.org/show_bug.cgi?id=5731
+describes an issue where write() can't be used to generate a zero-length
+datagram (but send, and sendto do work).
 
-Can you please pull the following changes since commit a41d3015c11a4e864b95cb57f579f2d8f40cd41b:
-  David S. Miller (1):
-        Revert "PCI: disable MSI by default on systems with Serverworks HT1000 chips"
+I think the following is needed:
 
-which are available in the git repository at:
-
-  vxy@master.kernel.org:/pub/scm/linux/kernel/git/vxy/lksctp-dev.git master
-
-Vlad Yasevich (4):
-      SCTP: Validate buffer room when processing sequential chunks
-      SCTP: Explicitly discard OOTB chunks
-      SCTP: Clean up OOTB handling and fix infinite loop processing
-      SCTP: Discard OOTB packets with bundled INIT early.
-
-Wei Yongjun (2):
-      SCTP: Send ABORT chunk with correct tag in response to INIT ACK
-      SCTP : Add paramters validity check for ASCONF chunk
-
- include/net/sctp/sm.h      |    4 +-
- include/net/sctp/structs.h |    1 +
- net/sctp/input.c           |    8 ++
- net/sctp/inqueue.c         |    8 ++
- net/sctp/sm_make_chunk.c   |   46 ++++++++
- net/sctp/sm_statefuns.c    |  243 +++++++++++++++++++++++++++++++++++++-------
- net/sctp/sm_statetable.c   |   16 ++--
- 7 files changed, 278 insertions(+), 48 deletions(-)
+--- a/net/socket.c	2007-08-20 09:54:28.000000000 -0700
++++ b/net/socket.c	2007-09-24 15:31:25.000000000 -0700
+@@ -777,8 +777,11 @@ static ssize_t sock_aio_write(struct kio
+ 	if (pos != 0)
+ 		return -ESPIPE;
+ 
+-	if (iocb->ki_left == 0)	/* Match SYS5 behaviour */
+-		return 0;
++	if (unlikely(iocb->ki_left == 0)) {
++		struct socket *sock = iocb->ki_filp->private_data;
++		if (sock->type == SOCK_STREAM)
++			return 0;
++	}
+ 
+ 	x = alloc_sock_iocb(iocb, &siocb);
+ 	if (!x)
