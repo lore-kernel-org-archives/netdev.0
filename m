@@ -1,52 +1,67 @@
-From: Zang Roy-r61911 <tie-fei.zang@freescale.com>
-Subject: [PATCH] Clean up redundant PHY write line for ULi526x Ethernet
-	driver
-Date: 24 Sep 2007 16:57:42 +0800
-Message-ID: <1190624262.20089.7.camel@localhost.localdomain>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [RFC PATCH 3/3] [TCP] MIB: Count FRTO's successfully detected spurious RTOs
+Date: Mon, 24 Sep 2007 12:04:08 +0300
+Message-ID: <11906246481619-git-send-email-ilpo.jarvinen@helsinki.fi>
+References: <11906246483472-git-send-email-ilpo.jarvinen@helsinki.fi> <11906246483657-git-send-email-ilpo.jarvinen@helsinki.fi> <11906246484144-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>
-To: jeff@garzik.org
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw02.freescale.net ([192.88.165.103]:49038 "EHLO
-	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751585AbXIXI4m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2007 04:56:42 -0400
-Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
-	by de01egw02.freescale.net (8.12.11/de01egw02) with ESMTP id l8O8ucSm017637
-	for <netdev@vger.kernel.org>; Mon, 24 Sep 2007 01:56:39 -0700 (MST)
-Received: from zch01exm23.fsl.freescale.net (zch01exm23.ap.freescale.net [10.192.129.207])
-	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id l8O8uZLX027562
-	for <netdev@vger.kernel.org>; Mon, 24 Sep 2007 03:56:36 -0500 (CDT)
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:55584 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751636AbXIXJEK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2007 05:04:10 -0400
+In-Reply-To: <11906246484144-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Roy Zang <tie-fei.zang@freescale.com>
-
-Clean up redundant PHY write line for ULi526x Ethernet
-Driver.
-
-Signed-off-by: Roy Zang <tie-fei.zang@freescale.com>
+Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 ---
- drivers/net/tulip/uli526x.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ include/linux/snmp.h |    1 +
+ net/ipv4/proc.c      |    1 +
+ net/ipv4/tcp_input.c |    1 +
+ 3 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/tulip/uli526x.c b/drivers/net/tulip/uli526x.c
-index ca2548e..53a8e65 100644
---- a/drivers/net/tulip/uli526x.c
-+++ b/drivers/net/tulip/uli526x.c
-@@ -1512,7 +1512,6 @@ static void uli526x_process_mode(struct uli526x_board_info *db)
- 			case ULI526X_100MFD: phy_reg = 0x2100; break;
- 			}
- 			phy_write(db->ioaddr, db->phy_addr, 0, phy_reg, db->chip_id);
--       			phy_write(db->ioaddr, db->phy_addr, 0, phy_reg, db->chip_id);
+diff --git a/include/linux/snmp.h b/include/linux/snmp.h
+index d8fd3ec..89f0c2b 100644
+--- a/include/linux/snmp.h
++++ b/include/linux/snmp.h
+@@ -213,6 +213,7 @@ enum
+ 	LINUX_MIB_TCPSACKDISCARD,		/* TCPSACKDiscard */
+ 	LINUX_MIB_TCPDSACKIGNOREDOLD,		/* TCPSACKIgnoredOld */
+ 	LINUX_MIB_TCPDSACKIGNOREDNOUNDO,	/* TCPSACKIgnoredNoUndo */
++	LINUX_MIB_TCPSPURIOUSRTOS,		/* TCPSpuriousRTOs */
+ 	__LINUX_MIB_MAX
+ };
+=20
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 2015148..9dee70e 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -245,6 +245,7 @@ static const struct snmp_mib snmp4_net_list[] =3D {
+ 	SNMP_MIB_ITEM("TCPSACKDiscard", LINUX_MIB_TCPSACKDISCARD),
+ 	SNMP_MIB_ITEM("TCPDSACKIgnoredOld", LINUX_MIB_TCPDSACKIGNOREDOLD),
+ 	SNMP_MIB_ITEM("TCPDSACKIgnoredNoUndo", LINUX_MIB_TCPDSACKIGNOREDNOUND=
+O),
++	SNMP_MIB_ITEM("TCPSpuriousRTOs", LINUX_MIB_TCPSPURIOUSRTOS),
+ 	SNMP_MIB_SENTINEL
+ };
+=20
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index ae06b94..259f517 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2935,6 +2935,7 @@ static int tcp_process_frto(struct sock *sk, int =
+flag)
  		}
+ 		tp->frto_counter =3D 0;
+ 		tp->undo_marker =3D 0;
++		NET_INC_STATS_BH(LINUX_MIB_TCPSPURIOUSRTOS);
  	}
+ 	return 0;
  }
--- 
-1.5.2
-
-
-
+--=20
+1.5.0.6
 
