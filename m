@@ -1,58 +1,75 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: [ofa-general] RE: [PATCH 1/4] [NET_SCHED] explict hold dev tx lock
-Date: Mon, 24 Sep 2007 12:12:49 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC32903A51122@orsmsx414.amr.corp.intel.com>
-References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
-	<20070916.161748.48388692.davem@davemloft.net>
-	<1189988958.4230.55.camel@localhost>
-	<1190569987.4256.52.camel@localhost>
-	<1190570205.4256.56.camel@localhost>
+From: Urs Thuermann <urs@isnogud.escape.de>
+Subject: Re: [PATCH 2/7] CAN: Add PF_CAN core module
+Date: 24 Sep 2007 21:23:36 +0200
+Message-ID: <ygflkavj29z.fsf@janus.isnogud.escape.de>
+References: <20070920184323.3795.0@janus.isnogud.escape.de>
+	<20070920184532.3795.2@janus.isnogud.escape.de>
+	<1190318781.26101.148.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: johnpol@2ka.mipt.ru, kumarkr@linux.ibm.com, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
-	netdev@vger.kernel.org, rdreier@cisco.com, mcarlson@broadcom.com,
-	randy.dunlap@oracle.com, jagana@us.ibm.com,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	jeff@garzik.org, sri@us.ibm.com, shemminger@linux-foundation.org,
-	kaber@trash.net
-To: <hadi@cyberus.ca>,
-	"David Miller" <davem@davemloft.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1190570205.4256.56.camel@localhost>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver@hartkopp.net>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from oker.escape.de ([194.120.234.254]:35313 "EHLO oker.escape.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759479AbXIXTZv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Sep 2007 15:25:51 -0400
+In-Reply-To: <1190318781.26101.148.camel@localhost>; from Joe Perches on Thu, 20 Sep 2007 13:06:21 -0700
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> I have submitted this before; but here it is again.
-> Against net-2.6.24 from yesterday for this and all following patches.=20
->=20
->=20
-> cheers,
-> jamal
+Joe Perches <joe@perches.com> writes:
 
-Hi Jamal,
-	I've been (slowly) working on resurrecting the original design
-of my multiqueue patches to address this exact issue of the queue_lock
-being a hot item.  I added a queue_lock to each queue in the subqueue
-struct, and in the enqueue and dequeue, just lock that queue instead of
-the global device queue_lock.  The only two issues to overcome are the
-QDISC_RUNNING state flag, since that also serializes entry into the
-qdisc_restart() function, and the qdisc statistics maintenance, which
-needs to be serialized.  Do you think this work along with your patch
-will benefit from one another?  I apologize for not having working
-patches right now, but I am working on them slowly as I have some blips
-of spare time.
+> I'd prefer something like this, which removes the unnecessary
+> kmalloc/kfree pairs or the equivalent conversions to functions.
 
-Thanks,
--PJ Waskiewicz
+I have changed this to a static buffer.  Since this is only in
+#ifdef CONFIG_CAN_DEBUG_CORE, it shouldn't hurt.
+
+> #define can_debug_cframe(cf, fmt, arg...) \
+> do { \
+> 	char buf[20]; \
+> 	int dlc = cf->can_dlc; \
+> 	if (dlc > 8) \
+> 		dlc = 8; \
+> 	if (cf->can_id & CAN_EFF_FLAG) \
+> 		sprintf(buf, "<%08X> [%X] ", cf->can_id & CAN_EFF_MASK, dlc); \
+> 	else \
+> 		sprintf(buf, "<%03X> [%X] ", cf->can_id & CAN_SFF_MASK, dlc); \
+> 	printk(KERN_DEBUG fmt, ##arg); \
+> 	print_hex_dump(buf, DUMP_PREFIX_NONE, cf->data, dlc); \
+> } while (0)
+
+The line isn't printed atomically, i.e. it could happen that something
+is printed between the fmt+args and the hexdump, i.e inbetween the
+line.
+
+> and
+> 
+> #define can_debug_skb(skb) \
+> do { \
+> 	pr_debug("skbuff at %p, dev: %d, proto: %04x\n", \
+> 		 skb, skb->dev ? skb->dev->ifindex : -1, \
+> 		 ntohs(skb->protocol)); \
+> 	pr_debug("users: %d, dataref: %d, nr_frags: %d, " \
+> 		 "h,d,t,e,l: %p %+d %+d %+d, %d\n", \
+> 		 atomic_read(&skb->users), \
+> 		 atomic_read(&(skb_shinfo(skb)->dataref)), \
+> 		 skb_shinfo(skb)->nr_frags, \
+> 		 skb->head, skb->data - skb->head, \
+> 		 skb->tail - skb->head, skb->end - skb->head, skb->len); \
+> 	print_hex_dump(KERN_DEBUG, "skb_head: ", DUMP_PREFIX_NONE, \
+> 		       16, 1, skb->head, skb->end - skb->head); \ 
+> } while (0)
+
+Here, the consecutive lines aren't printed atomically.
+
+I think sprintf() to a buffer first and the do one printk() is
+better.  But I will use hex_dump_to_buffer().
+
+
+urs
