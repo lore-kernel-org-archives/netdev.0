@@ -1,36 +1,37 @@
-From: David Miller <davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
 Subject: Re: pktgen question
-Date: Mon, 24 Sep 2007 10:40:16 -0700 (PDT)
-Message-ID: <20070924.104016.74732763.davem@davemloft.net>
-References: <1190571527.4256.78.camel@localhost>
-	<46F75968.4010307@candelatech.com>
-	<46F7C185.1030202@opengridcomputing.com>
+Date: Mon, 24 Sep 2007 11:02:36 -0700
+Message-ID: <46F7FBBC.6080401@hp.com>
+References: <46F6905C.6030309@opengridcomputing.com>		<20070923172803.GA11997@2ka.mipt.ru>		<46F6A887.1030301@opengridcomputing.com>	<1190571527.4256.78.camel@localhost>	<46F75968.4010307@candelatech.com>	<46F7C185.1030202@opengridcomputing.com>	<46F7CC09.6070603@candelatech.com>	<46F7D12A.7020607@opengridcomputing.com> <46F7D9C8.7020101@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, hadi@cyberus.ca, johnpol@2ka.mipt.ru,
-	netdev@vger.kernel.org, Robert.Olsson@data.slu.se
-To: swise@opengridcomputing.com
+Cc: Steve Wise <swise@opengridcomputing.com>, hadi@cyberus.ca,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
+	Robert Olsson <Robert.Olsson@data.slu.se>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48099
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751117AbXIXRkQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2007 13:40:16 -0400
-In-Reply-To: <46F7C185.1030202@opengridcomputing.com>
+Received: from palrel11.hp.com ([156.153.255.246]:50350 "EHLO palrel11.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758935AbXIXSDl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Sep 2007 14:03:41 -0400
+In-Reply-To: <46F7D9C8.7020101@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Steve Wise <swise@opengridcomputing.com>
-Date: Mon, 24 Sep 2007 08:54:13 -0500
+>> Perf-wise, you could clone the skbs up front, then deliver them to the 
+>> nic in a tight loop.  This would mitigate the added overhead 
+>> introduced by calling skb_clone() in the loop doing transmits...
+> 
+> That only works if you are sending a small number of skbs.  You can't 
+> pre-clone several minutes worth of 10Gbe traffic
+> with any normal amount of RAM.
 
-> I think pktgen should be cloning the skbs using skb_clone().  Then it 
-> will work for all devices, eh?
+Does pktgen really need to allocate anything more than some smallish fraction 
+more than the depth of the driver's transmit queue?
 
-The problem is that skb_clone() is (relatively) expensive and
-pktgen is trying to just grab a reference to the SKB in
-the absolutely cheapest way possible.
+Of course, even that won't fit in the L1 cache of a processor, so if one is 
+really just trying to max-out the NIC it might still have too much overhead, but 
+then does pktgen+driver et al actually fit in an L1 cache?
 
-In my personal opinion, I think what the drivers that don't
-work with pktgen are doing is wrong and they should find
-another way to pass state around other than to depend upon
-being able to use the ->cb[] area at-will.
+rick jones
