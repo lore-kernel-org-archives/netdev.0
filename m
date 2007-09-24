@@ -1,32 +1,41 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [PATCH] sb1250-mac: Driver model & phylib update
-Date: Mon, 24 Sep 2007 15:41:54 +0100 (BST)
-Message-ID: <Pine.LNX.4.64N.0709241529570.22491@blysk.ds.pg.gda.pl>
-References: <Pine.LNX.4.64N.0709191811040.24627@blysk.ds.pg.gda.pl>
- <20070921124409.7f3d122b.akpm@linux-foundation.org>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: pktgen question
+Date: Mon, 24 Sep 2007 10:00:58 -0500
+Message-ID: <46F7D12A.7020607@opengridcomputing.com>
+References: <46F6905C.6030309@opengridcomputing.com>	 <20070923172803.GA11997@2ka.mipt.ru>	 <46F6A887.1030301@opengridcomputing.com> <1190571527.4256.78.camel@localhost> <46F75968.4010307@candelatech.com> <46F7C185.1030202@opengridcomputing.com> <46F7CC09.6070603@candelatech.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-mips@linux-mips.org, linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759382AbXIXOmZ@vger.kernel.org>
-In-Reply-To: <20070921124409.7f3d122b.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	netdev@vger.kernel.org, Robert Olsson <Robert.Olsson@data.slu.se>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 209-198-142-2-host.prismnet.net ([209.198.142.2]:54634 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752339AbXIXPA6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2007 11:00:58 -0400
+In-Reply-To: <46F7CC09.6070603@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 21 Sep 2007, Andrew Morton wrote:
 
-> >  A driver model and phylib update.
+Ben Greear wrote:
+> Steve Wise wrote:
+>> I think pktgen should be cloning the skbs using skb_clone().  Then it 
+>> will work for all devices, eh?
+> That might work, but it would decrease performance slightly (or, 
+> increase CPU load at least).
+
+Perf-wise, you could clone the skbs up front, then deliver them to the 
+nic in a tight loop.  This would mitigate the added overhead introduced 
+by calling skb_clone() in the loop doing transmits...
+
 > 
-> akpm:/usr/src/25> diffstat patches/git-net.patch | tail -n 1
->  1013 files changed, 187667 insertions(+), 23587 deletions(-)
+> Maybe a new option:  multi_clone
 > 
-> Sorry, but raising networking patches against Linus's crufty
-> old mainline tree just isn't viable at present.
 
- Well, this is against Jeff's netdev-2.6 tree which hopefully is not as 
-crufty as Linus's old mainline; if it is not possible to queue this change 
-for 2.6.25 or suchlike, then I will try to resubmit later.  Thanks for 
-your attention though.
+If the current code is busted, I think it should be fixed.
 
-  Maciej
+My 2 cents.
+
+Steve.
