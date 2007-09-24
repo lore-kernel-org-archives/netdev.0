@@ -1,228 +1,281 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [DEVELOPER PATCH 5/5] [TCP]: Track sacktag
-Date: Mon, 24 Sep 2007 13:28:47 +0300
-Message-ID: <11906297272611-git-send-email-ilpo.jarvinen@helsinki.fi>
-References: <11906297271684-git-send-email-ilpo.jarvinen@helsinki.fi> <11906297272364-git-send-email-ilpo.jarvinen@helsinki.fi> <11906297271155-git-send-email-ilpo.jarvinen@helsinki.fi> <11906297274028-git-send-email-ilpo.jarvinen@helsinki.fi> <1190629727956-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH 2/5] [TCP]: Create tcp_sacktag_one().
+Date: Mon, 24 Sep 2007 13:28:44 +0300
+Message-ID: <11906297271155-git-send-email-ilpo.jarvinen@helsinki.fi>
+References: <11906297271684-git-send-email-ilpo.jarvinen@helsinki.fi> <11906297272364-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org,
-	"=?ISO-8859-1?q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+	"David S. Miller" <davem@sunset.davemloft.net>
 To: David Miller <davem@davemloft.net>,
 	Stephen Hemminger <shemminger@linux-foundation.org>,
 	SANGTAE HA <sangtae.ha@gmail.com>,
 	Tom Quetchenbach <virtualphtn@gmail.com>,
 	Baruch Even <bar
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:47089 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:33597 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753499AbXIXK2v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2007 06:28:51 -0400
-In-Reply-To: <1190629727956-git-send-email-ilpo.jarvinen@helsinki.fi>
+	with ESMTP id S1753384AbXIXK2t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2007 06:28:49 -0400
+In-Reply-To: <11906297272364-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: =3D?ISO-8859-1?q?Ilpo_J=3DE4rvinen?=3D <ilpo.jarvinen@helsinki.=
-fi>
+=46rom: David S. Miller <davem@sunset.davemloft.net>
 
-Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+Worker function that implements the main logic of
+the inner-most loop of tcp_sacktag_write_queue().
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Acked-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 ---
- include/linux/snmp.h |   20 +++++++++++++++++++
- net/ipv4/proc.c      |   20 +++++++++++++++++++
- net/ipv4/tcp_input.c |   52 ++++++++++++++++++++++++++++++++++++++++++=
-+++++--
- 3 files changed, 89 insertions(+), 3 deletions(-)
+ net/ipv4/tcp_input.c |  213 ++++++++++++++++++++++++++----------------=
+--------
+ 1 files changed, 110 insertions(+), 103 deletions(-)
 
-diff --git a/include/linux/snmp.h b/include/linux/snmp.h
-index 89f0c2b..42b8c07 100644
---- a/include/linux/snmp.h
-+++ b/include/linux/snmp.h
-@@ -214,6 +214,26 @@ enum
- 	LINUX_MIB_TCPDSACKIGNOREDOLD,		/* TCPSACKIgnoredOld */
- 	LINUX_MIB_TCPDSACKIGNOREDNOUNDO,	/* TCPSACKIgnoredNoUndo */
- 	LINUX_MIB_TCPSPURIOUSRTOS,		/* TCPSpuriousRTOs */
-+	LINUX_MIB_TCP_SACKTAG,
-+	LINUX_MIB_TCP_SACK0,
-+	LINUX_MIB_TCP_SACK1,
-+	LINUX_MIB_TCP_SACK2,
-+	LINUX_MIB_TCP_SACK3,
-+	LINUX_MIB_TCP_SACK4,
-+	LINUX_MIB_TCP_WALKEDSKBS,
-+	LINUX_MIB_TCP_WALKEDDSACKS,
-+	LINUX_MIB_TCP_SKIPPEDSKBS,
-+	LINUX_MIB_TCP_NOCACHE,
-+	LINUX_MIB_TCP_FULLWALK,
-+	LINUX_MIB_TCP_HEADWALK,
-+	LINUX_MIB_TCP_TAILWALK,
-+	LINUX_MIB_TCP_FULLSKIP,
-+	LINUX_MIB_TCP_TAILSKIP,
-+	LINUX_MIB_TCP_HEADSKIP,
-+	LINUX_MIB_TCP_FULLSKIP_TOHIGH,
-+	LINUX_MIB_TCP_TAILSKIP_TOHIGH,
-+	LINUX_MIB_TCP_NEWSKIP,
-+	LINUX_MIB_TCP_CACHEREMAINING,
- 	__LINUX_MIB_MAX
- };
-=20
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index 9dee70e..4808f82 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -246,6 +246,26 @@ static const struct snmp_mib snmp4_net_list[] =3D =
-{
- 	SNMP_MIB_ITEM("TCPDSACKIgnoredOld", LINUX_MIB_TCPDSACKIGNOREDOLD),
- 	SNMP_MIB_ITEM("TCPDSACKIgnoredNoUndo", LINUX_MIB_TCPDSACKIGNOREDNOUND=
-O),
- 	SNMP_MIB_ITEM("TCPSpuriousRTOs", LINUX_MIB_TCPSPURIOUSRTOS),
-+	SNMP_MIB_ITEM("TCP_SACKTAG", LINUX_MIB_TCP_SACKTAG),
-+	SNMP_MIB_ITEM("TCP_SACK0", LINUX_MIB_TCP_SACK0),
-+	SNMP_MIB_ITEM("TCP_SACK1", LINUX_MIB_TCP_SACK1),
-+	SNMP_MIB_ITEM("TCP_SACK2", LINUX_MIB_TCP_SACK2),
-+	SNMP_MIB_ITEM("TCP_SACK3", LINUX_MIB_TCP_SACK3),
-+	SNMP_MIB_ITEM("TCP_SACK4", LINUX_MIB_TCP_SACK4),
-+	SNMP_MIB_ITEM("TCP_WALKEDSKBS", LINUX_MIB_TCP_WALKEDSKBS),
-+	SNMP_MIB_ITEM("TCP_WALKEDDSACKS", LINUX_MIB_TCP_WALKEDDSACKS),
-+	SNMP_MIB_ITEM("TCP_SKIPPEDSKBS", LINUX_MIB_TCP_SKIPPEDSKBS),
-+	SNMP_MIB_ITEM("TCP_NOCACHE", LINUX_MIB_TCP_NOCACHE),
-+	SNMP_MIB_ITEM("TCP_FULLWALK", LINUX_MIB_TCP_FULLWALK),
-+	SNMP_MIB_ITEM("TCP_HEADWALK", LINUX_MIB_TCP_HEADWALK),
-+	SNMP_MIB_ITEM("TCP_TAILWALK", LINUX_MIB_TCP_TAILWALK),
-+	SNMP_MIB_ITEM("TCP_FULLSKIP", LINUX_MIB_TCP_FULLSKIP),
-+	SNMP_MIB_ITEM("TCP_TAILSKIP", LINUX_MIB_TCP_TAILSKIP),
-+	SNMP_MIB_ITEM("TCP_HEADSKIP", LINUX_MIB_TCP_HEADSKIP),
-+	SNMP_MIB_ITEM("TCP_FULLSKIP_TOHIGH", LINUX_MIB_TCP_FULLSKIP_TOHIGH),
-+	SNMP_MIB_ITEM("TCP_TAILSKIP_TOHIGH", LINUX_MIB_TCP_TAILSKIP_TOHIGH),
-+	SNMP_MIB_ITEM("TCP_NEWSKIP", LINUX_MIB_TCP_NEWSKIP),
-+	SNMP_MIB_ITEM("TCP_CACHEREMAINING", LINUX_MIB_TCP_CACHEREMAINING),
- 	SNMP_MIB_SENTINEL
- };
-=20
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 9dfdd67..38045c8 100644
+index 04ff465..76e9c9b 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -1306,6 +1306,10 @@ static struct sk_buff *tcp_sacktag_walk(struct s=
-k_buff *skb, struct sock *sk,
+@@ -1143,6 +1143,114 @@ static int tcp_check_dsack(struct tcp_sock *tp,=
+ struct sk_buff *ack_skb,
+ 	return dup_sack;
+ }
 =20
- 		tcp_sacktag_one(skb, sk, state, in_sack, dup_sack,
- 				state->fack_count, end_seq);
++static void tcp_sacktag_one(struct sk_buff *skb, struct tcp_sock *tp,
++			    struct tcp_sacktag_state *state, int in_sack,
++			    int dup_sack, int fack_count, u32 end_seq)
++{
++	u8 sacked =3D TCP_SKB_CB(skb)->sacked;
 +
-+		NET_INC_STATS_BH(LINUX_MIB_TCP_WALKEDSKBS);
-+		if (dup_sack)
-+			NET_INC_STATS_BH(LINUX_MIB_TCP_WALKEDDSACKS);
- 	}
- 	return skb;
- }
-@@ -1329,6 +1333,7 @@ static struct sk_buff *tcp_sacktag_skip(struct sk=
-_buff *skb, struct sock *sk,
- 			skb =3D tcp_sacktag_walk(skb, sk, state, state->dup_start,
- 					       state->dup_end, 1);
- 		}
-+		NET_INC_STATS_BH(LINUX_MIB_TCP_SKIPPEDSKBS);
- 	}
- 	return skb;
- }
-@@ -1458,9 +1463,22 @@ tcp_sacktag_write_queue(struct sock *sk, struct =
-sk_buff *ack_skb, u32 prior_snd_
- 			cache++;
- 	}
-=20
-+	NET_INC_STATS_BH(LINUX_MIB_TCP_SACKTAG);
-+	switch (used_sacks) {
-+		case 0: NET_INC_STATS_BH(LINUX_MIB_TCP_SACK0); break;
-+		case 1: NET_INC_STATS_BH(LINUX_MIB_TCP_SACK1); break;
-+		case 2: NET_INC_STATS_BH(LINUX_MIB_TCP_SACK2); break;
-+		case 3: NET_INC_STATS_BH(LINUX_MIB_TCP_SACK3); break;
-+		case 4: NET_INC_STATS_BH(LINUX_MIB_TCP_SACK4); break;
++	/* Account D-SACK for retransmitted packet. */
++	if ((dup_sack && in_sack) &&
++	    (sacked & TCPCB_RETRANS) &&
++	    after(TCP_SKB_CB(skb)->end_seq, tp->undo_marker))
++		tp->undo_retrans--;
++
++	/* The frame is ACKed. */
++	if (!after(TCP_SKB_CB(skb)->end_seq, tp->snd_una)) {
++		if (sacked & TCPCB_RETRANS) {
++			if ((dup_sack && in_sack) &&
++			    (sacked & TCPCB_SACKED_ACKED))
++				state->reord =3D min(fack_count, state->reord);
++		} else {
++			/* If it was in a hole, we detected reordering. */
++			if (fack_count < state->prior_fackets &&
++			    !(sacked & TCPCB_SACKED_ACKED))
++				state->reord =3D min(fack_count, state->reord);
++		}
++
++		/* Nothing to do; acked frame is about to be dropped. */
++		return;
 +	}
 +
-+	if (!tcp_sack_cache_ok(tp, cache))
-+		NET_INC_STATS_BH(LINUX_MIB_TCP_NOCACHE);
++	if ((sacked & TCPCB_SACKED_RETRANS) &&
++	    after(end_seq, TCP_SKB_CB(skb)->ack_seq) &&
++	    (!state->lost_retrans || after(end_seq, state->lost_retrans)))
++		state->lost_retrans =3D end_seq;
 +
- 	while (i < used_sacks) {
- 		u32 start_seq =3D sp[i].start_seq;
- 		u32 end_seq =3D sp[i].end_seq;
-+		int fullwalk =3D 0;
++	if (!in_sack)
++		return;
++
++	if (!(sacked & TCPCB_SACKED_ACKED)) {
++		if (sacked & TCPCB_SACKED_RETRANS) {
++			/* If the segment is not tagged as lost,
++			 * we do not clear RETRANS, believing
++			 * that retransmission is still in flight.
++			 */
++			if (sacked & TCPCB_LOST) {
++				TCP_SKB_CB(skb)->sacked &=3D
++					~(TCPCB_LOST|TCPCB_SACKED_RETRANS);
++				tp->lost_out -=3D tcp_skb_pcount(skb);
++				tp->retrans_out -=3D tcp_skb_pcount(skb);
++
++				/* clear lost hint */
++				tp->retransmit_skb_hint =3D NULL;
++			}
++		} else {
++			/* New sack for not retransmitted frame,
++			 * which was in hole. It is reordering.
++			 */
++			if (!(sacked & TCPCB_RETRANS) &&
++			    fack_count < state->prior_fackets)
++				state->reord =3D min(fack_count, state->reord);
++
++			if (sacked & TCPCB_LOST) {
++				TCP_SKB_CB(skb)->sacked &=3D ~TCPCB_LOST;
++				tp->lost_out -=3D tcp_skb_pcount(skb);
++
++				/* clear lost hint */
++				tp->retransmit_skb_hint =3D NULL;
++			}
++			/* SACK enhanced F-RTO detection.
++			 * Set flag if and only if non-rexmitted
++			 * segments below frto_highmark are
++			 * SACKed (RFC4138; Appendix B).
++			 * Clearing correct due to in-order walk
++			 */
++			if (after(end_seq, tp->frto_highmark)) {
++				state->flag &=3D ~FLAG_ONLY_ORIG_SACKED;
++			} else {
++				if (!(sacked & TCPCB_RETRANS))
++					state->flag |=3D FLAG_ONLY_ORIG_SACKED;
++			}
++		}
++
++		TCP_SKB_CB(skb)->sacked |=3D TCPCB_SACKED_ACKED;
++		state->flag |=3D FLAG_DATA_SACKED;
++		tp->sacked_out +=3D tcp_skb_pcount(skb);
++
++		if (fack_count > tp->fackets_out)
++			tp->fackets_out =3D fack_count;
++
++		if (after(TCP_SKB_CB(skb)->seq,
++			  tp->highest_sack))
++			tp->highest_sack =3D TCP_SKB_CB(skb)->seq;
++	} else {
++		if (dup_sack && (sacked&TCPCB_RETRANS))
++			state->reord =3D min(fack_count, state->reord);
++	}
++
++	/* D-SACK. We can detect redundant retransmission
++	 * in S|R and plain R frames and clear it.
++	 * undo_retrans is decreased above, L|R frames
++	 * are accounted above as well.
++	 */
++	if (dup_sack && (TCP_SKB_CB(skb)->sacked&TCPCB_SACKED_RETRANS)) {
++		TCP_SKB_CB(skb)->sacked &=3D ~TCPCB_SACKED_RETRANS;
++		tp->retrans_out -=3D tcp_skb_pcount(skb);
++		tp->retransmit_skb_hint =3D NULL;
++	}
++}
++
+ static int
+ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 =
+prior_snd_una)
+ {
+@@ -1274,7 +1382,6 @@ tcp_sacktag_write_queue(struct sock *sk, struct s=
+k_buff *ack_skb, u32 prior_snd_
 =20
- 		/* Event "B" in the comment above. */
- 		if (after(end_seq, tp->high_seq))
-@@ -1473,41 +1491,69 @@ tcp_sacktag_write_queue(struct sock *sk, struct=
+ 		tcp_for_write_queue_from(skb, sk) {
+ 			int in_sack, pcount;
+-			u8 sacked;
+=20
+ 			if (skb =3D=3D tcp_send_head(sk))
+ 				break;
+@@ -1317,108 +1424,8 @@ tcp_sacktag_write_queue(struct sock *sk, struct=
  sk_buff *ack_skb, u32 prior_snd_
 =20
- 		if (tcp_sack_cache_ok(tp, cache)) {
- 			if (after(end_seq, cache->start_seq)) {
-+				int headskip =3D 0;
-+
- 				if (before(start_seq, cache->start_seq)) {
- 					skb =3D tcp_sacktag_skip(skb, sk, &state, start_seq);
- 					skb =3D tcp_sacktag_walk(skb, sk, &state, start_seq, cache->start=
-_seq, 0);
+ 			fack_count +=3D pcount;
+=20
+-			sacked =3D TCP_SKB_CB(skb)->sacked;
+-
+-			/* Account D-SACK for retransmitted packet. */
+-			if ((dup_sack && in_sack) &&
+-			    (sacked & TCPCB_RETRANS) &&
+-			    after(TCP_SKB_CB(skb)->end_seq, tp->undo_marker))
+-				tp->undo_retrans--;
+-
+-			/* The frame is ACKed. */
+-			if (!after(TCP_SKB_CB(skb)->end_seq, tp->snd_una)) {
+-				if (sacked&TCPCB_RETRANS) {
+-					if ((dup_sack && in_sack) &&
+-					    (sacked&TCPCB_SACKED_ACKED))
+-						state.reord =3D min(fack_count, state.reord);
+-				} else {
+-					/* If it was in a hole, we detected reordering. */
+-					if (fack_count < state.prior_fackets &&
+-					    !(sacked&TCPCB_SACKED_ACKED))
+-						state.reord =3D min(fack_count, state.reord);
 -				}
-+					NET_INC_STATS_BH(LINUX_MIB_TCP_HEADWALK);
-+				} else
-+					headskip =3D 1;
-+
- 				/* Rest of the block already fully processed? */
- 				if (!after(end_seq, cache->end_seq)) {
- 					i++;
-+					if (headskip)
-+						NET_INC_STATS_BH(LINUX_MIB_TCP_FULLSKIP);
-+					else
-+						NET_INC_STATS_BH(LINUX_MIB_TCP_TAILSKIP);
- 					continue;
- 				}
-+
- 				if (TCP_SKB_CB(tp->highest_sack)->end_seq !=3D cache->end_seq) {
- 					skb =3D tcp_sacktag_skip(skb, sk, &state, cache->end_seq);
- 					cache++;
-+					if (headskip)
-+						NET_INC_STATS_BH(LINUX_MIB_TCP_HEADSKIP);
- 					continue;
- 				}
-=20
- 				skb =3D tcp_sacktag_skip_to_highsack(skb, sk, &state, cache);
+-
+-				/* Nothing to do; acked frame is about to be dropped. */
+-				continue;
 -			}
-+				if (headskip)
-+					NET_INC_STATS_BH(LINUX_MIB_TCP_FULLSKIP_TOHIGH);
-+				else
-+					NET_INC_STATS_BH(LINUX_MIB_TCP_TAILSKIP_TOHIGH);
-+			} else
-+				fullwalk =3D 1;
- 		} else if (!before(start_seq, tcp_highest_sack_seq(sk)) &&
- 			   before(TCP_SKB_CB(skb)->seq, tcp_highest_sack_seq(sk))) {
- 			skb =3D tcp_write_queue_next(sk, tp->highest_sack);
- 			state.fack_count =3D tp->fackets_out;
-+			NET_INC_STATS_BH(LINUX_MIB_TCP_NEWSKIP);
-+			fullwalk =3D 1;
+-
+-			if ((sacked&TCPCB_SACKED_RETRANS) &&
+-			    after(end_seq, TCP_SKB_CB(skb)->ack_seq) &&
+-			    (!state.lost_retrans || after(end_seq, state.lost_retrans)))
+-				state.lost_retrans =3D end_seq;
+-
+-			if (!in_sack)
+-				continue;
+-
+-			if (!(sacked&TCPCB_SACKED_ACKED)) {
+-				if (sacked & TCPCB_SACKED_RETRANS) {
+-					/* If the segment is not tagged as lost,
+-					 * we do not clear RETRANS, believing
+-					 * that retransmission is still in flight.
+-					 */
+-					if (sacked & TCPCB_LOST) {
+-						TCP_SKB_CB(skb)->sacked &=3D ~(TCPCB_LOST|TCPCB_SACKED_RETRANS);
+-						tp->lost_out -=3D tcp_skb_pcount(skb);
+-						tp->retrans_out -=3D tcp_skb_pcount(skb);
+-
+-						/* clear lost hint */
+-						tp->retransmit_skb_hint =3D NULL;
+-					}
+-				} else {
+-					/* New sack for not retransmitted frame,
+-					 * which was in hole. It is reordering.
+-					 */
+-					if (!(sacked & TCPCB_RETRANS) &&
+-					    fack_count < state.prior_fackets)
+-						state.reord =3D min(fack_count, state.reord);
+-
+-					if (sacked & TCPCB_LOST) {
+-						TCP_SKB_CB(skb)->sacked &=3D ~TCPCB_LOST;
+-						tp->lost_out -=3D tcp_skb_pcount(skb);
+-
+-						/* clear lost hint */
+-						tp->retransmit_skb_hint =3D NULL;
+-					}
+-					/* SACK enhanced F-RTO detection.
+-					 * Set flag if and only if non-rexmitted
+-					 * segments below frto_highmark are
+-					 * SACKed (RFC4138; Appendix B).
+-					 * Clearing correct due to in-order walk
+-					 */
+-					if (after(end_seq, tp->frto_highmark)) {
+-						state.flag &=3D ~FLAG_ONLY_ORIG_SACKED;
+-					} else {
+-						if (!(sacked & TCPCB_RETRANS))
+-							state.flag |=3D FLAG_ONLY_ORIG_SACKED;
+-					}
+-				}
+-
+-				TCP_SKB_CB(skb)->sacked |=3D TCPCB_SACKED_ACKED;
+-				state.flag |=3D FLAG_DATA_SACKED;
+-				tp->sacked_out +=3D tcp_skb_pcount(skb);
+-
+-				if (fack_count > tp->fackets_out)
+-					tp->fackets_out =3D fack_count;
+-
+-				if (after(TCP_SKB_CB(skb)->seq,
+-				    tp->highest_sack))
+-					tp->highest_sack =3D TCP_SKB_CB(skb)->seq;
+-			} else {
+-				if (dup_sack && (sacked&TCPCB_RETRANS))
+-					state.reord =3D min(fack_count, state.reord);
+-			}
+-
+-			/* D-SACK. We can detect redundant retransmission
+-			 * in S|R and plain R frames and clear it.
+-			 * undo_retrans is decreased above, L|R frames
+-			 * are accounted above as well.
+-			 */
+-			if (dup_sack &&
+-			    (TCP_SKB_CB(skb)->sacked&TCPCB_SACKED_RETRANS)) {
+-				TCP_SKB_CB(skb)->sacked &=3D ~TCPCB_SACKED_RETRANS;
+-				tp->retrans_out -=3D tcp_skb_pcount(skb);
+-				tp->retransmit_skb_hint =3D NULL;
+-			}
++			tcp_sacktag_one(skb, tp, &state, in_sack,
++					dup_sack, fack_count, end_seq);
  		}
-=20
- 		skb =3D tcp_sacktag_skip(skb, sk, &state, start_seq);
- 		skb =3D tcp_sacktag_walk(skb, sk, &state, start_seq, end_seq, 0);
-+		if (fullwalk)
-+			NET_INC_STATS_BH(LINUX_MIB_TCP_FULLWALK);
-+		else
-+			NET_INC_STATS_BH(LINUX_MIB_TCP_TAILWALK);
- 		i++;
  	}
 =20
-+	if (tcp_sack_cache_ok(tp, cache))
-+		NET_INC_STATS_BH(LINUX_MIB_TCP_CACHEREMAINING);
-+
- 	/* Clear the head of the cache sack blocks so we can skip it next tim=
-e */
- 	for (i =3D 0; i < ARRAY_SIZE(tp->recv_sack_cache) - used_sacks; i++) =
-{
- 		tp->recv_sack_cache[i].start_seq =3D 0;
- 		tp->recv_sack_cache[i].end_seq =3D 0;
- 	}
--	for (j =3D 0; j < used_sacks; j++)
-+	for (j =3D 0; j < used_sacks; j++) {
-+		WARN_ON(i >=3D ARRAY_SIZE(tp->recv_sack_cache));
- 		tp->recv_sack_cache[i++] =3D sp[j];
-+	}
-=20
- 	/* Check for lost retransmit. This superb idea is
- 	 * borrowed from "ratehalving". Event "C".
 --=20
 1.5.0.6
 
