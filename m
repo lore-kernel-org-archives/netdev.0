@@ -1,37 +1,81 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] sb1250-mac: Driver model & phylib update
-Date: Mon, 24 Sep 2007 09:55:59 -0700
-Message-ID: <20070924095559.c81f7061.akpm@linux-foundation.org>
-References: <Pine.LNX.4.64N.0709191811040.24627@blysk.ds.pg.gda.pl>
-	<20070921124409.7f3d122b.akpm@linux-foundation.org>
-	<Pine.LNX.4.64N.0709241529570.22491@blysk.ds.pg.gda.pl>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-2.6.24] introduce MAC_FMT/MAC_ARG
+Date: Mon, 24 Sep 2007 10:28:34 -0700
+Message-ID: <1190654914.2010.8.camel@localhost>
+References: <1190177401.19708.264.camel@localhost>
+	 <20070919.111147.55510143.davem@davemloft.net>
+	 <1190227854.26101.9.camel@localhost>
+	 <20070919.125451.112289690.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-mips@linux-mips.org, linux-kernel@vger.kernel.org
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <Pine.LNX.4.64N.0709241529570.22491@blysk.ds.pg.gda.pl>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
+Cc: johannes@sipsolutions.net, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, jgarzik@pobox.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from DSL022.labridge.com ([206.117.136.22]:1500 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751413AbXIXR3g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Sep 2007 13:29:36 -0400
+In-Reply-To: <20070919.125451.112289690.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 24 Sep 2007 15:41:54 +0100 (BST) "Maciej W. Rozycki" <macro@linux-mips.org> wrote:
+On Wed, 2007-09-19 at 12:54 -0700, David Miller wrote:
+> Applied to net-2.6.24, thanks Joe!
 
-> On Fri, 21 Sep 2007, Andrew Morton wrote:
-> 
-> > >  A driver model and phylib update.
-> > 
-> > akpm:/usr/src/25> diffstat patches/git-net.patch | tail -n 1
-> >  1013 files changed, 187667 insertions(+), 23587 deletions(-)
-> > 
-> > Sorry, but raising networking patches against Linus's crufty
-> > old mainline tree just isn't viable at present.
-> 
->  Well, this is against Jeff's netdev-2.6 tree which hopefully is not as 
-> crufty as Linus's old mainline; if it is not possible to queue this change 
-> for 2.6.25 or suchlike, then I will try to resubmit later.
+Here is a patch that adds some type safety to print_mac
+by using a struct print_mac_buf * instead of char *.
 
-Most of Jeff's netdev tree got dumped into Dave's net-2.6.24 tree.  That's
-the one you want to be raising patches against for the next few weeks.
+It also reduces the defconfig vmlinux size by 8 bytes.
+
+Signed-off-by:  Joe Perches <joe@perches.com>
+
+--
+
+ include/linux/if_ether.h |   12 ++++++++++--
+ net/ethernet/eth.c       |    6 +++---
+ 2 files changed, 13 insertions(+), 5 deletions(-)
+
+diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
+index 57abca1..620d6b1 100644
+--- a/include/linux/if_ether.h
++++ b/include/linux/if_ether.h
+@@ -126,7 +126,15 @@ extern struct ctl_table ether_table[];
+  *	Display a 6 byte device address (MAC) in a readable format.
+  */
+ #define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
+-extern char *print_mac(char *buf, const u8 *addr);
+-#define DECLARE_MAC_BUF(var) char var[18] __maybe_unused
++
++struct print_mac_buf {
++	char formatted_mac_addr[18];
++};
++
++#define DECLARE_MAC_BUF(var) \
++	struct print_mac_buf __maybe_unused _##var; \
++	struct print_mac_buf __maybe_unused *var = &_##var
++
++extern char *print_mac(struct print_mac_buf *buf, const u8 *addr);
+ 
+ #endif	/* _LINUX_IF_ETHER_H */
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index 2aaf6fa..ad82613 100644
+--- a/net/ethernet/eth.c
++++ b/net/ethernet/eth.c
+@@ -338,10 +338,10 @@ struct net_device *alloc_etherdev_mq(int sizeof_priv, unsigned int queue_count)
+ }
+ EXPORT_SYMBOL(alloc_etherdev_mq);
+ 
+-char *print_mac(char *buf, const u8 *addr)
++char *print_mac(struct print_mac_buf *buf, const u8 *addr)
+ {
+-	sprintf(buf, MAC_FMT,
++	sprintf(buf->formatted_mac_addr, MAC_FMT,
+ 		addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+-	return buf;
++	return buf->formatted_mac_addr;
+ }
+ EXPORT_SYMBOL(print_mac);
+
+
