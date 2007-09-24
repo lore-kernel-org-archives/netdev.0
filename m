@@ -1,51 +1,56 @@
-From: "John Ye" <johny@asimco.com.cn>
-Subject: Re: [PATCH: 2.6.13-15-SMP 3/3] network: concurrentlyrunsoftirqnetwork code on SMP
-Date: Mon, 24 Sep 2007 11:48:21 +0800
-Message-ID: <002401c7fe5d$c098c700$ca8510ac@asimco>
-References: <004901c7fd9c$94370df0$d6ddfea9@JOHNYE1> <1190551422.4256.36.camel@localhost> <000501c7fdf8$c7f7c8d0$d6ddfea9@JOHNYE1> <1190570864.4256.70.camel@localhost>
-Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<kuznet@ms2.inr.ac.ru>, <pekkas@netcore.fi>, <jmorris@namei.org>,
-	<kaber@coreworks.de>, <iceburgue@gmail.com>
-To: <hadi@cyberus.ca>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: pktgen question
+Date: Sun, 23 Sep 2007 23:30:00 -0700
+Message-ID: <46F75968.4010307@candelatech.com>
+References: <46F6905C.6030309@opengridcomputing.com>	 <20070923172803.GA11997@2ka.mipt.ru>	 <46F6A887.1030301@opengridcomputing.com> <1190571527.4256.78.camel@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Steve Wise <swise@opengridcomputing.com>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org,
+	Robert Olsson <Robert.Olsson@data.slu.se>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.asimco-na.com ([207.138.153.195]:24429 "EHLO
-	mail.asimco-na.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753493AbXIXDqY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Sep 2007 23:46:24 -0400
+Received: from ns2.lanforge.com ([66.165.47.211]:48873 "EHLO ns2.lanforge.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751487AbXIXGaV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Sep 2007 02:30:21 -0400
+In-Reply-To: <1190571527.4256.78.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear Jamal,
-
-Thanks, bothered you all.
-
-I will look into the 2 issues. re-ordering and spinlock, and do extensive
-test.
-Once having result, no matter positive or negative, I will contact you.
-The format will not be a mess any more.
-
-John Ye
-
------ Original Message -----
-From: "jamal" <hadi@cyberus.ca>
-To: "john ye" <johny@asimco.com.cn>
-Cc: "David Miller" <davem@davemloft.net>; <netdev@vger.kernel.org>;
-<kuznet@ms2.inr.ac.ru>; <pekkas@netcore.fi>; <jmorris@namei.org>;
-<kaber@coreworks.de>; <iceburgue@gmail.com>
-Sent: Monday, September 24, 2007 2:07 AM
-Subject: Re: [PATCH: 2.6.13-15-SMP 3/3] network:
-concurrentlyrunsoftirqnetwork code on SMP
-
-
-> John,
-> It will NEVER be an acceptable solution as long as you have re-ordering.
-> I will look at it - but i have to run out for now. In the meantime,
-> I have indented it for you to be in proper kernel format so others can
-> also look it. Attached.
+jamal wrote:
+> On Sun, 2007-23-09 at 12:55 -0500, Steve Wise wrote:
 >
-> cheers,
-> jamal
+>   
+>> Its a hack that breaks cxgb3 because cxgb3 uses the skb->cb area for 
+>> each skb passed down.  So cxgb3 is at fault then?  IE a driver cannot 
+>> use the skb->cb field if the users count is > 1?  Or maybe a driver can 
+>> _never_ use the cb field?
+>>     
 >
->
+> any layer can use the cb structure whichever way they wish. There are
+> violations, e.g:
+> the vlan code also uses the cb field to pass vlan details for hardware
+> acceleration. How does pktgen affect it though, clone() will just copy
+> the cb field and pktgen doesnt touch it.
+> In retrospect, pktgen may have to use clone - ccing Robert Olsson.
+>   
+Pktgen abuses the ref count, as far as I can tell.  It works with most 
+ethernet drivers,
+but that multi-pkt will also fail with things like vlans because the 
+skb->dev is changed
+as it is transmitted (to the lower-level device).
+
+I'd say just don't use the multi-pkt with pktgen on devices that can't 
+handle it.
+
+Thanks,
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com> 
+Candela Technologies Inc  http://www.candelatech.com
 
 
