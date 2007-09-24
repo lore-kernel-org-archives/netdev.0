@@ -1,55 +1,70 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: pktgen question
-Date: Mon, 24 Sep 2007 08:54:13 -0500
-Message-ID: <46F7C185.1030202@opengridcomputing.com>
-References: <46F6905C.6030309@opengridcomputing.com>	 <20070923172803.GA11997@2ka.mipt.ru>	 <46F6A887.1030301@opengridcomputing.com> <1190571527.4256.78.camel@localhost> <46F75968.4010307@candelatech.com>
+From: Moni Shoua <monisonlists@gmail.com>
+Subject: Re: [ofa-general] Re: [PATCH V5 2/11] IB/ipoib: Notify the world
+	before	doing unregister
+Date: Mon, 24 Sep 2007 15:56:46 +0200
+Message-ID: <46F7C21E.1000204@gmail.com>
+References: <46F27692.3070404@voltaire.com>
+	<46F2784C.9070806@voltaire.com>	<adaabrhgvfa.fsf@cisco.com>
+	<46F61BF6.3000203@gmail.com> <adar6kpwdax.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	netdev@vger.kernel.org, Robert Olsson <Robert.Olsson@data.slu.se>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 209-198-142-2-host.prismnet.net ([209.198.142.2]:34226 "EHLO
-	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751464AbXIXNyN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2007 09:54:13 -0400
-In-Reply-To: <46F75968.4010307@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	OpenFabrics General <general@lists.openfabrics.org>
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <adar6kpwdax.fsf@cisco.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-I think pktgen should be cloning the skbs using skb_clone().  Then it 
-will work for all devices, eh?
+Roland Dreier wrote:
+>  > The action in bonding to a detach of slave is to unregister the master (see patch 10).
+>  > This can't be done from the context of unregister_netdevice itself (it is protected by rtnl_lock).
+> 
+> I'm confused.  Your patch has:
+> 
+>  > +		ipoib_slave_detach(cpriv->dev);
+>  >  		unregister_netdev(cpriv->dev);
+> 
+> And ipoib_slave_detach() is:
+> 
+>  > +static inline void ipoib_slave_detach(struct net_device *dev)
+>  > +{
+>  > +	rtnl_lock();
+>  > +	netdev_slave_detach(dev);
+>  > +	rtnl_unlock();
+>  > +}
+> 
+> so you are calling netdev_slave_detach() with the rtnl lock held.
+> Why can't you make the same call from the start of unregister_netdevice()?
+> 
+> Anyway, if the rtnl lock is a problem, can you just add the call to
+> netdev_slave_detach() to unregister_netdev() before it takes the rtnl lock?
+> 
+>  - R.
+> 
 
+Your comment made me do a little rethinking.
+In bonding, device is released by calling unregister_netdevice() that doesn't 
+take the rtnl_lock (unlike unregister_netdev() that does). I guess that this made me 
+confused to think that this is not possible. So, I guess I could put 
+the detach notification in unregister_netedev() and the reaction to the notification 
+in the bonding driver would not block.
+However, I looked one more time at the code of unregister_netdevice() and found out that
+nothing prevents from calling unregister_netdevice() again when the notification NETDEV_GOING_DOWN
+is sent. I tried that and it works.
+I have a new set of patches without sending a slave detach and I will send it soon.
 
-Ben Greear wrote:
-> jamal wrote:
->> On Sun, 2007-23-09 at 12:55 -0500, Steve Wise wrote:
->>
->>  
->>> Its a hack that breaks cxgb3 because cxgb3 uses the skb->cb area for 
->>> each skb passed down.  So cxgb3 is at fault then?  IE a driver cannot 
->>> use the skb->cb field if the users count is > 1?  Or maybe a driver 
->>> can _never_ use the cb field?
->>>     
->>
->> any layer can use the cb structure whichever way they wish. There are
->> violations, e.g:
->> the vlan code also uses the cb field to pass vlan details for hardware
->> acceleration. How does pktgen affect it though, clone() will just copy
->> the cb field and pktgen doesnt touch it.
->> In retrospect, pktgen may have to use clone - ccing Robert Olsson.
->>   
-> Pktgen abuses the ref count, as far as I can tell.  It works with most 
-> ethernet drivers,
-> but that multi-pkt will also fail with things like vlans because the 
-> skb->dev is changed
-> as it is transmitted (to the lower-level device).
-> 
-> I'd say just don't use the multi-pkt with pktgen on devices that can't 
-> handle it.
-> 
-> Thanks,
-> Ben
-> 
-> 
+Thanks for the comment Roland. It makes this patch simpler.
+
+I'd also like to give a credit to Jay for the idea of using NETDEV_GOING_DOWN notification
+instead of NETDEV_CHANGE+IFF_SLAVE_DETACH. He suggested it a while ago but I wrongly thought that
+it wouldn't work.
