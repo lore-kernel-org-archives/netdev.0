@@ -1,57 +1,61 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH: 2.6.13-15-SMP 3/3] network: concurrently
- runsoftirqnetwork code on SMP
-Date: Tue, 25 Sep 2007 09:03:33 -0700
-Message-ID: <20070925090333.11beebb2@freepuppy.rosehill>
-References: <004901c7fd9c$94370df0$d6ddfea9@JOHNYE1>
-	<1190551422.4256.36.camel@localhost>
-	<007201c7ff89$d5db4cf0$d6ddfea9@JOHNYE1>
+Subject: Re: [PATCH] Remove broken netfilter binary sysctls from bridging
+ code
+Date: Tue, 25 Sep 2007 09:12:03 -0700
+Message-ID: <20070925091203.371879e2@fujitsu-loaner>
+References: <20070918011841.2381bd93.akpm@linux-foundation.org>
+	<20070921020554.GE31759@nineveh.local>
+	<m1fy18k5ru.fsf@ebiederm.dsl.xmission.com>
+	<46F7EC0A.9030506@trash.net>
+	<20070924131458.0daa4562@freepuppy.rosehill>
+	<46F8897C.5010504@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <hadi@cyberus.ca>, "David Miller" <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <kuznet@ms2.inr.ac.ru>,
-	<pekkas@netcore.fi>, <jmorris@namei.org>, <kaber@coreworks.de>,
-	<iceburgue@gmail.com>, "John Ye" <johny@asimco.com.cn>
-To: "john ye" <johny@asimco.com.cn>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:33882 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:41113 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752210AbXIYQGU convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Sep 2007 12:06:20 -0400
-In-Reply-To: <007201c7ff89$d5db4cf0$d6ddfea9@JOHNYE1>
+	by vger.kernel.org with ESMTP id S1752210AbXIYQMO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2007 12:12:14 -0400
+In-Reply-To: <46F8897C.5010504@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 25 Sep 2007 23:36:25 +0800
-"john ye" <johny@asimco.com.cn> wrote:
+On Tue, 25 Sep 2007 06:07:24 +0200
+Patrick McHardy <kaber@trash.net> wrote:
 
-> Jamal,
->=20
-> You pointed out a key point: it's NOT acceptable if massive packet re=
--ordering couldn=C2=A1=C2=AFt be avoided.
-> I debugged function tcp_ofo_queue in net/ipv4/tcp_input.c & monitored=
- out_of_order_queue, found that re-ordering
-> becomes unacceptable with the softirq load grows.
->=20
-> It's simple to avoid out-of-order packets by changing random dispatch=
- into dispatch based on source ip address.
-> e.g. cpu =3D iph->saddr % nr_cpus. while cpu is like a hash entry.
-> Considering that BS patch is mainly used on server with many incoming=
- connections,
-> dispatch by IP should balance CPU load well.
->=20
-> The test is under way, it's not bad so far.
-> The queue spin_lock seems not cost much.
->=20
-> Below is the bcpp beautified module code. Last time code mess is caus=
-ed by outlook express which killed tabs.
->=20
-> Thanks.
->=20
-> John Ye
+> Stephen Hemminger wrote:
+> > On Mon, 24 Sep 2007 18:55:38 +0200
+> > Patrick McHardy <kaber@trash.net> wrote:
+> > 
+> >>Eric W. Biederman wrote:
+> >>
+> >>>A really good fix would be to remove the binary side and then to
+> >>>modify brnf_sysctl_call_tables to allocate a temporary ctl_table
+> >>>and integer on the stack and only set ctl->data after we have
+> >>>normalized the written value.  But since in practice nothing cares
+> >>>about the race a better fix probably isn't worth it.
+> >>
+> >>
+> >>I seem to be missing something, the entire brnf_sysctl_call_tables
+> >>thing looks purely cosmetic to me, wouldn't it be better to simply
+> >>remove it?
+> > 
+> > 
+> > I agree, removing seems like a better option.  But probably need to
+> > go through a 3-6mo warning period, since sysctl's are technically
+> > an API.
+> 
+> 
+> I meant removing brnf_sysctl_call_tables function, not the sysctls
+> themselves, all it does is change values != 0 to 1. Or did you
+> actually mean that something in userspace might depend on reading
+> back the value 1 after writing a value != 0?
 
-There is a standard hash called RSS, that many drivers support because =
-it is
-used by other operating systems.=20
+I was going farther, because don't really see the value of having
+a sysctl for this. It seems better to just not load filters if
+they aren't going to be used. Having another enable/disable hook
+just adds needless complexity.
