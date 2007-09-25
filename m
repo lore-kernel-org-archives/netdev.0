@@ -1,7 +1,7 @@
 From: Urs Thuermann <urs@isnogud.escape.de>
-Subject: [PATCH 4/7] CAN: Add broadcast manager (bcm) protocol
-Date: Tue, 25 Sep 2007 14:20:33 +0200
-Message-ID: <20070925122243.15989.4@janus.isnogud.escape.de>
+Subject: [PATCH 7/7] CAN: Add documentation
+Date: Tue, 25 Sep 2007 14:20:36 +0200
+Message-ID: <20070925122244.15989.7@janus.isnogud.escape.de>
 References: <20070925122029.15989.0@janus.isnogud.escape.de>
 Cc: David Miller <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>,
@@ -12,1913 +12,675 @@ Cc: David Miller <davem@davemloft.net>,
 	Urs Thuermann <urs.thuermann@volkswagen.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:47643 "EHLO oker.escape.de"
+Received: from oker.escape.de ([194.120.234.254]:47644 "EHLO oker.escape.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753104AbXIYMaz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753114AbXIYMaz (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 25 Sep 2007 08:30:55 -0400
-Content-Disposition: inline; filename=04-can-bcm-proto.diff
+Content-Disposition: inline; filename=07-can-doc.diff
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the CAN broadcast manager (bcm) protocol.
+This patch adds documentation for the PF_CAN protocol family.
 
 Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
- include/linux/can/bcm.h |   65 +
- net/can/Kconfig         |   13 
- net/can/Makefile        |    3 
- net/can/bcm.c           | 1778 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 1859 insertions(+)
+ Documentation/networking/00-INDEX |    2 
+ Documentation/networking/can.txt  |  634 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 636 insertions(+)
 
-Index: net-2.6.24/include/linux/can/bcm.h
+Index: net-2.6.24/Documentation/networking/can.txt
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/include/linux/can/bcm.h	2007-09-25 13:31:23.000000000 +0200
-@@ -0,0 +1,65 @@
-+/*
-+ * linux/can/bcm.h
-+ *
-+ * Definitions for CAN Broadcast Manager (BCM)
-+ *
-+ * Author: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-+ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
-+ * All rights reserved.
-+ *
-+ * Send feedback to <socketcan-users@lists.berlios.de>
-+ *
-+ */
++++ net-2.6.24/Documentation/networking/can.txt	2007-09-25 13:28:26.000000000 +0200
+@@ -0,0 +1,634 @@
++============================================================================
 +
-+#ifndef CAN_BCM_H
-+#define CAN_BCM_H
++can.txt
 +
-+/**
-+ * struct bcm_msg_head - head of messages to/from the broadcast manager
-+ * @opcode:    opcode, see enum below.
-+ * @flags:     special flags, see below.
-+ * @count:     number of frames to send before changing interval.
-+ * @ival1:     interval for the first @count frames.
-+ * @ival2:     interval for the following frames.
-+ * @can_id:    CAN ID of frames to be sent or received.
-+ * @nframes:   number of frames appended to the message head.
-+ * @frames:    array of CAN frames.
-+ */
-+struct bcm_msg_head {
-+	int opcode;
-+	int flags;
-+	int count;
-+	struct timeval ival1, ival2;
-+	canid_t can_id;
-+	int nframes;
-+	struct can_frame frames[0];
-+};
++Readme file for the Controller Area Network Protocol Family (aka Socket CAN)
 +
-+enum {
-+	TX_SETUP = 1,	/* create (cyclic) transmission task */
-+	TX_DELETE,	/* remove (cyclic) transmission task */
-+	TX_READ,	/* read properties of (cyclic) transmission task */
-+	TX_SEND,	/* send one CAN frame */
-+	RX_SETUP,	/* create RX content filter subscription */
-+	RX_DELETE,	/* remove RX content filter subscription */
-+	RX_READ,	/* read properties of RX content filter subscription */
-+	TX_STATUS,	/* reply to TX_READ request */
-+	TX_EXPIRED,	/* notification on performed transmissions (count=0) */
-+	RX_STATUS,	/* reply to RX_READ request */
-+	RX_TIMEOUT,	/* cyclic message is absent */
-+	RX_CHANGED	/* updated CAN frame (detected content change) */
-+};
++This file contains
 +
-+#define SETTIMER            0x0001
-+#define STARTTIMER          0x0002
-+#define TX_COUNTEVT         0x0004
-+#define TX_ANNOUNCE         0x0008
-+#define TX_CP_CAN_ID        0x0010
-+#define RX_FILTER_ID        0x0020
-+#define RX_CHECK_DLC        0x0040
-+#define RX_NO_AUTOTIMER     0x0080
-+#define RX_ANNOUNCE_RESUME  0x0100
-+#define TX_RESET_MULTI_IDX  0x0200
-+#define RX_RTR_FRAME        0x0400
++  1 Overview / What is Socket CAN
 +
-+#endif /* CAN_BCM_H */
-Index: net-2.6.24/net/can/Kconfig
++  2 Motivation / Why using the socket API
++
++  3 Socket CAN concept
++    3.1 receive lists
++    3.2 loopback
++    3.3 network security issues (capabilities)
++    3.4 network problem notifications
++
++  4 How to use Socket CAN
++    4.1 RAW protocol sockets with can_filters (SOCK_RAW)
++      4.1.1 RAW socket option CAN_RAW_FILTER
++      4.1.2 RAW socket option CAN_RAW_ERR_FILTER
++      4.1.3 RAW socket option CAN_RAW_LOOPBACK
++      4.1.4 RAW socket option CAN_RAW_RECV_OWN_MSGS
++    4.2 Broadcast Manager protocol sockets (SOCK_DGRAM)
++    4.3 connected transport protocols (SOCK_SEQPACKET)
++    4.4 unconnected transport protocols (SOCK_DGRAM)
++
++  5 Socket CAN core module
++    5.1 can.ko module params
++    5.2 procfs content
++    5.3 writing own CAN protocol modules
++
++  6 CAN network drivers
++    6.1 general settings
++    6.2 loopback
++    6.3 CAN controller hardware filters
++    6.4 currently supported CAN hardware
++    6.5 todo
++
++  7 Credits
++
++============================================================================
++
++1. Overview / What is Socket CAN
++--------------------------------
++
++The socketcan package is an implementation of CAN protocols
++(Controller Area Network) for Linux.  CAN is a networking technology
++which has widespread use in automation, embedded devices, and
++automotive fields.  While there have been other CAN implementations
++for Linux based on character devices, Socket CAN uses the Berkeley
++socket API, the Linux network stack and implements the CAN device
++drivers as network interfaces.  The CAN socket API has been designed
++as similar as possible to the TCP/IP protocols to allow programmers,
++familiar with network programming, to easily learn how to use CAN
++sockets.
++
++2. Motivation / Why using the socket API
++----------------------------------------
++
++There have been CAN implementations for Linux before Socket CAN so the
++question arises, why we have started another project.  Most existing
++implementations come as a device driver for some CAN hardware, they
++are based on character devices and provide comparatively little
++functionality.  Usually, there is only a hardware-specific device
++driver which provides a character device interface to send and
++receive raw CAN frames, directly to/from the controller hardware.
++Queueing of frames and higher-level transport protocols like ISO-TP
++have to be implemented in user space applications.  Also, most
++character-device implementations support only one single process to
++open the device at a time, similar to a serial interface.  Exchanging
++the CAN controller requires employment of another device driver and
++often the need for adaption of large parts of the application to the
++new driver's API.
++
++Socket CAN was designed to overcome all of these limitations.  A new
++protocol family has been implemented which provides a socket interface
++to user space applications and which builds upon the Linux network
++layer, so to use all of the provided queueing functionality.  A device
++driver for CAN controller hardware registers itself with the Linux
++network layer as a network device, so that CAN frames from the
++controller can be passed up to the network layer and on to the CAN
++protocol family module and also vice-versa.  Also, the protocol family
++module provides an API for transport protocol modules to register, so
++that any number of transport protocols can be loaded or unloaded
++dynamically.  In fact, the can core module alone does not provide any
++protocol and cannot be used without loading at least one additional
++protocol module.  Multiple sockets can be opened at the same time,
++on different or the same protocol module and they can listen/send
++frames on different or the same CAN IDs.  Several sockets listening on
++the same interface for frames with the same CAN ID are all passed the
++same received matching CAN frames.  An application wishing to
++communicate using a specific transport protocol, e.g. ISO-TP, just
++selects that protocol when opening the socket, and then can read and
++write application data byte streams, without having to deal with
++CAN-IDs, frames, etc.
++
++Similar functionality visible from user-space could be provided by a
++character device, too, but this would lead to a technically inelegant
++solution for a couple of reasons:
++
++* Intricate usage.  Instead of passing a protocol argument to
++  socket(2) and using bind(2) to select a CAN interface and CAN ID, an
++  application would have to do all these operations using ioctl(2)s.
++
++* Code duplication.  A character device cannot make use of the Linux
++  network queueing code, so all that code would have to be duplicated
++  for CAN networking.
++
++* Abstraction.  In most existing character-device implementations, the
++  hardware-specific device driver for a CAN controller directly
++  provides the character device for the application to work with.
++  This is at least very unusual in Unix systems for both, char and
++  block devices.  For example you don't have a character device for a
++  certain UART of a serial interface, a certain sound chip in your
++  computer, a SCSI or IDE controller providing access to your hard
++  disk or tape streamer device.  Instead, you have abstraction layers
++  which provide a unified character or block device interface to the
++  application on the one hand, and a interface for hardware-specific
++  device drivers on the other hand.  These abstractions are provided
++  by subsystems like the tty layer, the audio subsystem or the SCSI
++  and IDE subsystems for the devices mentioned above.
++
++  The easiest way to implement a CAN device driver is as a character
++  device without such a (complete) abstraction layer, as is done by most
++  existing drivers.  The right way, however, would be to add such a
++  layer with all the functionality like registering for certain CAN
++  IDs, supporting several open file descriptors and (de)multiplexing
++  CAN frames between them, (sophisticated) queueing of CAN frames, and
++  providing an API for device drivers to register with.  However, then
++  it would be no more difficult, or may be even easier, to use the
++  networking framework provided by the Linux kernel, and this is what
++  Socket CAN does.
++
++  The use of the networking framework of the Linux kernel is just the
++  natural and most appropriate way to implement CAN for Linux.
++
++3. Socket CAN concept
++---------------------
++
++  As described in chapter 2 it is the main goal of Socket CAN to
++  provide a socket interface to user space applications which builds
++  upon the Linux network layer. In contrast to the commonly known
++  TCP/IP and ethernet networking, the CAN bus is a broadcast-only(!)
++  medium that has no MAC-layer addressing like ethernet. The CAN-identifier
++  (can_id) is used for arbitration on the CAN-bus. Therefore the CAN-IDs
++  have to be chosen uniquely on the bus. When designing a CAN-ECU
++  network the CAN-IDs are mapped to be sent by a specific ECU.
++  For this reason a CAN-ID can be treated best as a kind of source address.
++
++  3.1 receive lists
++
++  The network transparent access of multiple applications leads to the
++  problem that different applications may be interested in the same
++  CAN-IDs from the same CAN network interface. The Socket CAN core
++  module - which implements the protocol family CAN - provides several
++  high efficient receive lists for this reason. If e.g. a user space
++  application opens a CAN RAW socket, the raw protocol module itself
++  requests the (range of) CAN-IDs from the Socket CAN core that are
++  requested by the user. The subscription and unsubscription of
++  CAN-IDs can be done for specific CAN interfaces or for all(!) known
++  CAN interfaces with the can_rx_(un)register() functions provided to
++  CAN protocol modules by the SocketCAN core (see chapter 5).
++  To optimize the CPU usage at runtime the receive lists are split up
++  into several specific lists per device that match the requested
++  filter complexity for a given use-case.
++
++  3.2 loopback
++
++  As known from other networking concepts the data exchanging
++  applications may run on the same or different nodes without any
++  change (except for the according addressing information):
++
++         ___   ___   ___                   _______   ___
++        | _ | | _ | | _ |                 | _   _ | | _ |
++        ||A|| ||B|| ||C||                 ||A| |B|| ||C||
++        |___| |___| |___|                 |_______| |___|
++          |     |     |                       |       |
++        -----------------(1)- CAN bus -(2)---------------
++
++  To ensure that application A receives the same information in the
++  example (2) as it would receive in example (1) there is need for
++  some kind of local loopback on the appropriate node.
++
++  The Linux network devices (by default) just can handle the
++  transmission and reception of media dependent frames. Due to the
++  arbritration on the CAN bus the transmission of a low prio CAN-ID
++  may be delayed by the reception of a high prio CAN frame. To
++  reflect the correct* traffic on the node the loopback of the sent
++  data has to be performed right after a successful transmission. If
++  the CAN network interface is not capable of performing the loopback for
++  some reason the SocketCAN core can do this task as a fallback solution.
++  See chapter 6.2 for details (recommended).
++
++  The loopback functionality is enabled by default to reflect standard
++  networking behaviour for CAN applications. Due to some requests from
++  the RT-SocketCAN group the loopback optionally may be disabled for each
++  separate socket. See sockopts from the CAN RAW sockets in chapter 4.1.
++
++  * = you really like to have this when you're running analyser tools
++      like 'candump' or 'cansniffer' on the (same) node.
++
++  3.3 network security issues (capabilities)
++
++  The Controller Area Network is a local field bus transmitting only
++  broadcast messages without any routing and security concepts.
++  In the majority of cases the user application has to deal with
++  raw CAN frames. Therefore it might be reasonable NOT to restrict
++  the CAN access only to the user root, as known from other networks.
++  Since the currently implemented CAN_RAW and CAN_BCM sockets can only
++  send and receive frames to/from CAN interfaces it does not affect
++  security of others networks to allow all users to access the CAN.
++  To enable non-root users to access CAN_RAW and CAN_BCM protocol
++  sockets the Kconfig options CAN_RAW_USER and/or CAN_BCM_USER may be
++  selected at kernel compile time.
++
++  3.4 network problem notifications
++
++  The use of the CAN bus may lead to several problems on the physical
++  and media access control layer. Detecting and logging of these lower
++  layer problems is a vital requirement for CAN users to identify
++  hardware issues on the physical transceiver layer as well as
++  arbitration problems and error frames caused by the different
++  ECUs. The occurrence of detected errors are important for diagnosis
++  and have to be logged together with the exact timestamp. For this
++  reason the CAN interface driver can generate so called Error Frames
++  that can optionally be passed to the user application in the same
++  way as other CAN frames. Whenever an error on the physical layer
++  or the MAC layer is detected (e.g. by the CAN controller) the driver
++  creates an appropriate error frame. Error frames can be requested by
++  the user application using the common CAN filter mechanisms. Inside
++  this filter definition the (interested) type of errors may be
++  selected. The reception of error frames is disabled by default.
++
++4. How to use Socket CAN
++------------------------
++
++  Like TCP/IP, you first need to open a socket for communicating over a
++  CAN network. Since Socket CAN implements a new protocol family, you
++  need to pass PF_CAN as the first argument to the socket(2) system
++  call. Currently, there are two CAN protocols to choose from, the raw
++  socket protocol and the broadcast manager (BCM). So to open a socket,
++  you would write
++
++    s = socket(PF_CAN, SOCK_RAW, CAN_RAW);
++
++  and
++
++    s = socket(PF_CAN, SOCK_DGRAM, CAN_BCM);
++
++  respectively.  After the successful creation of the socket, you would
++  normally use the bind(2) system call to bind the socket to a CAN
++  interface (which is different from TCP/IP due to different addressing
++  - see chapter 3). After binding (CAN_RAW) or connecting (CAN_BCM)
++  the socket, you can read(2) and write(2) from/to the socket or use
++  send(2), sendto(2), sendmsg(2) and the recv* counterpart operations
++  on the socket as usual. There are also CAN specific socket options
++  described below.
++
++  The basic CAN frame structure and the sockaddr structure are defined
++  in include/linux/can.h:
++
++    struct can_frame {
++            canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
++            __u8    can_dlc; /* data length code: 0 .. 8 */
++            __u8    data[8] __attribute__((aligned(8)));
++    };
++
++  The alignment of the (linear) payload data[] to a 64bit boundary
++  allows the user to define own structs and unions to easily access the
++  CAN payload. There is no given byteorder on the CAN bus by
++  default. A read(2) system call on a CAN_RAW socket transfers a
++  struct can_frame to the user space.
++
++  The sockaddr_can structure has an interface index like the
++  PF_PACKET socket, that also binds to a specific interface:
++
++    struct sockaddr_can {
++            sa_family_t can_family;
++            int         can_ifindex;
++            union {
++                    struct { canid_t rx_id, tx_id; } tp16;
++                    struct { canid_t rx_id, tx_id; } tp20;
++                    struct { canid_t rx_id, tx_id; } mcnet;
++                    struct { canid_t rx_id, tx_id; } isotp;
++            } can_addr;
++    };
++
++  To determine the interface index an appropriate ioctl() has to
++  be used (example for CAN_RAW sockets without error checking):
++
++    int s;
++    struct sockaddr_can addr;
++    struct ifreq ifr;
++
++    s = socket(PF_CAN, SOCK_RAW, CAN_RAW);
++
++    strcpy(ifr.ifr_name, "can0" );
++    ioctl(s, SIOCGIFINDEX, &ifr);
++
++    addr.can_family = AF_CAN;
++    addr.can_ifindex = ifr.ifr_ifindex;
++
++    bind(s, (struct sockaddr *)&addr, sizeof(addr));
++
++    (..)
++
++  To bind a socket to all(!) CAN interfaces the interface index must
++  be 0 (zero). In this case the socket receives CAN frames from every
++  enabled CAN interface. To determine the originating CAN interface
++  the system call recvfrom(2) may be used instead of read(2). To send
++  on a socket that is bound to 'any' interface sendto(2) is needed to
++  specify the outgoing interface.
++
++  Reading CAN frames from a bound CAN_RAW socket (see above) consists
++  of reading a struct can_frame:
++
++    struct can_frame frame;
++
++    nbytes = read(s, &frame, sizeof(struct can_frame));
++
++    if (nbytes < 0) {
++            perror("can raw socket read");
++            return 1;
++    }
++
++    /* paraniod check ... */
++    if (nbytes < sizeof(struct can_frame)) {
++            fprintf(stderr, "read: incomplete CAN frame\n");
++            return 1;
++    }
++
++    /* do something with the received CAN frame */
++
++  Writing CAN frames can be done similarly, with the write(2) system call:
++
++    nbytes = write(s, &frame, sizeof(struct can_frame));
++
++  When the CAN interface is bound to 'any' existing CAN interface
++  (addr.can_ifindex = 0) it is recommended to use recvfrom(2) if the
++  information about the originating CAN interface is needed:
++
++    struct sockaddr_can addr;
++    struct ifreq ifr;
++    socklen_t len = sizeof(addr);
++    struct can_frame frame;
++
++    nbytes = recvfrom(s, &frame, sizeof(struct can_frame),
++                      0, (struct sockaddr*)&addr, &len);
++
++    /* get interface name of the received CAN frame */
++    ifr.ifr_ifindex = addr.can_ifindex;
++    ioctl(s, SIOCGIFNAME, &ifr);
++    printf("Received a CAN frame from interface %s", ifr.ifr_name);
++
++  To write CAN frames on sockets bound to 'any' CAN interface the
++  outgoing interface has to be defined certainly.
++
++    strcpy(ifr.ifr_name, "can0");
++    ioctl(s, SIOCGIFINDEX, &ifr);
++    addr.can_ifindex = ifr.ifr_ifindex;
++    addr.can_family  = AF_CAN;
++
++    nbytes = sendto(s, &frame, sizeof(struct can_frame),
++                    0, (struct sockaddr*)&addr, sizeof(addr));
++
++  4.1 RAW protocol sockets with can_filters (SOCK_RAW)
++
++  Using CAN_RAW sockets is extensively comparable to the commonly
++  known access to CAN character devices. To meet the new possibilities
++  provided by the multi user SocketCAN approach, some reasonable
++  defaults are set at RAW socket binding time:
++
++  - The filters are set to exactly one filter receiving everything
++  - The socket only receives valid data frames (=> no error frames)
++  - The loopback of sent CAN frames is enabled (see chapter 3.2)
++  - The socket does not receive its own sent frames (in loopback mode)
++
++  These default settings may be changed before or after binding the socket.
++  To use the referenced definitions of the socket options for CAN_RAW
++  sockets, include <linux/can/raw.h>.
++
++  4.1.1 RAW socket option CAN_RAW_FILTER
++
++  The reception of CAN frames using CAN_RAW sockets can be controlled
++  by defining 0 .. n filters with the CAN_RAW_FILTER socket option.
++
++  The CAN filter structure is defined in include/linux/can.h:
++
++    struct can_filter {
++            canid_t can_id;
++            canid_t can_mask;
++    };
++
++  A filter matches, when
++
++    <received_can_id> & mask == can_id & mask
++
++  which is analogous to known CAN controllers hardware filter semantics.
++  The filter can be inverted in this semantic, when the CAN_INV_FILTER
++  bit is set in can_id element of the can_filter structure. In
++  contrast to CAN controller hardware filters the user may set 0 .. n
++  receive filters for each open socket separately:
++
++    struct can_filter rfilter[2];
++
++    rfilter[0].can_id   = 0x123;
++    rfilter[0].can_mask = CAN_SFF_MASK;
++    rfilter[1].can_id   = 0x200;
++    rfilter[1].can_mask = 0x700;
++
++    setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter, sizeof(rfilter));
++
++  To disable the reception of CAN frames on the selected CAN_RAW socket:
++
++    setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, NULL, 0);
++
++  To set the filters to zero filters is quite obsolete as not read
++  data causes the raw socket to discard the received CAN frames. But
++  having this 'send only' use-case we may remove the receive list in the
++  Kernel to save a little (really a very little!) CPU usage.
++
++  4.1.2 RAW socket option CAN_RAW_ERR_FILTER
++
++  As described in chapter 3.4 the CAN interface driver can generate so
++  called Error Frames that can optionally be passed to the user
++  application in the same way as other CAN frames. The possible
++  errors are divided into different error classes that may be filtered
++  using the appropriate error mask. To register for every possible
++  error condition CAN_ERR_MASK can be used as value for the error mask.
++  The values for the error mask are defined in linux/can/error.h .
++
++    can_err_mask_t err_mask = ( CAN_ERR_TX_TIMEOUT | CAN_ERR_BUSOFF );
++
++    setsockopt(s, SOL_CAN_RAW, CAN_RAW_ERR_FILTER,
++               &err_mask, sizeof(err_mask));
++
++  4.1.3 RAW socket option CAN_RAW_LOOPBACK
++
++  To meet multi user needs the local loopback is enabled by default
++  (see chapter 3.2 for details). But in some embedded use-cases
++  (e.g. when only one application uses the CAN bus) this loopback
++  functionality can be disabled (separately for each socket):
++
++    int loopback = 0; /* 0 = disabled, 1 = enabled (default) */
++
++    setsockopt(s, SOL_CAN_RAW, CAN_RAW_LOOPBACK, &loopback, sizeof(loopback));
++
++  4.1.4 RAW socket option CAN_RAW_RECV_OWN_MSGS
++
++  When the local loopback is enabled, all the sent CAN frames are
++  looped back to the open CAN sockets that registered for the CAN
++  frames' CAN-ID on this given interface to meet the multi user
++  needs. The reception of the CAN frames on the same socket that was
++  sending the CAN frame is assumed to be unwanted and therefore
++  disabled by default. This default behaviour may be changed on
++  demand:
++
++    int recv_own_msgs = 1; /* 0 = disabled (default), 1 = enabled */
++
++    setsockopt(s, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS,
++               &recv_own_msgs, sizeof(recv_own_msgs));
++
++  4.2 Broadcast Manager protocol sockets (SOCK_DGRAM)
++  4.3 connected transport protocols (SOCK_SEQPACKET)
++  4.4 unconnected transport protocols (SOCK_DGRAM)
++
++
++5. Socket CAN core module
++-------------------------
++
++  The Socket CAN core module implements the protocol family
++  PF_CAN. CAN protocol modules are loaded by the core module at
++  runtime. The core module provides an interface for CAN protocol
++  modules to subscribe needed CAN IDs (see chapter 3.1).
++
++  5.1 can.ko module params
++
++  - stats_timer: To calculate the Socket CAN core statistics
++    (e.g. current/maximum frames per second) this 1 second timer is
++    invoked at can.ko module start time by default. This timer can be
++    disabled by using stattimer=0 on the module comandline.
++
++  - debug: When the Kconfig option CONFIG_CAN_DEBUG_CORE is set at
++    compile time, the debug output code is compiled into the module.
++    debug = 0x01 => print general debug information
++    debug = 0x02 => print content of processed CAN frames
++    debug = 0x04 => print content of processed socket buffers
++
++    It is possible to use ORed values e.g. 3 or 7 for an output of
++    all available debug information. Using 0x02 and 0x04 may flood
++    your kernel log - so be careful.
++
++  5.2 procfs content
++
++  As described in chapter 3.1 the Socket CAN core uses several filter
++  lists to deliver received CAN frames to CAN protocol modules. These
++  receive lists, their filters and the count of filter matches can be
++  checked in the appropriate receive list. All entries contain the
++  device and a protocol module identifier:
++
++    foo@bar:~$ cat /proc/net/can/rcvlist_all
++
++    receive list 'rx_all':
++      (vcan3: no entry)
++      (vcan2: no entry)
++      (vcan1: no entry)
++      device   can_id   can_mask  function  userdata   matches  ident
++       vcan0     000    00000000  f88e6370  f6c6f400         0  raw
++      (any: no entry)
++
++  In this example an application requests any CAN traffic from vcan0.
++
++    rcvlist_all - list for unfiltered entries (no filter operations)
++    rcvlist_eff - list for single extended frame (EFF) entries
++    rcvlist_err - list for error frames masks
++    rcvlist_fil - list for mask/value filters
++    rcvlist_inv - list for mask/value filters (inverse semantic)
++    rcvlist_sff - list for single standard frame (SFF) entries
++
++  Additional procfs files in /proc/net/can
++
++    stats       - Socket CAN core statistics (rx/tx frames, match ratios, ...)
++    reset_stats - manual statistic reset
++    version     - prints the Socket CAN core version and the ABI version
++
++  5.3 writing own CAN protocol modules
++
++  To implement a new protocol in the protocol family PF_CAN a new
++  protocol has to be defined in include/linux/can.h .
++  The prototypes and definitions to use the Socket CAN core can be
++  accessed by including include/linux/can/core.h .
++  In addition to functions that register the CAN protocol and the
++  CAN device notifier chain there are functions to subscribe CAN
++  frames received by CAN interfaces and to send CAN frames:
++
++    can_rx_register   - subscribe CAN frames from a specific interface
++    can_rx_unregister - unsubscribe CAN frames from a specific interface
++    can_send          - transmit a CAN frame (optional with local loopback)
++
++  For details see the kerneldoc documentation in net/can/af_can.c or
++  the source code of net/can/raw.c or net/can/bcm.c .
++
++6. CAN network drivers
++----------------------
++
++  Writing a CAN network device driver is much easier than writing a
++  CAN character device driver. Similar to other known network device
++  drivers you mainly have to deal with:
++
++  - TX: Put the CAN frame from the socket buffer to the CAN controller.
++  - RX: Put the CAN frame from the CAN controller to the socket buffer.
++
++  See e.g. at Documentation/networking/netdevices.txt . The differences
++  for writing CAN network device driver are described below:
++
++  6.1 general settings
++
++    dev->type  = ARPHRD_CAN; /* the netdevice hardware type */
++    dev->flags = IFF_NOARP;  /* CAN has no arp */
++
++    dev->mtu   = sizeof(struct can_frame);
++
++  The struct can_frame is the payload of each socket buffer in the
++  protocol family PF_CAN.
++
++  6.2 loopback
++
++  As described in chapter 3.2 the CAN network device driver should
++  support a local loopback functionality. In this case the driver flag
++  IFF_LOOPBACK has to be set to cause the PF_CAN core to not perform the
++  loopback as fallback solution:
++
++    dev->flags = (IFF_NOARP | IFF_LOOPBACK);
++
++  6.3 CAN controller hardware filters
++
++  To reduce the interrupt load on deep embedded systems some CAN
++  controllers support the filtering of CAN IDs or ranges of CAN IDs.
++  These hardware filter capabilities vary from controller to
++  controller and have to be identified as not feasible in a multi-user
++  networking approach. The use of the very controller specific
++  hardware filters could make sense in a very dedicated use-case, as a
++  filter on driver level would affect all users in the multi-user
++  system. The high efficient filter sets inside the PF_CAN core allow
++  to set different multiple filters for each socket separately.
++  Therefore the use of hardware filters goes to the category 'handmade
++  tuning on deep embedded systems'. The author is running a MPC603e
++  @133MHz with four SJA1000 CAN controllers from 2002 under heavy bus
++  load without any problems ...
++
++  6.4 currently supported CAN hardware (May 2007)
++
++  On the project website http://developer.berlios.de/projects/socketcan
++  there are different drivers available:
++
++    vcan:    Virtual CAN interface driver (if no real hardware is available)
++    sja1000: Philips SJA1000 CAN controller (recommended)
++    i82527:  Intel i82527 CAN controller
++    mscan:   Motorola/Freescale CAN controller (e.g. inside SOC MPC5200)
++    slcan:   For a bunch of CAN adaptors that are attached via a
++             serial line ASCII protocol (for serial / USB adaptors)
++
++  Additionally the different CAN adaptors (ISA/PCI/PCMCIA/USB/Parport)
++  from PEAK Systemtechnik support the CAN netdevice driver model
++  since Linux driver v6.0: http://www.peak-system.com/linux/index.htm
++
++  Please check the Mailing Lists on the berlios OSS project website.
++
++  6.5 todo (May 2007)
++
++  The configuration interface for CAN network drivers is still an open
++  issue that has not been finalized in the socketcan project. Also the
++  idea of having a library module (candev.ko) that holds functions
++  that are needed by all CAN netdevices is not ready to ship.
++  Your contribution is welcome.
++
++7. Credits
++----------
++
++  Oliver Hartkopp (PF_CAN core, filters, drivers, bcm)
++  Urs Thuermann (PF_CAN core, kernel integration, socket interfaces, raw, vcan)
++  Jan Kizka (RT-SocketCAN core, Socket-API reconciliation)
++  Wolfgang Grandegger (RT-SocketCAN core & drivers, Raw Socket-API reviews)
++  Robert Schwebel (design reviews, PTXdist integration)
++  Marc Kleine-Budde (design reviews, Kernel 2.6 cleanups, drivers)
++  Benedikt Spranger (reviews)
++  Thomas Gleixner (LKML reviews, coding style, posting hints)
++  Andrey Volkov (kernel subtree structure, ioctls, mscan driver)
++  Matthias Brukner (first SJA1000 CAN netdevice implementation Q2/2003)
++  Klaus Hitschler (PEAK driver integration)
++  Uwe Koppe (CAN netdevices with PF_PACKET approach)
++  Michael Schulze (driver layer loopback requirement, RT CAN drivers review)
+Index: net-2.6.24/Documentation/networking/00-INDEX
 ===================================================================
---- net-2.6.24.orig/net/can/Kconfig	2007-09-25 13:31:06.000000000 +0200
-+++ net-2.6.24/net/can/Kconfig	2007-09-25 13:31:46.000000000 +0200
-@@ -27,6 +27,19 @@
- 	  socket has several filter options e.g. ID-Masking / Errorframes.
- 	  To receive/send raw CAN messages, use AF_CAN with protocol CAN_RAW.
- 
-+config CAN_BCM
-+	tristate "Broadcast Manager CAN Protocol (with content filtering)"
-+	depends on CAN
-+	default N
-+	---help---
-+	  The Broadcast Manager offers content filtering, timeout monitoring,
-+	  sending of RTR-frames and cyclic CAN messages without permanent user
-+	  interaction. The BCM can be 'programmed' via the BSD socket API and
-+	  informs you on demand e.g. only on content updates / timeouts.
-+	  You probably want to use the bcm socket in most cases where cyclic
-+	  CAN messages are used on the bus (e.g. in automotive environments).
-+	  To use the Broadcast Manager, use AF_CAN with protocol CAN_BCM.
-+
- config CAN_DEBUG_CORE
- 	bool "CAN Core debugging messages"
- 	depends on CAN
-Index: net-2.6.24/net/can/Makefile
-===================================================================
---- net-2.6.24.orig/net/can/Makefile	2007-09-25 13:29:23.000000000 +0200
-+++ net-2.6.24/net/can/Makefile	2007-09-25 13:31:23.000000000 +0200
-@@ -7,3 +7,6 @@
- 
- obj-$(CONFIG_CAN_RAW)	+= can-raw.o
- can-raw-objs		:= raw.o
-+
-+obj-$(CONFIG_CAN_BCM)	+= can-bcm.o
-+can-bcm-objs		:= bcm.o
-Index: net-2.6.24/net/can/bcm.c
-===================================================================
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ net-2.6.24/net/can/bcm.c	2007-09-25 13:31:23.000000000 +0200
-@@ -0,0 +1,1778 @@
-+/*
-+ * bcm.c - Broadcast Manager to filter/send (cyclic) CAN content
-+ *
-+ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
-+ * All rights reserved.
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions, the following disclaimer and
-+ *    the referenced file 'COPYING'.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ * 3. Neither the name of Volkswagen nor the names of its contributors
-+ *    may be used to endorse or promote products derived from this software
-+ *    without specific prior written permission.
-+ *
-+ * Alternatively, provided that this notice is retained in full, this
-+ * software may be distributed under the terms of the GNU General
-+ * Public License ("GPL") version 2 as distributed in the 'COPYING'
-+ * file from the main directory of the linux kernel source.
-+ *
-+ * The provided data structures and external interfaces from this code
-+ * are not restricted to be used by modules with a GPL compatible license.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
-+ * DAMAGE.
-+ *
-+ * Send feedback to <socketcan-users@lists.berlios.de>
-+ *
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/init.h>
-+#include <linux/list.h>
-+#include <linux/proc_fs.h>
-+#include <linux/uio.h>
-+#include <linux/poll.h>
-+#include <linux/net.h>
-+#include <linux/netdevice.h>
-+#include <linux/socket.h>
-+#include <linux/if_arp.h>
-+#include <linux/skbuff.h>
-+#include <linux/can.h>
-+#include <linux/can/core.h>
-+#include <linux/can/bcm.h>
-+#include <net/sock.h>
-+#include <net/net_namespace.h>
-+
-+/* use of last_frames[index].can_dlc */
-+#define RX_RECV    0x40 /* received data for this element */
-+#define RX_THR     0x80 /* element not been sent due to throttle feature */
-+#define BCM_CAN_DLC_MASK 0x0F /* clean private flags in can_dlc by masking */
-+
-+/* get best masking value for can_rx_register() for a given single can_id */
-+#define REGMASK(id) ((id & CAN_RTR_FLAG) | ((id & CAN_EFF_FLAG) ? \
-+			(CAN_EFF_MASK | CAN_EFF_FLAG) : CAN_SFF_MASK))
-+
-+#define IDENT "bcm"
-+#define CAN_BCM_VERSION CAN_VERSION
-+static __initdata const char banner[] = KERN_INFO
-+	"can: broadcast manager protocol (rev " CAN_BCM_VERSION ")\n";
-+
-+MODULE_DESCRIPTION("PF_CAN broadcast manager protocol");
-+MODULE_LICENSE("Dual BSD/GPL");
-+MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
-+
-+#ifdef CONFIG_CAN_DEBUG_CORE
-+static int debug;
-+module_param(debug, int, S_IRUGO);
-+MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
-+#endif
-+
-+/* easy access to can_frame payload */
-+static inline u64 GET_U64(const struct can_frame *cp)
-+{
-+	return *(u64 *)cp->data;
-+}
-+
-+struct bcm_op {
-+	struct list_head list;
-+	int ifindex;
-+	canid_t can_id;
-+	int flags;
-+	unsigned long j_ival1, j_ival2, j_lastmsg;
-+	unsigned long frames_abs, frames_filtered;
-+	struct timer_list timer, thrtimer;
-+	struct timeval ival1, ival2;
-+	ktime_t rx_stamp;
-+	int rx_ifindex;
-+	int count;
-+	int nframes;
-+	int currframe;
-+	struct can_frame *frames;
-+	struct can_frame *last_frames;
-+	struct can_frame sframe;
-+	struct can_frame last_sframe;
-+	struct sock *sk;
-+	struct net_device *rx_reg_dev;
-+};
-+
-+static struct proc_dir_entry *proc_dir;
-+
-+struct bcm_sock {
-+	struct sock sk;
-+	int bound;
-+	int ifindex;
-+	struct notifier_block notifier;
-+	struct list_head rx_ops;
-+	struct list_head tx_ops;
-+	unsigned long dropped_usr_msgs;
-+	struct proc_dir_entry *bcm_proc_read;
-+	char procname [9]; /* pointer printed in ASCII with \0 */
-+};
-+
-+static inline struct bcm_sock *bcm_sk(const struct sock *sk)
-+{
-+	return (struct bcm_sock *)sk;
-+}
-+
-+#define CFSIZ sizeof(struct can_frame)
-+#define OPSIZ sizeof(struct bcm_op)
-+#define MHSIZ sizeof(struct bcm_msg_head)
-+
-+/*
-+ * rounded_tv2jif - calculate jiffies from timeval including optional up
-+ * @tv: pointer to timeval
-+ *
-+ * Description:
-+ * Unlike timeval_to_jiffies() provided in include/linux/jiffies.h, this
-+ * function is intentionally more relaxed on precise timer ticks to get
-+ * exact one jiffy for requested 1000us on a 1000HZ machine.
-+ * This code is to be removed when upgrading to kernel hrtimer.
-+ *
-+ * Return:
-+ *  calculated jiffies (max: ULONG_MAX)
-+ */
-+static unsigned long rounded_tv2jif(const struct timeval *tv)
-+{
-+	unsigned long sec  = tv->tv_sec;
-+	unsigned long usec = tv->tv_usec;
-+	unsigned long jif;
-+
-+	if (sec > ULONG_MAX / HZ)
-+		return ULONG_MAX;
-+
-+	/* round up to get at least the requested time */
-+	usec += 1000000 / HZ - 1;
-+
-+	jif  = usec / (1000000 / HZ);
-+
-+	if (sec * HZ > ULONG_MAX - jif)
-+		return ULONG_MAX;
-+
-+	return jif + sec * HZ;
-+}
-+
-+/*
-+ * procfs functions
-+ */
-+static char *bcm_proc_getifname(int ifindex)
-+{
-+	struct net_device *dev;
-+
-+	if (!ifindex)
-+		return "any";
-+
-+	dev = __dev_get_by_index(&init_net, ifindex); /* no usage counting */
-+	if (dev)
-+		return dev->name;
-+
-+	return "???";
-+}
-+
-+static int bcm_read_proc(char *page, char **start, off_t off,
-+			 int count, int *eof, void *data)
-+{
-+	int len = 0;
-+	struct sock *sk = (struct sock *)data;
-+	struct bcm_sock *bo = bcm_sk(sk);
-+	struct bcm_op *op;
-+
-+	len += snprintf(page + len, PAGE_SIZE - len, ">>> socket %p",
-+			sk->sk_socket);
-+	len += snprintf(page + len, PAGE_SIZE - len, " / sk %p", sk);
-+	len += snprintf(page + len, PAGE_SIZE - len, " / bo %p", bo);
-+	len += snprintf(page + len, PAGE_SIZE - len, " / dropped %lu",
-+			bo->dropped_usr_msgs);
-+	len += snprintf(page + len, PAGE_SIZE - len, " / bound %s",
-+			bcm_proc_getifname(bo->ifindex));
-+	len += snprintf(page + len, PAGE_SIZE - len, " <<<\n");
-+
-+	list_for_each_entry(op, &bo->rx_ops, list) {
-+
-+		unsigned long reduction;
-+
-+		/* print only active entries & prevent division by zero */
-+		if (!op->frames_abs)
-+			continue;
-+
-+		len += snprintf(page + len, PAGE_SIZE - len,
-+				"rx_op: %03X %-5s ",
-+				op->can_id, bcm_proc_getifname(op->ifindex));
-+		len += snprintf(page + len, PAGE_SIZE - len, "[%d]%c ",
-+				op->nframes,
-+				(op->flags & RX_CHECK_DLC)?'d':' ');
-+		if (op->j_ival1)
-+			len += snprintf(page + len, PAGE_SIZE - len,
-+					"timeo=%ld ", op->j_ival1);
-+
-+		if (op->j_ival2)
-+			len += snprintf(page + len, PAGE_SIZE - len,
-+					"thr=%ld ", op->j_ival2);
-+
-+		len += snprintf(page + len, PAGE_SIZE - len,
-+				"# recv %ld (%ld) => reduction: ",
-+				op->frames_filtered, op->frames_abs);
-+
-+		reduction = 100 - (op->frames_filtered * 100) / op->frames_abs;
-+
-+		len += snprintf(page + len, PAGE_SIZE - len, "%s%ld%%\n",
-+				(reduction == 100)?"near ":"", reduction);
-+
-+		if (len > PAGE_SIZE - 200) {
-+			/* mark output cut off */
-+			len += snprintf(page + len, PAGE_SIZE - len, "(..)\n");
-+			break;
-+		}
-+	}
-+
-+	list_for_each_entry(op, &bo->tx_ops, list) {
-+
-+		len += snprintf(page + len, PAGE_SIZE - len,
-+				"tx_op: %03X %s [%d] ",
-+				op->can_id, bcm_proc_getifname(op->ifindex),
-+				op->nframes);
-+		if (op->j_ival1)
-+			len += snprintf(page + len, PAGE_SIZE - len, "t1=%ld ",
-+					op->j_ival1);
-+
-+		if (op->j_ival2)
-+			len += snprintf(page + len, PAGE_SIZE - len, "t2=%ld ",
-+					op->j_ival2);
-+
-+		len += snprintf(page + len, PAGE_SIZE - len, "# sent %ld\n",
-+				op->frames_abs);
-+
-+		if (len > PAGE_SIZE - 100) {
-+			/* mark output cut off */
-+			len += snprintf(page + len, PAGE_SIZE - len, "(..)\n");
-+			break;
-+		}
-+	}
-+
-+	len += snprintf(page + len, PAGE_SIZE - len, "\n");
-+
-+	*eof = 1;
-+	return len;
-+}
-+
-+/*
-+ * bcm_can_tx - send the (next) CAN frame to the appropriate CAN interface
-+ *              of the given bcm tx op
-+ */
-+static void bcm_can_tx(struct bcm_op *op)
-+{
-+	struct sk_buff *skb;
-+	struct net_device *dev;
-+	struct can_frame *cf = &op->frames[op->currframe];
-+
-+	DBG_FRAME("BCM: bcm_can_tx: sending frame", cf);
-+
-+	/* no target device? => exit */
-+	if (!op->ifindex)
-+		return;
-+
-+	dev = dev_get_by_index(&init_net, op->ifindex);
-+	if (!dev) {
-+		/* RFC: should this bcm_op remove itself here? */
-+		return;
-+	}
-+
-+	skb = alloc_skb(CFSIZ,
-+			in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
-+
-+	if (!skb)
-+		goto out;
-+
-+	memcpy(skb_put(skb, CFSIZ), cf, CFSIZ);
-+
-+	/* send with loopback */
-+	skb->dev = dev;
-+	skb->sk = op->sk;
-+	can_send(skb, 1);
-+
-+	/* update statistics */
-+	op->currframe++;
-+	op->frames_abs++;
-+
-+	/* reached last frame? */
-+	if (op->currframe >= op->nframes)
-+		op->currframe = 0;
-+ out:
-+	dev_put(dev);
-+}
-+
-+/*
-+ * bcm_send_to_user - send a BCM message to the userspace
-+ *                    (consisting of bcm_msg_head + x CAN frames)
-+ */
-+static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
-+			     struct can_frame *frames, int has_timestamp)
-+{
-+	struct sk_buff *skb;
-+	struct can_frame *firstframe;
-+	struct sockaddr_can *addr;
-+	struct sock *sk = op->sk;
-+	int datalen = head->nframes * CFSIZ;
-+	int err;
-+
-+	skb = alloc_skb(sizeof(*head) + datalen,
-+			in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
-+	if (!skb)
-+		return;
-+
-+	memcpy(skb_put(skb, sizeof(*head)), head, sizeof(*head));
-+
-+	if (head->nframes) {
-+		/* can_frames starting here */
-+		firstframe = (struct can_frame *) skb_tail_pointer(skb);
-+
-+		memcpy(skb_put(skb, datalen), frames, datalen);
-+
-+		/*
-+		 * the BCM uses the can_dlc-element of the can_frame
-+		 * structure for internal purposes. This is only
-+		 * relevant for updates that are generated by the
-+		 * BCM, where nframes is 1
-+		 */
-+		if (head->nframes == 1)
-+			firstframe->can_dlc &= BCM_CAN_DLC_MASK;
-+	}
-+
-+	if (has_timestamp) {
-+		/* restore rx timestamp */
-+		skb->tstamp = op->rx_stamp;
-+	}
-+
-+	/*
-+	 *  Put the datagram to the queue so that bcm_recvmsg() can
-+	 *  get it from there.  We need to pass the interface index to
-+	 *  bcm_recvmsg().  We pass a whole struct sockaddr_can in skb->cb
-+	 *  containing the interface index.
-+	 */
-+
-+	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct sockaddr_can));
-+	addr = (struct sockaddr_can *)skb->cb;
-+	memset(addr, 0, sizeof(*addr));
-+	addr->can_family  = AF_CAN;
-+	addr->can_ifindex = op->rx_ifindex;
-+
-+	err = sock_queue_rcv_skb(sk, skb);
-+	if (err < 0) {
-+		struct bcm_sock *bo = bcm_sk(sk);
-+
-+		DBG("sock_queue_rcv_skb failed: %d\n", err);
-+		kfree_skb(skb);
-+		/* don't care about overflows in this statistic */
-+		bo->dropped_usr_msgs++;
-+	}
-+}
-+
-+/*
-+ * bcm_tx_timeout_handler - performes cyclic CAN frame transmissions
-+ */
-+static void bcm_tx_timeout_handler(unsigned long data)
-+{
-+	struct bcm_op *op = (struct bcm_op *)data;
-+
-+	DBG("Called with bcm_op %p\n", op);
-+
-+	if (op->j_ival1 && (op->count > 0)) {
-+
-+		op->count--;
-+		if (!op->count && (op->flags & TX_COUNTEVT)) {
-+			struct bcm_msg_head msg_head;
-+
-+			/* create notification to user */
-+			DBG("sending TX_EXPIRED for can_id %03X\n",
-+			    op->can_id);
-+
-+			msg_head.opcode  = TX_EXPIRED;
-+			msg_head.flags   = op->flags;
-+			msg_head.count   = op->count;
-+			msg_head.ival1   = op->ival1;
-+			msg_head.ival2   = op->ival2;
-+			msg_head.can_id  = op->can_id;
-+			msg_head.nframes = 0;
-+
-+			bcm_send_to_user(op, &msg_head, NULL, 0);
-+		}
-+	}
-+
-+	DBG("count=%d j_ival1=%ld j_ival2=%ld\n",
-+	    op->count, op->j_ival1, op->j_ival2);
-+
-+	if (op->j_ival1 && (op->count > 0)) {
-+
-+		op->timer.expires = jiffies + op->j_ival1;
-+		add_timer(&op->timer);
-+
-+		DBG("adding timer ival1. func=%p data=%p exp=0x%08X\n",
-+		    op->timer.function,
-+		    (char *) op->timer.data,
-+		    (unsigned int) op->timer.expires);
-+
-+		/* send (next) frame */
-+		bcm_can_tx(op);
-+
-+	} else {
-+		if (op->j_ival2) {
-+			op->timer.expires = jiffies + op->j_ival2;
-+			add_timer(&op->timer);
-+
-+			DBG("adding timer ival2. func=%p data=%p exp=0x%08X\n",
-+			    op->timer.function,
-+			    (char *) op->timer.data,
-+			    (unsigned int) op->timer.expires);
-+
-+			/* send (next) frame */
-+			bcm_can_tx(op);
-+
-+		} else
-+			DBG("no timer restart\n");
-+	}
-+
-+	return;
-+}
-+
-+/*
-+ * bcm_rx_changed - create a RX_CHANGED notification due to changed content
-+ */
-+static void bcm_rx_changed(struct bcm_op *op, struct can_frame *data)
-+{
-+	struct bcm_msg_head head;
-+
-+	op->j_lastmsg = jiffies;
-+
-+	/* update statistics */
-+	op->frames_filtered++;
-+
-+	/* prevent statistics overflow */
-+	if (op->frames_filtered > ULONG_MAX/100)
-+		op->frames_filtered = op->frames_abs = 0;
-+
-+	DBG("setting j_lastmsg to 0x%08X for rx_op %p\n",
-+	    (unsigned int) op->j_lastmsg, op);
-+	DBG("sending notification\n");
-+
-+	head.opcode  = RX_CHANGED;
-+	head.flags   = op->flags;
-+	head.count   = op->count;
-+	head.ival1   = op->ival1;
-+	head.ival2   = op->ival2;
-+	head.can_id  = op->can_id;
-+	head.nframes = 1;
-+
-+	bcm_send_to_user(op, &head, data, 1);
-+}
-+
-+/*
-+ * bcm_rx_update_and_send - process a detected relevant receive content change
-+ *                          1. update the last received data
-+ *                          2. send a notification to the user (if possible)
-+ */
-+static void bcm_rx_update_and_send(struct bcm_op *op,
-+				   struct can_frame *lastdata,
-+				   struct can_frame *rxdata)
-+{
-+	unsigned long nexttx = op->j_lastmsg + op->j_ival2;
-+
-+	memcpy(lastdata, rxdata, CFSIZ);
-+
-+	/* mark as used */
-+	lastdata->can_dlc |= RX_RECV;
-+
-+	/* throttle bcm_rx_changed ? */
-+	if ((op->thrtimer.expires) ||
-+	    ((op->j_ival2) && (nexttx > jiffies))) {
-+		/* we are already waiting OR we have to start waiting */
-+
-+		/* mark as 'throttled' */
-+		lastdata->can_dlc |= RX_THR;
-+
-+		if (!(op->thrtimer.expires)) {
-+			/* start the timer only the first time */
-+			op->thrtimer.expires = nexttx;
-+			add_timer(&op->thrtimer);
-+
-+			DBG("adding thrtimer. func=%p data=%p exp=0x%08X\n",
-+			    op->thrtimer.function,
-+			    (char *) op->thrtimer.data,
-+			    (unsigned int) op->thrtimer.expires);
-+		}
-+
-+	} else {
-+		/* send RX_CHANGED to the user immediately */
-+		bcm_rx_changed(op, rxdata);
-+	}
-+}
-+
-+/*
-+ * bcm_rx_cmp_to_index - (bit)compares the currently received data to formerly
-+ *                       received data stored in op->last_frames[]
-+ */
-+static void bcm_rx_cmp_to_index(struct bcm_op *op, int index,
-+				struct can_frame *rxdata)
-+{
-+	/*
-+	 * no one uses the MSBs of can_dlc for comparation,
-+	 * so we use it here to detect the first time of reception
-+	 */
-+
-+	if (!(op->last_frames[index].can_dlc & RX_RECV)) {
-+		/* received data for the first time => send update to user */
-+		DBG("first time :)\n");
-+		bcm_rx_update_and_send(op, &op->last_frames[index], rxdata);
-+		return;
-+	}
-+
-+	/* do a real check in can_frame data section */
-+
-+	DBG("op->frames[index].data = 0x%016llx\n",
-+	    GET_U64(&op->frames[index]));
-+	DBG("op->last_frames[index].data = 0x%016llx\n",
-+	    GET_U64(&op->last_frames[index]));
-+	DBG("rxdata->data = 0x%016llx\n", GET_U64(rxdata));
-+
-+	if ((GET_U64(&op->frames[index]) & GET_U64(rxdata)) !=
-+	    (GET_U64(&op->frames[index]) & GET_U64(&op->last_frames[index]))) {
-+		DBG("relevant data change :)\n");
-+		bcm_rx_update_and_send(op, &op->last_frames[index], rxdata);
-+		return;
-+	}
-+
-+	if (op->flags & RX_CHECK_DLC) {
-+		/* do a real check in can_frame dlc */
-+		if (rxdata->can_dlc != (op->last_frames[index].can_dlc &
-+					BCM_CAN_DLC_MASK)) {
-+			DBG("dlc change :)\n");
-+			bcm_rx_update_and_send(op, &op->last_frames[index],
-+					       rxdata);
-+			return;
-+		}
-+	}
-+	DBG("no relevant change :(\n");
-+}
-+
-+/*
-+ * bcm_rx_starttimer - enable timeout monitoring for CAN frame receiption
-+ */
-+static void bcm_rx_starttimer(struct bcm_op *op)
-+{
-+	if (op->flags & RX_NO_AUTOTIMER)
-+		return;
-+
-+	if (op->j_ival1) {
-+		op->timer.expires = jiffies + op->j_ival1;
-+
-+		DBG("adding rx timeout timer ival1. func=%p data=%p "
-+		    "exp=0x%08X\n",
-+		    op->timer.function,
-+		    (char *) op->timer.data,
-+		    (unsigned int) op->timer.expires);
-+
-+		add_timer(&op->timer);
-+	}
-+}
-+
-+/*
-+ * bcm_rx_timeout_handler - when the (cyclic) CAN frame receiption timed out
-+ */
-+static void bcm_rx_timeout_handler(unsigned long data)
-+{
-+	struct bcm_op *op = (struct bcm_op *)data;
-+	struct bcm_msg_head msg_head;
-+
-+	DBG("sending RX_TIMEOUT for can_id %03X. op is %p\n", op->can_id, op);
-+
-+	msg_head.opcode  = RX_TIMEOUT;
-+	msg_head.flags   = op->flags;
-+	msg_head.count   = op->count;
-+	msg_head.ival1   = op->ival1;
-+	msg_head.ival2   = op->ival2;
-+	msg_head.can_id  = op->can_id;
-+	msg_head.nframes = 0;
-+
-+	bcm_send_to_user(op, &msg_head, NULL, 0);
-+
-+	/* no restart of the timer is done here! */
-+
-+	/* if user wants to be informed, when cyclic CAN-Messages come back */
-+	if ((op->flags & RX_ANNOUNCE_RESUME) && op->last_frames) {
-+		/* clear received can_frames to indicate 'nothing received' */
-+		memset(op->last_frames, 0, op->nframes * CFSIZ);
-+		DBG("RX_ANNOUNCE_RESTART\n");
-+	}
-+}
-+
-+/*
-+ * bcm_rx_thr_handler - the time for blocked content updates is over now:
-+ *                      Check for throttled data and send it to the userspace
-+ */
-+static void bcm_rx_thr_handler(unsigned long data)
-+{
-+	struct bcm_op *op = (struct bcm_op *)data;
-+	int i = 0;
-+
-+	/* mark disabled / consumed timer */
-+	op->thrtimer.expires = 0;
-+
-+	if (op->nframes > 1) {
-+		DBG("sending MUX RX_CHANGED for can_id %03X. op is %p\n",
-+		    op->can_id, op);
-+		/* for MUX filter we start at index 1 */
-+		for (i = 1; i < op->nframes; i++) {
-+			if ((op->last_frames) &&
-+			    (op->last_frames[i].can_dlc & RX_THR)) {
-+				op->last_frames[i].can_dlc &= ~RX_THR;
-+				bcm_rx_changed(op, &op->last_frames[i]);
-+			}
-+		}
-+
-+	} else {
-+		DBG("sending simple RX_CHANGED for can_id %03X. op is %p\n",
-+		    op->can_id, op);
-+		/* for RX_FILTER_ID and simple filter */
-+		if (op->last_frames && (op->last_frames[0].can_dlc & RX_THR)) {
-+			op->last_frames[0].can_dlc &= ~RX_THR;
-+			bcm_rx_changed(op, &op->last_frames[0]);
-+		}
-+	}
-+}
-+
-+/*
-+ * bcm_rx_handler - handle a CAN frame receiption
-+ */
-+static void bcm_rx_handler(struct sk_buff *skb, void *data)
-+{
-+	struct bcm_op *op = (struct bcm_op *)data;
-+	struct can_frame rxframe;
-+	int i;
-+
-+	/* disable timeout */
-+	del_timer(&op->timer);
-+
-+	DBG("Called with bcm_op %p\n", op);
-+
-+	if (skb->len == sizeof(rxframe)) {
-+		memcpy(&rxframe, skb->data, sizeof(rxframe));
-+		/* save rx timestamp */
-+		op->rx_stamp = skb->tstamp;
-+		/* save originator for recvfrom() */
-+		op->rx_ifindex = skb->dev->ifindex;
-+		/* update statistics */
-+		op->frames_abs++;
-+		kfree_skb(skb);
-+		DBG("got can_frame with can_id %03X\n", rxframe.can_id);
-+
-+	} else {
-+		DBG("Wrong skb->len = %d\n", skb->len);
-+		kfree_skb(skb);
-+		return;
-+	}
-+
-+	DBG_FRAME("BCM: bcm_rx_handler: CAN frame", &rxframe);
-+
-+	if (op->can_id != rxframe.can_id) {
-+		DBG("ERROR! Got wrong can_id %03X! Expected %03X.\n",
-+		    rxframe.can_id, op->can_id);
-+		return;
-+	}
-+
-+	if (op->flags & RX_RTR_FRAME) {
-+		/* send reply for RTR-request */
-+		DBG("RTR-request\n");
-+
-+		/* send op->frames[0] to CAN device */
-+		bcm_can_tx(op);
-+		return;
-+	}
-+
-+	if (op->flags & RX_FILTER_ID) {
-+		/* the easiest case */
-+		DBG("Easy does it with RX_FILTER_ID\n");
-+
-+		bcm_rx_update_and_send(op, &op->last_frames[0], &rxframe);
-+		bcm_rx_starttimer(op);
-+		return;
-+	}
-+
-+	if (op->nframes == 1) {
-+		/* simple compare with index 0 */
-+		DBG("Simple compare\n");
-+
-+		bcm_rx_cmp_to_index(op, 0, &rxframe);
-+		bcm_rx_starttimer(op);
-+		return;
-+	}
-+
-+	if (op->nframes > 1) {
-+		/* multiplex compare */
-+		DBG("Multiplex compare\n");
-+
-+		/*
-+		 * find the first multiplex mask that fits.
-+		 * Remark: The MUX-mask is stored in index 0
-+		 */
-+
-+		for (i = 1; i < op->nframes; i++) {
-+			if ((GET_U64(&op->frames[0]) & GET_U64(&rxframe)) ==
-+			    (GET_U64(&op->frames[0]) &
-+			     GET_U64(&op->frames[i]))) {
-+				DBG("found MUX index %d\n", i);
-+				bcm_rx_cmp_to_index(op, i, &rxframe);
-+				break;
-+			}
-+		}
-+		bcm_rx_starttimer(op);
-+	}
-+}
-+
-+/*
-+ * helpers for bcm_op handling: find & delete bcm [rx|tx] op elements
-+ */
-+static struct bcm_op *bcm_find_op(struct list_head *ops, canid_t can_id,
-+				  int ifindex)
-+{
-+	struct bcm_op *op;
-+
-+	list_for_each_entry(op, ops, list) {
-+		if ((op->can_id == can_id) && (op->ifindex == ifindex))
-+			return op;
-+	}
-+
-+	return NULL;
-+}
-+
-+static void bcm_remove_op(struct bcm_op *op)
-+{
-+	del_timer(&op->timer);
-+	del_timer(&op->thrtimer);
-+
-+	if ((op->frames) && (op->frames != &op->sframe))
-+		kfree(op->frames);
-+
-+	if ((op->last_frames) && (op->last_frames != &op->last_sframe))
-+		kfree(op->last_frames);
-+
-+	kfree(op);
-+
-+	return;
-+}
-+
-+static void bcm_rx_unreg(struct net_device *dev, struct bcm_op *op)
-+{
-+	if (op->rx_reg_dev == dev) {
-+		can_rx_unregister(dev, op->can_id, REGMASK(op->can_id),
-+				  bcm_rx_handler, op);
-+
-+		/* mark as removed subscription */
-+		op->rx_reg_dev = NULL;
-+	} else
-+		printk(KERN_ERR "can-bcm: bcm_rx_unreg: registered device "
-+		       "mismatch %p %p\n", op->rx_reg_dev, dev);
-+}
-+
-+/*
-+ * bcm_delete_rx_op - find and remove a rx op (returns number of removed ops)
-+ */
-+static int bcm_delete_rx_op(struct list_head *ops, canid_t can_id, int ifindex)
-+{
-+	struct bcm_op *op, *n;
-+
-+	list_for_each_entry_safe(op, n, ops, list) {
-+		if ((op->can_id == can_id) && (op->ifindex == ifindex)) {
-+			DBG("removing rx_op %p for can_id %03X\n",
-+			    op, op->can_id);
-+
-+			/*
-+			 * Don't care if we're bound or not (due to netdev
-+			 * problems) can_rx_unregister() is always a save
-+			 * thing to do here.
-+			 */
-+			if (op->ifindex) {
-+				/*
-+				 * Only remove subscriptions that had not
-+				 * been removed due to NETDEV_UNREGISTER
-+				 * in bcm_notifier()
-+				 */
-+				if (op->rx_reg_dev) {
-+					struct net_device *dev;
-+
-+					dev = dev_get_by_index(&init_net,
-+							       op->ifindex);
-+					if (dev) {
-+						bcm_rx_unreg(dev, op);
-+						dev_put(dev);
-+					}
-+				}
-+			} else
-+				can_rx_unregister(NULL, op->can_id,
-+						  REGMASK(op->can_id),
-+						  bcm_rx_handler, op);
-+
-+			list_del(&op->list);
-+			bcm_remove_op(op);
-+			return 1; /* done */
-+		}
-+	}
-+
-+	return 0; /* not found */
-+}
-+
-+/*
-+ * bcm_delete_tx_op - find and remove a tx op (returns number of removed ops)
-+ */
-+static int bcm_delete_tx_op(struct list_head *ops, canid_t can_id, int ifindex)
-+{
-+	struct bcm_op *op, *n;
-+
-+	list_for_each_entry_safe(op, n, ops, list) {
-+		if ((op->can_id == can_id) && (op->ifindex == ifindex)) {
-+			DBG("removing rx_op %p for can_id %03X\n",
-+			    op, op->can_id);
-+			list_del(&op->list);
-+			bcm_remove_op(op);
-+			return 1; /* done */
-+		}
-+	}
-+
-+	return 0; /* not found */
-+}
-+
-+/*
-+ * bcm_read_op - read out a bcm_op and send it to the user (for bcm_sendmsg)
-+ */
-+static int bcm_read_op(struct list_head *ops, struct bcm_msg_head *msg_head,
-+		       int ifindex)
-+{
-+	struct bcm_op *op = bcm_find_op(ops, msg_head->can_id, ifindex);
-+
-+	if (!op) {
-+		DBG("TRX_READ: did not find op for can_id %03X\n",
-+		    msg_head->can_id);
-+		return -EINVAL;
-+	}
-+
-+	DBG("TRX_READ: sending status for can_id %03X\n",
-+	    msg_head->can_id);
-+	/* put current values into msg_head */
-+	msg_head->flags   = op->flags;
-+	msg_head->count   = op->count;
-+	msg_head->ival1   = op->ival1;
-+	msg_head->ival2   = op->ival2;
-+	msg_head->nframes = op->nframes;
-+
-+	bcm_send_to_user(op, msg_head, op->frames, 0);
-+
-+	return MHSIZ;
-+}
-+
-+/*
-+ * bcm_tx_setup - create or update a bcm tx op (for bcm_sendmsg)
-+ */
-+static int bcm_tx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
-+			int ifindex, struct sock *sk)
-+{
-+	struct bcm_sock *bo = bcm_sk(sk);
-+	struct bcm_op *op;
-+	int i, err;
-+
-+	/* we need a real device to send frames */
-+	if (!ifindex)
-+		return -ENODEV;
-+
-+	/* we need at least one can_frame */
-+	if (msg_head->nframes < 1)
-+		return -EINVAL;
-+
-+	/* check the given can_id */
-+	op = bcm_find_op(&bo->tx_ops, msg_head->can_id, ifindex);
-+
-+	if (op) {
-+		/* update existing BCM operation */
-+
-+		DBG("TX_SETUP: modifying existing tx_op %p for can_id %03X\n",
-+		    op, msg_head->can_id);
-+
-+		/*
-+		 * Do we need more space for the can_frames than currently
-+		 * allocated? -> This is a _really_ unusual use-case and
-+		 * therefore (complexity / locking) it is not supported.
-+		 */
-+		if (msg_head->nframes > op->nframes)
-+			return -E2BIG;
-+
-+		/* update can_frames content */
-+		for (i = 0; i < msg_head->nframes; i++) {
-+			err = memcpy_fromiovec((u8 *)&op->frames[i],
-+					       msg->msg_iov, CFSIZ);
-+			if (err < 0)
-+				return err;
-+
-+			if (msg_head->flags & TX_CP_CAN_ID) {
-+				/* copy can_id into frame */
-+				op->frames[i].can_id = msg_head->can_id;
-+			}
-+		}
-+
-+	} else {
-+		/* insert new BCM operation for the given can_id */
-+
-+		op = kzalloc(OPSIZ, GFP_KERNEL);
-+		if (!op)
-+			return -ENOMEM;
-+
-+		DBG("TX_SETUP: creating new tx_op %p for can_id %03X\n",
-+		    op, msg_head->can_id);
-+
-+		op->can_id    = msg_head->can_id;
-+
-+		/* create array for can_frames and copy the data */
-+		if (msg_head->nframes > 1) {
-+			op->frames = kmalloc(msg_head->nframes * CFSIZ,
-+					     GFP_KERNEL);
-+			if (!op->frames) {
-+				kfree(op);
-+				return -ENOMEM;
-+			}
-+		} else
-+			op->frames = &op->sframe;
-+
-+		for (i = 0; i < msg_head->nframes; i++) {
-+			err = memcpy_fromiovec((u8 *)&op->frames[i],
-+					       msg->msg_iov, CFSIZ);
-+			if (err < 0) {
-+				if (op->frames != &op->sframe)
-+					kfree(op->frames);
-+				kfree(op);
-+				return err;
-+			}
-+
-+			if (msg_head->flags & TX_CP_CAN_ID) {
-+				/* copy can_id into frame */
-+				op->frames[i].can_id = msg_head->can_id;
-+			}
-+		}
-+
-+		/* tx_ops never compare with previous received messages */
-+		op->last_frames = NULL;
-+
-+		/* bcm_can_tx / bcm_tx_timeout_handler needs this */
-+		op->sk = sk;
-+
-+		op->ifindex = ifindex;
-+
-+		/* initialize uninitialized (kmalloc) structure */
-+		init_timer(&op->timer);
-+
-+		/* currently unused in tx_ops */
-+		init_timer(&op->thrtimer);
-+
-+		/* handler for tx_ops */
-+		op->timer.function = bcm_tx_timeout_handler;
-+
-+		/* timer.data points to this op-structure */
-+		op->timer.data = (unsigned long)op;
-+
-+		/* add this bcm_op to the list of the tx_ops */
-+		list_add(&op->list, &bo->tx_ops);
-+
-+	} /* if ((op = bcm_find_op(&bo->tx_ops, msg_head->can_id, ifindex))) */
-+
-+	if (op->nframes != msg_head->nframes) {
-+		op->nframes   = msg_head->nframes;
-+		/* start multiple frame transmission with index 0 */
-+		op->currframe = 0;
-+	}
-+
-+	/* check flags */
-+
-+	op->flags = msg_head->flags;
-+
-+	if (op->flags & TX_RESET_MULTI_IDX) {
-+		/* start multiple frame transmission with index 0 */
-+		op->currframe = 0;
-+	}
-+
-+	if (op->flags & SETTIMER) {
-+		/* set timer values */
-+
-+		op->count = msg_head->count;
-+		op->ival1 = msg_head->ival1;
-+		op->ival2 = msg_head->ival2;
-+		op->j_ival1 = rounded_tv2jif(&msg_head->ival1);
-+		op->j_ival2 = rounded_tv2jif(&msg_head->ival2);
-+
-+		DBG("TX_SETUP: SETTIMER count=%d j_ival1=%ld j_ival2=%ld\n",
-+		    op->count, op->j_ival1, op->j_ival2);
-+
-+		/* disable an active timer due to zero values? */
-+		if (!op->j_ival1 && !op->j_ival2) {
-+			del_timer(&op->timer);
-+			DBG("TX_SETUP: SETTIMER disabled timer.\n");
-+		}
-+	}
-+
-+	if ((op->flags & STARTTIMER) &&
-+	    ((op->j_ival1 && op->count) || op->j_ival2)) {
-+
-+		del_timer(&op->timer);
-+
-+		/* spec: send can_frame when starting timer */
-+		op->flags |= TX_ANNOUNCE;
-+
-+		if (op->j_ival1 && (op->count > 0)) {
-+			op->timer.expires = jiffies + op->j_ival1;
-+			/* op->count-- is done in bcm_tx_timeout_handler */
-+			DBG("TX_SETUP: adding timer ival1. func=%p data=%p "
-+			    "exp=0x%08X\n",
-+			    op->timer.function,
-+			    (char *) op->timer.data,
-+			    (unsigned int) op->timer.expires);
-+
-+		} else {
-+			op->timer.expires = jiffies + op->j_ival2;
-+			DBG("TX_SETUP: adding timer ival2. func=%p data=%p "
-+			    "exp=0x%08X\n",
-+			    op->timer.function,
-+			    (char *) op->timer.data,
-+			    (unsigned int) op->timer.expires);
-+		}
-+
-+		add_timer(&op->timer);
-+	}
-+
-+	if (op->flags & TX_ANNOUNCE)
-+		bcm_can_tx(op);
-+
-+	return msg_head->nframes * CFSIZ + MHSIZ;
-+}
-+
-+/*
-+ * bcm_rx_setup - create or update a bcm rx op (for bcm_sendmsg)
-+ */
-+static int bcm_rx_setup(struct bcm_msg_head *msg_head, struct msghdr *msg,
-+			int ifindex, struct sock *sk)
-+{
-+	struct bcm_sock *bo = bcm_sk(sk);
-+	struct bcm_op *op;
-+	int do_rx_register;
-+	int err = 0;
-+
-+	if ((msg_head->flags & RX_FILTER_ID) || (!(msg_head->nframes))) {
-+		/* be robust against wrong usage ... */
-+		msg_head->flags |= RX_FILTER_ID;
-+		msg_head->nframes = 0; /* ignore trailing garbage */
-+	}
-+
-+	if ((msg_head->flags & RX_RTR_FRAME) &&
-+	    ((msg_head->nframes != 1) ||
-+	     (!(msg_head->can_id & CAN_RTR_FLAG)))) {
-+
-+		DBG("RX_SETUP: bad RX_RTR_FRAME setup!\n");
-+		return -EINVAL;
-+	}
-+
-+	/* check the given can_id */
-+	op = bcm_find_op(&bo->rx_ops, msg_head->can_id, ifindex);
-+	if (op) {
-+		/* update existing BCM operation */
-+
-+		DBG("RX_SETUP: modifying existing rx_op %p for can_id %03X\n",
-+		    op, msg_head->can_id);
-+
-+		/*
-+		 * Do we need more space for the can_frames than currently
-+		 * allocated? -> This is a _really_ unusual use-case and
-+		 * therefore (complexity / locking) it is not supported.
-+		 */
-+		if (msg_head->nframes > op->nframes)
-+			return -E2BIG;
-+
-+		if (msg_head->nframes) {
-+			/* update can_frames content */
-+			err = memcpy_fromiovec((u8 *)op->frames,
-+					       msg->msg_iov,
-+					       msg_head->nframes * CFSIZ);
-+			if (err < 0)
-+				return err;
-+
-+			/* clear last_frames to indicate 'nothing received' */
-+			memset(op->last_frames, 0, msg_head->nframes * CFSIZ);
-+		}
-+
-+		op->nframes = msg_head->nframes;
-+
-+		/* Only an update -> do not call can_rx_register() */
-+		do_rx_register = 0;
-+
-+	} else {
-+		/* insert new BCM operation for the given can_id */
-+
-+		op = kzalloc(OPSIZ, GFP_KERNEL);
-+		if (!op)
-+			return -ENOMEM;
-+
-+		DBG("RX_SETUP: creating new rx_op %p for can_id %03X\n",
-+		    op, msg_head->can_id);
-+
-+		op->can_id    = msg_head->can_id;
-+		op->nframes   = msg_head->nframes;
-+
-+		if (msg_head->nframes > 1) {
-+			/* create array for can_frames and copy the data */
-+			op->frames = kmalloc(msg_head->nframes * CFSIZ,
-+					     GFP_KERNEL);
-+			if (!op->frames) {
-+				kfree(op);
-+				return -ENOMEM;
-+			}
-+
-+			/* create and init array for received can_frames */
-+			op->last_frames = kzalloc(msg_head->nframes * CFSIZ,
-+						  GFP_KERNEL);
-+			if (!op->last_frames) {
-+				kfree(op->frames);
-+				kfree(op);
-+				return -ENOMEM;
-+			}
-+
-+		} else {
-+			op->frames = &op->sframe;
-+			op->last_frames = &op->last_sframe;
-+		}
-+
-+		if (msg_head->nframes) {
-+			err = memcpy_fromiovec((u8 *)op->frames, msg->msg_iov,
-+					       msg_head->nframes * CFSIZ);
-+			if (err < 0) {
-+				if (op->frames != &op->sframe)
-+					kfree(op->frames);
-+				if (op->last_frames != &op->last_sframe)
-+					kfree(op->last_frames);
-+				kfree(op);
-+				return err;
-+			}
-+		}
-+
-+		op->sk = sk;
-+		op->ifindex = ifindex;
-+
-+		/* initialize uninitialized (kzalloc) structure */
-+		init_timer(&op->timer);
-+
-+		/* init throttle timer for RX_CHANGED */
-+		init_timer(&op->thrtimer);
-+
-+		/* handler for rx timeouts */
-+		op->timer.function = bcm_rx_timeout_handler;
-+
-+		/* timer.data points to this op-structure */
-+		op->timer.data = (unsigned long)op;
-+
-+		/* handler for RX_CHANGED throttle timeouts */
-+		op->thrtimer.function = bcm_rx_thr_handler;
-+
-+		/* timer.data points to this op-structure */
-+		op->thrtimer.data = (unsigned long)op;
-+
-+		/* mark disabled timer */
-+		op->thrtimer.expires = 0;
-+
-+		/* add this bcm_op to the list of the rx_ops */
-+		list_add(&op->list, &bo->rx_ops);
-+
-+		/* call can_rx_register() */
-+		do_rx_register = 1;
-+
-+	} /* if ((op = bcm_find_op(&bo->rx_ops, msg_head->can_id, ifindex))) */
-+
-+	/* check flags */
-+	op->flags = msg_head->flags;
-+
-+	if (op->flags & RX_RTR_FRAME) {
-+
-+		/* no timers in RTR-mode */
-+		del_timer(&op->thrtimer);
-+		del_timer(&op->timer);
-+
-+		/*
-+		 * funny feature in RX(!)_SETUP only for RTR-mode:
-+		 * copy can_id into frame BUT without RTR-flag to
-+		 * prevent a full-load-loopback-test ... ;-]
-+		 */
-+		if ((op->flags & TX_CP_CAN_ID) ||
-+		    (op->frames[0].can_id == op->can_id))
-+			op->frames[0].can_id = op->can_id & ~CAN_RTR_FLAG;
-+
-+	} else {
-+		if (op->flags & SETTIMER) {
-+
-+			/* set timer value */
-+			op->ival1 = msg_head->ival1;
-+			op->ival2 = msg_head->ival2;
-+			op->j_ival1 = rounded_tv2jif(&msg_head->ival1);
-+			op->j_ival2 = rounded_tv2jif(&msg_head->ival2);
-+
-+			DBG("RX_SETUP: SETTIMER j_ival1=%ld j_ival2=%ld\n",
-+			    op->j_ival1, op->j_ival2);
-+
-+			/* disable an active timer due to zero value? */
-+			if (!op->j_ival1) {
-+				del_timer(&op->timer);
-+				DBG("RX_SETUP: disabled timer rx timeouts.\n");
-+			}
-+
-+			/* free currently blocked msgs ? */
-+			if (op->thrtimer.expires) {
-+				DBG("RX_SETUP: unblocking throttled msgs.\n");
-+				del_timer(&op->thrtimer);
-+				/* send blocked msgs hereafter */
-+				op->thrtimer.expires = jiffies + 2;
-+				add_timer(&op->thrtimer);
-+			}
-+			/*
-+			 * if (op->j_ival2) is zero, no (new) throttling
-+			 * will happen. For details see functions
-+			 * bcm_rx_update_and_send() and bcm_rx_thr_handler()
-+			 */
-+		}
-+
-+		if ((op->flags & STARTTIMER) && op->j_ival1) {
-+
-+			del_timer(&op->timer);
-+			op->timer.expires = jiffies + op->j_ival1;
-+
-+			DBG("RX_SETUP: adding timer ival1. func=%p data=%p"
-+			    " exp=0x%08X\n",
-+			    (char *) op->timer.function,
-+			    (char *) op->timer.data,
-+			    (unsigned int) op->timer.expires);
-+
-+			add_timer(&op->timer);
-+		}
-+	}
-+
-+	/* now we can register for can_ids, if we added a new bcm_op */
-+	if (do_rx_register) {
-+		DBG("RX_SETUP: can_rx_register() for can_id %03X. "
-+		    "rx_op is %p\n", op->can_id, op);
-+
-+		if (ifindex) {
-+			struct net_device *dev;
-+
-+			dev = dev_get_by_index(&init_net, ifindex);
-+			if (dev) {
-+				err = can_rx_register(dev, op->can_id,
-+						      REGMASK(op->can_id),
-+						      bcm_rx_handler, op,
-+						      IDENT);
-+
-+				op->rx_reg_dev = dev;
-+				dev_put(dev);
-+			}
-+
-+		} else
-+			err = can_rx_register(NULL, op->can_id,
-+					      REGMASK(op->can_id),
-+					      bcm_rx_handler, op, IDENT);
-+		if (err) {
-+			/* this bcm rx op is broken -> remove it */
-+			list_del(&op->list);
-+			bcm_remove_op(op);
-+			return err;
-+		}
-+	}
-+
-+	return msg_head->nframes * CFSIZ + MHSIZ;
-+}
-+
-+/*
-+ * bcm_tx_send - send a single CAN frame to the CAN interface (for bcm_sendmsg)
-+ */
-+static int bcm_tx_send(struct msghdr *msg, int ifindex, struct sock *sk)
-+{
-+	struct sk_buff *skb;
-+	struct net_device *dev;
-+	int err;
-+
-+	/* just copy and send one can_frame */
-+
-+	if (!ifindex) /* we need a real device to send frames */
-+		return -ENODEV;
-+
-+	skb = alloc_skb(CFSIZ, GFP_KERNEL);
-+
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	err = memcpy_fromiovec(skb_put(skb, CFSIZ), msg->msg_iov, CFSIZ);
-+	if (err < 0) {
-+		kfree_skb(skb);
-+		return err;
-+	}
-+
-+	DBG_FRAME("BCM: TX_SEND: sending frame",
-+		  (struct can_frame *)skb->data);
-+
-+	dev = dev_get_by_index(&init_net, ifindex);
-+	if (!dev) {
-+		kfree_skb(skb);
-+		return -ENODEV;
-+	}
-+
-+	skb->dev = dev;
-+	skb->sk  = sk;
-+	can_send(skb, 1); /* send with loopback */
-+	dev_put(dev);
-+
-+	return CFSIZ + MHSIZ;
-+}
-+
-+/*
-+ * bcm_sendmsg - process BCM commands (opcodes) from the userspace
-+ */
-+static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
-+		       struct msghdr *msg, size_t size)
-+{
-+	struct sock *sk = sock->sk;
-+	struct bcm_sock *bo = bcm_sk(sk);
-+	int ifindex = bo->ifindex; /* default ifindex for this bcm_op */
-+	struct bcm_msg_head msg_head;
-+	int ret; /* read bytes or error codes as return value */
-+
-+	if (!bo->bound) {
-+		DBG("sock %p not bound\n", sk);
-+		return -ENOTCONN;
-+	}
-+
-+	/* check for alternative ifindex for this bcm_op */
-+
-+	if (!ifindex && msg->msg_name) {
-+		/* no bound device as default => check msg_name */
-+		struct sockaddr_can *addr =
-+			(struct sockaddr_can *)msg->msg_name;
-+
-+		if (addr->can_family != AF_CAN)
-+			return -EINVAL;
-+
-+		ifindex = addr->can_ifindex; /* ifindex from sendto() */
-+
-+		if (ifindex) {
-+			struct net_device *dev;
-+
-+			dev = dev_get_by_index(&init_net, ifindex);
-+			if (!dev) {
-+				DBG("device %d not found\n", ifindex);
-+				return -ENODEV;
-+			}
-+
-+			if (dev->type != ARPHRD_CAN) {
-+				DBG("device %d no CAN device\n", ifindex);
-+				dev_put(dev);
-+				return -ENODEV;
-+			}
-+
-+			dev_put(dev);
-+		}
-+	}
-+
-+	/* read message head information */
-+
-+	ret = memcpy_fromiovec((u8 *)&msg_head, msg->msg_iov, MHSIZ);
-+	if (ret < 0)
-+		return ret;
-+
-+	DBG("opcode %d for can_id %03X\n", msg_head.opcode, msg_head.can_id);
-+
-+	lock_sock(sk);
-+
-+	switch (msg_head.opcode) {
-+
-+	case TX_SETUP:
-+		ret = bcm_tx_setup(&msg_head, msg, ifindex, sk);
-+		break;
-+
-+	case RX_SETUP:
-+		ret = bcm_rx_setup(&msg_head, msg, ifindex, sk);
-+		break;
-+
-+	case TX_DELETE:
-+		if (bcm_delete_tx_op(&bo->tx_ops, msg_head.can_id, ifindex))
-+			ret = MHSIZ;
-+		else
-+			ret = -EINVAL;
-+		break;
-+
-+	case RX_DELETE:
-+		if (bcm_delete_rx_op(&bo->rx_ops, msg_head.can_id, ifindex))
-+			ret = MHSIZ;
-+		else
-+			ret = -EINVAL;
-+		break;
-+
-+	case TX_READ:
-+		/* reuse msg_head for the reply to TX_READ */
-+		msg_head.opcode  = TX_STATUS;
-+		ret = bcm_read_op(&bo->tx_ops, &msg_head, ifindex);
-+		break;
-+
-+	case RX_READ:
-+		/* reuse msg_head for the reply to RX_READ */
-+		msg_head.opcode  = RX_STATUS;
-+		ret = bcm_read_op(&bo->rx_ops, &msg_head, ifindex);
-+		break;
-+
-+	case TX_SEND:
-+		/* we need at least one can_frame */
-+		if (msg_head.nframes < 1)
-+			ret = -EINVAL;
-+		else
-+			ret = bcm_tx_send(msg, ifindex, sk);
-+		break;
-+
-+	default:
-+		DBG("Unknown opcode %d\n", msg_head.opcode);
-+		ret = -EINVAL;
-+		break;
-+	}
-+
-+	release_sock(sk);
-+
-+	return ret;
-+}
-+
-+/*
-+ * notification handler for netdevice status changes
-+ */
-+static int bcm_notifier(struct notifier_block *nb, unsigned long msg,
-+			void *data)
-+{
-+	struct net_device *dev = (struct net_device *)data;
-+	struct bcm_sock *bo = container_of(nb, struct bcm_sock, notifier);
-+	struct sock *sk = &bo->sk;
-+	struct bcm_op *op;
-+	int notify_enodev = 0;
-+
-+	DBG("msg %ld for dev %p (%s idx %d) sk %p bo->ifindex %d\n",
-+	    msg, dev, dev->name, dev->ifindex, sk, bo->ifindex);
-+
-+	if (dev->nd_net != &init_net)
-+		return NOTIFY_DONE;
-+
-+	if (dev->type != ARPHRD_CAN)
-+		return NOTIFY_DONE;
-+
-+	switch (msg) {
-+
-+	case NETDEV_UNREGISTER:
-+		lock_sock(sk);
-+
-+		/* remove device specific receive entries */
-+		list_for_each_entry(op, &bo->rx_ops, list)
-+			if (op->rx_reg_dev == dev)
-+				bcm_rx_unreg(dev, op);
-+
-+		/* remove device reference, if this is our bound device */
-+		if (bo->bound && bo->ifindex == dev->ifindex) {
-+			bo->bound   = 0;
-+			bo->ifindex = 0;
-+			notify_enodev = 1;
-+		}
-+
-+		release_sock(sk);
-+
-+		if (notify_enodev) {
-+			sk->sk_err = ENODEV;
-+			if (!sock_flag(sk, SOCK_DEAD))
-+				sk->sk_error_report(sk);
-+		}
-+		break;
-+
-+	case NETDEV_DOWN:
-+		if (bo->bound && bo->ifindex == dev->ifindex) {
-+			sk->sk_err = ENETDOWN;
-+			if (!sock_flag(sk, SOCK_DEAD))
-+				sk->sk_error_report(sk);
-+		}
-+	}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+/*
-+ * initial settings for all BCM sockets to be set at socket creation time
-+ */
-+static int bcm_init(struct sock *sk)
-+{
-+	struct bcm_sock *bo = bcm_sk(sk);
-+
-+	bo->bound            = 0;
-+	bo->ifindex          = 0;
-+	bo->dropped_usr_msgs = 0;
-+	bo->bcm_proc_read    = NULL;
-+
-+	INIT_LIST_HEAD(&bo->tx_ops);
-+	INIT_LIST_HEAD(&bo->rx_ops);
-+
-+	/* set notifier */
-+	bo->notifier.notifier_call = bcm_notifier;
-+
-+	register_netdevice_notifier(&bo->notifier);
-+
-+	return 0;
-+}
-+
-+/*
-+ * standard socket functions
-+ */
-+static int bcm_release(struct socket *sock)
-+{
-+	struct sock *sk = sock->sk;
-+	struct bcm_sock *bo = bcm_sk(sk);
-+	struct bcm_op *op, *next;
-+
-+	DBG("socket %p, sk %p\n", sock, sk);
-+
-+	/* remove bcm_ops, timer, rx_unregister(), etc. */
-+
-+	unregister_netdevice_notifier(&bo->notifier);
-+
-+	lock_sock(sk);
-+
-+	list_for_each_entry_safe(op, next, &bo->tx_ops, list) {
-+		DBG("removing tx_op %p for can_id %03X\n", op, op->can_id);
-+		bcm_remove_op(op);
-+	}
-+
-+	list_for_each_entry_safe(op, next, &bo->rx_ops, list) {
-+		DBG("removing rx_op %p for can_id %03X\n", op, op->can_id);
-+
-+		/*
-+		 * Don't care if we're bound or not (due to netdev problems)
-+		 * can_rx_unregister() is always a save thing to do here.
-+		 */
-+		if (op->ifindex) {
-+			/*
-+			 * Only remove subscriptions that had not
-+			 * been removed due to NETDEV_UNREGISTER
-+			 * in bcm_notifier()
-+			 */
-+			if (op->rx_reg_dev) {
-+				struct net_device *dev;
-+
-+				dev = dev_get_by_index(&init_net, op->ifindex);
-+				if (dev) {
-+					bcm_rx_unreg(dev, op);
-+					dev_put(dev);
-+				}
-+			}
-+		} else
-+			can_rx_unregister(NULL, op->can_id,
-+					  REGMASK(op->can_id),
-+					  bcm_rx_handler, op);
-+
-+		bcm_remove_op(op);
-+	}
-+
-+	/* remove procfs entry */
-+	if (proc_dir && bo->bcm_proc_read)
-+		remove_proc_entry(bo->procname, proc_dir);
-+
-+	/* remove device reference */
-+	if (bo->bound) {
-+		bo->bound   = 0;
-+		bo->ifindex = 0;
-+	}
-+
-+	release_sock(sk);
-+	sock_put(sk);
-+
-+	return 0;
-+}
-+
-+static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
-+		       int flags)
-+{
-+	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
-+	struct sock *sk = sock->sk;
-+	struct bcm_sock *bo = bcm_sk(sk);
-+
-+	if (bo->bound)
-+		return -EISCONN;
-+
-+	/* bind a device to this socket */
-+	if (addr->can_ifindex) {
-+		struct net_device *dev;
-+
-+		dev = dev_get_by_index(&init_net, addr->can_ifindex);
-+		if (!dev) {
-+			DBG("could not find device index %d\n",
-+			    addr->can_ifindex);
-+			return -ENODEV;
-+		}
-+
-+		if (dev->type != ARPHRD_CAN) {
-+			DBG("device %d no CAN device\n", addr->can_ifindex);
-+			dev_put(dev);
-+			return -ENODEV;
-+		}
-+
-+		bo->ifindex = dev->ifindex;
-+		dev_put(dev);
-+
-+		DBG("socket %p bound to device %s (idx %d)\n",
-+		    sock, dev->name, dev->ifindex);
-+
-+	} else {
-+		/* no interface reference for ifindex = 0 ('any' CAN device) */
-+		bo->ifindex = 0;
-+	}
-+
-+	bo->bound = 1;
-+
-+	if (proc_dir) {
-+		/* unique socket address as filename */
-+		sprintf(bo->procname, "%p", sock);
-+		bo->bcm_proc_read = create_proc_read_entry(bo->procname, 0644,
-+							   proc_dir,
-+							   bcm_read_proc, sk);
-+	}
-+
-+	return 0;
-+}
-+
-+static int bcm_recvmsg(struct kiocb *iocb, struct socket *sock,
-+		       struct msghdr *msg, size_t size, int flags)
-+{
-+	struct sock *sk = sock->sk;
-+	struct sk_buff *skb;
-+	int error = 0;
-+	int noblock;
-+	int err;
-+
-+	DBG("socket %p, sk %p\n", sock, sk);
-+
-+	noblock =  flags & MSG_DONTWAIT;
-+	flags   &= ~MSG_DONTWAIT;
-+	skb = skb_recv_datagram(sk, flags, noblock, &error);
-+	if (!skb)
-+		return error;
-+
-+	DBG("delivering skbuff %p\n", skb);
-+	DBG_SKB(skb);
-+
-+	if (skb->len < size)
-+		size = skb->len;
-+
-+	err = memcpy_toiovec(msg->msg_iov, skb->data, size);
-+	if (err < 0) {
-+		skb_free_datagram(sk, skb);
-+		return err;
-+	}
-+
-+	sock_recv_timestamp(msg, sk, skb);
-+
-+	if (msg->msg_name) {
-+		msg->msg_namelen = sizeof(struct sockaddr_can);
-+		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
-+	}
-+
-+	DBG("freeing sock %p, skbuff %p\n", sk, skb);
-+	skb_free_datagram(sk, skb);
-+
-+	return size;
-+}
-+
-+static unsigned int bcm_poll(struct file *file, struct socket *sock,
-+			     poll_table *wait)
-+{
-+	unsigned int mask = 0;
-+
-+	DBG("socket %p\n", sock);
-+
-+	mask = datagram_poll(file, sock, wait);
-+	return mask;
-+}
-+
-+static struct proto_ops bcm_ops __read_mostly = {
-+	.family        = PF_CAN,
-+	.release       = bcm_release,
-+	.bind          = sock_no_bind,
-+	.connect       = bcm_connect,
-+	.socketpair    = sock_no_socketpair,
-+	.accept        = sock_no_accept,
-+	.getname       = sock_no_getname,
-+	.poll          = bcm_poll,
-+	.ioctl         = NULL,		/* use can_ioctl() from af_can.c */
-+	.listen        = sock_no_listen,
-+	.shutdown      = sock_no_shutdown,
-+	.setsockopt    = sock_no_setsockopt,
-+	.getsockopt    = sock_no_getsockopt,
-+	.sendmsg       = bcm_sendmsg,
-+	.recvmsg       = bcm_recvmsg,
-+	.mmap          = sock_no_mmap,
-+	.sendpage      = sock_no_sendpage,
-+};
-+
-+static struct proto bcm_proto __read_mostly = {
-+	.name       = "CAN_BCM",
-+	.owner      = THIS_MODULE,
-+	.obj_size   = sizeof(struct bcm_sock),
-+	.init       = bcm_init,
-+};
-+
-+static struct can_proto bcm_can_proto __read_mostly = {
-+	.type       = SOCK_DGRAM,
-+	.protocol   = CAN_BCM,
-+	.capability = -1,
-+	.ops        = &bcm_ops,
-+	.prot       = &bcm_proto,
-+};
-+
-+static int __init bcm_module_init(void)
-+{
-+	int err;
-+
-+	printk(banner);
-+
-+	err = can_proto_register(&bcm_can_proto);
-+	if (err < 0) {
-+		printk(KERN_ERR "can: registration of bcm protocol failed\n");
-+		return err;
-+	}
-+
-+	/* create /proc/net/can-bcm directory */
-+	proc_dir = proc_mkdir("can-"IDENT, init_net.proc_net);
-+
-+	if (proc_dir)
-+		proc_dir->owner = THIS_MODULE;
-+
-+	return 0;
-+}
-+
-+static void __exit bcm_module_exit(void)
-+{
-+	can_proto_unregister(&bcm_can_proto);
-+
-+	if (proc_dir)
-+		proc_net_remove(&init_net, "can-"IDENT);
-+}
-+
-+module_init(bcm_module_init);
-+module_exit(bcm_module_exit);
+--- net-2.6.24.orig/Documentation/networking/00-INDEX	2007-09-24 17:53:07.000000000 +0200
++++ net-2.6.24/Documentation/networking/00-INDEX	2007-09-25 13:27:55.000000000 +0200
+@@ -26,6 +26,8 @@
+ 	- info on the driver for Baycom style amateur radio modems
+ bridge.txt
+ 	- where to get user space programs for ethernet bridging with Linux.
++can.txt
++	- documentation on CAN protocol family.
+ comx.txt
+ 	- info on drivers for COMX line of synchronous serial adapters.
+ cops.txt
 
 --
