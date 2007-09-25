@@ -1,66 +1,90 @@
-From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Subject: Re: [PATCH 4/7] CAN: Add broadcast manager (bcm) protocol
-Date: Tue, 25 Sep 2007 09:51:22 -0300
-Message-ID: <20070925125122.GD18348@ghostprotocols.net>
-References: <20070925122029.15989.0@janus.isnogud.escape.de> <20070925122243.15989.4@janus.isnogud.escape.de>
+From: jamal <hadi@cyberus.ca>
+Subject: [ofa-general] RE: [PATCH 1/4] [NET_SCHED] explict hold dev tx lock
+Date: Tue, 25 Sep 2007 09:08:54 -0400
+Message-ID: <1190725734.4264.97.camel@localhost>
+References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
+	<20070916.161748.48388692.davem@davemloft.net>
+	<1189988958.4230.55.camel@localhost>
+	<1190569987.4256.52.camel@localhost>
+	<1190570205.4256.56.camel@localhost>
+	<D5C1322C3E673F459512FB59E0DDC32903A51122@orsmsx414.amr.corp.intel.com>
+	<1190674298.4264.24.camel@localhost>
+	<D5C1322C3E673F459512FB59E0DDC32903A51462@orsmsx414.amr.corp.intel.com>
+	<1190677099.4264.37.camel@localhost>
+	<D5C1322C3E673F459512FB59E0DDC32903A5151B@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Joe Perches <joe@perches.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver@hartkopp.net>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Urs Thuermann <urs.thuermann@volkswagen.de>
-To: Urs Thuermann <urs@isnogud.escape.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.240]:65452 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750721AbXIYMvc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2007 08:51:32 -0400
-Received: by an-out-0708.google.com with SMTP id d31so279868and
-        for <netdev@vger.kernel.org>; Tue, 25 Sep 2007 05:51:31 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20070925122243.15989.4@janus.isnogud.escape.de>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: johnpol@2ka.mipt.ru, kumarkr@linux.ibm.com, herbert@gondor.apana.org.au,
+	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
+	netdev@vger.kernel.org, rdreier@cisco.com, mcarlson@broadcom.com,
+	kaber@trash.net, randy.dunlap@oracle.com, jagana@us.ibm.com,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	jeff@garzik.org, sri@us.ibm.com, shemminger@linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32903A5151B@orsmsx414.amr.corp.intel.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Em Tue, Sep 25, 2007 at 02:20:33PM +0200, Urs Thuermann escreveu:
-> This patch adds the CAN broadcast manager (bcm) protocol.
-> 
-> +static void bcm_can_tx(struct bcm_op *op)
-> +{
-> +	skb = alloc_skb(CFSIZ,
-> +			in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+On Mon, 2007-24-09 at 16:47 -0700, Waskiewicz Jr, Peter P wrote:
 
-We have gfp_any() for this:
+> We should make sure we're symmetric with the locking on enqueue to
+> dequeue.  If we use the single device queue lock on enqueue, then
+> dequeue will also need to check that lock in addition to the individual
+> queue lock.  The details of this are more trivial than the actual
+> dequeue to make it efficient though.
 
-[acme@filo net-2.6.24]$ grep gfp_any net/*/*.[ch]
-net/ipv4/tcp.c:         tcp_send_active_reset(sk, gfp_any());
-net/ipv6/route.c:       skb = nlmsg_new(rt6_nlmsg_size(), gfp_any());
-net/ipv6/route.c:       err = rtnl_notify(skb, pid, RTNLGRP_IPV6_ROUTE,
-nlh, gfp_any());
-net/netfilter/nfnetlink.c:      netlink_broadcast(nfnl, skb, pid, group,
-gfp_any());
-net/netlink/af_netlink.c:       skb = netlink_trim(skb, gfp_any());
+It would be interesting to observe the performance implications.
 
-[acme@filo net-2.6.24]$ grep in_interrupt net/*/*.[ch]
-net/decnet/dn_route.c:  int user_mode = !in_interrupt();
-net/decnet/dn_table.c:  if (in_interrupt() && net_ratelimit()) {
-[acme@filo net-2.6.24]$
+> The dequeue locking would be pushed into the qdisc itself.  This is how
+> I had it originally, and it did make the code more complex, but it was
+> successful at breaking the heavily-contended queue_lock apart.  I have a
+> subqueue structure right now in netdev, which only has queue_state (for
+> netif_{start|stop}_subqueue).  This state is checked in sch_prio right
+> now in the dequeue for both prio and rr.  My approach is to add a
+> queue_lock in that struct, so each queue allocated by the driver would
+> have a lock per queue.  Then in dequeue, that lock would be taken when
+> the skb is about to be dequeued.
 
-> +static void bcm_send_to_user(struct bcm_op *op, struct bcm_msg_head *head,
-> +			     struct can_frame *frames, int has_timestamp)
-> +{
-> +	struct sk_buff *skb;
-> +	struct can_frame *firstframe;
-> +	struct sockaddr_can *addr;
-> +	struct sock *sk = op->sk;
-> +	int datalen = head->nframes * CFSIZ;
-> +	int err;
-> +
-> +	skb = alloc_skb(sizeof(*head) + datalen,
-> +			in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+more locks implies degraded performance. If only one processor can enter
+that region, presumably after acquiring the outer lock , why this
+secondary lock per queue?
 
-ditto
+> The skb->queue_mapping field also maps directly to the queue index
+> itself, so it can be unlocked easily outside of the context of the
+> dequeue function.  The policy would be to use a spin_trylock() in
+> dequeue, so that dequeue can still do work if enqueue or another dequeue
+> is busy.  
 
+So there could be a parallel cpu dequeueing at the same time?
+Wouldnt this have implications depending on what the scheduling
+algorithm used? If for example i was doing priority queueing i would
+want to make sure the highest priority is being dequeued first AND by
+all means goes out first to the driver; i dont want a parallell cpu
+dequeing a lower prio packet at the same time.
+
+> And the allocation of qdisc queues to device queues is assumed
+> to be one-to-one (that's how the qdisc behaves now).
+
+Ok, that brings back the discussion we had; my thinking was something
+like dev->hard_prep_xmit() would select the ring and i think you
+staticly already map the ring to a qdisc queue. So i dont think 
+dev->hard_prep_xmit() is useful to you.
+In any case, there is nothing the batching patches do that interfere or
+prevent you from going the path you intend to. instead of dequeueing one
+packet, you dequeue several and instead of sending to the driver one
+packet, you send several. And using the xmit_win, you should never ever
+have to requeue.
+
+cheers,
+jamal
