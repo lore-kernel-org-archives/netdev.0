@@ -1,73 +1,69 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 5/7] CAN: Add virtual CAN netdevice driver
-Date: Tue, 25 Sep 2007 16:47:00 +0200
-Message-ID: <46F91F64.2050008@trash.net>
-References: <20070925122029.15989.0@janus.isnogud.escape.de>	<20070925122244.15989.5@janus.isnogud.escape.de>	<20070925.222631.116063075.yoshfuji@linux-ipv6.org> <ygfir5yetfp.fsf@janus.isnogud.escape.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-15?Q?YOSHIFUJI_Hideaki_/_=C8=A3=D1=C0?=
-	<yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org,
-	davem@davemloft.net, joe@perches.com, tglx@linutronix.de,
-	oliver@hartkopp.net, oliver.hartkopp@volkswagen.de
-To: Urs Thuermann <urs@isnogud.escape.de>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH V6 0/9] net/bonding: ADD IPoIB support for the bonding driver
+Date: Tue, 25 Sep 2007 08:24:29 -0700
+Message-ID: <10376.1190733869@death>
+References: <46F7D770.4090500@voltaire.com>
+Cc: Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
+	OpenFabrics General <general@lists.openfabrics.org>,
+	Jeff Garzik <jgarzik@pobox.com>
+To: Moni Shoua <monis@voltaire.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:36798 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751554AbXIYO4a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2007 10:56:30 -0400
-In-Reply-To: <ygfir5yetfp.fsf@janus.isnogud.escape.de>
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:42833 "EHLO e4.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751416AbXIYPYh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Sep 2007 11:24:37 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8PFObds017448
+	for <netdev@vger.kernel.org>; Tue, 25 Sep 2007 11:24:37 -0400
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8PFObnq515640
+	for <netdev@vger.kernel.org>; Tue, 25 Sep 2007 11:24:37 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8PFOWdQ027776
+	for <netdev@vger.kernel.org>; Tue, 25 Sep 2007 11:24:36 -0400
+In-reply-to: <46F7D770.4090500@voltaire.com> 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Urs Thuermann wrote:
-> YOSHIFUJI Hideaki / =C8=A3=D1=C0  <yoshfuji@linux-ipv6.org> writes:
->=20
->=20
->>I'm not a lawyer, but the following lines:
->>
->>| + * Alternatively, provided that this notice is retained in full, t=
-his
->>                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
->>| + * software may be distributed under the terms of the GNU General
->>| + * Public License ("GPL") version 2 as distributed in the 'COPYING=
-'
->>| + * file from the main directory of the linux kernel source.
->>
->>make this whole licence imcompatible with GPL.
->=20
->=20
-> I'm no lawyer at all, either.  And also Oliver is not, but he has
-> carried out the fights with our company lawyers.  Maybe he can say
-> something about whether we can change this.
->=20
->=20
->>I do think you need to allow people to select GPLv2 only.
->=20
->=20
-> The sentence you cite *does* allow distribution under GPLv2 only.  An=
-d
-> I think I have often read the restriction to retain such licences in
-> full in GPLv2 code.  Is that really incompatible?
+
+ACK patches 3 - 9.
+
+	Roland, are you comfortable with the IB changes in patches 1 and 2?
+
+	Jeff, when Roland acks patches 1 and 2, please apply all 9.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
 
 
-Not that it necessarily means its valid, but there are multiple
-files in the kernel that carry the exact same term:
+Moni Shoua <monis@voltaire.com> wrote:
 
-arch/x86_64/crypto/aes.c
-arch/i386/crypto/aes.c
-crypto/gf128mul.c
-crypto/aes.c
-drivers/net/ppp_mppe.c
-drivers/crypto/padlock-aes.c
-include/crypto/b128ops.h
-include/crypto/gf128mul.h
-
-OTOH I tend to agree with Yoshifuji that once someone has
-selected the GPL and has made enough changes that no parts
-"can be reasonably considered independent and separate works",
-it seems like an additional and confusing restriction to be
-forced to retain ineffective licensing terms.
-
-But since I'm not a lawyer either I'm going to refrain from
-further speculation :)
+>This patch series is the sixth version (see below link to V5) of the 
+>suggested changes to the bonding driver so it would be able to support 
+>non ARPHRD_ETHER netdevices for its High-Availability (active-backup) mode. 
+>
+>Patches 1-8 were originally submitted in V5 and patch 9 is an addition by Jay.
+>
+>
+>Major changes from the previous version:
+>----------------------------------------
+>
+>1. Remove the patches to net/core. Bonding will use the NETDEV_GOING_DOWN notification
+>   instead of NETDEV_CHANGE+IFF_SLAVE_DETACH. This reduces the amount of patches from 11
+>   to 9.
+>
+>Links to earlier discussion:
+>----------------------------
+>
+>1. A discussion in netdev about bonding support for IPoIB.
+>http://lists.openwall.net/netdev/2006/11/30/46
+>
+>2. V5 series
+>http://lists.openfabrics.org/pipermail/general/2007-September/040996.html
+>
+>-
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
