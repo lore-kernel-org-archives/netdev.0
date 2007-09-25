@@ -1,32 +1,57 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: [ofa-general] Re: [PATCH V6 0/9] net/bonding: ADD IPoIB support for
-	the bonding driver
-Date: Tue, 25 Sep 2007 08:39:23 -0700
-Message-ID: <adamyvavjo4.fsf@cisco.com>
-References: <46F7D770.4090500@voltaire.com> <10376.1190733869@death>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH: 2.6.13-15-SMP 3/3] network: concurrently
+ runsoftirqnetwork code on SMP
+Date: Tue, 25 Sep 2007 09:03:33 -0700
+Message-ID: <20070925090333.11beebb2@freepuppy.rosehill>
+References: <004901c7fd9c$94370df0$d6ddfea9@JOHNYE1>
+	<1190551422.4256.36.camel@localhost>
+	<007201c7ff89$d5db4cf0$d6ddfea9@JOHNYE1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	OpenFabrics General <general@lists.openfabrics.org>, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <10376.1190733869@death> (Jay Vosburgh's message of "Tue,
-	25 Sep 2007 08:24:29 -0700")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <hadi@cyberus.ca>, "David Miller" <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <kuznet@ms2.inr.ac.ru>,
+	<pekkas@netcore.fi>, <jmorris@namei.org>, <kaber@coreworks.de>,
+	<iceburgue@gmail.com>, "John Ye" <johny@asimco.com.cn>
+To: "john ye" <johny@asimco.com.cn>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:33882 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752210AbXIYQGU convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Sep 2007 12:06:20 -0400
+In-Reply-To: <007201c7ff89$d5db4cf0$d6ddfea9@JOHNYE1>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > 	Roland, are you comfortable with the IB changes in patches 1 and 2?
+On Tue, 25 Sep 2007 23:36:25 +0800
+"john ye" <johny@asimco.com.cn> wrote:
 
-Yes, they look fine to me.  Feel free to apply, with
+> Jamal,
+>=20
+> You pointed out a key point: it's NOT acceptable if massive packet re=
+-ordering couldn=C2=A1=C2=AFt be avoided.
+> I debugged function tcp_ofo_queue in net/ipv4/tcp_input.c & monitored=
+ out_of_order_queue, found that re-ordering
+> becomes unacceptable with the softirq load grows.
+>=20
+> It's simple to avoid out-of-order packets by changing random dispatch=
+ into dispatch based on source ip address.
+> e.g. cpu =3D iph->saddr % nr_cpus. while cpu is like a hash entry.
+> Considering that BS patch is mainly used on server with many incoming=
+ connections,
+> dispatch by IP should balance CPU load well.
+>=20
+> The test is under way, it's not bad so far.
+> The queue spin_lock seems not cost much.
+>=20
+> Below is the bcpp beautified module code. Last time code mess is caus=
+ed by outlook express which killed tabs.
+>=20
+> Thanks.
+>=20
+> John Ye
 
-Acked-by: Roland Dreier <rolandd@cisco.com>
-
- - R.
+There is a standard hash called RSS, that many drivers support because =
+it is
+used by other operating systems.=20
