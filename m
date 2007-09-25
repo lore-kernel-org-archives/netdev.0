@@ -1,61 +1,95 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] Remove broken netfilter binary sysctls from bridging
- code
-Date: Tue, 25 Sep 2007 09:12:03 -0700
-Message-ID: <20070925091203.371879e2@fujitsu-loaner>
-References: <20070918011841.2381bd93.akpm@linux-foundation.org>
-	<20070921020554.GE31759@nineveh.local>
-	<m1fy18k5ru.fsf@ebiederm.dsl.xmission.com>
-	<46F7EC0A.9030506@trash.net>
-	<20070924131458.0daa4562@freepuppy.rosehill>
-	<46F8897C.5010504@trash.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: 2.6.23-rc8-mm1 - drivers/net/ibm_newemac/mal - broken
+Date: Tue, 25 Sep 2007 09:16:13 -0700
+Message-ID: <20070925091613.44042909.akpm@linux-foundation.org>
+References: <20070925014625.3cd5f896.akpm@linux-foundation.org>
+	<46F904E6.40601@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, eugene.surovegin@zultys.com,
+	netdev@vger.kernel.org
+To: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:41113 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:56956 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752210AbXIYQMO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2007 12:12:14 -0400
-In-Reply-To: <46F8897C.5010504@trash.net>
+	by vger.kernel.org with ESMTP id S1755286AbXIYQQm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2007 12:16:42 -0400
+In-Reply-To: <46F904E6.40601@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 25 Sep 2007 06:07:24 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+On Tue, 25 Sep 2007 18:23:58 +0530 Kamalesh Babulal <kamalesh@linux.vne=
+t.ibm.com> wrote:
 
-> Stephen Hemminger wrote:
-> > On Mon, 24 Sep 2007 18:55:38 +0200
-> > Patrick McHardy <kaber@trash.net> wrote:
-> > 
-> >>Eric W. Biederman wrote:
-> >>
-> >>>A really good fix would be to remove the binary side and then to
-> >>>modify brnf_sysctl_call_tables to allocate a temporary ctl_table
-> >>>and integer on the stack and only set ctl->data after we have
-> >>>normalized the written value.  But since in practice nothing cares
-> >>>about the race a better fix probably isn't worth it.
-> >>
-> >>
-> >>I seem to be missing something, the entire brnf_sysctl_call_tables
-> >>thing looks purely cosmetic to me, wouldn't it be better to simply
-> >>remove it?
-> > 
-> > 
-> > I agree, removing seems like a better option.  But probably need to
-> > go through a 3-6mo warning period, since sysctl's are technically
-> > an API.
-> 
-> 
-> I meant removing brnf_sysctl_call_tables function, not the sysctls
-> themselves, all it does is change values != 0 to 1. Or did you
-> actually mean that something in userspace might depend on reading
-> back the value 1 after writing a value != 0?
+> Hi Andrew,
+>=20
+> The drivers/net/ibm_newemac/mal seems to be broken, which stop with
+> build error
 
-I was going farther, because don't really see the value of having
-a sysctl for this. It seems better to just not load filters if
-they aren't going to be used. Having another enable/disable hook
-just adds needless complexity.
+(please cc netdev@vger.kernel.org on networking things)
+
+> CC      drivers/net/ibm_newemac/mal.o
+> drivers/net/ibm_newemac/mal.c: In function =E2=80=98mal_schedule_poll=
+=E2=80=99:
+> drivers/net/ibm_newemac/mal.c:238: error: too few arguments to functi=
+on =E2=80=98netif_rx_schedule_prep=E2=80=99
+> drivers/net/ibm_newemac/mal.c:238: error: too few arguments to functi=
+on =E2=80=98netif_rx_schedule_prep=E2=80=99
+> drivers/net/ibm_newemac/mal.c:238: error: too few arguments to functi=
+on =E2=80=98netif_rx_schedule_prep=E2=80=99
+> drivers/net/ibm_newemac/mal.c:241: error: too few arguments to functi=
+on =E2=80=98__netif_rx_schedule=E2=80=99
+> drivers/net/ibm_newemac/mal.c: In function =E2=80=98mal_poll_disable=E2=
+=80=99:
+> drivers/net/ibm_newemac/mal.c:321: error: =E2=80=98__LINK_STATE_RX_SC=
+HED=E2=80=99 undeclared (first use in this function)
+> drivers/net/ibm_newemac/mal.c:321: error: (Each undeclared identifier=
+ is reported only once
+> drivers/net/ibm_newemac/mal.c:321: error: for each function it appear=
+s in.)
+> drivers/net/ibm_newemac/mal.c: In function =E2=80=98mal_poll=E2=80=99=
+:
+> drivers/net/ibm_newemac/mal.c:337: error: =E2=80=98struct net_device=E2=
+=80=99 has no member named =E2=80=98quota=E2=80=99
+> drivers/net/ibm_newemac/mal.c:337: warning: type defaults to =E2=80=98=
+int=E2=80=99 in declaration of =E2=80=98_x=E2=80=99
+> drivers/net/ibm_newemac/mal.c:337: error: =E2=80=98struct net_device=E2=
+=80=99 has no member named =E2=80=98quota=E2=80=99
+> drivers/net/ibm_newemac/mal.c:375: error: too few arguments to functi=
+on =E2=80=98__netif_rx_complete=E2=80=99
+> drivers/net/ibm_newemac/mal.c:390: warning: passing argument 2 of =E2=
+=80=98netif_rx_reschedule=E2=80=99 makes pointer from integer without a=
+ cast
+> drivers/net/ibm_newemac/mal.c:404: error: =E2=80=98struct net_device=E2=
+=80=99 has no member named =E2=80=98quota=E2=80=99
+> drivers/net/ibm_newemac/mal.c: In function =E2=80=98mal_probe=E2=80=99=
+:
+> drivers/net/ibm_newemac/mal.c:542: error: =E2=80=98struct net_device=E2=
+=80=99 has no member named =E2=80=98weight=E2=80=99
+> drivers/net/ibm_newemac/mal.c:543: error: =E2=80=98struct net_device=E2=
+=80=99 has no member named =E2=80=98poll=E2=80=99
+> drivers/net/ibm_newemac/mal.c: In function =E2=80=98mal_remove=E2=80=99=
+:
+> drivers/net/ibm_newemac/mal.c:660: error: implicit declaration of fun=
+ction =E2=80=98netif_poll_disable=E2=80=99
+> make[3]: *** [drivers/net/ibm_newemac/mal.o] Error 1
+> make[2]: *** [drivers/net/ibm_newemac] Error 2
+> make[1]: *** [drivers/net] Error 2
+> make: *** [drivers] Error 2
+
+Yes, there's been a lot of breakage in netdev land:
+
+git-net-fix-macec.patch
+git-net-sky2-fixups.patch
+git-net-fix-wireless-kconfig.patch
+git-net-fix-spidernet-build.patch
+git-net-sctp-build-fix.patch
+spider_net_ethtool-keep-up-with-recent-netdev-stats-changes.patch
+pasemi_mac-build-fix-after-recent-netdev-stats.patch
+git-net-fix-pasemi_mac.patch
+make-mv643xx_ethc-build-again.patch
+
+but we're getting there.  It looks like ibmn_newemac is more busted tha=
+n
+most...
