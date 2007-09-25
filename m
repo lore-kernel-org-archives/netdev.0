@@ -1,48 +1,49 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCHES] TX batching
-Date: Mon, 24 Sep 2007 20:15:55 -0400
-Message-ID: <46F8533B.9010405@garzik.org>
-References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>	 <20070916.161748.48388692.davem@davemloft.net>	 <1189988958.4230.55.camel@localhost> <1190569987.4256.52.camel@localhost>	 <46F6AE18.7080708@garzik.org> <1190574713.5030.4.camel@localhost>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: [ofa-general] RE: [PATCH 1/4] [NET_SCHED] explict hold dev tx lock
+Date: Mon, 24 Sep 2007 17:31:46 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32903A51586@orsmsx414.amr.corp.intel.com>
+References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com><20070916.161748.48388692.davem@davemloft.net><1189988958.4230.55.camel@localhost><1190569987.4256.52.camel@localhost><1190570205.4256.56.camel@localhost><D5C1322C3E673F459512FB59E0DDC32903A51122@orsmsx414.amr.corp.intel.com><1190674298.4264.24.camel@localhost><D5C1322C3E673F459512FB59E0DDC32903A51462@orsmsx414.amr.corp.intel.com><1190677099.4264.37.camel@localhost><D5C1322C3E673F459512FB59E0DDC32903A5151B@orsmsx414.amr.corp.intel.com>
+	<20070924171411.36494656@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, johnpol@2ka.mipt.ru,
-	herbert@gondor.apana.org.au, kaber@trash.net,
-	shemminger@linux-foundation.org, jagana@us.ibm.com,
-	Robert.Olsson@data.slu.se, rick.jones2@hp.com, xma@us.ibm.com,
-	gaagaan@gmail.com, netdev@vger.kernel.org, rdreier@cisco.com,
-	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
-	mchan@broadcom.com, general@lists.openfabrics.org,
-	kumarkr@linux.ibm.com, tgraf@suug.ch, randy.dunlap@oracle.com,
-	sri@us.ibm.com
-To: hadi@cyberus.ca, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:35535 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756546AbXIYAQg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Sep 2007 20:16:36 -0400
-In-Reply-To: <1190574713.5030.4.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: johnpol@2ka.mipt.ru, jeff@garzik.org, kumarkr@linux.ibm.com,
+	herbert@gondor.apana.org.au, gaagaan@gmail.com,
+	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
+	rdreier@cisco.com, hadi@cyberus.ca, kaber@trash.net,
+	randy.dunlap@oracle.com, jagana@us.ibm.com,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	mcarlson@broadcom.com, sri@us.ibm.com, David Miller <davem@davemloft.net>
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <20070924171411.36494656@freepuppy.rosehill>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> If the intel folks will accept the patch i'd really like to kill 
-> the e1000 LLTX interface.
+> > I really just need to put my nose to the grindstone and get the=20
+> > patches together and to the list...stay tuned.
+> >=20
+> > Thanks,
+> > -PJ Waskiewicz
+> > -
+>=20
+>=20
+> Since we are redoing this, is there any way to make the whole=20
+> TX path more lockless?  The existing model seems to be more=20
+> of a monitor than a real locking model.
 
+That seems quite reasonable.  I will certainly see what I can do.
 
-If I understood DaveM correctly, it is sounding like we want to 
-deprecate all of use LLTX on "real" hardware?  If so, several such 
-projects might be considered, as well as possibly simplifying TX 
-batching work perhaps.
+Thanks Stephen,
 
-Also, WRT e1000 specifically, I was hoping to minimize changes, and 
-focus people on e1000e.
-
-e1000e replaces (deprecates) large portions of e1000, namely the support 
-for the PCI Express modern chips.  When e1000e has proven itself in the 
-field, we can potentially look at several e1000 simplifications, during 
-the large scale code removal that becomes possible.
-
-	Jeff
-
-
+-PJ Waskiewicz
