@@ -1,49 +1,44 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: [ofa-general] RE: [PATCH 1/4] [NET_SCHED] explict hold dev tx lock
-Date: Mon, 24 Sep 2007 17:31:46 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC32903A51586@orsmsx414.amr.corp.intel.com>
-References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com><20070916.161748.48388692.davem@davemloft.net><1189988958.4230.55.camel@localhost><1190569987.4256.52.camel@localhost><1190570205.4256.56.camel@localhost><D5C1322C3E673F459512FB59E0DDC32903A51122@orsmsx414.amr.corp.intel.com><1190674298.4264.24.camel@localhost><D5C1322C3E673F459512FB59E0DDC32903A51462@orsmsx414.amr.corp.intel.com><1190677099.4264.37.camel@localhost><D5C1322C3E673F459512FB59E0DDC32903A5151B@orsmsx414.amr.corp.intel.com>
-	<20070924171411.36494656@freepuppy.rosehill>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] sky2: FE+ Phy initialization
+Date: Mon, 24 Sep 2007 19:34:51 -0700
+Message-ID: <20070924193451.7552b9e9@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: johnpol@2ka.mipt.ru, jeff@garzik.org, kumarkr@linux.ibm.com,
-	herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
-	rdreier@cisco.com, hadi@cyberus.ca, kaber@trash.net,
-	randy.dunlap@oracle.com, jagana@us.ibm.com,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	mcarlson@broadcom.com, sri@us.ibm.com, David Miller <davem@davemloft.net>
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <20070924171411.36494656@freepuppy.rosehill>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:45314 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756630AbXIYCfI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Sep 2007 22:35:08 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > I really just need to put my nose to the grindstone and get the=20
-> > patches together and to the list...stay tuned.
-> >=20
-> > Thanks,
-> > -PJ Waskiewicz
-> > -
->=20
->=20
-> Since we are redoing this, is there any way to make the whole=20
-> TX path more lockless?  The existing model seems to be more=20
-> of a monitor than a real locking model.
+One more snippet of PHY initialization required for FE+ chips.
+Discovered in latest sk98lin 10.21.1.3 driver.
 
-That seems quite reasonable.  I will certainly see what I can do.
+Please apply to 2.6.23.
 
-Thanks Stephen,
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
--PJ Waskiewicz
+
+--- a/drivers/net/sky2.c	2007-09-24 09:10:36.000000000 -0700
++++ b/drivers/net/sky2.c	2007-09-24 10:22:28.000000000 -0700
+@@ -338,6 +338,16 @@ static void sky2_phy_init(struct sky2_hw
+ 		if (!(hw->flags & SKY2_HW_GIGABIT)) {
+ 			/* enable automatic crossover */
+ 			ctrl |= PHY_M_PC_MDI_XMODE(PHY_M_PC_ENA_AUTO) >> 1;
++
++			if (hw->chip_id == CHIP_ID_YUKON_FE_P &&
++			    hw->chip_rev == CHIP_REV_YU_FE2_A0) {
++				u16 spec;
++
++				/* Enable Class A driver for FE+ A0 */
++				spec = gm_phy_read(hw, port, PHY_MARV_FE_SPEC_2);
++				spec |= PHY_M_FESC_SEL_CL_A;
++				gm_phy_write(hw, port, PHY_MARV_FE_SPEC_2, spec);
++			}
+ 		} else {
+ 			/* disable energy detect */
+ 			ctrl &= ~PHY_M_PC_EN_DET_MSK;
