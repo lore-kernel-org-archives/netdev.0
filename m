@@ -1,47 +1,42 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Remove broken netfilter binary sysctls from bridging
- code
-Date: Tue, 25 Sep 2007 06:07:24 +0200
-Message-ID: <46F8897C.5010504@trash.net>
-References: <20070918011841.2381bd93.akpm@linux-foundation.org>	<20070921020554.GE31759@nineveh.local>	<m1fy18k5ru.fsf@ebiederm.dsl.xmission.com>	<46F7EC0A.9030506@trash.net> <20070924131458.0daa4562@freepuppy.rosehill>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+From: Kyle Moffett <mrmacman_g4@mac.com>
+Subject: Re: [PATCH 1/2] bnx2: factor out gzip unpacker
+Date: Tue, 25 Sep 2007 00:20:10 -0400
+Message-ID: <1565FDF8-3BC6-4E46-93E1-48F40C7E1F8D@mac.com>
+References: <200709211201.24475.vda.linux@googlemail.com> <200709211905.23946.vda.linux@googlemail.com> <p73ps0b93ph.fsf@bingen.suse.de> <200709212337.53043.vda.linux@googlemail.com> <20070924173223.GL5386@csclub.uwaterloo.ca>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Denys Vlasenko <vda.linux@googlemail.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>, jeff@garzik.org,
+	mchan@broadcom.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55877 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751692AbXIYEQn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2007 00:16:43 -0400
-In-Reply-To: <20070924131458.0daa4562@freepuppy.rosehill>
+Received: from smtpoutm.mac.com ([17.148.16.77]:52341 "EHLO smtpoutm.mac.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760189AbXIYEU0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Sep 2007 00:20:26 -0400
+In-Reply-To: <20070924173223.GL5386@csclub.uwaterloo.ca>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Mon, 24 Sep 2007 18:55:38 +0200
-> Patrick McHardy <kaber@trash.net> wrote:
-> 
->>Eric W. Biederman wrote:
->>
->>>A really good fix would be to remove the binary side and then to
->>>modify brnf_sysctl_call_tables to allocate a temporary ctl_table and
->>>integer on the stack and only set ctl->data after we have normalized
->>>the written value.  But since in practice nothing cares about
->>>the race a better fix probably isn't worth it.
->>
->>
->>I seem to be missing something, the entire brnf_sysctl_call_tables
->>thing looks purely cosmetic to me, wouldn't it be better to simply
->>remove it?
-> 
-> 
-> I agree, removing seems like a better option.  But probably need to go
-> through a 3-6mo warning period, since sysctl's are technically an API.
+On Sep 24, 2007, at 13:32:23, Lennart Sorensen wrote:
+> On Fri, Sep 21, 2007 at 11:37:52PM +0100, Denys Vlasenko wrote:
+>> But I compile net/* into bzImage. I like netbooting :)
+>
+> Isn't it possible to netboot with an initramfs image?  I am pretty  
+> sure I have seen some systems do exactly that.
 
+Yeah, I've got Debian boxes that have never *not* netbooted (one Dell  
+Op^?^?Craptiplex box whose BIOS and ACPI sucks so bad it can't even  
+load GRUB/LILO, although Windows somehow works fine).  So they boot  
+PXELinux using the PXE boot ROM on the NICs and it loads both a  
+kernel and an initramfs into memory.  Kernel is stock Debian and  
+hardly has enough built-in to spit at you, let alone find network/ 
+disks, but it manages to load everything it needs off the  
+automagically-generated initramfs.
 
-I meant removing brnf_sysctl_call_tables function, not the sysctls
-themselves, all it does is change values != 0 to 1. Or did you
-actually mean that something in userspace might depend on reading
-back the value 1 after writing a value != 0?
+Cheers,
+Kyle Moffett
+
