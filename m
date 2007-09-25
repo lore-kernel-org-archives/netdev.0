@@ -1,69 +1,79 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH V6 0/9] net/bonding: ADD IPoIB support for the bonding driver
-Date: Tue, 25 Sep 2007 08:24:29 -0700
-Message-ID: <10376.1190733869@death>
-References: <46F7D770.4090500@voltaire.com>
-Cc: Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
-	OpenFabrics General <general@lists.openfabrics.org>,
-	Jeff Garzik <jgarzik@pobox.com>
-To: Moni Shoua <monis@voltaire.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:42833 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751416AbXIYPYh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Sep 2007 11:24:37 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by e4.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8PFObds017448
-	for <netdev@vger.kernel.org>; Tue, 25 Sep 2007 11:24:37 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8PFObnq515640
-	for <netdev@vger.kernel.org>; Tue, 25 Sep 2007 11:24:37 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8PFOWdQ027776
-	for <netdev@vger.kernel.org>; Tue, 25 Sep 2007 11:24:36 -0400
-In-reply-to: <46F7D770.4090500@voltaire.com> 
-Sender: netdev-owner@vger.kernel.org
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [ofa-general] Re: [PATCH 1/4] [NET_SCHED] explict hold dev tx lock
+Date: Tue, 25 Sep 2007 08:24:57 -0700
+Message-ID: <20070925082457.6fec30d6@freepuppy.rosehill>
+References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
+	<20070916.161748.48388692.davem@davemloft.net>
+	<1189988958.4230.55.camel@localhost>
+	<1190569987.4256.52.camel@localhost>
+	<1190570205.4256.56.camel@localhost>
+	<D5C1322C3E673F459512FB59E0DDC32903A51122@orsmsx414.amr.corp.intel.com>
+	<1190674298.4264.24.camel@localhost>
+	<D5C1322C3E673F459512FB59E0DDC32903A51462@orsmsx414.amr.corp.intel.com>
+	<1190677099.4264.37.camel@localhost>
+	<D5C1322C3E673F459512FB59E0DDC32903A5151B@orsmsx414.amr.corp.intel.com>
+	<20070924171411.36494656@freepuppy.rosehill>
+	<1190726138.4264.105.camel@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: johnpol@2ka.mipt.ru, kumarkr@linux.ibm.com, herbert@gondor.apana.org.au,
+	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
+	netdev@vger.kernel.org, rdreier@cisco.com, "Waskiewicz Jr,
+	Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	mcarlson@broadcom.com, kaber@trash.net, randy.dunlap@oracle.com,
+	jagana@us.ibm.com, general@lists.openfabrics.org,
+	mchan@broadcom.com, tgraf@suug.ch, jeff@garzik.org,
+	sri@us.ibm.com, David Miller <davem@davemloft.net>
+To: hadi@cyberus.ca
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <1190726138.4264.105.camel@localhost>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 25 Sep 2007 09:15:38 -0400
+jamal <hadi@cyberus.ca> wrote:
 
-ACK patches 3 - 9.
+> On Mon, 2007-24-09 at 17:14 -0700, Stephen Hemminger wrote:
+> 
+> > Since we are redoing this, 
+> > is there any way to make the whole TX path
+> > more lockless?  The existing model seems to be more of a monitor than
+> > a real locking model.
+> 
 
-	Roland, are you comfortable with the IB changes in patches 1 and 2?
+http://en.wikipedia.org/wiki/Monitor_(synchronization)
+> What do you mean it is "more of a monitor"?
 
-	Jeff, when Roland acks patches 1 and 2, please apply all 9.
+The transmit code path is locked as a code region, rather than just object locking
+on the transmit queue or other fine grained object. This leads to moderately long
+lock hold times when multiple qdisc's and classification is being done.
 
-	-J
+> 
+> On the challenge of making it lockless:
+> About every NAPI driver combines the tx prunning with rx polling. If you
+> are dealing with tx resources on receive thread as well as tx thread,
+> _you need_ locking. The only other way we can do avoid it is to separate
+> the rx path interupts from ones on tx related resources; the last NAPI
+> driver that did that was tulip; i think the e1000 for a short period in
+> its life did the same as well. But that has been frowned on and people
+> have evolved away from it.
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+If we went to finer grain locking it would also mean changes to all network
+devices using the new locking model. My assumption is that we would use
+something like the features flag to do the transition for backward compatibility.
+
+Take this as a purely "what if" or "it would be nice if" kind of suggestion
+not a requirement or some grand plan.
 
 
-Moni Shoua <monis@voltaire.com> wrote:
-
->This patch series is the sixth version (see below link to V5) of the 
->suggested changes to the bonding driver so it would be able to support 
->non ARPHRD_ETHER netdevices for its High-Availability (active-backup) mode. 
->
->Patches 1-8 were originally submitted in V5 and patch 9 is an addition by Jay.
->
->
->Major changes from the previous version:
->----------------------------------------
->
->1. Remove the patches to net/core. Bonding will use the NETDEV_GOING_DOWN notification
->   instead of NETDEV_CHANGE+IFF_SLAVE_DETACH. This reduces the amount of patches from 11
->   to 9.
->
->Links to earlier discussion:
->----------------------------
->
->1. A discussion in netdev about bonding support for IPoIB.
->http://lists.openwall.net/netdev/2006/11/30/46
->
->2. V5 series
->http://lists.openfabrics.org/pipermail/general/2007-September/040996.html
->
->-
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
