@@ -1,7 +1,7 @@
 From: jamal <hadi@cyberus.ca>
-Subject: [ofa-general] RE: [PATCH 1/4] [NET_SCHED] explict hold dev tx lock
-Date: Tue, 25 Sep 2007 09:08:54 -0400
-Message-ID: <1190725734.4264.97.camel@localhost>
+Subject: [ofa-general] Re: [PATCH 1/4] [NET_SCHED] explict hold dev tx lock
+Date: Tue, 25 Sep 2007 09:15:38 -0400
+Message-ID: <1190726138.4264.105.camel@localhost>
 References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
 	<20070916.161748.48388692.davem@davemloft.net>
 	<1189988958.4230.55.camel@localhost>
@@ -12,19 +12,21 @@ References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
 	<D5C1322C3E673F459512FB59E0DDC32903A51462@orsmsx414.amr.corp.intel.com>
 	<1190677099.4264.37.camel@localhost>
 	<D5C1322C3E673F459512FB59E0DDC32903A5151B@orsmsx414.amr.corp.intel.com>
+	<20070924171411.36494656@freepuppy.rosehill>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: johnpol@2ka.mipt.ru, kumarkr@linux.ibm.com, herbert@gondor.apana.org.au,
 	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
-	netdev@vger.kernel.org, rdreier@cisco.com, mcarlson@broadcom.com,
-	kaber@trash.net, randy.dunlap@oracle.com, jagana@us.ibm.com,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	jeff@garzik.org, sri@us.ibm.com, shemminger@linux-foundation.org,
-	David Miller <davem@davemloft.net>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+	netdev@vger.kernel.org, rdreier@cisco.com, "Waskiewicz Jr,
+	Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	mcarlson@broadcom.com, kaber@trash.net, randy.dunlap@oracle.com,
+	jagana@us.ibm.com, general@lists.openfabrics.org,
+	mchan@broadcom.com, tgraf@suug.ch, jeff@garzik.org,
+	sri@us.ibm.com, David Miller <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32903A5151B@orsmsx414.amr.corp.intel.com>
+In-Reply-To: <20070924171411.36494656@freepuppy.rosehill>
 List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
 	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
 List-Archive: <http://lists.openfabrics.org/pipermail/general>
@@ -36,55 +38,23 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-24-09 at 16:47 -0700, Waskiewicz Jr, Peter P wrote:
+On Mon, 2007-24-09 at 17:14 -0700, Stephen Hemminger wrote:
 
-> We should make sure we're symmetric with the locking on enqueue to
-> dequeue.  If we use the single device queue lock on enqueue, then
-> dequeue will also need to check that lock in addition to the individual
-> queue lock.  The details of this are more trivial than the actual
-> dequeue to make it efficient though.
+> Since we are redoing this, 
+> is there any way to make the whole TX path
+> more lockless?  The existing model seems to be more of a monitor than
+> a real locking model.
 
-It would be interesting to observe the performance implications.
+What do you mean it is "more of a monitor"?
 
-> The dequeue locking would be pushed into the qdisc itself.  This is how
-> I had it originally, and it did make the code more complex, but it was
-> successful at breaking the heavily-contended queue_lock apart.  I have a
-> subqueue structure right now in netdev, which only has queue_state (for
-> netif_{start|stop}_subqueue).  This state is checked in sch_prio right
-> now in the dequeue for both prio and rr.  My approach is to add a
-> queue_lock in that struct, so each queue allocated by the driver would
-> have a lock per queue.  Then in dequeue, that lock would be taken when
-> the skb is about to be dequeued.
-
-more locks implies degraded performance. If only one processor can enter
-that region, presumably after acquiring the outer lock , why this
-secondary lock per queue?
-
-> The skb->queue_mapping field also maps directly to the queue index
-> itself, so it can be unlocked easily outside of the context of the
-> dequeue function.  The policy would be to use a spin_trylock() in
-> dequeue, so that dequeue can still do work if enqueue or another dequeue
-> is busy.  
-
-So there could be a parallel cpu dequeueing at the same time?
-Wouldnt this have implications depending on what the scheduling
-algorithm used? If for example i was doing priority queueing i would
-want to make sure the highest priority is being dequeued first AND by
-all means goes out first to the driver; i dont want a parallell cpu
-dequeing a lower prio packet at the same time.
-
-> And the allocation of qdisc queues to device queues is assumed
-> to be one-to-one (that's how the qdisc behaves now).
-
-Ok, that brings back the discussion we had; my thinking was something
-like dev->hard_prep_xmit() would select the ring and i think you
-staticly already map the ring to a qdisc queue. So i dont think 
-dev->hard_prep_xmit() is useful to you.
-In any case, there is nothing the batching patches do that interfere or
-prevent you from going the path you intend to. instead of dequeueing one
-packet, you dequeue several and instead of sending to the driver one
-packet, you send several. And using the xmit_win, you should never ever
-have to requeue.
+On the challenge of making it lockless:
+About every NAPI driver combines the tx prunning with rx polling. If you
+are dealing with tx resources on receive thread as well as tx thread,
+_you need_ locking. The only other way we can do avoid it is to separate
+the rx path interupts from ones on tx related resources; the last NAPI
+driver that did that was tulip; i think the e1000 for a short period in
+its life did the same as well. But that has been frowned on and people
+have evolved away from it.
 
 cheers,
 jamal
