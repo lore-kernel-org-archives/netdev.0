@@ -1,94 +1,48 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [ofa-general] Re: [PATCH 1/4] [NET_SCHED] explict hold dev tx lock
-Date: Mon, 24 Sep 2007 17:14:11 -0700
-Message-ID: <20070924171411.36494656@freepuppy.rosehill>
-References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
-	<20070916.161748.48388692.davem@davemloft.net>
-	<1189988958.4230.55.camel@localhost>
-	<1190569987.4256.52.camel@localhost>
-	<1190570205.4256.56.camel@localhost>
-	<D5C1322C3E673F459512FB59E0DDC32903A51122@orsmsx414.amr.corp.intel.com>
-	<1190674298.4264.24.camel@localhost>
-	<D5C1322C3E673F459512FB59E0DDC32903A51462@orsmsx414.amr.corp.intel.com>
-	<1190677099.4264.37.camel@localhost>
-	<D5C1322C3E673F459512FB59E0DDC32903A5151B@orsmsx414.amr.corp.intel.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCHES] TX batching
+Date: Mon, 24 Sep 2007 20:15:55 -0400
+Message-ID: <46F8533B.9010405@garzik.org>
+References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>	 <20070916.161748.48388692.davem@davemloft.net>	 <1189988958.4230.55.camel@localhost> <1190569987.4256.52.camel@localhost>	 <46F6AE18.7080708@garzik.org> <1190574713.5030.4.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, jeff@garzik.org, kumarkr@linux.ibm.com,
-	herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
-	rdreier@cisco.com, hadi@cyberus.ca, kaber@trash.net,
-	randy.dunlap@oracle.com, jagana@us.ibm.com,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	mcarlson@broadcom.com, sri@us.ibm.com, David Miller <davem@davemloft.net>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32903A5151B@orsmsx414.amr.corp.intel.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: krkumar2@in.ibm.com, johnpol@2ka.mipt.ru,
+	herbert@gondor.apana.org.au, kaber@trash.net,
+	shemminger@linux-foundation.org, jagana@us.ibm.com,
+	Robert.Olsson@data.slu.se, rick.jones2@hp.com, xma@us.ibm.com,
+	gaagaan@gmail.com, netdev@vger.kernel.org, rdreier@cisco.com,
+	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
+	mchan@broadcom.com, general@lists.openfabrics.org,
+	kumarkr@linux.ibm.com, tgraf@suug.ch, randy.dunlap@oracle.com,
+	sri@us.ibm.com
+To: hadi@cyberus.ca, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:35535 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756546AbXIYAQg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Sep 2007 20:16:36 -0400
+In-Reply-To: <1190574713.5030.4.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 24 Sep 2007 16:47:06 -0700
-"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com> wrote:
-
-> > On Mon, 2007-24-09 at 15:57 -0700, Waskiewicz Jr, Peter P wrote:
-> > 
-> > > I've looked at that as a candidate to use.  The lock for 
-> > enqueue would 
-> > > be needed when actually placing the skb into the 
-> > appropriate software 
-> > > queue for the qdisc, so it'd be quick.
-> > 
-> > The enqueue is easy to comprehend. The single device queue 
-> > lock should suffice. The dequeue is interesting:
-> 
-> We should make sure we're symmetric with the locking on enqueue to
-> dequeue.  If we use the single device queue lock on enqueue, then
-> dequeue will also need to check that lock in addition to the individual
-> queue lock.  The details of this are more trivial than the actual
-> dequeue to make it efficient though.
-> 
-> > Maybe you can point me to some doc or describe to me the 
-> > dequeue aspect; are you planning to have an array of txlocks 
-> > per, one per ring?
-> > How is the policy to define the qdisc queues locked/mapped to 
-> > tx rings? 
-> 
-> The dequeue locking would be pushed into the qdisc itself.  This is how
-> I had it originally, and it did make the code more complex, but it was
-> successful at breaking the heavily-contended queue_lock apart.  I have a
-> subqueue structure right now in netdev, which only has queue_state (for
-> netif_{start|stop}_subqueue).  This state is checked in sch_prio right
-> now in the dequeue for both prio and rr.  My approach is to add a
-> queue_lock in that struct, so each queue allocated by the driver would
-> have a lock per queue.  Then in dequeue, that lock would be taken when
-> the skb is about to be dequeued.
-> 
-> The skb->queue_mapping field also maps directly to the queue index
-> itself, so it can be unlocked easily outside of the context of the
-> dequeue function.  The policy would be to use a spin_trylock() in
-> dequeue, so that dequeue can still do work if enqueue or another dequeue
-> is busy.  And the allocation of qdisc queues to device queues is assumed
-> to be one-to-one (that's how the qdisc behaves now).
-> 
-> I really just need to put my nose to the grindstone and get the patches
-> together and to the list...stay tuned.
-> 
-> Thanks,
-> -PJ Waskiewicz
-> -
+jamal wrote:
+> If the intel folks will accept the patch i'd really like to kill 
+> the e1000 LLTX interface.
 
 
-Since we are redoing this, is there any way to make the whole TX path
-more lockless?  The existing model seems to be more of a monitor than
-a real locking model.
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+If I understood DaveM correctly, it is sounding like we want to 
+deprecate all of use LLTX on "real" hardware?  If so, several such 
+projects might be considered, as well as possibly simplifying TX 
+batching work perhaps.
+
+Also, WRT e1000 specifically, I was hoping to minimize changes, and 
+focus people on e1000e.
+
+e1000e replaces (deprecates) large portions of e1000, namely the support 
+for the PCI Express modern chips.  When e1000e has proven itself in the 
+field, we can potentially look at several e1000 simplifications, during 
+the large scale code removal that becomes possible.
+
+	Jeff
+
+
