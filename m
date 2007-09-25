@@ -1,32 +1,127 @@
-From: Moni Shoua <monis@voltaire.com>
-Subject: Re: [ofa-general] [PATCH V6 0/9] net/bonding: ADD IPoIB support for
- the	bonding driver
-Date: Tue, 25 Sep 2007 13:01:58 +0200
-Message-ID: <46F8EAA6.3040409@voltaire.com>
-References: <46F7D770.4090500@voltaire.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	OpenFabrics General <general@lists.openfabrics.org>
-To: Roland Dreier <rdreier@cisco.com>, Jay Vosburgh <fubar@us.ibm.com>
+From: Urs Thuermann <urs@isnogud.escape.de>
+Subject: [PATCH 0/7] CAN: Add new PF_CAN protocol family, try #8
+Date: Tue, 25 Sep 2007 14:20:29 +0200
+Message-ID: <20070925122029.15989.0@janus.isnogud.escape.de>
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Joe Perches <joe@perches.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver@hartkopp.net>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:36360 "EHLO exil.voltaire.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751861AbXIYLCE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Sep 2007 07:02:04 -0400
-In-Reply-To: <46F7D770.4090500@voltaire.com>
+Received: from oker.escape.de ([194.120.234.254]:47626 "EHLO oker.escape.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752092AbXIYMau (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Sep 2007 08:30:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay,
-I think that all comments to the patches were discussed and handled.
-If you agree, can you please push then to the networking tree so they will be
-merged into 2.6.24?
-This includes the IPoIB patches (agreed with Roland).
-Note that there are *no* patches to net/core (like in V5).
+Hello Dave, hello Patrick,
 
-thanks
+this is the eigth post of the patch series that adds the PF_CAN
+protocol family for the Controller Area Network.
 
- MoniS
+Since our last post we have changed the following:
 
+* Some changes in debug code, following suggestions from Joe Perches:
+  - Remove dynamically allocated buffer for debug output.
+  - Use kernel functions for hexdumps.
+  - Don't interpret printf-style %-sequences in can_debug_cframe().
+  - Specify the fixed argument "fmt" to DBG() macro and use
+    GCC ## mechanism to remove , when args is empty.
+* Removed CAN_RAW_USER and CAN_BCM_USER Kconfig options following a
+  suggestion from Patrick.
+* Prevent overflow in statistics calculation.
+* Minor optimization.
+
+The changes in try #7 were:
+
+* Changes suggested by Patrick:
+  - protect proto_tab[] by a lock.
+  - add _rcu to some hlist traversals.
+  - use printk_ratelimit() for module autoload failures.
+  - make can_proto_unregister() and can_rx_unregister() return void.
+  - use return value of can_proto_register() and can_rx_register()
+    (this also removed a flaw in behavior of raw_bind() and raw_setsockopt()
+     in case of failure to can_rx_register() their filters).
+  - call kzalloc() with GFP_KERNEL in case NETDEV_REGISTER.
+  - use round_jiffies() to calculate expiration times.
+  - make some variables static and/or __read_mostly.
+  - in can_create() check for net namespace before auto loading modules.
+  - add build time check for struct sizes.
+  - use skb_share_chack() in vcan.
+  - fixed some comments.
+* Typos in documentation as pointed out by Randy Dunlap and Bill Fink.
+
+The changes in try #6 were:
+
+* Update code to work with namespaces in net-2.6.24.
+* Remove SET_MODULE_OWNER() from vcan.
+
+The changes in try #5 were:
+
+* Remove slab destructor from calls to kmem_cache_alloc().
+* Add comments about types defined in can.h.
+* Update comment on vcan loopback module parameter.
+* Fix typo in documentation.
+
+The changes in try #4 were:
+
+* Change vcan network driver to use the new RTNL API, as suggested by
+  Patrick.
+* Revert our change to use skb->iif instead of skb->cb.  After
+  discussion with Patrick and Jamal it turned out, our first
+  implementation was correct.
+* Use skb_tail_pointer() instead of skb->tail directly.
+* Coding style changes to satisfy linux/scripts/checkpatch.pl.
+* Minor changes for 64-bit-cleanliness.
+* Minor cleanup of #include's
+
+The changes in try #3 were:
+
+* Use sbk->sk and skb->pkt_type instead of skb->cb to pass loopback
+  flags and originating socket down to the driver and back to the
+  receiving socket.  Thanks to Patrick McHardy for pointing out our
+  wrong use of sbk->cb.
+* Use skb->iif instead of skb->cb to pass receiving interface from
+  raw_rcv() and bcm_rcv() up to raw_recvmsg() and bcm_recvmsg().
+* Set skb->protocol when sending CAN frames to netdevices.
+* Removed struct raw_opt and struct bcm_opt and integrated these
+  directly into struct raw_sock and bcm_sock resp., like most other
+  proto implementations do.
+* We have found and fixed race conditions between raw_bind(),
+  raw_{set,get}sockopt() and raw_notifier().  This resulted in
+  - complete removal of our own notifier list infrastructure in
+    af_can.c.  raw.c and bcm.c now use normal netdevice notifiers.
+  - removal of ro->lock spinlock.  We use lock_sock(sk) now.
+  - changed deletion of dev_rcv_lists, which are now marked for
+    deletion in the netdevice notifier in af_can.c and are actually
+    deleted when all entries have been deleted using can_rx_unregister().
+* Follow changes in 2.6.22 (e.g. ktime_t timestamps in skb).
+* Removed obsolete code from vcan.c, as pointed out by Stephen Hemminger.
+
+The changes in try #2 were:
+
+* reduced RCU callback overhead when deleting receiver lists (thx to
+  feedback from Paul E. McKenney).
+* eliminated some code duplication in net/can/proc.c.
+* renamed slock-29 and sk_lock-29 to slock-AF_CAN and sk_lock-AF_CAN in
+  net/core/sock.c
+* added entry for can.txt in Documentation/networking/00-INDEX
+* added error frame definitions in include/linux/can/error.h, which are to
+  be used by CAN network drivers.
+
+
+This patch series applies against net-2.6.24 and is derived from Subversion
+revision r493 of http://svn.berlios.de/svnroot/repos/socketcan.
+It can be found in the directory
+http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/<version>.
+
+Thanks very much for your work!
+
+Best regards,
+
+Urs Thuermann
+Oliver Hartkopp
+--
