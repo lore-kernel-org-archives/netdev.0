@@ -1,50 +1,61 @@
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Subject: Re: [PATCH 5/7] CAN: Add virtual CAN netdevice driver
-Date: Tue, 25 Sep 2007 21:09:46 +0200
-Message-ID: <46F95CFA.8060908@hartkopp.net>
-References: <20070925122029.15989.0@janus.isnogud.escape.de>	<20070925122244.15989.5@janus.isnogud.escape.de>	<20070925.222631.116063075.yoshfuji@linux-ipv6.org> <ygfir5yetfp.fsf@janus.isnogud.escape.de> <46F91F64.2050008@trash.net> <46F94B91.5020209@hartkopp.net> <46F94B00.3060006@trash.net>
+From: "Robert Iakobashvili" <coroberti@gmail.com>
+Subject: Re: Userspace network stack and netchannels.
+Date: Tue, 25 Sep 2007 21:22:47 +0200
+Message-ID: <7e63f56c0709251222q608488c8wba05eb5a06ee3e32@mail.gmail.com>
+References: <20070925180043.GA16698@2ka.mipt.ru>
+	 <7e63f56c0709251220s12ab10b5pade5b2c90fa4a8b9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Urs Thuermann <urs@isnogud.escape.de>, netdev@vger.kernel.org,
-	davem@davemloft.net, joe@perches.com, tglx@linutronix.de,
-	oliver.hartkopp@volkswagen.de
-To: Patrick McHardy <kaber@trash.net>,
-	=?ISO-8859-15?Q?YOSHIFUJI_Hideak?=
-	 =?ISO-8859-15?Q?i_/_=C8=A3=D1=C0?= <yoshfuji@linux-ipv6.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.161]:16183 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753024AbXIYTKn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2007 15:10:43 -0400
-In-Reply-To: <46F94B00.3060006@trash.net>
+Received: from py-out-1112.google.com ([64.233.166.176]:22846 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753509AbXIYTWs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2007 15:22:48 -0400
+Received: by py-out-1112.google.com with SMTP id u77so3719516pyb
+        for <netdev@vger.kernel.org>; Tue, 25 Sep 2007 12:22:47 -0700 (PDT)
+In-Reply-To: <7e63f56c0709251220s12ab10b5pade5b2c90fa4a8b9@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
+Evgeniy,
+
+On 9/25/07, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+>  I've released new version of the extremely small
+> userspace netowork stack [1] implementation.
 >
-> Yoshifuji's point was that the license seems to contradict itself,
-> it says you may choose GPL, but have to retain BSD. And that is
-> not about Dual BSD/GPL but about the specific wording.
->   
 
-Got it (finally)!
+>  1. Userspace network stack.
+> http://tservice.net.ru/~s0mbre/old/?section=projects&item=unetstack
+>
+> 2. Netchannel subsystem.
+>  http://tservice.net.ru/~s0mbre/old/?section=projects&item=netchannel
+>
+> 3. Gigabit send/recv benchmark for netchannels and sockets using small
+> packets.
+> http://tservice.net.ru/~s0mbre/blog/devel/networking/2006_10_26.html
+>  http://tservice.net.ru/~s0mbre/blog/devel/networking/2006_12_21.html
+>
 
-Trying to specify the GPL Version (and the reference to the COPYING
-file) i just overlooked  the second part
- "*/*/in which case the provisions of the GPL apply INSTEAD OF those
-given above."/*/* of the original sentence.
+Very interesting. Are there any details of your benchmarking available,
+namely, how it was done?
+Have you some comparison profiling data (oprofile) to figure out where
+the advantages are coming from?
 
-Sorry. Was no* malice aforethought :)*
+-- 
+Sincerely,
+Robert Iakobashvili,
+coroberti %x40 gmail %x2e com
+...........................................................
+ http://curl-loader.sourceforge.net
+A web testing and traffic generation tool.
 
-Of course we'll fix this to have the same wording like e.g. in
-arch/i386/crypto/aes.c .
-
-Thanks to Yoshfuji for catching this and to Patrick for making it clear
-to me!*
-
-Best regards,
-Oliver
-
-*
-
+-- 
+Sincerely,
+Robert Iakobashvili,
+coroberti %x40 gmail %x2e com
+...........................................................
+http://curl-loader.sourceforge.net
+A web testing and traffic generation tool.
