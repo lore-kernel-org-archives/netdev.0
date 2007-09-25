@@ -1,60 +1,42 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [ofa-general] Re: [PATCH 1/4] [NET_SCHED] explict hold dev tx lock
-Date: Tue, 25 Sep 2007 09:15:38 -0400
-Message-ID: <1190726138.4264.105.camel@localhost>
-References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
-	<20070916.161748.48388692.davem@davemloft.net>
-	<1189988958.4230.55.camel@localhost>
-	<1190569987.4256.52.camel@localhost>
-	<1190570205.4256.56.camel@localhost>
-	<D5C1322C3E673F459512FB59E0DDC32903A51122@orsmsx414.amr.corp.intel.com>
-	<1190674298.4264.24.camel@localhost>
-	<D5C1322C3E673F459512FB59E0DDC32903A51462@orsmsx414.amr.corp.intel.com>
-	<1190677099.4264.37.camel@localhost>
-	<D5C1322C3E673F459512FB59E0DDC32903A5151B@orsmsx414.amr.corp.intel.com>
-	<20070924171411.36494656@freepuppy.rosehill>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH] sb1250-mac: Driver model & phylib update
+Date: Tue, 25 Sep 2007 14:18:17 +0100
+Message-ID: <20070925131817.GA28402@linux-mips.org>
+References: <Pine.LNX.4.64N.0709191811040.24627@blysk.ds.pg.gda.pl> <20070921124409.7f3d122b.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, kumarkr@linux.ibm.com, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
-	netdev@vger.kernel.org, rdreier@cisco.com, "Waskiewicz Jr,
-	Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	mcarlson@broadcom.com, kaber@trash.net, randy.dunlap@oracle.com,
-	jagana@us.ibm.com, general@lists.openfabrics.org,
-	mchan@broadcom.com, tgraf@suug.ch, jeff@garzik.org,
-	sri@us.ibm.com, David Miller <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20070924171411.36494656@freepuppy.rosehill>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Maciej W. Rozycki" <macro@linux-mips.org>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org, linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ftp.linux-mips.org ([194.74.144.162]:44620 "EHLO
+	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751837AbXIYNSr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2007 09:18:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20070921124409.7f3d122b.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-24-09 at 17:14 -0700, Stephen Hemminger wrote:
+On Fri, Sep 21, 2007 at 12:44:09PM -0700, Andrew Morton wrote:
 
-> Since we are redoing this, 
-> is there any way to make the whole TX path
-> more lockless?  The existing model seems to be more of a monitor than
-> a real locking model.
+> >  A driver model and phylib update.
+> 
+> akpm:/usr/src/25> diffstat patches/git-net.patch | tail -n 1
+>  1013 files changed, 187667 insertions(+), 23587 deletions(-)
+> 
+> Sorry, but raising networking patches against Linus's crufty
+> old mainline tree just isn't viable at present.
 
-What do you mean it is "more of a monitor"?
+Out of curiosity:
 
-On the challenge of making it lockless:
-About every NAPI driver combines the tx prunning with rx polling. If you
-are dealing with tx resources on receive thread as well as tx thread,
-_you need_ locking. The only other way we can do avoid it is to separate
-the rx path interupts from ones on tx related resources; the last NAPI
-driver that did that was tulip; i think the e1000 for a short period in
-its life did the same as well. But that has been frowned on and people
-have evolved away from it.
+[ralf@denk linux-queue]$ git diff $(git merge-base master v2.6.23-rc8-mm1)..v2.6.23-rc8-mm1 | wc -cl
+1046669 31900996
+[ralf@denk linux-queue]$ git diff $(git merge-base master v2.6.23-rc8-mm1)..v2.6.23-rc8-mm1 | diffstat | tail -1
+ 6049 files changed, 573635 insertions(+), 207630 deletions(-)
+[ralf@denk linux-queue]$ 
 
-cheers,
-jamal
+We're all a little too productive ;-)
+
+  Ralf
