@@ -1,206 +1,270 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] net: Fix running without sysfs
-Date: Wed, 26 Sep 2007 17:48:10 -0600
-Message-ID: <m1zlz9rnt1.fsf@ebiederm.dsl.xmission.com>
+Subject: [PATCH] net: Add network namespace clone & unshare support.
+Date: Wed, 26 Sep 2007 17:49:54 -0600
+Message-ID: <m1tzphrnq5.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: <netdev@vger.kernel.org>,
 	Linux Containers <containers@lists.osdl.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:38013 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:53790 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751190AbXIZXsd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2007 19:48:33 -0400
+	with ESMTP id S1752090AbXIZXuk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2007 19:50:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-When sysfs support is compiled out the kernel still keeps and maintains
-the kobject tree.  So it is not safe to skip our kobject reference counting or 
-to avoid becoming members of the kobject tree.  It is safe to not add
-the networking specific sysfs attributes.
+This patch allows you to create a new network namespace
+using sys_clone, or sys_unshare.
 
-This patch removes the sysfs special cases from net/core/dev.c
-renames functions from netdev_sysfs_xxxx to netdev_kobject_xxxx
-and always compiles in net-sysfs.c
+As the network namespace is still experimental and under development
+clone and unshare support is only made available when CONFIG_NET_NS is
+selected at compile time.
 
-net-sysfs.c is modified with a CONFIG_SYSFS guard around the parts
-that are actually sysfs specific.
+As this patch introduces network namespace support into code paths
+that exist when the CONFIG_NET is not selected there are a few
+additions made to net_namespace.h to allow a few more functions
+to be used when the networking stack is not compiled in.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/core/Makefile    |    2 +-
- net/core/dev.c       |   28 +++++++++-------------------
- net/core/net-sysfs.c |   13 ++++++++++---
- 3 files changed, 20 insertions(+), 23 deletions(-)
+ include/linux/sched.h       |    1 +
+ include/net/net_namespace.h |   18 ++++++++++++++++++
+ kernel/fork.c               |    3 ++-
+ kernel/nsproxy.c            |   15 +++++++++++++--
+ net/Kconfig                 |    8 ++++++++
+ net/core/net_namespace.c    |   43 +++++++++++++++++++++++++++++++++++++++++--
+ 6 files changed, 83 insertions(+), 5 deletions(-)
 
-diff --git a/net/core/Makefile b/net/core/Makefile
-index ea9b3f3..b1332f6 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -11,7 +11,7 @@ obj-y		     += dev.o ethtool.o dev_mcast.o dst.o netevent.o \
- 			neighbour.o rtnetlink.o utils.o link_watch.o filter.o
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index a01ac6d..e10a0a8 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -27,6 +27,7 @@
+ #define CLONE_NEWUTS		0x04000000	/* New utsname group? */
+ #define CLONE_NEWIPC		0x08000000	/* New ipcs */
+ #define CLONE_NEWUSER		0x10000000	/* New user namespace */
++#define CLONE_NEWNET		0x20000000	/* New network namespace */
  
- obj-$(CONFIG_XFRM) += flow.o
--obj-$(CONFIG_SYSFS) += net-sysfs.o
-+obj-y += net-sysfs.o
- obj-$(CONFIG_NET_PKTGEN) += pktgen.o
- obj-$(CONFIG_NETPOLL) += netpoll.o
- obj-$(CONFIG_NET_DMA) += user_dma.o
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 91c31e6..a99225e 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -249,15 +249,9 @@ static RAW_NOTIFIER_HEAD(netdev_chain);
- 
- DEFINE_PER_CPU(struct softnet_data, softnet_data);
- 
--#ifdef CONFIG_SYSFS
--extern int netdev_sysfs_init(void);
--extern int netdev_register_sysfs(struct net_device *);
--extern void netdev_unregister_sysfs(struct net_device *);
--#else
--#define netdev_sysfs_init()	 	(0)
--#define netdev_register_sysfs(dev)	(0)
--#define	netdev_unregister_sysfs(dev)	do { } while(0)
--#endif
-+extern int netdev_kobject_init(void);
-+extern int netdev_register_kobject(struct net_device *);
-+extern void netdev_unregister_kobject(struct net_device *);
- 
- #ifdef CONFIG_DEBUG_LOCK_ALLOC
  /*
-@@ -3573,7 +3567,7 @@ int register_netdevice(struct net_device *dev)
- 	if (!dev->rebuild_header)
- 		dev->rebuild_header = default_rebuild_header;
+  * Scheduling policies
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index ac8f830..3ea4194 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -38,11 +38,23 @@ extern struct net init_net;
  
--	ret = netdev_register_sysfs(dev);
-+	ret = netdev_register_kobject(dev);
- 	if (ret)
- 		goto err_uninit;
- 	dev->reg_state = NETREG_REGISTERED;
-@@ -3836,7 +3830,6 @@ EXPORT_SYMBOL(alloc_netdev_mq);
-  */
- void free_netdev(struct net_device *dev)
+ extern struct list_head net_namespace_list;
+ 
++#ifdef CONFIG_NET
++extern struct net *copy_net_ns(unsigned long flags, struct net *net_ns);
++#else
++static inline struct net *copy_net_ns(unsigned long flags, struct net *net_ns)
++{
++	/* There is nothing to copy so this is a noop */
++	return net_ns;
++}
++#endif
++
+ extern void __put_net(struct net *net);
+ 
+ static inline struct net *get_net(struct net *net)
  {
--#ifdef CONFIG_SYSFS
- 	/*  Compatibility with error handling in drivers */
- 	if (dev->reg_state == NETREG_UNINITIALIZED) {
- 		kfree((char *)dev - dev->padded);
-@@ -3848,9 +3841,6 @@ void free_netdev(struct net_device *dev)
- 
- 	/* will free via device release */
- 	put_device(&dev->dev);
--#else
--	kfree((char *)dev - dev->padded);
--#endif
++#ifdef CONFIG_NET
+ 	atomic_inc(&net->count);
++#endif
+ 	return net;
  }
  
- /* Synchronize with packet receive processing. */
-@@ -3919,8 +3909,8 @@ void unregister_netdevice(struct net_device *dev)
- 	/* Notifier chain MUST detach us from master device. */
- 	BUG_TRAP(!dev->master);
+@@ -60,19 +72,25 @@ static inline struct net *maybe_get_net(struct net *net)
  
--	/* Remove entries from sysfs */
--	netdev_unregister_sysfs(dev);
-+	/* Remove entries from kobject tree */
-+	netdev_unregister_kobject(dev);
+ static inline void put_net(struct net *net)
+ {
++#ifdef CONFIG_NET
+ 	if (atomic_dec_and_test(&net->count))
+ 		__put_net(net);
++#endif
+ }
  
- 	/* Finish processing unregister after unlock */
- 	net_set_todo(dev);
-@@ -4051,9 +4041,9 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
- 			dev->iflink = dev->ifindex;
+ static inline struct net *hold_net(struct net *net)
+ {
++#ifdef CONFIG_NET
+ 	atomic_inc(&net->use_count);
++#endif
+ 	return net;
+ }
+ 
+ static inline void release_net(struct net *net)
+ {
++#ifdef CONFIG_NET
+ 	atomic_dec(&net->use_count);
++#endif
+ }
+ 
+ extern void net_lock(void);
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 33f12f4..5e67f90 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -1608,7 +1608,8 @@ asmlinkage long sys_unshare(unsigned long unshare_flags)
+ 	err = -EINVAL;
+ 	if (unshare_flags & ~(CLONE_THREAD|CLONE_FS|CLONE_NEWNS|CLONE_SIGHAND|
+ 				CLONE_VM|CLONE_FILES|CLONE_SYSVSEM|
+-				CLONE_NEWUTS|CLONE_NEWIPC|CLONE_NEWUSER))
++				CLONE_NEWUTS|CLONE_NEWIPC|CLONE_NEWUSER|
++				CLONE_NEWNET))
+ 		goto bad_unshare_out;
+ 
+ 	if ((err = unshare_thread(unshare_flags)))
+diff --git a/kernel/nsproxy.c b/kernel/nsproxy.c
+index a4fb7d4..f1decd2 100644
+--- a/kernel/nsproxy.c
++++ b/kernel/nsproxy.c
+@@ -20,6 +20,7 @@
+ #include <linux/mnt_namespace.h>
+ #include <linux/utsname.h>
+ #include <linux/pid_namespace.h>
++#include <net/net_namespace.h>
+ 
+ static struct kmem_cache *nsproxy_cachep;
+ 
+@@ -98,8 +99,17 @@ static struct nsproxy *create_new_namespaces(unsigned long flags,
+ 		goto out_user;
  	}
  
--	/* Fixup sysfs */
-+	/* Fixup kobjects */
- 	err = device_rename(&dev->dev, dev->name);
--	BUG_ON(err);
-+	WARN_ON(err);
- 
- 	/* Add the device back in the hashes */
- 	list_netdevice(dev);
-@@ -4356,7 +4346,7 @@ static int __init net_dev_init(void)
- 	if (dev_proc_init())
- 		goto out;
- 
--	if (netdev_sysfs_init())
-+	if (netdev_kobject_init())
- 		goto out;
- 
- 	INIT_LIST_HEAD(&ptype_all);
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 79159db..909a03d 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -18,6 +18,7 @@
- #include <linux/wireless.h>
- #include <net/iw_handler.h>
- 
-+#ifdef CONFIG_SYSFS
- static const char fmt_hex[] = "%#x\n";
- static const char fmt_long_hex[] = "%#lx\n";
- static const char fmt_dec[] = "%d\n";
-@@ -392,6 +393,8 @@ static struct attribute_group wireless_group = {
- };
- #endif
- 
-+#endif /* CONFIG_SYSFS */
++	new_nsp->net_ns = copy_net_ns(flags, tsk->nsproxy->net_ns);
++	if (IS_ERR(new_nsp->net_ns)) {
++		err = PTR_ERR(new_nsp->net_ns);
++		goto out_net;
++	}
 +
- #ifdef CONFIG_HOTPLUG
- static int netdev_uevent(struct device *d, char **envp,
- 			 int num_envp, char *buf, int size)
-@@ -435,7 +438,9 @@ static void netdev_release(struct device *d)
- static struct class net_class = {
- 	.name = "net",
- 	.dev_release = netdev_release,
-+#ifdef CONFIG_SYSFS
- 	.dev_attrs = net_class_attributes,
-+#endif /* CONFIG_SYSFS */
- #ifdef CONFIG_HOTPLUG
- 	.dev_uevent = netdev_uevent,
- #endif
-@@ -444,7 +449,7 @@ static struct class net_class = {
- /* Delete sysfs entries but hold kobject reference until after all
-  * netdev references are gone.
-  */
--void netdev_unregister_sysfs(struct net_device * net)
-+void netdev_unregister_kobject(struct net_device * net)
- {
- 	struct device *dev = &(net->dev);
+ 	return new_nsp;
  
-@@ -453,7 +458,7 @@ void netdev_unregister_sysfs(struct net_device * net)
++out_net:
++	if (new_nsp->user_ns)
++		put_user_ns(new_nsp->user_ns);
+ out_user:
+ 	if (new_nsp->pid_ns)
+ 		put_pid_ns(new_nsp->pid_ns);
+@@ -132,7 +142,7 @@ int copy_namespaces(unsigned long flags, struct task_struct *tsk)
+ 
+ 	get_nsproxy(old_ns);
+ 
+-	if (!(flags & (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC | CLONE_NEWUSER)))
++	if (!(flags & (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC | CLONE_NEWUSER | CLONE_NEWNET)))
+ 		return 0;
+ 
+ 	if (!capable(CAP_SYS_ADMIN)) {
+@@ -164,6 +174,7 @@ void free_nsproxy(struct nsproxy *ns)
+ 		put_pid_ns(ns->pid_ns);
+ 	if (ns->user_ns)
+ 		put_user_ns(ns->user_ns);
++	put_net(ns->net_ns);
+ 	kmem_cache_free(nsproxy_cachep, ns);
  }
  
- /* Create sysfs entries for network device. */
--int netdev_register_sysfs(struct net_device *net)
-+int netdev_register_kobject(struct net_device *net)
- {
- 	struct device *dev = &(net->dev);
- 	struct attribute_group **groups = net->sysfs_groups;
-@@ -466,6 +471,7 @@ int netdev_register_sysfs(struct net_device *net)
- 	BUILD_BUG_ON(BUS_ID_SIZE < IFNAMSIZ);
- 	strlcpy(dev->bus_id, net->name, BUS_ID_SIZE);
+@@ -177,7 +188,7 @@ int unshare_nsproxy_namespaces(unsigned long unshare_flags,
+ 	int err = 0;
  
-+#ifdef CONFIG_SYSFS
- 	if (net->get_stats)
- 		*groups++ = &netstat_group;
+ 	if (!(unshare_flags & (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |
+-			       CLONE_NEWUSER)))
++			       CLONE_NEWUSER | CLONE_NEWNET)))
+ 		return 0;
  
-@@ -473,11 +479,12 @@ int netdev_register_sysfs(struct net_device *net)
- 	if (net->wireless_handlers && net->wireless_handlers->get_wireless_stats)
- 		*groups++ = &wireless_group;
- #endif
-+#endif /* CONFIG_SYSFS */
+ 	if (!capable(CAP_SYS_ADMIN))
+diff --git a/net/Kconfig b/net/Kconfig
+index cdba08c..ab4e6da 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -27,6 +27,14 @@ if NET
  
- 	return device_add(dev);
+ menu "Networking options"
+ 
++config NET_NS
++	bool "Network namespace support"
++	default n
++	depends on EXPERIMENTAL && !SYSFS
++	help
++	  Allow user space to create what appear to be multiple instances
++	  of the network stack.
++
+ source "net/packet/Kconfig"
+ source "net/unix/Kconfig"
+ source "net/xfrm/Kconfig"
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 0e6cb02..e478e35 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -4,6 +4,7 @@
+ #include <linux/slab.h>
+ #include <linux/list.h>
+ #include <linux/delay.h>
++#include <linux/sched.h>
+ #include <net/net_namespace.h>
+ 
+ /*
+@@ -32,12 +33,10 @@ void net_unlock(void)
+ 	mutex_unlock(&net_list_mutex);
  }
  
--int netdev_sysfs_init(void)
-+int netdev_kobject_init(void)
+-#if 0
+ static struct net *net_alloc(void)
  {
- 	return class_register(&net_class);
+ 	return kmem_cache_alloc(net_cachep, GFP_KERNEL);
  }
+-#endif
+ 
+ static void net_free(struct net *net)
+ {
+@@ -128,6 +127,46 @@ out_undo:
+ 	goto out;
+ }
+ 
++struct net *copy_net_ns(unsigned long flags, struct net *old_net)
++{
++	struct net *new_net = NULL;
++	int err;
++
++	get_net(old_net);
++
++	if (!(flags & CLONE_NEWNET))
++		return old_net;
++
++#ifndef CONFIG_NET_NS
++	return ERR_PTR(-EINVAL);
++#endif
++
++	err = -ENOMEM;
++	new_net = net_alloc();
++	if (!new_net)
++		goto out;
++
++	mutex_lock(&net_mutex);
++	err = setup_net(new_net);
++	if (err)
++		goto out_unlock;
++
++	net_lock();
++	list_add_tail(&new_net->list, &net_namespace_list);
++	net_unlock();
++
++
++out_unlock:
++	mutex_unlock(&net_mutex);
++out:
++	put_net(old_net);
++	if (err) {
++		net_free(new_net);
++		new_net = ERR_PTR(err);
++	}
++	return new_net;
++}
++
+ static int __init net_ns_init(void)
+ {
+ 	int err;
 -- 
 1.5.3.rc6.17.g1911
 
