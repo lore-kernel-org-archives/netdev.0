@@ -1,36 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [SCTP PULL Request]: Bug fixes for 2.6.23
-Date: Tue, 25 Sep 2007 22:53:30 -0700 (PDT)
-Message-ID: <20070925.225330.60538571.davem@davemloft.net>
-References: <46F8252D.3090803@hp.com>
+Subject: net-2.6.24 rebased...
+Date: Tue, 25 Sep 2007 23:33:44 -0700 (PDT)
+Message-ID: <20070925.233344.43202361.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
-To: vladislav.yasevich@hp.com
+Cc: linville@tuxdriver.com, jeff@garzik.org, akpm@linux-foundation.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45809
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53012
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751387AbXIZFxa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2007 01:53:30 -0400
-In-Reply-To: <46F8252D.3090803@hp.com>
+	by vger.kernel.org with ESMTP id S1750802AbXIZGdu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2007 02:33:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Mon, 24 Sep 2007 16:59:25 -0400
 
-> Can you please pull the following changes since commit a41d3015c11a4e864b95cb57f579f2d8f40cd41b:
+Ok the rebase is complete and I integrated all of the
+"easy" stuff in my backlog.  In the usual spot:
 
-I had to apply this by hand because:
+	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git
 
->   David S. Miller (1):
->         Revert "PCI: disable MSI by default on systems with Serverworks HT1000 chips"
+John, one patch didn't go in cleanly after I removed the
+Z1211 driver.  I put it here for your consideration so it
+doesn't get lost:
 
-You did this work on a very old tree of mine that I redid
-at one point.  This MSI changeset I yanked out of my net-2.6
-tree during a rebase, so if I pull I get the thing back
-which I definitely don't want :-)
+	http://vger.kernel.org/~davem/0433-Z1211-Fix-TX-status-reports.patch
 
-Just to let you know what's happening and why I couldn't
-pull directly from your tree into mine.
+What probably needs to happen is some other changes that
+were in z1211 need to go into the non-mac80211 driver and
+then this patch applies correctly.
+
+I tried the simple thing to rename the directory in the patch
+and that didn't work, obviously :-)
+
+Jeff, if you have any pending driver bits please toss them my
+way as most of my backlog is clear now.
+
+Andrew, I applied a good chunk of the driver build fixes you had
+accumulated.  I think I missed one or two, so please check that out
+and send my way the ones that I missed.
+
+Thanks!
