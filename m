@@ -1,70 +1,65 @@
-From: "John Ye" <johny@asimco.com.cn>
-Subject: Re: [PATCH: 2.6.13-15-SMP 3/3] network: concurrentlyrunsoftirqnetwork code on SMP
-Date: Wed, 26 Sep 2007 10:12:40 +0800
-Message-ID: <004d01c7ffe2$b73fec20$ca8510ac@asimco>
-References: <004901c7fd9c$94370df0$d6ddfea9@JOHNYE1> <1190551422.4256.36.camel@localhost> <007201c7ff89$d5db4cf0$d6ddfea9@JOHNYE1> <20070925090333.11beebb2@freepuppy.rosehill> <1190758944.4244.23.camel@localhost>
-Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<kuznet@ms2.inr.ac.ru>, <pekkas@netcore.fi>, <jmorris@namei.org>,
-	<kaber@coreworks.de>, <iceburgue@gmail.com>
-To: <hadi@cyberus.ca>,
-	"Stephen Hemminger" <shemminger@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-2.6.24][patch 2/2] Dynamically allocate the loopback
+ device
+Date: Tue, 25 Sep 2007 19:24:06 -0700 (PDT)
+Message-ID: <20070925.192406.18290033.davem@davemloft.net>
+References: <224b7d320709171212o66734847kbd17efa817b482fc@mail.gmail.com>
+	<20070917.185349.98863851.davem@davemloft.net>
+	<m1r6kwpu9t.fsf@ebiederm.dsl.xmission.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pjwaskiewicz@gmail.com, dlezcano@fr.ibm.com,
+	shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	containers@lists.osdl.org, benjamin.thery@bull.net
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.asimco-na.com ([207.138.153.195]:42329 "EHLO
-	mail.asimco-na.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753567AbXIZCKb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2007 22:10:31 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41747
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752865AbXIZCYG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2007 22:24:06 -0400
+In-Reply-To: <m1r6kwpu9t.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jamal & Stephen,
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Mon, 17 Sep 2007 20:44:14 -0600
 
-I found BSS-hash paper you mentioned and have browsed it briefly.
-The issue "may end sending all your packets to one cpu" might be dealt with
-by
-cpu hash (srcip + dstip) % nr_cpus, plus checking cpu balance periodically,
-shift cpu by an extra seed value?
+> David Miller <davem@davemloft.net> writes:
+> 
+> > From: "Peter Waskiewicz" <pjwaskiewicz@gmail.com>
+> > Date: Mon, 17 Sep 2007 12:12:24 -0700
+> >
+> >> This would be a good opportunity to remove the single-allocated queue struct
+> >> in netdevice (at the bottom) that we had to put in to accomodate the static
+> >> loopback.  Now we can set it back to a zero element list, and have
+> >> alloc_netdev_mq() just allocate the number of queues requested, not
+> >> num_queues - 1.
+> >> 
+> >> I'll put a patch together based on this patchset.
+> >
+> > Thanks Peter.
+> >
+> > I'll also let this sit so that Eric can provide any feedback
+> > he wants and also figure out how he will use this for the
+> > namespace stuff.
+> 
+> Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> Not that it doesn't already have my signed off by.
 
-Any way, the cpu hash code must not be too expensive because every incoming
-packet hits the path.
+I've put these patches into the just-rebased net-2.6.24 tree.
 
-We are going to do further study on this BSS thing.
+I made a minor modification to the second patch, the
+out_free_netdev: code in loopback_init() ended like this:
 
-__do_IRQ has a tendency to collect same IRQ on different CPUs into one CPU
-when NIC is busy(by IRQ_PENDING & IRQ_INPROGRESS control skill). so,
-dispatch the load to SMP here may be good thing(?).
+out_free_netdev:
+	free_netdev(dev);
+	goto out;
+	return err;
+};
+
+I got rid of the spurious return statement and the trailing
+semi-colon after the function closing brace.
 
 Thanks.
-
-John Ye
-
-
------ Original Message -----
-From: "jamal" <hadi@cyberus.ca>
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
-Cc: "john ye" <johny@asimco.com.cn>; "David Miller" <davem@davemloft.net>;
-<netdev@vger.kernel.org>; <kuznet@ms2.inr.ac.ru>; <pekkas@netcore.fi>;
-<jmorris@namei.org>; <kaber@coreworks.de>; <iceburgue@gmail.com>
-Sent: Wednesday, September 26, 2007 6:22 AM
-Subject: Re: [PATCH: 2.6.13-15-SMP 3/3] network:
-concurrentlyrunsoftirqnetwork code on SMP
-
-
-> On Tue, 2007-25-09 at 09:03 -0700, Stephen Hemminger wrote:
->
-> > There is a standard hash called RSS, that many drivers support because
-it is
-> > used by other operating systems.
->
-> I think any stateless/simple thing will do (something along the lines
-> what 802.1ad does for trunk, a 5 classical five tuple etc).
->
-> Having solved the reordering problem in such a stateless way introduces
-> a loadbalancing setback; you may end sending all your packets to one cpu
-> (a problem Mr Ye didnt have when he was re-orderding ;->).
->
-> cheers,
-> jamal
->
->
-
 
