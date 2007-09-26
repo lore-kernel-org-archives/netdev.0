@@ -1,261 +1,51 @@
-From: linux@horizon.com
-Subject: Re: [PATCH] ipg: add IP1000A driver to kernel tree
-Date: 26 Sep 2007 05:46:32 -0400
-Message-ID: <20070926094632.19889.qmail@science.horizon.com>
-To: netdev@vger.kernel.org
+From: "Robert Iakobashvili" <coroberti@gmail.com>
+Subject: Re: Userspace network stack and netchannels.
+Date: Wed, 26 Sep 2007 12:43:49 +0200
+Message-ID: <7e63f56c0709260343y3fc5a9bdxe64fd251e682c883@mail.gmail.com>
+References: <20070925180043.GA16698@2ka.mipt.ru>
+	 <7e63f56c0709251220s12ab10b5pade5b2c90fa4a8b9@mail.gmail.com>
+	 <20070926085303.GB13187@2ka.mipt.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Evgeniy Polyakov" <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from science.horizon.com ([192.35.100.1]:18211 "HELO
-	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753846AbXIZJxO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2007 05:53:14 -0400
+Received: from py-out-1112.google.com ([64.233.166.181]:6668 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757669AbXIZKnv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2007 06:43:51 -0400
+Received: by py-out-1112.google.com with SMTP id u77so4098837pyb
+        for <netdev@vger.kernel.org>; Wed, 26 Sep 2007 03:43:50 -0700 (PDT)
+In-Reply-To: <20070926085303.GB13187@2ka.mipt.ru>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(Resend to netdev; already sent to relevant individuals.)
+On 9/26/07, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> > > http://tservice.net.ru/~s0mbre/blog/devel/networking/2006_10_26.html
+> > > http://tservice.net.ru/~s0mbre/blog/devel/networking/2006_12_21.html
+> > >
+> >
+> > Very interesting. Are there any details of your benchmarking available,
+> > namely, how it was done?
+> > Have you some comparison profiling data (oprofile) to figure out where
+> > the advantages are coming from?
 
-Here's a possible fix for the p[] array issues akpm noticed.
-This replaces them with calls to a new mdio_write_bits function.
+> My analysis says that reduced number of syscalls is
+> main improvement factor,
+Great! Just oprofile of the comparison tests is of my curiosity.
 
-Boot-tested, passes net traffic, and mii-tool and mii-diag produce sensible
-output (including noticing link status changes).
+> but different (non-rfc-compliant) congestion
+> control allows faster start and faster recovery.
 
-Also, regarding
->> +	for (i = 0; i < IPG_TFDLIST_LENGTH; i++) {
->> +		offset = (u32) &sp->txd[i].next_desc - (u32) sp->txd;
->> +		printk(KERN_INFO "%2.2x %4.4x TFDNextPtr = %16.16lx\n", i,
->> +		       offset, (unsigned long) sp->txd[i].next_desc);
->> +
->> +		offset = (u32) &sp->txd[i].tfc - (u32) sp->txd;
->
-> Is the u32 cast safe here on all architectures?
+People like compliance to standards, even if it decreases performance.
+:) Take care.
 
-IPG_TFDLIST_LENGTH is 256, and sp->txd is an array of struct ipg_tx,
-which are 24 bytes each, so the most it can be is 6K.  The result fits
-into 32 bits, so the inputs can be safely truncated.
-
-A more awkward way to write it would be
-	offset = i * sizeof(struct ipg_tx) + offsetof(struct ipg_tx, tfc);
-
-
-This patch is placed in the public domain; copyright abandoned.
-
-(The final hunk is a space-TAB whitespace repair that git complained about
-when I imported the patch.)
-
-diff --git a/drivers/net/ipg.c b/drivers/net/ipg.c
-index 87a674c..6267a34 100644
---- a/drivers/net/ipg.c
-+++ b/drivers/net/ipg.c
-@@ -180,12 +180,31 @@ static u16 read_phy_bit(void __iomem * ioaddr, u8 phyctrlpolarity)
- }
- 
- /*
-+ * Transmit the given bits, MSB-first, through the MgmtData bit (bit 1)
-+ * of the PhyCtrl register. 1 <= len <= 32.  "ioaddr" is the register
-+ * address, and "otherbits" are the values of the other bits.
-+ */
-+static void mdio_write_bits(void __iomem *ioaddr, u8 otherbits, u32 data, unsigned len)
-+{
-+	otherbits |= IPG_PC_MGMTDIR;
-+	do {
-+		/* IPG_PC_MGMTDATA is a power of 2; compiler knows to shift */
-+		u8 d = ((data >> --len) & 1) * IPG_PC_MGMTDATA;
-+		/* + rather than | lets compiler microoptimize better */
-+		ipg_drive_phy_ctl_low_high(ioaddr, d + otherbits);
-+	} while (len);
-+}
-+
-+/*
-  * Read a register from the Physical Layer device located
-  * on the IPG NIC, using the IPG PHYCTRL register.
-  */
- static int mdio_read(struct net_device * dev, int phy_id, int phy_reg)
- {
- 	void __iomem *ioaddr = ipg_ioaddr(dev);
-+	u8 const polarity = ipg_r8(PHY_CTRL) &
-+			(IPG_PC_DUPLEX_POLARITY | IPG_PC_LINK_POLARITY);
-+	unsigned i, data = 0;
- 	/*
- 	 * The GMII mangement frame structure for a read is as follows:
- 	 *
-@@ -199,75 +218,30 @@ static int mdio_read(struct net_device * dev, int phy_id, int phy_reg)
- 	 * D = bit of read data (MSB first)
- 	 *
- 	 * Transmission order is 'Preamble' field first, bits transmitted
--	 * left to right (first to last).
-+	 * left to right (msbit-first).
- 	 */
--	struct {
--		u32 field;
--		unsigned int len;
--	} p[] = {
--		{ GMII_PREAMBLE,	32 },	/* Preamble */
--		{ GMII_ST,		2  },	/* ST */
--		{ GMII_READ,		2  },	/* OP */
--		{ phy_id,		5  },	/* PHYAD */
--		{ phy_reg,		5  },	/* REGAD */
--		{ 0x0000,		2  },	/* TA */
--		{ 0x0000,		16 },	/* DATA */
--		{ 0x0000,		1  }	/* IDLE */
--	};
--	unsigned int i, j;
--	u8 polarity, data;
--
--	polarity  = ipg_r8(PHY_CTRL);
--	polarity &= (IPG_PC_DUPLEX_POLARITY | IPG_PC_LINK_POLARITY);
--
--	/* Create the Preamble, ST, OP, PHYAD, and REGAD field. */
--	for (j = 0; j < 5; j++) {
--		for (i = 0; i < p[j].len; i++) {
--			/* For each variable length field, the MSB must be
--			 * transmitted first. Rotate through the field bits,
--			 * starting with the MSB, and move each bit into the
--			 * the 1st (2^1) bit position (this is the bit position
--			 * corresponding to the MgmtData bit of the PhyCtrl
--			 * register for the IPG).
--			 *
--			 * Example: ST = 01;
--			 *
--			 *          First write a '0' to bit 1 of the PhyCtrl
--			 *          register, then write a '1' to bit 1 of the
--			 *          PhyCtrl register.
--			 *
--			 * To do this, right shift the MSB of ST by the value:
--			 * [field length - 1 - #ST bits already written]
--			 * then left shift this result by 1.
--			 */
--			data  = (p[j].field >> (p[j].len - 1 - i)) << 1;
--			data &= IPG_PC_MGMTDATA;
--			data |= polarity | IPG_PC_MGMTDIR;
--
--			ipg_drive_phy_ctl_low_high(ioaddr, data);
--		}
--	}
--
--	send_three_state(ioaddr, polarity);
--
--	read_phy_bit(ioaddr, polarity);
-+	mdio_write_bits(ioaddr, polarity, GMII_PREAMBLE, 32);
-+	mdio_write_bits(ioaddr, polarity, GMII_ST<<12 | GMII_READ << 10 |
-+	                                  phy_id << 5 | phy_reg, 14);
- 
- 	/*
- 	 * For a read cycle, the bits for the next two fields (TA and
- 	 * DATA) are driven by the PHY (the IPG reads these bits).
- 	 */
--	for (i = 0; i < p[6].len; i++) {
--		p[6].field |=
--		    (read_phy_bit(ioaddr, polarity) << (p[6].len - 1 - i));
--	}
-+	send_three_state(ioaddr, polarity);	/* TA first bit */
-+	(void)read_phy_bit(ioaddr, polarity);		/* TA second bit */
- 
-+	for (i = 0; i < 16; i++)
-+		data += data + read_phy_bit(ioaddr, polarity);
-+
-+	/* Trailing idle */
- 	send_three_state(ioaddr, polarity);
- 	send_three_state(ioaddr, polarity);
- 	send_three_state(ioaddr, polarity);
- 	send_end(ioaddr, polarity);
- 
- 	/* Return the value of the DATA field. */
--	return p[6].field;
-+	return data;
- }
- 
- /*
-@@ -277,6 +251,8 @@ static int mdio_read(struct net_device * dev, int phy_id, int phy_reg)
- static void mdio_write(struct net_device *dev, int phy_id, int phy_reg, int val)
- {
- 	void __iomem *ioaddr = ipg_ioaddr(dev);
-+	u8 const polarity = ipg_r8(PHY_CTRL) &
-+			(IPG_PC_DUPLEX_POLARITY | IPG_PC_LINK_POLARITY);
- 	/*
- 	 * The GMII mangement frame structure for a read is as follows:
- 	 *
-@@ -290,66 +266,18 @@ static void mdio_write(struct net_device *dev, int phy_id, int phy_reg, int val)
- 	 * D = bit of write data (MSB first)
- 	 *
- 	 * Transmission order is 'Preamble' field first, bits transmitted
--	 * left to right (first to last).
-+	 * left to right (msbit-first).
- 	 */
--	struct {
--		u32 field;
--		unsigned int len;
--	} p[] = {
--		{ GMII_PREAMBLE,	32 },	/* Preamble */
--		{ GMII_ST,		2  },	/* ST */
--		{ GMII_WRITE,		2  },	/* OP */
--		{ phy_id,		5  },	/* PHYAD */
--		{ phy_reg,		5  },	/* REGAD */
--		{ 0x0002,		2  },	/* TA */
--		{ val & 0xffff,		16 },	/* DATA */
--		{ 0x0000,		1  }	/* IDLE */
--	};
--	unsigned int i, j;
--	u8 polarity, data;
--
--	polarity  = ipg_r8(PHY_CTRL);
--	polarity &= (IPG_PC_DUPLEX_POLARITY | IPG_PC_LINK_POLARITY);
--
--	/* Create the Preamble, ST, OP, PHYAD, and REGAD field. */
--	for (j = 0; j < 7; j++) {
--		for (i = 0; i < p[j].len; i++) {
--			/* For each variable length field, the MSB must be
--			 * transmitted first. Rotate through the field bits,
--			 * starting with the MSB, and move each bit into the
--			 * the 1st (2^1) bit position (this is the bit position
--			 * corresponding to the MgmtData bit of the PhyCtrl
--			 * register for the IPG).
--			 *
--			 * Example: ST = 01;
--			 *
--			 *          First write a '0' to bit 1 of the PhyCtrl
--			 *          register, then write a '1' to bit 1 of the
--			 *          PhyCtrl register.
--			 *
--			 * To do this, right shift the MSB of ST by the value:
--			 * [field length - 1 - #ST bits already written]
--			 * then left shift this result by 1.
--			 */
--			data  = (p[j].field >> (p[j].len - 1 - i)) << 1;
--			data &= IPG_PC_MGMTDATA;
--			data |= polarity | IPG_PC_MGMTDIR;
--
--			ipg_drive_phy_ctl_low_high(ioaddr, data);
--		}
--	}
-+	mdio_write_bits(ioaddr, polarity, GMII_PREAMBLE, 32);
-+	mdio_write_bits(ioaddr, polarity, GMII_ST << 14 | GMII_WRITE << 12 |
-+	                                  phy_id << 7 | phy_reg << 2 |
-+					  0x2, 16);
-+	mdio_write_bits(ioaddr, polarity, val, 16);	/* DATA */
- 
- 	/* The last cycle is a tri-state, so read from the PHY. */
--	for (j = 7; j < 8; j++) {
--		for (i = 0; i < p[j].len; i++) {
--			ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_LO | polarity);
--
--			p[j].field |= ((ipg_r8(PHY_CTRL) &
--				IPG_PC_MGMTDATA) >> 1) << (p[j].len - 1 - i);
--
--			ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_HI | polarity);
--		}
--	}
-+	ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_LO | polarity);
-+	(void)ipg_r8(PHY_CTRL);
-+	ipg_write_phy_ctl(ioaddr, IPG_PC_MGMTCLK_HI | polarity);
- }
- 
- /* Set LED_Mode JES20040127EEPROM */
-@@ -1484,7 +1412,7 @@ static int ipg_nic_rx(struct net_device *dev)
- 				 * Indicate IP checksums were performed
- 				 * by the IPG.
- 				 *
--			 	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+				skb->ip_summed = CHECKSUM_UNNECESSARY;
- 			 } else
- 			 */
- 			 {
+-- 
+Sincerely,
+Robert Iakobashvili,
+coroberti %x40 gmail %x2e com
+...........................................................
+http://curl-loader.sourceforge.net
+A web testing and traffic generation tool.
