@@ -1,49 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] Zero-length write() does not generate a datagram on connected socket
-Date: Wed, 26 Sep 2007 11:18:39 +0800
-Message-ID: <E1IaNQ7-0004DX-00@gondolin.me.apana.org.au>
-References: <20070924153435.14249225@freepuppy.rosehill>
-Cc: netdev@vger.kernel.org
-To: shemminger@linux-foundation.org (Stephen Hemminger)
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH - net-2.6.24 0/2] Introduce and use print_ip and
+	print_ipv6
+Date: Tue, 25 Sep 2007 21:36:38 -0700
+Message-ID: <1190781398.17052.18.camel@localhost>
+References: <1190271211.26101.91.camel@localhost>
+	 <20070925.192917.21908774.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jgarzik@pobox.com,
+	akpm@linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4387 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751830AbXIZDSo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2007 23:18:44 -0400
-In-Reply-To: <20070924153435.14249225@freepuppy.rosehill>
+Received: from DSL022.labridge.com ([206.117.136.22]:2714 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758963AbXIZEgo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Sep 2007 00:36:44 -0400
+In-Reply-To: <20070925.192917.21908774.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@linux-foundation.org> wrote:
-> The bug http://bugzilla.kernel.org/show_bug.cgi?id=5731
-> describes an issue where write() can't be used to generate a zero-length
-> datagram (but send, and sendto do work).
-> 
-> I think the following is needed:
-> 
-> --- a/net/socket.c      2007-08-20 09:54:28.000000000 -0700
-> +++ b/net/socket.c      2007-09-24 15:31:25.000000000 -0700
-> @@ -777,8 +777,11 @@ static ssize_t sock_aio_write(struct kio
->        if (pos != 0)
->                return -ESPIPE;
-> 
-> -       if (iocb->ki_left == 0) /* Match SYS5 behaviour */
-> -               return 0;
-> +       if (unlikely(iocb->ki_left == 0)) {
-> +               struct socket *sock = iocb->ki_filp->private_data;
-> +               if (sock->type == SOCK_STREAM)
-> +                       return 0;
-> +       }
+On Tue, 2007-09-25 at 19:29 -0700, David Miller wrote:
+> I'm going to hold on this for now, there is no universal
+> agreement that this is something we want to do and I'd
+> like to take care of getting the more certain stuff into
+> net-2.6.24 before "iffy" bits like this one.
 
-I'm not sure whether all STREAM protocols treat zero-length
-sends as no-ops.  What about SCTP?
+Here's an argument for inclusion:
 
-Put it another way, do we really need to keep the short-circuit
-for SOCK_STREAM?
+defconfig without patches:
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+$ size vmlinux
+   text    data     bss     dec     hex filename
+4738370  518986  622592 5879948  59b88c vmlinux
+
+defconfig with patches:
+
+$ size vmlinux
+   text    data     bss     dec     hex filename
+4735238  518986  622592 5876816  59ac50 vmlinux
+
+cheers, Joe
+
