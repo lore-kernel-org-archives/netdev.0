@@ -1,68 +1,61 @@
-From: FUJITA Tomonori <tomof@acm.org>
-Subject: Re: [PATCH v3 2/2][BNX2]: Add iSCSI support to BNX2 devices.
-Date: Wed, 26 Sep 2007 17:57:55 +0900
-Message-ID: <20070925133624H.tomof@acm.org>
-References: <20070908120036.GB8478@infradead.org>
-	<20070909061551G.tomof@acm.org>
-	<46F8C935.8050907@suse.de>
+From: "Karl Meyer" <adhocrocker@gmail.com>
+Subject: Re: PROBLEM: 2.6.23-rc "NETDEV WATCHDOG: eth0: transmit timed out"
+Date: Wed, 26 Sep 2007 11:07:52 +0200
+Message-ID: <be1b757c0709260207ja3081f5ncdd3f340da9e8ca9@mail.gmail.com>
+References: <be1b757c0708130435y689b9dd8raf9ac9f9c0fcc976@mail.gmail.com>
+	 <be1b757c0708131027v5c57822as2d9bd3190fd19b71@mail.gmail.com>
+	 <20070814070901.GA14693@electric-eye.fr.zoreil.com>
+	 <be1b757c0708141425qd887581n3922702b84a21758@mail.gmail.com>
+	 <20070814224629.GB3495@electric-eye.fr.zoreil.com>
+	 <20070816141122.GA6625@electric-eye.fr.zoreil.com>
+	 <be1b757c0709011224tafebaaby697d03ab5377e20f@mail.gmail.com>
+	 <6bffcb0e0709021515v586f078cjce04f877e2f27aa2@mail.gmail.com>
+	 <be1b757c0709021521q850f2bdq3f88c24c02c26b1b@mail.gmail.com>
+	 <20070912205025.GA31709@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: tomof@acm.org, open-iscsi@googlegroups.com, hch@infradead.org,
-	jeff@garzik.org, davem@davemloft.net, mchristi@redhat.com,
-	netdev@vger.kernel.org, anilgv@broadcom.com, talm@broadcom.com,
-	lusinsky@broadcom.com, uri@broadcom.com,
-	fujita.tomonori@lab.ntt.co.jp
-To: hare@suse.de
+Cc: "Michal Piotrowski" <michal.k.k.piotrowski@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: "Francois Romieu" <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo10.iij4u.or.jp ([210.138.174.78]:39663 "EHLO mo10.iij4u.or.jp"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752728AbXIZI6d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Sep 2007 04:58:33 -0400
-In-Reply-To: <46F8C935.8050907@suse.de>
+Received: from nf-out-0910.google.com ([64.233.182.190]:61116 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754068AbXIZJHy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2007 05:07:54 -0400
+Received: by nf-out-0910.google.com with SMTP id g13so1900219nfb
+        for <netdev@vger.kernel.org>; Wed, 26 Sep 2007 02:07:52 -0700 (PDT)
+In-Reply-To: <20070912205025.GA31709@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 25 Sep 2007 10:39:17 +0200
-Hannes Reinecke <hare@suse.de> wrote:
+Hi Francois,
 
-> Hi Tomo,
-> 
-> FUJITA Tomonori wrote:
-> > On Sat, 8 Sep 2007 13:00:36 +0100
-> > Christoph Hellwig <hch@infradead.org> wrote:
-> > 
-> >> On Sat, Sep 08, 2007 at 07:32:27AM -0400, Jeff Garzik wrote:
-> >>> FUJITA Tomonori wrote:
-> >>>> Yeah, iommu code ignores the lld limitations (the problem is that the
-> >>>> lld limitations are in request_queue and iommu code can't access to
-> >>>> request_queue). There is no way to tell iommu code about the lld
-> >>>> limitations.
-> >>>
-> >>> This fact very much wants fixing.
-> >>
-> >> Absolutely.  Unfortunately everyone wastes their time on creating workarounds
-> >> instead of fixing the underlying problem.
-> > 
-> > Any ideas on how to fix this?
-> > 
-> > I chatted to Jens and James on this last week.
-> > 
-> > - we could just copies the lld limitations to device structure. it's
-> > hacky but device structure already has hacky stuff.
-> > 
-> > - we could just link device structure to request_queue structure so
-> > that iommu code can see request_queue structure.
-> > 
-> > - we could remove the lld limitations in request_queue strucutre and
-> > have a new strucutre (something like struct io_restrictions). then
-> > somehow we could link the new structure with request_queue and device
-> > strucutres.
-> > 
-> I'd prefer the latter. These struct io_restrictions could then be used
-> by dm (which has it's own version right now) to merge queue capabilities.
+this is what I found and sent:
 
-Yeah, we could nicely handle lld's restrictions (especially with
-stacking devices). But iommu code needs only max_segment_size and
-seg_boundary_mask, right? If so, the first simple approach to add two
-values to device structure is not so bad, I think.
+The error exists from patch 2 on. I did some network testing with
+patch 1 and currently use it and have no errors so far.
+>From my experiences up to now patch 1 should be error free.
+
+Do you need additional info?
+
+2007/9/12, Francois Romieu <romieu@fr.zoreil.com>:
+> Karl Meyer <adhocrocker@gmail.com> :
+> [...]
+> > am am looking for this issue for some time now, but there where no
+> > errors in 2.6.22-r2 (gentoo speak, I guess this is 2.6.22.2
+> > officially), I also ran git-bisect (for more information see the older
+> > messages in this thread).
+>
+> 2.6.22-r2 in gentoo is based on 2.6.22.1. It is way before
+> 0e4851502f846b13b29b7f88f1250c980d57e944 that you reported to work.
+> Thus it is not surprizing that it works.
+>
+> Any update regarding the patchkit that I sent on 2007/08/16 ?
+>
+> It would help to narrow the culprit.
+>
+> --
+> Ueimor
+>
