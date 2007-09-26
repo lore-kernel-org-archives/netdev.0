@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Please pull 'iwlwifi' branch of wireless-2.6
-Date: Tue, 25 Sep 2007 19:31:42 -0700 (PDT)
-Message-ID: <20070925.193142.112833471.davem@davemloft.net>
-References: <20070919101326.GA32432@infradead.org>
-	<1190337630.5718.136.camel@debian.sh.intel.com>
-	<20070921013403.GA3170@tuxdriver.com>
+Subject: Re: [PATCH] note that NETIF_F_LLTX is deprecated
+Date: Tue, 25 Sep 2007 19:42:25 -0700 (PDT)
+Message-ID: <20070925.194225.102140601.davem@davemloft.net>
+References: <20070921140833.GA12242@gondor.apana.org.au>
+	<200709211659.54935.borntraeger@de.ibm.com>
+	<20070922005709.GA17022@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yi.zhu@intel.com, hch@infradead.org, jeff@garzik.org,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: borntraeger@de.ibm.com, jeff@garzik.org, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57530
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34267
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754088AbXIZCbm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2007 22:31:42 -0400
-In-Reply-To: <20070921013403.GA3170@tuxdriver.com>
+	by vger.kernel.org with ESMTP id S1754509AbXIZCm0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2007 22:42:26 -0400
+In-Reply-To: <20070922005709.GA17022@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Thu, 20 Sep 2007 21:34:03 -0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sat, 22 Sep 2007 08:57:10 +0800
 
-> On Fri, Sep 21, 2007 at 09:20:30AM +0800, Zhu Yi wrote:
-> > On Wed, 2007-09-19 at 11:13 +0100, Christoph Hellwig wrote:
-> > > it really needs to be moved into a directory of it's own.
+> On Fri, Sep 21, 2007 at 04:59:54PM +0200, Christian Borntraeger wrote:
 > > 
-> > It used to be... John?
+> > I suggest to document that LLTX is deprecated. 
+> > 
+> > Signed-off-by: Christian Borntraeger <borntraeger@de.ibm.com>
 > 
-> Fine by me -- I guess I misinterpreted the some other statements to
-> make me think we wanted as flat a directory structure as possible.
+> This looks good to me.
 
-I've taken care of this during the net-2.6.24 rebase I'm working
-on today.
+To me too, applied to net-2.6.24, thanks.
