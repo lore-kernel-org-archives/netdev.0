@@ -1,45 +1,40 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [SCTP PULL Request]: Bug fixes for 2.6.23
-Date: Wed, 26 Sep 2007 09:02:47 -0400
-Message-ID: <46FA5877.3070004@hp.com>
-References: <46F8252D.3090803@hp.com> <20070925.225330.60538571.davem@davemloft.net>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: net-2.6.24 rebased...
+Date: Wed, 26 Sep 2007 08:46:49 -0400
+Message-ID: <20070926124649.GC6171@tuxdriver.com>
+References: <20070925.233344.43202361.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jeff@garzik.org, akpm@linux-foundation.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:47573 "EHLO atlrel8.hp.com"
+Received: from ra.tuxdriver.com ([70.61.120.52]:2725 "EHLO ra.tuxdriver.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751616AbXIZNDP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Sep 2007 09:03:15 -0400
-In-Reply-To: <20070925.225330.60538571.davem@davemloft.net>
+	id S1752598AbXIZNIJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Sep 2007 09:08:09 -0400
+Content-Disposition: inline
+In-Reply-To: <20070925.233344.43202361.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Vlad Yasevich <vladislav.yasevich@hp.com>
-> Date: Mon, 24 Sep 2007 16:59:25 -0400
-> 
->> Can you please pull the following changes since commit a41d3015c11a4e864b95cb57f579f2d8f40cd41b:
-> 
-> I had to apply this by hand because:
-> 
->>   David S. Miller (1):
->>         Revert "PCI: disable MSI by default on systems with Serverworks HT1000 chips"
-> 
-> You did this work on a very old tree of mine that I redid
-> at one point.  This MSI changeset I yanked out of my net-2.6
-> tree during a rebase, so if I pull I get the thing back
-> which I definitely don't want :-)
-> 
-> Just to let you know what's happening and why I couldn't
-> pull directly from your tree into mine.
+On Tue, Sep 25, 2007 at 11:33:44PM -0700, David Miller wrote:
 
-Sorry, this was my fault.  I forgot the -f when I pushed out the changes.  That
-should have updated the tree.
+> John, one patch didn't go in cleanly after I removed the
+> Z1211 driver.  I put it here for your consideration so it
+> doesn't get lost:
+> 
+> 	http://vger.kernel.org/~davem/0433-Z1211-Fix-TX-status-reports.patch
+> 
+> What probably needs to happen is some other changes that
+> were in z1211 need to go into the non-mac80211 driver and
+> then this patch applies correctly.
 
-/me adds a + to the push line.
+I have that one, so we're fine.  It is a mac80211-specific fix,
+so I think that takes care of it.
 
--vlad
+Thanks!
 
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
