@@ -1,47 +1,52 @@
-From: Dave Jones <davej@redhat.com>
-Subject: e100 problems in .23rc8 ?
-Date: Wed, 26 Sep 2007 11:04:47 -0400
-Message-ID: <20070926150447.GA3761@redhat.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [RFC] Zero-length write() does not generate a datagram on	connected
+ socket
+Date: Wed, 26 Sep 2007 10:17:19 -0700
+Message-ID: <46FA941F.2030804@hp.com>
+References: <E1IaNQ7-0004DX-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:37910 "EHLO mx1.redhat.com"
+Received: from palrel10.hp.com ([156.153.255.245]:50956 "EHLO palrel10.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752395AbXIZPEt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Sep 2007 11:04:49 -0400
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.13.1/8.13.1) with ESMTP id l8QF4mFr029741
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Wed, 26 Sep 2007 11:04:48 -0400
-Received: from gelk.kernelslacker.org (vpn-14-1.rdu.redhat.com [10.11.14.1])
-	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id l8QF4mkt022855
-	for <netdev@vger.kernel.org>; Wed, 26 Sep 2007 11:04:48 -0400
-Received: from gelk.kernelslacker.org (localhost.localdomain [127.0.0.1])
-	by gelk.kernelslacker.org (8.14.1/8.13.8) with ESMTP id l8QF4lEp021940
-	for <netdev@vger.kernel.org>; Wed, 26 Sep 2007 11:04:47 -0400
-Received: (from davej@localhost)
-	by gelk.kernelslacker.org (8.14.1/8.14.1/Submit) id l8QF4lmN021939
-	for netdev@vger.kernel.org; Wed, 26 Sep 2007 11:04:47 -0400
-Content-Disposition: inline
+	id S1753724AbXIZRRj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Sep 2007 13:17:39 -0400
+In-Reply-To: <E1IaNQ7-0004DX-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Last night, I hit this bug during boot up..
-http://www.codemonkey.org.uk/junk/e100-2.jpg
+Herbert Xu wrote:
+> Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+> 
+>>The bug http://bugzilla.kernel.org/show_bug.cgi?id=5731
+>>describes an issue where write() can't be used to generate a zero-length
+>>datagram (but send, and sendto do work).
+>>
+>>I think the following is needed:
+>>
+>>--- a/net/socket.c      2007-08-20 09:54:28.000000000 -0700
+>>+++ b/net/socket.c      2007-09-24 15:31:25.000000000 -0700
+>>@@ -777,8 +777,11 @@ static ssize_t sock_aio_write(struct kio
+>>       if (pos != 0)
+>>               return -ESPIPE;
+>>
+>>-       if (iocb->ki_left == 0) /* Match SYS5 behaviour */
+>>-               return 0;
+>>+       if (unlikely(iocb->ki_left == 0)) {
+>>+               struct socket *sock = iocb->ki_filp->private_data;
+>>+               if (sock->type == SOCK_STREAM)
+>>+                       return 0;
+>>+       }
+> 
+> 
+> I'm not sure whether all STREAM protocols treat zero-length
+> sends as no-ops.  What about SCTP?
 
-This morning, I got a mail from a Fedora user of the same
-.23-rc8 based kernel that has seen a different trace
-also implicating e100..
+I asked Vlad that very question, since SCTP can preserve message 
+boundaries. He tells me that a zero-length message is not part of SCTP.
 
-http://www.codemonkey.org.uk/junk/e100.jpg
-
-It may be that the two problems are unrelated, and it's
-just coincidence that both reports happen to be on an e100,
-but the timing is odd.  Have there been other reports
-of similar problems recently ?
-
-	Dave
-
--- 
-http://www.codemonkey.org.uk
+rick jones
