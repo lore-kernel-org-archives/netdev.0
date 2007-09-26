@@ -1,52 +1,38 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] Zero-length write() does not generate a datagram on	connected
- socket
-Date: Wed, 26 Sep 2007 10:17:19 -0700
-Message-ID: <46FA941F.2030804@hp.com>
-References: <E1IaNQ7-0004DX-00@gondolin.me.apana.org.au>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: e100 problems in .23rc8 ?
+Date: Wed, 26 Sep 2007 11:10:11 -0700
+Message-ID: <46FAA083.9020604@intel.com>
+References: <20070926150447.GA3761@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: netdev@vger.kernel.org
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:50956 "EHLO palrel10.hp.com"
+Received: from mga01.intel.com ([192.55.52.88]:28744 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753724AbXIZRRj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Sep 2007 13:17:39 -0400
-In-Reply-To: <E1IaNQ7-0004DX-00@gondolin.me.apana.org.au>
+	id S1754308AbXIZSKW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Sep 2007 14:10:22 -0400
+In-Reply-To: <20070926150447.GA3761@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+Dave Jones wrote:
+> Last night, I hit this bug during boot up..
+> http://www.codemonkey.org.uk/junk/e100-2.jpg
 > 
->>The bug http://bugzilla.kernel.org/show_bug.cgi?id=5731
->>describes an issue where write() can't be used to generate a zero-length
->>datagram (but send, and sendto do work).
->>
->>I think the following is needed:
->>
->>--- a/net/socket.c      2007-08-20 09:54:28.000000000 -0700
->>+++ b/net/socket.c      2007-09-24 15:31:25.000000000 -0700
->>@@ -777,8 +777,11 @@ static ssize_t sock_aio_write(struct kio
->>       if (pos != 0)
->>               return -ESPIPE;
->>
->>-       if (iocb->ki_left == 0) /* Match SYS5 behaviour */
->>-               return 0;
->>+       if (unlikely(iocb->ki_left == 0)) {
->>+               struct socket *sock = iocb->ki_filp->private_data;
->>+               if (sock->type == SOCK_STREAM)
->>+                       return 0;
->>+       }
+> This morning, I got a mail from a Fedora user of the same
+> .23-rc8 based kernel that has seen a different trace
+> also implicating e100..
 > 
+> http://www.codemonkey.org.uk/junk/e100.jpg
 > 
-> I'm not sure whether all STREAM protocols treat zero-length
-> sends as no-ops.  What about SCTP?
+> It may be that the two problems are unrelated, and it's
+> just coincidence that both reports happen to be on an e100,
+> but the timing is odd.  Have there been other reports
+> of similar problems recently ?
 
-I asked Vlad that very question, since SCTP can preserve message 
-boundaries. He tells me that a zero-length message is not part of SCTP.
+there hasn't been a change to e100 in two months now - perhaps something slipped
+into the stack that broke it? If this reproduces, could you bisect?
 
-rick jones
+Auke
