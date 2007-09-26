@@ -1,44 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/1] revert "8139too: clean up I/O remapping"
-Date: Tue, 25 Sep 2007 19:30:46 -0700 (PDT)
-Message-ID: <20070925.193046.35449068.davem@davemloft.net>
-References: <200709202055.l8KKtWn3002075@imap1.linux-foundation.org>
-	<46F2DF03.1060501@garzik.org>
+Subject: Re: Please pull 'iwlwifi' branch of wireless-2.6
+Date: Tue, 25 Sep 2007 19:31:42 -0700 (PDT)
+Message-ID: <20070925.193142.112833471.davem@davemloft.net>
+References: <20070919101326.GA32432@infradead.org>
+	<1190337630.5718.136.camel@debian.sh.intel.com>
+	<20070921013403.GA3170@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, michal.k.k.piotrowski@gmail.com,
-	netdev@vger.kernel.org
-To: jeff@garzik.org
+Cc: yi.zhu@intel.com, hch@infradead.org, jeff@garzik.org,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57526
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57530
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753970AbXIZCaq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2007 22:30:46 -0400
-In-Reply-To: <46F2DF03.1060501@garzik.org>
+	by vger.kernel.org with ESMTP id S1754088AbXIZCbm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Sep 2007 22:31:42 -0400
+In-Reply-To: <20070921013403.GA3170@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Thu, 20 Sep 2007 16:58:43 -0400
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Thu, 20 Sep 2007 21:34:03 -0400
 
-> akpm@linux-foundation.org wrote:
-> > From: Andrew Morton <akpm@linux-foundation.org>
+> On Fri, Sep 21, 2007 at 09:20:30AM +0800, Zhu Yi wrote:
+> > On Wed, 2007-09-19 at 11:13 +0100, Christoph Hellwig wrote:
+> > > it really needs to be moved into a directory of it's own.
 > > 
-> > Revert git-netdev-all's 9ee6b32a47b9abc565466a9c3b127a5246b452e5.  Michal was
-> > getting oopses.
-> > 
-> > Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
-> > Cc: Jeff Garzik <jeff@garzik.org>
-> > Cc: David S. Miller" <davem@davemloft.net>
-> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> > ---
-> > 
-> >  drivers/net/8139too.c |   50 +++++++++++++++++++++++-----------------
-> >  1 file changed, 29 insertions(+), 21 deletions(-)
+> > It used to be... John?
 > 
-> ACK -- DaveM, please remove or revert this patch.
-> 
+> Fine by me -- I guess I misinterpreted the some other statements to
+> make me think we wanted as flat a directory structure as possible.
 
-I've reverted this patch during the net-2.6.24 rebase I'm
-working on today.
+I've taken care of this during the net-2.6.24 rebase I'm working
+on today.
