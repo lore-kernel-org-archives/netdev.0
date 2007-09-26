@@ -1,42 +1,60 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH - net-2.6.24 0/2] Introduce and use print_ip and print_ipv6
-Date: Wed, 26 Sep 2007 01:18:22 -0400
-Message-ID: <46F9EB9E.90509@pobox.com>
-References: <1190271211.26101.91.camel@localhost> <20070925.192917.21908774.davem@davemloft.net> <1190781398.17052.18.camel@localhost> <20070925.221115.26296263.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [RFC] Zero-length write() does not generate a datagram on
+ connected socket
+Date: Tue, 25 Sep 2007 22:36:09 -0700
+Message-ID: <20070925223609.0e89a6a7@freepuppy.rosehill>
+References: <20070924153435.14249225@freepuppy.rosehill>
+	<E1IaNQ7-0004DX-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org, akpm@linux-foundation.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:45658 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751835AbXIZFS3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Sep 2007 01:18:29 -0400
-In-Reply-To: <20070925.221115.26296263.davem@davemloft.net>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:36810 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751835AbXIZFhD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2007 01:37:03 -0400
+In-Reply-To: <E1IaNQ7-0004DX-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Tue, 25 Sep 2007 21:36:38 -0700
+On Wed, 26 Sep 2007 11:18:39 +0800
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+
+> Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+> > The bug http://bugzilla.kernel.org/show_bug.cgi?id=5731
+> > describes an issue where write() can't be used to generate a zero-length
+> > datagram (but send, and sendto do work).
+> > 
+> > I think the following is needed:
+> > 
+> > --- a/net/socket.c      2007-08-20 09:54:28.000000000 -0700
+> > +++ b/net/socket.c      2007-09-24 15:31:25.000000000 -0700
+> > @@ -777,8 +777,11 @@ static ssize_t sock_aio_write(struct kio
+> >        if (pos != 0)
+> >                return -ESPIPE;
+> > 
+> > -       if (iocb->ki_left == 0) /* Match SYS5 behaviour */
+> > -               return 0;
+> > +       if (unlikely(iocb->ki_left == 0)) {
+> > +               struct socket *sock = iocb->ki_filp->private_data;
+> > +               if (sock->type == SOCK_STREAM)
+> > +                       return 0;
+> > +       }
 > 
->> On Tue, 2007-09-25 at 19:29 -0700, David Miller wrote:
->>> I'm going to hold on this for now, there is no universal
->>> agreement that this is something we want to do and I'd
->>> like to take care of getting the more certain stuff into
->>> net-2.6.24 before "iffy" bits like this one.
->> Here's an argument for inclusion:
->>
->> defconfig without patches:
+> I'm not sure whether all STREAM protocols treat zero-length
+> sends as no-ops.  What about SCTP?
 > 
-> Sure, but this ignores certain things that text/data/bss
-> size don't show you.
+> Put it another way, do we really need to keep the short-circuit
+> for SOCK_STREAM?
+> 
+> Cheers,
 
-size(1) output also ignores the merge noise this creates, and IMO we've 
-got a lot of that already...
+Stream is defined as sequence of bytes. So short circuit makes sense
+If the application wants message boundaries it needs to use SOCK_SEQPACKET.
+I was paranoid about possible breakage in TCP or SCTP. But since
+send(s, buf, 0, 0) already filters through, I guess it doesn't matter.
 
-	Jeff
-
-
-
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
