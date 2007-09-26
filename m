@@ -1,45 +1,57 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: e100 problems in .23rc8 ?
-Date: Wed, 26 Sep 2007 14:18:29 -0400
-Message-ID: <20070926181829.GC512@redhat.com>
-References: <20070926150447.GA3761@redhat.com> <46FAA083.9020604@intel.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [RFC] Zero-length write() does not generate a datagram on connected
+ socket
+Date: Wed, 26 Sep 2007 14:47:18 -0400
+Message-ID: <46FAA936.6040205@hp.com>
+References: <E1IaNQ7-0004DX-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:45440 "EHLO mx1.redhat.com"
+Received: from atlrel7.hp.com ([156.153.255.213]:48626 "EHLO atlrel7.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755140AbXIZSSd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Sep 2007 14:18:33 -0400
-Content-Disposition: inline
-In-Reply-To: <46FAA083.9020604@intel.com>
+	id S1754797AbXIZSrl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Sep 2007 14:47:41 -0400
+In-Reply-To: <E1IaNQ7-0004DX-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 26, 2007 at 11:10:11AM -0700, Kok, Auke wrote:
- > Dave Jones wrote:
- > > Last night, I hit this bug during boot up..
- > > http://www.codemonkey.org.uk/junk/e100-2.jpg
- > > 
- > > This morning, I got a mail from a Fedora user of the same
- > > .23-rc8 based kernel that has seen a different trace
- > > also implicating e100..
- > > 
- > > http://www.codemonkey.org.uk/junk/e100.jpg
- > > 
- > > It may be that the two problems are unrelated, and it's
- > > just coincidence that both reports happen to be on an e100,
- > > but the timing is odd.  Have there been other reports
- > > of similar problems recently ?
- > 
- > there hasn't been a change to e100 in two months now - perhaps something slipped
- > into the stack that broke it? If this reproduces, could you bisect?
+Herbert Xu wrote:
+> Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+>> The bug http://bugzilla.kernel.org/show_bug.cgi?id=5731
+>> describes an issue where write() can't be used to generate a zero-length
+>> datagram (but send, and sendto do work).
+>>
+>> I think the following is needed:
+>>
+>> --- a/net/socket.c      2007-08-20 09:54:28.000000000 -0700
+>> +++ b/net/socket.c      2007-09-24 15:31:25.000000000 -0700
+>> @@ -777,8 +777,11 @@ static ssize_t sock_aio_write(struct kio
+>>        if (pos != 0)
+>>                return -ESPIPE;
+>>
+>> -       if (iocb->ki_left == 0) /* Match SYS5 behaviour */
+>> -               return 0;
+>> +       if (unlikely(iocb->ki_left == 0)) {
+>> +               struct socket *sock = iocb->ki_filp->private_data;
+>> +               if (sock->type == SOCK_STREAM)
+>> +                       return 0;
+>> +       }
+> 
+> I'm not sure whether all STREAM protocols treat zero-length
+> sends as no-ops.  What about SCTP?
 
-Yeah, I notice only 3 changes to e100 since .22
-I'll see if I can reproduce the first one and bisect.
+0 byte writes are not allowed in SCTP.  A no-op is fine, otherwise
+SCTP would return an error.
 
-	Dave
+-vlad
 
--- 
-http://www.codemonkey.org.uk
+> 
+> Put it another way, do we really need to keep the short-circuit
+> for SOCK_STREAM?
+> 
+> Cheers,
+
