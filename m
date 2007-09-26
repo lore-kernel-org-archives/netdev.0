@@ -1,31 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [0/6] Bugfixes for pasemi_mac
-Date: Wed, 26 Sep 2007 14:26:55 -0700 (PDT)
-Message-ID: <20070926.142655.78181428.davem@davemloft.net>
-References: <20070926212200.GA24168@lixom.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [net-2.6.24][patch 2/2] Dynamically allocate the loopback device
+Date: Wed, 26 Sep 2007 15:40:25 -0600
+Message-ID: <m1d4w5t8ae.fsf@ebiederm.dsl.xmission.com>
+References: <224b7d320709171212o66734847kbd17efa817b482fc@mail.gmail.com>
+	<20070917.185349.98863851.davem@davemloft.net>
+	<m1r6kwpu9t.fsf@ebiederm.dsl.xmission.com>
+	<20070925.192406.18290033.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
-To: olof@lixom.net
+Content-Type: text/plain; charset=us-ascii
+Cc: pjwaskiewicz@gmail.com, dlezcano@fr.ibm.com,
+	shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	containers@lists.osdl.org, benjamin.thery@bull.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60801
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750919AbXIZV04 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2007 17:26:56 -0400
-In-Reply-To: <20070926212200.GA24168@lixom.net>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:56634 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758062AbXIZVlf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2007 17:41:35 -0400
+In-Reply-To: <20070925.192406.18290033.davem@davemloft.net> (David Miller's
+	message of "Tue, 25 Sep 2007 19:24:06 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Olof Johansson <olof@lixom.net>
-Date: Wed, 26 Sep 2007 16:22:00 -0500
+David Miller <davem@davemloft.net> writes:
 
-> [PATCH] [1/6] pasemi_mac: fix build break in pasemi_mac_probe()
-> [PATCH] [2/6] pasemi_mac: fix build break in pasemi_mac_clean_rx()
-> [PATCH] [3/6] pasemi_mac: set interface speed correctly on XAUI ports
-> [PATCH] [4/6] pasemi_mac: flags as passed to spin_*_irqsave() should be unsigned long
-> [PATCH] [5/6] pasemi_mac: don't enable rx before there are buffers on the ring
-> [PATCH] [6/6] pasemi_mac: pass in count of buffers to replenish rx ring with
+> I've put these patches into the just-rebased net-2.6.24 tree.
+>
+> I made a minor modification to the second patch, the
+> out_free_netdev: code in loopback_init() ended like this:
+>
+> out_free_netdev:
+> 	free_netdev(dev);
+> 	goto out;
+> 	return err;
+> };
+>
+> I got rid of the spurious return statement and the trailing
+> semi-colon after the function closing brace.
 
-Jeff, patches #1 and #2 are taken care of in my net-2.6.24
-tree, please review and take the rest, thanks!
+Thanks.  I feel silly for not doing a closer code review of
+this variant of the patch and missing this bug.
+
+Eric
