@@ -1,41 +1,42 @@
 From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH] [2/6] pasemi_mac: fix build break in pasemi_mac_clean_rx()
-Date: Wed, 26 Sep 2007 16:23:06 -0500
-Message-ID: <20070926212306.GC24168@lixom.net>
+Subject: [PATCH] [3/6] pasemi_mac: set interface speed correctly on XAUI
+	ports
+Date: Wed, 26 Sep 2007 16:23:31 -0500
+Message-ID: <20070926212331.GD24168@lixom.net>
 References: <20070926212200.GA24168@lixom.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:41587 "EHLO mail.lixom.net"
+Received: from lixom.net ([66.141.50.11]:49440 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754784AbXIZVT5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Sep 2007 17:19:57 -0400
+	id S1761702AbXIZVUW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Sep 2007 17:20:22 -0400
 Content-Disposition: inline
 In-Reply-To: <20070926212200.GA24168@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-pasemi_mac: fix build break in pasemi_mac_clean_rx()
+pasemi_mac: set interface speed correctly on XAUI ports
 
-Fix breakage caused by the unification of stats structs.
-
+Set interface speed for XAUI to 10G per default, not 1G.
 
 Signed-off-by: Olof Johansson <olof@lixom.net>
 
-Index: k.org/drivers/net/pasemi_mac.c
+Index: 2.6.23/drivers/net/pasemi_mac.c
 ===================================================================
---- k.org.orig/drivers/net/pasemi_mac.c
-+++ k.org/drivers/net/pasemi_mac.c
-@@ -530,8 +530,8 @@ static int pasemi_mac_clean_rx(struct pa
- 		} else
- 			skb->ip_summed = CHECKSUM_NONE;
+--- 2.6.23.orig/drivers/net/pasemi_mac.c
++++ 2.6.23/drivers/net/pasemi_mac.c
+@@ -794,7 +794,10 @@ static int pasemi_mac_open(struct net_de
+ 	flags = PAS_MAC_CFG_PCFG_S1 | PAS_MAC_CFG_PCFG_PE |
+ 		PAS_MAC_CFG_PCFG_PR | PAS_MAC_CFG_PCFG_CE;
  
--		dev->stats.rx_bytes += len;
--		dev->stats.rx_packets++;
-+		mac->netdev->stats.rx_bytes += len;
-+		mac->netdev->stats.rx_packets++;
+-	flags |= PAS_MAC_CFG_PCFG_TSR_1G | PAS_MAC_CFG_PCFG_SPD_1G;
++	if (mac->type == MAC_TYPE_GMAC)
++		flags |= PAS_MAC_CFG_PCFG_TSR_1G | PAS_MAC_CFG_PCFG_SPD_1G;
++	else
++		flags |= PAS_MAC_CFG_PCFG_TSR_10G | PAS_MAC_CFG_PCFG_SPD_10G;
  
- 		skb->protocol = eth_type_trans(skb, mac->netdev);
- 		netif_receive_skb(skb);
+ 	write_iob_reg(mac, PAS_IOB_DMA_RXCH_CFG(mac->dma_rxch),
+ 			   PAS_IOB_DMA_RXCH_CFG_CNTTH(0));
