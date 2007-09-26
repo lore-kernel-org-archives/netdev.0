@@ -1,39 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-2.6.24 rebased...
-Date: Wed, 26 Sep 2007 13:01:16 -0700 (PDT)
-Message-ID: <20070926.130116.102631642.davem@davemloft.net>
-References: <20070925.233344.43202361.davem@davemloft.net>
-	<20070926124649.GC6171@tuxdriver.com>
+From: Olof Johansson <olof@lixom.net>
+Subject: [PATCH] [0/6] Bugfixes for pasemi_mac
+Date: Wed, 26 Sep 2007 16:22:00 -0500
+Message-ID: <20070926212200.GA24168@lixom.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeff@garzik.org, akpm@linux-foundation.org
-To: linville@tuxdriver.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48393
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752810AbXIZUBQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Sep 2007 16:01:16 -0400
-In-Reply-To: <20070926124649.GC6171@tuxdriver.com>
+Received: from lixom.net ([66.141.50.11]:41572 "EHLO mail.lixom.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755592AbXIZVSu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Sep 2007 17:18:50 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 26 Sep 2007 08:46:49 -0400
+Hi,
 
-> On Tue, Sep 25, 2007 at 11:33:44PM -0700, David Miller wrote:
-> 
-> > John, one patch didn't go in cleanly after I removed the
-> > Z1211 driver.  I put it here for your consideration so it
-> > doesn't get lost:
-> > 
-> > 	http://vger.kernel.org/~davem/0433-Z1211-Fix-TX-status-reports.patch
-> > 
-> > What probably needs to happen is some other changes that
-> > were in z1211 need to go into the non-mac80211 driver and
-> > then this patch applies correctly.
-> 
-> I have that one, so we're fine.  It is a mac80211-specific fix,
-> so I think that takes care of it.
+Following patches are for various bug fixes against current netdev-2.6.24
+upstream branch. Please apply.
 
-Great, thanks to everyone for checking this out.
+
+[PATCH] [1/6] pasemi_mac: fix build break in pasemi_mac_probe()
+[PATCH] [2/6] pasemi_mac: fix build break in pasemi_mac_clean_rx()
+[PATCH] [3/6] pasemi_mac: set interface speed correctly on XAUI ports
+[PATCH] [4/6] pasemi_mac: flags as passed to spin_*_irqsave() should be unsigned long
+[PATCH] [5/6] pasemi_mac: don't enable rx before there are buffers on the ring
+[PATCH] [6/6] pasemi_mac: pass in count of buffers to replenish rx ring with
+
+
+Thanks,
+
+-Olof
