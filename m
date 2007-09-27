@@ -1,44 +1,60 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH v3 2/2][BNX2]: Add iSCSI support to BNX2 devices.
-Date: Thu, 27 Sep 2007 17:38:01 +1000
-Message-ID: <1190878682.30275.9.camel@pasglop>
-References: <20070908120036.GB8478@infradead.org>
-	 <20070909061551G.tomof@acm.org>	<46F8C935.8050907@suse.de>
-	 <20070925133624H.tomof@acm.org>  <46FB5C6B.3020506@garzik.org>
-Reply-To: benh@kernel.crashing.org
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 1/4] net: Dynamically allocate the per cpu counters for the loopback device.
+Date: Thu, 27 Sep 2007 01:48:00 -0600
+Message-ID: <m1myv8r1lb.fsf@ebiederm.dsl.xmission.com>
+References: <m1ps05rnjv.fsf@ebiederm.dsl.xmission.com>
+	<20070926.220901.51682476.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: FUJITA Tomonori <tomof@acm.org>, hare@suse.de,
-	open-iscsi@googlegroups.com, hch@infradead.org,
-	davem@davemloft.net, mchristi@redhat.com, netdev@vger.kernel.org,
-	anilgv@broadcom.com, talm@broadcom.com, lusinsky@broadcom.com,
-	uri@broadcom.com, fujita.tomonori@lab.ntt.co.jp
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, containers@lists.osdl.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:52933 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751011AbXI0Hik (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Sep 2007 03:38:40 -0400
-In-Reply-To: <46FB5C6B.3020506@garzik.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:33918 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750863AbXI0HsW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 03:48:22 -0400
+In-Reply-To: <20070926.220901.51682476.davem@davemloft.net> (David Miller's
+	message of "Wed, 26 Sep 2007 22:09:01 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+David Miller <davem@davemloft.net> writes:
 
-On Thu, 2007-09-27 at 03:31 -0400, Jeff Garzik wrote:
-> A key problem I was hoping would be solved with your work here was
-> the 
-> elimination of that post dma_map_sg() split.
-> 
-> If I understood James and Ben correctly, one of the key problems was 
-> always in communicating libata's segment boundary needs to the IOMMU
-> layers?
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Wed, 26 Sep 2007 17:53:40 -0600
+>
+>> 
+>> This patch add support for dynamically allocating the statistics counters
+>> for the loopback device and adds appropriate device methods for allocating
+>> and freeing the loopback device.
+>> 
+>> This completes support for creating multiple instances of the loopback
+>> device,  in preparation for creating per network namespace instances.
+>> 
+>> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+>
+> Applied to net-2.6.24, thanks.
+>
+>> @@ -155,7 +154,8 @@ static int loopback_xmit(struct sk_buff *skb, struct
+> net_device *dev)
+>>  	dev->last_rx = jiffies;
+>>  
+>>  	/* it's OK to use __get_cpu_var() because BHs are off */
+>> -	lb_stats = &__get_cpu_var(pcpu_lstats);
+>> +	pcpu_lstats = netdev_priv(dev);
+>> +	lb_stats = per_cpu_ptr(pcpu_lstats, smp_processor_id());
+>>  	lb_stats->bytes += skb->len;
+>>  	lb_stats->packets++;
+>>  
+>
+> I'm going to add a followon change that gets rid of that
+> comment about __get_cpu_var() since it is no longer
+> relevant.
 
-Yup. If we can put some constraint in struct device that the dma mapping
-code can then look at ... we also need to ensure that what's passed in
-for DMA'ing already matches those constraints as well since no-iommu
-platforms will basically just keep the dma table as-is.
+Good point.
 
-Ben.
+I'm not doing get_cpu/put_cpu so does the comment make sense
+in relationship to per_cpu_ptr?
 
+Eric
 
