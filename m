@@ -1,67 +1,57 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [Devel] [PATCH 4/4] net: Make the loopback device per network namespace
-Date: Thu, 27 Sep 2007 10:48:14 -0600
-Message-ID: <m1ejgkkqb5.fsf@ebiederm.dsl.xmission.com>
-References: <m1ps05rnjv.fsf@ebiederm.dsl.xmission.com>
-	<m1ir5xrngu.fsf@ebiederm.dsl.xmission.com>
-	<m1bqbprnc2.fsf_-_@ebiederm.dsl.xmission.com>
-	<m17imdrn8r.fsf_-_@ebiederm.dsl.xmission.com> <46FB9EB1.5070908@sw.ru>
+Subject: Re: [PATCH] net: Add network namespace clone & unshare support.
+Date: Thu, 27 Sep 2007 11:14:33 -0600
+Message-ID: <m1k5qcjaiu.fsf@ebiederm.dsl.xmission.com>
+References: <m1tzphrnq5.fsf@ebiederm.dsl.xmission.com>
+	<46FB6F1E.8070105@fr.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>,
 	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org
-To: "Denis V. Lunev" <den@sw.ru>
+	netdev@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
+To: Cedric Le Goater <clg@fr.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:45119 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:47301 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756820AbXI0QtJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 12:49:09 -0400
-In-Reply-To: <46FB9EB1.5070908@sw.ru> (Denis V. Lunev's message of "Thu, 27
-	Sep 2007 16:14:41 +0400")
+	with ESMTP id S1758798AbXI0RPU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 13:15:20 -0400
+In-Reply-To: <46FB6F1E.8070105@fr.ibm.com> (Cedric Le Goater's message of
+	"Thu, 27 Sep 2007 10:51:42 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Denis V. Lunev" <den@sw.ru> writes:
+Cedric Le Goater <clg@fr.ibm.com> writes:
 
-> Eric W. Biederman wrote:
->> This patch makes loopback_dev per network namespace.  Adding
->> code to create a different loopback device for each network
->> namespace and adding the code to free a loopback device
->> when a network namespace exits.
->> 
->> This patch modifies all users the loopback_dev so they
->> access it as init_net.loopback_dev, keeping all of the
->> code compiling and working.  A later pass will be needed to
->> update the users to use something other than the initial network
->> namespace.
+>> diff --git a/include/linux/sched.h b/include/linux/sched.h
+>> index a01ac6d..e10a0a8 100644
+>> --- a/include/linux/sched.h
+>> +++ b/include/linux/sched.h
+>> @@ -27,6 +27,7 @@
+>>  #define CLONE_NEWUTS		0x04000000	/* New utsname group? */
+>>  #define CLONE_NEWIPC		0x08000000	/* New ipcs */
+>> #define CLONE_NEWUSER 0x10000000 /* New user namespace */
+>> +#define CLONE_NEWNET		0x20000000	/* New network namespace */
 >
-> A pity that an important bit of explanation is missed. The
-> initialization of loopback_dev is moved from a chain of devices
-> (init_module) to a subsystem initialization to keep proper order, i.e.
-> we must be sure that the initialization order is correct.
+> This new flag is going to conflict with the pid namespace flag 
+> CLONE_NEWPID in -mm. It might be worth changing it to:
+>
+> #define CLONE_NEWNET		0x40000000
 
-That didn't happen in the patch you mentioned.  That happened
-when we started dynamically allocating the loopback device.
-That was the patch Daniel sent out a bit ago.
+Interesting, it would have been nice if someone had caught this
+detail earlier.  Oh well.
 
-There are certainly some ordering issues and it may have helped
-to talk about them.  But they are because things assume the
-loopback device is present.  We have various bits of code that
-is around such as the dst_ifdown case that assumes if another
-network device is present the loopback device is present.  To
-fulfill that assumption I guess that means we have both an
-initialization order dependency and a destruction order dependency.
+Thanks for pointing this out, it's on my todo list to look into,
+and ensure we resolve.
 
-The fact we were using module_init before actually appears to
-me to have been racy, but we got away with it because the actual
-data structure was statically allocated.
+I'm confused because my notes have 0x80000000 for the pid namespace,
+and 0x40000000 for the time namespace.
 
-Since it appears that for a dynamically allocated loopback
-registering it first and unregistering it last is necessary
-for routing.   It is likely worth looking at this a little
-more closely and making a guarantee.  So we can make it easier
-for networking layers like ipv6, that want to memorize which
-device is the loopback device.
+> The changes in nxproxy.c and fork.c will also conflict but I don't 
+> think we can do much about it for now.
+
+They should also be fairly easy conflicts to resolve.
+
+I guess we are likely to hit this conflict in the next -mm or the
+merge window, which ever comes first.
 
 Eric
