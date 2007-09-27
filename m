@@ -1,34 +1,41 @@
-From: Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
-Subject: Re: 2.6.23-rc8-mm2 - drivers/net/ibm_newemac/mal - broken
-Date: Thu, 27 Sep 2007 16:22:50 +0530
-Message-ID: <46FB8B82.2070802@linux.vnet.ibm.com>
-References: <20070927022220.c76a7a6e.akpm@linux-foundation.org>
+From: "Denis V. Lunev" <den@sw.ru>
+Subject: Re: [Devel] [PATCH 4/4] net: Make the loopback device per network
+ namespace
+Date: Thu, 27 Sep 2007 16:14:41 +0400
+Message-ID: <46FB9EB1.5070908@sw.ru>
+References: <m1ps05rnjv.fsf@ebiederm.dsl.xmission.com>	<m1ir5xrngu.fsf@ebiederm.dsl.xmission.com>	<m1bqbprnc2.fsf_-_@ebiederm.dsl.xmission.com> <m17imdrn8r.fsf_-_@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	eugene.surovegin@zultys.com
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from E23SMTP03.au.ibm.com ([202.81.18.172]:39384 "EHLO
-	e23smtp03.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753287AbXI0Kyw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 06:54:52 -0400
-In-Reply-To: <20070927022220.c76a7a6e.akpm@linux-foundation.org>
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:56685 "EHLO iris"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752868AbXI0MOD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Sep 2007 08:14:03 -0400
+In-Reply-To: <m17imdrn8r.fsf_-_@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.23-rc8/2.6.23-rc8-mm2/
+Eric W. Biederman wrote:
+> This patch makes loopback_dev per network namespace.  Adding
+> code to create a different loopback device for each network
+> namespace and adding the code to free a loopback device
+> when a network namespace exits.
+> 
+> This patch modifies all users the loopback_dev so they
+> access it as init_net.loopback_dev, keeping all of the
+> code compiling and working.  A later pass will be needed to
+> update the users to use something other than the initial network
+> namespace.
 
-Hi Andrew,
+A pity that an important bit of explanation is missed. The
+initialization of loopback_dev is moved from a chain of devices
+(init_module) to a subsystem initialization to keep proper order, i.e.
+we must be sure that the initialization order is correct.
 
-The drivers/net/ibm_newemac/mal seems to be broken with 2.6.23-rc8-mm2 also, it was
-reported on 2.6.23-rc8-mm1 (http://lkml.org/lkml/2007/9/25/173).
-
-
--- 
-Thanks & Regards,
-Kamalesh Babulal,
-Linux Technology Center,
-IBM, ISTL.
+Regards,
+	Den
