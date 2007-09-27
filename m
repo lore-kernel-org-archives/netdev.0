@@ -1,51 +1,39 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] Bring comments in loopback.c uptodate.
-Date: Thu, 27 Sep 2007 16:39:53 -0600
-Message-ID: <m1lkarhgw6.fsf@ebiederm.dsl.xmission.com>
+Subject: [PATCH] netns: CLONE_NEWNET don't use the same clone flag as the pid namespace.
+Date: Thu, 27 Sep 2007 16:40:31 -0600
+Message-ID: <m1hclfhgv4.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:42134 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:42140 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756078AbXI0WkF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 18:40:05 -0400
+	with ESMTP id S1757326AbXI0Wkx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 18:40:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-A hint as to why it is safe to use per cpu variables,
-and note that we actually can have multiple instances
-of the loopback device now.
-
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- drivers/net/loopback.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+ include/linux/sched.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-index 2617320..cba5c76 100644
---- a/drivers/net/loopback.c
-+++ b/drivers/net/loopback.c
-@@ -154,6 +154,7 @@ static int loopback_xmit(struct sk_buff *skb, struct net_device *dev)
- #endif
- 	dev->last_rx = jiffies;
- 
-+	/* it's OK to use per_cpu_ptr() because BHs are off */
- 	pcpu_lstats = netdev_priv(dev);
- 	lb_stats = per_cpu_ptr(pcpu_lstats, smp_processor_id());
- 	lb_stats->bytes += skb->len;
-@@ -221,7 +222,8 @@ static void loopback_dev_free(struct net_device *dev)
- }
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index e10a0a8..d82c1f7 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -27,7 +27,7 @@
+ #define CLONE_NEWUTS		0x04000000	/* New utsname group? */
+ #define CLONE_NEWIPC		0x08000000	/* New ipcs */
+ #define CLONE_NEWUSER		0x10000000	/* New user namespace */
+-#define CLONE_NEWNET		0x20000000	/* New network namespace */
++#define CLONE_NEWNET		0x40000000	/* New network namespace */
  
  /*
-- * The loopback device is special. There is only one instance.
-+ * The loopback device is special. There is only one instance 
-+ * per network namespace.
-  */
- static void loopback_setup(struct net_device *dev)
- {
+  * Scheduling policies
 -- 
 1.5.3.rc6.17.g1911
 
