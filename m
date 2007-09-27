@@ -1,77 +1,103 @@
-From: jamal <hadi@cyberus.ca>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: [PKT_SCHED]: Add stateless NAT
-Date: Thu, 27 Sep 2007 08:39:45 -0400
-Message-ID: <1190896785.4290.18.camel@localhost>
-References: <20070927073446.GA14643@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+Date: Thu, 27 Sep 2007 16:41:21 +0400
+Message-ID: <20070927124120.GA8897@2ka.mipt.ru>
+References: <20070927073446.GA14643@gondor.apana.org.au> <20070927092512.GD29329@2ka.mipt.ru> <20070927093358.GA15357@gondor.apana.org.au> <20070927100753.GA22323@2ka.mipt.ru> <20070927102916.GA15749@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	jamal <hadi@cyberus.ca>
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.235]:9120 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751726AbXI0Mju (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 08:39:50 -0400
-Received: by wr-out-0506.google.com with SMTP id 36so1041717wra
-        for <netdev@vger.kernel.org>; Thu, 27 Sep 2007 05:39:49 -0700 (PDT)
-In-Reply-To: <20070927073446.GA14643@gondor.apana.org.au>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:37213 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751724AbXI0MmN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Sep 2007 08:42:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20070927102916.GA15749@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-nice work. I like the egress flag idea;->
-and who would have thunk stateless nat could be written in such a few
-lines ;-> I would have put the checksum as a separate action but it is
-fine the way you did it since it simplifies config.
-more comments below.
+On Thu, Sep 27, 2007 at 06:29:16PM +0800, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> On Thu, Sep 27, 2007 at 02:07:53PM +0400, Evgeniy Polyakov wrote:
+> >
+> > It forces all inpuit/pre/post/forward hooks to be enbled not as a direct
+> > function call, but as additional lookups. And unability to remove
+> > netfilter from config. And just because of couple of checksum helpers...
+> 
+> I'm certainly not against patches moving that code out of
+> netfilter.
 
-On Thu, 2007-27-09 at 15:34 +0800, Herbert Xu wrote:
+I've attached simple patch which moves checksum helpers out of
+CONFIG_NETFILTER option but still in the same linux/netfilter.h header.
+This should be enough for removing 'select NETFILTER' in your patch.
 
-> +config NET_ACT_NAT
-> +        tristate "Stateless NAT"
-> +        depends on NET_CLS_ACT
-> +        select NETFILTER
-
-I am gonna have to agree with Evgeniy on this Herbert;->
-The rewards are it will improve performance for people who dont need
-netfilter.
-Ok, who is gonna move the csum utility functions out? /me looks at
-Evgeniy;->
-I could do it realsoonnow if noone raises their hands. 
-In any case, it would be real nice to have but i dont see it as a show
-stopper for inclusion.
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 1dd075e..6c3fb10 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -40,6 +40,29 @@
+ #endif
  
-> +static int tcf_nat(struct sk_buff *skb, struct tc_action *a,
-> +		   struct tcf_result *res)
-> +{
-> +	struct tcf_nat *p = a->priv;
+ #ifdef __KERNEL__
++
++static inline void nf_csum_replace4(__sum16 *sum, __be32 from, __be32 to)
++{
++	__be32 diff[] = { ~from, to };
++
++	*sum = csum_fold(csum_partial((char *)diff, sizeof(diff), ~csum_unfold(*sum)));
++}
++
++static inline void nf_csum_replace2(__sum16 *sum, __be16 from, __be16 to)
++{
++	nf_csum_replace4(sum, (__force __be32)from, (__force __be32)to);
++}
++
++extern void nf_proto_csum_replace4(__sum16 *sum, struct sk_buff *skb,
++				      __be32 from, __be32 to, int pseudohdr);
++
++static inline void nf_proto_csum_replace2(__sum16 *sum, struct sk_buff *skb,
++				      __be16 from, __be16 to, int pseudohdr)
++{
++	nf_proto_csum_replace4(sum, skb, (__force __be32)from,
++				(__force __be32)to, pseudohdr);
++}
++
+ #ifdef CONFIG_NETFILTER
+ 
+ extern void netfilter_init(void);
+@@ -289,28 +312,6 @@ extern void nf_invalidate_cache(int pf);
+    Returns true or false. */
+ extern int skb_make_writable(struct sk_buff **pskb, unsigned int writable_len);
+ 
+-static inline void nf_csum_replace4(__sum16 *sum, __be32 from, __be32 to)
+-{
+-	__be32 diff[] = { ~from, to };
+-
+-	*sum = csum_fold(csum_partial((char *)diff, sizeof(diff), ~csum_unfold(*sum)));
+-}
+-
+-static inline void nf_csum_replace2(__sum16 *sum, __be16 from, __be16 to)
+-{
+-	nf_csum_replace4(sum, (__force __be32)from, (__force __be32)to);
+-}
+-
+-extern void nf_proto_csum_replace4(__sum16 *sum, struct sk_buff *skb,
+-				      __be32 from, __be32 to, int pseudohdr);
+-
+-static inline void nf_proto_csum_replace2(__sum16 *sum, struct sk_buff *skb,
+-				      __be16 from, __be16 to, int pseudohdr)
+-{
+-	nf_proto_csum_replace4(sum, skb, (__force __be32)from,
+-				(__force __be32)to, pseudohdr);
+-}
+-
+ struct nf_afinfo {
+ 	unsigned short	family;
+ 	__sum16		(*checksum)(struct sk_buff *skb, unsigned int hook,
 
-> +	spin_lock(&p->tcf_lock);
-> +
-> +	p->tcf_tm.lastuse = jiffies;
-> +	old_addr = p->old_addr;
-> +	new_addr = p->new_addr;
-> +	mask = p->mask;
-> +	egress = p->flags & TCA_NAT_FLAG_EGRESS;
-> +	action = p->tcf_action;
-> +
-> +	p->tcf_bstats.bytes += skb->len;
-> +	p->tcf_bstats.packets++;
-> +
-> +	spin_unlock(&p->tcf_lock);
 
-You also need to p->tcf_qstats.drops++ for all packets that get shot.
-I would just hold tcf_lock until the end.
-If you are concerned about performance of multiple flows contending for
-the lock, then just create a new action entry per flow by using a
-different index for each; you cant avoid contention with control path in
-case of updates, but i suspect that would be a rare occasion.
 
-Do you have plans to do the iproute bits? If you do it will be nice to
-also update the doc/examples with some simple example(s).
-
-cheers,
-jamal
-
+-- 
+	Evgeniy Polyakov
