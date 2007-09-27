@@ -1,53 +1,186 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: TCP Spike
-Date: Thu, 27 Sep 2007 07:33:46 -0700
-Message-ID: <20070927073346.42d790dd@freepuppy.rosehill>
-References: <F444CAE5E62A714C9F45AA292785BED3223F7283@esng11p33001.sg.csfb.com>
+From: Unai Uribarri <unai.uribarri@optenet.com>
+Subject: Re: [RFC] af_packet: allow disabling timestamps
+Date: Thu, 27 Sep 2007 16:34:30 +0200
+Message-ID: <1190903670.6487.170.camel@localhost.localdomain>
+References: <1186669314.24669.56.camel@localhost.localdomain>
+	 <20070809143322.GA5345@2ka.mipt.ru>
+	 <1186683234.24669.65.camel@localhost.localdomain>
+	 <20070809181823.GA32449@2ka.mipt.ru>
+	 <1186685450.24669.81.camel@localhost.localdomain>
+	 <20070913124253.60da52f2@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"'linux-kernel@vger.kernel.org'" <linux-kernel@vger.kernel.org>
-To: "Majumder, Rajib" <rajib.majumder@credit-suisse.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:49706 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756623AbXI0OeW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 10:34:22 -0400
-In-Reply-To: <F444CAE5E62A714C9F45AA292785BED3223F7283@esng11p33001.sg.csfb.com>
+Received: from ipsec.mad.optenet.com ([213.27.232.70]:43820 "EHLO
+	smtp.optenet.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757686AbXI0Oee (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 10:34:34 -0400
+In-Reply-To: <20070913124253.60da52f2@oldman>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 27 Sep 2007 11:58:01 +0800
-"Majumder, Rajib" <rajib.majumder@credit-suisse.com> wrote:
+This small modification to Stephen's patch timestamps the skb when
+needed, so the timestamp can be reused by other af_packet sockets.
 
-> Hi,
+Signed-off-by: Unai Uribarri <unai.uribarri@optenet.com>
+
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -259,7 +259,8 @@ static void sock_disable_timestamp(struct sock *sk)
+ {
+ 	if (sock_flag(sk, SOCK_TIMESTAMP)) {
+ 		sock_reset_flag(sk, SOCK_TIMESTAMP);
+-		net_disable_timestamp();
++		if (sk->sk_family != PF_PACKET)
++			net_disable_timestamp();
+ 	}
+ }
+ 
+@@ -1655,7 +1656,8 @@ void sock_enable_timestamp(struct sock *sk)
+ {
+ 	if (!sock_flag(sk, SOCK_TIMESTAMP)) {
+ 		sock_set_flag(sk, SOCK_TIMESTAMP);
+-		net_enable_timestamp();
++		if (sk->sk_family != PF_PACKET)
++			net_enable_timestamp();
+ 	}
+ }
+ EXPORT_SYMBOL(sock_enable_timestamp);
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -570,7 +570,6 @@ static int tpacket_rcv(struct sk_buff *skb, struct
+net_device *dev, struct packe
+ 	unsigned long status = TP_STATUS_LOSING|TP_STATUS_USER;
+ 	unsigned short macoff, netoff;
+ 	struct sk_buff *copy_skb = NULL;
+-	struct timeval tv;
+ 
+ 	if (dev->nd_net != &init_net)
+ 		goto drop;
+@@ -648,12 +647,18 @@ static int tpacket_rcv(struct sk_buff *skb, struct
+net_device *dev, struct packe
+ 	h->tp_snaplen = snaplen;
+ 	h->tp_mac = macoff;
+ 	h->tp_net = netoff;
+-	if (skb->tstamp.tv64)
++
++	if (sock_flag(sk, SOCK_TIMESTAMP)) {
++		struct timeval tv;
++		if (skb->tstamp.tv64 == 0)
++			__net_timestamp(skb);
+ 		tv = ktime_to_timeval(skb->tstamp);
+-	else
+-		do_gettimeofday(&tv);
+-	h->tp_sec = tv.tv_sec;
+-	h->tp_usec = tv.tv_usec;
++		h->tp_sec = tv.tv_sec;
++		h->tp_usec = tv.tv_usec;
++	} else {
++		h->tp_sec = 0;
++		h->tp_usec = 0;
++	}
+ 
+ 	sll = (struct sockaddr_ll*)((u8*)h + TPACKET_ALIGN(sizeof(*h)));
+ 	sll->sll_halen = dev_parse_header(skb, sll->sll_addr);
+@@ -1004,6 +1009,7 @@ static int packet_create(struct net *net, struct
+socket *sock, int protocol)
+ 		sock->ops = &packet_ops_spkt;
+ 
+ 	sock_init_data(sock, sk);
++	sock_set_flag(sk, SOCK_TIMESTAMP);
+ 
+ 	po = pkt_sk(sk);
+ 	sk->sk_family = PF_PACKET;
+
+
+
+On jue, 2007-09-13 at 12:42 +0200, Stephen Hemminger wrote:
+> Currently, af_packet does not allow disabling timestamps. This patch changes
+> that but doesn't force global timestamps on.
 > 
-> We have observed 40ms latency spikes in TCP connections in "burst" type of traffic. This affects regular TCP sockets. We observed this issue in kernels of 2.4.21 and kernel 2.6.5.
-
-Unfortunately, 2.6.5 is out of my short term memory at this point. I do remember that 2.6.5
-used BIC for congestion control, and there were some math errors in the congestion control
-logic that caused it to be way to aggressive.
-  
+> This shows up in bugzilla as:
+> 	http://bugzilla.kernel.org/show_bug.cgi?id=4809
 > 
-> Aparently, this seems to be fixed in 2.6.19.  
+> Patch against net-2.6.24 tree.
 > 
-> Can someone throw some light on this? 
-
-My guess is that the addition of the SACK hinting might be the major win.  The code
-takes 3 passes over the SACK list, so with large outstanding data that was a major
-bottleneck, not sure if it was 4ms worth though.
-
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 > 
-> Is this a congestion control/avoidance issue? What congestion control algorithm is used before 2.6.8?   
+> --- a/net/core/sock.c	2007-09-12 15:08:43.000000000 +0200
+> +++ b/net/core/sock.c	2007-09-13 12:10:19.000000000 +0200
+> @@ -259,7 +259,8 @@ static void sock_disable_timestamp(struc
+>  {
+>  	if (sock_flag(sk, SOCK_TIMESTAMP)) {
+>  		sock_reset_flag(sk, SOCK_TIMESTAMP);
+> -		net_disable_timestamp();
+> +		if (sk->sk_family != PF_PACKET)
+> +			net_disable_timestamp();
+>  	}
+>  }
+>  
+> @@ -1645,7 +1646,8 @@ void sock_enable_timestamp(struct sock *
+>  {
+>  	if (!sock_flag(sk, SOCK_TIMESTAMP)) {
+>  		sock_set_flag(sk, SOCK_TIMESTAMP);
+> -		net_enable_timestamp();
+> +		if (sk->sk_family != PF_PACKET)
+> +			net_enable_timestamp();
+>  	}
+>  }
+>  EXPORT_SYMBOL(sock_enable_timestamp);
+> --- a/net/packet/af_packet.c	2007-09-12 17:07:00.000000000 +0200
+> +++ b/net/packet/af_packet.c	2007-09-13 12:09:10.000000000 +0200
+> @@ -572,7 +572,6 @@ static int tpacket_rcv(struct sk_buff *s
+>  	unsigned long status = TP_STATUS_LOSING|TP_STATUS_USER;
+>  	unsigned short macoff, netoff;
+>  	struct sk_buff *copy_skb = NULL;
+> -	struct timeval tv;
+>  
+>  	if (dev->nd_net != &init_net)
+>  		goto drop;
+> @@ -650,12 +649,19 @@ static int tpacket_rcv(struct sk_buff *s
+>  	h->tp_snaplen = snaplen;
+>  	h->tp_mac = macoff;
+>  	h->tp_net = netoff;
+> -	if (skb->tstamp.tv64)
+> -		tv = ktime_to_timeval(skb->tstamp);
+> -	else
+> -		do_gettimeofday(&tv);
+> -	h->tp_sec = tv.tv_sec;
+> -	h->tp_usec = tv.tv_usec;
+> +
+> +	if (sock_flag(sk, SOCK_TIMESTAMP)) {
+> +		struct timeval tv;
+> +		if (skb->tstamp.tv64)
+> +			tv = ktime_to_timeval(skb->tstamp);
+> +		else
+> +			do_gettimeofday(&tv);
+> +		h->tp_sec = tv.tv_sec;
+> +		h->tp_usec = tv.tv_usec;
+> +	} else {
+> +		h->tp_sec = 0;
+> +		h->tp_usec = 0;
+> +	}
+>  
+>  	sll = (struct sockaddr_ll*)((u8*)h + TPACKET_ALIGN(sizeof(*h)));
+>  	sll->sll_halen = 0;
+> @@ -1014,6 +1020,7 @@ static int packet_create(struct net *net
+>  		sock->ops = &packet_ops_spkt;
+>  
+>  	sock_init_data(sock, sk);
+> +	sock_set_flag(sk, SOCK_TIMESTAMP);
+>  
+>  	po = pkt_sk(sk);
+>  	sk->sk_family = PF_PACKET;
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-Default congestion control in early 2.6 was BIC, then after CUBIC stabilized it was made the default in 2.6.19.
-
-Another thing that may cause changes in latency is Appropriate Byte Counting (ABC).
-It was added in 2.6.14, but then turned off by default in 2.6.18.  The problem is
-that ABC caused performance problems with some applications that sent messages
-as many small writes.
 
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+
