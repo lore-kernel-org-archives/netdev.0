@@ -1,61 +1,620 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: RTL8111 PCI Express Gigabit driver r8169 produces slow file transfers
-Date: Thu, 27 Sep 2007 19:24:22 +0200
-Message-ID: <20070927172422.GA4869@electric-eye.fr.zoreil.com>
-References: <1190898841.7919.14.camel@BeeB1t>
+From: Sean Hefty <mshefty@ichips.intel.com>
+Subject: Re: [ofa-general] [PATCH v3] iw_cxgb3: Support "iwarp-only" interfaces
+ to avoid 4-tuple conflicts.
+Date: Thu, 27 Sep 2007 11:38:39 -0700
+Message-ID: <46FBF8AF.9040700@ichips.intel.com>
+References: <20070923203649.8324.64524.stgit@dell3.ogc.int>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Achim Frase <achim.frase@googlemail.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: rdreier@cisco.com, sean.hefty@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, general@lists.openfabrics.org
+To: Steve Wise <swise@opengridcomputing.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:44204 "EHLO
-	fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756408AbXI0RZF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Sep 2007 13:25:05 -0400
-Content-Disposition: inline
-In-Reply-To: <1190898841.7919.14.camel@BeeB1t>
+Received: from mga06.intel.com ([134.134.136.21]:46909 "EHLO
+	orsmga101.jf.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755194AbXI0Sin (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 14:38:43 -0400
+In-Reply-To: <20070923203649.8324.64524.stgit@dell3.ogc.int>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Achim Frase <achim.frase@googlemail.com> :
-> [...]
-> but I hope you could help me.
+> The sysadmin creates "for iwarp use only" alias interfaces of the form
+> "devname:iw*" where devname is the native interface name (eg eth0) for the
+> iwarp netdev device.  The alias label can be anything starting with "iw".
+> The "iw" immediately after the ':' is the key used by the iw_cxgb3 driver.
 
-Yes. Please try any of:
-- current 2.6.23-git
-- 2.6.23-rc8 + patch below
+I'm still not sure about this, but haven't come up with anything better 
+myself.  And if there's a good chance of other rnic's needing the same 
+support, I'd rather see the common code separated out, even if just 
+encapsulated within this module for easy re-use.
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index b85ab4a..c921ec3 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1228,7 +1228,10 @@ static void rtl8169_hw_phy_config(struct net_device *dev)
- 		return;
- 	}
- 
--	/* phy config for RTL8169s mac_version C chip */
-+	if ((tp->mac_version != RTL_GIGA_MAC_VER_02) &&
-+	    (tp->mac_version != RTL_GIGA_MAC_VER_03))
-+		return;
-+
- 	mdio_write(ioaddr, 31, 0x0001);			//w 31 2 0 1
- 	mdio_write(ioaddr, 21, 0x1000);			//w 21 15 0 1000
- 	mdio_write(ioaddr, 24, 0x65c7);			//w 24 15 0 65c7
-@@ -2567,6 +2570,15 @@ static void rtl8169_tx_interrupt(struct net_device *dev,
- 		    (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)) {
- 			netif_wake_queue(dev);
- 		}
-+		/*
-+		 * 8168 hack: TxPoll requests are lost when the Tx packets are
-+		 * too close. Let's kick an extra TxPoll request when a burst
-+		 * of start_xmit activity is detected (if it is not detected,
-+		 * it is slow enough). -- FR
-+		 */
-+		smp_rmb();
-+		if (tp->cur_tx != dirty_tx)
-+			RTL_W8(TxPoll, NPQ);
- 	}
- }
- 
--- 
-Ueimor
+As for the code, I have a couple of questions about whether deadlock and 
+a race condition are possible, plus a few minor comments.
+
+> +static void insert_ifa(struct iwch_dev *rnicp, struct in_ifaddr *ifa)
+> +{
+> +	struct iwch_addrlist *addr;
+> +
+> +	addr = kmalloc(sizeof *addr, GFP_KERNEL);
+> +	if (!addr) {
+> +		printk(KERN_ERR MOD "%s - failed to alloc memory!\n",
+> +		       __FUNCTION__);
+> +		return;
+> +	}
+> +	addr->ifa = ifa;
+> +	mutex_lock(&rnicp->mutex);
+> +	list_add_tail(&addr->entry, &rnicp->addrlist);
+> +	mutex_unlock(&rnicp->mutex);
+> +}
+
+Should this return success/failure?
+
+> +static int nb_callback(struct notifier_block *self, unsigned long event,
+> +		       void *ctx)
+> +{
+> +	struct in_ifaddr *ifa = ctx;
+> +	struct iwch_dev *rnicp = container_of(self, struct iwch_dev, nb);
+> +
+> +	PDBG("%s rnicp %p event %lx\n", __FUNCTION__, rnicp, event);
+> +
+> +	switch (event) {
+> +	case NETDEV_UP:
+> +		if (netdev_is_ours(rnicp, ifa->ifa_dev->dev) &&
+> +		    is_iwarp_label(ifa->ifa_label)) {
+> +			PDBG("%s label %s addr 0x%x added\n",
+> +				__FUNCTION__, ifa->ifa_label, ifa->ifa_address);
+> +			insert_ifa(rnicp, ifa);
+> +			iwch_listeners_add_addr(rnicp, ifa->ifa_address);
+
+If insert_ifa() fails, what will iwch_listeners_add_addr() do?  (I'm not 
+easily seeing the relationship between the address list and the listen 
+list at this point.)
+
+> +		}
+> +		break;
+> +	case NETDEV_DOWN:
+> +		if (netdev_is_ours(rnicp, ifa->ifa_dev->dev) &&
+> +		    is_iwarp_label(ifa->ifa_label)) {
+> +			PDBG("%s label %s addr 0x%x deleted\n",
+> +				__FUNCTION__, ifa->ifa_label, ifa->ifa_address);
+> +			iwch_listeners_del_addr(rnicp, ifa->ifa_address);
+> +			remove_ifa(rnicp, ifa);
+> +		}
+> +		break;
+> +	default:
+> +		break;
+> +	}
+> +	return 0;
+> +}
+> +
+> +static void delete_addrlist(struct iwch_dev *rnicp)
+> +{
+> +	struct iwch_addrlist *addr, *tmp;
+> +
+> +	mutex_lock(&rnicp->mutex);
+> +	list_for_each_entry_safe(addr, tmp, &rnicp->addrlist, entry) {
+> +		list_del(&addr->entry);
+> +		kfree(addr);
+> +	}
+> +	mutex_unlock(&rnicp->mutex);
+> +}
+> +
+> +static void populate_addrlist(struct iwch_dev *rnicp)
+> +{
+> +	int i;
+> +	struct in_device *indev;
+> +
+> +	for (i = 0; i < rnicp->rdev.port_info.nports; i++) {
+> +		indev = in_dev_get(rnicp->rdev.port_info.lldevs[i]);
+> +		if (!indev)
+> +			continue;
+> +		for_ifa(indev)
+> +			if (is_iwarp_label(ifa->ifa_label)) {
+> +				PDBG("%s label %s addr 0x%x added\n",
+> +				     __FUNCTION__, ifa->ifa_label,
+> +				     ifa->ifa_address);
+> +				insert_ifa(rnicp, ifa);
+> +			}
+> +		endfor_ifa(indev);
+> +	}
+> +}
+> +
+>  static void rnic_init(struct iwch_dev *rnicp)
+>  {
+>  	PDBG("%s iwch_dev %p\n", __FUNCTION__,  rnicp);
+> @@ -70,6 +187,12 @@ static void rnic_init(struct iwch_dev *r
+>  	idr_init(&rnicp->qpidr);
+>  	idr_init(&rnicp->mmidr);
+>  	spin_lock_init(&rnicp->lock);
+> +	INIT_LIST_HEAD(&rnicp->addrlist);
+> +	INIT_LIST_HEAD(&rnicp->listen_eps);
+> +	mutex_init(&rnicp->mutex);
+> +	rnicp->nb.notifier_call = nb_callback;
+> +	populate_addrlist(rnicp);
+> +	register_inetaddr_notifier(&rnicp->nb);
+>  
+>  	rnicp->attr.vendor_id = 0x168;
+>  	rnicp->attr.vendor_part_id = 7;
+> @@ -148,6 +271,8 @@ static void close_rnic_dev(struct t3cdev
+>  	mutex_lock(&dev_mutex);
+>  	list_for_each_entry_safe(dev, tmp, &dev_list, entry) {
+>  		if (dev->rdev.t3cdev_p == tdev) {
+> +			unregister_inetaddr_notifier(&dev->nb);
+> +			delete_addrlist(dev);
+>  			list_del(&dev->entry);
+>  			iwch_unregister_device(dev);
+>  			cxio_rdev_close(&dev->rdev);
+> diff --git a/drivers/infiniband/hw/cxgb3/iwch.h b/drivers/infiniband/hw/cxgb3/iwch.h
+> index caf4e60..7fa0a47 100644
+> --- a/drivers/infiniband/hw/cxgb3/iwch.h
+> +++ b/drivers/infiniband/hw/cxgb3/iwch.h
+> @@ -36,6 +36,8 @@ #include <linux/mutex.h>
+>  #include <linux/list.h>
+>  #include <linux/spinlock.h>
+>  #include <linux/idr.h>
+> +#include <linux/notifier.h>
+> +#include <linux/inetdevice.h>
+>  
+>  #include <rdma/ib_verbs.h>
+>  
+> @@ -101,6 +103,11 @@ struct iwch_rnic_attributes {
+>  	u32 cq_overflow_detection;
+>  };
+>  
+> +struct iwch_addrlist {
+> +	struct list_head entry;
+> +	struct in_ifaddr *ifa;
+> +};
+> +
+>  struct iwch_dev {
+>  	struct ib_device ibdev;
+>  	struct cxio_rdev rdev;
+> @@ -111,6 +118,10 @@ struct iwch_dev {
+>  	struct idr mmidr;
+>  	spinlock_t lock;
+>  	struct list_head entry;
+> +	struct notifier_block nb;
+> +	struct list_head addrlist;
+> +	struct list_head listen_eps;
+
+The behavior of the listen lists is similar to what's done in the 
+rdma_cm: Wildcard listens are stored in a listen_any_list.  When new 
+devices are added, associated listens are added to each device.  This is 
+similar, except we're dealing with devices and addresses.  I'm wondering 
+if we shouldn't mimic the same behavior and track listens in 
+iwch_addrlist directly.  (I don't see anything wrong with this approach 
+though.)
+
+What happens if an address changes between iwarp only and non-iwarp?
+
+How are listens on specific addresses handled from an rdma_cm level? 
+Does the rdma_cm map the address to the device, call the iw_cm to 
+listen, which in turn calls the device listen function?  The device then 
+checks that the address has been marked as iwarp only?  (I'm being too 
+lazy to trace this through the code, but if you don't know off the top 
+of your head, I will do that.)
+
+> +	struct mutex mutex;
+>  };
+>  
+>  static inline struct iwch_dev *to_iwch_dev(struct ib_device *ibdev)
+> diff --git a/drivers/infiniband/hw/cxgb3/iwch_cm.c b/drivers/infiniband/hw/cxgb3/iwch_cm.c
+> index 1cdfcd4..afc8a48 100644
+> --- a/drivers/infiniband/hw/cxgb3/iwch_cm.c
+> +++ b/drivers/infiniband/hw/cxgb3/iwch_cm.c
+> @@ -1127,23 +1127,149 @@ static int act_open_rpl(struct t3cdev *t
+>  	return CPL_RET_BUF_DONE;
+>  }
+>  
+> -static int listen_start(struct iwch_listen_ep *ep)
+> +static int wait_for_reply(struct iwch_ep_common *epc)
+> +{
+> +	PDBG("%s ep %p waiting\n", __FUNCTION__, epc);
+> +	wait_event(epc->waitq, epc->rpl_done);
+> +	PDBG("%s ep %p done waiting err %d\n", __FUNCTION__, epc, epc->rpl_err);
+> +	return epc->rpl_err;
+> +}
+
+What thread is being blocked here, and what sets the event?
+
+> +
+> +static struct iwch_listen_entry *alloc_listener(struct iwch_listen_ep *ep,
+> +						  __be32 addr)
+> +{
+> +	struct iwch_dev *h = to_iwch_dev(ep->com.cm_id->device);
+> +	struct iwch_listen_entry *le;
+> +
+> +	le = kmalloc(sizeof *le, GFP_KERNEL);
+> +	if (!le) {
+> +		printk(KERN_ERR MOD "%s - failed to alloc memory!\n",
+> +		       __FUNCTION__);
+> +		return NULL;
+> +	}
+> +	le->stid = cxgb3_alloc_stid(h->rdev.t3cdev_p,
+> +				    &t3c_client, ep);
+> +	if (le->stid == -1) {
+> +		printk(KERN_ERR MOD "%s - cannot alloc stid.\n",
+> +		       __FUNCTION__);
+> +		kfree(le);
+> +		return NULL;
+> +	}
+> +	le->addr = addr;
+> +	PDBG("%s stid %u addr %x port %x\n", __FUNCTION__, le->stid,
+> +	     ntohl(le->addr), ntohs(ep->com.local_addr.sin_port));
+> +	return le;
+> +}
+> +
+> +static void dealloc_listener(struct iwch_listen_ep *ep,
+> +			     struct iwch_listen_entry *le)
+> +{
+> +	PDBG("%s stid %u addr %x port %x\n", __FUNCTION__, le->stid,
+> +	     ntohl(le->addr), ntohs(ep->com.local_addr.sin_port));
+> +	cxgb3_free_stid(ep->com.tdev, le->stid);
+> +	kfree(le);
+> +}
+> +
+> +static void dealloc_listener_list(struct iwch_listen_ep *ep)
+> +{
+> +	struct iwch_listen_entry *le, *tmp;
+> +	struct iwch_dev *h = to_iwch_dev(ep->com.cm_id->device);
+> +
+> +	mutex_lock(&h->mutex);
+> +	list_for_each_entry_safe(le, tmp, &ep->listeners, entry) {
+> +		list_del(&le->entry);
+> +		dealloc_listener(ep, le);
+> +	}
+> +	mutex_unlock(&h->mutex);
+> +}
+> +
+> +static int alloc_listener_list(struct iwch_listen_ep *ep)
+> +{
+> +	struct iwch_dev *h = to_iwch_dev(ep->com.cm_id->device);
+
+nit: in place of 'h' in several places, how about 'rnicp', which is also 
+used?
+
+> +	struct iwch_addrlist *addr;
+> +	struct iwch_listen_entry *le;
+> +	int err = 0;
+> +	int added=0;
+> +	mutex_lock(&h->mutex);
+> +	list_for_each_entry(addr, &h->addrlist, entry) {
+> +		if (ep->com.local_addr.sin_addr.s_addr == 0 ||
+> +		    ep->com.local_addr.sin_addr.s_addr ==
+> +		    addr->ifa->ifa_address) {
+> +			le = alloc_listener(ep, addr->ifa->ifa_address);
+> +			if (!le)
+> +				break;
+> +			list_add_tail(&le->entry, &ep->listeners);
+> +			added++;
+> +		}
+> +	}
+> +	mutex_unlock(&h->mutex);
+> +	if (ep->com.local_addr.sin_addr.s_addr != 0 && !added)
+> +		err = -EADDRNOTAVAIL;
+> +	if (!err && !added)
+> +		printk(KERN_WARNING MOD
+> +		       "No RDMA interface found for device %s\n",
+> +		       pci_name(h->rdev.rnic_info.pdev));
+> +	return err;
+> +}
+
+Adding some white space would improve readability.
+
+> +
+> +static int listen_stop_one(struct iwch_listen_ep  *ep, unsigned int stid)
+>  {
+>  	struct sk_buff *skb;
+> -	struct cpl_pass_open_req *req;
+> +	struct cpl_close_listserv_req *req;
+> +
+> +	PDBG("%s stid %u\n", __FUNCTION__, stid);
+> +	skb = get_skb(NULL, sizeof(*req), GFP_KERNEL);
+> +	if (!skb) {
+> +		printk(KERN_ERR MOD "%s - failed to alloc skb\n", __FUNCTION__);
+> +		return -ENOMEM;
+> +	}
+> +	req = (struct cpl_close_listserv_req *) skb_put(skb, sizeof(*req));
+> +	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+> +	req->cpu_idx = 0;
+> +	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_CLOSE_LISTSRV_REQ, stid));
+> +	skb->priority = 1;
+> +	ep->com.rpl_err = 0;
+> +	ep->com.rpl_done = 0;
+> +	cxgb3_ofld_send(ep->com.tdev, skb);
+> +	return wait_for_reply(&ep->com);
+> +}
+> +
+> +static int listen_stop(struct iwch_listen_ep *ep)
+> +{
+> +	struct iwch_listen_entry *le;
+> +	struct iwch_dev *h = to_iwch_dev(ep->com.cm_id->device);
+> +	int err = 0;
+>  
+>  	PDBG("%s ep %p\n", __FUNCTION__, ep);
+> +	mutex_lock(&h->mutex);
+> +	list_for_each_entry(le, &ep->listeners, entry) {
+> +		err = listen_stop_one(ep, le->stid);
+
+This ends up blocking while holding a mutex, which looks like deadlock 
+potential.
+
+> +		if (err)
+> +			break;
+> +	}
+> +	mutex_unlock(&h->mutex);
+> +	return err;
+> +}
+> +
+> +static int listen_start_one(struct iwch_listen_ep *ep, unsigned int stid,
+> +			    __be32 addr, __be16 port)
+> +{
+> +	struct sk_buff *skb;
+> +	struct cpl_pass_open_req *req;
+> +
+> +	PDBG("%s stid %u addr %x port %x\n", __FUNCTION__, stid, ntohl(addr),
+> +	     ntohs(port));
+>  	skb = get_skb(NULL, sizeof(*req), GFP_KERNEL);
+>  	if (!skb) {
+> -		printk(KERN_ERR MOD "t3c_listen_start failed to alloc skb!\n");
+> +		printk(KERN_ERR MOD "%s - failed to alloc skb\n", __FUNCTION__);
+>  		return -ENOMEM;
+>  	}
+>  
+>  	req = (struct cpl_pass_open_req *) skb_put(skb, sizeof(*req));
+>  	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+> -	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_PASS_OPEN_REQ, ep->stid));
+> -	req->local_port = ep->com.local_addr.sin_port;
+> -	req->local_ip = ep->com.local_addr.sin_addr.s_addr;
+> +	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_PASS_OPEN_REQ, stid));
+> +	req->local_port = port;
+> +	req->local_ip = addr;
+>  	req->peer_port = 0;
+>  	req->peer_ip = 0;
+>  	req->peer_netmask = 0;
+> @@ -1152,8 +1278,32 @@ static int listen_start(struct iwch_list
+>  	req->opt1 = htonl(V_CONN_POLICY(CPL_CONN_POLICY_ASK));
+>  
+>  	skb->priority = 1;
+> +	ep->com.rpl_err = 0;
+> +	ep->com.rpl_done = 0;
+>  	cxgb3_ofld_send(ep->com.tdev, skb);
+> -	return 0;
+> +	return wait_for_reply(&ep->com);
+> +}
+> +
+> +static int listen_start(struct iwch_listen_ep *ep)
+> +{
+> +	struct iwch_listen_entry *le;
+> +	struct iwch_dev *h = to_iwch_dev(ep->com.cm_id->device);
+> +	int err = 0;
+> +
+> +	PDBG("%s ep %p\n", __FUNCTION__, ep);
+> +	mutex_lock(&h->mutex);
+> +	list_for_each_entry(le, &ep->listeners, entry) {
+> +		err = listen_start_one(ep, le->stid, le->addr,
+> +				 ep->com.local_addr.sin_port);
+
+Similar to above - blocking while holding a mutex.  There are a couple 
+of other places where this also occurs.
+
+> +		if (err)
+> +			goto fail;
+> +	}
+> +	mutex_unlock(&h->mutex);
+> +	return err;
+> +fail:
+> +	mutex_unlock(&h->mutex);
+> +	listen_stop(ep);
+> +	return err;
+>  }
+>  
+>  static int pass_open_rpl(struct t3cdev *tdev, struct sk_buff *skb, void *ctx)
+> @@ -1170,39 +1320,59 @@ static int pass_open_rpl(struct t3cdev *
+>  	return CPL_RET_BUF_DONE;
+>  }
+>  
+> -static int listen_stop(struct iwch_listen_ep *ep)
+> -{
+> -	struct sk_buff *skb;
+> -	struct cpl_close_listserv_req *req;
+> -
+> -	PDBG("%s ep %p\n", __FUNCTION__, ep);
+> -	skb = get_skb(NULL, sizeof(*req), GFP_KERNEL);
+> -	if (!skb) {
+> -		printk(KERN_ERR MOD "%s - failed to alloc skb\n", __FUNCTION__);
+> -		return -ENOMEM;
+> -	}
+> -	req = (struct cpl_close_listserv_req *) skb_put(skb, sizeof(*req));
+> -	req->wr.wr_hi = htonl(V_WR_OP(FW_WROPCODE_FORWARD));
+> -	req->cpu_idx = 0;
+> -	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_CLOSE_LISTSRV_REQ, ep->stid));
+> -	skb->priority = 1;
+> -	cxgb3_ofld_send(ep->com.tdev, skb);
+> -	return 0;
+> -}
+> -
+>  static int close_listsrv_rpl(struct t3cdev *tdev, struct sk_buff *skb,
+>  			     void *ctx)
+>  {
+>  	struct iwch_listen_ep *ep = ctx;
+>  	struct cpl_close_listserv_rpl *rpl = cplhdr(skb);
+>  
+> -	PDBG("%s ep %p\n", __FUNCTION__, ep);
+> +	PDBG("%s ep %p stid %u\n", __FUNCTION__, ep, GET_TID(rpl));
+> +
+>  	ep->com.rpl_err = status2errno(rpl->status);
+>  	ep->com.rpl_done = 1;
+>  	wake_up(&ep->com.waitq);
+>  	return CPL_RET_BUF_DONE;
+>  }
+>  
+> +void iwch_listeners_add_addr(struct iwch_dev *rnicp, __be32 addr)
+> +{
+> +	struct iwch_listen_ep *listen_ep;
+> +	struct iwch_listen_entry *le;
+> +
+> +	mutex_lock(&rnicp->mutex);
+> +	list_for_each_entry(listen_ep, &rnicp->listen_eps, entry) {
+> +		if (listen_ep->com.local_addr.sin_addr.s_addr)
+> +			continue;
+> +		le = alloc_listener(listen_ep, addr);
+> +		if (le) {
+> +			list_add_tail(&le->entry, &listen_ep->listeners);
+> +			listen_start_one(listen_ep, le->stid, addr,
+> +					 listen_ep->com.local_addr.sin_port);
+> +		}
+> +	}
+> +	mutex_unlock(&rnicp->mutex);
+> +}
+> +
+> +void iwch_listeners_del_addr(struct iwch_dev *rnicp, __be32 addr)
+> +{
+> +	struct iwch_listen_ep *listen_ep;
+> +	struct iwch_listen_entry *le, *tmp;
+> +
+> +	mutex_lock(&rnicp->mutex);
+> +	list_for_each_entry(listen_ep, &rnicp->listen_eps, entry) {
+> +		if (listen_ep->com.local_addr.sin_addr.s_addr)
+> +			continue;
+> +		list_for_each_entry_safe(le, tmp, &listen_ep->listeners,
+> +					 entry)
+> +			if (le->addr == addr) {
+> +				listen_stop_one(listen_ep, le->stid);
+> +				list_del(&le->entry);
+> +				dealloc_listener(listen_ep, le);
+> +			}
+> +	}
+> +	mutex_unlock(&rnicp->mutex);
+> +}
+> +
+>  static void accept_cr(struct iwch_ep *ep, __be32 peer_ip, struct sk_buff *skb)
+>  {
+>  	struct cpl_pass_accept_rpl *rpl;
+> @@ -1767,8 +1937,7 @@ int iwch_accept_cr(struct iw_cm_id *cm_i
+>  		goto err;
+>  
+>  	/* wait for wr_ack */
+> -	wait_event(ep->com.waitq, ep->com.rpl_done);
+> -	err = ep->com.rpl_err;
+> +	err = wait_for_reply(&ep->com);
+>  	if (err)
+>  		goto err;
+>  
+> @@ -1887,31 +2056,23 @@ int iwch_create_listen(struct iw_cm_id *
+>  	ep->com.cm_id = cm_id;
+>  	ep->backlog = backlog;
+>  	ep->com.local_addr = cm_id->local_addr;
+> +	INIT_LIST_HEAD(&ep->listeners);
+>  
+> -	/*
+> -	 * Allocate a server TID.
+> -	 */
+> -	ep->stid = cxgb3_alloc_stid(h->rdev.t3cdev_p, &t3c_client, ep);
+> -	if (ep->stid == -1) {
+> -		printk(KERN_ERR MOD "%s - cannot alloc atid.\n", __FUNCTION__);
+> -		err = -ENOMEM;
+> +	err = alloc_listener_list(ep);
+> +	if (err)
+>  		goto fail2;
+> -	}
+>  
+>  	state_set(&ep->com, LISTEN);
+>  	err = listen_start(ep);
+> -	if (err)
+> -		goto fail3;
+>  
+> -	/* wait for pass_open_rpl */
+> -	wait_event(ep->com.waitq, ep->com.rpl_done);
+> -	err = ep->com.rpl_err;
+>  	if (!err) {
+>  		cm_id->provider_data = ep;
+> +		mutex_lock(&h->mutex);
+> +		list_add_tail(&ep->entry, &h->listen_eps);
+> +		mutex_unlock(&h->mutex);
+
+Is there a race between listen_start() being called and inserting the ep 
+into the list?  Could anything try to find the ep on the list after 
+listen_start returns?
+
+>  		goto out;
+>  	}
+> -fail3:
+> -	cxgb3_free_stid(ep->com.tdev, ep->stid);
+> +	dealloc_listener_list(ep);
+>  fail2:
+>  	cm_id->rem_ref(cm_id);
+>  	put_ep(&ep->com);
+> @@ -1923,18 +2084,20 @@ out:
+>  int iwch_destroy_listen(struct iw_cm_id *cm_id)
+>  {
+>  	int err;
+> +	struct iwch_dev *h = to_iwch_dev(cm_id->device);
+>  	struct iwch_listen_ep *ep = to_listen_ep(cm_id);
+>  
+>  	PDBG("%s ep %p\n", __FUNCTION__, ep);
+>  
+>  	might_sleep();
+> +	mutex_lock(&h->mutex);
+> +	list_del(&ep->entry);
+> +	mutex_unlock(&h->mutex);
+>  	state_set(&ep->com, DEAD);
+>  	ep->com.rpl_done = 0;
+>  	ep->com.rpl_err = 0;
+>  	err = listen_stop(ep);
+> -	wait_event(ep->com.waitq, ep->com.rpl_done);
+> -	cxgb3_free_stid(ep->com.tdev, ep->stid);
+> -	err = ep->com.rpl_err;
+> +	dealloc_listener_list(ep);
+>  	cm_id->rem_ref(cm_id);
+>  	put_ep(&ep->com);
+>  	return err;
+> diff --git a/drivers/infiniband/hw/cxgb3/iwch_cm.h b/drivers/infiniband/hw/cxgb3/iwch_cm.h
+> index 6107e7c..23e5a22 100644
+> --- a/drivers/infiniband/hw/cxgb3/iwch_cm.h
+> +++ b/drivers/infiniband/hw/cxgb3/iwch_cm.h
+> @@ -162,10 +162,19 @@ struct iwch_ep_common {
+>  	int rpl_err;
+>  };
+>  
+> -struct iwch_listen_ep {
+> -	struct iwch_ep_common com;
+> +struct iwch_listen_entry {
+> +	struct list_head entry;
+>  	unsigned int stid;
+> +	__be32 addr;
+> +};
+> +
+> +struct iwch_listen_ep {
+> +	struct iwch_ep_common com;	/* Must be first entry! */
+> +	struct list_head entry;
+> +	struct list_head listeners;
+>  	int backlog;
+> +	int listen_count;
+
+I didn't notice where this was used.
+
+> +	int listen_rpls;
+
+or this.
+
+>  };
+>  
+>  struct iwch_ep {
+> @@ -222,6 +231,8 @@ int iwch_resume_tid(struct iwch_ep *ep);
+>  void __free_ep(struct kref *kref);
+>  void iwch_rearp(struct iwch_ep *ep);
+>  int iwch_ep_redirect(void *ctx, struct dst_entry *old, struct dst_entry *new, struct l2t_entry *l2t);
+> +void iwch_listeners_add_addr(struct iwch_dev *rnicp, __be32 addr);
+> +void iwch_listeners_del_addr(struct iwch_dev *rnicp, __be32 addr);
+>  
+>  int __init iwch_cm_init(void);
+>  void __exit iwch_cm_term(void);
+> _______________________________________________
+> general mailing list
+> general@lists.openfabrics.org
+> http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general
+> 
+> To unsubscribe, please visit http://openib.org/mailman/listinfo/openib-general
+> 
