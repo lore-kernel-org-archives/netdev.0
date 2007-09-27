@@ -1,62 +1,56 @@
-From: "Gaurav Aggarwal" <grv.aggarwal@gmail.com>
-Subject: Linux networking implementation and packet capture
-Date: Thu, 27 Sep 2007 12:17:49 +0530
-Message-ID: <1a41e0840709262347m1fc5d99dge9aeb172b7fc610e@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="----=_Part_352_14324444.1190875669080"
-To: kernelnewbies@nl.linux.org, linux-net@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <kernelnewbies-bounce@nl.linux.org>
-Sender: kernelnewbies-bounce@nl.linux.org
-Errors-to: kernelnewbies-bounce@nl.linux.org
-List-help: <mailto:ecartis@nl.linux.org?Subject=help>
-List-unsubscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=unsubscribe>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=subscribe>
-List-owner: <mailto:ecartis-owner@nl.linux.org>
-List-post: <mailto:kernelnewbies@nl.linux.org>
-List-archive: <http://mail.nl.linux.org/kernelnewbies/>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: e100 problems in .23rc8 ?
+Date: Thu, 27 Sep 2007 14:58:27 +0800
+Message-ID: <E1IanKN-0003ju-00@gondolin.me.apana.org.au>
+References: <46FAA083.9020604@intel.com>
+Cc: davej@redhat.com, netdev@vger.kernel.org
+To: auke-jan.h.kok@intel.com (Kok, Auke)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:2855 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752134AbXI0G6i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 02:58:38 -0400
+In-Reply-To: <46FAA083.9020604@intel.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------=_Part_352_14324444.1190875669080
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Kok, Auke <auke-jan.h.kok@intel.com> wrote:
+> Dave Jones wrote:
+>> Last night, I hit this bug during boot up..
+>> http://www.codemonkey.org.uk/junk/e100-2.jpg
+>> 
+>> This morning, I got a mail from a Fedora user of the same
+>> .23-rc8 based kernel that has seen a different trace
+>> also implicating e100..
+>> 
+>> http://www.codemonkey.org.uk/junk/e100.jpg
+>> 
+>> It may be that the two problems are unrelated, and it's
+>> just coincidence that both reports happen to be on an e100,
+>> but the timing is odd.  Have there been other reports
+>> of similar problems recently ?
+> 
+> there hasn't been a change to e100 in two months now - perhaps something slipped
+> into the stack that broke it? If this reproduces, could you bisect?
 
-Hi,
+Well this looks exactly like the e1000 race that we fixed around
+the time of the last kernel release.  That fix never made it into
+e100 so it's no surprise that we get a similar crash here.
 
-I am trying to understand the implementation of linux 2.4 and linux 2.6's
-networking (IPV4) . Can anyone give me some idea/pointers about some of the
-good resources/whitepapers available in the market to understand the same.
-If there is any document that mention the changes between the implementation
-of networking in 2.4 & 2.6
+The problem is that if a spurious interrupt comes in between
+request_irq and netif_poll_enable then you'll get a crash at
+the next netif_rx_complete.
 
-I am also trying to write a simple program(preferably a userspace
-application) which captures all the incoming and outgoing packets of a
-particular machine (preferably at PREROUTING stage), then according to the
-SRC/DST addresses, changes the IP address of some of the packets and then
-reinject it back into the local IP stack. I am able to do that in 2.4 kernel
-by using libipq and ip_tables but that prog is not running in 2.6 kernel.
-(It hits at ip_route_BUG). Any idea or code snippet will be really
-appreciated.
+It'd be good if this were reproducible as it would allow us
+to identify the source of the spurious interrupt, which may
+well be caused by an unrelated bug somewhere else.
 
+In any case, e100 should be prepared to deal with spurious
+interrupts as e1000 has been fixed to do.
+
+Cheers,
 -- 
-Regards,
-Gaurav Aggarwal
-
-------=_Part_352_14324444.1190875669080
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-Hi,<br><br>I am trying to understand the implementation of linux 2.4 and linux 2.6&#39;s networking (IPV4) . Can anyone give me some idea/pointers about some of the good resources/whitepapers available in the market to understand the same. If there is any document that mention the changes between the implementation of networking in 
-2.4 &amp; 2.6<br><br>I am also trying to write a simple program(preferably a userspace application) which captures all the incoming and outgoing packets of a particular machine (preferably at PREROUTING stage), then according to the SRC/DST addresses, changes the IP address of some of the packets and then reinject it back into the local IP stack. I am able to do that in 
-2.4 kernel by using libipq and ip_tables but that prog is not running in 2.6 kernel. (It hits at ip_route_BUG). Any idea or code snippet will be really appreciated.<br><br>-- <br>Regards,<br>Gaurav Aggarwal<br><br>
-
-------=_Part_352_14324444.1190875669080--
-
---
-To unsubscribe from this list: send an email with
-"unsubscribe kernelnewbies" to ecartis@nl.linux.org
-Please read the FAQ at http://kernelnewbies.org/FAQ
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
