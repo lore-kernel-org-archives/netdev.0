@@ -1,60 +1,46 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 1/4] net: Dynamically allocate the per cpu counters for the loopback device.
-Date: Thu, 27 Sep 2007 01:48:00 -0600
-Message-ID: <m1myv8r1lb.fsf@ebiederm.dsl.xmission.com>
-References: <m1ps05rnjv.fsf@ebiederm.dsl.xmission.com>
-	<20070926.220901.51682476.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH v3 2/2][BNX2]: Add iSCSI support to BNX2 devices.
+Date: Thu, 27 Sep 2007 03:49:27 -0400
+Message-ID: <46FB6087.10306@garzik.org>
+References: <20070908120036.GB8478@infradead.org>	 <20070909061551G.tomof@acm.org>	<46F8C935.8050907@suse.de>	 <20070925133624H.tomof@acm.org>  <46FB5C6B.3020506@garzik.org> <1190878682.30275.9.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, containers@lists.osdl.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: FUJITA Tomonori <tomof@acm.org>, hare@suse.de,
+	open-iscsi@googlegroups.com, hch@infradead.org,
+	davem@davemloft.net, mchristi@redhat.com, netdev@vger.kernel.org,
+	anilgv@broadcom.com, talm@broadcom.com, lusinsky@broadcom.com,
+	uri@broadcom.com, fujita.tomonori@lab.ntt.co.jp
+To: benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:33918 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750863AbXI0HsW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 03:48:22 -0400
-In-Reply-To: <20070926.220901.51682476.davem@davemloft.net> (David Miller's
-	message of "Wed, 26 Sep 2007 22:09:01 -0700 (PDT)")
+Received: from srv5.dvmed.net ([207.36.208.214]:39355 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752447AbXI0Htf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Sep 2007 03:49:35 -0400
+In-Reply-To: <1190878682.30275.9.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+Benjamin Herrenschmidt wrote:
+> On Thu, 2007-09-27 at 03:31 -0400, Jeff Garzik wrote:
+>> A key problem I was hoping would be solved with your work here was
+>> the 
+>> elimination of that post dma_map_sg() split.
+>>
+>> If I understood James and Ben correctly, one of the key problems was 
+>> always in communicating libata's segment boundary needs to the IOMMU
+>> layers?
+> 
+> Yup. If we can put some constraint in struct device that the dma mapping
+> code can then look at ... we also need to ensure that what's passed in
+> for DMA'ing already matches those constraints as well since no-iommu
+> platforms will basically just keep the dma table as-is.
 
-> From: ebiederm@xmission.com (Eric W. Biederman)
-> Date: Wed, 26 Sep 2007 17:53:40 -0600
->
->> 
->> This patch add support for dynamically allocating the statistics counters
->> for the loopback device and adds appropriate device methods for allocating
->> and freeing the loopback device.
->> 
->> This completes support for creating multiple instances of the loopback
->> device,  in preparation for creating per network namespace instances.
->> 
->> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
->
-> Applied to net-2.6.24, thanks.
->
->> @@ -155,7 +154,8 @@ static int loopback_xmit(struct sk_buff *skb, struct
-> net_device *dev)
->>  	dev->last_rx = jiffies;
->>  
->>  	/* it's OK to use __get_cpu_var() because BHs are off */
->> -	lb_stats = &__get_cpu_var(pcpu_lstats);
->> +	pcpu_lstats = netdev_priv(dev);
->> +	lb_stats = per_cpu_ptr(pcpu_lstats, smp_processor_id());
->>  	lb_stats->bytes += skb->len;
->>  	lb_stats->packets++;
->>  
->
-> I'm going to add a followon change that gets rid of that
-> comment about __get_cpu_var() since it is no longer
-> relevant.
+That's a good point...  no-iommu platforms would need to be updated to 
+do the split for me.  I suppose we can steal that code from swiotlb or 
+somewhere.
 
-Good point.
+	Jeff
 
-I'm not doing get_cpu/put_cpu so does the comment make sense
-in relationship to per_cpu_ptr?
 
-Eric
 
