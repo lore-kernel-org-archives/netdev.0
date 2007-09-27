@@ -1,45 +1,34 @@
-From: jamal <hadi@cyberus.ca>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [PKT_SCHED]: Add stateless NAT
-Date: Thu, 27 Sep 2007 09:34:24 -0400
-Message-ID: <1190900064.4290.45.camel@localhost>
-References: <20070927073446.GA14643@gondor.apana.org.au>
-	 <20070927092512.GD29329@2ka.mipt.ru>
-	 <20070927093358.GA15357@gondor.apana.org.au>
-	 <20070927100753.GA22323@2ka.mipt.ru>
-	 <20070927102916.GA15749@gondor.apana.org.au>
-	 <20070927124120.GA8897@2ka.mipt.ru>
-	 <20070927124515.GA16706@gondor.apana.org.au>
-	 <20070927131008.GA15997@2ka.mipt.ru> <46FBAD40.8040806@trash.net>
-	 <20070927132507.GA25353@2ka.mipt.ru>  <46FBB064.6070508@trash.net>
-Reply-To: hadi@cyberus.ca
+Date: Thu, 27 Sep 2007 15:39:34 +0200
+Message-ID: <46FBB296.8020901@trash.net>
+References: <20070927073446.GA14643@gondor.apana.org.au> <20070927092512.GD29329@2ka.mipt.ru> <20070927093358.GA15357@gondor.apana.org.au> <20070927100753.GA22323@2ka.mipt.ru> <20070927102916.GA15749@gondor.apana.org.au> <20070927124120.GA8897@2ka.mipt.ru> <20070927124515.GA16706@gondor.apana.org.au> <20070927131008.GA15997@2ka.mipt.ru> <20070927132037.GA17056@gondor.apana.org.au> <20070927132941.GB25353@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-To: Patrick McHardy <kaber@trash.net>
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	jamal <hadi@cyberus.ca>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.233]:60283 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753897AbXI0Ne2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 09:34:28 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so2112178wxd
-        for <netdev@vger.kernel.org>; Thu, 27 Sep 2007 06:34:27 -0700 (PDT)
-In-Reply-To: <46FBB064.6070508@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:58526 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754983AbXI0Njg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 09:39:36 -0400
+In-Reply-To: <20070927132941.GB25353@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-27-09 at 15:30 +0200, Patrick McHardy wrote:
-
+Evgeniy Polyakov wrote:
+> On Thu, Sep 27, 2007 at 09:20:37PM +0800, Herbert Xu (herbert@gondor.apana.org.au) wrote:
 > 
-> I like Herbert's suggestion of net/core/utils.c better (and without the
-> nf_ prefix please).
+>>How about putting it in net/core/utils.c?
+> 
+> 
+> I knew, that was a bad idea to try to fix netfilter dependency :)
+> 
+> diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
 
-me too. Evgeniy, you are the man if you "finish the whole cow" as some
-wise Africans would say;->
 
-cheers,
-jamal 
-
+This looks good to me.
