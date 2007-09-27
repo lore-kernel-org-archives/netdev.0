@@ -1,80 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] Zero-length write() does not generate a datagram on
- connected socket
-Date: Thu, 27 Sep 2007 13:53:34 -0700 (PDT)
-Message-ID: <20070927.135334.56943477.davem@davemloft.net>
-References: <bug-5731-100@http.bugzilla.kernel.org/>
-	<20070922094432.E9BEA108010@picon.linux-foundation.org>
-	<20070924153435.14249225@freepuppy.rosehill>
+Subject: Re: [PATCH 1/4] net: Dynamically allocate the per cpu counters for
+ the loopback device.
+Date: Thu, 27 Sep 2007 13:56:16 -0700 (PDT)
+Message-ID: <20070927.135616.37572002.davem@davemloft.net>
+References: <m1myv8r1lb.fsf@ebiederm.dsl.xmission.com>
+	<20070927.115200.56183114.davem@davemloft.net>
+	<m1ps03hm8a.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Cc: netdev@vger.kernel.org, containers@lists.osdl.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39221
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54204
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754582AbXI0Uxf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 16:53:35 -0400
-In-Reply-To: <20070924153435.14249225@freepuppy.rosehill>
+	by vger.kernel.org with ESMTP id S1755276AbXI0U4Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 16:56:16 -0400
+In-Reply-To: <m1ps03hm8a.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Mon, 24 Sep 2007 15:34:35 -0700
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Thu, 27 Sep 2007 14:44:37 -0600
 
-> The bug http://bugzilla.kernel.org/show_bug.cgi?id=5731
-> describes an issue where write() can't be used to generate a zero-length
-> datagram (but send, and sendto do work).
+> David Miller <davem@davemloft.net> writes:
 > 
-> I think the following is needed:
+> > From: ebiederm@xmission.com (Eric W. Biederman)
+> > Date: Thu, 27 Sep 2007 01:48:00 -0600
+> >
+> >> I'm not doing get_cpu/put_cpu so does the comment make sense
+> >> in relationship to per_cpu_ptr?
+> >
+> > It is possible.  But someone would need to go check for
+> > sure.
 > 
-> --- a/net/socket.c	2007-08-20 09:54:28.000000000 -0700
-> +++ b/net/socket.c	2007-09-24 15:31:25.000000000 -0700
-> @@ -777,8 +777,11 @@ static ssize_t sock_aio_write(struct kio
->  	if (pos != 0)
->  		return -ESPIPE;
->  
-> -	if (iocb->ki_left == 0)	/* Match SYS5 behaviour */
-> -		return 0;
-> +	if (unlikely(iocb->ki_left == 0)) {
-> +		struct socket *sock = iocb->ki_filp->private_data;
-> +		if (sock->type == SOCK_STREAM)
-> +			return 0;
-> +	}
->  
->  	x = alloc_sock_iocb(iocb, &siocb);
->  	if (!x)
+> Verified.
+> 
+> hard_start_xmit is called inside of a
+> rcu_read_lock_bh(),rcu_read_unlock_bh() pair.  Which means
+> the code will only run on one cpu.
+> 
+> Therefore we do not need get_cpu/put_cpu.
+> 
+> In addition per_cpu_ptr is valid.  As it is just a lookup
+> into a NR_CPUS sized array by smp_processor_id() to return
+> the address of the specific cpu.
+> 
+> The only difference between per_cpu_ptr and __get_cpu_var()
+> are the implementation details between statically allocated
+> and dynamically allocated per cpu state.
+> 
+> So the comment is still valid, and still interesting it just
+> should say per_cpu_ptr instead of __get_cpu_var.
+> 
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-We should simply remove the check completely.
-
-There is no need to add special code for different types of protocols
-and sockets.
-
-As is hinted in the bugzilla, the exact same thing can happen with a
-suitably constructed sendto() or sendmsg() call.  write() on a socket
-is a sendmsg() with a NULL msg_control and a single entry iovec, plain
-and simple.
-
-It's how BSD and many other systems behave, and I double checked
-Steven's Volume 2 just to make sure.
-
-So I'm going to check in the following to fix this bugzilla.  There is
-a similarly ugly test for len==0 in sys_read() on sockets.  If someone
-would do some research on the validity of that thing I'd really
-appreciate it :-)
-
-diff --git a/net/socket.c b/net/socket.c
-index 7d44453..b09eb90 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -777,9 +777,6 @@ static ssize_t sock_aio_write(struct kiocb *iocb, const struct iovec *iov,
- 	if (pos != 0)
- 		return -ESPIPE;
- 
--	if (iocb->ki_left == 0)	/* Match SYS5 behaviour */
--		return 0;
--
- 	x = alloc_sock_iocb(iocb, &siocb);
- 	if (!x)
- 		return -ENOMEM;
+I've already removed the comment, so you'll have to give
+me a patch that adds it back with the new content :-)
