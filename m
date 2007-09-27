@@ -1,25 +1,51 @@
-From: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-Subject: Re: Please pull 'upstream-davem' branch of wireless-2.6 (2007-09-27)
-Date: Thu, 27 Sep 2007 18:21:54 -0400
-Message-ID: <46FC2D02.9000602@garzik.org>
-References: <20070927215324.GG7991@tuxdriver.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] Bring comments in loopback.c uptodate.
+Date: Thu, 27 Sep 2007 16:39:53 -0600
+Message-ID: <m1lkarhgw6.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20070927215324.GG7991-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:42134 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756078AbXI0WkF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 18:40:05 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> Dave & Jeff,
-> 
-> Here are some more wireless stack and driver updates for 2.6.24.  Please
-> pull at your earliest convenience.
 
-ACK (I presume davem will pull)
+A hint as to why it is safe to use per cpu variables,
+and note that we actually can have multiple instances
+of the loopback device now.
 
-it looks like this includes my adm feedback, thanks!
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ drivers/net/loopback.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index 2617320..cba5c76 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -154,6 +154,7 @@ static int loopback_xmit(struct sk_buff *skb, struct net_device *dev)
+ #endif
+ 	dev->last_rx = jiffies;
+ 
++	/* it's OK to use per_cpu_ptr() because BHs are off */
+ 	pcpu_lstats = netdev_priv(dev);
+ 	lb_stats = per_cpu_ptr(pcpu_lstats, smp_processor_id());
+ 	lb_stats->bytes += skb->len;
+@@ -221,7 +222,8 @@ static void loopback_dev_free(struct net_device *dev)
+ }
+ 
+ /*
+- * The loopback device is special. There is only one instance.
++ * The loopback device is special. There is only one instance 
++ * per network namespace.
+  */
+ static void loopback_setup(struct net_device *dev)
+ {
+-- 
+1.5.3.rc6.17.g1911
+
