@@ -1,55 +1,42 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [RFC] Make TCP prequeue configurable
-Date: Thu, 27 Sep 2007 15:44:32 -0700
-Message-ID: <20070927154432.6ca3b525@freepuppy.rosehill>
-References: <46FC29E1.9010809@cosmosbay.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] net: Add network namespace clone & unshare support.
+Date: Thu, 27 Sep 2007 17:00:23 -0600
+Message-ID: <m18x6rhfy0.fsf@ebiederm.dsl.xmission.com>
+References: <m1tzphrnq5.fsf@ebiederm.dsl.xmission.com>
+	<46FB6F1E.8070105@fr.ibm.com>
+	<m1k5qcjaiu.fsf@ebiederm.dsl.xmission.com>
+	<20070927.124552.69400277.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: containers@lists.osdl.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:34542 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752643AbXI0Wpu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 18:45:50 -0400
-In-Reply-To: <46FC29E1.9010809@cosmosbay.com>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:40968 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756948AbXI0XBS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 19:01:18 -0400
+In-Reply-To: <20070927.124552.69400277.davem@davemloft.net> (David Miller's
+	message of "Thu, 27 Sep 2007 12:45:52 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 28 Sep 2007 00:08:33 +0200
-Eric Dumazet <dada1@cosmosbay.com> wrote:
+David Miller <davem@davemloft.net> writes:
 
-> Hi all
-> 
-> I am sure some of you are going to tell me that prequeue is not
-> all black :)
-> 
-> Thank you
-> 
-> [RFC] Make TCP prequeue configurable
-> 
-> The TCP prequeue thing is based on old facts, and has drawbacks.
-> 
-> 1) It adds 48 bytes per 'struct tcp_sock'
-> 2) It adds some ugly code in hot paths
-> 3) It has a small hit ratio on typical servers using many sockets
-> 4) It may have a high hit ratio on UP machines running one process,
->     where the prequeue adds litle gain. (In fact, letting the user
->     doing the copy after being woke up is better for cache reuse)
-> 5) Doing a copy to user in softirq handler is not good, because of
->     potential page faults :(
-> 6) Maybe the NET_DMA thing is the only thing that might need prequeue.
-> 
-> This patch introduces a CONFIG_TCP_PREQUEUE, automatically selected if 
-> CONFIG_NET_DMA is on.
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
-> 
+> Eric, pick an appropriate new non-conflicting number NOW.
 
-Rather than having a two more compile cases and test cases to deal
-with.  If you can prove it is useless, make a case for killing
-it completely.
+Done.  My apologies for the confusion.  I thought the
+way Cedric and the IBM guys were testing someone would have
+shouted at me long before now.
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+> This adds unnecessary extra work for Andrew Morton, which he has
+> enough of already.
+
+Cedric made a good point that we will have conflicts of code
+being added to the same place in nsproxy.c and the like.  So
+I copied Andrew to give him a heads up.
+
+I will gladly do what I can, to help.  Working against 3 trees
+development at the moment is a bit of a development challenge.
+
+Eric
