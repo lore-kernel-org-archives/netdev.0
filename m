@@ -1,56 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: e100 problems in .23rc8 ?
-Date: Thu, 27 Sep 2007 14:58:27 +0800
-Message-ID: <E1IanKN-0003ju-00@gondolin.me.apana.org.au>
-References: <46FAA083.9020604@intel.com>
-Cc: davej@redhat.com, netdev@vger.kernel.org
-To: auke-jan.h.kok@intel.com (Kok, Auke)
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH v3 2/2][BNX2]: Add iSCSI support to BNX2 devices.
+Date: Thu, 27 Sep 2007 03:31:55 -0400
+Message-ID: <46FB5C6B.3020506@garzik.org>
+References: <20070908120036.GB8478@infradead.org>	<20070909061551G.tomof@acm.org>	<46F8C935.8050907@suse.de> <20070925133624H.tomof@acm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hare@suse.de, open-iscsi@googlegroups.com, hch@infradead.org,
+	davem@davemloft.net, mchristi@redhat.com, netdev@vger.kernel.org,
+	anilgv@broadcom.com, talm@broadcom.com, lusinsky@broadcom.com,
+	uri@broadcom.com, fujita.tomonori@lab.ntt.co.jp,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>
+To: FUJITA Tomonori <tomof@acm.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2855 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752134AbXI0G6i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 02:58:38 -0400
-In-Reply-To: <46FAA083.9020604@intel.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:36922 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751493AbXI0HcD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Sep 2007 03:32:03 -0400
+In-Reply-To: <20070925133624H.tomof@acm.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kok, Auke <auke-jan.h.kok@intel.com> wrote:
-> Dave Jones wrote:
->> Last night, I hit this bug during boot up..
->> http://www.codemonkey.org.uk/junk/e100-2.jpg
->> 
->> This morning, I got a mail from a Fedora user of the same
->> .23-rc8 based kernel that has seen a different trace
->> also implicating e100..
->> 
->> http://www.codemonkey.org.uk/junk/e100.jpg
->> 
->> It may be that the two problems are unrelated, and it's
->> just coincidence that both reports happen to be on an e100,
->> but the timing is odd.  Have there been other reports
->> of similar problems recently ?
-> 
-> there hasn't been a change to e100 in two months now - perhaps something slipped
-> into the stack that broke it? If this reproduces, could you bisect?
+FUJITA Tomonori wrote:
+> Yeah, we could nicely handle lld's restrictions (especially with
+> stacking devices). But iommu code needs only max_segment_size and
+> seg_boundary_mask, right? If so, the first simple approach to add two
+> values to device structure is not so bad, I think.
 
-Well this looks exactly like the e1000 race that we fixed around
-the time of the last kernel release.  That fix never made it into
-e100 so it's no surprise that we get a similar crash here.
+(replying to slightly older email in the thread)
+(added benh, since we've discussed this issue in the past)
 
-The problem is that if a spurious interrupt comes in between
-request_irq and netif_poll_enable then you'll get a crash at
-the next netif_rx_complete.
+dumb question, what happened to seg_boundary_mask?
 
-It'd be good if this were reproducible as it would allow us
-to identify the source of the spurious interrupt, which may
-well be caused by an unrelated bug somewhere else.
+If you look at drivers/ata/libata-core.c:ata_fill_sg(), you will note 
+that we split s/g segments after DMA-mapping.  Looking at libata LLDD's, 
+you will also note judicious use of ATA_DMA_BOUNDARY (0xffff).
 
-In any case, e100 should be prepared to deal with spurious
-interrupts as e1000 has been fixed to do.
+It was drilled into my head by James and benh that I cannot rely on the 
+DMA boundary + block/scsi + dma_map_sg() to ensure that my S/G segments 
+never cross a 64K boundary, a legacy IDE requirement.  Thus the 
+additional code in ata_fill_sg() to split S/G segments straddling 64K, 
+in addition to setting dma boundary to 0xffff.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+A key problem I was hoping would be solved with your work here was the 
+elimination of that post dma_map_sg() split.
+
+If I understood James and Ben correctly, one of the key problems was 
+always in communicating libata's segment boundary needs to the IOMMU layers?
+
+	Jeff
+
+
