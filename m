@@ -1,42 +1,38 @@
-From: "Randy Macleod" <macleodr@nortel.com>
-Subject: Re: UDP Out 0f Sequence
-Date: Fri, 28 Sep 2007 13:22:28 -0400
-Message-ID: <46FD3854.8010702@nortel.com>
-References: <F444CAE5E62A714C9F45AA292785BED30EB9759A@esng11p33001.sg.csfb.com> <4512C10A.4070303@hp.com>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: MSI interrupts and disable_irq
+Date: Thu, 27 Sep 2007 16:42:17 -0400
+Message-ID: <46FC15A9.1070803@nvidia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hp.com>,
-	"'David Miller'" <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Majumder, Rajib" <rajib.majumder@credit-suisse.com>
+To: Jeff Garzik <jgarzik@pobox.com>,
+	Manfred Spraul <manfred@colorfullife.com>,
+	nedev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zrtps0kn.nortel.com ([47.140.192.55]:55142 "EHLO
-	zrtps0kn.nortel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753207AbXI1Rzu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 13:55:50 -0400
-In-Reply-To: <4512C10A.4070303@hp.com>
+Received: from hqemgate04.nvidia.com ([216.228.112.152]:1371 "EHLO
+	hqemgate04.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751904AbXI1SCU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 14:02:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rick Jones wrote:
-> Majumder, Rajib wrote:
->> Let's say we have 2 uniprocessor hosts connected back to back. Is
->> there any possibility of an out-of-order scenario on recv? 
-> 
-> Your application should be written on the assumption that it is 
-> possible, regardless of the specifics of the hosts involved, however 
-> unlikely they may be to reorder traffic.
-> 
->  > Is this same for all kernel (linux/solaris)?
-> 
-> Your application should be written on the assumtion that it is possible, 
-> regardless of the specifics of the OSes involved, however unlikely they 
-> may be to reorder traffic.
+I am trying to track down a forcedeth driver issue described by bug 9047 
+in bugzilla (2.6.23-rc7-git1 forcedeth w/ MCP55 oops under heavy load). 
+I added a patch to synchronize the timer handlers so that one handler 
+doesn't accidently enable the IRQ while another timer handler is running 
+(see attachment 'Add timer lock' in bug report) and for other processing 
+protection.
 
-Or you should use a different protocol stack that guarantees order.
-Have you considered TCP, DCCP or even TIPC?
-The solution depends on your application requirements and your
-projects tolerance for risk.
+However, the system still had an Oops. So I added a lock around the 
+nv_rx_process_optimized() and the Oops has not happened (see attachment 
+'New patch for locking' in bug report). This would imply a 
+synchronization issue. However, the only callers of that function are 
+the IRQ handler and the timer handlers (in non-NAPI case). The timer 
+handlers  use disable_irq so that the IRQ handler does not contend with 
+them. It looks as if disable_irq is not working properly.
 
-// Randy
+This issue repros only with MSI interrupt and not legacy INTx 
+interrupts. Any ideas?
 
+Thanks,
+Ayaz
