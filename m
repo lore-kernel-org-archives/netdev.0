@@ -1,46 +1,76 @@
-From: Jeff Garzik <jeff@garzik.org>
+From: FUJITA Tomonori <tomof@acm.org>
 Subject: Re: [PATCH v3 2/2][BNX2]: Add iSCSI support to BNX2 devices.
-Date: Thu, 27 Sep 2007 03:49:27 -0400
-Message-ID: <46FB6087.10306@garzik.org>
-References: <20070908120036.GB8478@infradead.org>	 <20070909061551G.tomof@acm.org>	<46F8C935.8050907@suse.de>	 <20070925133624H.tomof@acm.org>  <46FB5C6B.3020506@garzik.org> <1190878682.30275.9.camel@pasglop>
+Date: Thu, 27 Sep 2007 17:06:13 +0900
+Message-ID: <20070926075800T.tomof@acm.org>
+References: <46F8C935.8050907@suse.de>
+	<20070925133624H.tomof@acm.org>
+	<46FB5C6B.3020506@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: FUJITA Tomonori <tomof@acm.org>, hare@suse.de,
-	open-iscsi@googlegroups.com, hch@infradead.org,
-	davem@davemloft.net, mchristi@redhat.com, netdev@vger.kernel.org,
-	anilgv@broadcom.com, talm@broadcom.com, lusinsky@broadcom.com,
-	uri@broadcom.com, fujita.tomonori@lab.ntt.co.jp
-To: benh@kernel.crashing.org
+Cc: tomof@acm.org, hare@suse.de, open-iscsi@googlegroups.com,
+	hch@infradead.org, davem@davemloft.net, mchristi@redhat.com,
+	netdev@vger.kernel.org, anilgv@broadcom.com, talm@broadcom.com,
+	lusinsky@broadcom.com, uri@broadcom.com,
+	fujita.tomonori@lab.ntt.co.jp, benh@kernel.crashing.org,
+	jens.axboe@oracle.com, James.Bottomley@SteelEye.com,
+	linux-scsi@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39355 "EHLO mail.dvmed.net"
+Received: from mo11.iij4u.or.jp ([210.138.174.79]:56194 "EHLO mo11.iij4u.or.jp"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752447AbXI0Htf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Sep 2007 03:49:35 -0400
-In-Reply-To: <1190878682.30275.9.camel@pasglop>
+	id S1750878AbXI0IHQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Sep 2007 04:07:16 -0400
+In-Reply-To: <46FB5C6B.3020506@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Benjamin Herrenschmidt wrote:
-> On Thu, 2007-09-27 at 03:31 -0400, Jeff Garzik wrote:
->> A key problem I was hoping would be solved with your work here was
->> the 
->> elimination of that post dma_map_sg() split.
->>
->> If I understood James and Ben correctly, one of the key problems was 
->> always in communicating libata's segment boundary needs to the IOMMU
->> layers?
+CC'ed Jens, James, and linux-scsi.
+
+On Thu, 27 Sep 2007 03:31:55 -0400
+Jeff Garzik <jeff@garzik.org> wrote:
+
+> FUJITA Tomonori wrote:
+> > Yeah, we could nicely handle lld's restrictions (especially with
+> > stacking devices). But iommu code needs only max_segment_size and
+> > seg_boundary_mask, right? If so, the first simple approach to add two
+> > values to device structure is not so bad, I think.
 > 
-> Yup. If we can put some constraint in struct device that the dma mapping
-> code can then look at ... we also need to ensure that what's passed in
-> for DMA'ing already matches those constraints as well since no-iommu
-> platforms will basically just keep the dma table as-is.
+> (replying to slightly older email in the thread)
+> (added benh, since we've discussed this issue in the past)
+> 
+> dumb question, what happened to seg_boundary_mask?
 
-That's a good point...  no-iommu platforms would need to be updated to 
-do the split for me.  I suppose we can steal that code from swiotlb or 
-somewhere.
-
-	Jeff
+I'll work on it too after finishing max_seg_size.
 
 
+> If you look at drivers/ata/libata-core.c:ata_fill_sg(), you will note 
+> that we split s/g segments after DMA-mapping.  Looking at libata LLDD's, 
+> you will also note judicious use of ATA_DMA_BOUNDARY (0xffff).
 
+I know the workaround since I fixed libata's sg chaining patch.
+
+
+> It was drilled into my head by James and benh that I cannot rely on the 
+> DMA boundary + block/scsi + dma_map_sg() to ensure that my S/G segments 
+> never cross a 64K boundary, a legacy IDE requirement.  Thus the 
+> additional code in ata_fill_sg() to split S/G segments straddling 64K, 
+> in addition to setting dma boundary to 0xffff.
+
+I think that the block layer can handle both max_segment_size and
+seg_boundary_mask properly (and SCSI-ml just uses the block layer). So
+if we fix iommu, then we can remove a workaround to fix sg lists in
+llds.
+
+
+> A key problem I was hoping would be solved with your work here was the 
+> elimination of that post dma_map_sg() split.
+
+Yeah, that's my goal too.
+
+
+> If I understood James and Ben correctly, one of the key problems was 
+> always in communicating libata's segment boundary needs to the IOMMU layers?
+> 
+> 	Jeff
+> 
