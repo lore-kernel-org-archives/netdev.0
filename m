@@ -1,45 +1,80 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netns: Simplify the network namespace list locking
- rules.
-Date: Wed, 26 Sep 2007 22:40:22 -0700 (PDT)
-Message-ID: <20070926.224022.54462669.davem@davemloft.net>
-References: <46F3C777.7070103@sw.ru>
-	<m1r6kkrce0.fsf@ebiederm.dsl.xmission.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [patch 10/11] net: use numa_node in net_device->dev instead of
+ parent
+Date: Thu, 27 Sep 2007 01:50:31 -0400
+Message-ID: <46FB44A7.3020506@garzik.org>
+References: <200709270114.l8R1Eg14012964@imap1.linux-foundation.org> <20070926.223831.44964319.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dlezcano@fr.ibm.com, benjamin.thery@bull.net, dev@sw.ru, den@sw.ru,
-	containers@lists.osdl.org, netdev@vger.kernel.org
-To: ebiederm@xmission.com
+Cc: akpm@linux-foundation.org, Yinghai.Lu@Sun.COM,
+	Andi Kleen <ak@suse.de>, Al Viro <viro@ftp.linux.org.uk>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44110
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751085AbXI0FkW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 01:40:22 -0400
-In-Reply-To: <m1r6kkrce0.fsf@ebiederm.dsl.xmission.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:43217 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752667AbXI0Fuj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Sep 2007 01:50:39 -0400
+In-Reply-To: <20070926.223831.44964319.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Wed, 26 Sep 2007 21:54:47 -0600
 
-> 
-> Denis V. Lunev <den@sw.ru> noticed that the locking rules
-> for the network namespace list are over complicated and broken.
-> 
-> In particular the current register_netdev_notifier currently
-> does not take any lock making the for_each_net iteration racy
-> with network namespace creation and destruction. Oops.
-> 
-> The fact that we need to use for_each_net in rtnl_unlock() when
-> the rtnetlink support becomes per network namespace makes designing
-> the proper locking tricky.  In addition we need to be able to call
-> rtnl_lock() and rtnl_unlock() when we have the net_mutex held.
-> 
-> After thinking about it and looking at the alternatives carefully
-> it looks like the simplest and most maintainable solution is
-> to remove net_list_mutex altogether, and to use the rtnl_mutex instead.
-> 
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+(warning, adjusted CC's and added netdev mailing list)
 
-Applied, thanks Eric.
+
+David Miller wrote:
+> From: akpm@linux-foundation.org
+> Date: Wed, 26 Sep 2007 18:14:42 -0700
+> 
+>> From: Yinghai Lu <Yinghai.Lu@Sun.COM>
+>>
+>> Signed-off-by: Yinghai Lu <yinghai.lu@sun.com>
+>> Cc: Christoph Lameter <clameter@sgi.com>
+>> Cc: Andy Whitcroft <apw@shadowen.org>
+>> Cc: Jeff Garzik <jeff@garzik.org>
+>> Cc: Andi Kleen <ak@suse.de>
+>> Cc: "David S. Miller" <davem@davemloft.net>
+>> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> 
+> I'm not applying this, I'm still not convinced it is right.
+> 
+> The device of netdev->dev is a network subsystem pseudo device and
+> it's not a real I/O device at all.  It's there for creating the
+> class/net/name info under sysfs for the network device.
+> 
+> So pulling the NUMA node information out of there is completely
+
+Agreed.
+
+
+> illogical even if you do add some ugly hack to propagate the NUMA
+> information from the I/O device parent into the device struct the
+> netdev has embedded in it.
+
+I don't think it's an ugly hack at all.  The following is the standard 
+way to tell the net device your parent:
+
+#define SET_NETDEV_DEV(net, pdev)       ((net)->dev.parent = (pdev))
+
+so therefore reading the parent is the standard (only?) way to retrieve 
+that same information.
+
+Using IETF RFC language:  Every net driver SHOULD have an associated 
+struct device via SET_NETDEV_DEV(), even if it's another pseudo-device 
+in the case where the net_device is not associated with real hardware.
+
+
+However, that said, the overall /system/ employed here is a hack, 
+because SET_NETDEV_DEV() does not actually adjust any reference counts 
+or anything, for the associated net_device or associated struct device.
+
+Al Viro pointed out problems related to this, ISTR, when someone tried 
+to convert net drivers over to using the new devres stuff.  That's why I 
+haven't been merging the devres net driver conversions -- they 
+exacerbate existing object lifetime-related problems.
+
+	Jeff
+
+
