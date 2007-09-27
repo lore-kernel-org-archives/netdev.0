@@ -1,37 +1,57 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 5/7] CAN: Add virtual CAN netdevice driver
-Date: Thu, 27 Sep 2007 10:16:37 -0600
-Message-ID: <m13ax0m6ca.fsf@ebiederm.dsl.xmission.com>
-References: <20070920184323.3795.0@janus.isnogud.escape.de>
-	<20070920184533.3795.5@janus.isnogud.escape.de>
-	<m1hclgm7dr.fsf@ebiederm.dsl.xmission.com>
+Subject: Re: [PATCH] various dst_ifdown routines to catch refcounting bugs
+Date: Thu, 27 Sep 2007 10:27:43 -0600
+Message-ID: <m1myv8kr9c.fsf@ebiederm.dsl.xmission.com>
+References: <20070927134724.GA11531@iris.sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver@hartkopp.net>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Urs Thuermann <urs.thuermann@volkswagen.de>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>
-To: Urs Thuermann <urs@isnogud.escape.de>
+Cc: davem@davemloft.net, devel@openvz.org, netdev@vger.kernel.org,
+	containers@lists.osdl.org, ebiederm@xmission.com
+To: "Denis V. Lunev" <den@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:54394 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:42631 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755123AbXI0QRg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 12:17:36 -0400
-In-Reply-To: <m1hclgm7dr.fsf@ebiederm.dsl.xmission.com> (Eric W. Biederman's
-	message of "Thu, 27 Sep 2007 09:54:08 -0600")
+	with ESMTP id S1753054AbXI0Q2c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 12:28:32 -0400
+In-Reply-To: <20070927134724.GA11531@iris.sw.ru> (Denis V. Lunev's message of
+	"Thu, 27 Sep 2007 17:47:24 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+"Denis V. Lunev" <den@openvz.org> writes:
 
-I guess in particular IFF_LOOPBACK means that all packets from
-a device will come right back to the current machine, and go
-nowhere else.
+> Moving dst entries into init_net.loopback_dev is not a good thing.
+> This hides obvious and non-obvious ref-counting bugs.
 
-That usage sounds completely different then the CAN usage which
-appears to mean.  Broadcast packets will be returned to this machine
-as well as being sent out onto the wire.
+Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+
+To be clear using init_net.loopback is currently safe because we don't
+have any destination cache entries for anything except the initial
+network namespace.
+
+I have not yet made this change simply because I haven't gotten around
+to this part in my patches.
+
+I do have a question I would like to bring up, because I like avoiding
+explicit references to loopback_dev when I can.
+
+/* Dirty hack. We did it in 2.2 (in __dst_free),
+ * we have _very_ good reasons not to repeat
+ * this mistake in 2.3, but we have no choice
+ * now. _It_ _is_ _explicit_ _deliberate_
+ * _race_ _condition_.
+ *
+ * Commented and originally written by Alexey.
+ */
+
+What is the race that is talked about in that comment.  Can we just
+assign NULL instead of the loopback device when we bring a route down.
+My gut feeling is that something like:
+	dst->input = dst->output = dst_discard;
+may be enough.    But I don't know where the deliberate race is.
+
+I haven't traced this all of the way through but from the obvious
+parts I just get this nagging feeling that something isn't quite
+right.
 
 Eric
