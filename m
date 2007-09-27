@@ -1,34 +1,45 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PKT_SCHED]: Add stateless NAT
-Date: Thu, 27 Sep 2007 12:48:22 -0700 (PDT)
-Message-ID: <20070927.124822.102138627.davem@davemloft.net>
-References: <20070927073446.GA14643@gondor.apana.org.au>
-	<1190896785.4290.18.camel@localhost>
-	<20070927125801.GB16706@gondor.apana.org.au>
+Date: Thu, 27 Sep 2007 12:52:39 -0700 (PDT)
+Message-ID: <20070927.125239.129764503.davem@davemloft.net>
+References: <20070927132037.GA17056@gondor.apana.org.au>
+	<20070927132941.GB25353@2ka.mipt.ru>
+	<46FBB296.8020901@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
-To: herbert@gondor.apana.org.au
+Cc: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, hadi@cyberus.ca
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55059
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40729
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753009AbXI0TsW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 15:48:22 -0400
-In-Reply-To: <20070927125801.GB16706@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1753188AbXI0Twk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 15:52:40 -0400
+In-Reply-To: <46FBB296.8020901@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 27 Sep 2007 20:58:01 +0800
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu, 27 Sep 2007 15:39:34 +0200
 
-> On Thu, Sep 27, 2007 at 08:39:45AM -0400, jamal wrote:
-> >
-> > You also need to p->tcf_qstats.drops++ for all packets that get shot.
+> Evgeniy Polyakov wrote:
+> > On Thu, Sep 27, 2007 at 09:20:37PM +0800, Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> > 
+> >>How about putting it in net/core/utils.c?
+> > 
+> > 
+> > I knew, that was a bad idea to try to fix netfilter dependency :)
+> > 
+> > diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
 > 
-> I was rather hoping that my packets wouldn't get shot :)
-> But yeah let's increment the drops counter for consistency.
 > 
-> [PKT_SCHED]: Add stateless NAT
+> This looks good to me.
 
-Applied to net-2.6.24, thanks Herbert!
+I still think the nf_*() prefixes should all go and the extern
+prototypes should go into an independant header file.
+
+These are not netfilter routines, they are "INET" helpers.
+
+And we should make similar treatment for all of the ipv6
+packet parser helper functions that ipv6 netfilter needs.
