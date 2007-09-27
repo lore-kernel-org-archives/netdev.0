@@ -1,64 +1,52 @@
-From: Mohammad M Molla <merajul_i@yahoo.com>
-Subject: Re: Linux networking implementation and packet capture
-Date: Thu, 27 Sep 2007 01:05:20 -0700 (PDT)
-Message-ID: <417515.43841.qm@web53204.mail.re2.yahoo.com>
-References: <1a41e0840709262347m1fc5d99dge9aeb172b7fc610e@mail.gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH v3 2/2][BNX2]: Add iSCSI support to BNX2 devices.
+Date: Thu, 27 Sep 2007 04:22:15 -0400
+Message-ID: <46FB6837.7040308@garzik.org>
+References: <20070908120036.GB8478@infradead.org>	 <20070909061551G.tomof@acm.org>	<46F8C935.8050907@suse.de>	 <20070925133624H.tomof@acm.org>  <46FB5C6B.3020506@garzik.org>	 <1190878682.30275.9.camel@pasglop>  <46FB6087.10306@garzik.org> <1190880779.6158.0.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary="0-190942869-1190880320=:43841"
-Content-Transfer-Encoding: 8bit
-To: Gaurav Aggarwal <grv.aggarwal@gmail.com>, kernelnewbies@nl.linux.org,
-  linux-net@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <kernelnewbies-bounce@nl.linux.org>
-In-Reply-To: <1a41e0840709262347m1fc5d99dge9aeb172b7fc610e@mail.gmail.com>
-Sender: kernelnewbies-bounce@nl.linux.org
-Errors-to: kernelnewbies-bounce@nl.linux.org
-List-help: <mailto:ecartis@nl.linux.org?Subject=help>
-List-unsubscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=unsubscribe>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=subscribe>
-List-owner: <mailto:ecartis-owner@nl.linux.org>
-List-post: <mailto:kernelnewbies@nl.linux.org>
-List-archive: <http://mail.nl.linux.org/kernelnewbies/>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: FUJITA Tomonori <tomof@acm.org>, hare@suse.de,
+	open-iscsi@googlegroups.com, hch@infradead.org,
+	davem@davemloft.net, mchristi@redhat.com, netdev@vger.kernel.org,
+	anilgv@broadcom.com, talm@broadcom.com, lusinsky@broadcom.com,
+	uri@broadcom.com, fujita.tomonori@lab.ntt.co.jp
+To: benh@kernel.crashing.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:48354 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751365AbXI0IWX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Sep 2007 04:22:23 -0400
+In-Reply-To: <1190880779.6158.0.camel@pasglop>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---0-190942869-1190880320=:43841
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
+Benjamin Herrenschmidt wrote:
+> On Thu, 2007-09-27 at 03:49 -0400, Jeff Garzik wrote:
+>> Benjamin Herrenschmidt wrote:
+>>> On Thu, 2007-09-27 at 03:31 -0400, Jeff Garzik wrote:
+>>>> A key problem I was hoping would be solved with your work here was
+>>>> the 
+>>>> elimination of that post dma_map_sg() split.
+>>>>
+>>>> If I understood James and Ben correctly, one of the key problems was 
+>>>> always in communicating libata's segment boundary needs to the IOMMU
+>>>> layers?
+>>> Yup. If we can put some constraint in struct device that the dma mapping
+>>> code can then look at ... we also need to ensure that what's passed in
+>>> for DMA'ing already matches those constraints as well since no-iommu
+>>> platforms will basically just keep the dma table as-is.
+>> That's a good point...  no-iommu platforms would need to be updated to 
+>> do the split for me.  I suppose we can steal that code from swiotlb or 
+>> somewhere.
+> 
+> Doing the split means being able to grow the sglist... which the dma_*
+> calls can't do at least not in their current form.
 
-There are two good books that you might find useful - 
+IMO one straightforward approach is for the struct scatterlist owner to 
+provide a table large enough to accomodate the possible splits (perhaps 
+along with communicate that table's max size to the IOMMU/dma layers).
 
-1. Understanding Linux Network Internals - Christian Benvenuti
-2. The Linux TCP/IP stack - Networking for Embedded Systems - Thomas F. Herbert
+	Jeff
 
-- Meraj
 
-Gaurav Aggarwal <grv.aggarwal@gmail.com> wrote: Hi,
-
-I am trying to understand the implementation of linux 2.4 and linux 2.6's networking (IPV4) . Can anyone give me some idea/pointers about some of the good resources/whitepapers available in the market to understand the same. If there is any document that mention the changes between the implementation of networking in  2.4 & 2.6
-
-I am also trying to write a simple program(preferably a userspace application) which captures all the incoming and outgoing packets of a particular machine (preferably at PREROUTING stage), then according to the SRC/DST addresses, changes the IP address of some of the packets and then reinject it back into the local IP stack. I am able to do that in  2.4 kernel by using libipq and ip_tables but that prog is not running in 2.6 kernel. (It hits at ip_route_BUG). Any idea or code snippet will be really appreciated.
-
--- 
-Regards,
-Gaurav Aggarwal
-
- 
-
-       
----------------------------------
-Need a vacation? Get great deals to amazing places on Yahoo! Travel. 
---0-190942869-1190880320=:43841
-Content-Type: text/html; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-
-There are two good books that you might find useful - <br><br>1. Understanding Linux Network Internals - Christian Benvenuti<br>2. The Linux TCP/IP stack - Networking for Embedded Systems - Thomas F. Herbert<br><br>- Meraj<br><br><b><i>Gaurav Aggarwal &lt;grv.aggarwal@gmail.com&gt;</i></b> wrote:<blockquote class="replbq" style="border-left: 2px solid rgb(16, 16, 255); margin-left: 5px; padding-left: 5px;"> Hi,<br><br>I am trying to understand the implementation of linux 2.4 and linux 2.6's networking (IPV4) . Can anyone give me some idea/pointers about some of the good resources/whitepapers available in the market to understand the same. If there is any document that mention the changes between the implementation of networking in  2.4 &amp; 2.6<br><br>I am also trying to write a simple pr
- ogram(preferably a userspace application) which captures all the incoming and outgoing packets of a particular machine (preferably at PREROUTING stage), then according to the SRC/DST
- addresses, changes the IP address of some of the packets and then reinject it back into the local IP stack. I am able to do that in  2.4 kernel by using libipq and ip_tables but that prog is not running in 2.6 kernel. (It hits at ip_route_BUG). Any idea or code snippet will be really appreciated.<br><br>-- <br>Regards,<br>Gaurav Aggarwal<br><br> </blockquote><br><p>&#32;
-      <hr size=1>Need a vacation? <a href="http://us.rd.yahoo.com/evt=48256/*http://travel.yahoo.com/;_ylc=X3oDMTFhN2hucjlpBF9TAzk3NDA3NTg5BHBvcwM1BHNlYwNncm91cHMEc2xrA2VtYWlsLW5jbQ--">Get great deals 
-to amazing places </a>on Yahoo! Travel. 
---0-190942869-1190880320=:43841--
-
---
-To unsubscribe from this list: send an email with
-"unsubscribe kernelnewbies" to ecartis@nl.linux.org
-Please read the FAQ at http://kernelnewbies.org/FAQ
