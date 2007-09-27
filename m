@@ -1,9 +1,13 @@
 From: jamal <hadi@cyberus.ca>
 Subject: Re: [PKT_SCHED]: Add stateless NAT
-Date: Thu, 27 Sep 2007 08:46:49 -0400
-Message-ID: <1190897209.4290.24.camel@localhost>
+Date: Thu, 27 Sep 2007 08:52:03 -0400
+Message-ID: <1190897523.4290.29.camel@localhost>
 References: <20070927073446.GA14643@gondor.apana.org.au>
 	 <20070927092512.GD29329@2ka.mipt.ru>
+	 <20070927093358.GA15357@gondor.apana.org.au>
+	 <20070927100753.GA22323@2ka.mipt.ru>
+	 <20070927102916.GA15749@gondor.apana.org.au>
+	 <20070927124120.GA8897@2ka.mipt.ru>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,49 +17,29 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.235]:12419 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752045AbXI0Mq4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 08:46:56 -0400
-Received: by wr-out-0506.google.com with SMTP id 36so1043087wra
-        for <netdev@vger.kernel.org>; Thu, 27 Sep 2007 05:46:53 -0700 (PDT)
-In-Reply-To: <20070927092512.GD29329@2ka.mipt.ru>
+Received: from wx-out-0506.google.com ([66.249.82.225]:34571 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752930AbXI0MwI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 08:52:08 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so2102440wxd
+        for <netdev@vger.kernel.org>; Thu, 27 Sep 2007 05:52:07 -0700 (PDT)
+In-Reply-To: <20070927124120.GA8897@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2007-27-09 at 13:25 +0400, Evgeniy Polyakov wrote:
+On Thu, 2007-27-09 at 16:41 +0400, Evgeniy Polyakov wrote:
 
+> I've attached simple patch which moves checksum helpers out of
+> CONFIG_NETFILTER option but still in the same linux/netfilter.h header.
+> This should be enough for removing 'select NETFILTER' in your patch.
 
-> > +#define NAT_TAB_MASK	15
-> 
-> This really wants to be configurable at least via module parameter.
-
-Would not be a bad idea, but not specific to just this one action.
-Note: probably not a very big deal to have 15 there because in the fast
-path that table is not being looked up; once an action is bound to a
-filter, its the filter lookups that count.
-
-> > +static struct tcf_common *tcf_nat_ht[NAT_TAB_MASK + 1];
-> > +static u32 nat_idx_gen;
-> > +static DEFINE_RWLOCK(nat_lock);
-> 
-> > +static struct tcf_hashinfo nat_hash_info = {
-> > +	.htab	=	tcf_nat_ht,
-> > +	.hmask	=	NAT_TAB_MASK,
-> > +	.lock	=	&nat_lock,
-> > +};
-> 
-> When I read this I swear I heard 'I want to be RCU'.
-> But that is another task.
-
-Go ahead and clean that up to use rcu. What would be really nice is to
-have generic hash table scheme which uses the scheme above and then this
-code (and a lot other) is converted to use it; if you stared a bit at
-the code youd notice a lot of commonalities with a lot of similar
-netcode (look at the ipip driver for example). The LinuxWay(tm).
-I know Patrick hinted at some point he may do that (or maybe it was my
-imagination;->)
+Is there any point in keeping the code inside netfilter or keeping
+the nf_ prefix? something in net/utilities/ or net/core maybe?
+the nf_* can still exist in netfilter as aliases to wherever this is
+moved to.
 
 cheers,
 jamal
+
+
 
