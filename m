@@ -1,67 +1,69 @@
-From: Jochen Voss <voss@seehuhn.de>
-Subject: Re: [PATCH] sky2: sky2 FE+ receive status workaround
-Date: Thu, 27 Sep 2007 16:23:29 +0100
-Message-ID: <20070927152317.GB12271@seehuhn.de>
-References: <20070926175847.706025d0@freepuppy.rosehill> <4C6E8545-ADDC-456E-B17B-B3512A6047D1@seehuhn.de> <20070927065807.7a71ae89@freepuppy.rosehill>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 5/7] CAN: Add virtual CAN netdevice driver
+Date: Thu, 27 Sep 2007 09:54:08 -0600
+Message-ID: <m1hclgm7dr.fsf@ebiederm.dsl.xmission.com>
+References: <20070920184323.3795.0@janus.isnogud.escape.de>
+	<20070920184533.3795.5@janus.isnogud.escape.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="B4IIlcmfBL/1gGOG"
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver@hartkopp.net>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>
+To: Urs Thuermann <urs@isnogud.escape.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from seehuhn.de ([80.68.93.199]:3576 "EHLO seehuhn.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755501AbXI0PXn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Sep 2007 11:23:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20070927065807.7a71ae89@freepuppy.rosehill>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:33591 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752086AbXI0Pz0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 11:55:26 -0400
+In-Reply-To: <20070920184533.3795.5@janus.isnogud.escape.de> (Urs Thuermann's
+	message of "Thu, 20 Sep 2007 20:43:28 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Urs Thuermann <urs@isnogud.escape.de> writes:
 
---B4IIlcmfBL/1gGOG
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> This patch adds the virtual CAN bus (vcan) network driver.
+> The vcan device is just a loopback device for CAN frames, no
+> real CAN hardware is involved.
 
-Hi,
+I'm trying to wrap my head around the CAN use of IFF_LOOPBACK.
 
-On Thu, Sep 27, 2007 at 06:58:07AM -0700, Stephen Hemminger wrote:
-> On Thu, 27 Sep 2007 09:14:11 +0100 Jochen Vo=DF <voss@seehuhn.de> wrote:
-> > On 27 Sep 2007, at 01:58, Stephen Hemminger wrote:
-> > > +	/* This chip has hardware problems that generates bogus status.
-> > > +	 * So do only marginal checking and expect higher level protocols
-> > > +	 * to handle crap frames.
-> > > +	 */
-> > > +	if (sky2->hw->chip_id =3D=3D CHIP_ID_YUKON_FE_P &&
-> > > +	    sky2->hw->chip_rev =3D=3D CHIP_REV_YU_FE2_A0 &&
-> > > +	    length !=3D count)
-> > > +		goto okay;
-> >=20
-> > Shouldn't the condition be "length =3D=3D count"?
->=20
-> No, the code is correct as is.  Basically if length =3D=3D count, then
-> the status field is correct, and the driver can go ahead and use it.
-> If length !=3D count, then the status is bogus but the data is okay.
+>  6.2 loopback
+>
+>  As described in chapter 3.2 the CAN network device driver should
+>  support a local loopback functionality. In this case the driver flag
+>  IFF_LOOPBACK has to be set to cause the PF_CAN core to not perform the
+>  loopback as fallback solution:
+>
+>    dev->flags = (IFF_NOARP | IFF_LOOPBACK);
+>
 
-Oh, I see.  Thanks for the explanation.
+Currently IFF_LOOPBACK set in dev->flags means we are dealing
+with drivers/net/loopback.c. 
 
-All the best,
-Jochen
---=20
-http://seehuhn.de/
+In other networking layers loopback functionality (i.e. for broadcast)
+is never expected to be provided by the drivers and is instead 
+always provided by the networking layer.  Keeping the drivers
+simpler.  Further you already have this functionality in the
+generic CAN layer for doing loopback without driver support.
 
---B4IIlcmfBL/1gGOG
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+So at a first glance the CAN usage of IFF_LOOPBACK looks completely
+broken, and likely to confuse other networking layers if they see
+a CAN device.  Say if someone attempts to run IP over CAN or
+something like that.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
+Do you think you can remove this incompatible usage of IFF_LOOPBACK
+from the can code?
 
-iD8DBQFG+8rxf+iD8yEbECURAhfGAJ9ofuzST0y7JaUgZY82GIcpOcKhswCdGhSn
-DzTYKBPluRwGBonQORZN/bo=
-=Tsvo
------END PGP SIGNATURE-----
+If I have read your documentation properly the only reason you are
+doing this is so that the timing of frames to cansniffer more
+accurately reflects when the frame hits the wire.  If CAN runs over a
+very slow medium I guess I can see where that can be a concern.  But
+the usage of IFF_LOOPBACK to do this still feels fairly hackish
+to me. 
 
---B4IIlcmfBL/1gGOG--
+Eric
