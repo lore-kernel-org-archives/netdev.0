@@ -1,41 +1,34 @@
-From: "Denis V. Lunev" <den@sw.ru>
-Subject: Re: [Devel] [PATCH 4/4] net: Make the loopback device per network
- namespace
-Date: Thu, 27 Sep 2007 16:14:41 +0400
-Message-ID: <46FB9EB1.5070908@sw.ru>
-References: <m1ps05rnjv.fsf@ebiederm.dsl.xmission.com>	<m1ir5xrngu.fsf@ebiederm.dsl.xmission.com>	<m1bqbprnc2.fsf_-_@ebiederm.dsl.xmission.com> <m17imdrn8r.fsf_-_@ebiederm.dsl.xmission.com>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH] proper comment for loopback initialization order
+Date: Thu, 27 Sep 2007 16:25:27 +0400
+Message-ID: <20070927122527.GA10972@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: dev@openvz.org, devel@openvz.org, netdev@vger.kernel.org,
+	containers@lists.osdl.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:56685 "EHLO iris"
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:55280 "EHLO iris"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752868AbXI0MOD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Sep 2007 08:14:03 -0400
-In-Reply-To: <m17imdrn8r.fsf_-_@ebiederm.dsl.xmission.com>
+	id S1751273AbXI0MYc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Sep 2007 08:24:32 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> This patch makes loopback_dev per network namespace.  Adding
-> code to create a different loopback device for each network
-> namespace and adding the code to free a loopback device
-> when a network namespace exits.
-> 
-> This patch modifies all users the loopback_dev so they
-> access it as init_net.loopback_dev, keeping all of the
-> code compiling and working.  A later pass will be needed to
-> update the users to use something other than the initial network
-> namespace.
+Loopback device is special. It should be initialized at the very
+beginning.  Initialization order has been changed by
+Eric W. Biederman <ebiederm@xmission.com> and this change is non-obvious
+and important enough to add proper comment.
 
-A pity that an important bit of explanation is missed. The
-initialization of loopback_dev is moved from a chain of devices
-(init_module) to a subsystem initialization to keep proper order, i.e.
-we must be sure that the initialization order is correct.
+Signed-off-by: Denis V. Lunev <den@openvz.org>
 
-Regards,
-	Den
+--- ./drivers/net/loopback.c.loopcomment	2007-08-26 19:30:38.000000000 +0400
++++ ./drivers/net/loopback.c	2007-09-27 16:08:06.000000000 +0400
+@@ -293,4 +293,6 @@ static int __init loopback_init(void)
+ 	return register_pernet_device(&loopback_net_ops);
+ }
+ 
++/* Loopback is special. It should be initialized before any other network
++   device and network subsystem */
+ fs_initcall(loopback_init);
