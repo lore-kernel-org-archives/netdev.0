@@ -1,42 +1,53 @@
-From: Fabio Souto <fabiomsouto@gmail.com>
-Subject: IPSec on Linux Kernel
-Date: Thu, 27 Sep 2007 07:04:54 -0700 (PDT)
-Message-ID: <12922013.post@talk.nabble.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: TCP Spike
+Date: Thu, 27 Sep 2007 07:33:46 -0700
+Message-ID: <20070927073346.42d790dd@freepuppy.rosehill>
+References: <F444CAE5E62A714C9F45AA292785BED3223F7283@esng11p33001.sg.csfb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+	"'linux-kernel@vger.kernel.org'" <linux-kernel@vger.kernel.org>
+To: "Majumder, Rajib" <rajib.majumder@credit-suisse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kuber.nabble.com ([216.139.236.158]:43447 "EHLO
-	kuber.nabble.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753901AbXI0OEz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 10:04:55 -0400
-Received: from isper.nabble.com ([192.168.236.156])
-	by kuber.nabble.com with esmtp (Exim 4.63)
-	(envelope-from <lists@nabble.com>)
-	id 1Iatz4-0002O3-MP
-	for netdev@vger.kernel.org; Thu, 27 Sep 2007 07:04:54 -0700
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:49706 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756623AbXI0OeW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 10:34:22 -0400
+In-Reply-To: <F444CAE5E62A714C9F45AA292785BED3223F7283@esng11p33001.sg.csfb.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 27 Sep 2007 11:58:01 +0800
+"Majumder, Rajib" <rajib.majumder@credit-suisse.com> wrote:
 
-Hi,
+> Hi,
+> 
+> We have observed 40ms latency spikes in TCP connections in "burst" type of traffic. This affects regular TCP sockets. We observed this issue in kernels of 2.4.21 and kernel 2.6.5.
 
-I'm currently doing some research work and I thought that maybe you guys
-could help me out on this.
-I'm currently trying to find where can I understand more about the IPSec
-implementation on the current Linux Kernel (2.6.22). I need to find where
-the AH calls are made so I can reroute those functions calls to an external
-module, for a safer AH generation.
-It would be helpful to find the source code files where I can study the
-IPSec stack in detail, and reroute the function call.
-Any hints on these topics?
+Unfortunately, 2.6.5 is out of my short term memory at this point. I do remember that 2.6.5
+used BIC for congestion control, and there were some math errors in the congestion control
+logic that caused it to be way to aggressive.
+  
+> 
+> Aparently, this seems to be fixed in 2.6.19.  
+> 
+> Can someone throw some light on this? 
 
-Thanks in advance
+My guess is that the addition of the SACK hinting might be the major win.  The code
+takes 3 passes over the SACK list, so with large outstanding data that was a major
+bottleneck, not sure if it was 4ms worth though.
 
-Fabio Souto
-Portugal
+> 
+> Is this a congestion control/avoidance issue? What congestion control algorithm is used before 2.6.8?   
+
+Default congestion control in early 2.6 was BIC, then after CUBIC stabilized it was made the default in 2.6.19.
+
+Another thing that may cause changes in latency is Appropriate Byte Counting (ABC).
+It was added in 2.6.14, but then turned off by default in 2.6.18.  The problem is
+that ABC caused performance problems with some applications that sent messages
+as many small writes.
+
+
 -- 
-View this message in context: http://www.nabble.com/IPSec-on-Linux-Kernel-tf4528613.html#a12922013
-Sent from the netdev mailing list archive at Nabble.com.
-
+Stephen Hemminger <shemminger@linux-foundation.org>
