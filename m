@@ -1,77 +1,62 @@
-From: Satoshi OSHIMA <satoshi.oshima.fk@hitachi.com>
-Subject: Re: [RFC/PATCH 2/3] UDP memory usage accounting: accounting unit
- and variable
-Date: Fri, 28 Sep 2007 22:24:43 +0900
-Message-ID: <46FD009B.1010904@hitachi.com>
-References: <46F3B88D.1030601@hitachi.com> <p734pho9nb9.fsf@bingen.suse.de>
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: [PATCH] mv643xx_eth: Check ETH_INT_CAUSE_STATE bit
+Date: Fri, 28 Sep 2007 06:30:43 -0700
+Message-ID: <20070928133043.GA779@xyzzy.farnsworth.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, haoki@redhat.com,
-	=?windows-1252?Q?=3F=3F=3F?= =?windows-1252?Q?=3F?=
-	<yoshfuji@linux-ipv6.org>,
-	Yumiko SUGITA <yumiko.sugita.yf@hitachi.com>
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Martyn Welch <martyn.welch@radstone.co.uk>
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail9.hitachi.co.jp ([133.145.228.44]:53444 "EHLO
-	mail9.hitachi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751929AbXI1NYx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 09:24:53 -0400
-Received: from mlsv10.hitachi.co.jp (unknown [133.144.234.166])
-	by mail9.hitachi.co.jp (Postfix) with ESMTP id C150537CB4
-	for <netdev@vger.kernel.org>; Fri, 28 Sep 2007 22:24:51 +0900 (JST)
-In-Reply-To: <p734pho9nb9.fsf@bingen.suse.de>
+Received: from xyzzy.farnsworth.org ([65.39.95.219]:50720 "HELO farnsworth.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1755123AbXI1Nao (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Sep 2007 09:30:44 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Commit 468d09f8946d40228c56de26fe4874b2f98067ed masked the "state"
+interrupt (bit 20 of the cause register). This results in Radstone's
+PPC7D repeatedly re-entering the interrupt routine, locking up the
+board. The following patch returns the required handling for this
+interrupt. 
 
-Thank you for your comment.
+Signed-off-by: Martyn Welch <martyn.welch@radstone.co.uk>
+Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
 
-Andi Kleen wrote:
-> Satoshi OSHIMA <satoshi.oshima.fk@hitachi.com> writes:
->
->> This patch introduces global variable for UDP memory accounting.
->> The unit is page.
->
-> The global variable doesn't seem to be very MP scalable, especially
-> if you change it for each packet. This will be a very hot cache line,
-> in the worst case bouncing around a large machine.
+---
+Jeff, this is a bug fix.
 
-I understand what you pointed out. But I think the accounting
-method I'm proposing is very similar to TCP accounting and per
-socket accounting.
-How do you think of it?
+ drivers/net/mv643xx_eth.c |    2 +-
+ drivers/net/mv643xx_eth.h |    4 +++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+index 1799eee..1785d15 100644
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -534,7 +534,7 @@ static irqreturn_t mv643xx_eth_int_handler(int irq, void *dev_id)
+ 	}
+ 
+ 	/* PHY status changed */
+-	if (eth_int_cause_ext & ETH_INT_CAUSE_PHY) {
++	if (eth_int_cause_ext & (ETH_INT_CAUSE_PHY | ETH_INT_CAUSE_STATE)) {
+ 		struct ethtool_cmd cmd;
+ 
+ 		if (mii_link_ok(&mp->mii)) {
+diff --git a/drivers/net/mv643xx_eth.h b/drivers/net/mv643xx_eth.h
+index 82f8c0c..565b966 100644
+--- a/drivers/net/mv643xx_eth.h
++++ b/drivers/net/mv643xx_eth.h
+@@ -64,7 +64,9 @@
+ #define ETH_INT_CAUSE_TX_ERROR	(ETH_TX_QUEUES_ENABLED << 8)
+ #define ETH_INT_CAUSE_TX	(ETH_INT_CAUSE_TX_DONE | ETH_INT_CAUSE_TX_ERROR)
+ #define ETH_INT_CAUSE_PHY	0x00010000
+-#define ETH_INT_UNMASK_ALL_EXT	(ETH_INT_CAUSE_TX | ETH_INT_CAUSE_PHY)
++#define ETH_INT_CAUSE_STATE	0x00100000
++#define ETH_INT_UNMASK_ALL_EXT	(ETH_INT_CAUSE_TX | ETH_INT_CAUSE_PHY | \
++					ETH_INT_CAUSE_STATE)
+ 
+ #define ETH_INT_MASK_ALL	0x00000000
+ #define ETH_INT_MASK_ALL_EXT	0x00000000
 
-> Possible alternatives:
-> - Per CPU variables
-
-I'm afraid that sockets and socket buffers are handled on
-various CPUs. I mean that socket creation might be done
-on CPU-A but socket receiving might be done on CPU-B.
-
-And per CPU variables must be counted up when socket
-cap is checked. I'm afraid that per CPU vaiables are
-also costly enough.
-
-
-> - You only change the global on socket creation time (by pre
-allocating a large
-> amount) or when the system comes under memory pressure.
-> - Batching of the global updates for multiple packets [that's a variant
-> of the previous one, might be still too costly though]
->
-> Also for such variables it's usually good to cache line pad them on SMP
-> to avoid false sharing with something else.
-
-I believe that memory usage accounting should be done accurately.
-Currently I couldn't see how can we know the accurate memory
-accounting only when the system is under memory pressure.
-
-But I revised the patch to avoid some atomic operations.
-
-If I could find the good way to avoid atomic operation more,
-I will add it.
-
-Satoshi Oshima
