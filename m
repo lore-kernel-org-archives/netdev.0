@@ -1,66 +1,38 @@
-From: Corey Hickey <bugfood-ml@fatooh.org>
-Subject: [PATCH 2/3] Change perturb_period to unsigned.
-Date: Fri, 28 Sep 2007 15:54:56 -0700
-Message-ID: <11910200981065-git-send-email-bugfood-ml@fatooh.org>
-References: <1191019977201-git-send-email-bugfood-ml@fatooh.org>
-Cc: Corey Hickey <bugfood-ml@fatooh.org>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: bind and O_NONBLOCK
+Date: Fri, 28 Sep 2007 15:56:39 -0700 (PDT)
+Message-ID: <20070928.155639.26515647.davem@davemloft.net>
+References: <46F35DD9.4000909@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, alan@redhat.com
+To: drepper@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hot.fatooh.org ([208.78.103.127]:42968 "EHLO hot.fatooh.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754593AbXI1WzG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Sep 2007 18:55:06 -0400
-In-Reply-To: <1191019977201-git-send-email-bugfood-ml@fatooh.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55488
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755214AbXI1W4j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 18:56:39 -0400
+In-Reply-To: <46F35DD9.4000909@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This corresponds to the kernel patch doing the same.
+From: Ulrich Drepper <drepper@redhat.com>
+Date: Thu, 20 Sep 2007 22:59:53 -0700
 
-Here, too, this will technically break binary compatibility with older
-kernels, but that shouldn't be a problem because negative perturb_period
-values aren't usable anyway.
+> It would be ideal if we'd have such an implementation in the next few
+> months so that we, in theory, can check whether the text in the
+> specification makes sense.
 
-Signed-off-by: Corey Hickey <bugfood-ml@fatooh.org>
----
- include/linux/pkt_sched.h |    2 +-
- tc/q_sfq.c                |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+It seems this functionality is only relevant for really ancient
+protocols such as netbeui, as Alan mentioned.
 
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index 9d41f63..fb04a89 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -142,7 +142,7 @@ enum
- struct tc_sfq_qopt
- {
- 	unsigned	quantum;	/* Bytes per round allocated to flow */
--	int		perturb_period;	/* Period of hash perturbation */
-+	unsigned	perturb_period;	/* Period of hash perturbation */
- 	__u32		limit;		/* Maximal packets in queue */
- 	unsigned	divisor;	/* Hash divisor  */
- 	unsigned	flows;		/* Maximal number of flows  */
-diff --git a/tc/q_sfq.c b/tc/q_sfq.c
-index 7754db7..c9fcc53 100644
---- a/tc/q_sfq.c
-+++ b/tc/q_sfq.c
-@@ -47,7 +47,7 @@ static int sfq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
- 			ok++;
- 		} else if (strcmp(*argv, "perturb") == 0) {
- 			NEXT_ARG();
--			if (get_integer(&opt.perturb_period, *argv, 0)) {
-+			if (get_u32(&opt.perturb_period, *argv, 0)) {
- 				fprintf(stderr, "Illegal \"perturb\"\n");
- 				return -1;
- 			}
-@@ -115,7 +115,7 @@ static int sfq_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 		fprintf(f, "flows %u/%u ", qopt->flows, qopt->divisor);
- 	}
- 	if (qopt->perturb_period)
--		fprintf(f, "perturb %dsec ", qopt->perturb_period);
-+		fprintf(f, "perturb %usec ", qopt->perturb_period);
- 	return 0;
- }
- 
--- 
-1.5.3
+The implementation would go in those protocols, the code for
+which hasn't been touched substantially for years.  It is
+unclear whether those protocols are even functional at this
+time. :-)
+
+So expecting an implementation in the next few months depends
+upon someone standing up and actively working on those rotting
+code bases.
 
