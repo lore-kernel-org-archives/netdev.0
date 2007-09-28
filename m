@@ -1,37 +1,44 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: [PATCH 2/3] sky2: fix VLAN receive processing
-Date: Fri, 28 Sep 2007 20:40:59 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0709282039400.24092@bizon.gios.gov.pl>
-References: <20070928164811.387831540@linux-foundation.org>
- <20070928164858.539587428@linux-foundation.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: 2.6.23-rc8-mm2 - tcp_fastretrans_alert() WARNING
+Date: Fri, 28 Sep 2007 22:10:53 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0709282143020.6013@kivilampi-30.cs.helsinki.fi>
+References: <20070927022220.c76a7a6e.akpm@linux-foundation.org>
+ <46FD20F0.3050909@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Greg KH <greg@kroah.com>, stable@kernel.org,
-	netdev@vger.kernel.org, Pierre-Yves Ritschard <pyr@spootnik.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:56197 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756222AbXI1SlZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 14:41:25 -0400
-In-Reply-To: <20070928164858.539587428@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Cedric Le Goater <clg@fr.ibm.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756185AbXI1TLO@vger.kernel.org>
+In-Reply-To: <46FD20F0.3050909@fr.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 28 Sep 2007, Cedric Le Goater wrote:
 
-
-On Fri, 28 Sep 2007, Stephen Hemminger wrote:
-
-> The length check for truncated frames was not correctly handling
-> the case where VLAN acceleration had already read the tag.
-> Also, the Yukon EX has some features that use high bit of status
-> as security tag.
+> Hello ! 
+> 
+> Andrew Morton wrote:
+> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.23-rc8/2.6.23-rc8-mm2/
+> 
+> I just found that warning in my logs. It seems that it's been 
+> happening since rc7-mm1 at least. 
+> 
+> Thanks !
+> 
+> C.
+> 
+> WARNING: at /home/legoater/linux/2.6.23-rc8-mm2/net/ipv4/tcp_input.c:2314 tcp_fastretrans_alert()
 >
+> Call Trace:
+>  <IRQ>  [<ffffffff8040fdc3>] tcp_ack+0xcd6/0x1894
+> ...snip...
 
-Thank you.
+...Thanks for the report, I'll have look what could still break 
+fackets_out...
 
-
-
-Best regards
-
- 					Krzysztof Oledzki
+-- 
+ i.
