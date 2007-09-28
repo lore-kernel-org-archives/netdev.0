@@ -1,62 +1,67 @@
-From: "Dale Farnsworth" <dale@farnsworth.org>
-Subject: [PATCH] mv643xx_eth: Check ETH_INT_CAUSE_STATE bit
-Date: Fri, 28 Sep 2007 06:30:43 -0700
-Message-ID: <20070928133043.GA779@xyzzy.farnsworth.org>
+From: Satoshi OSHIMA <satoshi.oshima.fk@hitachi.com>
+Subject: [RFC/PATCH 1/3] UDP memory usage accounting (take 2): fix send buffer
+ check
+Date: Fri, 28 Sep 2007 22:37:54 +0900
+Message-ID: <46FD03B2.1000706@hitachi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Martyn Welch <martyn.welch@radstone.co.uk>
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: Yumiko SUGITA <yumiko.sugita.yf@hitachi.com>,
+	=?ISO-2022-JP?B?IhskQkBEGyhC?=
+	 =?ISO-2022-JP?B?GyRCTFobKEJAUmVkSGF0Ig==?= <haoki@redhat.com>,
+	=?ISO-2022-JP?B?GyRCNUhGIxsoQiAbJEIxUUxAGyhC?=
+	<yoshfuji@linux-ipv6.org>
+To: Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xyzzy.farnsworth.org ([65.39.95.219]:50720 "HELO farnsworth.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1755123AbXI1Nao (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Sep 2007 09:30:44 -0400
-Content-Disposition: inline
+Received: from mail4.hitachi.co.jp ([133.145.228.5]:34942 "EHLO
+	mail4.hitachi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755508AbXI1Nh7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 09:37:59 -0400
+Received: from mlsv14.hitachi.co.jp (unknown [133.144.234.166])
+	by mail4.hitachi.co.jp (Postfix) with ESMTP id D5AAC33CD1
+	for <netdev@vger.kernel.org>; Fri, 28 Sep 2007 22:37:57 +0900 (JST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 468d09f8946d40228c56de26fe4874b2f98067ed masked the "state"
-interrupt (bit 20 of the cause register). This results in Radstone's
-PPC7D repeatedly re-entering the interrupt routine, locking up the
-board. The following patch returns the required handling for this
-interrupt. 
+This patch introduces sndbuf size check before
 
-Signed-off-by: Martyn Welch <martyn.welch@radstone.co.uk>
-Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
+memory allcation for send buffer.
 
----
-Jeff, this is a bug fix.
+signed-off-by: Satoshi Oshima <satoshi.oshima.fk@hitachi.com>
 
- drivers/net/mv643xx_eth.c |    2 +-
- drivers/net/mv643xx_eth.h |    4 +++-
- 2 files changed, 4 insertions(+), 2 deletions(-)
+signed-off-by: Hideo Aoki <haoki@redhat.com>
 
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 1799eee..1785d15 100644
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -534,7 +534,7 @@ static irqreturn_t mv643xx_eth_int_handler(int irq, void *dev_id)
- 	}
- 
- 	/* PHY status changed */
--	if (eth_int_cause_ext & ETH_INT_CAUSE_PHY) {
-+	if (eth_int_cause_ext & (ETH_INT_CAUSE_PHY | ETH_INT_CAUSE_STATE)) {
- 		struct ethtool_cmd cmd;
- 
- 		if (mii_link_ok(&mp->mii)) {
-diff --git a/drivers/net/mv643xx_eth.h b/drivers/net/mv643xx_eth.h
-index 82f8c0c..565b966 100644
---- a/drivers/net/mv643xx_eth.h
-+++ b/drivers/net/mv643xx_eth.h
-@@ -64,7 +64,9 @@
- #define ETH_INT_CAUSE_TX_ERROR	(ETH_TX_QUEUES_ENABLED << 8)
- #define ETH_INT_CAUSE_TX	(ETH_INT_CAUSE_TX_DONE | ETH_INT_CAUSE_TX_ERROR)
- #define ETH_INT_CAUSE_PHY	0x00010000
--#define ETH_INT_UNMASK_ALL_EXT	(ETH_INT_CAUSE_TX | ETH_INT_CAUSE_PHY)
-+#define ETH_INT_CAUSE_STATE	0x00100000
-+#define ETH_INT_UNMASK_ALL_EXT	(ETH_INT_CAUSE_TX | ETH_INT_CAUSE_PHY | \
-+					ETH_INT_CAUSE_STATE)
- 
- #define ETH_INT_MASK_ALL	0x00000000
- #define ETH_INT_MASK_ALL_EXT	0x00000000
+Index: 2.6.23-rc7-udp_limit/net/ipv4/ip_output.c
+
+===================================================================
+
+--- 2.6.23-rc7-udp_limit.orig/net/ipv4/ip_output.c
+
++++ 2.6.23-rc7-udp_limit/net/ipv4/ip_output.c
+
+@@ -1004,6 +1004,11 @@ alloc_new_skb:
+
+                     frag = &skb_shinfo(skb)->frags[i];
+
+                 }
+
+             } else if (i < MAX_SKB_FRAGS) {
+
++                if (atomic_read(&sk->sk_wmem_alloc) + PAGE_SIZE
+
++                    > 2 * sk->sk_sndbuf) {
+
++                    err = -ENOBUFS;
+
++                    goto error;
+
++                }
+
+                 if (copy > PAGE_SIZE)
+
+                     copy = PAGE_SIZE;
+
+                 page = alloc_pages(sk->sk_allocation, 0);
 
