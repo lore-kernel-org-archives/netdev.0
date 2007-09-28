@@ -1,33 +1,49 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2/2] sky2: fix transmit state on resume
-Date: Thu, 27 Sep 2007 23:35:35 -0400
-Message-ID: <46FC7687.5050705@pobox.com>
-References: <20070926175847.706025d0@freepuppy.rosehill> <20070927123812.4e2185f3@freepuppy.rosehill>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] Clean up redundant PHY write line for ULi526x Ethernet
+ driver
+Date: Thu, 27 Sep 2007 23:36:58 -0400
+Message-ID: <46FC76DA.6030906@garzik.org>
+References: <1190624262.20089.7.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Zang Roy-r61911 <tie-fei.zang@freescale.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Kyle McMartin <kyle@mcmartin.ca>,
+	Grant Grundler <grundler@parisc-linux.org>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:57143 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:57153 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754810AbXI1Dfg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Sep 2007 23:35:36 -0400
-In-Reply-To: <20070927123812.4e2185f3@freepuppy.rosehill>
+	id S1754036AbXI1DhD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Sep 2007 23:37:03 -0400
+In-Reply-To: <1190624262.20089.7.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Patch is against 2.6.23-rc8 after last patch:
->  sky2: FE+ vlan workaround
+Zang Roy-r61911 wrote:
+> From: Roy Zang <tie-fei.zang@freescale.com>
 > 
-> (Should also work on older releases with minor fuzz).
+> Clean up redundant PHY write line for ULi526x Ethernet
+> Driver.
+> 
+> Signed-off-by: Roy Zang <tie-fei.zang@freescale.com>
+> ---
+>  drivers/net/tulip/uli526x.c |    1 -
+>  1 files changed, 0 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/tulip/uli526x.c b/drivers/net/tulip/uli526x.c
+> index ca2548e..53a8e65 100644
+> --- a/drivers/net/tulip/uli526x.c
+> +++ b/drivers/net/tulip/uli526x.c
+> @@ -1512,7 +1512,6 @@ static void uli526x_process_mode(struct uli526x_board_info *db)
+>  			case ULI526X_100MFD: phy_reg = 0x2100; break;
+>  			}
+>  			phy_write(db->ioaddr, db->phy_addr, 0, phy_reg, db->chip_id);
+> -       			phy_write(db->ioaddr, db->phy_addr, 0, phy_reg, db->chip_id);
 
-Applied.  Please always put meta-information such as the above quoted 
-after the "---" patch description terminator, so that it is not copied 
-into the permanent kernel changelog.  This text must be hand-edited out 
-of each patch, before application.
+Kyle and Grant, I'll queue this up, unless ya'll object...
 
-See item #14 of Documentation/SubmittingPatches.
+	Jeff
 
 
