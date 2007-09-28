@@ -1,144 +1,76 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 5/7] CAN: Add virtual CAN netdevice driver
-Date: Fri, 28 Sep 2007 10:52:39 -0600
-Message-ID: <m1hcled960.fsf@ebiederm.dsl.xmission.com>
-References: <20070920184323.3795.0@janus.isnogud.escape.de>
-	<20070920184533.3795.5@janus.isnogud.escape.de>
-	<m1hclgm7dr.fsf@ebiederm.dsl.xmission.com>
-	<46FCBFC3.7020106@hartkopp.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PKT_SCHED]: Add stateless NAT
+Date: Fri, 28 Sep 2007 18:55:32 +0200
+Message-ID: <46FD3204.6090305@trash.net>
+References: <20070927073446.GA14643@gondor.apana.org.au>	<1190896785.4290.18.camel@localhost> <20070927.120803.39482469.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Urs Thuermann <urs@isnogud.escape.de>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Urs Thuermann <urs.thuermann@volkswagen.de>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>
-To: Oliver Hartkopp <oliver@hartkopp.net>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:39825 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751791AbXI1Qxv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 12:53:51 -0400
-In-Reply-To: <46FCBFC3.7020106@hartkopp.net> (Oliver Hartkopp's message of
-	"Fri, 28 Sep 2007 10:48:03 +0200")
+Received: from stinky.trash.net ([213.144.137.162]:56460 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752933AbXI1Qzf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 12:55:35 -0400
+In-Reply-To: <20070927.120803.39482469.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Oliver Hartkopp <oliver@hartkopp.net> writes:
-
-> Eric W. Biederman wrote:
+David Miller wrote:
+> From: jamal <hadi@cyberus.ca>
+> Date: Thu, 27 Sep 2007 08:39:45 -0400
+> 
+>>>+config NET_ACT_NAT
+>>>+        tristate "Stateless NAT"
+>>>+        depends on NET_CLS_ACT
+>>>+        select NETFILTER
 >>
->> Currently IFF_LOOPBACK set in dev->flags means we are dealing
->> with drivers/net/loopback.c. 
->>   
->
-> This is a very general view, don't you think? The one is an interface
-> flag and the other one is an interface itself. This looks like a risky
-> mixture, when there is no clean separation.
-
-The better definition followed that IFF_LOOPBACK means all packets
-will loopback.  Currently we only have one such device in the tree.
-And the CAN devices do not have that property.
-
->> So at a first glance the CAN usage of IFF_LOOPBACK looks completely
->> broken, and likely to confuse other networking layers if they see
->> a CAN device.  Say if someone attempts to run IP over CAN or
->> something like that.
->>   
->
-> The CAN protocol family is some kind of a closed ecosystem with a
-> complete different addressing scheme that uses the bare networking
-> functionality of the Linux Kernel as well as DECNET or ARCNET. You would
-> never been able to run the IP-stack on a CAN netdev (ARPHDR_CAN,
-> ETH_P_CAN) due to several technical differences in addressing, etc.
-
-However when register_netdev is the netdev_notifier chain is called
-with NETDEV_REGISTER
-
-So then we enter code paths such as "net/ipv4/inetdev_event()" and
-process the network device.  There is some small amount of treatment
-given to devices that have IFF_LOOPBACK set.
-
-The core point being that CAN devices as currently constructed are not
-in a closed ecosystem.  Other networking layers see them even if they
-can not use the properly.
-
-I don't know what all of the implications are but I do know we
-need to be careful.
+>>I am gonna have to agree with Evgeniy on this Herbert;->
+>>The rewards are it will improve performance for people who dont need
+>>netfilter.
+> 
+> 
+> I agree that we should move the functions out.   However...
+> 
+> You have to realize that this logic is a complete crock
+> of shit for %99.99999999999999999999 of Linux users out there
+> who get and only use distribution compiled kernels which are
+> going to enable everything anyways.
+> 
+> So we better make sure there are zero performance implications at some
+> point just for compiling netfilter into the tree.  I know that isn't
+> the case currently, but that means that we aren't helping out the
+> majority of Linux users and are thus only adding these optimizations
+> for such a small sliver of users and that is totally pointless and
+> sucks.
 
 
->> Do you think you can remove this incompatible usage of IFF_LOOPBACK
->> from the can code?
->>   
->
-> Yes. We might pick another name for it (see below).
+The hooks themselves actually shouldn't be that much of a problem
+since without any registered users they come down to a simple
+list_empty check. The bigger problem is probably the fact that
+the "okfn" is usually declared inline, but we also take its address
+for nf_hook_slow, so at least with forced inlining, we end up
+with one inlined and one out-of-line version.
 
-Thanks.
+Looking at ip_input.o as example (everything without forced inlining):
 
->> If I have read your documentation properly the only reason you are
->> doing this is so that the timing of frames to cansniffer more
->> accurately reflects when the frame hits the wire.  If CAN runs over a
->> very slow medium I guess I can see where that can be a concern.
+   text    data     bss     dec     hex filename
+   2076       8       0    2084     824 net/ipv4/ip_input.o
+   3483       8       0    3491     da3 net/ipv4/ip_input.o
 
->
-> So it's not an issue of having better timings but to reproduce the
-> *correct message order* from the CAN bus. One year ago this problem has
-> originally been pointed out by Michael Schulze from the University of
-> Magdeburg as having a correct message order created by the CSMA/CA
-> treatment is a vital requirement for CAN bus users. As you might see now
-> the CAN netdriver has to offer additional functionalities due to the
-> CSMA/CA treatment in opposite to the 'standard' CSMA/CD behaviour you
-> know from Ethernet netdrivers. And this arbitration information of the
-> CAN controller is only available on driver level. It is therefore no
-> question IF the CAN netdriver supports the CSMA/CA treatment but HOW to
-> provide an interface for this functionality on a basis of a standard
-> netdriver (which simply only sends and receives frames).
 
-Ok.  So the difference here is that CAN devices provide ordering on
-the wire between their transmitted packets and their received packets,
-and you need an additional hook so you can properly observe this case.
+So we have roughly 1.75 more code for the two hooks. For reference,
+without using the function pointer it increases a lot less:
 
-Hmm. My gut feel says that we just want function your drivers can
-call post transmit that will call dev_queue_xmit_nit if someone else
-is watching.  Although calling netif_rx seems to work but at least
-in the general case with routing I would be concerned that would get
-you into packets that would get routed out the incoming interface
-and cause a loop.
+   text    data     bss     dec     hex filename
+   2319       8       0    2327     917 net/ipv4/ip_input.o
 
-> As the CAN netdrivers (as described above) are only available and used
-> by the PF_CAN core, the use of IFF_LOOPBACK looked like reasonable
-> solution to distinguish whether the CAN netdriver is capable to do the
-> loopback (e.g. due to the ability of the controller to generate
-> TX-interrupts) or not. The usage of IFF_LOOPBACK in CAN netdrivers
-> didn't affect or confuse the rest of the Linux networking system up to
-> now. Btw. if you state that IFF_LOOPBACK means for a netdriver, that
-> "all packets from a device will come right back to the current machine,
-> and go nowhere else.", we should think about a new IFF_-flag here.
+similar with not inlining ip_rcv_finish() and ip_local_deliver_finish():
 
-Yes. IFF_LOOPBACK for a netdriver means that all packets from a device
-will come right back to the current machine.   I stated that in a
-later message, as that seems a clearer way to express what it means.
+   text    data     bss     dec     hex filename
+   2282       8       0    2290     8f2 net/ipv4/ip_input.o
 
-Further I still don't see any mechanism that isolates CAN netdrivers
-from the other protocol layers.
-
-What makes this problem a little stronger is that I have been
-simplifying some of the tests in some of the other networking layers
-from being "if (dev == loopback_dev)" to "if (dev->flags &
-IFF_LOOPBACK)" So there are fewer special cases I need to deal with.
-
-I believe that if you now use your current CAN patches unless I have
-misread something your can devices will now show up with ip 127.0.0.1
-
-> I don't have any concerns creating a new IFF_-flag for this "loopback
-> approved by CSMA/CA media access" i just have no idea for a really good
-> name for it. But maybe the use of IFF_LOOPBACK for CAN netdrivers
-> (ARPHRD_CAN) is also ok for you now?!?
-
-Serial devices tend to call this echo or local echo, so how about
-IFF_ECHO.
-
-Eric
-
+Any ideas how to do this better? Unforunately we need the function
+pointers for reinjecting queued packets ..
