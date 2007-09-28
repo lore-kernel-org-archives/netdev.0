@@ -1,67 +1,255 @@
-From: Cedric Le Goater <clg@fr.ibm.com>
-Subject: Re: [PATCH] net: Add network namespace clone & unshare support.
-Date: Fri, 28 Sep 2007 11:12:13 +0200
-Message-ID: <46FCC56D.9050600@fr.ibm.com>
-References: <m1tzphrnq5.fsf@ebiederm.dsl.xmission.com> <46FB6F1E.8070105@fr.ibm.com> <m1k5qcjaiu.fsf@ebiederm.dsl.xmission.com> <20070927.124552.69400277.davem@davemloft.net> <m18x6rhfy0.fsf@ebiederm.dsl.xmission.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [PKT_SCHED]: Add stateless NAT
+Date: Fri, 28 Sep 2007 13:16:43 +0400
+Message-ID: <20070928091643.GA16484@2ka.mipt.ru>
+References: <20070927132037.GA17056@gondor.apana.org.au> <20070927132941.GB25353@2ka.mipt.ru> <46FBB296.8020901@trash.net> <20070927.125239.129764503.davem@davemloft.net> <20070928081918.GB2304@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, containers@lists.osdl.org,
-	netdev@vger.kernel.org, akpm@linux-foundation.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, hadi@cyberus.ca
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:51439 "EHLO e1.ny.us.ibm.com"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:49904 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757597AbXI1JMS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Sep 2007 05:12:18 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8S9CHh4010528
-	for <netdev@vger.kernel.org>; Fri, 28 Sep 2007 05:12:17 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8S9CHYq474882
-	for <netdev@vger.kernel.org>; Fri, 28 Sep 2007 05:12:17 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8S9CGPv031477
-	for <netdev@vger.kernel.org>; Fri, 28 Sep 2007 05:12:17 -0400
-In-Reply-To: <m18x6rhfy0.fsf@ebiederm.dsl.xmission.com>
+	id S1760818AbXI1JRc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Sep 2007 05:17:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20070928081918.GB2304@2ka.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> David Miller <davem@davemloft.net> writes:
+On Fri, Sep 28, 2007 at 12:19:19PM +0400, Evgeniy Polyakov (johnpol@2ka.mipt.ru) wrote:
+> > I still think the nf_*() prefixes should all go and the extern
+> > prototypes should go into an independant header file.
+> > 
+> > These are not netfilter routines, they are "INET" helpers.
+> > 
+> > And we should make similar treatment for all of the ipv6
+> > packet parser helper functions that ipv6 netfilter needs.
 > 
->> Eric, pick an appropriate new non-conflicting number NOW.
-> 
-> Done.  My apologies for the confusion.  I thought the
-> way Cedric and the IBM guys were testing someone would have
-> shouted at me long before now.
->
->> This adds unnecessary extra work for Andrew Morton, which he has
->> enough of already.
-> 
-> Cedric made a good point that we will have conflicts of code
-> being added to the same place in nsproxy.c and the like.  So
-> I copied Andrew to give him a heads up.
+> Should netfilter still have own nf_ prefixed functions which will just
+> call the same ones without prefix from inet header?
 
-here's a suggestion,
+Kind of.
 
-we could keep the net namespace unshare patch out of david's tree,
-let andrew merge and release a new -mm and, then, send the net namespace 
-unshare patch to andrew. that should keep nsproxy out of the andrew's 
-merge challenge. But david's tree will miss the unshare part for a while.
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 1dd075e..befdb82 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -291,9 +291,7 @@ extern int skb_make_writable(struct sk_buff **pskb, unsigned int writable_len);
+ 
+ static inline void nf_csum_replace4(__sum16 *sum, __be32 from, __be32 to)
+ {
+-	__be32 diff[] = { ~from, to };
+-
+-	*sum = csum_fold(csum_partial((char *)diff, sizeof(diff), ~csum_unfold(*sum)));
++	csum_replace(sum, from, to);
+ }
+ 
+ static inline void nf_csum_replace2(__sum16 *sum, __be16 from, __be16 to)
+@@ -301,13 +299,17 @@ static inline void nf_csum_replace2(__sum16 *sum, __be16 from, __be16 to)
+ 	nf_csum_replace4(sum, (__force __be32)from, (__force __be32)to);
+ }
+ 
+-extern void nf_proto_csum_replace4(__sum16 *sum, struct sk_buff *skb,
+-				      __be32 from, __be32 to, int pseudohdr);
++static inline void nf_proto_csum_replace4(__sum16 *sum, struct sk_buff *skb,
++			    __be32 from, __be32 to, int pseudohdr)
++{
++	proto_csum_replace(sum, skb, (__force __be32)from,
++				(__force __be32)to, pseudohdr);
++}
+ 
+ static inline void nf_proto_csum_replace2(__sum16 *sum, struct sk_buff *skb,
+ 				      __be16 from, __be16 to, int pseudohdr)
+ {
+-	nf_proto_csum_replace4(sum, skb, (__force __be32)from,
++	proto_csum_replace(sum, skb, (__force __be32)from,
+ 				(__force __be32)to, pseudohdr);
+ }
+ 
+diff --git a/include/linux/netfilter_ipv6.h b/include/linux/netfilter_ipv6.h
+index 66ca8e3..e0561ea 100644
+--- a/include/linux/netfilter_ipv6.h
++++ b/include/linux/netfilter_ipv6.h
+@@ -72,8 +72,11 @@ enum nf_ip6_hook_priorities {
+ 
+ #ifdef CONFIG_NETFILTER
+ extern int ip6_route_me_harder(struct sk_buff *skb);
+-extern __sum16 nf_ip6_checksum(struct sk_buff *skb, unsigned int hook,
+-				    unsigned int dataoff, u_int8_t protocol);
++static inline __sum16 nf_ip6_checksum(struct sk_buff *skb, unsigned int hook,
++				    unsigned int dataoff, u_int8_t protocol)
++{
++	return ip6_checksum(skb, hook, dataoff, protocol);
++}
+ 
+ extern int ipv6_netfilter_init(void);
+ extern void ipv6_netfilter_fini(void);
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index a656cec..95ad5af 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1788,5 +1788,11 @@ static inline void skb_forward_csum(struct sk_buff *skb)
+ 		skb->ip_summed = CHECKSUM_NONE;
+ }
+ 
++extern void proto_csum_replace(__sum16 *sum, struct sk_buff *skb,
++				      __be32 from, __be32 to, int pseudohdr);
++
++extern __sum16 ip6_checksum(struct sk_buff *skb, unsigned int hook,
++			     unsigned int dataoff, u_int8_t protocol);
++
+ #endif	/* __KERNEL__ */
+ #endif	/* _LINUX_SKBUFF_H */
+diff --git a/include/net/checksum.h b/include/net/checksum.h
+index 1242461..8602189 100644
+--- a/include/net/checksum.h
++++ b/include/net/checksum.h
+@@ -93,4 +93,12 @@ static inline __wsum csum_unfold(__sum16 n)
+ }
+ 
+ #define CSUM_MANGLED_0 ((__force __sum16)0xffff)
++
++static inline void csum_replace(__sum16 *sum, __be32 from, __be32 to)
++{
++	__be32 diff[] = { ~from, to };
++
++	*sum = csum_fold(csum_partial((char *)diff, sizeof(diff), ~csum_unfold(*sum)));
++}
++
+ #endif
+diff --git a/net/core/utils.c b/net/core/utils.c
+index 0bf17da..17576c8 100644
+--- a/net/core/utils.c
++++ b/net/core/utils.c
+@@ -293,3 +293,54 @@ out:
+ }
+ 
+ EXPORT_SYMBOL(in6_pton);
++
++void proto_csum_replace(__sum16 *sum, struct sk_buff *skb,
++			    __be32 from, __be32 to, int pseudohdr)
++{
++	__be32 diff[] = { ~from, to };
++	if (skb->ip_summed != CHECKSUM_PARTIAL) {
++		*sum = csum_fold(csum_partial(diff, sizeof(diff),
++				~csum_unfold(*sum)));
++		if (skb->ip_summed == CHECKSUM_COMPLETE && pseudohdr)
++			skb->csum = ~csum_partial(diff, sizeof(diff),
++						~skb->csum);
++	} else if (pseudohdr)
++		*sum = ~csum_fold(csum_partial(diff, sizeof(diff),
++				csum_unfold(*sum)));
++}
++EXPORT_SYMBOL(proto_csum_replace);
++
++__sum16 ip6_checksum(struct sk_buff *skb, unsigned int hook,
++			     unsigned int dataoff, u_int8_t protocol)
++{
++	struct ipv6hdr *ip6h = ipv6_hdr(skb);
++	__sum16 csum = 0;
++
++	switch (skb->ip_summed) {
++	case CHECKSUM_COMPLETE:
++		if (hook != NF_IP6_PRE_ROUTING && hook != NF_IP6_LOCAL_IN)
++			break;
++		if (!csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
++				     skb->len - dataoff, protocol,
++				     csum_sub(skb->csum,
++					      skb_checksum(skb, 0,
++							   dataoff, 0)))) {
++			skb->ip_summed = CHECKSUM_UNNECESSARY;
++			break;
++		}
++		/* fall through */
++	case CHECKSUM_NONE:
++		skb->csum = ~csum_unfold(
++				csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
++					     skb->len - dataoff,
++					     protocol,
++					     csum_sub(0,
++						      skb_checksum(skb, 0,
++								   dataoff, 0))));
++		csum = __skb_checksum_complete(skb);
++	}
++	return csum;
++}
++
++EXPORT_SYMBOL(ip6_checksum);
++
+diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
+index 38b1496..be43559 100644
+--- a/net/ipv6/netfilter.c
++++ b/net/ipv6/netfilter.c
+@@ -81,40 +81,6 @@ static int nf_ip6_reroute(struct sk_buff **pskb, const struct nf_info *info)
+ 	return 0;
+ }
+ 
+-__sum16 nf_ip6_checksum(struct sk_buff *skb, unsigned int hook,
+-			     unsigned int dataoff, u_int8_t protocol)
+-{
+-	struct ipv6hdr *ip6h = ipv6_hdr(skb);
+-	__sum16 csum = 0;
+-
+-	switch (skb->ip_summed) {
+-	case CHECKSUM_COMPLETE:
+-		if (hook != NF_IP6_PRE_ROUTING && hook != NF_IP6_LOCAL_IN)
+-			break;
+-		if (!csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
+-				     skb->len - dataoff, protocol,
+-				     csum_sub(skb->csum,
+-					      skb_checksum(skb, 0,
+-							   dataoff, 0)))) {
+-			skb->ip_summed = CHECKSUM_UNNECESSARY;
+-			break;
+-		}
+-		/* fall through */
+-	case CHECKSUM_NONE:
+-		skb->csum = ~csum_unfold(
+-				csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
+-					     skb->len - dataoff,
+-					     protocol,
+-					     csum_sub(0,
+-						      skb_checksum(skb, 0,
+-								   dataoff, 0))));
+-		csum = __skb_checksum_complete(skb);
+-	}
+-	return csum;
+-}
+-
+-EXPORT_SYMBOL(nf_ip6_checksum);
+-
+ static struct nf_afinfo nf_ip6_afinfo = {
+ 	.family		= AF_INET6,
+ 	.checksum	= nf_ip6_checksum,
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index 381a77c..9ffbbe2 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -226,22 +226,6 @@ copy_skb:
+ }
+ EXPORT_SYMBOL(skb_make_writable);
+ 
+-void nf_proto_csum_replace4(__sum16 *sum, struct sk_buff *skb,
+-			    __be32 from, __be32 to, int pseudohdr)
+-{
+-	__be32 diff[] = { ~from, to };
+-	if (skb->ip_summed != CHECKSUM_PARTIAL) {
+-		*sum = csum_fold(csum_partial(diff, sizeof(diff),
+-				~csum_unfold(*sum)));
+-		if (skb->ip_summed == CHECKSUM_COMPLETE && pseudohdr)
+-			skb->csum = ~csum_partial(diff, sizeof(diff),
+-						~skb->csum);
+-	} else if (pseudohdr)
+-		*sum = ~csum_fold(csum_partial(diff, sizeof(diff),
+-				csum_unfold(*sum)));
+-}
+-EXPORT_SYMBOL(nf_proto_csum_replace4);
+-
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ /* This does not belong here, but locally generated errors need it if connection
+    tracking in use: without this, connection may not be in hash table, and hence
 
-As for the clone flags, the values *must not* conflict but the patches 
-probably will.
-
-C.
-
-> I will gladly do what I can, to help.  Working against 3 trees
-> development at the moment is a bit of a development challenge.
-> 
-> Eric
-> _______________________________________________
-> Containers mailing list
-> Containers@lists.linux-foundation.org
-> https://lists.linux-foundation.org/mailman/listinfo/containers
-> 
-
+-- 
+	Evgeniy Polyakov
