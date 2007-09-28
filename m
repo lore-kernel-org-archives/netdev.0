@@ -1,63 +1,64 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: [stable] Upgrading 2.6.21.7->2.6.22.9 kills my network (sky2):
- sky2 eth0: rx error, status 0x402300 length 60
-Date: Fri, 28 Sep 2007 20:36:06 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0709281957330.24092@bizon.gios.gov.pl>
-References: <Pine.LNX.4.64.0709280950160.17152@bizon.gios.gov.pl>
- <Pine.LNX.4.64.0709281144530.17152@bizon.gios.gov.pl>
- <Pine.LNX.4.64.0709281304590.17152@bizon.gios.gov.pl> <20070928161328.GB28246@kroah.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] sb1250-mac: Driver model & phylib update
+Date: Fri, 28 Sep 2007 11:39:45 -0700
+Message-ID: <20070928113945.389a6a70.akpm@linux-foundation.org>
+References: <Pine.LNX.4.64N.0709191811040.24627@blysk.ds.pg.gda.pl>
+	<20070921124409.7f3d122b.akpm@linux-foundation.org>
+	<Pine.LNX.4.64N.0709241529570.22491@blysk.ds.pg.gda.pl>
+	<20070924095559.c81f7061.akpm@linux-foundation.org>
+	<Pine.LNX.4.64N.0709281628130.10439@blysk.ds.pg.gda.pl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Linux Netdev List <netdev@vger.kernel.org>, stable@kernel.org
-To: Greg KH <greg@kroah.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org, linux-kernel@vger.kernel.org
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:34967 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754450AbXI1Sgj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 14:36:39 -0400
-In-Reply-To: <20070928161328.GB28246@kroah.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:56591 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752867AbXI1Sko (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 14:40:44 -0400
+In-Reply-To: <Pine.LNX.4.64N.0709281628130.10439@blysk.ds.pg.gda.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 28 Sep 2007 17:23:00 +0100 (BST) "Maciej W. Rozycki" <macro@linux-mips.org> wrote:
 
+> On Mon, 24 Sep 2007, Andrew Morton wrote:
+> 
+> > >  Well, this is against Jeff's netdev-2.6 tree which hopefully is not as 
+> > > crufty as Linus's old mainline; if it is not possible to queue this change 
+> > > for 2.6.25 or suchlike, then I will try to resubmit later.
+> > 
+> > Most of Jeff's netdev tree got dumped into Dave's net-2.6.24 tree.  That's
+> > the one you want to be raising patches against for the next few weeks.
+> 
+>  OK, thanks for clarification.  Then both patches already submitted:
+> 
+> patch-netdev-2.6.23-rc6-20070920-sb1250-mac-typedef-9
+> patch-netdev-2.6.23-rc6-20070920-sb1250-mac-29
+> 
+> apply cleanly to net-2.6.24 one on top of the other in this order.
 
-On Fri, 28 Sep 2007, Greg KH wrote:
+<checks the netdev archives>
 
-> On Fri, Sep 28, 2007 at 01:11:27PM +0200, Krzysztof Oledzki wrote:
->>
->>
->> On Fri, 28 Sep 2007, Krzysztof Oledzki wrote:
->>
->>>
->>>
->>> On Fri, 28 Sep 2007, Krzysztof Oledzki wrote:
->>>
->>>> Hello,
->>>> After upgrading my kernel from 2.6.21.7 to 2.6.22.9 my 88E8053 no longer
->>>> works:
->>>
->>> Small update: 2.6.22.9 with sky2.c/sky2.h from 2.4.22.4 works without any
->>> problems.
->>
->> Final update.
->>
->> Reverting this patch:
->> http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.22.y.git;a=commitdiff_plain;h=8c07a8e30ba8a2e0831da4b134202598435f8358
->> solved my problem.
->>
->> I also found this one:
->>
->> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff_plain;h=d6532232cd3de79c852685823a9c52f723816d0a
->>
->> Could it go to a next -stable ASAP, please? It seems that 2.6.22.5-2.6.22.9
->> kernels have broken sky2 if used with vlans. :( Such regression in a
->> -stable kernel isn't nice. :(
->
-> So should we just apply the second patch?  I'll let Stephen tell us what
-> we should do :)
->
+hm, I found a patch at the end of an email trail which is datestamped Sep
+20 here which appears to match the first one you mentioned, but I'm having
+trouble working out what patch subject your "sb1250-mac" maps onto.
 
-Second patch works for me, so IMHO yes. Forget to mention that earlier, 
-sorry. Ofcourse this should be the maintainer decision, this is only my 
-vote. :)
+This is why I make the patch filenames map directly from the patch titles,
+so I end up with files like
+optimize-x86-page-faults-like-all-other-achitectures-and-kill-notifier-cruft.patch.
+ Verbose, but it reduces confusion and mistakes.
+
+>  I can resubmit them
+
+That's always a good choice.  Patches which are dangling at the end of an email
+discussion often don't get merged: it is unclear to the receiveing party that
+the discussion has terminated, and I'm never terribly confident in the testing
+level of a patch which obviously got modified two minutes before it was sent.
+
+> -- where?  netdev?  As I say I am fine with 2.6.25 as 
+> the target.
+
+jeff, netdev, me?  
