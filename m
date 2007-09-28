@@ -1,42 +1,62 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: e1000 tcp checksum incorrect, x86 64b
-Date: Fri, 28 Sep 2007 09:35:07 -0700
-Message-ID: <46FD2D3B.4050605@hp.com>
-References: <E1Ib79E-0006CN-00@gondolin.me.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jon Smirl <jonsmirl@gmail.com>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH 3/3] sky2: fix transmit state on resume
+Date: Fri, 28 Sep 2007 09:48:14 -0700
+Message-ID: <20070928164858.593540259@linux-foundation.org>
+References: <20070928164811.387831540@linux-foundation.org>
+Cc: stable@kernel.org, netdev@vger.kernel.org
+To: Krzysztof Oledzki <olel@ans.pl>, Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from palrel10.hp.com ([156.153.255.245]:38387 "EHLO palrel10.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751313AbXI1Qf2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Sep 2007 12:35:28 -0400
-In-Reply-To: <E1Ib79E-0006CN-00@gondolin.me.apana.org.au>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:53530 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751313AbXI1QwA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 12:52:00 -0400
+Content-Disposition: inline; filename=sky2-tx-sum-resume.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> Jon Smirl <jonsmirl@gmail.com> wrote:
-> 
->>App is writing seven bytes to the socket. Socket write timeout expires
->>and the seven bytes are sent. The checksum is not getting inserted
->>into the packet. It is set to a constant 0x8389 instead of the right
->>value.  App is gmpc 0.15.4.95, Revision: 6794
->>
->>Attached Wireshark packet trace show the problem. e1000 is 192.168.1.4
->>64bit, Q6600. Dell Dimension 9200
-> 
-> 
-> Wireshark is broken.  It needs to know TP_STATUS_CSUMNOTREADY
-> means that the checksum is partial and will only be completed
-> when the hardware sends the packet out.
-> 
-> Alternatively disable checksum offload with ethtool.
+After resume, driver has reset the chip so the current state
+of transmit checksum offload state machine and DMA state machine
+will be undefined.
 
-Or take the packet traces "outboard" of the NIC somewhere/somehow.
+The fix is to set the state so that first Tx will set MSS and offset
+values.
 
-What problem(s) led to your taking the packet trace in the first place?
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-rick jones
+--- a/drivers/net/sky2.c	2007-09-28 09:21:26.000000000 -0700
++++ b/drivers/net/sky2.c	2007-09-28 09:21:37.000000000 -0700
+@@ -831,6 +831,20 @@ static inline struct sky2_tx_le *get_tx_
+ 	return le;
+ }
+ 
++static void tx_init(struct sky2_port *sky2)
++{
++	struct sky2_tx_le *le;
++
++	sky2->tx_prod = sky2->tx_cons = 0;
++	sky2->tx_tcpsum = 0;
++	sky2->tx_last_mss = 0;
++
++	le = get_tx_le(sky2);
++	le->addr = 0;
++	le->opcode = OP_ADDR64 | HW_OWNER;
++	sky2->tx_addr64 = 0;
++}
++
+ static inline struct tx_ring_info *tx_le_re(struct sky2_port *sky2,
+ 					    struct sky2_tx_le *le)
+ {
+@@ -1244,7 +1258,8 @@ static int sky2_up(struct net_device *de
+ 				GFP_KERNEL);
+ 	if (!sky2->tx_ring)
+ 		goto err_out;
+-	sky2->tx_prod = sky2->tx_cons = 0;
++
++	tx_init(sky2);
+ 
+ 	sky2->rx_le = pci_alloc_consistent(hw->pdev, RX_LE_BYTES,
+ 					   &sky2->rx_le_map);
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
+
