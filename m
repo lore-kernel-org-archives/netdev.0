@@ -1,36 +1,44 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] e1000: Add device IDs of blade version of the 82571 quad
- port
-Date: Thu, 27 Sep 2007 23:38:43 -0400
-Message-ID: <46FC7743.9000007@garzik.org>
-References: <20070830182357.14185.69495.stgit@localhost.localdomain>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] Update get_net_ns_by_pid
+Date: Thu, 27 Sep 2007 21:48:20 -0600
+Message-ID: <m1k5qbfo1n.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.ronciak@intel.com
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Containers <containers@lists.osdl.org>,
+	<netdev@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:57172 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755561AbXI1Dip (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Sep 2007 23:38:45 -0400
-In-Reply-To: <20070830182357.14185.69495.stgit@localhost.localdomain>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:49395 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753812AbXI1Dsq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Sep 2007 23:48:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Auke Kok wrote:
-> This blade-specific board form factor is identical to the 82571EB
-> board.
-> 
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> ---
-> 
->  drivers/net/e1000/e1000_ethtool.c |    1 +
->  drivers/net/e1000/e1000_hw.c      |    1 +
->  drivers/net/e1000/e1000_hw.h      |    1 +
->  drivers/net/e1000/e1000_main.c    |    2 ++
->  4 files changed, 5 insertions(+), 0 deletions(-)
 
-applied
+In the -mm tree the rules for access an nsproxy have changed,
+and in get_net_ns_by_pid we access the nsproxy, so update
+it to follow the new rules.
 
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 739fbad..1caba10 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -746,10 +746,10 @@ static struct net *get_net_ns_by_pid(pid_t pid)
+ 	rcu_read_lock();
+ 	tsk = find_task_by_pid(pid);
+ 	if (tsk) {
+-		task_lock(tsk);
+-		if (tsk->nsproxy)
+-			net = get_net(tsk->nsproxy->net_ns);
+-		task_unlock(tsk);
++		struct nsproxy *nsproxy;
++		nsproxy = task_nsproxy(tsk);
++		if (nsproxy)
++			net = get_net(nsproxy->net_ns);
+ 	}
+ 	rcu_read_unlock();
+ 	return net;
