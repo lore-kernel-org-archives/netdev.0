@@ -1,169 +1,77 @@
 From: Corey Hickey <bugfood-ml@fatooh.org>
-Subject: [PATCH 01/10] Preparatory refactoring part 1.
-Date: Fri, 28 Sep 2007 15:52:48 -0700
-Message-ID: <11910199771607-git-send-email-bugfood-ml@fatooh.org>
+Subject: [PATCH 08/10] Multiply perturb_period by HZ when used rather than when assigned.
+Date: Fri, 28 Sep 2007 15:52:55 -0700
+Message-ID: <11910199772137-git-send-email-bugfood-ml@fatooh.org>
 References: <1191019977201-git-send-email-bugfood-ml@fatooh.org>
 Cc: Corey Hickey <bugfood-ml@fatooh.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hot.fatooh.org ([208.78.103.127]:42847 "EHLO hot.fatooh.org"
+Received: from hot.fatooh.org ([208.78.103.127]:42861 "EHLO hot.fatooh.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753954AbXI1WxG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Sep 2007 18:53:06 -0400
+	id S1754551AbXI1WxI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Sep 2007 18:53:08 -0400
 In-Reply-To: <1191019977201-git-send-email-bugfood-ml@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make a new function sfq_q_enqueue() that operates directly on the
-queue data. This will be useful for implementing sfq_change() in
-a later patch. A pleasant side-effect is reducing most of the
-duplicate code in sfq_enqueue() and sfq_requeue().
-
-Similarly, make a new function sfq_q_dequeue().
+perturb_period is the only parameter that doesn't match 1:1 with the
+value from userspace. This change makes it easy and clean to use a
+small macro for setting parameters (in a subsequent patch).
 
 Signed-off-by: Corey Hickey <bugfood-ml@fatooh.org>
 ---
- net/sched/sch_sfq.c |   72 +++++++++++++++++++++++++++------------------------
- 1 files changed, 38 insertions(+), 34 deletions(-)
+ net/sched/sch_sfq.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index 3a23e30..57485ef 100644
+index 341a9a1..2d3cc38 100644
 --- a/net/sched/sch_sfq.c
 +++ b/net/sched/sch_sfq.c
-@@ -77,6 +77,9 @@
- #define SFQ_DEPTH		128
- #define SFQ_HASH_DIVISOR	1024
+@@ -370,7 +370,7 @@ static void sfq_perturbation(unsigned long arg)
+ 	q->perturbation = net_random()&0x1F;
  
-+#define SFQ_HEAD 0
-+#define SFQ_TAIL 1
-+
- /* This type should contain at least SFQ_DEPTH*2 values */
- typedef unsigned char sfq_index;
- 
-@@ -244,10 +247,9 @@ static unsigned int sfq_drop(struct Qdisc *sch)
- 	return 0;
+ 	if (q->perturb_period) {
+-		q->perturb_timer.expires = jiffies + q->perturb_period;
++		q->perturb_timer.expires = jiffies + q->perturb_period * HZ;
+ 		add_timer(&q->perturb_timer);
+ 	}
  }
- 
--static int
--sfq_enqueue(struct sk_buff *skb, struct Qdisc* sch)
-+static void
-+sfq_q_enqueue(struct sk_buff *skb, struct sfq_sched_data *q, unsigned int end)
- {
--	struct sfq_sched_data *q = qdisc_priv(sch);
- 	unsigned hash = sfq_hash(q, skb);
- 	sfq_index x;
- 
-@@ -256,8 +258,12 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc* sch)
- 		q->ht[hash] = x = q->dep[SFQ_DEPTH].next;
- 		q->hash[x] = hash;
- 	}
--	sch->qstats.backlog += skb->len;
--	__skb_queue_tail(&q->qs[x], skb);
-+
-+	if (end == SFQ_TAIL)
-+		__skb_queue_tail(&q->qs[x], skb);
-+	else
-+		__skb_queue_head(&q->qs[x], skb);
-+
- 	sfq_inc(q, x);
- 	if (q->qs[x].qlen == 1) {		/* The flow is new */
- 		if (q->tail == SFQ_DEPTH) {	/* It is the first flow */
-@@ -270,6 +276,15 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc* sch)
- 			q->tail = x;
- 		}
- 	}
-+}
-+
-+static int
-+sfq_enqueue(struct sk_buff *skb, struct Qdisc* sch)
-+{
-+	struct sfq_sched_data *q = qdisc_priv(sch);
-+
-+	sfq_q_enqueue(skb, q, SFQ_TAIL);
-+	sch->qstats.backlog += skb->len;
- 	if (++sch->q.qlen <= q->limit) {
- 		sch->bstats.bytes += skb->len;
- 		sch->bstats.packets++;
-@@ -284,45 +299,21 @@ static int
- sfq_requeue(struct sk_buff *skb, struct Qdisc* sch)
- {
- 	struct sfq_sched_data *q = qdisc_priv(sch);
--	unsigned hash = sfq_hash(q, skb);
--	sfq_index x;
- 
--	x = q->ht[hash];
--	if (x == SFQ_DEPTH) {
--		q->ht[hash] = x = q->dep[SFQ_DEPTH].next;
--		q->hash[x] = hash;
--	}
-+	sfq_q_enqueue(skb, q, SFQ_HEAD);
- 	sch->qstats.backlog += skb->len;
--	__skb_queue_head(&q->qs[x], skb);
--	sfq_inc(q, x);
--	if (q->qs[x].qlen == 1) {		/* The flow is new */
--		if (q->tail == SFQ_DEPTH) {	/* It is the first flow */
--			q->tail = x;
--			q->next[x] = x;
--			q->allot[x] = q->quantum;
--		} else {
--			q->next[x] = q->next[q->tail];
--			q->next[q->tail] = x;
--			q->tail = x;
--		}
--	}
- 	if (++sch->q.qlen <= q->limit) {
- 		sch->qstats.requeues++;
- 		return 0;
+@@ -433,7 +433,7 @@ sfq_q_init(struct sfq_sched_data *q, struct rtattr *opt)
+ 		if (ctl->quantum)
+ 			q->quantum = ctl->quantum;
+ 		if (ctl->perturb_period)
+-			q->perturb_period = ctl->perturb_period * HZ;
++			q->perturb_period = ctl->perturb_period;
+ 		if (ctl->divisor)
+ 			q->hash_divisor = ctl->divisor;
+ 		if (ctl->flows)
+@@ -496,7 +496,7 @@ static int sfq_init(struct Qdisc *sch, struct rtattr *opt)
+ 	q->perturb_timer.data = (unsigned long)sch;
+ 	q->perturb_timer.function = sfq_perturbation;
+ 	if (q->perturb_period) {
+-		q->perturb_timer.expires = jiffies + q->perturb_period;
++		q->perturb_timer.expires = jiffies + q->perturb_period * HZ;
+ 		add_timer(&q->perturb_timer);
  	}
  
--	sch->qstats.drops++;
- 	sfq_drop(sch);
- 	return NET_XMIT_CN;
- }
+@@ -542,7 +542,7 @@ static int sfq_change(struct Qdisc *sch, struct rtattr *opt)
  
--
--
--
--static struct sk_buff *
--sfq_dequeue(struct Qdisc* sch)
-+static struct
-+sk_buff *sfq_q_dequeue(struct sfq_sched_data *q)
- {
--	struct sfq_sched_data *q = qdisc_priv(sch);
- 	struct sk_buff *skb;
- 	sfq_index a, old_a;
+ 	/* finish up */
+ 	if (q->perturb_period) {
+-		q->perturb_timer.expires = jiffies + q->perturb_period;
++		q->perturb_timer.expires = jiffies + q->perturb_period * HZ;
+ 		add_timer(&q->perturb_timer);
+ 	} else {
+ 		q->perturbation = 0;
+@@ -558,7 +558,7 @@ static int sfq_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	struct tc_sfq_qopt opt;
  
-@@ -335,8 +326,6 @@ sfq_dequeue(struct Qdisc* sch)
- 	/* Grab packet */
- 	skb = __skb_dequeue(&q->qs[a]);
- 	sfq_dec(q, a);
--	sch->q.qlen--;
--	sch->qstats.backlog -= skb->len;
+ 	opt.quantum = q->quantum;
+-	opt.perturb_period = q->perturb_period/HZ;
++	opt.perturb_period = q->perturb_period;
  
- 	/* Is the slot empty? */
- 	if (q->qs[a].qlen == 0) {
-@@ -353,6 +342,21 @@ sfq_dequeue(struct Qdisc* sch)
- 		a = q->next[a];
- 		q->allot[a] += q->quantum;
- 	}
-+
-+	return skb;
-+}
-+
-+static struct sk_buff
-+*sfq_dequeue(struct Qdisc* sch)
-+{
-+	struct sfq_sched_data *q = qdisc_priv(sch);
-+	struct sk_buff *skb;
-+
-+	skb = sfq_q_dequeue(q);
-+	if (skb == NULL)
-+		return NULL;
-+	sch->q.qlen--;
-+	sch->qstats.backlog -= skb->len;
- 	return skb;
- }
- 
+ 	opt.limit = q->limit;
+ 	opt.divisor = q->hash_divisor;
 -- 
 1.5.3
 
