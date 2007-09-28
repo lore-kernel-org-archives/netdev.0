@@ -1,38 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: bind and O_NONBLOCK
-Date: Fri, 28 Sep 2007 15:56:39 -0700 (PDT)
-Message-ID: <20070928.155639.26515647.davem@davemloft.net>
-References: <46F35DD9.4000909@redhat.com>
+From: Corey Hickey <bugfood-ml@fatooh.org>
+Subject: Re: sfq (iproute2 patches)
+Date: Fri, 28 Sep 2007 15:57:05 -0700
+Message-ID: <46FD86C1.8040109@fatooh.org>
+References: <1191019977201-git-send-email-bugfood-ml@fatooh.org> <11910200972768-git-send-email-bugfood-ml@fatooh.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alan@redhat.com
-To: drepper@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55488
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755214AbXI1W4j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 18:56:39 -0400
-In-Reply-To: <46F35DD9.4000909@redhat.com>
+Received: from hot.fatooh.org ([208.78.103.127]:57495 "EHLO hot.fatooh.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755594AbXI1W5O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Sep 2007 18:57:14 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by hot.fatooh.org (Postfix) with ESMTP id CDAF217C0D6
+	for <netdev@vger.kernel.org>; Fri, 28 Sep 2007 17:57:13 -0500 (CDT)
+Received: from hot.fatooh.org ([127.0.0.1])
+	by localhost (hot.fatooh.org [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id M4ApfrW8r-+2 for <netdev@vger.kernel.org>;
+	Fri, 28 Sep 2007 17:57:13 -0500 (CDT)
+Received: from [10.1.0.0] (c-24-7-71-25.hsd1.ca.comcast.net [24.7.71.25])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by hot.fatooh.org (Postfix) with ESMTP id 7A0D017C24B
+	for <netdev@vger.kernel.org>; Fri, 28 Sep 2007 17:57:13 -0500 (CDT)
+In-Reply-To: <11910200972768-git-send-email-bugfood-ml@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ulrich Drepper <drepper@redhat.com>
-Date: Thu, 20 Sep 2007 22:59:53 -0700
+Corey Hickey wrote:
+> These patches follow the ESFQ-->SFQ kernel patches. See the kernel
+> patch summary for general information.
 
-> It would be ideal if we'd have such an implementation in the next few
-> months so that we, in theory, can check whether the text in the
-> specification makes sense.
+Dang, I forgot to set the subject; these are the iproute2 patches.
 
-It seems this functionality is only relevant for really ancient
-protocols such as netbeui, as Alan mentioned.
-
-The implementation would go in those protocols, the code for
-which hasn't been touched substantially for years.  It is
-unclear whether those protocols are even functional at this
-time. :-)
-
-So expecting an implementation in the next few months depends
-upon someone standing up and actively working on those rotting
-code bases.
-
+-Corey
