@@ -1,35 +1,42 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PKT_SCHED]: Add stateless NAT
-Date: Fri, 28 Sep 2007 18:31:50 +0200
-Message-ID: <46FD2C76.5090402@trash.net>
-References: <20070927132037.GA17056@gondor.apana.org.au>	<20070927132941.GB25353@2ka.mipt.ru>	<46FBB296.8020901@trash.net> <20070927.125239.129764503.davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: e1000 tcp checksum incorrect, x86 64b
+Date: Fri, 28 Sep 2007 09:35:07 -0700
+Message-ID: <46FD2D3B.4050605@hp.com>
+References: <E1Ib79E-0006CN-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, hadi@cyberus.ca
-To: David Miller <davem@davemloft.net>
+Cc: Jon Smirl <jonsmirl@gmail.com>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55993 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753872AbXI1Qbw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 12:31:52 -0400
-In-Reply-To: <20070927.125239.129764503.davem@davemloft.net>
+Received: from palrel10.hp.com ([156.153.255.245]:38387 "EHLO palrel10.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751313AbXI1Qf2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Sep 2007 12:35:28 -0400
+In-Reply-To: <E1Ib79E-0006CN-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> I still think the nf_*() prefixes should all go and the extern
-> prototypes should go into an independant header file.
+Herbert Xu wrote:
+> Jon Smirl <jonsmirl@gmail.com> wrote:
 > 
-> These are not netfilter routines, they are "INET" helpers.
+>>App is writing seven bytes to the socket. Socket write timeout expires
+>>and the seven bytes are sent. The checksum is not getting inserted
+>>into the packet. It is set to a constant 0x8389 instead of the right
+>>value.  App is gmpc 0.15.4.95, Revision: 6794
+>>
+>>Attached Wireshark packet trace show the problem. e1000 is 192.168.1.4
+>>64bit, Q6600. Dell Dimension 9200
+> 
+> 
+> Wireshark is broken.  It needs to know TP_STATUS_CSUMNOTREADY
+> means that the checksum is partial and will only be completed
+> when the hardware sends the packet out.
+> 
+> Alternatively disable checksum offload with ethtool.
 
+Or take the packet traces "outboard" of the NIC somewhere/somehow.
 
-Agreed. Evgeniy, can you send a new patch for this?
+What problem(s) led to your taking the packet trace in the first place?
 
-> And we should make similar treatment for all of the ipv6
-> packet parser helper functions that ipv6 netfilter needs.
-
-
-I'll look into that.
-
+rick jones
