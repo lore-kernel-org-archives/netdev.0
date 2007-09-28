@@ -1,57 +1,42 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] Upgrading 2.6.21.7->2.6.22.9 kills my network (sky2):
-	sky2 eth0: rx error, status 0x402300 length 60
-Date: Fri, 28 Sep 2007 09:13:28 -0700
-Message-ID: <20070928161328.GB28246@kroah.com>
-References: <Pine.LNX.4.64.0709280950160.17152@bizon.gios.gov.pl> <Pine.LNX.4.64.0709281144530.17152@bizon.gios.gov.pl> <Pine.LNX.4.64.0709281304590.17152@bizon.gios.gov.pl>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: Re: [PATCH] sb1250-mac: Driver model & phylib update
+Date: Fri, 28 Sep 2007 17:23:00 +0100 (BST)
+Message-ID: <Pine.LNX.4.64N.0709281628130.10439@blysk.ds.pg.gda.pl>
+References: <Pine.LNX.4.64N.0709191811040.24627@blysk.ds.pg.gda.pl>
+ <20070921124409.7f3d122b.akpm@linux-foundation.org>
+ <Pine.LNX.4.64N.0709241529570.22491@blysk.ds.pg.gda.pl>
+ <20070924095559.c81f7061.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Linux Netdev List <netdev@vger.kernel.org>, stable@kernel.org
-To: Krzysztof Oledzki <olel@ans.pl>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-mips@linux-mips.org, linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:33102 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751859AbXI1QTJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 12:19:09 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0709281304590.17152@bizon.gios.gov.pl>
+Received: from cerber.ds.pg.gda.pl ([153.19.208.18]:35925 "EHLO
+	cerber.ds.pg.gda.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751648AbXI1QXK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 12:23:10 -0400
+In-Reply-To: <20070924095559.c81f7061.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 28, 2007 at 01:11:27PM +0200, Krzysztof Oledzki wrote:
->
->
-> On Fri, 28 Sep 2007, Krzysztof Oledzki wrote:
->
->>
->>
->> On Fri, 28 Sep 2007, Krzysztof Oledzki wrote:
->>
->>> Hello,
->>> After upgrading my kernel from 2.6.21.7 to 2.6.22.9 my 88E8053 no longer 
->>> works:
->>
->> Small update: 2.6.22.9 with sky2.c/sky2.h from 2.4.22.4 works without any 
->> problems.
->
-> Final update.
->
-> Reverting this patch: 
-> http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.22.y.git;a=commitdiff_plain;h=8c07a8e30ba8a2e0831da4b134202598435f8358
-> solved my problem.
->
-> I also found this one:
->
-> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff_plain;h=d6532232cd3de79c852685823a9c52f723816d0a
->
-> Could it go to a next -stable ASAP, please? It seems that 2.6.22.5-2.6.22.9 
-> kernels have broken sky2 if used with vlans. :( Such regression in a 
-> -stable kernel isn't nice. :(
+On Mon, 24 Sep 2007, Andrew Morton wrote:
 
-So should we just apply the second patch?  I'll let Stephen tell us what
-we should do :)
+> >  Well, this is against Jeff's netdev-2.6 tree which hopefully is not as 
+> > crufty as Linus's old mainline; if it is not possible to queue this change 
+> > for 2.6.25 or suchlike, then I will try to resubmit later.
+> 
+> Most of Jeff's netdev tree got dumped into Dave's net-2.6.24 tree.  That's
+> the one you want to be raising patches against for the next few weeks.
 
-thanks,
+ OK, thanks for clarification.  Then both patches already submitted:
 
-greg k-h
+patch-netdev-2.6.23-rc6-20070920-sb1250-mac-typedef-9
+patch-netdev-2.6.23-rc6-20070920-sb1250-mac-29
+
+apply cleanly to net-2.6.24 one on top of the other in this order.
+
+ I can resubmit them -- where?  netdev?  As I say I am fine with 2.6.25 as 
+the target.
+
+  Maciej
