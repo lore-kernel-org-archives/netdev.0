@@ -1,38 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: e1000 tcp checksum incorrect, x86 64b
-Date: Fri, 28 Sep 2007 12:08:16 +0800
-Message-ID: <E1Ib79E-0006CN-00@gondolin.me.apana.org.au>
-References: <9e4733910709272050t65e76312k52fd7493b899071d@mail.gmail.com>
-Cc: netdev@vger.kernel.org
-To: jonsmirl@gmail.com (Jon Smirl)
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: [PATCH] Clean up redundant PHY write line for ULi526x Ethernet
+	driver
+Date: Thu, 27 Sep 2007 21:57:43 -0600
+Message-ID: <20070928035743.GD14312@colo.lackof.org>
+References: <1190624262.20089.7.camel@localhost.localdomain> <46FC76DA.6030906@garzik.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Zang Roy-r61911 <tie-fei.zang@freescale.com>,
+	Andrew Morton <akpm@osdl.org>, netdev <netdev@vger.kernel.org>,
+	Kyle McMartin <kyle@mcmartin.ca>,
+	Grant Grundler <grundler@parisc-linux.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4521 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751204AbXI1EIV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 00:08:21 -0400
-In-Reply-To: <9e4733910709272050t65e76312k52fd7493b899071d@mail.gmail.com>
+Received: from colo.lackof.org ([198.49.126.79]:41905 "EHLO colo.lackof.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752262AbXI1ERL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Sep 2007 00:17:11 -0400
+Content-Disposition: inline
+In-Reply-To: <46FC76DA.6030906@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jon Smirl <jonsmirl@gmail.com> wrote:
+On Thu, Sep 27, 2007 at 11:36:58PM -0400, Jeff Garzik wrote:
+> Zang Roy-r61911 wrote:
+>> From: Roy Zang <tie-fei.zang@freescale.com>
+>> Clean up redundant PHY write line for ULi526x Ethernet
+>> Driver.
+>> Signed-off-by: Roy Zang <tie-fei.zang@freescale.com>
+>> ---
+>>  drivers/net/tulip/uli526x.c |    1 -
+>>  1 files changed, 0 insertions(+), 1 deletions(-)
+>> diff --git a/drivers/net/tulip/uli526x.c b/drivers/net/tulip/uli526x.c
+>> index ca2548e..53a8e65 100644
+>> --- a/drivers/net/tulip/uli526x.c
+>> +++ b/drivers/net/tulip/uli526x.c
+>> @@ -1512,7 +1512,6 @@ static void uli526x_process_mode(struct 
+>> uli526x_board_info *db)
+>>  			case ULI526X_100MFD: phy_reg = 0x2100; break;
+>>  			}
+>>  			phy_write(db->ioaddr, db->phy_addr, 0, phy_reg, db->chip_id);
+>> -       			phy_write(db->ioaddr, db->phy_addr, 0, phy_reg, db->chip_id);
 >
-> App is writing seven bytes to the socket. Socket write timeout expires
-> and the seven bytes are sent. The checksum is not getting inserted
-> into the packet. It is set to a constant 0x8389 instead of the right
-> value.  App is gmpc 0.15.4.95, Revision: 6794
-> 
-> Attached Wireshark packet trace show the problem. e1000 is 192.168.1.4
-> 64bit, Q6600. Dell Dimension 9200
+> Kyle and Grant, I'll queue this up, unless ya'll object...
 
-Wireshark is broken.  It needs to know TP_STATUS_CSUMNOTREADY
-means that the checksum is partial and will only be completed
-when the hardware sends the packet out.
+please do, I've already Ack'd it for akpm's tree when he sent out the
+initial cc.
 
-Alternatively disable checksum offload with ethtool.
+thanks,
+grant
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+>
+> 	Jeff
+>
