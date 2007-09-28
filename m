@@ -1,43 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC/PATCH 1/3] UDP memory usage accounting (take 2): fix send
- buffer check
-Date: Fri, 28 Sep 2007 13:09:52 -0700 (PDT)
-Message-ID: <20070928.130952.111188154.davem@davemloft.net>
-References: <46FD03B2.1000706@hitachi.com>
+Subject: Re: [PATCH 2/7] CAN: Add PF_CAN core module
+Date: Fri, 28 Sep 2007 13:20:38 -0700 (PDT)
+Message-ID: <20070928.132038.35678834.davem@davemloft.net>
+References: <ygfejgmea00.fsf@janus.isnogud.escape.de>
+	<20070925.140910.41653604.davem@davemloft.net>
+	<1190996839.18681.68.camel@chaos>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, johnpol@2ka.mipt.ru, netdev@vger.kernel.org,
-	yumiko.sugita.yf@hitachi.com, haoki@redhat.com,
-	yoshfuji@linux-ipv6.org
-To: satoshi.oshima.fk@hitachi.com
+Cc: urs@isnogud.escape.de, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org, kaber@trash.net, joe@perches.com,
+	oliver@hartkopp.net, oliver.hartkopp@volkswagen.de
+To: tglx@linutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41767
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36210
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751534AbXI1UJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 16:09:53 -0400
-In-Reply-To: <46FD03B2.1000706@hitachi.com>
+	by vger.kernel.org with ESMTP id S1751120AbXI1UUi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 16:20:38 -0400
+In-Reply-To: <1190996839.18681.68.camel@chaos>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Satoshi OSHIMA <satoshi.oshima.fk@hitachi.com>
-Date: Fri, 28 Sep 2007 22:37:54 +0900
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Fri, 28 Sep 2007 18:27:19 +0200
 
->              } else if (i < MAX_SKB_FRAGS) {
-> 
-> +                if (atomic_read(&sk->sk_wmem_alloc) + PAGE_SIZE
-> 
-> +                    > 2 * sk->sk_sndbuf) {
-> 
-> +                    err = -ENOBUFS;
-> 
-> +                    goto error;
-> 
-> +                }
+> I'm not inclined either way and we really should not make this a
+> religious question whether that code goes in or not, especially not when
+> we granted the mac80211 to export everything w/o _GPL suffix not too
+> long ago.
 
-Your email client, or something, is adding newlines every
-other line of real content, making your patches unusable.
+This is because a wireless driver is a driver.  It can exist outside
+of the kernel and it's mac80211 stack just like any other network
+device driver.  ANd the interfaces in mac80211 are such that the
+driver doesn't explicitly go into the internals of the implementation.
 
-Please go and perform some testing to make sure that the
-patches you email out are untouched by the email client and
-can be applied by the recipient.
+That's not true with CAN.
+
+With this CAN stuff, any driver you write for it is intimately
+integrated into the design and architecture of the CAN subsystem.  Any
+such driver cannot stand on it's own.  Look at how these drivers can
+get into the internals.
+
+If this code goes in without the _GPL() exports, that's fine, but it's
+setting incorrect expectations for people who think they can write
+binary-only drivers and link to these symbols.
+
+And it will be the CAN folks who are guilty of setting these
+false premises.  Especially after I've explicitly warned about
+it here.
