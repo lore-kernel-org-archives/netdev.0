@@ -1,56 +1,35 @@
-From: Jiri Slaby <jirislaby@gmail.com>
-Subject: /proc/net/ bad hard links count [Was: 2.6.23-rc8-mm2]
-Date: Fri, 28 Sep 2007 18:30:08 +0200
-Message-ID: <46FD2C10.8050105@gmail.com>
-References: <20070927022220.c76a7a6e.akpm@linux-foundation.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PKT_SCHED]: Add stateless NAT
+Date: Fri, 28 Sep 2007 18:31:50 +0200
+Message-ID: <46FD2C76.5090402@trash.net>
+References: <20070927132037.GA17056@gondor.apana.org.au>	<20070927132941.GB25353@2ka.mipt.ru>	<46FBB296.8020901@trash.net> <20070927.125239.129764503.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Eric Biederman <ebiederm@xmission.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, hadi@cyberus.ca
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.168]:52763 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751755AbXI1QaN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 12:30:13 -0400
-Received: by ug-out-1314.google.com with SMTP id z38so1510158ugc
-        for <netdev@vger.kernel.org>; Fri, 28 Sep 2007 09:30:11 -0700 (PDT)
-In-Reply-To: <20070927022220.c76a7a6e.akpm@linux-foundation.org>
+Received: from stinky.trash.net ([213.144.137.162]:55993 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753872AbXI1Qbw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 12:31:52 -0400
+In-Reply-To: <20070927.125239.129764503.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/27/2007 11:22 AM, Andrew Morton wrote:
-> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.23-rc8/2.6.23-rc8-mm2/
+David Miller wrote:
+> I still think the nf_*() prefixes should all go and the extern
+> prototypes should go into an independant header file.
+> 
+> These are not netfilter routines, they are "INET" helpers.
 
-# find /proc >/dev/null
-find: WARNING: Hard link count is wrong for /proc/net: this may be a bug in your
-filesystem driver.  Automatically turning on find's -noleaf option.  Earlier
-results may have failed to include directories that should have been searched.
-# stat net
-  File: `net'
-  Size: 0               Blocks: 0          IO Block: 1024   directory
-Device: 3h/3d   Inode: 4026531864  Links: 2
-Access: (0555/dr-xr-xr-x)  Uid: (    0/    root)   Gid: (    0/    root)
-Access: 2007-09-28 18:21:24.651209759 +0200
-Modify: 2007-09-28 18:21:24.651209759 +0200
-Change: 2007-09-28 18:21:24.651209759 +0200
-# stat net/
-  File: `net/'
-  Size: 0               Blocks: 0          IO Block: 1024   directory
-Device: 3h/3d   Inode: 4026531909  Links: 4
-Access: (0555/dr-xr-xr-x)  Uid: (    0/    root)   Gid: (    0/    root)
-Access: 2007-09-28 18:26:48.813048220 +0200
-Modify: 2007-09-28 18:26:48.813048220 +0200
-Change: 2007-09-28 18:26:48.813048220 +0200
 
-hmm, this is some kind of weirdness :)
+Agreed. Evgeniy, can you send a new patch for this?
 
-regards,
--- 
-Jiri Slaby (jirislaby@gmail.com)
-Faculty of Informatics, Masaryk University
+> And we should make similar treatment for all of the ipv6
+> packet parser helper functions that ipv6 netfilter needs.
 
--- 
-Jiri Slaby (jirislaby@gmail.com)
-Faculty of Informatics, Masaryk University
+
+I'll look into that.
+
