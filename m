@@ -1,45 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Null dereference in socket.c
-Date: Fri, 28 Sep 2007 16:00:57 -0700 (PDT)
-Message-ID: <20070928.160057.132434706.davem@davemloft.net>
-References: <46FD871C.2080004@redhat.com>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH] Update get_net_ns_by_pid
+Date: Fri, 28 Sep 2007 18:13:54 -0500
+Message-ID: <20070928231354.GB7407@sergelap.austin.rr.com>
+References: <m1k5qbfo1n.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: cebbert@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49524
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751598AbXI1XA5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 19:00:57 -0400
-In-Reply-To: <46FD871C.2080004@redhat.com>
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:48075 "EHLO e6.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753053AbXI1XOC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Sep 2007 19:14:02 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l8SNFRPG028452
+	for <netdev@vger.kernel.org>; Fri, 28 Sep 2007 19:15:27 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l8SNDx4G662596
+	for <netdev@vger.kernel.org>; Fri, 28 Sep 2007 19:13:59 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l8SNDx5s008783
+	for <netdev@vger.kernel.org>; Fri, 28 Sep 2007 19:13:59 -0400
+Content-Disposition: inline
+In-Reply-To: <m1k5qbfo1n.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Chuck Ebbert <cebbert@redhat.com>
-Date: Fri, 28 Sep 2007 18:58:36 -0400
+Quoting Eric W. Biederman (ebiederm@xmission.com):
+> 
+> In the -mm tree the rules for access an nsproxy have changed,
+> and in get_net_ns_by_pid we access the nsproxy, so update
+> it to follow the new rules.
+> 
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-> After debugging an oops (https://bugzilla.redhat.com/attachment.cgi?id=209231)
-> I find it happens here in socket.c::sock_ioctl() line 902:
-> 
->                default:
-> =============>          err = sock->ops->ioctl(sock, cmd, arg);
-> 
->                         /*
->                          * If this ioctl is unknown try to hand it down
->                          * to the NIC driver.
->                          */
->                         if (err == -ENOIOCTLCMD)
->                                 err = dev_ioctl(cmd, argp);
->                         break;
-> 
-> 
-> ioctl is NULL and the kernel jumps to address 0. Should we add a check
-> for that?
-> 
-> Bug report:
-> https://bugzilla.redhat.com/show_bug.cgi?id=306801
+Yup, looks right.
 
-Every protocol should provide a non-NULL ->ioctl() method,
-find out which one isn't and fix it.
+I assume Pavel's Acked-by would actually matter, but still
+
+Acked-by: Serge Hallyn <serue@us.ibm.com>
+
+thanks,
+-serge
+
+> ---
+> 
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 739fbad..1caba10 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -746,10 +746,10 @@ static struct net *get_net_ns_by_pid(pid_t pid)
+>  	rcu_read_lock();
+>  	tsk = find_task_by_pid(pid);
+>  	if (tsk) {
+> -		task_lock(tsk);
+> -		if (tsk->nsproxy)
+> -			net = get_net(tsk->nsproxy->net_ns);
+> -		task_unlock(tsk);
+> +		struct nsproxy *nsproxy;
+> +		nsproxy = task_nsproxy(tsk);
+> +		if (nsproxy)
+> +			net = get_net(nsproxy->net_ns);
+>  	}
+>  	rcu_read_unlock();
+>  	return net;
+> _______________________________________________
+> Containers mailing list
+> Containers@lists.linux-foundation.org
+> https://lists.linux-foundation.org/mailman/listinfo/containers
