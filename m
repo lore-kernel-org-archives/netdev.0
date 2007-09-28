@@ -1,118 +1,90 @@
 From: Corey Hickey <bugfood-ml@fatooh.org>
-Subject: [PATCH 05/10] Add divisor.
-Date: Fri, 28 Sep 2007 15:52:52 -0700
-Message-ID: <11910199772834-git-send-email-bugfood-ml@fatooh.org>
+Subject: [PATCH 09/10] Change perturb_period to unsigned.
+Date: Fri, 28 Sep 2007 15:52:56 -0700
+Message-ID: <11910199784097-git-send-email-bugfood-ml@fatooh.org>
 References: <1191019977201-git-send-email-bugfood-ml@fatooh.org>
 Cc: Corey Hickey <bugfood-ml@fatooh.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hot.fatooh.org ([208.78.103.127]:42871 "EHLO hot.fatooh.org"
+Received: from hot.fatooh.org ([208.78.103.127]:42867 "EHLO hot.fatooh.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754480AbXI1WxI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754593AbXI1WxI (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 28 Sep 2007 18:53:08 -0400
 In-Reply-To: <1191019977201-git-send-email-bugfood-ml@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make hash divisor user-configurable.
+perturb_period is currently a signed integer, but I can't see any good
+reason why this is so--a negative perturbation period will add a timer
+that expires in the past, causing constant perturbation, which makes
+hashing useless.
+
+	if (q->perturb_period) {
+		q->perturb_timer.expires = jiffies + q->perturb_period;
+		add_timer(&q->perturb_timer);
+	}
+
+Strictly speaking, this will break binary compatibility with older
+versions of tc, but that ought not to be a problem because (a) there's
+no valid use for a negative perturb_period, and (b) negative values
+will be seen as high values (> INT_MAX), which don't work anyway.
+
+If perturb_period is too large, (perturb_period * HZ) will overflow the
+size of an unsigned int and wrap around. So, check for thet and reject
+values that are too high.
 
 Signed-off-by: Corey Hickey <bugfood-ml@fatooh.org>
 ---
- net/sched/sch_sfq.c |   18 +++++++++++++-----
- 1 files changed, 13 insertions(+), 5 deletions(-)
+ include/linux/pkt_sched.h |    2 +-
+ net/sched/sch_sfq.c       |    8 ++++++--
+ 2 files changed, 7 insertions(+), 3 deletions(-)
 
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index 58a0ea6..8559974 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -142,7 +142,7 @@ enum
+ struct tc_sfq_qopt
+ {
+ 	unsigned	quantum;	/* Bytes per round allocated to flow */
+-	int		perturb_period;	/* Period of hash perturbation */
++	unsigned	perturb_period;	/* Period of hash perturbation */
+ 	__u32		limit;		/* Maximal packets in queue */
+ 	unsigned	divisor;	/* Hash divisor  */
+ 	unsigned	flows;		/* Maximal number of flows  */
 diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index 34a299d..d72ea7c 100644
+index 2d3cc38..170fd37 100644
 --- a/net/sched/sch_sfq.c
 +++ b/net/sched/sch_sfq.c
-@@ -75,7 +75,7 @@
- 	It is easy to increase these values, but not in flight.  */
+@@ -74,6 +74,9 @@
+ typedef unsigned int sfq_index;
+ #define SFQ_MAX_DEPTH (UINT_MAX / 2 - 1)
  
- #define SFQ_DEPTH_DEFAULT	128
--#define SFQ_HASH_DIVISOR	1024
-+#define SFQ_DIVISOR_DEFAULT	1024
- 
- #define SFQ_HEAD 0
- #define SFQ_TAIL 1
-@@ -98,6 +98,7 @@ struct sfq_sched_data
++/* We don't want perturb_period * HZ to overflow an unsigned int. */
++#define SFQ_MAX_PERTURB (UINT_MAX / HZ)
++
+ struct sfq_head
+ {
+ 	sfq_index	next;
+@@ -83,7 +86,7 @@ struct sfq_head
+ struct sfq_sched_data
+ {
+ /* Parameters */
+-	int		perturb_period;
++	unsigned	perturb_period;
  	unsigned	quantum;	/* Allotment per round: MUST BE >= MTU */
  	int		limit;
  	unsigned	depth;
-+	unsigned	hash_divisor;
- 
- /* Variables */
- 	struct timer_list perturb_timer;
-@@ -105,7 +106,7 @@ struct sfq_sched_data
- 	sfq_index	tail;		/* Index of current slot in round */
- 	sfq_index	max_depth;	/* Maximal depth */
- 
--	sfq_index	ht[SFQ_HASH_DIVISOR];	/* Hash table */
-+	sfq_index	*ht;			/* Hash table */
- 	sfq_index	*next;			/* Active slots link */
- 	short		*allot;			/* Current allotment per slot */
- 	unsigned short	*hash;			/* Hash value indexed by slots */
-@@ -120,7 +121,7 @@ static __inline__ unsigned sfq_fold_hash(struct sfq_sched_data *q, u32 h, u32 h1
- 	/* Have we any rotation primitives? If not, WHY? */
- 	h ^= (h1<<pert) ^ (h1>>(0x1F - pert));
- 	h ^= h>>10;
--	return h & 0x3FF;
-+	return h & (q->hash_divisor-1);
- }
- 
- static unsigned sfq_hash(struct sfq_sched_data *q, struct sk_buff *skb)
-@@ -388,6 +389,7 @@ static void sfq_perturbation(unsigned long arg)
- static void sfq_q_destroy(struct sfq_sched_data *q)
- {
- 	del_timer(&q->perturb_timer);
-+	kfree(q->ht);
- 	kfree(q->dep);
- 	kfree(q->next);
- 	kfree(q->allot);
-@@ -409,6 +411,7 @@ sfq_default_parameters(struct Qdisc *sch)
- 	q->quantum        = psched_mtu(sch->dev);
- 	q->perturbation   = 0;
- 	q->perturb_period = 0;
-+	q->hash_divisor   = SFQ_DIVISOR_DEFAULT;
- 	q->depth          = SFQ_DEPTH_DEFAULT;
- 	q->limit          = SFQ_DEPTH_DEFAULT - 2;
- }
-@@ -431,6 +434,8 @@ sfq_q_init(struct sfq_sched_data *q, struct rtattr *opt)
- 			q->quantum = ctl->quantum;
- 		if (ctl->perturb_period)
- 			q->perturb_period = ctl->perturb_period * HZ;
-+		if (ctl->divisor)
-+			q->hash_divisor = ctl->divisor;
- 		if (ctl->flows)
- 			q->depth = ctl->flows;
+@@ -441,7 +444,8 @@ sfq_q_init(struct sfq_sched_data *q, struct rtattr *opt)
  		if (ctl->limit)
-@@ -443,6 +448,9 @@ sfq_q_init(struct sfq_sched_data *q, struct rtattr *opt)
- 	q->tail = q->depth;
- 	q->max_depth = 0;
+ 			q->limit = ctl->limit;
  
-+	q->ht = kcalloc(q->hash_divisor, sizeof(sfq_index), GFP_KERNEL);
-+	if (!q->ht)
-+		goto err_case;
- 	q->dep = kcalloc(1 + q->depth*2, sizeof(struct sfq_head), GFP_KERNEL);
- 	if (!q->dep)
- 		goto err_case;
-@@ -459,7 +467,7 @@ sfq_q_init(struct sfq_sched_data *q, struct rtattr *opt)
- 	if (!q->qs)
- 		goto err_case;
- 
--	for (i=0; i<SFQ_HASH_DIVISOR; i++)
-+	for (i=0; i<q->hash_divisor; i++)
- 		q->ht[i] = q->depth;
- 	for (i=0; i < q->depth; i++) {
- 		skb_queue_head_init(&q->qs[i]);
-@@ -505,7 +513,7 @@ static int sfq_dump(struct Qdisc *sch, struct sk_buff *skb)
- 	opt.perturb_period = q->perturb_period/HZ;
- 
- 	opt.limit = q->limit;
--	opt.divisor = SFQ_HASH_DIVISOR;
-+	opt.divisor = q->hash_divisor;
- 	opt.flows = q->depth;
- 
- 	RTA_PUT(skb, TCA_OPTIONS, sizeof(opt), &opt);
+-		if (q->depth > SFQ_MAX_DEPTH)
++		if (q->perturb_period > SFQ_MAX_PERTURB ||
++		    q->depth > SFQ_MAX_DEPTH)
+ 			return -EINVAL;
+ 	}
+ 	q->limit = min_t(u32, q->limit, q->depth - 2);
 -- 
 1.5.3
 
