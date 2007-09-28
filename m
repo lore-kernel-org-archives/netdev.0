@@ -1,66 +1,58 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Fwd: [PATCH#2 3/4] [PPC] Compile fix for 8xx CPM Ehernet driver
-Date: Fri, 28 Sep 2007 10:30:07 -0500
-Message-ID: <7F0D5001-BDDC-48A3-A414-2D3C1CE1574B@kernel.crashing.org>
-References: <46F7F0B7.2090205@scram.de>
-Mime-Version: 1.0 (Apple Message framework v752.2)
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-ppc-embedded \(\(\(\(E-Mail\)\)\)\)" <linuxppc-embedded@ozlabs.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: 2.6.23-rc8: cannot make netconsole work
+Date: Fri, 28 Sep 2007 10:32:53 -0500
+Message-ID: <20070928153253.GV19691@waste.org>
+References: <200709281327.59317.arvidjaar@mail.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrey Borzenkov <arvidjaar@mail.ru>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1759928AbXI1PdW@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <200709281327.59317.arvidjaar@mail.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Begin forwarded message:
+On Fri, Sep 28, 2007 at 01:27:55PM +0400, Andrey Borzenkov wrote:
+> I finally decided to try netconsole in attempt to get some more information 
+> why my system does not resume (but that is different story). But I cannot 
+> make it work - it does load but I see no traffic flowing ever. This is 
+> notebook with e100 driver and it works just fine for normal traffic. 
+> netconsole is currently compiled as module, loading it I get:
+> 
+> sudo modprobe netconsole netconsole=@/eth0,@/ 
+> 
+> [ 2395.838094] netconsole: local port 6665
+> [ 2395.838126] netconsole: interface eth0
+> [ 2395.838132] netconsole: remote port 6666
+> [ 2395.838140] netconsole: remote IP 0.0.0.0
+> [ 2395.838150] netconsole: remote ethernet address ff:ff:ff:ff:ff:ff
+> [ 2395.838175] netconsole: local IP 192.168.1.8
+> [ 2395.843798] console [netcon0] enabled
+> [ 2395.844722] netconsole: network logging started
+> 
+> but I cannot see any packet flowing via eth0 not can I catch anything on 
+> remote side using netcat. This does not work when I add explicitly source and 
+> target addresses either:
+> 
+> pts/0}% sudo modprobe netconsole netconsole=@192.168.1.8/eth0,@192.168.1.5/
+> {pts/0}% dmesg | tail
+> [ 2427.128947] device eth0 left promiscuous mode
+> [ 2427.129005] audit(1190970818.972:5): dev=eth0 prom=0 old_prom=256 
+> auid=4294967295
+> [ 2541.831721] netconsole: local port 6665
+> [ 2541.831756] netconsole: local IP 192.168.1.8
+> [ 2541.831763] netconsole: interface eth0
+> [ 2541.831769] netconsole: remote port 6666
+> [ 2541.831776] netconsole: remote IP 192.168.1.5
+> [ 2541.831787] netconsole: remote ethernet address ff:ff:ff:ff:ff:ff
+> [ 2541.838832] console [netcon0] enabled
+> [ 2541.839964] netconsole: network logging started
 
-> From: Jochen Friedrich <jochen@scram.de>
-> Date: September 24, 2007 12:15:35 PM CDT
-> To: linuxppc-embedded@ozlabs.org
-> Cc: linux-kernel@vger.kernel.org, Marcelo Tosatti <marcelo@kvack.org>
-> Subject: [PATCH#2 3/4] [PPC] Compile fix for 8xx CPM Ehernet driver
+What is your console log level set to? If the messages don't come out
+on the local console, they won't get sent out the network either.
+Fedora at least defaults to hiding most messages. Adding 'debug' to
+your kernel command line will change that.
 
-Jeff,
-
-Please pick up for 2.6.23 if you don't mind.
-
-- k
-
->
->
-> Add #include <asm/cacheflush.h> for flush_dcache_range
-> to make the driver compile again.
->
->  CC      arch/ppc/8xx_io/enet.o
-> arch/ppc/8xx_io/enet.c: In function 'scc_enet_start_xmit':
-> arch/ppc/8xx_io/enet.c:240: error: implicit declaration of function
-> 'flush_dcache_range'
-> make[1]: *** [arch/ppc/8xx_io/enet.o] Error 1
-> make: *** [arch/ppc/8xx_io] Error 2
->
-> Signed-off-by: Jochen Friedrich <jochen@scram.de>
-> ---
-> arch/ppc/8xx_io/enet.c |    1 +
-> 1 files changed, 1 insertions(+), 0 deletions(-)
-> diff --git a/arch/ppc/8xx_io/enet.c b/arch/ppc/8xx_io/enet.c
-> index 703d47e..eace3bc 100644
-> --- a/arch/ppc/8xx_io/enet.c
-> +++ b/arch/ppc/8xx_io/enet.c
-> @@ -44,6 +44,7 @@
->  #include <asm/mpc8xx.h>
->  #include <asm/uaccess.h>
->  #include <asm/commproc.h>
-> +#include <asm/cacheflush.h>
->
->  /*
->   *				Theory of Operation
->
+-- 
+Mathematics is the supreme nostalgia of our time.
