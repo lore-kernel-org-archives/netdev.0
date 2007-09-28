@@ -1,46 +1,66 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [RFC/PATCH 3/3] UDP memory usage accounting (take 2): measurement
-Date: Fri, 28 Sep 2007 18:37:12 +0400
-Message-ID: <20070928143710.GA16747@2ka.mipt.ru>
-References: <46FD048B.9010409@hitachi.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>, netdev <netdev@vger.kernel.org>,
-	=?utf8?B?5ZCJ6JekIOiLseaYjg==?= <yoshfuji@linux-ipv6.org>,
-	Yumiko SUGITA <yumiko.sugita.yf@hitachi.com>,
-	=?utf8?B?6Z2S5pyoQFJlZEhhdA==?= <haoki@redhat.com>
-To: Satoshi OSHIMA <satoshi.oshima.fk@hitachi.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:51912 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755123AbXI1Ohw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Sep 2007 10:37:52 -0400
-Content-Disposition: inline
-In-Reply-To: <46FD048B.9010409@hitachi.com>
-Sender: netdev-owner@vger.kernel.org
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Fwd: [PATCH#2 3/4] [PPC] Compile fix for 8xx CPM Ehernet driver
+Date: Fri, 28 Sep 2007 10:30:07 -0500
+Message-ID: <7F0D5001-BDDC-48A3-A414-2D3C1CE1574B@kernel.crashing.org>
+References: <46F7F0B7.2090205@scram.de>
+Mime-Version: 1.0 (Apple Message framework v752.2)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"linux-ppc-embedded \(\(\(\(E-Mail\)\)\)\)" <linuxppc-embedded@ozlabs.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
+List-Post: <mailto:linuxppc-embedded@ozlabs.org>
+List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 28, 2007 at 10:41:31PM +0900, Satoshi OSHIMA (satoshi.oshima.fk@hitachi.com) wrote:
-> This patch introduces memory usage measurement for UDP.
-> 
-> These 3 points were updated.
-> 
-> - UDP specific codes in IP layer were removed.
-> 
-> - atomic_sub() in a loop was removed
-> 
-> - accounting during socket destruction
+Begin forwarded message:
 
-Another approach is to account only at the highest UDP layer and having
-datagram skb destructor just like it is done in TCP, but this approach
-is also resonable.
+> From: Jochen Friedrich <jochen@scram.de>
+> Date: September 24, 2007 12:15:35 PM CDT
+> To: linuxppc-embedded@ozlabs.org
+> Cc: linux-kernel@vger.kernel.org, Marcelo Tosatti <marcelo@kvack.org>
+> Subject: [PATCH#2 3/4] [PPC] Compile fix for 8xx CPM Ehernet driver
 
-I already told that patches 1 and 3 have broken indent, please fix that.
+Jeff,
 
-A hint: when you are about to submit something network related for inclusion,
-and strongly believes it is ready, it can be a not that bad idea to add 
-David Miller <davem@davemloft.net> to copy list, he can complain about
-backlog and so on, but will read you mail twice :) but do not tell anyone.
+Please pick up for 2.6.23 if you don't mind.
 
--- 
-	Evgeniy Polyakov
+- k
+
+>
+>
+> Add #include <asm/cacheflush.h> for flush_dcache_range
+> to make the driver compile again.
+>
+>  CC      arch/ppc/8xx_io/enet.o
+> arch/ppc/8xx_io/enet.c: In function 'scc_enet_start_xmit':
+> arch/ppc/8xx_io/enet.c:240: error: implicit declaration of function
+> 'flush_dcache_range'
+> make[1]: *** [arch/ppc/8xx_io/enet.o] Error 1
+> make: *** [arch/ppc/8xx_io] Error 2
+>
+> Signed-off-by: Jochen Friedrich <jochen@scram.de>
+> ---
+> arch/ppc/8xx_io/enet.c |    1 +
+> 1 files changed, 1 insertions(+), 0 deletions(-)
+> diff --git a/arch/ppc/8xx_io/enet.c b/arch/ppc/8xx_io/enet.c
+> index 703d47e..eace3bc 100644
+> --- a/arch/ppc/8xx_io/enet.c
+> +++ b/arch/ppc/8xx_io/enet.c
+> @@ -44,6 +44,7 @@
+>  #include <asm/mpc8xx.h>
+>  #include <asm/uaccess.h>
+>  #include <asm/commproc.h>
+> +#include <asm/cacheflush.h>
+>
+>  /*
+>   *				Theory of Operation
+>
