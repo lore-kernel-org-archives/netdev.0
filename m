@@ -1,64 +1,37 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] sb1250-mac: Driver model & phylib update
-Date: Fri, 28 Sep 2007 11:39:45 -0700
-Message-ID: <20070928113945.389a6a70.akpm@linux-foundation.org>
-References: <Pine.LNX.4.64N.0709191811040.24627@blysk.ds.pg.gda.pl>
-	<20070921124409.7f3d122b.akpm@linux-foundation.org>
-	<Pine.LNX.4.64N.0709241529570.22491@blysk.ds.pg.gda.pl>
-	<20070924095559.c81f7061.akpm@linux-foundation.org>
-	<Pine.LNX.4.64N.0709281628130.10439@blysk.ds.pg.gda.pl>
+From: Krzysztof Oledzki <olel@ans.pl>
+Subject: Re: [PATCH 2/3] sky2: fix VLAN receive processing
+Date: Fri, 28 Sep 2007 20:40:59 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0709282039400.24092@bizon.gios.gov.pl>
+References: <20070928164811.387831540@linux-foundation.org>
+ <20070928164858.539587428@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-mips@linux-mips.org, linux-kernel@vger.kernel.org
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Greg KH <greg@kroah.com>, stable@kernel.org,
+	netdev@vger.kernel.org, Pierre-Yves Ritschard <pyr@spootnik.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:56591 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752867AbXI1Sko (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 14:40:44 -0400
-In-Reply-To: <Pine.LNX.4.64N.0709281628130.10439@blysk.ds.pg.gda.pl>
+Received: from bizon.gios.gov.pl ([212.244.124.8]:56197 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756222AbXI1SlZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 14:41:25 -0400
+In-Reply-To: <20070928164858.539587428@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 28 Sep 2007 17:23:00 +0100 (BST) "Maciej W. Rozycki" <macro@linux-mips.org> wrote:
 
-> On Mon, 24 Sep 2007, Andrew Morton wrote:
-> 
-> > >  Well, this is against Jeff's netdev-2.6 tree which hopefully is not as 
-> > > crufty as Linus's old mainline; if it is not possible to queue this change 
-> > > for 2.6.25 or suchlike, then I will try to resubmit later.
-> > 
-> > Most of Jeff's netdev tree got dumped into Dave's net-2.6.24 tree.  That's
-> > the one you want to be raising patches against for the next few weeks.
-> 
->  OK, thanks for clarification.  Then both patches already submitted:
-> 
-> patch-netdev-2.6.23-rc6-20070920-sb1250-mac-typedef-9
-> patch-netdev-2.6.23-rc6-20070920-sb1250-mac-29
-> 
-> apply cleanly to net-2.6.24 one on top of the other in this order.
 
-<checks the netdev archives>
+On Fri, 28 Sep 2007, Stephen Hemminger wrote:
 
-hm, I found a patch at the end of an email trail which is datestamped Sep
-20 here which appears to match the first one you mentioned, but I'm having
-trouble working out what patch subject your "sb1250-mac" maps onto.
+> The length check for truncated frames was not correctly handling
+> the case where VLAN acceleration had already read the tag.
+> Also, the Yukon EX has some features that use high bit of status
+> as security tag.
+>
 
-This is why I make the patch filenames map directly from the patch titles,
-so I end up with files like
-optimize-x86-page-faults-like-all-other-achitectures-and-kill-notifier-cruft.patch.
- Verbose, but it reduces confusion and mistakes.
+Thank you.
 
->  I can resubmit them
 
-That's always a good choice.  Patches which are dangling at the end of an email
-discussion often don't get merged: it is unclear to the receiveing party that
-the discussion has terminated, and I'm never terribly confident in the testing
-level of a patch which obviously got modified two minutes before it was sent.
 
-> -- where?  netdev?  As I say I am fine with 2.6.25 as 
-> the target.
+Best regards
 
-jeff, netdev, me?  
+ 					Krzysztof Oledzki
