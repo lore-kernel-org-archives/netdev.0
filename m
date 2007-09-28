@@ -1,60 +1,85 @@
-From: "Magnus Damm" <magnus.damm@gmail.com>
-Subject: Re: ax88796: add 93cx6 eeprom support
-Date: Fri, 28 Sep 2007 17:29:59 +0900
-Message-ID: <aec7e5c30709280129q158ad47y1b6cf9c8ea416993@mail.gmail.com>
-References: <20070927105119.6515.35298.sendpatchset@clockwork.opensource.se>
-	 <20070927150447.a9af14c5.akpm@linux-foundation.org>
+From: "Michael Kerrisk" <mtk.linux.lists@gmail.com>
+Subject: Re: [RFC] Zero-length write() does not generate a datagram on connected socket
+Date: Fri, 28 Sep 2007 10:49:10 +0200
+Message-ID: <517f3f820709280149h761c15bfw582c6784498e64d7@mail.gmail.com>
+References: <bug-5731-100@http.bugzilla.kernel.org/>
+	 <20070922094432.E9BEA108010@picon.linux-foundation.org>
+	 <20070924153435.14249225@freepuppy.rosehill>
+	 <20070927.135334.56943477.davem@davemloft.net>
+	 <20070927154144.7de2a719@freepuppy.rosehill>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lethal@linux-sh.org, jgarzik@pobox.com,
-	ben-linux@fluff.org, "Francois Romieu" <romieu@fr.zoreil.com>
-To: "Andrew Morton" <akpm@linux-foundation.org>
+Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	mtk-manpages@gmx.net
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from py-out-1112.google.com ([64.233.166.182]:45059 "EHLO
-	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754788AbXI1IaA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 04:30:00 -0400
-Received: by py-out-1112.google.com with SMTP id u77so5080593pyb
-        for <netdev@vger.kernel.org>; Fri, 28 Sep 2007 01:29:59 -0700 (PDT)
-In-Reply-To: <20070927150447.a9af14c5.akpm@linux-foundation.org>
+Received: from ug-out-1314.google.com ([66.249.92.173]:6441 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758009AbXI1ItL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 04:49:11 -0400
+Received: by ug-out-1314.google.com with SMTP id z38so1445790ugc
+        for <netdev@vger.kernel.org>; Fri, 28 Sep 2007 01:49:10 -0700 (PDT)
+In-Reply-To: <20070927154144.7de2a719@freepuppy.rosehill>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
-
-Thanks for picking up the patch.
-
-On 9/28/07, Andrew Morton <akpm@linux-foundation.org> wrote:
-> On Thu, 27 Sep 2007 19:51:19 +0900
-> Magnus Damm <magnus.damm@gmail.com> wrote:
+On 9/28/07, Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+> On Thu, 27 Sep 2007 13:53:34 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
 >
-> > ax88796: add 93cx6 eeprom support
+> > From: Stephen Hemminger <shemminger@linux-foundation.org>
+> > Date: Mon, 24 Sep 2007 15:34:35 -0700
 > >
-> > This patch hooks up the 93cx6 eeprom code to the ax88796 driver and modifies
-> > the ax88796 driver to read out the mac address from the eeprom. We need
-> > this for the ax88796 on certain SuperH boards. The pin configuration used
-> > to connect the eeprom to the ax88796 on these boards is the same as pointed
-> > out by the ax88796 datasheet, so we can probably reuse this code for multiple
-> > platforms in the future.
+> > > The bug http://bugzilla.kernel.org/show_bug.cgi?id=5731
+> > > describes an issue where write() can't be used to generate a zero-length
+> > > datagram (but send, and sendto do work).
+> > >
+> > > I think the following is needed:
+> > >
+> > > --- a/net/socket.c  2007-08-20 09:54:28.000000000 -0700
+> > > +++ b/net/socket.c  2007-09-24 15:31:25.000000000 -0700
+> > > @@ -777,8 +777,11 @@ static ssize_t sock_aio_write(struct kio
+> > >     if (pos != 0)
+> > >             return -ESPIPE;
+> > >
+> > > -   if (iocb->ki_left == 0) /* Match SYS5 behaviour */
+> > > -           return 0;
+> > > +   if (unlikely(iocb->ki_left == 0)) {
+> > > +           struct socket *sock = iocb->ki_filp->private_data;
+> > > +           if (sock->type == SOCK_STREAM)
+> > > +                   return 0;
+> > > +   }
+> > >
+> > >     x = alloc_sock_iocb(iocb, &siocb);
+> > >     if (!x)
+> >
+> > We should simply remove the check completely.
+> >
+> > There is no need to add special code for different types of protocols
+> > and sockets.
+> >
+> > As is hinted in the bugzilla, the exact same thing can happen with a
+> > suitably constructed sendto() or sendmsg() call.  write() on a socket
+> > is a sendmsg() with a NULL msg_control and a single entry iovec, plain
+> > and simple.
+> >
+> > It's how BSD and many other systems behave, and I double checked
+> > Steven's Volume 2 just to make sure.
+> >
+> > So I'm going to check in the following to fix this bugzilla.  There is
+> > a similarly ugly test for len==0 in sys_read() on sockets.  If someone
+> > would do some research on the validity of that thing I'd really
+> > appreciate it :-)
 >
-> I'm showing a minor reject between this and Francois's git-r8169.patch.
+> Read of zero length should be a no-op for SOCK_STREAM but
+> for SOCK_DATAGRAM or SOCK_SEQPACKET it might be useful as a
+> remote wait for event.
 
-[snip]
-Oh, sorry about that. I should have built the patch on top of -mm instead.
+Hmm -- I hadn't checked the behavior for zero-length read() on other
+systems.  i will try to do that soonish (probably only Minday or so).
 
-> You both made the same change to eeprom_93cx6.h.  That all sounds good but
-> it would be comforting if you could review each other's work, please...
+Cheers,
 
-I thought I was more or less the only user, but thanks for pointing that out.
-
-The eeprom code in the r8169 driver from
-2.6.23-rc8-mm2/git-r8169.patch looks fine, but I don't understand the
-point of adding the size member to the eeprom struct in
-eeprom_93cx6.h. Especially since no code change is made in
-eeprom_93cx6.c.
-
-Thanks,
-
-/ magnus
+Michael
