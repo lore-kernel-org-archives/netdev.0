@@ -1,52 +1,148 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [IPV6] Fix ICMPv6 redirect handling with target multicast
- address
-Date: Sat, 29 Sep 2007 10:04:48 +0900 (JST)
-Message-ID: <20070929.100448.41933886.yoshfuji@linux-ipv6.org>
-References: <46FD2B37.6040502@hp.com>
-	<OF5FC97D70.5FD0A80A-ON88257365.00025E58-88257365.00048D1E@us.ibm.com>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: [PATCH 3/5] net: Make the netlink methods in rtnetlink handle
+	multiple network namespaces
+Date: Fri, 28 Sep 2007 19:04:35 -0600
+Message-ID: <m1d4w29t98.fsf_-_@ebiederm.dsl.xmission.com>
+References: <m1myv69tfu.fsf@ebiederm.dsl.xmission.com>
+	<m1hcle9td8.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: brian.haley@hp.com, netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: dlstevens@us.ibm.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:46941 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753841AbXI2BDG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 21:03:06 -0400
-In-Reply-To: <OF5FC97D70.5FD0A80A-ON88257365.00025E58-88257365.00048D1E@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Containers <containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <m1hcle9td8.fsf-T1Yj925okcoyDheHMi7gv2pdwda3JcWeAL8bYrjMMd8@public.gmane.org> (Eric W. Biederman's
+	message of "Fri, 28 Sep 2007 19:02:11 -0600")
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Dave, Brian,
 
-Let me double check this patch.
+After the previous prep work this just consists of removing checks
+limiting the code to work in the initial network namespace, and
+updating rtmsg_ifinfo so we can generate events for devices in
+something other then the initial network namespace.
 
-Regards,
+Referring to network other network devices like the IFLA_LINK
+and IFLA_MASTER attributes do, gets interesting if those network
+devices happen to be in other network namespaces.  Currently
+ifindex numbers are allocated globally so I have taken the path
+of least resistance and not still report the information even
+though the devices they are talking about are invisible.
 
---yoshfuji
+If applications start getting confused or when ifindex
+numbers become local to the network namespace we may need
+to do something different in the future.
 
-In article <OF5FC97D70.5FD0A80A-ON88257365.00025E58-88257365.00048D1E@us.ibm.com> (at Fri, 28 Sep 2007 17:50:38 -0700), David Stevens <dlstevens@us.ibm.com> says:
+Signed-off-by: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+---
+ net/core/rtnetlink.c |   27 +++------------------------
+ 1 files changed, 3 insertions(+), 24 deletions(-)
 
-> Brian,
->         A multicast address should never be the target of a neighbor
-> discovery request; the sender should use the mapping function for all
-> multicasts. So, I'm not sure that your example can ever happen, and it
-> certainly is ok to send ICMPv6 errors to multicast addresses in general.
-> But I don't see that it hurts anything. either (since it should never 
-> happen :-)),
-> so I don't particularly object, either.
->         I think it'd also be better if you add the check to be:
-> 
->         if (ipv6_addr_type(target) & 
-> (IPV6_ADDR_LINKLOCAL|IPV6_ADDR_UNICAST))
-> 
-> or something along those lines, rather than reproducing ipv6_addr_type() 
-> code
-> separately in a new ipv6_addr_linklocal() function.
-> 
->                                                 +-DLS
-> 
-> 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index fc49104..809a9fb 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -741,9 +741,6 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ 	int s_idx = cb->args[0];
+ 	struct net_device *dev;
+ 
+-	if (net != &init_net)
+-		return 0;
+-
+ 	idx = 0;
+ 	for_each_netdev(net, dev) {
+ 		if (idx < s_idx)
+@@ -946,9 +943,6 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	struct nlattr *tb[IFLA_MAX+1];
+ 	char ifname[IFNAMSIZ];
+ 
+-	if (net != &init_net)
+-		return -EINVAL;
+-
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
+ 	if (err < 0)
+ 		goto errout;
+@@ -997,9 +991,6 @@ static int rtnl_dellink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	struct nlattr *tb[IFLA_MAX+1];
+ 	int err;
+ 
+-	if (net != &init_net)
+-		return -EINVAL;
+-
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
+ 	if (err < 0)
+ 		return err;
+@@ -1081,9 +1072,6 @@ static int rtnl_newlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	struct nlattr *linkinfo[IFLA_INFO_MAX+1];
+ 	int err;
+ 
+-	if (net != &init_net)
+-		return -EINVAL;
+-
+ #ifdef CONFIG_KMOD
+ replay:
+ #endif
+@@ -1210,9 +1198,6 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	struct sk_buff *nskb;
+ 	int err;
+ 
+-	if (net != &init_net)
+-		return -EINVAL;
+-
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
+ 	if (err < 0)
+ 		return err;
+@@ -1248,13 +1233,9 @@ errout:
+ 
+ static int rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+-	struct net *net = skb->sk->sk_net;
+ 	int idx;
+ 	int s_idx = cb->family;
+ 
+-	if (net != &init_net)
+-		return 0;
+-
+ 	if (s_idx == 0)
+ 		s_idx = 1;
+ 	for (idx=1; idx<NPROTO; idx++) {
+@@ -1276,6 +1257,7 @@ static int rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb)
+ 
+ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change)
+ {
++	struct net *net = dev->nd_net;
+ 	struct sk_buff *skb;
+ 	int err = -ENOBUFS;
+ 
+@@ -1290,10 +1272,10 @@ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change)
+ 		kfree_skb(skb);
+ 		goto errout;
+ 	}
+-	err = rtnl_notify(skb, &init_net, 0, RTNLGRP_LINK, NULL, GFP_KERNEL);
++	err = rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, GFP_KERNEL);
+ errout:
+ 	if (err < 0)
+-		rtnl_set_sk_err(&init_net, RTNLGRP_LINK, err);
++		rtnl_set_sk_err(net, RTNLGRP_LINK, err);
+ }
+ 
+ /* Protected by RTNL sempahore.  */
+@@ -1392,9 +1374,6 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
+ {
+ 	struct net_device *dev = ptr;
+ 
+-	if (dev->nd_net != &init_net)
+-		return NOTIFY_DONE;
+-
+ 	switch (event) {
+ 	case NETDEV_UNREGISTER:
+ 		rtmsg_ifinfo(RTM_DELLINK, dev, ~0U);
+-- 
+1.5.3.rc6.17.g1911
