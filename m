@@ -1,41 +1,44 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH][MIPS][7/7] AR7: ethernet
-Date: Sat, 29 Sep 2007 01:39:19 -0400
-Message-ID: <46FDE507.90206@pobox.com>
-References: <200709201728.10866.technoboy85@gmail.com> <200709201813.48408.technoboy85@gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH] PHYLIB: Spinlock fixes for softirqs
+Date: Fri, 28 Sep 2007 22:40:55 -0700
+Message-ID: <20070928224055.4415e47e.akpm@linux-foundation.org>
+References: <Pine.LNX.4.64N.0709181532190.9650@blysk.ds.pg.gda.pl>
+	<46FDE348.3010801@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, Eugene Konev <ejka@imfi.kspu.ru>,
-	netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@coreworks.de, Andrew Morton <akpm@linux-foundation.org>
-To: Matteo Croce <technoboy85@gmail.com>
+Cc: "Maciej W. Rozycki" <macro@linux-mips.org>,
+	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39752 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750882AbXI2Fje (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Sep 2007 01:39:34 -0400
-In-Reply-To: <200709201813.48408.technoboy85@gmail.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:33320 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752702AbXI2Flv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Sep 2007 01:41:51 -0400
+In-Reply-To: <46FDE348.3010801@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Overall, looks pretty clean, good job!
+On Sat, 29 Sep 2007 01:31:52 -0400 Jeff Garzik <jgarzik@pobox.com> wrote:
 
-Comments:
+> doesn't Andrew have a version of these patches that move the useful 
+> patch text into the area where it will get copied into the permanent 
+> kernel changelog?
+> 
+> also, your PHYLIB patches give no notion at all of proper patch order.
+> 
 
-1) [major issue] Don't take and release a heavy lock on every single RX 
-packet.
+Andrew has patches coming out of his ears.  umm....
 
-2) remove net_device_stats from private structure, and use net_device::stats
+Applying order:
 
-3) rx_ring_size should not be a module param, since that should be 
-supported via ethtool
+phylib-spinlock-fixes-for-softirqs.patch
+phylib-irq-event-workqueue-handling-fixes.patch
+phylib-fix-an-interrupt-loop-potential-when-halting.patch
 
-4) cpmac_tx_timeout() doesn't really do anything to alleviate the condition
+ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.23-rc8/2.6.23-rc8-mm2/broken-out/phylib-spinlock-fixes-for-softirqs.patch
+ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.23-rc8/2.6.23-rc8-mm2/broken-out/phylib-irq-event-workqueue-handling-fixes.patch
+ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.23-rc8/2.6.23-rc8-mm2/broken-out/phylib-fix-an-interrupt-loop-potential-when-halting.patch
 
-5) don't set dev->mem_start and dev->mem_end, those are fields that are 
-going away, and that's not their intended purpose.  just store a pointer 
-to the resource info.
-
-
+Let me unload some netdev patches at you...
