@@ -1,40 +1,30 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] rtnl: Simplify ASSERT_RTNL
-Date: Sat, 29 Sep 2007 12:31:14 +0800
-Message-ID: <E1IbTz0-0000FK-00@gondolin.me.apana.org.au>
-References: <m1r6ki9tib.fsf@ebiederm.dsl.xmission.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: ebiederm@xmission.com (Eric W. Biederman)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] [3/6] pasemi_mac: set interface speed correctly on XAUI
+ ports
+Date: Sat, 29 Sep 2007 00:45:54 -0400
+Message-ID: <46FDD882.7080302@pobox.com>
+References: <20070926212200.GA24168@lixom.net> <20070926212331.GD24168@lixom.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Olof Johansson <olof@lixom.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2407 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750833AbXI2EbZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Sep 2007 00:31:25 -0400
-In-Reply-To: <m1r6ki9tib.fsf@ebiederm.dsl.xmission.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:48524 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750817AbXI2EqA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Sep 2007 00:46:00 -0400
+In-Reply-To: <20070926212331.GD24168@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman <ebiederm@xmission.com> wrote:
+Olof Johansson wrote:
+> pasemi_mac: set interface speed correctly on XAUI ports
 > 
-> Currently we have the call path:
-> macvlan_open -> dev_unicast_add -> __dev_set_rx_mode ->
->        __dev_set_promiscuity -> ASSERT_RTNL -> mutex_trylock
+> Set interface speed for XAUI to 10G per default, not 1G.
 > 
-> When mutex debugging is on taking a mutex complains if we are not
-> allowed to sleep.  At that point we have called netif_tx_lock_bh
-> so we are clearly not allowed to sleep.  Arguably this is not a
-> problem for mutex_trylock.
+> Signed-off-by: Olof Johansson <olof@lixom.net>
 
-Actually holding the TX lock here is a bug.  We're going to
-call down into the hardware with __dev_set_promiscuity, which
-may sleep (think USB NICs), so we definitely shouldn't be holding
-any spin locks.
+applied 3-6 (davem already got 1-2)
 
-Patrick, could we avoid taking the TX lock here somehow?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
