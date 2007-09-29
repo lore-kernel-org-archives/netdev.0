@@ -1,41 +1,37 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [IPV6] Fix ICMPv6 redirect handling with target multicast address
-Date: Fri, 28 Sep 2007 17:50:38 -0700
-Message-ID: <OF5FC97D70.5FD0A80A-ON88257365.00025E58-88257365.00048D1E@us.ibm.com>
-References: <46FD2B37.6040502@hp.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PKT_SCHED]: Add stateless NAT
+Date: Sat, 29 Sep 2007 08:51:00 +0800
+Message-ID: <20070929005100.GA31959@gondor.apana.org.au>
+References: <20070927073446.GA14643@gondor.apana.org.au> <1190896785.4290.18.camel@localhost> <20070927.120803.39482469.davem@davemloft.net> <46FD3204.6090305@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, hadi@cyberus.ca,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:49845 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752310AbXI2Aul (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 20:50:41 -0400
-In-Reply-To: <46FD2B37.6040502@hp.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:1449 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755821AbXI2Avk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 20:51:40 -0400
+Content-Disposition: inline
+In-Reply-To: <46FD3204.6090305@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Brian,
-        A multicast address should never be the target of a neighbor
-discovery request; the sender should use the mapping function for all
-multicasts. So, I'm not sure that your example can ever happen, and it
-certainly is ok to send ICMPv6 errors to multicast addresses in general.
-But I don't see that it hurts anything. either (since it should never 
-happen :-)),
-so I don't particularly object, either.
-        I think it'd also be better if you add the check to be:
+On Fri, Sep 28, 2007 at 06:55:32PM +0200, Patrick McHardy wrote:
+>
+> Looking at ip_input.o as example (everything without forced inlining):
+> 
+>    text    data     bss     dec     hex filename
+>    2076       8       0    2084     824 net/ipv4/ip_input.o
+>    3483       8       0    3491     da3 net/ipv4/ip_input.o
 
-        if (ipv6_addr_type(target) & 
-(IPV6_ADDR_LINKLOCAL|IPV6_ADDR_UNICAST))
+If it's so big perhaps it should be inlined? It'll be a tail
+call anyway.
 
-or something along those lines, rather than reproducing ipv6_addr_type() 
-code
-separately in a new ipv6_addr_linklocal() function.
-
-                                                +-DLS
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
