@@ -1,34 +1,52 @@
-From: Corey Hickey <bugfood-ml@fatooh.org>
-Subject: Re: SFQ: backport some features from ESFQ (try 4)
-Date: Sat, 29 Sep 2007 10:36:44 -0700
-Message-ID: <46FE8D2C.8010501@fatooh.org>
-References: <1191019977201-git-send-email-bugfood-ml@fatooh.org> <46FE7171.70501@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/5] net: Make rtnetlink infrastructure network namespace
+ aware
+Date: Sat, 29 Sep 2007 19:48:03 +0200
+Message-ID: <46FE8FD3.2030308@trash.net>
+References: <m1myv69tfu.fsf@ebiederm.dsl.xmission.com>	<m1hcle9td8.fsf@ebiederm.dsl.xmission.com>	<46FE72E3.3000402@trash.net> <m1tzpd8lfh.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hot.fatooh.org ([208.78.103.127]:37462 "EHLO hot.fatooh.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754877AbXI2Rgt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Sep 2007 13:36:49 -0400
-In-Reply-To: <46FE7171.70501@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:53104 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751899AbXI2Rs1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Sep 2007 13:48:27 -0400
+In-Reply-To: <m1tzpd8lfh.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Corey Hickey wrote:
->> Patchset try 2 addresses the review by Michael Buesch.
->> Patchset try 3 addresses the review by Patrick McHardy.
->> Patchset try 4 has a few cosmetic improvements.
->>
->> Nobody reviewed my last set of patches, and I wasn't pushy about asking.
->> Since it's been a while, I ported the kernel and userspace patchsets to
->> current git of net-2.6 and iproute2, respectively.
+Eric W. Biederman wrote:
+> Patrick McHardy <kaber@trash.net> writes:
 > 
-> Thanks for posting these patches, I'll have a closer look tommorrow.
+> 
+>>I'm wondering why this receive queue processing on unlock is still
+>>necessary today, we don't do trylock in rtnetlink_rcv anymore, so
+>>all senders will simply wait until the lock is released and then
+>>process the queue.
+> 
+> 
+> Good question, I should probably look.  I was lazy and didn't go back
+> and audit why we were doing this.  I just coded a routine that I was
+> certain would work.  It does appear that we are processing the queue
+> with sk_data_read when we add a message, so this may be completely
+> unnecessary.  I will go back and look.  If we can remove this bit
+> things should be simpler.
 
-Many thanks for reviewing.
 
--Corey
+Maybe I can save you some time: we used to do down_trylock()
+for the rtnl mutex, so senders would simply return if someone
+else was already processing the queue *or* the rtnl was locked
+for some other reason. In the first case the process already
+processing the queue would also process the new messages, but
+if it the rtnl was locked for some other reason (for example
+during module registration) the message would sit in the
+queue until the next rtnetlink sendmsg call, which is why
+rtnl_unlock does queue processing. Commit 6756ae4b changed
+the down_trylock to mutex_lock, so senders will now simply wait
+until the mutex is released and then call netlink_run_queue
+themselves. This means its not needed anymore.
+
