@@ -1,77 +1,922 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] rtnl: Simplify ASSERT_RTNL
-Date: Fri, 28 Sep 2007 18:59:08 -0600
-Message-ID: <m1r6ki9tib.fsf@ebiederm.dsl.xmission.com>
+Subject: [PATCH 1/5] net: Modify all rtnetlink methods to only work in the initial namespace
+Date: Fri, 28 Sep 2007 19:00:37 -0600
+Message-ID: <m1myv69tfu.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>,
+	Linux Containers <containers@lists.osdl.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:54015 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:39775 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756239AbXI2A7U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 20:59:20 -0400
+	with ESMTP id S1753623AbXI2BBB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 21:01:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Currently we have the call path:
-macvlan_open -> dev_unicast_add -> __dev_set_rx_mode ->
-	__dev_set_promiscuity -> ASSERT_RTNL -> mutex_trylock
-
-When mutex debugging is on taking a mutex complains if we are not
-allowed to sleep.  At that point we have called netif_tx_lock_bh
-so we are clearly not allowed to sleep.  Arguably this is not a
-problem for mutex_trylock.
-
-However we can avoid the complaint and make the ASSERT_RTNL code
-cheaper, faster and more obvious by simply calling mutex_is_locked.
-
-So this patch adds rtnl_is_locked (which does mutex_is_locked on
-the rtnl_mutex) and changes ASSERT_RTNL to use that.
+Before I can enable rtnetlink to work in all network namespaces
+I need to be certain that something won't break.  So this
+patch deliberately disables all of the rtnletlink methods in everything
+except the initial network namespace.  After the methods have been
+audited this extra check can be disabled.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- include/linux/rtnetlink.h |    4 ++--
- net/core/rtnetlink.c      |    5 +++++
- 2 files changed, 7 insertions(+), 2 deletions(-)
+ net/bridge/br_netlink.c |    9 +++++++++
+ net/core/fib_rules.c    |   11 +++++++++++
+ net/core/neighbour.c    |   18 ++++++++++++++++++
+ net/core/rtnetlink.c    |   19 +++++++++++++++++++
+ net/decnet/dn_dev.c     |   12 ++++++++++++
+ net/decnet/dn_fib.c     |    8 ++++++++
+ net/decnet/dn_route.c   |    8 ++++++++
+ net/decnet/dn_table.c   |    4 ++++
+ net/ipv4/devinet.c      |   12 ++++++++++++
+ net/ipv4/fib_frontend.c |   12 ++++++++++++
+ net/ipv4/route.c        |    4 ++++
+ net/ipv6/addrconf.c     |   31 +++++++++++++++++++++++++++++++
+ net/ipv6/ip6_fib.c      |    4 ++++
+ net/ipv6/route.c        |   12 ++++++++++++
+ net/sched/act_api.c     |   10 ++++++++++
+ net/sched/cls_api.c     |   10 ++++++++++
+ net/sched/sch_api.c     |   21 +++++++++++++++++++++
+ 17 files changed, 205 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index dff3192..9c21e45 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -714,13 +714,13 @@ extern void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change);
- extern void rtnl_lock(void);
- extern void rtnl_unlock(void);
- extern int rtnl_trylock(void);
-+extern int rtnl_is_locked(void);
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 53ab8e0..a4ffa2b 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -13,6 +13,7 @@
+ #include <linux/kernel.h>
+ #include <net/rtnetlink.h>
+ #include <net/net_namespace.h>
++#include <net/sock.h>
+ #include "br_private.h"
  
- extern void rtnetlink_init(void);
- extern void __rtnl_unlock(void);
+ static inline size_t br_nlmsg_size(void)
+@@ -107,9 +108,13 @@ errout:
+  */
+ static int br_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct net_device *dev;
+ 	int idx;
  
- #define ASSERT_RTNL() do { \
--	if (unlikely(rtnl_trylock())) { \
--		rtnl_unlock(); \
-+	if (unlikely(!rtnl_is_locked())) { \
- 		printk(KERN_ERR "RTNL: assertion failed at %s (%d)\n", \
- 		       __FILE__,  __LINE__); \
- 		dump_stack(); \
++	if (net != &init_net)
++		return 0;
++
+ 	idx = 0;
+ 	for_each_netdev(&init_net, dev) {
+ 		/* not a bridge port */
+@@ -135,12 +140,16 @@ skip:
+  */
+ static int br_rtm_setlink(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct ifinfomsg *ifm;
+ 	struct nlattr *protinfo;
+ 	struct net_device *dev;
+ 	struct net_bridge_port *p;
+ 	u8 new_state;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	if (nlmsg_len(nlh) < sizeof(*ifm))
+ 		return -EINVAL;
+ 
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 13de6f5..357bfa0 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -206,6 +206,9 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	struct nlattr *tb[FRA_MAX+1];
+ 	int err = -EINVAL, unresolved = 0;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	if (nlh->nlmsg_len < nlmsg_msg_size(sizeof(*frh)))
+ 		goto errout;
+ 
+@@ -336,12 +339,16 @@ errout:
+ 
+ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct fib_rule_hdr *frh = nlmsg_data(nlh);
+ 	struct fib_rules_ops *ops = NULL;
+ 	struct fib_rule *rule, *tmp;
+ 	struct nlattr *tb[FRA_MAX+1];
+ 	int err = -EINVAL;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	if (nlh->nlmsg_len < nlmsg_msg_size(sizeof(*frh)))
+ 		goto errout;
+ 
+@@ -517,9 +524,13 @@ skip:
+ 
+ static int fib_nl_dumprule(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct fib_rules_ops *ops;
+ 	int idx = 0, family;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	family = rtnl_msg_family(cb->nlh);
+ 	if (family != AF_UNSPEC) {
+ 		/* Protocol specific dump request */
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index c52df85..27001db 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -1448,6 +1448,9 @@ static int neigh_delete(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	struct net_device *dev = NULL;
+ 	int err = -EINVAL;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	if (nlmsg_len(nlh) < sizeof(*ndm))
+ 		goto out;
+ 
+@@ -1514,6 +1517,9 @@ static int neigh_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	struct net_device *dev = NULL;
+ 	int err;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	err = nlmsg_parse(nlh, sizeof(*ndm), tb, NDA_MAX, NULL);
+ 	if (err < 0)
+ 		goto out;
+@@ -1788,11 +1794,15 @@ static const struct nla_policy nl_ntbl_parm_policy[NDTPA_MAX+1] = {
+ 
+ static int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct neigh_table *tbl;
+ 	struct ndtmsg *ndtmsg;
+ 	struct nlattr *tb[NDTA_MAX+1];
+ 	int err;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	err = nlmsg_parse(nlh, sizeof(*ndtmsg), tb, NDTA_MAX,
+ 			  nl_neightbl_policy);
+ 	if (err < 0)
+@@ -1912,11 +1922,15 @@ errout:
+ 
+ static int neightbl_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	int family, tidx, nidx = 0;
+ 	int tbl_skip = cb->args[0];
+ 	int neigh_skip = cb->args[1];
+ 	struct neigh_table *tbl;
+ 
++	if (net != &init_net)
++		return 0;
++
+ 	family = ((struct rtgenmsg *) nlmsg_data(cb->nlh))->rtgen_family;
+ 
+ 	read_lock(&neigh_tbl_lock);
+@@ -2041,9 +2055,13 @@ out:
+ 
+ static int neigh_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct neigh_table *tbl;
+ 	int t, family, s_t;
+ 
++	if (net != &init_net)
++		return 0;
++
+ 	read_lock(&neigh_tbl_lock);
+ 	family = ((struct rtgenmsg *) nlmsg_data(cb->nlh))->rtgen_family;
+ 	s_t = cb->args[0];
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 739fbad..8bc68e6 100644
+index 8bc68e6..56fc4f9 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
-@@ -85,6 +85,11 @@ int rtnl_trylock(void)
- 	return mutex_trylock(&rtnl_mutex);
+@@ -707,6 +707,9 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ 	int s_idx = cb->args[0];
+ 	struct net_device *dev;
+ 
++	if (net != &init_net)
++		return 0;
++
+ 	idx = 0;
+ 	for_each_netdev(net, dev) {
+ 		if (idx < s_idx)
+@@ -909,6 +912,9 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	struct nlattr *tb[IFLA_MAX+1];
+ 	char ifname[IFNAMSIZ];
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
+ 	if (err < 0)
+ 		goto errout;
+@@ -957,6 +963,9 @@ static int rtnl_dellink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	struct nlattr *tb[IFLA_MAX+1];
+ 	int err;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
+ 	if (err < 0)
+ 		return err;
+@@ -1038,6 +1047,9 @@ static int rtnl_newlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	struct nlattr *linkinfo[IFLA_INFO_MAX+1];
+ 	int err;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ #ifdef CONFIG_KMOD
+ replay:
+ #endif
+@@ -1164,6 +1176,9 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	struct sk_buff *nskb;
+ 	int err;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
+ 	if (err < 0)
+ 		return err;
+@@ -1199,9 +1214,13 @@ errout:
+ 
+ static int rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	int idx;
+ 	int s_idx = cb->family;
+ 
++	if (net != &init_net)
++		return 0;
++
+ 	if (s_idx == 0)
+ 		s_idx = 1;
+ 	for (idx=1; idx<NPROTO; idx++) {
+diff --git a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
+index 26130af..6e82f7a 100644
+--- a/net/decnet/dn_dev.c
++++ b/net/decnet/dn_dev.c
+@@ -647,12 +647,16 @@ static const struct nla_policy dn_ifa_policy[IFA_MAX+1] = {
+ 
+ static int dn_nl_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct nlattr *tb[IFA_MAX+1];
+ 	struct dn_dev *dn_db;
+ 	struct ifaddrmsg *ifm;
+ 	struct dn_ifaddr *ifa, **ifap;
+ 	int err = -EADDRNOTAVAIL;
+ 
++	if (net != &init_net)
++		goto errout;
++
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, dn_ifa_policy);
+ 	if (err < 0)
+ 		goto errout;
+@@ -679,6 +683,7 @@ errout:
+ 
+ static int dn_nl_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct nlattr *tb[IFA_MAX+1];
+ 	struct net_device *dev;
+ 	struct dn_dev *dn_db;
+@@ -686,6 +691,9 @@ static int dn_nl_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	struct dn_ifaddr *ifa;
+ 	int err;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, dn_ifa_policy);
+ 	if (err < 0)
+ 		return err;
+@@ -791,11 +799,15 @@ errout:
+ 
+ static int dn_nl_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	int idx, dn_idx = 0, skip_ndevs, skip_naddr;
+ 	struct net_device *dev;
+ 	struct dn_dev *dn_db;
+ 	struct dn_ifaddr *ifa;
+ 
++	if (net != &init_net)
++		return 0;
++
+ 	skip_ndevs = cb->args[0];
+ 	skip_naddr = cb->args[1];
+ 
+diff --git a/net/decnet/dn_fib.c b/net/decnet/dn_fib.c
+index 3760a20..5413e1b 100644
+--- a/net/decnet/dn_fib.c
++++ b/net/decnet/dn_fib.c
+@@ -506,10 +506,14 @@ static int dn_fib_check_attr(struct rtmsg *r, struct rtattr **rta)
+ 
+ static int dn_fib_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct dn_fib_table *tb;
+ 	struct rtattr **rta = arg;
+ 	struct rtmsg *r = NLMSG_DATA(nlh);
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	if (dn_fib_check_attr(r, rta))
+ 		return -EINVAL;
+ 
+@@ -522,10 +526,14 @@ static int dn_fib_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *
+ 
+ static int dn_fib_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct dn_fib_table *tb;
+ 	struct rtattr **rta = arg;
+ 	struct rtmsg *r = NLMSG_DATA(nlh);
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	if (dn_fib_check_attr(r, rta))
+ 		return -EINVAL;
+ 
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index b7ebf99..a16374b 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -1530,6 +1530,7 @@ rtattr_failure:
+  */
+ static int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh, void *arg)
+ {
++	struct net *net = in_skb->sk->sk_net;
+ 	struct rtattr **rta = arg;
+ 	struct rtmsg *rtm = NLMSG_DATA(nlh);
+ 	struct dn_route *rt = NULL;
+@@ -1538,6 +1539,9 @@ static int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh, void
+ 	struct sk_buff *skb;
+ 	struct flowi fl;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	memset(&fl, 0, sizeof(fl));
+ 	fl.proto = DNPROTO_NSP;
+ 
+@@ -1615,10 +1619,14 @@ out_free:
+  */
+ int dn_cache_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct dn_route *rt;
+ 	int h, s_h;
+ 	int idx, s_idx;
+ 
++	if (net != &init_net)
++		return 0;
++
+ 	if (NLMSG_PAYLOAD(cb->nlh, 0) < sizeof(struct rtmsg))
+ 		return -EINVAL;
+ 	if (!(((struct rtmsg *)NLMSG_DATA(cb->nlh))->rtm_flags&RTM_F_CLONED))
+diff --git a/net/decnet/dn_table.c b/net/decnet/dn_table.c
+index fda0772..a3bdb8d 100644
+--- a/net/decnet/dn_table.c
++++ b/net/decnet/dn_table.c
+@@ -463,12 +463,16 @@ static int dn_fib_table_dump(struct dn_fib_table *tb, struct sk_buff *skb,
+ 
+ int dn_fib_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	unsigned int h, s_h;
+ 	unsigned int e = 0, s_e;
+ 	struct dn_fib_table *tb;
+ 	struct hlist_node *node;
+ 	int dumped = 0;
+ 
++	if (net != &init_net)
++		return 0;
++
+ 	if (NLMSG_PAYLOAD(cb->nlh, 0) >= sizeof(struct rtmsg) &&
+ 		((struct rtmsg *)NLMSG_DATA(cb->nlh))->rtm_flags&RTM_F_CLONED)
+ 			return dn_cache_dump(skb, cb);
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 55d199e..0ff2ef6 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -441,6 +441,7 @@ struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix,
+ 
+ static int inet_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct nlattr *tb[IFA_MAX+1];
+ 	struct in_device *in_dev;
+ 	struct ifaddrmsg *ifm;
+@@ -449,6 +450,9 @@ static int inet_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg
+ 
+ 	ASSERT_RTNL();
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv4_policy);
+ 	if (err < 0)
+ 		goto errout;
+@@ -561,10 +565,14 @@ errout:
+ 
+ static int inet_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct in_ifaddr *ifa;
+ 
+ 	ASSERT_RTNL();
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	ifa = rtm_to_ifaddr(nlh);
+ 	if (IS_ERR(ifa))
+ 		return PTR_ERR(ifa);
+@@ -1175,12 +1183,16 @@ nla_put_failure:
+ 
+ static int inet_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	int idx, ip_idx;
+ 	struct net_device *dev;
+ 	struct in_device *in_dev;
+ 	struct in_ifaddr *ifa;
+ 	int s_ip_idx, s_idx = cb->args[0];
+ 
++	if (net != &init_net)
++		return 0;
++
+ 	s_ip_idx = ip_idx = cb->args[1];
+ 	idx = 0;
+ 	for_each_netdev(&init_net, dev) {
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index f823ca3..84d688a 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -527,10 +527,14 @@ errout:
+ 
+ static int inet_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct fib_config cfg;
+ 	struct fib_table *tb;
+ 	int err;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	err = rtm_to_fib_config(skb, nlh, &cfg);
+ 	if (err < 0)
+ 		goto errout;
+@@ -548,10 +552,14 @@ errout:
+ 
+ static int inet_rtm_newroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct fib_config cfg;
+ 	struct fib_table *tb;
+ 	int err;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	err = rtm_to_fib_config(skb, nlh, &cfg);
+ 	if (err < 0)
+ 		goto errout;
+@@ -569,12 +577,16 @@ errout:
+ 
+ static int inet_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	unsigned int h, s_h;
+ 	unsigned int e = 0, s_e;
+ 	struct fib_table *tb;
+ 	struct hlist_node *node;
+ 	int dumped = 0;
+ 
++	if (net != &init_net)
++		return 0;
++
+ 	if (nlmsg_len(cb->nlh) >= sizeof(struct rtmsg) &&
+ 	    ((struct rtmsg *) nlmsg_data(cb->nlh))->rtm_flags & RTM_F_CLONED)
+ 		return ip_rt_dump(skb, cb);
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index c5a06e6..a538a30 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2552,6 +2552,7 @@ nla_put_failure:
+ 
+ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void *arg)
+ {
++	struct net *net = in_skb->sk->sk_net;
+ 	struct rtmsg *rtm;
+ 	struct nlattr *tb[RTA_MAX+1];
+ 	struct rtable *rt = NULL;
+@@ -2561,6 +2562,9 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
+ 	int err;
+ 	struct sk_buff *skb;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	err = nlmsg_parse(nlh, sizeof(*rtm), tb, RTA_MAX, rtm_ipv4_policy);
+ 	if (err < 0)
+ 		goto errout;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 6d5c3c2..bdc183e 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3003,11 +3003,15 @@ static const struct nla_policy ifa_ipv6_policy[IFA_MAX+1] = {
+ static int
+ inet6_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct ifaddrmsg *ifm;
+ 	struct nlattr *tb[IFA_MAX+1];
+ 	struct in6_addr *pfx;
+ 	int err;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv6_policy);
+ 	if (err < 0)
+ 		return err;
+@@ -3060,6 +3064,7 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u8 ifa_flags,
+ static int
+ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct ifaddrmsg *ifm;
+ 	struct nlattr *tb[IFA_MAX+1];
+ 	struct in6_addr *pfx;
+@@ -3069,6 +3074,9 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	u8 ifa_flags;
+ 	int err;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv6_policy);
+ 	if (err < 0)
+ 		return err;
+@@ -3342,26 +3350,42 @@ done:
+ 
+ static int inet6_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	enum addr_type_t type = UNICAST_ADDR;
++
++	if (net != &init_net)
++		return 0;
++
+ 	return inet6_dump_addr(skb, cb, type);
  }
  
-+int rtnl_is_locked(void)
-+{
-+	return mutex_is_locked(&rtnl_mutex);
-+}
-+
- int rtattr_parse(struct rtattr *tb[], int maxattr, struct rtattr *rta, int len)
+ static int inet6_dump_ifmcaddr(struct sk_buff *skb, struct netlink_callback *cb)
  {
- 	memset(tb, 0, sizeof(struct rtattr*)*maxattr);
++	struct net *net = skb->sk->sk_net;
+ 	enum addr_type_t type = MULTICAST_ADDR;
++
++	if (net != &init_net)
++		return 0;
++
+ 	return inet6_dump_addr(skb, cb, type);
+ }
+ 
+ 
+ static int inet6_dump_ifacaddr(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	enum addr_type_t type = ANYCAST_ADDR;
++
++	if (net != &init_net)
++		return 0;
++
+ 	return inet6_dump_addr(skb, cb, type);
+ }
+ 
+ static int inet6_rtm_getaddr(struct sk_buff *in_skb, struct nlmsghdr* nlh,
+ 			     void *arg)
+ {
++	struct net *net = in_skb->sk->sk_net;
+ 	struct ifaddrmsg *ifm;
+ 	struct nlattr *tb[IFA_MAX+1];
+ 	struct in6_addr *addr = NULL;
+@@ -3370,6 +3394,9 @@ static int inet6_rtm_getaddr(struct sk_buff *in_skb, struct nlmsghdr* nlh,
+ 	struct sk_buff *skb;
+ 	int err;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv6_policy);
+ 	if (err < 0)
+ 		goto errout;
+@@ -3587,11 +3614,15 @@ nla_put_failure:
+ 
+ static int inet6_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	int idx, err;
+ 	int s_idx = cb->args[0];
+ 	struct net_device *dev;
+ 	struct inet6_dev *idev;
+ 
++	if (net != &init_net)
++		return 0;
++
+ 	read_lock(&dev_base_lock);
+ 	idx = 0;
+ 	for_each_netdev(&init_net, dev) {
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 6a612a7..a731812 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -361,6 +361,7 @@ end:
+ 
+ static int inet6_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	unsigned int h, s_h;
+ 	unsigned int e = 0, s_e;
+ 	struct rt6_rtnl_dump_arg arg;
+@@ -369,6 +370,9 @@ static int inet6_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct hlist_node *node;
+ 	int res = 0;
+ 
++	if (net != &init_net)
++		return 0;
++
+ 	s_h = cb->args[0];
+ 	s_e = cb->args[1];
+ 
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index a7db84c..f0cf11c 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2080,9 +2080,13 @@ errout:
+ 
+ static int inet6_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct fib6_config cfg;
+ 	int err;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	err = rtm_to_fib6_config(skb, nlh, &cfg);
+ 	if (err < 0)
+ 		return err;
+@@ -2092,9 +2096,13 @@ static int inet6_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *a
+ 
+ static int inet6_rtm_newroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct fib6_config cfg;
+ 	int err;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	err = rtm_to_fib6_config(skb, nlh, &cfg);
+ 	if (err < 0)
+ 		return err;
+@@ -2229,6 +2237,7 @@ int rt6_dump_route(struct rt6_info *rt, void *p_arg)
+ 
+ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void *arg)
+ {
++	struct net *net = in_skb->sk->sk_net;
+ 	struct nlattr *tb[RTA_MAX+1];
+ 	struct rt6_info *rt;
+ 	struct sk_buff *skb;
+@@ -2236,6 +2245,9 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
+ 	struct flowi fl;
+ 	int err, iif = 0;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	err = nlmsg_parse(nlh, sizeof(*rtm), tb, RTA_MAX, rtm_ipv6_policy);
+ 	if (err < 0)
+ 		goto errout;
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 72cdb0f..8528291 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -18,6 +18,8 @@
+ #include <linux/skbuff.h>
+ #include <linux/init.h>
+ #include <linux/kmod.h>
++#include <net/net_namespace.h>
++#include <net/sock.h>
+ #include <net/sch_generic.h>
+ #include <net/act_api.h>
+ #include <net/netlink.h>
+@@ -924,10 +926,14 @@ done:
+ 
+ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct rtattr **tca = arg;
+ 	u32 pid = skb ? NETLINK_CB(skb).pid : 0;
+ 	int ret = 0, ovr = 0;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	if (tca[TCA_ACT_TAB-1] == NULL) {
+ 		printk("tc_ctl_action: received NO action attribs\n");
+ 		return -EINVAL;
+@@ -997,6 +1003,7 @@ find_dump_kind(struct nlmsghdr *n)
+ static int
+ tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct nlmsghdr *nlh;
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct rtattr *x;
+@@ -1006,6 +1013,9 @@ tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct tcamsg *t = (struct tcamsg *) NLMSG_DATA(cb->nlh);
+ 	struct rtattr *kind = find_dump_kind(cb->nlh);
+ 
++	if (net != &init_net)
++		return 0;
++
+ 	if (kind == NULL) {
+ 		printk("tc_dump_action: action bad kind\n");
+ 		return 0;
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 0365797..2754e50 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -23,6 +23,8 @@
+ #include <linux/init.h>
+ #include <linux/kmod.h>
+ #include <linux/netlink.h>
++#include <net/net_namespace.h>
++#include <net/sock.h>
+ #include <net/netlink.h>
+ #include <net/pkt_sched.h>
+ #include <net/pkt_cls.h>
+@@ -119,6 +121,7 @@ static __inline__ u32 tcf_auto_prio(struct tcf_proto *tp)
+ 
+ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct rtattr **tca;
+ 	struct tcmsg *t;
+ 	u32 protocol;
+@@ -135,6 +138,9 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 	unsigned long fh;
+ 	int err;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ replay:
+ 	tca = arg;
+ 	t = NLMSG_DATA(n);
+@@ -375,6 +381,7 @@ static int tcf_node_dump(struct tcf_proto *tp, unsigned long n, struct tcf_walke
+ 
+ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	int t;
+ 	int s_t;
+ 	struct net_device *dev;
+@@ -385,6 +392,9 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct Qdisc_class_ops *cops;
+ 	struct tcf_dump_args arg;
+ 
++	if (net != &init_net)
++		return 0;
++
+ 	if (cb->nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*tcm)))
+ 		return skb->len;
+ 	if ((dev = dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 39d3278..95eb0a8 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -29,6 +29,7 @@
+ #include <linux/hrtimer.h>
+ 
+ #include <net/net_namespace.h>
++#include <net/sock.h>
+ #include <net/netlink.h>
+ #include <net/pkt_sched.h>
+ 
+@@ -599,6 +600,7 @@ check_loop_fn(struct Qdisc *q, unsigned long cl, struct qdisc_walker *w)
+ 
+ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct tcmsg *tcm = NLMSG_DATA(n);
+ 	struct rtattr **tca = arg;
+ 	struct net_device *dev;
+@@ -607,6 +609,9 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 	struct Qdisc *p = NULL;
+ 	int err;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	if ((dev = __dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
+ 		return -ENODEV;
+ 
+@@ -660,6 +665,7 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 
+ static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct tcmsg *tcm;
+ 	struct rtattr **tca;
+ 	struct net_device *dev;
+@@ -667,6 +673,9 @@ static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 	struct Qdisc *q, *p;
+ 	int err;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ replay:
+ 	/* Reinit, just in case something touches this. */
+ 	tcm = NLMSG_DATA(n);
+@@ -872,11 +881,15 @@ err_out:
+ 
+ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	int idx, q_idx;
+ 	int s_idx, s_q_idx;
+ 	struct net_device *dev;
+ 	struct Qdisc *q;
+ 
++	if (net != &init_net)
++		return 0;
++
+ 	s_idx = cb->args[0];
+ 	s_q_idx = q_idx = cb->args[1];
+ 	read_lock(&dev_base_lock);
+@@ -920,6 +933,7 @@ done:
+ 
+ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	struct tcmsg *tcm = NLMSG_DATA(n);
+ 	struct rtattr **tca = arg;
+ 	struct net_device *dev;
+@@ -932,6 +946,9 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
+ 	u32 qid = TC_H_MAJ(clid);
+ 	int err;
+ 
++	if (net != &init_net)
++		return -EINVAL;
++
+ 	if ((dev = __dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
+ 		return -ENODEV;
+ 
+@@ -1106,6 +1123,7 @@ static int qdisc_class_dump(struct Qdisc *q, unsigned long cl, struct qdisc_walk
+ 
+ static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
+ {
++	struct net *net = skb->sk->sk_net;
+ 	int t;
+ 	int s_t;
+ 	struct net_device *dev;
+@@ -1113,6 +1131,9 @@ static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct tcmsg *tcm = (struct tcmsg*)NLMSG_DATA(cb->nlh);
+ 	struct qdisc_dump_args arg;
+ 
++	if (net != &init_net)
++		return 0;
++
+ 	if (cb->nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*tcm)))
+ 		return 0;
+ 	if ((dev = dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
 -- 
 1.5.3.rc6.17.g1911
 
