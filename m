@@ -1,37 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.23-rc[68]-mm: network hangs
-Date: Sat, 29 Sep 2007 02:35:10 -0700 (PDT)
-Message-ID: <20070929.023510.112596666.davem@davemloft.net>
-References: <46FD5A82.9070505@free.fr>
-	<20070929013106.4f84320d.akpm@linux-foundation.org>
-	<46FE193E.60200@free.fr>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: 2.6.23-rc8-mm2 - tcp_fastretrans_alert() WARNING
+Date: Sat, 29 Sep 2007 15:44:49 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0709291532200.6776@kivilampi-30.cs.helsinki.fi>
+References: <20070927022220.c76a7a6e.akpm@linux-foundation.org>
+ <46FD20F0.3050909@fr.ibm.com> <Pine.LNX.4.64.0709282143020.6013@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: laurent.riffard@free.fr
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-957210457-1191069889=:6776"
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Cedric Le Goater <clg@fr.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50285
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752588AbXI2JfK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Sep 2007 05:35:10 -0400
-In-Reply-To: <46FE193E.60200@free.fr>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:35497 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754744AbXI2Mow (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Sep 2007 08:44:52 -0400
+In-Reply-To: <Pine.LNX.4.64.0709282143020.6013@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Laurent Riffard <laurent.riffard@free.fr>
-Date: Sat, 29 Sep 2007 11:22:06 +0200
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> Could a router problem prevent "ping 127.0.0.1" from working ?
+---696243703-957210457-1191069889=:6776
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-Two things that are new and could cause these problems:
+On Fri, 28 Sep 2007, Ilpo Järvinen wrote:
+> On Fri, 28 Sep 2007, Cedric Le Goater wrote:
+>
+> > I just found that warning in my logs. It seems that it's been 
+> > happening since rc7-mm1 at least. 
+> > 
+> > WARNING: at /home/legoater/linux/2.6.23-rc8-mm2/net/ipv4/tcp_input.c:2314 tcp_fastretrans_alert()
+> >
+> > Call Trace:
+> >  <IRQ>  [<ffffffff8040fdc3>] tcp_ack+0xcd6/0x1894
+> > ...snip...
+> 
+> ...Thanks for the report, I'll have look what could still break 
+> fackets_out...
 
-1) We dynamically allocate the loopback device now.
+I think this one is now clear to me, tcp_fragment/collapse adjusts 
+fackets_out (incorrectly) also for reno flow when there were some dupACKs 
+that made sacked_out != 0. Could you please try if patch below proves all 
+them to be of non-SACK origin... In case that's true, it's rather 
+harmless, I'll send a fix on Monday or so (this would anyway be needed)... 
+If you find out that them occur with SACK enabled flow, that would be
+more interesting and requires more digging...
 
-2) We have the network namespace stuff.
+-- 
+ i.
 
-Another change in this area is that we do routing cache
-garbage collection from a workqueue instead of a timer
-but that was a pretty straightforward transformation so
-it is not high on my list of "suspects".
+
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 2286361..e642779 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2311,8 +2311,10 @@ tcp_fastretrans_alert(struct sock *sk, int pkts_acked, int flag)
+ 	if (!tp->packets_out)
+ 		tp->sacked_out = 0;
+ 
+-	if (WARN_ON(!tp->sacked_out && tp->fackets_out))
++	if (WARN_ON(!tp->sacked_out && tp->fackets_out)) {
++		printk(KERN_ERR "TCP %d\n", tcp_is_reno(tp));
+ 		tp->fackets_out = 0;
++	}
+ 
+ 	/* Now state machine starts.
+ 	 * A. ECE, hence prohibit cwnd undoing, the reduction is required. */
+---696243703-957210457-1191069889=:6776--
