@@ -1,30 +1,66 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: SFQ: backport some features from ESFQ (try 4)
-Date: Sat, 29 Sep 2007 17:38:25 +0200
-Message-ID: <46FE7171.70501@trash.net>
-References: <1191019977201-git-send-email-bugfood-ml@fatooh.org>
+Subject: Re: [PATCH 2/5] net: Make rtnetlink infrastructure network namespace
+ aware
+Date: Sat, 29 Sep 2007 17:44:35 +0200
+Message-ID: <46FE72E3.3000402@trash.net>
+References: <m1myv69tfu.fsf@ebiederm.dsl.xmission.com> <m1hcle9td8.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Corey Hickey <bugfood-ml@fatooh.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linux Containers <containers@lists.osdl.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:50630 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:50762 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756117AbXI2Pir (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Sep 2007 11:38:47 -0400
-In-Reply-To: <1191019977201-git-send-email-bugfood-ml@fatooh.org>
+	with ESMTP id S1755220AbXI2Po5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Sep 2007 11:44:57 -0400
+In-Reply-To: <m1hcle9td8.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Corey Hickey wrote:
-> Patchset try 2 addresses the review by Michael Buesch.
-> Patchset try 3 addresses the review by Patrick McHardy.
-> Patchset try 4 has a few cosmetic improvements.
-> 
-> Nobody reviewed my last set of patches, and I wasn't pushy about asking.
-> Since it's been a while, I ported the kernel and userspace patchsets to
-> current git of net-2.6 and iproute2, respectively.
+Eric W. Biederman wrote:
+>  void rtnl_unlock(void)
+>  {
+> -	mutex_unlock(&rtnl_mutex);
+> -	if (rtnl && rtnl->sk_receive_queue.qlen)
+> +	struct net *net;
+> +
+> +	/*
+> +	 * Loop through all of the rtnl sockets until none of them (in
+> +	 * a live network namespace) have queue packets.
+> +	 *
+> +	 * We have to be careful with the locking here as
+> +	 * sk_data_ready aka rtnetlink_rcv takes the rtnl_mutex.
+> +	 *
+> +	 * To ensure the network namespace does not exit while
+> +	 * we are processing packets on it's rtnl socket we
+> +	 * grab a reference to the network namespace, ignoring
+> +	 * it if the network namespace has already exited.
+> +	 */
+> +retry:
+> +	for_each_net(net) {
+> +		struct sock *rtnl = net->rtnl;
+> +
+> +		if (!rtnl || !rtnl->sk_receive_queue.qlen)
+> +			continue;
+> +
+> +		if (!maybe_get_net(net))
+> +			continue;
+> +
+> +		mutex_unlock(&rtnl_mutex);
+>  		rtnl->sk_data_ready(rtnl, 0);
+> +		mutex_lock(&rtnl_mutex);
+> +		put_net(net);
+> +		goto retry;
+> +	}
+> +	mutex_unlock(&rtnl_mutex);
+> +
+>  	netdev_run_todo();
+>  }
 
 
-Thanks for posting these patches, I'll have a closer look tommorrow.
+I'm wondering why this receive queue processing on unlock is still
+necessary today, we don't do trylock in rtnetlink_rcv anymore, so
+all senders will simply wait until the lock is released and then
+process the queue.
