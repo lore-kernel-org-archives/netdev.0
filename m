@@ -1,79 +1,98 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] smc911x irq sense request and MPR2 board support
-Date: Sat, 29 Sep 2007 01:24:47 -0400
-Message-ID: <46FDE19F.9000902@pobox.com>
-References: <200708200836.51182.super.firetwister@gmail.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] via-velocity: more cleanup
+Date: Sat, 29 Sep 2007 01:28:12 -0400
+Message-ID: <46FDE26C.6010000@garzik.org>
+References: <20070824135649.509e1fe7@freepuppy.rosehill.hemminger.net>	<20070824211547.GW21089@ftp.linux.org.uk> <20070824144045.087d41ff@freepuppy.rosehill.hemminger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Mark Jonas <toertel@gmail.com>,
-	Paul Mundt <lethal@linux-sh.org>
-To: Markus Brunner <super.firetwister@googlemail.com>
+Cc: Al Viro <viro@ftp.linux.org.uk>,
+	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:42963 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:42994 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750964AbXI2FYw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Sep 2007 01:24:52 -0400
-In-Reply-To: <200708200836.51182.super.firetwister@gmail.com>
+	id S1752417AbXI2F2X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Sep 2007 01:28:23 -0400
+In-Reply-To: <20070824144045.087d41ff@freepuppy.rosehill.hemminger.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Markus Brunner wrote:
-> Hi,
+Stephen Hemminger wrote:
+> Per Al's suggestion, get rid of the stupid stuff:
+> Remove cam_type switch,
+> And deinline things that aren't important for speed.
+> And make big macro and inline.
+> And remove some dead/unused code.
+> And use const char * for chip name.
 > 
-> this are the changes to the smc911x driver, which were necessary
-> to get it running on the Magic Panel R2 (smsc9115).
-> It is a SH3-DSP based board. The other patches are available on 
-> the linuxsh-dev mailinglist.
-> http://marc.info/?l=linuxsh-dev&r=1&b=200708&w=2
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 > 
-> It was necessary to set the irq sense to low level.
-> Therefor the SMC_IRQ_SENSE define was added.
-> How are the chances for inclusion in 2.6.24?
 > 
-> Signed-off by: Markus Brunner <super.firetwister@gmail.com>
-> Signed-off by: Mark Jonas <toertel@gmail.com>
-> ---
->  Kconfig   |    2 +-
->  smc911x.c |    2 +-
->  smc911x.h |    6 ++++++
->  3 files changed, 8 insertions(+), 2 deletions(-)
-> 
-> --- sh-2.6-intc/drivers/net/Kconfig	2007-08-02 07:05:16.000000000 +0200
-> +++ sh-2.6/drivers/net/Kconfig	2007-08-03 09:46:20.000000000 +0200
-> @@ -944,7 +944,7 @@ config SMC911X
->  	tristate "SMSC LAN911[5678] support"
->  	select CRC32
->  	select MII
-> -	depends on ARCH_PXA
-> +	depends on ARCH_PXA || SUPERH
->  	help
->  	  This is a driver for SMSC's LAN911x series of Ethernet chipsets
->  	  including the new LAN9115, LAN9116, LAN9117, and LAN9118.
-> --- sh-2.6-intc/drivers/net/smc911x.c	2007-07-04 21:46:34.000000000 +0200
-> +++ sh-2.6/drivers/net/smc911x.c	2007-08-14 10:43:16.000000000 +0200
-> @@ -2084,7 +2084,7 @@ static int __init smc911x_probe(struct n
+> --- a/drivers/net/via-velocity.c	2007-08-24 13:49:17.000000000 -0700
+> +++ b/drivers/net/via-velocity.c	2007-08-24 14:39:14.000000000 -0700
+> @@ -85,6 +85,163 @@
+>  static int velocity_nics = 0;
+>  static int msglevel = MSG_LEVEL_INFO;
 >  
->  	/* Grab the IRQ */
->  	retval = request_irq(dev->irq, &smc911x_interrupt,
-> -			IRQF_SHARED | IRQF_TRIGGER_FALLING, dev->name, dev);
-> +			IRQF_SHARED | SMC_IRQ_SENSE, dev->name, dev);
->  	if (retval)
->  		goto err_out;
->  
-> --- sh-2.6-intc/drivers/net/smc911x.h	2007-07-04 21:46:34.000000000 +0200
-> +++ sh-2.6/drivers/net/smc911x.h	2007-08-10 13:16:34.000000000 +0200
-> @@ -36,6 +36,12 @@
->    #define SMC_USE_PXA_DMA	1
->    #define SMC_USE_16BIT		0
->    #define SMC_USE_32BIT		1
-> +  #define SMC_IRQ_SENSE IRQF_TRIGGER_FALLING
-> +#elif CONFIG_SH_MAGIC_PANEL_R2
-> +  #define SMC_USE_SH_DMA	0
-> +  #define SMC_USE_16BIT		0
-> +  #define SMC_USE_32BIT		1
-> +  #define SMC_IRQ_SENSE IRQF_TRIGGER_LOW
->  #endif
+> +/**
+> + *	mac_get_cam_mask	-	Read a CAM mask
+> + *	@regs: register block for this velocity
+> + *	@mask: buffer to store mask
+> + *
+> + *	Fetch the mask bits of the selected CAM and store them into the
+> + *	provided mask buffer.
+> + */
+> +
+> +static void mac_get_cam_mask(struct mac_regs __iomem * regs, u8 * mask)
+> +{
+> +	int i;
+> +
+> +	/* Select CAM mask */
+> +	BYTE_REG_BITS_SET(CAMCR_PS_CAM_MASK, CAMCR_PS1 | CAMCR_PS0, &regs->CAMCR);
+> +
+> +	writeb(0, &regs->CAMADDR);
+> +
+> +	/* read mask */
+> +	for (i = 0; i < 8; i++)
+> +		*mask++ = readb(&(regs->MARCAM[i]));
+> +
+> +	/* disable CAMEN */
+> +	writeb(0, &regs->CAMADDR);
+> +
+> +	/* Select mar */
+> +	BYTE_REG_BITS_SET(CAMCR_PS_MAR, CAMCR_PS1 | CAMCR_PS0, &regs->CAMCR);
+> +
+> +}
+> +
+> +
+> +/**
+> + *	mac_set_cam_mask	-	Set a CAM mask
+> + *	@regs: register block for this velocity
+> + *	@mask: CAM mask to load
+> + *
+> + *	Store a new mask into a CAM
+> + */
+> +
+> +static void mac_set_cam_mask(struct mac_regs __iomem * regs, u8 * mask)
+> +{
+> +	int i;
+> +	/* Select CAM mask */
+> +	BYTE_REG_BITS_SET(CAMCR_PS_CAM_MASK, CAMCR_PS1 | CAMCR_PS0, &regs->CAMCR);
+> +
+> +	writeb(CAMADDR_CAMEN, &regs->CAMADDR);
+> +
+> +	for (i = 0; i < 8; i++) {
+> +		writeb(*mask++, &(regs->MARCAM[i]));
+> +	}
+> +	/* disable CAMEN */
+> +	writeb(0, &regs->CAMADDR);
+> +
+> +	/* Select mar */
+> +	BYTE_REG_BITS_SET(CAMCR_PS_MAR, CAMCR_PS1 | CAMCR_PS0, &regs->CAMCR);
+> +}
 
-does the SuperH maintainer ACK this?
+
+I applied both your via-velocity cleanups.  For future patches, please 
+always separate code movement into a separate patch from other cleanups.
 
