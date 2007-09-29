@@ -1,28 +1,49 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 3/9] fs_enet: Don't share the interrupt.
-Date: Sat, 29 Sep 2007 01:18:32 -0400
-Message-ID: <46FDE028.8080501@pobox.com>
-References: <20070920220118.GC28784@loki.buserror.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC/PATCH 0/3] UDP memory usage accounting
+Date: Sat, 29 Sep 2007 13:20:08 +0800
+Message-ID: <20070929052008.GA1192@gondor.apana.org.au>
+References: <46FD0117.9030407@hitachi.com> <E1IbSt7-000091-00@gondolin.me.apana.org.au> <20070928.214737.120464821.davem@davemloft.net> <20070928.215159.58440039.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Scott Wood <scottwood@freescale.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: satoshi.oshima.fk@hitachi.com, johnpol@2ka.mipt.ru,
+	netdev@vger.kernel.org, haoki@redhat.com, yoshfuji@linux-ipv6.org,
+	yumiko.sugita.yf@hitachi.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:36115 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751792AbXI2FSd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Sep 2007 01:18:33 -0400
-In-Reply-To: <20070920220118.GC28784@loki.buserror.net>
+Received: from rhun.apana.org.au ([64.62.148.172]:2598 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752729AbXI2FUP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Sep 2007 01:20:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20070928.215159.58440039.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Scott Wood wrote:
-> This driver can't handle an interrupt immediately after request_irq
+On Fri, Sep 28, 2007 at 09:51:59PM -0700, David Miller wrote:
+> 
+> There is a per-socket send buffer limit, and there is a per-user open
+> file descriptor limit.  Multiply the two to determine how much system
+> memory the user can consume using sockets.
 
-You MUST assume that you will receive an interrupt immediately after 
-request_irq().  If fs_enet cannot handle that, then that is what wants 
-fixing.
+We do have these limits but they're per-process, not per-user.
+Unless you lock down the number of processes each user can have
+to no more than a handful then this is basically useless.
 
-Please send along a fix for this, rather than band-aiding the problem.
+For example, let's say each socket can lock down 64K of kernel
+memory (which is quite easy to do BTW, just open a TCP/UDP socket,
+send data to it from another socket but keep the data in the
+socket by not calling recvmsg), and that each process can have
+1024 file descriptors (the default), then each process can pin
 
+64K x 1024 = 64M
+
+of memory.  So if the user can have 10 processes, then that's
+640M of kernel memory that can be pinned down.  Usually the
+process limit is at least 10 times higher.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
