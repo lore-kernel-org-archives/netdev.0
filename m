@@ -1,57 +1,41 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: Null dereference in socket.c
-Date: Fri, 28 Sep 2007 16:42:42 -0700
-Message-ID: <20070928164242.540b945a@freepuppy.rosehill>
-References: <46FD871C.2080004@redhat.com>
-	<20070928.160057.132434706.davem@davemloft.net>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [IPV6] Fix ICMPv6 redirect handling with target multicast address
+Date: Fri, 28 Sep 2007 17:50:38 -0700
+Message-ID: <OF5FC97D70.5FD0A80A-ON88257365.00025E58-88257365.00048D1E@us.ibm.com>
+References: <46FD2B37.6040502@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: cebbert@redhat.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:34163 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754575AbXI1Xmx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 19:42:53 -0400
-In-Reply-To: <20070928.160057.132434706.davem@davemloft.net>
+Received: from e34.co.us.ibm.com ([32.97.110.152]:49845 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752310AbXI2Aul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 20:50:41 -0400
+In-Reply-To: <46FD2B37.6040502@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 28 Sep 2007 16:00:57 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+Brian,
+        A multicast address should never be the target of a neighbor
+discovery request; the sender should use the mapping function for all
+multicasts. So, I'm not sure that your example can ever happen, and it
+certainly is ok to send ICMPv6 errors to multicast addresses in general.
+But I don't see that it hurts anything. either (since it should never 
+happen :-)),
+so I don't particularly object, either.
+        I think it'd also be better if you add the check to be:
 
-> From: Chuck Ebbert <cebbert@redhat.com>
-> Date: Fri, 28 Sep 2007 18:58:36 -0400
-> 
-> > After debugging an oops (https://bugzilla.redhat.com/attachment.cgi?id=209231)
-> > I find it happens here in socket.c::sock_ioctl() line 902:
-> > 
-> >                default:
-> > =============>          err = sock->ops->ioctl(sock, cmd, arg);
-> > 
-> >                         /*
-> >                          * If this ioctl is unknown try to hand it down
-> >                          * to the NIC driver.
-> >                          */
-> >                         if (err == -ENOIOCTLCMD)
-> >                                 err = dev_ioctl(cmd, argp);
-> >                         break;
-> > 
-> > 
-> > ioctl is NULL and the kernel jumps to address 0. Should we add a check
-> > for that?
-> > 
-> > Bug report:
-> > https://bugzilla.redhat.com/show_bug.cgi?id=306801
-> 
-> Every protocol should provide a non-NULL ->ioctl() method,
-> find out which one isn't and fix it
+        if (ipv6_addr_type(target) & 
+(IPV6_ADDR_LINKLOCAL|IPV6_ADDR_UNICAST))
 
-Auditing the net-2.6.24 tree all instances found by cscope are safe.
+or something along those lines, rather than reproducing ipv6_addr_type() 
+code
+separately in a new ipv6_addr_linklocal() function.
 
-	
+                                                +-DLS
 
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
