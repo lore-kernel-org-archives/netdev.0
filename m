@@ -1,49 +1,77 @@
-From: Andrea Arcangeli <andrea@suse.de>
-Subject: delayed acks question
-Date: Sat, 29 Sep 2007 02:51:57 +0200
-Message-ID: <20070929005156.GF10232@v2.random>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH] rtnl: Simplify ASSERT_RTNL
+Date: Fri, 28 Sep 2007 18:59:08 -0600
+Message-ID: <m1r6ki9tib.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:38475 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755819AbXI2AwA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Sep 2007 20:52:00 -0400
-Received: from Relay1.suse.de (mail2.suse.de [195.135.221.8])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mx1.suse.de (Postfix) with ESMTP id 27AF9158FC
-	for <netdev@vger.kernel.org>; Sat, 29 Sep 2007 02:51:59 +0200 (CEST)
-Content-Disposition: inline
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:54015 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756239AbXI2A7U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 20:59:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
 
-I've a few questions about ICSK_ACK_PUSHED2.
+Currently we have the call path:
+macvlan_open -> dev_unicast_add -> __dev_set_rx_mode ->
+	__dev_set_promiscuity -> ASSERT_RTNL -> mutex_trylock
 
-PUSHED2 is only meant to force the ack out immediately when pingpong
-is set to 1, but then if pingpong is 1 the delayed acks shouldn't be
-deferred anyway. However I think the trouble is that there's a race
-condition in reading pingpong, pingpong is only valid for the receiver
-tcp context, not for the userland code reading the receive buffer. By
-the time userland reads the receive buffer the other context may have
-changed.
+When mutex debugging is on taking a mutex complains if we are not
+allowed to sleep.  At that point we have called netif_tx_lock_bh
+so we are clearly not allowed to sleep.  Arguably this is not a
+problem for mutex_trylock.
 
-Is PUSHED2 ever cleared? Is PUSHED ever cleared in the first place?
+However we can avoid the complaint and make the ASSERT_RTNL code
+cheaper, faster and more obvious by simply calling mutex_is_locked.
 
-Why can't PUSHED2 be deleted together with the pingpong check, making
-PUSHED enough to guarantee to send the ack out once the receive buffer
-is empty.
+So this patch adds rtnl_is_locked (which does mutex_is_locked on
+the rtnl_mutex) and changes ASSERT_RTNL to use that.
 
-We've seen hangs of 40msec during slow start caused by the delayed
-acks that PUSHED2 seems to fix, but while reviewing it I can't see how
-could it possibly make sense to have a pingpong check in the userland
-side when pingpong will change all the time anytime (making
-TCP_QUICKACK a funny joke too).
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ include/linux/rtnetlink.h |    4 ++--
+ net/core/rtnetlink.c      |    5 +++++
+ 2 files changed, 7 insertions(+), 2 deletions(-)
 
-Thanks.
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index dff3192..9c21e45 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -714,13 +714,13 @@ extern void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change);
+ extern void rtnl_lock(void);
+ extern void rtnl_unlock(void);
+ extern int rtnl_trylock(void);
++extern int rtnl_is_locked(void);
+ 
+ extern void rtnetlink_init(void);
+ extern void __rtnl_unlock(void);
+ 
+ #define ASSERT_RTNL() do { \
+-	if (unlikely(rtnl_trylock())) { \
+-		rtnl_unlock(); \
++	if (unlikely(!rtnl_is_locked())) { \
+ 		printk(KERN_ERR "RTNL: assertion failed at %s (%d)\n", \
+ 		       __FILE__,  __LINE__); \
+ 		dump_stack(); \
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 739fbad..8bc68e6 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -85,6 +85,11 @@ int rtnl_trylock(void)
+ 	return mutex_trylock(&rtnl_mutex);
+ }
+ 
++int rtnl_is_locked(void)
++{
++	return mutex_is_locked(&rtnl_mutex);
++}
++
+ int rtattr_parse(struct rtattr *tb[], int maxattr, struct rtattr *rta, int len)
+ {
+ 	memset(tb, 0, sizeof(struct rtattr*)*maxattr);
+-- 
+1.5.3.rc6.17.g1911
 
-PS. I'm not subscribed to netdev, I looked into this incidentally, so
-please include me in the CC.
