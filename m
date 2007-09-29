@@ -1,49 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC/PATCH 0/3] UDP memory usage accounting
-Date: Sat, 29 Sep 2007 13:20:08 +0800
-Message-ID: <20070929052008.GA1192@gondor.apana.org.au>
-References: <46FD0117.9030407@hitachi.com> <E1IbSt7-000091-00@gondolin.me.apana.org.au> <20070928.214737.120464821.davem@davemloft.net> <20070928.215159.58440039.davem@davemloft.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/9] fs_enet: Whitespace cleanup.
+Date: Sat, 29 Sep 2007 01:21:06 -0400
+Message-ID: <46FDE0C2.5010207@pobox.com>
+References: <20070920220116.GA28784@loki.buserror.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: satoshi.oshima.fk@hitachi.com, johnpol@2ka.mipt.ru,
-	netdev@vger.kernel.org, haoki@redhat.com, yoshfuji@linux-ipv6.org,
-	yumiko.sugita.yf@hitachi.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Scott Wood <scottwood@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2598 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752729AbXI2FUP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Sep 2007 01:20:15 -0400
-Content-Disposition: inline
-In-Reply-To: <20070928.215159.58440039.davem@davemloft.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:57294 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752743AbXI2FVI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Sep 2007 01:21:08 -0400
+In-Reply-To: <20070920220116.GA28784@loki.buserror.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 28, 2007 at 09:51:59PM -0700, David Miller wrote:
-> 
-> There is a per-socket send buffer limit, and there is a per-user open
-> file descriptor limit.  Multiply the two to determine how much system
-> memory the user can consume using sockets.
+Scott Wood wrote:
+> Signed-off-by: Scott Wood <scottwood@freescale.com>
+> ---
+>  drivers/net/fs_enet/fs_enet-main.c |   85 ++++++++++++++++-------------------
+>  drivers/net/fs_enet/fs_enet.h      |    4 +-
+>  drivers/net/fs_enet/mac-fcc.c      |    1 -
+>  drivers/net/fs_enet/mii-bitbang.c  |    3 -
+>  drivers/net/fs_enet/mii-fec.c      |    1 -
+>  5 files changed, 41 insertions(+), 53 deletions(-)
 
-We do have these limits but they're per-process, not per-user.
-Unless you lock down the number of processes each user can have
-to no more than a handful then this is basically useless.
+ACK patches 1-2, 4-9
 
-For example, let's say each socket can lock down 64K of kernel
-memory (which is quite easy to do BTW, just open a TCP/UDP socket,
-send data to it from another socket but keep the data in the
-socket by not calling recvmsg), and that each process can have
-1024 file descriptors (the default), then each process can pin
+This patch doesn't apply cleanly to netdev-2.6.git#upstream (nor 
+net-2.6.24.git), so this and the rest of the patch series failed to apply.
 
-64K x 1024 = 64M
+Please resend series on top of netdev-2.6.git#upstream or net-2.6.24.git.
 
-of memory.  So if the user can have 10 processes, then that's
-640M of kernel memory that can be pinned down.  Usually the
-process limit is at least 10 times higher.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
