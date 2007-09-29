@@ -1,34 +1,33 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC/PATCH 2/3] UDP memory usage accounting: accounting unit and variable
-Date: Sat, 29 Sep 2007 11:22:55 +0800
-Message-ID: <E1IbSut-00009d-00@gondolin.me.apana.org.au>
-References: <46FD009B.1010904@hitachi.com>
-Cc: andi@firstfloor.org, netdev@vger.kernel.org, haoki@redhat.com,
-	yoshfuji@linux-ipv6.org, yumiko.sugita.yf@hitachi.com
-To: satoshi.oshima.fk@hitachi.com (Satoshi OSHIMA)
+Subject: Re: [PKT_SCHED]: Add stateless NAT
+Date: Sat, 29 Sep 2007 11:37:21 +0800
+Message-ID: <E1IbT8r-0000Av-00@gondolin.me.apana.org.au>
+References: <20070929005100.GA31959@gondor.apana.org.au>
+Cc: kaber@trash.net, davem@davemloft.net, hadi@cyberus.ca,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
+To: herbert@gondor.apana.org.au (Herbert Xu)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2241 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:2275 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753958AbXI2DXD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 23:23:03 -0400
-In-Reply-To: <46FD009B.1010904@hitachi.com>
+	with ESMTP id S1752886AbXI2Dhg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 23:37:36 -0400
+In-Reply-To: <20070929005100.GA31959@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Satoshi OSHIMA <satoshi.oshima.fk@hitachi.com> wrote:
->
-> I understand what you pointed out. But I think the accounting
-> method I'm proposing is very similar to TCP accounting and per
-> socket accounting.
-> How do you think of it?
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> On Fri, Sep 28, 2007 at 06:55:32PM +0200, Patrick McHardy wrote:
+>>
+>> Looking at ip_input.o as example (everything without forced inlining):
+>> 
+>>    text    data     bss     dec     hex filename
+>>    2076       8       0    2084     824 net/ipv4/ip_input.o
+>>    3483       8       0    3491     da3 net/ipv4/ip_input.o
+> 
+> If it's so big perhaps it should be inlined? It'll be a tail
+> call anyway.
 
-I think allowing Joe user to stop root from using TCP or UDP
-isn't much better than having him hog kernel memory.
-
-So let's fix this properly and add per-user limits rather than
-system-wide ones.
-
-Cheers,
+s/should be/shouldn't be/
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
