@@ -1,42 +1,53 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PKT_SCHED]: Add stateless NAT
-Date: Sat, 29 Sep 2007 17:21:23 +0200
-Message-ID: <46FE6D73.4000002@trash.net>
-References: <E1IbT8r-0000Av-00@gondolin.me.apana.org.au>
+Subject: Re: [PATCH] rtnl: Simplify ASSERT_RTNL
+Date: Sat, 29 Sep 2007 17:32:41 +0200
+Message-ID: <46FE7019.4030705@trash.net>
+References: <E1IbTz0-0000FK-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, hadi@cyberus.ca, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
 To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:50330 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:50534 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753842AbXI2PVp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Sep 2007 11:21:45 -0400
-In-Reply-To: <E1IbT8r-0000Av-00@gondolin.me.apana.org.au>
+	with ESMTP id S1753878AbXI2PdD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Sep 2007 11:33:03 -0400
+In-Reply-To: <E1IbTz0-0000FK-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Herbert Xu wrote:
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> Eric W. Biederman <ebiederm@xmission.com> wrote:
 > 
->>On Fri, Sep 28, 2007 at 06:55:32PM +0200, Patrick McHardy wrote:
+>>Currently we have the call path:
+>>macvlan_open -> dev_unicast_add -> __dev_set_rx_mode ->
+>>       __dev_set_promiscuity -> ASSERT_RTNL -> mutex_trylock
 >>
->>>Looking at ip_input.o as example (everything without forced inlining):
->>>
->>>   text    data     bss     dec     hex filename
->>>   2076       8       0    2084     824 net/ipv4/ip_input.o
->>>   3483       8       0    3491     da3 net/ipv4/ip_input.o
->>
->>If it's so big perhaps it should be inlined? It'll be a tail
->>call anyway.
+>>When mutex debugging is on taking a mutex complains if we are not
+>>allowed to sleep.  At that point we have called netif_tx_lock_bh
+>>so we are clearly not allowed to sleep.  Arguably this is not a
+>>problem for mutex_trylock.
 > 
 > 
-> s/should be/shouldn't be/
+> Actually holding the TX lock here is a bug.  We're going to
+> call down into the hardware with __dev_set_promiscuity, which
+> may sleep (think USB NICs), so we definitely shouldn't be holding
+> any spin locks.
+> 
+> Patrick, could we avoid taking the TX lock here somehow?
 
 
-Unfortunately gcc doesn't perform tail call optimization when the
-address of a parameter or local variable is passed to an extern
-function before the tail call, which NF_HOOK does for the skb.
+For unicast addresses its not strictly necessary since they may
+only be changed under the RTNL anyway. The reason why it takes
+the tx_lock is for consistency with multicast address handling,
+which can't rely on the RTNL since IPv6 changes them from
+BH context. The idea was that the ->set_rx_mode function should
+handle both secondary unicast and multicast addresses for
+simplicity.
 
+But I don't understand the problem, if this doesn't work for
+unicast addresses, why does it work for multicast addresses
+and ->set_multicast_list? I had a quick look at some USB
+network drivers but couldn't spot anything special ..
