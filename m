@@ -1,922 +1,632 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 1/5] net: Modify all rtnetlink methods to only work in the initial namespace
-Date: Fri, 28 Sep 2007 19:00:37 -0600
-Message-ID: <m1myv69tfu.fsf@ebiederm.dsl.xmission.com>
+Subject: [PATCH 2/5] net: Make rtnetlink infrastructure network namespace aware
+Date: Fri, 28 Sep 2007 19:02:11 -0600
+Message-ID: <m1hcle9td8.fsf@ebiederm.dsl.xmission.com>
+References: <m1myv69tfu.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: <netdev@vger.kernel.org>,
 	Linux Containers <containers@lists.osdl.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:39775 "EHLO
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:39780 "EHLO
 	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753623AbXI2BBB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 21:01:01 -0400
+	with ESMTP id S1753410AbXI2BCc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Sep 2007 21:02:32 -0400
+In-Reply-To: <m1myv69tfu.fsf@ebiederm.dsl.xmission.com> (Eric W. Biederman's
+	message of "Fri, 28 Sep 2007 19:00:37 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Before I can enable rtnetlink to work in all network namespaces
-I need to be certain that something won't break.  So this
-patch deliberately disables all of the rtnletlink methods in everything
-except the initial network namespace.  After the methods have been
-audited this extra check can be disabled.
+After this patch none of the netlink callback support anything
+except the initial network namespace but the rtnetlink infrastructure
+now handles multiple network namespaces.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/bridge/br_netlink.c |    9 +++++++++
- net/core/fib_rules.c    |   11 +++++++++++
- net/core/neighbour.c    |   18 ++++++++++++++++++
- net/core/rtnetlink.c    |   19 +++++++++++++++++++
- net/decnet/dn_dev.c     |   12 ++++++++++++
- net/decnet/dn_fib.c     |    8 ++++++++
- net/decnet/dn_route.c   |    8 ++++++++
- net/decnet/dn_table.c   |    4 ++++
- net/ipv4/devinet.c      |   12 ++++++++++++
- net/ipv4/fib_frontend.c |   12 ++++++++++++
- net/ipv4/route.c        |    4 ++++
- net/ipv6/addrconf.c     |   31 +++++++++++++++++++++++++++++++
- net/ipv6/ip6_fib.c      |    4 ++++
- net/ipv6/route.c        |   12 ++++++++++++
- net/sched/act_api.c     |   10 ++++++++++
- net/sched/cls_api.c     |   10 ++++++++++
- net/sched/sch_api.c     |   21 +++++++++++++++++++++
- 17 files changed, 205 insertions(+), 0 deletions(-)
+ include/linux/rtnetlink.h   |    8 ++--
+ include/net/net_namespace.h |    3 +
+ net/bridge/br_netlink.c     |    4 +-
+ net/core/fib_rules.c        |    4 +-
+ net/core/neighbour.c        |    4 +-
+ net/core/rtnetlink.c        |   96 +++++++++++++++++++++++++++++++++++++------
+ net/decnet/dn_dev.c         |    4 +-
+ net/decnet/dn_route.c       |    2 +-
+ net/decnet/dn_table.c       |    4 +-
+ net/ipv4/devinet.c          |    4 +-
+ net/ipv4/fib_semantics.c    |    4 +-
+ net/ipv4/ipmr.c             |    4 +-
+ net/ipv4/route.c            |    2 +-
+ net/ipv6/addrconf.c         |   14 +++---
+ net/ipv6/route.c            |    6 +-
+ net/sched/act_api.c         |    8 ++--
+ net/sched/cls_api.c         |    2 +-
+ net/sched/sch_api.c         |    4 +-
+ net/wireless/wext.c         |    5 ++-
+ 19 files changed, 129 insertions(+), 53 deletions(-)
 
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 9c21e45..518247e 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -582,11 +582,11 @@ extern int __rtattr_parse_nested_compat(struct rtattr *tb[], int maxattr,
+ ({	data = RTA_PAYLOAD(rta) >= len ? RTA_DATA(rta) : NULL; \
+ 	__rtattr_parse_nested_compat(tb, max, rta, len); })
+ 
+-extern int rtnetlink_send(struct sk_buff *skb, u32 pid, u32 group, int echo);
+-extern int rtnl_unicast(struct sk_buff *skb, u32 pid);
+-extern int rtnl_notify(struct sk_buff *skb, u32 pid, u32 group,
++extern int rtnetlink_send(struct sk_buff *skb, struct net *net, u32 pid, u32 group, int echo);
++extern int rtnl_unicast(struct sk_buff *skb, struct net *net, u32 pid);
++extern int rtnl_notify(struct sk_buff *skb, struct net *net, u32 pid, u32 group,
+ 		       struct nlmsghdr *nlh, gfp_t flags);
+-extern void rtnl_set_sk_err(u32 group, int error);
++extern void rtnl_set_sk_err(struct net *net, u32 group, int error);
+ extern int rtnetlink_put_metrics(struct sk_buff *skb, u32 *metrics);
+ extern int rtnl_put_cacheinfo(struct sk_buff *skb, struct dst_entry *dst,
+ 			      u32 id, u32 ts, u32 tsage, long expires,
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 934c840..f75607a 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -10,6 +10,7 @@
+ 
+ struct proc_dir_entry;
+ struct net_device;
++struct sock;
+ struct net {
+ 	atomic_t		count;		/* To decided when the network
+ 						 *  namespace should be freed.
+@@ -29,6 +30,8 @@ struct net {
+ 	struct list_head 	dev_base_head;
+ 	struct hlist_head 	*dev_name_head;
+ 	struct hlist_head	*dev_index_head;
++
++	struct sock 		*rtnl;			/* rtnetlink socket */
+ };
+ 
+ #ifdef CONFIG_NET
 diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 53ab8e0..a4ffa2b 100644
+index a4ffa2b..f5d6933 100644
 --- a/net/bridge/br_netlink.c
 +++ b/net/bridge/br_netlink.c
-@@ -13,6 +13,7 @@
- #include <linux/kernel.h>
- #include <net/rtnetlink.h>
- #include <net/net_namespace.h>
-+#include <net/sock.h>
- #include "br_private.h"
+@@ -97,10 +97,10 @@ void br_ifinfo_notify(int event, struct net_bridge_port *port)
+ 		kfree_skb(skb);
+ 		goto errout;
+ 	}
+-	err = rtnl_notify(skb, 0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
++	err = rtnl_notify(skb, &init_net,0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
+ errout:
+ 	if (err < 0)
+-		rtnl_set_sk_err(RTNLGRP_LINK, err);
++		rtnl_set_sk_err(&init_net, RTNLGRP_LINK, err);
+ }
  
- static inline size_t br_nlmsg_size(void)
-@@ -107,9 +108,13 @@ errout:
-  */
- static int br_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct net_device *dev;
- 	int idx;
- 
-+	if (net != &init_net)
-+		return 0;
-+
- 	idx = 0;
- 	for_each_netdev(&init_net, dev) {
- 		/* not a bridge port */
-@@ -135,12 +140,16 @@ skip:
-  */
- static int br_rtm_setlink(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct ifinfomsg *ifm;
- 	struct nlattr *protinfo;
- 	struct net_device *dev;
- 	struct net_bridge_port *p;
- 	u8 new_state;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	if (nlmsg_len(nlh) < sizeof(*ifm))
- 		return -EINVAL;
- 
+ /*
 diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 13de6f5..357bfa0 100644
+index 357bfa0..03c803c 100644
 --- a/net/core/fib_rules.c
 +++ b/net/core/fib_rules.c
-@@ -206,6 +206,9 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 	struct nlattr *tb[FRA_MAX+1];
- 	int err = -EINVAL, unresolved = 0;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	if (nlh->nlmsg_len < nlmsg_msg_size(sizeof(*frh)))
+@@ -577,10 +577,10 @@ static void notify_rule_change(int event, struct fib_rule *rule,
+ 		kfree_skb(skb);
  		goto errout;
+ 	}
+-	err = rtnl_notify(skb, pid, ops->nlgroup, nlh, GFP_KERNEL);
++	err = rtnl_notify(skb, &init_net, pid, ops->nlgroup, nlh, GFP_KERNEL);
+ errout:
+ 	if (err < 0)
+-		rtnl_set_sk_err(ops->nlgroup, err);
++		rtnl_set_sk_err(&init_net, ops->nlgroup, err);
+ }
  
-@@ -336,12 +339,16 @@ errout:
- 
- static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct fib_rule_hdr *frh = nlmsg_data(nlh);
- 	struct fib_rules_ops *ops = NULL;
- 	struct fib_rule *rule, *tmp;
- 	struct nlattr *tb[FRA_MAX+1];
- 	int err = -EINVAL;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	if (nlh->nlmsg_len < nlmsg_msg_size(sizeof(*frh)))
- 		goto errout;
- 
-@@ -517,9 +524,13 @@ skip:
- 
- static int fib_nl_dumprule(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct fib_rules_ops *ops;
- 	int idx = 0, family;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	family = rtnl_msg_family(cb->nlh);
- 	if (family != AF_UNSPEC) {
- 		/* Protocol specific dump request */
+ static void attach_rules(struct list_head *rules, struct net_device *dev)
 diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index c52df85..27001db 100644
+index 27001db..c452584 100644
 --- a/net/core/neighbour.c
 +++ b/net/core/neighbour.c
-@@ -1448,6 +1448,9 @@ static int neigh_delete(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	struct net_device *dev = NULL;
- 	int err = -EINVAL;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	if (nlmsg_len(nlh) < sizeof(*ndm))
- 		goto out;
- 
-@@ -1514,6 +1517,9 @@ static int neigh_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	struct net_device *dev = NULL;
- 	int err;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	err = nlmsg_parse(nlh, sizeof(*ndm), tb, NDA_MAX, NULL);
+@@ -2466,10 +2466,10 @@ static void __neigh_notify(struct neighbour *n, int type, int flags)
+ 		kfree_skb(skb);
+ 		goto errout;
+ 	}
+-	err = rtnl_notify(skb, 0, RTNLGRP_NEIGH, NULL, GFP_ATOMIC);
++	err = rtnl_notify(skb, &init_net, 0, RTNLGRP_NEIGH, NULL, GFP_ATOMIC);
+ errout:
  	if (err < 0)
- 		goto out;
-@@ -1788,11 +1794,15 @@ static const struct nla_policy nl_ntbl_parm_policy[NDTPA_MAX+1] = {
+-		rtnl_set_sk_err(RTNLGRP_NEIGH, err);
++		rtnl_set_sk_err(&init_net, RTNLGRP_NEIGH, err);
+ }
  
- static int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct neigh_table *tbl;
- 	struct ndtmsg *ndtmsg;
- 	struct nlattr *tb[NDTA_MAX+1];
- 	int err;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	err = nlmsg_parse(nlh, sizeof(*ndtmsg), tb, NDTA_MAX,
- 			  nl_neightbl_policy);
- 	if (err < 0)
-@@ -1912,11 +1922,15 @@ errout:
- 
- static int neightbl_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = skb->sk->sk_net;
- 	int family, tidx, nidx = 0;
- 	int tbl_skip = cb->args[0];
- 	int neigh_skip = cb->args[1];
- 	struct neigh_table *tbl;
- 
-+	if (net != &init_net)
-+		return 0;
-+
- 	family = ((struct rtgenmsg *) nlmsg_data(cb->nlh))->rtgen_family;
- 
- 	read_lock(&neigh_tbl_lock);
-@@ -2041,9 +2055,13 @@ out:
- 
- static int neigh_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct neigh_table *tbl;
- 	int t, family, s_t;
- 
-+	if (net != &init_net)
-+		return 0;
-+
- 	read_lock(&neigh_tbl_lock);
- 	family = ((struct rtgenmsg *) nlmsg_data(cb->nlh))->rtgen_family;
- 	s_t = cb->args[0];
+ #ifdef CONFIG_ARPD
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 8bc68e6..56fc4f9 100644
+index 56fc4f9..fc49104 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
-@@ -707,6 +707,9 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
- 	int s_idx = cb->args[0];
- 	struct net_device *dev;
+@@ -60,7 +60,6 @@ struct rtnl_link
+ };
  
-+	if (net != &init_net)
-+		return 0;
-+
- 	idx = 0;
- 	for_each_netdev(net, dev) {
- 		if (idx < s_idx)
-@@ -909,6 +912,9 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	struct nlattr *tb[IFLA_MAX+1];
- 	char ifname[IFNAMSIZ];
+ static DEFINE_MUTEX(rtnl_mutex);
+-static struct sock *rtnl;
  
-+	if (net != &init_net)
-+		return -EINVAL;
+ void rtnl_lock(void)
+ {
+@@ -74,9 +73,38 @@ void __rtnl_unlock(void)
+ 
+ void rtnl_unlock(void)
+ {
+-	mutex_unlock(&rtnl_mutex);
+-	if (rtnl && rtnl->sk_receive_queue.qlen)
++	struct net *net;
 +
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
- 	if (err < 0)
++	/*
++	 * Loop through all of the rtnl sockets until none of them (in
++	 * a live network namespace) have queue packets.
++	 *
++	 * We have to be careful with the locking here as
++	 * sk_data_ready aka rtnetlink_rcv takes the rtnl_mutex.
++	 *
++	 * To ensure the network namespace does not exit while
++	 * we are processing packets on it's rtnl socket we
++	 * grab a reference to the network namespace, ignoring
++	 * it if the network namespace has already exited.
++	 */
++retry:
++	for_each_net(net) {
++		struct sock *rtnl = net->rtnl;
++
++		if (!rtnl || !rtnl->sk_receive_queue.qlen)
++			continue;
++
++		if (!maybe_get_net(net))
++			continue;
++
++		mutex_unlock(&rtnl_mutex);
+ 		rtnl->sk_data_ready(rtnl, 0);
++		mutex_lock(&rtnl_mutex);
++		put_net(net);
++		goto retry;
++	}
++	mutex_unlock(&rtnl_mutex);
++
+ 	netdev_run_todo();
+ }
+ 
+@@ -462,8 +490,9 @@ size_t rtattr_strlcpy(char *dest, const struct rtattr *rta, size_t size)
+ 	return ret;
+ }
+ 
+-int rtnetlink_send(struct sk_buff *skb, u32 pid, unsigned group, int echo)
++int rtnetlink_send(struct sk_buff *skb, struct net *net, u32 pid, unsigned group, int echo)
+ {
++	struct sock *rtnl = net->rtnl;
+ 	int err = 0;
+ 
+ 	NETLINK_CB(skb).dst_group = group;
+@@ -475,14 +504,17 @@ int rtnetlink_send(struct sk_buff *skb, u32 pid, unsigned group, int echo)
+ 	return err;
+ }
+ 
+-int rtnl_unicast(struct sk_buff *skb, u32 pid)
++int rtnl_unicast(struct sk_buff *skb, struct net *net, u32 pid)
+ {
++	struct sock *rtnl = net->rtnl;
++
+ 	return nlmsg_unicast(rtnl, skb, pid);
+ }
+ 
+-int rtnl_notify(struct sk_buff *skb, u32 pid, u32 group,
++int rtnl_notify(struct sk_buff *skb, struct net *net, u32 pid, u32 group,
+ 		struct nlmsghdr *nlh, gfp_t flags)
+ {
++	struct sock *rtnl = net->rtnl;
+ 	int report = 0;
+ 
+ 	if (nlh)
+@@ -491,8 +523,10 @@ int rtnl_notify(struct sk_buff *skb, u32 pid, u32 group,
+ 	return nlmsg_notify(rtnl, skb, pid, group, report, flags);
+ }
+ 
+-void rtnl_set_sk_err(u32 group, int error)
++void rtnl_set_sk_err(struct net *net, u32 group, int error)
+ {
++	struct sock *rtnl = net->rtnl;
++
+ 	netlink_set_err(rtnl, 0, group, error);
+ }
+ 
+@@ -1205,7 +1239,7 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 		kfree_skb(nskb);
  		goto errout;
-@@ -957,6 +963,9 @@ static int rtnl_dellink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	struct nlattr *tb[IFLA_MAX+1];
- 	int err;
+ 	}
+-	err = rtnl_unicast(nskb, NETLINK_CB(skb).pid);
++	err = rtnl_unicast(nskb, net, NETLINK_CB(skb).pid);
+ errout:
+ 	dev_put(dev);
  
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
+@@ -1256,10 +1290,10 @@ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change)
+ 		kfree_skb(skb);
+ 		goto errout;
+ 	}
+-	err = rtnl_notify(skb, 0, RTNLGRP_LINK, NULL, GFP_KERNEL);
++	err = rtnl_notify(skb, &init_net, 0, RTNLGRP_LINK, NULL, GFP_KERNEL);
+ errout:
  	if (err < 0)
- 		return err;
-@@ -1038,6 +1047,9 @@ static int rtnl_newlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	struct nlattr *linkinfo[IFLA_INFO_MAX+1];
- 	int err;
+-		rtnl_set_sk_err(RTNLGRP_LINK, err);
++		rtnl_set_sk_err(&init_net, RTNLGRP_LINK, err);
+ }
  
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- #ifdef CONFIG_KMOD
- replay:
- #endif
-@@ -1164,6 +1176,9 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 	struct sk_buff *nskb;
- 	int err;
+ /* Protected by RTNL sempahore.  */
+@@ -1270,6 +1304,7 @@ static int rtattr_max;
  
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
- 	if (err < 0)
- 		return err;
-@@ -1199,9 +1214,13 @@ errout:
- 
- static int rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb)
+ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
  {
 +	struct net *net = skb->sk->sk_net;
- 	int idx;
- 	int s_idx = cb->family;
+ 	rtnl_doit_func doit;
+ 	int sz_idx, kind;
+ 	int min_len;
+@@ -1298,6 +1333,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		return -EPERM;
  
-+	if (net != &init_net)
-+		return 0;
+ 	if (kind == 2 && nlh->nlmsg_flags&NLM_F_DUMP) {
++		struct sock *rtnl;
+ 		rtnl_dumpit_func dumpit;
+ 
+ 		dumpit = rtnl_get_dumpit(family, type);
+@@ -1305,6 +1341,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 			return -EOPNOTSUPP;
+ 
+ 		__rtnl_unlock();
++		rtnl = net->rtnl;
+ 		err = netlink_dump_start(rtnl, skb, nlh, dumpit, NULL);
+ 		rtnl_lock();
+ 		return err;
+@@ -1383,6 +1420,40 @@ static struct notifier_block rtnetlink_dev_notifier = {
+ 	.notifier_call	= rtnetlink_event,
+ };
+ 
 +
- 	if (s_idx == 0)
- 		s_idx = 1;
- 	for (idx=1; idx<NPROTO; idx++) {
++static int rtnetlink_net_init(struct net *net)
++{
++	struct sock *sk;
++	sk = netlink_kernel_create(net, NETLINK_ROUTE, RTNLGRP_MAX,
++				   rtnetlink_rcv, &rtnl_mutex, THIS_MODULE);
++	if (!sk)
++		return -ENOMEM;
++
++	/* Don't hold an extra reference on the namespace */
++	put_net(sk->sk_net);
++	net->rtnl = sk;
++	return 0;
++}
++
++static void rtnetlink_net_exit(struct net *net)
++{
++	struct sock *sk = net->rtnl;
++	if (sk) {
++		/* At the last minute lie and say this is a socket for the
++		 * initial network namespace.  So the socket will be safe to
++		 * free.
++		 */
++		sk->sk_net = get_net(&init_net);
++		sock_put(sk);
++		net->rtnl = NULL;
++	}
++}
++
++static struct pernet_operations rtnetlink_net_ops = {
++	.init = rtnetlink_net_init,
++	.exit = rtnetlink_net_exit,
++};
++
+ void __init rtnetlink_init(void)
+ {
+ 	int i;
+@@ -1395,10 +1466,9 @@ void __init rtnetlink_init(void)
+ 	if (!rta_buf)
+ 		panic("rtnetlink_init: cannot allocate rta_buf\n");
+ 
+-	rtnl = netlink_kernel_create(&init_net, NETLINK_ROUTE, RTNLGRP_MAX,
+-				     rtnetlink_rcv, &rtnl_mutex, THIS_MODULE);
+-	if (rtnl == NULL)
++	if (register_pernet_subsys(&rtnetlink_net_ops))
+ 		panic("rtnetlink_init: cannot initialize rtnetlink\n");
++
+ 	netlink_set_nonroot(NETLINK_ROUTE, NL_NONROOT_RECV);
+ 	register_netdevice_notifier(&rtnetlink_dev_notifier);
+ 
 diff --git a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
-index 26130af..6e82f7a 100644
+index 6e82f7a..8b34b24 100644
 --- a/net/decnet/dn_dev.c
 +++ b/net/decnet/dn_dev.c
-@@ -647,12 +647,16 @@ static const struct nla_policy dn_ifa_policy[IFA_MAX+1] = {
- 
- static int dn_nl_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct nlattr *tb[IFA_MAX+1];
- 	struct dn_dev *dn_db;
- 	struct ifaddrmsg *ifm;
- 	struct dn_ifaddr *ifa, **ifap;
- 	int err = -EADDRNOTAVAIL;
- 
-+	if (net != &init_net)
-+		goto errout;
-+
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, dn_ifa_policy);
- 	if (err < 0)
+@@ -791,10 +791,10 @@ static void dn_ifaddr_notify(int event, struct dn_ifaddr *ifa)
+ 		kfree_skb(skb);
  		goto errout;
-@@ -679,6 +683,7 @@ errout:
- 
- static int dn_nl_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct nlattr *tb[IFA_MAX+1];
- 	struct net_device *dev;
- 	struct dn_dev *dn_db;
-@@ -686,6 +691,9 @@ static int dn_nl_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	struct dn_ifaddr *ifa;
- 	int err;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, dn_ifa_policy);
+ 	}
+-	err = rtnl_notify(skb, 0, RTNLGRP_DECnet_IFADDR, NULL, GFP_KERNEL);
++	err = rtnl_notify(skb, &init_net, 0, RTNLGRP_DECnet_IFADDR, NULL, GFP_KERNEL);
+ errout:
  	if (err < 0)
- 		return err;
-@@ -791,11 +799,15 @@ errout:
+-		rtnl_set_sk_err(RTNLGRP_DECnet_IFADDR, err);
++		rtnl_set_sk_err(&init_net, RTNLGRP_DECnet_IFADDR, err);
+ }
  
  static int dn_nl_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = skb->sk->sk_net;
- 	int idx, dn_idx = 0, skip_ndevs, skip_naddr;
- 	struct net_device *dev;
- 	struct dn_dev *dn_db;
- 	struct dn_ifaddr *ifa;
- 
-+	if (net != &init_net)
-+		return 0;
-+
- 	skip_ndevs = cb->args[0];
- 	skip_naddr = cb->args[1];
- 
-diff --git a/net/decnet/dn_fib.c b/net/decnet/dn_fib.c
-index 3760a20..5413e1b 100644
---- a/net/decnet/dn_fib.c
-+++ b/net/decnet/dn_fib.c
-@@ -506,10 +506,14 @@ static int dn_fib_check_attr(struct rtmsg *r, struct rtattr **rta)
- 
- static int dn_fib_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct dn_fib_table *tb;
- 	struct rtattr **rta = arg;
- 	struct rtmsg *r = NLMSG_DATA(nlh);
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	if (dn_fib_check_attr(r, rta))
- 		return -EINVAL;
- 
-@@ -522,10 +526,14 @@ static int dn_fib_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *
- 
- static int dn_fib_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct dn_fib_table *tb;
- 	struct rtattr **rta = arg;
- 	struct rtmsg *r = NLMSG_DATA(nlh);
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	if (dn_fib_check_attr(r, rta))
- 		return -EINVAL;
- 
 diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index b7ebf99..a16374b 100644
+index a16374b..a5df108 100644
 --- a/net/decnet/dn_route.c
 +++ b/net/decnet/dn_route.c
-@@ -1530,6 +1530,7 @@ rtattr_failure:
-  */
- static int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh, void *arg)
- {
-+	struct net *net = in_skb->sk->sk_net;
- 	struct rtattr **rta = arg;
- 	struct rtmsg *rtm = NLMSG_DATA(nlh);
- 	struct dn_route *rt = NULL;
-@@ -1538,6 +1539,9 @@ static int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh, void
- 	struct sk_buff *skb;
- 	struct flowi fl;
+@@ -1606,7 +1606,7 @@ static int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh, void
+ 		goto out_free;
+ 	}
  
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	memset(&fl, 0, sizeof(fl));
- 	fl.proto = DNPROTO_NSP;
+-	return rtnl_unicast(skb, NETLINK_CB(in_skb).pid);
++	return rtnl_unicast(skb, &init_net, NETLINK_CB(in_skb).pid);
  
-@@ -1615,10 +1619,14 @@ out_free:
-  */
- int dn_cache_dump(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct dn_route *rt;
- 	int h, s_h;
- 	int idx, s_idx;
- 
-+	if (net != &init_net)
-+		return 0;
-+
- 	if (NLMSG_PAYLOAD(cb->nlh, 0) < sizeof(struct rtmsg))
- 		return -EINVAL;
- 	if (!(((struct rtmsg *)NLMSG_DATA(cb->nlh))->rtm_flags&RTM_F_CLONED))
+ out_free:
+ 	kfree_skb(skb);
 diff --git a/net/decnet/dn_table.c b/net/decnet/dn_table.c
-index fda0772..a3bdb8d 100644
+index a3bdb8d..e09d915 100644
 --- a/net/decnet/dn_table.c
 +++ b/net/decnet/dn_table.c
-@@ -463,12 +463,16 @@ static int dn_fib_table_dump(struct dn_fib_table *tb, struct sk_buff *skb,
+@@ -375,10 +375,10 @@ static void dn_rtmsg_fib(int event, struct dn_fib_node *f, int z, u32 tb_id,
+ 		kfree_skb(skb);
+ 		goto errout;
+ 	}
+-	err = rtnl_notify(skb, pid, RTNLGRP_DECnet_ROUTE, nlh, GFP_KERNEL);
++	err = rtnl_notify(skb, &init_net, pid, RTNLGRP_DECnet_ROUTE, nlh, GFP_KERNEL);
+ errout:
+ 	if (err < 0)
+-		rtnl_set_sk_err(RTNLGRP_DECnet_ROUTE, err);
++		rtnl_set_sk_err(&init_net, RTNLGRP_DECnet_ROUTE, err);
+ }
  
- int dn_fib_dump(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = skb->sk->sk_net;
- 	unsigned int h, s_h;
- 	unsigned int e = 0, s_e;
- 	struct dn_fib_table *tb;
- 	struct hlist_node *node;
- 	int dumped = 0;
- 
-+	if (net != &init_net)
-+		return 0;
-+
- 	if (NLMSG_PAYLOAD(cb->nlh, 0) >= sizeof(struct rtmsg) &&
- 		((struct rtmsg *)NLMSG_DATA(cb->nlh))->rtm_flags&RTM_F_CLONED)
- 			return dn_cache_dump(skb, cb);
+ static __inline__ int dn_hash_dump_bucket(struct sk_buff *skb,
 diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 55d199e..0ff2ef6 100644
+index 0ff2ef6..1ae7dcf 100644
 --- a/net/ipv4/devinet.c
 +++ b/net/ipv4/devinet.c
-@@ -441,6 +441,7 @@ struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix,
- 
- static int inet_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct nlattr *tb[IFA_MAX+1];
- 	struct in_device *in_dev;
- 	struct ifaddrmsg *ifm;
-@@ -449,6 +450,9 @@ static int inet_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg
- 
- 	ASSERT_RTNL();
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv4_policy);
- 	if (err < 0)
+@@ -1241,10 +1241,10 @@ static void rtmsg_ifa(int event, struct in_ifaddr* ifa, struct nlmsghdr *nlh,
+ 		kfree_skb(skb);
  		goto errout;
-@@ -561,10 +565,14 @@ errout:
- 
- static int inet_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct in_ifaddr *ifa;
- 
- 	ASSERT_RTNL();
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	ifa = rtm_to_ifaddr(nlh);
- 	if (IS_ERR(ifa))
- 		return PTR_ERR(ifa);
-@@ -1175,12 +1183,16 @@ nla_put_failure:
- 
- static int inet_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = skb->sk->sk_net;
- 	int idx, ip_idx;
- 	struct net_device *dev;
- 	struct in_device *in_dev;
- 	struct in_ifaddr *ifa;
- 	int s_ip_idx, s_idx = cb->args[0];
- 
-+	if (net != &init_net)
-+		return 0;
-+
- 	s_ip_idx = ip_idx = cb->args[1];
- 	idx = 0;
- 	for_each_netdev(&init_net, dev) {
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index f823ca3..84d688a 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -527,10 +527,14 @@ errout:
- 
- static int inet_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct fib_config cfg;
- 	struct fib_table *tb;
- 	int err;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	err = rtm_to_fib_config(skb, nlh, &cfg);
+ 	}
+-	err = rtnl_notify(skb, pid, RTNLGRP_IPV4_IFADDR, nlh, GFP_KERNEL);
++	err = rtnl_notify(skb, &init_net, pid, RTNLGRP_IPV4_IFADDR, nlh, GFP_KERNEL);
+ errout:
  	if (err < 0)
+-		rtnl_set_sk_err(RTNLGRP_IPV4_IFADDR, err);
++		rtnl_set_sk_err(&init_net, RTNLGRP_IPV4_IFADDR, err);
+ }
+ 
+ #ifdef CONFIG_SYSCTL
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 1351a26..33ec960 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -320,11 +320,11 @@ void rtmsg_fib(int event, __be32 key, struct fib_alias *fa,
+ 		kfree_skb(skb);
  		goto errout;
-@@ -548,10 +552,14 @@ errout:
- 
- static int inet_rtm_newroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct fib_config cfg;
- 	struct fib_table *tb;
- 	int err;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	err = rtm_to_fib_config(skb, nlh, &cfg);
+ 	}
+-	err = rtnl_notify(skb, info->pid, RTNLGRP_IPV4_ROUTE,
++	err = rtnl_notify(skb, &init_net, info->pid, RTNLGRP_IPV4_ROUTE,
+ 			  info->nlh, GFP_KERNEL);
+ errout:
  	if (err < 0)
- 		goto errout;
-@@ -569,12 +577,16 @@ errout:
+-		rtnl_set_sk_err(RTNLGRP_IPV4_ROUTE, err);
++		rtnl_set_sk_err(&init_net, RTNLGRP_IPV4_ROUTE, err);
+ }
  
- static int inet_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = skb->sk->sk_net;
- 	unsigned int h, s_h;
- 	unsigned int e = 0, s_e;
- 	struct fib_table *tb;
- 	struct hlist_node *node;
- 	int dumped = 0;
+ /* Return the first fib alias matching TOS with
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index b8b4b49..c077cc0 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -321,7 +321,7 @@ static void ipmr_destroy_unres(struct mfc_cache *c)
+ 			e->error = -ETIMEDOUT;
+ 			memset(&e->msg, 0, sizeof(e->msg));
  
-+	if (net != &init_net)
-+		return 0;
-+
- 	if (nlmsg_len(cb->nlh) >= sizeof(struct rtmsg) &&
- 	    ((struct rtmsg *) nlmsg_data(cb->nlh))->rtm_flags & RTM_F_CLONED)
- 		return ip_rt_dump(skb, cb);
+-			rtnl_unicast(skb, NETLINK_CB(skb).pid);
++			rtnl_unicast(skb, &init_net, NETLINK_CB(skb).pid);
+ 		} else
+ 			kfree_skb(skb);
+ 	}
+@@ -533,7 +533,7 @@ static void ipmr_cache_resolve(struct mfc_cache *uc, struct mfc_cache *c)
+ 				memset(&e->msg, 0, sizeof(e->msg));
+ 			}
+ 
+-			rtnl_unicast(skb, NETLINK_CB(skb).pid);
++			rtnl_unicast(skb, &init_net, NETLINK_CB(skb).pid);
+ 		} else
+ 			ip_mr_forward(skb, c, 0);
+ 	}
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index c5a06e6..a538a30 100644
+index a538a30..a710b48 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -2552,6 +2552,7 @@ nla_put_failure:
+@@ -2635,7 +2635,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
+ 	if (err <= 0)
+ 		goto errout_free;
  
- static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void *arg)
- {
-+	struct net *net = in_skb->sk->sk_net;
- 	struct rtmsg *rtm;
- 	struct nlattr *tb[RTA_MAX+1];
- 	struct rtable *rt = NULL;
-@@ -2561,6 +2562,9 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
- 	int err;
- 	struct sk_buff *skb;
+-	err = rtnl_unicast(skb, NETLINK_CB(in_skb).pid);
++	err = rtnl_unicast(skb, &init_net, NETLINK_CB(in_skb).pid);
+ errout:
+ 	return err;
  
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	err = nlmsg_parse(nlh, sizeof(*rtm), tb, RTA_MAX, rtm_ipv4_policy);
- 	if (err < 0)
- 		goto errout;
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 6d5c3c2..bdc183e 100644
+index bdc183e..7dd3f4f 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -3003,11 +3003,15 @@ static const struct nla_policy ifa_ipv6_policy[IFA_MAX+1] = {
- static int
- inet6_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct ifaddrmsg *ifm;
- 	struct nlattr *tb[IFA_MAX+1];
- 	struct in6_addr *pfx;
- 	int err;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv6_policy);
- 	if (err < 0)
- 		return err;
-@@ -3060,6 +3064,7 @@ static int inet6_addr_modify(struct inet6_ifaddr *ifp, u8 ifa_flags,
- static int
- inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct ifaddrmsg *ifm;
- 	struct nlattr *tb[IFA_MAX+1];
- 	struct in6_addr *pfx;
-@@ -3069,6 +3074,9 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	u8 ifa_flags;
- 	int err;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv6_policy);
- 	if (err < 0)
- 		return err;
-@@ -3342,26 +3350,42 @@ done:
- 
- static int inet6_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = skb->sk->sk_net;
- 	enum addr_type_t type = UNICAST_ADDR;
-+
-+	if (net != &init_net)
-+		return 0;
-+
- 	return inet6_dump_addr(skb, cb, type);
- }
- 
- static int inet6_dump_ifmcaddr(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = skb->sk->sk_net;
- 	enum addr_type_t type = MULTICAST_ADDR;
-+
-+	if (net != &init_net)
-+		return 0;
-+
- 	return inet6_dump_addr(skb, cb, type);
- }
- 
- 
- static int inet6_dump_ifacaddr(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = skb->sk->sk_net;
- 	enum addr_type_t type = ANYCAST_ADDR;
-+
-+	if (net != &init_net)
-+		return 0;
-+
- 	return inet6_dump_addr(skb, cb, type);
- }
- 
- static int inet6_rtm_getaddr(struct sk_buff *in_skb, struct nlmsghdr* nlh,
- 			     void *arg)
- {
-+	struct net *net = in_skb->sk->sk_net;
- 	struct ifaddrmsg *ifm;
- 	struct nlattr *tb[IFA_MAX+1];
- 	struct in6_addr *addr = NULL;
-@@ -3370,6 +3394,9 @@ static int inet6_rtm_getaddr(struct sk_buff *in_skb, struct nlmsghdr* nlh,
- 	struct sk_buff *skb;
- 	int err;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv6_policy);
- 	if (err < 0)
+@@ -3429,7 +3429,7 @@ static int inet6_rtm_getaddr(struct sk_buff *in_skb, struct nlmsghdr* nlh,
+ 		kfree_skb(skb);
+ 		goto errout_ifa;
+ 	}
+-	err = rtnl_unicast(skb, NETLINK_CB(in_skb).pid);
++	err = rtnl_unicast(skb, &init_net, NETLINK_CB(in_skb).pid);
+ errout_ifa:
+ 	in6_ifa_put(ifa);
+ errout:
+@@ -3452,10 +3452,10 @@ static void inet6_ifa_notify(int event, struct inet6_ifaddr *ifa)
+ 		kfree_skb(skb);
  		goto errout;
-@@ -3587,11 +3614,15 @@ nla_put_failure:
+ 	}
+-	err = rtnl_notify(skb, 0, RTNLGRP_IPV6_IFADDR, NULL, GFP_ATOMIC);
++	err = rtnl_notify(skb, &init_net, 0, RTNLGRP_IPV6_IFADDR, NULL, GFP_ATOMIC);
+ errout:
+ 	if (err < 0)
+-		rtnl_set_sk_err(RTNLGRP_IPV6_IFADDR, err);
++		rtnl_set_sk_err(&init_net, RTNLGRP_IPV6_IFADDR, err);
+ }
  
- static int inet6_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = skb->sk->sk_net;
- 	int idx, err;
- 	int s_idx = cb->args[0];
- 	struct net_device *dev;
- 	struct inet6_dev *idev;
+ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+@@ -3660,10 +3660,10 @@ void inet6_ifinfo_notify(int event, struct inet6_dev *idev)
+ 		kfree_skb(skb);
+ 		goto errout;
+ 	}
+-	err = rtnl_notify(skb, 0, RTNLGRP_IPV6_IFADDR, NULL, GFP_ATOMIC);
++	err = rtnl_notify(skb, &init_net, 0, RTNLGRP_IPV6_IFADDR, NULL, GFP_ATOMIC);
+ errout:
+ 	if (err < 0)
+-		rtnl_set_sk_err(RTNLGRP_IPV6_IFADDR, err);
++		rtnl_set_sk_err(&init_net, RTNLGRP_IPV6_IFADDR, err);
+ }
  
-+	if (net != &init_net)
-+		return 0;
-+
- 	read_lock(&dev_base_lock);
- 	idx = 0;
- 	for_each_netdev(&init_net, dev) {
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 6a612a7..a731812 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -361,6 +361,7 @@ end:
+ static inline size_t inet6_prefix_nlmsg_size(void)
+@@ -3729,10 +3729,10 @@ static void inet6_prefix_notify(int event, struct inet6_dev *idev,
+ 		kfree_skb(skb);
+ 		goto errout;
+ 	}
+-	err = rtnl_notify(skb, 0, RTNLGRP_IPV6_PREFIX, NULL, GFP_ATOMIC);
++	err = rtnl_notify(skb, &init_net, 0, RTNLGRP_IPV6_PREFIX, NULL, GFP_ATOMIC);
+ errout:
+ 	if (err < 0)
+-		rtnl_set_sk_err(RTNLGRP_IPV6_PREFIX, err);
++		rtnl_set_sk_err(&init_net, RTNLGRP_IPV6_PREFIX, err);
+ }
  
- static int inet6_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = skb->sk->sk_net;
- 	unsigned int h, s_h;
- 	unsigned int e = 0, s_e;
- 	struct rt6_rtnl_dump_arg arg;
-@@ -369,6 +370,9 @@ static int inet6_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct hlist_node *node;
- 	int res = 0;
- 
-+	if (net != &init_net)
-+		return 0;
-+
- 	s_h = cb->args[0];
- 	s_e = cb->args[1];
- 
+ static void __ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index a7db84c..f0cf11c 100644
+index f0cf11c..849dfd1 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -2080,9 +2080,13 @@ errout:
- 
- static int inet6_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct fib6_config cfg;
- 	int err;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	err = rtm_to_fib6_config(skb, nlh, &cfg);
- 	if (err < 0)
- 		return err;
-@@ -2092,9 +2096,13 @@ static int inet6_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *a
- 
- static int inet6_rtm_newroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct fib6_config cfg;
- 	int err;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	err = rtm_to_fib6_config(skb, nlh, &cfg);
- 	if (err < 0)
- 		return err;
-@@ -2229,6 +2237,7 @@ int rt6_dump_route(struct rt6_info *rt, void *p_arg)
- 
- static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void *arg)
- {
-+	struct net *net = in_skb->sk->sk_net;
- 	struct nlattr *tb[RTA_MAX+1];
- 	struct rt6_info *rt;
- 	struct sk_buff *skb;
-@@ -2236,6 +2245,9 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
- 	struct flowi fl;
- 	int err, iif = 0;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	err = nlmsg_parse(nlh, sizeof(*rtm), tb, RTA_MAX, rtm_ipv6_policy);
- 	if (err < 0)
+@@ -2307,7 +2307,7 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
  		goto errout;
+ 	}
+ 
+-	err = rtnl_unicast(skb, NETLINK_CB(in_skb).pid);
++	err = rtnl_unicast(skb, &init_net, NETLINK_CB(in_skb).pid);
+ errout:
+ 	return err;
+ }
+@@ -2337,10 +2337,10 @@ void inet6_rt_notify(int event, struct rt6_info *rt, struct nl_info *info)
+ 		kfree_skb(skb);
+ 		goto errout;
+ 	}
+-	err = rtnl_notify(skb, pid, RTNLGRP_IPV6_ROUTE, nlh, gfp_any());
++	err = rtnl_notify(skb, &init_net, pid, RTNLGRP_IPV6_ROUTE, nlh, gfp_any());
+ errout:
+ 	if (err < 0)
+-		rtnl_set_sk_err(RTNLGRP_IPV6_ROUTE, err);
++		rtnl_set_sk_err(&init_net, RTNLGRP_IPV6_ROUTE, err);
+ }
+ 
+ /*
 diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 72cdb0f..8528291 100644
+index 8528291..8150647 100644
 --- a/net/sched/act_api.c
 +++ b/net/sched/act_api.c
-@@ -18,6 +18,8 @@
- #include <linux/skbuff.h>
- #include <linux/init.h>
- #include <linux/kmod.h>
-+#include <net/net_namespace.h>
-+#include <net/sock.h>
- #include <net/sch_generic.h>
- #include <net/act_api.h>
- #include <net/netlink.h>
-@@ -924,10 +926,14 @@ done:
- 
- static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct rtattr **tca = arg;
- 	u32 pid = skb ? NETLINK_CB(skb).pid : 0;
- 	int ret = 0, ovr = 0;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	if (tca[TCA_ACT_TAB-1] == NULL) {
- 		printk("tc_ctl_action: received NO action attribs\n");
+@@ -660,7 +660,7 @@ act_get_notify(u32 pid, struct nlmsghdr *n, struct tc_action *a, int event)
  		return -EINVAL;
-@@ -997,6 +1003,7 @@ find_dump_kind(struct nlmsghdr *n)
- static int
- tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct nlmsghdr *nlh;
- 	unsigned char *b = skb_tail_pointer(skb);
- 	struct rtattr *x;
-@@ -1006,6 +1013,9 @@ tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct tcamsg *t = (struct tcamsg *) NLMSG_DATA(cb->nlh);
- 	struct rtattr *kind = find_dump_kind(cb->nlh);
+ 	}
  
-+	if (net != &init_net)
-+		return 0;
-+
- 	if (kind == NULL) {
- 		printk("tc_dump_action: action bad kind\n");
+-	return rtnl_unicast(skb, pid);
++	return rtnl_unicast(skb, &init_net, pid);
+ }
+ 
+ static struct tc_action *
+@@ -781,7 +781,7 @@ static int tca_action_flush(struct rtattr *rta, struct nlmsghdr *n, u32 pid)
+ 	nlh->nlmsg_flags |= NLM_F_ROOT;
+ 	module_put(a->ops->owner);
+ 	kfree(a);
+-	err = rtnetlink_send(skb, pid, RTNLGRP_TC, n->nlmsg_flags&NLM_F_ECHO);
++	err = rtnetlink_send(skb, &init_net, pid, RTNLGRP_TC, n->nlmsg_flags&NLM_F_ECHO);
+ 	if (err > 0)
  		return 0;
+ 
+@@ -844,7 +844,7 @@ tca_action_gd(struct rtattr *rta, struct nlmsghdr *n, u32 pid, int event)
+ 
+ 		/* now do the delete */
+ 		tcf_action_destroy(head, 0);
+-		ret = rtnetlink_send(skb, pid, RTNLGRP_TC,
++		ret = rtnetlink_send(skb, &init_net, pid, RTNLGRP_TC,
+ 				     n->nlmsg_flags&NLM_F_ECHO);
+ 		if (ret > 0)
+ 			return 0;
+@@ -888,7 +888,7 @@ static int tcf_add_notify(struct tc_action *a, u32 pid, u32 seq, int event,
+ 	nlh->nlmsg_len = skb_tail_pointer(skb) - b;
+ 	NETLINK_CB(skb).dst_group = RTNLGRP_TC;
+ 
+-	err = rtnetlink_send(skb, pid, RTNLGRP_TC, flags&NLM_F_ECHO);
++	err = rtnetlink_send(skb, &init_net, pid, RTNLGRP_TC, flags&NLM_F_ECHO);
+ 	if (err > 0)
+ 		err = 0;
+ 	return err;
 diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 0365797..2754e50 100644
+index 2754e50..9dcdc88 100644
 --- a/net/sched/cls_api.c
 +++ b/net/sched/cls_api.c
-@@ -23,6 +23,8 @@
- #include <linux/init.h>
- #include <linux/kmod.h>
- #include <linux/netlink.h>
-+#include <net/net_namespace.h>
-+#include <net/sock.h>
- #include <net/netlink.h>
- #include <net/pkt_sched.h>
- #include <net/pkt_cls.h>
-@@ -119,6 +121,7 @@ static __inline__ u32 tcf_auto_prio(struct tcf_proto *tp)
+@@ -361,7 +361,7 @@ static int tfilter_notify(struct sk_buff *oskb, struct nlmsghdr *n,
+ 		return -EINVAL;
+ 	}
  
- static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct rtattr **tca;
- 	struct tcmsg *t;
- 	u32 protocol;
-@@ -135,6 +138,9 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 	unsigned long fh;
- 	int err;
+-	return rtnetlink_send(skb, pid, RTNLGRP_TC, n->nlmsg_flags&NLM_F_ECHO);
++	return rtnetlink_send(skb, &init_net, pid, RTNLGRP_TC, n->nlmsg_flags&NLM_F_ECHO);
+ }
  
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- replay:
- 	tca = arg;
- 	t = NLMSG_DATA(n);
-@@ -375,6 +381,7 @@ static int tcf_node_dump(struct tcf_proto *tp, unsigned long n, struct tcf_walke
- 
- static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = skb->sk->sk_net;
- 	int t;
- 	int s_t;
- 	struct net_device *dev;
-@@ -385,6 +392,9 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct Qdisc_class_ops *cops;
- 	struct tcf_dump_args arg;
- 
-+	if (net != &init_net)
-+		return 0;
-+
- 	if (cb->nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*tcm)))
- 		return skb->len;
- 	if ((dev = dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
+ struct tcf_dump_args
 diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 39d3278..95eb0a8 100644
+index 95eb0a8..ddbae5a 100644
 --- a/net/sched/sch_api.c
 +++ b/net/sched/sch_api.c
-@@ -29,6 +29,7 @@
- #include <linux/hrtimer.h>
+@@ -872,7 +872,7 @@ static int qdisc_notify(struct sk_buff *oskb, struct nlmsghdr *n,
+ 	}
  
- #include <net/net_namespace.h>
-+#include <net/sock.h>
- #include <net/netlink.h>
- #include <net/pkt_sched.h>
+ 	if (skb->len)
+-		return rtnetlink_send(skb, pid, RTNLGRP_TC, n->nlmsg_flags&NLM_F_ECHO);
++		return rtnetlink_send(skb, &init_net, pid, RTNLGRP_TC, n->nlmsg_flags&NLM_F_ECHO);
  
-@@ -599,6 +600,7 @@ check_loop_fn(struct Qdisc *q, unsigned long cl, struct qdisc_walker *w)
+ err_out:
+ 	kfree_skb(skb);
+@@ -1103,7 +1103,7 @@ static int tclass_notify(struct sk_buff *oskb, struct nlmsghdr *n,
+ 		return -EINVAL;
+ 	}
  
- static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct tcmsg *tcm = NLMSG_DATA(n);
- 	struct rtattr **tca = arg;
- 	struct net_device *dev;
-@@ -607,6 +609,9 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 	struct Qdisc *p = NULL;
+-	return rtnetlink_send(skb, pid, RTNLGRP_TC, n->nlmsg_flags&NLM_F_ECHO);
++	return rtnetlink_send(skb, &init_net, pid, RTNLGRP_TC, n->nlmsg_flags&NLM_F_ECHO);
+ }
+ 
+ struct qdisc_dump_args
+diff --git a/net/wireless/wext.c b/net/wireless/wext.c
+index 85e5f9d..85805f2 100644
+--- a/net/wireless/wext.c
++++ b/net/wireless/wext.c
+@@ -1137,7 +1137,7 @@ static void wireless_nlevent_process(unsigned long data)
+ 	struct sk_buff *skb;
+ 
+ 	while ((skb = skb_dequeue(&wireless_nlevent_queue)))
+-		rtnl_notify(skb, 0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
++		rtnl_notify(skb, &init_net, 0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
+ }
+ 
+ static DECLARE_TASKLET(wireless_nlevent_tasklet, wireless_nlevent_process, 0);
+@@ -1189,6 +1189,9 @@ static void rtmsg_iwinfo(struct net_device *dev, char *event, int event_len)
+ 	struct sk_buff *skb;
  	int err;
  
-+	if (net != &init_net)
-+		return -EINVAL;
++	if (dev->nd_net != &init_net)
++		return;
 +
- 	if ((dev = __dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
- 		return -ENODEV;
- 
-@@ -660,6 +665,7 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 
- static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct tcmsg *tcm;
- 	struct rtattr **tca;
- 	struct net_device *dev;
-@@ -667,6 +673,9 @@ static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 	struct Qdisc *q, *p;
- 	int err;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- replay:
- 	/* Reinit, just in case something touches this. */
- 	tcm = NLMSG_DATA(n);
-@@ -872,11 +881,15 @@ err_out:
- 
- static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = skb->sk->sk_net;
- 	int idx, q_idx;
- 	int s_idx, s_q_idx;
- 	struct net_device *dev;
- 	struct Qdisc *q;
- 
-+	if (net != &init_net)
-+		return 0;
-+
- 	s_idx = cb->args[0];
- 	s_q_idx = q_idx = cb->args[1];
- 	read_lock(&dev_base_lock);
-@@ -920,6 +933,7 @@ done:
- 
- static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- {
-+	struct net *net = skb->sk->sk_net;
- 	struct tcmsg *tcm = NLMSG_DATA(n);
- 	struct rtattr **tca = arg;
- 	struct net_device *dev;
-@@ -932,6 +946,9 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- 	u32 qid = TC_H_MAJ(clid);
- 	int err;
- 
-+	if (net != &init_net)
-+		return -EINVAL;
-+
- 	if ((dev = __dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
- 		return -ENODEV;
- 
-@@ -1106,6 +1123,7 @@ static int qdisc_class_dump(struct Qdisc *q, unsigned long cl, struct qdisc_walk
- 
- static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
- {
-+	struct net *net = skb->sk->sk_net;
- 	int t;
- 	int s_t;
- 	struct net_device *dev;
-@@ -1113,6 +1131,9 @@ static int tc_dump_tclass(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct tcmsg *tcm = (struct tcmsg*)NLMSG_DATA(cb->nlh);
- 	struct qdisc_dump_args arg;
- 
-+	if (net != &init_net)
-+		return 0;
-+
- 	if (cb->nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*tcm)))
- 		return 0;
- 	if ((dev = dev_get_by_index(&init_net, tcm->tcm_ifindex)) == NULL)
+ 	skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
+ 	if (!skb)
+ 		return;
 -- 
 1.5.3.rc6.17.g1911
 
