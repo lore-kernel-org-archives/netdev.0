@@ -1,46 +1,51 @@
 From: jamal <hadi@cyberus.ca>
-Subject: [ofa-general] Re: [PATCH 1/3] [NET_BATCH] Introduce batching
-	interface
-Date: Sun, 30 Sep 2007 14:54:58 -0400
-Message-ID: <1191178498.6165.33.camel@localhost>
-References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
-	<20070916.161748.48388692.davem@davemloft.net>
-	<1189988958.4230.55.camel@localhost>
-	<1190569987.4256.52.camel@localhost>
-	<1190570205.4256.56.camel@localhost>
-	<1190570317.4256.59.camel@localhost>
-	<1191178284.6165.27.camel@localhost>
+Subject: Re: [PATCH][E1000E] some cleanups
+Date: Sun, 30 Sep 2007 15:01:21 -0400
+Message-ID: <1191178881.6165.40.camel@localhost>
+References: <1191174077.6165.11.camel@localhost>
+	 <46FFE809.8020504@intel.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, peter.p.waskiewicz.jr@intel.com, kumarkr@linux.ibm.com,
-	herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
-	rdreier@cisco.com, mcarlson@broadcom.com,
-	randy.dunlap@oracle.com, jagana@us.ibm.com,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	jeff@garzik.org, sri@us.ibm.com, shemminger@linux-foundation.org,
-	kaber@trash.net
-To: David Miller <davem@davemloft.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <1191178284.6165.27.camel@localhost>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: netdev@vger.kernel.org
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wx-out-0506.google.com ([66.249.82.228]:39083 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750880AbXI3TBZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Sep 2007 15:01:25 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so3038748wxd
+        for <netdev@vger.kernel.org>; Sun, 30 Sep 2007 12:01:24 -0700 (PDT)
+In-Reply-To: <46FFE809.8020504@intel.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fixed subject - should be 1/3 not 1/4
+On Sun, 2007-30-09 at 11:16 -0700, Kok, Auke wrote:
 
-On Sun, 2007-30-09 at 14:51 -0400, jamal wrote:
-> This patch introduces the netdevice interface for batching.
+> no, all the hardware that is commented should work just fine. I tested this driver
+> on 82571, 82573 and ich8/ich9 - extensively.
+
+Something else is wrong then. Can you just uncomment the 82571EB bits in
+Dave's net-2.6.24 and just send a ping? If it works, let me know what
+you did so i can test next time i get a chance.
+
+> the reason that we disable them is that we're going to migrate devices over in
+> batches. At introduction we'll support ich9, afterwards we'll drop in the IDs of
+> the other groups of silicon.
+
+Turn them on if you want people to start using that driver.
+
+> > Once you have 82571EB on and kicking, my next steps are to kill LLTX
+> > then add batching on top.
+> > BTW, since this driver is just for PCIE, would you take a similar patch
+> > for non-PCIE e1000?
 > 
-> cheers,
-> jamal
-> 
-> 
+> if it's a fix, yes.
+
+It just makes it easier to kill LLTX. If you consider killing LLTX
+risky, then i will focus on e1000e.
+
+cheers,
+jamal
+
