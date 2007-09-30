@@ -1,65 +1,62 @@
-From: linux@horizon.com
-Subject: Re: 2.6.23-rc8 network problem.  Mem leak?  ip1000a?
-Date: 30 Sep 2007 07:40:24 -0400
-Message-ID: <20070930114024.13626.qmail@science.horizon.com>
-References: <20070930022347.37514be3.akpm@linux-foundation.org>
-Cc: jesse@icplus.com.tw, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, romieu@fr.zoreil.com, s.l-h@gmx.de
-To: akpm@linux-foundation.org, linux@horizon.com
+From: "Denis V. Lunev" <dlunev@gmail.com>
+Subject: Re: [Devel] Re: [PATCH 2/5] net: Make rtnetlink infrastructure network
+ namespace aware
+Date: Sun, 30 Sep 2007 17:13:15 +0400
+Message-ID: <46FFA0EB.2080001@gmail.com>
+References: <m1myv69tfu.fsf@ebiederm.dsl.xmission.com>	<m1hcle9td8.fsf@ebiederm.dsl.xmission.com>	<46FE72E3.3000402@trash.net>	<m1tzpd8lfh.fsf@ebiederm.dsl.xmission.com>	<46FE8FD3.2030308@trash.net> <m1myv56vb3.fsf@ebiederm.dsl.xmission.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from science.horizon.com ([192.35.100.1]:15416 "HELO
-	science.horizon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1755566AbXI3MKE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Sep 2007 08:10:04 -0400
-In-Reply-To: <20070930022347.37514be3.akpm@linux-foundation.org>
+Received: from nf-out-0910.google.com ([64.233.182.187]:33444 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755030AbXI3NMO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Sep 2007 09:12:14 -0400
+Received: by nf-out-0910.google.com with SMTP id g13so2748422nfb
+        for <netdev@vger.kernel.org>; Sun, 30 Sep 2007 06:12:13 -0700 (PDT)
+In-Reply-To: <m1myv56vb3.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> OK.  Did you try to reproduce it without the pps patch applied?
+Hmm, so it looks like we do not need this queue processing at all...
 
-No.  But I've yanked the ip1000a driver (using old crufy vendor-supplied
-out-of-kernel module) and the problems are GONE.
+Regards,
+	Den
 
->> This machine receives more data than it sends, so I'd expect acks to
->> outnumber "real" packets.  Could the ip1000a driver's transmit path be
->> leaking skbs somehow?
+Eric W. Biederman wrote:
+> Patrick McHardy <kaber@trash.net> writes:
+> 
+>> Maybe I can save you some time: we used to do down_trylock()
+>> for the rtnl mutex, so senders would simply return if someone
+>> else was already processing the queue *or* the rtnl was locked
+>> for some other reason. In the first case the process already
+>> processing the queue would also process the new messages, but
+>> if it the rtnl was locked for some other reason (for example
+>> during module registration) the message would sit in the
+>> queue until the next rtnetlink sendmsg call, which is why
+>> rtnl_unlock does queue processing. Commit 6756ae4b changed
+>> the down_trylock to mutex_lock, so senders will now simply wait
+>> until the mutex is released and then call netlink_run_queue
+>> themselves. This means its not needed anymore.
+> 
+> Sounds reasonable.
+> 
+> I started looking through the code paths and I currently cannot
+> see anything that would leave a message on a kernel rtnl socket.
+> 
+> However I did a quick test adding a WARN_ON if there were any messages
+> found in the queue during rtnl_unlock and I found this code path
+> getting invoked from linkwatch_event.  So there is clearly something I
+> don't understand, and it sounds at odds just a bit from your
+> description.
+> 
+> If we can remove the extra queue processing that would be great,
+> as it looks like a nice way to simplify the locking and the special
+> cases in the code.
+> 
+> Eric
 
-> Absolutely.  Normally a driver's transmit completion interrupt handler will
-> run dev_kfree_skb_irq() against the skbs which have been fully sent.
->
-> However it'd be darned odd if the driver was leaking only tcp acks.
-
-It's leaking lots of things... you can see ARP packets in there and
-all sorts of stuff.  But the big traffic hog is BackupPC doing inbound
-rsyncs all night long, which generates a lot of acks.  Those are the
-packets it sends, so those are the packets that get leaked.
-
-> I can find no occurrence of "dev_kfree_skb" in drivers/net/ipg.c, which is
-> suspicious.
-
-Look for "IPG_DEV_KFREE_SKB", which is a wrapper macro.  (Or just add
-"-i" to your grep.)  It should probably be deleted (it just expands to
-dev_kfree_skb), but was presumably useful to someone during development.
-
-> Where did you get your ipg.c from, btw?  davem's tree?  rc8-mm1? rc8-mm2??
-
-As I wrote originally, I got it from
-http://marc.info/?l=linux-netdev&m=118980588419882
-which was a reuqest for mainline submission.
-
-If there are other patches floating around, I'm happy to try them.
-Now that I know what to look for, it's easy to spot the leak before OOM.
-
-> I assume that meminfo was not captured when the system was ooming?  There
-> isn't much slab there.
-
-Oops, sorry.  I captured slabinfo but not meminfo.
-
-
-Thank you very much!  Sorry to jump the gun and post a lot before I had
-all the data, but if it WAS a problem in -rc8, I wanted to mention it
-before -final.
-
-Now, the rush is to get the ip1000a driver fixed before the merge
-window opens.  I've added all the ip1000a developers to the Cc: list in
-an attempt to speed that up.
