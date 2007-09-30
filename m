@@ -1,56 +1,45 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] rtnl: Simplify ASSERT_RTNL
-Date: Sun, 30 Sep 2007 17:47:30 +0200
-Message-ID: <46FFC512.9060101@trash.net>
-References: <E1IbTz0-0000FK-00@gondolin.me.apana.org.au> <46FE7019.4030705@trash.net> <20070930002421.GA7502@gondor.apana.org.au>
+From: Anton Blanchard <anton@samba.org>
+Subject: ehea work queues
+Date: Sun, 30 Sep 2007 11:20:19 -0500
+Message-ID: <20070930162019.GE28619@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, oliver@neukum.name,
-	linux-usb-devel@lists.sourceforge.net
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+To: themann@de.ibm.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42094 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757312AbXI3Prc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Sep 2007 11:47:32 -0400
-In-Reply-To: <20070930002421.GA7502@gondor.apana.org.au>
+Received: from ozlabs.org ([203.10.76.45]:36266 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753505AbXI3QWN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Sep 2007 12:22:13 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Sat, Sep 29, 2007 at 05:32:41PM +0200, Patrick McHardy wrote:
-> 
->>For unicast addresses its not strictly necessary since they may
->>only be changed under the RTNL anyway. The reason why it takes
->>the tx_lock is for consistency with multicast address handling,
->>which can't rely on the RTNL since IPv6 changes them from
->>BH context. The idea was that the ->set_rx_mode function should
->>handle both secondary unicast and multicast addresses for
->>simplicity.
-> 
-> 
-> In any case, coming back to the original question, the RTNL
-> assertion is simply wrong in this case because if we're being
-> called from IPv6 then the RTNL won't even be held.
-> 
-> So I think we need to
-> 
-> 1) Move the assert into dev_set_promiscuity.
-> 2) Take the TX lock in dev_set_promiscuity.
 
+Hi,
 
-In the IPv6 case we're only changing the multicast list,
-so we're never calling into __dev_set_promiscuity.
+I booted 2.6.23-rc8 and noticed that ehea loves its workqueues:
 
-I actually even added a comment about this :)
+# ps aux|grep ehea
+root      3266  0.0  0.0    0    0 ?    S<   11:02   0:00 [ehea_driver_wq/]
+root      3268  0.0  0.0    0    0 ?    S<   11:02   0:00 [ehea_driver_wq/]
+root      3269  0.0  0.0    0    0 ?    S<   11:02   0:00 [ehea_driver_wq/]
+root      3270  0.0  0.0    0    0 ?    S<   11:02   0:00 [ehea_driver_wq/]
+root      3271  0.0  0.0    0    0 ?    S<   11:02   0:00 [ehea_driver_wq/]
+root      3272  0.0  0.0    0    0 ?    S<   11:02   0:00 [ehea_driver_wq/]
+root      3273  0.0  0.0    0    0 ?    S<   11:02   0:00 [ehea_driver_wq/]
+root      3274  0.0  0.0    0    0 ?    S<   11:02   0:00 [ehea_driver_wq/]
+root      3275  0.0  0.0    0    0 ?    S<   11:02   0:00 [ehea_wq/0]
+root      3276  0.0  0.0    0    0 ?    S<   11:02   0:00 [ehea_wq/1]
+root      3278  0.0  0.0    0    0 ?    S<   11:02   0:00 [ehea_wq/2]
+root      3279  0.0  0.0    0    0 ?    S<   11:02   0:00 [ehea_wq/3]
+root      3280  0.0  0.0    0    0 ?    S<   11:02   0:00 [ehea_wq/4]
+root      3281  0.0  0.0    0    0 ?    S<   11:02   0:00 [ehea_wq/5]
+root      3282  0.0  0.0    0    0 ?    S<   11:02   0:00 [ehea_wq/6]
+root      3283  0.0  0.0    0    0 ?    S<   11:02   0:00 [ehea_wq/7]
 
-        /* Unicast addresses changes may only happen under the rtnl,
-         * therefore calling __dev_set_promiscuity here is safe.
-         */
+(notice also that the ehea_driver_wq/XXX exceeds TASK_COMM_LEN). 
 
-I would prefer to keep the ASSERT_RTNL in __dev_set_promiscuity
-since it also covers the __dev_set_rx_mode path. How about
-adding an ASSERT_RTNL_ATOMIC without the might_sleep or simply
-open coding it?
+Since they are both infrequent events and not performance critical
+(memory hotplug and driver reset), can we just use schedule_work?
+
+Anton
