@@ -1,41 +1,39 @@
-From: Jeff Garzik <jeff@garzik.org>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [PATCH][E1000E] some cleanups
-Date: Sun, 30 Sep 2007 15:23:25 -0400
-Message-ID: <46FFF7AD.7090309@garzik.org>
-References: <1191174077.6165.11.camel@localhost>	 <46FFE809.8020504@intel.com> <1191178881.6165.40.camel@localhost>
+Date: Sun, 30 Sep 2007 15:31:09 -0400
+Message-ID: <1191180669.6165.50.camel@localhost>
+References: <1191174077.6165.11.camel@localhost>
+	 <46FFE809.8020504@intel.com> <1191178881.6165.40.camel@localhost>
+	 <46FFF7AD.7090309@garzik.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:54333 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751262AbXI3TXa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Sep 2007 15:23:30 -0400
-In-Reply-To: <1191178881.6165.40.camel@localhost>
+Received: from wr-out-0506.google.com ([64.233.184.238]:37698 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750833AbXI3TbN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Sep 2007 15:31:13 -0400
+Received: by wr-out-0506.google.com with SMTP id 36so1670454wra
+        for <netdev@vger.kernel.org>; Sun, 30 Sep 2007 12:31:12 -0700 (PDT)
+In-Reply-To: <46FFF7AD.7090309@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Sun, 2007-30-09 at 11:16 -0700, Kok, Auke wrote:
-> 
->> no, all the hardware that is commented should work just fine. I tested this driver
->> on 82571, 82573 and ich8/ich9 - extensively.
-> 
-> Something else is wrong then. Can you just uncomment the 82571EB bits in
-> Dave's net-2.6.24 and just send a ping? If it works, let me know what
-> you did so i can test next time i get a chance.
-> 
->> the reason that we disable them is that we're going to migrate devices over in
->> batches. At introduction we'll support ich9, afterwards we'll drop in the IDs of
->> the other groups of silicon.
-> 
-> Turn them on if you want people to start using that driver.
+On Sun, 2007-30-09 at 15:23 -0400, Jeff Garzik wrote:
 
-Gotta wait a bit, otherwise we have confusion and a bit of breakage from 
-two drivers with the same PCI IDs.
+> Gotta wait a bit, otherwise we have confusion and a bit of breakage from 
+> two drivers with the same PCI IDs.
 
-	Jeff
+ah, ok ;-> 
+When i was testing i compiled out e1000. I am willing to totaly migrate
+to e1000e, since major machine i have access to has PCIE. Auke, just let
+me know what you need to do other than uncommenting the table entries
+and i will leave you alone ;->
+
+cheers,
+jamal
 
 
