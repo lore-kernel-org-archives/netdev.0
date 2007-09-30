@@ -1,387 +1,477 @@
 From: jamal <hadi@cyberus.ca>
-Subject: [PATCH][E1000E] some cleanups
-Date: Sun, 30 Sep 2007 13:41:17 -0400
-Message-ID: <1191174077.6165.11.camel@localhost>
+Subject: [PATCH][TG3]Some cleanups
+Date: Sun, 30 Sep 2007 14:11:30 -0400
+Message-ID: <1191175890.6165.17.camel@localhost>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-opxgvb4E3+vYcZmdnLk3"
+Content-Type: multipart/mixed; boundary="=-7+v2XlLicn201c2qfkaC"
 Cc: netdev@vger.kernel.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+To: Michael Chan <mchan@broadcom.com>,
+	Matt Carlson <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.224]:51502 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757368AbXI3Rl0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Sep 2007 13:41:26 -0400
-Received: by wr-out-0506.google.com with SMTP id 36so1652566wra
-        for <netdev@vger.kernel.org>; Sun, 30 Sep 2007 10:41:21 -0700 (PDT)
+Received: from an-out-0708.google.com ([209.85.132.250]:5706 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755914AbXI3SLh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Sep 2007 14:11:37 -0400
+Received: by an-out-0708.google.com with SMTP id d31so510765and
+        for <netdev@vger.kernel.org>; Sun, 30 Sep 2007 11:11:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-opxgvb4E3+vYcZmdnLk3
+--=-7+v2XlLicn201c2qfkaC
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 
-Auke,
 
-heres part of something i promised. 
-I couldnt do any packet testing on because 82571EB is disabled in the
-driver. I uncommented the code out in the table, but the best i could
-get was the module loading, some probing and some sysfs renaming
-failures (probably a debianism); the machine access is intermittent, so
-thats as far as i could go. In any case, you probably have a good reason
-for disabling that chip. So, heres the patch, the burden of testing now
-falls on you ;->
-Once you have 82571EB on and kicking, my next steps are to kill LLTX
-then add batching on top.
-BTW, since this driver is just for PCIE, would you take a similar patch
-for non-PCIE e1000?
-
-comment:
-There used to be an "mmiowb()" call right after the dma wake which is
-gone now; is this unneeded with pcie? I have restored it, look for the
-"XXX".
+Here are some non-batching related changes that i have in my batching
+tree. Like the e1000e, they make the xmit code more readable.
+I wouldnt mind if you take them over.
 
 cheers,
 jamal
 
---=-opxgvb4E3+vYcZmdnLk3
-Content-Disposition: attachment; filename=e1000e-p1
-Content-Type: text/plain; name=e1000e-p1; charset=us-ascii
+
+--=-7+v2XlLicn201c2qfkaC
+Content-Disposition: attachment; filename=tg3-p1
+Content-Type: text/plain; name=tg3-p1; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 
-[E1000E] some cleanups
-This patch makes the xmit path code a lot more readable and reusable.
-preps for removing LLTX.
+[TG3] Some cleanups
+These cleanups make the xmit path code better functionally organized.
+Matt Carlson contributed the moving of the VLAN formatting into
+XXXX_prep_frame() portion.
 
 Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
 ---
-commit ad63c288ce980907f68d94d5faac08625c0b1782
-tree 296a6da371b98c6488c544a8910941ea6d8c18a8
-parent 7f5d0afdff875b2c4957031f8934741aefe257cc
-author Jamal Hadi Salim <hadi@cyberus.ca> Sun, 30 Sep 2007 13:26:00 -0400
-committer Jamal Hadi Salim <hadi@cyberus.ca> Sun, 30 Sep 2007 13:26:00 -0400
+commit 260dbcc4b0195897c539c5ff79d95afdddeb3378
+tree b2047b0e474abb9f05dd40c22af7f0a86369957d
+parent ad63c288ce980907f68d94d5faac08625c0b1782
+author Jamal Hadi Salim <hadi@cyberus.ca> Sun, 30 Sep 2007 14:01:46 -0400
+committer Jamal Hadi Salim <hadi@cyberus.ca> Sun, 30 Sep 2007 14:01:46 -0400
 
- drivers/net/e1000e/netdev.c |  187 +++++++++++++++++++++++++++----------------
- 1 files changed, 119 insertions(+), 68 deletions(-)
+ drivers/net/tg3.c |  278 ++++++++++++++++++++++++++++++++---------------------
+ 1 files changed, 169 insertions(+), 109 deletions(-)
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 4a21d7d..5043504 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -3076,6 +3076,18 @@ link_up:
- #define E1000_TX_FLAGS_VLAN_MASK	0xffff0000
- #define E1000_TX_FLAGS_VLAN_SHIFT	16
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index d4ac6e9..5a864bd 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -3910,47 +3910,69 @@ static void tg3_set_txd(struct tg3 *tp, int entry,
+ 	txd->vlan_tag = vlan_tag << TXD_VLAN_TAG_SHIFT;
+ }
  
-+struct e1000_tx_cbdata {
-+	int count;
-+	unsigned int max_per_txd;
-+	unsigned int nr_frags;
+-/* hard_start_xmit for devices that don't have any bugs and
+- * support TG3_FLG2_HW_TSO_2 only.
+- */
+-static int tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
++struct tg3_tx_cbdata {
++	u32 base_flags;
 +	unsigned int mss;
-+	unsigned int tx_flags;
 +};
++#define TG3_SKB_CB(__skb)       ((struct tg3_tx_cbdata *)&((__skb)->cb[0]))
++#define NETDEV_TX_DROPPED       -5
 +
-+#define E1000_SKB_CB(__skb) ((struct e1000_tx_cbdata *)&((__skb)->cb[8]))
-+#define NETDEV_TX_DROPPED -5
-+#define TXD_USE_COUNT(S, X) (((S) >> (X)) + 1)
++static int tg3_prep_bug_frame(struct sk_buff *skb, struct net_device *dev)
+ {
++	struct tg3_tx_cbdata *cb = TG3_SKB_CB(skb);
++#if TG3_VLAN_TAG_USED
+ 	struct tg3 *tp = netdev_priv(dev);
+-	dma_addr_t mapping;
+-	u32 len, entry, base_flags, mss;
++	u32 vlantag = 0;
+ 
+-	len = skb_headlen(skb);
++	if (tp->vlgrp != NULL && vlan_tx_tag_present(skb))
++		vlantag = (TXD_FLAG_VLAN | (vlan_tx_tag_get(skb) << 16));
+ 
+-	/* We are running in BH disabled context with netif_tx_lock
+-	 * and TX reclaim runs via tp->napi.poll inside of a software
+-	 * interrupt.  Furthermore, IRQ processing runs lockless so we have
+-	 * no IRQ context deadlocks to worry about either.  Rejoice!
+-	 */
+-	if (unlikely(tg3_tx_avail(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
+-		if (!netif_queue_stopped(dev)) {
+-			netif_stop_queue(dev);
++	cb->base_flags = vlantag;
++#endif
+ 
+-			/* This is a hard error, log it. */
+-			printk(KERN_ERR PFX "%s: BUG! Tx Ring full when "
+-			       "queue awake!\n", dev->name);
++	cb->mss = skb_shinfo(skb)->gso_size;
++	if (cb->mss != 0) {
++		if (skb_header_cloned(skb) &&
++		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
++			dev_kfree_skb(skb);
++			return NETDEV_TX_DROPPED;
+ 		}
+-		return NETDEV_TX_BUSY;
 +
- static int e1000_tso(struct e1000_adapter *adapter,
- 		     struct sk_buff *skb)
- {
-@@ -3194,8 +3206,7 @@ static bool e1000_tx_csum(struct e1000_adapter *adapter, struct sk_buff *skb)
- 
- static int e1000_tx_map(struct e1000_adapter *adapter,
- 			struct sk_buff *skb, unsigned int first,
--			unsigned int max_per_txd, unsigned int nr_frags,
--			unsigned int mss)
-+			struct e1000_tx_cbdata *cb)
- {
- 	struct e1000_ring *tx_ring = adapter->tx_ring;
- 	struct e1000_buffer *buffer_info;
-@@ -3207,11 +3218,11 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
- 
- 	while (len) {
- 		buffer_info = &tx_ring->buffer_info[i];
--		size = min(len, max_per_txd);
-+		size = min(len, cb->max_per_txd);
- 
- 		/* Workaround for premature desc write-backs
- 		 * in TSO mode.  Append 4-byte sentinel desc */
--		if (mss && !nr_frags && size == len && size > 8)
-+		if (cb->mss && !cb->nr_frags && size == len && size > 8)
- 			size -= 4;
- 
- 		buffer_info->length = size;
-@@ -3237,7 +3248,7 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
- 			i = 0;
++		cb->base_flags |= (TXD_FLAG_CPU_PRE_DMA |
++			       TXD_FLAG_CPU_POST_DMA);
  	}
  
--	for (f = 0; f < nr_frags; f++) {
-+	for (f = 0; f < cb->nr_frags; f++) {
- 		struct skb_frag_struct *frag;
- 
- 		frag = &skb_shinfo(skb)->frags[f];
-@@ -3246,10 +3257,11 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
- 
- 		while (len) {
- 			buffer_info = &tx_ring->buffer_info[i];
--			size = min(len, max_per_txd);
-+			size = min(len, cb->max_per_txd);
- 			/* Workaround for premature desc write-backs
- 			 * in TSO mode.  Append 4-byte sentinel desc */
--			if (mss && f == (nr_frags-1) && size == len && size > 8)
-+			if (cb->mss && f == (cb->nr_frags-1) &&
-+			    size == len && size > 8)
- 				size -= 4;
- 
- 			buffer_info->length = size;
-@@ -3334,18 +3346,7 @@ static void e1000_tx_queue(struct e1000_adapter *adapter,
- 	}
- 
- 	tx_desc->lower.data |= cpu_to_le32(adapter->txd_cmd);
--
--	/* Force memory writes to complete before letting h/w
--	 * know there are new descriptors to fetch.  (Only
--	 * applicable for weak-ordered memory model archs,
--	 * such as IA-64). */
--	wmb();
--
- 	tx_ring->next_to_use = i;
--	writel(i, adapter->hw.hw_addr + tx_ring->tail);
--	/* we need this if more than one processor can write to our tail
--	 * at a time, it synchronizes IO on IA64/Altix systems */
--	mmiowb();
- }
- 
- #define MINIMUM_DHCP_PACKET_SIZE 282
-@@ -3417,45 +3418,54 @@ static int e1000_maybe_stop_tx(struct net_device *netdev, int size)
- 	return __e1000_maybe_stop_tx(netdev, size);
- }
- 
--#define TXD_USE_COUNT(S, X) (((S) >> (X)) + 1 )
--static int e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
-+static void
-+e1000_complete_tx(struct net_device *netdev)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_ring *tx_ring = adapter->tx_ring;
--	unsigned int first;
--	unsigned int max_per_txd = E1000_MAX_PER_TXD;
-+	/* Force memory writes to complete before letting h/w
-+	 * know there are new descriptors to fetch.  (Only
-+	 * applicable for weak-ordered memory model archs,
-+	 * such as IA-64). */
-+	wmb();
-+	writel(tx_ring->next_to_use, adapter->hw.hw_addr + tx_ring->tail);
-+	/* XXX: we need this if more than one processor can write to
-+	 * our tail at a time, it syncronizes IO on IA64/Altix systems */
-+	mmiowb();
-+	netdev->trans_start = jiffies;
+-	entry = tp->tx_prod;
+-	base_flags = 0;
+-	mss = 0;
+-	if ((mss = skb_shinfo(skb)->gso_size) != 0) {
++	if (skb->ip_summed == CHECKSUM_PARTIAL)
++		cb->base_flags |= TXD_FLAG_TCPUDP_CSUM;
++
++	return NETDEV_TX_OK;
 +}
 +
-+static int e1000_prep_frame(struct sk_buff *skb, struct net_device *netdev)
++static int tg3_prep_frame(struct sk_buff *skb, struct net_device *dev)
 +{
-+	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	unsigned int max_txd_pwr = E1000_MAX_TXD_PWR;
--	unsigned int tx_flags = 0;
- 	unsigned int len = skb->len;
--	unsigned long irq_flags;
--	unsigned int nr_frags = 0;
--	unsigned int mss = 0;
--	int count = 0;
--	int tso;
-+	struct e1000_tx_cbdata *cb = E1000_SKB_CB(skb);
- 	unsigned int f;
--	len -= skb->data_len;
- 
--	if (test_bit(__E1000_DOWN, &adapter->state)) {
--		dev_kfree_skb_any(skb);
--		return NETDEV_TX_OK;
--	}
-+	cb->nr_frags = 0;
-+	cb->mss = 0;
-+	cb->count = 0;
-+	cb->max_per_txd = E1000_MAX_PER_TXD;
++	struct tg3_tx_cbdata *cb = TG3_SKB_CB(skb);
++#if TG3_VLAN_TAG_USED
++	struct tg3 *tp = netdev_priv(dev);
++	u32 vlantag = 0;
 +
-+	len -= skb->data_len;
- 
- 	if (skb->len <= 0) {
- 		dev_kfree_skb_any(skb);
--		return NETDEV_TX_OK;
-+		return NETDEV_TX_DROPPED;
- 	}
- 
--	mss = skb_shinfo(skb)->gso_size;
++	if (tp->vlgrp != NULL && vlan_tx_tag_present(skb))
++		vlantag = (TXD_FLAG_VLAN | (vlan_tx_tag_get(skb) << 16));
++
++	cb->base_flags = vlantag;
++#endif
++
 +	cb->mss = skb_shinfo(skb)->gso_size;
- 	/* The controller does a simple calculation to
- 	 * make sure there is enough room in the FIFO before
- 	 * initiating the DMA for each buffer.  The calc is:
- 	 * 4 = ceil(buffer len/mss).  To make sure we don't
- 	 * overrun the FIFO, adjust the max buffer len if mss
- 	 * drops. */
--	if (mss) {
-+	if (cb->mss) {
- 		u8 hdr_len;
--		max_per_txd = min(mss << 2, max_per_txd);
--		max_txd_pwr = fls(max_per_txd) - 1;
-+		cb->max_per_txd = min(cb->mss << 2, cb->max_per_txd);
-+		max_txd_pwr = fls(cb->max_per_txd) - 1;
++	if (cb->mss != 0) {
+ 		int tcp_opt_len, ip_tcp_len;
  
- 		/* TSO Workaround for 82571/2/3 Controllers -- if skb->data
- 		* points to just header, pull a few bytes of payload from
-@@ -3469,80 +3479,121 @@ static int e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 				ndev_err(netdev,
- 					 "__pskb_pull_tail failed.\n");
- 				dev_kfree_skb_any(skb);
--				return NETDEV_TX_OK;
-+				return NETDEV_TX_DROPPED;
- 			}
- 			len = skb->len - skb->data_len;
+ 		if (skb_header_cloned(skb) &&
+ 		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
+ 			dev_kfree_skb(skb);
+-			goto out_unlock;
++			return NETDEV_TX_DROPPED;
+ 		}
+ 
+ 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
+-			mss |= (skb_headlen(skb) - ETH_HLEN) << 9;
++			cb->mss |= (skb_headlen(skb) - ETH_HLEN) << 9;
+ 		else {
+ 			struct iphdr *iph = ip_hdr(skb);
+ 
+@@ -3958,32 +3980,58 @@ static int tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
+ 
+ 			iph->check = 0;
+-			iph->tot_len = htons(mss + ip_tcp_len + tcp_opt_len);
+-			mss |= (ip_tcp_len + tcp_opt_len) << 9;
++			iph->tot_len = htons(cb->mss + ip_tcp_len
++					     + tcp_opt_len);
++			cb->mss |= (ip_tcp_len + tcp_opt_len) << 9;
+ 		}
+ 
+-		base_flags |= (TXD_FLAG_CPU_PRE_DMA |
++		cb->base_flags |= (TXD_FLAG_CPU_PRE_DMA |
+ 			       TXD_FLAG_CPU_POST_DMA);
+ 
+ 		tcp_hdr(skb)->check = 0;
+ 
+ 	}
+ 	else if (skb->ip_summed == CHECKSUM_PARTIAL)
+-		base_flags |= TXD_FLAG_TCPUDP_CSUM;
+-#if TG3_VLAN_TAG_USED
+-	if (tp->vlgrp != NULL && vlan_tx_tag_present(skb))
+-		base_flags |= (TXD_FLAG_VLAN |
+-			       (vlan_tx_tag_get(skb) << 16));
+-#endif
++		cb->base_flags |= TXD_FLAG_TCPUDP_CSUM;
++
++	return NETDEV_TX_OK;
++}
++
++void tg3_kick_DMA(struct net_device *dev)
++{
++	struct tg3 *tp = netdev_priv(dev);
++	u32 entry = tp->tx_prod;
++
++	/* Packets are ready, update Tx producer idx local and on card. */
++	tw32_tx_mbox((MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW), entry);
++
++	if (unlikely(tg3_tx_avail(tp) <= (MAX_SKB_FRAGS + 1))) {
++		netif_stop_queue(dev);
++		if (tg3_tx_avail(tp) >= TG3_TX_WAKEUP_THRESH(tp))
++			netif_wake_queue(dev);
++	}
++
++	mmiowb();
++	dev->trans_start = jiffies;
++}
+ 
++static int tg3_enqueue(struct sk_buff *skb, struct net_device *dev)
++{
++	struct tg3 *tp = netdev_priv(dev);
++	dma_addr_t mapping;
++	u32 len, entry;
++	struct tg3_tx_cbdata *cb = TG3_SKB_CB(skb);
++
++	entry = tp->tx_prod;
++	len = skb_headlen(skb);
+ 	/* Queue skb data, a.k.a. the main skb fragment. */
+ 	mapping = pci_map_single(tp->pdev, skb->data, len, PCI_DMA_TODEVICE);
+ 
+ 	tp->tx_buffers[entry].skb = skb;
+ 	pci_unmap_addr_set(&tp->tx_buffers[entry], mapping, mapping);
+ 
+-	tg3_set_txd(tp, entry, mapping, len, base_flags,
+-		    (skb_shinfo(skb)->nr_frags == 0) | (mss << 1));
++	tg3_set_txd(tp, entry, mapping, len, cb->base_flags,
++		    (skb_shinfo(skb)->nr_frags == 0) | (cb->mss << 1));
+ 
+ 	entry = NEXT_TX(entry);
+ 
+@@ -4005,28 +4053,51 @@ static int tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			pci_unmap_addr_set(&tp->tx_buffers[entry], mapping, mapping);
+ 
+ 			tg3_set_txd(tp, entry, mapping, len,
+-				    base_flags, (i == last) | (mss << 1));
++				    cb->base_flags,
++				    (i == last) | (cb->mss << 1));
+ 
+ 			entry = NEXT_TX(entry);
  		}
  	}
  
- 	/* reserve a descriptor for the offload context */
--	if ((mss) || (skb->ip_summed == CHECKSUM_PARTIAL))
--		count++;
--	count++;
-+	if ((cb->mss) || (skb->ip_summed == CHECKSUM_PARTIAL))
-+		cb->count++;
-+	cb->count++;
- 
--	count += TXD_USE_COUNT(len, max_txd_pwr);
-+	cb->count += TXD_USE_COUNT(len, max_txd_pwr);
- 
--	nr_frags = skb_shinfo(skb)->nr_frags;
--	for (f = 0; f < nr_frags; f++)
--		count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size,
-+	cb->nr_frags = skb_shinfo(skb)->nr_frags;
-+	for (f = 0; f < cb->nr_frags; f++)
-+		cb->count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size,
- 				       max_txd_pwr);
- 
- 	if (adapter->hw.mac.tx_pkt_filtering)
- 		e1000_transfer_dhcp_info(adapter, skb);
- 
--	if (!spin_trylock_irqsave(&adapter->tx_queue_lock, irq_flags))
--		/* Collision - tell upper layer to requeue */
--		return NETDEV_TX_LOCKED;
-+	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
-+		cb->tx_flags |= E1000_TX_FLAGS_VLAN;
-+		cb->tx_flags |= (vlan_tx_tag_get(skb) <<
-+				E1000_TX_FLAGS_VLAN_SHIFT);
-+	}
-+
-+	return NETDEV_TX_OK;
-+}
-+
-+static int e1000_queue_frame(struct sk_buff *skb, struct net_device *netdev)
-+{
-+	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	struct e1000_ring *tx_ring = adapter->tx_ring;
-+	unsigned int first;
-+	int tso;
-+	struct e1000_tx_cbdata *cb = E1000_SKB_CB(skb);
-+
- 
- 	/* need: count + 2 desc gap to keep tail from touching
- 	 * head, otherwise try next time */
--	if (e1000_maybe_stop_tx(netdev, count + 2)) {
--		spin_unlock_irqrestore(&adapter->tx_queue_lock, irq_flags);
-+	if (e1000_maybe_stop_tx(netdev, cb->count + 2))
- 		return NETDEV_TX_BUSY;
--	}
+-	/* Packets are ready, update Tx producer idx local and on card. */
+-	tw32_tx_mbox((MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW), entry);
 -
--	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
--		tx_flags |= E1000_TX_FLAGS_VLAN;
--		tx_flags |= (vlan_tx_tag_get(skb) << E1000_TX_FLAGS_VLAN_SHIFT);
+ 	tp->tx_prod = entry;
+-	if (unlikely(tg3_tx_avail(tp) <= (MAX_SKB_FRAGS + 1))) {
+-		netif_stop_queue(dev);
+-		if (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp))
+-			netif_wake_queue(tp->dev);
 -	}
- 
- 	first = tx_ring->next_to_use;
- 
- 	tso = e1000_tso(adapter, skb);
- 	if (tso < 0) {
- 		dev_kfree_skb_any(skb);
--		spin_unlock_irqrestore(&adapter->tx_queue_lock, irq_flags);
--		return NETDEV_TX_OK;
-+		return NETDEV_TX_DROPPED;
- 	}
- 
- 	if (tso)
--		tx_flags |= E1000_TX_FLAGS_TSO;
-+		cb->tx_flags |= E1000_TX_FLAGS_TSO;
- 	else if (e1000_tx_csum(adapter, skb))
--		tx_flags |= E1000_TX_FLAGS_CSUM;
-+		cb->tx_flags |= E1000_TX_FLAGS_CSUM;
- 
- 	/* Old method was to assume IPv4 packet by default if TSO was enabled.
- 	 * 82571 hardware supports TSO capabilities for IPv6 as well...
- 	 * no longer assume, we must. */
- 	if (skb->protocol == htons(ETH_P_IP))
--		tx_flags |= E1000_TX_FLAGS_IPV4;
-+		cb->tx_flags |= E1000_TX_FLAGS_IPV4;
- 
--	count = e1000_tx_map(adapter, skb, first, max_per_txd, nr_frags, mss);
--	if (count < 0) {
-+	cb->count = e1000_tx_map(adapter, skb, first, cb);
-+	if (cb->count < 0) {
- 		/* handle pci_map_single() error in e1000_tx_map */
- 		dev_kfree_skb_any(skb);
--		spin_unlock_irqrestore(&adapter->tx_queue_lock, irq_flags);
-+		return NETDEV_TX_DROPPED;
-+	}
-+
-+	e1000_tx_queue(adapter, cb->tx_flags, cb->count);
-+
 +	return NETDEV_TX_OK;
 +}
 +
-+static int e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
++/* hard_start_xmit for devices that don't have any bugs and
++ * support TG3_FLG2_HW_TSO_2 only.
++ */
++static int tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
 +{
-+	int ret = NETDEV_TX_OK;
-+	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	unsigned long irq_flags;
-+	struct e1000_tx_cbdata *cb = E1000_SKB_CB(skb);
-+
-+	ret = e1000_prep_frame(skb, netdev);
++	struct tg3 *tp = netdev_priv(dev);
++	int ret = tg3_prep_frame(skb, dev);
++	/* XXX: original code did mmiowb(); on failure,
++	* I dont think thats necessary
++	*/
 +	if (unlikely(ret != NETDEV_TX_OK))
-+		return NETDEV_TX_OK;
-+
-+	if (test_bit(__E1000_DOWN, &adapter->state)) {
-+		dev_kfree_skb_any(skb);
- 		return NETDEV_TX_OK;
- 	}
++	       return NETDEV_TX_OK;
  
--	e1000_tx_queue(adapter, tx_flags, count);
-+	if (!spin_trylock_irqsave(&adapter->tx_queue_lock, irq_flags))
-+		/* Collision - tell upper layer to requeue */
-+		return NETDEV_TX_LOCKED;
+-out_unlock:
+-    	mmiowb();
++	/* We are running in BH disabled context with netif_tx_lock
++	 * and TX reclaim runs via tp->poll inside of a software
++	 * interrupt.  Furthermore, IRQ processing runs lockless so we have
++	 * no IRQ context deadlocks to worry about either.  Rejoice!
++	 */
++	if (unlikely(tg3_tx_avail(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
++		if (!netif_queue_stopped(dev)) {
++			netif_stop_queue(dev);
  
--	netdev->trans_start = jiffies;
-+	/* need: count + 2 desc gap to keep tail from touching
-+	 * head, otherwise try next time */
-+	if (e1000_maybe_stop_tx(netdev, cb->count + 2)) {
-+		spin_unlock_irqrestore(&adapter->tx_queue_lock, irq_flags);
+-	dev->trans_start = jiffies;
++			/* This is a hard error, log it. */
++			printk(KERN_ERR PFX "%s: BUG! Tx Ring full when "
++			       "queue awake!\n", dev->name);
++		}
 +		return NETDEV_TX_BUSY;
 +	}
-+
-+	ret = e1000_queue_frame(skb, netdev);
-+
-+	if (ret == NETDEV_TX_OK)
-+		e1000_complete_tx(netdev);
-+
-+	if (ret == NETDEV_TX_DROPPED)
-+		ret = NETDEV_TX_OK;
  
- 	/* Make sure there is space in the ring for the next send. */
- 	e1000_maybe_stop_tx(netdev, MAX_SKB_FRAGS + 2);
- 
- 	spin_unlock_irqrestore(&adapter->tx_queue_lock, irq_flags);
 -	return NETDEV_TX_OK;
++	ret = tg3_enqueue(skb, dev);
++	if (ret == NETDEV_TX_OK)
++		tg3_kick_DMA(dev);
++
 +	return ret;
  }
  
- /**
+ static int tg3_start_xmit_dma_bug(struct sk_buff *, struct net_device *);
+@@ -4067,46 +4138,19 @@ tg3_tso_bug_end:
+ /* hard_start_xmit for devices that have the 4G bug and/or 40-bit bug and
+  * support TG3_FLG2_HW_TSO_1 or firmware TSO only.
+  */
+-static int tg3_start_xmit_dma_bug(struct sk_buff *skb, struct net_device *dev)
++static int tg3_enqueue_buggy(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct tg3 *tp = netdev_priv(dev);
+ 	dma_addr_t mapping;
+-	u32 len, entry, base_flags, mss;
++	u32 len, entry;
+ 	int would_hit_hwbug;
++	struct tg3_tx_cbdata *cb = TG3_SKB_CB(skb);
+ 
+-	len = skb_headlen(skb);
+ 
+-	/* We are running in BH disabled context with netif_tx_lock
+-	 * and TX reclaim runs via tp->napi.poll inside of a software
+-	 * interrupt.  Furthermore, IRQ processing runs lockless so we have
+-	 * no IRQ context deadlocks to worry about either.  Rejoice!
+-	 */
+-	if (unlikely(tg3_tx_avail(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
+-		if (!netif_queue_stopped(dev)) {
+-			netif_stop_queue(dev);
+-
+-			/* This is a hard error, log it. */
+-			printk(KERN_ERR PFX "%s: BUG! Tx Ring full when "
+-			       "queue awake!\n", dev->name);
+-		}
+-		return NETDEV_TX_BUSY;
+-	}
+-
+-	entry = tp->tx_prod;
+-	base_flags = 0;
+-	if (skb->ip_summed == CHECKSUM_PARTIAL)
+-		base_flags |= TXD_FLAG_TCPUDP_CSUM;
+-	mss = 0;
+-	if ((mss = skb_shinfo(skb)->gso_size) != 0) {
++	if (cb->mss != 0) {
+ 		struct iphdr *iph;
+ 		int tcp_opt_len, ip_tcp_len, hdr_len;
+ 
+-		if (skb_header_cloned(skb) &&
+-		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
+-			dev_kfree_skb(skb);
+-			goto out_unlock;
+-		}
+-
+ 		tcp_opt_len = tcp_optlen(skb);
+ 		ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
+ 
+@@ -4115,15 +4159,13 @@ static int tg3_start_xmit_dma_bug(struct sk_buff *skb, struct net_device *dev)
+ 			     (tp->tg3_flags2 & TG3_FLG2_TSO_BUG))
+ 			return (tg3_tso_bug(tp, skb));
+ 
+-		base_flags |= (TXD_FLAG_CPU_PRE_DMA |
+-			       TXD_FLAG_CPU_POST_DMA);
+ 
+ 		iph = ip_hdr(skb);
+ 		iph->check = 0;
+-		iph->tot_len = htons(mss + hdr_len);
++		iph->tot_len = htons(cb->mss + hdr_len);
+ 		if (tp->tg3_flags2 & TG3_FLG2_HW_TSO) {
+ 			tcp_hdr(skb)->check = 0;
+-			base_flags &= ~TXD_FLAG_TCPUDP_CSUM;
++			cb->base_flags &= ~TXD_FLAG_TCPUDP_CSUM;
+ 		} else
+ 			tcp_hdr(skb)->check = ~csum_tcpudp_magic(iph->saddr,
+ 								 iph->daddr, 0,
+@@ -4136,22 +4178,19 @@ static int tg3_start_xmit_dma_bug(struct sk_buff *skb, struct net_device *dev)
+ 				int tsflags;
+ 
+ 				tsflags = (iph->ihl - 5) + (tcp_opt_len >> 2);
+-				mss |= (tsflags << 11);
++				cb->mss |= (tsflags << 11);
+ 			}
+ 		} else {
+ 			if (tcp_opt_len || iph->ihl > 5) {
+ 				int tsflags;
+ 
+ 				tsflags = (iph->ihl - 5) + (tcp_opt_len >> 2);
+-				base_flags |= tsflags << 12;
++				cb->base_flags |= tsflags << 12;
+ 			}
+ 		}
+ 	}
+-#if TG3_VLAN_TAG_USED
+-	if (tp->vlgrp != NULL && vlan_tx_tag_present(skb))
+-		base_flags |= (TXD_FLAG_VLAN |
+-			       (vlan_tx_tag_get(skb) << 16));
+-#endif
++	len = skb_headlen(skb);
++	entry = tp->tx_prod;
+ 
+ 	/* Queue skb data, a.k.a. the main skb fragment. */
+ 	mapping = pci_map_single(tp->pdev, skb->data, len, PCI_DMA_TODEVICE);
+@@ -4164,8 +4203,8 @@ static int tg3_start_xmit_dma_bug(struct sk_buff *skb, struct net_device *dev)
+ 	if (tg3_4g_overflow_test(mapping, len))
+ 		would_hit_hwbug = 1;
+ 
+-	tg3_set_txd(tp, entry, mapping, len, base_flags,
+-		    (skb_shinfo(skb)->nr_frags == 0) | (mss << 1));
++	tg3_set_txd(tp, entry, mapping, len, cb->base_flags,
++		    (skb_shinfo(skb)->nr_frags == 0) | (cb->mss << 1));
+ 
+ 	entry = NEXT_TX(entry);
+ 
+@@ -4194,10 +4233,11 @@ static int tg3_start_xmit_dma_bug(struct sk_buff *skb, struct net_device *dev)
+ 
+ 			if (tp->tg3_flags2 & TG3_FLG2_HW_TSO)
+ 				tg3_set_txd(tp, entry, mapping, len,
+-					    base_flags, (i == last)|(mss << 1));
++					    cb->base_flags,
++					    (i == last)|(cb->mss << 1));
+ 			else
+ 				tg3_set_txd(tp, entry, mapping, len,
+-					    base_flags, (i == last));
++					    cb->base_flags, (i == last));
+ 
+ 			entry = NEXT_TX(entry);
+ 		}
+@@ -4214,28 +4254,48 @@ static int tg3_start_xmit_dma_bug(struct sk_buff *skb, struct net_device *dev)
+ 		 * failure, silently drop this packet.
+ 		 */
+ 		if (tigon3_dma_hwbug_workaround(tp, skb, last_plus_one,
+-						&start, base_flags, mss))
+-			goto out_unlock;
++						&start, cb->base_flags,
++						cb->mss)) {
++			mmiowb();
++			return NETDEV_TX_OK;
++		}
+ 
+ 		entry = start;
+ 	}
+ 
+-	/* Packets are ready, update Tx producer idx local and on card. */
+-	tw32_tx_mbox((MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW), entry);
+-
+ 	tp->tx_prod = entry;
+-	if (unlikely(tg3_tx_avail(tp) <= (MAX_SKB_FRAGS + 1))) {
+-		netif_stop_queue(dev);
+-		if (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp))
+-			netif_wake_queue(tp->dev);
+-	}
++	return NETDEV_TX_OK;
++}
++
++static int tg3_start_xmit_dma_bug(struct sk_buff *skb, struct net_device *dev)
++{
++	struct tg3 *tp = netdev_priv(dev);
++	int ret = tg3_prep_bug_frame(skb, dev);
+ 
+-out_unlock:
+-    	mmiowb();
++	if (unlikely(ret != NETDEV_TX_OK))
++	       return NETDEV_TX_OK;
+ 
+-	dev->trans_start = jiffies;
++	/* We are running in BH disabled context with netif_tx_lock
++	 * and TX reclaim runs via tp->poll inside of a software
++	 * interrupt.  Furthermore, IRQ processing runs lockless so we have
++	 * no IRQ context deadlocks to worry about either.  Rejoice!
++	 */
++	if (unlikely(tg3_tx_avail(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
++		if (!netif_queue_stopped(dev)) {
++			netif_stop_queue(dev);
+ 
+-	return NETDEV_TX_OK;
++			/* This is a hard error, log it. */
++			printk(KERN_ERR PFX "%s: BUG! Tx Ring full when "
++			       "queue awake!\n", dev->name);
++		}
++		return NETDEV_TX_BUSY;
++	}
++
++	ret = tg3_enqueue_buggy(skb, dev);
++	if (ret == NETDEV_TX_OK)
++		tg3_kick_DMA(dev);
++
++	return ret;
+ }
+ 
+ static inline void tg3_set_mtu(struct net_device *dev, struct tg3 *tp,
 
---=-opxgvb4E3+vYcZmdnLk3--
+--=-7+v2XlLicn201c2qfkaC--
 
