@@ -1,33 +1,47 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 05/10] Add divisor.
-Date: Mon, 01 Oct 2007 15:38:07 +0200
-Message-ID: <4700F83F.9020300@trash.net>
-References: <1191019977201-git-send-email-bugfood-ml@fatooh.org> <11910199772834-git-send-email-bugfood-ml@fatooh.org>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 1/1][TCP]: break missing at end of switch statement
+Date: Mon, 1 Oct 2007 14:39:28 +0100
+Message-ID: <200710011439.28676@strip-the-willow>
+References: <200710011332.43657@strip-the-willow> <20071001.222059.11266966.yoshfuji@st-paulia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Corey Hickey <bugfood-ml@fatooh.org>
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: YOSHIFUJI Hideaki <yoshfuji@st-paulia.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33035 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751691AbXJANic (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 09:38:32 -0400
-In-Reply-To: <11910199772834-git-send-email-bugfood-ml@fatooh.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:51031 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751633AbXJANkD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Oct 2007 09:40:03 -0400
+In-Reply-To: <20071001.222059.11266966.yoshfuji@st-paulia.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Corey Hickey wrote:
-> Make hash divisor user-configurable.
-> 
+Quoting YOSHIFUJI Hideaki:
+| 
+|  > [TCP]: break missing at end of switch statement
+|  > 
+|  > Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+|  > ---
+|  > --- a/net/ipv4/tcp_input.c
+|  > +++ b/net/ipv4/tcp_input.c
+|  > @@ -3129,6 +3129,7 @@ static void tcp_reset(struct sock *sk)
+|  >  			return;
+|  >  		default:
+|  >  			sk->sk_err = ECONNRESET;
+|  > +			break;
+|  >  	}
+|  >  
+|  >  	if (!sock_flag(sk, SOCK_DEAD))
+|  
+|  NAK; it is not required at all.
+|  
+|  --yoshfuji
+|  
+If it were true what you are saying then the statement 
 
-> @@ -120,7 +121,7 @@ static __inline__ unsigned sfq_fold_hash(struct sfq_sched_data *q, u32 h, u32 h1
->  	/* Have we any rotation primitives? If not, WHY? */
->  	h ^= (h1<<pert) ^ (h1>>(0x1F - pert));
->  	h ^= h>>10;
-> -	return h & 0x3FF;
-> +	return h & (q->hash_divisor-1);
+       `sk->sk_err = ECONNRESET;' 
 
-
-This assumes that hash_divisor is a power of two, but this is
-not enforced anywhere.
+can go as well since it will always be overridden.
