@@ -1,37 +1,57 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] make netlink processing routines semi-synchronious	(inspired
- by rtnl)
-Date: Mon, 01 Oct 2007 15:10:12 +0200
-Message-ID: <4700F1B4.4090603@trash.net>
-References: <20071001124042.GA8878@iris.sw.ru>
+From: jamal <hadi@cyberus.ca>
+Subject: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
+Date: Mon, 01 Oct 2007 09:21:40 -0400
+Message-ID: <1191244900.4378.3.camel@localhost>
+References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
+	<20070916.161748.48388692.davem@davemloft.net>
+	<1189988958.4230.55.camel@localhost>
+	<1190569987.4256.52.camel@localhost>
+	<1190570205.4256.56.camel@localhost>
+	<1190570317.4256.59.camel@localhost>
+	<1190570409.4256.62.camel@localhost>
+	<1191178346.6165.29.camel@localhost> <4700CF14.2010809@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, johannes@sipsolutions.net, tgraf@suug.ch,
-	pablo@netfilter.org, netdev@vger.kernel.org
-To: "Denis V. Lunev" <den@openvz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:65241 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751910AbXJANKh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 09:10:37 -0400
-In-Reply-To: <20071001124042.GA8878@iris.sw.ru>
-Sender: netdev-owner@vger.kernel.org
+Cc: johnpol@2ka.mipt.ru, peter.p.waskiewicz.jr@intel.com, kumarkr@linux.ibm.com,
+	herbert@gondor.apana.org.au, gaagaan@gmail.com,
+	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
+	rdreier@cisco.com, mcarlson@broadcom.com,
+	randy.dunlap@oracle.com, jagana@us.ibm.com,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	jeff@garzik.org, sri@us.ibm.com, shemminger@linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <4700CF14.2010809@trash.net>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Denis V. Lunev wrote:
-> The code in netfilter/nfnetlink.c and in ./net/netlink/genetlink.c looks
-> like outdated copy/paste from rtnetlink.c. Push them into sync with the
-> original.
+On Mon, 2007-01-10 at 12:42 +0200, Patrick McHardy wrote:
+> jamal wrote:
+
+> > +	while ((skb = __skb_dequeue(skbs)) != NULL)
+> > +		q->ops->requeue(skb, q);
 > 
+> 
+> ->requeue queues at the head, so this looks like it would reverse
+> the order of the skbs.
 
->  int nfnetlink_subsys_register(const struct nfnetlink_subsystem *n)
-> @@ -149,7 +137,7 @@ static int nfnetlink_rcv_msg(struct sk_b
->  #ifdef CONFIG_KMOD
->  		/* don't call nfnl_unlock, since it would reenter
->  		 * with further packet processing */
-> -		__nfnl_unlock();
-> +		nfnl_unlock();
+Excellent catch!  thanks; i will fix.
 
+As a side note: Any batching driver should _never_ have to requeue; if
+it does it is buggy. And the non-batching ones if they ever requeue will
+be a single packet, so not much reordering.
 
-That comment should be updated/deleted. Rest looks good to me.
+Thanks again Patrick.
+
+cheers,
+jamal
