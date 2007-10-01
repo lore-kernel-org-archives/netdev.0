@@ -1,92 +1,115 @@
-From: "Kanevsky, Arkady" <Arkady.Kanevsky@netapp.com>
-Subject: RE: [ofa-general] [PATCH v3] iw_cxgb3:
-	Support"iwarp-only"interfacestoavoid 4-tuple conflicts.
-Date: Mon, 1 Oct 2007 08:34:42 -0400
-Message-ID: <C98692FD98048C41885E0B0FACD9DFB80518780A@exnane01.hq.netapp.com>
-References: <20070923203649.8324.64524.stgit@dell3.ogc.int><46FBF8AF.9040700@ichips.intel.com><C98692FD98048C41885E0B0FACD9DFB805187514@exnane01.hq.netapp.com><000101c8013a$41b374f0$a7cc180a@amr.corp.intel.com><C98692FD98048C41885E0B0FACD9DFB80518755A@exnane01.hq.netapp.com><46FD5A2F.7010409@opengridcomputing.com><C98692FD98048C41885E0B0FACD9DFB805187762@exnane01.hq.netapp.com>
-	<46FD7380.6050107@ichips.intel.com>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH] make netlink processing routines semi-synchronious
+	(inspired by rtnl)
+Date: Mon, 1 Oct 2007 16:40:42 +0400
+Message-ID: <20071001124042.GA8878@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, rdreier@cisco.com, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: "Sean Hefty" <mshefty@ichips.intel.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <46FD7380.6050107@ichips.intel.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=us-ascii
+Cc: johannes@sipsolutions.net, tgraf@suug.ch, pablo@netfilter.org,
+	kaber@trash.net, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:57486 "EHLO iris"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751082AbXJAMjp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Oct 2007 08:39:45 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sean,
-Not so simple.
-How does client application knows where to connect?
-Does this proposal forces applications to choose
-the "right" network?
-Currently, MPA or ULP and not applications handle it.
-Why would we want to change that?
+The code in netfilter/nfnetlink.c and in ./net/netlink/genetlink.c looks
+like outdated copy/paste from rtnetlink.c. Push them into sync with the
+original.
 
-Sean,
-I may be beating the dead horse,
-but I recall that one of the main selling points
-of RDMA that it magical bust to performance with
-no changes applications. Just plug it in an viola,
-performances goes up and CPU utilization for network
-stack goes does. Win-Win.
+Signed-off-by: Denis V. Lunev <den@openvz.org>
 
-Thanks,
-
-Arkady Kanevsky                       email: arkady@netapp.com
-Network Appliance Inc.               phone: 781-768-5395
-1601 Trapelo Rd. - Suite 16.        Fax: 781-895-1195
-Waltham, MA 02451                   central phone: 781-768-5300
-=20
-
-> -----Original Message-----
-> From: Sean Hefty [mailto:mshefty@ichips.intel.com]=20
-> Sent: Friday, September 28, 2007 5:35 PM
-> To: Kanevsky, Arkady
-> Cc: netdev@vger.kernel.org; rdreier@cisco.com;=20
-> linux-kernel@vger.kernel.org; general@lists.openfabrics.org
-> Subject: Re: [ofa-general] [PATCH v3] iw_cxgb3:=20
-> Support"iwarp-only"interfacestoavoid 4-tuple conflicts.
->=20
-> Kanevsky, Arkady wrote:
-> > Exactly,
-> > it forces the burden on administrator.
-> > And one will be forced to try one mount for iWARP and it=20
-> does not work=20
-> > issue another one TCP or UDP if it fails.
-> > Yack!
-> >=20
-> > And server will need to listen on different IP address and simple
-> > * will not work since it will need to listen in two=20
-> different domains.
->=20
-> The server already has to call listen twice.  Once for the=20
-> rdma_cm and once for sockets.  Similarly on the client side,=20
-> connect must be made over rdma_cm or sockets.  I really don't=20
-> see any impact on the application for this approach.
->=20
-> We just end up separating the port space based on networking=20
-> addresses, rather than keeping the problem at the transport=20
-> level.  If you have an alternate approach that will be=20
-> accepted upstream, feel free to post it.
->=20
-> - Sean
-> _______________________________________________
-> general mailing list
-> general@lists.openfabrics.org
-> http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general
->=20
-> To unsubscribe, please visit=20
-> http://openib.org/mailman/listinfo/openib-general
->=20
+--- ./net/netfilter/nfnetlink.c.nlk3	2007-10-01 09:47:53.000000000 +0400
++++ ./net/netfilter/nfnetlink.c	2007-10-01 16:09:44.000000000 +0400
+@@ -44,26 +44,14 @@ static struct sock *nfnl = NULL;
+ static const struct nfnetlink_subsystem *subsys_table[NFNL_SUBSYS_COUNT];
+ static DEFINE_MUTEX(nfnl_mutex);
+ 
+-static void nfnl_lock(void)
++static inline void nfnl_lock(void)
+ {
+ 	mutex_lock(&nfnl_mutex);
+ }
+ 
+-static int nfnl_trylock(void)
+-{
+-	return !mutex_trylock(&nfnl_mutex);
+-}
+-
+-static void __nfnl_unlock(void)
+-{
+-	mutex_unlock(&nfnl_mutex);
+-}
+-
+-static void nfnl_unlock(void)
++static inline void nfnl_unlock(void)
+ {
+ 	mutex_unlock(&nfnl_mutex);
+-	if (nfnl->sk_receive_queue.qlen)
+-		nfnl->sk_data_ready(nfnl, 0);
+ }
+ 
+ int nfnetlink_subsys_register(const struct nfnetlink_subsystem *n)
+@@ -149,7 +137,7 @@ static int nfnetlink_rcv_msg(struct sk_b
+ #ifdef CONFIG_KMOD
+ 		/* don't call nfnl_unlock, since it would reenter
+ 		 * with further packet processing */
+-		__nfnl_unlock();
++		nfnl_unlock();
+ 		request_module("nfnetlink-subsys-%d", NFNL_SUBSYS_ID(type));
+ 		nfnl_lock();
+ 		ss = nfnetlink_get_subsys(type);
+@@ -188,10 +176,9 @@ static void nfnetlink_rcv(struct sock *s
+ 	unsigned int qlen = 0;
+ 
+ 	do {
+-		if (nfnl_trylock())
+-			return;
++		nfnl_lock();
+ 		qlen = netlink_run_queue(sk, qlen, nfnetlink_rcv_msg);
+-		__nfnl_unlock();
++		nfnl_unlock();
+ 	} while (qlen);
+ }
+ 
+--- ./net/netlink/genetlink.c.nlk3	2007-08-26 19:30:38.000000000 +0400
++++ ./net/netlink/genetlink.c	2007-10-01 16:05:29.000000000 +0400
+@@ -22,22 +22,14 @@ struct sock *genl_sock = NULL;
+ 
+ static DEFINE_MUTEX(genl_mutex); /* serialization of message processing */
+ 
+-static void genl_lock(void)
++static inline void genl_lock(void)
+ {
+ 	mutex_lock(&genl_mutex);
+ }
+ 
+-static int genl_trylock(void)
+-{
+-	return !mutex_trylock(&genl_mutex);
+-}
+-
+-static void genl_unlock(void)
++static inline void genl_unlock(void)
+ {
+ 	mutex_unlock(&genl_mutex);
+-
+-	if (genl_sock && genl_sock->sk_receive_queue.qlen)
+-		genl_sock->sk_data_ready(genl_sock, 0);
+ }
+ 
+ #define GENL_FAM_TAB_SIZE	16
+@@ -483,8 +475,7 @@ static void genl_rcv(struct sock *sk, in
+ 	unsigned int qlen = 0;
+ 
+ 	do {
+-		if (genl_trylock())
+-			return;
++		genl_lock();
+ 		qlen = netlink_run_queue(sk, qlen, genl_rcv_msg);
+ 		genl_unlock();
+ 	} while (qlen && genl_sock && genl_sock->sk_receive_queue.qlen);
