@@ -1,61 +1,61 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] memory leak in netlink user->kernel processing
-Date: Mon, 01 Oct 2007 10:42:45 -0600
-Message-ID: <m13awuyeey.fsf@ebiederm.dsl.xmission.com>
-References: <20071001142907.GA10022@iris.sw.ru> <470105EA.3090209@trash.net>
-	<47010B07.5060009@gmail.com> <47010C3B.7040902@trash.net>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH 1/1][TCP]: break missing at end of switch statement
+Date: Mon, 1 Oct 2007 18:25:30 +0100
+Message-ID: <200710011825.30434@strip-the-willow>
+References: <200710011332.43657@strip-the-willow> <200710011439.28676@strip-the-willow> <20071001143108.GA5648@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Denis V. Lunev" <dlunev@gmail.com>,
-	"Denis V. Lunev" <den@openvz.org>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: YOSHIFUJI Hideaki <yoshfuji@st-paulia.net>, netdev@vger.kernel.org
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:33737 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752590AbXJAQnN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 12:43:13 -0400
-In-Reply-To: <47010C3B.7040902@trash.net> (Patrick McHardy's message of "Mon,
-	01 Oct 2007 17:03:23 +0200")
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:62066 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752515AbXJARZu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Oct 2007 13:25:50 -0400
+In-Reply-To: <20071001143108.GA5648@ghostprotocols.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> writes:
+Arnaldo, Al Viro, and Yoshifuji -
 
-> Denis V. Lunev wrote:
->> By the way, Patrick, this looks like nlk->pid == 0 if and only if this
->> is a kernel socket. Right?
->>
->
-> Thats correct.
->
->> I have told with Alexey Kuznetsov and we have discrovered a way to get
->> rid of
->>         skb_queue_tail(&sk->sk_receive_queue, skb);
->>         sk->sk_data_ready(sk, len);
->> in netlink_sendskb/etc for kernel sockets and make user->kernel packets
->> processing truly synchronous.
->>
->> The idea is simple, we should queue/wakeup in kernel->user direction and
->> simply call nlk->data_ready for user->kernel direction. This will remove
->> all the crap we have now. But we need a mark to determine the direction.
->> Which one will be better? (nlk->data_ready) or (nlk->pid == 0)
->
->
-> Both would work fine, but I think nlk->pid is better since its
-> actually the "address".
+sorry for having wasted your time with this one. You are right, that was complete nonsense. 
+I don't know where my mind was - even my test program used to `prove' this was screwed up.
 
-Maybe.  nlk->pid is also 0, before the socket is bound so it does
-not serve as a reliable indicator that you have a kernel socket.
+So nothing wrong here and thank you very much for your clarifying comments.
 
-My gut feel says the best test is:
-(nlk->flags & NETLINK_KERNEL_SOCKET)
-
-There is no confusion in that and it is dead obvious what we
-are testing for.  Although we do still need to properly handle
-the case when netlink_kernel_create is called with a NULL
-input method.  As long as get the proper -ECONNREFUSED the
-code path doesn't look like it matters.
-
-Eric
-
+|  > |  > --- a/net/ipv4/tcp_input.c
+|  > |  > +++ b/net/ipv4/tcp_input.c
+|  > |  > @@ -3129,6 +3129,7 @@ static void tcp_reset(struct sock *sk)
+|  > |  >  			return;
+|  > |  >  		default:
+|  > |  >  			sk->sk_err = ECONNRESET;
+|  > |  > +			break;
+|  > |  >  	}
+|  > |  >  
+|  > |  >  	if (!sock_flag(sk, SOCK_DEAD))
+|  > |  
+|  > |  NAK; it is not required at all.
+|  > |  
+|  > |  --yoshfuji
+|  > |  
+|  > If it were true what you are saying then the statement 
+|  > 
+|  >        `sk->sk_err = ECONNRESET;' 
+|  > 
+|  > can go as well since it will always be overridden.
+|  
+|  Gerrit,
+|  
+|          It is not required. The statement you mention will be executed
+|  when the sk_state is not one of TCP_SYN_SENT, TCP_CLOSE_WAIT or
+|  TCP_CLOSE.
+|  
+|  	A 'break' is only needed in a label block if it is not the last
+|  one.
+|  
+|  - Arnaldo
+|  
+|  
