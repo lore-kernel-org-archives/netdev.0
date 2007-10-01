@@ -1,57 +1,41 @@
-From: jamal <hadi@cyberus.ca>
-Subject: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
-Date: Mon, 01 Oct 2007 09:21:40 -0400
-Message-ID: <1191244900.4378.3.camel@localhost>
-References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
-	<20070916.161748.48388692.davem@davemloft.net>
-	<1189988958.4230.55.camel@localhost>
-	<1190569987.4256.52.camel@localhost>
-	<1190570205.4256.56.camel@localhost>
-	<1190570317.4256.59.camel@localhost>
-	<1190570409.4256.62.camel@localhost>
-	<1191178346.6165.29.camel@localhost> <4700CF14.2010809@trash.net>
+From: Al Viro <viro@ftp.linux.org.uk>
+Subject: Re: [PATCH 1/1][TCP]: break missing at end of switch statement
+Date: Mon, 1 Oct 2007 14:17:58 +0100
+Message-ID: <20071001131758.GA8181@ftp.linux.org.uk>
+References: <200710011332.43657@strip-the-willow> <20071001123430.GZ8181@ftp.linux.org.uk> <200710011402.10377@strip-the-willow>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, peter.p.waskiewicz.jr@intel.com, kumarkr@linux.ibm.com,
-	herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
-	rdreier@cisco.com, mcarlson@broadcom.com,
-	randy.dunlap@oracle.com, jagana@us.ibm.com,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	jeff@garzik.org, sri@us.ibm.com, shemminger@linux-foundation.org,
-	David Miller <davem@davemloft.net>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <4700CF14.2010809@trash.net>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:47945 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757048AbXJANR7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 09:17:59 -0400
+Content-Disposition: inline
+In-Reply-To: <200710011402.10377@strip-the-willow>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-01-10 at 12:42 +0200, Patrick McHardy wrote:
-> jamal wrote:
+On Mon, Oct 01, 2007 at 02:02:10PM +0100, Gerrit Renker wrote:
+> Quoting Al Viro:
+> |  On Mon, Oct 01, 2007 at 01:32:43PM +0100, Gerrit Renker wrote:
+> |  > [TCP]: break missing at end of switch statement
+> |  > 
+> |  > Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+> |  > ---
+> |  > --- a/net/ipv4/tcp_input.c
+> |  > +++ b/net/ipv4/tcp_input.c
+> |  > @@ -3129,6 +3129,7 @@ static void tcp_reset(struct sock *sk)
+> |  >  			return;
+> |  >  		default:
+> |  >  			sk->sk_err = ECONNRESET;
+> |  > +			break;
+> |  >  	}
+> |  
+> |  Huh?  Why on the Earth would that be a problem?
+> |  
+> |  
+> Sorry what is your question?
 
-> > +	while ((skb = __skb_dequeue(skbs)) != NULL)
-> > +		q->ops->requeue(skb, q);
-> 
-> 
-> ->requeue queues at the head, so this looks like it would reverse
-> the order of the skbs.
-
-Excellent catch!  thanks; i will fix.
-
-As a side note: Any batching driver should _never_ have to requeue; if
-it does it is buggy. And the non-batching ones if they ever requeue will
-be a single packet, so not much reordering.
-
-Thanks again Patrick.
-
-cheers,
-jamal
+Why the hell is $Subject a problem that warrants any patches whatsoever?
