@@ -1,125 +1,41 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [IPV6] Fix ICMPv6 redirect handling with target multicast address
-Date: Sun, 30 Sep 2007 23:27:35 -0400
-Message-ID: <47006927.3030701@hp.com>
-References: <46FD2B37.6040502@hp.com>	<OF5FC97D70.5FD0A80A-ON88257365.00025E58-88257365.00048D1E@us.ibm.com> <20070929.100448.41933886.yoshfuji@linux-ipv6.org>
+From: Xia Yang <xiayang@ntu.edu.sg>
+Subject: Removing DAD in IPv6
+Date: Mon, 01 Oct 2007 11:53:27 +0800
+Message-ID: <1191210807.25398.18.camel@orbit6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: dlstevens@us.ibm.com, davem@davemloft.net, netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?YOSHIFUJI_Hideaki_/_=3F=3F=3F=3F?=
-	<yoshfuji@linux-ipv6.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ccerelrim04.cce.hp.com ([161.114.21.25]:14227 "EHLO
-	ccerelrim04.cce.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750713AbXJAEAb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 00:00:31 -0400
-In-Reply-To: <20070929.100448.41933886.yoshfuji@linux-ipv6.org>
+Received: from exsmtp2.ntu.edu.sg ([155.69.5.9]:35853 "EHLO exsmtp2.ntu.edu.sg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750966AbXJAEJz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Oct 2007 00:09:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Yoshifuji,
+Hi all,
 
-YOSHIFUJI Hideaki / ???? wrote:
-> Dave, Brian,
-> 
-> Let me double check this patch.
-> 
-> Regards,
-> 
-> --yoshfuji
-> 
-> In article <OF5FC97D70.5FD0A80A-ON88257365.00025E58-88257365.00048D1E@us.ibm.com> (at Fri, 28 Sep 2007 17:50:38 -0700), David Stevens <dlstevens@us.ibm.com> says:
-> 
->> Brian,
->>         A multicast address should never be the target of a neighbor
->> discovery request; the sender should use the mapping function for all
->> multicasts. So, I'm not sure that your example can ever happen, and it
->> certainly is ok to send ICMPv6 errors to multicast addresses in general.
->> But I don't see that it hurts anything. either (since it should never 
->> happen :-)),
+I am new to this list, so please forgive me if I say anything
+inappropriate.
 
-TAHI generates a lot of packets that shouldn't happen :) see below for 
-the problem.  The patch in ndisc_send_redirect() is probably 
-unnecessary, but since the code was identical I figured it wouldn't hurt.
+I am working on a mobility testbed based on IPv6. In order to improve
+the performance, I would like to remove the DAD process during the
+auto-configuration process of an IPv6 address for my testbed. 
 
->> so I don't particularly object, either.
->>         I think it'd also be better if you add the check to be:
->>
->>         if (ipv6_addr_type(target) & 
->> (IPV6_ADDR_LINKLOCAL|IPV6_ADDR_UNICAST))
+During my experiment, I observed that when an address is configured
+based on a router advertisement, the outgoing packets can be sent out
+immediately. But the packets destined to local node can only be received
+after some time (about 1 sec). I found the lost packets are discarded in
+the kernel and never make it to the transport layer. I suspect it is
+caused by the DAD process.
 
-I did have it:
+I would like to ask for help on how to remove or disable the DAD process
+properly, as long as the node can send, receive and forward packets
+immediately after a new IPv6 address is generated. Any pointer is
+appreciated. Thanks a lot in advance!
 
-if (ipv6_addr_type(target) &
-     (IPV6_ADDR_LINKLOCAL|IPV6_ADDR_UNICAST) ==
-     (IPV6_ADDR_LINKLOCAL|IPV6_ADDR_UNICAST))
+Best Regards,
 
-but changed it since I had proposed ipv6_addr_linklocal() in a previous 
-patch because there are other possible users of that.
+Xia Yang
 
-This is the actual packet trace that was sent to me, edited to remove 
-non-relevant data, but I've actually been unable to reproduce Packet 12 
-below (note the Destination MAC).  My knee-jerk reaction was the 
-proposed patch.  It could just be timing-related, I'll do more testing 
-Monday.  Strangely, the TAHI test passes anyway, but it shouldn't.
-
-Packet 10 : Icmpv6 : Redirect
-Ethernet
-Destination MAC.........................00:1A:4B:EB:FC:E6
-Source MAC..............................00:00:10:10:10:60
-Ipv6
-Version.................................6
-Next Header.............................58
-Hop Limit...............................255
-Source IP.....................FE80:0000:0000:0000:0200:10FF:FE10:1060
-Destination IP................3000:0000:0000:0000:021A:4BFF:FEEB:FCE6
-Icmpv6
-Type....................................0x89
-Code....................................0x00
-Reserved................................0x00000000
-Target Address................FF02:0000:0000:0000:0000:0000:0000:0001
-Destination Address...........3001:0000:0000:0000:0200:10FF:FE10:1180
-Options
-LLAddressOption
-   Option Type.............................2
-   Option Length...........................1
-   Link-Layer Address......................0x000010101061
-
-Packet 11 : Icmpv6 : Echo Request
-Ethernet
-Destination MAC.........................00:1A:4B:EB:FC:E6
-Source MAC..............................00:00:10:10:10:60
-Ipv6
-Version.................................6
-Next Header.............................58
-Hop Limit...............................255
-Source IP.....................3001:0000:0000:0000:0200:10FF:FE10:1180
-Destination IP................3000:0000:0000:0000:021A:4BFF:FEEB:FCE6
-Icmpv6
-Type....................................0x80
-Code....................................0x00
-Identifier..............................0x0000
-Sequence Number.........................0x0000
-Data....................................0x00
-
-Packet 12 : Icmpv6 : Echo Reply
-Ethernet
-Destination MAC.........................33:33:00:00:00:01
-Source MAC..............................00:1A:4B:EB:FC:E6
-Ipv6
-Version.................................6
-Next Header.............................58
-Hop Limit...............................64
-Source IP.....................3000:0000:0000:0000:021A:4BFF:FEEB:FCE6
-Destination IP................3001:0000:0000:0000:0200:10FF:FE10:1180
-Icmpv6
-Type....................................0x81
-Code....................................0x00
-Identifier..............................0x0000
-Sequence Number.........................0x0000
-Data....................................0x00
-
-This should have been sent to 00:00:10:10:10:60
-
--Brian
