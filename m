@@ -1,55 +1,31 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH] net-2.6.24: old ax25 driver fix
-Date: Mon, 1 Oct 2007 11:24:17 -0700
-Message-ID: <20071001112417.10bf522d@oldman>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: [PATCH 0/2] qla3xxx: receive path bugfixes.
+Date: Mon, 1 Oct 2007 11:41:41 -0700
+Message-ID: <20071001184141.GA22534@linux-7mw0.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundatio.org>,
-	"David S. Miller" <davem@davemloft.net>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:34123 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752082AbXJASXc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 14:23:32 -0400
+Received: from avexch1.qlogic.com ([198.70.193.115]:21575 "EHLO
+	avexch1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755239AbXJASli (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 14:41:38 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Recent change in hard header broke build of these old drivers.
+Jeff,
+This is the second submission... First was in August. Thanks, Ron
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
----
- drivers/net/hamradio/dmascc.c |    2 +-
- drivers/net/hamradio/scc.c    |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+The following two patches fix:
 
-diff --git a/drivers/net/hamradio/dmascc.c b/drivers/net/hamradio/dmascc.c
-index b529e23..bc02e46 100644
---- a/drivers/net/hamradio/dmascc.c
-+++ b/drivers/net/hamradio/dmascc.c
-@@ -581,7 +581,7 @@ static int __init setup_adapter(int card_base, int type, int n)
- 		dev->do_ioctl = scc_ioctl;
- 		dev->hard_start_xmit = scc_send_packet;
- 		dev->get_stats = scc_get_stats;
--		dev->header_ops = &ax25_hard_header_ops
-+		dev->header_ops = &ax25_header_ops;
- 		dev->set_mac_address = scc_set_mac_address;
- 	}
- 	if (register_netdev(info->dev[0])) {
-diff --git a/drivers/net/hamradio/scc.c b/drivers/net/hamradio/scc.c
-index 56cc523..353d13e 100644
---- a/drivers/net/hamradio/scc.c
-+++ b/drivers/net/hamradio/scc.c
-@@ -1551,7 +1551,7 @@ static void scc_net_setup(struct net_device *dev)
- 	dev->stop	     = scc_net_close;
- 
- 	dev->hard_start_xmit = scc_net_tx;
--	dev->header_ops      = &ax25_hard_header_ops;
-+	dev->header_ops      = &ax25_header_ops;
- 
- 	dev->set_mac_address = scc_net_set_mac_address;
- 	dev->get_stats       = scc_net_get_stats;
--- 
-1.5.2.5
+An undocumented "feature" where the 4032 chip sets bit-7
+of the opcode for an inbound completion if it's for a VLAN.
+
+The access of stale data on a completion entry.
+
+These patches were built and tested on 2.6.23-rc1.
+
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
 
