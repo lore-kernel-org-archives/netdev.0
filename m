@@ -1,59 +1,61 @@
 From: Corey Hickey <bugfood-ml@fatooh.org>
-Subject: Re: [PATCH 09/10] Change perturb_period to unsigned.
-Date: Mon, 01 Oct 2007 13:47:16 -0700
-Message-ID: <47015CD4.2040302@fatooh.org>
-References: <1191019977201-git-send-email-bugfood-ml@fatooh.org> <11910199784097-git-send-email-bugfood-ml@fatooh.org> <4700FA02.8090800@trash.net>
+Subject: Re: [PATCH 10/10] Use nested compat attributes to pass parameters.
+Date: Mon, 01 Oct 2007 13:47:22 -0700
+Message-ID: <47015CDA.60109@fatooh.org>
+References: <1191019977201-git-send-email-bugfood-ml@fatooh.org> <11910199782593-git-send-email-bugfood-ml@fatooh.org> <4700FC1E.9040309@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+To: Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hot.fatooh.org ([208.78.103.127]:41641 "EHLO hot.fatooh.org"
+Received: from hot.fatooh.org ([208.78.103.127]:41659 "EHLO hot.fatooh.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753082AbXJAUrX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Oct 2007 16:47:23 -0400
-In-Reply-To: <4700FA02.8090800@trash.net>
+	id S1753103AbXJAUr2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Oct 2007 16:47:28 -0400
+In-Reply-To: <4700FC1E.9040309@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Patrick McHardy wrote:
 > Corey Hickey wrote:
->> perturb_period is currently a signed integer, but I can't see any good
->> reason why this is so--a negative perturbation period will add a timer
->> that expires in the past, causing constant perturbation, which makes
->> hashing useless.
->>
->> 	if (q->perturb_period) {
->> 		q->perturb_timer.expires = jiffies + q->perturb_period;
->> 		add_timer(&q->perturb_timer);
->> 	}
->>
->> Strictly speaking, this will break binary compatibility with older
->> versions of tc, but that ought not to be a problem because (a) there's
->> no valid use for a negative perturb_period, and (b) negative values
->> will be seen as high values (> INT_MAX), which don't work anyway.
->>
->> If perturb_period is too large, (perturb_period * HZ) will overflow the
->> size of an unsigned int and wrap around. So, check for thet and reject
->> values that are too high.
+>> +
+>> +#define GET_PARAM(dst, nest, compat) do { \
+>> +	struct rtattr *rta = tb[(nest) - 1]; \
+>> +	if (rta) \
+>> +		(dst) = RTA_GET_U32(rta); \
+>> +	else if ((compat)) \
+>> +		(dst) = (compat); \
+>> +} while (0)
 > 
 > 
-> Sounds reasonable.
-> 
->> --- a/net/sched/sch_sfq.c
->> +++ b/net/sched/sch_sfq.c
->> @@ -74,6 +74,9 @@
->>  typedef unsigned int sfq_index;
->>  #define SFQ_MAX_DEPTH (UINT_MAX / 2 - 1)
->>  
->> +/* We don't want perturb_period * HZ to overflow an unsigned int. */
->> +#define SFQ_MAX_PERTURB (UINT_MAX / HZ)
-> 
-> 
-> jiffies are unsigned long.
+> An inline function and a comment why this is done would increase
+> readability.
 
-Hmm. You're right. It looks like my previous patch obviated the need for 
-this part. I'll remove it.
+Well, I had a reason for making a macro, but it probably wasn't a good 
+reason. Looking now, I don't see why not to make a function. I'll see 
+what I can do.
+
+>> +	nest = RTA_NEST_COMPAT(skb, TCA_OPTIONS, sizeof(opt), &opt);
+>> +
+>> +	RTA_PUT_U32(skb, TCA_SFQ_QUANTUM, q->quantum);
+>> +	RTA_PUT_U32(skb, TCA_SFQ_PERTURB, q->perturb_period);
+>> +	RTA_PUT_U32(skb, TCA_SFQ_LIMIT,   q->limit);
+>> +	RTA_PUT_U32(skb, TCA_SFQ_DIVISOR, q->hash_divisor);
+>> +	RTA_PUT_U32(skb, TCA_SFQ_FLOWS,   q->depth);
+>>  	RTA_PUT(skb, TCA_OPTIONS, sizeof(opt), &opt);
+> 
+> 
+> This is wrong, RTA_NEST_COMPAT already dumps the structure.
+
+You mean that last line (RTA_PUT) is superfluous, right? I can't see a 
+reason for it to be there, so I must have just forgotten to delete it 
+from the original code.
+
+If I'm wrong, I might need a little hand-holding here. My understanding 
+of all the RTA stuff is a bit shaky.
+
+
+Much thanks for the review. I'll make a new set of patches soon.
 
 -Corey
