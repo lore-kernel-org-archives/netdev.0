@@ -1,90 +1,74 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: 2.6.21 -> 2.6.22 & 2.6.23-rc8 performance regression
-Date: Mon, 01 Oct 2007 10:20:07 +0200
-Message-ID: <4700ADB7.7050102@cosmosbay.com>
-References: <200709301425.37564.nickpiggin@yahoo.com.au> <20070930223503.M8966@nuclearcat.com> <47008CB0.7010808@cosmosbay.com> <20071001.001259.28812610.davem@davemloft.net> <20071001080339.M21850@nuclearcat.com>
+From: "Denis V. Lunev" <den@sw.ru>
+Subject: Re: [Devel] Re: [PATCH 2/5] net: Make rtnetlink infrastructure network
+ namespace aware
+Date: Mon, 01 Oct 2007 12:26:52 +0400
+Message-ID: <4700AF4C.6020509@sw.ru>
+References: <m1myv69tfu.fsf@ebiederm.dsl.xmission.com>	<m1hcle9td8.fsf@ebiederm.dsl.xmission.com>	<46FE72E3.3000402@trash.net>	<m1tzpd8lfh.fsf@ebiederm.dsl.xmission.com>	<46FE8FD3.2030308@trash.net>	<m1myv56vb3.fsf@ebiederm.dsl.xmission.com> <46FFC34A.3020701@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Denys <nuclearcat@nuclearcat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753753AbXJAIXe@vger.kernel.org>
-In-Reply-To: <20071001080339.M21850@nuclearcat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:53774 "EHLO iris"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752184AbXJAIZt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Oct 2007 04:25:49 -0400
+In-Reply-To: <46FFC34A.3020701@trash.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Denys a =C3=A9crit :
-> Well, i can play a bit more on "live" servers. I have now hot-swap se=
-rver with
-> full gentoo,  where i can rebuild any kernel you want, with any appli=
-ed patch.
-> But it looks more like not overhead, load becoming high too "spiky", =
-and it is
-> not just permantenly higher. Also it is not normal that all system be=
-coming
-> unresposive (for example ping 127.0.0.1 becoming 300ms for period, wh=
-en usage
-> softirq jumps to 100%).
->
->  =20
-Could you try a pristine 2.6.22.9 and some patch in=20
-secure_tcp_sequence_number() like :
+Patrick McHardy wrote:
+> Eric W. Biederman wrote:
+>> Patrick McHardy <kaber@trash.net> writes:
+>>
+>>
+>>> Maybe I can save you some time: we used to do down_trylock()
+>>> for the rtnl mutex, so senders would simply return if someone
+>>> else was already processing the queue *or* the rtnl was locked
+>>> for some other reason. In the first case the process already
+>>> processing the queue would also process the new messages, but
+>>> if it the rtnl was locked for some other reason (for example
+>>> during module registration) the message would sit in the
+>>> queue until the next rtnetlink sendmsg call, which is why
+>>> rtnl_unlock does queue processing. Commit 6756ae4b changed
+>>> the down_trylock to mutex_lock, so senders will now simply wait
+>>> until the mutex is released and then call netlink_run_queue
+>>> themselves. This means its not needed anymore.
+>>
+>> Sounds reasonable.
+>>
+>> I started looking through the code paths and I currently cannot
+>> see anything that would leave a message on a kernel rtnl socket.
+>>
+>> However I did a quick test adding a WARN_ON if there were any messages
+>> found in the queue during rtnl_unlock and I found this code path
+>> getting invoked from linkwatch_event.  So there is clearly something I
+>> don't understand, and it sounds at odds just a bit from your
+>> description.
+> 
+> 
+> That sounds like a bug. Did you place the WARN_ON before or after
+> the mutex_unlock()?
 
---- drivers/char/random.c.orig 2007-10-01 10:18:42.000000000 +0200
-+++ drivers/char/random.c 2007-10-01 10:19:58.000000000 +0200
-@@ -1554,7 +1554,7 @@
-* That's funny, Linux has one built in! Use it!
-* (Networks are faster now - should this be increased?)
-*/
-- seq +=3D ktime_get_real().tv64;
-+ seq +=3D ktime_get_real().tv64 / 1000;
-#if 0
-printk("init_seq(%lx, %lx, %d, %d) =3D %d\n",
-saddr, daddr, sport, dport, seq);
+The presence of the message in the queue during rtnl_unlock is quite
+possible as normal user->kernel message processing path for rtnl is the
+following:
 
-Thank you
+netlink_sendmsg
+   netlink_unicast
+      netlink_sendskb
+          skb_queue_tail
+          netlink_data_ready
+              rtnetlink_rcv
+                  mutex_lock(&rtnl_mutex);
+                  netlink_run_queue(sk, qlen, &rtnetlink_rcv_msg);
+                  mutex_unlock(&rtnl_mutex);
 
+so, the presence of the packet in the rtnl queue on rtnl_unlock is
+normal race with a rtnetlink_rcv for me.
 
-> On Mon, 01 Oct 2007 00:12:59 -0700 (PDT), David Miller wrote
->  =20
->> From: Eric Dumazet <dada1@cosmosbay.com>
->> Date: Mon, 01 Oct 2007 07:59:12 +0200
->>
->>    =20
->>> No problem here on bigger servers, so I CC David Miller and netdev
->>> on this one.  AFAIK do_gettimeofday() and ktime_get_real() should
->>> use the same underlying hardware functions on PC and no performance
->>> problem should happen here.
->>>      =20
->> One thing that jumps out at me is that on 32-bit (and to a certain
->> extent on 64-bit) there is a lot of stack accesses and missed
->> optimizations because all of the work occurs, and gets expanded,
->> inside of ktime_get_real().
->>
->> The timespec_to_ktime() inside of there constructs the ktime_t retur=
-n
->> value on the stack, then returns that as an aggregate to the caller.
->>
->> That cannot be without some cost.
->>
->> ktime_get_real() is definitely a candidate for inlining especially i=
-n
->> these kinds of cases where we'll happily get computations in local
->> registers instead of all of this on-stack nonsense.  And in several
->> cases (if the caller only needs the tv_sec value, for example)
->> computations can be elided entirely.
->>
->> It would be constructive to experiment and see if this is in fact=20
->> part of the problem.
->>    =20
->
->
-> --
-> Denys Fedoryshchenko
-> Technical Manager
-> Virtual ISP S.A.L.
->
->
->  =20
+Regards,
+	Den
