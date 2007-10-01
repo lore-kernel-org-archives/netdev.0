@@ -1,46 +1,39 @@
-From: Jan-Bernd Themann <ossthema@de.ibm.com>
-Subject: Re: ehea work queues
-Date: Mon, 1 Oct 2007 16:43:04 +0200
-Message-ID: <200710011643.04180.ossthema@de.ibm.com>
-References: <20070930162019.GE28619@kryten>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] ehea: DLPAR memory add fix
+Date: Mon, 01 Oct 2007 10:44:41 -0400
+Message-ID: <470107D9.2040301@garzik.org>
+References: <200710011633.18305.ossthema@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: themann@de.ibm.com, netdev@vger.kernel.org
-To: Anton Blanchard <anton@samba.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	Marcus Eder <meder@de.ibm.com>,
+	Thomas Klein <tklein@de.ibm.com>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>
+To: Jan-Bernd Themann <ossthema@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.uk.ibm.com ([195.212.29.137]:53127 "EHLO
-	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752176AbXJAOnd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 10:43:33 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate4.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l91EhW20092204
-	for <netdev@vger.kernel.org>; Mon, 1 Oct 2007 14:43:32 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l91EhW6Z3121242
-	for <netdev@vger.kernel.org>; Mon, 1 Oct 2007 15:43:32 +0100
-Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l91EhF3G001789
-	for <netdev@vger.kernel.org>; Mon, 1 Oct 2007 15:43:15 +0100
-In-Reply-To: <20070930162019.GE28619@kryten>
-Content-Disposition: inline
+Received: from srv5.dvmed.net ([207.36.208.214]:34826 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751365AbXJAOon (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Oct 2007 10:44:43 -0400
+In-Reply-To: <200710011633.18305.ossthema@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi
+Jan-Bernd Themann wrote:
+> Due to stability issues in high load situations the HW queue handling
+> has to be changed. The HW queues are now stopped and restarted again instead
+> of destroying and allocating new HW queues. 
+> 
+> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
 
-On Sunday 30 September 2007 18:20, Anton Blanchard wrote:
-> 
-> Hi,
-> 
-> I booted 2.6.23-rc8 and noticed that ehea loves its workqueues:
-> (notice also that the ehea_driver_wq/XXX exceeds TASK_COMM_LEN). 
-> 
-> Since they are both infrequent events and not performance critical
-> (memory hotplug and driver reset), can we just use schedule_work?
-> 
-Yes. I'll provide a patch soon.
+May I presume this is for 2.6.23?
 
-Thanks,
-Jan-Bernd
+	Jeff
+
+
+
