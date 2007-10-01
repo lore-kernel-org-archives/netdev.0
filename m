@@ -1,52 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.21 -> 2.6.22 & 2.6.23-rc8 performance regression
-Date: Mon, 01 Oct 2007 13:57:10 -0700 (PDT)
-Message-ID: <20071001.135710.99174896.davem@davemloft.net>
-References: <20070930223503.M8966@nuclearcat.com>
-	<47008CB0.7010808@cosmosbay.com>
-	<4701541B.70108@cosmosbay.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: sk98lin, jumbo frames, and memory fragmentation
+Date: Mon, 1 Oct 2007 14:06:27 -0700
+Message-ID: <20071001140627.1e2e665f@freepuppy.rosehill>
+References: <47015A24.7000701@nortel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: nuclearcat@nuclearcat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: dada1@cosmosbay.com
+Cc: linux@syskonnect.de, netdev@vger.kernel.org
+To: "Chris Friesen" <cfriesen@nortel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54561
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752628AbXJAU5K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 16:57:10 -0400
-In-Reply-To: <4701541B.70108@cosmosbay.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:48358 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752300AbXJAVG6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 17:06:58 -0400
+In-Reply-To: <47015A24.7000701@nortel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Mon, 01 Oct 2007 22:10:03 +0200
+On Mon, 01 Oct 2007 14:35:48 -0600
+"Chris Friesen" <cfriesen@nortel.com> wrote:
 
-> So maybe the following patch is necessary...
 > 
-> I believe IPV6 & DCCP are immune to this problem.
+> Hi all,
 > 
-> Thanks again Denys for spotting this.
+> We're considering some hardware that uses the sk98lin network hardware, 
+> and we'll be using jumbo frames.  Looking at the driver, when using a 
+> 9KB MTU it seems like it would end up trying to atomically allocate a 
+> 16KB buffer.
 > 
-> Eric
+> Has anyone heard of this been a problem?  It would seem like trying to 
+> atomically allocate four physically contiguous pages could become tricky 
+> after the system has been running for a while.
 > 
-> [PATCH] TCP : secure_tcp_sequence_number() should not use a too fast clock
+> The reason I ask is that we ran into this with the e1000.  Before they 
+> added the new jumbo frame code it was trying to atomically allocate 32KB 
+> buffers and we would start getting allocation failures after a month or 
+> so of uptime.
 > 
-> TCP V4 sequence numbers are 32bits, and RFC 793 assumed a 250 KHz clock.
-> In order to follow network speed increase, we can use a faster clock, but
-> we should limit this clock so that the delay between two rollovers is
-> greater than MSL (TCP Maximum Segment Lifetime : 2 minutes)
-> 
-> Choosing a 64 nsec clock should be OK, since the rollovers occur every
-> 274 seconds.
-> 
-> Problem spotted by Denys Fedoryshchenko
-> 
-> Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+> Any information anyone can provide would be appreciated.
 
-Thanks a lot Eric for bringing closure to this.
+Adding fragmentation support to skge driver is on my list of
+possible extensions. sky2 driver already supports it (yet one
+more feature that the vendor sk98lin driver doesn't do).
 
-I'll apply this and add a reference in the commit message to the
-changeset that introduced this problem, since it might help
-others who look at this.
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
