@@ -1,43 +1,55 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [IPV6] Fix ICMPv6 redirect handling with target multicast address
-Date: Mon, 01 Oct 2007 13:36:24 -0400
-Message-ID: <47013018.1020002@hp.com>
-References: <46FD2B37.6040502@hp.com>	<OF5FC97D70.5FD0A80A-ON88257365.00025E58-88257365.00048D1E@us.ibm.com>	<20070929.100448.41933886.yoshfuji@linux-ipv6.org> <20071001.204921.52365121.yoshfuji@linux-ipv6.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] net-2.6.24: old ax25 driver fix
+Date: Mon, 1 Oct 2007 11:24:17 -0700
+Message-ID: <20071001112417.10bf522d@oldman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: brian.haley@hp.com, dlstevens@us.ibm.com, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
-	<yoshfuji@linux-ipv6.org>
+Cc: netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundatio.org>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:52482 "EHLO atlrel6.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752761AbXJARgc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Oct 2007 13:36:32 -0400
-In-Reply-To: <20071001.204921.52365121.yoshfuji@linux-ipv6.org>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:34123 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752082AbXJASXc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 14:23:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Recent change in hard header broke build of these old drivers.
 
-YOSHIFUJI Hideaki / 吉藤英明 wrote:
->>>         I think it'd also be better if you add the check to be:
->>>
->>>         if (ipv6_addr_type(target) & 
->>> (IPV6_ADDR_LINKLOCAL|IPV6_ADDR_UNICAST))
->>>
->>> or something along those lines, rather than reproducing ipv6_addr_type() 
->>> code
->>> separately in a new ipv6_addr_linklocal() function.
-> 
-> I'm fine with the idea of the fix itself.
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+---
+ drivers/net/hamradio/dmascc.c |    2 +-
+ drivers/net/hamradio/scc.c    |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Ok, in both the receive and send code?
+diff --git a/drivers/net/hamradio/dmascc.c b/drivers/net/hamradio/dmascc.c
+index b529e23..bc02e46 100644
+--- a/drivers/net/hamradio/dmascc.c
++++ b/drivers/net/hamradio/dmascc.c
+@@ -581,7 +581,7 @@ static int __init setup_adapter(int card_base, int type, int n)
+ 		dev->do_ioctl = scc_ioctl;
+ 		dev->hard_start_xmit = scc_send_packet;
+ 		dev->get_stats = scc_get_stats;
+-		dev->header_ops = &ax25_hard_header_ops
++		dev->header_ops = &ax25_header_ops;
+ 		dev->set_mac_address = scc_set_mac_address;
+ 	}
+ 	if (register_netdev(info->dev[0])) {
+diff --git a/drivers/net/hamradio/scc.c b/drivers/net/hamradio/scc.c
+index 56cc523..353d13e 100644
+--- a/drivers/net/hamradio/scc.c
++++ b/drivers/net/hamradio/scc.c
+@@ -1551,7 +1551,7 @@ static void scc_net_setup(struct net_device *dev)
+ 	dev->stop	     = scc_net_close;
+ 
+ 	dev->hard_start_xmit = scc_net_tx;
+-	dev->header_ops      = &ax25_hard_header_ops;
++	dev->header_ops      = &ax25_header_ops;
+ 
+ 	dev->set_mac_address = scc_net_set_mac_address;
+ 	dev->get_stats       = scc_net_get_stats;
+-- 
+1.5.2.5
 
-> Please use ipv6_addr_type() so far and convert other users as well
-> to ipv6_addr_linklocal() in another patch.
-
-I'll re-do the patch.
-
--Brian
