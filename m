@@ -1,40 +1,30 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: sk98lin, jumbo frames, and memory fragmentation
-Date: Mon, 1 Oct 2007 14:57:03 -0700
-Message-ID: <20071001145703.23669471@freepuppy.rosehill>
-References: <47015A24.7000701@nortel.com>
-	<20071001140627.1e2e665f@freepuppy.rosehill>
-	<4701638F.2020903@nortel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6.24 0/4]: TCP fixes
+Date: Mon, 01 Oct 2007 15:29:19 -0700 (PDT)
+Message-ID: <20071001.152919.118977894.davem@davemloft.net>
+References: <11912417841620-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux@syskonnect.de, netdev@vger.kernel.org
-To: "Chris Friesen" <cfriesen@nortel.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:35453 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751447AbXJAV5V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 17:57:21 -0400
-In-Reply-To: <4701638F.2020903@nortel.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54562
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751930AbXJAW3T convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Oct 2007 18:29:19 -0400
+In-Reply-To: <11912417841620-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 01 Oct 2007 15:15:59 -0600
-"Chris Friesen" <cfriesen@nortel.com> wrote:
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Mon,  1 Oct 2007 15:29:40 +0300
 
-> Stephen Hemminger wrote:
-> 
-> > Adding fragmentation support to skge driver is on my list of
-> > possible extensions. sky2 driver already supports it (yet one
-> > more feature that the vendor sk98lin driver doesn't do).
-> 
-> Thanks for speaking up.  As I mentioned in my email to Jeff it looks 
-> like the sky2 driver is what I need (Marvel Yukon 88E8062).  However, 
-> I'm on 2.6.14 and it doesn't exist there...do you anticipate any issues 
-> if I were to backport it?
+> This fixes the newreno fackets_out case, which turned out to be
+> not related to the Cedric's case being under investigation. Two
+> trivial comment patches, and frto with high-speed seqno
+> wrap-around protection. Compile tested. Please apply to
+> net-2.6.24.
 
-Nothing but usual annoying kernel API changes..
-
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+I've applied them all to net-2.6.24, thanks Ilpo!
