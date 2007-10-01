@@ -1,49 +1,44 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] ehea: DLPAR memory add fix
-Date: Mon, 01 Oct 2007 11:05:40 -0400
-Message-ID: <47010CC4.7000204@garzik.org>
-References: <200710011633.18305.ossthema@de.ibm.com> <470107D9.2040301@garzik.org> <200710011654.14067.ossthema@de.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] memory leak in netlink user->kernel processing
+Date: Mon, 01 Oct 2007 17:03:23 +0200
+Message-ID: <47010C3B.7040902@trash.net>
+References: <20071001142907.GA10022@iris.sw.ru> <470105EA.3090209@trash.net> <47010B07.5060009@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
+Cc: "Denis V. Lunev" <den@openvz.org>, davem@davemloft.net,
+	netdev@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>
+To: "Denis V. Lunev" <dlunev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:41075 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751861AbXJAPFm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Oct 2007 11:05:42 -0400
-In-Reply-To: <200710011654.14067.ossthema@de.ibm.com>
+Received: from stinky.trash.net ([213.144.137.162]:34955 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751511AbXJAPHN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 11:07:13 -0400
+In-Reply-To: <47010B07.5060009@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jan-Bernd Themann wrote:
-> Hi,
-> 
-> On Monday 01 October 2007 16:44, Jeff Garzik wrote:
->> Jan-Bernd Themann wrote:
->>> Due to stability issues in high load situations the HW queue handling
->>> has to be changed. The HW queues are now stopped and restarted again instead
->>> of destroying and allocating new HW queues. 
->>>
->>> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
->> May I presume this is for 2.6.23?
->>
->> 	Jeff
-> 
-> no, the patch is build against 2.6.24 upstream (new NAPI interface).
+Denis V. Lunev wrote:
+> By the way, Patrick, this looks like nlk->pid == 0 if and only if this
+> is a kernel socket. Right?
+>   
 
-OK, thanks.
+Thats correct.
 
-Since we typically have two streams, the current bug-fix stream and the 
-for-next-kernel stream, please indicate to which kernel/git tree your 
-patch applies, in the future.
+> I have told with Alexey Kuznetsov and we have discrovered a way to get
+> rid of
+>         skb_queue_tail(&sk->sk_receive_queue, skb);
+>         sk->sk_data_ready(sk, len);
+> in netlink_sendskb/etc for kernel sockets and make user->kernel packets
+> processing truly synchronous.
+>
+> The idea is simple, we should queue/wakeup in kernel->user direction and
+> simply call nlk->data_ready for user->kernel direction. This will remove
+> all the crap we have now. But we need a mark to determine the direction.
+> Which one will be better? (nlk->data_ready) or (nlk->pid == 0)
+
+
+Both would work fine, but I think nlk->pid is better since its
+actually the "address".
 
 
