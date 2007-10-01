@@ -1,51 +1,43 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
-Date: Mon, 01 Oct 2007 12:42:28 +0200
-Message-ID: <4700CF14.2010809@trash.net>
-References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>	
-	<20070916.161748.48388692.davem@davemloft.net>	
-	<1189988958.4230.55.camel@localhost>
-	<1190569987.4256.52.camel@localhost>	
-	<1190570205.4256.56.camel@localhost>
-	<1190570317.4256.59.camel@localhost>	
-	<1190570409.4256.62.camel@localhost>
-	<1191178346.6165.29.camel@localhost>
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: [patch] dm9601: Fix receive MTU
+Date: Mon, 01 Oct 2007 13:36:07 +0200
+Message-ID: <87myv35aoo.fsf@macbook.be.48ers.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, peter.p.waskiewicz.jr@intel.com, kumarkr@linux.ibm.com,
-	herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
-	rdreier@cisco.com, mcarlson@broadcom.com,
-	randy.dunlap@oracle.com, jagana@us.ibm.com,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	jeff@garzik.org, sri@us.ibm.com, shemminger@linux-foundation.org,
-	David Miller <davem@davemloft.net>
-To: hadi@cyberus.ca
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <1191178346.6165.29.camel@localhost>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=us-ascii
+To: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nf-out-0910.google.com ([64.233.182.190]:12789 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751628AbXJALgP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 07:36:15 -0400
+Received: by nf-out-0910.google.com with SMTP id g13so2890235nfb
+        for <netdev@vger.kernel.org>; Mon, 01 Oct 2007 04:36:13 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> +static inline int
-> +dev_requeue_skbs(struct sk_buff_head *skbs, struct net_device *dev,
-> +	       struct Qdisc *q)
-> +{
-> +
-> +	struct sk_buff *skb;
-> +
-> +	while ((skb = __skb_dequeue(skbs)) != NULL)
-> +		q->ops->requeue(skb, q);
+Please apply to 2.6.23.
+---
+dm9601 didn't take the ethernet header into account when calculating
+RX MTU, causing packets bigger than 1486 to fail.
 
+Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
+---
+ drivers/net/usb/dm9601.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-->requeue queues at the head, so this looks like it would reverse
-the order of the skbs.
+Index: linux-2.6.23-rc8/drivers/net/usb/dm9601.c
+===================================================================
+--- linux-2.6.23-rc8.orig/drivers/net/usb/dm9601.c
++++ linux-2.6.23-rc8/drivers/net/usb/dm9601.c
+@@ -405,7 +405,7 @@
+ 	dev->net->ethtool_ops = &dm9601_ethtool_ops;
+ 	dev->net->hard_header_len += DM_TX_OVERHEAD;
+ 	dev->hard_mtu = dev->net->mtu + dev->net->hard_header_len;
+-	dev->rx_urb_size = dev->net->mtu + DM_RX_OVERHEAD;
++	dev->rx_urb_size = dev->net->mtu + ETH_HLEN + DM_RX_OVERHEAD;
+ 
+ 	dev->mii.dev = dev->net;
+ 	dev->mii.mdio_read = dm9601_mdio_read;
+
+-- 
+Bye, Peter Korsgaard
