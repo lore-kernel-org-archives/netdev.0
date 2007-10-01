@@ -1,98 +1,120 @@
-From: Satoshi OSHIMA <satoshi.oshima.fk@hitachi.com>
-Subject: Re: [RFC/PATCH 0/3] UDP memory usage accounting
-Date: Mon, 01 Oct 2007 22:57:06 +0900
-Message-ID: <4700FCB2.9090906@hitachi.com>
-References: <46FD0117.9030407@hitachi.com> <E1IbSt7-000091-00@gondolin.me.apana.org.au> <20070928.214737.120464821.davem@davemloft.net> <20070929055515.GB1192@gondor.apana.org.au>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH] make netlink processing routines semi-synchronious
+	(inspired by rtnl) v2
+Date: Mon, 1 Oct 2007 18:25:58 +0400
+Message-ID: <20071001142558.GA9997@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, johnpol@2ka.mipt.ru,
-	netdev@vger.kernel.org, haoki@redhat.com, yoshfuji@linux-ipv6.org,
-	yumiko.sugita.yf@hitachi.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: johannes@sipsolutions.net, tgraf@suug.ch, pablo@netfilter.org,
+	kaber@trash.net, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail9.hitachi.co.jp ([133.145.228.44]:40982 "EHLO
-	mail9.hitachi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751690AbXJAN5L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 09:57:11 -0400
-Received: from mlsv10.hitachi.co.jp (unknown [133.144.234.166])
-	by mail9.hitachi.co.jp (Postfix) with ESMTP id 1FECF37C88
-	for <netdev@vger.kernel.org>; Mon,  1 Oct 2007 22:57:10 +0900 (JST)
-In-Reply-To: <20070929055515.GB1192@gondor.apana.org.au>
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:54213 "EHLO iris"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751744AbXJAOYx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Oct 2007 10:24:53 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> On Fri, Sep 28, 2007 at 09:47:37PM -0700, David Miller wrote:
->> There are two things we (might) need to guard against, one local and
->> one remote.
->
-> Right I was focusing on the local threat.
->
->> If you do a per-user limit, apache would basically just stop at that
->> redzone point.  In some sense making the attack more effective because
->> then it's trivial to shut down an entire web server this way.
->
-> Having a per-user limit doesn't necessarily mean that we have
-> to apply the limit differently to how we apply the system-wide
-> limits.  We could keep exactly the same code as we have now but
-> check against a per-user limit instead of a system-wide one.
->
-> In other words your apache scenario will continue to work as is
-> even with a per-user limit.
+The code in netfilter/nfnetlink.c and in ./net/netlink/genetlink.c looks
+like outdated copy/paste from rtnetlink.c. Push them into sync with the
+original.
 
-I'm afraid that per-user limit won't work for system administrator,
-because he can't know who is the rogue user in advance (before
-such attack is made). And once the attack is made, system will
-not responce because of the lack of memory for slab.
+Changes from v1:
+- deleted comment in nfnetlink_rcv_msg by request of Patrick McHardy
 
-So if he only has per-user limit, he need to split the memory
-budget for UDP to each user. The limit per user will be very
-small if number of users in the system is large.
+Signed-off-by: Denis V. Lunev <den@openvz.org>
 
-
-> Now where it does become useful is when we have a rogue local
-> user.  As it is that user can chew up all of the budgeted TCP
-> memory by simply not calling recvmsg.  As I've stated in the
-> other email, the existing rlimits don't help because they're
-> per-process rather than per-user.
->
-> BTW, this is not fatal for TCP because TCP provides a minimum
-> amount of memory for each socket even when we are over the
-> limit.  However, if we this was implemented for UDP without
-> a minimum guarantee then it'd be quite useless.
-
-Hmm, I didn't realize that. Thank you for your good
-suggestion. I will think of it.
-
-
->> I see no valid argument against doing something similar for sockets.
->> Such a register_shrinker() handler for TCP could, for example, look
->> for TCP flows which haven't made forward progress in more than a
->> certain amount of time and attempt to trim SKB memory from them.
->
-> Yes I agree this would be quite useful for sending.  However, it'll
-> be tough to shrink skbs that we've already acked for but the app
-> for some reason has decided to leave in the socket by not calling
-> recvmsg.
->
->> UDP and other datagram sockets are troublesome because the memory
->> gets wholly tied up immediately during the send call and it's not
->> easy to liberate anything.  The nice part about datagram sockets,
->> however, is that they make forward progress quickly and their
->> memory is liberated as soon as the device transmits the packet.
->> They don't have to wait for ACKs, windows openning up, or anything
->> like that to happen.
->
-> Agreed.  Also the recvmsg case I've described above is much
-> simpler for UDP as we can just go through all the sockets and
-> free skbs at random :)
->
->> To be honest I don't even think UDP is much of a real problem for this
->> reason.
->
-> It's not a hard problem but we do need to have some code for it.
-
-I believe so. Currently, a nasty user can easily stop the system
-without root privilege. This may not be a serious problem, but
-this is the problem to be fixed.
-
+--- ./net/netfilter/nfnetlink.c.nlk3	2007-10-01 09:47:53.000000000 +0400
++++ ./net/netfilter/nfnetlink.c	2007-10-01 17:13:09.000000000 +0400
+@@ -44,26 +44,14 @@ static struct sock *nfnl = NULL;
+ static const struct nfnetlink_subsystem *subsys_table[NFNL_SUBSYS_COUNT];
+ static DEFINE_MUTEX(nfnl_mutex);
+ 
+-static void nfnl_lock(void)
++static inline void nfnl_lock(void)
+ {
+ 	mutex_lock(&nfnl_mutex);
+ }
+ 
+-static int nfnl_trylock(void)
+-{
+-	return !mutex_trylock(&nfnl_mutex);
+-}
+-
+-static void __nfnl_unlock(void)
+-{
+-	mutex_unlock(&nfnl_mutex);
+-}
+-
+-static void nfnl_unlock(void)
++static inline void nfnl_unlock(void)
+ {
+ 	mutex_unlock(&nfnl_mutex);
+-	if (nfnl->sk_receive_queue.qlen)
+-		nfnl->sk_data_ready(nfnl, 0);
+ }
+ 
+ int nfnetlink_subsys_register(const struct nfnetlink_subsystem *n)
+@@ -147,9 +135,7 @@ static int nfnetlink_rcv_msg(struct sk_b
+ 	ss = nfnetlink_get_subsys(type);
+ 	if (!ss) {
+ #ifdef CONFIG_KMOD
+-		/* don't call nfnl_unlock, since it would reenter
+-		 * with further packet processing */
+-		__nfnl_unlock();
++		nfnl_unlock();
+ 		request_module("nfnetlink-subsys-%d", NFNL_SUBSYS_ID(type));
+ 		nfnl_lock();
+ 		ss = nfnetlink_get_subsys(type);
+@@ -188,10 +174,9 @@ static void nfnetlink_rcv(struct sock *s
+ 	unsigned int qlen = 0;
+ 
+ 	do {
+-		if (nfnl_trylock())
+-			return;
++		nfnl_lock();
+ 		qlen = netlink_run_queue(sk, qlen, nfnetlink_rcv_msg);
+-		__nfnl_unlock();
++		nfnl_unlock();
+ 	} while (qlen);
+ }
+ 
+--- ./net/netlink/genetlink.c.nlk3	2007-08-26 19:30:38.000000000 +0400
++++ ./net/netlink/genetlink.c	2007-10-01 16:05:29.000000000 +0400
+@@ -22,22 +22,14 @@ struct sock *genl_sock = NULL;
+ 
+ static DEFINE_MUTEX(genl_mutex); /* serialization of message processing */
+ 
+-static void genl_lock(void)
++static inline void genl_lock(void)
+ {
+ 	mutex_lock(&genl_mutex);
+ }
+ 
+-static int genl_trylock(void)
+-{
+-	return !mutex_trylock(&genl_mutex);
+-}
+-
+-static void genl_unlock(void)
++static inline void genl_unlock(void)
+ {
+ 	mutex_unlock(&genl_mutex);
+-
+-	if (genl_sock && genl_sock->sk_receive_queue.qlen)
+-		genl_sock->sk_data_ready(genl_sock, 0);
+ }
+ 
+ #define GENL_FAM_TAB_SIZE	16
+@@ -483,8 +475,7 @@ static void genl_rcv(struct sock *sk, in
+ 	unsigned int qlen = 0;
+ 
+ 	do {
+-		if (genl_trylock())
+-			return;
++		genl_lock();
+ 		qlen = netlink_run_queue(sk, qlen, genl_rcv_msg);
+ 		genl_unlock();
+ 	} while (qlen && genl_sock && genl_sock->sk_receive_queue.qlen);
