@@ -1,65 +1,51 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH] rtnl_unlock cleanups
-Date: Mon, 1 Oct 2007 13:51:06 +0400
-Message-ID: <20071001095106.GA7864@iris.sw.ru>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
+Date: Mon, 01 Oct 2007 12:42:28 +0200
+Message-ID: <4700CF14.2010809@trash.net>
+References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>	
+	<20070916.161748.48388692.davem@davemloft.net>	
+	<1189988958.4230.55.camel@localhost>
+	<1190569987.4256.52.camel@localhost>	
+	<1190570205.4256.56.camel@localhost>
+	<1190570317.4256.59.camel@localhost>	
+	<1190570409.4256.62.camel@localhost>
+	<1191178346.6165.29.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devel@openvz.org, containers@lists.osdl.org, ebiederm@xmission.com,
-	kaber@trash.net, kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:50552 "EHLO iris"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751236AbXJAJua (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Oct 2007 05:50:30 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: johnpol@2ka.mipt.ru, peter.p.waskiewicz.jr@intel.com, kumarkr@linux.ibm.com,
+	herbert@gondor.apana.org.au, gaagaan@gmail.com,
+	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
+	rdreier@cisco.com, mcarlson@broadcom.com,
+	randy.dunlap@oracle.com, jagana@us.ibm.com,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	jeff@garzik.org, sri@us.ibm.com, shemminger@linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: hadi@cyberus.ca
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <1191178346.6165.29.camel@localhost>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-There is no need to process outstanding netlink user->kernel packets
-during rtnl_unlock now. There is no rtnl_trylock in the rtnetlink_rcv
-anymore.
+jamal wrote:
+> +static inline int
+> +dev_requeue_skbs(struct sk_buff_head *skbs, struct net_device *dev,
+> +	       struct Qdisc *q)
+> +{
+> +
+> +	struct sk_buff *skb;
+> +
+> +	while ((skb = __skb_dequeue(skbs)) != NULL)
+> +		q->ops->requeue(skb, q);
 
-Normal code path is the following:
-netlink_sendmsg
-   netlink_unicast
-       netlink_sendskb
-           skb_queue_tail
-           netlink_data_ready
-               rtnetlink_rcv
-                   mutex_lock(&rtnl_mutex);
-                   netlink_run_queue(sk, qlen, &rtnetlink_rcv_msg);
-                   mutex_unlock(&rtnl_mutex);
 
-So, it is possible, that packets can be present in the rtnl->sk_receive_queue
-during rtnl_unlock, but there is no need to process them at that moment as
-rtnetlink_rcv for that packet is pending.
-
-Signed-off-by: Denis V. Lunev <den@openvz.org>
-Acked-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-
---- ./net/core/rtnetlink.c.rtnl2	2007-08-26 19:30:38.000000000 +0400
-+++ ./net/core/rtnetlink.c	2007-10-01 13:09:03.000000000 +0400
-@@ -75,8 +75,6 @@ void __rtnl_unlock(void)
- void rtnl_unlock(void)
- {
- 	mutex_unlock(&rtnl_mutex);
--	if (rtnl && rtnl->sk_receive_queue.qlen)
--		rtnl->sk_data_ready(rtnl, 0);
- 	netdev_run_todo();
- }
- 
-@@ -1319,11 +1317,9 @@ static void rtnetlink_rcv(struct sock *s
- 	unsigned int qlen = 0;
- 
- 	do {
--		mutex_lock(&rtnl_mutex);
-+		rtnl_lock();
- 		qlen = netlink_run_queue(sk, qlen, &rtnetlink_rcv_msg);
--		mutex_unlock(&rtnl_mutex);
--
--		netdev_run_todo();
-+		rtnl_unlock();
- 	} while (qlen);
- }
- 
+->requeue queues at the head, so this looks like it would reverse
+the order of the skbs.
