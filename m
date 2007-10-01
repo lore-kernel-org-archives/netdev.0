@@ -1,41 +1,62 @@
-From: Al Viro <viro@ftp.linux.org.uk>
-Subject: Re: [PATCH 1/1][TCP]: break missing at end of switch statement
-Date: Mon, 1 Oct 2007 14:17:58 +0100
-Message-ID: <20071001131758.GA8181@ftp.linux.org.uk>
-References: <200710011332.43657@strip-the-willow> <20071001123430.GZ8181@ftp.linux.org.uk> <200710011402.10377@strip-the-willow>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 01/10] Preparatory refactoring part 1.
+Date: Mon, 01 Oct 2007 15:25:30 +0200
+Message-ID: <4700F54A.6070408@trash.net>
+References: <1191019977201-git-send-email-bugfood-ml@fatooh.org> <11910199771607-git-send-email-bugfood-ml@fatooh.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+To: Corey Hickey <bugfood-ml@fatooh.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:47945 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757048AbXJANR7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 09:17:59 -0400
-Content-Disposition: inline
-In-Reply-To: <200710011402.10377@strip-the-willow>
+Received: from stinky.trash.net ([213.144.137.162]:32795 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752007AbXJANZy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 09:25:54 -0400
+In-Reply-To: <11910199771607-git-send-email-bugfood-ml@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 01, 2007 at 02:02:10PM +0100, Gerrit Renker wrote:
-> Quoting Al Viro:
-> |  On Mon, Oct 01, 2007 at 01:32:43PM +0100, Gerrit Renker wrote:
-> |  > [TCP]: break missing at end of switch statement
-> |  > 
-> |  > Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-> |  > ---
-> |  > --- a/net/ipv4/tcp_input.c
-> |  > +++ b/net/ipv4/tcp_input.c
-> |  > @@ -3129,6 +3129,7 @@ static void tcp_reset(struct sock *sk)
-> |  >  			return;
-> |  >  		default:
-> |  >  			sk->sk_err = ECONNRESET;
-> |  > +			break;
-> |  >  	}
-> |  
-> |  Huh?  Why on the Earth would that be a problem?
-> |  
-> |  
-> Sorry what is your question?
+Corey Hickey wrote:
+> Make a new function sfq_q_enqueue() that operates directly on the
+> queue data. This will be useful for implementing sfq_change() in
+> a later patch. A pleasant side-effect is reducing most of the
+> duplicate code in sfq_enqueue() and sfq_requeue().
+> 
+> Similarly, make a new function sfq_q_dequeue().
+> 
+> Signed-off-by: Corey Hickey <bugfood-ml@fatooh.org>
+> ---
+>  net/sched/sch_sfq.c |   72 +++++++++++++++++++++++++++------------------------
+>  1 files changed, 38 insertions(+), 34 deletions(-)
+> 
+> diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+> index 3a23e30..57485ef 100644
+> --- a/net/sched/sch_sfq.c
+> +++ b/net/sched/sch_sfq.c
+> 
 
-Why the hell is $Subject a problem that warrants any patches whatsoever?
+
+The sfq_q_enqueue part looks fine.
+
+>  
+> -	sch->qstats.drops++;
+
+
+A line in the changelog explaining that this was increased twice
+would have been nice.
+
+>  	sfq_drop(sch);
+>  	return NET_XMIT_CN;
+>  }
+>  
+> -
+> -
+> -
+> -static struct sk_buff *
+> -sfq_dequeue(struct Qdisc* sch)
+> +static struct
+> +sk_buff *sfq_q_dequeue(struct sfq_sched_data *q)
+
+
+What is this function needed for?
