@@ -1,65 +1,43 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] drivers/net/r8169.c - trivial - add KERN_DEBUG to dprintk
-	and PFX before KERN_ uses
-Date: Tue, 02 Oct 2007 09:37:18 -0700
-Message-ID: <1191343038.13170.32.camel@localhost>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [ofa-general] Re: [PATCH V6 0/9] net/bonding: ADD IPoIB support
+ for	the bonding driver
+Date: Tue, 02 Oct 2007 12:52:14 -0400
+Message-ID: <4702773E.4090201@pobox.com>
+References: <46F7D770.4090500@voltaire.com> <10376.1190733869@death> <470268A2.7080102@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
+	Roland Dreier <rdreier@cisco.com>,
+	OpenFabrics General <general@lists.openfabrics.org>
+To: Moni Shoua <monisonlists@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:3097 "EHLO perches.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:36539 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752129AbXJBQuv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Oct 2007 12:50:51 -0400
+	id S1752215AbXJBQwa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2007 12:52:30 -0400
+In-Reply-To: <470268A2.7080102@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Joe Perches <joe@perches.com>
+Moni Shoua wrote:
+> Jay Vosburgh wrote:
+>> ACK patches 3 - 9.
+>>
+>> 	Roland, are you comfortable with the IB changes in patches 1 and 2?
+>>
+>> 	Jeff, when Roland acks patches 1 and 2, please apply all 9.
+>>
+>> 	-J
+> 
+> Hi Jeff,
+> Roland acked the IPoIB patches. If you haven't done so already can you please apply them?
+> I'm not sure when 2.6.24 is going to open and I'm afraid to miss it.
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index c921ec3..40019aa 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -44,7 +44,8 @@
- 		printk( "Assertion failed! %s,%s,%s,line=%d\n",	\
- 		#expr,__FILE__,__FUNCTION__,__LINE__);		\
- 	}
--#define dprintk(fmt, args...)	do { printk(PFX fmt, ## args); } while (0)
-+#define dprintk(fmt, args...) \
-+	do { printk(KERN_DEBUG PFX fmt, ## args); } while (0)
- #else
- #define assert(expr) do {} while (0)
- #define dprintk(fmt, args...)	do {} while (0)
-@@ -1924,7 +1925,7 @@ static void rtl_hw_start_8169(struct net_device *dev)
- 
- 	if ((tp->mac_version == RTL_GIGA_MAC_VER_02) ||
- 	    (tp->mac_version == RTL_GIGA_MAC_VER_03)) {
--		dprintk(KERN_INFO PFX "Set MAC Reg C+CR Offset 0xE0. "
-+		dprintk("Set MAC Reg C+CR Offset 0xE0. "
- 			"Bit-3 and bit-14 MUST be 1\n");
- 		tp->cp_cmd |= (1 << 14);
- 	}
-@@ -2289,7 +2290,7 @@ static void rtl8169_reinit_task(struct work_struct *work)
- 	ret = rtl8169_open(dev);
- 	if (unlikely(ret < 0)) {
- 		if (net_ratelimit() && netif_msg_drv(tp)) {
--			printk(PFX KERN_ERR "%s: reinit failure (status = %d)."
-+			printk(KERN_ERR PFX "%s: reinit failure (status = %d)."
- 			       " Rescheduling.\n", dev->name, ret);
- 		}
- 		rtl8169_schedule_work(dev, rtl8169_reinit_task);
-@@ -2321,7 +2322,7 @@ static void rtl8169_reset_task(struct work_struct *work)
- 		netif_wake_queue(dev);
- 	} else {
- 		if (net_ratelimit() && netif_msg_intr(tp)) {
--			printk(PFX KERN_EMERG "%s: Rx buffers shortage\n",
-+			printk(KERN_EMERG PFX "%s: Rx buffers shortage\n",
- 			       dev->name);
- 		}
- 		rtl8169_schedule_work(dev, rtl8169_reset_task);
+hrm, I don't see them in my inbox for some reason.  can someone bounce 
+them to me?  or give me a git tree to pull from?
+
+	Jeff
+
 
 
