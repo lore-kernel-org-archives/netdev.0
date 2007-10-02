@@ -1,36 +1,40 @@
-From: lm@bitmover.com (Larry McVoy)
-Subject: Re: tcp bw in 2.6
-Date: Tue, 2 Oct 2007 15:36:44 -0700
-Message-ID: <20071002223644.GA14331@bitmover.com>
-References: <20071002212608.GG29944@bitmover.com> <20071002.144709.123999983.davem@davemloft.net> <4702C37F.4030601@hp.com> <20071002.153216.82129058.davem@davemloft.net>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [IPv6] Fix ICMPv6 redirect handling with target multicast address
+Date: Tue, 2 Oct 2007 15:41:46 -0700
+Message-ID: <OFD478AB10.744D71F8-ON88257368.007B3CAE-88257368.007C964D@us.ibm.com>
+References: <4702B2C0.2070004@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rick.jones2@hp.com, lm@bitmover.com, torvalds@linux-foundation.org,
-	herbert@gondor.apana.org.au, wscott@bitmover.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ipcop.bitmover.com ([192.132.92.15]:44075 "EHLO
-	mail.bitmover.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752116AbXJBWgo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 18:36:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20071002.153216.82129058.davem@davemloft.net>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:54734 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753010AbXJBWmA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 18:42:00 -0400
+In-Reply-To: <4702B2C0.2070004@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 02, 2007 at 03:32:16PM -0700, David Miller wrote:
-> I'm starting to have a theory about what the bad case might
-> be.
-> 
-> A strong sender going to an even stronger receiver which can
-> pull out packets into the process as fast as they arrive.
-> This might be part of what keeps the receive window from
-> growing.
+Brian,
+        I don't think a few instructions is a performance issue in the 
+redirect
+paths (it'd be pretty broken if you're getting or generating lots of 
+them), but I
+know there are lots of other checks similar to that that will break with 
+new
+attributes, so doing that as a general clean-up separately is ok with me, 
+too.
 
-I can back you up on that.  When I straced the receiving side that goes
-slowly, all the reads were short, like 1-2K.  The way that works the 
-reads were a lot larger as I recall.
--- 
----
-Larry McVoy                lm at bitmover.com           http://www.bitkeeper.com
+With the error message changes, you can add:
+
+Acked-by: David L Stevens <dlstevens@us.ibm.com>
+
+FWIW. :-)
+
+                                                +-DLS
+
+
