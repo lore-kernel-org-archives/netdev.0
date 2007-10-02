@@ -1,17 +1,17 @@
 From: Olof Johansson <olof@lixom.net>
-Subject: [PATCH] [10/11] pasemi_mac: use buffer index pointer in clean_rx()
-Date: Tue, 2 Oct 2007 16:27:57 -0500
-Message-ID: <20071002212757.GK2282@lixom.net>
+Subject: [PATCH] [11/11] pasemi_mac: enable iommu support
+Date: Tue, 2 Oct 2007 16:28:18 -0500
+Message-ID: <20071002212818.GL2282@lixom.net>
 References: <20071002212421.GA2282@lixom.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
 To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lixom.net ([66.141.50.11]:46749 "EHLO mail.lixom.net"
+Received: from lixom.net ([66.141.50.11]:46757 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751350AbXJBVXy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Oct 2007 17:23:54 -0400
+	id S1755910AbXJBVYP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2007 17:24:15 -0400
 Content-Disposition: inline
 In-Reply-To: <20071002212421.GA2282@lixom.net>
 Sender: netdev-owner@vger.kernel.org
