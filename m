@@ -1,87 +1,46 @@
-From: akpm@linux-foundation.org
-Subject: [patch 2/3] ipg.c doesn't compile with with CONFIG_HIGHMEM64G
-Date: Tue, 02 Oct 2007 14:04:38 -0700
-Message-ID: <200710022104.l92L4cIf022231@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	tremyfr@yahoo.fr, jeff@garzik.org, jesse@icplus.com.tw,
-	sorbica@icplus.com.tw
-To: davem@davemloft.net
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [IPv6] Fix ICMPv6 redirect handling with target multicast address
+Date: Tue, 02 Oct 2007 17:06:08 -0400
+Message-ID: <4702B2C0.2070004@hp.com>
+References: <OF939F3A2D.96830882-ON88257368.007068EA-88257368.007161DC@us.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:33178 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754063AbXJBVF3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 17:05:29 -0400
+Received: from atlrel7.hp.com ([156.153.255.213]:46697 "EHLO atlrel7.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753574AbXJBVGL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2007 17:06:11 -0400
+In-Reply-To: <OF939F3A2D.96830882-ON88257368.007068EA-88257368.007161DC@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: trem <tremyfr@yahoo.fr>
+Hi David,
 
-I've tried to compile 2.6.23-rc8-mm2, but it fails on ipg.c with the
-error : ERROR: "__udivdi3" [drivers/net/ipg.ko] undefined!
+David Stevens wrote:
+>         ipv6_addr_type() returns a mask, so checking for equality will 
+> fail to
+> match if  any other (irrelevant) attributes are set. How about using 
+> bitwise
+> operators for that?
 
-I've instigated a bit, and I've found this code in ipg.c :
+ipv6_addr_type() does return a mask, but there's a lot of code that just 
+checks for equality since some things are mutually-exclusive - this code 
+is actually identical to what ip6_route_add() does.  I don't 
+particularly like this duality, but it's there - I'd gladly volunteer to 
+clean this up everywhere if I didn't think there might be some 
+performance reason it was done like that.
 
-static void ipg_nic_txfree(struct net_device *dev)
-{
-       struct ipg_nic_private *sp = netdev_priv(dev);
-       void __iomem *ioaddr = sp->ioaddr;
-       const unsigned int curr = ipg_r32(TFD_LIST_PTR_0) -
-               (sp->txd_map / sizeof(struct ipg_tx)) - 1;
-       unsigned int released, pending;
+> Also, the error message is no longer descriptive of the
+> failure if it's a link-local multicast, but you could make it "target 
+> address is not
+> link-local unicast.\n" (in both places).
 
-sp->txd_map is an u64
-because :
-	dma_addr_t txd_map;
+I can do that, thanks.
 
-And in asm-i386/types.h, I see :
-#ifdef CONFIG_HIGHMEM64G
-typedef u64 dma_addr_t;
-#else
-typedef u32 dma_addr_t;
-#endif
-I my config, I use CONFIG_HIGHMEM64G
-
-sizeof(struct ipg_tx) is an u32
-So the div failed on i386 because of u64 / u32.
-
-[akpm@linux-foundation.org: cleanups]
-Cc: Sorbica Shieh <sorbica@icplus.com.tw>
-Cc: Jesse Huang <jesse@icplus.com.tw>
-Cc: Jeff Garzik <jeff@garzik.org>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
-
- drivers/net/ipg.c |   10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
-
-diff -puN drivers/net/ipg.c~ipgc-doesnt-compile-with-with-config_highmem64g drivers/net/ipg.c
---- a/drivers/net/ipg.c~ipgc-doesnt-compile-with-with-config_highmem64g
-+++ a/drivers/net/ipg.c
-@@ -25,6 +25,8 @@
- #include <linux/mii.h>
- #include <linux/mutex.h>
- 
-+#include <asm/div64.h>
-+
- #define IPG_RX_RING_BYTES	(sizeof(struct ipg_rx) * IPG_RFDLIST_LENGTH)
- #define IPG_TX_RING_BYTES	(sizeof(struct ipg_tx) * IPG_TFDLIST_LENGTH)
- #define IPG_RESET_MASK \
-@@ -836,10 +838,14 @@ static void ipg_nic_txfree(struct net_de
- {
- 	struct ipg_nic_private *sp = netdev_priv(dev);
- 	void __iomem *ioaddr = sp->ioaddr;
--	const unsigned int curr = ipg_r32(TFD_LIST_PTR_0) -
--		(sp->txd_map / sizeof(struct ipg_tx)) - 1;
-+	unsigned int curr;
-+	u64 txd_map;
- 	unsigned int released, pending;
- 
-+	txd_map = (u64)sp->txd_map;
-+	curr = ipg_r32(TFD_LIST_PTR_0) -
-+		do_div(txd_map, sizeof(struct ipg_tx)) - 1;
-+
- 	IPG_DEBUG_MSG("_nic_txfree\n");
- 
- 	pending = sp->tx_current - sp->tx_dirty;
-_
+-Brian
