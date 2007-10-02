@@ -1,37 +1,45 @@
-From: "Kalle Pokki" <kalle.pokki@iki.fi>
-Subject: Blackfin Ethernet MAC driver compile error
-Date: Tue, 2 Oct 2007 14:30:42 +0300
-Message-ID: <a425f86c0710020430o3507eeb2veb104dc936f230dd@mail.gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH][E1000E] some cleanups
+Date: Tue, 02 Oct 2007 08:25:16 -0400
+Message-ID: <1191327916.4353.10.camel@localhost>
+References: <1191174077.6165.11.camel@localhost>
+	 <46FFE809.8020504@intel.com> <1191178881.6165.40.camel@localhost>
+	 <46FFF7AD.7090309@garzik.org> <1191180669.6165.50.camel@localhost>
+	 <4700549A.70409@intel.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	bryan.wu@analog.com
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.242]:1162 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752677AbXJBLa6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 07:30:58 -0400
-Received: by an-out-0708.google.com with SMTP id d31so601500and
-        for <netdev@vger.kernel.org>; Tue, 02 Oct 2007 04:30:58 -0700 (PDT)
-Content-Disposition: inline
+Received: from wr-out-0506.google.com ([64.233.184.230]:27367 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752588AbXJBMhY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 08:37:24 -0400
+Received: by wr-out-0506.google.com with SMTP id 36so2128424wra
+        for <netdev@vger.kernel.org>; Tue, 02 Oct 2007 05:37:23 -0700 (PDT)
+In-Reply-To: <4700549A.70409@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Blackfin Ethernet MAC driver does not compile. It seems the driver is
-missing some pinmux defines.
+On Sun, 2007-30-09 at 18:59 -0700, Kok, Auke wrote:
 
-  CC      drivers/net/bfin_mac.o
-drivers/net/bfin_mac.c: In function 'setup_pin_mux':
-drivers/net/bfin_mac.c:275: error: 'P_MII0' undeclared (first use in
-this function)
-drivers/net/bfin_mac.c:275: error: (Each undeclared identifier is
-reported only once
-drivers/net/bfin_mac.c:275: error: for each function it appears in.)
-drivers/net/bfin_mac.c:279: error: implicit declaration of function
-'peripheral_request_list'
-drivers/net/bfin_mac.c:285: error: implicit declaration of function
-'peripheral_free_list'
-make[2]: *** [drivers/net/bfin_mac.o] Error 1
-make[1]: *** [drivers/net] Error 2
-make: *** [drivers] Error 2
+> the IDs are the only thing needed to enable all pci-e e1000 hardware.
+
+I'll give it a whirl in the next few days. It failed as a module (with
+e1000 compiled out), i will try to compile it in. I have access to the
+hardware in quiet times - so it may be the weekend.
+
+> by all means we need to have guys like you and Jeff test the commented IDs! I've
+> been doing this myself and the e1000e driver goes to our labs for a period of
+> testing from next week. Unfortunately they don't know how to break it that good as
+> some of you guys ;)
+> 
+> I'll personally try to get an 82571EB tested on monday.
+
+How did that go?
+
+cheers,
+jamal
+
