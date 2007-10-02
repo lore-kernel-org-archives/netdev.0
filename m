@@ -1,8 +1,8 @@
 From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Subject: Re: [PATCH 5/7] CAN: Add virtual CAN netdevice driver
-Date: Tue, 2 Oct 2007 11:20:16 -0300
-Message-ID: <20071002142016.GE7881@ghostprotocols.net>
-References: <20071002131006.31727.0@janus.isnogud.escape.de> <20071002131112.31727.5@janus.isnogud.escape.de>
+Subject: Re: [PATCH 3/7] CAN: Add raw protocol
+Date: Tue, 2 Oct 2007 11:30:01 -0300
+Message-ID: <20071002143001.GF7881@ghostprotocols.net>
+References: <20071002131006.31727.0@janus.isnogud.escape.de> <20071002131108.31727.3@janus.isnogud.escape.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
@@ -15,92 +15,106 @@ Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
 	Urs Thuermann <urs.thuermann@volkswagen.de>
 To: Urs Thuermann <urs@isnogud.escape.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.186]:46586 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754299AbXJBOU3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 10:20:29 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so3262390nfb
-        for <netdev@vger.kernel.org>; Tue, 02 Oct 2007 07:20:26 -0700 (PDT)
+Received: from wr-out-0506.google.com ([64.233.184.231]:28166 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751499AbXJBOaP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 10:30:15 -0400
+Received: by wr-out-0506.google.com with SMTP id 36so2158903wra
+        for <netdev@vger.kernel.org>; Tue, 02 Oct 2007 07:30:14 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20071002131112.31727.5@janus.isnogud.escape.de>
+In-Reply-To: <20071002131108.31727.3@janus.isnogud.escape.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Tue, Oct 02, 2007 at 03:10:11PM +0200, Urs Thuermann escreveu:
-> This patch adds the virtual CAN bus (vcan) network driver.
-> The vcan device is just a loopback device for CAN frames, no
-> real CAN hardware is involved.
+Em Tue, Oct 02, 2007 at 03:10:09PM +0200, Urs Thuermann escreveu:
+> This patch adds the CAN raw protocol.
 > 
 > Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 > Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 > 
 > ---
->  drivers/net/Makefile     |    1 
->  drivers/net/can/Kconfig  |   25 +++++
->  drivers/net/can/Makefile |    5 +
->  drivers/net/can/vcan.c   |  207 +++++++++++++++++++++++++++++++++++++++++++++++
->  net/can/Kconfig          |    3 
->  5 files changed, 241 insertions(+)
+>  include/linux/can/raw.h |   31 +
+>  net/can/Kconfig         |   11 
+>  net/can/Makefile        |    3 
+>  net/can/raw.c           |  821 ++++++++++++++++++++++++++++++++++++++++++++++++
+>  4 files changed, 866 insertions(+)
 > 
-> Index: net-2.6.24/drivers/net/Makefile
-> ===================================================================
-> --- net-2.6.24.orig/drivers/net/Makefile	2007-09-20 23:46:01.000000000 +0200
-> +++ net-2.6.24/drivers/net/Makefile	2007-10-02 12:03:30.000000000 +0200
-> @@ -12,6 +12,7 @@
->  obj-$(CONFIG_CHELSIO_T1) += chelsio/
->  obj-$(CONFIG_CHELSIO_T3) += cxgb3/
->  obj-$(CONFIG_EHEA) += ehea/
-> +obj-$(CONFIG_CAN) += can/
->  obj-$(CONFIG_BONDING) += bonding/
->  obj-$(CONFIG_ATL1) += atl1/
->  obj-$(CONFIG_GIANFAR) += gianfar_driver.o
-> Index: net-2.6.24/drivers/net/can/Kconfig
+> Index: net-2.6.24/include/linux/can/raw.h
 > ===================================================================
 > --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-> +++ net-2.6.24/drivers/net/can/Kconfig	2007-10-02 12:03:30.000000000 +0200
-> @@ -0,0 +1,25 @@
-> +menu "CAN Device Drivers"
-> +	depends on CAN
+> +++ net-2.6.24/include/linux/can/raw.h	2007-10-02 08:33:39.000000000 +0200
+> @@ -0,0 +1,31 @@
+> +/*
+> + * linux/can/raw.h
+> + *
+> + * Definitions for raw CAN sockets
+> + *
+> + * Authors: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+> + *          Urs Thuermann   <urs.thuermann@volkswagen.de>
+> + * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
+> + * All rights reserved.
+> + *
+> + * Send feedback to <socketcan-users@lists.berlios.de>
+> + *
+> + */
 > +
-> +config CAN_VCAN
-> +	tristate "Virtual Local CAN Interface (vcan)"
-> + 	depends on CAN
-> +	default N
-> + 	---help---
-> +	  Similar to the network loopback devices, vcan offers a
-> +	  virtual local CAN interface.
+> +#ifndef CAN_RAW_H
+> +#define CAN_RAW_H
 > +
-> +	  This driver can also be built as a module.  If so, the module
-> +	  will be called vcan.
+> +#include <linux/can.h>
 > +
-> +config CAN_DEBUG_DEVICES
-> +	bool "CAN devices debugging messages"
+> +#define SOL_CAN_RAW (SOL_CAN_BASE + CAN_RAW)
+> +
+> +/* for socket options affecting the socket (not the global system) */
+> +
+> +enum {
+> +	CAN_RAW_FILTER = 1,	/* set 0 .. n can_filter(s)          */
+> +	CAN_RAW_ERR_FILTER,	/* set filter for error frames       */
+> +	CAN_RAW_LOOPBACK,	/* local loopback (default:on)       */
+> +	CAN_RAW_RECV_OWN_MSGS	/* receive my own msgs (default:off) */
+> +};
+> +
+> +#endif
+> Index: net-2.6.24/net/can/Kconfig
+> ===================================================================
+> --- net-2.6.24.orig/net/can/Kconfig	2007-10-02 06:18:29.000000000 +0200
+> +++ net-2.6.24/net/can/Kconfig	2007-10-02 08:35:31.000000000 +0200
+> @@ -16,6 +16,17 @@
+>  	  If you want CAN support, you should say Y here and also to the
+>  	  specific driver for your controller(s) below.
+>  
+> +config CAN_RAW
+> +	tristate "Raw CAN Protocol (raw access with CAN-ID filtering)"
 > +	depends on CAN
 > +	default N
 > +	---help---
-> +	  Say Y here if you want the CAN device drivers to produce a bunch of
-> +	  debug messages to the system log.  Select this if you are having
-> +	  a problem with CAN support and want to see more of what is going
-> +	  on.
+> +	  The Raw CAN protocol option offers access to the CAN bus via
+> +	  the BSD socket API. You probably want to use the raw socket in
+> +	  most cases where no higher level protocol is being used. The raw
+> +	  socket has several filter options e.g. ID-Masking / Errorframes.
+> +	  To receive/send raw CAN messages, use AF_CAN with protocol CAN_RAW.
 > +
-> +endmenu
-> Index: net-2.6.24/drivers/net/can/Makefile
+>  config CAN_DEBUG_CORE
+>  	bool "CAN Core debugging messages"
+>  	depends on CAN
+> Index: net-2.6.24/net/can/Makefile
+> ===================================================================
+> --- net-2.6.24.orig/net/can/Makefile	2007-10-02 06:18:29.000000000 +0200
+> +++ net-2.6.24/net/can/Makefile	2007-10-02 08:35:31.000000000 +0200
+> @@ -4,3 +4,6 @@
+>  
+>  obj-$(CONFIG_CAN)	+= can.o
+>  can-objs		:= af_can.o proc.o
+> +
+> +obj-$(CONFIG_CAN_RAW)	+= can-raw.o
+> +can-raw-objs		:= raw.o
+> Index: net-2.6.24/net/can/raw.c
 > ===================================================================
 > --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-> +++ net-2.6.24/drivers/net/can/Makefile	2007-10-02 12:03:30.000000000 +0200
-> @@ -0,0 +1,5 @@
-> +#
-> +#  Makefile for the Linux Controller Area Network drivers.
-> +#
-> +
-> +obj-$(CONFIG_CAN_VCAN)		+= vcan.o
-> Index: net-2.6.24/drivers/net/can/vcan.c
-> ===================================================================
-> --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-> +++ net-2.6.24/drivers/net/can/vcan.c	2007-10-02 12:03:30.000000000 +0200
-> @@ -0,0 +1,207 @@
+> +++ net-2.6.24/net/can/raw.c	2007-10-02 08:35:48.000000000 +0200
+> @@ -0,0 +1,821 @@
 > +/*
-> + * vcan.c - Virtual CAN interface
+> + * raw.c - Raw sockets for protocol family CAN
 > + *
 > + * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
 > + * All rights reserved.
@@ -144,201 +158,792 @@ Em Tue, Oct 02, 2007 at 03:10:11PM +0200, Urs Thuermann escreveu:
 > +
 > +#include <linux/module.h>
 > +#include <linux/init.h>
+> +#include <linux/uio.h>
+> +#include <linux/poll.h>
+> +#include <linux/net.h>
 > +#include <linux/netdevice.h>
+> +#include <linux/socket.h>
 > +#include <linux/if_arp.h>
-> +#include <linux/if_ether.h>
+> +#include <linux/skbuff.h>
 > +#include <linux/can.h>
-> +#include <net/rtnetlink.h>
+> +#include <linux/can/core.h>
+> +#include <linux/can/raw.h>
+> +#include <net/sock.h>
+> +#include <net/net_namespace.h>
 > +
+> +#define IDENT "raw"
+> +#define CAN_RAW_VERSION CAN_VERSION
 > +static __initdata const char banner[] =
-> +	KERN_INFO "vcan: Virtual CAN interface driver\n";
+> +	KERN_INFO "can: raw protocol (rev " CAN_RAW_VERSION ")\n";
 > +
-> +MODULE_DESCRIPTION("virtual CAN interface");
+> +MODULE_DESCRIPTION("PF_CAN raw protocol");
 > +MODULE_LICENSE("Dual BSD/GPL");
 > +MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
 > +
-> +#ifdef CONFIG_CAN_DEBUG_DEVICES
+> +#ifdef CONFIG_CAN_DEBUG_CORE
 > +static int debug;
 > +module_param(debug, int, S_IRUGO);
-> +#endif
-
-Can debug be a boolean? Like its counterpart on DCCP:
-
-net/dccp/proto.c:
-
-module_param(dccp_debug, bool, 0444);
-
-Where we also use a namespace prefix, for those of us who use ctags or
-cscope.
-
-
-> +
-> +/* To be moved to linux/can/dev.h */
-
-Is this comment still valid? If so can this move happen now? If not I
-think it would be better to stick a "FIXME: " just before it, no?
-
-> +#ifdef CONFIG_CAN_DEBUG_DEVICES
-> +#define DBG(fmt, args...)  (debug & 1 ? \
-> +				printk(KERN_DEBUG "vcan %s: " fmt, \
-> +				__func__, ##args) : 0)
-> +#else
-> +#define DBG(fmt, args...)
+> +MODULE_PARM_DESC(debug, "debug print mask: 1:debug, 2:frames, 4:skbs");
 > +#endif
 > +
+> +#define MASK_ALL 0
 > +
 > +/*
-> + * CAN test feature:
-> + * Enable the echo on driver level for testing the CAN core echo modes.
-> + * See Documentation/networking/can.txt for details.
+> + * A raw socket has a list of can_filters attached to it, each receiving
+> + * the CAN frames matching that filter.  If the filter list is empty,
+> + * no CAN frames will be received by the socket.  The default after
+> + * opening the socket, is to have one filter which receives all frames.
+> + * The filter list is allocated dynamically with the exception of the
+> + * list containing only one item.  This common case is optimized by
+> + * storing the single filter in dfilter, to avoid using dynamic memory.
 > + */
 > +
-> +static int echo; /* echo testing. Default: 0 (Off) */
-> +module_param(echo, int, S_IRUGO);
-> +MODULE_PARM_DESC(echo, "Echo sent frames (for testing). Default: 0 (Off)");
-
-echo also seems to be a boolean
-
-> +
-> +
-> +static int vcan_open(struct net_device *dev)
-> +{
-> +	DBG("%s: interface up\n", dev->name);
-> +
-> +	netif_start_queue(dev);
-> +	return 0;
-> +}
-> +
-> +static int vcan_stop(struct net_device *dev)
-> +{
-> +	DBG("%s: interface down\n", dev->name);
-> +
-> +	netif_stop_queue(dev);
-> +	return 0;
-> +}
-
-Thinking out loud: I guess these days we can try to reduce the clutter
-on the source code for things like "hey, I entered function foo" using
-simple systemtap scripts, that could even be shipped with the kernel
-sources. Not something pressing right now, just a suggestion.
-
-> +static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
-> +{
-> +	struct net_device_stats *stats = &dev->stats;
-> +
-> +	stats->rx_packets++;
-> +	stats->rx_bytes += skb->len;
-> +
-> +	skb->protocol  = htons(ETH_P_CAN);
-> +	skb->pkt_type  = PACKET_BROADCAST;
-> +	skb->dev       = dev;
-> +	skb->ip_summed = CHECKSUM_UNNECESSARY;
-> +
-> +	DBG("received skbuff on interface %d\n", dev->ifindex);
-> +
-> +	netif_rx(skb);
-> +}
-> +
-> +static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
-> +{
-> +	struct net_device_stats *stats = &dev->stats;
-> +	int loop;
-> +
-> +	DBG("sending skbuff on interface %s\n", dev->name);
-> +
-> +	stats->tx_packets++;
-> +	stats->tx_bytes += skb->len;
-> +
-> +	/* set flag whether this packet has to be looped back */
-> +	loop = skb->pkt_type == PACKET_LOOPBACK;
-> +
-> +	if (!echo) {
-> +		/* no echo handling available inside this driver */
-> +
-> +		if (loop) {
-> +			/*
-> +			 * only count the packets here, because the
-> +			 * CAN core already did the echo for us
-> +			 */
-> +			stats->rx_packets++;
-> +			stats->rx_bytes += skb->len;
-> +		}
-> +		kfree_skb(skb);
-> +		return 0;
-> +	}
-> +
-> +	/* perform standard echo handling for CAN network interfaces */
-> +
-> +	if (loop) {
-> +		struct sock *srcsk = skb->sk;
-> +
-> +		skb = skb_share_check(skb, GFP_ATOMIC);
-> +		if (!skb)
-> +			return 0;
-> +
-> +		/* receive with packet counting */
-> +		skb->sk = srcsk;
-> +		vcan_rx(skb, dev);
-> +	} else {
-> +		/* no looped packets => no counting */
-> +		kfree_skb(skb);
-> +	}
-> +	return 0;
-> +}
-> +
-> +static void vcan_setup(struct net_device *dev)
-> +{
-> +	DBG("dev %s\n", dev->name);
-> +
-> +	dev->type              = ARPHRD_CAN;
-> +	dev->mtu               = sizeof(struct can_frame);
-> +	dev->hard_header_len   = 0;
-> +	dev->addr_len          = 0;
-> +	dev->tx_queue_len      = 0;
-> +	dev->flags             = IFF_NOARP;
-> +
-> +	/* set flags according to driver capabilities */
-> +	if (echo)
-> +		dev->flags |= IFF_ECHO;
-> +
-> +	dev->open              = vcan_open;
-> +	dev->stop              = vcan_stop;
-> +	dev->hard_start_xmit   = vcan_tx;
-> +	dev->destructor        = free_netdev;
-> +}
-> +
-> +static struct rtnl_link_ops vcan_link_ops __read_mostly = {
-> +       .kind           = "vcan",
-> +       .setup          = vcan_setup,
+> +struct raw_sock {
+> +	struct sock sk;
+> +	int bound;
+> +	int ifindex;
+> +	struct notifier_block notifier;
+> +	int loopback;
+> +	int recv_own_msgs;
+> +	int count;                 /* number of active filters */
+> +	struct can_filter dfilter; /* default/single filter */
+> +	struct can_filter *filter; /* pointer to filter(s) */
+> +	can_err_mask_t err_mask;
 > +};
 > +
-> +static __init int vcan_init_module(void)
+> +static inline struct raw_sock *raw_sk(const struct sock *sk)
 > +{
+> +	return (struct raw_sock *)sk;
+> +}
+
+
+What if I want to do some kernel module that uses INET raw sockets
+(include/net/icmp.h) and CAN raw sockets? Namespace collision, could you
+please use can_raw_ for this namespace?
+
+> +static void raw_rcv(struct sk_buff *skb, void *data)
+> +{
+> +	struct sock *sk = (struct sock *)data;
+> +	struct raw_sock *ro = raw_sk(sk);
+> +	struct sockaddr_can *addr;
+> +	int error;
+> +
+> +	DBG("received skbuff %p, sk %p\n", skb, sk);
+> +	DBG_SKB(skb);
+> +
+> +	if (!ro->recv_own_msgs) {
+> +		/* check the received tx sock reference */
+> +		if (skb->sk == sk) {
+> +			DBG("trashed own tx msg\n");
+> +			kfree_skb(skb);
+> +			return;
+> +		}
+> +	}
+> +
+> +	/*
+> +	 *  Put the datagram to the queue so that raw_recvmsg() can
+> +	 *  get it from there.  We need to pass the interface index to
+> +	 *  raw_recvmsg().  We pass a whole struct sockaddr_can in skb->cb
+> +	 *  containing the interface index.
+> +	 */
+> +
+> +	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct sockaddr_can));
+> +	addr = (struct sockaddr_can *)skb->cb;
+> +	memset(addr, 0, sizeof(*addr));
+> +	addr->can_family  = AF_CAN;
+> +	addr->can_ifindex = skb->dev->ifindex;
+> +
+> +	error = sock_queue_rcv_skb(sk, skb);
+> +	if (error < 0) {
+> +		DBG("sock_queue_rcv_skb failed: %d\n", error);
+> +		DBG("freeing skbuff %p\n", skb);
+> +		kfree_skb(skb);
+> +	}
+> +}
+> +
+> +static int raw_enable_filters(struct net_device *dev, struct sock *sk,
+> +			      struct can_filter *filter,
+> +			      int count)
+> +{
+> +	int err = 0;
+> +	int i;
+> +
+> +	for (i = 0; i < count; i++) {
+> +		DBG("filter can_id %08X, can_mask %08X%s, sk %p\n",
+> +		    filter[i].can_id, filter[i].can_mask,
+> +		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
+> +
+> +		err = can_rx_register(dev, filter[i].can_id,
+> +				      filter[i].can_mask,
+> +				      raw_rcv, sk, IDENT);
+> +
+> +		if (err) {
+> +			/* clean up successfully registered filters */
+> +			while (--i >= 0)
+> +				can_rx_unregister(dev, filter[i].can_id,
+> +						  filter[i].can_mask,
+> +						  raw_rcv, sk);
+> +			break;
+> +		}
+> +	}
+> +
+> +	return err;
+> +}
+> +
+> +static int raw_enable_errfilter(struct net_device *dev, struct sock *sk,
+> +				can_err_mask_t err_mask)
+> +{
+> +	int err = 0;
+> +
+> +	if (err_mask)
+> +		err = can_rx_register(dev, 0, err_mask | CAN_ERR_FLAG,
+> +				      raw_rcv, sk, IDENT);
+> +
+> +	return err;
+> +}
+> +
+> +static void raw_disable_filters(struct net_device *dev, struct sock *sk,
+> +			      struct can_filter *filter,
+> +			      int count)
+> +{
+> +	int i;
+> +
+> +	for (i = 0; i < count; i++) {
+> +		DBG("filter can_id %08X, can_mask %08X%s, sk %p\n",
+> +		    filter[i].can_id, filter[i].can_mask,
+> +		    filter[i].can_id & CAN_INV_FILTER ? " (inv)" : "", sk);
+> +
+> +		can_rx_unregister(dev, filter[i].can_id, filter[i].can_mask,
+> +				  raw_rcv, sk);
+> +	}
+> +}
+> +
+> +static inline void raw_disable_errfilter(struct net_device *dev,
+> +					 struct sock *sk,
+> +					 can_err_mask_t err_mask)
+> +
+> +{
+> +	if (err_mask)
+> +		can_rx_unregister(dev, 0, err_mask | CAN_ERR_FLAG,
+> +				  raw_rcv, sk);
+> +}
+> +
+> +static inline void raw_disable_allfilters(struct net_device *dev,
+> +					  struct sock *sk)
+> +{
+> +	struct raw_sock *ro = raw_sk(sk);
+> +
+> +	raw_disable_filters(dev, sk, ro->filter, ro->count);
+> +	raw_disable_errfilter(dev, sk, ro->err_mask);
+> +}
+> +
+> +static int raw_enable_allfilters(struct net_device *dev, struct sock *sk)
+> +{
+> +	struct raw_sock *ro = raw_sk(sk);
+> +	int err;
+> +
+> +	err = raw_enable_filters(dev, sk, ro->filter, ro->count);
+> +	if (!err) {
+> +		err = raw_enable_errfilter(dev, sk, ro->err_mask);
+> +		if (err)
+> +			raw_disable_filters(dev, sk, ro->filter, ro->count);
+> +	}
+> +
+> +	return err;
+> +}
+> +
+> +static int raw_notifier(struct notifier_block *nb,
+> +			unsigned long msg, void *data)
+> +{
+> +	struct net_device *dev = (struct net_device *)data;
+> +	struct raw_sock *ro = container_of(nb, struct raw_sock, notifier);
+> +	struct sock *sk = &ro->sk;
+> +
+> +	DBG("msg %ld for dev %p (%s idx %d) sk %p ro->ifindex %d\n",
+> +	    msg, dev, dev->name, dev->ifindex, sk, ro->ifindex);
+> +
+> +	if (dev->nd_net != &init_net)
+> +		return NOTIFY_DONE;
+> +
+> +	if (dev->type != ARPHRD_CAN)
+> +		return NOTIFY_DONE;
+> +
+> +	if (ro->ifindex != dev->ifindex)
+> +		return NOTIFY_DONE;
+> +
+> +	switch (msg) {
+> +
+> +	case NETDEV_UNREGISTER:
+> +		lock_sock(sk);
+> +		/* remove current filters & unregister */
+> +		if (ro->bound)
+> +			raw_disable_allfilters(dev, sk);
+> +
+> +		if (ro->count > 1)
+> +			kfree(ro->filter);
+> +
+> +		ro->ifindex = 0;
+> +		ro->bound   = 0;
+> +		ro->count   = 0;
+> +		release_sock(sk);
+> +
+> +		sk->sk_err = ENODEV;
+> +		if (!sock_flag(sk, SOCK_DEAD))
+> +			sk->sk_error_report(sk);
+> +		break;
+> +
+> +	case NETDEV_DOWN:
+> +		sk->sk_err = ENETDOWN;
+> +		if (!sock_flag(sk, SOCK_DEAD))
+> +			sk->sk_error_report(sk);
+> +		break;
+> +	}
+> +
+> +	return NOTIFY_DONE;
+> +}
+> +
+> +static int raw_init(struct sock *sk)
+> +{
+> +	struct raw_sock *ro = raw_sk(sk);
+> +
+> +	ro->bound            = 0;
+> +	ro->ifindex          = 0;
+> +
+> +	/* set default filter to single entry dfilter */
+> +	ro->dfilter.can_id   = 0;
+> +	ro->dfilter.can_mask = MASK_ALL;
+> +	ro->filter           = &ro->dfilter;
+> +	ro->count            = 1;
+> +
+> +	/* set default loopback behaviour */
+> +	ro->loopback         = 1;
+> +	ro->recv_own_msgs    = 0;
+> +
+> +	/* set notifier */
+> +	ro->notifier.notifier_call = raw_notifier;
+> +
+> +	register_netdevice_notifier(&ro->notifier);
+> +
+> +	return 0;
+> +}
+> +
+> +static int raw_release(struct socket *sock)
+> +{
+> +	struct sock *sk = sock->sk;
+> +	struct raw_sock *ro = raw_sk(sk);
+> +
+> +	DBG("socket %p, sk %p, refcnt %d\n", sock, sk,
+> +	    atomic_read(&sk->sk_refcnt));
+> +
+> +	unregister_netdevice_notifier(&ro->notifier);
+> +
+> +	lock_sock(sk);
+> +
+> +	/* remove current filters & unregister */
+> +	if (ro->bound) {
+> +		if (ro->ifindex) {
+> +			struct net_device *dev;
+> +
+> +			dev = dev_get_by_index(&init_net, ro->ifindex);
+> +			if (dev) {
+> +				raw_disable_allfilters(dev, sk);
+> +				dev_put(dev);
+> +			}
+> +		} else
+> +			raw_disable_allfilters(NULL, sk);
+> +	}
+> +
+> +	if (ro->count > 1)
+> +		kfree(ro->filter);
+> +
+> +	ro->ifindex = 0;
+> +	ro->bound   = 0;
+> +	ro->count   = 0;
+> +
+> +	release_sock(sk);
+> +	sock_put(sk);
+> +
+> +	return 0;
+> +}
+> +
+> +static int raw_bind(struct socket *sock, struct sockaddr *uaddr, int len)
+> +{
+> +	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
+> +	struct sock *sk = sock->sk;
+> +	struct raw_sock *ro = raw_sk(sk);
+> +	int ifindex;
+> +	int err = 0;
+> +	int notify_enetdown = 0;
+> +
+> +	DBG("socket %p to device %d\n", sock, addr->can_ifindex);
+> +
+> +	if (len < sizeof(*addr))
+> +		return -EINVAL;
+> +
+> +	lock_sock(sk);
+> +
+> +	if (ro->bound && addr->can_ifindex == ro->ifindex)
+> +		goto out;
+> +
+> +	if (addr->can_ifindex) {
+> +		struct net_device *dev;
+> +
+> +		dev = dev_get_by_index(&init_net, addr->can_ifindex);
+> +		if (!dev) {
+> +			DBG("could not find device %d\n", addr->can_ifindex);
+> +			err = -ENODEV;
+> +			goto out;
+> +		}
+> +		if (dev->type != ARPHRD_CAN) {
+> +			DBG("device %d no CAN device\n", addr->can_ifindex);
+> +			dev_put(dev);
+> +			err = -ENODEV;
+> +			goto out;
+> +		}
+> +		if (!(dev->flags & IFF_UP))
+> +			notify_enetdown = 1;
+> +
+> +		ifindex = dev->ifindex;
+> +
+> +		/* filters set by default/setsockopt */
+> +		err = raw_enable_allfilters(dev, sk);
+> +		dev_put(dev);
+> +
+> +	} else {
+> +		ifindex = 0;
+> +
+> +		/* filters set by default/setsockopt */
+> +		err = raw_enable_allfilters(NULL, sk);
+> +	}
+> +
+> +	if (!err) {
+> +		if (ro->bound) {
+> +			/* unregister old filters */
+> +			if (ro->ifindex) {
+> +				struct net_device *dev;
+> +
+> +				dev = dev_get_by_index(&init_net, ro->ifindex);
+> +				if (dev) {
+> +					raw_disable_allfilters(dev, sk);
+> +					dev_put(dev);
+> +				}
+> +			} else
+> +				raw_disable_allfilters(NULL, sk);
+> +		}
+> +		ro->ifindex = ifindex;
+> +		ro->bound = 1;
+> +	}
+> +
+> + out:
+> +	release_sock(sk);
+> +
+> +	if (notify_enetdown) {
+> +		sk->sk_err = ENETDOWN;
+> +		if (!sock_flag(sk, SOCK_DEAD))
+> +			sk->sk_error_report(sk);
+> +	}
+> +
+> +	return err;
+> +}
+> +
+> +static int raw_getname(struct socket *sock, struct sockaddr *uaddr,
+> +		       int *len, int peer)
+> +{
+> +	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
+> +	struct sock *sk = sock->sk;
+> +	struct raw_sock *ro = raw_sk(sk);
+> +
+> +	if (peer)
+> +		return -EOPNOTSUPP;
+> +
+> +	addr->can_family  = AF_CAN;
+> +	addr->can_ifindex = ro->ifindex;
+> +
+> +	*len = sizeof(*addr);
+> +
+> +	return 0;
+> +}
+> +
+> +static unsigned int raw_poll(struct file *file, struct socket *sock,
+> +			     poll_table *wait)
+> +{
+> +	unsigned int mask = 0;
+> +
+> +	DBG("socket %p\n", sock);
+> +
+> +	mask = datagram_poll(file, sock, wait);
+> +	return mask;
+
+What is the value of 'mask' here? Leftover from debugging?
+
+> +}
+> +
+> +static int raw_setsockopt(struct socket *sock, int level, int optname,
+> +			  char __user *optval, int optlen)
+> +{
+> +	struct sock *sk = sock->sk;
+> +	struct raw_sock *ro = raw_sk(sk);
+> +	struct can_filter *filter = NULL;  /* dyn. alloc'ed filters */
+> +	struct can_filter sfilter;         /* single filter */
+> +	struct net_device *dev = NULL;
+> +	can_err_mask_t err_mask = 0;
+> +	int count = 0;
+> +	int err = 0;
+> +
+> +	if (level != SOL_CAN_RAW)
+> +		return -EINVAL;
+> +	if (optlen < 0)
+> +		return -EINVAL;
+> +
+> +	switch (optname) {
+> +
+> +	case CAN_RAW_FILTER:
+> +		if (optlen % sizeof(struct can_filter) != 0)
+> +			return -EINVAL;
+> +
+> +		count = optlen / sizeof(struct can_filter);
+> +
+> +		if (count > 1) {
+> +			/* filter does not fit into dfilter => alloc space */
+> +			filter = kmalloc(optlen, GFP_KERNEL);
+> +			if (!filter)
+> +				return -ENOMEM;
+> +
+> +			err = copy_from_user(filter, optval, optlen);
+> +			if (err) {
+> +				kfree(filter);
+> +				return err;
+> +			}
+> +		} else if (count == 1) {
+> +			err = copy_from_user(&sfilter, optval, optlen);
+> +			if (err)
+> +				return err;
+> +		}
+> +
+> +		lock_sock(sk);
+> +
+> +		if (ro->bound && ro->ifindex)
+> +			dev = dev_get_by_index(&init_net, ro->ifindex);
+
+dev_get_by_index can fail, are you sure that raw_enable_filters can cope
+with this possibility?
+
+> +		if (ro->bound) {
+> +			/* (try to) register the new filters */
+> +			if (count == 1)
+> +				err = raw_enable_filters(dev, sk, &sfilter, 1);
+> +			else
+> +				err = raw_enable_filters(dev, sk, filter,
+> +							 count);
+> +			if (err) {
+> +				if (count > 1)
+> +					kfree(filter);
+> +
+> +				goto out_fil;
+> +			}
+> +
+> +			/* remove old filter registrations */
+> +			raw_disable_filters(dev, sk, ro->filter, ro->count);
+> +		}
+> +
+> +		/* remove old filter space */
+> +		if (ro->count > 1)
+> +			kfree(ro->filter);
+> +
+> +		/* link new filters to the socket */
+> +		if (count == 1) {
+> +			/* copy filter data for single filter */
+> +			ro->dfilter = sfilter;
+> +			filter = &ro->dfilter;
+> +		}
+> +		ro->filter = filter;
+> +		ro->count  = count;
+> +
+> + out_fil:
+> +		if (dev)
+> +			dev_put(dev);
+> +
+> +		release_sock(sk);
+> +
+> +		break;
+> +
+> +	case CAN_RAW_ERR_FILTER:
+> +		if (optlen != sizeof(err_mask))
+> +			return -EINVAL;
+> +
+> +		err = copy_from_user(&err_mask, optval, optlen);
+> +		if (err)
+> +			return err;
+> +
+> +		err_mask &= CAN_ERR_MASK;
+> +
+> +		lock_sock(sk);
+> +
+> +		if (ro->bound && ro->ifindex)
+> +			dev = dev_get_by_index(&init_net, ro->ifindex);
+> +
+> +		/* remove current error mask */
+> +		if (ro->bound) {
+> +			/* (try to) register the new err_mask */
+> +			err = raw_enable_errfilter(dev, sk, err_mask);
+> +
+> +			if (err)
+> +				goto out_err;
+> +
+> +			/* remove old err_mask registration */
+> +			raw_disable_errfilter(dev, sk, ro->err_mask);
+> +		}
+> +
+> +		/* link new err_mask to the socket */
+> +		ro->err_mask = err_mask;
+> +
+> + out_err:
+> +		if (dev)
+> +			dev_put(dev);
+> +
+> +		release_sock(sk);
+> +
+> +		break;
+> +
+> +	case CAN_RAW_LOOPBACK:
+> +		if (optlen != sizeof(ro->loopback))
+> +			return -EINVAL;
+> +
+> +		err = copy_from_user(&ro->loopback, optval, optlen);
+> +
+> +		break;
+> +
+> +	case CAN_RAW_RECV_OWN_MSGS:
+> +		if (optlen != sizeof(ro->recv_own_msgs))
+> +			return -EINVAL;
+> +
+> +		err = copy_from_user(&ro->recv_own_msgs, optval, optlen);
+> +
+> +		break;
+> +
+> +	default:
+> +		return -ENOPROTOOPT;
+> +	}
+> +	return err;
+> +}
+> +
+> +static int raw_getsockopt(struct socket *sock, int level, int optname,
+> +			  char __user *optval, int __user *optlen)
+> +{
+> +	struct sock *sk = sock->sk;
+> +	struct raw_sock *ro = raw_sk(sk);
+> +	int len;
+> +	void *val;
+> +	int err = 0;
+> +
+> +	if (level != SOL_CAN_RAW)
+> +		return -EINVAL;
+> +	if (get_user(len, optlen))
+> +		return -EFAULT;
+> +	if (len < 0)
+> +		return -EINVAL;
+> +
+> +	switch (optname) {
+> +
+> +	case CAN_RAW_FILTER:
+> +		lock_sock(sk);
+> +		if (ro->count > 0) {
+> +			int fsize = ro->count * sizeof(struct can_filter);
+> +			if (len > fsize)
+> +				len = fsize;
+> +			err = copy_to_user(optval, ro->filter, len);
+> +		} else
+> +			len = 0;
+> +		release_sock(sk);
+> +
+> +		if (!err)
+> +			err = put_user(len, optlen);
+> +		return err;
+> +
+> +	case CAN_RAW_ERR_FILTER:
+> +		if (len > sizeof(can_err_mask_t))
+> +			len = sizeof(can_err_mask_t);
+> +		val = &ro->err_mask;
+> +		break;
+> +
+> +	case CAN_RAW_LOOPBACK:
+> +		if (len > sizeof(int))
+> +			len = sizeof(int);
+> +		val = &ro->loopback;
+> +		break;
+> +
+> +	case CAN_RAW_RECV_OWN_MSGS:
+> +		if (len > sizeof(int))
+> +			len = sizeof(int);
+> +		val = &ro->recv_own_msgs;
+> +		break;
+> +
+> +	default:
+> +		return -ENOPROTOOPT;
+> +	}
+> +
+> +	if (put_user(len, optlen))
+> +		return -EFAULT;
+> +	if (copy_to_user(optval, val, len))
+> +		return -EFAULT;
+> +	return 0;
+> +}
+> +
+> +static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
+> +		       struct msghdr *msg, size_t size)
+> +{
+> +	struct sock *sk = sock->sk;
+> +	struct raw_sock *ro = raw_sk(sk);
+> +	struct sk_buff *skb;
+> +	struct net_device *dev;
+> +	int ifindex;
+> +	int err;
+> +
+> +	DBG("socket %p, sk %p\n", sock, sk);
+> +
+> +	if (msg->msg_name) {
+> +		struct sockaddr_can *addr =
+> +			(struct sockaddr_can *)msg->msg_name;
+> +
+> +		if (addr->can_family != AF_CAN)
+> +			return -EINVAL;
+> +
+> +		ifindex = addr->can_ifindex;
+> +	} else
+> +		ifindex = ro->ifindex;
+> +
+> +	dev = dev_get_by_index(&init_net, ifindex);
+> +	if (!dev) {
+> +		DBG("device %d not found\n", ifindex);
+> +		return -ENXIO;
+> +	}
+> +
+> +	skb = alloc_skb(size, GFP_KERNEL);
+> +	if (!skb) {
+> +		dev_put(dev);
+> +		return -ENOMEM;
+> +	}
+> +
+> +	err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
+> +	if (err < 0) {
+> +		kfree_skb(skb);
+> +		dev_put(dev);
+> +		return err;
+> +	}
+> +	skb->dev = dev;
+> +	skb->sk  = sk;
+> +
+> +	DBG("sending skbuff to interface %d\n", ifindex);
+> +	DBG_SKB(skb);
+> +
+> +	err = can_send(skb, ro->loopback);
+> +
+> +	dev_put(dev);
+> +
+> +	if (err)
+> +		return err;
+> +
+> +	return size;
+> +}
+> +
+> +static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
+> +		       struct msghdr *msg, size_t size, int flags)
+> +{
+> +	struct sock *sk = sock->sk;
+> +	struct sk_buff *skb;
+> +	int error = 0;
+> +	int noblock;
+> +
+> +	DBG("socket %p, sk %p\n", sock, sk);
+> +
+> +	noblock =  flags & MSG_DONTWAIT;
+> +	flags   &= ~MSG_DONTWAIT;
+> +
+> +	skb = skb_recv_datagram(sk, flags, noblock, &error);
+> +	if (!skb)
+> +		return error;
+> +
+> +	DBG("delivering skbuff %p\n", skb);
+> +	DBG_SKB(skb);
+> +
+> +	if (size < skb->len)
+> +		msg->msg_flags |= MSG_TRUNC;
+> +	else
+> +		size = skb->len;
+> +
+> +	error = memcpy_toiovec(msg->msg_iov, skb->data, size);
+> +	if (error < 0) {
+> +		skb_free_datagram(sk, skb);
+> +		return error;
+> +	}
+> +
+> +	sock_recv_timestamp(msg, sk, skb);
+> +
+> +	if (msg->msg_name) {
+> +		msg->msg_namelen = sizeof(struct sockaddr_can);
+> +		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
+> +	}
+> +
+> +	DBG("freeing sock %p, skbuff %p\n", sk, skb);
+> +	skb_free_datagram(sk, skb);
+> +
+> +	return size;
+> +}
+> +
+> +static struct proto_ops raw_ops __read_mostly = {
+> +	.family        = PF_CAN,
+> +	.release       = raw_release,
+> +	.bind          = raw_bind,
+> +	.connect       = sock_no_connect,
+> +	.socketpair    = sock_no_socketpair,
+> +	.accept        = sock_no_accept,
+> +	.getname       = raw_getname,
+> +	.poll          = raw_poll,
+> +	.ioctl         = NULL,		/* use can_ioctl() from af_can.c */
+> +	.listen        = sock_no_listen,
+> +	.shutdown      = sock_no_shutdown,
+> +	.setsockopt    = raw_setsockopt,
+> +	.getsockopt    = raw_getsockopt,
+> +	.sendmsg       = raw_sendmsg,
+> +	.recvmsg       = raw_recvmsg,
+> +	.mmap          = sock_no_mmap,
+> +	.sendpage      = sock_no_sendpage,
+> +};
+> +
+> +static struct proto raw_proto __read_mostly = {
+> +	.name       = "CAN_RAW",
+> +	.owner      = THIS_MODULE,
+> +	.obj_size   = sizeof(struct raw_sock),
+> +	.init       = raw_init,
+> +};
+> +
+> +static struct can_proto raw_can_proto __read_mostly = {
+> +	.type       = SOCK_RAW,
+> +	.protocol   = CAN_RAW,
+> +	.capability = -1,
+> +	.ops        = &raw_ops,
+> +	.prot       = &raw_proto,
+> +};
+> +
+> +static __init int raw_module_init(void)
+> +{
+> +	int err;
+> +
 > +	printk(banner);
 > +
-> +	if (echo)
-> +		printk(KERN_INFO "vcan: enabled echo on driver level.\n");
+> +	err = can_proto_register(&raw_can_proto);
+> +	if (err < 0)
+> +		printk(KERN_ERR "can: registration of raw protocol failed\n");
 > +
-> +	return rtnl_link_register(&vcan_link_ops);
+> +	return err;
 > +}
 > +
-> +static __exit void vcan_cleanup_module(void)
+> +static __exit void raw_module_exit(void)
 > +{
-> +	rtnl_link_unregister(&vcan_link_ops);
+> +	can_proto_unregister(&raw_can_proto);
 > +}
 > +
-> +module_init(vcan_init_module);
-> +module_exit(vcan_cleanup_module);
-> Index: net-2.6.24/net/can/Kconfig
-> ===================================================================
-> --- net-2.6.24.orig/net/can/Kconfig	2007-10-02 12:03:28.000000000 +0200
-> +++ net-2.6.24/net/can/Kconfig	2007-10-02 12:03:30.000000000 +0200
-> @@ -47,3 +47,6 @@
->  	  Say Y here if you want the CAN core to produce a bunch of debug
->  	  messages to the system log.  Select this if you are having a
->  	  problem with CAN support and want to see more of what is going on.
-> +
-> +
-> +source "drivers/net/can/Kconfig"
+> +module_init(raw_module_init);
+> +module_exit(raw_module_exit);
 > 
 > --
