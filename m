@@ -1,39 +1,74 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] mv643xx_eth: Do not modify struct netdev tx_queue_len
-Date: Tue, 02 Oct 2007 12:55:29 -0400
-Message-ID: <47027801.8040903@pobox.com>
-References: <20071001230218.GA27461@xyzzy.farnsworth.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] drivers/net/r8169.c - trivial - add KERN_DEBUG to dprintk
+ and PFX before KERN_ uses
+Date: Tue, 02 Oct 2007 12:57:57 -0400
+Message-ID: <47027895.3050208@garzik.org>
+References: <1191343038.13170.32.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dale Farnsworth <dale@farnsworth.org>
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:35814 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:35832 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752210AbXJBQzb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Oct 2007 12:55:31 -0400
-In-Reply-To: <20071001230218.GA27461@xyzzy.farnsworth.org>
+	id S1752846AbXJBQ6H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2007 12:58:07 -0400
+In-Reply-To: <1191343038.13170.32.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dale Farnsworth wrote:
-> From: Dale Farnsworth <dale@farnsworth.org>
+Joe Perches wrote:
+> Signed-off-by: Joe Perches <joe@perches.com>
 > 
-> This driver erroneously zeros dev->tx_queue_len, since
-> mp->tx_ring_size has not yet been initialized.  Actually,
-> the driver shouldn't modify tx_queue_len at all and should
-> leave the value set by alloc_etherdev(), currently 1000.
-> 
-> Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
-> ---
-> Jeff, this bug was just reported today, or I would have batched
-> it with the one I sent you last week.  It's an obvious bugfix,
-> so I'm not going to hold it in my queue.
-> 
->  drivers/net/mv643xx_eth.c |    1 -
->  1 file changed, 1 deletion(-)
+> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+> index c921ec3..40019aa 100644
+> --- a/drivers/net/r8169.c
+> +++ b/drivers/net/r8169.c
+> @@ -44,7 +44,8 @@
+>  		printk( "Assertion failed! %s,%s,%s,line=%d\n",	\
+>  		#expr,__FILE__,__FUNCTION__,__LINE__);		\
+>  	}
+> -#define dprintk(fmt, args...)	do { printk(PFX fmt, ## args); } while (0)
+> +#define dprintk(fmt, args...) \
+> +	do { printk(KERN_DEBUG PFX fmt, ## args); } while (0)
+>  #else
+>  #define assert(expr) do {} while (0)
+>  #define dprintk(fmt, args...)	do {} while (0)
+> @@ -1924,7 +1925,7 @@ static void rtl_hw_start_8169(struct net_device *dev)
+>  
+>  	if ((tp->mac_version == RTL_GIGA_MAC_VER_02) ||
+>  	    (tp->mac_version == RTL_GIGA_MAC_VER_03)) {
+> -		dprintk(KERN_INFO PFX "Set MAC Reg C+CR Offset 0xE0. "
+> +		dprintk("Set MAC Reg C+CR Offset 0xE0. "
+>  			"Bit-3 and bit-14 MUST be 1\n");
+>  		tp->cp_cmd |= (1 << 14);
+>  	}
 
-applied
+NAK these, the author clearly prefers his debugging output at KERN_INFO 
+level
+
+
+> @@ -2289,7 +2290,7 @@ static void rtl8169_reinit_task(struct work_struct *work)
+>  	ret = rtl8169_open(dev);
+>  	if (unlikely(ret < 0)) {
+>  		if (net_ratelimit() && netif_msg_drv(tp)) {
+> -			printk(PFX KERN_ERR "%s: reinit failure (status = %d)."
+> +			printk(KERN_ERR PFX "%s: reinit failure (status = %d)."
+>  			       " Rescheduling.\n", dev->name, ret);
+>  		}
+>  		rtl8169_schedule_work(dev, rtl8169_reinit_task);
+> @@ -2321,7 +2322,7 @@ static void rtl8169_reset_task(struct work_struct *work)
+>  		netif_wake_queue(dev);
+>  	} else {
+>  		if (net_ratelimit() && netif_msg_intr(tp)) {
+> -			printk(PFX KERN_EMERG "%s: Rx buffers shortage\n",
+> +			printk(KERN_EMERG PFX "%s: Rx buffers shortage\n",
+>  			       dev->name);
+>  		}
+
+these are fixes, and should be in a separate patch
 
 
