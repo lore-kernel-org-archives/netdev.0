@@ -1,40 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/7] CAN: Add virtual CAN netdevice driver
-Date: Tue, 02 Oct 2007 15:04:38 -0700 (PDT)
-Message-ID: <20071002.150438.78357233.davem@davemloft.net>
-References: <20071002142016.GE7881@ghostprotocols.net>
-	<4702B1FD.70102@hartkopp.net>
-	<20071002145236.3818bd63@freepuppy.rosehill>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: tcp bw in 2.6
+Date: Tue, 02 Oct 2007 15:17:35 -0700
+Message-ID: <4702C37F.4030601@hp.com>
+References: <20071002164858.GH17418@bitmover.com>	<20071002.141656.42880006.davem@davemloft.net>	<20071002212608.GG29944@bitmover.com> <20071002.144709.123999983.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: oliver@hartkopp.net, acme@ghostprotocols.net,
-	urs@isnogud.escape.de, netdev@vger.kernel.org, kaber@trash.net,
-	tglx@linutronix.de, yoshfuji@linux-ipv6.org, ebiederm@xmission.com,
-	oliver.hartkopp@volkswagen.de, urs.thuermann@volkswagen.de
-To: shemminger@linux-foundation.org
+Cc: lm@bitmover.com, torvalds@linux-foundation.org,
+	herbert@gondor.apana.org.au, wscott@bitmover.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40909
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753942AbXJBWEi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 18:04:38 -0400
-In-Reply-To: <20071002145236.3818bd63@freepuppy.rosehill>
+Received: from palrel10.hp.com ([156.153.255.245]:37113 "EHLO palrel10.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753146AbXJBWRh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2007 18:17:37 -0400
+In-Reply-To: <20071002.144709.123999983.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Tue, 2 Oct 2007 14:52:36 -0700
+David Miller wrote:
+> From: lm@bitmover.com (Larry McVoy)
+> Date: Tue, 2 Oct 2007 14:26:08 -0700
+> 
+> 
+>>And note that sky2 doesn't have this problem.  Does the broadcom do TSO?
+>>And sky2 not?  I noticed a much higher CPU load for sky2.
+> 
+> 
+> Yes the broadcoms (the revisions I have) do TSO and it is enabled
+> on both sides.
+> 
+> Which makes the mis-matched performance even stranger :)
 
-> Please consider using netif_msg_xxx() and module parameter to set
-> default message level, like other real network drivers already do.
+Stranger still, with a mix of a 2.6.23-rc5ish kernel and a net-2.6.24 one 
+(pulled oh middle of last week?) I get link-rate and I see no asymmetry between 
+TCP_STREAM and TCP_MAERTS over an "e1000" link with no switch or tg3 with a 
+ProCurve on my rx2660's.
 
-I keep seeing this recommendation, but the two supposedly most mature
-and actively used drivers in the tree, tg3 and e1000 and e1000e, all
-do not use this scheme.
+I can also run bw_tcp from lmbench 3.0a8 and get 106 MB/s.
 
-In fact there are tons of drivers that even hook up the ethtool
-msg_level setting function and never even use the value.
+I don't have a netgear switch to try in all this...
 
-If people aren't using netif_msg_xxx() and the ethtool msg_level
-facilities properly, it's because there is a severe dearth of good
-example drivers to learn about it from.
+rick jones
