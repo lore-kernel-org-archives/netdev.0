@@ -1,47 +1,34 @@
-From: lm@bitmover.com (Larry McVoy)
-Subject: Re: tcp bw in 2.6
-Date: Tue, 2 Oct 2007 08:41:37 -0700
-Message-ID: <20071002154137.GD17418@bitmover.com>
-References: <20071002005917.GB5480@bitmover.com> <E1IcfN0-0007tt-00@gondolin.me.apana.org.au> <20071002150935.GC17418@bitmover.com>
+From: Robert Schwebel <r.schwebel@pengutronix.de>
+Subject: Re: [RFC PATCH v0.2] net driver: mpc52xx fec
+Date: Tue, 2 Oct 2007 17:46:02 +0200
+Message-ID: <20071002154602.GV23573@pengutronix.de>
+References: <20070810095153.GC13994@moe.telargo.com> <20070902074143.GB2642@nd47.coderock.org> <20071002124939.GC10481@pengutronix.de> <20071002143202.GQ32628@nd47.coderock.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: lm@bitmover.com, Herbert Xu <herbert@gondor.apana.org.au>,
-	torvalds@linux-foundation.org, davem@davemloft.net,
-	wscott@bitmover.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Sascha Hauer <s.hauer@pengutronix.de>, netdev@vger.kernel.org,
+	linuxppc-embedded@ozlabs.org
+To: Domen Puncer <domen@coderock.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ipcop.bitmover.com ([192.132.92.15]:43325 "EHLO
-	mail.bitmover.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752754AbXJBPli (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 11:41:38 -0400
+Received: from metis.extern.pengutronix.de ([83.236.181.26]:45786 "EHLO
+	metis.extern.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751671AbXJBPqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 11:46:15 -0400
 Content-Disposition: inline
-In-Reply-To: <20071002150935.GC17418@bitmover.com>
+In-Reply-To: <20071002143202.GQ32628@nd47.coderock.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Interesting data point.  My test case is like this:
+On Tue, Oct 02, 2007 at 04:32:02PM +0200, Domen Puncer wrote:
+> The patch looks ok to me.
 
-server
-	bind
-	listen
-	while (newsock = accept...)
-		transfer()
+Short update: even with the patch, the driver doesn't work on an
+rt-preempt enabled kernel, or at least not reliable. It survives normal
+traffic and ping -f, but dies when running nmap against the box, with a
+set RFIFO_ERROR flag.
 
-client
-	connect
-	transfer
+More research needs to be done.
 
-If the server side is the source of the data, i.e, it's transfer is a 
-write loop, then I get the bad behaviour.  If I switch them so the data
-flows in the other direction, then it works, I go from about 14K pkt/sec
-to 43K pkt/sec.
-
-Can anyone else reproduce this?  I can extract the test case from lmbench
-so it is standalone but I suspect that any test case will do it.  I'll
-try with the one that John sent.  Yup, s/read/write/ and s/write/read/
-in his two files at the appropriate places and I get exactly the same
-behaviour.
-
-So is this a bug or intentional?
+Robert
 -- 
----
-Larry McVoy                lm at bitmover.com           http://www.bitkeeper.com
+Pengutronix - Linux Solutions for Science and Industry
+Entwicklungszentrum Nord     http://www.pengutronix.de
