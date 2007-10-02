@@ -1,69 +1,35 @@
-From: Dmitry Baryshkov <Dmitry.Baryshkov@siemens.com>
-Subject: [PATCH] Fallback to ipv4 if we try to add join IPv4 multicast
-	group via ipv4-mapped address.
-Date: Tue, 02 Oct 2007 13:59:42 +0400
-Message-ID: <1191319182.28331.6.camel@doriath.ww600.siemens.net>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: tcp bw in 2.6
+Date: Tue, 02 Oct 2007 18:52:54 +0800
+Message-ID: <E1IcfN0-0007tt-00@gondolin.me.apana.org.au>
+References: <20071002005917.GB5480@bitmover.com>
+Cc: torvalds@linux-foundation.org, davem@davemloft.net,
+	wscott@bitmover.com, netdev@vger.kernel.org
+To: lm@bitmover.com (Larry McVoy)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from david.siemens.de ([192.35.17.14]:17190 "EHLO david.siemens.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752816AbXJBKpB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Oct 2007 06:45:01 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:1491 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752030AbXJBKxi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 06:53:38 -0400
+In-Reply-To: <20071002005917.GB5480@bitmover.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Dmitry Baryshkov <dbaryshkov@gmail.com>
+Larry McVoy <lm@bitmover.com> wrote:
+>
+> One of my clients also has gigabit so I played around with just that
+> one and it (itanium running hpux w/ broadcom gigabit) can push the load
+> as well.  One weird thing is that it is dependent on the direction the
+> data is flowing.  If the hp is sending then I get 46MB/sec, if linux is
+> sending then I get 18MB/sec.  Weird.  Linux is debian, running 
 
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index ae98818..c70a87d 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -38,6 +38,7 @@
- #include <linux/times.h>
- #include <linux/net.h>
- #include <linux/in.h>
-+#include <linux/igmp.h>
- #include <linux/in6.h>
- #include <linux/netdevice.h>
- #include <linux/if_arp.h>
-@@ -183,6 +184,17 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, struct in6_addr *addr)
- 	struct ipv6_mc_socklist *mc_lst;
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 	int err;
-+	int addr_type = ipv6_addr_type(addr);
-+
-+	if (addr_type == IPV6_ADDR_MAPPED) {
-+		__be32 v4addr = addr->s6_addr32[3];
-+		struct ip_mreqn mreq;
-+		mreq.imr_multiaddr.s_addr = v4addr;
-+		mreq.imr_address.s_addr = INADDR_ANY;
-+		mreq.imr_ifindex = ifindex;
-+
-+		return ip_mc_join_group(sk, &mreq);
-+	}
- 
- 	if (!ipv6_addr_is_multicast(addr))
- 		return -EINVAL;
-@@ -256,6 +268,18 @@ int ipv6_sock_mc_drop(struct sock *sk, int ifindex, struct in6_addr *addr)
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 	struct ipv6_mc_socklist *mc_lst, **lnk;
- 
-+	int addr_type = ipv6_addr_type(addr);
-+
-+	if (addr_type == IPV6_ADDR_MAPPED) {
-+		__be32 v4addr = addr->s6_addr32[3];
-+		struct ip_mreqn mreq;
-+		mreq.imr_multiaddr.s_addr = v4addr;
-+		mreq.imr_address.s_addr = INADDR_ANY;
-+		mreq.imr_ifindex = ifindex;
-+
-+		return ip_mc_leave_group(sk, &mreq);
-+	}
-+
- 	write_lock_bh(&ipv6_sk_mc_lock);
- 	for (lnk = &np->ipv6_mc_list; (mc_lst = *lnk) !=NULL ; lnk = &mc_lst->next) {
- 		if ((ifindex == 0 || mc_lst->ifindex == ifindex) &&
+First of all check the CPU load on both sides to see if either
+of them is saturating.  If the CPU's fine then look at the tcpdump
+output to see if both receivers are using the same window settings.
 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
