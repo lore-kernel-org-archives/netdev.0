@@ -1,64 +1,93 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: How do queue-less virtual devices wake higher level senders?
-Date: Mon, 01 Oct 2007 17:24:26 -0700
-Message-ID: <47018FBA.4030700@candelatech.com>
-References: <47018772.4060803@candelatech.com> <20071001.170410.40806513.davem@davemloft.net>
+From: lm@bitmover.com (Larry McVoy)
+Subject: Re: tcp bw in 2.6
+Date: Mon, 1 Oct 2007 17:59:18 -0700
+Message-ID: <20071002005917.GB5480@bitmover.com>
+References: <20070929142517.EC6AB5FB21@work.bitmover.com> <alpine.LFD.0.999.0709290914410.3579@woody.linux-foundation.org> <20070929172639.GB7037@bitmover.com> <alpine.LFD.0.999.0709291050200.3579@woody.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, wscott@bitmover.com, netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.lanforge.com ([66.165.47.211]:45048 "EHLO ns2.lanforge.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752149AbXJBAY2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Oct 2007 20:24:28 -0400
-In-Reply-To: <20071001.170410.40806513.davem@davemloft.net>
+Received: from ipcop.bitmover.com ([192.132.92.15]:42223 "EHLO
+	mail.bitmover.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751719AbXJBBaB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 21:30:01 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.0.999.0709291050200.3579@woody.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Ben Greear <greearb@candelatech.com>
-> Date: Mon, 01 Oct 2007 16:49:06 -0700
+On Sat, Sep 29, 2007 at 11:02:32AM -0700, Linus Torvalds wrote:
+> On Sat, 29 Sep 2007, Larry McVoy wrote:
+> > I haven't kept up on switch technology but in the past they were much
+> > better than you are thinking.  The Kalpana switch that I had modified
+> > to support vlans (invented by yours truly), did not store and forward,
+> > it was cut through and could handle any load that was theoretically
+> > possible within about 1%.
 > 
->> For 'real' hardware, it seems that the netif_stop_queue and
->> netif_wake_queue methods handle stopping and waking the
->> higher level senders, but for virtual devices with no
->> queues, how does this work?
-> 
-> They don't queue, there is nothing to stop or wakeup.
+> Hey, you may well be right. Maybe my assumptions about cutting corners are 
+> just cynical and pessimistic. 
 
-Ok, so if I have a UDP socket bound to an interface that has
-no queue, and yet I see the send portion of the queue being
-full in netstat, what does this mean?
+So I got a netgear switch and it works fine.  But my tests are busted.  
+Catching netdev up, I'm trying to optimize traffic to a server that has
+a gbit interface; I moved to a 24 port netgear that is all 10/100/1000
+and I have a pile of clients to act as load generators.
 
-Maybe the device I think has no queue somehow does?
+I can do this on each of the clients 
 
-I added some debugging to print out dev->state in sysfs, and
-the state of the virtual is always 0x6, which appears right
-to me.  It's underlying device goes back and forth between 0x7 and 0x6,
-which also seems right to me.
+	dd if=/dev/zero bs=1024000 | rsh work "dd of=/dev/null"
 
-When the thing is in the hung state, phys and virtual interface have 0x6
-state, and yet the udp tx queue remains full.  The physical NIC also
-prints out some errors about being low on buffers right before the
-hang, but it seems to recover since just doing a ping or starting
-a second udp connection brings everything back to life.
+and that cranks up to about 47K packets/second which is about 70MB/sec.
 
-Other than IFF_UP and dev->state, are there other things that
-can make the tx logic stop sending to a device?
+One of my clients also has gigabit so I played around with just that
+one and it (itanium running hpux w/ broadcom gigabit) can push the load
+as well.  One weird thing is that it is dependent on the direction the
+data is flowing.  If the hp is sending then I get 46MB/sec, if linux is
+sending then I get 18MB/sec.  Weird.  Linux is debian, running 
 
-Thanks,
-Ben
+    Linux work 2.6.18-5-k7 #1 SMP Thu Aug 30 02:52:31 UTC 2007 i686 
 
+and dual e1000 cards:
 
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+    e1000: eth0: e1000_probe: Intel(R) PRO/1000 Network Connection
+    e1000: eth1: e1000_probe: Intel(R) PRO/1000 Network Connection
 
+I wrote a tiny little program to try and emulate this and I can't get
+it to do as well.  I've tracked it down, I think, to the read side.
+The server sources, the client sinks, the server looks like:
 
+11689 accept(3, {sa_family=AF_INET, sin_port=htons(49376), sin_addr=inet_addr("10.3.1.38")}, [16]) = 4
+11689 setsockopt(4, SOL_SOCKET, SO_RCVBUF, [1048576], 4) = 0
+11689 setsockopt(4, SOL_SOCKET, SO_SNDBUF, [1048576], 4) = 0
+11689 clone(child_stack=0, flags=CLONE_CHILD_CLEARTID|CLONE_CHILD_SETTID|SIGCHLD, child_tidptr=0xb7ddf708) = 11694
+11689 close(4)                          = 0
+11689 accept(3,  <unfinished ...>
+11694 write(4, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 1048576) = 1048576
+11694 write(4, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 1048576) = 1048576
+11694 write(4, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 1048576) = 1048576
+11694 write(4, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 1048576) = 1048576
+...
+
+but the client looks like
+
+connect(3, {sa_family=AF_INET, sin_port=htons(31235), sin_addr=inet_addr("10.3.9.1")}, 16) = 0
+read(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 1048576) = 2896
+read(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 1048576) = 1448
+read(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 1048576) = 2896
+read(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 1048576) = 2896
+read(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 1048576) = 2896
+read(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 1048576) = 2896
+read(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 1048576) = 2896
+read(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 1048576) = 2896
+read(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 1048576) = 2896
+read(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 1048576) = 1448
+read(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 1048576) = 2896
+
+which I suspect may be the problem.
+
+I played around with SO_RCVBUF/SO_SNDBUF and that didn't help.  So any ideas why
+a simple dd piped through rsh is kicking my ass?  It must be something simple
+but my test program is tiny and does nothing weird that I can see.
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+---
+Larry McVoy                lm at bitmover.com           http://www.bitkeeper.com
