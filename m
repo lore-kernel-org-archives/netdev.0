@@ -1,36 +1,34 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] ehea: DLPAR memory add fix
-Date: Tue, 02 Oct 2007 13:31:50 -0400
-Message-ID: <47028086.4070004@garzik.org>
-References: <200710011633.18305.ossthema@de.ibm.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/9] fs_enet: Whitespace cleanup.
+Date: Tue, 02 Oct 2007 13:31:43 -0400
+Message-ID: <4702807F.5080309@pobox.com>
+References: <20071001192017.GA28410@loki.buserror.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
+Cc: netdev@vger.kernel.org
+To: Scott Wood <scottwood@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49379 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:49371 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753050AbXJBRb4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Oct 2007 13:31:56 -0400
-In-Reply-To: <200710011633.18305.ossthema@de.ibm.com>
+	id S1752092AbXJBRbr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2007 13:31:47 -0400
+In-Reply-To: <20071001192017.GA28410@loki.buserror.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jan-Bernd Themann wrote:
-> Due to stability issues in high load situations the HW queue handling
-> has to be changed. The HW queues are now stopped and restarted again instead
-> of destroying and allocating new HW queues. 
+Scott Wood wrote:
+> Signed-off-by: Scott Wood <scottwood@freescale.com>
+> ---
+> This patch series applies to the net-2.6.24 branch.
 > 
-> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
+>  drivers/net/fs_enet/fs_enet-main.c |   85 ++++++++++++++++-------------------
+>  drivers/net/fs_enet/fs_enet.h      |    4 +-
+>  drivers/net/fs_enet/mac-fcc.c      |    1 -
+>  drivers/net/fs_enet/mii-bitbang.c  |    3 -
+>  drivers/net/fs_enet/mii-fec.c      |    1 -
+>  5 files changed, 41 insertions(+), 53 deletions(-)
 
-applied
+applied 1-9, including your version 2 of patch #6
 
 
