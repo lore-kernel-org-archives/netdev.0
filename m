@@ -1,67 +1,100 @@
-From: lm@bitmover.com (Larry McVoy)
-Subject: Re: tcp bw in 2.6
-Date: Tue, 2 Oct 2007 12:07:42 -0700
-Message-ID: <20071002190742.GC29944@bitmover.com>
-References: <20071002005917.GB5480@bitmover.com> <E1IcfN0-0007tt-00@gondolin.me.apana.org.au> <20071002150935.GC17418@bitmover.com> <47028DEF.5070009@psc.edu>
+From: Brian Haley <brian.haley@hp.com>
+Subject: [IPv6] Fix ICMPv6 redirect handling with target multicast address
+Date: Tue, 02 Oct 2007 15:18:21 -0400
+Message-ID: <4702997D.6020208@hp.com>
+References: <46FD2B37.6040502@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lm@bitmover.com, Herbert Xu <herbert@gondor.apana.org.au>,
-	torvalds@linux-foundation.org, davem@davemloft.net,
-	wscott@bitmover.com, netdev@vger.kernel.org
-To: John Heffner <jheffner@psc.edu>
+Content-Type: multipart/mixed;
+ boundary="------------080708000909090904020505"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Stevens <dlstevens@us.ibm.com>
+To: David Miller <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ipcop.bitmover.com ([192.132.92.15]:43696 "EHLO
-	mail.bitmover.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752217AbXJBTHn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 15:07:43 -0400
-Content-Disposition: inline
-In-Reply-To: <47028DEF.5070009@psc.edu>
+Received: from atlrel8.hp.com ([156.153.255.206]:60618 "EHLO atlrel8.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753000AbXJBTSZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2007 15:18:25 -0400
+In-Reply-To: <46FD2B37.6040502@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Looks like you have TSO enabled.  Does it behave differently if it's 
-> disabled?  
+This is a multi-part message in MIME format.
+--------------080708000909090904020505
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-It cranks the interrupts/sec up to 8K instead of 5K.  No difference in
-performance other than that.
+When the ICMPv6 Target address is multicast, Linux processes the 
+redirect instead of dropping it.  The problem is in this code in 
+ndisc_redirect_rcv():
 
-> I think Rick Jones is on to something with the HP ack avoidance.  
+         if (ipv6_addr_equal(dest, target)) {
+                 on_link = 1;
+         } else if (!(ipv6_addr_type(target) & IPV6_ADDR_LINKLOCAL)) {
+                 ND_PRINTK2(KERN_WARNING
+                            "ICMPv6 Redirect: target address is not 
+link-local.\n");
+                 return;
+         }
 
-I sincerely doubt it.  I'm only using the HP box because it has gigabit
-so it's a single connection.  I can produce almost identical results by
-doing the same sorts of tests with several linux clients.  One direction
-goes fast and the other goes slow.
+This second check will succeed if the Target address is, for example, 
+FF02::1 because it has link-local scope.  Instead, it should be checking 
+if it's a unicast link-local address, as stated in RFC 2461/4861 Section 
+8.1:
 
-3x performance difference depending on the direction of data flow:
+       - The ICMP Target Address is either a link-local address (when
+         redirected to a router) or the same as the ICMP Destination
+         Address (when redirected to the on-link destination).
 
-# Server is receiving, goes fast
-$ for i in 22 24 25 26; do rsh -n glibc$i dd if=/dev/zero|dd of=/dev/null & done
-load free cach swap pgin  pgou dk0 dk1 dk2 dk3 ipkt opkt  int  ctx  usr sys idl
-0.98   0    0    0    0     0    0   0   0   0   30K  15K 8.1K  68K  12  66  22
-0.98   0    0    0    0     0    0   0   0   0   29K  15K 8.2K  67K  11  64  25
-0.98   0    0    0    0     0    0   0   0   0   29K  15K 8.2K  67K  12  66  22
+I know this doesn't explicitly say unicast link-local address, but it's 
+implied.
 
-# Server is sending, goes slow
-$ for i in 22 24 25 26; do dd if=/dev/zero|rsh glibc$i dd of=/dev/null & done
-load free cach swap pgin  pgou dk0 dk1 dk2 dk3 ipkt opkt  int  ctx  usr sys idl
-1.06   0    0    0    0     0    0   0   0   0  5.0K  10K 4.4K 8.4K  21  17  62
-0.97   0    0    0    0     0    0   0   0   0  5.1K  10K 4.4K 8.9K   2  15  83
-0.97   0    0    0    0     0    0   0   0   0  5.0K  10K 4.4K 8.6K  21  26  53
+This bug is preventing Linux kernels from achieving IPv6 Logo Phase II 
+certification because of a recent error that was found in the TAHI test 
+suite - Neighbor Disovery suite test 206 (v6LC.2.3.6_G) had the 
+multicast address in the Destination field instead of Target field, so 
+we were passing the test.  This won't be the case anymore.
 
-$ for i in 22 24 25 26; do rsh glibc$i cat /etc/motd; done | grep Welcome
-Welcome to redhat71.bitmover.com, a 2Ghz Athlon running Red Hat 7.1.
-Welcome to glibc24.bitmover.com, a 1.2Ghz Athlon running SUSE 10.1.
-Welcome to glibc25.bitmover.com, a 2Ghz Athlon running Fedora Core 6
-Welcome to glibc26.bitmover.com, a 2Ghz Athlon running Fedora Core 7
+The patch below fixes this problem, and also fixes ndisc_send_redirect() 
+to not send an invalid redirect with a multicast address in the Target 
+field.  I re-ran the TAHI Neighbor Discovery section to make sure Linux 
+passes all 245 tests now.
 
-$ for i in 22 24 25 26; do rsh glibc$i uname -r; done
-2.4.2-2
-2.6.16.13-4-default
-2.6.18-1.2798.fc6
-2.6.22.4-65.fc7
+-Brian
 
-No HP in the mix.  It's got nothing to do with hp, nor to do with rsh, it 
-has everything to do with the direction the data is flowing.  
--- 
----
-Larry McVoy                lm at bitmover.com           http://www.bitkeeper.com
+
+Signed-off-by: Brian Haley <brian.haley@hp.com>
+
+
+--------------080708000909090904020505
+Content-Type: text/x-patch;
+ name="ipv6.redirect.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ipv6.redirect.patch"
+
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 74c4d8d..a0a6406 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1267,7 +1267,8 @@ static void ndisc_redirect_rcv(struct sk_buff *skb)
+ 
+ 	if (ipv6_addr_equal(dest, target)) {
+ 		on_link = 1;
+-	} else if (!(ipv6_addr_type(target) & IPV6_ADDR_LINKLOCAL)) {
++	} else if (ipv6_addr_type(target) !=
++		   (IPV6_ADDR_UNICAST|IPV6_ADDR_LINKLOCAL)) {
+ 		ND_PRINTK2(KERN_WARNING
+ 			   "ICMPv6 Redirect: target address is not link-local.\n");
+ 		return;
+@@ -1343,7 +1344,7 @@ void ndisc_send_redirect(struct sk_buff *skb, struct neighbour *neigh,
+ 	}
+ 
+ 	if (!ipv6_addr_equal(&ipv6_hdr(skb)->daddr, target) &&
+-	    !(ipv6_addr_type(target) & IPV6_ADDR_LINKLOCAL)) {
++	    ipv6_addr_type(target) != (IPV6_ADDR_UNICAST|IPV6_ADDR_LINKLOCAL)) {
+ 		ND_PRINTK2(KERN_WARNING
+ 			"ICMPv6 Redirect: target address is not link-local.\n");
+ 		return;
+
+--------------080708000909090904020505--
