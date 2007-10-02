@@ -1,35 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: tcp bw in 2.6
-Date: Tue, 02 Oct 2007 14:32:55 -0700 (PDT)
-Message-ID: <20071002.143255.57471247.davem@davemloft.net>
-References: <20071002172002.GO17418@bitmover.com>
-	<4702878B.4040102@hp.com>
-	<20071002184032.GB29944@bitmover.com>
+From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Subject: Re: [PATCH 5/7] CAN: Add virtual CAN netdevice driver
+Date: Tue, 2 Oct 2007 18:43:25 -0300
+Message-ID: <20071002214325.GB3576@ghostprotocols.net>
+References: <20071002131006.31727.0@janus.isnogud.escape.de> <20071002131112.31727.5@janus.isnogud.escape.de> <20071002142016.GE7881@ghostprotocols.net> <4702B1FD.70102@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, torvalds@linux-foundation.org,
-	wscott@bitmover.com, netdev@vger.kernel.org
-To: lm@bitmover.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Urs Thuermann <urs@isnogud.escape.de>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>
+To: Oliver Hartkopp <oliver@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38185
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753585AbXJBVcz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 17:32:55 -0400
-In-Reply-To: <20071002184032.GB29944@bitmover.com>
+Received: from qb-out-0506.google.com ([72.14.204.226]:7432 "EHLO
+	qb-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752416AbXJBVnf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 17:43:35 -0400
+Received: by qb-out-0506.google.com with SMTP id e11so1615276qbe
+        for <netdev@vger.kernel.org>; Tue, 02 Oct 2007 14:43:34 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4702B1FD.70102@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: lm@bitmover.com (Larry McVoy)
-Date: Tue, 2 Oct 2007 11:40:32 -0700
+Em Tue, Oct 02, 2007 at 11:02:53PM +0200, Oliver Hartkopp escreveu:
+> Arnaldo Carvalho de Melo wrote:
+>> Em Tue, Oct 02, 2007 at 03:10:11PM +0200, Urs Thuermann escreveu:
+>>   
+>>> +
+>>> +#ifdef CONFIG_CAN_DEBUG_DEVICES
+>>> +static int debug;
+>>> +module_param(debug, int, S_IRUGO);
+>>> +#endif
+>>>     
+>>
+>> Can debug be a boolean? Like its counterpart on DCCP:
+>>
+>> net/dccp/proto.c:
+>>
+>> module_param(dccp_debug, bool, 0444);
+>>   
+>
+> 'debug' should remain an integer to be able to specifiy debug-levels or 
+> bit-fields for different Debug outputs.
+>
+>> Where we also use a namespace prefix, for those of us who use ctags or
+>> cscope.
+>>   
+>
+> Even if i don't have any general objections to rename this 'debug' to 
+> 'vcan_debug', it looks like an 'overnamed' module parameter for me. Is this 
+> a genereal naming scheme recommendation for debug module_params?
 
-> I doubt it, the same test works fine in one direction and poorly in the other.
-> Wouldn't the flow control squelch either way?
+[acme@mica linux-2.6.23-rc9-rt1]$ find . -name "*.c" | xargs grep
+'module_param(.\+debug,' | wc -l
+112
+[acme@mica linux-2.6.23-rc9-rt1]$ find . -name "*.c" | xargs grep
+'module_param(debug,' | wc -l
+233
+[acme@mica linux-2.6.23-rc9-rt1]$
 
-HW controls for these things are typically:
+I think that helping ctags to find the definition for the debug variable
+to see, for instance, if it is a bitmask or a boolean without having to
+chose from tons of 'debug' variables is a good thing.
 
-1) Generates flow control flames
-2) Listens for them
-
-So you can have flow control operational in one direction
-and not the other.
+- Arnaldo
