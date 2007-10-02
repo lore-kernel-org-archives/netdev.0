@@ -1,45 +1,58 @@
-From: lm@bitmover.com (Larry McVoy)
-Subject: Re: tcp bw in 2.6
-Date: Mon, 1 Oct 2007 19:20:59 -0700
-Message-ID: <20071002022059.GE7037@bitmover.com>
-References: <20070929142517.EC6AB5FB21@work.bitmover.com> <alpine.LFD.0.999.0709290914410.3579@woody.linux-foundation.org> <20070929172639.GB7037@bitmover.com> <alpine.LFD.0.999.0709291050200.3579@woody.linux-foundation.org> <20071002005917.GB5480@bitmover.com> <alpine.LFD.0.999.0710011858400.3579@woody.linux-foundation.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 01/10] Preparatory refactoring part 1.
+Date: Tue, 02 Oct 2007 05:17:06 +0200
+Message-ID: <4701B832.4090405@trash.net>
+References: <1191019977201-git-send-email-bugfood-ml@fatooh.org> <11910199771607-git-send-email-bugfood-ml@fatooh.org> <4700F54A.6070408@trash.net> <47015CB4.7000102@fatooh.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Larry McVoy <lm@bitmover.com>, davem@davemloft.net,
-	wscott@bitmover.com, netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Corey Hickey <bugfood-ml@fatooh.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ipcop.bitmover.com ([192.132.92.15]:42259 "EHLO
-	mail.bitmover.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751723AbXJBCVA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 22:21:00 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.0.999.0710011858400.3579@woody.linux-foundation.org>
+Received: from stinky.trash.net ([213.144.137.162]:48445 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752045AbXJBDRo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 1 Oct 2007 23:17:44 -0400
+In-Reply-To: <47015CB4.7000102@fatooh.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 01, 2007 at 07:14:37PM -0700, Linus Torvalds wrote:
+Corey Hickey wrote:
+> Patrick McHardy wrote:
+> 
+>>> -    sch->qstats.drops++;
+>>
+>> A line in the changelog explaining that this was increased twice
+>> would have been nice.
 > 
 > 
-> On Mon, 1 Oct 2007, Larry McVoy wrote:
-> > 
-> > but the client looks like
-> > 
-> > connect(3, {sa_family=AF_INET, sin_port=htons(31235), sin_addr=inet_addr("10.3.9.1")}, 16) = 0
-> > read(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 1048576) = 2896
-> > read(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 1048576) = 1448
-> > read(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 1048576) = 2896
-> ..
-> 
-> This is exactly what I'd expect if the machine is *not* under excessive 
-> load.
+> Certainly; I think I didn't realize, when you originally pointed out the
+> duplicate incrementing, that it was a bug in the original version and
+> not in my patch. Otherwise, I would have sent it as a separate patch.
 
-That's fine, but why is it that my trivial program can't do as well as 
-dd | rsh dd?
 
-A short summary is "can someone please post a test program that sources
-and sinks data at the wire speed?"  because apparently I'm too old and
-clueless to write such a thing.
--- 
----
-Larry McVoy                lm at bitmover.com           http://www.bitkeeper.com
+I didn't remember that :)
+
+> If a note in this patch will suffice, though, I'll definitely do so.
+
+
+Sure, a note in the changelog will be fine.
+
+>>> +static struct
+>>> +sk_buff *sfq_q_dequeue(struct sfq_sched_data *q)
+>>
+>>
+>>
+>> What is this function needed for?
+> 
+> 
+> It gets used in sfq_change for moving packets from the old queue into
+> the new one. In this case, we don't want to modify sch->q.qlen or
+> sch->qstats.backlog, since those don't actually change.
+> 
+>          while ((skb = sfq_q_dequeue(q)) != NULL)
+>                  sfq_q_enqueue(skb, &tmp, SFQ_TAIL);
+
+
+I missed that, thanks for the explanation.
+
