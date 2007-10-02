@@ -1,46 +1,56 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: 2.6.23-rc8-mm2 - tcp_fastretrans_alert() WARNING
-Date: Wed, 3 Oct 2007 00:48:22 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0710022358530.26398@kivilampi-30.cs.helsinki.fi>
-References: <20070927022220.c76a7a6e.akpm@linux-foundation.org>
- <46FD20F0.3050909@fr.ibm.com> <Pine.LNX.4.64.0709282143020.6013@kivilampi-30.cs.helsinki.fi>
- <Pine.LNX.4.64.0709291532200.6776@kivilampi-30.cs.helsinki.fi>
- <46FE6751.3050205@free.fr> <Pine.LNX.4.64.0709292333480.8339@kivilampi-30.cs.helsinki.fi>
- <4700BD57.1090404@free.fr> <Pine.LNX.4.64.0710021310530.27745@kivilampi-30.cs.helsinki.fi>
- <Pine.LNX.4.64.0710022303510.26398@kivilampi-30.cs.helsinki.fi>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [patch 09/13] forcedeth: "no link" is informational
+Date: Tue, 2 Oct 2007 14:49:24 -0700
+Message-ID: <20071002144924.2055022d@freepuppy.rosehill>
+References: <200710022111.l92LBf6c022501@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; boundary="-696243703-1048210765-1191359832=:26398"
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Cedric Le Goater <legoater@free.fr>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org, akpm@linux-foundation.org,
+	eswierk@arastra.com, aabdulla@nvidia.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:40879 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753494AbXJBVsY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 17:48:24 -0400
-In-Reply-To: <Pine.LNX.4.64.0710022303510.26398@kivilampi-30.cs.helsinki.fi>
-Content-ID: <Pine.LNX.4.64.0710030047480.3995@kivilampi-30.cs.helsinki.fi>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:40203 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753886AbXJBVtm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 17:49:42 -0400
+In-Reply-To: <200710022111.l92LBf6c022501@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Tue, 02 Oct 2007 14:11:41 -0700
+akpm@linux-foundation.org wrote:
 
----696243703-1048210765-1191359832=:26398
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
-Content-ID: <Pine.LNX.4.64.0710030033041.26398@kivilampi-30.cs.helsinki.fi>
-
-> On Tue, 2 Oct 2007, Ilpo Järvinen wrote:
+> From: "Ed Swierk" <eswierk@arastra.com>
 > 
-> > I'm currently out of ideas where it could come from...
+> Log "no link during initialization" at KERN_INFO as it's not an error, and
+> occurs every time the interface comes up (when the forcedeth-phy-power-down
+> patch is applied).
+> 
+> Signed-off-by: Ed Swierk <eswierk@arastra.com>
+> Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+> Cc: Jeff Garzik <jeff@garzik.org>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> ---
+> 
+>  drivers/net/forcedeth.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff -puN drivers/net/forcedeth.c~forcedeth-no-link-is-informational drivers/net/forcedeth.c
+> --- a/drivers/net/forcedeth.c~forcedeth-no-link-is-informational
+> +++ a/drivers/net/forcedeth.c
+> @@ -4921,7 +4921,7 @@ static int nv_open(struct net_device *de
+>  	if (ret) {
+>  		netif_carrier_on(dev);
+>  	} else {
+> -		printk("%s: no link during initialization.\n", dev->name);
+> +		printk(KERN_INFO "%s: no link during initialization.\n", dev->name);
+>  		netif_carrier_off(dev);
+>  	}
+>  	if (oom)
 
-Hmm, there seems to be off-by-one in tcp_retrans_try_collapse after
-all, or in fact, two of them. I'll post patch for this tomorrow...
+Driver should use netif_msg_link_up()
 
 
 -- 
- i.
----696243703-1048210765-1191359832=:26398--
+Stephen Hemminger <shemminger@linux-foundation.org>
