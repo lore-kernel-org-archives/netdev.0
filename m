@@ -1,48 +1,91 @@
 From: akpm@linux-foundation.org
-Subject: [patch 04/13] Avoid possible NULL pointer deref in 3c359 driver
-Date: Tue, 02 Oct 2007 14:11:37 -0700
-Message-ID: <200710022111.l92LBbO8022485@imap1.linux-foundation.org>
+Subject: [patch 08/13] forcedeth: power down phy when interface is down
+Date: Tue, 02 Oct 2007 14:11:40 -0700
+Message-ID: <200710022111.l92LBe4x022498@imap1.linux-foundation.org>
 Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	jesper.juhl@gmail.com
+	eswierk@arastra.com, aabdulla@nvidia.com
 To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:36412 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:49938 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752745AbXJBVMR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 17:12:17 -0400
+	by vger.kernel.org with ESMTP id S1754608AbXJBVMX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 17:12:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesper Juhl <jesper.juhl@gmail.com>
+From: "Ed Swierk" <eswierk@arastra.com>
 
-In xl_freemem(), if dev_if is NULL, the line
+Bring the physical link down when the interface is down, by placing the PHY in
+power-down state.  This mirrors the behavior of other drivers including e1000
+and tg3.
 
-  struct xl_private *xl_priv =(struct xl_private *)dev->priv;
+Signed-off-by: Ed Swierk <eswierk@arastra.com>
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+Cc: Jeff Garzik <jeff@garzik.org>
 
-will cause a NULL pointer dereference.
+On Sat, 29 Sep 2007 01:57:04 -0400 Jeff Garzik <jeff@garzik.org> wrote:
 
-(akpm: don't try to fix it: just delete the pointless test-for-null)
+> akpm@linux-foundation.org wrote:
+> > From: "Ed Swierk" <eswierk@arastra.com>
+> > 
+> > Bring the physical link down when the interface is down, by placing the PHY in
+> > power-down state.  This mirrors the behavior of other drivers including e1000
+> > and tg3.
+> > 
+> > Signed-off-by: Ed Swierk <eswierk@arastra.com>
+> > Cc: Ayaz Abdulla <aabdulla@nvidia.com>
+> > Cc: Jeff Garzik <jeff@garzik.org>
+> > Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> 
+> 
+> HOLD -- waiting a bit for comment from others, particularly NVIDIA.
+> 
+> I'm not opposed to applying it, the patch looks correct, but I would 
+> also like see testing results and general "it's ok for this hardware" 
+> comments.
+> 
 
-Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- drivers/net/tokenring/3c359.c |    5 -----
- 1 file changed, 5 deletions(-)
+ drivers/net/forcedeth.c |   12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
-diff -puN drivers/net/tokenring/3c359.c~avoid-possible-null-pointer-deref-in-3c359-driver drivers/net/tokenring/3c359.c
---- a/drivers/net/tokenring/3c359.c~avoid-possible-null-pointer-deref-in-3c359-driver
-+++ a/drivers/net/tokenring/3c359.c
-@@ -1045,11 +1045,6 @@ static irqreturn_t xl_interrupt(int irq,
- 	u8 __iomem * xl_mmio = xl_priv->xl_mmio ; 
- 	u16 intstatus, macstatus  ;
+diff -puN drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down drivers/net/forcedeth.c
+--- a/drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down
++++ a/drivers/net/forcedeth.c
+@@ -1313,9 +1313,9 @@ static int phy_init(struct net_device *d
+ 	/* some phys clear out pause advertisment on reset, set it back */
+ 	mii_rw(dev, np->phyaddr, MII_ADVERTISE, reg);
  
--	if (!dev) { 
--		printk(KERN_WARNING "Device structure dead, aaahhhh !\n") ;
--		return IRQ_NONE; 
--	}
--
- 	intstatus = readw(xl_mmio + MMIO_INTSTATUS) ;  
+-	/* restart auto negotiation */
++	/* restart auto negotiation, power down phy */
+ 	mii_control = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
+-	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE);
++	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE | BMCR_PDOWN);
+ 	if (mii_rw(dev, np->phyaddr, MII_BMCR, mii_control)) {
+ 		return PHY_ERROR;
+ 	}
+@@ -4791,6 +4791,10 @@ static int nv_open(struct net_device *de
  
- 	if (!(intstatus & 1)) /* We didn't generate the interrupt */
+ 	dprintk(KERN_DEBUG "nv_open: begin\n");
+ 
++	/* power up phy */
++	mii_rw(dev, np->phyaddr, MII_BMCR,
++	       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) & ~BMCR_PDOWN);
++
+ 	/* erase previous misconfiguration */
+ 	if (np->driver_data & DEV_HAS_POWER_CNTRL)
+ 		nv_mac_reset(dev);
+@@ -4975,6 +4979,10 @@ static int nv_close(struct net_device *d
+ 		nv_start_rx(dev);
+ 	}
+ 
++	/* power down phy */
++	mii_rw(dev, np->phyaddr, MII_BMCR,
++	       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) | BMCR_PDOWN);
++
+ 	/* FIXME: power down nic */
+ 
+ 	return 0;
 _
