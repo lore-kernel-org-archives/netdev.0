@@ -1,40 +1,87 @@
-From: Moni Shoua <monisonlists@gmail.com>
-Subject: Re: [ofa-general] Re: [PATCH V6 0/9] net/bonding: ADD IPoIB support
-	for	the bonding driver
-Date: Tue, 02 Oct 2007 17:49:54 +0200
-Message-ID: <470268A2.7080102@gmail.com>
-References: <46F7D770.4090500@voltaire.com> <10376.1190733869@death>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [PATCH 2/7] CAN: Add PF_CAN core module
+Date: Tue, 02 Oct 2007 18:09:16 +0200
+Message-ID: <47026D2C.9060606@hartkopp.net>
+References: <20071002131006.31727.0@janus.isnogud.escape.de> <20071002131108.31727.2@janus.isnogud.escape.de> <20071002143855.GG7881@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	OpenFabrics General <general@lists.openfabrics.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <10376.1190733869@death>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: Urs Thuermann <urs@isnogud.escape.de>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Oliver Hartkopp <oliver@hartkopp.net>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:36671 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752456AbXJBQJk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 12:09:40 -0400
+In-Reply-To: <20071002143855.GG7881@ghostprotocols.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
-> ACK patches 3 - 9.
-> 
-> 	Roland, are you comfortable with the IB changes in patches 1 and 2?
-> 
-> 	Jeff, when Roland acks patches 1 and 2, please apply all 9.
-> 
-> 	-J
+Arnaldo Carvalho de Melo wrote:
+> Em Tue, Oct 02, 2007 at 03:10:08PM +0200, Urs Thuermann escreveu:
+>   
+>> +
+>> +/**
+>> + * struct sockaddr_can - the sockaddr structure for CAN sockets
+>> + * @can_family:  address family number AF_CAN.
+>> + * @can_ifindex: CAN network interface index.
+>> + * @can_addr:    transport protocol specific address, mostly CAN IDs.
+>> + */
+>> +struct sockaddr_can {
+>> +	sa_family_t can_family;
+>> +	int         can_ifindex;
+>> +	union {
+>> +		struct { canid_t rx_id, tx_id; } tp16;
+>> +		struct { canid_t rx_id, tx_id; } tp20;
+>> +		struct { canid_t rx_id, tx_id; } mcnet;
+>> +		struct { canid_t rx_id, tx_id; } isotp;
+>> +	} can_addr;
+>>     
+>
+> Again being curious, what is the value of this union of all its members
+> have the same definition? Backward source code compatibility?
+>
+>   
 
-Hi Jeff,
-Roland acked the IPoIB patches. If you haven't done so already can you please apply them?
-I'm not sure when 2.6.24 is going to open and I'm afraid to miss it.
+Yes. You're right here. It is a prerequisite for a CAN transportprotocol 
+like the standardized ISO-TP i plan to submit here until december.
 
-thanks 
+Indeed the union should be replaced by something like
+
+struct sockaddr_can {
+sa_family_t can_family;
+int can_ifindex;
+union {
+struct { canid_t rx_id, tx_id; } tp;
+} can_addr;
+};
+
+
+The union was the idea, if there is any other protocol for CAN that 
+need's other adressing information. I personally do not know any 
+protocol. Maybe CANOpen has different addressing requirements here. And 
+in that case a new protocol could just could add things to the union to 
+meet it's own needs.
+
+
+>
+> You have been thru many iterations already, sigh, I should have looked
+> at this before :-\
+>
+>   
+
+Yeah :-) I thought, you were just done last time.
+
+Btw. Thanks for your review and your good feedback.
+
+Regards,
+Oliver
+
