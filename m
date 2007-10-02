@@ -1,44 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: tcp bw in 2.6
-Date: Tue, 02 Oct 2007 14:16:56 -0700 (PDT)
-Message-ID: <20071002.141656.42880006.davem@davemloft.net>
-References: <20071002154137.GD17418@bitmover.com>
-	<alpine.LFD.0.999.0710020930250.3579@woody.linux-foundation.org>
-	<20071002164858.GH17418@bitmover.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH 2.6.24] tg3: fix ethtool autonegotiate flags
+Date: Tue, 2 Oct 2007 17:16:59 -0400
+Message-ID: <20071002211658.GF9140@gospo.rdu.redhat.com>
+References: <20071002201634.GE9140@gospo.rdu.redhat.com> <1191362576.5961.15.camel@dell>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, herbert@gondor.apana.org.au,
-	wscott@bitmover.com, netdev@vger.kernel.org
-To: lm@bitmover.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, jeff@garzik.org,
+	netdev <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39580
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752055AbXJBVQ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 17:16:56 -0400
-In-Reply-To: <20071002164858.GH17418@bitmover.com>
+Received: from mx1.redhat.com ([66.187.233.31]:50803 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753059AbXJBVRF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2007 17:17:05 -0400
+Content-Disposition: inline
+In-Reply-To: <1191362576.5961.15.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: lm@bitmover.com (Larry McVoy)
-Date: Tue, 2 Oct 2007 09:48:58 -0700
+On Tue, Oct 02, 2007 at 03:02:56PM -0700, Michael Chan wrote:
+> On Tue, 2007-10-02 at 16:16 -0400, Andy Gospodarek wrote:
+> > Adding that flag in tg3_set_settings seemed like the most logical
+> > place
+> > since the driver works fine on boot.  This is just an issue when
+> > re-enabling autonegotiation, so we should probably nip it there.
+> > 
+> > Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> 
+> We also noticed this issue recently, but didn't pay too much attention
+> to it since it was more of a "cosmetic" issue.  The driver behaves the
+> same since we rely on cmd->autoneg to decide whether to enable autoneg
+> or not.  Your fix seems reasonable to me.  Thanks.
+> 
+> Acked-by: Michael Chan <mchan@broadcom.com>
+> 
 
-> Isn't this something so straightforward that you would have tests for it?
-> This is the basic FTP server loop, doesn't someone have a big machine with
-> 10gig cards and test that sending/recving data doesn't regress?
+I completely agree that it's cosmetic, it just seems like something
+decent to toss in there since it's the kind of thing others will start
+complaining about. 
 
-Nobody is really doing this, or they aren't talking about it.
-Sometimes the crash fixes and other work completely consumes us.  Add
-in travel to conferences and real life, and it's no surprise stuff
-like this slips through the cracks.
 
-We absolutely depend upon people like you to report when there are
-anomalies like this.  It's the only thing that scales.
-
-FWIW I have a t1000 Niagara box and an Ultra45 going through a netgear
-gigabit switch.  I'm getting 85MB/sec in one direction and 10MB/sec in
-the other (using bw_tcp from lmbench3).  Both are using identical
-broadcom tigon3 gigabit chips and identical current kernels so that is
-a truly strange result.
-
-I'll investigate, it may be the same thing you're seeing.
