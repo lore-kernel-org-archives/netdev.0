@@ -1,55 +1,43 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [ofa-general] Re: [PATCH V6 0/9] net/bonding: ADD IPoIB support for the bonding driver
-Date: Tue, 02 Oct 2007 11:10:19 -0700
-Message-ID: <23084.1191348619@death>
-References: <46F7D770.4090500@voltaire.com> <10376.1190733869@death> <470268A2.7080102@gmail.com> <4702773E.4090201@pobox.com>
-Cc: Moni Shoua <monisonlists@gmail.com>, netdev@vger.kernel.org,
-	Roland Dreier <rdreier@cisco.com>,
-	OpenFabrics General <general@lists.openfabrics.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:42281 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751761AbXJBSKs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 14:10:48 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l92IAc4v031110
-	for <netdev@vger.kernel.org>; Tue, 2 Oct 2007 14:10:38 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l92IAOe2136088
-	for <netdev@vger.kernel.org>; Tue, 2 Oct 2007 12:10:36 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l92IANBQ031164
-	for <netdev@vger.kernel.org>; Tue, 2 Oct 2007 12:10:24 -0600
-In-reply-to: <4702773E.4090201@pobox.com> 
-Sender: netdev-owner@vger.kernel.org
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [ofa-general] InfiniBand/RDMA merge plans for 2.6.24
+Date: Tue, 02 Oct 2007 11:26:53 -0700
+Message-ID: <adaprzxgyoi.fsf@cisco.com>
+References: <adahclymos8.fsf@cisco.com>
+	<000401c7f632$c993e8e0$65cc180a@amr.corp.intel.com>
+	<adatzpyl1mm.fsf@cisco.com>
+	<000001c7f6f7$074584e0$9c98070a@amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org
+To: "Sean Hefty" <sean.hefty@intel.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <000001c7f6f7$074584e0$9c98070a@amr.corp.intel.com> (Sean Hefty's
+	message of "Fri, 14 Sep 2007 10:45:23 -0700")
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> wrote:
+ > >OK -- just to make sure I'm understanding what you're saying: have you
+ > >confirmed that your proposed [CM MRA] patches actually fix the issue?
+ > 
+ > Not directly.  I cannot easily test kernel patches on our larger, production
+ > clusters.  We've seen the issue with specific applications on 512 and 1024
+ > cores, but I've only been able to test the patch on a 48-core cluster.  I have
+ > verified that it successfully increases the timeout to where it *should* work,
+ > but cannot absolutely confirm that it will fix the problem.  I'm unlikely to
+ > know that until the production clusters move to an OFED release (1.3?)
+ > containing this patch.
 
->Moni Shoua wrote:
->> Jay Vosburgh wrote:
->>> ACK patches 3 - 9.
->>>
->>> 	Roland, are you comfortable with the IB changes in patches 1 and 2?
->>>
->>> 	Jeff, when Roland acks patches 1 and 2, please apply all 9.
->>>
->>> 	-J
->>
->> Hi Jeff,
->> Roland acked the IPoIB patches. If you haven't done so already can you please apply them?
->> I'm not sure when 2.6.24 is going to open and I'm afraid to miss it.
->
->hrm, I don't see them in my inbox for some reason.  can someone bounce
->them to me?  or give me a git tree to pull from?
+Umm... this is a difficult situation for me to merge the changes then.
+We're changing the CM retry behavior blind here.  How do we know that
+the MRA changes don't make the scalability issue worse?
 
-	Moni, can you repost the patch series to Jeff, and put the
-appropriate "Acked-by" lines in for myself (patches 3 - 8) and Roland
-(patches 1 and 2)?  You can probably leave off the netdev and
-openfabrics lists, but cc me.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ - R.
