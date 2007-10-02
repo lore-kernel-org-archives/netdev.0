@@ -1,89 +1,138 @@
 From: Urs Thuermann <urs@isnogud.escape.de>
-Subject: [PATCH 6/7] CAN: Add maintainer entries
-Date: Tue,  2 Oct 2007 15:10:12 +0200
-Message-ID: <20071002131113.31727.6@janus.isnogud.escape.de>
-References: <20071002131006.31727.0@janus.isnogud.escape.de>
+Subject: [PATCH 0/7] CAN: Add new PF_CAN protocol family, try #9
+Date: Tue,  2 Oct 2007 15:10:06 +0200
+Message-ID: <20071002131006.31727.0@janus.isnogud.escape.de>
 Cc: Thomas Gleixner <tglx@linutronix.de>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
 	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
 	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Oliver Hartkopp <oliver@hartkopp.net>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
-	Urs Thuermann <urs.thuermann@volkswagen.de>
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:60142 "EHLO oker.escape.de"
+Received: from oker.escape.de ([194.120.234.254]:60162 "EHLO oker.escape.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755288AbXJBNVI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Oct 2007 09:21:08 -0400
-Content-Disposition: inline; filename=06-can-maintainers.diff
+	id S1755193AbXJBNVM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2007 09:21:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds entries in the CREDITS and MAINTAINERS file for CAN.
+Hello Dave, hello Patrick,
 
-Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
+this is the nineth post of the patch series that adds the PF_CAN
+protocol family for the Controller Area Network.
 
----
- CREDITS     |   16 ++++++++++++++++
- MAINTAINERS |    9 +++++++++
- 2 files changed, 25 insertions(+)
+Since our last post we have changed the following:
 
-Index: net-2.6.24/CREDITS
-===================================================================
---- net-2.6.24.orig/CREDITS	2007-09-20 06:37:28.000000000 +0200
-+++ net-2.6.24/CREDITS	2007-10-02 12:03:43.000000000 +0200
-@@ -1347,6 +1347,14 @@
- S: 5623 HZ Eindhoven
- S: The Netherlands
- 
-+N: Oliver Hartkopp
-+E: oliver.hartkopp@volkswagen.de
-+W: http://www.volkswagen.de
-+D: Controller Area Network (network layer core)
-+S: Brieffach 1776
-+S: 38436 Wolfsburg
-+S: Germany
-+
- N: Andrew Haylett
- E: ajh@primag.co.uk
- D: Selection mechanism
-@@ -3300,6 +3308,14 @@
- S: F-35042 Rennes Cedex
- S: France
- 
-+N: Urs Thuermann
-+E: urs.thuermann@volkswagen.de
-+W: http://www.volkswagen.de
-+D: Controller Area Network (network layer core)
-+S: Brieffach 1776
-+S: 38436 Wolfsburg
-+S: Germany
-+
- N: Jon Tombs
- E: jon@gte.esi.us.es
- W: http://www.esi.us.es/~jon
-Index: net-2.6.24/MAINTAINERS
-===================================================================
---- net-2.6.24.orig/MAINTAINERS	2007-09-28 18:01:52.000000000 +0200
-+++ net-2.6.24/MAINTAINERS	2007-10-02 12:03:43.000000000 +0200
-@@ -991,6 +991,15 @@
- L:	video4linux-list@redhat.com
- S:	Maintained
- 
-+CAN NETWORK LAYER
-+P:	Urs Thuermann
-+M:	urs.thuermann@volkswagen.de
-+P:	Oliver Hartkopp
-+M:	oliver.hartkopp@volkswagen.de
-+L:	socketcan-core@lists.berlios.de
-+W:	http://developer.berlios.de/projects/socketcan/
-+S:	Maintained
-+
- CALGARY x86-64 IOMMU
- P:	Muli Ben-Yehuda
- M:	muli@il.ibm.com
+* Changes suggested by Arnaldo Carvalho de Melo:
+  - Use gfp_any() instead of checking in_interrupt().
+  - Don't kfree() the sk_protinfo field.
+* Fixed licence text as pointed out by Yoshifuji Hideaki and Patrick McHardy.
+* Added IFF_ECHO to include/linux/if.h and use that instead of IFF_LOOPBACK,
+  as suggested by Eric W. Biederman.  IFF_LOOPBACK is only for the normal
+  loopback interface.
 
+The changes in try #8 were:
+
+* Some changes in debug code, following suggestions from Joe Perches:
+  - Remove dynamically allocated buffer for debug output.
+  - Use kernel functions for hexdumps.
+  - Don't interpret printf-style %-sequences in can_debug_cframe().
+  - Specify the fixed argument "fmt" to DBG() macro and use
+    GCC ## mechanism to remove , when args is empty.
+* Removed CAN_RAW_USER and CAN_BCM_USER Kconfig options following a
+  suggestion from Patrick.
+* Prevent overflow in statistics calculation.
+* Minor optimization.
+
+The changes in try #7 were:
+
+* Changes suggested by Patrick:
+  - protect proto_tab[] by a lock.
+  - add _rcu to some hlist traversals.
+  - use printk_ratelimit() for module autoload failures.
+  - make can_proto_unregister() and can_rx_unregister() return void.
+  - use return value of can_proto_register() and can_rx_register()
+    (this also removed a flaw in behavior of raw_bind() and raw_setsockopt()
+     in case of failure to can_rx_register() their filters).
+  - call kzalloc() with GFP_KERNEL in case NETDEV_REGISTER.
+  - use round_jiffies() to calculate expiration times.
+  - make some variables static and/or __read_mostly.
+  - in can_create() check for net namespace before auto loading modules.
+  - add build time check for struct sizes.
+  - use skb_share_chack() in vcan.
+  - fixed some comments.
+* Typos in documentation as pointed out by Randy Dunlap and Bill Fink.
+
+The changes in try #6 were:
+
+* Update code to work with namespaces in net-2.6.24.
+* Remove SET_MODULE_OWNER() from vcan.
+
+The changes in try #5 were:
+
+* Remove slab destructor from calls to kmem_cache_alloc().
+* Add comments about types defined in can.h.
+* Update comment on vcan loopback module parameter.
+* Fix typo in documentation.
+
+The changes in try #4 were:
+
+* Change vcan network driver to use the new RTNL API, as suggested by
+  Patrick.
+* Revert our change to use skb->iif instead of skb->cb.  After
+  discussion with Patrick and Jamal it turned out, our first
+  implementation was correct.
+* Use skb_tail_pointer() instead of skb->tail directly.
+* Coding style changes to satisfy linux/scripts/checkpatch.pl.
+* Minor changes for 64-bit-cleanliness.
+* Minor cleanup of #include's
+
+The changes in try #3 were:
+
+* Use sbk->sk and skb->pkt_type instead of skb->cb to pass loopback
+  flags and originating socket down to the driver and back to the
+  receiving socket.  Thanks to Patrick McHardy for pointing out our
+  wrong use of sbk->cb.
+* Use skb->iif instead of skb->cb to pass receiving interface from
+  raw_rcv() and bcm_rcv() up to raw_recvmsg() and bcm_recvmsg().
+* Set skb->protocol when sending CAN frames to netdevices.
+* Removed struct raw_opt and struct bcm_opt and integrated these
+  directly into struct raw_sock and bcm_sock resp., like most other
+  proto implementations do.
+* We have found and fixed race conditions between raw_bind(),
+  raw_{set,get}sockopt() and raw_notifier().  This resulted in
+  - complete removal of our own notifier list infrastructure in
+    af_can.c.  raw.c and bcm.c now use normal netdevice notifiers.
+  - removal of ro->lock spinlock.  We use lock_sock(sk) now.
+  - changed deletion of dev_rcv_lists, which are now marked for
+    deletion in the netdevice notifier in af_can.c and are actually
+    deleted when all entries have been deleted using can_rx_unregister().
+* Follow changes in 2.6.22 (e.g. ktime_t timestamps in skb).
+* Removed obsolete code from vcan.c, as pointed out by Stephen Hemminger.
+
+The changes in try #2 were:
+
+* reduced RCU callback overhead when deleting receiver lists (thx to
+  feedback from Paul E. McKenney).
+* eliminated some code duplication in net/can/proc.c.
+* renamed slock-29 and sk_lock-29 to slock-AF_CAN and sk_lock-AF_CAN in
+  net/core/sock.c
+* added entry for can.txt in Documentation/networking/00-INDEX
+* added error frame definitions in include/linux/can/error.h, which are to
+  be used by CAN network drivers.
+
+
+This patch series applies against net-2.6.24 and is derived from Subversion
+revision r511 of http://svn.berlios.de/svnroot/repos/socketcan.
+It can be found in the directory
+http://svn.berlios.de/svnroot/repos/socketcan/trunk/patch-series/<version>.
+
+Thanks very much for your work!
+
+Best regards,
+
+Urs Thuermann
+Oliver Hartkopp
 --
