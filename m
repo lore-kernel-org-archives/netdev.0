@@ -1,38 +1,32 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 2.6.24 3/3][BNX2]: Update version to 1.6.6.
-Date: Tue, 02 Oct 2007 17:24:06 -0700
-Message-ID: <1191371046.5961.33.camel@dell>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.24 1/3][BNX2]: Add missing napi_disable() in
+ bnx2_close().
+Date: Tue, 02 Oct 2007 16:27:12 -0700 (PDT)
+Message-ID: <20071002.162712.11079459.davem@davemloft.net>
+References: <1191370989.5961.31.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3031 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750766AbXJBXZJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Oct 2007 19:25:09 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38490
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755610AbXJBX1N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 19:27:13 -0400
+In-Reply-To: <1191370989.5961.31.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[BNX2]: Update version to 1.6.6.
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Tue, 02 Oct 2007 17:23:09 -0700
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+> [BNX2]: Add missing napi_disable() in bnx2_close().
+> 
+> bnx2_close() -> bnx2_netif_stop() will not call napi_disable() because
+> the netif_state is not running in bnx2_close().  To avoid confusion,
+> we change it to disable interrupt and napi directly in bnx2_close().
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index c50e4c8..db14f35 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -56,8 +56,8 @@
- 
- #define DRV_MODULE_NAME		"bnx2"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"1.6.5"
--#define DRV_MODULE_RELDATE	"September 20, 2007"
-+#define DRV_MODULE_VERSION	"1.6.6"
-+#define DRV_MODULE_RELDATE	"October 2, 2007"
- 
- #define RUN_AT(x) (jiffies + (x))
- 
-
-
+Applied to net-2.6.24
