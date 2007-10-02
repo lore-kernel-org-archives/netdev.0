@@ -1,64 +1,143 @@
-From: Urs Thuermann <urs@isnogud.escape.de>
-Subject: Re: [PATCH 1/7] CAN: Allocate protocol numbers for PF_CAN
-Date: 02 Oct 2007 16:27:40 +0200
-Message-ID: <ygf7im5h9r7.fsf@janus.isnogud.escape.de>
-References: <20071002131006.31727.0@janus.isnogud.escape.de>
-	<20071002131107.31727.1@janus.isnogud.escape.de>
-	<20071002141138.GD7881@ghostprotocols.net>
+From: Domen Puncer <domen@coderock.org>
+Subject: Re: [RFC PATCH v0.2] net driver: mpc52xx fec
+Date: Tue, 2 Oct 2007 16:32:02 +0200
+Message-ID: <20071002143202.GQ32628@nd47.coderock.org>
+References: <20070810095153.GC13994@moe.telargo.com> <20070902074143.GB2642@nd47.coderock.org> <20071002124939.GC10481@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Oliver Hartkopp <oliver@hartkopp.net>,
-	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Cc: linuxppc-embedded@ozlabs.org, netdev@vger.kernel.org
+To: Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:56113 "EHLO oker.escape.de"
+Received: from kukmak.uni-mb.si ([164.8.100.3]:36346 "EHLO kukmak.uni-mb.si"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751733AbXJBOaz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Oct 2007 10:30:55 -0400
-In-Reply-To: <20071002141138.GD7881@ghostprotocols.net>; from Arnaldo Carvalho de Melo on Tue, 2 Oct 2007 11:11:38 -0300
+	id S1753739AbXJBOcG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2007 10:32:06 -0400
+Content-Disposition: inline
+In-Reply-To: <20071002124939.GC10481@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arnaldo Carvalho de Melo <acme@ghostprotocols.net> writes:
-
-> > --- net-2.6.24.orig/include/linux/if_arp.h	2007-10-02 12:10:51.000000000 +0200
-> > +++ net-2.6.24/include/linux/if_arp.h	2007-10-02 12:11:01.000000000 +0200
-> > @@ -52,6 +52,7 @@
-> >  #define ARPHRD_ROSE	270
-> >  #define ARPHRD_X25	271		/* CCITT X.25			*/
-> >  #define ARPHRD_HWX25	272		/* Boards with X.25 in firmware	*/
-> > +#define ARPHRD_CAN	280		/* Controller Area Network      */
+On 02/10/07 14:49 +0200, Sascha Hauer wrote:
 > 
-> Is 280 used in other OS? Just curious as why not using 273
+> Hi Domen,
 
-When we first implemented PF_CAN a couple of years ago, we wanted to
-avoid a clash with other ARPHRD_* defines which might be added, so we
-skipped some numbers after the last used one.  I don't care what
-number ARPHRD_CAN is, we can use 273.
+Hi Sascha!
 
-> > --- net-2.6.24.orig/include/linux/socket.h	2007-10-02 12:10:51.000000000 +0200
-> > +++ net-2.6.24/include/linux/socket.h	2007-10-02 12:11:01.000000000 +0200
-> > @@ -185,6 +185,7 @@
-> >  #define AF_PPPOX	24	/* PPPoX sockets		*/
-> >  #define AF_WANPIPE	25	/* Wanpipe API Sockets */
-> >  #define AF_LLC		26	/* Linux LLC			*/
-> > +#define AF_CAN		29	/* Controller Area Network      */
+
 > 
-> Ditto
+> On Sun, Sep 02, 2007 at 09:41:43AM +0200, Domen Puncer wrote:
+>  + */
+> > +static void fec_start(struct net_device *dev)
+> > +{
+> > +	struct fec_priv *priv = netdev_priv(dev);
+> > +	struct mpc52xx_fec __iomem *fec = priv->fec;
+> > +	u32 rcntrl;
+> > +	u32 tcntrl;
+> > +	u32 tmp;
+> > +
+> > +	/* clear sticky error bits */
+> > +	tmp = FEC_FIFO_STATUS_ERR | FEC_FIFO_STATUS_UF | FEC_FIFO_STATUS_OF;
+> > +	out_be32(&fec->rfifo_status, in_be32(&fec->rfifo_status) & tmp);
+> > +	out_be32(&fec->tfifo_status, in_be32(&fec->tfifo_status) & tmp);
+> > +
+> > +	/* FIFOs will reset on fec_enable */
+> > +	out_be32(&fec->reset_cntrl, FEC_RESET_CNTRL_ENABLE_IS_RESET);
+> > +
+> > +	/* Set station address. */
+> > +	fec_set_paddr(dev, dev->dev_addr);
+> > +
+> > +	fec_set_multicast_list(dev);
+> > +
+> > +	/* set max frame len, enable flow control, select mii mode */
+> > +	rcntrl = FEC_RX_BUFFER_SIZE << 16;	/* max frame length */
+> > +	rcntrl |= FEC_RCNTRL_FCE;
+> > +	rcntrl |= MII_RCNTL_MODE;
+> > +	if (priv->duplex == DUPLEX_FULL)
+> > +		tcntrl = FEC_TCNTRL_FDEN;	/* FD enable */
+> > +	else {
+> > +		rcntrl |= FEC_RCNTRL_DRT;	/* disable Rx on Tx (HD) */
+> > +		tcntrl = 0;
+> > +	}
+> > +	out_be32(&fec->r_cntrl, rcntrl);
+> > +	out_be32(&fec->x_cntrl, tcntrl);
+> > +
+> > +	/* Clear any outstanding interrupt. */
+> > +	out_be32(&fec->ievent, 0xffffffff);
+> > +
+> > +	/* Enable interrupts we wish to service. */
+> > +	out_be32(&fec->imask, FEC_IMASK_ENABLE);
 > 
-> >  #define AF_TIPC		30	/* TIPC sockets			*/
-> >  #define AF_BLUETOOTH	31	/* Bluetooth sockets 		*/
-> >  #define AF_IUCV		32	/* IUCV sockets			*/
+> 
+> This disables phy interrupts.
 
-For the same reason as above, we didn't use 27, but the last unused
-without modifying AF_MAX.  First, we had AF_CAN == 30, then TIPC used
-that number and we changed AF_CAN to 29.  Changing again would mean an
-ABI change and would break user apps.  If there is a pressing reason I
-wouldn't mind personally, but it would probably upset quite a number
-of users of our code.  It seems common now to allocate these numbers
-from the top in decreasing order.
+Right, oops.
 
-urs
+> 
+> 
+> > +static int fec_mdio_read(struct mii_bus *bus, int phy_id, int reg)
+> > +{
+> > +	struct fec_mdio_priv *priv = bus->priv;
+> > +	int tries = 100;
+> > +
+> > +	u32 request = FEC_MII_READ_FRAME;
+> > +	request |= (phy_id << FEC_MII_DATA_PA_SHIFT) & FEC_MII_DATA_PA_MSK;
+> > +	request |= (reg << FEC_MII_DATA_RA_SHIFT) & FEC_MII_DATA_RA_MSK;
+> > +
+> > +	out_be32(&priv->regs->mii_data, request);
+> > +
+> > +	/* wait for it to finish, this takes about 23 us on lite5200b */
+> > +	while (priv->completed == 0 && tries--)
+> > +		udelay(5);
+> > +
+> > +	priv->completed = 0;
+> > +
+> > +	if (tries == 0)
+> > +		return -ETIMEDOUT;
+> 
+> This does not work as expected. When a timeout occurs tries is -1 not 0,
+> so the test above will never trigger.
+> Using --tries instead of tries-- reveals another bug. We get a timeout
+> everytime now, because MII interrupts are accidently disabled in
+> fec_start().
+
+Oh, double bug made it work! ;-)
+
+
+> 
+> We cannot use a waitqueue or similar for waiting for the mii transfer
+> because we are atomic here.
+> A simple fix is provided below. It removes the need for the interrupt
+> handler in the phy handling routines. Anyway, it might be better to fix
+> the phy layer not to use atomic contexts, so this patch might not be the
+> way to go.
+
+Doh, looks like this was the problem with wq's, but I forgot to remove
+them, when I "fixed" the code.
+
+> 
+> 
+> Regards, 
+>   Sascha
+> 
+>  +
+> > +static int fec_mdio_probe(struct of_device *of, const struct of_device_id *match)
+> > +{
+> > +	struct device *dev = &of->dev;
+> >
+> >       [...]
+> >
+> > +	init_waitqueue_head(&priv->wq);
+> 
+> This waitqueue is never used. wake_up() is called in the interrupt
+> handler, but noone ever sleeps on the queue.
+> 
+> 
+> ---
+>  drivers/net/fec_mpc52xx/fec.c     |    7 +---
+>  drivers/net/fec_mpc52xx/fec_phy.c |   59 +++++++-------------------------------
+>  2 files changed, 15 insertions(+), 51 deletions(-)
+
+The patch looks ok to me.
+
+
+	Domen
