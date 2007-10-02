@@ -1,158 +1,512 @@
-From: akpm@linux-foundation.org
-Subject: [patch 13/13] ax88796: add 93cx6 eeprom support
-Date: Tue, 02 Oct 2007 14:11:44 -0700
-Message-ID: <200710022111.l92LBi6H022513@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	magnus.damm@gmail.com, ben-linux@fluff.org, damm@igel.co.jp,
-	lethal@linux-sh.org
-To: jeff@garzik.org
+From: Olof Johansson <olof@lixom.net>
+Subject: [PATCH] [3/11] pasemi_mac: rework ring management
+Date: Tue, 2 Oct 2007 16:25:53 -0500
+Message-ID: <20071002212553.GD2282@lixom.net>
+References: <20071002212421.GA2282@lixom.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:36089 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755381AbXJBVVw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 17:21:52 -0400
+Received: from lixom.net ([66.141.50.11]:46653 "EHLO mail.lixom.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755475AbXJBVVv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2007 17:21:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20071002212421.GA2282@lixom.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Magnus Damm <magnus.damm@gmail.com>
+pasemi_mac: rework ring management
 
-Hook up the 93cx6 eeprom code to the ax88796 driver and modify the ax88796
-driver to read out the mac address from the eeprom.  We need this for the
-ax88796 on certain SuperH boards.  The pin configuration used to connect
-the eeprom to the ax88796 on these boards is the same as pointed out by the
-ax88796 datasheet, so we can probably reuse this code for multiple
-platforms in the future.
+Rework ring management, switching to an opaque ring format instead of
+the struct-based descriptor+pointer setup, since it will be needed for
+SG support.
 
-Signed-off-by: Magnus Damm <damm@igel.co.jp>
-Cc: Ben Dooks <ben-linux@fluff.org>
-Cc: Paul Mundt <lethal@linux-sh.org>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
+Signed-off-by: Olof Johansson <olof@lixom.net>
 
- drivers/net/Kconfig          |    7 ++++
- drivers/net/ax88796.c        |   49 +++++++++++++++++++++++++++++++++
- include/linux/eeprom_93cx6.h |    3 +-
- include/net/ax88796.h        |    1 
- 4 files changed, 59 insertions(+), 1 deletion(-)
-
-diff -puN drivers/net/Kconfig~ax88796-add-93cx6-eeprom-support drivers/net/Kconfig
---- a/drivers/net/Kconfig~ax88796-add-93cx6-eeprom-support
-+++ a/drivers/net/Kconfig
-@@ -240,6 +240,13 @@ config AX88796
- 	  AX88796 driver, using platform bus to provide
- 	  chip detection and resources
+Index: k.org/drivers/net/pasemi_mac.c
+===================================================================
+--- k.org.orig/drivers/net/pasemi_mac.c
++++ k.org/drivers/net/pasemi_mac.c
+@@ -63,10 +63,10 @@
+ 	 NETIF_MSG_RX_ERR	| \
+ 	 NETIF_MSG_TX_ERR)
  
-+config AX88796_93CX6
-+	bool "ASIX AX88796 external 93CX6 eeprom support"
-+	depends on AX88796
-+	select EEPROM_93CX6
-+	help
-+	  Select this if your platform comes with an external 93CX6 eeprom.
-+
- config MACE
- 	tristate "MACE (Power Mac ethernet) support"
- 	depends on PPC_PMAC && PPC32
-diff -puN drivers/net/ax88796.c~ax88796-add-93cx6-eeprom-support drivers/net/ax88796.c
---- a/drivers/net/ax88796.c~ax88796-add-93cx6-eeprom-support
-+++ a/drivers/net/ax88796.c
-@@ -24,6 +24,7 @@
- #include <linux/etherdevice.h>
- #include <linux/ethtool.h>
- #include <linux/mii.h>
-+#include <linux/eeprom_93cx6.h>
+-#define TX_DESC(mac, num)	((mac)->tx->desc[(num) & (TX_RING_SIZE-1)])
+-#define TX_DESC_INFO(mac, num)	((mac)->tx->desc_info[(num) & (TX_RING_SIZE-1)])
+-#define RX_DESC(mac, num)	((mac)->rx->desc[(num) & (RX_RING_SIZE-1)])
+-#define RX_DESC_INFO(mac, num)	((mac)->rx->desc_info[(num) & (RX_RING_SIZE-1)])
++#define TX_RING(mac, num)	((mac)->tx->ring[(num) & (TX_RING_SIZE-1)])
++#define TX_RING_INFO(mac, num)	((mac)->tx->ring_info[(num) & (TX_RING_SIZE-1)])
++#define RX_RING(mac, num)	((mac)->rx->ring[(num) & (RX_RING_SIZE-1)])
++#define RX_RING_INFO(mac, num)	((mac)->rx->ring_info[(num) & (RX_RING_SIZE-1)])
+ #define RX_BUFF(mac, num)	((mac)->rx->buffers[(num) & (RX_RING_SIZE-1)])
  
- #include <net/ax88796.h>
+ #define RING_USED(ring)		(((ring)->next_to_fill - (ring)->next_to_clean) \
+@@ -174,22 +174,21 @@ static int pasemi_mac_setup_rx_resources
+ 	spin_lock_init(&ring->lock);
  
-@@ -582,6 +583,37 @@ static const struct ethtool_ops ax_ethto
- 	.get_link		= ax_get_link,
- };
+ 	ring->size = RX_RING_SIZE;
+-	ring->desc_info = kzalloc(sizeof(struct pasemi_mac_buffer) *
++	ring->ring_info = kzalloc(sizeof(struct pasemi_mac_buffer) *
+ 				  RX_RING_SIZE, GFP_KERNEL);
  
-+#ifdef CONFIG_AX88796_93CX6
-+static void ax_eeprom_register_read(struct eeprom_93cx6 *eeprom)
-+{
-+	struct ei_device *ei_local = eeprom->data;
-+	u8 reg = ei_inb(ei_local->mem + AX_MEMR);
-+
-+	eeprom->reg_data_in = reg & AX_MEMR_EEI;
-+	eeprom->reg_data_out = reg & AX_MEMR_EEO; /* Input pin */
-+	eeprom->reg_data_clock = reg & AX_MEMR_EECLK;
-+	eeprom->reg_chip_select = reg & AX_MEMR_EECS;
-+}
-+
-+static void ax_eeprom_register_write(struct eeprom_93cx6 *eeprom)
-+{
-+	struct ei_device *ei_local = eeprom->data;
-+	u8 reg = ei_inb(ei_local->mem + AX_MEMR);
-+
-+	reg &= ~(AX_MEMR_EEI | AX_MEMR_EECLK | AX_MEMR_EECS);
-+
-+	if (eeprom->reg_data_in)
-+		reg |= AX_MEMR_EEI;
-+	if (eeprom->reg_data_clock)
-+		reg |= AX_MEMR_EECLK;
-+	if (eeprom->reg_chip_select)
-+		reg |= AX_MEMR_EECS;
-+
-+	ei_outb(reg, ei_local->mem + AX_MEMR);
-+	udelay(10);
-+}
-+#endif
-+
- /* setup code */
+-	if (!ring->desc_info)
+-		goto out_desc_info;
++	if (!ring->ring_info)
++		goto out_ring_info;
  
- static void ax_initial_setup(struct net_device *dev, struct ei_device *ei_local)
-@@ -640,6 +672,23 @@ static int ax_init_dev(struct net_device
- 		memcpy(dev->dev_addr,  SA_prom, 6);
+ 	/* Allocate descriptors */
+-	ring->desc = dma_alloc_coherent(&mac->dma_pdev->dev,
+-					RX_RING_SIZE *
+-					sizeof(struct pas_dma_xct_descr),
++	ring->ring = dma_alloc_coherent(&mac->dma_pdev->dev,
++					RX_RING_SIZE * sizeof(u64),
+ 					&ring->dma, GFP_KERNEL);
+ 
+-	if (!ring->desc)
+-		goto out_desc;
++	if (!ring->ring)
++		goto out_ring_desc;
+ 
+-	memset(ring->desc, 0, RX_RING_SIZE * sizeof(struct pas_dma_xct_descr));
++	memset(ring->ring, 0, RX_RING_SIZE * sizeof(u64));
+ 
+ 	ring->buffers = dma_alloc_coherent(&mac->dma_pdev->dev,
+ 					   RX_RING_SIZE * sizeof(u64),
+@@ -203,7 +202,7 @@ static int pasemi_mac_setup_rx_resources
+ 
+ 	write_dma_reg(mac, PAS_DMA_RXCHAN_BASEU(chan_id),
+ 			   PAS_DMA_RXCHAN_BASEU_BRBH(ring->dma >> 32) |
+-			   PAS_DMA_RXCHAN_BASEU_SIZ(RX_RING_SIZE >> 2));
++			   PAS_DMA_RXCHAN_BASEU_SIZ(RX_RING_SIZE >> 3));
+ 
+ 	write_dma_reg(mac, PAS_DMA_RXCHAN_CFG(chan_id),
+ 			   PAS_DMA_RXCHAN_CFG_HBU(2));
+@@ -229,11 +228,11 @@ static int pasemi_mac_setup_rx_resources
+ 
+ out_buffers:
+ 	dma_free_coherent(&mac->dma_pdev->dev,
+-			  RX_RING_SIZE * sizeof(struct pas_dma_xct_descr),
+-			  mac->rx->desc, mac->rx->dma);
+-out_desc:
+-	kfree(ring->desc_info);
+-out_desc_info:
++			  RX_RING_SIZE * sizeof(u64),
++			  mac->rx->ring, mac->rx->dma);
++out_ring_desc:
++	kfree(ring->ring_info);
++out_ring_info:
+ 	kfree(ring);
+ out_ring:
+ 	return -ENOMEM;
+@@ -254,25 +253,24 @@ static int pasemi_mac_setup_tx_resources
+ 	spin_lock_init(&ring->lock);
+ 
+ 	ring->size = TX_RING_SIZE;
+-	ring->desc_info = kzalloc(sizeof(struct pasemi_mac_buffer) *
++	ring->ring_info = kzalloc(sizeof(struct pasemi_mac_buffer) *
+ 				  TX_RING_SIZE, GFP_KERNEL);
+-	if (!ring->desc_info)
+-		goto out_desc_info;
++	if (!ring->ring_info)
++		goto out_ring_info;
+ 
+ 	/* Allocate descriptors */
+-	ring->desc = dma_alloc_coherent(&mac->dma_pdev->dev,
+-					TX_RING_SIZE *
+-					sizeof(struct pas_dma_xct_descr),
++	ring->ring = dma_alloc_coherent(&mac->dma_pdev->dev,
++					TX_RING_SIZE * sizeof(u64),
+ 					&ring->dma, GFP_KERNEL);
+-	if (!ring->desc)
+-		goto out_desc;
++	if (!ring->ring)
++		goto out_ring_desc;
+ 
+-	memset(ring->desc, 0, TX_RING_SIZE * sizeof(struct pas_dma_xct_descr));
++	memset(ring->ring, 0, TX_RING_SIZE * sizeof(u64));
+ 
+ 	write_dma_reg(mac, PAS_DMA_TXCHAN_BASEL(chan_id),
+ 			   PAS_DMA_TXCHAN_BASEL_BRBL(ring->dma));
+ 	val = PAS_DMA_TXCHAN_BASEU_BRBH(ring->dma >> 32);
+-	val |= PAS_DMA_TXCHAN_BASEU_SIZ(TX_RING_SIZE >> 2);
++	val |= PAS_DMA_TXCHAN_BASEU_SIZ(TX_RING_SIZE >> 3);
+ 
+ 	write_dma_reg(mac, PAS_DMA_TXCHAN_BASEU(chan_id), val);
+ 
+@@ -291,9 +289,9 @@ static int pasemi_mac_setup_tx_resources
+ 
+ 	return 0;
+ 
+-out_desc:
+-	kfree(ring->desc_info);
+-out_desc_info:
++out_ring_desc:
++	kfree(ring->ring_info);
++out_ring_info:
+ 	kfree(ring);
+ out_ring:
+ 	return -ENOMEM;
+@@ -304,31 +302,27 @@ static void pasemi_mac_free_tx_resources
+ 	struct pasemi_mac *mac = netdev_priv(dev);
+ 	unsigned int i;
+ 	struct pasemi_mac_buffer *info;
+-	struct pas_dma_xct_descr *dp;
+ 
+-	for (i = 0; i < TX_RING_SIZE; i++) {
+-		info = &TX_DESC_INFO(mac, i);
+-		dp = &TX_DESC(mac, i);
+-		if (info->dma) {
+-			if (info->skb) {
+-				pci_unmap_single(mac->dma_pdev,
+-						 info->dma,
+-						 info->skb->len,
+-						 PCI_DMA_TODEVICE);
+-				dev_kfree_skb_any(info->skb);
+-			}
+-			info->dma = 0;
+-			info->skb = NULL;
+-			dp->mactx = 0;
+-			dp->ptr = 0;
++	for (i = 0; i < TX_RING_SIZE; i += 2) {
++		info = &TX_RING_INFO(mac, i+1);
++		if (info->dma && info->skb) {
++			pci_unmap_single(mac->dma_pdev,
++					 info->dma,
++					 info->skb->len,
++					 PCI_DMA_TODEVICE);
++			dev_kfree_skb_any(info->skb);
+ 		}
++		TX_RING(mac, i) = 0;
++		TX_RING(mac, i+1) = 0;
++		info->dma = 0;
++		info->skb = NULL;
  	}
  
-+#ifdef CONFIG_AX88796_93CX6
-+	if (first_init && ax->plat->flags & AXFLG_HAS_93CX6) {
-+		unsigned char mac_addr[6];
-+		struct eeprom_93cx6 eeprom;
-+
-+		eeprom.data = ei_local;
-+		eeprom.register_read = ax_eeprom_register_read;
-+		eeprom.register_write = ax_eeprom_register_write;
-+		eeprom.width = PCI_EEPROM_WIDTH_93C56;
-+
-+		eeprom_93cx6_multiread(&eeprom, 0,
-+				       (__le16 __force *)mac_addr,
-+				       sizeof(mac_addr) >> 1);
-+
-+		memcpy(dev->dev_addr,  mac_addr, 6);
-+	}
-+#endif
- 	if (ax->plat->wordlength == 2) {
- 		/* We must set the 8390 for word mode. */
- 		ei_outb(ax->plat->dcr_val, ei_local->mem + EN0_DCFG);
-diff -puN include/linux/eeprom_93cx6.h~ax88796-add-93cx6-eeprom-support include/linux/eeprom_93cx6.h
---- a/include/linux/eeprom_93cx6.h~ax88796-add-93cx6-eeprom-support
-+++ a/include/linux/eeprom_93cx6.h
-@@ -21,13 +21,14 @@
- /*
- 	Module: eeprom_93cx6
- 	Abstract: EEPROM reader datastructures for 93cx6 chipsets.
--	Supported chipsets: 93c46 & 93c66.
-+	Supported chipsets: 93c46, 93c56 and 93c66.
-  */
+ 	dma_free_coherent(&mac->dma_pdev->dev,
+-			  TX_RING_SIZE * sizeof(struct pas_dma_xct_descr),
+-			  mac->tx->desc, mac->tx->dma);
++			  TX_RING_SIZE * sizeof(u64),
++			  mac->tx->ring, mac->tx->dma);
  
- /*
-  * EEPROM operation defines.
-  */
- #define PCI_EEPROM_WIDTH_93C46	6
-+#define PCI_EEPROM_WIDTH_93C56	8
- #define PCI_EEPROM_WIDTH_93C66	8
- #define PCI_EEPROM_WIDTH_OPCODE	3
- #define PCI_EEPROM_WRITE_OPCODE	0x05
-diff -puN include/net/ax88796.h~ax88796-add-93cx6-eeprom-support include/net/ax88796.h
---- a/include/net/ax88796.h~ax88796-add-93cx6-eeprom-support
-+++ a/include/net/ax88796.h
-@@ -14,6 +14,7 @@
+-	kfree(mac->tx->desc_info);
++	kfree(mac->tx->ring_info);
+ 	kfree(mac->tx);
+ 	mac->tx = NULL;
+ }
+@@ -338,34 +332,31 @@ static void pasemi_mac_free_rx_resources
+ 	struct pasemi_mac *mac = netdev_priv(dev);
+ 	unsigned int i;
+ 	struct pasemi_mac_buffer *info;
+-	struct pas_dma_xct_descr *dp;
  
- #define AXFLG_HAS_EEPROM		(1<<0)
- #define AXFLG_MAC_FROMDEV		(1<<1)	/* device already has MAC */
-+#define AXFLG_HAS_93CX6			(1<<2)	/* use eeprom_93cx6 driver */
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
+-		info = &RX_DESC_INFO(mac, i);
+-		dp = &RX_DESC(mac, i);
+-		if (info->skb) {
+-			if (info->dma) {
+-				pci_unmap_single(mac->dma_pdev,
+-						 info->dma,
+-						 info->skb->len,
+-						 PCI_DMA_FROMDEVICE);
+-				dev_kfree_skb_any(info->skb);
+-			}
+-			info->dma = 0;
+-			info->skb = NULL;
+-			dp->macrx = 0;
+-			dp->ptr = 0;
++		info = &RX_RING_INFO(mac, i);
++		if (info->skb && info->dma) {
++			pci_unmap_single(mac->dma_pdev,
++					 info->dma,
++					 info->skb->len,
++					 PCI_DMA_FROMDEVICE);
++			dev_kfree_skb_any(info->skb);
+ 		}
++		info->dma = 0;
++		info->skb = NULL;
+ 	}
  
- struct ax_plat_data {
- 	unsigned int	 flags;
-_
++	for (i = 0; i < RX_RING_SIZE; i++)
++		RX_RING(mac, i) = 0;
++
+ 	dma_free_coherent(&mac->dma_pdev->dev,
+-			  RX_RING_SIZE * sizeof(struct pas_dma_xct_descr),
+-			  mac->rx->desc, mac->rx->dma);
++			  RX_RING_SIZE * sizeof(u64),
++			  mac->rx->ring, mac->rx->dma);
+ 
+ 	dma_free_coherent(&mac->dma_pdev->dev, RX_RING_SIZE * sizeof(u64),
+ 			  mac->rx->buffers, mac->rx->buf_dma);
+ 
+-	kfree(mac->rx->desc_info);
++	kfree(mac->rx->ring_info);
+ 	kfree(mac->rx);
+ 	mac->rx = NULL;
+ }
+@@ -373,20 +364,22 @@ static void pasemi_mac_free_rx_resources
+ static void pasemi_mac_replenish_rx_ring(struct net_device *dev, int limit)
+ {
+ 	struct pasemi_mac *mac = netdev_priv(dev);
+-	unsigned int i;
+ 	int start = mac->rx->next_to_fill;
+-	int count;
++	unsigned int fill, count;
+ 
+ 	if (limit <= 0)
+ 		return;
+ 
+-	i = start;
++	fill = start;
+ 	for (count = 0; count < limit; count++) {
+-		struct pasemi_mac_buffer *info = &RX_DESC_INFO(mac, i);
+-		u64 *buff = &RX_BUFF(mac, i);
++		struct pasemi_mac_buffer *info = &RX_RING_INFO(mac, fill);
++		u64 *buff = &RX_BUFF(mac, fill);
+ 		struct sk_buff *skb;
+ 		dma_addr_t dma;
+ 
++		/* Entry in use? */
++		WARN_ON(*buff);
++
+ 		/* skb might still be in there for recycle on short receives */
+ 		if (info->skb)
+ 			skb = info->skb;
+@@ -407,7 +400,7 @@ static void pasemi_mac_replenish_rx_ring
+ 		info->skb = skb;
+ 		info->dma = dma;
+ 		*buff = XCT_RXB_LEN(BUF_SIZE) | XCT_RXB_ADDR(dma);
+-		i++;
++		fill++;
+ 	}
+ 
+ 	wmb();
+@@ -481,7 +474,6 @@ static int pasemi_mac_clean_rx(struct pa
+ {
+ 	unsigned int n;
+ 	int count;
+-	struct pas_dma_xct_descr *dp;
+ 	struct pasemi_mac_buffer *info;
+ 	struct sk_buff *skb;
+ 	unsigned int i, len;
+@@ -496,9 +488,7 @@ static int pasemi_mac_clean_rx(struct pa
+ 
+ 		rmb();
+ 
+-		dp = &RX_DESC(mac, n);
+-		prefetchw(dp);
+-		macrx = dp->macrx;
++		macrx = RX_RING(mac, n);
+ 
+ 		if ((macrx & XCT_MACRX_E) ||
+ 		    (*mac->rx_status & PAS_STATUS_ERROR))
+@@ -516,12 +506,15 @@ static int pasemi_mac_clean_rx(struct pa
+ 		 * interface ring.
+ 		 */
+ 
+-		dma = (dp->ptr & XCT_PTR_ADDR_M);
+-		for (i = n; i < (n + RX_RING_SIZE); i++) {
+-			info = &RX_DESC_INFO(mac, i);
++		dma = (RX_RING(mac, n+1) & XCT_PTR_ADDR_M);
++		for (i = mac->rx->next_to_fill;
++		     i < (mac->rx->next_to_fill + RX_RING_SIZE);
++		     i++) {
++			info = &RX_RING_INFO(mac, i);
+ 			if (info->dma == dma)
+ 				break;
+ 		}
++
+ 		prefetchw(info);
+ 
+ 		skb = info->skb;
+@@ -546,6 +539,11 @@ static int pasemi_mac_clean_rx(struct pa
+ 		} else
+ 			info->skb = NULL;
+ 
++		/* Need to zero it out since hardware doesn't, since the
++		 * replenish loop uses it to tell when it's done.
++		 */
++		RX_BUFF(mac, i) = 0;
++
+ 		skb_put(skb, len);
+ 
+ 		if (likely((macrx & XCT_MACRX_HTY_M) == XCT_MACRX_HTY_IPV4_OK)) {
+@@ -561,13 +559,13 @@ static int pasemi_mac_clean_rx(struct pa
+ 		skb->protocol = eth_type_trans(skb, mac->netdev);
+ 		netif_receive_skb(skb);
+ 
+-		dp->ptr = 0;
+-		dp->macrx = 0;
++		RX_RING(mac, n) = 0;
++		RX_RING(mac, n+1) = 0;
+ 
+-		n++;
++		n += 2;
+ 	}
+ 
+-	mac->rx->next_to_clean += limit - count;
++	mac->rx->next_to_clean = n;
+ 	pasemi_mac_replenish_rx_ring(mac->netdev, limit-count);
+ 
+ 	spin_unlock(&mac->rx->lock);
+@@ -579,7 +577,6 @@ static int pasemi_mac_clean_tx(struct pa
+ {
+ 	int i;
+ 	struct pasemi_mac_buffer *info;
+-	struct pas_dma_xct_descr *dp;
+ 	unsigned int start, count, limit;
+ 	unsigned int total_count;
+ 	unsigned long flags;
+@@ -595,29 +592,28 @@ restart:
+ 
+ 	count = 0;
+ 
+-	for (i = start; i < limit; i++) {
+-		dp = &TX_DESC(mac, i);
+-
+-		if ((dp->mactx & XCT_MACTX_E) ||
++	for (i = start; i < limit; i += 2) {
++		u64 mactx = TX_RING(mac, i);
++		if ((mactx  & XCT_MACTX_E) ||
+ 		    (*mac->tx_status & PAS_STATUS_ERROR))
+-			pasemi_mac_tx_error(mac, dp->mactx);
++			pasemi_mac_tx_error(mac, mactx);
+ 
+-		if (unlikely(dp->mactx & XCT_MACTX_O))
++		if (unlikely(mactx & XCT_MACTX_O))
+ 			/* Not yet transmitted */
+ 			break;
+ 
+-		info = &TX_DESC_INFO(mac, i);
++		info = &TX_RING_INFO(mac, i+1);
+ 		skbs[count] = info->skb;
+ 		dmas[count] = info->dma;
+ 
+-		info->skb = NULL;
+ 		info->dma = 0;
+-		dp->mactx = 0;
+-		dp->ptr = 0;
++		TX_RING(mac, i) = 0;
++		TX_RING(mac, i+1) = 0;
++
+ 
+ 		count++;
+ 	}
+-	mac->tx->next_to_clean += count;
++	mac->tx->next_to_clean += count * 2;
+ 	spin_unlock_irqrestore(&mac->tx->lock, flags);
+ 	netif_wake_queue(mac->netdev);
+ 
+@@ -1001,8 +997,6 @@ static int pasemi_mac_start_tx(struct sk
+ {
+ 	struct pasemi_mac *mac = netdev_priv(dev);
+ 	struct pasemi_mac_txring *txring;
+-	struct pasemi_mac_buffer *info;
+-	struct pas_dma_xct_descr *dp;
+ 	u64 dflags, mactx, ptr;
+ 	dma_addr_t map;
+ 	unsigned long flags;
+@@ -1038,13 +1032,13 @@ static int pasemi_mac_start_tx(struct sk
+ 
+ 	spin_lock_irqsave(&txring->lock, flags);
+ 
+-	if (RING_AVAIL(txring) <= 1) {
++	if (RING_AVAIL(txring) <= 2) {
+ 		spin_unlock_irqrestore(&txring->lock, flags);
+ 		pasemi_mac_clean_tx(mac);
+ 		pasemi_mac_restart_tx_intr(mac);
+ 		spin_lock_irqsave(&txring->lock, flags);
+ 
+-		if (RING_AVAIL(txring) <= 1) {
++		if (RING_AVAIL(txring) <= 2) {
+ 			/* Still no room -- stop the queue and wait for tx
+ 			 * intr when there's room.
+ 			 */
+@@ -1053,15 +1047,14 @@ static int pasemi_mac_start_tx(struct sk
+ 		}
+ 	}
+ 
+-	dp = &TX_DESC(mac, txring->next_to_fill);
+-	info = &TX_DESC_INFO(mac, txring->next_to_fill);
++	TX_RING(mac, txring->next_to_fill) = mactx;
++	TX_RING(mac, txring->next_to_fill+1) = ptr;
++
++	TX_RING_INFO(mac, txring->next_to_fill+1).dma = map;
++	TX_RING_INFO(mac, txring->next_to_fill+1).skb = skb;
+ 
+-	dp->mactx = mactx;
+-	dp->ptr   = ptr;
+-	info->dma = map;
+-	info->skb = skb;
++	txring->next_to_fill += 2;
+ 
+-	txring->next_to_fill++;
+ 	dev->stats.tx_packets++;
+ 	dev->stats.tx_bytes += skb->len;
+ 
+Index: k.org/drivers/net/pasemi_mac.h
+===================================================================
+--- k.org.orig/drivers/net/pasemi_mac.h
++++ k.org/drivers/net/pasemi_mac.h
+@@ -28,25 +28,25 @@
+ 
+ struct pasemi_mac_txring {
+ 	spinlock_t	 lock;
+-	struct pas_dma_xct_descr	*desc;
++	u64		*ring;
+ 	dma_addr_t	 dma;
+ 	unsigned int	 size;
+ 	unsigned int	 next_to_fill;
+ 	unsigned int	 next_to_clean;
+-	struct pasemi_mac_buffer *desc_info;
++	struct pasemi_mac_buffer *ring_info;
+ 	char		 irq_name[10];  /* "eth%d tx" */
+ };
+ 
+ struct pasemi_mac_rxring {
+ 	spinlock_t	 lock;
+-	struct pas_dma_xct_descr	*desc;	/* RX channel descriptor ring */
++	u64		*ring;	/* RX channel descriptor ring */
+ 	dma_addr_t	 dma;
+ 	u64		*buffers;	/* RX interface buffer ring */
+ 	dma_addr_t	 buf_dma;
+ 	unsigned int	 size;
+ 	unsigned int	 next_to_fill;
+ 	unsigned int	 next_to_clean;
+-	struct pasemi_mac_buffer *desc_info;
++	struct pasemi_mac_buffer *ring_info;
+ 	char		 irq_name[10];  /* "eth%d rx" */
+ };
+ 
+@@ -88,7 +88,7 @@ struct pasemi_mac {
+ 	char	phy_id[BUS_ID_SIZE];
+ };
+ 
+-/* Software status descriptor (desc_info) */
++/* Software status descriptor (ring_info) */
+ struct pasemi_mac_buffer {
+ 	struct sk_buff *skb;
+ 	dma_addr_t	dma;
+@@ -101,20 +101,7 @@ struct pasdma_status {
+ 	u64 tx_sta[20];
+ };
+ 
+-/* descriptor structure */
+-struct pas_dma_xct_descr {
+-	union {
+-		u64	mactx;
+-		u64	macrx;
+-	};
+-	union {
+-		u64	ptr;
+-		u64	rxb;
+-	};
+-};
+-
+ /* MAC CFG register offsets */
+-
+ enum {
+ 	PAS_MAC_CFG_PCFG = 0x80,
+ 	PAS_MAC_CFG_TXP = 0x98,
