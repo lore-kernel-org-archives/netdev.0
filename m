@@ -1,35 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: tcp bw in 2.6
-Date: Tue, 02 Oct 2007 18:52:54 +0800
-Message-ID: <E1IcfN0-0007tt-00@gondolin.me.apana.org.au>
-References: <20071002005917.GB5480@bitmover.com>
-Cc: torvalds@linux-foundation.org, davem@davemloft.net,
-	wscott@bitmover.com, netdev@vger.kernel.org
-To: lm@bitmover.com (Larry McVoy)
+From: "Kalle Pokki" <kalle.pokki@iki.fi>
+Subject: Blackfin Ethernet MAC driver compile error
+Date: Tue, 2 Oct 2007 14:30:42 +0300
+Message-ID: <a425f86c0710020430o3507eeb2veb104dc936f230dd@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	bryan.wu@analog.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1491 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752030AbXJBKxi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 06:53:38 -0400
-In-Reply-To: <20071002005917.GB5480@bitmover.com>
+Received: from an-out-0708.google.com ([209.85.132.242]:1162 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752677AbXJBLa6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 07:30:58 -0400
+Received: by an-out-0708.google.com with SMTP id d31so601500and
+        for <netdev@vger.kernel.org>; Tue, 02 Oct 2007 04:30:58 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Larry McVoy <lm@bitmover.com> wrote:
->
-> One of my clients also has gigabit so I played around with just that
-> one and it (itanium running hpux w/ broadcom gigabit) can push the load
-> as well.  One weird thing is that it is dependent on the direction the
-> data is flowing.  If the hp is sending then I get 46MB/sec, if linux is
-> sending then I get 18MB/sec.  Weird.  Linux is debian, running 
+The Blackfin Ethernet MAC driver does not compile. It seems the driver is
+missing some pinmux defines.
 
-First of all check the CPU load on both sides to see if either
-of them is saturating.  If the CPU's fine then look at the tcpdump
-output to see if both receivers are using the same window settings.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+  CC      drivers/net/bfin_mac.o
+drivers/net/bfin_mac.c: In function 'setup_pin_mux':
+drivers/net/bfin_mac.c:275: error: 'P_MII0' undeclared (first use in
+this function)
+drivers/net/bfin_mac.c:275: error: (Each undeclared identifier is
+reported only once
+drivers/net/bfin_mac.c:275: error: for each function it appears in.)
+drivers/net/bfin_mac.c:279: error: implicit declaration of function
+'peripheral_request_list'
+drivers/net/bfin_mac.c:285: error: implicit declaration of function
+'peripheral_free_list'
+make[2]: *** [drivers/net/bfin_mac.o] Error 1
+make[1]: *** [drivers/net] Error 2
+make: *** [drivers] Error 2
