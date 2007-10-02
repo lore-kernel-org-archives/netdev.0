@@ -1,60 +1,41 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: [patch 06/13] Fix a potential NULL pointer dereference in
-	uli526x_interrupt() in drivers/net/tulip/uli526x.c
-Date: Tue, 2 Oct 2007 15:20:00 -0600
-Message-ID: <20071002212000.GC31301@colo.lackof.org>
-References: <200710022111.l92LBcIs022492@imap1.linux-foundation.org>
+From: Olof Johansson <olof@lixom.net>
+Subject: [PATCH] [0/11] pasemi_mac: Patches for 2.6.24
+Date: Tue, 2 Oct 2007 16:24:21 -0500
+Message-ID: <20071002212421.GA2282@lixom.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, netdev@vger.kernel.org, micah.gruber@gmail.com,
-	grundler@parisc-linux.org, kyle@mcmartin.ca
-To: akpm@linux-foundation.org
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from colo.lackof.org ([198.49.126.79]:59399 "EHLO colo.lackof.org"
+Received: from lixom.net ([66.141.50.11]:46597 "EHLO mail.lixom.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754337AbXJBVUS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754456AbXJBVUS (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 2 Oct 2007 17:20:18 -0400
 Content-Disposition: inline
-In-Reply-To: <200710022111.l92LBcIs022492@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 02, 2007 at 02:11:38PM -0700, akpm@linux-foundation.org wrote:
-> From: Micah Gruber <micah.gruber@gmail.com>
-> 
-> This patch fixes an apparent potential null dereference bug where we
-> dereference dev before a null check.  This patch simply remvoes the
-> can't-happen test for a null pointer.
-> 
-> Signed-off-by: Micah Gruber <micah.gruber@gmail.com>
-> Cc: Grant Grundler <grundler@parisc-linux.org>
+Hi,
 
-Acked-by: Grant Grundler <grundler@parisc-linux.org>
+This series of patches go on top of the previous fixes that were sent
+out and picked up.
 
-thanks!
-grant
+It's a series of mostly feature-related changes, but also a couple
+of bugfixes:
 
-> Acked-by: Jeff Garzik <jeff@garzik.org>
-> Acked-by: Kyle McMartin <kyle@mcmartin.ca>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
-> 
->  drivers/net/tulip/uli526x.c |    5 -----
->  1 file changed, 5 deletions(-)
-> 
-> diff -puN drivers/net/tulip/uli526x.c~fix-a-potential-null-pointer-dereference-in-uli526x_interrupt drivers/net/tulip/uli526x.c
-> --- a/drivers/net/tulip/uli526x.c~fix-a-potential-null-pointer-dereference-in-uli526x_interrupt
-> +++ a/drivers/net/tulip/uli526x.c
-> @@ -664,11 +664,6 @@ static irqreturn_t uli526x_interrupt(int
->  	unsigned long ioaddr = dev->base_addr;
->  	unsigned long flags;
->  
-> -	if (!dev) {
-> -		ULI526X_DBUG(1, "uli526x_interrupt() without DEVICE arg", 0);
-> -		return IRQ_NONE;
-> -	}
-> -
->  	spin_lock_irqsave(&db->lock, flags);
->  	outl(0, ioaddr + DCR7);
->  
-> _
+[1/11] pasemi_mac: basic error checking
+[2/11] pasemi_mac: fix bug in receive buffer dma mapping
+[3/11] pasemi_mac: rework ring management
+[4/11] pasemi_mac: implement sg support
+[5/11] pasemi_mac: workaround for erratum 5971
+[6/11] pasemi_mac: add local skb alignment
+[7/11] pasemi_mac: further performance tweaks
+[8/11] pasemi_mac: update todo list
+[9/11] pasemi_mac: clear out old errors on interface open
+[10/11] pasemi_mac: use buffer index pointer in clean_rx()
+[11/11] pasemi_mac: enable iommu support
+
+
+Thanks,
+
+-Olof
