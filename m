@@ -1,109 +1,143 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2/3][NET_BATCH] net core use batching
-Date: Tue, 02 Oct 2007 09:20:38 -0400
-Message-ID: <1191331238.4353.59.camel@localhost>
-References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
-	 <20070916.161748.48388692.davem@davemloft.net>
-	 <1189988958.4230.55.camel@localhost> <1190569987.4256.52.camel@localhost>
-	 <1190570205.4256.56.camel@localhost> <1190570317.4256.59.camel@localhost>
-	 <1190570409.4256.62.camel@localhost> <1191178346.6165.29.camel@localhost>
-	 <20071001001135.75d2b984.billfink@mindspring.com>
-	 <1191245440.4378.12.camel@localhost>
-	 <20071002002502.fe0f2bb3.billfink@mindspring.com>
-Reply-To: hadi@cyberus.ca
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, krkumar2@in.ibm.com,
-	johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, kaber@trash.net,
-	shemminger@linux-foundation.org, jagana@us.ibm.com,
-	Robert.Olsson@data.slu.se, rick.jones2@hp.com, xma@us.ibm.com,
-	gaagaan@gmail.com, netdev@vger.kernel.org, rdreier@cisco.com,
-	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
-	jeff@garzik.org, mchan@broadcom.com, general@lists.openfabrics.org,
-	kumarkr@linux.ibm.com, tgraf@suug.ch, randy.dunlap@oracle.com,
-	sri@us.ibm.com
-To: Bill Fink <billfink@mindspring.com>
+From: Urs Thuermann <urs@isnogud.escape.de>
+Subject: [PATCH 1/7] CAN: Allocate protocol numbers for PF_CAN
+Date: Tue,  2 Oct 2007 15:10:07 +0200
+Message-ID: <20071002131107.31727.1@janus.isnogud.escape.de>
+References: <20071002131006.31727.0@janus.isnogud.escape.de>
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Oliver Hartkopp <oliver@hartkopp.net>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wr-out-0506.google.com ([64.233.184.232]:51905 "EHLO
-	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753160AbXJBNUz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 09:20:55 -0400
-Received: by wr-out-0506.google.com with SMTP id 36so2139124wra
-        for <netdev@vger.kernel.org>; Tue, 02 Oct 2007 06:20:55 -0700 (PDT)
-In-Reply-To: <20071002002502.fe0f2bb3.billfink@mindspring.com>
+Received: from oker.escape.de ([194.120.234.254]:60141 "EHLO oker.escape.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755286AbXJBNVH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2007 09:21:07 -0400
+Content-Disposition: inline; filename=01-can-proto-numbers.diff
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-02-10 at 00:25 -0400, Bill Fink wrote:
+This patch adds a protocol/address family number, ARP hardware type,
+ethernet packet type, and a line discipline number for the SocketCAN
+implementation.
 
-> One reason I ask, is that on an earlier set of alternative batching
-> xmit patches by Krishna Kumar, his performance testing showed a 30 %
-> performance hit for TCP for a single process and a size of 4 KB, and
-> a performance hit of 5 % for a single process and a size of 16 KB
-> (a size of 8 KB wasn't tested).  Unfortunately I was too busy at the
-> time to inquire further about it, but it would be a major potential
-> concern for me in my 10-GigE network testing with 9000-byte jumbo
-> frames.  Of course the single process and 4 KB or larger size was
-> the only case that showed a significant performance hit in Krishna
-> Kumar's latest reported test results, so it might be acceptable to
-> just have a switch to disable the batching feature for that specific
-> usage scenario.  So it would be useful to know if your xmit batching
-> changes would have similar issues.
+Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
+---
+ include/linux/if.h       |    4 +++-
+ include/linux/if_arp.h   |    1 +
+ include/linux/if_ether.h |    1 +
+ include/linux/socket.h   |    2 ++
+ include/linux/tty.h      |    3 ++-
+ net/core/sock.c          |    4 ++--
+ 6 files changed, 11 insertions(+), 4 deletions(-)
 
-There were many times while testing that i noticed inconsistencies and
-in each case when i analysed[1], i found it to be due to some variable
-other than batching which needed some resolving, always via some
-parametrization or other. I suspect what KK posted is in the same class.
-To give you an example, with UDP, batching was giving worse results at
-around 256B compared to 64B or 512B; investigating i found that the
-receiver just wasnt able to keep up and the udp layer dropped a lot of
-packets so both iperf and netperf reported bad numbers. Fixing the
-receiver ended up with consistency coming back. On why 256B was the one
-that overwhelmed the receiver more than 64B(which sent more pps)? On
-some limited investigation, it seemed to me to be the effect of the
-choice of the tg3 driver's default tx mitigation parameters as well tx
-ring size; which is something i plan to revisit (but neutralizing it
-helps me focus on just batching). In the end i dropped both netperf and
-iperf for similar reasons and wrote my own app. What i am trying to
-achieve is demonstrate if batching is a GoodThing. In experimentation
-like this, it is extremely valuable to reduce the variables. Batching
-may expose other orthogonal issues - those need to be resolved or fixed
-as they are found. I hope that sounds sensible.
+Index: net-2.6.24/include/linux/if_arp.h
+===================================================================
+--- net-2.6.24.orig/include/linux/if_arp.h	2007-10-02 12:10:51.000000000 +0200
++++ net-2.6.24/include/linux/if_arp.h	2007-10-02 12:11:01.000000000 +0200
+@@ -52,6 +52,7 @@
+ #define ARPHRD_ROSE	270
+ #define ARPHRD_X25	271		/* CCITT X.25			*/
+ #define ARPHRD_HWX25	272		/* Boards with X.25 in firmware	*/
++#define ARPHRD_CAN	280		/* Controller Area Network      */
+ #define ARPHRD_PPP	512
+ #define ARPHRD_CISCO	513		/* Cisco HDLC	 		*/
+ #define ARPHRD_HDLC	ARPHRD_CISCO
+Index: net-2.6.24/include/linux/if_ether.h
+===================================================================
+--- net-2.6.24.orig/include/linux/if_ether.h	2007-10-02 12:10:51.000000000 +0200
++++ net-2.6.24/include/linux/if_ether.h	2007-10-02 12:11:01.000000000 +0200
+@@ -90,6 +90,7 @@
+ #define ETH_P_WAN_PPP   0x0007          /* Dummy type for WAN PPP frames*/
+ #define ETH_P_PPP_MP    0x0008          /* Dummy type for PPP MP frames */
+ #define ETH_P_LOCALTALK 0x0009		/* Localtalk pseudo type 	*/
++#define ETH_P_CAN	0x000C		/* Controller Area Network      */
+ #define ETH_P_PPPTALK	0x0010		/* Dummy type for Atalk over PPP*/
+ #define ETH_P_TR_802_2	0x0011		/* 802.2 frames 		*/
+ #define ETH_P_MOBITEX	0x0015		/* Mobitex (kaz@cafe.net)	*/
+Index: net-2.6.24/include/linux/socket.h
+===================================================================
+--- net-2.6.24.orig/include/linux/socket.h	2007-10-02 12:10:51.000000000 +0200
++++ net-2.6.24/include/linux/socket.h	2007-10-02 12:11:01.000000000 +0200
+@@ -185,6 +185,7 @@
+ #define AF_PPPOX	24	/* PPPoX sockets		*/
+ #define AF_WANPIPE	25	/* Wanpipe API Sockets */
+ #define AF_LLC		26	/* Linux LLC			*/
++#define AF_CAN		29	/* Controller Area Network      */
+ #define AF_TIPC		30	/* TIPC sockets			*/
+ #define AF_BLUETOOTH	31	/* Bluetooth sockets 		*/
+ #define AF_IUCV		32	/* IUCV sockets			*/
+@@ -220,6 +221,7 @@
+ #define PF_PPPOX	AF_PPPOX
+ #define PF_WANPIPE	AF_WANPIPE
+ #define PF_LLC		AF_LLC
++#define PF_CAN		AF_CAN
+ #define PF_TIPC		AF_TIPC
+ #define PF_BLUETOOTH	AF_BLUETOOTH
+ #define PF_IUCV		AF_IUCV
+Index: net-2.6.24/include/linux/tty.h
+===================================================================
+--- net-2.6.24.orig/include/linux/tty.h	2007-10-02 12:10:51.000000000 +0200
++++ net-2.6.24/include/linux/tty.h	2007-10-02 12:11:02.000000000 +0200
+@@ -24,7 +24,7 @@
+ #define NR_PTYS	CONFIG_LEGACY_PTY_COUNT   /* Number of legacy ptys */
+ #define NR_UNIX98_PTY_DEFAULT	4096      /* Default maximum for Unix98 ptys */
+ #define NR_UNIX98_PTY_MAX	(1 << MINORBITS) /* Absolute limit */
+-#define NR_LDISCS		17
++#define NR_LDISCS		18
+ 
+ /* line disciplines */
+ #define N_TTY		0
+@@ -45,6 +45,7 @@
+ #define N_SYNC_PPP	14	/* synchronous PPP */
+ #define N_HCI		15	/* Bluetooth HCI UART */
+ #define N_GIGASET_M101	16	/* Siemens Gigaset M101 serial DECT adapter */
++#define N_SLCAN		17	/* Serial / USB serial CAN Adaptors */
+ 
+ /*
+  * This character is the same as _POSIX_VDISABLE: it cannot be used as
+Index: net-2.6.24/net/core/sock.c
+===================================================================
+--- net-2.6.24.orig/net/core/sock.c	2007-10-02 12:10:51.000000000 +0200
++++ net-2.6.24/net/core/sock.c	2007-10-02 12:11:02.000000000 +0200
+@@ -154,7 +154,7 @@
+   "sk_lock-AF_ASH"   , "sk_lock-AF_ECONET"   , "sk_lock-AF_ATMSVC"   ,
+   "sk_lock-21"       , "sk_lock-AF_SNA"      , "sk_lock-AF_IRDA"     ,
+   "sk_lock-AF_PPPOX" , "sk_lock-AF_WANPIPE"  , "sk_lock-AF_LLC"      ,
+-  "sk_lock-27"       , "sk_lock-28"          , "sk_lock-29"          ,
++  "sk_lock-27"       , "sk_lock-28"          , "sk_lock-AF_CAN"      ,
+   "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
+   "sk_lock-AF_RXRPC" , "sk_lock-AF_MAX"
+ };
+@@ -168,7 +168,7 @@
+   "slock-AF_ASH"   , "slock-AF_ECONET"   , "slock-AF_ATMSVC"   ,
+   "slock-21"       , "slock-AF_SNA"      , "slock-AF_IRDA"     ,
+   "slock-AF_PPPOX" , "slock-AF_WANPIPE"  , "slock-AF_LLC"      ,
+-  "slock-27"       , "slock-28"          , "slock-29"          ,
++  "slock-27"       , "slock-28"          , "slock-AF_CAN"      ,
+   "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
+   "slock-AF_RXRPC" , "slock-AF_MAX"
+ };
+Index: net-2.6.24/include/linux/if.h
+===================================================================
+--- net-2.6.24.orig/include/linux/if.h	2007-10-02 12:10:28.000000000 +0200
++++ net-2.6.24/include/linux/if.h	2007-10-02 12:09:34.000000000 +0200
+@@ -50,7 +50,9 @@
+ #define IFF_LOWER_UP	0x10000		/* driver signals L1 up		*/
+ #define IFF_DORMANT	0x20000		/* driver signals dormant	*/
+ 
+-#define IFF_VOLATILE	(IFF_LOOPBACK|IFF_POINTOPOINT|IFF_BROADCAST|\
++#define IFF_ECHO	0x40000		/* echo sent packets		*/
++
++#define IFF_VOLATILE	(IFF_LOOPBACK|IFF_POINTOPOINT|IFF_BROADCAST|IFF_ECHO|\
+ 		IFF_MASTER|IFF_SLAVE|IFF_RUNNING|IFF_LOWER_UP|IFF_DORMANT)
+ 
+ /* Private (from user) interface flags (netdevice->priv_flags). */
 
-Back to the >=9K packet size you raise above:
-I dont have a 10Gige card so iam theorizing. Given that theres an
-observed benefit to batching for a saturated link with "smaller" packets
-(in my results "small" is anything below 256B which maps to about
-380Kpps anything above that seems to approach wire speed and the link is
-the bottleneck); then i theorize that 10Gige with 9K jumbo frames if
-already achieving wire rate, should continue to do so. And sizes below
-that will see improvements if they were not already hitting wire rate.
-So i would say that with 10G NICS, there will be more observed
-improvements with batching with apps that do bulk transfers (assuming
-those apps are not seeing wire speed already). Note that this hasnt been
-quiet the case even with TSO given the bottlenecks in the Linux
-receivers that J Heffner put nicely in a response to some results you
-posted - but that exposes an issue with Linux receivers rather than TSO.
-
-> Also for your xmit batching changes, I think it would be good to see
-> performance comparisons for TCP and IP forwarding in addition to your
-> UDP pktgen tests, 
-
-That is not pktgen - it is a udp app running in process context
-utilizing all 4CPUs to send traffic. pktgen bypasses the stack entirely
-and has its own merits in proving that batching infact is a GoodThing
-even if it is just for traffic generation ;->
-
-> including various packet sizes up to and including
-> 9000-byte jumbo frames.
-
-I will do TCP and forwarding tests in the near future. 
-
-cheers,
-jamal
-
-[1] On average i spend 10x more time performance testing and analysing
-results than writting code.
-
+--
