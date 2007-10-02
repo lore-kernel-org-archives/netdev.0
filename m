@@ -1,38 +1,69 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: incorrect cksum with tcp/udp on lo with 2.6.20/2.6.21/2.6.22
-Date: Tue, 2 Oct 2007 18:40:33 +0800
-Message-ID: <20071002104033.GA30281@gondor.apana.org.au>
-References: <E1IZJFo-0006ta-00@gondolin.me.apana.org.au> <Pine.LNX.4.64.0709232317001.24758@bizon.gios.gov.pl> <20070924013005.GB22054@gondor.apana.org.au> <Pine.LNX.4.64.0709241128490.26474@bizon.gios.gov.pl>
+From: Dmitry Baryshkov <Dmitry.Baryshkov@siemens.com>
+Subject: [PATCH] Fallback to ipv4 if we try to add join IPv4 multicast
+	group via ipv4-mapped address.
+Date: Tue, 02 Oct 2007 13:59:42 +0400
+Message-ID: <1191319182.28331.6.camel@doriath.ww600.siemens.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Krzysztof Oledzki <olel@ans.pl>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1400 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751861AbXJBKkq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 06:40:46 -0400
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.0709241128490.26474@bizon.gios.gov.pl>
+Received: from david.siemens.de ([192.35.17.14]:17190 "EHLO david.siemens.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752816AbXJBKpB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2007 06:45:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 24, 2007 at 11:44:19AM +0200, Krzysztof Oledzki wrote:
-> 
-> So, with DR mode, packet goes by the lo device (with bad checksum) and 
-> then get redirected outside. Unfortunately, when it leaves host it has bad 
-> checksum, too. :(
+Signed-off-by: Dmitry Baryshkov <dbaryshkov@gmail.com>
 
-Did you check this by taking a tcpdump on an external host?
-Doing a local tcpdump doesn't work as tcpdump won't show the
-correct checksum if checksum offload is enabled.
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index ae98818..c70a87d 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -38,6 +38,7 @@
+ #include <linux/times.h>
+ #include <linux/net.h>
+ #include <linux/in.h>
++#include <linux/igmp.h>
+ #include <linux/in6.h>
+ #include <linux/netdevice.h>
+ #include <linux/if_arp.h>
+@@ -183,6 +184,17 @@ int ipv6_sock_mc_join(struct sock *sk, int ifindex, struct in6_addr *addr)
+ 	struct ipv6_mc_socklist *mc_lst;
+ 	struct ipv6_pinfo *np = inet6_sk(sk);
+ 	int err;
++	int addr_type = ipv6_addr_type(addr);
++
++	if (addr_type == IPV6_ADDR_MAPPED) {
++		__be32 v4addr = addr->s6_addr32[3];
++		struct ip_mreqn mreq;
++		mreq.imr_multiaddr.s_addr = v4addr;
++		mreq.imr_address.s_addr = INADDR_ANY;
++		mreq.imr_ifindex = ifindex;
++
++		return ip_mc_join_group(sk, &mreq);
++	}
+ 
+ 	if (!ipv6_addr_is_multicast(addr))
+ 		return -EINVAL;
+@@ -256,6 +268,18 @@ int ipv6_sock_mc_drop(struct sock *sk, int ifindex, struct in6_addr *addr)
+ 	struct ipv6_pinfo *np = inet6_sk(sk);
+ 	struct ipv6_mc_socklist *mc_lst, **lnk;
+ 
++	int addr_type = ipv6_addr_type(addr);
++
++	if (addr_type == IPV6_ADDR_MAPPED) {
++		__be32 v4addr = addr->s6_addr32[3];
++		struct ip_mreqn mreq;
++		mreq.imr_multiaddr.s_addr = v4addr;
++		mreq.imr_address.s_addr = INADDR_ANY;
++		mreq.imr_ifindex = ifindex;
++
++		return ip_mc_leave_group(sk, &mreq);
++	}
++
+ 	write_lock_bh(&ipv6_sk_mc_lock);
+ 	for (lnk = &np->ipv6_mc_list; (mc_lst = *lnk) !=NULL ; lnk = &mc_lst->next) {
+ 		if ((ifindex == 0 || mc_lst->ifindex == ifindex) &&
 
-If it's really sending a bogus checksum then it's a bug in
-LVS.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
