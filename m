@@ -1,84 +1,89 @@
-From: lm@bitmover.com (Larry McVoy)
-Subject: Re: tcp bw in 2.6
-Date: Tue, 2 Oct 2007 13:14:20 -0700
-Message-ID: <20071002201420.GE29944@bitmover.com>
-References: <20071002005917.GB5480@bitmover.com> <E1IcfN0-0007tt-00@gondolin.me.apana.org.au> <20071002150935.GC17418@bitmover.com> <47028DEF.5070009@psc.edu> <20071002190742.GC29944@bitmover.com> <20071002193304.GA31611@bitmover.com> <4702A1B6.5020505@psc.edu>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH 2.6.24] tg3: fix ethtool autonegotiate flags
+Date: Tue, 2 Oct 2007 16:16:35 -0400
+Message-ID: <20071002201634.GE9140@gospo.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: lm@bitmover.com, Herbert Xu <herbert@gondor.apana.org.au>,
-	torvalds@linux-foundation.org, davem@davemloft.net,
-	wscott@bitmover.com, netdev@vger.kernel.org
-To: John Heffner <jheffner@psc.edu>
+To: mchan@broadcom.com, davem@davemloft.net, jeff@garzik.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ipcop.bitmover.com ([192.132.92.15]:43820 "EHLO
-	mail.bitmover.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752416AbXJBUOV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 16:14:21 -0400
+Received: from mx1.redhat.com ([66.187.233.31]:49389 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752950AbXJBUQo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2007 16:16:44 -0400
 Content-Disposition: inline
-In-Reply-To: <4702A1B6.5020505@psc.edu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> I think I'm still missing some basic data here (probably because this 
-> thread did not originate on netdev).  Let me try to nail down some of 
-> the basics.  You have a linux ia64 box (running 2.6.12 or 2.6.18?) that 
-> sends slowly, and receives faster, but not quite a 1 Gbps?  And this is 
-> true regardless of which peer it sends or receives from?  And the 
-> behavior is different depending on which kernel?  How, and which kernel 
-> versions?  Do you have other hardware running the same kernel that 
-> behaves the same or differently?
 
-just got off the phone with Linus and he thinks it is the side that does
-the accept is the problem side, i.e., if you are the server, you do the
-accept, and you send the data, you'll go slow.  But as I'm writing this
-I realize he's wrong, because it is the combination of accept & send.
-accept & recv goes fast.
+I recently noticed that when calling:
 
-A trivial way to see the problem is to take two linux boxes, on each
-apt-get install rsh-client rsh-server
-set up your .rhosts,
-and then do
+# ethtool -s eth0 autoneg on
 
-	dd if=/dev/zero count=100000 | rsh OTHER_BOX dd of=/dev/null
-	rsh OTHER_BOX dd if=/dev/zero count=100000 | dd of=/dev/null
+on a 5722 (though I'm sure it's not specific to that card) that
+subsequent checks of the cards status looked like this:
 
-See if you get balanced results.  For me, I get 45MB/sec one way, and
-15-19MB/sec the other way.
+# ethtool eth0
+Settings for eth0:
+        Supported ports: [ MII ]
+        Supported link modes:   10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+                                1000baseT/Half 1000baseT/Full
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+                                1000baseT/Half 1000baseT/Full
+        Advertised auto-negotiation: No        <---- This seems odd?!?
+        Speed: 1000Mb/s
+        Duplex: Full
+        Port: Twisted Pair
+        PHYAD: 1
+        Transceiver: internal
+        Auto-negotiation: on
+        Supports Wake-on: g
+        Wake-on: d
+        Current message level: 0x000000ff (255)
+        Link detected: yes
 
-I've tried the same test linux - linux and linux - hpux.  Same results.
-The test setup I have is
+I noticed that the following commit:
 
-	work:	2ghz x 2 Athlons, e1000, 2.6.18
-	ia64:	900mhz Itanium, e1000, 2.6.12
-	hp-ia64:900mhz Itanium, e1000, hpux 11
-	glibc*: 1-2ghz athlons running various linux releases
+commit 3600d918d870456ea8e7bb9d47f327de5c20f3d6
+Author: Michael Chan <mchan@broadcom.com>
+Date:   Thu Dec 7 00:21:48 2006 -0800
 
-all connected through a netgear 724T 10/100/1000 switch (a linksys showed
-identical results).
+    [TG3]: Allow partial speed advertisement.
 
-I tested 
+    Honor the advertisement bitmask from ethtool.  We used to always
+    advertise the full capability when autoneg was set to on.
 
-	work <-> hp-ia64
-	work <-> ia64
-	ia64 <-> hp-ia64
+changed things around so that ethtool speed settings were strictly
+followed.  Unfortunately ethtool doesn't seem to set ADVERTISED_Autoneg
+in the advertising field (and maybe it shouldn't have to).  I'd vote
+that it should be fixed there, but it should also be added here just in
+case someone using ethtool ioctls in their own application gets what
+they want.
 
-and in all cases, one direction worked fast and the other didn't.
+Adding that flag in tg3_set_settings seemed like the most logical place
+since the driver works fine on boot.  This is just an issue when
+re-enabling autonegotiation, so we should probably nip it there.
 
-It would be good if people tried the same simple test.  You have to
-use rsh, ssh will slow things down way too much.
-
-Alternatively, take your favorite test programs, such as John's,
-and make a second pair that reverses the direction the data is 
-sent.  So one pair is server sends, the other is server receives,
-try both.  That's where we started, BitKeeper, my stripped down test,
-and John's test all exhibit the same behavior.  And the rsh test
-is just a really simple way to demonstrate it.
-
-Wayne, Linus asked for tcp dumps from just one side, with the first 100
-packets and then wait 10 seconds or so for the window to open up, and then
-a snap shot of the another 100 packets.  Do that for both directions
-and send them to the list.  Can you do that?  I want to get lunch, I'm
-starving.
--- 
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 ---
-Larry McVoy                lm at bitmover.com           http://www.bitkeeper.com
+
+ tg3.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index d4ac6e9..0a414be 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -8070,7 +8070,8 @@ static int tg3_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 
+ 	tp->link_config.autoneg = cmd->autoneg;
+ 	if (cmd->autoneg == AUTONEG_ENABLE) {
+-		tp->link_config.advertising = cmd->advertising;
++		tp->link_config.advertising = (cmd->advertising |
++					      ADVERTISED_Autoneg);
+ 		tp->link_config.speed = SPEED_INVALID;
+ 		tp->link_config.duplex = DUPLEX_INVALID;
+ 	} else {
