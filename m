@@ -1,59 +1,76 @@
-From: Haavard Skinnemoen <hskinnemoen@atmel.com>
-Subject: [PATCH 2.6.23-rc8-mm2] Fix a compile problem in macb.c
-Date: Tue,  2 Oct 2007 17:23:23 +0200
-Message-ID: <1191338603393-git-send-email-hskinnemoen@atmel.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] rtnl: Simplify ASSERT_RTNL
+Date: Tue, 2 Oct 2007 17:29:11 +0200 (CEST)
+Message-ID: <alpine.DEB.0.9999.0710021658100.12705@x2>
+References: <E1IbTz0-0000FK-00@gondolin.me.apana.org.au>
+	<46FE7019.4030705@trash.net>
+	<20070930002421.GA7502@gondor.apana.org.au>
+	<46FFC512.9060101@trash.net>
+	<20071002092819.GA29824@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	=?utf-8?q?Hans-J=C3=BCrgen=20Koch?= <hjk@linutronix.de>,
-	Haavard Skinnemoen <hskinnemoen@atmel.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat-132.atmel.no ([80.232.32.132]:51406 "EHLO relay.atmel.no"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751985AbXJBPYH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 2 Oct 2007 11:24:07 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, oliver@neukum.name,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	linux-usb-devel@lists.sourceforge.net, davem@davemloft.net
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20071002092819.GA29824@gondor.apana.org.au>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
+List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
+List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: linux-usb-devel-bounces@lists.sourceforge.net
+Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-=46rom: Hans-J=C3=BCrgen Koch <hjk@linutronix.de>
+On Tue, 2 Oct 2007, Herbert Xu wrote:
 
-Compiling macb.c fails because the type of parameter 2 of macb_poll()
-was changed from int* to int. Furthermore, a local variable was removed
-but was still used inside the function. This patch fixes it.
+> On Sun, Sep 30, 2007 at 05:47:30PM +0200, Patrick McHardy wrote:
+>>
+> I'm a bit uncomfortable with having a function (change_flags)
+> that's sometimes in a sleepable context and sometimes running
+> with BH disabled.
+>
+> So how about splitting up the unicast/multicast entry points
+> as follows?
 
-Signed-off-by: Hans J. Koch <hjk@linutronix.de>
-Signed-off-by: Haavard Skinnemoen <hskinnemoen@atmel.com>
----
- drivers/net/macb.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+>
+> [NET]: Restore multicast-only __dev_mc_upload
+>
+> As it is dev_set_rx_mode needs to cope with being called with
+> or without the RTNL.  This is rather confusing when it comes
+> to understanding what locks are being held at a particular
+> point.
+>
+> Since the only path that calls it without the RTNL is in the
+> multicast code, we could avoid the confusion by splitting that
+> out.
+>
+> This patch restores the old __dev_mc_upload as a multicast-only
+> variant of dev_set_rx_mode.  It also gets rid of the now-unused
+> __dev_set_rx_mod and makes dev_set_rx_mode static since it's
+> only used in net/core/dev.c.
+>
+> As a side-effect this fixes the warning triggered by the
+> RTNL_ASSERT in __dev_set_promiscuity.
 
-diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-index c28a0a4..047ea7b 100644
---- a/drivers/net/macb.c
-+++ b/drivers/net/macb.c
-@@ -492,7 +492,7 @@ static int macb_poll(struct napi_struct *napi, int =
-budget)
- 	}
-=20
- 	dev_dbg(&bp->pdev->dev, "poll: status =3D %08lx, budget =3D %d\n",
--		(unsigned long)status, *budget);
-+		(unsigned long)status, budget);
-=20
- 	if (!(status & MACB_BIT(REC))) {
- 		dev_warn(&bp->pdev->dev,
-@@ -503,7 +503,7 @@ static int macb_poll(struct napi_struct *napi, int =
-budget)
- 	}
-=20
- 	work_done =3D macb_rx(bp, budget);
--	if (work_done < orig_budget)
-+	if (work_done < budget)
- 		netif_rx_complete(dev, napi);
-=20
- 	/*
---=20
-1.5.3.1
 
+I think this doesn't completely fix it, when dev_unicast_add is
+interrupted by dev_mc_add before the unicast changes are performed,
+they will get committed in the dev_mc_add context, so we might still
+call change_flags with BH disabled. Taking the TX lock around the
+dev->uc_count and dev->uc_promisc checks and changes in __dev_set_rx_mode
+should fix this.
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Microsoft
+Defy all challenges. Microsoft(R) Visual Studio 2005.
+http://clk.atdmt.com/MRT/go/vse0120000070mrt/direct/01/
+_______________________________________________
+linux-usb-devel@lists.sourceforge.net
+To unsubscribe, use the last form field at:
+https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
