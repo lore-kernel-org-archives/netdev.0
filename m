@@ -1,53 +1,62 @@
-From: lm@bitmover.com (Larry McVoy)
-Subject: Re: tcp bw in 2.6
-Date: Tue, 2 Oct 2007 10:20:02 -0700
-Message-ID: <20071002172002.GO17418@bitmover.com>
-References: <20070929142517.EC6AB5FB21@work.bitmover.com> <alpine.LFD.0.999.0709290914410.3579@woody.linux-foundation.org> <20070929172639.GB7037@bitmover.com> <alpine.LFD.0.999.0709291050200.3579@woody.linux-foundation.org> <20071002005917.GB5480@bitmover.com> <alpine.LFD.0.999.0710011858400.3579@woody.linux-foundation.org> <20071002022059.GE7037@bitmover.com> <47027C63.803@hp.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] drivers/net/r8169.c - trivial - add KERN_DEBUG to
+	dprintk and PFX before KERN_ uses
+Date: Tue, 02 Oct 2007 10:06:37 -0700
+Message-ID: <1191344797.13170.41.camel@localhost>
+References: <1191343038.13170.32.camel@localhost>
+	 <47027895.3050208@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Larry McVoy <lm@bitmover.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	davem@davemloft.net, wscott@bitmover.com, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ipcop.bitmover.com ([192.132.92.15]:43525 "EHLO
-	mail.bitmover.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754396AbXJBRUD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 13:20:03 -0400
-Content-Disposition: inline
-In-Reply-To: <47027C63.803@hp.com>
+Received: from DSL022.labridge.com ([206.117.136.22]:3115 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754640AbXJBRU2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2007 13:20:28 -0400
+In-Reply-To: <47027895.3050208@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 02, 2007 at 10:14:11AM -0700, Rick Jones wrote:
-> Larry McVoy wrote:
-> >A short summary is "can someone please post a test program that sources
-> >and sinks data at the wire speed?"  because apparently I'm too old and
-> >clueless to write such a thing.
+On Tue, 2007-10-02 at 12:57 -0400, Jeff Garzik wrote:
+> \> @@ -1924,7 +1925,7 @@ static void rtl_hw_start_8169(struct net_device *dev)
+> >  
+> >  	if ((tp->mac_version == RTL_GIGA_MAC_VER_02) ||
+> >  	    (tp->mac_version == RTL_GIGA_MAC_VER_03)) {
+> > -		dprintk(KERN_INFO PFX "Set MAC Reg C+CR Offset 0xE0. "
+> > +		dprintk("Set MAC Reg C+CR Offset 0xE0. "
+> >  			"Bit-3 and bit-14 MUST be 1\n");
+> >  		tp->cp_cmd |= (1 << 14);
+> >  	}
 > 
-> WRT the different speeds in each direction talking with HP-UX, perhaps 
-> there is an interaction between the Linux TCP stack (TSO perhaps) and 
-> HP-UX's ACK avoidance heuristics. If that is the case, tweaking 
-> tcp_deferred_ack_max with ndd on the HP-UX system might yield different 
-> results.
+> NAK these, the author clearly prefers his debugging output at KERN_INFO 
+> level
 
-I doubt it because I see the same sort of behaviour when I have a group
-of Linux clients talking to the server.  The HP box is in the mix
-simply because it has a gigabit card and that makes driving the load
-simpler.  But if I do several loads from 100Mbit clients I get the same
-packet throughput.
+This fixes an expanded printk(PFX KERN_INFO PFX foo) bug.
 
-> WRT the small program making a setsockopt(SO_*BUF) call going slower than 
-> the rsh, does rsh make the setsockopt() call, or does it bend itself to the 
-> will of the linux stack's autotuning?  What happens if your small program 
-> does not make setsockopt(SO_*BUF) calls?
+That the author "clearly prefers" is dubious.
 
-I haven't tracked down if rsh does that but I've tried doing it with 
-values of default, 64K, 1MB, and 10MB with no difference.
+The rest of the dprintk uses are undefined.
 
-> *) depending on the quantity of CPU around, and the type of test one is 
+$ grep dprintk drivers/net/r8169.c
+        dprintk("mac_version = 0x%02x\n", tp->mac_version);
+                        dprintk("phy_version == %s (%04x)\n", p->msg, p->reg);
+        dprintk("phy_version == Unknown\n");
+        dprintk("MAC version != 0 && PHY version == 0 or 1\n");
+        dprintk("Do final_reg2.cfg\n");
+        dprintk("Set MAC Reg C+CR Offset 0x82h = 0x01h\n");
+                dprintk("Set MAC Reg C+CR Offset 0x82h = 0x01h\n");
+                dprintk("Set PHY Reg 0x0bh = 0x00h\n");
+                dprintk(KERN_INFO PFX "Set MAC Reg C+CR Offset 0xE0. "
 
-These are fast CPUs and they are running at 93% idle while running the test.
--- 
----
-Larry McVoy                lm at bitmover.com           http://www.bitkeeper.com
+If the author does so prefer KERN_INFO levels, it's better to use:
+
+#define dprintk(fmt, arg...) \
+	do { printk(KERN_INFO PFX fmt, ## arg); } while (0)
+
+cheers,  Joe
+
+
