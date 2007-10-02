@@ -1,59 +1,58 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: tcp bw in 2.6
-Date: Tue, 2 Oct 2007 09:34:01 -0700 (PDT)
-Message-ID: <alpine.LFD.0.999.0710020930250.3579@woody.linux-foundation.org>
-References: <20071002005917.GB5480@bitmover.com> <E1IcfN0-0007tt-00@gondolin.me.apana.org.au>
- <20071002150935.GC17418@bitmover.com>
- <20071002154137.GD17418@bitmover.com>
+From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Subject: Re: [PATCH 5/7] CAN: Add virtual CAN netdevice driver
+Date: Tue, 2 Oct 2007 13:46:21 -0300
+Message-ID: <20071002164621.GA3576@ghostprotocols.net>
+References: <20071002131006.31727.0@janus.isnogud.escape.de> <20071002131112.31727.5@janus.isnogud.escape.de> <20071002142016.GE7881@ghostprotocols.net> <47025EBC.5000301@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
-	wscott@bitmover.com, netdev@vger.kernel.org
-To: Larry McVoy <lm@bitmover.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Urs Thuermann <urs@isnogud.escape.de>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>
+To: Oliver Hartkopp <oliver@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:36425 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751761AbXJBQe4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 12:34:56 -0400
-In-Reply-To: <20071002154137.GD17418@bitmover.com>
+Received: from nf-out-0910.google.com ([64.233.182.188]:40265 "EHLO
+	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751669AbXJBQqe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 12:46:34 -0400
+Received: by nf-out-0910.google.com with SMTP id g13so3318306nfb
+        for <netdev@vger.kernel.org>; Tue, 02 Oct 2007 09:46:32 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <47025EBC.5000301@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Em Tue, Oct 02, 2007 at 05:07:40PM +0200, Oliver Hartkopp escreveu:
+> Arnaldo Carvalho de Melo wrote:
+>> Em Tue, Oct 02, 2007 at 03:10:11PM +0200, Urs Thuermann escreveu:
+>>   
+>>> +
+>>> +/* To be moved to linux/can/dev.h */
+>>>     
+>>
+>> Is this comment still valid? If so can this move happen now? If not I
+>> think it would be better to stick a "FIXME: " just before it, no?
+>>
+>>   
+>
+> Bringing all the current available CAN network device drivers into Kernel 
+> style qualitiy is a TODO for the time after the PF_CAN core is mainlined.
+>
+> When more than this single vcan CAN netdev driver is part of the Kernel it 
+> makes sense to put several things (like the common configuration interface 
+> and commonly used library funtions for CAN drivers) into linux/can/dev.h. 
+> And at that time this currently local DEBUG definition should go there 
+> togehther with the other stuff.
+>
+> Please think of all the comments, if we created a single dev.h file with a 
+> single DEBUG definition used by a single vcan.c file ;-)
 
+Don't get to defensive. You know a lot more than me about the code you
+worked for that many years. Its just that it looked suspicious for a
+casual reviewer. :-)
 
-On Tue, 2 Oct 2007, Larry McVoy wrote:
-
-> Interesting data point.  My test case is like this:
-> 
-> server
-> 	bind
-> 	listen
-> 	while (newsock = accept...)
-> 		transfer()
-> 
-> client
-> 	connect
-> 	transfer
-> 
-> If the server side is the source of the data, i.e, it's transfer is a 
-> write loop, then I get the bad behaviour.  If I switch them so the data
-> flows in the other direction, then it works, I go from about 14K pkt/sec
-> to 43K pkt/sec.
-
-Sounds like accept() possibly initializes slightly different socket 
-parameters than connect() does. 
-
-On the other hand, different network cards will simply have different 
-behaviour (some due to hardware, some due to driver differences), so I 
-hope you also switched the processes around and/or used identically 
-configured machines (and the port configuration on switches could matter, 
-of course, so it's really best to switch the processes around, to make 
-sure that the *only* difference is whether the socket was set up by 
-accept() vs connect()).
-
-> So is this a bug or intentional?
-
-Sounds like a bug to me, modulo the above caveat of making sure that it's 
-not some hw/driver/switch kind of difference.
-
-			Linus
+- Arnaldo
