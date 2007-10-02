@@ -1,43 +1,47 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [ofa-general] InfiniBand/RDMA merge plans for 2.6.24
-Date: Tue, 02 Oct 2007 11:26:53 -0700
-Message-ID: <adaprzxgyoi.fsf@cisco.com>
-References: <adahclymos8.fsf@cisco.com>
-	<000401c7f632$c993e8e0$65cc180a@amr.corp.intel.com>
-	<adatzpyl1mm.fsf@cisco.com>
-	<000001c7f6f7$074584e0$9c98070a@amr.corp.intel.com>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: tcp bw in 2.6
+Date: Tue, 02 Oct 2007 14:29:03 -0400
+Message-ID: <47028DEF.5070009@psc.edu>
+References: <20071002005917.GB5480@bitmover.com> <E1IcfN0-0007tt-00@gondolin.me.apana.org.au> <20071002150935.GC17418@bitmover.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: "Sean Hefty" <sean.hefty@intel.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <000001c7f6f7$074584e0$9c98070a@amr.corp.intel.com> (Sean Hefty's
-	message of "Fri, 14 Sep 2007 10:45:23 -0700")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: lm@bitmover.com, Herbert Xu <herbert@gondor.apana.org.au>,
+	torvalds@linux-foundation.org, davem@davemloft.net,
+	wscott@bitmover.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailer1.psc.edu ([128.182.58.100]:62962 "EHLO mailer1.psc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754022AbXJBS3V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2007 14:29:21 -0400
+In-Reply-To: <20071002150935.GC17418@bitmover.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > >OK -- just to make sure I'm understanding what you're saying: have you
- > >confirmed that your proposed [CM MRA] patches actually fix the issue?
- > 
- > Not directly.  I cannot easily test kernel patches on our larger, production
- > clusters.  We've seen the issue with specific applications on 512 and 1024
- > cores, but I've only been able to test the patch on a 48-core cluster.  I have
- > verified that it successfully increases the timeout to where it *should* work,
- > but cannot absolutely confirm that it will fix the problem.  I'm unlikely to
- > know that until the production clusters move to an OFED release (1.3?)
- > containing this patch.
+Larry McVoy wrote:
+> On Tue, Oct 02, 2007 at 06:52:54PM +0800, Herbert Xu wrote:
+>>> One of my clients also has gigabit so I played around with just that
+>>> one and it (itanium running hpux w/ broadcom gigabit) can push the load
+>>> as well.  One weird thing is that it is dependent on the direction the
+>>> data is flowing.  If the hp is sending then I get 46MB/sec, if linux is
+>>> sending then I get 18MB/sec.  Weird.  Linux is debian, running 
+>> First of all check the CPU load on both sides to see if either
+>> of them is saturating.  If the CPU's fine then look at the tcpdump
+>> output to see if both receivers are using the same window settings.
+> 
+> tcpdump is a good idea, take a look at this.  The window starts out
+> at 46 and never opens up in my test case, but in the rsh case it 
+> starts out the same but does open up.  Ideas?
 
-Umm... this is a difficult situation for me to merge the changes then.
-We're changing the CM retry behavior blind here.  How do we know that
-the MRA changes don't make the scalability issue worse?
+(Binary tcpdumps are always better than ascii.)
 
- - R.
+The window on the sender (linux box) starts at 46.  It doesn't open up, 
+but it's not receiving data so it doesn't matter, and you don't expect 
+it to.  The HP box always announces a window of 32768.
+
+Looks like you have TSO enabled.  Does it behave differently if it's 
+disabled?  I think Rick Jones is on to something with the HP ack 
+avoidance.  Looks like a pretty low ack ratio, and it might not be 
+interacting well with TSO, especially at such a small window size.
+
+   -John
