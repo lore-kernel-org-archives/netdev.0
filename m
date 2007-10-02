@@ -1,45 +1,32 @@
-From: "Dale Farnsworth" <dale@farnsworth.org>
-Subject: [PATCH] mv643xx_eth: Do not modify struct netdev tx_queue_len
-Date: Mon, 1 Oct 2007 16:02:18 -0700
-Message-ID: <20071001230218.GA27461@xyzzy.farnsworth.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH][TG3]Some cleanups
+Date: Mon, 01 Oct 2007 17:21:44 -0700
+Message-ID: <1191284504.25892.129.camel@dell>
+References: <1191175890.6165.17.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Matt Carlson" <mcarlson@broadcom.com>,
+	"netdev" <netdev@vger.kernel.org>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xyzzy.farnsworth.org ([65.39.95.219]:48284 "HELO farnsworth.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751917AbXJAXCU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 1 Oct 2007 19:02:20 -0400
-Content-Disposition: inline
+Received: from mms1.broadcom.com ([216.31.210.17]:1311 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751628AbXJAXWy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 1 Oct 2007 19:22:54 -0400
+In-Reply-To: <1191175890.6165.17.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dale Farnsworth <dale@farnsworth.org>
+On Sun, 2007-09-30 at 14:11 -0400, jamal wrote:
+> Here are some non-batching related changes that i have in my batching
+> tree. Like the e1000e, they make the xmit code more readable.
+> I wouldnt mind if you take them over.
+> 
 
-This driver erroneously zeros dev->tx_queue_len, since
-mp->tx_ring_size has not yet been initialized.  Actually,
-the driver shouldn't modify tx_queue_len at all and should
-leave the value set by alloc_etherdev(), currently 1000.
+Jamal, in tg3_enqueue_buggy(), we may have to call tg3_tso_bug() which
+will recursively call tg3_start_xmit_dma_bug() after segmenting the TSO
+packet into normal packets.  We need to restore the VLAN tag so that the
+GSO code will create the chain of segmented SKBs with the proper VLAN
+tag.
 
-Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
----
-Jeff, this bug was just reported today, or I would have batched
-it with the one I sent you last week.  It's an obvious bugfix,
-so I'm not going to hold it in my queue.
-
- drivers/net/mv643xx_eth.c |    1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 34288fe..3153356 100644
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -1357,7 +1357,6 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
- #endif
- 
- 	dev->watchdog_timeo = 2 * HZ;
--	dev->tx_queue_len = mp->tx_ring_size;
- 	dev->base_addr = 0;
- 	dev->change_mtu = mv643xx_eth_change_mtu;
- 	dev->do_ioctl = mv643xx_eth_do_ioctl;
