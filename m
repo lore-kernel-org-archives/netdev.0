@@ -1,56 +1,32 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [patch 09/13] forcedeth: "no link" is informational
-Date: Tue, 2 Oct 2007 14:49:24 -0700
-Message-ID: <20071002144924.2055022d@freepuppy.rosehill>
-References: <200710022111.l92LBf6c022501@imap1.linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 5/7] CAN: Add virtual CAN netdevice driver
+Date: Tue, 02 Oct 2007 14:50:34 -0700 (PDT)
+Message-ID: <20071002.145034.15615464.davem@davemloft.net>
+References: <20071002142016.GE7881@ghostprotocols.net>
+	<4702B1FD.70102@hartkopp.net>
+	<20071002214325.GB3576@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, akpm@linux-foundation.org,
-	eswierk@arastra.com, aabdulla@nvidia.com
-To: akpm@linux-foundation.org
+Cc: oliver@hartkopp.net, urs@isnogud.escape.de, netdev@vger.kernel.org,
+	kaber@trash.net, tglx@linutronix.de, yoshfuji@linux-ipv6.org,
+	ebiederm@xmission.com, oliver.hartkopp@volkswagen.de,
+	urs.thuermann@volkswagen.de
+To: acme@ghostprotocols.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:40203 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753886AbXJBVtm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 17:49:42 -0400
-In-Reply-To: <200710022111.l92LBf6c022501@imap1.linux-foundation.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47477
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753901AbXJBVuf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 17:50:35 -0400
+In-Reply-To: <20071002214325.GB3576@ghostprotocols.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 02 Oct 2007 14:11:41 -0700
-akpm@linux-foundation.org wrote:
+From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Date: Tue, 2 Oct 2007 18:43:25 -0300
 
-> From: "Ed Swierk" <eswierk@arastra.com>
-> 
-> Log "no link during initialization" at KERN_INFO as it's not an error, and
-> occurs every time the interface comes up (when the forcedeth-phy-power-down
-> patch is applied).
-> 
-> Signed-off-by: Ed Swierk <eswierk@arastra.com>
-> Cc: Ayaz Abdulla <aabdulla@nvidia.com>
-> Cc: Jeff Garzik <jeff@garzik.org>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> ---
-> 
->  drivers/net/forcedeth.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff -puN drivers/net/forcedeth.c~forcedeth-no-link-is-informational drivers/net/forcedeth.c
-> --- a/drivers/net/forcedeth.c~forcedeth-no-link-is-informational
-> +++ a/drivers/net/forcedeth.c
-> @@ -4921,7 +4921,7 @@ static int nv_open(struct net_device *de
->  	if (ret) {
->  		netif_carrier_on(dev);
->  	} else {
-> -		printk("%s: no link during initialization.\n", dev->name);
-> +		printk(KERN_INFO "%s: no link during initialization.\n", dev->name);
->  		netif_carrier_off(dev);
->  	}
->  	if (oom)
+> I think that helping ctags to find the definition for the debug variable
+> to see, for instance, if it is a bitmask or a boolean without having to
+> chose from tons of 'debug' variables is a good thing.
 
-Driver should use netif_msg_link_up()
-
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+I completely agree.
