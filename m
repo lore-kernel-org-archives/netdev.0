@@ -1,25 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: Please pull 'upstream-davem' branch of wireless-2.6
-Date: Wed, 03 Oct 2007 14:52:12 -0700 (PDT)
-Message-ID: <20071003.145212.88476417.davem@davemloft.net>
-References: <20071003012552.GE29361@tuxdriver.com>
-	<20071002.190156.41633562.davem@davemloft.net>
-	<20071003141051.GA5790@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fix race in process_backlog
+Date: Wed, 03 Oct 2007 14:58:07 -0700 (PDT)
+Message-ID: <20071003.145807.111205634.davem@davemloft.net>
+References: <1191426293.5599.27.camel@lappy>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20071003141051.GA5790-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	shemminger@linux-foundation.org, jdike@addtoit.com
+To: a.p.zijlstra@chello.nl
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758768AbXJCV6Y@vger.kernel.org>
+In-Reply-To: <1191426293.5599.27.camel@lappy>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Wed, 3 Oct 2007 10:10:51 -0400
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Date: Wed, 03 Oct 2007 17:44:53 +0200
 
-> So I'm not sure what happened for you.  But I think it must have been
-> some other anomaly.
+> Index: linux-2.6/net/core/dev.c
+> ===================================================================
+> --- linux-2.6.orig/net/core/dev.c
+> +++ linux-2.6/net/core/dev.c
+> @@ -2095,11 +2095,11 @@ static int process_backlog(struct napi_s
+>  
+>  		local_irq_disable();
+>  		skb = __skb_dequeue(&queue->input_pkt_queue);
+> -		local_irq_enable();
+>  		if (!skb) {
+> -			napi_complete(napi);
+> +			__napi_complete(napi);
+>  			break;
+>  		}
+> +		local_irq_enable();
 
-Ok, I'll take some detailed notes next time it happens so we can
-figure out why :-)
+What re-enables interrupts in the !skb path?
