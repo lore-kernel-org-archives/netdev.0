@@ -1,26 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [git patches] net driver updates
-Date: Tue, 02 Oct 2007 16:38:15 -0700 (PDT)
-Message-ID: <20071002.163815.110526636.davem@davemloft.net>
-References: <20071002174150.GA29780@havoc.gtf.org>
+From: Sonny <smaniaol@gmail.com>
+Subject: Kernel 2.4 vs 2.6 Traffic Controller Performance
+Date: Wed, 3 Oct 2007 08:30:02 +0800
+Message-ID: <9dbec86d0710021730g2cfaeb16o7057700b970f7e8d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jeff@garzik.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55775
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752734AbXJBXiP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 19:38:15 -0400
-In-Reply-To: <20071002174150.GA29780@havoc.gtf.org>
+Received: from wx-out-0506.google.com ([66.249.82.225]:61435 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753528AbXJCAaO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 20:30:14 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so3805583wxd
+        for <netdev@vger.kernel.org>; Tue, 02 Oct 2007 17:30:13 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Tue, 2 Oct 2007 13:41:50 -0400
-
-> Please pull from the 'upstream' branch of
-> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream
-
-Pulled and pushed back out to net-2.6.24, thanks Jeff!
+Hello
+I hope this is the right place to ask this.Does any know if there is a
+substantial difference in the performance of the traffic controller
+between kernel 2.4 and 2.6. We tested it using 1 iperf server and use
+250 and 500 clients, altering the burst. We use the top command to
+check the idle time of our router to see this. The results we got from
+the 2.4 kernel shows around 65-70% idle time while the 2.6 shows
+60-65% idle time. We tried to use MRTG and we're not getting any
+results either. We want to know if we could improve the bandwidth by
+upgrading the kernel, else we would have to get a new bandwidth
+manager.  Could anyone have the similar test regarding this or suggest
+a better way to do this. Thanks in advance.
