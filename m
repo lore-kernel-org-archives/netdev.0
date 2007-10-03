@@ -1,152 +1,69 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] Fix rose.ko oops on unload
-Date: Wed, 3 Oct 2007 22:54:13 +0400
-Message-ID: <20071003185413.GA16242@martell.zuzino.mipt.ru>
+From: Ian Kumlien <pomac@vapor.com>
+Subject: Re: [PATCH] sky2: jumbo frame regression fix
+Date: Wed, 03 Oct 2007 20:28:21 +0200
+Message-ID: <1191436101.26233.32.camel@localhost>
+References: <1191372129.26233.12.camel@localhost>
+	 <20071002180209.47c350a3@freepuppy.rosehill>
+	 <1191375274.26233.17.camel@localhost>  <4703D9B6.109@tmr.com>
+Reply-To: pomac@vapor.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, pidoux@ccr.jussieu.fr
-To: ralf@linux-mips.org, davem@davemloft.net
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-R68h9pbvMfJOlIsTTHGs"
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>, Linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Bill Davidsen <davidsen@tmr.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.171]:5570 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751101AbXJCSzD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2007 14:55:03 -0400
-Received: by ug-out-1314.google.com with SMTP id z38so190010ugc
-        for <netdev@vger.kernel.org>; Wed, 03 Oct 2007 11:55:01 -0700 (PDT)
-Content-Disposition: inline
+Received: from mail.vapor.com ([85.114.133.49]:40727 "EHLO mail.vapor.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751282AbXJCTDk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Oct 2007 15:03:40 -0400
+In-Reply-To: <4703D9B6.109@tmr.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Quick'n'dirty fix to 100% oops on "rmmod rose". Do you want me to
-properly unwind everything before .24?
------------
-Commit a3d384029aa304f8f3f5355d35f0ae274454f7cd aka
-"[AX.25]: Fix unchecked rose_add_loopback_neigh uses"
-transformed rose_loopback_neigh var into statically allocated one.
-However, on unload it will be kfree's which can't work.
 
-Steps to reproduce:
+--=-R68h9pbvMfJOlIsTTHGs
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-	modprobe rose
-	rmmod rose
+On ons, 2007-10-03 at 14:04 -0400, Bill Davidsen wrote:
+> Ian Kumlien wrote:
+> > On tis, 2007-10-02 at 18:02 -0700, Stephen Hemminger wrote:
+> >> Remove unneeded check that caused problems with jumbo frame sizes.
+> >> The check was recently added and is wrong.
+> >> When using jumbo frames the sky2 driver does fragmentation, so
+> >> rx_data_size is less than mtu.
+> >=20
+> > Confirmed working.
+> >=20
+> > Now running with 9k mtu with no errors, =3D)
+>=20
+> Have you verified that you are actually getting jumbo packets out of the=20
+> NIC? I had one machine which did standard packets silently using sky2=20
+> and jumbo using sk98lin. I was looking for something else with tcpdump=20
+> and got one of those WTF moments when I saw all the tiny packets.
 
-BUG: unable to handle kernel NULL pointer dereference at virtual address 00000008
- printing eip:
-c014c664
-*pde = 00000000
-Oops: 0000 [#1]
-PREEMPT DEBUG_PAGEALLOC
-Modules linked in: rose ax25 fan ufs loop usbhid rtc snd_intel8x0 snd_ac97_codec ehci_hcd ac97_bus uhci_hcd thermal usbcore button processor evdev sr_mod cdrom
-CPU:    0
-EIP:    0060:[<c014c664>]    Not tainted VLI
-EFLAGS: 00210086   (2.6.23-rc9 #3)
-EIP is at kfree+0x48/0xa1
-eax: 00000556   ebx: c1734aa0   ecx: f6a5e000   edx: f7082000
-esi: 00000000   edi: f9a55d20   ebp: 00200287   esp: f6a5ef28
-ds: 007b   es: 007b   fs: 0000  gs: 0033  ss: 0068
-Process rmmod (pid: 1823, ti=f6a5e000 task=f7082000 task.ti=f6a5e000)
-Stack: f9a55d20 f9a5200c 00000000 00000000 00000000 f6a5e000 f9a5200c f9a55a00 
-       00000000 bf818cf0 f9a51f3f f9a55a00 00000000 c0132c60 65736f72 00000000 
-       f69f9630 f69f9528 c014244a f6a4e900 00200246 f7082000 c01025e6 00000000 
-Call Trace:
- [<f9a5200c>] rose_rt_free+0x1d/0x49 [rose]
- [<f9a5200c>] rose_rt_free+0x1d/0x49 [rose]
- [<f9a51f3f>] rose_exit+0x4c/0xd5 [rose]
- [<c0132c60>] sys_delete_module+0x15e/0x186
- [<c014244a>] remove_vma+0x40/0x45
- [<c01025e6>] sysenter_past_esp+0x8f/0x99
- [<c012bacf>] trace_hardirqs_on+0x118/0x13b
- [<c01025b6>] sysenter_past_esp+0x5f/0x99
- =======================
-Code: 05 03 1d 80 db 5b c0 8b 03 25 00 40 02 00 3d 00 40 02 00 75 03 8b 5b 0c 8b 73 10 8b 44 24 18 89 44 24 04 9c 5d fa e8 77 df fd ff <8b> 56 08 89 f8 e8 84 f4 fd ff e8 bd 32 06 00 3b 5c 86 60 75 0f 
-EIP: [<c014c664>] kfree+0x48/0xa1 SS:ESP 0068:f6a5ef28
+20:27:06.542461 IP pi.local > blue.local: ICMP echo request, id 27173, seq =
+42, length 8008
+20:27:06.543136 IP blue.local > pi.local: ICMP echo reply, id 27173, seq 42=
+, length 8008
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+That should solve it for us, right? =3D)
 
- include/net/rose.h       |    2 +-
- net/rose/rose_loopback.c |    4 ++--
- net/rose/rose_route.c    |   15 ++++++++++-----
- 3 files changed, 13 insertions(+), 8 deletions(-)
+--=20
+Ian Kumlien <pomac () vapor ! com> -- http://pomac.netswarm.net
 
---- a/include/net/rose.h
-+++ b/include/net/rose.h
-@@ -188,7 +188,7 @@ extern void rose_kick(struct sock *);
- extern void rose_enquiry_response(struct sock *);
- 
- /* rose_route.c */
--extern struct rose_neigh rose_loopback_neigh;
-+extern struct rose_neigh *rose_loopback_neigh;
- extern const struct file_operations rose_neigh_fops;
- extern const struct file_operations rose_nodes_fops;
- extern const struct file_operations rose_routes_fops;
---- a/net/rose/rose_loopback.c
-+++ b/net/rose/rose_loopback.c
-@@ -79,7 +79,7 @@ static void rose_loopback_timer(unsigned long param)
- 
- 		skb_reset_transport_header(skb);
- 
--		sk = rose_find_socket(lci_o, &rose_loopback_neigh);
-+		sk = rose_find_socket(lci_o, rose_loopback_neigh);
- 		if (sk) {
- 			if (rose_process_rx_frame(sk, skb) == 0)
- 				kfree_skb(skb);
-@@ -88,7 +88,7 @@ static void rose_loopback_timer(unsigned long param)
- 
- 		if (frametype == ROSE_CALL_REQUEST) {
- 			if ((dev = rose_dev_get(dest)) != NULL) {
--				if (rose_rx_call_request(skb, dev, &rose_loopback_neigh, lci_o) == 0)
-+				if (rose_rx_call_request(skb, dev, rose_loopback_neigh, lci_o) == 0)
- 					kfree_skb(skb);
- 			} else {
- 				kfree_skb(skb);
---- a/net/rose/rose_route.c
-+++ b/net/rose/rose_route.c
-@@ -45,7 +45,7 @@ static DEFINE_SPINLOCK(rose_neigh_list_lock);
- static struct rose_route *rose_route_list;
- static DEFINE_SPINLOCK(rose_route_list_lock);
- 
--struct rose_neigh rose_loopback_neigh;
-+struct rose_neigh *rose_loopback_neigh;
- 
- /*
-  *	Add a new route to a node, and in the process add the node and the
-@@ -362,7 +362,12 @@ out:
-  */
- void rose_add_loopback_neigh(void)
- {
--	struct rose_neigh *sn = &rose_loopback_neigh;
-+	struct rose_neigh *sn;
-+
-+	rose_loopback_neigh = kmalloc(sizeof(struct rose_neigh), GFP_KERNEL);
-+	if (!rose_loopback_neigh)
-+		return;
-+	sn = rose_loopback_neigh;
- 
- 	sn->callsign  = null_ax25_address;
- 	sn->digipeat  = NULL;
-@@ -417,13 +422,13 @@ int rose_add_loopback_node(rose_address *address)
- 	rose_node->mask         = 10;
- 	rose_node->count        = 1;
- 	rose_node->loopback     = 1;
--	rose_node->neighbour[0] = &rose_loopback_neigh;
-+	rose_node->neighbour[0] = rose_loopback_neigh;
- 
- 	/* Insert at the head of list. Address is always mask=10 */
- 	rose_node->next = rose_node_list;
- 	rose_node_list  = rose_node;
- 
--	rose_loopback_neigh.count++;
-+	rose_loopback_neigh->count++;
- 
- out:
- 	spin_unlock_bh(&rose_node_list_lock);
-@@ -454,7 +459,7 @@ void rose_del_loopback_node(rose_address *address)
- 
- 	rose_remove_node(rose_node);
- 
--	rose_loopback_neigh.count--;
-+	rose_loopback_neigh->count--;
- 
- out:
- 	spin_unlock_bh(&rose_node_list_lock);
+--=-R68h9pbvMfJOlIsTTHGs
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.7-ecc0.1.6 (GNU/Linux)
+
+iD8DBQBHA99F7F3Euyc51N8RAlk1AJ0WI17LtLVgeKsFWt4Ols8WF++RRgCfTUH7
+9GATVqC1aWjgE6ZuLXECwuI=
+=Xow7
+-----END PGP SIGNATURE-----
+
+--=-R68h9pbvMfJOlIsTTHGs--
+
