@@ -1,76 +1,93 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH v4] qe: miscellaneous code improvements and fixes to the
- QE library
-Date: Wed, 3 Oct 2007 09:44:49 -0700
-Message-ID: <20071003094449.702c4a90@freepuppy.rosehill>
-References: <1191429299378-git-send-email-timur@freescale.com>
+From: Dave Jones <davej@redhat.com>
+Subject: lockdep report from bonding.
+Date: Wed, 3 Oct 2007 13:05:14 -0400
+Message-ID: <20071003170514.GA32239@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	galak@kernel.crashing.org, Timur Tabi <timur@freescale.com>
-To: Timur Tabi <timur@freescale.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:43829 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751614AbXJCQpS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2007 12:45:18 -0400
-In-Reply-To: <1191429299378-git-send-email-timur@freescale.com>
+Received: from mx1.redhat.com ([66.187.233.31]:43240 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752325AbXJCRFa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Oct 2007 13:05:30 -0400
+Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
+	by mx1.redhat.com (8.13.8/8.13.1) with ESMTP id l93H5TWm006587
+	for <netdev@vger.kernel.org>; Wed, 3 Oct 2007 13:05:29 -0400
+Received: from gelk.kernelslacker.org (vpn-14-3.rdu.redhat.com [10.11.14.3])
+	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id l93H5Rb4017868
+	for <netdev@vger.kernel.org>; Wed, 3 Oct 2007 13:05:29 -0400
+Received: from gelk.kernelslacker.org (localhost.localdomain [127.0.0.1])
+	by gelk.kernelslacker.org (8.14.1/8.13.8) with ESMTP id l93H5KVb004781
+	for <netdev@vger.kernel.org>; Wed, 3 Oct 2007 13:05:20 -0400
+Received: (from davej@localhost)
+	by gelk.kernelslacker.org (8.14.1/8.14.1/Submit) id l93H5Eno004779
+	for netdev@vger.kernel.org; Wed, 3 Oct 2007 13:05:14 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed,  3 Oct 2007 11:34:59 -0500
-Timur Tabi <timur@freescale.com> wrote:
+Reported by a Fedora user this morning.
 
-> This patch makes numerous miscellaneous code improvements to the QE library.
-> 
-> 1. Remove struct ucc_common and merge ucc_init_guemr() into ucc_set_type()
->    (every caller of ucc_init_guemr() also calls ucc_set_type()).  Modify all
->    callers of ucc_set_type() accordingly.
-> 
-> 2. Remove the unused enum ucc_pram_initial_offset.
-> 
-> 3. Refactor qe_setbrg(), also implement work-around for errata QE_General4.
-> 
-> 4. Several printk() calls were missing the terminating \n.
-> 
-> 5. Add __iomem where needed, and change u16 to __be16 and u32 to __be32 where
->    appropriate.
-> 
-> 6. In ucc_slow_init() the RBASE and TBASE registers in the PRAM were programmed
->    with the wrong value.
-> 
-> 7. Add the protocol type to struct us_info and updated ucc_slow_init() to
->    use it, instead of always programming QE_CR_PROTOCOL_UNSPECIFIED.
-> 
-> 8. Rename ucc_slow_restart_x() to ucc_slow_restart_tx()
-> 
-> 9. Add several macros in qe.h (mostly for slow UCC support, but also to
->    standardize some naming convention) and remove several unused macros.
-> 
-> 10. Update ucc_geth.c to use the new macros.
-> 
-> 11. Add ucc_slow_info.protocol to specify which QE_CR_PROTOCOL_xxx protcol
->     to use when initializing the UCC in ucc_slow_init().
-> 
-> 12. Rename ucc_slow_pram.rfcr to rbmr and ucc_slow_pram.tfcr to tbmr, since
->     these are the real names of the registers.
-> 
-> 13. Use the setbits, clrbits, and clrsetbits where appropriate.
-> 
-> 14. Refactor ucc_set_qe_mux_rxtx().
-> 
-> 15. Remove all instances of 'volatile'.
-> 
-> 16. Simplify get_cmxucr_reg();
-> 
-> 17. Replace qe_mux.cmxucrX with qe_mux.cmxucr[].
-> 
-> 18. Updated struct ucc_geth because struct ucc_fast is not padded any more.
-> 
-> Signed-off-by: Timur Tabi <timur@freescale.com>
-> ---
-> 
+Ethernet Channel Bonding Driver: v3.1.3 (June 13, 2007)
+bonding: MII link monitoring set to 100 ms
+ADDRCONF(NETDEV_UP): bond0: link is not ready
+bonding: bond0: Adding slave eth0.
+e100: eth0: e100_watchdog: link up, 100Mbps, full-duplex
+bonding: bond0: making interface eth0 the new active one.
+bonding: bond0: enslaving eth0 as an active interface with an up link.
 
-Separate the changes into individual patches to allow for better comment/review
-and bisection in case of regression.
+=================================
+[ INFO: inconsistent lock state ]
+2.6.23-0.214.rc8.git2.fc8 #1
+---------------------------------
+inconsistent {softirq-on-W} -> {in-softirq-W} usage.
+events/1/10 [HC0[0]:SC1[1]:HE1:SE0] takes:
+ (&(bond_info->tx_hashtbl_lock)){-+..}, at: [<f8ad154c>] tlb_clear_slave+0x1d/0x9a [bonding]
+{softirq-on-W} state was registered at:
+  [<c0449fb0>] __lock_acquire+0x4ff/0xc67
+  [<c044ab92>] lock_acquire+0x7b/0x9e
+  [<c0633050>] _spin_lock+0x2e/0x58
+  [<f8ad293a>] bond_alb_initialize+0x64/0x18e [bonding]
+  [<f8acf25f>] bond_open+0x33/0x178 [bonding]
+  [<c05ceb36>] dev_open+0x31/0x6c
+  [<c05ccc8d>] dev_change_flags+0xa3/0x156
+  [<c060d579>] devinet_ioctl+0x207/0x50e
+  [<c060dc27>] inet_ioctl+0x86/0xa4
+  [<c05c2e62>] sock_ioctl+0x1ac/0x1c9
+  [<c04942a2>] do_ioctl+0x22/0x68
+  [<c0494531>] vfs_ioctl+0x249/0x25c
+  [<c049458d>] sys_ioctl+0x49/0x64
+  [<c040522e>] syscall_call+0x7/0xb
+  [<ffffffff>] 0xffffffff
+irq event stamp: 40878
+hardirqs last  enabled at (40878): [<c0633474>] _spin_unlock_irq+0x22/0x2f
+hardirqs last disabled at (40877): [<c063339d>] _spin_lock_irq+0x19/0x67
+softirqs last  enabled at (40872): [<c05e6fcf>] rt_run_flush+0x6e/0x97
+softirqs last disabled at (40873): [<c04075d4>] do_softirq+0x74/0xf7
+
+other info that might help us debug this:
+3 locks held by events/1/10:
+ #0:  (rtnl_mutex){--..}, at: [<c0631c31>] mutex_lock+0x21/0x24
+ #1:  (&bond->lock){-.-+}, at: [<f8ad25ed>] bond_alb_monitor+0x16/0x26e [bonding]
+ #2:  (&bond->curr_slave_lock){..-+}, at: [<f8ad2680>] bond_alb_monitor+0xa9/0x26e [bonding]
+
+stack backtrace:
+ [<c0406463>] show_trace_log_lvl+0x1a/0x2f
+ [<c0406e4d>] show_trace+0x12/0x14
+ [<c0406e65>] dump_stack+0x16/0x18
+ [<c0448856>] print_usage_bug+0x141/0x14b
+ [<c04490dc>] mark_lock+0x12f/0x472
+ [<c0449f38>] __lock_acquire+0x487/0xc67
+ [<c044ab92>] lock_acquire+0x7b/0x9e
+ [<c0633050>] _spin_lock+0x2e/0x58
+ [<f8ad154c>] tlb_clear_slave+0x1d/0x9a [bonding]
+ [<f8ad269a>] bond_alb_monitor+0xc3/0x26e [bonding]
+ [<c043541b>] run_timer_softirq+0x127/0x18f
+ [<c0432a21>] __do_softirq+0x78/0xff
+ [<c04075d4>] do_softirq+0x74/0xf7
+ =======================
+ADDRCONF(NETDEV_CHANGE): bond0: link becomes ready
+bonding: bond0: Adding slave eth1.
+
+-- 
+http://www.codemonkey.org.uk
