@@ -1,84 +1,56 @@
-From: Ian Kumlien <pomac@vapor.com>
-Subject: Re: [PATCH] sky2: jumbo frame regression fix
-Date: Wed, 03 Oct 2007 09:37:36 +0200
-Message-ID: <1191397056.26233.24.camel@localhost>
-References: <1191372129.26233.12.camel@localhost>
-	 <20071002180209.47c350a3@freepuppy.rosehill>
-	 <1191375274.26233.17.camel@localhost>
-	 <20071002215914.13d1e8cf@freepuppy.rosehill>
-Reply-To: pomac@vapor.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: tcp bw in 2.6
+Date: Wed, 03 Oct 2007 01:02:08 -0700 (PDT)
+Message-ID: <20071003.010208.08324398.davem@davemloft.net>
+References: <4702C37F.4030601@hp.com>
+	<20071002.153216.82129058.davem@davemloft.net>
+	<20071002223644.GA14331@bitmover.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-7XHyictprzcCrlQ7zpwQ"
-Cc: Jeff Garzik <jgarzik@pobox.com>, Linux-kernel@vger.kernel.org,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rick.jones2@hp.com, torvalds@linux-foundation.org,
+	herbert@gondor.apana.org.au, wscott@bitmover.com,
 	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+To: lm@bitmover.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxy3.bredband.net ([195.54.101.73]:35042 "EHLO
-	proxy3.bredband.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752322AbXJCHhx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2007 03:37:53 -0400
-In-Reply-To: <20071002215914.13d1e8cf@freepuppy.rosehill>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44041
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752372AbXJCICY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2007 04:02:24 -0400
+In-Reply-To: <20071002223644.GA14331@bitmover.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: lm@bitmover.com (Larry McVoy)
+Date: Tue, 2 Oct 2007 15:36:44 -0700
 
---=-7XHyictprzcCrlQ7zpwQ
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> On Tue, Oct 02, 2007 at 03:32:16PM -0700, David Miller wrote:
+> > I'm starting to have a theory about what the bad case might
+> > be.
+> > 
+> > A strong sender going to an even stronger receiver which can
+> > pull out packets into the process as fast as they arrive.
+> > This might be part of what keeps the receive window from
+> > growing.
+> 
+> I can back you up on that.  When I straced the receiving side that goes
+> slowly, all the reads were short, like 1-2K.  The way that works the 
+> reads were a lot larger as I recall.
 
-On tis, 2007-10-02 at 21:59 -0700, Stephen Hemminger wrote:
-> On Wed, 03 Oct 2007 03:34:34 +0200
-> Ian Kumlien <pomac@vapor.com> wrote:
->=20
-> > On tis, 2007-10-02 at 18:02 -0700, Stephen Hemminger wrote:
-> > > Remove unneeded check that caused problems with jumbo frame sizes.
-> > > The check was recently added and is wrong.
-> > > When using jumbo frames the sky2 driver does fragmentation, so
-> > > rx_data_size is less than mtu.
-> >=20
-> > Confirmed working.
-> >=20
-> > Now running with 9k mtu with no errors, =3D)
-> >=20
-> > It also seems that the FIFO bug was the one that affected me before,
-> > damn odd race that one.
->=20
-> Does the workaround (forced reset work). Ian, you are the first person to
-> report triggering it.  I haven't found a way to make it happen.
-> What combination of flow control and speeds are you using?
+My issue turns out to be hardware specific too.
 
-Yes it works, it's the problem i had all along =3D)
+The two Broadcom 5714 onboard NICs on my Niagara t1000 give bad packet
+receive performance for some reason, the other two which are Broadcom
+5704's are perfectly fine.  I'll figure out what the problem is,
+probably some misprogramed register in either the chip or the bridge
+it's behind.
 
-As to how to make it happen thats a bit harder...
-To me it seems like it's a combination of several connections and
-somewhat high bandwidth but you have to send data for it to happen...
+The UDP stream test of netperf is great for isolating TCP/TSO vs.
+hardware issues.  If you can't saturate the pipe or the cpu with
+the UDP stream test, it's likely a hardware issue.
 
-To me it usually happens when seeding files via Bittorrent, but it seems
-like it has to be somewhat special circumstances to actually trigger it.
+The cpu utilization and service demand numbers provided, on both
+send and receive, are really useful for diagnosing problems like
+this.
 
-I use jumbo frames, my lan is gigabit, to my firewall. From the firewall
-it's common 1500 mtu 100mbit and i doubt that this has anything to do
-with it (if it's not a 'number of frames that can be stored' problem and
-thus the mtu limits it to a really small value making it easier to
-trigger)
-
-Well, thats my thoughts atleast but then i just got up after having
-slept 5 hours, so =3D)
-
---=20
-Ian Kumlien <pomac () vapor ! com> -- http://pomac.netswarm.net
-
---=-7XHyictprzcCrlQ7zpwQ
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7-ecc0.1.6 (GNU/Linux)
-
-iD8DBQBHA0bA7F3Euyc51N8RAgUpAJ9/LCBVM9t7NUEAtIkf9HbgWYEB1ACgk0UZ
-nxa6rdbbv3wAsEjtB8ShMkU=
-=wSYY
------END PGP SIGNATURE-----
-
---=-7XHyictprzcCrlQ7zpwQ--
-
+Rick deserves several beers for his work on this cool toy. :)
