@@ -1,31 +1,44 @@
-From: Sonny <smaniaol@gmail.com>
-Subject: Kernel 2.4 vs 2.6 Traffic Controller Performance
-Date: Wed, 3 Oct 2007 08:30:02 +0800
-Message-ID: <9dbec86d0710021730g2cfaeb16o7057700b970f7e8d@mail.gmail.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] baycom epp header ops
+Date: Tue, 2 Oct 2007 17:41:03 -0700
+Message-ID: <20071002174103.4303b9dc@oldman>
+References: <200710022104.l92L4cuE022227@imap1.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.225]:61435 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753528AbXJCAaO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 20:30:14 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so3805583wxd
-        for <netdev@vger.kernel.org>; Tue, 02 Oct 2007 17:30:13 -0700 (PDT)
-Content-Disposition: inline
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:35020 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751164AbXJCAkU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 20:40:20 -0400
+In-Reply-To: <200710022104.l92L4cuE022227@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello
-I hope this is the right place to ask this.Does any know if there is a
-substantial difference in the performance of the traffic controller
-between kernel 2.4 and 2.6. We tested it using 1 iperf server and use
-250 and 500 clients, altering the burst. We use the top command to
-check the idle time of our router to see this. The results we got from
-the 2.4 kernel shows around 65-70% idle time while the 2.6 shows
-60-65% idle time. We tried to use MRTG and we're not getting any
-results either. We want to know if we could improve the bandwidth by
-upgrading the kernel, else we would have to get a new bandwidth
-manager.  Could anyone have the similar test regarding this or suggest
-a better way to do this. Thanks in advance.
+Update baycom epp driver for new header ops in net-2.6.24
+
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+---
+ drivers/net/hamradio/baycom_epp.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/hamradio/baycom_epp.c b/drivers/net/hamradio/baycom_epp.c
+index 355c6cf..1a5a75a 100644
+--- a/drivers/net/hamradio/baycom_epp.c
++++ b/drivers/net/hamradio/baycom_epp.c
+@@ -1159,8 +1159,7 @@ static void baycom_probe(struct net_device *dev)
+ 	/* Fill in the fields of the device structure */
+ 	bc->skb = NULL;
+ 	
+-	dev->hard_header = ax25_hard_header;
+-	dev->rebuild_header = ax25_rebuild_header;
++	dev->header_ops = &ax25_header_ops;
+ 	dev->set_mac_address = baycom_set_mac_address;
+ 	
+ 	dev->type = ARPHRD_AX25;           /* AF_AX25 device */
+-- 
+1.5.2.5
+
