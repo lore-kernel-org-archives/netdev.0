@@ -1,69 +1,36 @@
-From: Ian Kumlien <pomac@vapor.com>
-Subject: Re: [PATCH] sky2: jumbo frame regression fix
-Date: Wed, 03 Oct 2007 20:28:21 +0200
-Message-ID: <1191436101.26233.32.camel@localhost>
-References: <1191372129.26233.12.camel@localhost>
-	 <20071002180209.47c350a3@freepuppy.rosehill>
-	 <1191375274.26233.17.camel@localhost>  <4703D9B6.109@tmr.com>
-Reply-To: pomac@vapor.com
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] Fix rose.ko oops on unload
+Date: Wed, 03 Oct 2007 15:04:20 -0400
+Message-ID: <4703E7B4.2090309@garzik.org>
+References: <20071003185413.GA16242@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-R68h9pbvMfJOlIsTTHGs"
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>, Linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Bill Davidsen <davidsen@tmr.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ralf@linux-mips.org, davem@davemloft.net, netdev@vger.kernel.org,
+	pidoux@ccr.jussieu.fr
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vapor.com ([85.114.133.49]:40727 "EHLO mail.vapor.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:40766 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751282AbXJCTDk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 3 Oct 2007 15:03:40 -0400
-In-Reply-To: <4703D9B6.109@tmr.com>
+	id S1753662AbXJCTEf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Oct 2007 15:04:35 -0400
+In-Reply-To: <20071003185413.GA16242@martell.zuzino.mipt.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Alexey Dobriyan wrote:
+> Quick'n'dirty fix to 100% oops on "rmmod rose". Do you want me to
+> properly unwind everything before .24?
+> -----------
+> Commit a3d384029aa304f8f3f5355d35f0ae274454f7cd aka
+> "[AX.25]: Fix unchecked rose_add_loopback_neigh uses"
+> transformed rose_loopback_neigh var into statically allocated one.
+> However, on unload it will be kfree's which can't work.
 
---=-R68h9pbvMfJOlIsTTHGs
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+I'm definitely missing something...  assuming your patch is applied, 
+where is the kfree() for rose_loopback_neigh ?
 
-On ons, 2007-10-03 at 14:04 -0400, Bill Davidsen wrote:
-> Ian Kumlien wrote:
-> > On tis, 2007-10-02 at 18:02 -0700, Stephen Hemminger wrote:
-> >> Remove unneeded check that caused problems with jumbo frame sizes.
-> >> The check was recently added and is wrong.
-> >> When using jumbo frames the sky2 driver does fragmentation, so
-> >> rx_data_size is less than mtu.
-> >=20
-> > Confirmed working.
-> >=20
-> > Now running with 9k mtu with no errors, =3D)
->=20
-> Have you verified that you are actually getting jumbo packets out of the=20
-> NIC? I had one machine which did standard packets silently using sky2=20
-> and jumbo using sk98lin. I was looking for something else with tcpdump=20
-> and got one of those WTF moments when I saw all the tiny packets.
+	Jeff
 
-20:27:06.542461 IP pi.local > blue.local: ICMP echo request, id 27173, seq =
-42, length 8008
-20:27:06.543136 IP blue.local > pi.local: ICMP echo reply, id 27173, seq 42=
-, length 8008
 
-That should solve it for us, right? =3D)
-
---=20
-Ian Kumlien <pomac () vapor ! com> -- http://pomac.netswarm.net
-
---=-R68h9pbvMfJOlIsTTHGs
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7-ecc0.1.6 (GNU/Linux)
-
-iD8DBQBHA99F7F3Euyc51N8RAlk1AJ0WI17LtLVgeKsFWt4Ols8WF++RRgCfTUH7
-9GATVqC1aWjgE6ZuLXECwuI=
-=Xow7
------END PGP SIGNATURE-----
-
---=-R68h9pbvMfJOlIsTTHGs--
 
