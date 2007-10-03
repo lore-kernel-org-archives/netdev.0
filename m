@@ -1,77 +1,64 @@
-From: Ian Kumlien <pomac@vapor.com>
-Subject: Re: [PATCH] sky2: jumbo frame regression fix
-Date: Wed, 03 Oct 2007 03:34:34 +0200
-Message-ID: <1191375274.26233.17.camel@localhost>
-References: <1191372129.26233.12.camel@localhost>
-	 <20071002180209.47c350a3@freepuppy.rosehill>
-Reply-To: pomac@vapor.com
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Please pull 'fixes-jgarzik' branch of wireless-2.6
+Date: Tue, 2 Oct 2007 21:20:44 -0400
+Message-ID: <20071003012044.GD29361@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-nM+280Pv6eZit1SAcsnS"
-Cc: Jeff Garzik <jgarzik@pobox.com>, Linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxy3.bredband.net ([195.54.101.73]:50156 "EHLO
-	proxy3.bredband.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756627AbXJCBes (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 2 Oct 2007 21:34:48 -0400
-In-Reply-To: <20071002180209.47c350a3@freepuppy.rosehill>
+Received: from ra.tuxdriver.com ([70.61.120.52]:4595 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752628AbXJCBi1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 2 Oct 2007 21:38:27 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+The following changes since commit 3146b39c185f8a436d430132457e84fa1d8f8208:
+  Linus Torvalds (1):
+        Linux 2.6.23-rc9
 
---=-nM+280Pv6eZit1SAcsnS
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+are available in the git repository at:
 
-On tis, 2007-10-02 at 18:02 -0700, Stephen Hemminger wrote:
-> Remove unneeded check that caused problems with jumbo frame sizes.
-> The check was recently added and is wrong.
-> When using jumbo frames the sky2 driver does fragmentation, so
-> rx_data_size is less than mtu.
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git fixes-jgarzik
 
-Confirmed working.
+Joe Perches (1):
+      bcm43xx: Correct printk with PFX before KERN_
 
-Now running with 9k mtu with no errors, =3D)
+Richard Knutsson (1):
+      softmac: Fix compiler-warning
 
-It also seems that the FIFO bug was the one that affected me before,
-damn odd race that one.
+ drivers/net/wireless/bcm43xx/bcm43xx_wx.c   |    2 +-
+ net/ieee80211/softmac/ieee80211softmac_wx.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-Tested-by: Ian Kumlien <pomac@vapor.com>
-
-(if that tag exists now)
-
-Btw, Sorry but all mail directly to you will be blocked. I have yet to
-fix the relaying properly with isp:s blocking port 25 etc so for some of
-you this mail will only show up on the ML.
-
-> --- a/drivers/net/sky2.c	2007-10-02 17:56:31.000000000 -0700
-> +++ b/drivers/net/sky2.c	2007-10-02 17:58:56.000000000 -0700
-> @@ -2163,9 +2163,6 @@ static struct sk_buff *sky2_receive(stru
->  	sky2->rx_next =3D (sky2->rx_next + 1) % sky2->rx_pending;
->  	prefetch(sky2->rx_ring + sky2->rx_next);
-> =20
-> -	if (length < ETH_ZLEN || length > sky2->rx_data_size)
-> -		goto len_error;
-> -
->  	/* This chip has hardware problems that generates bogus status.
->  	 * So do only marginal checking and expect higher level protocols
->  	 * to handle crap frames.
---=20
-Ian Kumlien <pomac () vapor ! com> -- http://pomac.netswarm.net
-
---=-nM+280Pv6eZit1SAcsnS
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.7-ecc0.1.6 (GNU/Linux)
-
-iD8DBQBHAvGq7F3Euyc51N8RAlTkAJ9c3Ed1FAB1zSNH+e3YzO4gfWul5wCePAU/
-GqxZqXFL0c3bCZZKHM7FCXo=
-=YnCL
------END PGP SIGNATURE-----
-
---=-nM+280Pv6eZit1SAcsnS--
-
+diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_wx.c b/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
+index d6d9413..6acfdc4 100644
+--- a/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
++++ b/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
+@@ -444,7 +444,7 @@ static int bcm43xx_wx_set_xmitpower(struct net_device *net_dev,
+ 	u16 maxpower;
+ 
+ 	if ((data->txpower.flags & IW_TXPOW_TYPE) != IW_TXPOW_DBM) {
+-		printk(PFX KERN_ERR "TX power not in dBm.\n");
++		printk(KERN_ERR PFX "TX power not in dBm.\n");
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+diff --git a/net/ieee80211/softmac/ieee80211softmac_wx.c b/net/ieee80211/softmac/ieee80211softmac_wx.c
+index 442b987..5742dc8 100644
+--- a/net/ieee80211/softmac/ieee80211softmac_wx.c
++++ b/net/ieee80211/softmac/ieee80211softmac_wx.c
+@@ -114,7 +114,7 @@ check_assoc_again:
+ 	sm->associnfo.associating = 1;
+ 	/* queue lower level code to do work (if necessary) */
+ 	schedule_delayed_work(&sm->associnfo.work, 0);
+-out:
++
+ 	mutex_unlock(&sm->associnfo.mutex);
+ 
+ 	return 0;
+-- 
+John W. Linville
+linville@tuxdriver.com
