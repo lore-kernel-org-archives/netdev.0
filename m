@@ -1,65 +1,116 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH net-2.6.24 0/3]: More TCP fixes
-Date: Wed, 3 Oct 2007 17:22:35 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0710031709450.27745@kivilampi-30.cs.helsinki.fi>
-References: <1191409218982-git-send-email-ilpo.jarvinen@helsinki.fi>
- <470383D4.9060307@free.fr> <Pine.LNX.4.64.0710031503220.27745@kivilampi-30.cs.helsinki.fi>
- <47038FAB.9020106@free.fr> <Pine.LNX.4.64.0710031554380.27745@kivilampi-30.cs.helsinki.fi>
- <4703A1BB.1040006@free.fr>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: Please pull 'upstream-davem' branch of wireless-2.6
+Date: Wed, 3 Oct 2007 10:10:51 -0400
+Message-ID: <20071003141051.GA5790@tuxdriver.com>
+References: <20071003012552.GE29361@tuxdriver.com> <20071002.190156.41633562.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1677262667-1191421355=:27745"
-Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
-To: Cedric Le Goater <legoater@free.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:55753 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754811AbXJCOWh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2007 10:22:37 -0400
-In-Reply-To: <4703A1BB.1040006@free.fr>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20071002.190156.41633562.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----696243703-1677262667-1191421355=:27745
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-
-On Wed, 3 Oct 2007, Cedric Le Goater wrote:
-
-> Ilpo Järvinen wrote:
-> > 
-> > Ah, that's path 1) then... Since you seem to have enough time, I would say 
-> > that the path 1 is good as well and bugs unrelated to the fix will show up 
-> > there too...
+On Tue, Oct 02, 2007 at 07:01:56PM -0700, David Miller wrote:
+> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Date: Tue, 2 Oct 2007 21:25:52 -0400
 > 
-> arg. yes. sorry for the confusion.
+> >   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-davem
 > 
-> > I should have stated it explicitly that with path 2 those 3 patches should 
-> > not be applied because the aim is not a fix but reproducal. Path 2 was 
-> > intentionally left without the potentional fix as then nice backtrace 
-> > informs when we can stop trying (which would hopefully occurred 
-> > pretty soon) :-).  But lets discard that path 2...
+> This doesn't pull cleanly.
 > 
-> I have 2 spare nodes so i'll run both. 1) is on already without any issues
-> i'm just compiling 2)
+> Probably you used a recently cloned Linus tree, pulled
+> net-2.6.24 into that (and resolved the conflicts), and
+> then put your patches in.
 
-Thanks a lot. :-)
+No, in fact I'm quite conscious of that.  I follow a procedure
+identical to what you outlined.  I even leave my 'master-davem' branch
+available as a reference, and create the initial 'upstream-davem'
+branch as a checkout from it. :-)
 
-> I usually work on -mm, so what would be interesting for me is to have what you 
-> need in net-2.6.24 which is getting pulled in -mm by andrew. then, if 
-> you need an extra patch for verbosity, that's fine, i'll include it in 
-> my usual patchset.
+As an experiment, I cloned your current tree (which has the patches
+applied already, thanks!) and created a branch which backed-out the
+patches from me you had already applied by hand.  I then did a pull
+from my tree, and the results were quite clean.
 
-Ah, I'm sorry about the subject and the extra work it caused, it was 
-meant for DaveM only, didn't realize at that time it would be 
-meaningful to you as well, thus couldn't warn you back then... Testing on 
-top of mm would be (/ have been) fine as well... From my point of view 
-both mm and net-2.6.24 are pretty much the same (I even verified that 
-those patches apply fine on top of rc8-mm2 since I thought that you might 
-want to use that one).
+	[linville]:> git checkout -b jwltest fc26d79bb258b5fdb3dee940bea12d6ef7c217c5
+	Switched to a new branch "jwltest"
 
+	[linville]:> git pull git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git upstream-davem
+	remote: Generating pack...
+	remote: Done counting 257 objects.
+	remote: Result has 199 objects.
+	remote: Deltifying 199 objects...
+	remote:  100% (199/199) done
+	Indexing 199 objects...
+	remote: Total 199 (delta 150), reused 143 (delta 115)
+	 100% (199/199) done
+	Resolving 150 deltas...
+	 100% (150/150) done
+	32 objects were added to complete this thin pack.
+	Removed drivers/net/wireless/zd1211rw/zd_util.c
+	Removed drivers/net/wireless/zd1211rw/zd_util.h
+	Merge made by recursive.
+	 Documentation/networking/mac80211-injection.txt |   32 ++-
+	 drivers/net/wireless/adm8211.c                  |    8 +-
+	 drivers/net/wireless/b43/Kconfig                |   12 +
+	 drivers/net/wireless/b43/Makefile               |    5 +-
+	 drivers/net/wireless/b43/b43.h                  |   11 +-
+	 drivers/net/wireless/b43/leds.c                 |  399 ++++++++++-------------
+	 drivers/net/wireless/b43/leds.h                 |   63 ++--
+	 drivers/net/wireless/b43/main.c                 |  205 ++++--------
+	 drivers/net/wireless/b43/phy.c                  |   13 +-
+	 drivers/net/wireless/b43/phy.h                  |    2 +-
+	 drivers/net/wireless/b43/rfkill.c               |  184 +++++++++++
+	 drivers/net/wireless/b43/rfkill.h               |   58 ++++
+	 drivers/net/wireless/hostap/hostap.h            |    2 +-
+	 drivers/net/wireless/hostap/hostap_hw.c         |    2 +-
+	 drivers/net/wireless/hostap/hostap_main.c       |   19 +-
+	 drivers/net/wireless/iwlwifi/iwl3945-base.c     |    4 -
+	 drivers/net/wireless/iwlwifi/iwl4965-base.c     |    4 -
+	 drivers/net/wireless/p54common.c                |    4 +-
+	 drivers/net/wireless/p54pci.c                   |    4 +-
+	 drivers/net/wireless/rt2x00/rt2x00.h            |    2 +-
+	 drivers/net/wireless/zd1211rw/Makefile          |    2 +-
+	 drivers/net/wireless/zd1211rw/zd_chip.c         |    1 -
+	 drivers/net/wireless/zd1211rw/zd_mac.c          |    4 +-
+	 drivers/net/wireless/zd1211rw/zd_usb.c          |    1 -
+	 drivers/net/wireless/zd1211rw/zd_util.c         |   82 -----
+	 drivers/net/wireless/zd1211rw/zd_util.h         |   29 --
+	 include/linux/rfkill.h                          |   24 ++
+	 include/net/mac80211.h                          |   46 +++-
+	 net/mac80211/cfg.c                              |   75 ++++-
+	 net/mac80211/ieee80211.c                        |  189 +-----------
+	 net/mac80211/ieee80211_i.h                      |   17 +-
+	 net/mac80211/ieee80211_iface.c                  |   68 +----
+	 net/mac80211/ieee80211_ioctl.c                  |   31 +-
+	 net/mac80211/ieee80211_led.c                    |   67 +++-
+	 net/mac80211/ieee80211_led.h                    |    6 +
+	 net/mac80211/ieee80211_rate.c                   |    3 +-
+	 net/mac80211/ieee80211_rate.h                   |    2 -
+	 net/mac80211/ieee80211_sta.c                    |    7 +-
+	 net/mac80211/key.c                              |    1 -
+	 net/mac80211/rx.c                               |  122 +++-----
+	 net/mac80211/sta_info.c                         |   13 +-
+	 net/mac80211/tx.c                               |  211 ++++++------
+	 net/mac80211/wme.c                              |   10 +-
+	 net/rfkill/Kconfig                              |    7 +
+	 net/rfkill/rfkill.c                             |   49 +++-
+	 45 files changed, 1022 insertions(+), 1078 deletions(-)
+	 create mode 100644 drivers/net/wireless/b43/rfkill.c
+	 create mode 100644 drivers/net/wireless/b43/rfkill.h
+	 delete mode 100644 drivers/net/wireless/zd1211rw/zd_util.c
+	 delete mode 100644 drivers/net/wireless/zd1211rw/zd_util.h
+
+So I'm not sure what happened for you.  But I think it must have been
+some other anomaly.
+
+Anyway, I'm sorry it wasn't as smooth as usual.  Thanks for the manual
+patch work!
+
+John
 -- 
- i.
----696243703-1677262667-1191421355=:27745--
+John W. Linville
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
