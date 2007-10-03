@@ -1,61 +1,39 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: kernel 2.4 vs 2.6 Traffic Controller performance
-Date: Wed, 03 Oct 2007 09:00:32 +0200
-Message-ID: <47033E10.6090505@cosmosbay.com>
-References: <9dbec86d0710022314o6db2b0baua6db543d52f312b6@mail.gmail.com>
+From: Oliver Hartkopp <oliver@hartkopp.net>
+Subject: Re: [PATCH 5/7] CAN: Add virtual CAN netdevice driver
+Date: Wed, 03 Oct 2007 09:06:52 +0200
+Message-ID: <47033F8C.6060706@hartkopp.net>
+References: <20071002142016.GE7881@ghostprotocols.net>	<4702B1FD.70102@hartkopp.net>	<20071002214325.GB3576@ghostprotocols.net> <20071002.145034.15615464.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Sonny <smaniaol@gmail.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: urs@isnogud.escape.de, netdev@vger.kernel.org, kaber@trash.net,
+	tglx@linutronix.de, yoshfuji@linux-ipv6.org, ebiederm@xmission.com,
+	oliver.hartkopp@volkswagen.de, urs.thuermann@volkswagen.de
+To: David Miller <davem@davemloft.net>, acme@ghostprotocols.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:39044 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751857AbXJCHAo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2007 03:00:44 -0400
-In-Reply-To: <9dbec86d0710022314o6db2b0baua6db543d52f312b6@mail.gmail.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:44544 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752405AbXJCHHO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2007 03:07:14 -0400
+In-Reply-To: <20071002.145034.15615464.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sonny a =E9crit :
-> Hello
-> This is a repost, there seems to have a misunderstanding before.
->=20
-> I hope this is the right place to ask this. Does any know if there is=
- a
-> substantial difference in the performance of the traffic controller
-> between kernel 2.4 and 2.6. We tested it using 1 iperf server and use
-> 250 and 500 clients, altering the burst.
->=20
-> This is the set-up:
-> iperf client -  router (w/ traffic controller) - iperf server
->=20
-> We use the top command inside the router to check the idle time of ou=
-r
-> router to see this. The results we got from the 2.4 kernel shows
-> around 65-70% idle time while the 2.6 shows
-> 60-65% idle time. We tried to use MRTG and we're not getting any
-> results either. We want to know if we could improve the bandwidth by
-> upgrading the kernel, else we would have to get a new bandwidth
-> manager.  Have anyone performed a similar test or can suggest a bette=
-r
-> way to do this. Thanks in advance.
-> -
-Hi Sonny
+David Miller wrote:
+> From: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+> Date: Tue, 2 Oct 2007 18:43:25 -0300
+>
+>   
+>> I think that helping ctags to find the definition for the debug variable
+>> to see, for instance, if it is a bitmask or a boolean without having to
+>> chose from tons of 'debug' variables is a good thing.
+>>     
+>
+> I completely agree.
+>   
 
-I am not sure what you are asking here. 65-70% idle time (or 60-65%) is=
- fine.
+OK. No problem if it's helpful. We'll change debug to vcan_debug.
 
-2.6 is also not very meaningfull, there are a lot of changes between 2.=
-6.0 and=20
-2.6.23 :)
+Thanks.
 
-Why should you upgrade kernel ?
-What bandwidth do you handle ?
-What kind of platform is it ? (a new kernel wont help much if its a rea=
-l old=20
-machine, or old NICs)
-
-You seem to have some bandwidth problem but focus on cpu affairs...
-
+Oliver
