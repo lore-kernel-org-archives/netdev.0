@@ -1,79 +1,52 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH] r8169: revert part of
-	6dccd16b7c2703e8bbf8bca62b5cf248332afbe2
-Date: Thu, 4 Oct 2007 00:42:50 +0200
-Message-ID: <20071003224250.GA22366@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fix race in process_backlog
+Date: Wed, 03 Oct 2007 16:39:02 -0700 (PDT)
+Message-ID: <20071003.163902.51840119.davem@davemloft.net>
+References: <1191426293.5599.27.camel@lappy>
+	<20071003.145807.111205634.davem@davemloft.net>
+	<20071003150519.1fd206a8@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jeti@welho.com,
-	David Miller <davem@davemloft.net>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: a.p.zijlstra@chello.nl, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jdike@addtoit.com
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:46634 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758517AbXJCWvq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2007 18:51:46 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56714
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751534AbXJCXjE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2007 19:39:04 -0400
+In-Reply-To: <20071003150519.1fd206a8@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The 8169/8110SC currently announces itself as:
-[...]
-eth0: RTL8169sc/8110sc at 0x........, ..:..:..:..:..:.., XID 18000000 IRQ ..
-                                                             ^^^^^^^^
-It uses RTL_GIGA_MAC_VER_05 and this part of the changeset can cut
-its performance by a factor of 2~2.5 as reported by Timo.
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Wed, 3 Oct 2007 15:05:19 -0700
 
-(the driver includes code just before the hunk to write the ChipCmd
-register when mac_version == RTL_GIGA_MAC_VER_0[1-4])
+> On Wed, 03 Oct 2007 14:58:07 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
+> 
+> > From: Peter Zijlstra <a.p.zijlstra@chello.nl>
+> > Date: Wed, 03 Oct 2007 17:44:53 +0200
+> > 
+> > > Index: linux-2.6/net/core/dev.c
+> > > ===================================================================
+> > > --- linux-2.6.orig/net/core/dev.c
+> > > +++ linux-2.6/net/core/dev.c
+> > > @@ -2095,11 +2095,11 @@ static int process_backlog(struct napi_s
+> > >  
+> > >  		local_irq_disable();
+> > >  		skb = __skb_dequeue(&queue->input_pkt_queue);
+> > > -		local_irq_enable();
+> > >  		if (!skb) {
+> > > -			napi_complete(napi);
+> > > +			__napi_complete(napi);
+> > >  			break;
+> > >  		}
+> > > +		local_irq_enable();
+> > 
+> > What re-enables interrupts in the !skb path?
+> 
+> This looks like a better fix. the irq_enable is needed in both cases.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Timo Jantunen <jeti@welho.com>
----
- drivers/net/r8169.c |   16 +++++++++++++---
- 1 files changed, 13 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index c921ec3..c76dd29 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1918,7 +1918,11 @@ static void rtl_hw_start_8169(struct net_device *dev)
- 
- 	rtl_set_rx_max_size(ioaddr);
- 
--	rtl_set_rx_tx_config_registers(tp);
-+	if ((tp->mac_version == RTL_GIGA_MAC_VER_01) ||
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_02) ||
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_03) ||
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_04))
-+		rtl_set_rx_tx_config_registers(tp);
- 
- 	tp->cp_cmd |= rtl_rw_cpluscmd(ioaddr) | PCIMulRW;
- 
-@@ -1941,6 +1945,14 @@ static void rtl_hw_start_8169(struct net_device *dev)
- 
- 	rtl_set_rx_tx_desc_registers(tp, ioaddr);
- 
-+	if ((tp->mac_version != RTL_GIGA_MAC_VER_01) &&
-+	    (tp->mac_version != RTL_GIGA_MAC_VER_02) &&
-+	    (tp->mac_version != RTL_GIGA_MAC_VER_03) &&
-+	    (tp->mac_version != RTL_GIGA_MAC_VER_04)) {
-+		RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
-+		rtl_set_rx_tx_config_registers(tp);
-+	}
-+
- 	RTL_W8(Cfg9346, Cfg9346_Lock);
- 
- 	/* Initially a 10 us delay. Turned it into a PCI commit. - FR */
-@@ -1955,8 +1967,6 @@ static void rtl_hw_start_8169(struct net_device *dev)
- 
- 	/* Enable all known interrupts by setting the interrupt mask. */
- 	RTL_W16(IntrMask, tp->intr_event);
--
--	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
- }
- 
- static void rtl_hw_start_8168(struct net_device *dev)
--- 
-1.5.3.2
-
+Yep, applied, thanks Peter and Stephen.
