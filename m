@@ -1,48 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: net-2.6.24 plans
-Date: Wed, 03 Oct 2007 02:36:13 -0700 (PDT)
-Message-ID: <20071003.023613.28785888.davem@davemloft.net>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH 1/3] [TCP]: Fix two off-by-one errors in fackets_out adjusting logic
+Date: Wed,  3 Oct 2007 14:00:16 +0300
+Message-ID: <11914092183725-git-send-email-ilpo.jarvinen@helsinki.fi>
+References: <1191409218982-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Cedric Le Goater <legoater@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50104
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756809AbXJCJgO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2007 05:36:14 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 5D896510001
-	for <netdev@vger.kernel.org>; Wed,  3 Oct 2007 02:36:13 -0700 (PDT)
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:45516 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754625AbXJCLAU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2007 07:00:20 -0400
+In-Reply-To: <1191409218982-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+1) Passing wrong skb to tcp_adjust_fackets_out could corrupt
+fastpath_cnt_hint as tcp_skb_pcount(next_skb) is not included
+to it if hint points exactly to the next_skb (it's lagging
+behind, see sacktag).
 
-I'm a bit behind after investigating the TCP performance issues that
-turned out to be HW specific problems.  It's a bit of a
-dissapointment, I thought maybe there was a cool bug to fix in TCP :-)
+2) When fastpath_skb_hint is put backwards to avoid dangling
+skb reference, the skb's pcount must also be removed from count
+(not included like above).
 
-Anyways, that means there are patches backlogged in my inbox and it is
-also about time to do the hopefully last rebase of the net-2.6.24
-tree.
+Reported by Cedric Le Goater <legoater@free.fr>
 
-I merged in Jeff Garzik's and John Linville's latest and I'm running
-the current tree on my workstation most of today with good results so
-far.
+Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_output.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-Linus should release the final 2.6.23 very soon, let's kind of assume
-it will happen over the next 3 or 4 days.
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 6199abe..5329675 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1755,14 +1755,16 @@ static void tcp_retrans_try_collapse(struct soc=
+k *sk, struct sk_buff *skb, int m
+ 		if (tcp_is_reno(tp) && tp->sacked_out)
+ 			tcp_dec_pcount_approx(&tp->sacked_out, next_skb);
+=20
+-		tcp_adjust_fackets_out(tp, skb, tcp_skb_pcount(next_skb));
++		tcp_adjust_fackets_out(tp, next_skb, tcp_skb_pcount(next_skb));
+ 		tp->packets_out -=3D tcp_skb_pcount(next_skb);
+=20
+ 		/* changed transmit queue under us so clear hints */
+ 		tcp_clear_retrans_hints_partial(tp);
+ 		/* manually tune sacktag skb hint */
+-		if (tp->fastpath_skb_hint =3D=3D next_skb)
++		if (tp->fastpath_skb_hint =3D=3D next_skb) {
+ 			tp->fastpath_skb_hint =3D skb;
++			tp->fastpath_cnt_hint -=3D tcp_skb_pcount(skb);
++		}
+=20
+ 		sk_stream_free_skb(sk, next_skb);
+ 	}
+--=20
+1.5.0.6
 
-That means we need to bear down for the merge.  I plan to commit my
-Neptune driver in it's current state, and that's the last new feature
-going in.
-
-You can help make the merge go swimmingly by picking some nagging
-issue you noticed and track it down.  If you can figure out why
-something happens but can't or don't have time to come up with
-a fix, report what you've discovered.
-
-If you can provide the fix too, all the better.
-
-That's how I get backlogged, I'm working on A and notice some problem
-with B, then I refuse to go back to A until I bring closure to B. :)
