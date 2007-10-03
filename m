@@ -1,53 +1,1459 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] net: fix race in process_backlog
-Date: Wed, 3 Oct 2007 09:15:26 -0700
-Message-ID: <20071003091526.2c1c6c1d@freepuppy.rosehill>
-References: <1191426293.5599.27.camel@lappy>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, Jeff Dike <jdike@addtoit.com>,
-	David Miller <davem@davemloft.net>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+From: Timur Tabi <timur@freescale.com>
+Subject: [PATCH v4] qe: miscellaneous code improvements and fixes to the QE library
+Date: Wed,  3 Oct 2007 11:34:59 -0500
+Message-ID: <1191429299378-git-send-email-timur@freescale.com>
+Cc: Timur Tabi <timur@freescale.com>
+To: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	galak@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:56859 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752324AbXJCQPk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2007 12:15:40 -0400
-In-Reply-To: <1191426293.5599.27.camel@lappy>
+Received: from de01egw01.freescale.net ([192.88.165.102]:53637 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751101AbXJCQfV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2007 12:35:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 03 Oct 2007 17:44:53 +0200
-Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+This patch makes numerous miscellaneous code improvements to the QE library.
 
-> Subject: net: fix race in process_backlog
-> 
-> The recent NAPI rework (4fa57c9ea9f36f9ca852f3a88ca5d2f1aebbc960)
-> introduced a race between netif_rx() and process_backlog() which
-> resulted in softirq processing to drop dead.
-> 
-> netif_rx()		process_backlog()
-> 
-> 			irq_disable();
-> 			skb = __skb_dequeue();
-> 			irq_enable();
-> 
-> irq_disable();
-> __skb_queue_tail();
-> napi_schedule();
-> irq_enable();
-> 
-> 			if (!skb)
-> 			  napi_complete();  <-- oops!
-> 
-> we cleared the napi bit, even though there is data to process.
-> 
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+1. Remove struct ucc_common and merge ucc_init_guemr() into ucc_set_type()
+   (every caller of ucc_init_guemr() also calls ucc_set_type()).  Modify all
+   callers of ucc_set_type() accordingly.
 
-Acked-by: Stephen Hemminger <shemminger@linux-foundation.org>
+2. Remove the unused enum ucc_pram_initial_offset.
 
+3. Refactor qe_setbrg(), also implement work-around for errata QE_General4.
 
+4. Several printk() calls were missing the terminating \n.
+
+5. Add __iomem where needed, and change u16 to __be16 and u32 to __be32 where
+   appropriate.
+
+6. In ucc_slow_init() the RBASE and TBASE registers in the PRAM were programmed
+   with the wrong value.
+
+7. Add the protocol type to struct us_info and updated ucc_slow_init() to
+   use it, instead of always programming QE_CR_PROTOCOL_UNSPECIFIED.
+
+8. Rename ucc_slow_restart_x() to ucc_slow_restart_tx()
+
+9. Add several macros in qe.h (mostly for slow UCC support, but also to
+   standardize some naming convention) and remove several unused macros.
+
+10. Update ucc_geth.c to use the new macros.
+
+11. Add ucc_slow_info.protocol to specify which QE_CR_PROTOCOL_xxx protcol
+    to use when initializing the UCC in ucc_slow_init().
+
+12. Rename ucc_slow_pram.rfcr to rbmr and ucc_slow_pram.tfcr to tbmr, since
+    these are the real names of the registers.
+
+13. Use the setbits, clrbits, and clrsetbits where appropriate.
+
+14. Refactor ucc_set_qe_mux_rxtx().
+
+15. Remove all instances of 'volatile'.
+
+16. Simplify get_cmxucr_reg();
+
+17. Replace qe_mux.cmxucrX with qe_mux.cmxucr[].
+
+18. Updated struct ucc_geth because struct ucc_fast is not padded any more.
+
+Signed-off-by: Timur Tabi <timur@freescale.com>
+---
+
+Add fix 18.
+
+ arch/powerpc/sysdev/qe_lib/qe.c       |   36 +++--
+ arch/powerpc/sysdev/qe_lib/qe_ic.c    |    2 -
+ arch/powerpc/sysdev/qe_lib/qe_io.c    |   35 ++---
+ arch/powerpc/sysdev/qe_lib/ucc.c      |  270 ++++++++++++++-------------------
+ arch/powerpc/sysdev/qe_lib/ucc_fast.c |  127 ++++++++--------
+ arch/powerpc/sysdev/qe_lib/ucc_slow.c |   48 +++---
+ drivers/net/ucc_geth.c                |    2 +-
+ drivers/net/ucc_geth.h                |    1 +
+ include/asm-powerpc/immap_qe.h        |   30 ++---
+ include/asm-powerpc/qe.h              |  243 ++++++++++++++++++++---------
+ include/asm-powerpc/ucc.h             |   40 ++----
+ include/asm-powerpc/ucc_slow.h        |    9 +-
+ 12 files changed, 431 insertions(+), 412 deletions(-)
+
+diff --git a/arch/powerpc/sysdev/qe_lib/qe.c b/arch/powerpc/sysdev/qe_lib/qe.c
+index 90f8740..3d57d38 100644
+--- a/arch/powerpc/sysdev/qe_lib/qe.c
++++ b/arch/powerpc/sysdev/qe_lib/qe.c
+@@ -141,7 +141,7 @@ EXPORT_SYMBOL(qe_issue_cmd);
+  * 16 BRGs, which can be connected to the QE channels or output
+  * as clocks. The BRGs are in two different block of internal
+  * memory mapped space.
+- * The baud rate clock is the system clock divided by something.
++ * The BRG clock is the QE clock divided by 2.
+  * It was set up long ago during the initial boot phase and is
+  * is given to us.
+  * Baud rate clocks are zero-based in the driver code (as that maps
+@@ -165,28 +165,38 @@ unsigned int get_brg_clk(void)
+ 	return brg_clk;
+ }
+ 
+-/* This function is used by UARTS, or anything else that uses a 16x
+- * oversampled clock.
++/* Program the BRG to the given sampling rate and multiplier
++ *
++ * @brg: the BRG, 1-16
++ * @rate: the desired sampling rate
++ * @multiplier: corresponds to the value programmed in GUMR_L[RDCR] or
++ * GUMR_L[TDCR].  E.g., if this BRG is the RX clock, and GUMR_L[RDCR]=01,
++ * then 'multiplier' should be 8.
++ *
++ * Also note that the value programmed into the BRGC register must be even.
+  */
+-void qe_setbrg(u32 brg, u32 rate)
++void qe_setbrg(unsigned int brg, unsigned int rate, unsigned int multiplier)
+ {
+-	volatile u32 *bp;
+ 	u32 divisor, tempval;
+-	int div16 = 0;
++	u32 div16 = 0;
+ 
+-	bp = &qe_immr->brg.brgc[brg];
++	divisor = get_brg_clk() / (rate * multiplier);
+ 
+-	divisor = (get_brg_clk() / rate);
+ 	if (divisor > QE_BRGC_DIVISOR_MAX + 1) {
+-		div16 = 1;
++		div16 = QE_BRGC_DIV16;
+ 		divisor /= 16;
+ 	}
+ 
+-	tempval = ((divisor - 1) << QE_BRGC_DIVISOR_SHIFT) | QE_BRGC_ENABLE;
+-	if (div16)
+-		tempval |= QE_BRGC_DIV16;
++	/* Errata QE_General4, which affects some MPC832x and MPC836x SOCs, says
++	   that the BRG divisor must be even if you're not using divide-by-16
++	   mode. */
++	if (!div16 && (divisor & 1))
++		divisor++;
++
++	tempval = ((divisor - 1) << QE_BRGC_DIVISOR_SHIFT) |
++		QE_BRGC_ENABLE | div16;
+ 
+-	out_be32(bp, tempval);
++	out_be32(&qe_immr->brg.brgc[brg - 1], tempval);
+ }
+ 
+ /* Initialize SNUMs (thread serial numbers) according to
+diff --git a/arch/powerpc/sysdev/qe_lib/qe_ic.c b/arch/powerpc/sysdev/qe_lib/qe_ic.c
+index 55e6f39..9a2d1ed 100644
+--- a/arch/powerpc/sysdev/qe_lib/qe_ic.c
++++ b/arch/powerpc/sysdev/qe_lib/qe_ic.c
+@@ -405,8 +405,6 @@ void __init qe_ic_init(struct device_node *node, unsigned int flags)
+ 		set_irq_data(qe_ic->virq_high, qe_ic);
+ 		set_irq_chained_handler(qe_ic->virq_high, qe_ic_cascade_high);
+ 	}
+-
+-	printk("QEIC (%d IRQ sources) at %p\n", NR_QE_IC_INTS, qe_ic->regs);
+ }
+ 
+ void qe_ic_set_highest_priority(unsigned int virq, int high)
+diff --git a/arch/powerpc/sysdev/qe_lib/qe_io.c b/arch/powerpc/sysdev/qe_lib/qe_io.c
+index e32b45b..a114cb0 100644
+--- a/arch/powerpc/sysdev/qe_lib/qe_io.c
++++ b/arch/powerpc/sysdev/qe_lib/qe_io.c
+@@ -195,29 +195,22 @@ EXPORT_SYMBOL(par_io_of_config);
+ #ifdef DEBUG
+ static void dump_par_io(void)
+ {
+-	int i;
++	unsigned int i;
+ 
+-	printk(KERN_INFO "PAR IO registars:\n");
+-	printk(KERN_INFO "Base address: 0x%08x\n", (u32) par_io);
++	printk(KERN_INFO "%s: par_io=%p\n", __FUNCTION__, par_io);
+ 	for (i = 0; i < num_par_io_ports; i++) {
+-		printk(KERN_INFO "cpodr[%d] : addr - 0x%08x, val - 0x%08x\n",
+-		       i, (u32) & par_io[i].cpodr,
+-		       in_be32(&par_io[i].cpodr));
+-		printk(KERN_INFO "cpdata[%d]: addr - 0x%08x, val - 0x%08x\n",
+-		       i, (u32) & par_io[i].cpdata,
+-		       in_be32(&par_io[i].cpdata));
+-		printk(KERN_INFO "cpdir1[%d]: addr - 0x%08x, val - 0x%08x\n",
+-		       i, (u32) & par_io[i].cpdir1,
+-		       in_be32(&par_io[i].cpdir1));
+-		printk(KERN_INFO "cpdir2[%d]: addr - 0x%08x, val - 0x%08x\n",
+-		       i, (u32) & par_io[i].cpdir2,
+-		       in_be32(&par_io[i].cpdir2));
+-		printk(KERN_INFO "cppar1[%d]: addr - 0x%08x, val - 0x%08x\n",
+-		       i, (u32) & par_io[i].cppar1,
+-		       in_be32(&par_io[i].cppar1));
+-		printk(KERN_INFO "cppar2[%d]: addr - 0x%08x, val - 0x%08x\n",
+-		       i, (u32) & par_io[i].cppar2,
+-		       in_be32(&par_io[i].cppar2));
++		printk(KERN_INFO "	cpodr[%u]=%08x\n", i,
++			in_be32(&par_io[i].cpodr));
++		printk(KERN_INFO "	cpdata[%u]=%08x\n", i,
++			in_be32(&par_io[i].cpdata));
++		printk(KERN_INFO "	cpdir1[%u]=%08x\n", i,
++			in_be32(&par_io[i].cpdir1));
++		printk(KERN_INFO "	cpdir2[%u]=%08x\n", i,
++			in_be32(&par_io[i].cpdir2));
++		printk(KERN_INFO "	cppar1[%u]=%08x\n", i,
++			in_be32(&par_io[i].cppar1));
++		printk(KERN_INFO "	cppar2[%u]=%08x\n", i,
++			in_be32(&par_io[i].cppar2));
+ 	}
+ 
+ }
+diff --git a/arch/powerpc/sysdev/qe_lib/ucc.c b/arch/powerpc/sysdev/qe_lib/ucc.c
+index f970e54..0e348d9 100644
+--- a/arch/powerpc/sysdev/qe_lib/ucc.c
++++ b/arch/powerpc/sysdev/qe_lib/ucc.c
+@@ -28,228 +28,188 @@
+ 
+ static DEFINE_SPINLOCK(ucc_lock);
+ 
+-int ucc_set_qe_mux_mii_mng(int ucc_num)
++int ucc_set_qe_mux_mii_mng(unsigned int ucc_num)
+ {
+ 	unsigned long flags;
+ 
++	if (ucc_num > UCC_MAX_NUM - 1)
++		return -EINVAL;
++
+ 	spin_lock_irqsave(&ucc_lock, flags);
+-	out_be32(&qe_immr->qmx.cmxgcr,
+-		 ((in_be32(&qe_immr->qmx.cmxgcr) &
+-		   ~QE_CMXGCR_MII_ENET_MNG) |
+-		  (ucc_num << QE_CMXGCR_MII_ENET_MNG_SHIFT)));
++	clrsetbits_be32(&qe_immr->qmx.cmxgcr, QE_CMXGCR_MII_ENET_MNG,
++		ucc_num << QE_CMXGCR_MII_ENET_MNG_SHIFT);
+ 	spin_unlock_irqrestore(&ucc_lock, flags);
+ 
+ 	return 0;
+ }
+ EXPORT_SYMBOL(ucc_set_qe_mux_mii_mng);
+ 
+-int ucc_set_type(int ucc_num, struct ucc_common *regs,
+-		 enum ucc_speed_type speed)
+-{
+-	u8 guemr = 0;
+-
+-	/* check if the UCC number is in range. */
+-	if ((ucc_num > UCC_MAX_NUM - 1) || (ucc_num < 0))
+-		return -EINVAL;
+-
+-	guemr = regs->guemr;
+-	guemr &= ~(UCC_GUEMR_MODE_MASK_RX | UCC_GUEMR_MODE_MASK_TX);
+-	switch (speed) {
+-	case UCC_SPEED_TYPE_SLOW:
+-		guemr |= (UCC_GUEMR_MODE_SLOW_RX | UCC_GUEMR_MODE_SLOW_TX);
+-		break;
+-	case UCC_SPEED_TYPE_FAST:
+-		guemr |= (UCC_GUEMR_MODE_FAST_RX | UCC_GUEMR_MODE_FAST_TX);
+-		break;
+-	default:
+-		return -EINVAL;
+-	}
+-	regs->guemr = guemr;
+-
+-	return 0;
+-}
+-
+-int ucc_init_guemr(struct ucc_common *regs)
++/* Configure the UCC to either Slow or Fast.
++ *
++ * A given UCC can be figured to support either "slow" devices (e.g. UART)
++ * or "fast" devices (e.g. Ethernet).
++ *
++ * 'ucc_num' is the UCC number, from 0 - 7.
++ *
++ * This function also sets the UCC_GUEMR_SET_RESERVED3 bit because that bit
++ * must always be set to 1.
++ */
++int ucc_set_type(unsigned int ucc_num, enum ucc_speed_type speed)
+ {
+-	u8 guemr = 0;
+-
+-	if (!regs)
+-		return -EINVAL;
+-
+-	/* Set bit 3 (which is reserved in the GUEMR register) to 1 */
+-	guemr = UCC_GUEMR_SET_RESERVED3;
+-
+-	regs->guemr = guemr;
+-
+-	return 0;
+-}
++	u8 __iomem *guemr;
+ 
+-static void get_cmxucr_reg(int ucc_num, volatile u32 ** p_cmxucr, u8 * reg_num,
+-			   u8 * shift)
+-{
++	/* The GUEMR register is at the same location for both slow and fast
++	   devices, so we just use uccX.slow.guemr. */
+ 	switch (ucc_num) {
+-	case 0: *p_cmxucr = &(qe_immr->qmx.cmxucr1);
+-		*reg_num = 1;
+-		*shift = 16;
++	case 0: guemr = &qe_immr->ucc1.slow.guemr;
+ 		break;
+-	case 2: *p_cmxucr = &(qe_immr->qmx.cmxucr1);
+-		*reg_num = 1;
+-		*shift = 0;
++	case 1: guemr = &qe_immr->ucc2.slow.guemr;
+ 		break;
+-	case 4: *p_cmxucr = &(qe_immr->qmx.cmxucr2);
+-		*reg_num = 2;
+-		*shift = 16;
++	case 2: guemr = &qe_immr->ucc3.slow.guemr;
+ 		break;
+-	case 6: *p_cmxucr = &(qe_immr->qmx.cmxucr2);
+-		*reg_num = 2;
+-		*shift = 0;
++	case 3: guemr = &qe_immr->ucc4.slow.guemr;
+ 		break;
+-	case 1: *p_cmxucr = &(qe_immr->qmx.cmxucr3);
+-		*reg_num = 3;
+-		*shift = 16;
++	case 4: guemr = &qe_immr->ucc5.slow.guemr;
+ 		break;
+-	case 3: *p_cmxucr = &(qe_immr->qmx.cmxucr3);
+-		*reg_num = 3;
+-		*shift = 0;
++	case 5: guemr = &qe_immr->ucc6.slow.guemr;
+ 		break;
+-	case 5: *p_cmxucr = &(qe_immr->qmx.cmxucr4);
+-		*reg_num = 4;
+-		*shift = 16;
++	case 6: guemr = &qe_immr->ucc7.slow.guemr;
+ 		break;
+-	case 7: *p_cmxucr = &(qe_immr->qmx.cmxucr4);
+-		*reg_num = 4;
+-		*shift = 0;
++	case 7: guemr = &qe_immr->ucc8.slow.guemr;
+ 		break;
+ 	default:
+-		break;
++		return -EINVAL;
+ 	}
++
++	clrsetbits_8(guemr, UCC_GUEMR_MODE_MASK,
++		UCC_GUEMR_SET_RESERVED3 | speed);
++
++	return 0;
++}
++
++static void get_cmxucr_reg(unsigned int ucc_num, __be32 **cmxucr,
++	unsigned int *reg_num, unsigned int *shift)
++{
++	unsigned int cmx = ((ucc_num & 1) << 1) + (ucc_num > 3);
++
++	*reg_num = cmx + 1;
++	*cmxucr = &qe_immr->qmx.cmxucr[cmx];
++	*shift = 16 - 8 * (ucc_num & 2);
+ }
+ 
+-int ucc_mux_set_grant_tsa_bkpt(int ucc_num, int set, u32 mask)
++int ucc_mux_set_grant_tsa_bkpt(unsigned int ucc_num, int set, u32 mask)
+ {
+-	volatile u32 *p_cmxucr;
+-	u8 reg_num;
+-	u8 shift;
++	__be32 *cmxucr;
++	unsigned int reg_num;
++	unsigned int shift;
+ 
+ 	/* check if the UCC number is in range. */
+-	if ((ucc_num > UCC_MAX_NUM - 1) || (ucc_num < 0))
++	if (ucc_num > UCC_MAX_NUM - 1)
+ 		return -EINVAL;
+ 
+-	get_cmxucr_reg(ucc_num, &p_cmxucr, &reg_num, &shift);
++	get_cmxucr_reg(ucc_num, &cmxucr, &reg_num, &shift);
+ 
+ 	if (set)
+-		out_be32(p_cmxucr, in_be32(p_cmxucr) | (mask << shift));
++		setbits32(cmxucr, mask << shift);
+ 	else
+-		out_be32(p_cmxucr, in_be32(p_cmxucr) & ~(mask << shift));
++		clrbits32(cmxucr, mask << shift);
+ 
+ 	return 0;
+ }
+ 
+-int ucc_set_qe_mux_rxtx(int ucc_num, enum qe_clock clock, enum comm_dir mode)
++int ucc_set_qe_mux_rxtx(unsigned int ucc_num, enum qe_clock clock,
++	enum comm_dir mode)
+ {
+-	volatile u32 *p_cmxucr;
+-	u8 reg_num;
+-	u8 shift;
+-	u32 clock_bits;
+-	u32 clock_mask;
+-	int source = -1;
++	__be32 *cmxucr;
++	unsigned int reg_num;
++	unsigned int shift;
++	u32 clock_bits = 0;
+ 
+ 	/* check if the UCC number is in range. */
+-	if ((ucc_num > UCC_MAX_NUM - 1) || (ucc_num < 0))
++	if (ucc_num > UCC_MAX_NUM - 1)
+ 		return -EINVAL;
+ 
+-	if (!((mode == COMM_DIR_RX) || (mode == COMM_DIR_TX))) {
+-		printk(KERN_ERR
+-		       "ucc_set_qe_mux_rxtx: bad comm mode type passed.");
++	/* The communications direction must be RX or TX */
++	if (!((mode == COMM_DIR_RX) || (mode == COMM_DIR_TX)))
+ 		return -EINVAL;
+-	}
+ 
+-	get_cmxucr_reg(ucc_num, &p_cmxucr, &reg_num, &shift);
++	get_cmxucr_reg(ucc_num, &cmxucr, &reg_num, &shift);
+ 
+ 	switch (reg_num) {
+ 	case 1:
+ 		switch (clock) {
+-		case QE_BRG1:	source = 1; break;
+-		case QE_BRG2:	source = 2; break;
+-		case QE_BRG7:	source = 3; break;
+-		case QE_BRG8:	source = 4; break;
+-		case QE_CLK9:	source = 5; break;
+-		case QE_CLK10:	source = 6; break;
+-		case QE_CLK11:	source = 7; break;
+-		case QE_CLK12:	source = 8; break;
+-		case QE_CLK15:	source = 9; break;
+-		case QE_CLK16:	source = 10; break;
+-		default: 	source = -1; break;
++		case QE_BRG1:	clock_bits = 1; break;
++		case QE_BRG2:	clock_bits = 2; break;
++		case QE_BRG7:	clock_bits = 3; break;
++		case QE_BRG8:	clock_bits = 4; break;
++		case QE_CLK9:	clock_bits = 5; break;
++		case QE_CLK10:	clock_bits = 6; break;
++		case QE_CLK11:	clock_bits = 7; break;
++		case QE_CLK12:	clock_bits = 8; break;
++		case QE_CLK15:	clock_bits = 9; break;
++		case QE_CLK16:	clock_bits = 10; break;
++		default: break;
+ 		}
+ 		break;
+ 	case 2:
+ 		switch (clock) {
+-		case QE_BRG5:	source = 1; break;
+-		case QE_BRG6:	source = 2; break;
+-		case QE_BRG7:	source = 3; break;
+-		case QE_BRG8:	source = 4; break;
+-		case QE_CLK13:	source = 5; break;
+-		case QE_CLK14:	source = 6; break;
+-		case QE_CLK19:	source = 7; break;
+-		case QE_CLK20:	source = 8; break;
+-		case QE_CLK15:	source = 9; break;
+-		case QE_CLK16:	source = 10; break;
+-		default: 	source = -1; break;
++		case QE_BRG5:	clock_bits = 1; break;
++		case QE_BRG6:	clock_bits = 2; break;
++		case QE_BRG7:	clock_bits = 3; break;
++		case QE_BRG8:	clock_bits = 4; break;
++		case QE_CLK13:	clock_bits = 5; break;
++		case QE_CLK14:	clock_bits = 6; break;
++		case QE_CLK19:	clock_bits = 7; break;
++		case QE_CLK20:	clock_bits = 8; break;
++		case QE_CLK15:	clock_bits = 9; break;
++		case QE_CLK16:	clock_bits = 10; break;
++		default: break;
+ 		}
+ 		break;
+ 	case 3:
+ 		switch (clock) {
+-		case QE_BRG9:	source = 1; break;
+-		case QE_BRG10:	source = 2; break;
+-		case QE_BRG15:	source = 3; break;
+-		case QE_BRG16:	source = 4; break;
+-		case QE_CLK3:	source = 5; break;
+-		case QE_CLK4:	source = 6; break;
+-		case QE_CLK17:	source = 7; break;
+-		case QE_CLK18:	source = 8; break;
+-		case QE_CLK7:	source = 9; break;
+-		case QE_CLK8:	source = 10; break;
+-		case QE_CLK16:	source = 11; break;
+-		default:	source = -1; break;
++		case QE_BRG9:	clock_bits = 1; break;
++		case QE_BRG10:	clock_bits = 2; break;
++		case QE_BRG15:	clock_bits = 3; break;
++		case QE_BRG16:	clock_bits = 4; break;
++		case QE_CLK3:	clock_bits = 5; break;
++		case QE_CLK4:	clock_bits = 6; break;
++		case QE_CLK17:	clock_bits = 7; break;
++		case QE_CLK18:	clock_bits = 8; break;
++		case QE_CLK7:	clock_bits = 9; break;
++		case QE_CLK8:	clock_bits = 10; break;
++		case QE_CLK16:	clock_bits = 11; break;
++		default: break;
+ 		}
+ 		break;
+ 	case 4:
+ 		switch (clock) {
+-		case QE_BRG13:	source = 1; break;
+-		case QE_BRG14:	source = 2; break;
+-		case QE_BRG15:	source = 3; break;
+-		case QE_BRG16:	source = 4; break;
+-		case QE_CLK5:	source = 5; break;
+-		case QE_CLK6:	source = 6; break;
+-		case QE_CLK21:	source = 7; break;
+-		case QE_CLK22:	source = 8; break;
+-		case QE_CLK7:	source = 9; break;
+-		case QE_CLK8:	source = 10; break;
+-		case QE_CLK16:	source = 11; break;
+-		default: 	source = -1; break;
++		case QE_BRG13:	clock_bits = 1; break;
++		case QE_BRG14:	clock_bits = 2; break;
++		case QE_BRG15:	clock_bits = 3; break;
++		case QE_BRG16:	clock_bits = 4; break;
++		case QE_CLK5:	clock_bits = 5; break;
++		case QE_CLK6:	clock_bits = 6; break;
++		case QE_CLK21:	clock_bits = 7; break;
++		case QE_CLK22:	clock_bits = 8; break;
++		case QE_CLK7:	clock_bits = 9; break;
++		case QE_CLK8:	clock_bits = 10; break;
++		case QE_CLK16:	clock_bits = 11; break;
++		default: break;
+ 		}
+ 		break;
+-	default:
+-		source = -1;
+-		break;
++	default: break;
+ 	}
+ 
+-	if (source == -1) {
+-		printk(KERN_ERR
+-		     "ucc_set_qe_mux_rxtx: Bad combination of clock and UCC.");
++	/* Check for invalid combination of clock and UCC number */
++	if (!clock_bits)
+ 		return -ENOENT;
+-	}
+ 
+-	clock_bits = (u32) source;
+-	clock_mask = QE_CMXUCR_TX_CLK_SRC_MASK;
+-	if (mode == COMM_DIR_RX) {
+-		clock_bits <<= 4;  /* Rx field is 4 bits to left of Tx field */
+-		clock_mask <<= 4;  /* Rx field is 4 bits to left of Tx field */
+-	}
+-	clock_bits <<= shift;
+-	clock_mask <<= shift;
++	if (mode == COMM_DIR_RX)
++		shift += 4;
+ 
+-	out_be32(p_cmxucr, (in_be32(p_cmxucr) & ~clock_mask) | clock_bits);
++	clrsetbits_be32(cmxucr, QE_CMXUCR_TX_CLK_SRC_MASK << shift,
++		clock_bits << shift);
+ 
+ 	return 0;
+ }
+diff --git a/arch/powerpc/sysdev/qe_lib/ucc_fast.c b/arch/powerpc/sysdev/qe_lib/ucc_fast.c
+index 3df202e..3223acb 100644
+--- a/arch/powerpc/sysdev/qe_lib/ucc_fast.c
++++ b/arch/powerpc/sysdev/qe_lib/ucc_fast.c
+@@ -30,46 +30,45 @@
+ 
+ void ucc_fast_dump_regs(struct ucc_fast_private * uccf)
+ {
+-	printk(KERN_INFO "UCC%d Fast registers:", uccf->uf_info->ucc_num);
+-	printk(KERN_INFO "Base address: 0x%08x", (u32) uccf->uf_regs);
+-
+-	printk(KERN_INFO "gumr  : addr - 0x%08x, val - 0x%08x",
+-		  (u32) & uccf->uf_regs->gumr, in_be32(&uccf->uf_regs->gumr));
+-	printk(KERN_INFO "upsmr : addr - 0x%08x, val - 0x%08x",
+-		  (u32) & uccf->uf_regs->upsmr, in_be32(&uccf->uf_regs->upsmr));
+-	printk(KERN_INFO "utodr : addr - 0x%08x, val - 0x%04x",
+-		  (u32) & uccf->uf_regs->utodr, in_be16(&uccf->uf_regs->utodr));
+-	printk(KERN_INFO "udsr  : addr - 0x%08x, val - 0x%04x",
+-		  (u32) & uccf->uf_regs->udsr, in_be16(&uccf->uf_regs->udsr));
+-	printk(KERN_INFO "ucce  : addr - 0x%08x, val - 0x%08x",
+-		  (u32) & uccf->uf_regs->ucce, in_be32(&uccf->uf_regs->ucce));
+-	printk(KERN_INFO "uccm  : addr - 0x%08x, val - 0x%08x",
+-		  (u32) & uccf->uf_regs->uccm, in_be32(&uccf->uf_regs->uccm));
+-	printk(KERN_INFO "uccs  : addr - 0x%08x, val - 0x%02x",
+-		  (u32) & uccf->uf_regs->uccs, uccf->uf_regs->uccs);
+-	printk(KERN_INFO "urfb  : addr - 0x%08x, val - 0x%08x",
+-		  (u32) & uccf->uf_regs->urfb, in_be32(&uccf->uf_regs->urfb));
+-	printk(KERN_INFO "urfs  : addr - 0x%08x, val - 0x%04x",
+-		  (u32) & uccf->uf_regs->urfs, in_be16(&uccf->uf_regs->urfs));
+-	printk(KERN_INFO "urfet : addr - 0x%08x, val - 0x%04x",
+-		  (u32) & uccf->uf_regs->urfet, in_be16(&uccf->uf_regs->urfet));
+-	printk(KERN_INFO "urfset: addr - 0x%08x, val - 0x%04x",
+-		  (u32) & uccf->uf_regs->urfset,
+-		  in_be16(&uccf->uf_regs->urfset));
+-	printk(KERN_INFO "utfb  : addr - 0x%08x, val - 0x%08x",
+-		  (u32) & uccf->uf_regs->utfb, in_be32(&uccf->uf_regs->utfb));
+-	printk(KERN_INFO "utfs  : addr - 0x%08x, val - 0x%04x",
+-		  (u32) & uccf->uf_regs->utfs, in_be16(&uccf->uf_regs->utfs));
+-	printk(KERN_INFO "utfet : addr - 0x%08x, val - 0x%04x",
+-		  (u32) & uccf->uf_regs->utfet, in_be16(&uccf->uf_regs->utfet));
+-	printk(KERN_INFO "utftt : addr - 0x%08x, val - 0x%04x",
+-		  (u32) & uccf->uf_regs->utftt, in_be16(&uccf->uf_regs->utftt));
+-	printk(KERN_INFO "utpt  : addr - 0x%08x, val - 0x%04x",
+-		  (u32) & uccf->uf_regs->utpt, in_be16(&uccf->uf_regs->utpt));
+-	printk(KERN_INFO "urtry : addr - 0x%08x, val - 0x%08x",
+-		  (u32) & uccf->uf_regs->urtry, in_be32(&uccf->uf_regs->urtry));
+-	printk(KERN_INFO "guemr : addr - 0x%08x, val - 0x%02x",
+-		  (u32) & uccf->uf_regs->guemr, uccf->uf_regs->guemr);
++	printk(KERN_INFO "UCC%u Fast registers:\n", uccf->uf_info->ucc_num);
++	printk(KERN_INFO "Base address: 0x%p\n", uccf->uf_regs);
++
++	printk(KERN_INFO "gumr  : addr=0x%p, val=0x%08x\n",
++		  &uccf->uf_regs->gumr, in_be32(&uccf->uf_regs->gumr));
++	printk(KERN_INFO "upsmr : addr=0x%p, val=0x%08x\n",
++		  &uccf->uf_regs->upsmr, in_be32(&uccf->uf_regs->upsmr));
++	printk(KERN_INFO "utodr : addr=0x%p, val=0x%04x\n",
++		  &uccf->uf_regs->utodr, in_be16(&uccf->uf_regs->utodr));
++	printk(KERN_INFO "udsr  : addr=0x%p, val=0x%04x\n",
++		  &uccf->uf_regs->udsr, in_be16(&uccf->uf_regs->udsr));
++	printk(KERN_INFO "ucce  : addr=0x%p, val=0x%08x\n",
++		  &uccf->uf_regs->ucce, in_be32(&uccf->uf_regs->ucce));
++	printk(KERN_INFO "uccm  : addr=0x%p, val=0x%08x\n",
++		  &uccf->uf_regs->uccm, in_be32(&uccf->uf_regs->uccm));
++	printk(KERN_INFO "uccs  : addr=0x%p, val=0x%02x\n",
++		  &uccf->uf_regs->uccs, uccf->uf_regs->uccs);
++	printk(KERN_INFO "urfb  : addr=0x%p, val=0x%08x\n",
++		  &uccf->uf_regs->urfb, in_be32(&uccf->uf_regs->urfb));
++	printk(KERN_INFO "urfs  : addr=0x%p, val=0x%04x\n",
++		  &uccf->uf_regs->urfs, in_be16(&uccf->uf_regs->urfs));
++	printk(KERN_INFO "urfet : addr=0x%p, val=0x%04x\n",
++		  &uccf->uf_regs->urfet, in_be16(&uccf->uf_regs->urfet));
++	printk(KERN_INFO "urfset: addr=0x%p, val=0x%04x\n",
++		  &uccf->uf_regs->urfset, in_be16(&uccf->uf_regs->urfset));
++	printk(KERN_INFO "utfb  : addr=0x%p, val=0x%08x\n",
++		  &uccf->uf_regs->utfb, in_be32(&uccf->uf_regs->utfb));
++	printk(KERN_INFO "utfs  : addr=0x%p, val=0x%04x\n",
++		  &uccf->uf_regs->utfs, in_be16(&uccf->uf_regs->utfs));
++	printk(KERN_INFO "utfet : addr=0x%p, val=0x%04x\n",
++		  &uccf->uf_regs->utfet, in_be16(&uccf->uf_regs->utfet));
++	printk(KERN_INFO "utftt : addr=0x%p, val=0x%04x\n",
++		  &uccf->uf_regs->utftt, in_be16(&uccf->uf_regs->utftt));
++	printk(KERN_INFO "utpt  : addr=0x%p, val=0x%04x\n",
++		  &uccf->uf_regs->utpt, in_be16(&uccf->uf_regs->utpt));
++	printk(KERN_INFO "urtry : addr=0x%p, val=0x%08x\n",
++		  &uccf->uf_regs->urtry, in_be32(&uccf->uf_regs->urtry));
++	printk(KERN_INFO "guemr : addr=0x%p, val=0x%02x\n",
++		  &uccf->uf_regs->guemr, uccf->uf_regs->guemr);
+ }
+ EXPORT_SYMBOL(ucc_fast_dump_regs);
+ 
+@@ -149,55 +148,57 @@ int ucc_fast_init(struct ucc_fast_info * uf_info, struct ucc_fast_private ** ucc
+ 
+ 	/* check if the UCC port number is in range. */
+ 	if ((uf_info->ucc_num < 0) || (uf_info->ucc_num > UCC_MAX_NUM - 1)) {
+-		printk(KERN_ERR "%s: illegal UCC number", __FUNCTION__);
++		printk(KERN_ERR "%s: illegal UCC number\n", __FUNCTION__);
+ 		return -EINVAL;
+ 	}
+ 
+ 	/* Check that 'max_rx_buf_length' is properly aligned (4). */
+ 	if (uf_info->max_rx_buf_length & (UCC_FAST_MRBLR_ALIGNMENT - 1)) {
+-		printk(KERN_ERR "%s: max_rx_buf_length not aligned", __FUNCTION__);
++		printk(KERN_ERR "%s: max_rx_buf_length not aligned\n",
++			__FUNCTION__);
+ 		return -EINVAL;
+ 	}
+ 
+ 	/* Validate Virtual Fifo register values */
+ 	if (uf_info->urfs < UCC_FAST_URFS_MIN_VAL) {
+-		printk(KERN_ERR "%s: urfs is too small", __FUNCTION__);
++		printk(KERN_ERR "%s: urfs is too small\n", __FUNCTION__);
+ 		return -EINVAL;
+ 	}
+ 
+ 	if (uf_info->urfs & (UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT - 1)) {
+-		printk(KERN_ERR "%s: urfs is not aligned", __FUNCTION__);
++		printk(KERN_ERR "%s: urfs is not aligned\n", __FUNCTION__);
+ 		return -EINVAL;
+ 	}
+ 
+ 	if (uf_info->urfet & (UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT - 1)) {
+-		printk(KERN_ERR "%s: urfet is not aligned.", __FUNCTION__);
++		printk(KERN_ERR "%s: urfet is not aligned.\n", __FUNCTION__);
+ 		return -EINVAL;
+ 	}
+ 
+ 	if (uf_info->urfset & (UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT - 1)) {
+-		printk(KERN_ERR "%s: urfset is not aligned", __FUNCTION__);
++		printk(KERN_ERR "%s: urfset is not aligned\n", __FUNCTION__);
+ 		return -EINVAL;
+ 	}
+ 
+ 	if (uf_info->utfs & (UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT - 1)) {
+-		printk(KERN_ERR "%s: utfs is not aligned", __FUNCTION__);
++		printk(KERN_ERR "%s: utfs is not aligned\n", __FUNCTION__);
+ 		return -EINVAL;
+ 	}
+ 
+ 	if (uf_info->utfet & (UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT - 1)) {
+-		printk(KERN_ERR "%s: utfet is not aligned", __FUNCTION__);
++		printk(KERN_ERR "%s: utfet is not aligned\n", __FUNCTION__);
+ 		return -EINVAL;
+ 	}
+ 
+ 	if (uf_info->utftt & (UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT - 1)) {
+-		printk(KERN_ERR "%s: utftt is not aligned", __FUNCTION__);
++		printk(KERN_ERR "%s: utftt is not aligned\n", __FUNCTION__);
+ 		return -EINVAL;
+ 	}
+ 
+ 	uccf = kzalloc(sizeof(struct ucc_fast_private), GFP_KERNEL);
+ 	if (!uccf) {
+-		printk(KERN_ERR "%s: Cannot allocate private data", __FUNCTION__);
++		printk(KERN_ERR "%s: Cannot allocate private data\n",
++			__FUNCTION__);
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -206,7 +207,7 @@ int ucc_fast_init(struct ucc_fast_info * uf_info, struct ucc_fast_private ** ucc
+ 	/* Set the PHY base address */
+ 	uccf->uf_regs = ioremap(uf_info->regs, sizeof(struct ucc_fast));
+ 	if (uccf->uf_regs == NULL) {
+-		printk(KERN_ERR "%s: Cannot map UCC registers", __FUNCTION__);
++		printk(KERN_ERR "%s: Cannot map UCC registers\n", __FUNCTION__);
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -226,18 +227,10 @@ int ucc_fast_init(struct ucc_fast_info * uf_info, struct ucc_fast_private ** ucc
+ 	uccf->rx_discarded = 0;
+ #endif				/* STATISTICS */
+ 
+-	/* Init Guemr register */
+-	if ((ret = ucc_init_guemr((struct ucc_common *) (uf_regs)))) {
+-		printk(KERN_ERR "%s: cannot init GUEMR", __FUNCTION__);
+-		ucc_fast_free(uccf);
+-		return ret;
+-	}
+-
+ 	/* Set UCC to fast type */
+-	if ((ret = ucc_set_type(uf_info->ucc_num,
+-				(struct ucc_common *) (uf_regs),
+-				UCC_SPEED_TYPE_FAST))) {
+-		printk(KERN_ERR "%s: cannot set UCC type", __FUNCTION__);
++	ret = ucc_set_type(uf_info->ucc_num, UCC_SPEED_TYPE_FAST);
++	if (ret) {
++		printk(KERN_ERR "%s: cannot set UCC type\n", __FUNCTION__);
+ 		ucc_fast_free(uccf);
+ 		return ret;
+ 	}
+@@ -276,7 +269,8 @@ int ucc_fast_init(struct ucc_fast_info * uf_info, struct ucc_fast_private ** ucc
+ 	uccf->ucc_fast_tx_virtual_fifo_base_offset =
+ 	    qe_muram_alloc(uf_info->utfs, UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT);
+ 	if (IS_ERR_VALUE(uccf->ucc_fast_tx_virtual_fifo_base_offset)) {
+-		printk(KERN_ERR "%s: cannot allocate MURAM for TX FIFO", __FUNCTION__);
++		printk(KERN_ERR "%s: cannot allocate MURAM for TX FIFO\n",
++			__FUNCTION__);
+ 		uccf->ucc_fast_tx_virtual_fifo_base_offset = 0;
+ 		ucc_fast_free(uccf);
+ 		return -ENOMEM;
+@@ -288,7 +282,8 @@ int ucc_fast_init(struct ucc_fast_info * uf_info, struct ucc_fast_private ** ucc
+ 			   UCC_FAST_RECEIVE_VIRTUAL_FIFO_SIZE_FUDGE_FACTOR,
+ 			   UCC_FAST_VIRT_FIFO_REGS_ALIGNMENT);
+ 	if (IS_ERR_VALUE(uccf->ucc_fast_rx_virtual_fifo_base_offset)) {
+-		printk(KERN_ERR "%s: cannot allocate MURAM for RX FIFO", __FUNCTION__);
++		printk(KERN_ERR "%s: cannot allocate MURAM for RX FIFO\n",
++			__FUNCTION__);
+ 		uccf->ucc_fast_rx_virtual_fifo_base_offset = 0;
+ 		ucc_fast_free(uccf);
+ 		return -ENOMEM;
+@@ -318,7 +313,7 @@ int ucc_fast_init(struct ucc_fast_info * uf_info, struct ucc_fast_private ** ucc
+ 		if ((uf_info->rx_clock != QE_CLK_NONE) &&
+ 		    ucc_set_qe_mux_rxtx(uf_info->ucc_num, uf_info->rx_clock,
+ 					COMM_DIR_RX)) {
+-			printk(KERN_ERR "%s: illegal value for RX clock",
++			printk(KERN_ERR "%s: illegal value for RX clock\n",
+ 			       __FUNCTION__);
+ 			ucc_fast_free(uccf);
+ 			return -EINVAL;
+@@ -327,7 +322,7 @@ int ucc_fast_init(struct ucc_fast_info * uf_info, struct ucc_fast_private ** ucc
+ 		if ((uf_info->tx_clock != QE_CLK_NONE) &&
+ 		    ucc_set_qe_mux_rxtx(uf_info->ucc_num, uf_info->tx_clock,
+ 					COMM_DIR_TX)) {
+-			printk(KERN_ERR "%s: illegal value for TX clock",
++			printk(KERN_ERR "%s: illegal value for TX clock\n",
+ 			       __FUNCTION__);
+ 			ucc_fast_free(uccf);
+ 			return -EINVAL;
+diff --git a/arch/powerpc/sysdev/qe_lib/ucc_slow.c b/arch/powerpc/sysdev/qe_lib/ucc_slow.c
+index 1f65c26..0174b3a 100644
+--- a/arch/powerpc/sysdev/qe_lib/ucc_slow.c
++++ b/arch/powerpc/sysdev/qe_lib/ucc_slow.c
+@@ -115,11 +115,15 @@ void ucc_slow_disable(struct ucc_slow_private * uccs, enum comm_dir mode)
+ 	out_be32(&us_regs->gumr_l, gumr_l);
+ }
+ 
++/* Initialize the UCC for Slow operations
++ *
++ * The caller should initialize the following us_info
++ */
+ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** uccs_ret)
+ {
+ 	struct ucc_slow_private *uccs;
+ 	u32 i;
+-	struct ucc_slow *us_regs;
++	struct ucc_slow __iomem *us_regs;
+ 	u32 gumr;
+ 	struct qe_bd *bd;
+ 	u32 id;
+@@ -131,7 +135,7 @@ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** ucc
+ 
+ 	/* check if the UCC port number is in range. */
+ 	if ((us_info->ucc_num < 0) || (us_info->ucc_num > UCC_MAX_NUM - 1)) {
+-		printk(KERN_ERR "%s: illegal UCC number", __FUNCTION__);
++		printk(KERN_ERR "%s: illegal UCC number\n", __FUNCTION__);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -143,13 +147,14 @@ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** ucc
+ 	 */
+ 	if ((!us_info->rfw) &&
+ 		(us_info->max_rx_buf_length & (UCC_SLOW_MRBLR_ALIGNMENT - 1))) {
+-		printk(KERN_ERR "max_rx_buf_length not aligned.");
++		printk(KERN_ERR "max_rx_buf_length not aligned.\n");
+ 		return -EINVAL;
+ 	}
+ 
+ 	uccs = kzalloc(sizeof(struct ucc_slow_private), GFP_KERNEL);
+ 	if (!uccs) {
+-		printk(KERN_ERR "%s: Cannot allocate private data", __FUNCTION__);
++		printk(KERN_ERR "%s: Cannot allocate private data\n",
++			__FUNCTION__);
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -158,7 +163,7 @@ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** ucc
+ 	/* Set the PHY base address */
+ 	uccs->us_regs = ioremap(us_info->regs, sizeof(struct ucc_slow));
+ 	if (uccs->us_regs == NULL) {
+-		printk(KERN_ERR "%s: Cannot map UCC registers", __FUNCTION__);
++		printk(KERN_ERR "%s: Cannot map UCC registers\n", __FUNCTION__);
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -182,22 +187,14 @@ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** ucc
+ 		return -ENOMEM;
+ 	}
+ 	id = ucc_slow_get_qe_cr_subblock(us_info->ucc_num);
+-	qe_issue_cmd(QE_ASSIGN_PAGE_TO_DEVICE, id, QE_CR_PROTOCOL_UNSPECIFIED,
++	qe_issue_cmd(QE_ASSIGN_PAGE_TO_DEVICE, id, us_info->protocol,
+ 		     uccs->us_pram_offset);
+ 
+ 	uccs->us_pram = qe_muram_addr(uccs->us_pram_offset);
+ 
+-	/* Init Guemr register */
+-	if ((ret = ucc_init_guemr((struct ucc_common *) us_regs))) {
+-		printk(KERN_ERR "%s: cannot init GUEMR", __FUNCTION__);
+-		ucc_slow_free(uccs);
+-		return ret;
+-	}
+-
+ 	/* Set UCC to slow type */
+-	if ((ret = ucc_set_type(us_info->ucc_num,
+-				(struct ucc_common *) us_regs,
+-				UCC_SPEED_TYPE_SLOW))) {
++	ret = ucc_set_type(us_info->ucc_num, UCC_SPEED_TYPE_SLOW);
++	if (ret) {
+ 		printk(KERN_ERR "%s: cannot set UCC type", __FUNCTION__);
+ 		ucc_slow_free(uccs);
+ 		return ret;
+@@ -212,7 +209,8 @@ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** ucc
+ 		qe_muram_alloc(us_info->rx_bd_ring_len * sizeof(struct qe_bd),
+ 				QE_ALIGNMENT_OF_BD);
+ 	if (IS_ERR_VALUE(uccs->rx_base_offset)) {
+-		printk(KERN_ERR "%s: cannot allocate RX BDs", __FUNCTION__);
++		printk(KERN_ERR "%s: cannot allocate %u RX BDs\n", __FUNCTION__,
++			us_info->rx_bd_ring_len);
+ 		uccs->rx_base_offset = 0;
+ 		ucc_slow_free(uccs);
+ 		return -ENOMEM;
+@@ -292,12 +290,12 @@ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** ucc
+ 
+ 	/* if the data is in cachable memory, the 'global' */
+ 	/* in the function code should be set. */
+-	uccs->us_pram->tfcr = uccs->us_pram->rfcr =
+-		us_info->data_mem_part | QE_BMR_BYTE_ORDER_BO_MOT;
++	uccs->us_pram->tbmr = UCC_BMR_BO_BE;
++	uccs->us_pram->rbmr = UCC_BMR_BO_BE;
+ 
+ 	/* rbase, tbase are offsets from MURAM base */
+-	out_be16(&uccs->us_pram->rbase, uccs->us_pram_offset);
+-	out_be16(&uccs->us_pram->tbase, uccs->us_pram_offset);
++	out_be16(&uccs->us_pram->rbase, uccs->rx_base_offset);
++	out_be16(&uccs->us_pram->tbase, uccs->tx_base_offset);
+ 
+ 	/* Mux clocking */
+ 	/* Grant Support */
+@@ -311,7 +309,7 @@ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** ucc
+ 		/* Rx clock routing */
+ 		if (ucc_set_qe_mux_rxtx(us_info->ucc_num, us_info->rx_clock,
+ 					COMM_DIR_RX)) {
+-			printk(KERN_ERR "%s: illegal value for RX clock",
++			printk(KERN_ERR "%s: illegal value for RX clock\n",
+ 			       __FUNCTION__);
+ 			ucc_slow_free(uccs);
+ 			return -EINVAL;
+@@ -319,7 +317,7 @@ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** ucc
+ 		/* Tx clock routing */
+ 		if (ucc_set_qe_mux_rxtx(us_info->ucc_num, us_info->tx_clock,
+ 					COMM_DIR_TX)) {
+-			printk(KERN_ERR "%s: illegal value for TX clock",
++			printk(KERN_ERR "%s: illegal value for TX clock\n",
+ 			       __FUNCTION__);
+ 			ucc_slow_free(uccs);
+ 			return -EINVAL;
+@@ -343,8 +341,8 @@ int ucc_slow_init(struct ucc_slow_info * us_info, struct ucc_slow_private ** ucc
+ 		command = QE_INIT_TX;
+ 	else
+ 		command = QE_INIT_RX;	/* We know at least one is TRUE */
+-	id = ucc_slow_get_qe_cr_subblock(us_info->ucc_num);
+-	qe_issue_cmd(command, id, QE_CR_PROTOCOL_UNSPECIFIED, 0);
++
++	qe_issue_cmd(command, id, us_info->protocol, 0);
+ 
+ 	*uccs_ret = uccs;
+ 	return 0;
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 9a38dfe..7dedc96 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -2919,7 +2919,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	test = in_be16(&ugeth->p_tx_glbl_pram->temoder);
+ 
+ 	/* Function code register value to be used later */
+-	function_code = QE_BMR_BYTE_ORDER_BO_MOT | UCC_FAST_FUNCTION_CODE_GBL;
++	function_code = UCC_BMR_BO_BE | UCC_BMR_GBL;
+ 	/* Required for QE */
+ 
+ 	/* function code register */
+diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h
+index bb4dac8..1aa6902 100644
+--- a/drivers/net/ucc_geth.h
++++ b/drivers/net/ucc_geth.h
+@@ -44,6 +44,7 @@
+ 
+ struct ucc_geth {
+ 	struct ucc_fast uccf;
++	u8 res0[0x100 - sizeof(struct ucc_fast)];
+ 
+ 	u32 maccfg1;		/* mac configuration reg. 1 */
+ 	u32 maccfg2;		/* mac configuration reg. 2 */
+diff --git a/include/asm-powerpc/immap_qe.h b/include/asm-powerpc/immap_qe.h
+index 1020b7f..e1db782 100644
+--- a/include/asm-powerpc/immap_qe.h
++++ b/include/asm-powerpc/immap_qe.h
+@@ -96,10 +96,7 @@ struct qe_mux {
+ 	__be32	cmxsi1cr_l;	/* CMX SI1 clock route low register */
+ 	__be32	cmxsi1cr_h;	/* CMX SI1 clock route high register */
+ 	__be32	cmxsi1syr;	/* CMX SI1 SYNC route register */
+-	__be32	cmxucr1;	/* CMX UCC1, UCC3 clock route register */
+-	__be32	cmxucr2;	/* CMX UCC5, UCC7 clock route register */
+-	__be32	cmxucr3;	/* CMX UCC2, UCC4 clock route register */
+-	__be32	cmxucr4;	/* CMX UCC6, UCC8 clock route register */
++	__be32	cmxucr[4];	/* CMX UCCx clock route registers */
+ 	__be32	cmxupcr;	/* CMX UPC clock route register */
+ 	u8	res0[0x1C];
+ } __attribute__ ((packed));
+@@ -260,7 +257,6 @@ struct ucc_slow {
+ 	__be16	utpt;
+ 	u8	res4[0x52];
+ 	u8	guemr;		/* UCC general extended mode register */
+-	u8	res5[0x200 - 0x091];
+ } __attribute__ ((packed));
+ 
+ /* QE UCC Fast */
+@@ -293,21 +289,13 @@ struct ucc_fast {
+ 	__be32	urtry;		/* UCC retry counter register */
+ 	u8	res8[0x4C];
+ 	u8	guemr;		/* UCC general extended mode register */
+-	u8	res9[0x100 - 0x091];
+-} __attribute__ ((packed));
+-
+-/* QE UCC */
+-struct ucc_common {
+-	u8	res1[0x90];
+-	u8	guemr;
+-	u8	res2[0x200 - 0x091];
+ } __attribute__ ((packed));
+ 
+ struct ucc {
+ 	union {
+ 		struct	ucc_slow slow;
+ 		struct	ucc_fast fast;
+-		struct	ucc_common common;
++		u8	res[0x200];	/* UCC blocks are 512 bytes each */
+ 	};
+ } __attribute__ ((packed));
+ 
+@@ -406,7 +394,7 @@ struct dbg {
+ 
+ /* RISC Special Registers (Trap and Breakpoint) */
+ struct rsp {
+-	u8	fixme[0x100];
++	u32	reg[0x40];	/* 64 32-bit registers */
+ } __attribute__ ((packed));
+ 
+ struct qe_immap {
+@@ -435,11 +423,13 @@ struct qe_immap {
+ 	u8			res13[0x600];
+ 	struct upc		upc2;		/* MultiPHY UTOPIA POS Ctrlr 2*/
+ 	struct sdma		sdma;		/* SDMA */
+-	struct dbg		dbg;		/* Debug Space */
+-	struct rsp		rsp[0x2];	/* RISC Special Registers
++	struct dbg		dbg;		/* 0x104080 - 0x1040FF
++						   Debug Space */
++	struct rsp		rsp[0x2];	/* 0x104100 - 0x1042FF
++						   RISC Special Registers
+ 						   (Trap and Breakpoint) */
+-	u8			res14[0x300];
+-	u8			res15[0x3A00];
++	u8			res14[0x300];	/* 0x104300 - 0x1045FF */
++	u8			res15[0x3A00];	/* 0x104600 - 0x107FFF */
+ 	u8			res16[0x8000];	/* 0x108000 - 0x110000 */
+ 	u8			muram[0xC000];	/* 0x110000 - 0x11C000
+ 						   Multi-user RAM */
+@@ -450,7 +440,7 @@ struct qe_immap {
+ extern struct qe_immap *qe_immr;
+ extern phys_addr_t get_qe_base(void);
+ 
+-static inline unsigned long immrbar_virt_to_phys(volatile void * address)
++static inline unsigned long immrbar_virt_to_phys(void *address)
+ {
+ 	if ( ((u32)address >= (u32)qe_immr) &&
+ 			((u32)address < ((u32)qe_immr + QE_IMMAP_SIZE)) )
+diff --git a/include/asm-powerpc/qe.h b/include/asm-powerpc/qe.h
+index ad23c58..0dabe46 100644
+--- a/include/asm-powerpc/qe.h
++++ b/include/asm-powerpc/qe.h
+@@ -38,7 +38,7 @@ extern int par_io_data_set(u8 port, u8 pin, u8 val);
+ 
+ /* QE internal API */
+ int qe_issue_cmd(u32 cmd, u32 device, u8 mcn_protocol, u32 cmd_input);
+-void qe_setbrg(u32 brg, u32 rate);
++void qe_setbrg(unsigned int brg, unsigned int rate, unsigned int multiplier);
+ int qe_get_snum(void);
+ void qe_put_snum(u8 snum);
+ unsigned long qe_muram_alloc(int size, int align);
+@@ -49,14 +49,28 @@ void *qe_muram_addr(unsigned long offset);
+ 
+ /* Buffer descriptors */
+ struct qe_bd {
+-	u16 status;
+-	u16 length;
+-	u32 buf;
++	__be16 status;
++	__be16 length;
++	__be32 buf;
+ } __attribute__ ((packed));
+ 
+ #define BD_STATUS_MASK	0xffff0000
+ #define BD_LENGTH_MASK	0x0000ffff
+ 
++#define BD_SC_EMPTY	0x8000	/* Receive is empty */
++#define BD_SC_READY	0x8000	/* Transmit is ready */
++#define BD_SC_WRAP	0x2000	/* Last buffer descriptor */
++#define BD_SC_INTRPT	0x1000	/* Interrupt on change */
++#define BD_SC_LAST	0x0800	/* Last buffer in frame */
++#define BD_SC_CM	0x0200	/* Continous mode */
++#define BD_SC_ID	0x0100	/* Rec'd too many idles */
++#define BD_SC_P		0x0100	/* xmt preamble */
++#define BD_SC_BR	0x0020	/* Break received */
++#define BD_SC_FR	0x0010	/* Framing error */
++#define BD_SC_PR	0x0008	/* Parity error */
++#define BD_SC_OV	0x0002	/* Overrun */
++#define BD_SC_CD	0x0001	/* ?? */
++
+ /* Alignment */
+ #define QE_INTR_TABLE_ALIGN	16	/* ??? */
+ #define QE_ALIGNMENT_OF_BD	8
+@@ -269,15 +283,12 @@ enum qe_clock {
+ /* QE CECR Protocol - For non-MCC, specifies mode for QE CECR command */
+ #define QE_CR_PROTOCOL_UNSPECIFIED	0x00	/* For all other protocols */
+ #define QE_CR_PROTOCOL_HDLC_TRANSPARENT	0x00
++#define QE_CR_PROTOCOL_QMC		0x02
++#define QE_CR_PROTOCOL_UART		0x04
+ #define QE_CR_PROTOCOL_ATM_POS		0x0A
+ #define QE_CR_PROTOCOL_ETHERNET		0x0C
+ #define QE_CR_PROTOCOL_L2_SWITCH	0x0D
+ 
+-/* BMR byte order */
+-#define QE_BMR_BYTE_ORDER_BO_PPC	0x08	/* powerpc little endian */
+-#define QE_BMR_BYTE_ORDER_BO_MOT	0x10	/* motorola big endian */
+-#define QE_BMR_BYTE_ORDER_BO_MAX	0x18
+-
+ /* BRG configuration register */
+ #define QE_BRGC_ENABLE		0x00010000
+ #define QE_BRGC_DIVISOR_SHIFT	1
+@@ -324,41 +335,41 @@ enum qe_clock {
+ #define UPGCR_ADDR	0x10000000	/* Master MPHY Addr multiplexing */
+ #define UPGCR_DIAG	0x01000000	/* Diagnostic mode */
+ 
+-/* UCC */
++/* UCC GUEMR register */
+ #define UCC_GUEMR_MODE_MASK_RX	0x02
+-#define UCC_GUEMR_MODE_MASK_TX	0x01
+ #define UCC_GUEMR_MODE_FAST_RX	0x02
+-#define UCC_GUEMR_MODE_FAST_TX	0x01
+ #define UCC_GUEMR_MODE_SLOW_RX	0x00
++#define UCC_GUEMR_MODE_MASK_TX	0x01
++#define UCC_GUEMR_MODE_FAST_TX	0x01
+ #define UCC_GUEMR_MODE_SLOW_TX	0x00
++#define UCC_GUEMR_MODE_MASK (UCC_GUEMR_MODE_MASK_RX | UCC_GUEMR_MODE_MASK_TX)
+ #define UCC_GUEMR_SET_RESERVED3	0x10	/* Bit 3 in the guemr is reserved but
+ 					   must be set 1 */
+ 
+ /* structure representing UCC SLOW parameter RAM */
+ struct ucc_slow_pram {
+-	u16 rbase;		/* RX BD base address */
+-	u16 tbase;		/* TX BD base address */
+-	u8 rfcr;		/* Rx function code */
+-	u8 tfcr;		/* Tx function code */
+-	u16 mrblr;		/* Rx buffer length */
+-	u32 rstate;		/* Rx internal state */
+-	u32 rptr;		/* Rx internal data pointer */
+-	u16 rbptr;		/* rb BD Pointer */
+-	u16 rcount;		/* Rx internal byte count */
+-	u32 rtemp;		/* Rx temp */
+-	u32 tstate;		/* Tx internal state */
+-	u32 tptr;		/* Tx internal data pointer */
+-	u16 tbptr;		/* Tx BD pointer */
+-	u16 tcount;		/* Tx byte count */
+-	u32 ttemp;		/* Tx temp */
+-	u32 rcrc;		/* temp receive CRC */
+-	u32 tcrc;		/* temp transmit CRC */
++	__be16 rbase;		/* RX BD base address */
++	__be16 tbase;		/* TX BD base address */
++	u8 rbmr;		/* RX bus mode register (same as CPM's RFCR) */
++	u8 tbmr;		/* TX bus mode register (same as CPM's TFCR) */
++	__be16 mrblr;		/* Rx buffer length */
++	__be32 rstate;		/* Rx internal state */
++	__be32 rptr;		/* Rx internal data pointer */
++	__be16 rbptr;		/* rb BD Pointer */
++	__be16 rcount;		/* Rx internal byte count */
++	__be32 rtemp;		/* Rx temp */
++	__be32 tstate;		/* Tx internal state */
++	__be32 tptr;		/* Tx internal data pointer */
++	__be16 tbptr;		/* Tx BD pointer */
++	__be16 tcount;		/* Tx byte count */
++	__be32 ttemp;		/* Tx temp */
++	__be32 rcrc;		/* temp receive CRC */
++	__be32 tcrc;		/* temp transmit CRC */
+ } __attribute__ ((packed));
+ 
+ /* General UCC SLOW Mode Register (GUMRH & GUMRL) */
+-#define UCC_SLOW_GUMR_H_CRC16		0x00004000
+-#define UCC_SLOW_GUMR_H_CRC16CCITT	0x00000000
+-#define UCC_SLOW_GUMR_H_CRC32CCITT	0x00008000
++#define UCC_SLOW_GUMR_H_SAM_QMC		0x00000000
++#define UCC_SLOW_GUMR_H_SAM_SATM	0x00008000
+ #define UCC_SLOW_GUMR_H_REVD		0x00002000
+ #define UCC_SLOW_GUMR_H_TRX		0x00001000
+ #define UCC_SLOW_GUMR_H_TTX		0x00000800
+@@ -378,9 +389,33 @@ struct ucc_slow_pram {
+ #define UCC_SLOW_GUMR_L_TCI		0x10000000
+ #define UCC_SLOW_GUMR_L_RINV		0x02000000
+ #define UCC_SLOW_GUMR_L_TINV		0x01000000
+-#define UCC_SLOW_GUMR_L_TEND		0x00020000
++#define UCC_SLOW_GUMR_L_TEND		0x00040000
++#define UCC_SLOW_GUMR_L_TDCR_MASK	0x00030000
++#define UCC_SLOW_GUMR_L_TDCR_32	        0x00030000
++#define UCC_SLOW_GUMR_L_TDCR_16	        0x00020000
++#define UCC_SLOW_GUMR_L_TDCR_8	        0x00010000
++#define UCC_SLOW_GUMR_L_TDCR_1	        0x00000000
++#define UCC_SLOW_GUMR_L_RDCR_MASK	0x0000c000
++#define UCC_SLOW_GUMR_L_RDCR_32		0x0000c000
++#define UCC_SLOW_GUMR_L_RDCR_16	        0x00008000
++#define UCC_SLOW_GUMR_L_RDCR_8	        0x00004000
++#define UCC_SLOW_GUMR_L_RDCR_1		0x00000000
++#define UCC_SLOW_GUMR_L_RENC_NRZI	0x00000800
++#define UCC_SLOW_GUMR_L_RENC_NRZ	0x00000000
++#define UCC_SLOW_GUMR_L_TENC_NRZI	0x00000100
++#define UCC_SLOW_GUMR_L_TENC_NRZ	0x00000000
++#define UCC_SLOW_GUMR_L_DIAG_MASK	0x000000c0
++#define UCC_SLOW_GUMR_L_DIAG_LE	        0x000000c0
++#define UCC_SLOW_GUMR_L_DIAG_ECHO	0x00000080
++#define UCC_SLOW_GUMR_L_DIAG_LOOP	0x00000040
++#define UCC_SLOW_GUMR_L_DIAG_NORM	0x00000000
+ #define UCC_SLOW_GUMR_L_ENR		0x00000020
+ #define UCC_SLOW_GUMR_L_ENT		0x00000010
++#define UCC_SLOW_GUMR_L_MODE_MASK	0x0000000F
++#define UCC_SLOW_GUMR_L_MODE_BISYNC	0x00000008
++#define UCC_SLOW_GUMR_L_MODE_AHDLC	0x00000006
++#define UCC_SLOW_GUMR_L_MODE_UART	0x00000004
++#define UCC_SLOW_GUMR_L_MODE_QMC	0x00000002
+ 
+ /* General UCC FAST Mode Register */
+ #define UCC_FAST_GUMR_TCI	0x20000000
+@@ -397,53 +432,111 @@ struct ucc_slow_pram {
+ #define UCC_FAST_GUMR_ENR	0x00000020
+ #define UCC_FAST_GUMR_ENT	0x00000010
+ 
+-/* Slow UCC Event Register (UCCE) */
+-#define UCC_SLOW_UCCE_GLR	0x1000
+-#define UCC_SLOW_UCCE_GLT	0x0800
+-#define UCC_SLOW_UCCE_DCC	0x0400
+-#define UCC_SLOW_UCCE_FLG	0x0200
+-#define UCC_SLOW_UCCE_AB	0x0200
+-#define UCC_SLOW_UCCE_IDLE	0x0100
+-#define UCC_SLOW_UCCE_GRA	0x0080
+-#define UCC_SLOW_UCCE_TXE	0x0010
+-#define UCC_SLOW_UCCE_RXF	0x0008
+-#define UCC_SLOW_UCCE_CCR	0x0008
+-#define UCC_SLOW_UCCE_RCH	0x0008
+-#define UCC_SLOW_UCCE_BSY	0x0004
+-#define UCC_SLOW_UCCE_TXB	0x0002
+-#define UCC_SLOW_UCCE_TX	0x0002
+-#define UCC_SLOW_UCCE_RX	0x0001
+-#define UCC_SLOW_UCCE_GOV	0x0001
+-#define UCC_SLOW_UCCE_GUN	0x0002
+-#define UCC_SLOW_UCCE_GINT	0x0004
+-#define UCC_SLOW_UCCE_IQOV	0x0008
+-
+-#define UCC_SLOW_UCCE_HDLC_SET	(UCC_SLOW_UCCE_TXE | UCC_SLOW_UCCE_BSY | \
+-		UCC_SLOW_UCCE_GRA | UCC_SLOW_UCCE_TXB | UCC_SLOW_UCCE_RXF | \
+-		UCC_SLOW_UCCE_DCC | UCC_SLOW_UCCE_GLT | UCC_SLOW_UCCE_GLR)
+-#define UCC_SLOW_UCCE_ENET_SET	(UCC_SLOW_UCCE_TXE | UCC_SLOW_UCCE_BSY | \
+-		UCC_SLOW_UCCE_GRA | UCC_SLOW_UCCE_TXB | UCC_SLOW_UCCE_RXF)
+-#define UCC_SLOW_UCCE_TRANS_SET	(UCC_SLOW_UCCE_TXE | UCC_SLOW_UCCE_BSY | \
+-		UCC_SLOW_UCCE_GRA | UCC_SLOW_UCCE_TX | UCC_SLOW_UCCE_RX | \
+-		UCC_SLOW_UCCE_DCC | UCC_SLOW_UCCE_GLT | UCC_SLOW_UCCE_GLR)
+-#define UCC_SLOW_UCCE_UART_SET	(UCC_SLOW_UCCE_BSY | UCC_SLOW_UCCE_GRA | \
+-		UCC_SLOW_UCCE_TXB | UCC_SLOW_UCCE_TX | UCC_SLOW_UCCE_RX | \
+-		UCC_SLOW_UCCE_GLT | UCC_SLOW_UCCE_GLR)
+-#define UCC_SLOW_UCCE_QMC_SET	(UCC_SLOW_UCCE_IQOV | UCC_SLOW_UCCE_GINT | \
+-		UCC_SLOW_UCCE_GUN | UCC_SLOW_UCCE_GOV)
+-
+-#define UCC_SLOW_UCCE_OTHER	(UCC_SLOW_UCCE_TXE | UCC_SLOW_UCCE_BSY | \
+-		UCC_SLOW_UCCE_GRA | UCC_SLOW_UCCE_DCC | UCC_SLOW_UCCE_GLT | \
+-		UCC_SLOW_UCCE_GLR)
+-
+-#define UCC_SLOW_INTR_TX	UCC_SLOW_UCCE_TXB
+-#define UCC_SLOW_INTR_RX	(UCC_SLOW_UCCE_RXF | UCC_SLOW_UCCE_RX)
+-#define UCC_SLOW_INTR		(UCC_SLOW_INTR_TX | UCC_SLOW_INTR_RX)
++/* UART Slow UCC Event Register (UCCE) */
++#define UCC_UART_UCCE_AB	0x0200
++#define UCC_UART_UCCE_IDLE	0x0100
++#define UCC_UART_UCCE_GRA	0x0080
++#define UCC_UART_UCCE_BRKE	0x0040
++#define UCC_UART_UCCE_BRKS	0x0020
++#define UCC_UART_UCCE_CCR	0x0008
++#define UCC_UART_UCCE_BSY	0x0004
++#define UCC_UART_UCCE_TX	0x0002
++#define UCC_UART_UCCE_RX	0x0001
++
++/* HDLC Slow UCC Event Register (UCCE) */
++#define UCC_HDLC_UCCE_GLR	0x1000
++#define UCC_HDLC_UCCE_GLT	0x0800
++#define UCC_HDLC_UCCE_IDLE	0x0100
++#define UCC_HDLC_UCCE_BRKE	0x0040
++#define UCC_HDLC_UCCE_BRKS	0x0020
++#define UCC_HDLC_UCCE_TXE	0x0010
++#define UCC_HDLC_UCCE_RXF	0x0008
++#define UCC_HDLC_UCCE_BSY	0x0004
++#define UCC_HDLC_UCCE_TXB	0x0002
++#define UCC_HDLC_UCCE_RXB	0x0001
++
++/* BISYNC Slow UCC Event Register (UCCE) */
++#define UCC_BISYNC_UCCE_GRA	0x0080
++#define UCC_BISYNC_UCCE_TXE	0x0010
++#define UCC_BISYNC_UCCE_RCH	0x0008
++#define UCC_BISYNC_UCCE_BSY	0x0004
++#define UCC_BISYNC_UCCE_TXB	0x0002
++#define UCC_BISYNC_UCCE_RXB	0x0001
++
++/* Gigabit Ethernet Fast UCC Event Register (UCCE) */
++#define UCC_GETH_UCCE_MPD       0x80000000
++#define UCC_GETH_UCCE_SCAR      0x40000000
++#define UCC_GETH_UCCE_GRA       0x20000000
++#define UCC_GETH_UCCE_CBPR      0x10000000
++#define UCC_GETH_UCCE_BSY       0x08000000
++#define UCC_GETH_UCCE_RXC       0x04000000
++#define UCC_GETH_UCCE_TXC       0x02000000
++#define UCC_GETH_UCCE_TXE       0x01000000
++#define UCC_GETH_UCCE_TXB7      0x00800000
++#define UCC_GETH_UCCE_TXB6      0x00400000
++#define UCC_GETH_UCCE_TXB5      0x00200000
++#define UCC_GETH_UCCE_TXB4      0x00100000
++#define UCC_GETH_UCCE_TXB3      0x00080000
++#define UCC_GETH_UCCE_TXB2      0x00040000
++#define UCC_GETH_UCCE_TXB1      0x00020000
++#define UCC_GETH_UCCE_TXB0      0x00010000
++#define UCC_GETH_UCCE_RXB7      0x00008000
++#define UCC_GETH_UCCE_RXB6      0x00004000
++#define UCC_GETH_UCCE_RXB5      0x00002000
++#define UCC_GETH_UCCE_RXB4      0x00001000
++#define UCC_GETH_UCCE_RXB3      0x00000800
++#define UCC_GETH_UCCE_RXB2      0x00000400
++#define UCC_GETH_UCCE_RXB1      0x00000200
++#define UCC_GETH_UCCE_RXB0      0x00000100
++#define UCC_GETH_UCCE_RXF7      0x00000080
++#define UCC_GETH_UCCE_RXF6      0x00000040
++#define UCC_GETH_UCCE_RXF5      0x00000020
++#define UCC_GETH_UCCE_RXF4      0x00000010
++#define UCC_GETH_UCCE_RXF3      0x00000008
++#define UCC_GETH_UCCE_RXF2      0x00000004
++#define UCC_GETH_UCCE_RXF1      0x00000002
++#define UCC_GETH_UCCE_RXF0      0x00000001
++
++/* UPSMR, when used as a UART */
++#define UCC_UART_UPSMR_FLC		0x8000
++#define UCC_UART_UPSMR_SL		0x4000
++#define UCC_UART_UPSMR_CL_MASK		0x3000
++#define UCC_UART_UPSMR_CL_8		0x3000
++#define UCC_UART_UPSMR_CL_7		0x2000
++#define UCC_UART_UPSMR_CL_6		0x1000
++#define UCC_UART_UPSMR_CL_5		0x0000
++#define UCC_UART_UPSMR_UM_MASK		0x0c00
++#define UCC_UART_UPSMR_UM_NORMAL	0x0000
++#define UCC_UART_UPSMR_UM_MAN_MULTI	0x0400
++#define UCC_UART_UPSMR_UM_AUTO_MULTI	0x0c00
++#define UCC_UART_UPSMR_FRZ		0x0200
++#define UCC_UART_UPSMR_RZS		0x0100
++#define UCC_UART_UPSMR_SYN		0x0080
++#define UCC_UART_UPSMR_DRT		0x0040
++#define UCC_UART_UPSMR_PEN		0x0010
++#define UCC_UART_UPSMR_RPM_MASK		0x000c
++#define UCC_UART_UPSMR_RPM_ODD		0x0000
++#define UCC_UART_UPSMR_RPM_LOW		0x0004
++#define UCC_UART_UPSMR_RPM_EVEN		0x0008
++#define UCC_UART_UPSMR_RPM_HIGH		0x000C
++#define UCC_UART_UPSMR_TPM_MASK		0x0003
++#define UCC_UART_UPSMR_TPM_ODD		0x0000
++#define UCC_UART_UPSMR_TPM_LOW		0x0001
++#define UCC_UART_UPSMR_TPM_EVEN		0x0002
++#define UCC_UART_UPSMR_TPM_HIGH		0x0003
+ 
+ /* UCC Transmit On Demand Register (UTODR) */
+ #define UCC_SLOW_TOD	0x8000
+ #define UCC_FAST_TOD	0x8000
+ 
++/* UCC Bus Mode Register masks */
++/* Not to be confused with the Bundle Mode Register */
++#define UCC_BMR_GBL		0x20
++#define UCC_BMR_BO_BE		0x10
++#define UCC_BMR_CETM		0x04
++#define UCC_BMR_DTB		0x02
++#define UCC_BMR_BDB		0x01
++
+ /* Function code masks */
+ #define FC_GBL				0x20
+ #define FC_DTB_LCL			0x02
+diff --git a/include/asm-powerpc/ucc.h b/include/asm-powerpc/ucc.h
+index afe3076..46b09ba 100644
+--- a/include/asm-powerpc/ucc.h
++++ b/include/asm-powerpc/ucc.h
+@@ -25,58 +25,38 @@
+ /* Slow or fast type for UCCs.
+ */
+ enum ucc_speed_type {
+-	UCC_SPEED_TYPE_FAST, UCC_SPEED_TYPE_SLOW
+-};
+-
+-/* Initial UCCs Parameter RAM address relative to: MEM_MAP_BASE (IMMR).
+-*/
+-enum ucc_pram_initial_offset {
+-	UCC_PRAM_OFFSET_UCC1 = 0x8400,
+-	UCC_PRAM_OFFSET_UCC2 = 0x8500,
+-	UCC_PRAM_OFFSET_UCC3 = 0x8600,
+-	UCC_PRAM_OFFSET_UCC4 = 0x9000,
+-	UCC_PRAM_OFFSET_UCC5 = 0x8000,
+-	UCC_PRAM_OFFSET_UCC6 = 0x8100,
+-	UCC_PRAM_OFFSET_UCC7 = 0x8200,
+-	UCC_PRAM_OFFSET_UCC8 = 0x8300
++	UCC_SPEED_TYPE_FAST = UCC_GUEMR_MODE_FAST_RX | UCC_GUEMR_MODE_FAST_TX,
++	UCC_SPEED_TYPE_SLOW = UCC_GUEMR_MODE_SLOW_RX | UCC_GUEMR_MODE_SLOW_TX
+ };
+ 
+ /* ucc_set_type
+  * Sets UCC to slow or fast mode.
+  *
+  * ucc_num - (In) number of UCC (0-7).
+- * regs    - (In) pointer to registers base for the UCC.
+  * speed   - (In) slow or fast mode for UCC.
+  */
+-int ucc_set_type(int ucc_num, struct ucc_common *regs,
+-		 enum ucc_speed_type speed);
+-
+-/* ucc_init_guemr
+- * Init the Guemr register.
+- *
+- * regs - (In) pointer to registers base for the UCC.
+- */
+-int ucc_init_guemr(struct ucc_common *regs);
++int ucc_set_type(unsigned int ucc_num, enum ucc_speed_type speed);
+ 
+-int ucc_set_qe_mux_mii_mng(int ucc_num);
++int ucc_set_qe_mux_mii_mng(unsigned int ucc_num);
+ 
+-int ucc_set_qe_mux_rxtx(int ucc_num, enum qe_clock clock, enum comm_dir mode);
++int ucc_set_qe_mux_rxtx(unsigned int ucc_num, enum qe_clock clock,
++	enum comm_dir mode);
+ 
+-int ucc_mux_set_grant_tsa_bkpt(int ucc_num, int set, u32 mask);
++int ucc_mux_set_grant_tsa_bkpt(unsigned int ucc_num, int set, u32 mask);
+ 
+ /* QE MUX clock routing for UCC
+ */
+-static inline int ucc_set_qe_mux_grant(int ucc_num, int set)
++static inline int ucc_set_qe_mux_grant(unsigned int ucc_num, int set)
+ {
+ 	return ucc_mux_set_grant_tsa_bkpt(ucc_num, set, QE_CMXUCR_GRANT);
+ }
+ 
+-static inline int ucc_set_qe_mux_tsa(int ucc_num, int set)
++static inline int ucc_set_qe_mux_tsa(unsigned int ucc_num, int set)
+ {
+ 	return ucc_mux_set_grant_tsa_bkpt(ucc_num, set, QE_CMXUCR_TSA);
+ }
+ 
+-static inline int ucc_set_qe_mux_bkpt(int ucc_num, int set)
++static inline int ucc_set_qe_mux_bkpt(unsigned int ucc_num, int set)
+ {
+ 	return ucc_mux_set_grant_tsa_bkpt(ucc_num, set, QE_CMXUCR_BKPT);
+ }
+diff --git a/include/asm-powerpc/ucc_slow.h b/include/asm-powerpc/ucc_slow.h
+index fdaac9d..0980e6a 100644
+--- a/include/asm-powerpc/ucc_slow.h
++++ b/include/asm-powerpc/ucc_slow.h
+@@ -148,9 +148,10 @@ enum ucc_slow_diag_mode {
+ 
+ struct ucc_slow_info {
+ 	int ucc_num;
++	int protocol;			/* QE_CR_PROTOCOL_xxx */
+ 	enum qe_clock rx_clock;
+ 	enum qe_clock tx_clock;
+-	u32 regs;
++	phys_addr_t regs;
+ 	int irq;
+ 	u16 uccm_mask;
+ 	int data_mem_part;
+@@ -186,7 +187,7 @@ struct ucc_slow_info {
+ 
+ struct ucc_slow_private {
+ 	struct ucc_slow_info *us_info;
+-	struct ucc_slow *us_regs;	/* a pointer to memory map of UCC regs */
++	struct ucc_slow __iomem *us_regs; /* Ptr to memory map of UCC regs */
+ 	struct ucc_slow_pram *us_pram;	/* a pointer to the parameter RAM */
+ 	u32 us_pram_offset;
+ 	int enabled_tx;		/* Whether channel is enabled for Tx (ENT) */
+@@ -277,12 +278,12 @@ void ucc_slow_graceful_stop_tx(struct ucc_slow_private * uccs);
+  */
+ void ucc_slow_stop_tx(struct ucc_slow_private * uccs);
+ 
+-/* ucc_slow_restart_x
++/* ucc_slow_restart_tx
+  * Restarts transmitting on a specified slow UCC.
+  *
+  * uccs - (In) pointer to the slow UCC structure.
+  */
+-void ucc_slow_restart_x(struct ucc_slow_private * uccs);
++void ucc_slow_restart_tx(struct ucc_slow_private *uccs);
+ 
+ u32 ucc_slow_get_qe_cr_subblock(int uccs_num);
+ 
 -- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+1.5.2.4
+
