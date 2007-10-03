@@ -1,25 +1,36 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] sky2: jumbo frame regression fix
-Date: Wed, 03 Oct 2007 13:39:50 -0400
-Message-ID: <4703D3E6.4080003@pobox.com>
-References: <1191372129.26233.12.camel@localhost> <20071002180209.47c350a3@freepuppy.rosehill>
+Subject: Re: [PATCH] [9/11] pasemi_mac: clear out old errors on interface
+ open
+Date: Wed, 03 Oct 2007 13:46:16 -0400
+Message-ID: <4703D568.6000000@pobox.com>
+References: <20071002212421.GA2282@lixom.net> <20071002212739.GJ2282@lixom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: pomac@vapor.com, Linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755390AbXJCRkT@vger.kernel.org>
-In-Reply-To: <20071002180209.47c350a3@freepuppy.rosehill>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Olof Johansson <olof@lixom.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:53369 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753587AbXJCRqX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 3 Oct 2007 13:46:23 -0400
+In-Reply-To: <20071002212739.GJ2282@lixom.net>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Remove unneeded check that caused problems with jumbo frame sizes.
-> The check was recently added and is wrong.
-> When using jumbo frames the sky2 driver does fragmentation, so
-> rx_data_size is less than mtu.
+Olof Johansson wrote:
+> pasemi_mac: clear out old errors on interface open
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> Clear out any pending errors when an interface is brought up. Since the bits
+> are sticky, they might be from interface shutdown time after firmware has
+> used it, etc.
+> 
+> Signed-off-by: Olof Johansson <olof@lixom.net>
 
-applied
+In general, interface-open should completely reset and initialize the 
+hardware.  does pasemi_mac not do that?
+
+	Jeff
+
+
+
