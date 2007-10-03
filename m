@@ -1,77 +1,42 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: [git patches] net driver fixes
-Date: Wed, 3 Oct 2007 14:40:01 -0400
-Message-ID: <20071003184001.GA28525@havoc.gtf.org>
+From: Shirley Ma <xma@us.ibm.com>
+Subject: [ofa-general] Re: InfiniBand/RDMA merge plans for 2.6.24
+Date: Wed, 3 Oct 2007 11:43:40 -0700
+Message-ID: <OF9591AF85.09F0D1BF-ON87257369.006651BA-88257369.0066A0BD@us.ibm.com>
+References: <ada1wcxnev5.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1758125AbXJCSkX@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org, netdev-owner@vger.kernel.org
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <ada1wcxnev5.fsf@cisco.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
+Roland Dreier <rdreier@cisco.com> wrote on 09/17/2007 02:47:42 PM:
 
-sky2 is really the only important fix, the others are trivial.
+>  > > IPoIB CM handles this properly by gathering together single pages 
+in
+>  > > skbs' fragment lists.
+> 
+>  > Then can we reuse IPoIB CM code here?
+> 
+> Yes, if possible, refactoring things so that the rx skb allocation
+> code becomes common between CM and non-CM would definitely make sense.
 
+IPoIB-CM rx skb allocation is not generic to be used by UD, it allocates 
+more buffers than needed if mtu is not 64K, and doesn't query the real 
+max_num_sg from the device. I am thinking to have a generic skb allocation 
+in IPoIB based on matrix of (ipoib-mtu-size, page-size, max_num_sg, 
+head-size).
 
-Please pull from 'upstream-linus' branch of
-master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-linus
-
-to receive the following updates:
-
- drivers/net/sky2.c                          |    3 ---
- drivers/net/wireless/bcm43xx/bcm43xx_wx.c   |    2 +-
- net/ieee80211/softmac/ieee80211softmac_wx.c |    2 +-
- 3 files changed, 2 insertions(+), 5 deletions(-)
-
-Joe Perches (1):
-      bcm43xx: Correct printk with PFX before KERN_
-
-Richard Knutsson (1):
-      softmac: Fix compiler-warning
-
-Stephen Hemminger (1):
-      sky2: jumbo frame regression fix
-
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index 162489b..ea117fc 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -2163,9 +2163,6 @@ static struct sk_buff *sky2_receive(struct net_device *dev,
- 	sky2->rx_next = (sky2->rx_next + 1) % sky2->rx_pending;
- 	prefetch(sky2->rx_ring + sky2->rx_next);
- 
--	if (length < ETH_ZLEN || length > sky2->rx_data_size)
--		goto len_error;
--
- 	/* This chip has hardware problems that generates bogus status.
- 	 * So do only marginal checking and expect higher level protocols
- 	 * to handle crap frames.
-diff --git a/drivers/net/wireless/bcm43xx/bcm43xx_wx.c b/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-index d6d9413..6acfdc4 100644
---- a/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-+++ b/drivers/net/wireless/bcm43xx/bcm43xx_wx.c
-@@ -444,7 +444,7 @@ static int bcm43xx_wx_set_xmitpower(struct net_device *net_dev,
- 	u16 maxpower;
- 
- 	if ((data->txpower.flags & IW_TXPOW_TYPE) != IW_TXPOW_DBM) {
--		printk(PFX KERN_ERR "TX power not in dBm.\n");
-+		printk(KERN_ERR PFX "TX power not in dBm.\n");
- 		return -EOPNOTSUPP;
- 	}
- 
-diff --git a/net/ieee80211/softmac/ieee80211softmac_wx.c b/net/ieee80211/softmac/ieee80211softmac_wx.c
-index 442b987..5742dc8 100644
---- a/net/ieee80211/softmac/ieee80211softmac_wx.c
-+++ b/net/ieee80211/softmac/ieee80211softmac_wx.c
-@@ -114,7 +114,7 @@ check_assoc_again:
- 	sm->associnfo.associating = 1;
- 	/* queue lower level code to do work (if necessary) */
- 	schedule_delayed_work(&sm->associnfo.work, 0);
--out:
-+
- 	mutex_unlock(&sm->associnfo.mutex);
- 
- 	return 0;
+Thanks
+Shirley 
