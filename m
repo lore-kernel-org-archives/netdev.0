@@ -1,52 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix race in process_backlog
-Date: Wed, 03 Oct 2007 16:39:02 -0700 (PDT)
-Message-ID: <20071003.163902.51840119.davem@davemloft.net>
-References: <1191426293.5599.27.camel@lappy>
-	<20071003.145807.111205634.davem@davemloft.net>
-	<20071003150519.1fd206a8@freepuppy.rosehill>
+Subject: Re: [patch 3/3] git-net: sctp build fix (not for applying)
+Date: Wed, 03 Oct 2007 16:45:42 -0700 (PDT)
+Message-ID: <20071003.164542.107940171.davem@davemloft.net>
+References: <200710022104.l92L4dvJ022234@imap1.linux-foundation.org>
+	<47039E3F.9020305@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: a.p.zijlstra@chello.nl, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, jdike@addtoit.com
-To: shemminger@linux-foundation.org
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56714
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58557
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751534AbXJCXjE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2007 19:39:04 -0400
-In-Reply-To: <20071003150519.1fd206a8@freepuppy.rosehill>
+	by vger.kernel.org with ESMTP id S1751035AbXJCXpn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2007 19:45:43 -0400
+In-Reply-To: <47039E3F.9020305@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Wed, 3 Oct 2007 15:05:19 -0700
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Wed, 03 Oct 2007 09:50:55 -0400
 
-> On Wed, 03 Oct 2007 14:58:07 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
-> 
-> > From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> > Date: Wed, 03 Oct 2007 17:44:53 +0200
+> akpm@linux-foundation.org wrote:
+> > From: Andrew Morton <akpm@linux-foundation.org>
 > > 
-> > > Index: linux-2.6/net/core/dev.c
-> > > ===================================================================
-> > > --- linux-2.6.orig/net/core/dev.c
-> > > +++ linux-2.6/net/core/dev.c
-> > > @@ -2095,11 +2095,11 @@ static int process_backlog(struct napi_s
-> > >  
-> > >  		local_irq_disable();
-> > >  		skb = __skb_dequeue(&queue->input_pkt_queue);
-> > > -		local_irq_enable();
-> > >  		if (!skb) {
-> > > -			napi_complete(napi);
-> > > +			__napi_complete(napi);
-> > >  			break;
-> > >  		}
-> > > +		local_irq_enable();
+> > net/sctp/sm_statetable.c:551: error: 'sctp_sf_tabort_8_4_8' undeclared here (not in a function)
 > > 
-> > What re-enables interrupts in the !skb path?
 > 
-> This looks like a better fix. the irq_enable is needed in both cases.
+> Andrew, is the a result of the merge of net-2.6.24 with net-2.6?  
 
-Yep, applied, thanks Peter and Stephen.
+Actually, it is a result of merging with Linus's tree since your SCTP
+bits were there already, that's why Andrew hit this.
+
+> That's the only way I see this happening.
+
+Right.
+
+I'll resolve this cleanly as I rebase net-2.6.24 today.
