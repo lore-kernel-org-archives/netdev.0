@@ -1,42 +1,152 @@
-From: Shirley Ma <xma@us.ibm.com>
-Subject: [ofa-general] Re: InfiniBand/RDMA merge plans for 2.6.24
-Date: Wed, 3 Oct 2007 11:43:40 -0700
-Message-ID: <OF9591AF85.09F0D1BF-ON87257369.006651BA-88257369.0066A0BD@us.ibm.com>
-References: <ada1wcxnev5.fsf@cisco.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] Fix rose.ko oops on unload
+Date: Wed, 3 Oct 2007 22:54:13 +0400
+Message-ID: <20071003185413.GA16242@martell.zuzino.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org, netdev-owner@vger.kernel.org
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <ada1wcxnev5.fsf@cisco.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, pidoux@ccr.jussieu.fr
+To: ralf@linux-mips.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ug-out-1314.google.com ([66.249.92.171]:5570 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751101AbXJCSzD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2007 14:55:03 -0400
+Received: by ug-out-1314.google.com with SMTP id z38so190010ugc
+        for <netdev@vger.kernel.org>; Wed, 03 Oct 2007 11:55:01 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Roland Dreier <rdreier@cisco.com> wrote on 09/17/2007 02:47:42 PM:
+Quick'n'dirty fix to 100% oops on "rmmod rose". Do you want me to
+properly unwind everything before .24?
+-----------
+Commit a3d384029aa304f8f3f5355d35f0ae274454f7cd aka
+"[AX.25]: Fix unchecked rose_add_loopback_neigh uses"
+transformed rose_loopback_neigh var into statically allocated one.
+However, on unload it will be kfree's which can't work.
 
->  > > IPoIB CM handles this properly by gathering together single pages 
-in
->  > > skbs' fragment lists.
-> 
->  > Then can we reuse IPoIB CM code here?
-> 
-> Yes, if possible, refactoring things so that the rx skb allocation
-> code becomes common between CM and non-CM would definitely make sense.
+Steps to reproduce:
 
-IPoIB-CM rx skb allocation is not generic to be used by UD, it allocates 
-more buffers than needed if mtu is not 64K, and doesn't query the real 
-max_num_sg from the device. I am thinking to have a generic skb allocation 
-in IPoIB based on matrix of (ipoib-mtu-size, page-size, max_num_sg, 
-head-size).
+	modprobe rose
+	rmmod rose
 
-Thanks
-Shirley 
+BUG: unable to handle kernel NULL pointer dereference at virtual address 00000008
+ printing eip:
+c014c664
+*pde = 00000000
+Oops: 0000 [#1]
+PREEMPT DEBUG_PAGEALLOC
+Modules linked in: rose ax25 fan ufs loop usbhid rtc snd_intel8x0 snd_ac97_codec ehci_hcd ac97_bus uhci_hcd thermal usbcore button processor evdev sr_mod cdrom
+CPU:    0
+EIP:    0060:[<c014c664>]    Not tainted VLI
+EFLAGS: 00210086   (2.6.23-rc9 #3)
+EIP is at kfree+0x48/0xa1
+eax: 00000556   ebx: c1734aa0   ecx: f6a5e000   edx: f7082000
+esi: 00000000   edi: f9a55d20   ebp: 00200287   esp: f6a5ef28
+ds: 007b   es: 007b   fs: 0000  gs: 0033  ss: 0068
+Process rmmod (pid: 1823, ti=f6a5e000 task=f7082000 task.ti=f6a5e000)
+Stack: f9a55d20 f9a5200c 00000000 00000000 00000000 f6a5e000 f9a5200c f9a55a00 
+       00000000 bf818cf0 f9a51f3f f9a55a00 00000000 c0132c60 65736f72 00000000 
+       f69f9630 f69f9528 c014244a f6a4e900 00200246 f7082000 c01025e6 00000000 
+Call Trace:
+ [<f9a5200c>] rose_rt_free+0x1d/0x49 [rose]
+ [<f9a5200c>] rose_rt_free+0x1d/0x49 [rose]
+ [<f9a51f3f>] rose_exit+0x4c/0xd5 [rose]
+ [<c0132c60>] sys_delete_module+0x15e/0x186
+ [<c014244a>] remove_vma+0x40/0x45
+ [<c01025e6>] sysenter_past_esp+0x8f/0x99
+ [<c012bacf>] trace_hardirqs_on+0x118/0x13b
+ [<c01025b6>] sysenter_past_esp+0x5f/0x99
+ =======================
+Code: 05 03 1d 80 db 5b c0 8b 03 25 00 40 02 00 3d 00 40 02 00 75 03 8b 5b 0c 8b 73 10 8b 44 24 18 89 44 24 04 9c 5d fa e8 77 df fd ff <8b> 56 08 89 f8 e8 84 f4 fd ff e8 bd 32 06 00 3b 5c 86 60 75 0f 
+EIP: [<c014c664>] kfree+0x48/0xa1 SS:ESP 0068:f6a5ef28
+
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
+
+ include/net/rose.h       |    2 +-
+ net/rose/rose_loopback.c |    4 ++--
+ net/rose/rose_route.c    |   15 ++++++++++-----
+ 3 files changed, 13 insertions(+), 8 deletions(-)
+
+--- a/include/net/rose.h
++++ b/include/net/rose.h
+@@ -188,7 +188,7 @@ extern void rose_kick(struct sock *);
+ extern void rose_enquiry_response(struct sock *);
+ 
+ /* rose_route.c */
+-extern struct rose_neigh rose_loopback_neigh;
++extern struct rose_neigh *rose_loopback_neigh;
+ extern const struct file_operations rose_neigh_fops;
+ extern const struct file_operations rose_nodes_fops;
+ extern const struct file_operations rose_routes_fops;
+--- a/net/rose/rose_loopback.c
++++ b/net/rose/rose_loopback.c
+@@ -79,7 +79,7 @@ static void rose_loopback_timer(unsigned long param)
+ 
+ 		skb_reset_transport_header(skb);
+ 
+-		sk = rose_find_socket(lci_o, &rose_loopback_neigh);
++		sk = rose_find_socket(lci_o, rose_loopback_neigh);
+ 		if (sk) {
+ 			if (rose_process_rx_frame(sk, skb) == 0)
+ 				kfree_skb(skb);
+@@ -88,7 +88,7 @@ static void rose_loopback_timer(unsigned long param)
+ 
+ 		if (frametype == ROSE_CALL_REQUEST) {
+ 			if ((dev = rose_dev_get(dest)) != NULL) {
+-				if (rose_rx_call_request(skb, dev, &rose_loopback_neigh, lci_o) == 0)
++				if (rose_rx_call_request(skb, dev, rose_loopback_neigh, lci_o) == 0)
+ 					kfree_skb(skb);
+ 			} else {
+ 				kfree_skb(skb);
+--- a/net/rose/rose_route.c
++++ b/net/rose/rose_route.c
+@@ -45,7 +45,7 @@ static DEFINE_SPINLOCK(rose_neigh_list_lock);
+ static struct rose_route *rose_route_list;
+ static DEFINE_SPINLOCK(rose_route_list_lock);
+ 
+-struct rose_neigh rose_loopback_neigh;
++struct rose_neigh *rose_loopback_neigh;
+ 
+ /*
+  *	Add a new route to a node, and in the process add the node and the
+@@ -362,7 +362,12 @@ out:
+  */
+ void rose_add_loopback_neigh(void)
+ {
+-	struct rose_neigh *sn = &rose_loopback_neigh;
++	struct rose_neigh *sn;
++
++	rose_loopback_neigh = kmalloc(sizeof(struct rose_neigh), GFP_KERNEL);
++	if (!rose_loopback_neigh)
++		return;
++	sn = rose_loopback_neigh;
+ 
+ 	sn->callsign  = null_ax25_address;
+ 	sn->digipeat  = NULL;
+@@ -417,13 +422,13 @@ int rose_add_loopback_node(rose_address *address)
+ 	rose_node->mask         = 10;
+ 	rose_node->count        = 1;
+ 	rose_node->loopback     = 1;
+-	rose_node->neighbour[0] = &rose_loopback_neigh;
++	rose_node->neighbour[0] = rose_loopback_neigh;
+ 
+ 	/* Insert at the head of list. Address is always mask=10 */
+ 	rose_node->next = rose_node_list;
+ 	rose_node_list  = rose_node;
+ 
+-	rose_loopback_neigh.count++;
++	rose_loopback_neigh->count++;
+ 
+ out:
+ 	spin_unlock_bh(&rose_node_list_lock);
+@@ -454,7 +459,7 @@ void rose_del_loopback_node(rose_address *address)
+ 
+ 	rose_remove_node(rose_node);
+ 
+-	rose_loopback_neigh.count--;
++	rose_loopback_neigh->count--;
+ 
+ out:
+ 	spin_unlock_bh(&rose_node_list_lock);
