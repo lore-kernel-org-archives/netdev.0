@@ -1,41 +1,34 @@
-From: Tina Yang <tina.yang@oracle.com>
-Subject: netconsole problems
-Date: Thu, 04 Oct 2007 10:59:38 -0700
-Message-ID: <47052A0A.2080100@oracle.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Vague maybe ppp-related panic report for 2.6.23-rc9
+Date: Thu, 04 Oct 2007 11:12:42 -0700
+Message-ID: <ada4ph6da05.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Matt Mackall <mpm@selenic.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:37145 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756500AbXJDSDq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 14:03:46 -0400
+Received: from sj-iport-3-in.cisco.com ([171.71.176.72]:42669 "EHLO
+	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754490AbXJDSMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 14:12:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We recently run into a few problems with netconsole
-in at least 2.6.9, 2.6.18 and 2.6.23.  It either panicked
-at netdevice.h:890 or hung the system, and sometimes depending
-on which NIC we are using, the following console message,
- e1000:
-      "e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang"
- tg3:
-      "NETDEV WATCHDOG: eth4: transmit timed out"
-      "tg3: eth4: transmit timed out, resetting"
+I'm running 2.6.23-rc9 on my laptop, and when in a coffee shop I use
+a Verizon EVDO card to get network access.  This is a kyocera device
+that looks like a serial adapter behind an ohci usb controller, and
+uses the airprime driver (for usb device 0c88:17da).  The actual IP
+networking is ppp over that serial adapter.
 
-The postmortem vmcore analysis indicated race between normal
-network stack (net_rx_action) and netpoll, and disabling the
-following code segment cures all the problems.
+The connection is slightly flaky (I blame this on the Verizon
+coverage), so I end up restarting things every so often.  The point of
+this email (at last) is that I've just seen my second panic (only
+info: blinking caps lock led, since I've been in X) that seems
+correlated to stopping/restarting pppd.
 
-netpoll.c
-    178         /* Process pending work on NIC */
-    179         np->dev->poll_controller(np->dev);
-    180         if (np->dev->poll)
-    181                 poll_napi(np);
+Sorry for the lack of detail -- I've just switched to running in the
+console so if I can provoke the crash again I'll get a little more
+info.  I just wanted to mention this in case someone has seen
+something similar or has any good ideas about how to capture debugging
+output on a laptop (when I'm not home and have no other boxes handy).
 
-Big or small, there seems to be several race windows in the code,
-and fixing them probably has consequence on overall system performance.
-Maybe this code should only run when the machine is single-threaded ?
-Suggestions ?  Thanks.
-
+ - R.
