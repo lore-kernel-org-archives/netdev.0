@@ -1,69 +1,75 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] ieee80211_if_set_type: make check for master dev more
-	explicit
-Date: Thu, 04 Oct 2007 20:44:48 +0200
-Message-ID: <1191523488.7367.16.camel@johannes.berg>
-References: <20071004113343.552139D502B@zog.reactivated.net>
-	 <20071004180900.GG6037@tuxdriver.com>
-	 (sfid-20071004_193833_064202_C9F1C827)
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: wireless-dev dead, long live wireless-2.6
+Date: Thu, 4 Oct 2007 14:47:15 -0400
+Message-ID: <20071004184715.GI6037@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-/u7Wgpxry+VC3Sz0LKq/"
-Cc: Daniel Drake <dsd@gentoo.org>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: linux-wireless@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from crystal.sipsolutions.net ([195.210.38.204]:59440 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755820AbXJDSoj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 14:44:39 -0400
-In-Reply-To: <20071004180900.GG6037@tuxdriver.com> (sfid-20071004_193833_064202_C9F1C827)
+Received: from ra.tuxdriver.com ([70.61.120.52]:2513 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756756AbXJDTIU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Oct 2007 15:08:20 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Greetings,
 
---=-/u7Wgpxry+VC3Sz0LKq/
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+This message is perhaps a few days late -- better late than never. :-)
 
-On Thu, 2007-10-04 at 14:09 -0400, John W. Linville wrote:
+The big news is that wireless-dev is now dead, defunct, kaput.
+Please discontinue any use of wireless-dev or any of its clones.
+If you need access to the contents of that tree for historical
+purposes, please see the snapshot in my wireless-legacy tree:
 
-> --- a/net/mac80211/ieee80211_iface.c
-> +++ b/net/mac80211/ieee80211_iface.c
-> @@ -106,7 +106,7 @@ void ieee80211_if_set_type(struct net_device *dev, in=
-t type)
->  	 * which already has a hard_start_xmit routine assigned
->  	 * which must not be changed.
->  	 */
-> -	if (!dev->hard_start_xmit)
-> +	if (dev->type !=3D ARPHRD_IEEE80211)
->  		dev->hard_start_xmit =3D ieee80211_subif_start_xmit;
+	git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-legacy.git wireless-dev-2007-09-24
 
-That should work as well although I think you should update the comment
-above :)
+I will remove the wireless-dev repository from kernel.org shortly
+after sending this message.  From now on, please use the 'everything'
+branch of wireless-2.6 as the base for new wireless development.
 
-johannes
+	git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git everything
 
---=-/u7Wgpxry+VC3Sz0LKq/
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+Please note that this branch is subject to rebasing.  In general
+it will be rebased whenever Linus christens a new -rcX release,
+sometimes more often than that.  "git rebase" and "git cherry-pick"
+are your friends.
 
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
+As always, patches based on a vanilla tree from Linus (or the
+'master' branch of wireless-2.6) are acceptable or even preferable
+for those patches which do not depend on other pathes already in the
+wireless-2.6 tree.  Otherwise, base your patches on the 'everything'
+branch as described above.
 
-iQIVAwUARwU0n6Vg1VMiehFYAQK6jg/8C4JpPKFTXd2Sf1VRnqEHj+vwqLp/v5Td
-/yXYwqcSgHY2G5YvSvFBeVjfkKn42i+9fmoxilViouQdKAVaXWIVPF9nGOkMfuHS
-7x3WlRB7COvgiCxMEQl49w0rmhBomIoaT3k8wnLyI37H0RpG3ToVjBs34DXD0lyT
-V89r8ovTQQKoiKKuLh4Npussg1uuxJ7NUMz+tU1eqTdhj2kdJsPdDNEhC3+7OLIc
-TjqXMVMcDrvWG2Fm6ExAloq0FrzCexTyS5UIBQLFm7dTGwjasH+Uz8vJ55BZ0vdC
-CWnTah18RCoyytBy2lNc7JvKA8sPH+j6FMgAC+tC5wZpSNVvIRwEwzS7JIcqVb62
-d76gQIfKGBDLa+MrlZzoeu97n1XAlTorZ9Lp7Ou49C+q+BWEGyfHIe1FG3c8vi9d
-9eO9tdKmEW63w9VNuifR81uU5cjRRoGaAllnfVG6pnL0UVkTH3bMcvavEmzFhavH
-bqo6GsfiLJZLrAaJuLObJpzundeO0C/vwdKIAb31mqCCT9v6rXvSLMmT7zKb0vZ9
-YCNBu5rwNeL8NG33l1tiXC5NqWWh5J6CvvWdGGNDgwm4mmJJHS/qYOEB3msjG5+s
-RpQbTZa+OLPt0COhU91VCiIv2/7HLFMdv7kq5AzClLNqZNZMUpEu9pvXORU1LUip
-MU3LMugqJZE=
-=RM6L
------END PGP SIGNATURE-----
+Most of the other branches in wireless-2.6 are only there for
+administrative purposes.  You can and should ignore them, with possibly
+a couple of exceptions.
 
---=-/u7Wgpxry+VC3Sz0LKq/--
+One of two possible branches of interest to some is the
+'mac80211-attic' branch.  This branch mostly contains patches
+supporting hostap functionality for mac80211.  These patches will
+not be merged as-is due to unsettled user interface issues.  I have
+preserved them on this branch solely as a courtesy to those who need
+this functionality.  I expect for this functionality to be replaced
+RSN by work underway from Johannes Berg.
 
+The other possible branch of interest is the 'mac80211-dungeon'
+branch.  This branch contains several patches for 802.11n and other
+advanced functionality (e.g.  DLS).  However, the mac80211 component
+maintainers have strongly objected to these patches for a variety
+of reasons.  The various parties are still working to resolve the
+issues preventing these patches from being merged.  In the meantime
+I have preserved these patches on this branch as a courtesy to those
+who need them as well.
+
+I hope this message clears-up some questions that people have been
+expressing.  If there are other questions, please feel free to ask.
+
+Thanks!
+
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
