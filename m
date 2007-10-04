@@ -1,42 +1,48 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH] mac80211: Fix TX after monitor interface is converted to managed
-Date: Thu, 04 Oct 2007 14:31:26 -0700
-Message-ID: <ada4ph6bm8h.fsf@cisco.com>
-References: <20071004113343.552139D502B@zog.reactivated.net>
-	<200710041706.06182.mb@bu3sch.de>
-	<20071004151956.GE6037@tuxdriver.com>
-	<200710041311.37997.flamingice@sourmilk.net>
-	<20071004181516.GH6037@tuxdriver.com>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: net-2.6.24 compile breakage: error: 'ipgre_header' undeclared
+Date: Thu, 04 Oct 2007 14:49:10 -0700
+Message-ID: <47055FD6.5070801@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Wu <flamingice@sourmilk.net>,
-	Michael Buesch <mb@bu3sch.de>, Daniel Drake <dsd@gentoo.org>,
-	johannes@sipsolutions.net, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@osdl.org>
+To: NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-1-in.cisco.com ([171.71.176.70]:49959 "EHLO
-	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757296AbXJDVbe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 17:31:34 -0400
-In-Reply-To: <20071004181516.GH6037@tuxdriver.com> (John W. Linville's message of "Thu, 4 Oct 2007 14:15:16 -0400")
+Received: from mga03.intel.com ([143.182.124.21]:60559 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757694AbXJDVuJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Oct 2007 17:50:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > Programming with assertions (and BUG_ON is a form of that) is
- > generally a good practice.  Almost any book or other source on
- > good programming practices will agree.  Yes, it can be overdone.
- > But I don't really think that is the case here, since the check is
- > relatively inexpensive and the consequence should it ever *somehow*
- > happen could be a something wierd (crash, corruption, etc) w/o any
- > other indication of what occured.
+I'm getting this on net-2.6.24 today:
 
-The problem with BUG_ON is that it kills the whole system.  So every
-time you add a BUG_ON into code, you have to weigh whether the problem
-you detected is so severe that the right response is to panic.  For
-example, I can see panicking on something fundamental like corrupted
-page tables.  However I would submit that the wireless stack should
-*never* use BUG_ON -- printing a warning and trying to limp on seems
-preferable to me.
+  CC [M]  net/ipv4/ip_gre.o
+net/ipv4/ip_gre.c:1135: error: 'ipgre_header' undeclared here (not in a function)
+make[2]: *** [net/ipv4/ip_gre.o] Error 1
+make[1]: *** [net/ipv4] Error 2
+make[1]: *** Waiting for unfinished jobs....
 
- - R.
+
+the git log says sch touched it last:
+
+commit 2c1d70cafc188843ae15a1a504a0a3c9f3c0318d
+Author: Stephen Hemminger <shemminger@linux-foundation.org>
+Date:   Wed Sep 26 22:19:06 2007 -0700
+
+    [NET]: Move hardware header operations out of netdevice.
+
+    Since hardware header operations are part of the protocol class
+    not the device instance, make them into a separate object and
+    save memory.
+
+    Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+anyone seen this? let me know if you want my .config.
+
+PS: No, I didn't touch anything besides e1000e in that tree ;)
+
+Auke
