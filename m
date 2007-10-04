@@ -1,39 +1,52 @@
-From: Michael Buesch <mb@bu3sch.de>
+From: Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
 Subject: Re: [PATCH] mac80211: Fix TX after monitor interface is converted to managed
-Date: Thu, 4 Oct 2007 17:06:05 +0200
-Message-ID: <200710041706.06182.mb@bu3sch.de>
-References: <20071004113343.552139D502B@zog.reactivated.net> <200710041034.48533.flamingice@sourmilk.net>
+Date: Thu, 4 Oct 2007 11:14:58 -0400
+Message-ID: <200710041115.02945.flamingice@sourmilk.net>
+References: <20071004113343.552139D502B@zog.reactivated.net> <200710041034.48533.flamingice@sourmilk.net> <200710041706.06182.mb@bu3sch.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
+Content-Type: multipart/signed;
+  boundary="nextPart3294882.C8Ou6vCo8u";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Drake <dsd@gentoo.org>, linville@tuxdriver.com,
-	johannes@sipsolutions.net, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: Michael Wu <flamingice@sourmilk.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:38593
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756667AbXJDPGl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 11:06:41 -0400
-In-Reply-To: <200710041034.48533.flamingice@sourmilk.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Michael Buesch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <200710041706.06182.mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 04 October 2007 16:34:43 Michael Wu wrote:
-> On Thursday 04 October 2007 07:33, Daniel Drake wrote:
-> > Fix this by unsetting the hard_start_xmit handler in ieee80211_if_reinit.
-> > It will then be reinitialised to the default (ieee80211_subif_start_xmit)
-> > in ieee80211_if_set_type.
-> >
-> Well.. this kinda sucks, but we can clean up the logic here later.
-> 
-> > +	BUG_ON(netif_running(dev));
-> This will never happen, so there's no point.
+--nextPart3294882.C8Ou6vCo8u
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-The reason why BUG_ON exists is to catch bugs that happen, although
-they Should Never Happen (tm) ;)
+On Thursday 04 October 2007 11:06, Michael Buesch wrote:
+> The reason why BUG_ON exists is to catch bugs that happen, although
+> they Should Never Happen (tm) ;)
+This is just paranoia. There's plenty of other BUG_ONs which we use to catc=
+h=20
+bugs caused by drivers doing silly things. We can verify that this conditio=
+n=20
+will never occur within the mac80211 layer, so there's no need to have it.=
+=20
+The only thing this can catch is someone deciding to manually invoke=20
+dev->uninit, which only the unregister code should be doing.
 
--- 
-Greetings Michael.
+=2DMichael Wu
+
+--nextPart3294882.C8Ou6vCo8u
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQBHBQN2T3Oqt9AH4aERAhkUAKDNagw/FPR6F73K7KnOGIY00SJInACg0Z6H
+JapIyxbMHpwP8yy6XWyH614=
+=c/eP
+-----END PGP SIGNATURE-----
+
+--nextPart3294882.C8Ou6vCo8u--
