@@ -1,77 +1,42 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: PROBLEM: system freezes on starting ne2k-pci + bridge
-Date: Thu, 4 Oct 2007 14:27:54 -0700
-Message-ID: <20071004142754.64827163@freepuppy.rosehill>
-References: <20071002141217.GA23610@stilzchen.informatik.tu-chemnitz.de>
-	<20071004182738.GA4191@augustus.informatik.tu-chemnitz.de>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH] mac80211: Fix TX after monitor interface is converted to managed
+Date: Thu, 04 Oct 2007 14:31:26 -0700
+Message-ID: <ada4ph6bm8h.fsf@cisco.com>
+References: <20071004113343.552139D502B@zog.reactivated.net>
+	<200710041706.06182.mb@bu3sch.de>
+	<20071004151956.GE6037@tuxdriver.com>
+	<200710041311.37997.flamingice@sourmilk.net>
+	<20071004181516.GH6037@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mirko.parthey@informatik.tu-chemnitz.de (Mirko Parthey)
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Wu <flamingice@sourmilk.net>,
+	Michael Buesch <mb@bu3sch.de>, Daniel Drake <dsd@gentoo.org>,
+	johannes@sipsolutions.net, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:58146 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759255AbXJDV2c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 17:28:32 -0400
-In-Reply-To: <20071004182738.GA4191@augustus.informatik.tu-chemnitz.de>
+Received: from sj-iport-1-in.cisco.com ([171.71.176.70]:49959 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757296AbXJDVbe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 17:31:34 -0400
+In-Reply-To: <20071004181516.GH6037@tuxdriver.com> (John W. Linville's message of "Thu, 4 Oct 2007 14:15:16 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 4 Oct 2007 20:27:38 +0200
-mirko.parthey@informatik.tu-chemnitz.de (Mirko Parthey) wrote:
+ > Programming with assertions (and BUG_ON is a form of that) is
+ > generally a good practice.  Almost any book or other source on
+ > good programming practices will agree.  Yes, it can be overdone.
+ > But I don't really think that is the case here, since the check is
+ > relatively inexpensive and the consequence should it ever *somehow*
+ > happen could be a something wierd (crash, corruption, etc) w/o any
+ > other indication of what occured.
 
-> On Tue, Oct 02, 2007 at 04:12:17PM +0200, I wrote:
-> > On a machine running Debian testing, I get complete lockups
-> > (Num lock LED not responding anymore)
-> > 
-> > Kernel versions tried (all of them show this problem):
-> > - linux-image-2.6.18-5-amd64 (Debian etch)
-> > - linux-image-2.6.22-2-amd64 (Debian testing)
-> > - plain kernel.org 2.6.23-rc8-git4 (with allmodconfig and ATKBD=y)
-> > 
-> > The 2.6.18 kernel sometimes prints
-> >   Losing some ticks ... checking if CPU frequency changed.
-> >   Your time source seems to be instable or some driver is hogging
-> >   interrupts.
-> >   rip __do_softirq + 0x53/0xd5
-> > before freezing.
-> 
-> I was able to narrow this down a bit - the problem can be reproduced with 
-> the ne2k-pci driver alone, sky2 is not needed.
-> Powering off isn't necessary, either.
-> 
-> Hardware preparation:
-> - eth0: Compex ReadyLink 2000 (BNC+TP), ne2k-pci driver,
->   network cable disconnected
-> 
-> How to reproduce the problem:
-> 
-> brctl addbr br0
-> brctl addif br0 eth0
-> ifconfig eth0 0 up
-> ifconfig br0 192.168.1.17 up
-> sync
-> find / >/dev/null &
-> ping -b 192.168.1.255
-> 
-> This will lock up my system, usually within a few seconds.
-> 
-> Some additional information:
-> - I could not reproduce the problem when using eth0 directly,
->   without a bridge.
-> - Booting with "maxcpus=1" does not help, the problem remains.
->   My system doesn't boot with "nosmp", otherwise I would have
->   tried this too.
->
+The problem with BUG_ON is that it kills the whole system.  So every
+time you add a BUG_ON into code, you have to weigh whether the problem
+you detected is so severe that the right response is to panic.  For
+example, I can see panicking on something fundamental like corrupted
+page tables.  However I would submit that the wireless stack should
+*never* use BUG_ON -- printing a warning and trying to limp on seems
+preferable to me.
 
-Yes its a bug, but the ne2k is old crufty device driver not really
-suited to bridging. It lacks:
-   * proper speed reporting via ethtool (not much of any ethtool support).
-   * doesn't report carrier up/down status
-
-
-
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+ - R.
