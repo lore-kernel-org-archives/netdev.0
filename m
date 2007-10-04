@@ -1,50 +1,44 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] mac80211: Fix TX after monitor interface is converted
- to managed
-Date: Thu, 4 Oct 2007 08:54:40 -0700
-Message-ID: <20071004085440.008216c6@freepuppy.rosehill>
-References: <20071004113343.552139D502B@zog.reactivated.net>
+From: Bryan Wu <bryan.wu@analog.com>
+Subject: Re: Blackfin Ethernet MAC driver compile error
+Date: Fri, 05 Oct 2007 00:31:17 +0800
+Message-ID: <1191515477.6361.3.camel@roc-laptop>
+References: <a425f86c0710020430o3507eeb2veb104dc936f230dd@mail.gmail.com>
+	 <1191489141.6139.1.camel@roc-laptop>
+	 <a425f86c0710040726q27aeb354vbbcb68bd2fed2b76@mail.gmail.com>
+Reply-To: bryan.wu@analog.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, johannes@sipsolutions.net,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: Daniel Drake <dsd@gentoo.org>
+Cc: bryan.wu@analog.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Kalle Pokki <kalle.pokki@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:38260 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757351AbXJDP4j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 11:56:39 -0400
-In-Reply-To: <20071004113343.552139D502B@zog.reactivated.net>
+Received: from nwd2mail10.analog.com ([137.71.25.55]:28082 "EHLO
+	nwd2mail10.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755585AbXJDQbY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 12:31:24 -0400
+In-Reply-To: <a425f86c0710040726q27aeb354vbbcb68bd2fed2b76@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu,  4 Oct 2007 12:33:43 +0100 (BST)
-Daniel Drake <dsd@gentoo.org> wrote:
+On Thu, 2007-10-04 at 22:26 +0800, Kalle Pokki wrote:
+> On 10/4/07, Bryan Wu <bryan.wu@analog.com> wrote: 
+> > Sorry for missing the pinmux patches. 
+> > After Linus's git-pull, it should be fixed in the latest Linus
+> mainline 
+> > git tree.
+> 
+> Thanks, it is working now. I was also glad to see the binfmt_flat 
+> patch going in.
 
-> This sequence of events causes loss of connectivity:
+Yeah, thanks Linus to accept the patches 
 > 
-> <plug in>
-> <associate as normal in managed mode>
-> ifconfig eth7 down
-> iwconfig eth7 mode monitor
-> ifconfig eth7 up
-> ifconfig eth7 down
-> iwconfig eth7 mode managed
-> <associate as normal>
-> 
-> At this point you are associated but TX does not work. This is because
-> the eth7 hard_start_xmit is still ieee80211_monitor_start_xmit.
-> 
-> Fix this by unsetting the hard_start_xmit handler in ieee80211_if_reinit. It
-> will then be reinitialised to the default (ieee80211_subif_start_xmit) in
-> ieee80211_if_set_type.
-> 
-> Signed-off-by: Daniel Drake <dsd@gentoo.org>
+> Do you plan to get the PHY abstraction layer patches for the Blackfin 
+> EMAC included in the upcoming merge window?
 
-Playing with the function pointer is a awkward way to do this.  Shouldn't
-the state management flags be used instead (dormant, running, stop/wake)...
-I am concerned about races and dereferencing the NULL ptr.
+Currently, it is in Jeff's netdev-2.6.git tree. IMO, Jeff will send it
+to Linus when merge window open.
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Regards
+-Bryan Wu
+> 
