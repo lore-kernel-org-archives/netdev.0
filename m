@@ -1,51 +1,77 @@
-From: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH] mac80211: Fix TX after monitor interface is converted to managed
-Date: Thu,  4 Oct 2007 12:33:43 +0100 (BST)
-Message-ID: <20071004113343.552139D502B@zog.reactivated.net>
-Cc: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Urs Thuermann <urs@isnogud.escape.de>
+Subject: Re: [PATCH 3/7] CAN: Add raw protocol
+Date: 04 Oct 2007 13:52:13 +0200
+Message-ID: <ygf8x6j14ia.fsf@janus.isnogud.escape.de>
+References: <20071002131006.31727.0@janus.isnogud.escape.de>
+	<20071002131108.31727.3@janus.isnogud.escape.de>
+	<20071002143001.GF7881@ghostprotocols.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Oliver Hartkopp <oliver@hartkopp.net>,
+	Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from oker.escape.de ([194.120.234.254]:36056 "EHLO oker.escape.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757579AbXJDLzt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Oct 2007 07:55:49 -0400
+In-Reply-To: <20071002143001.GF7881@ghostprotocols.net>; from Arnaldo Carvalho de Melo on Tue, 2 Oct 2007 11:30:01 -0300
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This sequence of events causes loss of connectivity:
+Arnaldo Carvalho de Melo <acme@ghostprotocols.net> writes:
 
-<plug in>
-<associate as normal in managed mode>
-ifconfig eth7 down
-iwconfig eth7 mode monitor
-ifconfig eth7 up
-ifconfig eth7 down
-iwconfig eth7 mode managed
-<associate as normal>
+> > +static inline struct raw_sock *raw_sk(const struct sock *sk)
+> > +{
+> > +	return (struct raw_sock *)sk;
+> > +}
+> 
+> 
+> What if I want to do some kernel module that uses INET raw sockets
+> (include/net/icmp.h) and CAN raw sockets? Namespace collision, could you
+> please use can_raw_ for this namespace?
 
-At this point you are associated but TX does not work. This is because
-the eth7 hard_start_xmit is still ieee80211_monitor_start_xmit.
+raw_sk is static so you can't use in another file where you include
+include/net/icmp.h.  There is no collision.  Also, since it's inline
+you won't even see it in a symbol table.
 
-Fix this by unsetting the hard_start_xmit handler in ieee80211_if_reinit. It
-will then be reinitialised to the default (ieee80211_subif_start_xmit) in
-ieee80211_if_set_type.
+Hm, it's more than 10 years that I've tested ctags(1) and etags(1)
+with several identical static names in different files and I don't
+remember my results.  Do these tools have a problem with multiple
+defs?  I think they shouldn't since C is explicitly designed for that.
 
-Signed-off-by: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
----
- net/mac80211/ieee80211_iface.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+> > +static unsigned int raw_poll(struct file *file, struct socket *sock,
+> > +			     poll_table *wait)
+> > +{
+> > +	unsigned int mask = 0;
+> > +
+> > +	DBG("socket %p\n", sock);
+> > +
+> > +	mask = datagram_poll(file, sock, wait);
+> > +	return mask;
+> 
+> What is the value of 'mask' here? Leftover from debugging?
 
-diff --git a/net/mac80211/ieee80211_iface.c b/net/mac80211/ieee80211_iface.c
-index 08c1e18..40d4b63 100644
---- a/net/mac80211/ieee80211_iface.c
-+++ b/net/mac80211/ieee80211_iface.c
-@@ -242,6 +242,9 @@ void ieee80211_if_reinit(struct net_device *dev)
- 
- 	ieee80211_if_sdata_deinit(sdata);
- 
-+	BUG_ON(netif_running(dev));
-+	dev->hard_start_xmit = NULL;
-+
- 	switch (sdata->type) {
- 	case IEEE80211_IF_TYPE_MGMT:
- 		/* nothing to do */
--- 
-1.5.3.3
+Ah, yes.  We should remove it.
+
+> > +static int raw_setsockopt(struct socket *sock, int level, int optname,
+> > +			  char __user *optval, int optlen)
+> > +{
+
+> > +		lock_sock(sk);
+> > +
+> > +		if (ro->bound && ro->ifindex)
+> > +			dev = dev_get_by_index(&init_net, ro->ifindex);
+> 
+> dev_get_by_index can fail, are you sure that raw_enable_filters can cope
+> with this possibility?
+
+When ro->ifindex != 0, the call to dev_get_by_index() shouldn't fail.
+We also use lock_sock() here and in NETDEV_UNREGISTER, so there should
+be no problem.
+
+
+urs
