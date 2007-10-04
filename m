@@ -1,34 +1,37 @@
-From: Tony Battersby <tonyb@cybernetics.com>
-Subject: [PATCH] net: fix kernel_accept() error path
-Date: Thu, 04 Oct 2007 16:20:05 -0400
-Message-ID: <47054AF5.4050409@cybernetics.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Vague maybe ppp-related panic report for 2.6.23-rc9
+Date: Thu, 04 Oct 2007 13:51:13 -0700 (PDT)
+Message-ID: <20071004.135113.48807663.davem@davemloft.net>
+References: <ada4ph6da05.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, davem@davemloft.net
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: rdreier@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host06.cybernetics.com ([206.246.200.22]:1277 "EHLO
-	mail.cybernetics.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1755990AbXJDUlD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 16:41:03 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45454
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757269AbXJDUvO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 16:51:14 -0400
+In-Reply-To: <ada4ph6da05.fsf@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If accept() returns an error, kernel_accept() releases the new socket
-but passes a pointer to the released socket back to the caller.  Make it
-pass back NULL instead.
+From: Roland Dreier <rdreier@cisco.com>
+Date: Thu, 04 Oct 2007 11:12:42 -0700
 
-Signed-off-by: Tony Battersby <tonyb@cybernetics.com>
----
---- linux-2.6.23-rc9/net/socket.c.bak	2007-10-04 15:21:17.000000000 -0400
-+++ linux-2.6.23-rc9/net/socket.c	2007-10-04 15:21:22.000000000 -0400
-@@ -2230,6 +2230,7 @@ int kernel_accept(struct socket *sock, s
- 	err = sock->ops->accept(sock, *newsock, flags);
- 	if (err < 0) {
- 		sock_release(*newsock);
-+		*newsock = NULL;
- 		goto done;
- 	}
- 
+> Sorry for the lack of detail -- I've just switched to running in the
+> console so if I can provoke the crash again I'll get a little more
+> info.  I just wanted to mention this in case someone has seen
+> something similar or has any good ideas about how to capture debugging
+> output on a laptop (when I'm not home and have no other boxes handy).
 
+I don't want to jump the gun on the analysis but it just might
+be the packet sharing fixes Herbert put in a short time ago.
 
+What you could do is go back to say rc2 and see if you still get
+the panics, then bisect from there to narrow it down.
+
+If rc2 still gives the panic, it's something else, perhaps device
+specific.
