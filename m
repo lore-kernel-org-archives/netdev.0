@@ -1,49 +1,61 @@
-From: Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
+From: Michael Wu <flamingice@sourmilk.net>
 Subject: Re: [PATCH] mac80211: Fix TX after monitor interface is converted to managed
-Date: Thu, 4 Oct 2007 12:56:15 -0400
-Message-ID: <200710041256.20995.flamingice@sourmilk.net>
-References: <20071004113343.552139D502B@zog.reactivated.net> <20071004085440.008216c6@freepuppy.rosehill>
+Date: Thu, 4 Oct 2007 13:11:33 -0400
+Message-ID: <200710041311.37997.flamingice@sourmilk.net>
+References: <20071004113343.552139D502B@zog.reactivated.net> <200710041706.06182.mb@bu3sch.de> <20071004151956.GE6037@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed;
-  boundary="nextPart3822380.ChMOfOQO4F";
+  boundary="nextPart2218133.jPUbnScrFo";
   protocol="application/pgp-signature";
   micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20071004085440.008216c6-s08KbqtN0aBORcJjwVk881hTQxXnIo14@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Michael Buesch <mb@bu3sch.de>, Daniel Drake <dsd@gentoo.org>,
+	johannes@sipsolutions.net, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.rutgers.edu ([128.6.72.243]:37880 "EHLO
+	annwn14.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753932AbXJDRNc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 13:13:32 -0400
+In-Reply-To: <20071004151956.GE6037@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart3822380.ChMOfOQO4F
+--nextPart2218133.jPUbnScrFo
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline
 
-On Thursday 04 October 2007 11:54, Stephen Hemminger wrote:
-> Playing with the function pointer is a awkward way to do this.  Shouldn't
-> the state management flags be used instead (dormant, running, stop/wake).=
-=2E.
-> I am concerned about races and dereferencing the NULL ptr.
-This is all under RTNL and the pointer is only modified while the interface=
- is=20
-down.
+On Thursday 04 October 2007 11:19, John W. Linville wrote:
+> > The reason why BUG_ON exists is to catch bugs that happen, although
+> > they Should Never Happen (tm) ;)
+>
+> Precisely.
+No really, this bug will never happen. This is function is merely a helper=
+=20
+function which is called from interface removal code (where the interface=20
+*has* to be down) or from changing the interface type (which ensures that t=
+he=20
+interface is down first). There are an unlimited number of bugs which Shoul=
+d=20
+Never Happen. That doesn't mean we should start adding BUG_ONs for every=20
+single one of them. That gives some sort of protection against cosmic rays=
+=20
+flipping bits, but down here on earth, it's bloat.
 
 =2DMichael Wu
 
---nextPart3822380.ChMOfOQO4F
+--nextPart2218133.jPUbnScrFo
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.5 (GNU/Linux)
 
-iD8DBQBHBRs0T3Oqt9AH4aERAqhjAJwJwuirxBJEqpdxneUd2T0uLq2/CACfaMv4
-wL/Xmkli1yjGD62ROVqXWZ8=
-=7+ee
+iD8DBQBHBR7JT3Oqt9AH4aERApDzAJ9h+BzJpVbrARB5/dWAuxH37jJUSQCZAdXV
+204SkDaDFzBkyKDMfMdWL0M=
+=zXlt
 -----END PGP SIGNATURE-----
 
---nextPart3822380.ChMOfOQO4F--
+--nextPart2218133.jPUbnScrFo--
