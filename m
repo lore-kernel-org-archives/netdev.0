@@ -1,56 +1,77 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: [PATCH] mac80211: Fix TX after monitor interface is converted to managed
-Date: Thu, 4 Oct 2007 10:34:43 -0400
-Message-ID: <200710041034.48533.flamingice@sourmilk.net>
-References: <20071004113343.552139D502B@zog.reactivated.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart4274055.lTjFuKTD6v";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, johannes@sipsolutions.net,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: Daniel Drake <dsd@gentoo.org>
+From: Ursula Braun <braunu@de.ibm.com>
+Subject: [patch 1/2] af_iucv: remove static declarations from header file.
+Date: Thu, 04 Oct 2007 16:46:09 +0200
+Message-ID: <20071004144825.282825000@linux.vnet.ibm.com>
+References: <20071004144608.880229000@linux.vnet.ibm.com>
+Cc: heiko.carstens@de.ibm.com
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.rutgers.edu ([128.6.72.243]:41456 "EHLO
-	annwn14.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752018AbXJDOgm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 10:36:42 -0400
-In-Reply-To: <20071004113343.552139D502B@zog.reactivated.net>
+Received: from mtagate4.de.ibm.com ([195.212.29.153]:16591 "EHLO
+	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756154AbXJDOs2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 10:48:28 -0400
+Content-Disposition: inline; filename=711-afiucv-statics.diff
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart4274055.lTjFuKTD6v
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
 
-On Thursday 04 October 2007 07:33, Daniel Drake wrote:
-> Fix this by unsetting the hard_start_xmit handler in ieee80211_if_reinit.
-> It will then be reinitialised to the default (ieee80211_subif_start_xmit)
-> in ieee80211_if_set_type.
->
-Well.. this kinda sucks, but we can clean up the logic here later.
+Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+Signed-off-by: Ursula Braun <braunu@de.ibm.com>
+---
 
-> +	BUG_ON(netif_running(dev));
-This will never happen, so there's no point.
+ include/net/iucv/af_iucv.h |   21 ---------------------
+ net/iucv/af_iucv.c         |    3 +++
+ 2 files changed, 3 insertions(+), 21 deletions(-)
 
-ACK with that bit removed.
+Index: net-2.6-uschi/include/net/iucv/af_iucv.h
+===================================================================
+--- net-2.6-uschi.orig/include/net/iucv/af_iucv.h
++++ net-2.6-uschi/include/net/iucv/af_iucv.h
+@@ -73,29 +73,8 @@ struct iucv_sock_list {
+ 	atomic_t	  autobind_name;
+ };
+ 
+-static void iucv_sock_destruct(struct sock *sk);
+-static void iucv_sock_cleanup_listen(struct sock *parent);
+-static void iucv_sock_kill(struct sock *sk);
+-static void iucv_sock_close(struct sock *sk);
+-static int  iucv_sock_create(struct socket *sock, int proto);
+-static int  iucv_sock_bind(struct socket *sock, struct sockaddr *addr,
+-			int addr_len);
+-static int  iucv_sock_connect(struct socket *sock, struct sockaddr *addr,
+-			      int alen, int flags);
+-static int  iucv_sock_listen(struct socket *sock, int backlog);
+-static int  iucv_sock_accept(struct socket *sock, struct socket *newsock,
+-			     int flags);
+-static int  iucv_sock_getname(struct socket *sock, struct sockaddr *addr,
+-			      int *len, int peer);
+-static int  iucv_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
+-			      struct msghdr *msg, size_t len);
+-static int  iucv_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
+-			      struct msghdr *msg, size_t len, int flags);
+ unsigned int iucv_sock_poll(struct file *file, struct socket *sock,
+ 			    poll_table *wait);
+-static int iucv_sock_release(struct socket *sock);
+-static int iucv_sock_shutdown(struct socket *sock, int how);
+-
+ void iucv_sock_link(struct iucv_sock_list *l, struct sock *s);
+ void iucv_sock_unlink(struct iucv_sock_list *l, struct sock *s);
+ int  iucv_sock_wait_state(struct sock *sk, int state, int state2,
+Index: net-2.6-uschi/net/iucv/af_iucv.c
+===================================================================
+--- net-2.6-uschi.orig/net/iucv/af_iucv.c
++++ net-2.6-uschi/net/iucv/af_iucv.c
+@@ -41,6 +41,9 @@ static struct proto iucv_proto = {
+ 	.obj_size	= sizeof(struct iucv_sock),
+ };
+ 
++static void iucv_sock_kill(struct sock *sk);
++static void iucv_sock_close(struct sock *sk);
++
+ /* Call Back functions */
+ static void iucv_callback_rx(struct iucv_path *, struct iucv_message *);
+ static void iucv_callback_txdone(struct iucv_path *, struct iucv_message *);
 
-Thanks,
--Michael Wu
-
---nextPart4274055.lTjFuKTD6v
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-
-iD8DBQBHBPoIT3Oqt9AH4aERAvyWAJ0Yk/x2lgZWeU/vfmXD2Q0+2pNt2ACgwcmf
-G81XOr8CvwL+axSyABIVHY8=
-=hnr9
------END PGP SIGNATURE-----
-
---nextPart4274055.lTjFuKTD6v--
+-- 
