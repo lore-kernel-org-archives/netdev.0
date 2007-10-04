@@ -1,334 +1,88 @@
-From: Ursula Braun <braunu@de.ibm.com>
-Subject: [patch 2/2] af_iucv: postpone receival of iucv-packets
-Date: Thu, 04 Oct 2007 16:46:10 +0200
-Message-ID: <20071004144825.977553000@linux.vnet.ibm.com>
-References: <20071004144608.880229000@linux.vnet.ibm.com>
-Cc: heiko.carstens@de.ibm.com
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org
+From: Cedric Le Goater <clg@fr.ibm.com>
+Subject: Re: [PATCH net-2.6.24 0/3]: More TCP fixes
+Date: Thu, 04 Oct 2007 16:53:41 +0200
+Message-ID: <4704FE75.2030104@fr.ibm.com>
+References: <1191409218982-git-send-email-ilpo.jarvinen@helsinki.fi> <470383D4.9060307@free.fr> <Pine.LNX.4.64.0710031503220.27745@kivilampi-30.cs.helsinki.fi> <47038FAB.9020106@free.fr> <Pine.LNX.4.64.0710031554380.27745@kivilampi-30.cs.helsinki.fi> <4703A1BB.1040006@free.fr> <Pine.LNX.4.64.0710031709450.27745@kivilampi-30.cs.helsinki.fi> <4703AE04.5090009@free.fr> <4703B16C.2000106@fr.ibm.com> <Pine.LNX.4.64.0710031817540.27745@kivilampi-30.cs.helsinki.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.de.ibm.com ([195.212.29.153]:16592 "EHLO
-	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756179AbXJDOs2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 10:48:28 -0400
-Content-Disposition: inline; filename=712-afiucv-throttle.diff
+Received: from mtagate8.uk.ibm.com ([195.212.29.141]:9542 "EHLO
+	mtagate8.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756397AbXJDOyN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 10:54:13 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate8.uk.ibm.com (8.13.8/8.13.8) with ESMTP id l94EsB7k428602
+	for <netdev@vger.kernel.org>; Thu, 4 Oct 2007 14:54:11 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l94EsB0k3043338
+	for <netdev@vger.kernel.org>; Thu, 4 Oct 2007 15:54:11 +0100
+Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l94ErsRh012208
+	for <netdev@vger.kernel.org>; Thu, 4 Oct 2007 15:53:54 +0100
+In-Reply-To: <Pine.LNX.4.64.0710031817540.27745@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ursula Braun <braunu@de.ibm.com>
+Ilpo J=E4rvinen wrote:
+> On Wed, 3 Oct 2007, Cedric Le Goater wrote:
+>=20
+>> Cedric Le Goater wrote:
+>>> Below are the messages I got on 2) right after running ketchup (whi=
+ch does=20
+>>> a wget www.kernel.org)=20
+>=20
+> Oops, those tcp_fragment WARNINGs in the other mail were due to bug i=
+n=20
+> the debug patch as it called verify too early in there (before queue =
+was=20
+> adjusted, no wonder it finds state inconsistent at that point, fixed =
+that)...
+>=20
+> ...So please discard all old debug patches, they're all broken in thi=
+s=20
+> respect... :-(
+>=20
+>>> not a warning on 1) with your extra verbose patch.
+>> bummer, I got this one on 1) :(
+>>
+>> WARNING: at /home/legoater/linux/net-2.6.24.git/net/ipv4/tcp_input.c=
+:2325 tcp_fastretrans_alert()
+>> Call Trace:
+>>  <IRQ>  [<ffffffff8022ddb6>] __wake_up+0x1f/0x4c
+>>  [<ffffffff803fd9d3>] tcp_ack+0xcee/0x18ac
+>>  [<ffffffff80400764>] tcp_rcv_established+0x61f/0x6df
+>=20
+> ...I just wonder why that's the first place where it occurs... Can yo=
+u try=20
+> the debug patch below (fixed verify place in tcp_fragment/collapse, a=
+dded=20
+> some of them to narrow it down, and handled GSO more user friendly wa=
+y in=20
+> the printout). Put it on top of those three patches (mm should be fin=
+e :-)).
+> ...I wish the verify triggers way before the fastretrans trap (for so=
+me=20
+> reason it didn't do that in the quoted trace, maybe I had some verify=
+s=20
+> missing in that old patch or something)...
 
-AF_IUCV socket programs may waste Linux storage, because af_iucv
-allocates an skb whenever posted by the receive callback routine and
-receives the message immediately. 
-Message receival is now postponed if data from previous callbacks has 
-not yet been transferred to the receiving socket program. Instead a 
-message handle is saved in a message queue as a reminder. Once 
-messages could be given to the receiving socket program, there is 
-an additional checking for entries in the message queue, followed
-by skb allocation and message receival if applicable.
+so here are the results on a net-2.6.24 kernel.=20
 
-Signed-off-by: Ursula Braun <braunu@de.ibm.com>
----
+I've put the patchset here to make sure it's correct:=20
 
- include/net/iucv/af_iucv.h |    7 +
- net/iucv/af_iucv.c         |  215 ++++++++++++++++++++++++++-------------------
- 2 files changed, 134 insertions(+), 88 deletions(-)
+	http://legoater.free.fr/patches/2.6.23/net-2.6.24.git-tcp_fastretrans/
 
-Index: net-2.6-uschi/include/net/iucv/af_iucv.h
-===================================================================
---- net-2.6-uschi.orig/include/net/iucv/af_iucv.h
-+++ net-2.6-uschi/include/net/iucv/af_iucv.h
-@@ -50,6 +50,12 @@ struct sockaddr_iucv {
- 
- 
- /* Common socket structures and functions */
-+struct sock_msg_q {
-+	struct iucv_path	*path;
-+	struct iucv_message	msg;
-+	struct list_head	list;
-+	spinlock_t		lock;
-+};
- 
- #define iucv_sk(__sk) ((struct iucv_sock *) __sk)
- 
-@@ -64,6 +70,7 @@ struct iucv_sock {
- 	struct iucv_path	*path;
- 	struct sk_buff_head	send_skb_q;
- 	struct sk_buff_head	backlog_skb_q;
-+	struct sock_msg_q	message_q;
- 	unsigned int		send_tag;
- };
- 
-Index: net-2.6-uschi/net/iucv/af_iucv.c
-===================================================================
---- net-2.6-uschi.orig/net/iucv/af_iucv.c
-+++ net-2.6-uschi/net/iucv/af_iucv.c
-@@ -223,6 +223,8 @@ static struct sock *iucv_sock_alloc(stru
- 	sock_init_data(sock, sk);
- 	INIT_LIST_HEAD(&iucv_sk(sk)->accept_q);
- 	skb_queue_head_init(&iucv_sk(sk)->send_skb_q);
-+	INIT_LIST_HEAD(&iucv_sk(sk)->message_q.list);
-+	spin_lock_init(&iucv_sk(sk)->message_q.lock);
- 	skb_queue_head_init(&iucv_sk(sk)->backlog_skb_q);
- 	iucv_sk(sk)->send_tag = 0;
- 
-@@ -662,6 +664,90 @@ out:
- 	return err;
- }
- 
-+static int iucv_fragment_skb(struct sock *sk, struct sk_buff *skb, int len)
-+{
-+	int dataleft, size, copied = 0;
-+	struct sk_buff *nskb;
-+
-+	dataleft = len;
-+	while (dataleft) {
-+		if (dataleft >= sk->sk_rcvbuf / 4)
-+			size = sk->sk_rcvbuf / 4;
-+		else
-+			size = dataleft;
-+
-+		nskb = alloc_skb(size, GFP_ATOMIC | GFP_DMA);
-+		if (!nskb)
-+			return -ENOMEM;
-+
-+		memcpy(nskb->data, skb->data + copied, size);
-+		copied += size;
-+		dataleft -= size;
-+
-+		skb_reset_transport_header(nskb);
-+		skb_reset_network_header(nskb);
-+		nskb->len = size;
-+
-+		skb_queue_tail(&iucv_sk(sk)->backlog_skb_q, nskb);
-+	}
-+
-+	return 0;
-+}
-+
-+static void iucv_process_message(struct sock *sk, struct sk_buff *skb,
-+				 struct iucv_path *path,
-+				 struct iucv_message *msg)
-+{
-+	int rc;
-+
-+	if (msg->flags & IPRMDATA) {
-+		skb->data = NULL;
-+		skb->len = 0;
-+	} else {
-+		rc = iucv_message_receive(path, msg, 0, skb->data,
-+					  msg->length, NULL);
-+		if (rc) {
-+			kfree_skb(skb);
-+			return;
-+		}
-+		if (skb->truesize >= sk->sk_rcvbuf / 4) {
-+			rc = iucv_fragment_skb(sk, skb, msg->length);
-+			kfree_skb(skb);
-+			skb = NULL;
-+			if (rc) {
-+				iucv_path_sever(path, NULL);
-+				return;
-+			}
-+			skb = skb_dequeue(&iucv_sk(sk)->backlog_skb_q);
-+		} else {
-+			skb_reset_transport_header(skb);
-+			skb_reset_network_header(skb);
-+			skb->len = msg->length;
-+		}
-+	}
-+
-+	if (sock_queue_rcv_skb(sk, skb))
-+		skb_queue_head(&iucv_sk(sk)->backlog_skb_q, skb);
-+}
-+
-+static void iucv_process_message_q(struct sock *sk)
-+{
-+	struct iucv_sock *iucv = iucv_sk(sk);
-+	struct sk_buff *skb;
-+	struct sock_msg_q *p, *n;
-+
-+	list_for_each_entry_safe(p, n, &iucv->message_q.list, list) {
-+		skb = alloc_skb(p->msg.length, GFP_ATOMIC | GFP_DMA);
-+		if (!skb)
-+			break;
-+		iucv_process_message(sk, skb, p->path, &p->msg);
-+		list_del(&p->list);
-+		kfree(p);
-+		if (!skb_queue_empty(&iucv->backlog_skb_q))
-+			break;
-+	}
-+}
-+
- static int iucv_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
- 			     struct msghdr *msg, size_t len, int flags)
- {
-@@ -673,8 +759,9 @@ static int iucv_sock_recvmsg(struct kioc
- 	int err = 0;
- 
- 	if ((sk->sk_state == IUCV_DISCONN || sk->sk_state == IUCV_SEVERED) &&
--		skb_queue_empty(&iucv->backlog_skb_q) &&
--		skb_queue_empty(&sk->sk_receive_queue))
-+	    skb_queue_empty(&iucv->backlog_skb_q) &&
-+	    skb_queue_empty(&sk->sk_receive_queue) &&
-+	    list_empty(&iucv->message_q.list))
- 		return 0;
- 
- 	if (flags & (MSG_OOB))
-@@ -713,16 +800,23 @@ static int iucv_sock_recvmsg(struct kioc
- 		kfree_skb(skb);
- 
- 		/* Queue backlog skbs */
--		rskb = skb_dequeue(&iucv_sk(sk)->backlog_skb_q);
-+		rskb = skb_dequeue(&iucv->backlog_skb_q);
- 		while (rskb) {
- 			if (sock_queue_rcv_skb(sk, rskb)) {
--				skb_queue_head(&iucv_sk(sk)->backlog_skb_q,
-+				skb_queue_head(&iucv->backlog_skb_q,
- 						rskb);
- 				break;
- 			} else {
--				rskb = skb_dequeue(&iucv_sk(sk)->backlog_skb_q);
-+				rskb = skb_dequeue(&iucv->backlog_skb_q);
- 			}
- 		}
-+		if (skb_queue_empty(&iucv->backlog_skb_q)) {
-+			spin_lock_bh(&iucv->message_q.lock);
-+			if (!list_empty(&iucv->message_q.list))
-+				iucv_process_message_q(sk);
-+			spin_unlock_bh(&iucv->message_q.lock);
-+		}
-+
- 	} else
- 		skb_queue_head(&sk->sk_receive_queue, skb);
- 
-@@ -963,99 +1057,44 @@ static void iucv_callback_connack(struct
- 	sk->sk_state_change(sk);
- }
- 
--static int iucv_fragment_skb(struct sock *sk, struct sk_buff *skb, int len,
--			     struct sk_buff_head *fragmented_skb_q)
--{
--	int dataleft, size, copied = 0;
--	struct sk_buff *nskb;
--
--	dataleft = len;
--	while (dataleft) {
--		if (dataleft >= sk->sk_rcvbuf / 4)
--			size = sk->sk_rcvbuf / 4;
--		else
--			size = dataleft;
--
--		nskb = alloc_skb(size, GFP_ATOMIC | GFP_DMA);
--		if (!nskb)
--			return -ENOMEM;
--
--		memcpy(nskb->data, skb->data + copied, size);
--		copied += size;
--		dataleft -= size;
--
--		skb_reset_transport_header(nskb);
--		skb_reset_network_header(nskb);
--		nskb->len = size;
--
--		skb_queue_tail(fragmented_skb_q, nskb);
--	}
--
--	return 0;
--}
--
- static void iucv_callback_rx(struct iucv_path *path, struct iucv_message *msg)
- {
- 	struct sock *sk = path->private;
- 	struct iucv_sock *iucv = iucv_sk(sk);
--	struct sk_buff *skb, *fskb;
--	struct sk_buff_head fragmented_skb_q;
--	int rc;
--
--	skb_queue_head_init(&fragmented_skb_q);
-+	struct sk_buff *skb;
-+	struct sock_msg_q *save_msg;
-+	int len;
- 
- 	if (sk->sk_shutdown & RCV_SHUTDOWN)
- 		return;
- 
--	skb = alloc_skb(msg->length, GFP_ATOMIC | GFP_DMA);
--	if (!skb) {
--		iucv_path_sever(path, NULL);
--		return;
--	}
-+	if (!list_empty(&iucv->message_q.list) ||
-+	    !skb_queue_empty(&iucv->backlog_skb_q))
-+		goto save_message;
-+
-+	len = atomic_read(&sk->sk_rmem_alloc);
-+	len += msg->length + sizeof(struct sk_buff);
-+	if (len > sk->sk_rcvbuf)
-+		goto save_message;
- 
--	if (msg->flags & IPRMDATA) {
--		skb->data = NULL;
--		skb->len = 0;
--	} else {
--		rc = iucv_message_receive(path, msg, 0, skb->data,
--					  msg->length, NULL);
--		if (rc) {
--			kfree_skb(skb);
--			return;
--		}
--		if (skb->truesize >= sk->sk_rcvbuf / 4) {
--			rc = iucv_fragment_skb(sk, skb, msg->length,
--					       &fragmented_skb_q);
--			kfree_skb(skb);
--			skb = NULL;
--			if (rc) {
--				iucv_path_sever(path, NULL);
--				return;
--			}
--		} else {
--			skb_reset_transport_header(skb);
--			skb_reset_network_header(skb);
--			skb->len = msg->length;
--		}
--	}
--	/* Queue the fragmented skb */
--	fskb = skb_dequeue(&fragmented_skb_q);
--	while (fskb) {
--		if (!skb_queue_empty(&iucv->backlog_skb_q))
--			skb_queue_tail(&iucv->backlog_skb_q, fskb);
--		else if (sock_queue_rcv_skb(sk, fskb))
--			skb_queue_tail(&iucv_sk(sk)->backlog_skb_q, fskb);
--		fskb = skb_dequeue(&fragmented_skb_q);
--	}
--
--	/* Queue the original skb if it exists (was not fragmented) */
--	if (skb) {
--		if (!skb_queue_empty(&iucv->backlog_skb_q))
--			skb_queue_tail(&iucv_sk(sk)->backlog_skb_q, skb);
--		else if (sock_queue_rcv_skb(sk, skb))
--			skb_queue_tail(&iucv_sk(sk)->backlog_skb_q, skb);
--	}
-+	skb = alloc_skb(msg->length, GFP_ATOMIC | GFP_DMA);
-+	if (!skb)
-+		goto save_message;
- 
-+	spin_lock(&iucv->message_q.lock);
-+	iucv_process_message(sk, skb, path, msg);
-+	spin_unlock(&iucv->message_q.lock);
-+
-+	return;
-+
-+save_message:
-+	save_msg = kzalloc(sizeof(struct sock_msg_q), GFP_ATOMIC | GFP_DMA);
-+	save_msg->path = path;
-+	save_msg->msg = *msg;
-+
-+	spin_lock(&iucv->message_q.lock);
-+	list_add_tail(&save_msg->list, &iucv->message_q.list);
-+	spin_unlock(&iucv->message_q.lock);
- }
- 
- static void iucv_callback_txdone(struct iucv_path *path,
+and plenty of logs :
 
--- 
+	http://legoater.free.fr/patches/2.6.23/net-2.6.24.git-tcp_fastretrans.=
+messages
+
+=46YI, config is here :
+
+	http://legoater.free.fr/patches/2.6.23/net-2.6.24.git-tcp_fastretrans.=
+config
+
+C.
