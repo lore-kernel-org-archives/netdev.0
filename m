@@ -1,92 +1,51 @@
-From: TAKANO Ryousei <takano@axe-inc.co.jp>
-Subject: [RFC][PATCH 2/2] TCP: skip processing cached SACK blocks
-Date: Thu, 04 Oct 2007 18:44:56 +0900 (JST)
-Message-ID: <20071004.184456.40407483.takano@axe-inc.co.jp>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: y-kodama@aist.go.jp
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from axekw.axe-inc.co.jp ([61.199.217.67]:63832 "EHLO
-	axekw.axe-inc.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756293AbXJDKR7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 06:17:59 -0400
-Sender: netdev-owner@vger.kernel.org
+From: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH] mac80211: Fix TX after monitor interface is converted to managed
+Date: Thu,  4 Oct 2007 12:33:43 +0100 (BST)
+Message-ID: <20071004113343.552139D502B@zog.reactivated.net>
+Cc: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch allows to process only newly reported SACK blocks at the
-sender side. An ACK packet contains up to three SACK blocks, and some
-of them may be already reported and processed blocks.  This patch 
-prevents processing of such already processed SACK blocks.
+This sequence of events causes loss of connectivity:
 
-Signed-off-by: Ryousei Takano <takano-ryousei@aist.go.jp>
-Signed-off-by: Yuetsu Kodama <y-kodama@aist.go.jp>
+<plug in>
+<associate as normal in managed mode>
+ifconfig eth7 down
+iwconfig eth7 mode monitor
+ifconfig eth7 up
+ifconfig eth7 down
+iwconfig eth7 mode managed
+<associate as normal>
+
+At this point you are associated but TX does not work. This is because
+the eth7 hard_start_xmit is still ieee80211_monitor_start_xmit.
+
+Fix this by unsetting the hard_start_xmit handler in ieee80211_if_reinit. It
+will then be reinitialised to the default (ieee80211_subif_start_xmit) in
+ieee80211_if_set_type.
+
+Signed-off-by: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
 ---
- net/ipv4/tcp_input.c |   24 ++++++++++++++++++++++++
- 1 files changed, 24 insertions(+), 0 deletions(-)
+ net/mac80211/ieee80211_iface.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index bbad2cd..9615fc9 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -978,6 +978,7 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
- 	int cached_fack_count;
- 	int i;
- 	int first_sack_index;
-+	u8 sack_block_skip[4] = {0,0,0,0};
+diff --git a/net/mac80211/ieee80211_iface.c b/net/mac80211/ieee80211_iface.c
+index 08c1e18..40d4b63 100644
+--- a/net/mac80211/ieee80211_iface.c
++++ b/net/mac80211/ieee80211_iface.c
+@@ -242,6 +242,9 @@ void ieee80211_if_reinit(struct net_device *dev)
  
- 	if (!tp->sacked_out)
- 		tp->fackets_out = 0;
-@@ -1012,6 +1013,21 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
- 	if (before(TCP_SKB_CB(ack_skb)->ack_seq, prior_snd_una - tp->max_window))
- 		return 0;
+ 	ieee80211_if_sdata_deinit(sdata);
  
-+	/* Skip processing cached SACK blocks. */
-+	for (i = 0; i < num_sacks; i++) {
-+		__be32 start_seq = sp[i].start_seq;
-+		__be32 end_seq = sp[i].end_seq;
-+		int j;
++	BUG_ON(netif_running(dev));
++	dev->hard_start_xmit = NULL;
 +
-+		for (j = 0; j < ARRAY_SIZE(tp->recv_sack_cache); j++) {
-+			if ((tp->recv_sack_cache[j].start_seq == start_seq) &&
-+			    (tp->recv_sack_cache[j].end_seq == end_seq)) {
-+				sack_block_skip[i] = 1;
-+				break;
-+			}
-+		}
-+	}
-+
- 	/* SACK fastpath:
- 	 * if the only SACK change is the increase of the end_seq of
- 	 * the first block then only apply that SACK block
-@@ -1051,11 +1067,16 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
- 				if (after(ntohl(sp[j].start_seq),
- 					  ntohl(sp[j+1].start_seq))){
- 					struct tcp_sack_block_wire tmp;
-+					u8 sbtmp;
- 
- 					tmp = sp[j];
- 					sp[j] = sp[j+1];
- 					sp[j+1] = tmp;
- 
-+					sbtmp = sack_block_skip[j];
-+					sack_block_skip[j] = sack_block_skip[j+1];
-+					sack_block_skip[j+1] = sbtmp;
-+
- 					/* Track where the first SACK block goes to */
- 					if (j == first_sack_index)
- 						first_sack_index = j+1;
-@@ -1083,6 +1104,9 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
- 		int fack_count;
- 		int dup_sack = (found_dup_sack && (i == first_sack_index));
- 
-+		if (sack_block_skip[i])
-+			continue;
-+
- 		skb = cached_skb;
- 		fack_count = cached_fack_count;
- 
+ 	switch (sdata->type) {
+ 	case IEEE80211_IF_TYPE_MGMT:
+ 		/* nothing to do */
 -- 
-1.5.2.4
-
+1.5.3.3
