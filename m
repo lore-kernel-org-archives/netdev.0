@@ -1,41 +1,41 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: Re: Bugzilla: open bug reports
-Date: Thu, 04 Oct 2007 13:35:13 -0400
-Message-ID: <47052451.6040709@redhat.com>
-References: <20071004094426.5321af0e@freepuppy.rosehill>
+From: Tina Yang <tina.yang@oracle.com>
+Subject: netconsole problems
+Date: Thu, 04 Oct 2007 10:59:38 -0700
+Message-ID: <47052A0A.2080100@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+To: Matt Mackall <mpm@selenic.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:58607 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755097AbXJDRfR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Oct 2007 13:35:17 -0400
-In-Reply-To: <20071004094426.5321af0e@freepuppy.rosehill>
+Received: from agminet01.oracle.com ([141.146.126.228]:37145 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756500AbXJDSDq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 14:03:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/04/2007 12:44 PM, Stephen Hemminger wrote:
-> Bugzilla report of open bugs. Yes you could run it yourself but
-> many of these bugs seem to be old and need some attention or work
-> to get resolved.
-> 
-> Would this be useful to regularly run/automate?
-> What format?
+We recently run into a few problems with netconsole
+in at least 2.6.9, 2.6.18 and 2.6.23.  It either panicked
+at netdevice.h:890 or hung the system, and sometimes depending
+on which NIC we are using, the following console message,
+ e1000:
+      "e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang"
+ tg3:
+      "NETDEV WATCHDOG: eth4: transmit timed out"
+      "tg3: eth4: transmit timed out, resetting"
 
-Yes, run it. And add links to the bugs, or at least a generic
-URL at the top so people can easily find them:
+The postmortem vmcore analysis indicated race between normal
+network stack (net_rx_action) and netpoll, and disabling the
+following code segment cures all the problems.
 
-  http://bugzilla.kernel.org/show_bug.cgi?id=<number>
+netpoll.c
+    178         /* Process pending work on NIC */
+    179         np->dev->poll_controller(np->dev);
+    180         if (np->dev->poll)
+    181                 poll_napi(np);
 
-NOTE:
-In Firefox you can create "keyword" bookmarks:
+Big or small, there seems to be several race windows in the code,
+and fixing them probably has consequence on overall system performance.
+Maybe this code should only run when the machine is single-threaded ?
+Suggestions ?  Thanks.
 
-  Name: Kernel Bug
-  Location: http://bugzilla.kernel.org/show_bug.cgi?id=%s
-  Keyword: bz
-
-Then you can type "bz <number>" in the address bar to go right to
-the bug.
