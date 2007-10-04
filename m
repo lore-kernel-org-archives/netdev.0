@@ -1,42 +1,39 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [patch 3/3] git-net: sctp build fix (not for applying)
-Date: Thu, 04 Oct 2007 11:02:24 -0400
-Message-ID: <47050080.8080309@hp.com>
-References: <200710022104.l92L4dvJ022234@imap1.linux-foundation.org>	<47039E3F.9020305@hp.com> <20071003.164542.107940171.davem@davemloft.net>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [PATCH] mac80211: Fix TX after monitor interface is converted to managed
+Date: Thu, 4 Oct 2007 17:06:05 +0200
+Message-ID: <200710041706.06182.mb@bu3sch.de>
+References: <20071004113343.552139D502B@zog.reactivated.net> <200710041034.48533.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Daniel Drake <dsd@gentoo.org>, linville@tuxdriver.com,
+	johannes@sipsolutions.net, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: Michael Wu <flamingice@sourmilk.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:54548 "EHLO atlrel8.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751281AbXJDPC0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Oct 2007 11:02:26 -0400
-In-Reply-To: <20071003.164542.107940171.davem@davemloft.net>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:38593
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756667AbXJDPGl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 11:06:41 -0400
+In-Reply-To: <200710041034.48533.flamingice@sourmilk.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Vlad Yasevich <vladislav.yasevich@hp.com>
-> Date: Wed, 03 Oct 2007 09:50:55 -0400
+On Thursday 04 October 2007 16:34:43 Michael Wu wrote:
+> On Thursday 04 October 2007 07:33, Daniel Drake wrote:
+> > Fix this by unsetting the hard_start_xmit handler in ieee80211_if_reinit.
+> > It will then be reinitialised to the default (ieee80211_subif_start_xmit)
+> > in ieee80211_if_set_type.
+> >
+> Well.. this kinda sucks, but we can clean up the logic here later.
 > 
->> akpm@linux-foundation.org wrote:
->>> From: Andrew Morton <akpm@linux-foundation.org>
->>>
->>> net/sctp/sm_statetable.c:551: error: 'sctp_sf_tabort_8_4_8' undeclared here (not in a function)
->>>
->> Andrew, is the a result of the merge of net-2.6.24 with net-2.6?  
-> 
-> Actually, it is a result of merging with Linus's tree since your SCTP
-> bits were there already, that's why Andrew hit this.
-> 
->> That's the only way I see this happening.
-> 
-> Right.
-> 
-> I'll resolve this cleanly as I rebase net-2.6.24 today.
+> > +	BUG_ON(netif_running(dev));
+> This will never happen, so there's no point.
 
-OK.  Thanks David.
+The reason why BUG_ON exists is to catch bugs that happen, although
+they Should Never Happen (tm) ;)
 
--vlad
+-- 
+Greetings Michael.
