@@ -1,70 +1,67 @@
-From: Max Krasnyansky <maxk@qualcomm.com>
-Subject: Skb over panic on TUN device (2.6.18)
-Date: Thu, 04 Oct 2007 13:58:54 -0700
-Message-ID: <4705540E.40903@qualcomm.com>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: [PATCH] mac80211: Fix TX after monitor interface is converted to managed
+Date: Thu, 4 Oct 2007 17:16:28 -0400
+Message-ID: <200710041716.31942.flamingice@sourmilk.net>
+References: <20071004113343.552139D502B@zog.reactivated.net> <200710041311.37997.flamingice@sourmilk.net> <20071004181516.GH6037@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: multipart/signed;
+  boundary="nextPart3810229.ukmq4tXfGv";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Michael Buesch <mb@bu3sch.de>, Daniel Drake <dsd@gentoo.org>,
+	johannes@sipsolutions.net, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from warlock.qualcomm.com ([129.46.50.49]:33988 "EHLO
-	warlock.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759244AbXJDVLd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 17:11:33 -0400
-Received: from ithilien.qualcomm.com (ithilien.qualcomm.com [129.46.51.59])
-	by warlock.qualcomm.com (8.13.6/8.13.6/1.0) with ESMTP id l94LBW52021112
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Thu, 4 Oct 2007 14:11:32 -0700 (PDT)
-Received: from totoro.qualcomm.com (totoro.qualcomm.com [129.46.61.158])
-	by ithilien.qualcomm.com (8.14.1/8.12.5/1.0) with ESMTP id l94KwtPV001299
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=FAIL)
-	for <netdev@vger.kernel.org>; Thu, 4 Oct 2007 13:58:55 -0700
-Received: from [129.46.6.218] (m2x.qualcomm.com [129.46.6.218])
-	by totoro.qualcomm.com (8.14.1/8.13.6/1.0) with ESMTP id l94Kwsqa021457
-	for <netdev@vger.kernel.org>; Thu, 4 Oct 2007 13:58:55 -0700 (PDT)
+Received: from smtp.rutgers.edu ([128.6.72.243]:34863 "EHLO
+	annwn14.rutgers.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757364AbXJDVS1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 17:18:27 -0400
+In-Reply-To: <20071004181516.GH6037@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Folks,
+--nextPart3810229.ukmq4tXfGv
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-I just got this panic report against 2.6.18 kernel and was wondering if some of you have
-an idea of why this might happen.
+On Thursday 04 October 2007 14:15, John W. Linville wrote:
+> Falling back on bloat as an argument against a BUG_ON in a
+> configuration path seems a bit weak. :-)
+>
+Seems strong to me. Bloat slows me down and distracts me from what code rea=
+lly=20
+needs to do. Bloat is an indication that one does not understand what the=20
+code really needs to do.
 
-The panic looks like this:
+> Programming with assertions (and BUG_ON is a form of that) is
+> generally a good practice.  Almost any book or other source on
+> good programming practices will agree.  Yes, it can be overdone.
+> But I don't really think that is the case here, since the check is
+> relatively inexpensive and the consequence should it ever *somehow*
+> happen could be a something wierd (crash, corruption, etc) w/o any
+> other indication of what occured.
+>
+A line has to be drawn somewhere. There's about a billion places where we c=
+an=20
+add checks like this because if an assumption should ever break, the code=20
+will break into pieces. However, we don't, and there's no reason to do so=20
+here other than to needlessly add code just because it makes you feel safer.
 
-skb_over_panic: text:ffffffff880463db len:2840 put:1454 head:ffff81005df81000 data:ffff81005df81020
-tail:ffff81005df81b38 end:ffff81005df81840 dev:tun0
+=2DMichael Wu
 
-skb_over_panic: text:ffffffff880463db len:1354 put:1314 head:ffff81007d77ee00 data:ffff81007d77ee20 
-tail:ffff81007d77f36a end:ffff81007d77ee80 dev:tun0
+--nextPart3810229.ukmq4tXfGv
+Content-Type: application/pgp-signature
 
-Those are two are unrelated and happened at different times.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
 
-It's coming from this piece of code:
-        if (!(skb = alloc_skb(len + align, GFP_KERNEL))) {
-                tun->stats.rx_dropped++;
-                return -ENOMEM;
-        }
+iD8DBQBHBVgvT3Oqt9AH4aERAgpPAJ9Ub3RvKYnZ7tCM8js1xPscKgFrUgCgmcp+
++3sdmlJO3OQEaqHChXH+gtc=
+=K82d
+-----END PGP SIGNATURE-----
 
-        if (align)
-                skb_reserve(skb, align);
-        if (memcpy_fromiovec(skb_put(skb, len), iv, len)) {
-                tun->stats.rx_dropped++;
-                kfree_skb(skb);
-                return -EFAULT;
-        }
-
-As you can see there is not a whole lot that can go wrong with skb in there.
-'align' is set to 0 for TUN devices.
-
-First dumps looks as if skb already had no zero length right after allocation.
-In the second dump skb is only 128 byte in size (end - head) even though 
-we're clearly allocating and trying to write more than that. 
-
-So, my conclusion at this point is that for whatever reason alloc_skb() returned 
-busted SKB. Probably because something in the slab got corrupted.
-
-Any other thoughts ?
-
-Thanx
-Max
+--nextPart3810229.ukmq4tXfGv--
