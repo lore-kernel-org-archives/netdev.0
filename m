@@ -1,88 +1,92 @@
 From: TAKANO Ryousei <takano@axe-inc.co.jp>
-Subject: [RFC][PATCH 2.6.23-rc9 0/2] detection of loss of retransmitted
- packets
-Date: Thu, 04 Oct 2007 18:44:37 +0900 (JST)
-Message-ID: <20071004.184437.07576505.takano@axe-inc.co.jp>
+Subject: [RFC][PATCH 2/2] TCP: skip processing cached SACK blocks
+Date: Thu, 04 Oct 2007 18:44:56 +0900 (JST)
+Message-ID: <20071004.184456.40407483.takano@axe-inc.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: y-kodama@aist.go.jp
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from axekw.axe-inc.co.jp ([61.199.217.67]:64897 "EHLO
+Received: from axekw.axe-inc.co.jp ([61.199.217.67]:63832 "EHLO
 	axekw.axe-inc.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752054AbXJDKRx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 06:17:53 -0400
+	with ESMTP id S1756293AbXJDKR7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 06:17:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+This patch allows to process only newly reported SACK blocks at the
+sender side. An ACK packet contains up to three SACK blocks, and some
+of them may be already reported and processed blocks.  This patch 
+prevents processing of such already processed SACK blocks.
 
-We found a performance problem which occurs in heavy packet loss
-conditions. It seems there is a problem in detecting loss of 
-retransmitted packets.
+Signed-off-by: Ryousei Takano <takano-ryousei@aist.go.jp>
+Signed-off-by: Yuetsu Kodama <y-kodama@aist.go.jp>
+---
+ net/ipv4/tcp_input.c |   24 ++++++++++++++++++++++++
+ 1 files changed, 24 insertions(+), 0 deletions(-)
 
-In the retransmission queue, status of sent packets are registered.
-When a packet is retransmitted, it is so marked, and snd_nxt (sequence
-number of the next new (non-retransmission) packet to be sent) at that
-moment is registered as ack_seq. A retransmitted packet is lost if it 
-is not SACKed, and its ack_seq is smaller than the sequence number of 
-any SACKed packet.
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index bbad2cd..9615fc9 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -978,6 +978,7 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
+ 	int cached_fack_count;
+ 	int i;
+ 	int first_sack_index;
++	u8 sack_block_skip[4] = {0,0,0,0};
+ 
+ 	if (!tp->sacked_out)
+ 		tp->fackets_out = 0;
+@@ -1012,6 +1013,21 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
+ 	if (before(TCP_SKB_CB(ack_skb)->ack_seq, prior_snd_una - tp->max_window))
+ 		return 0;
+ 
++	/* Skip processing cached SACK blocks. */
++	for (i = 0; i < num_sacks; i++) {
++		__be32 start_seq = sp[i].start_seq;
++		__be32 end_seq = sp[i].end_seq;
++		int j;
++
++		for (j = 0; j < ARRAY_SIZE(tp->recv_sack_cache); j++) {
++			if ((tp->recv_sack_cache[j].start_seq == start_seq) &&
++			    (tp->recv_sack_cache[j].end_seq == end_seq)) {
++				sack_block_skip[i] = 1;
++				break;
++			}
++		}
++	}
++
+ 	/* SACK fastpath:
+ 	 * if the only SACK change is the increase of the end_seq of
+ 	 * the first block then only apply that SACK block
+@@ -1051,11 +1067,16 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
+ 				if (after(ntohl(sp[j].start_seq),
+ 					  ntohl(sp[j+1].start_seq))){
+ 					struct tcp_sack_block_wire tmp;
++					u8 sbtmp;
+ 
+ 					tmp = sp[j];
+ 					sp[j] = sp[j+1];
+ 					sp[j+1] = tmp;
+ 
++					sbtmp = sack_block_skip[j];
++					sack_block_skip[j] = sack_block_skip[j+1];
++					sack_block_skip[j+1] = sbtmp;
++
+ 					/* Track where the first SACK block goes to */
+ 					if (j == first_sack_index)
+ 						first_sack_index = j+1;
+@@ -1083,6 +1104,9 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
+ 		int fack_count;
+ 		int dup_sack = (found_dup_sack && (i == first_sack_index));
+ 
++		if (sack_block_skip[i])
++			continue;
++
+ 		skb = cached_skb;
+ 		fack_count = cached_fack_count;
+ 
+-- 
+1.5.2.4
 
-An ACK packet can have up to three SACK blocks. A SACK block has a
-"start sequence number (start_seq)" and an "end sequence number
-(end_seq)" of received packets. In the current implementation of
-tcp_sacktag_write_queue(), if an ACK packet has multiple SACK blocks,
-the SACK blocks are sorted by the start_seq in an ascending order, and
-processed in the order.  For scoreboarding packets in retransmission
-queue, the queue is scanned from the the snd_una (the lowest sequence
-number of not yet ACKed packets) to the end_seq of the SACK block. To
-optimize the scanning process, the next SACK block is processed not
-from the snd_una but from the end_seq of the previously processed SACK
-block. In the current implementation, for detecting the loss of
-retransmitted packets, the ack_seq of a retransmitted packet is
-compared with the end_seq of each SACK block during the scoreboarding.
-Therefore, a retransmitted packet which ack_seq is smaller than the
-end_seq of the last SACK block but larger than that of the currently
-being processed SACK block can not be detected as lost.
-Such undetected loss may eventually cause an RTO and performance may 
-be degraded.
-
-PATCH #1 fixes this problem by comparing the the ack_seq with the
-largest end_seq of the SACK blocks.
-
-In addition, some of SACK blocks in an ACK packet may be already
-reported in preceding ACK packets. PATCH #2 optimizes processing by
-skipping such already reported SACK blocks. Usually, only the first
-SACK block of an ACK packet is the new one to be processed. 
-Therefore, in most cases, applying PATCH #2 also solves the problem. 
-However, to ensure accurate processing in case there are multiple 
-new SACK blocks in an ACK packet, PATCH #2 should be applied in 
-conjunction with PATCH #1.
-
-The experimental network is as follows:
-
-Node A ----> Router -------> Delay -------> Node B
-            (Policing rate:  emulator
-   	     500Mbps)        (RTT: 20ms)
-
-You can find the detail of our experimental setting at
-http://projects.gtrc.aist.go.jp/gnet/sack-bug.html
-
-We transferred 1 GByte of data from Node A to Node B for ten times. 
-Here is the performance comparison of the cases with and without 
-these patches.
-
-	Ave. goodput	Ave. RTO
-2.6.22	376 Mbps	26
-PATCH#1	481 Mbps	0
-PATCH#2	483 Mbps	0
-
-In the vanilla kernel, several RTOs (TCPTimeouts + TCPSackRecoveryFail)
-occur.  On the other hand, our patches eliminate RTOs and improve the
-average goodput by 28%.
-
-Any comments and ideas would be appreciated.
-
-Regards,
-Ryousei Takano
