@@ -1,47 +1,33 @@
-From: Alexey Dobriyan <adobriyan@sw.ru>
-Subject: Re: [Devel] [PATCH][NETNS] Move some code into __init section when CONFIG_NET_NS=n
-Date: Thu, 4 Oct 2007 18:02:02 +0400
-Message-ID: <20071004140202.GA6180@localhost.sw.ru>
-References: <4704F083.7090203@openvz.org>
+From: "Kalle Pokki" <kalle.pokki@iki.fi>
+Subject: Re: Blackfin Ethernet MAC driver compile error
+Date: Thu, 4 Oct 2007 17:26:01 +0300
+Message-ID: <a425f86c0710040726q27aeb354vbbcb68bd2fed2b76@mail.gmail.com>
+References: <a425f86c0710020430o3507eeb2veb104dc936f230dd@mail.gmail.com>
+	 <1191489141.6139.1.camel@roc-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: bryan.wu@analog.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.233.200]:47333 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756037AbXJDOCV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Oct 2007 10:02:21 -0400
+Received: from el-out-1112.google.com ([209.85.162.177]:5513 "EHLO
+	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756017AbXJDO0C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 10:26:02 -0400
+Received: by el-out-1112.google.com with SMTP id v27so48692ele
+        for <netdev@vger.kernel.org>; Thu, 04 Oct 2007 07:26:02 -0700 (PDT)
+In-Reply-To: <1191489141.6139.1.camel@roc-laptop>
 Content-Disposition: inline
-In-Reply-To: <4704F083.7090203@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 04, 2007 at 05:54:11PM +0400, Pavel Emelyanov wrote:
-> With the net namespaces many code leaved the __init section,
-> thus making the kernel occupy more memory than it did before.
-> Since we have a config option that prohibits the namespace
-> creation, the functions that initialize/finalize some netns
-> stuff are simply not needed and can be freed after the boot.
-> 
-> Currently, this is almost not noticeable, since few calls
-> are no longer in __init, but when the namespaces will be
-> merged it will be possible to free more code. I propose to 
-> use the __net_init, __net_exit and __net_initdata "attributes"
-> for functions/variables that are not used if the CONFIG_NET_NS
-> is not set to save more space in memory.
+On 10/4/07, Bryan Wu <bryan.wu@analog.com> wrote:
+> Sorry for missing the pinmux patches.
+> After Linus's git-pull, it should be fixed in the latest Linus mainline
+> git tree.
 
-> +#ifdef CONFIG_NET_NS
-> +#define __net_init
-> +#define __net_exit
-> +#define __net_initdata
-> +#else
-> +#define __net_init	__init
-> +#define __net_exit	__exit
-> +#define __net_initdata	__initdata
-> +#endif
+Thanks, it is working now. I was also glad to see the binfmt_flat
+patch going in.
 
-Yet another set of double-underscored section annotations is the last thing
-that is needed, methinks. :)
-
+Do you plan to get the PHY abstraction layer patches for the Blackfin
+EMAC included in the upcoming merge window?
