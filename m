@@ -1,55 +1,55 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] mac80211: Fix TX after monitor interface is converted
-	to managed
-Date: Thu, 4 Oct 2007 14:15:16 -0400
-Message-ID: <20071004181516.GH6037@tuxdriver.com>
-References: <20071004113343.552139D502B@zog.reactivated.net> <200710041706.06182.mb@bu3sch.de> <20071004151956.GE6037@tuxdriver.com> <200710041311.37997.flamingice@sourmilk.net>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH] e1000e: fix debugging printout code
+Date: Thu, 04 Oct 2007 11:38:43 -0700
+Message-ID: <20071004183843.31540.23710.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Buesch <mb@bu3sch.de>, Daniel Drake <dsd@gentoo.org>,
-	johannes@sipsolutions.net, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: Michael Wu <flamingice@sourmilk.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:3578 "EHLO ra.tuxdriver.com"
+Received: from mga03.intel.com ([143.182.124.21]:28309 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759230AbXJDSi6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Oct 2007 14:38:58 -0400
-Content-Disposition: inline
-In-Reply-To: <200710041311.37997.flamingice@sourmilk.net>
+	id S1757335AbXJDSj5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Oct 2007 14:39:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 04, 2007 at 01:11:33PM -0400, Michael Wu wrote:
-> On Thursday 04 October 2007 11:19, John W. Linville wrote:
-> > > The reason why BUG_ON exists is to catch bugs that happen, although
-> > > they Should Never Happen (tm) ;)
-> >
-> > Precisely.
+A small bug crawled in the -DDEBUG enabled code. Fix this to
+properly call the backreference device name.
 
-> No really, this bug will never happen. This is function is merely a helper 
-> function which is called from interface removal code (where the interface 
-> *has* to be down) or from changing the interface type (which ensures that the 
-> interface is down first). There are an unlimited number of bugs which Should 
-> Never Happen. That doesn't mean we should start adding BUG_ONs for every 
-> single one of them. That gives some sort of protection against cosmic rays 
-> flipping bits, but down here on earth, it's bloat.
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
-Falling back on bloat as an argument against a BUG_ON in a
-configuration path seems a bit weak. :-)
+ drivers/net/e1000e/hw.h     |    2 +-
+ drivers/net/e1000e/netdev.c |    4 +---
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
-Programming with assertions (and BUG_ON is a form of that) is
-generally a good practice.  Almost any book or other source on
-good programming practices will agree.  Yes, it can be overdone.
-But I don't really think that is the case here, since the check is
-relatively inexpensive and the consequence should it ever *somehow*
-happen could be a something wierd (crash, corruption, etc) w/o any
-other indication of what occured.
-
-Anyway, the point is probably moot in this case if there is no great
-objection to the alternative patch I proposed.
-
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+index 848217a..aa82f1a 100644
+--- a/drivers/net/e1000e/hw.h
++++ b/drivers/net/e1000e/hw.h
+@@ -852,7 +852,7 @@ struct e1000_hw {
+ 
+ #ifdef DEBUG
+ #define hw_dbg(hw, format, arg...) \
+-	printk(KERN_DEBUG, "%s: " format, e1000_get_hw_dev_name(hw), ##arg);
++	printk(KERN_DEBUG, "%s: " format, e1000e_get_hw_dev_name(hw), ##arg);
+ #else
+ static inline int __attribute__ ((format (printf, 2, 3)))
+ hw_dbg(struct e1000_hw *hw, const char *format, ...)
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 4a21d7d..3a0bb2a 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -66,9 +66,7 @@ static const struct e1000_info *e1000_info_tbl[] = {
+  **/
+ char *e1000e_get_hw_dev_name(struct e1000_hw *hw)
+ {
+-	struct e1000_adapter *adapter = hw->back;
+-	struct net_device *netdev = adapter->netdev;
+-	return netdev->name;
++	return hw->adapter->netdev->name;
+ }
+ #endif
+ 
