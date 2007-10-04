@@ -1,39 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 3/3] git-net: sctp build fix (not for applying)
-Date: Wed, 03 Oct 2007 16:45:42 -0700 (PDT)
-Message-ID: <20071003.164542.107940171.davem@davemloft.net>
-References: <200710022104.l92L4dvJ022234@imap1.linux-foundation.org>
-	<47039E3F.9020305@hp.com>
+Subject: net-2.6.24 rebased
+Date: Wed, 03 Oct 2007 22:07:16 -0700 (PDT)
+Message-ID: <20071003.220716.71090595.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
-To: vladislav.yasevich@hp.com
+Cc: akpm@linux-foundation.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58557
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44811
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751035AbXJCXpn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 3 Oct 2007 19:45:43 -0400
-In-Reply-To: <47039E3F.9020305@hp.com>
+	by vger.kernel.org with ESMTP id S1751286AbXJDFHR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 01:07:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Wed, 03 Oct 2007 09:50:55 -0400
 
-> akpm@linux-foundation.org wrote:
-> > From: Andrew Morton <akpm@linux-foundation.org>
-> > 
-> > net/sctp/sm_statetable.c:551: error: 'sctp_sf_tabort_8_4_8' undeclared here (not in a function)
-> > 
-> 
-> Andrew, is the a result of the merge of net-2.6.24 with net-2.6?  
+Available as usual at:
 
-Actually, it is a result of merging with Linus's tree since your SCTP
-bits were there already, that's why Andrew hit this.
+	kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.24.git
 
-> That's the only way I see this happening.
+I resolved the SCTP and network driver conflicts that come standard
+with a rebase to Linus's current tree.
 
-Right.
+We're up to 700 changesets and an 8.7 MB patch, w00t!
 
-I'll resolve this cleanly as I rebase net-2.6.24 today.
+I've been using it for an hour or so on my workstation so something
+works.  It also passes an allmodconfig build on sparc64.
+
+Either later tonight or some time tomorrow I'll start hitting the
+patch backlog in my inbox.
+
+Thanks.
