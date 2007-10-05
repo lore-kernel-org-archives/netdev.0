@@ -1,84 +1,106 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9128] New: PF_KEY SADB_GET messages return
- SADB_DUMP from the kernel
-Date: Fri, 5 Oct 2007 10:37:55 -0700
-Message-ID: <20071005103755.a1c86e7d.akpm@linux-foundation.org>
-References: <bug-9128-10286@http.bugzilla.kernel.org/>
+From: Matheos Worku <Matheos.Worku@Sun.COM>
+Subject: Re: [PATCH]: Third (final?) release of Sun Neptune driver
+Date: Fri, 05 Oct 2007 10:45:43 -0700
+Message-ID: <47067847.7030204@sun.com>
+References: <20071005.031209.57156822.davem@davemloft.net>
+ <200710051846.19965.netdev@axxeo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org,
-	Joy Latten <latten@austin.ibm.com>,
-	Eric Paris <eparis@parisplace.org>,
-	James Morris <jmorris@namei.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: netdev@vger.kernel.org, chardin@2wire.com
+Content-Type: text/plain; format=flowed; charset=ISO-8859-1
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ariel.Hendel@Sun.COM, Greg.Onufer@Sun.COM, jeff@garzik.org,
+	Ashley.Saulsbury@Sun.COM
+To: Ingo Oeser <netdev@axxeo.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:58637 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751570AbXJERjp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2007 13:39:45 -0400
-In-Reply-To: <bug-9128-10286@http.bugzilla.kernel.org/>
+Received: from sca-es-mail-1.Sun.COM ([192.18.43.132]:61091 "EHLO
+	sca-es-mail-1.sun.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751765AbXJERpr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2007 13:45:47 -0400
+Received: from fe-sfbay-09.sun.com ([192.18.43.129])
+	by sca-es-mail-1.sun.com (8.13.7+Sun/8.12.9) with ESMTP id l95HjlcR028917
+	for <netdev@vger.kernel.org>; Fri, 5 Oct 2007 10:45:47 -0700 (PDT)
+Received: from conversion-daemon.fe-sfbay-09.sun.com by fe-sfbay-09.sun.com
+ (Sun Java System Messaging Server 6.2-8.04 (built Feb 28 2007))
+ id <0JPG00G018MMLN00@fe-sfbay-09.sun.com>
+ (original mail from Matheos.Worku@Sun.COM) for netdev@vger.kernel.org; Fri,
+ 05 Oct 2007 10:45:47 -0700 (PDT)
+In-reply-to: <200710051846.19965.netdev@axxeo.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Ingo Oeser wrote:
+> Hi David,
+>
+> some minor nits.
+>
+> Could this driver be split into more files. 8k lines per file
+> is quite a lot. Although GCC might optimize it best this way :-)
+>   
 
-(Please reply via emailed reply-to-all, not via the bugzilla web interface)
+Ingo,
 
-On Fri,  5 Oct 2007 09:01:50 -0700 (PDT)
-bugme-daemon@bugzilla.kernel.org wrote:
+Some r info on  Neptune HW  to explains some of the constants ...
+Regards
+Matheos
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=9128
-> 
->            Summary: PF_KEY SADB_GET messages return SADB_DUMP from the
->                     kernel
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.18
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: chardin@2wire.com
-> 
-> 
-> Most recent kernel where this bug did not occur:
-> Distribution: Centos 5
-> Hardware Environment: Dell 490
-> Software Environment: Centos 5
-> Problem Description:
-> Sending an SADB_GET to the PF_KEY socket returns an SADB_DUMP in the out_hdr
-> 
-> Steps to reproduce:
-> Send an SADB_GET to the PF_KEY socket and dump the returned packet
-> 
-> 
-> This patch should fix the problem
-> diff --git a/net/key/af_key.c b/net/key/af_key.c
-> index 5502df1..7a5e993 100644
-> --- a/net/key/af_key.c
-> +++ b/net/key/af_key.c
-> @@ -1546,7 +1546,7 @@ static int pfkey_get(struct sock *sk, struct sk_buff
-> *skb,
-> 
->         out_hdr = (struct sadb_msg *) out_skb->data;
->         out_hdr->sadb_msg_version = hdr->sadb_msg_version;
-> -       out_hdr->sadb_msg_type = SADB_DUMP;
-> +       out_hdr->sadb_msg_type = SADB_GET;
->         out_hdr->sadb_msg_satype = pfkey_proto2satype(proto);
->         out_hdr->sadb_msg_errno = 0;
->         out_hdr->sadb_msg_reserved = 0;
-> 
-
-Please submit kernel patches via email, as per
-http://www.zip.com.au/~akpm/linux/patches/stuff/tpp.txt.  Net patches
-should be sent to netdev@vger.kernel.org and perhaps
-linux-kernel@vger.kernel.org.
-
-But whatever - I can convert this patch into a suitable one and send it in
-to David if people think it is good?
+>> +	ctrl_val = (ENET_SERDES_CTRL_SDET_0 |
+>> +		    ENET_SERDES_CTRL_SDET_1 |
+>> +		    ENET_SERDES_CTRL_SDET_2 |
+>> +		    ENET_SERDES_CTRL_SDET_3 |
+>> +		    (0x5 << ENET_SERDES_CTRL_EMPH_0_SHIFT) |
+>> +		    (0x5 << ENET_SERDES_CTRL_EMPH_1_SHIFT) |
+>> +		    (0x5 << ENET_SERDES_CTRL_EMPH_2_SHIFT) |
+>> +		    (0x5 << ENET_SERDES_CTRL_EMPH_3_SHIFT) |
+>> +		    (0x1 << ENET_SERDES_CTRL_LADJ_0_SHIFT) |
+>> +		    (0x1 << ENET_SERDES_CTRL_LADJ_1_SHIFT) |
+>> +		    (0x1 << ENET_SERDES_CTRL_LADJ_2_SHIFT) |
+>> +		    (0x1 << ENET_SERDES_CTRL_LADJ_3_SHIFT));
+>> +	test_cfg_val = 0;
+>> +
+>> +	if (lp->loopback_mode == LOOPBACK_PHY) {
+>> +		test_cfg_val |= ((ENET_TEST_MD_PAD_LOOPBACK <<
+>> +				  ENET_SERDES_TEST_MD_0_SHIFT) |
+>> +				 (ENET_TEST_MD_PAD_LOOPBACK <<
+>> +				  ENET_SERDES_TEST_MD_1_SHIFT) |
+>> +				 (ENET_TEST_MD_PAD_LOOPBACK <<
+>> +				  ENET_SERDES_TEST_MD_2_SHIFT) |
+>> +				 (ENET_TEST_MD_PAD_LOOPBACK <<
+>> +				  ENET_SERDES_TEST_MD_3_SHIFT));
+>> +	}
+>> +
+>> +	nw64(ctrl_reg, ctrl_val);
+>> +	nw64(test_cfg_reg, test_cfg_val);
+>> +
+>> +	for (i = 0; i < 4; i++) {
+>>     
+>
+> why 4? (magic number)
+>   
+The MAC HW has 4 SERDES lanes. Need to configure each lane
+>   
+>   
+>> +static void niu_set_max_burst(struct niu *np, struct tx_ring_info *rp)
+>> +{
+>> +	int mtu = np->dev->mtu;
+>> +
+>> +	rp->max_burst = mtu + 32;
+>> +	if (rp->max_burst > 4096)
+>> +		rp->max_burst = 4096;
+>>     
+>
+> Why 32 and 4096? (Magic values)
+>   
+These values were recommended by the HW designers for fair utilization 
+of DRR  feature among TX/RX rings.
+>   
+>> +}
+>> +
+>>     
+>
+> ... ok, I stop here, since this drivers is damn big :-)
+>
+> Best Regards
+>
+> Ingo Oeser
+>   
 
