@@ -1,7 +1,7 @@
 From: Urs Thuermann <urs@isnogud.escape.de>
-Subject: [PATCH 1/7] CAN: Allocate protocol numbers for PF_CAN
-Date: Fri,  5 Oct 2007 12:49:06 +0200
-Message-ID: <20071005105122.20150.1@janus.isnogud.escape.de>
+Subject: [PATCH 5/7] CAN: Add virtual CAN netdevice driver
+Date: Fri,  5 Oct 2007 12:49:10 +0200
+Message-ID: <20071005105123.20150.5@janus.isnogud.escape.de>
 References: <20071005104905.20150.0@janus.isnogud.escape.de>
 Cc: Thomas Gleixner <tglx@linutronix.de>,
 	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
@@ -11,131 +11,303 @@ Cc: Thomas Gleixner <tglx@linutronix.de>,
 To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:53018 "EHLO oker.escape.de"
+Received: from oker.escape.de ([194.120.234.254]:53025 "EHLO oker.escape.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753603AbXJEK4A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Oct 2007 06:56:00 -0400
-Content-Disposition: inline; filename=01-can-proto-numbers.diff
+	id S1754282AbXJEK4E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Oct 2007 06:56:04 -0400
+Content-Disposition: inline; filename=05-can-vcan-driver.diff
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds a protocol/address family number, ARP hardware type,
-ethernet packet type, and a line discipline number for the SocketCAN
-implementation.
+This patch adds the virtual CAN bus (vcan) network driver.
+The vcan device is just a loopback device for CAN frames, no
+real CAN hardware is involved.
 
 Signed-off-by: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
 Signed-off-by: Urs Thuermann <urs.thuermann@volkswagen.de>
 
 ---
- include/linux/if.h       |    4 +++-
- include/linux/if_arp.h   |    1 +
- include/linux/if_ether.h |    1 +
- include/linux/socket.h   |    2 ++
- include/linux/tty.h      |    3 ++-
- net/core/sock.c          |    4 ++--
- 6 files changed, 11 insertions(+), 4 deletions(-)
+ drivers/net/Makefile     |    1 
+ drivers/net/can/Kconfig  |   25 +++++
+ drivers/net/can/Makefile |    5 +
+ drivers/net/can/vcan.c   |  207 +++++++++++++++++++++++++++++++++++++++++++++++
+ net/can/Kconfig          |    3 
+ 5 files changed, 241 insertions(+)
 
-Index: net-2.6.24/include/linux/if_arp.h
+Index: net-2.6.24/drivers/net/Makefile
 ===================================================================
---- net-2.6.24.orig/include/linux/if_arp.h	2007-10-02 12:10:51.000000000 +0200
-+++ net-2.6.24/include/linux/if_arp.h	2007-10-02 12:11:01.000000000 +0200
-@@ -52,6 +52,7 @@
- #define ARPHRD_ROSE	270
- #define ARPHRD_X25	271		/* CCITT X.25			*/
- #define ARPHRD_HWX25	272		/* Boards with X.25 in firmware	*/
-+#define ARPHRD_CAN	280		/* Controller Area Network      */
- #define ARPHRD_PPP	512
- #define ARPHRD_CISCO	513		/* Cisco HDLC	 		*/
- #define ARPHRD_HDLC	ARPHRD_CISCO
-Index: net-2.6.24/include/linux/if_ether.h
+--- net-2.6.24.orig/drivers/net/Makefile	2007-10-05 11:08:03.000000000 +0200
++++ net-2.6.24/drivers/net/Makefile	2007-10-05 11:17:41.000000000 +0200
+@@ -12,6 +12,7 @@
+ obj-$(CONFIG_CHELSIO_T1) += chelsio/
+ obj-$(CONFIG_CHELSIO_T3) += cxgb3/
+ obj-$(CONFIG_EHEA) += ehea/
++obj-$(CONFIG_CAN) += can/
+ obj-$(CONFIG_BONDING) += bonding/
+ obj-$(CONFIG_ATL1) += atl1/
+ obj-$(CONFIG_GIANFAR) += gianfar_driver.o
+Index: net-2.6.24/drivers/net/can/Kconfig
 ===================================================================
---- net-2.6.24.orig/include/linux/if_ether.h	2007-10-02 12:10:51.000000000 +0200
-+++ net-2.6.24/include/linux/if_ether.h	2007-10-02 12:11:01.000000000 +0200
-@@ -90,6 +90,7 @@
- #define ETH_P_WAN_PPP   0x0007          /* Dummy type for WAN PPP frames*/
- #define ETH_P_PPP_MP    0x0008          /* Dummy type for PPP MP frames */
- #define ETH_P_LOCALTALK 0x0009		/* Localtalk pseudo type 	*/
-+#define ETH_P_CAN	0x000C		/* Controller Area Network      */
- #define ETH_P_PPPTALK	0x0010		/* Dummy type for Atalk over PPP*/
- #define ETH_P_TR_802_2	0x0011		/* 802.2 frames 		*/
- #define ETH_P_MOBITEX	0x0015		/* Mobitex (kaz@cafe.net)	*/
-Index: net-2.6.24/include/linux/socket.h
-===================================================================
---- net-2.6.24.orig/include/linux/socket.h	2007-10-02 12:10:51.000000000 +0200
-+++ net-2.6.24/include/linux/socket.h	2007-10-02 12:11:01.000000000 +0200
-@@ -185,6 +185,7 @@
- #define AF_PPPOX	24	/* PPPoX sockets		*/
- #define AF_WANPIPE	25	/* Wanpipe API Sockets */
- #define AF_LLC		26	/* Linux LLC			*/
-+#define AF_CAN		29	/* Controller Area Network      */
- #define AF_TIPC		30	/* TIPC sockets			*/
- #define AF_BLUETOOTH	31	/* Bluetooth sockets 		*/
- #define AF_IUCV		32	/* IUCV sockets			*/
-@@ -220,6 +221,7 @@
- #define PF_PPPOX	AF_PPPOX
- #define PF_WANPIPE	AF_WANPIPE
- #define PF_LLC		AF_LLC
-+#define PF_CAN		AF_CAN
- #define PF_TIPC		AF_TIPC
- #define PF_BLUETOOTH	AF_BLUETOOTH
- #define PF_IUCV		AF_IUCV
-Index: net-2.6.24/include/linux/tty.h
-===================================================================
---- net-2.6.24.orig/include/linux/tty.h	2007-10-02 12:10:51.000000000 +0200
-+++ net-2.6.24/include/linux/tty.h	2007-10-02 12:11:02.000000000 +0200
-@@ -24,7 +24,7 @@
- #define NR_PTYS	CONFIG_LEGACY_PTY_COUNT   /* Number of legacy ptys */
- #define NR_UNIX98_PTY_DEFAULT	4096      /* Default maximum for Unix98 ptys */
- #define NR_UNIX98_PTY_MAX	(1 << MINORBITS) /* Absolute limit */
--#define NR_LDISCS		17
-+#define NR_LDISCS		18
- 
- /* line disciplines */
- #define N_TTY		0
-@@ -45,6 +45,7 @@
- #define N_SYNC_PPP	14	/* synchronous PPP */
- #define N_HCI		15	/* Bluetooth HCI UART */
- #define N_GIGASET_M101	16	/* Siemens Gigaset M101 serial DECT adapter */
-+#define N_SLCAN		17	/* Serial / USB serial CAN Adaptors */
- 
- /*
-  * This character is the same as _POSIX_VDISABLE: it cannot be used as
-Index: net-2.6.24/net/core/sock.c
-===================================================================
---- net-2.6.24.orig/net/core/sock.c	2007-10-02 12:10:51.000000000 +0200
-+++ net-2.6.24/net/core/sock.c	2007-10-02 12:11:02.000000000 +0200
-@@ -154,7 +154,7 @@
-   "sk_lock-AF_ASH"   , "sk_lock-AF_ECONET"   , "sk_lock-AF_ATMSVC"   ,
-   "sk_lock-21"       , "sk_lock-AF_SNA"      , "sk_lock-AF_IRDA"     ,
-   "sk_lock-AF_PPPOX" , "sk_lock-AF_WANPIPE"  , "sk_lock-AF_LLC"      ,
--  "sk_lock-27"       , "sk_lock-28"          , "sk_lock-29"          ,
-+  "sk_lock-27"       , "sk_lock-28"          , "sk_lock-AF_CAN"      ,
-   "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
-   "sk_lock-AF_RXRPC" , "sk_lock-AF_MAX"
- };
-@@ -168,7 +168,7 @@
-   "slock-AF_ASH"   , "slock-AF_ECONET"   , "slock-AF_ATMSVC"   ,
-   "slock-21"       , "slock-AF_SNA"      , "slock-AF_IRDA"     ,
-   "slock-AF_PPPOX" , "slock-AF_WANPIPE"  , "slock-AF_LLC"      ,
--  "slock-27"       , "slock-28"          , "slock-29"          ,
-+  "slock-27"       , "slock-28"          , "slock-AF_CAN"      ,
-   "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
-   "slock-AF_RXRPC" , "slock-AF_MAX"
- };
-Index: net-2.6.24/include/linux/if.h
-===================================================================
---- net-2.6.24.orig/include/linux/if.h	2007-10-02 12:10:28.000000000 +0200
-+++ net-2.6.24/include/linux/if.h	2007-10-02 12:09:34.000000000 +0200
-@@ -50,7 +50,9 @@
- #define IFF_LOWER_UP	0x10000		/* driver signals L1 up		*/
- #define IFF_DORMANT	0x20000		/* driver signals dormant	*/
- 
--#define IFF_VOLATILE	(IFF_LOOPBACK|IFF_POINTOPOINT|IFF_BROADCAST|\
-+#define IFF_ECHO	0x40000		/* echo sent packets		*/
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ net-2.6.24/drivers/net/can/Kconfig	2007-10-05 11:17:41.000000000 +0200
+@@ -0,0 +1,25 @@
++menu "CAN Device Drivers"
++	depends on CAN
 +
-+#define IFF_VOLATILE	(IFF_LOOPBACK|IFF_POINTOPOINT|IFF_BROADCAST|IFF_ECHO|\
- 		IFF_MASTER|IFF_SLAVE|IFF_RUNNING|IFF_LOWER_UP|IFF_DORMANT)
- 
- /* Private (from user) interface flags (netdevice->priv_flags). */
++config CAN_VCAN
++	tristate "Virtual Local CAN Interface (vcan)"
++ 	depends on CAN
++	default N
++ 	---help---
++	  Similar to the network loopback devices, vcan offers a
++	  virtual local CAN interface.
++
++	  This driver can also be built as a module.  If so, the module
++	  will be called vcan.
++
++config CAN_DEBUG_DEVICES
++	bool "CAN devices debugging messages"
++	depends on CAN
++	default N
++	---help---
++	  Say Y here if you want the CAN device drivers to produce a bunch of
++	  debug messages to the system log.  Select this if you are having
++	  a problem with CAN support and want to see more of what is going
++	  on.
++
++endmenu
+Index: net-2.6.24/drivers/net/can/Makefile
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ net-2.6.24/drivers/net/can/Makefile	2007-10-05 11:17:41.000000000 +0200
+@@ -0,0 +1,5 @@
++#
++#  Makefile for the Linux Controller Area Network drivers.
++#
++
++obj-$(CONFIG_CAN_VCAN)		+= vcan.o
+Index: net-2.6.24/drivers/net/can/vcan.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ net-2.6.24/drivers/net/can/vcan.c	2007-10-05 11:17:41.000000000 +0200
+@@ -0,0 +1,207 @@
++/*
++ * vcan.c - Virtual CAN interface
++ *
++ * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the name of Volkswagen nor the names of its contributors
++ *    may be used to endorse or promote products derived from this software
++ *    without specific prior written permission.
++ *
++ * Alternatively, provided that this notice is retained in full, this
++ * software may be distributed under the terms of the GNU General
++ * Public License ("GPL") version 2, in which case the provisions of the
++ * GPL apply INSTEAD OF those given above.
++ *
++ * The provided data structures and external interfaces from this code
++ * are not restricted to be used by modules with a GPL compatible license.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
++ * DAMAGE.
++ *
++ * Send feedback to <socketcan-users@lists.berlios.de>
++ *
++ */
++
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/netdevice.h>
++#include <linux/if_arp.h>
++#include <linux/if_ether.h>
++#include <linux/can.h>
++#include <net/rtnetlink.h>
++
++static __initdata const char banner[] =
++	KERN_INFO "vcan: Virtual CAN interface driver\n";
++
++MODULE_DESCRIPTION("virtual CAN interface");
++MODULE_LICENSE("Dual BSD/GPL");
++MODULE_AUTHOR("Urs Thuermann <urs.thuermann@volkswagen.de>");
++
++#ifdef CONFIG_CAN_DEBUG_DEVICES
++static int vcan_debug;
++module_param_named(debug, vcan_debug, int, S_IRUGO);
++#endif
++
++/* To be moved to linux/can/dev.h */
++#ifdef CONFIG_CAN_DEBUG_DEVICES
++#define DBG(fmt, args...)  (vcan_debug & 1 ? \
++				printk(KERN_DEBUG "vcan %s: " fmt, \
++				__func__, ##args) : 0)
++#else
++#define DBG(fmt, args...)
++#endif
++
++
++/*
++ * CAN test feature:
++ * Enable the echo on driver level for testing the CAN core echo modes.
++ * See Documentation/networking/can.txt for details.
++ */
++
++static int echo; /* echo testing. Default: 0 (Off) */
++module_param(echo, bool, S_IRUGO);
++MODULE_PARM_DESC(echo, "Echo sent frames (for testing). Default: 0 (Off)");
++
++
++static int vcan_open(struct net_device *dev)
++{
++	DBG("%s: interface up\n", dev->name);
++
++	netif_start_queue(dev);
++	return 0;
++}
++
++static int vcan_stop(struct net_device *dev)
++{
++	DBG("%s: interface down\n", dev->name);
++
++	netif_stop_queue(dev);
++	return 0;
++}
++
++static void vcan_rx(struct sk_buff *skb, struct net_device *dev)
++{
++	struct net_device_stats *stats = &dev->stats;
++
++	stats->rx_packets++;
++	stats->rx_bytes += skb->len;
++
++	skb->protocol  = htons(ETH_P_CAN);
++	skb->pkt_type  = PACKET_BROADCAST;
++	skb->dev       = dev;
++	skb->ip_summed = CHECKSUM_UNNECESSARY;
++
++	DBG("received skbuff on interface %d\n", dev->ifindex);
++
++	netif_rx(skb);
++}
++
++static int vcan_tx(struct sk_buff *skb, struct net_device *dev)
++{
++	struct net_device_stats *stats = &dev->stats;
++	int loop;
++
++	DBG("sending skbuff on interface %s\n", dev->name);
++
++	stats->tx_packets++;
++	stats->tx_bytes += skb->len;
++
++	/* set flag whether this packet has to be looped back */
++	loop = skb->pkt_type == PACKET_LOOPBACK;
++
++	if (!echo) {
++		/* no echo handling available inside this driver */
++
++		if (loop) {
++			/*
++			 * only count the packets here, because the
++			 * CAN core already did the echo for us
++			 */
++			stats->rx_packets++;
++			stats->rx_bytes += skb->len;
++		}
++		kfree_skb(skb);
++		return 0;
++	}
++
++	/* perform standard echo handling for CAN network interfaces */
++
++	if (loop) {
++		struct sock *srcsk = skb->sk;
++
++		skb = skb_share_check(skb, GFP_ATOMIC);
++		if (!skb)
++			return 0;
++
++		/* receive with packet counting */
++		skb->sk = srcsk;
++		vcan_rx(skb, dev);
++	} else {
++		/* no looped packets => no counting */
++		kfree_skb(skb);
++	}
++	return 0;
++}
++
++static void vcan_setup(struct net_device *dev)
++{
++	DBG("dev %s\n", dev->name);
++
++	dev->type              = ARPHRD_CAN;
++	dev->mtu               = sizeof(struct can_frame);
++	dev->hard_header_len   = 0;
++	dev->addr_len          = 0;
++	dev->tx_queue_len      = 0;
++	dev->flags             = IFF_NOARP;
++
++	/* set flags according to driver capabilities */
++	if (echo)
++		dev->flags |= IFF_ECHO;
++
++	dev->open              = vcan_open;
++	dev->stop              = vcan_stop;
++	dev->hard_start_xmit   = vcan_tx;
++	dev->destructor        = free_netdev;
++}
++
++static struct rtnl_link_ops vcan_link_ops __read_mostly = {
++       .kind           = "vcan",
++       .setup          = vcan_setup,
++};
++
++static __init int vcan_init_module(void)
++{
++	printk(banner);
++
++	if (echo)
++		printk(KERN_INFO "vcan: enabled echo on driver level.\n");
++
++	return rtnl_link_register(&vcan_link_ops);
++}
++
++static __exit void vcan_cleanup_module(void)
++{
++	rtnl_link_unregister(&vcan_link_ops);
++}
++
++module_init(vcan_init_module);
++module_exit(vcan_cleanup_module);
+Index: net-2.6.24/net/can/Kconfig
+===================================================================
+--- net-2.6.24.orig/net/can/Kconfig	2007-10-05 11:17:28.000000000 +0200
++++ net-2.6.24/net/can/Kconfig	2007-10-05 11:18:19.000000000 +0200
+@@ -47,3 +47,6 @@
+ 	  Say Y here if you want the CAN core to produce a bunch of debug
+ 	  messages.  Select this if you are having a problem with CAN
+ 	  support and want to see more of what is going on.
++
++
++source "drivers/net/can/Kconfig"
 
 --
