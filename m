@@ -1,64 +1,76 @@
-From: NetArt - Grzegorz Nosek <grzegorz.nosek@netart.pl>
-Subject: Re: (2.6.18.8) tg3: eth0: The system may be re-ordering memory-mapped I/O cycles to the network device, attempting to recover.
-Date: Fri, 5 Oct 2007 16:44:06 +0200
-Message-ID: <20071005144406.GB23224@tech.serwery.pl>
-References: <20071005095722.GA23224@tech.serwery.pl> <1551EAE59135BE47B544934E30FC4FC002AABAA7@nt-irva-0751.brcm.ad.broadcom.com>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH 3/5] cleanup 3rd argument in netlink_sendskb
+Date: Fri, 5 Oct 2007 18:46:23 +0400
+Message-ID: <20071005144623.GA7085@iris.sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: NetArt - Grzegorz Nosek <grzegorz.nosek@netart.pl>,
-	netdev@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, devel@openvz.org,
+	containers@lists.osdl.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tech.netart.pl ([85.128.128.114]:42264 "EHLO tech.serwery.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755781AbXJEOoO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Oct 2007 10:44:14 -0400
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:64663 "EHLO iris"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756307AbXJEOo6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Oct 2007 10:44:58 -0400
 Content-Disposition: inline
-In-Reply-To: <1551EAE59135BE47B544934E30FC4FC002AABAA7@nt-irva-0751.brcm.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 05, 2007 at 07:16:50AM -0700, Michael Chan wrote:
-> NetArt - Grzegorz Nosek wrote:
-> 
-> > 
-> > I have encountered an error which looks tg3-related. Upon adding some
-> > htb queue rules (which I don't have handy ATM but can provide if
-> > needed), after some time we get such messages in the kernel log:
-> > 
-> 
-> Please provide the HTB queue rules and the type of traffic to make
-> this happen.  Thanks.
-> 
+netlink_sendskb does not use third argument. Clean it and save a couple of
+bytes.
 
-The HTB rules are as simple as below:
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+Acked-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 
-INTERFACE="eth0"
-TC="/sbin/tc"
-
-$TC qdisc del dev $INTERFACE root
-$TC qdisc add dev $INTERFACE root handle 1:0 htb
-$TC class add dev $INTERFACE parent 1:0 classid 1:1 htb rate 1000Mbit ceil 1000Mbit
-$TC class add dev $INTERFACE parent 1:1 classid 1:2 htb rate 5Mbit ceil 5Mbit
-$TC qdisc add dev $INTERFACE parent 1:2 sfq
-$TC filter add dev $INTERFACE parent 1:0 protocol ip prio 10 u32 match ip src 10.10.10.10 flowid 1:2
-
-(the IP address was changed but it's one of the machine's 65 local IP
-addresses)
-
-The traffic is 4-5kpps both ways, 2Mbps in, 40Mbps out. There are
-several database servers running. The point of these rules was to
-limit the data rate of 10.10.10.10 (a mysql server) to 5Mbps. Currently
-the traffic from this IP accounts for much of the whole traffic but overall
-it's pretty bursty. It ranges from nothing at all to 10Mbps to 70Mbps
-peaks.
-
-It may be related that on other machines the HTB queues are saturated
-only occasionally and usually the data rates are well below HTB
-settings, so a drastically overlimit queue may well be unique to this
-server.
-
-Best regards,
- Grzegorz Nosek
-
-
+--- ./include/linux/netlink.h.nlk5	2007-08-26 19:30:37.000000000 +0400
++++ ./include/linux/netlink.h	2007-10-02 11:53:09.000000000 +0400
+@@ -194,7 +194,7 @@ struct sock *netlink_getsockbyfilp(struc
+ int netlink_attachskb(struct sock *sk, struct sk_buff *skb, int nonblock,
+ 		long timeo, struct sock *ssk);
+ void netlink_detachskb(struct sock *sk, struct sk_buff *skb);
+-int netlink_sendskb(struct sock *sk, struct sk_buff *skb, int protocol);
++int netlink_sendskb(struct sock *sk, struct sk_buff *skb);
+ 
+ /*
+  *	skb should fit one page. This choice is good for headerless malloc.
+--- ./ipc/mqueue.c.nlk5	2007-08-26 19:30:37.000000000 +0400
++++ ./ipc/mqueue.c	2007-10-02 11:52:27.000000000 +0400
+@@ -521,8 +521,7 @@ static void __do_notify(struct mqueue_in
+ 			break;
+ 		case SIGEV_THREAD:
+ 			set_cookie(info->notify_cookie, NOTIFY_WOKENUP);
+-			netlink_sendskb(info->notify_sock,
+-					info->notify_cookie, 0);
++			netlink_sendskb(info->notify_sock, info->notify_cookie);
+ 			break;
+ 		}
+ 		/* after notification unregisters process */
+@@ -568,7 +567,7 @@ static void remove_notification(struct m
+ 	if (info->notify_owner != NULL &&
+ 	    info->notify.sigev_notify == SIGEV_THREAD) {
+ 		set_cookie(info->notify_cookie, NOTIFY_REMOVED);
+-		netlink_sendskb(info->notify_sock, info->notify_cookie, 0);
++		netlink_sendskb(info->notify_sock, info->notify_cookie);
+ 	}
+ 	put_pid(info->notify_owner);
+ 	info->notify_owner = NULL;
+--- ./net/netlink/af_netlink.c.nlk5	2007-10-02 11:43:09.000000000 +0400
++++ ./net/netlink/af_netlink.c	2007-10-02 11:50:19.000000000 +0400
+@@ -796,7 +796,7 @@ int netlink_attachskb(struct sock *sk, s
+ 	return 0;
+ }
+ 
+-int netlink_sendskb(struct sock *sk, struct sk_buff *skb, int protocol)
++int netlink_sendskb(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int len = skb->len;
+ 
+@@ -858,7 +858,7 @@ retry:
+ 	if (err)
+ 		return err;
+ 
+-	return netlink_sendskb(sk, skb, ssk->sk_protocol);
++	return netlink_sendskb(sk, skb);
+ }
+ 
+ int netlink_has_listeners(struct sock *sk, unsigned int group)
