@@ -1,50 +1,59 @@
-From: "Denis V. Lunev" <dlunev@gmail.com>
-Subject: Re: [Devel] Re: [PATCH 5/5] make netlink user -> kernel interface
- synchronious
-Date: Fri, 05 Oct 2007 20:56:29 +0400
-Message-ID: <47066CBD.90307@gmail.com>
-References: <20071005144844.GA7119@iris.sw.ru> <4706653B.3050000@trash.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH]: Third (final?) release of Sun Neptune driver
+Date: Fri, 05 Oct 2007 12:55:04 -0400
+Message-ID: <47066C68.2010703@garzik.org>
+References: <20071005.031209.57156822.davem@davemloft.net> <200710051846.19965.netdev@axxeo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Denis V. Lunev" <den@openvz.org>, containers@lists.osdl.org,
-	netdev@vger.kernel.org, davem@davemloft.net, devel@openvz.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ariel.Hendel@sun.com, greg.onufer@sun.com,
+	Ashley.Saulsbury@sun.com, Matheos.Worku@sun.com
+To: Ingo Oeser <netdev@axxeo.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.187]:46952 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754252AbXJEQzG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2007 12:55:06 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so710016nfb
-        for <netdev@vger.kernel.org>; Fri, 05 Oct 2007 09:55:04 -0700 (PDT)
-In-Reply-To: <4706653B.3050000@trash.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:38787 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756372AbXJEQzI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Oct 2007 12:55:08 -0400
+In-Reply-To: <200710051846.19965.netdev@axxeo.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Denis V. Lunev wrote:
->> This patch make processing netlink user -> kernel messages synchronious.
->> This change was inspired by the talk with Alexey Kuznetsov about current
->> netlink messages processing. He says that he was badly wrong when introduced 
->> asynchronious user -> kernel communication.
->>
->> The call netlink_unicast is the only path to send message to the kernel
->> netlink socket. But, unfortunately, it is also used to send data to the
->> user.
->>
->> Before this change the user message has been attached to the socket queue
->> and sk->sk_data_ready was called. The process has been blocked until all
->> pending messages were processed. The bad thing is that this processing
->> may occur in the arbitrary process context.
->>
->> This patch changes nlk->data_ready callback to get 1 skb and force packet
->> processing right in the netlink_unicast.
+Ingo Oeser wrote:
+> Hi David,
 > 
+> some minor nits.
 > 
-> I guess the process credential stuff in netlink_skb_params can now
-> be removed as well.
+> Could this driver be split into more files. 8k lines per file
+> is quite a lot. Although GCC might optimize it best this way :-)
 
-Yes, but I think the patch should be tested by more people before.
+gcc does optimize it better this way, but overall, it's maintainer's 
+preference.  It's far easier for many to have everything in a single 
+file, when editing.
 
-Regards,
-    Den
+
+> David Miller schrieb:
+>> +#define nr64(reg)		readq(np->regs + (reg))
+>> +#define nw64(reg, val)		writeq((val), np->regs + (reg))
+>> +
+>> +#define nr64_mac(reg)		readq(np->mac_regs + (reg))
+>> +#define nw64_mac(reg, val)	writeq((val), np->mac_regs + (reg))
+>> +
+>> +#define nr64_ipp(reg)		readq(np->regs + np->ipp_off + (reg))
+>> +#define nw64_ipp(reg, val)	writeq((val), np->regs + np->ipp_off + (reg))
+>> +
+>> +#define nr64_pcs(reg)		readq(np->regs + np->pcs_off + (reg))
+>> +#define nw64_pcs(reg, val)	writeq((val), np->regs + np->pcs_off + (reg))
+>> +
+>> +#define nr64_xpcs(reg)		readq(np->regs + np->xpcs_off + (reg))
+>> +#define nw64_xpcs(reg, val)	writeq((val), np->regs + np->xpcs_off + (reg))
+> 
+> Can these be static inline and get the "struct niu *np" passed?
+
+We have to answer this every single time...  :)  it makes the code more 
+readable, and this is common practice all over the place.
+
+	Jeff
+
+
+
