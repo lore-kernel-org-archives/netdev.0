@@ -1,59 +1,55 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH] ieee80211_if_set_type: make check for master dev more
-	explicit
-Date: Fri, 05 Oct 2007 14:01:32 +0200
-Message-ID: <1191585693.7367.23.camel@johannes.berg>
-References: <20071004113343.552139D502B@zog.reactivated.net>
-	 <20071004180900.GG6037@tuxdriver.com>
-	 <1191523488.7367.16.camel@johannes.berg>
-	 <20071004191301.GJ6037@tuxdriver.com>
-	 (sfid-20071004_203826_802442_0D32693E)
+From: maximilian attems <max@stro.at>
+Subject: e1000e oops
+Date: Fri, 5 Oct 2007 15:11:15 +0200
+Message-ID: <20071005131115.GA31453@stro.at>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-DrKh55KpbewEvzlK28S7"
-Cc: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20071004191301.GJ6037-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> (sfid-20071004_203826_802442_0D32693E)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from baikonur.stro.at ([213.239.196.228]:58940 "EHLO
+	baikonur.stro.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752011AbXJENL5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2007 09:11:57 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Linux tau 2.6.23-rc8-mm2-686 #1 SMP Wed Oct 3 23:56:32 CEST 2007 i686
+GNU/Linux
 
---=-DrKh55KpbewEvzlK28S7
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+eth0 renamed to eth1
+sysfs: duplicate filename 'eth1' can not be created
+WARNING: at fs/sysfs/dir.c:433 sysfs_add_one()
+ [<c0104f9c>] dump_trace+0x68/0x1d5
+ [<c0105121>] show_trace_log_lvl+0x18/0x2c
+ [<c0105b9b>] show_trace+0xf/0x11
+ [<c0105c81>] dump_stack+0x12/0x14
+ [<c01ac02e>] sysfs_add_one+0x54/0xb8
+ [<c01acc2a>] sysfs_create_link+0xb3/0x125
+ [<c023c05f>] device_rename+0x13d/0x196
+ [<c025a970>] dev_change_name+0x137/0x205
+ [<c025b12c>] dev_ioctl+0x357/0x44f
+ [<c017b05f>] do_ioctl+0x1f/0x62
+ [<c017b2d9>] vfs_ioctl+0x237/0x249
+ [<c017b330>] sys_ioctl+0x45/0x5d
+ [<c0103eda>] syscall_call+0x7/0xb
+ [<b7edbde4>] 0xb7edbde4
+ =======================
+net eth1: device_rename: sysfs_create_symlink failed (-17)
 
-On Thu, 2007-10-04 at 15:13 -0400, John W. Linville wrote:
+00:19.0 Ethernet controller [0200]: Intel Corporation 82801I (ICH9 Family) Gigabit Ethernet Controller [8086:294c] (rev 02)
+        Subsystem: Intel Corporation Unknown device [8086:0001]
+        Flags: bus master, fast devsel, latency 0, IRQ 218
+        Memory at 50380000 (32-bit, non-prefetchable) [size=128K]
+        Memory at 503a4000 (32-bit, non-prefetchable) [size=4K]
+        I/O ports at 20e0 [size=32]
+        Capabilities: [c8] Power Management version 2
+        Capabilities: [d0] Message Signalled Interrupts: Mask- 64bit+ Queue=0/0 Enable+
+        Capabilities: [e0] Vendor Specific Information
 
-> > That should work as well although I think you should update the comment
-> > above :)
->=20
-> The comment still seem applicable.  How would you word it?
 
-Whoops, you're right, I misremembered explaining the use of the pointer.
+no idea if aboves belongs to netdev or sysfs dep.
 
-johannes
-
---=-DrKh55KpbewEvzlK28S7
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Comment: Johannes Berg (powerbook)
-
-iQIVAwUARwYnm6Vg1VMiehFYAQJNEhAAi9IdfapJ3nrpRK2rwDzWap9DkwHIUBZ6
-fqfaVLcufxuHGimer+ET5SJ7Ofe3ZSfGjf5vWbF/XJCzJjshJ23BZdBOh1PmDgs0
-okiGEsZAcICOJT3vPFGzOTz1YWxxyGf+XpikHhNWWuzRhoxdSn8DtHZSRNQs7MWN
-dCaFidKNLQbQUvDiCr1LfhjIJNphfLnMRuHXFl6V5hYamSBIDbnVqzGAlngPaeq9
-sKty+HC55wFqJiLBEAcDMLA/JepnEZXXLoHH431IcPUUZfez6WV8zrD51c45Qk+y
-7asNHoSA/ROLXsApcHBGpRkhO0BqBcYtAPjqhaazuBHBgxIqkPW61v6dvoUsGoji
-O7kjxnSRIWzwrB7ba5ygMjzdSS5saHnm+60E0xwyfEl2syo8DufPWi2jY6l1A/MB
-0oXU1fituKaXlFOI8nVFiwpQI+MkBnKYTVxxG6d+h1bqhDFDr6bmtuqovESuoJhD
-Vd4vKuwSyfwoVYefBG5UYVy3EbmfpapRWFEUmRbkRyT3eBD610J1IlUw9UkWNbMe
-TFsiy8P5pNqSsxcGmwBnxRVnN1CtxE1a8USGbCm560477ESGrAZQLoTwurEX335e
-a5V98y1Ve7dCrkrwookplIvHd+Irvz8690eTapAhVlL7PkZW4ijUu5LokYROj04D
-oGalFifCI2w=
-=yMkH
------END PGP SIGNATURE-----
-
---=-DrKh55KpbewEvzlK28S7--
+-- 
+maks
