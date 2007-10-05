@@ -1,62 +1,49 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: netconsole problems
-Date: Thu, 4 Oct 2007 19:27:54 -0500
-Message-ID: <20071005002754.GH19691@waste.org>
-References: <47052A0A.2080100@oracle.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH net-2.6.24] ip_gre: build fix
+Date: Thu, 4 Oct 2007 17:47:38 -0700
+Message-ID: <20071004174738.00c64226@freepuppy.rosehill>
+References: <47055FD6.5070801@intel.com>
+	<20071004.151108.82373575.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Tina Yang <tina.yang@oracle.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: auke-jan.h.kok@intel.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([66.93.16.53]:35930 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755266AbXJEA3O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 4 Oct 2007 20:29:14 -0400
-Content-Disposition: inline
-In-Reply-To: <47052A0A.2080100@oracle.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:42542 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755585AbXJEAsN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 20:48:13 -0400
+In-Reply-To: <20071004.151108.82373575.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 04, 2007 at 10:59:38AM -0700, Tina Yang wrote:
-> We recently run into a few problems with netconsole
-> in at least 2.6.9, 2.6.18 and 2.6.23.  It either panicked
-> at netdevice.h:890 or hung the system, and sometimes depending
-> on which NIC we are using, the following console message,
-> e1000:
->      "e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang"
-> tg3:
->      "NETDEV WATCHDOG: eth4: transmit timed out"
->      "tg3: eth4: transmit timed out, resetting"
-> 
-> The postmortem vmcore analysis indicated race between normal
-> network stack (net_rx_action) and netpoll, and disabling the
-> following code segment cures all the problems.
+IPGRE only uses header_ops in the case of CONFIG_NET_IPGRE_BROADCAST.
 
-That doesn't tell us much. Can you provide any more details? Like the
-call chains on both sides?
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+
+
+--- a/net/ipv4/ip_gre.c	2007-10-04 17:40:34.000000000 -0700
++++ b/net/ipv4/ip_gre.c	2007-10-04 17:41:20.000000000 -0700
+@@ -1092,6 +1092,10 @@ static int ipgre_header(struct sk_buff *
+ 	return -t->hlen;
+ }
  
-> netpoll.c
->    178         /* Process pending work on NIC */
->    179         np->dev->poll_controller(np->dev);
->    180         if (np->dev->poll)
->    181                 poll_napi(np);
-
-There are a couple different places this gets called, and for
-different reasons. If we have a -large- netconsole dump (like
-sysrq-t), we'll swallow up all of our SKB pool and may get stuck waiting
-for the NIC to send them (because it's waiting to hand packets back to
-the kernel and has no free buffers for outgoing packets).
-
-> Big or small, there seems to be several race windows in the code,
-> and fixing them probably has consequence on overall system performance.
-
-Yes, the networking layer goes to great lengths to avoid having any
-locking in its fast paths and we don't want to undo any of that
-effort.
-
-> Maybe this code should only run when the machine is single-threaded ?
-
-In the not-very-distant future, such machines will be extremely rare.
-
--- 
-Mathematics is the supreme nostalgia of our time.
++static const struct header_ops ipgre_header_ops = {
++	.create	= ipgre_header,
++};
++
+ static int ipgre_open(struct net_device *dev)
+ {
+ 	struct ip_tunnel *t = netdev_priv(dev);
+@@ -1131,10 +1135,6 @@ static int ipgre_close(struct net_device
+ 
+ #endif
+ 
+-static const struct header_ops ipgre_header_ops = {
+-	.create	= ipgre_header,
+-};
+-
+ static void ipgre_tunnel_setup(struct net_device *dev)
+ {
+ 	dev->uninit		= ipgre_tunnel_uninit;
