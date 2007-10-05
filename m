@@ -1,65 +1,120 @@
 From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH 1/5] rtnl_unlock cleanups
-Date: Fri, 5 Oct 2007 18:44:14 +0400
-Message-ID: <20071005144414.GA7050@iris.sw.ru>
+Subject: [PATCH 2/5] make netlink processing routines semi-synchronious
+	(inspired by rtnl) v2
+Date: Fri, 5 Oct 2007 18:45:10 +0400
+Message-ID: <20071005144510.GA7061@iris.sw.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: devel@openvz.org, containers@lists.osdl.org, kuznet@ms2.inr.ac.ru,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:62571 "EHLO iris"
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:62793 "EHLO iris"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755119AbXJEOnH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Oct 2007 10:43:07 -0400
+	id S1755484AbXJEOnm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Oct 2007 10:43:42 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is no need to process outstanding netlink user->kernel packets
-during rtnl_unlock now. There is no rtnl_trylock in the rtnetlink_rcv
-anymore.
+The code in netfilter/nfnetlink.c and in ./net/netlink/genetlink.c looks
+like outdated copy/paste from rtnetlink.c. Push them into sync with the
+original.
 
-Normal code path is the following:
-netlink_sendmsg
-   netlink_unicast
-       netlink_sendskb
-           skb_queue_tail
-           netlink_data_ready
-               rtnetlink_rcv
-                   mutex_lock(&rtnl_mutex);
-                   netlink_run_queue(sk, qlen, &rtnetlink_rcv_msg);
-                   mutex_unlock(&rtnl_mutex);
-
-So, it is possible, that packets can be present in the rtnl->sk_receive_queue
-during rtnl_unlock, but there is no need to process them at that moment as
-rtnetlink_rcv for that packet is pending.
+Changes from v1:
+- deleted comment in nfnetlink_rcv_msg by request of Patrick McHardy
 
 Signed-off-by: Denis V. Lunev <den@openvz.org>
-Acked-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Acked-by: Patrick McHardy <kaber@trash.net>
 
---- ./net/core/rtnetlink.c.rtnl2	2007-08-26 19:30:38.000000000 +0400
-+++ ./net/core/rtnetlink.c	2007-10-01 13:09:03.000000000 +0400
-@@ -75,8 +75,6 @@ void __rtnl_unlock(void)
- void rtnl_unlock(void)
+--- ./net/netfilter/nfnetlink.c.nlk3	2007-10-01 09:47:53.000000000 +0400
++++ ./net/netfilter/nfnetlink.c	2007-10-01 17:13:09.000000000 +0400
+@@ -44,26 +44,14 @@ static struct sock *nfnl = NULL;
+ static const struct nfnetlink_subsystem *subsys_table[NFNL_SUBSYS_COUNT];
+ static DEFINE_MUTEX(nfnl_mutex);
+ 
+-static void nfnl_lock(void)
++static inline void nfnl_lock(void)
  {
- 	mutex_unlock(&rtnl_mutex);
--	if (rtnl && rtnl->sk_receive_queue.qlen)
--		rtnl->sk_data_ready(rtnl, 0);
- 	netdev_run_todo();
+ 	mutex_lock(&nfnl_mutex);
  }
  
-@@ -1319,11 +1317,9 @@ static void rtnetlink_rcv(struct sock *s
+-static int nfnl_trylock(void)
+-{
+-	return !mutex_trylock(&nfnl_mutex);
+-}
+-
+-static void __nfnl_unlock(void)
+-{
+-	mutex_unlock(&nfnl_mutex);
+-}
+-
+-static void nfnl_unlock(void)
++static inline void nfnl_unlock(void)
+ {
+ 	mutex_unlock(&nfnl_mutex);
+-	if (nfnl->sk_receive_queue.qlen)
+-		nfnl->sk_data_ready(nfnl, 0);
+ }
+ 
+ int nfnetlink_subsys_register(const struct nfnetlink_subsystem *n)
+@@ -147,9 +135,7 @@ static int nfnetlink_rcv_msg(struct sk_b
+ 	ss = nfnetlink_get_subsys(type);
+ 	if (!ss) {
+ #ifdef CONFIG_KMOD
+-		/* don't call nfnl_unlock, since it would reenter
+-		 * with further packet processing */
+-		__nfnl_unlock();
++		nfnl_unlock();
+ 		request_module("nfnetlink-subsys-%d", NFNL_SUBSYS_ID(type));
+ 		nfnl_lock();
+ 		ss = nfnetlink_get_subsys(type);
+@@ -188,10 +174,9 @@ static void nfnetlink_rcv(struct sock *s
  	unsigned int qlen = 0;
  
  	do {
--		mutex_lock(&rtnl_mutex);
-+		rtnl_lock();
- 		qlen = netlink_run_queue(sk, qlen, &rtnetlink_rcv_msg);
--		mutex_unlock(&rtnl_mutex);
--
--		netdev_run_todo();
-+		rtnl_unlock();
+-		if (nfnl_trylock())
+-			return;
++		nfnl_lock();
+ 		qlen = netlink_run_queue(sk, qlen, nfnetlink_rcv_msg);
+-		__nfnl_unlock();
++		nfnl_unlock();
  	} while (qlen);
  }
  
+--- ./net/netlink/genetlink.c.nlk3	2007-08-26 19:30:38.000000000 +0400
++++ ./net/netlink/genetlink.c	2007-10-01 16:05:29.000000000 +0400
+@@ -22,22 +22,14 @@ struct sock *genl_sock = NULL;
+ 
+ static DEFINE_MUTEX(genl_mutex); /* serialization of message processing */
+ 
+-static void genl_lock(void)
++static inline void genl_lock(void)
+ {
+ 	mutex_lock(&genl_mutex);
+ }
+ 
+-static int genl_trylock(void)
+-{
+-	return !mutex_trylock(&genl_mutex);
+-}
+-
+-static void genl_unlock(void)
++static inline void genl_unlock(void)
+ {
+ 	mutex_unlock(&genl_mutex);
+-
+-	if (genl_sock && genl_sock->sk_receive_queue.qlen)
+-		genl_sock->sk_data_ready(genl_sock, 0);
+ }
+ 
+ #define GENL_FAM_TAB_SIZE	16
+@@ -483,8 +475,7 @@ static void genl_rcv(struct sock *sk, in
+ 	unsigned int qlen = 0;
+ 
+ 	do {
+-		if (genl_trylock())
+-			return;
++		genl_lock();
+ 		qlen = netlink_run_queue(sk, qlen, genl_rcv_msg);
+ 		genl_unlock();
+ 	} while (qlen && genl_sock && genl_sock->sk_receive_queue.qlen);
