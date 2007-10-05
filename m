@@ -1,48 +1,24 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] e1000e: fix debugging printout code
-Date: Fri, 05 Oct 2007 13:53:51 -0400
-Message-ID: <47067A2F.5020603@garzik.org>
-References: <20071004183843.31540.23710.stgit@localhost.localdomain>
+Subject: Re: [patch 1/5] qeth: HiperSockets layer-3 interface drop non IPv4
+ or non IPv6 packets
+Date: Fri, 05 Oct 2007 13:55:50 -0400
+Message-ID: <47067AA6.60802@garzik.org>
+References: <20071005144543.448852000@linux.vnet.ibm.com> <20071005144822.229143000@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Auke Kok <auke-jan.h.kok@intel.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org, "Klaus D. Wacker" <kdwacker@de.ibm.com>
+To: Ursula Braun <braunu@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47847 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:47867 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757449AbXJERxx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Oct 2007 13:53:53 -0400
-In-Reply-To: <20071004183843.31540.23710.stgit@localhost.localdomain>
+	id S1758575AbXJERzy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Oct 2007 13:55:54 -0400
+In-Reply-To: <20071005144822.229143000@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Auke Kok wrote:
-> A small bug crawled in the -DDEBUG enabled code. Fix this to
-> properly call the backreference device name.
-> 
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
-> ---
-> 
->  drivers/net/e1000e/hw.h     |    2 +-
->  drivers/net/e1000e/netdev.c |    4 +---
->  2 files changed, 2 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-> index 848217a..aa82f1a 100644
-> --- a/drivers/net/e1000e/hw.h
-> +++ b/drivers/net/e1000e/hw.h
-> @@ -852,7 +852,7 @@ struct e1000_hw {
->  
->  #ifdef DEBUG
->  #define hw_dbg(hw, format, arg...) \
-> -	printk(KERN_DEBUG, "%s: " format, e1000_get_hw_dev_name(hw), ##arg);
-> +	printk(KERN_DEBUG, "%s: " format, e1000e_get_hw_dev_name(hw), ##arg);
-
-I will apply this, but, I strongly encourage deletion of this in favor 
-of the existing dev_dbg()
-
-	Jeff
-
+applied 1-5
 
 
