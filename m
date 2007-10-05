@@ -1,62 +1,58 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH]: Third (final?) release of Sun Neptune driver
-Date: Fri, 05 Oct 2007 17:14:31 -0400
-Message-ID: <4706A937.3060304@garzik.org>
-References: <20071005.031209.57156822.davem@davemloft.net>	<20071005084036.52dc943c@freepuppy.rosehill> <20071005.141217.41646184.davem@davemloft.net>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH 1/2] e1000: Simple optimizations in e1000_xmit_frame
+Date: Fri, 05 Oct 2007 14:15:16 -0700
+Message-ID: <20071005211516.13167.80891.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	Ariel.Hendel@sun.com, greg.onufer@sun.com,
-	Ashley.Saulsbury@sun.com, Matheos.Worku@sun.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, krkumar2@in.ibm.com
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:37227 "EHLO mail.dvmed.net"
+Received: from mga09.intel.com ([134.134.136.24]:40410 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1763464AbXJEVOe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Oct 2007 17:14:34 -0400
-In-Reply-To: <20071005.141217.41646184.davem@davemloft.net>
+	id S1762694AbXJEVPt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Oct 2007 17:15:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Stephen Hemminger <shemminger@linux-foundation.org>
-> Date: Fri, 5 Oct 2007 08:40:36 -0700
-> 
->> WARNING: braces {} are not necessary for single statement blocks
->> #691: FILE: drivers/net/niu.c:603:
->> +	if (lp->loopback_mode == LOOPBACK_PHY) {
->> +		test_cfg_val |= ((ENET_TEST_MD_PAD_LOOPBACK <<
->> +				  ENET_SERDES_TEST_MD_0_SHIFT) |
->> +				 (ENET_TEST_MD_PAD_LOOPBACK <<
->> +				  ENET_SERDES_TEST_MD_1_SHIFT) |
->> +				 (ENET_TEST_MD_PAD_LOOPBACK <<
->> +				  ENET_SERDES_TEST_MD_2_SHIFT) |
->> +				 (ENET_TEST_MD_PAD_LOOPBACK <<
->> +				  ENET_SERDES_TEST_MD_3_SHIFT));
->> +	}
-> 
-> This is why I don't run checkpatch on my work.
+From: Krishna Kumar <krkumar2@in.ibm.com>
 
-IMO it -is- useful.
+Some simple optimizations in e1000_xmit_frame.
 
-You just have to ignore some of its complaints.  Part of my coding style 
-includes the multiple assignment thing that checkpatch complains about:
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+---
 
-	status =
-	msi->status = br32(QDMA_STAT);
+ drivers/net/e1000/e1000_main.c |    9 ++++-----
+ 1 files changed, 4 insertions(+), 5 deletions(-)
 
-and I am not going to stop doing that just because checkpatch complains :)
-
-
-> This statement is a "single statement" but it's broken up
-> into multiple lines for readability, and it make perfect
-> sense to put braces around this basic block so it's easier
-> for humans to see what's going on.
-
-Strongly agreed.
-
-	Jeff
-
-
-
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index 10505de..0472638 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -3261,14 +3261,13 @@ e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 	unsigned int first, max_per_txd = E1000_MAX_DATA_PER_TXD;
+ 	unsigned int max_txd_pwr = E1000_MAX_TXD_PWR;
+ 	unsigned int tx_flags = 0;
+-	unsigned int len = skb->len;
++	unsigned int len = skb->len - skb->data_len;
+ 	unsigned long flags;
+-	unsigned int nr_frags = 0;
+-	unsigned int mss = 0;
++	unsigned int nr_frags;
++	unsigned int mss;
+ 	int count = 0;
+ 	int tso;
+ 	unsigned int f;
+-	len -= skb->data_len;
+ 
+ 	/* This goes back to the question of how to logically map a tx queue
+ 	 * to a flow.  Right now, performance is impacted slightly negatively
+@@ -3302,7 +3301,7 @@ e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 		* points to just header, pull a few bytes of payload from
+ 		* frags into skb->data */
+ 		hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
+-		if (skb->data_len && (hdr_len == (skb->len - skb->data_len))) {
++		if (skb->data_len && hdr_len == len) {
+ 			switch (adapter->hw.mac_type) {
+ 				unsigned int pull_size;
+ 			case e1000_82544:
