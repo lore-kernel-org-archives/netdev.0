@@ -1,101 +1,138 @@
-From: NetArt - Grzegorz Nosek <grzegorz.nosek@netart.pl>
-Subject: (2.6.18.8) tg3: eth0: The system may be re-ordering memory-mapped I/O cycles to the network device, attempting to recover.
-Date: Fri, 5 Oct 2007 11:57:22 +0200
-Message-ID: <20071005095722.GA23224@tech.serwery.pl>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [RFC][PATCH 2/2] TCP: skip processing cached SACK blocks
+Date: Fri, 5 Oct 2007 13:37:21 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0710041516170.31129@kivilampi-30.cs.helsinki.fi>
+References: <20071004.184456.40407483.takano@axe-inc.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-717307352-1191580641=:31129"
+Cc: Netdev <netdev@vger.kernel.org>, y-kodama@aist.go.jp
+To: TAKANO Ryousei <takano@axe-inc.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tech.netart.pl ([85.128.128.114]:42827 "EHLO tech.serwery.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751999AbXJEKf2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Oct 2007 06:35:28 -0400
-Content-Disposition: inline
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:41121 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752197AbXJEKhZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2007 06:37:25 -0400
+In-Reply-To: <20071004.184456.40407483.takano@axe-inc.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-I have encountered an error which looks tg3-related. Upon adding some
-htb queue rules (which I don't have handy ATM but can provide if
-needed), after some time we get such messages in the kernel log:
+---696243703-717307352-1191580641=:31129
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
-Oct 3 17:04:04 sbd kernel: [ 1941.584154] tg3: eth0: The system may be re-ordering memory-mapped I/O cycles to the network device, attempting to recover. Please report the problem to the driver maintainer and include system chipset information.
-Oct 3 17:04:04 sbd kernel: [ 1941.686114] tg3: tg3_stop_block timed out, ofs=1400 enable_bit=2
-Oct 3 17:04:04 sbd kernel: [ 1941.750691] tg3: eth0: Link is down.
-Oct 3 17:04:08 sbd kernel: [ 1945.300166] tg3: eth0: Link is up at 1000 Mbps, full duplex.
-Oct 3 17:04:08 sbd kernel: [ 1945.300196] tg3: eth0: Flow control is on for TX and on for RX.
+On Thu, 4 Oct 2007, TAKANO Ryousei wrote:
 
-After that, the machine is pretty much dead. It doesn't crash hard
-(the messages reached syslog) but the network no longer works, so
-a reboot is neccessary anyway.
+> This patch allows to process only newly reported SACK blocks at the
+> sender side. An ACK packet contains up to three SACK blocks, and some
 
-The machine is a Dell PE860 with two tg3 controllers (the second one
-is not used at all):
+  "A SACK option that specifies n blocks will have a length of 8*n+2
+   bytes, so the 40 bytes available for TCP options can specify a
+   maximum of 4 blocks.  It is expected that SACK will often be used in
+   conjunction with the Timestamp option used for RTTM [Jacobson92],
+   which takes an additional 10 bytes (plus two bytes of padding); thus
+   a maximum of 3 SACK blocks will be allowed in this case." [RFC2018]
 
-0000:04:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5721 Gigabit Ethernet PCI Express (rev 11)
-        Subsystem: Dell: Unknown device 01e6
-        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-        Latency: 0, Cache Line Size: 0x10 (64 bytes)
-        Interrupt: pin A routed to IRQ 16
-        Region 0: Memory at fe8f0000 (64-bit, non-prefetchable) [size=64K]
-        Capabilities: [48] Power Management version 2
-                Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot+,D3cold+)
-                Status: D0 PME-Enable- DSel=0 DScale=1 PME-
-        Capabilities: [50] Vital Product Data
-        Capabilities: [58] Message Signalled Interrupts: 64bit+ Queue=0/3 Enable-
-                Address: 042401610720cc0c  Data: 02a0
-        Capabilities: [d0] #10 [0001]
+:-)
 
-0000:05:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5721 Gigabit Ethernet PCI Express (rev 11)
-        Subsystem: Dell: Unknown device 01e6
-        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-        Latency: 0, Cache Line Size: 0x10 (64 bytes)
-        Interrupt: pin A routed to IRQ 21
-        Region 0: Memory at fe6f0000 (64-bit, non-prefetchable) [size=64K]
-        Capabilities: [48] Power Management version 2
-                Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot+,D3cold+)
-                Status: D0 PME-Enable- DSel=0 DScale=1 PME-
-        Capabilities: [50] Vital Product Data
-        Capabilities: [58] Message Signalled Interrupts: 64bit+ Queue=0/3 Enable-
-                Address: 7b3ec2551b8528bc  Data: b274
-        Capabilities: [d0] #10 [0001]
+> of them may be already reported and processed blocks.  This patch 
+> prevents processing of such already processed SACK blocks.
+> 
+> Signed-off-by: Ryousei Takano <takano-ryousei@aist.go.jp>
+> Signed-off-by: Yuetsu Kodama <y-kodama@aist.go.jp>
+> ---
+>  net/ipv4/tcp_input.c |   24 ++++++++++++++++++++++++
+>  1 files changed, 24 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index bbad2cd..9615fc9 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -978,6 +978,7 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
+>  	int cached_fack_count;
+>  	int i;
+>  	int first_sack_index;
+> +	u8 sack_block_skip[4] = {0,0,0,0};
+>  
+>  	if (!tp->sacked_out)
+>  		tp->fackets_out = 0;
+> @@ -1012,6 +1013,21 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
+>  	if (before(TCP_SKB_CB(ack_skb)->ack_seq, prior_snd_una - tp->max_window))
+>  		return 0;
+>  
+> +	/* Skip processing cached SACK blocks. */
+> +	for (i = 0; i < num_sacks; i++) {
+> +		__be32 start_seq = sp[i].start_seq;
+> +		__be32 end_seq = sp[i].end_seq;
+> +		int j;
+> +
+> +		for (j = 0; j < ARRAY_SIZE(tp->recv_sack_cache); j++) {
+> +			if ((tp->recv_sack_cache[j].start_seq == start_seq) &&
+> +			    (tp->recv_sack_cache[j].end_seq == end_seq)) {
+> +				sack_block_skip[i] = 1;
+> +				break;
+> +			}
+> +		}
+> +	}
+> +
 
-lspci output (merged with -n for PCI ids):
-0000:00:00.0 0600: 8086:2778 Host bridge: Intel Corp.: Unknown device 2778
-0000:00:01.0 0604: 8086:2779 PCI bridge: Intel Corp.: Unknown device 2779
-0000:00:1c.0 0604: 8086:27d0 PCI bridge: Intel Corp.: Unknown device 27d0 (rev 01)
-0000:00:1c.4 0604: 8086:27e0 PCI bridge: Intel Corp.: Unknown device 27e0 (rev 01)
-0000:00:1c.5 0604: 8086:27e2 PCI bridge: Intel Corp.: Unknown device 27e2 (rev 01)
-0000:00:1d.0 0c03: 8086:27c8 USB Controller: Intel Corp.: Unknown device 27c8 (rev 01)
-0000:00:1d.1 0c03: 8086:27c9 USB Controller: Intel Corp.: Unknown device 27c9 (rev 01)
-0000:00:1d.2 0c03: 8086:27ca USB Controller: Intel Corp.: Unknown device 27ca (rev 01)
-0000:00:1d.7 0c03: 8086:27cc USB Controller: Intel Corp.: Unknown device 27cc (rev 01)
-0000:00:1e.0 0604: 8086:244e PCI bridge: Intel Corp. 82801 PCI Bridge (rev e1)
-0000:00:1f.0 0601: 8086:27b8 ISA bridge: Intel Corp.: Unknown device 27b8 (rev 01)
-0000:00:1f.1 0101: 8086:27df IDE interface: Intel Corp.: Unknown device 27df (rev 01)
-0000:00:1f.2 0101: 8086:27c0 IDE interface: Intel Corp.: Unknown device 27c0 (rev 01)
-0000:00:1f.3 0c05: 8086:27da SMBus: Intel Corp.: Unknown device 27da (rev 01)
-0000:02:00.0 0604: 8086:032c PCI bridge: Intel Corp. PCI Bridge Hub (rev 09)
-0000:04:00.0 0200: 14e4:1659 Ethernet controller: Broadcom Corporation NetXtreme BCM5721 Gigabit Ethernet PCI Express (rev 11)
-0000:05:00.0 0200: 14e4:1659 Ethernet controller: Broadcom Corporation NetXtreme BCM5721 Gigabit Ethernet PCI Express (rev 11)
-0000:06:05.0 0300: 1002:515e VGA compatible controller: ATI Technologies Inc: Unknown device 515e (rev 02)
+I'm somewhat against adding more and more special cases to sacktag, 
+there's still need for more special cases after this one to avoid very 
+expensive processing (I guess they just won't occur in your scenario)!
+...I would rather remove whole special case mess of the fastpath and
+have a more generic solution (see the patch I point into in the reply
+to patch 1/2)...
 
-We are running several racks of those exact same machines with this
-exact same kernel and quite more complicated HTB queues without
-problems (except for netconsole crashing networking too, but we can
-live without it if need be... it's another story).
+>  	/* SACK fastpath:
+>  	 * if the only SACK change is the increase of the end_seq of
+>  	 * the first block then only apply that SACK block
+> @@ -1051,11 +1067,16 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
+>  				if (after(ntohl(sp[j].start_seq),
+>  					  ntohl(sp[j+1].start_seq))){
+>  					struct tcp_sack_block_wire tmp;
+> +					u8 sbtmp;
+>  
+>  					tmp = sp[j];
+>  					sp[j] = sp[j+1];
+>  					sp[j+1] = tmp;
+>  
+> +					sbtmp = sack_block_skip[j];
+> +					sack_block_skip[j] = sack_block_skip[j+1];
+> +					sack_block_skip[j+1] = sbtmp;
+> +
+>  					/* Track where the first SACK block goes to */
+>  					if (j == first_sack_index)
+>  						first_sack_index = j+1;
+> @@ -1083,6 +1104,9 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
+>  		int fack_count;
+>  		int dup_sack = (found_dup_sack && (i == first_sack_index));
+>  
+> +		if (sack_block_skip[i])
 
-I'd suspect hardware issues but this problem reliably occurs with HTB
-queues, and reliably does not occur without them. OTOH, all the other
-machines work just fine.
+DSACKs must always be processed, so please add:
 
-If you need any more information, feel free to ask. Please keep me
-CC'd as I'm not subscribed to netdev.
+&& !dup_sack
 
-Best regards,
- Grzegorz Nosek
+> +			continue;
 
+By doing this skipping here, you actually end up crippling lost_retrans 
+detection even more than it was broken before. ...You probably didn't just 
+notice that during tests because of unrelated suboptimal behavior (in 
+fastpath_skb_hint handling). ...Anyway, correctness of this should be 
+evaluated against the fixed lost_retrans, rather than the already 
+broken one.
+
+> +
+>  		skb = cached_skb;
+>  		fack_count = cached_fack_count;
+
+Other than what's noted above:
+
+Acked-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+
+
+-- 
+ i.
+---696243703-717307352-1191580641=:31129--
