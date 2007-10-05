@@ -1,33 +1,65 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: (2.6.18.8) tg3: eth0: The system may be re-ordering
- memory-mapped I/O cycles to the network device, attempting to recover.
-Date: Fri, 5 Oct 2007 07:16:50 -0700
-Message-ID: <1551EAE59135BE47B544934E30FC4FC002AABAA7@nt-irva-0751.brcm.ad.broadcom.com>
-References: <20071005095722.GA23224@tech.serwery.pl>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH 1/5] rtnl_unlock cleanups
+Date: Fri, 5 Oct 2007 18:44:14 +0400
+Message-ID: <20071005144414.GA7050@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org
-To: "NetArt - Grzegorz Nosek" <grzegorz.nosek@netart.pl>
+Content-Type: text/plain; charset=us-ascii
+Cc: devel@openvz.org, containers@lists.osdl.org, kuznet@ms2.inr.ac.ru,
+	netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2095 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751281AbXJEORI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2007 10:17:08 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20071005095722.GA23224@tech.serwery.pl>
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:62571 "EHLO iris"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755119AbXJEOnH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Oct 2007 10:43:07 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-NetArt - Grzegorz Nosek wrote:
+There is no need to process outstanding netlink user->kernel packets
+during rtnl_unlock now. There is no rtnl_trylock in the rtnetlink_rcv
+anymore.
 
-> 
-> I have encountered an error which looks tg3-related. Upon adding some
-> htb queue rules (which I don't have handy ATM but can provide if
-> needed), after some time we get such messages in the kernel log:
-> 
+Normal code path is the following:
+netlink_sendmsg
+   netlink_unicast
+       netlink_sendskb
+           skb_queue_tail
+           netlink_data_ready
+               rtnetlink_rcv
+                   mutex_lock(&rtnl_mutex);
+                   netlink_run_queue(sk, qlen, &rtnetlink_rcv_msg);
+                   mutex_unlock(&rtnl_mutex);
 
-Please provide the HTB queue rules and the type of traffic to make
-this happen.  Thanks.
+So, it is possible, that packets can be present in the rtnl->sk_receive_queue
+during rtnl_unlock, but there is no need to process them at that moment as
+rtnetlink_rcv for that packet is pending.
 
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+Acked-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+
+--- ./net/core/rtnetlink.c.rtnl2	2007-08-26 19:30:38.000000000 +0400
++++ ./net/core/rtnetlink.c	2007-10-01 13:09:03.000000000 +0400
+@@ -75,8 +75,6 @@ void __rtnl_unlock(void)
+ void rtnl_unlock(void)
+ {
+ 	mutex_unlock(&rtnl_mutex);
+-	if (rtnl && rtnl->sk_receive_queue.qlen)
+-		rtnl->sk_data_ready(rtnl, 0);
+ 	netdev_run_todo();
+ }
+ 
+@@ -1319,11 +1317,9 @@ static void rtnetlink_rcv(struct sock *s
+ 	unsigned int qlen = 0;
+ 
+ 	do {
+-		mutex_lock(&rtnl_mutex);
++		rtnl_lock();
+ 		qlen = netlink_run_queue(sk, qlen, &rtnetlink_rcv_msg);
+-		mutex_unlock(&rtnl_mutex);
+-
+-		netdev_run_todo();
++		rtnl_unlock();
+ 	} while (qlen);
+ }
+ 
