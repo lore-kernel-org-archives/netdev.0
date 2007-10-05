@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
 Subject: Re: [Bugme-new] [Bug 9124] New: Netconsole race crashed the system
-Date: Thu, 4 Oct 2007 20:24:31 -0700
-Message-ID: <20071004202431.542b4caf@freepuppy.rosehill>
+Date: Thu, 4 Oct 2007 20:24:14 -0700
+Message-ID: <20071004202414.0f1eddb7@freepuppy.rosehill>
 References: <bug-9124-10286@http.bugzilla.kernel.org/>
 	<20071004164343.ca01c06b.akpm@linux-foundation.org>
 	<470592E8.7080809@oracle.com>
@@ -12,10 +12,10 @@ Cc: Andrew Morton <akpm@linux-foundation.org>,
 	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
 To: Tina Yang <tina.yang@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:60021 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:57063 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753654AbXJEDZE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 23:25:04 -0400
+	by vger.kernel.org with ESMTP id S1754803AbXJEDZ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 23:25:29 -0400
 In-Reply-To: <470592E8.7080809@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -196,7 +196,7 @@ Comparing your version with the original 2.6.18 from kernel.org git shows:
   * Cache line mostly used on receive path (including eth_type_trans())
 
 
-So you are not using a "pure" v2.6.18 kernel from kernel.org but more likely
+So you are not using a "pure" v2.6.18 kernel rom kernel.org but more likely
 a distribution kernel that had already integrated the mac80211 stuff.
 
 
