@@ -1,73 +1,241 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: [git patch] net driver fix
-Date: Fri, 5 Oct 2007 14:20:56 -0400
-Message-ID: <20071005182056.GA17548@havoc.gtf.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH net-2.6.24] s2io: sparse warnings fix (rev2)
+Date: Fri, 5 Oct 2007 12:39:21 -0700
+Message-ID: <20071005123921.137a9e4e@freepuppy.rosehill>
+References: <20071005090725.09a80bc7@freepuppy.rosehill>
+	<470679B7.2060901@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ramkrishna Vepa <ram.vepa@neterion.com>,
+	Raapur Santosh <santosh.rastapur@neterion.com>,
+	Sivakumar Subramani <sivakumar.subramani@neterion.com>,
+	Sreenivasa Honnur <sreenivasa.honnur@neterion.com>,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:60446 "EHLO havoc.gtf.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755855AbXJESU5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Oct 2007 14:20:57 -0400
-Content-Disposition: inline
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:48794 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1763541AbXJETkA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2007 15:40:00 -0400
+In-Reply-To: <470679B7.2060901@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Fix warnings from sparse checker about shadowed definition and improperly
+formatted ethtool_strings.
 
-Fix a rather large performance regression.
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-Please pull from 'upstream-linus' branch of
-master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-linus
+---
+  CHECK   drivers/net/s2io.c
+drivers/net/s2io.c:2892:15: warning: symbol 'lro' shadows an earlier one
+drivers/net/s2io.c:471:1: originally declared here
+drivers/net/s2io.c:7021:13: warning: symbol 'lro' shadows an earlier one
+drivers/net/s2io.c:471:1: originally declared here
+drivers/net/s2io.c:279:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:280:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:281:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:282:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:283:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:284:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:285:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:286:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:287:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:288:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:289:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:290:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:291:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:292:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:293:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:294:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:295:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:296:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:297:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:298:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:299:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:300:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:301:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:302:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:303:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:304:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:305:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:306:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:307:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:308:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:309:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:310:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:311:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:312:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:313:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:314:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:315:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:316:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:317:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:318:3: warning: array initialized from parenthesized string constant
+drivers/net/s2io.c:1762:6: warning: symbol 'en_dis_err_alarms' was not declared. Should it be static?
+include/linux/mm.h:587:9: warning: potentially expensive pointer subtraction
+drivers/net/s2io.c:4231:5: warning: symbol 'do_s2io_chk_alarm_bit' was not declared. Should it be static?
+drivers/net/s2io.c:7801:12: warning: symbol 's2io_starter' was not declared. Should it be static?
 
-to receive the following updates:
 
- drivers/net/r8169.c |   16 +++++++++++++---
- 1 files changed, 13 insertions(+), 3 deletions(-)
-
-Francois Romieu (1):
-      r8169: revert part of 6dccd16b7c2703e8bbf8bca62b5cf248332afbe2
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index c921ec3..c76dd29 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1918,7 +1918,11 @@ static void rtl_hw_start_8169(struct net_device *dev)
- 
- 	rtl_set_rx_max_size(ioaddr);
- 
--	rtl_set_rx_tx_config_registers(tp);
-+	if ((tp->mac_version == RTL_GIGA_MAC_VER_01) ||
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_02) ||
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_03) ||
-+	    (tp->mac_version == RTL_GIGA_MAC_VER_04))
-+		rtl_set_rx_tx_config_registers(tp);
- 
- 	tp->cp_cmd |= rtl_rw_cpluscmd(ioaddr) | PCIMulRW;
- 
-@@ -1941,6 +1945,14 @@ static void rtl_hw_start_8169(struct net_device *dev)
- 
- 	rtl_set_rx_tx_desc_registers(tp, ioaddr);
- 
-+	if ((tp->mac_version != RTL_GIGA_MAC_VER_01) &&
-+	    (tp->mac_version != RTL_GIGA_MAC_VER_02) &&
-+	    (tp->mac_version != RTL_GIGA_MAC_VER_03) &&
-+	    (tp->mac_version != RTL_GIGA_MAC_VER_04)) {
-+		RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
-+		rtl_set_rx_tx_config_registers(tp);
-+	}
+--- a/drivers/net/s2io.c	2007-10-05 11:53:55.000000000 -0700
++++ b/drivers/net/s2io.c	2007-10-05 11:58:44.000000000 -0700
+@@ -38,7 +38,7 @@
+  * Tx descriptors that can be associated with each corresponding FIFO.
+  * intr_type: This defines the type of interrupt. The values can be 0(INTA),
+  *     2(MSI_X). Default value is '2(MSI_X)'
+- * lro: Specifies whether to enable Large Receive Offload (LRO) or not.
++ * lro_enable: Specifies whether to enable Large Receive Offload (LRO) or not.
+  *     Possible values '1' for enable '0' for disable. Default is '0'
+  * lro_max_pkts: This parameter defines maximum number of packets can be
+  *     aggregated as a single large packet
+@@ -276,46 +276,46 @@ static char ethtool_driver_stats_keys[][
+ 	{"ring_5_full_cnt"},
+ 	{"ring_6_full_cnt"},
+ 	{"ring_7_full_cnt"},
+-	("alarm_transceiver_temp_high"),
+-	("alarm_transceiver_temp_low"),
+-	("alarm_laser_bias_current_high"),
+-	("alarm_laser_bias_current_low"),
+-	("alarm_laser_output_power_high"),
+-	("alarm_laser_output_power_low"),
+-	("warn_transceiver_temp_high"),
+-	("warn_transceiver_temp_low"),
+-	("warn_laser_bias_current_high"),
+-	("warn_laser_bias_current_low"),
+-	("warn_laser_output_power_high"),
+-	("warn_laser_output_power_low"),
+-	("lro_aggregated_pkts"),
+-	("lro_flush_both_count"),
+-	("lro_out_of_sequence_pkts"),
+-	("lro_flush_due_to_max_pkts"),
+-	("lro_avg_aggr_pkts"),
+-	("mem_alloc_fail_cnt"),
+-	("pci_map_fail_cnt"),
+-	("watchdog_timer_cnt"),
+-	("mem_allocated"),
+-	("mem_freed"),
+-	("link_up_cnt"),
+-	("link_down_cnt"),
+-	("link_up_time"),
+-	("link_down_time"),
+-	("tx_tcode_buf_abort_cnt"),
+-	("tx_tcode_desc_abort_cnt"),
+-	("tx_tcode_parity_err_cnt"),
+-	("tx_tcode_link_loss_cnt"),
+-	("tx_tcode_list_proc_err_cnt"),
+-	("rx_tcode_parity_err_cnt"),
+-	("rx_tcode_abort_cnt"),
+-	("rx_tcode_parity_abort_cnt"),
+-	("rx_tcode_rda_fail_cnt"),
+-	("rx_tcode_unkn_prot_cnt"),
+-	("rx_tcode_fcs_err_cnt"),
+-	("rx_tcode_buf_size_err_cnt"),
+-	("rx_tcode_rxd_corrupt_cnt"),
+-	("rx_tcode_unkn_err_cnt"),
++	{"alarm_transceiver_temp_high"},
++	{"alarm_transceiver_temp_low"},
++	{"alarm_laser_bias_current_high"},
++	{"alarm_laser_bias_current_low"},
++	{"alarm_laser_output_power_high"},
++	{"alarm_laser_output_power_low"},
++	{"warn_transceiver_temp_high"},
++	{"warn_transceiver_temp_low"},
++	{"warn_laser_bias_current_high"},
++	{"warn_laser_bias_current_low"},
++	{"warn_laser_output_power_high"},
++	{"warn_laser_output_power_low"},
++	{"lro_aggregated_pkts"},
++	{"lro_flush_both_count"},
++	{"lro_out_of_sequence_pkts"},
++	{"lro_flush_due_to_max_pkts"},
++	{"lro_avg_aggr_pkts"},
++	{"mem_alloc_fail_cnt"},
++	{"pci_map_fail_cnt"},
++	{"watchdog_timer_cnt"},
++	{"mem_allocated"},
++	{"mem_freed"},
++	{"link_up_cnt"},
++	{"link_down_cnt"},
++	{"link_up_time"},
++	{"link_down_time"},
++	{"tx_tcode_buf_abort_cnt"},
++	{"tx_tcode_desc_abort_cnt"},
++	{"tx_tcode_parity_err_cnt"},
++	{"tx_tcode_link_loss_cnt"},
++	{"tx_tcode_list_proc_err_cnt"},
++	{"rx_tcode_parity_err_cnt"},
++	{"rx_tcode_abort_cnt"},
++	{"rx_tcode_parity_abort_cnt"},
++	{"rx_tcode_rda_fail_cnt"},
++	{"rx_tcode_unkn_prot_cnt"},
++	{"rx_tcode_fcs_err_cnt"},
++	{"rx_tcode_buf_size_err_cnt"},
++	{"rx_tcode_rxd_corrupt_cnt"},
++	{"rx_tcode_unkn_err_cnt"},
+ 	{"tda_err_cnt"},
+ 	{"pfc_err_cnt"},
+ 	{"pcc_err_cnt"},
+@@ -468,7 +468,9 @@ S2IO_PARM_INT(rxsync_frequency, 3);
+ /* Interrupt type. Values can be 0(INTA), 2(MSI_X) */
+ S2IO_PARM_INT(intr_type, 2);
+ /* Large receive offload feature */
+-S2IO_PARM_INT(lro, 0);
++static unsigned int lro_enable;
++module_param_named(lro, lro_enable, uint, 0);
 +
- 	RTL_W8(Cfg9346, Cfg9346_Lock);
- 
- 	/* Initially a 10 us delay. Turned it into a PCI commit. - FR */
-@@ -1955,8 +1967,6 @@ static void rtl_hw_start_8169(struct net_device *dev)
- 
- 	/* Enable all known interrupts by setting the interrupt mask. */
- 	RTL_W16(IntrMask, tp->intr_event);
--
--	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
+ /* Max pkts to be aggregated by LRO at one time. If not specified,
+  * aggregation happens until we hit max IP pkt size(64K)
+  */
+@@ -1759,7 +1761,7 @@ static void do_s2io_write_bits(u64 value
+ 	writeq(temp64, addr);
  }
  
- static void rtl_hw_start_8168(struct net_device *dev)
+-void en_dis_err_alarms(struct s2io_nic *nic, u16 mask, int flag)
++static void en_dis_err_alarms(struct s2io_nic *nic, u16 mask, int flag)
+ {
+ 	struct XENA_dev_config __iomem *bar0 = nic->bar0;
+ 	register u64 gen_int_mask = 0;
+@@ -4228,7 +4230,7 @@ static void s2io_txpic_intr_handle(struc
+  *  1 - if alarm bit set
+  *  0 - if alarm bit is not set
+  */
+-int do_s2io_chk_alarm_bit(u64 value, void __iomem * addr,
++static int do_s2io_chk_alarm_bit(u64 value, void __iomem * addr,
+ 			  unsigned long long *cnt)
+ {
+ 	u64 val64;
+@@ -7135,7 +7137,8 @@ static int rx_osm_handler(struct ring_in
+ 				int ret = 0;
+ 
+ 				ret = s2io_club_tcp_session(skb->data, &tcp,
+-						&tcp_len, &lro, rxdp, sp);
++							    &tcp_len, &lro,
++							    rxdp, sp);
+ 				switch (ret) {
+ 					case 3: /* Begin anew */
+ 						lro->parent = skb;
+@@ -7451,7 +7454,7 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 	else
+ 		sp->device_type = XFRAME_I_DEVICE;
+ 
+-	sp->lro = lro;
++	sp->lro = lro_enable;
+ 
+ 	/* Initialize some PCI/PCI-X fields of the NIC. */
+ 	s2io_init_pci(sp);
+@@ -7798,7 +7801,7 @@ static void __devexit s2io_rem_nic(struc
+  * the module loadable parameters and initializes PCI configuration space.
+  */
+ 
+-int __init s2io_starter(void)
++static int __init s2io_starter(void)
+ {
+ 	return pci_register_driver(&s2io_driver);
+ }
+
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
