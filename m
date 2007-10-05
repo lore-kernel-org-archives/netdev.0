@@ -1,57 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix kernel_accept() error path
-Date: Thu, 04 Oct 2007 16:55:59 -0700 (PDT)
-Message-ID: <20071004.165559.123919608.davem@davemloft.net>
-References: <47054AF5.4050409@cybernetics.com>
-	<Xine.LNX.4.64.0710041456300.13076@us.intercode.com.au>
-	<47056565.50803@cybernetics.com>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: netconsole problems
+Date: Thu, 4 Oct 2007 19:27:54 -0500
+Message-ID: <20071005002754.GH19691@waste.org>
+References: <47052A0A.2080100@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jmorris@namei.org, netdev@vger.kernel.org
-To: tonyb@cybernetics.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Tina Yang <tina.yang@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42674
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758184AbXJDX4A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 4 Oct 2007 19:56:00 -0400
-In-Reply-To: <47056565.50803@cybernetics.com>
+Received: from waste.org ([66.93.16.53]:35930 "EHLO waste.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755266AbXJEA3O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 4 Oct 2007 20:29:14 -0400
+Content-Disposition: inline
+In-Reply-To: <47052A0A.2080100@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Tony Battersby <tonyb@cybernetics.com>
-Date: Thu, 04 Oct 2007 18:12:53 -0400
+On Thu, Oct 04, 2007 at 10:59:38AM -0700, Tina Yang wrote:
+> We recently run into a few problems with netconsole
+> in at least 2.6.9, 2.6.18 and 2.6.23.  It either panicked
+> at netdevice.h:890 or hung the system, and sometimes depending
+> on which NIC we are using, the following console message,
+> e1000:
+>      "e1000: eth0: e1000_clean_tx_irq: Detected Tx Unit Hang"
+> tg3:
+>      "NETDEV WATCHDOG: eth4: transmit timed out"
+>      "tg3: eth4: transmit timed out, resetting"
+> 
+> The postmortem vmcore analysis indicated race between normal
+> network stack (net_rx_action) and netpoll, and disabling the
+> following code segment cures all the problems.
 
-> Here is an example of what I would consider "reasonable code" that would
-> fail:
-> 
-> int example()
-> {
->     struct socket *conn_socket = NULL;
->     int err;
-> 
->     ...
-> 
->     if ((err = kernel_accept(sock, &conn_socket, 0)) < 0)
->         goto out_cleanup;
-> 
->     [do whatever with conn_socket]
-> 
->  out_cleanup:
-> 
->     if (conn_socket != NULL)
->         sock_release(&conn_socket);
-> 
->     return err;
-> }
+That doesn't tell us much. Can you provide any more details? Like the
+call chains on both sides?
+ 
+> netpoll.c
+>    178         /* Process pending work on NIC */
+>    179         np->dev->poll_controller(np->dev);
+>    180         if (np->dev->poll)
+>    181                 poll_napi(np);
 
-This is a grey area.
+There are a couple different places this gets called, and for
+different reasons. If we have a -large- netconsole dump (like
+sysrq-t), we'll swallow up all of our SKB pool and may get stuck waiting
+for the NIC to send them (because it's waiting to hand packets back to
+the kernel and has no free buffers for outgoing packets).
 
-I'd say you shouldn't be trying to do cleanups on conn_socket unless
-kernel_accept() gave you a success return.
+> Big or small, there seems to be several race windows in the code,
+> and fixing them probably has consequence on overall system performance.
 
-However, kernel_accept() is guilty of leaving a stray pointer
-in conn_socket, in fact a reference to freed memory.  So
-from that perspective we should put your patch in.
+Yes, the networking layer goes to great lengths to avoid having any
+locking in its fast paths and we don't want to undo any of that
+effort.
 
-Please resubmit, at least to me under seperate cover,thanks.
+> Maybe this code should only run when the machine is single-threaded ?
+
+In the not-very-distant future, such machines will be extremely rare.
+
+-- 
+Mathematics is the supreme nostalgia of our time.
