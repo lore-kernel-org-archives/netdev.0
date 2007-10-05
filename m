@@ -1,91 +1,50 @@
-From: Pierre Ynard <linkfanel@yahoo.fr>
-Subject: [PATCH] Fix typos in comments in netlink.h
-Date: Fri, 5 Oct 2007 08:09:40 +0200
-Message-ID: <20071005060940.GA18427@via.ecp.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+From: Ursula Braun <braunu@de.ibm.com>
+Subject: [patch 1/5] qeth: HiperSockets layer-3 interface drop non IPv4 or non IPv6 packets
+Date: Fri, 05 Oct 2007 09:38:17 +0200
+Message-ID: <20071005074042.481388000@linux.vnet.ibm.com>
+References: <20071005073816.996932000@linux.vnet.ibm.com>
+Cc: "Klaus D. Wacker" <kdwacker@de.ibm.com>
+To: jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from durga.via.ecp.fr ([138.195.130.75]:37330 "EHLO durga.via.ecp.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752567AbXJEGJl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Oct 2007 02:09:41 -0400
-Received: from localhost (durga.via.ecp.fr [127.0.0.1])
-	by durga.via.ecp.fr (Postfix) with ESMTP id CB0AB31F69
-	for <netdev@vger.kernel.org>; Fri,  5 Oct 2007 08:09:40 +0200 (CEST)
-Received: from durga.via.ecp.fr ([127.0.0.1])
-	by localhost (durga.via.ecp.fr [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id giIEvGnQ1bpt for <netdev@vger.kernel.org>;
-	Fri,  5 Oct 2007 08:09:40 +0200 (CEST)
-Received: from zen.via.ecp.fr (zen.via.ecp.fr [138.195.130.72])
-	by durga.via.ecp.fr (Postfix) with ESMTP id 9B2E731F1C
-	for <netdev@vger.kernel.org>; Fri,  5 Oct 2007 08:09:40 +0200 (CEST)
-Content-Disposition: inline
+Received: from mtagate1.de.ibm.com ([195.212.29.150]:36676 "EHLO
+	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751495AbXJEHks (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2007 03:40:48 -0400
+Content-Disposition: inline; filename=705-qeth-pktdrop.diff
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes a few typos in comments in include/net/netlink.h
+From: Klaus D. Wacker <kdwacker@de.ibm.com>
 
-Signed-off-by: Pierre Ynard <linkfanel@yahoo.fr>
+HiperSockets infrastructure (layer-3 mode) supports only IPv4 or
+IPv6 packets. Sending other packet types disturbs TCP/IP on z/VM,
+which issues messages about invalid packets.
+Qeth send routine will detect packet type on sending over a 
+HiperSockets interface (in layer-3 mode) and drop non IP packets.
+The error and drop count of the interface is incremented.
 
-diff --git a/include/net/netlink.h b/include/net/netlink.h
-index 83113df..1afd3e8 100644
---- a/include/net/netlink.h
-+++ b/include/net/netlink.h
-@@ -84,7 +84,7 @@
-  *   nla_next(nla)-----------------------------'
-  *
-  * Data Structures:
-- *   struct nlattr			netlink attribtue header
-+ *   struct nlattr			netlink attribute header
-  *
-  * Attribute Construction:
-  *   nla_reserve(skb, type, len)	reserve room for an attribute
-@@ -706,7 +706,7 @@ static inline int nla_ok(const struct nlattr *nla, =
-int remaining)
- }
-=20
- /**
-- * nla_next - next netlink attribte in attribute stream
-+ * nla_next - next netlink attribute in attribute stream
-  * @nla: netlink attribute
-  * @remaining: number of bytes remaining in attribute stream
-  *
-@@ -782,7 +782,7 @@ static inline int __nla_parse_nested_compat(struct =
-nlattr *tb[], int maxtype,
- ({	data =3D nla_len(nla) >=3D len ? nla_data(nla) : NULL; \
- 	__nla_parse_nested_compat(tb, maxtype, nla, policy, len); })
- /**
-- * nla_put_u8 - Add a u16 netlink attribute to a socket buffer
-+ * nla_put_u8 - Add a u8 netlink attribute to a socket buffer
-  * @skb: socket buffer to add attribute to
-  * @attrtype: attribute type
-  * @value: numeric value
-@@ -998,7 +998,7 @@ static inline struct nlattr *nla_nest_start(struct =
-sk_buff *skb, int attrtype)
-=20
- /**
-  * nla_nest_end - Finalize nesting of attributes
-- * @skb: socket buffer the attribtues are stored in
-+ * @skb: socket buffer the attributes are stored in
-  * @start: container attribute
-  *
-  * Corrects the container attribute header to include the all
-@@ -1041,7 +1041,7 @@ static inline struct nlattr *nla_nest_compat_star=
-t(struct sk_buff *skb,
-=20
- /**
-  * nla_nest_compat_end - Finalize nesting of compat attributes
-- * @skb: socket buffer the attribtues are stored in
-+ * @skb: socket buffer the attributes are stored in
-  * @start: container attribute
-  *
-  * Corrects the container attribute header to include the all
+Signed-off-by: Klaus D. Wacker <kdwacker@de.ibm.com>
+Signed-off-by: Ursula Braun <braunu@de.ibm.com>
+---
 
+ drivers/s390/net/qeth_main.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
---=20
-Pierre Ynard
-=46or hire in Quebec City, Canada, during Fall 2007
-"Une =E2me dans un corps, c'est comme un dessin sur une feuille de papi=
-er."
+Index: linux-2.6-uschi/drivers/s390/net/qeth_main.c
+===================================================================
+--- linux-2.6-uschi.orig/drivers/s390/net/qeth_main.c
++++ linux-2.6-uschi/drivers/s390/net/qeth_main.c
+@@ -4711,8 +4711,8 @@ qeth_send_packet(struct qeth_card *card,
+ 		rc = qeth_do_send_packet(card, queue, new_skb, hdr,
+ 					 elements_needed, ctx);
+ 	else {
+-		if ((skb->protocol == htons(ETH_P_ARP)) &&
+-		    (card->dev->flags & IFF_NOARP)) {
++		if ((!card->options.layer2) &&
++		    (ipv == 0)) {
+ 			__qeth_free_new_skb(skb, new_skb);
+ 			return -EPERM;
+ 		}
+
+-- 
