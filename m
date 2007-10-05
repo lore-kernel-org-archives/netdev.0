@@ -1,43 +1,48 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH net-2.6.24] s2io: sparse warnings fix
-Date: Fri, 05 Oct 2007 13:51:51 -0400
-Message-ID: <470679B7.2060901@pobox.com>
-References: <20071005090725.09a80bc7@freepuppy.rosehill>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] e1000e: fix debugging printout code
+Date: Fri, 05 Oct 2007 13:53:51 -0400
+Message-ID: <47067A2F.5020603@garzik.org>
+References: <20071004183843.31540.23710.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ramkrishna Vepa <ram.vepa@neterion.com>,
-	Raapur Santosh <santosh.rastapur@neterion.com>,
-	Sivakumar Subramani <sivakumar.subramani@neterion.com>,
-	Sreenivasa Honnur <sreenivasa.honnur@neterion.com>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: Auke Kok <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:34438 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:47847 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752609AbXJERwA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 5 Oct 2007 13:52:00 -0400
-In-Reply-To: <20071005090725.09a80bc7@freepuppy.rosehill>
+	id S1757449AbXJERxx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 5 Oct 2007 13:53:53 -0400
+In-Reply-To: <20071004183843.31540.23710.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Fix warnings from sparse checker about shadowed definition and improperly
-> formatted ethtool_strings.
+Auke Kok wrote:
+> A small bug crawled in the -DDEBUG enabled code. Fix this to
+> properly call the backreference device name.
 > 
-> I chose to change module parameter rather than uglify the code by changing
-> the variable name.
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> ---
+> 
+>  drivers/net/e1000e/hw.h     |    2 +-
+>  drivers/net/e1000e/netdev.c |    4 +---
+>  2 files changed, 2 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+> index 848217a..aa82f1a 100644
+> --- a/drivers/net/e1000e/hw.h
+> +++ b/drivers/net/e1000e/hw.h
+> @@ -852,7 +852,7 @@ struct e1000_hw {
+>  
+>  #ifdef DEBUG
+>  #define hw_dbg(hw, format, arg...) \
+> -	printk(KERN_DEBUG, "%s: " format, e1000_get_hw_dev_name(hw), ##arg);
+> +	printk(KERN_DEBUG, "%s: " format, e1000e_get_hw_dev_name(hw), ##arg);
 
-Changing the name of existing module parameters can potentially 
-introduce breakage in the field.
+I will apply this, but, I strongly encourage deletion of this in favor 
+of the existing dev_dbg()
 
-Additionally, we have module_param_named() to account for this sort of 
-thing, where the module parameter name differs from the internal 
-variable name.
+	Jeff
 
-The rest looks OK.
 
-Please resend, potentially moving the module parameter change(s) into a 
-separate patch.
 
