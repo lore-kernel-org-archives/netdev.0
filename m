@@ -1,49 +1,54 @@
-From: Tina Yang <tina.yang@oracle.com>
-Subject: Re: [Bugme-new] [Bug 9124] New: Netconsole race crashed the system
-Date: Fri, 05 Oct 2007 18:32:29 -0700
-Message-ID: <4706E5AD.6070504@oracle.com>
-References: <470592E8.7080809@oracle.com>	<20071004202414.0f1eddb7@freepuppy.rosehill>	<4705B602.6090306@oracle.com> <20071004.222219.02300073.davem@davemloft.net>
+From: Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH] ieee80211_if_set_type: make check for master dev more explicit
+Date: Fri, 5 Oct 2007 22:23:21 -0400
+Message-ID: <200710052223.25257.flamingice@sourmilk.net>
+References: <20071004113343.552139D502B@zog.reactivated.net> <200710041726.11744.flamingice@sourmilk.net> <20071004230248.GN6037@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: multipart/signed;
+  boundary="nextPart1266976.70n2veFJy4";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, akpm@linux-foundation.org,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rgminet01.oracle.com ([148.87.113.118]:63725 "EHLO
-	rgminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753787AbXJFBgY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 5 Oct 2007 21:36:24 -0400
-In-Reply-To: <20071004.222219.02300073.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Cc: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20071004230248.GN6037-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Tina Yang <tina.yang@oracle.com>
-> Date: Thu, 04 Oct 2007 20:56:50 -0700
->
->   
->>     Yes, it's RHEL5 2.6.18-8.  Attached is the 2.6.9-42 version that 
->> doesn't have 802.11 and
->>     crashed at the same spot - netdevice.h:888.  Also crashed are 
->> 2.6.23-rc2 and rc4.
->>     
->
-> 2.6.9-42 is, again, a vendor modified kernel.
->
-> Please show the crash information against vanilla upstream kernels if
-> you want us to take a serious look at this, thanks a lot.
->   
-Ok, I ran it on 2.6.23-rc8, hang.
-Console said  panicked at tg3_poll+0x747 - netdevice.h:1008, same place ?
-I am not sure if I can get a core dump at this point...
+--nextPart1266976.70n2veFJy4
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
- =======================
-Code:  0f b7 42 10 3b 43 60 0f 85 a3 00 00 00 85 c9 0f 94 c0 0f b6 f0 85 
-f6 0f 84
- 95 00 00 00 9c 5b fa 8b 6c 24 08 8b 45 2c a8 20 75 04 <0f> 0b eb fe 8b 
-44 24 08
- 05 80 01 00 00 e8 09 d3 b3 c7 8b 44 24
-EIP: [<f89a975d>] tg3_poll+0x747/0x7ee (tg3) SS:ESP 0068:c0753f80
-Kernel panic - not syncing: Fatal exception in interrupt
+On Thursday 04 October 2007 19:02, John W. Linville wrote:
+> Alright...better?
+>
+Yup, thanks.
 
+> The problem is caused by ieee80211_if_set_type checking for a non-zero
+> hard_start_xmit pointer value in order to avoid changing that value for
+> master devices.  The fix is to make that check more explicitly linked to
+> master devices rather than simply checking if the value has been
+> previously set.
+>
+> CC: Daniel Drake <dsd-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+> Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Acked-by: Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
+
+-Michael Wu
+
+--nextPart1266976.70n2veFJy4
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQBHBvGdT3Oqt9AH4aERAgtyAJsG6HfheUW+fYvMGONp6BeTeblaSACdG4oj
+KUa/ck5ghM4q3G8EO9+GG3w=
+=/UQk
+-----END PGP SIGNATURE-----
+
+--nextPart1266976.70n2veFJy4--
