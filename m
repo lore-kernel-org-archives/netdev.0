@@ -1,75 +1,53 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [NET] IPv6 oops bisected
-Date: Sun, 07 Oct 2007 10:56:07 -0400
-Message-ID: <4708F387.1060602@garzik.org>
-References: <4708D677.1030601@garzik.org> <4708E016.9020300@garzik.org> <4708E3CF.4000401@gmail.com>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [RFC][PATCH 1/2] TCP: fix lost retransmit detection
+Date: Sun, 7 Oct 2007 18:11:44 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0710071805380.19695@kivilampi-30.cs.helsinki.fi>
+References: <20071004.184519.16476818.takano@axe-inc.co.jp>
+ <Pine.LNX.4.64.0710041419560.31129@kivilampi-30.cs.helsinki.fi>
+ <20071007.145100.00679926.takano@axe-inc.co.jp> <20071006.231714.41173786.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>, den@openvz.org,
-	David Miller <davem@davemloft.net>
-To: "Denis V. Lunev" <dlunev@gmail.com>
+Cc: Netdev <netdev@vger.kernel.org>, y-kodama@aist.go.jp
+To: takano@axe-inc.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:37484 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752734AbXJGO4P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Oct 2007 10:56:15 -0400
-In-Reply-To: <4708E3CF.4000401@gmail.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:42979 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752805AbXJGPLq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2007 11:11:46 -0400
+In-Reply-To: <20071006.231714.41173786.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Denis V. Lunev wrote:
-> Jeff Garzik wrote:
->> Jeff Garzik wrote:
->>> The commit
->>>
->>> commit 5f5dace1ce001b24fb8286e09ffd3c4d2b547e09
->>> Author: Denis V. Lunev <den@openvz.org>
->>> Date:   Thu Sep 27 12:41:26 2007 -0700
->>>
->>>     [NET]: Various dst_ifdown routines to catch refcounting bugs
->>>
->>> causes a 100% reproducible oops in net-2.6.24.git, in ip6_route_add().
->>>
->>> Platform: x86-64 Fedora 7
->>>
->>> Config and lspci attached.
->> And indeed, reverting this commit with 'patch -R' makes things work again.
->>
->>     Jeff
+...Dropped DaveM from cc, I guess he knows the things I describe below 
+already... :-)
+
+On Sat, 6 Oct 2007, David Miller wrote:
+
+> From: TAKANO Ryousei <takano@axe-inc.co.jp>
+> Date: Sun, 07 Oct 2007 14:51:00 +0900 (JST)
 > 
-> Can you me command to execute to reproduce the problem? and oops if
-> possible.
+> > BTW, what is difference among netdev-2.6, 
 
-The command is Fedora 7 initscripts...
+netdev-2.6 is for network device drivers (stuff under drivers/net)
 
-(typing in by hand)
+> net-2.6 (net-2.6.24), and 
+> > tcp-2.6? I am not familiar with linux kernel development process.
+> 
+> net-2.6.24 tree is current new development
+> 
+> net-2.6 tree is only bug fixes
+> 
+> tcp-2.6 is an old abandonded tree that holds lots of old
+> TCP work, most of which is merged already, but one part
+> (my RB-Tree SACK patches) are not integrated yet.
 
-/etc/sysconfig/network-scripts/network-functions-ipv6: line 246: 1760 Killed
-	LC_ALL=C /sbin/ip $options
+In addition, when Linus releases a new kernel (2.6.23), the net-2.6.24 
+becomes net-2.6 (the old one ceases to exist). At some point of 2.6.24-rc 
+series, net-2.6.25 gets opened by DaveM, usually it's not available right 
+after closure of 2.6.24 merge window. ...Then again, the trees are 
+again rotated when a next official release is made...
 
 
-NULL pointer dereference at 0x000003f8
-
-backtrace:
-:ipv6:ip6_route_add+0x1b1/0x543
-rtnetlink_rcv_msg
-inet6_rtm_newroute
-netlink_run_queue
-rtnetlink_rcv
-netlink_data_ready
-netlink_sendskb
-netlink_sendmsg
-sock_send_msg
-mntput_no_expire
-autoremove_wake_function
-find_lock_page
-zone_statistics
-get_page_from_freelist
-__alloc_pages
-move_addr_to_kernel
-verify_iovec
-sys_sendmsg
+-- 
+ i.
