@@ -1,46 +1,42 @@
-From: TAKANO Ryousei <takano@axe-inc.co.jp>
-Subject: Re: [RFC][PATCH 1/2] TCP: fix lost retransmit detection
-Date: Sun, 07 Oct 2007 17:42:02 +0900 (JST)
-Message-ID: <20071007.174202.121596339.takano@axe-inc.co.jp>
-References: <Pine.LNX.4.64.0710041419560.31129@kivilampi-30.cs.helsinki.fi>
-	<20071007.145100.00679926.takano@axe-inc.co.jp>
-	<20071006.231714.41173786.davem@davemloft.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH 2/5] forcedeth: interrupt handling cleanup
+Date: Sun, 7 Oct 2007 11:03:13 +0200
+Message-ID: <20071007090313.GA733@elte.hu>
+References: <20071006151250.GA17020@havoc.gtf.org> <20071006151400.GB17488@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org,
-	y-kodama@aist.go.jp
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Ayaz Abdulla <aabdulla@nvidia.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from axekw.axe-inc.co.jp ([61.199.217.67]:61297 "EHLO
-	axekw.axe-inc.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751808AbXJGImM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2007 04:42:12 -0400
-In-Reply-To: <20071006.231714.41173786.davem@davemloft.net>
+Received: from mx3.mail.elte.hu ([157.181.1.138]:51522 "EHLO mx3.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752130AbXJGJDZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Oct 2007 05:03:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20071006151400.GB17488@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH 1/2] TCP: fix lost retransmit detection
-Date: Sat, 06 Oct 2007 23:17:14 -0700 (PDT)
 
-> From: TAKANO Ryousei <takano@axe-inc.co.jp>
-> Date: Sun, 07 Oct 2007 14:51:00 +0900 (JST)
-> 
-> > BTW, what is difference among netdev-2.6, net-2.6 (net-2.6.24), and 
-> > tcp-2.6? I am not familiar with linux kernel development process.
-> 
-> net-2.6.24 tree is current new development
-> 
-> net-2.6 tree is only bug fixes
-> 
-> tcp-2.6 is an old abandonded tree that holds lots of old
-> TCP work, most of which is merged already, but one part
-> (my RB-Tree SACK patches) are not integrated yet.
+* Jeff Garzik <jeff@garzik.org> wrote:
 
-Thanks, and I got it.
+> -			spin_unlock(&np->lock);
+> -			printk(KERN_DEBUG "%s: too many iterations (%d) in nv_nic_irq.\n", dev->name, i);
+> -			break;
 
-I need to check the related recent posts (SACK block validation, sacktag 
-cache usage, and RT-tree SACK) on this list.
+i like that! One forcedeth annoyance that triggers frequently on one of 
+my testboxes is:
 
-Ryousei Takano
+[  120.955202] eth0: too many iterations (6) in nv_nic_irq.
+[  121.233865] eth0: too many iterations (6) in nv_nic_irq.
+[  129.215450] eth0: too many iterations (6) in nv_nic_irq.
+[  139.734408] eth0: too many iterations (6) in nv_nic_irq.
+[  144.546811] eth0: too many iterations (6) in nv_nic_irq.
+[  153.811005] eth0: too many iterations (6) in nv_nic_irq.
+[  154.695879] eth0: too many iterations (6) in nv_nic_irq.
+[  155.455078] eth0: too many iterations (6) in nv_nic_irq.
+[  173.912162] eth0: too many iterations (6) in nv_nic_irq.
+
+	Ingo
