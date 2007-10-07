@@ -1,54 +1,65 @@
 From: "Eliezer Tamir" <eliezert@broadcom.com>
-Subject: [BNX2X][PATCH 0/8] New driver for Broadcom 10Gb Ethernet, take
- two.
-Date: Sun, 07 Oct 2007 18:20:56 +0200
-Message-ID: <47090768.4020307@broadcom.com>
+Subject: [BNX2X][PATCH 1/8] add bnx2x to Kconfig and Makefile
+Date: Sun, 07 Oct 2007 18:21:32 +0200
+Message-ID: <4709078C.7080404@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8;
  format=flowed
 Content-Transfer-Encoding: 7bit
-To: "davem@davemloft.net" <davem@davemloft.net>,
-	"jeff@garzik.org" <jeff@garzik.org>,
+To: davem@davemloft.net, jeff@garzik.org,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Michael Chan" <mchan@broadcom.com>, eilong@broadc
+	"Michael Chan" <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4379 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4423 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754932AbXJGQTt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Oct 2007 12:19:49 -0400
+	id S1751945AbXJGQUX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Oct 2007 12:20:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an initial version of the BNX2X, the Linux driver for the
-BCM5771X 10Gb Ethernet controller family.
- 
-Although the chip is very different from the 5706-8 family we based the
-driver code on the BNX2 driver.
- 
-Since the hardware is supposed to be generally available soon I have
-posted an initial version and after hearing all the comments I am 
-reposting with changes to address them.
- 
-Some planned feature are still under development, but we want to get
-whatever we have out now so people can start using the HW.
+Add bnx2x to Kconfig and Makefile
 
-Main changes from first version.
+Signed-off-by: Eliezer Tamir <eliezert@broadcom.com>
+---
+drivers/net/Kconfig  |    9 +++++++++
+drivers/net/Makefile |    1 +
+2 files changed, 10 insertions(+), 0 deletions(-)
 
-* Fixed most issues raised by Michael Buesch. (Thanks Michael!)
-* Some slow path bug fixes.
-* Yitchak Gertner re-grouped the code in a more logical manner.
-* A lot of work was done to get the generated code to comply with coding 
-style requirements.
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 467532c..fbb69ac 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2630,6 +2630,15 @@ config TEHUTI
+help
+  Tehuti Networks 10G Ethernet NIC
 
-Known issues/TODO.
-* Move slowpath event handling from tasklet to workqueue context. This 
-will allow replacing the busy waits in the link management code with sleeps.
++config BNX2X
++ tristate "Broadcom NetXtremeII XGb support"
++ depends on PCI
++ help
++   This driver supports Broadcom NetXtremeII 10 gigabit Ethernet cards.
++
++   To compile this driver as a module, choose M here: the module
++   will be called bnx2x.  This is recommended.
++
+endif # NETDEV_10000
 
-Please consider applying to 2.6.24
-
-Thanks
-Eliezer
+source "drivers/net/tokenring/Kconfig"
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 6220c50..51f3ea7 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -64,6 +64,7 @@ obj-$(CONFIG_STNIC) += stnic.o 8390.o
+obj-$(CONFIG_FEALNX) += fealnx.o
+obj-$(CONFIG_TIGON3) += tg3.o
+obj-$(CONFIG_BNX2) += bnx2.o
++obj-$(CONFIG_BNX2X) += bnx2x.o
+spidernet-y += spider_net.o spider_net_ethtool.o
+obj-$(CONFIG_SPIDER_NET) += spidernet.o sungem_phy.o
+obj-$(CONFIG_GELIC_NET) += ps3_gelic.o
+-- 
+1.4.2
 
 
 
