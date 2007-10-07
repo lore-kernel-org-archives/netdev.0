@@ -1,43 +1,40 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: duplicated u32 filters in tc show output
-Date: Sun, 07 Oct 2007 12:43:19 -0400
-Message-ID: <1191775399.4394.45.camel@localhost>
-References: <20071006131056.GA17693@toroid.org>
-Reply-To: hadi@cyberus.ca
+From: Manfred Spraul <manfred@colorfullife.com>
+Subject: Re: MSI interrupts and disable_irq
+Date: Sun, 07 Oct 2007 18:54:45 +0200
+Message-ID: <47090F55.3020800@colorfullife.com>
+References: <46FC15A9.1070803@nvidia.com> <46FDBCB4.9090802@pobox.com> <86802c440710061043u6e51cd7q468346bd06b08657@mail.gmail.com> <4707CCF1.8080909@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Abhijit Menon-Sen <ams@toroid.org>
+Cc: Yinghai Lu <yhlu.kernel@gmail.com>,
+	Ayaz Abdulla <aabdulla@nvidia.com>,
+	nedev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.238]:1996 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752413AbXJGQnX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2007 12:43:23 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1044688wxd
-        for <netdev@vger.kernel.org>; Sun, 07 Oct 2007 09:43:22 -0700 (PDT)
-In-Reply-To: <20071006131056.GA17693@toroid.org>
+Received: from ev1s-75-125-39-150.ev1servers.net ([75.125.39.150]:38768 "EHLO
+	colorfullife.mysite.adiungo.com" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752228AbXJGQzq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2007 12:55:46 -0400
+In-Reply-To: <4707CCF1.8080909@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2007-06-10 at 18:40 +0530, Abhijit Menon-Sen wrote:
-> The HTB user guide (http://luxik.cdi.cz/~devik/qos/htb/manual/userg.htm)
-> says the following:
-> 
->     Note: The U32 classifier has an undocumented design bug which causes
->     duplicate entries to be listed by "tc filter show" when you use U32
->     classifiers with different prio values.
-> 
-> What exactly is this bug? (I'm seeing its effects, i.e. the duplicates,
-> and it's making my life a little difficult while trying to parse the tc
-> output.)
+Jeff Garzik wrote:
+>
+> Interested parties should try the forcedeth patches I just posted :)
+>
+The patches look good, but I would still prefer to understand why the 
+current implementation causes crashes before rewriting everything.
 
-If it is the bug i think it is - then it was fixed a long time ago; the
-doc you are referencing seemed to be dated. 
-Try a newer kernel if you are not and if it still persists, send the
-simplest setup you have that causes duplicates.
+I've just noticed that netpoll_send_skb() calls ->hard_start_xmit() and 
+->poll() within local_irq_save().
+Thus it seems that  spin_lock_irqsave() must be used in the poll() and 
+hard_start_xmit() callbacks, at least in nics that support 
+POLL_CONTROLLER :-(
 
-cheers,
-jamal
-
+--
+    Manfred
 
