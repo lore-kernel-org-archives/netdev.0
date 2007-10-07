@@ -1,43 +1,42 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [RFC/PATCH 2/4] UDP memory usage accounting (take 4): accounting unit and variable
-Date: Sun, 7 Oct 2007 14:09:38 +0400
-Message-ID: <20071007100938.GA24475@2ka.mipt.ru>
-References: <47065139.5030402@hitachi.com> <470651B3.6060001@hitachi.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: libertas and endianness
+Date: Sun, 7 Oct 2007 12:15:06 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0710071209290.8127@anakin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev <netdev@vger.kernel.org>, ?? ?? <yoshfuji@linux-ipv6.org>,
-	Yumiko SUGITA <yumiko.sugita.yf@hitachi.com>,
-	"??@RedHat" <haoki@redhat.com>
-To: Satoshi OSHIMA <satoshi.oshima.fk@hitachi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Linux Kernel Development <linux-kernel@vger.kernel.org>
+To: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:58653 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751622AbXJGKLA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Oct 2007 06:11:00 -0400
-Content-Disposition: inline
-In-Reply-To: <470651B3.6060001@hitachi.com>
+Received: from hoboe2bl1.telenet-ops.be ([195.130.137.73]:35721 "EHLO
+	hoboe2bl1.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752139AbXJGKPL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2007 06:15:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi.
+Somehow (haven't found out why it suddenly got compiled, no .config
+changes) this showed up in the list of warnings in 2.6.23-rc9 compared
+to -rc8 on one of my m68k builds:
 
-On Sat, Oct 06, 2007 at 12:01:07AM +0900, Satoshi OSHIMA (satoshi.oshima.fk@hitachi.com) wrote:
-> --- 2.6.23-rc3-udp_limit.orig/net/ipv4/udp.c
-> +++ 2.6.23-rc3-udp_limit/net/ipv4/udp.c
-> @@ -113,6 +113,10 @@ DEFINE_SNMP_STAT(struct udp_mib, udp_sta
->  struct hlist_head udp_hash[UDP_HTABLE_SIZE];
->  DEFINE_RWLOCK(udp_hash_lock);
->  
-> +atomic_t udp_memory_allocated;
-> +
-> +EXPORT_SYMBOL(udp_memory_allocated);
-> +
+| drivers/net/wireless/libertas/cmd.c:189: warning: large integer implicitly truncated to unsigned type
+| drivers/net/wireless/libertas/cmd.c:195: warning: large integer implicitly truncated to unsigned type
 
-Why do you export this variable?
-It is not accessed from modules in your patchset.
+The offending lines are:
 
--- 
-	Evgeniy Polyakov
+| wep->keytype[i] = cpu_to_le16(cmd_type_wep_40_bit);
+| wep->keytype[i] = cpu_to_le16(cmd_type_wep_104_bit);
+
+I.e. it tries to store 0x0100 resp. 0x0200 into keytype[i], which is is u8.
+
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
