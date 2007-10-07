@@ -1,41 +1,101 @@
-From: Andreas Mohr <andi@lisas.de>
-Subject: Re: 2.6.23-rc8-mm2 BUG: register_netdevice() issue as (ab)used by
-	ISDN
-Date: Sun, 7 Oct 2007 19:20:37 +0200
-Message-ID: <20071007172037.GA29384@rhlx01.hs-esslingen.de>
-References: <20071007120653.GA16184@rhlx01.hs-esslingen.de> <4708D00D.8030307@garzik.org> <20071007131723.GA22873@rhlx01.hs-esslingen.de>
+From: jamal <hadi@cyberus.ca>
+Subject: [ofa-general] [PATCHES] TX batching
+Date: Sun, 07 Oct 2007 14:34:53 -0400
+Message-ID: <1191782093.4394.60.camel@localhost>
+References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
+	<20070916.161748.48388692.davem@davemloft.net>
+	<1189988958.4230.55.camel@localhost>
+	<1190569987.4256.52.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jeff@garzik.org>, isdn4linux@listserv.isdn4linux.de,
-	netdev@vger.kernel.org, akpm@linux-foundation.org
-To: Andreas Mohr <andi@lisas.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:57080 "EHLO
-	rhlx01.hs-esslingen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752359AbXJGRUi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2007 13:20:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20071007131723.GA22873@rhlx01.hs-esslingen.de>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: johnpol@2ka.mipt.ru, peter.p.waskiewicz.jr@intel.com, kumarkr@linux.ibm.com,
+	herbert@gondor.apana.org.au, gaagaan@gmail.com,
+	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
+	rdreier@cisco.com, mcarlson@broadcom.com,
+	randy.dunlap@oracle.com, jagana@us.ibm.com,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	jeff@garzik.org, sri@us.ibm.com, shemminger@linux-foundation.org,
+	kaber@trash.net
+To: David Miller <davem@davemloft.net>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <1190569987.4256.52.camel@localhost>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-On Sun, Oct 07, 2007 at 03:17:24PM +0200, Andreas Mohr wrote:
-> I thus decided to now try plain 2.6.23-rc8 whether it's "corrupted", too.
+Please provide feedback on the code and/or architecture.
+Last time i posted them i received little. They are now updated to 
+work with the latest net-2.6.24 from a few hours ago.
 
-OK, after 3 hours of compilation the ONLY datapoint I can give right now is:
-1 (one) boot on 2.6.23-rc8-mm2 had the BUG in /var/log/messages,
-1 (one) boot on 2.6.23-rc8 did NOT have it.
+Patch 1: Introduces batching interface
+Patch 2: Core uses batching interface
+Patch 3: get rid of dev->gso_skb
 
-The two .config:s (I did a make oldconfig when going back to
-non-mm2) don't seem to have any relevant differences.
+What has changed since i posted last:
+1) Fix a bug eyeballed by Patrick McHardy on requeue reordering.
+2) Killed ->hard_batch_xmit() 
+3) I am going one step back and making this set of patches even simpler
+so i can make it easier to review.I am therefore killing dev->hard_prep_xmit()
+and focussing just on batching. I plan to re-introduce dev->hard_prep_xmit()
+but from now on i will make that a separate effort. (it seems to be creating
+confusion in relation to the general work).
 
-I could offer to do more testing on this machine,
-but this carries a slight risk for me since I (personally) won't have physical
-access to it for a couple days and some people will kill me if the main
-internet gateway happened to go down unfixably. ;)
+Dave please let me know if this meets your desires to allow devices
+which are SG and able to compute CSUM benefit just in case i misunderstood. 
+Herbert, if you can look at at least patch 3 i will appreaciate it
+(since it kills dev->gso_skb that you introduced).
 
-Thanks,
+UPCOMING PATCHES
+---------------
+As before:
+More patches to follow later if i get some feedback - i didnt want to 
+overload people by dumping too many patches. Most of these patches 
+mentioned below are ready to go; some need some re-testing and others 
+need a little porting from an earlier kernel: 
+- tg3 driver 
+- tun driver
+- pktgen
+- netiron driver
+- e1000 driver (LLTX)
+- e1000e driver (non-LLTX)
+- ethtool interface
+- There is at least one other driver promised to me
 
-Andreas Mohr
+Theres also a driver-howto i wrote that was posted on netdev last week
+as well as one that describes the architectural decisions made.
+
+PERFORMANCE TESTING
+--------------------
+I started testing since yesterday, but these tests take a long time
+so i will post results probably at the end of the day sometime and
+may stop running more tests and just comparing batch vs non-batch results.
+I have optimized the kernel-config so i expect my overall performance
+numbers to look better than the last test results i posted for both
+batch and non-batch.
+My system under test hardware is still a 2xdual core opteron with a 
+couple of tg3s. 
+A test tool generates udp traffic of different sizes for upto 60 
+seconds per run or a total of 30M packets. I have 4 threads each 
+running on a specific CPU which keep all the CPUs as busy as they can 
+sending packets targetted at a directly connected box's udp discard port.
+All 4 CPUs target a single tg3 to send. The receiving box has a tc rule 
+which counts and drops all incoming udp packets to discard port - this
+allows me to make sure that the receiver is not the bottleneck in the
+testing. Packet sizes sent are {8B, 32B, 64B, 128B, 256B, 512B, 1024B}. 
+Each packet size run is repeated 10 times to ensure that there are no
+transients. The average of all 10 runs is then computed and collected.
+
+I do plan also to run forwarding and TCP tests in the future when the
+dust settles.
+
+cheers,
+jamal
