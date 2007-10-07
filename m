@@ -1,7 +1,7 @@
 From: "Eliezer Tamir" <eliezert@broadcom.com>
-Subject: [BNX2X][PATCH 7/8] bnx2x_self_test.h
-Date: Sun, 07 Oct 2007 18:25:12 +0200
-Message-ID: <47090868.9030202@broadcom.com>
+Subject: [BNx2X][PATCH 6/8] bnx2x_init_values.h
+Date: Sun, 07 Oct 2007 18:23:58 +0200
+Message-ID: <4709081E.2020804@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8;
@@ -11,1417 +11,10029 @@ To: davem@davemloft.net, jeff@garzik.org,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"Michael Chan" <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2345 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2258 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753075AbXJGQYC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Oct 2007 12:24:02 -0400
+	id S1753413AbXJGQWu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Oct 2007 12:22:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-bnx2x_self_test.h
-This file contains a self-test derived from HW specs, and the code that 
-prints HW/FW/BC assert codes.
+bnx2x_init_values.h -HW init code machine generated from HW definitions.
 
 Signed-off-by: Eliezer Tamir <eliezert@broadcom.com 
 <mailto:eliezert@broadcom.com>>
 ---
-drivers/net/bnx2x_self_test.h | 1387 
-+++++++++++++++++++++++++++++++++++++++++
-1 files changed, 1387 insertions(+), 0 deletions(-)
+drivers/net/bnx2x_init_values.h | 7789 
++++++++++++++++++++++++++++++++++++++++
+1 files changed, 7789 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/bnx2x_self_test.h b/drivers/net/bnx2x_self_test.h
+diff --git a/drivers/net/bnx2x_init_values.h 
+b/drivers/net/bnx2x_init_values.h
 new file mode 100644
-index 0000000..b1d62e7
+index 0000000..0d626e3
 --- /dev/null
-+++ b/drivers/net/bnx2x_self_test.h
-@@ -0,0 +1,1387 @@
-+/* bnx2x_self_test.h: Broadcom Everest network driver.
++++ b/drivers/net/bnx2x_init_values.h
+@@ -0,0 +1,7789 @@
++/* bnx2x_init_values.h: Broadcom Everest network driver.
 + *
 + * Copyright (c) 2007 Broadcom Corporation
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License as published by
 + * the Free Software Foundation.
++ *
 + */
 +
-+/* self test */
-+static int bnx2x_idle_chk(struct bnx2x *bp)
++/* machine generated - don't change */
++
++INIT_REG_RD(TSEM, TSEM_REGISTERS_MSG_NUM_FIC0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(TSEM, TSEM_REGISTERS_MSG_NUM_FIC1, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(TSEM, TSEM_REGISTERS_MSG_NUM_FOC0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(TSEM, TSEM_REGISTERS_MSG_NUM_FOC1, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(TSEM, TSEM_REGISTERS_MSG_NUM_FOC2, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(TSEM, TSEM_REGISTERS_MSG_NUM_FOC3, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_ARB_ELEMENT0, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_ARB_ELEMENT1, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_ARB_ELEMENT2, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_ARB_ELEMENT3, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_ARB_ELEMENT4, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_ARB_CYCLE_SIZE, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_0_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_1_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_2_AS, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_3_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_4_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_5_AS, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_6_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_7_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_8_AS, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_9_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_10_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_11_AS, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_12_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_13_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_14_AS, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_15_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_16_AS, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_17_AS, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_18_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_TS_19_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_ENABLE_IN, 0X3FFF, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_ENABLE_OUT, 0X3FF, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_FIC0_DISABLE, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_FIC1_DISABLE, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_PAS_DISABLE, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSEM, TSEM_REGISTERS_THREADS_LIST, 0XFF, COMMON, 
+INIT_HARDWARE);
++
++INIT_MEM_CLR(TSEM, TSEM_REGISTERS_PASSIVE_BUFFER, COMMON, 
+INIT_HARDWARE, 0X0,
++2048);
++
++
 +{
-+ u32 val, i, val2;
-+ u32 errors = 0;
-+ u32 warnings = 0;
-+ u32 varr[32];
-+ u32 usem_foc_credits[4] = {26, 78, 16, 32};
-+ u32 xsem_foc_credits[4] = {0, 24, 12, 102};
-+ u32 csem_foc_credits[4] = {16, 18, 48, 14};
-+ u32 tsem_foc_credits[4] = { 52, 24, 12, 32};
-+ u32 foc_num = 0;
-+ u8  err_pkt = 0;
-+ u32 pci_reg;
-+/* Disable timer scans for port 0,1 */
-+/*     is_enable_timer0 = lm_disable_timer(pdev, 0); */
-+/*     is_enable_timer1 = lm_disable_timer(pdev, 1); */
-+
-+
-+/* Check errors on PCI configuration space ucorr_err_status 0x114 */
-+/* check port 0 */
-+ val = REG_RD(bp, GRCBASE_PXPCS, 0x2114);
-+ if ((val & 0x1FF010) != 0x0) {
-+ BNX2X_ERR("Error PCIE IP function %d,"
-+    " ucorr_err_status is not 0x0. Equal to 0x%x\n",
-+    bp->port, val);
-+ err_pkt = 1;
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_PXPCS, 0x2120);
-+ if (((val & 0x31C1) != 0x2000) && ((val & 0x31C1) != 0)) {
-+ BNX2X_ERR("Error PCIE IP function %d,"
-+    " corr_err_status is not 0x2000. Equal to 0x%x\n",
-+    bp->port, val);
-+ err_pkt = 1;
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_PXPCS, 0x2814);
-+ if ((val != 0x40100) && (val != 0)) {
-+ BNX2X_ERR("Error PCIE IP function %d,"
-+    " attentions register is not 0x40100. Equal to 0x%x\n",
-+    bp->port, val);
-+ err_pkt = 1;
-+ errors++;
-+ }
-+
-+ if (err_pkt) {
-+ pci_reg = 0x212c;
-+ for (i = 0; i < 4; i++) {
-+ val = REG_RD(bp, GRCBASE_PXPCS, pci_reg+i*4);
-+ BNX2X_ERR("Error PCIE IP function %d,"
-+    " error packet header %d  Equal to 0x%x\n",
-+    bp->port, i, val);
-+ }
-+ }
-+
-+/* Check that all VQs in PXP are empty */
-+ varr[0] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ0_ENTRY_CNT);
-+ varr[1] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ1_ENTRY_CNT);
-+ varr[2] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ2_ENTRY_CNT);
-+ varr[3] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ3_ENTRY_CNT);
-+ varr[4] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ4_ENTRY_CNT);
-+ varr[5] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ5_ENTRY_CNT);
-+ varr[6] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ6_ENTRY_CNT);
-+ varr[7] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ7_ENTRY_CNT);
-+ varr[8] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ8_ENTRY_CNT);
-+ varr[9] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ9_ENTRY_CNT);
-+ varr[10] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ10_ENTRY_CNT);
-+ varr[11] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ11_ENTRY_CNT);
-+ varr[12] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ12_ENTRY_CNT);
-+ varr[13] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ13_ENTRY_CNT);
-+ varr[14] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ14_ENTRY_CNT);
-+ varr[15] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ15_ENTRY_CNT);
-+ varr[16] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ16_ENTRY_CNT);
-+ varr[17] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ17_ENTRY_CNT);
-+ varr[18] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ18_ENTRY_CNT);
-+ varr[19] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ19_ENTRY_CNT);
-+ varr[20] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ20_ENTRY_CNT);
-+ varr[21] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ21_ENTRY_CNT);
-+ varr[22] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ22_ENTRY_CNT);
-+ varr[23] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ23_ENTRY_CNT);
-+ varr[24] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ24_ENTRY_CNT);
-+ varr[25] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ25_ENTRY_CNT);
-+ varr[26] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ26_ENTRY_CNT);
-+ varr[27] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ27_ENTRY_CNT);
-+ varr[28] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ28_ENTRY_CNT);
-+ varr[29] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ29_ENTRY_CNT);
-+ varr[30] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ30_ENTRY_CNT);
-+ varr[31] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_VQ31_ENTRY_CNT);
-+
-+ for (i = 0; i < 32; i++) {
-+ if (varr[i] != 0) {
-+ if ((i == 3) && (varr[i] <= 2)) {
-+ continue;
-+ } else {
-+ BNX2X_ERR("Error, PXP, VQ%d is not empty."
-+   " Fill level equal to %d\n",
-+   i, varr[i]);
-+ errors++;
-+ }
-+ }
-+ }
-+
-+/* Check that PXP2 register rq_ufifo_num_of_entry is 0 */
-+ val = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_UFIFO_NUM_OF_ENTRY);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, PXP, rq_ufifo_num_of_entry is not zero."
-+   " value equals %d\n", val);
-+ errors++;
-+ }
-+
-+ /* Check that rq_rbc_done is 1 */
-+ val = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_RBC_DONE);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, PXP, rq_rbc_done is not 1."
-+   " value equals %d\n", val);
-+ errors++;
-+ }
-+
-+ /* Check that rq_cfg_done is 1 */
-+ val = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RQ_CFG_DONE);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, PXP, rq_cfg_done is not 1. "
-+   "value equals %d\n", val);
-+ errors++;
-+ }
-+
-+ /* Check that rq_read_credit and rq_write_credit are 3 */
-+ val = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_PSWRQ_BW_CREDIT);
-+ if (val != 0x1B) {
-+ BNX2X_ERR("Error, PXP, rq_read_credit and rq_write_credit "
-+   "are not 3. value equals %d\n", val);
-+ errors++;
-+ }
-+
-+ /* Check that rd_start_init is 1 */
-+ val = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_START_INIT);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, PXP, rd_start_init is not 1."
-+   " value equals %d\n", val);
-+ errors++;
-+ }
-+
-+/* Check that rd_init_done is 1 */
-+ val = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_INIT_DONE);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, PXP, rd_init_done is not 1. "
-+   "value equals %d\n", val);
-+ errors++;
-+ }
-+
-+/*  Check that rd_sr_cnt equals rd_sr_num_cfg */
-+ val = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_SR_CNT);
-+ val2 = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_SR_NUM_CFG);
-+ if (val != (val2-1)) {
-+ BNX2X_ERR("Warning, PXP, rd_sr_cnt != rd_sr_num_cfg-1."
-+   " values are %d %d\n", val, val2);
-+ warnings++;
-+ }
-+
-+/* Check that rd_blk_cnt equals rd_blk_num_cfg */
-+ val = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_BLK_CNT);
-+ val2 = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_BLK_NUM_CFG);
-+ if (val != val2) {
-+ BNX2X_ERR("Error, PXP, rd_blk_cnt is not equal to "
-+   "rd_blk_num_cfg. values are %d %d\n", val, val2);
-+ errors++;
-+ }
-+/* Check that delivery ports are idle */
-+ val = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_PORT_IS_IDLE_0);
-+ if (val != 1) {
-+ BNX2X_ERR("Error PXP2 P0, All delivery ports are not idle."
-+   " Equal to  %d\n", val);
-+ errors++;
-+ }
-+
-+/* Check that delivery ports are idle */
-+ val = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_PORT_IS_IDLE_1);
-+ if (val != 1) {
-+ BNX2X_ERR("Error PXP2 P1, All delivery ports are not idle."
-+   " Equal to  %d\n", val);
-+ errors++;
-+ }
-+
-+/* Check that rd_almost_full is 0 */
-+ varr[0] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_ALMOST_FULL_0);
-+ varr[1] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_ALMOST_FULL_1);
-+ varr[2] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_ALMOST_FULL_2);
-+ varr[3] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_ALMOST_FULL_3);
-+ varr[4] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_ALMOST_FULL_4);
-+ varr[5] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_ALMOST_FULL_5);
-+ varr[6] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_ALMOST_FULL_6);
-+ varr[7] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_ALMOST_FULL_7);
-+ varr[8] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_ALMOST_FULL_8);
-+ varr[9] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_ALMOST_FULL_9);
-+ varr[10] = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_ALMOST_FULL_10);
-+ for (i = 0;i < 11; i++) {
-+ if (varr[i] != 0) {
-+ BNX2X_ERR("Error, PXP, rd_almost_full_%d is not zero."
-+   " Value is %d\n", i, varr[i]);
-+ errors++;
-+ }
-+ }
-+
-+ /* Check that host i/f data and descriptor FIFOs are empty */
-+ val = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_HST_HEADER_FIFO_STATUS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PXP2 HST, header FIFO status is not"
-+   " empty and is equal to %d\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_HST_DATA_FIFO_STATUS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PXP2 HST, data FIFO status is not"
-+   " empty and is equal to %d\n", val);
-+ errors++;
-+ }
-+
-+ /* Check that pgl_write_blocked and pgl_read_blocked is 0 */
-+ val = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_PGL_WRITE_BLOCKED);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PXP2 pgl_write_blocked is not zero and is"
-+   " equal to %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_PGL_READ_BLOCKED);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PXP2 pgl_read_blocked is not zero and is "
-+   "equal to %d\n", val);
-+ errors++;
-+ }
-+
-+/* Check that the HST I/F arbiter is idle*/
-+ val = REG_RD(bp, GRCBASE_PXP, PXP_REGISTERS_HST_ARB_IS_IDLE);
-+ if (val != 1) {
-+ BNX2X_ERR("Error PXP HST, arbiter is not idle! %d\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_PXP, PXP_REGISTERS_HST_CLIENTS_WAITING_TO_ARB);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PXP HST, one of the clients is"
-+   " waiting for delivery: 0x%x\n", val);
-+ errors++;
-+ }
-+
-+/* On PXP2 (glue) check that tag_is_ready is equal to 1
-+   and that data_is_ready is equal to 0*/
-+ val = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_PGL_TXR_CDTS);
-+ if (((val>>5)&1) != 1) {
-+ BNX2X_ERR("Error, PXP2: Tag is not ready.\n");
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_PGL_TXW_CDTS);
-+ if (((val>>17)&1) != 0) {
-+ BNX2X_ERR("Error, PXP2 There is data which is ready.\n");
-+ errors++;
-+ }
-+
-+/* Check that all SR are unused (counter equal to 127)*/
-+ val = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_SR_CNT);
-+ if (val < 123) {
-+ BNX2X_ERR("Error, PXP2, The number of unused SRs < 123."
-+   " Equal to %d\n", val);
-+ errors++;
-+ }
-+
-+/* Check that all read blocks are unused */
-+ val = REG_RD(bp, GRCBASE_PXP2, PXP2_REGISTERS_RD_BLK_CNT);
-+ if (val < 156) {
-+ BNX2X_ERR("Error, PXP2, The number of unused Read blocks "
-+   "< 156. Equal to %d\n", val);
-+ errors++;
-+ }
-+/* Check that DMAE registers go_co..c15 are zero */
-+ varr[0] = REG_RD(bp, GRCBASE_DMAE, DMAE_REGISTERS_GO_C0);
-+ varr[1] = REG_RD(bp, GRCBASE_DMAE, DMAE_REGISTERS_GO_C1);
-+ varr[2] = REG_RD(bp, GRCBASE_DMAE, DMAE_REGISTERS_GO_C2);
-+ varr[3] = REG_RD(bp, GRCBASE_DMAE, DMAE_REGISTERS_GO_C3);
-+ varr[4] = REG_RD(bp, GRCBASE_DMAE, DMAE_REGISTERS_GO_C4);
-+ varr[5] = REG_RD(bp, GRCBASE_DMAE, DMAE_REGISTERS_GO_C5);
-+ varr[6] = REG_RD(bp, GRCBASE_DMAE, DMAE_REGISTERS_GO_C6);
-+ varr[7] = REG_RD(bp, GRCBASE_DMAE, DMAE_REGISTERS_GO_C7);
-+ varr[8] = REG_RD(bp, GRCBASE_DMAE, DMAE_REGISTERS_GO_C8);
-+ varr[9] = REG_RD(bp, GRCBASE_DMAE, DMAE_REGISTERS_GO_C9);
-+ varr[10] = REG_RD(bp, GRCBASE_DMAE, DMAE_REGISTERS_GO_C10);
-+ varr[11] = REG_RD(bp, GRCBASE_DMAE, DMAE_REGISTERS_GO_C11);
-+ varr[12] = REG_RD(bp, GRCBASE_DMAE, DMAE_REGISTERS_GO_C12);
-+ varr[13] = REG_RD(bp, GRCBASE_DMAE, DMAE_REGISTERS_GO_C13);
-+ varr[14] = REG_RD(bp, GRCBASE_DMAE, DMAE_REGISTERS_GO_C14);
-+ varr[15] = REG_RD(bp, GRCBASE_DMAE, DMAE_REGISTERS_GO_C15);
-+ for (i = 0;i < 16; i++) {
-+ if (varr[i] != 0) {
-+ BNX2X_ERR("Error, DMAE, GO_C%d is not empty. "
-+   "Value is %d\n", i, varr[i]);
-+ errors++;
-+ }
-+ }
-+
-+/* Check that all AC counters are empty (expect leading connection 0) */
-+ for (i = 0; i < CFC_REGISTERS_ACTIVITY_COUNTER_SIZE ; i++) {
-+ val = REG_RD(bp, GRCBASE_CFC,
-+      CFC_REGISTERS_ACTIVITY_COUNTER + i*4);
-+ if ((val != 0) && (i != 0)) {
-+ BNX2X_ERR("Error, CFC: LCID %d, AC is not zero. "
-+   "AC equal to %d\n", i, val);
-+ errors++;
-+ }
-+ }
-+
-+/* Check that all QM queues are empty */
-+ for (i = 0; i < 64 ; i++) {
-+ val = REG_RD(bp, GRCBASE_QM, QM_REGISTERS_QTASKCTR_0 + i*4);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, QM: Q %d, Queue is not empty. "
-+   "Fill level is: %d\n", i, val);
-+ errors++;
-+ }
-+ }
-+
-+/* Check that all VOQ 0 credit is full */
-+ val = REG_RD(bp, GRCBASE_QM, QM_REGISTERS_VOQINITCREDIT_0);
-+ val2 = REG_RD(bp, GRCBASE_QM, QM_REGISTERS_VOQCREDIT_0);
-+ if (val2 != val) {
-+ BNX2X_ERR("Error, QM: VOQ0, VOQ credit not equal to initial"
-+   " credit. credit: %d, initial credit: %d\n",
-+   val2, val);
-+ errors++;
-+ }
-+
-+/* Check that all VOQ 1 credit is full */
-+ val = REG_RD(bp, GRCBASE_QM, QM_REGISTERS_VOQINITCREDIT_1);
-+ val2 = REG_RD(bp, GRCBASE_QM, QM_REGISTERS_VOQCREDIT_1);
-+ if (val2 != val) {
-+ BNX2X_ERR("Error, QM: VOQ1, VOQ credit not equal to initial"
-+   " credit. credit: %d, initial credit: %d\n",
-+   val2, val);
-+ errors++;
-+ }
-+
-+/* Check that all VOQ 4 credit is full */
-+ /* Check that all VOQ 1 credit is full */
-+ val = REG_RD(bp, GRCBASE_QM, QM_REGISTERS_VOQINITCREDIT_4);
-+ val2 = REG_RD(bp, GRCBASE_QM, QM_REGISTERS_VOQCREDIT_4);
-+ if (val2 != val) {
-+ BNX2X_ERR("Error, QM: VOQ4, VOQ credit not equal to initial."
-+   " credit: %d, initial credit: %d\n", val2, val);
-+ errors++;
-+ }
-+
-+/* Check that all byte credit for port 0 credit is full */
-+ val = REG_RD(bp, GRCBASE_QM, QM_REGISTERS_BYTECRDINITVAL);
-+ val2 = REG_RD(bp, GRCBASE_QM, QM_REGISTERS_PORT0BYTECRD);
-+ if (val2 != val) {
-+ BNX2X_ERR("Error, QM: port0, Byte credit not equal to initial"
-+   " credit. credit: %d, initial credit: %d\n",
-+   val2, val);
-+ errors++;
-+ }
-+
-+/* Check that all byte credit for port 1 credit is full */
-+ val2 = REG_RD(bp, GRCBASE_QM, QM_REGISTERS_PORT1BYTECRD);
-+ if (val2 != val) {
-+ BNX2X_ERR("Error, QM: port1, Byte credit not equal to initial "
-+   "credit. credit: %d, initial credit: %d\n",
-+   val2, val);
-+ errors++;
-+ }
-+
-+/* Check that XXq lock tables are empt */
-+ val = REG_RD(bp, GRCBASE_CCM, CCM_REGISTERS_CAM_OCCUP);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, CCM: CAM is not empty. "
-+   "Occupancy equal to: %d\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_XCM, XCM_REGISTERS_CAM_OCCUP);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, XCM: CAM is not empty. "
-+   "Occupancy equal to: %d\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_TCM, TCM_REGISTERS_CAM_OCCUP);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, TCM: CAM is not empty. "
-+   "Occupancy equal to: %d\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_UCM, UCM_REGISTERS_CAM_OCCUP);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, UCM: CAM is not empty. "
-+   "Occupancy equal to: %d\n", val);
-+ errors++;
-+ }
-+
-+/* Check that BRB1 is empty:   */
-+ val = REG_RD(bp, GRCBASE_BRB1, BRB1_REGISTERS_NUM_OF_FULL_BLOCKS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, BRB: is not empty. Occupancy equal to:"
-+   " %d\n", val);
-+ errors++;
-+ }
-+
-+/* SEMI checks */
-+/* 1. check thread ready is equal to 0 */
-+ val = REG_RD(bp, GRCBASE_TSEM, TSEM_REGISTERS_SLEEP_THREADS_VALID);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, TSEM: There are slebping threads. "
-+   "Slebp mask is equal to: %d\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_XSEM, XSEM_REGISTERS_SLEEP_THREADS_VALID);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, XSEM: There are slebping threads."
-+   " Slebp mask is equal to: %d\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_USEM, USEM_REGISTERS_SLEEP_THREADS_VALID);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, USEM: There are slebping threads."
-+   " Slebp mask is equal to: %d\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_CSEM, CSEM_REGISTERS_SLEEP_THREADS_VALID);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, CSEM: There are slebping threads."
-+   " Slebp mask is equal to: %d\n", val);
-+ errors++;
-+ }
-+
-+/* 2. check external store fifo is empty */
-+
-+ val = REG_RD(bp, GRCBASE_TSEM, TSEM_REGISTERS_SLOW_EXT_STORE_EMPTY);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, TSEM: External store FIFO is not empty\n");
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_XSEM, XSEM_REGISTERS_SLOW_EXT_STORE_EMPTY);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, XSEM: External store FIFO is not empty\n");
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_USEM, USEM_REGISTERS_SLOW_EXT_STORE_EMPTY);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, USEM: External store FIFO is not empty\n");
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_CSEM, CSEM_REGISTERS_SLOW_EXT_STORE_EMPTY);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, CSEM: External store FIFO is not empty\n");
-+ errors++;
-+ }
-+
-+/*SDM checks*/
-+/*1. Input queue empty
-+#set name [format "%sSDM_REGISTERS_QUEUE_EMPTY" $ins]
-+#set level [reg_read -n $name]
-+#if {$level != 1 } {
-+#    puts "Error, $ins-SDM: Parser input queue is not empty."
-+#    incr errors
-+#}*/
-+
-+/*2. Parser serial FIFO check*/
-+ val = REG_RD(bp, GRCBASE_TSDM, TSDM_REGISTERS_SYNC_PARSER_EMPTY);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, TSDM: Parser serial FIFO is not empty.\n");
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_XSDM, XSDM_REGISTERS_SYNC_PARSER_EMPTY);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, XSDM: Parser serial FIFO is not empty.\n");
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_USDM, USDM_REGISTERS_SYNC_PARSER_EMPTY);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, USDM: Parser serial FIFO is not empty.\n");
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_CSDM, CSDM_REGISTERS_SYNC_PARSER_EMPTY);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, CSDM: Parser serial FIFO is not empty.\n");
-+ errors++;
-+ }
-+
-+/*3. Parser serial FIFO check */
-+
-+ val = REG_RD(bp, GRCBASE_TSDM, TSDM_REGISTERS_SYNC_SYNC_EMPTY);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, TSDM: Parser SYNC serial FIFO "
-+   "is not empty.\n");
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_XSDM, XSDM_REGISTERS_SYNC_SYNC_EMPTY);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, XSDM: Parser SYNC serial FIFO "
-+   "is not empty.\n");
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_USDM, USDM_REGISTERS_SYNC_SYNC_EMPTY);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, USDM: Parser SYNC serial FIFO "
-+   "is not empty.\n");
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_CSDM, CSDM_REGISTERS_SYNC_SYNC_EMPTY);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, CSDM: Parser SYNC serial FIFO "
-+   "is not empty.\n");
-+ errors++;
-+ }
-+
-+/*4. pxp_ctrl rd_data fifo  empty in sdm_dma_rsp block*/
-+ val = REG_RD(bp, GRCBASE_TSDM, TSDM_REGISTERS_RSP_PXP_CTRL_RDATA_EMPTY);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, TSDM: pxp_ctrl rd_data fifo  not empty in "
-+   "sdm_dma_rsp block.\n");
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_XSDM, XSDM_REGISTERS_RSP_PXP_CTRL_RDATA_EMPTY);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, XSDM: pxp_ctrl rd_data fifo  not empty in "
-+   "sdm_dma_rsp block.\n");
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_USDM, USDM_REGISTERS_RSP_PXP_CTRL_RDATA_EMPTY);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, USDM: pxp_ctrl rd_data fifo  not empty in "
-+   "sdm_dma_rsp block.\n");
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_CSDM, CSDM_REGISTERS_RSP_PXP_CTRL_RDATA_EMPTY);
-+ if (val != 1) {
-+ BNX2X_ERR("Error, CSDM: pxp_ctrl rd_data fifo  not empty in "
-+   "sdm_dma_rsp block.\n");
-+ errors++;
-+ }
-+
-+/*DORQ fill level check */
-+ val = REG_RD(bp, GRCBASE_DQ, DORQ_REGISTERS_DQ_FILL_LVLF);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, DORQ: DORQ is not empty. Occupancy equal to:"
-+   " %d.\n", val);
-+ errors++;
-+ }
-+
-+/*Check that all interrupt statuses are zero.*/
-+ val = REG_RD(bp, GRCBASE_CFC, CFC_REGISTERS_CFC_INT_STS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, CFC: Interrupt status is not zero. "
-+   "Pending interrupts equal to 0x%x.\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_CDU, CDU_REGISTERS_CDU_INT_STS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, CDU: Interrupt status is not zero. "
-+   "Pending interrupts equal to 0x%x.\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_CCM, CCM_REGISTERS_CCM_INT_STS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, CCM: Interrupt status is not zero. "
-+   "Pending interrupts equal to 0x%x.\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_XCM, XCM_REGISTERS_XCM_INT_STS);
-+ if (val != 0x0) {
-+ BNX2X_ERR("Error, XCM: Interrupt status is not 0x0. "
-+   "Pending interrupts equal to 0x%x.\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_TCM, TCM_REGISTERS_TCM_INT_STS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, TCM: Interrupt status is not zero. "
-+   "Pending interrupts equal to 0x%x.\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_UCM, UCM_REGISTERS_UCM_INT_STS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, UCM: Interrupt status is not zero. "
-+   "Pending interrupts equal to 0x%x.\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_PBF, PBF_REGISTERS_PBF_INT_STS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, PBF: Interrupt status is not zero. "
-+   "Pending interrupts equal to 0x%x.\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_TIMERS, TM_REGISTERS_TM_INT_STS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, TIMERS: Interrupt status is not zero. "
-+   "Pending interrupts equal to 0x%x.\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_DQ, DORQ_REGISTERS_DORQ_INT_STS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, DORQ: Interrupt status is not zero. "
-+   "Pending interrupts equal to 0x%x.\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_SRCH, SRC_REGISTERS_SRC_INT_STS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, SRC: Interrupt status is not zero. "
-+   "Pending interrupts equal to 0x%x.\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_PRS, PRS_REGISTERS_PRS_INT_STS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, PRS: Interrupt status is not zero. "
-+   "Pending interrupts equal to 0x%x.\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_BRB1, BRB1_REGISTERS_BRB1_INT_STS);
-+ if ((val & ~0xFC00) != 0) {
-+ BNX2X_ERR("Error, BRB1: Interrupt status is not zero. "
-+   "Pending interrupts equal to 0x%x.\n", val);
-+ errors++;
-+ }
-+
-+/* Check pxp PORT 0 interrupts */
-+ val = REG_RD(bp, GRCBASE_PXP, PXP_REGISTERS_PXP_INT_STS_0);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, PXP 0: Interrupt status is not zero. "
-+   "Pending interrupts equal to 0x%x.\n", val);
-+ errors++;
-+ }
-+
-+/* Check pxp PORT 1 interrupts */
-+ val = REG_RD(bp, GRCBASE_PXP, PXP_REGISTERS_PXP_INT_STS_1);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, PXP 1: Interrupt status is not zero. "
-+   "Pending interrupts equal to 0x%x.\n", val);
-+ errors++;
-+ }
-+
-+/* Check UPB interrupts */
-+ val = REG_RD(bp, GRCBASE_UPB, PB_REGISTERS_PB_INT_STS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, PB: Interrupt status is not zero. "
-+   "Pending interrupts equal to 0x%x.\n", val);
-+ errors++;
-+ }
-+
-+/* Check XPB interrupts */
-+ val = REG_RD(bp, GRCBASE_XPB, PB_REGISTERS_PB_INT_STS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error, PB: Interrupt status is not zero. "
-+   "Pending interrupts equal to 0x%x.\n", val);
-+ errors++;
-+ }
-+
-+/*Check credits of the DORQ to the XCM*/
-+ val = REG_RD(bp, GRCBASE_DQ, DORQ_REGISTERS_RSPA_CRD_CNT);
-+ if (val != 2) {
-+ BNX2X_ERR("Error DORQ, Credit to XCM is not full. "
-+   "Value is %d\n", val);
-+ errors++;
-+ }
-+
-+/*Check credits of the DORQ to the UCM*/
-+ val = REG_RD(bp, GRCBASE_DQ, DORQ_REGISTERS_RSPA_CRD_CNT);
-+ if (val != 2) {
-+ BNX2X_ERR("Error DORQ, Credit to UCM is not full."
-+   " Value is %d\n", val);
-+ errors++;
-+ }
-+
-+/* Check there are no QM VOQ and byte credit errors*/
-+ val = REG_RD(bp, GRCBASE_QM, QM_REGISTERS_VOQCRDERRREG);
-+ if (val != 0) {
-+ BNX2X_ERR("Error QM, Credit error register is not zero"
-+   "(byte or credit overflow/underflow). Value is %d\n",
-+    val);
-+ errors++;
-+ }
-+/* Check that CFC num_lcid_inside is <=2 */
-+ val = REG_RD(bp, GRCBASE_CFC, CFC_REGISTERS_NUM_LCIDS_INSIDE);
-+ if (val > 2) {
-+ BNX2X_ERR("Error CFC, num_lcid_inside is larger than 2. "
-+   "Value is %d\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_CFC, CFC_REGISTERS_ERROR_VECTOR);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CFC, error vector is not zero. Value is %d\n",
-+   val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_CFC, CFC_REGISTERS_NUM_LCIDS_ARRIVING);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CFC, number of arriving LCIDs is not zero. "
-+   "Value is %d\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_CFC, CFC_REGISTERS_NUM_LCIDS_ALLOC);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CFC, number of alloc LCIDs is not zero. "
-+   "Value is %d\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_CFC, CFC_REGISTERS_NUM_LCIDS_LEAVING);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CFC, number of leaving LCIDs is not zero. "
-+   "Value is %d\n", val);
-+ errors++;
-+ }
-+
-+
-+ val = REG_RD(bp, GRCBASE_CFC, CFC_REGISTERS_NUM_LCIDS_LEAVING);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CFC, number of leaving LCIDs is not zero. "
-+   "Value is %d\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_DQ, DORQ_REGISTERS_DQ_FULL_ST);
-+ if (val != 0) {
-+ BNX2X_ERR("Error DORQ_REGISTERS_DQ_FULL_ST is not zero "
-+   "Value is %d\n", val);
-+ errors++;
-+ }
-+
-+ /* Check AEU registers (func 0) */
-+ val = REG_RD(bp, GRCBASE_MISC,
-+      MISC_REGISTERS_AEU_AFTER_INVERT_1_FUNC_0);
-+ if ((val & ~0xCFFC) != 0) {
-+ BNX2X_ERR("Warning MISC_REGISTERS_AEU_AFTER_INVERT_1_FUNC_0"
-+   " after mask !=0 (%x). no support of "
-+   "UNICORE in driver yet\n", (val & ~0xCFFC));
-+ warnings++;
-+ }
-+ val = REG_RD(bp, GRCBASE_MISC,
-+      MISC_REGISTERS_AEU_AFTER_INVERT_2_FUNC_0);
-+ if (val != 0) {
-+ BNX2X_ERR("Error MISC_REGISTERS_AEU_AFTER_INVERT_2_FUNC_0"
-+   " is not zero. Value is %x\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_MISC,
-+      MISC_REGISTERS_AEU_AFTER_INVERT_3_FUNC_0);
-+ if ((val & ~0xC2000000) != 0) {
-+ BNX2X_ERR("Error MISC_REGISTERS_AEU_AFTER_INVERT_3_FUNC_0 !=0 "
-+   "(%x). no MCP code.\n", (val & ~0xC2000000));
-+ warnings++;
-+ }
-+ val = REG_RD(bp, GRCBASE_MISC,
-+      MISC_REGISTERS_AEU_AFTER_INVERT_4_FUNC_0);
-+ if ((val & ~0xFFFFFF) != 0) {
-+ BNX2X_ERR("Error MISC_REGISTERS_AEU_AFTER_INVERT_4_FUNC_0"
-+   " after mask is not zero. Value is %x\n",
-+   (val & ~0xFFFFF));
-+ warnings++;
-+ }
-+
-+ /* Check AEU registers (func 1) */
-+ val = REG_RD(bp, GRCBASE_MISC,
-+      MISC_REGISTERS_AEU_AFTER_INVERT_1_FUNC_1);
-+ if ((val & ~0xCFFC) != 0) {
-+ BNX2X_ERR("Warning MISC_REGISTERS_AEU_AFTER_INVERT_1_FUNC_1"
-+   " after mask !=0 (%x)\n", (val & ~0xCFFC));
-+ warnings++;
-+ }
-+ val = REG_RD(bp, GRCBASE_MISC,
-+      MISC_REGISTERS_AEU_AFTER_INVERT_2_FUNC_1);
-+ if (val != 0) {
-+ BNX2X_ERR("Error MISC_REGISTERS_AEU_AFTER_INVERT_2_FUNC_1"
-+   " is not zero. Value is %x\n", val);
-+ warnings++;
-+ }
-+ val = REG_RD(bp, GRCBASE_MISC,
-+      MISC_REGISTERS_AEU_AFTER_INVERT_3_FUNC_1);
-+ if ((val & ~0xC2000000) != 0) {
-+ BNX2X_ERR("Error MISC_REGISTERS_AEU_AFTER_INVERT_3_FUNC_1"
-+   " !=0 (%x). no MCP code.\n", (val & ~0xC2000000));
-+ warnings++;
-+ }
-+ val = REG_RD(bp, GRCBASE_MISC,
-+      MISC_REGISTERS_AEU_AFTER_INVERT_4_FUNC_1);
-+ if ((val & ~0xFFFFFF) != 0) {
-+ BNX2X_ERR("Error MISC_REGISTERS_AEU_AFTER_INVERT_4_FUNC_1"
-+   " after mask is not zero. Value is %x\n",
-+   (val & ~0xFFFFF));
-+ warnings++;
-+ }
-+
-+ /* Check AEU registers (MCP) */
-+ val = REG_RD(bp, GRCBASE_MISC, MISC_REGISTERS_AEU_AFTER_INVERT_1_MCP);
-+ if ((val & ~0xCFFC) != 0) {
-+ BNX2X_ERR("Warning MISC_REGISTERS_AEU_AFTER_INVERT_1_MCP"
-+   " after mask !=0 (%x).\n", (val & ~0xCFFC));
-+ warnings++;
-+ }
-+ val = REG_RD(bp, GRCBASE_MISC, MISC_REGISTERS_AEU_AFTER_INVERT_2_MCP);
-+ if (val != 0) {
-+ BNX2X_ERR("Warning MISC_REGISTERS_AEU_AFTER_INVERT_2_MCP is"
-+   " not zero. Value is %x\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_MISC, MISC_REGISTERS_AEU_AFTER_INVERT_3_MCP);
-+ if ((val & ~0xC2000000) != 0) {
-+ BNX2X_ERR("Warning MISC_REGISTERS_AEU_AFTER_INVERT_3_MCP !=0 "
-+   "(%x). no MCP code.\n", (val & ~0xC2000000));
-+ warnings++;
-+ }
-+ val = REG_RD(bp, GRCBASE_MISC, MISC_REGISTERS_AEU_AFTER_INVERT_4_MCP);
-+ if ((val & ~0xFFFFFF) != 0) {
-+ BNX2X_ERR("Error MISC_REGISTERS_AEU_AFTER_INVERT_4_MCP"
-+   " after mask is not zero. Value is %x\n",
-+   (val & ~0xFFFFF));
-+ warnings++;
-+ }
-+
-+ /* Add idle checks for PBF block */
-+ if (!REG_RD(bp, GRCBASE_PBF, PBF_REGISTERS_DISABLE_NEW_TASK_PROC_P0)) {
-+ val = REG_RD(bp, GRCBASE_PBF, PBF_REGISTERS_P0_CREDIT);
-+ val2 = REG_RD(bp, GRCBASE_PBF, PBF_REGISTERS_P0_INIT_CRD);
-+ if (val != val2) {
-+ BNX2X_ERR("Error PBF, PBF_REGISTERS_P0_CREDIT %d "
-+   "differs PBF_REGISTERS_P0_INIT_CRD %d\n",
-+    val, val2);
-+ errors++;
-+ }
-+ }
-+
-+ if (!REG_RD(bp, GRCBASE_PBF, PBF_REGISTERS_DISABLE_NEW_TASK_PROC_P1)) {
-+ val = REG_RD(bp, GRCBASE_PBF, PBF_REGISTERS_P1_CREDIT);
-+ val2 = REG_RD(bp, GRCBASE_PBF, PBF_REGISTERS_P1_INIT_CRD);
-+ if (val != val2) {
-+ BNX2X_ERR("Error PBF, PBF_REGISTERS_P1_CREDIT %d"
-+   " differs PBF_REGISTERS_P1_INIT_CRD %d\n",
-+   val, val2);
-+ errors++;
-+ }
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_PBF, PBF_REGISTERS_P4_CREDIT);
-+ val2 = REG_RD(bp, GRCBASE_PBF, PBF_REGISTERS_P4_INIT_CRD);
-+ if (val != val2) {
-+ BNX2X_ERR("Error PBF, PBF_REGISTERS_P4_CREDIT %d differs"
-+   " PBF_REGISTERS_P4_INIT_CRD %d\n", val, val2);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_PBF, PBF_REGISTERS_P0_TASK_CNT);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PBF, PBF_REGISTERS_P0_TASK_CNT is not zero."
-+   " Value is %d \n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_PBF, PBF_REGISTERS_P1_TASK_CNT);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PBF, PBF_REGISTERS_P1_TASK_CNT is not zero."
-+   " Value is %d \n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_PBF, PBF_REGISTERS_P4_TASK_CNT);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PBF, PBF_REGISTERS_P4_TASK_CNT is not zero."
-+   " Value is %d \n", val);
-+ errors++;
-+ }
-+
-+ /* Extra checks for XCM blocks */
-+ val = REG_RD(bp, GRCBASE_XCM, XCM_REGISTERS_CFC_INIT_CRD);
-+ if (val != 1) {
-+ BNX2X_ERR("Error XCM, XCM_REGISTERS_CFC_INIT_CRD != 1,"
-+   " Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_XCM, XCM_REGISTERS_XQM_INIT_CRD);
-+ if (val != 32) {
-+ BNX2X_ERR("Error XCM, XCM_REGISTERS_XQM_INIT_CRD != 32,"
-+   " Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_XCM, XCM_REGISTERS_TM_INIT_CRD);
-+ if (val != 4) {
-+ BNX2X_ERR("Error XCM, XCM_REGISTERS_TM_INIT_CRD different "
-+   "than 4,Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_XCM, XCM_REGISTERS_FIC0_INIT_CRD);
-+ if (val != 64) {
-+ BNX2X_ERR("Error XCM, XCM_REGISTERS_FIC0_INIT_CRD different"
-+   " than 64, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_XCM, XCM_REGISTERS_FIC1_INIT_CRD);
-+ if (val != 64) {
-+ BNX2X_ERR("Error XCM, XCM_REGISTERS_FIC1_INIT_CRD different"
-+   " than 64, Value is %d\n", val);
-+ errors++;
-+ }
-+ /* Extra checks for UCM blocks */
-+ val = REG_RD(bp, GRCBASE_UCM, UCM_REGISTERS_CFC_INIT_CRD);
-+ if (val != 1) {
-+ BNX2X_ERR("Error UCM, UCM_REGISTERS_CFC_INIT_CRD different"
-+   " than 1, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_UCM, UCM_REGISTERS_UQM_INIT_CRD);
-+ if (val != 32) {
-+ BNX2X_ERR("Error UCM, UCM_REGISTERS_UQM_INIT_CRD different"
-+   " than 32, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_UCM, UCM_REGISTERS_TM_INIT_CRD);
-+ if (val != 4) {
-+ BNX2X_ERR("Error UCM, UCM_REGISTERS_TM_INIT_CRD different"
-+   " than 4, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_UCM, UCM_REGISTERS_FIC0_INIT_CRD);
-+ if (val != 64) {
-+ BNX2X_ERR("Error UCM, UCM_REGISTERS_FIC0_INIT_CRD different"
-+   " than 64, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_UCM, UCM_REGISTERS_FIC1_INIT_CRD);
-+ if (val != 64) {
-+ BNX2X_ERR("Error UCM, UCM_REGISTERS_FIC1_INIT_CRD different"
-+   " than 64, Value is %d\n", val);
-+ errors++;
-+ }
-+ /*  Extra checks for TCM blocks */
-+ val = REG_RD(bp, GRCBASE_TCM, TCM_REGISTERS_CFC_INIT_CRD);
-+ if (val != 1) {
-+ BNX2X_ERR("Error TCM, TCM_REGISTERS_CFC_INIT_CRD different "
-+   "than 1, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_TCM, TCM_REGISTERS_TQM_INIT_CRD);
-+ if (val != 32) {
-+ BNX2X_ERR("Error TCM, TCM_REGISTERS_TQM_INIT_CRD different "
-+   "than 32, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_TCM, TCM_REGISTERS_FIC0_INIT_CRD);
-+ if (val != 64) {
-+ BNX2X_ERR("Error TCM, TCM_REGISTERS_FIC0_INIT_CRD different"
-+   " than 64, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_TCM, TCM_REGISTERS_FIC1_INIT_CRD);
-+ if (val != 64) {
-+ BNX2X_ERR("Error TCM, TCM_REGISTERS_FIC1_INIT_CRD different"
-+   " than 64, Value is %d\n", val);
-+ errors++;
-+ }
-+ /* Extra checks for CCM blocks */
-+ val = REG_RD(bp, GRCBASE_CCM, CCM_REGISTERS_CFC_INIT_CRD);
-+ if (val != 1) {
-+ BNX2X_ERR("Error CCM, CCM_REGISTERS_CFC_INIT_CRD different"
-+   " than 1, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_CCM, CCM_REGISTERS_CQM_INIT_CRD);
-+ if (val != 32) {
-+ BNX2X_ERR("Error CCM, CCM_REGISTERS_TQM_INIT_CRD different"
-+   " than 32, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_CCM, CCM_REGISTERS_FIC0_INIT_CRD);
-+ if (val != 64) {
-+ BNX2X_ERR("Error CCM, CCM_REGISTERS_FIC0_INIT_CRD different"
-+   " than 64, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_CCM, CCM_REGISTERS_FIC1_INIT_CRD);
-+ if (val != 64) {
-+ BNX2X_ERR("Error CCM, CCM_REGISTERS_FIC1_INIT_CRD different"
-+   " than 64, Value is %d\n", val);
-+ errors++;
-+ }
-+ /* Extra checks for FOC credits */
-+ for (foc_num = 0; foc_num < 4; foc_num++) {
-+ val = REG_RD(bp, GRCBASE_USEM,
-+      (USEM_REGISTERS_FAST_MEMORY +
-+       0x18000+foc_num*0x40));
-+ if (val != usem_foc_credits[foc_num]) {
-+ BNX2X_ERR("Error USEM, FOC%d_CREDIT different than %d,"
-+   " Value is %d\n",
-+   foc_num, usem_foc_credits[foc_num], val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_XSEM,
-+      (XSEM_REGISTERS_FAST_MEMORY +
-+       0x18000 + foc_num*0x40));
-+ if (val != xsem_foc_credits[foc_num]) {
-+ BNX2X_ERR("Error XSEM, FOC%d_CREDIT different than %d,"
-+   " Value is %d\n",
-+   foc_num, xsem_foc_credits[foc_num], val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_CSEM,
-+      (CSEM_REGISTERS_FAST_MEMORY +
-+       0x18000 + foc_num*0x40));
-+ if (val != csem_foc_credits[foc_num]) {
-+ BNX2X_ERR("Error CSEM, FOC%d_CREDIT different than %d,"
-+   " Value is %d\n",
-+   foc_num, csem_foc_credits[foc_num], val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_TSEM,
-+      (TSEM_REGISTERS_FAST_MEMORY +
-+       0x18000 + foc_num*0x40));
-+ if (val != tsem_foc_credits[foc_num]) {
-+ BNX2X_ERR("Error TSEM, FOC%d_CREDIT different than %d, "
-+   "Value is %d\n",
-+   foc_num, tsem_foc_credits[foc_num], val);
-+ errors++;
-+ }
-+ }
-+
-+ /* Extra PRS checks */
-+ val = REG_RD(bp, GRCBASE_PRS, PRS_REGISTERS_TSDM_CURRENT_CREDIT);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PRS, PRS_REGISTERS_TSDM_CURRENT_CREDIT "
-+   "different than 0,"
-+   " Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_PRS, PRS_REGISTERS_TCM_CURRENT_CREDIT);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PRS, PRS_REGISTERS_TCM_CURRENT_CREDIT "
-+   "different than 0,"
-+   " Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_PRS, PRS_REGISTERS_CFC_LD_CURRENT_CREDIT);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PRS, PRS_REGISTERS_CFC_LD_CURRENT_CREDIT "
-+   "different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_PRS, PRS_REGISTERS_CFC_SEARCH_CURRENT_CREDIT);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PRS, PRS_REGISTERS_CFC_SEARCH_CURRENT_CREDIT "
-+   "different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_PRS, PRS_REGISTERS_SRC_CURRENT_CREDIT);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PRS, PRS_REGISTERS_SRC_CURRENT_CREDIT "
-+   "different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_PRS, PRS_REGISTERS_PENDING_BRB_PRS_RQ);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PRS, PRS_REGISTERS_PENDING_BRB_PRS_RQ "
-+   "different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_PRS, PRS_REGISTERS_PENDING_BRB_CAC0_RQ);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PRS, PRS_REGISTERS_PENDING_BRB_CAC0_RQ "
-+   "different than 0,Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_PRS, PRS_REGISTERS_PENDING_BRB_CAC1_RQ);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PRS, PRS_REGISTERS_PENDING_BRB_CAC1_RQ "
-+   "different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_PRS, PRS_REGISTERS_PENDING_BRB_CAC2_RQ);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PRS, PRS_REGISTERS_PENDING_BRB_CAC2_RQ "
-+   "different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_PRS, PRS_REGISTERS_PENDING_BRB_CAC3_RQ);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PRS, PRS_REGISTERS_PENDING_BRB_CAC3_RQ "
-+   "different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_PRS, PRS_REGISTERS_PENDING_BRB_CAC4_RQ);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PRS, PRS_REGISTERS_PENDING_BRB_CAC0_RQ "
-+   "different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_PRS, PRS_REGISTERS_PENDING_BRB_CAC4_RQ);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PRS, PRS_REGISTERS_PENDING_BRB_CAC0_RQ "
-+   "different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_PRS, PRS_REGISTERS_SERIAL_NUM_STATUS_LSB);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PRS, PRS_REGISTERS_SERIAL_NUM_STATUS_LSB "
-+   "different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_PRS, PRS_REGISTERS_SERIAL_NUM_STATUS_MSB);
-+ if (val != 0) {
-+ BNX2X_ERR("Error PRS, PRS_REGISTERS_SERIAL_NUM_STATUS_MSB "
-+   "different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+
-+ val = REG_RD(bp, GRCBASE_CDU, CDU_REGISTERS_ERROR_DATA);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CDU, CDU_REGISTERS_ERROR_DATA "
-+   "Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_CCM, CCM_REGISTERS_STORM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, CCM_REGISTERS_STORM_LENGTH_MIS"
-+   " Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_CCM, CCM_REGISTERS_CSDM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, CCM_REGISTERS_CSDM_LENGTH_MIS "
-+   " Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_CCM, CCM_REGISTERS_TSEM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, CCM_REGISTERS_TSEM_LENGTH_MIS"
-+   " Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_CCM, CCM_REGISTERS_XSEM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, CCM_REGISTERS_XSEM_LENGTH_MIS"
-+   " Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_CCM, CCM_REGISTERS_USEM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, CCM_REGISTERS_USEM_LENGTH_MIS"
-+   "Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_TCM, CCM_REGISTERS_PBF_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, CCM_REGISTERS_PBF_LENGTH_MIS"
-+   " Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_TCM, TCM_REGISTERS_STORM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, TCM_REGISTERS_STORM_LENGTH_MIS"
-+   " Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_TCM, TCM_REGISTERS_TSDM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, TCM_REGISTERS_TSDM_LENGTH_MIS"
-+   " Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_TCM, TCM_REGISTERS_PRS_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, TCM_REGISTERS_PRS_LENGTH_MIS"
-+   "Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_TCM, TCM_REGISTERS_PBF_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, TCM_REGISTERS_PBF_LENGTH_MIS"
-+   " Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_TCM, TCM_REGISTERS_USEM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, TCM_REGISTERS_USEM_LENGTH_MIS"
-+   " Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_TCM, TCM_REGISTERS_USEM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, TCM_REGISTERS_USEM_LENGTH_MIS"
-+   " different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_TCM, TCM_REGISTERS_CSEM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, TCM_REGISTERS_CSEM_LENGTH_MIS"
-+   " different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_UCM, UCM_REGISTERS_STORM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, UCM_REGISTERS_STORM_LENGTH_MIS"
-+   " different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_UCM, UCM_REGISTERS_USDM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, UCM_REGISTERS_USDM_LENGTH_MIS"
-+   " different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_UCM, UCM_REGISTERS_TSEM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, UCM_REGISTERS_TSEM_LENGTH_MIS"
-+   " different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_UCM, UCM_REGISTERS_CSEM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, UCM_REGISTERS_CSEM_LENGTH_MIS"
-+   " different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_UCM, UCM_REGISTERS_XSEM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, UCM_REGISTERS_XSEM_LENGTH_MIS"
-+   " different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_UCM, UCM_REGISTERS_DORQ_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, UCM_REGISTERS_DORQ_LENGTH_MIS"
-+   " different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_XCM, XCM_REGISTERS_STORM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, XCM_REGISTERS_STORM_LENGTH_MIS"
-+   " different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_XCM, XCM_REGISTERS_XSDM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, XCM_REGISTERS_XSDM_LENGTH_MIS "
-+   "different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_XCM, XCM_REGISTERS_TSEM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, XCM_REGISTERS_TSEM_LENGTH_MIS "
-+   "different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_XCM, XCM_REGISTERS_CSEM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, XCM_REGISTERS_CSEM_LENGTH_MIS"
-+   " different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_XCM, XCM_REGISTERS_USEM_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, XCM_REGISTERS_USEM_LENGTH_MIS"
-+   " different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_XCM, XCM_REGISTERS_DORQ_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, XCM_REGISTERS_DORQ_LENGTH_MIS"
-+   "different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_XCM, XCM_REGISTERS_DORQ_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, XCM_REGISTERS_DORQ_LENGTH_MIS"
-+   " different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_XCM, XCM_REGISTERS_PBF_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, XCM_REGISTERS_PBF_LENGTH_MIS"
-+   " different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_XCM, XCM_REGISTERS_NIG0_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, XCM_REGISTERS_NIG0_LENGTH_MIS"
-+   " different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+ val = REG_RD(bp, GRCBASE_XCM, XCM_REGISTERS_NIG1_LENGTH_MIS);
-+ if (val != 0) {
-+ BNX2X_ERR("Error CCM, XCM_REGISTERS_NIG1_LENGTH_MIS "
-+   "different than 0, Value is %d\n", val);
-+ errors++;
-+ }
-+
-+ if (errors == 0) {
-+ BNX2X_ERR("completed successfuly (with %d warnings)\n",
-+   warnings);
-+ } else {
-+ BNX2X_ERR("failed (with %d errors, %d warnings)\n",
-+   errors, warnings);
-+ }
-+ return errors;
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION[] = {
++0x1};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION, 0X62F0, 1);
 +}
 +
-+static int bnx2x_mc_assert(struct bnx2x *bp)
++
 +{
-+ u8 i, j;
-+ int rc = 0;
-+ char last_idx;
-+ const char storm[] = {"XTCU"};
-+ const u32 intmem_base[] = {
-+ BAR_XSTRORM_INTMEM,
-+ BAR_TSTRORM_INTMEM,
-+ BAR_CSTRORM_INTMEM,
-+ BAR_USTRORM_INTMEM
-+ };
-+
-+ /* Go through all instances of all SEMIs */
-+ for (i = 0; i < 4; i++) {
-+ last_idx = REG_RD8(bp, XSTORM_ASSERT_LIST_INDEX_OFFSET,
-+    intmem_base[i]);
-+ BNX2X_ERR("DATA %cSTORM_ASSERT_LIST_INDEX 0x%x\n",
-+   storm[i], last_idx);
-+
-+ /* print the asserts */
-+#define STROM_ASSERT_ARRAY_SIZE 50
-+ for (j = 0; j < STROM_ASSERT_ARRAY_SIZE; j++) {
-+ u32 row0, row1, row2, row3;
-+ row0 = REG_RD(bp, XSTORM_ASSERT_LIST_OFFSET(j),
-+       intmem_base[i]);
-+ row1 = REG_RD(bp, XSTORM_ASSERT_LIST_OFFSET(j) + 4,
-+       intmem_base[i]);
-+ row2 = REG_RD(bp, XSTORM_ASSERT_LIST_OFFSET(j) + 8,
-+       intmem_base[i]);
-+ row3 = REG_RD(bp, XSTORM_ASSERT_LIST_OFFSET(j) + 12,
-+       intmem_base[i]);
-+
-+ if (row0 != COMMON_ASM_INVALID_ASSERT_OPCODE) {
-+ BNX2X_ERR("DATA %cSTORM_ASSERT_INDEX 0x%x ="
-+   " 0x%08x 0x%08x 0x%08x 0x%08x\n",
-+   storm[i], j, row3, row2, row1, row0);
-+ rc++;
-+ } else {
-+ break;
-+ }
-+ }
-+ }
-+ return rc;
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_1[] = {
++0x34};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_1, 0X6000, 1);
 +}
 +
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_2[] = {
++0x18};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_2, 0X6010, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_3[] = {
++0xc};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_3, 0X6020, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_4[] = {
++0x20};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_4, 0X6030, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_5[] = {
++0x138};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_5, 0X60C0, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_6[] = {
++0x1f4};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_6, 0X60F0, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_7[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x1};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_7,
++0X800, 436);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_8[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_8,
++0X408, 200);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_9[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_9,
++0X400, 2);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_10[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++0xffffffff, 0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_10,
++0X1000, 336);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_11[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++0xffffffff, 0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_11,
++0X1150, 336);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_12[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_12,
++0X500, 10);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_13[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_13,
++0X50A, 10);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_14[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_14,
++0X514, 6);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_15[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_15,
++0X51A, 6);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_16[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_16,
++0X540, 10);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_17[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_17,
++0X54A, 10);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_18[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_18,
++0X554, 18);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_19[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_19,
++0X566, 18);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_20[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_20,
++0X578, 108);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_21[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_21,
++0X5E4, 108);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_22[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_22,
++0X200, 2);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_23[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_23,
++0X202, 2);
++}
++
++
++{
++static const u32 
+EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_24[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_24,
++0X200, 2);
++}
++
++
++{
++static const u32 
+EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_25[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_25,
++0X202, 2);
++}
++
++
++{
++static const u32 
+EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_26[] = {
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_26,
++0X204, 4);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_27[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0xffffffff, 0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_27,
++0X208, 18);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_28[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0xffffffff, 0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_28,
++0X21A, 18);
++}
++
++
++{
++static const u32 
+EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_29[] = {
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_29,
++0X7E4, 4);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_30[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_30,
++0XA42, 10);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_31[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_31,
++0XA4C, 10);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA[] = {
++0x1};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA, 0X62F0, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_1[] = {
++0x34};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_1, 0X6000, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_2[] = {
++0x18};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_2, 0X6010, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_3[] = {
++0xc};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_3, 0X6020, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_4[] = {
++0x20};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_4, 0X6030, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_5[] = {
++0x1388};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_5, 0X60C0, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_6[] = {
++0x1f4};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_6, 0X60F0, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_7[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x1};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_7, 0X800,
++436);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_8[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_8, 0X408,
++200);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_9[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_9, 
+0X400, 2);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_10[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++0xffffffff, 0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_10, 0X1000,
++336);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_11[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++0xffffffff, 0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_11, 0X1150,
++336);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_12[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_12, 
+0X500, 10);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_13[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_13, 
+0X50A, 10);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_14[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_14, 
+0X514, 6);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_15[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_15, 
+0X51A, 6);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_16[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_16, 
+0X540, 10);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_17[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_17, 
+0X54A, 10);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_18[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_18, 
+0X554, 18);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_19[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_19, 
+0X566, 18);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_20[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_20, 0X578,
++108);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_21[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_21, 0X5E4,
++108);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_22[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_22, 
+0X200, 2);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_23[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_23, 
+0X202, 2);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_24[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_24, 0X200,
++2);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_25[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_25, 0X202,
++2);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_26[] = {
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_26, 0X204,
++4);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_27[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0xffffffff, 0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_27, 
+0X208, 18);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_28[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0xffffffff, 0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_28, 
+0X21A, 18);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_29[] = {
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_29, 0X7E4,
++4);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_30[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_30, 
+0XA42, 10);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_31[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_31, 
+0XA4C, 10);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC[] = {
++0x1};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC, 0X62F0, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_1[] = {
++0x34};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_1, 0X6000, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_2[] = {
++0x18};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_2, 0X6010, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_3[] = {
++0xc};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_3, 0X6020, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_4[] = {
++0x20};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_4, 0X6030, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_5[] = {
++0x7a120};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_5, 0X60C0, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_6[] = {
++0x1f4};
++INIT_MEM_WR(TSEM, TSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_6, 0X60F0, 1);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_7[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x1};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_7, 0X800,
++436);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_8[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_8, 0X408,
++200);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_9[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_9, 
+0X400, 2);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_10[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++0xffffffff, 0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_10, 0X1000,
++336);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_11[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
++0xffffffff, 0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_11, 0X1150,
++336);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_12[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_12, 
+0X500, 10);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_13[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_13, 
+0X50A, 10);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_14[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_14, 
+0X514, 6);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_15[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_15, 
+0X51A, 6);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_16[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_16, 
+0X540, 10);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_17[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_17, 
+0X54A, 10);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_18[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_18, 
+0X554, 18);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_19[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_19, 
+0X566, 18);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_20[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_20, 0X578,
++108);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_21[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_21, 0X5E4,
++108);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_22[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_22, 
+0X200, 2);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_23[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_23, 
+0X202, 2);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_24[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_24, 0X200,
++2);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_25[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_25, 0X202,
++2);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_26[] = {
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_26, 0X204,
++4);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_27[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0xffffffff, 0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_27, 
+0X208, 18);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_28[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0xffffffff, 0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_28, 
+0X21A, 18);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_29[] = {
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_29, 0X7E4,
++4);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_30[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_TSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_30, 
+0XA42, 10);
++}
++
++
++{
++static const u32 EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_31[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_TSTRORM_INTMEM, TSEM, TSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_TSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_31, 
+0XA4C, 10);
++}
++
++INIT_REG_WR(CDU, CDU_REGISTERS_CDU_CONTROL0, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CDU, CDU_REGISTERS_CDU_CHK_MASK0, 0X3D000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CDU, CDU_REGISTERS_CDU_CHK_MASK1, 0X3D, COMMON, INIT_HARDWARE);
++
++{
++static const u32 EVST_CDU_L1TT_COMMON_MEMORY_INIT_HARDWARE[] = {
++0xfffffff3, 0x314fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 
+0xcf3c,
++0xcdcdcdcd, 0xfffffff1, 0x30efffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300,
++0xf3cf3cf3, 0x1cf3c, 0xcdcdcdcd,
++0xfffffff6, 0x305fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 
+0x2cf3c,
++0xcdcdcdcd, 0xfffff406, 0x1cbfffff, 0xc30c305, 0xc30c30c3, 0xcf300014,
++0xf3cf3cf3, 0x4cf3c, 0xcdcdcdcd,
++0xfffffff2, 0x304fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 
+0x8cf3c,
++0xcdcdcdcd, 0xfffffffa, 0x302fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300,
++0xf3cf3cf3, 0x10cf3c, 0xcdcdcdcd,
++0xfffffff7, 0x31efffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3,
++0x20cf3c, 0xcdcdcdcd, 0xfffffff5, 0x302fffff, 0xc30c30c, 0xc30c30c3,
++0xcf3cf300, 0xf3cf3cf3, 0x40cf3c, 0xcdcdcdcd,
++0xfffffff3, 0x310fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 
+0xcf3c,
++0xcdcdcdcd, 0xfffffff1, 0x310fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300,
++0xf3cf3cf3, 0x1cf3c, 0xcdcdcdcd,
++0xfffffff6, 0x305fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 
+0x2cf3c,
++0xcdcdcdcd, 0xfffff406, 0x1cbfffff, 0xc30c305, 0xc30c30c3, 0xcf300014,
++0xf3cf3cf3, 0x4cf3c, 0xcdcdcdcd,
++0xfffffff2, 0x304fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 
+0x8cf3c,
++0xcdcdcdcd, 0xfffffffa, 0x302fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300,
++0xf3cf3cf3, 0x10cf3c, 0xcdcdcdcd,
++0xfffffff7, 0x30efffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3,
++0x20cf3c, 0xcdcdcdcd, 0xfffffff5, 0x304fffff, 0xc30c30c, 0xc30c30c3,
++0xcf3cf300, 0xf3cf3cf3, 0x40cf3c, 0xcdcdcdcd,
++0xfffffff3, 0x31efffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 
+0xcf3c,
++0xcdcdcdcd, 0xfffffff1, 0x310fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300,
++0xf3cf3cf3, 0x1cf3c, 0xcdcdcdcd,
++0xfffffff6, 0x305fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 
+0x2cf3c,
++0xcdcdcdcd, 0xfffff406, 0x1cbfffff, 0xc30c305, 0xc30c30c3, 0xcf300014,
++0xf3cf3cf3, 0x4cf3c, 0xcdcdcdcd,
++0xfffffff2, 0x304fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 
+0x8cf3c,
++0xcdcdcdcd, 0xfffffffa, 0x302fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300,
++0xf3cf3cf3, 0x10cf3c, 0xcdcdcdcd,
++0xffffff97, 0x56fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cc000, 0xf3cf3cf3, 
+0x20cf3c,
++0xcdcdcdcd, 0xfffffff5, 0x310fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300,
++0xf3cf3cf3, 0x40cf3c, 0xcdcdcdcd,
++0xfffffff3, 0x320fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 
+0xcf3c,
++0xcdcdcdcd, 0xfffffff1, 0x310fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300,
++0xf3cf3cf3, 0x1cf3c, 0xcdcdcdcd,
++0xfffffff6, 0x305fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 
+0x2cf3c,
++0xcdcdcdcd, 0xfffff406, 0x1cbfffff, 0xc30c305, 0xc30c30c3, 0xcf300014,
++0xf3cf3cf3, 0x4cf3c, 0xcdcdcdcd,
++0xfffffff2, 0x304fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300, 0xf3cf3cf3, 
+0x8cf3c,
++0xcdcdcdcd, 0xffffff8a, 0x42fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cc000,
++0xf3cf3cf3, 0x10cf3c, 0xcdcdcdcd,
++0xffffff97, 0x5cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cc000, 0xf3cf3cf3, 
+0x20cf3c,
++0xcdcdcdcd, 0xfffffff5, 0x310fffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf300,
++0xf3cf3cf3, 0x40cf3c, 0xcdcdcdcd,
++0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 
+0xcf3c,
++0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc,
++0xf3cf3cf3, 0x1cf3c, 0xcdcdcdcd,
++0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 
+0x2cf3c,
++0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc,
++0xf3cf3cf3, 0x4cf3c, 0xcdcdcdcd,
++0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 
+0x8cf3c,
++0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc,
++0xf3cf3cf3, 0x10cf3c, 0xcdcdcdcd,
++0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3,
++0x20cf3c, 0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3,
++0xcf3cf3cc, 0xf3cf3cf3, 0x40cf3c, 0xcdcdcdcd,
++0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 
+0xcf3c,
++0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc,
++0xf3cf3cf3, 0x1cf3c, 0xcdcdcdcd,
++0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 
+0x2cf3c,
++0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc,
++0xf3cf3cf3, 0x4cf3c, 0xcdcdcdcd,
++0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 
+0x8cf3c,
++0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc,
++0xf3cf3cf3, 0x10cf3c, 0xcdcdcdcd,
++0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3,
++0x20cf3c, 0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3,
++0xcf3cf3cc, 0xf3cf3cf3, 0x40cf3c, 0xcdcdcdcd,
++0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 
+0xcf3c,
++0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc,
++0xf3cf3cf3, 0x1cf3c, 0xcdcdcdcd,
++0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 
+0x2cf3c,
++0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc,
++0xf3cf3cf3, 0x4cf3c, 0xcdcdcdcd,
++0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 
+0x8cf3c,
++0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc,
++0xf3cf3cf3, 0x10cf3c, 0xcdcdcdcd,
++0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3,
++0x20cf3c, 0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3,
++0xcf3cf3cc, 0xf3cf3cf3, 0x40cf3c, 0xcdcdcdcd,
++0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 
+0xcf3c,
++0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc,
++0xf3cf3cf3, 0x1cf3c, 0xcdcdcdcd,
++0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 
+0x2cf3c,
++0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc,
++0xf3cf3cf3, 0x4cf3c, 0xcdcdcdcd,
++0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3, 
+0x8cf3c,
++0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc,
++0xf3cf3cf3, 0x10cf3c, 0xcdcdcdcd,
++0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3, 0xcf3cf3cc, 0xf3cf3cf3,
++0x20cf3c, 0xcdcdcdcd, 0xffffffff, 0x30cfffff, 0xc30c30c, 0xc30c30c3,
++0xcf3cf3cc, 0xf3cf3cf3, 0x40cf3c, 0xcdcdcdcd};
++INIT_MEM_WB(CDU, CDU_REGISTERS_L1TT, COMMON, INIT_HARDWARE,
++EVST_CDU_L1TT_COMMON_MEMORY_INIT_HARDWARE, 0X0, 512);
++}
++
++
++{
++static const u32 EVST_CDU_MATT_COMMON_MEMORY_INIT_HARDWARE[] = {
++0xa0000, 0x700a0, 0x28110, 0xb8138, 0x201f0, 0x10210, 0xf0220, 0x10310,
++0x80000, 0x80080, 0x28100, 0xb8128, 0x201e0, 0x10200, 0x70210, 0x20280,
++0xf0000, 0x800f0, 0x28170, 0xb8198, 0x20250, 0x10270, 0xb8280, 0x80338,
++0x100000, 0x80100, 0x28180, 0xb81a8, 0x20260, 0x18280, 0xe8298, 0x80380,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_MEM_WB(CDU, CDU_REGISTERS_MATT, COMMON, INIT_HARDWARE,
++EVST_CDU_MATT_COMMON_MEMORY_INIT_HARDWARE, 0X0, 64);
++}
++
++INIT_REG_WR(CFC, CFC_REGISTERS_CONTROL0, 0X10, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CFC, CFC_REGISTERS_DISABLE_ON_ERROR, 0X3FFF, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CFC, CFC_REGISTERS_LCREQ_WEIGHTS, 0X84924A, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_INC_VALUE, 0XF, COMMON, INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_EVENT_ID_1, 0X45, COMMON, INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_EVENT_ID_2, 0X84, COMMON, INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_EVENT_ID_3, 0X6, COMMON, INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_NO_MATCH_EVENT_ID, 0X4, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_TYPE_0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_TYPE_1, 0X12170000, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_TYPE_2, 0X22170000, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_TYPE_3, 0X32170000, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_TYPE_4, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_TYPE_5, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_TYPE_6, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_TYPE_7, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_LOOPBACK_TYPE_0, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_LOOPBACK_TYPE_1, 0X12150000, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_LOOPBACK_TYPE_2, 0X22150000, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_LOOPBACK_TYPE_3, 0X32150000, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_LOOPBACK_TYPE_4, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_LOOPBACK_TYPE_5, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_LOOPBACK_TYPE_6, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_LOOPBACK_TYPE_7, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_NO_MATCH_HDR, 0X2100000, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_FLUSH_NO_LOAD_TYPE_0, 0X100000, 
+COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_FLUSH_NO_LOAD_TYPE_1, 0X10100000, 
+COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_FLUSH_NO_LOAD_TYPE_2, 0X20100000, 
+COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_FLUSH_NO_LOAD_TYPE_3, 0X30100000, 
+COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_FLUSH_NO_LOAD_TYPE_4, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_FLUSH_NO_LOAD_TYPE_5, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_FLUSH_NO_LOAD_TYPE_6, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_FLUSH_NO_LOAD_TYPE_7, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_FLUSH_LOAD_TYPE_0, 0X100000, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_FLUSH_LOAD_TYPE_1, 0X12140000, 
+COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_FLUSH_LOAD_TYPE_2, 0X22140000, 
+COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_FLUSH_LOAD_TYPE_3, 0X32140000, 
+COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_FLUSH_LOAD_TYPE_4, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_FLUSH_LOAD_TYPE_5, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_FLUSH_LOAD_TYPE_6, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CM_HDR_FLUSH_LOAD_TYPE_7, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CID_PORT_0, 0X0, PORT0, INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_CID_PORT_1, 0X800000, PORT1, INIT_HARDWARE);
++INIT_REG_RD(PRS, PRS_REGISTERS_NUM_OF_PACKETS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(PRS, PRS_REGISTERS_NUM_OF_CFC_FLUSH_MESSAGES, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_RD(PRS, PRS_REGISTERS_NUM_OF_TRANSPARENT_FLUSH_MESSAGES, 0X0, 
+COMMON,
++INIT_HARDWARE);
++INIT_REG_RD(PRS, PRS_REGISTERS_NUM_OF_DEAD_CYCLES, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_FLUSH_REGIONS_TYPE_0, 0XFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_FLUSH_REGIONS_TYPE_1, 0XFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_FLUSH_REGIONS_TYPE_2, 0XFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_FLUSH_REGIONS_TYPE_3, 0XFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_FLUSH_REGIONS_TYPE_4, 0XFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_FLUSH_REGIONS_TYPE_5, 0XFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_FLUSH_REGIONS_TYPE_6, 0XFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_FLUSH_REGIONS_TYPE_7, 0XFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_PURE_REGIONS, 0X3E, COMMON, INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_PACKET_REGIONS_TYPE_0, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_PACKET_REGIONS_TYPE_1, 0X3F, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_PACKET_REGIONS_TYPE_2, 0X3F, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_PACKET_REGIONS_TYPE_3, 0X3F, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_PACKET_REGIONS_TYPE_4, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_PACKET_REGIONS_TYPE_5, 0X3F, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_PACKET_REGIONS_TYPE_6, 0X3F, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PRS, PRS_REGISTERS_PACKET_REGIONS_TYPE_7, 0X3F, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_CFC_RSP_START_ADDR, 0X411, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_CMP_COUNTER_START_ADDR, 0X400, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_Q_COUNTER_START_ADDR, 0X404, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_PCK_END_MSG_START_ADDR, 0X419, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_CMP_COUNTER_MAX0, 0XFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_CMP_COUNTER_MAX1, 0XFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_CMP_COUNTER_MAX2, 0XFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_CMP_COUNTER_MAX3, 0XFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_0, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_1, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_2, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_3, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_4, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_5, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_6, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_7, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_8, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_9, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_10, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_11, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_12, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_13, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_14, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_15, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_16, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_17, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_18, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_19, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_20, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_21, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_22, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_23, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_24, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_25, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_26, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_27, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_28, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_29, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_30, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_EVENT_31, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_1, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_2, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_3, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_4, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_5, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_6, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_7, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_8, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_9, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_10, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_11, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_12, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_13, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_14, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_15, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_16, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_17, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_18, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_19, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_20, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_21, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_22, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_23, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_24, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_25, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_26, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_27, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_28, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_29, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_30, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_T_31, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_0, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_1, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_2, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_3, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_4, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_5, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_6, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_7, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_8, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_9, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_10, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_11, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_12, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_13, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_14, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_15, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_16, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_17, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_18, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_19, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_20, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_21, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_22, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_23, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_24, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_25, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_26, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_27, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_28, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_29, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_30, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_FIC_31, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_0, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_1, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_2, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_3, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_4, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_5, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_6, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_7, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_8, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_9, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_10, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_11, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_12, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_13, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_14, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_15, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_16, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_17, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_18, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_19, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_20, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_21, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_22, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_23, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_24, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_25, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_26, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_27, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_28, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_29, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_30, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_AGG_INT_MODE_31, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_ENABLE_IN1, 0X7FFFFFF, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_ENABLE_IN2, 0X3F, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_ENABLE_OUT1, 0X7FFFFFF, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_ENABLE_OUT2, 0XF, COMMON, INIT_HARDWARE);
++INIT_REG_RD(TSDM, TSDM_REGISTERS_NUM_OF_Q0_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(TSDM, TSDM_REGISTERS_NUM_OF_Q1_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(TSDM, TSDM_REGISTERS_NUM_OF_Q3_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(TSDM, TSDM_REGISTERS_NUM_OF_Q4_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(TSDM, TSDM_REGISTERS_NUM_OF_Q5_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(TSDM, TSDM_REGISTERS_NUM_OF_Q6_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(TSDM, TSDM_REGISTERS_NUM_OF_Q7_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(TSDM, TSDM_REGISTERS_NUM_OF_Q8_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(TSDM, TSDM_REGISTERS_NUM_OF_Q9_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(TSDM, TSDM_REGISTERS_NUM_OF_Q10_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(TSDM, TSDM_REGISTERS_NUM_OF_Q11_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(TSDM, TSDM_REGISTERS_NUM_OF_PKT_END_MSG, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_RD(TSDM, TSDM_REGISTERS_NUM_OF_PXP_ASYNC_REQ, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_RD(TSDM, TSDM_REGISTERS_NUM_OF_ACK_AFTER_PLACE, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_TIMER_TICK, 0X1, COMMON, INIT_EMULATION);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_TIMER_TICK, 0XA, COMMON, INIT_FPGA);
++INIT_REG_WR(TSDM, TSDM_REGISTERS_TIMER_TICK, 0X3E8, COMMON, INIT_ASIC);
++INIT_REG_WR(TCM, TCM_REGISTERS_XX_MAX_LL_SZ, 0X20, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_XX_OVFL_EVNT_ID, 0X32, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_TQM_TCM_HDR_P, 0X2150020, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_TQM_TCM_HDR_S, 0X2150020, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_TM_TCM_HDR, 0X30, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_ERR_TCM_HDR, 0X8100000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_ERR_EVNT_ID, 0X33, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_EXPR_EVNT_ID, 0X30, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_STOP_EVNT_ID, 0X31, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_PRS_WEIGHT, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_PBF_WEIGHT, 0X5, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_CP_WEIGHT, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_TSDM_WEIGHT, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_TCM_TQM_USE_Q, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_GR_ARB_TYPE, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_GR_LD0_PR, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_GR_LD1_PR, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_CFC_INIT_CRD, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_FIC0_INIT_CRD, 0X40, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_FIC1_INIT_CRD, 0X40, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_TQM_INIT_CRD, 0X20, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_XX_INIT_CRD, 0X13, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_XX_MSG_NUM, 0X20, COMMON, INIT_HARDWARE);
++
++{
++static const u32 EVST_TCM_XX_TABLE_COMMON_MEMORY_INIT_HARDWARE[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_MEM_WR(TCM, TCM_REGISTERS_XX_TABLE, COMMON, INIT_HARDWARE,
++EVST_TCM_XX_TABLE_COMMON_MEMORY_INIT_HARDWARE, 0X0, 10);
++}
++
++
++{
++static const u32 EVST_TCM_XX_DESCR_TABLE_COMMON_MEMORY_INIT_HARDWARE[] = {
++0x10000, 0x204c0, 0x30980, 0x40e40, 0x51300, 0x617c0, 0x71c80, 0x82140,
++0x92600, 0xa2ac0, 0xb2f80, 0xc3440, 0xd3900, 0xe3dc0, 0xf4280, 0x104740,
++0x114c00, 0x1250c0, 0x135580, 0x145a40, 0x155f00, 0x1663c0, 0x176880, 
+0x186d40,
++0x197200, 0x1a76c0, 0x1b7b80, 0x1c8040, 0x1d8500, 0x1e89c0, 0x1f8e80,
++0x209340};
++INIT_MEM_WR(TCM, TCM_REGISTERS_XX_DESCR_TABLE, COMMON, INIT_HARDWARE,
++EVST_TCM_XX_DESCR_TABLE_COMMON_MEMORY_INIT_HARDWARE, 0X0, 32);
++}
++
++INIT_REG_WR(TCM, TCM_REGISTERS_N_SM_CTX_LD_0, 0X7, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_N_SM_CTX_LD_1, 0X7, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_N_SM_CTX_LD_2, 0X8, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_N_SM_CTX_LD_3, 0X8, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_N_SM_CTX_LD_4, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_N_SM_CTX_LD_5, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_N_SM_CTX_LD_6, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_N_SM_CTX_LD_7, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_TCM_REG0_SZ, 0X6, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_PHYS_QNUM0_0, 0X1D, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_PHYS_QNUM0_1, 0X3D, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_PHYS_QNUM1_0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_PHYS_QNUM1_1, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_PHYS_QNUM2_0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_PHYS_QNUM2_1, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_PHYS_QNUM3_0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_PHYS_QNUM3_1, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_TCM_STORM0_IFEN, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_TCM_STORM1_IFEN, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_TCM_TQM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_STORM_TCM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_TQM_TCM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_TSDM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_TM_TCM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_PRS_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_PBF_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_USEM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_CSEM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_CDU_AG_WR_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_CDU_AG_RD_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_CDU_SM_WR_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_CDU_SM_RD_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TCM, TCM_REGISTERS_TCM_CFC_IFEN, 0X1, COMMON, INIT_HARDWARE);
++
++{
++static const u32 EVST_BRB1_LL_RAM_COMMON_MEMORY_INIT_HARDWARE[] = {
++0x2000, 0x4000, 0x6000, 0x8000, 0xa000, 0xc000, 0xe000, 0x10000, 0x12000,
++0x14000, 0x16000, 0x18000, 0x1a000, 0x1c000, 0x1e000, 0x20000,
++0x22000, 0x24000, 0x26000, 0x28000, 0x2a000, 0x2c000, 0x2e000, 0x30000,
++0x32000, 0x34000, 0x36000, 0x38000, 0x3a000, 0x3c000, 0x3e000, 0x40000,
++0x42000, 0x44000, 0x46000, 0x48000, 0x4a000, 0x4c000, 0x4e000, 0x50000,
++0x52000, 0x54000, 0x56000, 0x58000, 0x5a000, 0x5c000, 0x5e000, 0x60000,
++0x62000, 0x64000, 0x66000, 0x68000, 0x6a000, 0x6c000, 0x6e000, 0x70000,
++0x72000, 0x74000, 0x76000, 0x78000, 0x7a000, 0x7c000, 0x7e000, 0x80000,
++0x82000, 0x84000, 0x86000, 0x88000, 0x8a000, 0x8c000, 0x8e000, 0x90000,
++0x92000, 0x94000, 0x96000, 0x98000, 0x9a000, 0x9c000, 0x9e000, 0xa0000,
++0xa2000, 0xa4000, 0xa6000, 0xa8000, 0xaa000, 0xac000, 0xae000, 0xb0000,
++0xb2000, 0xb4000, 0xb6000, 0xb8000, 0xba000, 0xbc000, 0xbe000, 0xc0000,
++0xc2000, 0xc4000, 0xc6000, 0xc8000, 0xca000, 0xcc000, 0xce000, 0xd0000,
++0xd2000, 0xd4000, 0xd6000, 0xd8000, 0xda000, 0xdc000, 0xde000, 0xe0000,
++0xe2000, 0xe4000, 0xe6000, 0xe8000, 0xea000, 0xec000, 0xee000, 0xf0000,
++0xf2000, 0xf4000, 0xf6000, 0xf8000, 0xfa000, 0xfc000, 0xfe000, 0x100000,
++0x102000, 0x104000, 0x106000, 0x108000, 0x10a000, 0x10c000, 0x10e000, 
+0x110000,
++0x112000, 0x114000, 0x116000, 0x118000, 0x11a000, 0x11c000, 0x11e000, 
+0x120000,
++0x122000, 0x124000, 0x126000, 0x128000, 0x12a000, 0x12c000, 0x12e000, 
+0x130000,
++0x132000, 0x134000, 0x136000, 0x138000, 0x13a000, 0x13c000, 0x13e000, 
+0x140000,
++0x142000, 0x144000, 0x146000, 0x148000, 0x14a000, 0x14c000, 0x14e000, 
+0x150000,
++0x152000, 0x154000, 0x156000, 0x158000, 0x15a000, 0x15c000, 0x15e000, 
+0x160000,
++0x162000, 0x164000, 0x166000, 0x168000, 0x16a000, 0x16c000, 0x16e000, 
+0x170000,
++0x172000, 0x174000, 0x176000, 0x178000, 0x17a000, 0x17c000, 0x17e000, 
+0x180000,
++0x182000, 0x184000, 0x186000, 0x188000, 0x18a000, 0x18c000, 0x18e000, 
+0x190000,
++0x192000, 0x194000, 0x196000, 0x198000, 0x19a000, 0x19c000, 0x19e000, 
+0x1a0000,
++0x1a2000, 0x1a4000, 0x1a6000, 0x1a8000, 0x1aa000, 0x1ac000, 0x1ae000, 
+0x1b0000,
++0x1b2000, 0x1b4000, 0x1b6000, 0x1b8000, 0x1ba000, 0x1bc000, 0x1be000, 
+0x1c0000,
++0x1c2000, 0x1c4000, 0x1c6000, 0x1c8000, 0x1ca000, 0x1cc000, 0x1ce000, 
+0x1d0000,
++0x1d2000, 0x1d4000, 0x1d6000, 0x1d8000, 0x1da000, 0x1dc000, 0x1de000, 
+0x1e0000,
++0x1e2000, 0x1e4000, 0x1e6000, 0x1e8000, 0x1ea000, 0x1ec000, 0x1ee000, 
+0x1f0000,
++0x1f2000, 0x1f4000, 0x1f6000, 0x1f8000, 0x1fa000, 0x1fc000, 0x1fe000, 
+0x200000,
++0x202000, 0x204000, 0x206000, 0x208000, 0x20a000, 0x20c000, 0x20e000, 
+0x210000,
++0x212000, 0x214000, 0x216000, 0x218000, 0x21a000, 0x21c000, 0x21e000, 
+0x220000,
++0x222000, 0x224000, 0x226000, 0x228000, 0x22a000, 0x22c000, 0x22e000, 
+0x230000,
++0x232000, 0x234000, 0x236000, 0x238000, 0x23a000, 0x23c000, 0x23e000, 
+0x240000,
++0x242000, 0x244000, 0x246000, 0x248000, 0x24a000, 0x24c000, 0x24e000, 
+0x250000,
++0x252000, 0x254000, 0x256000, 0x258000, 0x25a000, 0x25c000, 0x25e000, 
+0x260000,
++0x262000, 0x264000, 0x266000, 0x268000, 0x26a000, 0x26c000, 0x26e000, 
+0x270000,
++0x272000, 0x274000, 0x276000, 0x278000, 0x27a000, 0x27c000, 0x27e000, 
+0x280000,
++0x282000, 0x284000, 0x286000, 0x288000, 0x28a000, 0x28c000, 0x28e000, 
+0x290000,
++0x292000, 0x294000, 0x296000, 0x298000, 0x29a000, 0x29c000, 0x29e000, 
+0x2a0000,
++0x2a2000, 0x2a4000, 0x2a6000, 0x2a8000, 0x2aa000, 0x2ac000, 0x2ae000, 
+0x2b0000,
++0x2b2000, 0x2b4000, 0x2b6000, 0x2b8000, 0x2ba000, 0x2bc000, 0x2be000, 
+0x2c0000,
++0x2c2000, 0x2c4000, 0x2c6000, 0x2c8000, 0x2ca000, 0x2cc000, 0x2ce000, 
+0x2d0000,
++0x2d2000, 0x2d4000, 0x2d6000, 0x2d8000, 0x2da000, 0x2dc000, 0x2de000, 
+0x2e0000,
++0x2e2000, 0x2e4000, 0x2e6000, 0x2e8000, 0x2ea000, 0x2ec000, 0x2ee000, 
+0x2f0000,
++0x2f2000, 0x2f4000, 0x2f6000, 0x2f8000, 0x2fa000, 0x2fc000, 0x2fe000, 
+0x300000,
++0x302000, 0x304000, 0x306000, 0x308000, 0x30a000, 0x30c000, 0x30e000, 
+0x310000,
++0x312000, 0x314000, 0x316000, 0x318000, 0x31a000, 0x31c000, 0x31e000, 
+0x320000,
++0x322000, 0x324000, 0x326000, 0x328000, 0x32a000, 0x32c000, 0x32e000, 
+0x330000,
++0x332000, 0x334000, 0x336000, 0x338000, 0x33a000, 0x33c000, 0x33e000, 
+0x340000,
++0x342000, 0x344000, 0x346000, 0x348000, 0x34a000, 0x34c000, 0x34e000, 
+0x350000,
++0x352000, 0x354000, 0x356000, 0x358000, 0x35a000, 0x35c000, 0x35e000, 
+0x360000,
++0x362000, 0x364000, 0x366000, 0x368000, 0x36a000, 0x36c000, 0x36e000, 
+0x370000,
++0x372000, 0x374000, 0x376000, 0x378000, 0x37a000, 0x37c000, 0x37e000, 
+0x380000,
++0x382000, 0x384000, 0x386000, 0x388000, 0x38a000, 0x38c000, 0x38e000, 
+0x390000,
++0x392000, 0x394000, 0x396000, 0x398000, 0x39a000, 0x39c000, 0x39e000, 
+0x3a0000,
++0x3a2000, 0x3a4000, 0x3a6000, 0x3a8000, 0x3aa000, 0x3ac000, 0x3ae000, 
+0x3b0000,
++0x3b2000, 0x3b4000, 0x3b6000, 0x3b8000, 0x3ba000, 0x3bc000, 0x3be000, 
+0x3c0000,
++0x3c2000, 0x3c4000, 0x3c6000, 0x3c8000, 0x3ca000, 0x3cc000, 0x3ce000, 
+0x3d0000,
++0x3d2000, 0x3d4000, 0x3d6000, 0x3d8000, 0x3da000, 0x3dc000, 0x3de000, 
+0x3e0000,
++0x3e2000, 0x3e4000, 0x3e6000, 0x3e8000, 0x3ea000, 0x3ec000, 0x3ee000, 
+0x3f0000,
++0x3f2000, 0x3f4000, 0x3f6000, 0x3f8000, 0x3fa000, 0x3fc000, 0x3fe000,
++0x3fe001};
++INIT_MEM_WR(BRB1, BRB1_REGISTERS_LL_RAM, COMMON, INIT_HARDWARE,
++EVST_BRB1_LL_RAM_COMMON_MEMORY_INIT_HARDWARE, 0X0, 512);
++}
++
++INIT_REG_WR(BRB1, BRB1_REGISTERS_SOFT_RESET, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_RD(BRB1, BRB1_REGISTERS_NUM_OF_PAUSE_CYCLES_0, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_RD(BRB1, BRB1_REGISTERS_NUM_OF_PAUSE_CYCLES_1, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_RD(BRB1, BRB1_REGISTERS_NUM_OF_PAUSE_CYCLES_2, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_RD(BRB1, BRB1_REGISTERS_NUM_OF_PAUSE_CYCLES_3, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_RD(BRB1, BRB1_REGISTERS_NUM_OF_FULL_CYCLES_0, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_RD(BRB1, BRB1_REGISTERS_NUM_OF_FULL_CYCLES_1, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_RD(BRB1, BRB1_REGISTERS_NUM_OF_FULL_CYCLES_2, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_RD(BRB1, BRB1_REGISTERS_NUM_OF_FULL_CYCLES_3, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_RD(BRB1, BRB1_REGISTERS_NUM_OF_FULL_CYCLES_4, 0X0, COMMON,
++INIT_HARDWARE);
++
++{
++static const u32 
+EVST_BRB1_FREE_LIST_PRS_CRDT_COMMON_MEMORY_INIT_HARDWARE[] = {
++0x0, 0x1ff, 0x200};
++INIT_MEM_WR(BRB1, BRB1_REGISTERS_FREE_LIST_PRS_CRDT, COMMON, INIT_HARDWARE,
++EVST_BRB1_FREE_LIST_PRS_CRDT_COMMON_MEMORY_INIT_HARDWARE, 0X0, 3);
++}
++
++INIT_REG_WR(BRB1, BRB1_REGISTERS_SOFT_RESET, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_0, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_1, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_2, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_3, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_4, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_5, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_6, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_7, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_8, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_9, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_10, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_11, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_12, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_13, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_14, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_15, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_16, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_17, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_18, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_19, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_20, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_GENERAL_ATTN_21, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_FUNC_0_OUT_0, 0XBF5C0000,
++PORT0, INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_FUNC_0_OUT_0, 0XFFF51FEF,
++PORT0, INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_FUNC_0_OUT_0, 0XFFFF, 
+PORT0,
++INIT_HARDWARE);
++/* MANUAL CHANGE,  ASSAFG */
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_FUNC_0_OUT_0, 0X500003E0,
++PORT0, INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_FUNC_0_OUT_1, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_FUNC_0_OUT_1, 0XA000, 
+PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_FUNC_0_OUT_1, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_FUNC_0_OUT_1, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_FUNC_0_OUT_2, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_FUNC_0_OUT_2, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_FUNC_0_OUT_2, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_FUNC_0_OUT_2, 0XFE00000,
++PORT0, INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_FUNC_0_OUT_3, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_FUNC_0_OUT_3, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_FUNC_0_OUT_3, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_FUNC_0_OUT_3, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_FUNC_0_OUT_4, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_FUNC_0_OUT_4, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_FUNC_0_OUT_4, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_FUNC_0_OUT_4, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_FUNC_0_OUT_5, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_FUNC_0_OUT_5, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_FUNC_0_OUT_5, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_FUNC_0_OUT_5, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_FUNC_0_OUT_6, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_FUNC_0_OUT_6, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_FUNC_0_OUT_6, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_FUNC_0_OUT_6, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_FUNC_0_OUT_7, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_FUNC_0_OUT_7, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_FUNC_0_OUT_7, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_FUNC_0_OUT_7, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_NIG_0, 0X55540000, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_NIG_0, 0X55555555, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_NIG_0, 0X5555, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_NIG_0, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_PXP_0, 0X55540000, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_PXP_0, 0X55555555, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_PXP_0, 0X5555, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_PXP_0, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_FUNC_1_OUT_0, 0XBF5C0000,
++PORT1, INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_FUNC_1_OUT_0, 0XFFF51FEF,
++PORT1, INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_FUNC_1_OUT_0, 0XFFFF, 
+PORT1,
++INIT_HARDWARE);
++/* MANUAL CHANGE,  ASSAFG */
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_FUNC_1_OUT_0, 0X500003E0,
++PORT1, INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_FUNC_1_OUT_1, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_FUNC_1_OUT_1, 0XA000, 
+PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_FUNC_1_OUT_1, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_FUNC_1_OUT_1, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_FUNC_1_OUT_2, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_FUNC_1_OUT_2, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_FUNC_1_OUT_2, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_FUNC_1_OUT_2, 0XFE00000,
++PORT1, INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_FUNC_1_OUT_3, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_FUNC_1_OUT_3, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_FUNC_1_OUT_3, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_FUNC_1_OUT_3, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_FUNC_1_OUT_4, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_FUNC_1_OUT_4, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_FUNC_1_OUT_4, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_FUNC_1_OUT_4, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_FUNC_1_OUT_5, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_FUNC_1_OUT_5, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_FUNC_1_OUT_5, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_FUNC_1_OUT_5, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_FUNC_1_OUT_6, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_FUNC_1_OUT_6, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_FUNC_1_OUT_6, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_FUNC_1_OUT_6, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_FUNC_1_OUT_7, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_FUNC_1_OUT_7, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_FUNC_1_OUT_7, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_FUNC_1_OUT_7, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_NIG_1, 0X55540000, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_NIG_1, 0X55555555, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_NIG_1, 0X5555, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_NIG_1, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE1_PXP_1, 0X55540000, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE2_PXP_1, 0X55555555, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE3_PXP_1, 0X5555, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_ENABLE4_PXP_1, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_INVERTER_1_FUNC_0, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_INVERTER_2_FUNC_0, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_INVERTER_3_FUNC_0, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_INVERTER_4_FUNC_0, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_INVERTER_1_FUNC_1, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_INVERTER_2_FUNC_1, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_INVERTER_3_FUNC_1, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_INVERTER_4_FUNC_1, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(MISC, MISC_REGISTERS_GRC_TIMEOUT_EN, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(MISC, MISC_REGISTERS_PLL_STORM_CTRL_1, 0X71D2911, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC, MISC_REGISTERS_PLL_STORM_CTRL_2, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(MISC, MISC_REGISTERS_PLL_STORM_CTRL_3, 0X9C0424, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(MISC, MISC_REGISTERS_PLL_STORM_CTRL_4, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(MISC, MISC_REGISTERS_LCPLL_CTRL_1, 0X209, COMMON, 
+INIT_HARDWARE);
++/* MANUAL CHANGE,  ASSAFG */
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_MASK_ATTN_FUNC_0, 0X7, PORT0,
++INIT_HARDWARE);
++/* MANUAL CHANGE,  ASSAFG */
++INIT_REG_WR(MISC_AEU, MISC_REGISTERS_AEU_MASK_ATTN_FUNC_1, 0X7, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_LLH0_CM_HEADER, 0X300000, PORT0, 
+INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_LLH1_CM_HEADER, 0X300000, PORT1, 
+INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_LLH0_EVENT_ID, 0X26, PORT0, INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_LLH1_EVENT_ID, 0X26, PORT1, INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_LLH0_ERROR_MASK, 0X0, PORT0, INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_LLH1_ERROR_MASK, 0X0, PORT1, INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_LLH0_XCM_MASK, 0X4, PORT0, INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_LLH1_XCM_MASK, 0X4, PORT1, INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_LLH0_BRB1_NOT_MCP, 0X1, PORT0, 
+INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_LLH1_BRB1_NOT_MCP, 0X1, PORT1, 
+INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_STATUS_INTERRUPT_PORT0, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_STATUS_INTERRUPT_PORT1, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_LLH0_XCM_INIT_CREDIT, 0X30, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_LLH1_XCM_INIT_CREDIT, 0X30, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_PBF_LB_IN_EN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_PRS_REQ_IN_EN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_BRB0_PAUSE_IN_EN, 0X1, PORT0, 
+INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_BRB1_PAUSE_IN_EN, 0X1, PORT1, 
+INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_EGRESS_PBF0_IN_EN, 0X1, PORT0, 
+INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_EGRESS_PBF1_IN_EN, 0X1, PORT1, 
+INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_EGRESS_DEBUG_IN_EN, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_BRB0_OUT_EN, 0X1, PORT0, INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_BRB1_OUT_EN, 0X1, PORT1, INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_BRB_LB_OUT_EN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_PRS_EOP_OUT_EN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_XCM0_OUT_EN, 0X1, PORT0, INIT_HARDWARE);
++INIT_REG_WR(NIG, NIG_REGISTERS_XCM1_OUT_EN, 0X1, PORT1, INIT_HARDWARE);
++INIT_REG_WR(UPB, PB_REGISTERS_CONTROL, 0X20, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XPB, PB_REGISTERS_CONTROL, 0X20, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_CFC_RSP_START_ADDR, 0XA11, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_CMP_COUNTER_START_ADDR, 0XA00, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_Q_COUNTER_START_ADDR, 0XA04, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_CMP_COUNTER_MAX0, 0XFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_CMP_COUNTER_MAX1, 0XFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_CMP_COUNTER_MAX2, 0XFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_CMP_COUNTER_MAX3, 0XFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_0, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_1, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_2, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_3, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_4, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_5, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_6, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_7, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_8, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_9, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_10, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_11, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_12, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_13, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_14, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_15, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_16, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_17, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_18, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_19, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_20, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_21, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_22, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_23, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_24, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_25, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_26, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_27, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_28, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_29, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_30, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_EVENT_31, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_1, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_2, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_3, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_4, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_5, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_6, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_7, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_8, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_9, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_10, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_11, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_12, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_13, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_14, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_15, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_16, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_17, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_18, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_19, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_20, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_21, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_22, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_23, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_24, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_25, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_26, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_27, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_28, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_29, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_30, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_T_31, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_0, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_1, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_2, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_3, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_4, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_5, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_6, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_7, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_8, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_9, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_10, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_11, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_12, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_13, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_14, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_15, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_16, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_17, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_18, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_19, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_20, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_21, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_22, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_23, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_24, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_25, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_26, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_27, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_28, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_29, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_30, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_FIC_31, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_0, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_1, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_2, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_3, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_4, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_5, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_6, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_7, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_8, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_9, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_10, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_11, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_12, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_13, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_14, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_15, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_16, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_17, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_18, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_19, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_20, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_21, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_22, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_23, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_24, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_25, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_26, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_27, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_28, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_29, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_30, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_AGG_INT_MODE_31, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_ENABLE_IN1, 0X7FFFFFF, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_ENABLE_IN2, 0X3F, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_ENABLE_OUT1, 0X7FFFFFF, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_ENABLE_OUT2, 0XF, COMMON, INIT_HARDWARE);
++INIT_REG_RD(CSDM, CSDM_REGISTERS_NUM_OF_Q0_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(CSDM, CSDM_REGISTERS_NUM_OF_Q1_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(CSDM, CSDM_REGISTERS_NUM_OF_Q3_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(CSDM, CSDM_REGISTERS_NUM_OF_Q4_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(CSDM, CSDM_REGISTERS_NUM_OF_Q5_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(CSDM, CSDM_REGISTERS_NUM_OF_Q6_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(CSDM, CSDM_REGISTERS_NUM_OF_Q7_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(CSDM, CSDM_REGISTERS_NUM_OF_Q8_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(CSDM, CSDM_REGISTERS_NUM_OF_Q9_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(CSDM, CSDM_REGISTERS_NUM_OF_Q10_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(CSDM, CSDM_REGISTERS_NUM_OF_Q11_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(CSDM, CSDM_REGISTERS_NUM_OF_PKT_END_MSG, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_RD(CSDM, CSDM_REGISTERS_NUM_OF_PXP_ASYNC_REQ, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_RD(CSDM, CSDM_REGISTERS_NUM_OF_ACK_AFTER_PLACE, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_TIMER_TICK, 0X1, COMMON, INIT_EMULATION);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_TIMER_TICK, 0XA, COMMON, INIT_FPGA);
++INIT_REG_WR(CSDM, CSDM_REGISTERS_TIMER_TICK, 0X3E8, COMMON, INIT_ASIC);
++INIT_REG_WR(USDM, USDM_REGISTERS_CFC_RSP_START_ADDR, 0XA11, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_CMP_COUNTER_START_ADDR, 0XA00, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_Q_COUNTER_START_ADDR, 0XA04, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_PCK_END_MSG_START_ADDR, 0XA21, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_CMP_COUNTER_MAX0, 0XFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_CMP_COUNTER_MAX1, 0XFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_CMP_COUNTER_MAX2, 0XFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_CMP_COUNTER_MAX3, 0XFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_0, 0X46, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_1, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_2, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_3, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_4, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_5, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_6, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_7, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_8, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_9, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_10, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_11, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_12, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_13, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_14, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_15, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_16, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_17, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_18, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_19, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_20, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_21, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_22, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_23, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_24, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_25, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_26, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_27, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_28, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_29, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_30, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_EVENT_31, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_1, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_2, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_3, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_4, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_5, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_6, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_7, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_8, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_9, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_10, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_11, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_12, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_13, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_14, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_15, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_16, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_17, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_18, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_19, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_20, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_21, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_22, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_23, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_24, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_25, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_26, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_27, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_28, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_29, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_30, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_T_31, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_0, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_1, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_2, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_3, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_4, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_5, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_6, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_7, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_8, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_9, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_10, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_11, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_12, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_13, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_14, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_15, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_16, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_17, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_18, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_19, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_20, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_21, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_22, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_23, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_24, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_25, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_26, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_27, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_28, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_29, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_30, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_FIC_31, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_0, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_1, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_2, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_3, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_4, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_5, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_6, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_7, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_8, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_9, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_10, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_11, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_12, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_13, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_14, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_15, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_16, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_17, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_18, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_19, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_20, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_21, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_22, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_23, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_24, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_25, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_26, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_27, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_28, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_29, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_30, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_AGG_INT_MODE_31, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_ENABLE_IN1, 0X7FFFFFF, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_ENABLE_IN2, 0X3F, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_ENABLE_OUT1, 0X7FFFFFF, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_ENABLE_OUT2, 0XF, COMMON, INIT_HARDWARE);
++INIT_REG_RD(USDM, USDM_REGISTERS_NUM_OF_Q0_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(USDM, USDM_REGISTERS_NUM_OF_Q1_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(USDM, USDM_REGISTERS_NUM_OF_Q2_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(USDM, USDM_REGISTERS_NUM_OF_Q3_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(USDM, USDM_REGISTERS_NUM_OF_Q4_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(USDM, USDM_REGISTERS_NUM_OF_Q5_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(USDM, USDM_REGISTERS_NUM_OF_Q6_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(USDM, USDM_REGISTERS_NUM_OF_Q7_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(USDM, USDM_REGISTERS_NUM_OF_Q8_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(USDM, USDM_REGISTERS_NUM_OF_Q9_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(USDM, USDM_REGISTERS_NUM_OF_Q10_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(USDM, USDM_REGISTERS_NUM_OF_Q11_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(USDM, USDM_REGISTERS_NUM_OF_PKT_END_MSG, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_RD(USDM, USDM_REGISTERS_NUM_OF_PXP_ASYNC_REQ, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_RD(USDM, USDM_REGISTERS_NUM_OF_ACK_AFTER_PLACE, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(USDM, USDM_REGISTERS_TIMER_TICK, 0X1, COMMON, INIT_EMULATION);
++INIT_REG_WR(USDM, USDM_REGISTERS_TIMER_TICK, 0XA, COMMON, INIT_FPGA);
++INIT_REG_WR(USDM, USDM_REGISTERS_TIMER_TICK, 0X3E8, COMMON, INIT_ASIC);
++INIT_REG_WR(CCM, CCM_REGISTERS_XX_OVFL_EVNT_ID, 0X32, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CQM_CCM_HDR_P, 0X2150020, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CQM_CCM_HDR_S, 0X2150020, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_ERR_CCM_HDR, 0X8100000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_ERR_EVNT_ID, 0X33, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_TSEM_WEIGHT, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_XSEM_WEIGHT, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_USEM_WEIGHT, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_PBF_WEIGHT, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CP_WEIGHT, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CQM_P_WEIGHT, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CCM_CQM_USE_Q, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CNT_AUX1_Q, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CNT_AUX2_Q, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_INV_DONE_Q, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_GR_ARB_TYPE, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_GR_LD0_PR, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_GR_LD1_PR, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CFC_INIT_CRD, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CQM_INIT_CRD, 0X20, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_FIC0_INIT_CRD, 0X40, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_FIC1_INIT_CRD, 0X40, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_XX_INIT_CRD, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_XX_MSG_NUM, 0X18, COMMON, INIT_HARDWARE);
++
++{
++static const u32 EVST_CCM_XX_TABLE_COMMON_MEMORY_INIT_HARDWARE[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_MEM_WR(CCM, CCM_REGISTERS_XX_TABLE, COMMON, INIT_HARDWARE,
++EVST_CCM_XX_TABLE_COMMON_MEMORY_INIT_HARDWARE, 0X0, 18);
++}
++
++
++{
++static const u32 EVST_CCM_XX_DESCR_TABLE_COMMON_MEMORY_INIT_HARDWARE[] = {
++0x2000, 0x40c0, 0x6180, 0x8240, 0xa300, 0xc3c0, 0xe480, 0x10540, 0x12600,
++0x146c0, 0x16780, 0x18840, 0x1a900, 0x1c9c0, 0x1ea80, 0x20b40,
++0x22c00, 0x24cc0, 0x26d80, 0x28e40, 0x2af00, 0x2cfc0, 0x2f080, 0x31140,
++0x33200, 0x352c0, 0x37380, 0x39440, 0x3b500, 0x3d5c0, 0x3f680, 0x41740,
++0x43800, 0x458c0, 0x47980, 0x49a40};
++INIT_MEM_WR(CCM, CCM_REGISTERS_XX_DESCR_TABLE, COMMON, INIT_HARDWARE,
++EVST_CCM_XX_DESCR_TABLE_COMMON_MEMORY_INIT_HARDWARE, 0X0, 36);
++}
++
++INIT_REG_WR(CCM, CCM_REGISTERS_N_SM_CTX_LD_0, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_N_SM_CTX_LD_1, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_N_SM_CTX_LD_2, 0X8, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_N_SM_CTX_LD_3, 0X8, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_N_SM_CTX_LD_4, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_N_SM_CTX_LD_5, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_N_SM_CTX_LD_6, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_N_SM_CTX_LD_7, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CCM_REG0_SZ, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_QOS_PHYS_QNUM0_0, 0X18, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_QOS_PHYS_QNUM0_1, 0X38, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_QOS_PHYS_QNUM1_0, 0X19, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_QOS_PHYS_QNUM1_1, 0X39, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_QOS_PHYS_QNUM2_0, 0X1A, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_QOS_PHYS_QNUM2_1, 0X3A, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_QOS_PHYS_QNUM3_0, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_QOS_PHYS_QNUM3_1, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_PHYS_QNUM1_0, 0X1C, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_PHYS_QNUM1_1, 0X3C, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_PHYS_QNUM2_0, 0X1B, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_PHYS_QNUM2_1, 0X3B, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_PHYS_QNUM3_0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_PHYS_QNUM3_1, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CCM_STORM0_IFEN, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CCM_STORM1_IFEN, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CCM_CQM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_STORM_CCM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CQM_CCM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CSDM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_TSEM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_XSEM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_USEM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_PBF_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CDU_AG_WR_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CDU_AG_RD_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CDU_SM_WR_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CDU_SM_RD_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CCM, CCM_REGISTERS_CCM_CFC_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_XX_OVFL_EVNT_ID, 0X32, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_UQM_UCM_HDR_P, 0X2150020, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_UQM_UCM_HDR_S, 0X2150020, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_TM_UCM_HDR, 0X30, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_ERR_UCM_HDR, 0X8100000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_ERR_EVNT_ID, 0X33, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_EXPR_EVNT_ID, 0X30, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_STOP_EVNT_ID, 0X31, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_TSEM_WEIGHT, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_CSEM_WEIGHT, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_CP_WEIGHT, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_UQM_P_WEIGHT, 0X6, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_UCM_UQM_USE_Q, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_INV_CFLG_Q, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_GR_ARB_TYPE, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_GR_LD0_PR, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_GR_LD1_PR, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_CFC_INIT_CRD, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_FIC0_INIT_CRD, 0X40, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_FIC1_INIT_CRD, 0X40, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_TM_INIT_CRD, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_UQM_INIT_CRD, 0X20, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_XX_INIT_CRD, 0XC, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_XX_MSG_NUM, 0X20, COMMON, INIT_HARDWARE);
++
++{
++static const u32 EVST_UCM_XX_TABLE_COMMON_MEMORY_INIT_HARDWARE[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_MEM_WR(UCM, UCM_REGISTERS_XX_TABLE, COMMON, INIT_HARDWARE,
++EVST_UCM_XX_TABLE_COMMON_MEMORY_INIT_HARDWARE, 0X0, 18);
++}
++
++
++{
++static const u32 EVST_UCM_XX_DESCR_TABLE_COMMON_MEMORY_INIT_HARDWARE[] = {
++0x8000, 0x10300, 0x18600, 0x20900, 0x28c00, 0x30f00, 0x39200, 0x41500, 
+0x49800,
++0x51b00, 0x59e00, 0x62100, 0x6a400, 0x72700, 0x7aa00, 0x82d00,
++0x8b000, 0x93300, 0x9b600, 0xa3900, 0xabc00, 0xb3f00, 0xbc200, 0xc4500,
++0xcc800, 0xd4b00, 0xdce00, 0xe5100, 0xed400, 0xf5700, 0xfda00, 0x105d00};
++INIT_MEM_WR(UCM, UCM_REGISTERS_XX_DESCR_TABLE, COMMON, INIT_HARDWARE,
++EVST_UCM_XX_DESCR_TABLE_COMMON_MEMORY_INIT_HARDWARE, 0X0, 32);
++}
++
++INIT_REG_WR(UCM, UCM_REGISTERS_N_SM_CTX_LD_0, 0XA, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_N_SM_CTX_LD_1, 0X7, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_N_SM_CTX_LD_2, 0XF, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_N_SM_CTX_LD_3, 0X10, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_N_SM_CTX_LD_4, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_N_SM_CTX_LD_5, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_N_SM_CTX_LD_6, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_N_SM_CTX_LD_7, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_UCM_REG0_SZ, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_PHYS_QNUM0_0, 0X1F, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_PHYS_QNUM0_1, 0X3F, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_PHYS_QNUM1_0, 0X1E, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_PHYS_QNUM1_1, 0X3E, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_UCM_STORM0_IFEN, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_UCM_STORM1_IFEN, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_UCM_UQM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_STORM_UCM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_UQM_UCM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_USDM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_TM_UCM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_UCM_TM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_TSEM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_CSEM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_XSEM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_DORQ_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_CDU_AG_WR_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_CDU_AG_RD_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_CDU_SM_WR_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_CDU_SM_RD_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(UCM, UCM_REGISTERS_UCM_CFC_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_RD(USEM, USEM_REGISTERS_MSG_NUM_FIC0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(USEM, USEM_REGISTERS_MSG_NUM_FIC1, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(USEM, USEM_REGISTERS_MSG_NUM_FOC0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(USEM, USEM_REGISTERS_MSG_NUM_FOC1, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(USEM, USEM_REGISTERS_MSG_NUM_FOC2, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(USEM, USEM_REGISTERS_MSG_NUM_FOC3, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_ARB_ELEMENT0, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_ARB_ELEMENT1, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_ARB_ELEMENT2, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_ARB_ELEMENT3, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_ARB_ELEMENT4, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_ARB_CYCLE_SIZE, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_0_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_1_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_2_AS, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_3_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_4_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_5_AS, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_6_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_7_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_8_AS, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_9_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_10_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_11_AS, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_12_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_13_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_14_AS, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_15_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_16_AS, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_17_AS, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_18_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_TS_19_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_ENABLE_IN, 0X3FFF, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_ENABLE_OUT, 0X3FF, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_FIC0_DISABLE, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_FIC1_DISABLE, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_PAS_DISABLE, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(USEM, USEM_REGISTERS_THREADS_LIST, 0XFFFF, COMMON, 
+INIT_HARDWARE);
++
++INIT_MEM_CLR(USEM, USEM_REGISTERS_PASSIVE_BUFFER, COMMON, 
+INIT_HARDWARE, 0X0,
++2048);
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION[] = {
++0x1};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION, 0X62F0, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_1[] = {
++0x1a};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_1, 0X6000, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_2[] = {
++0x4e};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_2, 0X6010, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_3[] = {
++0x10};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_3, 0X6020, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_4[] = {
++0x20};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_4, 0X6030, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_5[] = {
++0x138};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_5, 0X60C0, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_6[] = {
++0x1f4};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_6, 0X60F0, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_7[] = {
++0x4c4b4};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_7, 0X60E0, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_8[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_8,
++0X1400, 258);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_9[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_9,
++0X408, 200);
++}
++
++
++{
++static const u32 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_10[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_10,
++0X400, 2);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_11[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_11,
++0X500, 160);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_12[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_12,
++0X5A0, 160);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_13[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_13,
++0X640, 10);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_14[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_14,
++0X64A, 10);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_15[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_15,
++0X654, 46);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_16[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_16,
++0X682, 46);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_17[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_17,
++0X760, 36);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_18[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_18,
++0X784, 36);
++}
++
++
++{
++static const u32 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_19[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_19,
++0X7A8, 32);
++}
++
++
++{
++static const u32 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_20[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_20,
++0XC00, 1024);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_21[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_21,
++0XC00, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_22[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_22,
++0XC40, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_23[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_23,
++0XC80, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_24[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_24,
++0XCC0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_25[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_25,
++0XD00, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_26[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_26,
++0XD40, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_27[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_27,
++0XD80, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_28[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_28,
++0XDC0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_29[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_29,
++0XE00, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_30[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_30,
++0XE40, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_31[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_31,
++0XE80, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_32[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_32,
++0XEC0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_33[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_33,
++0XF00, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_34[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_34,
++0XF40, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_35[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_35,
++0XF80, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_36[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_36,
++0XFC0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_37[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_37,
++0XC20, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_38[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_38,
++0XC60, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_39[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_39,
++0XCA0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_40[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_40,
++0XCE0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_41[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_41,
++0XD20, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_42[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_42,
++0XD60, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_43[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_43,
++0XDA0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_44[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_44,
++0XDE0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_45[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_45,
++0XE20, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_46[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_46,
++0XE60, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_47[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_47,
++0XEA0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_48[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_48,
++0XEE0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_49[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_49,
++0XF20, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_50[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_50,
++0XF60, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_51[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_51,
++0XFA0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_52[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_52,
++0XFE0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_53[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_53,
++0X900, 2);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_54[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_54,
++0X902, 2);
++}
++
++
++{
++static const u32 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_55[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_55,
++0X900, 2);
++}
++
++
++{
++static const u32 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_56[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_56,
++0X902, 2);
++}
++
++
++{
++static const u32 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_57[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x28, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_57,
++0X904, 8);
++}
++
++
++{
++static const u32 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_58[] = {
++0x0, 0x0, 0x100000, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_58,
++0X12DA, 4);
++}
++
++
++{
++static const u32 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_59[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_59,
++0X12C4, 2);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_60[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_60,
++0X12DE, 82);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_61[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_61,
++0X1330, 82);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_62[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_62,
++0X1382, 12);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_63[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_63,
++0X138E, 12);
++}
++
++
++{
++static const u32 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_64[] = {
++0x1000000};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_64, 0X4200, 1);
++}
++
++
++{
++static const u32 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_65[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_65, 0X4300, 16);
++}
++
++
++{
++static const u32 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_66[] = {
++0x0};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_66, 0X4200, 1);
++}
++
++
++{
++static const u32 
+EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_67[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_67, 0X4310, 16);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA[] = {
++0x1};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA, 0X62F0, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_1[] = {
++0x1a};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_1, 0X6000, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_2[] = {
++0x4e};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_2, 0X6010, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_3[] = {
++0x10};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_3, 0X6020, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_4[] = {
++0x20};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_4, 0X6030, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_5[] = {
++0x1388};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_5, 0X60C0, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_6[] = {
++0x1f4};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_6, 0X60F0, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_7[] = {
++0x4c4b40};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_7, 0X60E0, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_8[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_8, 0X1400,
++258);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_9[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_9, 0X408,
++200);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_10[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_10, 0X400,
++2);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_11[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_11, 0X500,
++160);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_12[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_12, 0X5A0,
++160);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_13[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_13, 
+0X640, 10);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_14[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_14, 
+0X64A, 10);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_15[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_15, 
+0X654, 46);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_16[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_16, 
+0X682, 46);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_17[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_17, 
+0X760, 36);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_18[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_18, 
+0X784, 36);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_19[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_19, 0X7A8,
++32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_20[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_20, 0XC00,
++1024);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_21[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_21, 
+0XC00, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_22[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_22, 
+0XC40, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_23[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_23, 
+0XC80, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_24[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_24, 
+0XCC0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_25[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_25, 
+0XD00, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_26[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_26, 
+0XD40, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_27[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_27, 
+0XD80, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_28[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_28, 
+0XDC0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_29[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_29, 
+0XE00, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_30[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_30, 
+0XE40, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_31[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_31, 
+0XE80, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_32[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_32, 
+0XEC0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_33[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_33, 
+0XF00, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_34[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_34, 
+0XF40, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_35[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_35, 
+0XF80, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_36[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_36, 
+0XFC0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_37[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_37, 
+0XC20, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_38[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_38, 
+0XC60, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_39[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_39, 
+0XCA0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_40[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_40, 
+0XCE0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_41[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_41, 
+0XD20, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_42[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_42, 
+0XD60, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_43[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_43, 
+0XDA0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_44[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_44, 
+0XDE0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_45[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_45, 
+0XE20, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_46[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_46, 
+0XE60, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_47[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_47, 
+0XEA0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_48[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_48, 
+0XEE0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_49[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_49, 
+0XF20, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_50[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_50, 
+0XF60, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_51[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_51, 
+0XFA0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_52[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_52, 
+0XFE0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_53[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_53, 
+0X900, 2);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_54[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_54, 
+0X902, 2);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_55[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_55, 0X900,
++2);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_56[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_56, 0X902,
++2);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_57[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x28, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_57, 0X904,
++8);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_58[] = {
++0x0, 0x0, 0x100000, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_58, 
+0X12DA,
++4);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_59[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_59, 
+0X12C4,
++2);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_60[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_60, 0X12DE,
++82);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_61[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_61, 0X1330,
++82);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_62[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_62, 0X1382,
++12);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_63[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_63, 0X138E,
++12);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_64[] = {
++0x1000000};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_64, 0X4200, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_65[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_65, 0X4300, 16);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_66[] = {
++0x0};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_66, 0X4200, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_67[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_67, 0X4310, 16);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC[] = {
++0x1};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC, 0X62F0, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_1[] = {
++0x1a};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_1, 0X6000, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_2[] = {
++0x4e};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_2, 0X6010, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_3[] = {
++0x10};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_3, 0X6020, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_4[] = {
++0x20};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_4, 0X6030, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_5[] = {
++0x7a120};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_5, 0X60C0, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_6[] = {
++0x1f4};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_6, 0X60F0, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_7[] = {
++0x1dcd6500};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_7, 0X60E0, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_8[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_8, 0X1400,
++258);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_9[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_9, 0X408,
++200);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_10[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_10, 0X400,
++2);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_11[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_11, 0X500,
++160);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_12[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_12, 0X5A0,
++160);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_13[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_13, 
+0X640, 10);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_14[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_14, 
+0X64A, 10);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_15[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_15, 
+0X654, 46);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_16[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_16, 
+0X682, 46);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_17[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_17, 
+0X760, 36);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_18[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_18, 
+0X784, 36);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_19[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_19, 0X7A8,
++32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_20[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_20, 0XC00,
++1024);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_21[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_21, 
+0XC00, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_22[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_22, 
+0XC40, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_23[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_23, 
+0XC80, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_24[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_24, 
+0XCC0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_25[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_25, 
+0XD00, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_26[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_26, 
+0XD40, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_27[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_27, 
+0XD80, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_28[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_28, 
+0XDC0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_29[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_29, 
+0XE00, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_30[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_30, 
+0XE40, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_31[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_31, 
+0XE80, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_32[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_32, 
+0XEC0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_33[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_33, 
+0XF00, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_34[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_34, 
+0XF40, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_35[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_35, 
+0XF80, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_36[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_36, 
+0XFC0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_37[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_37, 
+0XC20, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_38[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_38, 
+0XC60, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_39[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_39, 
+0XCA0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_40[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_40, 
+0XCE0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_41[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_41, 
+0XD20, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_42[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_42, 
+0XD60, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_43[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_43, 
+0XDA0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_44[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_44, 
+0XDE0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_45[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_45, 
+0XE20, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_46[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_46, 
+0XE60, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_47[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_47, 
+0XEA0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_48[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_48, 
+0XEE0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_49[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_49, 
+0XF20, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_50[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_50, 
+0XF60, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_51[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_51, 
+0XFA0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_52[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_52, 
+0XFE0, 32);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_53[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_53, 
+0X900, 2);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_54[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_54, 
+0X902, 2);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_55[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_55, 0X900,
++2);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_56[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_56, 0X902,
++2);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_57[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x28, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_57, 0X904,
++8);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_58[] = {
++0x0, 0x0, 0x100000, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_58, 
+0X12DA,
++4);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_59[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_59, 
+0X12C4,
++2);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_60[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_60, 0X12DE,
++82);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_61[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_61, 0X1330,
++82);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_62[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_62, 0X1382,
++12);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_63[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_USTRORM_INTMEM, USEM, USEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_USEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_63, 0X138E,
++12);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_64[] = {
++0x1000000};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_64, 0X4200, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_65[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_65, 0X4300, 16);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_66[] = {
++0x0};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_66, 0X4200, 1);
++}
++
++
++{
++static const u32 EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_67[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000};
++INIT_MEM_WR(USEM, USEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_USEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_67, 0X4310, 16);
++}
++
++INIT_REG_RD(CSEM, CSEM_REGISTERS_MSG_NUM_FIC0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(CSEM, CSEM_REGISTERS_MSG_NUM_FIC1, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(CSEM, CSEM_REGISTERS_MSG_NUM_FOC0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(CSEM, CSEM_REGISTERS_MSG_NUM_FOC1, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(CSEM, CSEM_REGISTERS_MSG_NUM_FOC2, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(CSEM, CSEM_REGISTERS_MSG_NUM_FOC3, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_ARB_ELEMENT0, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_ARB_ELEMENT1, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_ARB_ELEMENT2, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_ARB_ELEMENT3, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_ARB_ELEMENT4, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_ARB_CYCLE_SIZE, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_0_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_1_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_2_AS, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_3_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_4_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_5_AS, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_6_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_7_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_8_AS, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_9_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_10_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_11_AS, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_12_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_13_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_14_AS, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_15_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_16_AS, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_17_AS, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_18_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_TS_19_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_ENABLE_IN, 0X3FFF, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_ENABLE_OUT, 0X3FF, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_FIC0_DISABLE, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_FIC1_DISABLE, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_PAS_DISABLE, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(CSEM, CSEM_REGISTERS_THREADS_LIST, 0XFFFF, COMMON, 
+INIT_HARDWARE);
++
++INIT_MEM_CLR(CSEM, CSEM_REGISTERS_PASSIVE_BUFFER, COMMON, 
+INIT_HARDWARE, 0X0,
++2048);
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE[] = {
++0x1};
++INIT_MEM_WR(CSEM, CSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_HARDWARE,
++EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE, 0X62F0, 1);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_1[] = {
++0x10};
++INIT_MEM_WR(CSEM, CSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_HARDWARE,
++EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_1, 0X6000, 1);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_2[] = {
++0x12};
++INIT_MEM_WR(CSEM, CSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_HARDWARE,
++EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_2, 0X6010, 1);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_3[] = {
++0x30};
++INIT_MEM_WR(CSEM, CSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_HARDWARE,
++EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_3, 0X6020, 1);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_4[] = {
++0xe};
++INIT_MEM_WR(CSEM, CSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_HARDWARE,
++EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_4, 0X6030, 1);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_5[] = {
++0x1f4};
++INIT_MEM_WR(CSEM, CSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_HARDWARE,
++EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_5, 0X60F0, 1);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_6[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_HARDWARE, EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_6,
++0X1400, 66);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_7[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_HARDWARE, EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_7,
++0X408, 200);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_8[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_HARDWARE, EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_8,
++0X400, 2);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_PORT0_MEMORY_INIT_HARDWARE_9[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_HARDWARE, EVST_CSEM_FAST_MEMORY_PORT0_MEMORY_INIT_HARDWARE_9,
++0X500, 160);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_PORT1_MEMORY_INIT_HARDWARE_10[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_HARDWARE, EVST_CSEM_FAST_MEMORY_PORT1_MEMORY_INIT_HARDWARE_10,
++0X5A0, 160);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_PORT0_MEMORY_INIT_HARDWARE_11[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_HARDWARE, EVST_CSEM_FAST_MEMORY_PORT0_MEMORY_INIT_HARDWARE_11,
++0X640, 16);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_PORT1_MEMORY_INIT_HARDWARE_12[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_HARDWARE, EVST_CSEM_FAST_MEMORY_PORT1_MEMORY_INIT_HARDWARE_12,
++0X650, 16);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_PORT0_MEMORY_INIT_HARDWARE_13[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_HARDWARE, EVST_CSEM_FAST_MEMORY_PORT0_MEMORY_INIT_HARDWARE_13,
++0X660, 48);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_PORT1_MEMORY_INIT_HARDWARE_14[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_HARDWARE, EVST_CSEM_FAST_MEMORY_PORT1_MEMORY_INIT_HARDWARE_14,
++0X690, 48);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_15[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_HARDWARE, 
+EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_15,
++0X800, 192);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_PORT0_MEMORY_INIT_HARDWARE_16[] = {
++0x0, 0x0, 0xffffffff, 0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_HARDWARE, EVST_CSEM_FAST_MEMORY_PORT0_MEMORY_INIT_HARDWARE_16,
++0X8C0, 4);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_PORT1_MEMORY_INIT_HARDWARE_17[] = {
++0x0, 0x0, 0xffffffff, 0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_HARDWARE, EVST_CSEM_FAST_MEMORY_PORT1_MEMORY_INIT_HARDWARE_17,
++0X8C4, 4);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_18[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_HARDWARE, 
+EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_18,
++0XC1C, 128);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_PORT0_MEMORY_INIT_HARDWARE_19[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_HARDWARE, EVST_CSEM_FAST_MEMORY_PORT0_MEMORY_INIT_HARDWARE_19,
++0XC10, 6);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_PORT1_MEMORY_INIT_HARDWARE_20[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_HARDWARE, EVST_CSEM_FAST_MEMORY_PORT1_MEMORY_INIT_HARDWARE_20,
++0XC16, 6);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_21[] = {
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_HARDWARE, 
+EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_21,
++0X10A0, 4);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_PORT0_MEMORY_INIT_HARDWARE_22[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_HARDWARE, EVST_CSEM_FAST_MEMORY_PORT0_MEMORY_INIT_HARDWARE_22,
++0X904, 48);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_PORT1_MEMORY_INIT_HARDWARE_23[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_HARDWARE, EVST_CSEM_FAST_MEMORY_PORT1_MEMORY_INIT_HARDWARE_23,
++0X934, 48);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_24[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_CSTRORM_INTMEM, CSEM, CSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_HARDWARE, 
+EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_24,
++0X970, 576);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_25[] = {
++0x13fffff};
++INIT_MEM_WR(CSEM, CSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_HARDWARE,
++EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_25, 0X4200, 1);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_26[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000};
++INIT_MEM_WR(CSEM, CSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_HARDWARE,
++EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_26, 0X4300, 16);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_27[] = {
++0x0};
++INIT_MEM_WR(CSEM, CSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_HARDWARE,
++EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_27, 0X4200, 1);
++}
++
++
++{
++static const u32 EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_28[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000};
++INIT_MEM_WR(CSEM, CSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_HARDWARE,
++EVST_CSEM_FAST_MEMORY_COMMON_MEMORY_INIT_HARDWARE_28, 0X4310, 16);
++}
++
++INIT_REG_WR(DQ, DORQ_REGISTERS_MODE_ACT, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(DQ, DORQ_REGISTERS_NORM_CID_OFST, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(DQ, DORQ_REGISTERS_OUTST_REQ, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(DQ, DORQ_REGISTERS_DPM_CID_ADDR, 0X8, COMMON, INIT_HARDWARE);
++INIT_REG_WR(DQ, DORQ_REGISTERS_RSP_INIT_CRD, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(DQ, DORQ_REGISTERS_NORM_CMHEAD_TX, 0X90, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(DQ, DORQ_REGISTERS_CMHEAD_RX, 0X90, COMMON, INIT_HARDWARE);
++INIT_REG_WR(DQ, DORQ_REGISTERS_SHRT_CMHEAD, 0X800090, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(DQ, DORQ_REGISTERS_ERR_CMHEAD, 0X8140000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(DQ, DORQ_REGISTERS_AGG_CMD0, 0X8A, COMMON, INIT_HARDWARE);
++INIT_REG_WR(DQ, DORQ_REGISTERS_AGG_CMD1, 0X80, COMMON, INIT_HARDWARE);
++INIT_REG_WR(DQ, DORQ_REGISTERS_AGG_CMD2, 0X90, COMMON, INIT_HARDWARE);
++INIT_REG_WR(DQ, DORQ_REGISTERS_AGG_CMD3, 0X80, COMMON, INIT_HARDWARE);
++INIT_REG_WR(DQ, DORQ_REGISTERS_SHRT_ACT_CNT, 0X6, COMMON, INIT_HARDWARE);
++INIT_REG_WR(DQ, DORQ_REGISTERS_DQ_FIFO_FULL_TH, 0X7D0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(DQ, DORQ_REGISTERS_DQ_FIFO_AFULL_TH, 0X76C, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(DQ, DORQ_REGISTERS_REGN, 0X7C1004, COMMON, INIT_HARDWARE);
++INIT_REG_WR(DQ, DORQ_REGISTERS_IF_EN, 0XF, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_CLIN_PRIOR0_CLIENT, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_CLIN_PRIOR1_CLIENT, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_LIN_SETCLR_FIFO_ALFULL_THR, 0X1C, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_CFC_AC_CRDCNT_VAL, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_CFC_CLD_CRDCNT_VAL, 0X1, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_CLOUT_CRDCNT0_VAL, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_CLOUT_CRDCNT1_VAL, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_CLOUT_CRDCNT2_VAL, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_EXP_CRDCNT_VAL, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_PCIARB_CRDCNT_VAL, 0X2, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_TIMER_TICK_SIZE, 0X9C, COMMON, 
+INIT_EMULATION);
++INIT_REG_WR(TIMERS, TM_REGISTERS_TIMER_TICK_SIZE, 0X9C4, COMMON, 
+INIT_FPGA);
++INIT_REG_WR(TIMERS, TM_REGISTERS_TIMER_TICK_SIZE, 0X3D090, COMMON, 
+INIT_ASIC);
++
++{
++static const u32 EVST_TIMERS_LIN0_PHY_ADDR_PORT0_MEMORY_INIT_HARDWARE[] = {
++0x0, 0x0};
++INIT_MEM_WB(TIMERS, TM_REGISTERS_LIN0_PHY_ADDR, PORT0, INIT_HARDWARE,
++EVST_TIMERS_LIN0_PHY_ADDR_PORT0_MEMORY_INIT_HARDWARE, 0X0, 2);
++}
++
++
++{
++static const u32 EVST_TIMERS_LIN1_PHY_ADDR_PORT1_MEMORY_INIT_HARDWARE[] = {
++0x0, 0x0};
++INIT_MEM_WB(TIMERS, TM_REGISTERS_LIN1_PHY_ADDR, PORT1, INIT_HARDWARE,
++EVST_TIMERS_LIN1_PHY_ADDR_PORT1_MEMORY_INIT_HARDWARE, 0X0, 2);
++}
++
++INIT_REG_WR(TIMERS, TM_REGISTERS_CL0_CONT_REGION, 0X8, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_CL1_CONT_REGION, 0XC, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_CL2_CONT_REGION, 0X10, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_TM_CONTEXT_REGION, 0X20, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_EN_TIMERS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_EN_LINEAR0_TIMER, 0X1, PORT0, 
+INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_EN_LINEAR1_TIMER, 0X1, PORT1, 
+INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_EN_REAL_TIME_CNT, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_EN_CL0_INPUT, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_EN_CL1_INPUT, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(TIMERS, TM_REGISTERS_EN_CL2_INPUT, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_CFC_RSP_START_ADDR, 0XA14, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_CMP_COUNTER_START_ADDR, 0XA00, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_Q_COUNTER_START_ADDR, 0XA04, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_CMP_COUNTER_MAX0, 0XFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_CMP_COUNTER_MAX1, 0XFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_CMP_COUNTER_MAX2, 0XFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_CMP_COUNTER_MAX3, 0XFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_0, 0X20, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_1, 0X20, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_2, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_3, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_4, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_5, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_6, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_7, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_8, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_9, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_10, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_11, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_12, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_13, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_14, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_15, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_16, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_17, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_18, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_19, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_20, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_21, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_22, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_23, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_24, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_25, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_26, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_27, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_28, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_29, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_30, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_EVENT_31, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_1, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_2, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_3, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_4, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_5, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_6, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_7, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_8, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_9, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_10, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_11, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_12, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_13, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_14, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_15, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_16, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_17, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_18, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_19, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_20, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_21, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_22, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_23, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_24, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_25, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_26, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_27, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_28, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_29, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_30, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_T_31, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_0, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_1, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_2, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_3, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_4, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_5, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_6, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_7, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_8, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_9, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_10, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_11, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_12, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_13, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_14, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_15, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_16, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_17, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_18, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_19, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_20, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_21, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_22, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_23, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_24, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_25, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_26, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_27, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_28, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_29, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_30, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_FIC_31, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_0, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_1, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_2, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_3, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_4, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_5, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_6, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_7, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_8, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_9, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_10, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_11, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_12, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_13, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_14, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_15, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_16, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_17, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_18, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_19, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_20, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_21, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_22, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_23, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_24, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_25, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_26, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_27, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_28, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_29, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_30, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_AGG_INT_MODE_31, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_ENABLE_IN1, 0X7FFFFFF, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_ENABLE_IN2, 0X3F, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_ENABLE_OUT1, 0X7FFFFFF, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_ENABLE_OUT2, 0XF, COMMON, INIT_HARDWARE);
++INIT_REG_RD(XSDM, XSDM_REGISTERS_NUM_OF_Q0_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(XSDM, XSDM_REGISTERS_NUM_OF_Q1_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(XSDM, XSDM_REGISTERS_NUM_OF_Q3_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(XSDM, XSDM_REGISTERS_NUM_OF_Q4_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(XSDM, XSDM_REGISTERS_NUM_OF_Q5_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(XSDM, XSDM_REGISTERS_NUM_OF_Q6_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(XSDM, XSDM_REGISTERS_NUM_OF_Q7_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(XSDM, XSDM_REGISTERS_NUM_OF_Q8_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(XSDM, XSDM_REGISTERS_NUM_OF_Q9_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(XSDM, XSDM_REGISTERS_NUM_OF_Q10_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(XSDM, XSDM_REGISTERS_NUM_OF_Q11_CMD, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_RD(XSDM, XSDM_REGISTERS_NUM_OF_PKT_END_MSG, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_RD(XSDM, XSDM_REGISTERS_NUM_OF_PXP_ASYNC_REQ, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_RD(XSDM, XSDM_REGISTERS_NUM_OF_ACK_AFTER_PLACE, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_TIMER_TICK, 0X1, COMMON, INIT_EMULATION);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_TIMER_TICK, 0XA, COMMON, INIT_FPGA);
++INIT_REG_WR(XSDM, XSDM_REGISTERS_TIMER_TICK, 0X3E8, COMMON, INIT_ASIC);
++INIT_REG_WR(QM, QM_REGISTERS_ACTCTRINITVAL_0, 0X6, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_ACTCTRINITVAL_1, 0X5, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_ACTCTRINITVAL_2, 0XA, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_ACTCTRINITVAL_3, 0X5, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_PCIREQAT, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CMINITCRD_0, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CMINITCRD_1, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CMINITCRD_2, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CMINITCRD_3, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CMINITCRD_4, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CMINITCRD_5, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CMINITCRD_6, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CMINITCRD_7, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_OUTLDREQ, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CTXREG_0, 0X7C, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CTXREG_1, 0X3D, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CTXREG_2, 0X3F, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CTXREG_3, 0X9C, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_ENSEC, 0X7, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_1, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_2, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_3, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_4, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_WRRWEIGHTS_0, 0X1010101, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_5, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_6, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_7, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_8, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_WRRWEIGHTS_1, 0X1808004, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_9, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_10, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_11, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_12, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_WRRWEIGHTS_2, 0X1010101, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_13, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_14, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_15, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_16, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_WRRWEIGHTS_3, 0X1010101, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_17, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_18, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_19, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_20, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_WRRWEIGHTS_4, 0X1010101, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_21, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_22, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_23, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_24, 0X5, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_WRRWEIGHTS_5, 0X1080120, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_25, 0X5, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_26, 0X5, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_27, 0X5, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_28, 0X5, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_WRRWEIGHTS_6, 0X20010810, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_29, 0X8, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_30, 0X6, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_31, 0X7, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_32, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_WRRWEIGHTS_7, 0X1010120, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_33, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_34, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_35, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_36, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_WRRWEIGHTS_8, 0X1010101, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_37, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_38, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_39, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_40, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_WRRWEIGHTS_9, 0X1808004, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_41, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_42, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_43, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_44, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_WRRWEIGHTS_10, 0X1010101, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_45, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_46, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_47, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_48, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_WRRWEIGHTS_11, 0X1010101, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_49, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_50, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_51, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_52, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_WRRWEIGHTS_12, 0X1010101, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_53, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_54, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_55, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_56, 0X5, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_WRRWEIGHTS_13, 0X1080120, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_57, 0X5, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_58, 0X5, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_59, 0X5, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_60, 0X5, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_WRRWEIGHTS_14, 0X20010810, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_61, 0X8, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_62, 0X6, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_QVOQIDX_63, 0X7, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_WRRWEIGHTS_15, 0X1010120, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_0_LSB, 0X1FFFFF, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_0_MSB, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_1_LSB, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_1_MSB, 0X1FFFFF, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_2_LSB, 0X800000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_2_MSB, 0X800000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_3_LSB, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_3_MSB, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_4_LSB, 0X600000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_4_MSB, 0X600000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_5_LSB, 0X1F000000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_5_MSB, 0X1F000000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_6_LSB, 0X40000000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_6_MSB, 0X40000000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_7_LSB, 0X80000000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_7_MSB, 0X80000000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_8_LSB, 0X20000000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_8_MSB, 0X20000000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_9_LSB, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_9_MSB, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_10_LSB, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_10_MSB, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_11_LSB, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQQMASK_11_MSB, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQPORT_0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQPORT_1, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQPORT_2, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQPORT_3, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQPORT_4, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQPORT_5, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQPORT_6, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQPORT_7, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQPORT_8, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQPORT_9, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQPORT_10, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQPORT_11, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CMINTVOQMASK_0, 0XC08, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CMINTVOQMASK_1, 0X40, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CMINTVOQMASK_2, 0X100, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CMINTVOQMASK_3, 0X20, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CMINTVOQMASK_4, 0X17, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CMINTVOQMASK_5, 0X80, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CMINTVOQMASK_6, 0X200, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CMINTVOQMASK_7, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_HWAEMPTYMASK_LSB, 0XFFFFFF, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_HWAEMPTYMASK_MSB, 0XFFFFFF, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_ENBYPVOQMASK, 0X13, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQCREDITAFULLTHR, 0X13F, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQINITCREDIT_0, 0X140, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQINITCREDIT_1, 0X140, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQINITCREDIT_2, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQINITCREDIT_3, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQINITCREDIT_4, 0XC0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQINITCREDIT_5, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQINITCREDIT_6, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQINITCREDIT_7, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQINITCREDIT_8, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQINITCREDIT_9, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQINITCREDIT_10, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_VOQINITCREDIT_11, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_TASKCRDCOST_0, 0X48, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_TASKCRDCOST_1, 0X48, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_TASKCRDCOST_2, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_TASKCRDCOST_3, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_TASKCRDCOST_4, 0X48, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_TASKCRDCOST_5, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_TASKCRDCOST_6, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_TASKCRDCOST_7, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_TASKCRDCOST_8, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_TASKCRDCOST_9, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_TASKCRDCOST_10, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_TASKCRDCOST_11, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_BYTECRDINITVAL, 0X8000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_BYTECRDCOST, 0X2400, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_BYTECREDITAFULLTHR, 0X7FFF, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_ENBYTECRD_LSB, 0X7, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_ENBYTECRD_MSB, 0X7, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_BYTECRDPORT_LSB, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_BYTECRDPORT_MSB, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_FUNCNUMSEL_LSB, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_FUNCNUMSEL_MSB, 0XFFFFFFFF, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(QM, QM_REGISTERS_CMINTEN, 0XFF, COMMON, INIT_HARDWARE);
++INIT_REG_WR(PBF, PBF_REGISTERS_INIT, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(PBF, PBF_REGISTERS_INIT_P0, 0X1, PORT0, INIT_HARDWARE);
++INIT_REG_WR(PBF, PBF_REGISTERS_INIT_P1, 0X1, PORT1, INIT_HARDWARE);
++INIT_REG_WR(PBF, PBF_REGISTERS_INIT_P4, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(PBF, PBF_REGISTERS_MAC_IF0_ENABLE, 0X1, PORT0, INIT_HARDWARE);
++INIT_REG_WR(PBF, PBF_REGISTERS_MAC_IF1_ENABLE, 0X1, PORT1, INIT_HARDWARE);
++INIT_REG_WR(PBF, PBF_REGISTERS_MAC_LB_ENABLE, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(PBF, PBF_REGISTERS_IF_ENABLE_REG, 0X7FFF, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PBF, PBF_REGISTERS_INIT_P0, 0X0, PORT0, INIT_HARDWARE);
++INIT_REG_WR(PBF, PBF_REGISTERS_INIT_P1, 0X0, PORT1, INIT_HARDWARE);
++INIT_REG_WR(PBF, PBF_REGISTERS_INIT_P4, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(PBF, PBF_REGISTERS_INIT, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(PBF, PBF_REGISTERS_DISABLE_NEW_TASK_PROC_P0, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(PBF, PBF_REGISTERS_DISABLE_NEW_TASK_PROC_P1, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(PBF, PBF_REGISTERS_DISABLE_NEW_TASK_PROC_P4, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_XX_OVFL_EVNT_ID, 0X32, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_XQM_XCM_HDR_P, 0X3150020, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_XQM_XCM_HDR_S, 0X3150020, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_TM_XCM_HDR, 0X1000030, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_ERR_XCM_HDR, 0X8100000, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_ERR_EVNT_ID, 0X33, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_EXPR_EVNT_ID, 0X30, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_STOP_EVNT_ID, 0X31, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_STORM_WEIGHT, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_TSEM_WEIGHT, 0X5, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_CSEM_WEIGHT, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_USEM_WEIGHT, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_PBF_WEIGHT, 0X7, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_NIG1_WEIGHT, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_CP_WEIGHT, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_XSDM_WEIGHT, 0X5, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_XQM_P_WEIGHT, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_XCM_XQM_USE_Q, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_XQM_BYP_ACT_UPD, 0X6, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_GLB_DEL_ACK_TMR_VAL_0, 0XC8, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_GLB_DEL_ACK_TMR_VAL_1, 0XC8, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_GLB_DEL_ACK_MAX_CNT_0, 0X2, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_GLB_DEL_ACK_MAX_CNT_1, 0X2, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_UNA_GT_NXT_Q, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_AUX1_Q, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_AUX_CNT_FLG_Q_19, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_WU_DA_SET_TMR_CNT_FLG_CMD00, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_WU_DA_SET_TMR_CNT_FLG_CMD01, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_WU_DA_SET_TMR_CNT_FLG_CMD10, 0X0, PORT0,
++INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_WU_DA_SET_TMR_CNT_FLG_CMD11, 0X0, PORT1,
++INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_WU_DA_CNT_CMD00, 0X2, PORT0, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_WU_DA_CNT_CMD01, 0X2, PORT1, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_WU_DA_CNT_CMD10, 0X2, PORT0, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_WU_DA_CNT_CMD11, 0X2, PORT1, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_WU_DA_CNT_UPD_VAL00, 0XFF, PORT0, 
+INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_WU_DA_CNT_UPD_VAL01, 0XFF, PORT1, 
+INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_WU_DA_CNT_UPD_VAL10, 0XFF, PORT0, 
+INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_WU_DA_CNT_UPD_VAL11, 0XFF, PORT1, 
+INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_GR_ARB_TYPE, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_GR_LD0_PR, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_GR_LD1_PR, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_CFC_INIT_CRD, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_FIC0_INIT_CRD, 0X40, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_FIC1_INIT_CRD, 0X40, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_TM_INIT_CRD, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_XQM_INIT_CRD, 0X20, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_XX_INIT_CRD, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_XX_MSG_NUM, 0X1F, COMMON, INIT_HARDWARE);
++
++{
++static const u32 EVST_XCM_XX_TABLE_COMMON_MEMORY_INIT_HARDWARE[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_MEM_WR(XCM, XCM_REGISTERS_XX_TABLE, COMMON, INIT_HARDWARE,
++EVST_XCM_XX_TABLE_COMMON_MEMORY_INIT_HARDWARE, 0X0, 18);
++}
++
++
++{
++static const u32 EVST_XCM_XX_DESCR_TABLE_COMMON_MEMORY_INIT_HARDWARE[] = {
++0x1000, 0x2080, 0x3100, 0x4180, 0x5200, 0x6280, 0x7300, 0x8380, 0x9400, 
+0xa480,
++0xb500, 0xc580, 0xd600, 0xe680, 0xf700, 0x10780,
++0x11800, 0x12880, 0x13900, 0x14980, 0x15a00, 0x16a80, 0x17b00, 0x18b80,
++0x19c00, 0x1ac80, 0x1bd00, 0x1cd80, 0x1de00, 0x1ee80, 0x1ff00};
++INIT_MEM_WR(XCM, XCM_REGISTERS_XX_DESCR_TABLE, COMMON, INIT_HARDWARE,
++EVST_XCM_XX_DESCR_TABLE_COMMON_MEMORY_INIT_HARDWARE, 0X0, 31);
++}
++
++INIT_REG_WR(XCM, XCM_REGISTERS_N_SM_CTX_LD_0, 0XF, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_N_SM_CTX_LD_1, 0X7, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_N_SM_CTX_LD_2, 0XB, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_N_SM_CTX_LD_3, 0XE, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_N_SM_CTX_LD_4, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_N_SM_CTX_LD_5, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_N_SM_CTX_LD_6, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_N_SM_CTX_LD_7, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_XCM_REG0_SZ, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_XCM_STORM0_IFEN, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_XCM_STORM1_IFEN, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_XCM_XQM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_STORM_XCM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_XQM_XCM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_XSDM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_TM_XCM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_XCM_TM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_TSEM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_CSEM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_USEM_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_DORQ_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_PBF_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_NIG0_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_NIG1_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_CDU_AG_WR_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_CDU_AG_RD_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_CDU_SM_WR_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_CDU_SM_RD_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XCM, XCM_REGISTERS_XCM_CFC_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_RD(XSEM, XSEM_REGISTERS_MSG_NUM_FIC0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(XSEM, XSEM_REGISTERS_MSG_NUM_FIC1, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(XSEM, XSEM_REGISTERS_MSG_NUM_FOC0, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(XSEM, XSEM_REGISTERS_MSG_NUM_FOC1, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(XSEM, XSEM_REGISTERS_MSG_NUM_FOC2, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_RD(XSEM, XSEM_REGISTERS_MSG_NUM_FOC3, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_ARB_ELEMENT0, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_ARB_ELEMENT1, 0X2, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_ARB_ELEMENT2, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_ARB_ELEMENT3, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_ARB_ELEMENT4, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_ARB_CYCLE_SIZE, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_0_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_1_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_2_AS, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_3_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_4_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_5_AS, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_6_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_7_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_8_AS, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_9_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_10_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_11_AS, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_12_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_13_AS, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_14_AS, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_15_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_16_AS, 0X4, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_17_AS, 0X3, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_18_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_TS_19_AS, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_ENABLE_IN, 0X3FFF, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_ENABLE_OUT, 0X3FF, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_FIC0_DISABLE, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_FIC1_DISABLE, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_PAS_DISABLE, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(XSEM, XSEM_REGISTERS_THREADS_LIST, 0XFFFF, COMMON, 
+INIT_HARDWARE);
++
++INIT_MEM_CLR(XSEM, XSEM_REGISTERS_PASSIVE_BUFFER, COMMON, 
+INIT_HARDWARE, 0X0,
++2048);
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION[] = {
++0x1};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION, 0X62F0, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_1[] = {
++0x0};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_1, 0X6000, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_2[] = {
++0x18};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_2, 0X6010, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_3[] = {
++0xc};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_3, 0X6020, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_4[] = {
++0x66};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_4, 0X6030, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_5[] = {
++0x138};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_5, 0X60C0, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_6[] = {
++0x1f4};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_6, 0X60F0, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_7[] = {
++0x0};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_7, 0X60D0, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_8[] = {
++0x4c4b4};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_8, 0X60E0, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_9[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_9,
++0X1576, 2);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_10[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_10,
++0X1400, 72);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_11[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_11,
++0X408, 200);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_12[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_12,
++0X400, 2);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_13[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_13,
++0X144A, 146);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_14[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_14,
++0X14DE, 1);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_15[] = {
++0x0, 0x10001};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_15,
++0X14E0, 2);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_16[] = {
++0x150004, 0xcccccccd, 0xffffffff, 0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_16,
++0X150A, 4);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_17[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_17,
++0X500, 10);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_18[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_18,
++0X50A, 10);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_19[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_19,
++0X514, 6);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_20[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_20,
++0X51A, 6);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_21[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xffffffff,
++0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_21,
++0X14E2, 14);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_22[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xffffffff,
++0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_22,
++0X14F0, 14);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_23[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_23,
++0X540, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_24[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_24,
++0X541, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_25[] = {
++0x1};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_25,
++0X542, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_26[] = {
++0x1};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_26,
++0X543, 1);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_27[] = {
++0x1};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_27,
++0X546, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_28[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_28,
++0XC08, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_29[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_29,
++0XC0A, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_30[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_30,
++0XC0C, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_31[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_31,
++0XC0E, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_32[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_32,
++0XC00, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_33[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_33,
++0XC02, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_34[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_34,
++0XC04, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_35[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_35,
++0XC06, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_36[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_36,
++0XC10, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_37[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_37,
++0XC11, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_38[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xffffffff,
++0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_38,
++0XC12, 14);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_39[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xffffffff,
++0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_39,
++0XC20, 14);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_40[] = {
++0x1};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_40,
++0XC2E, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_41[] = {
++0x1};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_41,
++0XC2F, 1);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_42[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_42,
++0X60C, 1);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_43[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_43,
++0X60E, 1);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_44[] = {
++0xcccc0201, 0xcccccccc};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_44,
++0X608, 2);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_45[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_45,
++0X12B0, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_46[] = {
++0x100000, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_46,
++0X12B2, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_47[] = {
++0x100000, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_47,
++0X12B4, 2);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_48[] = {
++0x100000, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_48,
++0X12B6, 2);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_49[] = {
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_49,
++0X12C2, 4);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_50[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_50,
++0X12C6, 66);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_51[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_51,
++0X1308, 66);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_52[] = {
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_EMULATION_52,
++0X134A, 4);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_53[] = {
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_EMULATION, 
+EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_EMULATION_53,
++0X134E, 4);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_54[] = {
++0x0};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_54, 0X4200, 1);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_55[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_55, 0X4300, 16);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_56[] = {
++0x1000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_56, 0X4200, 1);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_57[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_57, 0X4310, 8);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_58[] = {
++0x2000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_58, 0X4200, 1);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_59[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_59, 0X4318, 8);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_60[] = {
++0x3000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_60, 0X4200, 1);
++}
++
++
++{
++static const u32 
+EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_61[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_EMULATION,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_61, 0X4320, 8);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA[] = {
++0x1};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA, 0X62F0, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_1[] = {
++0x0};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_1, 0X6000, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_2[] = {
++0x18};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_2, 0X6010, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_3[] = {
++0xc};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_3, 0X6020, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_4[] = {
++0x66};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_4, 0X6030, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_5[] = {
++0x1388};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_5, 0X60C0, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_6[] = {
++0x1f4};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_6, 0X60F0, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_7[] = {
++0x5};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_7, 0X60D0, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_8[] = {
++0x4c4b40};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_8, 0X60E0, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_9[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_9, 0X1576,
++2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_10[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_10, 
+0X1400,
++72);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_11[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_11, 0X408,
++200);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_12[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_12, 0X400,
++2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_13[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_13, 
+0X144A,
++146);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_14[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_14, 
+0X14DE,
++1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_15[] = {
++0x0, 0x10001};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_15, 
+0X14E0,
++2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_16[] = {
++0x150004, 0xcccccccd, 0xffffffff, 0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_16, 
+0X150A,
++4);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_17[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_17, 
+0X500, 10);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_18[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_18, 
+0X50A, 10);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_19[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_19, 
+0X514, 6);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_20[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_20, 
+0X51A, 6);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_21[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xffffffff,
++0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_21, 0X14E2,
++14);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_22[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xffffffff,
++0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_22, 0X14F0,
++14);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_23[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_23, 
+0X540, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_24[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_24, 
+0X541, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_25[] = {
++0x1};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_25, 
+0X542, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_26[] = {
++0x1};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_26, 
+0X543, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_27[] = {
++0x1};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_27, 0X546,
++1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_28[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_28, 
+0XC08, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_29[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_29, 
+0XC0A, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_30[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_30, 
+0XC0C, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_31[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_31, 
+0XC0E, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_32[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_32, 
+0XC00, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_33[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_33, 
+0XC02, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_34[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_34, 
+0XC04, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_35[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_35, 
+0XC06, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_36[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_36, 
+0XC10, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_37[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_37, 
+0XC11, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_38[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xffffffff,
++0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_38, 
+0XC12, 14);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_39[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xffffffff,
++0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_39, 
+0XC20, 14);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_40[] = {
++0x1};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_40, 
+0XC2E, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_41[] = {
++0x1};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_41, 
+0XC2F, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_42[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_42, 0X60C,
++1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_43[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_43, 0X60E,
++1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_44[] = {
++0xcccc0201, 0xcccccccc};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_44, 0X608,
++2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_45[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_45, 
+0X12B0,
++2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_46[] = {
++0x100000, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_46, 
+0X12B2, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_47[] = {
++0x100000, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_47, 
+0X12B4, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_48[] = {
++0x100000, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_48, 
+0X12B6,
++2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_49[] = {
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_FPGA, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_49, 
+0X12C2,
++4);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_50[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_50, 0X12C6,
++66);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_51[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_51, 0X1308,
++66);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_52[] = {
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_FPGA_52, 
+0X134A, 4);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_53[] = {
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_FPGA, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_FPGA_53, 
+0X134E, 4);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_54[] = {
++0x0};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_54, 0X4200, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_55[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_55, 0X4300, 16);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_56[] = {
++0x1000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_56, 0X4200, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_57[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_57, 0X4310, 8);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_58[] = {
++0x2000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_58, 0X4200, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_59[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_59, 0X4318, 8);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_60[] = {
++0x3000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_60, 0X4200, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_61[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_FPGA,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_FPGA_61, 0X4320, 8);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC[] = {
++0x1};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC, 0X62F0, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_1[] = {
++0x0};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_1, 0X6000, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_2[] = {
++0x18};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_2, 0X6010, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_3[] = {
++0xc};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_3, 0X6020, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_4[] = {
++0x66};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_4, 0X6030, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_5[] = {
++0x7a120};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_5, 0X60C0, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_6[] = {
++0x1f4};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_6, 0X60F0, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_7[] = {
++0x1f4};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_7, 0X60D0, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_8[] = {
++0x1dcd6500};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_8, 0X60E0, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_9[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_9, 0X1576,
++2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_10[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_10, 
+0X1400,
++72);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_11[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_11, 0X408,
++200);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_12[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_12, 0X400,
++2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_13[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_13, 
+0X144A,
++146);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_14[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_14, 
+0X14DE,
++1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_15[] = {
++0x0, 0x10001};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_15, 
+0X14E0,
++2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_16[] = {
++0x150004, 0xcccccccd, 0xffffffff, 0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_16, 
+0X150A,
++4);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_17[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_17, 
+0X500, 10);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_18[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_18, 
+0X50A, 10);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_19[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_19, 
+0X514, 6);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_20[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_20, 
+0X51A, 6);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_21[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xffffffff,
++0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_21, 0X14E2,
++14);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_22[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xffffffff,
++0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_22, 0X14F0,
++14);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_23[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_23, 
+0X540, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_24[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_24, 
+0X541, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_25[] = {
++0x1};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_25, 
+0X542, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_26[] = {
++0x1};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_26, 
+0X543, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_27[] = {
++0x1};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_27, 0X546,
++1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_28[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_28, 
+0XC08, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_29[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_29, 
+0XC0A, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_30[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_30, 
+0XC0C, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_31[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_31, 
+0XC0E, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_32[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_32, 
+0XC00, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_33[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_33, 
+0XC02, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_34[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_34, 
+0XC04, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_35[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_35, 
+0XC06, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_36[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_36, 
+0XC10, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_37[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_37, 
+0XC11, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_38[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xffffffff,
++0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_38, 
+0XC12, 14);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_39[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xffffffff,
++0xffffffff};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_39, 
+0XC20, 14);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_40[] = {
++0x1};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_40, 
+0XC2E, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_41[] = {
++0x1};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_41, 
+0XC2F, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_42[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_42, 0X60C,
++1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_43[] = {
++0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_43, 0X60E,
++1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_44[] = {
++0xcccc0201, 0xcccccccc};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_44, 0X608,
++2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_45[] = {
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_45, 
+0X12B0,
++2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_46[] = {
++0x100000, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_46, 
+0X12B2, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_47[] = {
++0x100000, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_47, 
+0X12B4, 2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_48[] = {
++0x100000, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_48, 
+0X12B6,
++2);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_49[] = {
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++COMMON, INIT_ASIC, EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_49, 
+0X12C2,
++4);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_50[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_50, 0X12C6,
++66);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_51[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_51, 0X1308,
++66);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_52[] = {
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT0, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT0_MEMORY_INIT_ASIC_52, 
+0X134A, 4);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_53[] = {
++0x0, 0x0, 0x0, 0x0};
++INIT_INTERNAL0_MEM_WR(BAR_XSTRORM_INTMEM, XSEM, XSEM_REGISTERS_FAST_MEMORY,
++PORT1, INIT_ASIC, EVST_XSEM_FAST_MEMORY_PORT1_MEMORY_INIT_ASIC_53, 
+0X134E, 4);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_54[] = {
++0x0};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_54, 0X4200, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_55[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000, 0x40000000, 0x40000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_55, 0X4300, 16);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_56[] = {
++0x1000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_56, 0X4200, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_57[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_57, 0X4310, 8);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_58[] = {
++0x2000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_58, 0X4200, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_59[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_59, 0X4318, 8);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_60[] = {
++0x3000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_60, 0X4200, 1);
++}
++
++
++{
++static const u32 EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_61[] = {
++0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000, 0x40000000,
++0x40000000, 0x40000000};
++INIT_MEM_WR(XSEM, XSEM_REGISTERS_FAST_MEMORY, COMMON, INIT_ASIC,
++EVST_XSEM_FAST_MEMORY_COMMON_MEMORY_INIT_ASIC_61, 0X4320, 8);
++}
++
++INIT_REG_WR(DMAE, DMAE_REGISTERS_CRC16C_INIT, 0X0, COMMON, INIT_HARDWARE);
++INIT_REG_WR(DMAE, DMAE_REGISTERS_CRC16T10_INIT, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(DMAE, DMAE_REGISTERS_PXP_REQ_INIT_CRD, 0X2, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(DMAE, DMAE_REGISTERS_PCI_IFEN, 0X1, COMMON, INIT_HARDWARE);
++INIT_REG_WR(DMAE, DMAE_REGISTERS_GRC_IFEN, 0X1, COMMON, INIT_HARDWARE);
++
++{
++static const u32 EVST_PXP_HST_INBOUND_INT_COMMON_MEMORY_INIT_HARDWARE[] = {
++0xcccccccc, 0xcccccccc, 0xcccccccc, 0xcccccccc, 0x2000};
++INIT_MEM_IND(PXP, PXP_REGISTERS_HST_INBOUND_INT, COMMON, INIT_HARDWARE,
++EVST_PXP_HST_INBOUND_INT_COMMON_MEMORY_INIT_HARDWARE, 0X100, 5);
++}
++
++
++{
++static const u32 
+EVST_PXP_HST_INBOUND_INT_COMMON_MEMORY_INIT_HARDWARE_1[] = {
++0xcccccccc, 0xcccccccc, 0xcccccccc, 0xcccccccc, 0x2000};
++INIT_MEM_IND(PXP, PXP_REGISTERS_HST_INBOUND_INT, COMMON, INIT_HARDWARE,
++EVST_PXP_HST_INBOUND_INT_COMMON_MEMORY_INIT_HARDWARE_1, 0X108, 5);
++}
++
++
++{
++static const u32 
+EVST_PXP_HST_INBOUND_INT_COMMON_MEMORY_INIT_HARDWARE_2[] = {
++0xcccccccc, 0xcccccccc, 0xcccccccc, 0xcccccccc, 0x2000};
++INIT_MEM_IND(PXP, PXP_REGISTERS_HST_INBOUND_INT, COMMON, INIT_HARDWARE,
++EVST_PXP_HST_INBOUND_INT_COMMON_MEMORY_INIT_HARDWARE_2, 0X0, 5);
++}
++
++INIT_REG_WR(HC, HC_REGISTERS_CONFIG_0, 0X1080, PORT0, INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_CONFIG_1, 0X1080, PORT1, INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_UC_RAM_ADDR_0, 0X0, PORT0, INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_XT_RAM_ADDR_0, 0X0, PORT0, INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_UC_RAM_ADDR_1, 0X0, PORT1, INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_XT_RAM_ADDR_1, 0X0, PORT1, INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_ATTN_NUM_P0, 0X10, PORT0, INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_ATTN_NUM_P1, 0X10, PORT1, INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_LEADING_EDGE_0, 0XFFFF, PORT0, INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_TRAILING_EDGE_0, 0XFFFF, PORT0, 
+INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_LEADING_EDGE_1, 0XFFFF, PORT1, INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_TRAILING_EDGE_1, 0XFFFF, PORT1, 
+INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_AGG_INT_0, 0X0, PORT0, INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_AGG_INT_1, 0X0, PORT1, INIT_HARDWARE);
++
++{
++static const u32 EVST_HC_ATTN_IDX_PORT0_MEMORY_INIT_HARDWARE[] = {
++0x0};
++INIT_MEM_WR(HC, HC_REGISTERS_ATTN_IDX, PORT0, INIT_HARDWARE,
++EVST_HC_ATTN_IDX_PORT0_MEMORY_INIT_HARDWARE, 0X0, 1);
++}
++
++
++{
++static const u32 EVST_HC_ATTN_IDX_PORT1_MEMORY_INIT_HARDWARE_1[] = {
++0x0};
++INIT_MEM_WR(HC, HC_REGISTERS_ATTN_IDX, PORT1, INIT_HARDWARE,
++EVST_HC_ATTN_IDX_PORT1_MEMORY_INIT_HARDWARE_1, 0X1, 1);
++}
++
++
++{
++static const u32 EVST_HC_ATTN_BIT_PORT0_MEMORY_INIT_HARDWARE[] = {
++0x0, 0x0};
++INIT_MEM_WR(HC, HC_REGISTERS_ATTN_BIT, PORT0, INIT_HARDWARE,
++EVST_HC_ATTN_BIT_PORT0_MEMORY_INIT_HARDWARE, 0X0, 2);
++}
++
++
++{
++static const u32 EVST_HC_ATTN_BIT_PORT1_MEMORY_INIT_HARDWARE_1[] = {
++0x0, 0x0};
++INIT_MEM_WR(HC, HC_REGISTERS_ATTN_BIT, PORT1, INIT_HARDWARE,
++EVST_HC_ATTN_BIT_PORT1_MEMORY_INIT_HARDWARE_1, 0X2, 2);
++}
++
++INIT_REG_WR(HC, HC_REGISTERS_VQID_0, 0X2B5, PORT0, INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_VQID_1, 0X2B5, PORT1, INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_PCI_CONFIG_0, 0X0, PORT0, INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_PCI_CONFIG_1, 0X0, PORT1, INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_USTORM_ADDR_FOR_COALESCE, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_CSTORM_ADDR_FOR_COALESCE, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_XSTORM_ADDR_FOR_COALESCE, 0X0, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_TSTORM_ADDR_FOR_COALESCE, 0X0, COMMON,
++INIT_HARDWARE);
++
++{
++static const u32 EVST_HC_P0_PROD_CONS_PORT0_MEMORY_INIT_HARDWARE[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_MEM_WR(HC, HC_REGISTERS_P0_PROD_CONS, PORT0, INIT_HARDWARE,
++EVST_HC_P0_PROD_CONS_PORT0_MEMORY_INIT_HARDWARE, 0X0, 74);
++}
++
++/* MANUAL CHANGE,  Gertner */
++{
++static const u32 EVST_HC_PBA_COMMAND_PORT0_MEMORY_INIT_HARDWARE[] = {
++0x0, 0x0};
++INIT_MEM_WR(HC, HC_REGISTERS_PBA_COMMAND, PORT0, INIT_HARDWARE,
++EVST_HC_PBA_COMMAND_PORT0_MEMORY_INIT_HARDWARE, 0X0, 2);
++}
++
++
++{
++static const u32 EVST_HC_P1_PROD_CONS_PORT1_MEMORY_INIT_HARDWARE[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_MEM_WR(HC, HC_REGISTERS_P1_PROD_CONS, PORT1, INIT_HARDWARE,
++EVST_HC_P1_PROD_CONS_PORT1_MEMORY_INIT_HARDWARE, 0X0, 74);
++}
++
++/* MANUAL CHANGE,  Gertner */
++{
++static const u32 EVST_HC_PBA_COMMAND_PORT1_MEMORY_INIT_HARDWARE[] = {
++0x0, 0x0};
++INIT_MEM_WR(HC, HC_REGISTERS_PBA_COMMAND, PORT1, INIT_HARDWARE,
++EVST_HC_PBA_COMMAND_PORT1_MEMORY_INIT_HARDWARE, 0X2, 2);
++}
++
++
++{
++static const u32 EVST_HC_INT_MASK_PORT0_MEMORY_INIT_HARDWARE[] = {
++0x1ffff};
++INIT_MEM_WR(HC, HC_REGISTERS_INT_MASK, PORT0, INIT_HARDWARE,
++EVST_HC_INT_MASK_PORT0_MEMORY_INIT_HARDWARE, 0X0, 1);
++}
++
++
++{
++static const u32 EVST_HC_INT_MASK_PORT1_MEMORY_INIT_HARDWARE_1[] = {
++0x1ffff};
++INIT_MEM_WR(HC, HC_REGISTERS_INT_MASK, PORT1, INIT_HARDWARE,
++EVST_HC_INT_MASK_PORT1_MEMORY_INIT_HARDWARE_1, 0X1, 1);
++}
++
++INIT_REG_WR(HC, HC_REGISTERS_CONFIG_0, 0X1A82, PORT0, INIT_HARDWARE);
++INIT_REG_WR(HC, HC_REGISTERS_CONFIG_1, 0X1A82, PORT1, INIT_HARDWARE);
++
++{
++static const u32 
+EVST_HC_STATISTIC_COUNTERS_PORT0_MEMORY_INIT_HARDWARE[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0};
++INIT_MEM_WR(HC, HC_REGISTERS_STATISTIC_COUNTERS, PORT0, INIT_HARDWARE,
++EVST_HC_STATISTIC_COUNTERS_PORT0_MEMORY_INIT_HARDWARE, 0X0, 36);
++}
++
++
++{
++static const u32 
+EVST_HC_STATISTIC_COUNTERS_PORT1_MEMORY_INIT_HARDWARE_1[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0};
++INIT_MEM_WR(HC, HC_REGISTERS_STATISTIC_COUNTERS, PORT1, INIT_HARDWARE,
++EVST_HC_STATISTIC_COUNTERS_PORT1_MEMORY_INIT_HARDWARE_1, 0X24, 36);
++}
++
++
++{
++static const u32 
+EVST_HC_STATISTIC_COUNTERS_PORT0_MEMORY_INIT_HARDWARE_2[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_MEM_WR(HC, HC_REGISTERS_STATISTIC_COUNTERS, PORT0, INIT_HARDWARE,
++EVST_HC_STATISTIC_COUNTERS_PORT0_MEMORY_INIT_HARDWARE_2, 0X48, 74);
++}
++
++
++{
++static const u32 
+EVST_HC_STATISTIC_COUNTERS_PORT1_MEMORY_INIT_HARDWARE_3[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_MEM_WR(HC, HC_REGISTERS_STATISTIC_COUNTERS, PORT1, INIT_HARDWARE,
++EVST_HC_STATISTIC_COUNTERS_PORT1_MEMORY_INIT_HARDWARE_3, 0X92, 74);
++}
++
++
++{
++static const u32 
+EVST_HC_STATISTIC_COUNTERS_PORT0_MEMORY_INIT_HARDWARE_4[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_MEM_WR(HC, HC_REGISTERS_STATISTIC_COUNTERS, PORT0, INIT_HARDWARE,
++EVST_HC_STATISTIC_COUNTERS_PORT0_MEMORY_INIT_HARDWARE_4, 0XDC, 74);
++}
++
++
++{
++static const u32 
+EVST_HC_STATISTIC_COUNTERS_PORT1_MEMORY_INIT_HARDWARE_5[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_MEM_WR(HC, HC_REGISTERS_STATISTIC_COUNTERS, PORT1, INIT_HARDWARE,
++EVST_HC_STATISTIC_COUNTERS_PORT1_MEMORY_INIT_HARDWARE_5, 0X126, 74);
++}
++
++
++{
++static const u32 
+EVST_HC_STATISTIC_COUNTERS_PORT0_MEMORY_INIT_HARDWARE_6[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_MEM_WR(HC, HC_REGISTERS_STATISTIC_COUNTERS, PORT0, INIT_HARDWARE,
++EVST_HC_STATISTIC_COUNTERS_PORT0_MEMORY_INIT_HARDWARE_6, 0X170, 74);
++}
++
++
++{
++static const u32 
+EVST_HC_STATISTIC_COUNTERS_PORT1_MEMORY_INIT_HARDWARE_7[] = {
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0,
++0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++INIT_MEM_WR(HC, HC_REGISTERS_STATISTIC_COUNTERS, PORT1, INIT_HARDWARE,
++EVST_HC_STATISTIC_COUNTERS_PORT1_MEMORY_INIT_HARDWARE_7, 0X1BA, 74);
++}
++
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_CONTROL0, 0XE38324, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_CONTROL1, 0X3C10, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_TSDM_0, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_TSDM_1, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_TSDM_2, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_TSDM_3, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_TSDM_4, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_TSDM_5, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_TSDM_6, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_TSDM_7, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_USDM_1, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_USDM_2, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_USDM_3, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_USDM_4, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_USDM_5, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_USDM_6, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_USDM_7, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_XSDM_2, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_XSDM_3, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_XSDM_4, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_XSDM_5, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_XSDM_6, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_XSDM_7, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_CSDM_0, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_CSDM_1, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_CSDM_2, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_CSDM_3, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_CSDM_4, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_CSDM_5, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_CSDM_6, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_CSDM_7, 0XFFFFFFFF, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_XSDM_0, 0XFFFF5330, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_XSDM_1, 0XFFFF5348, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PGL_INT_USDM_0, 0XF0003000, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RD_MAX_BLKS_VQ6, 0X8, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RD_MAX_BLKS_VQ9, 0X8, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RD_MAX_BLKS_VQ10, 0X8, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RD_MAX_BLKS_VQ11, 0X2, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RD_MAX_BLKS_VQ17, 0X4, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RD_MAX_BLKS_VQ18, 0X5, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RD_MAX_BLKS_VQ19, 0X4, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RD_MAX_BLKS_VQ22, 0X0, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RD_START_INIT, 0X1, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_ADD0, 0X40, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_ADD1, 0X1808, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_ADD2, 0X803, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_ADD3, 0X803, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_ADD4, 0X40, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_ADD5, 0X3, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_ADD6, 0X803, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_ADD7, 0X803, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_ADD8, 0X803, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_ADD9, 0X10003, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_ADD10, 0X803, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_ADD11, 0X803, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_ADD12, 0X3, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_ADD13, 0X3, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_ADD14, 0X3, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_ADD15, 0X3, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_ADD16, 0X3, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_ADD17, 0X3, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_ADD18, 0X3, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_ADD19, 0X3, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_ADD20, 0X3, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_ADD22, 0X3, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_ADD23, 0X3, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_ADD24, 0X3, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_ADD25, 0X3, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_ADD26, 0X3, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_ADD27, 0X3, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_ADD28, 0X2403, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_WR_ADD29, 0X2F, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_WR_ADD30, 0X9, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_UBOUND0, 0X19, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_UB1, 0X184, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_UB2, 0X183, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_UB3, 0X306, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_UBOUND4, 0X19, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_UBOUND5, 0X6, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_UB6, 0X306, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_UB7, 0X306, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_UB8, 0X306, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_UB9, 0XC86, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_UB10, 0X306, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_UB11, 0X306, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_UBOUND12, 0X6, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_UBOUND13, 0X6, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_UBOUND14, 0X6, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_UBOUND15, 0X6, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_UBOUND16, 0X6, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_UBOUND17, 0X6, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_UBOUND18, 0X6, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_UBOUND19, 0X6, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_UBOUND20, 0X6, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_UBOUND22, 0X6, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_UBOUND23, 0X6, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_UBOUND24, 0X6, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_UBOUND25, 0X6, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_UBOUND26, 0X6, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_RD_UBOUND27, 0X6, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_UB28, 0X306, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_WR_UBOUND29, 0X13, COMMON,
++INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_BW_WR_UBOUND30, 0X6, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_L1, 0X1004, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_L2, 0X1004, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_RD, 0X106440, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_PSWRQ_BW_WR, 0X106440, COMMON, 
+INIT_HARDWARE);
++INIT_REG_WR(PXP2, PXP2_REGISTERS_RQ_RBC_DONE, 0X1, COMMON, INIT_HARDWARE);
 -- 
 1.4.2
 
