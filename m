@@ -1,8 +1,8 @@
 From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [PATCH 2/5] forcedeth: interrupt handling cleanup
-Date: Sun, 7 Oct 2007 11:03:13 +0200
-Message-ID: <20071007090313.GA733@elte.hu>
-References: <20071006151250.GA17020@havoc.gtf.org> <20071006151400.GB17488@havoc.gtf.org>
+Subject: Re: [PATCH 0/5] forcedeth: several proposed updates for testing
+Date: Sun, 7 Oct 2007 11:08:08 +0200
+Message-ID: <20071007090808.GB733@elte.hu>
+References: <20071006151250.GA17020@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, Ayaz Abdulla <aabdulla@nvidia.com>,
@@ -10,33 +10,36 @@ Cc: netdev@vger.kernel.org, Ayaz Abdulla <aabdulla@nvidia.com>,
 	Andrew Morton <akpm@linux-foundation.org>
 To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.mail.elte.hu ([157.181.1.138]:51522 "EHLO mx3.mail.elte.hu"
+Received: from mx2.mail.elte.hu ([157.181.151.9]:41257 "EHLO mx2.mail.elte.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752130AbXJGJDZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Oct 2007 05:03:25 -0400
+	id S1750834AbXJGJI3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Oct 2007 05:08:29 -0400
 Content-Disposition: inline
-In-Reply-To: <20071006151400.GB17488@havoc.gtf.org>
+In-Reply-To: <20071006151250.GA17020@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
 * Jeff Garzik <jeff@garzik.org> wrote:
 
-> -			spin_unlock(&np->lock);
-> -			printk(KERN_DEBUG "%s: too many iterations (%d) in nv_nic_irq.\n", dev->name, i);
-> -			break;
+> * I feel TX NAPI is a useful tool, because it provides an independent TX
+>   process control point and system load feedback point.
+>   Thus I felt this was slightly superior to tasklets.
 
-i like that! One forcedeth annoyance that triggers frequently on one of 
-my testboxes is:
+/me agrees violently
 
-[  120.955202] eth0: too many iterations (6) in nv_nic_irq.
-[  121.233865] eth0: too many iterations (6) in nv_nic_irq.
-[  129.215450] eth0: too many iterations (6) in nv_nic_irq.
-[  139.734408] eth0: too many iterations (6) in nv_nic_irq.
-[  144.546811] eth0: too many iterations (6) in nv_nic_irq.
-[  153.811005] eth0: too many iterations (6) in nv_nic_irq.
-[  154.695879] eth0: too many iterations (6) in nv_nic_irq.
-[  155.455078] eth0: too many iterations (6) in nv_nic_irq.
-[  173.912162] eth0: too many iterations (6) in nv_nic_irq.
+btw., when i played with this tunable under -rt:
+
+ enum {
+         NV_OPTIMIZATION_MODE_THROUGHPUT,
+         NV_OPTIMIZATION_MODE_CPU
+ };
+ static int optimization_mode = NV_OPTIMIZATION_MODE_THROUGHPUT;
+
+the MODE_CPU one gave (much) _higher_ bandwidth. The queueing model in 
+forcedeth seemed to be not that robust and i think a single queueing 
+model should be adopted instead of this tunable. (which i think just hid 
+some bug/dependency) But i never got to the bottom of it so it's just 
+the impression i got.
 
 	Ingo
