@@ -1,79 +1,78 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2/5] forcedeth: interrupt handling cleanup
-Date: Sun, 07 Oct 2007 16:07:22 -0400
-Message-ID: <47093C7A.1030203@garzik.org>
-References: <20071006151250.GA17020@havoc.gtf.org>	 <20071006151400.GB17488@havoc.gtf.org>	 <86802c440710062143x3bb801c3obb91292208073588@mail.gmail.com>	 <4708C5BD.8090402@garzik.org> <86802c440710071236h137a5331i78f795d7a04c69e@mail.gmail.com>
+From: Matti Aarnio <matti.aarnio@zmailer.org>
+Subject: Re: [BNX2X][PATCH 0/8] New driver for Broadcom 10Gb Ethernet, take
+	two.
+Date: Sun, 7 Oct 2007 23:50:55 +0300
+Message-ID: <20071007205055.GG6372@mea-ext.zmailer.org>
+References: <47090768.4020307@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ayaz Abdulla <aabdulla@nvidia.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Yinghai Lu <yhlu.kernel@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>, eilong@broadcom.com,
+	vladz@bradcom.com, gertner@bradcom.com
+To: Eliezer Tamir <eliezert@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:43283 "EHLO mail.dvmed.net"
+Received: from z2.cat.iki.fi ([212.16.98.133]:54192 "EHLO z2.cat.iki.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755754AbXJGUH2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 7 Oct 2007 16:07:28 -0400
-In-Reply-To: <86802c440710071236h137a5331i78f795d7a04c69e@mail.gmail.com>
+	id S1751072AbXJGUvA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 7 Oct 2007 16:51:00 -0400
+Received: (mea@mea-ext) by mail.zmailer.org id S2261863AbXJGUuz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2007 23:50:55 +0300
+Content-Disposition: inline
+In-Reply-To: <47090768.4020307@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yinghai Lu wrote:
-> On 10/7/07, Jeff Garzik <jeff@garzik.org> wrote:
->> Yinghai Lu wrote:
->>> On 10/6/07, Jeff Garzik <jeff@garzik.org> wrote:
->>>> commit a606d2a111cdf948da5d69eb1de5526c5c2dafef
->>>> Author: Jeff Garzik <jeff@garzik.org>
->>>> Date:   Fri Oct 5 22:56:05 2007 -0400
->>>>
->>>>     [netdrvr] forcedeth: interrupt handling cleanup
->>>>
->>>>     * nv_nic_irq_optimized() and nv_nic_irq_other() were complete duplicates
->>>>       of nv_nic_irq(), with the exception of one function call.  Consolidate
->>>>       all three into a single interrupt handler, deleting a lot of redundant
->>>>       code.
->>>>
->>>>     * greatly simplify irq handler locking.
->>>>
->>>>       Prior to this change, the irq handler(s) would acquire and release
->>>>       np->lock for each action (RX, TX, other events).
->>>>
->>>>       For the common case -- RX or TX work -- the lock is always acquired,
->>>>       making all successive acquire/release combinations largely redundant.
->>>>
->>>>       Acquire the lock at the beginning of the irq handler, and release it at
->>>>       the end of the irq handler.  This is simple, easy, and obvious.
->>>>
->>>>     * remove irq handler work loop.
->>>>
->>>>       All interesting events emanating from the irq handler either have
->>>>       their own work loops, or they poke a timer into action.
->>>>
->>>>       Therefore, delete the pointless master interrupt handler work loop.
->>>>
->>>>     Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
->>>>
->> Do you have ideas/suggestions for a different method?
-> 
-> in the e1000 driver, it has seperate handler for msi and ioapic.
-> 
-> but in forcedeth, the nv_nic_irq_optimized keep check msi_flags...,
-> with num of msi interrupt number, that could cause cpu loading get a
-> little bit high..., even the network performance is ok.
+On Sun, Oct 07, 2007 at 06:20:56PM +0200, Eliezer Tamir wrote:
+> This is an initial version of the BNX2X, the Linux driver for the
+> BCM5771X 10Gb Ethernet controller family.
+> Although the chip is very different from the 5706-8 family we based the
+> driver code on the BNX2 driver.
+> Since the hardware is supposed to be generally available soon I have
+> posted an initial version and after hearing all the comments I am reposting 
+> with changes to address them.
+> Some planned feature are still under development, but we want to get
+> whatever we have out now so people can start using the HW.
 
-With all the activity in the interrupt handler, a few in-cache branches 
-are definitely going to be lost in the noise.
+Your patch-posting procedure is yet in a bit problem state..
 
-Separating the interrupt handlers between MSI and non-MSI tends to be of 
-more benefit when the separation is accompanied by more efficient 
-locking in the MSI interrupt handler, or a different mode of interrupt 
-clear, or some other attribute.
+ +{
+ +static const u32 EVST_TSEM_FAST_MEMORY_COMMON_MEMORY_INIT_EMULATION_7[] = {
+ +0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+ 0x0, 0x0,
+ +0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+ 0x0, 0x0,
+ +0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
+ 0x0, 0x0,
 
-Though CPU usage would be a good thing to measure, with these patches.
+It does look like your Thunderbird 2.0 did wrap long text lines when you
+included the texts into the posts.
 
-	Jeff
+The result is that currently your patches are not usable at all.
 
+Your options:
+   - instead of including the patch in message body, use Attach
+   - use some other email program that does not scramble your texts
+     (e.g. mutt + emacs)
+   - publish the patch file on network somewhere, and just tell URL
+     to that one in email
 
+> Main changes from first version.
+>
+> * Fixed most issues raised by Michael Buesch. (Thanks Michael!)
+> * Some slow path bug fixes.
+> * Yitchak Gertner re-grouped the code in a more logical manner.
+> * A lot of work was done to get the generated code to comply with coding 
+> style requirements.
+>
+> Known issues/TODO.
+> * Move slowpath event handling from tasklet to workqueue context. This will 
+> allow replacing the busy waits in the link management code with sleeps.
+>
+> Please consider applying to 2.6.24
+>
+> Thanks
+> Eliezer
 
-
+/Matti Aarnio  -- one of  <postmaster@vger.kernel.org>
