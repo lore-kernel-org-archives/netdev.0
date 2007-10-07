@@ -1,40 +1,41 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: Re: MSI interrupts and disable_irq
-Date: Sun, 07 Oct 2007 18:54:45 +0200
-Message-ID: <47090F55.3020800@colorfullife.com>
-References: <46FC15A9.1070803@nvidia.com> <46FDBCB4.9090802@pobox.com> <86802c440710061043u6e51cd7q468346bd06b08657@mail.gmail.com> <4707CCF1.8080909@pobox.com>
+From: Andreas Mohr <andi@lisas.de>
+Subject: Re: 2.6.23-rc8-mm2 BUG: register_netdevice() issue as (ab)used by
+	ISDN
+Date: Sun, 7 Oct 2007 19:20:37 +0200
+Message-ID: <20071007172037.GA29384@rhlx01.hs-esslingen.de>
+References: <20071007120653.GA16184@rhlx01.hs-esslingen.de> <4708D00D.8030307@garzik.org> <20071007131723.GA22873@rhlx01.hs-esslingen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Yinghai Lu <yhlu.kernel@gmail.com>,
-	Ayaz Abdulla <aabdulla@nvidia.com>,
-	nedev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jeff@garzik.org>, isdn4linux@listserv.isdn4linux.de,
+	netdev@vger.kernel.org, akpm@linux-foundation.org
+To: Andreas Mohr <andi@lisas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ev1s-75-125-39-150.ev1servers.net ([75.125.39.150]:38768 "EHLO
-	colorfullife.mysite.adiungo.com" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752228AbXJGQzq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2007 12:55:46 -0400
-In-Reply-To: <4707CCF1.8080909@pobox.com>
+Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:57080 "EHLO
+	rhlx01.hs-esslingen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752359AbXJGRUi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2007 13:20:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20071007131723.GA22873@rhlx01.hs-esslingen.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
->
-> Interested parties should try the forcedeth patches I just posted :)
->
-The patches look good, but I would still prefer to understand why the 
-current implementation causes crashes before rewriting everything.
+Hi,
 
-I've just noticed that netpoll_send_skb() calls ->hard_start_xmit() and 
-->poll() within local_irq_save().
-Thus it seems that  spin_lock_irqsave() must be used in the poll() and 
-hard_start_xmit() callbacks, at least in nics that support 
-POLL_CONTROLLER :-(
+On Sun, Oct 07, 2007 at 03:17:24PM +0200, Andreas Mohr wrote:
+> I thus decided to now try plain 2.6.23-rc8 whether it's "corrupted", too.
 
---
-    Manfred
+OK, after 3 hours of compilation the ONLY datapoint I can give right now is:
+1 (one) boot on 2.6.23-rc8-mm2 had the BUG in /var/log/messages,
+1 (one) boot on 2.6.23-rc8 did NOT have it.
 
+The two .config:s (I did a make oldconfig when going back to
+non-mm2) don't seem to have any relevant differences.
+
+I could offer to do more testing on this machine,
+but this carries a slight risk for me since I (personally) won't have physical
+access to it for a couple days and some people will kill me if the main
+internet gateway happened to go down unfixably. ;)
+
+Thanks,
+
+Andreas Mohr
