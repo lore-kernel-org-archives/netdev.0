@@ -1,53 +1,495 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [RFC][PATCH 1/2] TCP: fix lost retransmit detection
-Date: Sun, 7 Oct 2007 18:11:44 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0710071805380.19695@kivilampi-30.cs.helsinki.fi>
-References: <20071004.184519.16476818.takano@axe-inc.co.jp>
- <Pine.LNX.4.64.0710041419560.31129@kivilampi-30.cs.helsinki.fi>
- <20071007.145100.00679926.takano@axe-inc.co.jp> <20071006.231714.41173786.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH][TG3]Some cleanups
+Date: Sun, 07 Oct 2007 11:12:21 -0400
+Message-ID: <1191769941.4394.1.camel@localhost>
+References: <1191175890.6165.17.camel@localhost>
+	 <1191284504.25892.129.camel@dell> <1191328627.4353.15.camel@localhost>
+	 <1191368033.5961.22.camel@dell>  <1191417527.4357.25.camel@localhost>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, y-kodama@aist.go.jp
-To: takano@axe-inc.co.jp
+Content-Type: multipart/mixed; boundary="=-A9TjAbP4o5i5stlNCy58"
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	netdev <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:42979 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752805AbXJGPLq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2007 11:11:46 -0400
-In-Reply-To: <20071006.231714.41173786.davem@davemloft.net>
+Received: from wx-out-0506.google.com ([66.249.82.224]:22392 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752888AbXJGPMZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 7 Oct 2007 11:12:25 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1025103wxd
+        for <netdev@vger.kernel.org>; Sun, 07 Oct 2007 08:12:24 -0700 (PDT)
+In-Reply-To: <1191417527.4357.25.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-...Dropped DaveM from cc, I guess he knows the things I describe below 
-already... :-)
 
-On Sat, 6 Oct 2007, David Miller wrote:
+--=-A9TjAbP4o5i5stlNCy58
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-> From: TAKANO Ryousei <takano@axe-inc.co.jp>
-> Date: Sun, 07 Oct 2007 14:51:00 +0900 (JST)
+On Wed, 2007-03-10 at 09:18 -0400, jamal wrote:
+> On Tue, 2007-02-10 at 16:33 -0700, Michael Chan wrote:
 > 
-> > BTW, what is difference among netdev-2.6, 
-
-netdev-2.6 is for network device drivers (stuff under drivers/net)
-
-> net-2.6 (net-2.6.24), and 
-> > tcp-2.6? I am not familiar with linux kernel development process.
+> > Seems ok to me.  I think we should make it more clear that we're
+> > skipping over the VLAN tag:
+> > 
+> > (struct tg3_tx_cbdata *)&((__skb)->cb[sizeof(struct vlan_skb_tx_cookie)])
+> > 
 > 
-> net-2.6.24 tree is current new development
-> 
-> net-2.6 tree is only bug fixes
-> 
-> tcp-2.6 is an old abandonded tree that holds lots of old
-> TCP work, most of which is merged already, but one part
-> (my RB-Tree SACK patches) are not integrated yet.
+> Will do - thanks Michael.
 
-In addition, when Linus releases a new kernel (2.6.23), the net-2.6.24 
-becomes net-2.6 (the old one ceases to exist). At some point of 2.6.24-rc 
-series, net-2.6.25 gets opened by DaveM, usually it's not available right 
-after closure of 2.6.24 merge window. ...Then again, the trees are 
-again rotated when a next official release is made...
+Ok, attached patch against net-2.6.24 from this morning. I am setting up
+some equipment for testing as i type this - so i will test for any
+regressions. If you dont hear from me on the subject then all went ok.
+
+cheers,
+jamal
 
 
--- 
- i.
+--=-A9TjAbP4o5i5stlNCy58
+Content-Disposition: attachment; filename=oct7-tg3-p1
+Content-Type: text/plain; name=oct7-tg3-p1; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+[TG3] Some cleanups
+Make the xmit path code better functionally organized and more readable.
+Matt Carlson contributed the moving of the VLAN formatting into
+XXXX_prep_frame() portion and Michael Chan eyeballed the patch and
+made it better.
+
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+---
+commit 190674ff1fe0b7bddf038c2bfddf45b9c6418e2a
+tree d6f03d10d94a39ad22fd590b30c6d50c81f3eb5c
+parent 0a14acec89454d350c1bd141b3309df421433f3c
+author Jamal Hadi Salim <hadi@cyberus.ca> Sun, 07 Oct 2007 08:10:32 -0400
+committer Jamal Hadi Salim <hadi@cyberus.ca> Sun, 07 Oct 2007 08:10:32 -0400
+
+ drivers/net/tg3.c |  281 ++++++++++++++++++++++++++++++++---------------------
+ 1 files changed, 172 insertions(+), 109 deletions(-)
+
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index d4ac6e9..ce6f02f 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -3910,47 +3910,72 @@ static void tg3_set_txd(struct tg3 *tp, int entry,
+ 	txd->vlan_tag = vlan_tag << TXD_VLAN_TAG_SHIFT;
+ }
+ 
+-/* hard_start_xmit for devices that don't have any bugs and
+- * support TG3_FLG2_HW_TSO_2 only.
+- */
+-static int tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
++struct tg3_tx_cbdata {
++	u32 base_flags;
++	unsigned int mss;
++};
++/* using cb[8] skips over the VLAN tag:
++ * (struct tg3_tx_cbdata *)&((__skb)->cb[sizeof(struct vlan_skb_tx_cookie)])
++*/
++#define TG3_SKB_CB(__skb)       ((struct tg3_tx_cbdata *)&((__skb)->cb[8]))
++#define NETDEV_TX_DROPPED       -5
++
++static int tg3_prep_bug_frame(struct sk_buff *skb, struct net_device *dev)
+ {
++	struct tg3_tx_cbdata *cb = TG3_SKB_CB(skb);
++#if TG3_VLAN_TAG_USED
+ 	struct tg3 *tp = netdev_priv(dev);
+-	dma_addr_t mapping;
+-	u32 len, entry, base_flags, mss;
++	u32 vlantag = 0;
+ 
+-	len = skb_headlen(skb);
++	if (tp->vlgrp != NULL && vlan_tx_tag_present(skb))
++		vlantag = (TXD_FLAG_VLAN | (vlan_tx_tag_get(skb) << 16));
+ 
+-	/* We are running in BH disabled context with netif_tx_lock
+-	 * and TX reclaim runs via tp->napi.poll inside of a software
+-	 * interrupt.  Furthermore, IRQ processing runs lockless so we have
+-	 * no IRQ context deadlocks to worry about either.  Rejoice!
+-	 */
+-	if (unlikely(tg3_tx_avail(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
+-		if (!netif_queue_stopped(dev)) {
+-			netif_stop_queue(dev);
++	cb->base_flags = vlantag;
++#endif
+ 
+-			/* This is a hard error, log it. */
+-			printk(KERN_ERR PFX "%s: BUG! Tx Ring full when "
+-			       "queue awake!\n", dev->name);
++	cb->mss = skb_shinfo(skb)->gso_size;
++	if (cb->mss != 0) {
++		if (skb_header_cloned(skb) &&
++		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
++			dev_kfree_skb(skb);
++			return NETDEV_TX_DROPPED;
+ 		}
+-		return NETDEV_TX_BUSY;
++
++		cb->base_flags |= (TXD_FLAG_CPU_PRE_DMA |
++			       TXD_FLAG_CPU_POST_DMA);
+ 	}
+ 
+-	entry = tp->tx_prod;
+-	base_flags = 0;
+-	mss = 0;
+-	if ((mss = skb_shinfo(skb)->gso_size) != 0) {
++	if (skb->ip_summed == CHECKSUM_PARTIAL)
++		cb->base_flags |= TXD_FLAG_TCPUDP_CSUM;
++
++	return NETDEV_TX_OK;
++}
++
++static int tg3_prep_frame(struct sk_buff *skb, struct net_device *dev)
++{
++	struct tg3_tx_cbdata *cb = TG3_SKB_CB(skb);
++#if TG3_VLAN_TAG_USED
++	struct tg3 *tp = netdev_priv(dev);
++	u32 vlantag = 0;
++
++	if (tp->vlgrp != NULL && vlan_tx_tag_present(skb))
++		vlantag = (TXD_FLAG_VLAN | (vlan_tx_tag_get(skb) << 16));
++
++	cb->base_flags = vlantag;
++#endif
++
++	cb->mss = skb_shinfo(skb)->gso_size;
++	if (cb->mss != 0) {
+ 		int tcp_opt_len, ip_tcp_len;
+ 
+ 		if (skb_header_cloned(skb) &&
+ 		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
+ 			dev_kfree_skb(skb);
+-			goto out_unlock;
++			return NETDEV_TX_DROPPED;
+ 		}
+ 
+ 		if (skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6)
+-			mss |= (skb_headlen(skb) - ETH_HLEN) << 9;
++			cb->mss |= (skb_headlen(skb) - ETH_HLEN) << 9;
+ 		else {
+ 			struct iphdr *iph = ip_hdr(skb);
+ 
+@@ -3958,32 +3983,58 @@ static int tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
+ 
+ 			iph->check = 0;
+-			iph->tot_len = htons(mss + ip_tcp_len + tcp_opt_len);
+-			mss |= (ip_tcp_len + tcp_opt_len) << 9;
++			iph->tot_len = htons(cb->mss + ip_tcp_len
++					     + tcp_opt_len);
++			cb->mss |= (ip_tcp_len + tcp_opt_len) << 9;
+ 		}
+ 
+-		base_flags |= (TXD_FLAG_CPU_PRE_DMA |
++		cb->base_flags |= (TXD_FLAG_CPU_PRE_DMA |
+ 			       TXD_FLAG_CPU_POST_DMA);
+ 
+ 		tcp_hdr(skb)->check = 0;
+ 
+ 	}
+ 	else if (skb->ip_summed == CHECKSUM_PARTIAL)
+-		base_flags |= TXD_FLAG_TCPUDP_CSUM;
+-#if TG3_VLAN_TAG_USED
+-	if (tp->vlgrp != NULL && vlan_tx_tag_present(skb))
+-		base_flags |= (TXD_FLAG_VLAN |
+-			       (vlan_tx_tag_get(skb) << 16));
+-#endif
++		cb->base_flags |= TXD_FLAG_TCPUDP_CSUM;
++
++	return NETDEV_TX_OK;
++}
++
++void tg3_complete_xmit(struct net_device *dev)
++{
++	struct tg3 *tp = netdev_priv(dev);
++	u32 entry = tp->tx_prod;
++
++	/* Packets are ready, update Tx producer idx local and on card. */
++	tw32_tx_mbox((MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW), entry);
++
++	if (unlikely(tg3_tx_avail(tp) <= (MAX_SKB_FRAGS + 1))) {
++		netif_stop_queue(dev);
++		if (tg3_tx_avail(tp) >= TG3_TX_WAKEUP_THRESH(tp))
++			netif_wake_queue(dev);
++	}
++
++	mmiowb();
++	dev->trans_start = jiffies;
++}
+ 
++static int tg3_enqueue(struct sk_buff *skb, struct net_device *dev)
++{
++	struct tg3 *tp = netdev_priv(dev);
++	dma_addr_t mapping;
++	u32 len, entry;
++	struct tg3_tx_cbdata *cb = TG3_SKB_CB(skb);
++
++	entry = tp->tx_prod;
++	len = skb_headlen(skb);
+ 	/* Queue skb data, a.k.a. the main skb fragment. */
+ 	mapping = pci_map_single(tp->pdev, skb->data, len, PCI_DMA_TODEVICE);
+ 
+ 	tp->tx_buffers[entry].skb = skb;
+ 	pci_unmap_addr_set(&tp->tx_buffers[entry], mapping, mapping);
+ 
+-	tg3_set_txd(tp, entry, mapping, len, base_flags,
+-		    (skb_shinfo(skb)->nr_frags == 0) | (mss << 1));
++	tg3_set_txd(tp, entry, mapping, len, cb->base_flags,
++		    (skb_shinfo(skb)->nr_frags == 0) | (cb->mss << 1));
+ 
+ 	entry = NEXT_TX(entry);
+ 
+@@ -4005,28 +4056,51 @@ static int tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			pci_unmap_addr_set(&tp->tx_buffers[entry], mapping, mapping);
+ 
+ 			tg3_set_txd(tp, entry, mapping, len,
+-				    base_flags, (i == last) | (mss << 1));
++				    cb->base_flags,
++				    (i == last) | (cb->mss << 1));
+ 
+ 			entry = NEXT_TX(entry);
+ 		}
+ 	}
+ 
+-	/* Packets are ready, update Tx producer idx local and on card. */
+-	tw32_tx_mbox((MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW), entry);
+-
+ 	tp->tx_prod = entry;
+-	if (unlikely(tg3_tx_avail(tp) <= (MAX_SKB_FRAGS + 1))) {
+-		netif_stop_queue(dev);
+-		if (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp))
+-			netif_wake_queue(tp->dev);
+-	}
++	return NETDEV_TX_OK;
++}
++
++/* hard_start_xmit for devices that don't have any bugs and
++ * support TG3_FLG2_HW_TSO_2 only.
++ */
++static int tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct tg3 *tp = netdev_priv(dev);
++	int ret = tg3_prep_frame(skb, dev);
++	/* XXX: original code did mmiowb(); on failure,
++	* I dont think thats necessary
++	*/
++	if (unlikely(ret != NETDEV_TX_OK))
++	       return NETDEV_TX_OK;
+ 
+-out_unlock:
+-    	mmiowb();
++	/* We are running in BH disabled context with netif_tx_lock
++	 * and TX reclaim runs via tp->poll inside of a software
++	 * interrupt.  Furthermore, IRQ processing runs lockless so we have
++	 * no IRQ context deadlocks to worry about either.  Rejoice!
++	 */
++	if (unlikely(tg3_tx_avail(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
++		if (!netif_queue_stopped(dev)) {
++			netif_stop_queue(dev);
+ 
+-	dev->trans_start = jiffies;
++			/* This is a hard error, log it. */
++			printk(KERN_ERR PFX "%s: BUG! Tx Ring full when "
++			       "queue awake!\n", dev->name);
++		}
++		return NETDEV_TX_BUSY;
++	}
+ 
+-	return NETDEV_TX_OK;
++	ret = tg3_enqueue(skb, dev);
++	if (ret == NETDEV_TX_OK)
++		tg3_complete_xmit(dev);
++
++	return ret;
+ }
+ 
+ static int tg3_start_xmit_dma_bug(struct sk_buff *, struct net_device *);
+@@ -4067,46 +4141,19 @@ tg3_tso_bug_end:
+ /* hard_start_xmit for devices that have the 4G bug and/or 40-bit bug and
+  * support TG3_FLG2_HW_TSO_1 or firmware TSO only.
+  */
+-static int tg3_start_xmit_dma_bug(struct sk_buff *skb, struct net_device *dev)
++static int tg3_enqueue_buggy(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct tg3 *tp = netdev_priv(dev);
+ 	dma_addr_t mapping;
+-	u32 len, entry, base_flags, mss;
++	u32 len, entry;
+ 	int would_hit_hwbug;
++	struct tg3_tx_cbdata *cb = TG3_SKB_CB(skb);
+ 
+-	len = skb_headlen(skb);
+ 
+-	/* We are running in BH disabled context with netif_tx_lock
+-	 * and TX reclaim runs via tp->napi.poll inside of a software
+-	 * interrupt.  Furthermore, IRQ processing runs lockless so we have
+-	 * no IRQ context deadlocks to worry about either.  Rejoice!
+-	 */
+-	if (unlikely(tg3_tx_avail(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
+-		if (!netif_queue_stopped(dev)) {
+-			netif_stop_queue(dev);
+-
+-			/* This is a hard error, log it. */
+-			printk(KERN_ERR PFX "%s: BUG! Tx Ring full when "
+-			       "queue awake!\n", dev->name);
+-		}
+-		return NETDEV_TX_BUSY;
+-	}
+-
+-	entry = tp->tx_prod;
+-	base_flags = 0;
+-	if (skb->ip_summed == CHECKSUM_PARTIAL)
+-		base_flags |= TXD_FLAG_TCPUDP_CSUM;
+-	mss = 0;
+-	if ((mss = skb_shinfo(skb)->gso_size) != 0) {
++	if (cb->mss != 0) {
+ 		struct iphdr *iph;
+ 		int tcp_opt_len, ip_tcp_len, hdr_len;
+ 
+-		if (skb_header_cloned(skb) &&
+-		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
+-			dev_kfree_skb(skb);
+-			goto out_unlock;
+-		}
+-
+ 		tcp_opt_len = tcp_optlen(skb);
+ 		ip_tcp_len = ip_hdrlen(skb) + sizeof(struct tcphdr);
+ 
+@@ -4115,15 +4162,13 @@ static int tg3_start_xmit_dma_bug(struct sk_buff *skb, struct net_device *dev)
+ 			     (tp->tg3_flags2 & TG3_FLG2_TSO_BUG))
+ 			return (tg3_tso_bug(tp, skb));
+ 
+-		base_flags |= (TXD_FLAG_CPU_PRE_DMA |
+-			       TXD_FLAG_CPU_POST_DMA);
+ 
+ 		iph = ip_hdr(skb);
+ 		iph->check = 0;
+-		iph->tot_len = htons(mss + hdr_len);
++		iph->tot_len = htons(cb->mss + hdr_len);
+ 		if (tp->tg3_flags2 & TG3_FLG2_HW_TSO) {
+ 			tcp_hdr(skb)->check = 0;
+-			base_flags &= ~TXD_FLAG_TCPUDP_CSUM;
++			cb->base_flags &= ~TXD_FLAG_TCPUDP_CSUM;
+ 		} else
+ 			tcp_hdr(skb)->check = ~csum_tcpudp_magic(iph->saddr,
+ 								 iph->daddr, 0,
+@@ -4136,22 +4181,19 @@ static int tg3_start_xmit_dma_bug(struct sk_buff *skb, struct net_device *dev)
+ 				int tsflags;
+ 
+ 				tsflags = (iph->ihl - 5) + (tcp_opt_len >> 2);
+-				mss |= (tsflags << 11);
++				cb->mss |= (tsflags << 11);
+ 			}
+ 		} else {
+ 			if (tcp_opt_len || iph->ihl > 5) {
+ 				int tsflags;
+ 
+ 				tsflags = (iph->ihl - 5) + (tcp_opt_len >> 2);
+-				base_flags |= tsflags << 12;
++				cb->base_flags |= tsflags << 12;
+ 			}
+ 		}
+ 	}
+-#if TG3_VLAN_TAG_USED
+-	if (tp->vlgrp != NULL && vlan_tx_tag_present(skb))
+-		base_flags |= (TXD_FLAG_VLAN |
+-			       (vlan_tx_tag_get(skb) << 16));
+-#endif
++	len = skb_headlen(skb);
++	entry = tp->tx_prod;
+ 
+ 	/* Queue skb data, a.k.a. the main skb fragment. */
+ 	mapping = pci_map_single(tp->pdev, skb->data, len, PCI_DMA_TODEVICE);
+@@ -4164,8 +4206,8 @@ static int tg3_start_xmit_dma_bug(struct sk_buff *skb, struct net_device *dev)
+ 	if (tg3_4g_overflow_test(mapping, len))
+ 		would_hit_hwbug = 1;
+ 
+-	tg3_set_txd(tp, entry, mapping, len, base_flags,
+-		    (skb_shinfo(skb)->nr_frags == 0) | (mss << 1));
++	tg3_set_txd(tp, entry, mapping, len, cb->base_flags,
++		    (skb_shinfo(skb)->nr_frags == 0) | (cb->mss << 1));
+ 
+ 	entry = NEXT_TX(entry);
+ 
+@@ -4194,10 +4236,11 @@ static int tg3_start_xmit_dma_bug(struct sk_buff *skb, struct net_device *dev)
+ 
+ 			if (tp->tg3_flags2 & TG3_FLG2_HW_TSO)
+ 				tg3_set_txd(tp, entry, mapping, len,
+-					    base_flags, (i == last)|(mss << 1));
++					    cb->base_flags,
++					    (i == last)|(cb->mss << 1));
+ 			else
+ 				tg3_set_txd(tp, entry, mapping, len,
+-					    base_flags, (i == last));
++					    cb->base_flags, (i == last));
+ 
+ 			entry = NEXT_TX(entry);
+ 		}
+@@ -4214,28 +4257,48 @@ static int tg3_start_xmit_dma_bug(struct sk_buff *skb, struct net_device *dev)
+ 		 * failure, silently drop this packet.
+ 		 */
+ 		if (tigon3_dma_hwbug_workaround(tp, skb, last_plus_one,
+-						&start, base_flags, mss))
+-			goto out_unlock;
++						&start, cb->base_flags,
++						cb->mss)) {
++			mmiowb();
++			return NETDEV_TX_OK;
++		}
+ 
+ 		entry = start;
+ 	}
+ 
+-	/* Packets are ready, update Tx producer idx local and on card. */
+-	tw32_tx_mbox((MAILBOX_SNDHOST_PROD_IDX_0 + TG3_64BIT_REG_LOW), entry);
+-
+ 	tp->tx_prod = entry;
+-	if (unlikely(tg3_tx_avail(tp) <= (MAX_SKB_FRAGS + 1))) {
+-		netif_stop_queue(dev);
+-		if (tg3_tx_avail(tp) > TG3_TX_WAKEUP_THRESH(tp))
+-			netif_wake_queue(tp->dev);
+-	}
++	return NETDEV_TX_OK;
++}
++
++static int tg3_start_xmit_dma_bug(struct sk_buff *skb, struct net_device *dev)
++{
++	struct tg3 *tp = netdev_priv(dev);
++	int ret = tg3_prep_bug_frame(skb, dev);
+ 
+-out_unlock:
+-    	mmiowb();
++	if (unlikely(ret != NETDEV_TX_OK))
++	       return NETDEV_TX_OK;
+ 
+-	dev->trans_start = jiffies;
++	/* We are running in BH disabled context with netif_tx_lock
++	 * and TX reclaim runs via tp->poll inside of a software
++	 * interrupt.  Furthermore, IRQ processing runs lockless so we have
++	 * no IRQ context deadlocks to worry about either.  Rejoice!
++	 */
++	if (unlikely(tg3_tx_avail(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
++		if (!netif_queue_stopped(dev)) {
++			netif_stop_queue(dev);
+ 
+-	return NETDEV_TX_OK;
++			/* This is a hard error, log it. */
++			printk(KERN_ERR PFX "%s: BUG! Tx Ring full when "
++			       "queue awake!\n", dev->name);
++		}
++		return NETDEV_TX_BUSY;
++	}
++
++	ret = tg3_enqueue_buggy(skb, dev);
++	if (ret == NETDEV_TX_OK)
++		tg3_complete_xmit(dev);
++
++	return ret;
+ }
+ 
+ static inline void tg3_set_mtu(struct net_device *dev, struct tg3 *tp,
+
+--=-A9TjAbP4o5i5stlNCy58--
+
