@@ -1,50 +1,39 @@
-From: "Denis V. Lunev" <den@sw.ru>
-Subject: Re: [NET] IPv6 oops bisected
-Date: Mon, 08 Oct 2007 10:34:23 +0400
-Message-ID: <4709CF6F.60102@sw.ru>
-References: <4708F387.1060602@garzik.org>	<20071007.231608.104667710.davem@davemloft.net>	<20071008061942.GA842@gondor.apana.org.au> <20071007.232302.78733656.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] [TCP]: Fix two off-by-one errors in fackets_out
+ adjusting logic
+Date: Sun, 07 Oct 2007 23:36:58 -0700 (PDT)
+Message-ID: <20071007.233658.25210806.davem@davemloft.net>
+References: <1191409218982-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<11914092183725-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, jeff@garzik.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org, den@openvz.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: legoater@free.fr, netdev@vger.kernel.org
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:60701 "EHLO iris"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752452AbXJHGdI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Oct 2007 02:33:08 -0400
-In-Reply-To: <20071007.232302.78733656.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37384
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751432AbXJHGg7 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Oct 2007 02:36:59 -0400
+In-Reply-To: <11914092183725-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Mon, 8 Oct 2007 14:19:42 +0800
-> 
->> On Sun, Oct 07, 2007 at 11:16:08PM -0700, David Miller wrote:
->>> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
->>> index a7db84c..7109ad6 100644
->>> --- a/net/ipv6/route.c
->>> +++ b/net/ipv6/route.c
->>> @@ -1188,7 +1188,7 @@ int ip6_route_add(struct fib6_config *cfg)
->>>  	if ((cfg->fc_flags & RTF_REJECT) ||
->>>  	    (dev && (dev->flags&IFF_LOOPBACK) && !(addr_type&IPV6_ADDR_LOOPBACK))) {
->>>  		/* hold loopback dev/idev if we haven't done so. */
->>> -		if (dev != dev->nd_net->loopback_dev) {
->>> +		if (!dev || (dev != dev->nd_net->loopback_dev)) {
->>>  			if (dev) {
->>>  				dev_put(dev);
->>>  				in6_dev_put(idev);
->> Unfortunately this'll still oops a few lines down when it tries
->> to assign dev->nd_net->loopabck_dev to dev.  The issue here is
->> which namespace are we in if dev is NULL.
-> 
-> Good catch.
-> 
-> I'm just going to revert my bogus fix and the original change
-> for now.  Denis can resubmit the original patch once this
-> is resolved.
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Wed,  3 Oct 2007 14:00:16 +0300
 
-OK. I am installing Fedora 7 right now...
+> 1) Passing wrong skb to tcp_adjust_fackets_out could corrupt
+> fastpath_cnt_hint as tcp_skb_pcount(next_skb) is not included
+> to it if hint points exactly to the next_skb (it's lagging
+> behind, see sacktag).
+>=20
+> 2) When fastpath_skb_hint is put backwards to avoid dangling
+> skb reference, the skb's pcount must also be removed from count
+> (not included like above).
+>=20
+> Reported by Cedric Le Goater <legoater@free.fr>
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+
+Applied, thanks Ilpo.
