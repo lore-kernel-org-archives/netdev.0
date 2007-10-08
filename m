@@ -1,70 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 7/7] [IPSEC]: Move RO-specific output code into xfrm6_mode_ro.c
-Date: Mon, 08 Oct 2007 19:29:44 +0800
-Message-ID: <E1Ieqnw-0000oO-00@gondolin.me.apana.org.au>
-References: <20071008112818.GA3010@gondor.apana.org.au>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: Karsten Keil <kkeil@suse.de>
+Subject: Re: 2.6.23-rc8-mm2 BUG: register_netdevice() issue as (ab)used by ISDN
+Date: Mon, 8 Oct 2007 13:48:44 +0200
+Message-ID: <20071008114844.GB11453@pingi.kke.suse.de>
+References: <20071007120653.GA16184@rhlx01.hs-esslingen.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1743 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753359AbXJHL3q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 07:29:46 -0400
+Received: from mx2.suse.de ([195.135.220.15]:54520 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752245AbXJHLsq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Oct 2007 07:48:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20071007120653.GA16184@rhlx01.hs-esslingen.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Move RO-specific output code into xfrm6_mode_ro.c
+On Sun, Oct 07, 2007 at 02:06:53PM +0200, Andreas Mohr wrote:
+> [not necessarily a very recent regression, used 2.6.19 kernels before...]
+> 
+> Hi all,
+> 
+> wondered why my main internet server (headless!) didn't come up properly
+> on a new 2.6.23-rc8-mm2
+...
+> as if it's the
+>        BUG_ON(!dev->nd_net);
+> check which caused the BUG message.
 
-The lastused update check in xfrm_output can be done just as well in
-the mode output function which is specific to RO.
+The regression comes from the net namespace patches.
+Up to now in ISDN the struct netdevice is contained in struct isdn_net_dev and so
+it's not allocated using alloc_netdev(), which would set the missing dev->nd_net
+pointer.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
 
- net/ipv6/xfrm6_mode_ro.c |    4 ++++
- net/xfrm/xfrm_output.c   |    4 ----
- 2 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv6/xfrm6_mode_ro.c b/net/ipv6/xfrm6_mode_ro.c
-index 6ad6d7a..a156373 100644
---- a/net/ipv6/xfrm6_mode_ro.c
-+++ b/net/ipv6/xfrm6_mode_ro.c
-@@ -29,6 +29,7 @@
- #include <linux/module.h>
- #include <linux/skbuff.h>
- #include <linux/stringify.h>
-+#include <linux/time.h>
- #include <net/ipv6.h>
- #include <net/xfrm.h>
- 
-@@ -57,6 +58,9 @@ static int xfrm6_ro_output(struct xfrm_state *x, struct sk_buff *skb)
- 			       (prevhdr - x->props.header_len) - skb->data);
- 	skb_set_transport_header(skb, hdr_len);
- 	memmove(skb->data, iph, hdr_len);
-+
-+	x->lastused = get_seconds();
-+
- 	return 0;
- }
- 
-diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index 40d75ec..8c85211 100644
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -14,7 +14,6 @@
- #include <linux/netdevice.h>
- #include <linux/skbuff.h>
- #include <linux/spinlock.h>
--#include <linux/time.h>
- #include <net/dst.h>
- #include <net/xfrm.h>
- 
-@@ -75,9 +74,6 @@ int xfrm_output(struct sk_buff *skb)
- 		x->curlft.bytes += skb->len;
- 		x->curlft.packets++;
- 
--		if (x->props.mode == XFRM_MODE_ROUTEOPTIMIZATION)
--			x->lastused = get_seconds();
--
- 		spin_unlock_bh(&x->lock);
- 
- 		skb_reset_network_header(skb);
+-- 
+Karsten Keil
+SuSE Labs
+ISDN and VOIP development
+SUSE LINUX Products GmbH, Maxfeldstr.5 90409 Nuernberg, GF: Markus Rex, HRB 16746 (AG Nuernberg)
