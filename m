@@ -1,88 +1,67 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Fr=E9d=E9ric_Ozog?= <ff@ozog.com>
-Subject: RE: [Bugme-new] [Bug 9132] New: fcntl GET_OWN reports 0 for sockets instead of PID
-Date: Mon, 8 Oct 2007 20:16:10 +0200
-Message-ID: <D0839CEFE3ADCD478181D300EFB732D23186@ozog-main.adainville.local>
+From: "Eliezer" <eliezert@broadcom.com>
+Subject: Re: [BNX2X RESUBMIT][PATCH 0/8] New driver for Broadcom 10Gb
+ Ethernet, take two.
+Date: Mon, 08 Oct 2007 20:34:41 +0200
+Message-ID: <1191868481.29746.27.camel@eliezer>
+References: <470A23E5.6030102@broadcom.com>
+ <20071008102919.1cbc7983@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <bugme-daemon@bugzilla.kernel.org>, <netdev@vger.kernel.org>
-To: "Andrew Morton" <akpm@linux-foundation.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Michael Chan" <mchan@broadcom.com>, eilong@broadcom.com,
+	vladz@broadcom.com, gertner@broadcom.com
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp23.orange.fr ([193.252.22.30]:52124 "EHLO smtp23.orange.fr"
+Received: from mms1.broadcom.com ([216.31.210.17]:2464 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755754AbXJHS1o convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 14:27:44 -0400
-Received: from smtp-msa-out01.orange.fr (mwinf2353 [10.232.4.161])
-	by mwinf2340.orange.fr (SMTP Server) with ESMTP id 65B961C11E3A
-	for <netdev@vger.kernel.org>; Mon,  8 Oct 2007 20:27:26 +0200 (CEST)
-Content-class: urn:content-classes:message
+	id S1755429AbXJHSda (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Oct 2007 14:33:30 -0400
+In-Reply-To: <20071008102919.1cbc7983@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-You are correct, I have tested back to 2.6.18 and the bug is still here=
-=2E So I don't know when the problem did NOT occur.
+On Mon, 2007-10-08 at 10:29 -0700, Stephen Hemminger wrote:
 
-=46ran=E7ois-Fr=E9d=E9ric
+> 
+> Looks good.  Some minor stuff:
+> * You can use network device stats in network device structure and
+>   no longer need the copy in bp
 
------Message d'origine-----
-De=A0: Andrew Morton [mailto:akpm@linux-foundation.org]=20
-Envoy=E9=A0: lundi 8 octobre 2007 19:11
-=C0=A0: Fran=E7ois-Fr=E9d=E9ric Ozog
-Cc=A0: bugme-daemon@bugzilla.kernel.org; netdev@vger.kernel.org
-Objet=A0: Re: [Bugme-new] [Bug 9132] New: fcntl GET_OWN reports 0 for s=
-ockets instead of PID
+We can't use net device stats in the bp because the elements are also
+used by HW and we can't rearrange them. 
+struct bmac_stats and struct emac_stats are written to by the HW 
+struct nig_stats and struct bnx2x_eth_stats are read by HW
+(I would have loved to get rid of at least one of these long structs.)
 
 
-(please respond via emailed reply-to-all, not vie the bugzilla web inte=
-rface)
+> * The MACRO's for 64 bit stats look like they could be done with 
+>   u64 and/or turned into inline's.
 
-On Mon,  8 Oct 2007 09:18:02 -0700 (PDT) bugme-daemon@bugzilla.kernel.o=
-rg wrote:
+The MACRO's modify some of their arguments, plus they need to work on 32
+bit machines (are 64 bit counters always available on 32 bit machines?).
+so using an inline would allow the inline to be more readable but
+calling it would get ugly.
+I'm open to suggestions.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=3D9132
->=20
->            Summary: fcntl GET_OWN reports 0 for sockets instead of PI=
-D
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.22
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Other
->         AssignedTo: acme@ghostprotocols.net
->         ReportedBy: ff@ozog.com
->=20
->=20
-> Most recent kernel where this bug did not occur: 2.6.22
-> Distribution: Kubuntu
-> Hardware Environment: VMWare workstation 6
-> Software Environment:=20
-> Problem Description: calling fcntl with F_GETOWN on a socket gives al=
-lways zero
-> instead of the PID of the socket. The fcntl code is right but the dat=
-a is zero
-> in the struct file element. It sounds like pid is not set when the so=
-cket is
-> attached to the fd in sock_attach_fd() of net/socket.c.
->=20
-> I would add something like this:
->=20
-> file->f_owner.pid=3Dfind_get_pid(task->pid);
-> file->f_owner.pid_type=3DPIDTYPE_PID;
->=20
-> in sock_attach_fd() of net/socket.c
->=20
-> Steps to reproduce:
->=20
-> s=3Dsocket(...);
-> pid=3Dfcntl(s, F_GETOWN);
->=20
+> * RCS/CVS tags for date and version # are kind of ugly. They git system
+>   doesn't use them, perhaps you just want to track your internal version
+>   control information, but what happens when changes come from outside?
 
-You state that the problem is present in 2.6.22 and also did not occur =
-in
-2.6.22.  I assume it has always been like this.
+We need some way to correlate cvs to opensource to bug tracking tool.
+Note that driver and Microcode code are very tightly coupled on this
+device, so if I want to debug a microcode related problem I would need
+both CVS version and microcode version.
+
+I agree that tags are ugly but can't think of a better way to do it.
+Changes coming from the outside are a problem, but using the cvs version
+as an anchor I can track them using git.
+Again, I'm open to suggestions and if someone can think of an elegant
+way of doing it, I will gladly use it.
+
+thanks
+Eliezer
+
 
