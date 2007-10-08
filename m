@@ -1,74 +1,47 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] libertas link error due to gcc `smartness'
-Date: Mon, 8 Oct 2007 09:43:02 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0710080940110.8127@anakin>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] IrDA: Oops fix for ksdazzle
+Date: Mon, 08 Oct 2007 01:07:44 -0700 (PDT)
+Message-ID: <20071008.010744.56790570.davem@davemloft.net>
+References: <20070930232138.GA5669@sortiz.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Kernel Development <linux-kernel@vger.kernel.org>
-To: Marcelo Tosatti <marcelo@kvack.org>, Jeff Garzik <jeff@garzik.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1753922AbXJHHnZ@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, a_villacis-5itmuRygkZmgSpxsJD1C4w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
+Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20070930232138.GA5669-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Some versions of gcc replace strstr() calls with a single-character `needle'
-parameter by strchr() behind our back. This causes a link error if strchr() is
-defined as an inline function in <asm/string.h> (e.g. on m68k):
+From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Date: Mon, 1 Oct 2007 02:21:38 +0300
 
-| drivers/built-in.o: In function `libertas_parse_chan':
-| linux/drivers/net/wireless/libertas/debugfs.c:209: undefined reference to `strchr'
-| drivers/built-in.o: In function `libertas_parse_ssid':
-| linux/drivers/net/wireless/libertas/debugfs.c:260: undefined reference to `strchr'
+> Hi Dave,
+> =
 
-Avoid this by explicitly calling strchr() instead.
+> This is the last remaining patch for IrDA, against net-2.6.24.
+> =
 
-Also include <linux/string.h>, because this file calls lots of str*() routines.
+> It fixes a kernel oops triggered by the ksdazzle SIR driver.
+> We need more space for input frames, and 2048 should be plenty of it.
+> =
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
-Due to the lack of hardware, I could not test the functionality of this change.
-I was just trying to compile a kernel with a much enabled as possible.
+> Signed-off-by: Alex Villac=EDs Lasso <a_villacis-5itmuRygkZmgSpxsJD1C4w@public.gmane.org>
+> Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
 
- drivers/net/wireless/libertas/debugfs.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+Applied, thanks!
 
---- a/drivers/net/wireless/libertas/debugfs.c
-+++ b/drivers/net/wireless/libertas/debugfs.c
-@@ -3,6 +3,7 @@
- #include <linux/debugfs.h>
- #include <linux/delay.h>
- #include <linux/mm.h>
-+#include <linux/string.h>
- #include <net/iw_handler.h>
- 
- #include "dev.h"
-@@ -205,7 +206,7 @@ static int libertas_parse_chan(char *buf
- 	if (!start)
- 		return -EINVAL;
- 	start += 5;
--	end = strstr(start, " ");
-+	end = strchr(start, ' ');
- 	if (!end)
- 		end = buf + count;
- 	hold = kzalloc((end - start)+1, GFP_KERNEL);
-@@ -256,7 +257,7 @@ static void libertas_parse_ssid(char *bu
- 	if (!hold)
- 		return;
- 	hold += 5;
--	end = strstr(hold, " ");
-+	end = strchr(hold, ' ');
- 	if (!end)
- 		end = buf + count - 1;
- 
-
-Gr{oetje,eeting}s,
-
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >> http://get.splunk.com/
