@@ -1,106 +1,80 @@
-From: "Eliezer Tamir" <eliezert@broadcom.com>
-Subject: Re: [BNX2X RESUBMIT][PATCH 0/8] New driver for Broadcom 10Gb
- Ethernet, take two.
-Date: Mon, 08 Oct 2007 21:18:05 +0200
-Message-ID: <1191871085.29746.43.camel@eliezer>
-References: <470A23E5.6030102@broadcom.com>
- <20071008102919.1cbc7983@freepuppy.rosehill>
- <1191868481.29746.27.camel@eliezer>
- <20071008120855.758d10e7@freepuppy.rosehill>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: RE: [PATCH 2/3][NET_BATCH] net core use batching
+Date: Mon, 8 Oct 2007 12:46:23 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32903BC1234@orsmsx414.amr.corp.intel.com>
+References: <1191868010.4335.33.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Michael Chan" <mchan@broadcom.com>
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <krkumar2@in.ibm.com>, <johnpol@2ka.mipt.ru>,
+	<herbert@gondor.apana.org.au>, <kaber@trash.net>,
+	<shemminger@linux-foundation.org>, <jagana@us.ibm.com>,
+	<Robert.Olsson@data.slu.se>, <rick.jones2@hp.com>,
+	<xma@us.ibm.com>, <gaagaan@gmail.com>, <netdev@vger.kernel.org>,
+	<rdreier@cisco.com>, <mcarlson@broadcom.com>, <jeff@garzik.org>,
+	<mchan@broadcom.com>, <general@lists.openfabrics.org>,
+	<tgraf@suug.ch>, <randy.dunlap@oracle.com>, <sri@us.ibm.com>
+To: <hadi@cyberus.ca>, "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1772 "EHLO MMS3.broadcom.com"
+Received: from mga03.intel.com ([143.182.124.21]:11866 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751469AbXJHTQy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Oct 2007 15:16:54 -0400
-In-Reply-To: <20071008120855.758d10e7@freepuppy.rosehill>
+	id S1750952AbXJHTq1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 15:46:27 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <1191868010.4335.33.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-10-08 at 12:08 -0700, Stephen Hemminger wrote:
-> On Mon, 08 Oct 2007 20:34:41 +0200
-> "Eliezer" <eliezert@broadcom.com> wrote:
+> -----Original Message-----
+> From: J Hadi Salim [mailto:j.hadi123@gmail.com] On Behalf Of jamal
+> Sent: Monday, October 08, 2007 11:27 AM
+> To: David Miller
+> Cc: krkumar2@in.ibm.com; johnpol@2ka.mipt.ru; 
+> herbert@gondor.apana.org.au; kaber@trash.net; 
+> shemminger@linux-foundation.org; jagana@us.ibm.com; 
+> Robert.Olsson@data.slu.se; rick.jones2@hp.com; 
+> xma@us.ibm.com; gaagaan@gmail.com; netdev@vger.kernel.org; 
+> rdreier@cisco.com; Waskiewicz Jr, Peter P; 
+> mcarlson@broadcom.com; jeff@garzik.org; mchan@broadcom.com; 
+> general@lists.openfabrics.org; kumarkr@linux.ibm.com; 
+> tgraf@suug.ch; randy.dunlap@oracle.com; sri@us.ibm.com
+> Subject: [PATCH 2/3][NET_BATCH] net core use batching
 > 
-> > On Mon, 2007-10-08 at 10:29 -0700, Stephen Hemminger wrote:
-> > 
-> > > 
-> > > Looks good.  Some minor stuff:
-> > > * You can use network device stats in network device structure and
-> > >   no longer need the copy in bp
-> > 
-> > We can't use net device stats in the bp because the elements are also
-> > used by HW and we can't rearrange them. 
-> > struct bmac_stats and struct emac_stats are written to by the HW 
-> > struct nig_stats and struct bnx2x_eth_stats are read by HW
-> > (I would have loved to get rid of at least one of these long structs.)
+> This patch adds the usage of batching within the core.
 > 
-> Here:
-> static void bnx2x_update_net_stats(struct bnx2x *bp)
-> +{
-> +	struct bnx2x_eth_stats *estats = bnx2x_sp(bp, eth_stats);
-> +
-> +	bp->net_stats.rx_packets =
-> +		bnx2x_hilo(&estats->total_unicast_packets_received_hi) +
-> +		bnx2x_hilo(&estats->total_multicast_packets_received_hi) +
-> +		bnx2x_hilo(&estats->total_broadcast_packets_received_hi);
-> +
-> +	bp->net_stats.tx_packets =
-> +		bnx2x_hilo(&estats->total_unicast_packets_transmitted_hi) +
-> +		bnx2x_hilo(&estats->total_multicast_packets_transmitted_hi) +
-> +		bnx2x_hilo(&estats->total_broadcast_packets_transmitted_hi);
-> +
-> +	bp->net_stats.rx_bytes = bnx2x_hilo(&estats->total_bytes_received_hi);
-> +
-> +	bp->net_stats.tx_bytes =
-> +		bnx2x_hilo(&estats->total_bytes_transmitted_hi);
-> +
-> +	bp->net_stats.rx_dropped = estats->no_buff_discard;
-> +	bp->net_stats.tx_dropped = 0;
-> 
-> bp->net_stats could be replaced by dev->net_stats
-> 
-OK, I will do that on the next version.
+> cheers,
+> jamal
 
-> 
-> > > * The MACRO's for 64 bit stats look like they could be done with 
-> > >   u64 and/or turned into inline's.
-> > 
-> > The MACRO's modify some of their arguments, plus they need to work on 32
-> > bit machines (are 64 bit counters always available on 32 bit machines?).
-> > so using an inline would allow the inline to be more readable but
-> > calling it would get ugly.
-> > I'm open to suggestions.
-> > 
-> 
-> u64 exists on all platforms (including 32 bit).
-I will see if I can use that to simplify the MACROs.
+Hey Jamal,
+	I still have concerns how this will work with Tx multiqueue.
+The way the batching code looks right now, you will probably send a
+batch of skb's from multiple bands from PRIO or RR to the driver.  For
+non-Tx multiqueue drivers, this is fine.  For Tx multiqueue drivers,
+this isn't fine, since the Tx ring is selected by the value of
+skb->queue_mapping (set by the qdisc on {prio|rr}_classify()).  If the
+whole batch comes in with different queue_mappings, this could prove to
+be an interesting issue.
+	Now I see in the driver HOWTO you recently sent that the driver
+will be expected to loop over the list and call it's ->hard_start_xmit()
+for each skb.  I think that should be fine for multiqueue, I just wanted
+to see if you had any thoughts on how it should work, any performance
+issues you can see (I can't think of any).  Since the batching feature
+and Tx multiqueue are very new features, I'd like to make sure we can
+think of any possible issues with them coexisting before they are both
+mainline.
 
-> 
-> > > * RCS/CVS tags for date and version # are kind of ugly. They git system
-> > >   doesn't use them, perhaps you just want to track your internal version
-> > >   control information, but what happens when changes come from outside?
-> > 
-> > We need some way to correlate cvs to opensource to bug tracking tool.
-> > Note that driver and Microcode code are very tightly coupled on this
-> > device, so if I want to debug a microcode related problem I would need
-> > both CVS version and microcode version.
-> > 
-> > I agree that tags are ugly but can't think of a better way to do it.
-> > Changes coming from the outside are a problem, but using the cvs version
-> > as an anchor I can track them using git.
-> > Again, I'm open to suggestions and if someone can think of an elegant
-> > way of doing it, I will gladly use it.
-> > 
-> 
-> Leave them for now, but be careful about relying too strongly on
-> the version having any real meaning.
-> 
+	Looking ahead for multiqueue, I'm still working on the per-queue
+lock implementation for multiqueue, which I know will not work with
+batching as it's designed today.  I'm still not sure how to handle this,
+because it really would require the batch you send to have the same
+queue_mapping in each skb, so you're grabbing the correct queue_lock.
+Or, we could have the core grab all the queue locks for each
+skb->queue_mapping represented in the batch.  That would block another
+batch though if it had any of those queues in it's next batch before the
+first one completed.  Thoughts?
 
+Thanks Jamal,
 
+-PJ Waskiewicz
+<peter.p.waskiewicz.jr@intel.com>
