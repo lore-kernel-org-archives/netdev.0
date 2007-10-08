@@ -1,427 +1,239 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH net-2.6.24] chelsio: sparse warning fixes (old cxgb2)
-Date: Mon, 8 Oct 2007 16:19:10 -0700
-Message-ID: <20071008161910.639c5718@freepuppy.rosehill>
+Subject: [PATCH net-2.6.24] cxgb3 sparse warning fixes
+Date: Mon, 8 Oct 2007 16:22:29 -0700
+Message-ID: <20071008162229.65237a88@freepuppy.rosehill>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Divy Le Ray <divy@chelsio.com>
-To: Jeff Garzik <jgarzik@pobox.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Divy Le Ray <divy@chelsio.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:40540 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:52892 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751232AbXJHXUF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 19:20:05 -0400
+	by vger.kernel.org with ESMTP id S1751300AbXJHXXE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 19:23:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix problems detected by sparse:
-1. whole chunk of MAC code was for defined and never used
-2. hook for running ext intr in workqueue wasn't being used
+Fix warnings from sparse related to shadowed variables and routines
+that should be declared static.
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
+---
+  CHECK   drivers/net/cxgb3/cxgb3_main.c
+drivers/net/cxgb3/cxgb3_main.c:1773:20: warning: symbol 'pi' shadows an earlier one
+drivers/net/cxgb3/cxgb3_main.c:1664:19: originally declared here
+drivers/net/cxgb3/cxgb3_main.c:1805:20: warning: symbol 'pi' shadows an earlier one
+drivers/net/cxgb3/cxgb3_main.c:1664:19: originally declared here
+drivers/net/cxgb3/cxgb3_main.c:743:5: warning: symbol 'update_tpsram' was not declared. Should it be static?
+  CHECK   drivers/net/cxgb3/t3_hw.c
+drivers/net/cxgb3/t3_hw.c:122:6: warning: symbol 't3_read_indirect' was not declared. Should it be static?
+drivers/net/cxgb3/t3_hw.c:3410:5: warning: symbol 't3_reset_adapter' was not declared. Should it be static?
+  CHECK   drivers/net/cxgb3/xgmac.c
+drivers/net/cxgb3/xgmac.c:145:5: warning: symbol 't3b2_mac_reset' was not declared. Should it be static?
+  CHECK   drivers/net/cxgb3/sge.c
+include/linux/mm.h:587:9: warning: potentially expensive pointer subtraction
+drivers/net/cxgb3/sge.c:547:6: warning: symbol 't3_free_qset' was not declared. Should it be static?
+include/linux/mm.h:587:9: warning: potentially expensive pointer subtraction
+include/linux/mm.h:587:9: warning: potentially expensive pointer subtraction
+drivers/net/cxgb3/sge.c:2218:13: warning: symbol 't3_sge_intr_msix_napi' was not declared. Should it be static?
+drivers/net/cxgb3/sge.c:2287:13: warning: symbol 't3_intr_msi_napi' was not declared. Should it be static?
+  CHECK   drivers/net/cxgb3/cxgb3_offload.c
+drivers/net/cxgb3/cxgb3_offload.c:226:20: warning: symbol 'req' shadows an earlier one
+drivers/net/cxgb3/cxgb3_offload.c:220:64: originally declared here
+drivers/net/cxgb3/cxgb3_offload.c:245:21: warning: symbol 'req' shadows an earlier one
+drivers/net/cxgb3/cxgb3_offload.c:220:64: originally declared here
+drivers/net/cxgb3/cxgb3_offload.c:277:24: warning: symbol 'req' shadows an earlier one
+drivers/net/cxgb3/cxgb3_offload.c:220:64: originally declared here
+drivers/net/cxgb3/cxgb3_offload.c:295:28: warning: symbol 'req' shadows an earlier one
+drivers/net/cxgb3/cxgb3_offload.c:220:64: originally declared here
 
---- a/drivers/net/chelsio/Makefile	2007-10-04 09:33:28.000000000 -0700
-+++ b/drivers/net/chelsio/Makefile	2007-10-08 16:06:05.000000000 -0700
-@@ -4,6 +4,6 @@
+
+ drivers/net/cxgb3/cxgb3_main.c    |    4 ---
+ drivers/net/cxgb3/cxgb3_offload.c |   44 +++++++++++++++++++-------------------
+ drivers/net/cxgb3/sge.c           |    6 ++---
+ drivers/net/cxgb3/t3_hw.c         |    8 +++---
+ drivers/net/cxgb3/xgmac.c         |    2 -
+ 5 files changed, 31 insertions(+), 33 deletions(-)
+
+--- a/drivers/net/cxgb3/cxgb3_main.c	2007-10-08 15:34:39.000000000 -0700
++++ b/drivers/net/cxgb3/cxgb3_main.c	2007-10-08 16:10:45.000000000 -0700
+@@ -740,7 +740,7 @@ static inline char t3rev2char(struct ada
+ 	return rev;
+ }
  
- obj-$(CONFIG_CHELSIO_T1) += cxgb.o
+-int update_tpsram(struct adapter *adap)
++static int update_tpsram(struct adapter *adap)
+ {
+ 	const struct firmware *tpsram;
+ 	char buf[64];
+@@ -1770,7 +1770,6 @@ static int cxgb_extension_ioctl(struct n
+ 	}
+ 	case CHELSIO_SET_QSET_NUM:{
+ 		struct ch_reg edata;
+-		struct port_info *pi = netdev_priv(dev);
+ 		unsigned int i, first_qset = 0, other_qsets = 0;
  
--cxgb-$(CONFIG_CHELSIO_T1_1G) += mac.o mv88e1xxx.o vsc7326.o
-+cxgb-$(CONFIG_CHELSIO_T1_1G) += mv88e1xxx.o vsc7326.o
- cxgb-objs := cxgb2.o espi.o tp.o pm3393.o sge.o subr.o \
- 	     mv88x201x.o my3126.o $(cxgb-y)
---- a/drivers/net/chelsio/common.h	2007-10-04 09:33:28.000000000 -0700
-+++ b/drivers/net/chelsio/common.h	2007-10-08 16:04:50.000000000 -0700
-@@ -372,6 +372,7 @@ extern void t1_interrupts_enable(adapter
- extern void t1_interrupts_disable(adapter_t *adapter);
- extern void t1_interrupts_clear(adapter_t *adapter);
- extern int t1_elmer0_ext_intr_handler(adapter_t *adapter);
-+extern void t1_elmer0_ext_intr(adapter_t *adapter);
- extern int t1_slow_intr_handler(adapter_t *adapter);
+ 		if (!capable(CAP_NET_ADMIN))
+@@ -1802,7 +1801,6 @@ static int cxgb_extension_ioctl(struct n
+ 	}
+ 	case CHELSIO_GET_QSET_NUM:{
+ 		struct ch_reg edata;
+-		struct port_info *pi = netdev_priv(dev);
  
- extern int t1_link_start(struct cphy *phy, struct cmac *mac, struct link_config *lc);
---- a/drivers/net/chelsio/mac.c	2007-10-08 16:06:32.000000000 -0700
-+++ /dev/null	1970-01-01 00:00:00.000000000 +0000
-@@ -1,368 +0,0 @@
--/* $Date: 2005/10/22 00:42:59 $ $RCSfile: mac.c,v $ $Revision: 1.32 $ */
--#include "gmac.h"
--#include "regs.h"
--#include "fpga_defs.h"
--
--#define MAC_CSR_INTERFACE_GMII      0x0
--#define MAC_CSR_INTERFACE_TBI       0x1
--#define MAC_CSR_INTERFACE_MII       0x2
--#define MAC_CSR_INTERFACE_RMII      0x3
--
--/* Chelsio's MAC statistics. */
--struct mac_statistics {
--
--	/* Transmit */
--	u32 TxFramesTransmittedOK;
--	u32 TxReserved1;
--	u32 TxReserved2;
--	u32 TxOctetsTransmittedOK;
--	u32 TxFramesWithDeferredXmissions;
--	u32 TxLateCollisions;
--	u32 TxFramesAbortedDueToXSCollisions;
--	u32 TxFramesLostDueToIntMACXmitError;
--	u32 TxReserved3;
--	u32 TxMulticastFrameXmittedOK;
--	u32 TxBroadcastFramesXmittedOK;
--	u32 TxFramesWithExcessiveDeferral;
--	u32 TxPAUSEMACCtrlFramesTransmitted;
--
--	/* Receive */
--	u32 RxFramesReceivedOK;
--	u32 RxFrameCheckSequenceErrors;
--	u32 RxAlignmentErrors;
--	u32 RxOctetsReceivedOK;
--	u32 RxFramesLostDueToIntMACRcvError;
--	u32 RxMulticastFramesReceivedOK;
--	u32 RxBroadcastFramesReceivedOK;
--	u32 RxInRangeLengthErrors;
--	u32 RxTxOutOfRangeLengthField;
--	u32 RxFrameTooLongErrors;
--	u32 RxPAUSEMACCtrlFramesReceived;
--};
--
--static int static_aPorts[] = {
--	FPGA_GMAC_INTERRUPT_PORT0,
--	FPGA_GMAC_INTERRUPT_PORT1,
--	FPGA_GMAC_INTERRUPT_PORT2,
--	FPGA_GMAC_INTERRUPT_PORT3
--};
--
--struct _cmac_instance {
--	u32 index;
--};
--
--static int mac_intr_enable(struct cmac *mac)
--{
--	u32 mac_intr;
--
--	if (t1_is_asic(mac->adapter)) {
--		/* ASIC */
--
--		/* We don't use the on chip MAC for ASIC products. */
--	} else {
--		/* FPGA */
--
--		/* Set parent gmac interrupt. */
--		mac_intr = readl(mac->adapter->regs + A_PL_ENABLE);
--		mac_intr |= FPGA_PCIX_INTERRUPT_GMAC;
--		writel(mac_intr, mac->adapter->regs + A_PL_ENABLE);
--
--		mac_intr = readl(mac->adapter->regs + FPGA_GMAC_ADDR_INTERRUPT_ENABLE);
--		mac_intr |= static_aPorts[mac->instance->index];
--		writel(mac_intr,
--		       mac->adapter->regs + FPGA_GMAC_ADDR_INTERRUPT_ENABLE);
--	}
--
--	return 0;
--}
--
--static int mac_intr_disable(struct cmac *mac)
--{
--	u32 mac_intr;
--
--	if (t1_is_asic(mac->adapter)) {
--		/* ASIC */
--
--		/* We don't use the on chip MAC for ASIC products. */
--	} else {
--		/* FPGA */
--
--		/* Set parent gmac interrupt. */
--		mac_intr = readl(mac->adapter->regs + A_PL_ENABLE);
--		mac_intr &= ~FPGA_PCIX_INTERRUPT_GMAC;
--		writel(mac_intr, mac->adapter->regs + A_PL_ENABLE);
--
--		mac_intr = readl(mac->adapter->regs + FPGA_GMAC_ADDR_INTERRUPT_ENABLE);
--		mac_intr &= ~(static_aPorts[mac->instance->index]);
--		writel(mac_intr,
--		       mac->adapter->regs + FPGA_GMAC_ADDR_INTERRUPT_ENABLE);
--	}
--
--	return 0;
--}
--
--static int mac_intr_clear(struct cmac *mac)
--{
--	u32 mac_intr;
--
--	if (t1_is_asic(mac->adapter)) {
--		/* ASIC */
--
--		/* We don't use the on chip MAC for ASIC products. */
--	} else {
--		/* FPGA */
--
--		/* Set parent gmac interrupt. */
--		writel(FPGA_PCIX_INTERRUPT_GMAC,
--		       mac->adapter->regs +  A_PL_CAUSE);
--		mac_intr = readl(mac->adapter->regs + FPGA_GMAC_ADDR_INTERRUPT_CAUSE);
--		mac_intr |= (static_aPorts[mac->instance->index]);
--		writel(mac_intr,
--		       mac->adapter->regs + FPGA_GMAC_ADDR_INTERRUPT_CAUSE);
--	}
--
--	return 0;
--}
--
--static int mac_get_address(struct cmac *mac, u8 addr[6])
--{
--	u32 data32_lo, data32_hi;
--
--	data32_lo = readl(mac->adapter->regs
--			  + MAC_REG_IDLO(mac->instance->index));
--	data32_hi = readl(mac->adapter->regs
--			  + MAC_REG_IDHI(mac->instance->index));
--
--	addr[0] = (u8) ((data32_hi >> 8) & 0xFF);
--	addr[1] = (u8) ((data32_hi) & 0xFF);
--	addr[2] = (u8) ((data32_lo >> 24) & 0xFF);
--	addr[3] = (u8) ((data32_lo >> 16) & 0xFF);
--	addr[4] = (u8) ((data32_lo >> 8) & 0xFF);
--	addr[5] = (u8) ((data32_lo) & 0xFF);
--	return 0;
--}
--
--static int mac_reset(struct cmac *mac)
--{
--	u32 data32;
--	int mac_in_reset, time_out = 100;
--	int idx = mac->instance->index;
--
--	data32 = readl(mac->adapter->regs + MAC_REG_CSR(idx));
--	writel(data32 | F_MAC_RESET,
--	       mac->adapter->regs + MAC_REG_CSR(idx));
--
--	do {
--		data32 = readl(mac->adapter->regs + MAC_REG_CSR(idx));
--
--		mac_in_reset = data32 & F_MAC_RESET;
--		if (mac_in_reset)
--			udelay(1);
--	} while (mac_in_reset && --time_out);
--
--	if (mac_in_reset) {
--		CH_ERR("%s: MAC %d reset timed out\n",
--		       mac->adapter->name, idx);
--		return 2;
--	}
--
--	return 0;
--}
--
--static int mac_set_rx_mode(struct cmac *mac, struct t1_rx_mode *rm)
--{
--	u32 val;
--
--	val = readl(mac->adapter->regs
--			    + MAC_REG_CSR(mac->instance->index));
--	val &= ~(F_MAC_PROMISC | F_MAC_MC_ENABLE);
--	val |= V_MAC_PROMISC(t1_rx_mode_promisc(rm) != 0);
--	val |= V_MAC_MC_ENABLE(t1_rx_mode_allmulti(rm) != 0);
--	writel(val,
--	       mac->adapter->regs + MAC_REG_CSR(mac->instance->index));
--
--	return 0;
--}
--
--static int mac_set_speed_duplex_fc(struct cmac *mac, int speed, int duplex,
--				   int fc)
--{
--	u32 data32;
--
--	data32 = readl(mac->adapter->regs
--			       + MAC_REG_CSR(mac->instance->index));
--	data32 &= ~(F_MAC_HALF_DUPLEX | V_MAC_SPEED(M_MAC_SPEED) |
--		V_INTERFACE(M_INTERFACE) | F_MAC_TX_PAUSE_ENABLE |
--		F_MAC_RX_PAUSE_ENABLE);
--
--	switch (speed) {
--	case SPEED_10:
--	case SPEED_100:
--		data32 |= V_INTERFACE(MAC_CSR_INTERFACE_MII);
--		data32 |= V_MAC_SPEED(speed == SPEED_10 ? 0 : 1);
--		break;
--	case SPEED_1000:
--		data32 |= V_INTERFACE(MAC_CSR_INTERFACE_GMII);
--		data32 |= V_MAC_SPEED(2);
--		break;
--	}
--
--	if (duplex >= 0)
--		data32 |= V_MAC_HALF_DUPLEX(duplex == DUPLEX_HALF);
--
--	if (fc >= 0) {
--		data32 |= V_MAC_RX_PAUSE_ENABLE((fc & PAUSE_RX) != 0);
--		data32 |= V_MAC_TX_PAUSE_ENABLE((fc & PAUSE_TX) != 0);
--	}
--
--	writel(data32,
--	       mac->adapter->regs + MAC_REG_CSR(mac->instance->index));
--	return 0;
--}
--
--static int mac_enable(struct cmac *mac, int which)
--{
--	u32 val;
--
--	val = readl(mac->adapter->regs
--			    + MAC_REG_CSR(mac->instance->index));
--	if (which & MAC_DIRECTION_RX)
--		val |= F_MAC_RX_ENABLE;
--	if (which & MAC_DIRECTION_TX)
--		val |= F_MAC_TX_ENABLE;
--	writel(val,
--	       mac->adapter->regs + MAC_REG_CSR(mac->instance->index));
--	return 0;
--}
--
--static int mac_disable(struct cmac *mac, int which)
--{
--	u32 val;
--
--	val = readl(mac->adapter->regs
--			    + MAC_REG_CSR(mac->instance->index));
--	if (which & MAC_DIRECTION_RX)
--		val &= ~F_MAC_RX_ENABLE;
--	if (which & MAC_DIRECTION_TX)
--		val &= ~F_MAC_TX_ENABLE;
--	writel(val,
--	       mac->adapter->regs + MAC_REG_CSR(mac->instance->index));
--	return 0;
--}
--
--#if 0
--static int mac_set_ifs(struct cmac *mac, u32 mode)
--{
--	t1_write_reg_4(mac->adapter,
--		       MAC_REG_IFS(mac->instance->index),
--		       mode);
--	return 0;
--}
--
--static int mac_enable_isl(struct cmac *mac)
--{
--	u32 data32 = readl(mac->adapter->regs
--				   + MAC_REG_CSR(mac->instance->index));
--	data32 |= F_MAC_RX_ENABLE | F_MAC_TX_ENABLE;
--	t1_write_reg_4(mac->adapter,
--		       MAC_REG_CSR(mac->instance->index),
--		       data32);
--	return 0;
--}
--#endif
--
--static int mac_set_mtu(struct cmac *mac, int mtu)
--{
--	if (mtu > 9600)
--		return -EINVAL;
--	writel(mtu + ETH_HLEN + VLAN_HLEN,
--	       mac->adapter->regs + MAC_REG_LARGEFRAMELENGTH(mac->instance->index));
--
--	return 0;
--}
--
--static const struct cmac_statistics *mac_update_statistics(struct cmac *mac,
--							   int flag)
--{
--	struct mac_statistics st;
--	u32 *p = (u32 *) & st, i;
--
--	writel(0,
--	       mac->adapter->regs + MAC_REG_RMCNT(mac->instance->index));
--
--	for (i = 0; i < sizeof(st) / sizeof(u32); i++)
--		*p++ = readl(mac->adapter->regs
--			     + MAC_REG_RMDATA(mac->instance->index));
--
--	/* XXX convert stats */
--	return &mac->stats;
--}
--
--static void mac_destroy(struct cmac *mac)
--{
--	kfree(mac);
--}
--
--static struct cmac_ops chelsio_mac_ops = {
--	.destroy                 = mac_destroy,
--	.reset                   = mac_reset,
--	.interrupt_enable        = mac_intr_enable,
--	.interrupt_disable       = mac_intr_disable,
--	.interrupt_clear         = mac_intr_clear,
--	.enable                  = mac_enable,
--	.disable                 = mac_disable,
--	.set_mtu                 = mac_set_mtu,
--	.set_rx_mode             = mac_set_rx_mode,
--	.set_speed_duplex_fc     = mac_set_speed_duplex_fc,
--	.macaddress_get          = mac_get_address,
--	.statistics_update       = mac_update_statistics,
--};
--
--static struct cmac *mac_create(adapter_t *adapter, int index)
--{
--	struct cmac *mac;
--	u32 data32;
--
--	if (index >= 4)
--		return NULL;
--
--	mac = kzalloc(sizeof(*mac) + sizeof(cmac_instance), GFP_KERNEL);
--	if (!mac)
--		return NULL;
--
--	mac->ops = &chelsio_mac_ops;
--	mac->instance = (cmac_instance *) (mac + 1);
--
--	mac->instance->index = index;
--	mac->adapter = adapter;
--
--	data32 = readl(adapter->regs + MAC_REG_CSR(mac->instance->index));
--	data32 &= ~(F_MAC_RESET | F_MAC_PROMISC | F_MAC_PROMISC |
--		    F_MAC_LB_ENABLE | F_MAC_RX_ENABLE | F_MAC_TX_ENABLE);
--	data32 |= F_MAC_JUMBO_ENABLE;
--	writel(data32, adapter->regs + MAC_REG_CSR(mac->instance->index));
--
--	/* Initialize the random backoff seed. */
--	data32 = 0x55aa + (3 * index);
--	writel(data32,
--	       adapter->regs + MAC_REG_GMRANDBACKOFFSEED(mac->instance->index));
--
--	/* Check to see if the mac address needs to be set manually. */
--	data32 = readl(adapter->regs + MAC_REG_IDLO(mac->instance->index));
--	if (data32 == 0 || data32 == 0xffffffff) {
--		/*
--		 * Add a default MAC address if we can't read one.
--		 */
--		writel(0x43FFFFFF - index,
--		       adapter->regs + MAC_REG_IDLO(mac->instance->index));
--		writel(0x0007,
--		       adapter->regs + MAC_REG_IDHI(mac->instance->index));
--	}
--
--	(void) mac_set_mtu(mac, 1500);
--	return mac;
--}
--
--const struct gmac t1_chelsio_mac_ops = {
--	.create = mac_create
--};
---- a/drivers/net/chelsio/subr.c	2007-10-08 16:04:04.000000000 -0700
-+++ b/drivers/net/chelsio/subr.c	2007-10-08 16:08:10.000000000 -0700
-@@ -884,7 +884,7 @@ static int asic_slow_intr(adapter_t *ada
- 	if (cause & F_PL_INTR_PCIX)
- 		t1_pci_intr_handler(adapter);
- 	if (cause & F_PL_INTR_EXT)
--		t1_elmer0_ext_intr_handler(adapter);
-+		t1_elmer0_ext_intr(adapter);
+ 		edata.cmd = CHELSIO_GET_QSET_NUM;
+ 		edata.val = pi->nqsets;
+--- a/drivers/net/cxgb3/cxgb3_offload.c	2007-10-04 09:33:28.000000000 -0700
++++ b/drivers/net/cxgb3/cxgb3_offload.c	2007-10-08 16:13:03.000000000 -0700
+@@ -222,32 +222,32 @@ static int cxgb_rdma_ctl(struct adapter 
+ 	int ret = 0;
  
- 	/* Clear the interrupts just processed. */
- 	writel(cause, adapter->regs + A_PL_CAUSE);
+ 	switch (req) {
+-	case RDMA_GET_PARAMS:{
+-		struct rdma_info *req = data;
++	case RDMA_GET_PARAMS: {
++		struct rdma_info *rdma = data;
+ 		struct pci_dev *pdev = adapter->pdev;
+ 
+-		req->udbell_physbase = pci_resource_start(pdev, 2);
+-		req->udbell_len = pci_resource_len(pdev, 2);
+-		req->tpt_base =
++		rdma->udbell_physbase = pci_resource_start(pdev, 2);
++		rdma->udbell_len = pci_resource_len(pdev, 2);
++		rdma->tpt_base =
+ 			t3_read_reg(adapter, A_ULPTX_TPT_LLIMIT);
+-		req->tpt_top = t3_read_reg(adapter, A_ULPTX_TPT_ULIMIT);
+-		req->pbl_base =
++		rdma->tpt_top = t3_read_reg(adapter, A_ULPTX_TPT_ULIMIT);
++		rdma->pbl_base =
+ 			t3_read_reg(adapter, A_ULPTX_PBL_LLIMIT);
+-		req->pbl_top = t3_read_reg(adapter, A_ULPTX_PBL_ULIMIT);
+-		req->rqt_base = t3_read_reg(adapter, A_ULPRX_RQ_LLIMIT);
+-		req->rqt_top = t3_read_reg(adapter, A_ULPRX_RQ_ULIMIT);
+-		req->kdb_addr = adapter->regs + A_SG_KDOORBELL;
+-		req->pdev = pdev;
++		rdma->pbl_top = t3_read_reg(adapter, A_ULPTX_PBL_ULIMIT);
++		rdma->rqt_base = t3_read_reg(adapter, A_ULPRX_RQ_LLIMIT);
++		rdma->rqt_top = t3_read_reg(adapter, A_ULPRX_RQ_ULIMIT);
++		rdma->kdb_addr = adapter->regs + A_SG_KDOORBELL;
++		rdma->pdev = pdev;
+ 		break;
+ 	}
+ 	case RDMA_CQ_OP:{
+ 		unsigned long flags;
+-		struct rdma_cq_op *req = data;
++		struct rdma_cq_op *rdma = data;
+ 
+ 		/* may be called in any context */
+ 		spin_lock_irqsave(&adapter->sge.reg_lock, flags);
+-		ret = t3_sge_cqcntxt_op(adapter, req->id, req->op,
+-					req->credits);
++		ret = t3_sge_cqcntxt_op(adapter, rdma->id, rdma->op,
++					rdma->credits);
+ 		spin_unlock_irqrestore(&adapter->sge.reg_lock, flags);
+ 		break;
+ 	}
+@@ -274,15 +274,15 @@ static int cxgb_rdma_ctl(struct adapter 
+ 		break;
+ 	}
+ 	case RDMA_CQ_SETUP:{
+-		struct rdma_cq_setup *req = data;
++		struct rdma_cq_setup *rdma = data;
+ 
+ 		spin_lock_irq(&adapter->sge.reg_lock);
+ 		ret =
+-			t3_sge_init_cqcntxt(adapter, req->id,
+-					req->base_addr, req->size,
++			t3_sge_init_cqcntxt(adapter, rdma->id,
++					rdma->base_addr, rdma->size,
+ 					ASYNC_NOTIF_RSPQ,
+-					req->ovfl_mode, req->credits,
+-					req->credit_thres);
++					rdma->ovfl_mode, rdma->credits,
++					rdma->credit_thres);
+ 		spin_unlock_irq(&adapter->sge.reg_lock);
+ 		break;
+ 	}
+@@ -292,13 +292,13 @@ static int cxgb_rdma_ctl(struct adapter 
+ 		spin_unlock_irq(&adapter->sge.reg_lock);
+ 		break;
+ 	case RDMA_CTRL_QP_SETUP:{
+-		struct rdma_ctrlqp_setup *req = data;
++		struct rdma_ctrlqp_setup *rdma = data;
+ 
+ 		spin_lock_irq(&adapter->sge.reg_lock);
+ 		ret = t3_sge_init_ecntxt(adapter, FW_RI_SGEEC_START, 0,
+ 						SGE_CNTXT_RDMA,
+ 						ASYNC_NOTIF_RSPQ,
+-						req->base_addr, req->size,
++						rdma->base_addr, rdma->size,
+ 						FW_RI_TID_START, 1, 0);
+ 		spin_unlock_irq(&adapter->sge.reg_lock);
+ 		break;
+--- a/drivers/net/cxgb3/sge.c	2007-10-08 15:35:18.000000000 -0700
++++ b/drivers/net/cxgb3/sge.c	2007-10-08 16:11:57.000000000 -0700
+@@ -544,7 +544,7 @@ static void *alloc_ring(struct pci_dev *
+  *	as HW contexts, packet buffers, and descriptor rings.  Traffic to the
+  *	queue set must be quiesced prior to calling this.
+  */
+-void t3_free_qset(struct adapter *adapter, struct sge_qset *q)
++static void t3_free_qset(struct adapter *adapter, struct sge_qset *q)
+ {
+ 	int i;
+ 	struct pci_dev *pdev = adapter->pdev;
+@@ -2215,7 +2215,7 @@ irqreturn_t t3_sge_intr_msix(int irq, vo
+  * The MSI-X interrupt handler for an SGE response queue for the NAPI case
+  * (i.e., response queue serviced by NAPI polling).
+  */
+-irqreturn_t t3_sge_intr_msix_napi(int irq, void *cookie)
++static irqreturn_t t3_sge_intr_msix_napi(int irq, void *cookie)
+ {
+ 	struct sge_qset *qs = cookie;
+ 	struct sge_rspq *q = &qs->rspq;
+@@ -2284,7 +2284,7 @@ static int rspq_check_napi(struct sge_qs
+  * one SGE response queue per port in this mode and protect all response
+  * queues with queue 0's lock.
+  */
+-irqreturn_t t3_intr_msi_napi(int irq, void *cookie)
++static irqreturn_t t3_intr_msi_napi(int irq, void *cookie)
+ {
+ 	int new_packets;
+ 	struct adapter *adap = cookie;
+--- a/drivers/net/cxgb3/t3_hw.c	2007-10-04 09:33:28.000000000 -0700
++++ b/drivers/net/cxgb3/t3_hw.c	2007-10-08 16:11:24.000000000 -0700
+@@ -119,9 +119,9 @@ void t3_set_reg_field(struct adapter *ad
+  *	Reads registers that are accessed indirectly through an address/data
+  *	register pair.
+  */
+-void t3_read_indirect(struct adapter *adap, unsigned int addr_reg,
+-		      unsigned int data_reg, u32 *vals, unsigned int nregs,
+-		      unsigned int start_idx)
++static void t3_read_indirect(struct adapter *adap, unsigned int addr_reg,
++			     unsigned int data_reg, u32 *vals,
++			     unsigned int nregs, unsigned int start_idx)
+ {
+ 	while (nregs--) {
+ 		t3_write_reg(adap, addr_reg, start_idx);
+@@ -3407,7 +3407,7 @@ void early_hw_init(struct adapter *adapt
+  * Older PCIe cards lose their config space during reset, PCI-X
+  * ones don't.
+  */
+-int t3_reset_adapter(struct adapter *adapter)
++static int t3_reset_adapter(struct adapter *adapter)
+ {
+ 	int i, save_and_restore_pcie = 
+ 	    adapter->params.rev < T3_REV_B2 && is_pcie(adapter);
+--- a/drivers/net/cxgb3/xgmac.c	2007-10-04 09:33:28.000000000 -0700
++++ b/drivers/net/cxgb3/xgmac.c	2007-10-08 16:11:34.000000000 -0700
+@@ -142,7 +142,7 @@ int t3_mac_reset(struct cmac *mac)
+ 	return 0;
+ }
+ 
+-int t3b2_mac_reset(struct cmac *mac)
++static int t3b2_mac_reset(struct cmac *mac)
+ {
+ 	struct adapter *adap = mac->adapter;
+ 	unsigned int oft = mac->offset;
