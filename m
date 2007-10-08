@@ -1,41 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][TG3]Some cleanups
-Date: Sun, 07 Oct 2007 23:32:35 -0700 (PDT)
-Message-ID: <20071007.233235.115620499.davem@davemloft.net>
-References: <1191368033.5961.22.camel@dell>
-	<1191417527.4357.25.camel@localhost>
-	<1191769941.4394.1.camel@localhost>
+From: "Denis V. Lunev" <den@sw.ru>
+Subject: Re: [NET] IPv6 oops bisected
+Date: Mon, 08 Oct 2007 10:34:23 +0400
+Message-ID: <4709CF6F.60102@sw.ru>
+References: <4708F387.1060602@garzik.org>	<20071007.231608.104667710.davem@davemloft.net>	<20071008061942.GA842@gondor.apana.org.au> <20071007.232302.78733656.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, mcarlson@broadcom.com, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Cc: herbert@gondor.apana.org.au, jeff@garzik.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org, den@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35952
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751459AbXJHGcg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 02:32:36 -0400
-In-Reply-To: <1191769941.4394.1.camel@localhost>
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:60701 "EHLO iris"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752452AbXJHGdI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Oct 2007 02:33:08 -0400
+In-Reply-To: <20071007.232302.78733656.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Sun, 07 Oct 2007 11:12:21 -0400
+David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Mon, 8 Oct 2007 14:19:42 +0800
+> 
+>> On Sun, Oct 07, 2007 at 11:16:08PM -0700, David Miller wrote:
+>>> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+>>> index a7db84c..7109ad6 100644
+>>> --- a/net/ipv6/route.c
+>>> +++ b/net/ipv6/route.c
+>>> @@ -1188,7 +1188,7 @@ int ip6_route_add(struct fib6_config *cfg)
+>>>  	if ((cfg->fc_flags & RTF_REJECT) ||
+>>>  	    (dev && (dev->flags&IFF_LOOPBACK) && !(addr_type&IPV6_ADDR_LOOPBACK))) {
+>>>  		/* hold loopback dev/idev if we haven't done so. */
+>>> -		if (dev != dev->nd_net->loopback_dev) {
+>>> +		if (!dev || (dev != dev->nd_net->loopback_dev)) {
+>>>  			if (dev) {
+>>>  				dev_put(dev);
+>>>  				in6_dev_put(idev);
+>> Unfortunately this'll still oops a few lines down when it tries
+>> to assign dev->nd_net->loopabck_dev to dev.  The issue here is
+>> which namespace are we in if dev is NULL.
+> 
+> Good catch.
+> 
+> I'm just going to revert my bogus fix and the original change
+> for now.  Denis can resubmit the original patch once this
+> is resolved.
 
-> Ok, attached patch against net-2.6.24 from this morning. I am setting up
-> some equipment for testing as i type this - so i will test for any
-> regressions. If you dont hear from me on the subject then all went ok.
-
-This "cleanup" only makes sense if we go with your TX batching
-interfaces.
-
-They make the TX batching support patch for this driver "nice" and
-"clean", but it makes zero sense in any other context.  In fact, it
-adds more memory references in the TX pacth, and in fact does so by
-adding usage of the skb->cb[] which the driver didn't need to do
-previously.
-
-So I'm going to hold off on this one for now, keep it in your TX
-batching changes instead.
-
-THanks.
+OK. I am installing Fedora 7 right now...
