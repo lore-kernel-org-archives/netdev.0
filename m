@@ -1,67 +1,89 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCHES] TX batching
-Date: Mon, 08 Oct 2007 10:05:20 -0400
-Message-ID: <1191852320.4352.73.camel@localhost>
-References: <20070914090058.17589.80352.sendpatchset@K50wks273871wss.in.ibm.com>
-	 <20070916.161748.48388692.davem@davemloft.net>
-	 <1189988958.4230.55.camel@localhost> <1190569987.4256.52.camel@localhost>
-	 <1191782093.4394.60.camel@localhost>  <20071008125125.GA31456@2ka.mipt.ru>
-Reply-To: hadi@cyberus.ca
+From: Jeff Garzik <jeff@garzik.org>
+Subject: parallel networking (was Re: [PATCH 1/4] [NET_SCHED] explict hold
+ dev tx lock)
+Date: Mon, 08 Oct 2007 10:22:28 -0400
+Message-ID: <470A3D24.3050803@garzik.org>
+References: <1190674298.4264.24.camel@localhost>	 <D5C1322C3E673F459512FB59E0DDC32903A51462@orsmsx414.amr.corp.intel.com>	 <1190677099.4264.37.camel@localhost>	 <20071007.215124.85709188.davem@davemloft.net> <1191850490.4352.41.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, krkumar2@in.ibm.com,
-	herbert@gondor.apana.org.au, kaber@trash.net,
+Cc: David Miller <davem@davemloft.net>,
+	peter.p.waskiewicz.jr@intel.com, krkumar2@in.ibm.com,
+	johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, kaber@trash.net,
 	shemminger@linux-foundation.org, jagana@us.ibm.com,
 	Robert.Olsson@data.slu.se, rick.jones2@hp.com, xma@us.ibm.com,
 	gaagaan@gmail.com, netdev@vger.kernel.org, rdreier@cisco.com,
-	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
-	jeff@garzik.org, mchan@broadcom.com, general@lists.openfabrics.org,
-	kumarkr@linux.ibm.com, tgraf@suug.ch, randy.dunlap@oracle.com,
-	sri@us.ibm.com
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+	Ingo Molnar <mingo@elte.hu>, mchan@broadcom.com,
+	general@lists.openfabrics.org, kumarkr@linux.ibm.com,
+	tgraf@suug.ch, randy.dunlap@oracle.com, sri@us.ibm.com,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.224]:25043 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750727AbXJHOFo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 10:05:44 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1329391wxd
-        for <netdev@vger.kernel.org>; Mon, 08 Oct 2007 07:05:43 -0700 (PDT)
-In-Reply-To: <20071008125125.GA31456@2ka.mipt.ru>
+Received: from srv5.dvmed.net ([207.36.208.214]:45549 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751300AbXJHOYJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Oct 2007 10:24:09 -0400
+In-Reply-To: <1191850490.4352.41.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-08-10 at 16:51 +0400, Evgeniy Polyakov wrote:
+jamal wrote:
+> On Sun, 2007-07-10 at 21:51 -0700, David Miller wrote:
+> 
+>> For these high performance 10Gbit cards it's a load balancing
+>> function, really, as all of the transmit queues go out to the same
+>> physical port so you could:
+>>
+>> 1) Load balance on CPU number.
+>> 2) Load balance on "flow"
+>> 3) Load balance on destination MAC
+>>
+>> etc. etc. etc.
+> 
+> The brain-block i am having is the parallelization aspect of it.
+> Whatever scheme it is - it needs to ensure the scheduler works as
+> expected. For example, if it was a strict prio scheduler i would expect
+> that whatever goes out is always high priority first and never ever
+> allow a low prio packet out at any time theres something high prio
+> needing to go out. If i have the two priorities running on two cpus,
+> then i cant guarantee that effect.
 
-> it looks like you and Krishna use the same requeueing methods - get one
-> from qdisk, queue it into blist, get next from qdisk, queue it,
-> eventually start transmit, where you dequeue it one-by-one and send (or
-> prepare and commit). This is not the 100% optimal approach, but if you
-> proved it does not hurt usual network processing, it is ok.
+Any chance the NIC hardware could provide that guarantee?
 
-There are probably other bottlenecks that hide the need to optimize
-further.
+8139cp, for example, has two TX DMA rings, with hardcoded 
+characteristics:  one is a high prio q, and one a low prio q.  The logic 
+is pretty simple:   empty the high prio q first (potentially starving 
+low prio q, in worst case).
 
-> Number of comments dusted to very small - that's a sign, but I'm a bit
-> lost - did you and Krishna create the competing approaches, or they can
-> co-exist together, in the former case I doubt you can push, until all
-> problematic places are resolved, in the latter case, this is probably
-> ready.
 
-Thanks. I would like to make one more cleanup and get rid of the
-temporary pkt list in qdisc restart; now that i have defered the skb
-pre-format interface it is unnecessary.  I have a day off today, so i
-will make changes, re-run tests and post again.
+In terms of overall parallelization, both for TX as well as RX, my gut 
+feeling is that we want to move towards an MSI-X, multi-core friendly 
+model where packets are LIKELY to be sent and received by the same set 
+of [cpus | cores | packages | nodes] that the [userland] processes 
+dealing with the data.
 
-I dont see something from Krishna's approach that i can take and reuse.
-This maybe because my old approaches have evolved from the same path.
-There is a long list but as a sample: i used to do a lot more work while
-holding the queue lock which i have now moved post queue lock; i dont
-have any speacial interfaces/tricks just for batching, i provide hints
-to the core of how much the driver can take etc etc. I have offered
-Krishna co-authorship if he makes the IPOIB driver to work on my
-patches, that offer still stands if he chooses to take it. 
+There are already some primitive NUMA bits in skbuff allocation, but 
+with modern MSI-X and RX/TX flow hashing we could do a whole lot more, 
+along the lines of better CPU scheduling decisions, directing flows to 
+clusters of cpus, and generally doing a better job of maximizing cache 
+efficiency in a modern multi-thread environment.
 
-cheers,
-jamal
+IMO the current model where each NIC's TX completion and RX processes 
+are both locked to the same CPU is outmoded in a multi-core world with 
+modern NICs.  :)
+
+But I readily admit general ignorance about the kernel process 
+scheduling stuff, so my only idea about a starting point was to see how 
+far to go with the concept of "skb affinity" -- a mask in sk_buff that 
+is a hint about which cpu(s) on which the NIC should attempt to send and 
+receive packets.  When going through bonding or netfilter, it is trivial 
+to 'or' together affinity masks.  All the various layers of net stack 
+should attempt to honor the skb affinity, where feasible (requires 
+interaction with CFS scheduler?).
+
+Or maybe skb affinity is a dumb idea.  I wanted to get people thinking 
+on the bigger picture.  Parallelization starts at the user process.
+
+	Jeff
+
 
