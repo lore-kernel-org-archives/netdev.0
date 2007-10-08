@@ -1,53 +1,282 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2/3][NET_BATCH] net core use batching
-Date: Mon, 08 Oct 2007 09:17:24 -0400
-Message-ID: <1191849444.4352.29.camel@localhost>
-References: <OF9A1CB7CB.5E22F8B7-ON6525736E.001B7EF8-6525736E.001BC875@in.ibm.com>
-Reply-To: hadi@cyberus.ca
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH][NETNS] Move some code into __init section when CONFIG_NET_NS=n
+ (v2)
+Date: Mon, 08 Oct 2007 17:20:01 +0400
+Message-ID: <470A2E81.5050006@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, gaagaan@gmail.com,
-	general@lists.openfabrics.org, herbert@gondor.apana.org.au,
-	jagana@us.ibm.com, jeff@garzik.org, johnpol@2ka.mipt.ru,
-	Patrick McHardy <kaber@trash.net>, kumarkr@linux.ibm.com,
-	mcarlson@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org,
-	peter.p.waskiewicz.jr@intel.com, randy.dunlap@oracle.com,
-	rdreier@cisco.com, rick.jones2@hp.com, Robert.Olsson@data.slu.se,
-	shemminger@linux-foundation.org, sri@us.ibm.com, tgraf@suug.ch,
-	xma@us.ibm.com
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.237]:61135 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753574AbXJHNRj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 09:17:39 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1316474wxd
-        for <netdev@vger.kernel.org>; Mon, 08 Oct 2007 06:17:38 -0700 (PDT)
-In-Reply-To: <OF9A1CB7CB.5E22F8B7-ON6525736E.001B7EF8-6525736E.001BC875@in.ibm.com>
+Received: from sacred.ru ([62.205.161.221]:55538 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750834AbXJHNWp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Oct 2007 09:22:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-08-10 at 10:33 +0530, Krishna Kumar2 wrote:
+With the net namespaces many code leaved the __init section,
+thus making the kernel occupy more memory than it did before.
+Since we have a config option that prohibits the namespace
+creation, the functions that initialize/finalize some netns
+stuff are simply not needed and can be freed after the boot.
 
-> > As a side note: Any batching driver should _never_ have to requeue; if
-> > it does it is buggy. And the non-batching ones if they ever requeue will
-> > be a single packet, so not much reordering.
-> 
-> On the contrary, batching LLTX drivers (if that is not ruled out) will very
-> often requeue resulting in heavy reordering. Fix looks good though.
+Currently, this is almost not noticeable, since few calls
+are no longer in __init, but when the namespaces will be
+merged it will be possible to free more code. I propose to 
+use the __net_init, __net_exit and __net_initdata "attributes"
+for functions/variables that are not used if the CONFIG_NET_NS
+is not set to save more space in memory.
 
-Two things: 
-one, LLTX is deprecated (I think i saw a patch which says no more new
-drivers should do LLTX) and i plan if nobody else does to kill 
-LLTX in e1000 RSN. So for that reason i removed all code that existed to
-support LLTX.
-two, there should _never_ be any requeueing even if LLTX in the previous
-patches when i supported them; if there is, it is a bug. This is because
-we dont send more than what the driver asked for via xmit_win. So if it
-asked for more than it can handle, that is a bug. If its available space
-changes while we are sending to it, that too is a bug.
+The exiting functions cannot just reside in the __exit section,
+as noticed by David, since the init section will have 
+references on it and the compilation will fail due to modpost 
+checks. These references can exist, since the init namespace 
+never dies and the exit callbacks are never called. So I 
+introduce the __exit_refok attribute just like it is already 
+done with the __init_refok.
 
-cheers,
-jamal
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
+---
+
+diff --git a/include/linux/init.h b/include/linux/init.h
+index 74b1f43..f8d9d0b 100644
+--- a/include/linux/init.h
++++ b/include/linux/init.h
+@@ -57,6 +57,7 @@
+  * The markers follow same syntax rules as __init / __initdata. */
+ #define __init_refok     noinline __attribute__ ((__section__ (".text.init.refok")))
+ #define __initdata_refok          __attribute__ ((__section__ (".data.init.refok")))
++#define __exit_refok     noinline __attribute__ ((__section__ (".exit.text.refok")))
+ 
+ #ifdef MODULE
+ #define __exit		__attribute__ ((__section__(".exit.text"))) __cold
+diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
+index 6c145d6..0a4051f 100644
+--- a/scripts/mod/modpost.c
++++ b/scripts/mod/modpost.c
+@@ -709,6 +709,7 @@ static int secref_whitelist(const char *
+ 
+ 	/* Check for pattern 0 */
+ 	if ((strncmp(fromsec, ".text.init.refok", strlen(".text.init.refok")) == 0) ||
++	    (strncmp(fromsec, ".exit.text.refok", strlen(".exit.text.refok")) == 0) ||
+ 	    (strncmp(fromsec, ".data.init.refok", strlen(".data.init.refok")) == 0))
+ 		return 1;
+ 
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 934c840..93aa87d 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -99,6 +99,15 @@ static inline void release_net(struct ne
+ #define for_each_net(VAR)				\
+ 	list_for_each_entry(VAR, &net_namespace_list, list)
+ 
++#ifdef CONFIG_NET_NS
++#define __net_init
++#define __net_exit
++#define __net_initdata
++#else
++#define __net_init	__init
++#define __net_exit	__exit_refok
++#define __net_initdata	__initdata
++#endif
+ 
+ struct pernet_operations {
+ 	struct list_head list;
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index d6997ae..be25aa3 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -250,7 +250,7 @@ static void loopback_setup(struct net_de
+ }
+ 
+ /* Setup and register the loopback device. */
+-static int loopback_net_init(struct net *net)
++static __net_init int loopback_net_init(struct net *net)
+ {
+ 	struct net_device *dev;
+ 	int err;
+@@ -278,14 +278,14 @@ out_free_netdev:
+ 	goto out;
+ }
+ 
+-static void loopback_net_exit(struct net *net)
++static __net_exit void loopback_net_exit(struct net *net)
+ {
+ 	struct net_device *dev = net->loopback_dev;
+ 
+ 	unregister_netdev(dev);
+ }
+ 
+-static struct pernet_operations loopback_net_ops = {
++static struct pernet_operations __net_initdata loopback_net_ops = {
+        .init = loopback_net_init,
+        .exit = loopback_net_exit,
+ };
+diff --git a/fs/proc/proc_net.c b/fs/proc/proc_net.c
+index 85cc8e8..2e91fb7 100644
+--- a/fs/proc/proc_net.c
++++ b/fs/proc/proc_net.c
+@@ -140,7 +140,7 @@ static struct inode_operations proc_net_
+ 	.setattr	= proc_net_setattr,
+ };
+ 
+-static int proc_net_ns_init(struct net *net)
++static __net_init int proc_net_ns_init(struct net *net)
+ {
+ 	struct proc_dir_entry *root, *netd, *net_statd;
+ 	int err;
+@@ -178,19 +178,19 @@ free_root:
+ 	goto out;
+ }
+ 
+-static void proc_net_ns_exit(struct net *net)
++static __net_exit void proc_net_ns_exit(struct net *net)
+ {
+ 	remove_proc_entry("stat", net->proc_net);
+ 	remove_proc_entry("net", net->proc_net_root);
+ 	kfree(net->proc_net_root);
+ }
+ 
+-struct pernet_operations proc_net_ns_ops = {
++struct pernet_operations __net_initdata proc_net_ns_ops = {
+ 	.init = proc_net_ns_init,
+ 	.exit = proc_net_ns_exit,
+ };
+ 
+-int proc_net_init(void)
++int __init proc_net_init(void)
+ {
+ 	proc_net_shadow = proc_mkdir("net", NULL);
+ 	proc_net_shadow->proc_iops = &proc_net_dir_inode_operations;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 1aa0704..e7e728a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2611,7 +2611,7 @@ static const struct file_operations ptyp
+ };
+ 
+ 
+-static int dev_proc_net_init(struct net *net)
++static int __net_init dev_proc_net_init(struct net *net)
+ {
+ 	int rc = -ENOMEM;
+ 
+@@ -2636,7 +2636,7 @@ out_dev:
+ 	goto out;
+ }
+ 
+-static void dev_proc_net_exit(struct net *net)
++static void __net_exit dev_proc_net_exit(struct net *net)
+ {
+ 	wext_proc_exit(net);
+ 
+@@ -2645,7 +2645,7 @@ static void dev_proc_net_exit(struct net
+ 	proc_net_remove(net, "dev");
+ }
+ 
+-static struct pernet_operations dev_proc_ops = {
++static struct pernet_operations __net_initdata dev_proc_ops = {
+ 	.init = dev_proc_net_init,
+ 	.exit = dev_proc_net_exit,
+ };
+@@ -4278,7 +4278,7 @@ static struct hlist_head *netdev_create_
+ }
+ 
+ /* Initialize per network namespace state */
+-static int netdev_init(struct net *net)
++static int __net_init netdev_init(struct net *net)
+ {
+ 	INIT_LIST_HEAD(&net->dev_base_head);
+ 	rwlock_init(&dev_base_lock);
+@@ -4299,18 +4299,18 @@ err_name:
+ 	return -ENOMEM;
+ }
+ 
+-static void netdev_exit(struct net *net)
++static void __net_exit netdev_exit(struct net *net)
+ {
+ 	kfree(net->dev_name_head);
+ 	kfree(net->dev_index_head);
+ }
+ 
+-static struct pernet_operations netdev_net_ops = {
++static struct pernet_operations __net_initdata netdev_net_ops = {
+ 	.init = netdev_init,
+ 	.exit = netdev_exit,
+ };
+ 
+-static void default_device_exit(struct net *net)
++static void __net_exit default_device_exit(struct net *net)
+ {
+ 	struct net_device *dev, *next;
+ 	/*
+@@ -4336,7 +4336,7 @@ static void default_device_exit(struct n
+ 	rtnl_unlock();
+ }
+ 
+-static struct pernet_operations default_device_ops = {
++static struct pernet_operations __net_initdata default_device_ops = {
+ 	.exit = default_device_exit,
+ };
+ 
+diff --git a/net/core/dev_mcast.c b/net/core/dev_mcast.c
+index 896b0ca..15241cf 100644
+--- a/net/core/dev_mcast.c
++++ b/net/core/dev_mcast.c
+@@ -273,19 +273,19 @@ static const struct file_operations dev_
+ 
+ #endif
+ 
+-static int dev_mc_net_init(struct net *net)
++static int __net_init dev_mc_net_init(struct net *net)
+ {
+ 	if (!proc_net_fops_create(net, "dev_mcast", 0, &dev_mc_seq_fops))
+ 		return -ENOMEM;
+ 	return 0;
+ }
+ 
+-static void dev_mc_net_exit(struct net *net)
++static void __net_exit dev_mc_net_exit(struct net *net)
+ {
+ 	proc_net_remove(net, "dev_mcast");
+ }
+ 
+-static struct pernet_operations dev_mc_net_ops = {
++static struct pernet_operations __net_initdata dev_mc_net_ops = {
+ 	.init = dev_mc_net_init,
+ 	.exit = dev_mc_net_exit,
+ };
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 46eb5ea..3ef3282 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1924,7 +1924,7 @@ static struct net_proto_family netlink_f
+ 	.owner	= THIS_MODULE,	/* for consistency 8) */
+ };
+ 
+-static int netlink_net_init(struct net *net)
++static int __net_init netlink_net_init(struct net *net)
+ {
+ #ifdef CONFIG_PROC_FS
+ 	if (!proc_net_fops_create(net, "netlink", 0, &netlink_seq_fops))
+@@ -1933,14 +1933,14 @@ static int netlink_net_init(struct net *
+ 	return 0;
+ }
+ 
+-static void netlink_net_exit(struct net *net)
++static void __net_exit netlink_net_exit(struct net *net)
+ {
+ #ifdef CONFIG_PROC_FS
+ 	proc_net_remove(net, "netlink");
+ #endif
+ }
+ 
+-static struct pernet_operations netlink_net_ops = {
++static struct pernet_operations __net_initdata netlink_net_ops = {
+ 	.init = netlink_net_init,
+ 	.exit = netlink_net_exit,
+ };
