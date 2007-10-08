@@ -1,150 +1,427 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]: Third (final?) release of Sun Neptune driver
-Date: Mon, 08 Oct 2007 16:08:35 -0700 (PDT)
-Message-ID: <20071008.160835.121874561.davem@davemloft.net>
-References: <20071005.031209.57156822.davem@davemloft.net>
-	<470A5450.70403@hartkopp.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH net-2.6.24] chelsio: sparse warning fixes (old cxgb2)
+Date: Mon, 8 Oct 2007 16:19:10 -0700
+Message-ID: <20071008161910.639c5718@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: oliver@hartkopp.net
+Cc: netdev@vger.kernel.org, Divy Le Ray <divy@chelsio.com>
+To: Jeff Garzik <jgarzik@pobox.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56187
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752265AbXJHXIg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 19:08:36 -0400
-In-Reply-To: <470A5450.70403@hartkopp.net>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:40540 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751232AbXJHXUF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 19:20:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Oliver Hartkopp <oliver@hartkopp.net>
-Date: Mon, 08 Oct 2007 18:01:20 +0200
+Fix problems detected by sparse:
+1. whole chunk of MAC code was for defined and never used
+2. hook for running ext intr in workqueue wasn't being used
 
-> David Miller wrote:
-> > +
-> > +static int link_status_1g(struct niu *np, int *link_up_p)
- ...
-> Should *link_up_p be set to any value before returning?
- ...
-> > +out:
-> > +	spin_unlock_irqrestore(&np->lock, flags);
-> > +
-> > +	*link_up_p = link_up;
-> > +	return 0;
-> > +}
-> > +
-> >   
-> Although you added a proper return value in link_status_10g() while 
-> fixing the locking issue, you should think about providing a similar 
-> return value for link_status_1g() to be constistent here.
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-Thanks for finding these two issues.  I've fixed it in the patch
-below.
 
-Luckily, this case was harmless.  When we enable a loopback mode,
-niu_open() forces the link up by calling netif_carrier_on().
-Then, niu_timer() always sees -EINVAL coming back from
-niu_link_status() because of these loopback checks, and in such
-cases never uses the link_up value because niu_link_status_common()
-will not be invoked.
-
-Anyways, thanks again!
-
-commit ec3ec3566a8ee3c8c262606e06299c8212ebd53f
-Author: David S. Miller <davem@sunset.davemloft.net>
-Date:   Mon Oct 8 16:08:17 2007 -0700
-
-    [NIU]: Make sure link_up status is set to something in link_status_{1,10}g().
-    
-    Noticed by Oliver Hartkopp.
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index 2a69cee..7c09243 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -1082,13 +1082,14 @@ static int link_status_10g(struct niu *np, int *link_up_p)
- 	unsigned long flags;
- 	int err, link_up;
+--- a/drivers/net/chelsio/Makefile	2007-10-04 09:33:28.000000000 -0700
++++ b/drivers/net/chelsio/Makefile	2007-10-08 16:06:05.000000000 -0700
+@@ -4,6 +4,6 @@
  
--	if (np->link_config.loopback_mode != LOOPBACK_DISABLED)
--		return -EINVAL;
+ obj-$(CONFIG_CHELSIO_T1) += cxgb.o
+ 
+-cxgb-$(CONFIG_CHELSIO_T1_1G) += mac.o mv88e1xxx.o vsc7326.o
++cxgb-$(CONFIG_CHELSIO_T1_1G) += mv88e1xxx.o vsc7326.o
+ cxgb-objs := cxgb2.o espi.o tp.o pm3393.o sge.o subr.o \
+ 	     mv88x201x.o my3126.o $(cxgb-y)
+--- a/drivers/net/chelsio/common.h	2007-10-04 09:33:28.000000000 -0700
++++ b/drivers/net/chelsio/common.h	2007-10-08 16:04:50.000000000 -0700
+@@ -372,6 +372,7 @@ extern void t1_interrupts_enable(adapter
+ extern void t1_interrupts_disable(adapter_t *adapter);
+ extern void t1_interrupts_clear(adapter_t *adapter);
+ extern int t1_elmer0_ext_intr_handler(adapter_t *adapter);
++extern void t1_elmer0_ext_intr(adapter_t *adapter);
+ extern int t1_slow_intr_handler(adapter_t *adapter);
+ 
+ extern int t1_link_start(struct cphy *phy, struct cmac *mac, struct link_config *lc);
+--- a/drivers/net/chelsio/mac.c	2007-10-08 16:06:32.000000000 -0700
++++ /dev/null	1970-01-01 00:00:00.000000000 +0000
+@@ -1,368 +0,0 @@
+-/* $Date: 2005/10/22 00:42:59 $ $RCSfile: mac.c,v $ $Revision: 1.32 $ */
+-#include "gmac.h"
+-#include "regs.h"
+-#include "fpga_defs.h"
 -
- 	link_up = 0;
- 
- 	spin_lock_irqsave(&np->lock, flags);
- 
-+	err = -EINVAL;
-+	if (np->link_config.loopback_mode != LOOPBACK_DISABLED)
-+		return out;
-+
- 	err = mdio_read(np, np->phy_addr, BCM8704_PMA_PMD_DEV_ADDR,
- 			BCM8704_PMD_RCV_SIGDET);
- 	if (err < 0)
-@@ -1119,15 +1120,12 @@ static int link_status_10g(struct niu *np, int *link_up_p)
- 	link_up = 1;
- 	np->link_config.active_speed = SPEED_10000;
- 	np->link_config.active_duplex = DUPLEX_FULL;
-+	err = 0;
- 
- out:
- 	spin_unlock_irqrestore(&np->lock, flags);
- 
- 	*link_up_p = link_up;
+-#define MAC_CSR_INTERFACE_GMII      0x0
+-#define MAC_CSR_INTERFACE_TBI       0x1
+-#define MAC_CSR_INTERFACE_MII       0x2
+-#define MAC_CSR_INTERFACE_RMII      0x3
+-
+-/* Chelsio's MAC statistics. */
+-struct mac_statistics {
+-
+-	/* Transmit */
+-	u32 TxFramesTransmittedOK;
+-	u32 TxReserved1;
+-	u32 TxReserved2;
+-	u32 TxOctetsTransmittedOK;
+-	u32 TxFramesWithDeferredXmissions;
+-	u32 TxLateCollisions;
+-	u32 TxFramesAbortedDueToXSCollisions;
+-	u32 TxFramesLostDueToIntMACXmitError;
+-	u32 TxReserved3;
+-	u32 TxMulticastFrameXmittedOK;
+-	u32 TxBroadcastFramesXmittedOK;
+-	u32 TxFramesWithExcessiveDeferral;
+-	u32 TxPAUSEMACCtrlFramesTransmitted;
+-
+-	/* Receive */
+-	u32 RxFramesReceivedOK;
+-	u32 RxFrameCheckSequenceErrors;
+-	u32 RxAlignmentErrors;
+-	u32 RxOctetsReceivedOK;
+-	u32 RxFramesLostDueToIntMACRcvError;
+-	u32 RxMulticastFramesReceivedOK;
+-	u32 RxBroadcastFramesReceivedOK;
+-	u32 RxInRangeLengthErrors;
+-	u32 RxTxOutOfRangeLengthField;
+-	u32 RxFrameTooLongErrors;
+-	u32 RxPAUSEMACCtrlFramesReceived;
+-};
+-
+-static int static_aPorts[] = {
+-	FPGA_GMAC_INTERRUPT_PORT0,
+-	FPGA_GMAC_INTERRUPT_PORT1,
+-	FPGA_GMAC_INTERRUPT_PORT2,
+-	FPGA_GMAC_INTERRUPT_PORT3
+-};
+-
+-struct _cmac_instance {
+-	u32 index;
+-};
+-
+-static int mac_intr_enable(struct cmac *mac)
+-{
+-	u32 mac_intr;
+-
+-	if (t1_is_asic(mac->adapter)) {
+-		/* ASIC */
+-
+-		/* We don't use the on chip MAC for ASIC products. */
+-	} else {
+-		/* FPGA */
+-
+-		/* Set parent gmac interrupt. */
+-		mac_intr = readl(mac->adapter->regs + A_PL_ENABLE);
+-		mac_intr |= FPGA_PCIX_INTERRUPT_GMAC;
+-		writel(mac_intr, mac->adapter->regs + A_PL_ENABLE);
+-
+-		mac_intr = readl(mac->adapter->regs + FPGA_GMAC_ADDR_INTERRUPT_ENABLE);
+-		mac_intr |= static_aPorts[mac->instance->index];
+-		writel(mac_intr,
+-		       mac->adapter->regs + FPGA_GMAC_ADDR_INTERRUPT_ENABLE);
+-	}
+-
 -	return 0;
+-}
 -
--out_err:
--	spin_unlock_irqrestore(&np->lock, flags);
- 	return err;
- }
- 
-@@ -1138,15 +1136,16 @@ static int link_status_1g(struct niu *np, int *link_up_p)
- 	u8 current_duplex;
- 	int err, link_up;
- 
--	if (np->link_config.loopback_mode != LOOPBACK_DISABLED)
--		return -EINVAL;
+-static int mac_intr_disable(struct cmac *mac)
+-{
+-	u32 mac_intr;
 -
- 	link_up = 0;
- 	current_speed = SPEED_INVALID;
- 	current_duplex = DUPLEX_INVALID;
- 
- 	spin_lock_irqsave(&np->lock, flags);
- 
-+	err = -EINVAL;
-+	if (np->link_config.loopback_mode != LOOPBACK_DISABLED)
-+		goto out;
-+
- 	err = mii_read(np, np->phy_addr, MII_BMSR);
- 	if (err < 0)
- 		goto out;
-@@ -1172,6 +1171,7 @@ static int link_status_1g(struct niu *np, int *link_up_p)
- 			goto out;
- 		estat = err;
- 
-+		link_up = 1;
- 		if (estat & (ESTATUS_1000_TFULL | ESTATUS_1000_THALF)) {
- 			current_speed = SPEED_1000;
- 			if (estat & ESTATUS_1000_TFULL)
-@@ -1195,16 +1195,16 @@ static int link_status_1g(struct niu *np, int *link_up_p)
- 				current_speed = SPEED_10;
- 				current_duplex = DUPLEX_HALF;
- 			} else
--				goto out;
-+				link_up = 0;
- 		}
--		link_up = 1;
- 	}
-+	err = 0;
- 
- out:
- 	spin_unlock_irqrestore(&np->lock, flags);
- 
- 	*link_up_p = link_up;
+-	if (t1_is_asic(mac->adapter)) {
+-		/* ASIC */
+-
+-		/* We don't use the on chip MAC for ASIC products. */
+-	} else {
+-		/* FPGA */
+-
+-		/* Set parent gmac interrupt. */
+-		mac_intr = readl(mac->adapter->regs + A_PL_ENABLE);
+-		mac_intr &= ~FPGA_PCIX_INTERRUPT_GMAC;
+-		writel(mac_intr, mac->adapter->regs + A_PL_ENABLE);
+-
+-		mac_intr = readl(mac->adapter->regs + FPGA_GMAC_ADDR_INTERRUPT_ENABLE);
+-		mac_intr &= ~(static_aPorts[mac->instance->index]);
+-		writel(mac_intr,
+-		       mac->adapter->regs + FPGA_GMAC_ADDR_INTERRUPT_ENABLE);
+-	}
+-
 -	return 0;
-+	return err;
- }
+-}
+-
+-static int mac_intr_clear(struct cmac *mac)
+-{
+-	u32 mac_intr;
+-
+-	if (t1_is_asic(mac->adapter)) {
+-		/* ASIC */
+-
+-		/* We don't use the on chip MAC for ASIC products. */
+-	} else {
+-		/* FPGA */
+-
+-		/* Set parent gmac interrupt. */
+-		writel(FPGA_PCIX_INTERRUPT_GMAC,
+-		       mac->adapter->regs +  A_PL_CAUSE);
+-		mac_intr = readl(mac->adapter->regs + FPGA_GMAC_ADDR_INTERRUPT_CAUSE);
+-		mac_intr |= (static_aPorts[mac->instance->index]);
+-		writel(mac_intr,
+-		       mac->adapter->regs + FPGA_GMAC_ADDR_INTERRUPT_CAUSE);
+-	}
+-
+-	return 0;
+-}
+-
+-static int mac_get_address(struct cmac *mac, u8 addr[6])
+-{
+-	u32 data32_lo, data32_hi;
+-
+-	data32_lo = readl(mac->adapter->regs
+-			  + MAC_REG_IDLO(mac->instance->index));
+-	data32_hi = readl(mac->adapter->regs
+-			  + MAC_REG_IDHI(mac->instance->index));
+-
+-	addr[0] = (u8) ((data32_hi >> 8) & 0xFF);
+-	addr[1] = (u8) ((data32_hi) & 0xFF);
+-	addr[2] = (u8) ((data32_lo >> 24) & 0xFF);
+-	addr[3] = (u8) ((data32_lo >> 16) & 0xFF);
+-	addr[4] = (u8) ((data32_lo >> 8) & 0xFF);
+-	addr[5] = (u8) ((data32_lo) & 0xFF);
+-	return 0;
+-}
+-
+-static int mac_reset(struct cmac *mac)
+-{
+-	u32 data32;
+-	int mac_in_reset, time_out = 100;
+-	int idx = mac->instance->index;
+-
+-	data32 = readl(mac->adapter->regs + MAC_REG_CSR(idx));
+-	writel(data32 | F_MAC_RESET,
+-	       mac->adapter->regs + MAC_REG_CSR(idx));
+-
+-	do {
+-		data32 = readl(mac->adapter->regs + MAC_REG_CSR(idx));
+-
+-		mac_in_reset = data32 & F_MAC_RESET;
+-		if (mac_in_reset)
+-			udelay(1);
+-	} while (mac_in_reset && --time_out);
+-
+-	if (mac_in_reset) {
+-		CH_ERR("%s: MAC %d reset timed out\n",
+-		       mac->adapter->name, idx);
+-		return 2;
+-	}
+-
+-	return 0;
+-}
+-
+-static int mac_set_rx_mode(struct cmac *mac, struct t1_rx_mode *rm)
+-{
+-	u32 val;
+-
+-	val = readl(mac->adapter->regs
+-			    + MAC_REG_CSR(mac->instance->index));
+-	val &= ~(F_MAC_PROMISC | F_MAC_MC_ENABLE);
+-	val |= V_MAC_PROMISC(t1_rx_mode_promisc(rm) != 0);
+-	val |= V_MAC_MC_ENABLE(t1_rx_mode_allmulti(rm) != 0);
+-	writel(val,
+-	       mac->adapter->regs + MAC_REG_CSR(mac->instance->index));
+-
+-	return 0;
+-}
+-
+-static int mac_set_speed_duplex_fc(struct cmac *mac, int speed, int duplex,
+-				   int fc)
+-{
+-	u32 data32;
+-
+-	data32 = readl(mac->adapter->regs
+-			       + MAC_REG_CSR(mac->instance->index));
+-	data32 &= ~(F_MAC_HALF_DUPLEX | V_MAC_SPEED(M_MAC_SPEED) |
+-		V_INTERFACE(M_INTERFACE) | F_MAC_TX_PAUSE_ENABLE |
+-		F_MAC_RX_PAUSE_ENABLE);
+-
+-	switch (speed) {
+-	case SPEED_10:
+-	case SPEED_100:
+-		data32 |= V_INTERFACE(MAC_CSR_INTERFACE_MII);
+-		data32 |= V_MAC_SPEED(speed == SPEED_10 ? 0 : 1);
+-		break;
+-	case SPEED_1000:
+-		data32 |= V_INTERFACE(MAC_CSR_INTERFACE_GMII);
+-		data32 |= V_MAC_SPEED(2);
+-		break;
+-	}
+-
+-	if (duplex >= 0)
+-		data32 |= V_MAC_HALF_DUPLEX(duplex == DUPLEX_HALF);
+-
+-	if (fc >= 0) {
+-		data32 |= V_MAC_RX_PAUSE_ENABLE((fc & PAUSE_RX) != 0);
+-		data32 |= V_MAC_TX_PAUSE_ENABLE((fc & PAUSE_TX) != 0);
+-	}
+-
+-	writel(data32,
+-	       mac->adapter->regs + MAC_REG_CSR(mac->instance->index));
+-	return 0;
+-}
+-
+-static int mac_enable(struct cmac *mac, int which)
+-{
+-	u32 val;
+-
+-	val = readl(mac->adapter->regs
+-			    + MAC_REG_CSR(mac->instance->index));
+-	if (which & MAC_DIRECTION_RX)
+-		val |= F_MAC_RX_ENABLE;
+-	if (which & MAC_DIRECTION_TX)
+-		val |= F_MAC_TX_ENABLE;
+-	writel(val,
+-	       mac->adapter->regs + MAC_REG_CSR(mac->instance->index));
+-	return 0;
+-}
+-
+-static int mac_disable(struct cmac *mac, int which)
+-{
+-	u32 val;
+-
+-	val = readl(mac->adapter->regs
+-			    + MAC_REG_CSR(mac->instance->index));
+-	if (which & MAC_DIRECTION_RX)
+-		val &= ~F_MAC_RX_ENABLE;
+-	if (which & MAC_DIRECTION_TX)
+-		val &= ~F_MAC_TX_ENABLE;
+-	writel(val,
+-	       mac->adapter->regs + MAC_REG_CSR(mac->instance->index));
+-	return 0;
+-}
+-
+-#if 0
+-static int mac_set_ifs(struct cmac *mac, u32 mode)
+-{
+-	t1_write_reg_4(mac->adapter,
+-		       MAC_REG_IFS(mac->instance->index),
+-		       mode);
+-	return 0;
+-}
+-
+-static int mac_enable_isl(struct cmac *mac)
+-{
+-	u32 data32 = readl(mac->adapter->regs
+-				   + MAC_REG_CSR(mac->instance->index));
+-	data32 |= F_MAC_RX_ENABLE | F_MAC_TX_ENABLE;
+-	t1_write_reg_4(mac->adapter,
+-		       MAC_REG_CSR(mac->instance->index),
+-		       data32);
+-	return 0;
+-}
+-#endif
+-
+-static int mac_set_mtu(struct cmac *mac, int mtu)
+-{
+-	if (mtu > 9600)
+-		return -EINVAL;
+-	writel(mtu + ETH_HLEN + VLAN_HLEN,
+-	       mac->adapter->regs + MAC_REG_LARGEFRAMELENGTH(mac->instance->index));
+-
+-	return 0;
+-}
+-
+-static const struct cmac_statistics *mac_update_statistics(struct cmac *mac,
+-							   int flag)
+-{
+-	struct mac_statistics st;
+-	u32 *p = (u32 *) & st, i;
+-
+-	writel(0,
+-	       mac->adapter->regs + MAC_REG_RMCNT(mac->instance->index));
+-
+-	for (i = 0; i < sizeof(st) / sizeof(u32); i++)
+-		*p++ = readl(mac->adapter->regs
+-			     + MAC_REG_RMDATA(mac->instance->index));
+-
+-	/* XXX convert stats */
+-	return &mac->stats;
+-}
+-
+-static void mac_destroy(struct cmac *mac)
+-{
+-	kfree(mac);
+-}
+-
+-static struct cmac_ops chelsio_mac_ops = {
+-	.destroy                 = mac_destroy,
+-	.reset                   = mac_reset,
+-	.interrupt_enable        = mac_intr_enable,
+-	.interrupt_disable       = mac_intr_disable,
+-	.interrupt_clear         = mac_intr_clear,
+-	.enable                  = mac_enable,
+-	.disable                 = mac_disable,
+-	.set_mtu                 = mac_set_mtu,
+-	.set_rx_mode             = mac_set_rx_mode,
+-	.set_speed_duplex_fc     = mac_set_speed_duplex_fc,
+-	.macaddress_get          = mac_get_address,
+-	.statistics_update       = mac_update_statistics,
+-};
+-
+-static struct cmac *mac_create(adapter_t *adapter, int index)
+-{
+-	struct cmac *mac;
+-	u32 data32;
+-
+-	if (index >= 4)
+-		return NULL;
+-
+-	mac = kzalloc(sizeof(*mac) + sizeof(cmac_instance), GFP_KERNEL);
+-	if (!mac)
+-		return NULL;
+-
+-	mac->ops = &chelsio_mac_ops;
+-	mac->instance = (cmac_instance *) (mac + 1);
+-
+-	mac->instance->index = index;
+-	mac->adapter = adapter;
+-
+-	data32 = readl(adapter->regs + MAC_REG_CSR(mac->instance->index));
+-	data32 &= ~(F_MAC_RESET | F_MAC_PROMISC | F_MAC_PROMISC |
+-		    F_MAC_LB_ENABLE | F_MAC_RX_ENABLE | F_MAC_TX_ENABLE);
+-	data32 |= F_MAC_JUMBO_ENABLE;
+-	writel(data32, adapter->regs + MAC_REG_CSR(mac->instance->index));
+-
+-	/* Initialize the random backoff seed. */
+-	data32 = 0x55aa + (3 * index);
+-	writel(data32,
+-	       adapter->regs + MAC_REG_GMRANDBACKOFFSEED(mac->instance->index));
+-
+-	/* Check to see if the mac address needs to be set manually. */
+-	data32 = readl(adapter->regs + MAC_REG_IDLO(mac->instance->index));
+-	if (data32 == 0 || data32 == 0xffffffff) {
+-		/*
+-		 * Add a default MAC address if we can't read one.
+-		 */
+-		writel(0x43FFFFFF - index,
+-		       adapter->regs + MAC_REG_IDLO(mac->instance->index));
+-		writel(0x0007,
+-		       adapter->regs + MAC_REG_IDHI(mac->instance->index));
+-	}
+-
+-	(void) mac_set_mtu(mac, 1500);
+-	return mac;
+-}
+-
+-const struct gmac t1_chelsio_mac_ops = {
+-	.create = mac_create
+-};
+--- a/drivers/net/chelsio/subr.c	2007-10-08 16:04:04.000000000 -0700
++++ b/drivers/net/chelsio/subr.c	2007-10-08 16:08:10.000000000 -0700
+@@ -884,7 +884,7 @@ static int asic_slow_intr(adapter_t *ada
+ 	if (cause & F_PL_INTR_PCIX)
+ 		t1_pci_intr_handler(adapter);
+ 	if (cause & F_PL_INTR_EXT)
+-		t1_elmer0_ext_intr_handler(adapter);
++		t1_elmer0_ext_intr(adapter);
  
- static int niu_link_status(struct niu *np, int *link_up_p)
+ 	/* Clear the interrupts just processed. */
+ 	writel(cause, adapter->regs + A_PL_CAUSE);
