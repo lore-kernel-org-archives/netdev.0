@@ -1,45 +1,59 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: [ofa-general] RE: [PATCH 2/3][NET_BATCH] net core use batching
-Date: Mon, 8 Oct 2007 15:36:52 -0700
-Message-ID: <D5C1322C3E673F459512FB59E0DDC32903BC14B6@orsmsx414.amr.corp.intel.com>
-References: <1191868010.4335.33.camel@localhost>
-	<D5C1322C3E673F459512FB59E0DDC32903BC1234@orsmsx414.amr.corp.intel.com>
-	<1191876530.4373.58.camel@localhost>
-	<20071008.142626.26988698.davem@davemloft.net>
-	<1191882858.4373.103.camel@localhost>
+From: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Subject: Re: [PATCH][E1000E] some cleanups
+Date: Mon, 08 Oct 2007 15:40:44 -0700
+Message-ID: <470AB1EC.2080000@intel.com>
+References: <1191174077.6165.11.camel@localhost>	 <47028351.7090509@intel.com>  <1191417498.4357.23.camel@localhost> <1191773723.4394.31.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
-	rdreier@cisco.com, mcarlson@broadcom.com,
-	randy.dunlap@oracle.com, jagana@us.ibm.com,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	jeff@garzik.org, sri@us.ibm.com, shemminger@linux-foundation.org,
-	kaber@trash.net
-To: <hadi@cyberus.ca>,
-	"David Miller" <davem@davemloft.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1191882858.4373.103.camel@localhost>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: hadi@cyberus.ca
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:7072 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751866AbXJHWk5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Oct 2007 18:40:57 -0400
+In-Reply-To: <1191773723.4394.31.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> If  net_device_subqueue is visible from both driver and core=20
-> scheduler area (couldnt tell from looking at whats in there=20
-> already), then that'll do it.
+jamal wrote:
+> Ok, here you go; the explanation is below. This is from net-2.6.24 of
+> early this AM. I saw a patch you posted that is derived from Krishna;
+> although it hasnt showed up in the tree - i have considered those
+> changes and this patch adds a little more optimization in case of
+> errors.
+> 
+> I will send you a patch to kill LLTX the sooner this shows up somewhere.
 
-Yes, I use the net_device_subqueue structs (the state variable in there)
-in the prio and rr qdiscs right now.  It's an indexed list at the very
-end of struct netdevice.
 
--PJ Waskiewicz
+thanks.
+
+My biggest problem with the patch as you sent it that it's a tonload of changes
+and no implicit benefit immediately as I can see. I would really have to see the
+LLTX change as well to make a wellfounded decision whether it is the right thing
+to go and overhaul this part of the driver or not :)
+
+I'm not particularly against the changes per se though.
+
+so please, if needed offlist send me those LLTX changes as well.
+
+Auke
+
+> 
+> On Wed, 2007-03-10 at 09:18 -0400, jamal wrote:
+> 
+>> The cleanup is to break up the code so it is functionally more readable
+>> from a perspective of the 4 distinct parts in ->hard_start_xmit():
+>>
+>> a) packet formatting (example: vlan, mss, descriptor counting, etc.)
+>> b) chip-specific formatting
+>> c) enqueueing the packet on a DMA ring
+>> d) IO operations to complete packet transmit, tell DMA engine to chew
+>> on, tx completion interrupts, set last tx time, etc.
+>>
+>> Each of those steps sitting in different functions accumulates state
+>> that is used in the next steps. cb stores this state because it a
+>> scratchpad the driver owns. You could create some other structure and
+>> pass it around the iteration, but why waste more bytes.
+> 
