@@ -1,73 +1,70 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 6/7] [IPSEC]: Unexport xfrm_replay_notify
-Date: Mon, 08 Oct 2007 19:29:43 +0800
-Message-ID: <E1Ieqnv-0000oK-00@gondolin.me.apana.org.au>
+Subject: [PATCH 7/7] [IPSEC]: Move RO-specific output code into xfrm6_mode_ro.c
+Date: Mon, 08 Oct 2007 19:29:44 +0800
+Message-ID: <E1Ieqnw-0000oO-00@gondolin.me.apana.org.au>
 References: <20071008112818.GA3010@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1740 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:1743 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752506AbXJHL3p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 07:29:45 -0400
+	with ESMTP id S1753359AbXJHL3q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 07:29:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Unexport xfrm_replay_notify
+[IPSEC]: Move RO-specific output code into xfrm6_mode_ro.c
 
-Now that the only callers of xfrm_replay_notify are in xfrm, we can remove
-the export.
-
-This patch also removes xfrm_aevent_doreplay since it's now called in just
-one spot.
+The lastused update check in xfrm_output can be done just as well in
+the mode output function which is specific to RO.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/net/xfrm.h     |    6 ------
- net/xfrm/xfrm_output.c |    3 ++-
- net/xfrm/xfrm_state.c  |    1 -
- 3 files changed, 2 insertions(+), 8 deletions(-)
+ net/ipv6/xfrm6_mode_ro.c |    4 ++++
+ net/xfrm/xfrm_output.c   |    4 ----
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index a267725..064a4ca 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1163,12 +1163,6 @@ static inline int xfrm_aevent_is_on(void)
- 	return ret;
+diff --git a/net/ipv6/xfrm6_mode_ro.c b/net/ipv6/xfrm6_mode_ro.c
+index 6ad6d7a..a156373 100644
+--- a/net/ipv6/xfrm6_mode_ro.c
++++ b/net/ipv6/xfrm6_mode_ro.c
+@@ -29,6 +29,7 @@
+ #include <linux/module.h>
+ #include <linux/skbuff.h>
+ #include <linux/stringify.h>
++#include <linux/time.h>
+ #include <net/ipv6.h>
+ #include <net/xfrm.h>
+ 
+@@ -57,6 +58,9 @@ static int xfrm6_ro_output(struct xfrm_state *x, struct sk_buff *skb)
+ 			       (prevhdr - x->props.header_len) - skb->data);
+ 	skb_set_transport_header(skb, hdr_len);
+ 	memmove(skb->data, iph, hdr_len);
++
++	x->lastused = get_seconds();
++
+ 	return 0;
  }
  
--static inline void xfrm_aevent_doreplay(struct xfrm_state *x)
--{
--	if (xfrm_aevent_is_on())
--		xfrm_replay_notify(x, XFRM_REPLAY_UPDATE);
--}
--
- #ifdef CONFIG_XFRM_MIGRATE
- static inline struct xfrm_algo *xfrm_algo_clone(struct xfrm_algo *orig)
- {
 diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index 20e789d..40d75ec 100644
+index 40d75ec..8c85211 100644
 --- a/net/xfrm/xfrm_output.c
 +++ b/net/xfrm/xfrm_output.c
-@@ -60,7 +60,8 @@ int xfrm_output(struct sk_buff *skb)
+@@ -14,7 +14,6 @@
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>
+ #include <linux/spinlock.h>
+-#include <linux/time.h>
+ #include <net/dst.h>
+ #include <net/xfrm.h>
  
- 		if (x->type->flags & XFRM_TYPE_REPLAY_PROT) {
- 			XFRM_SKB_CB(skb)->seq = ++x->replay.oseq;
--			xfrm_aevent_doreplay(x);
-+			if (xfrm_aevent_is_on())
-+				xfrm_replay_notify(x, XFRM_REPLAY_UPDATE);
- 		}
+@@ -75,9 +74,6 @@ int xfrm_output(struct sk_buff *skb)
+ 		x->curlft.bytes += skb->len;
+ 		x->curlft.packets++;
  
- 		err = x->mode->output(x, skb);
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 0ecec34..a00745a 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1397,7 +1397,6 @@ void xfrm_replay_notify(struct xfrm_state *x, int event)
- 	    !mod_timer(&x->rtimer, jiffies + x->replay_maxage))
- 		x->xflags &= ~XFRM_TIME_DEFER;
- }
--EXPORT_SYMBOL(xfrm_replay_notify);
+-		if (x->props.mode == XFRM_MODE_ROUTEOPTIMIZATION)
+-			x->lastused = get_seconds();
+-
+ 		spin_unlock_bh(&x->lock);
  
- static void xfrm_replay_timer_handler(unsigned long data)
- {
+ 		skb_reset_network_header(skb);
