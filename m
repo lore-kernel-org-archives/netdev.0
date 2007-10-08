@@ -1,107 +1,60 @@
-From: jamal <hadi@cyberus.ca>
-Subject: RE: [PATCH 2/3][NET_BATCH] net core use batching
-Date: Mon, 08 Oct 2007 16:48:50 -0400
-Message-ID: <1191876530.4373.58.camel@localhost>
-References: <1191868010.4335.33.camel@localhost>
-	 <D5C1322C3E673F459512FB59E0DDC32903BC1234@orsmsx414.amr.corp.intel.com>
-Reply-To: hadi@cyberus.ca
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [BNX2X RESUBMIT][PATCH 0/8] New driver for Broadcom 10Gb
+ Ethernet, take two.
+Date: Mon, 8 Oct 2007 14:03:01 -0700
+Message-ID: <20071008140301.3e69d01d@freepuppy.rosehill>
+References: <470A23E5.6030102@broadcom.com>
+	<20071008102919.1cbc7983@freepuppy.rosehill>
+	<1191868481.29746.27.camel@eliezer>
+	<20071008120855.758d10e7@freepuppy.rosehill>
+	<1191879622.5277.11.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, krkumar2@in.ibm.com,
-	johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, kaber@trash.net,
-	shemminger@linux-foundation.org, jagana@us.ibm.com,
-	Robert.Olsson@data.slu.se, rick.jones2@hp.com, xma@us.ibm.com,
-	gaagaan@gmail.com, netdev@vger.kernel.org, rdreier@cisco.com,
-	mcarlson@broadcom.com, jeff@garzik.org, mchan@broadcom.com,
-	general@lists.openfabrics.org, tgraf@suug.ch,
-	randy.dunlap@oracle.com, sri@us.ibm.com
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Cc: "Eliezer" <eliezert@broadcom.com>,
+	"David Miller" <davem@davemloft.net>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"netdev" <netdev@vger.kernel.org>, eilong@broadcom.com,
+	vladz@broadcom.com, gertner@broadcom.com
+To: "Michael Chan" <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.227]:10092 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752223AbXJHUs5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 16:48:57 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1434599wxd
-        for <netdev@vger.kernel.org>; Mon, 08 Oct 2007 13:48:56 -0700 (PDT)
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32903BC1234@orsmsx414.amr.corp.intel.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:58456 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752754AbXJHVDg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 17:03:36 -0400
+In-Reply-To: <1191879622.5277.11.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-08-10 at 12:46 -0700, Waskiewicz Jr, Peter P wrote:
+On Mon, 08 Oct 2007 14:40:22 -0700
+"Michael Chan" <mchan@broadcom.com> wrote:
 
-> 	I still have concerns how this will work with Tx multiqueue.
-> The way the batching code looks right now, you will probably send a
-> batch of skb's from multiple bands from PRIO or RR to the driver.  For
-> non-Tx multiqueue drivers, this is fine.  For Tx multiqueue drivers,
-> this isn't fine, since the Tx ring is selected by the value of
-> skb->queue_mapping (set by the qdisc on {prio|rr}_classify()).  If the
-> whole batch comes in with different queue_mappings, this could prove to
-> be an interesting issue.
+> On Mon, 2007-10-08 at 12:08 -0700, Stephen Hemminger wrote:
+> > On Mon, 08 Oct 2007 20:34:41 +0200
+> > "Eliezer" <eliezert@broadcom.com> wrote:
+> > 
+> > > > * The MACRO's for 64 bit stats look like they could be done with 
+> > > >   u64 and/or turned into inline's.
+> > > 
+> > > The MACRO's modify some of their arguments, plus they need to work on 32
+> > > bit machines (are 64 bit counters always available on 32 bit machines?).
+> > > so using an inline would allow the inline to be more readable but
+> > > calling it would get ugly.
+> > > I'm open to suggestions.
+> > > 
+> > 
+> > u64 exists on all platforms (including 32 bit).
+> > 
+> 
+> I think the biggest problem with these 64-bits counters (and 64-bit
+> addresses) is that the hardware treats them as big endian and they get
+> DMA'ed in big endian format.  We control the byte swap so that 32-bit
+> quantities will have the correct endianness, but the high and low 32-bit
+> words will be in the wrong spots on little endian machines.  That's why
+> we need to separate the high and the low words and convert them back and
+> forth.
+>
+There are types and tools for checking endianness see be64, etc.
 
-true, that needs some resolution. Heres a hand-waving thought:
-Assuming all packets of a specific map end up in the same qdiscn queue,
-it seems feasible to ask the qdisc scheduler to give us enough packages
-(ive seen people use that terms to refer to packets) for each hardware
-ring's available space. With the patches i posted, i do that via
-dev->xmit_win that assumes only one view of the driver; essentially a
-single ring.  
-If that is doable, then it is up to the driver to say
-"i have space for 5 in ring[0], 10 in ring[1] 0 in ring[2]" based on
-what scheduling scheme the driver implements - the dev->blist can stay
-the same. Its a handwave, so there may be issues there and there could
-be better ways to handle this.
-
-Note: The other issue that needs resolving that i raised earlier was in
-regards to multiqueue running on multiple cpus servicing different rings
-concurently. 
-
-> 	Now I see in the driver HOWTO you recently sent that the driver
-> will be expected to loop over the list and call it's ->hard_start_xmit()
-> for each skb.  
-
-It's the core that does that, not the driver; the driver continues to
-use ->hard_start_xmit() (albeit modified one). The idea is not to have
-many new interfaces.
-
-> I think that should be fine for multiqueue, I just wanted
-> to see if you had any thoughts on how it should work, any performance
-> issues you can see (I can't think of any).  Since the batching feature
-> and Tx multiqueue are very new features, I'd like to make sure we can
-> think of any possible issues with them coexisting before they are both
-> mainline.
-
-Isnt multiqueue mainline already?
-
-> 	Looking ahead for multiqueue, I'm still working on the per-queue
-> lock implementation for multiqueue, which I know will not work with
-> batching as it's designed today.  
-
-The point behind batching is to reduce the cost of the locks by
-amortizing across the locks. Even better if one can, they should get rid
-of locks. Remind me, why do you need the per-queuemap lock? And is it
-needed from the enqueuing side too? Maybe lets start there to help me
-understand things?
-
-> I'm still not sure how to handle this,
-> because it really would require the batch you send to have the same
-> queue_mapping in each skb, so you're grabbing the correct queue_lock.
-
-Sure, that is doable if the driver can set a per queue_mapping xmit_win
-and the qdisc can be taught to say "give me packets for queue_mapping X"
-
-> Or, we could have the core grab all the queue locks for each
-> skb->queue_mapping represented in the batch.  That would block another
-> batch though if it had any of those queues in it's next batch before the
-> first one completed.  Thoughts?
-
-I am not understanding the desire to have locks on a per-queuemap. I
-think the single queuelock we have today should suffice. If the intent
-is to have concurent cpus running to each hardware ring, then this is
-what i questioned earlier whether it was the right thing to do(very top
-of email where i mention it as "other issue"). 
-
-cheers,
-jamal
-
-
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
