@@ -1,59 +1,68 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH][E1000E] some cleanups
-Date: Mon, 08 Oct 2007 15:40:44 -0700
-Message-ID: <470AB1EC.2080000@intel.com>
-References: <1191174077.6165.11.camel@localhost>	 <47028351.7090509@intel.com>  <1191417498.4357.23.camel@localhost> <1191773723.4394.31.camel@localhost>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: pktgen question
+Date: Mon, 08 Oct 2007 17:46:26 -0500
+Message-ID: <470AB342.1030209@opengridcomputing.com>
+References: <46F8007A.6000701@candelatech.com>	<470AA48B.4050005@opengridcomputing.com>	<470AA7B9.4070703@candelatech.com> <20071008.152234.13748626.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Cc: greearb@candelatech.com, rick.jones2@hp.com, hadi@cyberus.ca,
+	johnpol@2ka.mipt.ru, netdev@vger.kernel.org,
+	Robert.Olsson@data.slu.se
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:7072 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751866AbXJHWk5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Oct 2007 18:40:57 -0400
-In-Reply-To: <1191773723.4394.31.camel@localhost>
+Received: from 209-198-142-2-host.prismnet.net ([209.198.142.2]:40666 "EHLO
+	smtp.opengridcomputing.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750934AbXJHWq2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 18:46:28 -0400
+In-Reply-To: <20071008.152234.13748626.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> Ok, here you go; the explanation is below. This is from net-2.6.24 of
-> early this AM. I saw a patch you posted that is derived from Krishna;
-> although it hasnt showed up in the tree - i have considered those
-> changes and this patch adds a little more optimization in case of
-> errors.
+
+
+David Miller wrote:
+> From: Ben Greear <greearb@candelatech.com>
+> Date: Mon, 08 Oct 2007 14:57:13 -0700
 > 
-> I will send you a patch to kill LLTX the sooner this shows up somewhere.
-
-
-thanks.
-
-My biggest problem with the patch as you sent it that it's a tonload of changes
-and no implicit benefit immediately as I can see. I would really have to see the
-LLTX change as well to make a wellfounded decision whether it is the right thing
-to go and overhaul this part of the driver or not :)
-
-I'm not particularly against the changes per se though.
-
-so please, if needed offlist send me those LLTX changes as well.
-
-Auke
-
+>> This skb recycling can certainly work and has been done several
+>> times before.  It never gets into the kernel though.
 > 
-> On Wed, 2007-03-10 at 09:18 -0400, jamal wrote:
+> Because it doesn't work.
 > 
->> The cleanup is to break up the code so it is functionally more readable
->> from a perspective of the 4 distinct parts in ->hard_start_xmit():
->>
->> a) packet formatting (example: vlan, mss, descriptor counting, etc.)
->> b) chip-specific formatting
->> c) enqueueing the packet on a DMA ring
->> d) IO operations to complete packet transmit, tell DMA engine to chew
->> on, tx completion interrupts, set last tx time, etc.
->>
->> Each of those steps sitting in different functions accumulates state
->> that is used in the next steps. cb stores this state because it a
->> scratchpad the driver owns. You could create some other structure and
->> pass it around the iteration, but why waste more bytes.
+> A socket can hang onto a receive packet essentially forever.
 > 
+> You cannot therefore rely upon the network stack to give you the
+> packet back in some reasonable finite amount of time.  This is simply
+> the nature of the beast.
+> 
+> Which means that you either:
+> 
+> 1) Starve and stop receiving packets when the recycling ring
+>    runs out because all of those packets are stuck in socket
+>    buffers.  This is easily DoS'able by users on your system
+> 
+> 2) End up allocating new packets anyways, but then what's the
+>    point of the recycling ring?  It's just a hack that works
+>    when everything goes as planned, and in real life that is
+>    rarely the case.
+> 
+> It also makes the driver locking more complicated.  Packet
+> input occurs in NAPI drivers via netif_receive_skb() which
+> would be capable of recycling packets back to the same
+> driver in a recycling scheme.  But the recycling can occur
+> from other contexts too.  The netif_receive_skb() caller
+> already has atomic access to the receive queue, but those
+> other callback cases do not.
+> 
+> That locking issue is just the tip of the iceberg.  Once you
+> start discussing solutions, all sorts of new issues begin to
+> pop up.
+> 
+> SKB recycling, just say no.
+> 
+
+We're talking about just for pktgen...eh?
+
+
+
