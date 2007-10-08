@@ -1,47 +1,39 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] IrDA: Oops fix for ksdazzle
-Date: Mon, 08 Oct 2007 01:07:44 -0700 (PDT)
-Message-ID: <20071008.010744.56790570.davem@davemloft.net>
-References: <20070930232138.GA5669@sortiz.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.24] tg3: fix ethtool autonegotiate flags
+Date: Mon, 08 Oct 2007 01:09:02 -0700 (PDT)
+Message-ID: <20071008.010902.32370566.davem@davemloft.net>
+References: <20071002201634.GE9140@gospo.rdu.redhat.com>
+	<1191362576.5961.15.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, a_villacis-5itmuRygkZmgSpxsJD1C4w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org
-Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20070930232138.GA5669-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andy@greyhouse.net, jeff@garzik.org, netdev@vger.kernel.org
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59306
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752458AbXJHIJE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 04:09:04 -0400
+In-Reply-To: <1191362576.5961.15.camel@dell>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-Date: Mon, 1 Oct 2007 02:21:38 +0300
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Tue, 02 Oct 2007 15:02:56 -0700
 
-> Hi Dave,
-> =
+> On Tue, 2007-10-02 at 16:16 -0400, Andy Gospodarek wrote:
+> > Adding that flag in tg3_set_settings seemed like the most logical
+> > place
+> > since the driver works fine on boot.  This is just an issue when
+> > re-enabling autonegotiation, so we should probably nip it there.
+> > 
+> > Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> 
+> We also noticed this issue recently, but didn't pay too much attention
+> to it since it was more of a "cosmetic" issue.  The driver behaves the
+> same since we rely on cmd->autoneg to decide whether to enable autoneg
+> or not.  Your fix seems reasonable to me.  Thanks.
+> 
+> Acked-by: Michael Chan <mchan@broadcom.com>
 
-> This is the last remaining patch for IrDA, against net-2.6.24.
-> =
-
-> It fixes a kernel oops triggered by the ksdazzle SIR driver.
-> We need more space for input frames, and 2048 should be plenty of it.
-> =
-
-> Signed-off-by: Alex Villac=EDs Lasso <a_villacis-5itmuRygkZmgSpxsJD1C4w@public.gmane.org>
-> Signed-off-by: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
-
-Applied, thanks!
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >> http://get.splunk.com/
+Applied, thanks everyone!
