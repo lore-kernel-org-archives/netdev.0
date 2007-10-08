@@ -1,63 +1,118 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH net-2.6.24] net: sparse warning fixes
-Date: Mon, 8 Oct 2007 08:30:32 -0700
-Message-ID: <20071008083032.6a842c00@freepuppy.rosehill>
-References: <20071004201036.2665f6cc@freepuppy.rosehill>
-	<20071005171407.19c65258@freepuppy.rosehill>
-	<20071007.235956.98531097.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: [ofa-general] Re: parallel networking (was Re: [PATCH 1/4]
+	[NET_SCHED] explict hold dev tx lock)
+Date: Mon, 08 Oct 2007 11:18:29 -0400
+Message-ID: <1191856709.4352.124.camel@localhost>
+References: <1190674298.4264.24.camel@localhost>
+	<D5C1322C3E673F459512FB59E0DDC32903A51462@orsmsx414.amr.corp.intel.com>
+	<1190677099.4264.37.camel@localhost>
+	<20071007.215124.85709188.davem@davemloft.net>
+	<1191850490.4352.41.camel@localhost>  <470A3D24.3050803@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:36964 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750833AbXJHPaw convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Oct 2007 11:30:52 -0400
-In-Reply-To: <20071007.235956.98531097.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: randy.dunlap@oracle.com, Robert.Olsson@data.slu.se, gaagaan@gmail.com,
+	kumarkr@linux.ibm.com, peter.p.waskiewicz.jr@intel.com,
+	shemminger@linux-foundation.org, johnpol@2ka.mipt.ru,
+	herbert@gondor.apana.org.au, rdreier@cisco.com,
+	general@lists.openfabrics.org, Ingo Molnar <mingo@elte.hu>,
+	sri@us.ibm.com, jagana@us.ibm.com, mchan@broadcom.com,
+	netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, tgraf@suug.ch, kaber@trash.net
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <470A3D24.3050803@garzik.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 07 Oct 2007 23:59:56 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+On Mon, 2007-08-10 at 10:22 -0400, Jeff Garzik wrote:
 
-> From: Stephen Hemminger <shemminger@linux-foundation.org>
-> Date: Fri, 5 Oct 2007 17:14:07 -0700
->=20
-> > Fix a bunch of sparse warnings. Mostly about 0 used as
-> > NULL pointer, and shadowed variable declarations.
-> >=20
-> > The two noteable changes are:
-> >  * hash size should have been unsigned
-> >  * cls_u32 had a case where error code wasn't been
-> >    propogated properly, so it could return 0 but still
-> >    have an error.
-> >=20
-> > Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
->=20
-> Applied, and I stuffed the cls_u32 fix into net-2.6 as well.
->=20
-> But please fix the following, this is the second time I've
-> had to remove this bit from one of your patches.
->=20
-> > @@ -6,7 +6,7 @@
-> >   *
-> >   * Alexey Kuznetsov  <kuznet@ms2.inr.ac.ru>
-> >   * Ben Greear <greearb@candelatech.com>
-> > - * Jens L=C3=A5=C3=A5s <jens.laas@data.slu.se>
-> > + * Jens L=C3=A5=C3=A5s <jens.laas@data.slu.se>
-> >   *
-> >   * This program is free software; you can redistribute it and/or
-> >   * modify it under the terms of the GNU General Public License
->=20
-> Please please please please, for the second time, fix the encoding
-> your editor uses when you save copies of this source file, this hunk
-> of your patches never applies cleanly.
->=20
+> Any chance the NIC hardware could provide that guarantee?
 
-It's either an Emacs or quilt problem. Probably emacs.
+If you can get the scheduling/dequeuing to run on one CPU (as we do
+today) it should work; alternatively you can totaly bypass the qdisc
+subystem and go direct to the hardware for devices that are capable
+and that would work but would require huge changes. 
+My fear is there's a mini-scheduler pieces running on multi cpus which
+is what i understood as being described.
 
---=20
-Stephen Hemminger <shemminger@linux-foundation.org>
+> 8139cp, for example, has two TX DMA rings, with hardcoded 
+> characteristics:  one is a high prio q, and one a low prio q.  The logic 
+> is pretty simple:   empty the high prio q first (potentially starving 
+> low prio q, in worst case).
+
+sounds like strict prio scheduling to me which says "if low prio starves
+so be it"
+
+> In terms of overall parallelization, both for TX as well as RX, my gut 
+> feeling is that we want to move towards an MSI-X, multi-core friendly 
+> model where packets are LIKELY to be sent and received by the same set 
+> of [cpus | cores | packages | nodes] that the [userland] processes 
+> dealing with the data.
+
+Does putting things in the same core help? But overall i agree with your
+views. 
+
+> There are already some primitive NUMA bits in skbuff allocation, but 
+> with modern MSI-X and RX/TX flow hashing we could do a whole lot more, 
+> along the lines of better CPU scheduling decisions, directing flows to 
+> clusters of cpus, and generally doing a better job of maximizing cache 
+> efficiency in a modern multi-thread environment.
+
+I think i see the receive with a lot of clarity, i am still foggy on the
+txmit path mostly because of the qos/scheduling issues. 
+
+> IMO the current model where each NIC's TX completion and RX processes 
+> are both locked to the same CPU is outmoded in a multi-core world with 
+> modern NICs.  :)
+
+Infact even with status quo theres a case that can be made to not bind
+to interupts.
+In my recent experience with batching, due to the nature of my test app,
+if i let the interupts float across multiple cpus i benefit.
+My app runs/binds a thread per CPU and so benefits from having more
+juice to send more packets per unit of time - something i wouldnt get if
+i was always running on one cpu.
+But when i do this i found that just because i have bound a thread to
+cpu3 doesnt mean that thread will always run on cpu3. If netif_wakeup
+happens on cpu1, scheduler will put the thread on cpu1 if it is to be
+run. It made sense to do that, it just took me a while to digest.
+
+> But I readily admit general ignorance about the kernel process 
+> scheduling stuff, so my only idea about a starting point was to see how 
+> far to go with the concept of "skb affinity" -- a mask in sk_buff that 
+> is a hint about which cpu(s) on which the NIC should attempt to send and 
+> receive packets.  When going through bonding or netfilter, it is trivial 
+> to 'or' together affinity masks.  All the various layers of net stack 
+> should attempt to honor the skb affinity, where feasible (requires 
+> interaction with CFS scheduler?).
+
+There would be cache benefits if you can free the packet on the same cpu
+it was allocated; so the idea of skb affinity is useful in the minimal
+in that sense if you can pull it. Assuming hardware is capable, even if
+you just tagged it on xmit to say which cpu it was sent out on, and made
+sure thats where it is freed, that would be a good start. 
+
+Note: The majority of the packet processing overhead is _still_ the
+memory subsystem latency; in my tests with batched pktgen improving the 
+xmit subsystem meant the overhead on allocing and freeing the packets
+went to something > 80%.
+So something along the lines of parallelizing based on a split of alloc
+free of sksb IMO on more cpus than where xmit/receive run would see
+more performance improvements.
+
+> Or maybe skb affinity is a dumb idea.  I wanted to get people thinking 
+> on the bigger picture.  Parallelization starts at the user process.
+
+
+cheers,
+jamal
