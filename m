@@ -1,86 +1,67 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] libertas link error due to gcc `smartness'
-Date: Mon, 08 Oct 2007 08:56:30 -0400
-Message-ID: <1191848190.2703.17.camel@localhost.localdomain>
-References: <Pine.LNX.4.64.0710080940110.8127@anakin>
+From: Matti Aarnio <matti.aarnio@zmailer.org>
+Subject: Re: [BNX2X RESUBMIT][PATCH 0/8] New driver for Broadcom 10Gb
+	Ethernet, take two.
+Date: Mon, 8 Oct 2007 16:02:48 +0300
+Message-ID: <20071008130248.GI6372@mea-ext.zmailer.org>
+References: <470A23E5.6030102@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Marcelo Tosatti <marcelo-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org>, Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux Kernel Development <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <Pine.LNX.4.64.0710080940110.8127@anakin>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>, eilong@broadcom.com,
+	vladz@broadcom.com, gertner@broadcom.com
+To: Eliezer Tamir <eliezert@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from z2.cat.iki.fi ([212.16.98.133]:52552 "EHLO z2.cat.iki.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752559AbXJHNCv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Oct 2007 09:02:51 -0400
+Received: (mea@mea-ext) by mail.zmailer.org id S2261872AbXJHNCs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 16:02:48 +0300
+Content-Disposition: inline
+In-Reply-To: <470A23E5.6030102@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-10-08 at 09:43 +0200, Geert Uytterhoeven wrote:
-> Some versions of gcc replace strstr() calls with a single-character `needle'
-> parameter by strchr() behind our back. This causes a link error if strchr() is
-> defined as an inline function in <asm/string.h> (e.g. on m68k):
+On Mon, Oct 08, 2007 at 02:34:45PM +0200, Eliezer Tamir wrote:
+> Message-ID: <470A23E5.6030102@broadcom.com>
+> Date: Mon, 08 Oct 2007 14:34:45 +0200
+> From: Eliezer Tamir <eliezert@broadcom.com>
+> User-Agent: Thunderbird 2.0.0.6 (X11/20070728)
+> MIME-Version: 1.0
+> To: "netdev@vger.kernel.org" <netdev@vger.kernel.org> (...)
+> Subject: [BNX2X RESUBMIT][PATCH 0/8] New driver for Broadcom 10Gb
+> 	Ethernet, take two.
+> X-WSS-ID: 6B14FC184VK13380170-01-01
+> Content-Type: text/plain;
+> 	charset=utf-8;
+> 	format=flowed
+> Content-Transfer-Encoding: 7bit
 > 
-> | drivers/built-in.o: In function `libertas_parse_chan':
-> | linux/drivers/net/wireless/libertas/debugfs.c:209: undefined reference to `strchr'
-> | drivers/built-in.o: In function `libertas_parse_ssid':
-> | linux/drivers/net/wireless/libertas/debugfs.c:260: undefined reference to `strchr'
-> 
-> Avoid this by explicitly calling strchr() instead.
-> 
-> Also include <linux/string.h>, because this file calls lots of str*() routines.
-> 
-> Signed-off-by: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+> [resubmitting, this time without line breaks, sorry]
 
-Acked-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+I am sorry, but you had no success in this round either.
 
-> ---
-> Due to the lack of hardware, I could not test the functionality of this change.
-> I was just trying to compile a kernel with a much enabled as possible.
-> 
->  drivers/net/wireless/libertas/debugfs.c |    5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
-> 
-> --- a/drivers/net/wireless/libertas/debugfs.c
-> +++ b/drivers/net/wireless/libertas/debugfs.c
-> @@ -3,6 +3,7 @@
->  #include <linux/debugfs.h>
->  #include <linux/delay.h>
->  #include <linux/mm.h>
-> +#include <linux/string.h>
->  #include <net/iw_handler.h>
->  
->  #include "dev.h"
-> @@ -205,7 +206,7 @@ static int libertas_parse_chan(char *buf
->  	if (!start)
->  		return -EINVAL;
->  	start += 5;
-> -	end = strstr(start, " ");
-> +	end = strchr(start, ' ');
->  	if (!end)
->  		end = buf + count;
->  	hold = kzalloc((end - start)+1, GFP_KERNEL);
-> @@ -256,7 +257,7 @@ static void libertas_parse_ssid(char *bu
->  	if (!hold)
->  		return;
->  	hold += 5;
-> -	end = strstr(hold, " ");
-> +	end = strchr(hold, ' ');
->  	if (!end)
->  		end = buf + count - 1;
->  
-> 
-> Gr{oetje,eeting}s,
-> 
-> 						Geert
-> 
-> --
-> Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
-> 
-> In personal conversations with technical people, I call myself a hacker. But
-> when I'm talking to journalists I just say "programmer" or something like that.
-> 							    -- Linus Torvalds
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thunderbird is "somewhat"(*) difficult when you try to include the source
+(diff-) file into message body text.
+
+(*: like "serious pain in the rear section..)
+
+
+The classical instruction is that "thy shall post source as diffs against
+baseline in email message textbody"  ---  but now your only real choice is
+in between using genuine attachments, and placing it into some public
+downloadable file, which the rest of the world can download - or to use
+the ATTACH -button.
+
+Two failures with preferred method is (IMO) a good excuse to resort on
+MIME attachments.
+
+....
+> Please consider applying to 2.6.24
+>
+> Thanks
+> Eliezer
+
+Matti Aarnio
