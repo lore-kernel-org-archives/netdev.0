@@ -1,60 +1,46 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [BNX2X RESUBMIT][PATCH 0/8] New driver for Broadcom 10Gb
- Ethernet, take two.
-Date: Mon, 8 Oct 2007 14:03:01 -0700
-Message-ID: <20071008140301.3e69d01d@freepuppy.rosehill>
-References: <470A23E5.6030102@broadcom.com>
-	<20071008102919.1cbc7983@freepuppy.rosehill>
-	<1191868481.29746.27.camel@eliezer>
-	<20071008120855.758d10e7@freepuppy.rosehill>
-	<1191879622.5277.11.camel@dell>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/4] [NET_SCHED] explict hold dev tx lock
+Date: Mon, 08 Oct 2007 14:05:22 -0700 (PDT)
+Message-ID: <20071008.140522.57183793.davem@davemloft.net>
+References: <1190677099.4264.37.camel@localhost>
+	<20071007.215124.85709188.davem@davemloft.net>
+	<1191850490.4352.41.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Eliezer" <eliezert@broadcom.com>,
-	"David Miller" <davem@davemloft.net>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	"netdev" <netdev@vger.kernel.org>, eilong@broadcom.com,
-	vladz@broadcom.com, gertner@broadcom.com
-To: "Michael Chan" <mchan@broadcom.com>
+Cc: peter.p.waskiewicz.jr@intel.com, krkumar2@in.ibm.com,
+	johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, kaber@trash.net,
+	shemminger@linux-foundation.org, jagana@us.ibm.com,
+	Robert.Olsson@data.slu.se, rick.jones2@hp.com, xma@us.ibm.com,
+	gaagaan@gmail.com, netdev@vger.kernel.org, rdreier@cisco.com,
+	mcarlson@broadcom.com, jeff@garzik.org, mchan@broadcom.com,
+	general@lists.openfabrics.org, kumarkr@linux.ibm.com,
+	tgraf@suug.ch, randy.dunlap@oracle.com, sri@us.ibm.com
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:58456 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752754AbXJHVDg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 17:03:36 -0400
-In-Reply-To: <1191879622.5277.11.camel@dell>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39748
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754028AbXJHVFi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 17:05:38 -0400
+In-Reply-To: <1191850490.4352.41.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 08 Oct 2007 14:40:22 -0700
-"Michael Chan" <mchan@broadcom.com> wrote:
+From: jamal <hadi@cyberus.ca>
+Date: Mon, 08 Oct 2007 09:34:50 -0400
 
-> On Mon, 2007-10-08 at 12:08 -0700, Stephen Hemminger wrote:
-> > On Mon, 08 Oct 2007 20:34:41 +0200
-> > "Eliezer" <eliezert@broadcom.com> wrote:
-> > 
-> > > > * The MACRO's for 64 bit stats look like they could be done with 
-> > > >   u64 and/or turned into inline's.
-> > > 
-> > > The MACRO's modify some of their arguments, plus they need to work on 32
-> > > bit machines (are 64 bit counters always available on 32 bit machines?).
-> > > so using an inline would allow the inline to be more readable but
-> > > calling it would get ugly.
-> > > I'm open to suggestions.
-> > > 
-> > 
-> > u64 exists on all platforms (including 32 bit).
-> > 
-> 
-> I think the biggest problem with these 64-bits counters (and 64-bit
-> addresses) is that the hardware treats them as big endian and they get
-> DMA'ed in big endian format.  We control the byte swap so that 32-bit
-> quantities will have the correct endianness, but the high and low 32-bit
-> words will be in the wrong spots on little endian machines.  That's why
-> we need to separate the high and the low words and convert them back and
-> forth.
->
-There are types and tools for checking endianness see be64, etc.
+> The brain-block i am having is the parallelization aspect of it.
+> Whatever scheme it is - it needs to ensure the scheduler works as
+> expected. For example, if it was a strict prio scheduler i would expect
+> that whatever goes out is always high priority first and never ever
+> allow a low prio packet out at any time theres something high prio
+> needing to go out. If i have the two priorities running on two cpus,
+> then i cant guarantee that effect.
+> IOW, i see the scheduler/qdisc level as not being split across parallel
+> cpus. Do i make any sense?
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Picture it like N tubes you stick packets into, and the tubes are
+processed using DRR.
+
+So packets within a tube won't be reordered, but reordering amongst
+tubes is definitely possible.
