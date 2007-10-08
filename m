@@ -1,62 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pktgen question
-Date: Mon, 08 Oct 2007 15:22:34 -0700 (PDT)
-Message-ID: <20071008.152234.13748626.davem@davemloft.net>
-References: <46F8007A.6000701@candelatech.com>
-	<470AA48B.4050005@opengridcomputing.com>
-	<470AA7B9.4070703@candelatech.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: parallel networking
+Date: Mon, 08 Oct 2007 18:30:18 -0400
+Message-ID: <1191882618.4373.99.camel@localhost>
+References: <20071007.215124.85709188.davem@davemloft.net>
+	 <1191850490.4352.41.camel@localhost> <470A3D24.3050803@garzik.org>
+	 <20071008.141154.107706003.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: swise@opengridcomputing.com, rick.jones2@hp.com, hadi@cyberus.ca,
-	johnpol@2ka.mipt.ru, netdev@vger.kernel.org,
-	Robert.Olsson@data.slu.se
-To: greearb@candelatech.com
+Cc: jeff@garzik.org, peter.p.waskiewicz.jr@intel.com,
+	krkumar2@in.ibm.com, johnpol@2ka.mipt.ru,
+	herbert@gondor.apana.org.au, kaber@trash.net,
+	shemminger@linux-foundation.org, jagana@us.ibm.com,
+	Robert.Olsson@data.slu.se, rick.jones2@hp.com, xma@us.ibm.com,
+	gaagaan@gmail.com, netdev@vger.kernel.org, rdreier@cisco.com,
+	mingo@elte.hu, mchan@broadcom.com, general@lists.openfabrics.org,
+	kumarkr@linux.ibm.com, tgraf@suug.ch, randy.dunlap@oracle.com,
+	sri@us.ibm.com, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44889
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750727AbXJHWWf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 18:22:35 -0400
-In-Reply-To: <470AA7B9.4070703@candelatech.com>
+Received: from wx-out-0506.google.com ([66.249.82.235]:65236 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750875AbXJHWaY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 18:30:24 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1456395wxd
+        for <netdev@vger.kernel.org>; Mon, 08 Oct 2007 15:30:22 -0700 (PDT)
+In-Reply-To: <20071008.141154.107706003.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Mon, 08 Oct 2007 14:57:13 -0700
+On Mon, 2007-08-10 at 14:11 -0700, David Miller wrote:
 
-> This skb recycling can certainly work and has been done several
-> times before.  It never gets into the kernel though.
+> The problem is that the packet schedulers want global guarantees
+> on packet ordering, not flow centric ones.
+> 
+> That is the issue Jamal is concerned about.
 
-Because it doesn't work.
+indeed, thank you for giving it better wording. 
 
-A socket can hang onto a receive packet essentially forever.
+> The more I think about it, the more inevitable it seems that we really
+> might need multiple qdiscs, one for each TX queue, to pull this full
+> parallelization off.
+> 
+> But the semantics of that don't smell so nice either.  If the user
+> attaches a new qdisc to "ethN", does it go to all the TX queues, or
+> what?
+> 
+> All of the traffic shaping technology deals with the device as a unary
+> object.  It doesn't fit to multi-queue at all.
 
-You cannot therefore rely upon the network stack to give you the
-packet back in some reasonable finite amount of time.  This is simply
-the nature of the beast.
+If you let only one CPU at a time access the "xmit path" you solve all
+the reordering. If you want to be more fine grained you make the
+serialization point as low as possible in the stack - perhaps in the
+driver.
+But I think even what we have today with only one cpu entering the
+dequeue/scheduler region, _for starters_, is not bad actually ;->  What
+i am finding (and i can tell you i have been trying hard;->) is that a
+sufficiently fast cpu doesnt sit in the dequeue area for "too long" (and
+batching reduces the time spent further). Very quickly there are no more
+packets for it to dequeue from the qdisc or the driver is stoped and it
+has to get out of there. If you dont have any interupt tied to a
+specific cpu then you can have many cpus enter and leave that region all
+the time. 
 
-Which means that you either:
-
-1) Starve and stop receiving packets when the recycling ring
-   runs out because all of those packets are stuck in socket
-   buffers.  This is easily DoS'able by users on your system
-
-2) End up allocating new packets anyways, but then what's the
-   point of the recycling ring?  It's just a hack that works
-   when everything goes as planned, and in real life that is
-   rarely the case.
-
-It also makes the driver locking more complicated.  Packet
-input occurs in NAPI drivers via netif_receive_skb() which
-would be capable of recycling packets back to the same
-driver in a recycling scheme.  But the recycling can occur
-from other contexts too.  The netif_receive_skb() caller
-already has atomic access to the receive queue, but those
-other callback cases do not.
-
-That locking issue is just the tip of the iceberg.  Once you
-start discussing solutions, all sorts of new issues begin to
-pop up.
-
-SKB recycling, just say no.
+cheers,
+jamal
 
