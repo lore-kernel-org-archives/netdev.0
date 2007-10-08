@@ -1,112 +1,186 @@
-From: Steve Wise <swise@opengridcomputing.com>
-Subject: Re: [ofa-general] [PATCH v3] iw_cxgb3: Support"iwarp-only"interfacesto
-	avoid 4-tuple conflicts.
-Date: Mon, 08 Oct 2007 13:03:08 -0500
-Message-ID: <470A70DC.8000005@opengridcomputing.com>
-References: <20070923203649.8324.64524.stgit@dell3.ogc.int><46FBF8AF.9040700@ichips.intel.com><C98692FD98048C41885E0B0FACD9DFB805187514@exnane01.hq.netapp.com>
-	<000101c8013a$41b374f0$a7cc180a@amr.corp.intel.com>
-	<C98692FD98048C41885E0B0FACD9DFB80518755A@exnane01.hq.netapp.com>
+From: Greg KH <gregkh@suse.de>
+Subject: [patch 02/12] sky2: reduce impact of watchdog timer
+Date: Mon, 8 Oct 2007 11:06:07 -0700
+Message-ID: <20071008180607.GC7627@kroah.com>
+References: <20071008180406.052382073@mini.kroah.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdreier@cisco.com, linux-kernel@vger.kernel.org,
-	general@lists.openfabrics.org
-To: "Kanevsky, Arkady" <Arkady.Kanevsky@netapp.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <C98692FD98048C41885E0B0FACD9DFB80518755A@exnane01.hq.netapp.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Justin Forbes <jmforbes@linuxtx.org>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	Theodore Ts'o <tytso@mit.edu>,
+	Randy Dunlap <rdunlap@xenotime.net>,
+	Dave Jones <davej@redhat.com>,
+	Chuck Wolber <chuckw@quantumlinux.com>,
+	Chris Wedgwood <reviews@ml.cw.f00f.org>,
+	Michael Krufky <mkrufky@linuxtv.org>,
+	Chuck Ebbert <cebbert@redhat.com>,
+	Domenico Andreoli <cavokz@gmail.com>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	alan@lxorguk.ukuu.org.uk, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: linux-kernel@vger.kernel.org, stable@kernel.org,
+	Krzysztof Oledzki <olel@ans.pl>, Greg KH <greg@kroah.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pentafluge.infradead.org ([213.146.154.40]:51683 "EHLO
+	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754268AbXJHSH6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 14:07:58 -0400
+Content-Disposition: inline; filename="sky2-hw-watchdog.patch"
+In-Reply-To: <20071008180551.GA7627@kroah.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+
+This is the 2.6.22 version of a regression fix that is already
+in 2.6.23.  Change the watchdog timer form 10 per second all the time,
+to 1 per second and only if interface is up.
+
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
 
-Kanevsky, Arkady wrote:
-> Sean,
-> IB aside,
-> it looks like an ULP which is capable of being both RDMA aware and RDMA
-> not-aware,
-> like iSER and iSCSI, NFS-RDMA and NFS, SDP and sockets, 
-> will be treated as two separete ULPs.
-> Each has its own IP address, since there is a different IP address for
-> iWARP
-> port and "regular" Ethernet port. So it falls on the users of ULPs to
-> "handle" it
-> via DNS or some other services.
-> Is this "acceptable" to users? I doubt it.
-> 
-> Recall that ULPs are going in opposite directions by having a different
-> port number for RDMA aware and RDMA unaware versions of the ULP.
-> This way, ULP "connection manager" handles RDMA-ness under the covers,
-> while users plug an IP address for a server to connect to.
-> Thanks,
+---
+ drivers/net/sky2.c |   45 ++++++++++++++++++---------------------------
+ drivers/net/sky2.h |    2 +-
+ 2 files changed, 19 insertions(+), 28 deletions(-)
 
-NOTE: iSCSI/iSER over iWARP won't work with the current Linux RDMA/Verbs 
-anyway due to the requirement that the login connection be migrated into 
-RDMA mode.  That's a separate issue.  Currently there is not even a way 
-to setup an RDMA connection in streaming mode, then allow streaming mode 
-I/O, then transitioning the connection in to RDMA mode.  None of that is 
-implemented.  Also, iSCSI/ISER does _not_ use different ports for 
-streaming mode vs data-mover/rdma modes.  It is negotiated and assumes 
-the same 4tuple.
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -96,10 +96,6 @@ static int disable_msi = 0;
+ module_param(disable_msi, int, 0);
+ MODULE_PARM_DESC(disable_msi, "Disable Message Signaled Interrupt (MSI)");
+ 
+-static int idle_timeout = 100;
+-module_param(idle_timeout, int, 0);
+-MODULE_PARM_DESC(idle_timeout, "Watchdog timer for lost interrupts (ms)");
+-
+ static const struct pci_device_id sky2_id_table[] = {
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, 0x9000) }, /* SK-9Sxx */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, 0x9E00) }, /* SK-9Exx */
+@@ -1693,6 +1689,8 @@ static void sky2_link_up(struct sky2_por
+ 
+ 	netif_carrier_on(sky2->netdev);
+ 
++	mod_timer(&hw->watchdog_timer, jiffies + 1);
++
+ 	/* Turn on link LED */
+ 	sky2_write8(hw, SK_REG(port, LNK_LED_REG),
+ 		    LINKLED_ON | LINKLED_BLINK_OFF | LINKLED_LINKSYNC_OFF);
+@@ -2384,25 +2382,25 @@ static void sky2_le_error(struct sky2_hw
+ 	sky2_write32(hw, Q_ADDR(q, Q_CSR), BMU_CLR_IRQ_CHK);
+ }
+ 
+-/* If idle then force a fake soft NAPI poll once a second
+- * to work around cases where sharing an edge triggered interrupt.
+- */
+-static inline void sky2_idle_start(struct sky2_hw *hw)
+-{
+-	if (idle_timeout > 0)
+-		mod_timer(&hw->idle_timer,
+-			  jiffies + msecs_to_jiffies(idle_timeout));
+-}
+-
+-static void sky2_idle(unsigned long arg)
++/* Force a fake soft NAPI poll to handle lost IRQ's */
++static void sky2_watchdog(unsigned long arg)
+ {
+ 	struct sky2_hw *hw = (struct sky2_hw *) arg;
+ 	struct net_device *dev = hw->dev[0];
++	int i, active = 0;
+ 
+ 	if (__netif_rx_schedule_prep(dev))
+ 		__netif_rx_schedule(dev);
+ 
+-	mod_timer(&hw->idle_timer, jiffies + msecs_to_jiffies(idle_timeout));
++	for (i = 0; i < hw->ports; i++) {
++		dev = hw->dev[i];
++		if (!netif_running(dev))
++			continue;
++		++active;
++	}
++
++	if (active)
++		mod_timer(&hw->watchdog_timer, round_jiffies(jiffies + HZ));
+ }
+ 
+ /* Hardware/software error handling */
+@@ -2692,8 +2690,6 @@ static void sky2_restart(struct work_str
+ 
+ 	dev_dbg(&hw->pdev->dev, "restarting\n");
+ 
+-	del_timer_sync(&hw->idle_timer);
+-
+ 	rtnl_lock();
+ 	sky2_write32(hw, B0_IMSK, 0);
+ 	sky2_read32(hw, B0_IMSK);
+@@ -2722,8 +2718,6 @@ static void sky2_restart(struct work_str
+ 		}
+ 	}
+ 
+-	sky2_idle_start(hw);
+-
+ 	rtnl_unlock();
+ }
+ 
+@@ -3713,11 +3707,9 @@ static int __devinit sky2_probe(struct p
+ 			sky2_show_addr(dev1);
+ 	}
+ 
+-	setup_timer(&hw->idle_timer, sky2_idle, (unsigned long) hw);
++	setup_timer(&hw->watchdog_timer, sky2_watchdog, (unsigned long) hw);
+ 	INIT_WORK(&hw->restart_work, sky2_restart);
+ 
+-	sky2_idle_start(hw);
+-
+ 	pci_set_drvdata(pdev, hw);
+ 
+ 	return 0;
+@@ -3752,7 +3744,7 @@ static void __devexit sky2_remove(struct
+ 	if (!hw)
+ 		return;
+ 
+-	del_timer_sync(&hw->idle_timer);
++	del_timer_sync(&hw->watchdog_timer);
+ 
+ 	flush_scheduled_work();
+ 
+@@ -3796,7 +3788,7 @@ static int sky2_suspend(struct pci_dev *
+ 	if (!hw)
+ 		return 0;
+ 
+-	del_timer_sync(&hw->idle_timer);
++	del_timer_sync(&hw->watchdog_timer);
+ 	netif_poll_disable(hw->dev[0]);
+ 
+ 	for (i = 0; i < hw->ports; i++) {
+@@ -3862,7 +3854,7 @@ static int sky2_resume(struct pci_dev *p
+ 	}
+ 
+ 	netif_poll_enable(hw->dev[0]);
+-	sky2_idle_start(hw);
++
+ 	return 0;
+ out:
+ 	dev_err(&pdev->dev, "resume failed (%d)\n", err);
+@@ -3879,7 +3871,6 @@ static void sky2_shutdown(struct pci_dev
+ 	if (!hw)
+ 		return;
+ 
+-	del_timer_sync(&hw->idle_timer);
+ 	netif_poll_disable(hw->dev[0]);
+ 
+ 	for (i = 0; i < hw->ports; i++) {
+--- a/drivers/net/sky2.h
++++ b/drivers/net/sky2.h
+@@ -1921,7 +1921,7 @@ struct sky2_hw {
+ 	u32		     st_idx;
+ 	dma_addr_t   	     st_dma;
+ 
+-	struct timer_list    idle_timer;
++	struct timer_list    watchdog_timer;
+ 	struct work_struct   restart_work;
+ 	int		     msi;
+ 	wait_queue_head_t    msi_wait;
 
-But, if we assume that reasonable services should use different ports 
-for tcp vs rdma connections for the same service, then maybe all thats 
-needed is a way to choose ephemeral ports without colliding with the TCP 
-stack.  Like maybe segmenting the ephemeral port space for TCP and RDMA 
-ranges?  This could be done without impacting the core networking code I 
-think.   This would still require a mvapich2 change to have the stack 
-choose a port instead of randomly trying ports until one is available.
-
-This angle doesn't solve everything either, but it avoids 2 separate 
-subnets...
-
-
-Steve.
-
-
-> 
-> Arkady Kanevsky                       email: arkady@netapp.com
-> Network Appliance Inc.               phone: 781-768-5395
-> 1601 Trapelo Rd. - Suite 16.        Fax: 781-895-1195
-> Waltham, MA 02451                   central phone: 781-768-5300
->  
-> 
->> -----Original Message-----
->> From: Sean Hefty [mailto:sean.hefty@intel.com] 
->> Sent: Thursday, September 27, 2007 3:12 PM
->> To: Kanevsky, Arkady; Sean Hefty; Steve Wise
->> Cc: netdev@vger.kernel.org; rdreier@cisco.com; 
->> linux-kernel@vger.kernel.org; general@lists.openfabrics.org
->> Subject: RE: [ofa-general] [PATCH v3] iw_cxgb3: 
->> Support"iwarp-only"interfacesto avoid 4-tuple conflicts.
->>
->>> What is the model on how client connects, say for iSCSI, when client 
->>> and server both support, iWARP and 10GbE or 1GbE, and would like to 
->>> setup "most" performant "connection" for ULP?
->> For the "most" performance connection, the ULP would use IB, 
->> and all these problems go away.  :)
->>
->> This proposal is for each iwarp interface to have its own IP 
->> address.  Clients would need an iwarp usable address of the 
->> server and would connect using rdma_connect().  If that call 
->> (or rdma_resolve_addr/route) fails, the client could try 
->> connecting using sockets, aoi, or some other interface.  I 
->> don't see that Steve's proposal changes anything from the 
->> client's perspective.
->>
->> - Sean
->> _______________________________________________
->> general mailing list
->> general@lists.openfabrics.org
->> http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general
->>
->> To unsubscribe, please visit 
->> http://openib.org/mailman/listinfo/openib-general
->>
+-- 
