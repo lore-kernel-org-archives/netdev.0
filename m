@@ -1,67 +1,100 @@
-From: "Eliezer" <eliezert@broadcom.com>
-Subject: Re: [BNX2X RESUBMIT][PATCH 0/8] New driver for Broadcom 10Gb
- Ethernet, take two.
-Date: Mon, 08 Oct 2007 20:34:41 +0200
-Message-ID: <1191868481.29746.27.camel@eliezer>
-References: <470A23E5.6030102@broadcom.com>
- <20071008102919.1cbc7983@freepuppy.rosehill>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: raw PF_PACKET protocol selection
+Date: Mon, 08 Oct 2007 20:36:09 +0200
+Message-ID: <1191868569.6682.67.camel@gentoo-jocke.transmode.se>
+Reply-To: joakim.tjernlund@transmode.se
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Michael Chan" <mchan@broadcom.com>, eilong@broadcom.com,
-	vladz@broadcom.com, gertner@broadcom.com
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2464 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755429AbXJHSda (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Oct 2007 14:33:30 -0400
-In-Reply-To: <20071008102919.1cbc7983@freepuppy.rosehill>
+Received: from mail.transmode.se ([83.241.175.147]:28964 "EHLO
+	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754011AbXJHSgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 14:36:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-10-08 at 10:29 -0700, Stephen Hemminger wrote:
+Hi List
 
-> 
-> Looks good.  Some minor stuff:
-> * You can use network device stats in network device structure and
->   no longer need the copy in bp
-
-We can't use net device stats in the bp because the elements are also
-used by HW and we can't rearrange them. 
-struct bmac_stats and struct emac_stats are written to by the HW 
-struct nig_stats and struct bnx2x_eth_stats are read by HW
-(I would have loved to get rid of at least one of these long structs.)
+I trying to open my own raw PF_PACKET socket to receive 
+pkgs sent to this socket. I can only make ETH_P_ALL protocol
+work, but then I receive all pkgs and I want pkgs with a specific
+protocol type. I have tried lots of ETH_P types and none of them work.
+Naturally I make sure the sender is using the same protocol as my test
+program below. I guess I must be doing something wrong???
 
 
-> * The MACRO's for 64 bit stats look like they could be done with 
->   u64 and/or turned into inline's.
+Here is the test program:
 
-The MACRO's modify some of their arguments, plus they need to work on 32
-bit machines (are 64 bit counters always available on 32 bit machines?).
-so using an inline would allow the inline to be more readable but
-calling it would get ugly.
-I'm open to suggestions.
+#include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <linux/in.h>
+#include <linux/if_ether.h>
 
-> * RCS/CVS tags for date and version # are kind of ugly. They git system
->   doesn't use them, perhaps you just want to track your internal version
->   control information, but what happens when changes come from outside?
+int main(int argc, char **argv) {
+  int sock, n;
+  char buffer[2048];
+  unsigned char *iphead, *ethhead;
 
-We need some way to correlate cvs to opensource to bug tracking tool.
-Note that driver and Microcode code are very tightly coupled on this
-device, so if I want to debug a microcode related problem I would need
-both CVS version and microcode version.
+  if ( (sock=socket(PF_PACKET, SOCK_RAW,
+                    htons(ETH_P_IP)))<0) { // ETH_P_IP is just an example
+    perror("socket");
+    exit(1);
+  }
 
-I agree that tags are ugly but can't think of a better way to do it.
-Changes coming from the outside are a problem, but using the cvs version
-as an anchor I can track them using git.
-Again, I'm open to suggestions and if someone can think of an elegant
-way of doing it, I will gladly use it.
+  while (1) {
+    printf("----------\n");
+    n = recvfrom(sock,buffer,2048,0,NULL,NULL);
+    printf("%d bytes read\n",n);
 
-thanks
-Eliezer
+    /* Check to see if the packet contains at least
+     * complete Ethernet (14), IP (20) and TCP/UDP
+     * (8) headers.
+     */
+    if (n<42) {
+      perror("recvfrom():");
+      printf("Incomplete packet (errno is %d)\n",
+             errno);
+      close(sock);
+      exit(0);
+    }
+
+    ethhead = buffer;
+    printf("Source MAC address: "
+           "%02x:%02x:%02x:%02x:%02x:%02x\n",
+           ethhead[0],ethhead[1],ethhead[2],
+           ethhead[3],ethhead[4],ethhead[5]);
+    printf("Destination MAC address: "
+           "%02x:%02x:%02x:%02x:%02x:%02x\n",
+           ethhead[6],ethhead[7],ethhead[8],
+           ethhead[9],ethhead[10],ethhead[11]);
+
+    iphead = buffer+14; /* Skip Ethernet header */
+    if (*iphead==0x45) { /* Double check for IPv4
+                          * and no options present */
+      printf("Source host %d.%d.%d.%d\n",
+             iphead[12],iphead[13],
+             iphead[14],iphead[15]);
+      printf("Dest host %d.%d.%d.%d\n",
+             iphead[16],iphead[17],
+             iphead[18],iphead[19]);
+      printf("Source,Dest ports %d,%d\n",
+             (iphead[20]<<8)+iphead[21],
+             (iphead[22]<<8)+iphead[23]);
+      printf("Layer-4 protocol %d\n",iphead[9]);
+    } else {
+       int i;
+       iphead = buffer+12;
+       for(i=0; i<n-12; i++)
+	  printf(" pkt:%x, %c\n",
+	      iphead[i],iphead[i]);
+    }
+  }
+
+}
 
 
