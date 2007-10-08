@@ -1,34 +1,57 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [0/7] IPsec: Preparatory patcheds for async crypto on output
-Date: Mon, 8 Oct 2007 16:20:40 +0400
-Message-ID: <20071008122034.GA23718@2ka.mipt.ru>
-References: <20071008112818.GA3010@gondor.apana.org.au>
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Subject: [BNX2X RESUBMIT][PATCH 0/8] New driver for Broadcom 10Gb
+ Ethernet, take two.
+Date: Mon, 08 Oct 2007 14:34:45 +0200
+Message-ID: <470A23E5.6030102@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain;
+ charset=utf-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+To: "davem@davemloft.net" <davem@davemloft.net>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Michael Chan" <mchan@broadcom.com>, eilong@broadc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:59857 "EHLO 2ka.mipt.ru"
+Received: from mms3.broadcom.com ([216.31.210.19]:2884 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753999AbXJHMVa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Oct 2007 08:21:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20071008112818.GA3010@gondor.apana.org.au>
+	id S1753632AbXJHMde (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Oct 2007 08:33:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 08, 2007 at 07:28:18PM +0800, Herbert Xu (herbert@gondor.apana.org.au) wrote:
-> Here is a bunch of patches paving the way for removal of the
-> state spin lock on the output path so that we can let the crypto
-> complete asynchronously.
+[resubmitting, this time without line breaks, sorry]
 
-Hi Herbert.
+This is an initial version of the BNX2X, the Linux driver for the
+BCM5771X 10Gb Ethernet controller family.
+ 
+Although the chip is very different from the 5706-8 family we based the
+driver code on the BNX2 driver.
+ 
+Since the hardware is supposed to be generally available soon I have
+posted an initial version and after hearing all the comments I am 
+reposting with changes to address them.
+ 
+Some planned feature are still under development, but we want to get
+whatever we have out now so people can start using the HW.
 
-This looks great. I especially like xfrm output path generalization and
-xfrm_skb_cb structure introduction (acrypto allocated a special
-structure from slab for each packet).
-Do you expect to complete full async processing before 2.6.24 and, Dave,
-is there any chance it can be accepted for upcoming release?
+Main changes from first version.
 
--- 
-	Evgeniy Polyakov
+* Fixed most issues raised by Michael Buesch. (Thanks Michael!)
+* Some slow path bug fixes.
+* Yitchak Gertner re-grouped the code in a more logical manner.
+* A lot of work was done to get the generated code to comply with coding 
+style requirements.
+
+Known issues/TODO.
+* Move slowpath event handling from tasklet to workqueue context. This 
+will allow replacing the busy waits in the link management code with sleeps.
+
+Please consider applying to 2.6.24
+
+Thanks
+Eliezer
+
+
+
+
