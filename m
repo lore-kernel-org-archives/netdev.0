@@ -1,51 +1,112 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: 2.6.23-rc8-mm2 BUG: register_netdevice() issue as (ab)used by
- ISDN
-Date: Mon, 8 Oct 2007 10:39:02 -0700
-Message-ID: <20071008103902.1fc6ff7c@freepuppy.rosehill>
-References: <20071007120653.GA16184@rhlx01.hs-esslingen.de>
-	<20071008114844.GB11453@pingi.kke.suse.de>
+From: Steve Wise <swise@opengridcomputing.com>
+Subject: Re: [ofa-general] [PATCH v3] iw_cxgb3: Support"iwarp-only"interfacesto
+	avoid 4-tuple conflicts.
+Date: Mon, 08 Oct 2007 13:03:08 -0500
+Message-ID: <470A70DC.8000005@opengridcomputing.com>
+References: <20070923203649.8324.64524.stgit@dell3.ogc.int><46FBF8AF.9040700@ichips.intel.com><C98692FD98048C41885E0B0FACD9DFB805187514@exnane01.hq.netapp.com>
+	<000101c8013a$41b374f0$a7cc180a@amr.corp.intel.com>
+	<C98692FD98048C41885E0B0FACD9DFB80518755A@exnane01.hq.netapp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org
-To: Karsten Keil <kkeil@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:48735 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751653AbXJHRkk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 13:40:40 -0400
-In-Reply-To: <20071008114844.GB11453@pingi.kke.suse.de>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, linux-kernel@vger.kernel.org,
+	general@lists.openfabrics.org
+To: "Kanevsky, Arkady" <Arkady.Kanevsky@netapp.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <C98692FD98048C41885E0B0FACD9DFB80518755A@exnane01.hq.netapp.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 8 Oct 2007 13:48:44 +0200
-Karsten Keil <kkeil@suse.de> wrote:
 
-> On Sun, Oct 07, 2007 at 02:06:53PM +0200, Andreas Mohr wrote:
-> > [not necessarily a very recent regression, used 2.6.19 kernels before...]
-> > 
-> > Hi all,
-> > 
-> > wondered why my main internet server (headless!) didn't come up properly
-> > on a new 2.6.23-rc8-mm2
-> ...
-> > as if it's the
-> >        BUG_ON(!dev->nd_net);
-> > check which caused the BUG message.
+
+Kanevsky, Arkady wrote:
+> Sean,
+> IB aside,
+> it looks like an ULP which is capable of being both RDMA aware and RDMA
+> not-aware,
+> like iSER and iSCSI, NFS-RDMA and NFS, SDP and sockets, 
+> will be treated as two separete ULPs.
+> Each has its own IP address, since there is a different IP address for
+> iWARP
+> port and "regular" Ethernet port. So it falls on the users of ULPs to
+> "handle" it
+> via DNS or some other services.
+> Is this "acceptable" to users? I doubt it.
 > 
-> The regression comes from the net namespace patches.
-> Up to now in ISDN the struct netdevice is contained in struct isdn_net_dev and so
-> it's not allocated using alloc_netdev(), which would set the missing dev->nd_net
-> pointer.
+> Recall that ULPs are going in opposite directions by having a different
+> port number for RDMA aware and RDMA unaware versions of the ULP.
+> This way, ULP "connection manager" handles RDMA-ness under the covers,
+> while users plug an IP address for a server to connect to.
+> Thanks,
+
+NOTE: iSCSI/iSER over iWARP won't work with the current Linux RDMA/Verbs 
+anyway due to the requirement that the login connection be migrated into 
+RDMA mode.  That's a separate issue.  Currently there is not even a way 
+to setup an RDMA connection in streaming mode, then allow streaming mode 
+I/O, then transitioning the connection in to RDMA mode.  None of that is 
+implemented.  Also, iSCSI/ISER does _not_ use different ports for 
+streaming mode vs data-mover/rdma modes.  It is negotiated and assumes 
+the same 4tuple.
+
+But, if we assume that reasonable services should use different ports 
+for tcp vs rdma connections for the same service, then maybe all thats 
+needed is a way to choose ephemeral ports without colliding with the TCP 
+stack.  Like maybe segmenting the ephemeral port space for TCP and RDMA 
+ranges?  This could be done without impacting the core networking code I 
+think.   This would still require a mvapich2 change to have the stack 
+choose a port instead of randomly trying ports until one is available.
+
+This angle doesn't solve everything either, but it avoids 2 separate 
+subnets...
+
+
+Steve.
+
+
 > 
+> Arkady Kanevsky                       email: arkady@netapp.com
+> Network Appliance Inc.               phone: 781-768-5395
+> 1601 Trapelo Rd. - Suite 16.        Fax: 781-895-1195
+> Waltham, MA 02451                   central phone: 781-768-5300
+>  
 > 
-
-Then ISDN is BROKEN in existing code.  ALL network devices must be allocated
-by alloc_netdev() not the device driver otherwise there is no way to prevent
-oopsing through sysfs. RTFM Documentation/networking/netdevices.txt
-
-Please fix for 2.6.23 and 2.6.22 stable.
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+>> -----Original Message-----
+>> From: Sean Hefty [mailto:sean.hefty@intel.com] 
+>> Sent: Thursday, September 27, 2007 3:12 PM
+>> To: Kanevsky, Arkady; Sean Hefty; Steve Wise
+>> Cc: netdev@vger.kernel.org; rdreier@cisco.com; 
+>> linux-kernel@vger.kernel.org; general@lists.openfabrics.org
+>> Subject: RE: [ofa-general] [PATCH v3] iw_cxgb3: 
+>> Support"iwarp-only"interfacesto avoid 4-tuple conflicts.
+>>
+>>> What is the model on how client connects, say for iSCSI, when client 
+>>> and server both support, iWARP and 10GbE or 1GbE, and would like to 
+>>> setup "most" performant "connection" for ULP?
+>> For the "most" performance connection, the ULP would use IB, 
+>> and all these problems go away.  :)
+>>
+>> This proposal is for each iwarp interface to have its own IP 
+>> address.  Clients would need an iwarp usable address of the 
+>> server and would connect using rdma_connect().  If that call 
+>> (or rdma_resolve_addr/route) fails, the client could try 
+>> connecting using sockets, aoi, or some other interface.  I 
+>> don't see that Steve's proposal changes anything from the 
+>> client's perspective.
+>>
+>> - Sean
+>> _______________________________________________
+>> general mailing list
+>> general@lists.openfabrics.org
+>> http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general
+>>
+>> To unsubscribe, please visit 
+>> http://openib.org/mailman/listinfo/openib-general
+>>
