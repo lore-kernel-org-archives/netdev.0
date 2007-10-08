@@ -1,67 +1,53 @@
-From: Matti Aarnio <matti.aarnio@zmailer.org>
-Subject: Re: [BNX2X RESUBMIT][PATCH 0/8] New driver for Broadcom 10Gb
-	Ethernet, take two.
-Date: Mon, 8 Oct 2007 16:02:48 +0300
-Message-ID: <20071008130248.GI6372@mea-ext.zmailer.org>
-References: <470A23E5.6030102@broadcom.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 2/3][NET_BATCH] net core use batching
+Date: Mon, 08 Oct 2007 09:17:24 -0400
+Message-ID: <1191849444.4352.29.camel@localhost>
+References: <OF9A1CB7CB.5E22F8B7-ON6525736E.001B7EF8-6525736E.001BC875@in.ibm.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>, eilong@broadcom.com,
-	vladz@broadcom.com, gertner@broadcom.com
-To: Eliezer Tamir <eliezert@broadcom.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, gaagaan@gmail.com,
+	general@lists.openfabrics.org, herbert@gondor.apana.org.au,
+	jagana@us.ibm.com, jeff@garzik.org, johnpol@2ka.mipt.ru,
+	Patrick McHardy <kaber@trash.net>, kumarkr@linux.ibm.com,
+	mcarlson@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org,
+	peter.p.waskiewicz.jr@intel.com, randy.dunlap@oracle.com,
+	rdreier@cisco.com, rick.jones2@hp.com, Robert.Olsson@data.slu.se,
+	shemminger@linux-foundation.org, sri@us.ibm.com, tgraf@suug.ch,
+	xma@us.ibm.com
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from z2.cat.iki.fi ([212.16.98.133]:52552 "EHLO z2.cat.iki.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752559AbXJHNCv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Oct 2007 09:02:51 -0400
-Received: (mea@mea-ext) by mail.zmailer.org id S2261872AbXJHNCs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 16:02:48 +0300
-Content-Disposition: inline
-In-Reply-To: <470A23E5.6030102@broadcom.com>
+Received: from wx-out-0506.google.com ([66.249.82.237]:61135 "EHLO
+	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753574AbXJHNRj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 09:17:39 -0400
+Received: by wx-out-0506.google.com with SMTP id h31so1316474wxd
+        for <netdev@vger.kernel.org>; Mon, 08 Oct 2007 06:17:38 -0700 (PDT)
+In-Reply-To: <OF9A1CB7CB.5E22F8B7-ON6525736E.001B7EF8-6525736E.001BC875@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 08, 2007 at 02:34:45PM +0200, Eliezer Tamir wrote:
-> Message-ID: <470A23E5.6030102@broadcom.com>
-> Date: Mon, 08 Oct 2007 14:34:45 +0200
-> From: Eliezer Tamir <eliezert@broadcom.com>
-> User-Agent: Thunderbird 2.0.0.6 (X11/20070728)
-> MIME-Version: 1.0
-> To: "netdev@vger.kernel.org" <netdev@vger.kernel.org> (...)
-> Subject: [BNX2X RESUBMIT][PATCH 0/8] New driver for Broadcom 10Gb
-> 	Ethernet, take two.
-> X-WSS-ID: 6B14FC184VK13380170-01-01
-> Content-Type: text/plain;
-> 	charset=utf-8;
-> 	format=flowed
-> Content-Transfer-Encoding: 7bit
+On Mon, 2007-08-10 at 10:33 +0530, Krishna Kumar2 wrote:
+
+> > As a side note: Any batching driver should _never_ have to requeue; if
+> > it does it is buggy. And the non-batching ones if they ever requeue will
+> > be a single packet, so not much reordering.
 > 
-> [resubmitting, this time without line breaks, sorry]
+> On the contrary, batching LLTX drivers (if that is not ruled out) will very
+> often requeue resulting in heavy reordering. Fix looks good though.
 
-I am sorry, but you had no success in this round either.
+Two things: 
+one, LLTX is deprecated (I think i saw a patch which says no more new
+drivers should do LLTX) and i plan if nobody else does to kill 
+LLTX in e1000 RSN. So for that reason i removed all code that existed to
+support LLTX.
+two, there should _never_ be any requeueing even if LLTX in the previous
+patches when i supported them; if there is, it is a bug. This is because
+we dont send more than what the driver asked for via xmit_win. So if it
+asked for more than it can handle, that is a bug. If its available space
+changes while we are sending to it, that too is a bug.
 
-Thunderbird is "somewhat"(*) difficult when you try to include the source
-(diff-) file into message body text.
+cheers,
+jamal
 
-(*: like "serious pain in the rear section..)
-
-
-The classical instruction is that "thy shall post source as diffs against
-baseline in email message textbody"  ---  but now your only real choice is
-in between using genuine attachments, and placing it into some public
-downloadable file, which the rest of the world can download - or to use
-the ATTACH -button.
-
-Two failures with preferred method is (IMO) a good excuse to resort on
-MIME attachments.
-
-....
-> Please consider applying to 2.6.24
->
-> Thanks
-> Eliezer
-
-Matti Aarnio
