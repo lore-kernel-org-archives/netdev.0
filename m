@@ -1,89 +1,39 @@
-From: Thomas Sailer <sailer@ife.ee.ethz.ch>
-Subject: Re: [RESEND]: RNDIS host: adjust MTU instead of
-	refusing to talk	to devices with MTU < 1.5k
-Date: Tue, 09 Oct 2007 17:39:44 +0200
-Message-ID: <1191944384.10858.89.camel@xbox360>
-References: <1191932609.10858.64.camel@xbox360>
-	<20071009151832.9B5FF1ACD0D@adsl-69-226-248-13.dsl.pltn13.pacbell.net>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH 0/6][NET-2.6.24] Consolidate private allocations in seq files
+Date: Tue, 09 Oct 2007 19:50:41 +0400
+Message-ID: <470BA351.3070208@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Brownell <david-b@pacbell.net>, greg@kroah.com,
-	linux-usb-devel@lists.sourceforge.net
-To: netdev@vger.kernel.org
-Return-path: <linux-usb-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20071009151832.9B5FF1ACD0D@adsl-69-226-248-13.dsl.pltn13.pacbell.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-usb-devel>
-List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
-List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
-	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: linux-usb-devel-bounces@lists.sourceforge.net
-Errors-To: linux-usb-devel-bounces@lists.sourceforge.net
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sacred.ru ([62.205.161.221]:40644 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753219AbXJIPxN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2007 11:53:13 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-10-09 at 08:18 -0700, David Brownell wrote:
+Many (very many) seq files in net/ allocate some private data
+to use it later (mostly for iteration state). All this code
+was obviously get using copy-paste method, so move it into
+one place.
 
-> > This patch makes the host RNDIS driver talk to RNDIS devices with an MTU
-> > less than 1.5k, instead of refusing to talk to such a device.
-> > Please apply.
-> >
-> > Signed-Off-by: Thomas Sailer <t.sailer@alumni.ethz.ch>
-> 
-> Acked-by: David Brownell <dbrownell@users.sourceforge.net>
-> 
-> ... but patches in drivers/net go to netdev, not linux-usb-devel.
-> And it'd be nice if the patch comment mentioned some particular
-> device that's been observed to act this way.
+Almost all of these places either set this private to 0, or
+keep uninitialized. Some places, however, pre-initialize this
+area, but there are few of them.
 
-Ok, next try.
+The seq_open_private() call just opens the seq file with
+allocated and set to zero area. The __seq_open_private() call
+makes the same, but returns the allocated memory to the called
+to be initialized later.
 
-The device in question is a low power radio device that speaks the
-bpqether protocol over ethernet. bpqether frames are never longer than
-320 bytes, so there is no need to support 1.5kbyte MTU in the device
-firmware.
+I didn't measure how much of the .text section this saves,
+but I suspect a lot of :) As far as the code is concerned,
+this set saves ~450 lines.
 
-Tom
+Such thing may be useful for any subsystem, but I found this
+mostly in the networking code and fixed only it (for a while).
 
-Signed-Off-by: Thomas Sailer <t.sailer@alumni.ethz.ch>
-
---- 1/drivers/net/usb/rndis_host.c.orig	2007-09-04 17:51:11.000000000 +0200
-+++ 2/drivers/net/usb/rndis_host.c	2007-09-04 17:54:26.000000000 +0200
-@@ -512,11 +512,18 @@
- 	}
- 	tmp = le32_to_cpu(u.init_c->max_transfer_size);
- 	if (tmp < dev->hard_mtu) {
--		dev_err(&intf->dev,
--			"dev can't take %u byte packets (max %u)\n",
--			dev->hard_mtu, tmp);
--		retval = -EINVAL;
--		goto fail_and_release;
-+		if (tmp <= net->hard_header_len) {
-+			dev_warn(&intf->dev,
-+				 "dev can't take %u byte packets (max %u)\n",
-+				 net->hard_header_len+1, tmp);
-+			retval = -EINVAL;
-+			goto fail_and_release;
-+		}
-+		dev->hard_mtu = tmp;
-+		net->mtu = dev->hard_mtu - net->hard_header_len;
-+		dev_warn(&intf->dev,
-+			 "dev can't take %u byte packets (max %u), adjusting MTU to %u\n",
-+			 dev->hard_mtu, tmp, net->mtu);
- 	}
- 
- 	/* REVISIT:  peripheral "alignment" request is ignored ... */
-
-
-
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >> http://get.splunk.com/
-_______________________________________________
-linux-usb-devel@lists.sourceforge.net
-To unsubscribe, use the last form field at:
-https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
