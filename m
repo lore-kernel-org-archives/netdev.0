@@ -1,92 +1,48 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: [PATCH] xen-netfront: rearrange netfront_info structure to separate
- tx and rx
-Date: Tue, 09 Oct 2007 11:44:45 -0700
-Message-ID: <470BCC1D.4080007@goop.org>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: [ofa-general] RE: [PATCH 2/3][NET_BATCH] net core use batching
+Date: Tue, 9 Oct 2007 11:48:45 -0700
+Message-ID: <D5C1322C3E673F459512FB59E0DDC32903C0821A@orsmsx414.amr.corp.intel.com>
+References: <D5C1322C3E673F459512FB59E0DDC32903BC14AC@orsmsx414.amr.corp.intel.com>	<1191886845.4373.138.camel@localhost>	<470AD5D7.1070000@garzik.org>
+	<20071008.184126.124062865.davem@davemloft.net>
+	<470AE373.9020207@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Keir Fraser <Keir.Fraser@cl.cam.ac.uk>,
-	Stephen Hemminger <shemminge@linux-foundation.org>,
-	Christoph Hellwig <hch@infradead.org>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.goop.org ([64.81.55.164]:33145 "EHLO mail.goop.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751232AbXJISpa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Oct 2007 14:45:30 -0400
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, gaagaan@gmail.com,
+	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
+	rdreier@cisco.com, hadi@cyberus.ca, mcarlson@broadcom.com,
+	jagana@us.ibm.com, general@lists.openfabrics.org,
+	mchan@broadcom.com, tgraf@suug.ch, randy.dunlap@oracle.com,
+	sri@us.ibm.com, shemminger@linux-foundation.org, kaber@trash.net
+To: "Jeff Garzik" <jeff@garzik.org>,
+	"David Miller" <davem@davemloft.net>
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <470AE373.9020207@garzik.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Keep tx and rx elements separate on different cachelines to prevent
-bouncing.
+> IMO the net driver really should provide a hint as to what it wants.
+>=20
+> 8139cp and tg3 would probably prefer multiple TX queue=20
+> behavior to match silicon behavior -- strict prio.
 
-Signed-off-by: Jeremy Fitzhardinge <jeremy@xensource.com>
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>
-Cc: Christoph Hellwig <hch@infradead.org>
+If I understand what you just said, I disagree.  If your hardware is
+running strict prio, you don't want to enforce strict prio in the qdisc
+layer; performing two layers of QoS is excessive, and may lead to
+results you don't want.  The reason I added the DRR qdisc is for the Si
+that has its own queueing strategy that is not RR.  For Si that
+implements RR (like e1000), you can either use the DRR qdisc, or if you
+want to prioritize your flows, use PRIO.
 
----
- drivers/net/xen-netfront.c |   37 ++++++++++++++++++-------------------
- 1 file changed, 18 insertions(+), 19 deletions(-)
-
-===================================================================
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -72,22 +72,12 @@ struct netfront_info {
- 	struct list_head list;
- 	struct net_device *netdev;
- 
-+	unsigned int evtchn;
-+	struct xenbus_device *xbdev;
-+
-+	spinlock_t   tx_lock;
- 	struct xen_netif_tx_front_ring tx;
--	struct xen_netif_rx_front_ring rx;
--
--	spinlock_t   tx_lock;
--	spinlock_t   rx_lock;
--
--	unsigned int evtchn;
--
--	/* Receive-ring batched refills. */
--#define RX_MIN_TARGET 8
--#define RX_DFL_MIN_TARGET 64
--#define RX_MAX_TARGET min_t(int, NET_RX_RING_SIZE, 256)
--	unsigned rx_min_target, rx_max_target, rx_target;
--	struct sk_buff_head rx_batch;
--
--	struct timer_list rx_refill_timer;
-+	int tx_ring_ref;
- 
- 	/*
- 	 * {tx,rx}_skbs store outstanding skbuffs. Free tx_skb entries
-@@ -106,13 +96,22 @@ struct netfront_info {
- 	grant_ref_t grant_tx_ref[NET_TX_RING_SIZE];
- 	unsigned tx_skb_freelist;
- 
-+	spinlock_t   rx_lock ____cacheline_aligned_in_smp;
-+	struct xen_netif_rx_front_ring rx;
-+	int rx_ring_ref;
-+
-+	/* Receive-ring batched refills. */
-+#define RX_MIN_TARGET 8
-+#define RX_DFL_MIN_TARGET 64
-+#define RX_MAX_TARGET min_t(int, NET_RX_RING_SIZE, 256)
-+	unsigned rx_min_target, rx_max_target, rx_target;
-+	struct sk_buff_head rx_batch;
-+
-+	struct timer_list rx_refill_timer;
-+
- 	struct sk_buff *rx_skbs[NET_RX_RING_SIZE];
- 	grant_ref_t gref_rx_head;
- 	grant_ref_t grant_rx_ref[NET_RX_RING_SIZE];
--
--	struct xenbus_device *xbdev;
--	int tx_ring_ref;
--	int rx_ring_ref;
- 
- 	unsigned long rx_pfn_array[NET_RX_RING_SIZE];
- 	struct multicall_entry rx_mcl[NET_RX_RING_SIZE+1];
-
+-PJ Waskiewicz
+peter.p.waskiewicz.jr@intel.com
