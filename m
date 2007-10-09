@@ -1,76 +1,56 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [PATCHES] TX batching
-Date: Tue, 9 Oct 2007 13:44:38 +0530
-Message-ID: <OF568108F3.5706A2B5-ON6525736F.002CED41-6525736F.002D492F@in.ibm.com>
-References: <1191852320.4352.73.camel@localhost>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: raw PF_PACKET protocol selection
+Date: Tue, 9 Oct 2007 12:17:52 +0400
+Message-ID: <20071009081752.GA31369@2ka.mipt.ru>
+References: <E1If5b3-00043F-00@gondolin.me.apana.org.au> <00ac01c80a3a$cc83a6a0$04ac10ac@Jocke> <20071009071338.GA15057@2ka.mipt.ru> <1191914858.6682.75.camel@gentoo-jocke.transmode.se> <20071009073437.GA1951@2ka.mipt.ru> <1191916285.6682.83.camel@gentoo-jocke.transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, gaagaan@gmail.com,
-	general@lists.openfabrics.org, herbert@gondor.apana.org.au,
-	jagana@us.ibm.com, jeff@garzik.org,
-	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, kaber@trash.net,
-	kumarkr@linux.ibm.com, mcarlson@broadcom.com, mchan@broadcom.com,
-	netdev@vger.kernel.org, peter.p.waskiewicz.jr@intel.com,
-	randy.dunlap@oracle.com, rdreier@cisco.com, rick.jones2@hp.com,
-	Robert.Olsson@data.slu.se, shemminger@linux-foundation.org,
-	sri@us.ibm.com, tgraf@suug.ch, xma@us.ibm.com
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=us-ascii
+Cc: "'Herbert Xu'" <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from E23SMTP05.au.ibm.com ([202.81.18.174]:57373 "EHLO
-	e23smtp05.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751743AbXJIIPF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 04:15:05 -0400
-Received: from sd0109e.au.ibm.com (d23rh905.au.ibm.com [202.81.18.225])
-	by e23smtp05.au.ibm.com (8.13.1/8.13.1) with ESMTP id l998F3Dj015679
-	for <netdev@vger.kernel.org>; Tue, 9 Oct 2007 18:15:03 +1000
-Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
-	by sd0109e.au.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l998G5RI238434
-	for <netdev@vger.kernel.org>; Tue, 9 Oct 2007 18:16:07 +1000
-Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
-	by d23av02.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l998CS4W010330
-	for <netdev@vger.kernel.org>; Tue, 9 Oct 2007 18:12:31 +1000
-In-Reply-To: <1191852320.4352.73.camel@localhost>
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:38942 "EHLO 2ka.mipt.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752318AbXJIISE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2007 04:18:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1191916285.6682.83.camel@gentoo-jocke.transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-J Hadi Salim <j.hadi123@gmail.com> wrote on 10/08/2007 07:35:20 PM:
+On Tue, Oct 09, 2007 at 09:51:25AM +0200, Joakim Tjernlund (joakim.tjernlund@transmode.se) wrote:
+> On Tue, 2007-10-09 at 11:34 +0400, Evgeniy Polyakov wrote:
+> > On Tue, Oct 09, 2007 at 09:27:38AM +0200, Joakim Tjernlund (joakim.tjernlund@transmode.se) wrote:
+> > > > Did you change eth_type_trans() to catch your proto?
+> > > > 
+> > > 
+> > > Just fond out something:
+> > > if I redirect my prog like so:
+> > > ./sniff > log
+> > > and press Ctrl-C after a packet has been sent to it, 
+> > > it does NOT work. I don't get ANY output in my "log" file, not
+> > > even the printf("---------\n") appears.
+> > > But if I run whithout redirect it works(at least with ETH_P_BPQ)
+> > > Anyone else see this too?
+> > 
+> > I only tested with IP and ARP packets - I can not say when packet was
+> > actually received and written to log, but it does start filling up, but
+> > maybe not immediately - it can be output buffering in shell though.
+> 
+> Did you receive many packets? Seems like when I receive just 1 or 2 pkgs
+> I get the empty log. If I strace ./sniff > log I see that recvfrom gets
+> pkgs, but there are no trace of writes. I guess this
+> is a bash(3.2_p17) or glibc(2.5.-r4) bug?
 
-> I dont see something from Krishna's approach that i can take and reuse.
-> This maybe because my old approaches have evolved from the same path.
-> There is a long list but as a sample: i used to do a lot more work while
-> holding the queue lock which i have now moved post queue lock; i dont
-> have any speacial interfaces/tricks just for batching, i provide hints
-> to the core of how much the driver can take etc etc. I have offered
-> Krishna co-authorship if he makes the IPOIB driver to work on my
-> patches, that offer still stands if he chooses to take it.
+I received 1396 bytes of logs before terminated, which is 27 ARP packets, 
+so there is quite big number of packet there. 
+Your application works correctly (although you swapped source and
+destination ethernet fields) - buffered writing is not a bug,
+if you do not like it, use write(2), mmap(2) or turn buffering off as
+Herbert suggested. To get packets with your own ethernet protocol number
+you have to change eth_type_trans() function in kernel, which parses
+ethernet header and returns protocol number, under some conditions it
+will just return your number automatically, but you should check it.
 
-My feeling is that since the approaches are very different, it would
-be a good idea to test the two for performance. Do you mind me doing
-that? Ofcourse others and/or you are more than welcome to do the same.
-
-I had sent a note to you yesterday about this, please let me know
-either way.
-
-******************* Previous mail ******************
-
-Hi Jamal,
-
-If you don't mind, I am trying to run your approach vs mine to get some
-results
-for comparison.
-
-For starters, I am having issues with iperf when using your infrastructure
-code with
-my IPoIB driver - about 100MB is sent and then everything stops for some
-reason.
-The changes in the IPoIB driver that I made to support batching is to set
-BTX, set
-xmit_win, and dynamically reduce xmit_win on every xmit and increase
-xmit_win on
-every xmit completion. Is there anything else that is required from the
-driver?
-
-thanks,
-
-- KK
-
+-- 
+	Evgeniy Polyakov
