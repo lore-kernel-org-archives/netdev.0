@@ -1,48 +1,92 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
-Date: Tue, 9 Oct 2007 20:30:27 +0200
-Message-ID: <20071009183027.GA552@one.firstfloor.org>
-References: <D5C1322C3E673F459512FB59E0DDC32903BC14AC@orsmsx414.amr.corp.intel.com> <1191886845.4373.138.camel@localhost> <470AD5D7.1070000@garzik.org> <20071008.184126.124062865.davem@davemloft.net> <p73k5pw44ew.fsf@bingen.suse.de> <20071009112225.5f9756e7@freepuppy.rosehill>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: [PATCH] xen-netfront: rearrange netfront_info structure to separate
+ tx and rx
+Date: Tue, 09 Oct 2007 11:44:45 -0700
+Message-ID: <470BCC1D.4080007@goop.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, jeff@garzik.org,
-	johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
-	netdev@vger.kernel.org, rdreier@cisco.com,
-	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
-	mcarlson@broadcom.com, jagana@us.ibm.com,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	randy.dunlap@oracle.com, sri@us.ibm.com, kaber@trash.net
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: NetDev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Keir Fraser <Keir.Fraser@cl.cam.ac.uk>,
+	Stephen Hemminger <shemminge@linux-foundation.org>,
+	Christoph Hellwig <hch@infradead.org>
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:39166 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751371AbXJISaa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 14:30:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20071009112225.5f9756e7@freepuppy.rosehill>
+Received: from gw.goop.org ([64.81.55.164]:33145 "EHLO mail.goop.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751232AbXJISpa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2007 14:45:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> I wonder about the whole idea of queueing in general at such high speeds.
-> Given the normal bi-modal distribution of packets, and the predominance
-> of 1500 byte MTU; does it make sense to even have any queueing in software
-> at all?
+Keep tx and rx elements separate on different cachelines to prevent
+bouncing.
 
-Yes that is my point -- it should just pass it through directly
-and the driver can then put it into the different per CPU (or per
-whatever) queues managed by the hardware.
+Signed-off-by: Jeremy Fitzhardinge <jeremy@xensource.com>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Christoph Hellwig <hch@infradead.org>
 
-The only thing the qdisc needs to do is to set some bit that says
-"it is ok to put this into difference queues; don't need strict ordering" 
+---
+ drivers/net/xen-netfront.c |   37 ++++++++++++++++++-------------------
+ 1 file changed, 18 insertions(+), 19 deletions(-)
 
-Otherwise if the drivers did that unconditionally they might cause
-problems with other qdiscs.
+===================================================================
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -72,22 +72,12 @@ struct netfront_info {
+ 	struct list_head list;
+ 	struct net_device *netdev;
+ 
++	unsigned int evtchn;
++	struct xenbus_device *xbdev;
++
++	spinlock_t   tx_lock;
+ 	struct xen_netif_tx_front_ring tx;
+-	struct xen_netif_rx_front_ring rx;
+-
+-	spinlock_t   tx_lock;
+-	spinlock_t   rx_lock;
+-
+-	unsigned int evtchn;
+-
+-	/* Receive-ring batched refills. */
+-#define RX_MIN_TARGET 8
+-#define RX_DFL_MIN_TARGET 64
+-#define RX_MAX_TARGET min_t(int, NET_RX_RING_SIZE, 256)
+-	unsigned rx_min_target, rx_max_target, rx_target;
+-	struct sk_buff_head rx_batch;
+-
+-	struct timer_list rx_refill_timer;
++	int tx_ring_ref;
+ 
+ 	/*
+ 	 * {tx,rx}_skbs store outstanding skbuffs. Free tx_skb entries
+@@ -106,13 +96,22 @@ struct netfront_info {
+ 	grant_ref_t grant_tx_ref[NET_TX_RING_SIZE];
+ 	unsigned tx_skb_freelist;
+ 
++	spinlock_t   rx_lock ____cacheline_aligned_in_smp;
++	struct xen_netif_rx_front_ring rx;
++	int rx_ring_ref;
++
++	/* Receive-ring batched refills. */
++#define RX_MIN_TARGET 8
++#define RX_DFL_MIN_TARGET 64
++#define RX_MAX_TARGET min_t(int, NET_RX_RING_SIZE, 256)
++	unsigned rx_min_target, rx_max_target, rx_target;
++	struct sk_buff_head rx_batch;
++
++	struct timer_list rx_refill_timer;
++
+ 	struct sk_buff *rx_skbs[NET_RX_RING_SIZE];
+ 	grant_ref_t gref_rx_head;
+ 	grant_ref_t grant_rx_ref[NET_RX_RING_SIZE];
+-
+-	struct xenbus_device *xbdev;
+-	int tx_ring_ref;
+-	int rx_ring_ref;
+ 
+ 	unsigned long rx_pfn_array[NET_RX_RING_SIZE];
+ 	struct multicall_entry rx_mcl[NET_RX_RING_SIZE+1];
 
-This would also require that the driver exports some hint 
-to the upper layer on how large its internal queues are. A device
-with a short queue would still require pfifo_fast. Long queue
-devices could just pass through. That again could be a single flag.
-
--Andi
