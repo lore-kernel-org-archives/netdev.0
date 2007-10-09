@@ -1,44 +1,89 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: [PATCH][E1000E] some cleanups
-Date: Tue, 09 Oct 2007 09:02:10 -0700
-Message-ID: <470BA602.7060400@intel.com>
-References: <1191174077.6165.11.camel@localhost>	 <47028351.7090509@intel.com>  <1191417498.4357.23.camel@localhost>	 <1191773723.4394.31.camel@localhost>  <470AB1EC.2080000@intel.com> <1191936581.4373.192.camel@localhost>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH 4/6][NET-2.6.24] Make decnet code use the seq_open_private()
+Date: Tue, 09 Oct 2007 19:59:38 +0400
+Message-ID: <470BA56A.6020903@openvz.org>
+References: <470BA351.3070208@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org,
+	patrick@tykepenguin.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:18101 "EHLO mga02.intel.com"
+Received: from sacred.ru ([62.205.161.221]:49813 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753602AbXJIQCh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Oct 2007 12:02:37 -0400
-In-Reply-To: <1191936581.4373.192.camel@localhost>
+	id S1756718AbXJIQCr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2007 12:02:47 -0400
+In-Reply-To: <470BA351.3070208@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Mon, 2007-08-10 at 15:40 -0700, Kok, Auke wrote:
-> 
->> My biggest problem with the patch as you sent it that it's a tonload of changes
->> and no implicit benefit immediately as I can see. 
-> 
-> The patch looks scary but is pretty tame when you apply it and stare at
-> it.
-> 
->> I would really have to see the
->> LLTX change as well to make a wellfounded decision whether it is the right thing
->> to go and overhaul this part of the driver or not :)
->>
->> I'm not particularly against the changes per se though.
->>
->> so please, if needed offlist send me those LLTX changes as well.
-> 
-> Dont worry about it - i didnt get any love for a similar patch i did for
-> tg3 either ;-> I will hold onto it for now. I could do the un-LLTX
-> outside of this - would you like that for both e1000/e1000e ?
+Just switch to the consolidated code.
 
-if we're going to remove LLTX from e1000 I prefer to do that at a much later time.
-Let's focus on e1000e instead - while it is still moving ;)
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Cc: Patrick Caulfield <patrick@tykepenguin.com>
 
-Auke
+---
+
+diff --git a/net/decnet/dn_neigh.c b/net/decnet/dn_neigh.c
+index b66e3be..e851b14 100644
+--- a/net/decnet/dn_neigh.c
++++ b/net/decnet/dn_neigh.c
+@@ -580,24 +580,8 @@ static const struct seq_operations dn_ne
+ 
+ static int dn_neigh_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct neigh_seq_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
+-
+-	if (!s)
+-		goto out;
+-
+-	rc = seq_open(file, &dn_neigh_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq          = file->private_data;
+-	seq->private = s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &dn_neigh_seq_ops,
++			sizeof(struct neigh_seq_state));
+ }
+ 
+ static const struct file_operations dn_neigh_seq_fops = {
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index b7ebf99..97eee5e 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -1739,23 +1739,8 @@ static const struct seq_operations dn_rt
+ 
+ static int dn_rt_cache_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct dn_rt_cache_iter_state *s;
+-
+-	s = kzalloc(sizeof(*s), GFP_KERNEL);
+-	if (!s)
+-		goto out;
+-	rc = seq_open(file, &dn_rt_cache_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-	seq		= file->private_data;
+-	seq->private	= s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &dn_rt_cache_seq_ops,
++			sizeof(struct dn_rt_cache_iter_state));
+ }
+ 
+ static const struct file_operations dn_rt_cache_seq_fops = {
+
