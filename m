@@ -1,9 +1,9 @@
 From: jamal <hadi@cyberus.ca>
-Subject: [ofa-general] [PATCH 2/3][NET_BATCH] Rev2.5 net core use batching
-Date: Tue, 09 Oct 2007 18:12:24 -0400
-Message-ID: <1191967944.5324.33.camel@localhost>
+Subject: [ofa-general] [PATCH 3/3][NET_BATCH] Rev2.5 kill dev->gso_skb
+Date: Tue, 09 Oct 2007 18:13:57 -0400
+Message-ID: <1191968037.5324.36.camel@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-1YBrEksD5FK2eN2K/A9e"
+Content-Type: multipart/mixed; boundary="=-FGMEsM5HZ6L4d7JSzep0"
 Cc: johnpol@2ka.mipt.ru, peter.p.waskiewicz.jr@intel.com, kumarkr@linux.ibm.com,
 	herbert@gondor.apana.org.au, gaagaan@gmail.com,
 	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
@@ -26,205 +26,103 @@ Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
 
---=-1YBrEksD5FK2eN2K/A9e
+--=-FGMEsM5HZ6L4d7JSzep0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 
-This patch adds the usage of batching within the core.
+This patch removes dev->gso_skb as it is no longer necessary with
+batching code.
 
 cheers,
 jamal
 
---=-1YBrEksD5FK2eN2K/A9e
-Content-Disposition: attachment; filename=02-net-core-use-batching.patch
-Content-Type: text/x-patch; name=02-net-core-use-batching.patch;
-	charset=us-ascii
+
+--=-FGMEsM5HZ6L4d7JSzep0
+Content-Disposition: attachment; filename=03-kill-dev-gso-skb.patch
+Content-Type: text/x-patch; name=03-kill-dev-gso-skb.patch; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 
-[NET_BATCH] net core use batching
-
-This patch adds the usage of batching within the core.
-Performance results demonstrating improvement are provided separately.
-
-I have #if-0ed some of the old functions so the patch is more readable.
-A future patch will remove all if-0ed content.
-Patrick McHardy eyeballed a bug that will cause re-ordering in case
-of a requeue.
+[NET_BATCH] kill dev->gso_skb
+The batching code does what gso used to batch at the drivers.
+There is no more need for gso_skb. If for whatever reason the
+requeueing is a bad idea we are going to leave packets in dev->blist
+(and still not need dev->gso_skb)
 
 Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
 ---
-commit c73d8ee8cce61a98f55fbfb2cafe813a7eca472c
-tree 8b9155fe15baa4c2e7adb69585c7aa275a6bc896
-parent 98d39e2222a7922fa2719a80eecd02cae359f3d7
-author Jamal Hadi Salim <hadi@cyberus.ca> Tue, 09 Oct 2007 11:13:30 -0400
-committer Jamal Hadi Salim <hadi@cyberus.ca> Tue, 09 Oct 2007 11:13:30 -0400
+commit fac8a4147548f314d4edb74634e78e5b06e0e135
+tree 72114acb327bc7e3eb219275df6b3aab7459795c
+parent c73d8ee8cce61a98f55fbfb2cafe813a7eca472c
+author Jamal Hadi Salim <hadi@cyberus.ca> Tue, 09 Oct 2007 11:22:43 -0400
+committer Jamal Hadi Salim <hadi@cyberus.ca> Tue, 09 Oct 2007 11:22:43 -0400
 
- net/sched/sch_generic.c |  104 ++++++++++++++++++++++++++++++++++++++++++-----
- 1 files changed, 94 insertions(+), 10 deletions(-)
+ include/linux/netdevice.h |    3 ---
+ net/sched/sch_generic.c   |   12 ------------
+ 2 files changed, 0 insertions(+), 15 deletions(-)
 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index b0e71c9..7592a56 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -578,9 +578,6 @@ struct net_device
+ 	struct list_head	qdisc_list;
+ 	unsigned long		tx_queue_len;	/* Max frames per queue allowed */
+ 
+-	/* Partially transmitted GSO packet. */
+-	struct sk_buff		*gso_skb;
+-
+ 	/* ingress path synchronizer */
+ 	spinlock_t		ingress_lock;
+ 	struct Qdisc		*qdisc_ingress;
 diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 424c08b..d98c680 100644
+index d98c680..36b6972 100644
 --- a/net/sched/sch_generic.c
 +++ b/net/sched/sch_generic.c
-@@ -56,6 +56,7 @@ static inline int qdisc_qlen(struct Qdisc *q)
- 	return q->q.qlen;
- }
+@@ -172,13 +172,6 @@ static int xmit_get_pkts(struct net_device *dev,
+ 	struct sk_buff *skb;
+ 	int count = dev->xmit_win;
  
-+#if 0
- static inline int dev_requeue_skb(struct sk_buff *skb, struct net_device *dev,
- 				  struct Qdisc *q)
+-	if (count  && dev->gso_skb) {
+-		skb = dev->gso_skb;
+-		dev->gso_skb = NULL;
+-		count -= xmit_count_skbs(skb);
+-		__skb_queue_tail(pktlist, skb);
+-	}
+-
+ 	while (count > 0) {
+ 		skb = q->dequeue(q);
+ 		if (!skb)
+@@ -635,7 +628,6 @@ void dev_activate(struct net_device *dev)
+ void dev_deactivate(struct net_device *dev)
  {
-@@ -110,6 +111,85 @@ static inline int handle_dev_cpu_collision(struct sk_buff *skb,
- 
- 	return ret;
- }
-+#endif
-+
-+static inline int handle_dev_cpu_collision(struct net_device *dev)
-+{
-+	if (unlikely(dev->xmit_lock_owner == smp_processor_id())) {
-+		if (net_ratelimit())
-+			printk(KERN_WARNING
-+				"Dead loop on netdevice %s, fix it urgently!\n",
-+				dev->name);
-+		return 1;
-+	}
-+	__get_cpu_var(netdev_rx_stat).cpu_collision++;
-+	return 0;
-+}
-+
-+static inline int
-+dev_requeue_skbs(struct sk_buff_head *skbs, struct net_device *dev,
-+	       struct Qdisc *q)
-+{
-+
-+	struct sk_buff *skb;
-+
-+	while ((skb = __skb_dequeue_tail(skbs)) != NULL)
-+		q->ops->requeue(skb, q);
-+
-+	netif_schedule(dev);
-+	return 0;
-+}
-+
-+static inline int
-+xmit_islocked(struct sk_buff_head *skbs, struct net_device *dev,
-+	    struct Qdisc *q)
-+{
-+	int ret = handle_dev_cpu_collision(dev);
-+
-+	if (ret) {
-+		if (!skb_queue_empty(skbs))
-+			skb_queue_purge(skbs);
-+		return qdisc_qlen(q);
-+	}
-+
-+	return dev_requeue_skbs(skbs, dev, q);
-+}
-+
-+static int xmit_count_skbs(struct sk_buff *skb)
-+{
-+	int count = 0;
-+	for (; skb; skb = skb->next) {
-+		count += skb_shinfo(skb)->nr_frags;
-+		count += 1;
-+	}
-+	return count;
-+}
-+
-+static int xmit_get_pkts(struct net_device *dev,
-+			   struct Qdisc *q,
-+			   struct sk_buff_head *pktlist)
-+{
-+	struct sk_buff *skb;
-+	int count = dev->xmit_win;
-+
-+	if (count  && dev->gso_skb) {
-+		skb = dev->gso_skb;
-+		dev->gso_skb = NULL;
-+		count -= xmit_count_skbs(skb);
-+		__skb_queue_tail(pktlist, skb);
-+	}
-+
-+	while (count > 0) {
-+		skb = q->dequeue(q);
-+		if (!skb)
-+			break;
-+
-+		count -= xmit_count_skbs(skb);
-+		__skb_queue_tail(pktlist, skb);
-+	}
-+
-+	return skb_queue_len(pktlist);
-+}
- 
- /*
-  * NOTE: Called under dev->queue_lock with locally disabled BH.
-@@ -133,19 +213,20 @@ static inline int handle_dev_cpu_collision(struct sk_buff *skb,
- static inline int qdisc_restart(struct net_device *dev)
- {
- 	struct Qdisc *q = dev->qdisc;
+ 	struct Qdisc *qdisc;
 -	struct sk_buff *skb;
--	int ret, xcnt = 0;
-+	int ret = 0;
  
--	/* Dequeue packet */
--	if (unlikely((skb = dev_dequeue_skb(dev, q)) == NULL))
--		return 0;
-+	/* Dequeue packets */
-+	ret = xmit_get_pkts(dev, q, &dev->blist);
+ 	spin_lock_bh(&dev->queue_lock);
+ 	qdisc = dev->qdisc;
+@@ -643,15 +635,11 @@ void dev_deactivate(struct net_device *dev)
  
-+	if (!ret)
-+		return 0;
+ 	qdisc_reset(qdisc);
  
--	/* And release queue */
-+	/* We got em packets */
- 	spin_unlock(&dev->queue_lock);
- 
-+	/* bye packets ....*/
- 	HARD_TX_LOCK(dev, smp_processor_id());
--	ret = dev_hard_start_xmit(skb, dev, &xcnt);
-+	ret = dev_batch_xmit(dev);
- 	HARD_TX_UNLOCK(dev);
- 
- 	spin_lock(&dev->queue_lock);
-@@ -158,8 +239,8 @@ static inline int qdisc_restart(struct net_device *dev)
- 		break;
- 
- 	case NETDEV_TX_LOCKED:
--		/* Driver try lock failed */
--		ret = handle_dev_cpu_collision(skb, dev, q);
-+		/* Driver lock failed */
-+		ret = xmit_islocked(&dev->blist, dev, q);
- 		break;
- 
- 	default:
-@@ -168,7 +249,7 @@ static inline int qdisc_restart(struct net_device *dev)
- 			printk(KERN_WARNING "BUG %s code %d qlen %d\n",
- 			       dev->name, ret, q->q.qlen);
- 
--		ret = dev_requeue_skb(skb, dev, q);
-+		ret = dev_requeue_skbs(&dev->blist, dev, q);
- 		break;
- 	}
- 
-@@ -564,6 +645,9 @@ void dev_deactivate(struct net_device *dev)
- 
- 	skb = dev->gso_skb;
- 	dev->gso_skb = NULL;
-+	if (!skb_queue_empty(&dev->blist))
-+		skb_queue_purge(&dev->blist);
-+	dev->xmit_win = 1;
+-	skb = dev->gso_skb;
+-	dev->gso_skb = NULL;
+ 	if (!skb_queue_empty(&dev->blist))
+ 		skb_queue_purge(&dev->blist);
+ 	dev->xmit_win = 1;
  	spin_unlock_bh(&dev->queue_lock);
  
- 	kfree_skb(skb);
+-	kfree_skb(skb);
+-
+ 	dev_watchdog_down(dev);
+ 
+ 	/* Wait for outstanding dev_queue_xmit calls. */
 
---=-1YBrEksD5FK2eN2K/A9e
+--=-FGMEsM5HZ6L4d7JSzep0
 Content-Type: text/plain; charset="us-ascii"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
 
---=-1YBrEksD5FK2eN2K/A9e--
+--=-FGMEsM5HZ6L4d7JSzep0--
