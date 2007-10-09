@@ -1,68 +1,61 @@
 From: "Joakim Tjernlund" <joakim.tjernlund@transmode.se>
-Subject: RE: Fixed PHY regression
-Date: Tue, 9 Oct 2007 07:46:59 +0200
-Message-ID: <00ab01c80a37$cfb19560$04ac10ac@Jocke>
-References: <470AC3B2.7090802@garzik.org>
+Subject: RE: raw PF_PACKET protocol selection
+Date: Tue, 9 Oct 2007 08:08:22 +0200
+Message-ID: <00ac01c80a3a$cc83a6a0$04ac10ac@Jocke>
+References: <E1If5b3-00043F-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>
-To: "'Jeff Garzik'" <jeff@garzik.org>,
-	"'David Miller'" <davem@davemloft.net>
+To: "'Herbert Xu'" <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.transmode.se ([83.241.175.147]:25020 "EHLO
+Received: from mail.transmode.se ([83.241.175.147]:26173 "EHLO
 	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750806AbXJIFrE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 01:47:04 -0400
-In-Reply-To: <470AC3B2.7090802@garzik.org>
+	with ESMTP id S1751854AbXJIGI0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 02:08:26 -0400
+In-Reply-To: <E1If5b3-00043F-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
  
 
 > -----Original Message-----
-> From: Jeff Garzik [mailto:jeff@garzik.org] 
-> Sent: den 9 oktober 2007 01:57
-> To: David Miller
-> Cc: joakim.tjernlund@transmode.se; netdev@vger.kernel.org
-> Subject: Re: Fixed PHY regression
+> From: Herbert Xu [mailto:herbert@gondor.apana.org.au] 
+> Sent: den 9 oktober 2007 05:17
+> To: joakim.tjernlund@transmode.se
+> Cc: netdev@vger.kernel.org
+> Subject: Re: raw PF_PACKET protocol selection
 > 
-> David Miller wrote:
-> > From: "Joakim Tjernlund" <joakim.tjernlund@transmode.se>
-> > Date: Mon, 8 Oct 2007 20:17:33 +0200
+> Joakim Tjernlund <joakim.tjernlund@transmode.se> wrote:
 > > 
-> >> David, any chance the second item, Oops while modprobing 
-> phy fixed module, in
-> >> http://marc.info/?l=linux-kernel&m=119178673421891&w=2
-> >> will make it into 2.6.23? 
-> >>
-> >> The fix is now in your tree,
-> >> 
-> http://git.kernel.org/?p=linux/kernel/git/davem/bak-net-2.6.24
-.git;a=commit;h=bbb4c0c35a4c2aed5e025b668c8dfc99c5b74cff
-> >>
-> >> It has been in Andrews tree for a while, then in Garzik 
-> and now it is in your tree.
-> > 
-> > Jeff, any reason you didn't submit this one for 2.6.23?
+> > I trying to open my own raw PF_PACKET socket to receive 
+> > pkgs sent to this socket. I can only make ETH_P_ALL protocol
+> > work, but then I receive all pkgs and I want pkgs with a specific
+> > protocol type. I have tried lots of ETH_P types and none of 
+> them work.
+> > Naturally I make sure the sender is using the same protocol 
+> as my test
+> > program below. I guess I must be doing something wrong???
 > 
-> Two reasons:
-> * despite the subject, after discussion it looked like a problem with 
-> module release, making "build it into your kernel" a valid workaround
+> Your program works fine here.  You did run it as root, right?
 
-I don't use modules and this does not work for me. Basically
-Fixed PHY is broken for me.
+Yes and ETH_P_ALL is the only protocol that prints anything
+I am on 2.6.22
 
- Jocke
+> Did you try stracing it?
 
-> * the fix was quite invasive this late in the game
+Just did and now it works, it didn't yesterday :(
+But if I change protocol to ETH_P_MOBITEX, I don't get any
+pkgs(I did change protocol on sending side too)
+
 > 
-> If people still think it should go for 2.6.23, that's cool with me.
-> 
-> 	Jeff
-> 
-> 
+> Cheers,
+> -- 
+> Visit Openswan at http://www.openswan.org/
+> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 > 
 > 
 > 
