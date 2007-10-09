@@ -1,30 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net-2.6.24 rebased...
-Date: Tue, 09 Oct 2007 14:18:46 -0700 (PDT)
-Message-ID: <20071009.141846.15266819.davem@davemloft.net>
-References: <20071009.024108.59465259.davem@davemloft.net>
-	<ygfbqb8dm9l.fsf@janus.isnogud.escape.de>
+Subject: Re: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
+Date: Tue, 09 Oct 2007 14:22:35 -0700 (PDT)
+Message-ID: <20071009.142235.74385364.davem@davemloft.net>
+References: <p73k5pw44ew.fsf@bingen.suse.de>
+	<20071009.134331.35664207.davem@davemloft.net>
+	<20071009135340.33e5922c@freepuppy.rosehill>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	oliver@hartkopp.net
-To: urs@isnogud.escape.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54584
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752574AbXJIVSq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 17:18:46 -0400
-In-Reply-To: <ygfbqb8dm9l.fsf@janus.isnogud.escape.de>
-Sender: netdev-owner@vger.kernel.org
+Cc: johnpol@2ka.mipt.ru, Robert.Olsson@data.slu.se, herbert@gondor.apana.org.au,
+	gaagaan@gmail.com, jeff@garzik.org, rdreier@cisco.com,
+	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
+	mcarlson@broadcom.com, andi@firstfloor.org,
+	general@lists.openfabrics.org, netdev@vger.kernel.org,
+	tgraf@suug.ch, randy.dunlap@oracle.com, jagana@us.ibm.com,
+	kaber@trash.net, mchan@broadcom.com, sri@us.ibm.com
+To: shemminger@linux-foundation.org
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <20071009135340.33e5922c@freepuppy.rosehill>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-From: Urs Thuermann <urs@isnogud.escape.de>
-Date: 09 Oct 2007 23:13:42 +0200
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Date: Tue, 9 Oct 2007 13:53:40 -0700
 
-> Last week I have sent another version of our patch series for PF_CAN.
-> The changes after the last review feedback were only cosmetics.
-> 
-> Do you have any plans with that code for this or the next release?
+> I was thinking why not have a default transmit queue len of 0 like
+> the virtual devices.
 
-I think PF_CAN will go in 2.6.25
+I'm not so sure.
+
+Even if the device has "huge queues" I still think we need a software
+queue for when the hardware one backs up.
+
+It is even beneficial to stick with reasonably sized TX queues because
+it keeps the total resident state accessed by the CPU within the
+bounds of the L2 cache.  If you go past that it actually hurts to make
+the TX queue larger instead of helps even if it means you never hit
+back pressure.
