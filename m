@@ -1,30 +1,34 @@
-From: Urs Thuermann <urs@isnogud.escape.de>
-Subject: Re: net-2.6.24 rebased...
-Date: 09 Oct 2007 23:13:42 +0200
-Message-ID: <ygfbqb8dm9l.fsf@janus.isnogud.escape.de>
-References: <20071009.024108.59465259.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][NETNS] Make ifindex generation per-namespace
+Date: Tue, 09 Oct 2007 14:17:31 -0700 (PDT)
+Message-ID: <20071009.141731.35016624.davem@davemloft.net>
+References: <m1k5pwxjxd.fsf@ebiederm.dsl.xmission.com>
+	<20071009.131113.112622864.davem@davemloft.net>
+	<m1tzp0vw9x.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	oliver@hartkopp.net
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dlstevens@us.ibm.com, xemul@openvz.org, devel@openvz.org,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oker.escape.de ([194.120.234.254]:50737 "EHLO oker.escape.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750797AbXJIVPO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Oct 2007 17:15:14 -0400
-In-Reply-To: <20071009.024108.59465259.davem@davemloft.net>; from David Miller on Tue, 09 Oct 2007 02:41:08 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54578
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750797AbXJIVRc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 17:17:32 -0400
+In-Reply-To: <m1tzp0vw9x.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hallo Dave,
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 09 Oct 2007 15:00:10 -0600
 
-> 9.1MB, 739 changesets, keep those patches flowing!
+> Regardless it is early yet and there is plenty of time to revisit this
+> after we solved the easier and less controversial problems.
 
-Last week I have sent another version of our patch series for PF_CAN.
-The changes after the last review feedback were only cosmetics.
+Ok.
 
-Do you have any plans with that code for this or the next release?
-
-Regards,
-urs
+I would encourage you to learn how the SNMP mibs work, and whether
+they associate things with interfaces and/or unique MAC addresses.
+The semantics may have conflicts with your envisioned cluster
+abstraction.
