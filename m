@@ -1,22 +1,23 @@
-From: David Miller <davem@davemloft.net>
-Subject: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
-Date: Mon, 08 Oct 2007 18:41:26 -0700 (PDT)
-Message-ID: <20071008.184126.124062865.davem@davemloft.net>
-References: <D5C1322C3E673F459512FB59E0DDC32903BC14AC@orsmsx414.amr.corp.intel.com>
-	<1191886845.4373.138.camel@localhost> <470AD5D7.1070000@garzik.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: [ofa-general] Re: parallel networking
+Date: Mon, 08 Oct 2007 21:53:25 -0400
+Message-ID: <470ADF15.2090100@garzik.org>
+References: <20071007.215124.85709188.davem@davemloft.net>	<1191850490.4352.41.camel@localhost>	<470A3D24.3050803@garzik.org>
+	<20071008.141154.107706003.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
-	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
-	hadi@cyberus.ca, mcarlson@broadcom.com, jagana@us.ibm.com,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	randy.dunlap@oracle.com, sri@us.ibm.com,
-	shemminger@linux-foundation.org, kaber@trash.net
-To: jeff@garzik.org
+Cc: randy.dunlap@oracle.com, Robert.Olsson@data.slu.se, gaagaan@gmail.com,
+	kumarkr@linux.ibm.com, peter.p.waskiewicz.jr@intel.com,
+	shemminger@linux-foundation.org, johnpol@2ka.mipt.ru,
+	herbert@gondor.apana.org.au, rdreier@cisco.com,
+	general@lists.openfabrics.org, mingo@elte.hu, sri@us.ibm.com,
+	jagana@us.ibm.com, hadi@cyberus.ca, mchan@broadcom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tgraf@suug.ch, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <470AD5D7.1070000@garzik.org>
+In-Reply-To: <20071008.141154.107706003.davem@davemloft.net>
 List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
 	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
 List-Archive: <http://lists.openfabrics.org/pipermail/general>
@@ -28,62 +29,72 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Garzik <jeff@garzik.org>
-Date: Mon, 08 Oct 2007 21:13:59 -0400
+David Miller wrote:
+> From: Jeff Garzik <jeff@garzik.org>
+> Date: Mon, 08 Oct 2007 10:22:28 -0400
+> 
+>> In terms of overall parallelization, both for TX as well as RX, my gut 
+>> feeling is that we want to move towards an MSI-X, multi-core friendly 
+>> model where packets are LIKELY to be sent and received by the same set 
+>> of [cpus | cores | packages | nodes] that the [userland] processes 
+>> dealing with the data.
+> 
+> The problem is that the packet schedulers want global guarantees
+> on packet ordering, not flow centric ones.
+> 
+> That is the issue Jamal is concerned about.
 
-> If you assume a scheduler implementation where each prio band is mapped 
-> to a separate CPU, you can certainly see where some CPUs could be 
-> substantially idle while others are overloaded, largely depending on the 
-> data workload (and priority contained within).
+Oh, absolutely.
 
-Right, which is why Peter added the prio DRR scheduler stuff for TX
-multiqueue (see net/sched/sch_prio.c:rr_qdisc_ops) because this is
-what the chips do.
+I think, fundamentally, any amount of cross-flow resource management 
+done in software is an obstacle to concurrency.
 
-But this doesn't get us to where we want to be as Peter has been
-explaining a bit these past few days.
+That's not a value judgement, just a statement of fact.
 
-Ok, we're talking a lot but not pouring much concrete, let's start
-doing that.  I propose:
+"traffic cops" are intentional bottlenecks we add to the process, to 
+enable features like priority flows, filtering, or even simple socket 
+fairness guarantees.  Each of those bottlenecks serves a valid purpose, 
+but at the end of the day, it's still a bottleneck.
 
-1) A library for transmit load balancing functions, with an interface
-   that can be made visible to userspace.  I can write this and test
-   it on real multiqueue hardware.
+So, improving concurrency may require turning off useful features that 
+nonetheless hurt concurrency.
 
-   The whole purpose of this library is to set skb->queue_mapping
-   based upon the load balancing function.
 
-   Facilities will be added to handle virtualization port selection
-   based upon destination MAC address as one of the "load balancing"
-   methods.
+> The more I think about it, the more inevitable it seems that we really
+> might need multiple qdiscs, one for each TX queue, to pull this full
+> parallelization off.
+> 
+> But the semantics of that don't smell so nice either.  If the user
+> attaches a new qdisc to "ethN", does it go to all the TX queues, or
+> what?
+> 
+> All of the traffic shaping technology deals with the device as a unary
+> object.  It doesn't fit to multi-queue at all.
 
-2) Switch the default qdisc away from pfifo_fast to a new DRR fifo
-   with load balancing using the code in #1.  I think this is kind
-   of in the territory of what Peter said he is working on.
+Well the easy solutions to networking concurrency are
 
-   I know this is controversial, but realistically I doubt users
-   benefit at all from the prioritization that pfifo provides.  They
-   will, on the other hand, benefit from TX queue load balancing on
-   fast interfaces.
+* use virtualization to carve up the machine into chunks
 
-3) Work on discovering a way to make the locking on transmit as
-   localized to the current thread of execution as possible.  Things
-   like RCU and statistic replication, techniques we use widely
-   elsewhere in the stack, begin to come to mind.
+* use multiple net devices
 
-I also want to point out another issue.  Any argument wrt. reordering
-is specious at best because right now reordering from qdisc to device
-happens anyways.
+Since new NIC hardware is actively trying to be friendly to 
+multi-channel/virt scenarios, either of these is reasonably 
+straightforward given the current state of the Linux net stack.  Using 
+multiple net devices is especially attractive because it works very well 
+with the existing packet scheduling.
 
-And that's because we drop the qdisc lock first, then we grab the
-transmit lock on the device and submit the packet.  So, after we
-drop the qdisc lock, another cpu can get the qdisc lock, get the
-next packet (perhaps a lower priority one) and then sneak in to
-get the device transmit lock before the first thread can, and
-thus the packets will be submitted out of order.
+Both unfortunately impose a burden on the developer and admin, to force 
+their apps to distribute flows across multiple [VMs | net devs].
 
-This, along with other things, makes me believe that ordering really
-doesn't matter in practice.  And therefore, in practice, we can treat
-everything from the qdisc to the real hardware as a FIFO even if
-something else is going on inside the black box which might reorder
-packets on the wire.
+
+The third alternative is to use a single net device, with SMP-friendly 
+packet scheduling.  Here you run into the problems you described "device 
+as a unary object" etc. with the current infrastructure.
+
+With multiple TX rings, consider that we are pushing the packet 
+scheduling from software to hardware...  which implies
+* hardware-specific packet scheduling
+* some TC/shaping features not available, because hardware doesn't 
+support it
+
+	Jeff
