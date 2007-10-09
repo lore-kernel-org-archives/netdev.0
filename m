@@ -1,54 +1,49 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2/3][NET_BATCH] net core use batching
-Date: Tue, 09 Oct 2007 15:04:23 -0400
-Message-ID: <470BD0B7.4070607@garzik.org>
-References: <D5C1322C3E673F459512FB59E0DDC32903BC14AC@orsmsx414.amr.corp.intel.com>	<1191886845.4373.138.camel@localhost>	<470AD5D7.1070000@garzik.org> <20071008.184126.124062865.davem@davemloft.net> <470AE373.9020207@garzik.org> <D5C1322C3E673F459512FB59E0DDC32903C0821A@orsmsx414.amr.corp.intel.com>
+From: Andreas Mohr <andi@lisas.de>
+Subject: Re: 2.6.23-rc8-mm2 BUG: register_netdevice() issue as (ab)used by
+	ISDN
+Date: Tue, 9 Oct 2007 21:06:05 +0200
+Message-ID: <20071009190605.GA6717@rhlx01.hs-esslingen.de>
+References: <20071007120653.GA16184@rhlx01.hs-esslingen.de> <4708D00D.8030307@garzik.org> <20071007131723.GA22873@rhlx01.hs-esslingen.de> <20071007172037.GA29384@rhlx01.hs-esslingen.de> <20071008155836.GA19932@pingi.kke.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, hadi@cyberus.ca,
-	krkumar2@in.ibm.com, johnpol@2ka.mipt.ru,
-	herbert@gondor.apana.org.au, kaber@trash.net,
-	shemminger@linux-foundation.org, jagana@us.ibm.com,
-	Robert.Olsson@data.slu.se, rick.jones2@hp.com, xma@us.ibm.com,
-	gaagaan@gmail.com, netdev@vger.kernel.org, rdreier@cisco.com,
-	mcarlson@broadcom.com, mchan@broadcom.com,
-	general@lists.openfabrics.org, tgraf@suug.ch,
-	randy.dunlap@oracle.com, sri@us.ibm.com
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Content-Type: text/plain; charset=us-ascii
+To: Andreas Mohr <andi@lisas.de>, Jeff Garzik <jeff@garzik.org>,
+	isdn4linux@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60221 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752265AbXJITFB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Oct 2007 15:05:01 -0400
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32903C0821A@orsmsx414.amr.corp.intel.com>
+Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:45239 "EHLO
+	rhlx01.hs-esslingen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752543AbXJITGJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 15:06:09 -0400
+Content-Disposition: inline
+In-Reply-To: <20071008155836.GA19932@pingi.kke.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Waskiewicz Jr, Peter P wrote:
->> IMO the net driver really should provide a hint as to what it wants.
->>
->> 8139cp and tg3 would probably prefer multiple TX queue 
->> behavior to match silicon behavior -- strict prio.
-> 
-> If I understand what you just said, I disagree.  If your hardware is
-> running strict prio, you don't want to enforce strict prio in the qdisc
-> layer; performing two layers of QoS is excessive, and may lead to
-> results you don't want.  The reason I added the DRR qdisc is for the Si
-> that has its own queueing strategy that is not RR.  For Si that
-> implements RR (like e1000), you can either use the DRR qdisc, or if you
-> want to prioritize your flows, use PRIO.
+Hi,
 
-A misunderstanding, I think.
+On Mon, Oct 08, 2007 at 05:58:36PM +0200, Karsten Keil wrote:
+> You could try following patch with 2.6.23-rc8-mm2, it change I4L to use
+> alloc_netdev().
 
-To my brain, DaveM's item #2 seemed to assume/require the NIC hardware 
-to balance fairly across hw TX rings, which seemed to preclude the 
-8139cp/tg3 style of strict-prio hardware.  That's what I was responding to.
+I just did the horribly unthinkable:
+I rebooted the production internet gateway *remotely*, and:
 
-As long as there is some modular way to fit 8139cp/tg3 style multi-TX 
-into our universe, I'm happy :)
+root@gate:/home/andi# uname -a
+Linux gate 2.6.23-rc8-mm2-gate #1 Mon Oct 8 22:14:00 CEST 2007 i586
+GNU/Linux
+root@gate:/home/andi# dmesg|grep BUG
+root@gate:/home/andi# grep BUG /var/log/messages
+Oct  7 13:07:40 gate kernel: kernel BUG at net/core/dev.c:3485!
+^^^^^^^
 
-	Jeff
+This 2.6.23-rc8-mm2-gate was ISDN-patched, obviously.
+Oh, and isdnlog *is* indeed running, so this is a first check that
+ISDN functionality seems to be up and running...
 
+IOW, thanks!!
 
+Andreas Mohr
 
+-- 
+Want to provide valuable development feedback about your kernel version?
+Install http://klive.cpushare.com/ !
