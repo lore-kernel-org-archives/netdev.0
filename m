@@ -1,42 +1,64 @@
 From: jamal <hadi@cyberus.ca>
-Subject: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
-Date: Tue, 09 Oct 2007 09:10:02 -0400
-Message-ID: <1191935402.4373.172.camel@localhost>
-References: <OFDE12F216.8E927E22-ON6525736F.001137D0-6525736F.00115A01@in.ibm.com>
+Subject: Re: [PATCHES] TX batching
+Date: Tue, 09 Oct 2007 09:25:42 -0400
+Message-ID: <1191936342.4373.187.camel@localhost>
+References: <OF568108F3.5706A2B5-ON6525736F.002CED41-6525736F.002D492F@in.ibm.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, gaagaan@gmail.com, jeff@garzik.org,
-	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
-	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
-	mcarlson@broadcom.com, Patrick McHardy <kaber@trash.net>,
-	netdev@vger.kernel.org, general@lists.openfabrics.org,
-	mchan@broadcom.com, tgraf@suug.ch, randy.dunlap@oracle.com,
-	sri@us.ibm.com, shemminger@linux-foundation.org,
-	David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au
+Cc: David Miller <davem@davemloft.net>, gaagaan@gmail.com,
+	general@lists.openfabrics.org, herbert@gondor.apana.org.au,
+	jagana@us.ibm.com, jeff@garzik.org,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>, kaber@trash.net,
+	kumarkr@linux.ibm.com, mcarlson@broadcom.com, mchan@broadcom.com,
+	netdev@vger.kernel.org, peter.p.waskiewicz.jr@intel.com,
+	randy.dunlap@oracle.com, rdreier@cisco.com, rick.jones2@hp.com,
+	Robert.Olsson@data.slu.se, shemminger@linux-foundation.org,
+	sri@us.ibm.com, tgraf@suug.ch, xma@us.ibm.com
 To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <OFDE12F216.8E927E22-ON6525736F.001137D0-6525736F.00115A01@in.ibm.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from el-out-1112.google.com ([209.85.162.182]:41265 "EHLO
+	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752280AbXJINZu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 09:25:50 -0400
+Received: by el-out-1112.google.com with SMTP id v27so304039ele
+        for <netdev@vger.kernel.org>; Tue, 09 Oct 2007 06:25:48 -0700 (PDT)
+In-Reply-To: <OF568108F3.5706A2B5-ON6525736F.002CED41-6525736F.002D492F@in.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-09-10 at 08:39 +0530, Krishna Kumar2 wrote:
+On Tue, 2007-09-10 at 13:44 +0530, Krishna Kumar2 wrote:
 
-> Driver might ask for 10 and we send 10, but LLTX driver might fail to get
-> lock and return TX_LOCKED. I haven't seen your code in greater detail, but
-> don't you requeue in that case too?
+> My feeling is that since the approaches are very different, 
 
-For others drivers that are non-batching and LLTX, it is possible - at
-the moment in my patch i whine that the driver is buggy. I will fix this
-up so it checks for NETIF_F_BTX. Thanks for pointing the above use case.
+My concern is the approaches are different only for short periods of
+time. For example, I do requeueing, have xmit_win, have ->end_xmit,
+do batching from core etc; if you see value in any of these concepts,
+they will appear in your patches and this goes on a loop. Perhaps what
+we need is a referee and use our energies in something more positive.
+
+> it would be a good idea to test the two for performance. 
+
+Which i dont mind as long as it has an analysis that goes with it.
+If all you post is "heres what netperf showed", it is not useful at all.
+There are also a lot of affecting variables. For example, is the
+receiver a bottleneck? To make it worse, I could demonstrate to you that
+if i slowed down the driver and allowed more packets to queue up on the
+qdisc, batching will do well. In the past my feeling is you glossed over
+such details and i am sucker for things like that - hence the conflict.
+
+> Do you mind me doing
+> that? Ofcourse others and/or you are more than welcome to do the same.
+> 
+> I had sent a note to you yesterday about this, please let me know
+> either way.
+> 
+
+I responded to you - but it may have been lost in the noise; heres a
+copy:
+http://marc.info/?l=linux-netdev&m=119185137124008&w=2
 
 cheers,
 jamal
+
