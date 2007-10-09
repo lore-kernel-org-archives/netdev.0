@@ -1,57 +1,42 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [RFC PATCH net-2.6.24 0/3]: Attempt to fix lost_retrans brokeness
-Date: Tue, 9 Oct 2007 16:03:29 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0710091600300.3767@kivilampi-30.cs.helsinki.fi>
-References: <11919324023597-git-send-email-ilpo.jarvinen@helsinki.fi>
+From: jamal <hadi@cyberus.ca>
+Subject: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
+Date: Tue, 09 Oct 2007 09:10:02 -0400
+Message-ID: <1191935402.4373.172.camel@localhost>
+References: <OFDE12F216.8E927E22-ON6525736F.001137D0-6525736F.00115A01@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1001774710-1191935009=:3767"
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	TAKANO Ryousei <takano@axe-inc.co.jp>
-To: Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:33369 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753412AbXJINDd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 09:03:33 -0400
-In-Reply-To: <11919324023597-git-send-email-ilpo.jarvinen@helsinki.fi>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, gaagaan@gmail.com, jeff@garzik.org,
+	Robert.Olsson@data.slu.se, kumarkr@linux.ibm.com,
+	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
+	mcarlson@broadcom.com, Patrick McHardy <kaber@trash.net>,
+	netdev@vger.kernel.org, general@lists.openfabrics.org,
+	mchan@broadcom.com, tgraf@suug.ch, randy.dunlap@oracle.com,
+	sri@us.ibm.com, shemminger@linux-foundation.org,
+	David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <OFDE12F216.8E927E22-ON6525736F.001137D0-6525736F.00115A01@in.ibm.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Tue, 2007-09-10 at 08:39 +0530, Krishna Kumar2 wrote:
 
----696243703-1001774710-1191935009=:3767
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: 8BIT
+> Driver might ask for 10 and we send 10, but LLTX driver might fail to get
+> lock and return TX_LOCKED. I haven't seen your code in greater detail, but
+> don't you requeue in that case too?
 
-On Tue, 9 Oct 2007, Ilpo Järvinen wrote:
+For others drivers that are non-batching and LLTX, it is possible - at
+the moment in my patch i whine that the driver is buggy. I will fix this
+up so it checks for NETIF_F_BTX. Thanks for pointing the above use case.
 
-> Lost_retrans handling of sacktag was found to be flawed, two
-> problems that were found have an intertwined solution. Fastpath
-> problem has existed since hints got added and the other problem
-> has probably been there even longer than that. ...This change
-> may add non-trivial processing cost.
-> 
-> Initial sketch, only compile tested. This will become more and
-> more useful, when sacktag starts to process less and less skbs,
-> which hopefully happens quite soon... :-) Sadly enough it will
-> probably then be consuming part of the benefits we're able to
-> achieve by less skb walking...
-> 
-> First one is trivial, so Dave might want to apply it already.
-
-Hmm, forgot to add -n to git-format-patch. Since it's currently
-RFC, I won't bother to resubmit with numbers unless somebody
-really wants that. Here's the correct ordering, if it's not
-obvious from the patches alone:
-
-$ git-log -n 3 --pretty=oneline HEAD | cat
-c628f5040cf31323f9166d41cb46070aa7be8cc5 [TCP]: Limit processing lost_retrans loop to work-to-do cases
-b7388980b7bfa1b9159a65a81b9501df43c67b08 [TCP]: Fix lost_retrans loop vs fastpath problems
-a1c39117034c58bf786a5941dd7e9a5968439007 [TCP]: Separate lost_retrans loop into own function
-
-
--- 
- i.
----696243703-1001774710-1191935009=:3767--
+cheers,
+jamal
