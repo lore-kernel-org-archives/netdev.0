@@ -1,74 +1,48 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
+From: Andi Kleen <andi@firstfloor.org>
 Subject: Re: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
-Date: Tue, 9 Oct 2007 11:22:25 -0700
-Message-ID: <20071009112225.5f9756e7@freepuppy.rosehill>
-References: <D5C1322C3E673F459512FB59E0DDC32903BC14AC@orsmsx414.amr.corp.intel.com>
-	<1191886845.4373.138.camel@localhost> <470AD5D7.1070000@garzik.org>
-	<20071008.184126.124062865.davem@davemloft.net>
-	<p73k5pw44ew.fsf@bingen.suse.de>
+Date: Tue, 9 Oct 2007 20:30:27 +0200
+Message-ID: <20071009183027.GA552@one.firstfloor.org>
+References: <D5C1322C3E673F459512FB59E0DDC32903BC14AC@orsmsx414.amr.corp.intel.com> <1191886845.4373.138.camel@localhost> <470AD5D7.1070000@garzik.org> <20071008.184126.124062865.davem@davemloft.net> <p73k5pw44ew.fsf@bingen.suse.de> <20071009112225.5f9756e7@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, Robert.Olsson@data.slu.se, jeff@garzik.org,
-	gaagaan@gmail.com, kaber@trash.net, netdev@vger.kernel.org,
-	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
-	hadi@cyberus.ca, mcarlson@broadcom.com, jagana@us.ibm.com,
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>, jeff@garzik.org,
+	johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
+	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
+	netdev@vger.kernel.org, rdreier@cisco.com,
+	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
+	mcarlson@broadcom.com, jagana@us.ibm.com,
 	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	randy.dunlap@oracle.com, sri@us.ibm.com,
-	David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <p73k5pw44ew.fsf@bingen.suse.de>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+	randy.dunlap@oracle.com, sri@us.ibm.com, kaber@trash.net
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([213.235.205.2]:39166 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751371AbXJISaa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 14:30:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20071009112225.5f9756e7@freepuppy.rosehill>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09 Oct 2007 18:51:51 +0200
-Andi Kleen <andi@firstfloor.org> wrote:
+> I wonder about the whole idea of queueing in general at such high speeds.
+> Given the normal bi-modal distribution of packets, and the predominance
+> of 1500 byte MTU; does it make sense to even have any queueing in software
+> at all?
 
-> David Miller <davem@davemloft.net> writes:
-> > 
-> > 2) Switch the default qdisc away from pfifo_fast to a new DRR fifo
-> >    with load balancing using the code in #1.  I think this is kind
-> >    of in the territory of what Peter said he is working on.
-> 
-> Hopefully that new qdisc will just use the TX rings of the hardware
-> directly. They are typically large enough these days. That might avoid
-> some locking in this critical path.
-> 
-> >    I know this is controversial, but realistically I doubt users
-> >    benefit at all from the prioritization that pfifo provides.
-> 
-> I agree. For most interfaces the priority is probably dubious.
-> Even for DSL the prioritization will be likely usually done in a router
-> these days.
-> 
-> Also for the fast interfaces where we do TSO priority doesn't work
-> very well anyways -- with large packets there is not too much 
-> to prioritize.
-> 
-> > 3) Work on discovering a way to make the locking on transmit as
-> >    localized to the current thread of execution as possible.  Things
-> >    like RCU and statistic replication, techniques we use widely
-> >    elsewhere in the stack, begin to come to mind.
-> 
-> If the data is just passed on to the hardware queue, why is any 
-> locking needed at all? (except for the driver locking of course)
-> 
-> -Andi
+Yes that is my point -- it should just pass it through directly
+and the driver can then put it into the different per CPU (or per
+whatever) queues managed by the hardware.
 
-I wonder about the whole idea of queueing in general at such high speeds.
-Given the normal bi-modal distribution of packets, and the predominance
-of 1500 byte MTU; does it make sense to even have any queueing in software
-at all?
+The only thing the qdisc needs to do is to set some bit that says
+"it is ok to put this into difference queues; don't need strict ordering" 
 
+Otherwise if the drivers did that unconditionally they might cause
+problems with other qdiscs.
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+This would also require that the driver exports some hint 
+to the upper layer on how large its internal queues are. A device
+with a short queue would still require pfifo_fast. Long queue
+devices could just pass through. That again could be a single flag.
+
+-Andi
