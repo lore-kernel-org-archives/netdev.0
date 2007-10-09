@@ -1,46 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/8][BNX2X] resubmit as attachments: add bnx2x to
- Kconfig and Makefile
-Date: Mon, 08 Oct 2007 17:46:03 -0700 (PDT)
-Message-ID: <20071008.174603.55855492.davem@davemloft.net>
-References: <470A5795.2000809@broadcom.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 3/7] [IPSEC]: Move common output code to xfrm_output
+Date: Tue, 9 Oct 2007 09:02:57 +0800
+Message-ID: <20071009010257.GA14117@gondor.apana.org.au>
+References: <20071008112818.GA3010@gondor.apana.org.au> <E1Ieqnr-0000o7-00@gondolin.me.apana.org.au> <20071008.171717.71577244.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.org, netdev@vger.kernel.org, mchan@broadcom.com
-To: eliezert@broadcom.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58182
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751728AbXJIAqE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 20:46:04 -0400
-In-Reply-To: <470A5795.2000809@broadcom.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:3875 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752198AbXJIBDA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 21:03:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20071008.171717.71577244.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Eliezer Tamir" <eliezert@broadcom.com>
-Date: Mon, 08 Oct 2007 18:15:17 +0200
+On Mon, Oct 08, 2007 at 05:17:17PM -0700, David Miller wrote:
+> 
+> Could you submit a 2.6.23 version of just the ipv4 fix?
+> It might be interesting to determine why it was omitted,
+> perhaps it was an oversight, and it probably predates the
+> addition of skb_reset_*().
 
-> Add bnx2x to Kconfig and Makefile
+OK I double-checked and it isn't necessary at all for IPv4 as
+the mode output function already sets the correct value in it.
 
-In a patch submission, the tree should build on every step along the
-way in applying your patches, with any given configuration.
+It's needed for IPv6 because the mode output functions there
+uses it to store a pointer to the NH pointer.
 
-Here, the user (or something automated like "make allmodconfig") can
-select the new config option, but because the driver source hasn't
-been added, the compile will fail.
+So no changes are necessary.
 
-The idea is that if your patch set really is composed of logically
-seperate changes, you submit them one logical compilable piece at a
-time, and if the first few patches are ok, they could go right in
-whilst we work out issues in later patches.  But that's not how
-a new driver is, it is logically one change only.
-
-You go on next to add a foo.c file, and then a foo.h file.
-This makes things even more difficult to review.
-
-Really, for a new driver that doesn't make any generic kernel code
-changes, just submit the whole thing in one shot.  It's the only
-reasonable way.
-
-Thank you.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
