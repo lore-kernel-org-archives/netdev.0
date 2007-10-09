@@ -1,34 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: raw PF_PACKET protocol selection
-Date: Tue, 09 Oct 2007 11:17:25 +0800
-Message-ID: <E1If5b3-00043F-00@gondolin.me.apana.org.au>
-References: <1191868569.6682.67.camel@gentoo-jocke.transmode.se>
-Cc: netdev@vger.kernel.org
-To: joakim.tjernlund@transmode.se
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 1/1] 8021q: transfer dev_id from real device
+Date: Mon, 08 Oct 2007 20:29:09 -0700 (PDT)
+Message-ID: <20071008.202909.110522892.davem@davemloft.net>
+References: <20071008150504.855164000@linux.vnet.ibm.com>
+	<20071008150820.837583000@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: braunu@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1139 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753180AbXJIDRd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 23:17:33 -0400
-In-Reply-To: <1191868569.6682.67.camel@gentoo-jocke.transmode.se>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57589
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752443AbXJID3K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 23:29:10 -0400
+In-Reply-To: <20071008150820.837583000@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Joakim Tjernlund <joakim.tjernlund@transmode.se> wrote:
+From: Ursula Braun <braunu@de.ibm.com>
+Date: Mon, 08 Oct 2007 17:05:05 +0200
+
+> From: Ursula Braun <braunu@de.ibm.com>
 > 
-> I trying to open my own raw PF_PACKET socket to receive 
-> pkgs sent to this socket. I can only make ETH_P_ALL protocol
-> work, but then I receive all pkgs and I want pkgs with a specific
-> protocol type. I have tried lots of ETH_P types and none of them work.
-> Naturally I make sure the sender is using the same protocol as my test
-> program below. I guess I must be doing something wrong???
+> A net_device struct provides field dev_id. It is used for
+> unique ipv6 generation in case of shared network cards
+> (as for the OSA network cards of IBM System z). 
+> If VLAN devices are built on top of such shared network cards,
+> this dev_id information needs to be transferred to the VLAN device.
+> 
+> Signed-off-by: Ursula Braun <braunu@de.ibm.com>
 
-Your program works fine here.  You did run it as root, right?
-Did you try stracing it?
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Patch applied, thanks!
