@@ -1,172 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 5/7] [XFRM] user: Move attribute copying code into copy_to_user_state_extra
-Date: Tue, 09 Oct 2007 22:36:35 +0800
-Message-ID: <E1IfGCJ-0005MD-00@gondolin.me.apana.org.au>
-References: <20071009143517.GA20486@gondor.apana.org.au>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
+From: Daniel Lezcano <dlezcano@fr.ibm.com>
+Subject: Re: [PATCH][NETNS] Make ifindex generation per-namespace
+Date: Tue, 09 Oct 2007 16:48:16 +0200
+Message-ID: <470B94B0.6060504@fr.ibm.com>
+References: <470B71CD.3000706@openvz.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4995 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753002AbXJIOgj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 10:36:39 -0400
+Received: from mtagate1.de.ibm.com ([195.212.29.150]:36474 "EHLO
+	mtagate1.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753746AbXJIOyf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 10:54:35 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate1.de.ibm.com (8.13.8/8.13.8) with ESMTP id l99EsY8t754192
+	for <netdev@vger.kernel.org>; Tue, 9 Oct 2007 14:54:34 GMT
+Received: from d12av04.megacenter.de.ibm.com (d12av04.megacenter.de.ibm.com [9.149.165.229])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l99EsXxj2322508
+	for <netdev@vger.kernel.org>; Tue, 9 Oct 2007 16:54:33 +0200
+Received: from d12av04.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av04.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l99EsXwx013093
+	for <netdev@vger.kernel.org>; Tue, 9 Oct 2007 16:54:33 +0200
+In-Reply-To: <470B71CD.3000706@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[XFRM] user: Move attribute copying code into copy_to_user_state_extra
+Pavel Emelyanov wrote:
+> Currently indexes for netdevices come sequentially one by
+> one, and the same stays true even for devices that are 
+> created for namespaces.
+> 
+> Side effects of this are:
+>  * lo device has not 1 index in a namespace. This may break
+>    some userspace that relies on it (and AFAIR something
+>    really broke in OpenVZ VEs without this);
+>  * after some time namespaces will have devices with indexes
+>    like 1000000 os similar. This might be confusing for a
+>    human (tools will not mind).
+> 
+> So move the (currently "global" and static) ifindex variable
+> on the struct net, making the indexes allocation look more
+> like on a standalone machine.
+> 
+> Moreover - when we have indexes intersect between namespaces,
+> we may catch more BUGs in the future related to "wrong device 
+> was found for a given index".
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Here's a good example of code duplication leading to code rot.  The
-notification patch did its own netlink message creation for xfrm states.
-It duplicated code that was already in dump_one_state.  Guess what, the
-next time (and the time after) when someone updated dump_one_state the
-notification path got zilch.
+Applied and tested against netns49. Works fine.
 
-This patch moves that code from dump_one_state to copy_to_user_state_extra
-and uses it in xfrm_notify_sa too.  Unfortunately whoever updates this
-still needs to update xfrm_sa_len since the notification path wants to
-know the exact size for allocation.
+Acked-by: Daniel Lezcano <dlezcano@fr.ibm.com>
 
-At least I've added a comment saying so and if someone still forgest, we'll
-have a WARN_ON telling us so.
-
-I also changed the security size calculation to use xfrm_user_sec_ctx since
-that's what we actually put into the skb.  However it makes no practical
-difference since it has the same size as xfrm_sec_ctx.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
-
- net/xfrm/xfrm_user.c |   76 +++++++++++++++++++++++++++++++--------------------
- 1 files changed, 47 insertions(+), 29 deletions(-)
-
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 52c7fce..2cbbe5e 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -483,9 +483,9 @@ struct xfrm_dump_info {
- 
- static int copy_sec_ctx(struct xfrm_sec_ctx *s, struct sk_buff *skb)
- {
--	int ctx_size = sizeof(struct xfrm_sec_ctx) + s->ctx_len;
- 	struct xfrm_user_sec_ctx *uctx;
- 	struct nlattr *attr;
-+	int ctx_size = sizeof(*uctx) + s->ctx_len;
- 
- 	attr = nla_reserve(skb, XFRMA_SEC_CTX, ctx_size);
- 	if (attr == NULL)
-@@ -502,23 +502,11 @@ static int copy_sec_ctx(struct xfrm_sec_ctx *s, struct sk_buff *skb)
- 	return 0;
- }
- 
--static int dump_one_state(struct xfrm_state *x, int count, void *ptr)
-+/* Don't change this without updating xfrm_sa_len! */
-+static int copy_to_user_state_extra(struct xfrm_state *x,
-+				    struct xfrm_usersa_info *p,
-+				    struct sk_buff *skb)
- {
--	struct xfrm_dump_info *sp = ptr;
--	struct sk_buff *in_skb = sp->in_skb;
--	struct sk_buff *skb = sp->out_skb;
--	struct xfrm_usersa_info *p;
--	struct nlmsghdr *nlh;
--
--	if (sp->this_idx < sp->start_idx)
--		goto out;
--
--	nlh = nlmsg_put(skb, NETLINK_CB(in_skb).pid, sp->nlmsg_seq,
--			XFRM_MSG_NEWSA, sizeof(*p), sp->nlmsg_flags);
--	if (nlh == NULL)
--		return -EMSGSIZE;
--
--	p = nlmsg_data(nlh);
- 	copy_to_user_state(x, p);
- 
- 	if (x->aalg)
-@@ -540,6 +528,35 @@ static int dump_one_state(struct xfrm_state *x, int count, void *ptr)
- 	if (x->lastused)
- 		NLA_PUT_U64(skb, XFRMA_LASTUSED, x->lastused);
- 
-+	return 0;
-+
-+nla_put_failure:
-+	return -EMSGSIZE;
-+}
-+
-+static int dump_one_state(struct xfrm_state *x, int count, void *ptr)
-+{
-+	struct xfrm_dump_info *sp = ptr;
-+	struct sk_buff *in_skb = sp->in_skb;
-+	struct sk_buff *skb = sp->out_skb;
-+	struct xfrm_usersa_info *p;
-+	struct nlmsghdr *nlh;
-+	int err;
-+
-+	if (sp->this_idx < sp->start_idx)
-+		goto out;
-+
-+	nlh = nlmsg_put(skb, NETLINK_CB(in_skb).pid, sp->nlmsg_seq,
-+			XFRM_MSG_NEWSA, sizeof(*p), sp->nlmsg_flags);
-+	if (nlh == NULL)
-+		return -EMSGSIZE;
-+
-+	p = nlmsg_data(nlh);
-+
-+	err = copy_to_user_state_extra(x, p, skb);
-+	if (err)
-+		goto nla_put_failure;
-+
- 	nlmsg_end(skb, nlh);
- out:
- 	sp->this_idx++;
-@@ -547,7 +564,7 @@ out:
- 
- nla_put_failure:
- 	nlmsg_cancel(skb, nlh);
--	return -EMSGSIZE;
-+	return err;
- }
- 
- static int xfrm_dump_sa(struct sk_buff *skb, struct netlink_callback *cb)
-@@ -1973,6 +1990,14 @@ static inline size_t xfrm_sa_len(struct xfrm_state *x)
- 		l += nla_total_size(sizeof(*x->calg));
- 	if (x->encap)
- 		l += nla_total_size(sizeof(*x->encap));
-+	if (x->security)
-+		l += nla_total_size(sizeof(struct xfrm_user_sec_ctx) +
-+				    x->security->ctx_len);
-+	if (x->coaddr)
-+		l += nla_total_size(sizeof(*x->coaddr));
-+
-+	/* Must count this as this may become non-zero behind our back. */
-+	l += nla_total_size(sizeof(x->lastused));
- 
- 	return l;
- }
-@@ -2018,23 +2043,16 @@ static int xfrm_notify_sa(struct xfrm_state *x, struct km_event *c)
- 		p = nla_data(attr);
- 	}
- 
--	copy_to_user_state(x, p);
--
--	if (x->aalg)
--		NLA_PUT(skb, XFRMA_ALG_AUTH, alg_len(x->aalg), x->aalg);
--	if (x->ealg)
--		NLA_PUT(skb, XFRMA_ALG_CRYPT, alg_len(x->ealg), x->ealg);
--	if (x->calg)
--		NLA_PUT(skb, XFRMA_ALG_COMP, sizeof(*(x->calg)), x->calg);
--
--	if (x->encap)
--		NLA_PUT(skb, XFRMA_ENCAP, sizeof(*x->encap), x->encap);
-+	if (copy_to_user_state_extra(x, p, skb))
-+		goto nla_put_failure;
- 
- 	nlmsg_end(skb, nlh);
- 
- 	return nlmsg_multicast(xfrm_nl, skb, 0, XFRMNLGRP_SA, GFP_ATOMIC);
- 
- nla_put_failure:
-+	/* Somebody screwed up with xfrm_sa_len! */
-+	WARN_ON(1);
- 	kfree_skb(skb);
- 	return -1;
- }
