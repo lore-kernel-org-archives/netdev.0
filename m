@@ -1,67 +1,36 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC][NET_SCHED] explict hold dev tx lock
-Date: Tue, 09 Oct 2007 09:43:11 -0400
-Message-ID: <1191937391.4373.206.camel@localhost>
-References: <20070917.190133.79431533.davem@davemloft.net>
-	 <1190083728.4237.59.camel@localhost> <1190208832.4259.6.camel@localhost>
-	 <20070919.090937.32177545.davem@davemloft.net>
-	 <1190255605.4818.25.camel@localhost> <1190256183.4818.28.camel@localhost>
-	 <20071009040037.GA15981@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+From: James Lentini <jlentini@netapp.com>
+Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP ports
+ from the host TCP port space.
+Date: Tue, 9 Oct 2007 09:44:02 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.0710090934340.32008@jlentini-linux.nane.netapp.com>
+References: <46B883B5.8040702@opengridcomputing.com> <46BB61D0.4090101@opengridcomputing.com>
+ <46BB89C0.4040303@ichips.intel.com> <20070809.145534.102938208.davem@davemloft.net>
+ <470AA729.2050009@opengridcomputing.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kaber@trash.net, dada1@cosmosbay.com, johnpol@2ka.mipt.ru
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, rdreier@cisco.com,
+	linux-kernel@vger.kernel.org, general@lists.openfabrics.org,
+	netdev@vger.kernel.org
+To: Steve Wise <swise@opengridcomputing.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.229]:54059 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750807AbXJINnW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 09:43:22 -0400
-Received: by nz-out-0506.google.com with SMTP id s18so915123nze
-        for <netdev@vger.kernel.org>; Tue, 09 Oct 2007 06:43:20 -0700 (PDT)
-In-Reply-To: <20071009040037.GA15981@gondor.apana.org.au>
+Received: from mx2.netapp.com ([216.240.18.37]:14030 "EHLO mx2.netapp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750993AbXJINoV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2007 09:44:21 -0400
+In-Reply-To: <470AA729.2050009@opengridcomputing.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-09-10 at 12:00 +0800, Herbert Xu wrote:
 
-> 
-> OK, after waking up a bit more 
+On Mon, 8 Oct 2007, Steve Wise wrote:
 
-me too;-> 
+> The correct solution, IMO, is to enhance the core low level 4-tuple 
+> allocation services to be more generic (eg: not be tied to a struct 
+> sock).  Then the host tcp stack and the host rdma stack can allocate 
+> TCP/iWARP ports/4tuples from this common exported service and share 
+> the port space.  This allocation service could also be used by other 
+> deep adapters like iscsi adapters if needed.
 
-> What I'm worried about is would we see worse behaviour with
-> drivers that do all their TX clean-up with the TX lock held
-
-Good point Herbert.
-When i looked around i only found one driver that behaved like that;
-some IBM mainframe one from the looks of it. That driver did a lot of
-other obscure things (i think they maintain their own napi calls etc),
-so it didnt worry me very much. 
-IIRC, I think it could be fixed to do what tg3 and relatives like bnx do
-(I really like the approach) - just didnt have the time to chase it. 
-There are a _lot_ more drivers that have no respect for netif_tx_lock
-and implement their own locking down in the driver. Those already suffer
-from the phenomena you describe whether TX_LOCK is held or not.
-
-> (which would cause qdisc_restart to spin while this is happening)?
-
-Yes, with such a driver, we spin in the worst case. But that provides
-opportunities for optimization of a driver behaving that way; two
-approaches off top of my head:
-a) we could prune the tx descriptors on the the tx path since it is safe
-to do so and reduce the amount of time spent doing such work in the napi
-poll
-or
-b) Have the napi side do a trylock (sort of what the e1000 attempts to
-do) and reschedule the poll to retry.
-
-#b is fair because the cost of a queue_lock goes up as the number of
-cpus goes up (which is the case i was optimizing for). The cost of tx
-lock is contention by two cpus in worst case. Thoughts?
-
-cheers,
-jamal
-
+As a developer of an RDMA ULP, NFS-RDMA, I like this approach because 
+it will simplify the configuration of an RDMA device and the services 
+that use it.
