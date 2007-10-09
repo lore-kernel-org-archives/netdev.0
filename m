@@ -1,61 +1,89 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2/3][NET_BATCH] net core use batching
-Date: Mon, 08 Oct 2007 21:31:09 -0400
-Message-ID: <470AD9DD.2080707@garzik.org>
-References: <1191868010.4335.33.camel@localhost>	 <D5C1322C3E673F459512FB59E0DDC32903BC1234@orsmsx414.amr.corp.intel.com>	 <1191876530.4373.58.camel@localhost>	 <D5C1322C3E673F459512FB59E0DDC32903BC14AC@orsmsx414.amr.corp.intel.com> <1191886845.4373.138.camel@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
+Date: Mon, 08 Oct 2007 18:41:26 -0700 (PDT)
+Message-ID: <20071008.184126.124062865.davem@davemloft.net>
+References: <D5C1322C3E673F459512FB59E0DDC32903BC14AC@orsmsx414.amr.corp.intel.com>
+	<1191886845.4373.138.camel@localhost> <470AD5D7.1070000@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	David Miller <davem@davemloft.net>, krkumar2@in.ibm.com,
-	johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, kaber@trash.net,
-	shemminger@linux-foundation.org, jagana@us.ibm.com,
-	Robert.Olsson@data.slu.se, rick.jones2@hp.com, xma@us.ibm.com,
-	gaagaan@gmail.com, netdev@vger.kernel.org, rdreier@cisco.com,
-	mcarlson@broadcom.com, mchan@broadcom.com,
-	general@lists.openfabrics.org, tgraf@suug.ch,
-	randy.dunlap@oracle.com, sri@us.ibm.com
-To: hadi@cyberus.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:51181 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751121AbXJIBbq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 8 Oct 2007 21:31:46 -0400
-In-Reply-To: <1191886845.4373.138.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
+Cc: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, gaagaan@gmail.com,
+	Robert.Olsson@data.slu.se, netdev@vger.kernel.org,
+	rdreier@cisco.com, peter.p.waskiewicz.jr@intel.com,
+	hadi@cyberus.ca, mcarlson@broadcom.com, jagana@us.ibm.com,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	randy.dunlap@oracle.com, sri@us.ibm.com,
+	shemminger@linux-foundation.org, kaber@trash.net
+To: jeff@garzik.org
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <470AD5D7.1070000@garzik.org>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> The challenge to deal with is that netdevices, filters, the queues and
-> scheduler are closely inter-twined. So it is not just the scheduling
-> region and QDISC_RUNNING. For example, lets pick just the filters
-> because they are simple to see: You need to attach them to something -
-> whatever that is, you then need to synchronize against config and
-> multiple cpus trying to use them. You could: 
-> a) replicate them across cpus and only lock on config, but you are
-> wasting RAM then
+From: Jeff Garzik <jeff@garzik.org>
+Date: Mon, 08 Oct 2007 21:13:59 -0400
 
-I think you've pretty much bought into the cost of wasting RAM, when 
-doing multiple TX rings.  So logic implies associated costs, like the 
-ones you describe, come along for the ride.
+> If you assume a scheduler implementation where each prio band is mapped 
+> to a separate CPU, you can certainly see where some CPUs could be 
+> substantially idle while others are overloaded, largely depending on the 
+> data workload (and priority contained within).
 
+Right, which is why Peter added the prio DRR scheduler stuff for TX
+multiqueue (see net/sched/sch_prio.c:rr_qdisc_ops) because this is
+what the chips do.
 
-> b) attach them to rings instead of netdevices - but that makes me wonder
-> if those subqueues are now going to become netdevices. This also means
-> you change all user space interfaces to know about subqueues. If you
-> recall this was a major contention in our earlier discussion.
+But this doesn't get us to where we want to be as Peter has been
+explaining a bit these past few days.
 
-That's definitely a good question, and I honestly don't see any easy 
-solutions.
+Ok, we're talking a lot but not pouring much concrete, let's start
+doing that.  I propose:
 
-Multiple net devices makes a -lot- of things easier, with regards to 
-existing infrastructure, but it also imposes potentially annoying 
-administrative burdens:  Not only must each interface be set up 
-individually, but the userland apps must be made aware of this unique 
-method of concurrency.
+1) A library for transmit load balancing functions, with an interface
+   that can be made visible to userspace.  I can write this and test
+   it on real multiqueue hardware.
 
-	Jeff
+   The whole purpose of this library is to set skb->queue_mapping
+   based upon the load balancing function.
 
+   Facilities will be added to handle virtualization port selection
+   based upon destination MAC address as one of the "load balancing"
+   methods.
 
+2) Switch the default qdisc away from pfifo_fast to a new DRR fifo
+   with load balancing using the code in #1.  I think this is kind
+   of in the territory of what Peter said he is working on.
 
+   I know this is controversial, but realistically I doubt users
+   benefit at all from the prioritization that pfifo provides.  They
+   will, on the other hand, benefit from TX queue load balancing on
+   fast interfaces.
 
+3) Work on discovering a way to make the locking on transmit as
+   localized to the current thread of execution as possible.  Things
+   like RCU and statistic replication, techniques we use widely
+   elsewhere in the stack, begin to come to mind.
+
+I also want to point out another issue.  Any argument wrt. reordering
+is specious at best because right now reordering from qdisc to device
+happens anyways.
+
+And that's because we drop the qdisc lock first, then we grab the
+transmit lock on the device and submit the packet.  So, after we
+drop the qdisc lock, another cpu can get the qdisc lock, get the
+next packet (perhaps a lower priority one) and then sneak in to
+get the device transmit lock before the first thread can, and
+thus the packets will be submitted out of order.
+
+This, along with other things, makes me believe that ordering really
+doesn't matter in practice.  And therefore, in practice, we can treat
+everything from the qdisc to the real hardware as a FIFO even if
+something else is going on inside the black box which might reorder
+packets on the wire.
