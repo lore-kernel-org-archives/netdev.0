@@ -1,40 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/7] [IPSEC]: Move common output code to xfrm_output
-Date: Mon, 08 Oct 2007 18:18:58 -0700 (PDT)
-Message-ID: <20071008.181858.16492462.davem@davemloft.net>
-References: <E1Ieqnr-0000o7-00@gondolin.me.apana.org.au>
-	<20071008.171717.71577244.davem@davemloft.net>
-	<20071009010257.GA14117@gondor.apana.org.au>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2/3][NET_BATCH] net core use batching
+Date: Mon, 08 Oct 2007 21:31:09 -0400
+Message-ID: <470AD9DD.2080707@garzik.org>
+References: <1191868010.4335.33.camel@localhost>	 <D5C1322C3E673F459512FB59E0DDC32903BC1234@orsmsx414.amr.corp.intel.com>	 <1191876530.4373.58.camel@localhost>	 <D5C1322C3E673F459512FB59E0DDC32903BC14AC@orsmsx414.amr.corp.intel.com> <1191886845.4373.138.camel@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	David Miller <davem@davemloft.net>, krkumar2@in.ibm.com,
+	johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, kaber@trash.net,
+	shemminger@linux-foundation.org, jagana@us.ibm.com,
+	Robert.Olsson@data.slu.se, rick.jones2@hp.com, xma@us.ibm.com,
+	gaagaan@gmail.com, netdev@vger.kernel.org, rdreier@cisco.com,
+	mcarlson@broadcom.com, mchan@broadcom.com,
+	general@lists.openfabrics.org, tgraf@suug.ch,
+	randy.dunlap@oracle.com, sri@us.ibm.com
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36241
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751463AbXJIBS7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 8 Oct 2007 21:18:59 -0400
-In-Reply-To: <20071009010257.GA14117@gondor.apana.org.au>
+Received: from srv5.dvmed.net ([207.36.208.214]:51181 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751121AbXJIBbq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 8 Oct 2007 21:31:46 -0400
+In-Reply-To: <1191886845.4373.138.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 9 Oct 2007 09:02:57 +0800
+jamal wrote:
+> The challenge to deal with is that netdevices, filters, the queues and
+> scheduler are closely inter-twined. So it is not just the scheduling
+> region and QDISC_RUNNING. For example, lets pick just the filters
+> because they are simple to see: You need to attach them to something -
+> whatever that is, you then need to synchronize against config and
+> multiple cpus trying to use them. You could: 
+> a) replicate them across cpus and only lock on config, but you are
+> wasting RAM then
 
-> On Mon, Oct 08, 2007 at 05:17:17PM -0700, David Miller wrote:
-> > 
-> > Could you submit a 2.6.23 version of just the ipv4 fix?
-> > It might be interesting to determine why it was omitted,
-> > perhaps it was an oversight, and it probably predates the
-> > addition of skb_reset_*().
-> 
-> OK I double-checked and it isn't necessary at all for IPv4 as
-> the mode output function already sets the correct value in it.
-> 
-> It's needed for IPv6 because the mode output functions there
-> uses it to store a pointer to the NH pointer.
-> 
-> So no changes are necessary.
+I think you've pretty much bought into the cost of wasting RAM, when 
+doing multiple TX rings.  So logic implies associated costs, like the 
+ones you describe, come along for the ride.
 
-Thanks for doing this research.
+
+> b) attach them to rings instead of netdevices - but that makes me wonder
+> if those subqueues are now going to become netdevices. This also means
+> you change all user space interfaces to know about subqueues. If you
+> recall this was a major contention in our earlier discussion.
+
+That's definitely a good question, and I honestly don't see any easy 
+solutions.
+
+Multiple net devices makes a -lot- of things easier, with regards to 
+existing infrastructure, but it also imposes potentially annoying 
+administrative burdens:  Not only must each interface be set up 
+individually, but the userland apps must be made aware of this unique 
+method of concurrency.
+
+	Jeff
+
+
+
+
