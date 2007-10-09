@@ -1,56 +1,63 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC][NET_SCHED] explict hold dev tx lock
-Date: Tue, 9 Oct 2007 12:00:38 +0800
-Message-ID: <20071009040037.GA15981@gondor.apana.org.au>
-References: <20070917.190133.79431533.davem@davemloft.net> <1190083728.4237.59.camel@localhost> <1190208832.4259.6.camel@localhost> <20070919.090937.32177545.davem@davemloft.net> <1190255605.4818.25.camel@localhost> <1190256183.4818.28.camel@localhost>
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Subject: Re: [PATCH 1/8][BNX2X] resubmit as attachments: add bnx2x to
+ Kconfig and Makefile
+Date: Tue, 09 Oct 2007 06:13:23 +0200
+Message-ID: <470AFFE3.100@broadcom.com>
+References: <470A5795.2000809@broadcom.com>
+ <20071008.174603.55855492.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kaber@trash.net, dada1@cosmosbay.com, johnpol@2ka.mipt.ru
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain;
+ charset=iso-8859-1;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.org, netdev@vger.kernel.org, mchan@broadcom.com
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1302 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750722AbXJIEAy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 00:00:54 -0400
-Content-Disposition: inline
-In-Reply-To: <1190256183.4818.28.camel@localhost>
+Received: from mms3.broadcom.com ([216.31.210.19]:3230 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750885AbXJIENg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2007 00:13:36 -0400
+In-Reply-To: <20071008.174603.55855492.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 19, 2007 at 10:43:03PM -0400, jamal wrote:
->
-> [NET_SCHED] explict hold dev tx lock
+David Miller wrote:
+> From: "Eliezer Tamir" <eliezert@broadcom.com>
+> Date: Mon, 08 Oct 2007 18:15:17 +0200
 > 
-> For N cpus, with full throttle traffic on all N CPUs, funneling traffic
-> to the same ethernet device, the devices queue lock is contended by all
-> N CPUs constantly. The TX lock is only contended by a max of 2 CPUS.
-> In the current mode of operation, after all the work of entering the
-> dequeue region, we may endup aborting the path if we are unable to get
-> the tx lock and go back to contend for the queue lock. As N goes up,
-> this gets worse.
+>> Add bnx2x to Kconfig and Makefile
 > 
-> The changes in this patch result in a small increase in performance
-> with a 4CPU (2xdual-core) with no irq binding. Both e1000 and tg3
-> showed similar behavior;
+> In a patch submission, the tree should build on every step along the
+> way in applying your patches, with any given configuration.
+> 
+> Here, the user (or something automated like "make allmodconfig") can
+> select the new config option, but because the driver source hasn't
+> been added, the compile will fail.
+> 
+> The idea is that if your patch set really is composed of logically
+> seperate changes, you submit them one logical compilable piece at a
+> time, and if the first few patches are ok, they could go right in
+> whilst we work out issues in later patches.  But that's not how
+> a new driver is, it is logically one change only.
+> 
+> You go on next to add a foo.c file, and then a foo.h file.
+> This makes things even more difficult to review.
+> 
+> Really, for a new driver that doesn't make any generic kernel code
+> changes, just submit the whole thing in one shot.  It's the only
+> reasonable way.
+> 
+> Thank you.
+> 
 
-OK, after waking up a bit more I now have another question :)
+Due to the size of the patch I can not post it to the list.
 
-Both of the drivers you've tested here are special.  Firstly
-e1000 is lockless so there is no contention here at all.  On
-the other hand tg3 doesn't take the TX lock on the clean-up
-path unless the queue has been stopped.
+Here is an FTP link.
+ftp://Net_sys_anon@ftp1.broadcom.com/bnx2x-0.40.10-net-2.6.24-one.patch.txt
 
-In other words both drivers only take the TX lock on xmit so
-this patch makes very little difference to them.
+Or if you prefer, I can post it gzipped.
 
-What I'm worried about is would we see worse behaviour with
-drivers that do all their TX clean-up with the TX lock held
-(which would cause qdisc_restart to spin while this is happening)?
+Thanks
+Eliezer
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
