@@ -1,40 +1,47 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
-Date: Tue, 09 Oct 2007 15:44:39 -0700
-Message-ID: <adahckzhprc.fsf@cisco.com>
-References: <OF20E88706.D91FCF10-ON6525736F.003E50CD-6525736F.003E5E6F@in.ibm.com>
-	<20071009.042441.30182968.davem@davemloft.net>
-	<ada3awkhwbv.fsf@cisco.com>
-	<20071009.135145.95506679.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jagana@us.ibm.com, herbert@gondor.apana.org.au, gaagaan@gmail.com,
-	Robert.Olsson@data.slu.se, mcarlson@broadcom.com,
-	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
-	randy.dunlap@oracle.com, jeff@garzik.org,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, johnpol@2ka.mipt.ru,
-	shemminger@linux-foundation.org, kaber@trash.net, sri@us.ibm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20071009.135145.95506679.davem@davemloft.net> (David Miller's
-	message of "Tue, 09 Oct 2007 13:51:45 -0700 (PDT)")
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+From: Mark Brown <broonie@sirena.org.uk>
+Subject: [PATCH] natsemi: Use NATSEMI_TIMER_FREQ consistently
+Date: Tue,  9 Oct 2007 22:57:39 +0100
+Message-ID: <1191967059-7143-2-git-send-email-broonie@sirena.org.uk>
+References: <1191967059-7143-1-git-send-email-broonie@sirena.org.uk>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mark Brown <broonie@sirena.org.uk>
+To: jgarzik@pobox.com, thockin@hockin.org
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755990AbXJIWp2@vger.kernel.org>
+In-Reply-To: <1191967059-7143-1-git-send-email-broonie@sirena.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > Before you add new entries to your list, how is that ibm driver NAPI
- > conversion coming along? :-)
+The natsemi driver has a define NATSEMI_TIMER_FREQ which looks like it
+controls the normal frequency of the chip poll timer but in fact only
+takes effect for the first run of the timer.  Adjust the value of the
+define to match that used by the timer and use the define consistently.
 
-OK, thanks for the kick in the pants, I have a couple of patches for
-net-2.6.24 coming (including an unrelated trivial warning fix for
-IPoIB).
+Signed-off-by: Mark Brown <broonie@sirena.org.uk>
+---
+ drivers/net/natsemi.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
- - R.
+diff --git a/drivers/net/natsemi.c b/drivers/net/natsemi.c
+index 0b33a58..1f88604 100644
+--- a/drivers/net/natsemi.c
++++ b/drivers/net/natsemi.c
+@@ -108,7 +108,7 @@ static int full_duplex[MAX_UNITS];
+ #define TX_TIMEOUT  (2*HZ)
+ 
+ #define NATSEMI_HW_TIMEOUT	400
+-#define NATSEMI_TIMER_FREQ	3*HZ
++#define NATSEMI_TIMER_FREQ	5*HZ
+ #define NATSEMI_PG0_NREGS	64
+ #define NATSEMI_RFDR_NREGS	8
+ #define NATSEMI_PG1_NREGS	4
+@@ -1797,7 +1797,7 @@ static void netdev_timer(unsigned long data)
+ 	struct net_device *dev = (struct net_device *)data;
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	void __iomem * ioaddr = ns_ioaddr(dev);
+-	int next_tick = 5*HZ;
++	int next_tick = NATSEMI_TIMER_FREQ;
+ 
+ 	if (netif_msg_timer(np)) {
+ 		/* DO NOT read the IntrStatus register,
+-- 
+1.5.3.4
