@@ -1,82 +1,60 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: [ofa-general] RE: [PATCH 2/3][NET_BATCH] net core use batching
-Date: Tue, 9 Oct 2007 16:28:27 +0530
-Message-ID: <OF8571378C.BCC92C60-ON6525736F.003A8E75-6525736F.003C488C@in.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/3][NET_BATCH] net core use batching
+Date: Tue, 09 Oct 2007 04:02:55 -0700 (PDT)
+Message-ID: <20071009.040255.71088090.davem@davemloft.net>
 References: <D5C1322C3E673F459512FB59E0DDC32903BC14AC@orsmsx414.amr.corp.intel.com>
+	<OF8571378C.BCC92C60-ON6525736F.003A8E75-6525736F.003C488C@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: jagana@us.ibm.com, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
-	mcarlson@broadcom.com, rdreier@cisco.com, hadi@cyberus.ca,
-	kaber@trash.net, randy.dunlap@oracle.com, jeff@garzik.org,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	David Miller <davem@davemloft.net>, sri@us.ibm.com
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32903BC14AC@orsmsx414.amr.corp.intel.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: peter.p.waskiewicz.jr@intel.com, gaagaan@gmail.com,
+	general@lists.openfabrics.org, hadi@cyberus.ca,
+	herbert@gondor.apana.org.au, jagana@us.ibm.com, jeff@garzik.org,
+	johnpol@2ka.mipt.ru, kaber@trash.net, mcarlson@broadcom.com,
+	mchan@broadcom.com, netdev@vger.kernel.org,
+	randy.dunlap@oracle.com, rdreier@cisco.com, rick.jones2@hp.com,
+	Robert.Olsson@data.slu.se, shemminger@linux-foundation.org,
+	sri@us.ibm.com, tgraf@suug.ch, xma@us.ibm.com
+To: krkumar2@in.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55091
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752292AbXJILC4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 07:02:56 -0400
+In-Reply-To: <OF8571378C.BCC92C60-ON6525736F.003A8E75-6525736F.003C488C@in.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Peter,
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Date: Tue, 9 Oct 2007 16:28:27 +0530
 
-"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com> wrote on
-10/09/2007 04:03:42 AM:
+> Isn't it enough that the multiqueue+batching drivers handle skbs
+> belonging to different queue's themselves, instead of qdisc having
+> to figure that out? This will reduce costs for most skbs that are
+> neither batched nor sent to multiqueue devices.
+> 
+> Eg, driver can keep processing skbs and put to the correct tx_queue
+> as long as mapping remains the same. If the mapping changes, it posts
+> earlier skbs (with the correct lock) and then iterates for the other
+> skbs that have the next different mapping, and so on.
 
-> > true, that needs some resolution. Heres a hand-waving thought:
-> > Assuming all packets of a specific map end up in the same
-> > qdiscn queue, it seems feasible to ask the qdisc scheduler to
-> > give us enough packages (ive seen people use that terms to
-> > refer to packets) for each hardware ring's available space.
-> > With the patches i posted, i do that via
-> > dev->xmit_win that assumes only one view of the driver; essentially a
-> > single ring.
-> > If that is doable, then it is up to the driver to say "i have
-> > space for 5 in ring[0], 10 in ring[1] 0 in ring[2]" based on
-> > what scheduling scheme the driver implements - the dev->blist
-> > can stay the same. Its a handwave, so there may be issues
-> > there and there could be better ways to handle this.
-> >
-> > Note: The other issue that needs resolving that i raised
-> > earlier was in regards to multiqueue running on multiple cpus
-> > servicing different rings concurently.
->
-> I can see the qdisc being modified to send batches per queue_mapping.
-> This shouldn't be too difficult, and if we had the xmit_win per queue
-> (in the subqueue struct like Dave pointed out).
+The complexity in most of these suggestions is beginning to drive me a
+bit crazy :-)
 
-I hope my understanding of multiqueue is correct for this mail to make
-sense :-)
+This should be the simplest thing in the world, when TX queue has
+space, give it packets.  Period.
 
-Isn't it enough that the multiqueue+batching drivers handle skbs
-belonging to different queue's themselves, instead of qdisc having
-to figure that out? This will reduce costs for most skbs that are
-neither batched nor sent to multiqueue devices.
+When I hear suggestions like "have the driver pick the queue in
+->hard_start_xmit() and return some special status if the queue
+becomes different".....  you know, I really begin to wonder :-)
 
-Eg, driver can keep processing skbs and put to the correct tx_queue
-as long as mapping remains the same. If the mapping changes, it posts
-earlier skbs (with the correct lock) and then iterates for the other
-skbs that have the next different mapping, and so on.
+If we have to go back, get into the queueing layer locks, have these
+special cases, and whatnot, what's the point?
 
-(This is required only if driver is supposed to transmit >1 skb in one
-call, otherwise it is not an issue)
+This code should eventually be able to run lockless all the way to the
+TX queue handling code of the driver.  The queueing code should know
+what TX queue the packet will be bound for, and always precisely
+invoke the driver in a state where the driver can accept the packet.
 
-Alternatively, supporting drivers could return a different code on
-mapping change, like: NETDEV_TX_MAPPING_CHANGED (for batching only)
-so that qdisc_run() could retry. Would that work?
-
-Secondly having xmit_win per queue: would it help in multiple skb
-case? Currently there is no way to tell qdisc to dequeue skbs from
-a particular band - it returns skb from highest priority band.
-
-thanks,
-
-- KK
+Ignore LLTX, it sucks, it was a big mistake, and we will get rid of
+it.
