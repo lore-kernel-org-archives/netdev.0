@@ -1,23 +1,23 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: [ofa-general] Re: parallel networking
-Date: Mon, 08 Oct 2007 21:53:25 -0400
-Message-ID: <470ADF15.2090100@garzik.org>
-References: <20071007.215124.85709188.davem@davemloft.net>	<1191850490.4352.41.camel@localhost>	<470A3D24.3050803@garzik.org>
-	<20071008.141154.107706003.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
+Date: Tue, 9 Oct 2007 10:01:15 +0800
+Message-ID: <20071009020115.GA14635@gondor.apana.org.au>
+References: <D5C1322C3E673F459512FB59E0DDC32903BC14AC@orsmsx414.amr.corp.intel.com>
+	<1191886845.4373.138.camel@localhost> <470AD5D7.1070000@garzik.org>
+	<20071008.184126.124062865.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: randy.dunlap@oracle.com, Robert.Olsson@data.slu.se, gaagaan@gmail.com,
-	kumarkr@linux.ibm.com, peter.p.waskiewicz.jr@intel.com,
-	shemminger@linux-foundation.org, johnpol@2ka.mipt.ru,
-	herbert@gondor.apana.org.au, rdreier@cisco.com,
-	general@lists.openfabrics.org, mingo@elte.hu, sri@us.ibm.com,
-	jagana@us.ibm.com, hadi@cyberus.ca, mchan@broadcom.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tgraf@suug.ch, kaber@trash.net
+Content-Type: text/plain; charset=us-ascii
+Cc: johnpol@2ka.mipt.ru, jeff@garzik.org, Robert.Olsson@data.slu.se,
+	netdev@vger.kernel.org, rdreier@cisco.com,
+	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
+	mcarlson@broadcom.com, gaagaan@gmail.com, jagana@us.ibm.com,
+	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
+	randy.dunlap@oracle.com, shemminger@linux-foundation.org,
+	kaber@trash.net, sri@us.ibm.com
 To: David Miller <davem@davemloft.net>
 Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <20071008.141154.107706003.davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20071008.184126.124062865.davem@davemloft.net>
 List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
 	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
 List-Archive: <http://lists.openfabrics.org/pipermail/general>
@@ -29,72 +29,23 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Jeff Garzik <jeff@garzik.org>
-> Date: Mon, 08 Oct 2007 10:22:28 -0400
-> 
->> In terms of overall parallelization, both for TX as well as RX, my gut 
->> feeling is that we want to move towards an MSI-X, multi-core friendly 
->> model where packets are LIKELY to be sent and received by the same set 
->> of [cpus | cores | packages | nodes] that the [userland] processes 
->> dealing with the data.
-> 
-> The problem is that the packet schedulers want global guarantees
-> on packet ordering, not flow centric ones.
-> 
-> That is the issue Jamal is concerned about.
+On Mon, Oct 08, 2007 at 06:41:26PM -0700, David Miller wrote:
+>
+> I also want to point out another issue.  Any argument wrt. reordering
+> is specious at best because right now reordering from qdisc to device
+> happens anyways.
 
-Oh, absolutely.
+This is not true.
 
-I think, fundamentally, any amount of cross-flow resource management 
-done in software is an obstacle to concurrency.
+If your device has a qdisc at all, then you will end up in the
+function qdisc_restart, where we release the queue lock only
+after acquiring the TX lock.
 
-That's not a value judgement, just a statement of fact.
+So right now this path does not create any reordering.
 
-"traffic cops" are intentional bottlenecks we add to the process, to 
-enable features like priority flows, filtering, or even simple socket 
-fairness guarantees.  Each of those bottlenecks serves a valid purpose, 
-but at the end of the day, it's still a bottleneck.
-
-So, improving concurrency may require turning off useful features that 
-nonetheless hurt concurrency.
-
-
-> The more I think about it, the more inevitable it seems that we really
-> might need multiple qdiscs, one for each TX queue, to pull this full
-> parallelization off.
-> 
-> But the semantics of that don't smell so nice either.  If the user
-> attaches a new qdisc to "ethN", does it go to all the TX queues, or
-> what?
-> 
-> All of the traffic shaping technology deals with the device as a unary
-> object.  It doesn't fit to multi-queue at all.
-
-Well the easy solutions to networking concurrency are
-
-* use virtualization to carve up the machine into chunks
-
-* use multiple net devices
-
-Since new NIC hardware is actively trying to be friendly to 
-multi-channel/virt scenarios, either of these is reasonably 
-straightforward given the current state of the Linux net stack.  Using 
-multiple net devices is especially attractive because it works very well 
-with the existing packet scheduling.
-
-Both unfortunately impose a burden on the developer and admin, to force 
-their apps to distribute flows across multiple [VMs | net devs].
-
-
-The third alternative is to use a single net device, with SMP-friendly 
-packet scheduling.  Here you run into the problems you described "device 
-as a unary object" etc. with the current infrastructure.
-
-With multiple TX rings, consider that we are pushing the packet 
-scheduling from software to hardware...  which implies
-* hardware-specific packet scheduling
-* some TC/shaping features not available, because hardware doesn't 
-support it
-
-	Jeff
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
