@@ -1,47 +1,62 @@
 From: Mark Brown <broonie@sirena.org.uk>
-Subject: [PATCH] natsemi: Use NATSEMI_TIMER_FREQ consistently
-Date: Tue,  9 Oct 2007 22:57:39 +0100
-Message-ID: <1191967059-7143-2-git-send-email-broonie@sirena.org.uk>
-References: <1191967059-7143-1-git-send-email-broonie@sirena.org.uk>
+Subject: [PATCH] natsemi: Use round_jiffies() for slow timers
+Date: Tue,  9 Oct 2007 22:57:38 +0100
+Message-ID: <1191967059-7143-1-git-send-email-broonie@sirena.org.uk>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Mark Brown <broonie@sirena.org.uk>
 To: jgarzik@pobox.com, thockin@hockin.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755990AbXJIWp2@vger.kernel.org>
-In-Reply-To: <1191967059-7143-1-git-send-email-broonie@sirena.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cassiel.sirena.org.uk ([80.68.93.111]:1945 "EHLO
+	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751589AbXJIWpN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 18:45:13 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The natsemi driver has a define NATSEMI_TIMER_FREQ which looks like it
-controls the normal frequency of the chip poll timer but in fact only
-takes effect for the first run of the timer.  Adjust the value of the
-define to match that used by the timer and use the define consistently.
+Unless we have failed to fill the RX ring the timer used by the natsemi
+driver is not particularly urgent and can use round_jiffies() to allow
+grouping with other timers.
 
 Signed-off-by: Mark Brown <broonie@sirena.org.uk>
 ---
- drivers/net/natsemi.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/natsemi.c |   10 +++++++---
+ 1 files changed, 7 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/natsemi.c b/drivers/net/natsemi.c
-index 0b33a58..1f88604 100644
+index b47a12d..0b33a58 100644
 --- a/drivers/net/natsemi.c
 +++ b/drivers/net/natsemi.c
-@@ -108,7 +108,7 @@ static int full_duplex[MAX_UNITS];
- #define TX_TIMEOUT  (2*HZ)
+@@ -1575,7 +1575,7 @@ static int netdev_open(struct net_device *dev)
  
- #define NATSEMI_HW_TIMEOUT	400
--#define NATSEMI_TIMER_FREQ	3*HZ
-+#define NATSEMI_TIMER_FREQ	5*HZ
- #define NATSEMI_PG0_NREGS	64
- #define NATSEMI_RFDR_NREGS	8
- #define NATSEMI_PG1_NREGS	4
-@@ -1797,7 +1797,7 @@ static void netdev_timer(unsigned long data)
- 	struct net_device *dev = (struct net_device *)data;
- 	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem * ioaddr = ns_ioaddr(dev);
--	int next_tick = 5*HZ;
-+	int next_tick = NATSEMI_TIMER_FREQ;
+ 	/* Set the timer to check for link beat. */
+ 	init_timer(&np->timer);
+-	np->timer.expires = jiffies + NATSEMI_TIMER_FREQ;
++	np->timer.expires = round_jiffies(jiffies + NATSEMI_TIMER_FREQ);
+ 	np->timer.data = (unsigned long)dev;
+ 	np->timer.function = &netdev_timer; /* timer handler */
+ 	add_timer(&np->timer);
+@@ -1855,7 +1855,11 @@ static void netdev_timer(unsigned long data)
+ 			next_tick = 1;
+ 		}
+ 	}
+-	mod_timer(&np->timer, jiffies + next_tick);
++
++	if (next_tick > 1)
++		mod_timer(&np->timer, round_jiffies(jiffies + next_tick));
++	else
++		mod_timer(&np->timer, jiffies + next_tick);
+ }
  
- 	if (netif_msg_timer(np)) {
- 		/* DO NOT read the IntrStatus register,
+ static void dump_ring(struct net_device *dev)
+@@ -3330,7 +3334,7 @@ static int natsemi_resume (struct pci_dev *pdev)
+ 		spin_unlock_irq(&np->lock);
+ 		enable_irq(dev->irq);
+ 
+-		mod_timer(&np->timer, jiffies + 1*HZ);
++		mod_timer(&np->timer, round_jiffies(jiffies + 1*HZ));
+ 	}
+ 	netif_device_attach(dev);
+ 	netif_poll_enable(dev);
 -- 
 1.5.3.4
+
