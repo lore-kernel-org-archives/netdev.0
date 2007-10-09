@@ -1,47 +1,66 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH][E1000E] some cleanups
-Date: Tue, 09 Oct 2007 09:29:41 -0400
-Message-ID: <1191936581.4373.192.camel@localhost>
-References: <1191174077.6165.11.camel@localhost>
-	 <47028351.7090509@intel.com>  <1191417498.4357.23.camel@localhost>
-	 <1191773723.4394.31.camel@localhost>  <470AB1EC.2080000@intel.com>
+Subject: Re: [RFC][NET_SCHED] explict hold dev tx lock
+Date: Tue, 09 Oct 2007 09:43:11 -0400
+Message-ID: <1191937391.4373.206.camel@localhost>
+References: <20070917.190133.79431533.davem@davemloft.net>
+	 <1190083728.4237.59.camel@localhost> <1190208832.4259.6.camel@localhost>
+	 <20070919.090937.32177545.davem@davemloft.net>
+	 <1190255605.4818.25.camel@localhost> <1190256183.4818.28.camel@localhost>
+	 <20071009040037.GA15981@gondor.apana.org.au>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kaber@trash.net, dada1@cosmosbay.com, johnpol@2ka.mipt.ru
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from el-out-1112.google.com ([209.85.162.182]:43668 "EHLO
-	el-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752816AbXJIN3q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 09:29:46 -0400
-Received: by el-out-1112.google.com with SMTP id v27so304634ele
-        for <netdev@vger.kernel.org>; Tue, 09 Oct 2007 06:29:45 -0700 (PDT)
-In-Reply-To: <470AB1EC.2080000@intel.com>
+Received: from nz-out-0506.google.com ([64.233.162.229]:54059 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750807AbXJINnW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 09:43:22 -0400
+Received: by nz-out-0506.google.com with SMTP id s18so915123nze
+        for <netdev@vger.kernel.org>; Tue, 09 Oct 2007 06:43:20 -0700 (PDT)
+In-Reply-To: <20071009040037.GA15981@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-08-10 at 15:40 -0700, Kok, Auke wrote:
+On Tue, 2007-09-10 at 12:00 +0800, Herbert Xu wrote:
 
 > 
-> My biggest problem with the patch as you sent it that it's a tonload of changes
-> and no implicit benefit immediately as I can see. 
+> OK, after waking up a bit more 
 
-The patch looks scary but is pretty tame when you apply it and stare at
-it.
+me too;-> 
 
-> I would really have to see the
-> LLTX change as well to make a wellfounded decision whether it is the right thing
-> to go and overhaul this part of the driver or not :)
-> 
-> I'm not particularly against the changes per se though.
-> 
-> so please, if needed offlist send me those LLTX changes as well.
+> What I'm worried about is would we see worse behaviour with
+> drivers that do all their TX clean-up with the TX lock held
 
-Dont worry about it - i didnt get any love for a similar patch i did for
-tg3 either ;-> I will hold onto it for now. I could do the un-LLTX
-outside of this - would you like that for both e1000/e1000e ?
+Good point Herbert.
+When i looked around i only found one driver that behaved like that;
+some IBM mainframe one from the looks of it. That driver did a lot of
+other obscure things (i think they maintain their own napi calls etc),
+so it didnt worry me very much. 
+IIRC, I think it could be fixed to do what tg3 and relatives like bnx do
+(I really like the approach) - just didnt have the time to chase it. 
+There are a _lot_ more drivers that have no respect for netif_tx_lock
+and implement their own locking down in the driver. Those already suffer
+from the phenomena you describe whether TX_LOCK is held or not.
+
+> (which would cause qdisc_restart to spin while this is happening)?
+
+Yes, with such a driver, we spin in the worst case. But that provides
+opportunities for optimization of a driver behaving that way; two
+approaches off top of my head:
+a) we could prune the tx descriptors on the the tx path since it is safe
+to do so and reduce the amount of time spent doing such work in the napi
+poll
+or
+b) Have the napi side do a trylock (sort of what the e1000 attempts to
+do) and reschedule the poll to retry.
+
+#b is fair because the cost of a queue_lock goes up as the number of
+cpus goes up (which is the case i was optimizing for). The cost of tx
+lock is contention by two cpus in worst case. Thoughts?
 
 cheers,
 jamal
