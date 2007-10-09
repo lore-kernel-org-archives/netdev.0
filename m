@@ -1,57 +1,66 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
-Date: 09 Oct 2007 18:51:51 +0200
-Message-ID: <p73k5pw44ew.fsf@bingen.suse.de>
-References: <D5C1322C3E673F459512FB59E0DDC32903BC14AC@orsmsx414.amr.corp.intel.com>
-	<1191886845.4373.138.camel@localhost> <470AD5D7.1070000@garzik.org>
-	<20071008.184126.124062865.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH][NETNS] Make ifindex generation per-namespace
+Date: Tue, 09 Oct 2007 11:41:16 -0600
+Message-ID: <m1przoxk1v.fsf@ebiederm.dsl.xmission.com>
+References: <470B71CD.3000706@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jeff@garzik.org, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
-	gaagaan@gmail.com, Robert.Olsson@data.slu.se,
-	netdev@vger.kernel.org, rdreier@cisco.com,
-	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
-	mcarlson@broadcom.com, jagana@us.ibm.com,
-	general@lists.openfabrics.org, mchan@broadcom.com, tgraf@suug.ch,
-	randy.dunlap@oracle.com, sri@us.ibm.com,
-	shemminger@linux-foundation.org, kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:57168 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751495AbXJIQv5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Oct 2007 12:51:57 -0400
-In-Reply-To: <20071008.184126.124062865.davem@davemloft.net>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:48669 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751403AbXJIRlp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 13:41:45 -0400
+In-Reply-To: <470B71CD.3000706@openvz.org> (Pavel Emelyanov's message of "Tue,
+	09 Oct 2007 16:19:25 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
-> 
-> 2) Switch the default qdisc away from pfifo_fast to a new DRR fifo
->    with load balancing using the code in #1.  I think this is kind
->    of in the territory of what Peter said he is working on.
+Pavel Emelyanov <xemul@openvz.org> writes:
 
-Hopefully that new qdisc will just use the TX rings of the hardware
-directly. They are typically large enough these days. That might avoid
-some locking in this critical path.
+> Currently indexes for netdevices come sequentially one by
+> one, and the same stays true even for devices that are 
+> created for namespaces.
+>
+> Side effects of this are:
+>  * lo device has not 1 index in a namespace. This may break
+>    some userspace that relies on it (and AFAIR something
+>    really broke in OpenVZ VEs without this);
 
->    I know this is controversial, but realistically I doubt users
->    benefit at all from the prioritization that pfifo provides.
+As it happens lo hasn't been registered first for some time
+so it hasn't had ifindex of 1 in the normal kernel.
 
-I agree. For most interfaces the priority is probably dubious.
-Even for DSL the prioritization will be likely usually done in a router
-these days.
+>  * after some time namespaces will have devices with indexes
+>    like 1000000 os similar. This might be confusing for a
+>    human (tools will not mind).
 
-Also for the fast interfaces where we do TSO priority doesn't work
-very well anyways -- with large packets there is not too much 
-to prioritize.
+Only if we wind up creating that many devices.
 
-> 3) Work on discovering a way to make the locking on transmit as
->    localized to the current thread of execution as possible.  Things
->    like RCU and statistic replication, techniques we use widely
->    elsewhere in the stack, begin to come to mind.
+> So move the (currently "global" and static) ifindex variable
+> on the struct net, making the indexes allocation look more
+> like on a standalone machine.
+>
+> Moreover - when we have indexes intersect between namespaces,
+> we may catch more BUGs in the future related to "wrong device 
+> was found for a given index".
 
-If the data is just passed on to the hardware queue, why is any 
-locking needed at all? (except for the driver locking of course)
+Not yet.
 
--Andi
+I know there are several data structures internal to the kernel that
+are indexed by ifindex, and not struct net_device *.  There is the
+iflink field in struct net_device.  We need a way to refer to network
+devices in other namespaces in rtnetlink in an unambiguous way.   I
+don't see any real problems with a global ifindex assignment until
+we start migrating applications.
+
+So please hold off on this until the kernel has been audited and
+we have removed all of the uses of ifindex that assume ifindex is
+global, that we can find.
+
+Right now a namespace local ifindex seems to be just asking for
+trouble.
+
+Eric
+
