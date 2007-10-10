@@ -1,27 +1,14 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH][NET-2.6.24] Remove double dev->flags checking when calling dev_close()
-Date: Wed, 10 Oct 2007 09:33:46 +0800
-Message-ID: <E1IfQSI-0006jh-00@gondolin.me.apana.org.au>
-References: <470B66FA.80006@garzik.org>
-Cc: xemul@openvz.org, davem@davemloft.net, netdev@vger.kernel.org,
-	devel@openvz.org
-To: jeff@garzik.org (Jeff Garzik)
+From: britishdepertment1@comcast.net (ONLINE CO-ORDINATOR)
+Subject: Congratulation ***Your Email Address Has Won***
+Date: Wed, 10 Oct 2007 02:23:36 +0000
+Message-ID: <101020070223.19978.470C37A80001728800004E0A2216527966CE9B020A039B9D0A9F0A0B089C079B079D0D@comcast.net>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2137 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753881AbXJJBeF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 21:34:05 -0400
-In-Reply-To: <470B66FA.80006@garzik.org>
+Received: from alnrmhc15.comcast.net ([206.18.177.55]:44167 "EHLO
+	alnrmhc15.comcast.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752596AbXJJCaO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 22:30:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jeff@garzik.org> wrote:
->
-> One side effect of this patch:  might_sleep() is now called unconditionally.
 
-That would be seem to be a good thing :)
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
