@@ -1,40 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [IPV6] Defer IPv6 device initialization until a valid
- qdisc is specified
-Date: Wed, 10 Oct 2007 02:53:07 -0700 (PDT)
-Message-ID: <20071010.025307.68156581.davem@davemloft.net>
-References: <20071009162158.f25d4fdb.mitch@linux.vnet.ibm.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
+Date: Wed, 10 Oct 2007 17:53:16 +0800
+Message-ID: <20071010095316.GA32095@gondor.apana.org.au>
+References: <1191967006.5324.14.camel@localhost> <20071009.170435.43504422.davem@davemloft.net> <20071010003716.GB552@one.firstfloor.org> <20071009.175025.59469417.davem@davemloft.net> <20071010091644.GA9807@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	herbert@gondor.apana.org.au
-To: mitch@linux.vnet.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, hadi@cyberus.ca,
+	shemminger@linux-foundation.org, jeff@garzik.org,
+	johnpol@2ka.mipt.ru, gaagaan@gmail.com, Robert.Olsson@data.slu.se,
+	netdev@vger.kernel.org, rdreier@cisco.com,
+	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
+	jagana@us.ibm.com, general@lists.openfabrics.org,
+	mchan@broadcom.com, tgraf@suug.ch, randy.dunlap@oracle.com,
+	sri@us.ibm.com, kaber@trash.net
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58864
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754154AbXJJJxF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 05:53:05 -0400
-In-Reply-To: <20071009162158.f25d4fdb.mitch@linux.vnet.ibm.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:1665 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755499AbXJJJyu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 05:54:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20071010091644.GA9807@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
-Date: Tue, 9 Oct 2007 16:21:58 +0900
-
-> To judge the timing for DAD, netif_carrier_ok() is used. However,
-> there is a possibility that dev->qdisc stays noop_qdisc even if
-> netif_carrier_ok() returns true. In that case, DAD NS is not sent out.
-> We need to defer the IPv6 device initialization until a valid qdisc
-> is specified.
+On Wed, Oct 10, 2007 at 11:16:44AM +0200, Andi Kleen wrote:
+> > A 256 entry TX hw queue fills up trivially on 1GB and 10GB, but if you
 > 
-> Signed-off-by: Mitsuru Chinen <mitch@linux.vnet.ibm.com>
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> With TSO really? 
 
-Thanks for submitting the fix.
+Hardware queues are generally per-page rather than per-skb so
+it'd fill up quicker than a software queue even with TSO.
 
-Although Herbert is right that this does not fix the problem
-universally, it does make things better, so I will apply this
-patch.
-
-Thanks!
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
