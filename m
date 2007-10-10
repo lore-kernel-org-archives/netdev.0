@@ -1,41 +1,76 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH] division-by-zero in inet_csk_get_port
-Date: Wed, 10 Oct 2007 12:55:30 +0400
-Message-ID: <20071010085530.GA7532@iris.sw.ru>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH][NETNS] Make ifindex generation per-namespace
+Date: Wed, 10 Oct 2007 12:55:32 +0400
+Message-ID: <470C9384.9050102@openvz.org>
+References: <470B71CD.3000706@openvz.org> <m1przoxk1v.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: aarapov@redhat.com, dev@openvz.org, den@openvz.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:63625 "EHLO iris"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752782AbXJJIxt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Oct 2007 04:53:49 -0400
-Content-Disposition: inline
+Received: from sacred.ru ([62.205.161.221]:34646 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751871AbXJJI6N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Oct 2007 04:58:13 -0400
+In-Reply-To: <m1przoxk1v.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixed a possible division-by-zero in inet_csk_get_port
-treating situation low > high as if low == high.
+Eric W. Biederman wrote:
+> Pavel Emelyanov <xemul@openvz.org> writes:
+> 
+>> Currently indexes for netdevices come sequentially one by
+>> one, and the same stays true even for devices that are 
+>> created for namespaces.
+>>
+>> Side effects of this are:
+>>  * lo device has not 1 index in a namespace. This may break
+>>    some userspace that relies on it (and AFAIR something
+>>    really broke in OpenVZ VEs without this);
+> 
+> As it happens lo hasn't been registered first for some time
+> so it hasn't had ifindex of 1 in the normal kernel.
+> 
+>>  * after some time namespaces will have devices with indexes
+>>    like 1000000 os similar. This might be confusing for a
+>>    human (tools will not mind).
+> 
+> Only if we wind up creating that many devices.
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
-CC: Antov Arapov  <aarapov@redhat.com>
+Nope. Create and destroy new net ns for 10000 times and you'll get it.
 
---- ./net/ipv4/inet_connection_sock.c.getport	2007-10-09 15:16:02.000000000 +0400
-+++ ./net/ipv4/inet_connection_sock.c	2007-10-10 12:44:04.000000000 +0400
-@@ -80,7 +80,14 @@ int inet_csk_get_port(struct inet_hashin
- 		int low = sysctl_local_port_range[0];
- 		int high = sysctl_local_port_range[1];
- 		int remaining = (high - low) + 1;
--		int rover = net_random() % (high - low) + low;
-+		int rover;
-+
-+		/* Treat low > high as high == low */
-+		if (remaining <= 1) {
-+			remaining = 1;
-+			rover = low;
-+		} else
-+			rover = net_random() % (high - low) + low;
- 
- 		do {
- 			head = &hashinfo->bhash[inet_bhashfn(rover, hashinfo->bhash_size)];
+>> So move the (currently "global" and static) ifindex variable
+>> on the struct net, making the indexes allocation look more
+>> like on a standalone machine.
+>>
+>> Moreover - when we have indexes intersect between namespaces,
+>> we may catch more BUGs in the future related to "wrong device 
+>> was found for a given index".
+> 
+> Not yet.
+> 
+> I know there are several data structures internal to the kernel that
+> are indexed by ifindex, and not struct net_device *.  There is the
+> iflink field in struct net_device.  We need a way to refer to network
+> devices in other namespaces in rtnetlink in an unambiguous way.   I
+> don't see any real problems with a global ifindex assignment until
+> we start migrating applications.
+> 
+> So please hold off on this until the kernel has been audited and
+> we have removed all of the uses of ifindex that assume ifindex is
+> global, that we can find.
+
+Ok.
+
+> Right now a namespace local ifindex seems to be just asking for
+> trouble.
+
+You said the same about caching the global pid on the task_struct,
+but looks like you were wrong ;) Just kidding.
+
+> Eric
+> 
+> 
+
