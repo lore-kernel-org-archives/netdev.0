@@ -1,27 +1,26 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Evict tmp variable from the stack in ip6_evictor
-Date: Wed, 10 Oct 2007 16:37:00 +0200
-Message-ID: <470CE38C.2020607@trash.net>
-References: <470CE1C8.9020000@openvz.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [0/7] IPsec: More input/output clean-ups
+Date: Wed, 10 Oct 2007 22:39:16 +0800
+Message-ID: <20071010143915.GA7650@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62945 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754221AbXJJOhE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 10:37:04 -0400
-In-Reply-To: <470CE1C8.9020000@openvz.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:3568 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753158AbXJJOjU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 10:39:20 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Emelyanov wrote:
-> The list_head *tmp is used to help getting the first entry in
-> the ip6_frag_lru_list list. There is a simpler way to do it
+Hi Dave:
 
+Here's a few more clean-up's on the IPsec input/output path.
 
-The exact same code exists in ip_fragment.c and nf_conntrack_reasm.c,
-please also change it there.
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
