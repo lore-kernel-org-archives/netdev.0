@@ -1,71 +1,40 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: [IPv6] Update setsockopt(IPV6_MULTICAST_IF) to support RFC 3493
-Date: Wed, 10 Oct 2007 11:04:37 -0400
-Message-ID: <470CEA05.8080809@hp.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] Evict tmp variable from the stack in ip6_evictor
+Date: Wed, 10 Oct 2007 17:06:07 +0200
+Message-ID: <470CEA5F.7050508@trash.net>
+References: <470CE1C8.9020000@openvz.org> <470CE38C.2020607@trash.net> <470CE724.8030807@openvz.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050505060103060407020105"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:47784 "EHLO atlrel9.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756283AbXJJPEj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Oct 2007 11:04:39 -0400
+Received: from stinky.trash.net ([213.144.137.162]:63680 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753636AbXJJPGK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 11:06:10 -0400
+In-Reply-To: <470CE724.8030807@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050505060103060407020105
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-
-Hi,
-
- From RFC 3493, Section 5.2:
-
-       IPV6_MULTICAST_IF
-
-          Set the interface to use for outgoing multicast packets.  The
-          argument is the index of the interface to use.  If the
-          interface index is specified as zero, the system selects the
-          interface (for example, by looking up the address in a routing
-          table and using the resulting interface).
-
-This patch adds support for (index == 0) to reset the value to it's 
-original state, allowing the system to choose the best interface.  IPv4 
-already behaves this way.
-
--Brian
+Pavel Emelyanov wrote:
+> Patrick McHardy wrote:
+>> Pavel Emelyanov wrote:
+>>> The list_head *tmp is used to help getting the first entry in
+>>> the ip6_frag_lru_list list. There is a simpler way to do it
+>>
+>> The exact same code exists in ip_fragment.c and nf_conntrack_reasm.c,
+>> please also change it there.
+> 
+> Hm, indeed. But I see that the structs frag_queue in reassembly.c, ipq 
+> in ip_fragment.c and nf_ct_frag6_queue in nf code looks VERY similar 
+> and very much of code (like link/unlink or evict) looks the same too.
+> 
+> Maybe it's worth creating something like struct skb_fragment and
+> consolidate all the common stuff into some net/core/lib_frag.c? Or
+> is there some hidden reason for keeping this code splitted?
 
 
-Signed-off-by: Brian Haley <brian.haley@hp.com>
-
---------------050505060103060407020105
-Content-Type: text/x-patch;
- name="ipv6.multicast_if.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="ipv6.multicast_if.patch"
-
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 532425d..309284e 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -539,6 +539,13 @@ done:
- 	case IPV6_MULTICAST_IF:
- 		if (sk->sk_type == SOCK_STREAM)
- 			goto e_inval;
-+
-+		if (val == 0) {
-+			np->mcast_oif = 0;
-+			retv = 0;
-+			break;
-+		}
-+
- 		if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != val)
- 			goto e_inval;
- 
-
---------------050505060103060407020105--
+I'm not sure if its possible between IPv4 and IPv6, but sharing code
+between IPv6 reassembly and netfilter/ipv6 would be nice.
