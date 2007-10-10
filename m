@@ -1,31 +1,29 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: Re: [PATCH] xen-netfront: rearrange netfront_info structure to separate
- tx and rx
-Date: Tue, 09 Oct 2007 18:08:50 -0700
-Message-ID: <470C2622.2080806@goop.org>
-References: <470BCC1D.4080007@goop.org> <470C20E9.9050405@garzik.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [git patches] net driver updates
+Date: Tue, 09 Oct 2007 18:12:24 -0700 (PDT)
+Message-ID: <20071009.181224.07641159.davem@davemloft.net>
+References: <20071010010325.GA16769@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Keir Fraser <Keir.Fraser@cl.cam.ac.uk>,
-	Stephen Hemminger <shemminge@linux-foundation.org>,
-	Christoph Hellwig <hch@infradead.org>
-To: Jeff Garzik <jeff@garzik.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.goop.org ([64.81.55.164]:43141 "EHLO mail.goop.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752675AbXJJBJe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Oct 2007 21:09:34 -0400
-In-Reply-To: <470C20E9.9050405@garzik.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40574
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751857AbXJJBMh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 21:12:37 -0400
+In-Reply-To: <20071010010325.GA16769@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> ACK but does not apply to jgarzik/netdev-2.6.git#upstream nor
-> davem/net-2.6.24.git 
+From: Jeff Garzik <jeff@garzik.org>
+Date: Tue, 9 Oct 2007 21:03:26 -0400
 
-OK, looks like you don't have the other two patches.  Will post in a sec.
+> 
+> Please pull from the 'upstream-davem' branch of
+> master.kernel.org:/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git upstream-davem
+> 
+> to receive these changes:
 
-    J
+Pulled and pushed back out, thanks Jeff!
