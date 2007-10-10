@@ -1,37 +1,34 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: [ofa-general] Re: [PATCH 1/4] IPoIB: Fix unused variable warning
-Date: Tue, 09 Oct 2007 20:47:28 -0400
-Message-ID: <470C2120.30608@garzik.org>
-References: <OF20E88706.D91FCF10-ON6525736F.003E50CD-6525736F.003E5E6F@in.ibm.com>	<20071009.042441.30182968.davem@davemloft.net>	<ada3awkhwbv.fsf@cisco.com>	<20071009.135145.95506679.davem@davemloft.net>	<adahckzhprc.fsf@cisco.com>
-	<adad4vnhpoq.fsf_-_@cisco.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] natsemi: Use NATSEMI_TIMER_FREQ consistently
+Date: Tue, 09 Oct 2007 20:47:20 -0400
+Message-ID: <470C2118.1060101@pobox.com>
+References: <1191967059-7143-1-git-send-email-broonie@sirena.org.uk> <1191967059-7143-2-git-send-email-broonie@sirena.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	general@lists.openfabrics.org
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <adad4vnhpoq.fsf_-_@cisco.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: thockin@hockin.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Mark Brown <broonie@sirena.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:46674 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753492AbXJJArX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2007 20:47:23 -0400
+In-Reply-To: <1191967059-7143-2-git-send-email-broonie@sirena.org.uk>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Roland Dreier wrote:
-> The conversion to use netdevice internal stats left an unused variable
-> in ipoib_neigh_free(), since there's no longer any reason to get
-> netdev_priv() in order to increment dropped packets.  Delete the
-> unused priv variable.
+Mark Brown wrote:
+> The natsemi driver has a define NATSEMI_TIMER_FREQ which looks like it
+> controls the normal frequency of the chip poll timer but in fact only
+> takes effect for the first run of the timer.  Adjust the value of the
+> define to match that used by the timer and use the define consistently.
 > 
-> Signed-off-by: Roland Dreier <rolandd@cisco.com>
+> Signed-off-by: Mark Brown <broonie@sirena.org.uk>
 > ---
->  drivers/infiniband/ulp/ipoib/ipoib_main.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
+>  drivers/net/natsemi.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
 
-applied 1-4
+applied
+
+
