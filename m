@@ -1,99 +1,76 @@
-From: "Denis V. Lunev" <den@openvz.org>
-Subject: [PATCH] ip_local_port_range low > high check
-Date: Wed, 10 Oct 2007 18:15:30 +0400
-Message-ID: <20071010141530.GA10661@iris.sw.ru>
+From: "Denis V. Lunev" <den@sw.ru>
+Subject: Re: [Devel] [PATCH 1/5] net: Modify all rtnetlink methods to only
+ work	in the initial namespace
+Date: Wed, 10 Oct 2007 18:29:05 +0400
+Message-ID: <470CE1B1.30108@sw.ru>
+References: <m1myv69tfu.fsf@ebiederm.dsl.xmission.com> <470CC6F6.60706@sw.ru> <470CDC26.6010608@fr.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: aarapov@redhat.com, netdev@vger.kernel.org, den@openvz.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev@vger.kernel.org, Pavel Emelianov <xemul@sw.ru>,
+	Linux Containers <containers@lists.osdl.org>,
+	David Miller <davem@davemloft.net>
+To: Daniel Lezcano <dlezcano@fr.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:61151 "EHLO iris"
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:58507 "EHLO iris"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751037AbXJJOOF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Oct 2007 10:14:05 -0400
-Content-Disposition: inline
+	id S1753654AbXJJO1f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Oct 2007 10:27:35 -0400
+In-Reply-To: <470CDC26.6010608@fr.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds check low > high for ip_local_port_range.
+Daniel Lezcano wrote:
+> struct net *net = in?in->nd_net:out->nd_net;
+> 
+>> So, we are bound to the following options:
+>> - perform additional non-uniform hacks around to place 'struct net' into
+>>   other and other structures like xt_target
+>> - add 7th parameter here and over
+>> - introduce an skb_net field in the 'struct sk_buff' making all code
+>>   uniform, at least when we have an skb
+>>
+>> I think that this is not the last place with such a parameter list and
+>> we should make a decision at this point when the code in not mainline
+>> yet.
+>>
+>> As far as I understand, netfilters are not touched by the Eric and we
+>> can face some non-trivial problems there.
+> 
+> In Eric's git tree:
+> http://git.kernel.org/?p=linux/kernel/git/ebiederm/linux-2.6-netns.git
+> 
+> There are some modifications concerning
+> net/ipv4/netfiler/iptable_filter.c and at the ipt_hook function, there is:
+> 
+> struct net *net = (in?in:out)->nd_net;
+> 
+>> So, if my point about uniformity is valid, this patchset looks wrong and
+>> should be re-worked :(
+> 
+> As Eric said, we want to build the network namespace step by step,
+> taking care of not breaking the init network namespace.
+> 
+> If you want to make iptables per namespace or catch problems before the
+> code goes to Dave's tree, IMHO it will be more convenient to post to
+> containers@ the patches against netns49, where the modifications will be
+> in a network namespace big picture.
+> 
 
-Signed-off-by: Denis V. Lunev <den@openvz.org>
+my point is somewhat another. Yes, this is enough for that place. If so,
+I must scatter these checks all around in the netfilters code. Brr.
 
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 53ef0f4..686c0a4 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -186,6 +186,61 @@ static int strategy_allowed_congestion_control(ctl_table *table, int __user *nam
- 
- }
- 
-+static int proc_port_range(ctl_table *table, int write, struct file *filp,
-+		    void __user *buffer, size_t *lenp, loff_t *ppos)
-+{
-+	int ret;
-+	ctl_table tbl = {
-+		.maxlen		= sizeof(sysctl_local_port_range),
-+		.extra1		= ip_local_port_range_min,
-+		.extra2		= ip_local_port_range_max
-+	};
-+	tbl.data = kmalloc(tbl.maxlen, GFP_USER);
-+	if (tbl.data == NULL)
-+		return -ENOMEM;
-+	memcpy(tbl.data, sysctl_local_port_range, tbl.maxlen);
-+
-+	ret = proc_dointvec_minmax(&tbl, write, filp, buffer, lenp, ppos);
-+	if (write && ret == 0) {
-+		int *data = (int *)tbl.data;
-+		if (data[0] > data[1])
-+			ret = -EINVAL;
-+		else
-+			memcpy(sysctl_local_port_range, data,
-+					sizeof(sysctl_local_port_range));
-+	}
-+	kfree(tbl.data);
-+	return ret;
-+}
-+
-+int sysctl_strategy_port_range(ctl_table *table, int __user *name, int nlen,
-+		void __user *oldval, size_t __user *oldlenp,
-+		void __user *newval, size_t newlen)
-+{
-+	int ret;
-+	ctl_table tbl = {
-+		.maxlen		= sizeof(sysctl_local_port_range),
-+		.extra1		= ip_local_port_range_min,
-+		.extra2		= ip_local_port_range_max
-+	};
-+	tbl.data = kmalloc(tbl.maxlen, GFP_USER);
-+	if (tbl.data == NULL)
-+		return -ENOMEM;
-+	memcpy(tbl.data, sysctl_local_port_range, tbl.maxlen);
-+
-+	ret = sysctl_intvec(&tbl, name, nlen, oldval, oldlenp, newval, newlen);
-+	if (ret == 0 && newval && newlen) {
-+		int *data = (int *)tbl.data;
-+		if (data[0] > data[1])
-+			ret = -EINVAL;
-+		else
-+			memcpy(sysctl_local_port_range, data,
-+					sizeof(sysctl_local_port_range));
-+	}
-+	kfree(tbl.data);
-+	return ret;
-+}
-+
- ctl_table ipv4_table[] = {
- 	{
- 		.ctl_name	= NET_IPV4_TCP_TIMESTAMPS,
-@@ -427,8 +482,8 @@ ctl_table ipv4_table[] = {
- 		.data		= &sysctl_local_port_range,
- 		.maxlen		= sizeof(sysctl_local_port_range),
- 		.mode		= 0644,
--		.proc_handler	= &proc_dointvec_minmax,
--		.strategy	= &sysctl_intvec,
-+		.proc_handler	= &proc_port_range,
-+		.strategy	= &sysctl_strategy_port_range,
- 		.extra1		= ip_local_port_range_min,
- 		.extra2		= ip_local_port_range_max
- 	},
-Warning: 1 path touched but unmodified. Consider running git-status.
+In forward chain the situation is different for Layer3 switching. Let's
+assume that we have an OpenVZ scheme, where the packet flows from socket
+to device and after that from device to device via forwarding path. You
+can't call skb_orphan on namespace switching as this breaks UDP flow
+regulation. Virtual network device is fast while real Ethernet is slow,
+packets will be dropped on queue in real device. So, the situation with
+packet on send path with a socket from other namespace is possible :(
+
+I just pray for uniformity to concentrate on the code rather than on
+guesses on which path we are :(
+
+Regards,
+	Den
