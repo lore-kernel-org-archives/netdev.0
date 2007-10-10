@@ -1,32 +1,77 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [re] Possible 2.6.22 -> 2.6.23 HTB regression?
-Date: Wed, 10 Oct 2007 14:45:51 +0200
-Message-ID: <470CC97F.4000906@trash.net>
-References: <20071010124510.M18768@visp.net.lb>
+From: Anton Arapov <aarapov@redhat.com>
+Subject: Re: [PATCH] division-by-zero in inet_csk_get_port
+Date: Wed, 10 Oct 2007 14:49:02 +0200
+Message-ID: <m3sl4jjfsx.fsf@bandura.englab.brq.redhat.com>
+References: <m31wc3l4ym.fsf@bandura.englab.brq.redhat.com>
+	<20071010.023515.15263796.davem@davemloft.net>
+	<m3wstvjnso.fsf@bandura.englab.brq.redhat.com>
+	<20071010.030153.09951294.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/signed; boundary="=-=-=";
+	micalg=pgp-sha1; protocol="application/pgp-signature"
 Cc: netdev@vger.kernel.org
-To: Denys <denys@visp.net.lb>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60515 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752559AbXJJMtI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 08:49:08 -0400
-In-Reply-To: <20071010124510.M18768@visp.net.lb>
+Received: from mx1.redhat.com ([66.187.233.31]:47003 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753314AbXJJMtM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Oct 2007 08:49:12 -0400
+In-Reply-To: <20071010.030153.09951294.davem@davemloft.net> (David Miller's message of "Wed\, 10 Oct 2007 03\:01\:53 -0700 \(PDT\)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Denys wrote:
->>What does /proc/net/psched contain?
-> 
-> visp-1 ~ # cat /proc/net/psched
-> 000003e8 00000400 000f4240 3b9aca00
+--=-=-=
+Content-Transfer-Encoding: quoted-printable
 
+David Miller <davem@davemloft.net> writes:
+> From: Anton Arapov <aarapov@redhat.com>
+> Date: Wed, 10 Oct 2007 11:56:23 +0200
+>
+>>   Yep, that's exactly I'm talking about. I'm sure that=20
+>>   [...] % (high - low) [...] erroneous from the begining, because
+>> in such places we want to have 1 in denominator, for the cases when we
+>> have only one port. Because 34000 34000 in sysctl's
+>> ip_local_port_range means 1(one) port, not 0(zero).
+>>=20
+>>   So it seems to me that we have to fix mentioned denominators in
+>> kernel/net to have 1, that will be correct logically. And do the
+>> MAX<MIN check in sysctl code.
+>>   From this point of view, it's best idea to have two patches: one for
+>> the kernel/net denominators and another one for the sysctl.c's
+>> function dointvec_minmax(). Because they can live independently. And
+>> the patch for the kernel/net will do the work at least because we
+>> prevent kernel trap at all.
+>>=20=20=20
+>>   Dave, am I right?
+>
+> Sure, two patches is fine.
 
-OK, hrtimers are disabled on your system, but we still announce
-the usec clock resolution to userspace, which is used by HTB to
-calculate the burst rate. But actually that can't be the reason
-since that has already been the case in 2.6.22. Please post a diff
-of the bootlog from 2.6.22 and 2.6.23.
+  I have been mistaken. We can't modify sysctl code itself to do the
+checks like (MAX_VAL < MIN_VAL), we have generic functions, and if we
+want implement something like this we have to implement absolutely new
+functionality, it's insane to do it. :)
+  It seems to me, all we can is to make this check in code where the
+MAX_VAL<MINVAL condition brakes logic.
+  FTOH the patch that prevents do_divide_error trap is
+enough... Kernel will keep working, with huge kernel panic notice in
+dmesg. :)
+  So, now the way suggested by Denis looks reasonable.
 
+  What do you think?
+
+=2D-=20
+Anton Arapov, <aarapov@redhat.com>
+Kernel Development, Red Hat
+GPG Key ID: 0x6FA8C812
+
+--=-=-=
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQFHDMpCVub9yW+oyBIRAmbFAJ422OWOCARFQw8emLSXaWiX9/fIWgCcCEcn
+DbdG/3psPi9pG7RFsXQLO7M=
+=1oGq
+-----END PGP SIGNATURE-----
+--=-=-=--
