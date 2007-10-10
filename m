@@ -1,144 +1,127 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [RFC] more robust inet range checking
-Date: Wed, 10 Oct 2007 15:24:20 -0400
-Message-ID: <470D26E4.2050708@hp.com>
-References: <20071010141530.GA10661@iris.sw.ru> <20071010100939.0783febb@freepuppy.rosehill>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [Devel] [PATCH 1/5] net: Modify all rtnetlink methods to only work	in the initial namespace
+Date: Wed, 10 Oct 2007 13:37:04 -0600
+Message-ID: <m13awilq1r.fsf@ebiederm.dsl.xmission.com>
+References: <m1myv69tfu.fsf@ebiederm.dsl.xmission.com> <470CC6F6.60706@sw.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030702020500020208090801"
-Cc: "Denis V. Lunev" <den@openvz.org>, davem@davemloft.net,
-	aarapov@redhat.com, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, devel@openvz.org,
+	Pavel Emelianov <xemul@sw.ru>, Kirill Korotaev <dev@sw.ru>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>
+To: "Denis V. Lunev" <den@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:41279 "EHLO atlrel9.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751681AbXJJTYX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Oct 2007 15:24:23 -0400
-In-Reply-To: <20071010100939.0783febb@freepuppy.rosehill>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:52484 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756105AbXJJTis (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 15:38:48 -0400
+In-Reply-To: <470CC6F6.60706@sw.ru> (Denis V. Lunev's message of "Wed, 10 Oct
+	2007 16:35:02 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030702020500020208090801
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
+"Denis V. Lunev" <den@sw.ru> writes:
 
-Stephen Hemminger wrote:
->  int inet_csk_bind_conflict(const struct sock *sk,
->  			   const struct inet_bind_bucket *tb)
-> @@ -77,10 +90,11 @@ int inet_csk_get_port(struct inet_hashin
->  
->  	local_bh_disable();
->  	if (!snum) {
-> -		int low = sysctl_local_port_range[0];
-> -		int high = sysctl_local_port_range[1];
-> -		int remaining = (high - low) + 1;
-> -		int rover = net_random() % (high - low) + low;
-> +		int remaining, range[2], rover;
-> +
-> +		inet_get_local_port_range(range);
-> +		remaining = range[1] - range[0];
-> +		rover = net_random() % (range[1] - range[0]) + range[0];
+> Eric W. Biederman wrote:
+>> Before I can enable rtnetlink to work in all network namespaces
+>> I need to be certain that something won't break.  So this
+>> patch deliberately disables all of the rtnletlink methods in everything
+>> except the initial network namespace.  After the methods have been
+>> audited this extra check can be disabled.
+>>
+> [...]
+>>  static int br_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+>>  {
+>> +	struct net *net = skb->sk->sk_net;
+>>  	struct net_device *dev;
+>>  	int idx;
+>>  
+>
+> I've read some code today greping 'init_net.loopback_dev' and found
+> interesting non-trivial for me issue.
+>
+> Network namespace is extracted from the packet in two different ways in
+> TCP. This is a socket for outgoing path and a device for incoming.
+> Though, there are some places called uniformly both from incoming and
+> outgoing path.
+>
+> Typical example is netfilters. They are called uniformly all around the
+> code. The prototype is the following:
+>
+> static unsigned int reject6_target(struct sk_buff **pskb,
+>                            const struct net_device *in,
+>                            const struct net_device *out,
+>                            unsigned int hooknum,
+>                            const struct xt_target *target,
+>                            const void *targinfo);
+>
+> So, we are bound to the following options:
+> - perform additional non-uniform hacks around to place 'struct net' into
+>   other and other structures like xt_target
+> - add 7th parameter here and over
 
-nit-pick:
-		rover = net_random() % remaining + range[0];
+> - introduce an skb_net field in the 'struct sk_buff' making all code
+>   uniform, at least when we have an skb
 
-> --- a/net/ipv4/udp.c	2007-10-10 08:27:00.000000000 -0700
-> +++ b/net/ipv4/udp.c	2007-10-10 09:44:35.000000000 -0700
-> @@ -147,13 +147,13 @@ int __udp_lib_get_port(struct sock *sk, 
->  	write_lock_bh(&udp_hash_lock);
->  
->  	if (!snum) {
-> -		int i;
-> -		int low = sysctl_local_port_range[0];
-> -		int high = sysctl_local_port_range[1];
-> +		int i, range[2];
->  		unsigned rover, best, best_size_so_far;
+No.  That bloats a sk_buff, changes the semantics of moving a skb
+around, and decreases performance (because we have to maintain the
+field on a fast path).  
 
-Should these be signed ints?  They're the only ones that are unsigned, 
-but I don't know why.
+There will not be a skb_net field.
 
-> --- a/net/sctp/protocol.c	2007-10-10 08:27:00.000000000 -0700
-> +++ b/net/sctp/protocol.c	2007-10-10 09:58:21.000000000 -0700
-> @@ -1173,7 +1173,6 @@ SCTP_STATIC __init int sctp_init(void)
->  	}
->  
->  	spin_lock_init(&sctp_port_alloc_lock);
-> -	sctp_port_rover = sysctl_local_port_range[0] - 1;
+The entire concept of skb_net is a maintenance disaster.
 
-I think you can remove the port_rover definition in sctp/structs.h and 
-also the lock that protects it.  Patch below for that which can be 
-applied on-top of yours.
+> I think that this is not the last place with such a parameter list and
+> we should make a decision at this point when the code in not mainline yet.
 
--Brian
+Certainly that is what I have a proof of concept tree for.  So we can
+see how these things look before we merge them. 
 
+> As far as I understand, netfilters are not touched by the Eric and we
+> can face some non-trivial problems there.
 
-Remove SCTP port_rover and port_alloc_lock as they're no longer required.
+No.  In my proof of concept tree I should have working per network
+namespace netfilter code.  My intention was to just do enough to see
+what the impact would be so most of the netfilter code (in my tree)
+insists on running in the initial network namespace.  But there are
+a few pieces that are fully converted.  Please take a look.
 
-Signed-off-by: Brian Haley <brian.haley@hp.com>
+> So, if my point about uniformity is valid, this patchset looks wrong and
+> should be re-worked :(
 
+This patchset does need to get rebased on top of net-2.6.25 when it
+opens and hopefully your patchset to remove the unnecessary work in
+rtnl_unlock, and to really process netlink requests in process
+context.  I see a need for the more fundamental change you seem to
+be advocating.
 
---------------030702020500020208090801
-Content-Type: text/x-patch;
- name="sctp.port_rover_cleanup.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="sctp.port_rover_cleanup.patch"
+Differentiating between the incoming and the outgoing code paths is
+something we already do permission checking, for locking, for
+sleeping, etc.  Modifying the code requires reading and understanding
+it in context.  That is the nature of code.
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 448f713..c1a083c 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -197,8 +197,6 @@ extern struct sctp_globals {
- 
- 	/* This is the sctp port control hash.	*/
- 	int port_hashsize;
--	int port_rover;
--	spinlock_t port_alloc_lock;  /* Protects port_rover. */
- 	struct sctp_bind_hashbucket *port_hashtable;
- 
- 	/* This is the global local address list.
-@@ -245,8 +243,6 @@ extern struct sctp_globals {
- #define sctp_assoc_hashsize		(sctp_globals.assoc_hashsize)
- #define sctp_assoc_hashtable		(sctp_globals.assoc_hashtable)
- #define sctp_port_hashsize		(sctp_globals.port_hashsize)
--#define sctp_port_rover			(sctp_globals.port_rover)
--#define sctp_port_alloc_lock		(sctp_globals.port_alloc_lock)
- #define sctp_port_hashtable		(sctp_globals.port_hashtable)
- #define sctp_local_addr_list		(sctp_globals.local_addr_list)
- #define sctp_local_addr_lock		(sctp_globals.addr_list_lock)
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 80df457..81b26c5 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -1172,8 +1172,6 @@ SCTP_STATIC __init int sctp_init(void)
- 		sctp_port_hashtable[i].chain = NULL;
- 	}
- 
--	spin_lock_init(&sctp_port_alloc_lock);
--
- 	printk(KERN_INFO "SCTP: Hash tables configured "
- 			 "(established %d bind %d)\n",
- 		sctp_assoc_hashsize, sctp_port_hashsize);
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index e1e2d2c..293200d 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -5321,7 +5321,6 @@ static long sctp_get_port_local(struct sock *sk, union sctp_addr *addr)
- 		remaining = range[1] - range[0];
- 		rover = net_random() % remaining + range[0];
- 
--		sctp_spin_lock(&sctp_port_alloc_lock);
- 		do {
- 			rover++;
- 			if ((rover < range[0]) || (rover > range[1]))
-@@ -5337,7 +5336,6 @@ static long sctp_get_port_local(struct sock *sk, union sctp_addr *addr)
- 		next:
- 			sctp_spin_unlock(&head->lock);
- 		} while (--remaining > 0);
--		sctp_spin_unlock(&sctp_port_alloc_lock);
- 
- 		/* Exhausted local port range during search? */
- 		ret = 1;
+This does make large patches going across the entire networking stack
+making something a network namespace parameter difficult, but it
+should not cause any problem for maintenance or other work on
+the code.  As shown by the fact that even outside the tree rebasing my
+network namespace patches has not been all that difficult.
 
---------------030702020500020208090801--
+So no I don't think uniformity, or beauty or elegance is what we
+are after right now.  Trying to hard in that direction ultimately
+obfuscates the code.
+
+What we want is something that is simple, straight forward, and
+doesn't require you to be an expert in network namespaces to
+understand the code or the patches.
+
+In the particular case of the netfilter hooks we don't have a
+network namespace parameter laying around before we call NF_HOOK,
+and the idiom "net = (in?in:out)->nd_net" seems perfectly accurate
+so it seems reasonable to me to derive the network namespace that
+way in generic code.  Although thinking about this.  We know which
+hooks we are being called from so we may in fact actually know
+if which of in or out must be valid when we get to the netfilter
+hook.
+
+Eric
