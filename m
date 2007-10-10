@@ -1,219 +1,201 @@
 From: Timur Tabi <timur@freescale.com>
-Subject: [PATCH 1/2] qe: add function qe_clock_source
-Date: Wed, 10 Oct 2007 17:18:27 -0500
-Message-ID: <11920547093580-git-send-email-timur@freescale.com>
+Subject: [PATCH 2/2] ucc_geth: use rx-clock-name and tx-clock-name device tree properties
+Date: Wed, 10 Oct 2007 17:18:28 -0500
+Message-ID: <11920547102323-git-send-email-timur@freescale.com>
 References: <1192054708946-git-send-email-timur@freescale.com>
+ <11920547093580-git-send-email-timur@freescale.com>
 Cc: Timur Tabi <timur@freescale.com>
 To: galak@kernel.crashing.org, linuxppc-dev@ozlabs.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from de01egw01.freescale.net ([192.88.165.102]:41296 "EHLO
+Received: from de01egw01.freescale.net ([192.88.165.102]:41297 "EHLO
 	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754081AbXJJWSl (ORCPT
+	with ESMTP id S1754116AbXJJWSl (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 18:18:41 -0400
-In-Reply-To: <1192054708946-git-send-email-timur@freescale.com>
+In-Reply-To: <11920547093580-git-send-email-timur@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add function qe_clock_source() which takes a string containing the name of a
-QE clock source (as is typically found in device trees) and returns the
-matching enum qe_clock value.
+This patch updates the ucc_geth device driver to check the new rx-clock-name
+and tx-clock-name properties first.  If present, it uses the new function
+qe_clock_source() to obtain the clock source.  Otherwise, it checks the
+deprecated rx-clock and tx-clock properties.
 
-Update booting-without-of.txt to indicate that the UCC properties rx-clock
-and tx-clock are deprecated and replaced with rx-clock-name and tx-clock-name,
-which use strings instead of numbers to indicate QE clock sources.
-
-Update qe_setbrg() to take an enum qe_clock instead of an integer as its
-first paramter.
+The device trees for 832x, 836x, and 8568 have been updated to contain the
+new property names only.
 
 Signed-off-by: Timur Tabi <timur@freescale.com>
 ---
 
-This patch applies to Kumar's for-2.6.24 branch.
+This patch applies to Kumar's for-2.6.24 branch, on top of my other patch titled
+"qe: add function qe_clock_source".
 
- arch/powerpc/sysdev/qe_lib/qe.c |   13 +++--
- include/asm-powerpc/qe.h        |   98 +++++++++++++++++++--------------------
- 2 files changed, 56 insertions(+), 55 deletions(-)
+ arch/powerpc/boot/dts/mpc832x_mds.dts |    8 ++++----
+ arch/powerpc/boot/dts/mpc832x_rdb.dts |    8 ++++----
+ arch/powerpc/boot/dts/mpc836x_mds.dts |    8 ++++----
+ arch/powerpc/boot/dts/mpc8568mds.dts  |    8 ++++----
+ drivers/net/ucc_geth.c                |   12 +++++-------
+ 5 files changed, 21 insertions(+), 23 deletions(-)
 
-diff --git a/arch/powerpc/sysdev/qe_lib/qe.c b/arch/powerpc/sysdev/qe_lib/qe.c
-index 3ccd360..8551e74 100644
---- a/arch/powerpc/sysdev/qe_lib/qe.c
-+++ b/arch/powerpc/sysdev/qe_lib/qe.c
-@@ -167,7 +167,7 @@ unsigned int get_brg_clk(void)
- 
- /* Program the BRG to the given sampling rate and multiplier
-  *
-- * @brg: the BRG, 1-16
-+ * @brg: the BRG, QE_BRG1 - QE_BRG16
-  * @rate: the desired sampling rate
-  * @multiplier: corresponds to the value programmed in GUMR_L[RDCR] or
-  * GUMR_L[TDCR].  E.g., if this BRG is the RX clock, and GUMR_L[RDCR]=01,
-@@ -175,11 +175,14 @@ unsigned int get_brg_clk(void)
-  *
-  * Also note that the value programmed into the BRGC register must be even.
-  */
--void qe_setbrg(unsigned int brg, unsigned int rate, unsigned int multiplier)
-+void qe_setbrg(enum qe_clock brg, unsigned int rate, unsigned int multiplier)
- {
- 	u32 divisor, tempval;
- 	u32 div16 = 0;
- 
-+	if ((brg < QE_BRG1) || (brg > QE_BRG16))
-+		return;
-+
- 	divisor = get_brg_clk() / (rate * multiplier);
- 
- 	if (divisor > QE_BRGC_DIVISOR_MAX + 1) {
-@@ -196,7 +199,7 @@ void qe_setbrg(unsigned int brg, unsigned int rate, unsigned int multiplier)
- 	tempval = ((divisor - 1) << QE_BRGC_DIVISOR_SHIFT) |
- 		QE_BRGC_ENABLE | div16;
- 
--	out_be32(&qe_immr->brg.brgc[brg - 1], tempval);
-+	out_be32(&qe_immr->brg.brgc[brg - QE_BRG1], tempval);
- }
- 
- /* Convert a string to a QE clock source enum
-@@ -214,7 +217,7 @@ enum qe_clock qe_clock_source(const char *source)
- 	if (strncasecmp(source, "brg", 3) == 0) {
- 		i = simple_strtoul(source + 3, NULL, 10);
- 		if ((i >= 1) && (i <= 16))
--			return QE_BRG1 + i - 1;
-+			return (QE_BRG1 - 1) + i;
- 		else
- 			return QE_CLK_DUMMY;
+diff --git a/arch/powerpc/boot/dts/mpc832x_mds.dts b/arch/powerpc/boot/dts/mpc832x_mds.dts
+index fcd333c..b57485b 100644
+--- a/arch/powerpc/boot/dts/mpc832x_mds.dts
++++ b/arch/powerpc/boot/dts/mpc832x_mds.dts
+@@ -217,8 +217,8 @@
+ 			 */
+ 			mac-address = [ 00 00 00 00 00 00 ];
+ 			local-mac-address = [ 00 00 00 00 00 00 ];
+-			rx-clock = <19>;
+-			tx-clock = <1a>;
++			rx-clock-name = "clk9";
++			tx-clock-name = "clk10";
+ 			phy-handle = < &phy3 >;
+ 			pio-handle = < &pio3 >;
+ 		};
+@@ -238,8 +238,8 @@
+ 			 */
+ 			mac-address = [ 00 00 00 00 00 00 ];
+ 			local-mac-address = [ 00 00 00 00 00 00 ];
+-			rx-clock = <17>;
+-			tx-clock = <18>;
++			rx-clock-name = "clk7";
++			tx-clock-name = "clk8";
+ 			phy-handle = < &phy4 >;
+ 			pio-handle = < &pio4 >;
+ 		};
+diff --git a/arch/powerpc/boot/dts/mpc832x_rdb.dts b/arch/powerpc/boot/dts/mpc832x_rdb.dts
+index 388c8a7..e68a08b 100644
+--- a/arch/powerpc/boot/dts/mpc832x_rdb.dts
++++ b/arch/powerpc/boot/dts/mpc832x_rdb.dts
+@@ -202,8 +202,8 @@
+ 			 */
+ 			mac-address = [ 00 00 00 00 00 00 ];
+ 			local-mac-address = [ 00 00 00 00 00 00 ];
+-			rx-clock = <20>;
+-			tx-clock = <13>;
++			rx-clock-name = "clk16";
++			tx-clock-name = "clk3";
+ 			phy-handle = <&phy00>;
+ 			pio-handle = <&ucc2pio>;
+ 		};
+@@ -223,8 +223,8 @@
+ 			 */
+ 			mac-address = [ 00 00 00 00 00 00 ];
+ 			local-mac-address = [ 00 00 00 00 00 00 ];
+-			rx-clock = <19>;
+-			tx-clock = <1a>;
++			rx-clock-name = "clk9";
++			tx-clock-name = "clk10";
+ 			phy-handle = <&phy04>;
+ 			pio-handle = <&ucc3pio>;
+ 		};
+diff --git a/arch/powerpc/boot/dts/mpc836x_mds.dts b/arch/powerpc/boot/dts/mpc836x_mds.dts
+index fbd1573..7a54072 100644
+--- a/arch/powerpc/boot/dts/mpc836x_mds.dts
++++ b/arch/powerpc/boot/dts/mpc836x_mds.dts
+@@ -245,8 +245,8 @@
+ 			 */
+ 			mac-address = [ 00 00 00 00 00 00 ];
+ 			local-mac-address = [ 00 00 00 00 00 00 ];
+-			rx-clock = <0>;
+-			tx-clock = <19>;
++			rx-clock-name = "none";
++			tx-clock-name = "clk9";
+ 			phy-handle = < &phy0 >;
+ 			phy-connection-type = "rgmii-id";
+ 			pio-handle = < &pio1 >;
+@@ -267,8 +267,8 @@
+ 			 */
+ 			mac-address = [ 00 00 00 00 00 00 ];
+ 			local-mac-address = [ 00 00 00 00 00 00 ];
+-			rx-clock = <0>;
+-			tx-clock = <14>;
++			rx-clock-name = "none";
++			tx-clock-name = "clk4";
+ 			phy-handle = < &phy1 >;
+ 			phy-connection-type = "rgmii-id";
+ 			pio-handle = < &pio2 >;
+diff --git a/arch/powerpc/boot/dts/mpc8568mds.dts b/arch/powerpc/boot/dts/mpc8568mds.dts
+index 5439437..cf45aab 100644
+--- a/arch/powerpc/boot/dts/mpc8568mds.dts
++++ b/arch/powerpc/boot/dts/mpc8568mds.dts
+@@ -333,8 +333,8 @@
+ 			 */
+ 			mac-address = [ 00 00 00 00 00 00 ];
+ 			local-mac-address = [ 00 00 00 00 00 00 ];
+-			rx-clock = <0>;
+-			tx-clock = <20>;
++			rx-clock-name = "none";
++			tx-clock-name = "clk16";
+ 			pio-handle = <&pio1>;
+ 			phy-handle = <&phy0>;
+ 			phy-connection-type = "rgmii-id";
+@@ -355,8 +355,8 @@
+ 			 */
+ 			mac-address = [ 00 00 00 00 00 00 ];
+ 			local-mac-address = [ 00 00 00 00 00 00 ];
+-			rx-clock = <0>;
+-			tx-clock = <20>;
++			rx-clock-name = "none";
++			tx-clock-name = "clk16";
+ 			pio-handle = <&pio2>;
+ 			phy-handle = <&phy1>;
+ 			phy-connection-type = "rgmii-id";
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index a147d6e..9308397 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3863,7 +3863,7 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 	sprop = of_get_property(np, "rx-clock-name", NULL);
+ 	if (sprop) {
+ 		ug_info->uf_info.rx_clock = qe_clock_source(sprop);
+-		if ((ug_info->uf_info.rx_clock < QE_CLK1) ||
++		if ((ug_info->uf_info.rx_clock < QE_CLK_NONE) ||
+ 		    (ug_info->uf_info.rx_clock > QE_CLK24)) {
+ 			printk(KERN_ERR
+ 				"ucc_geth: invalid rx-clock-name property\n");
+@@ -3873,12 +3873,12 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 		prop = of_get_property(np, "rx-clock", NULL);
+ 		if (!prop) {
+ 			/* If both rx-clock-name and rx-clock are missing,
+-                           we want to tell people to use rx-clock-name. */
++			   we want to tell people to use rx-clock-name. */
+ 			printk(KERN_ERR
+ 				"ucc_geth: missing rx-clock-name property\n");
+ 			return -EINVAL;
+ 		}
+-		if ((*prop < QE_CLK1) || (*prop > QE_CLK24)) {
++		if ((*prop < QE_CLK_NONE) || (*prop > QE_CLK24)) {
+ 			printk(KERN_ERR
+ 				"ucc_geth: invalid rx-clock propperty\n");
+ 			return -EINVAL;
+@@ -3889,7 +3889,7 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 	sprop = of_get_property(np, "tx-clock-name", NULL);
+ 	if (sprop) {
+ 		ug_info->uf_info.tx_clock = qe_clock_source(sprop);
+-		if ((ug_info->uf_info.tx_clock < QE_CLK1) ||
++		if ((ug_info->uf_info.tx_clock < QE_CLK_NONE) ||
+ 		    (ug_info->uf_info.tx_clock > QE_CLK24)) {
+ 			printk(KERN_ERR
+ 				"ucc_geth: invalid tx-clock-name property\n");
+@@ -3902,7 +3902,7 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 				"ucc_geth: mising tx-clock-name property\n");
+ 			return -EINVAL;
+ 		}
+-		if ((*prop < QE_CLK1) || (*prop > QE_CLK24)) {
++		if ((*prop < QE_CLK_NONE) || (*prop > QE_CLK24)) {
+ 			printk(KERN_ERR
+ 				"ucc_geth: invalid tx-clock property\n");
+ 			return -EINVAL;
+@@ -3910,8 +3910,6 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 		ug_info->uf_info.tx_clock = *prop;
  	}
-@@ -222,7 +225,7 @@ enum qe_clock qe_clock_source(const char *source)
- 	if (strncasecmp(source, "clk", 3) == 0) {
- 		i = simple_strtoul(source + 3, NULL, 10);
- 		if ((i >= 1) && (i <= 24))
--			return QE_CLK1 + i - 1;
-+			return (QE_CLK1 - 1) + i;
- 		else
- 			return QE_CLK_DUMMY;
- 	}
-diff --git a/include/asm-powerpc/qe.h b/include/asm-powerpc/qe.h
-index 7d53750..81403ee 100644
---- a/include/asm-powerpc/qe.h
-+++ b/include/asm-powerpc/qe.h
-@@ -28,6 +28,52 @@
- #define MEM_PART_SECONDARY	1
- #define MEM_PART_MURAM		2
  
-+/* Clocks and BRGs */
-+enum qe_clock {
-+	QE_CLK_NONE = 0,
-+	QE_BRG1,		/* Baud Rate Generator 1 */
-+	QE_BRG2,		/* Baud Rate Generator 2 */
-+	QE_BRG3,		/* Baud Rate Generator 3 */
-+	QE_BRG4,		/* Baud Rate Generator 4 */
-+	QE_BRG5,		/* Baud Rate Generator 5 */
-+	QE_BRG6,		/* Baud Rate Generator 6 */
-+	QE_BRG7,		/* Baud Rate Generator 7 */
-+	QE_BRG8,		/* Baud Rate Generator 8 */
-+	QE_BRG9,		/* Baud Rate Generator 9 */
-+	QE_BRG10,		/* Baud Rate Generator 10 */
-+	QE_BRG11,		/* Baud Rate Generator 11 */
-+	QE_BRG12,		/* Baud Rate Generator 12 */
-+	QE_BRG13,		/* Baud Rate Generator 13 */
-+	QE_BRG14,		/* Baud Rate Generator 14 */
-+	QE_BRG15,		/* Baud Rate Generator 15 */
-+	QE_BRG16,		/* Baud Rate Generator 16 */
-+	QE_CLK1,		/* Clock 1 */
-+	QE_CLK2,		/* Clock 2 */
-+	QE_CLK3,		/* Clock 3 */
-+	QE_CLK4,		/* Clock 4 */
-+	QE_CLK5,		/* Clock 5 */
-+	QE_CLK6,		/* Clock 6 */
-+	QE_CLK7,		/* Clock 7 */
-+	QE_CLK8,		/* Clock 8 */
-+	QE_CLK9,		/* Clock 9 */
-+	QE_CLK10,		/* Clock 10 */
-+	QE_CLK11,		/* Clock 11 */
-+	QE_CLK12,		/* Clock 12 */
-+	QE_CLK13,		/* Clock 13 */
-+	QE_CLK14,		/* Clock 14 */
-+	QE_CLK15,		/* Clock 15 */
-+	QE_CLK16,		/* Clock 16 */
-+	QE_CLK17,		/* Clock 17 */
-+	QE_CLK18,		/* Clock 18 */
-+	QE_CLK19,		/* Clock 19 */
-+	QE_CLK20,		/* Clock 20 */
-+	QE_CLK21,		/* Clock 21 */
-+	QE_CLK22,		/* Clock 22 */
-+	QE_CLK23,		/* Clock 23 */
-+	QE_CLK24,		/* Clock 24 */
-+	QE_CLK_DUMMY
-+};
-+
- /* Export QE common operations */
- extern void qe_reset(void);
- extern int par_io_init(struct device_node *np);
-@@ -38,7 +84,8 @@ extern int par_io_data_set(u8 port, u8 pin, u8 val);
- 
- /* QE internal API */
- int qe_issue_cmd(u32 cmd, u32 device, u8 mcn_protocol, u32 cmd_input);
--void qe_setbrg(unsigned int brg, unsigned int rate, unsigned int multiplier);
-+enum qe_clock qe_clock_source(const char *source);
-+void qe_setbrg(enum qe_clock brg, unsigned int rate, unsigned int multiplier);
- int qe_get_snum(void);
- void qe_put_snum(u8 snum);
- unsigned long qe_muram_alloc(int size, int align);
-@@ -129,55 +176,6 @@ enum comm_dir {
- 	COMM_DIR_RX_AND_TX = 3
- };
- 
--/* Clocks and BRGs */
--enum qe_clock {
--	QE_CLK_NONE = 0,
--	QE_BRG1,		/* Baud Rate Generator 1 */
--	QE_BRG2,		/* Baud Rate Generator 2 */
--	QE_BRG3,		/* Baud Rate Generator 3 */
--	QE_BRG4,		/* Baud Rate Generator 4 */
--	QE_BRG5,		/* Baud Rate Generator 5 */
--	QE_BRG6,		/* Baud Rate Generator 6 */
--	QE_BRG7,		/* Baud Rate Generator 7 */
--	QE_BRG8,		/* Baud Rate Generator 8 */
--	QE_BRG9,		/* Baud Rate Generator 9 */
--	QE_BRG10,		/* Baud Rate Generator 10 */
--	QE_BRG11,		/* Baud Rate Generator 11 */
--	QE_BRG12,		/* Baud Rate Generator 12 */
--	QE_BRG13,		/* Baud Rate Generator 13 */
--	QE_BRG14,		/* Baud Rate Generator 14 */
--	QE_BRG15,		/* Baud Rate Generator 15 */
--	QE_BRG16,		/* Baud Rate Generator 16 */
--	QE_CLK1,		/* Clock 1 */
--	QE_CLK2,		/* Clock 2 */
--	QE_CLK3,		/* Clock 3 */
--	QE_CLK4,		/* Clock 4 */
--	QE_CLK5,		/* Clock 5 */
--	QE_CLK6,		/* Clock 6 */
--	QE_CLK7,		/* Clock 7 */
--	QE_CLK8,		/* Clock 8 */
--	QE_CLK9,		/* Clock 9 */
--	QE_CLK10,		/* Clock 10 */
--	QE_CLK11,		/* Clock 11 */
--	QE_CLK12,		/* Clock 12 */
--	QE_CLK13,		/* Clock 13 */
--	QE_CLK14,		/* Clock 14 */
--	QE_CLK15,		/* Clock 15 */
--	QE_CLK16,		/* Clock 16 */
--	QE_CLK17,		/* Clock 17 */
--	QE_CLK18,		/* Clock 18 */
--	QE_CLK19,		/* Clock 19 */
--	QE_CLK20,		/* Clock 20 */
--	QE_CLK21,		/* Clock 21 */
--	QE_CLK22,		/* Clock 22 */
--	QE_CLK23,		/* Clock 23 */
--	QE_CLK24,		/* Clock 24 */
--	QE_CLK_DUMMY
--};
--
--/* Convert a string to a QE clock source enum */
--enum qe_clock qe_clock_source(const char *source);
--
- /* QE CMXUCR Registers.
-  * There are two UCCs represented in each of the four CMXUCR registers.
-  * These values are for the UCC in the LSBs
+-	prop = of_get_property(np, "tx-clock", NULL);
+-	ug_info->uf_info.tx_clock = *prop;
+ 	err = of_address_to_resource(np, 0, &res);
+ 	if (err)
+ 		return -EINVAL;
 -- 
 1.5.2.4
 
