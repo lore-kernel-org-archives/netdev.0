@@ -1,50 +1,44 @@
 From: "Denys" <denys@visp.net.lb>
-Subject: Re: Possible 2.6.22 -> 2.6.23 HTB regression?
-Date: Wed, 10 Oct 2007 16:20:38 +0300
-Message-ID: <20071010132039.M920@visp.net.lb>
+Subject: Re: [re] Possible 2.6.22 -> 2.6.23 HTB regression?
+Date: Wed, 10 Oct 2007 16:31:13 +0300
+Message-ID: <20071010132838.M20565@visp.net.lb>
+References: <20071010124510.M18768@visp.net.lb> <470CC97F.4000906@trash.net> <1192021963.4853.21.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset=koi8-r
-Cc: kaber@trash.net, hadi@cyberus.ca
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: hadi@cyberus.ca, Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usermail.globalproof.net ([194.146.153.18]:47845 "EHLO
+Received: from usermail.globalproof.net ([194.146.153.18]:36917 "EHLO
 	usermail.globalproof.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752461AbXJJNcJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 09:32:09 -0400
+	with ESMTP id S1753547AbXJJNmA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 09:42:00 -0400
+In-Reply-To: <1192021963.4853.21.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I did complete reboot(without kexec) to 2.6.23 (same configuration) and seems 
-it is working better (not stuck as before to 60-70Mbit/s).
-
-On all cases current_clocksources was hpet, just i tried to change it (doesnt 
-help at all).
-
-visp-1 ~ # cat /sys/devices/system/clocksource/clocksource0/
-current_clocksource
-hpet
-visp-1 ~ # cat /sys/devices/system/clocksource/clocksource0/
-available_clocksource
-hpet acpi_pm jiffies tsc
-
-from pcap analyser i wrote (just filter by expression "ip" counting bytes on 
-eth0.1000):
-
-82957/82957 KBit/S (53092530/53092530) (3887135786/3889389904)
-82931/82931 KBit/S (53076469/53076469) (3940228316/3942482434)
-82965/82965 KBit/S (53097615/53097615) (3993304785/3995558903)
-82946/82946 KBit/S (53085988/53085988) (4046402400/4048656518)
-82867/82867 KBit/S (53035341/53035341) (4099488388/4101742506)
-82941/82941 KBit/S (53082260/53082260) (4152523729/4154777847)
-82952/82952 KBit/S (53089348/53089348) (4205605989/4207860107)
-82948/82945 KBit/S (53086915/53085415) (4258695337/4260949455)
-
+Patch applied. Rebooted over kexec to 2.6.23 without nmi_watchdog, for now 
+all seems fine.
 
 visp-1 ~ # cat /proc/net/psched
 000003e8 00000400 000f4240 3b9aca00
 
-How i can help more?
+82942/82949 KBit/S (53083445/53087945) (106109614/106105114)
+82955/82955 KBit/S (53091631/53091631) (159193059/159193059)
+82955/82955 KBit/S (53091351/53091351) (212284690/212284690)
+82951/82951 KBit/S (53088902/53088902) (265376041/265376041)
+82940/82940 KBit/S (53081605/53081605) (318464943/318464943)
+82959/82959 KBit/S (53094269/53094269) (371546548/371546548)
+81596/81596 KBit/S (52221918/52221918) (424640817/424640817)
+82909/82909 KBit/S (53062055/53062055) (476862735/476862735)
+82939/82939 KBit/S (53081402/53081402) (529924790/529924790)
+82963/82963 KBit/S (53096554/53096554) (583006192/583006192)
+82954/82954 KBit/S (53090871/53090871) (636102746/636102746)
+82030/82943 KBit/S (52499816/53084066) (689193617/689193617)
+82945/82945 KBit/S (53085182/53085182) (741693433/742277683)
+82964/82954 KBit/S (53097002/53091002) (794778615/795362865)
+
+
 
 --
 Denys Fedoryshchenko
