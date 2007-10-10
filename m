@@ -1,76 +1,98 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: Re: [PATCH][NETNS] Make ifindex generation per-namespace
-Date: Wed, 10 Oct 2007 12:55:32 +0400
-Message-ID: <470C9384.9050102@openvz.org>
-References: <470B71CD.3000706@openvz.org> <m1przoxk1v.fsf@ebiederm.dsl.xmission.com>
+From: Anton Arapov <aarapov@redhat.com>
+Subject: Re: [PATCH] division-by-zero in inet_csk_get_port
+Date: Wed, 10 Oct 2007 11:00:17 +0200
+Message-ID: <m31wc3l4ym.fsf@bandura.englab.brq.redhat.com>
+References: <20071010085530.GA7532@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: multipart/signed; boundary="=-=-=";
+	micalg=pgp-sha1; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org
+To: "Denis V. Lunev" <den@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:34646 "EHLO sacred.ru"
+Received: from mx1.redhat.com ([66.187.233.31]:55690 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751871AbXJJI6N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Oct 2007 04:58:13 -0400
-In-Reply-To: <m1przoxk1v.fsf@ebiederm.dsl.xmission.com>
+	id S1752194AbXJJJAX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Oct 2007 05:00:23 -0400
+In-Reply-To: <20071010085530.GA7532@iris.sw.ru> (Denis V. Lunev's message of "Wed\, 10 Oct 2007 12\:55\:30 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> Pavel Emelyanov <xemul@openvz.org> writes:
-> 
->> Currently indexes for netdevices come sequentially one by
->> one, and the same stays true even for devices that are 
->> created for namespaces.
->>
->> Side effects of this are:
->>  * lo device has not 1 index in a namespace. This may break
->>    some userspace that relies on it (and AFAIR something
->>    really broke in OpenVZ VEs without this);
-> 
-> As it happens lo hasn't been registered first for some time
-> so it hasn't had ifindex of 1 in the normal kernel.
-> 
->>  * after some time namespaces will have devices with indexes
->>    like 1000000 os similar. This might be confusing for a
->>    human (tools will not mind).
-> 
-> Only if we wind up creating that many devices.
+--=-=-=
+Content-Transfer-Encoding: quoted-printable
 
-Nope. Create and destroy new net ns for 10000 times and you'll get it.
 
->> So move the (currently "global" and static) ifindex variable
->> on the struct net, making the indexes allocation look more
->> like on a standalone machine.
->>
->> Moreover - when we have indexes intersect between namespaces,
->> we may catch more BUGs in the future related to "wrong device 
->> was found for a given index".
-> 
-> Not yet.
-> 
-> I know there are several data structures internal to the kernel that
-> are indexed by ifindex, and not struct net_device *.  There is the
-> iflink field in struct net_device.  We need a way to refer to network
-> devices in other namespaces in rtnetlink in an unambiguous way.   I
-> don't see any real problems with a global ifindex assignment until
-> we start migrating applications.
-> 
-> So please hold off on this until the kernel has been audited and
-> we have removed all of the uses of ifindex that assume ifindex is
-> global, that we can find.
+Ok, I've got it, so we have to do the same with the following:
+quote from inet_hashtables.c and inet6_hashtables.c. I'll prepare the
+patch.
 
-Ok.
+And just a curious, does the /* Treat low > high as high =3D=3D low */
+idea will keep after the sysctl will be patched?
 
-> Right now a namespace local ifindex seems to be just asking for
-> trouble.
+int inet_hash_connect(struct inet_timewait_death_row *death_row,
+                      struct sock *sk)
+{
+        struct inet_hashinfo *hinfo =3D death_row->hashinfo;
+        const unsigned short snum =3D inet_sk(sk)->num;
+        struct inet_bind_hashbucket *head;
+        struct inet_bind_bucket *tb;
+        int ret;
 
-You said the same about caching the global pid on the task_struct,
-but looks like you were wrong ;) Just kidding.
+        if (!snum) {
+                int low =3D sysctl_local_port_range[0];
+                int high =3D sysctl_local_port_range[1];
+>                int range =3D high - low;
+                int i;
+                int port;
+                static u32 hint;
+                u32 offset =3D hint + inet_sk_port_offset(sk);
+                struct hlist_node *node;
+                struct inet_timewait_sock *tw =3D NULL;
 
-> Eric
-> 
-> 
+                local_bh_disable();
+                for (i =3D 1; i <=3D range; i++) {
+>                        port =3D low + (i + offset) % range;
+=20
 
+"Denis V. Lunev" <den@openvz.org> writes:
+> This patch fixed a possible division-by-zero in inet_csk_get_port
+> treating situation low > high as if low =3D=3D high.
+>
+> Signed-off-by: Denis V. Lunev <den@openvz.org>
+> CC: Antov Arapov  <aarapov@redhat.com>
+>
+> --- ./net/ipv4/inet_connection_sock.c.getport	2007-10-09 15:16:02.0000000=
+00 +0400
+> +++ ./net/ipv4/inet_connection_sock.c	2007-10-10 12:44:04.000000000 +0400
+> @@ -80,7 +80,14 @@ int inet_csk_get_port(struct inet_hashin
+>  		int low =3D sysctl_local_port_range[0];
+>  		int high =3D sysctl_local_port_range[1];
+>  		int remaining =3D (high - low) + 1;
+> -		int rover =3D net_random() % (high - low) + low;
+> +		int rover;
+> +
+> +		/* Treat low > high as high =3D=3D low */
+> +		if (remaining <=3D 1) {
+> +			remaining =3D 1;
+> +			rover =3D low;
+> +		} else
+> +			rover =3D net_random() % (high - low) + low;
+>=20=20
+>  		do {
+>  			head =3D &hashinfo->bhash[inet_bhashfn(rover, hashinfo->bhash_size)];
+
+=2D-=20
+Anton Arapov, <aarapov@redhat.com>
+Kernel Development, Red Hat
+GPG Key ID: 0x6FA8C812
+
+--=-=-=
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQFHDJSlVub9yW+oyBIRAsfQAKD0sMxK0pLWfdDhmmz8DA8ftlT2TgCffr/m
+hNfnfk/NsZiqwGZUkDS1mbk=
+=ReYa
+-----END PGP SIGNATURE-----
+--=-=-=--
