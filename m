@@ -1,42 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] division-by-zero in inet_csk_get_port
-Date: Wed, 10 Oct 2007 03:01:53 -0700 (PDT)
-Message-ID: <20071010.030153.09951294.davem@davemloft.net>
-References: <m31wc3l4ym.fsf@bandura.englab.brq.redhat.com>
-	<20071010.023515.15263796.davem@davemloft.net>
-	<m3wstvjnso.fsf@bandura.englab.brq.redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, den@openvz.org
-To: aarapov@redhat.com
+From: Mark Brown <broonie@sirena.org.uk>
+Subject: [PATCH] natsemi: Use round_jiffies() for slow timers
+Date: Wed, 10 Oct 2007 11:05:44 +0100
+Message-ID: <1192010744-12204-1-git-send-email-broonie@sirena.org.uk>
+References: <470C210C.6030800@pobox.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mark Brown <broonie@sirena.org.uk>
+To: Jeff Garzik <jgarzik@pobox.com>, thockin@hockin.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39906
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750995AbXJJKBu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 06:01:50 -0400
-In-Reply-To: <m3wstvjnso.fsf@bandura.englab.brq.redhat.com>
+Received: from cassiel.sirena.org.uk ([80.68.93.111]:4638 "EHLO
+	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752158AbXJJKFx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 06:05:53 -0400
+In-Reply-To: <470C210C.6030800@pobox.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Anton Arapov <aarapov@redhat.com>
-Date: Wed, 10 Oct 2007 11:56:23 +0200
+Unless we have failed to fill the RX ring the timer used by the natsemi
+driver is not particularly urgent and can use round_jiffies() to allow
+grouping with other timers.
 
->   Yep, that's exactly I'm talking about. I'm sure that 
->   [...] % (high - low) [...] erroneous from the begining, because
-> in such places we want to have 1 in denominator, for the cases when we
-> have only one port. Because 34000 34000 in sysctl's
-> ip_local_port_range means 1(one) port, not 0(zero).
-> 
->   So it seems to me that we have to fix mentioned denominators in
-> kernel/net to have 1, that will be correct logically. And do the
-> MAX<MIN check in sysctl code.
->   From this point of view, it's best idea to have two patches: one for
-> the kernel/net denominators and another one for the sysctl.c's
-> function dointvec_minmax(). Because they can live independently. And
-> the patch for the kernel/net will do the work at least because we
-> prevent kernel trap at all.
->   
->   Dave, am I right?
+Signed-off-by: Mark Brown <broonie@sirena.org.uk>
+---
+Rediffed against current netdev-2.6.git#upstream
 
-Sure, two patches is fine.
+ drivers/net/natsemi.c |   10 +++++++---
+ 1 files changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/natsemi.c b/drivers/net/natsemi.c
+index 527f9dc..b881786 100644
+--- a/drivers/net/natsemi.c
++++ b/drivers/net/natsemi.c
+@@ -1576,7 +1576,7 @@ static int netdev_open(struct net_device *dev)
+ 
+ 	/* Set the timer to check for link beat. */
+ 	init_timer(&np->timer);
+-	np->timer.expires = jiffies + NATSEMI_TIMER_FREQ;
++	np->timer.expires = round_jiffies(jiffies + NATSEMI_TIMER_FREQ);
+ 	np->timer.data = (unsigned long)dev;
+ 	np->timer.function = &netdev_timer; /* timer handler */
+ 	add_timer(&np->timer);
+@@ -1856,7 +1856,11 @@ static void netdev_timer(unsigned long data)
+ 			next_tick = 1;
+ 		}
+ 	}
+-	mod_timer(&np->timer, jiffies + next_tick);
++
++	if (next_tick > 1)
++		mod_timer(&np->timer, round_jiffies(jiffies + next_tick));
++	else
++		mod_timer(&np->timer, jiffies + next_tick);
+ }
+ 
+ static void dump_ring(struct net_device *dev)
+@@ -3331,7 +3335,7 @@ static int natsemi_resume (struct pci_dev *pdev)
+ 		spin_unlock_irq(&np->lock);
+ 		enable_irq(dev->irq);
+ 
+-		mod_timer(&np->timer, jiffies + 1*HZ);
++		mod_timer(&np->timer, round_jiffies(jiffies + 1*HZ));
+ 	}
+ 	netif_device_attach(dev);
+ out:
+-- 
+1.5.3.4
+
