@@ -1,36 +1,41 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [RFC] more robust inet range checking
-Date: Wed, 10 Oct 2007 13:53:08 -0400
-Message-ID: <470D1184.4020402@hp.com>
-References: <20071010141530.GA10661@iris.sw.ru> <20071010100939.0783febb@freepuppy.rosehill>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: authenc compile warnings in current net-2.6.24
+Date: Wed, 10 Oct 2007 19:53:53 +0200
+Message-ID: <470D11B1.2040207@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Denis V. Lunev" <den@openvz.org>, davem@davemloft.net,
-	aarapov@redhat.com, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=windows-1252;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:43996 "EHLO atlrel8.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754547AbXJJRxL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Oct 2007 13:53:11 -0400
-In-Reply-To: <20071010100939.0783febb@freepuppy.rosehill>
+Received: from cg-p07-fb.rzone.de ([81.169.146.215]:36653 "EHLO
+	cg-p07-fb.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754340AbXJJRzR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 13:55:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> More complete version of local port range checking.
-> 
-> 1. Enforce that low < high when setting.
-> 2. Use seqlock to ensure atomic update.
-> 3. Add port randomization to SCTP. This is a new feature but
->    easier than maintaining old code that was broken if range
->    changed.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-> 
+Hi Herbert,
 
-Ack the SCTP portion.  Much nicer and a much needed improvement.
+CC [M] crypto/authenc.o
+crypto/authenc.c: In function =91crypto_authenc_hash=92:
+crypto/authenc.c:88: warning: =91cryptlen=92 may be used uninitialized =
+in=20
+this function
+crypto/authenc.c:87: warning: =91dst=92 may be used uninitialized in th=
+is=20
+function
+crypto/authenc.c: In function =91crypto_authenc_decrypt=92:
+crypto/authenc.c:163: warning: =91cryptlen=92 may be used uninitialized=
+ in=20
+this function
+crypto/authenc.c:163: note: =91cryptlen=92 was declared here
+crypto/authenc.c:162: warning: =91src=92 may be used uninitialized in t=
+his=20
+function
+crypto/authenc.c:162: note: =91src=92 was declared here
 
-Thanks
--vlad
+do you already know these warnings?
+
+Oliver
