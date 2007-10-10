@@ -1,51 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-2.6.24 0/3]: Attempt to fix lost_retrans
- brokeness
-Date: Wed, 10 Oct 2007 02:48:09 -0700 (PDT)
-Message-ID: <20071010.024809.10298656.davem@davemloft.net>
-References: <11919324023597-git-send-email-ilpo.jarvinen@helsinki.fi>
-	<Pine.LNX.4.64.0710091600300.3767@kivilampi-30.cs.helsinki.fi>
+Subject: Re: [PATCH][NET-2.6.24] Remove double dev->flags checking when
+ calling dev_close()
+Date: Wed, 10 Oct 2007 02:49:28 -0700 (PDT)
+Message-ID: <20071010.024928.32347244.davem@davemloft.net>
+References: <470B5D0E.9090202@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	takano@axe-inc.co.jp
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devel@openvz.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42891
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42901
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754055AbXJJJsG convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Oct 2007 05:48:06 -0400
-In-Reply-To: <Pine.LNX.4.64.0710091600300.3767@kivilampi-30.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S1753950AbXJJJtZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 05:49:25 -0400
+In-Reply-To: <470B5D0E.9090202@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Tue, 9 Oct 2007 16:03:29 +0300 (EEST)
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Tue, 09 Oct 2007 14:50:54 +0400
 
-> On Tue, 9 Oct 2007, Ilpo J=E4rvinen wrote:
->=20
-> > Lost_retrans handling of sacktag was found to be flawed, two
-> > problems that were found have an intertwined solution. Fastpath
-> > problem has existed since hints got added and the other problem
-> > has probably been there even longer than that. ...This change
-> > may add non-trivial processing cost.
-> >=20
-> > Initial sketch, only compile tested. This will become more and
-> > more useful, when sacktag starts to process less and less skbs,
-> > which hopefully happens quite soon... :-) Sadly enough it will
-> > probably then be consuming part of the benefits we're able to
-> > achieve by less skb walking...
-> >=20
-> > First one is trivial, so Dave might want to apply it already.
->=20
-> Hmm, forgot to add -n to git-format-patch. Since it's currently
-> RFC, I won't bother to resubmit with numbers unless somebody
-> really wants that. Here's the correct ordering, if it's not
-> obvious from the patches alone:
+> The unregister_netdevice() and dev_change_net_namespace() 
+> both check for dev->flags to be IFF_UP before calling the 
+> dev_close(), but the dev_close() checks for IFF_UP itself, 
+> so remove those unneeded checks.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-I'm going to leave the 2nd patches and 3rd patches alone for
-now so they can cook a little bit longer.
-
-Thanks!
+Applied, thanks Pavel.
