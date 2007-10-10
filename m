@@ -1,40 +1,37 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH][NETNS] Make ifindex generation per-namespace
-Date: Wed, 10 Oct 2007 12:15:33 -0600
-Message-ID: <m1d4vmrg3e.fsf@ebiederm.dsl.xmission.com>
-References: <470B71CD.3000706@openvz.org>
-	<m1przoxk1v.fsf@ebiederm.dsl.xmission.com>
-	<470C9384.9050102@openvz.org>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH] IB/ipoib: Bound the net device to the ipoib_neigh structue
+Date: Wed, 10 Oct 2007 11:31:30 -0700
+Message-ID: <aday7eaddod.fsf@cisco.com>
+References: <11916151232222-git-send-email-fubar@us.ibm.com>
+	<470C200D.4010705@pobox.com> <470C2343.1020800@garzik.org>
+	<20071009.181246.41634534.davem@davemloft.net> <706.1191979132@death>
+	<470CF7E1.6060503@voltaire.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Pavel Emelyanov <xemul@openvz.org>
+Cc: Jay Vosburgh <fubar@us.ibm.com>, jeff@garzik.org,
+	David Miller <davem@davemloft.net>, ogerlitz@voltaire.com,
+	netdev@vger.kernel.org
+To: Moni Shoua <monis@voltaire.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:35915 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751836AbXJJSQM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 14:16:12 -0400
-In-Reply-To: <470C9384.9050102@openvz.org> (Pavel Emelyanov's message of "Wed,
-	10 Oct 2007 12:55:32 +0400")
+Received: from sj-iport-2-in.cisco.com ([171.71.176.71]:47884 "EHLO
+	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752111AbXJJSbh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 14:31:37 -0400
+In-Reply-To: <470CF7E1.6060503@voltaire.com> (Moni Shoua's message of "Wed, 10 Oct 2007 18:03:45 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pavel Emelyanov <xemul@openvz.org> writes:
+ > I also ran a test for the code in the branch of 2.6.24 and found a problem.
+ > I see that ifconfig down doesn't return (for IPoIB interfaces) and it's stuck in napi_disable() in the kernel (any idea why?)
 
->> I know there are several data structures internal to the kernel that
->> are indexed by ifindex, and not struct net_device *.  There is the
->> iflink field in struct net_device.  We need a way to refer to network
->> devices in other namespaces in rtnetlink in an unambiguous way.   I
->> don't see any real problems with a global ifindex assignment until
->> we start migrating applications.
->> 
->> So please hold off on this until the kernel has been audited and
->> we have removed all of the uses of ifindex that assume ifindex is
->> global, that we can find.
->
-> Ok.
+For what it's worth, I took the upstream 2.6.23 git tree and merged in
+Dave's latest net-2.6.24 tree and my latest for-2.6.24 tree and tried
+that.  I brought up an IPoIB interface, sent a few pings, and did
+ifconfig down, and it worked fine.
 
-Thanks.
+Can you try the same thing without the bonding patches to see if your
+setup works OK too?
 
-Eric
+Also can you give more details about what you do to get ifconfig down stuck?
+
+ - R.
