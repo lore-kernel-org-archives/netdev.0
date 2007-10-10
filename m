@@ -1,35 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] [IPV6] Defer IPv6 device initialization until a valid qdisc is specified
-Date: Wed, 10 Oct 2007 11:27:22 +0800
-Message-ID: <E1IfSEE-0006z9-00@gondolin.me.apana.org.au>
-References: <20071010.121642.107601594.yoshfuji@linux-ipv6.org>
-Cc: herbert@gondor.apana.org.au, mitch@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: yoshfuji@linux-ipv6.org (YOSHIFUJI Hideaki / ????????????)
+From: Ila Cortes <pgaspersnpts@pag.reno.nv.us>
+Subject: Your new password.
+Date: Wed, 10 Oct 2007 07:53:23 +0200
+Message-ID: <512066358988.421779816891@pag.reno.nv.us>
+Reply-To: Ila Cortes <pgaspersnpts@pag.reno.nv.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2965 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750752AbXJJD1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 23:27:31 -0400
-In-Reply-To: <20071010.121642.107601594.yoshfuji@linux-ipv6.org>
+Received: from node-29-129.adsl.tula.net ([212.12.29.129]:63414 "HELO
+	pag.reno.nv.us" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with SMTP id S1751991AbXJJF5Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 01:57:16 -0400
+Received: from vger.kernel.org (vger.kernel.org [209.132.176.167])
+	by 212.12.29.129 (8.9.3/8.9.3) with ESMTP id UDyBJfBHJbzS
+	for <netdev@vger.kernel.org>; Wed, 10 Oct 2007 07:53:23 +0200
+Received: from tyubqcowondr (HELO ghcmcndsfzyhg) ([124.155.90.103])
+	by vger.kernel.org with SMTP
+	for <netdev@vger.kernel.org>; Wed, 10 Oct 2007 07:53:23 +0200
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki / ???????????? <yoshfuji@linux-ipv6.org> wrote:
-> 
-> We'd really like to do our best to avoid such random failures
-> even if it may/can not be perfect.
+Lifetime pass to our x x x network
+http://18plusoffers.cn
 
-OK I see your point of view but there's got to be a better way
-than this.
+sniff infield
+abrasions goetic
 
-As it is your tests will fail randomly anyway if you do it in
-virtual guest because the carrier is always on since the switch
-in that case is the host OS.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
