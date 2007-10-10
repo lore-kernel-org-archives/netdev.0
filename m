@@ -1,43 +1,28 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] ehea: use kernel event queue
-Date: Tue, 09 Oct 2007 20:39:31 -0400
-Message-ID: <470C1F43.7050608@garzik.org>
-References: <200710081601.34067.ossthema@de.ibm.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH net-2.6.24] cxgb3 sparse warning fixes
+Date: Tue, 09 Oct 2007 20:39:47 -0400
+Message-ID: <470C1F53.2020409@pobox.com>
+References: <20071008162229.65237a88@freepuppy.rosehill>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
-	Marcus Eder <meder@de.ibm.com>,
-	Thomas Klein <tklein@de.ibm.com>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>,
-	Anton Blanchard <anton@samba.org>
-To: Jan-Bernd Themann <ossthema@de.ibm.com>
+Cc: Divy Le Ray <divy@chelsio.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39083 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:39102 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752994AbXJJAjj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Oct 2007 20:39:39 -0400
-In-Reply-To: <200710081601.34067.ossthema@de.ibm.com>
+	id S1754582AbXJJAju (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2007 20:39:50 -0400
+In-Reply-To: <20071008162229.65237a88@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jan-Bernd Themann wrote:
-> eHEA recovery and DLPAR functions are called seldomly. The eHEA workqueues
-> are replaced by the kernel event queue.
+Stephen Hemminger wrote:
+> Fix warnings from sparse related to shadowed variables and routines
+> that should be declared static.
 > 
-> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
-> 
-> ---
-> The patch has been built against upstream git
-> 
->  drivers/net/ehea/ehea.h      |    3 +--
->  drivers/net/ehea/ehea_main.c |   28 ++++++++--------------------
->  drivers/net/ehea/ehea_qmr.c  |    3 +--
->  3 files changed, 10 insertions(+), 24 deletions(-)
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
 applied
 
