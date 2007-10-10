@@ -1,361 +1,462 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 4/7] [IPSEC]: Use IPv6 calling convention as the convention for x->mode->output
-Date: Wed, 10 Oct 2007 22:40:13 +0800
-Message-ID: <E1IfcjN-00024M-00@gondolin.me.apana.org.au>
+Subject: [PATCH 5/7] [IPSEC]: Get rid of ipv6_{auth,esp,comp}_hdr
+Date: Wed, 10 Oct 2007 22:40:14 +0800
+Message-ID: <E1IfcjO-00024U-00@gondolin.me.apana.org.au>
 References: <20071010143915.GA7650@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3585 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:3590 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754403AbXJJOk2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 10:40:28 -0400
+	with ESMTP id S1754341AbXJJOkT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 10:40:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Use IPv6 calling convention as the convention for x->mode->output
+[IPSEC]: Get rid of ipv6_{auth,esp,comp}_hdr
 
-The IPv6 calling convention for x->mode->output is more general and could
-help an eventual protocol-generic x->type->output implementation.  This
-patch adopts it for IPv4 as well and modifies the IPv4 type output functions
-accordingly.
+This patch removes the duplicate ipv6_{auth,esp,comp}_hdr structures since
+they're identical to the IPv4 versions.  Duplicating them would only create
+problems for ourselves later when we need to add things like extended
+sequence numbers.
 
-It also rewrites the IPv6 mac/transport header calculation to be based off
-the network header where practical.
+I've also added transport header type conversion headers for these types
+which are now used by the transforms.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/net/xfrm.h              |   12 ++++++++++++
- net/ipv4/ah4.c                  |    6 +++---
- net/ipv4/esp4.c                 |   11 +++++------
- net/ipv4/ipcomp.c               |   10 +++++-----
- net/ipv4/xfrm4_mode_beet.c      |   17 +++++++----------
- net/ipv4/xfrm4_mode_transport.c |    7 +++----
- net/ipv4/xfrm4_mode_tunnel.c    |    7 +++----
- net/ipv6/xfrm6_mode_beet.c      |    9 +--------
- net/ipv6/xfrm6_mode_ro.c        |    9 +--------
- net/ipv6/xfrm6_mode_transport.c |    9 +--------
- net/ipv6/xfrm6_mode_tunnel.c    |   14 +++-----------
- 11 files changed, 44 insertions(+), 67 deletions(-)
+ include/linux/ipv6.h |   21 ---------------------
+ include/net/ah.h     |    7 +++++++
+ include/net/esp.h    |    7 +++++++
+ include/net/ipcomp.h |   11 ++++++++++-
+ net/ipv4/ah4.c       |   18 +++++++++---------
+ net/ipv4/esp4.c      |   10 +++++-----
+ net/ipv4/ipcomp.c    |    2 +-
+ net/ipv6/ah6.c       |   16 ++++++++--------
+ net/ipv6/esp6.c      |   18 +++++++++---------
+ net/ipv6/ipcomp6.c   |   17 ++++++++---------
+ 10 files changed, 64 insertions(+), 63 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 1c116dc..77be396 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -300,6 +300,18 @@ extern void xfrm_put_type(struct xfrm_type *type);
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 4ca60c3..5d35a4c 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -96,27 +96,6 @@ struct ipv6_destopt_hao {
+ 	struct in6_addr		addr;
+ } __attribute__ ((__packed__));
  
- struct xfrm_mode {
- 	int (*input)(struct xfrm_state *x, struct sk_buff *skb);
+-struct ipv6_auth_hdr {
+-	__u8  nexthdr;
+-	__u8  hdrlen;           /* This one is measured in 32 bit units! */
+-	__be16 reserved;
+-	__be32 spi;
+-	__be32 seq_no;           /* Sequence number */
+-	__u8  auth_data[0];     /* Length variable but >=4. Mind the 64 bit alignment! */
+-};
+-
+-struct ipv6_esp_hdr {
+-	__be32 spi;
+-	__be32 seq_no;           /* Sequence number */
+-	__u8  enc_data[0];      /* Length variable but >=8. Mind the 64 bit alignment! */
+-};
+-
+-struct ipv6_comp_hdr {
+-	__u8 nexthdr;
+-	__u8 flags;
+-	__be16 cpi;
+-};
+-
+ /*
+  *	IPv6 fixed header
+  *
+diff --git a/include/net/ah.h b/include/net/ah.h
+index 5e758c2..ae1c322 100644
+--- a/include/net/ah.h
++++ b/include/net/ah.h
+@@ -38,4 +38,11 @@ out:
+ 	return err;
+ }
+ 
++struct ip_auth_hdr;
 +
-+	/*
-+	 * Add encapsulation header.
-+	 *
-+	 * On exit, the transport header will be set to the start of the
-+	 * encapsulation header to be filled in by x->type->output and
-+	 * the mac header will be set to the nextheader (protocol for
-+	 * IPv4) field of the extension header directly preceding the
-+	 * encapsulation header, or in its absence, that of the top IP
-+	 * header.  The value of the network header will always point
-+	 * to the top IP header while skb->data will point to the payload.
-+	 */
- 	int (*output)(struct xfrm_state *x,struct sk_buff *skb);
++static inline struct ip_auth_hdr *ip_auth_hdr(const struct sk_buff *skb)
++{
++	return (struct ip_auth_hdr *)skb_transport_header(skb);
++}
++
+ #endif
+diff --git a/include/net/esp.h b/include/net/esp.h
+index e793d76..c1bc529 100644
+--- a/include/net/esp.h
++++ b/include/net/esp.h
+@@ -53,4 +53,11 @@ static inline int esp_mac_digest(struct esp_data *esp, struct sk_buff *skb,
+ 	return crypto_hash_final(&desc, esp->auth.work_icv);
+ }
  
- 	struct module *owner;
++struct ip_esp_hdr;
++
++static inline struct ip_esp_hdr *ip_esp_hdr(const struct sk_buff *skb)
++{
++	return (struct ip_esp_hdr *)skb_transport_header(skb);
++}
++
+ #endif
+diff --git a/include/net/ipcomp.h b/include/net/ipcomp.h
+index 87c1af3..330b74e 100644
+--- a/include/net/ipcomp.h
++++ b/include/net/ipcomp.h
+@@ -1,14 +1,23 @@
+ #ifndef _NET_IPCOMP_H
+ #define _NET_IPCOMP_H
+ 
+-#include <linux/crypto.h>
+ #include <linux/types.h>
+ 
+ #define IPCOMP_SCRATCH_SIZE     65400
+ 
++struct crypto_comp;
++
+ struct ipcomp_data {
+ 	u16 threshold;
+ 	struct crypto_comp **tfms;
+ };
+ 
++struct ip_comp_hdr;
++struct sk_buff;
++
++static inline struct ip_comp_hdr *ip_comp_hdr(const struct sk_buff *skb)
++{
++	return (struct ip_comp_hdr *)skb_transport_header(skb);
++}
++
+ #endif
 diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
-index dbb1f11..e4f7aa3 100644
+index e4f7aa3..d697064 100644
 --- a/net/ipv4/ah4.c
 +++ b/net/ipv4/ah4.c
-@@ -82,14 +82,14 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
+@@ -82,7 +82,7 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
  			goto error;
  	}
  
--	ah = (struct ip_auth_hdr *)((char *)top_iph+top_iph->ihl*4);
--	ah->nexthdr = top_iph->protocol;
-+	ah = (struct ip_auth_hdr *)skb_transport_header(skb);
-+	ah->nexthdr = *skb_mac_header(skb);
-+	*skb_mac_header(skb) = IPPROTO_AH;
+-	ah = (struct ip_auth_hdr *)skb_transport_header(skb);
++	ah = ip_auth_hdr(skb);
+ 	ah->nexthdr = *skb_mac_header(skb);
+ 	*skb_mac_header(skb) = IPPROTO_AH;
  
- 	top_iph->tos = 0;
- 	top_iph->tot_len = htons(skb->len);
- 	top_iph->frag_off = 0;
- 	top_iph->ttl = 0;
--	top_iph->protocol = IPPROTO_AH;
+@@ -93,8 +93,7 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
  	top_iph->check = 0;
  
  	ahp = x->data;
+-	ah->hdrlen  = (XFRM_ALIGN8(sizeof(struct ip_auth_hdr) +
+-				   ahp->icv_trunc_len) >> 2) - 2;
++	ah->hdrlen  = (XFRM_ALIGN8(sizeof(*ah) + ahp->icv_trunc_len) >> 2) - 2;
+ 
+ 	ah->reserved = 0;
+ 	ah->spi = x->id.spi;
+@@ -134,15 +133,15 @@ static int ah_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	struct ah_data *ahp;
+ 	char work_buf[60];
+ 
+-	if (!pskb_may_pull(skb, sizeof(struct ip_auth_hdr)))
++	if (!pskb_may_pull(skb, sizeof(*ah)))
+ 		goto out;
+ 
+-	ah = (struct ip_auth_hdr*)skb->data;
++	ah = (struct ip_auth_hdr *)skb->data;
+ 	ahp = x->data;
+ 	ah_hlen = (ah->hdrlen + 2) << 2;
+ 
+-	if (ah_hlen != XFRM_ALIGN8(sizeof(struct ip_auth_hdr) + ahp->icv_full_len) &&
+-	    ah_hlen != XFRM_ALIGN8(sizeof(struct ip_auth_hdr) + ahp->icv_trunc_len))
++	if (ah_hlen != XFRM_ALIGN8(sizeof(*ah) + ahp->icv_full_len) &&
++	    ah_hlen != XFRM_ALIGN8(sizeof(*ah) + ahp->icv_trunc_len))
+ 		goto out;
+ 
+ 	if (!pskb_may_pull(skb, ah_hlen))
+@@ -156,7 +155,7 @@ static int ah_input(struct xfrm_state *x, struct sk_buff *skb)
+ 
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 
+-	ah = (struct ip_auth_hdr*)skb->data;
++	ah = (struct ip_auth_hdr *)skb->data;
+ 	iph = ip_hdr(skb);
+ 
+ 	ihl = skb->data - skb_network_header(skb);
+@@ -266,7 +265,8 @@ static int ah_init_state(struct xfrm_state *x)
+ 	if (!ahp->work_icv)
+ 		goto error;
+ 
+-	x->props.header_len = XFRM_ALIGN8(sizeof(struct ip_auth_hdr) + ahp->icv_trunc_len);
++	x->props.header_len = XFRM_ALIGN8(sizeof(struct ip_auth_hdr) +
++					  ahp->icv_trunc_len);
+ 	if (x->props.mode == XFRM_MODE_TUNNEL)
+ 		x->props.header_len += sizeof(struct iphdr);
+ 	x->data = ahp;
 diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 0f5e838..93153d1 100644
+index 93153d1..66eb496 100644
 --- a/net/ipv4/esp4.c
 +++ b/net/ipv4/esp4.c
-@@ -60,10 +60,10 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+@@ -60,7 +60,7 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
  
  	skb_push(skb, -skb_network_offset(skb));
  	top_iph = ip_hdr(skb);
--	esph = (struct ip_esp_hdr *)(skb_network_header(skb) +
--				     top_iph->ihl * 4);
-+	esph = (struct ip_esp_hdr *)skb_transport_header(skb);
+-	esph = (struct ip_esp_hdr *)skb_transport_header(skb);
++	esph = ip_esp_hdr(skb);
  	top_iph->tot_len = htons(skb->len + alen);
--	*(skb_tail_pointer(trailer) - 1) = top_iph->protocol;
-+	*(skb_tail_pointer(trailer) - 1) = *skb_mac_header(skb);
-+	*skb_mac_header(skb) = IPPROTO_ESP;
+ 	*(skb_tail_pointer(trailer) - 1) = *skb_mac_header(skb);
+ 	*skb_mac_header(skb) = IPPROTO_ESP;
+@@ -157,7 +157,7 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	struct sk_buff *trailer;
+ 	int blksize = ALIGN(crypto_blkcipher_blocksize(tfm), 4);
+ 	int alen = esp->auth.icv_trunc_len;
+-	int elen = skb->len - sizeof(struct ip_esp_hdr) - esp->conf.ivlen - alen;
++	int elen = skb->len - sizeof(*esph) - esp->conf.ivlen - alen;
+ 	int nfrags;
+ 	int ihl;
+ 	u8 nexthdr[2];
+@@ -165,7 +165,7 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	int padlen;
+ 	int err;
  
- 	spin_lock_bh(&x->lock);
+-	if (!pskb_may_pull(skb, sizeof(struct ip_esp_hdr)))
++	if (!pskb_may_pull(skb, sizeof(*esph)))
+ 		goto out;
  
-@@ -91,9 +91,8 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- 			break;
- 		}
+ 	if (elen <= 0 || (elen & (blksize-1)))
+@@ -193,7 +193,7 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
  
--		top_iph->protocol = IPPROTO_UDP;
--	} else
--		top_iph->protocol = IPPROTO_ESP;
-+		*skb_mac_header(skb) = IPPROTO_UDP;
-+	}
+ 	skb->ip_summed = CHECKSUM_NONE;
  
- 	esph->spi = x->id.spi;
- 	esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq);
+-	esph = (struct ip_esp_hdr*)skb->data;
++	esph = (struct ip_esp_hdr *)skb->data;
+ 
+ 	/* Get ivec. This can be wrong, check against another impls. */
+ 	if (esp->conf.ivlen)
+@@ -206,7 +206,7 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+ 		if (!sg)
+ 			goto out;
+ 	}
+-	skb_to_sgvec(skb, sg, sizeof(struct ip_esp_hdr) + esp->conf.ivlen, elen);
++	skb_to_sgvec(skb, sg, sizeof(*esph) + esp->conf.ivlen, elen);
+ 	err = crypto_blkcipher_decrypt(&desc, sg, sg, elen);
+ 	if (unlikely(sg != &esp->sgbuf[0]))
+ 		kfree(sg);
 diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
-index 1929d45..bf74f64 100644
+index bf74f64..78d6ddb 100644
 --- a/net/ipv4/ipcomp.c
 +++ b/net/ipv4/ipcomp.c
-@@ -98,10 +98,10 @@ out:
- static int ipcomp_compress(struct xfrm_state *x, struct sk_buff *skb)
- {
- 	struct ipcomp_data *ipcd = x->data;
--	const int ihlen = ip_hdrlen(skb);
-+	const int ihlen = skb_transport_offset(skb);
- 	const int plen = skb->len - ihlen;
- 	int dlen = IPCOMP_SCRATCH_SIZE;
--	u8 *start = skb->data + ihlen;
-+	u8 *start = skb_transport_header(skb);
- 	const int cpu = get_cpu();
- 	u8 *scratch = *per_cpu_ptr(ipcomp_scratches, cpu);
- 	struct crypto_comp *tfm = *per_cpu_ptr(ipcd->tfms, cpu);
-@@ -154,11 +154,11 @@ static int ipcomp_output(struct xfrm_state *x, struct sk_buff *skb)
+@@ -154,7 +154,7 @@ static int ipcomp_output(struct xfrm_state *x, struct sk_buff *skb)
  
  	/* Install ipcomp header, convert into ipcomp datagram. */
  	iph->tot_len = htons(skb->len);
--	ipch = (struct ip_comp_hdr *)((char *)iph + iph->ihl * 4);
--	ipch->nexthdr = iph->protocol;
-+	ipch = (struct ip_comp_hdr *)skb_transport_header(skb);
-+	ipch->nexthdr = *skb_mac_header(skb);
+-	ipch = (struct ip_comp_hdr *)skb_transport_header(skb);
++	ipch = ip_comp_hdr(skb);
+ 	ipch->nexthdr = *skb_mac_header(skb);
  	ipch->flags = 0;
  	ipch->cpi = htons((u16 )ntohl(x->id.spi));
--	iph->protocol = IPPROTO_COMP;
-+	*skb_mac_header(skb) = IPPROTO_COMP;
- 	ip_send_check(iph);
- 	return 0;
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index ac6bae1..f9f6891 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -270,7 +270,7 @@ static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 			goto error_free_iph;
+ 	}
  
-diff --git a/net/ipv4/xfrm4_mode_beet.c b/net/ipv4/xfrm4_mode_beet.c
-index 77888f5..7226c64 100644
---- a/net/ipv4/xfrm4_mode_beet.c
-+++ b/net/ipv4/xfrm4_mode_beet.c
-@@ -23,17 +23,14 @@
-  * The following fields in it shall be filled in by x->type->output:
-  *      tot_len
-  *      check
-- *
-- * On exit, skb->h will be set to the start of the payload to be processed
-- * by x->type->output and skb->nh will be set to the top IP header.
-  */
- static int xfrm4_beet_output(struct xfrm_state *x, struct sk_buff *skb)
+-	ah = (struct ip_auth_hdr *)skb_transport_header(skb);
++	ah = ip_auth_hdr(skb);
+ 	ah->nexthdr = nexthdr;
+ 
+ 	top_iph->priority    = 0;
+@@ -280,8 +280,7 @@ static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	top_iph->hop_limit   = 0;
+ 
+ 	ahp = x->data;
+-	ah->hdrlen  = (XFRM_ALIGN8(sizeof(struct ipv6_auth_hdr) +
+-				   ahp->icv_trunc_len) >> 2) - 2;
++	ah->hdrlen  = (XFRM_ALIGN8(sizeof(*ah) + ahp->icv_trunc_len) >> 2) - 2;
+ 
+ 	ah->reserved = 0;
+ 	ah->spi = x->id.spi;
+@@ -327,7 +326,7 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	 * There is offset of AH before IPv6 header after the process.
+ 	 */
+ 
+-	struct ipv6_auth_hdr *ah;
++	struct ip_auth_hdr *ah;
+ 	struct ipv6hdr *ip6h;
+ 	struct ah_data *ahp;
+ 	unsigned char *tmp_hdr = NULL;
+@@ -346,13 +345,13 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 		goto out;
+ 
+ 	hdr_len = skb->data - skb_network_header(skb);
+-	ah = (struct ipv6_auth_hdr*)skb->data;
++	ah = (struct ip_auth_hdr *)skb->data;
+ 	ahp = x->data;
+ 	nexthdr = ah->nexthdr;
+ 	ah_hlen = (ah->hdrlen + 2) << 2;
+ 
+-	if (ah_hlen != XFRM_ALIGN8(sizeof(struct ipv6_auth_hdr) + ahp->icv_full_len) &&
+-	    ah_hlen != XFRM_ALIGN8(sizeof(struct ipv6_auth_hdr) + ahp->icv_trunc_len))
++	if (ah_hlen != XFRM_ALIGN8(sizeof(*ah) + ahp->icv_full_len) &&
++	    ah_hlen != XFRM_ALIGN8(sizeof(*ah) + ahp->icv_trunc_len))
+ 		goto out;
+ 
+ 	if (!pskb_may_pull(skb, ah_hlen))
+@@ -474,7 +473,8 @@ static int ah6_init_state(struct xfrm_state *x)
+ 	if (!ahp->work_icv)
+ 		goto error;
+ 
+-	x->props.header_len = XFRM_ALIGN8(sizeof(struct ipv6_auth_hdr) + ahp->icv_trunc_len);
++	x->props.header_len = XFRM_ALIGN8(sizeof(struct ip_auth_hdr) +
++					  ahp->icv_trunc_len);
+ 	if (x->props.mode == XFRM_MODE_TUNNEL)
+ 		x->props.header_len += sizeof(struct ipv6hdr);
+ 	x->data = ahp;
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index 21c93f0..a64295d 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -44,7 +44,7 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
  {
-+	struct ip_beet_phdr *ph;
- 	struct iphdr *iph, *top_iph;
- 	int hdrlen, optlen;
+ 	int err;
+ 	struct ipv6hdr *top_iph;
+-	struct ipv6_esp_hdr *esph;
++	struct ip_esp_hdr *esph;
+ 	struct crypto_blkcipher *tfm;
+ 	struct blkcipher_desc desc;
+ 	struct sk_buff *trailer;
+@@ -86,7 +86,7 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
  
- 	iph = ip_hdr(skb);
--	skb->transport_header = skb->network_header;
- 
- 	hdrlen = 0;
- 	optlen = iph->ihl * 4 - sizeof(*iph);
-@@ -42,17 +39,17 @@ static int xfrm4_beet_output(struct xfrm_state *x, struct sk_buff *skb)
- 
- 	skb_set_network_header(skb, IPV4_BEET_PHMAXLEN - x->props.header_len -
- 				    hdrlen);
--	top_iph = ip_hdr(skb);
--	skb->transport_header += sizeof(*iph) - hdrlen;
--	__skb_pull(skb, sizeof(*iph) - hdrlen);
-+	skb->mac_header = skb->network_header +
-+			  offsetof(struct iphdr, protocol);
-+	skb->transport_header = skb->network_header + sizeof(*iph);
-+
-+	ph = (struct ip_beet_phdr *)__skb_pull(skb, sizeof(*iph) - hdrlen);
- 
-+	top_iph = ip_hdr(skb);
- 	memmove(top_iph, iph, sizeof(*iph));
- 	if (unlikely(optlen)) {
--		struct ip_beet_phdr *ph;
--
- 		BUG_ON(optlen < 0);
- 
--		ph = (struct ip_beet_phdr *)skb_transport_header(skb);
- 		ph->padlen = 4 - (optlen & 4);
- 		ph->hdrlen = optlen / 8;
- 		ph->nexthdr = top_iph->protocol;
-diff --git a/net/ipv4/xfrm4_mode_transport.c b/net/ipv4/xfrm4_mode_transport.c
-index 10499d2..fd840c7 100644
---- a/net/ipv4/xfrm4_mode_transport.c
-+++ b/net/ipv4/xfrm4_mode_transport.c
-@@ -17,17 +17,16 @@
-  *
-  * The IP header will be moved forward to make space for the encapsulation
-  * header.
-- *
-- * On exit, skb->h will be set to the start of the payload to be processed
-- * by x->type->output and skb->nh will be set to the top IP header.
-  */
- static int xfrm4_transport_output(struct xfrm_state *x, struct sk_buff *skb)
- {
- 	struct iphdr *iph = ip_hdr(skb);
- 	int ihl = iph->ihl * 4;
- 
--	skb->transport_header = skb->network_header + ihl;
- 	skb_set_network_header(skb, -x->props.header_len);
-+	skb->mac_header = skb->network_header +
-+			  offsetof(struct iphdr, protocol);
-+	skb->transport_header = skb->network_header + ihl;
- 	__skb_pull(skb, ihl);
- 	memmove(skb_network_header(skb), iph, ihl);
- 	return 0;
-diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
-index bac1a91..f1d41ea 100644
---- a/net/ipv4/xfrm4_mode_tunnel.c
-+++ b/net/ipv4/xfrm4_mode_tunnel.c
-@@ -35,9 +35,6 @@ static inline void ipip6_ecn_decapsulate(struct iphdr *iph, struct sk_buff *skb)
-  * in it shall be filled in by x->type->output:
-  *      tot_len
-  *      check
-- *
-- * On exit, skb->h will be set to the start of the payload to be processed
-- * by x->type->output and skb->nh will be set to the top IP header.
-  */
- static int xfrm4_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
- {
-@@ -47,9 +44,11 @@ static int xfrm4_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
- 	int flags;
- 
- 	iph = ip_hdr(skb);
--	skb->transport_header = skb->network_header;
- 
- 	skb_set_network_header(skb, -x->props.header_len);
-+	skb->mac_header = skb->network_header +
-+			  offsetof(struct iphdr, protocol);
-+	skb->transport_header = skb->network_header + sizeof(*iph);
- 	top_iph = ip_hdr(skb);
- 
- 	top_iph->ihl = 5;
-diff --git a/net/ipv6/xfrm6_mode_beet.c b/net/ipv6/xfrm6_mode_beet.c
-index bca018d..42c6ef8 100644
---- a/net/ipv6/xfrm6_mode_beet.c
-+++ b/net/ipv6/xfrm6_mode_beet.c
-@@ -24,13 +24,6 @@
-  * The top IP header will be constructed per draft-nikander-esp-beet-mode-06.txt.
-  * The following fields in it shall be filled in by x->type->output:
-  *	payload_len
-- *
-- * On exit, skb->h will be set to the start of the encapsulation header to be
-- * filled in by x->type->output and the mac header will be set to the
-- * nextheader field of the extension header directly preceding the
-- * encapsulation header, or in its absence, that of the top IP header.
-- * The value of the network header will always point to the top IP header
-- * while skb->data will point to the payload.
-  */
- static int xfrm6_beet_output(struct xfrm_state *x, struct sk_buff *skb)
- {
-@@ -44,7 +37,7 @@ static int xfrm6_beet_output(struct xfrm_state *x, struct sk_buff *skb)
- 
- 	skb_set_mac_header(skb, (prevhdr - x->props.header_len) - skb->data);
- 	skb_set_network_header(skb, -x->props.header_len);
--	skb_set_transport_header(skb, hdr_len - x->props.header_len);
-+	skb->transport_header = skb->network_header + hdr_len;
- 	__skb_pull(skb, hdr_len);
- 
+ 	skb_push(skb, -skb_network_offset(skb));
  	top_iph = ipv6_hdr(skb);
-diff --git a/net/ipv6/xfrm6_mode_ro.c b/net/ipv6/xfrm6_mode_ro.c
-index 5c29b36..957ae36 100644
---- a/net/ipv6/xfrm6_mode_ro.c
-+++ b/net/ipv6/xfrm6_mode_ro.c
-@@ -37,13 +37,6 @@
-  *
-  * The IP header and mutable extension headers will be moved forward to make
-  * space for the route optimization header.
-- *
-- * On exit, skb->h will be set to the start of the encapsulation header to be
-- * filled in by x->type->output and the mac header will be set to the
-- * nextheader field of the extension header directly preceding the
-- * encapsulation header, or in its absence, that of the top IP header.
-- * The value of the network header will always point to the top IP header
-- * while skb->data will point to the payload.
-  */
- static int xfrm6_ro_output(struct xfrm_state *x, struct sk_buff *skb)
+-	esph = (struct ipv6_esp_hdr *)skb_transport_header(skb);
++	esph = ip_esp_hdr(skb);
+ 	top_iph->payload_len = htons(skb->len + alen - sizeof(*top_iph));
+ 	*(skb_tail_pointer(trailer) - 1) = *skb_mac_header(skb);
+ 	*skb_mac_header(skb) = IPPROTO_ESP;
+@@ -142,19 +142,19 @@ error:
+ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
  {
-@@ -56,7 +49,7 @@ static int xfrm6_ro_output(struct xfrm_state *x, struct sk_buff *skb)
- 	hdr_len = x->type->hdr_offset(x, skb, &prevhdr);
- 	skb_set_mac_header(skb, (prevhdr - x->props.header_len) - skb->data);
- 	skb_set_network_header(skb, -x->props.header_len);
--	skb_set_transport_header(skb, hdr_len - x->props.header_len);
-+	skb->transport_header = skb->network_header + hdr_len;
- 	__skb_pull(skb, hdr_len);
- 	memmove(ipv6_hdr(skb), iph, hdr_len);
+ 	struct ipv6hdr *iph;
+-	struct ipv6_esp_hdr *esph;
++	struct ip_esp_hdr *esph;
+ 	struct esp_data *esp = x->data;
+ 	struct crypto_blkcipher *tfm = esp->conf.tfm;
+ 	struct blkcipher_desc desc = { .tfm = tfm };
+ 	struct sk_buff *trailer;
+ 	int blksize = ALIGN(crypto_blkcipher_blocksize(tfm), 4);
+ 	int alen = esp->auth.icv_trunc_len;
+-	int elen = skb->len - sizeof(struct ipv6_esp_hdr) - esp->conf.ivlen - alen;
++	int elen = skb->len - sizeof(*esph) - esp->conf.ivlen - alen;
+ 	int hdr_len = skb_network_header_len(skb);
+ 	int nfrags;
+ 	int ret = 0;
  
-diff --git a/net/ipv6/xfrm6_mode_transport.c b/net/ipv6/xfrm6_mode_transport.c
-index f2ee186..4e34410 100644
---- a/net/ipv6/xfrm6_mode_transport.c
-+++ b/net/ipv6/xfrm6_mode_transport.c
-@@ -18,13 +18,6 @@
-  *
-  * The IP header and mutable extension headers will be moved forward to make
-  * space for the encapsulation header.
-- *
-- * On exit, skb->h will be set to the start of the encapsulation header to be
-- * filled in by x->type->output and the mac header will be set to the
-- * nextheader field of the extension header directly preceding the
-- * encapsulation header, or in its absence, that of the top IP header.
-- * The value of the network header will always point to the top IP header
-- * while skb->data will point to the payload.
-  */
- static int xfrm6_transport_output(struct xfrm_state *x, struct sk_buff *skb)
- {
-@@ -37,7 +30,7 @@ static int xfrm6_transport_output(struct xfrm_state *x, struct sk_buff *skb)
- 	hdr_len = x->type->hdr_offset(x, skb, &prevhdr);
- 	skb_set_mac_header(skb, (prevhdr - x->props.header_len) - skb->data);
- 	skb_set_network_header(skb, -x->props.header_len);
--	skb_set_transport_header(skb, hdr_len - x->props.header_len);
-+	skb->transport_header = skb->network_header + hdr_len;
- 	__skb_pull(skb, hdr_len);
- 	memmove(ipv6_hdr(skb), iph, hdr_len);
- 	return 0;
-diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.c
-index 01bd7d1..e79c6bd 100644
---- a/net/ipv6/xfrm6_mode_tunnel.c
-+++ b/net/ipv6/xfrm6_mode_tunnel.c
-@@ -36,13 +36,6 @@ static inline void ip6ip_ecn_decapsulate(struct sk_buff *skb)
-  * The top IP header will be constructed per RFC 2401.  The following fields
-  * in it shall be filled in by x->type->output:
-  *	payload_len
-- *
-- * On exit, skb->h will be set to the start of the encapsulation header to be
-- * filled in by x->type->output and the mac header will be set to the
-- * nextheader field of the extension header directly preceding the
-- * encapsulation header, or in its absence, that of the top IP header.
-- * The value of the network header will always point to the top IP header
-- * while skb->data will point to the payload.
-  */
- static int xfrm6_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
- {
-@@ -53,11 +46,10 @@ static int xfrm6_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
+-	if (!pskb_may_pull(skb, sizeof(struct ipv6_esp_hdr))) {
++	if (!pskb_may_pull(skb, sizeof(*esph))) {
+ 		ret = -EINVAL;
+ 		goto out;
+ 	}
+@@ -189,7 +189,7 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
  
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 
+-	esph = (struct ipv6_esp_hdr*)skb->data;
++	esph = (struct ip_esp_hdr *)skb->data;
  	iph = ipv6_hdr(skb);
  
--	skb_set_mac_header(skb, offsetof(struct ipv6hdr, nexthdr) -
--				x->props.header_len);
- 	skb_set_network_header(skb, -x->props.header_len);
--	skb_set_transport_header(skb, sizeof(struct ipv6hdr) -
--				      x->props.header_len);
-+	skb->mac_header = skb->network_header +
-+			  offsetof(struct ipv6hdr, nexthdr);
-+	skb->transport_header = skb->network_header + sizeof(*iph);
- 	top_iph = ipv6_hdr(skb);
+ 	/* Get ivec. This can be wrong, check against another impls. */
+@@ -208,7 +208,7 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 				goto out;
+ 			}
+ 		}
+-		skb_to_sgvec(skb, sg, sizeof(struct ipv6_esp_hdr) + esp->conf.ivlen, elen);
++		skb_to_sgvec(skb, sg, sizeof(*esph) + esp->conf.ivlen, elen);
+ 		ret = crypto_blkcipher_decrypt(&desc, sg, sg, elen);
+ 		if (unlikely(sg != &esp->sgbuf[0]))
+ 			kfree(sg);
+@@ -260,7 +260,7 @@ static void esp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 		     int type, int code, int offset, __be32 info)
+ {
+ 	struct ipv6hdr *iph = (struct ipv6hdr*)skb->data;
+-	struct ipv6_esp_hdr *esph = (struct ipv6_esp_hdr*)(skb->data+offset);
++	struct ip_esp_hdr *esph = (struct ip_esp_hdr *)(skb->data + offset);
+ 	struct xfrm_state *x;
  
- 	top_iph->version = 6;
+ 	if (type != ICMPV6_DEST_UNREACH &&
+@@ -356,7 +356,7 @@ static int esp6_init_state(struct xfrm_state *x)
+ 	if (crypto_blkcipher_setkey(tfm, x->ealg->alg_key,
+ 				    (x->ealg->alg_key_len + 7) / 8))
+ 		goto error;
+-	x->props.header_len = sizeof(struct ipv6_esp_hdr) + esp->conf.ivlen;
++	x->props.header_len = sizeof(struct ip_esp_hdr) + esp->conf.ivlen;
+ 	if (x->props.mode == XFRM_MODE_TUNNEL)
+ 		x->props.header_len += sizeof(struct ipv6hdr);
+ 	x->data = esp;
+diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
+index 87e6407..8f3f32f 100644
+--- a/net/ipv6/ipcomp6.c
++++ b/net/ipv6/ipcomp6.c
+@@ -65,7 +65,7 @@ static LIST_HEAD(ipcomp6_tfms_list);
+ static int ipcomp6_input(struct xfrm_state *x, struct sk_buff *skb)
+ {
+ 	int err = -ENOMEM;
+-	struct ipv6_comp_hdr *ipch;
++	struct ip_comp_hdr *ipch;
+ 	int plen, dlen;
+ 	struct ipcomp_data *ipcd = x->data;
+ 	u8 *start, *scratch;
+@@ -92,12 +92,10 @@ static int ipcomp6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	tfm = *per_cpu_ptr(ipcd->tfms, cpu);
+ 
+ 	err = crypto_comp_decompress(tfm, start, plen, scratch, &dlen);
+-	if (err) {
+-		err = -EINVAL;
++	if (err)
+ 		goto out_put_cpu;
+-	}
+ 
+-	if (dlen < (plen + sizeof(struct ipv6_comp_hdr))) {
++	if (dlen < (plen + sizeof(*ipch))) {
+ 		err = -EINVAL;
+ 		goto out_put_cpu;
+ 	}
+@@ -122,7 +120,7 @@ static int ipcomp6_output(struct xfrm_state *x, struct sk_buff *skb)
+ {
+ 	int err;
+ 	struct ipv6hdr *top_iph;
+-	struct ipv6_comp_hdr *ipch;
++	struct ip_comp_hdr *ipch;
+ 	struct ipcomp_data *ipcd = x->data;
+ 	int plen, dlen;
+ 	u8 *start, *scratch;
+@@ -151,7 +149,7 @@ static int ipcomp6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	tfm = *per_cpu_ptr(ipcd->tfms, cpu);
+ 
+ 	err = crypto_comp_compress(tfm, start, plen, scratch, &dlen);
+-	if (err || (dlen + sizeof(struct ipv6_comp_hdr)) >= plen) {
++	if (err || (dlen + sizeof(*ipch)) >= plen) {
+ 		put_cpu();
+ 		goto out_ok;
+ 	}
+@@ -164,7 +162,7 @@ static int ipcomp6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 
+ 	top_iph->payload_len = htons(skb->len - sizeof(struct ipv6hdr));
+ 
+-	ipch = (struct ipv6_comp_hdr *)start;
++	ipch = ip_comp_hdr(skb);
+ 	ipch->nexthdr = *skb_mac_header(skb);
+ 	ipch->flags = 0;
+ 	ipch->cpi = htons((u16 )ntohl(x->id.spi));
+@@ -179,7 +177,8 @@ static void ipcomp6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ {
+ 	__be32 spi;
+ 	struct ipv6hdr *iph = (struct ipv6hdr*)skb->data;
+-	struct ipv6_comp_hdr *ipcomph = (struct ipv6_comp_hdr*)(skb->data+offset);
++	struct ip_comp_hdr *ipcomph =
++		(struct ip_comp_hdr *)(skb->data + offset);
+ 	struct xfrm_state *x;
+ 
+ 	if (type != ICMPV6_DEST_UNREACH && type != ICMPV6_PKT_TOOBIG)
