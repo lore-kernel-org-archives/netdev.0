@@ -1,38 +1,44 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH 9/9] net/bonding: Optionally allow ethernet slaves to keep own MAC
-Date: Tue,  9 Oct 2007 19:43:44 -0700
-Message-ID: <11919842282124-git-send-email-fubar@us.ibm.com>
-References: <1191984224957-git-send-email-fubar@us.ibm.com>
- <1191984225129-git-send-email-fubar@us.ibm.com>
- <11919842261485-git-send-email-fubar@us.ibm.com>
- <11919842263810-git-send-email-fubar@us.ibm.com>
- <1191984226411-git-send-email-fubar@us.ibm.com>
- <11919842273755-git-send-email-fubar@us.ibm.com>
- <11919842272176-git-send-email-fubar@us.ibm.com>
- <11919842281663-git-send-email-fubar@us.ibm.com>
- <11919842281401-git-send-email-fubar@us.ibm.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [REPOST PATCH 9/9] net/bonding: Optionally allow ethernet slaves to keep own MAC
+Date: Tue, 09 Oct 2007 19:57:24 -0700
+Message-ID: <11317.1191985044@death>
 To: netdev@vger.kernel.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:55285 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752834AbXJJCnu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 9 Oct 2007 22:43:50 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e32.co.us.ibm.com (8.12.11.20060308/8.13.8) with ESMTP id l9A1ZCtO009827
-	for <netdev@vger.kernel.org>; Tue, 9 Oct 2007 21:35:12 -0400
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9A2hnNg480764
-	for <netdev@vger.kernel.org>; Tue, 9 Oct 2007 20:43:49 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9A2hnf1002158
-	for <netdev@vger.kernel.org>; Tue, 9 Oct 2007 20:43:49 -0600
-In-Reply-To: <11919842281401-git-send-email-fubar@us.ibm.com>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:37348 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753093AbXJJC5s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2007 22:57:48 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e1.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9A2vlZr025597
+	for <netdev@vger.kernel.org>; Tue, 9 Oct 2007 22:57:47 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9A2vlKp132580
+	for <netdev@vger.kernel.org>; Tue, 9 Oct 2007 22:57:47 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9A2vawA011559
+	for <netdev@vger.kernel.org>; Tue, 9 Oct 2007 22:57:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+
+	Update the "don't change MAC of slaves" functionality added in
+previous changes to be a generic option, rather than something tied to
+IB devices, as it's occasionally useful for regular ethernet devices as
+well.
+
+	Adds "fail_over_mac" option (which is automatically enabled for IB
+slaves), applicable only to active-backup mode.
+
+	Includes documentation update.
+
+	Updates bonding driver version to 3.2.0.
+
 Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 ---
+
+	[ Fixed this copy; the previous posting lost the explanation
+somewhere -J ]
+
  Documentation/networking/bonding.txt |   33 +++++++++++++++++++
  drivers/net/bonding/bond_main.c      |   57 +++++++++++++++++++++------------
  drivers/net/bonding/bond_sysfs.c     |   49 +++++++++++++++++++++++++++++
@@ -46,7 +52,7 @@ index 1da5666..1134062 100644
 @@ -281,6 +281,39 @@ downdelay
  	will be rounded down to the nearest multiple.  The default
  	value is 0.
- 
+
 +fail_over_mac
 +
 +	Specifies whether active-backup mode should set all slaves to
@@ -81,7 +87,7 @@ index 1da5666..1134062 100644
 +	This option was added in bonding version 3.2.0.
 +
  lacp_rate
- 
+
  	Option specifying the rate in which we'll ask our link partner
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
 index 0e198dd..db80f24 100644
@@ -93,7 +99,7 @@ index 0e198dd..db80f24 100644
  static char *arp_validate = NULL;
 +static int fail_over_mac = 0;
  struct bond_params bonding_defaults;
- 
+
  module_param(max_bonds, int, 0);
 @@ -131,6 +132,8 @@ module_param_array(arp_ip_target, charp, NULL, 0);
  MODULE_PARM_DESC(arp_ip_target, "arp targets in n.n.n.n form");
@@ -101,9 +107,9 @@ index 0e198dd..db80f24 100644
  MODULE_PARM_DESC(arp_validate, "validate src/dst of ARP probes: none (default), active, backup or all");
 +module_param(fail_over_mac, int, 0);
 +MODULE_PARM_DESC(fail_over_mac, "For active-backup, do not set all slaves to the same MAC.  0 of off (default), 1 for on.");
- 
+
  /*----------------------------- Global variables ----------------------------*/
- 
+
 @@ -1100,7 +1103,7 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
  		/* when bonding does not set the slave MAC address, the bond MAC
  		 * address is the one of the active slave.
@@ -142,7 +148,7 @@ index 0e198dd..db80f24 100644
 @@ -1401,7 +1404,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
  	 */
  	memcpy(new_slave->perm_hwaddr, slave_dev->dev_addr, ETH_ALEN);
- 
+
 -	if (bond->do_set_mac_addr) {
 +	if (!bond->params.fail_over_mac) {
  		/*
@@ -150,7 +156,7 @@ index 0e198dd..db80f24 100644
  		 * set the master's mac address to that of the first slave
 @@ -1637,7 +1640,7 @@ err_close:
  	dev_close(slave_dev);
- 
+
  err_restore_mac:
 -	if (bond->do_set_mac_addr) {
 +	if (!bond->params.fail_over_mac) {
@@ -160,7 +166,7 @@ index 0e198dd..db80f24 100644
 @@ -1814,7 +1817,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
  	/* close slave before restoring its mac address */
  	dev_close(slave_dev);
- 
+
 -	if (bond->do_set_mac_addr) {
 +	if (!bond->params.fail_over_mac) {
  		/* restore original ("permanent") mac address */
@@ -169,7 +175,7 @@ index 0e198dd..db80f24 100644
 @@ -1935,7 +1938,7 @@ static int bond_release_all(struct net_device *bond_dev)
  		/* close slave before restoring its mac address */
  		dev_close(slave_dev);
- 
+
 -		if (bond->do_set_mac_addr) {
 +		if (!bond->params.fail_over_mac) {
  			/* restore original ("permanent") mac address*/
@@ -178,11 +184,11 @@ index 0e198dd..db80f24 100644
 @@ -3060,9 +3063,15 @@ static void bond_info_show_master(struct seq_file *seq)
  	curr = bond->curr_active_slave;
  	read_unlock(&bond->curr_slave_lock);
- 
+
 -	seq_printf(seq, "Bonding Mode: %s\n",
 +	seq_printf(seq, "Bonding Mode: %s",
  		   bond_mode_name(bond->params.mode));
- 
+
 +	if (bond->params.mode == BOND_MODE_ACTIVEBACKUP &&
 +	    bond->params.fail_over_mac)
 +		seq_printf(seq, " (fail_over_mac)");
@@ -193,9 +199,9 @@ index 0e198dd..db80f24 100644
  		bond->params.mode == BOND_MODE_8023AD) {
  		seq_printf(seq, "Transmit Hash Policy: %s (%d)\n",
 @@ -3994,8 +4003,12 @@ static int bond_set_mac_address(struct net_device *bond_dev, void *addr)
- 
+
  	dprintk("bond=%p, name=%s\n", bond, (bond_dev ? bond_dev->name : "None"));
- 
+
 -	if (!bond->do_set_mac_addr)
 -		return -EOPNOTSUPP;
 +	/*
@@ -204,7 +210,7 @@ index 0e198dd..db80f24 100644
 +	 */
 +	if (bond->params.fail_over_mac)
 +		return 0;
- 
+
  	if (!is_valid_ether_addr(sa->sa_data)) {
  		return -EADDRNOTAVAIL;
 @@ -4384,10 +4397,6 @@ static int bond_init(struct net_device *bond_dev, struct bond_params *params)
@@ -216,12 +222,12 @@ index 0e198dd..db80f24 100644
 -	bond->do_set_mac_addr = 1;
 -
  	list_add_tail(&bond->bond_list, &bond_dev_list);
- 
+
  	return 0;
 @@ -4721,6 +4730,11 @@ static int bond_check_params(struct bond_params *params)
  		primary = NULL;
  	}
- 
+
 +	if (fail_over_mac && (bond_mode != BOND_MODE_ACTIVEBACKUP))
 +		printk(KERN_WARNING DRV_NAME
 +		       ": Warning: fail_over_mac only affects "
@@ -235,7 +241,7 @@ index 0e198dd..db80f24 100644
  	params->lacp_fast = lacp_fast;
  	params->primary[0] = 0;
 +	params->fail_over_mac = fail_over_mac;
- 
+
  	if (primary) {
  		strncpy(params->primary, primary, IFNAMSIZ);
 diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
@@ -244,7 +250,7 @@ index b5d2a13..80c0c8c 100644
 +++ b/drivers/net/bonding/bond_sysfs.c
 @@ -568,6 +568,54 @@ static ssize_t bonding_store_arp_validate(struct device *d,
  static DEVICE_ATTR(arp_validate, S_IRUGO | S_IWUSR, bonding_show_arp_validate, bonding_store_arp_validate);
- 
+
  /*
 + * Show and store fail_over_mac.  User only allowed to change the
 + * value when there are no slaves.
@@ -312,14 +318,14 @@ index 85e579b..a8bbd56 100644
 @@ -22,8 +22,8 @@
  #include "bond_3ad.h"
  #include "bond_alb.h"
- 
+
 -#define DRV_VERSION	"3.1.3"
 -#define DRV_RELDATE	"June 13, 2007"
 +#define DRV_VERSION	"3.2.0"
 +#define DRV_RELDATE	"September 13, 2007"
  #define DRV_NAME	"bonding"
  #define DRV_DESCRIPTION	"Ethernet Channel Bonding Driver"
- 
+
 @@ -128,6 +128,7 @@ struct bond_params {
  	int arp_interval;
  	int arp_validate;
