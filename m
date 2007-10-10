@@ -1,40 +1,67 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
-Date: Wed, 10 Oct 2007 17:53:16 +0800
-Message-ID: <20071010095316.GA32095@gondor.apana.org.au>
-References: <1191967006.5324.14.camel@localhost> <20071009.170435.43504422.davem@davemloft.net> <20071010003716.GB552@one.firstfloor.org> <20071009.175025.59469417.davem@davemloft.net> <20071010091644.GA9807@one.firstfloor.org>
+From: Anton Arapov <aarapov@redhat.com>
+Subject: Re: [PATCH] division-by-zero in inet_csk_get_port
+Date: Wed, 10 Oct 2007 11:56:23 +0200
+Message-ID: <m3wstvjnso.fsf@bandura.englab.brq.redhat.com>
+References: <20071010085530.GA7532@iris.sw.ru>
+	<m31wc3l4ym.fsf@bandura.englab.brq.redhat.com>
+	<20071010.023515.15263796.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, hadi@cyberus.ca,
-	shemminger@linux-foundation.org, jeff@garzik.org,
-	johnpol@2ka.mipt.ru, gaagaan@gmail.com, Robert.Olsson@data.slu.se,
-	netdev@vger.kernel.org, rdreier@cisco.com,
-	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
-	jagana@us.ibm.com, general@lists.openfabrics.org,
-	mchan@broadcom.com, tgraf@suug.ch, randy.dunlap@oracle.com,
-	sri@us.ibm.com, kaber@trash.net
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: multipart/signed; boundary="=-=-=";
+	micalg=pgp-sha1; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org, den@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1665 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755499AbXJJJyu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 05:54:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20071010091644.GA9807@one.firstfloor.org>
+Received: from mx1.redhat.com ([66.187.233.31]:39206 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754742AbXJJJ4c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Oct 2007 05:56:32 -0400
+In-Reply-To: <20071010.023515.15263796.davem@davemloft.net> (David Miller's message of "Wed\, 10 Oct 2007 02\:35\:15 -0700 \(PDT\)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 10, 2007 at 11:16:44AM +0200, Andi Kleen wrote:
-> > A 256 entry TX hw queue fills up trivially on 1GB and 10GB, but if you
-> 
-> With TSO really? 
+--=-=-=
+Content-Transfer-Encoding: quoted-printable
 
-Hardware queues are generally per-page rather than per-skb so
-it'd fill up quicker than a software queue even with TSO.
+David Miller <davem@davemloft.net> writes:
+>> Ok, I've got it, so we have to do the same with the following:
+>> quote from inet_hashtables.c and inet6_hashtables.c. I'll prepare the
+>> patch.
+>>=20
+>> And just a curious, does the /* Treat low > high as high =3D=3D low */
+>> idea will keep after the sysctl will be patched?
+>
+> I'm beginning to think that we should do the sysctl validation
+> in this patch too, instead of duplicating this grotty check
+> in all of these port selection functions.
+  Yep, that's exactly I'm talking about. I'm sure that=20
+  [...] % (high - low) [...] erroneous from the begining, because
+in such places we want to have 1 in denominator, for the cases when we
+have only one port. Because 34000 34000 in sysctl's
+ip_local_port_range means 1(one) port, not 0(zero).
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+  So it seems to me that we have to fix mentioned denominators in
+kernel/net to have 1, that will be correct logically. And do the
+MAX<MIN check in sysctl code.
+  From this point of view, it's best idea to have two patches: one for
+the kernel/net denominators and another one for the sysctl.c's
+function dointvec_minmax(). Because they can live independently. And
+the patch for the kernel/net will do the work at least because we
+prevent kernel trap at all.
+=20=20
+  Dave, am I right?
+=2D-=20
+Anton Arapov, <aarapov@redhat.com>
+Kernel Development, Red Hat
+GPG Key ID: 0x6FA8C812
+
+--=-=-=
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQFHDKHLVub9yW+oyBIRAqs6AKDkaQJu8MWuIRU7dHQY/1cU1fNbqgCfSVoP
+tKONDikOTL+tLDMIE5YfG2Q=
+=qPI3
+-----END PGP SIGNATURE-----
+--=-=-=--
