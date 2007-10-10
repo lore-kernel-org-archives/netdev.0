@@ -1,39 +1,49 @@
-From: Timur Tabi <timur@freescale.com>
-Subject: Re: [PATCH 0/2] QE clock source improvements
-Date: Wed, 10 Oct 2007 17:31:47 -0500
-Message-ID: <470D52D3.30104@freescale.com>
-References: <1192054708946-git-send-email-timur@freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
+Date: Wed, 10 Oct 2007 15:37:05 -0700 (PDT)
+Message-ID: <20071010.153705.94557376.davem@davemloft.net>
+References: <20071010102331.GA10496@one.firstfloor.org>
+	<20071010.034446.85819294.davem@davemloft.net>
+	<1192021728.4853.17.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: galak@kernel.crashing.org, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org
-To: Timur Tabi <timur@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw01.freescale.net ([192.88.158.102]:42649 "EHLO
-	az33egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755443AbXJJWcE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 18:32:04 -0400
-In-Reply-To: <1192054708946-git-send-email-timur@freescale.com>
-Sender: netdev-owner@vger.kernel.org
+Cc: johnpol@2ka.mipt.ru, Robert.Olsson@data.slu.se, herbert@gondor.apana.org.au,
+	gaagaan@gmail.com, jeff@garzik.org, rdreier@cisco.com,
+	peter.p.waskiewicz.jr@intel.com, mcarlson@broadcom.com,
+	andi@firstfloor.org, general@lists.openfabrics.org,
+	netdev@vger.kernel.org, tgraf@suug.ch, randy.dunlap@oracle.com,
+	sri@us.ibm.com, shemminger@linux-foundation.org, kaber@trash.net,
+	mchan@broadcom.com, jagana@us.ibm.com
+To: hadi@cyberus.ca
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <1192021728.4853.17.camel@localhost>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Sorry, please ignore this set.  Something got screwed up with the patches. 
-I'm going to resend.
+From: jamal <hadi@cyberus.ca>
+Date: Wed, 10 Oct 2007 09:08:48 -0400
 
-Timur Tabi wrote:
-> This patch set adds a new property to make specifying QE clock sources
-> easier, adds a function to help parse the property, updates some other
-> functions to use an enum instead of an integer, and updates the ucc_geth
-> driver to take advantage of all this.
+> On Wed, 2007-10-10 at 03:44 -0700, David Miller wrote:
 > 
-> _______________________________________________
-> Linuxppc-dev mailing list
-> Linuxppc-dev@ozlabs.org
-> https://ozlabs.org/mailman/listinfo/linuxppc-dev
+> > I've always gotten very poor results when increasing the TX queue a
+> > lot, for example with NIU the point of diminishing returns seems to
+> > be in the range of 256-512 TX descriptor entries and this was with
+> > 1.6Ghz cpus.
 > 
+> Is it interupt per packet? From my experience, you may find interesting
+> results varying tx interupt mitigation parameters in addition to the
+> ring parameters.
+> Unfortunately when you do that, optimal parameters also depends on
+> packet size. so what may work for 64B, wont work well for 1400B.
 
-
--- 
-Timur Tabi
-Linux Kernel Developer @ Freescale
+No, it was not interrupt per-packet, I was telling the chip to
+interrupt me every 1/4 of the ring.
