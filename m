@@ -1,33 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: kernel panic when only one unsecured port
- available
-Date: Wed, 10 Oct 2007 01:44:47 -0700 (PDT)
-Message-ID: <20071010.014447.48529225.davem@davemloft.net>
-References: <470C8CF1.4050706@sw.ru>
-	<m3bqb7l6b7.fsf@bandura.englab.brq.redhat.com>
-	<470C8F8D.3080402@sw.ru>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH] division-by-zero in inet_csk_get_port
+Date: Wed, 10 Oct 2007 12:55:30 +0400
+Message-ID: <20071010085530.GA7532@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: aarapov@redhat.com, netdev@vger.kernel.org
-To: den@sw.ru
+Content-Type: text/plain; charset=us-ascii
+Cc: aarapov@redhat.com, dev@openvz.org, den@openvz.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34120
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752781AbXJJIoo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 04:44:44 -0400
-In-Reply-To: <470C8F8D.3080402@sw.ru>
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:63625 "EHLO iris"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752782AbXJJIxt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Oct 2007 04:53:49 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Denis V. Lunev" <den@sw.ru>
-Date: Wed, 10 Oct 2007 12:38:37 +0400
+This patch fixed a possible division-by-zero in inet_csk_get_port
+treating situation low > high as if low == high.
 
-> both versions of settings, your ones and my ones are _useless_ in real
-> life. So, we do some sanity fixes. Am I right? If so, we must prevent
-> all versions of OOPS (aka division by zero here).
-> 
-> I'll send my vision in a moment...
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+CC: Antov Arapov  <aarapov@redhat.com>
 
-I agree with Denis that we should plug all of the holes when fixing
-this.
+--- ./net/ipv4/inet_connection_sock.c.getport	2007-10-09 15:16:02.000000000 +0400
++++ ./net/ipv4/inet_connection_sock.c	2007-10-10 12:44:04.000000000 +0400
+@@ -80,7 +80,14 @@ int inet_csk_get_port(struct inet_hashin
+ 		int low = sysctl_local_port_range[0];
+ 		int high = sysctl_local_port_range[1];
+ 		int remaining = (high - low) + 1;
+-		int rover = net_random() % (high - low) + low;
++		int rover;
++
++		/* Treat low > high as high == low */
++		if (remaining <= 1) {
++			remaining = 1;
++			rover = low;
++		} else
++			rover = net_random() % (high - low) + low;
+ 
+ 		do {
+ 			head = &hashinfo->bhash[inet_bhashfn(rover, hashinfo->bhash_size)];
