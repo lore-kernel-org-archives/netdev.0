@@ -1,40 +1,35 @@
-From: Sean Hefty <mshefty@ichips.intel.com>
-Subject: Re: [ofa-general] Re: [PATCH RFC] RDMA/CMA: Allocate PS_TCP ports
-	from the host TCP port space.
-Date: Wed, 10 Oct 2007 14:01:07 -0700
-Message-ID: <470D3D93.2020606@ichips.intel.com>
-References: <46B883B5.8040702@opengridcomputing.com>	<46BB61D0.4090101@opengridcomputing.com>	<46BB89C0.4040303@ichips.intel.com>
-	<20070809.145534.102938208.davem@davemloft.net>
-	<470AA729.2050009@opengridcomputing.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [IPv6] Update setsockopt(IPV6_MULTICAST_IF) to support RFC 3493
+Date: Wed, 10 Oct 2007 17:20:45 -0400
+Message-ID: <470D422D.5070403@hp.com>
+References: <OF75CC6365.1CACD211-ON88257370.0071BBE2-88257370.0071F400@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdreier@cisco.com,
-	David Miller <davem@davemloft.net>,
-	general@lists.openfabrics.org, linux-kernel@vger.kernel.org
-To: Steve Wise <swise@opengridcomputing.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <470AA729.2050009@opengridcomputing.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: David Stevens <dlstevens@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atlrel6.hp.com ([156.153.255.205]:40973 "EHLO atlrel6.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756431AbXJJVVt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Oct 2007 17:21:49 -0400
+In-Reply-To: <OF75CC6365.1CACD211-ON88257370.0071BBE2-88257370.0071F400@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> The hack to use a socket and bind it to claim the port was just for 
-> demostrating the idea.  The correct solution, IMO, is to enhance the 
-> core low level 4-tuple allocation services to be more generic (eg: not 
-> be tied to a struct sock).  Then the host tcp stack and the host rdma 
-> stack can allocate TCP/iWARP ports/4tuples from this common exported 
-> service and share the port space.  This allocation service could also be 
-> used by other deep adapters like iscsi adapters if needed.
+David Stevens wrote:
+> What about just checking for 0 in the later test?
+> 
+>         if (val && __dev_get_by_index(val) == NULL) {
 
-Since iWarp runs on top of TCP, the port space is really the same. 
-FWIW, I agree that this proposal is the correct solution to support iWarp.
+We could fail the next check right before that though:
 
-- Sean
+           if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != val)
+                   goto e_inval;
+
+I just mimicked what the IPv4 code does in do_ip_setsockopt().
+
+-Brian
