@@ -1,45 +1,37 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] do not give access to 1-1024 ports for autobinding
-Date: Wed, 10 Oct 2007 08:41:37 -0700
-Message-ID: <20071010084137.1963122e@freepuppy.rosehill>
-References: <20071010143449.GA10796@iris.sw.ru>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
+Date: Wed, 10 Oct 2007 18:02:11 +0200
+Message-ID: <20071010160211.GA14239@one.firstfloor.org>
+References: <20071010.034446.85819294.davem@davemloft.net>
+	<D5C1322C3E673F459512FB59E0DDC32903C0883E@orsmsx414.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, den@openvz.org
-To: "Denis V. Lunev" <den@openvz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:37716 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754789AbXJJPlx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 11:41:53 -0400
-In-Reply-To: <20071010143449.GA10796@iris.sw.ru>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: johnpol@2ka.mipt.ru, Robert.Olsson@data.slu.se, herbert@gondor.apana.org.au,
+	jeff@garzik.org, kaber@trash.net, netdev@vger.kernel.org,
+	rdreier@cisco.com, mchan@broadcom.com, hadi@cyberus.ca,
+	mcarlson@broadcom.com, gaagaan@gmail.com, andi@firstfloor.org,
+	general@lists.openfabrics.org, jagana@us.ibm.com, tgraf@suug.ch,
+	randy.dunlap@oracle.com, shemminger@linux-foundation.org,
+	David Miller <davem@davemloft.net>, sri@us.ibm.com
+To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-Disposition: inline
+In-Reply-To: <D5C1322C3E673F459512FB59E0DDC32903C0883E@orsmsx414.amr.corp.intel.com>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 10 Oct 2007 18:34:49 +0400
-"Denis V. Lunev" <den@openvz.org> wrote:
+> We've done similar testing with ixgbe to push maximum descriptor counts,
+> and we lost performance very quickly in the same range you're quoting on
+> NIU.
 
-> This patch prevents possibility to give 1-1024 port range for autobinding.
-> {1, 1} may only takes some sense for deep embedded people.
-> 
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
-> 
-> --- ./net/ipv4/sysctl_net_ipv4.c.port2	2007-10-10 17:46:48.000000000 +0400
-> +++ ./net/ipv4/sysctl_net_ipv4.c	2007-10-10 18:08:00.000000000 +0400
-> @@ -25,7 +25,7 @@ extern int sysctl_ip_nonlocal_bind;
->  #ifdef CONFIG_SYSCTL
->  static int zero;
->  static int tcp_retr1_max = 255;
-> -static int ip_local_port_range_min[] = { 1, 1 };
-> +static int ip_local_port_range_min[] = { 1024, 1024 };
->  static int ip_local_port_range_max[] = { 65535, 65535 };
->  #endif
->  
-> -
+Did you try it with WC writes to the ring or CLFLUSH?
 
-That only limits the sysctl, which seems completely counter productive.
-Sounds like more of the "stop root from shooting themselves" patches.
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+-Andi
