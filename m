@@ -1,31 +1,40 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH net-2.6.24] chelsio: sparse warning fixes (old cxgb2)
-Date: Tue, 09 Oct 2007 20:39:39 -0400
-Message-ID: <470C1F4B.1040105@pobox.com>
-References: <20071008161910.639c5718@freepuppy.rosehill>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] xen-netfront: rearrange netfront_info structure to separate
+ tx and rx
+Date: Tue, 09 Oct 2007 20:46:33 -0400
+Message-ID: <470C20E9.9050405@garzik.org>
+References: <470BCC1D.4080007@goop.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Divy Le Ray <divy@chelsio.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: NetDev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Keir Fraser <Keir.Fraser@cl.cam.ac.uk>,
+	Stephen Hemminger <shemminge@linux-foundation.org>,
+	Christoph Hellwig <hch@infradead.org>
+To: Jeremy Fitzhardinge <jeremy@goop.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39090 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:44615 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753620AbXJJAjn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Oct 2007 20:39:43 -0400
-In-Reply-To: <20071008161910.639c5718@freepuppy.rosehill>
+	id S1752204AbXJJAqi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2007 20:46:38 -0400
+In-Reply-To: <470BCC1D.4080007@goop.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Fix problems detected by sparse:
-> 1. whole chunk of MAC code was for defined and never used
-> 2. hook for running ext intr in workqueue wasn't being used
+Jeremy Fitzhardinge wrote:
+> Keep tx and rx elements separate on different cachelines to prevent
+> bouncing.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+> Signed-off-by: Jeremy Fitzhardinge <jeremy@xensource.com>
+> Cc: Stephen Hemminger <shemminger@linux-foundation.org>
+> Cc: Christoph Hellwig <hch@infradead.org>
 > 
+> ---
+>  drivers/net/xen-netfront.c |   37 ++++++++++++++++++-------------------
+>  1 file changed, 18 insertions(+), 19 deletions(-)
 
-applied
+ACK but does not apply to jgarzik/netdev-2.6.git#upstream nor 
+davem/net-2.6.24.git
 
 
