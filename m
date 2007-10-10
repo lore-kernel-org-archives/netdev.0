@@ -1,52 +1,58 @@
-From: Satoshi OSHIMA <satoshi.oshima.fk@hitachi.com>
-Subject: Re: [RFC/PATCH 2/4] UDP memory usage accounting (take 4): accounting
- unit and variable
-Date: Wed, 10 Oct 2007 17:14:12 +0900
-Message-ID: <470C89D4.8080409@hitachi.com>
-References: <47065139.5030402@hitachi.com> <470651B3.6060001@hitachi.com> <20071007100938.GA24475@2ka.mipt.ru>
+From: Anton Arapov <aarapov@redhat.com>
+Subject: Re: [PATCH] ipv4: kernel panic when only one unsecured port available
+Date: Wed, 10 Oct 2007 10:19:33 +0200
+Message-ID: <m3hckzl6ui.fsf@bandura.englab.brq.redhat.com>
+References: <m3bqb89yjw.fsf@bandura.englab.brq.redhat.com>
+	<470C773C.2050700@sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev <netdev@vger.kernel.org>, ?? ?? <yoshfuji@linux-ipv6.org>,
-	Yumiko SUGITA <yumiko.sugita.yf@hitachi.com>,
-	"??@RedHat" <haoki@redhat.com>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: multipart/signed; boundary="=-=-=";
+	micalg=pgp-sha1; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org
+To: "Denis V. Lunev" <den@sw.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail4.hitachi.co.jp ([133.145.228.5]:33055 "EHLO
-	mail4.hitachi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752180AbXJJIOS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 04:14:18 -0400
-Received: from mlsv9.hitachi.co.jp (unknown [133.144.234.166])
-	by mail4.hitachi.co.jp (Postfix) with ESMTP id 6DDEA33CD8
-	for <netdev@vger.kernel.org>; Wed, 10 Oct 2007 17:14:17 +0900 (JST)
-In-Reply-To: <20071007100938.GA24475@2ka.mipt.ru>
+Received: from mx1.redhat.com ([66.187.233.31]:53465 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752592AbXJJIUT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Oct 2007 04:20:19 -0400
+In-Reply-To: <470C773C.2050700@sw.ru> (Denis V. Lunev's message of "Wed\, 10 Oct 2007 10\:54\:52 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Evgeniy,
+--=-=-=
+Content-Transfer-Encoding: quoted-printable
 
-Thank you for your comment.
+Hi,
 
-> Hi.
-> 
-> On Sat, Oct 06, 2007 at 12:01:07AM +0900, Satoshi OSHIMA (satoshi.oshima.fk@hitachi.com) wrote:
->> --- 2.6.23-rc3-udp_limit.orig/net/ipv4/udp.c
->> +++ 2.6.23-rc3-udp_limit/net/ipv4/udp.c
->> @@ -113,6 +113,10 @@ DEFINE_SNMP_STAT(struct udp_mib, udp_sta
->>  struct hlist_head udp_hash[UDP_HTABLE_SIZE];
->>  DEFINE_RWLOCK(udp_hash_lock);
->>  
->> +atomic_t udp_memory_allocated;
->> +
->> +EXPORT_SYMBOL(udp_memory_allocated);
->> +
-> 
-> Why do you export this variable?
-> It is not accessed from modules in your patchset.
+"Denis V. Lunev" <den@sw.ru> writes:
+> This code is broken from the very beginning.
+>
+> iris den # cat /proc/sys/net/ipv4/ip_local_port_range
+> 32768   61000
+> iris den # echo 32768 32 >/proc/sys/net/ipv4/ip_local_port_range
+> iris den # cat /proc/sys/net/ipv4/ip_local_port_range
+> 32768   32
+> iris den # echo 32768 61000 >/proc/sys/net/ipv4/ip_local_port_range
 
-Good point! I'll fix it.
+  If you're talking about checks in sysctl, I believe it should be
+another patch for sysctl only, and I'm going to push it via -mm tree.
 
-Satoshi Oshima
+  the devision by zero exists in inet_connection_socket.c, and must be
+fixed for sure because the situation with the same min and max port
+numbers in sysctl are possible and not prohibited.
+
+Cheers!
+=2D-=20
+Anton Arapov, <aarapov@redhat.com>
+GPG Key ID: 0x6FA8C812
+
+--=-=-=
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQFHDIsZVub9yW+oyBIRAvaeAJ9xBaolAdYF26DUWOdgvXWNlMJ6cACg0K1y
+6+yQ4TQisshzizUvJpFt5Mw=
+=btNR
+-----END PGP SIGNATURE-----
+--=-=-=--
