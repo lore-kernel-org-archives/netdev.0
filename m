@@ -1,49 +1,33 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] Evict tmp variable from the stack in ip6_evictor
-Date: Wed, 10 Oct 2007 18:29:28 +0400
-Message-ID: <470CE1C8.9020000@openvz.org>
+From: "Denis V. Lunev" <den@openvz.org>
+Subject: [PATCH] do not give access to 1-1024 ports for autobinding
+Date: Wed, 10 Oct 2007 18:34:49 +0400
+Message-ID: <20071010143449.GA10796@iris.sw.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, den@openvz.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:55182 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755499AbXJJOcZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 10 Oct 2007 10:32:25 -0400
+Received: from swsoft-mipt-nat.sw.ru ([195.214.233.10]:62685 "EHLO iris"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753950AbXJJOdD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Oct 2007 10:33:03 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The list_head *tmp is used to help getting the first entry in
-the ip6_frag_lru_list list. There is a simpler way to do it.
+This patch prevents possibility to give 1-1024 port range for autobinding.
+{1, 1} may only takes some sense for deep embedded people.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Signed-off-by: Denis V. Lunev <den@openvz.org>
 
----
-
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index 31601c9..8fad98b 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -261,7 +261,6 @@ static __inline__ void fq_kill(struct fr
- static void ip6_evictor(struct inet6_dev *idev)
- {
- 	struct frag_queue *fq;
--	struct list_head *tmp;
- 	int work;
+--- ./net/ipv4/sysctl_net_ipv4.c.port2	2007-10-10 17:46:48.000000000 +0400
++++ ./net/ipv4/sysctl_net_ipv4.c	2007-10-10 18:08:00.000000000 +0400
+@@ -25,7 +25,7 @@ extern int sysctl_ip_nonlocal_bind;
+ #ifdef CONFIG_SYSCTL
+ static int zero;
+ static int tcp_retr1_max = 255;
+-static int ip_local_port_range_min[] = { 1, 1 };
++static int ip_local_port_range_min[] = { 1024, 1024 };
+ static int ip_local_port_range_max[] = { 65535, 65535 };
+ #endif
  
- 	work = atomic_read(&ip6_frag_mem) - sysctl_ip6frag_low_thresh;
-@@ -274,8 +273,9 @@ static void ip6_evictor(struct inet6_dev
- 			read_unlock(&ip6_frag_lock);
- 			return;
- 		}
--		tmp = ip6_frag_lru_list.next;
--		fq = list_entry(tmp, struct frag_queue, lru_list);
-+
-+		fq = list_first_entry(&ip6_frag_lru_list,
-+				struct frag_queue, lru_list);
- 		atomic_inc(&fq->refcnt);
- 		read_unlock(&ip6_frag_lock);
- 
-
