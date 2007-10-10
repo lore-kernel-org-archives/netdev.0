@@ -1,42 +1,29 @@
-From: Sebastian Siewior <netdev@ml.breakpoint.cc>
-Subject: Re: authenc compile warnings in current net-2.6.24
-Date: Wed, 10 Oct 2007 21:53:37 +0200
-Message-ID: <20071010195337.GA21597@Chamillionaire.breakpoint.cc>
-References: <470D11B1.2040207@hartkopp.net>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [IPv6] Update setsockopt(IPV6_MULTICAST_IF) to support RFC 3493
+Date: Wed, 10 Oct 2007 13:45:38 -0700
+Message-ID: <OF75CC6365.1CACD211-ON88257370.0071BBE2-88257370.0071F400@us.ibm.com>
+References: <470CEA05.8080809@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:42739 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755650AbXJJTxj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 15:53:39 -0400
-Content-Disposition: inline
-In-Reply-To: <470D11B1.2040207@hartkopp.net>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:57922 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755514AbXJJUpp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 16:45:45 -0400
+In-Reply-To: <470CEA05.8080809@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Oliver Hartkopp | 2007-10-10 19:53:53 [+0200]:
+What about just checking for 0 in the later test?
 
-> CC [M] crypto/authenc.o
-> crypto/authenc.c: In function ?crypto_authenc_hash?:
-> crypto/authenc.c:88: warning: ?cryptlen? may be used uninitialized in this 
-> function
-> crypto/authenc.c:87: warning: ?dst? may be used uninitialized in this 
-> function
-> crypto/authenc.c: In function ?crypto_authenc_decrypt?:
-> crypto/authenc.c:163: warning: ?cryptlen? may be used uninitialized in this 
-> function
-> crypto/authenc.c:163: note: ?cryptlen? was declared here
-> crypto/authenc.c:162: warning: ?src? may be used uninitialized in this 
-> function
-> crypto/authenc.c:162: note: ?src? was declared here
->
-> do you already know these warnings?
+        if (val && __dev_get_by_index(val) == NULL) {
+...
 
-Those warnings are looking like a compiler bug to me.
 
-> Oliver
+                                        +-DLS
 
-Sebastian
