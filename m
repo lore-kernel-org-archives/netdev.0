@@ -1,37 +1,71 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 1/4] IPoIB: Fix unused variable warning
-Date: Tue, 09 Oct 2007 20:32:24 -0400
-Message-ID: <470C1D98.6010308@garzik.org>
-References: <20071009.135145.95506679.davem@davemloft.net>	<adahckzhprc.fsf@cisco.com>	<adad4vnhpoq.fsf_-_@cisco.com> <20071009.161750.02298910.davem@davemloft.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
+Date: Wed, 10 Oct 2007 02:37:16 +0200
+Message-ID: <20071010003716.GB552@one.firstfloor.org>
+References: <20071009135340.33e5922c@freepuppy.rosehill>
+	<20071009.142235.74385364.davem@davemloft.net>
+	<1191967006.5324.14.camel@localhost>
+	<20071009.170435.43504422.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: rdreier@cisco.com, general@lists.openfabrics.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: johnpol@2ka.mipt.ru, Robert.Olsson@data.slu.se, herbert@gondor.apana.org.au,
+	jeff@garzik.org, netdev@vger.kernel.org, rdreier@cisco.com,
+	peter.p.waskiewicz.jr@intel.com, hadi@cyberus.ca,
+	mcarlson@broadcom.com, gaagaan@gmail.com, andi@firstfloor.org,
+	general@lists.openfabrics.org, jagana@us.ibm.com, tgraf@suug.ch,
+	randy.dunlap@oracle.com, shemminger@linux-foundation.org,
+	kaber@trash.net, mchan@broadcom.com, sri@us.ibm.com
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:33344 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751489AbXJJAc1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Oct 2007 20:32:27 -0400
-In-Reply-To: <20071009.161750.02298910.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <general-bounces@lists.openfabrics.org>
+Content-Disposition: inline
+In-Reply-To: <20071009.170435.43504422.davem@davemloft.net>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Roland Dreier <rdreier@cisco.com>
-> Date: Tue, 09 Oct 2007 15:46:13 -0700
+On Tue, Oct 09, 2007 at 05:04:35PM -0700, David Miller wrote:
+> We have to keep in mind, however, that the sw queue right now is 1000
+> packets.  I heavily discourage any driver author to try and use any
+> single TX queue of that size.  
+
+Why would you discourage them? 
+
+If 1000 is ok for a software queue why would it not be ok
+for a hardware queue?
+
+> Which means that just dropping on back
+> pressure might not work so well.
 > 
->> The conversion to use netdevice internal stats left an unused variable
->> in ipoib_neigh_free(), since there's no longer any reason to get
->> netdev_priv() in order to increment dropped packets.  Delete the
->> unused priv variable.
->>
->> Signed-off-by: Roland Dreier <rolandd@cisco.com>
+> Or it might be perfect and signal TCP to backoff, who knows! :-)
+
+1000 packets is a lot. I don't have hard data, but gut feeling 
+is less would also do.
+
+And if the hw queues are not enough a better scheme might be to
+just manage this in the sockets in sendmsg. e.g. provide a wait queue that
+drivers can wake up and let them block on more queue.
+
+> The idea is that the network stack, as in the pure hw queue scheme,
+> unconditionally always submits new packets to the driver.  Therefore
+> even if the hw TX queue is full, the driver can still queue to an
+> internal sw queue with some limit (say 1000 for ethernet, as is used
+> now).
+>
 > 
-> Jeff, do you want to merge in Roland's 4 patches to your tree then do
-> a sync with me so I can pull it all in from you?
+> When the hw TX queue gains space, the driver self-batches packets
+> from the sw queue to the hw queue.
 
-Grabbing them now...
+I don't really see the advantage over the qdisc in that scheme.
+It's certainly not simpler and probably more code and would likely
+also not require less locks (e.g. a currently lockless driver
+would need a new lock for its sw queue). Also it is unclear to me
+it would be really any faster.
 
-
+-Andi
