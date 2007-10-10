@@ -1,91 +1,99 @@
 From: Jeremy Fitzhardinge <jeremy@goop.org>
-Subject: [PATCH 2/3] xen-netfront: rearrange netfront structure to separate
- tx and rx
-Date: Tue, 09 Oct 2007 18:13:36 -0700
-Message-ID: <470C2740.7070407@goop.org>
+Subject: [PATCH 3/3] xen-netfront: remove dead code
+Date: Tue, 09 Oct 2007 18:13:41 -0700
+Message-ID: <470C2745.2060505@goop.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Christoph Hellwig <hch@infradead.org>,
-	NetDev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Cc: NetDev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Adrian Bunk <bunk@stusta.de>,
+	Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw.goop.org ([64.81.55.164]:47759 "EHLO mail.goop.org"
+Received: from gw.goop.org ([64.81.55.164]:47766 "EHLO mail.goop.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756746AbXJJBOU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 9 Oct 2007 21:14:20 -0400
+	id S1756808AbXJJBOZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 9 Oct 2007 21:14:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Keep tx and rx elements separate on different cachelines to prevent
-bouncing.
+This patch removes some residual dead code left over from removing the
+"flip" receive mode.  This patch doesn't change the generated output
+at all, since gcc already realized it was dead.
+
+This resolves the "regression" reported by Adrian.
 
 Signed-off-by: Jeremy Fitzhardinge <jeremy@xensource.com>
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>
-Cc: Christoph Hellwig <hch@infradead.org>
+Cc: Adrian Bunk <bunk@stusta.de>
+Cc: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
 
 ---
- drivers/net/xen-netfront.c |   37 ++++++++++++++++++-------------------
- 1 file changed, 18 insertions(+), 19 deletions(-)
+ drivers/net/xen-netfront.c |   37 ++-----------------------------------
+ 1 file changed, 2 insertions(+), 35 deletions(-)
 
 ===================================================================
 --- a/drivers/net/xen-netfront.c
 +++ b/drivers/net/xen-netfront.c
-@@ -72,22 +72,12 @@ struct netfront_info {
- 	struct list_head list;
- 	struct net_device *netdev;
+@@ -209,11 +209,9 @@ static void xennet_alloc_rx_buffers(stru
+ 	struct page *page;
+ 	int i, batch_target, notify;
+ 	RING_IDX req_prod = np->rx.req_prod_pvt;
+-	struct xen_memory_reservation reservation;
+ 	grant_ref_t ref;
+ 	unsigned long pfn;
+ 	void *vaddr;
+-	int nr_flips;
+ 	struct xen_netif_rx_request *req;
  
-+	unsigned int evtchn;
-+	struct xenbus_device *xbdev;
-+
-+	spinlock_t   tx_lock;
- 	struct xen_netif_tx_front_ring tx;
--	struct xen_netif_rx_front_ring rx;
--
--	spinlock_t   tx_lock;
--	spinlock_t   rx_lock;
--
--	unsigned int evtchn;
--
--	/* Receive-ring batched refills. */
--#define RX_MIN_TARGET 8
--#define RX_DFL_MIN_TARGET 64
--#define RX_MAX_TARGET min_t(int, NET_RX_RING_SIZE, 256)
--	unsigned rx_min_target, rx_max_target, rx_target;
--	struct sk_buff_head rx_batch;
--
--	struct timer_list rx_refill_timer;
-+	int tx_ring_ref;
+ 	if (unlikely(!netif_carrier_ok(dev)))
+@@ -263,7 +261,7 @@ no_skb:
+ 		np->rx_target = np->rx_max_target;
  
- 	/*
- 	 * {tx,rx}_skbs store outstanding skbuffs. Free tx_skb entries
-@@ -106,13 +96,22 @@ struct netfront_info {
- 	grant_ref_t grant_tx_ref[NET_TX_RING_SIZE];
- 	unsigned tx_skb_freelist;
+  refill:
+-	for (nr_flips = i = 0; ; i++) {
++	for (i = 0; ; i++) {
+ 		skb = __skb_dequeue(&np->rx_batch);
+ 		if (skb == NULL)
+ 			break;
+@@ -292,38 +290,7 @@ no_skb:
+ 		req->gref = ref;
+ 	}
  
-+	spinlock_t   rx_lock ____cacheline_aligned_in_smp;
-+	struct xen_netif_rx_front_ring rx;
-+	int rx_ring_ref;
-+
-+	/* Receive-ring batched refills. */
-+#define RX_MIN_TARGET 8
-+#define RX_DFL_MIN_TARGET 64
-+#define RX_MAX_TARGET min_t(int, NET_RX_RING_SIZE, 256)
-+	unsigned rx_min_target, rx_max_target, rx_target;
-+	struct sk_buff_head rx_batch;
-+
-+	struct timer_list rx_refill_timer;
-+
- 	struct sk_buff *rx_skbs[NET_RX_RING_SIZE];
- 	grant_ref_t gref_rx_head;
- 	grant_ref_t grant_rx_ref[NET_RX_RING_SIZE];
+-	if (nr_flips != 0) {
+-		reservation.extent_start = np->rx_pfn_array;
+-		reservation.nr_extents   = nr_flips;
+-		reservation.extent_order = 0;
+-		reservation.address_bits = 0;
+-		reservation.domid        = DOMID_SELF;
 -
--	struct xenbus_device *xbdev;
--	int tx_ring_ref;
--	int rx_ring_ref;
+-		if (!xen_feature(XENFEAT_auto_translated_physmap)) {
+-			/* After all PTEs have been zapped, flush the TLB. */
+-			np->rx_mcl[i-1].args[MULTI_UVMFLAGS_INDEX] =
+-				UVMF_TLB_FLUSH|UVMF_ALL;
+-
+-			/* Give away a batch of pages. */
+-			np->rx_mcl[i].op = __HYPERVISOR_memory_op;
+-			np->rx_mcl[i].args[0] = XENMEM_decrease_reservation;
+-			np->rx_mcl[i].args[1] = (unsigned long)&reservation;
+-
+-			/* Zap PTEs and give away pages in one big
+-			 * multicall. */
+-			(void)HYPERVISOR_multicall(np->rx_mcl, i+1);
+-
+-			/* Check return status of HYPERVISOR_memory_op(). */
+-			if (unlikely(np->rx_mcl[i].result != i))
+-				panic("Unable to reduce memory reservation\n");
+-		} else {
+-			if (HYPERVISOR_memory_op(XENMEM_decrease_reservation,
+-						 &reservation) != i)
+-				panic("Unable to reduce memory reservation\n");
+-		}
+-	} else {
+-		wmb();		/* barrier so backend seens requests */
+-	}
++	wmb();		/* barrier so backend seens requests */
  
- 	unsigned long rx_pfn_array[NET_RX_RING_SIZE];
- 	struct multicall_entry rx_mcl[NET_RX_RING_SIZE+1];
+ 	/* Above is a suitable barrier to ensure backend will see requests. */
+ 	np->rx.req_prod_pvt = req_prod + i;
 
