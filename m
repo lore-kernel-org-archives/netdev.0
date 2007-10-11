@@ -1,113 +1,118 @@
 From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: [PATCH 5/7] [TCP]: No need to re-count fackets_out/sacked_out at RTO
-Date: Thu, 11 Oct 2007 14:41:05 +0300
-Message-ID: <11921028672853-git-send-email-ilpo.jarvinen@helsinki.fi>
-References: <1192102867479-git-send-email-ilpo.jarvinen@helsinki.fi> <11921028673599-git-send-email-ilpo.jarvinen@helsinki.fi> <1192102867725-git-send-email-ilpo.jarvinen@helsinki.fi> <11921028673528-git-send-email-ilpo.jarvinen@helsinki.fi> <11921028673030-git-send-email-ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH 7/7] [TCP]: Limit processing lost_retrans loop to work-to-do cases
+Date: Thu, 11 Oct 2007 14:41:07 +0300
+Message-ID: <1192102867248-git-send-email-ilpo.jarvinen@helsinki.fi>
+References: <1192102867479-git-send-email-ilpo.jarvinen@helsinki.fi> <11921028673599-git-send-email-ilpo.jarvinen@helsinki.fi> <1192102867725-git-send-email-ilpo.jarvinen@helsinki.fi> <11921028673528-git-send-email-ilpo.jarvinen@helsinki.fi> <11921028673030-git-send-email-ilpo.jarvinen@helsinki.fi> <11921028672853-git-send-email-ilpo.jarvinen@helsinki.fi> <11921028671668-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, TAKANO Ryousei <takano@axe-inc.co.jp>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:46000 "EHLO
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:49824 "EHLO
 	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755270AbXJKLlR (ORCPT
+	with ESMTP id S1755117AbXJKLlR (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 07:41:17 -0400
-In-Reply-To: <11921028673030-git-send-email-ilpo.jarvinen@helsinki.fi>
+In-Reply-To: <11921028671668-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Both sacked_out and fackets_out are directly known from how
-parameter. Since fackets_out is accurate, there's no need for
-recounting (sacked_out was previously unnecessarily counted
-in the loop anyway).
+This addition of lost_retrans_low to tcp_sock might be
+unnecessary, it's not clear how often lost_retrans worker is
+executed when there wasn't work to do.
 
+Cc: TAKANO Ryousei <takano@axe-inc.co.jp>
 Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 ---
- net/ipv4/tcp_input.c |   26 ++++++++++++++++----------
- 1 files changed, 16 insertions(+), 10 deletions(-)
+ include/linux/tcp.h   |    2 ++
+ net/ipv4/tcp_input.c  |   14 +++++++++++---
+ net/ipv4/tcp_output.c |    2 ++
+ 3 files changed, 15 insertions(+), 3 deletions(-)
 
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 9ff456e..c5b94c1 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -348,6 +348,8 @@ struct tcp_sock {
+ 	int     lost_cnt_hint;
+ 	int     retransmit_cnt_hint;
+=20
++	u32	lost_retrans_low;	/* Sent seq after any rxmit (lowest) */
++
+ 	u16	advmss;		/* Advertised MSS			*/
+ 	u16	prior_ssthresh; /* ssthresh saved at recovery start	*/
+ 	u32	lost_out;	/* Lost packets			*/
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index bd18c25..a066039 100644
+index d5e0fcc..0a42e93 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -1711,18 +1711,23 @@ static void tcp_enter_frto_loss(struct sock *sk=
-, int allowed_segments, int flag)
- 	tcp_clear_retrans_hints_partial(tp);
- }
-=20
--void tcp_clear_retrans(struct tcp_sock *tp)
-+static void tcp_clear_retrans_partial(struct tcp_sock *tp)
+@@ -1112,7 +1112,8 @@ static int tcp_is_sackblock_valid(struct tcp_sock=
+ *tp, int is_dsack,
+  *
+  * Search retransmitted skbs from write_queue that were sent when snd_=
+nxt was
+  * less than what is now known to be received by the other end (derive=
+d from
+- * SACK blocks by the caller).
++ * SACK blocks by the caller). Also calculate the lowest snd_nxt among=
+ the
++ * remaining retransmitted skbs to avoid some costly processing per AC=
+Ks.
+  */
+ static int tcp_mark_lost_retrans(struct sock *sk, u32 received_upto)
  {
- 	tp->retrans_out =3D 0;
--
--	tp->fackets_out =3D 0;
--	tp->sacked_out =3D 0;
- 	tp->lost_out =3D 0;
-=20
- 	tp->undo_marker =3D 0;
- 	tp->undo_retrans =3D 0;
- }
-=20
-+void tcp_clear_retrans(struct tcp_sock *tp)
-+{
-+	tcp_clear_retrans_partial(tp);
-+
-+	tp->fackets_out =3D 0;
-+	tp->sacked_out =3D 0;
-+}
-+
- /* Enter Loss state. If "how" is not zero, forget all SACK information
-  * and reset tags completely, otherwise preserve SACKs. If receiver
-  * dropped its ofo queue, we will know this due to reneging detection.
-@@ -1732,7 +1737,6 @@ void tcp_enter_loss(struct sock *sk, int how)
- 	const struct inet_connection_sock *icsk =3D inet_csk(sk);
- 	struct tcp_sock *tp =3D tcp_sk(sk);
+@@ -1120,6 +1121,7 @@ static int tcp_mark_lost_retrans(struct sock *sk,=
+ u32 received_upto)
  	struct sk_buff *skb;
--	int cnt =3D 0;
-=20
- 	/* Reduce ssthresh if it has not yet been made inside this window. */
- 	if (icsk->icsk_ca_state <=3D TCP_CA_Disorder || tp->snd_una =3D=3D tp=
-->high_seq ||
-@@ -1746,7 +1750,10 @@ void tcp_enter_loss(struct sock *sk, int how)
- 	tp->snd_cwnd_stamp =3D tcp_time_stamp;
-=20
- 	tp->bytes_acked =3D 0;
--	tcp_clear_retrans(tp);
-+	tcp_clear_retrans_partial(tp);
-+
-+	if (tcp_is_reno(tp))
-+		tcp_reset_reno_sack(tp);
-=20
- 	if (!how) {
- 		/* Push undo marker, if it was plain RTO and nothing
-@@ -1754,13 +1761,15 @@ void tcp_enter_loss(struct sock *sk, int how)
- 		tp->undo_marker =3D tp->snd_una;
- 		tcp_clear_retrans_hints_partial(tp);
- 	} else {
-+		tp->sacked_out =3D 0;
-+		tp->fackets_out =3D 0;
- 		tcp_clear_all_retrans_hints(tp);
- 	}
+ 	int flag =3D 0;
+ 	int cnt =3D 0;
++	u32 new_low_seq =3D 0;
 =20
  	tcp_for_write_queue(skb, sk) {
- 		if (skb =3D=3D tcp_send_head(sk))
- 			break;
--		cnt +=3D tcp_skb_pcount(skb);
-+
- 		if (TCP_SKB_CB(skb)->sacked&TCPCB_RETRANS)
- 			tp->undo_marker =3D 0;
- 		TCP_SKB_CB(skb)->sacked &=3D (~TCPCB_TAGBITS)|TCPCB_SACKED_ACKED;
-@@ -1768,9 +1777,6 @@ void tcp_enter_loss(struct sock *sk, int how)
- 			TCP_SKB_CB(skb)->sacked &=3D ~TCPCB_SACKED_ACKED;
- 			TCP_SKB_CB(skb)->sacked |=3D TCPCB_LOST;
- 			tp->lost_out +=3D tcp_skb_pcount(skb);
--		} else {
--			tp->sacked_out +=3D tcp_skb_pcount(skb);
--			tp->fackets_out =3D cnt;
+ 		u32 ack_seq =3D TCP_SKB_CB(skb)->ack_seq;
+@@ -1151,9 +1153,15 @@ static int tcp_mark_lost_retrans(struct sock *sk=
+, u32 received_upto)
+ 				NET_INC_STATS_BH(LINUX_MIB_TCPLOSTRETRANSMIT);
+ 			}
+ 		} else {
++			if (!new_low_seq || before(ack_seq, new_low_seq))
++				new_low_seq =3D ack_seq;
+ 			cnt +=3D tcp_skb_pcount(skb);
  		}
  	}
- 	tcp_verify_left_out(tp);
++
++	if (tp->retrans_out)
++		tp->lost_retrans_low =3D new_low_seq;
++
+ 	return flag;
+ }
+=20
+@@ -1481,8 +1489,8 @@ tcp_sacktag_write_queue(struct sock *sk, struct s=
+k_buff *ack_skb, u32 prior_snd_
+ 		}
+ 	}
+=20
+-	if (tp->retrans_out && highest_sack_end_seq &&
+-	    after(highest_sack_end_seq, tp->high_seq) &&
++	if (tp->retrans_out &&
++	    after(highest_sack_end_seq, tp->lost_retrans_low) &&
+ 	    icsk->icsk_ca_state =3D=3D TCP_CA_Recovery)
+ 		flag |=3D tcp_mark_lost_retrans(sk, highest_sack_end_seq);
+=20
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 5329675..324b420 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1914,6 +1914,8 @@ int tcp_retransmit_skb(struct sock *sk, struct sk=
+_buff *skb)
+ 				printk(KERN_DEBUG "retrans_out leaked.\n");
+ 		}
+ #endif
++		if (!tp->retrans_out)
++			tp->lost_retrans_low =3D tp->snd_nxt;
+ 		TCP_SKB_CB(skb)->sacked |=3D TCPCB_RETRANS;
+ 		tp->retrans_out +=3D tcp_skb_pcount(skb);
+=20
 --=20
 1.5.0.6
 
