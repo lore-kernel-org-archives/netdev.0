@@ -1,30 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/5] cleanup 3rd argument in netlink_sendskb
-Date: Wed, 10 Oct 2007 21:14:09 -0700 (PDT)
-Message-ID: <20071010.211409.97289459.davem@davemloft.net>
-References: <20071005144623.GA7085@iris.sw.ru>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, devel@openvz.org,
-	containers@lists.osdl.org
-To: den@openvz.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [PATCH 0/6] bonding workqueue and lock rework
+Date: Wed, 10 Oct 2007 21:14:03 -0700
+Message-ID: <11920760494096-git-send-email-fubar@us.ibm.com>
+Cc: andy@greyhouse.net
+To: netdev@vger.kernel.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58033
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751267AbXJKEOG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 00:14:06 -0400
-In-Reply-To: <20071005144623.GA7085@iris.sw.ru>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:52542 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751267AbXJKEOO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 00:14:14 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9B4EBbZ026779
+	for <netdev@vger.kernel.org>; Thu, 11 Oct 2007 00:14:11 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9B4EBhF373176
+	for <netdev@vger.kernel.org>; Wed, 10 Oct 2007 22:14:11 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9B4EAQK027139
+	for <netdev@vger.kernel.org>; Wed, 10 Oct 2007 22:14:11 -0600
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Denis V. Lunev" <den@openvz.org>
-Date: Fri, 5 Oct 2007 18:46:23 +0400
+	Following are patches to update the locking used in the bonding
+driver.  This involves two basic changes: conversion from timers to
+workqueues for the various periodic monitor functions, and conversion of
+locking.  These patches should resolve the majority of locking and
+might sleep related warnings that occur during certain operations.
 
-> netlink_sendskb does not use third argument. Clean it and save a couple of
-> bytes.
-> 
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
-> Acked-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+	The workqueue conversion is fairly straightforward, and
+substitutes workqueue driven events for the existing timer driven events.
 
-Applied.
+	The locking changes are of two types: first, changes to resolve
+deadlocks created by the conversion to workqueues, and second, changes to
+make the locking more correct, which generally involves holding RTNL and
+no other locks during specific operations.  Some of the RTNL-related
+changes are fairly extensive, and involve either conditional locking or
+releasing and reacquiring locks in order to obey lock ordering
+constraints.
+
+	These changes were developed and extensively tested by Andy
+Gospodarek <andy@greyhouse.net> and myself over the last few months.
+
+	Patches are relative to netdev-2.6#upstream.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
