@@ -1,36 +1,47 @@
-From: "Eliezer Tamir" <eliezert@broadcom.com>
-Subject: Re: [PATCH][BNX2X] round three - sparse warnings.
-Date: Thu, 11 Oct 2007 19:21:37 +0200
-Message-ID: <1192123297.29746.130.camel@eliezer>
-References: <1192038559.29746.127.camel@eliezer>
- <470D2D7E.8080507@broadcom.com>
- <20071010185455.79dafc7b@freepuppy.rosehill>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH][NETNS] Make ifindex generation per-namespace
+Date: Thu, 11 Oct 2007 11:22:57 -0600
+Message-ID: <m1hckxbm6m.fsf@ebiederm.dsl.xmission.com>
+References: <470B71CD.3000706@openvz.org>
+	<m1przoxk1v.fsf@ebiederm.dsl.xmission.com>
+	<1192041243.4770.8.camel@johannes.berg>
+	<m1wstukasp.fsf@ebiederm.dsl.xmission.com>
+	<1192095150.4770.25.camel@johannes.berg>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	"Michael Chan" <mchan@broadcom.com>
-To: "Stephen Hemminger" <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pavel Emelyanov <xemul@openvz.org>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2294 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753651AbXJKRUV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Oct 2007 13:20:21 -0400
-In-Reply-To: <20071010185455.79dafc7b@freepuppy.rosehill>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:39122 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755267AbXJKRYQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 13:24:16 -0400
+In-Reply-To: <1192095150.4770.25.camel@johannes.berg> (Johannes Berg's message
+	of "Thu, 11 Oct 2007 11:32:30 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2007-10-10 at 18:54 -0700, Stephen Hemminger wrote:
-> Please fix these...
-> 
+Johannes Berg <johannes@sipsolutions.net> writes:
 
-Thanks, 
-All that code is going to be rewritten, as per Dave's request,
-but I will make sure to test the new code with sparse.
+> On Wed, 2007-10-10 at 13:51 -0600, Eric W. Biederman wrote:
+>
+>> Yes.  Netlink sockets are per-namespace and you can use the namespace
+>> of a netlink socket to look up a netdev.
+>
+> Ok, thanks. I still haven't really looked into the wireless vs. net
+> namespaces problem but this will probably help.
 
-Eliezer
+I think I may even have some patches in my proof of concept tree that
+address some of the wireless issues.  Especially rtnetlink ones.
+Generally those cases haven't been hard to spot.
 
+Having hash tables and the like that hash and do key compares
+on an ifindex instead of a net_device * are the in kernel places that
+make it very hard to have duplicate ifindexes.
 
+Thinking about it probably the biggest challenge to deal with
+is iff in struct sk_buff.
 
+Eric
