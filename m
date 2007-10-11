@@ -1,32 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: iproute2: resend of patches from Debian.
-Date: Thu, 11 Oct 2007 15:38:59 -0700 (PDT)
-Message-ID: <20071011.153859.45731232.davem@davemloft.net>
-References: <1192137732.4733.34.camel@localhost.localdomain>
-	<20071011.144843.125887830.davem@davemloft.net>
-	<1192142107.4733.53.camel@localhost.localdomain>
+From: Steven Dake <sdake@redhat.com>
+Subject: bytes received from recvmsg doesn't match FIONREAD
+Date: Thu, 11 Oct 2007 16:08:15 -0700
+Message-ID: <1192144096.4147.16.camel@balance>
+Reply-To: sdake@redhat.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andreas@fatal.se
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36399
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1755464AbXJKWjL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 18:39:11 -0400
-In-Reply-To: <1192142107.4733.53.camel@localhost.localdomain>
+Received: from mx1.redhat.com ([66.187.233.31]:59730 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752385AbXJKXIH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Oct 2007 19:08:07 -0400
+Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
+	by mx1.redhat.com (8.13.8/8.13.1) with ESMTP id l9BN87P1022369
+	for <netdev@vger.kernel.org>; Thu, 11 Oct 2007 19:08:07 -0400
+Received: from pobox.corp.redhat.com (pobox.corp.redhat.com [10.11.255.20])
+	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id l9BN87P5019478
+	for <netdev@vger.kernel.org>; Thu, 11 Oct 2007 19:08:07 -0400
+Received: from [10.14.51.25] (vpn-51-25.sfbay.redhat.com [10.14.51.25])
+	by pobox.corp.redhat.com (8.13.1/8.13.1) with ESMTP id l9BN85bK003739
+	for <netdev@vger.kernel.org>; Thu, 11 Oct 2007 19:08:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andreas Henriksson <andreas@fatal.se>
-Date: Fri, 12 Oct 2007 00:35:07 +0200
+I wanted to verify that the size of a multicast UDP message received
+with recvmsg matches the size of the message the kernel thinks the
+message is.
 
-> If you want me to STFU please just say so and I'll give you all my
-> sincere appologies and go back to the status quo of no fixes shared
-> with others.
+So I went about using the FIONREAD ioctl as follows:
 
-I applaud your efforts, it's not what the problem is.
+res = ioctl (fd, FIONCREAD, &value);
+assert (res != -1);
+bytes_received = recvmsg (fd, &msg_recv, MSG_NOSIGNAL | MSG_DONTWAIT);
+assert (bytes_received == value);
 
-I just wonder, therefore, when Alexander planned on submitting
-this sizable backlog of local iproute2 patches.
+It appears the value and bytes_received do not match after many
+thousands of runs with a UDP multicast protocol (www.openais.org).
+(neither is -1)
+
+Am I using this ioctl improperly?  Shouldn't I expect that the full
+datagram is returned by recvmsg no matter the state of the blocking or
+nonblocking mode of the file descriptor?
+
+pls copy me on responses - i am not onlist.
+
+Regards
+-steve
+
