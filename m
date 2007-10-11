@@ -1,64 +1,68 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
-Date: Thu, 11 Oct 2007 12:22:23 +0530
-Message-ID: <OF796924F4.13CE6BB8-ON65257371.002057A5-65257371.0025C19A@in.ibm.com>
-References: <20071009.134331.35664207.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] rtnl: Simplify ASSERT_RTNL
+Date: Thu, 11 Oct 2007 00:57:31 -0600
+Message-ID: <m1r6k2i1es.fsf@ebiederm.dsl.xmission.com>
+References: <m1r6ki9tib.fsf@ebiederm.dsl.xmission.com>
+	<20071010.211654.85404234.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: andi@firstfloor.org, gaagaan@gmail.com,
-	general@lists.openfabrics.org, hadi@cyberus.ca,
-	herbert@gondor.apana.org.au, jagana@us.ibm.com, jeff@garzik.org,
-	johnpol@2ka.mipt.ru, kaber@trash.net, mcarlson@broadcom.com,
-	mchan@broadcom.com, netdev@vger.kernel.org,
-	peter.p.waskiewicz.jr@intel.com, randy.dunlap@oracle.com,
-	rdreier@cisco.com, Robert.Olsson@data.slu.se,
-	shemminger@linux-foundation.org, sri@us.ibm.com, tgraf@suug.ch
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	Patrick McHardy <kaber@trash.net>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from E23SMTP04.au.ibm.com ([202.81.18.173]:37744 "EHLO
-	e23smtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753578AbXJKGvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 02:51:07 -0400
-Received: from d23relay03.au.ibm.com (d23relay03.au.ibm.com [202.81.18.234])
-	by e23smtp04.au.ibm.com (8.13.1/8.13.1) with ESMTP id l9B6ootI025478
-	for <netdev@vger.kernel.org>; Thu, 11 Oct 2007 16:50:50 +1000
-Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
-	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9B6oqGk4870372
-	for <netdev@vger.kernel.org>; Thu, 11 Oct 2007 16:50:52 +1000
-Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
-	by d23av04.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9B6oY2H026264
-	for <netdev@vger.kernel.org>; Thu, 11 Oct 2007 16:50:36 +1000
-In-Reply-To: <20071009.134331.35664207.davem@davemloft.net>
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:42981 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754851AbXJKG64 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 02:58:56 -0400
+In-Reply-To: <20071010.211654.85404234.davem@davemloft.net> (David Miller's
+	message of "Wed, 10 Oct 2007 21:16:54 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+David Miller <davem@davemloft.net> writes:
 
-David Miller wrote on 10/10/2007 02:13:31 AM:
-
-> > Hopefully that new qdisc will just use the TX rings of the hardware
-> > directly. They are typically large enough these days. That might avoid
-> > some locking in this critical path.
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Fri, 28 Sep 2007 18:59:08 -0600
 >
-> Indeed, I also realized last night that for the default qdiscs
-> we do a lot of stupid useless work.  If the queue is a FIFO
-> and the device can take packets, we should send it directly
-> and not stick it into the qdisc at all.
+>> 
+>> Currently we have the call path:
+>> macvlan_open -> dev_unicast_add -> __dev_set_rx_mode ->
+>> 	__dev_set_promiscuity -> ASSERT_RTNL -> mutex_trylock
+>> 
+>> When mutex debugging is on taking a mutex complains if we are not
+>> allowed to sleep.  At that point we have called netif_tx_lock_bh
+>> so we are clearly not allowed to sleep.  Arguably this is not a
+>> problem for mutex_trylock.
+>> 
+>> However we can avoid the complaint and make the ASSERT_RTNL code
+>> cheaper, faster and more obvious by simply calling mutex_is_locked.
+>> 
+>> So this patch adds rtnl_is_locked (which does mutex_is_locked on
+>> the rtnl_mutex) and changes ASSERT_RTNL to use that.
+>> 
+>> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+>
+> There was a lot of discussion about how to do this right and
+> therefore you'll need to resubmit all of this with this
+> discussioned issues addressed.
 
-Since you are talking of how it should be done in the *current* code,
-I feel LLTX drivers will not work nicely with this.
+Thanks for the update on where this patch sits.
 
-Actually I was trying this change a couple of weeks back, but felt
-that doin go would result in out of order packets (skbs present in
-q which were not sent out for LLTX failure will be sent out only at
-next net_tx_action, while other skbs are sent ahead).
+My understanding is that the patch as I submitted it is correct.
 
-One option is to first call qdisc_run() and then process this skb,
-but that is ugly (requeue handling).
+The code path that sparked this patch has been seen to be extremely
+convoluted from a locking perspective.  Herbert and Patrick have been
+discussing that code path and it was my impression they were working
+together to figure out how to refactor that code path to make the
+locking simpler.  There are enough convoluted details that I
+do not feel comfortable refactoring that code path.
 
-However I guess this can be done cleanly once LLTX is removed.
+There was a practical suggestion by Herbert that ASSERT_RTNL have a
+might_sleep() added.  That suggestion will currently result in
+ASSERT_RTNL firing unnecessarily from the macvlan_open code path.
 
-Thanks,
+So I do not feel comfortable adding a might_sleep() into ASSERT_RTNL,
+as it appears that it will warn on currently correct code.  Even if
+that code has code has nearly incomprehensible locking.
 
-- KK
-
+Eric
