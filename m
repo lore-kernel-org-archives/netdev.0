@@ -1,68 +1,121 @@
 From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH] ucc_geth: add support for netpoll
-Date: Thu, 11 Oct 2007 16:48:42 +0400
-Message-ID: <20071011124842.GB13963@localhost.localdomain>
+Subject: [PATCH respin] phy: implement release function
+Date: Thu, 11 Oct 2007 16:49:05 +0400
+Message-ID: <20071011124905.GC13963@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf8
-Cc: leoli@freescale.com, linuxppc-dev@ozlabs.org,
-	linux-kernel@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:62409 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1758455AbXJKMsY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 08:48:24 -0400
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1755267AbXJKMtF@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds netpoll support for the QE UCC Gigabit Ethernet
-driver. The approach is very similar to the gianfar driver.
+Lately I've got this nice badness on mdio bus removal:
 
-Tested using netconsole.
+Device 'e0103120:06' does not have a release() function, it is broken and must be fixed.
+------------[ cut here ]------------
+Badness at drivers/base/core.c:107
+NIP: c015c1a8 LR: c015c1a8 CTR: c0157488
+REGS: c34bdcf0 TRAP: 0700   Not tainted  (2.6.23-rc5-g9ebadfbb-dirty)
+MSR: 00029032 <EE,ME,IR,DR>  CR: 24088422  XER: 00000000
+...
+[c34bdda0] [c015c1a8] device_release+0x78/0x80 (unreliable)
+[c34bddb0] [c01354cc] kobject_cleanup+0x80/0xbc
+[c34bddd0] [c01365f0] kref_put+0x54/0x6c
+[c34bdde0] [c013543c] kobject_put+0x24/0x34
+[c34bddf0] [c015c384] put_device+0x1c/0x2c
+[c34bde00] [c0180e84] mdiobus_unregister+0x2c/0x58
+...
+
+Though actually there is nothing broken, it just device
+subsystem core expects another "pattern" of resource managment.
+
+This patch implement phy device's release function, thus
+we're getting rid of this badness.
+
+Also small hidden bug fixed, hope none other introduced. ;-)
 
 Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+Acked-by: Andy Fleming <afleming@freescale.com>
 ---
- drivers/net/ucc_geth.c |   19 +++++++++++++++++++
- 1 files changed, 19 insertions(+), 0 deletions(-)
+ drivers/net/phy/mdio_bus.c   |    9 +++++----
+ drivers/net/phy/phy_device.c |   13 +++++++++++++
+ include/linux/phy.h          |    1 +
+ 3 files changed, 19 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 18a6f48..06807ce 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -3691,6 +3691,22 @@ static irqreturn_t ucc_geth_irq_handler(int irq, void *info)
- 	return IRQ_HANDLED;
- }
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index fc2f0e6..c30196d 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -91,9 +91,12 @@ int mdiobus_register(struct mii_bus *bus)
  
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+/*
-+ * Polling 'interrupt' - used by things like netconsole to send skbs
-+ * without having to re-enable interrupts. It's not called while
-+ * the interrupt routine is executing.
-+ */
-+static void ucc_netpoll(struct net_device *dev)
+ 			err = device_register(&phydev->dev);
+ 
+-			if (err)
++			if (err) {
+ 				printk(KERN_ERR "phy %d failed to register\n",
+ 						i);
++				phy_device_free(phydev);
++				phydev = NULL;
++			}
+ 		}
+ 
+ 		bus->phy_map[i] = phydev;
+@@ -110,10 +113,8 @@ void mdiobus_unregister(struct mii_bus *bus)
+ 	int i;
+ 
+ 	for (i = 0; i < PHY_MAX_ADDR; i++) {
+-		if (bus->phy_map[i]) {
++		if (bus->phy_map[i])
+ 			device_unregister(&bus->phy_map[i]->dev);
+-			kfree(bus->phy_map[i]);
+-		}
+ 	}
+ }
+ EXPORT_SYMBOL(mdiobus_unregister);
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 49328e0..8e25bf7 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -44,6 +44,17 @@ static struct phy_driver genphy_driver;
+ extern int mdio_bus_init(void);
+ extern void mdio_bus_exit(void);
+ 
++void phy_device_free(struct phy_device *phydev)
 +{
-+	struct ucc_geth_private *ugeth = netdev_priv(dev);
-+
-+	disable_irq(ugeth->ug_info->uf_info.irq);
-+	ucc_geth_irq_handler(ugeth->ug_info->uf_info.irq, dev);
-+	enable_irq(ugeth->ug_info->uf_info.irq);
++	kfree(phydev);
 +}
-+#endif /* CONFIG_NET_POLL_CONTROLLER */
++EXPORT_SYMBOL(phy_device_free);
 +
- /* Called when something needs to use the ethernet device */
- /* Returns 0 for success. */
- static int ucc_geth_open(struct net_device *dev)
-@@ -3969,6 +3985,9 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
- 	dev->poll = ucc_geth_poll;
- 	dev->weight = UCC_GETH_DEV_WEIGHT;
- #endif				/* CONFIG_UGETH_NAPI */
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	dev->poll_controller = ucc_netpoll;
-+#endif
- 	dev->stop = ucc_geth_close;
- 	dev->get_stats = ucc_geth_get_stats;
- //    dev->change_mtu = ucc_geth_change_mtu;
++static void phy_device_release(struct device *dev)
++{
++	phy_device_free(to_phy_device(dev));
++}
++
+ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
+ {
+ 	struct phy_device *dev;
+@@ -54,6 +65,8 @@ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id)
+ 	if (NULL == dev)
+ 		return (struct phy_device*) PTR_ERR((void*)-ENOMEM);
+ 
++	dev->dev.release = phy_device_release;
++
+ 	dev->speed = 0;
+ 	dev->duplex = -1;
+ 	dev->pause = dev->asym_pause = 0;
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index 2a65978..9ec1363 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -398,6 +398,7 @@ int phy_mii_ioctl(struct phy_device *phydev,
+ int phy_start_interrupts(struct phy_device *phydev);
+ void phy_print_status(struct phy_device *phydev);
+ struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id);
++void phy_device_free(struct phy_device *phydev);
+ 
+ extern struct bus_type mdio_bus_type;
+ #endif /* __PHY_H */
 -- 
 1.5.0.6
-
