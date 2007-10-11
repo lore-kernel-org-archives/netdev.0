@@ -1,74 +1,81 @@
-From: Jochen Friedrich <jochen@scram.de>
-Subject: [PATCH] [PPC] Compile fix for 8xx CPM Ehernet driver
-Date: Thu, 11 Oct 2007 18:41:41 +0200
-Message-ID: <470E5245.8020801@scram.de>
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Subject: Re: [PATCH][BNX2X] round three
+Date: Thu, 11 Oct 2007 19:13:21 +0200
+Message-ID: <470E59B1.1000807@broadcom.com>
+References: <1192038559.29746.127.camel@eliezer>
+ <470D2D7E.8080507@broadcom.com>
+ <20071010182857.610893a3@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------050601090006010803040305"
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-ppc-embedded \(\(\(\(E-Mail\)\)\)\)" <linuxppc-embedded@ozlabs.org>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-embedded-bounces+glppe-linuxppc-embedded-2=m.gmane.org@ozlabs.org
+Content-Type: text/plain;
+ charset=iso-8859-1;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"Michael Chan" <mchan@broadcom.com>
+To: "Stephen Hemminger" <shemminger@linux-foundation.org>,
+	"Andy Whitcroft" <apw@shadowen.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:2519 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752186AbXJKRNk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Oct 2007 13:13:40 -0400
+In-Reply-To: <20071010182857.610893a3@freepuppy.rosehill>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050601090006010803040305
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+[added Andy Whitcroft, who is listed as a CHECKPATCH maintainer]
+
+Stephen Hemminger wrote:
+> Minor formatting nits reported by checkpatch.pl script:
+
+Thanks, I Will fix them.
 
 
-Add #include <asm/cacheflush.h> for flush_dcache_range
-to make the driver compile again.
+...
 
-  CC      arch/ppc/8xx_io/enet.o
-arch/ppc/8xx_io/enet.c: In function 'scc_enet_start_xmit':
-arch/ppc/8xx_io/enet.c:240: error: implicit declaration of function
-'flush_dcache_range'
-make[1]: *** [arch/ppc/8xx_io/enet.o] Error 1
-make: *** [arch/ppc/8xx_io] Error 2
+> WARNING: no space between function name and open parenthesis '('
+> #777: FILE: drivers/net/bnx2x.c:722:
+> +	case (RAMROD_CMD_ID_ETH_PORT_SETUP | BNX2X_STATE_OPENING_WAIT4_PORT):
+> 
+> WARNING: no space between function name and open parenthesis '('
+> #782: FILE: drivers/net/bnx2x.c:727:
+> +	case (RAMROD_CMD_ID_ETH_HALT | BNX2X_STATE_CLOSING_WAIT4_HALT):
+> 
+> WARNING: no space between function name and open parenthesis '('
+> #788: FILE: drivers/net/bnx2x.c:733:
+> +	case (RAMROD_CMD_ID_ETH_PORT_DEL | BNX2X_STATE_CLOSING_WAIT4_DELETE):
+> 
+> WARNING: no space between function name and open parenthesis '('
+> #793: FILE: drivers/net/bnx2x.c:738:
+> +	case (RAMROD_CMD_ID_ETH_SET_MAC | BNX2X_STATE_OPEN):
+> 
 
-Signed-off-by: Jochen Friedrich <jochen@scram.de>
----
- arch/ppc/8xx_io/enet.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+These look like false positives
 
---------------050601090006010803040305
-Content-Type: text/x-patch;
- name="16d5c009c75feb68cf1136330efabdffbec8e095.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="16d5c009c75feb68cf1136330efabdffbec8e095.diff"
-
-diff --git a/arch/ppc/8xx_io/enet.c b/arch/ppc/8xx_io/enet.c
-index 703d47e..eace3bc 100644
---- a/arch/ppc/8xx_io/enet.c
-+++ b/arch/ppc/8xx_io/enet.c
-@@ -44,6 +44,7 @@
- #include <asm/mpc8xx.h>
- #include <asm/uaccess.h>
- #include <asm/commproc.h>
-+#include <asm/cacheflush.h>
- 
- /*
-  *				Theory of Operation
+...
 
 
---------------050601090006010803040305
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+> CHECK: spinlock_t definition without comment
+> #9486: FILE: drivers/net/bnx2x.h:508:
+> +	spinlock_t		spq_lock;  /* Used to serialize slowpath
+This one too
 
-_______________________________________________
-Linuxppc-embedded mailing list
-Linuxppc-embedded@ozlabs.org
-https://ozlabs.org/mailman/listinfo/linuxppc-embedded
---------------050601090006010803040305--
+...
+
+> ERROR: Macros with complex values should be enclosed in parenthesis
+> #21196: FILE: drivers/net/bnx2x_init.h:138:
+> +#define INIT_INTERNAL0_MEM_WR(block_bar, block, reg, \
+> +			      part, hw, value, off, len) \
+
+Not sure, I think this one is too, but I'm going to rewrite bnx2x_init.h anyway,
+this code is going away.
+
+...
+
+Thanks
+Eliezer
+
+
+
