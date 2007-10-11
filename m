@@ -1,32 +1,28 @@
-From: Al Boldi <a1426z@gawab.com>
-Subject: [RFD] iptables:  mangle table obsoletes filter table
-Date: Fri, 12 Oct 2007 00:31:42 +0300
-Message-ID: <200710120031.42805.a1426z@gawab.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [IPv6] Update setsockopt(IPV6_MULTICAST_IF) to support RFC
+ 3493, try2
+Date: Thu, 11 Oct 2007 14:39:20 -0700 (PDT)
+Message-ID: <20071011.143920.115924218.davem@davemloft.net>
+References: <470E5FF8.7050004@hp.com>
+	<OFF4E419EA.816C7D2D-ON88257371.0061B23A-88257371.0061CC92@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
-To: netfilter-devel@lists.netfilter.org, netdev@vger.kernel.org
+Cc: brian.haley@hp.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: dlstevens@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [212.12.190.29] ([212.12.190.29]:33921 "EHLO raad.intranet"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754905AbXJKVcX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Oct 2007 17:32:23 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46826
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1759134AbXJKVjb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 17:39:31 -0400
+In-Reply-To: <OFF4E419EA.816C7D2D-ON88257371.0061B23A-88257371.0061CC92@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With the existence of the mangle table, how useful is the filter table?
+From: David Stevens <dlstevens@us.ibm.com>
+Date: Thu, 11 Oct 2007 10:49:14 -0700
 
-Other than requiring the REJECT target to be ported to the mangle table, is 
-the filter table faster than the mangle table?
+> Acked-by: David L Stevens <dlstevens@us.ibm.com>
 
-If not, then shouldn't the filter table be obsoleted to avoid confusion?
-
-
-Thanks!
-
---
-Al
-
+Applied, thanks everyone!
