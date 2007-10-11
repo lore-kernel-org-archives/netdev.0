@@ -1,67 +1,83 @@
-From: "Kok, Auke" <auke-jan.h.kok@intel.com>
-Subject: Re: e100 problems in .23rc8 ?
-Date: Thu, 11 Oct 2007 09:10:34 -0700
-Message-ID: <470E4AFA.60507@intel.com>
-References: <46FAA083.9020604@intel.com> <E1IanKN-0003ju-00@gondolin.me.apana.org.au> <20071011003638.GA27174@redhat.com> <20071011012520.GA13160@gondor.apana.org.au>
+From: Jean Tourrilhes <jt@hpl.hp.com>
+Subject: Re: [PATCH]race between open and disconnect in irda-usb
+Date: Thu, 11 Oct 2007 09:23:11 -0700
+Message-ID: <20071011162311.GA26354@bougret.hpl.hp.com>
+References: <200710111745.28594.oliver@neukum.org>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
-	esandeen@redhat.com, dmack@juniper.net
-To: Herbert Xu <herbert.xu@redhat.com>, Dave Jones <davej@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Nick Fedchik <nick@fedchik.org.ua>, netdev@vger.kernel.org,
+	USB development list <linux-usb-devel@lists.sourceforge.net>
+To: Oliver Neukum <oliver@neukum.org>, Samuel Ortiz <samuel@sortiz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:63409 "EHLO mga03.intel.com"
+Received: from madara.hpl.hp.com ([192.6.19.124]:49775 "EHLO madara.hpl.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754302AbXJKQKx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Oct 2007 12:10:53 -0400
-In-Reply-To: <20071011012520.GA13160@gondor.apana.org.au>
+	id S1752467AbXJKQ1X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Oct 2007 12:27:23 -0400
+Content-Disposition: inline
+In-Reply-To: <200710111745.28594.oliver@neukum.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Wed, Oct 10, 2007 at 08:36:38PM -0400, Dave Jones wrote:
->> The e1000 changes you reference above, is this the changeset you mean?
->>
->> commit 416b5d10afdc797c21c457ade3714e8f2f75edd9
->> Author: Auke Kok <auke-jan.h.kok@intel.com>
->> Date:   Fri Jun 1 10:22:39 2007 -0700
->>
->>     e1000: disable polling before registering netdevice
+On Thu, Oct 11, 2007 at 05:45:28PM +0200, Oliver Neukum wrote:
+> Hi,
 > 
-> Yep.
 
-this patch actually called napi_disable() in the probe routine which was wrong,
-but e100 does not do that. Nonetheless e100 doesn't call netif_carrier_off() and
-netif_stop_queue(), so to make e100 the same as e1000 we should probably do this,
-see below.
+	Hi,
 
-Dave, can you see if this resolves the issue for you? If so then we might want to
-push this to -stable.
+	You need to cc Samuel Ortiz and the IrDA mailing list if you
+want any meaningful response.
 
-Auke
+> it seems to me that irda_usb_net_open() must set self->netopen
+> under spinlock or disconnect() may fail to kill all URBs.
 
+	I believe to patch is correct, but in practice I fail to see
+how it could happen. Anyway, Samuel will have the final word.
 
----
-e100: disable netdevice explicitly to avoid rx irq oops
+> Signed-off-by: Oliver Neukum <oneukum@suse.de>
+> 
+> 	Regards
+> 		Oliver
 
-Several reported OOPS messages suggest that e100 has a race that was fixed in
-e1000 before where incoming interrupts trigger an OOPS immediately after probe()
-finishes.
+	Have fun...
 
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+	Jean
 
-diff --git a/drivers/net/e100.c b/drivers/net/e100.c
-index 280313b..ded5f68 100644
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@ -2682,6 +2682,10 @@ static int __devinit e100_probe(struct pci_dev *pdev,
- 	if (err)
- 		DPRINTK(PROBE, ERR, "Error clearing wake event\n");
-
-+	/* tell the stack to leave us alone until e100_open() is called */
-+	netif_carrier_off(netdev);
-+	netif_stop_queue(netdev);
-+
- 	strcpy(netdev->name, "eth%d");
- 	if((err = register_netdev(netdev))) {
- 		DPRINTK(PROBE, ERR, "Cannot register net device, aborting.\n");
+> ----
+> 
+> --- a/drivers/net/irda/irda-usb.c	2007-10-11 17:24:35.000000000 +0200
+> +++ b/drivers/net/irda/irda-usb.c	2007-10-11 17:30:30.000000000 +0200
+> @@ -1168,6 +1168,7 @@ static int stir421x_patch_device(struct 
+>  static int irda_usb_net_open(struct net_device *netdev)
+>  {
+>  	struct irda_usb_cb *self;
+> +	unsigned long flags;
+>  	char	hwname[16];
+>  	int i;
+>  	
+> @@ -1177,13 +1178,16 @@ static int irda_usb_net_open(struct net_
+>  	self = (struct irda_usb_cb *) netdev->priv;
+>  	IRDA_ASSERT(self != NULL, return -1;);
+>  
+> +	spin_lock_irqsave(&self->lock, flags);
+>  	/* Can only open the device if it's there */
+>  	if(!self->present) {
+> +		spin_unlock_irqrestore(&self->lock, flags);
+>  		IRDA_WARNING("%s(), device not present!\n", __FUNCTION__);
+>  		return -1;
+>  	}
+>  
+>  	if(self->needspatch) {
+> +		spin_unlock_irqrestore(&self->lock, flags);
+>  		IRDA_WARNING("%s(), device needs patch\n", __FUNCTION__) ;
+>  		return -EIO ;
+>  	}
+> @@ -1198,6 +1202,7 @@ static int irda_usb_net_open(struct net_
+>  	/* To do *before* submitting Rx urbs and starting net Tx queue
+>  	 * Jean II */
+>  	self->netopen = 1;
+> +	spin_unlock_irqrestore(&self->lock, flags);
+>  
+>  	/* 
+>  	 * Now that everything should be initialized properly,
+> 
