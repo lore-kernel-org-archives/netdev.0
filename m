@@ -1,47 +1,59 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH] IB/ipoib: Bound the net device to the ipoib_neigh structue
-Date: Thu, 11 Oct 2007 13:17:39 -0700
-Message-ID: <ada3awhcsnw.fsf@cisco.com>
-References: <11916151232222-git-send-email-fubar@us.ibm.com>
-	<470C200D.4010705@pobox.com> <470C2343.1020800@garzik.org>
-	<20071009.181246.41634534.davem@davemloft.net> <706.1191979132@death>
-	<470CF7E1.6060503@voltaire.com> <aday7eaddod.fsf@cisco.com>
-	<470E37AD.3070408@voltaire.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: iproute2: resend of patches from Debian.
+Date: Thu, 11 Oct 2007 22:30:34 +0200
+Message-ID: <470E87EA.4030200@trash.net>
+References: <1192127132.4732.9.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <fubar@us.ibm.com>, jeff@garzik.org,
-	David Miller <davem@davemloft.net>, ogerlitz@voltaire.com,
-	netdev@vger.kernel.org, Moni Levy <monil@voltaire.com>
-To: Moni Shoua <monis@voltaire.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: Andreas Henriksson <andreas@fatal.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-3-in.cisco.com ([171.71.176.72]:6498 "EHLO
-	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755085AbXJKUTW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 16:19:22 -0400
-In-Reply-To: <470E37AD.3070408@voltaire.com> (Moni Shoua's message of "Thu, 11 Oct 2007 16:48:13 +0200")
+Received: from stinky.trash.net ([213.144.137.162]:36777 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753314AbXJKUax (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 16:30:53 -0400
+In-Reply-To: <1192127132.4732.9.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > It happens only when ib interfaces are slaves of a bonding device.
- > I thought before that the stuck is in napi_disable() but it's almost right.
- > I put prints before and after call to napi_disable and see that it is called twice.
- > I'll try to investigate in this direction.
- > 
- > ib0: stopping interface
- > ib0: before napi_disable
- > ib0: after napi_disable
- > ib0: downing ib_dev
- > ib0: All sends and receives done.
- > ib0: stopping interface
- > ib0: before napi_disable
+Andreas Henriksson wrote:
+> Abort flush after 10 seconds.
 
-Yes, two napi_disable()s in a row without a matching napi_enable()
-will deadlock.  I guess the question is why the ipoib interface is
-being stopped twice.
+This should be optional IMO.
 
-If you just take the net-2.6.24 tree (without bonding patches), does
-bonding for ethernet interfaces work OK, or is there a similar problem
-with double napi_disable()?  How about bonding of ethernet after this
-batch of bonding patches?
+> Add references to lartc, also drop bogus reference to tc-filters
 
- - R.
+There's a bad habit of reporting bugs on lartc that belong to netdev,
+please also make it perfectly clear that lartc is not for bug-reports.
+
+> Fix overflow in time2tick / tick2time.
+> 
+> The helper functions gets passed an unsigned int, which gets cast to long
+> and overflows.
+> 
+> See Debian bug #175462 - http://bugs.debian.org/175462
+> 
+> Signed-off-by: Andreas Henriksson <andreas@fatal.se>
+> 
+> diff -uri iproute-20070313.orig/tc/tc_core.c iproute-20070313/tc/tc_core.c
+> --- iproute-20070313.orig/tc/tc_core.c	2007-03-13 22:50:56.000000000 +0100
+> +++ iproute-20070313/tc/tc_core.c	2007-08-15 00:41:30.000000000 +0200
+> @@ -35,12 +35,12 @@
+>  }
+>  
+>  
+> -long tc_core_time2tick(long time)
+> +unsigned tc_core_time2tick(unsigned time)
+>  {
+>  	return time*tick_in_usec;
+>  }
+>  
+> -long tc_core_tick2time(long tick)
+> +unsigned tc_core_tick2time(unsigned tick)
+>  {
+>  	return tick/tick_in_usec;
+>  }
+
+What about the other functions returning long? I think all of these
+should be unsigned.
