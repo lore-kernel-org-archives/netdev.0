@@ -1,60 +1,57 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [RFC PATCH] [TCP]: Fix lost_retrans loop vs fastpath problems
-Date: Thu, 11 Oct 2007 13:12:49 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0710111300280.23026@kivilampi-30.cs.helsinki.fi>
-References: <11919324023597-git-send-email-ilpo.jarvinen@helsinki.fi>
- <11919324023846-git-send-email-ilpo.jarvinen@helsinki.fi>
- <119193240269-git-send-email-ilpo.jarvinen@helsinki.fi>
- <20071011.105526.17823985.takano@axe-inc.co.jp>
+From: Sebastian Siewior <netdev@ml.breakpoint.cc>
+Subject: Re: authenc compile warnings in current net-2.6.24
+Date: Thu, 11 Oct 2007 12:58:06 +0200
+Message-ID: <20071011105806.GA28862@Chamillionaire.breakpoint.cc>
+References: <470D11B1.2040207@hartkopp.net> <20071010195337.GA21597@Chamillionaire.breakpoint.cc> <20071010.162528.91758998.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1266507317-1192097569=:23026"
-Cc: Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: TAKANO Ryousei <takano@axe-inc.co.jp>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: socketcan@hartkopp.net, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:49371 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757745AbXJKKMw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 06:12:52 -0400
-In-Reply-To: <20071011.105526.17823985.takano@axe-inc.co.jp>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:41347 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750839AbXJKK6L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 06:58:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20071010.162528.91758998.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+* David Miller | 2007-10-10 16:25:28 [-0700]:
 
----696243703-1266507317-1192097569=:23026
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+>From: Sebastian Siewior <netdev@ml.breakpoint.cc>
+>Date: Wed, 10 Oct 2007 21:53:37 +0200
+>
+>> * Oliver Hartkopp | 2007-10-10 19:53:53 [+0200]:
+>> 
+>> > CC [M] crypto/authenc.o
+>> > crypto/authenc.c: In function ?crypto_authenc_hash?:
+>> > crypto/authenc.c:88: warning: ?cryptlen? may be used uninitialized in this 
+>> > function
+>> > crypto/authenc.c:87: warning: ?dst? may be used uninitialized in this 
+>> > function
+>> > crypto/authenc.c: In function ?crypto_authenc_decrypt?:
+>> > crypto/authenc.c:163: warning: ?cryptlen? may be used uninitialized in this 
+>> > function
+>> > crypto/authenc.c:163: note: ?cryptlen? was declared here
+>> > crypto/authenc.c:162: warning: ?src? may be used uninitialized in this 
+>> > function
+>> > crypto/authenc.c:162: note: ?src? was declared here
+>> >
+>> > do you already know these warnings?
+>> 
+>> Those warnings are looking like a compiler bug to me.
+>
+>To be honest I don't know of any compiler which commits enough
+>flow variable analysis to support doing %100 accurate warnings
+>in situations like this.
 
-On Thu, 11 Oct 2007, TAKANO Ryousei wrote:
+gcc (GCC) 4.1.2 (Gentoo 4.1.2) did not produce any warnings in this
+case.
 
-> From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Subject: [RFC PATCH] [TCP]: Fix lost_retrans loop vs fastpath problems
-> Date: Tue,  9 Oct 2007 15:20:01 +0300
-> 
-> Thanks Ilpo!  I am trying to evaluate this patch.
+>Since the compiler is unlikely to do so, I think we should fix
+>it somehow because useless warnings just distract.
+sure.
 
-There's a minor problem in this 2nd patch, it's just preventing the 
-cnt == tp->retrans_out short-circuit from working, not a correctness 
-problem though it could affect the performance. I'll post larger patch 
-series among which is a fixed version (hopefully today).
-
-> But, I got 
-> a kernel panic at net_rx_action() in our experimental setting.
-> I am using the net-2.6.24 kernel _without_ this patch. 
-> (I will post a bug report separately).
-
-...Please do. :-)
-
-> Anyway, I will report the result as soon as possible.
-
-Thanks. ...It's very interesting to see because it's not that clear
-cut how the extra processing that is necessary affects high-speed 
-performance, it could add yet another source of RTOs due
-processing latency.
-
--- 
- i.
----696243703-1266507317-1192097569=:23026--
+Sebastian
