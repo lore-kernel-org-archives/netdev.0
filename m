@@ -1,48 +1,52 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: iproute2: resend of patches from Debian.
-Date: Thu, 11 Oct 2007 16:54:15 -0700
-Message-ID: <20071011165415.7cf8cc30@freepuppy.rosehill>
-References: <1192127132.4732.9.camel@localhost.localdomain>
-	<470E87EA.4030200@trash.net>
-	<1192137732.4733.34.camel@localhost.localdomain>
-	<20071011.144843.125887830.davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Question on TSO maximum segment sizes.
+Date: Thu, 11 Oct 2007 16:50:46 -0700
+Message-ID: <470EB6D6.9020704@hp.com>
+References: <D5C1322C3E673F459512FB59E0DDC32903C4407B@orsmsx414.amr.corp.intel.com> <20071011.163737.36654032.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: andreas@fatal.se, kaber@trash.net, formorer@debian.org,
-	netdev@vger.kernel.org
+Cc: peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:33110 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752721AbXJKXzQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 19:55:16 -0400
-In-Reply-To: <20071011.144843.125887830.davem@davemloft.net>
+Received: from atlrel9.hp.com ([156.153.255.214]:51101 "EHLO atlrel9.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752667AbXJKX4P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Oct 2007 19:56:15 -0400
+In-Reply-To: <20071011.163737.36654032.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 11 Oct 2007 14:48:43 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+David Miller wrote:
+> From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+> Date: Thu, 11 Oct 2007 16:27:14 -0700
+> 
+> 
+>>I'm having an issue with TSO right vs. hardware that can't take the
+>>maximum segment size sent from the stack.  I've been told that the
+>>maximum packet size that can be sent to the hardware today is 64k, but
+>>my hardware can only take 32k in certain modes per queue due to hardware
+>>limitations. 
 
-> From: Andreas Henriksson <andreas@fatal.se>
-> Date: Thu, 11 Oct 2007 23:22:12 +0200
-> 
-> > Copying Alexander Wirt here again, as I think this is his patch.
-> 
-> It is important that whoever is the package maintainer for an
-> upstream piece of code in any distribution:
-> 
-> 1) Completely understands the patches he is applying.
-> 
-> and therefore:
-> 
-> 2) When he submits upstream, he doesn't have to wake up
->    2,000 patch submitters from the dead just to figure out
->    why a change was made.
-> 
-> Neither seems to be occuring here.
+Bletch.
 
-Also, I want the correct author name for legal and technical reasons.
+>> I have two questions regarding this: 1) where is this
+>>value set in the TCP code, and 2) Is this something that can be
+>>configured on the fly?  If the answer to 2 is no, I will try and put
+>>something together to allow this to happen.
+> 
+> 
+> The TCP code just builds the maximum possible for the underlying
+> protocol, be it ipv4 or ipv6.  It takes the underlying protocol
+> maximum packet length, subtracts the amount of header space it
+> knows will be used, and uses that.
+> 
+> You'll need to use GSO sw segmentation to split the TSO packets
+> which are too big for your HW to handle.
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+For just messing about, might it be possible to tweak the socket buffer sizes 
+and tcp_tso_win_divisor to kludge things for a short while?  Couldn't ship that 
+way certainly, but assuming Peter's going to get his broken hardware fixed it 
+might let him limp along until then.
+
+rick jones
