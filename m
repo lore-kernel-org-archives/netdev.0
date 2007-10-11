@@ -1,50 +1,47 @@
-From: Steven Dake <sdake@redhat.com>
-Subject: bytes received from recvmsg doesn't match FIONREAD
-Date: Thu, 11 Oct 2007 16:08:15 -0700
-Message-ID: <1192144096.4147.16.camel@balance>
-Reply-To: sdake@redhat.com
+From: Herbert Xu <herbert.xu@redhat.com>
+Subject: Re: e100 problems in .23rc8 ?
+Date: Fri, 12 Oct 2007 07:24:11 +0800
+Message-ID: <20071011232411.GA21071@gondor.apana.org.au>
+References: <46FAA083.9020604@intel.com> <E1IanKN-0003ju-00@gondolin.me.apana.org.au> <20071011003638.GA27174@redhat.com> <20071011012520.GA13160@gondor.apana.org.au> <470E4AFA.60507@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
+	esandeen@redhat.com, dmack@juniper.net
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:59730 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752385AbXJKXIH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Oct 2007 19:08:07 -0400
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.13.8/8.13.1) with ESMTP id l9BN87P1022369
-	for <netdev@vger.kernel.org>; Thu, 11 Oct 2007 19:08:07 -0400
-Received: from pobox.corp.redhat.com (pobox.corp.redhat.com [10.11.255.20])
-	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id l9BN87P5019478
-	for <netdev@vger.kernel.org>; Thu, 11 Oct 2007 19:08:07 -0400
-Received: from [10.14.51.25] (vpn-51-25.sfbay.redhat.com [10.14.51.25])
-	by pobox.corp.redhat.com (8.13.1/8.13.1) with ESMTP id l9BN85bK003739
-	for <netdev@vger.kernel.org>; Thu, 11 Oct 2007 19:08:06 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:2391 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752143AbXJKXYn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 19:24:43 -0400
+Content-Disposition: inline
+In-Reply-To: <470E4AFA.60507@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I wanted to verify that the size of a multicast UDP message received
-with recvmsg matches the size of the message the kernel thinks the
-message is.
+On Thu, Oct 11, 2007 at 09:10:34AM -0700, Kok, Auke wrote:
+> >>
+> >> commit 416b5d10afdc797c21c457ade3714e8f2f75edd9
+> >> Author: Auke Kok <auke-jan.h.kok@intel.com>
+> >> Date:   Fri Jun 1 10:22:39 2007 -0700
+> >>
+> >>     e1000: disable polling before registering netdevice
+> 
+> this patch actually called napi_disable() in the probe routine which was wrong,
+> but e100 does not do that. Nonetheless e100 doesn't call netif_carrier_off() and
+> netif_stop_queue(), so to make e100 the same as e1000 we should probably do this,
+> see below.
 
-So I went about using the FIONREAD ioctl as follows:
+Back then we didn't have napi_disable at all.  That patch calls
+netif_poll_disable which has different semantics.
 
-res = ioctl (fd, FIONCREAD, &value);
-assert (res != -1);
-bytes_received = recvmsg (fd, &msg_recv, MSG_NOSIGNAL | MSG_DONTWAIT);
-assert (bytes_received == value);
+> Dave, can you see if this resolves the issue for you? If so then we might want to
+> push this to -stable.
 
-It appears the value and bytes_received do not match after many
-thousands of runs with a UDP multicast protocol (www.openais.org).
-(neither is -1)
+The problem is with netif_poll so this patch probably won't help.
 
-Am I using this ioctl improperly?  Shouldn't I expect that the full
-datagram is returned by recvmsg no matter the state of the blocking or
-nonblocking mode of the file descriptor?
-
-pls copy me on responses - i am not onlist.
-
-Regards
--steve
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
