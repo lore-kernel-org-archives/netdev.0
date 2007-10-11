@@ -1,28 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [IPv6] Update setsockopt(IPV6_MULTICAST_IF) to support RFC
- 3493, try2
-Date: Thu, 11 Oct 2007 14:39:20 -0700 (PDT)
-Message-ID: <20071011.143920.115924218.davem@davemloft.net>
-References: <470E5FF8.7050004@hp.com>
-	<OFF4E419EA.816C7D2D-ON88257371.0061B23A-88257371.0061CC92@us.ibm.com>
+Subject: Re: [PATCH][BNX2X] round three
+Date: Thu, 11 Oct 2007 14:40:26 -0700 (PDT)
+Message-ID: <20071011.144026.106275161.davem@davemloft.net>
+References: <470D2D7E.8080507@broadcom.com>
+	<20071010.175942.55509516.davem@davemloft.net>
+	<1192125219.29746.143.camel@eliezer>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: brian.haley@hp.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: dlstevens@us.ibm.com
+Cc: netdev@vger.kernel.org, jeff@garzik.org, mchan@broadcom.com
+To: eliezert@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46826
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46832
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1759134AbXJKVjb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 17:39:31 -0400
-In-Reply-To: <OFF4E419EA.816C7D2D-ON88257371.0061B23A-88257371.0061CC92@us.ibm.com>
+	by vger.kernel.org with ESMTP id S1754954AbXJKVki (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 17:40:38 -0400
+In-Reply-To: <1192125219.29746.143.camel@eliezer>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Stevens <dlstevens@us.ibm.com>
-Date: Thu, 11 Oct 2007 10:49:14 -0700
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Date: Thu, 11 Oct 2007 19:53:39 +0200
 
-> Acked-by: David L Stevens <dlstevens@us.ibm.com>
+> Will it be OK if we replace it with 4-5 headers so we can maintain them
+> better manually. (I'm asking what is the upper bound to the number of
+> header files you would consider reasonable for this driver.)
 
-Applied, thanks everyone!
+It's not the count, it's what's in them that's the problem.
