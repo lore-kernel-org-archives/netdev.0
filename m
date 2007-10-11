@@ -1,40 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][IPv6] Export userland ND options through netlink
- (RDNSS support)
-Date: Wed, 10 Oct 2007 21:22:33 -0700 (PDT)
-Message-ID: <20071010.212233.59662829.davem@davemloft.net>
-References: <20071005060930.GA15305@via.ecp.fr>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
+Date: Thu, 11 Oct 2007 12:22:23 +0530
+Message-ID: <OF796924F4.13CE6BB8-ON65257371.002057A5-65257371.0025C19A@in.ibm.com>
+References: <20071009.134331.35664207.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: linkfanel@yahoo.fr
+Content-Type: text/plain; charset=US-ASCII
+Cc: andi@firstfloor.org, gaagaan@gmail.com,
+	general@lists.openfabrics.org, hadi@cyberus.ca,
+	herbert@gondor.apana.org.au, jagana@us.ibm.com, jeff@garzik.org,
+	johnpol@2ka.mipt.ru, kaber@trash.net, mcarlson@broadcom.com,
+	mchan@broadcom.com, netdev@vger.kernel.org,
+	peter.p.waskiewicz.jr@intel.com, randy.dunlap@oracle.com,
+	rdreier@cisco.com, Robert.Olsson@data.slu.se,
+	shemminger@linux-foundation.org, sri@us.ibm.com, tgraf@suug.ch
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40813
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751959AbXJKEWa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 00:22:30 -0400
-In-Reply-To: <20071005060930.GA15305@via.ecp.fr>
+Received: from E23SMTP04.au.ibm.com ([202.81.18.173]:37744 "EHLO
+	e23smtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753578AbXJKGvH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 02:51:07 -0400
+Received: from d23relay03.au.ibm.com (d23relay03.au.ibm.com [202.81.18.234])
+	by e23smtp04.au.ibm.com (8.13.1/8.13.1) with ESMTP id l9B6ootI025478
+	for <netdev@vger.kernel.org>; Thu, 11 Oct 2007 16:50:50 +1000
+Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
+	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9B6oqGk4870372
+	for <netdev@vger.kernel.org>; Thu, 11 Oct 2007 16:50:52 +1000
+Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
+	by d23av04.au.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9B6oY2H026264
+	for <netdev@vger.kernel.org>; Thu, 11 Oct 2007 16:50:36 +1000
+In-Reply-To: <20071009.134331.35664207.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pierre Ynard <linkfanel@yahoo.fr>
-Date: Fri, 5 Oct 2007 08:09:30 +0200
+Hi Dave,
 
-> As discussed before, this patch provides userland with a way to access
-> relevant options in Router Advertisements, after they are processed and
-> validated by the kernel. Extra options are processed in a generic way;
-> this patch only exports RDNSS options described in RFC5006, but support
-> to control which options are exported could be easily added.
-> 
-> A new rtnetlink message type is defined, to transport Neighbor Discovery
-> options, along with optional context information. At the moment only
-> the address of the router sending an RDNSS option is included, but
-> additional attributes may be later defined, if needed by new use cases.
-> 
-> Signed-off-by: Pierre Ynard <linkfanel@yahoo.fr>
+David Miller wrote on 10/10/2007 02:13:31 AM:
 
-This seems to include the changes Yoshifuji requested in your
-first submission, so I have applied this.
+> > Hopefully that new qdisc will just use the TX rings of the hardware
+> > directly. They are typically large enough these days. That might avoid
+> > some locking in this critical path.
+>
+> Indeed, I also realized last night that for the default qdiscs
+> we do a lot of stupid useless work.  If the queue is a FIFO
+> and the device can take packets, we should send it directly
+> and not stick it into the qdisc at all.
 
-Thanks.
+Since you are talking of how it should be done in the *current* code,
+I feel LLTX drivers will not work nicely with this.
+
+Actually I was trying this change a couple of weeks back, but felt
+that doin go would result in out of order packets (skbs present in
+q which were not sent out for LLTX failure will be sent out only at
+next net_tx_action, while other skbs are sent ahead).
+
+One option is to first call qdisc_run() and then process this skb,
+but that is ugly (requeue handling).
+
+However I guess this can be done cleanly once LLTX is removed.
+
+Thanks,
+
+- KK
+
