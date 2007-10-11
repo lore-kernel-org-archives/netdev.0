@@ -1,38 +1,82 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [IPv6] Update setsockopt(IPV6_MULTICAST_IF) to support RFC 3493
-Date: Thu, 11 Oct 2007 09:33:57 +0900 (JST)
-Message-ID: <20071011.093357.51233539.yoshfuji@linux-ipv6.org>
-References: <470D422D.5070403@hp.com>
-	<OFDBC968FC.CAF6E192-ON88257370.0075A79A-88257370.0077B875@us.ibm.com>
-	<20071010.164256.59470114.davem@davemloft.net>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: e100 problems in .23rc8 ?
+Date: Wed, 10 Oct 2007 20:36:38 -0400
+Message-ID: <20071011003638.GA27174@redhat.com>
+References: <46FAA083.9020604@intel.com> <E1IanKN-0003ju-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dlstevens@us.ibm.com, brian.haley@hp.com, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org,
+	esandeen@redhat.com, dmack@juniper.net
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yue.linux-ipv6.org ([203.178.140.15]:53584 "EHLO
-	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753423AbXJKAcD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 10 Oct 2007 20:32:03 -0400
-In-Reply-To: <20071010.164256.59470114.davem@davemloft.net>
+Received: from mx1.redhat.com ([66.187.233.31]:55290 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756659AbXJKAgz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 10 Oct 2007 20:36:55 -0400
+Content-Disposition: inline
+In-Reply-To: <E1IanKN-0003ju-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20071010.164256.59470114.davem@davemloft.net> (at Wed, 10 Oct 2007 16:42:56 -0700 (PDT)), David Miller <davem@davemloft.net> says:
+On Thu, Sep 27, 2007 at 02:58:27PM +0800, Herbert Xu wrote:
+ > Kok, Auke <auke-jan.h.kok@intel.com> wrote:
+ > > Dave Jones wrote:
+ > >> Last night, I hit this bug during boot up..
+ > >> http://www.codemonkey.org.uk/junk/e100-2.jpg
+ > >> 
+ > >> This morning, I got a mail from a Fedora user of the same
+ > >> .23-rc8 based kernel that has seen a different trace
+ > >> also implicating e100..
+ > >> 
+ > >> http://www.codemonkey.org.uk/junk/e100.jpg
+ > >> 
+ > >> It may be that the two problems are unrelated, and it's
+ > >> just coincidence that both reports happen to be on an e100,
+ > >> but the timing is odd.  Have there been other reports
+ > >> of similar problems recently ?
+ > > 
+ > > there hasn't been a change to e100 in two months now - perhaps something slipped
+ > > into the stack that broke it? If this reproduces, could you bisect?
 
-> From: David Stevens <dlstevens@us.ibm.com>
-> Date: Wed, 10 Oct 2007 14:48:38 -0700
-> 
-> > But anyway, I made the comment; I think some form of it
-> > should go in. :-) If you like the original better, that's
-> > ok with me, too.
-> 
-> Brian, please submit a new patch or resubmit the original
-> one, the choice is your's :-)
+So I looked into this some more, after it reared its head again.
+The problem with bisecting it is that it doesn't happen on every
+boot, so it's difficult to determine the good/bad state.
+I've never managed to reproduce it on 2.6.22 however.
 
-I agree, too. :-)
+ > Well this looks exactly like the e1000 race that we fixed around
+ > the time of the last kernel release.  That fix never made it into
+ > e100 so it's no surprise that we get a similar crash here.
 
---yoshfuji
+We're starting to see more reports of this from Fedora users
+now that 2.6.23 is final.  Once we push that as an update
+for Fedora 7 users, it's likely we'll see even more.
+(likewise for the soon-to-be released F8, based on 2.6.23)
+
+The e1000 changes you reference above, is this the changeset you mean?
+
+commit 416b5d10afdc797c21c457ade3714e8f2f75edd9
+Author: Auke Kok <auke-jan.h.kok@intel.com>
+Date:   Fri Jun 1 10:22:39 2007 -0700
+
+    e1000: disable polling before registering netdevice
+
+
+ > The problem is that if a spurious interrupt comes in between
+ > request_irq and netif_poll_enable then you'll get a crash at
+ > the next netif_rx_complete.
+ > 
+ > It'd be good if this were reproducible as it would allow us
+ > to identify the source of the spurious interrupt, which may
+ > well be caused by an unrelated bug somewhere else.
+ > 
+ > In any case, e100 should be prepared to deal with spurious
+ > interrupts as e1000 has been fixed to do.
+
+Adding some of the other reporters of this bug to Cc,
+in case they've found this more reproducable than myself
+(maybe they'll have more luck bisecting).
+
+	Dave
+
+-- 
+http://www.codemonkey.org.uk
