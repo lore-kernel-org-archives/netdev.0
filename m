@@ -1,65 +1,62 @@
-From: "Santiago Font Arquer" <sfa.linux@gmail.com>
-Subject: Re: PROBLEM: skb_clone SMP race?
-Date: Thu, 11 Oct 2007 09:35:52 +0200
-Message-ID: <dfad5c650710110035o2577ccc3x2565f29b99adf4e5@mail.gmail.com>
-References: <dfad5c650710100200s1369fd96x50ffc5fbffb2e6d9@mail.gmail.com>
-	 <E1IfnRx-0003Vu-00@gondolin.me.apana.org.au>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] rtnl: Simplify ASSERT_RTNL
+Date: Thu, 11 Oct 2007 02:23:35 -0600
+Message-ID: <m1hckyf4ag.fsf@ebiederm.dsl.xmission.com>
+References: <m1r6ki9tib.fsf@ebiederm.dsl.xmission.com>
+	<20071010.211654.85404234.davem@davemloft.net>
+	<m1r6k2i1es.fsf@ebiederm.dsl.xmission.com>
+	<20071011071224.GA15860@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.188]:62786 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752762AbXJKHfw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 03:35:52 -0400
-Received: by rv-out-0910.google.com with SMTP id k20so422650rvb
-        for <netdev@vger.kernel.org>; Thu, 11 Oct 2007 00:35:52 -0700 (PDT)
-In-Reply-To: <E1IfnRx-0003Vu-00@gondolin.me.apana.org.au>
-Content-Disposition: inline
+Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:38814 "EHLO
+	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752848AbXJKIY5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 04:24:57 -0400
+In-Reply-To: <20071011071224.GA15860@gondor.apana.org.au> (Herbert Xu's
+	message of "Thu, 11 Oct 2007 15:12:24 +0800")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thank you.
-I was thinking about something like that when I said "not find
-explicit checks", but I was confused because the sk_buff code is
-plenty of explicit checks and I understood those checks as a try to
-make the code self-protected against wrong uses: "I, sk_buff, offer
-you this interface. Don=B4t worry too much about my internals: I will
-complain on your mistakes"
+Herbert Xu <herbert@gondor.apana.org.au> writes:
 
-The fact the name of the functionality is generic "fast_clone" and not
-specific "tcp_fast_clone" drove me to think: "Ok, the allocation of
-fast-clonable skbs is NOW only in ONE place inside TCP code and sure
-that they have the implicit checks to avoid this race when they call
-skb_clone, but -NOW- and -ONE- are not a big guarantee..."
-
-A newbie's thought. :)
-
-
-
-2007/10/11, Herbert Xu <herbert@gondor.apana.org.au>:
-> Santiago Font Arquer <sfa.linux@gmail.com> wrote:
-> >
-> >   If an skb with fast clone available (first "if" true) has
-> > references in different CPUs (skb->users>1) (I do not find explicit
-> > checks for this to be impossible), if skb_clone is called
-> > simultaneously over that skb, both callers can get the same clone (=
-the
-> > "fast" clone) and different problems follow: wrong "clone_skb->user=
-s"
-> > (1 as expected by the caller, but it should be, to be true, 2),
-> > fclone_ref set to 3 involving further problems, ...
+> On Thu, Oct 11, 2007 at 12:57:31AM -0600, Eric W. Biederman wrote:
+>>
+>> There was a practical suggestion by Herbert that ASSERT_RTNL have a
+>> might_sleep() added.  That suggestion will currently result in
+>> ASSERT_RTNL firing unnecessarily from the macvlan_open code path.
 >
-> Fast clones are only used by TCP where the original skb is
-> never given to the outside world.  This plus the fact that
-> a given TCP socket is single-threaded makes it safe.
+> As I've already said we should change the macvlan and core
+> netdev code so that this doesn't happen in the first place.
+
+Agreed.  Until that is done I am reluctant to add a warning
+to ASSERT_RTNL.  Last I looked at that part of the thread
+it looked like you and Patrick were making good progress
+towards unraveling that, so I have no problem adding
+an extra warning when we don't expect it to ever trigger.
+
+> In gernal checking for the RTNL while holding a spin lock is
+> a sign of a bug.
 >
-> Cheers,
-> --
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
->
+> So I would object to a patch that caused the RTNL_ASSERT to not
+> warn about being called in an atomic context.
+
+ASSERT_RTNL does not warn about being called in an atomic context
+today!
+
+> I don't have a problem with your patch per se, it's the fact
+> that the patch is removing the warning when it's called in an
+> atomic context that I don't like.
+
+No my patch does not remove a warning.
+
+Way way deep in mutex debugging on the slowpath there is a unreadable
+and incomprehensible WARN_ON in muxtex_trylock that will trigger if
+you have 10 tons of debugging turned on, and you are in,
+interrupt context, and you manage to hit the slow path.  I think that
+is a pretty unlikely scenario.
+
+Eric
