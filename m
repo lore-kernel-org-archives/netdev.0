@@ -1,47 +1,52 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH][NETNS] Make ifindex generation per-namespace
-Date: Thu, 11 Oct 2007 11:22:57 -0600
-Message-ID: <m1hckxbm6m.fsf@ebiederm.dsl.xmission.com>
-References: <470B71CD.3000706@openvz.org>
-	<m1przoxk1v.fsf@ebiederm.dsl.xmission.com>
-	<1192041243.4770.8.camel@johannes.berg>
-	<m1wstukasp.fsf@ebiederm.dsl.xmission.com>
-	<1192095150.4770.25.camel@johannes.berg>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: e100 problems in .23rc8 ?
+Date: Thu, 11 Oct 2007 13:25:51 -0400
+Message-ID: <20071011172551.GA21339@redhat.com>
+References: <46FAA083.9020604@intel.com> <E1IanKN-0003ju-00@gondolin.me.apana.org.au> <20071011003638.GA27174@redhat.com> <20071011012520.GA13160@gondor.apana.org.au> <470E4AFA.60507@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Emelyanov <xemul@openvz.org>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: Herbert Xu <herbert.xu@redhat.com>, netdev@vger.kernel.org,
+	esandeen@redhat.com, dmack@juniper.net
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:39122 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755267AbXJKRYQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 13:24:16 -0400
-In-Reply-To: <1192095150.4770.25.camel@johannes.berg> (Johannes Berg's message
-	of "Thu, 11 Oct 2007 11:32:30 +0200")
+Received: from mx1.redhat.com ([66.187.233.31]:38604 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754231AbXJKR0A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Oct 2007 13:26:00 -0400
+Content-Disposition: inline
+In-Reply-To: <470E4AFA.60507@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Johannes Berg <johannes@sipsolutions.net> writes:
+On Thu, Oct 11, 2007 at 09:10:34AM -0700, Kok, Auke wrote:
+ > Herbert Xu wrote:
+ > > On Wed, Oct 10, 2007 at 08:36:38PM -0400, Dave Jones wrote:
+ > >> The e1000 changes you reference above, is this the changeset you mean?
+ > >>
+ > >> commit 416b5d10afdc797c21c457ade3714e8f2f75edd9
+ > >> Author: Auke Kok <auke-jan.h.kok@intel.com>
+ > >> Date:   Fri Jun 1 10:22:39 2007 -0700
+ > >>
+ > >>     e1000: disable polling before registering netdevice
+ > > 
+ > > Yep.
+ > 
+ > this patch actually called napi_disable() in the probe routine which was wrong,
+ > but e100 does not do that. Nonetheless e100 doesn't call netif_carrier_off() and
+ > netif_stop_queue(), so to make e100 the same as e1000 we should probably do this,
+ > see below.
+ > 
+ > Dave, can you see if this resolves the issue for you? If so then we might want to
+ > push this to -stable.
+ 
+Will do, thanks Auke.
 
-> On Wed, 2007-10-10 at 13:51 -0600, Eric W. Biederman wrote:
->
->> Yes.  Netlink sockets are per-namespace and you can use the namespace
->> of a netlink socket to look up a netdev.
->
-> Ok, thanks. I still haven't really looked into the wireless vs. net
-> namespaces problem but this will probably help.
+Eric/David, the Fedora 8 RPM version 2.6.23-6.fc8 will have this if you
+want to give it a shot too.  It'll be at
+http://people.redhat.com/davej/kernels/Fedora/f7.92/ when it's done
+building in an hour or so.
 
-I think I may even have some patches in my proof of concept tree that
-address some of the wireless issues.  Especially rtnetlink ones.
-Generally those cases haven't been hard to spot.
+	Dave
 
-Having hash tables and the like that hash and do key compares
-on an ifindex instead of a net_device * are the in kernel places that
-make it very hard to have duplicate ifindexes.
-
-Thinking about it probably the biggest challenge to deal with
-is iff in struct sk_buff.
-
-Eric
+-- 
+http://www.codemonkey.org.uk
