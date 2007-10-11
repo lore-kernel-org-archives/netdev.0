@@ -1,50 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] make netlink user -> kernel interface synchronious
-Date: Wed, 10 Oct 2007 21:15:38 -0700 (PDT)
-Message-ID: <20071010.211538.45511225.davem@davemloft.net>
-References: <20071005144844.GA7119@iris.sw.ru>
+Subject: Re: [PATCH] rtnl: Simplify ASSERT_RTNL
+Date: Wed, 10 Oct 2007 21:16:54 -0700 (PDT)
+Message-ID: <20071010.211654.85404234.davem@davemloft.net>
+References: <m1r6ki9tib.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, devel@openvz.org,
-	containers@lists.osdl.org
-To: den@openvz.org
+Cc: netdev@vger.kernel.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58043
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58046
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751818AbXJKEPf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 00:15:35 -0400
-In-Reply-To: <20071005144844.GA7119@iris.sw.ru>
+	by vger.kernel.org with ESMTP id S1751846AbXJKEQv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 00:16:51 -0400
+In-Reply-To: <m1r6ki9tib.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Denis V. Lunev" <den@openvz.org>
-Date: Fri, 5 Oct 2007 18:48:44 +0400
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Fri, 28 Sep 2007 18:59:08 -0600
 
-> This patch make processing netlink user -> kernel messages synchronious.
-> This change was inspired by the talk with Alexey Kuznetsov about current
-> netlink messages processing. He says that he was badly wrong when introduced 
-> asynchronious user -> kernel communication.
 > 
-> The call netlink_unicast is the only path to send message to the kernel
-> netlink socket. But, unfortunately, it is also used to send data to the
-> user.
+> Currently we have the call path:
+> macvlan_open -> dev_unicast_add -> __dev_set_rx_mode ->
+> 	__dev_set_promiscuity -> ASSERT_RTNL -> mutex_trylock
 > 
-> Before this change the user message has been attached to the socket queue
-> and sk->sk_data_ready was called. The process has been blocked until all
-> pending messages were processed. The bad thing is that this processing
-> may occur in the arbitrary process context.
+> When mutex debugging is on taking a mutex complains if we are not
+> allowed to sleep.  At that point we have called netif_tx_lock_bh
+> so we are clearly not allowed to sleep.  Arguably this is not a
+> problem for mutex_trylock.
 > 
-> This patch changes nlk->data_ready callback to get 1 skb and force packet
-> processing right in the netlink_unicast.
+> However we can avoid the complaint and make the ASSERT_RTNL code
+> cheaper, faster and more obvious by simply calling mutex_is_locked.
 > 
-> Kernel -> user path in netlink_unicast remains untouched.
+> So this patch adds rtnl_is_locked (which does mutex_is_locked on
+> the rtnl_mutex) and changes ASSERT_RTNL to use that.
 > 
-> EINTR processing for in netlink_run_queue was changed. It forces rtnl_lock
-> drop, but the process remains in the cycle until the message will be fully
-> processed. So, there is no need to use this kludges now.
-> 
-> Signed-off-by: Denis V. Lunev <den@openvz.org>
-> Acked-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 
-Applied.
+There was a lot of discussion about how to do this right and
+therefore you'll need to resubmit all of this with this
+discussioned issues addressed.
