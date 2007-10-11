@@ -1,51 +1,49 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [IPv6] Update setsockopt(IPV6_MULTICAST_IF) to support RFC 3493, try2
-Date: Thu, 11 Oct 2007 10:49:14 -0700
-Message-ID: <OFF4E419EA.816C7D2D-ON88257371.0061B23A-88257371.0061CC92@us.ibm.com>
-References: <470E5FF8.7050004@hp.com>
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Subject: Re: [PATCH][BNX2X] round three
+Date: Thu, 11 Oct 2007 19:53:39 +0200
+Message-ID: <1192125219.29746.143.camel@eliezer>
+References: <1192038559.29746.127.camel@eliezer>
+ <470D2D7E.8080507@broadcom.com>
+ <20071010.175942.55509516.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jeff@garzik.org, mchan@broadcom.com
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:48078 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755371AbXJKRtW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 13:49:22 -0400
-In-Reply-To: <470E5FF8.7050004@hp.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:2879 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755489AbXJKRw3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Oct 2007 13:52:29 -0400
+In-Reply-To: <20071010.175942.55509516.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Acked-by: David L Stevens <dlstevens@us.ibm.com>
+On Wed, 2007-10-10 at 17:59 -0700, David Miller wrote:
 
+...
+
+> I was going to add this to the tree for 2.6.24 but there is simply
+> too much super-ugly stuff in this driver for me to do so.
+
+We will rewrite bnx2x_hsi.h bnx2x_init.h and bnx2x_init_vlaues.h.
+
+Does bnx2x_asm.h look OK?
+
+
+> Look, there is zero way I'm adding a driver that's written like this
+> to the tree.
 > 
-> Signed-off-by: Brian Haley <brian.haley@hp.com>
-> diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-> index 532425d..1334fc1 100644
-> --- a/net/ipv6/ipv6_sockglue.c
-> +++ b/net/ipv6/ipv6_sockglue.c
-> @@ -539,12 +539,15 @@ done:
->     case IPV6_MULTICAST_IF:
->        if (sk->sk_type == SOCK_STREAM)
->           goto e_inval;
-> -      if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != val)
-> -         goto e_inval;
-> 
-> -      if (__dev_get_by_index(&init_net, val) == NULL) {
-> -         retv = -ENODEV;
-> -         break;
-> +      if (val) {
-> +         if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != val)
-> +            goto e_inval;
-> +
-> +         if (__dev_get_by_index(&init_net, val) == NULL) {
-> +            retv = -ENODEV;
-> +            break;
-> +         }
->        }
->        np->mcast_oif = val;
->        retv = 0;
+...
+
+> This huge header file full of register programming magic goes way
+> beyond the limits of "reasonable" and has to go.
+
+Will it be OK if we replace it with 4-5 headers so we can maintain them
+better manually. (I'm asking what is the upper bound to the number of
+header files you would consider reasonable for this driver.)
+
+Thanks
+Eliezer
+
 
