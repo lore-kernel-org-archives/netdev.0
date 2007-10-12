@@ -1,30 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Question on TSO maximum segment sizes.
-Date: Thu, 11 Oct 2007 17:22:09 -0700 (PDT)
-Message-ID: <20071011.172209.26285198.davem@davemloft.net>
-References: <20071011.170244.32082446.davem@davemloft.net>
-	<D5C1322C3E673F459512FB59E0DDC32903C440EE@orsmsx414.amr.corp.intel.com>
-	<470EBD2C.8020704@candelatech.com>
+Subject: Re: [PATCH] rtnl: Simplify ASSERT_RTNL
+Date: Thu, 11 Oct 2007 17:30:46 -0700 (PDT)
+Message-ID: <20071011.173046.66166737.davem@davemloft.net>
+References: <m1hckyf4ag.fsf@ebiederm.dsl.xmission.com>
+	<20071011082845.GA16527@gondor.apana.org.au>
+	<m1tzoxehlo.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peter.p.waskiewicz.jr@intel.com, rick.jones2@hp.com,
-	netdev@vger.kernel.org
-To: greearb@candelatech.com
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	kaber@trash.net
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56027
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53326
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753264AbXJLAWG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 20:22:06 -0400
-In-Reply-To: <470EBD2C.8020704@candelatech.com>
+	by vger.kernel.org with ESMTP id S1750827AbXJLAao (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 20:30:44 -0400
+In-Reply-To: <m1tzoxehlo.fsf@ebiederm.dsl.xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Thu, 11 Oct 2007 17:17:48 -0700
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Thu, 11 Oct 2007 10:33:39 -0600
 
-> Was the auto-tuning put in after 2.6.20?  If not, has this
-> been tested through a higher latency link?  Or, am I confused
-> and you are talking about some other setsockopt?
+> Having ASSERT_RTNL warn if you were sleeping does not seem
+> intuitive from the name.
+> 
+> This instance of convoluted locking seems like a complete
+> one off to me, and if it will warn about other constructs
+> currently in the kernel it seems wrong.
 
-It's been there for quite some time.
+RTNL is a semaphore, therefore it sleeps.
+
+Therefore anything that requires RTNL is held can also assume that it
+can do things like GFP_KERNEL allocations and other sleeping actions.
+
+This is why any code path that runs with spinlocks held or interrupts
+disabled, and hits an RTNL assertion, is buggy.  It is the chain of
+dependencies of what is allowed in such contexts.
+
+	ASSERT_RTNL();
+	page = alloc_page(GFP_KERNEL);
+
+That sequence above is absolutely always legal.
+
+The might_sleep() check is just letting us know the problem exists.
+
+If spinlocks or interrupt disabling is needed to implement something
+deeper in the call chain, that's fine, it just cannot call back into
+the RTNL asserted domain with those spinlocks held or interrupts
+disabled.
+
+If the mac_vlan driver, or whichever one has the problem, does things
+like this it must be fixed and putting or not putting a proper
+might_sleep() check here doesn't change that.
