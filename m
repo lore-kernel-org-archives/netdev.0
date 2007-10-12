@@ -1,45 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Non-linear SKBs
-Date: Thu, 11 Oct 2007 17:00:24 -0700 (PDT)
-Message-ID: <20071011.170024.38701852.davem@davemloft.net>
-References: <470EA9AD.4020304@ifi.uio.no>
+Subject: Re: Question on TSO maximum segment sizes.
+Date: Thu, 11 Oct 2007 17:02:44 -0700 (PDT)
+Message-ID: <20071011.170244.32082446.davem@davemloft.net>
+References: <D5C1322C3E673F459512FB59E0DDC32903C4407B@orsmsx414.amr.corp.intel.com>
+	<20071011.163737.36654032.davem@davemloft.net>
+	<470EB6D6.9020704@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org
-To: kristrev@ifi.uio.no
+Cc: peter.p.waskiewicz.jr@intel.com, netdev@vger.kernel.org
+To: rick.jones2@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58198
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58201
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752852AbXJLAAV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 20:00:21 -0400
-In-Reply-To: <470EA9AD.4020304@ifi.uio.no>
+	by vger.kernel.org with ESMTP id S1752863AbXJLACm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 20:02:42 -0400
+In-Reply-To: <470EB6D6.9020704@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kristian Evensen <kristrev@ifi.uio.no>
-Date: Fri, 12 Oct 2007 00:54:37 +0200
+From: Rick Jones <rick.jones2@hp.com>
+Date: Thu, 11 Oct 2007 16:50:46 -0700
 
-> I have developed a small patch for the TCP code in 2.6.19 and it works 
-> flawlessly. A couple of days ago I decided to make it compatible with 
-> 2.6.22.5 and have stumbled upon a problem I cannot solve.
-> 
-> In 2.6.19 it seems that all packets (at least the ones my patch work 
-> with) are linear, while they are non-linear in 2.6.22.5. I have searched 
-> through the code (focusing on tcp_sendmsg) to try to figure out what 
-> happens, but can't find any differences that would explain this. Does 
-> anyone know what might be the cause and if there is an easy way to 
-> return to linear skbs (unless that is totally stupid)? I would also like 
-> the benefits offered by the collapsing when retransmitting (which 
-> requires number of fragments to be 0).
+> For just messing about, might it be possible to tweak the socket buffer sizes 
+> and tcp_tso_win_divisor to kludge things for a short while?  Couldn't ship that 
+> way certainly, but assuming Peter's going to get his broken hardware fixed it 
+> might let him limp along until then.
 
-If the underlying device can do scatter-gather and checksumming,
-the TCP code builds outgoing packets by copying user date into
-full system pages, and then attaching those pages into the SKB.
-The protocol headers sit under the skb->data linear area, and
-the user data mostly sits in the user pages under
-skb_shinfo(skb)->frags[]
+TCP dynamically grows the socket buffer sizes unless the application
+explicitly sets them via setsockopt() and the limits imposed in those
+cases are controlled by tcp_{,r,w}mem[] sysctls.  Decreasing those
+will kill performance exactly for the cases this person cares about.
 
-This increases the density of data packed into the memory allocated
-compared to using skb->data for it.  It also enormously simplifies
-the logic necessary to support TSO.
+No, the only way to deal with this is to GSO segment incoming frames
+inside of the driver when they exceed the HW limits.
