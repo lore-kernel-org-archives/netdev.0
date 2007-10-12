@@ -1,35 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][BNX2X] round three
-Date: Fri, 12 Oct 2007 15:03:41 -0700 (PDT)
-Message-ID: <20071012.150341.41635825.davem@davemloft.net>
-References: <1192038559.29746.127.camel@eliezer>
-	<p73641c4cfz.fsf@bingen.suse.de>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH 12/12] Drop bogus reference to tc-filters and add
+ lartc.org link to manpage.
+Date: Fri, 12 Oct 2007 14:50:43 -0700
+Message-ID: <20071012145043.37e2317f@freepuppy.rosehill>
+References: <1192179407-22461-1-git-send-email-andreas@fatal.se>
+	<1192179407-22461-2-git-send-email-andreas@fatal.se>
+	<1192179407-22461-3-git-send-email-andreas@fatal.se>
+	<1192179407-22461-4-git-send-email-andreas@fatal.se>
+	<1192179407-22461-5-git-send-email-andreas@fatal.se>
+	<1192179407-22461-6-git-send-email-andreas@fatal.se>
+	<1192179407-22461-7-git-send-email-andreas@fatal.se>
+	<1192179407-22461-8-git-send-email-andreas@fatal.se>
+	<1192179407-22461-9-git-send-email-andreas@fatal.se>
+	<1192179407-22461-10-git-send-email-andreas@fatal.se>
+	<1192179407-22461-11-git-send-email-andreas@fatal.se>
+	<1192179407-22461-12-git-send-email-andreas@fatal.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: eliezert@broadcom.com, netdev@vger.kernel.org, jeff@garzik.org,
-	mchan@broadcom.com
-To: andi@firstfloor.org
+Cc: netdev@vger.kernel.org, Alexander Wirt <formorer@debian.org>,
+	Andreas Henriksson <andreas@fatal.se>
+To: Andreas Henriksson <andreas@fatal.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55823
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1758453AbXJLWDl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 18:03:41 -0400
-In-Reply-To: <p73641c4cfz.fsf@bingen.suse.de>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:44815 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758674AbXJLWE0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 18:04:26 -0400
+In-Reply-To: <1192179407-22461-12-git-send-email-andreas@fatal.se>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Fri, 12 Oct 2007 16:47:28 +0200
+Applied 1,2,5,6,7,8,9,11,12 and provided alternative
+patch for 3.
 
-> "Eliezer Tamir" <eliezert@broadcom.com> writes:
-> 
-> 
-> > * For now depend on x86 or x86_64, will add more architectures ASAP.
-> 
-> Why is that? Linux drivers normally should not be architecture specific.
-
-I totally agree, and the only way to weed out these kinds of
-bugs is to allow it to build on other systems so users can
-try it out and report what fails.  Or even better, a motivated
-developer tries it out and fixes the bugs for you :-)
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
