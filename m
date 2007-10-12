@@ -1,57 +1,53 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: Re: [PATCH 03/12] Prevent renaming interfaces to empty string.
-Date: Fri, 12 Oct 2007 19:45:54 +0200
-Message-ID: <1192211154.4733.67.camel@localhost.localdomain>
-References: <1192179407-22461-1-git-send-email-andreas@fatal.se>
-	 <1192179407-22461-2-git-send-email-andreas@fatal.se>
-	 <1192179407-22461-3-git-send-email-andreas@fatal.se>
-	 <20071012100743.0c1a11f8@freepuppy.rosehill>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH net-2.6] uml: hard_header fix
+Date: Fri, 12 Oct 2007 11:06:45 -0700
+Message-ID: <20071012110645.4e7622af@freepuppy.rosehill>
+References: <20071011213126.cf92efb7.akpm@linux-foundation.org>
+	<20071012140328.f82af8e8.kamezawa.hiroyu@jp.fujitsu.com>
+	<20071011234202.2f15bb76.akpm@linux-foundation.org>
+	<20071012064658.GA8181@ftp.linux.org.uk>
+	<20071012001325.ba02a6f0.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Alexander Wirt <formorer@debian.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1-1-1-9a.ghn.gbg.bostream.se ([82.182.69.4]:55589 "EHLO
-	scream.fatal.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758552AbXJLRqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 13:46:35 -0400
-In-Reply-To: <20071012100743.0c1a11f8@freepuppy.rosehill>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761962AbXJLSHV@vger.kernel.org>
+In-Reply-To: <20071012001325.ba02a6f0.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Fix hard_header for net-2.6 (2.6.23-mm1).
 
-On fre, 2007-10-12 at 10:07 -0700, Stephen Hemminger wrote:
+Please test this patch, unfortunately the tree it came from won't
+build UML, so it isn't possible to give it a proper check.
 
-> >  	if (newname && strcmp(dev, newname)) {
-> > +		if (strlen(newname) == 0) {
-> > +		    printf("\"\" is not valid device identifier\n");
-> > +		    return -1;
-> > +		}
-> >  		if (do_changename(dev, newname) < 0)
-> >  			return -1;
-> >  		dev = newname;
-> 
-> The kernel should already be preventing this?
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-Looks like something prevents the interface to end up with no name, but
-there's no error message...
-
-./ip/ip is the "vanilla" and /sbin/ip is debians version.
-
-$ sudo ./ip/ip link set skif name ""
-$ echo $?
-0
-$ sudo /sbin/ip link set skif name ""
-"" is not valid device identifier
-$ echo $?
-255
-
-Reporting the error is probably the preferred behaviour (and return code
-set to error is most likely helpful for scripts).
-
-
--- 
-Regards,
-Andreas Henriksson
-
+--- a/arch/um/drivers/slip_kern.c	2007-10-11 13:16:07.000000000 -0700
++++ b/arch/um/drivers/slip_kern.c	2007-10-12 11:06:00.000000000 -0700
+@@ -30,9 +30,7 @@ void slip_init(struct net_device *dev, v
+ 	slip_proto_init(&spri->slip);
+ 
+ 	dev->init = NULL;
+-	dev->header_cache_update = NULL;
+-	dev->hard_header_cache = NULL;
+-	dev->hard_header = NULL;
++	dev->hard_header_ops = NULL;
+ 	dev->hard_header_len = 0;
+ 	dev->addr_len = 0;
+ 	dev->type = ARPHRD_SLIP;
+--- a/arch/um/drivers/slirp_kern.c	2007-10-11 13:16:07.000000000 -0700
++++ b/arch/um/drivers/slirp_kern.c	2007-10-12 11:05:52.000000000 -0700
+@@ -31,9 +31,7 @@ void slirp_init(struct net_device *dev, 
+ 
+ 	dev->init = NULL;
+ 	dev->hard_header_len = 0;
+-	dev->header_cache_update = NULL;
+-	dev->hard_header_cache = NULL;
+-	dev->hard_header = NULL;
++	dev->hard_header_ops = NULL;
+ 	dev->addr_len = 0;
+ 	dev->type = ARPHRD_SLIP;
+ 	dev->tx_queue_len = 256;
