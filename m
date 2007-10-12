@@ -1,56 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rtnl: Simplify ASSERT_RTNL
-Date: Thu, 11 Oct 2007 17:30:46 -0700 (PDT)
-Message-ID: <20071011.173046.66166737.davem@davemloft.net>
-References: <m1hckyf4ag.fsf@ebiederm.dsl.xmission.com>
-	<20071011082845.GA16527@gondor.apana.org.au>
-	<m1tzoxehlo.fsf@ebiederm.dsl.xmission.com>
+Subject: Re: [PATCH 1/7] [TCP]: Add bytes_acked (ABC) clearing to FRTO too
+Date: Thu, 11 Oct 2007 17:32:40 -0700 (PDT)
+Message-ID: <20071011.173240.11376079.davem@davemloft.net>
+References: <1192102867479-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<11921028673599-git-send-email-ilpo.jarvinen@helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	kaber@trash.net
-To: ebiederm@xmission.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, takano@axe-inc.co.jp
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53326
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53330
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750827AbXJLAao (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 20:30:44 -0400
-In-Reply-To: <m1tzoxehlo.fsf@ebiederm.dsl.xmission.com>
+	by vger.kernel.org with ESMTP id S1753253AbXJLAck convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 11 Oct 2007 20:32:40 -0400
+In-Reply-To: <11921028673599-git-send-email-ilpo.jarvinen@helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Thu, 11 Oct 2007 10:33:39 -0600
+=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Thu, 11 Oct 2007 14:41:01 +0300
 
-> Having ASSERT_RTNL warn if you were sleeping does not seem
-> intuitive from the name.
-> 
-> This instance of convoluted locking seems like a complete
-> one off to me, and if it will warn about other constructs
-> currently in the kernel it seems wrong.
+> I was reading tcp_enter_loss while looking for Cedric's bug and
+> noticed bytes_acked adjustment is missing from FRTO side.
+>=20
+> Since bytes_acked will only be used in tcp_cong_avoid, I think
+> it's safe to assume RTO would be spurious. During FRTO cwnd
+> will be not controlled by tcp_cong_avoid and if FRTO calls for
+> conventional recovery, cwnd is adjusted and the result of wrong
+> assumption is cleared from bytes_acked. If RTO was in fact
+> spurious, we did normal ABC already and can continue without
+> any additional adjustments.
+>=20
+> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
 
-RTNL is a semaphore, therefore it sleeps.
-
-Therefore anything that requires RTNL is held can also assume that it
-can do things like GFP_KERNEL allocations and other sleeping actions.
-
-This is why any code path that runs with spinlocks held or interrupts
-disabled, and hits an RTNL assertion, is buggy.  It is the chain of
-dependencies of what is allowed in such contexts.
-
-	ASSERT_RTNL();
-	page = alloc_page(GFP_KERNEL);
-
-That sequence above is absolutely always legal.
-
-The might_sleep() check is just letting us know the problem exists.
-
-If spinlocks or interrupt disabling is needed to implement something
-deeper in the call chain, that's fine, it just cannot call back into
-the RTNL asserted domain with those spinlocks held or interrupts
-disabled.
-
-If the mac_vlan driver, or whichever one has the problem, does things
-like this it must be fixed and putting or not putting a proper
-might_sleep() check here doesn't change that.
+Applied.
