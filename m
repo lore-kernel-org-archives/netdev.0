@@ -1,10 +1,10 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: Regression in net-2.6.24?
-Date: Thu, 11 Oct 2007 18:03:52 -0700 (PDT)
-Message-ID: <20071011.180352.71088951.davem@davemloft.net>
-References: <20071011.174026.26976971.davem@davemloft.net>
-	<20071011175059.7b35c9a1@freepuppy.rosehill>
-	<20071011.180031.41631586.davem@davemloft.net>
+Date: Thu, 11 Oct 2007 18:14:49 -0700 (PDT)
+Message-ID: <20071011.181449.130846976.davem@davemloft.net>
+References: <20071011.164827.64988925.davem@davemloft.net>
+	<20071011165548.6545b207@freepuppy.rosehill>
+	<20071011.171743.118962219.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,44 +12,251 @@ Cc: takano@axe-inc.co.jp, netdev@vger.kernel.org,
 	ilpo.jarvinen@helsinki.fi, mchan@broadcom.com
 To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42352
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43376
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753599AbXJLBEE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 21:04:04 -0400
-In-Reply-To: <20071011.180031.41631586.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1753042AbXJLBPB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 21:15:01 -0400
+In-Reply-To: <20071011.171743.118962219.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 11 Oct 2007 18:00:31 -0700 (PDT)
 
-> From: Stephen Hemminger <shemminger@linux-foundation.org>
-> Date: Thu, 11 Oct 2007 17:50:59 -0700
-> 
-> > On Thu, 11 Oct 2007 17:40:26 -0700 (PDT)
-> > David Miller <davem@davemloft.net> wrote:
-> > 
-> > > From: Stephen Hemminger <shemminger@linux-foundation.org>
-> > > Date: Thu, 11 Oct 2007 17:31:49 -0700
-> > > 
-> > > > You don't need to re-read the status register and process the PHY irq's inside loop.
-> > > > Try this:
-> > > 
-> > > Are you sure?  What if a PHY interrupt comes in during the loop?
-> > 
-> > The interrupt is level triggered, and will rearm.
-> 
-> Fair enough.
+Here is what I'm checking into net-2.6 for now:
 
-Actually, your change isn't right for another reason.
+commit 6f535763165331bb91277d7519b507fed22034e5
+Author: David S. Miller <davem@sunset.davemloft.net>
+Date:   Thu Oct 11 18:08:29 2007 -0700
 
-You missed the necessary budget reducing logic that I used
-in the original changes.  You need to adjust work_limit
-like this:
+    [NET]: Fix NAPI completion handling in some drivers.
+    
+    In order for the list handling in net_rx_action() to be
+    correct, drivers must follow certain rules as stated by
+    this comment in net_rx_action():
+    
+    		/* Drivers must not modify the NAPI state if they
+    		 * consume the entire weight.  In such cases this code
+    		 * still "owns" the NAPI instance and therefore can
+    		 * move the instance around on the list at-will.
+    		 */
+    
+    A few drivers do not do this because they mix the budget checks
+    with reading hardware state, resulting in crashes like the one
+    reported by takano@axe-inc.co.jp.
+    
+    BNX2 and TG3 are taken care of here, SKY2 fix is from Stephen
+    Hemminger.
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-		work_done += sky2_status_intr(hw, work_limit - work_done);
-
-Otherwise if you just pass plain "work_limit", and we do loop, the
-driver uses more quota than it really should.
-
-And I've made that above correction to your patch in my tree.
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index bbfbdaf..d68acce 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -2633,15 +2633,11 @@ bnx2_has_work(struct bnx2 *bp)
+ 	return 0;
+ }
+ 
+-static int
+-bnx2_poll(struct napi_struct *napi, int budget)
++static int bnx2_poll_work(struct bnx2 *bp, int work_done, int budget)
+ {
+-	struct bnx2 *bp = container_of(napi, struct bnx2, napi);
+-	struct net_device *dev = bp->dev;
+ 	struct status_block *sblk = bp->status_blk;
+ 	u32 status_attn_bits = sblk->status_attn_bits;
+ 	u32 status_attn_bits_ack = sblk->status_attn_bits_ack;
+-	int work_done = 0;
+ 
+ 	if ((status_attn_bits & STATUS_ATTN_EVENTS) !=
+ 	    (status_attn_bits_ack & STATUS_ATTN_EVENTS)) {
+@@ -2660,27 +2656,43 @@ bnx2_poll(struct napi_struct *napi, int budget)
+ 		bnx2_tx_int(bp);
+ 
+ 	if (bp->status_blk->status_rx_quick_consumer_index0 != bp->hw_rx_cons)
+-		work_done = bnx2_rx_int(bp, budget);
++		work_done += bnx2_rx_int(bp, budget - work_done);
+ 
+-	bp->last_status_idx = bp->status_blk->status_idx;
+-	rmb();
++	return work_done;
++}
++
++static int bnx2_poll(struct napi_struct *napi, int budget)
++{
++	struct bnx2 *bp = container_of(napi, struct bnx2, napi);
++	int work_done = 0;
++
++	while (1) {
++		work_done = bnx2_poll_work(bp, work_done, budget);
+ 
+-	if (!bnx2_has_work(bp)) {
+-		netif_rx_complete(dev, napi);
+-		if (likely(bp->flags & USING_MSI_FLAG)) {
++		if (unlikely(work_done >= budget))
++			break;
++
++		if (likely(!bnx2_has_work(bp))) {
++			bp->last_status_idx = bp->status_blk->status_idx;
++			rmb();
++
++			netif_rx_complete(bp->dev, napi);
++			if (likely(bp->flags & USING_MSI_FLAG)) {
++				REG_WR(bp, BNX2_PCICFG_INT_ACK_CMD,
++				       BNX2_PCICFG_INT_ACK_CMD_INDEX_VALID |
++				       bp->last_status_idx);
++				return 0;
++			}
+ 			REG_WR(bp, BNX2_PCICFG_INT_ACK_CMD,
+ 			       BNX2_PCICFG_INT_ACK_CMD_INDEX_VALID |
++			       BNX2_PCICFG_INT_ACK_CMD_MASK_INT |
+ 			       bp->last_status_idx);
+-			return 0;
+-		}
+-		REG_WR(bp, BNX2_PCICFG_INT_ACK_CMD,
+-		       BNX2_PCICFG_INT_ACK_CMD_INDEX_VALID |
+-		       BNX2_PCICFG_INT_ACK_CMD_MASK_INT |
+-		       bp->last_status_idx);
+ 
+-		REG_WR(bp, BNX2_PCICFG_INT_ACK_CMD,
+-		       BNX2_PCICFG_INT_ACK_CMD_INDEX_VALID |
+-		       bp->last_status_idx);
++			REG_WR(bp, BNX2_PCICFG_INT_ACK_CMD,
++			       BNX2_PCICFG_INT_ACK_CMD_INDEX_VALID |
++			       bp->last_status_idx);
++			break;
++		}
+ 	}
+ 
+ 	return work_done;
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index fe0e756..4e569fa 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -2606,7 +2606,7 @@ static int sky2_poll(struct napi_struct *napi, int work_limit)
+ {
+ 	struct sky2_hw *hw = container_of(napi, struct sky2_hw, napi);
+ 	u32 status = sky2_read32(hw, B0_Y2_SP_EISR);
+-	int work_done;
++	int work_done = 0;
+ 
+ 	if (unlikely(status & Y2_IS_ERROR))
+ 		sky2_err_intr(hw, status);
+@@ -2617,10 +2617,16 @@ static int sky2_poll(struct napi_struct *napi, int work_limit)
+ 	if (status & Y2_IS_IRQ_PHY2)
+ 		sky2_phy_intr(hw, 1);
+ 
+-	work_done = sky2_status_intr(hw, work_limit);
++	for(;;) {
++		work_done += sky2_status_intr(hw, work_limit);
++
++		if (work_done >= work_limit)
++			break;
++
++		/* More work? */
++		if (hw->st_idx != sky2_read16(hw, STAT_PUT_IDX))
++			continue;
+ 
+-	/* More work? */
+-	if (hw->st_idx == sky2_read16(hw, STAT_PUT_IDX)) {
+ 		/* Bug/Errata workaround?
+ 		 * Need to kick the TX irq moderation timer.
+ 		 */
+@@ -2631,7 +2637,10 @@ static int sky2_poll(struct napi_struct *napi, int work_limit)
+ 
+ 		napi_complete(napi);
+ 		sky2_read32(hw, B0_Y2_SP_LISR);
++		break;
++
+ 	}
++
+ 	return work_done;
+ }
+ 
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index d2b30fb..a402b5c 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -3555,12 +3555,9 @@ next_pkt_nopost:
+ 	return received;
+ }
+ 
+-static int tg3_poll(struct napi_struct *napi, int budget)
++static int tg3_poll_work(struct tg3 *tp, int work_done, int budget)
+ {
+-	struct tg3 *tp = container_of(napi, struct tg3, napi);
+-	struct net_device *netdev = tp->dev;
+ 	struct tg3_hw_status *sblk = tp->hw_status;
+-	int work_done = 0;
+ 
+ 	/* handle link change and other phy events */
+ 	if (!(tp->tg3_flags &
+@@ -3578,11 +3575,8 @@ static int tg3_poll(struct napi_struct *napi, int budget)
+ 	/* run TX completion thread */
+ 	if (sblk->idx[0].tx_consumer != tp->tx_cons) {
+ 		tg3_tx(tp);
+-		if (unlikely(tp->tg3_flags & TG3_FLAG_TX_RECOVERY_PENDING)) {
+-			netif_rx_complete(netdev, napi);
+-			schedule_work(&tp->reset_task);
++		if (unlikely(tp->tg3_flags & TG3_FLAG_TX_RECOVERY_PENDING))
+ 			return 0;
+-		}
+ 	}
+ 
+ 	/* run RX thread, within the bounds set by NAPI.
+@@ -3590,21 +3584,46 @@ static int tg3_poll(struct napi_struct *napi, int budget)
+ 	 * code synchronizes with tg3->napi.poll()
+ 	 */
+ 	if (sblk->idx[0].rx_producer != tp->rx_rcb_ptr)
+-		work_done = tg3_rx(tp, budget);
++		work_done += tg3_rx(tp, budget - work_done);
+ 
+-	if (tp->tg3_flags & TG3_FLAG_TAGGED_STATUS) {
+-		tp->last_tag = sblk->status_tag;
+-		rmb();
+-	} else
+-		sblk->status &= ~SD_STATUS_UPDATED;
++	return work_done;
++}
+ 
+-	/* if no more work, tell net stack and NIC we're done */
+-	if (!tg3_has_work(tp)) {
+-		netif_rx_complete(netdev, napi);
+-		tg3_restart_ints(tp);
++static int tg3_poll(struct napi_struct *napi, int budget)
++{
++	struct tg3 *tp = container_of(napi, struct tg3, napi);
++	int work_done = 0;
++
++	while (1) {
++		work_done = tg3_poll_work(tp, work_done, budget);
++
++		if (unlikely(tp->tg3_flags & TG3_FLAG_TX_RECOVERY_PENDING))
++			goto tx_recovery;
++
++		if (unlikely(work_done >= budget))
++			break;
++
++		if (likely(!tg3_has_work(tp))) {
++			struct tg3_hw_status *sblk = tp->hw_status;
++
++			if (tp->tg3_flags & TG3_FLAG_TAGGED_STATUS) {
++				tp->last_tag = sblk->status_tag;
++				rmb();
++			} else
++				sblk->status &= ~SD_STATUS_UPDATED;
++
++			netif_rx_complete(tp->dev, napi);
++			tg3_restart_ints(tp);
++			break;
++		}
+ 	}
+ 
+ 	return work_done;
++
++tx_recovery:
++	netif_rx_complete(tp->dev, napi);
++	schedule_work(&tp->reset_task);
++	return 0;
+ }
+ 
+ static void tg3_irq_quiesce(struct tg3 *tp)
