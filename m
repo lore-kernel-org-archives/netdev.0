@@ -1,61 +1,70 @@
 From: Satoshi OSHIMA <satoshi.oshima.fk@hitachi.com>
-Subject: Re: [RFC/PATCH 4/4] UDP memory usage accounting (take 4): memory
- limitation
-Date: Fri, 12 Oct 2007 20:58:06 +0900
-Message-ID: <470F614E.7040301@hitachi.com>
-References: <47065139.5030402@hitachi.com>	<47065217.5050004@hitachi.com>	<20071005085257.24b2e5cc@freepuppy.rosehill>	<470E1C42.1050901@hitachi.com> <20071011124656.01dd575b@freepuppy.rosehill>
+Subject: [PATCH 0/4]UDP memory accounting and limitation(take 5)
+Date: Fri, 12 Oct 2007 21:00:20 +0900
+Message-ID: <470F61D4.6040808@hitachi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>,
+Cc: Hideo AOKI <hideo.aoki.tk@hitachi.com>,
+	Yumiko SUGITA <yumiko.sugita.yf@hitachi.com>,
+	=?ISO-2022-JP?B?IhskQkBETFobKEJAUmVkSGF0Ig==?= <haoki@redhat.com>,
+	Andi Kleen <andi@firstfloor.org>,
 	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
 	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev <netdev@vger.kernel.org>, ?? ?? <yoshfuji@linux-ipv6.org>,
-	Yumiko SUGITA <yumiko.sugita.yf@hitachi.com>,
-	"??@RedHat" <haoki@redhat.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	=?ISO-2022-JP?B?GyRCNUhGIxsoQiAbJEIxUUxAGyhC?=
+	<yoshfuji@linux-ipv6.org>
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail9.hitachi.co.jp ([133.145.228.44]:51575 "EHLO
+Received: from mail9.hitachi.co.jp ([133.145.228.44]:51858 "EHLO
 	mail9.hitachi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754929AbXJLL6N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 07:58:13 -0400
-Received: from mlsv10.hitachi.co.jp (unknown [133.144.234.166])
-	by mail9.hitachi.co.jp (Postfix) with ESMTP id 9561E37C84
-	for <netdev@vger.kernel.org>; Fri, 12 Oct 2007 20:58:12 +0900 (JST)
-In-Reply-To: <20071011124656.01dd575b@freepuppy.rosehill>
+	with ESMTP id S1757055AbXJLMAZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 08:00:25 -0400
+Received: from mlsv5.hitachi.co.jp (unknown [133.144.234.166])
+	by mail9.hitachi.co.jp (Postfix) with ESMTP id 6937337C86
+	for <netdev@vger.kernel.org>; Fri, 12 Oct 2007 21:00:24 +0900 (JST)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+Hi,
 
-> On Thu, 11 Oct 2007 21:51:14 +0900
-> Satoshi OSHIMA <satoshi.oshima.fk@hitachi.com> wrote:
-> 
->> Hi Stephen,
->>
->> Thank you for your comment.
->>
->>>>  	{
->>>> +		.ctl_name	= NET_UDP_MEM,
->>>> +		.procname	= "udp_mem",
->>>> +		.data		= &sysctl_udp_mem,
->>>> +		.maxlen		= sizeof(sysctl_udp_mem),
->>>> +		.mode		= 0644,
->>>> +		.proc_handler	= &proc_dointvec
->>>> +	},
->>>> +	{
->>>>  		.ctl_name	= NET_TCP_APP_WIN,
->>>>  		.procname	= "tcp_app_win",
->>>>  		.data		= &sysctl_tcp_app_win,
->>> if you use &proc_dointvec_minmax, then you could inforce min/max
->>> values for udp_mem for the sysctl
-> 
-> One other comment. Sysctl value indexes are deprecated at this point
-> so all new values should use CTL_UNNUMBERED.  Therefore unless NET_UDP_MEM
-> already exists, please don't add it.
+I revised a patch set of UDP memory accounting and
+limitation.
 
-Thank you for letting me know. I will fix it.
+This patch set is for kernel 2.6.23. The differences
+from take 4 are
+
+* removing unnessesary EXPORT_SYMBOLs
+* adding minimal limit of /proc/sys/net/udp_mem
+* bugfix of UDP limit affecting protocol other
+  than UDP
+* introducing __ip_check_max_skb_pages()
+* using CTL_UNNUMBERED
+* adding udp_mem usage to Documentation/networking/ip_sysctl.txt
+
+How to use UDP memory limitation:
+
+This patch set add
+
+/proc/sys/net/ipv4/udp_mem
+
+as a tuning parameter. 
+
+When you give the number that is greater than 4096,
+UDP memory limitation will work. The number of pages
+for socket buffer is limited up to udp_mem[pages].
+
+Currently this function drops the packet when
+it is sent or received and the number of pages for
+socket buffer is beyond the limit. It won't collect
+the buffer that is already allocated.
+
+On the other hand, udp_mem is specified as 4096,
+UDP memory limitaion will not work.
+The deafult number of udp_mem is 4096. 
+
+Comment, review and test are welcome.
+
+Thanks,
 
 Satoshi Oshima
-
