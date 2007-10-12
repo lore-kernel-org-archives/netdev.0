@@ -1,31 +1,33 @@
-From: Kyle McMartin <kyle@mcmartin.ca>
-Subject: Re: [PATCH] tg3: Fix APE induced regression
-Date: Fri, 12 Oct 2007 01:44:20 -0400
-Message-ID: <20071012054420.GD19268@fattire.cabal.ca>
-References: <1192153431.4878.219.camel@teletran1>
+From: Paul Mackerras <paulus@samba.org>
+Subject: Re: net-2.6.24 breaks powerpc mysteriously
+Date: Fri, 12 Oct 2007 15:47:08 +1000
+Message-ID: <18191.2652.147012.165087@cargo.ozlabs.ibm.com>
+References: <18190.61294.191189.193153@cargo.ozlabs.ibm.com>
+	<20071011212539.8acafc63.akpm@linux-foundation.org>
+	<20071011.215429.108742994.davem@davemloft.net>
+	<20071011.221845.63126874.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Matt Carlson <mcarlson@broadcom.com>
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	sam@ravnborg.org, benh@kernel.crashing.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stout.engsoc.carleton.ca ([134.117.69.22]:50925 "EHLO
-	stout.engsoc.carleton.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753385AbXJLFoY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 01:44:24 -0400
-Content-Disposition: inline
-In-Reply-To: <1192153431.4878.219.camel@teletran1>
+Received: from ozlabs.org ([203.10.76.45]:43787 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758165AbXJLFrO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Oct 2007 01:47:14 -0400
+In-Reply-To: <20071011.221845.63126874.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 11, 2007 at 06:43:50PM -0700, Matt Carlson wrote:
-> This patch fixes a bug caused by the recent APE support added for 5761
-> devices.
-> 
-> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-> 
+David Miller writes:
 
-Woot, thanks! This just bit me as I was testing git head on some of my
-parisc boxes.
+> Here is the patch I'm putting through some paces, let me know if
+> it solves the powerpc problem.
 
-Cheers,
-	Kyle
+Looks fine to me.
+
+Acked-by: Paul Mackerras <paulus@samba.org>
+
+Thanks!
