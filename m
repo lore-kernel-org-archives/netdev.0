@@ -1,70 +1,57 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: [PATCH]race between open and disconnect in irda-usb
-Date: Fri, 12 Oct 2007 10:53:55 +0200
-Message-ID: <200710121053.55829.oliver@neukum.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-To: Jean Tourrilhes <jt@hpl.hp.com>,
-	Nick Fedchik <nick@fedchik.org.ua>, netdev@vger.kernel.org,
-	USB development list <linux-usb-devel@lists.sourceforge.net>,
-	Samuel Ortiz <samuel@sortiz.
+From: Andreas Henriksson <andreas@fatal.se>
+Subject: [PATCH 02/12] Add parameters to usage help text.
+Date: Fri, 12 Oct 2007 10:56:37 +0200
+Message-ID: <1192179407-22461-2-git-send-email-andreas@fatal.se>
+References: <1192179407-22461-1-git-send-email-andreas@fatal.se>
+Cc: netdev@vger.kernel.org, Alexander Wirt <formorer@debian.org>,
+	Andreas Henriksson <andreas@fatal.se>
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out002.kontent.com ([81.88.40.216]:40595 "EHLO
-	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753199AbXJLIx6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 04:53:58 -0400
-Content-Disposition: inline
+Received: from 1-1-1-9a.ghn.gbg.bostream.se ([82.182.69.4]:38416 "EHLO
+	scream.fatal.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758617AbXJLI5y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 04:57:54 -0400
+In-Reply-To: <1192179407-22461-1-git-send-email-andreas@fatal.se>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Alexander Wirt <formorer@debian.org>
 
-it seems to me that irda_usb_net_open() must set self->netopen
-under spinlock or disconnect() may fail to kill all URBs, if it is called
-while an interface is opened.
+Add src option to route help text (http://bugs.debian.org/226142).
+Add prio option to rule prio help text (http://bugs.debian.org/213673).
 
-Signed-off-by: Oliver Neukum <oneukum@suse.de>
+Signed-off-by: Andreas Henriksson <andreas@fatal.se>
+---
+ ip/iproute.c |    2 +-
+ ip/iprule.c  |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-	Regards
-		Oliver
-
-----
-
---- a/drivers/net/irda/irda-usb.c	2007-10-11 17:24:35.000000000 +0200
-+++ b/drivers/net/irda/irda-usb.c	2007-10-11 17:30:30.000000000 +0200
-@@ -1168,6 +1168,7 @@ static int stir421x_patch_device(struct 
- static int irda_usb_net_open(struct net_device *netdev)
+diff --git a/ip/iproute.c b/ip/iproute.c
+index 77bdf83..d3a3243 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -74,7 +74,7 @@ static void usage(void)
+ 	fprintf(stderr, "OPTIONS := FLAGS [ mtu NUMBER ] [ advmss NUMBER ]\n");
+ 	fprintf(stderr, "           [ rtt TIME ] [ rttvar TIME ]\n");
+ 	fprintf(stderr, "           [ window NUMBER] [ cwnd NUMBER ] [ initcwnd NUMBER ]\n");
+-	fprintf(stderr, "           [ ssthresh NUMBER ] [ realms REALM ]\n");
++	fprintf(stderr, "           [ ssthresh NUMBER ] [ realms REALM ] [ src ADDRESS ]\n");
+ 	fprintf(stderr, "           [ rto_min TIME ]\n");
+ 	fprintf(stderr, "TYPE := [ unicast | local | broadcast | multicast | throw |\n");
+ 	fprintf(stderr, "          unreachable | prohibit | blackhole | nat ]\n");
+diff --git a/ip/iprule.c b/ip/iprule.c
+index e1a943a..0f7c223 100644
+--- a/ip/iprule.c
++++ b/ip/iprule.c
+@@ -38,7 +38,7 @@ static void usage(void)
  {
- 	struct irda_usb_cb *self;
-+	unsigned long flags;
- 	char	hwname[16];
- 	int i;
- 	
-@@ -1177,13 +1178,16 @@ static int irda_usb_net_open(struct net_
- 	self = (struct irda_usb_cb *) netdev->priv;
- 	IRDA_ASSERT(self != NULL, return -1;);
- 
-+	spin_lock_irqsave(&self->lock, flags);
- 	/* Can only open the device if it's there */
- 	if(!self->present) {
-+		spin_unlock_irqrestore(&self->lock, flags);
- 		IRDA_WARNING("%s(), device not present!\n", __FUNCTION__);
- 		return -1;
- 	}
- 
- 	if(self->needspatch) {
-+		spin_unlock_irqrestore(&self->lock, flags);
- 		IRDA_WARNING("%s(), device needs patch\n", __FUNCTION__) ;
- 		return -EIO ;
- 	}
-@@ -1198,6 +1202,7 @@ static int irda_usb_net_open(struct net_
- 	/* To do *before* submitting Rx urbs and starting net Tx queue
- 	 * Jean II */
- 	self->netopen = 1;
-+	spin_unlock_irqrestore(&self->lock, flags);
- 
- 	/* 
- 	 * Now that everything should be initialized properly,
+ 	fprintf(stderr, "Usage: ip rule [ list | add | del | flush ] SELECTOR ACTION\n");
+ 	fprintf(stderr, "SELECTOR := [ not ] [ from PREFIX ] [ to PREFIX ] [ tos TOS ] [ fwmark FWMARK[/MASK] ]\n");
+-	fprintf(stderr, "            [ dev STRING ] [ pref NUMBER ]\n");
++	fprintf(stderr, "            [ dev STRING ] [ pref NUMBER ] [ prio NUMBER ]\n");
+ 	fprintf(stderr, "ACTION := [ table TABLE_ID ]\n");
+ 	fprintf(stderr, "          [ prohibit | reject | unreachable ]\n");
+ 	fprintf(stderr, "          [ realms [SRCREALM/]DSTREALM ]\n");
+-- 
+1.5.3.4
 
