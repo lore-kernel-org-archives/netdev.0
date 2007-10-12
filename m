@@ -1,260 +1,994 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [TC]: Add NAT action
-Date: Fri, 12 Oct 2007 17:08:40 +0800
-Message-ID: <20071012090840.GA25147@gondor.apana.org.au>
+From: =?ISO-8859-1?Q?Aur=E9lien_Charbon?= <aurelien.charbon@ext.bull.net>
+Subject: [PATCH 1/2] NFS: change the ip_map cache code to handle IPv6 addresses
+Date: Fri, 12 Oct 2007 11:14:26 +0200
+Message-ID: <470F3AF2.8000706@ext.bull.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: multipart/mixed;
+ boundary="------------050200080708040609030201"
+To: Mailing list NFSv4 <nfsv4@linux-nfs.org>,
+	netdev ML <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2977 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759769AbXJLJIr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 05:08:47 -0400
-Content-Disposition: inline
+Received: from ecfrec.frec.bull.fr ([129.183.4.8]:59841 "EHLO
+	ecfrec.frec.bull.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760204AbXJLJLg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 05:11:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen:
+This is a multi-part message in MIME format.
+--------------050200080708040609030201
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 
-Here's a patch to add support for the nat action which is now
-in the kernel.
+Here is a patch for the ip_map caching code part in nfs server.
+I have updated the code to use Brian 
+Haley's ipv6_addr_v4mapped function, and corrected pointed out mistakes.
+So the first patch in attachment must be applied on a vanilla kernel 
+before to include IPv4 mapping functions that are used.
 
-Thanks,
+In case of bad formatting due to my mailer, you can also find the patch 
+in attachment.
+
+Tests: tested with only IPv4 network and basic nfs ops (mount, file creation and modification) 
+
+
+Signed-off-by: Aurelien Charbon <aurelien.charbon@ext.bull.net>
+---
+
+ fs/nfsd/export.c               |   10 ++-
+ fs/nfsd/nfsctl.c               |   16 ++++-
+ include/linux/sunrpc/svcauth.h |    4 -
+ include/net/ipv6.h             |   17 +++++
+ net/sunrpc/svcauth_unix.c      |  117 
+++++++++++++++++++++++++++++-------------
+ 5 files changed, 118 insertions(+), 46 deletions(-)
+
+diff -p -u -r -N linux-2.6.23-haley/fs/nfsd/export.c 
+linux-2.6.23-ipmap-cache/fs/nfsd/export.c
+--- linux-2.6.23-haley/fs/nfsd/export.c    2007-10-11 15:15:03.000000000 
++0200
++++ linux-2.6.23-ipmap-cache/fs/nfsd/export.c    2007-10-11 
+15:23:07.000000000 +0200
+@@ -35,6 +35,7 @@
+ #include <linux/lockd/bind.h>
+ #include <linux/sunrpc/msg_prot.h>
+ #include <linux/sunrpc/gss_api.h>
++#include <net/ipv6.h>
+ 
+ #define NFSDDBG_FACILITY    NFSDDBG_EXPORT
+ 
+@@ -1559,6 +1560,7 @@ exp_addclient(struct nfsctl_client *ncp)
+ {
+     struct auth_domain    *dom;
+     int            i, err;
++    struct in6_addr addr6;
+ 
+     /* First, consistency check. */
+     err = -EINVAL;
+@@ -1577,9 +1579,11 @@ exp_addclient(struct nfsctl_client *ncp)
+         goto out_unlock;
+ 
+     /* Insert client into hashtable. */
+-    for (i = 0; i < ncp->cl_naddr; i++)
+-        auth_unix_add_addr(ncp->cl_addrlist[i], dom);
+-
++    for (i = 0; i < ncp->cl_naddr; i++) {
++        /* Mapping address */
++        ipv6_addr_v4map(ncp->cl_addrlist[i], addr6);
++        auth_unix_add_addr(addr6, dom);
++    }
+     auth_unix_forget_old(dom);
+     auth_domain_put(dom);
+ 
+diff -p -u -r -N linux-2.6.23-haley/fs/nfsd/nfsctl.c 
+linux-2.6.23-ipmap-cache/fs/nfsd/nfsctl.c
+--- linux-2.6.23-haley/fs/nfsd/nfsctl.c    2007-10-11 15:15:03.000000000 
++0200
++++ linux-2.6.23-ipmap-cache/fs/nfsd/nfsctl.c    2007-10-11 
+15:23:07.000000000 +0200
+@@ -38,6 +38,7 @@
+ 
+ #include <asm/uaccess.h>
+ 
++#include <net/ipv6.h>
+ /*
+  *    We have a single directory with 9 nodes in it.
+  */
+@@ -222,7 +223,7 @@ static ssize_t write_getfs(struct file *
+     struct auth_domain *clp;
+     int err = 0;
+     struct knfsd_fh *res;
+-
++    struct in6_addr in6;
+     if (size < sizeof(*data))
+         return -EINVAL;
+     data = (struct nfsctl_fsparm*)buf;
+@@ -236,7 +237,11 @@ static ssize_t write_getfs(struct file *
+     res = (struct knfsd_fh*)buf;
+ 
+     exp_readlock();
+-    if (!(clp = auth_unix_lookup(sin->sin_addr)))
++
++    /* IPv6 address mapping */
++    ipv6_addr_v4map(sin->sin_addr, in6);
++
++    if (!(clp = auth_unix_lookup(in6)))
+         err = -EPERM;
+     else {
+         err = exp_rootfh(clp, data->gd_path, res, data->gd_maxlen);
+@@ -253,6 +258,7 @@ static ssize_t write_getfd(struct file *
+ {
+     struct nfsctl_fdparm *data;
+     struct sockaddr_in *sin;
++    struct in6_addr in6;
+     struct auth_domain *clp;
+     int err = 0;
+     struct knfsd_fh fh;
+@@ -271,7 +277,11 @@ static ssize_t write_getfd(struct file *
+     res = buf;
+     sin = (struct sockaddr_in *)&data->gd_addr;
+     exp_readlock();
+-    if (!(clp = auth_unix_lookup(sin->sin_addr)))
++
++    /* IPv6 address mapping */
++    ipv6_addr_v4map(sin->sin_addr, in6);
++
++    if (!(clp = auth_unix_lookup(in6)))
+         err = -EPERM;
+     else {
+         err = exp_rootfh(clp, data->gd_path, &fh, NFS_FHSIZE);
+diff -p -u -r -N linux-2.6.23-haley/include/linux/sunrpc/svcauth.h 
+linux-2.6.23-ipmap-cache/include/linux/sunrpc/svcauth.h
+--- linux-2.6.23-haley/include/linux/sunrpc/svcauth.h    2007-10-11 
+15:15:00.000000000 +0200
++++ linux-2.6.23-ipmap-cache/include/linux/sunrpc/svcauth.h    
+2007-10-11 15:23:07.000000000 +0200
+@@ -120,10 +120,10 @@ extern void    svc_auth_unregister(rpc_auth
+ 
+ extern struct auth_domain *unix_domain_find(char *name);
+ extern void auth_domain_put(struct auth_domain *item);
+-extern int auth_unix_add_addr(struct in_addr addr, struct auth_domain 
+*dom);
++extern int auth_unix_add_addr(struct in6_addr addr, struct auth_domain 
+*dom);
+ extern struct auth_domain *auth_domain_lookup(char *name, struct 
+auth_domain *new);
+ extern struct auth_domain *auth_domain_find(char *name);
+-extern struct auth_domain *auth_unix_lookup(struct in_addr addr);
++extern struct auth_domain *auth_unix_lookup(struct in6_addr addr);
+ extern int auth_unix_forget_old(struct auth_domain *dom);
+ extern void svcauth_unix_purge(void);
+ extern void svcauth_unix_info_release(void *);
+diff -p -u -r -N linux-2.6.23-haley/include/net/ipv6.h 
+linux-2.6.23-ipmap-cache/include/net/ipv6.h
+--- linux-2.6.23-haley/include/net/ipv6.h    2007-10-11 
+15:21:23.000000000 +0200
++++ linux-2.6.23-ipmap-cache/include/net/ipv6.h    2007-10-12 
+10:46:09.000000000 +0200
+@@ -21,6 +21,7 @@
+ #include <net/ndisc.h>
+ #include <net/flow.h>
+ #include <net/snmp.h>
++#include <linux/in.h>
+ 
+ #define SIN6_LEN_RFC2133    24
+ 
+@@ -167,6 +168,12 @@ DECLARE_SNMP_STAT(struct udp_mib, udplit
+     if (is_udplite) SNMP_INC_STATS_USER(udplite_stats_in6, 
+field);         \
+     else        SNMP_INC_STATS_USER(udp_stats_in6, field);    } while(0)
+ 
++#define IS_ADDR_MAPPED(a) \
++    (((uint32_t *) (a))[0] == 0            \
++    && ((uint32_t *) (a))[1] == 0            \
++    && (((uint32_t *) (a))[2] == 0            \
++    || ((uint32_t *) (a))[2] == htonl(0xffff)))
++
+ struct ip6_ra_chain
+ {
+     struct ip6_ra_chain    *next;
+@@ -377,10 +384,18 @@ static inline int ipv6_addr_any(const st
+          a->s6_addr32[2] | a->s6_addr32[3] ) == 0);
+ }
+ 
++static inline void ipv6_addr_v4map(const struct in_addr a1, struct 
+in6_addr a2)
++{
++    a2.s6_addr32[0] = 0;
++    a2.s6_addr32[1] = 0;
++    a2.s6_addr32[2] = htonl(0xffff);
++    a2.s6_addr32[3] = (uint32_t)a1.s_addr;
++}
++
+ static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
+ {
+     return ((a->s6_addr32[0] | a->s6_addr32[1]) == 0 &&
+-         a->s6_addr32[2] == htonl(0x0000ffff));
++        a->s6_addr32[2] == htonl(0x0000ffff));
+ }
+ 
+ /*
+diff -p -u -r -N linux-2.6.23-haley/net/sunrpc/svcauth_unix.c 
+linux-2.6.23-ipmap-cache/net/sunrpc/svcauth_unix.c
+--- linux-2.6.23-haley/net/sunrpc/svcauth_unix.c    2007-10-11 
+15:15:01.000000000 +0200
++++ linux-2.6.23-ipmap-cache/net/sunrpc/svcauth_unix.c    2007-10-12 
+10:47:27.000000000 +0200
+@@ -11,7 +11,8 @@
+ #include <linux/hash.h>
+ #include <linux/string.h>
+ #include <net/sock.h>
+-
++#include <net/ipv6.h>
++#include <linux/kernel.h>
+ #define RPCDBG_FACILITY    RPCDBG_AUTH
+ 
+ 
+@@ -84,7 +85,7 @@ static void svcauth_unix_domain_release(
+ struct ip_map {
+     struct cache_head    h;
+     char            m_class[8]; /* e.g. "nfsd" */
+-    struct in_addr        m_addr;
++    struct in6_addr        m_addr;
+     struct unix_domain    *m_client;
+     int            m_add_change;
+ };
+@@ -112,12 +113,19 @@ static inline int hash_ip(__be32 ip)
+     return (hash ^ (hash>>8)) & 0xff;
+ }
+ #endif
++static inline int hash_ip6(struct in6_addr ip)
++{
++    return (hash_ip(ip.s6_addr32[0]) ^
++        hash_ip(ip.s6_addr32[1]) ^
++        hash_ip(ip.s6_addr32[2]) ^
++        hash_ip(ip.s6_addr32[3]));
++}
+ static int ip_map_match(struct cache_head *corig, struct cache_head *cnew)
+ {
+     struct ip_map *orig = container_of(corig, struct ip_map, h);
+     struct ip_map *new = container_of(cnew, struct ip_map, h);
+     return strcmp(orig->m_class, new->m_class) == 0
+-        && orig->m_addr.s_addr == new->m_addr.s_addr;
++        && ipv6_addr_equal(&orig->m_addr, &new->m_addr);
+ }
+ static void ip_map_init(struct cache_head *cnew, struct cache_head *citem)
+ {
+@@ -125,7 +133,7 @@ static void ip_map_init(struct cache_hea
+     struct ip_map *item = container_of(citem, struct ip_map, h);
+ 
+     strcpy(new->m_class, item->m_class);
+-    new->m_addr.s_addr = item->m_addr.s_addr;
++    ipv6_addr_copy(&(new->m_addr), &(item->m_addr));
+ }
+ static void update(struct cache_head *cnew, struct cache_head *citem)
+ {
+@@ -149,22 +157,24 @@ static void ip_map_request(struct cache_
+                   struct cache_head *h,
+                   char **bpp, int *blen)
+ {
+-    char text_addr[20];
++    char text_addr[40];
+     struct ip_map *im = container_of(h, struct ip_map, h);
+-    __be32 addr = im->m_addr.s_addr;
+-
+-    snprintf(text_addr, 20, "%u.%u.%u.%u",
+-         ntohl(addr) >> 24 & 0xff,
+-         ntohl(addr) >> 16 & 0xff,
+-         ntohl(addr) >>  8 & 0xff,
+-         ntohl(addr) >>  0 & 0xff);
+ 
++    if (ipv6_addr_v4mapped(&(im->m_addr))) {
++        snprintf(text_addr, 20, NIPQUAD_FMT,
++                ntohl(im->m_addr.s6_addr32[3]) >> 24 & 0xff,
++                ntohl(im->m_addr.s6_addr32[3]) >> 16 & 0xff,
++                ntohl(im->m_addr.s6_addr32[3]) >>  8 & 0xff,
++                ntohl(im->m_addr.s6_addr32[3]) >>  0 & 0xff);
++    } else {
++        snprintf(text_addr, 40, NIP6_FMT, NIP6(im->m_addr));
++    }
+     qword_add(bpp, blen, im->m_class);
+     qword_add(bpp, blen, text_addr);
+     (*bpp)[-1] = '\n';
+ }
+ 
+-static struct ip_map *ip_map_lookup(char *class, struct in_addr addr);
++static struct ip_map *ip_map_lookup(char *class, struct in6_addr addr);
+ static int ip_map_update(struct ip_map *ipm, struct unix_domain *udom, 
+time_t expiry);
+ 
+ static int ip_map_parse(struct cache_detail *cd,
+@@ -175,10 +185,10 @@ static int ip_map_parse(struct cache_det
+      * for scratch: */
+     char *buf = mesg;
+     int len;
+-    int b1,b2,b3,b4;
++    int b1, b2, b3, b4, b5, b6, b7, b8;
+     char c;
+     char class[8];
+-    struct in_addr addr;
++    struct in6_addr addr;
+     int err;
+ 
+     struct ip_map *ipmp;
+@@ -197,9 +207,26 @@ static int ip_map_parse(struct cache_det
+     len = qword_get(&mesg, buf, mlen);
+     if (len <= 0) return -EINVAL;
+ 
+-    if (sscanf(buf, "%u.%u.%u.%u%c", &b1, &b2, &b3, &b4, &c) != 4)
++    if (sscanf(buf, NIPQUAD_FMT "%c", &b1, &b2, &b3, &b4, &c) == 4) {
++        addr.s6_addr32[0] = 0;
++        addr.s6_addr32[1] = 0;
++        addr.s6_addr32[2] = htonl(0xffff);
++        addr.s6_addr32[3] =
++            htonl((((((b1<<8)|b2)<<8)|b3)<<8)|b4);
++       } else if (sscanf(buf, NIP6_FMT "%c",
++            &b1, &b2, &b3, &b4, &b5, &b6, &b7, &b8, &c) == 8) {
++        addr.s6_addr16[0] = htons(b1);
++        addr.s6_addr16[1] = htons(b2);
++        addr.s6_addr16[2] = htons(b3);
++        addr.s6_addr16[3] = htons(b4);
++        addr.s6_addr16[4] = htons(b5);
++        addr.s6_addr16[5] = htons(b6);
++        addr.s6_addr16[6] = htons(b7);
++        addr.s6_addr16[7] = htons(b8);
++       } else
+         return -EINVAL;
+ 
++
+     expiry = get_expiry(&mesg);
+     if (expiry ==0)
+         return -EINVAL;
+@@ -215,9 +242,6 @@ static int ip_map_parse(struct cache_det
+     } else
+         dom = NULL;
+ 
+-    addr.s_addr =
+-        htonl((((((b1<<8)|b2)<<8)|b3)<<8)|b4);
+-
+     ipmp = ip_map_lookup(class,addr);
+     if (ipmp) {
+         err = ip_map_update(ipmp,
+@@ -238,7 +262,7 @@ static int ip_map_show(struct seq_file *
+                struct cache_head *h)
+ {
+     struct ip_map *im;
+-    struct in_addr addr;
++    struct in6_addr addr;
+     char *dom = "-no-domain-";
+ 
+     if (h == NULL) {
+@@ -247,20 +271,24 @@ static int ip_map_show(struct seq_file *
+     }
+     im = container_of(h, struct ip_map, h);
+     /* class addr domain */
+-    addr = im->m_addr;
++    ipv6_addr_copy(&addr, &im->m_addr);
+ 
+     if (test_bit(CACHE_VALID, &h->flags) &&
+         !test_bit(CACHE_NEGATIVE, &h->flags))
+         dom = im->m_client->h.name;
+ 
+-    seq_printf(m, "%s %d.%d.%d.%d %s\n",
+-           im->m_class,
+-           ntohl(addr.s_addr) >> 24 & 0xff,
+-           ntohl(addr.s_addr) >> 16 & 0xff,
+-           ntohl(addr.s_addr) >>  8 & 0xff,
+-           ntohl(addr.s_addr) >>  0 & 0xff,
+-           dom
+-           );
++    if (ipv6_addr_v4mapped(&addr)) {
++        seq_printf(m, "%s" NIPQUAD_FMT "%s\n",
++            im->m_class,
++            ntohl(addr.s6_addr32[3]) >> 24 & 0xff,
++            ntohl(addr.s6_addr32[3]) >> 16 & 0xff,
++            ntohl(addr.s6_addr32[3]) >>  8 & 0xff,
++            ntohl(addr.s6_addr32[3]) >>  0 & 0xff,
++            dom);
++    } else {
++        seq_printf(m, "%s" NIP6_FMT "%s\n",
++            im->m_class, NIP6(addr), dom);
++    }
+     return 0;
+ }
+ 
+@@ -280,16 +308,16 @@ struct cache_detail ip_map_cache = {
+     .alloc        = ip_map_alloc,
+ };
+ 
+-static struct ip_map *ip_map_lookup(char *class, struct in_addr addr)
++static struct ip_map *ip_map_lookup(char *class, struct in6_addr addr)
+ {
+     struct ip_map ip;
+     struct cache_head *ch;
+ 
+     strcpy(ip.m_class, class);
+-    ip.m_addr = addr;
++    ipv6_addr_copy(&ip.m_addr, &addr);
+     ch = sunrpc_cache_lookup(&ip_map_cache, &ip.h,
+                  hash_str(class, IP_HASHBITS) ^
+-                 hash_ip(addr.s_addr));
++                 hash_ip6(addr));
+ 
+     if (ch)
+         return container_of(ch, struct ip_map, h);
+@@ -318,14 +346,14 @@ static int ip_map_update(struct ip_map *
+     ch = sunrpc_cache_update(&ip_map_cache,
+                  &ip.h, &ipm->h,
+                  hash_str(ipm->m_class, IP_HASHBITS) ^
+-                 hash_ip(ipm->m_addr.s_addr));
++                 hash_ip6(ipm->m_addr));
+     if (!ch)
+         return -ENOMEM;
+     cache_put(ch, &ip_map_cache);
+     return 0;
+ }
+ 
+-int auth_unix_add_addr(struct in_addr addr, struct auth_domain *dom)
++int auth_unix_add_addr(struct in6_addr addr, struct auth_domain *dom)
+ {
+     struct unix_domain *udom;
+     struct ip_map *ipmp;
+@@ -352,7 +380,7 @@ int auth_unix_forget_old(struct auth_dom
+     return 0;
+ }
+ 
+-struct auth_domain *auth_unix_lookup(struct in_addr addr)
++struct auth_domain *auth_unix_lookup(struct in6_addr addr)
+ {
+     struct ip_map *ipm;
+     struct auth_domain *rv;
+@@ -641,9 +669,24 @@ static int unix_gid_find(uid_t uid, stru
+ int
+ svcauth_unix_set_client(struct svc_rqst *rqstp)
+ {
+-    struct sockaddr_in *sin = svc_addr_in(rqstp);
++    struct sockaddr_in *sin;
++    struct sockaddr_in6 *sin6, sin6_storage;
+     struct ip_map *ipm;
+ 
++    switch (rqstp->rq_addr.ss_family) {
++    case AF_INET:
++        sin = svc_addr_in(rqstp);
++        sin6 = &sin6_storage;
++        ipv6_addr_set(&sin6->sin6_addr, 0, 0,
++                htonl(0x0000FFFF), sin->sin_addr.s_addr);
++        break;
++    case AF_INET6:
++        sin6 = svc_addr_in6(rqstp);
++        break;
++    default:
++        BUG();
++    }
++
+     rqstp->rq_client = NULL;
+     if (rqstp->rq_proc == 0)
+         return SVC_OK;
+@@ -651,7 +694,7 @@ svcauth_unix_set_client(struct svc_rqst
+     ipm = ip_map_cached_get(rqstp);
+     if (ipm == NULL)
+         ipm = ip_map_lookup(rqstp->rq_server->sv_program->pg_class,
+-                    sin->sin_addr);
++                    sin6->sin6_addr);
+ 
+     if (ipm == NULL)
+         return SVC_DENIED;
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/tc/Makefile b/tc/Makefile
-index 22cd437..cd5a69e 100644
---- a/tc/Makefile
-+++ b/tc/Makefile
-@@ -26,6 +26,7 @@ TCMODULES += q_htb.o
- TCMODULES += m_gact.o
- TCMODULES += m_mirred.o
- TCMODULES += m_ipt.o
-+TCMODULES += m_nat.o
- TCMODULES += m_pedit.o
- TCMODULES += p_ip.o
- TCMODULES += p_icmp.o
-diff --git a/tc/m_nat.c b/tc/m_nat.c
-new file mode 100644
-index 0000000..6e7fd05
---- /dev/null
-+++ b/tc/m_nat.c
-@@ -0,0 +1,213 @@
-+/*
-+ * m_nat.c		NAT module
-+ *
-+ *		This program is free software; you can distribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Herbert Xu <herbert@gondor.apana.org.au>
-+ *
-+ */
+
+********************************
+       Aurelien Charbon
+           Bull SAS
+     Echirolles - France
+ http://www.bullopensource.org/
+********************************
+
+
+--------------050200080708040609030201
+Content-Transfer-Encoding: 7bit
+Content-Type: text/x-patch;
+ name="linux-2.6.23-ipmap-cache.diff"
+Content-Disposition: inline;
+ filename="linux-2.6.23-ipmap-cache.diff"
+
+diff -p -u -r -N linux-2.6.23-haley/fs/nfsd/export.c linux-2.6.23-ipmap-cache/fs/nfsd/export.c
+--- linux-2.6.23-haley/fs/nfsd/export.c	2007-10-11 15:15:03.000000000 +0200
++++ linux-2.6.23-ipmap-cache/fs/nfsd/export.c	2007-10-11 15:23:07.000000000 +0200
+@@ -35,6 +35,7 @@
+ #include <linux/lockd/bind.h>
+ #include <linux/sunrpc/msg_prot.h>
+ #include <linux/sunrpc/gss_api.h>
++#include <net/ipv6.h>
+ 
+ #define NFSDDBG_FACILITY	NFSDDBG_EXPORT
+ 
+@@ -1559,6 +1560,7 @@ exp_addclient(struct nfsctl_client *ncp)
+ {
+ 	struct auth_domain	*dom;
+ 	int			i, err;
++	struct in6_addr addr6;
+ 
+ 	/* First, consistency check. */
+ 	err = -EINVAL;
+@@ -1577,9 +1579,11 @@ exp_addclient(struct nfsctl_client *ncp)
+ 		goto out_unlock;
+ 
+ 	/* Insert client into hashtable. */
+-	for (i = 0; i < ncp->cl_naddr; i++)
+-		auth_unix_add_addr(ncp->cl_addrlist[i], dom);
+-
++	for (i = 0; i < ncp->cl_naddr; i++) {
++		/* Mapping address */
++		ipv6_addr_v4map(ncp->cl_addrlist[i], addr6);
++		auth_unix_add_addr(addr6, dom);
++	}
+ 	auth_unix_forget_old(dom);
+ 	auth_domain_put(dom);
+ 
+diff -p -u -r -N linux-2.6.23-haley/fs/nfsd/nfsctl.c linux-2.6.23-ipmap-cache/fs/nfsd/nfsctl.c
+--- linux-2.6.23-haley/fs/nfsd/nfsctl.c	2007-10-11 15:15:03.000000000 +0200
++++ linux-2.6.23-ipmap-cache/fs/nfsd/nfsctl.c	2007-10-11 15:23:07.000000000 +0200
+@@ -38,6 +38,7 @@
+ 
+ #include <asm/uaccess.h>
+ 
++#include <net/ipv6.h>
+ /*
+  *	We have a single directory with 9 nodes in it.
+  */
+@@ -222,7 +223,7 @@ static ssize_t write_getfs(struct file *
+ 	struct auth_domain *clp;
+ 	int err = 0;
+ 	struct knfsd_fh *res;
+-
++	struct in6_addr in6;
+ 	if (size < sizeof(*data))
+ 		return -EINVAL;
+ 	data = (struct nfsctl_fsparm*)buf;
+@@ -236,7 +237,11 @@ static ssize_t write_getfs(struct file *
+ 	res = (struct knfsd_fh*)buf;
+ 
+ 	exp_readlock();
+-	if (!(clp = auth_unix_lookup(sin->sin_addr)))
 +
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <unistd.h>
-+#include <syslog.h>
-+#include <fcntl.h>
-+#include <sys/socket.h>
-+#include <netinet/in.h>
-+#include <arpa/inet.h>
-+#include <string.h>
-+#include <dlfcn.h>
-+#include "utils.h"
-+#include "tc_util.h"
-+#include <linux/tc_act/tc_nat.h>
++	/* IPv6 address mapping */
++	ipv6_addr_v4map(sin->sin_addr, in6);
 +
-+static void
-+explain(void)
++	if (!(clp = auth_unix_lookup(in6)))
+ 		err = -EPERM;
+ 	else {
+ 		err = exp_rootfh(clp, data->gd_path, res, data->gd_maxlen);
+@@ -253,6 +258,7 @@ static ssize_t write_getfd(struct file *
+ {
+ 	struct nfsctl_fdparm *data;
+ 	struct sockaddr_in *sin;
++	struct in6_addr in6;
+ 	struct auth_domain *clp;
+ 	int err = 0;
+ 	struct knfsd_fh fh;
+@@ -271,7 +277,11 @@ static ssize_t write_getfd(struct file *
+ 	res = buf;
+ 	sin = (struct sockaddr_in *)&data->gd_addr;
+ 	exp_readlock();
+-	if (!(clp = auth_unix_lookup(sin->sin_addr)))
++
++	/* IPv6 address mapping */
++	ipv6_addr_v4map(sin->sin_addr, in6);
++
++	if (!(clp = auth_unix_lookup(in6)))
+ 		err = -EPERM;
+ 	else {
+ 		err = exp_rootfh(clp, data->gd_path, &fh, NFS_FHSIZE);
+diff -p -u -r -N linux-2.6.23-haley/include/linux/sunrpc/svcauth.h linux-2.6.23-ipmap-cache/include/linux/sunrpc/svcauth.h
+--- linux-2.6.23-haley/include/linux/sunrpc/svcauth.h	2007-10-11 15:15:00.000000000 +0200
++++ linux-2.6.23-ipmap-cache/include/linux/sunrpc/svcauth.h	2007-10-11 15:23:07.000000000 +0200
+@@ -120,10 +120,10 @@ extern void	svc_auth_unregister(rpc_auth
+ 
+ extern struct auth_domain *unix_domain_find(char *name);
+ extern void auth_domain_put(struct auth_domain *item);
+-extern int auth_unix_add_addr(struct in_addr addr, struct auth_domain *dom);
++extern int auth_unix_add_addr(struct in6_addr addr, struct auth_domain *dom);
+ extern struct auth_domain *auth_domain_lookup(char *name, struct auth_domain *new);
+ extern struct auth_domain *auth_domain_find(char *name);
+-extern struct auth_domain *auth_unix_lookup(struct in_addr addr);
++extern struct auth_domain *auth_unix_lookup(struct in6_addr addr);
+ extern int auth_unix_forget_old(struct auth_domain *dom);
+ extern void svcauth_unix_purge(void);
+ extern void svcauth_unix_info_release(void *);
+diff -p -u -r -N linux-2.6.23-haley/include/net/ipv6.h linux-2.6.23-ipmap-cache/include/net/ipv6.h
+--- linux-2.6.23-haley/include/net/ipv6.h	2007-10-11 15:21:23.000000000 +0200
++++ linux-2.6.23-ipmap-cache/include/net/ipv6.h	2007-10-12 10:46:09.000000000 +0200
+@@ -21,6 +21,7 @@
+ #include <net/ndisc.h>
+ #include <net/flow.h>
+ #include <net/snmp.h>
++#include <linux/in.h>
+ 
+ #define SIN6_LEN_RFC2133	24
+ 
+@@ -167,6 +168,12 @@ DECLARE_SNMP_STAT(struct udp_mib, udplit
+ 	if (is_udplite) SNMP_INC_STATS_USER(udplite_stats_in6, field);         \
+ 	else		SNMP_INC_STATS_USER(udp_stats_in6, field);    } while(0)
+ 
++#define IS_ADDR_MAPPED(a) \
++	(((uint32_t *) (a))[0] == 0			\
++	&& ((uint32_t *) (a))[1] == 0			\
++	&& (((uint32_t *) (a))[2] == 0			\
++	|| ((uint32_t *) (a))[2] == htonl(0xffff)))
++
+ struct ip6_ra_chain
+ {
+ 	struct ip6_ra_chain	*next;
+@@ -377,10 +384,18 @@ static inline int ipv6_addr_any(const st
+ 		 a->s6_addr32[2] | a->s6_addr32[3] ) == 0); 
+ }
+ 
++static inline void ipv6_addr_v4map(const struct in_addr a1, struct in6_addr a2)
 +{
-+	fprintf(stderr, "Usage: ... nat NAT\n"
-+			"NAT := DIRECTION OLD NEW\n"
-+			"DIRECTION := { ingress | egress }\n"
-+			"OLD := PREFIX\n"
-+			"NEW := ADDRESS\n");
++	a2.s6_addr32[0] = 0;
++	a2.s6_addr32[1] = 0;
++	a2.s6_addr32[2] = htonl(0xffff);
++	a2.s6_addr32[3] = (uint32_t)a1.s_addr;
 +}
 +
-+static void
-+usage(void)
+ static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
+ {
+ 	return ((a->s6_addr32[0] | a->s6_addr32[1]) == 0 && 
+-		 a->s6_addr32[2] == htonl(0x0000ffff)); 
++		a->s6_addr32[2] == htonl(0x0000ffff)); 
+ }
+ 
+ /*
+diff -p -u -r -N linux-2.6.23-haley/net/sunrpc/svcauth_unix.c linux-2.6.23-ipmap-cache/net/sunrpc/svcauth_unix.c
+--- linux-2.6.23-haley/net/sunrpc/svcauth_unix.c	2007-10-11 15:15:01.000000000 +0200
++++ linux-2.6.23-ipmap-cache/net/sunrpc/svcauth_unix.c	2007-10-12 10:47:27.000000000 +0200
+@@ -11,7 +11,8 @@
+ #include <linux/hash.h>
+ #include <linux/string.h>
+ #include <net/sock.h>
+-
++#include <net/ipv6.h>
++#include <linux/kernel.h>
+ #define RPCDBG_FACILITY	RPCDBG_AUTH
+ 
+ 
+@@ -84,7 +85,7 @@ static void svcauth_unix_domain_release(
+ struct ip_map {
+ 	struct cache_head	h;
+ 	char			m_class[8]; /* e.g. "nfsd" */
+-	struct in_addr		m_addr;
++	struct in6_addr		m_addr;
+ 	struct unix_domain	*m_client;
+ 	int			m_add_change;
+ };
+@@ -112,12 +113,19 @@ static inline int hash_ip(__be32 ip)
+ 	return (hash ^ (hash>>8)) & 0xff;
+ }
+ #endif
++static inline int hash_ip6(struct in6_addr ip)
 +{
-+	explain();
-+	exit(-1);
++	return (hash_ip(ip.s6_addr32[0]) ^
++		hash_ip(ip.s6_addr32[1]) ^
++		hash_ip(ip.s6_addr32[2]) ^
++		hash_ip(ip.s6_addr32[3]));
++}
+ static int ip_map_match(struct cache_head *corig, struct cache_head *cnew)
+ {
+ 	struct ip_map *orig = container_of(corig, struct ip_map, h);
+ 	struct ip_map *new = container_of(cnew, struct ip_map, h);
+ 	return strcmp(orig->m_class, new->m_class) == 0
+-		&& orig->m_addr.s_addr == new->m_addr.s_addr;
++		&& ipv6_addr_equal(&orig->m_addr, &new->m_addr);
+ }
+ static void ip_map_init(struct cache_head *cnew, struct cache_head *citem)
+ {
+@@ -125,7 +133,7 @@ static void ip_map_init(struct cache_hea
+ 	struct ip_map *item = container_of(citem, struct ip_map, h);
+ 
+ 	strcpy(new->m_class, item->m_class);
+-	new->m_addr.s_addr = item->m_addr.s_addr;
++	ipv6_addr_copy(&(new->m_addr), &(item->m_addr));
+ }
+ static void update(struct cache_head *cnew, struct cache_head *citem)
+ {
+@@ -149,22 +157,24 @@ static void ip_map_request(struct cache_
+ 				  struct cache_head *h,
+ 				  char **bpp, int *blen)
+ {
+-	char text_addr[20];
++	char text_addr[40];
+ 	struct ip_map *im = container_of(h, struct ip_map, h);
+-	__be32 addr = im->m_addr.s_addr;
+-
+-	snprintf(text_addr, 20, "%u.%u.%u.%u",
+-		 ntohl(addr) >> 24 & 0xff,
+-		 ntohl(addr) >> 16 & 0xff,
+-		 ntohl(addr) >>  8 & 0xff,
+-		 ntohl(addr) >>  0 & 0xff);
+ 
++	if (ipv6_addr_v4mapped(&(im->m_addr))) {
++		snprintf(text_addr, 20, NIPQUAD_FMT,
++				ntohl(im->m_addr.s6_addr32[3]) >> 24 & 0xff,
++				ntohl(im->m_addr.s6_addr32[3]) >> 16 & 0xff,
++				ntohl(im->m_addr.s6_addr32[3]) >>  8 & 0xff,
++				ntohl(im->m_addr.s6_addr32[3]) >>  0 & 0xff);
++	} else {
++		snprintf(text_addr, 40, NIP6_FMT, NIP6(im->m_addr));
++	}
+ 	qword_add(bpp, blen, im->m_class);
+ 	qword_add(bpp, blen, text_addr);
+ 	(*bpp)[-1] = '\n';
+ }
+ 
+-static struct ip_map *ip_map_lookup(char *class, struct in_addr addr);
++static struct ip_map *ip_map_lookup(char *class, struct in6_addr addr);
+ static int ip_map_update(struct ip_map *ipm, struct unix_domain *udom, time_t expiry);
+ 
+ static int ip_map_parse(struct cache_detail *cd,
+@@ -175,10 +185,10 @@ static int ip_map_parse(struct cache_det
+ 	 * for scratch: */
+ 	char *buf = mesg;
+ 	int len;
+-	int b1,b2,b3,b4;
++	int b1, b2, b3, b4, b5, b6, b7, b8;
+ 	char c;
+ 	char class[8];
+-	struct in_addr addr;
++	struct in6_addr addr;
+ 	int err;
+ 
+ 	struct ip_map *ipmp;
+@@ -197,9 +207,26 @@ static int ip_map_parse(struct cache_det
+ 	len = qword_get(&mesg, buf, mlen);
+ 	if (len <= 0) return -EINVAL;
+ 
+-	if (sscanf(buf, "%u.%u.%u.%u%c", &b1, &b2, &b3, &b4, &c) != 4)
++	if (sscanf(buf, NIPQUAD_FMT "%c", &b1, &b2, &b3, &b4, &c) == 4) {
++		addr.s6_addr32[0] = 0;
++		addr.s6_addr32[1] = 0;
++		addr.s6_addr32[2] = htonl(0xffff);
++		addr.s6_addr32[3] =
++			htonl((((((b1<<8)|b2)<<8)|b3)<<8)|b4);
++       } else if (sscanf(buf, NIP6_FMT "%c",
++			&b1, &b2, &b3, &b4, &b5, &b6, &b7, &b8, &c) == 8) {
++		addr.s6_addr16[0] = htons(b1);
++		addr.s6_addr16[1] = htons(b2);
++		addr.s6_addr16[2] = htons(b3);
++		addr.s6_addr16[3] = htons(b4);
++		addr.s6_addr16[4] = htons(b5);
++		addr.s6_addr16[5] = htons(b6);
++		addr.s6_addr16[6] = htons(b7);
++		addr.s6_addr16[7] = htons(b8);
++       } else
+ 		return -EINVAL;
+ 
++
+ 	expiry = get_expiry(&mesg);
+ 	if (expiry ==0)
+ 		return -EINVAL;
+@@ -215,9 +242,6 @@ static int ip_map_parse(struct cache_det
+ 	} else
+ 		dom = NULL;
+ 
+-	addr.s_addr =
+-		htonl((((((b1<<8)|b2)<<8)|b3)<<8)|b4);
+-
+ 	ipmp = ip_map_lookup(class,addr);
+ 	if (ipmp) {
+ 		err = ip_map_update(ipmp,
+@@ -238,7 +262,7 @@ static int ip_map_show(struct seq_file *
+ 		       struct cache_head *h)
+ {
+ 	struct ip_map *im;
+-	struct in_addr addr;
++	struct in6_addr addr;
+ 	char *dom = "-no-domain-";
+ 
+ 	if (h == NULL) {
+@@ -247,20 +271,24 @@ static int ip_map_show(struct seq_file *
+ 	}
+ 	im = container_of(h, struct ip_map, h);
+ 	/* class addr domain */
+-	addr = im->m_addr;
++	ipv6_addr_copy(&addr, &im->m_addr);
+ 
+ 	if (test_bit(CACHE_VALID, &h->flags) &&
+ 	    !test_bit(CACHE_NEGATIVE, &h->flags))
+ 		dom = im->m_client->h.name;
+ 
+-	seq_printf(m, "%s %d.%d.%d.%d %s\n",
+-		   im->m_class,
+-		   ntohl(addr.s_addr) >> 24 & 0xff,
+-		   ntohl(addr.s_addr) >> 16 & 0xff,
+-		   ntohl(addr.s_addr) >>  8 & 0xff,
+-		   ntohl(addr.s_addr) >>  0 & 0xff,
+-		   dom
+-		   );
++	if (ipv6_addr_v4mapped(&addr)) {
++		seq_printf(m, "%s" NIPQUAD_FMT "%s\n",
++			im->m_class,
++			ntohl(addr.s6_addr32[3]) >> 24 & 0xff,
++			ntohl(addr.s6_addr32[3]) >> 16 & 0xff,
++			ntohl(addr.s6_addr32[3]) >>  8 & 0xff,
++			ntohl(addr.s6_addr32[3]) >>  0 & 0xff,
++			dom);
++	} else {
++		seq_printf(m, "%s" NIP6_FMT "%s\n",
++			im->m_class, NIP6(addr), dom);
++	}
+ 	return 0;
+ }
+ 
+@@ -280,16 +308,16 @@ struct cache_detail ip_map_cache = {
+ 	.alloc		= ip_map_alloc,
+ };
+ 
+-static struct ip_map *ip_map_lookup(char *class, struct in_addr addr)
++static struct ip_map *ip_map_lookup(char *class, struct in6_addr addr)
+ {
+ 	struct ip_map ip;
+ 	struct cache_head *ch;
+ 
+ 	strcpy(ip.m_class, class);
+-	ip.m_addr = addr;
++	ipv6_addr_copy(&ip.m_addr, &addr);
+ 	ch = sunrpc_cache_lookup(&ip_map_cache, &ip.h,
+ 				 hash_str(class, IP_HASHBITS) ^
+-				 hash_ip(addr.s_addr));
++				 hash_ip6(addr));
+ 
+ 	if (ch)
+ 		return container_of(ch, struct ip_map, h);
+@@ -318,14 +346,14 @@ static int ip_map_update(struct ip_map *
+ 	ch = sunrpc_cache_update(&ip_map_cache,
+ 				 &ip.h, &ipm->h,
+ 				 hash_str(ipm->m_class, IP_HASHBITS) ^
+-				 hash_ip(ipm->m_addr.s_addr));
++				 hash_ip6(ipm->m_addr));
+ 	if (!ch)
+ 		return -ENOMEM;
+ 	cache_put(ch, &ip_map_cache);
+ 	return 0;
+ }
+ 
+-int auth_unix_add_addr(struct in_addr addr, struct auth_domain *dom)
++int auth_unix_add_addr(struct in6_addr addr, struct auth_domain *dom)
+ {
+ 	struct unix_domain *udom;
+ 	struct ip_map *ipmp;
+@@ -352,7 +380,7 @@ int auth_unix_forget_old(struct auth_dom
+ 	return 0;
+ }
+ 
+-struct auth_domain *auth_unix_lookup(struct in_addr addr)
++struct auth_domain *auth_unix_lookup(struct in6_addr addr)
+ {
+ 	struct ip_map *ipm;
+ 	struct auth_domain *rv;
+@@ -641,9 +669,24 @@ static int unix_gid_find(uid_t uid, stru
+ int
+ svcauth_unix_set_client(struct svc_rqst *rqstp)
+ {
+-	struct sockaddr_in *sin = svc_addr_in(rqstp);
++	struct sockaddr_in *sin;
++	struct sockaddr_in6 *sin6, sin6_storage;
+ 	struct ip_map *ipm;
+ 
++	switch (rqstp->rq_addr.ss_family) {
++	case AF_INET:
++		sin = svc_addr_in(rqstp);
++		sin6 = &sin6_storage;
++		ipv6_addr_set(&sin6->sin6_addr, 0, 0,
++				htonl(0x0000FFFF), sin->sin_addr.s_addr); 
++		break;
++	case AF_INET6:
++		sin6 = svc_addr_in6(rqstp);
++		break;
++	default:
++		BUG();
++	}
++
+ 	rqstp->rq_client = NULL;
+ 	if (rqstp->rq_proc == 0)
+ 		return SVC_OK;
+@@ -651,7 +694,7 @@ svcauth_unix_set_client(struct svc_rqst 
+ 	ipm = ip_map_cached_get(rqstp);
+ 	if (ipm == NULL)
+ 		ipm = ip_map_lookup(rqstp->rq_server->sv_program->pg_class,
+-				    sin->sin_addr);
++				    sin6->sin6_addr);
+ 
+ 	if (ipm == NULL)
+ 		return SVC_DENIED;
+
+--------------050200080708040609030201
+Content-Transfer-Encoding: 7bit
+Content-Type: text/x-patch;
+ name="linux-2.6.23-haley.diff"
+Content-Disposition: inline;
+ filename="linux-2.6.23-haley.diff"
+
+diff -p -u -r -N linux-2.6.23/include/net/ipv6.h linux-2.6.23-haley/include/net/ipv6.h
+--- linux-2.6.23/include/net/ipv6.h	2007-10-09 22:31:38.000000000 +0200
++++ linux-2.6.23-haley/include/net/ipv6.h	2007-10-11 15:21:23.000000000 +0200
+@@ -377,6 +377,12 @@ static inline int ipv6_addr_any(const st
+ 		 a->s6_addr32[2] | a->s6_addr32[3] ) == 0); 
+ }
+ 
++static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
++{
++	return ((a->s6_addr32[0] | a->s6_addr32[1]) == 0 && 
++		 a->s6_addr32[2] == htonl(0x0000ffff)); 
 +}
 +
-+static int
-+parse_nat_args(int *argc_p, char ***argv_p,struct tc_nat *sel)
-+{
-+	int argc = *argc_p;
-+	char **argv = *argv_p;
-+	inet_prefix addr;
-+
-+	if (argc <= 0)
-+		return -1;
-+
-+	if (matches(*argv, "egress") == 0)
-+		sel->flags |= TCA_NAT_FLAG_EGRESS;
-+	else if (matches(*argv, "ingress") != 0)
-+		goto bad_val;
-+
-+	NEXT_ARG();
-+
-+	if (get_prefix_1(&addr, *argv, AF_INET))
-+		goto bad_val;
-+
-+	sel->old_addr = addr.data[0];
-+	sel->mask = htonl(~0u << (32 - addr.bitlen));
-+
-+	NEXT_ARG();
-+
-+	if (get_prefix_1(&addr, *argv, AF_INET))
-+		goto bad_val;
-+
-+	sel->new_addr = addr.data[0];
-+
-+	argc--;
-+	argv++;
-+
-+	*argc_p = argc;
-+	*argv_p = argv;
-+	return 0;
-+
-+bad_val:
-+	return -1;
-+}
-+
-+static int
-+parse_nat(struct action_util *a, int *argc_p, char ***argv_p, int tca_id, struct nlmsghdr *n)
-+{
-+	struct tc_nat sel;
-+
-+	int argc = *argc_p;
-+	char **argv = *argv_p;
-+	int ok = 0;
-+	struct rtattr *tail;
-+
-+	memset(&sel, 0, sizeof(sel));
-+
-+	while (argc > 0) {
-+		if (matches(*argv, "nat") == 0) {
-+			NEXT_ARG();
-+			if (parse_nat_args(&argc, &argv, &sel)) {
-+				fprintf(stderr, "Illegal nat construct (%s) \n",
-+					*argv);
-+				explain();
-+				return -1;
-+			}
-+			ok++;
-+			continue;
-+		} else if (matches(*argv, "help") == 0) {
-+			usage();
-+		} else {
-+			break;
-+		}
-+
-+	}
-+
-+	if (!ok) {
-+		explain();
-+		return -1;
-+	}
-+
-+	if (argc) {
-+		if (matches(*argv, "reclassify") == 0) {
-+			sel.action = TC_ACT_RECLASSIFY;
-+			argc--;
-+			argv++;
-+		} else if (matches(*argv, "pipe") == 0) {
-+			sel.action = TC_ACT_PIPE;
-+			argc--;
-+			argv++;
-+		} else if (matches(*argv, "drop") == 0 ||
-+			matches(*argv, "shot") == 0) {
-+			sel.action = TC_ACT_SHOT;
-+			argc--;
-+			argv++;
-+		} else if (matches(*argv, "continue") == 0) {
-+			sel.action = TC_ACT_UNSPEC;
-+			argc--;
-+			argv++;
-+		} else if (matches(*argv, "pass") == 0) {
-+			sel.action = TC_ACT_OK;
-+			argc--;
-+			argv++;
-+		}
-+	}
-+
-+	if (argc) {
-+		if (matches(*argv, "index") == 0) {
-+			NEXT_ARG();
-+			if (get_u32(&sel.index, *argv, 10)) {
-+				fprintf(stderr, "Pedit: Illegal \"index\"\n");
-+				return -1;
-+			}
-+			argc--;
-+			argv++;
-+		}
-+	}
-+
-+	tail = NLMSG_TAIL(n);
-+	addattr_l(n, MAX_MSG, tca_id, NULL, 0);
-+	addattr_l(n, MAX_MSG, TCA_NAT_PARMS, &sel, sizeof(sel));
-+	tail->rta_len = (char *)NLMSG_TAIL(n) - (char *)tail;
-+
-+	*argc_p = argc;
-+	*argv_p = argv;
-+	return 0;
-+}
-+
-+static int
-+print_nat(struct action_util *au,FILE * f, struct rtattr *arg)
-+{
-+	struct tc_nat *sel;
-+	struct rtattr *tb[TCA_NAT_MAX + 1];
-+	char buf1[256];
-+	char buf2[256];
-+	SPRINT_BUF(buf3);
-+	int len;
-+
-+	if (arg == NULL)
-+		return -1;
-+
-+	parse_rtattr_nested(tb, TCA_NAT_MAX, arg);
-+
-+	if (tb[TCA_NAT_PARMS] == NULL) {
-+		fprintf(f, "[NULL nat parameters]");
-+		return -1;
-+	}
-+	sel = RTA_DATA(tb[TCA_NAT_PARMS]);
-+
-+	len = ffs(sel->mask);
-+	len = len ? 33 - len : 0;
-+
-+	fprintf(f, " nat %s %s/%d %s %s", sel->flags & TCA_NAT_FLAG_EGRESS ?
-+					  "egress" : "ingress",
-+		format_host(AF_INET, 4, &sel->old_addr, buf1, sizeof(buf1)),
-+		len,
-+		format_host(AF_INET, 4, &sel->new_addr, buf2, sizeof(buf2)),
-+		action_n2a(sel->action, buf3, sizeof (buf3)));
-+
-+	if (show_stats) {
-+		if (tb[TCA_NAT_TM]) {
-+			struct tcf_t *tm = RTA_DATA(tb[TCA_NAT_TM]);
-+			print_tm(f,tm);
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+struct action_util nat_action_util = {
-+	.id = "nat",
-+	.parse_aopt = parse_nat,
-+	.print_aopt = print_nat,
-+};
+ /*
+  * find the first different bit between two addresses
+  * length of address must be a multiple of 32bits
+diff -p -u -r -N linux-2.6.23/net/ipv6/ipv6_sockglue.c linux-2.6.23-haley/net/ipv6/ipv6_sockglue.c
+--- linux-2.6.23/net/ipv6/ipv6_sockglue.c	2007-10-09 22:31:38.000000000 +0200
++++ linux-2.6.23-haley/net/ipv6/ipv6_sockglue.c	2007-10-11 15:21:23.000000000 +0200
+@@ -249,7 +249,7 @@ static int do_ipv6_setsockopt(struct soc
+ 			}
+ 
+ 			if (ipv6_only_sock(sk) ||
+-			    !(ipv6_addr_type(&np->daddr) & IPV6_ADDR_MAPPED)) {
++			    !ipv6_addr_v4mapped(&np->daddr)) {
+ 				retv = -EADDRNOTAVAIL;
+ 				break;
+ 			}
+diff -p -u -r -N linux-2.6.23/net/ipv6/tcp_ipv6.c linux-2.6.23-haley/net/ipv6/tcp_ipv6.c
+--- linux-2.6.23/net/ipv6/tcp_ipv6.c	2007-10-09 22:31:38.000000000 +0200
++++ linux-2.6.23-haley/net/ipv6/tcp_ipv6.c	2007-10-11 15:21:23.000000000 +0200
+@@ -697,7 +697,7 @@ static int tcp_v6_parse_md5_keys (struct
+ 	if (!cmd.tcpm_keylen) {
+ 		if (!tcp_sk(sk)->md5sig_info)
+ 			return -ENOENT;
+-		if (ipv6_addr_type(&sin6->sin6_addr) & IPV6_ADDR_MAPPED)
++		if (ipv6_addr_v4mapped(&sin6->sin6_addr))
+ 			return tcp_v4_md5_do_del(sk, sin6->sin6_addr.s6_addr32[3]);
+ 		return tcp_v6_md5_do_del(sk, &sin6->sin6_addr);
+ 	}
+@@ -720,7 +720,7 @@ static int tcp_v6_parse_md5_keys (struct
+ 	newkey = kmemdup(cmd.tcpm_key, cmd.tcpm_keylen, GFP_KERNEL);
+ 	if (!newkey)
+ 		return -ENOMEM;
+-	if (ipv6_addr_type(&sin6->sin6_addr) & IPV6_ADDR_MAPPED) {
++	if (ipv6_addr_v4mapped(&sin6->sin6_addr)) {
+ 		return tcp_v4_md5_do_add(sk, sin6->sin6_addr.s6_addr32[3],
+ 					 newkey, cmd.tcpm_keylen);
+ 	}
+diff -p -u -r -N linux-2.6.23/net/ipv6/udp.c linux-2.6.23-haley/net/ipv6/udp.c
+--- linux-2.6.23/net/ipv6/udp.c	2007-10-09 22:31:38.000000000 +0200
++++ linux-2.6.23-haley/net/ipv6/udp.c	2007-10-11 15:21:23.000000000 +0200
+@@ -612,7 +612,7 @@ int udpv6_sendmsg(struct kiocb *iocb, st
+ 		daddr = NULL;
+ 
+ 	if (daddr) {
+-		if (ipv6_addr_type(daddr) == IPV6_ADDR_MAPPED) {
++		if (ipv6_addr_v4mapped(daddr)) {
+ 			struct sockaddr_in sin;
+ 			sin.sin_family = AF_INET;
+ 			sin.sin_port = sin6 ? sin6->sin6_port : inet->dport;
+diff -p -u -r -N linux-2.6.23/net/sctp/ipv6.c linux-2.6.23-haley/net/sctp/ipv6.c
+--- linux-2.6.23/net/sctp/ipv6.c	2007-10-09 22:31:38.000000000 +0200
++++ linux-2.6.23-haley/net/sctp/ipv6.c	2007-10-11 15:21:23.000000000 +0200
+@@ -493,7 +493,7 @@ static int sctp_v6_cmp_addr(const union 
+ 	if (addr1->sa.sa_family != addr2->sa.sa_family) {
+ 		if (addr1->sa.sa_family == AF_INET &&
+ 		    addr2->sa.sa_family == AF_INET6 &&
+-		    IPV6_ADDR_MAPPED == ipv6_addr_type(&addr2->v6.sin6_addr)) {
++		    ipv6_addr_v4mapped(&addr2->v6.sin6_addr)) {
+ 			if (addr2->v6.sin6_port == addr1->v4.sin_port &&
+ 			    addr2->v6.sin6_addr.s6_addr32[3] ==
+ 			    addr1->v4.sin_addr.s_addr)
+@@ -501,7 +501,7 @@ static int sctp_v6_cmp_addr(const union 
+ 		}
+ 		if (addr2->sa.sa_family == AF_INET &&
+ 		    addr1->sa.sa_family == AF_INET6 &&
+-		    IPV6_ADDR_MAPPED == ipv6_addr_type(&addr1->v6.sin6_addr)) {
++		    ipv6_addr_v4mapped(&addr1->v6.sin6_addr)) {
+ 			if (addr1->v6.sin6_port == addr2->v4.sin_port &&
+ 			    addr1->v6.sin6_addr.s6_addr32[3] ==
+ 			    addr2->v4.sin_addr.s_addr)
+
+--------------050200080708040609030201--
