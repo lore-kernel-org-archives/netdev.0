@@ -1,66 +1,80 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: 2.6.23-mm1
-Date: Fri, 12 Oct 2007 00:13:25 -0700
-Message-ID: <20071012001325.ba02a6f0.akpm@linux-foundation.org>
-References: <20071011213126.cf92efb7.akpm@linux-foundation.org>
-	<20071012140328.f82af8e8.kamezawa.hiroyu@jp.fujitsu.com>
-	<20071011234202.2f15bb76.akpm@linux-foundation.org>
-	<20071012064658.GA8181@ftp.linux.org.uk>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPROUTE2: Support IPv4/IPv6 Tunnel
+Date: Fri, 12 Oct 2007 16:51:22 +0900 (JST)
+Message-ID: <20071012.165122.05747470.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
-	linux-kernel@vger.kernel.org, Sam Ravnborg <sam@ravnborg.org>,
-	netdev@vger.kernel.org
-To: Al Viro <viro@ftp.linux.org.uk>
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	yasuyuki.kozakai@toshiba.co.jp
+To: shemminger@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:52936 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755700AbXJLHNo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 03:13:44 -0400
-In-Reply-To: <20071012064658.GA8181@ftp.linux.org.uk>
+Received: from yue.linux-ipv6.org ([203.178.140.15]:53629 "EHLO
+	yue.st-paulia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752010AbXJLHta (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 03:49:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Oct 2007 07:46:58 +0100 Al Viro <viro@ftp.linux.org.uk> wrote:
+Based on patch from Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>.
 
-> On Thu, Oct 11, 2007 at 11:42:02PM -0700, Andrew Morton wrote:
-> > On Fri, 12 Oct 2007 14:03:28 +0900 KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com> wrote:
-> > 
-> > > On Thu, 11 Oct 2007 21:31:26 -0700
-> > > Andrew Morton <akpm@linux-foundation.org> wrote:
-> > > 
-> > > > 
-> > > > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.23/2.6.23-mm1/
-> > > > 
-> > > > - I've been largely avoiding applying anything since rc8-mm2 in an attempt
-> > > >   to stabilise things for the 2.6.23 merge.
-> > > > 
-> > > On RHEL5/x86_64 environment,
-> > > 
-> > > ==
-> > > [kamezawa@hannibal ref-2.6.23-mm1]$ make menuconfig
-> > > Makefile:456: /home/kamezawa/ref-2.6.23-mm1/arch//Makefile: No such file or directory
-> > > make: *** No rule to make target `/home/kamezawa/ref-2.6.23-mm1/arch//Makefile'.  Stop.
-> > > ==
-> > > 
-> > > $(ARCH) cannot be detected automatically...
-> > 
-> > So you need to set $ARCH by hand?  I always do that so I didn't notice this.
-> > 
-> > > What information is useful for fixing this ?
-> > 
-> > Sam's email address ;)
-> 
-> More serious breakage happened to UML - include/asm-um/arch went straight
-> to hell; I'll look into fixing that tomorrow...
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-I always forget to test uml.  But a quick test build seems to work until
-it hits this:
+--- 
+diff --git a/ip/ip6tunnel.c b/ip/ip6tunnel.c
+index 6468d99..cbbdf9d 100644
+--- a/ip/ip6tunnel.c
++++ b/ip/ip6tunnel.c
+@@ -52,6 +52,7 @@ static void usage(void) __attribute__((noreturn));
+ static void usage(void)
+ {
+ 	fprintf(stderr, "Usage: ip -f inet6 tunnel { add | change | del | show } [ NAME ]\n");
++	fprintf(stderr, "          [ mode { ip6ip6 | ipip6 | any } ]\n");
+ 	fprintf(stderr, "          [ remote ADDR local ADDR ] [ dev PHYS_DEV ]\n");
+ 	fprintf(stderr, "          [ encaplimit ELIM ]\n");
+ 	fprintf(stderr ,"          [ hoplimit HLIM ] [ tc TC ] [ fl FL ]\n");
+@@ -116,7 +117,24 @@ static int parse_args(int argc, char **argv, struct ip6_tnl_parm *p)
+ 	memset(medium, 0, sizeof(medium));
+ 
+ 	while (argc > 0) {
+-		if (strcmp(*argv, "remote") == 0) {
++		if (strcmp(*argv, "mode") == 0) {
++			NEXT_ARG();
++			if (strcmp(*argv, "ipv6/ipv6") == 0 ||
++			    strcmp(*argv, "ip6ip6") == 0)
++				p->proto = IPPROTO_IPV6;
++			else if (strcmp(*argv, "ip/ipv6") == 0 ||
++				 strcmp(*argv, "ipv4/ipv6") == 0 ||
++				 strcmp(*argv, "ipip6") == 0 ||
++				 strcmp(*argv, "ip4ip6") == 0)
++				p->proto = IPPROTO_IPIP;
++			else if (strcmp(*argv, "any/ipv6") == 0 ||
++				 strcmp(*argv, "any") == 0)
++				p->proto = 0;
++			else {
++                                fprintf(stderr,"Cannot guess tunnel mode.\n");
++                                exit(-1);
++                        }
++                } else if (strcmp(*argv, "remote") == 0) {
+ 			inet_prefix raddr;
+ 			NEXT_ARG();
+ 			get_prefix(&raddr, *argv, preferred_family);
+diff --git a/ip/tunnel.c b/ip/tunnel.c
+index 5fede2c..104340d 100644
+--- a/ip/tunnel.c
++++ b/ip/tunnel.c
+@@ -51,6 +51,9 @@ const char *tnl_strproto(__u8 proto)
+ 	case IPPROTO_IPV6:
+ 		strcpy(buf, "ipv6");
+ 		break;
++	case 0:
++		strcpy(buf, "any");
++		break;
+ 	default:
+ 		strcpy(buf, "unknown");
+ 		break;
 
-arch/um/drivers/slip_kern.c: In function 'slip_init':
-arch/um/drivers/slip_kern.c:34: error: 'struct net_device' has no member named 'header_cache_update'
-arch/um/drivers/slip_kern.c:35: error: 'struct net_device' has no member named 'hard_header_cache'
-arch/um/drivers/slip_kern.c:36: error: 'struct net_device' has no member named 'hard_header'
-
-<looks at networking people>
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
