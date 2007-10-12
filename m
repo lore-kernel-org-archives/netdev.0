@@ -1,54 +1,53 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9149] New: accept() doesn't wake with error
- when socket descriptor closed
-Date: Fri, 12 Oct 2007 10:06:45 -0700
-Message-ID: <20071012100645.64dc1afd.akpm@linux-foundation.org>
-References: <bug-9149-10286@http.bugzilla.kernel.org/>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
+Date: Fri, 12 Oct 2007 10:05:00 -0700
+Message-ID: <20071012100500.02255243@freepuppy.rosehill>
+References: <20071010003716.GB552@one.firstfloor.org>
+	<36D9DB17C6DE9E40B059440DB8D95F5203887DD1@orsmsx418.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org
-To: mkielar@go2.pl
+Cc: "Andi Kleen" <andi@firstfloor.org>,
+	"David Miller" <davem@davemloft.net>, <hadi@cyberus.ca>,
+	<jeff@garzik.org>, <johnpol@2ka.mipt.ru>,
+	<herbert@gondor.apana.org.au>, <gaagaan@gmail.com>,
+	<Robert.Olsson@data.slu.se>, <netdev@vger.kernel.org>,
+	<rdreier@cisco.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	<mcarlson@broadcom.com>, <jagana@us.ibm.com>,
+	<general@lists.openfabrics.org>, <mchan@broadcom.com>,
+	<tgraf@suug.ch>, <randy.dunlap@oracle.com>, <sri@us.ibm.com>,
+	<kaber@trash.net>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:49624 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:54119 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932660AbXJLRGz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 13:06:55 -0400
-In-Reply-To: <bug-9149-10286@http.bugzilla.kernel.org/>
+	by vger.kernel.org with ESMTP id S1758656AbXJLRKV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 13:10:21 -0400
+In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5203887DD1@orsmsx418.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Oct 2007 07:42:06 -0700 (PDT) bugme-daemon@bugzilla.kernel.org wrote:
+On Fri, 12 Oct 2007 09:08:58 -0700
+"Brandeburg, Jesse" <jesse.brandeburg@intel.com> wrote:
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=9149
+> Andi Kleen wrote:
+> >> When the hw TX queue gains space, the driver self-batches packets
+> >> from the sw queue to the hw queue.
+> > 
+> > I don't really see the advantage over the qdisc in that scheme.
+> > It's certainly not simpler and probably more code and would likely
+> > also not require less locks (e.g. a currently lockless driver
+> > would need a new lock for its sw queue). Also it is unclear to me
+> > it would be really any faster.
 > 
->            Summary: accept() doesn't wake with error when socket descriptor
->                     closed
->            Product: Networking
->            Version: 2.5
->      KernelVersion: 2.6.18
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: mkielar@go2.pl
-> 
-> 
-> Most recent kernel where this bug did not occur: no idea
-> Distribution: no idea - remote server
-> Hardware Environment: i686
-> Software Environment: no idea - probably pure console server
-> 
-> Problem Description:
-> In multithreaded process, one thread launches accept() on a valid-so-far
-> listening socket file descriptor sockfd and waits on it. After this second
-> thread launches close( sockfd ). First thread further waits on accept() even
-> though the descriptor is now invalid. accept() should wake up and return with
-> -1 and errno EBADF.
-> 
+> related to this comment, does Linux have a lockless (using atomics)
+> singly linked list element?  That would be very useful in a driver hot
+> path.
 
-I have a feeling this is an FAQ, but I forget what the answer is?
+Use RCU? or write a generic version and get it reviewed.  You really
+want someone with knowledge of all the possible barrier impacts to
+review it.
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
