@@ -1,69 +1,35 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 10/12] Fix off-by-one in print of wrandom algo.
-Date: Fri, 12 Oct 2007 14:39:10 -0700
-Message-ID: <20071012143910.4e6050bf@freepuppy.rosehill>
-References: <1192179407-22461-1-git-send-email-andreas@fatal.se>
-	<1192179407-22461-2-git-send-email-andreas@fatal.se>
-	<1192179407-22461-3-git-send-email-andreas@fatal.se>
-	<1192179407-22461-4-git-send-email-andreas@fatal.se>
-	<1192179407-22461-5-git-send-email-andreas@fatal.se>
-	<1192179407-22461-6-git-send-email-andreas@fatal.se>
-	<1192179407-22461-7-git-send-email-andreas@fatal.se>
-	<1192179407-22461-8-git-send-email-andreas@fatal.se>
-	<1192179407-22461-9-git-send-email-andreas@fatal.se>
-	<1192179407-22461-10-git-send-email-andreas@fatal.se>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][BNX2X] round three
+Date: Fri, 12 Oct 2007 15:03:41 -0700 (PDT)
+Message-ID: <20071012.150341.41635825.davem@davemloft.net>
+References: <1192038559.29746.127.camel@eliezer>
+	<p73641c4cfz.fsf@bingen.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Norbert Buchmuller <norbi@nix.hu>,
-	Andreas Henriksson <andreas@fatal.se>
-To: Andreas Henriksson <andreas@fatal.se>
+Cc: eliezert@broadcom.com, netdev@vger.kernel.org, jeff@garzik.org,
+	mchan@broadcom.com
+To: andi@firstfloor.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:48083 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757454AbXJLVj5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 17:39:57 -0400
-In-Reply-To: <1192179407-22461-10-git-send-email-andreas@fatal.se>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55823
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1758453AbXJLWDl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 18:03:41 -0400
+In-Reply-To: <p73641c4cfz.fsf@bingen.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Oct 2007 10:56:45 +0200
-Andreas Henriksson <andreas@fatal.se> wrote:
+From: Andi Kleen <andi@firstfloor.org>
+Date: Fri, 12 Oct 2007 16:47:28 +0200
 
-> From: Norbert Buchmuller <norbi@nix.hu>
+> "Eliezer Tamir" <eliezert@broadcom.com> writes:
 > 
-> The 'wrandom' multipath algo is recognised when adding the route, but
-> not resolved when it is printed (prints 'unknown'):
 > 
-> ianus:~# ip ro add 1.2.3.4 mpath wrandom nexthop dev ppp0 weight 1 nexthop dev ppp1 weight 2
-> ianus:~# ip ro get to 1.2.3.4
-> 1.2.3.4 mpath unknown dev ppp0  src 62.77.192.67
->     cache  mtu 1492 advmss 1452 hoplimit 64
-> ianus:~# ip ro del 1.2.3.4 mpath wrandom nexthop dev ppp0 weight 1 nexthop dev ppp1 weight 2
+> > * For now depend on x86 or x86_64, will add more architectures ASAP.
 > 
-> See http://bugs.debian.org/428440 for more information.
-> 
-> Signed-off-by: Andreas Henriksson <andreas@fatal.se>
-> ---
->  ip/iproute.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/ip/iproute.c b/ip/iproute.c
-> index d3a3243..3b5c4b1 100644
-> --- a/ip/iproute.c
-> +++ b/ip/iproute.c
-> @@ -365,7 +365,7 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
->  		__u32 mp_alg = *(__u32*) RTA_DATA(tb[RTA_MP_ALGO]);
->  		if (mp_alg > IP_MP_ALG_NONE) {
->  			fprintf(fp, "mpath %s ",
-> -			    mp_alg < IP_MP_ALG_MAX ? mp_alg_names[mp_alg] : "unknown");
-> +			    mp_alg <= IP_MP_ALG_MAX ? mp_alg_names[mp_alg] : "unknown");
->  		}
->  	}
->  
+> Why is that? Linux drivers normally should not be architecture specific.
 
-Actually since multi-path was removed from kernel, I just pulled support
-for it from current iproute
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+I totally agree, and the only way to weed out these kinds of
+bugs is to allow it to build on other systems so users can
+try it out and report what fails.  Or even better, a motivated
+developer tries it out and fixes the bugs for you :-)
