@@ -1,50 +1,62 @@
-From: "David Mack" <dmack@juniper.net>
-Subject: RE: e100 problems in .23rc8 ?
-Date: Fri, 12 Oct 2007 08:51:48 -0700
-Message-ID: <7DCDA0F058071B49AED9D3D7886C41BE0A43AD2F@muon.jnpr.net>
-References: <46FAA083.9020604@intel.com> <E1IanKN-0003ju-00@gondolin.me.apana.org.au> <20071011003638.GA27174@redhat.com> <20071011012520.GA13160@gondor.apana.org.au> <470E4AFA.60507@intel.com> <20071011172551.GA21339@redhat.com> <7DCDA0F058071B49AED9D3D7886C41BE0A43AD1D@muon.jnpr.net> <20071012153550.GB28708@gondor.apana.org.au>
+From: Chuck Anderson <cra@WPI.EDU>
+Subject: "ping6 -M do" fragments packets
+Date: Fri, 12 Oct 2007 11:18:41 -0400
+Message-ID: <20071012151841.GE3789@angus.ind.WPI.EDU>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Dave Jones" <davej@redhat.com>,
-	"Kok, Auke" <auke-jan.h.kok@intel.com>, <netdev@vger.kernel.org>,
-	<esandeen@redhat.com>
-To: "Herbert Xu" <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og110.obsmtp.com ([64.18.2.173]:57546 "EHLO
-	exprod7og110.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753527AbXJLPwQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 11:52:16 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20071012153550.GB28708@gondor.apana.org.au>
+Received: from MAIL1.WPI.EDU ([130.215.36.91]:47898 "EHLO mail1.wpi.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754497AbXJLPyc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Oct 2007 11:54:32 -0400
+Received: from mcafee.wpi.edu (MCAFEE.WPI.EDU [130.215.36.86])
+	by mail1.wpi.edu (8.14.1/8.14.1) with SMTP id l9CFIgwA009471
+	for <netdev@vger.kernel.org>; Fri, 12 Oct 2007 11:18:42 -0400
+Received: from angus.ind.WPI.EDU (ANGUS.IND.WPI.EDU [130.215.130.21])
+	by SMTP.WPI.EDU (8.13.8/8.13.8) with ESMTP id l9CFIg1n013075
+	for <netdev@vger.kernel.org>; Fri, 12 Oct 2007 11:18:42 -0400
+	(envelope-from cra@WPI.EDU)
+Received: from angus.ind.WPI.EDU (angus.ind.WPI.EDU [127.0.0.1])
+	by angus.ind.WPI.EDU (8.14.1/8.13.8) with ESMTP id l9CFIgXU025014
+	for <netdev@vger.kernel.org>; Fri, 12 Oct 2007 11:18:42 -0400
+Received: (from cra@localhost)
+	by angus.ind.WPI.EDU (8.14.1/8.14.1/Submit) id l9CFIfRk025013
+	for netdev@vger.kernel.org; Fri, 12 Oct 2007 11:18:41 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If I understand the message Dave Jones sent yesterday, the patch you
-mention *was* applied to the e100 driver in 2.6.23-6.fc8?
+I'm not subscribed, so please Cc: me on any responses.  Thanks.
 
-Dave 
+According to the man page, ping6 should support the "-M do" option so 
+never fragment packets, which I'd like to use for testing the MTU of a 
+path.  This option works fine for IPv4 ping, but doesn't work with 
+IPv6 ping6.  I can guarantee that I don't have an MTU of 63356 :-)
 
-> -----Original Message-----
-> From: Herbert Xu [mailto:herbert@gondor.apana.org.au] 
-> Sent: Friday, October 12, 2007 8:36 AM
-> To: David Mack
-> Cc: Dave Jones; Kok, Auke; netdev@vger.kernel.org; esandeen@redhat.com
-> Subject: Re: e100 problems in .23rc8 ?
-> 
-> On Fri, Oct 12, 2007 at 07:54:33AM -0700, David Mack wrote:
-> > Still no joy here. See attached capture. What's really 
-> weird is that it
-> > shows *two* kernel panics, one in  e100_poll and one in _list_add.
-> 
-> Yes that's the symptom one would expect from that bug.  We really
-> need to apply the same fix that was done for e1000.
-> 
-> Cheers,
-> -- 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> 
+>ping6 -M do -s 65527 www.kame.net
+PING www.kame.net(orange.kame.net) 65527 data bytes
+65535 bytes from orange.kame.net: icmp_seq=1 ttl=49 time=224 ms
+65535 bytes from orange.kame.net: icmp_seq=2 ttl=49 time=226 ms
+65535 bytes from orange.kame.net: icmp_seq=3 ttl=49 time=224 ms
+
+--- www.kame.net ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 1999ms
+rtt min/avg/max/mdev = 224.118/225.270/226.909/1.251 ms
+
+Sure enough, wireshark reports fragments:
+
+No.     Time        Source                Destination           Protocol Info
+      1 0.000000    2001:468:616:8c9:213:72ff:fe74:da15 2001:200:0:8002:203:47ff:fea5:3085 IPv6     IPv6 fragment (nxt=ICMPv6 (0x3a) off=0 id=0x79)
+      2 0.000007    2001:468:616:8c9:213:72ff:fe74:da15 2001:200:0:8002:203:47ff:fea5:3085 IPv6     IPv6 fragment (nxt=ICMPv6 (0x3a) off=1448 id=0x79)
+      3 0.000010    2001:468:616:8c9:213:72ff:fe74:da15 2001:200:0:8002:203:47ff:fea5:3085 IPv6     IPv6 fragment (nxt=ICMPv6 (0x3a) off=2896 id=0x79)
+      4 0.000013    2001:468:616:8c9:213:72ff:fe74:da15 2001:200:0:8002:203:47ff:fea5:3085 IPv6     IPv6 fragment (nxt=ICMPv6 (0x3a) off=4344 id=0x79)
+      5 0.000015    2001:468:616:8c9:213:72ff:fe74:da15 2001:200:0:8002:203:47ff:fea5:3085 IPv6     IPv6 fragment (nxt=ICMPv6 (0x3a) off=5792 id=0x79)
+      6 0.000018    2001:468:616:8c9:213:72ff:fe74:da15 2001:200:0:8002:203:47ff:fea5:3085 IPv6     IPv6 fragment (nxt=ICMPv6 (0x3a) off=7240 id=0x79)
+
+
+Is this a known issue, or some issue with the Fedora build I'm using?
+
+iputils-20070202-3.fc7
+
+Thanks.
