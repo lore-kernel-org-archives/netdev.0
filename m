@@ -1,9 +1,8 @@
 From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH 1/2] NFS: change the ip_map cache code to handle IPv6
- addresses
-Date: Fri, 12 Oct 2007 12:07:46 -0400
-Message-ID: <470F9BD2.3070204@hp.com>
-References: <470F3AF2.8000706@ext.bull.net>
+Subject: Re: [PATCH 2/2] NFS: handle IPv6 addresses in nfs ctl
+Date: Fri, 12 Oct 2007 12:07:53 -0400
+Message-ID: <470F9BD9.5090903@hp.com>
+References: <470F3AF9.4050705@ext.bull.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1;
 	format=flowed
@@ -12,82 +11,93 @@ Cc: Mailing list NFSv4 <nfsv4@linux-nfs.org>,
 	netdev ML <netdev@vger.kernel.org>
 To: =?ISO-8859-1?Q?Aur=E9lien_Charbon?= <aurelien.charbon@ext.bull.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:56967 "EHLO atlrel8.hp.com"
+Received: from atlrel9.hp.com ([156.153.255.214]:48855 "EHLO atlrel9.hp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760304AbXJLQIT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Oct 2007 12:08:19 -0400
-In-Reply-To: <470F3AF2.8000706@ext.bull.net>
+	id S932345AbXJLQIa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Oct 2007 12:08:30 -0400
+In-Reply-To: <470F3AF9.4050705@ext.bull.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi Aurelien,
 
-There were some of my comments you haven't addressed yet, comments in-l=
-ine.
+Comments in-line.
 
 Aur=E9lien Charbon wrote:
-> Here is a patch for the ip_map caching code part in nfs server.
+> Here is a second missing part of the IPv6 support in NFS server code=20
+> concerning knfd syscall interface.
 
-> +    for (i =3D 0; i < ncp->cl_naddr; i++) {
-> +        /* Mapping address */
-> +        ipv6_addr_v4map(ncp->cl_addrlist[i], addr6);
+> -    struct sockaddr_in *sin;
+> +    struct sockaddr_in6 *sin, sin6_storage;
 
-ipv6_addr_set(&addr6, 0, 0, htonl(0x0000FFFF), ncp->cl_addrlist[i]);
+Nit, should call this sin6 now.
 
-> +    /* IPv6 address mapping */
-> +    ipv6_addr_v4map(sin->sin_addr, in6);
+> @@ -228,9 +228,20 @@ static ssize_t write_getfs(struct file *
+>         return -EINVAL;
+>     data =3D (struct nfsctl_fsparm*)buf;
+>     err =3D -EPROTONOSUPPORT;
+> -    if (data->gd_addr.sa_family !=3D AF_INET)
+> +    sin =3D &sin6_storage;
 
-ipv6_addr_set(&in6, 0, 0, htonl(0x0000FFFF), sin->sin_addr);
+This should be moved in the AF_INET case.
 
-> +    /* IPv6 address mapping */
-> +    ipv6_addr_v4map(sin->sin_addr, in6);
+> +    switch (data->gd_addr.sa_family) {
+> +    case AF_INET6:
+> +        sin =3D (struct sockaddr_in6 *)&data->gd_addr;
+> +        in6 =3D sin->sin6_addr;
 
-ipv6_addr_set(&in6, 0, 0, htonl(0x0000FFFF), sin->sin_addr);
+in6 is a structure, not a pointer.  If you want it do this you have to=20
+use ipv6_addr_copy().
 
-> +#define IS_ADDR_MAPPED(a) \
-> +    (((uint32_t *) (a))[0] =3D=3D 0            \
-> +    && ((uint32_t *) (a))[1] =3D=3D 0            \
-> +    && (((uint32_t *) (a))[2] =3D=3D 0            \
-> +    || ((uint32_t *) (a))[2] =3D=3D htonl(0xffff)))
+> +    case AF_INET:
+> +        /* Map v4 address into v6 structure */
+> +        ipv6_addr_v4map(((struct sockaddr_in=20
+> *)&data->gd_addr)->sin_addr, in6);
 
-This is unused, can go away.
+ipv6_addr_set(...)
 
-> +static inline void ipv6_addr_v4map(const struct in_addr a1, struct=20
-> in6_addr a2)
-> +{
-> +    a2.s6_addr32[0] =3D 0;
-> +    a2.s6_addr32[1] =3D 0;
-> +    a2.s6_addr32[2] =3D htonl(0xffff);
-> +    a2.s6_addr32[3] =3D (uint32_t)a1.s_addr;
-> +}
-
-If you use ipv6_addr_set() everywhere you don't need this.
-
-> static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
+> @@ -257,7 +265,7 @@ static ssize_t write_getfs(struct file *
+> static ssize_t write_getfd(struct file *file, char *buf, size_t size)
 > {
->     return ((a->s6_addr32[0] | a->s6_addr32[1]) =3D=3D 0 &&
-> -         a->s6_addr32[2] =3D=3D htonl(0x0000ffff));
-> +        a->s6_addr32[2] =3D=3D htonl(0x0000ffff));
-> }
+>     struct nfsctl_fdparm *data;
+> -    struct sockaddr_in *sin;
+> +    struct sockaddr_in6 *sin, sin6_storage;
 
-Guessing you changed a tab to a space, unnecessary.
+Nit, sin -> sin6.
 
-> -static struct ip_map *ip_map_lookup(char *class, struct in_addr addr=
-);
-> +static struct ip_map *ip_map_lookup(char *class, struct in6_addr add=
-r);
+> @@ -268,18 +276,29 @@ static ssize_t write_getfd(struct file *
+>         return -EINVAL;
+>     data =3D (struct nfsctl_fdparm*)buf;
+>     err =3D -EPROTONOSUPPORT;
+> -    if (data->gd_addr.sa_family !=3D AF_INET)
+> +    if (data->gd_addr.sa_family !=3D AF_INET &&
+> +        data->gd_addr.sa_family !=3D AF_INET6)
+>         goto out;
+>     err =3D -EINVAL;
+>     if (data->gd_version < 2 || data->gd_version > NFSSVC_MAXVERS)
+>         goto out;
+>=20
+>     res =3D buf;
+> -    sin =3D (struct sockaddr_in *)&data->gd_addr;
+> +    sin =3D &sin6_storage;
 
-I still think you should pass a pointer here.
+Move in AF_INET case.
 
-> -int auth_unix_add_addr(struct in_addr addr, struct auth_domain *dom)
-> +int auth_unix_add_addr(struct in6_addr addr, struct auth_domain *dom=
-)
+> -    /* IPv6 address mapping */
+> -    ipv6_addr_v4map(sin->sin_addr, in6);
+> +    switch (data->gd_addr.sa_family) {
+> +    case AF_INET:
+> +        /* IPv6 address mapping */
+> +        ipv6_addr_v4map(((struct sockaddr_in=20
+> *)&data->gd_addr)->sin_addr, in6);
 
-And here.
+Use ipv6_set_addr(...)
 
-> -struct auth_domain *auth_unix_lookup(struct in_addr addr)
-> +struct auth_domain *auth_unix_lookup(struct in6_addr addr)
+> +        break;
+> +    case AF_INET6:
+> +        sin =3D (struct sockaddr_in6 *)&data->gd_addr;
+> +        in6 =3D sin->sin6_addr;
 
-And here.
+Must use ipv6_addr_copy() here too.
 
 -Brian
