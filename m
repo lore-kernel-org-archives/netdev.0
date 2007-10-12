@@ -1,73 +1,62 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: net-2.6.24 breaks powerpc mysteriously
-Date: Thu, 11 Oct 2007 19:22:33 -0700
-Message-ID: <20071011192233.23e1c6bc.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Regression in net-2.6.24?
+Date: Thu, 11 Oct 2007 19:40:09 -0700 (PDT)
+Message-ID: <20071011.194009.48528774.davem@davemloft.net>
+References: <20071011.171743.118962219.davem@davemloft.net>
+	<20071011.181449.130846976.davem@davemloft.net>
+	<1192159036.6889.6.camel@dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, Sam Ravnborg <sam@ravnborg.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: shemminger@linux-foundation.org, takano@axe-inc.co.jp,
+	netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:40739 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752762AbXJLCWl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 22:22:41 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41155
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752737AbXJLCkG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 22:40:06 -0400
+In-Reply-To: <1192159036.6889.6.camel@dell>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With net-2.6.24 (pulled yesterday) applied:
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Thu, 11 Oct 2007 20:17:16 -0700
 
-g5:/usr/src/25> ml arch/powerpc/boot/inflate.o
-  Using ARCH=powerpc CROSS_COMPILE=
-  CHK     include/linux/version.h
-  CHK     include/linux/utsrelease.h
-  CALL    scripts/checksyscalls.sh
-  BOOTCC  arch/powerpc/boot/inflate.o
-arch/powerpc/boot/inflate.c:920:19: errno.h: No such file or directory
-arch/powerpc/boot/inflate.c:921:18: slab.h: No such file or directory
-arch/powerpc/boot/inflate.c:922:21: vmalloc.h: No such file or directory
-arch/powerpc/boot/inflate.c: In function `zlib_inflate_blob':
-arch/powerpc/boot/inflate.c:928: error: syntax error before '*' token
-arch/powerpc/boot/inflate.c:932: error: `ENOMEM' undeclared (first use in this function)
-arch/powerpc/boot/inflate.c:932: error: (Each undeclared identifier is reported only once
-arch/powerpc/boot/inflate.c:932: error: for each function it appears in.)
-arch/powerpc/boot/inflate.c:933: warning: implicit declaration of function `kmalloc'
-arch/powerpc/boot/inflate.c:933: error: `GFP_KERNEL' undeclared (first use in this function)
-arch/powerpc/boot/inflate.c:933: warning: assignment makes pointer from integer without a cast
-arch/powerpc/boot/inflate.c:936: warning: assignment makes pointer from integer without a cast
-arch/powerpc/boot/inflate.c:943: error: `zbuf' undeclared (first use in this function)
-arch/powerpc/boot/inflate.c:955: error: `EINVAL' undeclared (first use in this function)
-arch/powerpc/boot/inflate.c:960: warning: implicit declaration of function `kfree'
+> On Thu, 2007-10-11 at 18:14 -0700, David Miller wrote:
+> > +       while (1) {
+> > +               work_done = tg3_poll_work(tp, work_done, budget);
+> > +
+> > +               if (unlikely(tp->tg3_flags & TG3_FLAG_TX_RECOVERY_PENDING))
+> > +                       goto tx_recovery;
+> > +
+> > +               if (unlikely(work_done >= budget))
+> > +                       break;
+> > +
+> > +               if (likely(!tg3_has_work(tp))) {
+> > +                       struct tg3_hw_status *sblk = tp->hw_status;
+> > +
+> 
+> --> new status block DMA
+> 
+> > +                       if (tp->tg3_flags & TG3_FLAG_TAGGED_STATUS) {
+> > +                               tp->last_tag = sblk->status_tag;
+> > +                               rmb();
+> > +                       } else
+> > +                               sblk->status &= ~SD_STATUS_UPDATED;
+> 
+> We need to read the sblk->status_tag before calling tg3_has_work().  If
+> a new status block DMA happens in between (shown above), tp->last_tag
+> will get the new tag and we will end up acknowledging work that we
+> haven't processed.
 
-without it applied:
+Hmmm, the old code didn't do that and seemingly has the same
+problem.  Also, if you look at the before-patch code and think
+about what it does if we ->poll() multiple times for a single
+interrupt the side-effects are essentially the same.
 
-g5:/usr/src/25> ml arch/powerpc/boot/inflate.o
-scripts/kconfig/conf -s arch/powerpc/Kconfig
-#
-# configuration written to .config
-#
-  Using ARCH=powerpc CROSS_COMPILE=
-  HOSTCC  scripts/mod/file2alias.o
-  HOSTCC  scripts/mod/modpost.o
-  HOSTLD  scripts/mod/modpost
-  CHK     include/linux/version.h
-  CHK     include/linux/utsrelease.h
-  CC      arch/powerpc/kernel/asm-offsets.s
-  GEN     include/asm-powerpc/asm-offsets.h
-  CALL    scripts/checksyscalls.sh
-  COPY    arch/powerpc/boot/zlib.h
-  COPY    arch/powerpc/boot/inflate.c
-  BOOTCC  arch/powerpc/boot/inflate.o
-.config:308:warning: trying to assign nonexistent symbol INET_LRO
-.config:638:warning: trying to assign nonexistent symbol VETH
-.config:639:warning: trying to assign nonexistent symbol IP1000
+What's the crucial difference?
 
-Note that those two COPY commands didn't happen with net-2.6.24 applied, although
-that might be because `make' decided they were already performed, dunno.
+> I'll go over this some more tonight and will send a patch to refine it.
 
-I also have today's git-kbuild applied here, as well as yesterday's git-powerpc.
-
-But I have enough to fix here so I'm going to do a report-and-run on this one.
-I'll release 2.6.23-mm1 in this state for your bug-hunting convenience ;)
+Thanks Michael.
