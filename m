@@ -1,103 +1,44 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH 2/2] NFS: handle IPv6 addresses in nfs ctl
-Date: Fri, 12 Oct 2007 12:07:53 -0400
-Message-ID: <470F9BD9.5090903@hp.com>
-References: <470F3AF9.4050705@ext.bull.net>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
+Date: Fri, 12 Oct 2007 09:08:58 -0700
+Message-ID: <36D9DB17C6DE9E40B059440DB8D95F5203887DD1@orsmsx418.amr.corp.intel.com>
+References: <20071010003716.GB552@one.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mailing list NFSv4 <nfsv4@linux-nfs.org>,
-	netdev ML <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?Aur=E9lien_Charbon?= <aurelien.charbon@ext.bull.net>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <hadi@cyberus.ca>, <shemminger@linux-foundation.org>,
+	<jeff@garzik.org>, <johnpol@2ka.mipt.ru>,
+	<herbert@gondor.apana.org.au>, <gaagaan@gmail.com>,
+	<Robert.Olsson@data.slu.se>, <netdev@vger.kernel.org>,
+	<rdreier@cisco.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	<mcarlson@broadcom.com>, <jagana@us.ibm.com>,
+	<general@lists.openfabrics.org>, <mchan@broadcom.com>,
+	<tgraf@suug.ch>, <randy.dunlap@oracle.com>, <sri@us.ibm.com>,
+	<kaber@trash.net>
+To: "Andi Kleen" <andi@firstfloor.org>,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel9.hp.com ([156.153.255.214]:48855 "EHLO atlrel9.hp.com"
+Received: from mga11.intel.com ([192.55.52.93]:3703 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932345AbXJLQIa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Oct 2007 12:08:30 -0400
-In-Reply-To: <470F3AF9.4050705@ext.bull.net>
+	id S1760566AbXJLQJD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 12:09:03 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20071010003716.GB552@one.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Aurelien,
+Andi Kleen wrote:
+>> When the hw TX queue gains space, the driver self-batches packets
+>> from the sw queue to the hw queue.
+> 
+> I don't really see the advantage over the qdisc in that scheme.
+> It's certainly not simpler and probably more code and would likely
+> also not require less locks (e.g. a currently lockless driver
+> would need a new lock for its sw queue). Also it is unclear to me
+> it would be really any faster.
 
-Comments in-line.
-
-Aur=E9lien Charbon wrote:
-> Here is a second missing part of the IPv6 support in NFS server code=20
-> concerning knfd syscall interface.
-
-> -    struct sockaddr_in *sin;
-> +    struct sockaddr_in6 *sin, sin6_storage;
-
-Nit, should call this sin6 now.
-
-> @@ -228,9 +228,20 @@ static ssize_t write_getfs(struct file *
->         return -EINVAL;
->     data =3D (struct nfsctl_fsparm*)buf;
->     err =3D -EPROTONOSUPPORT;
-> -    if (data->gd_addr.sa_family !=3D AF_INET)
-> +    sin =3D &sin6_storage;
-
-This should be moved in the AF_INET case.
-
-> +    switch (data->gd_addr.sa_family) {
-> +    case AF_INET6:
-> +        sin =3D (struct sockaddr_in6 *)&data->gd_addr;
-> +        in6 =3D sin->sin6_addr;
-
-in6 is a structure, not a pointer.  If you want it do this you have to=20
-use ipv6_addr_copy().
-
-> +    case AF_INET:
-> +        /* Map v4 address into v6 structure */
-> +        ipv6_addr_v4map(((struct sockaddr_in=20
-> *)&data->gd_addr)->sin_addr, in6);
-
-ipv6_addr_set(...)
-
-> @@ -257,7 +265,7 @@ static ssize_t write_getfs(struct file *
-> static ssize_t write_getfd(struct file *file, char *buf, size_t size)
-> {
->     struct nfsctl_fdparm *data;
-> -    struct sockaddr_in *sin;
-> +    struct sockaddr_in6 *sin, sin6_storage;
-
-Nit, sin -> sin6.
-
-> @@ -268,18 +276,29 @@ static ssize_t write_getfd(struct file *
->         return -EINVAL;
->     data =3D (struct nfsctl_fdparm*)buf;
->     err =3D -EPROTONOSUPPORT;
-> -    if (data->gd_addr.sa_family !=3D AF_INET)
-> +    if (data->gd_addr.sa_family !=3D AF_INET &&
-> +        data->gd_addr.sa_family !=3D AF_INET6)
->         goto out;
->     err =3D -EINVAL;
->     if (data->gd_version < 2 || data->gd_version > NFSSVC_MAXVERS)
->         goto out;
->=20
->     res =3D buf;
-> -    sin =3D (struct sockaddr_in *)&data->gd_addr;
-> +    sin =3D &sin6_storage;
-
-Move in AF_INET case.
-
-> -    /* IPv6 address mapping */
-> -    ipv6_addr_v4map(sin->sin_addr, in6);
-> +    switch (data->gd_addr.sa_family) {
-> +    case AF_INET:
-> +        /* IPv6 address mapping */
-> +        ipv6_addr_v4map(((struct sockaddr_in=20
-> *)&data->gd_addr)->sin_addr, in6);
-
-Use ipv6_set_addr(...)
-
-> +        break;
-> +    case AF_INET6:
-> +        sin =3D (struct sockaddr_in6 *)&data->gd_addr;
-> +        in6 =3D sin->sin6_addr;
-
-Must use ipv6_addr_copy() here too.
-
--Brian
+related to this comment, does Linux have a lockless (using atomics)
+singly linked list element?  That would be very useful in a driver hot
+path.
