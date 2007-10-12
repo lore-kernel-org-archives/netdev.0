@@ -1,69 +1,297 @@
-From: Michael Pyne <michael.pyne@kdemail.net>
-Subject: [PATCH] forcedeth: Fix MAC address detection on network card (regression in 2.6.23)
-Date: Thu, 11 Oct 2007 22:42:50 -0400
-Message-ID: <200710112242.50167.michael.pyne@kdemail.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net-2.6.24 breaks powerpc mysteriously
+Date: Thu, 11 Oct 2007 19:45:43 -0700 (PDT)
+Message-ID: <20071011.194543.75428024.davem@davemloft.net>
+References: <20071011192233.23e1c6bc.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>
+Cc: netdev@vger.kernel.org, sam@ravnborg.org, paulus@samba.org,
+	benh@kernel.crashing.org, vda.linux@googlemail.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hapkido.dreamhost.com ([66.33.216.122]:43857 "EHLO
-	hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753045AbXJLCpO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 22:45:14 -0400
-Received: from postalmail-a3.g.dreamhost.com (sd-green-bigip-81.dreamhost.com [208.97.132.81])
-	by hapkido.dreamhost.com (Postfix) with ESMTP id 2FC12195E81
-	for <netdev@vger.kernel.org>; Thu, 11 Oct 2007 19:44:54 -0700 (PDT)
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47198
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754072AbXJLCpk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 22:45:40 -0400
+In-Reply-To: <20071011192233.23e1c6bc.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Partially revert a change to mac address detection introduced to the forcedeth 
-driver.  The change was intended to correct mac address detection for newer 
-nVidia chipsets where the mac address was stored in reverse order.  One of 
-those chipsets appears to still have the mac address in reverse order (or at 
-least, it does on my system).
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Thu, 11 Oct 2007 19:22:33 -0700
 
-Signed-off-by: Michael J. Pyne <michael.pyne@kdemail.net>
----
-The change that broke mac address detection for my card was commit 
-ef756b3e56c68a4d76d9d7b9a73fa8f4f739180f "forcedeth: mac address correct"
+> With net-2.6.24 (pulled yesterday) applied:
+> 
+> g5:/usr/src/25> ml arch/powerpc/boot/inflate.o
+>   Using ARCH=powerpc CROSS_COMPILE=
+>   CHK     include/linux/version.h
+>   CHK     include/linux/utsrelease.h
+>   CALL    scripts/checksyscalls.sh
+>   BOOTCC  arch/powerpc/boot/inflate.o
+> arch/powerpc/boot/inflate.c:920:19: errno.h: No such file or directory
+> arch/powerpc/boot/inflate.c:921:18: slab.h: No such file or directory
+> arch/powerpc/boot/inflate.c:922:21: vmalloc.h: No such file or directory
+> arch/powerpc/boot/inflate.c: In function `zlib_inflate_blob':
+> arch/powerpc/boot/inflate.c:928: error: syntax error before '*' token
 
-My network card is an nVidia built-in Ethernet card, output from lspci as 
-follows (with text and numeric ids):
-$ lspci | grep Ethernet
-00:07.0 Bridge: nVidia Corporation MCP61 Ethernet (rev a2)
-$ lspci -n | grep 07.0
-00:07.0 0680: 10de:03ef (rev a2)
+The only thing we touched in zlib is in the patch below.
 
-The vendor id is, of course, nVidia.  The device id corresponds to the 
-NVIDIA_NVENET_19 entry.
+I suspect the lib/zlib_inflate/inflate.c changes, I had no idea that
+some pieces of code try to use this into userspace.
 
-The included patch fixes the MAC address detection on my system.  
-Interestingly, the MAC address appears to be in the range reserved for my 
-motherboard manufacturer (Gigabyte) and not nVidia.
+I supposed a hacky fix is to add __KERNEL__ ifdef protection around
+zlib_inflate_blob() and those troublesome includes.  A nicer fix is
+probably to change the zlib_inflate_blob() interface to pass in
+pointers to alloc() and free() routines instead of calling kernel ones
+directly.
 
-If you need any further information about my hardware configuration just let 
-me know.
+Denys?
 
-Regards,
- - Michael Pyne
+commit 8336793baf962163c9fab5a3f39614295fdbab27
+Author: Denys Vlasenko <vda.linux@googlemail.com>
+Date:   Sun Sep 30 17:56:49 2007 -0700
 
---- a/drivers/net/forcedeth.c       2007-10-11 22:01:26 -0400
-+++ b/drivers/net/forcedeth-new.c   2007-10-11 22:06:52 -0400
-@@ -5513,7 +5513,7 @@ static struct pci_device_id pci_tbl[] = 
- 	},
- 	{	/* MCP61 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_19),
--		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|
-DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|
-DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
-+		.driver_data = DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|
-DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2|
-DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
- 	},
- 	{	/* MCP65 Ethernet Controller */
- 		PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NVENET_20),
+    [ZLIB]: Move bnx2 driver gzip unpacker into zlib.
+    
+    Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+    Acked-by: Michael Chan <mchan@broadcom.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 73d4a57..6d6ea56 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -2761,48 +2761,6 @@ bnx2_set_rx_mode(struct net_device *dev)
+ 	spin_unlock_bh(&bp->phy_lock);
+ }
+ 
+-/* To be moved to generic lib/ */
+-static int
+-bnx2_gunzip(void *gunzip_buf, unsigned sz, u8 *zbuf, int len)
+-{
+-	struct z_stream_s *strm;
+-	int rc;
+-
+-	/* gzip header (1f,8b,08... 10 bytes total + possible asciz filename)
+-	 * is stripped */
+-
+-	rc = -ENOMEM;
+-	strm = kmalloc(sizeof(*strm), GFP_KERNEL);
+-	if (strm == NULL)
+-		goto gunzip_nomem2;
+-	strm->workspace = kmalloc(zlib_inflate_workspacesize(), GFP_KERNEL);
+-	if (strm->workspace == NULL)
+-		goto gunzip_nomem3;
+-
+-	strm->next_in = zbuf;
+-	strm->avail_in = len;
+-	strm->next_out = gunzip_buf;
+-	strm->avail_out = sz;
+-
+-	rc = zlib_inflateInit2(strm, -MAX_WBITS);
+-	if (rc == Z_OK) {
+-		rc = zlib_inflate(strm, Z_FINISH);
+-		/* after Z_FINISH, only Z_STREAM_END is "we unpacked it all" */
+-		if (rc == Z_STREAM_END)
+-			rc = sz - strm->avail_out;
+-		else
+-			rc = -EINVAL;
+-		zlib_inflateEnd(strm);
+-	} else
+-		rc = -EINVAL;
+-
+-	kfree(strm->workspace);
+-gunzip_nomem3:
+-	kfree(strm);
+-gunzip_nomem2:
+-	return rc;
+-}
+-
+ static void
+ load_rv2p_fw(struct bnx2 *bp, u32 *rv2p_code, u32 rv2p_code_len,
+ 	u32 rv2p_proc)
+@@ -2858,7 +2816,7 @@ load_cpu_fw(struct bnx2 *bp, struct cpu_reg *cpu_reg, struct fw_info *fw)
+ 		text = vmalloc(FW_BUF_SIZE);
+ 		if (!text)
+ 			return -ENOMEM;
+-		rc = bnx2_gunzip(text, FW_BUF_SIZE, fw->gz_text, fw->gz_text_len);
++		rc = zlib_inflate_blob(text, FW_BUF_SIZE, fw->gz_text, fw->gz_text_len);
+ 		if (rc < 0) {
+ 			vfree(text);
+ 			return rc;
+@@ -2935,14 +2893,14 @@ bnx2_init_cpus(struct bnx2 *bp)
+ 	text = vmalloc(FW_BUF_SIZE);
+ 	if (!text)
+ 		return -ENOMEM;
+-	rc = bnx2_gunzip(text, FW_BUF_SIZE, bnx2_rv2p_proc1, sizeof(bnx2_rv2p_proc1));
++	rc = zlib_inflate_blob(text, FW_BUF_SIZE, bnx2_rv2p_proc1, sizeof(bnx2_rv2p_proc1));
+ 	if (rc < 0) {
+ 		vfree(text);
+ 		goto init_cpu_err;
+ 	}
+ 	load_rv2p_fw(bp, text, rc /* == len */, RV2P_PROC1);
+ 
+-	rc = bnx2_gunzip(text, FW_BUF_SIZE, bnx2_rv2p_proc2, sizeof(bnx2_rv2p_proc2));
++	rc = zlib_inflate_blob(text, FW_BUF_SIZE, bnx2_rv2p_proc2, sizeof(bnx2_rv2p_proc2));
+ 	if (rc < 0) {
+ 		vfree(text);
+ 		goto init_cpu_err;
+diff --git a/include/linux/zlib.h b/include/linux/zlib.h
+index 9e3192a..40c49cb 100644
+--- a/include/linux/zlib.h
++++ b/include/linux/zlib.h
+@@ -82,7 +82,7 @@
+ struct internal_state;
+ 
+ typedef struct z_stream_s {
+-    Byte    *next_in;   /* next input byte */
++    const Byte *next_in;   /* next input byte */
+     uInt     avail_in;  /* number of bytes available at next_in */
+     uLong    total_in;  /* total nb of input bytes read so far */
+ 
+@@ -699,4 +699,8 @@ extern int zlib_inflateInit2(z_streamp strm, int  windowBits);
+     struct internal_state {int dummy;}; /* hack for buggy compilers */
+ #endif
+ 
++/* Utility function: initialize zlib, unpack binary blob, clean up zlib,
++ * return len or negative error code. */
++extern int zlib_inflate_blob(void *dst, unsigned dst_sz, const void *src, unsigned src_sz);
++
+ #endif /* _ZLIB_H */
+diff --git a/lib/zlib_inflate/inffast.c b/lib/zlib_inflate/inffast.c
+index d84560c..8550b0c 100644
+--- a/lib/zlib_inflate/inffast.c
++++ b/lib/zlib_inflate/inffast.c
+@@ -69,22 +69,22 @@
+ void inflate_fast(z_streamp strm, unsigned start)
+ {
+     struct inflate_state *state;
+-    unsigned char *in;      /* local strm->next_in */
+-    unsigned char *last;    /* while in < last, enough input available */
+-    unsigned char *out;     /* local strm->next_out */
+-    unsigned char *beg;     /* inflate()'s initial strm->next_out */
+-    unsigned char *end;     /* while out < end, enough space available */
++    const unsigned char *in;    /* local strm->next_in */
++    const unsigned char *last;  /* while in < last, enough input available */
++    unsigned char *out;         /* local strm->next_out */
++    unsigned char *beg;         /* inflate()'s initial strm->next_out */
++    unsigned char *end;         /* while out < end, enough space available */
+ #ifdef INFLATE_STRICT
+     unsigned dmax;              /* maximum distance from zlib header */
+ #endif
+     unsigned wsize;             /* window size or zero if not using window */
+     unsigned whave;             /* valid bytes in the window */
+     unsigned write;             /* window write index */
+-    unsigned char *window;  /* allocated sliding window, if wsize != 0 */
++    unsigned char *window;      /* allocated sliding window, if wsize != 0 */
+     unsigned long hold;         /* local strm->hold */
+     unsigned bits;              /* local strm->bits */
+-    code const *lcode;      /* local strm->lencode */
+-    code const *dcode;      /* local strm->distcode */
++    code const *lcode;          /* local strm->lencode */
++    code const *dcode;          /* local strm->distcode */
+     unsigned lmask;             /* mask for first level of length codes */
+     unsigned dmask;             /* mask for first level of distance codes */
+     code this;                  /* retrieved table entry */
+@@ -92,7 +92,7 @@ void inflate_fast(z_streamp strm, unsigned start)
+                                 /*  window position, window bytes to copy */
+     unsigned len;               /* match length, unused bytes */
+     unsigned dist;              /* match distance */
+-    unsigned char *from;    /* where to copy match from */
++    unsigned char *from;        /* where to copy match from */
+ 
+     /* copy state to local variables */
+     state = (struct inflate_state *)strm->state;
+diff --git a/lib/zlib_inflate/inflate.c b/lib/zlib_inflate/inflate.c
+index 7e1e311..0ad1ebf 100644
+--- a/lib/zlib_inflate/inflate.c
++++ b/lib/zlib_inflate/inflate.c
+@@ -332,14 +332,14 @@ static int zlib_inflateSyncPacket(z_streamp strm)
+ int zlib_inflate(z_streamp strm, int flush)
+ {
+     struct inflate_state *state;
+-    unsigned char *next;    /* next input */
+-    unsigned char *put;     /* next output */
++    const unsigned char *next;  /* next input */
++    unsigned char *put;         /* next output */
+     unsigned have, left;        /* available input and output */
+     unsigned long hold;         /* bit buffer */
+     unsigned bits;              /* bits in bit buffer */
+     unsigned in, out;           /* save starting available input and output */
+     unsigned copy;              /* number of stored or match bytes to copy */
+-    unsigned char *from;    /* where to copy match bytes from */
++    unsigned char *from;        /* where to copy match bytes from */
+     code this;                  /* current decoding table entry */
+     code last;                  /* parent table entry */
+     unsigned len;               /* length to copy for repeats, bits to drop */
+@@ -897,7 +897,7 @@ int zlib_inflateIncomp(z_stream *z)
+ 
+     /* Setup some variables to allow misuse of updateWindow */
+     z->avail_out = 0;
+-    z->next_out = z->next_in + z->avail_in;
++    z->next_out = (unsigned char*)z->next_in + z->avail_in;
+ 
+     zlib_updatewindow(z, z->avail_in);
+ 
+@@ -916,3 +916,50 @@ int zlib_inflateIncomp(z_stream *z)
+ 
+     return Z_OK;
+ }
++
++#include <linux/errno.h>
++#include <linux/slab.h>
++#include <linux/vmalloc.h>
++
++/* Utility function: initialize zlib, unpack binary blob, clean up zlib,
++ * return len or negative error code. */
++int zlib_inflate_blob(void *gunzip_buf, unsigned sz, const void *buf, unsigned len)
++{
++	const u8 *zbuf = buf;
++	struct z_stream_s *strm;
++	int rc;
++
++	rc = -ENOMEM;
++	strm = kmalloc(sizeof(*strm), GFP_KERNEL);
++	if (strm == NULL)
++		goto gunzip_nomem1;
++	strm->workspace = kmalloc(zlib_inflate_workspacesize(), GFP_KERNEL);
++	if (strm->workspace == NULL)
++		goto gunzip_nomem2;
++
++	/* gzip header (1f,8b,08... 10 bytes total + possible asciz filename)
++	 * expected to be stripped from input */
++
++	strm->next_in = zbuf;
++	strm->avail_in = len;
++	strm->next_out = gunzip_buf;
++	strm->avail_out = sz;
++
++	rc = zlib_inflateInit2(strm, -MAX_WBITS);
++	if (rc == Z_OK) {
++		rc = zlib_inflate(strm, Z_FINISH);
++		/* after Z_FINISH, only Z_STREAM_END is "we unpacked it all" */
++		if (rc == Z_STREAM_END)
++			rc = sz - strm->avail_out;
++		else
++			rc = -EINVAL;
++		zlib_inflateEnd(strm);
++	} else
++		rc = -EINVAL;
++
++	kfree(strm->workspace);
++gunzip_nomem2:
++	kfree(strm);
++gunzip_nomem1:
++	return rc; /* returns Z_OK (0) if successful */
++}
+diff --git a/lib/zlib_inflate/inflate_syms.c b/lib/zlib_inflate/inflate_syms.c
+index 2061d4f..67329fe 100644
+--- a/lib/zlib_inflate/inflate_syms.c
++++ b/lib/zlib_inflate/inflate_syms.c
+@@ -16,4 +16,5 @@ EXPORT_SYMBOL(zlib_inflateInit2);
+ EXPORT_SYMBOL(zlib_inflateEnd);
+ EXPORT_SYMBOL(zlib_inflateReset);
+ EXPORT_SYMBOL(zlib_inflateIncomp); 
++EXPORT_SYMBOL(zlib_inflate_blob);
+ MODULE_LICENSE("GPL");
