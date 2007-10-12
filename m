@@ -1,39 +1,61 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: [PATCH] Also do tc_core_time2big argument (long->unsigned).
-Date: Fri, 12 Oct 2007 13:56:33 +0200
-Message-ID: <1192190193-23653-1-git-send-email-andreas@fatal.se>
-References: <1192189789-23538-1-git-send-email-andreas@fatal.se>
-Cc: netdev@vger.kernel.org, Andreas Henriksson <andreas@fatal.se>
-To: shemminger@linux-foundation.org
+From: Satoshi OSHIMA <satoshi.oshima.fk@hitachi.com>
+Subject: Re: [RFC/PATCH 4/4] UDP memory usage accounting (take 4): memory
+ limitation
+Date: Fri, 12 Oct 2007 20:58:06 +0900
+Message-ID: <470F614E.7040301@hitachi.com>
+References: <47065139.5030402@hitachi.com>	<47065217.5050004@hitachi.com>	<20071005085257.24b2e5cc@freepuppy.rosehill>	<470E1C42.1050901@hitachi.com> <20071011124656.01dd575b@freepuppy.rosehill>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev <netdev@vger.kernel.org>, ?? ?? <yoshfuji@linux-ipv6.org>,
+	Yumiko SUGITA <yumiko.sugita.yf@hitachi.com>,
+	"??@RedHat" <haoki@redhat.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1-1-1-9a.ghn.gbg.bostream.se ([82.182.69.4]:51806 "EHLO
-	scream.fatal.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753556AbXJLL5M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 07:57:12 -0400
-In-Reply-To: <1192189789-23538-1-git-send-email-andreas@fatal.se>
+Received: from mail9.hitachi.co.jp ([133.145.228.44]:51575 "EHLO
+	mail9.hitachi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754929AbXJLL6N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 07:58:13 -0400
+Received: from mlsv10.hitachi.co.jp (unknown [133.144.234.166])
+	by mail9.hitachi.co.jp (Postfix) with ESMTP id 9561E37C84
+	for <netdev@vger.kernel.org>; Fri, 12 Oct 2007 20:58:12 +0900 (JST)
+In-Reply-To: <20071011124656.01dd575b@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-tc_core_time2big only used in tc/q_netem.c where it gets passed an unsigned.
+Hi Stephen,
 
-Signed-off-by: Andreas Henriksson <andreas@fatal.se>
----
- tc/tc_core.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> On Thu, 11 Oct 2007 21:51:14 +0900
+> Satoshi OSHIMA <satoshi.oshima.fk@hitachi.com> wrote:
+> 
+>> Hi Stephen,
+>>
+>> Thank you for your comment.
+>>
+>>>>  	{
+>>>> +		.ctl_name	= NET_UDP_MEM,
+>>>> +		.procname	= "udp_mem",
+>>>> +		.data		= &sysctl_udp_mem,
+>>>> +		.maxlen		= sizeof(sysctl_udp_mem),
+>>>> +		.mode		= 0644,
+>>>> +		.proc_handler	= &proc_dointvec
+>>>> +	},
+>>>> +	{
+>>>>  		.ctl_name	= NET_TCP_APP_WIN,
+>>>>  		.procname	= "tcp_app_win",
+>>>>  		.data		= &sysctl_tcp_app_win,
+>>> if you use &proc_dointvec_minmax, then you could inforce min/max
+>>> values for udp_mem for the sysctl
+> 
+> One other comment. Sysctl value indexes are deprecated at this point
+> so all new values should use CTL_UNNUMBERED.  Therefore unless NET_UDP_MEM
+> already exists, please don't add it.
 
-diff --git a/tc/tc_core.c b/tc/tc_core.c
-index 8c3a2ac..1365e08 100644
---- a/tc/tc_core.c
-+++ b/tc/tc_core.c
-@@ -26,7 +26,7 @@
- static double tick_in_usec = 1;
- static double clock_factor = 1;
- 
--int tc_core_time2big(long time)
-+int tc_core_time2big(unsigned time)
- {
- 	__u64 t = time;
- 
--- 
-1.5.3.4
+Thank you for letting me know. I will fix it.
+
+Satoshi Oshima
 
