@@ -1,39 +1,46 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFD] iptables:  mangle table obsoletes filter table
-Date: Sat, 13 Oct 2007 01:02:24 +0200
-Message-ID: <470FFD00.9030106@trash.net>
-References: <200710120031.42805.a1426z@gawab.com> <Pine.LNX.4.64.0710121533360.23981@fbirervta.pbzchgretzou.qr> <470F7B4B.2010609@trash.net> <200710130156.54050.a1426z@gawab.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] Update function names in /proc/net/tcp documentation
+Date: Fri, 12 Oct 2007 16:13:32 -0700
+Message-ID: <470FFF9C.7040402@hp.com>
+References: <20071012225426.2f866ae6@hyperion.delvare>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jan Engelhardt <jengelh@computergmbh.de>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>, netdev@vger.kernel.org,
-	linux-net@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Al Boldi <a1426z@gawab.com>
+Cc: netdev@vger.kernel.org
+To: Jean Delvare <khali@linux-fr.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:37230 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933155AbXJLXCg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 19:02:36 -0400
-In-Reply-To: <200710130156.54050.a1426z@gawab.com>
+Received: from palrel12.hp.com ([156.153.255.237]:56197 "EHLO palrel12.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760845AbXJLXNf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Oct 2007 19:13:35 -0400
+In-Reply-To: <20071012225426.2f866ae6@hyperion.delvare>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Al Boldi wrote:
-> Patrick McHardy wrote:
->   
->> The netlink based iptables successor I'm currently working on allows to
->> dynamically create tables with user-specified priorities and "built-in"
->> chains. The only built-in tables will be those that need extra
->> processing (mangle/nat). So it should be possible to set up tables
->> basically any way you desire.
->>     
->
-> Wow!  How soon can we expect this to surface on mainline?
+Jean Delvare wrote:
+> Update function name references to match the current code.
+> 
+> Signed-off-by: Jean Delvare <khali@linux-fr.org>
+> ---
+>  Documentation/networking/proc_net_tcp.txt |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> --- linux-2.6.23.orig/Documentation/networking/proc_net_tcp.txt	2007-02-04 19:44:54.000000000 +0100
+> +++ linux-2.6.23/Documentation/networking/proc_net_tcp.txt	2007-10-12 22:50:15.000000000 +0200
+> @@ -1,8 +1,8 @@
+>  This document describes the interfaces /proc/net/tcp and /proc/net/tcp6.
+>  
+>  These /proc interfaces provide information about currently active TCP 
+> -connections, and are implemented by tcp_get_info() in net/ipv4/tcp_ipv4.c and
+> -tcp6_get_info() in net/ipv6/tcp_ipv6.c, respectively.
+> +connections, and are implemented by tcp4_seq_show() in net/ipv4/tcp_ipv4.c
+> +and tcp6_seq_show() in net/ipv6/tcp_ipv6.c, respectively.
+>  
+>  It will first list all listening TCP sockets, and next list all established
+>  TCP connections. A typical entry of /proc/net/tcp would look like this (split 
 
-I can't tell at this point, there's still too much work to do
-for a realistic estimate. I'll post patches to netfilter-devel
-as soon as its good enough for some real testing.
+/proc/net/[tcp|tcp6] are deprecated now right?  Perhaps there should be 
+something to that effect added to the txt.
+
+rick jones
 
