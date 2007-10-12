@@ -1,47 +1,37 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: Kernel panic (network stack)
-Date: Fri, 12 Oct 2007 10:20:45 -0700
-Message-ID: <20071012102045.3f181605@freepuppy.rosehill>
-References: <200710121635.40414.xeb@mail.ru>
+From: Andreas Henriksson <andreas@fatal.se>
+Subject: Re: [PATCH 04/12] Fix up various problems in netbug script.
+Date: Fri, 12 Oct 2007 19:39:08 +0200
+Message-ID: <1192210748.4733.62.camel@localhost.localdomain>
+References: <1192179407-22461-1-git-send-email-andreas@fatal.se>
+	 <1192179407-22461-2-git-send-email-andreas@fatal.se>
+	 <1192179407-22461-3-git-send-email-andreas@fatal.se>
+	 <1192179407-22461-4-git-send-email-andreas@fatal.se>
+	 <20071012101456.6d092f74@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: xeb@mail.ru
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Javier =?ISO-8859-1?Q?Fern=E1ndez-Sanguino_?=
+	 =?ISO-8859-1?Q?Pe=F1a?= <jfs@computer.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:44654 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762850AbXJLRU7 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 12 Oct 2007 13:20:59 -0400
-In-Reply-To: <200710121635.40414.xeb@mail.ru>
+Received: from 1-1-1-9a.ghn.gbg.bostream.se ([82.182.69.4]:44934 "EHLO
+	scream.fatal.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755406AbXJLRju (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 13:39:50 -0400
+In-Reply-To: <20071012101456.6d092f74@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Oct 2007 16:35:40 +0400
-xeb@mail.ru wrote:
 
->=20
-> ----------  =D0=9F=D0=B5=D1=80=D0=B5=D1=81=D0=BB=D0=B0=D0=BD=D0=BD=D0=
-=BE=D0=B5 =D1=81=D0=BE=D0=BE=D0=B1=D1=89=D0=B5=D0=BD=D0=B8=D0=B5  -----=
------
->=20
-> =D0=A2=D0=B5=D0=BC=D0=B0: Kernel panic (network stack)
-> =D0=94=D0=B0=D1=82=D0=B0: 12 =D0=BE=D0=BA=D1=82=D1=8F=D0=B1=D1=80=D1=8F=
- 2007
-> =D0=9E=D1=82=D0=BF=D1=80=D0=B0=D0=B2=D0=B8=D1=82=D0=B5=D0=BB=D1=8C: x=
-eb@mail.ru
-> =D0=BF=D0=BE=D0=BB=D1=83=D1=87=D0=B0=D1=82=D0=B5=D0=BB=D1=8C:  linux-=
-kernel@vger.kernel.org
->=20
-> Hello!
-> I develop network driver.
-> It works fine while less then 100 network interfaces exists.
-> Then i give kernel panic. What could cause it ?
->=20
+On fre, 2007-10-12 at 10:14 -0700, Stephen Hemminger wrote:
+> Does anyone ever use this script? Maybe it should just be pulled?
 
-Since it probably in your code. Please code (or place to download)
-the driver code.
+Looks like something more closely related to reporting bugs directly to
+you upstream guys rather then any distribution would use, so if you
+don't have a need for it then feel free to remove it.
 
---=20
-Stephen Hemminger <shemminger@linux-foundation.org>
+-- 
+Regards,
+Andreas Henriksson
+
