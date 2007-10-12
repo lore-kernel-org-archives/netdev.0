@@ -1,80 +1,31 @@
-From: Al Boldi <a1426z@gawab.com>
-Subject: Re: [RFD] iptables:  mangle table obsoletes filter table
-Date: Fri, 12 Oct 2007 08:37:18 +0300
-Message-ID: <200710120837.18152.a1426z@gawab.com>
-References: <200710120031.42805.a1426z@gawab.com> <470EF994.4080403@trash.net>
+From: Kyle McMartin <kyle@mcmartin.ca>
+Subject: Re: [PATCH] tg3: Fix APE induced regression
+Date: Fri, 12 Oct 2007 01:44:20 -0400
+Message-ID: <20071012054420.GD19268@fattire.cabal.ca>
+References: <1192153431.4878.219.camel@teletran1>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <470EF994.4080403@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Matt Carlson <mcarlson@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stout.engsoc.carleton.ca ([134.117.69.22]:50925 "EHLO
+	stout.engsoc.carleton.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753385AbXJLFoY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 01:44:24 -0400
 Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
+In-Reply-To: <1192153431.4878.219.camel@teletran1>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Please send mails discussing netfilter to netfilter-devel.
+On Thu, Oct 11, 2007 at 06:43:50PM -0700, Matt Carlson wrote:
+> This patch fixes a bug caused by the recent APE support added for 5761
+> devices.
+> 
+> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> 
 
-Ok.  I just found out this changed to vger.  But 
-netfilter-devel@vger.kernel.org is bouncing me.
+Woot, thanks! This just bit me as I was testing git head on some of my
+parisc boxes.
 
-> Al Boldi wrote:
-> > With the existence of the mangle table, how useful is the filter table?
-> >
-> > Other than requiring the REJECT target to be ported to the mangle table,
-> > is the filter table faster than the mangle table?
->
-> There are some minor differences in ordering (mangle comes before
-> DNAT, filter afterwards), but for most rulesets thats completely
-> irrelevant. The only difference that really matters is that mangle
-> performs rerouting in LOCAL_OUT for packets that had their routing
-> key changed, so its really a superset of the filter table. If you
-> want to use REJECT in the mangle table, you just need to remove the
-> restriction to filter, it works fine. I would prefer to also remove
-> the restriction of MARK, CONNMARK etc. to mangle, they're used for
-> more than just routing today so that restriction also doesn't make
-> much sense. Patches for this are welcome.
-
-Something like this (untested):
-
---- ipt_REJECT.bak.c    2007-10-12 08:25:17.000000000 +0300
-+++ ipt_REJECT.c        2007-10-12 08:31:44.000000000 +0300
-@@ -165,6 +165,7 @@ static void send_reset(struct sk_buff *o
- 
- static inline void send_unreach(struct sk_buff *skb_in, int code)
- {
-+       if (!skb_in->dst) ip_route_me_harder(&skb_in, RTN_UNSPEC);
-        icmp_send(skb_in, ICMP_DEST_UNREACH, code, 0);
- }
- 
-@@ -245,9 +246,6 @@ static struct xt_target ipt_reject_reg =
-        .family         = AF_INET,
-        .target         = reject,
-        .targetsize     = sizeof(struct ipt_reject_info),
--       .table          = "filter",
--       .hooks          = (1 << NF_IP_LOCAL_IN) | (1 << NF_IP_FORWARD) |
--                         (1 << NF_IP_LOCAL_OUT),
-        .checkentry     = check,
-        .me             = THIS_MODULE,
- };
-
-> > If not, then shouldn't the filter table be obsoleted to avoid confusion?
->
-> That would probably confuse people. Just don't use it if you don't
-> need to.
-
-The problem is that people think they are safe with the filter table, when in 
-fact they need the prerouting chain to seal things.  Right now this is only 
-possible in the mangle table.
-
-
-
-Thanks!
-
---
-Al
-
+Cheers,
+	Kyle
