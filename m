@@ -1,29 +1,56 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: Question on TSO maximum segment sizes.
-Date: Thu, 11 Oct 2007 18:22:57 -0700
-Message-ID: <470ECC71.1070303@psc.edu>
-References: <D5C1322C3E673F459512FB59E0DDC32903C4407B@orsmsx414.amr.corp.intel.com><20071011.163737.36654032.davem@davemloft.net><470EB6D6.9020704@hp.com> <20071011.170244.32082446.davem@davemloft.net> <D5C1322C3E673F459512FB59E0DDC32903C440EE@orsmsx414.amr.corp.intel.com> <470EBD2C.8020704@candelatech.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: Regression in net-2.6.24?
+Date: Thu, 11 Oct 2007 18:22:59 -0700
+Message-ID: <20071011182259.3715182d@freepuppy.rosehill>
+References: <20071011.164827.64988925.davem@davemloft.net>
+	<20071011165548.6545b207@freepuppy.rosehill>
+	<20071011.171743.118962219.davem@davemloft.net>
+	<20071011.181449.130846976.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+Cc: takano@axe-inc.co.jp, netdev@vger.kernel.org,
+	ilpo.jarvinen@helsinki.fi, mchan@broadcom.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailer2.psc.edu ([128.182.66.106]:54652 "EHLO mailer2.psc.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753638AbXJLBXL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 11 Oct 2007 21:23:11 -0400
-In-Reply-To: <470EBD2C.8020704@candelatech.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:39846 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753702AbXJLBXR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 21:23:17 -0400
+In-Reply-To: <20071011.181449.130846976.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
-> I just tried turning off my explicit SO_SNDBUF/SO_RCVBUG settings in my 
-> app,
-> and the connection ran very poorly through a link with even a small
-> bit of latency (~2-4ms I believe).
+On Thu, 11 Oct 2007 18:14:49 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-I often run at full gigabit or faster with latencies of 100+ ms.  Can 
-you give a bit more detail?
+> 
+> Here is what I'm checking into net-2.6 for now:
+> 
+> commit 6f535763165331bb91277d7519b507fed22034e5
+> Author: David S. Miller <davem@sunset.davemloft.net>
+> Date:   Thu Oct 11 18:08:29 2007 -0700
+> 
+>     [NET]: Fix NAPI completion handling in some drivers.
+>     
+>     In order for the list handling in net_rx_action() to be
+>     correct, drivers must follow certain rules as stated by
+>     this comment in net_rx_action():
+>     
+>     		/* Drivers must not modify the NAPI state if they
+>     		 * consume the entire weight.  In such cases this code
+>     		 * still "owns" the NAPI instance and therefore can
+>     		 * move the instance around on the list at-will.
+>     		 */
+>     
+>     A few drivers do not do this because they mix the budget checks
+>     with reading hardware state, resulting in crashes like the one
+>     reported by takano@axe-inc.co.jp.
+>     
+>     BNX2 and TG3 are taken care of here, SKY2 fix is from Stephen
+>     Hemminger.
+>     
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
 
-   -John
+Please use the version I just sent, it saves another non-cached read.
