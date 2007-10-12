@@ -1,43 +1,44 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] rtnl: Simplify ASSERT_RTNL
-Date: Thu, 11 Oct 2007 21:15:07 -0600
-Message-ID: <m1przl9g78.fsf@ebiederm.dsl.xmission.com>
-References: <m1hckyf4ag.fsf@ebiederm.dsl.xmission.com>
-	<20071011082845.GA16527@gondor.apana.org.au>
-	<m1tzoxehlo.fsf@ebiederm.dsl.xmission.com>
-	<20071011.173046.66166737.davem@davemloft.net>
+From: Paul Mackerras <paulus@samba.org>
+Subject: Re: net-2.6.24 breaks powerpc mysteriously
+Date: Fri, 12 Oct 2007 14:09:51 +1000
+Message-ID: <18190.62351.950590.493322@cargo.ozlabs.ibm.com>
+References: <20071011192233.23e1c6bc.akpm@linux-foundation.org>
+	<20071011.194543.75428024.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	kaber@trash.net
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	sam@ravnborg.org, benh@kernel.crashing.org,
+	vda.linux@googlemail.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:34469 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757548AbXJLDQW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 11 Oct 2007 23:16:22 -0400
-In-Reply-To: <20071011.173046.66166737.davem@davemloft.net> (David Miller's
-	message of "Thu, 11 Oct 2007 17:30:46 -0700 (PDT)")
+Received: from ozlabs.org ([203.10.76.45]:54243 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752339AbXJLEJ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 12 Oct 2007 00:09:58 -0400
+In-Reply-To: <20071011.194543.75428024.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+David Miller writes:
 
-David, all.  My apologies. I'm tired and I don't have the energy to
-grok yet another part of the kernel right now.  So I can not
-productively participate in this discussion.
+> The only thing we touched in zlib is in the patch below.
+> 
+> I suspect the lib/zlib_inflate/inflate.c changes, I had no idea that
+> some pieces of code try to use this into userspace.
 
-I do agree that the locking below dev_unicast_add() that was exposed
-by the macvlan driver is unmaintainable even if it is currently
-correct.
+Not userspace; the zImage wrapper uses inflate.c to gunzip the
+compressed kernel image.  It is a separate program to the kernel,
+however, and is compiled in an environment where the headers it uses
+are not the kernel headers.
 
-I don't see any fundamental problems with adding a might_sleep(),
-ASSERT_RTNL.
+> I supposed a hacky fix is to add __KERNEL__ ifdef protection around
+> zlib_inflate_blob() and those troublesome includes.  A nicer fix is
 
-I just don't have the energy to audit everything I feel I would have
-to audit to be comfortable taking responsibility for adding the
-might_sleep() or fixing the locking in dev_unicast_add() (which seems
-more important).
+That would do, but I don't see why zlib_inflate_blob had to be added
+to inflate.c rather than being in a new file under lib/zlib_inflate.
+If nothing else, that bloats configs that currently use inflate.c (in
+the kernel) but don't need zlib_inflate_blob() - which would be all
+the existing uses. :)
 
-So again my apologies.  This is all beyond what I can deal with at the moment.
-
-Eric
+Paul.
