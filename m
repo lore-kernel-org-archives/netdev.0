@@ -1,58 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Regression in net-2.6.24?
-Date: Fri, 12 Oct 2007 01:39:23 -0700 (PDT)
-Message-ID: <20071012.013923.72710726.davem@davemloft.net>
-References: <1192159036.6889.6.camel@dell>
-	<20071011.194009.48528774.davem@davemloft.net>
-	<1192179253.4788.14.camel@dell>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: [PATCH]race between open and disconnect in irda-usb
+Date: Fri, 12 Oct 2007 10:53:55 +0200
+Message-ID: <200710121053.55829.oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, takano@axe-inc.co.jp,
-	netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi
-To: mchan@broadcom.com
+To: Jean Tourrilhes <jt@hpl.hp.com>,
+	Nick Fedchik <nick@fedchik.org.ua>, netdev@vger.kernel.org,
+	USB development list <linux-usb-devel@lists.sourceforge.net>,
+	Samuel Ortiz <samuel@sortiz.
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39743
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751160AbXJLIjY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 04:39:24 -0400
-In-Reply-To: <1192179253.4788.14.camel@dell>
+Received: from smtp-out002.kontent.com ([81.88.40.216]:40595 "EHLO
+	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753199AbXJLIx6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 04:53:58 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Fri, 12 Oct 2007 01:54:13 -0700
+Hi,
 
-> On Thu, 2007-10-11 at 19:40 -0700, David Miller wrote:
-> > Hmmm, the old code didn't do that and seemingly has the same
-> > problem.  Also, if you look at the before-patch code and think
-> > about what it does if we ->poll() multiple times for a single
-> > interrupt the side-effects are essentially the same.
-> > 
-> 
-> No, the old code before tonight's patch did this:
-> 
-> if (tp->tg3_flags & TG3_FLAG_TAGGED_STATUS) {
-> 	tp->last_tag = sblk->status_tag;
-> 	rmb();
-> }
-> 
-> before checking for more work.  The rmb() is there to make sure that the
-> status tag is read and stored before we check for more work.
+it seems to me that irda_usb_net_open() must set self->netopen
+under spinlock or disconnect() may fail to kill all URBs, if it is called
+while an interface is opened.
 
-No I understand, thanks!
+Signed-off-by: Oliver Neukum <oneukum@suse.de>
 
-> [TG3]: Refine napi poll loop.
-> 
-> Need to read and store sblk->status_tag before checking for more work.
-> The status tag is later written back to the hardware when enabling
-> interrupts to acknowledge how much work has been processed.  If the
-> order is reversed, we can end up acknowledging work we haven't
-> processed.
-> 
-> When we detect tx error, it is more correct to return the rx
-> work_done so far instead of 0.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+	Regards
+		Oliver
 
-I'll apply this, thanks a lot!
+----
+
+--- a/drivers/net/irda/irda-usb.c	2007-10-11 17:24:35.000000000 +0200
++++ b/drivers/net/irda/irda-usb.c	2007-10-11 17:30:30.000000000 +0200
+@@ -1168,6 +1168,7 @@ static int stir421x_patch_device(struct 
+ static int irda_usb_net_open(struct net_device *netdev)
+ {
+ 	struct irda_usb_cb *self;
++	unsigned long flags;
+ 	char	hwname[16];
+ 	int i;
+ 	
+@@ -1177,13 +1178,16 @@ static int irda_usb_net_open(struct net_
+ 	self = (struct irda_usb_cb *) netdev->priv;
+ 	IRDA_ASSERT(self != NULL, return -1;);
+ 
++	spin_lock_irqsave(&self->lock, flags);
+ 	/* Can only open the device if it's there */
+ 	if(!self->present) {
++		spin_unlock_irqrestore(&self->lock, flags);
+ 		IRDA_WARNING("%s(), device not present!\n", __FUNCTION__);
+ 		return -1;
+ 	}
+ 
+ 	if(self->needspatch) {
++		spin_unlock_irqrestore(&self->lock, flags);
+ 		IRDA_WARNING("%s(), device needs patch\n", __FUNCTION__) ;
+ 		return -EIO ;
+ 	}
+@@ -1198,6 +1202,7 @@ static int irda_usb_net_open(struct net_
+ 	/* To do *before* submitting Rx urbs and starting net Tx queue
+ 	 * Jean II */
+ 	self->netopen = 1;
++	spin_unlock_irqrestore(&self->lock, flags);
+ 
+ 	/* 
+ 	 * Now that everything should be initialized properly,
+
