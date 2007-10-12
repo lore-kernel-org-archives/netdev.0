@@ -1,38 +1,50 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: "ping6 -M do" fragments packets
-Date: Fri, 12 Oct 2007 18:00:12 +0200
-Message-ID: <470F9A0C.4080107@trash.net>
-References: <20071012151841.GE3789@angus.ind.WPI.EDU>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [NET] MIPSsim: General cleanup
+Date: Fri, 12 Oct 2007 19:05:16 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0710121859510.23443@kivilampi-30.cs.helsinki.fi>
+References: <20071012135956.GA16163@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Chuck Anderson <cra@WPI.EDU>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jeff@garzik.org>, Netdev <netdev@vger.kernel.org>
+To: Ralf Baechle <ralf@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62101 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752801AbXJLQAv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 12:00:51 -0400
-In-Reply-To: <20071012151841.GE3789@angus.ind.WPI.EDU>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:57236 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757454AbXJLQFT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 12:05:19 -0400
+In-Reply-To: <20071012135956.GA16163@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Chuck Anderson wrote:
-> I'm not subscribed, so please Cc: me on any responses.  Thanks.
+On Fri, 12 Oct 2007, Ralf Baechle wrote:
+
+> General cleanups mostly as suggested by checkpatch plus getting rid of
+> homebrew version of offsetof().
 > 
-> According to the man page, ping6 should support the "-M do" option so 
-> never fragment packets, which I'd like to use for testing the MTU of a 
-> path.  This option works fine for IPv4 ping, but doesn't work with 
-> IPv6 ping6.  I can guarantee that I don't have an MTU of 63356 :-)
+> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> ---
 > 
+>  drivers/net/mipsnet.c |   63 ++++++++++++++++++-------------------
+>  drivers/net/mipsnet.h |   83 ++++++++++++++++++++++++++------------------------
+>  2 files changed, 75 insertions(+), 71 deletions(-)
 > 
->>ping6 -M do -s 65527 www.kame.net
-> 
-> Sure enough, wireshark reports fragments:
-> 
-> No.     Time        Source                Destination           Protocol Info
->       1 0.000000    2001:468:616:8c9:213:72ff:fe74:da15 2001:200:0:8002:203:47ff:fea5:3085 IPv6     IPv6 fragment (nxt=ICMPv6 (0x3a) off=0 id=0x79)
->       2 0.000007    2001:468:616:8c9:213:72ff:fe74:da15 2001:200:0:8002:203:47ff:fea5:3085 IPv6     IPv6 fragment (nxt=ICMPv6 (0x3a) off=1448 id=0x79)
+> diff --git a/drivers/net/mipsnet.h b/drivers/net/mipsnet.h
+> index 026c732..0132c67 100644
+> --- a/drivers/net/mipsnet.h
+> +++ b/drivers/net/mipsnet.h
+>  
+>  #define MIPSNET_IO_EXTENT 0x40	/* being generous */
+>  
+> -#define field_offset(field) ((int)&((MIPS_T_NetControl*)(0))->field)
+> +#define field_offset(field) (offsetof(struct net_control_block, field))
+
+Is there any value in keeping this macro... why don't you just remote it?
+There's seems to be just one user of it anyway:
+
+drivers/net/mipsnet.c:#define mipsnet_reg_address(dev, field) (dev->base_addr + field_offset(field))
 
 
-Are you using nf_conntrack_ipv6?
+-- 
+ i.
