@@ -1,53 +1,47 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [ofa-general] Re: [PATCH 2/3][NET_BATCH] net core use batching
-Date: Fri, 12 Oct 2007 10:05:00 -0700
-Message-ID: <20071012100500.02255243@freepuppy.rosehill>
-References: <20071010003716.GB552@one.firstfloor.org>
-	<36D9DB17C6DE9E40B059440DB8D95F5203887DD1@orsmsx418.amr.corp.intel.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: "ping6 -M do" fragments packets
+Date: Fri, 12 Oct 2007 19:17:50 +0200
+Message-ID: <470FAC3E.7050501@trash.net>
+References: <20071012151841.GE3789@angus.ind.WPI.EDU> <470F9A0C.4080107@trash.net> <20071012163202.GW4751@angus.ind.WPI.EDU>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: "Andi Kleen" <andi@firstfloor.org>,
-	"David Miller" <davem@davemloft.net>, <hadi@cyberus.ca>,
-	<jeff@garzik.org>, <johnpol@2ka.mipt.ru>,
-	<herbert@gondor.apana.org.au>, <gaagaan@gmail.com>,
-	<Robert.Olsson@data.slu.se>, <netdev@vger.kernel.org>,
-	<rdreier@cisco.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	<mcarlson@broadcom.com>, <jagana@us.ibm.com>,
-	<general@lists.openfabrics.org>, <mchan@broadcom.com>,
-	<tgraf@suug.ch>, <randy.dunlap@oracle.com>, <sri@us.ibm.com>,
-	<kaber@trash.net>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Cc: netdev@vger.kernel.org
+To: Chuck Anderson <cra@WPI.EDU>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:54119 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758656AbXJLRKV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 13:10:21 -0400
-In-Reply-To: <36D9DB17C6DE9E40B059440DB8D95F5203887DD1@orsmsx418.amr.corp.intel.com>
+Received: from stinky.trash.net ([213.144.137.162]:63563 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762633AbXJLRSb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 13:18:31 -0400
+In-Reply-To: <20071012163202.GW4751@angus.ind.WPI.EDU>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Oct 2007 09:08:58 -0700
-"Brandeburg, Jesse" <jesse.brandeburg@intel.com> wrote:
-
-> Andi Kleen wrote:
-> >> When the hw TX queue gains space, the driver self-batches packets
-> >> from the sw queue to the hw queue.
-> > 
-> > I don't really see the advantage over the qdisc in that scheme.
-> > It's certainly not simpler and probably more code and would likely
-> > also not require less locks (e.g. a currently lockless driver
-> > would need a new lock for its sw queue). Also it is unclear to me
-> > it would be really any faster.
+Chuck Anderson wrote:
+> On Fri, Oct 12, 2007 at 06:00:12PM +0200, Patrick McHardy wrote:
 > 
-> related to this comment, does Linux have a lockless (using atomics)
-> singly linked list element?  That would be very useful in a driver hot
-> path.
+>>>>ping6 -M do -s 65527 www.kame.net
+>>>
+>>>Sure enough, wireshark reports fragments:
+>>>
+>>>No.     Time        Source                Destination           Protocol Info
+>>>      1 0.000000    2001:468:616:8c9:213:72ff:fe74:da15 2001:200:0:8002:203:47ff:fea5:3085 IPv6     IPv6 fragment (nxt=ICMPv6 (0x3a) off=0 id=0x79)
+>>>      2 0.000007    2001:468:616:8c9:213:72ff:fe74:da15 2001:200:0:8002:203:47ff:fea5:3085 IPv6     IPv6 fragment (nxt=ICMPv6 (0x3a) off=1448 id=0x79)
+>>
+>>Are you using nf_conntrack_ipv6?
+> 
+> 
+> No:
+> 
+> [...]
 
-Use RCU? or write a generic version and get it reviewed.  You really
-want someone with knowledge of all the possible barrier impacts to
-review it.
 
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Works for me:
+
+$ ping6 -M do -s 65527 www.kame.net -n -c 1
+PING www.kame.net(2001:200:0:8002:203:47ff:fea5:3085) 65527 data bytes
+>From 2001:6f8:974:0:21b:21ff:fe02:6fad icmp_seq=1 Packet too big: mtu=1500
+
+--- www.kame.net ping statistics ---
+0 packets transmitted, 0 received, +1 errors
+
