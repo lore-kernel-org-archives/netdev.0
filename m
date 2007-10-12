@@ -1,31 +1,32 @@
-From: Jan Engelhardt <jengelh@computergmbh.de>
-Subject: Re: [RFD] iptables:  mangle table obsoletes filter table
-Date: Fri, 12 Oct 2007 16:02:36 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0710121553450.23981@fbirervta.pbzchgretzou.qr>
-References: <200710120031.42805.a1426z@gawab.com>
- <Pine.LNX.4.64.0710121449370.23981@fbirervta.pbzchgretzou.qr>
- <200710121630.29151.a1426z@gawab.com> <Pine.LNX.4.64.0710121533360.23981@fbirervta.pbzchgretzou.qr>
- <470F7B4B.2010609@trash.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: tc_verd vs. skb_clone
+Date: Fri, 12 Oct 2007 22:00:27 +0800
+Message-ID: <20071012140026.GA27761@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Al Boldi <a1426z@gawab.com>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>, netdev@vger.kernel.org,
-	linux-net@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1757309AbXJLOCz@vger.kernel.org>
-In-Reply-To: <470F7B4B.2010609@trash.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: jamal <hadi@cyberus.ca>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:1892 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752471AbXJLOAn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 10:00:43 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Jamal:
 
-On Oct 12 2007 15:48, Patrick McHardy wrote:
->
->The netlink based iptables successor I'm currently working on allows to
->dynamically create tables with user-specified priorities and "built-in"
->chains. The only built-in tables will be those that need extra
->processing (mangle/nat). So it should be possible to set up tables
->basically any way you desire.
+I was wondering why we're not copying tc_verd as is in skb_clone.
+In particular, this makes pskb_copy behave differently compared
+to skb_clone and I can't find a justificatino for it.
 
-Will ebtables move a bit closer to iptables?
+Any ideas?
+
+Also we don't seem to copy iif in copy_skb_header.
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
