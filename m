@@ -1,89 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 03/12] Prevent renaming interfaces to empty string.
-Date: Fri, 12 Oct 2007 14:01:13 +0200
-Message-ID: <470F6209.6020708@trash.net>
-References: <1192179407-22461-1-git-send-email-andreas@fatal.se> <1192179407-22461-2-git-send-email-andreas@fatal.se> <1192179407-22461-3-git-send-email-andreas@fatal.se>
+From: Satoshi OSHIMA <satoshi.oshima.fk@hitachi.com>
+Subject: [PATCH 1/4] UDP memory accounting and limitation(take 5): fix send
+ buffer check
+Date: Fri, 12 Oct 2007 21:01:53 +0900
+Message-ID: <470F6231.5020408@hitachi.com>
+References: <470F61D4.6040808@hitachi.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040603040002030806060301"
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	Alexander Wirt <formorer@debian.org>
-To: Andreas Henriksson <andreas@fatal.se>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Hideo AOKI <hideo.aoki.tk@hitachi.com>,
+	Yumiko SUGITA <yumiko.sugita.yf@hitachi.com>,
+	=?windows-1252?Q?=22=3F=3F=40RedHat=22?= <haoki@redhat.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	=?windows-1252?Q?=3F=3F_=3F=3F?= <yoshfuji@linux-ipv6.org>
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56319 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755006AbXJLMBs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 08:01:48 -0400
-In-Reply-To: <1192179407-22461-3-git-send-email-andreas@fatal.se>
+Received: from mail4.hitachi.co.jp ([133.145.228.5]:34513 "EHLO
+	mail4.hitachi.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753729AbXJLMCA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 08:02:00 -0400
+Received: from mlsv9.hitachi.co.jp (unknown [133.144.234.166])
+	by mail4.hitachi.co.jp (Postfix) with ESMTP id 8CC2233CC5
+	for <netdev@vger.kernel.org>; Fri, 12 Oct 2007 21:01:59 +0900 (JST)
+In-Reply-To: <470F61D4.6040808@hitachi.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040603040002030806060301
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-
-Andreas Henriksson wrote:
-> From: Alexander Wirt <formorer@debian.org>
-> 
-> 
-> Signed-off-by: Andreas Henriksson <andreas@fatal.se>
-> ---
->  ip/iplink.c |    4 ++++
->  1 files changed, 4 insertions(+), 0 deletions(-)
-> 
-> diff --git a/ip/iplink.c b/ip/iplink.c
-> index 4060845..da1f64e 100644
-> --- a/ip/iplink.c
-> +++ b/ip/iplink.c
-> @@ -670,6 +670,10 @@ static int do_set(int argc, char **argv)
->  	}
->  
->  	if (newname && strcmp(dev, newname)) {
-> +		if (strlen(newname) == 0) {
-> +		    printf("\"\" is not valid device identifier\n");
-> +		    return -1;
-> +		}
+This patch introduces sndbuf size check before
+memory allcation for send buffer.
 
 
-Indentation fixed, same change for the non-ioctl case, use invarg.
-While I'm at it I also fixed the error message for "name too long",
-*argv is NULL at this point.
+signed-off-by: Satoshi Oshima <satoshi.oshima.fk@hitachi.com>
+signed-off-by: Hideo Aoki <haoki@redhat.com>
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Index: 2.6.23-rc7-udp_limit/net/ipv4/ip_output.c
+===================================================================
+--- 2.6.23-rc7-udp_limit.orig/net/ipv4/ip_output.c
++++ 2.6.23-rc7-udp_limit/net/ipv4/ip_output.c
+@@ -1004,6 +1004,11 @@ alloc_new_skb:
+ 					frag = &skb_shinfo(skb)->frags[i];
+ 				}
+ 			} else if (i < MAX_SKB_FRAGS) {
++				if (atomic_read(&sk->sk_wmem_alloc) + PAGE_SIZE
++				    > 2 * sk->sk_sndbuf) {
++					err = -ENOBUFS;
++					goto error;
++				}
+ 				if (copy > PAGE_SIZE)
+ 					copy = PAGE_SIZE;
+ 				page = alloc_pages(sk->sk_allocation, 0);
 
-
---------------040603040002030806060301
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 4060845..8e0ed2a 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -336,8 +336,10 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
- 
- 	if (name) {
- 		len = strlen(name) + 1;
-+		if (len == 1)
-+			invarg("\"\" is not a valid device identifier\n", "name");
- 		if (len > IFNAMSIZ)
--			invarg("\"name\" too long\n", *argv);
-+			invarg("\"name\" too long\n", name);
- 		addattr_l(&req.n, sizeof(req), IFLA_IFNAME, name, len);
- 	}
- 
-@@ -670,6 +672,8 @@ static int do_set(int argc, char **argv)
- 	}
- 
- 	if (newname && strcmp(dev, newname)) {
-+		if (strlen(newname) == 0)
-+			invarg("\"\" is not a valid device identifier\n", "name");
- 		if (do_changename(dev, newname) < 0)
- 			return -1;
- 		dev = newname;
-
---------------040603040002030806060301--
