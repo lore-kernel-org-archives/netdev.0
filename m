@@ -1,77 +1,61 @@
-From: Kristian Evensen <kristrev@ifi.uio.no>
-Subject: Re: Non-linear SKBs
-Date: Sat, 13 Oct 2007 16:53:59 +0200
-Message-ID: <4710DC07.5070405@ifi.uio.no>
-References: <470EA9AD.4020304@ifi.uio.no>
- <20071011.170024.38701852.davem@davemloft.net>
- <50601.129.240.228.53.1192194927.squirrel@webmail.uio.no>
+From: "Moni Shoua" <monisonlists@gmail.com>
+Subject: Re: [PATCH] IB/ipoib: Bound the net device to the ipoib_neigh structue
+Date: Sat, 13 Oct 2007 17:24:09 +0200
+Message-ID: <9d62a5110710130824w5aa663b0l7aac9df5480f21a0@mail.gmail.com>
+References: <11916151232222-git-send-email-fubar@us.ibm.com>
+	 <470C200D.4010705@pobox.com> <470C2343.1020800@garzik.org>
+	 <20071009.181246.41634534.davem@davemloft.net> <706.1191979132@death>
+	 <470CF7E1.6060503@voltaire.com> <aday7eaddod.fsf@cisco.com>
+	 <470E37AD.3070408@voltaire.com> <ada3awhcsnw.fsf@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-net@vger.kernel.org
-To: kristrev@student.matnat.uio.no
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Moni Shoua" <monis@voltaire.com>,
+	"Jay Vosburgh" <fubar@us.ibm.com>, jeff@garzik.org,
+	"David Miller" <davem@davemloft.net>, ogerlitz@voltaire.com,
+	netdev@vger.kernel.org, "Moni Levy" <monil@voltaire.com>
+To: "Roland Dreier" <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from osl1smout1.broadpark.no ([80.202.4.58]:41787 "EHLO
-	osl1smout1.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762741AbXJMOtH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2007 10:49:07 -0400
-In-reply-to: <50601.129.240.228.53.1192194927.squirrel@webmail.uio.no>
+Received: from wa-out-1112.google.com ([209.85.146.181]:3544 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754799AbXJMPYK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2007 11:24:10 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so1348312wah
+        for <netdev@vger.kernel.org>; Sat, 13 Oct 2007 08:24:10 -0700 (PDT)
+In-Reply-To: <ada3awhcsnw.fsf@cisco.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Reading through my mail again, I see that I was a bit unclear. What I 
-want to achieve is to share a frag between to skbs (where one has no 
-earlier referance to it). Sorry.
+I will be near my lab only tomorrow...
+I will check this and let you know.
 
-kristrev@student.matnat.uio.no wrote:
->> If the underlying device can do scatter-gather and checksumming,
->> the TCP code builds outgoing packets by copying user date into
->> full system pages, and then attaching those pages into the SKB.
->> The protocol headers sit under the skb->data linear area, and
->> the user data mostly sits in the user pages under
->> skb_shinfo(skb)->frags[]
->>
->> This increases the density of data packed into the memory allocated
->> compared to using skb->data for it.  It also enormously simplifies
->> the logic necessary to support TSO.
->>     
+On 10/11/07, Roland Dreier <rdreier@cisco.com> wrote:
+>  > It happens only when ib interfaces are slaves of a bonding device.
+>  > I thought before that the stuck is in napi_disable() but it's almost right.
+>  > I put prints before and after call to napi_disable and see that it is called twice.
+>  > I'll try to investigate in this direction.
+>  >
+>  > ib0: stopping interface
+>  > ib0: before napi_disable
+>  > ib0: after napi_disable
+>  > ib0: downing ib_dev
+>  > ib0: All sends and receives done.
+>  > ib0: stopping interface
+>  > ib0: before napi_disable
 >
-> Thank you very much, I think I am starting to get it now and coming to
-> think of it this will make my patch much more elegant. I have spent the
-> day reading more code, and am wondering if something along the likes of
-> this piece of code will do what I want ("copy" the data from the next skb
-> in the retransmission queue into this skb):
+> Yes, two napi_disable()s in a row without a matching napi_enable()
+> will deadlock.  I guess the question is why the ipoib interface is
+> being stopped twice.
 >
-> //Do preliminary checks to see if the "new" packet will be within mss,
-> that this_skb->nr_frags + next_skb->nr_frags < MAX_SKB_FRAGS and so on
+> If you just take the net-2.6.24 tree (without bonding patches), does
+> bonding for ethernet interfaces work OK, or is there a similar problem
+> with double napi_disable()?  How about bonding of ethernet after this
+> batch of bonding patches?
 >
-> int i;
-> int this_frags = this_skb->nr_frags;
+>  - R.
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 >
-> for(i=0; i<next_skb->nr_frags; i++)
->         //Does the "copy"
->         this_skb->frags[this_frags + i] = next_skb->frags[i];
->
-> this_skb->data_len += next_skb->data_len;
-> this_skb->truesize += next_skb->data_len;
-> this_skb->nr_frags += next_skb->nr_frags;
->
-> //Update TSO?
->
-> By the way, am I correct in my assumption that one SKB's frags is stored
-> linearly in the frags-array? Or have I made a horrible misunderstanding?
-> :)
->
-> One of the things that I have yet to understand is the frag_list in the
-> skb_shared_info-struct. Does this contain all skb's that "use" this frag
-> and works as a sort of referance counter (frag won't be removed until the
-> variable is NULL and I have to append this_skb to the list), or is it
-> something else?
->
-> Thanks again for all help.
->
-> -Kristian
->
->   
-
