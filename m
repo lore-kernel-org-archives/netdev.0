@@ -1,59 +1,77 @@
-From: Ismail =?utf-8?q?D=C3=B6nmez?= <ismail@pardus.org.tr>
-Subject: Re: Bluetooth wireless mouse very sluggish when there is moderate network activity
-Date: Sat, 13 Oct 2007 17:15:25 +0300
-Message-ID: <200710131715.25193.ismail@pardus.org.tr>
-References: <200710131713.03345.ismail@pardus.org.tr>
+From: Kristian Evensen <kristrev@ifi.uio.no>
+Subject: Re: Non-linear SKBs
+Date: Sat, 13 Oct 2007 16:53:59 +0200
+Message-ID: <4710DC07.5070405@ifi.uio.no>
+References: <470EA9AD.4020304@ifi.uio.no>
+ <20071011.170024.38701852.davem@davemloft.net>
+ <50601.129.240.228.53.1192194927.squirrel@webmail.uio.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-net@vger.kernel.org
+To: kristrev@student.matnat.uio.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.uludag.org.tr ([193.140.100.220]:41071 "EHLO uludag.org.tr"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754276AbXJMOPL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2007 10:15:11 -0400
-In-Reply-To: <200710131713.03345.ismail@pardus.org.tr>
-Content-Disposition: inline
+Received: from osl1smout1.broadpark.no ([80.202.4.58]:41787 "EHLO
+	osl1smout1.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762741AbXJMOtH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2007 10:49:07 -0400
+In-reply-to: <50601.129.240.228.53.1192194927.squirrel@webmail.uio.no>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-s/moderated/moderate of course :-/
+Reading through my mail again, I see that I was a bit unclear. What I 
+want to achieve is to share a frag between to skbs (where one has no 
+earlier referance to it). Sorry.
 
-Saturday 13 October 2007 Tarihinde 17:13:03 yazm=C4=B1=C5=9Ft=C4=B1n=C4=
-=B1z:
-> Hi all,
+kristrev@student.matnat.uio.no wrote:
+>> If the underlying device can do scatter-gather and checksumming,
+>> the TCP code builds outgoing packets by copying user date into
+>> full system pages, and then attaching those pages into the SKB.
+>> The protocol headers sit under the skb->data linear area, and
+>> the user data mostly sits in the user pages under
+>> skb_shinfo(skb)->frags[]
+>>
+>> This increases the density of data packed into the memory allocated
+>> compared to using skb->data for it.  It also enormously simplifies
+>> the logic necessary to support TSO.
+>>     
 >
-> I got a Bluetooth wireless mouse identifed as,
+> Thank you very much, I think I am starting to get it now and coming to
+> think of it this will make my patch much more elegant. I have spent the
+> day reading more code, and am wondering if something along the likes of
+> this piece of code will do what I want ("copy" the data from the next skb
+> in the retransmission queue into this skb):
 >
-> input: Microsoft Microsoft=EF=BF=BD Wireless Notebook Presenter Mouse=
- 8000
-> as /devices/pci0000:00/0000:00:1d.1/usb3/3-1/3-1.3/3-1.3:1.0/input/in=
-put12
-> input: USB HID v1.11 Mouse [Microsoft Microsoft=EF=BF=BD Wireless Not=
-ebook
-> Presenter Mouse 8000] on usb-0000:00:1d.1-1.3
+> //Do preliminary checks to see if the "new" packet will be within mss,
+> that this_skb->nr_frags + next_skb->nr_frags < MAX_SKB_FRAGS and so on
 >
-> Problem is when there is a moderate traffic on wireless interface
-> (300-400k/s down 50-60k/up on 4Mbit) mouse is really sluggish. This i=
-s when
-> I am running ktorrent. If I stop the torrent download/upload its fine
-> again.
+> int i;
+> int this_frags = this_skb->nr_frags;
 >
-> Any idea how to debug this, or why it might be happening. Btw I confi=
-rmed
-> this behaviour on
+> for(i=0; i<next_skb->nr_frags; i++)
+>         //Does the "copy"
+>         this_skb->frags[this_frags + i] = next_skb->frags[i];
 >
-> kernel 2.8.18.8, 2.6.22, 2.6.23 and latest GIT tree.
+> this_skb->data_len += next_skb->data_len;
+> this_skb->truesize += next_skb->data_len;
+> this_skb->nr_frags += next_skb->nr_frags;
 >
-> P.S: If it matters I am using ipw3945 driver with 2.6.18 kernel and i=
-wl3945
-> with the newer ones.
+> //Update TSO?
 >
-> Regards,
-> ismail
+> By the way, am I correct in my assumption that one SKB's frags is stored
+> linearly in the frags-array? Or have I made a horrible misunderstanding?
+> :)
+>
+> One of the things that I have yet to understand is the frag_list in the
+> skb_shared_info-struct. Does this contain all skb's that "use" this frag
+> and works as a sort of referance counter (frag won't be removed until the
+> variable is NULL and I have to append this_skb to the list), or is it
+> something else?
+>
+> Thanks again for all help.
+>
+> -Kristian
+>
+>   
 
-
-
---=20
-=46aith is believing what you know isn't so -- Mark Twain
