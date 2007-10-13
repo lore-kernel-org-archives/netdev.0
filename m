@@ -1,82 +1,103 @@
-From: Emil Medve <Emilian.Medve@Freescale.com>
-Subject: [PATCH] [POWERPC] ucc_geth: Fix build break introduced by commit 09f75cd7bf13720738e6a196cc0107ce9a5bd5a0
-Date: Fri, 12 Oct 2007 18:26:28 -0500
-Message-ID: <1192231588-17516-1-git-send-email-Emilian.Medve@Freescale.com>
-Cc: Emil Medve <Emilian.Medve@Freescale.com>
-To: akpm@linux-foundation.org, jgarzik@pobox.com, leoli@Freescale.com,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:56750 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757355AbXJLXeP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 12 Oct 2007 19:34:15 -0400
-Sender: netdev-owner@vger.kernel.org
+From: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH]race between open and disconnect in	irda-usb
+Date: Sat, 13 Oct 2007 03:32:10 +0300
+Message-ID: <20071013003210.GA8187@sortiz.org>
+References: <200710121053.55829.oliver@neukum.org>
+Reply-To: Samuel Ortiz <samuel-jcdQHdrhKHMdnm+yROfE0A@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>,
+	Nick Fedchik <nick-UvdXiu2sajOKBXSJ/Qx0JQ@public.gmane.org>, irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	USB development list <linux-usb-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <200710121053.55829.oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=irda-users>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Sender: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-  CC      drivers/net/ucc_geth.o
-drivers/net/ucc_geth.c: In function 'ucc_geth_startup':
-drivers/net/ucc_geth.c:2614: warning: assignment makes integer from pointer without a cast
-drivers/net/ucc_geth.c:2651: warning: assignment makes integer from pointer without a cast
-drivers/net/ucc_geth.c: In function 'ucc_geth_rx':
-drivers/net/ucc_geth.c:3483: error: 'dev' undeclared (first use in this function)
-drivers/net/ucc_geth.c:3483: error: (Each undeclared identifier is reported only once
-drivers/net/ucc_geth.c:3483: error: for each function it appears in.)
-make[2]: *** [drivers/net/ucc_geth.o] Error 1
+Hi Oliver,
 
-Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
----
+On Fri, Oct 12, 2007 at 10:53:55AM +0200, Oliver Neukum wrote:
+> Hi,
+> 
+> it seems to me that irda_usb_net_open() must set self->netopen
+> under spinlock or disconnect() may fail to kill all URBs, if it is called
+> while an interface is opened.
+Makes sense, yes.
+I will push it upstream with my next IrDA update.
 
-Here is a convenient link for the culprit patch: http://git.kernel.org/?p=linux/kernel/git/jgarzik/netdev-2.6.git;a=commit;h=09f75cd7bf13720738e6a196cc0107ce9a5bd5a0
+Cheers,
+Samuel.
 
-netdev-2.6> scripts/checkpatch.pl 0001-POWERPC-ucc_geth-Fix-build-break-introduced-by-co.patch 
-Your patch has no obvious style problems and is ready for submission.
 
- drivers/net/ucc_geth.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+> Signed-off-by: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+> 
+> 	Regards
+> 		Oliver
+> 
+> ----
+> 
+> --- a/drivers/net/irda/irda-usb.c	2007-10-11 17:24:35.000000000 +0200
+> +++ b/drivers/net/irda/irda-usb.c	2007-10-11 17:30:30.000000000 +0200
+> @@ -1168,6 +1168,7 @@ static int stir421x_patch_device(struct 
+>  static int irda_usb_net_open(struct net_device *netdev)
+>  {
+>  	struct irda_usb_cb *self;
+> +	unsigned long flags;
+>  	char	hwname[16];
+>  	int i;
+>  	
+> @@ -1177,13 +1178,16 @@ static int irda_usb_net_open(struct net_
+>  	self = (struct irda_usb_cb *) netdev->priv;
+>  	IRDA_ASSERT(self != NULL, return -1;);
+>  
+> +	spin_lock_irqsave(&self->lock, flags);
+>  	/* Can only open the device if it's there */
+>  	if(!self->present) {
+> +		spin_unlock_irqrestore(&self->lock, flags);
+>  		IRDA_WARNING("%s(), device not present!\n", __FUNCTION__);
+>  		return -1;
+>  	}
+>  
+>  	if(self->needspatch) {
+> +		spin_unlock_irqrestore(&self->lock, flags);
+>  		IRDA_WARNING("%s(), device needs patch\n", __FUNCTION__) ;
+>  		return -EIO ;
+>  	}
+> @@ -1198,6 +1202,7 @@ static int irda_usb_net_open(struct net_
+>  	/* To do *before* submitting Rx urbs and starting net Tx queue
+>  	 * Jean II */
+>  	self->netopen = 1;
+> +	spin_unlock_irqrestore(&self->lock, flags);
+>  
+>  	/* 
+>  	 * Now that everything should be initialized properly,
+> 
+> 
+> -------------------------------------------------------------------------
+> This SF.net email is sponsored by: Splunk Inc.
+> Still grepping through log files to find problems?  Stop.
+> Now Search log events and configuration files using AJAX and a browser.
+> Download your FREE copy of Splunk now >> http://get.splunk.com/
+> _______________________________________________
+> irda-users mailing list
+> irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+> http://lists.sourceforge.net/lists/listinfo/irda-users
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index d00e7d4..c43d4d1 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -63,7 +63,7 @@
- #define UGETH_MSG_DEFAULT	(NETIF_MSG_IFUP << 1 ) - 1
- 
- void uec_set_ethtool_ops(struct net_device *netdev);
--	
-+
- static DEFINE_SPINLOCK(ugeth_lock);
- 
- static struct {
-@@ -3480,9 +3480,9 @@ static int ucc_geth_rx(struct ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit
- 				dev_kfree_skb_any(skb);
- 
- 			ugeth->rx_skbuff[rxQ][ugeth->skb_currx[rxQ]] = NULL;
--			dev->stats.rx_dropped++;
-+			ugeth->dev->stats.rx_dropped++;
- 		} else {
--			dev->stats.rx_packets++;
-+			ugeth->dev->stats.rx_packets++;
- 			howmany++;
- 
- 			/* Prep the skb for the packet */
-@@ -3491,7 +3491,7 @@ static int ucc_geth_rx(struct ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit
- 			/* Tell the skb what kind of packet this is */
- 			skb->protocol = eth_type_trans(skb, ugeth->dev);
- 
--			dev->stats.rx_bytes += length;
-+			ugeth->dev->stats.rx_bytes += length;
- 			/* Send the packet up the stack */
- #ifdef CONFIG_UGETH_NAPI
- 			netif_receive_skb(skb);
-@@ -3506,7 +3506,7 @@ static int ucc_geth_rx(struct ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit
- 		if (!skb) {
- 			if (netif_msg_rx_err(ugeth))
- 				ugeth_warn("%s: No Rx Data Buffer", __FUNCTION__);
--			dev->stats.rx_dropped++;
-+			ugeth->dev->stats.rx_dropped++;
- 			break;
- 		}
- 
--- 
-1.5.3.GIT
 
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >> http://get.splunk.com/
