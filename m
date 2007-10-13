@@ -1,58 +1,53 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [patch 8/8] ssb bus needs <linux/io.h>
-Date: Sat, 13 Oct 2007 14:31:31 +0200
-Message-ID: <20071013123414.647276232@mail.of.borg>
-References: <20071013123123.085686856@mail.of.borg>
-Cc: linux-m68k@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Michael Buesch <mb@bu3sch.de>
+From: Jean Delvare <khali@linux-fr.org>
+Subject: Re: [PATCH] Update function names in /proc/net/tcp documentation
+Date: Sat, 13 Oct 2007 14:43:00 +0200
+Message-ID: <20071013144300.08128901@hyperion.delvare>
+References: <20071012225426.2f866ae6@hyperion.delvare>
+	<470FFF9C.7040402@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from europa.telenet-ops.be ([195.130.137.75]:55428 "EHLO
-	europa.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756349AbXJMMfa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2007 08:35:30 -0400
-Content-Disposition: inline; filename=ssb-needs-linux-io.h.diff
+Received: from smtp-106-saturday.noc.nerim.net ([62.4.17.106]:4995 "EHLO
+	mallaury.nerim.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751627AbXJMMnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2007 08:43:03 -0400
+In-Reply-To: <470FFF9C.7040402@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ssb bus needs <linux/io.h>
+Hi Rick,
 
-linux/drivers/ssb/main.c: In function 'ssb_ssb_read16':
-linux/drivers/ssb/main.c:518: error: implicit declaration of function 'readw'
-linux/drivers/ssb/main.c: In function 'ssb_ssb_read32':
-linux/drivers/ssb/main.c:526: error: implicit declaration of function 'readl'
-linux/drivers/ssb/main.c: In function 'ssb_ssb_write16':
-linux/drivers/ssb/main.c:534: error: implicit declaration of function 'writew'
-linux/drivers/ssb/main.c: In function 'ssb_ssb_write32':
-linux/drivers/ssb/main.c:542: error: implicit declaration of function 'writel'
+On Fri, 12 Oct 2007 16:13:32 -0700, Rick Jones wrote:
+> Jean Delvare wrote:
+> > Update function name references to match the current code.
+> > 
+> > Signed-off-by: Jean Delvare <khali@linux-fr.org>
+> > ---
+> >  Documentation/networking/proc_net_tcp.txt |    4 ++--
+> >  1 file changed, 2 insertions(+), 2 deletions(-)
+> > 
+> > --- linux-2.6.23.orig/Documentation/networking/proc_net_tcp.txt	2007-02-04 19:44:54.000000000 +0100
+> > +++ linux-2.6.23/Documentation/networking/proc_net_tcp.txt	2007-10-12 22:50:15.000000000 +0200
+> > @@ -1,8 +1,8 @@
+> >  This document describes the interfaces /proc/net/tcp and /proc/net/tcp6.
+> >  
+> >  These /proc interfaces provide information about currently active TCP 
+> > -connections, and are implemented by tcp_get_info() in net/ipv4/tcp_ipv4.c and
+> > -tcp6_get_info() in net/ipv6/tcp_ipv6.c, respectively.
+> > +connections, and are implemented by tcp4_seq_show() in net/ipv4/tcp_ipv4.c
+> > +and tcp6_seq_show() in net/ipv6/tcp_ipv6.c, respectively.
+> >  
+> >  It will first list all listening TCP sockets, and next list all established
+> >  TCP connections. A typical entry of /proc/net/tcp would look like this (split 
+> 
+> /proc/net/[tcp|tcp6] are deprecated now right?  Perhaps there should be 
+> something to that effect added to the txt.
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
- drivers/ssb/main.c |    1 +
- 1 file changed, 1 insertion(+)
-
---- a/drivers/ssb/main.c
-+++ b/drivers/ssb/main.c
-@@ -11,6 +11,7 @@
- #include "ssb_private.h"
- 
- #include <linux/delay.h>
-+#include <linux/io.h>
- #include <linux/ssb/ssb.h>
- #include <linux/ssb/ssb_regs.h>
- #include <linux/dma-mapping.h>
+I didn't know that, sorry. What is the new interface to access the
+TCP information?
 
 -- 
-Gr{oetje,eeting}s,
-
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
-
+Jean Delvare
