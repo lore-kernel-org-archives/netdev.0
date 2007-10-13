@@ -1,33 +1,52 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: Bonding support for eth1394?
-Date: Sat, 13 Oct 2007 08:34:44 -0700
-Message-ID: <adair5bm3jf.fsf@cisco.com>
-References: <FFB081ED-646B-489D-8836-FBA619A57E3E@gmail.com>
-	<47106EDE.1090601@s5r6.in-berlin.de>
+From: Florin Malita <fmalita@gmail.com>
+Subject: [PATCH] tehuti: possible leak in bdx_probe
+Date: Sat, 13 Oct 2007 13:03:38 -0400
+Message-ID: <4710FA6A.2070902@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Karl Svec <karlsvec@gmail.com>,
-	linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org
+To: baum@tehutinetworks.net, andy@greyhouse.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-1-in.cisco.com ([171.71.176.70]:25202 "EHLO
-	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751338AbXJMPeq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2007 11:34:46 -0400
-In-Reply-To: <47106EDE.1090601@s5r6.in-berlin.de> (Stefan Richter's message of "Sat, 13 Oct 2007 09:08:14 +0200")
+Received: from wr-out-0506.google.com ([64.233.184.225]:12111 "EHLO
+	wr-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750944AbXJMRFa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2007 13:05:30 -0400
+Received: by wr-out-0506.google.com with SMTP id 36so652521wra
+        for <netdev@vger.kernel.org>; Sat, 13 Oct 2007 10:05:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- > The bonding sources have a few occurrences of EOPNOTSUPP.  Unless I
- > missed something, they are all related to setting the hardware address
- > of the interface.  AFAICS this is impossible with IP over FireWire.  If
- > it is crucial to bonding to be able to change the slaves' hardware
- > addresses, then you are out of luck.
+If pci_enable_device fails, bdx_probe returns without freeing the 
+allocated pci_nic structure.
 
-There are a few changes to the bonding driver pending that will add
-support for bonding IP-over-InfiniBand interfaces.  IPoIB also cannot
-change its HW address, so the patches address that issue.
+Coverity CID 1908.
 
-Once those patches land, bonding eth1394 interfaces may "just work".
+Signed-off-by: Florin Malita <fmalita@gmail.com>
+---
 
- - R.
+ drivers/net/tehuti.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/tehuti.c b/drivers/net/tehuti.c
+index 8d04654..4e1b84e 100644
+--- a/drivers/net/tehuti.c
++++ b/drivers/net/tehuti.c
+@@ -1906,7 +1906,7 @@ bdx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+     /************** pci *****************/
+ 	if ((err = pci_enable_device(pdev)))	/* it trigers interrupt, dunno why. */
+-		RET(err);			/* it's not a problem though */
++		goto err_pci;			/* it's not a problem though */
+ 
+ 	if (!(err = pci_set_dma_mask(pdev, DMA_64BIT_MASK)) &&
+ 	    !(err = pci_set_consistent_dma_mask(pdev, DMA_64BIT_MASK))) {
+@@ -2076,6 +2076,7 @@ err_out_res:
+ 	pci_release_regions(pdev);
+ err_dma:
+ 	pci_disable_device(pdev);
++err_pci:
+ 	vfree(nic);
+ 
+ 	RET(err);
+
