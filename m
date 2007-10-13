@@ -1,47 +1,79 @@
-From: Oleg Nesterov <oleg@tv-sign.ru>
-Subject: Re: 2.6.23-mm1 thread exit_group issue
-Date: Sat, 13 Oct 2007 16:02:30 +0400
-Message-ID: <20071013120230.GA130@tv-sign.ru>
-References: <20071011213126.cf92efb7.akpm@linux-foundation.org> <20071012140328.f82af8e8.kamezawa.hiroyu@jp.fujitsu.com> <20071011234202.2f15bb76.akpm@linux-foundation.org> <20071012064658.GA8181@ftp.linux.org.uk> <20071012001325.ba02a6f0.akpm@linux-foundation.org> <20071012194759.GA31733@Krystal> <20071012180349.b4b4c2c3.akpm@linux-foundation.org> <20071013114820.GA121@tv-sign.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	viro@ftp.linux.org.uk, kamezawa.hiroyu@jp.fujitsu.com,
-	linux-kernel@vger.kernel.org, sam@ravnborg.org,
-	netdev@vger.kernel.org, Pavel Emelyanov <xemul@openvz.org>,
-	Sukadev Bhattiprolu <sukadev@us.ibm.com>,
-	Paul Menage <menage@google.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1762186AbXJML6U@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20071013114820.GA121@tv-sign.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [patch 6/8] m68k: fix net drivers after recent get_stats updates
+Date: Sat, 13 Oct 2007 14:31:29 +0200
+Message-ID: <20071013123413.910864776@mail.of.borg>
+References: <20071013123123.085686856@mail.of.borg>
+Cc: linux-m68k@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ananke.telenet-ops.be ([195.130.137.78]:54092 "EHLO
+	ananke.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754826AbXJMMf2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2007 08:35:28 -0400
+Content-Disposition: inline; filename=m68k-net-fixes.diff
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/13, Oleg Nesterov wrote:
->
-> On 10/12, Andrew Morton wrote:
-> >
-> > Bisection shows that this problem is caused by these two patches:
-> >
-> > pid-namespaces-allow-cloning-of-new-namespace.patch
-> 
-> This? http://marc.info/?l=linux-mm-commits&m=118712242002039
-> 
-> Pavel, this patch has a subtle difference compared to what we discussed on
-> containers list. It moves put_user(parent_tidptr) from copy_process() to
-> do_fork(), so we don't report child's pid if copy_process() failed. I do
-> not think this is bad, but Eric seems to disagree with such a change.
-> 
-> But I can't understand why Andrew sees the same problem _after_ this patch!
->
-> And which patch removed the "put_user(nr, parent_tidptr)" chunk?
+m68k: fix net drivers after recent get_stats updates
 
-Aha. I am looking at
-	ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.23/2.6.23-mm1/broken-out/pid-namespaces-allow-cloning-of-new-namespace.patch
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ drivers/net/macmace.c |    6 +++---
+ drivers/net/mvme147.c |    1 -
+ 2 files changed, 3 insertions(+), 4 deletions(-)
 
-Looks like the original patch was damaged somehow, it doesn't have the
-"put_user(nr, parent_tidptr)" code.
+--- a/drivers/net/macmace.c
++++ b/drivers/net/macmace.c
+@@ -538,8 +538,9 @@ static void mace_set_multicast(struct ne
+ 	local_irq_restore(flags);
+ }
+ 
+-static void mace_handle_misc_intrs(struct mace_data *mp, int intr)
++static void mace_handle_misc_intrs(struct net_device *dev, int intr)
+ {
++	struct mace_data *mp = netdev_priv(dev);
+ 	volatile struct mace *mb = mp->mace;
+ 	static int mace_babbles, mace_jabbers;
+ 
+@@ -571,7 +572,7 @@ static irqreturn_t mace_interrupt(int ir
+ 	local_irq_save(flags);
+ 
+ 	intr = mb->ir; /* read interrupt register */
+-	mace_handle_misc_intrs(mp, intr);
++	mace_handle_misc_intrs(dev, intr);
+ 
+ 	if (intr & XMTINT) {
+ 		fs = mb->xmtfs;
+@@ -645,7 +646,6 @@ static void mace_tx_timeout(struct net_d
+ 
+ static void mace_dma_rx_frame(struct net_device *dev, struct mace_frame *mf)
+ {
+-	struct mace_data *mp = netdev_priv(dev);
+ 	struct sk_buff *skb;
+ 	unsigned int frame_status = mf->rcvsts;
+ 
+--- a/drivers/net/mvme147.c
++++ b/drivers/net/mvme147.c
+@@ -85,7 +85,6 @@ struct net_device * __init mvme147lance_
+ 	dev->open = &m147lance_open;
+ 	dev->stop = &m147lance_close;
+ 	dev->hard_start_xmit = &lance_start_xmit;
+-	dev->get_stats = &lance_get_stats;
+ 	dev->set_multicast_list = &lance_set_multicast;
+ 	dev->tx_timeout = &lance_tx_timeout;
+ 	dev->dma = 0;
 
-Oleg.
+-- 
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
+
