@@ -1,7 +1,7 @@
 From: KOVACS Krisztian <hidden@sch.bme.hu>
-Subject: [PATCH 11/14] iptables TPROXY target
-Date: Sat, 13 Oct 2007 19:34:38 +0200
-Message-ID: <20071013173438.22517.36232.stgit@nessa.odu>
+Subject: [PATCH 14/14] Add documentation
+Date: Sat, 13 Oct 2007 19:36:11 +0200
+Message-ID: <20071013173611.22517.58118.stgit@nessa.odu>
 References: <20071013172857.22517.84760.stgit@nessa.odu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -11,205 +11,90 @@ To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from balu.sch.bme.hu ([152.66.208.40]:58852 "EHLO balu.sch.bme.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755778AbXJMRi5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Oct 2007 13:38:57 -0400
+	id S1756581AbXJMRjD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Oct 2007 13:39:03 -0400
 Received: from nessa.odu ([152.66.208.5])
  by balu.sch.bme.hu (Sun Java System Messaging Server 6.2-7.05 (built Sep  5
- 2006)) with ESMTP id <0JPV00DZ722R9X10@balu.sch.bme.hu> for
- netdev@vger.kernel.org; Sat, 13 Oct 2007 19:32:51 +0200 (CEST)
+ 2006)) with ESMTP id <0JPV00A5T25CGO30@balu.sch.bme.hu> for
+ netdev@vger.kernel.org; Sat, 13 Oct 2007 19:34:24 +0200 (CEST)
 In-reply-to: <20071013172857.22517.84760.stgit@nessa.odu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The TPROXY target implements redirection of non-local TCP/UDP traffic to local
-sockets. Additionally, it's possible to manipulate the packet mark if and only
-if a socket has been found. (We need this because we cannot use multiple
-targets in the same iptables rule.)
+Add basic usage instructions to Documentation/networking.
 
-Signed-off-by: Jan Engelhardt <jengelh@computergmbh.de>
 Signed-off-by: KOVACS Krisztian <hidden@sch.bme.hu>
 ---
 
- include/linux/netfilter/xt_TPROXY.h |   14 ++++
- net/netfilter/Kconfig               |   14 ++++
- net/netfilter/Makefile              |    1 
- net/netfilter/xt_TPROXY.c           |  113 +++++++++++++++++++++++++++++++++++
- 4 files changed, 142 insertions(+), 0 deletions(-)
+ Documentation/networking/tproxy.txt |   62 +++++++++++++++++++++++++++++++++++
+ 1 files changed, 62 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/netfilter/xt_TPROXY.h b/include/linux/netfilter/xt_TPROXY.h
+diff --git a/Documentation/networking/tproxy.txt b/Documentation/networking/tproxy.txt
 new file mode 100644
-index 0000000..152e8f9
+index 0000000..dfcb613
 --- /dev/null
-+++ b/include/linux/netfilter/xt_TPROXY.h
-@@ -0,0 +1,14 @@
-+#ifndef _XT_TPROXY_H_target
-+#define _XT_TPROXY_H_target
++++ b/Documentation/networking/tproxy.txt
+@@ -0,0 +1,62 @@
++Transparent proxy support
++=========================
 +
-+/* TPROXY target is capable of marking the packet to perform
-+ * redirection. We can get rid of that whenever we get support for
-+ * mutliple targets in the same rule. */
-+struct xt_tproxy_target_info {
-+	u_int32_t mark_mask;
-+	u_int32_t mark_value;
-+	__be32 laddr;
-+	__be16 lport;
-+};
++This feature adds Linux 2.2-like transparent proxy support to current kernels.
++To use it, enable NETFILTER_TPROXY, the socket match and the TPROXY target in
++your kernel config. You will need policy routing too, so be sure to enable that
++as well.
 +
-+#endif /* _XT_TPROXY_H_target */
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 47976b5..c80f08a 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -366,6 +366,20 @@ config NETFILTER_XT_TARGET_NOTRACK
- 	  If you want to compile it as a module, say M here and read
- 	  <file:Documentation/kbuild/modules.txt>.  If unsure, say `N'.
- 
-+config NETFILTER_XT_TARGET_TPROXY
-+	tristate '"TPROXY" target support (EXPERIMENTAL)'
-+	depends on EXPERIMENTAL
-+	depends on NETFILTER_TPROXY
-+	depends on NETFILTER_XTABLES
-+	select NF_DEFRAG_IPV4
-+	help
-+	  This option adds a `TPROXY' target, which is somewhat similar to
-+	  REDIRECT.  It can only be used in the mangle table and is useful
-+	  to redirect traffic to a transparent proxy.  It does _not_ depend
-+	  on Netfilter connection tracking and NAT, unlike REDIRECT.
++1. Making non-local sockets work
++================================
 +
-+	  To compile it as a module, choose M here.  If unsure, say N.
++The idea is that you identify packets with destination address matching a local
++socket your box, set the packet mark to a certain value, and then match on that
++value using policy routing to have those packets delivered locally:
 +
- config NETFILTER_XT_TARGET_TRACE
- 	tristate  '"TRACE" target support'
- 	depends on NETFILTER_XTABLES
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 2303ef3..4af92fe 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -50,6 +50,7 @@ obj-$(CONFIG_NETFILTER_XT_TARGET_NFLOG) += xt_NFLOG.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_NOTRACK) += xt_NOTRACK.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_TRACE) += xt_TRACE.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_SECMARK) += xt_SECMARK.o
-+obj-$(CONFIG_NETFILTER_XT_TARGET_TPROXY) += xt_TPROXY.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_TCPMSS) += xt_TCPMSS.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_CONNSECMARK) += xt_CONNSECMARK.o
- 
-diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
-new file mode 100644
-index 0000000..9222a8f
---- /dev/null
-+++ b/net/netfilter/xt_TPROXY.c
-@@ -0,0 +1,113 @@
-+/*
-+ * Transparent proxy support for Linux/iptables
-+ *
-+ * Copyright (c) 2006-2007 BalaBit IT Ltd.
-+ * Author: Balazs Scheidler, Krisztian Kovacs
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ *
-+ */
++# iptables -t mangle -N DIVERT
++# iptables -t mangle -A PREROUTING -p tcp -m socket -j DIVERT
++# iptables -t mangle -A DIVERT -j MARK --set-mark 1
++# iptables -t mangle -A DIVERT -j ACCEPT
 +
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/ip.h>
-+#include <net/checksum.h>
-+#include <net/udp.h>
-+#include <net/inet_sock.h>
++# ip rule add fwmark 1 lookup 100
++# ip route add local 0.0.0.0/0 dev lo table 100
 +
-+#include <linux/netfilter/x_tables.h>
-+#include <linux/netfilter_ipv4/ip_tables.h>
-+#include <linux/netfilter/xt_TPROXY.h>
++Because of certain restrictions in the IPv4 routing output code you'll have to
++modify your application to allow it sending datagrams _from_ non-local IP
++addresses. All you have to do is to enable the (SOL_IP, IP_TRANSPARENT) socket
++option before calling bind:
 +
-+#include <net/netfilter/ipv4/nf_defrag_ipv4.h>
-+#include <net/netfilter/nf_tproxy_core.h>
++fd = socket(AF_INET, SOCK_STREAM, 0);
++/* - 8< -*/
++int value = 1;
++setsockopt(fd, SOL_IP, IP_TRANSPARENT, &value, sizeof(value));
++/* - 8< -*/
++name.sin_family = AF_INET;
++name.sin_port = htons(0xCAFE);
++name.sin_addr.s_addr = htonl(0xDEADBEEF);
++bind(fd, &name, sizeof(name));
 +
-+static unsigned int
-+xt_tproxy_target(struct sk_buff **pskb,
-+		 const struct net_device *in,
-+		 const struct net_device *out,
-+		 unsigned int hooknum,
-+		 const struct xt_target *target,
-+		 const void *targinfo)
-+{
-+	const struct iphdr *iph = ip_hdr(*pskb);
-+	const struct xt_tproxy_target_info *tgi = targinfo;
-+	struct sk_buff *skb = *pskb;
-+	struct udphdr _hdr, *hp;
-+	struct sock *sk;
++A trivial patch for netcat is available here:
++http://people.netfilter.org/hidden/tproxy/netcat-ip_transparent-support.patch
 +
-+	hp = skb_header_pointer(*pskb, ip_hdrlen(skb), sizeof(_hdr), &_hdr);
-+	if (hp == NULL)
-+		return NF_DROP;
 +
-+	sk = nf_tproxy_get_sock_v4(iph->protocol,
-+				   iph->saddr, tgi->laddr ? tgi->laddr : iph->daddr,
-+				   hp->source, tgi->lport ? tgi->lport : hp->dest,
-+				   in, true);
++2. Redirecting traffic
++======================
 +
-+	/* NOTE: assign_sock consumes our sk reference */
-+	if (sk && nf_tproxy_assign_sock(skb, sk)) {
-+		/* This should be in a separate target, but we don't do multiple
-+		   targets on the same rule yet */
-+		skb->mark = (skb->mark & ~tgi->mark_mask) ^ tgi->mark_value;
++Transparent proxying often involves "intercepting" traffic on a router. This is
++usually done with the iptables REDIRECT target, however, there are serious
++limitations of that method. One of the major issues is that it actually
++modifies the packets to change the destination address -- which might not be
++acceptable in certain situations. (Think of proxying UDP for example: you won't
++be able to find out the original destination address. Even in case of TCP
++getting the original destination address is racy.)
 +
-+		pr_debug("redirecting: proto %u %08x:%u -> %08x:%u, mark: %x\n",
-+			 iph->protocol, ntohl(iph->daddr), ntohs(hp->dest),
-+			 ntohl(tgi->laddr), ntohs(tgi->lport), skb->mark);
-+		return NF_ACCEPT;
-+	}
++The 'TPROXY' target provides similar functionality without relying on NAT. Simply
++add rules like this to the iptables ruleset above:
 +
-+	pr_debug("no socket, dropping: proto %u %08x:%u -> %08x:%u, mark: %x\n",
-+		 iph->protocol, ntohl(iph->daddr), ntohs(hp->dest),
-+		 ntohl(tgi->laddr), ntohs(tgi->lport), skb->mark);
-+	return NF_DROP;
-+}
++# iptables -t mangle -A PREROUTING -p tcp --dport 80 -j TPROXY \
++  --tproxy-mark 0x1/0x1 --on-port 50080
 +
-+static bool
-+xt_tproxy_checkentry(const char *tablename,
-+		     const void *entry,
-+		     const struct xt_target *target,
-+		     void *targetinfo,
-+		     unsigned int hook_mask)
-+{
-+	const struct ipt_ip *i = entry;
++Note that for this to work you'll have to modify the proxy to enable (SOL_IP,
++IP_TRANSPARENT) for the listening socket.
 +
-+	if ((i->proto == IPPROTO_TCP || i->proto == IPPROTO_UDP)
-+	    && !(i->invflags & IPT_INV_PROTO))
-+		return true;
-+
-+	pr_info("xt_TPROXY: Can be used only in combination with "
-+		"either -p tcp or -p udp\n");
-+	return false;
-+}
-+
-+static struct xt_target xt_tproxy_reg __read_mostly = {
-+	.name		= "TPROXY",
-+	.family		= AF_INET,
-+	.table		= "mangle",
-+	.target		= xt_tproxy_target,
-+	.targetsize	= sizeof(struct xt_tproxy_target_info),
-+	.checkentry	= xt_tproxy_checkentry,
-+	.hooks		= 1 << NF_IP_PRE_ROUTING,
-+	.me		= THIS_MODULE,
-+};
-+
-+static int __init xt_tproxy_init(void)
-+{
-+	nf_defrag_ipv4_enable();
-+	return xt_register_target(&xt_tproxy_reg);
-+}
-+
-+static void __exit xt_tproxy_fini(void)
-+{
-+	xt_unregister_target(&xt_tproxy_reg);
-+}
-+
-+module_init(xt_tproxy_init);
-+module_exit(xt_tproxy_fini);
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Krisztian Kovacs");
-+MODULE_DESCRIPTION("Netfilter transparent proxy (TPROXY) target module.");
-+MODULE_ALIAS("ipt_TPROXY");
 
