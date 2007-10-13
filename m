@@ -1,69 +1,48 @@
 From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [patch 6/8] m68k: fix net drivers after recent get_stats updates
-Date: Sat, 13 Oct 2007 14:31:29 +0200
-Message-ID: <20071013123413.910864776@mail.of.borg>
+Subject: [patch 8/8] ssb bus needs <linux/io.h>
+Date: Sat, 13 Oct 2007 14:31:31 +0200
+Message-ID: <20071013123414.647276232@mail.of.borg>
 References: <20071013123123.085686856@mail.of.borg>
 Cc: linux-m68k@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+	netdev@vger.kernel.org
 To: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>
+	Andrew Morton <akpm@linux-foundation.org>,
+	Michael Buesch <mb@bu3sch.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ananke.telenet-ops.be ([195.130.137.78]:54092 "EHLO
-	ananke.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754826AbXJMMf2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2007 08:35:28 -0400
-Content-Disposition: inline; filename=m68k-net-fixes.diff
+Received: from europa.telenet-ops.be ([195.130.137.75]:55428 "EHLO
+	europa.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756349AbXJMMfa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2007 08:35:30 -0400
+Content-Disposition: inline; filename=ssb-needs-linux-io.h.diff
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-m68k: fix net drivers after recent get_stats updates
+ssb bus needs <linux/io.h>
+
+linux/drivers/ssb/main.c: In function 'ssb_ssb_read16':
+linux/drivers/ssb/main.c:518: error: implicit declaration of function 'readw'
+linux/drivers/ssb/main.c: In function 'ssb_ssb_read32':
+linux/drivers/ssb/main.c:526: error: implicit declaration of function 'readl'
+linux/drivers/ssb/main.c: In function 'ssb_ssb_write16':
+linux/drivers/ssb/main.c:534: error: implicit declaration of function 'writew'
+linux/drivers/ssb/main.c: In function 'ssb_ssb_write32':
+linux/drivers/ssb/main.c:542: error: implicit declaration of function 'writel'
 
 Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 ---
- drivers/net/macmace.c |    6 +++---
- drivers/net/mvme147.c |    1 -
- 2 files changed, 3 insertions(+), 4 deletions(-)
+ drivers/ssb/main.c |    1 +
+ 1 file changed, 1 insertion(+)
 
---- a/drivers/net/macmace.c
-+++ b/drivers/net/macmace.c
-@@ -538,8 +538,9 @@ static void mace_set_multicast(struct ne
- 	local_irq_restore(flags);
- }
+--- a/drivers/ssb/main.c
++++ b/drivers/ssb/main.c
+@@ -11,6 +11,7 @@
+ #include "ssb_private.h"
  
--static void mace_handle_misc_intrs(struct mace_data *mp, int intr)
-+static void mace_handle_misc_intrs(struct net_device *dev, int intr)
- {
-+	struct mace_data *mp = netdev_priv(dev);
- 	volatile struct mace *mb = mp->mace;
- 	static int mace_babbles, mace_jabbers;
- 
-@@ -571,7 +572,7 @@ static irqreturn_t mace_interrupt(int ir
- 	local_irq_save(flags);
- 
- 	intr = mb->ir; /* read interrupt register */
--	mace_handle_misc_intrs(mp, intr);
-+	mace_handle_misc_intrs(dev, intr);
- 
- 	if (intr & XMTINT) {
- 		fs = mb->xmtfs;
-@@ -645,7 +646,6 @@ static void mace_tx_timeout(struct net_d
- 
- static void mace_dma_rx_frame(struct net_device *dev, struct mace_frame *mf)
- {
--	struct mace_data *mp = netdev_priv(dev);
- 	struct sk_buff *skb;
- 	unsigned int frame_status = mf->rcvsts;
- 
---- a/drivers/net/mvme147.c
-+++ b/drivers/net/mvme147.c
-@@ -85,7 +85,6 @@ struct net_device * __init mvme147lance_
- 	dev->open = &m147lance_open;
- 	dev->stop = &m147lance_close;
- 	dev->hard_start_xmit = &lance_start_xmit;
--	dev->get_stats = &lance_get_stats;
- 	dev->set_multicast_list = &lance_set_multicast;
- 	dev->tx_timeout = &lance_tx_timeout;
- 	dev->dma = 0;
+ #include <linux/delay.h>
++#include <linux/io.h>
+ #include <linux/ssb/ssb.h>
+ #include <linux/ssb/ssb_regs.h>
+ #include <linux/dma-mapping.h>
 
 -- 
 Gr{oetje,eeting}s,
