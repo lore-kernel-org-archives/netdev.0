@@ -1,106 +1,51 @@
-From: Oleg Nesterov <oleg@tv-sign.ru>
-Subject: Re: 2.6.23-mm1 thread exit_group issue
-Date: Sat, 13 Oct 2007 15:48:20 +0400
-Message-ID: <20071013114820.GA121@tv-sign.ru>
-References: <20071011213126.cf92efb7.akpm@linux-foundation.org> <20071012140328.f82af8e8.kamezawa.hiroyu@jp.fujitsu.com> <20071011234202.2f15bb76.akpm@linux-foundation.org> <20071012064658.GA8181@ftp.linux.org.uk> <20071012001325.ba02a6f0.akpm@linux-foundation.org> <20071012194759.GA31733@Krystal> <20071012180349.b4b4c2c3.akpm@linux-foundation.org>
+From: Ismail =?utf-8?q?D=C3=B6nmez?= <ismail@pardus.org.tr>
+Subject: Bluetooth wireless mouse very sluggish when there is moderated network activity
+Date: Sat, 13 Oct 2007 17:13:03 +0300
+Message-ID: <200710131713.03345.ismail@pardus.org.tr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>,
-	viro@ftp.linux.org.uk, kamezawa.hiroyu@jp.fujitsu.com,
-	linux-kernel@vger.kernel.org, sam@ravnborg.org,
-	netdev@vger.kernel.org, Pavel Emelyanov <xemul@openvz.org>,
-	Sukadev Bhattiprolu <sukadev@us.ibm.com>,
-	Paul Menage <menage@google.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from x346.tv-sign.ru ([89.108.83.215]:41611 "EHLO mail.screens.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752338AbXJMNDx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Oct 2007 09:03:53 -0400
+Received: from ns2.uludag.org.tr ([193.140.100.220]:40992 "EHLO uludag.org.tr"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754171AbXJMOMx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2007 10:12:53 -0400
 Content-Disposition: inline
-In-Reply-To: <20071012180349.b4b4c2c3.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/12, Andrew Morton wrote:
->
-> On Fri, 12 Oct 2007 15:47:59 -0400
-> Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca> wrote:
-> 
-> > Hi Andrew,
-> > 
-> > I noticed a regression between 2.6.23-rc8-mm2 and 2.6.23-mm1 (with your
-> > hotfixes). User space threads seems to receive a ERESTART_RESTARTBLOCK
-> > as soon as a thread does a pthread_join on them. The previous behavior
-> > was to wait for them to exit by taking a futex.
+Hi all,
 
-No, the reason is that pthread_join() succeeds while it shouldn't. The main
-thread does exit_group() and kills the sub-thread sleeping in nanosleep.
-ERESTART_RESTARTBLOCK is not delivered to the user-space (sub-thread is dying),
-it is just reported by gdb.
+I got a Bluetooth wireless mouse identifed as,
 
-> > I provide a toy program that shows the problem. On 2.6.23-rc8-mm2, it
-> > loops forever (as it should). On 2.6.23-mm1, it exits after 10 seconds.
+input: Microsoft Microsoft=EF=BF=BD Wireless Notebook Presenter Mouse 8=
+000=20
+as /devices/pci0000:00/0000:00:1d.1/usb3/3-1/3-1.3/3-1.3:1.0/input/inpu=
+t12
+input: USB HID v1.11 Mouse [Microsoft Microsoft=EF=BF=BD Wireless Noteb=
+ook Presenter=20
+Mouse 8000] on usb-0000:00:1d.1-1.3
 
-I bet something like this
+Problem is when there is a moderate traffic on wireless interface (300-=
+400k/s=20
+down 50-60k/up on 4Mbit) mouse is really sluggish. This is when I am ru=
+nning=20
+ktorrent. If I stop the torrent download/upload its fine again.
 
-	void *threda(void *arg)
-	{
-		for (;;)
-			pause();
-		return NULL;
-	}
+Any idea how to debug this, or why it might be happening. Btw I confirm=
+ed this=20
+behaviour on
 
-	int main(void)
-	{
-		pthread_t tid;
+kernel 2.8.18.8, 2.6.22, 2.6.23 and latest GIT tree.
 
-		pthread_create(&tid, NULL, thread, NULL);
-		pthread_join(tid, NULL);
+P.S: If it matters I am using ipw3945 driver with 2.6.18 kernel and iwl=
+3945=20
+with the newer ones.
 
-		return 0;
-	}
+Regards,
+ismail
 
-won't work as well.
-
-> > Any idea on what may cause this problem ?
-
-Because do_fork() doesn't use parent_tidptr. At all! So it is very clear
-why 2.6.23-mm1 is broken.
-
-> Bisection shows that this problem is caused by these two patches:
->
-> pid-namespaces-allow-cloning-of-new-namespace.patch
-
-This? http://marc.info/?l=linux-mm-commits&m=118712242002039
-
-Pavel, this patch has a subtle difference compared to what we discussed on
-containers list. It moves put_user(parent_tidptr) from copy_process() to
-do_fork(), so we don't report child's pid if copy_process() failed. I do
-not think this is bad, but Eric seems to disagree with such a change.
-
-But I can't understand why Andrew sees the same problem _after_ this patch!
-
-And which patch removed the "put_user(nr, parent_tidptr)" chunk?
-
-Andrew, could I get the kernel source after bisection somehow? (I am not
-familiar with guilt, will try to study it later)
-
-Mathieu, could you try the patch below?
-
-Oleg.
-
---- kernel/fork.c~	2007-10-13 15:41:35.000000000 +0400
-+++ kernel/fork.c	2007-10-13 15:41:41.000000000 +0400
-@@ -1443,6 +1443,9 @@ long do_fork(unsigned long clone_flags,
- 			task_pid_nr_ns(p, current->nsproxy->pid_ns) :
- 				task_pid_vnr(p);
- 
-+		if (clone_flags & CLONE_PARENT_SETTID)
-+			put_user(nr, parent_tidptr);
-+
- 		if (clone_flags & CLONE_VFORK) {
- 			p->vfork_done = &vfork;
- 			init_completion(&vfork);
-
+--=20
+=46aith is believing what you know isn't so -- Mark Twain
