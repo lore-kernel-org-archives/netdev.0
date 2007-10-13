@@ -1,7 +1,7 @@
 From: KOVACS Krisztian <hidden@sch.bme.hu>
-Subject: [PATCH 09/14] iptables tproxy core
-Date: Sat, 13 Oct 2007 19:33:37 +0200
-Message-ID: <20071013173337.22517.8230.stgit@nessa.odu>
+Subject: [PATCH 06/14] Port redirection support for TCP
+Date: Sat, 13 Oct 2007 19:32:04 +0200
+Message-ID: <20071013173204.22517.35523.stgit@nessa.odu>
 References: <20071013172857.22517.84760.stgit@nessa.odu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -11,204 +11,98 @@ To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from balu.sch.bme.hu ([152.66.208.40]:45511 "EHLO balu.sch.bme.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761780AbXJMSjy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 13 Oct 2007 14:39:54 -0400
+	id S1761344AbXJMSjs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 13 Oct 2007 14:39:48 -0400
 Received: from nessa.odu ([152.66.208.5])
  by balu.sch.bme.hu (Sun Java System Messaging Server 6.2-7.05 (built Sep  5
- 2006)) with ESMTP id <0JPV009JA212Z830@balu.sch.bme.hu> for
- netdev@vger.kernel.org; Sat, 13 Oct 2007 19:31:50 +0200 (CEST)
+ 2006)) with ESMTP id <0JPV009GJ1YHZ930@balu.sch.bme.hu> for
+ netdev@vger.kernel.org; Sat, 13 Oct 2007 19:30:18 +0200 (CEST)
 In-reply-to: <20071013172857.22517.84760.stgit@nessa.odu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The iptables tproxy core is a module that contains the common routines used by
-various tproxy related modules (TPROXY target and socket match)
+Current TCP code relies on the local port of the listening socket
+being the same as the destination address of the incoming
+connection. Port redirection used by many transparent proxying
+techniques obviously breaks this, so we have to store the original
+destination port address.
+
+This patch extends struct inet_request_sock and stores the incoming
+destination port value there. It also modifies the handshake code to
+use that value as the source port when sending reply packets.
 
 Signed-off-by: KOVACS Krisztian <hidden@sch.bme.hu>
 ---
 
- include/net/netfilter/nf_tproxy_core.h |   32 +++++++++++
- net/netfilter/Kconfig                  |   13 ++++
- net/netfilter/Makefile                 |    3 +
- net/netfilter/nf_tproxy_core.c         |   96 ++++++++++++++++++++++++++++++++
- 4 files changed, 144 insertions(+), 0 deletions(-)
+ include/net/inet_sock.h         |    2 +-
+ include/net/tcp.h               |    1 +
+ net/ipv4/inet_connection_sock.c |    2 ++
+ net/ipv4/syncookies.c           |    1 +
+ net/ipv4/tcp_output.c           |    2 +-
+ 5 files changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tproxy_core.h b/include/net/netfilter/nf_tproxy_core.h
-new file mode 100644
-index 0000000..2fac3ad
---- /dev/null
-+++ b/include/net/netfilter/nf_tproxy_core.h
-@@ -0,0 +1,32 @@
-+#ifndef _NF_TPROXY_CORE_H
-+#define _NF_TPROXY_CORE_H
-+
-+#include <linux/types.h>
-+#include <linux/in.h>
-+#include <linux/skbuff.h>
-+#include <net/sock.h>
-+#include <net/inet_sock.h>
-+#include <net/tcp.h>
-+
-+/* look up and get a reference to a matching socket */
-+extern struct sock *
-+nf_tproxy_get_sock_v4(const u8 protocol,
-+		      const __be32 saddr, const __be32 daddr,
-+		      const __be16 sport, const __be16 dport,
-+		      const struct net_device *in, bool listening);
-+
-+static inline void
-+nf_tproxy_put_sock(struct sock *sk)
-+{
-+	/* TIME_WAIT inet sockets have to be handled differently */
-+	if ((sk->sk_protocol == IPPROTO_TCP) && (sk->sk_state == TCP_TIME_WAIT))
-+		inet_twsk_put(inet_twsk(sk));
-+	else
-+		sock_put(sk);
-+}
-+
-+/* assign a socket to the skb -- consumes sk */
-+int
-+nf_tproxy_assign_sock(struct sk_buff *skb, struct sock *sk);
-+
-+#endif
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index d7a600a..5bb4afb 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -257,6 +257,19 @@ config NF_CT_NETLINK
- 	help
- 	  This option enables support for a netlink-based userspace interface
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index 517efe7..d7e2a52 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -61,8 +61,8 @@ struct inet_request_sock {
+ 	struct request_sock	req;
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	u16			inet6_rsk_offset;
+-	/* 2 bytes hole, try to pack */
+ #endif
++	__be16			loc_port;
+ 	__be32			loc_addr;
+ 	__be32			rmt_addr;
+ 	__be16			rmt_port;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 92049e6..13bd06f 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1006,6 +1006,7 @@ static inline void tcp_openreq_init(struct request_sock *req,
+ 	ireq->acked = 0;
+ 	ireq->ecn_ok = 0;
+ 	ireq->rmt_port = tcp_hdr(skb)->source;
++	ireq->loc_port = tcp_hdr(skb)->dest;
+ }
  
-+# transparent proxy support
-+config NETFILTER_TPROXY
-+	tristate "Transparent proxying support (EXPERIMENTAL)"
-+	depends on EXPERIMENTAL && IP_NF_MANGLE
-+	help
-+	  This option enables transparent proxying support, that is,
-+	  support for handling non-locally bound IPv4 TCP and UDP sockets.
-+	  For it to work you will have to configure certain iptables rules
-+	  and use policy routing. For more information on how to set it up
-+	  see Documentation/networking/tproxy.txt.
-+
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
- config NETFILTER_XTABLES
- 	tristate "Netfilter Xtables support (required for ip_tables)"
- 	help
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 93c58f9..5066297 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -34,6 +34,9 @@ obj-$(CONFIG_NF_CONNTRACK_SANE) += nf_conntrack_sane.o
- obj-$(CONFIG_NF_CONNTRACK_SIP) += nf_conntrack_sip.o
- obj-$(CONFIG_NF_CONNTRACK_TFTP) += nf_conntrack_tftp.o
+ extern void tcp_enter_memory_pressure(void);
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 1667cd8..eda765f 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -515,6 +515,8 @@ struct sock *inet_csk_clone(struct sock *sk, const struct request_sock *req,
+ 		newicsk->icsk_bind_hash = NULL;
  
-+# transparent proxy support
-+obj-$(CONFIG_NETFILTER_TPROXY) += nf_tproxy_core.o
-+
- # generic X tables 
- obj-$(CONFIG_NETFILTER_XTABLES) += x_tables.o xt_tcpudp.o
+ 		inet_sk(newsk)->dport = inet_rsk(req)->rmt_port;
++		inet_sk(newsk)->num = ntohs(inet_rsk(req)->loc_port);
++		inet_sk(newsk)->sport = inet_rsk(req)->loc_port;
+ 		newsk->sk_write_space = sk_stream_write_space;
  
-diff --git a/net/netfilter/nf_tproxy_core.c b/net/netfilter/nf_tproxy_core.c
-new file mode 100644
-index 0000000..1a25c61
---- /dev/null
-+++ b/net/netfilter/nf_tproxy_core.c
-@@ -0,0 +1,96 @@
-+/*
-+ * Transparent proxy support for Linux/iptables
-+ *
-+ * Copyright (c) 2006-2007 BalaBit IT Ltd.
-+ * Author: Balazs Scheidler, Krisztian Kovacs
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ *
-+ */
-+
-+#include <linux/version.h>
-+#include <linux/module.h>
-+
-+#include <linux/net.h>
-+#include <linux/if.h>
-+#include <linux/netdevice.h>
-+#include <net/udp.h>
-+#include <net/netfilter/nf_tproxy_core.h>
-+
-+struct sock *
-+nf_tproxy_get_sock_v4(const u8 protocol,
-+		      const __be32 saddr, const __be32 daddr,
-+		      const __be16 sport, const __be16 dport,
-+		      const struct net_device *in, bool listening_only)
-+{
-+	struct sock *sk;
-+
-+	/* look up socket */
-+	switch (protocol) {
-+	case IPPROTO_TCP:
-+		if (listening_only)
-+			sk = __inet_lookup_listener(&tcp_hashinfo,
-+						    daddr, ntohs(dport),
-+						    in->ifindex);
-+		else
-+			sk = __inet_lookup(&tcp_hashinfo,
-+					   saddr, sport, daddr, dport,
-+					   in->ifindex);
-+		break;
-+	case IPPROTO_UDP:
-+		sk = udp4_lib_lookup(saddr, sport, daddr, dport,
-+				     in->ifindex);
-+		break;
-+	default:
-+		WARN_ON(1);
-+		sk = NULL;
-+	}
-+
-+	pr_debug("tproxy socket lookup: proto %u %08x:%u -> %08x:%u sock %p\n",
-+		 protocol, ntohl(saddr), ntohs(sport), ntohl(daddr), ntohs(dport), sk);
-+
-+	return sk;
-+}
-+EXPORT_SYMBOL_GPL(nf_tproxy_get_sock_v4);
-+
-+static void
-+nf_tproxy_destructor(struct sk_buff *skb)
-+{
-+	struct sock *sk = skb->sk;
-+
-+	skb->sk = NULL;
-+	skb->destructor = NULL;
-+
-+	if (sk)
-+		nf_tproxy_put_sock(sk);
-+}
-+
-+/* consumes sk */
-+int
-+nf_tproxy_assign_sock(struct sk_buff *skb, struct sock *sk)
-+{
-+	if (inet_sk(sk)->transparent) {
-+		skb->sk = sk;
-+		skb->destructor = nf_tproxy_destructor;
-+		return 1;
-+	} else
-+		nf_tproxy_put_sock(sk);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(nf_tproxy_assign_sock);
-+
-+static int __init nf_tproxy_init(void)
-+{
-+	pr_info("NF_TPROXY: Transparent proxy support initialized, version 4.1.0\n");
-+	pr_info("NF_TPROXY: Copyright (c) 2006-2007 BalaBit IT Ltd.\n");
-+	return 0;
-+}
-+
-+module_init(nf_tproxy_init);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Krisztian Kovacs");
-+MODULE_DESCRIPTION("Transparent proxy support core routines");
+ 		newicsk->icsk_retransmits = 0;
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index a0f6fdb..6e84243 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -223,6 +223,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
+ 	treq->rcv_isn		= ntohl(th->seq) - 1;
+ 	treq->snt_isn		= cookie;
+ 	req->mss		= mss;
++	ireq->loc_port		= th->dest;
+ 	ireq->rmt_port		= th->source;
+ 	ireq->loc_addr		= ip_hdr(skb)->daddr;
+ 	ireq->rmt_addr		= ip_hdr(skb)->saddr;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 324b420..b27535f 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2218,7 +2218,7 @@ struct sk_buff * tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+ 	th->syn = 1;
+ 	th->ack = 1;
+ 	TCP_ECN_make_synack(req, th);
+-	th->source = inet_sk(sk)->sport;
++	th->source = ireq->loc_port;
+ 	th->dest = ireq->rmt_port;
+ 	TCP_SKB_CB(skb)->seq = tcp_rsk(req)->snt_isn;
+ 	TCP_SKB_CB(skb)->end_seq = TCP_SKB_CB(skb)->seq + 1;
 
