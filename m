@@ -1,61 +1,60 @@
-From: "Moni Shoua" <monisonlists@gmail.com>
-Subject: Re: [PATCH] IB/ipoib: Bound the net device to the ipoib_neigh structue
-Date: Sat, 13 Oct 2007 17:24:09 +0200
-Message-ID: <9d62a5110710130824w5aa663b0l7aac9df5480f21a0@mail.gmail.com>
-References: <11916151232222-git-send-email-fubar@us.ibm.com>
-	 <470C200D.4010705@pobox.com> <470C2343.1020800@garzik.org>
-	 <20071009.181246.41634534.davem@davemloft.net> <706.1191979132@death>
-	 <470CF7E1.6060503@voltaire.com> <aday7eaddod.fsf@cisco.com>
-	 <470E37AD.3070408@voltaire.com> <ada3awhcsnw.fsf@cisco.com>
+From: Michael Buesch <mb@bu3sch.de>
+Subject: Re: [patch 8/8] ssb bus needs <linux/io.h>
+Date: Sat, 13 Oct 2007 17:23:26 +0200
+Message-ID: <200710131723.26807.mb@bu3sch.de>
+References: <20071013123123.085686856@mail.of.borg> <20071013123414.647276232@mail.of.borg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: "Moni Shoua" <monis@voltaire.com>,
-	"Jay Vosburgh" <fubar@us.ibm.com>, jeff@garzik.org,
-	"David Miller" <davem@davemloft.net>, ogerlitz@voltaire.com,
-	netdev@vger.kernel.org, "Moni Levy" <monil@voltaire.com>
-To: "Roland Dreier" <rdreier@cisco.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-m68k@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, John Linville <linville@tuxdriver.com>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.181]:3544 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754799AbXJMPYK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2007 11:24:10 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so1348312wah
-        for <netdev@vger.kernel.org>; Sat, 13 Oct 2007 08:24:10 -0700 (PDT)
-In-Reply-To: <ada3awhcsnw.fsf@cisco.com>
+Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:40680
+	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755212AbXJMPYO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2007 11:24:14 -0400
+In-Reply-To: <20071013123414.647276232@mail.of.borg>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I will be near my lab only tomorrow...
-I will check this and let you know.
+On Saturday 13 October 2007 14:31:31 Geert Uytterhoeven wrote:
+> ssb bus needs <linux/io.h>
+> 
+> linux/drivers/ssb/main.c: In function 'ssb_ssb_read16':
+> linux/drivers/ssb/main.c:518: error: implicit declaration of function 'readw'
+> linux/drivers/ssb/main.c: In function 'ssb_ssb_read32':
+> linux/drivers/ssb/main.c:526: error: implicit declaration of function 'readl'
+> linux/drivers/ssb/main.c: In function 'ssb_ssb_write16':
+> linux/drivers/ssb/main.c:534: error: implicit declaration of function 'writew'
+> linux/drivers/ssb/main.c: In function 'ssb_ssb_write32':
+> linux/drivers/ssb/main.c:542: error: implicit declaration of function 'writel'
+> 
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-On 10/11/07, Roland Dreier <rdreier@cisco.com> wrote:
->  > It happens only when ib interfaces are slaves of a bonding device.
->  > I thought before that the stuck is in napi_disable() but it's almost right.
->  > I put prints before and after call to napi_disable and see that it is called twice.
->  > I'll try to investigate in this direction.
->  >
->  > ib0: stopping interface
->  > ib0: before napi_disable
->  > ib0: after napi_disable
->  > ib0: downing ib_dev
->  > ib0: All sends and receives done.
->  > ib0: stopping interface
->  > ib0: before napi_disable
->
-> Yes, two napi_disable()s in a row without a matching napi_enable()
-> will deadlock.  I guess the question is why the ipoib interface is
-> being stopped twice.
->
-> If you just take the net-2.6.24 tree (without bonding patches), does
-> bonding for ethernet interfaces work OK, or is there a similar problem
-> with double napi_disable()?  How about bonding of ethernet after this
-> batch of bonding patches?
->
->  - R.
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Signed-off-by: Michael Buesch <mb@bu3sch.de>
+
+> ---
+>  drivers/ssb/main.c |    1 +
+>  1 file changed, 1 insertion(+)
+> 
+> --- a/drivers/ssb/main.c
+> +++ b/drivers/ssb/main.c
+> @@ -11,6 +11,7 @@
+>  #include "ssb_private.h"
+>  
+>  #include <linux/delay.h>
+> +#include <linux/io.h>
+>  #include <linux/ssb/ssb.h>
+>  #include <linux/ssb/ssb_regs.h>
+>  #include <linux/dma-mapping.h>
+> 
+
+
+
+-- 
+Greetings Michael.
