@@ -1,60 +1,33 @@
-From: Michael Buesch <mb@bu3sch.de>
-Subject: Re: [patch 8/8] ssb bus needs <linux/io.h>
-Date: Sat, 13 Oct 2007 17:23:26 +0200
-Message-ID: <200710131723.26807.mb@bu3sch.de>
-References: <20071013123123.085686856@mail.of.borg> <20071013123414.647276232@mail.of.borg>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: Bonding support for eth1394?
+Date: Sat, 13 Oct 2007 08:34:44 -0700
+Message-ID: <adair5bm3jf.fsf@cisco.com>
+References: <FFB081ED-646B-489D-8836-FBA619A57E3E@gmail.com>
+	<47106EDE.1090601@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	linux-m68k@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, John Linville <linville@tuxdriver.com>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Karl Svec <karlsvec@gmail.com>,
+	linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-ip-62-75-166-246.inaddr.intergenia.de ([62.75.166.246]:40680
-	"EHLO vs166246.vserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755212AbXJMPYO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2007 11:24:14 -0400
-In-Reply-To: <20071013123414.647276232@mail.of.borg>
-Content-Disposition: inline
+Received: from sj-iport-1-in.cisco.com ([171.71.176.70]:25202 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751338AbXJMPeq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2007 11:34:46 -0400
+In-Reply-To: <47106EDE.1090601@s5r6.in-berlin.de> (Stefan Richter's message of "Sat, 13 Oct 2007 09:08:14 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Saturday 13 October 2007 14:31:31 Geert Uytterhoeven wrote:
-> ssb bus needs <linux/io.h>
-> 
-> linux/drivers/ssb/main.c: In function 'ssb_ssb_read16':
-> linux/drivers/ssb/main.c:518: error: implicit declaration of function 'readw'
-> linux/drivers/ssb/main.c: In function 'ssb_ssb_read32':
-> linux/drivers/ssb/main.c:526: error: implicit declaration of function 'readl'
-> linux/drivers/ssb/main.c: In function 'ssb_ssb_write16':
-> linux/drivers/ssb/main.c:534: error: implicit declaration of function 'writew'
-> linux/drivers/ssb/main.c: In function 'ssb_ssb_write32':
-> linux/drivers/ssb/main.c:542: error: implicit declaration of function 'writel'
-> 
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+ > The bonding sources have a few occurrences of EOPNOTSUPP.  Unless I
+ > missed something, they are all related to setting the hardware address
+ > of the interface.  AFAICS this is impossible with IP over FireWire.  If
+ > it is crucial to bonding to be able to change the slaves' hardware
+ > addresses, then you are out of luck.
 
-Signed-off-by: Michael Buesch <mb@bu3sch.de>
+There are a few changes to the bonding driver pending that will add
+support for bonding IP-over-InfiniBand interfaces.  IPoIB also cannot
+change its HW address, so the patches address that issue.
 
-> ---
->  drivers/ssb/main.c |    1 +
->  1 file changed, 1 insertion(+)
-> 
-> --- a/drivers/ssb/main.c
-> +++ b/drivers/ssb/main.c
-> @@ -11,6 +11,7 @@
->  #include "ssb_private.h"
->  
->  #include <linux/delay.h>
-> +#include <linux/io.h>
->  #include <linux/ssb/ssb.h>
->  #include <linux/ssb/ssb_regs.h>
->  #include <linux/dma-mapping.h>
-> 
+Once those patches land, bonding eth1394 interfaces may "just work".
 
-
-
--- 
-Greetings Michael.
+ - R.
