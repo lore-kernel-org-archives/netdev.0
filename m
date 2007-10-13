@@ -1,156 +1,71 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH 5/5] net core: fix kernel-doc for new function parameters
-Date: Fri, 12 Oct 2007 21:17:49 -0700
-Message-ID: <20071012211749.9e3f9971.randy.dunlap@oracle.com>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: Bonding support for eth1394?
+Date: Sat, 13 Oct 2007 09:08:14 +0200
+Message-ID: <47106EDE.1090601@s5r6.in-berlin.de>
+References: <FFB081ED-646B-489D-8836-FBA619A57E3E@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: torvalds <torvalds@linux-foundation.org>,
-	akpm <akpm@linux-foundation.org>, davem@davemloft.net
-To: lkml <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from agminet01.oracle.com ([141.146.126.228]:30066 "EHLO
-	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751171AbXJMESv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 13 Oct 2007 00:18:51 -0400
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net
+To: Karl Svec <karlsvec@gmail.com>
+Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <FFB081ED-646B-489D-8836-FBA619A57E3E@gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
+List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
+List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: linux1394-devel-bounces@lists.sourceforge.net
+Errors-To: linux1394-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+(Adding Cc: netdev)
 
-Fix networking code kernel-doc for newly added parameters.
+Karl Svec wrote to linux1394-devel:
+> I'm trying to create a bonded network interface for an Xdmx setup out  
+> of a regular ethernet device (sungem) and a firewire ethernet  
+> (eth1394) device. However, ifenslave fails on the firewire device,  
+> and gives me the following output:
+> 
+> Master 'bond0' : Error : SIOCBONDENSLAVE failed : Operation not  
+> supported
+> 
+> I'm assuming that this error message means that bonding support is  
+> not implemented in the eth1394 driver. If this is the case, I'd like  
+> to request that bonding support be added to the eth1394 driver. Is  
+> this a reasonable request (i.e. is this something that was left out  
+> of the driver because it is difficult to do, or was it left out  
+> because nobody anticipated anyone using this feature)?
+> 
+> I'm happy to do any testing.
+> 
+> Thanks for your time,
 
-Warning(linux-2.6.23-git2//net/core/sock.c:879): No description found for parameter 'net'
-Warning(linux-2.6.23-git2//net/core/dev.c:570): No description found for parameter 'net'
-Warning(linux-2.6.23-git2//net/core/dev.c:594): No description found for parameter 'net'
-Warning(linux-2.6.23-git2//net/core/dev.c:617): No description found for parameter 'net'
-Warning(linux-2.6.23-git2//net/core/dev.c:641): No description found for parameter 'net'
-Warning(linux-2.6.23-git2//net/core/dev.c:667): No description found for parameter 'net'
-Warning(linux-2.6.23-git2//net/core/dev.c:722): No description found for parameter 'net'
-Warning(linux-2.6.23-git2//net/core/dev.c:959): No description found for parameter 'net'
-Warning(linux-2.6.23-git2//net/core/dev.c:1195): No description found for parameter 'dev'
-Warning(linux-2.6.23-git2//net/core/dev.c:2105): No description found for parameter 'n'
-Warning(linux-2.6.23-git2//net/core/dev.c:3272): No description found for parameter 'net'
-Warning(linux-2.6.23-git2//net/core/dev.c:3445): No description found for parameter 'net'
-Warning(linux-2.6.23-git2//include/linux/netdevice.h:1301): No description found for parameter 'cpu'
+What criteria has a networking driver to fulfill to be interoperable
+with the bonding driver?  From a brief look at the top of the files in
+linux/drivers/net/bonding/, it appears that it is meant for Ethernet
+drivers.
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- include/linux/netdevice.h |    1 +
- net/core/dev.c            |   13 +++++++++++--
- net/core/sock.c           |    1 +
- 3 files changed, 13 insertions(+), 2 deletions(-)
+Unlike eth1394's name suggests, it is not Ethernet over FireWire but
+IPv4 over FireWire, in a partial implementation of RFC 2734.
+http://www.faqs.org/rfcs/rfc2734.html
+What is missing to fully support RFC 2734 is multicast capability.
+http://lxr.linux.no/source/drivers/ieee1394/eth1394.c#L25
 
---- linux-2.6.23-git2.orig/include/linux/netdevice.h
-+++ linux-2.6.23-git2/include/linux/netdevice.h
-@@ -1294,6 +1294,7 @@ static inline void netif_rx_complete(str
- /**
-  *	netif_tx_lock - grab network device transmit lock
-  *	@dev: network device
-+ *	@cpu: cpu number of lock owner
-  *
-  * Get network device transmit lock
-  */
---- linux-2.6.23-git2.orig/net/core/sock.c
-+++ linux-2.6.23-git2/net/core/sock.c
-@@ -869,6 +869,7 @@ static inline void sock_lock_init(struct
- 
- /**
-  *	sk_alloc - All socket objects are allocated here
-+ *	@net: the applicable net namespace
-  *	@family: protocol family
-  *	@priority: for allocation (%GFP_KERNEL, %GFP_ATOMIC, etc)
-  *	@prot: struct proto associated with this new sock instance
---- linux-2.6.23-git2.orig/net/core/dev.c
-+++ linux-2.6.23-git2/net/core/dev.c
-@@ -557,6 +557,7 @@ __setup("netdev=", netdev_boot_setup);
- 
- /**
-  *	__dev_get_by_name	- find a device by its name
-+ *	@net: the applicable net namespace
-  *	@name: name to find
-  *
-  *	Find an interface by name. Must be called under RTNL semaphore
-@@ -581,6 +582,7 @@ struct net_device *__dev_get_by_name(str
- 
- /**
-  *	dev_get_by_name		- find a device by its name
-+ *	@net: the applicable net namespace
-  *	@name: name to find
-  *
-  *	Find an interface by name. This can be called from any
-@@ -604,6 +606,7 @@ struct net_device *dev_get_by_name(struc
- 
- /**
-  *	__dev_get_by_index - find a device by its ifindex
-+ *	@net: the applicable net namespace
-  *	@ifindex: index of device
-  *
-  *	Search for an interface by index. Returns %NULL if the device
-@@ -629,6 +632,7 @@ struct net_device *__dev_get_by_index(st
- 
- /**
-  *	dev_get_by_index - find a device by its ifindex
-+ *	@net: the applicable net namespace
-  *	@ifindex: index of device
-  *
-  *	Search for an interface by index. Returns NULL if the device
-@@ -651,6 +655,7 @@ struct net_device *dev_get_by_index(stru
- 
- /**
-  *	dev_getbyhwaddr - find a device by its hardware address
-+ *	@net: the applicable net namespace
-  *	@type: media type of device
-  *	@ha: hardware address
-  *
-@@ -709,6 +714,7 @@ EXPORT_SYMBOL(dev_getfirstbyhwtype);
- 
- /**
-  *	dev_get_by_flags - find any device with given flags
-+ *	@net: the applicable net namespace
-  *	@if_flags: IFF_* values
-  *	@mask: bitmask of bits in if_flags to check
-  *
-@@ -948,6 +954,7 @@ void netdev_state_change(struct net_devi
- 
- /**
-  *	dev_load 	- load a network module
-+ *	@net: the applicable net namespace
-  *	@name: name of interface
-  *
-  *	If a network interface is not present and the process has suitable
-@@ -1185,7 +1192,7 @@ int unregister_netdevice_notifier(struct
- /**
-  *	call_netdevice_notifiers - call all network notifier blocks
-  *      @val: value passed unmodified to notifier function
-- *      @v:   pointer passed unmodified to notifier function
-+ *      @dev: net_device pointer passed unmodified to notifier function
-  *
-  *	Call all network notifier blocks.  Parameters and return value
-  *	are as for raw_notifier_call_chain().
-@@ -2097,7 +2104,7 @@ static int process_backlog(struct napi_s
- 
- /**
-  * __napi_schedule - schedule for receive
-- * @napi: entry to schedule
-+ * @n: entry to schedule
-  *
-  * The entry's receive function will be scheduled to run
-  */
-@@ -3259,6 +3266,7 @@ static int dev_ifsioc(struct net *net, s
- 
- /**
-  *	dev_ioctl	-	network device ioctl
-+ *	@net: the applicable net namespace
-  *	@cmd: command to issue
-  *	@arg: pointer to a struct ifreq in user space
-  *
-@@ -3436,6 +3444,7 @@ int dev_ioctl(struct net *net, unsigned 
- 
- /**
-  *	dev_new_index	-	allocate an ifindex
-+ *	@net: the applicable net namespace
-  *
-  *	Returns a suitable unique value for a new device interface
-  *	number.  The caller must hold the rtnl semaphore or the
+The bonding sources have a few occurrences of EOPNOTSUPP.  Unless I
+missed something, they are all related to setting the hardware address
+of the interface.  AFAICS this is impossible with IP over FireWire.  If
+it is crucial to bonding to be able to change the slaves' hardware
+addresses, then you are out of luck.
+-- 
+Stefan Richter
+-=====-=-=== =-=- -==-=
+http://arcgraph.de/sr/
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >> http://get.splunk.com/
