@@ -1,41 +1,69 @@
-From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] __inet6_csk_dst_store(): fix check-after-use
-Date: Sun, 14 Oct 2007 19:52:12 +0200
-Message-ID: <20071014175212.GP4211@stusta.de>
+From: "Yinghai Lu" <yhlu.kernel@gmail.com>
+Subject: Re: MSI interrupts and disable_irq
+Date: Sun, 14 Oct 2007 12:55:18 -0700
+Message-ID: <86802c440710141255l3a02c50eja7b4b1b77aa8c1d8@mail.gmail.com>
+References: <46FC15A9.1070803@nvidia.com> <46FDBCB4.9090802@pobox.com>
+	 <4710901F.8010206@colorfullife.com>
+	 <86802c440710132259o6e82f6s4bed7b25bd5636e9@mail.gmail.com>
+	 <4711C217.2010605@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>,
-	Masahide NAKAMURA <nakam@linux-ipv6.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Jeff Garzik" <jgarzik@pobox.com>,
+	"Ayaz Abdulla" <aabdulla@nvidia.com>,
+	nedev <netdev@vger.kernel.org>,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+	"David Miller" <davem@davemloft.net>,
+	"Andrew Morton" <akpm@linux-foundation.org>
+To: "Manfred Spraul" <manfred@colorfullife.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from emailhub.stusta.mhn.de ([141.84.69.5]:35265 "EHLO
-	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758492AbXJNRvm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 13:51:42 -0400
+Received: from wa-out-1112.google.com ([209.85.146.181]:29302 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755167AbXJNTzT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 15:55:19 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so1702459wah
+        for <netdev@vger.kernel.org>; Sun, 14 Oct 2007 12:55:18 -0700 (PDT)
+In-Reply-To: <4711C217.2010605@colorfullife.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Coverity checker spotted that we have already oops'ed if "dst"
-was NULL.
+On 10/14/07, Manfred Spraul <manfred@colorfullife.com> wrote:
+> Yinghai Lu wrote:
+> > On 10/13/07, Manfred Spraul <manfred@colorfullife.com> wrote:
+> >
+> >> Someone around with a MSI capable board? The forcedeth driver does
+> >>     dev->irq = pci_dev->irq
+> >> in nv_probe(), especially before pci_enable_msi().
+> >> Does pci_enable_msi() change pci_dev->irq? Then we would disable the
+> >> wrong interrupt....
+> >>
+> >
+> > the request_irq==>setup_irq will make dev->irq = pci_dev->irq.
+> >
+> >
+> Where is that?
 
-Since "dst" being NULL doesn't seem to be possible at this point this 
-patch removes the NULL check.
+in nv_request_irq
+                if ((ret = pci_enable_msi(np->pci_dev)) == 0) {
+                        np->msi_flags |= NV_MSI_ENABLED;
+                        if (request_irq(np->pci_dev->irq, handler,
+IRQF_SHARED, dev->name, dev) != 0) {
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+in request_irq
 
----
-eeb6009cf3ef5f6993ced359330d877680617a70 
-diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
-index 25b9317..78de42a 100644
---- a/net/ipv6/inet6_connection_sock.c
-+++ b/net/ipv6/inet6_connection_sock.c
-@@ -146,7 +146,7 @@ void __inet6_csk_dst_store(struct sock *sk, struct dst_entry *dst,
- 	__ip6_dst_store(sk, dst, daddr, saddr);
- 
- #ifdef CONFIG_XFRM
--	if (dst) {
-+	{
- 		struct rt6_info *rt = (struct rt6_info  *)dst;
- 		rt->rt6i_flow_cache_genid = atomic_read(&flow_cache_genid);
- 	}
+int request_irq(unsigned int irq, irq_handler_t handler,
+                unsigned long irqflags, const char *devname, void *dev_id)
+...
+        action->dev_id = dev_id;
+...
+        retval = setup_irq(irq, action);
+
+in setup_irq
+int setup_irq(unsigned int irq, struct irqaction *new)
+....
+        new->irq = irq;
+
+it seems I missed that here new is irqaction instead of net_dev.
+
+YH
