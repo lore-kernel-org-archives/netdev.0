@@ -1,69 +1,40 @@
-From: "Yinghai Lu" <yhlu.kernel@gmail.com>
-Subject: Re: MSI interrupts and disable_irq
-Date: Sun, 14 Oct 2007 12:55:18 -0700
-Message-ID: <86802c440710141255l3a02c50eja7b4b1b77aa8c1d8@mail.gmail.com>
-References: <46FC15A9.1070803@nvidia.com> <46FDBCB4.9090802@pobox.com>
-	 <4710901F.8010206@colorfullife.com>
-	 <86802c440710132259o6e82f6s4bed7b25bd5636e9@mail.gmail.com>
-	 <4711C217.2010605@colorfullife.com>
+From: Guillaume Chazarain <guichaz@yahoo.fr>
+Subject: Re: kernel BUG at net/core/dev.c:1383 skb_checksum_help:
+ BUG_ON(offset > (int)skb->len)
+Date: Sun, 14 Oct 2007 22:20:37 +0200
+Message-ID: <20071014222037.7fa28640@inria.fr>
+References: <20071006141506.785a6683@localhost.localdomain>
+	<20071014192640.35065e73@inria.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Jeff Garzik" <jgarzik@pobox.com>,
-	"Ayaz Abdulla" <aabdulla@nvidia.com>,
-	nedev <netdev@vger.kernel.org>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	"David Miller" <davem@davemloft.net>,
-	"Andrew Morton" <akpm@linux-foundation.org>
-To: "Manfred Spraul" <manfred@colorfullife.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.181]:29302 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755167AbXJNTzT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 15:55:19 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so1702459wah
-        for <netdev@vger.kernel.org>; Sun, 14 Oct 2007 12:55:18 -0700 (PDT)
-In-Reply-To: <4711C217.2010605@colorfullife.com>
-Content-Disposition: inline
+Received: from smtp3-g19.free.fr ([212.27.42.29]:32826 "EHLO smtp3-g19.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763260AbXJNUXX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 16:23:23 -0400
+Received: from smtp3-g19.free.fr (localhost.localdomain [127.0.0.1])
+	by smtp3-g19.free.fr (Postfix) with ESMTP id 2FE7E17B562
+	for <netdev@vger.kernel.org>; Sun, 14 Oct 2007 22:23:22 +0200 (CEST)
+Received: from localhost.localdomain (bar06-2-82-224-157-131.fbx.proxad.net [82.224.157.131])
+	by smtp3-g19.free.fr (Postfix) with ESMTP id EA02517B575
+	for <netdev@vger.kernel.org>; Sun, 14 Oct 2007 22:23:21 +0200 (CEST)
+In-Reply-To: <20071014192640.35065e73@inria.fr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/14/07, Manfred Spraul <manfred@colorfullife.com> wrote:
-> Yinghai Lu wrote:
-> > On 10/13/07, Manfred Spraul <manfred@colorfullife.com> wrote:
-> >
-> >> Someone around with a MSI capable board? The forcedeth driver does
-> >>     dev->irq = pci_dev->irq
-> >> in nv_probe(), especially before pci_enable_msi().
-> >> Does pci_enable_msi() change pci_dev->irq? Then we would disable the
-> >> wrong interrupt....
-> >>
-> >
-> > the request_irq==>setup_irq will make dev->irq = pci_dev->irq.
-> >
-> >
-> Where is that?
+Le Sun, 14 Oct 2007 19:26:40 +0200,
+Guillaume Chazarain <guichaz@yahoo.fr> a =C3=A9crit :
 
-in nv_request_irq
-                if ((ret = pci_enable_msi(np->pci_dev)) == 0) {
-                        np->msi_flags |= NV_MSI_ENABLED;
-                        if (request_irq(np->pci_dev->irq, handler,
-IRQF_SHARED, dev->name, dev) != 0) {
+> #0  0xc02c9d5e in skb_checksum_help (skb=3D0xe218dcb0) at net/core/de=
+v.c:1372
+> 1372            BUG_ON(offset > (int)skb->len);
 
-in request_irq
+Just another data point, it seems that running the standard Bittorrent
+client helps triggering the bug.
 
-int request_irq(unsigned int irq, irq_handler_t handler,
-                unsigned long irqflags, const char *devname, void *dev_id)
-...
-        action->dev_id = dev_id;
-...
-        retval = setup_irq(irq, action);
+Thanks.
 
-in setup_irq
-int setup_irq(unsigned int irq, struct irqaction *new)
-....
-        new->irq = irq;
-
-it seems I missed that here new is irqaction instead of net_dev.
-
-YH
+--=20
+Guillaume
