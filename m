@@ -1,48 +1,60 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: Bonding support for eth1394?
-Date: Sun, 14 Oct 2007 13:47:35 +0200
-Message-ID: <471201D7.8090001@s5r6.in-berlin.de>
-References: <FFB081ED-646B-489D-8836-FBA619A57E3E@gmail.com>	<47106EDE.1090601@s5r6.in-berlin.de>	<adair5bm3jf.fsf@cisco.com>	<4711087E.1050005@s5r6.in-berlin.de>
-	<20071014021850.9bd7c9ad.billfink@mindspring.com>
+From: Andrew McDonald <andrew@mcdonald.org.uk>
+Subject: [patch] ipv6.7: IPV6_ROUTER_ALERT sockopt correction
+Date: Sun, 14 Oct 2007 12:11:47 +0100
+Message-ID: <20071014111147.GE20850@mcdonald.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
-	linux1394-devel@lists.sourceforge.net
-To: Bill Fink <billfink@mindspring.com>
-Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20071014021850.9bd7c9ad.billfink@mindspring.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
-List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
-List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
-Sender: linux1394-devel-bounces@lists.sourceforge.net
-Errors-To: linux1394-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: linux-man@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from widget.mcdonald.org.uk ([81.187.72.227]:1199 "EHLO
+	widget.mcdonald.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755498AbXJNL7D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 07:59:03 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bill Fink wrote:
-> I believe the user wanted to bond an eth1394 interface with a normal
-> Ethernet interface, and I don't think that will work even with the
-> IPoIB bonding changes, since bonding of different fundamental types
-> of network interfaces still won't be supported, and I'm pretty sure
-> eth1394 is not considered a standard Ethernet interface (different
-> MAC address format for one thing).
+Hi,
 
-True, the MAC addresses, frame headers (OSI layer 2?) and so on are
-different.  Of course the case which the original poster had in mind,
-bonding FireWire with Ethernet, would be at least as interesting as
-bonding several FireWire interfaces, since most FireWire equipped
-machines come with only one FireWire link and one or two Ethernet links.
--- 
-Stefan Richter
--=====-=-=== =-=- -===-
-http://arcgraph.de/sr/
+I discovered that the current description of the IPV6_ROUTER_ALERT
+sockopt in ipv6.7 is significantly wrong. A patch to fix the
+description is below. I sent a version of this earlier in the year to
+mtk-manpages@gmx.net, but nothing happened with it at the time.
 
--------------------------------------------------------------------------
-This SF.net email is sponsored by: Splunk Inc.
-Still grepping through log files to find problems?  Stop.
-Now Search log events and configuration files using AJAX and a browser.
-Download your FREE copy of Splunk now >> http://get.splunk.com/
+The correction is based on reading the relevant parts of the kernel
+source code, and backed up by some test programs. The main bits of code
+in the kernel (in case someone wants to double-check my update) are
+net/ipv6/ipv6_sockglue.c:ip6_ra_control() and
+net/ipv6/ip6_output.c:ip6_call_ra_chain().
+
+The patch is against man-pages-2.66.
+
+regards,
+
+Andrew
+
+
+--- man7/ipv6.7.orig	2007-10-14 11:59:46.000000000 +0100
++++ man7/ipv6.7	2007-10-14 12:05:15.000000000 +0100
+@@ -233,10 +233,17 @@
+ Argument is a pointer to boolean.
+ .TP
+ .B IPV6_ROUTER_ALERT
+-Pass all forwarded packets containing an router alert option to
++Pass forwarded packets containing a router alert hop-by-hop option to
+ this socket.
+-Only allowed for datagram sockets and for root.
+-Argument is a pointer to boolean.
++Only allowed for SOCK_RAW sockets.
++The tapped packets are not forwarded by the kernel, it is the
++user's responsibility to send them out again.
++Argument is a pointer to an integer.
++A positive integer indicates a router alert option value to intercept.
++Packets carrying a router alert option with a value field containing
++this integer will be delivered to the socket.
++A negative integer disables delivery of packets with router alert options
++to this socket.
+ .TP
+ .B IPV6_UNICAST_HOPS
+ Set the unicast hop limit for the socket.
