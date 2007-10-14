@@ -1,44 +1,57 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 5/10] [NET]: Avoid unnecessary cloning for ingress
-	filtering
-Date: Sun, 14 Oct 2007 06:49:51 -0400
-Message-ID: <1192358991.4892.23.camel@localhost>
-References: <20071014042604.GA11431@gondor.apana.org.au>
-	 <E1Igv4p-00030c-00@gondolin.me.apana.org.au>
-Reply-To: hadi@cyberus.ca
+From: Jiri Kosina <jikos@jikos.cz>
+Subject: Re: Bluetooth wireless mouse very sluggish when there is moderated
+ network activity
+Date: Sun, 14 Oct 2007 13:27:37 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0710141326000.25413@twin.jikos.cz>
+References: <200710131713.03345.ismail@pardus.org.tr>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1747641777-234131158-1192361257=:25413"
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Ismail =?utf-8?q?D=C3=B6nmez?= <ismail@pardus.org.tr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wx-out-0506.google.com ([66.249.82.232]:16915 "EHLO
-	wx-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755368AbXJNKt4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 06:49:56 -0400
-Received: by wx-out-0506.google.com with SMTP id h31so1408169wxd
-        for <netdev@vger.kernel.org>; Sun, 14 Oct 2007 03:49:55 -0700 (PDT)
-In-Reply-To: <E1Igv4p-00030c-00@gondolin.me.apana.org.au>
+Received: from twin.jikos.cz ([213.151.79.26]:49351 "EHLO twin.jikos.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755540AbXJNL2F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 14 Oct 2007 07:28:05 -0400
+In-Reply-To: <200710131713.03345.ismail@pardus.org.tr>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2007-14-10 at 12:27 +0800, Herbert Xu wrote:
-> [NET]: Avoid unnecessary cloning for ingress filtering
-> 
-> As it is we always invoke pt_prev before ing_filter, even if there are no
-> ingress filters attached.  This can cause unnecessary cloning in pt_prev.
-> 
-> This patch changes it so that we only invoke pt_prev if there are ingress
-> filters attached.
-> 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-ACK from here this as well as for patch 10/10. Once this patchset makes
-it into net-2.6.24 i can do testing on my laptop and provide you any
-further feedback. Transiting, so I may loose connectivity RSN but
-overall GoodStuff.
+---1747641777-234131158-1192361257=:25413
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
-cheers,
-jamal
+On Sat, 13 Oct 2007, Ismail D=F6nmez wrote:
 
+> input: Microsoft Microsoft? Wireless Notebook Presenter Mouse 8000 as=20
+> /devices/pci0000:00/0000:00:1d.1/usb3/3-1/3-1.3/3-1.3:1.0/input/input12=
+=20
+> input: USB HID v1.11 Mouse [Microsoft Microsoft? Wireless Notebook=20
+> Presenter Mouse 8000] on usb-0000:00:1d.1-1.3 Problem is when there is a=
+=20
+> moderate traffic on wireless interface (300-400k/s down 50-60k/up on=20
+> 4Mbit) mouse is really sluggish. This is when I am running ktorrent. If=
+=20
+> I stop the torrent download/upload its fine again.
+> P.S: If it matters I am using ipw3945 driver with 2.6.18 kernel and iwl39=
+45=20
+> with the newer ones.
+
+Hi Ismail,
+
+it would be great if you'd be able to isolate what is the cause in a=20
+little more detailed way - i.e. try a different network card in the same=20
+machine, try a different bluetooth mouse in the same machine, try the very=
+=20
+same mouse and network card in a different machine, etc.
+
+Otherwise I am afraid this is going to be just a totally wild guessing.
+
+Thanks,
+
+--=20
+Jiri Kosina
+---1747641777-234131158-1192361257=:25413--
