@@ -1,195 +1,148 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 1/10] [SKBUFF]: Merge common code between copy_skb_header and skb_clone
-Date: Sun, 14 Oct 2007 12:27:39 +0800
-Message-ID: <E1Igv4l-000306-00@gondolin.me.apana.org.au>
+Subject: [PATCH 2/10] [SKBUFF]: Add skb_morph
+Date: Sun, 14 Oct 2007 12:27:40 +0800
+Message-ID: <E1Igv4m-00030E-00@gondolin.me.apana.org.au>
 References: <20071014042604.GA11431@gondor.apana.org.au>
 To: Patrick McHardy <kaber@trash.net>,
 	David Miller <davem@davemloft.net>, hadi@cyberus.ca,
 	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
 	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1385 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:1395 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751272AbXJNE1s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 00:27:48 -0400
+	with ESMTP id S1751439AbXJNE1y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 00:27:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[SKBUFF]: Merge common code between copy_skb_header and skb_clone
+[SKBUFF]: Add skb_morph
 
-This patch creates a new function __copy_skb_header to merge the common
-code between copy_skb_header and skb_clone.  Having two functions which
-are largely the same is a source of wasted labour as well as confusion.
+This patch creates a new function skb_morph that's just like skb_clone
+except that it lets user provide the spare skb that will be overwritten
+by the one that's to be cloned.
 
-In fact the tc_verd stuff is almost certainly a bug since it's treated
-differently in skb_clone compared to the callers of copy_skb_header
-(skb_copy/pskb_copy/skb_copy_expand).
-
-I've kept that difference in tact with a comment added asking for
-clarification.
+This will be used by IP fragment reassembly so that we get back the same
+skb that went in last (rather than the head skb that we get now which
+requires us to carry around double pointers all over the place).
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/core/skbuff.c |  116 ++++++++++++++++++++----------------------------------
- 1 files changed, 45 insertions(+), 71 deletions(-)
+ include/linux/skbuff.h |    1 
+ net/core/skbuff.c      |   83 +++++++++++++++++++++++++++++++------------------
+ 2 files changed, 54 insertions(+), 30 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 944189d..758bbef 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -362,6 +362,44 @@ void kfree_skb(struct sk_buff *skb)
- 	__kfree_skb(skb);
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index a656cec..be5bf0b 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -357,6 +357,7 @@ static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
  }
  
-+static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
-+{
-+	new->tstamp		= old->tstamp;
-+	new->dev		= old->dev;
-+	new->transport_header	= old->transport_header;
-+	new->network_header	= old->network_header;
-+	new->mac_header		= old->mac_header;
-+	new->dst		= dst_clone(old->dst);
-+#ifdef CONFIG_INET
-+	new->sp			= secpath_get(old->sp);
-+#endif
-+	memcpy(new->cb, old->cb, sizeof(old->cb));
-+	new->csum_start		= old->csum_start;
-+	new->csum_offset	= old->csum_offset;
-+	new->local_df		= old->local_df;
-+	new->pkt_type		= old->pkt_type;
-+	new->ip_summed		= old->ip_summed;
-+	skb_copy_queue_mapping(new, old);
-+	new->priority		= old->priority;
-+#if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
-+	new->ipvs_property	= old->ipvs_property;
-+#endif
-+	new->protocol		= old->protocol;
-+	new->mark		= old->mark;
-+	__nf_copy(new, old);
-+#if defined(CONFIG_NETFILTER_XT_TARGET_TRACE) || \
-+    defined(CONFIG_NETFILTER_XT_TARGET_TRACE_MODULE)
-+	new->nf_trace		= old->nf_trace;
-+#endif
-+#ifdef CONFIG_NET_SCHED
-+	new->tc_index		= old->tc_index;
-+#ifdef CONFIG_NET_CLS_ACT
-+	new->tc_verd		= old->tc_verd;
-+#endif
-+#endif
-+	skb_copy_secmark(new, old);
-+}
-+
- /**
-  *	skb_clone	-	duplicate an sk_buff
-  *	@skb: buffer to clone
-@@ -397,51 +435,22 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
+ extern void	       kfree_skbmem(struct sk_buff *skb);
++extern struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src);
+ extern struct sk_buff *skb_clone(struct sk_buff *skb,
+ 				 gfp_t priority);
+ extern struct sk_buff *skb_copy(const struct sk_buff *skb,
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 758bbef..c3aa68c 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -400,37 +400,8 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+ 	skb_copy_secmark(new, old);
+ }
+ 
+-/**
+- *	skb_clone	-	duplicate an sk_buff
+- *	@skb: buffer to clone
+- *	@gfp_mask: allocation priority
+- *
+- *	Duplicate an &sk_buff. The new one is not owned by a socket. Both
+- *	copies share the same packet data but not structure. The new
+- *	buffer has a reference count of 1. If the allocation fails the
+- *	function returns %NULL otherwise the new buffer is returned.
+- *
+- *	If this function is called from an interrupt gfp_mask() must be
+- *	%GFP_ATOMIC.
+- */
+-
+-struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
++static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
+ {
+-	struct sk_buff *n;
+-
+-	n = skb + 1;
+-	if (skb->fclone == SKB_FCLONE_ORIG &&
+-	    n->fclone == SKB_FCLONE_UNAVAILABLE) {
+-		atomic_t *fclone_ref = (atomic_t *) (n + 1);
+-		n->fclone = SKB_FCLONE_CLONE;
+-		atomic_inc(fclone_ref);
+-	} else {
+-		n = kmem_cache_alloc(skbuff_head_cache, gfp_mask);
+-		if (!n)
+-			return NULL;
+-		n->fclone = SKB_FCLONE_UNAVAILABLE;
+-	}
+-
+ #define C(x) n->x = skb->x
  
  	n->next = n->prev = NULL;
- 	n->sk = NULL;
--	C(tstamp);
--	C(dev);
--	C(transport_header);
--	C(network_header);
--	C(mac_header);
--	C(dst);
--	dst_clone(skb->dst);
--	C(sp);
--#ifdef CONFIG_INET
--	secpath_get(skb->sp);
--#endif
--	memcpy(n->cb, skb->cb, sizeof(skb->cb));
-+	__copy_skb_header(n, skb);
+@@ -462,6 +433,58 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
+ 	skb->cloned = 1;
+ 
+ 	return n;
++#undef C
++}
 +
- 	C(len);
- 	C(data_len);
- 	C(mac_len);
--	C(csum);
--	C(local_df);
- 	n->cloned = 1;
- 	n->hdr_len = skb->nohdr ? skb_headroom(skb) : skb->hdr_len;
- 	n->nohdr = 0;
--	C(pkt_type);
--	C(ip_summed);
--	skb_copy_queue_mapping(n, skb);
--	C(priority);
--#if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
--	C(ipvs_property);
--#endif
--	C(protocol);
- 	n->destructor = NULL;
--	C(mark);
--	__nf_copy(n, skb);
--#if defined(CONFIG_NETFILTER_XT_TARGET_TRACE) || \
--    defined(CONFIG_NETFILTER_XT_TARGET_TRACE_MODULE)
--	C(nf_trace);
--#endif
--#ifdef CONFIG_NET_SCHED
--	C(tc_index);
- #ifdef CONFIG_NET_CLS_ACT
--	n->tc_verd = SET_TC_VERD(skb->tc_verd,0);
-+	/* FIXME What is this and why don't we do it in copy_skb_header? */
-+	n->tc_verd = SET_TC_VERD(n->tc_verd,0);
- 	n->tc_verd = CLR_TC_OK2MUNGE(n->tc_verd);
- 	n->tc_verd = CLR_TC_MUNGED(n->tc_verd);
- 	C(iif);
- #endif
--#endif
--	skb_copy_secmark(n, skb);
- 	C(truesize);
- 	atomic_set(&n->users, 1);
- 	C(head);
-@@ -463,50 +472,15 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
- 	 */
- 	unsigned long offset = new->data - old->data;
- #endif
--	new->sk		= NULL;
--	new->dev	= old->dev;
--	skb_copy_queue_mapping(new, old);
--	new->priority	= old->priority;
--	new->protocol	= old->protocol;
--	new->dst	= dst_clone(old->dst);
--#ifdef CONFIG_INET
--	new->sp		= secpath_get(old->sp);
--#endif
--	new->csum_start = old->csum_start;
--	new->csum_offset = old->csum_offset;
--	new->ip_summed = old->ip_summed;
--	new->transport_header = old->transport_header;
--	new->network_header   = old->network_header;
--	new->mac_header	      = old->mac_header;
++/**
++ *	skb_morph	-	morph one skb into another
++ *	@dst: the skb to receive the contents
++ *	@src: the skb to supply the contents
++ *
++ *	This is identical to skb_clone except that the target skb is
++ *	supplied by the user.
++ *
++ *	The target skb is returned upon exit.
++ */
++struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src)
++{
++	skb_release_data(dst);
++	return __skb_clone(dst, src);
++}
++EXPORT_SYMBOL_GPL(skb_morph);
 +
-+	__copy_skb_header(new, old);
++/**
++ *	skb_clone	-	duplicate an sk_buff
++ *	@skb: buffer to clone
++ *	@gfp_mask: allocation priority
++ *
++ *	Duplicate an &sk_buff. The new one is not owned by a socket. Both
++ *	copies share the same packet data but not structure. The new
++ *	buffer has a reference count of 1. If the allocation fails the
++ *	function returns %NULL otherwise the new buffer is returned.
++ *
++ *	If this function is called from an interrupt gfp_mask() must be
++ *	%GFP_ATOMIC.
++ */
 +
- #ifndef NET_SKBUFF_DATA_USES_OFFSET
- 	/* {transport,network,mac}_header are relative to skb->head */
- 	new->transport_header += offset;
- 	new->network_header   += offset;
- 	new->mac_header	      += offset;
- #endif
--	memcpy(new->cb, old->cb, sizeof(old->cb));
--	new->local_df	= old->local_df;
--	new->fclone	= SKB_FCLONE_UNAVAILABLE;
--	new->pkt_type	= old->pkt_type;
--	new->tstamp	= old->tstamp;
--	new->destructor = NULL;
--	new->mark	= old->mark;
--	__nf_copy(new, old);
--#if defined(CONFIG_NETFILTER_XT_TARGET_TRACE) || \
--    defined(CONFIG_NETFILTER_XT_TARGET_TRACE_MODULE)
--	new->nf_trace	= old->nf_trace;
--#endif
--#if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
--	new->ipvs_property = old->ipvs_property;
--#endif
--#ifdef CONFIG_NET_SCHED
--#ifdef CONFIG_NET_CLS_ACT
--	new->tc_verd = old->tc_verd;
--#endif
--	new->tc_index	= old->tc_index;
--#endif
--	skb_copy_secmark(new, old);
--	atomic_set(&new->users, 1);
- 	skb_shinfo(new)->gso_size = skb_shinfo(old)->gso_size;
- 	skb_shinfo(new)->gso_segs = skb_shinfo(old)->gso_segs;
- 	skb_shinfo(new)->gso_type = skb_shinfo(old)->gso_type;
++struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
++{
++	struct sk_buff *n;
++
++	n = skb + 1;
++	if (skb->fclone == SKB_FCLONE_ORIG &&
++	    n->fclone == SKB_FCLONE_UNAVAILABLE) {
++		atomic_t *fclone_ref = (atomic_t *) (n + 1);
++		n->fclone = SKB_FCLONE_CLONE;
++		atomic_inc(fclone_ref);
++	} else {
++		n = kmem_cache_alloc(skbuff_head_cache, gfp_mask);
++		if (!n)
++			return NULL;
++		n->fclone = SKB_FCLONE_UNAVAILABLE;
++	}
++
++	return __skb_clone(n, skb);
+ }
+ 
+ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
