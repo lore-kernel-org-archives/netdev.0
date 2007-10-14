@@ -1,37 +1,41 @@
 From: Adrian Bunk <bunk@kernel.org>
-Subject: [2.6 patch] e1000e/ethtool.c: fix error checks
-Date: Sun, 14 Oct 2007 19:51:04 +0200
-Message-ID: <20071014175104.GK4211@stusta.de>
+Subject: [2.6 patch] __inet6_csk_dst_store(): fix check-after-use
+Date: Sun, 14 Oct 2007 19:52:12 +0200
+Message-ID: <20071014175212.GP4211@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Auke Kok <auke-jan.h.kok@intel.com>, Jeff Garzik <jeff@garzik.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1761496AbXJNRvh@vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>,
+	Masahide NAKAMURA <nakam@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:35265 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758492AbXJNRvm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 13:51:42 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-You want to check for the value, not for the address.
+The Coverity checker spotted that we have already oops'ed if "dst"
+was NULL.
 
-Spotted by the Coverity checker.
+Since "dst" being NULL doesn't seem to be possible at this point this 
+patch removes the NULL check.
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
 ---
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -1451,11 +1451,11 @@ static int e1000_loopback_test(struct e1000_adapter *adapter, u64 *data)
+eeb6009cf3ef5f6993ced359330d877680617a70 
+diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
+index 25b9317..78de42a 100644
+--- a/net/ipv6/inet6_connection_sock.c
++++ b/net/ipv6/inet6_connection_sock.c
+@@ -146,7 +146,7 @@ void __inet6_csk_dst_store(struct sock *sk, struct dst_entry *dst,
+ 	__ip6_dst_store(sk, dst, daddr, saddr);
+ 
+ #ifdef CONFIG_XFRM
+-	if (dst) {
++	{
+ 		struct rt6_info *rt = (struct rt6_info  *)dst;
+ 		rt->rt6i_flow_cache_genid = atomic_read(&flow_cache_genid);
  	}
- 
- 	*data = e1000_setup_desc_rings(adapter);
--	if (data)
-+	if (*data)
- 		goto out;
- 
- 	*data = e1000_setup_loopback_test(adapter);
--	if (data)
-+	if (*data)
- 		goto err_loopback;
- 
- 	*data = e1000_run_loopback_test(adapter);
