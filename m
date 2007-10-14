@@ -1,109 +1,53 @@
-From: "Grant Likely" <grant.likely@secretlab.ca>
-Subject: Re: [PATCH v3 3/4] FEC mpc52xx: the driver
-Date: Sun, 14 Oct 2007 15:43:25 -0600
-Message-ID: <fa686aa40710141443u4defd1f4m8076a730a185135b@mail.gmail.com>
-References: <20071014075511.GC3000@nd47.coderock.org>
-	 <20071014075921.GF3000@nd47.coderock.org>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: MSI interrupts and disable_irq
+Date: Mon, 15 Oct 2007 07:47:53 +1000
+Message-ID: <1192398473.6188.10.camel@pasglop>
+References: <46FC15A9.1070803@nvidia.com> <46FDBCB4.9090802@pobox.com>
+	 <4710901F.8010206@colorfullife.com>
+	 <86802c440710132259o6e82f6s4bed7b25bd5636e9@mail.gmail.com>
+	 <4711C217.2010605@colorfullife.com>
+Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: galak@kernel.crashing.org, jgarzik@pobox.com,
-	linuxppc-dev@ozlabs.org, tnt@246tnt.com, netdev@vger.kernel.org
-To: "Domen Puncer" <domen.puncer@telargo.com>
+Cc: Yinghai Lu <yhlu.kernel@gmail.com>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Ayaz Abdulla <aabdulla@nvidia.com>,
+	nedev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Manfred Spraul <manfred@colorfullife.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.180]:46759 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759532AbXJNVn1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 17:43:27 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so1727712wah
-        for <netdev@vger.kernel.org>; Sun, 14 Oct 2007 14:43:25 -0700 (PDT)
-In-Reply-To: <20071014075921.GF3000@nd47.coderock.org>
-Content-Disposition: inline
+Received: from gate.crashing.org ([63.228.1.57]:41355 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754134AbXJNVsO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 14 Oct 2007 17:48:14 -0400
+In-Reply-To: <4711C217.2010605@colorfullife.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/14/07, Domen Puncer <domen.puncer@telargo.com> wrote:
-> Driver for ethernet on mpc5200/mpc5200b SoCs (FEC).
->
->
-> Signed-off-by: Domen Puncer <domen.puncer@telargo.com>
 
-Looks quite good to me.  Comments below...
+On Sun, 2007-10-14 at 09:15 +0200, Manfred Spraul wrote:
+> Yinghai Lu wrote:
+> > On 10/13/07, Manfred Spraul <manfred@colorfullife.com> wrote:
+> >   
+> >> Someone around with a MSI capable board? The forcedeth driver does
+> >>     dev->irq = pci_dev->irq
+> >> in nv_probe(), especially before pci_enable_msi().
+> >> Does pci_enable_msi() change pci_dev->irq? Then we would disable the
+> >> wrong interrupt....
+> >>     
+> >
+> > the request_irq==>setup_irq will make dev->irq = pci_dev->irq.
+> >
+> >   
+> Where is that?
+> Otherwise I would propose the attached patch. My board is not 
+> MSI-capable, thus I can't test it myself.
 
->
-> ---
->  drivers/net/Kconfig              |    1
->  drivers/net/Makefile             |    1
->  drivers/net/fec_mpc52xx/Kconfig  |   15
->  drivers/net/fec_mpc52xx/Makefile |    2
->  drivers/net/fec_mpc52xx/fec.c    | 1098 +++++++++++++++++++++++++++++++++++++++
->  drivers/net/fec_mpc52xx/fec.h    |  313 +++++++++++
->  6 files changed, 1430 insertions(+)
->
-> Index: linux.git/drivers/net/Kconfig
-> ===================================================================
-> --- linux.git.orig/drivers/net/Kconfig
-> +++ linux.git/drivers/net/Kconfig
-> @@ -1894,6 +1894,7 @@ config NE_H8300
->           controller on the Renesas H8/300 processor.
->
->  source "drivers/net/fec_8xx/Kconfig"
-> +source "drivers/net/fec_mpc52xx/Kconfig"
+Why not just copy pcidev->irq to dev->irq once ?
 
-Personally, I'd just add the mpc52xx items to drivers/net/Kconfig; but
-I won't make a fuss either way.
+Ben.
 
-===================================================================
-> --- linux.git.orig/drivers/net/Makefile
-> +++ linux.git/drivers/net/Makefile
-> @@ -210,6 +210,7 @@ obj-$(CONFIG_SMC911X) += smc911x.o
->  obj-$(CONFIG_BFIN_MAC) += bfin_mac.o
->  obj-$(CONFIG_DM9000) += dm9000.o
->  obj-$(CONFIG_FEC_8XX) += fec_8xx/
-> +obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx/
 
-Ditto here;  Heck, we're only talking about 3 files here.  I'd
-probably put all three into drivers/net...  or even merge the 2 .c and
-one .h files into a single file.  But, again, it's not a big deal.
-
->  obj-$(CONFIG_PASEMI_MAC) += pasemi_mac.o
->  obj-$(CONFIG_MLX4_CORE) += mlx4/
->
-> Index: linux.git/drivers/net/fec_mpc52xx/Kconfig
-> ===================================================================
-> --- /dev/null
-> +++ linux.git/drivers/net/fec_mpc52xx/Kconfig
-> @@ -0,0 +1,15 @@
-> +menu "MPC5200 Networking Options"
-> +       depends PPC_MPC52xx && NET_ETHERNET
-
-Drop the menu
-
-> +
-> +config FEC_MPC52xx
-> +       tristate "FEC driver"
-> +       depends on NET_ETHERNET
-
-Drop "NET_ETHERNET"; if you're here, then NET_ETHERNET *is* selected.
-Add "PPC_MPC52xx"
-
-> +       select PPC_BESTCOMM
-> +       select PPC_BESTCOMM_FEC
-> +       select CRC32
-> +       select PHYLIB
-> +       ---help---
-> +         This option enables support for the MPC5200's on-chip
-> +         Fast Ethernet Controller
-> +
-> +endmenu
-> Index: linux.git/drivers/net/fec_mpc52xx/Makefile
->
-
-Cheers,
-g.
-
--- 
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
-grant.likely@secretlab.ca
-(403) 399-0195
