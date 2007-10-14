@@ -1,148 +1,208 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 2/10] [SKBUFF]: Add skb_morph
-Date: Sun, 14 Oct 2007 12:27:40 +0800
-Message-ID: <E1Igv4m-00030E-00@gondolin.me.apana.org.au>
+Subject: [PATCH 4/10] [IPV4]: Change ip_defrag to return an integer
+Date: Sun, 14 Oct 2007 12:27:42 +0800
+Message-ID: <E1Igv4o-00030U-00@gondolin.me.apana.org.au>
 References: <20071014042604.GA11431@gondor.apana.org.au>
 To: Patrick McHardy <kaber@trash.net>,
 	David Miller <davem@davemloft.net>, hadi@cyberus.ca,
 	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
 	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1395 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:1411 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751439AbXJNE1y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 00:27:54 -0400
+	with ESMTP id S1751692AbXJNE2A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 00:28:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[SKBUFF]: Add skb_morph
+[IPV4]: Change ip_defrag to return an integer
 
-This patch creates a new function skb_morph that's just like skb_clone
-except that it lets user provide the spare skb that will be overwritten
-by the one that's to be cloned.
-
-This will be used by IP fragment reassembly so that we get back the same
-skb that went in last (rather than the head skb that we get now which
-requires us to carry around double pointers all over the place).
+Now that ip_frag always returns the packet given to it on input, we can
+change it to return an integer indicating error instead.  This patch does
+that and updates all its callers accordingly.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/linux/skbuff.h |    1 
- net/core/skbuff.c      |   83 +++++++++++++++++++++++++++++++------------------
- 2 files changed, 54 insertions(+), 30 deletions(-)
+ include/net/ip.h                               |    2 -
+ net/ipv4/ip_fragment.c                         |    6 ++---
+ net/ipv4/ip_input.c                            |    6 +----
+ net/ipv4/ipvs/ip_vs_core.c                     |   26 +++++++++----------------
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |   20 +++++++++----------
+ 5 files changed, 26 insertions(+), 34 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index a656cec..be5bf0b 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -357,6 +357,7 @@ static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 3af3ed9..875c5ed 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -332,7 +332,7 @@ enum ip_defrag_users
+ 	IP_DEFRAG_VS_FWD
+ };
+ 
+-struct sk_buff *ip_defrag(struct sk_buff *skb, u32 user);
++int ip_defrag(struct sk_buff *skb, u32 user);
+ extern int ip_frag_nqueues;
+ extern atomic_t ip_frag_mem;
+ 
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index d7fa2bf..32108cf 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -739,7 +739,7 @@ out_fail:
  }
  
- extern void	       kfree_skbmem(struct sk_buff *skb);
-+extern struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src);
- extern struct sk_buff *skb_clone(struct sk_buff *skb,
- 				 gfp_t priority);
- extern struct sk_buff *skb_copy(const struct sk_buff *skb,
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 758bbef..c3aa68c 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -400,37 +400,8 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
- 	skb_copy_secmark(new, old);
- }
- 
--/**
-- *	skb_clone	-	duplicate an sk_buff
-- *	@skb: buffer to clone
-- *	@gfp_mask: allocation priority
-- *
-- *	Duplicate an &sk_buff. The new one is not owned by a socket. Both
-- *	copies share the same packet data but not structure. The new
-- *	buffer has a reference count of 1. If the allocation fails the
-- *	function returns %NULL otherwise the new buffer is returned.
-- *
-- *	If this function is called from an interrupt gfp_mask() must be
-- *	%GFP_ATOMIC.
-- */
--
--struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
-+static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
+ /* Process an incoming IP datagram fragment. */
+-struct sk_buff *ip_defrag(struct sk_buff *skb, u32 user)
++int ip_defrag(struct sk_buff *skb, u32 user)
  {
--	struct sk_buff *n;
--
--	n = skb + 1;
--	if (skb->fclone == SKB_FCLONE_ORIG &&
--	    n->fclone == SKB_FCLONE_UNAVAILABLE) {
--		atomic_t *fclone_ref = (atomic_t *) (n + 1);
--		n->fclone = SKB_FCLONE_CLONE;
--		atomic_inc(fclone_ref);
--	} else {
--		n = kmem_cache_alloc(skbuff_head_cache, gfp_mask);
--		if (!n)
--			return NULL;
--		n->fclone = SKB_FCLONE_UNAVAILABLE;
--	}
--
- #define C(x) n->x = skb->x
+ 	struct ipq *qp;
  
- 	n->next = n->prev = NULL;
-@@ -462,6 +433,58 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
- 	skb->cloned = 1;
+@@ -759,12 +759,12 @@ struct sk_buff *ip_defrag(struct sk_buff *skb, u32 user)
  
- 	return n;
-+#undef C
-+}
-+
-+/**
-+ *	skb_morph	-	morph one skb into another
-+ *	@dst: the skb to receive the contents
-+ *	@src: the skb to supply the contents
-+ *
-+ *	This is identical to skb_clone except that the target skb is
-+ *	supplied by the user.
-+ *
-+ *	The target skb is returned upon exit.
-+ */
-+struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src)
-+{
-+	skb_release_data(dst);
-+	return __skb_clone(dst, src);
-+}
-+EXPORT_SYMBOL_GPL(skb_morph);
-+
-+/**
-+ *	skb_clone	-	duplicate an sk_buff
-+ *	@skb: buffer to clone
-+ *	@gfp_mask: allocation priority
-+ *
-+ *	Duplicate an &sk_buff. The new one is not owned by a socket. Both
-+ *	copies share the same packet data but not structure. The new
-+ *	buffer has a reference count of 1. If the allocation fails the
-+ *	function returns %NULL otherwise the new buffer is returned.
-+ *
-+ *	If this function is called from an interrupt gfp_mask() must be
-+ *	%GFP_ATOMIC.
-+ */
-+
-+struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
-+{
-+	struct sk_buff *n;
-+
-+	n = skb + 1;
-+	if (skb->fclone == SKB_FCLONE_ORIG &&
-+	    n->fclone == SKB_FCLONE_UNAVAILABLE) {
-+		atomic_t *fclone_ref = (atomic_t *) (n + 1);
-+		n->fclone = SKB_FCLONE_CLONE;
-+		atomic_inc(fclone_ref);
-+	} else {
-+		n = kmem_cache_alloc(skbuff_head_cache, gfp_mask);
-+		if (!n)
-+			return NULL;
-+		n->fclone = SKB_FCLONE_UNAVAILABLE;
-+	}
-+
-+	return __skb_clone(n, skb);
+ 		spin_unlock(&qp->lock);
+ 		ipq_put(qp, NULL);
+-		return ret ? NULL : skb;
++		return ret;
+ 	}
+ 
+ 	IP_INC_STATS_BH(IPSTATS_MIB_REASMFAILS);
+ 	kfree_skb(skb);
+-	return NULL;
++	return -ENOMEM;
  }
  
- static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+ void __init ipfrag_init(void)
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 41d8964..8f75e43 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -172,8 +172,7 @@ int ip_call_ra_chain(struct sk_buff *skb)
+ 		    (!sk->sk_bound_dev_if ||
+ 		     sk->sk_bound_dev_if == skb->dev->ifindex)) {
+ 			if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
+-				skb = ip_defrag(skb, IP_DEFRAG_CALL_RA_CHAIN);
+-				if (skb == NULL) {
++				if (ip_defrag(skb, IP_DEFRAG_CALL_RA_CHAIN)) {
+ 					read_unlock(&ip_ra_lock);
+ 					return 1;
+ 				}
+@@ -265,8 +264,7 @@ int ip_local_deliver(struct sk_buff *skb)
+ 	 */
+ 
+ 	if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
+-		skb = ip_defrag(skb, IP_DEFRAG_LOCAL_DELIVER);
+-		if (!skb)
++		if (ip_defrag(skb, IP_DEFRAG_LOCAL_DELIVER))
+ 			return 0;
+ 	}
+ 
+diff --git a/net/ipv4/ipvs/ip_vs_core.c b/net/ipv4/ipvs/ip_vs_core.c
+index fbca2a2..3487337 100644
+--- a/net/ipv4/ipvs/ip_vs_core.c
++++ b/net/ipv4/ipvs/ip_vs_core.c
+@@ -541,13 +541,14 @@ __sum16 ip_vs_checksum_complete(struct sk_buff *skb, int offset)
+ 	return csum_fold(skb_checksum(skb, offset, skb->len - offset, 0));
+ }
+ 
+-static inline struct sk_buff *
+-ip_vs_gather_frags(struct sk_buff *skb, u_int32_t user)
++static inline int ip_vs_gather_frags(struct sk_buff *skb, u_int32_t user)
+ {
+-	skb = ip_defrag(skb, user);
+-	if (skb)
++	int err = ip_defrag(skb, user);
++
++	if (!err)
+ 		ip_send_check(ip_hdr(skb));
+-	return skb;
++
++	return err;
+ }
+ 
+ /*
+@@ -619,10 +620,8 @@ static int ip_vs_out_icmp(struct sk_buff **pskb, int *related)
+ 
+ 	/* reassemble IP fragments */
+ 	if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
+-		skb = ip_vs_gather_frags(skb, IP_DEFRAG_VS_OUT);
+-		if (!skb)
++		if (ip_vs_gather_frags(skb, IP_DEFRAG_VS_OUT))
+ 			return NF_STOLEN;
+-		*pskb = skb;
+ 	}
+ 
+ 	iph = ip_hdr(skb);
+@@ -756,11 +755,9 @@ ip_vs_out(unsigned int hooknum, struct sk_buff **pskb,
+ 	/* reassemble IP fragments */
+ 	if (unlikely(iph->frag_off & htons(IP_MF|IP_OFFSET) &&
+ 		     !pp->dont_defrag)) {
+-		skb = ip_vs_gather_frags(skb, IP_DEFRAG_VS_OUT);
+-		if (!skb)
++		if (ip_vs_gather_frags(skb, IP_DEFRAG_VS_OUT))
+ 			return NF_STOLEN;
+ 		iph = ip_hdr(skb);
+-		*pskb = skb;
+ 	}
+ 
+ 	ihl = iph->ihl << 2;
+@@ -861,12 +858,9 @@ ip_vs_in_icmp(struct sk_buff **pskb, int *related, unsigned int hooknum)
+ 
+ 	/* reassemble IP fragments */
+ 	if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
+-		skb = ip_vs_gather_frags(skb,
+-					 hooknum == NF_IP_LOCAL_IN ?
+-					 IP_DEFRAG_VS_IN : IP_DEFRAG_VS_FWD);
+-		if (!skb)
++		if (ip_vs_gather_frags(skb, hooknum == NF_IP_LOCAL_IN ?
++					    IP_DEFRAG_VS_IN : IP_DEFRAG_VS_FWD))
+ 			return NF_STOLEN;
+-		*pskb = skb;
+ 	}
+ 
+ 	iph = ip_hdr(skb);
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index 2fcb924..48fdd9e 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -63,19 +63,20 @@ static int ipv4_print_conntrack(struct seq_file *s,
+ }
+ 
+ /* Returns new sk_buff, or NULL */
+-static struct sk_buff *
+-nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user)
++static int nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user)
+ {
++	int err;
++
+ 	skb_orphan(skb);
+ 
+ 	local_bh_disable();
+-	skb = ip_defrag(skb, user);
++	err = ip_defrag(skb, user);
+ 	local_bh_enable();
+ 
+-	if (skb)
++	if (!err)
+ 		ip_send_check(ip_hdr(skb));
+ 
+-	return skb;
++	return err;
+ }
+ 
+ static int ipv4_get_l4proto(const struct sk_buff *skb, unsigned int nhoff,
+@@ -148,11 +149,10 @@ static unsigned int ipv4_conntrack_defrag(unsigned int hooknum,
+ 
+ 	/* Gather fragments. */
+ 	if (ip_hdr(*pskb)->frag_off & htons(IP_MF | IP_OFFSET)) {
+-		*pskb = nf_ct_ipv4_gather_frags(*pskb,
+-						hooknum == NF_IP_PRE_ROUTING ?
+-						IP_DEFRAG_CONNTRACK_IN :
+-						IP_DEFRAG_CONNTRACK_OUT);
+-		if (!*pskb)
++		if (nf_ct_ipv4_gather_frags(*pskb,
++					    hooknum == NF_IP_PRE_ROUTING ?
++					    IP_DEFRAG_CONNTRACK_IN :
++					    IP_DEFRAG_CONNTRACK_OUT))
+ 			return NF_STOLEN;
+ 	}
+ 	return NF_ACCEPT;
