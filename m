@@ -1,53 +1,129 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: MSI interrupts and disable_irq
-Date: Mon, 15 Oct 2007 07:47:53 +1000
-Message-ID: <1192398473.6188.10.camel@pasglop>
-References: <46FC15A9.1070803@nvidia.com> <46FDBCB4.9090802@pobox.com>
-	 <4710901F.8010206@colorfullife.com>
-	 <86802c440710132259o6e82f6s4bed7b25bd5636e9@mail.gmail.com>
-	 <4711C217.2010605@colorfullife.com>
-Reply-To: benh@kernel.crashing.org
+From: "Grant Likely" <grant.likely@secretlab.ca>
+Subject: Re: [PATCH v3 4/4] FEC mpc52xx: phy part of the driver
+Date: Sun, 14 Oct 2007 16:05:17 -0600
+Message-ID: <fa686aa40710141505w1787e7e1g6116185001561a4d@mail.gmail.com>
+References: <20071014075511.GC3000@nd47.coderock.org>
+	 <20071014075958.GG3000@nd47.coderock.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Yinghai Lu <yhlu.kernel@gmail.com>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Ayaz Abdulla <aabdulla@nvidia.com>,
-	nedev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Manfred Spraul <manfred@colorfullife.com>
+Cc: galak@kernel.crashing.org, jgarzik@pobox.com,
+	linuxppc-dev@ozlabs.org, tnt@246tnt.com, netdev@vger.kernel.org
+To: "Domen Puncer" <domen.puncer@telargo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:41355 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754134AbXJNVsO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 14 Oct 2007 17:48:14 -0400
-In-Reply-To: <4711C217.2010605@colorfullife.com>
+Received: from wa-out-1112.google.com ([209.85.146.177]:24934 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756665AbXJNWFS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 18:05:18 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so1732885wah
+        for <netdev@vger.kernel.org>; Sun, 14 Oct 2007 15:05:17 -0700 (PDT)
+In-Reply-To: <20071014075958.GG3000@nd47.coderock.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 10/14/07, Domen Puncer <domen.puncer@telargo.com> wrote:
+> PHY part of the driver for mpc5200(b) ethernet.
 
-On Sun, 2007-10-14 at 09:15 +0200, Manfred Spraul wrote:
-> Yinghai Lu wrote:
-> > On 10/13/07, Manfred Spraul <manfred@colorfullife.com> wrote:
-> >   
-> >> Someone around with a MSI capable board? The forcedeth driver does
-> >>     dev->irq = pci_dev->irq
-> >> in nv_probe(), especially before pci_enable_msi().
-> >> Does pci_enable_msi() change pci_dev->irq? Then we would disable the
-> >> wrong interrupt....
-> >>     
-> >
-> > the request_irq==>setup_irq will make dev->irq = pci_dev->irq.
-> >
-> >   
-> Where is that?
-> Otherwise I would propose the attached patch. My board is not 
-> MSI-capable, thus I can't test it myself.
+Assuming I understand correctly, this comment is not correct and this
+patch just adds an MDIO bus driver.  PHY drivers are in phylib and
+data transfer is setup via the core driver, correct?
 
-Why not just copy pcidev->irq to dev->irq once ?
+It is conceivable that the PHY is connected to an alternate MDIO bus,
+or the MDIO bus is used for a PHY connected to an external Ethernet
+controller.
 
-Ben.
+Speaking of which, is it possible to use this MDIO bus without the
+core FEC being initialized?
 
+> +static struct of_device_id fec_mdio_match[] = {
+> +       {
+> +               .type = "mdio",
+> +               .compatible = "mpc5200b-fec-phy",
 
+This is not a phy; it's an MDIO bus.  Also, shouldn't this be
+"mpc5200-..." instead of "mpc5200b-..."?
+
+> +       },
+> +       {},
+> +};
+> +
+> +struct of_platform_driver mpc52xx_fec_mdio_driver = {
+> +       .name = "mpc5200b-fec-phy",
+> +       .probe = fec_mdio_probe,
+> +       .remove = fec_mdio_remove,
+> +       .match_table = fec_mdio_match,
+
+Inconsistent naming.  Please use the same prefix on all global/static
+symbols (ie. use "mpc52xx_mdio_" instead of the mix of
+"mpc52xx_fec_mdio_", "fec_mdio_", etc.)  I also thing that "fec_mdio_"
+is too generic because there are a number of different incompatible
+FEC devices.
+
+> +};
+> +
+> +/* let fec driver call it, since this has to be registered before it */
+> +EXPORT_SYMBOL_GPL(mpc52xx_fec_mdio_driver);
+
+Why not have a module_init()/module_exit() in this file?  I don't
+think the FEC driver calls this driver's functions directly anymore,
+and it's still dependent on the of_platform bus probe order anyway.
+
+As an added bonus, it makes your Makefile much simpler.
+
+> +
+> +
+> +MODULE_LICENSE("Dual BSD/GPL");
+> Index: linux.git/drivers/net/fec_mpc52xx/Makefile
+> ===================================================================
+> --- linux.git.orig/drivers/net/fec_mpc52xx/Makefile
+> +++ linux.git/drivers/net/fec_mpc52xx/Makefile
+> @@ -1,2 +1,7 @@
+>  obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx.o
+>  fec_mpc52xx-objs := fec.o
+> +
+> +ifeq ($(CONFIG_FEC_MPC52xx_MDIO),y)
+> +       obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx_phy.o
+> +       fec_mpc52xx_phy-objs := fec_phy.o
+> +endif
+> Index: linux.git/drivers/net/fec_mpc52xx/Kconfig
+> ===================================================================
+> --- linux.git.orig/drivers/net/fec_mpc52xx/Kconfig
+> +++ linux.git/drivers/net/fec_mpc52xx/Kconfig
+> @@ -11,5 +11,18 @@ config FEC_MPC52xx
+>         ---help---
+>           This option enables support for the MPC5200's on-chip
+>           Fast Ethernet Controller
+> +         If compiled as module, it will be called 'fec_mpc52xx.ko'.
+
+Drop this line and make the help text the same format as the other eth
+drivers in drivers/net.
+
+> +
+> +config FEC_MPC52xx_MDIO
+> +       bool "FEC MII PHY driver"
+> +       depends on FEC_MPC52xx
+> +       default y
+> +       ---help---
+> +         The MPC5200's FEC can connect to the Ethernet either with
+> +         an external MII PHY chip or 10 Mbps 7-wire interface
+> +         (Motorola? industry standard).
+> +         If your board uses an external PHY, enable this.
+
+Not strictly true.  This enables talking to a PHY using the internal
+MDIO controller.  PHY register access could just as easily be accessed
+via an alternate interface.
+
+> +         If not sure, enable.
+> +         If compiled as module, it will be called 'fec_mpc52xx_phy.ko'.
+
+Drop the module name comment.
+
+Cheers,
+g.
+
+-- 
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
+grant.likely@secretlab.ca
+(403) 399-0195
