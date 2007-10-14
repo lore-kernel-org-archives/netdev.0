@@ -1,29 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net-2.6.24 breaks powerpc mysteriously
-Date: Sat, 13 Oct 2007 21:12:55 -0700 (PDT)
-Message-ID: <20071013.211255.18309298.davem@davemloft.net>
-References: <20071011192233.23e1c6bc.akpm@linux-foundation.org>
-	<20071011.194543.75428024.davem@davemloft.net>
-	<200710140440.47386.vda.linux@googlemail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [0/10] Remove sk_buff ** from netfilter API
+Date: Sun, 14 Oct 2007 12:26:04 +0800
+Message-ID: <20071014042604.GA11431@gondor.apana.org.au>
+References: <E1IbT8r-0000Av-00@gondolin.me.apana.org.au> <46FE6D73.4000002@trash.net> <20070929.171339.59681016.davem@davemloft.net> <20070930002601.GB7502@gondor.apana.org.au> <20070930004341.GA7769@gondor.apana.org.au> <46FFC2F4.8090602@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	sam@ravnborg.org, paulus@samba.org, benh@kernel.crashing.org
-To: vda.linux@googlemail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, hadi@cyberus.ca,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42292
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750742AbXJNEMy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 00:12:54 -0400
-In-Reply-To: <200710140440.47386.vda.linux@googlemail.com>
+Received: from rhun.apana.org.au ([64.62.148.172]:1365 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751157AbXJNE0j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 00:26:39 -0400
+Content-Disposition: inline
+In-Reply-To: <46FFC2F4.8090602@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Denys Vlasenko <vda.linux@googlemail.com>
-Date: Sun, 14 Oct 2007 04:40:46 +0100
+On Sun, Sep 30, 2007 at 05:38:28PM +0200, Patrick McHardy wrote:
+>
+> >From a quick look it seems at least IPv4 and IPv6 don't need to
+> change the skb anywhere else. It seems to be necessary for
+> bridging though to unshare the skb. OTOH br_netfilter.c already
+> unshares the skb for IPv4 and IPv6, so we could simply do this
+> unconditionally before calling the hooks.
 
-> Please find updated patch in attachment.
-> Compile-tested.
+Thanks.  I got bored and finally did the plunge :)
 
-We fixed this several days ago already.
+I've booted it here and it seems to work.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
