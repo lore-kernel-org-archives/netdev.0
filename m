@@ -1,55 +1,52 @@
-From: "Yinghai Lu" <yhlu.kernel@gmail.com>
-Subject: Re: MSI interrupts and disable_irq
-Date: Sat, 13 Oct 2007 22:59:15 -0700
-Message-ID: <86802c440710132259o6e82f6s4bed7b25bd5636e9@mail.gmail.com>
-References: <46FC15A9.1070803@nvidia.com> <46FDBCB4.9090802@pobox.com>
-	 <4710901F.8010206@colorfullife.com>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: Bonding support for eth1394?
+Date: Sun, 14 Oct 2007 02:18:50 -0400
+Message-ID: <20071014021850.9bd7c9ad.billfink@mindspring.com>
+References: <FFB081ED-646B-489D-8836-FBA619A57E3E@gmail.com>
+	<47106EDE.1090601@s5r6.in-berlin.de> <adair5bm3jf.fsf@cisco.com>
+	<4711087E.1050005@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Jeff Garzik" <jgarzik@pobox.com>,
-	"Ayaz Abdulla" <aabdulla@nvidia.com>,
-	nedev <netdev@vger.kernel.org>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	"David Miller" <davem@davemloft.net>,
-	"Andrew Morton" <akpm@linux-foundation.org>
-To: "Manfred Spraul" <manfred@colorfullife.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.180]:28292 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754823AbXJNF7Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 01:59:16 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so1531070wah
-        for <netdev@vger.kernel.org>; Sat, 13 Oct 2007 22:59:15 -0700 (PDT)
-In-Reply-To: <4710901F.8010206@colorfullife.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
+	linux1394-devel@lists.sourceforge.net
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <4711087E.1050005@s5r6.in-berlin.de>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
+List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
+List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
+Sender: linux1394-devel-bounces@lists.sourceforge.net
+Errors-To: linux1394-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On 10/13/07, Manfred Spraul <manfred@colorfullife.com> wrote:
-> Jeff Garzik wrote:
-> >
-> > I think the scenario you outline is an illustration of the approach's
-> > fragility:  disable_irq() is a heavy hammer that originated with INTx,
-> > and it relies on a chip-specific disable method (kernel/irq/manage.c)
-> > that practically guarantees behavior will vary across MSI/INTx/etc.
-> >
-> I checked the code: IRQ_DISABLE is implemented in software, i.e.
-> handle_level_irq() only calls handle_IRQ_event() [and then the nic irq
-> handler] if IRQ_DISABLE is not set.
-> OTHO: The last trace looks as if nv_do_nic_poll() is interrupted by an irq.
->
-> Perhaps something corrupts dev->irq? The irq is requested with
->     request_irq(np->pci_dev->irq, handler, IRQF_SHARED, dev->name, dev)
-> and disabled with
->     disable_irq_lockdep(dev->irq);
->
-> Someone around with a MSI capable board? The forcedeth driver does
->     dev->irq = pci_dev->irq
-> in nv_probe(), especially before pci_enable_msi().
-> Does pci_enable_msi() change pci_dev->irq? Then we would disable the
-> wrong interrupt....
+On Sat, 13 Oct 2007, Stefan Richter wrote:
 
-the request_irq==>setup_irq will make dev->irq = pci_dev->irq.
+> Roland Dreier wrote:
+> > There are a few changes to the bonding driver pending that will add
+> > support for bonding IP-over-InfiniBand interfaces.  IPoIB also cannot
+> > change its HW address, so the patches address that issue.
+> > 
+> > Once those patches land, bonding eth1394 interfaces may "just work".
+> 
+> Sounds promising.  I will keep an eye on it.
 
-YH
+While that might allow multiple eth1394 interfaces to be bonded,
+I believe the user wanted to bond an eth1394 interface with a normal
+Ethernet interface, and I don't think that will work even with the
+IPoIB bonding changes, since bonding of different fundamental types
+of network interfaces still won't be supported, and I'm pretty sure
+eth1394 is not considered a standard Ethernet interface (different
+MAC address format for one thing).
+
+						-Bill
+
+-------------------------------------------------------------------------
+This SF.net email is sponsored by: Splunk Inc.
+Still grepping through log files to find problems?  Stop.
+Now Search log events and configuration files using AJAX and a browser.
+Download your FREE copy of Splunk now >> http://get.splunk.com/
