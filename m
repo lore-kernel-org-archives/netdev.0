@@ -1,57 +1,56 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Don't leak 'listeners' in netlink_kernel_create()
-Date: Sun, 14 Oct 2007 16:30:06 -0600
-Message-ID: <m1hckt5nyp.fsf@ebiederm.dsl.xmission.com>
-References: <200710142337.01059.jesper.juhl@gmail.com>
+From: "Yinghai Lu" <yhlu.kernel@gmail.com>
+Subject: Re: MSI interrupts and disable_irq
+Date: Sun, 14 Oct 2007 16:15:46 -0700
+Message-ID: <86802c440710141615g60fb9775oba590deb1a9fabde@mail.gmail.com>
+References: <46FC15A9.1070803@nvidia.com> <46FDBCB4.9090802@pobox.com>
+	 <4710901F.8010206@colorfullife.com>
+	 <86802c440710132259o6e82f6s4bed7b25bd5636e9@mail.gmail.com>
+	 <4711C217.2010605@colorfullife.com> <1192398473.6188.10.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Alan Cox <alan@redhat.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	David Miller <davem@davemloft.net>
-To: Jesper Juhl <jesper.juhl@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Manfred Spraul" <manfred@colorfullife.com>,
+	"Jeff Garzik" <jgarzik@pobox.com>,
+	"Ayaz Abdulla" <aabdulla@nvidia.com>,
+	nedev <netdev@vger.kernel.org>,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+	"David Miller" <davem@davemloft.net>,
+	"Andrew Morton" <akpm@linux-foundation.org>
+To: benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ebiederm.dsl.xmission.com ([166.70.28.69]:36072 "EHLO
-	ebiederm.dsl.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752773AbXJNWb3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 18:31:29 -0400
-In-Reply-To: <200710142337.01059.jesper.juhl@gmail.com> (Jesper Juhl's message
-	of "Sun, 14 Oct 2007 23:37:00 +0200")
+Received: from wa-out-1112.google.com ([209.85.146.178]:32817 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756744AbXJNXPq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 19:15:46 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so1748315wah
+        for <netdev@vger.kernel.org>; Sun, 14 Oct 2007 16:15:46 -0700 (PDT)
+In-Reply-To: <1192398473.6188.10.camel@pasglop>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesper Juhl <jesper.juhl@gmail.com> writes:
+On 10/14/07, Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
+>
+> On Sun, 2007-10-14 at 09:15 +0200, Manfred Spraul wrote:
+> > Yinghai Lu wrote:
+> > > On 10/13/07, Manfred Spraul <manfred@colorfullife.com> wrote:
+> > >
+> > >> Someone around with a MSI capable board? The forcedeth driver does
+> > >>     dev->irq = pci_dev->irq
+> > >> in nv_probe(), especially before pci_enable_msi().
+> > >> Does pci_enable_msi() change pci_dev->irq? Then we would disable the
+> > >> wrong interrupt....
+> > >>
+> > >
+> > > the request_irq==>setup_irq will make dev->irq = pci_dev->irq.
+> > >
+> > >
+> > Where is that?
+> > Otherwise I would propose the attached patch. My board is not
+> > MSI-capable, thus I can't test it myself.
+>
+> Why not just copy pcidev->irq to dev->irq once ?
 
-> From: Jesper Juhl <jesper.juhl@gmail.com>
-> Subject: Don't leak 'listeners' in netlink_kernel_create()
->
-> The Coverity checker spotted that we'll leak the storage allocated 
-> to 'listeners' in netlink_kernel_create() when the
->   if (!nl_table[unit].registered)
-> check is false.
->
-> This patch avoids the leak.
->
->
-> Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
+it seems e1000 is using np->pci_dev->irq directly too.
 
-This patch appears trivially correct to me.
-Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
-
-> ---
->
->  af_netlink.c |    2 ++
->  1 file changed, 2 insertions(+)
->
-> --- linux-2.6/net/netlink/af_netlink.c~	2007-10-14 23:29:50.000000000 +0200
-> +++ linux-2.6/net/netlink/af_netlink.c	2007-10-14 23:29:50.000000000 +0200
-> @@ -1378,6 +1378,8 @@ netlink_kernel_create(struct net *net, i
->  		nl_table[unit].cb_mutex = cb_mutex;
->  		nl_table[unit].module = module;
->  		nl_table[unit].registered = 1;
-> +	} else {
-> +		kfree(listeners);
->  	}
->  	netlink_table_ungrab();
->  
+YH
