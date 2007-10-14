@@ -1,373 +1,390 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 7/10] [NETFILTER]: Do not copy skb in skb_make_writable
-Date: Sun, 14 Oct 2007 12:27:45 +0800
-Message-ID: <E1Igv4r-00030s-00@gondolin.me.apana.org.au>
+Subject: [PATCH 9/10] [NETFILTER]: Avoid skb_copy/pskb_copy/skb_realloc_headroom
+Date: Sun, 14 Oct 2007 12:27:47 +0800
+Message-ID: <E1Igv4t-000319-00@gondolin.me.apana.org.au>
 References: <20071014042604.GA11431@gondor.apana.org.au>
 To: Patrick McHardy <kaber@trash.net>,
 	David Miller <davem@davemloft.net>, hadi@cyberus.ca,
 	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
 	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1423 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:1426 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751271AbXJNE2M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 00:28:12 -0400
+	with ESMTP id S1752025AbXJNE2R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 14 Oct 2007 00:28:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[NETFILTER]: Do not copy skb in skb_make_writable
+[NETFILTER]: Avoid skb_copy/pskb_copy/skb_realloc_headroom
 
-Now that all callers of netfilter can guarantee that the skb is not shared,
-we no longer have to copy the skb in skb_make_writable.
+This patch replaces unnecessary uses of skb_copy, pskb_copy and
+skb_realloc_headroom by functions such as skb_make_writable and
+pskb_expand_head.
+
+This allows us to remove the double pointers later.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/linux/netfilter.h              |    2 -
- net/ipv4/netfilter/ip_queue.c          |    2 -
- net/ipv4/netfilter/ipt_ECN.c           |    4 +--
- net/ipv4/netfilter/ipt_TOS.c           |    2 -
- net/ipv4/netfilter/ipt_TTL.c           |    2 -
- net/ipv4/netfilter/nf_nat_core.c       |    4 +--
- net/ipv4/netfilter/nf_nat_helper.c     |    8 +++---
- net/ipv4/netfilter/nf_nat_proto_gre.c  |    2 -
- net/ipv4/netfilter/nf_nat_proto_icmp.c |    2 -
- net/ipv4/netfilter/nf_nat_proto_tcp.c  |    2 -
- net/ipv4/netfilter/nf_nat_proto_udp.c  |    2 -
- net/ipv4/netfilter/nf_nat_snmp_basic.c |    2 -
- net/ipv6/netfilter/ip6_queue.c         |    2 -
- net/ipv6/netfilter/ip6t_HL.c           |    2 -
- net/netfilter/core.c                   |   38 ++++++++++++---------------------
- net/netfilter/nfnetlink_queue.c        |    2 -
- net/netfilter/xt_DSCP.c                |    4 +--
- net/netfilter/xt_TCPMSS.c              |    2 -
- 18 files changed, 37 insertions(+), 47 deletions(-)
+ net/bridge/netfilter/ebt_dnat.c     |   13 +++----------
+ net/bridge/netfilter/ebt_redirect.c |   13 +++----------
+ net/bridge/netfilter/ebt_snat.c     |   13 +++----------
+ net/ipv4/netfilter.c                |   31 +++++++++----------------------
+ net/ipv4/netfilter/arpt_mangle.c    |   14 +++-----------
+ net/ipv4/netfilter/ip_queue.c       |   22 ++++++++--------------
+ net/ipv4/netfilter/nf_nat_helper.c  |   10 +---------
+ net/ipv6/netfilter/ip6_queue.c      |   18 ++++++------------
+ net/netfilter/nfnetlink_queue.c     |   18 ++++++------------
+ net/netfilter/xt_TCPMSS.c           |   10 +++-------
+ 10 files changed, 45 insertions(+), 117 deletions(-)
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index 1dd075e..2505348 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -287,7 +287,7 @@ extern void nf_invalidate_cache(int pf);
- /* Call this before modifying an existing packet: ensures it is
-    modifiable and linear to the point you care about (writable_len).
-    Returns true or false. */
--extern int skb_make_writable(struct sk_buff **pskb, unsigned int writable_len);
-+extern int skb_make_writable(struct sk_buff *skb, unsigned int writable_len);
+diff --git a/net/bridge/netfilter/ebt_dnat.c b/net/bridge/netfilter/ebt_dnat.c
+index 4582659..9d74dee 100644
+--- a/net/bridge/netfilter/ebt_dnat.c
++++ b/net/bridge/netfilter/ebt_dnat.c
+@@ -8,6 +8,7 @@
+  *
+  */
  
- static inline void nf_csum_replace4(__sum16 *sum, __be32 from, __be32 to)
++#include <linux/netfilter.h>
+ #include <linux/netfilter_bridge/ebtables.h>
+ #include <linux/netfilter_bridge/ebt_nat.h>
+ #include <linux/module.h>
+@@ -19,17 +20,9 @@ static int ebt_target_dnat(struct sk_buff **pskb, unsigned int hooknr,
  {
+ 	struct ebt_nat_info *info = (struct ebt_nat_info *)data;
+ 
+-	if (skb_shared(*pskb) || skb_cloned(*pskb)) {
+-		struct sk_buff *nskb;
++	if (skb_make_writable(*pskb, 0))
++		return NF_DROP;
+ 
+-		nskb = skb_copy(*pskb, GFP_ATOMIC);
+-		if (!nskb)
+-			return NF_DROP;
+-		if ((*pskb)->sk)
+-			skb_set_owner_w(nskb, (*pskb)->sk);
+-		kfree_skb(*pskb);
+-		*pskb = nskb;
+-	}
+ 	memcpy(eth_hdr(*pskb)->h_dest, info->mac, ETH_ALEN);
+ 	return info->target;
+ }
+diff --git a/net/bridge/netfilter/ebt_redirect.c b/net/bridge/netfilter/ebt_redirect.c
+index 9f378ea..81371cd 100644
+--- a/net/bridge/netfilter/ebt_redirect.c
++++ b/net/bridge/netfilter/ebt_redirect.c
+@@ -8,6 +8,7 @@
+  *
+  */
+ 
++#include <linux/netfilter.h>
+ #include <linux/netfilter_bridge/ebtables.h>
+ #include <linux/netfilter_bridge/ebt_redirect.h>
+ #include <linux/module.h>
+@@ -20,17 +21,9 @@ static int ebt_target_redirect(struct sk_buff **pskb, unsigned int hooknr,
+ {
+ 	struct ebt_redirect_info *info = (struct ebt_redirect_info *)data;
+ 
+-	if (skb_shared(*pskb) || skb_cloned(*pskb)) {
+-		struct sk_buff *nskb;
++	if (skb_make_writable(*pskb, 0))
++		return NF_DROP;
+ 
+-		nskb = skb_copy(*pskb, GFP_ATOMIC);
+-		if (!nskb)
+-			return NF_DROP;
+-		if ((*pskb)->sk)
+-			skb_set_owner_w(nskb, (*pskb)->sk);
+-		kfree_skb(*pskb);
+-		*pskb = nskb;
+-	}
+ 	if (hooknr != NF_BR_BROUTING)
+ 		memcpy(eth_hdr(*pskb)->h_dest,
+ 		       in->br_port->br->dev->dev_addr, ETH_ALEN);
+diff --git a/net/bridge/netfilter/ebt_snat.c b/net/bridge/netfilter/ebt_snat.c
+index a507221..b0c6368 100644
+--- a/net/bridge/netfilter/ebt_snat.c
++++ b/net/bridge/netfilter/ebt_snat.c
+@@ -8,6 +8,7 @@
+  *
+  */
+ 
++#include <linux/netfilter.h>
+ #include <linux/netfilter_bridge/ebtables.h>
+ #include <linux/netfilter_bridge/ebt_nat.h>
+ #include <linux/module.h>
+@@ -21,17 +22,9 @@ static int ebt_target_snat(struct sk_buff **pskb, unsigned int hooknr,
+ {
+ 	struct ebt_nat_info *info = (struct ebt_nat_info *) data;
+ 
+-	if (skb_shared(*pskb) || skb_cloned(*pskb)) {
+-		struct sk_buff *nskb;
++	if (skb_make_writable(*pskb, 0))
++		return NF_DROP;
+ 
+-		nskb = skb_copy(*pskb, GFP_ATOMIC);
+-		if (!nskb)
+-			return NF_DROP;
+-		if ((*pskb)->sk)
+-			skb_set_owner_w(nskb, (*pskb)->sk);
+-		kfree_skb(*pskb);
+-		*pskb = nskb;
+-	}
+ 	memcpy(eth_hdr(*pskb)->h_source, info->mac, ETH_ALEN);
+ 	if (!(info->target & NAT_ARP_BIT) &&
+ 	    eth_hdr(*pskb)->h_proto == htons(ETH_P_ARP)) {
+diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
+index b441929..d1e3012 100644
+--- a/net/ipv4/netfilter.c
++++ b/net/ipv4/netfilter.c
+@@ -3,6 +3,7 @@
+ #include <linux/netfilter.h>
+ #include <linux/netfilter_ipv4.h>
+ #include <linux/ip.h>
++#include <linux/skbuff.h>
+ #include <net/route.h>
+ #include <net/xfrm.h>
+ #include <net/ip.h>
+@@ -66,17 +67,10 @@ int ip_route_me_harder(struct sk_buff **pskb, unsigned addr_type)
+ 
+ 	/* Change in oif may mean change in hh_len. */
+ 	hh_len = (*pskb)->dst->dev->hard_header_len;
+-	if (skb_headroom(*pskb) < hh_len) {
+-		struct sk_buff *nskb;
+-
+-		nskb = skb_realloc_headroom(*pskb, hh_len);
+-		if (!nskb)
+-			return -1;
+-		if ((*pskb)->sk)
+-			skb_set_owner_w(nskb, (*pskb)->sk);
+-		kfree_skb(*pskb);
+-		*pskb = nskb;
+-	}
++	if (skb_headroom(*pskb) < hh_len &&
++	    pskb_expand_head(*pskb, hh_len - skb_headroom(*pskb), 0,
++			     GFP_ATOMIC))
++		return -1;
+ 
+ 	return 0;
+ }
+@@ -107,17 +101,10 @@ int ip_xfrm_me_harder(struct sk_buff **pskb)
+ 
+ 	/* Change in oif may mean change in hh_len. */
+ 	hh_len = (*pskb)->dst->dev->hard_header_len;
+-	if (skb_headroom(*pskb) < hh_len) {
+-		struct sk_buff *nskb;
+-
+-		nskb = skb_realloc_headroom(*pskb, hh_len);
+-		if (!nskb)
+-			return -1;
+-		if ((*pskb)->sk)
+-			skb_set_owner_w(nskb, (*pskb)->sk);
+-		kfree_skb(*pskb);
+-		*pskb = nskb;
+-	}
++	if (skb_headroom(*pskb) < hh_len &&
++	    pskb_expand_head(*pskb, hh_len - skb_headroom(*pskb), 0,
++			     GFP_ATOMIC))
++		return -1;
+ 	return 0;
+ }
+ EXPORT_SYMBOL(ip_xfrm_me_harder);
+diff --git a/net/ipv4/netfilter/arpt_mangle.c b/net/ipv4/netfilter/arpt_mangle.c
+index c4bdab4..0181f91 100644
+--- a/net/ipv4/netfilter/arpt_mangle.c
++++ b/net/ipv4/netfilter/arpt_mangle.c
+@@ -1,5 +1,6 @@
+ /* module that allows mangling of the arp payload */
+ #include <linux/module.h>
++#include <linux/netfilter.h>
+ #include <linux/netfilter_arp/arpt_mangle.h>
+ #include <net/sock.h>
+ 
+@@ -18,17 +19,8 @@ target(struct sk_buff **pskb,
+ 	unsigned char *arpptr;
+ 	int pln, hln;
+ 
+-	if (skb_shared(*pskb) || skb_cloned(*pskb)) {
+-		struct sk_buff *nskb;
+-
+-		nskb = skb_copy(*pskb, GFP_ATOMIC);
+-		if (!nskb)
+-			return NF_DROP;
+-		if ((*pskb)->sk)
+-			skb_set_owner_w(nskb, (*pskb)->sk);
+-		kfree_skb(*pskb);
+-		*pskb = nskb;
+-	}
++	if (skb_make_writable(*pskb, (*pskb)->len))
++		return NF_DROP;
+ 
+ 	arp = arp_hdr(*pskb);
+ 	arpptr = skb_network_header(*pskb) + sizeof(*arp);
 diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
-index 23cbfc7..62d8867 100644
+index 62d8867..10a2ce0 100644
 --- a/net/ipv4/netfilter/ip_queue.c
 +++ b/net/ipv4/netfilter/ip_queue.c
-@@ -365,7 +365,7 @@ ipq_mangle_ipv4(ipq_verdict_msg_t *v, struct ipq_queue_entry *e)
+@@ -335,6 +335,7 @@ static int
+ ipq_mangle_ipv4(ipq_verdict_msg_t *v, struct ipq_queue_entry *e)
+ {
+ 	int diff;
++	int err;
+ 	struct iphdr *user_iph = (struct iphdr *)v->payload;
+ 
+ 	if (v->data_len < sizeof(*user_iph))
+@@ -347,21 +348,14 @@ ipq_mangle_ipv4(ipq_verdict_msg_t *v, struct ipq_queue_entry *e)
+ 		if (v->data_len > 0xFFFF)
+ 			return -EINVAL;
+ 		if (diff > skb_tailroom(e->skb)) {
+-			struct sk_buff *newskb;
+-
+-			newskb = skb_copy_expand(e->skb,
+-						 skb_headroom(e->skb),
+-						 diff,
+-						 GFP_ATOMIC);
+-			if (newskb == NULL) {
+-				printk(KERN_WARNING "ip_queue: OOM "
+-				      "in mangle, dropping packet\n");
+-				return -ENOMEM;
++			err = pskb_expand_head(e->skb, 0,
++					       diff - skb_tailroom(e->skb),
++					       GFP_ATOMIC);
++			if (err) {
++				printk(KERN_WARNING "ip_queue: error "
++				      "in mangle, dropping packet: %d\n", -err);
++				return err;
+ 			}
+-			if (e->skb->sk)
+-				skb_set_owner_w(newskb, e->skb->sk);
+-			kfree_skb(e->skb);
+-			e->skb = newskb;
  		}
  		skb_put(e->skb, diff);
  	}
--	if (!skb_make_writable(&e->skb, v->data_len))
-+	if (!skb_make_writable(e->skb, v->data_len))
- 		return -ENOMEM;
- 	skb_copy_to_linear_data(e->skb, v->payload, v->data_len);
- 	e->skb->ip_summed = CHECKSUM_NONE;
-diff --git a/net/ipv4/netfilter/ipt_ECN.c b/net/ipv4/netfilter/ipt_ECN.c
-index f1253bd..92744be 100644
---- a/net/ipv4/netfilter/ipt_ECN.c
-+++ b/net/ipv4/netfilter/ipt_ECN.c
-@@ -32,7 +32,7 @@ set_ect_ip(struct sk_buff **pskb, const struct ipt_ECN_info *einfo)
- 
- 	if ((iph->tos & IPT_ECN_IP_MASK) != (einfo->ip_ect & IPT_ECN_IP_MASK)) {
- 		__u8 oldtos;
--		if (!skb_make_writable(pskb, sizeof(struct iphdr)))
-+		if (!skb_make_writable(*pskb, sizeof(struct iphdr)))
- 			return false;
- 		iph = ip_hdr(*pskb);
- 		oldtos = iph->tos;
-@@ -62,7 +62,7 @@ set_ect_tcp(struct sk_buff **pskb, const struct ipt_ECN_info *einfo)
- 	     tcph->cwr == einfo->proto.tcp.cwr))
- 		return true;
- 
--	if (!skb_make_writable(pskb, ip_hdrlen(*pskb) + sizeof(*tcph)))
-+	if (!skb_make_writable(*pskb, ip_hdrlen(*pskb) + sizeof(*tcph)))
- 		return false;
- 	tcph = (void *)ip_hdr(*pskb) + ip_hdrlen(*pskb);
- 
-diff --git a/net/ipv4/netfilter/ipt_TOS.c b/net/ipv4/netfilter/ipt_TOS.c
-index 25f5d0b..87b689a 100644
---- a/net/ipv4/netfilter/ipt_TOS.c
-+++ b/net/ipv4/netfilter/ipt_TOS.c
-@@ -33,7 +33,7 @@ target(struct sk_buff **pskb,
- 
- 	if ((iph->tos & IPTOS_TOS_MASK) != tosinfo->tos) {
- 		__u8 oldtos;
--		if (!skb_make_writable(pskb, sizeof(struct iphdr)))
-+		if (!skb_make_writable(*pskb, sizeof(struct iphdr)))
- 			return NF_DROP;
- 		iph = ip_hdr(*pskb);
- 		oldtos = iph->tos;
-diff --git a/net/ipv4/netfilter/ipt_TTL.c b/net/ipv4/netfilter/ipt_TTL.c
-index 2b54e7b..3dd4676 100644
---- a/net/ipv4/netfilter/ipt_TTL.c
-+++ b/net/ipv4/netfilter/ipt_TTL.c
-@@ -29,7 +29,7 @@ ipt_ttl_target(struct sk_buff **pskb,
- 	const struct ipt_TTL_info *info = targinfo;
- 	int new_ttl;
- 
--	if (!skb_make_writable(pskb, (*pskb)->len))
-+	if (!skb_make_writable(*pskb, (*pskb)->len))
- 		return NF_DROP;
- 
- 	iph = ip_hdr(*pskb);
-diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
-index 7221aa2..3b5eb7c 100644
---- a/net/ipv4/netfilter/nf_nat_core.c
-+++ b/net/ipv4/netfilter/nf_nat_core.c
-@@ -357,7 +357,7 @@ manip_pkt(u_int16_t proto,
- 	struct iphdr *iph;
- 	struct nf_nat_protocol *p;
- 
--	if (!skb_make_writable(pskb, iphdroff + sizeof(*iph)))
-+	if (!skb_make_writable(*pskb, iphdroff + sizeof(*iph)))
- 		return 0;
- 
- 	iph = (void *)(*pskb)->data + iphdroff;
-@@ -431,7 +431,7 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
- 	unsigned long statusbit;
- 	enum nf_nat_manip_type manip = HOOK2MANIP(hooknum);
- 
--	if (!skb_make_writable(pskb, hdrlen + sizeof(*inside)))
-+	if (!skb_make_writable(*pskb, hdrlen + sizeof(*inside)))
- 		return 0;
- 
- 	inside = (void *)(*pskb)->data + ip_hdrlen(*pskb);
 diff --git a/net/ipv4/netfilter/nf_nat_helper.c b/net/ipv4/netfilter/nf_nat_helper.c
-index 93d8a0a..6e81f76 100644
+index 6e81f76..40b429e 100644
 --- a/net/ipv4/netfilter/nf_nat_helper.c
 +++ b/net/ipv4/netfilter/nf_nat_helper.c
-@@ -152,7 +152,7 @@ nf_nat_mangle_tcp_packet(struct sk_buff **pskb,
- 	struct tcphdr *tcph;
- 	int oldlen, datalen;
- 
--	if (!skb_make_writable(pskb, (*pskb)->len))
-+	if (!skb_make_writable(*pskb, (*pskb)->len))
- 		return 0;
- 
- 	if (rep_len > match_len &&
-@@ -234,7 +234,7 @@ nf_nat_mangle_udp_packet(struct sk_buff **pskb,
- 			       match_offset + match_len)
- 		return 0;
- 
--	if (!skb_make_writable(pskb, (*pskb)->len))
-+	if (!skb_make_writable(*pskb, (*pskb)->len))
- 		return 0;
- 
- 	if (rep_len > match_len &&
-@@ -341,7 +341,7 @@ nf_nat_sack_adjust(struct sk_buff **pskb,
- 	optoff = ip_hdrlen(*pskb) + sizeof(struct tcphdr);
- 	optend = ip_hdrlen(*pskb) + tcph->doff * 4;
- 
--	if (!skb_make_writable(pskb, optend))
-+	if (!skb_make_writable(*pskb, optend))
- 		return 0;
- 
- 	dir = CTINFO2DIR(ctinfo);
-@@ -390,7 +390,7 @@ nf_nat_seq_adjust(struct sk_buff **pskb,
- 	this_way = &nat->seq[dir];
- 	other_way = &nat->seq[!dir];
- 
--	if (!skb_make_writable(pskb, ip_hdrlen(*pskb) + sizeof(*tcph)))
-+	if (!skb_make_writable(*pskb, ip_hdrlen(*pskb) + sizeof(*tcph)))
- 		return 0;
- 
- 	tcph = (void *)(*pskb)->data + ip_hdrlen(*pskb);
-diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_proto_gre.c
-index d562290..e7a2aaf 100644
---- a/net/ipv4/netfilter/nf_nat_proto_gre.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_gre.c
-@@ -109,7 +109,7 @@ gre_manip_pkt(struct sk_buff **pskb, unsigned int iphdroff,
- 
- 	/* pgreh includes two optional 32bit fields which are not required
- 	 * to be there.  That's where the magic '8' comes from */
--	if (!skb_make_writable(pskb, hdroff + sizeof(*pgreh) - 8))
-+	if (!skb_make_writable(*pskb, hdroff + sizeof(*pgreh) - 8))
- 		return 0;
- 
- 	greh = (void *)(*pskb)->data + hdroff;
-diff --git a/net/ipv4/netfilter/nf_nat_proto_icmp.c b/net/ipv4/netfilter/nf_nat_proto_icmp.c
-index 898d737..4087f4f 100644
---- a/net/ipv4/netfilter/nf_nat_proto_icmp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_icmp.c
-@@ -61,7 +61,7 @@ icmp_manip_pkt(struct sk_buff **pskb,
- 	struct icmphdr *hdr;
- 	unsigned int hdroff = iphdroff + iph->ihl*4;
- 
--	if (!skb_make_writable(pskb, hdroff + sizeof(*hdr)))
-+	if (!skb_make_writable(*pskb, hdroff + sizeof(*hdr)))
- 		return 0;
- 
- 	hdr = (struct icmphdr *)((*pskb)->data + hdroff);
-diff --git a/net/ipv4/netfilter/nf_nat_proto_tcp.c b/net/ipv4/netfilter/nf_nat_proto_tcp.c
-index 5bbbb2a..e544125 100644
---- a/net/ipv4/netfilter/nf_nat_proto_tcp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_tcp.c
-@@ -106,7 +106,7 @@ tcp_manip_pkt(struct sk_buff **pskb,
- 	if ((*pskb)->len >= hdroff + sizeof(struct tcphdr))
- 		hdrsize = sizeof(struct tcphdr);
- 
--	if (!skb_make_writable(pskb, hdroff + hdrsize))
-+	if (!skb_make_writable(*pskb, hdroff + hdrsize))
- 		return 0;
- 
- 	iph = (struct iphdr *)((*pskb)->data + iphdroff);
-diff --git a/net/ipv4/netfilter/nf_nat_proto_udp.c b/net/ipv4/netfilter/nf_nat_proto_udp.c
-index a0af4fd..ebe9b42 100644
---- a/net/ipv4/netfilter/nf_nat_proto_udp.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_udp.c
-@@ -97,7 +97,7 @@ udp_manip_pkt(struct sk_buff **pskb,
- 	__be32 oldip, newip;
- 	__be16 *portptr, newport;
- 
--	if (!skb_make_writable(pskb, hdroff + sizeof(*hdr)))
-+	if (!skb_make_writable(*pskb, hdroff + sizeof(*hdr)))
- 		return 0;
- 
- 	iph = (struct iphdr *)((*pskb)->data + iphdroff);
-diff --git a/net/ipv4/netfilter/nf_nat_snmp_basic.c b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-index 6bfcd3a..87011fe 100644
---- a/net/ipv4/netfilter/nf_nat_snmp_basic.c
-+++ b/net/ipv4/netfilter/nf_nat_snmp_basic.c
-@@ -1258,7 +1258,7 @@ static int help(struct sk_buff **pskb, unsigned int protoff,
- 		 return NF_DROP;
- 	}
- 
--	if (!skb_make_writable(pskb, (*pskb)->len))
-+	if (!skb_make_writable(*pskb, (*pskb)->len))
- 		return NF_DROP;
- 
- 	spin_lock_bh(&snmp_lock);
-diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
-index 0473145..d7080dd 100644
---- a/net/ipv6/netfilter/ip6_queue.c
-+++ b/net/ipv6/netfilter/ip6_queue.c
-@@ -362,7 +362,7 @@ ipq_mangle_ipv6(ipq_verdict_msg_t *v, struct ipq_queue_entry *e)
- 		}
- 		skb_put(e->skb, diff);
- 	}
--	if (!skb_make_writable(&e->skb, v->data_len))
-+	if (!skb_make_writable(e->skb, v->data_len))
- 		return -ENOMEM;
- 	skb_copy_to_linear_data(e->skb, v->payload, v->data_len);
- 	e->skb->ip_summed = CHECKSUM_NONE;
-diff --git a/net/ipv6/netfilter/ip6t_HL.c b/net/ipv6/netfilter/ip6t_HL.c
-index ad4d943..f76197f 100644
---- a/net/ipv6/netfilter/ip6t_HL.c
-+++ b/net/ipv6/netfilter/ip6t_HL.c
-@@ -29,7 +29,7 @@ static unsigned int ip6t_hl_target(struct sk_buff **pskb,
- 	const struct ip6t_HL_info *info = targinfo;
- 	int new_hl;
- 
--	if (!skb_make_writable(pskb, (*pskb)->len))
-+	if (!skb_make_writable(*pskb, (*pskb)->len))
- 		return NF_DROP;
- 
- 	ip6h = ipv6_hdr(*pskb);
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index a523fa4..2c9e8e3 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -196,34 +196,24 @@ unlock:
- EXPORT_SYMBOL(nf_hook_slow);
- 
- 
--int skb_make_writable(struct sk_buff **pskb, unsigned int writable_len)
-+int skb_make_writable(struct sk_buff *skb, unsigned int writable_len)
+@@ -113,20 +113,12 @@ static void mangle_contents(struct sk_buff *skb,
+ /* Unusual, but possible case. */
+ static int enlarge_skb(struct sk_buff **pskb, unsigned int extra)
  {
 -	struct sk_buff *nskb;
 -
--	if (writable_len > (*pskb)->len)
-+	if (writable_len > skb->len)
+ 	if ((*pskb)->len + extra > 65535)
  		return 0;
  
- 	/* Not exclusive use of packet?  Must copy. */
--	if (skb_cloned(*pskb) && !skb_clone_writable(*pskb, writable_len))
--		goto copy_skb;
--	if (skb_shared(*pskb))
--		goto copy_skb;
--
--	return pskb_may_pull(*pskb, writable_len);
--
--copy_skb:
--	nskb = skb_copy(*pskb, GFP_ATOMIC);
+-	nskb = skb_copy_expand(*pskb, skb_headroom(*pskb), extra, GFP_ATOMIC);
 -	if (!nskb)
--		return 0;
--	BUG_ON(skb_is_nonlinear(nskb));
--
--	/* Rest of kernel will get very unhappy if we pass it a
--	   suddenly-orphaned skbuff */
++	if (pskb_expand_head(*pskb, 0, extra - skb_tailroom(*pskb), GFP_ATOMIC))
+ 		return 0;
+ 
+-	/* Transfer socket to new skb. */
 -	if ((*pskb)->sk)
 -		skb_set_owner_w(nskb, (*pskb)->sk);
 -	kfree_skb(*pskb);
 -	*pskb = nskb;
--	return 1;
-+	if (!skb_cloned(skb)) {
-+		if (writable_len <= skb_headlen(skb))
-+			return 1;
-+	} else if (skb_clone_writable(skb, writable_len))
-+		return 1;
-+
-+	if (writable_len <= skb_headlen(skb))
-+		writable_len = 0;
-+	else
-+		writable_len -= skb_headlen(skb);
-+
-+	return !!__pskb_pull_tail(skb, writable_len);
+ 	return 1;
  }
- EXPORT_SYMBOL(skb_make_writable);
  
-diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
-index 49f0480..6ba98ac 100644
---- a/net/netfilter/nfnetlink_queue.c
-+++ b/net/netfilter/nfnetlink_queue.c
-@@ -644,7 +644,7 @@ nfqnl_mangle(void *data, int data_len, struct nfqnl_queue_entry *e)
+diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
+index d7080dd..6413a30 100644
+--- a/net/ipv6/netfilter/ip6_queue.c
++++ b/net/ipv6/netfilter/ip6_queue.c
+@@ -332,6 +332,7 @@ static int
+ ipq_mangle_ipv6(ipq_verdict_msg_t *v, struct ipq_queue_entry *e)
+ {
+ 	int diff;
++	int err;
+ 	struct ipv6hdr *user_iph = (struct ipv6hdr *)v->payload;
+ 
+ 	if (v->data_len < sizeof(*user_iph))
+@@ -344,21 +345,14 @@ ipq_mangle_ipv6(ipq_verdict_msg_t *v, struct ipq_queue_entry *e)
+ 		if (v->data_len > 0xFFFF)
+ 			return -EINVAL;
+ 		if (diff > skb_tailroom(e->skb)) {
+-			struct sk_buff *newskb;
+-
+-			newskb = skb_copy_expand(e->skb,
+-						 skb_headroom(e->skb),
+-						 diff,
+-						 GFP_ATOMIC);
+-			if (newskb == NULL) {
++			err = pskb_expand_head(e->skb, 0,
++					       diff - skb_tailroom(e->skb),
++					       GFP_ATOMIC);
++			if (err) {
+ 				printk(KERN_WARNING "ip6_queue: OOM "
+ 				      "in mangle, dropping packet\n");
+-				return -ENOMEM;
++				return err;
+ 			}
+-			if (e->skb->sk)
+-				skb_set_owner_w(newskb, e->skb->sk);
+-			kfree_skb(e->skb);
+-			e->skb = newskb;
  		}
  		skb_put(e->skb, diff);
  	}
--	if (!skb_make_writable(&e->skb, data_len))
-+	if (!skb_make_writable(e->skb, data_len))
- 		return -ENOMEM;
- 	skb_copy_to_linear_data(e->skb, data, data_len);
- 	e->skb->ip_summed = CHECKSUM_NONE;
-diff --git a/net/netfilter/xt_DSCP.c b/net/netfilter/xt_DSCP.c
-index 798ab73..1706616 100644
---- a/net/netfilter/xt_DSCP.c
-+++ b/net/netfilter/xt_DSCP.c
-@@ -36,7 +36,7 @@ static unsigned int target(struct sk_buff **pskb,
- 	u_int8_t dscp = ipv4_get_dsfield(ip_hdr(*pskb)) >> XT_DSCP_SHIFT;
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index 6ba98ac..3ceeffc 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -617,6 +617,7 @@ static int
+ nfqnl_mangle(void *data, int data_len, struct nfqnl_queue_entry *e)
+ {
+ 	int diff;
++	int err;
  
- 	if (dscp != dinfo->dscp) {
--		if (!skb_make_writable(pskb, sizeof(struct iphdr)))
-+		if (!skb_make_writable(*pskb, sizeof(struct iphdr)))
- 			return NF_DROP;
- 
- 		ipv4_change_dsfield(ip_hdr(*pskb), (__u8)(~XT_DSCP_MASK),
-@@ -57,7 +57,7 @@ static unsigned int target6(struct sk_buff **pskb,
- 	u_int8_t dscp = ipv6_get_dsfield(ipv6_hdr(*pskb)) >> XT_DSCP_SHIFT;
- 
- 	if (dscp != dinfo->dscp) {
--		if (!skb_make_writable(pskb, sizeof(struct ipv6hdr)))
-+		if (!skb_make_writable(*pskb, sizeof(struct ipv6hdr)))
- 			return NF_DROP;
- 
- 		ipv6_change_dsfield(ipv6_hdr(*pskb), (__u8)(~XT_DSCP_MASK),
+ 	diff = data_len - e->skb->len;
+ 	if (diff < 0) {
+@@ -626,21 +627,14 @@ nfqnl_mangle(void *data, int data_len, struct nfqnl_queue_entry *e)
+ 		if (data_len > 0xFFFF)
+ 			return -EINVAL;
+ 		if (diff > skb_tailroom(e->skb)) {
+-			struct sk_buff *newskb;
+-
+-			newskb = skb_copy_expand(e->skb,
+-						 skb_headroom(e->skb),
+-						 diff,
+-						 GFP_ATOMIC);
+-			if (newskb == NULL) {
++			err = pskb_expand_head(e->skb, 0,
++					       diff - skb_tailroom(e->skb),
++					       GFP_ATOMIC);
++			if (err) {
+ 				printk(KERN_WARNING "nf_queue: OOM "
+ 				      "in mangle, dropping packet\n");
+-				return -ENOMEM;
++				return err;
+ 			}
+-			if (e->skb->sk)
+-				skb_set_owner_w(newskb, e->skb->sk);
+-			kfree_skb(e->skb);
+-			e->skb = newskb;
+ 		}
+ 		skb_put(e->skb, diff);
+ 	}
 diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
-index d40f7e4..31b6f9d 100644
+index 31b6f9d..f111edf 100644
 --- a/net/netfilter/xt_TCPMSS.c
 +++ b/net/netfilter/xt_TCPMSS.c
-@@ -50,7 +50,7 @@ tcpmss_mangle_packet(struct sk_buff **pskb,
- 	u16 newmss;
- 	u8 *opt;
+@@ -105,14 +105,10 @@ tcpmss_mangle_packet(struct sk_buff **pskb,
+ 	 * MSS Option not found ?! add it..
+ 	 */
+ 	if (skb_tailroom((*pskb)) < TCPOLEN_MSS) {
+-		struct sk_buff *newskb;
+-
+-		newskb = skb_copy_expand(*pskb, skb_headroom(*pskb),
+-					 TCPOLEN_MSS, GFP_ATOMIC);
+-		if (!newskb)
++		if (pskb_expand_head(*pskb, 0,
++				     TCPOLEN_MSS - skb_tailroom(*pskb),
++				     GFP_ATOMIC))
+ 			return -1;
+-		kfree_skb(*pskb);
+-		*pskb = newskb;
+ 		tcph = (struct tcphdr *)(skb_network_header(*pskb) + tcphoff);
+ 	}
  
--	if (!skb_make_writable(pskb, (*pskb)->len))
-+	if (!skb_make_writable(*pskb, (*pskb)->len))
- 		return -1;
- 
- 	tcplen = (*pskb)->len - tcphoff;
