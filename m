@@ -1,157 +1,81 @@
-From: "Grant Likely" <grant.likely@secretlab.ca>
-Subject: Re: [PATCH v3 4/4] FEC mpc52xx: phy part of the driver\
-Date: Mon, 15 Oct 2007 08:30:17 -0600
-Message-ID: <fa686aa40710150730u3164b12dtef42d8dd68674fdc@mail.gmail.com>
-References: <20071014075511.GC3000@nd47.coderock.org>
-	 <20071014075958.GG3000@nd47.coderock.org>
-	 <fa686aa40710141505w1787e7e1g6116185001561a4d@mail.gmail.com>
-	 <20071015105601.GM3000@nd47.coderock.org>
+From: dmpesl <dmpesl@ldis.cs.msu.su>
+Subject: Re: FWD: 2.4.35 e1000 problems
+Date: Mon, 15 Oct 2007 18:25:56 +0400 (MSD)
+Message-ID: <Pine.BSO.4.61.0710151820370.17424@ldisi.cs.msu.su>
+References: <20071015135917.GA9608@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: galak@kernel.crashing.org, jgarzik@pobox.com,
-	linuxppc-dev@ozlabs.org, tnt@246tnt.com, netdev@vger.kernel.org
-To: "Domen Puncer" <domen.puncer@telargo.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.251]:25089 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754417AbXJOOaU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 10:30:20 -0400
-Received: by an-out-0708.google.com with SMTP id d31so122216and
-        for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 07:30:19 -0700 (PDT)
-In-Reply-To: <20071015105601.GM3000@nd47.coderock.org>
-Content-Disposition: inline
+Received: from ldis.cs.msu.su ([158.250.10.196]:36293 "EHLO ldis.cs.msu.su"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754084AbXJOOwb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2007 10:52:31 -0400
+In-Reply-To: <20071015135917.GA9608@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/15/07, Domen Puncer <domen.puncer@telargo.com> wrote:
-> On 14/10/07 16:05 -0600, Grant Likely wrote:
-> > On 10/14/07, Domen Puncer <domen.puncer@telargo.com> wrote:
-> > > PHY part of the driver for mpc5200(b) ethernet.
-> >
-> > Assuming I understand correctly, this comment is not correct and this
-> > patch just adds an MDIO bus driver.  PHY drivers are in phylib and
-> > data transfer is setup via the core driver, correct?
->
-> Right.
->
-> >
-> > It is conceivable that the PHY is connected to an alternate MDIO bus,
-> > or the MDIO bus is used for a PHY connected to an external Ethernet
-> > controller.
-> >
-> > Speaking of which, is it possible to use this MDIO bus without the
-> > core FEC being initialized?
->
-> IIRC fec doesn't need any initialization for MDIO bus registers to work.
->
-> >
-> > > +static struct of_device_id fec_mdio_match[] = {
-> > > +       {
-> > > +               .type = "mdio",
-> > > +               .compatible = "mpc5200b-fec-phy",
-> >
-> > This is not a phy; it's an MDIO bus.  Also, shouldn't this be
-> > "mpc5200-..." instead of "mpc5200b-..."?
->
-> Didn't know if it's ok for mpc5200, guess it is?
+Hi again
+I can only test it, if i can compile it statically in kernel, but as i've 
+seen that is not possible.
+That server is not completely owned by me, i'm just helping to solve some 
+hardware and software related problems. And i think if there will be any 
+problems during testing... owner/web admin of server will not be glad :)
+Maybe couple of reboots... And i can not migrate to 2.6 in easy way 
+because of old glibc/gcc.
 
-I believe it is.
+On Mon, 15 Oct 2007, Willy Tarreau wrote:
 
+> Hi,
 >
-> >
-> > > +       },
-> > > +       {},
-> > > +};
-> > > +
-> > > +struct of_platform_driver mpc52xx_fec_mdio_driver = {
-> > > +       .name = "mpc5200b-fec-phy",
-> > > +       .probe = fec_mdio_probe,
-> > > +       .remove = fec_mdio_remove,
-> > > +       .match_table = fec_mdio_match,
-> >
-> > Inconsistent naming.  Please use the same prefix on all global/static
-> > symbols (ie. use "mpc52xx_mdio_" instead of the mix of
-> > "mpc52xx_fec_mdio_", "fec_mdio_", etc.)  I also thing that "fec_mdio_"
-> > is too generic because there are a number of different incompatible
-> > FEC devices.
+> Dmitry, I've forwarded your mail to the netdev mailing list and to
+> the e1000 maintainers.
 >
-> OK.
+> Auke, does it sound like a known problem ? Maybe someone has seen it
+> in 2.6 ? Just for the record, e1000 in 2.4.35 is 7.3.20-k4.
 >
-> >
-> > > +};
-> > > +
-> > > +/* let fec driver call it, since this has to be registered before it */
-> > > +EXPORT_SYMBOL_GPL(mpc52xx_fec_mdio_driver);
-> >
-> > Why not have a module_init()/module_exit() in this file?  I don't
-> > think the FEC driver calls this driver's functions directly anymore,
-> > and it's still dependent on the of_platform bus probe order anyway.
+> Dmitry, if you have time for a test, I think it would be good if you
+> could test the most recent driver from e1000.sf.net. It might give
+> us some more information about the problem's cause. Otherwise, let's
+> wait for Auke's advices and/or questions.
 >
-> It was one way of making sure mdio driver is registered before fec.
-> (and of_platform bus probe order won't work for modules)
-> Nicer alternatives?
-
-However, that assumption only works when the PHY is accessed via the
-on-chip MDIO controller.  What happens with a different MDIO bus is
-used?
-
-...
-
-Need to take a look at how phylib handles the probing order problem;
-but really this is something that PHYLIB needs to handle; not the FEC
-driver.
-
-> > > --- linux.git.orig/drivers/net/fec_mpc52xx/Kconfig
-> > > +++ linux.git/drivers/net/fec_mpc52xx/Kconfig
-> > > @@ -11,5 +11,18 @@ config FEC_MPC52xx
-> > >         ---help---
-> > >           This option enables support for the MPC5200's on-chip
-> > >           Fast Ethernet Controller
-> > > +         If compiled as module, it will be called 'fec_mpc52xx.ko'.
-> >
-> > Drop this line and make the help text the same format as the other eth
-> > drivers in drivers/net.
+> Regards,
+> Willy
 >
-> How exactly is it different now?
-> And most of them have the "Module will be called xxx" line.
-
-Okay, you're right.  There is a real hodgepodge of help text format in
-drivers/net/Kconfig.  Do what seems best to you.
-
+> ----- Forwarded message from dmpesl <dmpesl@ldis.cs.msu.su> -----
 >
-> >
-> > > +
-> > > +config FEC_MPC52xx_MDIO
-> > > +       bool "FEC MII PHY driver"
-> > > +       depends on FEC_MPC52xx
-> > > +       default y
-> > > +       ---help---
-> > > +         The MPC5200's FEC can connect to the Ethernet either with
-> > > +         an external MII PHY chip or 10 Mbps 7-wire interface
-> > > +         (Motorola? industry standard).
-> > > +         If your board uses an external PHY, enable this.
-> >
-> > Not strictly true.  This enables talking to a PHY using the internal
-> > MDIO controller.  PHY register access could just as easily be accessed
-> > via an alternate interface.
+> Date: Mon, 15 Oct 2007 17:54:01 +0400 (MSD)
+> From: dmpesl <dmpesl@ldis.cs.msu.su>
+> Subject: 2.4.35 e1000 problems
+> To: w@1wt.eu
+> X-X-Sender: dmpesl@ldisi.cs.msu.su
 >
-> Not just that is also selects which mode will it use.
-> If you don't enable this, fec will be set up as 7-wire
-> ( 696                 rcntrl |= FEC_RCNTRL_MII_MODE;)
-
-Looking at fec.c:
-
-That line is dependent on priv->has_phy.  priv->has_phy is set on line
-949 which is conditional on the node having the property "phy-handle".
- It doesn't look like it is conditional on CONFIG_FEC_MPC52xx_MDIO at
-all.
-
-Cheers,
-g.
-
--- 
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
-grant.likely@secretlab.ca
-(403) 399-0195
+> Hello, Willy
+>
+> on recent month i've changed kernel from 2.4.31->2.4.35 on my Owl-based
+> web server (purchased SATA hdd, onboard SATA 20378), Asus PCH-DR mb,
+> 2*Xeon, and noticed that following error occurs on network card:
+> ---------------------------------------------
+> Sep 29 21:29:51 host kernel: NETDEV WATCHDOG: eth0: transmit timed out
+> Sep 29 21:29:53 host kernel: e1000: eth0: e1000_watchdog: NIC Link is Up
+> 100 Mbps Full Duplex, Flow Control: RX/TX
+> Sep 29 22:28:03 host kernel: NETDEV WATCHDOG: eth0: transmit timed out
+> Sep 29 22:28:05 host kernel: e1000: eth0: e1000_watchdog: NIC Link is Up
+> 100 Mbps Full Duplex, Flow Control: RX/TX
+> Sep 30 00:51:35 host kernel: NETDEV WATCHDOG: eth0: transmit timed out
+> Sep 30 00:51:37 host kernel: e1000: eth0: e1000_watchdog: NIC Link is Up
+> 100 Mbps Full Duplex, Flow Control: RX/TX
+> ---------------------------------------------
+> After some conversation with my collocation provider (changing cables and
+> switch port) i've searched google to same errors and found some advises to
+> use ethtool -k tso off, but this is not work with my kernel/distribution.
+> Then i swapped just e1000 driver in 2.4.35 to older, from 2.4.31.
+> Now everything works, without loosing link.
+>
+> Regards, Dmitry
+>
+> ----- End forwarded message -----
+>
