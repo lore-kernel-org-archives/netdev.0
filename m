@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [IPV6]: Uninline netfilter okfns
-Date: Mon, 15 Oct 2007 01:51:49 -0700 (PDT)
-Message-ID: <20071015.015149.112834140.davem@davemloft.net>
-References: <20071014042604.GA11431@gondor.apana.org.au>
-	<47131D64.3080008@trash.net>
-	<4713251B.4070208@trash.net>
+Subject: Re: [PATCH 3/5] [IPV6]: Add skb_is_gso_v6
+Date: Mon, 15 Oct 2007 02:06:24 -0700 (PDT)
+Message-ID: <20071015.020624.70200288.davem@davemloft.net>
+References: <47109E8A.8080205@myri.com>
+	<47109EFC.3020601@myri.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, hadi@cyberus.ca,
-	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
-To: kaber@trash.net
+Cc: jeff@garzik.org, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+To: brice@myri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37871
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52363
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750810AbXJOIvo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 04:51:44 -0400
-In-Reply-To: <4713251B.4070208@trash.net>
+	by vger.kernel.org with ESMTP id S1757837AbXJOJGU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 05:06:20 -0400
+In-Reply-To: <47109EFC.3020601@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon, 15 Oct 2007 10:30:19 +0200
+From: Brice Goglin <brice@myri.com>
+Date: Sat, 13 Oct 2007 12:33:32 +0200
 
-> Turns out IPv6 only has two functions which are marked inline
-> and where gcc is able to generate tail-calls, bridging doesn't
-> have a single one.
+> Add skb_is_gso_v6().
+> 
+> Signed-off-by: Brice Goglin <brice@myri.com>
 
-Applied, thanks Patrick!
+No objections from me:
 
+Acked-by: David S. Miller <davem@davemloft.net>
+
+Jeff, it's simplest if you just merge this in with the
+rest of the myri10ge patches, so please do so.
+
+Thanks!
