@@ -1,41 +1,24 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [PATCH] PHYLIB: IRQ event workqueue handling fixes
-Date: Mon, 15 Oct 2007 18:03:20 +0100 (BST)
-Message-ID: <Pine.LNX.4.64N.0710151737250.16262@blysk.ds.pg.gda.pl>
-References: <20071015125301.GC3015@ff.dom.local>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Bonding support for eth1394?
+Date: Mon, 15 Oct 2007 10:02:32 -0700
+Message-ID: <47139D28.9010303@hp.com>
+References: <FFB081ED-646B-489D-8836-FBA619A57E3E@gmail.com>	<47106EDE.1090601@s5r6.in-berlin.de>	<adair5bm3jf.fsf@cisco.com>	<4711087E.1050005@s5r6.in-berlin.de>	<20071014021850.9bd7c9ad.billfink@mindspring.com> <471201D7.8090001@s5r6.in-berlin.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andy Fleming <afleming@freescale.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Bill Fink <billfink@mindspring.com>,
+	Roland Dreier <rdreier@cisco.com>, netdev@vger.kernel.org,
+	linux1394-devel@lists.sourceforge.net
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cerber.ds.pg.gda.pl ([153.19.208.18]:39049 "EHLO
-	cerber.ds.pg.gda.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932183AbXJORD1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 13:03:27 -0400
-In-Reply-To: <20071015125301.GC3015@ff.dom.local>
+Received: from palrel13.hp.com ([156.153.255.238]:38638 "EHLO palrel13.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932071AbXJORCf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2007 13:02:35 -0400
+In-Reply-To: <471201D7.8090001@s5r6.in-berlin.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 15 Oct 2007, Jarek Poplawski wrote:
+Failover between disparate link-types sounds like a job for IP and routing.
 
-> Could you explain why cancel_work_sync() is better here than
-> flush_scheduled_work() wrt. rtnl_lock()?
-
- Well, this is actually the bit that made cancel_work_sync() be written in 
-the first place.  The short story is the netlink lock is most probably 
-held at this point (depending on the usage of phy_disconnect()) and there 
-is also an event waiting in the queue that requires the lock, so if 
-flush_scheduled_work() is called here a deadlock will happen.
-
- Let me find a reference for a longer story...:
-
-http://www.linux-mips.org/cgi-bin/mesg.cgi?a=linux-mips&i=Pine.LNX.4.64N.0610031509380.4642%40blysk.ds.pg.gda.pl
-
-and then discussed again:
-
-http://www.uwsg.indiana.edu/hypermail/linux/kernel/0612.0/0593.html
-
-  Maciej
+rick jones
