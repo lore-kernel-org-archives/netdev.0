@@ -1,38 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPV4]: Uninline netfilter okfns
-Date: Mon, 15 Oct 2007 16:05:46 +0800
-Message-ID: <20071015080546.GB29580@gondor.apana.org.au>
-References: <E1IbT8r-0000Av-00@gondolin.me.apana.org.au> <46FE6D73.4000002@trash.net> <20070929.171339.59681016.davem@davemloft.net> <20070930002601.GB7502@gondor.apana.org.au> <20070930004341.GA7769@gondor.apana.org.au> <46FFC2F4.8090602@trash.net> <20071014042604.GA11431@gondor.apana.org.au> <47131D64.3080008@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 10/10] [NETFILTER]: Replace sk_buff ** with sk_buff *
+Date: Mon, 15 Oct 2007 01:27:08 -0700 (PDT)
+Message-ID: <20071015.012708.74731580.davem@davemloft.net>
+References: <20071014042604.GA11431@gondor.apana.org.au>
+	<E1Igv4v-00031H-00@gondolin.me.apana.org.au>
+	<20071014095541.GA13222@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, hadi@cyberus.ca,
-	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, hadi@cyberus.ca, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:2231 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751333AbXJOIXX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 04:23:23 -0400
-Content-Disposition: inline
-In-Reply-To: <47131D64.3080008@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38192
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752641AbXJOI1G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 04:27:06 -0400
+In-Reply-To: <20071014095541.GA13222@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 15, 2007 at 09:57:24AM +0200, Patrick McHardy wrote:
->
-> Before:
->    text    data     bss     dec     hex filename
-> 8997385 1016524  524652 10538561         a0ce41 vmlinux
-> 
-> After:
->    text    data     bss     dec     hex filename
-> 8994009 1016524  524652 10535185         a0c111 vmlinux
-> -------------------------------------------------------
->   -3376
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sun, 14 Oct 2007 17:55:41 +0800
 
-Nice work Patrick :)
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> On Sun, Oct 14, 2007 at 12:27:49PM +0800, Herbert Xu wrote:
+> > [NETFILTER]: Replace sk_buff ** with sk_buff *
+> >
+> >  74 files changed, 469 insertions(+), 503 deletions(-)
+> 
+> Between me going to bed last night and waking up this morning,
+> my editor wandered off causing half of the patch to disappear :)
+> 
+> Here is the corrected version.
+
+That looks a lot better, I've applied all 10 patches,
+thanks Herbert.
