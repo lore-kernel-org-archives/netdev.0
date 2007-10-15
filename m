@@ -1,151 +1,109 @@
 From: Moni Shoua <monis@voltaire.com>
-Subject: [ofa-general] [PATCH V7 1/8] IB/ipoib: Bound the net device to the
- ipoib_neigh structue
-Date: Mon, 15 Oct 2007 18:03:54 +0200
-Message-ID: <47138F6A.8040103@voltaire.com>
+Subject: [PATCH V7 6/8] net/bonding: Handlle wrong assumptions that slave
+ is always an Ethernet device
+Date: Mon, 15 Oct 2007 18:13:10 +0200
+Message-ID: <47139196.30501@voltaire.com>
 References: <47138EB7.40703@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
-To: jgarzik@pobox.com,  fubar@us.ibm.com,  rdreier@cisco.com
-Return-path: <general-bounces@lists.openfabrics.org>
+To: jgarzik@pobox.com, fubar@us.ibm.com, rdreier@cisco.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fwil.voltaire.com ([193.47.165.2]:42847 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757973AbXJOQNN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2007 12:13:13 -0400
 In-Reply-To: <47138EB7.40703@gmail.com>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-IPoIB uses a two layer neighboring scheme, such that for each struct neighbour
-whose device is an ipoib one, there is a struct ipoib_neigh buddy which is
-created on demand at the tx flow by an ipoib_neigh_alloc(skb->dst->neighbour)
-call.
-
-When using the bonding driver, neighbours are created by the net stack on behalf
-of the bonding (master) device. On the tx flow the bonding code gets an skb such
-that skb->dev points to the master device, it changes this skb to point on the
-slave device and calls the slave hard_start_xmit function.
-
-Under this scheme, ipoib_neigh_destructor assumption that for each struct
-neighbour it gets, n->dev is an ipoib device and hence netdev_priv(n->dev)
-can be casted to struct ipoib_dev_priv is buggy.
-
-To fix it, this patch adds a dev field to struct ipoib_neigh which is used
-instead of the struct neighbour dev one, when n->dev->flags has the
-IFF_MASTER bit set.
+bonding sometimes uses Ethernet constants (such as MTU and address length) which
+are not good when it enslaves non Ethernet devices (such as InfiniBand).
 
 Signed-off-by: Moni Shoua <monis at voltaire.com>
-Signed-off-by: Or Gerlitz <ogerlitz at voltaire.com>
-Acked-by: Roland Dreier <rdreier@cisco.com>
+Acked-by: Jay Vosburgh <fubar@us.ibm.com>
 ---
- drivers/infiniband/ulp/ipoib/ipoib.h           |    4 +++-
- drivers/infiniband/ulp/ipoib/ipoib_main.c      |   24 +++++++++++++++---------
- drivers/infiniband/ulp/ipoib/ipoib_multicast.c |    3 ++-
- 3 files changed, 20 insertions(+), 11 deletions(-)
+ drivers/net/bonding/bond_main.c  |    3 ++-
+ drivers/net/bonding/bond_sysfs.c |   10 ++++++++--
+ drivers/net/bonding/bonding.h    |    1 +
+ 3 files changed, 11 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib.h b/drivers/infiniband/ulp/ipoib/ipoib.h
-index 6545fa7..1b3327a 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib.h
-+++ b/drivers/infiniband/ulp/ipoib/ipoib.h
-@@ -349,6 +349,7 @@ #endif
- 	struct sk_buff_head queue;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index d7e43ba..3f082dc 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1225,7 +1225,8 @@ static int bond_compute_features(struct 
+ 	struct slave *slave;
+ 	struct net_device *bond_dev = bond->dev;
+ 	unsigned long features = bond_dev->features;
+-	unsigned short max_hard_header_len = ETH_HLEN;
++	unsigned short max_hard_header_len = max((u16)ETH_HLEN,
++						bond_dev->hard_header_len);
+ 	int i;
  
- 	struct neighbour   *neighbour;
-+	struct net_device *dev;
+ 	features &= ~(NETIF_F_ALL_CSUM | BOND_VLAN_FEATURES);
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index ca4e429..583c568 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -260,6 +260,7 @@ static ssize_t bonding_store_slaves(stru
+ 	char command[IFNAMSIZ + 1] = { 0, };
+ 	char *ifname;
+ 	int i, res, found, ret = count;
++	u32 original_mtu;
+ 	struct slave *slave;
+ 	struct net_device *dev = NULL;
+ 	struct bonding *bond = to_bond(d);
+@@ -325,6 +326,7 @@ static ssize_t bonding_store_slaves(stru
+ 		}
  
- 	struct list_head    list;
- };
-@@ -365,7 +366,8 @@ static inline struct ipoib_neigh **to_ip
- 				     INFINIBAND_ALEN, sizeof(void *));
- }
- 
--struct ipoib_neigh *ipoib_neigh_alloc(struct neighbour *neigh);
-+struct ipoib_neigh *ipoib_neigh_alloc(struct neighbour *neigh,
-+				      struct net_device *dev);
- void ipoib_neigh_free(struct net_device *dev, struct ipoib_neigh *neigh);
- 
- extern struct workqueue_struct *ipoib_workqueue;
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-index e072f3c..cae026c 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
-@@ -517,7 +517,7 @@ static void neigh_add_path(struct sk_buf
- 	struct ipoib_path *path;
- 	struct ipoib_neigh *neigh;
- 
--	neigh = ipoib_neigh_alloc(skb->dst->neighbour);
-+	neigh = ipoib_neigh_alloc(skb->dst->neighbour, skb->dev);
- 	if (!neigh) {
- 		++dev->stats.tx_dropped;
- 		dev_kfree_skb_any(skb);
-@@ -817,6 +817,13 @@ static void ipoib_neigh_cleanup(struct n
- 	unsigned long flags;
- 	struct ipoib_ah *ah = NULL;
- 
-+	neigh = *to_ipoib_neigh(n);
-+	if (neigh) {
-+		priv = netdev_priv(neigh->dev);
-+		ipoib_dbg(priv, "neigh_destructor for bonding device: %s\n",
-+			  n->dev->name);
-+	} else
-+		return;
- 	ipoib_dbg(priv,
- 		  "neigh_cleanup for %06x " IPOIB_GID_FMT "\n",
- 		  IPOIB_QPN(n->ha),
-@@ -824,13 +831,10 @@ static void ipoib_neigh_cleanup(struct n
- 
- 	spin_lock_irqsave(&priv->lock, flags);
- 
--	neigh = *to_ipoib_neigh(n);
--	if (neigh) {
--		if (neigh->ah)
--			ah = neigh->ah;
--		list_del(&neigh->list);
--		ipoib_neigh_free(n->dev, neigh);
--	}
-+	if (neigh->ah)
-+		ah = neigh->ah;
-+	list_del(&neigh->list);
-+	ipoib_neigh_free(n->dev, neigh);
- 
- 	spin_unlock_irqrestore(&priv->lock, flags);
- 
-@@ -838,7 +842,8 @@ static void ipoib_neigh_cleanup(struct n
- 		ipoib_put_ah(ah);
- }
- 
--struct ipoib_neigh *ipoib_neigh_alloc(struct neighbour *neighbour)
-+struct ipoib_neigh *ipoib_neigh_alloc(struct neighbour *neighbour,
-+				      struct net_device *dev)
- {
- 	struct ipoib_neigh *neigh;
- 
-@@ -847,6 +852,7 @@ struct ipoib_neigh *ipoib_neigh_alloc(st
- 		return NULL;
- 
- 	neigh->neighbour = neighbour;
-+	neigh->dev = dev;
- 	*to_ipoib_neigh(neighbour) = neigh;
- 	skb_queue_head_init(&neigh->queue);
- 	ipoib_cm_set(neigh, NULL);
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_multicast.c b/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
-index 827820e..9bcfc7a 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_multicast.c
-@@ -705,7 +705,8 @@ out:
- 		if (skb->dst            &&
- 		    skb->dst->neighbour &&
- 		    !*to_ipoib_neigh(skb->dst->neighbour)) {
--			struct ipoib_neigh *neigh = ipoib_neigh_alloc(skb->dst->neighbour);
-+			struct ipoib_neigh *neigh = ipoib_neigh_alloc(skb->dst->neighbour,
-+									skb->dev);
- 
- 			if (neigh) {
- 				kref_get(&mcast->ah->ref);
+ 		/* Set the slave's MTU to match the bond */
++		original_mtu = dev->mtu;
+ 		if (dev->mtu != bond->dev->mtu) {
+ 			if (dev->change_mtu) {
+ 				res = dev->change_mtu(dev,
+@@ -339,6 +341,9 @@ static ssize_t bonding_store_slaves(stru
+ 		}
+ 		rtnl_lock();
+ 		res = bond_enslave(bond->dev, dev);
++		bond_for_each_slave(bond, slave, i)
++			if (strnicmp(slave->dev->name, ifname, IFNAMSIZ) == 0)
++				slave->original_mtu = original_mtu;
+ 		rtnl_unlock();
+ 		if (res) {
+ 			ret = res;
+@@ -351,6 +356,7 @@ static ssize_t bonding_store_slaves(stru
+ 		bond_for_each_slave(bond, slave, i)
+ 			if (strnicmp(slave->dev->name, ifname, IFNAMSIZ) == 0) {
+ 				dev = slave->dev;
++				original_mtu = slave->original_mtu;
+ 				break;
+ 			}
+ 		if (dev) {
+@@ -365,9 +371,9 @@ static ssize_t bonding_store_slaves(stru
+ 			}
+ 			/* set the slave MTU to the default */
+ 			if (dev->change_mtu) {
+-				dev->change_mtu(dev, 1500);
++				dev->change_mtu(dev, original_mtu);
+ 			} else {
+-				dev->mtu = 1500;
++				dev->mtu = original_mtu;
+ 			}
+ 		}
+ 		else {
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 5011ba9..ad9c632 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -156,6 +156,7 @@ struct slave {
+ 	s8     link;    /* one of BOND_LINK_XXXX */
+ 	s8     state;   /* one of BOND_STATE_XXXX */
+ 	u32    original_flags;
++	u32    original_mtu;
+ 	u32    link_failure_count;
+ 	u16    speed;
+ 	u8     duplex;
+
