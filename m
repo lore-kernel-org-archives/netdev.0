@@ -1,39 +1,53 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH][BNX2X] round three
-Date: Mon, 15 Oct 2007 15:06:03 -0700
-Message-ID: <20071015150603.62f5a37b@freepuppy.rosehill>
-References: <1192462049.29746.158.camel@eliezer>
-	<20071015.123850.26516814.davem@davemloft.net>
-	<20071015145829.1acabefb@freepuppy.rosehill>
-	<20071015.150022.30183587.davem@davemloft.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: MSI interrupts and disable_irq
+Date: Mon, 15 Oct 2007 18:17:55 -0400
+Message-ID: <4713E713.9060702@pobox.com>
+References: <46FC15A9.1070803@nvidia.com> <46FDBCB4.9090802@pobox.com> <4710901F.8010206@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eliezert@broadcom.com, andi@firstfloor.org, netdev@vger.kernel.org,
-	jeff@garzik.org, mchan@broadcom.com
-To: David Miller <davem@davemloft.net>
+Cc: Ayaz Abdulla <aabdulla@nvidia.com>, nedev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Manfred Spraul <manfred@colorfullife.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:33253 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751925AbXJOWGX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 18:06:23 -0400
-In-Reply-To: <20071015.150022.30183587.davem@davemloft.net>
+Received: from srv5.dvmed.net ([207.36.208.214]:39684 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751431AbXJOWR7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2007 18:17:59 -0400
+In-Reply-To: <4710901F.8010206@colorfullife.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 15 Oct 2007 15:00:22 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+Manfred Spraul wrote:
+> Jeff Garzik wrote:
+>>
+>> I think the scenario you outline is an illustration of the approach's 
+>> fragility:  disable_irq() is a heavy hammer that originated with INTx, 
+>> and it relies on a chip-specific disable method (kernel/irq/manage.c) 
+>> that practically guarantees behavior will vary across MSI/INTx/etc.
+>>
+> I checked the code: IRQ_DISABLE is implemented in software, i.e. 
+> handle_level_irq() only calls handle_IRQ_event() [and then the nic irq 
+> handler] if IRQ_DISABLE is not set.
+> OTHO: The last trace looks as if nv_do_nic_poll() is interrupted by an irq.
+> 
+> Perhaps something corrupts dev->irq? The irq is requested with
+>    request_irq(np->pci_dev->irq, handler, IRQF_SHARED, dev->name, dev)
+> and disabled with
+>    disable_irq_lockdep(dev->irq);
+> 
+> Someone around with a MSI capable board? The forcedeth driver does
+>    dev->irq = pci_dev->irq
+> in nv_probe(), especially before pci_enable_msi().
+> Does pci_enable_msi() change pci_dev->irq? Then we would disable the 
+> wrong interrupt....
 
-> From: Stephen Hemminger <shemminger@linux-foundation.org>
-> Date: Mon, 15 Oct 2007 14:58:29 -0700
-> 
-> > What about using loadable firmware rather than building it into the driver?
-> 
-> Stephen, do me a huge favor, and don't start down that path.
-> 
-> Please...
+Remember, fundamentally MSI-X is a one-to-many relationship, when you 
+consider a single PCI device might have multiple vectors.
 
-I know the history, loadable firmware is a maintenance nuisance/nightmare.
-And it often leads to stupid license crap.
----
-Stephen Hemminger <shemminger@linux-foundation.org>
+	Jeff
+
+
+
