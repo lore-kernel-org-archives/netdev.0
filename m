@@ -1,79 +1,67 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 5/10] [NET]: Avoid unnecessary cloning for ingress
-	filtering
-Date: Mon, 15 Oct 2007 09:57:45 -0400
-Message-ID: <1192456665.4336.57.camel@localhost>
-References: <20071014042604.GA11431@gondor.apana.org.au>
-	 <E1Igv4p-00030c-00@gondolin.me.apana.org.au>
-	 <1192358991.4892.23.camel@localhost>
-Reply-To: hadi@cyberus.ca
+From: Willy Tarreau <w@1wt.eu>
+Subject: FWD: 2.4.35 e1000 problems
+Date: Mon, 15 Oct 2007 15:59:17 +0200
+Message-ID: <20071015135917.GA9608@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, dmpesl <dmpesl@ldis.cs.msu.su>
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from an-out-0708.google.com ([209.85.132.246]:45983 "EHLO
-	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759789AbXJON6O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 09:58:14 -0400
-Received: by an-out-0708.google.com with SMTP id d31so119583and
-        for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 06:58:13 -0700 (PDT)
-In-Reply-To: <1192358991.4892.23.camel@localhost>
+Received: from 1wt.eu ([62.212.114.60]:3119 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758347AbXJOOBe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2007 10:01:34 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2007-14-10 at 06:49 -0400, jamal wrote:
-> Once this patchset makes
-> it into net-2.6.24 i can do testing on my laptop and provide you any
-> further feedback. 
+Hi,
 
-Works on all 4 tests i tried out on net-2.6[1]. GoodStuff Herbert.
+Dmitry, I've forwarded your mail to the netdev mailing list and to
+the e1000 maintainers.
 
-Herbert, please look at the comment i sent on the clone vs copy. 
+Auke, does it sound like a known problem ? Maybe someone has seen it
+in 2.6 ? Just for the record, e1000 in 2.4.35 is 7.3.20-k4.
 
-Also, iirc this started as a netfilter optimization thing starting with
-tail-calls - can someone (Patrick?) clue me how it helps in that
-optimization aspect? 
+Dmitry, if you have time for a test, I think it would be good if you
+could test the most recent driver from e1000.sf.net. It might give
+us some more information about the problem's cause. Otherwise, let's
+wait for Auke's advices and/or questions.
 
-cheers,
-jamal
+Regards,
+Willy
 
-[1] Didnt try any ipt action, will when i get the chance again. Heres
-test 18b):
+----- Forwarded message from dmpesl <dmpesl@ldis.cs.msu.su> -----
 
----
-Window1) tc qdisc del dev lo ingress
-Window1) tc qdisc add dev lo ingress
-Window1) ifconfig dummy0 up
-Window1) tcpdump -n -i lo -x -e -t &
+Date: Mon, 15 Oct 2007 17:54:01 +0400 (MSD)
+From: dmpesl <dmpesl@ldis.cs.msu.su>
+Subject: 2.4.35 e1000 problems
+To: w@1wt.eu
+X-X-Sender: dmpesl@ldisi.cs.msu.su
 
-Window2) tcpdump -n -i dummy0 -x -e -t &
+Hello, Willy
 
-Window1) tc filter add dev lo parent ffff: protocol ip prio 10 u32 \
-match ip dst 127.0.0.1/32 flowid 1:2 \
-action pedit munge offset 0 u32 clear pipe \
-action mirred egress mirror dev dummy0
+on recent month i've changed kernel from 2.4.31->2.4.35 on my Owl-based 
+web server (purchased SATA hdd, onboard SATA 20378), Asus PCH-DR mb, 
+2*Xeon, and noticed that following error occurs on network card:
+---------------------------------------------
+Sep 29 21:29:51 host kernel: NETDEV WATCHDOG: eth0: transmit timed out
+Sep 29 21:29:53 host kernel: e1000: eth0: e1000_watchdog: NIC Link is Up 
+100 Mbps Full Duplex, Flow Control: RX/TX
+Sep 29 22:28:03 host kernel: NETDEV WATCHDOG: eth0: transmit timed out
+Sep 29 22:28:05 host kernel: e1000: eth0: e1000_watchdog: NIC Link is Up 
+100 Mbps Full Duplex, Flow Control: RX/TX
+Sep 30 00:51:35 host kernel: NETDEV WATCHDOG: eth0: transmit timed out
+Sep 30 00:51:37 host kernel: e1000: eth0: e1000_watchdog: NIC Link is Up 
+100 Mbps Full Duplex, Flow Control: RX/TX
+---------------------------------------------
+After some conversation with my collocation provider (changing cables and 
+switch port) i've searched google to same errors and found some advises to 
+use ethtool -k tso off, but this is not work with my kernel/distribution.
+Then i swapped just e1000 driver in 2.4.35 to older, from 2.4.31.
+Now everything works, without loosing link.
 
-Window2) ping -c 1 127.0.0.1
+Regards, Dmitry
 
-Ping will fail since we are clearing first 4 byte of ip header.
-
-Window1 will show the packet as seen on incoming by lo; the first few
-bytes look like:
-
-----
-4500 0054 0000 4000 4001 3ca7 7f00 0001
-----
-
-Window2 will show the 4 bytes zeroed out as requested of pedit (and as
-seen on dummy0)
-
----
-0000 0000 0000 4000 4001 3ca7 7f00 0001
----------
-
-
-
+----- End forwarded message -----
