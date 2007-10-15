@@ -1,34 +1,39 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [ofa-general] Re: [PATCH V7 0/8] net/bonding: ADD IPoIB support for
- the bonding driver
-Date: Mon, 15 Oct 2007 16:50:23 -0400
-Message-ID: <4713D28F.3010904@pobox.com>
-References: <47138EB7.40703@gmail.com> <4713B006.9090908@pobox.com>
-	<27349.1192480486@death>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] PowerPC: Add BCM5248 and Marvell 88E1111 PHY support
+	to NEW EMAC.
+Date: Tue, 16 Oct 2007 07:02:51 +1000
+Message-ID: <1192482171.11795.35.camel@pasglop>
+References: <20071015175717.GA4602@ru.mvista.com>
+	 <4713B10B.5000607@garzik.org>
+	 <20071015134813.6aacdcca@weaponx.rchland.ibm.com>
+	 <4713B726.6080404@garzik.org>
+Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdreier@cisco.com, general@lists.openfabrics.org
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <27349.1192480486@death>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: Josh Boyer <jwboyer@linux.vnet.ibm.com>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, Roland Dreier <rdreier@cisco.com>
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:34550 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750968AbXJOVFe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2007 17:05:34 -0400
+In-Reply-To: <4713B726.6080404@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
-> 	Since I see you've just pushed it, do you want a patch to
-> correct just the two individual things, or would you rather have new
-> patches?
+
+On Mon, 2007-10-15 at 14:53 -0400, Jeff Garzik wrote:
+> Roland Dreier (2):
+>        ibm_new_emac: Nuke SET_MODULE_OWNER() use
+>        ibm_emac: Convert to use napi_struct independent of struct
+> net_device
+> 
+
+Wow, I'd have loved to be CCed at least on the last one since I was
+about to do just that ... Heh.
+
+Ben.
 
 
-On top of what was just pushed, please.
-
-	Jeff
