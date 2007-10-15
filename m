@@ -1,78 +1,34 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: ip_gre: sendto/recvfrom NBMA address
-Date: Mon, 15 Oct 2007 20:07:10 +0300
-Message-ID: <47139E3E.4070006@iki.fi>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] e1000e: fix debugging printout code
+Date: Mon, 15 Oct 2007 10:05:01 -0700
+Message-ID: <1192467902.4556.54.camel@localhost>
+References: <20071004183843.31540.23710.stgit@localhost.localdomain>
+	 <47067A2F.5020603@garzik.org> <1192464021.4556.49.camel@localhost>
+	 <47139350.8010209@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org
+To: "Kok, Auke" <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ug-out-1314.google.com ([66.249.92.175]:1360 "EHLO
-	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1764779AbXJORHT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 13:07:19 -0400
-Received: by ug-out-1314.google.com with SMTP id z38so919163ugc
-        for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 10:07:16 -0700 (PDT)
+Received: from DSL022.labridge.com ([206.117.136.22]:3893 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932241AbXJORFP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2007 13:05:15 -0400
+In-Reply-To: <47139350.8010209@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When GRE tunnel is in NBMA mode, this patch allows an application to use
-a PF_PACKET socket to:
-- send a packet to specific NBMA address with sendto()
-- use recvfrom() to receive packet and check which NBMA address it came from
+On Mon, 2007-10-15 at 09:20 -0700, Kok, Auke wrote:
+> > Instead the fix should be for the 2 existing bugs on macro:
+> > o Comma after KERN_DEBUG
+> > o Semicolon in macro
+> will push a patch, thanks.
 
-This is required to implement properly NHRP over GRE tunnel.
+Perhaps you could fix this one too?
 
-Signed-off-by: Timo Teras <timo.teras@iki.fi>
+$ grep -P -r --include=*.[ch] "\bprintk\s*\(\s*KERN_[A-Z]+\s*\," *
+drivers/net/ucc_geth_mii.c:#define vdbg(format, arg...) printk(KERN_DEBUG , format "\n" , ## arg)
 
----
-commit 14ebc80596af5e8422b5db2120cf3e0d801ddd3a
-tree b9fc7b2b8465d506deb5a5f05f22c04f5049cd5f
-parent 4271e0f7e12bdbbd7ce131187aaae2ba5233a309
-author Timo Teras <timo.teras@iki.fi> Mon, 15 Oct 2007 19:49:52 +0300
-committer Timo Teras <timo.teras@iki.fi> Mon, 15 Oct 2007 19:49:52 +0300
 
- net/ipv4/ip_gre.c |   12 +++++++++++-
- 1 files changed, 11 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index f151900..b1e3816 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -1033,7 +1033,6 @@ static int ipgre_tunnel_change_mtu(struct net_device *dev, int new_mtu)
- 	return 0;
- }
- 
--#ifdef CONFIG_NET_IPGRE_BROADCAST
- /* Nice toy. Unfortunately, useless in real life :-)
-    It allows to construct virtual multiprotocol broadcast "LAN"
-    over the Internet, provided multicast routing is tuned.
-@@ -1092,10 +1091,19 @@ static int ipgre_header(struct sk_buff *skb, struct net_device *dev,
- 	return -t->hlen;
- }
- 
-+static int ipgre_header_parse(const struct sk_buff *skb, unsigned char *haddr)
-+{
-+	struct iphdr *iph = (struct iphdr*) skb_mac_header(skb);
-+	memcpy(haddr, &iph->saddr, 4);
-+	return 4;
-+}
-+
- static const struct header_ops ipgre_header_ops = {
- 	.create	= ipgre_header,
-+	.parse  = ipgre_header_parse,
- };
- 
-+#ifdef CONFIG_NET_IPGRE_BROADCAST
- static int ipgre_open(struct net_device *dev)
- {
- 	struct ip_tunnel *t = netdev_priv(dev);
-@@ -1197,6 +1205,8 @@ static int ipgre_tunnel_init(struct net_device *dev)
- 			dev->stop = ipgre_close;
- 		}
- #endif
-+	} else {
-+		dev->header_ops = &ipgre_header_ops;
- 	}
- 
- 	if (!tdev && tunnel->parms.link)
