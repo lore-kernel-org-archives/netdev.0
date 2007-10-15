@@ -1,49 +1,63 @@
-From: Michael Kerrisk <mtk.manpages@googlemail.com>
-Subject: Undocumented IPv6 options
-Date: Mon, 15 Oct 2007 08:54:49 +0200
-Message-ID: <47130EB9.3090405@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 6/10] [BRIDGE]: Unshare skb upon entry
+Date: Mon, 15 Oct 2007 09:20:00 +0200
+Message-ID: <471314A0.5080500@trash.net>
+References: <20071014042604.GA11431@gondor.apana.org.au> <E1Igv4q-00030k-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-man@vger.kernel.org,
-	Andrew McDonald <andrew@mcdonald.org.uk>,
-	linux-net@vger.kernel.org
-To: netdev <netdev@vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------030707020206090502060008"
+Cc: David Miller <davem@davemloft.net>, hadi@cyberus.ca,
+	netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nf-out-0910.google.com ([64.233.182.185]:2941 "EHLO
-	nf-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756618AbXJOG5x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 02:57:53 -0400
-Received: by nf-out-0910.google.com with SMTP id g13so1177609nfb
-        for <netdev@vger.kernel.org>; Sun, 14 Oct 2007 23:57:51 -0700 (PDT)
+Received: from stinky.trash.net ([213.144.137.162]:36422 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754152AbXJOHUH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 03:20:07 -0400
+In-Reply-To: <E1Igv4q-00030k-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello netdev,
+This is a multi-part message in MIME format.
+--------------030707020206090502060008
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Andrew McDonald kindly fixed the description of IPV6_ROUTER_ALERT in the
-ipv7.7 man page.  As long as we're on the topic, I'll point out that the
-following IPV6 options (and possibly others) are still not documented on
-that page:
-
-IPV6_CHECKSUM
-IPV6_JOIN_ANYCAST
-IPV6_LEAVE_ANYCAST
-IPV6_V6ONLY
-IPV6_RECVPKTINFO
-IPV6_2292PKTINFO
-
-Can anyone help with documenting any of these please?
-
-Cheers,
-
-Michael
--- 
-Michael Kerrisk
-maintainer of Linux man pages Sections 2, 3, 4, 5, and 7
-
-Want to help with man page maintenance?  Grab the latest tarball at
-http://www.kernel.org/pub/linux/docs/manpages/
-read the HOWTOHELP file and grep the source files for 'FIXME'.
+Herbert Xu wrote:
+> [BRIDGE]: Unshare skb upon entry
+> 
+> Due to the special location of the bridging hook, it should never see a
+> shared packet anyway (certainly not with any in-kernel code).  So it
+> makes sense to unshare the skb there if necessary as that will greatly
+> simplify the code below it (in particular, netfilter).
 
 
+I guess we can remove the unsharing from br_netfilter.c now.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+
+
+--------------030707020206090502060008
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 246bf23..da22f90 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -511,9 +511,6 @@ static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff *skb,
+ 	struct iphdr *iph;
+ 	__u32 len = nf_bridge_encap_header_len(skb);
+ 
+-	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
+-		return NF_STOLEN;
+-
+ 	if (unlikely(!pskb_may_pull(skb, len)))
+ 		goto out;
+ 
+
+--------------030707020206090502060008--
