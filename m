@@ -1,39 +1,54 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] PowerPC: Add BCM5248 and Marvell 88E1111 PHY support
-	to NEW EMAC.
-Date: Tue, 16 Oct 2007 07:02:51 +1000
-Message-ID: <1192482171.11795.35.camel@pasglop>
-References: <20071015175717.GA4602@ru.mvista.com>
-	 <4713B10B.5000607@garzik.org>
-	 <20071015134813.6aacdcca@weaponx.rchland.ibm.com>
-	 <4713B726.6080404@garzik.org>
+Subject: Re: [PATCH] NEW EMAC Fix RGMII build error: use
+	of_device_is_compatible
+Date: Tue, 16 Oct 2007 07:01:13 +1000
+Message-ID: <1192482073.11795.33.camel@pasglop>
+References: <20071012130445.GA14704@ru.mvista.com>
 Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Josh Boyer <jwboyer@linux.vnet.ibm.com>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, Roland Dreier <rdreier@cisco.com>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:34550 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750968AbXJOVFe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Oct 2007 17:05:34 -0400
-In-Reply-To: <4713B726.6080404@garzik.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: Valentine Barshak <vbarshak@ru.mvista.com>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <20071012130445.GA14704@ru.mvista.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
 
-On Mon, 2007-10-15 at 14:53 -0400, Jeff Garzik wrote:
-> Roland Dreier (2):
->        ibm_new_emac: Nuke SET_MODULE_OWNER() use
->        ibm_emac: Convert to use napi_struct independent of struct
-> net_device
+On Fri, 2007-10-12 at 17:04 +0400, Valentine Barshak wrote:
+> Fix build RGMII error: use of_device_is_compatible()
+> insteadof now deprecated device_is_compatible() function.
 > 
+> Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
 
-Wow, I'd have loved to be CCed at least on the last one since I was
-about to do just that ... Heh.
+Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 
-Ben.
-
-
+> ---
+>  drivers/net/ibm_newemac/rgmii.c |    2 +-
+>  1 files changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff -pruN linux-2.6.orig/drivers/net/ibm_newemac/rgmii.c linux-2.6/drivers/net/ibm_newemac/rgmii.c
+> --- linux-2.6.orig/drivers/net/ibm_newemac/rgmii.c	2007-10-12 16:02:41.000000000 +0400
+> +++ linux-2.6/drivers/net/ibm_newemac/rgmii.c	2007-10-12 16:49:07.000000000 +0400
+> @@ -251,7 +251,7 @@ static int __devinit rgmii_probe(struct 
+>  	}
+>  
+>  	/* Check for RGMII type */
+> -	if (device_is_compatible(ofdev->node, "ibm,rgmii-axon"))
+> +	if (of_device_is_compatible(ofdev->node, "ibm,rgmii-axon"))
+>  		dev->type = RGMII_AXON;
+>  	else
+>  		dev->type = RGMII_STANDARD;
+> _______________________________________________
+> Linuxppc-dev mailing list
+> Linuxppc-dev@ozlabs.org
+> https://ozlabs.org/mailman/listinfo/linuxppc-dev
