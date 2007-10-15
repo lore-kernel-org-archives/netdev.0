@@ -1,55 +1,64 @@
-From: Komuro <komurojun-mbn@nifty.com>
-Subject: Re: [NOT VERY SAFE]     [TCP]: Set initial_ssthresh default to zero
- in Cubic and BIC.
-Date: Mon, 15 Oct 2007 21:59:49 +0900
-Message-ID: <20071015215949.50399c00.komurojun-mbn@nifty.com>
-References: <20071006132601.f944f461.komurojun@nifty.com>
-	<20071014073658.d4352b8c.komurojun@nifty.com>
-	<20071014100245.914b784a.komurojun@nifty.com>
-	<20071014132851.8d6a9de3.komurojun@nifty.com>
-	<20071014135356.19754635.komurojun-mbn@nifty.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH] tehuti: possible leak in bdx_probe
+Date: Mon, 15 Oct 2007 09:33:09 -0400
+Message-ID: <20071015133309.GI9140@gospo.rdu.redhat.com>
+References: <4710FA6A.2070902@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: shemminger@linux.foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: baum@tehutinetworks.net, andy@greyhouse.net,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org
+To: Florin Malita <fmalita@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userg502.nifty.com ([202.248.238.82]:57270 "EHLO
-	userg502.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760115AbXJONBD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 09:01:03 -0400
-In-Reply-To: <20071014135356.19754635.komurojun-mbn@nifty.com>
+Received: from mx1.redhat.com ([66.187.233.31]:47818 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762330AbXJONhy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2007 09:37:54 -0400
+Content-Disposition: inline
+In-Reply-To: <4710FA6A.2070902@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear shemminger
-
->In which case it is zero because that is the default value.
-
-The default value of snd_ssthresh is 0x7fffffff, isn't it?
-
-[linux/net/ipv4/tcp_ipv4.c]
-static int tcp_v4_init_sock(struct sock *sk)
-...
-        tp->snd_ssthresh = 0x7fffffff;  /* Infinity */
-...
-
-Best Regards
-Komuro
-
-
+On Sat, Oct 13, 2007 at 01:03:38PM -0400, Florin Malita wrote:
+> If pci_enable_device fails, bdx_probe returns without freeing the 
+> allocated pci_nic structure.
 > 
-> Actually, tcp_sk(sk)->snd_ssthresh is not initialized,
-> if initial_ssthresh is 0.
+> Coverity CID 1908.
 > 
-> The patch should be
+> Signed-off-by: Florin Malita <fmalita@gmail.com>
+> ---
 > 
->  static void bictcp_init(struct sock *sk)
->  {
->  	bictcp_reset(inet_csk_ca(sk));
-> -	if (initial_ssthresh)
-> -		tcp_sk(sk)->snd_ssthresh = initial_ssthresh;
-> +
-> +	tcp_sk(sk)->snd_ssthresh = initial_ssthresh;
->  }
->
+> drivers/net/tehuti.c |    3 ++-
+> 1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/tehuti.c b/drivers/net/tehuti.c
+> index 8d04654..4e1b84e 100644
+> --- a/drivers/net/tehuti.c
+> +++ b/drivers/net/tehuti.c
+> @@ -1906,7 +1906,7 @@ bdx_probe(struct pci_dev *pdev, const struct 
+> pci_device_id *ent)
+> 
+>     /************** pci *****************/
+> 	if ((err = pci_enable_device(pdev)))	/* it trigers interrupt, 
+> 	dunno why. */
+> -		RET(err);			/* it's not a problem though 
+> */
+> +		goto err_pci;			/* it's not a problem though 
+> */
+> 
+> 	if (!(err = pci_set_dma_mask(pdev, DMA_64BIT_MASK)) &&
+> 	    !(err = pci_set_consistent_dma_mask(pdev, DMA_64BIT_MASK))) {
+> @@ -2076,6 +2076,7 @@ err_out_res:
+> 	pci_release_regions(pdev);
+> err_dma:
+> 	pci_disable_device(pdev);
+> +err_pci:
+> 	vfree(nic);
+> 
+> 	RET(err);
+> 
+
+Good catch.  Thanks!
+
+Acked-by: Andy Gospodarek <andy@greyhouse.net>
+
