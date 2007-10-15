@@ -1,40 +1,82 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [NET] Jazzsonic: Fix warning about unused variable.
-Date: Mon, 15 Oct 2007 10:58:40 +0100
-Message-ID: <20071015095840.GA30451@linux-mips.org>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH]: SELINUX fixup for netfilter hook changes
+Date: Mon, 15 Oct 2007 02:59:09 -0700 (PDT)
+Message-ID: <20071015.025909.77039408.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jeff@garzik.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ftp.linux-mips.org ([194.74.144.162]:55422 "EHLO
-	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758053AbXJOJ6p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 05:58:45 -0400
-Received: from localhost.localdomain ([127.0.0.1]:38884 "EHLO
-	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
-	id S20034517AbXJOJ6o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Oct 2007 10:58:44 +0100
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37093
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1759388AbXJOJ7F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 05:59:05 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id E24EE2900F9
+	for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 02:59:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Caused by "[NET]: Introduce and use print_mac() and DECLARE_MAC_BUF()"
-aka 0795af5729b18218767fab27c44b1384f72dc9ad.
 
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+I just noticed a warning for this in my allmodconfig build,
+so I checked in the obvious fix.
 
-diff --git a/drivers/net/jazzsonic.c b/drivers/net/jazzsonic.c
-index d3825c8..5c154fe 100644
---- a/drivers/net/jazzsonic.c
-+++ b/drivers/net/jazzsonic.c
-@@ -208,7 +208,6 @@ static int __init jazz_sonic_probe(struct platform_device *pdev)
- 	struct sonic_local *lp;
- 	struct resource *res;
- 	int err = 0;
--	int i;
- 	DECLARE_MAC_BUF(mac);
+commit d0a23b19f552c4fd0126d903078ea5ceca968617
+Author: David S. Miller <davem@sunset.davemloft.net>
+Date:   Mon Oct 15 02:58:25 2007 -0700
+
+    [SELINUX]: Update for netfilter ->hook() arg changes.
+    
+    They take a "struct sk_buff *" instead of a "struct sk_buff **" now.
+    
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 3c3fff3..cf76150 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -3932,7 +3932,7 @@ out:
+ }
  
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ static unsigned int selinux_ip_postroute_last(unsigned int hooknum,
+-                                              struct sk_buff **pskb,
++                                              struct sk_buff *skb,
+                                               const struct net_device *in,
+                                               const struct net_device *out,
+                                               int (*okfn)(struct sk_buff *),
+@@ -3941,7 +3941,6 @@ static unsigned int selinux_ip_postroute_last(unsigned int hooknum,
+ 	char *addrp;
+ 	int len, err = 0;
+ 	struct sock *sk;
+-	struct sk_buff *skb = *pskb;
+ 	struct avc_audit_data ad;
+ 	struct net_device *dev = (struct net_device *)out;
+ 	struct sk_security_struct *sksec;
+@@ -3977,23 +3976,23 @@ out:
+ }
+ 
+ static unsigned int selinux_ipv4_postroute_last(unsigned int hooknum,
+-						struct sk_buff **pskb,
++						struct sk_buff *skb,
+ 						const struct net_device *in,
+ 						const struct net_device *out,
+ 						int (*okfn)(struct sk_buff *))
+ {
+-	return selinux_ip_postroute_last(hooknum, pskb, in, out, okfn, PF_INET);
++	return selinux_ip_postroute_last(hooknum, skb, in, out, okfn, PF_INET);
+ }
+ 
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 
+ static unsigned int selinux_ipv6_postroute_last(unsigned int hooknum,
+-						struct sk_buff **pskb,
++						struct sk_buff *skb,
+ 						const struct net_device *in,
+ 						const struct net_device *out,
+ 						int (*okfn)(struct sk_buff *))
+ {
+-	return selinux_ip_postroute_last(hooknum, pskb, in, out, okfn, PF_INET6);
++	return selinux_ip_postroute_last(hooknum, skb, in, out, okfn, PF_INET6);
+ }
+ 
+ #endif	/* IPV6 */
