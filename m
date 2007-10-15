@@ -1,49 +1,36 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 2/2] e1000e: fix error checks
-Date: Mon, 15 Oct 2007 14:02:21 -0700
-Message-ID: <20071015210221.26666.14629.stgit@localhost.localdomain>
-References: <20071015210213.26666.90484.stgit@localhost.localdomain>
+From: "Michael Kerrisk" <mtk.manpages@googlemail.com>
+Subject: Re: Undocumented IPv6 options
+Date: Mon, 15 Oct 2007 23:03:18 +0200
+Message-ID: <cfd18e0f0710151403p28d2b294jd3ee18572f0fabeb@mail.gmail.com>
+References: <47130EB9.3090405@gmail.com>
+	 <20071015073903.GR6372@mea-ext.zmailer.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bunk@kernel.org, joe@perches.com,
-	auke-jan.h.kok@intel.com
-To: jeff@garzik.ok
+Cc: netdev <netdev@vger.kernel.org>, linux-man@vger.kernel.org,
+	"Andrew McDonald" <andrew@mcdonald.org.uk>,
+	linux-net@vger.kernel.org, andi@firstfloor.org
+To: "Matti Aarnio" <matti.aarnio@zmailer.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:42459 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757468AbXJOVCs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Oct 2007 17:02:48 -0400
-In-Reply-To: <20071015210213.26666.90484.stgit@localhost.localdomain>
+Received: from wa-out-1112.google.com ([209.85.146.180]:50856 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756570AbXJOVDZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 17:03:25 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so2120668wah
+        for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 14:03:24 -0700 (PDT)
+In-Reply-To: <20071015073903.GR6372@mea-ext.zmailer.org>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@kernel.org>
+> It really looks like time for major overhaul of that (and related) man-pages
+> is needed...
 
-Spotted by the Coverity checker.
+Yes.  Andi Kleen did a good job of putting some pages together in
+the 2.2 timeframe, but no-one else carried on the work since then,
+and there is much that sould be updated in the *.7 networking
+pages.
 
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
+Cheers,
 
- drivers/net/e1000e/ethtool.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index b7a7e2a..ca06c35 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -1451,11 +1451,11 @@ static int e1000_loopback_test(struct e1000_adapter *adapter, u64 *data)
- 	}
- 
- 	*data = e1000_setup_desc_rings(adapter);
--	if (data)
-+	if (*data)
- 		goto out;
- 
- 	*data = e1000_setup_loopback_test(adapter);
--	if (data)
-+	if (*data)
- 		goto err_loopback;
- 
- 	*data = e1000_run_loopback_test(adapter);
+Michael
