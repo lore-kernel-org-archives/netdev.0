@@ -1,59 +1,66 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH][NETNS] Don't panic on creating the namespace's loopback
-Date: Mon, 15 Oct 2007 14:23:13 +0400
-Message-ID: <47133F91.4030209@openvz.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 4/4] UDP memory accounting and limitation(take 5): memory limitation
+Date: Mon, 15 Oct 2007 18:43:06 +0800
+Message-ID: <20071015104306.GA30828@gondor.apana.org.au>
+References: <470F61D4.6040808@hitachi.com> <470F646F.2030003@hitachi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Hideo AOKI <hideo.aoki.tk@hitachi.com>,
+	Yumiko SUGITA <yumiko.sugita.yf@hitachi.com>,
+	=?utf-8?B?IumdkuacqEBSZWRIYXQi?= <haoki@redhat.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	=?utf-8?B?5ZCJ6JekIOiLseaYjg==?= <yoshfuji@linux-ipv6.org>
+To: Satoshi OSHIMA <satoshi.oshima.fk@hitachi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:35148 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757718AbXJOK0G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Oct 2007 06:26:06 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:3412 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757198AbXJOKoR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 06:44:17 -0400
+Content-Disposition: inline
+In-Reply-To: <470F646F.2030003@hitachi.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When the loopback device is failed to initialize inside the new 
-namespaces, panic() is called. Do not do it when the namespace 
-in question is not the init_net.
+On Fri, Oct 12, 2007 at 09:11:27PM +0900, Satoshi OSHIMA wrote:
+>
+> +static inline int __ip_check_max_skb_pages(struct sock *sk, int size)
+> +{
+> +	switch(sk->sk_protocol) {
+> +	case IPPROTO_UDP:
+> +		if (sk->sk_prot->sysctl_mem[0] > UDP_MIN_SKB_PAGES)
+> +			if (atomic_read(sk->sk_prot->memory_allocated)+size
+> +			    >= sk->sk_prot->sysctl_mem[0])
+> +				return -ENOBUFS;
+> +		/* Fall through */	
+> +	default:
+> +		break;
+> +	}
+> +	return 0;
+> +}
 
-Plus cleanup the error path a bit.
+Since you're not doing a per-user limit, you must give each
+socket a minimum even when the total exceeds your threshold.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Otherwise any local user can trivially DoS the whole system.
 
----
+> +UDP variables:
+> +
+> +udp_mem - INTERGER
+> +	Number of pages allowed for queueing by all UDP sockets.
+> +	Minimal value is 4096. If 4096 is set, UDP memory will not
+> +	be limited.
+> +	Default: 4096
 
- drivers/net/loopback.c |   11 +++++------
- 1 files changed, 5 insertions(+), 6 deletions(-)
+This seems to be a rather confusing setup.  We don't set a
+minimum for TCP so is this really necessary?
 
-diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-index be25aa3..662b8d1 100644
---- a/drivers/net/loopback.c
-+++ b/drivers/net/loopback.c
-@@ -265,17 +265,16 @@ static __net_init int loopback_net_init(struct net *net)
- 	if (err)
- 		goto out_free_netdev;
- 
--	err = 0;
- 	net->loopback_dev = dev;
-+	return 0;
- 
--out:
--	if (err)
--		panic("loopback: Failed to register netdevice: %d\n", err);
--	return err;
- 
- out_free_netdev:
- 	free_netdev(dev);
--	goto out;
-+out:
-+	if (net == &init_net)
-+		panic("loopback: Failed to register netdevice: %d\n", err);
-+	return err;
- }
- 
- static __net_exit void loopback_net_exit(struct net *net)
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
