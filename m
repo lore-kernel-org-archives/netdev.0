@@ -1,44 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [NET]: Fix csum_start update in pskb_expand_head
-Date: Mon, 15 Oct 2007 01:46:34 -0700 (PDT)
-Message-ID: <20071015.014634.58769774.davem@davemloft.net>
-References: <20071014192640.35065e73@inria.fr>
-	<20071014222037.7fa28640@inria.fr>
+Subject: Re: [NET]: Avoid copying TCP packets unnecessarily
+Date: Mon, 15 Oct 2007 01:47:28 -0700 (PDT)
+Message-ID: <20071015.014728.78750651.davem@davemloft.net>
+References: <20071014222037.7fa28640@inria.fr>
 	<20071015045723.GA28388@gondor.apana.org.au>
+	<20071015055457.GA28799@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: guichaz@yahoo.fr, netdev@vger.kernel.org
 To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55036
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55040
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752915AbXJOIqa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 04:46:30 -0400
-In-Reply-To: <20071015045723.GA28388@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1755463AbXJOIrY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 04:47:24 -0400
+In-Reply-To: <20071015055457.GA28799@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Mon, 15 Oct 2007 12:57:23 +0800
+Date: Mon, 15 Oct 2007 13:54:57 +0800
 
-> On Sun, Oct 14, 2007 at 08:20:37PM +0000, Guillaume Chazarain wrote:
+> On Mon, Oct 15, 2007 at 12:57:23PM +0800, Herbert Xu wrote:
 > > 
-> > Just another data point, it seems that running the standard Bittorrent
-> > client helps triggering the bug.
+> > However, the fact that you're triggering this code at all tells
+> > us that there is another bug further up the chain that's causing
+> > us to generate partial checksums even though the NIC doesn't
+> > support it.  Can you please give me the output of
 > 
-> Doh! It was my patch a month ago which added code to update
-> csum_start if the headroom changed that broke this.
+> Nevermind, tcp_fragment can generate such packets out of
+> convenience.
 > 
-> We'll need this patch for stable as well.
+> Here's a little optimisation to avoid copying the packet in
+> this case.
 > 
-> [NET]: Fix csum_start update in pskb_expand_head
+> [NET]: Avoid copying TCP packets unnecessarily
 > 
-> I got confused by the dual nature of the off variable in the
-> function pskb_expand_head.  The csum_start offset should use
-> nhead instead of off which can change depending on whether we
-> are using offsets or pointers.
+> TCP packets all have writable heads, that is, even though it's cloned, it is
+> writable up to the end of the TCP header.  This patch makes skb_checksum_help
+> aware of this fact by using skb_clone_writable and avoiding a copy for TCP.
+> 
+> I've also modified the BUG_ON tests to be unsigned.  The only case where this
+> makes a difference is if csum_start points to a location before skb->data.
+> Since skb->data should always include the header where the checksum field
+> is (and all currently callers adhere to that), this change is safe and may
+> uncover bugs later.
 > 
 > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied and I'll take care of the -stable submission.
+Applied, thanks Herbert!
