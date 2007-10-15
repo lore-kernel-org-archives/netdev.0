@@ -1,102 +1,40 @@
-From: Ayaz Abdulla <aabdulla@nvidia.com>
-Subject: Re: [PATCH] forcedeth: Fix MAC address detection on network card
- (regression in 2.6.23)
-Date: Sun, 14 Oct 2007 17:57:37 -0400
-Message-ID: <471290D1.7000703@nvidia.com>
-References: <200710112242.50167.michael.pyne@kdemail.net> <4713B271.9010607@pobox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][BNX2X] round three
+Date: Mon, 15 Oct 2007 12:38:50 -0700 (PDT)
+Message-ID: <20071015.123850.26516814.davem@davemloft.net>
+References: <p73641c4cfz.fsf@bingen.suse.de>
+	<20071012.150341.41635825.davem@davemloft.net>
+	<1192462049.29746.158.camel@eliezer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Michael Pyne <michael.pyne@kdemail.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: andi@firstfloor.org, netdev@vger.kernel.org, jeff@garzik.org,
+	mchan@broadcom.com
+To: eliezert@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate03.nvidia.com ([216.228.112.145]:4659 "EHLO
-	hqemgate03.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757787AbXJOTUJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 15:20:09 -0400
-In-Reply-To: <4713B271.9010607@pobox.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55671
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1753975AbXJOTiq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 15:38:46 -0400
+In-Reply-To: <1192462049.29746.158.camel@eliezer>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Date: Mon, 15 Oct 2007 17:27:29 +0200
 
+> Unfortunately, the firmware code is different for LE and BE machines.
+> We had issues with the BE firmware that appear to be resolved.
+> Hopefully, the next version will have both.
 
-Jeff Garzik wrote:
-> Michael Pyne wrote:
-> 
->> Partially revert a change to mac address detection introduced to the 
->> forcedeth driver.  The change was intended to correct mac address 
->> detection for newer nVidia chipsets where the mac address was stored 
->> in reverse order.  One of those chipsets appears to still have the mac 
->> address in reverse order (or at least, it does on my system).
->>
->> Signed-off-by: Michael J. Pyne <michael.pyne@kdemail.net>
->> ---
->> The change that broke mac address detection for my card was commit 
->> ef756b3e56c68a4d76d9d7b9a73fa8f4f739180f "forcedeth: mac address correct"
->>
->> My network card is an nVidia built-in Ethernet card, output from lspci 
->> as follows (with text and numeric ids):
->> $ lspci | grep Ethernet
->> 00:07.0 Bridge: nVidia Corporation MCP61 Ethernet (rev a2)
->> $ lspci -n | grep 07.0
->> 00:07.0 0680: 10de:03ef (rev a2)
->>
->> The vendor id is, of course, nVidia.  The device id corresponds to the 
->> NVIDIA_NVENET_19 entry.
->>
->> The included patch fixes the MAC address detection on my system.  
->> Interestingly, the MAC address appears to be in the range reserved for 
->> my motherboard manufacturer (Gigabyte) and not nVidia.
->>
->> If you need any further information about my hardware configuration 
->> just let me know.
->>
->> Regards,
->>  - Michael Pyne
->>
->> --- a/drivers/net/forcedeth.c       2007-10-11 22:01:26 -0400
->> +++ b/drivers/net/forcedeth-new.c   2007-10-11 22:06:52 -0400
->> @@ -5513,7 +5513,7 @@ static struct pci_device_id pci_tbl[] =      },
->>      {    /* MCP61 Ethernet Controller */
->>          PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, 
->> PCI_DEVICE_ID_NVIDIA_NVENET_19),
->> -        .driver_data = 
->> DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|
->> DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2| 
->>
->> DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT|DEV_HAS_CORRECT_MACADDR,
->> +        .driver_data = 
->> DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER|DEV_HAS_HIGH_DMA|
->> DEV_HAS_POWER_CNTRL|DEV_HAS_MSI|DEV_HAS_PAUSEFRAME_TX|DEV_HAS_STATISTICS_V2| 
->>
->> DEV_HAS_TEST_EXTENDED|DEV_HAS_MGMT_UNIT,
->>      },
->>      {    /* MCP65 Ethernet Controller */
->>          PCI_DEVICE(PCI_VENDOR_ID_NVIDIA, 
->> PCI_DEVICE_ID_NVIDIA_NVENET_20),
-> 
-> 
-> your patch is word-wrapped.  Anyway...
-> 
-> Ayaz -- ACK this patch?
+If this means we get two copies of the firmware, this should be
+rethought.  The space cost of the firmware (both in terms of source
+code size and object code size) is already enormous.
 
-ASUS should be contacted to fix their SBIOS instead of patching the driver.
+I would definitely prefer if there were only little-endian firmware,
+and the driver uses "cpu_to_le32()" and friends to access chip shared
+data structures.
 
-MCP61 reference has the correct address programmed by SBIOS. There are 
-other vendor boards that will have correct address (as defined by MCP61 
-reference).
-
-
-
-> 
-> 
-> 
-
------------------------------------------------------------------------------------
-This email message is for the sole use of the intended recipient(s) and may contain
-confidential information.  Any unauthorized review, use, disclosure or distribution
-is prohibited.  If you are not the intended recipient, please contact the sender by
-reply email and destroy all copies of the original message.
------------------------------------------------------------------------------------
+Most cpus have endian swapping loads and stores, accessible via
+cpu_to_le32p() and similar interfaces, so the cost on big-endian of
+doing things this way is very close to zero.
