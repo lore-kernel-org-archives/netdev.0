@@ -1,48 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [TG3]: Fix performance regression on 5705.
-Date: Mon, 15 Oct 2007 02:14:44 -0700 (PDT)
-Message-ID: <20071015.021444.99184027.davem@davemloft.net>
-References: <1192217947.6987.2.camel@dell>
+From: Guillaume Chazarain <guichaz@yahoo.fr>
+Subject: Re: [NET]: Fix csum_start update in pskb_expand_head
+Date: Mon, 15 Oct 2007 11:21:29 +0200
+Message-ID: <20071015112129.2bd7ef16@inria.fr>
+References: <20071006141506.785a6683@localhost.localdomain>
+	<20071014192640.35065e73@inria.fr>
+	<20071014222037.7fa28640@inria.fr>
+	<20071015045723.GA28388@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcarlson@broadcom.com, andy@greyhouse.net
-To: mchan@broadcom.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58711
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753678AbXJOJOk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 05:14:40 -0400
-In-Reply-To: <1192217947.6987.2.camel@dell>
+Received: from smtp3-g19.free.fr ([212.27.42.29]:39359 "EHLO smtp3-g19.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757163AbXJOJYQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 05:24:16 -0400
+In-Reply-To: <20071015045723.GA28388@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Fri, 12 Oct 2007 12:39:07 -0700
+Le Mon, 15 Oct 2007 12:57:23 +0800,
+Herbert Xu <herbert@gondor.apana.org.au> a =C3=A9crit :
 
-> [TG3]: Fix performance regression on 5705.
-> 
-> A performance regression was introduced by the following commit:
-> 
->     commit ee6a99b539a50b4e9398938a0a6d37f8bf911550
->     Author: Michael Chan <mchan@broadcom.com>
->     Date:   Wed Jul 18 21:49:10 2007 -0700
-> 
->     [TG3]: Fix msi issue with kexec/kdump.
-> 
-> In making that change, the PCI latency timer and cache line size
-> registers were not restored after chip reset.  On the 5705, the
-> latency timer gets reset to 0 during chip reset and this causes
-> very poor performance.
-> 
-> Update version to 3.84.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> [NET]: Fix csum_start update in pskb_expand_head
+> [NET]: Avoid copying TCP packets unnecessarily
 
-Applied, thanks Michael.
+I am Bittorrenting for a few hours with these patches, and they seem to
+work well. Thanks for the quick response.
 
-This might be what was causing the 5714 performance problems I was
-seeing on one of my systems, I'll go check that out when I get a
-chance.
+> ethtool -k <IFNAME>
 
-Thanks again!
+eth1 is an ipw2200
+[root ~]# ethtool -k eth1
+Offload parameters for eth1:
+Cannot get device rx csum settings: Operation not supported
+rx-checksumming: off
+tx-checksumming: off
+scatter-gather: off
+tcp segmentation offload: off
+udp fragmentation offload: off
+generic segmentation offload: off
+
+Just in case you get a new interest ;-)
+
+Thanks.
+
+--=20
+Guillaume
