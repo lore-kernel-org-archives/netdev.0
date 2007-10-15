@@ -1,69 +1,87 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [NET]: Fix csum_start update in pskb_expand_head
-Date: Mon, 15 Oct 2007 12:57:23 +0800
-Message-ID: <20071015045723.GA28388@gondor.apana.org.au>
-References: <20071006141506.785a6683@localhost.localdomain> <20071014192640.35065e73@inria.fr> <20071014222037.7fa28640@inria.fr>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [patch] do not rely on OPEN_MAX
+Date: Mon, 15 Oct 2007 01:50:58 -0400
+Message-ID: <200710150150.58591.vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_C/vEHWPo3P/LMup"
 Cc: netdev@vger.kernel.org
-To: Guillaume Chazarain <guichaz@yahoo.fr>,
-	"David S. Miller" <davem@davemloft.net>
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4490 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751226AbXJOE53 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 00:57:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20071014222037.7fa28640@inria.fr>
+Received: from smtp.gentoo.org ([140.211.166.183]:37707 "EHLO smtp.gentoo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752561AbXJOFww (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2007 01:52:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 14, 2007 at 08:20:37PM +0000, Guillaume Chazarain wrote:
-> 
-> Just another data point, it seems that running the standard Bittorrent
-> client helps triggering the bug.
+--Boundary-00=_C/vEHWPo3P/LMup
+Content-Type: multipart/signed;
+  boundary="nextPart2834394.OBMPZvoHe8";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
 
-Doh! It was my patch a month ago which added code to update
-csum_start if the headroom changed that broke this.
+--nextPart2834394.OBMPZvoHe8
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-We'll need this patch for stable as well.
+the OPEN_MAX define was removed from the kernel's limits.h during the 2.6.2=
+3=20
+development cycle, so switching to using the dynamic sysconf() func should =
+be=20
+done
+=2Dmike
 
-[NET]: Fix csum_start update in pskb_expand_head
+--nextPart2834394.OBMPZvoHe8
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
-I got confused by the dual nature of the off variable in the
-function pskb_expand_head.  The csum_start offset should use
-nhead instead of off which can change depending on whether we
-are using offsets or pointers.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.7 (GNU/Linux)
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+iQIVAwUARxL/wkFjO5/oN/WBAQLflg/+IB8AoUTFok5Mz25t5UWKB+SyUo6QoBHf
+sphuoHO/J6rLZUvkjMJTj2VheHCnWm9mIBDsVKbFo2tnOKH84IPynu19RXjfqhYF
+XjBwxGPRfkPk2NdNryjQfQNu1Ti/oT2E9jtMoMfjLUKcDYRIyDJM8oiLR6GwYQl3
+v1qkzLR/dppNE9+ocoVzaS2KnWXrUI9QWc46SXoXoz3RXLPqyfJ7sYQcWqMn07w2
+ZeLfhjTWN6Yf38fdQlg+bWmgx4Gw5v7Yp/aVlQ9CGoxm+Ox3InqV3ZkVEAHpvK0i
+Nwrhyu04kSHo1Z8qyZdt934RTyEtKVaA3QCV/ZVHpWednFLKYhXaP5CvgYeDl36C
+MPvT/vC2nmCAR4Kg72cVwmQ7lkxoUyqs6In35Agzx0H/qiSYRvzM6OhICDSOQie3
+g4atkT2kDtg7s/+KUx4phRoUy4ERRcByBVVoyCjJDQ3COKUoOErhVOrMiXYPgYk3
+zgsuRKa5rl9fufdOH9X7DBBsSX2P8vFvUagyocHGlh5nmMFrGAqgifRYjAfDjCNv
+Fz1a4RE1F/J7ZWl9ZWTpQ2CRA1/NASCuE5MZvNQ5EBuXnOaY7TCes7LyV1PDfVf+
+9MNP+Qpp4duZ29SafCVTLU27M92blVD5gDP1mi64A6In1K+yc1o0lcdWFeaKm7WP
+Fc2i7yQZb5M=
+=nQ04
+-----END PGP SIGNATURE-----
 
-However, the fact that you're triggering this code at all tells
-us that there is another bug further up the chain that's causing
-us to generate partial checksums even though the NIC doesn't
-support it.  Can you please give me the output of
+--nextPart2834394.OBMPZvoHe8--
 
-ethtool -k <IFNAME>
+--Boundary-00=_C/vEHWPo3P/LMup
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="iputils-20070202-no-open-max.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+	filename="iputils-20070202-no-open-max.patch"
 
-where <IFNAME> is the interface that TCP connection is going
-out of?
+the OPEN_MAX define has been removed in newer kernel headers so use the
+proper method of getting the value dynamically
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index c3aa68c..70d9b5d 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -682,7 +682,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
- 	skb->transport_header += off;
- 	skb->network_header   += off;
- 	skb->mac_header	      += off;
--	skb->csum_start       += off;
-+	skb->csum_start       += nhead;
- 	skb->cloned   = 0;
- 	skb->hdr_len  = 0;
- 	skb->nohdr    = 0;
+http://bugs.gentoo.org/195861
+
+--- a/rdisc.c
++++ b/rdisc.c
+@@ -247,7 +247,7 @@ void do_fork(void)
+ 	if ((pid=fork()) != 0)
+ 		exit(0);
+ 
+-	for (t = 0; t < OPEN_MAX; t++)
++	for (t = 0; t < sysconf(_SC_OPEN_MAX); t++)
+ 		if (t != s)
+ 			close(t);
+ 
+
+--Boundary-00=_C/vEHWPo3P/LMup--
