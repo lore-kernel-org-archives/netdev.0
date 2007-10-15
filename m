@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Consolidate the ip6_pol_route_(input|output) pair
-Date: Mon, 15 Oct 2007 13:03:07 -0700 (PDT)
-Message-ID: <20071015.130307.121313825.davem@davemloft.net>
-References: <47135529.4010500@openvz.org>
+Subject: Re: [PATCH][NETNS] Don't panic on creating the namespace's loopback
+Date: Mon, 15 Oct 2007 12:55:47 -0700 (PDT)
+Message-ID: <20071015.125547.109996155.davem@davemloft.net>
+References: <47133F91.4030209@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org
+Cc: ebiederm@xmission.com, dlezcano@fr.ibm.com, netdev@vger.kernel.org,
+	devel@openvz.org
 To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33543
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46174
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S932085AbXJOUDD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 16:03:03 -0400
-In-Reply-To: <47135529.4010500@openvz.org>
+	by vger.kernel.org with ESMTP id S933305AbXJOTzn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 15:55:43 -0400
+In-Reply-To: <47133F91.4030209@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Pavel Emelyanov <xemul@openvz.org>
-Date: Mon, 15 Oct 2007 15:55:21 +0400
+Date: Mon, 15 Oct 2007 14:23:13 +0400
 
-> The difference in both functions is in the "id" passed to
-> the rt6_select, so just pass it as an extra argument from
-> two outer helpers.
+> When the loopback device is failed to initialize inside the new 
+> namespaces, panic() is called. Do not do it when the namespace 
+> in question is not the init_net.
 > 
-> This is minus 60 lines of code and 360 bytes of .text
+> Plus cleanup the error path a bit.
 > 
 > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Excellent cleanup, applied!
+Fair enough, applied.
