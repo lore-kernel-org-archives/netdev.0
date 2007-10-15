@@ -1,38 +1,44 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH 5/10] [NET]: Avoid unnecessary cloning for ingress filtering
-Date: Mon, 15 Oct 2007 18:55:27 +0400
-Message-ID: <20071015145527.GA11689@ms2.inr.ac.ru>
-References: <20071014042604.GA11431@gondor.apana.org.au> <E1Igv4p-00030c-00@gondolin.me.apana.org.au> <1192358991.4892.23.camel@localhost> <1192456665.4336.57.camel@localhost>
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Subject: Re: [PATCH][BNX2X] round three
+Date: Mon, 15 Oct 2007 17:27:29 +0200
+Message-ID: <1192462049.29746.158.camel@eliezer>
+References: <1192038559.29746.127.camel@eliezer>
+ <p73641c4cfz.fsf@bingen.suse.de>
+ <20071012.150341.41635825.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: andi@firstfloor.org, netdev@vger.kernel.org, jeff@garzik.org,
+	mchan@broadcom.com
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:39221 "HELO ms2.inr.ac.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752282AbXJOO4H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Oct 2007 10:56:07 -0400
-Content-Disposition: inline
-In-Reply-To: <1192456665.4336.57.camel@localhost>
+Received: from mms1.broadcom.com ([216.31.210.17]:2066 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752464AbXJOP0G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2007 11:26:06 -0400
+In-Reply-To: <20071012.150341.41635825.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Fri, 2007-10-12 at 15:03 -0700, David Miller wrote:
+> From: Andi Kleen <andi@firstfloor.org>
+> Date: Fri, 12 Oct 2007 16:47:28 +0200
+> 
+> > "Eliezer Tamir" <eliezert@broadcom.com> writes:
+> > 
+> > 
+> > > * For now depend on x86 or x86_64, will add more architectures ASAP.
+> > 
+> > Why is that? Linux drivers normally should not be architecture specific.
+> 
+> I totally agree, and the only way to weed out these kinds of
+> bugs is to allow it to build on other systems so users can
+> try it out and report what fails.  Or even better, a motivated
+> developer tries it out and fixes the bugs for you :-)
 
-> If it is causing trouble, then one idea would be to move the resetting
-> to a wrapper function which calls clone first and then resets the other
-> fields. All actions currently cloning would need to be mod-ed to use
-> that call.
+This is not a driver issue.
+Unfortunately, the firmware code is different for LE and BE machines.
+We had issues with the BE firmware that appear to be resolved.
+Hopefully, the next version will have both.
 
-I see not so many places inside net/sched/act* where skb_clone is used.
-Exactly one in act_mirred.c, to be more exact. Did I miss something?
 
-If you mean that place, your suggestion is correct and everything is OK.
-
-But if there is at least one place where an external skb_clone()
-should do this... this cannot be correct. Tell me, it does not matter
-what some random skb_clone() makes with tc_verd, please. :-)
-
-Alexey
