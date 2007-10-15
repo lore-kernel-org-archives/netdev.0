@@ -1,58 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169 Fix hang in rtl8169_down (NAPI)
-Date: Mon, 15 Oct 2007 13:53:10 -0700 (PDT)
-Message-ID: <20071015.135310.41635381.davem@davemloft.net>
-References: <20071015202546.GA4060@gentoox2.trippelsdorf.de>
+From: Auke Kok <auke-jan.h.kok@intel.com>
+Subject: [PATCH 2/2] e1000e: fix error checks
+Date: Mon, 15 Oct 2007 14:02:21 -0700
+Message-ID: <20071015210221.26666.14629.stgit@localhost.localdomain>
+References: <20071015210213.26666.90484.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
-To: markus@trippelsdorf.de
+Cc: netdev@vger.kernel.org, bunk@kernel.org, joe@perches.com,
+	auke-jan.h.kok@intel.com
+To: jeff@garzik.ok
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51247
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751137AbXJOUxK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 16:53:10 -0400
-In-Reply-To: <20071015202546.GA4060@gentoox2.trippelsdorf.de>
+Received: from mga01.intel.com ([192.55.52.88]:42459 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757468AbXJOVCs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2007 17:02:48 -0400
+In-Reply-To: <20071015210213.26666.90484.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Markus Trippelsdorf <markus@trippelsdorf.de>
-Date: Mon, 15 Oct 2007 22:25:46 +0200
+From: Adrian Bunk <bunk@kernel.org>
 
-> commit bea3348eef27e6044b6161fd04c3152215f96411 :
-> [NET]: Make NAPI polling independent of struct net_device objects.
-> causes my machine to hang on shutdown. The following patch fixes the
-> problem for me.
-> 
-> Signed-off-by: Markus Trippelsdorf <markus@trippelsdorf.de>
+Spotted by the Coverity checker.
 
-This change doesn't make any sense.
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
+Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+---
 
-> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-> index 419c00c..2cddbf8 100644
-> --- a/drivers/net/r8169.c
-> +++ b/drivers/net/r8169.c
-> @@ -2888,10 +2888,12 @@ core_down:
->  
->  	synchronize_irq(dev->irq);
->  
-> +#ifdef CONFIG_R8169_NAPI
->  	if (!poll_locked) {
->  		napi_disable(&tp->napi);
->  		poll_locked++;
->  	}
-> +#endif
->  
->  	/* Give a racing hard_start_xmit a few cycles to complete. */
->  	synchronize_sched();  /* FIXME: should this be synchronize_irq()? */
+ drivers/net/e1000e/ethtool.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-If anything the test should be the other way around, use of
-napi interfaces should be used when R8169_NAPI is set.
-
-You're just papering around some other bug in the NAPI support
-of this driver, which someone will need to figure out and fix
-correctly.
-
-But thanks for the report, and the patch, whilst bogus, might
-provide a clue.
+diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
+index b7a7e2a..ca06c35 100644
+--- a/drivers/net/e1000e/ethtool.c
++++ b/drivers/net/e1000e/ethtool.c
+@@ -1451,11 +1451,11 @@ static int e1000_loopback_test(struct e1000_adapter *adapter, u64 *data)
+ 	}
+ 
+ 	*data = e1000_setup_desc_rings(adapter);
+-	if (data)
++	if (*data)
+ 		goto out;
+ 
+ 	*data = e1000_setup_loopback_test(adapter);
+-	if (data)
++	if (*data)
+ 		goto err_loopback;
+ 
+ 	*data = e1000_run_loopback_test(adapter);
