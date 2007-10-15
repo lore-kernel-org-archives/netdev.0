@@ -1,45 +1,55 @@
-From: "Eliezer Tamir" <eliezert@broadcom.com>
-Subject: Re: [PATCH][BNX2X] round three
-Date: Mon, 15 Oct 2007 18:22:03 +0200
-Message-ID: <1192465323.29746.170.camel@eliezer>
-References: <1192038559.29746.127.camel@eliezer>
- <p73641c4cfz.fsf@bingen.suse.de>
- <20071012.150341.41635825.davem@davemloft.net>
- <1192462049.29746.158.camel@eliezer>
- <20071015160512.GA15178@one.firstfloor.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] [TCP]: Make snd_cwnd_cnt 32-bit
+Date: Mon, 15 Oct 2007 18:57:31 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0710151856340.3767@kivilampi-30.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	jeff@garzik.org, mchan@broadcom.com
-To: "Andi Kleen" <andi@firstfloor.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-778396197-1192463851=:3767"
+Cc: Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3555 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759262AbXJOQUl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Oct 2007 12:20:41 -0400
-In-Reply-To: <20071015160512.GA15178@one.firstfloor.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:55854 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754650AbXJOP5c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 11:57:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-10-15 at 18:05 +0200, Andi Kleen wrote:
-> > This is not a driver issue.
-> > Unfortunately, the firmware code is different for LE and BE machines.
-> > We had issues with the BE firmware that appear to be resolved.
-> > Hopefully, the next version will have both.
-> 
-> If the firmware is big it might be better to just add the necessary
-> conversions to the driver and always use BE. Endian conversions
-> tend to be very cheap.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-For a given architecture, only the right version of the microcode is
-compiled, so the binary only contains one copy of the microcode.
-
-The good news is that future versions of the device will not have this
-issue.
-
-I can complain all day about hardware designers not listening to the
-software guys but then they just might stop talking to me
-altogether ;-) 
+---696243703-778396197-1192463851=:3767
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
 
+Very little point of having 32-bit snd_cnwd if this is not
+32-bit as well, as a number of snd_cwnd incrementation formulas
+assume that snd_cwnd_cnt can be at least as large as snd_cwnd.
+
+Whether 32-bit is useful was discussed when e0ef57cc56c3c96
+was made:
+  http://marc.info/?l=linux-netdev&m=117218144409825&w=2
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ include/linux/tcp.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index c5b94c1..997b349 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -315,7 +315,7 @@ struct tcp_sock {
+  */
+  	u32	snd_ssthresh;	/* Slow start size threshold		*/
+  	u32	snd_cwnd;	/* Sending congestion window		*/
+- 	u16	snd_cwnd_cnt;	/* Linear increase counter		*/
++ 	u32	snd_cwnd_cnt;	/* Linear increase counter		*/
+ 	u32	snd_cwnd_clamp; /* Do not allow snd_cwnd to grow above this */
+ 	u32	snd_cwnd_used;
+ 	u32	snd_cwnd_stamp;
+-- 
+1.5.0.6
+
+k i.
+---696243703-778396197-1192463851=:3767--
