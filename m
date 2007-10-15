@@ -1,29 +1,48 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] natsemi: Use round_jiffies() for slow timers
-Date: Mon, 15 Oct 2007 14:21:13 -0400
-Message-ID: <4713AF99.30304@pobox.com>
-References: <470C210C.6030800@pobox.com> <1192010744-12204-1-git-send-email-broonie@sirena.org.uk>
+Subject: Re: [PATCH 1/9] IB/ipoib: Bound the net device to the ipoib_neigh
+ structue
+Date: Mon, 15 Oct 2007 14:22:08 -0400
+Message-ID: <4713AFD0.3080708@pobox.com>
+References: <1191984224957-git-send-email-fubar@us.ibm.com> <1191984225129-git-send-email-fubar@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: thockin@hockin.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Mark Brown <broonie@sirena.org.uk>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S933323AbXJOSVd@vger.kernel.org>
-In-Reply-To: <1192010744-12204-1-git-send-email-broonie@sirena.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, Moni Shoua <monis@voltaire.com>
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:56986 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1764892AbXJOSWO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2007 14:22:14 -0400
+In-Reply-To: <1191984225129-git-send-email-fubar@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mark Brown wrote:
-> Unless we have failed to fill the RX ring the timer used by the natsemi
-> driver is not particularly urgent and can use round_jiffies() to allow
-> grouping with other timers.
+Jay Vosburgh wrote:
+> From: Moni Shoua <monis@voltaire.com>
 > 
-> Signed-off-by: Mark Brown <broonie@sirena.org.uk>
-> ---
-> Rediffed against current netdev-2.6.git#upstream
+> IPoIB uses a two layer neighboring scheme, such that for each struct neighbour
+> whose device is an ipoib one, there is a struct ipoib_neigh buddy which is
+> created on demand at the tx flow by an ipoib_neigh_alloc(skb->dst->neighbour)
+> call.
 > 
->  drivers/net/natsemi.c |   10 +++++++---
->  1 files changed, 7 insertions(+), 3 deletions(-)
+> When using the bonding driver, neighbours are created by the net stack on behalf
+> of the bonding (master) device. On the tx flow the bonding code gets an skb such
+> that skb->dev points to the master device, it changes this skb to point on the
+> slave device and calls the slave hard_start_xmit function.
+> 
+> Under this scheme, ipoib_neigh_destructor assumption that for each struct
+> neighbour it gets, n->dev is an ipoib device and hence netdev_priv(n->dev)
+> can be casted to struct ipoib_dev_priv is buggy.
+> 
+> To fix it, this patch adds a dev field to struct ipoib_neigh which is used
+> instead of the struct neighbour dev one, when n->dev->flags has the
+> IFF_MASTER bit set.
+> 
+> Signed-off-by: Moni Shoua <monis at voltaire.com>
+> Signed-off-by: Or Gerlitz <ogerlitz at voltaire.com>
+> Acked-by: Roland Dreier <rdreier@cisco.com>
 
-applied and the pci_enabie_device() return value patch
+applied 1-9, yay!
+
+
