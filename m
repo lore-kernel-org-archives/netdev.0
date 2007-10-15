@@ -1,39 +1,44 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Subject: [PATCH 1/2] e1000e: Fix debug printk macro
-Date: Mon, 15 Oct 2007 14:02:13 -0700
-Message-ID: <20071015210213.26666.90484.stgit@localhost.localdomain>
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
+Subject: [PATCH] r8169 Fix hang in rtl8169_down (NAPI)
+Date: Mon, 15 Oct 2007 22:25:46 +0200
+Message-ID: <20071015202546.GA4060@gentoox2.trippelsdorf.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bunk@kernel.org, joe@perches.com,
-	auke-jan.h.kok@intel.com
-To: jeff@garzik.ok
+Content-Type: text/plain; charset=us-ascii
+To: jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:29490 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758060AbXJOVDH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Oct 2007 17:03:07 -0400
+Received: from smtp-out-43.synserver.de ([217.119.50.43]:1038 "HELO
+	smtp-out-43.synserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1756616AbXJOUmx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 16:42:53 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Spotted by Joe Perches.
+commit bea3348eef27e6044b6161fd04c3152215f96411 :
+[NET]: Make NAPI polling independent of struct net_device objects.
+causes my machine to hang on shutdown. The following patch fixes the
+problem for me.
 
-Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
----
+Signed-off-by: Markus Trippelsdorf <markus@trippelsdorf.de>
 
- drivers/net/e1000e/hw.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index aa82f1a..6451578 100644
---- a/drivers/net/e1000e/hw.h
-+++ b/drivers/net/e1000e/hw.h
-@@ -852,7 +852,7 @@ struct e1000_hw {
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 419c00c..2cddbf8 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -2888,10 +2888,12 @@ core_down:
  
- #ifdef DEBUG
- #define hw_dbg(hw, format, arg...) \
--	printk(KERN_DEBUG, "%s: " format, e1000e_get_hw_dev_name(hw), ##arg);
-+	printk(KERN_DEBUG "%s: " format, e1000e_get_hw_dev_name(hw), ##arg)
- #else
- static inline int __attribute__ ((format (printf, 2, 3)))
- hw_dbg(struct e1000_hw *hw, const char *format, ...)
+ 	synchronize_irq(dev->irq);
+ 
++#ifdef CONFIG_R8169_NAPI
+ 	if (!poll_locked) {
+ 		napi_disable(&tp->napi);
+ 		poll_locked++;
+ 	}
++#endif
+ 
+ 	/* Give a racing hard_start_xmit a few cycles to complete. */
+ 	synchronize_sched();  /* FIXME: should this be synchronize_irq()? */
+
+-- 
+Markus
