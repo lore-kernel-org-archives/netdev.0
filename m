@@ -1,50 +1,42 @@
-From: Guillaume Chazarain <guichaz@yahoo.fr>
-Subject: Re: [NET]: Fix csum_start update in pskb_expand_head
-Date: Mon, 15 Oct 2007 11:21:29 +0200
-Message-ID: <20071015112129.2bd7ef16@inria.fr>
-References: <20071006141506.785a6683@localhost.localdomain>
-	<20071014192640.35065e73@inria.fr>
-	<20071014222037.7fa28640@inria.fr>
-	<20071015045723.GA28388@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/9] Move common fields from frag_queues in one place
+Date: Mon, 15 Oct 2007 02:24:43 -0700 (PDT)
+Message-ID: <20071015.022443.51859270.davem@davemloft.net>
+References: <470F6EAE.60308@openvz.org>
+	<470F6FD6.20004@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, netdev@vger.kernel.org, devel@openvz.org
+To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3-g19.free.fr ([212.27.42.29]:39359 "EHLO smtp3-g19.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757163AbXJOJYQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 05:24:16 -0400
-In-Reply-To: <20071015045723.GA28388@gondor.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52689
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1757399AbXJOJYj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 05:24:39 -0400
+In-Reply-To: <470F6FD6.20004@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le Mon, 15 Oct 2007 12:57:23 +0800,
-Herbert Xu <herbert@gondor.apana.org.au> a =C3=A9crit :
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Fri, 12 Oct 2007 17:00:06 +0400
 
-> [NET]: Fix csum_start update in pskb_expand_head
-> [NET]: Avoid copying TCP packets unnecessarily
+> Introduce the struct inet_frag_queue in include/net/inet_frag.h
+> file and place there all the common fields from three structs:
+> 
+>  * struct ipq in ipv4/ip_fragment.c
+>  * struct nf_ct_frag6_queue in nf_conntrack_reasm.c
+>  * struct frag_queue in ipv6/reassembly.c
+> 
+> After this, replace these fields on appropriate structures with
+> this structure instance and fix the users to use correct names
+> i.e. hunks like
+> 
+> -    atomic_dec(&fq->refcnt);
+> +    atomic_dec(&fq->q.refcnt);
+> 
+> (these occupy most of the patch)
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-I am Bittorrenting for a few hours with these patches, and they seem to
-work well. Thanks for the quick response.
-
-> ethtool -k <IFNAME>
-
-eth1 is an ipw2200
-[root ~]# ethtool -k eth1
-Offload parameters for eth1:
-Cannot get device rx csum settings: Operation not supported
-rx-checksumming: off
-tx-checksumming: off
-scatter-gather: off
-tcp segmentation offload: off
-udp fragmentation offload: off
-generic segmentation offload: off
-
-Just in case you get a new interest ;-)
-
-Thanks.
-
---=20
-Guillaume
+Applied.
