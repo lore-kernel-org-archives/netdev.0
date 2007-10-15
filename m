@@ -1,89 +1,61 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] PowerPC: Add BCM5248 and Marvell 88E1111 PHY support
-	to NEW EMAC.
-Date: Mon, 15 Oct 2007 15:04:33 -0400
-Message-ID: <4713B9C1.5010001@garzik.org>
-References: <20071015175717.GA4602@ru.mvista.com>	<4713B10B.5000607@garzik.org>	<20071015134813.6aacdcca@weaponx.rchland.ibm.com>	<4713B726.6080404@garzik.org>
-	<20071015135959.5b603d7d@weaponx.rchland.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: Josh Boyer <jwboyer@linux.vnet.ibm.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <20071015135959.5b603d7d@weaponx.rchland.ibm.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH 1/6] Convert bonding timers to workqueues
+Date: Mon, 15 Oct 2007 12:08:59 -0700
+Message-ID: <20038.1192475339@death>
+References: <11920760494096-git-send-email-fubar@us.ibm.com> <11920760502756-git-send-email-fubar@us.ibm.com> <4713B44E.7030902@pobox.com>
+Cc: netdev@vger.kernel.org, andy@greyhouse.net
+To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:45075 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756230AbXJOTJI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2007 15:09:08 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by e3.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9FJ96T5026837
+	for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 15:09:06 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9FJ96lV091202
+	for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 15:09:06 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9FJ9588013593
+	for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 15:09:05 -0400
+In-reply-to: <4713B44E.7030902@pobox.com> 
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Josh Boyer wrote:
-> On Mon, 15 Oct 2007 14:53:26 -0400
-> Jeff Garzik <jeff@garzik.org> wrote:
->>>> Seems sane to me -- ACK -- but we have multiple people sending me 
->>>> patches for a single driver.  That's normal for janitorial cleanups 
->>>> across the whole tree, but discouraged when multiple people are actively 
->>>> working on the same driver.
->>>>
->>>> Please coordinate, and have ONE person send me patches...
->>> Who else is sending you patches?  Valentine is the only one I've seen
->>> send patches recently...
->> It's a zoo :)
-> 
-> Wow, indeed.
-> 
->> Al Viro (3):
->>        typo in ibm_newemac/rgmii.c
-> 
-> Val sent this as well.  Either one works.
-> 
->>        skb->tail in ibm_newemac should be skb_tail_pointer()
->>        ibm_newemac annotations (iomem, NULL noise)
-> 
-> Ack on those.
-> 
->> David Gibson (1):
->>        Device tree aware EMAC driver
-> 
-> That's the initial commit :)
-> 
->> Michael Ellerman (3):
->>        Update ibm_newemac to use dcr_host_t.base
->>        Add dcr_host_t.base in dcr_read()/dcr_write()
->>        Use dcr_host_t.base in dcr_unmap()
-> 
-> Missed those, but I see you applied them which is good.
-> 
->> Roland Dreier (2):
->>        ibm_new_emac: Nuke SET_MODULE_OWNER() use
->>        ibm_emac: Convert to use napi_struct independent of struct net_device
-> 
-> I never saw either of these.  I'm also beginning to wonder if one of
-> them broke things because I can't currently get ibm_newemac to work.
-> 
->> vbarshak@ru.mvista.com (1):
->>        Fix typo in new EMAC driver.
-> 
-> Same fix as Al's.
+Jeff Garzik <jgarzik@pobox.com> wrote:
 
-All those are what's upstream, except for the Michael Ellerman patches. 
-  FWIW it was generated using
+>Jay Vosburgh wrote:
+>> 	Convert bonding timers to workqueues.  This converts the various
+>> monitor functions to run in periodic work queues instead of timers.  This
+>> patch introduces the framework and convers the calls, but does not resolve
+>> various locking issues, and does not stand alone.
+>>
+>> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+>> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+>
+>"does not stand alone" == it is not bisectable?  That's a problem.
 
-	git log drivers/net/ibm_newemac | git shortlog
+	The patch will compile fine (this is true for any point in the
+series), but it's possible for bonding to deadlock or misbehave when
+doing certain operations.  Those problems are addressed in the later
+patches.
 
+	I didn't want to just vomit out one big mega-patch that has the
+whole set of changes, because that's harder to understand, and the later
+patches generally address discrete issues.
 
-> Anyway, we can queue patches to this through me if you'd like.
+	Does that make you more or less nervous about its bisectability?
+I can repost the whole thing as a big blob if that's what you'd prefer.
 
-I would ideally like a single active patch generator (even if they are 
-merely reviewed others work sometimes).
+>Anyway, we have more fun fish to fry:  after applying the IPoIB bonding
+>patchset, this no longer applies...
 
-Outside of that, I'm hoping you and the other people listed making 
-changes will self-organize without my help :)
+	Yah, I'll rebase it (once I know your blob vs. not-blob
+preference).  I wasn't sure how long the IPoIB mystery bug hunt was
+going to take.
 
-	Jeff
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
