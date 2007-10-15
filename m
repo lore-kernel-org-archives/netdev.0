@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [TCP]: high_seq parameter removed (all callers use
- tp->high_seq)
-Date: Mon, 15 Oct 2007 02:10:42 -0700 (PDT)
-Message-ID: <20071015.021042.31429383.davem@davemloft.net>
-References: <Pine.LNX.4.64.0710121640200.3767@kivilampi-30.cs.helsinki.fi>
+Subject: Re: 2.6.23-rc8-mm2 BUG: register_netdevice() issue as (ab)used by
+ ISDN
+Date: Mon, 15 Oct 2007 02:12:03 -0700 (PDT)
+Message-ID: <20071015.021203.28411623.davem@davemloft.net>
+References: <20071008155836.GA19932@pingi.kke.suse.de>
+	<20071008.203733.132907566.davem@davemloft.net>
+	<20071012140521.GA28413@pingi.kke.suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: ilpo.jarvinen@helsinki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andi@lisas.de, jeff@garzik.org, isdn4linux@listserv.isdn4linux.de,
+	netdev@vger.kernel.org, akpm@linux-foundation.org,
+	shemminger@linux-foundation.org
+To: kkeil@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58141
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58146
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754192AbXJOJKl convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Oct 2007 05:10:41 -0400
-In-Reply-To: <Pine.LNX.4.64.0710121640200.3767@kivilampi-30.cs.helsinki.fi>
+	by vger.kernel.org with ESMTP id S1754113AbXJOJL7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 05:11:59 -0400
+In-Reply-To: <20071012140521.GA28413@pingi.kke.suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-Date: Fri, 12 Oct 2007 17:02:18 +0300 (EEST)
+From: Karsten Keil <kkeil@suse.de>
+Date: Fri, 12 Oct 2007 16:05:22 +0200
 
->=20
-> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
-> ---
->=20
-> Compile tested with 2.6.23 as current Linus' tree provides an
-> hilarious building failure to our net-2.6 sandbox... :-)
+> This is a followup to the previous ISDN alloc_netdev() patch.
+> It removes the local copy of the device name to make sure
+> that device renames work.
+> 
+> Signed-off-by: Karsten Keil <kkeil@suse.de>
 
-Applied, thanks :-)
+Applied, thanks!
