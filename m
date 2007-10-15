@@ -1,54 +1,58 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] NEW EMAC Fix RGMII build error: use
-	of_device_is_compatible
-Date: Tue, 16 Oct 2007 07:01:13 +1000
-Message-ID: <1192482073.11795.33.camel@pasglop>
-References: <20071012130445.GA14704@ru.mvista.com>
-Reply-To: benh@kernel.crashing.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] r8169 Fix hang in rtl8169_down (NAPI)
+Date: Mon, 15 Oct 2007 13:53:10 -0700 (PDT)
+Message-ID: <20071015.135310.41635381.davem@davemloft.net>
+References: <20071015202546.GA4060@gentoox2.trippelsdorf.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-To: Valentine Barshak <vbarshak@ru.mvista.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <20071012130445.GA14704@ru.mvista.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: jgarzik@pobox.com, netdev@vger.kernel.org
+To: markus@trippelsdorf.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51247
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751137AbXJOUxK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 16:53:10 -0400
+In-Reply-To: <20071015202546.GA4060@gentoox2.trippelsdorf.de>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
+Date: Mon, 15 Oct 2007 22:25:46 +0200
 
-On Fri, 2007-10-12 at 17:04 +0400, Valentine Barshak wrote:
-> Fix build RGMII error: use of_device_is_compatible()
-> insteadof now deprecated device_is_compatible() function.
+> commit bea3348eef27e6044b6161fd04c3152215f96411 :
+> [NET]: Make NAPI polling independent of struct net_device objects.
+> causes my machine to hang on shutdown. The following patch fixes the
+> problem for me.
 > 
-> Signed-off-by: Valentine Barshak <vbarshak@ru.mvista.com>
+> Signed-off-by: Markus Trippelsdorf <markus@trippelsdorf.de>
 
-Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+This change doesn't make any sense.
 
-> ---
->  drivers/net/ibm_newemac/rgmii.c |    2 +-
->  1 files changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff -pruN linux-2.6.orig/drivers/net/ibm_newemac/rgmii.c linux-2.6/drivers/net/ibm_newemac/rgmii.c
-> --- linux-2.6.orig/drivers/net/ibm_newemac/rgmii.c	2007-10-12 16:02:41.000000000 +0400
-> +++ linux-2.6/drivers/net/ibm_newemac/rgmii.c	2007-10-12 16:49:07.000000000 +0400
-> @@ -251,7 +251,7 @@ static int __devinit rgmii_probe(struct 
->  	}
+> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+> index 419c00c..2cddbf8 100644
+> --- a/drivers/net/r8169.c
+> +++ b/drivers/net/r8169.c
+> @@ -2888,10 +2888,12 @@ core_down:
 >  
->  	/* Check for RGMII type */
-> -	if (device_is_compatible(ofdev->node, "ibm,rgmii-axon"))
-> +	if (of_device_is_compatible(ofdev->node, "ibm,rgmii-axon"))
->  		dev->type = RGMII_AXON;
->  	else
->  		dev->type = RGMII_STANDARD;
-> _______________________________________________
-> Linuxppc-dev mailing list
-> Linuxppc-dev@ozlabs.org
-> https://ozlabs.org/mailman/listinfo/linuxppc-dev
+>  	synchronize_irq(dev->irq);
+>  
+> +#ifdef CONFIG_R8169_NAPI
+>  	if (!poll_locked) {
+>  		napi_disable(&tp->napi);
+>  		poll_locked++;
+>  	}
+> +#endif
+>  
+>  	/* Give a racing hard_start_xmit a few cycles to complete. */
+>  	synchronize_sched();  /* FIXME: should this be synchronize_irq()? */
+
+If anything the test should be the other way around, use of
+napi interfaces should be used when R8169_NAPI is set.
+
+You're just papering around some other bug in the NAPI support
+of this driver, which someone will need to figure out and fix
+correctly.
+
+But thanks for the report, and the patch, whilst bogus, might
+provide a clue.
