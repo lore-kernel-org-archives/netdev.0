@@ -1,43 +1,68 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] Ensure that pneigh_lookup is protected with RTNL
-Date: Mon, 15 Oct 2007 17:38:57 +0400
-Message-ID: <47136D71.4000108@openvz.org>
+From: Emil Medve <Emilian.Medve@Freescale.com>
+Subject: [PATCH v2] [POWERPC] ucc_geth: Fix build break introduced by commit
+	09f75cd7bf13720738e6a196cc0107ce9a5bd5a0
+Date: Mon, 15 Oct 2007 08:43:50 -0500
+Message-ID: <1192455830-1028-1-git-send-email-Emilian.Medve@Freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:38681 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756984AbXJONlt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Oct 2007 09:41:49 -0400
-Sender: netdev-owner@vger.kernel.org
+Cc: Emil Medve <Emilian.Medve@Freescale.com>
+To: akpm@linux-foundation.org, jgarzik@pobox.com, leoli@Freescale.com,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-The pnigh_lookup is used to lookup proxy entries and to 
-create them in case lookup failed. 
+drivers/net/ucc_geth.c: In function 'ucc_geth_rx':
+drivers/net/ucc_geth.c:3483: error: 'dev' undeclared (first use in this function)
+drivers/net/ucc_geth.c:3483: error: (Each undeclared identifier is reported only once
+drivers/net/ucc_geth.c:3483: error: for each function it appears in.)
+make[2]: *** [drivers/net/ucc_geth.o] Error 1
 
-However, the "creation" code does not perform the re-lookup
-after GFP_KERNEL allocation. This is done because the code
-is expected to be protected with the RTNL lock, so add the 
-assertion (mainly to address future questions from new network 
-developers like me :) ).
-
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
+Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
 ---
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index c52df85..cd3af59 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -481,6 +481,8 @@ struct pneigh_entry * pneigh_lookup(struct neigh_table *tbl, const void *pkey,
- 	if (!creat)
- 		goto out;
- 
-+	ASSERT_RTNL();
-+
- 	n = kmalloc(sizeof(*n) + key_len, GFP_KERNEL);
- 	if (!n)
- 		goto out;
 
+Here is a convenient link for the culprit patch: http://git.kernel.org/?p=linux/kernel/git/jgarzik/netdev-2.6.git;a=commit;h=09f75cd7bf13720738e6a196cc0107ce9a5bd5a0
+
+netdev-2.6> scripts/checkpatch.pl 0001-POWERPC-ucc_geth-Fix-build-break-introduced-by-co.patch 
+Your patch has no obvious style problems and is ready for submission.
+
+ drivers/net/ucc_geth.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index d00e7d4..bec413b 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -63,7 +63,7 @@
+ #define UGETH_MSG_DEFAULT	(NETIF_MSG_IFUP << 1 ) - 1
+ 
+ void uec_set_ethtool_ops(struct net_device *netdev);
+-	
++
+ static DEFINE_SPINLOCK(ugeth_lock);
+ 
+ static struct {
+@@ -3454,9 +3454,12 @@ static int ucc_geth_rx(struct ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit
+ 	u16 length, howmany = 0;
+ 	u32 bd_status;
+ 	u8 *bdBuffer;
++	struct net_device * dev;
+ 
+ 	ugeth_vdbg("%s: IN", __FUNCTION__);
+ 
++	dev = ugeth->dev;
++
+ 	/* collect received buffers */
+ 	bd = ugeth->rxBd[rxQ];
+ 
+-- 
+1.5.3.GIT
