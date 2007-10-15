@@ -1,46 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/9] Consolidate IP fragment management
-Date: Mon, 15 Oct 2007 02:42:48 -0700 (PDT)
-Message-ID: <20071015.024248.61355576.davem@davemloft.net>
-References: <470F6EAE.60308@openvz.org>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [NET] Jazzsonic: Fix warning about unused variable.
+Date: Mon, 15 Oct 2007 10:58:40 +0100
+Message-ID: <20071015095840.GA30451@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org, devel@openvz.org
-To: xemul@openvz.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+To: Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39927
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756805AbXJOJmn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 05:42:43 -0400
-In-Reply-To: <470F6EAE.60308@openvz.org>
+Received: from ftp.linux-mips.org ([194.74.144.162]:55422 "EHLO
+	ftp.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758053AbXJOJ6p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 05:58:45 -0400
+Received: from localhost.localdomain ([127.0.0.1]:38884 "EHLO
+	dl5rb.ham-radio-op.net") by ftp.linux-mips.org with ESMTP
+	id S20034517AbXJOJ6o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2007 10:58:44 +0100
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Fri, 12 Oct 2007 16:55:10 +0400
+Caused by "[NET]: Introduce and use print_mac() and DECLARE_MAC_BUF()"
+aka 0795af5729b18218767fab27c44b1384f72dc9ad.
 
-> Patrick recently pointed out, that there are three places that 
-> perform IP fragments management. In ipv4, ipv6 and in ip6 
-> conntracks. Looks like these places can be a bit consolidated.
-> 
-> The proposal is to create a common structure inet_frag_queue to 
-> put common fields like list heads, refcounts etc in, and include
-> it into the specific fragment queues. Then such objects like 
-> hash tables, lists, locks etc are moved to common place (struct 
-> inet_frags). At the end common code is moved to the 
-> net/ipv4/inet_fragment.c.
-> 
-> The inet_ prefix in file names, data structures and functions, and
-> the code place (net/ipv4) was proposed by Alexey, but the exact
-> names were selectd by me, so maybe there can be a better ones.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-Thank you for doing this work, I applied it all.
-
-I had to decide whether to apply Herbert's recent patches
-first or your's, because either way there would be some
-conflicts to resolve.
-
-I handled it the best I could, but it seems OK from here.
+diff --git a/drivers/net/jazzsonic.c b/drivers/net/jazzsonic.c
+index d3825c8..5c154fe 100644
+--- a/drivers/net/jazzsonic.c
++++ b/drivers/net/jazzsonic.c
+@@ -208,7 +208,6 @@ static int __init jazz_sonic_probe(struct platform_device *pdev)
+ 	struct sonic_local *lp;
+ 	struct resource *res;
+ 	int err = 0;
+-	int i;
+ 	DECLARE_MAC_BUF(mac);
+ 
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
