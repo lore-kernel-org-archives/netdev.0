@@ -1,87 +1,95 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [patch] do not rely on OPEN_MAX
-Date: Mon, 15 Oct 2007 01:50:58 -0400
-Message-ID: <200710150150.58591.vapier@gentoo.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [NET]: Avoid copying TCP packets unnecessarily
+Date: Mon, 15 Oct 2007 13:54:57 +0800
+Message-ID: <20071015055457.GA28799@gondor.apana.org.au>
+References: <20071006141506.785a6683@localhost.localdomain> <20071014192640.35065e73@inria.fr> <20071014222037.7fa28640@inria.fr> <20071015045723.GA28388@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_C/vEHWPo3P/LMup"
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+To: Guillaume Chazarain <guichaz@yahoo.fr>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:37707 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752561AbXJOFww (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Oct 2007 01:52:52 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:1081 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753131AbXJOFzK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 01:55:10 -0400
+Content-Disposition: inline
+In-Reply-To: <20071015045723.GA28388@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_C/vEHWPo3P/LMup
-Content-Type: multipart/signed;
-  boundary="nextPart2834394.OBMPZvoHe8";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
+On Mon, Oct 15, 2007 at 12:57:23PM +0800, Herbert Xu wrote:
+> 
+> However, the fact that you're triggering this code at all tells
+> us that there is another bug further up the chain that's causing
+> us to generate partial checksums even though the NIC doesn't
+> support it.  Can you please give me the output of
 
---nextPart2834394.OBMPZvoHe8
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Nevermind, tcp_fragment can generate such packets out of
+convenience.
 
-the OPEN_MAX define was removed from the kernel's limits.h during the 2.6.2=
-3=20
-development cycle, so switching to using the dynamic sysconf() func should =
-be=20
-done
-=2Dmike
+Here's a little optimisation to avoid copying the packet in
+this case.
 
---nextPart2834394.OBMPZvoHe8
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
+[NET]: Avoid copying TCP packets unnecessarily
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.7 (GNU/Linux)
+TCP packets all have writable heads, that is, even though it's cloned, it is
+writable up to the end of the TCP header.  This patch makes skb_checksum_help
+aware of this fact by using skb_clone_writable and avoiding a copy for TCP.
 
-iQIVAwUARxL/wkFjO5/oN/WBAQLflg/+IB8AoUTFok5Mz25t5UWKB+SyUo6QoBHf
-sphuoHO/J6rLZUvkjMJTj2VheHCnWm9mIBDsVKbFo2tnOKH84IPynu19RXjfqhYF
-XjBwxGPRfkPk2NdNryjQfQNu1Ti/oT2E9jtMoMfjLUKcDYRIyDJM8oiLR6GwYQl3
-v1qkzLR/dppNE9+ocoVzaS2KnWXrUI9QWc46SXoXoz3RXLPqyfJ7sYQcWqMn07w2
-ZeLfhjTWN6Yf38fdQlg+bWmgx4Gw5v7Yp/aVlQ9CGoxm+Ox3InqV3ZkVEAHpvK0i
-Nwrhyu04kSHo1Z8qyZdt934RTyEtKVaA3QCV/ZVHpWednFLKYhXaP5CvgYeDl36C
-MPvT/vC2nmCAR4Kg72cVwmQ7lkxoUyqs6In35Agzx0H/qiSYRvzM6OhICDSOQie3
-g4atkT2kDtg7s/+KUx4phRoUy4ERRcByBVVoyCjJDQ3COKUoOErhVOrMiXYPgYk3
-zgsuRKa5rl9fufdOH9X7DBBsSX2P8vFvUagyocHGlh5nmMFrGAqgifRYjAfDjCNv
-Fz1a4RE1F/J7ZWl9ZWTpQ2CRA1/NASCuE5MZvNQ5EBuXnOaY7TCes7LyV1PDfVf+
-9MNP+Qpp4duZ29SafCVTLU27M92blVD5gDP1mi64A6In1K+yc1o0lcdWFeaKm7WP
-Fc2i7yQZb5M=
-=nQ04
------END PGP SIGNATURE-----
+I've also modified the BUG_ON tests to be unsigned.  The only case where this
+makes a difference is if csum_start points to a location before skb->data.
+Since skb->data should always include the header where the checksum field
+is (and all currently callers adhere to that), this change is safe and may
+uncover bugs later.
 
---nextPart2834394.OBMPZvoHe8--
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
 
---Boundary-00=_C/vEHWPo3P/LMup
-Content-Type: text/x-diff;
-  charset="us-ascii";
-  name="iputils-20070202-no-open-max.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
-	filename="iputils-20070202-no-open-max.patch"
+ net/core/dev.c |   21 ++++++++++-----------
+ 1 file changed, 10 insertions(+), 11 deletions(-)
 
-the OPEN_MAX define has been removed in newer kernel headers so use the
-proper method of getting the value dynamically
-
-http://bugs.gentoo.org/195861
-
---- a/rdisc.c
-+++ b/rdisc.c
-@@ -247,7 +247,7 @@ void do_fork(void)
- 	if ((pid=fork()) != 0)
- 		exit(0);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ab15c11..af75bfd 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1355,22 +1355,21 @@ int skb_checksum_help(struct sk_buff *skb)
+ 		goto out_set_summed;
+ 	}
  
--	for (t = 0; t < OPEN_MAX; t++)
-+	for (t = 0; t < sysconf(_SC_OPEN_MAX); t++)
- 		if (t != s)
- 			close(t);
+-	if (skb_cloned(skb)) {
++	offset = skb->csum_start - skb_headroom(skb);
++	BUG_ON(offset >= skb_headlen(skb));
++	csum = skb_checksum(skb, offset, skb->len - offset, 0);
++
++	offset += skb->csum_offset;
++	BUG_ON(offset + sizeof(__sum16) > skb_headlen(skb));
++
++	if (skb_cloned(skb) &&
++	    !skb_clone_writable(skb, offset + sizeof(__sum16))) {
+ 		ret = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+ 		if (ret)
+ 			goto out;
+ 	}
  
+-	offset = skb->csum_start - skb_headroom(skb);
+-	BUG_ON(offset > (int)skb->len);
+-	csum = skb_checksum(skb, offset, skb->len-offset, 0);
+-
+-	offset = skb_headlen(skb) - offset;
+-	BUG_ON(offset <= 0);
+-	BUG_ON(skb->csum_offset + 2 > offset);
+-
+-	*(__sum16 *)(skb->head + skb->csum_start + skb->csum_offset) =
+-		csum_fold(csum);
++	*(__sum16 *)(skb->data + offset) = csum_fold(csum);
+ out_set_summed:
+ 	skb->ip_summed = CHECKSUM_NONE;
+ out:
 
---Boundary-00=_C/vEHWPo3P/LMup--
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
