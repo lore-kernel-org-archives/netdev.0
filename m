@@ -1,53 +1,54 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: MSI interrupts and disable_irq
-Date: Mon, 15 Oct 2007 18:17:55 -0400
-Message-ID: <4713E713.9060702@pobox.com>
-References: <46FC15A9.1070803@nvidia.com> <46FDBCB4.9090802@pobox.com> <4710901F.8010206@colorfullife.com>
+From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
+Subject: Re: [PATCH] PowerPC: Add BCM5248 and Marvell 88E1111 PHY support
+	to NEW EMAC.
+Date: Mon, 15 Oct 2007 17:47:26 -0500
+Message-ID: <1192488446.13993.9.camel@localhost.localdomain>
+References: <20071015175717.GA4602@ru.mvista.com>
+	 <4713B10B.5000607@garzik.org>
+	 <20071015134813.6aacdcca@weaponx.rchland.ibm.com>
+	 <4713B726.6080404@garzik.org>
+	 <20071015135959.5b603d7d@weaponx.rchland.ibm.com>
+	 <4713B9C1.5010001@garzik.org>  <1192482323.11795.38.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>, nedev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Manfred Spraul <manfred@colorfullife.com>
+Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:39684 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751431AbXJOWR7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Oct 2007 18:17:59 -0400
-In-Reply-To: <4710901F.8010206@colorfullife.com>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:56906 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753545AbXJOW41 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 18:56:27 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e35.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9FMuR2l016095
+	for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 18:56:27 -0400
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9FMuRJx496600
+	for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 16:56:27 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9FMuQ3n006236
+	for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 16:56:27 -0600
+In-Reply-To: <1192482323.11795.38.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Manfred Spraul wrote:
-> Jeff Garzik wrote:
->>
->> I think the scenario you outline is an illustration of the approach's 
->> fragility:  disable_irq() is a heavy hammer that originated with INTx, 
->> and it relies on a chip-specific disable method (kernel/irq/manage.c) 
->> that practically guarantees behavior will vary across MSI/INTx/etc.
->>
-> I checked the code: IRQ_DISABLE is implemented in software, i.e. 
-> handle_level_irq() only calls handle_IRQ_event() [and then the nic irq 
-> handler] if IRQ_DISABLE is not set.
-> OTHO: The last trace looks as if nv_do_nic_poll() is interrupted by an irq.
+On Tue, 2007-10-16 at 07:05 +1000, Benjamin Herrenschmidt wrote:
+> On Mon, 2007-10-15 at 15:04 -0400, Jeff Garzik wrote:
+> > I would ideally like a single active patch generator (even if they
+> > are 
+> > merely reviewed others work sometimes).
+> > 
+> > Outside of that, I'm hoping you and the other people listed making 
+> > changes will self-organize without my help :)
 > 
-> Perhaps something corrupts dev->irq? The irq is requested with
->    request_irq(np->pci_dev->irq, handler, IRQF_SHARED, dev->name, dev)
-> and disabled with
->    disable_irq_lockdep(dev->irq);
-> 
-> Someone around with a MSI capable board? The forcedeth driver does
->    dev->irq = pci_dev->irq
-> in nv_probe(), especially before pci_enable_msi().
-> Does pci_enable_msi() change pci_dev->irq? Then we would disable the 
-> wrong interrupt....
+> Josh, do you want to be the central point / maintainer for it or do you
+> want me to do it ? There's a lot of code from me in there and I did this
+> fork in the first place so I have a pretty good idea of what's going on
+> in this driver and what still needs to be done :-)
 
-Remember, fundamentally MSI-X is a one-to-many relationship, when you 
-consider a single PCI device might have multiple vectors.
+As always, you're welcome to it.  You probably don't want to own it long
+term, but I'd appreciate the help for the time being.
 
-	Jeff
-
-
+josh
 
