@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][NETNS] Don't panic on creating the namespace's loopback
-Date: Mon, 15 Oct 2007 12:55:47 -0700 (PDT)
-Message-ID: <20071015.125547.109996155.davem@davemloft.net>
-References: <47133F91.4030209@openvz.org>
+Subject: Re: [PATCH] Ensure that pneigh_lookup is protected with RTNL
+Date: Mon, 15 Oct 2007 12:54:35 -0700 (PDT)
+Message-ID: <20071015.125435.08669923.davem@davemloft.net>
+References: <47136D71.4000108@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, dlezcano@fr.ibm.com, netdev@vger.kernel.org,
-	devel@openvz.org
+Cc: netdev@vger.kernel.org, devel@openvz.org
 To: xemul@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46174
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46170
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S933305AbXJOTzn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 15:55:43 -0400
-In-Reply-To: <47133F91.4030209@openvz.org>
+	by vger.kernel.org with ESMTP id S932956AbXJOTye (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 15:54:34 -0400
+In-Reply-To: <47136D71.4000108@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Pavel Emelyanov <xemul@openvz.org>
-Date: Mon, 15 Oct 2007 14:23:13 +0400
+Date: Mon, 15 Oct 2007 17:38:57 +0400
 
-> When the loopback device is failed to initialize inside the new 
-> namespaces, panic() is called. Do not do it when the namespace 
-> in question is not the init_net.
+> The pnigh_lookup is used to lookup proxy entries and to 
+> create them in case lookup failed. 
 > 
-> Plus cleanup the error path a bit.
+> However, the "creation" code does not perform the re-lookup
+> after GFP_KERNEL allocation. This is done because the code
+> is expected to be protected with the RTNL lock, so add the 
+> assertion (mainly to address future questions from new network 
+> developers like me :) ).
 > 
 > Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-Fair enough, applied.
+Thanks for this patch, applied.
