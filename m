@@ -1,64 +1,43 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH] tehuti: possible leak in bdx_probe
-Date: Mon, 15 Oct 2007 09:33:09 -0400
-Message-ID: <20071015133309.GI9140@gospo.rdu.redhat.com>
-References: <4710FA6A.2070902@gmail.com>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH] Ensure that pneigh_lookup is protected with RTNL
+Date: Mon, 15 Oct 2007 17:38:57 +0400
+Message-ID: <47136D71.4000108@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: baum@tehutinetworks.net, andy@greyhouse.net,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org
-To: Florin Malita <fmalita@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:47818 "EHLO mx1.redhat.com"
+Received: from sacred.ru ([62.205.161.221]:38681 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762330AbXJONhy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Oct 2007 09:37:54 -0400
-Content-Disposition: inline
-In-Reply-To: <4710FA6A.2070902@gmail.com>
+	id S1756984AbXJONlt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2007 09:41:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 13, 2007 at 01:03:38PM -0400, Florin Malita wrote:
-> If pci_enable_device fails, bdx_probe returns without freeing the 
-> allocated pci_nic structure.
-> 
-> Coverity CID 1908.
-> 
-> Signed-off-by: Florin Malita <fmalita@gmail.com>
-> ---
-> 
-> drivers/net/tehuti.c |    3 ++-
-> 1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/tehuti.c b/drivers/net/tehuti.c
-> index 8d04654..4e1b84e 100644
-> --- a/drivers/net/tehuti.c
-> +++ b/drivers/net/tehuti.c
-> @@ -1906,7 +1906,7 @@ bdx_probe(struct pci_dev *pdev, const struct 
-> pci_device_id *ent)
-> 
->     /************** pci *****************/
-> 	if ((err = pci_enable_device(pdev)))	/* it trigers interrupt, 
-> 	dunno why. */
-> -		RET(err);			/* it's not a problem though 
-> */
-> +		goto err_pci;			/* it's not a problem though 
-> */
-> 
-> 	if (!(err = pci_set_dma_mask(pdev, DMA_64BIT_MASK)) &&
-> 	    !(err = pci_set_consistent_dma_mask(pdev, DMA_64BIT_MASK))) {
-> @@ -2076,6 +2076,7 @@ err_out_res:
-> 	pci_release_regions(pdev);
-> err_dma:
-> 	pci_disable_device(pdev);
-> +err_pci:
-> 	vfree(nic);
-> 
-> 	RET(err);
-> 
+The pnigh_lookup is used to lookup proxy entries and to 
+create them in case lookup failed. 
 
-Good catch.  Thanks!
+However, the "creation" code does not perform the re-lookup
+after GFP_KERNEL allocation. This is done because the code
+is expected to be protected with the RTNL lock, so add the 
+assertion (mainly to address future questions from new network 
+developers like me :) ).
 
-Acked-by: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index c52df85..cd3af59 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -481,6 +481,8 @@ struct pneigh_entry * pneigh_lookup(struct neigh_table *tbl, const void *pkey,
+ 	if (!creat)
+ 		goto out;
+ 
++	ASSERT_RTNL();
++
+ 	n = kmalloc(sizeof(*n) + key_len, GFP_KERNEL);
+ 	if (!n)
+ 		goto out;
 
