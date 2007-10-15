@@ -1,81 +1,78 @@
-From: dmpesl <dmpesl@ldis.cs.msu.su>
-Subject: Re: FWD: 2.4.35 e1000 problems
-Date: Mon, 15 Oct 2007 18:25:56 +0400 (MSD)
-Message-ID: <Pine.BSO.4.61.0710151820370.17424@ldisi.cs.msu.su>
-References: <20071015135917.GA9608@1wt.eu>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: "Kok, Auke" <auke-jan.h.kok@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
+From: Li Yang <leoli@freescale.com>
+Subject: [PATCH] gianfar: Fix regression caused by new napi interface
+Date: Mon, 15 Oct 2007 23:01:12 +0800
+Message-ID: <1192460472-27099-1-git-send-email-leoli@freescale.com>
+Cc: Li Yang <leoli@freescale.com>
+To: jgarzik@pobox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ldis.cs.msu.su ([158.250.10.196]:36293 "EHLO ldis.cs.msu.su"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754084AbXJOOwb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Oct 2007 10:52:31 -0400
-In-Reply-To: <20071015135917.GA9608@1wt.eu>
+Received: from de01egw01.freescale.net ([192.88.165.102]:45011 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752151AbXJOOuv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 10:50:51 -0400
+Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
+	by de01egw01.freescale.net (8.12.11/de01egw01) with ESMTP id l9FEonk2004706
+	for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 07:50:49 -0700 (MST)
+Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
+	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id l9FEoieJ005328
+	for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 09:50:45 -0500 (CDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi again
-I can only test it, if i can compile it statically in kernel, but as i've 
-seen that is not possible.
-That server is not completely owned by me, i'm just helping to solve some 
-hardware and software related problems. And i think if there will be any 
-problems during testing... owner/web admin of server will not be glad :)
-Maybe couple of reboots... And i can not migrate to 2.6 in easy way 
-because of old glibc/gcc.
+Protect all new napi function calls with CONFIG_GFAR_NAPI.  Otherwise
+the driver will stop working when CONFIG_GFAR_NAPI disabled.
 
-On Mon, 15 Oct 2007, Willy Tarreau wrote:
+Signed-off-by: Li Yang <leoli@freescale.com>
+---
+ drivers/net/gianfar.c |   10 ++++++++++
+ 1 files changed, 10 insertions(+), 0 deletions(-)
 
-> Hi,
->
-> Dmitry, I've forwarded your mail to the netdev mailing list and to
-> the e1000 maintainers.
->
-> Auke, does it sound like a known problem ? Maybe someone has seen it
-> in 2.6 ? Just for the record, e1000 in 2.4.35 is 7.3.20-k4.
->
-> Dmitry, if you have time for a test, I think it would be good if you
-> could test the most recent driver from e1000.sf.net. It might give
-> us some more information about the problem's cause. Otherwise, let's
-> wait for Auke's advices and/or questions.
->
-> Regards,
-> Willy
->
-> ----- Forwarded message from dmpesl <dmpesl@ldis.cs.msu.su> -----
->
-> Date: Mon, 15 Oct 2007 17:54:01 +0400 (MSD)
-> From: dmpesl <dmpesl@ldis.cs.msu.su>
-> Subject: 2.4.35 e1000 problems
-> To: w@1wt.eu
-> X-X-Sender: dmpesl@ldisi.cs.msu.su
->
-> Hello, Willy
->
-> on recent month i've changed kernel from 2.4.31->2.4.35 on my Owl-based
-> web server (purchased SATA hdd, onboard SATA 20378), Asus PCH-DR mb,
-> 2*Xeon, and noticed that following error occurs on network card:
-> ---------------------------------------------
-> Sep 29 21:29:51 host kernel: NETDEV WATCHDOG: eth0: transmit timed out
-> Sep 29 21:29:53 host kernel: e1000: eth0: e1000_watchdog: NIC Link is Up
-> 100 Mbps Full Duplex, Flow Control: RX/TX
-> Sep 29 22:28:03 host kernel: NETDEV WATCHDOG: eth0: transmit timed out
-> Sep 29 22:28:05 host kernel: e1000: eth0: e1000_watchdog: NIC Link is Up
-> 100 Mbps Full Duplex, Flow Control: RX/TX
-> Sep 30 00:51:35 host kernel: NETDEV WATCHDOG: eth0: transmit timed out
-> Sep 30 00:51:37 host kernel: e1000: eth0: e1000_watchdog: NIC Link is Up
-> 100 Mbps Full Duplex, Flow Control: RX/TX
-> ---------------------------------------------
-> After some conversation with my collocation provider (changing cables and
-> switch port) i've searched google to same errors and found some advises to
-> use ethtool -k tso off, but this is not work with my kernel/distribution.
-> Then i swapped just e1000 driver in 2.4.35 to older, from 2.4.31.
-> Now everything works, without loosing link.
->
-> Regards, Dmitry
->
-> ----- End forwarded message -----
->
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index c15fb1f..cc288d8 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -932,10 +932,14 @@ tx_skb_fail:
+ /* Returns 0 for success. */
+ static int gfar_enet_open(struct net_device *dev)
+ {
++#ifdef CONFIG_GFAR_NAPI
+ 	struct gfar_private *priv = netdev_priv(dev);
++#endif
+ 	int err;
+ 
++#ifdef CONFIG_GFAR_NAPI
+ 	napi_enable(&priv->napi);
++#endif
+ 
+ 	/* Initialize a bunch of registers */
+ 	init_registers(dev);
+@@ -945,13 +949,17 @@ static int gfar_enet_open(struct net_device *dev)
+ 	err = init_phy(dev);
+ 
+ 	if(err) {
++#ifdef CONFIG_GFAR_NAPI
+ 		napi_disable(&priv->napi);
++#endif
+ 		return err;
+ 	}
+ 
+ 	err = startup_gfar(dev);
+ 	if (err)
++#ifdef CONFIG_GFAR_NAPI
+ 		napi_disable(&priv->napi);
++#endif
+ 
+ 	netif_start_queue(dev);
+ 
+@@ -1105,7 +1113,9 @@ static int gfar_close(struct net_device *dev)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 
++#ifdef CONFIG_GFAR_NAPI
+ 	napi_disable(&priv->napi);
++#endif
+ 
+ 	stop_gfar(dev);
+ 
+-- 
+1.5.3.2.104.g41ef
+
