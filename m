@@ -1,67 +1,92 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: FWD: 2.4.35 e1000 problems
-Date: Mon, 15 Oct 2007 15:59:17 +0200
-Message-ID: <20071015135917.GA9608@1wt.eu>
+From: "Li Yang-r58472" <LeoLi@freescale.com>
+Subject: RE: [PATCH v2] [POWERPC] ucc_geth: Fix build break introduced by commit 09f75cd7bf13720738e6a196cc0107ce9a5bd5a0
+Date: Mon, 15 Oct 2007 22:09:42 +0800
+Message-ID: <989B956029373F45A0B8AF0297081890019B5916@zch01exm26.fsl.freescale.net>
+References: <1192455830-1028-1-git-send-email-Emilian.Medve@Freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, dmpesl <dmpesl@ldis.cs.msu.su>
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "Medve Emilian-EMMEDVE1" <Emilian.Medve@freescale.com>,
+	<akpm@linux-foundation.org>, <jgarzik@pobox.com>,
+	<netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:3119 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758347AbXJOOBe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Oct 2007 10:01:34 -0400
-Content-Disposition: inline
+Received: from de01egw02.freescale.net ([192.88.165.103]:43343 "EHLO
+	de01egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755160AbXJOOL7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 10:11:59 -0400
+Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
+	by de01egw02.freescale.net (8.12.11/de01egw02) with ESMTP id l9FEA6CK015674
+	for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 07:11:55 -0700 (MST)
+Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
+	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id l9FEA4QP021585
+	for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 09:10:05 -0500 (CDT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1192455830-1028-1-git-send-email-Emilian.Medve@Freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+> -----Original Message-----
+> From: Medve Emilian-EMMEDVE1 
+> Sent: Monday, October 15, 2007 9:44 PM
+> To: akpm@linux-foundation.org; jgarzik@pobox.com; Li 
+> Yang-r58472; netdev@vger.kernel.org; linuxppc-dev@ozlabs.org
+> Cc: Medve Emilian-EMMEDVE1
+> Subject: [PATCH v2] [POWERPC] ucc_geth: Fix build break 
+> introduced by commit 09f75cd7bf13720738e6a196cc0107ce9a5bd5a0
+> 
+> drivers/net/ucc_geth.c: In function 'ucc_geth_rx':
+> drivers/net/ucc_geth.c:3483: error: 'dev' undeclared (first 
+> use in this function)
+> drivers/net/ucc_geth.c:3483: error: (Each undeclared 
+> identifier is reported only once
+> drivers/net/ucc_geth.c:3483: error: for each function it appears in.)
+> make[2]: *** [drivers/net/ucc_geth.o] Error 1
+> 
+> Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
 
-Dmitry, I've forwarded your mail to the netdev mailing list and to
-the e1000 maintainers.
+Acked-by: Li Yang <leoli@freescale.com>
 
-Auke, does it sound like a known problem ? Maybe someone has seen it
-in 2.6 ? Just for the record, e1000 in 2.4.35 is 7.3.20-k4.
-
-Dmitry, if you have time for a test, I think it would be good if you
-could test the most recent driver from e1000.sf.net. It might give
-us some more information about the problem's cause. Otherwise, let's
-wait for Auke's advices and/or questions.
-
-Regards,
-Willy
-
------ Forwarded message from dmpesl <dmpesl@ldis.cs.msu.su> -----
-
-Date: Mon, 15 Oct 2007 17:54:01 +0400 (MSD)
-From: dmpesl <dmpesl@ldis.cs.msu.su>
-Subject: 2.4.35 e1000 problems
-To: w@1wt.eu
-X-X-Sender: dmpesl@ldisi.cs.msu.su
-
-Hello, Willy
-
-on recent month i've changed kernel from 2.4.31->2.4.35 on my Owl-based 
-web server (purchased SATA hdd, onboard SATA 20378), Asus PCH-DR mb, 
-2*Xeon, and noticed that following error occurs on network card:
----------------------------------------------
-Sep 29 21:29:51 host kernel: NETDEV WATCHDOG: eth0: transmit timed out
-Sep 29 21:29:53 host kernel: e1000: eth0: e1000_watchdog: NIC Link is Up 
-100 Mbps Full Duplex, Flow Control: RX/TX
-Sep 29 22:28:03 host kernel: NETDEV WATCHDOG: eth0: transmit timed out
-Sep 29 22:28:05 host kernel: e1000: eth0: e1000_watchdog: NIC Link is Up 
-100 Mbps Full Duplex, Flow Control: RX/TX
-Sep 30 00:51:35 host kernel: NETDEV WATCHDOG: eth0: transmit timed out
-Sep 30 00:51:37 host kernel: e1000: eth0: e1000_watchdog: NIC Link is Up 
-100 Mbps Full Duplex, Flow Control: RX/TX
----------------------------------------------
-After some conversation with my collocation provider (changing cables and 
-switch port) i've searched google to same errors and found some advises to 
-use ethtool -k tso off, but this is not work with my kernel/distribution.
-Then i swapped just e1000 driver in 2.4.35 to older, from 2.4.31.
-Now everything works, without loosing link.
-
-Regards, Dmitry
-
------ End forwarded message -----
+> ---
+> 
+> Here is a convenient link for the culprit patch: 
+> http://git.kernel.org/?p=linux/kernel/git/jgarzik/netdev-2.6.g
+> it;a=commit;h=09f75cd7bf13720738e6a196cc0107ce9a5bd5a0
+> 
+> netdev-2.6> scripts/checkpatch.pl 
+> 0001-POWERPC-ucc_geth-Fix-build-break-introduced-by-co.patch
+> Your patch has no obvious style problems and is ready for submission.
+> 
+>  drivers/net/ucc_geth.c |    5 ++++-
+>  1 files changed, 4 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c 
+> index d00e7d4..bec413b 100644
+> --- a/drivers/net/ucc_geth.c
+> +++ b/drivers/net/ucc_geth.c
+> @@ -63,7 +63,7 @@
+>  #define UGETH_MSG_DEFAULT	(NETIF_MSG_IFUP << 1 ) - 1
+>  
+>  void uec_set_ethtool_ops(struct net_device *netdev);
+> -	
+> +
+>  static DEFINE_SPINLOCK(ugeth_lock);
+>  
+>  static struct {
+> @@ -3454,9 +3454,12 @@ static int ucc_geth_rx(struct 
+> ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit
+>  	u16 length, howmany = 0;
+>  	u32 bd_status;
+>  	u8 *bdBuffer;
+> +	struct net_device * dev;
+>  
+>  	ugeth_vdbg("%s: IN", __FUNCTION__);
+>  
+> +	dev = ugeth->dev;
+> +
+>  	/* collect received buffers */
+>  	bd = ugeth->rxBd[rxQ];
+>  
+> --
+> 1.5.3.GIT
+> 
