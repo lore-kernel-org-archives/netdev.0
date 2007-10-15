@@ -1,68 +1,79 @@
-From: Emil Medve <Emilian.Medve@Freescale.com>
-Subject: [PATCH v2] [POWERPC] ucc_geth: Fix build break introduced by commit
-	09f75cd7bf13720738e6a196cc0107ce9a5bd5a0
-Date: Mon, 15 Oct 2007 08:43:50 -0500
-Message-ID: <1192455830-1028-1-git-send-email-Emilian.Medve@Freescale.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 5/10] [NET]: Avoid unnecessary cloning for ingress
+	filtering
+Date: Mon, 15 Oct 2007 09:57:45 -0400
+Message-ID: <1192456665.4336.57.camel@localhost>
+References: <20071014042604.GA11431@gondor.apana.org.au>
+	 <E1Igv4p-00030c-00@gondolin.me.apana.org.au>
+	 <1192358991.4892.23.camel@localhost>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Emil Medve <Emilian.Medve@Freescale.com>
-To: akpm@linux-foundation.org, jgarzik@pobox.com, leoli@Freescale.com,
-	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from an-out-0708.google.com ([209.85.132.246]:45983 "EHLO
+	an-out-0708.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759789AbXJON6O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 09:58:14 -0400
+Received: by an-out-0708.google.com with SMTP id d31so119583and
+        for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 06:58:13 -0700 (PDT)
+In-Reply-To: <1192358991.4892.23.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-drivers/net/ucc_geth.c: In function 'ucc_geth_rx':
-drivers/net/ucc_geth.c:3483: error: 'dev' undeclared (first use in this function)
-drivers/net/ucc_geth.c:3483: error: (Each undeclared identifier is reported only once
-drivers/net/ucc_geth.c:3483: error: for each function it appears in.)
-make[2]: *** [drivers/net/ucc_geth.o] Error 1
+On Sun, 2007-14-10 at 06:49 -0400, jamal wrote:
+> Once this patchset makes
+> it into net-2.6.24 i can do testing on my laptop and provide you any
+> further feedback. 
 
-Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
+Works on all 4 tests i tried out on net-2.6[1]. GoodStuff Herbert.
+
+Herbert, please look at the comment i sent on the clone vs copy. 
+
+Also, iirc this started as a netfilter optimization thing starting with
+tail-calls - can someone (Patrick?) clue me how it helps in that
+optimization aspect? 
+
+cheers,
+jamal
+
+[1] Didnt try any ipt action, will when i get the chance again. Heres
+test 18b):
+
 ---
+Window1) tc qdisc del dev lo ingress
+Window1) tc qdisc add dev lo ingress
+Window1) ifconfig dummy0 up
+Window1) tcpdump -n -i lo -x -e -t &
 
-Here is a convenient link for the culprit patch: http://git.kernel.org/?p=linux/kernel/git/jgarzik/netdev-2.6.git;a=commit;h=09f75cd7bf13720738e6a196cc0107ce9a5bd5a0
+Window2) tcpdump -n -i dummy0 -x -e -t &
 
-netdev-2.6> scripts/checkpatch.pl 0001-POWERPC-ucc_geth-Fix-build-break-introduced-by-co.patch 
-Your patch has no obvious style problems and is ready for submission.
+Window1) tc filter add dev lo parent ffff: protocol ip prio 10 u32 \
+match ip dst 127.0.0.1/32 flowid 1:2 \
+action pedit munge offset 0 u32 clear pipe \
+action mirred egress mirror dev dummy0
 
- drivers/net/ucc_geth.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+Window2) ping -c 1 127.0.0.1
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index d00e7d4..bec413b 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -63,7 +63,7 @@
- #define UGETH_MSG_DEFAULT	(NETIF_MSG_IFUP << 1 ) - 1
- 
- void uec_set_ethtool_ops(struct net_device *netdev);
--	
-+
- static DEFINE_SPINLOCK(ugeth_lock);
- 
- static struct {
-@@ -3454,9 +3454,12 @@ static int ucc_geth_rx(struct ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit
- 	u16 length, howmany = 0;
- 	u32 bd_status;
- 	u8 *bdBuffer;
-+	struct net_device * dev;
- 
- 	ugeth_vdbg("%s: IN", __FUNCTION__);
- 
-+	dev = ugeth->dev;
-+
- 	/* collect received buffers */
- 	bd = ugeth->rxBd[rxQ];
- 
--- 
-1.5.3.GIT
+Ping will fail since we are clearing first 4 byte of ip header.
+
+Window1 will show the packet as seen on incoming by lo; the first few
+bytes look like:
+
+----
+4500 0054 0000 4000 4001 3ca7 7f00 0001
+----
+
+Window2 will show the 4 bytes zeroed out as requested of pedit (and as
+seen on dummy0)
+
+---
+0000 0000 0000 4000 4001 3ca7 7f00 0001
+---------
+
+
+
