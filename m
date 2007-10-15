@@ -1,8 +1,8 @@
 From: Moni Shoua <monis@voltaire.com>
-Subject: [PATCH V7 5/8] net/bonding: Enable IP multicast for bonding IPoIB
- devices
-Date: Mon, 15 Oct 2007 18:12:31 +0200
-Message-ID: <4713916F.8040006@voltaire.com>
+Subject: [PATCH V7 4/8] net/bonding: Enable bonding to enslave netdevices
+ not supporting set_mac_address()
+Date: Mon, 15 Oct 2007 18:11:31 +0200
+Message-ID: <47139133.9050103@voltaire.com>
 References: <47138EB7.40703@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -10,67 +10,186 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
 To: jgarzik@pobox.com, fubar@us.ibm.com, rdreier@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:42600 "EHLO exil.voltaire.com"
+Received: from fwil.voltaire.com ([193.47.165.2]:42297 "EHLO exil.voltaire.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758741AbXJOQMe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Oct 2007 12:12:34 -0400
+	id S1764882AbXJOQLe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2007 12:11:34 -0400
 In-Reply-To: <47138EB7.40703@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Allow to enslave devices when the bonding device is not up. Over the discussion
-held at the previous post this seemed to be the most clean way to go, where it
-is not expected to cause instabilities.
-
-Normally, the bonding driver is UP before any enslavement takes place.
-Once a netdevice is UP, the network stack acts to have it join some multicast groups
-(eg the all-hosts 224.0.0.1). Now, since ether_setup() have set the bonding device
-type to be ARPHRD_ETHER and address len to be ETHER_ALEN, the net core code
-computes a wrong multicast link address. This is b/c ip_eth_mc_map() is called
-where for multicast joins taking place after the enslavement another ip_xxx_mc_map()
-is called (eg ip_ib_mc_map() when the bond type is ARPHRD_INFINIBAND)
+This patch allows for enslaving netdevices which do not support
+the set_mac_address() function. In that case the bond mac address is the one
+of the active slave, where remote peers are notified on the mac address
+(neighbour) change by Gratuitous ARP sent by bonding when fail-over occurs
+(this is already done by the bonding code).
 
 Signed-off-by: Moni Shoua <monis at voltaire.com>
 Signed-off-by: Or Gerlitz <ogerlitz at voltaire.com>
 Acked-by: Jay Vosburgh <fubar@us.ibm.com>
 ---
- drivers/net/bonding/bond_main.c  |    5 +++--
- drivers/net/bonding/bond_sysfs.c |    6 ++----
- 2 files changed, 5 insertions(+), 6 deletions(-)
+ drivers/net/bonding/bond_main.c |   87 +++++++++++++++++++++++++++-------------
+ drivers/net/bonding/bonding.h   |    1 
+ 2 files changed, 60 insertions(+), 28 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 32dc75e..d7e43ba 100644
+index 4f61958..32dc75e 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -1281,8 +1281,9 @@ int bond_enslave(struct net_device *bond
- 
- 	/* bond must be initialized by bond_open() before enslaving */
- 	if (!(bond_dev->flags & IFF_UP)) {
--		dprintk("Error, master_dev is not up\n");
--		return -EPERM;
-+		printk(KERN_WARNING DRV_NAME
-+			" %s: master_dev is not up in bond_enslave\n",
-+			bond_dev->name);
+@@ -1096,6 +1096,14 @@ void bond_change_active_slave(struct bon
+ 		if (new_active) {
+ 			bond_set_slave_active_flags(new_active);
+ 		}
++
++		/* when bonding does not set the slave MAC address, the bond MAC
++		 * address is the one of the active slave.
++		 */
++		if (new_active && !bond->do_set_mac_addr)
++			memcpy(bond->dev->dev_addr,  new_active->dev->dev_addr,
++				new_active->dev->addr_len);
++
+ 		bond_send_gratuitous_arp(bond);
+ 	}
+ }
+@@ -1347,13 +1355,22 @@ int bond_enslave(struct net_device *bond
  	}
  
- 	/* already enslaved */
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 6f49ca7..ca4e429 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -266,11 +266,9 @@ static ssize_t bonding_store_slaves(stru
- 
- 	/* Quick sanity check -- is the bond interface up? */
- 	if (!(bond->dev->flags & IFF_UP)) {
+ 	if (slave_dev->set_mac_address == NULL) {
 -		printk(KERN_ERR DRV_NAME
--		       ": %s: Unable to update slaves because interface is down.\n",
-+		printk(KERN_WARNING DRV_NAME
-+		       ": %s: doing slave updates when interface is down.\n",
- 		       bond->dev->name);
--		ret = -EPERM;
--		goto out;
+-			": %s: Error: The slave device you specified does "
+-			"not support setting the MAC address. "
+-			"Your kernel likely does not support slave "
+-			"devices.\n", bond_dev->name);
+-  		res = -EOPNOTSUPP;
+-		goto err_undo_flags;
++		if (bond->slave_cnt == 0) {
++			printk(KERN_WARNING DRV_NAME
++				": %s: Warning: The first slave device you "
++				"specified does not support setting the MAC "
++				"address. This bond MAC address would be that "
++				"of the active slave.\n", bond_dev->name);
++			bond->do_set_mac_addr = 0;
++		} else if (bond->do_set_mac_addr) {
++			printk(KERN_ERR DRV_NAME
++				": %s: Error: The slave device you specified "
++				"does not support setting the MAC addres,."
++				"but this bond uses this practice. \n"
++				, bond_dev->name);
++			res = -EOPNOTSUPP;
++			goto err_undo_flags;
++		}
  	}
  
- 	/* Note:  We can't hold bond->lock here, as bond_create grabs it. */
+ 	new_slave = kzalloc(sizeof(struct slave), GFP_KERNEL);
+@@ -1374,16 +1391,18 @@ int bond_enslave(struct net_device *bond
+ 	 */
+ 	memcpy(new_slave->perm_hwaddr, slave_dev->dev_addr, ETH_ALEN);
+ 
+-	/*
+-	 * Set slave to master's mac address.  The application already
+-	 * set the master's mac address to that of the first slave
+-	 */
+-	memcpy(addr.sa_data, bond_dev->dev_addr, bond_dev->addr_len);
+-	addr.sa_family = slave_dev->type;
+-	res = dev_set_mac_address(slave_dev, &addr);
+-	if (res) {
+-		dprintk("Error %d calling set_mac_address\n", res);
+-		goto err_free;
++	if (bond->do_set_mac_addr) {
++		/*
++		 * Set slave to master's mac address.  The application already
++		 * set the master's mac address to that of the first slave
++		 */
++		memcpy(addr.sa_data, bond_dev->dev_addr, bond_dev->addr_len);
++		addr.sa_family = slave_dev->type;
++		res = dev_set_mac_address(slave_dev, &addr);
++		if (res) {
++			dprintk("Error %d calling set_mac_address\n", res);
++			goto err_free;
++		}
+ 	}
+ 
+ 	res = netdev_set_master(slave_dev, bond_dev);
+@@ -1608,9 +1627,11 @@ err_close:
+ 	dev_close(slave_dev);
+ 
+ err_restore_mac:
+-	memcpy(addr.sa_data, new_slave->perm_hwaddr, ETH_ALEN);
+-	addr.sa_family = slave_dev->type;
+-	dev_set_mac_address(slave_dev, &addr);
++	if (bond->do_set_mac_addr) {
++		memcpy(addr.sa_data, new_slave->perm_hwaddr, ETH_ALEN);
++		addr.sa_family = slave_dev->type;
++		dev_set_mac_address(slave_dev, &addr);
++	}
+ 
+ err_free:
+ 	kfree(new_slave);
+@@ -1783,10 +1804,12 @@ int bond_release(struct net_device *bond
+ 	/* close slave before restoring its mac address */
+ 	dev_close(slave_dev);
+ 
+-	/* restore original ("permanent") mac address */
+-	memcpy(addr.sa_data, slave->perm_hwaddr, ETH_ALEN);
+-	addr.sa_family = slave_dev->type;
+-	dev_set_mac_address(slave_dev, &addr);
++	if (bond->do_set_mac_addr) {
++		/* restore original ("permanent") mac address */
++		memcpy(addr.sa_data, slave->perm_hwaddr, ETH_ALEN);
++		addr.sa_family = slave_dev->type;
++		dev_set_mac_address(slave_dev, &addr);
++	}
+ 
+ 	slave_dev->priv_flags &= ~(IFF_MASTER_8023AD | IFF_MASTER_ALB |
+ 				   IFF_SLAVE_INACTIVE | IFF_BONDING |
+@@ -1873,10 +1896,12 @@ static int bond_release_all(struct net_d
+ 		/* close slave before restoring its mac address */
+ 		dev_close(slave_dev);
+ 
+-		/* restore original ("permanent") mac address*/
+-		memcpy(addr.sa_data, slave->perm_hwaddr, ETH_ALEN);
+-		addr.sa_family = slave_dev->type;
+-		dev_set_mac_address(slave_dev, &addr);
++		if (bond->do_set_mac_addr) {
++			/* restore original ("permanent") mac address*/
++			memcpy(addr.sa_data, slave->perm_hwaddr, ETH_ALEN);
++			addr.sa_family = slave_dev->type;
++			dev_set_mac_address(slave_dev, &addr);
++		}
+ 
+ 		slave_dev->priv_flags &= ~(IFF_MASTER_8023AD | IFF_MASTER_ALB |
+ 					   IFF_SLAVE_INACTIVE);
+@@ -3914,6 +3939,9 @@ static int bond_set_mac_address(struct n
+ 
+ 	dprintk("bond=%p, name=%s\n", bond, (bond_dev ? bond_dev->name : "None"));
+ 
++	if (!bond->do_set_mac_addr)
++		return -EOPNOTSUPP;
++
+ 	if (!is_valid_ether_addr(sa->sa_data)) {
+ 		return -EADDRNOTAVAIL;
+ 	}
+@@ -4300,6 +4328,9 @@ #ifdef CONFIG_PROC_FS
+ 	bond_create_proc_entry(bond);
+ #endif
+ 
++	/* set do_set_mac_addr to true on startup */
++	bond->do_set_mac_addr = 1;
++
+ 	list_add_tail(&bond->bond_list, &bond_dev_list);
+ 
+ 	return 0;
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 2a6af7d..5011ba9 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -185,6 +185,7 @@ struct bonding {
+ 	struct   timer_list mii_timer;
+ 	struct   timer_list arp_timer;
+ 	s8       kill_timers;
++	s8       do_set_mac_addr;
+ 	struct   net_device_stats stats;
+ #ifdef CONFIG_PROC_FS
+ 	struct   proc_dir_entry *proc_entry;
 
