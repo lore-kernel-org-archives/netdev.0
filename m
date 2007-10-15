@@ -1,40 +1,36 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] e1000e: fix debugging printout code
-Date: Mon, 15 Oct 2007 09:00:21 -0700
-Message-ID: <1192464021.4556.49.camel@localhost>
-References: <20071004183843.31540.23710.stgit@localhost.localdomain>
-	 <47067A2F.5020603@garzik.org>
+From: Moni Shoua <monisonlists@gmail.com>
+Subject: [PATCH V7 0/8] net/bonding: ADD IPoIB support for the bonding driver
+Date: Mon, 15 Oct 2007 18:00:55 +0200
+Message-ID: <47138EB7.40703@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Auke Kok <auke-jan.h.kok@intel.com>, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
+Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
+To: jgarzik@pobox.com, fubar@us.ibm.com, rdreier@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from DSL022.labridge.com ([206.117.136.22]:3830 "EHLO perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753876AbXJOQAg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 15 Oct 2007 12:00:36 -0400
-In-Reply-To: <47067A2F.5020603@garzik.org>
+Received: from fwil.voltaire.com ([193.47.165.2]:39125 "EHLO exil.voltaire.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753775AbXJOQBH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2007 12:01:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2007-10-05 at 13:53 -0400, Jeff Garzik wrote:
-> > diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-> > index 848217a..aa82f1a 100644
-> > --- a/drivers/net/e1000e/hw.h
-> > +++ b/drivers/net/e1000e/hw.h
-> > @@ -852,7 +852,7 @@ struct e1000_hw {
-> >  
-> >  #ifdef DEBUG
-> >  #define hw_dbg(hw, format, arg...) \
-> > -	printk(KERN_DEBUG, "%s: " format, e1000_get_hw_dev_name(hw), ##arg);
-> > +	printk(KERN_DEBUG, "%s: " format, e1000e_get_hw_dev_name(hw), ##arg);
-> 
-> I will apply this, but, I strongly encourage deletion of this in favor 
-> of the existing dev_dbg()
+This is the 7th version of this patch series. See link to V6 below.
 
-Instead the fix should be for the 2 existing bugs on macro:
+Changes from the previous version
+---------------------------------
 
-o Comma after KERN_DEBUG
-o Semicolon in macro
+* Some patches required modifications to remove offsets so they can be applied with git-apply
+* Patch #3 was first modified by Jay and later by me to make it work with header_ops
+* patch #8 was changed to fix the problem that caused 'ifconfig down' to stuck (dev_close was called twice)
+
+Jay,
+I removed the Acked-by lines from patches 3 & 8. Can you please add them back after you approve?
+
+thanks
+	MoniS
+
+Link to V6: 
+	http://lists.openfabrics.org/pipermail/general/2007-September/041139.html
+
 
