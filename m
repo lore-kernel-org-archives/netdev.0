@@ -1,45 +1,69 @@
-From: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
-Subject: Re: [2.6 patch] __inet6_csk_dst_store(): fix check-after-use
-Date: Mon, 15 Oct 2007 12:37:49 +0900 (JST)
-Message-ID: <20071015.123749.497715418.takamiya@po.ntts.co.jp>
-References: <20071014175212.GP4211@stusta.de>
-	<20071015113723.00F7.NAKAM@linux-ipv6.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [NET]: Fix csum_start update in pskb_expand_head
+Date: Mon, 15 Oct 2007 12:57:23 +0800
+Message-ID: <20071015045723.GA28388@gondor.apana.org.au>
+References: <20071006141506.785a6683@localhost.localdomain> <20071014192640.35065e73@inria.fr> <20071014222037.7fa28640@inria.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bunk@kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: nakam@linux-ipv6.org
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1764543AbXJOD5S@vger.kernel.org>
-In-Reply-To: <20071015113723.00F7.NAKAM@linux-ipv6.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Guillaume Chazarain <guichaz@yahoo.fr>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rhun.apana.org.au ([64.62.148.172]:4490 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751226AbXJOE53 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 00:57:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20071014222037.7fa28640@inria.fr>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
->> Mon, 15 Oct 2007 11:45:10 +0900
->> [Subject: Re: [2.6 patch] __inet6_csk_dst_store(): fix check-after-use]
->> Masahide NAKAMURA <nakam@linux-ipv6.org> wrote...
-
+On Sun, Oct 14, 2007 at 08:20:37PM +0000, Guillaume Chazarain wrote:
 > 
-> On Sun, 14 Oct 2007 19:52:12 +0200
-> Adrian Bunk <bunk@kernel.org> wrote:
-> 
-> > The Coverity checker spotted that we have already oops'ed if "dst"
-> > was NULL.
-> > 
-> > Since "dst" being NULL doesn't seem to be possible at this point this 
-> > patch removes the NULL check.
-> > 
-> > Signed-off-by: Adrian Bunk <bunk@stusta.de>
-> 
-> Agreed.
-> 
-> Acked-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+> Just another data point, it seems that running the standard Bittorrent
+> client helps triggering the bug.
 
-  I also agreed.
-  
-Acked-by: Noriaki TAKAMIYA <takamiya@po.ntts.co.jp>
+Doh! It was my patch a month ago which added code to update
+csum_start if the headroom changed that broke this.
 
+We'll need this patch for stable as well.
+
+[NET]: Fix csum_start update in pskb_expand_head
+
+I got confused by the dual nature of the off variable in the
+function pskb_expand_head.  The csum_start offset should use
+nhead instead of off which can change depending on whether we
+are using offsets or pointers.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+However, the fact that you're triggering this code at all tells
+us that there is another bug further up the chain that's causing
+us to generate partial checksums even though the NIC doesn't
+support it.  Can you please give me the output of
+
+ethtool -k <IFNAME>
+
+where <IFNAME> is the interface that TCP connection is going
+out of?
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 --
-Noriaki TAKAMIYA
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index c3aa68c..70d9b5d 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -682,7 +682,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 	skb->transport_header += off;
+ 	skb->network_header   += off;
+ 	skb->mac_header	      += off;
+-	skb->csum_start       += off;
++	skb->csum_start       += nhead;
+ 	skb->cloned   = 0;
+ 	skb->hdr_len  = 0;
+ 	skb->nohdr    = 0;
