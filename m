@@ -1,43 +1,46 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH V7 0/8] net/bonding: ADD IPoIB support for the bonding driver
-Date: Mon, 15 Oct 2007 14:53:53 -0700
-Message-ID: <31162.1192485233@death>
-References: <47138EB7.40703@gmail.com> <4713B006.9090908@pobox.com> <27349.1192480486@death> <4713D28F.3010904@pobox.com>
-Cc: Moni Shoua <monisonlists@gmail.com>, rdreier@cisco.com,
-	netdev@vger.kernel.org, general@lists.openfabrics.org
-To: Jeff Garzik <jgarzik@pobox.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] PowerPC: Add BCM5248 and Marvell 88E1111 PHY support
+	to NEW EMAC.
+Date: Tue, 16 Oct 2007 07:05:23 +1000
+Message-ID: <1192482323.11795.38.camel@pasglop>
+References: <20071015175717.GA4602@ru.mvista.com>
+	 <4713B10B.5000607@garzik.org>
+	 <20071015134813.6aacdcca@weaponx.rchland.ibm.com>
+	 <4713B726.6080404@garzik.org>
+	 <20071015135959.5b603d7d@weaponx.rchland.ibm.com>
+	 <4713B9C1.5010001@garzik.org>
+Reply-To: benh@kernel.crashing.org
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Josh Boyer <jwboyer@linux.vnet.ibm.com>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:37399 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760770AbXJOVyD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 17:54:03 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9FLrumW008319
-	for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 17:53:56 -0400
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9FLrtMO147802
-	for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 15:53:55 -0600
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9FLrsfJ023816
-	for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 15:53:55 -0600
-In-reply-to: <4713D28F.3010904@pobox.com> 
+Received: from gate.crashing.org ([63.228.1.57]:40882 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752979AbXJOVLh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 15 Oct 2007 17:11:37 -0400
+In-Reply-To: <4713B9C1.5010001@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> wrote:
 
->Jay Vosburgh wrote:
->> 	Since I see you've just pushed it, do you want a patch to
->> correct just the two individual things, or would you rather have new
->> patches?
->
->
->On top of what was just pushed, please.
+On Mon, 2007-10-15 at 15:04 -0400, Jeff Garzik wrote:
+> I would ideally like a single active patch generator (even if they
+> are 
+> merely reviewed others work sometimes).
+> 
+> Outside of that, I'm hoping you and the other people listed making 
+> changes will self-organize without my help :)
 
-	Ok, I'll figure that out and then rebase the locking stuff on
-top of that.
+Josh, do you want to be the central point / maintainer for it or do you
+want me to do it ? There's a lot of code from me in there and I did this
+fork in the first place so I have a pretty good idea of what's going on
+in this driver and what still needs to be done :-)
 
-	-J
+Cheers,
+Ben.
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+
