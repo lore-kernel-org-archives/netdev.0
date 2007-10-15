@@ -1,41 +1,87 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH v2] [POWERPC] ucc_geth: Fix build break introduced by
-	commit 09f75cd7bf13720738e6a196cc0107ce9a5bd5a0
-Date: Mon, 15 Oct 2007 14:51:48 -0400
-Message-ID: <4713B6C4.9090909@pobox.com>
-References: <1192455830-1028-1-git-send-email-Emilian.Medve@Freescale.com>
+From: Josh Boyer <jwboyer@linux.vnet.ibm.com>
+Subject: Re: [PATCH] PowerPC: Add BCM5248 and Marvell 88E1111 PHY support to
+ NEW EMAC.
+Date: Mon, 15 Oct 2007 13:59:59 -0500
+Message-ID: <20071015135959.5b603d7d@weaponx.rchland.ibm.com>
+References: <20071015175717.GA4602@ru.mvista.com>
+	<4713B10B.5000607@garzik.org>
+	<20071015134813.6aacdcca@weaponx.rchland.ibm.com>
+	<4713B726.6080404@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org, leoli@Freescale.com,
-	linuxppc-dev@ozlabs.org
-To: Emil Medve <Emilian.Medve@Freescale.com>
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-In-Reply-To: <1192455830-1028-1-git-send-email-Emilian.Medve@Freescale.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: Valentine Barshak <vbarshak@ru.mvista.com>,
+	Michael Ellerman <michael@ellerman.id.au>,
+	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:43137 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755783AbXJOTAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 15 Oct 2007 15:00:10 -0400
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9FJ04Ak009109
+	for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 15:00:04 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9FJ019n412272
+	for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 13:00:01 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9FJ00YG029867
+	for <netdev@vger.kernel.org>; Mon, 15 Oct 2007 13:00:01 -0600
+In-Reply-To: <4713B726.6080404@garzik.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Emil Medve wrote:
-> drivers/net/ucc_geth.c: In function 'ucc_geth_rx':
-> drivers/net/ucc_geth.c:3483: error: 'dev' undeclared (first use in this function)
-> drivers/net/ucc_geth.c:3483: error: (Each undeclared identifier is reported only once
-> drivers/net/ucc_geth.c:3483: error: for each function it appears in.)
-> make[2]: *** [drivers/net/ucc_geth.o] Error 1
+On Mon, 15 Oct 2007 14:53:26 -0400
+Jeff Garzik <jeff@garzik.org> wrote:
+> >> Seems sane to me -- ACK -- but we have multiple people sending me 
+> >> patches for a single driver.  That's normal for janitorial cleanups 
+> >> across the whole tree, but discouraged when multiple people are actively 
+> >> working on the same driver.
+> >>
+> >> Please coordinate, and have ONE person send me patches...
+> > 
+> > Who else is sending you patches?  Valentine is the only one I've seen
+> > send patches recently...
 > 
-> Signed-off-by: Emil Medve <Emilian.Medve@Freescale.com>
-> ---
-> 
-> Here is a convenient link for the culprit patch: http://git.kernel.org/?p=linux/kernel/git/jgarzik/netdev-2.6.git;a=commit;h=09f75cd7bf13720738e6a196cc0107ce9a5bd5a0
-> 
-> netdev-2.6> scripts/checkpatch.pl 0001-POWERPC-ucc_geth-Fix-build-break-introduced-by-co.patch 
-> Your patch has no obvious style problems and is ready for submission.
+> It's a zoo :)
 
-applied
+Wow, indeed.
+
+> Al Viro (3):
+>        typo in ibm_newemac/rgmii.c
+
+Val sent this as well.  Either one works.
+
+>        skb->tail in ibm_newemac should be skb_tail_pointer()
+>        ibm_newemac annotations (iomem, NULL noise)
+
+Ack on those.
+
+> David Gibson (1):
+>        Device tree aware EMAC driver
+
+That's the initial commit :)
+
+> Michael Ellerman (3):
+>        Update ibm_newemac to use dcr_host_t.base
+>        Add dcr_host_t.base in dcr_read()/dcr_write()
+>        Use dcr_host_t.base in dcr_unmap()
+
+Missed those, but I see you applied them which is good.
+
+> Roland Dreier (2):
+>        ibm_new_emac: Nuke SET_MODULE_OWNER() use
+>        ibm_emac: Convert to use napi_struct independent of struct net_device
+
+I never saw either of these.  I'm also beginning to wonder if one of
+them broke things because I can't currently get ibm_newemac to work.
+
+> vbarshak@ru.mvista.com (1):
+>        Fix typo in new EMAC driver.
+
+Same fix as Al's.
+
+Anyway, we can queue patches to this through me if you'd like.
+
+josh
