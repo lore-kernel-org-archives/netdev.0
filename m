@@ -1,50 +1,54 @@
-From: Jean Delvare <khali@linux-fr.org>
-Subject: Re: [PATCH] Update function names in /proc/net/tcp documentation
-Date: Tue, 16 Oct 2007 10:46:36 +0200
-Message-ID: <20071016104636.7d633bad@hyperion.delvare>
-References: <20071014115934.13530a8a@hyperion.delvare>
-	<E1Ih0PI-0003TX-00@gondolin.me.apana.org.au>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: new NAPI interface broken
+Date: Tue, 16 Oct 2007 19:01:49 +1000
+Message-ID: <1192525309.7205.16.camel@pasglop>
+References: <1192519787.7205.3.camel@pasglop>
+	 <20071016.004410.85411180.davem@davemloft.net>
+	 <1192523336.7205.13.camel@pasglop>
+	 <20071016.013146.28785302.davem@davemloft.net>
+Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: ossthema@de.ibm.com, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org, themann@de.ibm.com, raisch@de.ibm.com,
+	arjan@linux.intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-102-tuesday.nerim.net ([62.4.16.102]:63153 "EHLO
-	kraid.nerim.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751558AbXJPIqj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 04:46:39 -0400
-In-Reply-To: <E1Ih0PI-0003TX-00@gondolin.me.apana.org.au>
+Received: from gate.crashing.org ([63.228.1.57]:47982 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752289AbXJPJCE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2007 05:02:04 -0400
+In-Reply-To: <20071016.013146.28785302.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Herbert,
 
-On Sun, 14 Oct 2007 18:09:12 +0800, Herbert Xu wrote:
-> Jean Delvare <khali@linux-fr.org> wrote:
-> >
-> >> inet_diag is the preferred interface.
-> > 
-> > How does it work? Is there some documentation available? I see
-> > net/ipv4/inet_diag.c but I have no idea how to use it.
+On Tue, 2007-10-16 at 01:31 -0700, David Miller wrote:
+> From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Date: Tue, 16 Oct 2007 18:28:56 +1000
 > 
-> Have a look at the iproute package.  It contains the ss command
-> which provides a command-line interface to it.
+> > Allright, so that's an out of tree userland thingy... (which may well
+> > work on ppc too I suppose). Definitely not installed by default by my
+> > distro so IRQs from the network cards on all x86's using ubuntu gutsy at
+> > least are spread to all CPUs :-)
 > 
-> Of course it's also a good example of how you can access it from
-> C.  The Debian pidentd package has also been patched to use this
-> interface.
+> But the thing does treat network interfaces differently from
+> other devices.
+> 
+> Arjan ran over to my table at kernel summit when I presented this
+> topic to the audience, to remind me of all of this and he should be
+> included in on any discussions about this topic. :-)
+> 
+> I've CC:'d him.
 
-Thanks for the information. Now I'm worried that most people use
-netstat and not ss, while it seems that netstat doesn't have tcp_diag
-support. Would it make sense to add tcp_diag support to netstat? Or
-should we simply invite system admins to switch from netstat to ss
-(maybe by adding a netstat-like formatting option)?
+As far as I know, the x86 in-kernel thingy doesn't but yeah, the
+userland one seems much more evolved and does things based on the
+"class" of the device.
 
-Not that I am skilled enough in this area to do either myself anyway
-(let alone the lack of time), but I'm curious what the correct approach
-would be.
+Christoph, have any of you tried it on powerpc ?
 
-Thanks,
--- 
-Jean Delvare
+Cheers,
+Ben.
+
+
