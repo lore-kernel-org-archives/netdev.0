@@ -1,7 +1,7 @@
 From: "Yinghai Lu" <yhlu.kernel@gmail.com>
 Subject: Re: MSI interrupts and disable_irq
-Date: Tue, 16 Oct 2007 10:59:41 -0700
-Message-ID: <86802c440710161059x17fdb4f2sb1b9582d64a883f9@mail.gmail.com>
+Date: Tue, 16 Oct 2007 11:01:35 -0700
+Message-ID: <86802c440710161101o34a1b982w95c7473f0ec744ed@mail.gmail.com>
 References: <46FC15A9.1070803@nvidia.com> <46FDBCB4.9090802@pobox.com>
 	 <4710901F.8010206@colorfullife.com> <4713E713.9060702@pobox.com>
 	 <86802c440710161023p3fbd6832gdb6d10a1b5e9d932@mail.gmail.com>
@@ -17,12 +17,12 @@ Cc: "Manfred Spraul" <manfred@colorfullife.com>,
 	"Andrew Morton" <akpm@linux-foundation.org>
 To: "Jeff Garzik" <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.178]:56794 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762013AbXJPR7n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 13:59:43 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so2469648wah
-        for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 10:59:41 -0700 (PDT)
+Received: from rv-out-0910.google.com ([209.85.198.189]:63914 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934953AbXJPSBg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 14:01:36 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so1494662rvb
+        for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 11:01:35 -0700 (PDT)
 In-Reply-To: <4714F736.5000302@pobox.com>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
@@ -67,6 +67,6 @@ On 10/16/07, Jeff Garzik <jgarzik@pobox.com> wrote:
 > when there was a one-one relationship between irq, PCI device, and work
 > to be done.
 
-Can I use your new driver with RHEL 5 or RHEL 5.1?
+at this point, nic in mcp55 is using msi or INTx.
 
 YH
