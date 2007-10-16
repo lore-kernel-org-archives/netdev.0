@@ -1,34 +1,58 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [0/12] Trying to merge xfrm input path before I got side-tracked...
-Date: Tue, 16 Oct 2007 16:39:56 +0200
-Message-ID: <4714CD3C.801@trash.net>
-References: <20071016141843.GA11956@gondor.apana.org.au>
+From: Jan Engelhardt <jengelh@computergmbh.de>
+Subject: Re: [PATCH 2/2] Interface group match - netfilter part
+Date: Tue, 16 Oct 2007 16:46:43 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0710161645420.10197@fbirervta.pbzchgretzou.qr>
+References: <1192521703479-git-send-email-panther@balabit.hu>
+ <11925217031287-git-send-email-panther@balabit.hu>
+ <11925217031728-git-send-email-panther@balabit.hu> <47147692.8070709@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:43036 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754137AbXJPOkP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 10:40:15 -0400
-In-Reply-To: <20071016141843.GA11956@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Laszlo Attila Toth <panther@balabit.hu>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <47147692.8070709@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> Hi Dave:
-> 
-> I was well on my way to merging the xfrm input path before I got
-> side-tracked by inter-family transforms :)
-> 
-> Anyway, here's a dump of what I've got.  The one note-worthy bit
-> is the patch to reinject transport mode packets through netif_rx
-> rather than calling netfilter directly.
-> 
-> Everything else is pretty mundane (modulo any bugs of course).
 
+On Oct 16 2007 10:30, Patrick McHardy wrote:
 
-I think your patches didn't make it to netdev because the last
-address missed a closing '>'.
+>> +static int match(const struct sk_buff *skb,
+
+Potential symbol clash, name it ifgroup_match() for example.
+
+>> +      const struct net_device *in,
+>> +      const struct net_device *out,
+>> +      const struct xt_match *match,
+>> +      const void *matchinfo,
+>> +      int offset,
+>> +      unsigned int protoff,
+>> +      int *hotdrop)
+
+2.6.23 => bool ifgroup_match(... bool *hotdrop)
+
+>> +static struct xt_match ifgroup_match = {
+>> +	.name		= "ifgroup",
+>> +	.match		= match,
+>> +	.matchsize	= sizeof(struct xt_ifgroup_info),
+>> +	.family		= AF_INET,
+>> +	.me		= THIS_MODULE,
+>> +};
+>> +
+>> +static struct xt_match ifgroup6_match = {
+>> +	.name		= "ifgroup",
+>> +	.match		= match,
+>> +	.matchsize	= sizeof(struct xt_ifgroup_info),
+>> +	.family		= AF_INET6,
+>> +	.me		= THIS_MODULE,
+>> +};
+>
+> __read_mostly
+
+And actually, an array,
+
+	static struct xt_match ifgroup_match[] __read_mostly = {
+		...
+	}
+
