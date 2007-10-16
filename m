@@ -1,46 +1,61 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: Multicast problem
-Date: Tue, 16 Oct 2007 10:04:39 -0700
-Message-ID: <OFB45E9AE1.F95FB289-ON88257376.005D25C3-88257376.005DB70D@us.ibm.com>
-References: <1192553387.30006.29.camel@gentoo-jocke.transmode.se>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: [PATCH] gianfar: fix compile errors and warnings
+Date: Tue, 16 Oct 2007 11:08:08 -0600
+Message-ID: <20071016170808.17883.39779.stgit@trillian.cg.shawcable.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Netdev <netdev@vger.kernel.org>
-To: joakim.tjernlund@transmode.se
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: jeff@garzik.org, Li Yang <leoli@freescale.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:35154 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751631AbXJPREo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 13:04:44 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9GH4hkS028995
-	for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 13:04:43 -0400
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9GH4ffh322964
-	for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 11:04:42 -0600
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9GH4f5k026680
-	for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 11:04:41 -0600
-In-Reply-To: <1192553387.30006.29.camel@gentoo-jocke.transmode.se>
+Received: from idcmail-mo1so.shaw.ca ([24.71.223.10]:24447 "EHLO
+	pd4mo2so.prod.shaw.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759607AbXJPRKF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 13:10:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If you have icmp_echo_ignore_broadcasts set to 1, it won't respond to
-multicasts. That should be all you need to do for 224.0.0.1.
+From: Grant Likely <grant.likely@secretlab.ca>
 
-Some smart switches rely on IGMP snooping to determine group membership,
-and some of those don't understand IGMPv3, so if you have no v1 or v2 
-queriers
-on the network, you can force the IGMP version to be 2 instead of the 
-default 3
-by using a sysctl. But that's not the issue for 224.0.0.1, since the 
-all-hosts group
-is not reported via IGMP.
+Fixes compile error from commit 09f75cd7bf13720738e6a196cc0107ce9a5bd5a0.
+Also eliminates an unused variable and eliminates an uninitialized variable
+warning.
 
-You might check the contents of /proc/net/igmp and /proc/net/dev_mcast to 
-make
-sure they have entries for the group. If so, I'd guess it might be a 
-driver or device issue.
+Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+---
 
-                                                        +-DLS
+ drivers/net/gianfar.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 558440c..0a2f2b3 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -696,7 +696,7 @@ int startup_gfar(struct net_device *dev)
+ {
+ 	struct txbd8 *txbdp;
+ 	struct rxbd8 *rxbdp;
+-	dma_addr_t addr;
++	dma_addr_t addr = 0;
+ 	unsigned long vaddr;
+ 	int i;
+ 	struct gfar_private *priv = netdev_priv(dev);
+@@ -1237,8 +1237,6 @@ static int gfar_change_mtu(struct net_device *dev, int new_mtu)
+  * starting over will fix the problem. */
+ static void gfar_timeout(struct net_device *dev)
+ {
+-	struct gfar_private *priv = netdev_priv(dev);
+-
+ 	dev->stats.tx_errors++;
+ 
+ 	if (dev->flags & IFF_UP) {
+@@ -1346,7 +1344,7 @@ struct sk_buff * gfar_new_skb(struct net_device *dev, struct rxbd8 *bdp)
+ 
+ static inline void count_errors(unsigned short status, struct gfar_private *priv)
+ {
+-	struct net_device_stats *stats = &dev->stats;
++	struct net_device_stats *stats = &priv->dev->stats;
+ 	struct gfar_extra_stats *estats = &priv->extra_stats;
+ 
+ 	/* If the packet was truncated, none of the other errors
 
