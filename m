@@ -1,76 +1,154 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 9/12] [IPSEC]: Use the top IPv4 route's peer instead of the bottom
-Date: Tue, 16 Oct 2007 22:33:17 +0800
-Message-ID: <E1IhnTx-0003HF-00@gondolin.me.apana.org.au>
+Subject: [PATCH 7/12] [IPSEC]: Remove xfrmX_tunnel_check_size
+Date: Tue, 16 Oct 2007 22:33:15 +0800
+Message-ID: <E1IhnTv-0003H1-00@gondolin.me.apana.org.au>
 References: <20071016141843.GA11956@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Patrick McHardy <kaber@trash.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3004 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:3006 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932706AbXJPOxt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 10:53:49 -0400
+	with ESMTP id S932863AbXJPOxv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 10:53:51 -0400
 Received: from gondolin.me.apana.org.au ([192.168.0.6] ident=mail)
 	by arnor.apana.org.au with esmtp (Exim 4.50 #1 (Debian))
-	id 1Ihnnl-0001GY-Cb
-	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 00:53:45 +1000
+	id 1Ihnnm-0001GY-Ue
+	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 00:53:47 +1000
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Use the top IPv4 route's peer instead of the bottom
+[IPSEC]: Remove xfrmX_tunnel_check_size
 
-For IPv4 we were using the bottom route's peer instead of the top one.
-This is wrong because the peer is only used by TCP to keep track of
-information about the TCP destination address which certainly does not
-live in the bottom route.
+These functions have always been causing trouble by sending ICMP errors
+back to the local host which was totally confused about how to deal with
+it and most often ended up causing a downward spiral which only finishes
+when the MTU is so small that you can't send packets out anymore.
 
-This patch fixes that which allows us to get rid of the family check
-since the bottom route could be IPv6 while the top one must always
-be IPv4.
+They're also wrong now that we have inter-family transforms.  They'll
+end up trying to shove an IPv4 packet into the IPv6 ICMP stack and vice
+versa.
 
-I've also changed the other fields which are IPv4-specific to get the
-info from the top route instead of potentially bogus data from the
-bottom route.
+In fact, I've just realised that they are totally unnecessary.  The reason
+is that whoever calls us should have already checked the MTU.  In particular,
+there are two cases:
+
+1) The packet is forwarded in which case the forwarding function would've
+performed the check.
+
+2) The packet is local in which case whoever generated it should've checked.
+If they didn't check then us sending back an ICMP error wouldn't do any good
+anyway since the next time they transmit they'll still get it wrong.
+
+So the only time this function has an effect is when the MTU happens to
+change between the caller checking it and us checking it.  This is useless
+because if we did catch such a change there's nothing stopping a further
+MTU change between us checking it and the packet actually getting to the
+device.
+
+Indeed, at the bottom of the stack there will be another check by either
+ip_output or ip6_output that would catch such an MTU change.
+
+Such a change would not be able to send an ICMP error back to the original
+sender but that's a general problem of our IPsec stack which we might solve
+one day.  In any case, the benefit of having xfrmX_tunnel_check_size is
+now outweighed by its problems.
+
+Therefore this patch removes them both.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/ipv4/xfrm4_policy.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+ net/ipv4/xfrm4_output.c |   31 -------------------------------
+ net/ipv6/xfrm6_output.c |   26 --------------------------
+ 2 files changed, 57 deletions(-)
 
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index bd07a98..f9b4e4f 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -169,16 +169,16 @@ __xfrm4_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
- 		dst_prev->neighbour	= neigh_clone(rt->u.dst.neighbour);
- 		dst_prev->input		= rt->u.dst.input;
- 		dst_prev->output = dst_prev->xfrm->mode->afinfo->output;
--		if (dst_prev->xfrm->props.family == AF_INET && rt->peer)
--			atomic_inc(&rt->peer->refcnt);
--		x->u.rt.peer = rt->peer;
-+		if (rt0->peer)
-+			atomic_inc(&rt0->peer->refcnt);
-+		x->u.rt.peer = rt0->peer;
- 		/* Sheit... I remember I did this right. Apparently,
- 		 * it was magically lost, so this code needs audit */
- 		x->u.rt.rt_flags = rt0->rt_flags&(RTCF_BROADCAST|RTCF_MULTICAST|RTCF_LOCAL);
--		x->u.rt.rt_type = rt->rt_type;
-+		x->u.rt.rt_type = rt0->rt_type;
- 		x->u.rt.rt_src = rt0->rt_src;
- 		x->u.rt.rt_dst = rt0->rt_dst;
--		x->u.rt.rt_gateway = rt->rt_gateway;
-+		x->u.rt.rt_gateway = rt0->rt_gateway;
- 		x->u.rt.rt_spec_dst = rt0->rt_spec_dst;
- 		x->u.rt.idev = rt0->idev;
- 		in_dev_hold(rt0->idev);
-@@ -280,7 +280,7 @@ static void xfrm4_dst_destroy(struct dst_entry *dst)
+diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+index a4edd66..ba26490 100644
+--- a/net/ipv4/xfrm4_output.c
++++ b/net/ipv4/xfrm4_output.c
+@@ -17,42 +17,11 @@
+ #include <net/xfrm.h>
+ #include <net/icmp.h>
  
- 	if (likely(xdst->u.rt.idev))
- 		in_dev_put(xdst->u.rt.idev);
--	if (dst->xfrm && dst->xfrm->props.family == AF_INET && likely(xdst->u.rt.peer))
-+	if (likely(xdst->u.rt.peer))
- 		inet_putpeer(xdst->u.rt.peer);
- 	xfrm_dst_destroy(xdst);
- }
+-static int xfrm4_tunnel_check_size(struct sk_buff *skb)
+-{
+-	int mtu, ret = 0;
+-	struct dst_entry *dst;
+-
+-	if (IPCB(skb)->flags & IPSKB_XFRM_TUNNEL_SIZE)
+-		goto out;
+-
+-	IPCB(skb)->flags |= IPSKB_XFRM_TUNNEL_SIZE;
+-
+-	if (!(ip_hdr(skb)->frag_off & htons(IP_DF)) || skb->local_df)
+-		goto out;
+-
+-	dst = skb->dst;
+-	mtu = dst_mtu(dst);
+-	if (skb->len > mtu) {
+-		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
+-		ret = -EMSGSIZE;
+-	}
+-out:
+-	return ret;
+-}
+-
+ static inline int xfrm4_output_one(struct sk_buff *skb)
+ {
+-	struct dst_entry *dst = skb->dst;
+-	struct xfrm_state *x = dst->xfrm;
+ 	struct iphdr *iph;
+ 	int err;
+ 
+-	if (x->props.mode == XFRM_MODE_TUNNEL) {
+-		err = xfrm4_tunnel_check_size(skb);
+-		if (err)
+-			goto error_nolock;
+-	}
+-
+ 	err = xfrm_output(skb);
+ 	if (err)
+ 		goto error_nolock;
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+index a5a32c1..4fb477a 100644
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -25,37 +25,11 @@ int xfrm6_find_1stfragopt(struct xfrm_state *x, struct sk_buff *skb,
+ 
+ EXPORT_SYMBOL(xfrm6_find_1stfragopt);
+ 
+-static int xfrm6_tunnel_check_size(struct sk_buff *skb)
+-{
+-	int mtu, ret = 0;
+-	struct dst_entry *dst = skb->dst;
+-
+-	mtu = dst_mtu(dst);
+-	if (mtu < IPV6_MIN_MTU)
+-		mtu = IPV6_MIN_MTU;
+-
+-	if (skb->len > mtu) {
+-		skb->dev = dst->dev;
+-		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu, skb->dev);
+-		ret = -EMSGSIZE;
+-	}
+-
+-	return ret;
+-}
+-
+ static inline int xfrm6_output_one(struct sk_buff *skb)
+ {
+-	struct dst_entry *dst = skb->dst;
+-	struct xfrm_state *x = dst->xfrm;
+ 	struct ipv6hdr *iph;
+ 	int err;
+ 
+-	if (x->props.mode == XFRM_MODE_TUNNEL) {
+-		err = xfrm6_tunnel_check_size(skb);
+-		if (err)
+-			goto error_nolock;
+-	}
+-
+ 	err = xfrm_output(skb);
+ 	if (err)
+ 		goto error_nolock;
