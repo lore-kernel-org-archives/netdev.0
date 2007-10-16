@@ -1,43 +1,50 @@
-From: Arjan van de Ven <arjan@linux.intel.com>
-Subject: Re: new NAPI interface broken
-Date: Tue, 16 Oct 2007 08:56:52 -0700
-Message-ID: <4714DF44.7000404@linux.intel.com>
-References: <1192519787.7205.3.camel@pasglop>	<20071016.004410.85411180.davem@davemloft.net>	<1192523336.7205.13.camel@pasglop> <20071016.013146.28785302.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: netif_napi_add vs. multiple netdev's
+Date: Tue, 16 Oct 2007 09:10:35 -0700
+Message-ID: <20071016091035.5fcd6d2e@freepuppy.rosehill>
+References: <1192513633.19073.21.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: benh@kernel.crashing.org, ossthema@de.ibm.com,
-	shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	themann@de.ibm.com, raisch@de.ibm.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>
+To: benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga10.intel.com ([192.55.52.92]:53249 "EHLO
-	fmsmga102.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933317AbXJPQCa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 12:02:30 -0400
-In-Reply-To: <20071016.013146.28785302.davem@davemloft.net>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:39789 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750827AbXJPQKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 12:10:45 -0400
+In-Reply-To: <1192513633.19073.21.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> Date: Tue, 16 Oct 2007 18:28:56 +1000
-> 
->> Allright, so that's an out of tree userland thingy... (which may well
->> work on ppc too I suppose). Definitely not installed by default by my
->> distro so IRQs from the network cards on all x86's using ubuntu gutsy at
->> least are spread to all CPUs :-)
-> 
-> But the thing does treat network interfaces differently from
-> other devices.
-> 
-and it works on various architectures....
-The in-kernel x86 thing is going away (it's actually highly 
-suboptimal)....
+On Tue, 16 Oct 2007 15:47:13 +1000
+Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
 
-Yes it's done in userland, this is the right place so far.... out of 
-tree... well... there's no good place for such userspace tools in the 
-kernel tree currently otherwise I'd love to have it there.
-If your distro doesn't install this by default, please file a bug 
-against the distro; I know we (Intel) worked with Fedora, RHEL, SuSE 
-and Ubuntu to get it included.... maybe others don't?
+> Hi Stehphen !
+> 
+> The new netif_napi_add() function takes a netdev argument. In the EMAC
+> case, there is one NAPI instance working on behalf of multiple netdev's,
+> so that isn't very useful. For my EMAC patch (just posted to you & the
+> list), I'm not passing NULL, but I'm wondering what would be a good way
+> to handle netpoll here...
+
+The problem is that netpoll only has a handle to the device being used
+as a netconsole, but may need to activate the NAPI poll routine to
+cleanup state. Perhaps teaching netpoll about N to 1 mappings would
+be better.
+
+> 
+> The way it's currently implemented, there's a list of NAPI's attached to
+> the netdev, so obviously, that won't work for my usage scenario.
+
+sky2 driver has potentially 2 ports for 1 NAPI instance.
+
+> I'm not sure what's the best data structure that would be suitable for
+> both N ndev's for 1 NAPI and 1 ndev for N NAPI's though... I could
+> allocate "stub" list heads and queue those up, but that's a bit gross...
+
+The new interface doesn't change anything. The old code had the
+same problem vis-a-vis netpoll.
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
