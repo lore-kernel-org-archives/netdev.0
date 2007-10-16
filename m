@@ -1,74 +1,75 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH/RFC] net: Add __napi_sycnhronize() to sync with napi poll
-Date: Tue, 16 Oct 2007 15:40:49 +1000
-Message-ID: <1192513249.19073.9.camel@pasglop>
-Reply-To: benh@kernel.crashing.org
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH] gianfar: Fix compile regression caused by 09f75cd7
+Date: Tue, 16 Oct 2007 00:41:08 -0500 (CDT)
+Message-ID: <Pine.LNX.4.64.0710160040120.21722@gate.crashing.org>
+References: <1192197233-24958-1-git-send-email-leoli@freescale.com>
+ <1192197233-24958-2-git-send-email-leoli@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Roland Dreier <rdreier@cisco.com>,
-	linuxppc-dev list <linuxppc-dev@ozlabs.org>
-To: shemminger@linux.foundation.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Li Yang <leoli@freescale.com>, netdev@vger.kernel.org
+To: jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:37294 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:36262 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755020AbXJPFlN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Oct 2007 01:41:13 -0400
+	id S1758871AbXJPFlP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2007 01:41:15 -0400
+In-Reply-To: <1192197233-24958-2-git-send-email-leoli@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-net: Add __napi_sycnhronize() to sync with napi poll
-
-The EMAC driver which needs to handle multiple devices with one
-NAPI instance implements its own per-channel disable bit. However,
-when setting such a bit, it needs to synchronize with the poller
-(that is make sure that any pending poller instance has completed,
-or is started late enough to see that disable bit).
-
-This implements a low level __napi_synchronize() function to acheive
-that. The underscores are to emphasis the low level aspect of it and
-to discourage driver writers who don't know what they are doing to
-use it (to please DaveM :-)
-
-Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
----
-
-If the approach is accepted, I would like to have this merged now
-so the EMAC patch to make it work again can follow :-)
-
-Note: I use msleep_interruptible(1); just like napi_disable(). However
-I'm not too happy that the "hot" loop that results of a pending signal
-here will spin without even a cpu_relax ... what do you guys think would
-be the best way to handle this ?
 
 
+On Fri, 12 Oct 2007, Li Yang wrote:
 
-Index: linux-work/include/linux/netdevice.h
-===================================================================
---- linux-work.orig/include/linux/netdevice.h	2007-10-16 15:27:27.000000000 +1000
-+++ linux-work/include/linux/netdevice.h	2007-10-16 15:27:38.000000000 +1000
-@@ -394,6 +394,21 @@ static inline void napi_disable(struct n
- }
- 
- /**
-+ *	__napi_synchronize - synchronize with a concurrent poll
-+ *	@n: napi context
-+ *
-+ * Synchronizes with a concurrent poll. Not to be used in normal
-+ * drivers, mostly useful if you end up with multiple interfaces
-+ * on one NAPI instance.
-+ */
-+static inline void __napi_synchronize(struct napi_struct *n)
-+{
-+	smp_mb();
-+	while (test_bit(NAPI_STATE_SCHED, &n->state))
-+		msleep_interruptible(1);
-+}
-+
-+/**
-  *	napi_enable - enable NAPI scheduling
-  *	@n: napi context
-  *
+> Signed-off-by: Li Yang <leoli@freescale.com>
+> ---
+>  drivers/net/gianfar.c |    7 +++----
+>  1 files changed, 3 insertions(+), 4 deletions(-)
 
+this patch got lost.
 
+- k
+
+>
+> diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+> index 2b758fa..6d1456a 100644
+> --- a/drivers/net/gianfar.c
+> +++ b/drivers/net/gianfar.c
+> @@ -1228,8 +1228,6 @@ static int gfar_change_mtu(struct net_device *dev, int new_mtu)
+>   * starting over will fix the problem. */
+>  static void gfar_timeout(struct net_device *dev)
+>  {
+> -	struct gfar_private *priv = netdev_priv(dev);
+> -
+>  	dev->stats.tx_errors++;
+>
+>  	if (dev->flags & IFF_UP) {
+> @@ -1335,8 +1333,9 @@ struct sk_buff * gfar_new_skb(struct net_device *dev, struct rxbd8 *bdp)
+>  	return skb;
+>  }
+>
+> -static inline void count_errors(unsigned short status, struct gfar_private *priv)
+> +static inline void count_errors(unsigned short status, struct net_device *dev)
+>  {
+> +	struct gfar_private *priv = netdev_priv(dev);
+>  	struct net_device_stats *stats = &dev->stats;
+>  	struct gfar_extra_stats *estats = &priv->extra_stats;
+>
+> @@ -1530,7 +1529,7 @@ int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit)
+>
+>  			dev->stats.rx_bytes += pkt_len;
+>  		} else {
+> -			count_errors(bdp->status, priv);
+> +			count_errors(bdp->status, dev);
+>
+>  			if (skb)
+>  				dev_kfree_skb_any(skb);
+> --
+> 1.5.3.2.104.g41ef
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
