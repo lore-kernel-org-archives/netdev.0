@@ -1,48 +1,52 @@
-From: Karsten Wiese <fzu@wemgehoertderstaat.de>
-Subject: Re: [PATCH] Disable polling in rtl8169_suspend() to prevent race with rtl8169_interrupt()
-Date: Tue, 16 Oct 2007 21:27:51 +0200
-Message-ID: <200710162127.52228.fzu@wemgehoertderstaat.de>
-References: <200710161846.52509.fzu@wemgehoertderstaat.de>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: RE: Multicast problem
+Date: Tue, 16 Oct 2007 12:40:56 -0700
+Message-ID: <OF41E6EC02.7524B9F0-ON88257376.006B78BD-88257376.006C0648@us.ibm.com>
+References: <002601c81025$ee0af8f0$04ac10ac@Jocke>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: "'Netdev'" <netdev@vger.kernel.org>
+To: "Joakim Tjernlund" <joakim.tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout2.freenet.de ([195.4.92.92]:40074 "EHLO mout2.freenet.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761242AbXJPT15 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Oct 2007 15:27:57 -0400
-In-Reply-To: <200710161846.52509.fzu@wemgehoertderstaat.de>
-Content-Disposition: inline
+Received: from e32.co.us.ibm.com ([32.97.110.150]:60303 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751059AbXJPTlF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 15:41:05 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e32.co.us.ibm.com (8.12.11.20060308/8.13.8) with ESMTP id l9GIW8TG002718
+	for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 14:32:08 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9GJexr3475736
+	for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 13:40:59 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9GJewgl007849
+	for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 13:40:59 -0600
+In-Reply-To: <002601c81025$ee0af8f0$04ac10ac@Jocke>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Dienstag, 16. Oktober 2007 schrieb Karsten Wiese:
-> Hi,
 > 
-> Sometimes (~ 1 in 10) after suspend to disk my r8169 nic doesn't work and a
-> "r8169: eth0: link down" gets mingled up with those suspend messages.
-> First tests show nothing bad, so maybe this patch really helps.
-> Will post again, if it doesn't.
+> hmm maybe I misunderstand here, but the we are trying to make OSPF work
+> in 2.6 and the problem appears to be that our board does not pick up
+> multicasts.
+> Is icmp_echo_ignore_broadcasts=0 required to make OSPF work in 2.6?
 > 
->       Karsten
-> ------------------>
+>  Jocke
 > 
-> Disable polling in rtl8169_suspend() to prevent race with rtl8169_interrupt()
-> 
-> rtl8169_interrupt() is called during polling.
-> Without patch, rtl8169_interrupt() could run after rtl8169_asic_down(),
-> causing a disabled link state being saved later in rtl8169_suspend() by
-> pci_save_state().
-> netif_stop_queue() can go as it is called by netif_device_detach().
-> 
-> Signed-off-by: Karsten Wiese <fzu@wemgehoertderstaat.de>
 
-Forgot to say: patch is against 2.6.23. Stable material, if it gets an ACK.
-The BUG happens since months here, if not since I hibernate this pc.
+        No, it's required to make "ping" to a multicast address
+work, which is what your mail said was the problem. :-) "ping"
+uses ICMP, OSPF does not.
+        If you receive ping responses with ignore_broadcasts=0
+and not in promiscuous mode, then the problem may be a smart
+switch that doesn't understand IGMPv3. In that case, you
+can try:
 
-git HEAD would need a similar fix I think, haven't tried yet.
+sysctl -w net.ipv4.conf.all.force_igmp_version=2
 
-      Karsten
+        You can also, of course, check /proc/net/igmp and
+/proc/net/dev_mcast to make sure you've joined the OSPF
+multicast address on the interface(s) you care about.
+
+                                                +-DLS
+
