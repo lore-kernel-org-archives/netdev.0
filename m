@@ -1,43 +1,37 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2/3] [NET_CLS_ACT] Use skb_act_clone
-Date: Tue, 16 Oct 2007 10:29:16 -0400
-Message-ID: <1192544956.4480.136.camel@localhost>
-References: <1192537921.4480.80.camel@localhost>
-	 <4714B445.1020900@trash.net> <1192540951.4480.108.camel@localhost>
-	 <20071016140619.GA11763@gondor.apana.org.au>  <4714C65C.8070208@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Eric Sandeen <sandeen@redhat.com>
+Subject: Re: e100 problems in .23rc8 ?
+Date: Tue, 16 Oct 2007 09:33:15 -0500
+Message-ID: <4714CBAB.4090601@redhat.com>
+References: <E1IgWqn-0000iU-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: David Mack <dmack@juniper.net>, davej@redhat.com,
+	auke-jan.h.kok@intel.com, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wa-out-1112.google.com ([209.85.146.179]:61331 "EHLO
-	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932588AbXJPO3g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 10:29:36 -0400
-Received: by wa-out-1112.google.com with SMTP id v27so2399874wah
-        for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 07:29:35 -0700 (PDT)
-In-Reply-To: <4714C65C.8070208@trash.net>
+Received: from mx1.redhat.com ([66.187.233.31]:35226 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932506AbXJPOd3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2007 10:33:29 -0400
+In-Reply-To: <E1IgWqn-0000iU-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-16-10 at 16:10 +0200, Patrick McHardy wrote:
-> Herbert Xu wrote:
-> > On Tue, Oct 16, 2007 at 09:22:31AM -0400, jamal wrote:
-> >> Does the copying of tc_verd in __copy_skb_header() not cover that?
-> > 
-> > Yep, I'm pretty sure it does.
-> > 
-> > In fact this patch completely resolves my concerns about tc_verd.
+Herbert Xu wrote:
+> David Mack <dmack@juniper.net> wrote:
+>> If I understand the message Dave Jones sent yesterday, the patch you
+>> mention *was* applied to the e100 driver in 2.6.23-6.fc8?
 > 
+> Nope, he applied a different one which doesn't have the crucial
+> part to disable NAPI polls before registration.
 > 
-> Indeed, I was looking at the wrong tree :)
+> Cheers,
 
-Ok, thanks guys.
+Hm... running 2.6.23-6.fc8, I've been through 30+ reboot cycles without
+a problem.  Before, I'd oops every 5 or so times I booted...
 
-cheers,
-jamal
+I now have another NIC in the box, disabled; I don't think that should
+be affecting anything?
 
+-Eric
