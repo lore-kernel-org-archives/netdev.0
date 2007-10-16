@@ -1,63 +1,74 @@
-From: "Yinghai Lu" <yhlu.kernel@gmail.com>
-Subject: Re: MSI interrupts and disable_irq
-Date: Tue, 16 Oct 2007 10:23:20 -0700
-Message-ID: <86802c440710161023p3fbd6832gdb6d10a1b5e9d932@mail.gmail.com>
-References: <46FC15A9.1070803@nvidia.com> <46FDBCB4.9090802@pobox.com>
-	 <4710901F.8010206@colorfullife.com> <4713E713.9060702@pobox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Manfred Spraul" <manfred@colorfullife.com>,
-	"Ayaz Abdulla" <aabdulla@nvidia.com>,
-	nedev <netdev@vger.kernel.org>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	"David Miller" <davem@davemloft.net>,
-	"Andrew Morton" <akpm@linux-foundation.org>
-To: "Jeff Garzik" <jgarzik@pobox.com>
+From: Sebastian Siewior <netdev@ml.breakpoint.cc>
+Subject: [PATCH] [net] fix gianfar (compile and warning)
+Date: Tue, 16 Oct 2007 19:25:05 +0200
+Message-ID: <E1IhqCT-0007Wu-Lz@Chamillionaire.breakpoint.cc>
+Cc: Li Yang <leoli@freescale.com>, netdev@vger.kernel.org,
+	Grant Likely <grant.likely@secretlab.ca>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.189]:62892 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934385AbXJPRXW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 13:23:22 -0400
-Received: by rv-out-0910.google.com with SMTP id k20so1485275rvb
-        for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 10:23:21 -0700 (PDT)
-In-Reply-To: <4713E713.9060702@pobox.com>
-Content-Disposition: inline
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:40386 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759291AbXJPR1i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 13:27:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/15/07, Jeff Garzik <jgarzik@pobox.com> wrote:
-> Manfred Spraul wrote:
-> > Jeff Garzik wrote:
-> >>
-> >> I think the scenario you outline is an illustration of the approach's
-> >> fragility:  disable_irq() is a heavy hammer that originated with INTx,
-> >> and it relies on a chip-specific disable method (kernel/irq/manage.c)
-> >> that practically guarantees behavior will vary across MSI/INTx/etc.
-> >>
-> > I checked the code: IRQ_DISABLE is implemented in software, i.e.
-> > handle_level_irq() only calls handle_IRQ_event() [and then the nic irq
-> > handler] if IRQ_DISABLE is not set.
-> > OTHO: The last trace looks as if nv_do_nic_poll() is interrupted by an irq.
-> >
-> > Perhaps something corrupts dev->irq? The irq is requested with
-> >    request_irq(np->pci_dev->irq, handler, IRQF_SHARED, dev->name, dev)
-> > and disabled with
-> >    disable_irq_lockdep(dev->irq);
-> >
-> > Someone around with a MSI capable board? The forcedeth driver does
-> >    dev->irq = pci_dev->irq
-> > in nv_probe(), especially before pci_enable_msi().
-> > Does pci_enable_msi() change pci_dev->irq? Then we would disable the
-> > wrong interrupt....
->
-> Remember, fundamentally MSI-X is a one-to-many relationship, when you
-> consider a single PCI device might have multiple vectors.
+Currently it does not compile because a not declared variable is used.
+struct net_device_stats in driver's private struct is also unsued.
+This patch uses (hopefully) the right stats.
 
-msi-x is using other entry
+Cc: Li Yang <leoli@freescale.com>
+Signed-off-by: Sebastian Siewior <bigeasy@linutronix.de>
+---
+ drivers/net/gianfar.c |    7 +++----
+ drivers/net/gianfar.h |    1 -
+ 2 files changed, 3 insertions(+), 5 deletions(-)
 
-               if (np->msi_flags & NV_MSI_X_ENABLED)
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 558440c..cc288d8 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -1237,8 +1237,6 @@ static int gfar_change_mtu(struct net_device *dev, int new_mtu)
+  * starting over will fix the problem. */
+ static void gfar_timeout(struct net_device *dev)
+ {
+-	struct gfar_private *priv = netdev_priv(dev);
+-
+ 	dev->stats.tx_errors++;
+ 
+ 	if (dev->flags & IFF_UP) {
+@@ -1344,8 +1342,9 @@ struct sk_buff * gfar_new_skb(struct net_device *dev, struct rxbd8 *bdp)
+ 	return skb;
+ }
+ 
+-static inline void count_errors(unsigned short status, struct gfar_private *priv)
++static inline void count_errors(unsigned short status, struct net_device *dev)
+ {
++	struct gfar_private *priv = netdev_priv(dev);
+ 	struct net_device_stats *stats = &dev->stats;
+ 	struct gfar_extra_stats *estats = &priv->extra_stats;
+ 
+@@ -1539,7 +1538,7 @@ int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit)
+ 
+ 			dev->stats.rx_bytes += pkt_len;
+ 		} else {
+-			count_errors(bdp->status, priv);
++			count_errors(bdp->status, dev);
+ 
+ 			if (skb)
+ 				dev_kfree_skb_any(skb);
+diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
+index c16cc8b..46cd773 100644
+--- a/drivers/net/gianfar.h
++++ b/drivers/net/gianfar.h
+@@ -749,7 +749,6 @@ struct gfar_private {
+ 	uint32_t msg_enable;
+ 
+ 	/* Network Statistics */
+-	struct net_device_stats stats;
+ 	struct gfar_extra_stats extra_stats;
+ };
+ 
+-- 
+1.5.3.4
 
-enable_irq_lockdep(np->msi_x_entry[NV_MSI_X_VECTOR_ALL].vector);
-
-YH
