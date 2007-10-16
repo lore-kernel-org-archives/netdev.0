@@ -1,58 +1,65 @@
-From: "David Mack" <dmack@juniper.net>
-Subject: RE: e100 problems in .23rc8 ?
-Date: Tue, 16 Oct 2007 09:39:48 -0700
-Message-ID: <7DCDA0F058071B49AED9D3D7886C41BE0A43AE88@muon.jnpr.net>
-References: <E1IgWqn-0000iU-00@gondolin.me.apana.org.au> <4714CBAB.4090601@redhat.com> <20071016143505.GA12640@gondor.apana.org.au>
+From: Karsten Wiese <fzu@wemgehoertderstaat.de>
+Subject: [PATCH] Disable polling in rtl8169_suspend() to prevent race with rtl8169_interrupt()
+Date: Tue, 16 Oct 2007 18:46:52 +0200
+Message-ID: <200710161846.52509.fzu@wemgehoertderstaat.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <davej@redhat.com>, <auke-jan.h.kok@intel.com>,
-	<netdev@vger.kernel.org>
-To: "Herbert Xu" <herbert.xu@redhat.com>,
-	"Eric Sandeen" <sandeen@redhat.com>
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: romieu@fr.zoreil.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og105.obsmtp.com ([64.18.2.163]:58343 "EHLO
-	exprod7og105.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751430AbXJPQkz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 12:40:55 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20071016143505.GA12640@gondor.apana.org.au>
+Received: from mout1.freenet.de ([195.4.92.91]:57333 "EHLO mout1.freenet.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752872AbXJPQq4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2007 12:46:56 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-My problem is anything but sporadic. I have succeeded in booting a
-2.6.23-based kernel exactly once since the roll toward F8 started early
-last summer.
+Hi,
 
-Dave
+Sometimes (~ 1 in 10) after suspend to disk my r8169 nic doesn't work and a
+"r8169: eth0: link down" gets mingled up with those suspend messages.
+First tests show nothing bad, so maybe this patch really helps.
+Will post again, if it doesn't.
 
-> -----Original Message-----
-> From: Herbert Xu [mailto:herbert@gondor.apana.org.au] On 
-> Behalf Of Herbert Xu
-> Sent: Tuesday, October 16, 2007 7:35 AM
-> To: Eric Sandeen
-> Cc: David Mack; davej@redhat.com; auke-jan.h.kok@intel.com; 
-> netdev@vger.kernel.org
-> Subject: Re: e100 problems in .23rc8 ?
-> 
-> On Tue, Oct 16, 2007 at 09:33:15AM -0500, Eric Sandeen wrote:
-> > 
-> > Hm... running 2.6.23-6.fc8, I've been through 30+ reboot 
-> cycles without
-> > a problem.  Before, I'd oops every 5 or so times I booted...
-> > 
-> > I now have another NIC in the box, disabled; I don't think 
-> that should
-> > be affecting anything?
-> 
-> Well the original problem was caused by spurious interrupts on
-> the IRQ line where your e100 is so it could well be sporadic.
-> 
-> Cheers,
-> -- 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> 
+      Karsten
+------------------>
+
+Disable polling in rtl8169_suspend() to prevent race with rtl8169_interrupt()
+
+rtl8169_interrupt() is called during polling.
+Without patch, rtl8169_interrupt() could run after rtl8169_asic_down(),
+causing a disabled link state being saved later in rtl8169_suspend() by
+pci_save_state().
+netif_stop_queue() can go as it is called by netif_device_detach().
+
+Signed-off-by: Karsten Wiese <fzu@wemgehoertderstaat.de>
+---
+ drivers/net/r8169.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index c76dd29..fee6c8e 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -3024,7 +3024,7 @@ static int rtl8169_suspend(struct pci_dev *pdev, pm_message_t state)
+ 		goto out_pci_suspend;
+ 
+ 	netif_device_detach(dev);
+-	netif_stop_queue(dev);
++	netif_poll_disable(dev);
+ 
+ 	spin_lock_irq(&tp->lock);
+ 
+@@ -3054,6 +3054,7 @@ static int rtl8169_resume(struct pci_dev *pdev)
+ 	if (!netif_running(dev))
+ 		goto out;
+ 
++	netif_poll_enable(dev);
+ 	netif_device_attach(dev);
+ 
+ 	rtl8169_schedule_work(dev, rtl8169_reset_task);
+-- 
+1.5.2.4
+
