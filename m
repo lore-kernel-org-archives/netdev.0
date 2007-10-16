@@ -1,72 +1,63 @@
-From: "Yinghai Lu" <yhlu.kernel@gmail.com>
-Subject: Re: MSI interrupts and disable_irq
-Date: Tue, 16 Oct 2007 11:01:35 -0700
-Message-ID: <86802c440710161101o34a1b982w95c7473f0ec744ed@mail.gmail.com>
-References: <46FC15A9.1070803@nvidia.com> <46FDBCB4.9090802@pobox.com>
-	 <4710901F.8010206@colorfullife.com> <4713E713.9060702@pobox.com>
-	 <86802c440710161023p3fbd6832gdb6d10a1b5e9d932@mail.gmail.com>
-	 <4714F736.5000302@pobox.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH/RFC] net: Add __napi_sycnhronize() to sync with napi
+ poll
+Date: Tue, 16 Oct 2007 11:53:18 -0700
+Message-ID: <20071016115318.0fc36af3@freepuppy.rosehill>
+References: <1192513792.19073.23.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Manfred Spraul" <manfred@colorfullife.com>,
-	"Ayaz Abdulla" <aabdulla@nvidia.com>,
-	nedev <netdev@vger.kernel.org>,
-	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
-	"David Miller" <davem@davemloft.net>,
-	"Andrew Morton" <akpm@linux-foundation.org>
-To: "Jeff Garzik" <jgarzik@pobox.com>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Roland Dreier <rdreier@cisco.com>,
+	linuxppc-dev list <linuxppc-dev@ozlabs.org>
+To: benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.189]:63914 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934953AbXJPSBg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 14:01:36 -0400
-Received: by rv-out-0910.google.com with SMTP id k20so1494662rvb
-        for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 11:01:35 -0700 (PDT)
-In-Reply-To: <4714F736.5000302@pobox.com>
-Content-Disposition: inline
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:50986 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1764540AbXJPSyB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 14:54:01 -0400
+In-Reply-To: <1192513792.19073.23.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/16/07, Jeff Garzik <jgarzik@pobox.com> wrote:
-> Yinghai Lu wrote:
-> > On 10/15/07, Jeff Garzik <jgarzik@pobox.com> wrote:
-> >> Manfred Spraul wrote:
-> >>> Jeff Garzik wrote:
-> >>>> I think the scenario you outline is an illustration of the approach's
-> >>>> fragility:  disable_irq() is a heavy hammer that originated with INTx,
-> >>>> and it relies on a chip-specific disable method (kernel/irq/manage.c)
-> >>>> that practically guarantees behavior will vary across MSI/INTx/etc.
-> >>>>
-> >>> I checked the code: IRQ_DISABLE is implemented in software, i.e.
-> >>> handle_level_irq() only calls handle_IRQ_event() [and then the nic irq
-> >>> handler] if IRQ_DISABLE is not set.
-> >>> OTHO: The last trace looks as if nv_do_nic_poll() is interrupted by an irq.
-> >>>
-> >>> Perhaps something corrupts dev->irq? The irq is requested with
-> >>>    request_irq(np->pci_dev->irq, handler, IRQF_SHARED, dev->name, dev)
-> >>> and disabled with
-> >>>    disable_irq_lockdep(dev->irq);
-> >>>
-> >>> Someone around with a MSI capable board? The forcedeth driver does
-> >>>    dev->irq = pci_dev->irq
-> >>> in nv_probe(), especially before pci_enable_msi().
-> >>> Does pci_enable_msi() change pci_dev->irq? Then we would disable the
-> >>> wrong interrupt....
-> >> Remember, fundamentally MSI-X is a one-to-many relationship, when you
-> >> consider a single PCI device might have multiple vectors.
-> >
-> > msi-x is using other entry
-> >
-> >                if (np->msi_flags & NV_MSI_X_ENABLED)
-> >
-> > enable_irq_lockdep(np->msi_x_entry[NV_MSI_X_VECTOR_ALL].vector);
->
-> Correct, but the overall point was that MSI-X conceptually conflicts
-> with the existing "lockless" disable_irq() schedule, which was written
-> when there was a one-one relationship between irq, PCI device, and work
-> to be done.
+On Tue, 16 Oct 2007 15:49:52 +1000
+Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
 
-at this point, nic in mcp55 is using msi or INTx.
+> net: Add __napi_sycnhronize() to sync with napi poll
+> 
+> The EMAC driver which needs to handle multiple devices with one
+> NAPI instance implements its own per-channel disable bit. However,
+> when setting such a bit, it needs to synchronize with the poller
+> (that is make sure that any pending poller instance has completed,
+> or is started late enough to see that disable bit).
+> 
+> This implements a low level __napi_synchronize() function to acheive
+> that. The underscores are to emphasis the low level aspect of it and
+> to discourage driver writers who don't know what they are doing to
+> use it (to please DaveM :-)
+> 
+> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> ---
+> 
+> (Use correct address for Stephen this time)
+> 
+> If the approach is accepted, I would like to have this merged now
+> so the EMAC patch to make it work again can follow :-)
+> 
+> Note: I use msleep_interruptible(1); just like napi_disable(). However
+> I'm not too happy that the "hot" loop that results of a pending signal
+> here will spin without even a cpu_relax ... what do you guys think would
+> be the best way to handle this ?
 
-YH
+
+So this is really just like synchronize_irq()?  Using msleep is bogus
+because you want to spin, you are only waiting for a softirq on the other
+cpu to finish. If you wait for a whole millisecond and sleep that
+is far longer than the napi routine should take.
+
+You could even optimize it like synchronize_irq() for the non-SMP case.
+
+
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
