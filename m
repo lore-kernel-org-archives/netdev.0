@@ -1,63 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 4/12] [IPSEC]: Move ip_summed zapping out of xfrm6_rcv_spi
-Date: Tue, 16 Oct 2007 22:33:12 +0800
-Message-ID: <E1IhnTs-0003GZ-00@gondolin.me.apana.org.au>
-References: <20071016141843.GA11956@gondor.apana.org.au>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Subject: Re: [PATCH][BNX2X] round three
+Date: Tue, 16 Oct 2007 17:00:57 +0200
+Message-ID: <1192546857.29746.182.camel@eliezer>
+References: <p73641c4cfz.fsf@bingen.suse.de>
+ <20071012.150341.41635825.davem@davemloft.net>
+ <1192462049.29746.158.camel@eliezer>
+ <20071015.123850.26516814.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: andi@firstfloor.org, netdev@vger.kernel.org, jeff@garzik.org,
+	mchan@broadcom.com
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3010 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932987AbXJPOxx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 10:53:53 -0400
-Received: from gondolin.me.apana.org.au ([192.168.0.6] ident=mail)
-	by arnor.apana.org.au with esmtp (Exim 4.50 #1 (Debian))
-	id 1Ihnnp-0001GY-1J
-	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 00:53:49 +1000
+Received: from mms2.broadcom.com ([216.31.210.18]:3062 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757355AbXJPO7f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2007 10:59:35 -0400
+In-Reply-To: <20071015.123850.26516814.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Move ip_summed zapping out of xfrm6_rcv_spi
+On Mon, 2007-10-15 at 12:38 -0700, David Miller wrote:
+> From: "Eliezer Tamir" <eliezert@broadcom.com>
+> Date: Mon, 15 Oct 2007 17:27:29 +0200
+> 
+> > Unfortunately, the firmware code is different for LE and BE machines.
+> > We had issues with the BE firmware that appear to be resolved.
+> > Hopefully, the next version will have both.
+> 
+> If this means we get two copies of the firmware, this should be
+> rethought.  The space cost of the firmware (both in terms of source
+> code size and object code size) is already enormous.
+> 
+> I would definitely prefer if there were only little-endian firmware,
+> and the driver uses "cpu_to_le32()" and friends to access chip shared
+> data structures.
 
-Not every transform needs to zap ip_summed.  For example, a pure tunnel
-mode encapsulation does not affect the hardware checksum at all.  In fact,
-every algorithm (that needs this) other than AH6 already does its own
-ip_summed zapping.
+OK. Then that's what we will do.
 
-This patch moves the zapping into AH6 which is in line with what IPv4 does.
 
-Possible future optimisation: Checksum the data as we copy them in IPComp.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
----
-
- net/ipv6/ah6.c         |    2 ++
- net/ipv6/xfrm6_input.c |    1 -
- 2 files changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
-index f9f6891..a8221d1 100644
---- a/net/ipv6/ah6.c
-+++ b/net/ipv6/ah6.c
-@@ -344,6 +344,8 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
- 	    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
- 		goto out;
- 
-+	skb->ip_summed = CHECKSUM_NONE;
-+
- 	hdr_len = skb->data - skb_network_header(skb);
- 	ah = (struct ip_auth_hdr *)skb->data;
- 	ahp = x->data;
-diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
-index 596a730..b1201c3 100644
---- a/net/ipv6/xfrm6_input.c
-+++ b/net/ipv6/xfrm6_input.c
-@@ -97,7 +97,6 @@ int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
- 	memcpy(skb->sp->xvec + skb->sp->len, xfrm_vec,
- 	       xfrm_nr * sizeof(xfrm_vec[0]));
- 	skb->sp->len += xfrm_nr;
--	skb->ip_summed = CHECKSUM_NONE;
- 
- 	nf_reset(skb);
- 
