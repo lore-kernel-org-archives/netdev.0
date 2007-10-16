@@ -1,46 +1,50 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH/RFC] net: Add __napi_sycnhronize() to sync with napi
-	poll
-Date: Tue, 16 Oct 2007 17:37:03 +1000
-Message-ID: <1192520223.7205.5.camel@pasglop>
-References: <E1IhfZr-0002FE-00@gondolin.me.apana.org.au>
+Subject: Re: new NAPI interface broken
+Date: Tue, 16 Oct 2007 17:42:08 +1000
+Message-ID: <1192520528.7205.9.camel@pasglop>
+References: <200709071137.02801.ossthema@de.ibm.com>
+	 <20070912.055004.88490155.davem@davemloft.net>
+	 <1192519787.7205.3.camel@pasglop>
 Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	davem@davemloft.net, rdreier@cisco.com, linuxppc-dev@ozlabs.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: ossthema@de.ibm.com, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org, themann@de.ibm.com, raisch@de.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:54079 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:52894 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755389AbXJPHhm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Oct 2007 03:37:42 -0400
-In-Reply-To: <E1IhfZr-0002FE-00@gondolin.me.apana.org.au>
+	id S933259AbXJPHmX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2007 03:42:23 -0400
+In-Reply-To: <1192519787.7205.3.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-On Tue, 2007-10-16 at 14:06 +0800, Herbert Xu wrote:
-> Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
-> >
-> > Note: I use msleep_interruptible(1); just like napi_disable(). However
-> > I'm not too happy that the "hot" loop that results of a pending signal
-> > here will spin without even a cpu_relax ... what do you guys think would
-> > be the best way to handle this ?
+> So the powerpc platform just honors the affinity mask, and depending on
+> the PIC does things that range from nothing to spreading interrupts to
+> CPUs in the affinity mask.
 > 
-> Well since the loop does not check signals at all, it should
-> just use msleep.
+> All interrupts by defaults are spread to all CPUs (full balancing).
 > 
-> Granted the process will end up in the D state and contribute
-> to the load average.  But if this loop executes long enough
-> for that to be noticed then we've got bigger problems to worry
-> about.
+> At this stage, it's afaik userland business to enforce different
+> policies by changing the affinities via /proc/irq/*.
+> 
+> Do you have any pointer to how that is done on x86 or sparc64 ? On my
+> x86 laptop using ubuntu gutsy, I definitely see the IRQ on which the
+> network card is connected (e1000) happily spread between the 2 cores
+> just like powerpc would do.
 
-If Dave & Stephen agree, I'll send a patch changing napi_disable() too
-then.
+More specifically, IRQF_NOBALANCING doesn't seem to be set anywhere
+except a few arch specific timer interrupts etc... nowhere I can see in
+network drivers or the network stack (the stack wouldn't know what IRQ
+anyway since not all drivers set netdev->irq).
 
-Cheers,
+We currently don't have a balance kthread like x86 has, though I wonder
+if we should move this one out of x86 and make it generic (hell, it's
+even hidden in the IO_APIC code :-) But at this stage, HW balancing by
+the PIC is the norm and seems to be happening.
+
 Ben.
 
 
