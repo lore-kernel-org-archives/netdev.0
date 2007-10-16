@@ -1,48 +1,49 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: netif_napi_add vs. multiple netdev's
-Date: Wed, 17 Oct 2007 08:24:23 +1000
-Message-ID: <1192573463.11899.20.camel@pasglop>
-References: <1192513633.19073.21.camel@pasglop>
-	 <20071016091035.5fcd6d2e@freepuppy.rosehill>
-	 <20071016.151616.70218795.davem@davemloft.net>
-Reply-To: benh@kernel.crashing.org
+From: Max Asbock <masbock@us.ibm.com>
+Subject: BNX2X driver: kernel panic when running netperf
+Date: Tue, 16 Oct 2007 16:34:40 -0700
+Message-ID: <1192577680.5730.12.camel@w-amax.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:41515 "EHLO gate.crashing.org"
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:56694 "EHLO e6.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934737AbXJPWYc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Oct 2007 18:24:32 -0400
-In-Reply-To: <20071016.151616.70218795.davem@davemloft.net>
+	id S1751189AbXJPXfH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2007 19:35:07 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by e6.ny.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9GNacqq021882
+	for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 19:36:38 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9GNZ7u4555386
+	for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 19:35:07 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9GNYugK024639
+	for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 19:34:56 -0400
+Received: from [9.47.17.144] (w-amax.beaverton.ibm.com [9.47.17.144])
+	by d01av04.pok.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id l9GNYtbW024434
+	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 19:34:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+I tested the bnx2x driver (0001-BNX2X-0.40.10a-net-2.6.24.patch) with
+netdev-2.6.24 git tree and found that I can reproducibly panic the
+system when running netperf with the TCP_STREAM test.
+I copied the following information from the panic message:
+RIP: 0xc02fff32
+net_rx_action +0x142/0x190
+...
+do_softirq
+...
+Kernel panic - not syncing
+Fatal exception in interrupt.
 
-On Tue, 2007-10-16 at 15:16 -0700, David Miller wrote:
-> And it's unfortunately buggy.
-> 
-> For example, the sky2_suspend() code iterates over the ports
-> and calls sky2_down() on each one that is up.
-> 
-> That will call napi_disable() on the same NAPI instance if
-> multiple ports are up, and thus hang the machine.
-> 
-> This is why, Stephen, for the second time, I'm telling you
-> that perhaps you should put the NAPI instance into the
-> sky2_port struct.
+Please let me what additional information is useful. 
 
-Can sky2 send/mask interrupts separately per port ? The reason why I
-can't do that with EMAC is why I'm doing multiple ports per NAPI
-instance...
+Max
 
-If sky2 sticks to doing like EMAC, then it probably also needs to do
-like EMAC which is to have it's own port_disable/enable that use local
-per-port disable bits. (It may do a real napi_disable when all ports are
-disabled, I suppose, though I don't currently do it in EMAC).
 
-Ben.
+  
 
 
