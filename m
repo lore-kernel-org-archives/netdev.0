@@ -1,37 +1,63 @@
-From: Herbert Xu <herbert.xu@redhat.com>
-Subject: Re: e100 problems in .23rc8 ?
-Date: Tue, 16 Oct 2007 22:35:05 +0800
-Message-ID: <20071016143505.GA12640@gondor.apana.org.au>
-References: <E1IgWqn-0000iU-00@gondolin.me.apana.org.au> <4714CBAB.4090601@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Mack <dmack@juniper.net>, davej@redhat.com,
-	auke-jan.h.kok@intel.com, netdev@vger.kernel.org
-To: Eric Sandeen <sandeen@redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [PATCH 4/12] [IPSEC]: Move ip_summed zapping out of xfrm6_rcv_spi
+Date: Tue, 16 Oct 2007 22:33:12 +0800
+Message-ID: <E1IhnTs-0003GZ-00@gondolin.me.apana.org.au>
+References: <20071016141843.GA11956@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3011 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:3010 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932967AbXJPOxx (ORCPT
+	with ESMTP id S932987AbXJPOxx (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 10:53:53 -0400
-Content-Disposition: inline
-In-Reply-To: <4714CBAB.4090601@redhat.com>
+Received: from gondolin.me.apana.org.au ([192.168.0.6] ident=mail)
+	by arnor.apana.org.au with esmtp (Exim 4.50 #1 (Debian))
+	id 1Ihnnp-0001GY-1J
+	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 00:53:49 +1000
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 16, 2007 at 09:33:15AM -0500, Eric Sandeen wrote:
-> 
-> Hm... running 2.6.23-6.fc8, I've been through 30+ reboot cycles without
-> a problem.  Before, I'd oops every 5 or so times I booted...
-> 
-> I now have another NIC in the box, disabled; I don't think that should
-> be affecting anything?
+[IPSEC]: Move ip_summed zapping out of xfrm6_rcv_spi
 
-Well the original problem was caused by spurious interrupts on
-the IRQ line where your e100 is so it could well be sporadic.
+Not every transform needs to zap ip_summed.  For example, a pure tunnel
+mode encapsulation does not affect the hardware checksum at all.  In fact,
+every algorithm (that needs this) other than AH6 already does its own
+ip_summed zapping.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+This patch moves the zapping into AH6 which is in line with what IPv4 does.
+
+Possible future optimisation: Checksum the data as we copy them in IPComp.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
+
+ net/ipv6/ah6.c         |    2 ++
+ net/ipv6/xfrm6_input.c |    1 -
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index f9f6891..a8221d1 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -344,6 +344,8 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 	    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
+ 		goto out;
+ 
++	skb->ip_summed = CHECKSUM_NONE;
++
+ 	hdr_len = skb->data - skb_network_header(skb);
+ 	ah = (struct ip_auth_hdr *)skb->data;
+ 	ahp = x->data;
+diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
+index 596a730..b1201c3 100644
+--- a/net/ipv6/xfrm6_input.c
++++ b/net/ipv6/xfrm6_input.c
+@@ -97,7 +97,6 @@ int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
+ 	memcpy(skb->sp->xvec + skb->sp->len, xfrm_vec,
+ 	       xfrm_nr * sizeof(xfrm_vec[0]));
+ 	skb->sp->len += xfrm_nr;
+-	skb->ip_summed = CHECKSUM_NONE;
+ 
+ 	nf_reset(skb);
+ 
