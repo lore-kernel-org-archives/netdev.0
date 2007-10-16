@@ -1,33 +1,47 @@
-From: "Yakov Lerner" <iler.ml@gmail.com>
-Subject: NF_IP_POST_ROUTING hook question (2.4)
-Date: Tue, 16 Oct 2007 14:03:39 +0200
-Message-ID: <f36b08ee0710160503i78a7f102y762002b40dac9845@mail.gmail.com>
-References: <f36b08ee0710160328h3a45d18k41a32dcb8f6f3d4e@mail.gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Resend: [IPROUTE2 PATCH] Interface group as new ip link option
+Date: Tue, 16 Oct 2007 08:08:47 -0400
+Message-ID: <1192536528.4480.65.camel@localhost>
+References: <ifgroup.20071015.1192520046.panther@balabit.hu>
+	 <a6713ba13c49b7fa20073d8abf1862480c2799e0.1192457385.git.panther@balabit.hu>
+	 <1192531516.4480.33.camel@localhost>  <47149B04.30607@balabit.hu>
+	 <1192534002.4480.52.camel@localhost>  <4714A4C3.10103@balabit.hu>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nz-out-0506.google.com ([64.233.162.236]:20820 "EHLO
-	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751712AbXJPMDk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 08:03:40 -0400
-Received: by nz-out-0506.google.com with SMTP id s18so1197150nze
-        for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 05:03:40 -0700 (PDT)
-In-Reply-To: <f36b08ee0710160328h3a45d18k41a32dcb8f6f3d4e@mail.gmail.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: panther@balabit.hu
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4714A4C3.10103@balabit.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In the NF_IP_POST_ROUTING hook function, how can I
-tell that packet originated locally vs was forwarded ?
-I need to hook NF_IP_POST_ROUTING not NF_IP_FORWARD.
+On Tue, 2007-16-10 at 13:47 +0200, Laszlo Attila Toth wrote:
 
-I'd expect that 'net_device *in' argument to be  not NULL for
-forwarded packets.
+> Hm, the main problem (for me) is that it requires more then one value 
+> per net device and it should be limited. But if I say it is 5 for 
+> instance, anyone can say it is not enough for him.
 
-But what I see is NULL for both forwarded  and locally sent packets
-(in NF_IP_POST_ROUTING hook).
-Which field of skb can  tell me that packet originated locally ?
+Yes, those pesky humans, you give them an inch and they want a mile ;->
+I think 32 for example is better than 1. So if you use a u32 variable
+doesnt pollute the netdevice that much - and used as a bitmap, then
+setting any of the 32 bits implies the device is in that group. This of
+course limits the group ids to be (1..32). Your mileage may vary.
 
-Yakov
+> ip link set ppp0 group 10
+> also if "ip link set..." works for multiple interfaces it is already 
+> done. If it is not, it will affect positively all other settings :)
+
+nice.
+The part that is not very useful today with ifconfig or ip link ls is i
+have only two choices: Either i ask for all devices or for one; i cant
+ask for something in the middle. If i can group them together then i can
+solve that problem sith some user space plumbing (which avoids 10K
+netlink messages). 
+"get ppp*" may actually be a totally separate call which also traverses
+the list in the kernel and just returns the matching devices. 
+
+cheers,
+jamal
+
