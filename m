@@ -1,170 +1,245 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 5/7] skge: eeprom support
-Date: Tue, 16 Oct 2007 12:15:53 -0700
-Message-ID: <20071016191734.122065342@linux-foundation.org>
+Subject: [PATCH 3/7] skge: XM PHY handling fixes
+Date: Tue, 16 Oct 2007 12:15:51 -0700
+Message-ID: <20071016191734.017624366@linux-foundation.org>
 References: <20071016191548.447710749@linux-foundation.org>
 Cc: netdev@vger.kernel.org
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:46597 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:40952 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934758AbXJPTTj (ORCPT
+	by vger.kernel.org with ESMTP id S934577AbXJPTTj (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 15:19:39 -0400
-Content-Disposition: inline; filename=skge-eeprom.patch
+Content-Disposition: inline; filename=skge-xm-phy-poll.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add ability to read/write EEPROM
+Change how PHY is managed on SysKonnect fibre based boards.
+Poll for PHY coming up 1 per second, but use interrupt to detect loss.
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
----
- drivers/net/skge.c |   98 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/skge.h |    6 ++-
- 2 files changed, 102 insertions(+), 2 deletions(-)
-
---- a/drivers/net/skge.c	2007-10-16 11:23:14.000000000 -0700
-+++ b/drivers/net/skge.c	2007-10-16 11:23:17.000000000 -0700
-@@ -59,6 +59,9 @@
+--- a/drivers/net/skge.c	2007-10-16 12:14:08.000000000 -0700
++++ b/drivers/net/skge.c	2007-10-16 12:14:09.000000000 -0700
+@@ -57,7 +57,7 @@
+ #define TX_WATCHDOG		(5 * HZ)
+ #define NAPI_WEIGHT		64
  #define BLINK_MS		250
- #define LINK_HZ			HZ
+-#define LINK_HZ			(HZ/2)
++#define LINK_HZ			HZ
  
-+#define SKGE_EEPROM_MAGIC	0x9933aabb
-+
-+
  MODULE_DESCRIPTION("SysKonnect Gigabit Ethernet driver");
  MODULE_AUTHOR("Stephen Hemminger <shemminger@linux-foundation.org>");
- MODULE_LICENSE("GPL");
-@@ -798,6 +801,98 @@ static int skge_phys_id(struct net_devic
- 	return 0;
+@@ -995,19 +995,15 @@ static void xm_link_down(struct skge_hw 
+ {
+ 	struct net_device *dev = hw->dev[port];
+ 	struct skge_port *skge = netdev_priv(dev);
+-	u16 cmd, msk;
++	u16 cmd = xm_read16(hw, port, XM_MMU_CMD);
+ 
+-	if (hw->phy_type == SK_PHY_XMAC) {
+-		msk = xm_read16(hw, port, XM_IMSK);
+-		msk |= XM_IS_INP_ASS | XM_IS_LIPA_RC | XM_IS_RX_PAGE | XM_IS_AND;
+-		xm_write16(hw, port, XM_IMSK, msk);
+-	}
++	xm_write16(hw, port, XM_IMSK, XM_IMSK_DISABLE);
+ 
+-	cmd = xm_read16(hw, port, XM_MMU_CMD);
+ 	cmd &= ~(XM_MMU_ENA_RX | XM_MMU_ENA_TX);
+ 	xm_write16(hw, port, XM_MMU_CMD, cmd);
++
+ 	/* dummy read to ensure writing */
+-	(void) xm_read16(hw, port, XM_MMU_CMD);
++	xm_read16(hw, port, XM_MMU_CMD);
+ 
+ 	if (netif_carrier_ok(dev))
+ 		skge_link_down(skge);
+@@ -1103,7 +1099,7 @@ static void genesis_reset(struct skge_hw
+ 
+ 	/* reset the statistics module */
+ 	xm_write32(hw, port, XM_GP_PORT, XM_GP_RES_STAT);
+-	xm_write16(hw, port, XM_IMSK, 0xffff);	/* disable XMAC IRQs */
++	xm_write16(hw, port, XM_IMSK, XM_IMSK_DISABLE);
+ 	xm_write32(hw, port, XM_MODE, 0);		/* clear Mode Reg */
+ 	xm_write16(hw, port, XM_TX_CMD, 0);	/* reset TX CMD Reg */
+ 	xm_write16(hw, port, XM_RX_CMD, 0);	/* reset RX CMD Reg */
+@@ -1141,7 +1137,7 @@ static void bcom_check_link(struct skge_
+ 	u16 status;
+ 
+ 	/* read twice because of latch */
+-	(void) xm_phy_read(hw, port, PHY_BCOM_STAT);
++	xm_phy_read(hw, port, PHY_BCOM_STAT);
+ 	status = xm_phy_read(hw, port, PHY_BCOM_STAT);
+ 
+ 	if ((status & PHY_ST_LSYNC) == 0) {
+@@ -1342,7 +1338,7 @@ static void xm_phy_init(struct skge_port
+ 	mod_timer(&skge->link_timer, jiffies + LINK_HZ);
  }
  
-+static int skge_get_eeprom_len(struct net_device *dev)
-+{
-+	struct skge_port *skge = netdev_priv(dev);
-+	u32 reg2;
-+
-+	pci_read_config_dword(skge->hw->pdev, PCI_DEV_REG2, &reg2);
-+	return 1 << ( ((reg2 & PCI_VPD_ROM_SZ) >> 14) + 8);
-+}
-+
-+static u32 skge_vpd_read(struct pci_dev *pdev, int cap, u16 offset)
-+{
-+	u32 val;
-+
-+	pci_write_config_word(pdev, cap + PCI_VPD_ADDR, offset);
-+
-+	do {
-+		pci_read_config_word(pdev, cap + PCI_VPD_ADDR, &offset);
-+	} while (!(offset & PCI_VPD_ADDR_F));
-+
-+	pci_read_config_dword(pdev, cap + PCI_VPD_DATA, &val);
-+	return val;
-+}
-+
-+static void skge_vpd_write(struct pci_dev *pdev, int cap, u16 offset, u32 val)
-+{
-+	pci_write_config_dword(pdev, cap + PCI_VPD_DATA, val);
-+	pci_write_config_word(pdev, cap + PCI_VPD_ADDR,
-+			      offset | PCI_VPD_ADDR_F);
-+
-+	do {
-+		pci_read_config_word(pdev, cap + PCI_VPD_ADDR, &offset);
-+	} while (offset & PCI_VPD_ADDR_F);
-+}
-+
-+static int skge_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
-+			   u8 *data)
-+{
-+	struct skge_port *skge = netdev_priv(dev);
-+	struct pci_dev *pdev = skge->hw->pdev;
-+	int cap = pci_find_capability(pdev, PCI_CAP_ID_VPD);
-+	int length = eeprom->len;
-+	u16 offset = eeprom->offset;
-+
-+	if (!cap)
-+		return -EINVAL;
-+
-+	eeprom->magic = SKGE_EEPROM_MAGIC;
-+
-+	while (length > 0) {
-+		u32 val = skge_vpd_read(pdev, cap, offset);
-+		int n = min_t(int, length, sizeof(val));
-+
-+		memcpy(data, &val, n);
-+		length -= n;
-+		data += n;
-+		offset += n;
-+	}
-+	return 0;
-+}
-+
-+static int skge_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
-+			   u8 *data)
-+{
-+	struct skge_port *skge = netdev_priv(dev);
-+	struct pci_dev *pdev = skge->hw->pdev;
-+	int cap = pci_find_capability(pdev, PCI_CAP_ID_VPD);
-+	int length = eeprom->len;
-+	u16 offset = eeprom->offset;
-+
-+	if (!cap)
-+		return -EINVAL;
-+
-+	if (eeprom->magic != SKGE_EEPROM_MAGIC)
-+		return -EINVAL;
-+
-+	while (length > 0) {
-+		u32 val;
-+		int n = min_t(int, length, sizeof(val));
-+
-+		if (n < sizeof(val))
-+			val = skge_vpd_read(pdev, cap, offset);
-+		memcpy(&val, data, n);
-+
-+		skge_vpd_write(pdev, cap, offset, val);
-+
-+		length -= n;
-+		data += n;
-+		offset += n;
-+	}
-+	return 0;
-+}
-+
- static const struct ethtool_ops skge_ethtool_ops = {
- 	.get_settings	= skge_get_settings,
- 	.set_settings	= skge_set_settings,
-@@ -810,6 +905,9 @@ static const struct ethtool_ops skge_eth
- 	.set_msglevel	= skge_set_msglevel,
- 	.nway_reset	= skge_nway_reset,
- 	.get_link	= ethtool_op_get_link,
-+	.get_eeprom_len	= skge_get_eeprom_len,
-+	.get_eeprom	= skge_get_eeprom,
-+	.set_eeprom	= skge_set_eeprom,
- 	.get_ringparam	= skge_get_ring_param,
- 	.set_ringparam	= skge_set_ring_param,
- 	.get_pauseparam = skge_get_pauseparam,
---- a/drivers/net/skge.h	2007-10-16 11:23:14.000000000 -0700
-+++ b/drivers/net/skge.h	2007-10-16 11:23:17.000000000 -0700
-@@ -1,5 +1,5 @@
- /*
-- * Definitions for the new Marvell Yukon / SysKonenct driver.
-+ * Definitions for the new Marvell Yukon / SysKonnect driver.
-  */
- #ifndef _SKGE_H
- #define _SKGE_H
-@@ -8,8 +8,10 @@
- #define PCI_DEV_REG1	0x40
- #define  PCI_PHY_COMA	0x8000000
- #define  PCI_VIO	0x2000000
-+
- #define PCI_DEV_REG2	0x44
--#define  PCI_REV_DESC	 0x4
-+#define  PCI_VPD_ROM_SZ	7L<<14	/* VPD ROM size 0=256, 1=512, ... */
-+#define  PCI_REV_DESC	1<<2	/* Reverse Descriptor bytes */
+-static void xm_check_link(struct net_device *dev)
++static int xm_check_link(struct net_device *dev)
+ {
+ 	struct skge_port *skge = netdev_priv(dev);
+ 	struct skge_hw *hw = skge->hw;
+@@ -1350,25 +1346,25 @@ static void xm_check_link(struct net_dev
+ 	u16 status;
  
- #define PCI_STATUS_ERROR_BITS (PCI_STATUS_DETECTED_PARITY | \
- 			       PCI_STATUS_SIG_SYSTEM_ERROR | \
+ 	/* read twice because of latch */
+-	(void) xm_phy_read(hw, port, PHY_XMAC_STAT);
++	xm_phy_read(hw, port, PHY_XMAC_STAT);
+ 	status = xm_phy_read(hw, port, PHY_XMAC_STAT);
+ 
+ 	if ((status & PHY_ST_LSYNC) == 0) {
+ 		xm_link_down(hw, port);
+-		return;
++		return 0;
+ 	}
+ 
+ 	if (skge->autoneg == AUTONEG_ENABLE) {
+ 		u16 lpa, res;
+ 
+ 		if (!(status & PHY_ST_AN_OVER))
+-			return;
++			return 0;
+ 
+ 		lpa = xm_phy_read(hw, port, PHY_XMAC_AUNE_LP);
+ 		if (lpa & PHY_B_AN_RF) {
+ 			printk(KERN_NOTICE PFX "%s: remote fault\n",
+ 			       dev->name);
+-			return;
++			return 0;
+ 		}
+ 
+ 		res = xm_phy_read(hw, port, PHY_XMAC_RES_ABI);
+@@ -1384,7 +1380,7 @@ static void xm_check_link(struct net_dev
+ 		default:
+ 			printk(KERN_NOTICE PFX "%s: duplex mismatch\n",
+ 			       dev->name);
+-			return;
++			return 0;
+ 		}
+ 
+ 		/* We are using IEEE 802.3z/D5.0 Table 37-4 */
+@@ -1408,11 +1404,14 @@ static void xm_check_link(struct net_dev
+ 
+ 	if (!netif_carrier_ok(dev))
+ 		genesis_link_up(skge);
++	return 1;
+ }
+ 
+ /* Poll to check for link coming up.
++ *
+  * Since internal PHY is wired to a level triggered pin, can't
+- * get an interrupt when carrier is detected.
++ * get an interrupt when carrier is detected, need to poll for
++ * link coming up.
+  */
+ static void xm_link_timer(unsigned long arg)
+ {
+@@ -1420,29 +1419,35 @@ static void xm_link_timer(unsigned long 
+ 	struct net_device *dev = skge->netdev;
+  	struct skge_hw *hw = skge->hw;
+ 	int port = skge->port;
++	int i;
++	unsigned long flags;
+ 
+ 	if (!netif_running(dev))
+ 		return;
+ 
+-	if (netif_carrier_ok(dev)) {
++	spin_lock_irqsave(&hw->phy_lock, flags);
++
++	/*
++	 * Verify that the link by checking GPIO register three times.
++	 * This pin has the signal from the link_sync pin connected to it.
++	 */
++	for (i = 0; i < 3; i++) {
++		if (xm_read16(hw, port, XM_GP_PORT) & XM_GP_INP_ASS)
++			goto link_down;
++	}
++
++        /* Re-enable interrupt to detect link down */
++	if (xm_check_link(dev)) {
++		u16 msk = xm_read16(hw, port, XM_IMSK);
++		msk &= ~XM_IS_INP_ASS;
++		xm_write16(hw, port, XM_IMSK, msk);
+ 		xm_read16(hw, port, XM_ISRC);
+-		if (!(xm_read16(hw, port, XM_ISRC) & XM_IS_INP_ASS))
+-			goto nochange;
+ 	} else {
+-		if (xm_read32(hw, port, XM_GP_PORT) & XM_GP_INP_ASS)
+-			goto nochange;
+-		xm_read16(hw, port, XM_ISRC);
+-		if (xm_read16(hw, port, XM_ISRC) & XM_IS_INP_ASS)
+-			goto nochange;
++link_down:
++		mod_timer(&skge->link_timer,
++			  round_jiffies(jiffies + LINK_HZ));
+ 	}
+-
+-	spin_lock(&hw->phy_lock);
+-	xm_check_link(dev);
+-	spin_unlock(&hw->phy_lock);
+-
+-nochange:
+-	if (netif_running(dev))
+-		mod_timer(&skge->link_timer, jiffies + LINK_HZ);
++	spin_unlock_irqrestore(&hw->phy_lock, flags);
+ }
+ 
+ static void genesis_mac_init(struct skge_hw *hw, int port)
+@@ -1686,14 +1691,16 @@ static void genesis_mac_intr(struct skge
+ 		printk(KERN_DEBUG PFX "%s: mac interrupt status 0x%x\n",
+ 		       skge->netdev->name, status);
+ 
+-	if (hw->phy_type == SK_PHY_XMAC &&
+-	    (status & (XM_IS_INP_ASS | XM_IS_LIPA_RC)))
+-		xm_link_down(hw, port);
++	if (hw->phy_type == SK_PHY_XMAC && (status & XM_IS_INP_ASS)) {
++  		xm_link_down(hw, port);
++		mod_timer(&skge->link_timer, jiffies + 1);
++	}
+ 
+ 	if (status & XM_IS_TXF_UR) {
+ 		xm_write32(hw, port, XM_MODE, XM_MD_FTF);
+ 		++skge->net_stats.tx_fifo_errors;
+ 	}
++
+ 	if (status & XM_IS_RXF_OV) {
+ 		xm_write32(hw, port, XM_MODE, XM_MD_FRF);
+ 		++skge->net_stats.rx_fifo_errors;
+@@ -1753,11 +1760,12 @@ static void genesis_link_up(struct skge_
+ 	}
+ 
+ 	xm_write32(hw, port, XM_MODE, mode);
+-	msk = XM_DEF_MSK;
+-	if (hw->phy_type != SK_PHY_XMAC)
+-		msk |= XM_IS_INP_ASS;	/* disable GP0 interrupt bit */
+ 
++	/* Turn on detection of Tx underrun, Rx overrun */
++	msk = xm_read16(hw, port, XM_IMSK);
++	msk &= ~(XM_IS_RXF_OV | XM_IS_TXF_UR);
+ 	xm_write16(hw, port, XM_IMSK, msk);
++
+ 	xm_read16(hw, port, XM_ISRC);
+ 
+ 	/* get MMU Command Reg. */
+--- a/drivers/net/skge.h	2007-10-16 10:57:54.000000000 -0700
++++ b/drivers/net/skge.h	2007-10-16 12:14:09.000000000 -0700
+@@ -2191,11 +2191,9 @@ enum {
+ 	XM_IS_TXF_UR	= 1<<2,	/* Bit  2:	Transmit FIFO Underrun */
+ 	XM_IS_TX_COMP	= 1<<1,	/* Bit  1:	Frame Tx Complete */
+ 	XM_IS_RX_COMP	= 1<<0,	/* Bit  0:	Frame Rx Complete */
+-};
+-
+-#define XM_DEF_MSK	(~(XM_IS_INP_ASS | XM_IS_LIPA_RC | \
+-			   XM_IS_RXF_OV | XM_IS_TXF_UR))
+ 
++	XM_IMSK_DISABLE	= 0xffff,
++};
+ 
+ /*	XM_HW_CFG	16 bit r/w	Hardware Config Register */
+ enum {
 
 -- 
 Stephen Hemminger <shemminger@linux-foundation.org>
