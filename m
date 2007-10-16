@@ -1,75 +1,59 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: Multicast problem
-Date: Tue, 16 Oct 2007 13:13:24 -0700
-Message-ID: <20071016131324.0bad17a5@freepuppy.rosehill>
-References: <OF169A6A3A.47A4FACF-ON88257376.006C1CEA-88257376.006C7CC8@us.ibm.com>
-	<002701c81030$31908a90$04ac10ac@Jocke>
+From: Andrew McDonald <andrew@mcdonald.org.uk>
+Subject: Re: [patch] ipv6.7: IPV6_ROUTER_ALERT sockopt correction
+Date: Tue, 16 Oct 2007 21:15:50 +0100
+Message-ID: <20071016201550.GC28453@mcdonald.org.uk>
+References: <20071014111147.GE20850@mcdonald.org.uk> <Pine.LNX.4.64.0710150849580.17284@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "'David Stevens'" <dlstevens@us.ibm.com>,
-	"'Netdev'" <netdev@vger.kernel.org>
-To: "Joakim Tjernlund" <joakim.tjernlund@transmode.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Pekka Savola <pekkas@netcore.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:50133 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934944AbXJPUNm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 16:13:42 -0400
-In-Reply-To: <002701c81030$31908a90$04ac10ac@Jocke>
+Received: from widget.mcdonald.org.uk ([81.187.72.227]:2448 "EHLO
+	widget.mcdonald.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965475AbXJPUPx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 16:15:53 -0400
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.64.0710150849580.17284@netcore.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 16 Oct 2007 22:07:35 +0200
-"Joakim Tjernlund" <joakim.tjernlund@transmode.se> wrote:
+On Mon, Oct 15, 2007 at 08:51:16AM +0300, Pekka Savola wrote:
+> Took off linux-man from cc:,
+> 
+> On Sun, 14 Oct 2007, Andrew McDonald wrote:
+> >+The tapped packets are not forwarded by the kernel, it is the
+> >+user's responsibility to send them out again.
+> 
+> This is probably incompliant (and from users' perspective, 
+> unacceptible) behaviour that IMHO should be fixed.
 
-> > -----Original Message-----
-> > From: David Stevens [mailto:dlstevens@us.ibm.com] 
-> > Sent: den 16 oktober 2007 21:46
-> > To: Joakim Tjernlund
-> > Cc: 'Netdev'; netdev-owner@vger.kernel.org
-> > Subject: RE: Multicast problem
-> > 
-> > > dev_mcast and igmp looks:
-> > > root@Challenger:/proc/net# m dev_mcast
-> > > 1    eth0            1     0     01005e000001
-> > > 2    eth1            1     0     01005e000001
-> > 
-> >         These are the hardware multicast addresses for
-> > 224.0.0.1 (so, correct).
-> > 
-> > > root@Challenger:/proc/net# m igmp
-> > > Idx     Device    : Count Querier       Group    Users 
-> > Timer    Reporter
-> > > 1       eth0      :     1      V3
-> > >                                 E0000001     1 0:00000000 0
-> > > 2       eth1      :     1      V2
-> > >                                 E0000001     1 0:00000000 0
-> > > 4       lo        :     0      V3
-> > >                                 E0000001     1 0:00000000 0
-> > 
-> >         ...and these are the group memberships for 224.0.0.1, so
-> > also correct. This should receive and answer pings to 224.0.0.1
-> > as long as you don't have ICMP set to ignore broadcasts. You should
-> > not need to put the device in promiscuous mode for a ping of
-> > 224.0.0.1 to work, so if you do, then you have a driver, device
-> > or switch problem.
-> >         None of these interfaces have memberships in the OSPF groups,
-> > so if you had OSPF running when you did this, it didn't join.
-> > 
-> >                                                         +-DLS
-> > 
-> 
-> OK, so from all this and earlier mail I think that the device driver don't
-> receive multicast pkgs. Tomorrow I will try the real OSPF test case with
-> promisc mode enabled, se if that works. If so, it means there is
-> a bug in the drivers(ucc_geth.c) set_multicast_list() function.
-> 
-> Thank you for helping me to narrow it down.
-> 
->  Jocke
+I disagree. This is basically the behaviour you want.
 
-You can test multicast easily standalone with iperf:
-http://dast.nlanr.net/Projects/Iperf/#multicast
+It might be an improvement to that sentence to simply say: "The tapped
+packets are not forwarded by the kernel." The second half of the
+sentence possibly suggests that you always want to forward the packet
+after router alert processing.
+
+For why you don't want to packets to be forwarded, consider a simple
+example that applies to something like RSVP:
+- packet hits router, identified as potentially interesting from router
+alert option
+- packet passed to user space, confirmed as really interesting and
+processed
+- create new packet (based on the one that came in and the RSVP
+processing you've done) and send it out
+
+You don't want the original packet you received to be forwarded, only
+your new packet.
+
+There is the possible case that you decide that you aren't interested
+in the packet once it has reached userspace, in which case the user
+will need to forward it themself. I can imagine ways of improving this
+(e.g. LSF/BPF filters that run before deciding not to forward the
+packet to reduce the likelihood of intercepting 'uninteresting'
+packets), but they would not completely remove this situation.
 
 -- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+Andrew McDonald
+E-mail: andrew@mcdonald.org.uk
+http://www.mcdonald.org.uk/andrew/
