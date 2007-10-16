@@ -1,74 +1,48 @@
-From: Sebastian Siewior <netdev@ml.breakpoint.cc>
-Subject: [PATCH] [net] fix gianfar (compile and warning)
-Date: Tue, 16 Oct 2007 19:25:05 +0200
-Message-ID: <E1IhqCT-0007Wu-Lz@Chamillionaire.breakpoint.cc>
-Cc: Li Yang <leoli@freescale.com>, netdev@vger.kernel.org,
-	Grant Likely <grant.likely@secretlab.ca>
-To: jeff@garzik.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 & TX offload
+Date: Tue, 16 Oct 2007 19:25:17 +0200
+Message-ID: <20071016172517.GA8120@electric-eye.fr.zoreil.com>
+References: <4714D785.3000402@vlnb.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Vladislav Bolkhovitin <vst@vlnb.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:40386 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759291AbXJPR1i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 13:27:38 -0400
+Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:42935 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759311AbXJPR2l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 13:28:41 -0400
+Content-Disposition: inline
+In-Reply-To: <4714D785.3000402@vlnb.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Currently it does not compile because a not declared variable is used.
-struct net_device_stats in driver's private struct is also unsued.
-This patch uses (hopefully) the right stats.
+(please remove l-k from the Cc:, this ought to be sent to netdev)
 
-Cc: Li Yang <leoli@freescale.com>
-Signed-off-by: Sebastian Siewior <bigeasy@linutronix.de>
----
- drivers/net/gianfar.c |    7 +++----
- drivers/net/gianfar.h |    1 -
- 2 files changed, 3 insertions(+), 5 deletions(-)
+Vladislav Bolkhovitin <vst@vlnb.net> :
+>
+> I've recently bought Realtek RTL8169S-32 chip based Gigabit Ethernet card:
+> 
+> # lspci -vv
+[...]
+> I've noticed that all TX offload features (tx-checksumming, 
+> scatter-gather and TSO) are disabled by default and should be manually 
+> enabled by ethtool. I wonder, is there any particular reason for that? 
 
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 558440c..cc288d8 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -1237,8 +1237,6 @@ static int gfar_change_mtu(struct net_device *dev, int new_mtu)
-  * starting over will fix the problem. */
- static void gfar_timeout(struct net_device *dev)
- {
--	struct gfar_private *priv = netdev_priv(dev);
--
- 	dev->stats.tx_errors++;
- 
- 	if (dev->flags & IFF_UP) {
-@@ -1344,8 +1342,9 @@ struct sk_buff * gfar_new_skb(struct net_device *dev, struct rxbd8 *bdp)
- 	return skb;
- }
- 
--static inline void count_errors(unsigned short status, struct gfar_private *priv)
-+static inline void count_errors(unsigned short status, struct net_device *dev)
- {
-+	struct gfar_private *priv = netdev_priv(dev);
- 	struct net_device_stats *stats = &dev->stats;
- 	struct gfar_extra_stats *estats = &priv->extra_stats;
- 
-@@ -1539,7 +1538,7 @@ int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit)
- 
- 			dev->stats.rx_bytes += pkt_len;
- 		} else {
--			count_errors(bdp->status, priv);
-+			count_errors(bdp->status, dev);
- 
- 			if (skb)
- 				dev_kfree_skb_any(skb);
-diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
-index c16cc8b..46cd773 100644
---- a/drivers/net/gianfar.h
-+++ b/drivers/net/gianfar.h
-@@ -749,7 +749,6 @@ struct gfar_private {
- 	uint32_t msg_enable;
- 
- 	/* Network Statistics */
--	struct net_device_stats stats;
- 	struct gfar_extra_stats extra_stats;
- };
- 
+As far as I can tell, it is mostly a lack of pressure from the users and
+my desire to avoid a change of behavior.
+
+> Why they are not enabled by default as it was done for e1000 or tg3? Are 
+> there any hidden drawbacks in enabling them?
+
+None that I know of. I had not noticed a huge difference and people did
+not comment a lot either...
+
+> Those offload options are definitely work. They give in my setup (32-bit 
+> 66MHz PCI, Xeon 1.7GHz CPU, open-iscsi) CPU offload from 75% to 45% and 
+> data write throughput improvement from 55MB/s to 59MB/s.
+
+...but your datapoint is welcome.
+
 -- 
-1.5.3.4
-
+Ueimor
