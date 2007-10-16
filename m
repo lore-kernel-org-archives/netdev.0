@@ -1,78 +1,66 @@
-From: "Joakim Tjernlund" <joakim.tjernlund@transmode.se>
-Subject: RE: Multicast problem
-Date: Tue, 16 Oct 2007 19:31:24 +0200
-Message-ID: <002501c8101a$6005dc10$04ac10ac@Jocke>
-References: <OFB45E9AE1.F95FB289-ON88257376.005D25C3-88257376.005DB70D@us.ibm.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: MSI interrupts and disable_irq
+Date: Tue, 16 Oct 2007 13:39:02 -0400
+Message-ID: <4714F736.5000302@pobox.com>
+References: <46FC15A9.1070803@nvidia.com> <46FDBCB4.9090802@pobox.com> <4710901F.8010206@colorfullife.com> <4713E713.9060702@pobox.com> <86802c440710161023p3fbd6832gdb6d10a1b5e9d932@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "'Netdev'" <netdev@vger.kernel.org>
-To: "'David Stevens'" <dlstevens@us.ibm.com>
+Cc: Manfred Spraul <manfred@colorfullife.com>,
+	Ayaz Abdulla <aabdulla@nvidia.com>,
+	nedev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Yinghai Lu <yhlu.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.transmode.se ([83.241.175.147]:42018 "EHLO
-	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751631AbXJPRb2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 13:31:28 -0400
-In-Reply-To: <OFB45E9AE1.F95FB289-ON88257376.005D25C3-88257376.005DB70D@us.ibm.com>
+Received: from srv5.dvmed.net ([207.36.208.214]:38668 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759111AbXJPRjL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2007 13:39:11 -0400
+In-Reply-To: <86802c440710161023p3fbd6832gdb6d10a1b5e9d932@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: David Stevens [mailto:dlstevens@us.ibm.com] 
-> Sent: den 16 oktober 2007 19:05
-> To: joakim.tjernlund@transmode.se
-> Cc: Netdev
-> Subject: Re: Multicast problem
+Yinghai Lu wrote:
+> On 10/15/07, Jeff Garzik <jgarzik@pobox.com> wrote:
+>> Manfred Spraul wrote:
+>>> Jeff Garzik wrote:
+>>>> I think the scenario you outline is an illustration of the approach's
+>>>> fragility:  disable_irq() is a heavy hammer that originated with INTx,
+>>>> and it relies on a chip-specific disable method (kernel/irq/manage.c)
+>>>> that practically guarantees behavior will vary across MSI/INTx/etc.
+>>>>
+>>> I checked the code: IRQ_DISABLE is implemented in software, i.e.
+>>> handle_level_irq() only calls handle_IRQ_event() [and then the nic irq
+>>> handler] if IRQ_DISABLE is not set.
+>>> OTHO: The last trace looks as if nv_do_nic_poll() is interrupted by an irq.
+>>>
+>>> Perhaps something corrupts dev->irq? The irq is requested with
+>>>    request_irq(np->pci_dev->irq, handler, IRQF_SHARED, dev->name, dev)
+>>> and disabled with
+>>>    disable_irq_lockdep(dev->irq);
+>>>
+>>> Someone around with a MSI capable board? The forcedeth driver does
+>>>    dev->irq = pci_dev->irq
+>>> in nv_probe(), especially before pci_enable_msi().
+>>> Does pci_enable_msi() change pci_dev->irq? Then we would disable the
+>>> wrong interrupt....
+>> Remember, fundamentally MSI-X is a one-to-many relationship, when you
+>> consider a single PCI device might have multiple vectors.
 > 
-> If you have icmp_echo_ignore_broadcasts set to 1, it won't respond to
-> multicasts. That should be all you need to do for 224.0.0.1.
+> msi-x is using other entry
 > 
-> Some smart switches rely on IGMP snooping to determine group 
-> membership,
-> and some of those don't understand IGMPv3, so if you have no v1 or v2 
-> queriers
-> on the network, you can force the IGMP version to be 2 instead of the 
-> default 3
-> by using a sysctl.
-
- Tried forcing igmp from 3 to 2, didn't help
-
-> But that's not the issue for 224.0.0.1, since the 
-> all-hosts group
-> is not reported via IGMP.
+>                if (np->msi_flags & NV_MSI_X_ENABLED)
 > 
-> You might check the contents of /proc/net/igmp and 
-> /proc/net/dev_mcast to
+> enable_irq_lockdep(np->msi_x_entry[NV_MSI_X_VECTOR_ALL].vector);
 
-dev_mcast and igmp looks:
-root@Challenger:/proc/net# m dev_mcast
-1    eth0            1     0     01005e000001
-2    eth1            1     0     01005e000001
+Correct, but the overall point was that MSI-X conceptually conflicts 
+with the existing "lockless" disable_irq() schedule, which was written 
+when there was a one-one relationship between irq, PCI device, and work 
+to be done.
 
-root@Challenger:/proc/net# m igmp
-Idx     Device    : Count Querier       Group    Users Timer    Reporter
-1       eth0      :     1      V3
-                                E0000001     1 0:00000000               0
-2       eth1      :     1      V2
-                                E0000001     1 0:00000000               0
-4       lo        :     0      V3
-                                E0000001     1 0:00000000               0
+	Jeff
 
-I can't tell if that's OK or not.
 
- 
-> make
-> sure they have entries for the group. If so, I'd guess it might be a 
-> driver or device issue.
-
-Could it be some missing kernel config? This is a custom board so I could
-very well miss something I kernel config or user space config.
-
-Thanks for your help, if you have any more ideas you are most welcome
-to share :)
-
- Jocke
-> 
->                                                         +-DLS
 
