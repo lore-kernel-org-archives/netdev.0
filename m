@@ -1,185 +1,465 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 2/12] [IPSEC]: Move tunnel parsing for IPv4 out of xfrm4_input
-Date: Tue, 16 Oct 2007 22:33:10 +0800
-Message-ID: <E1IhnTq-0003GL-00@gondolin.me.apana.org.au>
+Subject: [PATCH 6/12] [IPSEC]: Move type and mode map into xfrm_state.c
+Date: Tue, 16 Oct 2007 22:33:14 +0800
+Message-ID: <E1IhnTu-0003Gn-00@gondolin.me.apana.org.au>
 References: <20071016141843.GA11956@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	Patrick McHardy <kaber@trash.net>,
 	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3012 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:3008 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933115AbXJPOxx (ORCPT
+	with ESMTP id S932937AbXJPOxx (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 10:53:53 -0400
 Received: from gondolin.me.apana.org.au ([192.168.0.6] ident=mail)
 	by arnor.apana.org.au with esmtp (Exim 4.50 #1 (Debian))
-	id 1Ihnnq-0001GY-D8
-	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 00:53:50 +1000
+	id 1Ihnnn-0001GY-IY
+	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 00:53:48 +1000
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Move tunnel parsing for IPv4 out of xfrm4_input
+[IPSEC]: Move type and mode map into xfrm_state.c
 
-This patch moves the tunnel parsing for IPv4 out of xfrm4_input and into
-xfrm4_tunnel.  This change is in line with what IPv6 does and will allow
-us to merge the two input functions.
+The type and mode maps are only used by SAs, not policies.  So it makes
+sense to move them from xfrm_policy.c into xfrm_state.c.  This alos allows
+us to mark xfrm_get_type/xfrm_put_type/xfrm_get_mode/xfrm_put_mode as
+static.
+
+The only other change I've made in the move is to get rid of the casts
+on the request_module call for types.  They're unnecessary because C
+will promote them to ints anyway.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/net/xfrm.h      |    8 ++++++++
- net/ipv4/xfrm4_input.c  |   36 +++++++++++-------------------------
- net/ipv4/xfrm4_tunnel.c |    9 +++++++--
- 3 files changed, 26 insertions(+), 27 deletions(-)
+ include/net/xfrm.h     |    8 --
+ net/xfrm/xfrm_policy.c |  173 -------------------------------------------------
+ net/xfrm/xfrm_state.c  |  170 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 172 insertions(+), 179 deletions(-)
 
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 0e84484..680739f 100644
+index d8974ca..7f156a0 100644
 --- a/include/net/xfrm.h
 +++ b/include/net/xfrm.h
-@@ -1046,7 +1046,15 @@ extern void xfrm_replay_notify(struct xfrm_state *x, int event);
- extern int xfrm_state_mtu(struct xfrm_state *x, int mtu);
- extern int xfrm_init_state(struct xfrm_state *x);
- extern int xfrm_output(struct sk_buff *skb);
-+extern int xfrm4_rcv_encap(struct sk_buff *skb, int nexthdr, __be32 spi,
-+			   int encap_type);
- extern int xfrm4_rcv(struct sk_buff *skb);
-+
-+static inline int xfrm4_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
-+{
-+	return xfrm4_rcv_encap(skb, nexthdr, spi, 0);
-+}
-+
- extern int xfrm4_output(struct sk_buff *skb);
- extern int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family);
- extern int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
-diff --git a/net/ipv4/xfrm4_input.c b/net/ipv4/xfrm4_input.c
-index e9bbfde..5cb0b59 100644
---- a/net/ipv4/xfrm4_input.c
-+++ b/net/ipv4/xfrm4_input.c
-@@ -16,19 +16,6 @@
- #include <net/ip.h>
- #include <net/xfrm.h>
+@@ -228,8 +228,6 @@ struct xfrm_type;
+ struct xfrm_dst;
+ struct xfrm_policy_afinfo {
+ 	unsigned short		family;
+-	struct xfrm_type	*type_map[IPPROTO_MAX];
+-	struct xfrm_mode	*mode_map[XFRM_MODE_MAX];
+ 	struct dst_ops		*dst_ops;
+ 	void			(*garbage_collect)(void);
+ 	int			(*dst_lookup)(struct xfrm_dst **dst, struct flowi *fl);
+@@ -256,6 +254,8 @@ extern int __xfrm_state_delete(struct xfrm_state *x);
  
--static int xfrm4_parse_spi(struct sk_buff *skb, u8 nexthdr, __be32 *spi, __be32 *seq)
--{
--	switch (nexthdr) {
--	case IPPROTO_IPIP:
--	case IPPROTO_IPV6:
--		*spi = ip_hdr(skb)->saddr;
--		*seq = 0;
--		return 0;
--	}
--
--	return xfrm_parse_spi(skb, nexthdr, spi, seq);
--}
--
- #ifdef CONFIG_NETFILTER
- static inline int xfrm4_rcv_encap_finish(struct sk_buff *skb)
+ struct xfrm_state_afinfo {
+ 	unsigned short		family;
++	struct xfrm_type	*type_map[IPPROTO_MAX];
++	struct xfrm_mode	*mode_map[XFRM_MODE_MAX];
+ 	int			(*init_flags)(struct xfrm_state *x);
+ 	void			(*init_tempsel)(struct xfrm_state *x, struct flowi *fl,
+ 						struct xfrm_tmpl *tmpl,
+@@ -295,8 +295,6 @@ struct xfrm_type
+ 
+ extern int xfrm_register_type(struct xfrm_type *type, unsigned short family);
+ extern int xfrm_unregister_type(struct xfrm_type *type, unsigned short family);
+-extern struct xfrm_type *xfrm_get_type(u8 proto, unsigned short family);
+-extern void xfrm_put_type(struct xfrm_type *type);
+ 
+ struct xfrm_mode {
+ 	int (*input)(struct xfrm_state *x, struct sk_buff *skb);
+@@ -320,8 +318,6 @@ struct xfrm_mode {
+ 
+ extern int xfrm_register_mode(struct xfrm_mode *mode, int family);
+ extern int xfrm_unregister_mode(struct xfrm_mode *mode, int family);
+-extern struct xfrm_mode *xfrm_get_mode(unsigned int encap, int family);
+-extern void xfrm_put_mode(struct xfrm_mode *mode);
+ 
+ struct xfrm_tmpl
  {
-@@ -46,28 +33,29 @@ drop:
- }
- #endif
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index af27c19..ca24c90 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -49,8 +49,6 @@ static DEFINE_SPINLOCK(xfrm_policy_gc_lock);
  
--static int xfrm4_rcv_encap(struct sk_buff *skb, __u16 encap_type)
-+int xfrm4_rcv_encap(struct sk_buff *skb, int nexthdr, __be32 spi,
-+		    int encap_type)
- {
--	__be32 spi, seq;
-+	int err;
-+	__be32 seq;
- 	struct xfrm_state *xfrm_vec[XFRM_MAX_DEPTH];
- 	struct xfrm_state *x;
- 	int xfrm_nr = 0;
- 	int decaps = 0;
--	int err = xfrm4_parse_spi(skb, ip_hdr(skb)->protocol, &spi, &seq);
- 	unsigned int nhoff = offsetof(struct iphdr, protocol);
+ static struct xfrm_policy_afinfo *xfrm_policy_get_afinfo(unsigned short family);
+ static void xfrm_policy_put_afinfo(struct xfrm_policy_afinfo *afinfo);
+-static struct xfrm_policy_afinfo *xfrm_policy_lock_afinfo(unsigned int family);
+-static void xfrm_policy_unlock_afinfo(struct xfrm_policy_afinfo *afinfo);
  
--	if (err != 0)
-+	seq = 0;
-+	if (!spi && (err = xfrm_parse_spi(skb, nexthdr, &spi, &seq)) != 0)
- 		goto drop;
- 
- 	do {
- 		const struct iphdr *iph = ip_hdr(skb);
--		int nexthdr;
- 
- 		if (xfrm_nr == XFRM_MAX_DEPTH)
- 			goto drop;
- 
- 		x = xfrm_state_lookup((xfrm_address_t *)&iph->daddr, spi,
--				iph->protocol != IPPROTO_IPV6 ? iph->protocol : IPPROTO_IPIP, AF_INET);
-+				      nexthdr, AF_INET);
- 		if (x == NULL)
- 			goto drop;
- 
-@@ -111,7 +99,7 @@ static int xfrm4_rcv_encap(struct sk_buff *skb, __u16 encap_type)
- 			break;
- 		}
- 
--		err = xfrm_parse_spi(skb, ip_hdr(skb)->protocol, &spi, &seq);
-+		err = xfrm_parse_spi(skb, nexthdr, &spi, &seq);
- 		if (err < 0)
- 			goto drop;
- 	} while (!err);
-@@ -165,6 +153,7 @@ drop:
- 	kfree_skb(skb);
+ static inline int
+ __xfrm4_selector_match(struct xfrm_selector *sel, struct flowi *fl)
+@@ -86,72 +84,6 @@ int xfrm_selector_match(struct xfrm_selector *sel, struct flowi *fl,
  	return 0;
  }
-+EXPORT_SYMBOL(xfrm4_rcv_encap);
  
- /* If it's a keepalive packet, then just eat it.
-  * If it's an encapsulated packet, then pass it to the
-@@ -252,11 +241,8 @@ int xfrm4_udp_encap_rcv(struct sock *sk, struct sk_buff *skb)
- 	__skb_pull(skb, len);
- 	skb_reset_transport_header(skb);
- 
--	/* modify the protocol (it's ESP!) */
--	iph->protocol = IPPROTO_ESP;
+-int xfrm_register_type(struct xfrm_type *type, unsigned short family)
+-{
+-	struct xfrm_policy_afinfo *afinfo = xfrm_policy_lock_afinfo(family);
+-	struct xfrm_type **typemap;
+-	int err = 0;
 -
- 	/* process ESP */
--	ret = xfrm4_rcv_encap(skb, encap_type);
-+	ret = xfrm4_rcv_encap(skb, IPPROTO_ESP, 0, encap_type);
- 	return ret;
- 
- drop:
-@@ -266,7 +252,7 @@ drop:
- 
- int xfrm4_rcv(struct sk_buff *skb)
+-	if (unlikely(afinfo == NULL))
+-		return -EAFNOSUPPORT;
+-	typemap = afinfo->type_map;
+-
+-	if (likely(typemap[type->proto] == NULL))
+-		typemap[type->proto] = type;
+-	else
+-		err = -EEXIST;
+-	xfrm_policy_unlock_afinfo(afinfo);
+-	return err;
+-}
+-EXPORT_SYMBOL(xfrm_register_type);
+-
+-int xfrm_unregister_type(struct xfrm_type *type, unsigned short family)
+-{
+-	struct xfrm_policy_afinfo *afinfo = xfrm_policy_lock_afinfo(family);
+-	struct xfrm_type **typemap;
+-	int err = 0;
+-
+-	if (unlikely(afinfo == NULL))
+-		return -EAFNOSUPPORT;
+-	typemap = afinfo->type_map;
+-
+-	if (unlikely(typemap[type->proto] != type))
+-		err = -ENOENT;
+-	else
+-		typemap[type->proto] = NULL;
+-	xfrm_policy_unlock_afinfo(afinfo);
+-	return err;
+-}
+-EXPORT_SYMBOL(xfrm_unregister_type);
+-
+-struct xfrm_type *xfrm_get_type(u8 proto, unsigned short family)
+-{
+-	struct xfrm_policy_afinfo *afinfo;
+-	struct xfrm_type **typemap;
+-	struct xfrm_type *type;
+-	int modload_attempted = 0;
+-
+-retry:
+-	afinfo = xfrm_policy_get_afinfo(family);
+-	if (unlikely(afinfo == NULL))
+-		return NULL;
+-	typemap = afinfo->type_map;
+-
+-	type = typemap[proto];
+-	if (unlikely(type && !try_module_get(type->owner)))
+-		type = NULL;
+-	if (!type && !modload_attempted) {
+-		xfrm_policy_put_afinfo(afinfo);
+-		request_module("xfrm-type-%d-%d",
+-			       (int) family, (int) proto);
+-		modload_attempted = 1;
+-		goto retry;
+-	}
+-
+-	xfrm_policy_put_afinfo(afinfo);
+-	return type;
+-}
+-
+ int xfrm_dst_lookup(struct xfrm_dst **dst, struct flowi *fl,
+ 		    unsigned short family)
  {
--	return xfrm4_rcv_encap(skb, 0);
-+	return xfrm4_rcv_spi(skb, ip_hdr(skb)->protocol, 0);
+@@ -170,94 +102,6 @@ int xfrm_dst_lookup(struct xfrm_dst **dst, struct flowi *fl,
+ }
+ EXPORT_SYMBOL(xfrm_dst_lookup);
+ 
+-void xfrm_put_type(struct xfrm_type *type)
+-{
+-	module_put(type->owner);
+-}
+-
+-int xfrm_register_mode(struct xfrm_mode *mode, int family)
+-{
+-	struct xfrm_policy_afinfo *afinfo;
+-	struct xfrm_mode **modemap;
+-	int err;
+-
+-	if (unlikely(mode->encap >= XFRM_MODE_MAX))
+-		return -EINVAL;
+-
+-	afinfo = xfrm_policy_lock_afinfo(family);
+-	if (unlikely(afinfo == NULL))
+-		return -EAFNOSUPPORT;
+-
+-	err = -EEXIST;
+-	modemap = afinfo->mode_map;
+-	if (likely(modemap[mode->encap] == NULL)) {
+-		modemap[mode->encap] = mode;
+-		err = 0;
+-	}
+-
+-	xfrm_policy_unlock_afinfo(afinfo);
+-	return err;
+-}
+-EXPORT_SYMBOL(xfrm_register_mode);
+-
+-int xfrm_unregister_mode(struct xfrm_mode *mode, int family)
+-{
+-	struct xfrm_policy_afinfo *afinfo;
+-	struct xfrm_mode **modemap;
+-	int err;
+-
+-	if (unlikely(mode->encap >= XFRM_MODE_MAX))
+-		return -EINVAL;
+-
+-	afinfo = xfrm_policy_lock_afinfo(family);
+-	if (unlikely(afinfo == NULL))
+-		return -EAFNOSUPPORT;
+-
+-	err = -ENOENT;
+-	modemap = afinfo->mode_map;
+-	if (likely(modemap[mode->encap] == mode)) {
+-		modemap[mode->encap] = NULL;
+-		err = 0;
+-	}
+-
+-	xfrm_policy_unlock_afinfo(afinfo);
+-	return err;
+-}
+-EXPORT_SYMBOL(xfrm_unregister_mode);
+-
+-struct xfrm_mode *xfrm_get_mode(unsigned int encap, int family)
+-{
+-	struct xfrm_policy_afinfo *afinfo;
+-	struct xfrm_mode *mode;
+-	int modload_attempted = 0;
+-
+-	if (unlikely(encap >= XFRM_MODE_MAX))
+-		return NULL;
+-
+-retry:
+-	afinfo = xfrm_policy_get_afinfo(family);
+-	if (unlikely(afinfo == NULL))
+-		return NULL;
+-
+-	mode = afinfo->mode_map[encap];
+-	if (unlikely(mode && !try_module_get(mode->owner)))
+-		mode = NULL;
+-	if (!mode && !modload_attempted) {
+-		xfrm_policy_put_afinfo(afinfo);
+-		request_module("xfrm-mode-%d-%d", family, encap);
+-		modload_attempted = 1;
+-		goto retry;
+-	}
+-
+-	xfrm_policy_put_afinfo(afinfo);
+-	return mode;
+-}
+-
+-void xfrm_put_mode(struct xfrm_mode *mode)
+-{
+-	module_put(mode->owner);
+-}
+-
+ static inline unsigned long make_jiffies(long secs)
+ {
+ 	if (secs >= (MAX_SCHEDULE_TIMEOUT-1)/HZ)
+@@ -2213,23 +2057,6 @@ static void xfrm_policy_put_afinfo(struct xfrm_policy_afinfo *afinfo)
+ 	read_unlock(&xfrm_policy_afinfo_lock);
  }
  
- EXPORT_SYMBOL(xfrm4_rcv);
-diff --git a/net/ipv4/xfrm4_tunnel.c b/net/ipv4/xfrm4_tunnel.c
-index 83e9580..3268451 100644
---- a/net/ipv4/xfrm4_tunnel.c
-+++ b/net/ipv4/xfrm4_tunnel.c
-@@ -48,20 +48,25 @@ static struct xfrm_type ipip_type = {
- 	.output		= ipip_output
- };
+-static struct xfrm_policy_afinfo *xfrm_policy_lock_afinfo(unsigned int family)
+-{
+-	struct xfrm_policy_afinfo *afinfo;
+-	if (unlikely(family >= NPROTO))
+-		return NULL;
+-	write_lock_bh(&xfrm_policy_afinfo_lock);
+-	afinfo = xfrm_policy_afinfo[family];
+-	if (unlikely(!afinfo))
+-		write_unlock_bh(&xfrm_policy_afinfo_lock);
+-	return afinfo;
+-}
+-
+-static void xfrm_policy_unlock_afinfo(struct xfrm_policy_afinfo *afinfo)
+-{
+-	write_unlock_bh(&xfrm_policy_afinfo_lock);
+-}
+-
+ static int xfrm_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
+ {
+ 	struct net_device *dev = ptr;
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 344f0a6..dc438f2 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -187,6 +187,176 @@ int __xfrm_state_delete(struct xfrm_state *x);
+ int km_query(struct xfrm_state *x, struct xfrm_tmpl *t, struct xfrm_policy *pol);
+ void km_state_expired(struct xfrm_state *x, int hard, u32 pid);
  
-+static int xfrm_tunnel_rcv(struct sk_buff *skb)
++static struct xfrm_state_afinfo *xfrm_state_lock_afinfo(unsigned int family)
 +{
-+	return xfrm4_rcv_spi(skb, IPPROTO_IP, ip_hdr(skb)->saddr);
++	struct xfrm_state_afinfo *afinfo;
++	if (unlikely(family >= NPROTO))
++		return NULL;
++	write_lock_bh(&xfrm_state_afinfo_lock);
++	afinfo = xfrm_state_afinfo[family];
++	if (unlikely(!afinfo))
++		write_unlock_bh(&xfrm_state_afinfo_lock);
++	return afinfo;
 +}
 +
- static int xfrm_tunnel_err(struct sk_buff *skb, u32 info)
++static void xfrm_state_unlock_afinfo(struct xfrm_state_afinfo *afinfo)
++{
++	write_unlock_bh(&xfrm_state_afinfo_lock);
++}
++
++int xfrm_register_type(struct xfrm_type *type, unsigned short family)
++{
++	struct xfrm_state_afinfo *afinfo = xfrm_state_lock_afinfo(family);
++	struct xfrm_type **typemap;
++	int err = 0;
++
++	if (unlikely(afinfo == NULL))
++		return -EAFNOSUPPORT;
++	typemap = afinfo->type_map;
++
++	if (likely(typemap[type->proto] == NULL))
++		typemap[type->proto] = type;
++	else
++		err = -EEXIST;
++	xfrm_state_unlock_afinfo(afinfo);
++	return err;
++}
++EXPORT_SYMBOL(xfrm_register_type);
++
++int xfrm_unregister_type(struct xfrm_type *type, unsigned short family)
++{
++	struct xfrm_state_afinfo *afinfo = xfrm_state_lock_afinfo(family);
++	struct xfrm_type **typemap;
++	int err = 0;
++
++	if (unlikely(afinfo == NULL))
++		return -EAFNOSUPPORT;
++	typemap = afinfo->type_map;
++
++	if (unlikely(typemap[type->proto] != type))
++		err = -ENOENT;
++	else
++		typemap[type->proto] = NULL;
++	xfrm_state_unlock_afinfo(afinfo);
++	return err;
++}
++EXPORT_SYMBOL(xfrm_unregister_type);
++
++static struct xfrm_type *xfrm_get_type(u8 proto, unsigned short family)
++{
++	struct xfrm_state_afinfo *afinfo;
++	struct xfrm_type **typemap;
++	struct xfrm_type *type;
++	int modload_attempted = 0;
++
++retry:
++	afinfo = xfrm_state_get_afinfo(family);
++	if (unlikely(afinfo == NULL))
++		return NULL;
++	typemap = afinfo->type_map;
++
++	type = typemap[proto];
++	if (unlikely(type && !try_module_get(type->owner)))
++		type = NULL;
++	if (!type && !modload_attempted) {
++		xfrm_state_put_afinfo(afinfo);
++		request_module("xfrm-type-%d-%d", family, proto);
++		modload_attempted = 1;
++		goto retry;
++	}
++
++	xfrm_state_put_afinfo(afinfo);
++	return type;
++}
++
++static void xfrm_put_type(struct xfrm_type *type)
++{
++	module_put(type->owner);
++}
++
++int xfrm_register_mode(struct xfrm_mode *mode, int family)
++{
++	struct xfrm_state_afinfo *afinfo;
++	struct xfrm_mode **modemap;
++	int err;
++
++	if (unlikely(mode->encap >= XFRM_MODE_MAX))
++		return -EINVAL;
++
++	afinfo = xfrm_state_lock_afinfo(family);
++	if (unlikely(afinfo == NULL))
++		return -EAFNOSUPPORT;
++
++	err = -EEXIST;
++	modemap = afinfo->mode_map;
++	if (likely(modemap[mode->encap] == NULL)) {
++		modemap[mode->encap] = mode;
++		err = 0;
++	}
++
++	xfrm_state_unlock_afinfo(afinfo);
++	return err;
++}
++EXPORT_SYMBOL(xfrm_register_mode);
++
++int xfrm_unregister_mode(struct xfrm_mode *mode, int family)
++{
++	struct xfrm_state_afinfo *afinfo;
++	struct xfrm_mode **modemap;
++	int err;
++
++	if (unlikely(mode->encap >= XFRM_MODE_MAX))
++		return -EINVAL;
++
++	afinfo = xfrm_state_lock_afinfo(family);
++	if (unlikely(afinfo == NULL))
++		return -EAFNOSUPPORT;
++
++	err = -ENOENT;
++	modemap = afinfo->mode_map;
++	if (likely(modemap[mode->encap] == mode)) {
++		modemap[mode->encap] = NULL;
++		err = 0;
++	}
++
++	xfrm_state_unlock_afinfo(afinfo);
++	return err;
++}
++EXPORT_SYMBOL(xfrm_unregister_mode);
++
++static struct xfrm_mode *xfrm_get_mode(unsigned int encap, int family)
++{
++	struct xfrm_state_afinfo *afinfo;
++	struct xfrm_mode *mode;
++	int modload_attempted = 0;
++
++	if (unlikely(encap >= XFRM_MODE_MAX))
++		return NULL;
++
++retry:
++	afinfo = xfrm_state_get_afinfo(family);
++	if (unlikely(afinfo == NULL))
++		return NULL;
++
++	mode = afinfo->mode_map[encap];
++	if (unlikely(mode && !try_module_get(mode->owner)))
++		mode = NULL;
++	if (!mode && !modload_attempted) {
++		xfrm_state_put_afinfo(afinfo);
++		request_module("xfrm-mode-%d-%d", family, encap);
++		modload_attempted = 1;
++		goto retry;
++	}
++
++	xfrm_state_put_afinfo(afinfo);
++	return mode;
++}
++
++static void xfrm_put_mode(struct xfrm_mode *mode)
++{
++	module_put(mode->owner);
++}
++
+ static void xfrm_state_gc_destroy(struct xfrm_state *x)
  {
- 	return -ENOENT;
- }
- 
- static struct xfrm_tunnel xfrm_tunnel_handler = {
--	.handler	=	xfrm4_rcv,
-+	.handler	=	xfrm_tunnel_rcv,
- 	.err_handler	=	xfrm_tunnel_err,
- 	.priority	=	2,
- };
- 
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- static struct xfrm_tunnel xfrm64_tunnel_handler = {
--	.handler	=	xfrm4_rcv,
-+	.handler	=	xfrm_tunnel_rcv,
- 	.err_handler	=	xfrm_tunnel_err,
- 	.priority	=	2,
- };
+ 	del_timer_sync(&x->timer);
