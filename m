@@ -1,54 +1,48 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 3/3] [NET_DOC] Document some simple rules for actions
-Date: Tue, 16 Oct 2007 09:09:42 -0400
-Message-ID: <1192540182.4480.99.camel@localhost>
-References: <1192538011.4480.84.camel@localhost>
-	 <20071016125134.GA11319@gondor.apana.org.au>
+Subject: Re: [PATCH 2/3] [NET_CLS_ACT] Use skb_act_clone
+Date: Tue, 16 Oct 2007 09:22:31 -0400
+Message-ID: <1192540951.4480.108.camel@localhost>
+References: <1192537921.4480.80.camel@localhost>
+	 <4714B445.1020900@trash.net>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rv-out-0910.google.com ([209.85.198.189]:7763 "EHLO
-	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932091AbXJPNLD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 09:11:03 -0400
-Received: by rv-out-0910.google.com with SMTP id k20so1419702rvb
-        for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 06:11:02 -0700 (PDT)
-In-Reply-To: <20071016125134.GA11319@gondor.apana.org.au>
+Received: from wa-out-1112.google.com ([209.85.146.182]:56190 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932210AbXJPN0r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 09:26:47 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so2379419wah
+        for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 06:26:46 -0700 (PDT)
+In-Reply-To: <4714B445.1020900@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-16-10 at 20:51 +0800, Herbert Xu wrote:
-
-> But I still think the distinction between skb_clone and
-> skb_copy_header is wrong.
+On Tue, 2007-16-10 at 14:53 +0200, Patrick McHardy wrote:
+> jamal wrote:
 > 
-> When you munge a packet, it's still going to go back up
-> the stack and be processed along the same path.  Therefore
-> you should be calling pskb_expand_head.
+> [Can't quote for some reason ..]
 
-Dang, just noticed i said skb_expand() in the doc - is that the 
-issue? I will resend that one patch.
-We do call pskb_expand_head() - example look at act_pedit.c
+Sorry, trying to be clever with git-format-patch but chickened out
+sending using git-am - so patch was just attached (Dave seems to be 
+friendly to such an approach when he applies)
 
-> In other words, this does not explain why skb_copy/pskb_copy
-> and skb_copy_expand should differ from skb_clone.  As far as
-> I can see all these functions should behave in the same manner
-> with respect to tc_verd
+> I don't think this change is safe since we might loose the
+> redirect counter and have endless redirect loops. ipip for
+> example calls skb_realloc_headroom, which clones the skb
+> when delta > 0, so it seems we really need to copy tc_verd
+> in skb_clone(). Generally the assumption that drivers don't
+> clone packets doesn't seem safe.
 
-
-We need to avoid actions from infinetely looping (eg when they ask for
-being reclassified) in a directed graph. That loop ttl count  must be
-reset to zero if we branch, because that is a new directed path. This is
-always true and therefore that field must always be reset. 
-I have a feeling i am going on a tangent if that doesnt respond to your
-comment above.
+Does the copying of tc_verd in __copy_skb_header() not cover that?
 
 cheers,
 jamal
+
 
