@@ -1,49 +1,84 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 Driver History
-Date: Tue, 16 Oct 2007 22:29:17 +0200
-Message-ID: <20071016202917.GA8686@electric-eye.fr.zoreil.com>
-References: <47139917.6050001@kbocek.com>
+From: "Joakim Tjernlund" <joakim.tjernlund@transmode.se>
+Subject: RE: Multicast problem
+Date: Tue, 16 Oct 2007 22:57:31 +0200
+Message-ID: <003101c81037$2b6c1b50$04ac10ac@Jocke>
+References: <20071016131324.0bad17a5@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Edward Hsu <edward_hsu@realtek.com.tw>
-To: Kirk Bocek <t004@kbocek.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "'David Stevens'" <dlstevens@us.ibm.com>,
+	"'Netdev'" <netdev@vger.kernel.org>
+To: "'Stephen Hemminger'" <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:58649 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965153AbXJPUdE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 16:33:04 -0400
-Content-Disposition: inline
-In-Reply-To: <47139917.6050001@kbocek.com>
+Received: from mail.transmode.se ([83.241.175.147]:47323 "EHLO
+	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S965545AbXJPU5f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 16:57:35 -0400
+In-Reply-To: <20071016131324.0bad17a5@freepuppy.rosehill>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kirk Bocek <t004@kbocek.com> :
-> I'm maintaining a CentOS wiki page for the RTL8110 NIC:
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:shemminger@linux-foundation.org] 
+> Sent: den 16 oktober 2007 22:13
 > 
-> http://wiki.centos.org/HardwareList/RealTekr1000
+> On Tue, 16 Oct 2007 22:07:35 +0200
+> "Joakim Tjernlund" <joakim.tjernlund@transmode.se> wrote:
 > 
-> I don't think I have the version history quite right between the 2.2LK-NAPI
-> version of the driver that's included in the kernel and the 6.003.00-NAPI
-> version that Realtek has posted on their site. Can anyone point me to correct
-> information that I can post on the wiki.
+> > > -----Original Message-----
+> > > From: David Stevens [mailto:dlstevens@us.ibm.com] 
+> > > Sent: den 16 oktober 2007 21:46
+> > > To: Joakim Tjernlund
+> > > Cc: 'Netdev'; netdev-owner@vger.kernel.org
+> > > Subject: RE: Multicast problem
+> > > 
+> > > > dev_mcast and igmp looks:
+> > > > root@Challenger:/proc/net# m dev_mcast
+> > > > 1    eth0            1     0     01005e000001
+> > > > 2    eth1            1     0     01005e000001
+> > > 
+> > >         These are the hardware multicast addresses for
+> > > 224.0.0.1 (so, correct).
+> > > 
+> > > > root@Challenger:/proc/net# m igmp
+> > > > Idx     Device    : Count Querier       Group    Users 
+> > > Timer    Reporter
+> > > > 1       eth0      :     1      V3
+> > > >                                 E0000001     1 0:00000000 0
+> > > > 2       eth1      :     1      V2
+> > > >                                 E0000001     1 0:00000000 0
+> > > > 4       lo        :     0      V3
+> > > >                                 E0000001     1 0:00000000 0
+> > > 
+> > >         ...and these are the group memberships for 224.0.0.1, so
+> > > also correct. This should receive and answer pings to 224.0.0.1
+> > > as long as you don't have ICMP set to ignore broadcasts. 
+> You should
+> > > not need to put the device in promiscuous mode for a ping of
+> > > 224.0.0.1 to work, so if you do, then you have a driver, device
+> > > or switch problem.
+> > >         None of these interfaces have memberships in the 
+> OSPF groups,
+> > > so if you had OSPF running when you did this, it didn't join.
+> > > 
+> > >                                                         +-DLS
+> > > 
+> > 
+> > OK, so from all this and earlier mail I think that the 
+> device driver don't
+> > receive multicast pkgs. Tomorrow I will try the real OSPF 
+> test case with
+> > promisc mode enabled, se if that works. If so, it means there is
+> > a bug in the drivers(ucc_geth.c) set_multicast_list() function.
+> > 
+> > Thank you for helping me to narrow it down.
+> > 
+> >  Jocke
+> 
+> You can test multicast easily standalone with iperf:
+> http://dast.nlanr.net/Projects/Iperf/#multicast
+> 
 
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=history;f=drivers/net/r8169.c;h=419c00cbe6e962bac5e1ea095848628415566e51;hb=HEAD
+Thanks, will give it a try.
 
-2.2LK-NAPI has stopped being a relevant identifier loooong ago.
-
-The comments at the start of the 6.00x.00 files suggest a different history,
-but 6.00x.00 is quite close to some in-kernel 2.6.x version.
-
-> On a related issue, I also have a page for the RTL8111 NIC that requires
-> Realtek's r8168 driver. What are the plans for adding that driver to the
-> kernel ?
-
-The current in-kernel r8169 driver has some support for the 8168 devices,
-especially the "B" ones. People should try it and report when its behavior
-and the 6.00x.00 one differ. Otherwise my plan is very simple: compare
-6.00n.00 against 6.00(n-1), figure the candidate changes, compare against
-the in-kernel driver, test the changes, add them, try again, repeat until
-judgment day.
-
--- 
-Ueimor
