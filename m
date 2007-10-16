@@ -1,55 +1,63 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [PATCH] PHYLIB: IRQ event workqueue handling fixes
-Date: Tue, 16 Oct 2007 18:19:32 +0100 (BST)
-Message-ID: <Pine.LNX.4.64N.0710161759050.22596@blysk.ds.pg.gda.pl>
-References: <20071015125301.GC3015@ff.dom.local>
- <Pine.LNX.4.64N.0710151737250.16262@blysk.ds.pg.gda.pl> <20071016062108.GB1000@ff.dom.local>
+From: "Yinghai Lu" <yhlu.kernel@gmail.com>
+Subject: Re: MSI interrupts and disable_irq
+Date: Tue, 16 Oct 2007 10:23:20 -0700
+Message-ID: <86802c440710161023p3fbd6832gdb6d10a1b5e9d932@mail.gmail.com>
+References: <46FC15A9.1070803@nvidia.com> <46FDBCB4.9090802@pobox.com>
+	 <4710901F.8010206@colorfullife.com> <4713E713.9060702@pobox.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andy Fleming <afleming@freescale.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Manfred Spraul" <manfred@colorfullife.com>,
+	"Ayaz Abdulla" <aabdulla@nvidia.com>,
+	nedev <netdev@vger.kernel.org>,
+	"Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>,
+	"David Miller" <davem@davemloft.net>,
+	"Andrew Morton" <akpm@linux-foundation.org>
+To: "Jeff Garzik" <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cerber.ds.pg.gda.pl ([153.19.208.18]:50082 "EHLO
-	cerber.ds.pg.gda.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760582AbXJPRTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 13:19:43 -0400
-In-Reply-To: <20071016062108.GB1000@ff.dom.local>
+Received: from rv-out-0910.google.com ([209.85.198.189]:62892 "EHLO
+	rv-out-0910.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934385AbXJPRXW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 13:23:22 -0400
+Received: by rv-out-0910.google.com with SMTP id k20so1485275rvb
+        for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 10:23:21 -0700 (PDT)
+In-Reply-To: <4713E713.9060702@pobox.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 16 Oct 2007, Jarek Poplawski wrote:
+On 10/15/07, Jeff Garzik <jgarzik@pobox.com> wrote:
+> Manfred Spraul wrote:
+> > Jeff Garzik wrote:
+> >>
+> >> I think the scenario you outline is an illustration of the approach's
+> >> fragility:  disable_irq() is a heavy hammer that originated with INTx,
+> >> and it relies on a chip-specific disable method (kernel/irq/manage.c)
+> >> that practically guarantees behavior will vary across MSI/INTx/etc.
+> >>
+> > I checked the code: IRQ_DISABLE is implemented in software, i.e.
+> > handle_level_irq() only calls handle_IRQ_event() [and then the nic irq
+> > handler] if IRQ_DISABLE is not set.
+> > OTHO: The last trace looks as if nv_do_nic_poll() is interrupted by an irq.
+> >
+> > Perhaps something corrupts dev->irq? The irq is requested with
+> >    request_irq(np->pci_dev->irq, handler, IRQF_SHARED, dev->name, dev)
+> > and disabled with
+> >    disable_irq_lockdep(dev->irq);
+> >
+> > Someone around with a MSI capable board? The forcedeth driver does
+> >    dev->irq = pci_dev->irq
+> > in nv_probe(), especially before pci_enable_msi().
+> > Does pci_enable_msi() change pci_dev->irq? Then we would disable the
+> > wrong interrupt....
+>
+> Remember, fundamentally MSI-X is a one-to-many relationship, when you
+> consider a single PCI device might have multiple vectors.
 
-> Yes, it's all right here. Sorry for bothering - I should've found this
-> by myself.
+msi-x is using other entry
 
- Ah, no problem -- even with the right keys you may sometimes get lost in 
-the results.
+               if (np->msi_flags & NV_MSI_X_ENABLED)
 
-> I've still some doubts about this possible enable_irq() after
-> free_irq(). If it's the only handler the status would be changed again
-> and at least some of this code in check_irq_resend() would be run, but
-> I can miss something again or/and this doesn't matter, as well.
+enable_irq_lockdep(np->msi_x_entry[NV_MSI_X_VECTOR_ALL].vector);
 
- Well, enable_irq() and disable_irq() themselves are nesting, so they are 
-not a problem.  OTOH, free_irq() does not seem to maintain the depth count 
-correctly, which looks like a bug to me and which could trigger regardless 
-of whether flush_scheduled_work() or cancel_work_sync() was called.
-
- The reason is CONFIG_DEBUG_SHIRQ which makes a simulated interrupt event 
-be sent at the end of free_irq().  It looks like a problem that is 
-complementary to one I signalled here:
-
-http://lkml.org/lkml/2007/9/12/82
-
-with respect to request_irq(), where, similarly, such an interrupt event 
-is sent at the beginning.  It looks like nobody was concerned back then, 
-but perhaps it is time to do a better investigation now and propose a 
-solution.
-
- I'll think about it and thanks for your inquisitiveness that has led to 
-these conclusions.
-
-  Maciej
+YH
