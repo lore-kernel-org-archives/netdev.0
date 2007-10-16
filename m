@@ -1,60 +1,39 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/2] Interface group match - netfilter part
-Date: Tue, 16 Oct 2007 10:30:10 +0200
-Message-ID: <47147692.8070709@trash.net>
-References: <1192521703479-git-send-email-panther@balabit.hu> <11925217031287-git-send-email-panther@balabit.hu> <11925217031728-git-send-email-panther@balabit.hu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: new NAPI interface broken
+Date: Tue, 16 Oct 2007 01:31:46 -0700 (PDT)
+Message-ID: <20071016.013146.28785302.davem@davemloft.net>
+References: <1192519787.7205.3.camel@pasglop>
+	<20071016.004410.85411180.davem@davemloft.net>
+	<1192523336.7205.13.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Laszlo Attila Toth <panther@balabit.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <11925217031728-git-send-email-panther@balabit.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: ossthema@de.ibm.com, shemminger@linux-foundation.org,
+	netdev@vger.kernel.org, themann@de.ibm.com, raisch@de.ibm.com,
+	arjan@linux.intel.com
+To: benh@kernel.crashing.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41408
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1755977AbXJPIbm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 04:31:42 -0400
+In-Reply-To: <1192523336.7205.13.camel@pasglop>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Laszlo Attila Toth wrote:
-> +static int match(const struct sk_buff *skb,
-> +      const struct net_device *in,
-> +      const struct net_device *out,
-> +      const struct xt_match *match,
-> +      const void *matchinfo,
-> +      int offset,
-> +      unsigned int protoff,
-> +      int *hotdrop)
-> +{
-> +	const struct xt_ifgroup_info *info = matchinfo;
-> +
-> +	return ((in->ifgroup & info->mask) == info->group) ^ info->invert;
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Tue, 16 Oct 2007 18:28:56 +1000
 
-The input interface is only valid in PREROUTING, INPUT and FORWARD.
-Why don't you support output-interface matching?
+> Allright, so that's an out of tree userland thingy... (which may well
+> work on ppc too I suppose). Definitely not installed by default by my
+> distro so IRQs from the network cards on all x86's using ubuntu gutsy at
+> least are spread to all CPUs :-)
 
-> +}
-> +
-> +static struct xt_match ifgroup_match = {
-> +	.name		= "ifgroup",
-> +	.match		= match,
-> +	.matchsize	= sizeof(struct xt_ifgroup_info),
-> +	.family		= AF_INET,
-> +	.me		= THIS_MODULE,
-> +};
-> +
-> +static struct xt_match ifgroup6_match = {
-> +	.name		= "ifgroup",
-> +	.match		= match,
-> +	.matchsize	= sizeof(struct xt_ifgroup_info),
-> +	.family		= AF_INET6,
-> +	.me		= THIS_MODULE,
-> +};
+But the thing does treat network interfaces differently from
+other devices.
 
-__read_mostly
+Arjan ran over to my table at kernel summit when I presented this
+topic to the audience, to remind me of all of this and he should be
+included in on any discussions about this topic. :-)
 
-> +
-> +static int __init xt_ifgroup_init(void)
-> +{
-> +	int ret;
-> +
-> +	ret = xt_register_match(&ifgroup_match);
-
-xt_register_matches please.
+I've CC:'d him.
