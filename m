@@ -1,14 +1,18 @@
 From: Laszlo Attila Toth <panther@balabit.hu>
 Subject: Resend: [IPROUTE2 PATCH] Interface group as new ip link option
 Date: Tue, 16 Oct 2007 11:03:04 +0200
-Message-ID: <1192525384222-git-send-email-panther@balabit.hu>
+Message-ID: <a6713ba13c49b7fa20073d8abf1862480c2799e0.1192457385.git.panther__21328.898278489$1192525462$gmane$org@balabit.hu>
 References: <ifgroup.20071015.1192520046.panther@balabit.hu>
 Cc: Laszlo Attila Toth <panther@balabit.hu>
 To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.balabit.hu ([212.92.18.33]:47358 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754671AbXJPJDI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2007 05:03:08 -0400
 Message-Id: <a6713ba13c49b7fa20073d8abf1862480c2799e0.1192457385.git.panther@balabit.hu>
 In-Reply-To: <ifgroup.20071015.1192520046.panther@balabit.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Interfaces can be grouped and each group has an unique positive integer ID.
