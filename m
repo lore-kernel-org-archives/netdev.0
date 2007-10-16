@@ -1,86 +1,66 @@
-From: Jean Delvare <jdelvare@suse.de>
-Subject: [PATCH 1/2] net: Let inet_diag and friends autoload
-Date: Tue, 16 Oct 2007 17:28:23 +0200
-Message-ID: <200710161728.23733.jdelvare@suse.de>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH 4/5] ibmebus: Move to of_device and of_platform_driver,
+ match eHCA and eHEA drivers
+Date: Wed, 17 Oct 2007 01:27:06 +1000
+Message-ID: <20071017012706.adbd3188.sfr@canb.auug.org.au>
+References: <OF48E0997F.B61F7220-ONC125736F.002D7F06-C125736F.002DD39C@de.ibm.com>
+	<200710162320.00630.fenkes@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__17_Oct_2007_01_27_06_+1000_0XWMKq/49uR6BW_i"
+Cc: Jeff Garzik <jeff@garzik.org>, Thomas Q Klein <tklein@de.ibm.com>,
+	Jan-Bernd Themann <THEMANN@de.ibm.com>, netdev@vger.kernel.org,
+	Paul Mackerras <pmac@au1.ibm.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	LinuxPPC-Dev <linuxppc-dev@ozlabs.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Marcus Eder <meder@de.ibm.com>,
+	Paul Mackerras <paulus@samba.org>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>
+To: Joachim Fenkes <fenkes@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.suse.de ([195.135.220.15]:36213 "EHLO mx2.suse.de"
+Received: from chilli.pcug.org.au ([203.10.76.44]:34956 "EHLO smtps.tip.net.au"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933093AbXJPP0L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Oct 2007 11:26:11 -0400
-Content-Disposition: inline
+	id S934396AbXJPP1P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2007 11:27:15 -0400
+In-Reply-To: <200710162320.00630.fenkes@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-By adding module aliases to inet_diag, tcp_diag and dccp_diag, we let
-them load automatically as needed. This makes tools like "ss" run
-faster.
+--Signature=_Wed__17_Oct_2007_01_27_06_+1000_0XWMKq/49uR6BW_i
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Jean Delvare <jdelvare@suse.de>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
----
-The alias naming scheme for tcp_diag and dccp_diag follows what was
-done for dccp_ipv4 and dccp_ipv6.
+On Tue, 16 Oct 2007 23:20:00 +0200 Joachim Fenkes <fenkes@de.ibm.com> wrote:
+>
 
- include/linux/net.h  |    4 ++++
- net/dccp/diag.c      |    1 +
- net/ipv4/inet_diag.c |    7 +++++++
- net/ipv4/tcp_diag.c  |    1 +
- 4 files changed, 13 insertions(+)
+One small change - I intend to remove the name and owner fields from
+struct of_platform_driver, so you should not bother initialising the name
+field and just initialise the name field of the embedded struct
+device_driver instead.  This, of course, means that you don't need
 
---- linux-2.6.23-rc0.orig/net/ipv4/inet_diag.c	2007-10-16 13:32:13.000000000 +0200
-+++ linux-2.6.23-rc0/net/ipv4/inet_diag.c	2007-10-16 13:46:34.000000000 +0200
-@@ -815,6 +815,12 @@ static int inet_diag_rcv_msg(struct sk_b
- 	    nlmsg_len(nlh) < hdrlen)
- 		return -EINVAL;
- 
-+#ifdef CONFIG_KMOD
-+	if (inet_diag_table[nlh->nlmsg_type] == NULL)
-+		request_module("net-pf-%d-proto-%d-type-%d", PF_NETLINK,
-+			       NETLINK_INET_DIAG, nlh->nlmsg_type);
-+#endif
-+
- 	if (inet_diag_table[nlh->nlmsg_type] == NULL)
- 		return -ENOENT;
- 
-@@ -914,3 +920,4 @@ static void __exit inet_diag_exit(void)
- module_init(inet_diag_init);
- module_exit(inet_diag_exit);
- MODULE_LICENSE("GPL");
-+MODULE_ALIAS_NET_PF_PROTO(PF_NETLINK, NETLINK_INET_DIAG);
---- linux-2.6.23-rc0.orig/include/linux/net.h	2007-10-15 21:39:08.000000000 +0200
-+++ linux-2.6.23-rc0/include/linux/net.h	2007-10-16 14:31:02.000000000 +0200
-@@ -313,6 +313,10 @@ static const struct proto_ops name##_ops
- #define MODULE_ALIAS_NET_PF_PROTO(pf, proto) \
- 	MODULE_ALIAS("net-pf-" __stringify(pf) "-proto-" __stringify(proto))
- 
-+#define MODULE_ALIAS_NET_PF_PROTO_TYPE(pf, proto, type) \
-+	MODULE_ALIAS("net-pf-" __stringify(pf) "-proto-" __stringify(proto) \
-+		     "-type-" __stringify(type))
-+
- #ifdef CONFIG_SYSCTL
- #include <linux/sysctl.h>
- extern ctl_table net_table[];
---- linux-2.6.23-rc0.orig/net/ipv4/tcp_diag.c	2007-10-16 13:32:13.000000000 +0200
-+++ linux-2.6.23-rc0/net/ipv4/tcp_diag.c	2007-10-16 13:51:09.000000000 +0200
-@@ -56,3 +56,4 @@ static void __exit tcp_diag_exit(void)
- module_init(tcp_diag_init);
- module_exit(tcp_diag_exit);
- MODULE_LICENSE("GPL");
-+MODULE_ALIAS_NET_PF_PROTO_TYPE(PF_NETLINK, NETLINK_INET_DIAG, TCPDIAG_GETSOCK);
---- linux-2.6.23-rc0.orig/net/dccp/diag.c	2007-02-04 19:44:54.000000000 +0100
-+++ linux-2.6.23-rc0/net/dccp/diag.c	2007-10-16 14:27:10.000000000 +0200
-@@ -68,3 +68,4 @@ module_exit(dccp_diag_fini);
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Arnaldo Carvalho de Melo <acme@mandriva.com>");
- MODULE_DESCRIPTION("DCCP inet_diag handler");
-+MODULE_ALIAS_NET_PF_PROTO_TYPE(PF_NETLINK, NETLINK_INET_DIAG, DCCPDIAG_GETSOCK);
+	drv->driver.name =3D drv->name;
 
--- 
-Jean Delvare
-Suse L3
+in ibmebus_register_driver.
+
+Sorry for not picking this up earlier.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Wed__17_Oct_2007_01_27_06_+1000_0XWMKq/49uR6BW_i
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFHFNhQTgG2atn1QN8RAg8JAJwNZcBRPjzYHy6ZFr4zTdD6xzbG+wCfbyFu
+FwuA+pG1SWXaVdvQZKza554=
+=sWnd
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__17_Oct_2007_01_27_06_+1000_0XWMKq/49uR6BW_i--
