@@ -1,42 +1,51 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] Disable polling in rtl8169_suspend() to prevent race
-	with rtl8169_interrupt()
-Date: Tue, 16 Oct 2007 23:04:12 +0200
-Message-ID: <20071016210412.GB8049@electric-eye.fr.zoreil.com>
-References: <200710161846.52509.fzu@wemgehoertderstaat.de> <200710162127.52228.fzu@wemgehoertderstaat.de>
+From: "Joakim Tjernlund" <joakim.tjernlund@transmode.se>
+Subject: RE: Multicast problem
+Date: Tue, 16 Oct 2007 23:15:06 +0200
+Message-ID: <003201c81039$a0215b20$04ac10ac@Jocke>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Karsten Wiese <fzu@wemgehoertderstaat.de>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "'David Stevens'" <dlstevens@us.ibm.com>,
+	"'Netdev'" <netdev@vger.kernel.org>,
+	"Li Yang" <LeoLi@freescale.com>
+To: "'Stephen Hemminger'" <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:33643 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S935918AbXJPVHi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 17:07:38 -0400
-Content-Disposition: inline
-In-Reply-To: <200710162127.52228.fzu@wemgehoertderstaat.de>
+Received: from mail.transmode.se ([83.241.175.147]:54068 "EHLO
+	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932880AbXJPVPK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 17:15:10 -0400
+In-Reply-To: 
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Karsten Wiese <fzu@wemgehoertderstaat.de> :
-[...]
-> Forgot to say: patch is against 2.6.23. Stable material, if it gets an ACK.
-> The BUG happens since months here, if not since I hibernate this pc.
+ 
+> > > 
+> > > OK, so from all this and earlier mail I think that the 
+> > device driver don't
+> > > receive multicast pkgs. Tomorrow I will try the real OSPF 
+> > test case with
+> > > promisc mode enabled, se if that works. If so, it means there is
+> > > a bug in the drivers(ucc_geth.c) set_multicast_list() function.
+> > > 
+> > > Thank you for helping me to narrow it down.
+> > > 
+> > >  Jocke
+> > 
+> > You can test multicast easily standalone with iperf:
+> > http://dast.nlanr.net/Projects/Iperf/#multicast
+> > 
+> 
+> Thanks, will give it a try.
+> 
 
-Can you give the patch below a try too ?
+Managed to cross compile iperf and ran the test. I need promisc mode
+on the ethernet i/f to receive anything from that test so I guess this
+confirms it, the set_multicast_list() in ucc_geth driver is broken.
+
+Leo, forgot to CC you earlier. Seem like the multicast function
+is somewhat buggy.
+
+ Jocke
 
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 285b2b2..fcd79b7 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -2424,6 +2424,7 @@ static void rtl8169_reset_task(struct work_struct *work)
- 		rtl8169_init_ring_indexes(tp);
- 		rtl_hw_start(dev);
- 		netif_wake_queue(dev);
-+		rtl8169_check_link_status(dev, tp, tp->mmio_addr);
- 	} else {
- 		if (net_ratelimit() && netif_msg_intr(tp)) {
- 			printk(PFX KERN_EMERG "%s: Rx buffers shortage\n",
--- 
-Ueimor
