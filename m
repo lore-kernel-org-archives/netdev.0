@@ -1,42 +1,85 @@
-From: "Eliezer Tamir" <eliezert@broadcom.com>
-Subject: Re: [PATCH][BNX2X] round three
-Date: Tue, 16 Oct 2007 17:00:57 +0200
-Message-ID: <1192546857.29746.182.camel@eliezer>
-References: <p73641c4cfz.fsf@bingen.suse.de>
- <20071012.150341.41635825.davem@davemloft.net>
- <1192462049.29746.158.camel@eliezer>
- <20071015.123850.26516814.davem@davemloft.net>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 4/5] ibmebus: Move to of_device and of_platform_driver,
+ match eHCA and eHEA drivers
+Date: Tue, 16 Oct 2007 11:00:26 -0400
+Message-ID: <4714D20A.3080607@garzik.org>
+References: <OF48E0997F.B61F7220-ONC125736F.002D7F06-C125736F.002DD39C@de.ibm.com> <200710162320.00630.fenkes@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, netdev@vger.kernel.org, jeff@garzik.org,
-	mchan@broadcom.com
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jan-Bernd Themann <THEMANN@de.ibm.com>,
+	Paul Mackerras <paulus@samba.org>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	LinuxPPC-Dev <linuxppc-dev@ozlabs.org>,
+	Paul Mackerras <pmac@au1.ibm.com>,
+	Stefan Roscher <stefan.roscher@de.ibm.com>,
+	Thomas Q Klein <tklein@de.ibm.com>, netdev@vger.kernel.org,
+	Marcus Eder <meder@de.ibm.com>
+To: Joachim Fenkes <fenkes@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3062 "EHLO mms2.broadcom.com"
+Received: from srv5.dvmed.net ([207.36.208.214]:33852 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757355AbXJPO7f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Oct 2007 10:59:35 -0400
-In-Reply-To: <20071015.123850.26516814.davem@davemloft.net>
+	id S1755248AbXJPPAm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2007 11:00:42 -0400
+In-Reply-To: <200710162320.00630.fenkes@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2007-10-15 at 12:38 -0700, David Miller wrote:
-> From: "Eliezer Tamir" <eliezert@broadcom.com>
-> Date: Mon, 15 Oct 2007 17:27:29 +0200
-> 
-> > Unfortunately, the firmware code is different for LE and BE machines.
-> > We had issues with the BE firmware that appear to be resolved.
-> > Hopefully, the next version will have both.
-> 
-> If this means we get two copies of the firmware, this should be
-> rethought.  The space cost of the firmware (both in terms of source
-> code size and object code size) is already enormous.
-> 
-> I would definitely prefer if there were only little-endian firmware,
-> and the driver uses "cpu_to_le32()" and friends to access chip shared
-> data structures.
+Joachim Fenkes wrote:
+> On Tuesday 09 October 2007 10:21, Jan-Bernd Themann wrote:
+>> Roland Dreier <rdreier@cisco.com> wrote on 03.10.2007 20:05:44:
+>>>  > > Replace struct ibmebus_dev and struct ibmebus_driver with stru=
+ct=20
+> of_device
+>>>  > > and struct of_platform_driver, respectively. Match the externa=
+l=20
+> ibmebus
+>>>  > > interface and drivers using it.
+>>>  > >
+>>>  > > Signed-off-by: Joachim Fenkes <fenkes@de.ibm.com>
+>>>  >
+>>>  > This is somewhat difficult as this patch touches files that are =
+the
+>>>  > responsibility of three different maintainers. =EF=BF=BDIs it po=
+ssible to
+>>>  > split the patch into three, one for each maintainer (possibly by
+>>>  > keeping both old and new interfaces around for a little while)?
+>>>  >=20
+>>>  > If not, then you need to get an Acked-by and an agreement that t=
+his
+>>>  > change can go via the powerpc.git tree from Roland Dreier and Je=
+ff
+>>>  > Garzik.
+>>>
+>>> I don't see anything objectionable in the infiniband parts of the
+>>> patch -- I don't have any way to test the changes but it all looks
+>>> like a straightforward conversion to a new platform API.  So:
+>>>
+>>> Acked-by: Roland Dreier <rolandd@cisco.com>
+>>>
+>>>  - R.
+>> Looks good from eHEA driver perspective.
+>>
+>> Acked-by: Jan-Bernd Themann <themann@de.ibm.com>
+>=20
+> Jeff, do you have any objections against this patch going into the ke=
+rnel
+> via Paul's powerpc.git tree? It touches only a few lines of ehea whic=
+h are
+> specific to the bus interface changes.
+>=20
+> You can see the full patch here:
+>   http://patchwork.ozlabs.org/linuxppc/patch?id=3D13750
+>=20
+> If you have no objections, please ack the patch so Paul can include i=
+t.
 
-OK. Then that's what we will do.
+=46ine with me...
+
+	Jeff
+
 
 
