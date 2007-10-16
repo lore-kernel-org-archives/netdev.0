@@ -1,41 +1,47 @@
-From: Laszlo Attila Toth <panther@balabit.hu>
-Subject: Re: [PATCH 0/2] Interface groups
-Date: Tue, 16 Oct 2007 11:47:44 +0200
-Message-ID: <471488C0.4010003@balabit.hu>
-References: <1192521703479-git-send-email-panther@balabit.hu> <47147B49.706@snapgear.com>
-Reply-To: panther@balabit.hu
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 5/10] [NET]: Avoid unnecessary cloning for ingress
+	filtering
+Date: Tue, 16 Oct 2007 06:28:02 -0400
+Message-ID: <1192530482.4480.17.camel@localhost>
+References: <20071014042604.GA11431@gondor.apana.org.au>
+	 <E1Igv4p-00030c-00@gondolin.me.apana.org.au>
+	 <1192358991.4892.23.camel@localhost> <1192456665.4336.57.camel@localhost>
+	 <20071015145527.GA11689@ms2.inr.ac.ru>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Philip Craig <philipc@snapgear.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.balabit.hu ([212.92.18.33]:56947 "EHLO lists.balabit.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758214AbXJPJrs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Oct 2007 05:47:48 -0400
-In-Reply-To: <47147B49.706@snapgear.com>
+Received: from nz-out-0506.google.com ([64.233.162.226]:33958 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932675AbXJPK2d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 06:28:33 -0400
+Received: by nz-out-0506.google.com with SMTP id s18so1178437nze
+        for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 03:28:32 -0700 (PDT)
+In-Reply-To: <20071015145527.GA11689@ms2.inr.ac.ru>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Philip Craig =EDrta:
-> Laszlo Attila Toth wrote:
->> Hello,
->>
->> Different network interfaces can be grouped using the same group ID.=
- With this
->> patch fewer netfilter rules are necessary but it may also be used by=
- routing.
->=20
-> This allows an interface to belong to only one group.  I expect there=
- are
-> situations where you want more.  eg you might want a group of all ppt=
-p
-> connections, and another group of pptp connections for a subset of us=
-ers.
+On Mon, 2007-15-10 at 18:55 +0400, Alexey Kuznetsov wrote:
+> Hello!
 
-With masked values it should work with only one group.
+Didnt mean to wake you up Alexey ;->
 
---=20
-Attila
+> I see not so many places inside net/sched/act* where skb_clone is used.
+> Exactly one in act_mirred.c, to be more exact. Did I miss something?
+
+No you are right, thats the only spot at the moment. 
+What i meant however was the design-intent/enviromental-rules for all
+actions that branch is to clone, and when you do that you reset those
+fields i described. I am looking at the new clone and i can see
+Herbert's point - it does look less pleasant to stare at with that
+#ifdef; i will send a patch to pull it out and also write a small doc to
+describe the environmental rules.
+
+cheers,
+jamal
+
