@@ -1,68 +1,52 @@
-From: akpm@linux-foundation.org
-Subject: [patch 1/4] forcedeth: power down phy when interface is down
-Date: Tue, 16 Oct 2007 14:24:08 -0700
-Message-ID: <200710162124.l9GLO8G7017965@imap1.linux-foundation.org>
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	eswierk@arastra.com, aabdulla@nvidia.com
-To: jeff@garzik.org
+From: "Nish Aravamudan" <nish.aravamudan@gmail.com>
+Subject: Re: atm: panic when loading clip 2nd time
+Date: Tue, 16 Oct 2007 14:33:38 -0700
+Message-ID: <29495f1d0710161433h6e4e90a6r32c89c2a89af2f90@mail.gmail.com>
+References: <47152758.5000900@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>, chas@cmf.nrl.navy.mil
+To: "Randy Dunlap" <randy.dunlap@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:59844 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933666AbXJPVZE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 17:25:04 -0400
+Received: from ug-out-1314.google.com ([66.249.92.170]:38828 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934112AbXJPVdk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 17:33:40 -0400
+Received: by ug-out-1314.google.com with SMTP id z38so167415ugc
+        for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 14:33:39 -0700 (PDT)
+In-Reply-To: <47152758.5000900@oracle.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Ed Swierk" <eswierk@arastra.com>
+On 10/16/07, Randy Dunlap <randy.dunlap@oracle.com> wrote:
+> 2.6.23-git7, using SLAB (not SLUB) [config attached]:
+>
+> # modprobe clip
+> # rmmod clip
+> # modprobe clip
+>
+> results in panic:
+>
+> kmem_cache_create: duplicate cache clip_arp_cache
+>
+> Call Trace:
+>  [<ffffffff8028c682>] kmem_cache_create+0x3bf/0x3fd
+>  [<ffffffff8046ba1d>] neigh_table_init_no_netlink+0x6c/0x242
+>  [<ffffffff8800a010>] :clip:atm_clip_init+0x10/0x8a
+>  [<ffffffff80258ba4>] sys_init_module+0x146c/0x15cd
+>  [<ffffffff8046be0a>] neigh_lookup+0x0/0xd5
+>  [<ffffffff8020ef44>] syscall_trace_enter+0x95/0x99
+>  [<ffffffff8020beec>] tracesys+0xdc/0xe1
+>
+> Kernel panic - not syncing: kmem_cache_create(): failed to create slab `clip_arp_cache'
 
-Bring the physical link down when the interface is down by placing the PHY
-in power-down state, unless WOL is enabled.  This mirrors the behavior of
-other drivers including e1000 and tg3.
+>From a quick read through the code, looks like
+net/core/neighbour.c:neigh_table_clear() needs a kmem_cache_destroy()?
 
-Signed-off-by: Ed Swierk <eswierk@arastra.com>
-Cc: Jeff Garzik <jeff@garzik.org>
-Cc: Ayaz Abdulla <aabdulla@nvidia.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
+I only see three callers of neight_table_clear() and they all seem to
+be in exit routines, so that should be safe?
 
- drivers/net/forcedeth.c |   12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
-
-diff -puN drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down drivers/net/forcedeth.c
---- a/drivers/net/forcedeth.c~forcedeth-power-down-phy-when-interface-is-down
-+++ a/drivers/net/forcedeth.c
-@@ -1313,9 +1313,9 @@ static int phy_init(struct net_device *d
- 	/* some phys clear out pause advertisment on reset, set it back */
- 	mii_rw(dev, np->phyaddr, MII_ADVERTISE, reg);
- 
--	/* restart auto negotiation */
-+	/* restart auto negotiation, power down phy */
- 	mii_control = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
--	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE);
-+	mii_control |= (BMCR_ANRESTART | BMCR_ANENABLE | BMCR_PDOWN);
- 	if (mii_rw(dev, np->phyaddr, MII_BMCR, mii_control)) {
- 		return PHY_ERROR;
- 	}
-@@ -4791,6 +4791,10 @@ static int nv_open(struct net_device *de
- 
- 	dprintk(KERN_DEBUG "nv_open: begin\n");
- 
-+	/* power up phy */
-+	mii_rw(dev, np->phyaddr, MII_BMCR,
-+	       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ) & ~BMCR_PDOWN);
-+
- 	/* erase previous misconfiguration */
- 	if (np->driver_data & DEV_HAS_POWER_CNTRL)
- 		nv_mac_reset(dev);
-@@ -4973,6 +4977,10 @@ static int nv_close(struct net_device *d
- 	if (np->wolenabled) {
- 		writel(NVREG_PFF_ALWAYS|NVREG_PFF_MYADDR, base + NvRegPacketFilterFlags);
- 		nv_start_rx(dev);
-+	} else {
-+		/* power down phy */
-+		mii_rw(dev, np->phyaddr, MII_BMCR,
-+		       mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ)|BMCR_PDOWN);
- 	}
- 
- 	/* FIXME: power down nic */
-_
+-Nish
