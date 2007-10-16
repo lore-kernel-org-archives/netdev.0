@@ -1,36 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Update function names in /proc/net/tcp documentation
-Date: Tue, 16 Oct 2007 18:34:36 +0800
-Message-ID: <20071016103435.GA10467@gondor.apana.org.au>
-References: <20071014115934.13530a8a@hyperion.delvare> <E1Ih0PI-0003TX-00@gondolin.me.apana.org.au> <20071016104636.7d633bad@hyperion.delvare>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Resend: [IPROUTE2 PATCH] Interface group as new ip link option
+Date: Tue, 16 Oct 2007 06:45:16 -0400
+Message-ID: <1192531516.4480.33.camel@localhost>
+References: <ifgroup.20071015.1192520046.panther@balabit.hu>
+	 <a6713ba13c49b7fa20073d8abf1862480c2799e0.1192457385.git.panther@balabit.hu>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rick.jones2@hp.com, netdev@vger.kernel.org
-To: Jean Delvare <khali@linux-fr.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Laszlo Attila Toth <panther@balabit.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4173 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758322AbXJPKe4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 06:34:56 -0400
-Content-Disposition: inline
-In-Reply-To: <20071016104636.7d633bad@hyperion.delvare>
+Received: from nz-out-0506.google.com ([64.233.162.234]:43616 "EHLO
+	nz-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755162AbXJPKpq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 06:45:46 -0400
+Received: by nz-out-0506.google.com with SMTP id s18so1181741nze
+        for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 03:45:45 -0700 (PDT)
+In-Reply-To: <a6713ba13c49b7fa20073d8abf1862480c2799e0.1192457385.git.panther@balabit.hu>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 16, 2007 at 10:46:36AM +0200, Jean Delvare wrote:
->
-> Thanks for the information. Now I'm worried that most people use
-> netstat and not ss, while it seems that netstat doesn't have tcp_diag
-> support. Would it make sense to add tcp_diag support to netstat? Or
-> should we simply invite system admins to switch from netstat to ss
-> (maybe by adding a netstat-like formatting option)?
+On Tue, 2007-16-10 at 11:03 +0200, Laszlo Attila Toth wrote:
+> Interfaces can be grouped and each group has an unique positive integer ID.
+> It can be set via ip link.
 
-Personally getting netstat to use inet_diag would seem to be
-easier than retraining everybody's fingers to type ss :)
+Feature request: Can you also implement a get operation. Perhaps
+something that returns from the kernel a list of ifindices when one
+passes a group to it?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+BTW, does it make sense to have one interface in multiple groups?
+
+cheers,
+jamal
+
