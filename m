@@ -1,66 +1,59 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH 4/5] ibmebus: Move to of_device and of_platform_driver,
- match eHCA and eHEA drivers
-Date: Wed, 17 Oct 2007 01:27:06 +1000
-Message-ID: <20071017012706.adbd3188.sfr@canb.auug.org.au>
-References: <OF48E0997F.B61F7220-ONC125736F.002D7F06-C125736F.002DD39C@de.ibm.com>
-	<200710162320.00630.fenkes@de.ibm.com>
+From: Jean Delvare <jdelvare@suse.de>
+Subject: [PATCH 2/2] net: Use MODULE_ALIAS_NET_PF_PROTO_TYPE where possible
+Date: Tue, 16 Oct 2007 17:30:21 +0200
+Message-ID: <200710161730.21393.jdelvare@suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__17_Oct_2007_01_27_06_+1000_0XWMKq/49uR6BW_i"
-Cc: Jeff Garzik <jeff@garzik.org>, Thomas Q Klein <tklein@de.ibm.com>,
-	Jan-Bernd Themann <THEMANN@de.ibm.com>, netdev@vger.kernel.org,
-	Paul Mackerras <pmac@au1.ibm.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	LinuxPPC-Dev <linuxppc-dev@ozlabs.org>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Marcus Eder <meder@de.ibm.com>,
-	Paul Mackerras <paulus@samba.org>,
-	Stefan Roscher <stefan.roscher@de.ibm.com>
-To: Joachim Fenkes <fenkes@de.ibm.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:34956 "EHLO smtps.tip.net.au"
+Received: from ns2.suse.de ([195.135.220.15]:36333 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934396AbXJPP1P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Oct 2007 11:27:15 -0400
-In-Reply-To: <200710162320.00630.fenkes@de.ibm.com>
+	id S933193AbXJPP2I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2007 11:28:08 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Wed__17_Oct_2007_01_27_06_+1000_0XWMKq/49uR6BW_i
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Now that we have this new MODULE_ALIAS_NET_PF_PROTO_TYPE macro, use it
+where possible.
 
-On Tue, 16 Oct 2007 23:20:00 +0200 Joachim Fenkes <fenkes@de.ibm.com> wrote:
->
+Signed-off-by: Jean Delvare <jdelvare@suse.de>
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+---
+ net/dccp/ipv4.c |    4 ++--
+ net/dccp/ipv6.c |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-One small change - I intend to remove the name and owner fields from
-struct of_platform_driver, so you should not bother initialising the name
-field and just initialise the name field of the embedded struct
-device_driver instead.  This, of course, means that you don't need
+--- linux-2.6.23-rc0.orig/net/dccp/ipv4.c	2007-10-15 21:39:08.000000000 +0200
++++ linux-2.6.23-rc0/net/dccp/ipv4.c	2007-10-16 14:36:54.000000000 +0200
+@@ -1037,8 +1037,8 @@ module_exit(dccp_v4_exit);
+  * values directly, Also cover the case where the protocol is not specified,
+  * i.e. net-pf-PF_INET-proto-0-type-SOCK_DCCP
+  */
+-MODULE_ALIAS("net-pf-" __stringify(PF_INET) "-proto-33-type-6");
+-MODULE_ALIAS("net-pf-" __stringify(PF_INET) "-proto-0-type-6");
++MODULE_ALIAS_NET_PF_PROTO_TYPE(PF_INET, 33, 6);
++MODULE_ALIAS_NET_PF_PROTO_TYPE(PF_INET, 0, 6);
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Arnaldo Carvalho de Melo <acme@mandriva.com>");
+ MODULE_DESCRIPTION("DCCP - Datagram Congestion Controlled Protocol");
+--- linux-2.6.23-rc0.orig/net/dccp/ipv6.c	2007-10-15 21:39:08.000000000 +0200
++++ linux-2.6.23-rc0/net/dccp/ipv6.c	2007-10-16 14:37:06.000000000 +0200
+@@ -1220,8 +1220,8 @@ module_exit(dccp_v6_exit);
+  * values directly, Also cover the case where the protocol is not specified,
+  * i.e. net-pf-PF_INET6-proto-0-type-SOCK_DCCP
+  */
+-MODULE_ALIAS("net-pf-" __stringify(PF_INET6) "-proto-33-type-6");
+-MODULE_ALIAS("net-pf-" __stringify(PF_INET6) "-proto-0-type-6");
++MODULE_ALIAS_NET_PF_PROTO_TYPE(PF_INET6, 33, 6);
++MODULE_ALIAS_NET_PF_PROTO_TYPE(PF_INET6, 0, 6);
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Arnaldo Carvalho de Melo <acme@mandriva.com>");
+ MODULE_DESCRIPTION("DCCPv6 - Datagram Congestion Controlled Protocol");
 
-	drv->driver.name =3D drv->name;
-
-in ibmebus_register_driver.
-
-Sorry for not picking this up earlier.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Wed__17_Oct_2007_01_27_06_+1000_0XWMKq/49uR6BW_i
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQFHFNhQTgG2atn1QN8RAg8JAJwNZcBRPjzYHy6ZFr4zTdD6xzbG+wCfbyFu
-FwuA+pG1SWXaVdvQZKza554=
-=sWnd
------END PGP SIGNATURE-----
-
---Signature=_Wed__17_Oct_2007_01_27_06_+1000_0XWMKq/49uR6BW_i--
+-- 
+Jean Delvare
+Suse L3
