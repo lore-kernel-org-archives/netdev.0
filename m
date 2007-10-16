@@ -1,284 +1,163 @@
 From: Laszlo Attila Toth <panther@balabit.hu>
-Subject: [IPROUTE2 PATCH] Interface group as new ip link option
-Date: Tue, 16 Oct 2007 10:01:43 +0200
-Message-ID: <1192521703205-git-send-email-panther@balabit.hu>
+Subject: [PATCH 2/2] Interface group match - netfilter part
+Date: Tue, 16 Oct 2007 10:01:42 +0200
+Message-ID: <11925217031728-git-send-email-panther@balabit.hu>
 References: <1192521703479-git-send-email-panther@balabit.hu>
  <11925217031287-git-send-email-panther@balabit.hu>
- <11925217031728-git-send-email-panther@balabit.hu>
 Cc: Laszlo Attila Toth <panther@balabit.hu>
 To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.balabit.hu ([212.92.18.33]:56585 "EHLO lists.balabit.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754957AbXJPIBw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Oct 2007 04:01:52 -0400
-In-Reply-To: <11925217031728-git-send-email-panther@balabit.hu>
-Message-Id: <a6713ba13c49b7fa20073d8abf1862480c2799e0.1192457385.git.panther@balabit.hu>
-In-Reply-To: <ifgroup.20071015.1192520046.panther@balabit.hu>
-References: <ifgroup.20071015.1192520046.panther@balabit.hu>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <11925217031287-git-send-email-panther@balabit.hu>
+Message-Id: <661f8f2fdb86cc70bdefd12403ecb0eaa7cfadd6.1192460168.git.panther@balabit.hu>
+In-Reply-To: <1824b3d462b1d85aaf33941cf082c4e018d5bff7.1192460167.git.panther@balabit.hu>
+References: <1824b3d462b1d85aaf33941cf082c4e018d5bff7.1192460167.git.panther@balabit.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Interfaces can be grouped and each group has an unique positive integer ID.
-It can be set via ip link.
-
-Signed-off-by: Laszlo Attila Toth <panther@aldaris.(none)>
+Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
 ---
- include/linux/if_link.h |    2 +
- include/rt_names.h      |    2 +
- ip/ipaddress.c          |    4 +++
- ip/iplink.c             |   49 +++++++++++++++++++++++++++++++++++++
- lib/rt_names.c          |   62 +++++++++++++++++++++++++++++++++++++++++++++++
- man/man8/ip.8           |    8 ++++++
- 6 files changed, 127 insertions(+), 0 deletions(-)
+ include/linux/netfilter/xt_ifgroup.h |   11 +++++
+ net/netfilter/Kconfig                |   16 +++++++
+ net/netfilter/Makefile               |    1 +
+ net/netfilter/xt_ifgroup.c           |   78 ++++++++++++++++++++++++++++++++++
+ 4 files changed, 106 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 23b3a8e..2dfb0b7 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -78,6 +78,8 @@ enum
- 	IFLA_LINKMODE,
- 	IFLA_LINKINFO,
- #define IFLA_LINKINFO IFLA_LINKINFO
-+	IFLA_IFGROUP,
-+#define	IFLA_IFGROUP IFLA_IFGROUP
- 	__IFLA_MAX
- };
- 
-diff --git a/include/rt_names.h b/include/rt_names.h
-index 07a10e0..72c5247 100644
---- a/include/rt_names.h
-+++ b/include/rt_names.h
-@@ -8,11 +8,13 @@ char* rtnl_rtscope_n2a(int id, char *buf, int len);
- char* rtnl_rttable_n2a(__u32 id, char *buf, int len);
- char* rtnl_rtrealm_n2a(int id, char *buf, int len);
- char* rtnl_dsfield_n2a(int id, char *buf, int len);
-+char* rtnl_ifgroup_n2a(int id, char *buf, int len);
- int rtnl_rtprot_a2n(__u32 *id, char *arg);
- int rtnl_rtscope_a2n(__u32 *id, char *arg);
- int rtnl_rttable_a2n(__u32 *id, char *arg);
- int rtnl_rtrealm_a2n(__u32 *id, char *arg);
- int rtnl_dsfield_a2n(__u32 *id, char *arg);
-+int rtnl_ifgroup_a2n(__u32 *id, char *arg);
- 
- const char *inet_proto_n2a(int proto, char *buf, int len);
- int inet_proto_a2n(char *buf);
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 518d8cd..405e85c 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -227,6 +227,10 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 		fprintf(fp, "mtu %u ", *(int*)RTA_DATA(tb[IFLA_MTU]));
- 	if (tb[IFLA_QDISC])
- 		fprintf(fp, "qdisc %s ", (char*)RTA_DATA(tb[IFLA_QDISC]));
-+	if (tb[IFLA_IFGROUP]) {
-+		SPRINT_BUF(b1);
-+		fprintf(fp, "group %s ", rtnl_ifgroup_n2a(*(int*)RTA_DATA(tb[IFLA_IFGROUP]), b1, sizeof(b1)));
-+	}
- #ifdef IFLA_MASTER
- 	if (tb[IFLA_MASTER]) {
- 		SPRINT_BUF(b1);
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 8e0ed2a..87901e7 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -27,6 +27,7 @@
- #include <string.h>
- #include <sys/ioctl.h>
- #include <linux/sockios.h>
-+#include <linux/rtnetlink.h>
- 
- #include "rt_names.h"
- #include "utils.h"
-@@ -46,6 +47,7 @@ void iplink_usage(void)
- 	fprintf(stderr, "	                     promisc { on | off } |\n");
- 	fprintf(stderr, "	                     trailers { on | off } |\n");
- 	fprintf(stderr, "	                     txqueuelen PACKETS |\n");
-+	fprintf(stderr, "	                     group GROUP |\n");
- 	fprintf(stderr, "	                     name NEWNAME |\n");
- 	fprintf(stderr, "	                     address LLADDR | broadcast LLADDR |\n");
- 	fprintf(stderr, "	                     mtu MTU }\n");
-@@ -145,6 +147,7 @@ static int iplink_have_newlink(void)
- static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
- {
- 	int qlen = -1;
-+	__u32 group = 0;
- 	int mtu = -1;
- 	int len;
- 	char abuf[32];
-@@ -197,6 +200,14 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
- 			if (get_integer(&qlen,  *argv, 0))
- 				invarg("Invalid \"txqueuelen\" value\n", *argv);
- 			addattr_l(&req.n, sizeof(req), IFLA_TXQLEN, &qlen, 4);
-+		} else if (matches(*argv, "group") == 0) {
-+			NEXT_ARG();
-+			if (group != 0)
-+				duparg("group", *argv);
+diff --git a/include/linux/netfilter/xt_ifgroup.h b/include/linux/netfilter/xt_ifgroup.h
+new file mode 100644
+index 0000000..a992d4c
+--- /dev/null
++++ b/include/linux/netfilter/xt_ifgroup.h
+@@ -0,0 +1,11 @@
++#ifndef _XT_IFGROUP_H
++#define _XT_IFGROUP_H
 +
-+			if (rtnl_ifgroup_a2n(&group, *argv) || group == 0)
-+				invarg("\"group\" value is invalid\n", *argv);
-+			addattr_l(&req.n, sizeof(req), IFLA_IFGROUP, &group, sizeof(group));
- 		} else if (strcmp(*argv, "mtu") == 0) {
- 			NEXT_ARG();
- 			if (mtu != -1)
-@@ -462,6 +473,32 @@ static int set_mtu(const char *dev, int mtu)
- 	return 0;
- }
- 
-+static int set_group(const char *dev, int ifgroup)
-+{
-+	struct {
-+		struct nlmsghdr 	n;
-+		struct ifinfomsg 	ifi;
-+		char   			buf[256];
-+	} req;
-+	struct rtnl_handle rth;
-+	
-+	memset(&req, 0, sizeof(req));
-+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.ifi));
-+	req.n.nlmsg_flags = NLM_F_REQUEST;
-+	req.n.nlmsg_type = RTM_SETLINK;
-+	
-+	req.ifi.ifi_index = -1;
-+	
-+	addattr_l(&req.n, sizeof(req), IFLA_IFNAME, dev, strlen(dev)+1);
-+	addattr_l(&req.n, sizeof(req), IFLA_IFGROUP, &ifgroup, sizeof(ifgroup));
-+	if (rtnl_open(&rth, 0) < 0)
-+		exit(1);
-+	if (rtnl_talk(&rth, &req.n, 0, 0, NULL, NULL, NULL) < 0)
-+		return -1;
-+	rtnl_close(&rth);
-+	return 0;
-+}
-+
- static int get_address(const char *dev, int *htype)
- {
- 	struct ifreq ifr;
-@@ -545,6 +582,7 @@ static int do_set(int argc, char **argv)
- 	__u32 mask = 0;
- 	__u32 flags = 0;
- 	int qlen = -1;
-+	__u32 group = 0;
- 	int mtu = -1;
- 	char *newaddr = NULL;
- 	char *newbrd = NULL;
-@@ -577,6 +615,13 @@ static int do_set(int argc, char **argv)
- 				duparg("txqueuelen", *argv);
- 			if (get_integer(&qlen,  *argv, 0))
- 				invarg("Invalid \"txqueuelen\" value\n", *argv);
-+		} else if (matches(*argv, "group") == 0) {
-+			NEXT_ARG();
-+			if (group != 0)
-+				duparg("group", *argv);
-+
-+			if (rtnl_ifgroup_a2n(&group, *argv) || group == 0)
-+				invarg("\"group\" value is invalid\n", *argv);
- 		} else if (strcmp(*argv, "mtu") == 0) {
- 			NEXT_ARG();
- 			if (mtu != -1)
-@@ -696,6 +741,10 @@ static int do_set(int argc, char **argv)
- 				return -1;
- 		}
- 	}
-+	if (group) {
-+		if (set_group(dev, group) < 0)
-+			return -1;
-+	}
- 	if (mask)
- 		return do_chflags(dev, flags, mask);
- 	return 0;
-diff --git a/lib/rt_names.c b/lib/rt_names.c
-index 8d019a0..a067e74 100644
---- a/lib/rt_names.c
-+++ b/lib/rt_names.c
-@@ -446,3 +446,65 @@ int rtnl_dsfield_a2n(__u32 *id, char *arg)
- 	return 0;
- }
- 
-+static char * rtnl_rtifgroup_tab[256] = {
-+	"0",
++struct xt_ifgroup_info {
++	u_int32_t group;
++	u_int32_t mask;
++	u_int8_t invert;
 +};
 +
-+static int rtnl_rtifgroup_init;
++#endif /*_XT_IFGROUP_H*/
 +
-+static void rtnl_rtifgroup_initialize(void)
-+{
-+	rtnl_rtifgroup_init = 1;
-+	rtnl_tab_initialize("/etc/iproute2/rt_ifgroup",
-+			    rtnl_rtifgroup_tab, 256);
-+}
-+
-+char * rtnl_ifgroup_n2a(int id, char *buf, int len)
-+{
-+	if (id<0 || id>=256) {
-+		snprintf(buf, len, "%d", id);
-+		return buf;
-+	}
-+	if (!rtnl_rtifgroup_tab[id]) {
-+		if (!rtnl_rtifgroup_init)
-+			rtnl_rtifgroup_initialize();
-+	}
-+	if (rtnl_rtifgroup_tab[id])
-+		return rtnl_rtifgroup_tab[id];
-+	snprintf(buf, len, "0x%02x", id);
-+	return buf;
-+}
-+
-+
-+int rtnl_ifgroup_a2n(__u32 *id, char *arg)
-+{
-+	static char *cache = NULL;
-+	static unsigned long res;
-+	char *end;
-+	int i;
-+
-+	if (cache && strcmp(cache, arg) == 0) {
-+		*id = res;
-+		return 0;
-+	}
-+
-+	if (!rtnl_rtifgroup_init)
-+		rtnl_rtifgroup_initialize();
-+
-+	for (i=0; i<256; i++) {
-+		if (rtnl_rtifgroup_tab[i] &&
-+		    strcmp(rtnl_rtifgroup_tab[i], arg) == 0) {
-+			cache = rtnl_rtifgroup_tab[i];
-+			res = i;
-+			*id = res;
-+			return 0;
-+		}
-+	}
-+
-+	res = strtoul(arg, &end, 16);
-+	if (!end || end == arg || *end || res > 255)
-+		return -1;
-+	*id = res;
-+	return 0;
-+}
-+
-diff --git a/man/man8/ip.8 b/man/man8/ip.8
-index c74440a..8e6a9a3 100644
---- a/man/man8/ip.8
-+++ b/man/man8/ip.8
-@@ -511,6 +511,11 @@ already configured.
- change the transmit queue length of the device.
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 3599770..0864e19 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -597,6 +597,22 @@ config NETFILTER_XT_MATCH_QUOTA
+ 	  If you want to compile it as a module, say M here and read
+ 	  <file:Documentation/kbuild/modules.txt>.  If unsure, say `N'.
  
- .TP
-+.BI group " GROUP"
-+.TP 
-+change the interface group identifier of the device.
++config NETFILTER_XT_MATCH_IFGROUP
++	tristate '"ifgroup" interface group match support'
++	depends on NETFILTER_XTABLES
++	help
++	  Interface group matching allows you to match a packet by
++	  its incoming interface "group", settable using ip link set
++	  group
 +
-+.TP
- .BI mtu " NUMBER"
- change the 
- .I MTU
-@@ -1835,3 +1840,6 @@ was written by Alexey N. Kuznetsov and added in Linux 2.2.
- 
- .SH AUTHOR
- Original Manpage  by Michail Litvak <mci@owl.openwall.com>
-+.br
-+Modified for ZorpOS by Tamas Pal <folti@balabit.hu>
++	  Typical usage is to assign dynamic interfaces to a group
++	  when they come up using "ip link set group" and then match
++	  incoming packets with a rule like this:
++
++	    iptables -A INPUT -m ifgroup --if-group openvpn-rw1 -j LOG
++
++	  To compile it as a module, choose M here.  If unsure, say N.
++
+ config NETFILTER_XT_MATCH_REALM
+ 	tristate  '"realm" match support'
+ 	depends on NETFILTER_XTABLES
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 0c054bf..da9ab07 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -77,3 +77,4 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_TCPMSS) += xt_tcpmss.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_PHYSDEV) += xt_physdev.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_U32) += xt_u32.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_HASHLIMIT) += xt_hashlimit.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_IFGROUP) += xt_ifgroup.o
+diff --git a/net/netfilter/xt_ifgroup.c b/net/netfilter/xt_ifgroup.c
+new file mode 100644
+index 0000000..766f668
+--- /dev/null
++++ b/net/netfilter/xt_ifgroup.c
+@@ -0,0 +1,78 @@
++/*
++ * An x_tables match module to match interface groups
++ *
++ * (C) 2006 Balazs Scheidler <bazsi@balabit.hu>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/if_ether.h>
++#include <linux/if_packet.h>
++
++#include <linux/netfilter/xt_ifgroup.h>
++#include <linux/netfilter/x_tables.h>
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Balazs Scheidler <bazsi@balabit.hu>");
++MODULE_DESCRIPTION("IP tables match to match on interface group");
++MODULE_ALIAS("ipt_ifgroup");
++MODULE_ALIAS("ip6t_ifgroup");
++
++static int match(const struct sk_buff *skb,
++      const struct net_device *in,
++      const struct net_device *out,
++      const struct xt_match *match,
++      const void *matchinfo,
++      int offset,
++      unsigned int protoff,
++      int *hotdrop)
++{
++	const struct xt_ifgroup_info *info = matchinfo;
++
++	return ((in->ifgroup & info->mask) == info->group) ^ info->invert;
++}
++
++static struct xt_match ifgroup_match = {
++	.name		= "ifgroup",
++	.match		= match,
++	.matchsize	= sizeof(struct xt_ifgroup_info),
++	.family		= AF_INET,
++	.me		= THIS_MODULE,
++};
++
++static struct xt_match ifgroup6_match = {
++	.name		= "ifgroup",
++	.match		= match,
++	.matchsize	= sizeof(struct xt_ifgroup_info),
++	.family		= AF_INET6,
++	.me		= THIS_MODULE,
++};
++
++static int __init xt_ifgroup_init(void)
++{
++	int ret;
++
++	ret = xt_register_match(&ifgroup_match);
++	if (ret)
++		return ret;
++
++	ret = xt_register_match(&ifgroup6_match);
++	if (ret)
++		xt_unregister_match(&ifgroup_match);
++
++	return ret;
++}
++
++static void __exit xt_ifgroup_fini(void)
++{
++	xt_unregister_match(&ifgroup_match);
++	xt_unregister_match(&ifgroup6_match);
++}
++
++module_init(xt_ifgroup_init);
++module_exit(xt_ifgroup_fini);
 +
 -- 
 1.5.2.5
