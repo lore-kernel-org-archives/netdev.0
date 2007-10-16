@@ -1,40 +1,74 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH] gianfar: Cleanup compile warning caused by 0795af57
-Date: Tue, 16 Oct 2007 00:39:52 -0500 (CDT)
-Message-ID: <Pine.LNX.4.64.0710160038440.21722@gate.crashing.org>
-References: <1192197233-24958-1-git-send-email-leoli@freescale.com>
- <1192197233-24958-2-git-send-email-leoli@freescale.com>
- <1192197233-24958-3-git-send-email-leoli@freescale.com> <4713B46A.70004@pobox.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: [PATCH/RFC] net: Add __napi_sycnhronize() to sync with napi poll
+Date: Tue, 16 Oct 2007 15:40:49 +1000
+Message-ID: <1192513249.19073.9.camel@pasglop>
+Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Li Yang <leoli@freescale.com>, netdev@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Roland Dreier <rdreier@cisco.com>,
+	linuxppc-dev list <linuxppc-dev@ozlabs.org>
+To: shemminger@linux.foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:37281 "EHLO gate.crashing.org"
+Received: from gate.crashing.org ([63.228.1.57]:37294 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751359AbXJPFkH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Oct 2007 01:40:07 -0400
-In-Reply-To: <4713B46A.70004@pobox.com>
+	id S1755020AbXJPFlN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2007 01:41:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 15 Oct 2007, Jeff Garzik wrote:
+net: Add __napi_sycnhronize() to sync with napi poll
 
-> Li Yang wrote:
-> > Signed-off-by: Li Yang <leoli@freescale.com>
-> > ---
-> >  drivers/net/gianfar.c |    1 -
-> >  1 files changed, 0 insertions(+), 1 deletions(-)
->
-> applied all three gianfar patches
->
+The EMAC driver which needs to handle multiple devices with one
+NAPI instance implements its own per-channel disable bit. However,
+when setting such a bit, it needs to synchronize with the poller
+(that is make sure that any pending poller instance has completed,
+or is started late enough to see that disable bit).
 
-Jeff,
+This implements a low level __napi_synchronize() function to acheive
+that. The underscores are to emphasis the low level aspect of it and
+to discourage driver writers who don't know what they are doing to
+use it (to please DaveM :-)
 
-You seem to have lost one of the patches:
+Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+---
 
-[PATCH] gianfar: Fix compile regression caused by 09f75cd7
+If the approach is accepted, I would like to have this merged now
+so the EMAC patch to make it work again can follow :-)
 
-http://marc.info/?l=linux-netdev&m=119219683128258&w=2
+Note: I use msleep_interruptible(1); just like napi_disable(). However
+I'm not too happy that the "hot" loop that results of a pending signal
+here will spin without even a cpu_relax ... what do you guys think would
+be the best way to handle this ?
 
-- k
+
+
+Index: linux-work/include/linux/netdevice.h
+===================================================================
+--- linux-work.orig/include/linux/netdevice.h	2007-10-16 15:27:27.000000000 +1000
++++ linux-work/include/linux/netdevice.h	2007-10-16 15:27:38.000000000 +1000
+@@ -394,6 +394,21 @@ static inline void napi_disable(struct n
+ }
+ 
+ /**
++ *	__napi_synchronize - synchronize with a concurrent poll
++ *	@n: napi context
++ *
++ * Synchronizes with a concurrent poll. Not to be used in normal
++ * drivers, mostly useful if you end up with multiple interfaces
++ * on one NAPI instance.
++ */
++static inline void __napi_synchronize(struct napi_struct *n)
++{
++	smp_mb();
++	while (test_bit(NAPI_STATE_SCHED, &n->state))
++		msleep_interruptible(1);
++}
++
++/**
+  *	napi_enable - enable NAPI scheduling
+  *	@n: napi context
+  *
+
+
