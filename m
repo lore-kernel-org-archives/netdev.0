@@ -1,63 +1,37 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH/RFC] net: Add __napi_sycnhronize() to sync with napi
- poll
-Date: Tue, 16 Oct 2007 11:53:18 -0700
-Message-ID: <20071016115318.0fc36af3@freepuppy.rosehill>
-References: <1192513792.19073.23.camel@pasglop>
+From: "Joakim Tjernlund" <joakim.tjernlund@transmode.se>
+Subject: RE: Multicast problem
+Date: Tue, 16 Oct 2007 20:54:06 +0200
+Message-ID: <002601c81025$ee0af8f0$04ac10ac@Jocke>
+References: <OFB45E9AE1.F95FB289-ON88257376.005D25C3-88257376.005DB70D@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Roland Dreier <rdreier@cisco.com>,
-	linuxppc-dev list <linuxppc-dev@ozlabs.org>
-To: benh@kernel.crashing.org
+Cc: "'Netdev'" <netdev@vger.kernel.org>
+To: "'David Stevens'" <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:50986 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1764540AbXJPSyB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 14:54:01 -0400
-In-Reply-To: <1192513792.19073.23.camel@pasglop>
+Received: from mail.transmode.se ([83.241.175.147]:44398 "EHLO
+	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933442AbXJPSyL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 14:54:11 -0400
+In-Reply-To: <OFB45E9AE1.F95FB289-ON88257376.005D25C3-88257376.005DB70D@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 16 Oct 2007 15:49:52 +1000
-Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
-
-> net: Add __napi_sycnhronize() to sync with napi poll
+> -----Original Message-----
+> From: David Stevens [mailto:dlstevens@us.ibm.com] 
+> Sent: den 16 oktober 2007 19:05
+> To: joakim.tjernlund@transmode.se
+> Cc: Netdev
+> Subject: Re: Multicast problem
 > 
-> The EMAC driver which needs to handle multiple devices with one
-> NAPI instance implements its own per-channel disable bit. However,
-> when setting such a bit, it needs to synchronize with the poller
-> (that is make sure that any pending poller instance has completed,
-> or is started late enough to see that disable bit).
-> 
-> This implements a low level __napi_synchronize() function to acheive
-> that. The underscores are to emphasis the low level aspect of it and
-> to discourage driver writers who don't know what they are doing to
-> use it (to please DaveM :-)
-> 
-> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> ---
-> 
-> (Use correct address for Stephen this time)
-> 
-> If the approach is accepted, I would like to have this merged now
-> so the EMAC patch to make it work again can follow :-)
-> 
-> Note: I use msleep_interruptible(1); just like napi_disable(). However
-> I'm not too happy that the "hot" loop that results of a pending signal
-> here will spin without even a cpu_relax ... what do you guys think would
-> be the best way to handle this ?
+> If you have icmp_echo_ignore_broadcasts set to 1, it won't respond to
+> multicasts. That should be all you need to do for 224.0.0.1.
 
+hmm maybe I misunderstand here, but the we are trying to make OSPF work
+in 2.6 and the problem appears to be that our board does not pick up
+multicasts.
+Is icmp_echo_ignore_broadcasts=0 required to make OSPF work in 2.6?
 
-So this is really just like synchronize_irq()?  Using msleep is bogus
-because you want to spin, you are only waiting for a softirq on the other
-cpu to finish. If you wait for a whole millisecond and sleep that
-is far longer than the napi routine should take.
+ Jocke
 
-You could even optimize it like synchronize_irq() for the non-SMP case.
-
-
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
