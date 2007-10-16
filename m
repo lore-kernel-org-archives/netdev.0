@@ -1,124 +1,112 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 1/7] skge: fix ram buffer size calculation
-Date: Tue, 16 Oct 2007 12:15:49 -0700
-Message-ID: <20071016191733.868358630@linux-foundation.org>
+Subject: [PATCH 2/7] skge: changing MTU while running causes problems
+Date: Tue, 16 Oct 2007 12:15:50 -0700
+Message-ID: <20071016191733.940421506@linux-foundation.org>
 References: <20071016191548.447710749@linux-foundation.org>
 Cc: netdev@vger.kernel.org
 To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:57743 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:37064 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751203AbXJPTSu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 15:18:50 -0400
-Content-Disposition: inline; filename=skge-ram-buffer-fix.patch
+	by vger.kernel.org with ESMTP id S1761049AbXJPTTI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 15:19:08 -0400
+Content-Disposition: inline; filename=skge-mtu.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This fixes problems with transmit hangs on older fiber based SysKonnect boards.
-
-Adjust ram buffer sizing calculation to make it correct on all boards
-and make it like the code in sky2 driver. 
+Rather than bring network down/up when changing MTU,
+only need to impact receiver.
 
 Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
---- a/drivers/net/skge.c	2007-10-16 10:55:13.000000000 -0700
-+++ b/drivers/net/skge.c	2007-10-16 10:55:33.000000000 -0700
-@@ -2403,32 +2403,31 @@ static int skge_ioctl(struct net_device 
+
+--- a/drivers/net/skge.c	2007-10-16 11:17:02.000000000 -0700
++++ b/drivers/net/skge.c	2007-10-16 11:22:41.000000000 -0700
+@@ -2544,6 +2544,15 @@ static int skge_up(struct net_device *de
  	return err;
  }
  
--static void skge_ramset(struct skge_hw *hw, u16 q, u32 start, size_t len)
-+/* Assign Ram Buffer allocation to queue */
-+static void skge_ramset(struct skge_hw *hw, u16 q, u32 start, u32 space)
- {
- 	u32 end;
- 
--	start /= 8;
--	len /= 8;
--	end = start + len - 1;
-+	/* convert from K bytes to qwords used for hw register */
-+	start *= 1024/8;
-+	space *= 1024/8;
-+	end = start + space - 1;
- 
- 	skge_write8(hw, RB_ADDR(q, RB_CTRL), RB_RST_CLR);
- 	skge_write32(hw, RB_ADDR(q, RB_START), start);
-+	skge_write32(hw, RB_ADDR(q, RB_END), end);
- 	skge_write32(hw, RB_ADDR(q, RB_WP), start);
- 	skge_write32(hw, RB_ADDR(q, RB_RP), start);
--	skge_write32(hw, RB_ADDR(q, RB_END), end);
- 
- 	if (q == Q_R1 || q == Q_R2) {
-+		u32 tp = space - space/4;
++/* stop receiver */
++static void skge_rx_stop(struct skge_hw *hw, int port)
++{
++	skge_write8(hw, Q_ADDR(rxqaddr[port], Q_CSR), CSR_STOP);
++	skge_write32(hw, RB_ADDR(port ? Q_R2 : Q_R1, RB_CTRL),
++		     RB_RST_SET|RB_DIS_OP_MD);
++	skge_write32(hw, Q_ADDR(rxqaddr[port], Q_CSR), CSR_SET_RESET);
++}
 +
- 		/* Set thresholds on receive queue's */
--		skge_write32(hw, RB_ADDR(q, RB_RX_UTPP),
--			     start + (2*len)/3);
--		skge_write32(hw, RB_ADDR(q, RB_RX_LTPP),
--			     start + (len/3));
--	} else {
--		/* Enable store & forward on Tx queue's because
--		 * Tx FIFO is only 4K on Genesis and 1K on Yukon
--		 */
-+		skge_write32(hw, RB_ADDR(q, RB_RX_UTPP), tp);
-+		skge_write32(hw, RB_ADDR(q, RB_RX_LTPP), space/4);
-+	} else if (hw->chip_id != CHIP_ID_GENESIS)
-+		/* Genesis Tx Fifo is too small for normal store/forward */
- 		skge_write8(hw, RB_ADDR(q, RB_CTRL), RB_ENA_STFWD);
--	}
- 
- 	skge_write8(hw, RB_ADDR(q, RB_CTRL), RB_ENA_OP_MD);
- }
-@@ -2456,7 +2455,7 @@ static int skge_up(struct net_device *de
+ static int skge_down(struct net_device *dev)
+ {
  	struct skge_port *skge = netdev_priv(dev);
- 	struct skge_hw *hw = skge->hw;
- 	int port = skge->port;
--	u32 chunk, ram_addr;
-+	u32 ramaddr, ramsize, rxspace;
- 	size_t rx_size, tx_size;
- 	int err;
+@@ -2595,11 +2604,8 @@ static int skge_down(struct net_device *
  
-@@ -2511,14 +2510,15 @@ static int skge_up(struct net_device *de
- 	spin_unlock_bh(&hw->phy_lock);
+ 	/* Reset the RAM Buffer async Tx queue */
+ 	skge_write8(hw, RB_ADDR(port == 0 ? Q_XA1 : Q_XA2, RB_CTRL), RB_RST_SET);
+-	/* stop receiver */
+-	skge_write8(hw, Q_ADDR(rxqaddr[port], Q_CSR), CSR_STOP);
+-	skge_write32(hw, RB_ADDR(port ? Q_R2 : Q_R1, RB_CTRL),
+-		     RB_RST_SET|RB_DIS_OP_MD);
+-	skge_write32(hw, Q_ADDR(rxqaddr[port], Q_CSR), CSR_SET_RESET);
++
++	skge_rx_stop(hw, port);
  
- 	/* Configure RAMbuffers */
--	chunk = hw->ram_size / ((hw->ports + 1)*2);
--	ram_addr = hw->ram_offset + 2 * chunk * port;
-+	ramsize = (hw->ram_size - hw->ram_offset) / hw->ports;
-+	ramaddr = hw->ram_offset + port * ramsize;
-+	rxspace = 8 + (2*(ramsize - 16))/3;
- 
--	skge_ramset(hw, rxqaddr[port], ram_addr, chunk);
--	skge_qset(skge, rxqaddr[port], skge->rx_ring.to_clean);
-+	skge_ramset(hw, rxqaddr[port], ramaddr, rxspace);
-+	skge_ramset(hw, txqaddr[port], ramaddr + rxspace, ramsize - rxspace);
- 
-+	skge_qset(skge, rxqaddr[port], skge->rx_ring.to_clean);
- 	BUG_ON(skge->tx_ring.to_use != skge->tx_ring.to_clean);
--	skge_ramset(hw, txqaddr[port], ram_addr+chunk, chunk);
- 	skge_qset(skge, txqaddr[port], skge->tx_ring.to_use);
- 
- 	/* Start receiver BMU */
-@@ -3450,15 +3450,12 @@ static int skge_reset(struct skge_hw *hw
  	if (hw->chip_id == CHIP_ID_GENESIS) {
- 		if (t8 == 3) {
- 			/* special case: 4 x 64k x 36, offset = 0x80000 */
--			hw->ram_size = 0x100000;
--			hw->ram_offset = 0x80000;
-+			hw->ram_size = 1024;
-+			hw->ram_offset = 512;
- 		} else
- 			hw->ram_size = t8 * 512;
--	}
--	else if (t8 == 0)
--		hw->ram_size = 0x20000;
--	else
--		hw->ram_size = t8 * 4096;
-+	} else /* Yukon */
-+		hw->ram_size = t8 ? t8 * 4 : 128;
+ 		skge_write8(hw, SK_REG(port, TX_MFF_CTRL2), MFF_RST_SET);
+@@ -2782,7 +2788,11 @@ static void skge_tx_timeout(struct net_d
  
- 	hw->intr_mask = IS_HW_ERR;
+ static int skge_change_mtu(struct net_device *dev, int new_mtu)
+ {
++	struct skge_port *skge = netdev_priv(dev);
++	struct skge_hw *hw = skge->hw;
++	int port = skge->port;
+ 	int err;
++	u16 ctl, reg;
  
+ 	if (new_mtu < ETH_ZLEN || new_mtu > ETH_JUMBO_MTU)
+ 		return -EINVAL;
+@@ -2792,13 +2802,40 @@ static int skge_change_mtu(struct net_de
+ 		return 0;
+ 	}
+ 
+-	skge_down(dev);
++	skge_write32(hw, B0_IMSK, 0);
++	dev->trans_start = jiffies;	/* prevent tx timeout */
++	netif_stop_queue(dev);
++	napi_disable(&skge->napi);
++
++	ctl = gma_read16(hw, port, GM_GP_CTRL);
++	gma_write16(hw, port, GM_GP_CTRL, ctl & ~GM_GPCR_RX_ENA);
++
++	skge_rx_clean(skge);
++	skge_rx_stop(hw, port);
+ 
+ 	dev->mtu = new_mtu;
+ 
+-	err = skge_up(dev);
++	reg = GM_SMOD_VLAN_ENA | IPG_DATA_VAL(IPG_DATA_DEF);
++	if (new_mtu > 1500)
++		reg |= GM_SMOD_JUMBO_ENA;
++	gma_write16(hw, port, GM_SERIAL_MODE, reg);
++
++	skge_write8(hw, RB_ADDR(rxqaddr[port], RB_CTRL), RB_ENA_OP_MD);
++
++	err = skge_rx_fill(dev);
++	wmb();
++	if (!err)
++		skge_write8(hw, Q_ADDR(rxqaddr[port], Q_CSR), CSR_START | CSR_IRQ_CL_F);
++	skge_write32(hw, B0_IMSK, hw->intr_mask);
++
+ 	if (err)
+ 		dev_close(dev);
++	else {
++		gma_write16(hw, port, GM_GP_CTRL, ctl);
++
++		napi_enable(&skge->napi);
++		netif_wake_queue(dev);
++	}
+ 
+ 	return err;
+ }
 
 -- 
 Stephen Hemminger <shemminger@linux-foundation.org>
