@@ -1,155 +1,112 @@
-From: Vitaly Bordug <vitb@kernel.crashing.org>
-Subject: Re: [PATCH] fs_enet: Update for API changes
-Date: Thu, 18 Oct 2007 02:40:15 +0400
-Message-ID: <20071018024015.1712d3eb@kernel.crashing.org>
-References: <20071017174243.GA4462@loki.buserror.net>
+From: Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>
+Subject: Re: [Bugme-new] [Bug 9179] New: 2.6.23.1 / USB_ZD1201: Kernel
+	panic with zd1201 driver
+Date: Wed, 17 Oct 2007 20:49:29 -0200
+Message-ID: <20071017224929.GB9773@ghostprotocols.net>
+References: <bug-9179-10286@http.bugzilla.kernel.org/> <20071017132740.eebaed9d.akpm@linux-foundation.org> <1192654011.15090.3.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: Scott Wood <scottwood@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:32774 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761716AbXJQWky (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 18:40:54 -0400
-In-Reply-To: <20071017174243.GA4462@loki.buserror.net>
-Sender: netdev-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, zairasai-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org
+To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1192654011.15090.3.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello Scott,
-
-On Wed, 17 Oct 2007 12:42:43 -0500
-Scott Wood wrote:
-
-> This driver was recently broken by several changes for which this
-> driver was not (or was improperly) updated:
+Em Wed, Oct 17, 2007 at 04:46:51PM -0400, Dan Williams escreveu:
+> On Wed, 2007-10-17 at 13:27 -0700, Andrew Morton wrote:
+> > On Wed, 17 Oct 2007 11:34:57 -0700 (PDT)
+> > bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org wrote:
+> > 
+> > > http://bugzilla.kernel.org/show_bug.cgi?id=9179
+> > > 
+> > >            Summary: 2.6.23.1 / USB_ZD1201: Kernel panic with zd1201 driver
+> > >            Product: Drivers
+> > >            Version: 2.5
+> > >      KernelVersion: 2.6.23.1
+> > >           Platform: All
+> > >         OS/Version: Linux
+> > >               Tree: Mainline
+> > >             Status: NEW
+> > >           Severity: normal
+> > >           Priority: P1
+> > >          Component: network-wireless
+> > >         AssignedTo: drivers_network-wireless-ztI5WcYan/vQLgFONoPN62D2FQJk+8+b@public.gmane.org
+> > >         ReportedBy: zairasai-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org
+> > > 
+> > > 
+> > > [1.] One line summary of the problem:
+> > > 
+> > > 2.6.23.1 / USB_ZD1201: Kernel panic with zd1201 driver
+> > > 
+> > > 
+> > > 
+> > > 
+> > > [2.] Full description of the problem:
+> > > 
+> > > The zd1201-driver (symbol: USB_ZD1201) triggers a kernel panic during
+> > > initialization of the WLAN device, showing the following message:
+> > > 
+> > > EIP: [<e095e1d1>] zd1201_usbrx+0x6e1/0xbb0 [zd1201] SS:ESP 0068:c0469d7c
+> > > Kernel panic - not syncing: Fatal exception in interrupt
+> > > 
+> > > According to the init output during bootup, the panic seems to occur right when
+> > > the WLAN device receives an IP address from the DHCP-Server of the
+> > > WLAN/DSL-Router. The WLAN device is (in my case) a 'Belkin F5D6051' based on
+> > > the ZyDAS 1201 chip.
+> > > 
+> > > As far as i know, the only recent change in 'drivers/net/wireless/zd1201.c' was
+> > > done in patch-2.6.22, so the bug probably affects all kernel versions later
+> > > than 2.6.21.7, but at least the ones i've tested (which are listed in the
+> > > summary below). It also recently came up in some different
+> > > distribution-specific forums/bugtrackers, so it does not seem to be specific to
+> > > my machine/setup. A link to another report on this problem is included at the
+> > > end of this report.
+> > > 
+> > > Below is an extract of patch-2.6.22, showing that the lines 330 and 388 have
+> > > been removed from 'drivers/net/wireless/zd1201.c'. I put those two lines back,
+> > > which made things work as expected again; however, that is only meant as a
+> > > hint, since i don't know why they were taken out or what other implications my
+> > > change might have.
+> > > 
+> > > patch-2.6.22, lines 586509-586528:
+> > > {{{
+> > > diff --git a/drivers/net/wireless/zd1201.c b/drivers/net/wireless/zd1201.c
+> > > index 6cb66a3..935b144 100644
+> > > --- a/drivers/net/wireless/zd1201.c
+> > > +++ b/drivers/net/wireless/zd1201.c
+> > > @@ -327,7 +327,6 @@ static void zd1201_usbrx(struct urb *urb)
+> > >                         memcpy(skb_put(skb, 6), &data[datalen-8], 6);
+> > >                         memcpy(skb_put(skb, 2), &data[datalen-24], 2);
+> > >                         memcpy(skb_put(skb, len), data, len);
+> > > -                       skb->dev = zd->dev;
+> > >                         skb->dev->last_rx = jiffies;
+> > >                         skb->protocol = eth_type_trans(skb, zd->dev);
+> > >                         zd->stats.rx_packets++;
+> > > @@ -385,7 +384,6 @@ static void zd1201_usbrx(struct urb *urb)
+> > >                         memcpy(skb_put(skb, 2), &data[6], 2);
+> > >                         memcpy(skb_put(skb, len), data+8, len);
+> > >                 }
+> > > -               skb->dev = zd->dev;
+> > >                 skb->dev->last_rx = jiffies;
+> > >                 skb->protocol = eth_type_trans(skb, zd->dev);
+> > >                 zd->stats.rx_packets++;
+> > > }}}
+> > > 
+> > 
+> > Arnaldo, we have a pretty solid report here that your
+> > 4c13eb6657fe9ef7b4dc8f1a405c902e9e5234e0 made this driver go crash.
 > 
-> 1. SET_MODULE_OWNER() was removed.
-> 2. netif_napi_add() was only being called when building with
-> the old CPM binding.
-> 3. The received/budget test was backwards.
-> 4. to_net_dev() was wrong -- the device struct embedded in
-> the net_device struct is not the same as the of_platform
-> device in the private struct.
-> 5. napi_disable/napi_enable was being called even when napi
-> was not being used.
+> In 2.6.22 and later, eth_type_trans() sets skb->dev.  It looks like the
+> lines tha tset last_rx in the patch above should be moved below the
+> eth_type_trans() lines, otherwise they'll likely oops.
 > 
-Good cleanup, thanks!
+> Something like this is probably in order?
 
-Jeff: this is important fix, and should be applied if possible.
+I think so, its strange that this bisects to me, but Dan's change should
+fix it.
 
-> These changes have been fixed, and napi is now on by default.
-> 
-> Signed-off-by: Scott Wood <scottwood@freescale.com>
-Acked-by: Vitaly Bordug <vitb@kernel.crashing.org>
-> ---
->  drivers/net/fs_enet/fs_enet-main.c |   28 ++++++++++++++++------------
->  drivers/net/fs_enet/fs_enet.h      |    1 +
->  2 files changed, 17 insertions(+), 12 deletions(-)
-> 
-> diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
-> index 04c6fae..f2a4d39 100644
-> --- a/drivers/net/fs_enet/fs_enet-main.c
-> +++ b/drivers/net/fs_enet/fs_enet-main.c
-> @@ -88,7 +88,7 @@ static void skb_align(struct sk_buff *skb, int align)
->  static int fs_enet_rx_napi(struct napi_struct *napi, int budget)
->  {
->  	struct fs_enet_private *fep = container_of(napi, struct fs_enet_private, napi);
-> -	struct net_device *dev = to_net_dev(fep->dev);
-> +	struct net_device *dev = fep->ndev;
->  	const struct fs_platform_info *fpi = fep->fpi;
->  	cbd_t __iomem *bdp;
->  	struct sk_buff *skb, *skbn, *skbt;
-> @@ -217,7 +217,7 @@ static int fs_enet_rx_napi(struct napi_struct *napi, int budget)
->  
->  	fep->cur_rx = bdp;
->  
-> -	if (received >= budget) {
-> +	if (received < budget) {
->  		/* done */
->  		netif_rx_complete(dev, napi);
->  		(*fep->ops->napi_enable_rx)(dev);
-> @@ -807,20 +807,23 @@ static int fs_enet_open(struct net_device *dev)
->  	int r;
->  	int err;
->  
-> -	napi_enable(&fep->napi);
-> +	if (fep->fpi->use_napi)
-> +		napi_enable(&fep->napi);
->  
->  	/* Install our interrupt handler. */
->  	r = fs_request_irq(dev, fep->interrupt, "fs_enet-mac", fs_enet_interrupt);
->  	if (r != 0) {
->  		printk(KERN_ERR DRV_MODULE_NAME
->  		       ": %s Could not allocate FS_ENET IRQ!", dev->name);
-> -		napi_disable(&fep->napi);
-> +		if (fep->fpi->use_napi)
-> +			napi_disable(&fep->napi);
->  		return -EINVAL;
->  	}
->  
->  	err = fs_init_phy(dev);
-> -	if(err) {
-> -		napi_disable(&fep->napi);
-> +	if (err) {
-> +		if (fep->fpi->use_napi)
-> +			napi_disable(&fep->napi);
->  		return err;
->  	}
->  	phy_start(fep->phydev);
-> @@ -1232,7 +1235,7 @@ static int __devinit fs_enet_probe(struct of_device *ofdev,
->  	fpi->rx_ring = 32;
->  	fpi->tx_ring = 32;
->  	fpi->rx_copybreak = 240;
-> -	fpi->use_napi = 0;
-> +	fpi->use_napi = 1;
->  	fpi->napi_weight = 17;
->  
->  	ret = find_phy(ofdev->node, fpi);
-> @@ -1249,11 +1252,11 @@ static int __devinit fs_enet_probe(struct of_device *ofdev,
->  		goto out_free_fpi;
->  	}
->  
-> -	SET_MODULE_OWNER(ndev);
->  	dev_set_drvdata(&ofdev->dev, ndev);
->  
->  	fep = netdev_priv(ndev);
->  	fep->dev = &ofdev->dev;
-> +	fep->ndev = ndev;
->  	fep->fpi = fpi;
->  	fep->ops = match->data;
->  
-> @@ -1288,10 +1291,11 @@ static int __devinit fs_enet_probe(struct of_device *ofdev,
->  	ndev->stop = fs_enet_close;
->  	ndev->get_stats = fs_enet_get_stats;
->  	ndev->set_multicast_list = fs_set_multicast_list;
-> -	if (fpi->use_napi) {
-> -		ndev->poll = fs_enet_rx_napi;
-> -		ndev->weight = fpi->napi_weight;
-> -	}
-> +
-> +	if (fpi->use_napi)
-> +		netif_napi_add(ndev, &fep->napi, fs_enet_rx_napi,
-> +		               fpi->napi_weight);
-> +
->  	ndev->ethtool_ops = &fs_ethtool_ops;
->  	ndev->do_ioctl = fs_ioctl;
->  
-> diff --git a/drivers/net/fs_enet/fs_enet.h b/drivers/net/fs_enet/fs_enet.h
-> index baf6477..c675e29 100644
-> --- a/drivers/net/fs_enet/fs_enet.h
-> +++ b/drivers/net/fs_enet/fs_enet.h
-> @@ -75,6 +75,7 @@ struct phy_info {
->  struct fs_enet_private {
->  	struct napi_struct napi;
->  	struct device *dev;	/* pointer back to the device (must be initialized first) */
-> +	struct net_device *ndev;
->  	spinlock_t lock;	/* during all ops except TX pckt processing */
->  	spinlock_t tx_lock;	/* during fs_start_xmit and fs_tx         */
->  	struct fs_platform_info *fpi;
-
-
--- 
-Sincerely, Vitaly
+- Arnaldo
