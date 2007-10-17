@@ -1,43 +1,53 @@
-From: Sven Lukas <SLUKAS@de.ibm.com>
-Subject: Sven Lukas is out of the office.
-Date: Wed, 17 Oct 2007 08:18:31 +0200
-Message-ID: <OFA3244173.F0260903-ONC1257377.0022A7BD-C1257377.0022A7BD@de.ibm.com>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: [patch] ipv6.7: IPV6_ROUTER_ALERT sockopt correction
+Date: Wed, 17 Oct 2007 09:19:15 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0710170911360.21784@netcore.fi>
+References: <20071014111147.GE20850@mcdonald.org.uk>
+ <Pine.LNX.4.64.0710150849580.17284@netcore.fi> <20071016201550.GC28453@mcdonald.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
+To: Andrew McDonald <andrew@mcdonald.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.de.ibm.com ([195.212.29.153]:21383 "EHLO
-	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751870AbXJQGSe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 02:18:34 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate4.de.ibm.com (8.13.8/8.13.8) with ESMTP id l9H6IXqe068394
-	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 06:18:33 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9H6IXo02310254
-	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 08:18:33 +0200
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9H6IWLM020118
-	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 08:18:33 +0200
-Received: from d12ml065.megacenter.de.ibm.com (d12ml065.megacenter.de.ibm.com [9.149.167.11])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id l9H6IWRT020112
-	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 08:18:32 +0200
+Received: from netcore.fi ([193.94.160.1]:43130 "EHLO netcore.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763599AbXJQGTd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2007 02:19:33 -0400
+In-Reply-To: <20071016201550.GC28453@mcdonald.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 16 Oct 2007, Andrew McDonald wrote:
+> For why you don't want to packets to be forwarded, consider a simple
+> example that applies to something like RSVP:
+> - packet hits router, identified as potentially interesting from router
+> alert option
+> - packet passed to user space, confirmed as really interesting and
+> processed
+> - create new packet (based on the one that came in and the RSVP
+> processing you've done) and send it out
+>
+> You don't want the original packet you received to be forwarded, only
+> your new packet.
 
-I will be out of the office starting  10/16/2007 and will not return until
-10/22/2007.
+Router alert option on a hop-by-hop header means that every router on 
+the path should process the option.
 
-For topics regarding Malta or Elba driver release please contact Christian
-Rund and Gunner von Boehn. For network relates issues please contact Adrian
-Reber. Please contact Christopher Oelsner for all other topics.
+You did not mention the rationale why the it would be reasonable for a 
+packet that would otherwise be forwarded by the Linux router and 
+expected to be processed by every router on the path to be re-created 
+at every step, and every user-space application have to do that.
 
-For topics regarding Broadcom NIC please contact Tim Wensky.
+In the specific case of RSVP packets, AFAIK (e.g., Path and PathTear 
+messages), the content of the RSVP packet is expected to be the 
+same at every hop.
 
-For topics regarding SLOF driver releases for Malta please contact Thomas
-Huth.
+Your argument might make sense in the case where the payload of the 
+packet carrying router-alert option is expected to change at every 
+hop.  I believe that's not the intent of any router alert options that 
+I'm aware of.
 
-For all other issues please contact Christopher Oelsner, Stefan Koch4 or
-Hartmut Penner.
-
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
