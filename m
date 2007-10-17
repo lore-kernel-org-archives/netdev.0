@@ -1,38 +1,71 @@
-From: Sebastian Siewior <netdev@ml.breakpoint.cc>
-Subject: [PATCH] [net] gianfar: remove orphan struct.
-Date: Wed, 17 Oct 2007 10:52:22 +0200
-Message-ID: <E1Ii4k6-0000VM-0j@Chamillionaire.breakpoint.cc>
-Cc: netdev@vger.kernel.org, Li Yang <leoli@freescale.com>
-To: jeff@garzik.org
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: [PATCH] Fix ethernet multicast for ucc_geth.
+Date: Wed, 17 Oct 2007 11:05:41 +0200
+Message-ID: <1192611942.7848.19.camel@gentoo-jocke.transmode.se>
+Reply-To: joakim.tjernlund@transmode.se
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+To: Netdev <netdev@vger.kernel.org>,
+	Li Yang-r58472 <LeoLi@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:51522 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753234AbXJQI7M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 04:59:12 -0400
+Received: from mail.transmode.se ([83.241.175.147]:44040 "EHLO
+	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756763AbXJQJFp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 05:05:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-struct net_device_stats is no longer used in driver's private
-struct but in struct net_device.
+>From 5761a9e5924b34615c748fba2dcb977ed04c1243 Mon Sep 17 00:00:00 2001
+From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
+Date: Wed, 17 Oct 2007 11:01:44 +0200
+Subject: [PATCH] Fix ethernet multicast for ucc_geth.
+ hw_add_addr_in_hash() already swaps byte
+ order, don't do it in ucc_geth_set_multi() too.
 
-Cc: Li Yang <leoli@freescale.com>
-Signed-off-by: Sebastian Siewior <bigeasy@linutronix.de>
+
+Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
 ---
- drivers/net/gianfar.h |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ drivers/net/ucc_geth.c |   15 ++-------------
+ 1 files changed, 2 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
-index c16cc8b..46cd773 100644
---- a/drivers/net/gianfar.h
-+++ b/drivers/net/gianfar.h
-@@ -749,7 +749,6 @@ struct gfar_private {
- 	uint32_t msg_enable;
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 61f5cce..f649b1e 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -2214,9 +2214,7 @@ static void ucc_geth_set_multi(struct net_device *dev)
+ 	struct dev_mc_list *dmi;
+ 	struct ucc_fast *uf_regs;
+ 	struct ucc_geth_82xx_address_filtering_pram *p_82xx_addr_filt;
+-	u8 tempaddr[6];
+-	u8 *mcptr, *tdptr;
+-	int i, j;
++	int i;
  
- 	/* Network Statistics */
--	struct net_device_stats stats;
- 	struct gfar_extra_stats extra_stats;
- };
+ 	ugeth = netdev_priv(dev);
  
+@@ -2255,19 +2253,10 @@ static void ucc_geth_set_multi(struct net_device *dev)
+ 				if (!(dmi->dmi_addr[0] & 1))
+ 					continue;
+ 
+-				/* The address in dmi_addr is LSB first,
+-				 * and taddr is MSB first.  We have to
+-				 * copy bytes MSB first from dmi_addr.
+-				 */
+-				mcptr = (u8 *) dmi->dmi_addr + 5;
+-				tdptr = (u8 *) tempaddr;
+-				for (j = 0; j < 6; j++)
+-					*tdptr++ = *mcptr--;
+-
+ 				/* Ask CPM to run CRC and set bit in
+ 				 * filter mask.
+ 				 */
+-				hw_add_addr_in_hash(ugeth, tempaddr);
++				hw_add_addr_in_hash(ugeth, dmi->dmi_addr);
+ 			}
+ 		}
+ 	}
 -- 
-1.5.2.2
+1.5.3.4
+
 
