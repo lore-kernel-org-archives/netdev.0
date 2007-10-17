@@ -1,112 +1,69 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 4/4] Fix the race between sk_filter_(de|at)tach and sk_clone()
-Date: Wed, 17 Oct 2007 13:53:40 +0400
-Message-ID: <4715DBA4.3040707@openvz.org>
-References: <4715D9D2.8070102@openvz.org>
+From: Milan Kocian <milon@wq.cz>
+Subject: Re: Difference between device statistics from ifconfig and ip -s l
+	l
+Date: Wed, 17 Oct 2007 12:13:03 +0200
+Message-ID: <20071017101303.GB16356@wq.cz>
+References: <20071017092659.GA16356@wq.cz> <4715D79E.7020201@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:52735 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755338AbXJQJ4M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 05:56:12 -0400
-In-Reply-To: <4715D9D2.8070102@openvz.org>
+Received: from gw-sitel.lam.cz ([212.71.129.172]:54461 "EHLO nt.wq.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750930AbXJQKNI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2007 06:13:08 -0400
+Content-Disposition: inline
+In-Reply-To: <4715D79E.7020201@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The proposed fix is to delay the reference counter decrement
-until the quiescent state pass. This will give sk_clone() a
-chance to get the reference on the cloned filter.
+On Wed, Oct 17, 2007 at 11:36:30AM +0200, Patrick McHardy wrote:
+> Milan Kocian wrote:
+>> hello,
+>> see dropped packets, please:
+>> sit:~# ifconfig eth0
+>> eth0      Link encap:Ethernet  HWaddr 00:04:23:D6:D5:DE            UP 
+>> BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>>           RX packets:522284892 errors:0 dropped:16800 overruns:0 frame:0
+>>           TX packets:506064445 errors:0 dropped:0 overruns:0 carrier:0
+>>           collisions:0 txqueuelen:1000           RX bytes:1405350664 (1.3 
+>> GiB)  TX bytes:4082649020 (3.8 GiB)
+>>           Base address:0xac00 Memory:ff6e0000-ff700000 see via ip l l 
+>> (here are no dropped packets):
+>> sit:~# ip -s l l dev eth0
+>> 2: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc htb qlen 1000
+>>     link/ether 00:04:23:d6:d5:de brd ff:ff:ff:ff:ff:ff
+>>     RX: bytes  packets  errors  dropped overrun mcast       2494988681 
+>> 523755694 0       0       0       57458      TX: bytes  packets  errors  
+>> dropped carrier collsns     453184821  507470461 0       0       0       0 
+>>      but see more detailed stats (dropped packet are as missed in RX 
+>> errors ?!):
+>> sit:~# ip -s -s l l dev eth0
+>> 2: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc htb qlen 1000
+>>     link/ether 00:04:23:d6:d5:de brd ff:ff:ff:ff:ff:ff
+>>     RX: bytes  packets  errors  dropped overrun mcast       2752159866 
+>> 524110163 0       0       0       57485      RX errors: length  crc     
+>> frame   fifo    missed
+>>                0        0       0       0       16800      TX: bytes  
+>> packets  errors  dropped carrier collsns     607359337  507807361 0       
+>> 0       0       0          TX errors: aborted fifo    window  heartbeat
+>>                0        0       0       0      Is this bug or feature ? 
+>> From my point of view is somewhere lost any sum.
+>> Or is it driver dependent? Kernel 2.6.23.1 (in 2.6.20.20 is the same 
+>> behavior), driver e1000. iproute2-ss070313; net-tools 1.60, ifconfig 1.42 
+>> (2001-04-13)
+>
+>
+> ifconfig gets its data from /proc/net/dev, which adds up rx_errors
+> and rx_missed.
+>
 
-Regular sk_filter_uncharge can happen from the sk_free() only
-and there's no need in delaying the put - the socket is dead
-anyway and is to be release itself.
+Adds up rx_errors and rx_missed and prints it as dropped ? Ok, ifconfig is
+a little old. But why I don't see missed packets from RX errors detailed stats 
+(ip -s -s l l) in non-detailed stats as errors and see zero ?
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+regards,
 
----
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index b9cfe12..43fc3fa 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -905,16 +905,6 @@ static inline int sk_filter(struct sock *sk, struct sk_buff *skb)
- }
- 
- /**
-- * 	sk_filter_rcu_free: Free a socket filter
-- *	@rcu: rcu_head that contains the sk_filter to free
-- */
--static inline void sk_filter_rcu_free(struct rcu_head *rcu)
--{
--	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
--	kfree(fp);
--}
--
--/**
-  *	sk_filter_release: Release a socket filter
-  *	@sk: socket
-  *	@fp: filter to remove
-@@ -925,7 +915,7 @@ static inline void sk_filter_rcu_free(struct rcu_head *rcu)
- static inline void sk_filter_release(struct sk_filter *fp)
- {
- 	if (atomic_dec_and_test(&fp->refcnt))
--		call_rcu_bh(&fp->rcu, sk_filter_rcu_free);
-+		kfree(fp);
- }
- 
- static inline void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 54dddc9..b8bc7d3 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -387,6 +387,25 @@ int sk_chk_filter(struct sock_filter *filter, int flen)
- }
- 
- /**
-+ * 	sk_filter_rcu_release: Release a socket filter by rcu_head
-+ *	@rcu: rcu_head that contains the sk_filter to free
-+ */
-+static void sk_filter_rcu_release(struct rcu_head *rcu)
-+{
-+	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
-+
-+	sk_filter_release(fp);
-+}
-+
-+static void sk_filter_delayed_uncharge(struct sock *sk, struct sk_filter *fp)
-+{
-+	unsigned int size = sk_filter_len(fp);
-+
-+	atomic_sub(size, &sk->sk_omem_alloc);
-+	call_rcu_bh(&fp->rcu, sk_filter_rcu_release);
-+}
-+
-+/**
-  *	sk_attach_filter - attach a socket filter
-  *	@fprog: the filter program
-  *	@sk: the socket to use
-@@ -428,7 +447,7 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
- 	rcu_assign_pointer(sk->sk_filter, fp);
- 	rcu_read_unlock_bh();
- 
--	sk_filter_uncharge(sk, old_fp);
-+	sk_filter_delayed_uncharge(sk, old_fp);
- 	return 0;
- }
- 
-@@ -441,7 +460,7 @@ int sk_detach_filter(struct sock *sk)
- 	filter = rcu_dereference(sk->sk_filter);
- 	if (filter) {
- 		rcu_assign_pointer(sk->sk_filter, NULL);
--		sk_filter_uncharge(sk, filter);
-+		sk_filter_delayed_uncharge(sk, filter);
- 		ret = 0;
- 	}
- 	rcu_read_unlock_bh();
 -- 
-1.5.3.4
-
+Milan Kocian
