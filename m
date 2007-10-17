@@ -1,71 +1,34 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: [PATCH] Fix ethernet multicast for ucc_geth.
-Date: Wed, 17 Oct 2007 11:05:41 +0200
-Message-ID: <1192611942.7848.19.camel@gentoo-jocke.transmode.se>
-Reply-To: joakim.tjernlund@transmode.se
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] PHYLIB: IRQ event workqueue handling fixes
+Date: Wed, 17 Oct 2007 11:09:46 +0200
+Message-ID: <20071017090946.GB1658@ff.dom.local>
+References: <20071015125301.GC3015@ff.dom.local> <Pine.LNX.4.64N.0710151737250.16262@blysk.ds.pg.gda.pl> <20071016062108.GB1000@ff.dom.local> <Pine.LNX.4.64N.0710161759050.22596@blysk.ds.pg.gda.pl> <20071017085809.GA1658@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: Netdev <netdev@vger.kernel.org>,
-	Li Yang-r58472 <LeoLi@freescale.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Fleming <afleming@freescale.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Maciej W\. Rozycki" <macro@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.transmode.se ([83.241.175.147]:44040 "EHLO
-	tmnt04.transmode.se" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756763AbXJQJFp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 05:05:45 -0400
+Received: from mx12.go2.pl ([193.17.41.142]:56672 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753074AbXJQJGn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2007 05:06:43 -0400
+Content-Disposition: inline
+In-Reply-To: <20071017085809.GA1658@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->From 5761a9e5924b34615c748fba2dcb977ed04c1243 Mon Sep 17 00:00:00 2001
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Date: Wed, 17 Oct 2007 11:01:44 +0200
-Subject: [PATCH] Fix ethernet multicast for ucc_geth.
- hw_add_addr_in_hash() already swaps byte
- order, don't do it in ucc_geth_set_multi() too.
+On Wed, Oct 17, 2007 at 10:58:09AM +0200, Jarek Poplawski wrote:
+...
+> 5) phy_stop_interrupts(): maybe I miss something, but it seems
+> phy_stop() is required before this, so maybe there should be a
+> comment on this?
+> 
+> 6) phy_stop_interrupts(): if I'm not wrong with #3 calling
 
+Should be:
+  6) phy_stop_interrupts(): if I'm not wrong with #5 calling
 
-Signed-off-by: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
----
- drivers/net/ucc_geth.c |   15 ++-------------
- 1 files changed, 2 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 61f5cce..f649b1e 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -2214,9 +2214,7 @@ static void ucc_geth_set_multi(struct net_device *dev)
- 	struct dev_mc_list *dmi;
- 	struct ucc_fast *uf_regs;
- 	struct ucc_geth_82xx_address_filtering_pram *p_82xx_addr_filt;
--	u8 tempaddr[6];
--	u8 *mcptr, *tdptr;
--	int i, j;
-+	int i;
- 
- 	ugeth = netdev_priv(dev);
- 
-@@ -2255,19 +2253,10 @@ static void ucc_geth_set_multi(struct net_device *dev)
- 				if (!(dmi->dmi_addr[0] & 1))
- 					continue;
- 
--				/* The address in dmi_addr is LSB first,
--				 * and taddr is MSB first.  We have to
--				 * copy bytes MSB first from dmi_addr.
--				 */
--				mcptr = (u8 *) dmi->dmi_addr + 5;
--				tdptr = (u8 *) tempaddr;
--				for (j = 0; j < 6; j++)
--					*tdptr++ = *mcptr--;
--
- 				/* Ask CPM to run CRC and set bit in
- 				 * filter mask.
- 				 */
--				hw_add_addr_in_hash(ugeth, tempaddr);
-+				hw_add_addr_in_hash(ugeth, dmi->dmi_addr);
- 			}
- 		}
- 	}
--- 
-1.5.3.4
-
-
+Jarek P.
