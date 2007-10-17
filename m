@@ -1,52 +1,48 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] net: Fix new EMAC driver for NAPI changes
-Date: Wed, 17 Oct 2007 11:46:54 +1000
-Message-ID: <1192585614.11899.108.camel@pasglop>
-References: <1192513250.19073.10.camel@pasglop>
-	 <47156258.5010800@garzik.org>
-Reply-To: benh@kernel.crashing.org
+From: "Li Yang-r58472" <LeoLi@freescale.com>
+Subject: RE: [PATCH] [net] fix gianfar (compile and warning)
+Date: Wed, 17 Oct 2007 10:38:29 +0800
+Message-ID: <989B956029373F45A0B8AF0297081890019B5A3A@zch01exm26.fsl.freescale.net>
+References: <E1IhqCT-0007Wu-Lz@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux.foundation.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Roland Dreier <rdreier@cisco.com>,
-	linuxppc-dev list <linuxppc-dev@ozlabs.org>
-To: Jeff Garzik <jeff@garzik.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>,
+	"Grant Likely" <grant.likely@secretlab.ca>
+To: "Sebastian Siewior" <netdev@ml.breakpoint.cc>, <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:40998 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756350AbXJQBrO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Oct 2007 21:47:14 -0400
-In-Reply-To: <47156258.5010800@garzik.org>
+Received: from de01egw01.freescale.net ([192.88.165.102]:62036 "EHLO
+	de01egw01.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755036AbXJQCif convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 22:38:35 -0400
+Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
+	by de01egw01.freescale.net (8.12.11/de01egw01) with ESMTP id l9H2cWhW015273
+	for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 19:38:32 -0700 (MST)
+Received: from zch01exm26.fsl.freescale.net (zch01exm26.ap.freescale.net [10.192.129.221])
+	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id l9H2cUa7005916
+	for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 21:38:31 -0500 (CDT)
+Content-class: urn:content-classes:message
+In-Reply-To: <E1IhqCT-0007Wu-Lz@Chamillionaire.breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-On Tue, 2007-10-16 at 21:16 -0400, Jeff Garzik wrote:
-> Benjamin Herrenschmidt wrote:
-> > net: Fix new EMAC driver for NAPI changes
-> > 
-> > This fixes the new EMAC driver for the NAPI updates. The previous patch
-> > by Roland Dreier (already applied) to do that doesn't actually work. This
-> > applies on top of it makes it work on my test Ebony machine.
-> > 
-> > This patch depends on "net: Add __napi_sycnhronize() to sync with napi poll"
-> > posted previously.
-> > 
-> > Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> > ---
-> > 
-> > The old EMAC driver does things a bit differently (doesn't do useful
-> > locking :-) and seems to work with Roland patch. So I'm not going to
-> > touch it unless somebody reports me that it has problems
+> -----Original Message-----
+> From: Sebastian Siewior [mailto:netdev@ml.breakpoint.cc] 
+> Sent: Wednesday, October 17, 2007 1:25 AM
+> To: jeff@garzik.org
+> Cc: Li Yang-r58472; netdev@vger.kernel.org; Grant Likely
+> Subject: [PATCH] [net] fix gianfar (compile and warning)
 > 
-> applied
+> Currently it does not compile because a not declared variable is used.
+> struct net_device_stats in driver's private struct is also unsued.
+> This patch uses (hopefully) the right stats.
+> 
+> Cc: Li Yang <leoli@freescale.com>
+> Signed-off-by: Sebastian Siewior <bigeasy@linutronix.de>
 
-Beware that the depend patch for __napi_synchronize() is still being
-discussed :-)
+I have also submitted a patch to fixed this compile error two days
+before, and it has been applied on Jeff's netdev tree.  But you can
+submit a separate patch to cleanup the struct net_device_stats in
+driver's private struct. Thanks.
 
-Cheers,
-Ben.
-
-
+- Leo
