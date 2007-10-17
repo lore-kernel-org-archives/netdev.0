@@ -1,101 +1,59 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 3/11] [IPSEC]: Get nexthdr from caller in xfrm6_rcv_spi
-Date: Wed, 17 Oct 2007 22:34:10 +0800
-Message-ID: <E1Ii9yM-0006Gx-00@gondolin.me.apana.org.au>
+Subject: [PATCH 1/11] [IPSEC]: Fix pure tunnel modes involving IPv6
+Date: Wed, 17 Oct 2007 22:34:08 +0800
+Message-ID: <E1Ii9yK-0006Ga-00@gondolin.me.apana.org.au>
 References: <20071017142940.GA23879@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1096 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:1083 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758984AbXJQOeT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 10:34:19 -0400
+	with ESMTP id S1756265AbXJQOeO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 10:34:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Get nexthdr from caller in xfrm6_rcv_spi
+[IPSEC]: Fix pure tunnel modes involving IPv6
 
-Currently xfrm6_rcv_spi gets the nexthdr value itself from the packet.
-This means that we need to fix up the value in case we have a 4-on-6
-tunnel.  Moving this logic into the caller simplifies things and allows
-us to merge the code with IPv4.
+I noticed that my recent patch broke 6-on-4 pure IPsec tunnels (the ones
+that are only used for incompressible IPsec packets).  Subsequent reviews
+show that I broke 6-on-6 pure tunnels more than three years ago and nobody
+ever noticed. I suppose every must be testing 6-on-6 IPComp with large
+pings which are very compressible :)
+
+This patch fixes both cases.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/net/xfrm.h      |    2 +-
- net/ipv6/xfrm6_input.c  |    9 ++++-----
+ net/ipv4/xfrm4_tunnel.c |    2 +-
  net/ipv6/xfrm6_tunnel.c |    2 +-
- 3 files changed, 6 insertions(+), 7 deletions(-)
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 680739f..d8974ca 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1058,7 +1058,7 @@ static inline int xfrm4_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
- extern int xfrm4_output(struct sk_buff *skb);
- extern int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family);
- extern int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
--extern int xfrm6_rcv_spi(struct sk_buff *skb, __be32 spi);
-+extern int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi);
- extern int xfrm6_rcv(struct sk_buff *skb);
- extern int xfrm6_input_addr(struct sk_buff *skb, xfrm_address_t *daddr,
- 			    xfrm_address_t *saddr, u8 proto);
-diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
-index 02f69e5..596a730 100644
---- a/net/ipv6/xfrm6_input.c
-+++ b/net/ipv6/xfrm6_input.c
-@@ -16,7 +16,7 @@
- #include <net/ipv6.h>
- #include <net/xfrm.h>
+diff --git a/net/ipv4/xfrm4_tunnel.c b/net/ipv4/xfrm4_tunnel.c
+index 1312417..83e9580 100644
+--- a/net/ipv4/xfrm4_tunnel.c
++++ b/net/ipv4/xfrm4_tunnel.c
+@@ -18,7 +18,7 @@ static int ipip_output(struct xfrm_state *x, struct sk_buff *skb)
  
--int xfrm6_rcv_spi(struct sk_buff *skb, __be32 spi)
-+int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
+ static int ipip_xfrm_rcv(struct xfrm_state *x, struct sk_buff *skb)
  {
- 	int err;
- 	__be32 seq;
-@@ -24,11 +24,9 @@ int xfrm6_rcv_spi(struct sk_buff *skb, __be32 spi)
- 	struct xfrm_state *x;
- 	int xfrm_nr = 0;
- 	int decaps = 0;
--	int nexthdr;
- 	unsigned int nhoff;
- 
- 	nhoff = IP6CB(skb)->nhoff;
--	nexthdr = skb_network_header(skb)[nhoff];
- 
- 	seq = 0;
- 	if (!spi && (err = xfrm_parse_spi(skb, nexthdr, &spi, &seq)) != 0)
-@@ -41,7 +39,7 @@ int xfrm6_rcv_spi(struct sk_buff *skb, __be32 spi)
- 			goto drop;
- 
- 		x = xfrm_state_lookup((xfrm_address_t *)&iph->daddr, spi,
--				nexthdr != IPPROTO_IPIP ? nexthdr : IPPROTO_IPV6, AF_INET6);
-+				      nexthdr, AF_INET6);
- 		if (x == NULL)
- 			goto drop;
- 		spin_lock(&x->lock);
-@@ -135,7 +133,8 @@ EXPORT_SYMBOL(xfrm6_rcv_spi);
- 
- int xfrm6_rcv(struct sk_buff *skb)
- {
--	return xfrm6_rcv_spi(skb, 0);
-+	return xfrm6_rcv_spi(skb, skb_network_header(skb)[IP6CB(skb)->nhoff],
-+			     0);
+-	return IPPROTO_IP;
++	return ip_hdr(skb)->protocol;
  }
  
- EXPORT_SYMBOL(xfrm6_rcv);
+ static int ipip_init_state(struct xfrm_state *x)
 diff --git a/net/ipv6/xfrm6_tunnel.c b/net/ipv6/xfrm6_tunnel.c
-index 6c67ac1..fae90ff 100644
+index 3f8a3ab..6c67ac1 100644
 --- a/net/ipv6/xfrm6_tunnel.c
 +++ b/net/ipv6/xfrm6_tunnel.c
-@@ -257,7 +257,7 @@ static int xfrm6_tunnel_rcv(struct sk_buff *skb)
- 	__be32 spi;
+@@ -248,7 +248,7 @@ static int xfrm6_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
  
- 	spi = xfrm6_tunnel_spi_lookup((xfrm_address_t *)&iph->saddr);
--	return xfrm6_rcv_spi(skb, spi) > 0 ? : 0;
-+	return xfrm6_rcv_spi(skb, IPPROTO_IPV6, spi) > 0 ? : 0;
+ static int xfrm6_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
+ {
+-	return 0;
++	return skb_network_header(skb)[IP6CB(skb)->nhoff];
  }
  
- static int xfrm6_tunnel_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ static int xfrm6_tunnel_rcv(struct sk_buff *skb)
