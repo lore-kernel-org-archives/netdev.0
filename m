@@ -1,50 +1,74 @@
-From: Milan Kocian <milon@wq.cz>
-Subject: Re: Difference between device statistics from ifconfig and ip -s l
-	l
-Date: Wed, 17 Oct 2007 13:29:20 +0200
-Message-ID: <20071017112919.GC16356@wq.cz>
-References: <20071017092659.GA16356@wq.cz> <4715D79E.7020201@trash.net> <20071017101303.GB16356@wq.cz> <4715E57F.6080905@trash.net>
+From: "Eliezer Tamir" <eliezert@broadcom.com>
+Subject: Re: BNX2X driver: kernel panic when running netperf
+Date: Wed, 17 Oct 2007 13:46:02 +0200
+Message-ID: <1192621562.29746.200.camel@eliezer>
+References: <1192577680.5730.12.camel@w-amax.beaverton.ibm.com>
+ <20071016.164938.66177554.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>
+To: masbock@us.ibm.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-sitel.lam.cz ([212.71.129.172]:52357 "EHLO nt.wq.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758466AbXJQL3Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 07:29:25 -0400
-Content-Disposition: inline
-In-Reply-To: <4715E57F.6080905@trash.net>
+Received: from mms2.broadcom.com ([216.31.210.18]:1926 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757937AbXJQLod (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2007 07:44:33 -0400
+In-Reply-To: <20071016.164938.66177554.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 17, 2007 at 12:35:43PM +0200, Patrick McHardy wrote:
-> Milan Kocian wrote:
->> On Wed, Oct 17, 2007 at 11:36:30AM +0200, Patrick McHardy wrote:
->>
->>> ifconfig gets its data from /proc/net/dev, which adds up rx_errors
->>> and rx_missed.
->>>
->> Adds up rx_errors and rx_missed and prints it as dropped ? Ok, ifconfig is
->> a little old. But why I don't see missed packets from RX errors detailed 
->> stats (ip -s -s l l) in non-detailed stats as errors and see zero ?
->
->
-> I meant to write "adds up rx_dropped and rx_missed".
+On Tue, 2007-10-16 at 16:49 -0700, David Miller wrote:
+> From: Max Asbock <masbock@us.ibm.com>
+> Date: Tue, 16 Oct 2007 16:34:40 -0700
+> 
+> > I tested the bnx2x driver (0001-BNX2X-0.40.10a-net-2.6.24.patch)
+> with
+> > netdev-2.6.24 git tree and found that I can reproducibly panic the
+> > system when running netperf with the TCP_STREAM test.
+> > I copied the following information from the panic message:
+> > RIP: 0xc02fff32
+> > net_rx_action +0x142/0x190
+> 
+> The driver is doing netif_rx_complete() yet returning a value from
+> ->poll() which is >= budget, which is illegal.
+> 
+> We had to fix a similar bug in the tg3 and bnx2 drivers, the same
+> logic probably just propagated itself into bnx2x.
 
-ok.
+I think that this will fix the bug.
 
-One probably stupid question: Why is not done similar sum in output of 'ip -s l l' ?
+This is a diff against 0.40.10a.
+I hope to get a new version out soon, once we finish working on Dave's
+comments.
 
-Imagine me :), I do 'ifconfig' and see dropped packets and then I do 'ip -s l l'
-and see zeros. I stare on it like an idiot. Where is bug ? ifconfig ? ip ?
-(man page of ip and 'ip -s -s l l' with missed packets stats saved me :).
+Eliezer
 
-IMHO I think that comparable outputs of both programs should be still the same.
 
-thanks for reply.
+---
+ drivers/net/bnx2x.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-regards,
-
+diff --git a/drivers/net/bnx2x.c b/drivers/net/bnx2x.c
+index f462c74..9220bd3 100644
+--- a/drivers/net/bnx2x.c
++++ b/drivers/net/bnx2x.c
+@@ -8085,9 +8085,10 @@ #endif
+ 		work_done = bnx2x_rx_int(fp, budget);
+ 	}
+ 
+-	rmb(); /* TBD check */
++	rmb(); /* bnx2x_has_work() reads the status block */
+ 
+-	if (!bnx2x_has_work(fp)) {
++	/* must not complete if we consumed full budget */
++	if ((work_done < budget) && !bnx2x_has_work(fp)) {
+ 		netif_rx_complete(bp->dev, napi);
+ 
+ 		bnx2x_ack_sb(bp, fp->index, USTORM_ID, fp->fp_u_idx,
 -- 
-Milan Kocian
+1.4.2
+
+
+
