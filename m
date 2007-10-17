@@ -1,111 +1,62 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 12/12] Drop bogus reference to tc-filters and add
- lartc.org link to manpage.
-Date: Wed, 17 Oct 2007 11:02:57 -0700
-Message-ID: <20071017110257.05991840@freepuppy.rosehill>
-References: <1192179407-22461-1-git-send-email-andreas@fatal.se>
-	<1192179407-22461-2-git-send-email-andreas@fatal.se>
-	<1192179407-22461-3-git-send-email-andreas@fatal.se>
-	<1192179407-22461-4-git-send-email-andreas@fatal.se>
-	<1192179407-22461-5-git-send-email-andreas@fatal.se>
-	<1192179407-22461-6-git-send-email-andreas@fatal.se>
-	<1192179407-22461-7-git-send-email-andreas@fatal.se>
-	<1192179407-22461-8-git-send-email-andreas@fatal.se>
-	<1192179407-22461-9-git-send-email-andreas@fatal.se>
-	<1192179407-22461-10-git-send-email-andreas@fatal.se>
-	<1192179407-22461-11-git-send-email-andreas@fatal.se>
-	<1192179407-22461-12-git-send-email-andreas@fatal.se>
-	<20071012145043.37e2317f@freepuppy.rosehill>
-	<1192639850.18005.46.camel@localhost.localdomain>
-	<20071017100539.4877b4e4@freepuppy.rosehill>
-	<1192643940.18005.60.camel@localhost.localdomain>
+From: Vladislav Bolkhovitin <vst@vlnb.net>
+Subject: Re: r8169 & TX offload
+Date: Wed, 17 Oct 2007 21:42:54 +0400
+Message-ID: <4716499E.9040701@vlnb.net>
+References: <4714D785.3000402@vlnb.net> <20071016172517.GA8120@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Alexander Wirt <formorer@debian.org>
-To: Andreas Henriksson <andreas@fatal.se>
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:44005 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755989AbXJQSDs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 14:03:48 -0400
-In-Reply-To: <1192643940.18005.60.camel@localhost.localdomain>
+Received: from mail-relay-02.mailcluster.net ([77.221.130.214]:36297 "EHLO
+	mail-relay-01.mailcluster.net" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755522AbXJQSJM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 14:09:12 -0400
+In-Reply-To: <20071016172517.GA8120@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 17 Oct 2007 19:58:59 +0200
-Andreas Henriksson <andreas@fatal.se> wrote:
+Francois Romieu wrote:
+> (please remove l-k from the Cc:, this ought to be sent to netdev)
 
+OK. Sorry, for some reason I thought I read in the MAINTAINERS file that 
+LKML is the mailing list for r8169 driver.
+
+> Vladislav Bolkhovitin <vst@vlnb.net> :
 > 
-> On ons, 2007-10-17 at 10:05 -0700, Stephen Hemminger wrote:
-> > The missing ones are now applied to git, for next release which
-> > will either be a bug fix (if other problems show up) or wait
-> > until new features for 2.6.24 are included.
-> > 
+>>I've recently bought Realtek RTL8169S-32 chip based Gigabit Ethernet card:
+>>
+>># lspci -vv
 > 
-> Thank you!
+> [...]
 > 
-> We are currently working on importing the debian package to a git
-> repository. This includes learning git and suitable workflows for using
-> git with packages. Hopefully this will simplify sending patches upstream
-> in the future. While doing this I've noticed that some parts needs to be
-> split out in separate patches and that there are many more small things
-> that needs to be reviewed and sent upstream. Expect more patches coming
-> in the future (but don't hold your breath, it'll probably take a while
-> to gather all the needed free time).
+>>I've noticed that all TX offload features (tx-checksumming, 
+>>scatter-gather and TSO) are disabled by default and should be manually 
+>>enabled by ethtool. I wonder, is there any particular reason for that? 
 > 
-> Additionally I noticed that the last few releases hasn't been tagged, or
-> atleast the tags doesn't seem to be pushed out to the repo on
-> kernel.org. It would be nice for us if they where available, so please
-> put this on the wishlist. :)
+> As far as I can tell, it is mostly a lack of pressure from the users and
+> my desire to avoid a change of behavior.
 > 
-> I don't know if it's just me doing something wrong, but cloning from the
-> url with the symlink to your personal repository doesn't seem to work:
-> git://git.kernel.org/pub/network/iproute2/iproute2.git
-> Using this url works though:
-> git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
-> (These are the urls from a previous mail you sent me.... Just wanted to
-> notify you in case something was broken with the symlink.)
+>>Why they are not enabled by default as it was done for e1000 or tg3? Are 
+>>there any hidden drawbacks in enabling them?
 > 
+> None that I know of. I had not noticed a huge difference and people did
+> not comment a lot either...
+
+I think, 30% of CPU saving is worth enough to turn TX offload on, 
+especially if a system does something more than just data transfers. 
+Usually, such options are enabled by default unless there are some 
+hidden important drawbacks, like stability issues. Hence, there are 
+questions like mine: it's just too suspicious that something good 
+doesn't have hidden issues if it isn't enabled by author ;)
+
+Thanks for clarification.
+
+>>Those offload options are definitely work. They give in my setup (32-bit 
+>>66MHz PCI, Xeon 1.7GHz CPU, open-iscsi) CPU offload from 75% to 45% and 
+>>data write throughput improvement from 55MB/s to 59MB/s.
 > 
-> Have a nice day.
+> ...but your datapoint is welcome.
 > 
 
-The tagging naming convention is messed up, but they are there:
-
-$ git tag -l
-ss050607
-ss-050808
-ss-050816
-ss-050901
-ss-050929
-ss-051006
-ss-051007
-ss-051101
-ss-051107
-ss-060110
-ss-060314
-ss-060323
-v2_6_10-050124
-v2_6_10-050207
-v2_6_10-050209
-v2_6_11-050310
-v2_6_11-050314
-v2_6_11-050318
-v2_6_11-050330
-v2.6.19-061214
-v2.6.23-071016
-v2_6_7-040701
-v2_6_7-040702
-v2_6_7-ss040608
-v2_6_8-040730
-v2_6_8-040813-jamal
-v2_6_8-040823
-v2_6_8-ss040831
-v2_6_9-041019
-v2_6_9-jamal
-v2_6_9-ss040831
-
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
