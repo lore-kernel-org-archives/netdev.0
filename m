@@ -1,31 +1,41 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH 2/2] e1000e: fix error checks
-Date: Tue, 16 Oct 2007 21:15:48 -0400
-Message-ID: <47156244.1030201@garzik.org>
-References: <20071015210213.26666.90484.stgit@localhost.localdomain> <20071015210221.26666.14629.stgit@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [ofa-general] Re: [PATCH linux-2.6] bonding: two small fixes for
+	IPoIB support
+Date: Tue, 16 Oct 2007 21:15:58 -0400
+Message-ID: <4715624E.8010909@pobox.com>
+References: <47138EB7.40703@gmail.com> <4713B006.9090908@pobox.com>
+	<27349.1192480486@death> <4713D28F.3010904@pobox.com>
+	<31162.1192485233@death> <4713E20F.9080305@pobox.com>
+	<9245.1192491867@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff@garzik.ok, netdev@vger.kernel.org, bunk@kernel.org,
-	joe@perches.com
-To: Auke Kok <auke-jan.h.kok@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:47520 "EHLO mail.dvmed.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965916AbXJQBPv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Oct 2007 21:15:51 -0400
-In-Reply-To: <20071015210221.26666.14629.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, rdreier@cisco.com, general@lists.openfabrics.org
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <general-bounces@lists.openfabrics.org>
+In-Reply-To: <9245.1192491867@death>
+List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
+List-Archive: <http://lists.openfabrics.org/pipermail/general>
+List-Post: <mailto:general@lists.openfabrics.org>
+List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
+List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
+	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
+Sender: general-bounces@lists.openfabrics.org
+Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Auke Kok wrote:
-> From: Adrian Bunk <bunk@kernel.org>
+Jay Vosburgh wrote:
+> 	Two small fixes to IPoIB support for bonding:
 > 
-> Spotted by the Coverity checker.
+> 	1- copy header_ops from slave to bonding for IPoIB slaves
+> 	2- move release and destroy logic to UNREGISTER from GOING_DOWN
+> 	   notifier to avoid double release
 > 
-> Signed-off-by: Adrian Bunk <bunk@kernel.org>
-> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
+> 	Set bonding to version 3.2.1.
+> 
+> Signed-off-by: Moni Shoua <monis at voltaire.com>
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> 
 
-applied all three patches (1-2, and then the singleton)
-
-
+applied
