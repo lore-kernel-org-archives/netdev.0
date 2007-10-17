@@ -1,91 +1,78 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference at virtual
- address 000000b0
-Date: Wed, 17 Oct 2007 08:57:50 +0200
-Message-ID: <4715B26E.20302@cosmosbay.com>
-References: <Pine.LNX.4.64.0710170833071.21430@bizon.gios.gov.pl>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: [PATCH] ip_gre: sendto/recvfrom NBMA address
+Date: Wed, 17 Oct 2007 11:00:51 +0300
+Message-ID: <4715C133.60505@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Krzysztof Oledzki <olel@ans.pl>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.cosmosbay.com ([86.65.150.130]:42223 "EHLO
-	gw1.cosmosbay.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755613AbXJQG6H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 02:58:07 -0400
-In-Reply-To: <Pine.LNX.4.64.0710170833071.21430@bizon.gios.gov.pl>
+Received: from hu-out-0506.google.com ([72.14.214.239]:40085 "EHLO
+	hu-out-0506.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753745AbXJQIAz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 04:00:55 -0400
+Received: by hu-out-0506.google.com with SMTP id 19so1830007hue
+        for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 01:00:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Krzysztof Oledzki a =E9crit :
-> Hello,
->=20
-> Today I found in my logs:
->=20
-> BUG: unable to handle kernel NULL pointer dereference at virtual addr=
-ess=20
-> 000000b0
->  printing eip:
-> 78395f65
-> *pde =3D 00000000
-> Oops: 0000 [#1]
-> PREEMPT SMP
-> CPU:    0
-> EIP:    0060:[<78395f65>]    Not tainted VLI
-> EFLAGS: 00210286   (2.6.22.9 #1)
-> EIP is at __ip_route_output_key+0x412/0x722
-> eax: 80000000   ebx: 00000000   ecx: 5dd2b1c3   edx: 00000000
-> esi: 00000000   edi: d44c7e30   ebp: ec8c4980   esp: d44c7ddc
-> ds: 007b   es: 007b   fs: 00d8  gs: 0033  ss: 0068
-> Process smtpd (pid: 12479, ti=3Dd44c6000 task=3D9e759510 task.ti=3Dd4=
-4c6000)
-> Stack: d44c7e7c d44c7e7c d44c7eb8 00000000 d44c7e7c 00000000 00000000=
-=20
-> 00000005
->        00000000 ffffffff 5dd2b1c3 00000000 00000000 00000000 00000000=
-=20
-> 00000000
->        00000000 00000000 00000000 00000000 00000000 00030000 00000000=
-=20
-> d44c7e7c
-> Call Trace:
->  [<78396280>] ip_route_output_flow+0xb/0x3e
->  [<783b2b29>] ip4_datagram_connect+0x1c9/0x308
->  [<783ba70a>] inet_dgram_connect+0x45/0x4e
->  [<7837135e>] sys_connect+0x72/0x9c
->  [<78371607>] sock_map_fd+0x41/0x4a
->  [<7840d1b1>] _spin_lock+0x33/0x3e
->  [<7840d623>] _spin_unlock+0x25/0x3b
->  [<78371607>] sock_map_fd+0x41/0x4a
->  [<78372792>] sys_socketcall+0x8f/0x242
->  [<7813e99c>] trace_hardirqs_on+0x122/0x14c
->  [<78103dc6>] sysenter_past_esp+0x8f/0x99
->  [<78103d96>] sysenter_past_esp+0x5f/0x99
->  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> Code: fa e0 00 00 00 75 07 c6 44 24 56 05 eb 14 81 fa f0 00 00 00 0f =
-84=20
-> e1 02 00 00 84 c0 0f 84 d9 02 00 00 8b 44 24 0c 0d 00 00 00 80 <f6> 8=
-6=20
-> b0 00 00 00 08 0f 44 44 24 0c 89 44 24 0c b8 01 00 00 00
-> EIP: [<78395f65>] __ip_route_output_key+0x412/0x722 SS:ESP 0068:d44c7=
-ddc
->=20
-> Shortly before it there was:
-> Oct 17 07:17:55 cougar postfix/master[3400]: warning: process=20
-> /usr/lib/postfix/smtpd pid 12479 killed by signal 11
->=20
-> Best regards,
->=20
->=20
->                 Krzysztof Ol=EAdzki
+When GRE tunnel is in NBMA mode, this patch allows an application to use
+a PF_PACKET socket to:
+- send a packet to specific NBMA address with sendto()
+- use recvfrom() to receive packet and check which NBMA address it came from
 
-Hello Krzysztof
+Signed-off-by: Timo Teras <timo.teras@iki.fi>
 
-Could you give us some details about this ? kernel version at least.
+---
 
-(you could for example take a look at REPORTING-BUGS, or run
-scripts/ver_linux)
+This is useful for implementing NHRP over NBMA GRE tunnels.
 
-Thanks
+Sent earlier to netdev list only. Resending to wider audience with
+a style issue fixed.
+
+net/ipv4/ip_gre.c |   12 +++++++++++-
+1 files changed, 11 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index f151900..b1e3816 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -1033,7 +1033,6 @@ static int ipgre_tunnel_change_mtu(struct net_device *dev, int new_mtu)
+	return 0;
+}
+
+-#ifdef CONFIG_NET_IPGRE_BROADCAST
+/* Nice toy. Unfortunately, useless in real life :-)
+   It allows to construct virtual multiprotocol broadcast "LAN"
+   over the Internet, provided multicast routing is tuned.
+@@ -1092,10 +1091,19 @@ static int ipgre_header(struct sk_buff *skb, struct net_device *dev,
+	return -t->hlen;
+}
+
++static int ipgre_header_parse(const struct sk_buff *skb, unsigned char *haddr)
++{
++	struct iphdr *iph = (struct iphdr *) skb_mac_header(skb);
++	memcpy(haddr, &iph->saddr, 4);
++	return 4;
++}
++
+static const struct header_ops ipgre_header_ops = {
+	.create	= ipgre_header,
++	.parse  = ipgre_header_parse,
+};
+
++#ifdef CONFIG_NET_IPGRE_BROADCAST
+static int ipgre_open(struct net_device *dev)
+{
+	struct ip_tunnel *t = netdev_priv(dev);
+@@ -1197,6 +1205,8 @@ static int ipgre_tunnel_init(struct net_device *dev)
+			dev->stop = ipgre_close;
+		}
+#endif
++	} else {
++		dev->header_ops = &ipgre_header_ops;
+	}
+
+	if (!tdev && tunnel->parms.link)
+
