@@ -1,35 +1,31 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: stateless 1:1 NAT
-Date: Wed, 17 Oct 2007 09:10:42 +0800
-Message-ID: <E1IhxQo-0004hF-00@gondolin.me.apana.org.au>
-References: <47155761.9030404@andrei.myip.org>
-Cc: netdev@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 2/2] e1000e: fix error checks
+Date: Tue, 16 Oct 2007 21:15:48 -0400
+Message-ID: <47156244.1030201@garzik.org>
+References: <20071015210213.26666.90484.stgit@localhost.localdomain> <20071015210221.26666.14629.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jeff@garzik.ok, netdev@vger.kernel.org, bunk@kernel.org,
+	joe@perches.com
+To: Auke Kok <auke-jan.h.kok@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4561 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757669AbXJQBKo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 21:10:44 -0400
-Received: from gondolin.me.apana.org.au ([192.168.0.6] ident=mail)
-	by arnor.apana.org.au with esmtp (Exim 4.50 #1 (Debian))
-	id 1IhxQp-0000gf-2n
-	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 11:10:43 +1000
-In-Reply-To: <47155761.9030404@andrei.myip.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:47520 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965916AbXJQBPv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2007 21:15:51 -0400
+In-Reply-To: <20071015210221.26666.14629.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Florin Andrei <florin@andrei.myip.org> wrote:
-> I've heard that stateless 1:1 NAT will be possible with the upcoming 
-> 2.6.24 kernel.
-> I'd like to test that feature, but I'm not sure when it will actually be 
-> included. Will it be present in the release candidates for 2.6.24?
-> I just need a somewhat stable kernel tree to play with.
+Auke Kok wrote:
+> From: Adrian Bunk <bunk@kernel.org>
+> 
+> Spotted by the Coverity checker.
+> 
+> Signed-off-by: Adrian Bunk <bunk@kernel.org>
+> Signed-off-by: Auke Kok <auke-jan.h.kok@intel.com>
 
-Yes it will be.
+applied all three patches (1-2, and then the singleton)
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
