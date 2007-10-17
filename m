@@ -1,30 +1,37 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: Will RFC1146 (tcp alternative checksum options) be implemented in Linux tcp stack ?
-Date: 17 Oct 2007 02:29:37 +0200
-Message-ID: <p73sl4ay45q.fsf@crumb.suse.de>
-References: <887901.30138.qm@web55205.mail.re4.yahoo.com>
+From: Florin Andrei <florin@andrei.myip.org>
+Subject: stateless 1:1 NAT
+Date: Tue, 16 Oct 2007 17:29:21 -0700
+Message-ID: <47155761.9030404@andrei.myip.org>
+Reply-To: netdev@vger.kernel.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Yanping Du <ypdu2001@yahoo.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns1.suse.de ([195.135.220.2]:41979 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753615AbXJQA3j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Oct 2007 20:29:39 -0400
-In-Reply-To: <887901.30138.qm@web55205.mail.re4.yahoo.com>
+Received: from smtp120.sbc.mail.sp1.yahoo.com ([69.147.64.93]:24808 "HELO
+	smtp120.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1765695AbXJQAgE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 16 Oct 2007 20:36:04 -0400
+Received: from localhost (weiqi.home.local [127.0.0.1])
+	by weiqi.home.local (Postfix) with ESMTP id C20325770DB
+	for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 17:29:22 -0700 (PDT)
+Received: from weiqi.home.local ([127.0.0.1])
+	by localhost (andrei.myip.org [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id xgN0Xm0Z55tF for <netdev@vger.kernel.org>;
+	Tue, 16 Oct 2007 17:29:21 -0700 (PDT)
+Received: from valar.sanjose.telcontar.com (unknown [192.168.2.2])
+	by weiqi.home.local (Postfix) with ESMTP id C9205577092
+	for <netdev@vger.kernel.org>; Tue, 16 Oct 2007 17:29:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yanping Du <ypdu2001@yahoo.com> writes:
+I've heard that stateless 1:1 NAT will be possible with the upcoming 
+2.6.24 kernel.
+I'd like to test that feature, but I'm not sure when it will actually be 
+included. Will it be present in the release candidates for 2.6.24?
+I just need a somewhat stable kernel tree to play with.
 
->   We found the standard 16-bit tcp checksum is not
-> strong enough in some cases. Is there any roadmap on
-> implementing RFC1146 (tcp alternative checksum
-> options) in Linux tcp stack ?
+-- 
+Florin Andrei
 
-The standard way to solve this problem is to either use
-SSL or IPSec.  They both use very strong checksums
-and are widely supported unlike this obscure old RFC.
-
--Andi
+http://florin.myip.org/
