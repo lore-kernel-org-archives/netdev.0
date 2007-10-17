@@ -1,41 +1,42 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [ofa-general] Re: [PATCH linux-2.6] bonding: two small fixes for
-	IPoIB support
-Date: Tue, 16 Oct 2007 21:15:58 -0400
-Message-ID: <4715624E.8010909@pobox.com>
-References: <47138EB7.40703@gmail.com> <4713B006.9090908@pobox.com>
-	<27349.1192480486@death> <4713D28F.3010904@pobox.com>
-	<31162.1192485233@death> <4713E20F.9080305@pobox.com>
-	<9245.1192491867@death>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] net: Fix new EMAC driver for NAPI changes
+Date: Tue, 16 Oct 2007 21:16:08 -0400
+Message-ID: <47156258.5010800@garzik.org>
+References: <1192513250.19073.10.camel@pasglop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdreier@cisco.com, general@lists.openfabrics.org
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <general-bounces@lists.openfabrics.org>
-In-Reply-To: <9245.1192491867@death>
-List-Unsubscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=unsubscribe>
-List-Archive: <http://lists.openfabrics.org/pipermail/general>
-List-Post: <mailto:general@lists.openfabrics.org>
-List-Help: <mailto:general-request@lists.openfabrics.org?subject=help>
-List-Subscribe: <http://lists.openfabrics.org/cgi-bin/mailman/listinfo/general>,
-	<mailto:general-request@lists.openfabrics.org?subject=subscribe>
-Sender: general-bounces@lists.openfabrics.org
-Errors-To: general-bounces@lists.openfabrics.org
+Cc: shemminger@linux.foundation.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Roland Dreier <rdreier@cisco.com>,
+	linuxppc-dev list <linuxppc-dev@ozlabs.org>
+To: benh@kernel.crashing.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:47544 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932529AbXJQBQL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 16 Oct 2007 21:16:11 -0400
+In-Reply-To: <1192513250.19073.10.camel@pasglop>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
-> 	Two small fixes to IPoIB support for bonding:
+Benjamin Herrenschmidt wrote:
+> net: Fix new EMAC driver for NAPI changes
 > 
-> 	1- copy header_ops from slave to bonding for IPoIB slaves
-> 	2- move release and destroy logic to UNREGISTER from GOING_DOWN
-> 	   notifier to avoid double release
+> This fixes the new EMAC driver for the NAPI updates. The previous patch
+> by Roland Dreier (already applied) to do that doesn't actually work. This
+> applies on top of it makes it work on my test Ebony machine.
 > 
-> 	Set bonding to version 3.2.1.
+> This patch depends on "net: Add __napi_sycnhronize() to sync with napi poll"
+> posted previously.
 > 
-> Signed-off-by: Moni Shoua <monis at voltaire.com>
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> ---
 > 
+> The old EMAC driver does things a bit differently (doesn't do useful
+> locking :-) and seems to work with Roland patch. So I'm not going to
+> touch it unless somebody reports me that it has problems
 
 applied
+
+
