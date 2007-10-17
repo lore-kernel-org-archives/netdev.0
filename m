@@ -1,61 +1,81 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH] NET: Fix uninitialised variable in ip_frag_reasm()
-Date: Wed, 17 Oct 2007 16:02:48 +0100
-Message-ID: <20071017150248.22323.39167.stgit@warthog.procyon.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com
-To: netdev@vger.kernel.org
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [PATCH] mac80211: only honor IW_SCAN_THIS_ESSID in STA, IBSS, and AP modes
+Date: Wed, 17 Oct 2007 10:54:54 -0400
+Message-ID: <11926328942540-git-send-email-linville@tuxdriver.com>
+References: <200710162329.55966.flamingice@sourmilk.net> <20071017145315.GC5744@tuxdriver.com>
+Cc: davem@davemloft.net, flamingice@sourmilk.net,
+	netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
+To: linux-wireless@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:35385 "EHLO mx1.redhat.com"
+Received: from ra.tuxdriver.com ([70.61.120.52]:2348 "EHLO ra.tuxdriver.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756762AbXJQPCw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 11:02:52 -0400
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by mx1.redhat.com (8.13.8/8.13.1) with ESMTP id l9HF2p39002199
-	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 11:02:51 -0400
-Received: from pobox.devel.redhat.com (pobox.devel.redhat.com [10.11.255.8])
-	by int-mx1.corp.redhat.com (8.13.1/8.13.1) with ESMTP id l9HF2oPO030323
-	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 11:02:50 -0400
+	id S1755828AbXJQPI4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2007 11:08:56 -0400
+In-Reply-To: <20071017145315.GC5744@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix uninitialised variable in ip_frag_reasm().  err should be set to -ENOMEM
-if the initial call of skb_clone() fails.
+The previous IW_SCAN_THIS_ESSID patch left a hole allowing scan
+requests on interfaces in inappropriate modes.
 
-Signed-off-by: David Howells <dhowells@redhat.com>
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
+ net/mac80211/ieee80211_ioctl.c |   37 +++++++++++++++++++------------------
+ 1 files changed, 19 insertions(+), 18 deletions(-)
 
- net/ipv4/ip_fragment.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 443b3f8..4629dad 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -545,7 +545,6 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
- 	if (prev) {
- 		head = prev->next;
- 		fp = skb_clone(head, GFP_ATOMIC);
--
- 		if (!fp)
- 			goto out_nomem;
+diff --git a/net/mac80211/ieee80211_ioctl.c b/net/mac80211/ieee80211_ioctl.c
+index 83e4035..e1fafb6 100644
+--- a/net/mac80211/ieee80211_ioctl.c
++++ b/net/mac80211/ieee80211_ioctl.c
+@@ -521,29 +521,30 @@ static int ieee80211_ioctl_siwscan(struct net_device *dev,
+ 	if (!netif_running(dev))
+ 		return -ENETDOWN;
  
-@@ -571,7 +570,6 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
- 		goto out_oversize;
++	switch (sdata->type) {
++	case IEEE80211_IF_TYPE_STA:
++	case IEEE80211_IF_TYPE_IBSS:
++		if (local->scan_flags & IEEE80211_SCAN_MATCH_SSID) {
++			ssid = sdata->u.sta.ssid;
++			ssid_len = sdata->u.sta.ssid_len;
++		}
++		break;
++	case IEEE80211_IF_TYPE_AP:
++		if (local->scan_flags & IEEE80211_SCAN_MATCH_SSID) {
++			ssid = sdata->u.ap.ssid;
++			ssid_len = sdata->u.ap.ssid_len;
++		}
++		break;
++	default:
++		return -EOPNOTSUPP;
++	}
++
++	/* if SSID was specified explicitly then use that */
+ 	if (wrqu->data.length == sizeof(struct iw_scan_req) &&
+ 	    wrqu->data.flags & IW_SCAN_THIS_ESSID) {
+ 		req = (struct iw_scan_req *)extra;
+ 		ssid = req->essid;
+ 		ssid_len = req->essid_len;
+-	} else {
+-		switch (sdata->type) {
+-		case IEEE80211_IF_TYPE_STA:
+-		case IEEE80211_IF_TYPE_IBSS:
+-			if (local->scan_flags & IEEE80211_SCAN_MATCH_SSID) {
+-				ssid = sdata->u.sta.ssid;
+-				ssid_len = sdata->u.sta.ssid_len;
+-			}
+-			break;
+-		case IEEE80211_IF_TYPE_AP:
+-			if (local->scan_flags & IEEE80211_SCAN_MATCH_SSID) {
+-				ssid = sdata->u.ap.ssid;
+-				ssid_len = sdata->u.ap.ssid_len;
+-			}
+-			break;
+-		default:
+-			return -EOPNOTSUPP;
+-		}
+ 	}
  
- 	/* Head of list must not be cloned. */
--	err = -ENOMEM;
- 	if (skb_cloned(head) && pskb_expand_head(head, 0, 0, GFP_ATOMIC))
- 		goto out_nomem;
- 
-@@ -627,6 +625,7 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
- out_nomem:
- 	LIMIT_NETDEBUG(KERN_ERR "IP: queue_glue: no memory for gluing "
- 			      "queue %p\n", qp);
-+	err = -ENOMEM;
- 	goto out_fail;
- out_oversize:
- 	if (net_ratelimit())
+ 	return ieee80211_sta_req_scan(dev, ssid, ssid_len);
+-- 
+1.5.2.4
 
