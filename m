@@ -1,81 +1,52 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [PATCH] mac80211: only honor IW_SCAN_THIS_ESSID in STA, IBSS, and AP modes
-Date: Wed, 17 Oct 2007 10:54:54 -0400
-Message-ID: <11926328942540-git-send-email-linville@tuxdriver.com>
-References: <200710162329.55966.flamingice@sourmilk.net> <20071017145315.GC5744@tuxdriver.com>
-Cc: davem@davemloft.net, flamingice@sourmilk.net,
-	netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
-To: linux-wireless@vger.kernel.org
+Subject: Re: Please pull 'fixes-davem' branch of wireless-2.6
+Date: Wed, 17 Oct 2007 10:53:15 -0400
+Message-ID: <20071017145315.GC5744@tuxdriver.com>
+References: <20071017023145.GA2848@tuxdriver.com> <200710162329.55966.flamingice@sourmilk.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: Michael Wu <flamingice@sourmilk.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:2348 "EHLO ra.tuxdriver.com"
+Received: from ra.tuxdriver.com ([70.61.120.52]:4505 "EHLO ra.tuxdriver.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755828AbXJQPI4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 11:08:56 -0400
-In-Reply-To: <20071017145315.GC5744@tuxdriver.com>
+	id S1754895AbXJQPL7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2007 11:11:59 -0400
+Content-Disposition: inline
+In-Reply-To: <200710162329.55966.flamingice@sourmilk.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The previous IW_SCAN_THIS_ESSID patch left a hole allowing scan
-requests on interfaces in inappropriate modes.
+On Tue, Oct 16, 2007 at 11:29:51PM -0400, Michael Wu wrote:
+> On Tuesday 16 October 2007 22:31:46 John W. Linville wrote:
+> > Bill Moss (1):
+> >       mac80211: honor IW_SCAN_THIS_ESSID in siwscan ioctl
+> >
+> Where did this patch come from? The original patch looked nothing like this, 
+> and this patch changes the behavior of siwscan incorrectly. If the interface 
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
- net/mac80211/ieee80211_ioctl.c |   37 +++++++++++++++++++------------------
- 1 files changed, 19 insertions(+), 18 deletions(-)
+"Nothing like this"?  I moved a conditional from inside a specific
+case to outside the whole switch.  Let's not overstate things.
 
-diff --git a/net/mac80211/ieee80211_ioctl.c b/net/mac80211/ieee80211_ioctl.c
-index 83e4035..e1fafb6 100644
---- a/net/mac80211/ieee80211_ioctl.c
-+++ b/net/mac80211/ieee80211_ioctl.c
-@@ -521,29 +521,30 @@ static int ieee80211_ioctl_siwscan(struct net_device *dev,
- 	if (!netif_running(dev))
- 		return -ENETDOWN;
- 
-+	switch (sdata->type) {
-+	case IEEE80211_IF_TYPE_STA:
-+	case IEEE80211_IF_TYPE_IBSS:
-+		if (local->scan_flags & IEEE80211_SCAN_MATCH_SSID) {
-+			ssid = sdata->u.sta.ssid;
-+			ssid_len = sdata->u.sta.ssid_len;
-+		}
-+		break;
-+	case IEEE80211_IF_TYPE_AP:
-+		if (local->scan_flags & IEEE80211_SCAN_MATCH_SSID) {
-+			ssid = sdata->u.ap.ssid;
-+			ssid_len = sdata->u.ap.ssid_len;
-+		}
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
-+	/* if SSID was specified explicitly then use that */
- 	if (wrqu->data.length == sizeof(struct iw_scan_req) &&
- 	    wrqu->data.flags & IW_SCAN_THIS_ESSID) {
- 		req = (struct iw_scan_req *)extra;
- 		ssid = req->essid;
- 		ssid_len = req->essid_len;
--	} else {
--		switch (sdata->type) {
--		case IEEE80211_IF_TYPE_STA:
--		case IEEE80211_IF_TYPE_IBSS:
--			if (local->scan_flags & IEEE80211_SCAN_MATCH_SSID) {
--				ssid = sdata->u.sta.ssid;
--				ssid_len = sdata->u.sta.ssid_len;
--			}
--			break;
--		case IEEE80211_IF_TYPE_AP:
--			if (local->scan_flags & IEEE80211_SCAN_MATCH_SSID) {
--				ssid = sdata->u.ap.ssid;
--				ssid_len = sdata->u.ap.ssid_len;
--			}
--			break;
--		default:
--			return -EOPNOTSUPP;
--		}
- 	}
- 
- 	return ieee80211_sta_req_scan(dev, ssid, ssid_len);
+> is not STA, IBSS, or AP, scanning should not be permitted. This patch allows 
+> scanning on any interface if a SSID is specified. NACK.
+
+I refactored the patch in response to Johannes' email on 10/11 that
+said "I think it should be done regardless of mode".
+
+	http://marc.info/?l=linux-wireless&m=119209214914682&w=2
+
+I seem to have botched the repost -- sorry about that.
+
+Looking closer, it does seem like ieee80211_sta_req_scan may not be
+robust enough to handle an inappropriate interface gracefully.  So,
+let's add a patch that relocates the conditional after the switch,
+and let the switch filter-out the bad interfaces for us.
+
+Patch to follow (if I've figured-out git-send-email)...
+
+John
 -- 
-1.5.2.4
-
+John W. Linville
+linville@tuxdriver.com
