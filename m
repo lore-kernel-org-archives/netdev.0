@@ -1,74 +1,63 @@
-From: "Eliezer Tamir" <eliezert@broadcom.com>
-Subject: Re: BNX2X driver: kernel panic when running netperf
-Date: Wed, 17 Oct 2007 13:46:02 +0200
-Message-ID: <1192621562.29746.200.camel@eliezer>
-References: <1192577680.5730.12.camel@w-amax.beaverton.ibm.com>
- <20071016.164938.66177554.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Difference between device statistics from ifconfig and ip -s l
+	l
+Date: Wed, 17 Oct 2007 08:01:38 -0400
+Message-ID: <1192622498.4460.25.camel@localhost>
+References: <20071017092659.GA16356@wq.cz> <4715D79E.7020201@trash.net>
+	 <20071017101303.GB16356@wq.cz> <4715E57F.6080905@trash.net>
+	 <20071017112919.GC16356@wq.cz>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>
-To: masbock@us.ibm.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Milan Kocian <milon@wq.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1926 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757937AbXJQLod (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 07:44:33 -0400
-In-Reply-To: <20071016.164938.66177554.davem@davemloft.net>
+Received: from wa-out-1112.google.com ([209.85.146.176]:31691 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753874AbXJQMCN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 08:02:13 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so2753500wah
+        for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 05:02:12 -0700 (PDT)
+In-Reply-To: <20071017112919.GC16356@wq.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2007-10-16 at 16:49 -0700, David Miller wrote:
-> From: Max Asbock <masbock@us.ibm.com>
-> Date: Tue, 16 Oct 2007 16:34:40 -0700
+On Wed, 2007-17-10 at 13:29 +0200, Milan Kocian wrote:
+> On Wed, Oct 17, 2007 at 12:35:43PM +0200, Patrick McHardy wrote:
+> > Milan Kocian wrote:
+> >> On Wed, Oct 17, 2007 at 11:36:30AM +0200, Patrick McHardy wrote:
+> >>
+> >>> ifconfig gets its data from /proc/net/dev, which adds up rx_errors
+> >>> and rx_missed.
+> >>>
+> >> Adds up rx_errors and rx_missed and prints it as dropped ? Ok, ifconfig is
+> >> a little old. But why I don't see missed packets from RX errors detailed 
+> >> stats (ip -s -s l l) in non-detailed stats as errors and see zero ?
+> >
+> >
+> > I meant to write "adds up rx_dropped and rx_missed".
 > 
-> > I tested the bnx2x driver (0001-BNX2X-0.40.10a-net-2.6.24.patch)
-> with
-> > netdev-2.6.24 git tree and found that I can reproducibly panic the
-> > system when running netperf with the TCP_STREAM test.
-> > I copied the following information from the panic message:
-> > RIP: 0xc02fff32
-> > net_rx_action +0x142/0x190
+> ok.
 > 
-> The driver is doing netif_rx_complete() yet returning a value from
-> ->poll() which is >= budget, which is illegal.
+> One probably stupid question: Why is not done similar sum in output of 'ip -s l l' ?
+
+"missed" is not really an error. It just means the driver was
+overwhelmed and didnt even get the chance of seeing it whereas an error
+is something the driver processed and saw a problem with it.
+
+> Imagine me :), I do 'ifconfig' and see dropped packets and then I do 'ip -s l l'
+> and see zeros. I stare on it like an idiot. Where is bug ? ifconfig ? ip ?
+> (man page of ip and 'ip -s -s l l' with missed packets stats saved me :).
 > 
-> We had to fix a similar bug in the tg3 and bnx2 drivers, the same
-> logic probably just propagated itself into bnx2x.
+> IMHO I think that comparable outputs of both programs should be still the same.
 
-I think that this will fix the bug.
+I think ifconfig sums them up so the output formatting looks nice, but
+ip is more accurate. These stats are from standard SNMP mibs (off top of
+my head RFC1213 if it hasnt been obsoleted by something) - look at
+InIFxxxx stats.
 
-This is a diff against 0.40.10a.
-I hope to get a new version out soon, once we finish working on Dave's
-comments.
-
-Eliezer
-
-
----
- drivers/net/bnx2x.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/bnx2x.c b/drivers/net/bnx2x.c
-index f462c74..9220bd3 100644
---- a/drivers/net/bnx2x.c
-+++ b/drivers/net/bnx2x.c
-@@ -8085,9 +8085,10 @@ #endif
- 		work_done = bnx2x_rx_int(fp, budget);
- 	}
- 
--	rmb(); /* TBD check */
-+	rmb(); /* bnx2x_has_work() reads the status block */
- 
--	if (!bnx2x_has_work(fp)) {
-+	/* must not complete if we consumed full budget */
-+	if ((work_done < budget) && !bnx2x_has_work(fp)) {
- 		netif_rx_complete(bp->dev, napi);
- 
- 		bnx2x_ack_sb(bp, fp->index, USTORM_ID, fp->fp_u_idx,
--- 
-1.4.2
-
+cheers,
+jamal
 
 
