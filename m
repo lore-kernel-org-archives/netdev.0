@@ -1,57 +1,47 @@
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
-Subject: [PATCH][NET] gianfar: fix obviously wrong #ifdef CONFIG_GFAR_NAPI
-	placement
-Date: Wed, 17 Oct 2007 23:57:46 +0400
-Message-ID: <20071017195746.GA15592@localhost.localdomain>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: multicast: bug or "feature"
+Date: Wed, 17 Oct 2007 15:58:05 -0400
+Message-ID: <4716694D.6030508@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf8
-Cc: galak@kernel.crashing.org, afleming@freescale.com,
-	apw@shadowen.org, linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: leoli@freescale.com, jgarzik@pobox.com, paulus@samba.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Brian Haley <brian.haley@hp.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtsoft3.corbina.net ([85.21.88.6]:12712 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754346AbXJQT6J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 15:58:09 -0400
-Content-Disposition: inline
+Received: from atlrel9.hp.com ([156.153.255.214]:53545 "EHLO atlrel9.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763284AbXJQT60 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2007 15:58:26 -0400
+Received: from smtp2.fc.hp.com (smtp2.fc.hp.com [15.11.136.114])
+	by atlrel9.hp.com (Postfix) with ESMTP id 62A8035A04
+	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 15:58:06 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Erroneous #ifdef introduced by 293c8513398657f6263fcdb03c87f2760cf61be4
-causing NAPI-less ethernet malfunctioning.
+We've been trying to field some questions regarding multicast
+behavior and one such behavior has stumped us.
 
-Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-Signed-off-by: Vitaly Bordug <vbordug@ru.mvista.com>
----
+I've reproduced the following behavior on 2.6.23.
 
-if (...)
-#if
-	...;
-#endif
+The application opens 2 sockets.  One socket is the receiver
+and it simply binds to 0.0.0.0:2000 and joins a multicast group
+on interface eth0 (for the test we used 224.0.1.3).  The other
+socket is the sender.  It turns off MULTICAST_LOOP, sets MULTICAST_IF
+to eth1, and sends a packet to the group that the first socket
+joined.
 
-good candidate for checkpatch?
+We are expecting to receive the data on the receiver socket, but
+nothing comes back.
 
- drivers/net/gianfar.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+Running tcpdump on both interfaces during the test, I see the packet
+on both interfaces, ie. I see it sent on eth0 and received on eth1 with
+IP statistics going up appropriately.
 
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index cc288d8..38268d7 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -956,10 +956,12 @@ static int gfar_enet_open(struct net_device *dev)
- 	}
- 
- 	err = startup_gfar(dev);
--	if (err)
-+	if (err) {
- #ifdef CONFIG_GFAR_NAPI
- 		napi_disable(&priv->napi);
- #endif
-+		return err;
-+	}
- 
- 	netif_start_queue(dev);
- 
--- 
-1.5.0.6
+Looking at the group memberships, I see the receiving interface as
+part of the group and IGMP messages were on the wire.
+
+So, before I try to spend time figuring out where the packet went is
+why, I'd like to know if this is a Linux "feature".
+
+Thanks
+-vlad
