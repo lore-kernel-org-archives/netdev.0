@@ -1,65 +1,65 @@
-From: Milan Kocian <milon@wq.cz>
-Subject: Difference between device statistics from ifconfig and ip -s l l
-Date: Wed, 17 Oct 2007 11:27:00 +0200
-Message-ID: <20071017092659.GA16356@wq.cz>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Difference between device statistics from ifconfig and ip -s
+ l l
+Date: Wed, 17 Oct 2007 11:36:30 +0200
+Message-ID: <4715D79E.7020201@trash.net>
+References: <20071017092659.GA16356@wq.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Milan Kocian <milon@wq.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-sitel.lam.cz ([212.71.129.172]:40168 "EHLO nt.wq.cz"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753074AbXJQJ1I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 05:27:08 -0400
-Received: from milon by nt.wq.cz with local (Exim 4.68)
-	(envelope-from <milon@wq.cz>)
-	id 1Ii5B6-0005hx-4r
-	for netdev@vger.kernel.org; Wed, 17 Oct 2007 11:27:00 +0200
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:35335 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753472AbXJQJgc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 05:36:32 -0400
+In-Reply-To: <20071017092659.GA16356@wq.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-hello,
+Milan Kocian wrote:
+> hello,
+> 
+> see dropped packets, please:
+> 
+> sit:~# ifconfig eth0
+> eth0      Link encap:Ethernet  HWaddr 00:04:23:D6:D5:DE  
+>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>           RX packets:522284892 errors:0 dropped:16800 overruns:0 frame:0
+>           TX packets:506064445 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:1000 
+>           RX bytes:1405350664 (1.3 GiB)  TX bytes:4082649020 (3.8 GiB)
+>           Base address:0xac00 Memory:ff6e0000-ff700000 
+> 
+> see via ip l l (here are no dropped packets):
+> 
+> sit:~# ip -s l l dev eth0
+> 2: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc htb qlen 1000
+>     link/ether 00:04:23:d6:d5:de brd ff:ff:ff:ff:ff:ff
+>     RX: bytes  packets  errors  dropped overrun mcast   
+>     2494988681 523755694 0       0       0       57458  
+>     TX: bytes  packets  errors  dropped carrier collsns 
+>     453184821  507470461 0       0       0       0      
+> 
+> but see more detailed stats (dropped packet are as missed in RX errors ?!):
+> 
+> sit:~# ip -s -s l l dev eth0
+> 2: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc htb qlen 1000
+>     link/ether 00:04:23:d6:d5:de brd ff:ff:ff:ff:ff:ff
+>     RX: bytes  packets  errors  dropped overrun mcast   
+>     2752159866 524110163 0       0       0       57485  
+>     RX errors: length  crc     frame   fifo    missed
+>                0        0       0       0       16800  
+>     TX: bytes  packets  errors  dropped carrier collsns 
+>     607359337  507807361 0       0       0       0      
+>     TX errors: aborted fifo    window  heartbeat
+>                0        0       0       0      
+> 
+> Is this bug or feature ? From my point of view is somewhere lost any sum.
+> Or is it driver dependent? Kernel 2.6.23.1 (in 2.6.20.20 is the same behavior), 
+> driver e1000. iproute2-ss070313; net-tools 1.60, ifconfig 1.42 (2001-04-13)
 
-see dropped packets, please:
 
-sit:~# ifconfig eth0
-eth0      Link encap:Ethernet  HWaddr 00:04:23:D6:D5:DE  
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:522284892 errors:0 dropped:16800 overruns:0 frame:0
-          TX packets:506064445 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000 
-          RX bytes:1405350664 (1.3 GiB)  TX bytes:4082649020 (3.8 GiB)
-          Base address:0xac00 Memory:ff6e0000-ff700000 
-
-see via ip l l (here are no dropped packets):
-
-sit:~# ip -s l l dev eth0
-2: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc htb qlen 1000
-    link/ether 00:04:23:d6:d5:de brd ff:ff:ff:ff:ff:ff
-    RX: bytes  packets  errors  dropped overrun mcast   
-    2494988681 523755694 0       0       0       57458  
-    TX: bytes  packets  errors  dropped carrier collsns 
-    453184821  507470461 0       0       0       0      
-
-but see more detailed stats (dropped packet are as missed in RX errors ?!):
-
-sit:~# ip -s -s l l dev eth0
-2: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc htb qlen 1000
-    link/ether 00:04:23:d6:d5:de brd ff:ff:ff:ff:ff:ff
-    RX: bytes  packets  errors  dropped overrun mcast   
-    2752159866 524110163 0       0       0       57485  
-    RX errors: length  crc     frame   fifo    missed
-               0        0       0       0       16800  
-    TX: bytes  packets  errors  dropped carrier collsns 
-    607359337  507807361 0       0       0       0      
-    TX errors: aborted fifo    window  heartbeat
-               0        0       0       0      
-
-Is this bug or feature ? From my point of view is somewhere lost any sum.
-Or is it driver dependent? Kernel 2.6.23.1 (in 2.6.20.20 is the same behavior), 
-driver e1000. iproute2-ss070313; net-tools 1.60, ifconfig 1.42 (2001-04-13)
- 
-Regards,
-
--- 
-Milan Kocian
+ifconfig gets its data from /proc/net/dev, which adds up rx_errors
+and rx_missed.
