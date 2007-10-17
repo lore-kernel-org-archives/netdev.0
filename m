@@ -1,62 +1,73 @@
-From: Vladislav Bolkhovitin <vst@vlnb.net>
-Subject: Re: r8169 & TX offload
-Date: Wed, 17 Oct 2007 21:42:54 +0400
-Message-ID: <4716499E.9040701@vlnb.net>
-References: <4714D785.3000402@vlnb.net> <20071016172517.GA8120@electric-eye.fr.zoreil.com>
+From: Florin Andrei <florin@andrei.myip.org>
+Subject: Re: stateless 1:1 NAT
+Date: Wed, 17 Oct 2007 11:14:38 -0700
+Message-ID: <4716510E.3090300@andrei.myip.org>
+References: <E1IhxQo-0004hF-00@gondolin.me.apana.org.au>
+Reply-To: netdev@vger.kernel.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-relay-02.mailcluster.net ([77.221.130.214]:36297 "EHLO
-	mail-relay-01.mailcluster.net" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755522AbXJQSJM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 14:09:12 -0400
-In-Reply-To: <20071016172517.GA8120@electric-eye.fr.zoreil.com>
+Received: from smtp118.sbc.mail.sp1.yahoo.com ([69.147.64.91]:21534 "HELO
+	smtp118.sbc.mail.sp1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756848AbXJQSOq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 14:14:46 -0400
+Received: from localhost (weiqi.home.local [127.0.0.1])
+	by weiqi.home.local (Postfix) with ESMTP id 8C238577094
+	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 11:14:42 -0700 (PDT)
+Received: from weiqi.home.local ([127.0.0.1])
+	by localhost (andrei.myip.org [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id J3GgflX421M7 for <netdev@vger.kernel.org>;
+	Wed, 17 Oct 2007 11:14:39 -0700 (PDT)
+Received: from valar.sanjose.telcontar.com (unknown [192.168.2.2])
+	by weiqi.home.local (Postfix) with ESMTP id 4D0B7576EF8
+	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 11:14:39 -0700 (PDT)
+In-Reply-To: <E1IhxQo-0004hF-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> (please remove l-k from the Cc:, this ought to be sent to netdev)
+Herbert Xu wrote:
+> Florin Andrei <florin@andrei.myip.org> wrote:
+>> I've heard that stateless 1:1 NAT will be possible with the upcoming 
+>> 2.6.24 kernel.
+>> I'd like to test that feature, but I'm not sure when it will actually be 
+>> included. Will it be present in the release candidates for 2.6.24?
+>> I just need a somewhat stable kernel tree to play with.
+> 
+> Yes it will be.
 
-OK. Sorry, for some reason I thought I read in the MAINTAINERS file that 
-LKML is the mailing list for r8169 driver.
+So here's the thing I'm trying to solve.
 
-> Vladislav Bolkhovitin <vst@vlnb.net> :
-> 
->>I've recently bought Realtek RTL8169S-32 chip based Gigabit Ethernet card:
->>
->># lspci -vv
-> 
-> [...]
-> 
->>I've noticed that all TX offload features (tx-checksumming, 
->>scatter-gather and TSO) are disabled by default and should be manually 
->>enabled by ethtool. I wonder, is there any particular reason for that? 
-> 
-> As far as I can tell, it is mostly a lack of pressure from the users and
-> my desire to avoid a change of behavior.
-> 
->>Why they are not enabled by default as it was done for e1000 or tg3? Are 
->>there any hidden drawbacks in enabling them?
-> 
-> None that I know of. I had not noticed a huge difference and people did
-> not comment a lot either...
+Gigabit network.
+Dual homed firewall, doing 1:1 NAT for a bunch of web servers. Some 
+protocols are allowed inbound to the servers (the external, NATed 
+addresses).
+Firewall is running CentOS 5 (kernel 2.6.18)
 
-I think, 30% of CPU saving is worth enough to turn TX offload on, 
-especially if a system does something more than just data transfers. 
-Usually, such options are enabled by default unless there are some 
-hidden important drawbacks, like stability issues. Hence, there are 
-questions like mine: it's just too suspicious that something good 
-doesn't have hidden issues if it isn't enabled by author ;)
+I run pktgen on a test machine to generate a whole lot of small UDP 
+packets with random source addresses. I send the packets to the 
+firewall, to one of the 1:1 NATed addresses, to a port that's blocked by 
+the firewall.
+Meanwhile, I'm downloading a 2GB file from a web server through the 
+firewall, in a while [ 1 ] loop, to monitor the functioning of the firewall.
 
-Thanks for clarification.
+When I start the UDP flood, the current download is able to finish up, 
+but a new one won't start. The firewall has one of the cores pegged at 
+100% CPU usage, with a lot of interrupts being generated all the time.
+I assume there's something related to conntrack, that's why I want to 
+test stateless rules. I assume the firewall has much less work to do if 
+it's doing everything stateless, at least at the NAT level.
 
->>Those offload options are definitely work. They give in my setup (32-bit 
->>66MHz PCI, Xeon 1.7GHz CPU, open-iscsi) CPU offload from 75% to 45% and 
->>data write throughput improvement from 55MB/s to 59MB/s.
-> 
-> ...but your datapoint is welcome.
-> 
+Is it going to be possible to combine stateless 1:1 NAT with stateful 
+filtering?
 
+By the way:
+OpenBSD 4.1 as a firewall fails even worse in this test case (it freezes 
+instantly).
+OpenBSD 4.2 works fine under the UDP flood, as if nothing happened.
+
+-- 
+Florin Andrei
+
+http://florin.myip.org/
