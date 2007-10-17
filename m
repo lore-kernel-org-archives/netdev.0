@@ -1,45 +1,101 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [0/11] Various xfrm fixes and clean-ups
-Date: Wed, 17 Oct 2007 22:29:40 +0800
-Message-ID: <20071017142940.GA23879@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Subject: [PATCH 3/11] [IPSEC]: Get nexthdr from caller in xfrm6_rcv_spi
+Date: Wed, 17 Oct 2007 22:34:10 +0800
+Message-ID: <E1Ii9yM-0006Gx-00@gondolin.me.apana.org.au>
+References: <20071017142940.GA23879@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:4945 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:1096 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1762077AbXJQO37 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 10:29:59 -0400
-Content-Disposition: inline
+	with ESMTP id S1758984AbXJQOeT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 10:34:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave:
+[IPSEC]: Get nexthdr from caller in xfrm6_rcv_spi
 
-This series of patches completely replaces the ones I posted
-yesterday so you can delete the previous batch.
+Currently xfrm6_rcv_spi gets the nexthdr value itself from the packet.
+This means that we need to fix up the value in case we have a 4-on-6
+tunnel.  Moving this logic into the caller simplifies things and allows
+us to merge the code with IPv4.
 
-I'm still in the process of fixing up inter-family transforms
-so this is mostly the patches I posted yesterday with the
-offensive bits removed :)
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
 
-I hadn't realised how broken inter-family transforms are on
-output until I started trying to fix them.  As it is, it'll
-happily send IPv4 packets into the IPv6 ICMP stack or worse,
-IPv6 netfilter and vice versa.
+ include/net/xfrm.h      |    2 +-
+ net/ipv6/xfrm6_input.c  |    9 ++++-----
+ net/ipv6/xfrm6_tunnel.c |    2 +-
+ 3 files changed, 6 insertions(+), 7 deletions(-)
 
-The last patch in the series lays the foundation of my fix
-to this.  My plan is to divide the work that's currently done
-by x->mode->output into two parts so that the first part can
-be done by the inner address family, i.e., x->inner_mode while
-the rest of it will be done by x->outer_mode->output.  A similar
-scheme would operate on the inbound direction.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 680739f..d8974ca 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1058,7 +1058,7 @@ static inline int xfrm4_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
+ extern int xfrm4_output(struct sk_buff *skb);
+ extern int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family);
+ extern int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
+-extern int xfrm6_rcv_spi(struct sk_buff *skb, __be32 spi);
++extern int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi);
+ extern int xfrm6_rcv(struct sk_buff *skb);
+ extern int xfrm6_input_addr(struct sk_buff *skb, xfrm_address_t *daddr,
+ 			    xfrm_address_t *saddr, u8 proto);
+diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
+index 02f69e5..596a730 100644
+--- a/net/ipv6/xfrm6_input.c
++++ b/net/ipv6/xfrm6_input.c
+@@ -16,7 +16,7 @@
+ #include <net/ipv6.h>
+ #include <net/xfrm.h>
+ 
+-int xfrm6_rcv_spi(struct sk_buff *skb, __be32 spi)
++int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
+ {
+ 	int err;
+ 	__be32 seq;
+@@ -24,11 +24,9 @@ int xfrm6_rcv_spi(struct sk_buff *skb, __be32 spi)
+ 	struct xfrm_state *x;
+ 	int xfrm_nr = 0;
+ 	int decaps = 0;
+-	int nexthdr;
+ 	unsigned int nhoff;
+ 
+ 	nhoff = IP6CB(skb)->nhoff;
+-	nexthdr = skb_network_header(skb)[nhoff];
+ 
+ 	seq = 0;
+ 	if (!spi && (err = xfrm_parse_spi(skb, nexthdr, &spi, &seq)) != 0)
+@@ -41,7 +39,7 @@ int xfrm6_rcv_spi(struct sk_buff *skb, __be32 spi)
+ 			goto drop;
+ 
+ 		x = xfrm_state_lookup((xfrm_address_t *)&iph->daddr, spi,
+-				nexthdr != IPPROTO_IPIP ? nexthdr : IPPROTO_IPV6, AF_INET6);
++				      nexthdr, AF_INET6);
+ 		if (x == NULL)
+ 			goto drop;
+ 		spin_lock(&x->lock);
+@@ -135,7 +133,8 @@ EXPORT_SYMBOL(xfrm6_rcv_spi);
+ 
+ int xfrm6_rcv(struct sk_buff *skb)
+ {
+-	return xfrm6_rcv_spi(skb, 0);
++	return xfrm6_rcv_spi(skb, skb_network_header(skb)[IP6CB(skb)->nhoff],
++			     0);
+ }
+ 
+ EXPORT_SYMBOL(xfrm6_rcv);
+diff --git a/net/ipv6/xfrm6_tunnel.c b/net/ipv6/xfrm6_tunnel.c
+index 6c67ac1..fae90ff 100644
+--- a/net/ipv6/xfrm6_tunnel.c
++++ b/net/ipv6/xfrm6_tunnel.c
+@@ -257,7 +257,7 @@ static int xfrm6_tunnel_rcv(struct sk_buff *skb)
+ 	__be32 spi;
+ 
+ 	spi = xfrm6_tunnel_spi_lookup((xfrm_address_t *)&iph->saddr);
+-	return xfrm6_rcv_spi(skb, spi) > 0 ? : 0;
++	return xfrm6_rcv_spi(skb, IPPROTO_IPV6, spi) > 0 ? : 0;
+ }
+ 
+ static int xfrm6_tunnel_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
