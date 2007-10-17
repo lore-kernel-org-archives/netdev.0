@@ -1,43 +1,35 @@
-From: Don Fry <pcnet32@verizon.net>
-Subject: [PATCH] pcnet32: fix non-napi packet reception
-Date: Wed, 17 Oct 2007 15:59:22 -0700
-Message-ID: <1192661962.474.10.camel@Linux.home>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: multicast: bug or "feature"
+Date: Wed, 17 Oct 2007 16:11:25 -0700
+Message-ID: <OFD60CD2B7.B3E2F68F-ON88257377.007EFD45-88257377.007F4B08@us.ibm.com>
+References: <47167DD4.3020108@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jgarzik@pobox.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Brian Haley <brian.haley@hp.com>, netdev <netdev@vger.kernel.org>
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vms044pub.verizon.net ([206.46.252.44]:63859 "EHLO
-	vms044pub.verizon.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932510AbXJQXHG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 19:07:06 -0400
-Received: from [192.168.1.2] ([71.117.241.192])
- by vms044.mailsrvcs.net (Sun Java System Messaging Server 6.2-6.01 (built Apr
- 3 2006)) with ESMTPA id <0JQ2005BRW5Z8SB8@vms044.mailsrvcs.net> for
- netdev@vger.kernel.org; Wed, 17 Oct 2007 18:06:00 -0500 (CDT)
+Received: from e33.co.us.ibm.com ([32.97.110.151]:33009 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755785AbXJQXLb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 19:11:31 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9HNBSVk018856
+	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 19:11:28 -0400
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9HNBSdu106750
+	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 17:11:28 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9HNBSjH026194
+	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 17:11:28 -0600
+In-Reply-To: <47167DD4.3020108@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Recent changes to the driver for the new napi API broke the reception of packets when in
-non-napi mode.  The initialization of napi.weight was removed for the non-napi case
-leaving the value zero.
+You're joining the group on interface eth1, which is the
+sender, right? You need to be a member on eth0 to receive it
+there. I think your program needs another argument, to
+specify the receiving interface, which you want to be
+different from the sending interface.
 
-Tested NAPI and non-NAPI on x86_64.
-
-Signed-off-by: Don Fry <pcnet32@verizon.net>
----
---- linux-2.6.23-git7/drivers/net/orig.pcnet32.c	2007-10-15 11:19:17.000000000 -0700
-+++ linux-2.6.23-git7/drivers/net/pcnet32.c	2007-10-17 15:56:15.000000000 -0700
-@@ -1849,6 +1849,9 @@ pcnet32_probe1(unsigned long ioaddr, int
- 	lp->mii_if.mdio_read = mdio_read;
- 	lp->mii_if.mdio_write = mdio_write;
- 
-+	/* napi.weight is used in both the napi and non-napi cases */
-+	lp->napi.weight = lp->rx_ring_size / 2;
-+
- #ifdef CONFIG_PCNET32_NAPI
- 	netif_napi_add(dev, &lp->napi, pcnet32_poll, lp->rx_ring_size / 2);
- #endif
-
+                                        +-DLS
 
