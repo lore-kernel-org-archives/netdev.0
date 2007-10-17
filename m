@@ -1,53 +1,32 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: [PATCH 1/2] napi_synchronize: waiting for NAPI
-Date: Wed, 17 Oct 2007 13:26:41 -0700
-Message-ID: <20071017202653.266566036@linux-foundation.org>
-References: <20071017202640.171902388@linux-foundation.org>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	"Jeff Garzik" <jgarzik@pobox.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: multicast: bug or "feature"
+Date: Wed, 17 Oct 2007 13:29:15 -0700
+Message-ID: <OF8C1D2DD7.B02D8047-ON88257377.00705A00-88257377.00707296@us.ibm.com>
+References: <47166F2B.5010706@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Brian Haley <brian.haley@hp.com>, netdev <netdev@vger.kernel.org>
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:47535 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S935180AbXJQU2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 16:28:49 -0400
-Content-Disposition: inline; filename=napi-synchronize.patch
+Received: from e33.co.us.ibm.com ([32.97.110.151]:41532 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760410AbXJQU31 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 16:29:27 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9HKTKxD007886
+	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 16:29:21 -0400
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9HKTHB6166796
+	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 14:29:17 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9HKTGc0005912
+	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 14:29:17 -0600
+In-Reply-To: <47166F2B.5010706@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some drivers with shared NAPI need a synchronization barrier.
-Also suggested by Benjamin Herrenschmidt for EMAC.
+Can you send the contents of /proc/net/igmp and the packet trace,
+also? And the code?
 
-Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-
---- a/include/linux/netdevice.h	2007-10-17 08:45:32.000000000 -0700
-+++ b/include/linux/netdevice.h	2007-10-17 08:47:54.000000000 -0700
-@@ -407,6 +407,24 @@ static inline void napi_enable(struct na
- 	clear_bit(NAPI_STATE_SCHED, &n->state);
- }
- 
-+#ifdef CONFIG_SMP
-+/**
-+ *	napi_synchronize - wait until NAPI is not running
-+ *	@n: napi context
-+ *
-+ * Wait until NAPI is done being scheduled on this context.
-+ * Waits till any outstanding processing completes but
-+ * does not disable future activations.
-+ */
-+static inline void napi_synchronize(const struct napi_struct *n)
-+{
-+	while (test_bit(NAPI_STATE_SCHED, &n->state))
-+		msleep(1);
-+}
-+#else
-+# define napi_synchronize(n)	barrier()
-+#endif
-+
- /*
-  *	The DEVICE structure.
-  *	Actually, this whole structure is a big mistake.  It mixes I/O
-
--- 
-Stephen Hemminger <shemminger@linux-foundation.org>
+                                        +-DLS
 
