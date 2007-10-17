@@ -1,79 +1,71 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: [PATCH] net: Add napi_sycnhronize() to sync with napi poll
-Date: Thu, 18 Oct 2007 08:04:14 +1000
-Message-ID: <1192658654.6783.43.camel@pasglop>
-References: <1192513792.19073.23.camel@pasglop>
-	 <20071016115318.0fc36af3@freepuppy.rosehill>
-	 <1192589522.11899.130.camel@pasglop> <47157EA4.1000500@garzik.org>
-	 <1192591481.11899.134.camel@pasglop>
-	 <20071017083107.6a1b1bd3@freepuppy.rosehill>
-Reply-To: benh@kernel.crashing.org
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: TCP port randomization
+Date: Wed, 17 Oct 2007 15:08:18 -0700
+Message-ID: <20071017150818.0e878846@freepuppy.rosehill>
+References: <Pine.LNX.4.64.0710172308140.12701@bizon.gios.gov.pl>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jeff@garzik.org>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Roland Dreier <rdreier@cisco.com>,
-	linuxppc-dev list <linuxppc-dev@ozlabs.org>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Krzysztof Oledzki <olel@ans.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:44015 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756015AbXJQWEc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 18:04:32 -0400
-In-Reply-To: <20071017083107.6a1b1bd3@freepuppy.rosehill>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:35086 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753713AbXJQWIi convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2007 18:08:38 -0400
+In-Reply-To: <Pine.LNX.4.64.0710172308140.12701@bizon.gios.gov.pl>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-net: Add __napi_synchronize() to sync with napi poll
+On Wed, 17 Oct 2007 23:15:48 +0200 (CEST)
+Krzysztof Oledzki <olel@ans.pl> wrote:
 
-The EMAC driver which needs to handle multiple devices with one
-NAPI instance implements its own per-channel disable bit. However,
-when setting such a bit, it needs to synchronize with the poller
-(that is make sure that any pending poller instance has completed,
-or is started late enough to see that disable bit).
+> Hello,
+>=20
+> Is it normal that TCP port randomization (tested with 2.6.22) works o=
+nly=20
+> when explicitly binding to a IP address:
+>=20
+>=20
+> --- cut here ---
+> root@fw1:~# nc 192.168.129.28 11
+> (UNKNOWN) [192.168.129.28] 11 (systat) : Connection refused
+> root@fw1:~# nc 192.168.129.28 11
+> (UNKNOWN) [192.168.129.28] 11 (systat) : Connection refused
+> root@fw1:~# nc 192.168.129.28 11
+> (UNKNOWN) [192.168.129.28] 11 (systat) : Connection refused
+>=20
+> 23:11:11.896126 IP 192.168.129.2.37839 > 192.168.129.28.11: S
+> 23:11:12.146573 IP 192.168.129.2.37840 > 192.168.129.28.11: S
+> 23:11:12.396488 IP 192.168.129.2.37841 > 192.168.129.28.11: S
+> --- cut here ---
+>=20
+>=20
+> --- cut here ---
+> root@fw1:~# nc -s 192.168.129.2 192.168.129.28 11
+> (UNKNOWN) [192.168.129.28] 11 (systat) : Connection refused
+> root@fw1:~# nc -s 192.168.129.2 192.168.129.28 11
+> (UNKNOWN) [192.168.129.28] 11 (systat) : Connection refused
+> root@fw1:~# nc -s 192.168.129.2 192.168.129.28 11
+> (UNKNOWN) [192.168.129.28] 11 (systat) : Connection refused
+>=20
+> 23:11:31.704391 IP 192.168.129.2.57204 > 192.168.129.28.11: S
+> 23:11:34.400048 IP 192.168.129.2.14512 > 192.168.129.28.11: S
+> 23:11:34.606707 IP 192.168.129.2.20117 > 192.168.129.28.11: S
+> --- cut here ---
+>=20
+> Best regards,
+>=20
+>  				Krzysztof Ol=C4=99dzki
 
-This implements a low level __napi_synchronize() function to acheive
-that. The underscores are to emphasis the low level aspect of it and
-to discourage driver writers who don't know what they are doing to
-use it (to please DaveM :-)
-
-Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
----
-
-Back to msleep() since it fits my need well and that's what
-you used as well. Note that the smp_mb() will turn into barrier()
-on non-SMP.
-
-I'll send a separate patch to fix EMAC to use the non __ version.
-
-Index: linux-work/include/linux/netdevice.h
-===================================================================
---- linux-work.orig/include/linux/netdevice.h	2007-10-17 13:31:32.000000000 +1000
-+++ linux-work/include/linux/netdevice.h	2007-10-18 08:01:05.000000000 +1000
-@@ -394,6 +394,23 @@ static inline void napi_disable(struct n
- }
- 
- /**
-+ *	napi_synchronize - synchronize with a concurrent poll
-+ *	@n: napi context
-+ *
-+ * Synchronizes with a concurrent poll. Not to be used in normal
-+ * drivers, mostly useful if you end up with multiple interfaces
-+ * on one NAPI instance. This must be called from task context.
-+ */
-+static inline void napi_synchronize(struct napi_struct *n)
-+{
-+	smp_mb();
-+#ifdef CONFIG_SMP
-+	while (test_bit(NAPI_STATE_SCHED, &n->state))
-+		msleep(1);
-+#endif /* CONFIG_SMP */
-+}
-+
-+/**
-  *	napi_enable - enable NAPI scheduling
-  *	@n: napi context
-  *
+It is a expected side effect. The starting point for the search
+is based on hash(srcaddr, dstaddr, dstport, secret).
+You are using same source, dest and port so yes it will stay
+the same until rekeying occurs.
+The secret only changes every 5min same as TCP initial sequence number.
 
 
+
+--=20
+Stephen Hemminger <shemminger@linux-foundation.org>
