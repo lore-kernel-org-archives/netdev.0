@@ -1,50 +1,54 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] pcnet32: fix non-napi packet reception
-Date: Wed, 17 Oct 2007 19:55:22 -0400
-Message-ID: <4716A0EA.4050906@pobox.com>
-References: <1192661962.474.10.camel@Linux.home>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] net: Add napi_sycnhronize() to sync with napi poll
+Date: Thu, 18 Oct 2007 09:59:57 +1000
+Message-ID: <1192665597.12789.0.camel@pasglop>
+References: <1192513792.19073.23.camel@pasglop>
+	 <20071016115318.0fc36af3@freepuppy.rosehill>
+	 <1192589522.11899.130.camel@pasglop> <47157EA4.1000500@garzik.org>
+	 <1192591481.11899.134.camel@pasglop>
+	 <20071017083107.6a1b1bd3@freepuppy.rosehill>
+	 <1192658654.6783.43.camel@pasglop>
+	 <1192664183.13993.30.camel@localhost.localdomain>
+Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Don Fry <pcnet32@verizon.net>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org, Roland Dreier <rdreier@cisco.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jeff Garzik <jeff@garzik.org>,
+	linuxppc-dev list <linuxppc-dev@ozlabs.org>
+To: Josh Boyer <jwboyer@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:52773 "EHLO mail.dvmed.net"
+Received: from gate.crashing.org ([63.228.1.57]:47573 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755911AbXJQXzZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 19:55:25 -0400
-In-Reply-To: <1192661962.474.10.camel@Linux.home>
+	id S1756920AbXJRAAw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2007 20:00:52 -0400
+In-Reply-To: <1192664183.13993.30.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Don Fry wrote:
-> Recent changes to the driver for the new napi API broke the reception of packets when in
-> non-napi mode.  The initialization of napi.weight was removed for the non-napi case
-> leaving the value zero.
+
+On Wed, 2007-10-17 at 18:36 -0500, Josh Boyer wrote:
+> On Thu, 2007-10-18 at 08:04 +1000, Benjamin Herrenschmidt wrote:
+> > net: Add __napi_synchronize() to sync with napi poll
+> > 
+> > The EMAC driver which needs to handle multiple devices with one
+> > NAPI instance implements its own per-channel disable bit. However,
+> > when setting such a bit, it needs to synchronize with the poller
+> > (that is make sure that any pending poller instance has completed,
+> > or is started late enough to see that disable bit).
+> > 
+> > This implements a low level __napi_synchronize() function to acheive
+> > that. The underscores are to emphasis the low level aspect of it and
+> > to discourage driver writers who don't know what they are doing to
+> > use it (to please DaveM :-)
 > 
-> Tested NAPI and non-NAPI on x86_64.
-> 
-> Signed-off-by: Don Fry <pcnet32@verizon.net>
-> ---
-> --- linux-2.6.23-git7/drivers/net/orig.pcnet32.c	2007-10-15 11:19:17.000000000 -0700
-> +++ linux-2.6.23-git7/drivers/net/pcnet32.c	2007-10-17 15:56:15.000000000 -0700
-> @@ -1849,6 +1849,9 @@ pcnet32_probe1(unsigned long ioaddr, int
->  	lp->mii_if.mdio_read = mdio_read;
->  	lp->mii_if.mdio_write = mdio_write;
->  
-> +	/* napi.weight is used in both the napi and non-napi cases */
-> +	lp->napi.weight = lp->rx_ring_size / 2;
-> +
->  #ifdef CONFIG_PCNET32_NAPI
->  	netif_napi_add(dev, &lp->napi, pcnet32_poll, lp->rx_ring_size / 2);
->  #endif
+> Erm.. your commit log calls it __napi_synchronize still.
 
-In general, we're hoping to remove as many CONFIG_FOO_NAPI as possible, 
-pushing everybody towards using NAPI.
+The commit is a mistake, I sent a patch to rename it, or did I miss
+something ?
 
-Any objection to heading in this direction with pcnet32?
-
-	Jeff
-
+Ben.
 
 
