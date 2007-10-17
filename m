@@ -1,118 +1,181 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 10/11] [IPSEC]: Disallow combinations of RO and AH/ESP/IPCOMP
-Date: Wed, 17 Oct 2007 22:34:18 +0800
-Message-ID: <E1Ii9yU-0006Hr-00@gondolin.me.apana.org.au>
+Subject: [PATCH 2/11] [IPSEC]: Move tunnel parsing for IPv4 out of xfrm4_input
+Date: Wed, 17 Oct 2007 22:34:09 +0800
+Message-ID: <E1Ii9yL-0006Gp-00@gondolin.me.apana.org.au>
 References: <20071017142940.GA23879@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1126 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:1089 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756518AbXJQOee (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 10:34:34 -0400
+	with ESMTP id S1758749AbXJQOeP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 10:34:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Disallow combinations of RO and AH/ESP/IPCOMP
+[IPSEC]: Move tunnel parsing for IPv4 out of xfrm4_input
 
-Combining RO and AH/ESP/IPCOMP does not make sense.  So this patch adds a
-check in the state initialisation function to prevent this.
-
-This allows us to safely remove the mode input function of RO since it
-can never be called anymore.  Indeed, if somehow it does get called we'll
-know about it through an OOPS instead of it slipping past silently.
+This patch moves the tunnel parsing for IPv4 out of xfrm4_input and into
+xfrm4_tunnel.  This change is in line with what IPv6 does and will allow
+us to merge the two input functions.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/ipv6/ah6.c           |    9 ++++++++-
- net/ipv6/esp6.c          |    9 ++++++++-
- net/ipv6/ipcomp6.c       |    9 ++++++++-
- net/ipv6/xfrm6_mode_ro.c |    9 ---------
- 4 files changed, 24 insertions(+), 12 deletions(-)
+ include/net/xfrm.h      |    8 ++++++++
+ net/ipv4/xfrm4_input.c  |   36 +++++++++++-------------------------
+ net/ipv4/xfrm4_tunnel.c |    9 +++++++--
+ 3 files changed, 26 insertions(+), 27 deletions(-)
 
-diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
-index a8221d1..67cd066 100644
---- a/net/ipv6/ah6.c
-+++ b/net/ipv6/ah6.c
-@@ -477,8 +477,15 @@ static int ah6_init_state(struct xfrm_state *x)
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 0e84484..680739f 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1046,7 +1046,15 @@ extern void xfrm_replay_notify(struct xfrm_state *x, int event);
+ extern int xfrm_state_mtu(struct xfrm_state *x, int mtu);
+ extern int xfrm_init_state(struct xfrm_state *x);
+ extern int xfrm_output(struct sk_buff *skb);
++extern int xfrm4_rcv_encap(struct sk_buff *skb, int nexthdr, __be32 spi,
++			   int encap_type);
+ extern int xfrm4_rcv(struct sk_buff *skb);
++
++static inline int xfrm4_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
++{
++	return xfrm4_rcv_encap(skb, nexthdr, spi, 0);
++}
++
+ extern int xfrm4_output(struct sk_buff *skb);
+ extern int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family);
+ extern int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler, unsigned short family);
+diff --git a/net/ipv4/xfrm4_input.c b/net/ipv4/xfrm4_input.c
+index e9bbfde..5cb0b59 100644
+--- a/net/ipv4/xfrm4_input.c
++++ b/net/ipv4/xfrm4_input.c
+@@ -16,19 +16,6 @@
+ #include <net/ip.h>
+ #include <net/xfrm.h>
  
- 	x->props.header_len = XFRM_ALIGN8(sizeof(struct ip_auth_hdr) +
- 					  ahp->icv_trunc_len);
--	if (x->props.mode == XFRM_MODE_TUNNEL)
-+	switch (x->props.mode) {
-+	case XFRM_MODE_BEET:
-+	case XFRM_MODE_TRANSPORT:
-+		break;
-+	case XFRM_MODE_TUNNEL:
- 		x->props.header_len += sizeof(struct ipv6hdr);
-+	default:
-+		goto error;
-+	}
- 	x->data = ahp;
- 
- 	return 0;
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index 9eb9285..b071543 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -354,8 +354,15 @@ static int esp6_init_state(struct xfrm_state *x)
- 				    (x->ealg->alg_key_len + 7) / 8))
- 		goto error;
- 	x->props.header_len = sizeof(struct ip_esp_hdr) + esp->conf.ivlen;
--	if (x->props.mode == XFRM_MODE_TUNNEL)
-+	switch (x->props.mode) {
-+	case XFRM_MODE_BEET:
-+	case XFRM_MODE_TRANSPORT:
-+		break;
-+	case XFRM_MODE_TUNNEL:
- 		x->props.header_len += sizeof(struct ipv6hdr);
-+	default:
-+		goto error;
-+	}
- 	x->data = esp;
- 	return 0;
- 
-diff --git a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
-index 28fc8ed..80ef2a1 100644
---- a/net/ipv6/ipcomp6.c
-+++ b/net/ipv6/ipcomp6.c
-@@ -411,8 +411,15 @@ static int ipcomp6_init_state(struct xfrm_state *x)
- 		goto out;
- 
- 	x->props.header_len = 0;
--	if (x->props.mode == XFRM_MODE_TUNNEL)
-+	switch (x->props.mode) {
-+	case XFRM_MODE_BEET:
-+	case XFRM_MODE_TRANSPORT:
-+		break;
-+	case XFRM_MODE_TUNNEL:
- 		x->props.header_len += sizeof(struct ipv6hdr);
-+	default:
-+		goto error;
-+	}
- 
- 	mutex_lock(&ipcomp6_resource_mutex);
- 	if (!ipcomp6_alloc_scratches())
-diff --git a/net/ipv6/xfrm6_mode_ro.c b/net/ipv6/xfrm6_mode_ro.c
-index 957ae36..a7bc8c6 100644
---- a/net/ipv6/xfrm6_mode_ro.c
-+++ b/net/ipv6/xfrm6_mode_ro.c
-@@ -58,16 +58,7 @@ static int xfrm6_ro_output(struct xfrm_state *x, struct sk_buff *skb)
- 	return 0;
- }
- 
--/*
-- * Do nothing about routing optimization header unlike IPsec.
-- */
--static int xfrm6_ro_input(struct xfrm_state *x, struct sk_buff *skb)
+-static int xfrm4_parse_spi(struct sk_buff *skb, u8 nexthdr, __be32 *spi, __be32 *seq)
 -{
--	return 0;
+-	switch (nexthdr) {
+-	case IPPROTO_IPIP:
+-	case IPPROTO_IPV6:
+-		*spi = ip_hdr(skb)->saddr;
+-		*seq = 0;
+-		return 0;
+-	}
+-
+-	return xfrm_parse_spi(skb, nexthdr, spi, seq);
 -}
 -
- static struct xfrm_mode xfrm6_ro_mode = {
--	.input = xfrm6_ro_input,
- 	.output = xfrm6_ro_output,
- 	.owner = THIS_MODULE,
- 	.encap = XFRM_MODE_ROUTEOPTIMIZATION,
+ #ifdef CONFIG_NETFILTER
+ static inline int xfrm4_rcv_encap_finish(struct sk_buff *skb)
+ {
+@@ -46,28 +33,29 @@ drop:
+ }
+ #endif
+ 
+-static int xfrm4_rcv_encap(struct sk_buff *skb, __u16 encap_type)
++int xfrm4_rcv_encap(struct sk_buff *skb, int nexthdr, __be32 spi,
++		    int encap_type)
+ {
+-	__be32 spi, seq;
++	int err;
++	__be32 seq;
+ 	struct xfrm_state *xfrm_vec[XFRM_MAX_DEPTH];
+ 	struct xfrm_state *x;
+ 	int xfrm_nr = 0;
+ 	int decaps = 0;
+-	int err = xfrm4_parse_spi(skb, ip_hdr(skb)->protocol, &spi, &seq);
+ 	unsigned int nhoff = offsetof(struct iphdr, protocol);
+ 
+-	if (err != 0)
++	seq = 0;
++	if (!spi && (err = xfrm_parse_spi(skb, nexthdr, &spi, &seq)) != 0)
+ 		goto drop;
+ 
+ 	do {
+ 		const struct iphdr *iph = ip_hdr(skb);
+-		int nexthdr;
+ 
+ 		if (xfrm_nr == XFRM_MAX_DEPTH)
+ 			goto drop;
+ 
+ 		x = xfrm_state_lookup((xfrm_address_t *)&iph->daddr, spi,
+-				iph->protocol != IPPROTO_IPV6 ? iph->protocol : IPPROTO_IPIP, AF_INET);
++				      nexthdr, AF_INET);
+ 		if (x == NULL)
+ 			goto drop;
+ 
+@@ -111,7 +99,7 @@ static int xfrm4_rcv_encap(struct sk_buff *skb, __u16 encap_type)
+ 			break;
+ 		}
+ 
+-		err = xfrm_parse_spi(skb, ip_hdr(skb)->protocol, &spi, &seq);
++		err = xfrm_parse_spi(skb, nexthdr, &spi, &seq);
+ 		if (err < 0)
+ 			goto drop;
+ 	} while (!err);
+@@ -165,6 +153,7 @@ drop:
+ 	kfree_skb(skb);
+ 	return 0;
+ }
++EXPORT_SYMBOL(xfrm4_rcv_encap);
+ 
+ /* If it's a keepalive packet, then just eat it.
+  * If it's an encapsulated packet, then pass it to the
+@@ -252,11 +241,8 @@ int xfrm4_udp_encap_rcv(struct sock *sk, struct sk_buff *skb)
+ 	__skb_pull(skb, len);
+ 	skb_reset_transport_header(skb);
+ 
+-	/* modify the protocol (it's ESP!) */
+-	iph->protocol = IPPROTO_ESP;
+-
+ 	/* process ESP */
+-	ret = xfrm4_rcv_encap(skb, encap_type);
++	ret = xfrm4_rcv_encap(skb, IPPROTO_ESP, 0, encap_type);
+ 	return ret;
+ 
+ drop:
+@@ -266,7 +252,7 @@ drop:
+ 
+ int xfrm4_rcv(struct sk_buff *skb)
+ {
+-	return xfrm4_rcv_encap(skb, 0);
++	return xfrm4_rcv_spi(skb, ip_hdr(skb)->protocol, 0);
+ }
+ 
+ EXPORT_SYMBOL(xfrm4_rcv);
+diff --git a/net/ipv4/xfrm4_tunnel.c b/net/ipv4/xfrm4_tunnel.c
+index 83e9580..3268451 100644
+--- a/net/ipv4/xfrm4_tunnel.c
++++ b/net/ipv4/xfrm4_tunnel.c
+@@ -48,20 +48,25 @@ static struct xfrm_type ipip_type = {
+ 	.output		= ipip_output
+ };
+ 
++static int xfrm_tunnel_rcv(struct sk_buff *skb)
++{
++	return xfrm4_rcv_spi(skb, IPPROTO_IP, ip_hdr(skb)->saddr);
++}
++
+ static int xfrm_tunnel_err(struct sk_buff *skb, u32 info)
+ {
+ 	return -ENOENT;
+ }
+ 
+ static struct xfrm_tunnel xfrm_tunnel_handler = {
+-	.handler	=	xfrm4_rcv,
++	.handler	=	xfrm_tunnel_rcv,
+ 	.err_handler	=	xfrm_tunnel_err,
+ 	.priority	=	2,
+ };
+ 
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ static struct xfrm_tunnel xfrm64_tunnel_handler = {
+-	.handler	=	xfrm4_rcv,
++	.handler	=	xfrm_tunnel_rcv,
+ 	.err_handler	=	xfrm_tunnel_err,
+ 	.priority	=	2,
+ };
