@@ -1,62 +1,103 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: multicast: bug or "feature"
-Date: Wed, 17 Oct 2007 16:23:07 -0400
-Message-ID: <47166F2B.5010706@hp.com>
-References: <OF5E5E93CF.68389D89-ON88257377.006E39CF-88257377.006EB529@us.ibm.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 9179] New: 2.6.23.1 / USB_ZD1201: Kernel panic
+ with zd1201 driver
+Date: Wed, 17 Oct 2007 13:27:40 -0700
+Message-ID: <20071017132740.eebaed9d.akpm@linux-foundation.org>
+References: <bug-9179-10286@http.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Brian Haley <brian.haley@hp.com>, netdev <netdev@vger.kernel.org>
-To: David Stevens <dlstevens@us.ibm.com>
+Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, zairasai@googlemail.com
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:44116 "EHLO atlrel6.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757164AbXJQUX3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 16:23:29 -0400
-In-Reply-To: <OF5E5E93CF.68389D89-ON88257377.006E39CF-88257377.006EB529@us.ibm.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:48612 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759615AbXJQU1z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 16:27:55 -0400
+In-Reply-To: <bug-9179-10286@http.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Stevens wrote:
-> I'm not clear on your configuration.
+On Wed, 17 Oct 2007 11:34:57 -0700 (PDT)
+bugme-daemon@bugzilla.kernel.org wrote:
+
+> http://bugzilla.kernel.org/show_bug.cgi?id=9179
 > 
-> Are the sender and receiver running on the same machine? Are
-> you saying eth0 and eth1 are connected on the same link?
+>            Summary: 2.6.23.1 / USB_ZD1201: Kernel panic with zd1201 driver
+>            Product: Drivers
+>            Version: 2.5
+>      KernelVersion: 2.6.23.1
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: network-wireless
+>         AssignedTo: drivers_network-wireless@kernel-bugs.osdl.org
+>         ReportedBy: zairasai@googlemail.com
+> 
+> 
+> [1.] One line summary of the problem:
+> 
+> 2.6.23.1 / USB_ZD1201: Kernel panic with zd1201 driver
+> 
+> 
+> 
+> 
+> [2.] Full description of the problem:
+> 
+> The zd1201-driver (symbol: USB_ZD1201) triggers a kernel panic during
+> initialization of the WLAN device, showing the following message:
+> 
+> EIP: [<e095e1d1>] zd1201_usbrx+0x6e1/0xbb0 [zd1201] SS:ESP 0068:c0469d7c
+> Kernel panic - not syncing: Fatal exception in interrupt
+> 
+> According to the init output during bootup, the panic seems to occur right when
+> the WLAN device receives an IP address from the DHCP-Server of the
+> WLAN/DSL-Router. The WLAN device is (in my case) a 'Belkin F5D6051' based on
+> the ZyDAS 1201 chip.
+> 
+> As far as i know, the only recent change in 'drivers/net/wireless/zd1201.c' was
+> done in patch-2.6.22, so the bug probably affects all kernel versions later
+> than 2.6.21.7, but at least the ones i've tested (which are listed in the
+> summary below). It also recently came up in some different
+> distribution-specific forums/bugtrackers, so it does not seem to be specific to
+> my machine/setup. A link to another report on this problem is included at the
+> end of this report.
+> 
+> Below is an extract of patch-2.6.22, showing that the lines 330 and 388 have
+> been removed from 'drivers/net/wireless/zd1201.c'. I put those two lines back,
+> which made things work as expected again; however, that is only meant as a
+> hint, since i don't know why they were taken out or what other implications my
+> change might have.
+> 
+> patch-2.6.22, lines 586509-586528:
+> {{{
+> diff --git a/drivers/net/wireless/zd1201.c b/drivers/net/wireless/zd1201.c
+> index 6cb66a3..935b144 100644
+> --- a/drivers/net/wireless/zd1201.c
+> +++ b/drivers/net/wireless/zd1201.c
+> @@ -327,7 +327,6 @@ static void zd1201_usbrx(struct urb *urb)
+>                         memcpy(skb_put(skb, 6), &data[datalen-8], 6);
+>                         memcpy(skb_put(skb, 2), &data[datalen-24], 2);
+>                         memcpy(skb_put(skb, len), data, len);
+> -                       skb->dev = zd->dev;
+>                         skb->dev->last_rx = jiffies;
+>                         skb->protocol = eth_type_trans(skb, zd->dev);
+>                         zd->stats.rx_packets++;
+> @@ -385,7 +384,6 @@ static void zd1201_usbrx(struct urb *urb)
+>                         memcpy(skb_put(skb, 2), &data[6], 2);
+>                         memcpy(skb_put(skb, len), data+8, len);
+>                 }
+> -               skb->dev = zd->dev;
+>                 skb->dev->last_rx = jiffies;
+>                 skb->protocol = eth_type_trans(skb, zd->dev);
+>                 zd->stats.rx_packets++;
+> }}}
+> 
 
-Yes and Yes.
+Arnaldo, we have a pretty solid report here that your
+4c13eb6657fe9ef7b4dc8f1a405c902e9e5234e0 made this driver go crash.
 
-I know it's a strange config, but it works with IPv6.
-
-Here is the info off the reproducing system:
-
-# ifconfig
-eth0      Link encap:Ethernet  HWaddr 00:17:08:7D:47:18  
-          inet addr:10.202.1.23  Bcast:10.202.255.255  Mask:255.255.0.0
-          inet6 addr: 2001:1890:1109:a10:217:8ff:fe7d:4718/64 Scope:Global
-          inet6 addr: fe80::217:8ff:fe7d:4718/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:1094 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:669 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000 
-          RX bytes:107776 (105.2 KiB)  TX bytes:109874 (107.2 KiB)
-          Base address:0x4000 Memory:f9de0000-f9e00000 
-
-eth1      Link encap:Ethernet  HWaddr 00:18:FE:7F:49:C8  
-          inet addr:10.202.1.26  Bcast:10.202.255.255  Mask:255.255.0.0
-          inet6 addr: 2001:1890:1109:a10:218:feff:fe7f:49c8/64 Scope:Global
-          inet6 addr: fe80::218:feff:fe7f:49c8/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:479 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:35 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000 
-          RX bytes:52236 (51.0 KiB)  TX bytes:4467 (4.3 KiB)
-          Interrupt:41 Memory:f6000000-f6012100 
-
-
-# ip r l
-10.202.0.0/16 dev eth0  proto kernel  scope link  src 10.202.1.23 
-10.202.0.0/16 dev eth1  proto kernel  scope link  src 10.202.1.26 
-default via 10.202.1.1 dev eth0
-
-
--vlad
