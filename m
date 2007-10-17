@@ -1,211 +1,229 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 11/11] [IPSEC]: Rename mode to outer_mode and add inner_mode
-Date: Wed, 17 Oct 2007 22:34:19 +0800
-Message-ID: <E1Ii9yV-0006Hz-00@gondolin.me.apana.org.au>
+Subject: [PATCH 8/11] [IPSEC]: Store afinfo pointer in xfrm_mode
+Date: Wed, 17 Oct 2007 22:34:16 +0800
+Message-ID: <E1Ii9yS-0006Hb-00@gondolin.me.apana.org.au>
 References: <20071017142940.GA23879@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1133 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:1130 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759637AbXJQOef (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 10:34:35 -0400
+	with ESMTP id S1759313AbXJQOee (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 10:34:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Rename mode to outer_mode and add inner_mode
+[IPSEC]: Store afinfo pointer in xfrm_mode
 
-This patch adds a new field to xfrm states called inner_mode.  The existing
-mode object is renamed to outer_mode.
+It is convenient to have a pointer from xfrm_state to address-specific
+functions such as the output function for a family.  Currently the
+address-specific policy code calls out to the xfrm state code to get
+those pointers when we could get it in an easier way via the state
+itself.
 
-This is the first part of an attempt to fix inter-family transforms.  As it
-is we always use the outer family when determining which mode to use.  As a
-result we may end up shoving IPv4 packets into netfilter6 and vice versa.
-
-What we really want is to use the inner family for the first part of outbound
-processing and the outer family for the second part.  For inbound processing
-we'd use the opposite pairing.
-
-I've also added a check to prevent silly combinations such as transport mode
-with inter-family transforms.
+This patch adds an xfrm_state_afinfo to xfrm_mode (since they're
+address-specific) and changes the policy code to use it.  I've also
+added an owner field to do reference counting on the module providing
+the afinfo even though it isn't strictly necessary today since IPv6
+can't be unloaded yet.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/net/xfrm.h      |    3 ++-
- net/core/pktgen.c       |    2 +-
- net/ipv4/xfrm4_input.c  |    4 ++--
- net/ipv4/xfrm4_policy.c |    2 +-
- net/ipv6/xfrm6_input.c  |    4 ++--
- net/ipv6/xfrm6_policy.c |    2 +-
- net/xfrm/xfrm_output.c  |    4 ++--
- net/xfrm/xfrm_policy.c  |    2 +-
- net/xfrm/xfrm_state.c   |   18 ++++++++++++++----
- 9 files changed, 26 insertions(+), 15 deletions(-)
+ include/net/xfrm.h      |    6 +++---
+ net/ipv4/xfrm4_policy.c |   13 +------------
+ net/ipv4/xfrm4_state.c  |    1 +
+ net/ipv6/xfrm6_policy.c |   14 +-------------
+ net/ipv6/xfrm6_state.c  |    1 +
+ net/xfrm/xfrm_state.c   |   26 +++++++++++++++++---------
+ 6 files changed, 24 insertions(+), 37 deletions(-)
 
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index f0f3318..688f6f5 100644
+index 2143f29..f0f3318 100644
 --- a/include/net/xfrm.h
 +++ b/include/net/xfrm.h
-@@ -186,7 +186,8 @@ struct xfrm_state
- 	/* Reference to data common to all the instances of this
- 	 * transformer. */
- 	struct xfrm_type	*type;
--	struct xfrm_mode	*mode;
-+	struct xfrm_mode	*inner_mode;
-+	struct xfrm_mode	*outer_mode;
+@@ -253,7 +253,8 @@ extern void km_state_expired(struct xfrm_state *x, int hard, u32 pid);
+ extern int __xfrm_state_delete(struct xfrm_state *x);
  
- 	/* Security context */
- 	struct xfrm_sec_ctx	*security;
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 2100c73..8cae60c 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2454,7 +2454,7 @@ static int pktgen_output_ipsec(struct sk_buff *skb, struct pktgen_dev *pkt_dev)
- 	spin_lock(&x->lock);
- 	iph = ip_hdr(skb);
+ struct xfrm_state_afinfo {
+-	unsigned short		family;
++	unsigned int		family;
++	struct module		*owner;
+ 	struct xfrm_type	*type_map[IPPROTO_MAX];
+ 	struct xfrm_mode	*mode_map[XFRM_MODE_MAX];
+ 	int			(*init_flags)(struct xfrm_state *x);
+@@ -267,8 +268,6 @@ struct xfrm_state_afinfo {
  
--	err = x->mode->output(x, skb);
-+	err = x->outer_mode->output(x, skb);
- 	if (err)
- 		goto error;
- 	err = x->type->output(x, skb);
-diff --git a/net/ipv4/xfrm4_input.c b/net/ipv4/xfrm4_input.c
-index bc5dc07..5e95c8a 100644
---- a/net/ipv4/xfrm4_input.c
-+++ b/net/ipv4/xfrm4_input.c
-@@ -91,10 +91,10 @@ int xfrm4_rcv_encap(struct sk_buff *skb, int nexthdr, __be32 spi,
+ extern int xfrm_state_register_afinfo(struct xfrm_state_afinfo *afinfo);
+ extern int xfrm_state_unregister_afinfo(struct xfrm_state_afinfo *afinfo);
+-extern struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned short family);
+-extern void xfrm_state_put_afinfo(struct xfrm_state_afinfo *afinfo);
  
- 		xfrm_vec[xfrm_nr++] = x;
+ extern void xfrm_state_delete_tunnel(struct xfrm_state *x);
  
--		if (x->mode->input(x, skb))
-+		if (x->outer_mode->input(x, skb))
- 			goto drop;
+@@ -312,6 +311,7 @@ struct xfrm_mode {
+ 	 */
+ 	int (*output)(struct xfrm_state *x,struct sk_buff *skb);
  
--		if (x->mode->flags & XFRM_MODE_FLAG_TUNNEL) {
-+		if (x->outer_mode->flags & XFRM_MODE_FLAG_TUNNEL) {
- 			decaps = 1;
- 			break;
- 		}
++	struct xfrm_state_afinfo *afinfo;
+ 	struct module *owner;
+ 	unsigned int encap;
+ 	int flags;
 diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index 1f0ea0e..cc86fb1 100644
+index 2373d67..c65b8e0 100644
 --- a/net/ipv4/xfrm4_policy.c
 +++ b/net/ipv4/xfrm4_policy.c
-@@ -168,7 +168,7 @@ __xfrm4_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+@@ -151,7 +151,6 @@ __xfrm4_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+ 	i = 0;
+ 	for (; dst_prev != &rt->u.dst; dst_prev = dst_prev->child) {
+ 		struct xfrm_dst *x = (struct xfrm_dst*)dst_prev;
+-		struct xfrm_state_afinfo *afinfo;
+ 		x->u.rt.fl = *fl;
+ 
+ 		dst_prev->xfrm = xfrm[i++];
+@@ -169,17 +168,7 @@ __xfrm4_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
  		/* Copy neighbout for reachability confirmation */
  		dst_prev->neighbour	= neigh_clone(rt->u.dst.neighbour);
  		dst_prev->input		= rt->u.dst.input;
--		dst_prev->output = dst_prev->xfrm->mode->afinfo->output;
-+		dst_prev->output = dst_prev->xfrm->outer_mode->afinfo->output;
- 		if (rt0->peer)
- 			atomic_inc(&rt0->peer->refcnt);
- 		x->u.rt.peer = rt0->peer;
-diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
-index c6ee1a3..5157837 100644
---- a/net/ipv6/xfrm6_input.c
-+++ b/net/ipv6/xfrm6_input.c
-@@ -68,10 +68,10 @@ int xfrm6_rcv_spi(struct sk_buff *skb, int nexthdr, __be32 spi)
+-		/* XXX: When IPv6 module can be unloaded, we should manage reference
+-		 * to xfrm6_output in afinfo->output. Miyazawa
+-		 * */
+-		afinfo = xfrm_state_get_afinfo(dst_prev->xfrm->props.family);
+-		if (!afinfo) {
+-			dst = *dst_p;
+-			err = -EAFNOSUPPORT;
+-			goto error;
+-		}
+-		dst_prev->output = afinfo->output;
+-		xfrm_state_put_afinfo(afinfo);
++		dst_prev->output = dst_prev->xfrm->mode->afinfo->output;
+ 		if (dst_prev->xfrm->props.family == AF_INET && rt->peer)
+ 			atomic_inc(&rt->peer->refcnt);
+ 		x->u.rt.peer = rt->peer;
+diff --git a/net/ipv4/xfrm4_state.c b/net/ipv4/xfrm4_state.c
+index 93e2c06..13d54a1 100644
+--- a/net/ipv4/xfrm4_state.c
++++ b/net/ipv4/xfrm4_state.c
+@@ -49,6 +49,7 @@ __xfrm4_init_tempsel(struct xfrm_state *x, struct flowi *fl,
  
- 		xfrm_vec[xfrm_nr++] = x;
- 
--		if (x->mode->input(x, skb))
-+		if (x->outer_mode->input(x, skb))
- 			goto drop;
- 
--		if (x->mode->flags & XFRM_MODE_FLAG_TUNNEL) {
-+		if (x->outer_mode->flags & XFRM_MODE_FLAG_TUNNEL) {
- 			decaps = 1;
- 			break;
- 		}
+ static struct xfrm_state_afinfo xfrm4_state_afinfo = {
+ 	.family			= AF_INET,
++	.owner			= THIS_MODULE,
+ 	.init_flags		= xfrm4_init_flags,
+ 	.init_tempsel		= __xfrm4_init_tempsel,
+ 	.output			= xfrm4_output,
 diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 3242683..82e27b8 100644
+index dc4bdcb..3242683 100644
 --- a/net/ipv6/xfrm6_policy.c
 +++ b/net/ipv6/xfrm6_policy.c
-@@ -230,7 +230,7 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+@@ -214,7 +214,6 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+ 	i = 0;
+ 	for (; dst_prev != &rt->u.dst; dst_prev = dst_prev->child) {
+ 		struct xfrm_dst *x = (struct xfrm_dst*)dst_prev;
+-		struct xfrm_state_afinfo *afinfo;
+ 
+ 		dst_prev->xfrm = xfrm[i++];
+ 		dst_prev->dev = rt->u.dst.dev;
+@@ -231,18 +230,7 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
  		/* Copy neighbour for reachability confirmation */
  		dst_prev->neighbour	= neigh_clone(rt->u.dst.neighbour);
  		dst_prev->input		= rt->u.dst.input;
--		dst_prev->output = dst_prev->xfrm->mode->afinfo->output;
-+		dst_prev->output = dst_prev->xfrm->outer_mode->afinfo->output;
+-		/* XXX: When IPv4 is implemented as module and can be unloaded,
+-		 * we should manage reference to xfrm4_output in afinfo->output.
+-		 * Miyazawa
+-		 */
+-		afinfo = xfrm_state_get_afinfo(dst_prev->xfrm->props.family);
+-		if (!afinfo) {
+-			dst = *dst_p;
+-			goto error;
+-		}
+-
+-		dst_prev->output = afinfo->output;
+-		xfrm_state_put_afinfo(afinfo);
++		dst_prev->output = dst_prev->xfrm->mode->afinfo->output;
  		/* Sheit... I remember I did this right. Apparently,
  		 * it was magically lost, so this code needs audit */
  		x->u.rt6.rt6i_flags    = rt0->rt6i_flags&(RTCF_BROADCAST|RTCF_MULTICAST|RTCF_LOCAL);
-diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index 8bf71ba..f4bfd6c 100644
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -63,7 +63,7 @@ int xfrm_output(struct sk_buff *skb)
- 				xfrm_replay_notify(x, XFRM_REPLAY_UPDATE);
- 		}
+diff --git a/net/ipv6/xfrm6_state.c b/net/ipv6/xfrm6_state.c
+index e644c80..b392bee 100644
+--- a/net/ipv6/xfrm6_state.c
++++ b/net/ipv6/xfrm6_state.c
+@@ -170,6 +170,7 @@ __xfrm6_tmpl_sort(struct xfrm_tmpl **dst, struct xfrm_tmpl **src, int n)
  
--		err = x->mode->output(x, skb);
-+		err = x->outer_mode->output(x, skb);
- 		if (err)
- 			goto error;
- 
-@@ -82,7 +82,7 @@ int xfrm_output(struct sk_buff *skb)
- 		}
- 		dst = skb->dst;
- 		x = dst->xfrm;
--	} while (x && !(x->mode->flags & XFRM_MODE_FLAG_TUNNEL));
-+	} while (x && !(x->outer_mode->flags & XFRM_MODE_FLAG_TUNNEL));
- 
- 	err = 0;
- 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 1d66fb4..b702bd8 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1941,7 +1941,7 @@ int xfrm_bundle_ok(struct xfrm_policy *pol, struct xfrm_dst *first,
- 			return 0;
- 
- 		if (strict && fl &&
--		    !(dst->xfrm->mode->flags & XFRM_MODE_FLAG_TUNNEL) &&
-+		    !(dst->xfrm->outer_mode->flags & XFRM_MODE_FLAG_TUNNEL) &&
- 		    !xfrm_state_addr_flow_check(dst->xfrm, fl, family))
- 			return 0;
- 
+ static struct xfrm_state_afinfo xfrm6_state_afinfo = {
+ 	.family			= AF_INET6,
++	.owner			= THIS_MODULE,
+ 	.init_tempsel		= __xfrm6_init_tempsel,
+ 	.tmpl_sort		= __xfrm6_tmpl_sort,
+ 	.state_sort		= __xfrm6_state_sort,
 diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 48b4a06..224b44e 100644
+index dc438f2..48b4a06 100644
 --- a/net/xfrm/xfrm_state.c
 +++ b/net/xfrm/xfrm_state.c
-@@ -377,8 +377,10 @@ static void xfrm_state_gc_destroy(struct xfrm_state *x)
- 	kfree(x->calg);
- 	kfree(x->encap);
- 	kfree(x->coaddr);
--	if (x->mode)
--		xfrm_put_mode(x->mode);
-+	if (x->inner_mode)
-+		xfrm_put_mode(x->inner_mode);
-+	if (x->outer_mode)
-+		xfrm_put_mode(x->outer_mode);
- 	if (x->type) {
- 		x->type->destructor(x);
- 		xfrm_put_type(x->type);
-@@ -1947,6 +1949,14 @@ int xfrm_init_state(struct xfrm_state *x)
- 		goto error;
+@@ -57,6 +57,9 @@ static unsigned int xfrm_state_hashmax __read_mostly = 1 * 1024 * 1024;
+ static unsigned int xfrm_state_num;
+ static unsigned int xfrm_state_genid;
  
- 	err = -EPROTONOSUPPORT;
-+	x->inner_mode = xfrm_get_mode(x->props.mode, x->sel.family);
-+	if (x->inner_mode == NULL)
-+		goto error;
++static struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned int family);
++static void xfrm_state_put_afinfo(struct xfrm_state_afinfo *afinfo);
 +
-+	if (!(x->inner_mode->flags & XFRM_MODE_FLAG_TUNNEL) &&
-+	    family != x->sel.family)
-+		goto error;
+ static inline unsigned int xfrm_dst_hash(xfrm_address_t *daddr,
+ 					 xfrm_address_t *saddr,
+ 					 u32 reqid,
+@@ -289,11 +292,18 @@ int xfrm_register_mode(struct xfrm_mode *mode, int family)
+ 
+ 	err = -EEXIST;
+ 	modemap = afinfo->mode_map;
+-	if (likely(modemap[mode->encap] == NULL)) {
+-		modemap[mode->encap] = mode;
+-		err = 0;
+-	}
++	if (modemap[mode->encap])
++		goto out;
+ 
++	err = -ENOENT;
++	if (!try_module_get(afinfo->owner))
++		goto out;
 +
- 	x->type = xfrm_get_type(x->id.proto, family);
- 	if (x->type == NULL)
- 		goto error;
-@@ -1955,8 +1965,8 @@ int xfrm_init_state(struct xfrm_state *x)
- 	if (err)
- 		goto error;
++	mode->afinfo = afinfo;
++	modemap[mode->encap] = mode;
++	err = 0;
++
++out:
+ 	xfrm_state_unlock_afinfo(afinfo);
+ 	return err;
+ }
+@@ -316,6 +326,7 @@ int xfrm_unregister_mode(struct xfrm_mode *mode, int family)
+ 	modemap = afinfo->mode_map;
+ 	if (likely(modemap[mode->encap] == mode)) {
+ 		modemap[mode->encap] = NULL;
++		module_put(mode->afinfo->owner);
+ 		err = 0;
+ 	}
  
--	x->mode = xfrm_get_mode(x->props.mode, family);
--	if (x->mode == NULL)
-+	x->outer_mode = xfrm_get_mode(x->props.mode, family);
-+	if (x->outer_mode == NULL)
- 		goto error;
+@@ -1869,7 +1880,7 @@ int xfrm_state_unregister_afinfo(struct xfrm_state_afinfo *afinfo)
+ }
+ EXPORT_SYMBOL(xfrm_state_unregister_afinfo);
  
- 	x->km.state = XFRM_STATE_VALID;
+-struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned short family)
++static struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned int family)
+ {
+ 	struct xfrm_state_afinfo *afinfo;
+ 	if (unlikely(family >= NPROTO))
+@@ -1881,14 +1892,11 @@ struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned short family)
+ 	return afinfo;
+ }
+ 
+-void xfrm_state_put_afinfo(struct xfrm_state_afinfo *afinfo)
++static void xfrm_state_put_afinfo(struct xfrm_state_afinfo *afinfo)
+ {
+ 	read_unlock(&xfrm_state_afinfo_lock);
+ }
+ 
+-EXPORT_SYMBOL(xfrm_state_get_afinfo);
+-EXPORT_SYMBOL(xfrm_state_put_afinfo);
+-
+ /* Temporarily located here until net/xfrm/xfrm_tunnel.c is created */
+ void xfrm_state_delete_tunnel(struct xfrm_state *x)
+ {
