@@ -1,103 +1,53 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 9179] New: 2.6.23.1 / USB_ZD1201: Kernel panic
- with zd1201 driver
-Date: Wed, 17 Oct 2007 13:27:40 -0700
-Message-ID: <20071017132740.eebaed9d.akpm@linux-foundation.org>
-References: <bug-9179-10286@http.bugzilla.kernel.org/>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, zairasai@googlemail.com
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH 1/2] napi_synchronize: waiting for NAPI
+Date: Wed, 17 Oct 2007 13:26:41 -0700
+Message-ID: <20071017202653.266566036@linux-foundation.org>
+References: <20071017202640.171902388@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	"Jeff Garzik" <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:48612 "EHLO
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:47535 "EHLO
 	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759615AbXJQU1z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 16:27:55 -0400
-In-Reply-To: <bug-9179-10286@http.bugzilla.kernel.org/>
+	by vger.kernel.org with ESMTP id S935180AbXJQU2t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 16:28:49 -0400
+Content-Disposition: inline; filename=napi-synchronize.patch
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 17 Oct 2007 11:34:57 -0700 (PDT)
-bugme-daemon@bugzilla.kernel.org wrote:
+Some drivers with shared NAPI need a synchronization barrier.
+Also suggested by Benjamin Herrenschmidt for EMAC.
 
-> http://bugzilla.kernel.org/show_bug.cgi?id=9179
-> 
->            Summary: 2.6.23.1 / USB_ZD1201: Kernel panic with zd1201 driver
->            Product: Drivers
->            Version: 2.5
->      KernelVersion: 2.6.23.1
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: network-wireless
->         AssignedTo: drivers_network-wireless@kernel-bugs.osdl.org
->         ReportedBy: zairasai@googlemail.com
-> 
-> 
-> [1.] One line summary of the problem:
-> 
-> 2.6.23.1 / USB_ZD1201: Kernel panic with zd1201 driver
-> 
-> 
-> 
-> 
-> [2.] Full description of the problem:
-> 
-> The zd1201-driver (symbol: USB_ZD1201) triggers a kernel panic during
-> initialization of the WLAN device, showing the following message:
-> 
-> EIP: [<e095e1d1>] zd1201_usbrx+0x6e1/0xbb0 [zd1201] SS:ESP 0068:c0469d7c
-> Kernel panic - not syncing: Fatal exception in interrupt
-> 
-> According to the init output during bootup, the panic seems to occur right when
-> the WLAN device receives an IP address from the DHCP-Server of the
-> WLAN/DSL-Router. The WLAN device is (in my case) a 'Belkin F5D6051' based on
-> the ZyDAS 1201 chip.
-> 
-> As far as i know, the only recent change in 'drivers/net/wireless/zd1201.c' was
-> done in patch-2.6.22, so the bug probably affects all kernel versions later
-> than 2.6.21.7, but at least the ones i've tested (which are listed in the
-> summary below). It also recently came up in some different
-> distribution-specific forums/bugtrackers, so it does not seem to be specific to
-> my machine/setup. A link to another report on this problem is included at the
-> end of this report.
-> 
-> Below is an extract of patch-2.6.22, showing that the lines 330 and 388 have
-> been removed from 'drivers/net/wireless/zd1201.c'. I put those two lines back,
-> which made things work as expected again; however, that is only meant as a
-> hint, since i don't know why they were taken out or what other implications my
-> change might have.
-> 
-> patch-2.6.22, lines 586509-586528:
-> {{{
-> diff --git a/drivers/net/wireless/zd1201.c b/drivers/net/wireless/zd1201.c
-> index 6cb66a3..935b144 100644
-> --- a/drivers/net/wireless/zd1201.c
-> +++ b/drivers/net/wireless/zd1201.c
-> @@ -327,7 +327,6 @@ static void zd1201_usbrx(struct urb *urb)
->                         memcpy(skb_put(skb, 6), &data[datalen-8], 6);
->                         memcpy(skb_put(skb, 2), &data[datalen-24], 2);
->                         memcpy(skb_put(skb, len), data, len);
-> -                       skb->dev = zd->dev;
->                         skb->dev->last_rx = jiffies;
->                         skb->protocol = eth_type_trans(skb, zd->dev);
->                         zd->stats.rx_packets++;
-> @@ -385,7 +384,6 @@ static void zd1201_usbrx(struct urb *urb)
->                         memcpy(skb_put(skb, 2), &data[6], 2);
->                         memcpy(skb_put(skb, len), data+8, len);
->                 }
-> -               skb->dev = zd->dev;
->                 skb->dev->last_rx = jiffies;
->                 skb->protocol = eth_type_trans(skb, zd->dev);
->                 zd->stats.rx_packets++;
-> }}}
-> 
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
 
-Arnaldo, we have a pretty solid report here that your
-4c13eb6657fe9ef7b4dc8f1a405c902e9e5234e0 made this driver go crash.
+--- a/include/linux/netdevice.h	2007-10-17 08:45:32.000000000 -0700
++++ b/include/linux/netdevice.h	2007-10-17 08:47:54.000000000 -0700
+@@ -407,6 +407,24 @@ static inline void napi_enable(struct na
+ 	clear_bit(NAPI_STATE_SCHED, &n->state);
+ }
+ 
++#ifdef CONFIG_SMP
++/**
++ *	napi_synchronize - wait until NAPI is not running
++ *	@n: napi context
++ *
++ * Wait until NAPI is done being scheduled on this context.
++ * Waits till any outstanding processing completes but
++ * does not disable future activations.
++ */
++static inline void napi_synchronize(const struct napi_struct *n)
++{
++	while (test_bit(NAPI_STATE_SCHED, &n->state))
++		msleep(1);
++}
++#else
++# define napi_synchronize(n)	barrier()
++#endif
++
+ /*
+  *	The DEVICE structure.
+  *	Actually, this whole structure is a big mistake.  It mixes I/O
+
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
 
