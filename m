@@ -1,54 +1,65 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/2] Interface group match - netfilter part
-Date: Wed, 17 Oct 2007 11:11:12 +0200
-Message-ID: <4715D1B0.30209@trash.net>
-References: <1192521703479-git-send-email-panther@balabit.hu> <11925217031287-git-send-email-panther@balabit.hu> <11925217031728-git-send-email-panther@balabit.hu> <47147692.8070709@trash.net> <4715D117.3080405@balabit.hu>
+From: Milan Kocian <milon@wq.cz>
+Subject: Difference between device statistics from ifconfig and ip -s l l
+Date: Wed, 17 Oct 2007 11:27:00 +0200
+Message-ID: <20071017092659.GA16356@wq.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: panther@balabit.hu
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4715D117.3080405@balabit.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw-sitel.lam.cz ([212.71.129.172]:40168 "EHLO nt.wq.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753074AbXJQJ1I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2007 05:27:08 -0400
+Received: from milon by nt.wq.cz with local (Exim 4.68)
+	(envelope-from <milon@wq.cz>)
+	id 1Ii5B6-0005hx-4r
+	for netdev@vger.kernel.org; Wed, 17 Oct 2007 11:27:00 +0200
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Laszlo Attila Toth wrote:
-> Patrick McHardy =EDrta:
->
->> The input interface is only valid in PREROUTING, INPUT and FORWARD.
->> Why don't you support output-interface matching?
->>
->=20
-> The new version supports output-interface, currently I'm rewriting=20
-> iptables part. But I'm not sure what to do with the forward chain=20
-> because both input and output interface are valid here. My idea is th=
-at=20
-> the ifgroup_match function checks ifgroup values of both input and=20
-> output interfaces if they are set. An example:
->=20
-> iptables -A FORWARD -m ifgroup --in-ifgroup 4 --out-ifgroup 5/0x0f -j=
-=20
-> ACCEPT
->=20
-> The packet's input interface must be in group 4 and output interface=20
-> must be in group 5 but only lower 4 bits are checked. If one of these=
-=20
-> assumptions fails the match fails.
->=20
-> Is it ok, or only one of them should be checked as in xt_policy: if=20
-> input side matches, other one is not checked?
+hello,
 
+see dropped packets, please:
 
-xt_policy is a special case because the policy structure is so
-large I decided the user should better use the match twice if
-he really needs it (its also a quite uncommon use). For the
-ifgroup match I think it should behave exactly as the -i and -o
-matches: allow matching both in FORWARD, input device in
-PREROUTING and INPUT and output device in OUTPUT and POSTROUTING.
--
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+sit:~# ifconfig eth0
+eth0      Link encap:Ethernet  HWaddr 00:04:23:D6:D5:DE  
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:522284892 errors:0 dropped:16800 overruns:0 frame:0
+          TX packets:506064445 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:1405350664 (1.3 GiB)  TX bytes:4082649020 (3.8 GiB)
+          Base address:0xac00 Memory:ff6e0000-ff700000 
+
+see via ip l l (here are no dropped packets):
+
+sit:~# ip -s l l dev eth0
+2: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc htb qlen 1000
+    link/ether 00:04:23:d6:d5:de brd ff:ff:ff:ff:ff:ff
+    RX: bytes  packets  errors  dropped overrun mcast   
+    2494988681 523755694 0       0       0       57458  
+    TX: bytes  packets  errors  dropped carrier collsns 
+    453184821  507470461 0       0       0       0      
+
+but see more detailed stats (dropped packet are as missed in RX errors ?!):
+
+sit:~# ip -s -s l l dev eth0
+2: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc htb qlen 1000
+    link/ether 00:04:23:d6:d5:de brd ff:ff:ff:ff:ff:ff
+    RX: bytes  packets  errors  dropped overrun mcast   
+    2752159866 524110163 0       0       0       57485  
+    RX errors: length  crc     frame   fifo    missed
+               0        0       0       0       16800  
+    TX: bytes  packets  errors  dropped carrier collsns 
+    607359337  507807361 0       0       0       0      
+    TX errors: aborted fifo    window  heartbeat
+               0        0       0       0      
+
+Is this bug or feature ? From my point of view is somewhere lost any sum.
+Or is it driver dependent? Kernel 2.6.23.1 (in 2.6.20.20 is the same behavior), 
+driver e1000. iproute2-ss070313; net-tools 1.60, ifconfig 1.42 (2001-04-13)
+ 
+Regards,
+
+-- 
+Milan Kocian
