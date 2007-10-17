@@ -1,40 +1,45 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] Fix memory leak in cleanup_ipv6_mibs()
-Date: Wed, 17 Oct 2007 18:04:18 +0400
-Message-ID: <47161662.2080706@openvz.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [0/11] Various xfrm fixes and clean-ups
+Date: Wed, 17 Oct 2007 22:29:40 +0800
+Message-ID: <20071017142940.GA23879@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:41984 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759316AbXJQOE0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 10:04:26 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:4945 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1762077AbXJQO37 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 10:29:59 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The icmpv6msg mib statistics is not freed.
+Hi Dave:
 
-This is almost not critical for current kernel, since ipv6
-module is unloadable, but this can happen on load error and 
-will happen every time we stop the network namespace (when 
-we have one, of course).
+This series of patches completely replaces the ones I posted
+yesterday so you can delete the previous batch.
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+I'm still in the process of fixing up inter-family transforms
+so this is mostly the patches I posted yesterday with the
+offensive bits removed :)
 
----
+I hadn't realised how broken inter-family transforms are on
+output until I started trying to fix them.  As it is, it'll
+happily send IPv4 packets into the IPv6 ICMP stack or worse,
+IPv6 netfilter and vice versa.
 
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index bc92938..1b1caf3 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -747,6 +747,7 @@ static void cleanup_ipv6_mibs(void)
- {
- 	snmp_mib_free((void **)ipv6_statistics);
- 	snmp_mib_free((void **)icmpv6_statistics);
-+	snmp_mib_free((void **)icmpv6msg_statistics);
- 	snmp_mib_free((void **)udp_stats_in6);
- 	snmp_mib_free((void **)udplite_stats_in6);
- }
+The last patch in the series lays the foundation of my fix
+to this.  My plan is to divide the work that's currently done
+by x->mode->output into two parts so that the first part can
+be done by the inner address family, i.e., x->inner_mode while
+the rest of it will be done by x->outer_mode->output.  A similar
+scheme would operate on the inbound direction.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
