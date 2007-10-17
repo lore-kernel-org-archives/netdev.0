@@ -1,7 +1,7 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: [PATCH 4/6] forcedeth: unconditionally enable NAPI
-Date: Wed, 17 Oct 2007 01:54:20 -0400
-Message-ID: <20071017055420.GE20534@havoc.gtf.org>
+Subject: [PATCH 5/6] forcedeth: use NAPI for TX completion
+Date: Wed, 17 Oct 2007 01:54:42 -0400
+Message-ID: <20071017055442.GF20534@havoc.gtf.org>
 References: <20071017055251.GA19972@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,217 +9,201 @@ Cc: Manfred Spraul <manfred@colorfullife.com>,
 	Ingo Molnar <mingo@elte.hu>, Ayaz Abdulla <aabdulla@nvidia.com>
 To: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from havoc.gtf.org ([69.61.125.42]:52504 "EHLO havoc.gtf.org"
+Received: from havoc.gtf.org ([69.61.125.42]:36447 "EHLO havoc.gtf.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754428AbXJQFyX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 01:54:23 -0400
+	id S933324AbXJQFyn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2007 01:54:43 -0400
 Content-Disposition: inline
 In-Reply-To: <20071017055251.GA19972@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-commit 8f61debaeb334bce0ccba1a1384d549a377c1e8e
+commit a7c00e796597b797ceac3c18e8b85c124196c5ab
 Author: Jeff Garzik <jeff@garzik.org>
-Date:   Tue Oct 16 12:55:08 2007 -0400
+Date:   Tue Oct 16 17:33:19 2007 -0400
 
-    [netdrvr] forcedeth: unconditionally enable NAPI
+    [netdrvr] forcedeth: use NAPI for TX completion
     
-    Remove all !CONFIG_FORCEDETH_NAPI code, and the Kconfig option,
-    enabling NAPI unconditionally.
+    A hand-rolled TX poll & work limit system was already in place, so it
+    was easy to convert the TX path to use NAPI.
     
-    The NIC driver recreates a lot of this functionality manually.
+    This simplifies the code, and enables future improvements and
+    simplifications.
     
     Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
 
- drivers/net/Kconfig     |   17 -----
- drivers/net/forcedeth.c |  143 ++----------------------------------------------
- 2 files changed, 7 insertions(+), 153 deletions(-)
+ drivers/net/forcedeth.c |  170 +++++++++++++++++++++++++-----------------------
+ 1 file changed, 90 insertions(+), 80 deletions(-)
 
-8f61debaeb334bce0ccba1a1384d549a377c1e8e
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 83d52c8..eafdd58 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1430,23 +1430,6 @@ config FORCEDETH
- 	  <file:Documentation/networking/net-modules.txt>.  The module will be
- 	  called forcedeth.
- 
--config FORCEDETH_NAPI
--	bool "Use Rx and Tx Polling (NAPI) (EXPERIMENTAL)"
--	depends on FORCEDETH && EXPERIMENTAL
--	help
--	  NAPI is a new driver API designed to reduce CPU and interrupt load
--	  when the driver is receiving lots of packets from the card. It is
--	  still somewhat experimental and thus not yet enabled by default.
--
--	  If your estimated Rx load is 10kpps or more, or if the card will be
--	  deployed on potentially unfriendly networks (e.g. in a firewall),
--	  then say Y here.
--
--	  See <file:Documentation/networking/NAPI_HOWTO.txt> for more
--	  information.
--
--	  If in doubt, say N.
--
- config CS89x0
- 	tristate "CS89x0 support"
- 	depends on NET_PCI && (ISA || MACH_IXDP2351 || ARCH_IXDP2X01 || ARCH_PNX010X)
+a7c00e796597b797ceac3c18e8b85c124196c5ab
 diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-index a4baad7..32a8893 100644
+index 32a8893..81fe016 100644
 --- a/drivers/net/forcedeth.c
 +++ b/drivers/net/forcedeth.c
-@@ -1546,7 +1546,6 @@ static int nv_alloc_rx_optimized(struct net_device *dev)
- }
+@@ -660,6 +660,7 @@ struct fe_priv {
  
- /* If rx bufs are exhausted called after 50ms to attempt to refresh */
--#ifdef CONFIG_FORCEDETH_NAPI
- static void nv_do_rx_refill(unsigned long data)
- {
- 	struct net_device *dev = (struct net_device *) data;
-@@ -1555,41 +1554,6 @@ static void nv_do_rx_refill(unsigned long data)
- 	/* Just reschedule NAPI rx processing */
- 	netif_rx_schedule(dev, &np->napi);
- }
--#else
--static void nv_do_rx_refill(unsigned long data)
--{
--	struct net_device *dev = (struct net_device *) data;
--	struct fe_priv *np = netdev_priv(dev);
--	int retcode;
--
--	if (!using_multi_irqs(dev)) {
--		if (np->msi_flags & NV_MSI_X_ENABLED)
--			disable_irq(np->msi_x_entry[NV_MSI_X_VECTOR_ALL].vector);
--		else
--			disable_irq(dev->irq);
--	} else {
--		disable_irq(np->msi_x_entry[NV_MSI_X_VECTOR_RX].vector);
--	}
--	if (!nv_optimized(np))
--		retcode = nv_alloc_rx(dev);
--	else
--		retcode = nv_alloc_rx_optimized(dev);
--	if (retcode) {
+ 	struct net_device *dev;
+ 	struct napi_struct napi;
++	struct napi_struct tx_napi;
+ 
+ 	/* General data:
+ 	 * Locking: spin_lock(&np->lock); */
+@@ -725,7 +726,6 @@ struct fe_priv {
+ 	union ring_type tx_ring;
+ 	u32 tx_flags;
+ 	int tx_ring_size;
+-	int tx_stop;
+ 
+ 	/* vlan fields */
+ 	struct vlan_group *vlangrp;
+@@ -1732,10 +1732,7 @@ static int nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	empty_slots = nv_get_empty_tx_slots(np);
+ 	if (unlikely(empty_slots <= entries)) {
 -		spin_lock_irq(&np->lock);
--		if (netif_running(dev))
--			mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
+ 		netif_stop_queue(dev);
+-		np->tx_stop = 1;
 -		spin_unlock_irq(&np->lock);
--	}
--	if (!using_multi_irqs(dev)) {
--		if (np->msi_flags & NV_MSI_X_ENABLED)
--			enable_irq(np->msi_x_entry[NV_MSI_X_VECTOR_ALL].vector);
--		else
--			enable_irq(dev->irq);
--	} else {
--		enable_irq(np->msi_x_entry[NV_MSI_X_VECTOR_RX].vector);
--	}
--}
--#endif
+ 		return NETDEV_TX_BUSY;
+ 	}
  
- static void nv_init_rx(struct net_device *dev)
+@@ -1848,10 +1845,7 @@ static int nv_start_xmit_optimized(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	empty_slots = nv_get_empty_tx_slots(np);
+ 	if (unlikely(empty_slots <= entries)) {
+-		spin_lock_irq(&np->lock);
+ 		netif_stop_queue(dev);
+-		np->tx_stop = 1;
+-		spin_unlock_irq(&np->lock);
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+@@ -1956,14 +1950,15 @@ static int nv_start_xmit_optimized(struct sk_buff *skb, struct net_device *dev)
+  *
+  * Caller must own np->lock.
+  */
+-static void nv_tx_done(struct net_device *dev)
++static int nv_tx_done(struct net_device *dev, int limit)
  {
-@@ -2347,11 +2311,7 @@ static int nv_rx_process(struct net_device *dev, int limit)
- 		skb->protocol = eth_type_trans(skb, dev);
- 		dprintk(KERN_DEBUG "%s: nv_rx_process: %d bytes, proto %d accepted.\n",
- 					dev->name, len, skb->protocol);
--#ifdef CONFIG_FORCEDETH_NAPI
- 		netif_receive_skb(skb);
--#else
--		netif_rx(skb);
--#endif
- 		dev->last_rx = jiffies;
- 		dev->stats.rx_packets++;
- 		dev->stats.rx_bytes += len;
-@@ -2446,27 +2406,14 @@ static int nv_rx_process_optimized(struct net_device *dev, int limit)
- 				dev->name, len, skb->protocol);
+ 	struct fe_priv *np = netdev_priv(dev);
+ 	u32 flags;
+-	struct ring_desc* orig_get_tx = np->get_tx.orig;
++	int tx_work = 0;
  
- 			if (likely(!np->vlangrp)) {
--#ifdef CONFIG_FORCEDETH_NAPI
- 				netif_receive_skb(skb);
--#else
--				netif_rx(skb);
--#endif
- 			} else {
- 				vlanflags = le32_to_cpu(np->get_rx.ex->buflow);
- 				if (vlanflags & NV_RX3_VLAN_TAG_PRESENT) {
--#ifdef CONFIG_FORCEDETH_NAPI
- 					vlan_hwaccel_receive_skb(skb, np->vlangrp,
- 								 vlanflags & NV_RX3_VLAN_TAG_MASK);
--#else
--					vlan_hwaccel_rx(skb, np->vlangrp,
--							vlanflags & NV_RX3_VLAN_TAG_MASK);
--#endif
- 				} else {
--#ifdef CONFIG_FORCEDETH_NAPI
- 					netif_receive_skb(skb);
--#else
--					netif_rx(skb);
--#endif
- 				}
- 			}
+ 	while ((np->get_tx.orig != np->put_tx.orig) &&
+-	       !((flags = le32_to_cpu(np->get_tx.orig->flaglen)) & NV_TX_VALID)) {
++	       !((flags = le32_to_cpu(np->get_tx.orig->flaglen)) & NV_TX_VALID) &&
++	       (tx_work < limit)) {
  
-@@ -2965,7 +2912,6 @@ static irqreturn_t __nv_nic_irq(struct net_device *dev, bool optimized)
- 			nv_tx_done(dev);
- 		spin_unlock(&np->lock);
+ 		dprintk(KERN_DEBUG "%s: nv_tx_done: flags 0x%x.\n",
+ 					dev->name, flags);
+@@ -2008,22 +2003,25 @@ static void nv_tx_done(struct net_device *dev)
+ 			np->get_tx.orig = np->first_tx.orig;
+ 		if (unlikely(np->get_tx_ctx++ == np->last_tx_ctx))
+ 			np->get_tx_ctx = np->first_tx_ctx;
++
++		tx_work++;
+ 	}
+-	if (unlikely((np->tx_stop == 1) && (np->get_tx.orig != orig_get_tx))) {
+-		np->tx_stop = 0;
++
++	if (tx_work)
+ 		netif_wake_queue(dev);
+-	}
++
++	return tx_work;
+ }
  
--#ifdef CONFIG_FORCEDETH_NAPI
+-static void nv_tx_done_optimized(struct net_device *dev, int limit)
++static int nv_tx_done_optimized(struct net_device *dev, int limit)
+ {
+ 	struct fe_priv *np = netdev_priv(dev);
+ 	u32 flags;
+-	struct ring_desc_ex* orig_get_tx = np->get_tx.ex;
++	int tx_work = 0;
+ 
+ 	while ((np->get_tx.ex != np->put_tx.ex) &&
+ 	       !((flags = le32_to_cpu(np->get_tx.ex->flaglen)) & NV_TX_VALID) &&
+-	       (limit-- > 0)) {
++	       (tx_work < limit)) {
+ 
+ 		dprintk(KERN_DEBUG "%s: nv_tx_done_optimized: flags 0x%x.\n",
+ 					dev->name, flags);
+@@ -2043,11 +2041,14 @@ static void nv_tx_done_optimized(struct net_device *dev, int limit)
+ 			np->get_tx.ex = np->first_tx.ex;
+ 		if (unlikely(np->get_tx_ctx++ == np->last_tx_ctx))
+ 			np->get_tx_ctx = np->first_tx_ctx;
++
++		tx_work++;
+ 	}
+-	if (unlikely((np->tx_stop == 1) && (np->get_tx.ex != orig_get_tx))) {
+-		np->tx_stop = 0;
++
++	if (tx_work)
+ 		netif_wake_queue(dev);
+-	}
++
++	return tx_work;
+ }
+ 
+ /*
+@@ -2120,7 +2121,7 @@ static void nv_tx_timeout(struct net_device *dev)
+ 
+ 	/* 2) check that the packets were not sent already: */
+ 	if (!nv_optimized(np))
+-		nv_tx_done(dev);
++		nv_tx_done(dev, np->tx_ring_size);
+ 	else
+ 		nv_tx_done_optimized(dev, np->tx_ring_size);
+ 
+@@ -2888,7 +2889,7 @@ static irqreturn_t __nv_nic_irq(struct net_device *dev, bool optimized)
+ {
+ 	struct fe_priv *np = netdev_priv(dev);
+ 	u8 __iomem *base = np->base;
+-	u32 events;
++	u32 events, updmask = 0;
+ 	int i;
+ 
+ 	dprintk(KERN_DEBUG "%s: __nv_nic_irq\n", dev->name);
+@@ -2905,22 +2906,22 @@ static irqreturn_t __nv_nic_irq(struct net_device *dev, bool optimized)
+ 		if (!(events & np->irqmask))
+ 			break;
+ 
+-		spin_lock(&np->lock);
+-		if (optimized)
+-			nv_tx_done_optimized(dev, TX_WORK_PER_LOOP);
+-		else
+-			nv_tx_done(dev);
+-		spin_unlock(&np->lock);
+-
  		if (events & NVREG_IRQ_RX_ALL) {
  			netif_rx_schedule(dev, &np->napi);
++			updmask |= NVREG_IRQ_RX_ALL;
++		}
++
++		if (events & NVREG_IRQ_TX_ALL) {
++			netif_rx_schedule(dev, &np->tx_napi);
++			updmask |= NVREG_IRQ_TX_ALL;
++		}
  
-@@ -2979,27 +2925,7 @@ static irqreturn_t __nv_nic_irq(struct net_device *dev, bool optimized)
+-			/* Disable furthur receive irq's */
++		if (updmask) {
+ 			spin_lock(&np->lock);
+-			np->irqmask &= ~NVREG_IRQ_RX_ALL;
++			np->irqmask &= ~updmask;
+ 
+ 			if (np->msi_flags & NV_MSI_X_ENABLED)
+-				writel(NVREG_IRQ_RX_ALL, base + NvRegIrqMask);
++				writel(updmask, base + NvRegIrqMask);
+ 			else
  				writel(np->irqmask, base + NvRegIrqMask);
  			spin_unlock(&np->lock);
- 		}
--#else
--		if (optimized) {
--			if (nv_rx_process_optimized(dev, RX_WORK_PER_LOOP)) {
--				if (unlikely(nv_alloc_rx_optimized(dev))) {
--					spin_lock(&np->lock);
--					if (netif_running(dev))
--						mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
--					spin_unlock(&np->lock);
--				}
--			}
--		} else {
--			if (nv_rx_process(dev, RX_WORK_PER_LOOP)) {
--				if (unlikely(nv_alloc_rx(dev))) {
--					spin_lock(&np->lock);
--					if (netif_running(dev))
--						mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
--					spin_unlock(&np->lock);
--				}
--			}
--		}
--#endif
-+
- 		if (unlikely(events & NVREG_IRQ_LINK)) {
- 			spin_lock(&np->lock);
- 			nv_link_irq(dev);
-@@ -3119,7 +3045,6 @@ static irqreturn_t nv_nic_irq_tx(int foo, void *data)
- 	return IRQ_RETVAL(i);
+@@ -2998,58 +2999,11 @@ static irqreturn_t nv_nic_irq_optimized(int foo, void *data)
+ 	return __nv_nic_irq(dev, true);
  }
  
--#ifdef CONFIG_FORCEDETH_NAPI
- static int nv_napi_poll(struct napi_struct *napi, int budget)
- {
- 	struct fe_priv *np = container_of(napi, struct fe_priv, napi);
-@@ -3159,9 +3084,7 @@ static int nv_napi_poll(struct napi_struct *napi, int budget)
- 	}
- 	return pkts;
- }
--#endif
- 
--#ifdef CONFIG_FORCEDETH_NAPI
- static irqreturn_t nv_nic_irq_rx(int foo, void *data)
- {
- 	struct net_device *dev = data;
-@@ -3180,54 +3103,6 @@ static irqreturn_t nv_nic_irq_rx(int foo, void *data)
- 	}
- 	return IRQ_HANDLED;
- }
--#else
--static irqreturn_t nv_nic_irq_rx(int foo, void *data)
+-static irqreturn_t nv_nic_irq_tx(int foo, void *data)
 -{
 -	struct net_device *dev = data;
 -	struct fe_priv *np = netdev_priv(dev);
@@ -228,100 +212,157 @@ index a4baad7..32a8893 100644
 -	int i;
 -	unsigned long flags;
 -
--	dprintk(KERN_DEBUG "%s: nv_nic_irq_rx\n", dev->name);
+-	dprintk(KERN_DEBUG "%s: nv_nic_irq_tx\n", dev->name);
 -
 -	for (i=0; ; i++) {
--		events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQ_RX_ALL;
--		writel(NVREG_IRQ_RX_ALL, base + NvRegMSIXIrqStatus);
--		dprintk(KERN_DEBUG "%s: rx irq: %08x\n", dev->name, events);
+-		events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQ_TX_ALL;
+-		writel(NVREG_IRQ_TX_ALL, base + NvRegMSIXIrqStatus);
+-		dprintk(KERN_DEBUG "%s: tx irq: %08x\n", dev->name, events);
 -		if (!(events & np->irqmask))
 -			break;
 -
--		if (nv_rx_process_optimized(dev, RX_WORK_PER_LOOP)) {
--			if (unlikely(nv_alloc_rx_optimized(dev))) {
--				spin_lock_irqsave(&np->lock, flags);
--				if (netif_running(dev))
--					mod_timer(&np->oom_kick, jiffies + OOM_REFILL);
--				spin_unlock_irqrestore(&np->lock, flags);
--			}
--		}
+-		spin_lock_irqsave(&np->lock, flags);
+-		nv_tx_done_optimized(dev, TX_WORK_PER_LOOP);
+-		spin_unlock_irqrestore(&np->lock, flags);
 -
+-		if (unlikely(events & (NVREG_IRQ_TX_ERR))) {
+-			dprintk(KERN_DEBUG "%s: received irq with events 0x%x. Probably TX fail.\n",
+-						dev->name, events);
+-		}
 -		if (unlikely(i > max_interrupt_work)) {
 -			spin_lock_irqsave(&np->lock, flags);
 -			/* disable interrupts on the nic */
--			writel(NVREG_IRQ_RX_ALL, base + NvRegIrqMask);
+-			writel(NVREG_IRQ_TX_ALL, base + NvRegIrqMask);
 -			pci_push(base);
 -
 -			if (netif_running(dev)) {
--				np->nic_poll_irq |= NVREG_IRQ_RX_ALL;
+-				np->nic_poll_irq |= NVREG_IRQ_TX_ALL;
 -				mod_timer(&np->nic_poll, jiffies + POLL_WAIT);
 -			}
 -			spin_unlock_irqrestore(&np->lock, flags);
--			printk(KERN_DEBUG "%s: too many iterations (%d) in nv_nic_irq_rx.\n", dev->name, i);
+-			printk(KERN_DEBUG "%s: too many iterations (%d) in nv_nic_irq_tx.\n", dev->name, i);
 -			break;
 -		}
+-
 -	}
--	dprintk(KERN_DEBUG "%s: nv_nic_irq_rx completed\n", dev->name);
+-	dprintk(KERN_DEBUG "%s: nv_nic_irq_tx completed\n", dev->name);
 -
 -	return IRQ_RETVAL(i);
 -}
--#endif
+-
+ static int nv_napi_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct fe_priv *np = container_of(napi, struct fe_priv, napi);
+ 	struct net_device *dev = np->dev;
+-	u8 __iomem *base = get_hwbase(dev);
++	u8 __iomem *base = np->base;
+ 	unsigned long flags;
+ 	int pkts, retcode;
  
+@@ -3089,7 +3043,7 @@ static irqreturn_t nv_nic_irq_rx(int foo, void *data)
+ {
+ 	struct net_device *dev = data;
+ 	struct fe_priv *np = netdev_priv(dev);
+-	u8 __iomem *base = get_hwbase(dev);
++	u8 __iomem *base = np->base;
+ 	u32 events;
+ 
+ 	events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQ_RX_ALL;
+@@ -3104,6 +3058,57 @@ static irqreturn_t nv_nic_irq_rx(int foo, void *data)
+ 	return IRQ_HANDLED;
+ }
+ 
++static irqreturn_t nv_nic_irq_tx(int foo, void *data)
++{
++	struct net_device *dev = data;
++	struct fe_priv *np = netdev_priv(dev);
++	u8 __iomem *base = np->base;
++	u32 events;
++
++	events = readl(base + NvRegMSIXIrqStatus) & NVREG_IRQ_TX_ALL;
++	writel(NVREG_IRQ_TX_ALL, base + NvRegMSIXIrqStatus);
++
++	if (events) {
++		netif_rx_schedule(dev, &np->tx_napi);
++		/* disable receive interrupts on the nic */
++		writel(NVREG_IRQ_TX_ALL, base + NvRegIrqMask);
++		pci_push(base);
++	}
++	return IRQ_HANDLED;
++}
++
++static int nv_napi_tx_poll(struct napi_struct *napi, int budget)
++{
++	struct fe_priv *np = container_of(napi, struct fe_priv, tx_napi);
++	struct net_device *dev = np->dev;
++	u8 __iomem *base = np->base;
++	unsigned long flags;
++	int pkts;
++
++	spin_lock_irqsave(&np->lock, flags);
++
++	if (nv_optimized(np))
++		pkts = nv_tx_done_optimized(dev, budget);
++	else
++		pkts = nv_tx_done(dev, budget);
++
++	if (pkts < budget) {
++		/* re-enable receive interrupts */
++
++		__netif_rx_complete(dev, napi);
++
++		np->irqmask |= NVREG_IRQ_RX_ALL;
++		if (np->msi_flags & NV_MSI_X_ENABLED)
++			writel(NVREG_IRQ_RX_ALL, base + NvRegIrqMask);
++		else
++			writel(np->irqmask, base + NvRegIrqMask);
++	}
++
++	spin_unlock_irqrestore(&np->lock, flags);
++
++	return pkts;
++}
++
  static irqreturn_t nv_nic_irq_other(int foo, void *data)
  {
-@@ -4472,9 +4347,9 @@ static void nv_self_test(struct net_device *dev, struct ethtool_test *test, u64
- 	if (test->flags & ETH_TEST_FL_OFFLINE) {
+ 	struct net_device *dev = data;
+@@ -4348,6 +4353,7 @@ static void nv_self_test(struct net_device *dev, struct ethtool_test *test, u64
  		if (netif_running(dev)) {
  			netif_stop_queue(dev);
--#ifdef CONFIG_FORCEDETH_NAPI
-+
+ 
++			napi_disable(&np->tx_napi);
  			napi_disable(&np->napi);
--#endif
-+
+ 
  			netif_tx_lock_bh(dev);
- 			spin_lock_irq(&np->lock);
- 			nv_disable_hw_interrupts(dev, np->irqmask);
-@@ -4529,9 +4404,9 @@ static void nv_self_test(struct net_device *dev, struct ethtool_test *test, u64
- 			/* restart rx engine */
- 			nv_start_rxtx(dev);
+@@ -4406,6 +4412,7 @@ static void nv_self_test(struct net_device *dev, struct ethtool_test *test, u64
  			netif_start_queue(dev);
--#ifdef CONFIG_FORCEDETH_NAPI
-+
+ 
  			napi_enable(&np->napi);
--#endif
-+
++			napi_enable(&np->tx_napi);
+ 
  			nv_enable_hw_interrupts(dev, np->irqmask);
  		}
- 	}
-@@ -4756,9 +4631,7 @@ static int nv_open(struct net_device *dev)
- 	ret = nv_update_linkspeed(dev);
+@@ -4632,6 +4639,7 @@ static int nv_open(struct net_device *dev)
  	nv_start_rxtx(dev);
  	netif_start_queue(dev);
--#ifdef CONFIG_FORCEDETH_NAPI
  	napi_enable(&np->napi);
--#endif
++	napi_enable(&np->tx_napi);
  
  	if (ret) {
  		netif_carrier_on(dev);
-@@ -4789,9 +4662,7 @@ static int nv_close(struct net_device *dev)
+@@ -4662,6 +4670,7 @@ static int nv_close(struct net_device *dev)
  	spin_lock_irq(&np->lock);
  	spin_unlock_irq(&np->lock);
  
--#ifdef CONFIG_FORCEDETH_NAPI
++	napi_disable(&np->tx_napi);
  	napi_disable(&np->napi);
--#endif
  	synchronize_irq(dev->irq);
  
- 	del_timer_sync(&np->oom_kick);
-@@ -5003,9 +4874,9 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	dev->poll_controller = nv_poll_controller;
+@@ -4876,6 +4885,7 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
  #endif
--#ifdef CONFIG_FORCEDETH_NAPI
-+
+ 
  	netif_napi_add(dev, &np->napi, nv_napi_poll, RX_WORK_PER_LOOP);
--#endif
-+
++	netif_napi_add(dev, &np->tx_napi, nv_napi_tx_poll, TX_WORK_PER_LOOP);
+ 
  	SET_ETHTOOL_OPS(dev, &ops);
  	dev->tx_timeout = nv_tx_timeout;
- 	dev->watchdog_timeo = NV_WATCHDOG_TIMEO;
