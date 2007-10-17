@@ -1,59 +1,60 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 1/11] [IPSEC]: Fix pure tunnel modes involving IPv6
-Date: Wed, 17 Oct 2007 22:34:08 +0800
-Message-ID: <E1Ii9yK-0006Ga-00@gondolin.me.apana.org.au>
+Subject: [PATCH 5/11] [IPSEC]: Fix length check in xfrm_parse_spi
+Date: Wed, 17 Oct 2007 22:34:13 +0800
+Message-ID: <E1Ii9yP-0006HD-00@gondolin.me.apana.org.au>
 References: <20071017142940.GA23879@gondor.apana.org.au>
 To: "David S. Miller" <davem@davemloft.net>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:1083 "EHLO
+Received: from rhun.apana.org.au ([64.62.148.172]:1108 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756265AbXJQOeO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 10:34:14 -0400
+	with ESMTP id S1758521AbXJQOeY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 10:34:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[IPSEC]: Fix pure tunnel modes involving IPv6
+[IPSEC]: Fix length check in xfrm_parse_spi
 
-I noticed that my recent patch broke 6-on-4 pure IPsec tunnels (the ones
-that are only used for incompressible IPsec packets).  Subsequent reviews
-show that I broke 6-on-6 pure tunnels more than three years ago and nobody
-ever noticed. I suppose every must be testing 6-on-6 IPComp with large
-pings which are very compressible :)
+Currently xfrm_parse_spi requires there to be 16 bytes for AH and ESP.
+In contrived cases there may not actually be 16 bytes there since the
+respective header sizes are less than that (8 and 12 currently).
 
-This patch fixes both cases.
+This patch changes the test to use the actual header length instead of 16.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- net/ipv4/xfrm4_tunnel.c |    2 +-
- net/ipv6/xfrm6_tunnel.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ net/xfrm/xfrm_input.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/xfrm4_tunnel.c b/net/ipv4/xfrm4_tunnel.c
-index 1312417..83e9580 100644
---- a/net/ipv4/xfrm4_tunnel.c
-+++ b/net/ipv4/xfrm4_tunnel.c
-@@ -18,7 +18,7 @@ static int ipip_output(struct xfrm_state *x, struct sk_buff *skb)
- 
- static int ipip_xfrm_rcv(struct xfrm_state *x, struct sk_buff *skb)
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index 113f444..cb97fda 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -49,13 +49,16 @@ EXPORT_SYMBOL(secpath_dup);
+ int xfrm_parse_spi(struct sk_buff *skb, u8 nexthdr, __be32 *spi, __be32 *seq)
  {
--	return IPPROTO_IP;
-+	return ip_hdr(skb)->protocol;
- }
+ 	int offset, offset_seq;
++	int hlen;
  
- static int ipip_init_state(struct xfrm_state *x)
-diff --git a/net/ipv6/xfrm6_tunnel.c b/net/ipv6/xfrm6_tunnel.c
-index 3f8a3ab..6c67ac1 100644
---- a/net/ipv6/xfrm6_tunnel.c
-+++ b/net/ipv6/xfrm6_tunnel.c
-@@ -248,7 +248,7 @@ static int xfrm6_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	switch (nexthdr) {
+ 	case IPPROTO_AH:
++		hlen = sizeof(struct ip_auth_hdr);
+ 		offset = offsetof(struct ip_auth_hdr, spi);
+ 		offset_seq = offsetof(struct ip_auth_hdr, seq_no);
+ 		break;
+ 	case IPPROTO_ESP:
++		hlen = sizeof(struct ip_esp_hdr);
+ 		offset = offsetof(struct ip_esp_hdr, spi);
+ 		offset_seq = offsetof(struct ip_esp_hdr, seq_no);
+ 		break;
+@@ -69,7 +72,7 @@ int xfrm_parse_spi(struct sk_buff *skb, u8 nexthdr, __be32 *spi, __be32 *seq)
+ 		return 1;
+ 	}
  
- static int xfrm6_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
- {
--	return 0;
-+	return skb_network_header(skb)[IP6CB(skb)->nhoff];
- }
+-	if (!pskb_may_pull(skb, 16))
++	if (!pskb_may_pull(skb, hlen))
+ 		return -EINVAL;
  
- static int xfrm6_tunnel_rcv(struct sk_buff *skb)
+ 	*spi = *(__be32*)(skb_transport_header(skb) + offset);
