@@ -1,53 +1,35 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [PATCH] zd1201: avoid null ptr access of skb->dev
-Date: Wed, 17 Oct 2007 17:10:01 -0400
-Message-ID: <1192655401262-git-send-email-linville@tuxdriver.com>
-References: <20071017132740.eebaed9d.akpm@linux-foundation.org>
-Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	zairasai@googlemail.com,
-	"John W. Linville" <linville@tuxdriver.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+From: Charles Hardin <chardin@2wire.com>
+Subject: [PATCH] pfkey: sending an SADB_GET responds with an SADB_GET
+Date: Wed, 17 Oct 2007 14:36:10 -0700
+Message-ID: <C33BCE5A.25D04%chardin@2wire.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.tuxdriver.com ([70.61.120.52]:4754 "EHLO ra.tuxdriver.com"
+Received: from ims.2wire.com ([206.171.6.87]:27618 "EHLO ims.2wire.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755625AbXJQVj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 17:39:27 -0400
-In-Reply-To: <20071017132740.eebaed9d.akpm@linux-foundation.org>
+	id S1761710AbXJQVw2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2007 17:52:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-skb->dev is not set until eth_type_trans is called...
+Kernel needs to respond to an SADB_GET with the same message type to conform
+to the RFC 2367 Section 3.1.5
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
- drivers/net/wireless/zd1201.c        |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/wireless/zd1201.c b/drivers/net/wireless/zd1201.c
-index 935b144..d5c0c66 100644
---- a/drivers/net/wireless/zd1201.c
-+++ b/drivers/net/wireless/zd1201.c
-@@ -327,8 +327,8 @@ static void zd1201_usbrx(struct urb *urb)
- 			memcpy(skb_put(skb, 6), &data[datalen-8], 6);
- 			memcpy(skb_put(skb, 2), &data[datalen-24], 2);
- 			memcpy(skb_put(skb, len), data, len);
--			skb->dev->last_rx = jiffies;
- 			skb->protocol = eth_type_trans(skb, zd->dev);
-+			skb->dev->last_rx = jiffies;
- 			zd->stats.rx_packets++;
- 			zd->stats.rx_bytes += skb->len;
- 			netif_rx(skb);
-@@ -384,8 +384,8 @@ static void zd1201_usbrx(struct urb *urb)
- 			memcpy(skb_put(skb, 2), &data[6], 2);
- 			memcpy(skb_put(skb, len), data+8, len);
- 		}
--		skb->dev->last_rx = jiffies;
- 		skb->protocol = eth_type_trans(skb, zd->dev);
-+		skb->dev->last_rx = jiffies;
- 		zd->stats.rx_packets++;
- 		zd->stats.rx_bytes += skb->len;
- 		netif_rx(skb);
--- 
-1.5.2.4
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 7969f8a..fb4fee1 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -1552,7 +1552,7 @@ static int pfkey_get(struct sock *sk, struct sk_buff
+*skb,
+ 
+        out_hdr = (struct sadb_msg *) out_skb->data;
+        out_hdr->sadb_msg_version = hdr->sadb_msg_version;
+-       out_hdr->sadb_msg_type = SADB_DUMP;
++       out_hdr->sadb_msg_type = SADB_GET;
+        out_hdr->sadb_msg_satype = pfkey_proto2satype(proto);
+        out_hdr->sadb_msg_errno = 0;
+        out_hdr->sadb_msg_reserved = 0;
 
