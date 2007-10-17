@@ -1,65 +1,31 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: multicast: bug or "feature"
-Date: Wed, 17 Oct 2007 16:19:25 -0400
-Message-ID: <47166E4D.70802@hp.com>
-References: <4716694D.6030508@hp.com> <47166BD5.7090207@hp.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [RFC] remove netpoll receive code
+Date: Wed, 17 Oct 2007 13:21:31 -0700
+Message-ID: <20071017132131.1992bedd@freepuppy.rosehill>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel6.hp.com ([156.153.255.205]:43491 "EHLO atlrel6.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750863AbXJQUTh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 16:19:37 -0400
-Received: from smtp2.fc.hp.com (smtp2.fc.hp.com [15.11.136.114])
-	by atlrel6.hp.com (Postfix) with ESMTP id 0E38736ECB
-	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 16:19:27 -0400 (EDT)
-In-Reply-To: <47166BD5.7090207@hp.com>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:37197 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757054AbXJQUVv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 16:21:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rick Jones wrote:
-> Vlad Yasevich wrote:
->> We've been trying to field some questions regarding multicast
->> behavior and one such behavior has stumped us.
->>
->> I've reproduced the following behavior on 2.6.23.
->>
->> The application opens 2 sockets.  One socket is the receiver
->> and it simply binds to 0.0.0.0:2000 and joins a multicast group
->> on interface eth0 (for the test we used 224.0.1.3).  The other
->> socket is the sender.  It turns off MULTICAST_LOOP, sets MULTICAST_IF
->> to eth1, and sends a packet to the group that the first socket
->> joined.
->>
->> We are expecting to receive the data on the receiver socket, but
->> nothing comes back.
->>
->> Running tcpdump on both interfaces during the test, I see the packet
->> on both interfaces, ie. I see it sent on eth0 and received on eth1 with
->> IP statistics going up appropriately.
-> 
-> I think you got things switched - in the beginning you said that the
-> receiver has joined a multicast group on eth0 and the sender set
-> MULTICAST_IF to eth1, but in the paragraph just above you say
-> transmission is on eth0 and reception is on eth1...
+The netpoll receive code is:
+1. Not used by any in-tree features, it is used by kgdb-over-ether.
+2. A nice hook for people doing nasty things like private binary network stacks or rootkits.
+3. Unsecured by any of the normal firewalling code.
 
-Yes, that was just the typing switch.  The send packet was on eth1
-(the checksum wasn't finished yet), and the received packet was
-on eth0.
+Hopefully all distro's are smart enough to turn it off in their default config *nudge, nudge*.
+Doubly true for any distribution that claims to be secure or enterprise ready.
 
-> 
-> I am _guessing_ that the MULITCAST_LOOP stuff is implemented with "is
-> this datagram's source IP one of the local IP's on the system" rather
-> than "is this datagram from my own socket"
-> 
+I propose that we take out all the whole netpoll rx path. If/when kgdb gets submitted
+a better and alternative receive path can be added.
 
-Well, from what I've see, MULTICAST_LOOP is checked only on output, so
-that doesn't seem to be the issue.
-
-Also, IPv6 works as expected, i.e. I can receive the data in the app
-above if I use IPv6 multicast addresses.
-
--vlad
+-- 
+Stephen Hemminger <shemminger@linux-foundation.org>
