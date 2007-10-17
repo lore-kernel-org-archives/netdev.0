@@ -1,44 +1,52 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH/RFC] net: Add __napi_sycnhronize() to sync with
-	napi	poll
-Date: Wed, 17 Oct 2007 13:24:41 +1000
-Message-ID: <1192591481.11899.134.camel@pasglop>
-References: <1192513792.19073.23.camel@pasglop>
-	 <20071016115318.0fc36af3@freepuppy.rosehill>
-	 <1192589522.11899.130.camel@pasglop>  <47157EA4.1000500@garzik.org>
-Reply-To: benh@kernel.crashing.org
+From: Michael Wu <flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: Please pull 'fixes-davem' branch of wireless-2.6
+Date: Tue, 16 Oct 2007 23:29:51 -0400
+Message-ID: <200710162329.55966.flamingice@sourmilk.net>
+References: <20071017023145.GA2848@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/signed;
+  boundary="nextPart3776809.t8rrTqrduP";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Roland Dreier <rdreier@cisco.com>,
-	linuxppc-dev list <linuxppc-dev@ozlabs.org>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:57416 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756200AbXJQDZA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 16 Oct 2007 23:25:00 -0400
-In-Reply-To: <47157EA4.1000500@garzik.org>
-Sender: netdev-owner@vger.kernel.org
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20071017023145.GA2848-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-\
-> > Note: unfortunately, Jeff already picked up the EMAC patch without
-> > waiting for this to be sorted out (oops...). So if you agree with
-> > this patch, it would be nice to have it go in quickly or maybe via
-> > Jeff's tree to avoid breakage ? Not terribly important tho.
-> 
-> 
-> Sorry, I thought that was the way everybody was headed.  With the driver 
-> broken /anyway/, I just sorta threw it into the pile of fixes.
-> 
-> It's upstream now, so let me know if you want to revert or move forward 
-> from here...
+--nextPart3776809.t8rrTqrduP
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Let's just move forward. I can always re-fix the driver :-)
+On Tuesday 16 October 2007 22:31:46 John W. Linville wrote:
+> Bill Moss (1):
+>       mac80211: honor IW_SCAN_THIS_ESSID in siwscan ioctl
+>
+Where did this patch come from? The original patch looked nothing like this=
+,=20
+and this patch changes the behavior of siwscan incorrectly. If the interfac=
+e=20
+is not STA, IBSS, or AP, scanning should not be permitted. This patch allow=
+s=20
+scanning on any interface if a SSID is specified. NACK.
 
-Ben.
+=2DMichael Wu
 
+--nextPart3776809.t8rrTqrduP
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.4-svn0 (GNU/Linux)
+
+iD8DBQBHFYGzT3Oqt9AH4aERAv4AAJ9DW+5YFUFvdWRWqYAQYquGZUutLACglEEs
+mYLw0WP/fm2vNAWdTbmyuJo=
+=g5W2
+-----END PGP SIGNATURE-----
+
+--nextPart3776809.t8rrTqrduP--
