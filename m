@@ -1,41 +1,33 @@
-From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH] Fix return type for snmp6_free_dev()
-Date: Wed, 17 Oct 2007 14:29:11 +0400
-Message-ID: <4715E3F7.7050506@openvz.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Difference between device statistics from ifconfig and ip -s
+ l	l
+Date: Wed, 17 Oct 2007 12:35:43 +0200
+Message-ID: <4715E57F.6080905@trash.net>
+References: <20071017092659.GA16356@wq.cz> <4715D79E.7020201@trash.net> <20071017101303.GB16356@wq.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Milan Kocian <milon@wq.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:59919 "EHLO sacred.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754117AbXJQKdE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 06:33:04 -0400
+Received: from stinky.trash.net ([213.144.137.162]:36637 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753252AbXJQKfp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 06:35:45 -0400
+In-Reply-To: <20071017101303.GB16356@wq.cz>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This call is essentially void.
+Milan Kocian wrote:
+> On Wed, Oct 17, 2007 at 11:36:30AM +0200, Patrick McHardy wrote:
+>
+>> ifconfig gets its data from /proc/net/dev, which adds up rx_errors
+>> and rx_missed.
+>>
+> 
+> Adds up rx_errors and rx_missed and prints it as dropped ? Ok, ifconfig is
+> a little old. But why I don't see missed packets from RX errors detailed stats 
+> (ip -s -s l l) in non-detailed stats as errors and see zero ?
 
-Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
----
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 52d10d2..edf06ca 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -283,12 +283,11 @@ err_ip:
- 	return err;
- }
- 
--static int snmp6_free_dev(struct inet6_dev *idev)
-+static void snmp6_free_dev(struct inet6_dev *idev)
- {
- 	snmp_mib_free((void **)idev->stats.icmpv6msg);
- 	snmp_mib_free((void **)idev->stats.icmpv6);
- 	snmp_mib_free((void **)idev->stats.ipv6);
--	return 0;
- }
- 
- /* Nobody refers to this device, we may destroy it. */
+I meant to write "adds up rx_dropped and rx_missed".
