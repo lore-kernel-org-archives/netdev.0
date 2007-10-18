@@ -1,27 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3][BNX2]: Firmware update and bug fix.
-Date: Wed, 17 Oct 2007 19:26:36 -0700 (PDT)
-Message-ID: <20071017.192636.122617967.davem@davemloft.net>
-References: <1192675122.9449.11.camel@dell>
+Subject: Re: [PATCH] pfkey: sending an SADB_GET responds with an SADB_GET
+Date: Wed, 17 Oct 2007 19:29:06 -0700 (PDT)
+Message-ID: <20071017.192906.112623207.davem@davemloft.net>
+References: <C33BCE5A.25D04%chardin@2wire.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mann@vmware.com
-To: mchan@broadcom.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: chardin@2wire.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45826
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59580
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754358AbXJRC0i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 22:26:38 -0400
-In-Reply-To: <1192675122.9449.11.camel@dell>
+	by vger.kernel.org with ESMTP id S1759154AbXJRC3H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 22:29:07 -0400
+In-Reply-To: <C33BCE5A.25D04%chardin@2wire.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Wed, 17 Oct 2007 19:38:42 -0700
+From: Charles Hardin <chardin@2wire.com>
+Date: Wed, 17 Oct 2007 14:36:10 -0700
 
-> [PATCH 1/3][BNX2]: Update 5709 firmware to 3.7.1.
-> [PATCH 2/3][BNX2]: Fix Serdes WoL bug.
-> [PATCH 3/3][BNX2]: Update version to 1.6.8.
+> Kernel needs to respond to an SADB_GET with the same message type to conform
+> to the RFC 2367 Section 3.1.5
 
-All applied, thanks Michael.
+I can't apply this:
+
+1) We need you to provide an appropriate Signed-off-by: line
+   in the changelog of your patch.
+
+2) Your email client corrupted the patch, changing tabs into spaces,
+   and adding newline breaks to long lines.
+
+Please resubmit with these two errors corrected, thank you.
