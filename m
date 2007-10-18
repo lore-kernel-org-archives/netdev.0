@@ -1,34 +1,47 @@
-From: Chuck Ebbert <cebbert@redhat.com>
-Subject: Re: e100 problems in .23rc8 ?
-Date: Thu, 18 Oct 2007 14:17:18 -0400
-Message-ID: <4717A32E.1070708@redhat.com>
-References: <7DCDA0F058071B49AED9D3D7886C41BE0966AEDB@muon.jnpr.net> <47179F1F.3030202@intel.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 1/2] r8169 - trivial fixes - add KERN_DEBUG to dprintk
+Date: Thu, 18 Oct 2007 12:01:37 -0700
+Message-ID: <1192734097.23980.37.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Dave Jones <davej@redhat.com>, David Mack <dmack@juniper.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, esandeen@redhat.com
-To: "Kok, Auke" <auke-jan.h.kok@intel.com>
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([66.187.233.31]:51150 "EHLO mx1.redhat.com"
+Received: from DSL022.labridge.com ([206.117.136.22]:3130 "EHLO perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758306AbXJRSRb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Oct 2007 14:17:31 -0400
-In-Reply-To: <47179F1F.3030202@intel.com>
+	id S1758698AbXJRTBs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2007 15:01:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/18/2007 01:59 PM, Kok, Auke wrote:
-> David Mack wrote:
->> It appears that the needed e100 fix made it into the Fedora
->> 2.6.23.1-23.fc8 kernel. Boots reliably now.
->>
->> Huge thanks and great work, guys.
-> 
-> 
-> DaveJ, I didn't push anything upstream. Can you verify this now works?
-> 
+Prefix dprintk with KERN_DEBUG
+Fix a bug with existing use of dprintk (PFX KERN_INFO PFX)
 
-We didn't put anything in Fedora recently...
+Signed-off-by: Joe Perches <joe@perches.com>
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 419c00c..9c11087 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -44,7 +44,8 @@
+ 		printk( "Assertion failed! %s,%s,%s,line=%d\n",	\
+ 		#expr,__FILE__,__FUNCTION__,__LINE__);		\
+ 	}
+-#define dprintk(fmt, args...)	do { printk(PFX fmt, ## args); } while (0)
++#define dprintk(fmt, args...) \
++	do { printk(KERN_DEBUG PFX fmt, ## args); } while (0)
+ #else
+ #define assert(expr) do {} while (0)
+ #define dprintk(fmt, args...)	do {} while (0)
+@@ -1933,7 +1934,7 @@ static void rtl_hw_start_8169(struct net_device *dev)
+ 
+ 	if ((tp->mac_version == RTL_GIGA_MAC_VER_02) ||
+ 	    (tp->mac_version == RTL_GIGA_MAC_VER_03)) {
+-		dprintk(KERN_INFO PFX "Set MAC Reg C+CR Offset 0xE0. "
++		dprintk("Set MAC Reg C+CR Offset 0xE0. "
+ 			"Bit-3 and bit-14 MUST be 1\n");
+ 		tp->cp_cmd |= (1 << 14);
+ 	}
+
 
