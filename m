@@ -1,32 +1,42 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: [PATCH] pcnet32: fix non-napi packet reception
-Date: Thu, 18 Oct 2007 15:23:08 -0400
-Message-ID: <20071018192308.GB4004@csclub.uwaterloo.ca>
-References: <1192665841.13749.4.camel@Linux.home>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] trivial - QUICC UCC driver - remove buggy and unused vdbg
+	macro
+Date: Thu, 18 Oct 2007 12:24:53 -0700
+Message-ID: <1192735493.23980.42.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org
-To: Don Fry <pcnet32@verizon.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Li Yang <leoli@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.csclub.uwaterloo.ca ([129.97.134.17]:55728 "EHLO
-	caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757040AbXJRTXN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 15:23:13 -0400
-Content-Disposition: inline
-In-Reply-To: <1192665841.13749.4.camel@Linux.home>
+Received: from DSL022.labridge.com ([206.117.136.22]:3153 "EHLO perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1764467AbXJRTZM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2007 15:25:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 17, 2007 at 05:04:01PM -0700, Don Fry wrote:
-> I have no objections myself.  It has been slowly moving that direction.
-> First with the napi implementation, default off, labeled experimental.
-> Then removing experimental and then making the default on.
-> 
-> If any other user of the pcnet32 has objections, now is the time to
-> speak loudly!
+remove buggy and unused vdbg macro
 
-I have used NAPI only on the pcnet32 for quite a while now.  In fact I
-think a few of my local patches would break if I disabled NAPI.
+Signed-off-by: Joe Perches <joe@perches.com>
 
-__
-Len Sorensen
+diff --git a/drivers/net/ucc_geth_mii.c b/drivers/net/ucc_geth_mii.c
+index df884f0..a4b481c 100644
+--- a/drivers/net/ucc_geth_mii.c
++++ b/drivers/net/ucc_geth_mii.c
+@@ -46,13 +46,6 @@
+ #include "ucc_geth_mii.h"
+ #include "ucc_geth.h"
+ 
+-#define DEBUG
+-#ifdef DEBUG
+-#define vdbg(format, arg...) printk(KERN_DEBUG , format "\n" , ## arg)
+-#else
+-#define vdbg(format, arg...) do {} while(0)
+-#endif
+-
+ #define MII_DRV_DESC "QE UCC Ethernet Controller MII Bus"
+ #define MII_DRV_NAME "fsl-uec_mdio"
+ 
+
+
