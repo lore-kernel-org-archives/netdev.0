@@ -1,31 +1,34 @@
-From: Andy Whitcroft <apw@shadowen.org>
-Subject: Re: [PATCH][NET] gianfar: fix obviously wrong #ifdef CONFIG_GFAR_NAPI placement
-Date: Thu, 18 Oct 2007 10:40:13 +0100
-Message-ID: <20071018094013.GU21136@shadowen.org>
-References: <20071017195746.GA15592@localhost.localdomain>
+From: Felix von Leitner <felix-linuxkernel@fefe.de>
+Subject: Re: bizarre network timing problem
+Date: Thu, 18 Oct 2007 11:42:30 +0200
+Message-ID: <20071018094230.GA2978@codeblau.de>
+References: <20071017205127.GA21334@codeblau.de> <47167BDE.4000103@redhat.com> <20071017220019.GA22765@codeblau.de> <471689BF.2040909@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: leoli@freescale.com, jgarzik@pobox.com, paulus@samba.org,
-	galak@kernel.crashing.org, afleming@freescale.com,
-	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Anton Vorontsov <avorontsov@ru.mvista.com>
+Cc: Chuck Ebbert <cebbert@redhat.com>, linux-kernel@vger.kernel.org,
+	Netdev <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hellhawk.shadowen.org ([80.68.90.175]:4447 "EHLO
-	hellhawk.shadowen.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755528AbXJRJk2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 05:40:28 -0400
+Received: from ioctl.codeblau.de ([80.190.240.67]:37048 "EHLO codeblau.de"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755592AbXJRJmc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2007 05:42:32 -0400
 Content-Disposition: inline
-In-Reply-To: <20071017195746.GA15592@localhost.localdomain>
+In-Reply-To: <471689BF.2040909@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The check then is to see if a non {}'d block has no statements in it if the
-ifdef is null.  Hmmm.  May be possible.  Will think on it.
+> the packet trace was a bit too cooked perhaps, but there were indications 
+> that at times the TCP window was going to zero - perhaps something with 
+> window updates or persist timers?
 
-        if (err)
-+#ifdef CONFIG_GFAR_NAPI
-                napi_disable(&priv->napi);
-+#endif
+Does TCP use different window sizes on loopback?  Why is this not
+happening on ethernet?
 
--apw
+How could I test this theory?
+
+My initial idea was that it has something todo with the different MTU on
+loopback.  My initial block size was 16k, but the problem stayed when I
+changed it to 64k.
+
+Felix
