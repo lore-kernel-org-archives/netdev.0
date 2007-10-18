@@ -1,41 +1,54 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [PATCH] flush_work_sync vs. flush_scheduled_work Re: [PATCH]
- PHYLIB: IRQ event workqueue handling fixes
-Date: Thu, 18 Oct 2007 16:58:34 +0100 (BST)
-Message-ID: <Pine.LNX.4.64N.0710181655120.4701@blysk.ds.pg.gda.pl>
-References: <20071015125301.GC3015@ff.dom.local>
- <Pine.LNX.4.64N.0710151737250.16262@blysk.ds.pg.gda.pl> <20071016062108.GB1000@ff.dom.local>
- <Pine.LNX.4.64N.0710161759050.22596@blysk.ds.pg.gda.pl> <20071017085809.GA1658@ff.dom.local>
- <20071018063157.GA1694@ff.dom.local> <20071018070531.GA2065@ff.dom.local>
- <20071018154819.GA425@tv-sign.ru>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PACKET]: Kill unused pg_vec_endpage() function
+Date: Thu, 18 Oct 2007 18:09:45 +0200
+Message-ID: <47178549.3070107@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jarek Poplawski <jarkao2@o2.pl>,
-	Andy Fleming <afleming@freescale.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Oleg Nesterov <oleg@tv-sign.ru>
+Content-Type: multipart/mixed;
+ boundary="------------000800050503000609000008"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cerber.ds.pg.gda.pl ([153.19.208.18]:37929 "EHLO
-	cerber.ds.pg.gda.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933610AbXJRP6l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 11:58:41 -0400
-In-Reply-To: <20071018154819.GA425@tv-sign.ru>
+Received: from stinky.trash.net ([213.144.137.162]:41358 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755983AbXJRQKP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 12:10:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 18 Oct 2007, Oleg Nesterov wrote:
+This is a multi-part message in MIME format.
+--------------000800050503000609000008
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> If we can't just cancel the work, can't we do something like
-> 
-> 	if (cancel_work_sync(w))
-> 		w->func(w);
-> 
-> instead?
 
- We do an equivalent of this -- all that we care about that w->func(w) 
-would do is enable_irq() and the rest we want to skip at this point.  We 
-probably do not need the counter in the end though.
+--------------000800050503000609000008
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-  Maciej
+[PACKET]: Kill unused pg_vec_endpage() function
+
+The conversion to vm_insert_page() left this unused function behind,
+remove it.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index e11000a..d093650 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1623,11 +1623,6 @@ static struct vm_operations_struct packet_mmap_ops = {
+ 	.close =packet_mm_close,
+ };
+ 
+-static inline struct page *pg_vec_endpage(char *one_pg_vec, unsigned int order)
+-{
+-	return virt_to_page(one_pg_vec + (PAGE_SIZE << order) - 1);
+-}
+-
+ static void free_pg_vec(char **pg_vec, unsigned int order, unsigned int len)
+ {
+ 	int i;
+
+--------------000800050503000609000008--
