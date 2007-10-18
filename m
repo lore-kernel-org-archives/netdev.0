@@ -1,33 +1,38 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] vortex_up should initialize "err"
-Date: Wed, 17 Oct 2007 20:28:36 -0400
-Message-ID: <4716A8B4.5060406@garzik.org>
-References: <1192662956.14504.14.camel@dyn9047017100.beaverton.ibm.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 1/2] napi_synchronize: waiting for NAPI
+Date: Thu, 18 Oct 2007 10:28:09 +1000
+Message-ID: <1192667289.12879.0.camel@pasglop>
+References: <20071017202640.171902388@linux-foundation.org>
+	 <20071017202653.266566036@linux-foundation.org>
+Reply-To: benh@kernel.crashing.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>,
-	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-To: Badari Pulavarty <pbadari@us.ibm.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:60271 "EHLO mail.dvmed.net"
+Received: from gate.crashing.org ([63.228.1.57]:45878 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759530AbXJRA2m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 20:28:42 -0400
-In-Reply-To: <1192662956.14504.14.camel@dyn9047017100.beaverton.ibm.com>
+	id S1758512AbXJRA2h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2007 20:28:37 -0400
+In-Reply-To: <20071017202653.266566036@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Badari Pulavarty wrote:
-> Simple compile warning fix. (against 2.6.23-git12)
-> 
-> Thanks,
-> Badari
-> 
-> vortex_up() should initialize 'err' for a successful return.
-> 
-> drivers/net/3c59x.c: In function `vortex_up':
-> drivers/net/3c59x.c:1494: warning: `err' might be used uninitialized in this function
 
-applied as an obvious bug fix (Steffen added to CC)
+On Wed, 2007-10-17 at 13:26 -0700, Stephen Hemminger wrote:
+> plain text document attachment (napi-synchronize.patch)
+> Some drivers with shared NAPI need a synchronization barrier.
+> Also suggested by Benjamin Herrenschmidt for EMAC.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+
+Just saw this patch, sorry, missed it. Same as you sent me on another
+reply, I still think it needs the smp barrier. Can you have a look at
+the one I posted today ?
+
+Cheers,
+Ben.
+
 
