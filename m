@@ -1,31 +1,39 @@
 From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] fix EMAC driver for proper napi_synchronize API
-Date: Wed, 17 Oct 2007 20:21:51 -0400
-Message-ID: <4716A71F.5000102@garzik.org>
-References: <1192513792.19073.23.camel@pasglop>	 <20071016115318.0fc36af3@freepuppy.rosehill>	 <1192589522.11899.130.camel@pasglop> <47157EA4.1000500@garzik.org>	 <1192591481.11899.134.camel@pasglop>	 <20071017083107.6a1b1bd3@freepuppy.rosehill> <1192662843.6783.48.camel@pasglop>
+Subject: Re: [PATCH] pcnet32:  remove compile warnings in non-napi mode
+Date: Wed, 17 Oct 2007 20:22:06 -0400
+Message-ID: <4716A72E.80600@garzik.org>
+References: <1192662610.5312.1.camel@Linux.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Roland Dreier <rdreier@cisco.com>,
-	linuxppc-dev list <linuxppc-dev@ozlabs.org>
-To: benh@kernel.crashing.org
+Cc: netdev@vger.kernel.org
+To: Don Fry <pcnet32@verizon.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49948 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:49959 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762632AbXJRAVy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 20:21:54 -0400
-In-Reply-To: <1192662843.6783.48.camel@pasglop>
+	id S1762483AbXJRAWI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2007 20:22:08 -0400
+In-Reply-To: <1192662610.5312.1.camel@Linux.home>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Benjamin Herrenschmidt wrote:
-> The EMAC driver "fix" was merged by mistake before the dust had settled on
-> the new napi synchronize interface (and before it got merged). The final
-> version of that function is spelled without underscores.
+Don Fry wrote:
+> Remove compile warning when in non-napi mode.
 > 
-> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Signed-off-by:  Don Fry <pcnet32@verizon.net>
+> ---
+> --- linux-2.6.23-git7/drivers/net/napi.pcnet32.c	2007-10-17 15:56:15.000000000 -0700
+> +++ linux-2.6.23-git7/drivers/net/pcnet32.c	2007-10-17 16:00:44.000000000 -0700
+> @@ -442,7 +442,9 @@ static struct pcnet32_access pcnet32_dwi
+>  
+>  static void pcnet32_netif_stop(struct net_device *dev)
+>  {
+> +#ifdef CONFIG_PCNET32_NAPI
+>  	struct pcnet32_private *lp = netdev_priv(dev);
+> +#endif
+>  	dev->trans_start = jiffies;
+>  #ifdef CONFIG_PCNET32_NAPI
+>  	napi_disable(&lp->napi);
 
 applied
 
