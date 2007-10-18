@@ -1,33 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] Lost locking in fl6_sock_lookup
-Date: Thu, 18 Oct 2007 05:33:46 -0700 (PDT)
-Message-ID: <20071018.053346.122594452.davem@davemloft.net>
-References: <47174950.6060409@openvz.org>
-	<20071018.051647.23015283.davem@davemloft.net>
-	<47175019.4090004@openvz.org>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH] Fix again the fl6_sock_lookup() fixed locking
+Date: Thu, 18 Oct 2007 16:36:58 +0400
+Message-ID: <4717536A.2080400@openvz.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org
-To: xemul@openvz.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56559
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1756686AbXJRMdd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 08:33:33 -0400
-In-Reply-To: <47175019.4090004@openvz.org>
+Received: from sacred.ru ([62.205.161.221]:55386 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756290AbXJRMhL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2007 08:37:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Thu, 18 Oct 2007 16:22:49 +0400
+YOSHIFUJI fairly pointed out, that the users increment should
+be done under the ip6_sk_fl_lock not to give IPV6_FL_A_PUT a
+chance to put this count to zero and release the flowlabel.
 
-> Oops. You're right here :( I looked at the ip6_fl_lock
-> and messed it with the ip6_sk_fl_lock.
-> 
-> Should I resend the whole patch, or just make an 
-> incremental one?
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Please make an incremental one.
+---
 
-And hurry, I'm trying to go to bed :-)))
+diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
+index e55ae1a..b12cc22 100644
+--- a/net/ipv6/ip6_flowlabel.c
++++ b/net/ipv6/ip6_flowlabel.c
+@@ -210,9 +210,9 @@ struct ip6_flowlabel * fl6_sock_lookup(struct sock *sk, __be32 label)
+ 	for (sfl=np->ipv6_fl_list; sfl; sfl = sfl->next) {
+ 		struct ip6_flowlabel *fl = sfl->fl;
+ 		if (fl->label == label) {
+-			read_unlock_bh(&ip6_sk_fl_lock);
+ 			fl->lastuse = jiffies;
+ 			atomic_inc(&fl->users);
++			read_unlock_bh(&ip6_sk_fl_lock);
+ 			return fl;
+ 		}
+ 	}
+
