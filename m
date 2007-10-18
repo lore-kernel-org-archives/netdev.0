@@ -1,36 +1,39 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [patch 4/4]
- ucc_geth-fix-build-break-introduced-by-commit-09f75cd7bf13720738e6a196cc0107ce9a5bd5a0-checkpatch-fixes
-Date: Wed, 17 Oct 2007 19:50:51 -0700
-Message-ID: <20071017195051.31af9030.akpm@linux-foundation.org>
-References: <200710162124.l9GLOCTB017977@imap1.linux-foundation.org>
-	<20071017.193721.48531740.davem@davemloft.net>
-	<20071017194759.bc3571b3.akpm@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] net: Let inet_diag and friends autoload
+Date: Wed, 17 Oct 2007 19:51:25 -0700 (PDT)
+Message-ID: <20071017.195125.15264659.davem@davemloft.net>
+References: <200710161728.23733.jdelvare@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, jeff@garzik.org,
-	netdev@vger.kernel.org, Emilian.Medve@Freescale.com,
-	galak@gate.crashing.org, leoli@Freescale.com, paulus@samba.org
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
+To: jdelvare@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:50246 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759838AbXJRCvF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 22:51:05 -0400
-In-Reply-To: <20071017194759.bc3571b3.akpm@linux-foundation.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60692
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1760204AbXJRCv0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 22:51:26 -0400
+In-Reply-To: <200710161728.23733.jdelvare@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 17 Oct 2007 19:47:59 -0700 Andrew Morton <akpm@linux-foundation.org> wrote:
+From: Jean Delvare <jdelvare@suse.de>
+Date: Tue, 16 Oct 2007 17:28:23 +0200
 
-> - When I applied it I saw valid checkpatch warnings, so I queed a patch to
-> fix them, called foo-checkpatch-fixes.patch with the intention that it later be
-> folded into foo.patch
+> By adding module aliases to inet_diag, tcp_diag and dccp_diag, we let
+> them load automatically as needed. This makes tools like "ss" run
+> faster.
+> 
+> Signed-off-by: Jean Delvare <jdelvare@suse.de>
+> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> ---
+> The alias naming scheme for tcp_diag and dccp_diag follows what was
+> done for dccp_ipv4 and dccp_ipv6.
 
-incidentally, the reason I do it this way is to attempt to educate
-patch originators into running checkpatch, rather than out of sheer joy for
-the task.  Hopefully I'll have to do this less often as time passes.
+I'm concerned it might be dangerous to load the module in
+this context, the RTNL semaphore is held and the module we
+are requesting could easily try to take it and deadlock.
 
-box:/usr/src/25> ls -lR patches|grep checkpatch-fixes | wc -l 
-38
-
+Currently we are lucky and this won't happen, but if the sub-proto
+registration is every changed to do so, it will be a nightmare for
+whoever is so unlucky to try and debug it.
