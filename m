@@ -1,30 +1,53 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] mac80211: only honor IW_SCAN_THIS_ESSID in STA, IBSS,
- and AP modes
-Date: Wed, 17 Oct 2007 21:16:32 -0700 (PDT)
-Message-ID: <20071017.211632.40832065.davem@davemloft.net>
-References: <200710162329.55966.flamingice@sourmilk.net>
-	<20071017145315.GC5744@tuxdriver.com>
-	<11926328942540-git-send-email-linville@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] Fix race between sk_filter reassign and sk_clone()
+Date: Wed, 17 Oct 2007 21:23:02 -0700 (PDT)
+Message-ID: <20071017.212302.68039057.davem@davemloft.net>
+References: <4715D9D2.8070102@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <11926328942540-git-send-email-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, devel@openvz.org
+To: xemul@openvz.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43000
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751015AbXJREXK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 00:23:10 -0400
+In-Reply-To: <4715D9D2.8070102@openvz.org>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Wed, 17 Oct 2007 10:54:54 -0400
+From: Pavel Emelyanov <xemul@openvz.org>
+Date: Wed, 17 Oct 2007 13:45:54 +0400
 
-> The previous IW_SCAN_THIS_ESSID patch left a hole allowing scan
-> requests on interfaces in inappropriate modes.
+> The race can result in that some sock will get an sk_filter
+> pointer set to kfree-d memory. Look
 > 
-> Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> CPU1:                            CPU2:
+> sk_clone():                      sk_attach_filter():
+>   new_sk = sk_alloc(...);
+>   sock_copy(new_sk, sk); 
+>   /* copies the filter ptr */
+>   ...
+>   filter = new_sk->sk_filter;
+>   if (filter)
+>                                      old_fp = sk->sk_filter;
+>                                      ...
+>                                      sk_filter_release(old_fp);
+>                                        if (atomic_dec_and_test(&old_fp->refcnt))
+>      atomic_inc(&filter->refcnt);
+>                                           /* true */
+>                                           call_rcu(&fp->rcu, kfree);
+> 
+> that's it - after a quiescent state pass the new_sk will have 
+> a pointer on kfree-d filter.
+> 
+> The same problem exists for detaching filter (SO_DETACH_FILTER).
+> 
+> The proposed fix consists of 3 preparation patches and the fix itself.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
 
-John I've pulled from your tree and added this patch on top.
+Looks good, applied.
 
-Thanks!
+Thanks for fixing this bug Pavel!
