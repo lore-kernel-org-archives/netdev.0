@@ -1,34 +1,30 @@
-From: Felix von Leitner <felix-linuxkernel@fefe.de>
-Subject: Re: bizarre network timing problem
-Date: Thu, 18 Oct 2007 11:42:30 +0200
-Message-ID: <20071018094230.GA2978@codeblau.de>
-References: <20071017205127.GA21334@codeblau.de> <47167BDE.4000103@redhat.com> <20071017220019.GA22765@codeblau.de> <471689BF.2040909@hp.com>
+From: Alejandro Martinez Ruiz <alex@flawedcode.org>
+Subject: [PATCH 0/3] netdev: ARRAY_SIZE() cleanups
+Date: Thu, 18 Oct 2007 11:47:06 +0200
+Message-ID: <20071018094706.GA23058@inspiron>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Chuck Ebbert <cebbert@redhat.com>, linux-kernel@vger.kernel.org,
-	Netdev <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
+Cc: netdev@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ioctl.codeblau.de ([80.190.240.67]:37048 "EHLO codeblau.de"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755592AbXJRJmc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Oct 2007 05:42:32 -0400
+Received: from ug-out-1314.google.com ([66.249.92.174]:14269 "EHLO
+	ug-out-1314.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759944AbXJRJnx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 05:43:53 -0400
+Received: by ug-out-1314.google.com with SMTP id z38so396542ugc
+        for <netdev@vger.kernel.org>; Thu, 18 Oct 2007 02:43:51 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <471689BF.2040909@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> the packet trace was a bit too cooked perhaps, but there were indications 
-> that at times the TCP window was going to zero - perhaps something with 
-> window updates or persist timers?
+Hi,
 
-Does TCP use different window sizes on loopback?  Why is this not
-happening on ethernet?
+these patches convert more cases of array size calculations to use the
+ARRAY_SIZE() macro.
 
-How could I test this theory?
+First patch converts those of the form 'sizeof(arr) / ETH_GSTRING_LEN',
+second one some other mostly obvious cases, and the third applies to the
+almost dead sk98lin driver (which also removes a useless check AFAICS).
 
-My initial idea was that it has something todo with the different MTU on
-loopback.  My initial block size was 16k, but the problem stayed when I
-changed it to 64k.
+Alex
 
-Felix
