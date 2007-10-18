@@ -1,86 +1,67 @@
-From: Martin Schwidefsky <schwidefsky@de.ibm.com>
-Subject: Re: s390x: getting ipv6 bugs on mainline since 2.6.23-git3
-Date: Thu, 18 Oct 2007 12:37:44 +0200
-Message-ID: <1192703864.13572.3.camel@localhost>
-References: <20071018093556.GT21136@shadowen.org>
-	 <47172AD5.2030009@trash.net>
-Reply-To: schwidefsky@de.ibm.com
+From: Adrian Bunk <bunk@kernel.org>
+Subject: ip_frag_reasm() can return uninitialized variable
+Date: Thu, 18 Oct 2007 12:52:03 +0200
+Message-ID: <20071018105203.GJ3778@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Whitcroft <apw@shadowen.org>, linux390@de.ibm.com,
-	linux-s390@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.de.ibm.com ([195.212.29.152]:47542 "EHLO
-	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756228AbXJRKhr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 06:37:47 -0400
-In-Reply-To: <47172AD5.2030009@trash.net>
+Received: from emailhub.stusta.mhn.de ([141.84.69.5]:44755 "EHLO
+	mailhub.stusta.mhn.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1761758AbXJRKvf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 06:51:35 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Since commit 1706d58763c36133d7fce6cc78b1444fd40db28c ip_frag_reasm() 
+can return the value of an uninitialized variable:
 
-On Thu, 2007-10-18 at 11:43 +0200, Patrick McHardy wrote:
-> Andy Whitcroft wrote:
-> > Seems we are getting some kind of bug out of our s390x partition (l=
-nxabat1)
-> > when booting latest mainline releases, specifically since 2.6.23-gi=
-t3.
-> >=20
-> > Kernel BUG at 0000000000000002 =DDverbose debug info unavailable?
-> > illegal operation: 0001 =DD#1?
-> Which network driver are you using? Please post the output of
-> "ip link list <dev>".
+<--  snip  -->
 
-This is a bug in the qeth driver. It has been introduced by this commit=
-:
+...
+static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+                         struct net_device *dev)
+{
+        struct iphdr *iph;
+        struct sk_buff *fp, *head = qp->q.fragments;
+        int len;
+        int ihlen;
+        int err;
 
-commit 3b04ddde02cf1b6f14f2697da5c20eca5715017f
-Author: Stephen Hemminger <shemminger@linux-foundation.org>
-Date:   Tue Oct 9 01:40:57 2007 -0700
+        ipq_kill(qp);
 
-    [NET]: Move hardware header operations out of netdevice.
+        /* Make the one we just received the head. */
+        if (prev) {
+                head = prev->next;
+                fp = skb_clone(head, GFP_ATOMIC);
 
-    Since hardware header operations are part of the protocol class
-    not the device instance, make them into a separate object and
-    save memory.
+                if (!fp)
+                        goto out_nomem;
+...
+out_nomem:
+        LIMIT_NETDEBUG(KERN_ERR "IP: queue_glue: no memory for gluing "
+                              "queue %p\n", qp);
+        goto out_fail;
+...
+out_fail:
+        IP_INC_STATS_BH(IPSTATS_MIB_REASMFAILS);
+        return err;
+}
+...
 
-    Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+<--  snip  -->
 
-I've hacked up a fix for it. The real fix will be done by our networkin=
-g
-people.
+Spotted by the Coverity checker.
 
---=20
-blue skies,
-  Martin.
+cu
+Adrian
 
-"Reality continues to ruin my life." - Calvin.
+-- 
 
----
-
- drivers/s390/net/qeth_main.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff -urpN linux-2.6/drivers/s390/net/qeth_main.c linux-2.6-patched/dri=
-vers/s390/net/qeth_main.c
---- linux-2.6/drivers/s390/net/qeth_main.c	2007-10-17 15:05:36.00000000=
-0 +0200
-+++ linux-2.6-patched/drivers/s390/net/qeth_main.c	2007-10-17 15:05:46.=
-000000000 +0200
-@@ -6643,7 +6643,8 @@ qeth_netdev_init(struct net_device *dev)
- 	dev->vlan_rx_kill_vid =3D qeth_vlan_rx_kill_vid;
- 	dev->vlan_rx_add_vid =3D qeth_vlan_rx_add_vid;
- #endif
--	dev->header_ops =3D &qeth_null_ops;
-+	if (qeth_get_netdev_flags(card) & IFF_NOARP)
-+		dev->header_ops =3D &qeth_null_ops;
-=20
- #ifdef CONFIG_QETH_IPV6
- 	/*IPv6 address autoconfiguration stuff*/
-
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
