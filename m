@@ -1,372 +1,163 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH 4/6] Convert locks to _bh, rework alb locking for new locking
-Date: Wed, 17 Oct 2007 17:37:49 -0700
-Message-ID: <11926678781487-git-send-email-fubar@us.ibm.com>
+Subject: [PATCH 3/6] Convert miimon to new locking
+Date: Wed, 17 Oct 2007 17:37:48 -0700
+Message-ID: <11926678773102-git-send-email-fubar@us.ibm.com>
 References: <1192667871139-git-send-email-fubar@us.ibm.com>
  <1192667875793-git-send-email-fubar@us.ibm.com>
  <11926678763205-git-send-email-fubar@us.ibm.com>
  <11926678762641-git-send-email-fubar@us.ibm.com>
- <11926678773102-git-send-email-fubar@us.ibm.com>
 Cc: andy@greyhouse.net, Jay Vosburgh <fubar@us.ibm.com>
 To: netdev@vger.kernel.org, jgarzik@pobox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e33.co.us.ibm.com ([32.97.110.151]:59165 "EHLO
-	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762349AbXJRAiC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 20:38:02 -0400
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e33.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9I0bx9J006095
-	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 20:37:59 -0400
+Received: from e34.co.us.ibm.com ([32.97.110.152]:44656 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1762042AbXJRAh7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 20:37:59 -0400
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e34.co.us.ibm.com (8.13.8/8.13.8) with ESMTP id l9I0bwB9020900
+	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 20:37:58 -0400
 Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9I0bxWO429460
-	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 18:37:59 -0600
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v8.5) with ESMTP id l9I0bw39500134
+	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 18:37:58 -0600
 Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9I0bwBT021383
-	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 18:37:59 -0600
-In-Reply-To: <11926678773102-git-send-email-fubar@us.ibm.com>
+	by d03av01.boulder.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id l9I0bvWv021342
+	for <netdev@vger.kernel.org>; Wed, 17 Oct 2007 18:37:58 -0600
+In-Reply-To: <11926678762641-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-	Convert locking-related activity to new & improved system.
-Convert some lock acquisitions to _bh and rework parts of ALB mode, both
-to avoid deadlocks with workqueue activity.
+	Convert mii (link state) monitor to acquire correct locks for
+failover events.  In particular, failovers generally require RTNL at a low
+level (when manipulating device MAC addresses, for example) and no other
+locks.  The high level monitor is responsible for acquiring a known set
+of locks, RTNL, the bond->lock for read and the slave_lock for write, and
+the low level failover processing can then release appropriate locks as
+needed.  This patch provides the high level portion.
+
+	As it is undesirable to acquire RTNL for every monitor pass (which
+may occur as often as every 10 ms), the miimon has been converted to
+do conditional locking.  A first pass inspects all slaves to determine
+if any action is required, and if so, a second pass (after acquring RTNL)
+is done to perform any actions (doing a complete rescan, as the situation
+may have changed when all locks were released).
 
 Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 ---
- drivers/net/bonding/bond_alb.c  |   69 +++++++++++++++++++++++++++++++---
- drivers/net/bonding/bond_main.c |   78 +++++++++++++++++++++++++++------------
- 2 files changed, 117 insertions(+), 30 deletions(-)
+ drivers/net/bonding/bond_main.c |   70 ++++++++++++++++++++++++++++----------
+ 1 files changed, 51 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index eb320c3..f2e2872 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -959,19 +959,34 @@ static int alb_set_slave_mac_addr(struct slave *slave, u8 addr[], int hw)
- 	return 0;
- }
- 
--/* Caller must hold bond lock for write or curr_slave_lock for write*/
-+/*
-+ * Swap MAC addresses between two slaves.
-+ *
-+ * Called with RTNL held, and no other locks.
-+ *
-+ */
-+
- static void alb_swap_mac_addr(struct bonding *bond, struct slave *slave1, struct slave *slave2)
- {
--	struct slave *disabled_slave = NULL;
- 	u8 tmp_mac_addr[ETH_ALEN];
--	int slaves_state_differ;
--
--	slaves_state_differ = (SLAVE_IS_OK(slave1) != SLAVE_IS_OK(slave2));
- 
- 	memcpy(tmp_mac_addr, slave1->dev->dev_addr, ETH_ALEN);
- 	alb_set_slave_mac_addr(slave1, slave2->dev->dev_addr, bond->alb_info.rlb_enabled);
- 	alb_set_slave_mac_addr(slave2, tmp_mac_addr, bond->alb_info.rlb_enabled);
- 
-+}
-+
-+/*
-+ * Send learning packets after MAC address swap.
-+ *
-+ * Called with RTNL and bond->lock held for read.
-+ */
-+static void alb_fasten_mac_swap(struct bonding *bond, struct slave *slave1,
-+				struct slave *slave2)
-+{
-+	int slaves_state_differ = (SLAVE_IS_OK(slave1) != SLAVE_IS_OK(slave2));
-+	struct slave *disabled_slave = NULL;
-+
- 	/* fasten the change in the switch */
- 	if (SLAVE_IS_OK(slave1)) {
- 		alb_send_learning_packets(slave1, slave1->dev->dev_addr);
-@@ -1044,7 +1059,9 @@ static void alb_change_hw_addr_on_detach(struct bonding *bond, struct slave *sla
- 		}
- 
- 		if (found) {
-+			/* locking: needs RTNL and nothing else */
- 			alb_swap_mac_addr(bond, slave, tmp_slave);
-+			alb_fasten_mac_swap(bond, slave, tmp_slave);
- 		}
- 	}
- }
-@@ -1571,13 +1588,21 @@ void bond_alb_handle_link_change(struct bonding *bond, struct slave *slave, char
-  * Set the bond->curr_active_slave to @new_slave and handle
-  * mac address swapping and promiscuity changes as needed.
-  *
-- * Caller must hold bond curr_slave_lock for write (or bond lock for write)
-+ * If new_slave is NULL, caller must hold curr_slave_lock or
-+ * bond->lock for write.
-+ *
-+ * If new_slave is not NULL, caller must hold RTNL, bond->lock for
-+ * read and curr_slave_lock for write.  Processing here may sleep, so
-+ * no other locks may be held.
-  */
- void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave)
- {
- 	struct slave *swap_slave;
- 	int i;
- 
-+	if (new_slave)
-+		ASSERT_RTNL();
-+
- 	if (bond->curr_active_slave == new_slave) {
- 		return;
- 	}
-@@ -1610,6 +1635,19 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
- 		}
- 	}
- 
-+	/*
-+	 * Arrange for swap_slave and new_slave to temporarily be
-+	 * ignored so we can mess with their MAC addresses without
-+	 * fear of interference from transmit activity.
-+	 */
-+	if (swap_slave) {
-+		tlb_clear_slave(bond, swap_slave, 1);
-+	}
-+	tlb_clear_slave(bond, new_slave, 1);
-+
-+	write_unlock_bh(&bond->curr_slave_lock);
-+	read_unlock(&bond->lock);
-+
- 	/* curr_active_slave must be set before calling alb_swap_mac_addr */
- 	if (swap_slave) {
- 		/* swap mac address */
-@@ -1618,11 +1656,23 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
- 		/* set the new_slave to the bond mac address */
- 		alb_set_slave_mac_addr(new_slave, bond->dev->dev_addr,
- 				       bond->alb_info.rlb_enabled);
-+	}
-+
-+	read_lock(&bond->lock);
-+
-+	if (swap_slave) {
-+		alb_fasten_mac_swap(bond, swap_slave, new_slave);
-+	} else {
- 		/* fasten bond mac on new current slave */
- 		alb_send_learning_packets(new_slave, bond->dev->dev_addr);
- 	}
-+
-+	write_lock_bh(&bond->curr_slave_lock);
- }
- 
-+/*
-+ * Called with RTNL
-+ */
- int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
- {
- 	struct bonding *bond = bond_dev->priv;
-@@ -1659,8 +1709,12 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
- 		}
- 	}
- 
-+	write_unlock_bh(&bond->curr_slave_lock);
-+	read_unlock(&bond->lock);
-+
- 	if (swap_slave) {
- 		alb_swap_mac_addr(bond, swap_slave, bond->curr_active_slave);
-+		alb_fasten_mac_swap(bond, swap_slave, bond->curr_active_slave);
- 	} else {
- 		alb_set_slave_mac_addr(bond->curr_active_slave, bond_dev->dev_addr,
- 				       bond->alb_info.rlb_enabled);
-@@ -1672,6 +1726,9 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
- 		}
- 	}
- 
-+	read_lock(&bond->lock);
-+	write_lock_bh(&bond->curr_slave_lock);
-+
- 	return 0;
- }
- 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index a357727..15c1f7a 100644
+index 862ed8e..a357727 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -1590,15 +1590,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	case BOND_MODE_TLB:
- 	case BOND_MODE_ALB:
- 		new_slave->state = BOND_STATE_ACTIVE;
--		if ((!bond->curr_active_slave) &&
--		    (new_slave->link != BOND_LINK_DOWN)) {
--			/* first slave or no active slave yet, and this link
--			 * is OK, so make this interface the active one
--			 */
--			bond_change_active_slave(bond, new_slave);
--		} else {
--			bond_set_slave_inactive_flags(new_slave);
--		}
-+		bond_set_slave_inactive_flags(new_slave);
- 		break;
- 	default:
- 		dprintk("This slave is always active in trunk mode\n");
-@@ -1754,9 +1746,23 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- 		bond_alb_deinit_slave(bond, slave);
- 	}
+@@ -2088,27 +2088,25 @@ static int bond_slave_info_query(struct net_device *bond_dev, struct ifslave *in
  
--	if (oldcurrent == slave)
-+	if (oldcurrent == slave) {
-+		/*
-+		 * Note that we hold RTNL over this sequence, so there
-+		 * is no concern that another slave add/remove event
-+		 * will interfere.
-+		 */
-+		write_unlock_bh(&bond->lock);
-+		read_lock(&bond->lock);
-+		write_lock_bh(&bond->curr_slave_lock);
-+
- 		bond_select_active_slave(bond);
+ /*-------------------------------- Monitoring -------------------------------*/
  
-+		write_unlock_bh(&bond->curr_slave_lock);
-+		read_unlock(&bond->lock);
-+		write_lock_bh(&bond->lock);
-+	}
-+
- 	if (bond->slave_cnt == 0) {
- 		bond_set_carrier(bond);
+-/* this function is called regularly to monitor each slave's link. */
+-void bond_mii_monitor(struct work_struct *work)
++/*
++ * if !have_locks, return nonzero if a failover is necessary.  if
++ * have_locks, do whatever failover activities are needed.
++ *
++ * This is to separate the inspection and failover steps for locking
++ * purposes; failover requires rtnl, but acquiring it for every
++ * inspection is undesirable, so a wrapper first does inspection, and
++ * the acquires the necessary locks and calls again to perform
++ * failover if needed.  Since all locks are dropped, a complete
++ * restart is needed between calls.
++ */
++static int __bond_mii_monitor(struct bonding *bond, int have_locks)
+ {
+-	struct bonding *bond = container_of(work, struct bonding,
+-					    mii_work.work);
+ 	struct slave *slave, *oldcurrent;
+ 	int do_failover = 0;
+-	int delta_in_ticks;
+ 	int i;
  
-@@ -2012,16 +2018,19 @@ static int bond_ioctl_change_active(struct net_device *bond_dev, struct net_devi
- 		return -EINVAL;
- 	}
+-	read_lock(&bond->lock);
+-
+-	delta_in_ticks = (bond->params.miimon * HZ) / 1000;
+-
+-	if (bond->kill_timers) {
++	if (bond->slave_cnt == 0)
+ 		goto out;
+-	}
+-
+-	if (bond->slave_cnt == 0) {
+-		goto re_arm;
+-	}
  
--	write_lock_bh(&bond->lock);
-+	read_lock(&bond->lock);
- 
-+	read_lock(&bond->curr_slave_lock);
- 	old_active = bond->curr_active_slave;
-+	read_unlock(&bond->curr_slave_lock);
-+
- 	new_active = bond_get_slave_by_dev(bond, slave_dev);
- 
- 	/*
- 	 * Changing to the current active: do nothing; return success.
- 	 */
- 	if (new_active && (new_active == old_active)) {
--		write_unlock_bh(&bond->lock);
-+		read_unlock(&bond->lock);
- 		return 0;
- 	}
- 
-@@ -2029,12 +2038,14 @@ static int bond_ioctl_change_active(struct net_device *bond_dev, struct net_devi
- 	    (old_active) &&
- 	    (new_active->link == BOND_LINK_UP) &&
- 	    IS_UP(new_active->dev)) {
-+		write_lock_bh(&bond->curr_slave_lock);
- 		bond_change_active_slave(bond, new_active);
-+		write_unlock_bh(&bond->curr_slave_lock);
- 	} else {
- 		res = -EINVAL;
- 	}
- 
--	write_unlock_bh(&bond->lock);
-+	read_unlock(&bond->lock);
- 
- 	return res;
- }
-@@ -2140,7 +2151,11 @@ static int __bond_mii_monitor(struct bonding *bond, int have_locks)
- 		switch (slave->link) {
- 		case BOND_LINK_UP:	/* the link was up */
- 			if (link_state == BMSR_LSTATUS) {
--				/* link stays up, nothing more to do */
-+				if (!oldcurrent) {
+ 	/* we will try to read the link status of each of our slaves, and
+ 	 * set their IFF_RUNNING flag appropriately. For each slave not
+@@ -2175,6 +2173,9 @@ void bond_mii_monitor(struct work_struct *work)
+ 			if (link_state != BMSR_LSTATUS) {
+ 				/* link stays down */
+ 				if (slave->delay <= 0) {
 +					if (!have_locks)
 +						return 1;
-+					do_failover = 1;
-+				}
- 				break;
- 			} else { /* link going down */
- 				slave->link  = BOND_LINK_FAIL;
-@@ -2327,11 +2342,14 @@ static int __bond_mii_monitor(struct bonding *bond, int have_locks)
- 	} /* end of for */
- 
- 	if (do_failover) {
--		write_lock(&bond->curr_slave_lock);
-+		ASSERT_RTNL();
 +
-+		write_lock_bh(&bond->curr_slave_lock);
+ 					/* link down for too long time */
+ 					slave->link = BOND_LINK_DOWN;
  
- 		bond_select_active_slave(bond);
- 
--		write_unlock(&bond->curr_slave_lock);
-+		write_unlock_bh(&bond->curr_slave_lock);
+@@ -2258,6 +2259,9 @@ void bond_mii_monitor(struct work_struct *work)
+ 			} else {
+ 				/* link stays up */
+ 				if (slave->delay == 0) {
++					if (!have_locks)
++						return 1;
 +
+ 					/* now the link has been up for long time enough */
+ 					slave->link = BOND_LINK_UP;
+ 					slave->jiffies = jiffies;
+@@ -2331,13 +2335,41 @@ void bond_mii_monitor(struct work_struct *work)
  	} else
  		bond_set_carrier(bond);
  
-@@ -2770,11 +2788,14 @@ void bond_loadbalance_arp_mon(struct work_struct *work)
- 	}
+-re_arm:
+-	if (bond->params.miimon)
+-		queue_delayed_work(bond->wq, &bond->mii_work, delta_in_ticks);
+ out:
+-	read_unlock(&bond->lock);
++	return 0;
+ }
  
- 	if (do_failover) {
--		write_lock(&bond->curr_slave_lock);
++/*
++ * bond_mii_monitor
++ *
++ * Really a wrapper that splits the mii monitor into two phases: an
++ * inspection, then (if inspection indicates something needs to be
++ * done) an acquisition of appropriate locks followed by another pass
++ * to implement whatever link state changes are indicated.
++ */
++void bond_mii_monitor(struct work_struct *work)
++{
++	struct bonding *bond = container_of(work, struct bonding,
++					    mii_work.work);
++	unsigned long delay;
++
++	read_lock(&bond->lock);
++	if (bond->kill_timers) {
++		read_unlock(&bond->lock);
++		return;
++	}
++	if (__bond_mii_monitor(bond, 0)) {
++		read_unlock(&bond->lock);
 +		rtnl_lock();
-+		write_lock_bh(&bond->curr_slave_lock);
- 
- 		bond_select_active_slave(bond);
- 
--		write_unlock(&bond->curr_slave_lock);
-+		write_unlock_bh(&bond->curr_slave_lock);
++		read_lock(&bond->lock);
++		__bond_mii_monitor(bond, 1);
 +		rtnl_unlock();
++	}
 +
- 	}
++	delay = ((bond->params.miimon * HZ) / 1000) ? : 1;
++	read_unlock(&bond->lock);
++	queue_delayed_work(bond->wq, &bond->mii_work, delay);
++}
  
- re_arm:
-@@ -2831,7 +2852,9 @@ void bond_activebackup_arp_mon(struct work_struct *work)
- 
- 				slave->link = BOND_LINK_UP;
- 
--				write_lock(&bond->curr_slave_lock);
-+				rtnl_lock();
-+
-+				write_lock_bh(&bond->curr_slave_lock);
- 
- 				if ((!bond->curr_active_slave) &&
- 				    ((jiffies - slave->dev->trans_start) <= delta_in_ticks)) {
-@@ -2865,7 +2888,8 @@ void bond_activebackup_arp_mon(struct work_struct *work)
- 					       slave->dev->name);
- 				}
- 
--				write_unlock(&bond->curr_slave_lock);
-+				write_unlock_bh(&bond->curr_slave_lock);
-+				rtnl_unlock();
- 			}
- 		} else {
- 			read_lock(&bond->curr_slave_lock);
-@@ -2935,12 +2959,15 @@ void bond_activebackup_arp_mon(struct work_struct *work)
- 			       bond->dev->name,
- 			       slave->dev->name);
- 
--			write_lock(&bond->curr_slave_lock);
-+			rtnl_lock();
-+			write_lock_bh(&bond->curr_slave_lock);
- 
- 			bond_select_active_slave(bond);
- 			slave = bond->curr_active_slave;
- 
--			write_unlock(&bond->curr_slave_lock);
-+			write_unlock_bh(&bond->curr_slave_lock);
-+
-+			rtnl_unlock();
- 
- 			bond->current_arp_slave = slave;
- 
-@@ -2959,9 +2986,12 @@ void bond_activebackup_arp_mon(struct work_struct *work)
- 			       bond->primary_slave->dev->name);
- 
- 			/* primary is up so switch to it */
--			write_lock(&bond->curr_slave_lock);
-+			rtnl_lock();
-+			write_lock_bh(&bond->curr_slave_lock);
- 			bond_change_active_slave(bond, bond->primary_slave);
--			write_unlock(&bond->curr_slave_lock);
-+			write_unlock_bh(&bond->curr_slave_lock);
-+
-+			rtnl_unlock();
- 
- 			slave = bond->primary_slave;
- 			slave->jiffies = jiffies;
+ static __be32 bond_glean_dev_ip(struct net_device *dev)
+ {
 -- 
 1.5.3.4.206.g58ba4-dirty
 
