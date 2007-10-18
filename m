@@ -1,39 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: Let inet_diag and friends autoload
-Date: Wed, 17 Oct 2007 19:51:25 -0700 (PDT)
-Message-ID: <20071017.195125.15264659.davem@davemloft.net>
-References: <200710161728.23733.jdelvare@suse.de>
+From: TAKANO Ryousei <takano@axe-inc.co.jp>
+Subject: Re: [PATCH 7/7] [TCP]: Limit processing lost_retrans loop to
+ work-to-do cases
+Date: Thu, 18 Oct 2007 12:50:45 +0900 (JST)
+Message-ID: <20071018.125045.90803775.takano@axe-inc.co.jp>
+References: <11921028671668-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<1192102867248-git-send-email-ilpo.jarvinen@helsinki.fi>
+	<20071011.173622.09942622.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
-To: jdelvare@suse.de
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ilpo.jarvinen@helsinki.fi, y-kodama@aist.go.jp,
+	netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60692
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1760204AbXJRCv0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 22:51:26 -0400
-In-Reply-To: <200710161728.23733.jdelvare@suse.de>
+Received: from axekw.axe-inc.co.jp ([61.199.217.67]:58074 "EHLO
+	axekw.axe-inc.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754736AbXJRDux convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 17 Oct 2007 23:50:53 -0400
+In-Reply-To: <20071011.173622.09942622.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jean Delvare <jdelvare@suse.de>
-Date: Tue, 16 Oct 2007 17:28:23 +0200
+=46rom: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 7/7] [TCP]: Limit processing lost_retrans loop to w=
+ork-to-do cases
+Date: Thu, 11 Oct 2007 17:36:22 -0700 (PDT)
 
-> By adding module aliases to inet_diag, tcp_diag and dccp_diag, we let
-> them load automatically as needed. This makes tools like "ss" run
-> faster.
-> 
-> Signed-off-by: Jean Delvare <jdelvare@suse.de>
-> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> ---
-> The alias naming scheme for tcp_diag and dccp_diag follows what was
-> done for dccp_ipv4 and dccp_ipv6.
+> From: "Ilpo_J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Thu, 11 Oct 2007 14:41:07 +0300
+>=20
+> > This addition of lost_retrans_low to tcp_sock might be
+> > unnecessary, it's not clear how often lost_retrans worker is
+> > executed when there wasn't work to do.
+> >=20
+> > Cc: TAKANO Ryousei <takano@axe-inc.co.jp>
+> > Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+>=20
+> Applied.
 
-I'm concerned it might be dangerous to load the module in
-this context, the RTNL semaphore is held and the module we
-are requesting could easily try to take it and deadlock.
+> +	    after(highest_sack_end_seq, tp->lost_retrans_low) &&
 
-Currently we are lucky and this won't happen, but if the sub-proto
-registration is every changed to do so, it will be a nightmare for
-whoever is so unlucky to try and debug it.
+This limit degrades the performance of my test case described before,
+since it misses opportunities of detecting loss of retransmitted packet=
+s.
+
+The results are shown as follows:
+
+linux-2.6.23
+iteration :001 .... done. T =3D 19.758205 BW =3D 404.895077 Mbps
+iteration :002 .... done. T =3D 19.241735 BW =3D 415.762924 Mbps
+iteration :003 .... done. T =3D 18.998427 BW =3D 421.087495 Mbps
+iteration :004 .... done. T =3D 18.971502 BW =3D 421.685113 Mbps
+iteration :005 .... done. T =3D 19.298313 BW =3D 414.544009 Mbps
+
+net-2.6 (current):
+iteration :001 .... done. T =3D 43.672971 BW =3D 183.179660 Mbps
+iteration :002 .... done. T =3D 16.668652 BW =3D 479.942828 Mbps
+iteration :003 .... done. T =3D 25.569106 BW =3D 312.877581 Mbps
+iteration :004 .... done. T =3D 55.314832 BW =3D 144.626671 Mbps
+iteration :005 .... done. T =3D 35.377025 BW =3D 226.135464 Mbps
+
+net-2.6 (no limit)
+iteration :001 .... done. T =3D 16.907727 BW =3D 473.156445 Mbps
+iteration :002 .... done. T =3D 16.662908 BW =3D 480.108272 Mbps
+iteration :003 .... done. T =3D 16.536396 BW =3D 483.781350 Mbps
+iteration :004 .... done. T =3D 16.565220 BW =3D 482.939560 Mbps
+iteration :005 .... done. T =3D 16.528676 BW =3D 484.007309 Mbps
+
+"no limit" does as follows:
+        if (tp->retrans_out && highest_sack_end_seq &&
+            icsk->icsk_ca_state =3D=3D TCP_CA_Recovery)
+                flag |=3D tcp_mark_lost_retrans(sk, highest_sack_end_se=
+q);
+
+Ryousei Takano
