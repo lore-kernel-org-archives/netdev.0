@@ -1,157 +1,135 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: BUG: unable to handle kernel NULL pointer dereference at virtual
- address 000000b0
-Date: Thu, 18 Oct 2007 13:22:20 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0710181320170.12701@bizon.gios.gov.pl>
-References: <Pine.LNX.4.64.0710170833071.21430@bizon.gios.gov.pl>
- <4715B26E.20302@cosmosbay.com> <Pine.LNX.4.64.0710171018470.21430@bizon.gios.gov.pl>
- <4715E60E.3020401@cosmosbay.com> <Pine.LNX.4.64.0710171250480.21430@bizon.gios.gov.pl>
- <47161415.1060808@cosmosbay.com>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: Re: [PATCH] PHYLIB: IRQ event workqueue handling fixes
+Date: Thu, 18 Oct 2007 12:30:35 +0100 (BST)
+Message-ID: <Pine.LNX.4.64N.0710171221510.28993@blysk.ds.pg.gda.pl>
+References: <20071015125301.GC3015@ff.dom.local>
+ <Pine.LNX.4.64N.0710151737250.16262@blysk.ds.pg.gda.pl> <20071016062108.GB1000@ff.dom.local>
+ <Pine.LNX.4.64N.0710161759050.22596@blysk.ds.pg.gda.pl> <20071017085809.GA1658@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-135843367-1192706540=:12701"
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andy Fleming <afleming@freescale.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:58563 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756050AbXJRLWu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 07:22:50 -0400
-In-Reply-To: <47161415.1060808@cosmosbay.com>
+Received: from cerber.ds.pg.gda.pl ([153.19.208.18]:56728 "EHLO
+	cerber.ds.pg.gda.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759929AbXJRLap (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 07:30:45 -0400
+In-Reply-To: <20071017085809.GA1658@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Wed, 17 Oct 2007, Jarek Poplawski wrote:
 
----187430788-135843367-1192706540=:12701
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+> I'm not sure free_irq() should maintain the depth count - rather warn
+> on not zero. But, IMHO, any activity on freed irq seems suspicious to
+> me (and doesn't look like very common), even if it's safe with current
+> implementation.
 
+ No way to avoid it with DEBUG_SHIRQ.
 
+> Yes, these DEBUG_SHIRQ checks are suspicious to me too, but they seem
+> to be reasonable only in the case of possible resent irqs (so not for
+> all irqs). On the other hand, it seems, proper irq handler with proper
+> hardware shouldn't have any problems with such a check.
 
-On Wed, 17 Oct 2007, Eric Dumazet wrote:
+ What do you mean by "proper irq handler with proper hardware"?  Using
+softirqs (they used to be called bottom-halves) is actually a natural way 
+of handling any interrupt which requires extensive processing.
 
-> Krzysztof Oledzki a =E9crit :
->>=20
->>=20
->> On Wed, 17 Oct 2007, Eric Dumazet wrote:
->>=20
->>> Krzysztof Oledzki a =E9crit :
->>>>=20
->>>>=20
->>>> On Wed, 17 Oct 2007, Eric Dumazet wrote:
->>>>=20
->>>>> Krzysztof Oledzki a =E9crit :
->>>>>> Hello,
->>>>>>=20
->>>>>> Today I found in my logs:
->>>>>>=20
->>>>>> BUG: unable to handle kernel NULL pointer dereference at virtual=20
->>>>>> address 000000b0
->>>>>>  printing eip:
->>>>>> 78395f65
->>>>>> *pde =3D 00000000
->>>>>> Oops: 0000 [#1]
->>>>>> PREEMPT SMP
->>>>>> CPU:    0
->>>>>> EIP:    0060:[<78395f65>]    Not tainted VLI
->>>>>> EFLAGS: 00210286   (2.6.22.9 #1)
->>>>>> EIP is at __ip_route_output_key+0x412/0x722
->>>>>> eax: 80000000   ebx: 00000000   ecx: 5dd2b1c3   edx: 00000000
->>>>>> esi: 00000000   edi: d44c7e30   ebp: ec8c4980   esp: d44c7ddc
->>>>>> ds: 007b   es: 007b   fs: 00d8  gs: 0033  ss: 0068
->>>>>> Process smtpd (pid: 12479, ti=3Dd44c6000 task=3D9e759510 task.ti=3Dd=
-44c6000)
->>>>>> Stack: d44c7e7c d44c7e7c d44c7eb8 00000000 d44c7e7c 00000000 0000000=
-0=20
->>>>>> 00000005
->>>>>>        00000000 ffffffff 5dd2b1c3 00000000 00000000 00000000 0000000=
-0=20
->>>>>> 00000000
->>>>>>        00000000 00000000 00000000 00000000 00000000 00030000 0000000=
-0=20
->>>>>> d44c7e7c
->>>>>> Call Trace:
->>>>>>  [<78396280>] ip_route_output_flow+0xb/0x3e
->>>>>>  [<783b2b29>] ip4_datagram_connect+0x1c9/0x308
->>>>>>  [<783ba70a>] inet_dgram_connect+0x45/0x4e
->>>>>>  [<7837135e>] sys_connect+0x72/0x9c
->>>>>>  [<78371607>] sock_map_fd+0x41/0x4a
->>>>>>  [<7840d1b1>] _spin_lock+0x33/0x3e
->>>>>>  [<7840d623>] _spin_unlock+0x25/0x3b
->>>>>>  [<78371607>] sock_map_fd+0x41/0x4a
->>>>>>  [<78372792>] sys_socketcall+0x8f/0x242
->>>>>>  [<7813e99c>] trace_hardirqs_on+0x122/0x14c
->>>>>>  [<78103dc6>] sysenter_past_esp+0x8f/0x99
->>>>>>  [<78103d96>] sysenter_past_esp+0x5f/0x99
->>>>>>  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
->>>>>> Code: fa e0 00 00 00 75 07 c6 44 24 56 05 eb 14 81 fa f0 00 00 00 0f=
- 84=20
->>>>>> e1 02 00 00 84 c0 0f 84 d9 02 00 00 8b 44 24 0c 0d 00 00 00 80 <f6> =
-86=20
->>>>>> b0 00 00 00 08 0f 44 44 24 0c 89 44 24 0c b8 01 00 00 00
->>>>>> EIP: [<78395f65>] __ip_route_output_key+0x412/0x722 SS:ESP=20
->>>>>> 0068:d44c7ddc
->>>>>>=20
->>>>>> Shortly before it there was:
->>>>>> Oct 17 07:17:55 cougar postfix/master[3400]: warning: process=20
->>>>>> /usr/lib/postfix/smtpd pid 12479 killed by signal 11
->>>>>>=20
->>>>>> Best regards,
->>>>>>=20
->>>>>>
->>>>>>                 Krzysztof Ol=EAdzki
->>>>>=20
->>>>> Hello Krzysztof
->>>>>=20
->>>>> Could you give us some details about this ? kernel version at least.
->>>>=20
->>>> Yes, I was little to hurry sending this bug report. Anyway, it is=20
->>>> 2.6.22.9 like mentioned in the oops: EFLAGS: 00210286 (2.6.22.9 #1)
->>>>=20
->>>>> (you could for example take a look at REPORTING-BUGS, or run
->>>>> scripts/ver_linux)
->>>>=20
->>>> Linux cougar 2.6.22.9 #1 SMP PREEMPT Wed Oct 3 10:24:19 CEST 2007 i686=
-=20
->>>> Intel(R) Pentium(R) D CPU 3.20GHz GenuineIntel GNU/Linux
->>>>=20
->>>> Gnu C                  4.1.2
->>>> Gnu make               3.81
->>>> binutils               2.17
->>>> util-linux             2.12r
->>>> mount                  2.12r
->>>> module-init-tools      3.2.2
->>>> e2fsprogs              1.40.2
->>>> Linux C Library        > libc.2.5
->>>> Dynamic linker (ldd)   2.5
->>>> Procps                 3.2.7
->>>> Net-tools              1.60
->>>> Kbd                    1.12
->>>> Sh-utils               6.9
->>>>=20
->>>=20
->>> Yes indeed, version was on your initial report.
->>>=20
->>> It seems this kernel is unusual (VMSPLIT_2G_OPT instead of stdandard=20
->>> VMSPLIT_3G), any chance you provide full .config ?
->>=20
->> Attached, both .config and dmesg.
->>=20
->
-> Hum, you are using IPT_TPROXY thing, which is not in linux-2.6.22.9
+> 1) phy_change() checks PHY_HALTED flag without lock; I think it's
+> racy: eg. if it's done during phy_stop() it can check just before
+> the flag is set and reenable interrupts just after phy_stop() ends.
 
-It is only compiled in, not used at the moment.
+ I remember having a look into it, but it was long ago and I cannot 
+immediately recall the conclusion.  Which means it is either broken or 
+deserves a comment as non-obvious.  I will have a look into it again, but 
+I am resource-starved a little at the moment, sorry.
 
-> I have no idea how this can taint the kernel, since you provide no=20
-> information.
->
-> Try to reproduce the problem with a genuine kernel.
+> 2) phy_change() doesn't reenable irq line after it sees returns
+> with errors; IMHO it should at least write some warning, but maybe
+> try some safety plan, so enable_irq() and try to disable interrupts
+> and free_irq() on the next call (if it happens). (But, I can be very
+> wrong with this - maybe it's OK and official way.)
 
-OK. Thank you.
+ No way to do this safely -- at this point the device probably still has 
+its interrupt output asserted and the register to clear it is 
+inaccessible, so enabling the line will enter an infinite loop.  At this 
+point the system is no longer stable, so it is better to keep at least 
+some functionality, so that it may be attempted to be shut down cleanly, 
+rather than make it completely irresponsive.  The alternative is panic().
 
-Best regards,
+> 3) phy_interrupt() checks PHY_HALTED flag without lock too, but I'm
+> not sure now if it could be dangerous after fixing #1; on the other
+> hand even if we know it's not our regular interrupt, with current
+> DEBUG_SHIRQ it could be easier to call schedule_work() anyway since
+> we are sure it's before/in free_irq() yet.
 
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-135843367-1192706540=:12701--
+  See #1 above.
+
+> 4) phy_interrupt() should check return value from schedule_work() and
+> enable irq on 0.
+
+ No -- the work already pending will do that.
+
+> 5) phy_stop_interrupts(): maybe I miss something, but it seems
+> phy_stop() is required before this, so maybe there should be a
+> comment on this?
+
+ The API is documented in: Documentation/networking/phy.txt -- you are 
+welcome to improve.  If you do not want to get into the gory details, just 
+use the cooked interface and phy_disconnect() will do the dirty work for 
+you.
+
+> 6) phy_stop_interrupts(): if I'm not wrong with #3 calling
+> phy_disable_interrupts() looks like we are not sure this phy_stop()
+> really works; than maybe a WARN_ON?
+
+ WARN_ON what?
+
+> 7) phy_stop_interrupts(): after above mentioned changes in
+> phy_interrupt(), and phy_changes() (always enable_irq()) I can't see
+> any reason why there should be more than one skipped enable_irq(),
+> so checking return from cancel_work_sync() shouldn't be enough
+> instead of this atomic counter.
+
+ CONFIG_DEBUG_SHIRQ.  Barring this option, cancel_work_sync() could have 
+been moved to the front of free_irq().  I think I have seen this in 
+reality, with the interrupt line left stuck disabled afterwards, but I 
+will double check when I have an opportunity.  The approach implemented 
+with this patch does work, which is the important bit, and if 
+simplification is possible, then it may be applied later.
+
+> 8) phy_stop_interrupts(): I'm not sure this additional call from
+> DEBUG_SHIRQ should be so dangerous, eg.:
+> 
+> 	/*
+> 	 * status == PHY_HALTED &&
+> 	 * interrupts are stopped after phy_stop()
+> 	 */
+> 	if (cancel_work_sync(...))
+> 		enable_irq();
+> 
+> 	free_irq(...);
+> 	/*
+> 	 * possible schedule_work() from DEBUG_SHIRQ only,
+> 	 * but proper check for PHY_HALTED is done;
+> 	 * so, let's flush after this too:
+> 	 */
+> 	cancel_work_sync();
+
+ Well, if there is another handler registered on this line, you'll get 
+your interrupt line stuck disabled.
+
+> Of course, I don't know phy.c enough, so most of this can be terribly
+> wrong, then feel free to forget about this - I don't expect you should
+> waste any time for explaining me these things - after all they are
+> doubts only.
+
+ I am not sure I know phy.c well enough either, ;-) and your concerns are 
+appreciated as interesting conclusions may develop.  If someone disagrees 
+with what I have written here, they are welcome to speak out too.
+
+  Maciej
