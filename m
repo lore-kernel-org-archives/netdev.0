@@ -1,37 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] remove netpoll receive code
-Date: Wed, 17 Oct 2007 23:28:38 -0700 (PDT)
-Message-ID: <20071017.232838.41634977.davem@davemloft.net>
-References: <20071017132131.1992bedd@freepuppy.rosehill>
+From: Jarek Poplawski <jarkao2@o2.pl>
+Subject: Re: [PATCH] PHYLIB: IRQ event workqueue handling fixes
+Date: Thu, 18 Oct 2007 08:31:57 +0200
+Message-ID: <20071018063157.GA1694@ff.dom.local>
+References: <20071015125301.GC3015@ff.dom.local> <Pine.LNX.4.64N.0710151737250.16262@blysk.ds.pg.gda.pl> <20071016062108.GB1000@ff.dom.local> <Pine.LNX.4.64N.0710161759050.22596@blysk.ds.pg.gda.pl> <20071017085809.GA1658@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: shemminger@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Fleming <afleming@freescale.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Maciej W\. Rozycki" <macro@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44826
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1754082AbXJRG2Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 02:28:25 -0400
-In-Reply-To: <20071017132131.1992bedd@freepuppy.rosehill>
+Received: from mx10.go2.pl ([193.17.41.74]:35508 "EHLO poczta.o2.pl"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756364AbXJRG2w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2007 02:28:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20071017085809.GA1658@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Wed, 17 Oct 2007 13:21:31 -0700
+On Wed, Oct 17, 2007 at 10:58:09AM +0200, Jarek Poplawski wrote:
+...
+> 8) phy_stop_interrupts(): I'm not sure this additional call from
+> DEBUG_SHIRQ should be so dangerous, eg.:
+> 
+> 	/*
+> 	 * status == PHY_HALTED &&
+> 	 * interrupts are stopped after phy_stop()
+> 	 */
+> 	if (cancel_work_sync(...))
+> 		enable_irq();
+> 
+> 	free_irq(...);
+> 	/*
+> 	 * possible schedule_work() from DEBUG_SHIRQ only,
+> 	 * but proper check for PHY_HALTED is done;
+> 	 * so, let's flush after this too:
+> 	 */
+> 	cancel_work_sync();
 
-> I propose that we take out all the whole netpoll rx path. If/when
-> kgdb gets submitted a better and alternative receive path can be
-> added.
+After rethinking, it looks like this last cancel should be useless.
+So, if phy_interrupt() schedules only if !PHY_HALTED and phy_change()
+does enable_irq() with no exeptions, it seems phy_interrupt() even
+without lock must see PHY_HALTED state before this free_irq() with
+possible DEBUG_SHIRQ call, then maybe only this safety:
 
-I would like to kill the RX side handling of netpoll too,
-but I don't think that's reasonable as kgdb is actively
-being pushed for 2.6.25 inclusion.
+	WARN_ON(work_pending(&phydev->phy_queue));
 
-Andrew is likely to add it to his -mm tree soon and therefore kgdb
-will need to work properly now.
 
-The RX netpoll thing has a long precedence, it's been in the tree for
-a long time, so we are in some ways stuck with it until we have a
-complete replacement facility.  That means we can't yank it out first
-and implement the replacement later.
+Btw, I've read this was considered and not liked, but IMHO, if this
+really has to be like this, creating phy's own workqueue seems to be
+resonable, at the very least to reduce latencies to other users of
+this irq.
+
+Jarek P.
