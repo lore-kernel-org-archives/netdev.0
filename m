@@ -1,26 +1,44 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH][NET] gianfar: fix obviously wrong #ifdef CONFIG_GFAR_NAPI
- placement
-Date: Wed, 17 Oct 2007 20:21:32 -0400
-Message-ID: <4716A70C.6090307@garzik.org>
-References: <20071017195746.GA15592@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] pcnet32: fix non-napi packet reception
+Date: Wed, 17 Oct 2007 20:21:57 -0400
+Message-ID: <4716A725.2030800@pobox.com>
+References: <1192661962.474.10.camel@Linux.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: leoli@freescale.com, paulus@samba.org, galak@kernel.crashing.org,
-	afleming@freescale.com, apw@shadowen.org, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Anton Vorontsov <avorontsov@ru.mvista.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1760220AbXJRAWU@vger.kernel.org>
-In-Reply-To: <20071017195746.GA15592@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Don Fry <pcnet32@verizon.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srv5.dvmed.net ([207.36.208.214]:49955 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762798AbXJRAV7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2007 20:21:59 -0400
+In-Reply-To: <1192661962.474.10.camel@Linux.home>
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Anton Vorontsov wrote:
-> Erroneous #ifdef introduced by 293c8513398657f6263fcdb03c87f2760cf61be4
-> causing NAPI-less ethernet malfunctioning.
+Don Fry wrote:
+> Recent changes to the driver for the new napi API broke the reception of packets when in
+> non-napi mode.  The initialization of napi.weight was removed for the non-napi case
+> leaving the value zero.
 > 
-> Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-> Signed-off-by: Vitaly Bordug <vbordug@ru.mvista.com>
+> Tested NAPI and non-NAPI on x86_64.
+> 
+> Signed-off-by: Don Fry <pcnet32@verizon.net>
+> ---
+> --- linux-2.6.23-git7/drivers/net/orig.pcnet32.c	2007-10-15 11:19:17.000000000 -0700
+> +++ linux-2.6.23-git7/drivers/net/pcnet32.c	2007-10-17 15:56:15.000000000 -0700
+> @@ -1849,6 +1849,9 @@ pcnet32_probe1(unsigned long ioaddr, int
+>  	lp->mii_if.mdio_read = mdio_read;
+>  	lp->mii_if.mdio_write = mdio_write;
+>  
+> +	/* napi.weight is used in both the napi and non-napi cases */
+> +	lp->napi.weight = lp->rx_ring_size / 2;
+> +
+>  #ifdef CONFIG_PCNET32_NAPI
+>  	netif_napi_add(dev, &lp->napi, pcnet32_poll, lp->rx_ring_size / 2);
+>  #endif
 
 applied
+
+
