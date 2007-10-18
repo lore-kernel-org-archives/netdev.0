@@ -1,30 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix again the fl6_sock_lookup() fixed locking
-Date: Thu, 18 Oct 2007 05:38:59 -0700 (PDT)
-Message-ID: <20071018.053859.27928990.davem@davemloft.net>
-References: <4717536A.2080400@openvz.org>
+From: wit <is01kzh@gmail.com>
+Subject: about multiple network interface
+Date: Thu, 18 Oct 2007 21:06:40 +0800
+Message-ID: <105610bf0710180606w6a687642r35414d2b66b6d3af@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org, yoshfuji@linux-ipv6.org
-To: xemul@openvz.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56511
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1757237AbXJRMip (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 08:38:45 -0400
-In-Reply-To: <4717536A.2080400@openvz.org>
+Received: from py-out-1112.google.com ([64.233.166.177]:25354 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756597AbXJRNGm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 09:06:42 -0400
+Received: by py-out-1112.google.com with SMTP id u77so296528pyb
+        for <netdev@vger.kernel.org>; Thu, 18 Oct 2007 06:06:41 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Thu, 18 Oct 2007 16:36:58 +0400
+Hi all,
 
-> YOSHIFUJI fairly pointed out, that the users increment should
-> be done under the ip6_sk_fl_lock not to give IPV6_FL_A_PUT a
-> chance to put this count to zero and release the flowlabel.
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
-Applied, thank you very much Pavel.
+   Sorry, I don't know if this is the right mail list. I got the
+following question:
+   I have a e100 card and a e1000 card. Whenever I boot the system, I
+found the eth0 matches the e1000 card, and the eth2 matches the other.
+How can I force the eth0 to match the e100 card and the eth2 to match
+e1000?
