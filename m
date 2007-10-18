@@ -1,87 +1,131 @@
-From: Andy Whitcroft <apw@shadowen.org>
-Subject: s390x: getting ipv6 bugs on mainline since 2.6.23-git3
-Date: Thu, 18 Oct 2007 10:35:56 +0100
-Message-ID: <20071018093556.GT21136@shadowen.org>
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] [TCP]: Add highest_sack_end_seq check back to lost_retrans
+ call
+Date: Thu, 18 Oct 2007 12:40:06 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0710181214140.3767@kivilampi-30.cs.helsinki.fi>
+References: <11921028671668-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1192102867248-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <20071011.173622.09942622.davem@davemloft.net> <20071018.125045.90803775.takano@axe-inc.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-s390@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
-To: linux390@de.ibm.com
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1294290608-1192700406=:3767"
+Cc: David Miller <davem@davemloft.net>, y-kodama@aist.go.jp,
+	Netdev <netdev@vger.kernel.org>
+To: TAKANO Ryousei <takano@axe-inc.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hellhawk.shadowen.org ([80.68.90.175]:2496 "EHLO
-	hellhawk.shadowen.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754872AbXJRJfz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 05:35:55 -0400
-Content-Disposition: inline
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:42343 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755018AbXJRJkK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 05:40:10 -0400
+In-Reply-To: <20071018.125045.90803775.takano@axe-inc.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Seems we are getting some kind of bug out of our s390x partition (lnxab=
-at1)
-when booting latest mainline releases, specifically since 2.6.23-git3.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Kernel BUG at 0000000000000002 =DDverbose debug info unavailable=A8
-illegal operation: 0001 =DD#1=A8
-Modules linked in: dm_mod sit tunnel4 ipv6 qeth ccwgroup qdio dasd_fba_=
-mod dasd_
-eckd_mod dasd_mod
-CPU:    0    Not tainted
-Process ip (pid: 2614, task: 000000003f42f680, ksp: 000000003cf2feb8)
-Krnl PSW : 0704200180000000 0000000000000002 (0x2)
-           R:0 T:1 IO:1 EX:1 Key:0 M:1 W:0 P:0 AS:0 CC:2 PM:0 EA:3
-Krnl GPRS: 0000000000000000 0000000000000000 000000003e6d5d00 000000003=
-e01f000
-           00000000000086dd 000000003cdac144 0000000000000000 000000000=
-0000010
-           000000003e01f000 000000003d97e3c0 0000000100eaaa00 000000003=
-cdac100
-           000000003e6d5d00 00000001018fb1d0 0000000000286da8 000000003=
-cf2f5e8
-Krnl Code:>0000000000000002: 0000               unknown
-           0000000000000004: 0000               unknown
-           0000000000000006: 0000               unknown
-           0000000000000008: 0000               unknown
-           000000000000000a: 0000               unknown
-           000000000000000c: 0000               unknown
-           000000000000000e: 0000               unknown
-           0000000000000010: 0000               unknown
-Call Trace:
-(=DD<0000000000286d60>=A8 neigh_connected_output+0x68/0xfc)
- =DD<00000001018cc7fe>=A8 ip6_output2+0x416/0x4ac =DDipv6=A8
- =DD<00000001018ceaa8>=A8 ip6_output+0xfc4/0xfd4 =DDipv6=A8
- =DD<00000001018dfe40>=A8 __ndisc_send+0x52c/0x6f0 =DDipv6=A8
- =DD<00000001018e0218>=A8 ndisc_send_rs+0x4c/0x5c =DDipv6=A8
- =DD<00000001018d40e6>=A8 addrconf_dad_completed+0xa2/0xf0 =DDipv6=A8
- =DD<00000001018d4880>=A8 addrconf_dad_start+0xa0/0x124 =DDipv6=A8
- =DD<00000001018d496a>=A8 addrconf_add_linklocal+0x66/0x98 =DDipv6=A8
- =DD<00000001018d7a3c>=A8 addrconf_notify+0x6cc/0x898 =DDipv6=A8
- =DD<000000000004ad7c>=A8 notifier_call_chain+0x50/0x8c
- =DD<000000000004b0b6>=A8 __raw_notifier_call_chain+0x1a/0x28
- =DD<000000000004b0e6>=A8 raw_notifier_call_chain+0x22/0x30
- =DD<000000000027f014>=A8 call_netdevice_notifiers+0x28/0x38
- =DD<0000000000281732>=A8 dev_open+0xba/0xd0
- =DD<0000000000281cce>=A8 dev_change_flags+0xbe/0x198
- =DD<00000000002d681c>=A8 devinet_ioctl+0x2c8/0x6c0
- =DD<000000000027138a>=A8 sock_ioctl+0x26e/0x2a0
- =DD<00000000000ab1ce>=A8 do_ioctl+0x4a/0xac
- =DD<00000000000ab5f2>=A8 vfs_ioctl+0x3c2/0x3d8
- =DD<00000000000ab676>=A8 sys_ioctl+0x6e/0x94
- =DD<00000000000215c6>=A8 sysc_noemu+0x10/0x16
- =DD<00000200001201ca>=A8 0x200001201ca
+---696243703-1294290608-1192700406=:3767
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
 
- <0>Kernel panic - not syncing: Fatal exception in interrupt
-01: HCPGSP2629I The virtual machine is placed in CP mode due to a SIGP =
-stop from
- CPU 00.
-02: HCPGSP2629I The virtual machine is placed in CP mode due to a SIGP =
-stop from
- CPU 00.
-03: HCPGSP2629I The virtual machine is placed in CP mode due to a SIGP =
-stop from
- CPU 00.
-00: HCPGIR450W CP entered; disabled wait PSW 00020001 80000000 00000000=
- 00015FDE
+On Thu, 18 Oct 2007, TAKANO Ryousei wrote:
 
--apw
+> From: David Miller <davem@davemloft.net>
+> Subject: Re: [PATCH 7/7] [TCP]: Limit processing lost_retrans loop to work-to-do cases
+> Date: Thu, 11 Oct 2007 17:36:22 -0700 (PDT)
+> 
+> > From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
+> > Date: Thu, 11 Oct 2007 14:41:07 +0300
+> > 
+> > > This addition of lost_retrans_low to tcp_sock might be
+> > > unnecessary, it's not clear how often lost_retrans worker is
+> > > executed when there wasn't work to do.
+> > > 
+> > > Cc: TAKANO Ryousei <takano@axe-inc.co.jp>
+> > > Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+> > 
+> > Applied.
+> 
+> > +	    after(highest_sack_end_seq, tp->lost_retrans_low) &&
+>
+> This limit degrades the performance of my test case described before,
+
+Thanks for testing.... Btw, just noticed that lost_retrans_low addition 
+patch incorrectly dropped check for highest_sack_end_seq (probably due to 
+incorrect resolution from my side at some point of development of those 
+two patches as I added that check later on when realized it's necessary), 
+patching that below... Since it causes zero received_upto in 
+tcp_mark_lost_retrans, some RETRANS bits got cleared unintentionally
+because of that.
+
+> since it misses opportunities of detecting loss of retransmitted packets.
+
+Do you have an idea how it does that except the problem now being fixed?
+The lost_retrans_low was supposed to contain the minimum 
+TCP_SKB_CB(skb)->ack_seq of those packets that hav TCPCB_SACKED_RETRANS 
+set, so if the condition won't match, there shouldn't be any misses. Do 
+you think there's something wrong in that approach?
+
+The point of lost_retrans_low is to limit walking in retrans queue to two 
+cases:
+
+- There's at least one skb with SACKED_RETRANS to clear (except perhaps 
+some corner cases where that specific skb got DSACKed in between and the 
+R-bit was therefore cleared).
+
+ or
+
+- New lost_retrans_low has to calculated (should only occur if snd_una 
+advanced past it and there are still some retransmissions, not too sure 
+if that can occur, and that won't be very likely case anyway).
+
+
+> "no limit" does as follows:
+>         if (tp->retrans_out && highest_sack_end_seq &&
+>             icsk->icsk_ca_state == TCP_CA_Recovery)
+>                 flag |= tcp_mark_lost_retrans(sk, highest_sack_end_seq);
+
+Having that highest_sack_end_seq there probably solved the problem. Yet 
+it won't be good in performance wise like that because many unnecessary 
+walks would occur during CA_Recovery, which all are prone to induce some 
+cache misses.
+
+
+--
+
+[PATCH] [TCP]: Add highest_sack_end_seq check back to lost_retrans call
+
+This was unintentionally dropped (probably due to incorrect
+resolution from my side at some point of development of those
+two patches as I added that check later on when realized it's
+necessary). There won't be anything to mark if SACKs didn't
+advance.
+
+It causes passing of zero received_upto to tcp_mark_lost_retrans
+which confuses after relations within the marker loop causing
+incorrect TCPCB_SACKED_RETRANS clearing.
+
+This problem was noticed because of a performance report from
+TAKANO Ryousei <takano@axe-inc.co.jp>.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+---
+ net/ipv4/tcp_input.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 0f00966..c3c0183 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1489,7 +1489,7 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
+ 		}
+ 	}
+ 
+-	if (tp->retrans_out &&
++	if (tp->retrans_out && highest_sack_end_seq &&
+ 	    after(highest_sack_end_seq, tp->lost_retrans_low) &&
+ 	    icsk->icsk_ca_state == TCP_CA_Recovery)
+ 		flag |= tcp_mark_lost_retrans(sk, highest_sack_end_seq);
+-- 
+1.5.0.6
+
+---696243703-1294290608-1192700406=:3767--
