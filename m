@@ -1,44 +1,33 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] pcnet32: fix non-napi packet reception
-Date: Wed, 17 Oct 2007 20:21:57 -0400
-Message-ID: <4716A725.2030800@pobox.com>
-References: <1192661962.474.10.camel@Linux.home>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] vortex_up should initialize "err"
+Date: Wed, 17 Oct 2007 20:28:36 -0400
+Message-ID: <4716A8B4.5060406@garzik.org>
+References: <1192662956.14504.14.camel@dyn9047017100.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Don Fry <pcnet32@verizon.net>
+Cc: netdev@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>,
+	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+To: Badari Pulavarty <pbadari@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49955 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:60271 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762798AbXJRAV7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 20:21:59 -0400
-In-Reply-To: <1192661962.474.10.camel@Linux.home>
+	id S1759530AbXJRA2m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2007 20:28:42 -0400
+In-Reply-To: <1192662956.14504.14.camel@dyn9047017100.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Don Fry wrote:
-> Recent changes to the driver for the new napi API broke the reception of packets when in
-> non-napi mode.  The initialization of napi.weight was removed for the non-napi case
-> leaving the value zero.
+Badari Pulavarty wrote:
+> Simple compile warning fix. (against 2.6.23-git12)
 > 
-> Tested NAPI and non-NAPI on x86_64.
+> Thanks,
+> Badari
 > 
-> Signed-off-by: Don Fry <pcnet32@verizon.net>
-> ---
-> --- linux-2.6.23-git7/drivers/net/orig.pcnet32.c	2007-10-15 11:19:17.000000000 -0700
-> +++ linux-2.6.23-git7/drivers/net/pcnet32.c	2007-10-17 15:56:15.000000000 -0700
-> @@ -1849,6 +1849,9 @@ pcnet32_probe1(unsigned long ioaddr, int
->  	lp->mii_if.mdio_read = mdio_read;
->  	lp->mii_if.mdio_write = mdio_write;
->  
-> +	/* napi.weight is used in both the napi and non-napi cases */
-> +	lp->napi.weight = lp->rx_ring_size / 2;
-> +
->  #ifdef CONFIG_PCNET32_NAPI
->  	netif_napi_add(dev, &lp->napi, pcnet32_poll, lp->rx_ring_size / 2);
->  #endif
+> vortex_up() should initialize 'err' for a successful return.
+> 
+> drivers/net/3c59x.c: In function `vortex_up':
+> drivers/net/3c59x.c:1494: warning: `err' might be used uninitialized in this function
 
-applied
-
+applied as an obvious bug fix (Steffen added to CC)
 
