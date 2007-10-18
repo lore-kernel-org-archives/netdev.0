@@ -1,47 +1,30 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: [PATCH] gianfar: fix compile warning
-Date: Wed, 17 Oct 2007 21:54:58 -0600
-Message-ID: <20071018035458.22355.99460.stgit@trillian.cg.shawcable.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] mac80211: only honor IW_SCAN_THIS_ESSID in STA, IBSS,
+ and AP modes
+Date: Wed, 17 Oct 2007 21:16:32 -0700 (PDT)
+Message-ID: <20071017.211632.40832065.davem@davemloft.net>
+References: <200710162329.55966.flamingice@sourmilk.net>
+	<20071017145315.GC5744@tuxdriver.com>
+	<11926328942540-git-send-email-linville@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Li Yang <leoli@freescale.com>, Jeff Garzik <jeff@garzik.org>,
-	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, flamingice-R9e9/4HEdknk1uMJSBkQmQ@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <11926328942540-git-send-email-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Grant Likely <grant.likely@secretlab.ca>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Wed, 17 Oct 2007 10:54:54 -0400
 
-Eliminate an uninitialized variable warning.  The code is correct, but
-a pointer to the automatic variable 'addr' is passed to dma_alloc_coherent.
-Since addr has never been initialized, and the compiler doesn't know
-what dma_alloc_coherent will do with it, it complains.
+> The previous IW_SCAN_THIS_ESSID patch left a hole allowing scan
+> requests on interfaces in inappropriate modes.
+> 
+> Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 
-Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
----
+John I've pulled from your tree and added this patch on top.
 
- drivers/net/gianfar.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index cc288d8..c009ab6 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -696,7 +696,7 @@ int startup_gfar(struct net_device *dev)
- {
- 	struct txbd8 *txbdp;
- 	struct rxbd8 *rxbdp;
--	dma_addr_t addr;
-+	dma_addr_t addr = 0;
- 	unsigned long vaddr;
- 	int i;
- 	struct gfar_private *priv = netdev_priv(dev);
+Thanks!
