@@ -1,90 +1,46 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: [PATCH] flush_work_sync vs. flush_scheduled_work Re: [PATCH] PHYLIB: IRQ event workqueue handling fixes
-Date: Thu, 18 Oct 2007 09:05:31 +0200
-Message-ID: <20071018070531.GA2065@ff.dom.local>
-References: <20071015125301.GC3015@ff.dom.local> <Pine.LNX.4.64N.0710151737250.16262@blysk.ds.pg.gda.pl> <20071016062108.GB1000@ff.dom.local> <Pine.LNX.4.64N.0710161759050.22596@blysk.ds.pg.gda.pl> <20071017085809.GA1658@ff.dom.local> <20071018063157.GA1694@ff.dom.local>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [RFC] remove netpoll receive code
+Date: Thu, 18 Oct 2007 00:02:44 -0700
+Message-ID: <20071018000244.2513c564.akpm@linux-foundation.org>
+References: <20071017132131.1992bedd@freepuppy.rosehill>
+	<20071017.232838.41634977.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Maciej W\. Rozycki" <macro@linux-mips.org>,
-	Andy Fleming <afleming@freescale.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Oleg Nesterov <oleg@tv-sign.ru>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Jason Wessel <jason.wessel@windriver.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx12.go2.pl ([193.17.41.142]:48228 "EHLO poczta.o2.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750889AbXJRHC0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Oct 2007 03:02:26 -0400
-Content-Disposition: inline
-In-Reply-To: <20071018063157.GA1694@ff.dom.local>
+Received: from smtp2.linux-foundation.org ([207.189.120.14]:45678 "EHLO
+	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759327AbXJRHPb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 03:15:31 -0400
+In-Reply-To: <20071017.232838.41634977.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-After reading this and earlier threads about phylib's way of using
-workqueue I think such a lighter and safer wrt. locking alternative
-for flush_scheduled_work should be useful, but maybe it's only my
-imagination.
+On Wed, 17 Oct 2007 23:28:38 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
 
-So, let's ask Oleg Nesterov, whose solutions are here only
-copy-cut-pasted & possibly abused by myslef.
+> From: Stephen Hemminger <shemminger@linux-foundation.org>
+> Date: Wed, 17 Oct 2007 13:21:31 -0700
+> 
+> > I propose that we take out all the whole netpoll rx path. If/when
+> > kgdb gets submitted a better and alternative receive path can be
+> > added.
+> 
+> I would like to kill the RX side handling of netpoll too,
+> but I don't think that's reasonable as kgdb is actively
+> being pushed for 2.6.25 inclusion.
+> 
+> Andrew is likely to add it to his -mm tree soon and therefore kgdb
+> will need to work properly now.
 
---------->
-Subject: flush_work_sync as an alternative for flush_scheduled_work
+git-kgdb.patch has been in there for ages - maybe a year.  Although I
+disabled it a week or so ago due to the sheer number of rejects.  Will
+bring it back when things settle down a bit.
 
-Similar to cancel_work_sync() but will only busy wait & block
-(without cancel).
-
-Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
-
----
-
- include/linux/workqueue.h |    1 +
- kernel/workqueue.c        |   24 ++++++++++++++++++++++++
- 2 files changed, 25 insertions(+)
-
-diff -Nurp 2.6.23-mm1-/include/linux/workqueue.h 2.6.23-mm1/include/linux/workqueue.h
---- 2.6.23-mm1-/include/linux/workqueue.h	2007-10-12 23:45:24.000000000 +0200
-+++ 2.6.23-mm1/include/linux/workqueue.h	2007-10-17 20:55:26.000000000 +0200
-@@ -192,6 +192,7 @@ extern void init_workqueues(void);
- int execute_in_process_context(work_func_t fn, struct execute_work *);
- 
- extern int cancel_work_sync(struct work_struct *work);
-+extern void flush_work_sync(struct work_struct *work);
- 
- /*
-  * Kill off a pending schedule_delayed_work().  Note that the work callback
-diff -Nurp 2.6.23-mm1-/kernel/workqueue.c 2.6.23-mm1/kernel/workqueue.c
---- 2.6.23-mm1-/kernel/workqueue.c	2007-10-12 23:45:25.000000000 +0200
-+++ 2.6.23-mm1/kernel/workqueue.c	2007-10-17 20:54:03.000000000 +0200
-@@ -539,6 +539,30 @@ int cancel_delayed_work_sync(struct dela
- }
- EXPORT_SYMBOL(cancel_delayed_work_sync);
- 
-+/**
-+ * flush_work_sync - block until a work_struct's callback has terminated
-+ * @work: the work which is to be flushed
-+ *
-+ * Similar to cancel_work_sync() but will only busy wait (without cancel)
-+ * if the work is queued. If the work's callback appears to be running,
-+ * flush_work_sync() will block until it has completed (but doesn't block
-+ * while other callbacks are running, like flush_scheduled_work() does).
-+ *
-+ * It is not allowed to use this function if the work re-queues itself.
-+ */
-+void flush_work_sync(struct work_struct *work)
-+{
-+	int ret;
-+
-+	do {
-+		ret = work_pending(work);
-+		wait_on_work(work);
-+		if (ret)
-+			cpu_relax();
-+	} while (ret);
-+}
-+EXPORT_SYMBOL(flush_work_sync);
-+
- static struct workqueue_struct *keventd_wq __read_mostly;
- 
- /**
+> The RX netpoll thing has a long precedence, it's been in the tree for
+> a long time, so we are in some ways stuck with it until we have a
+> complete replacement facility.  That means we can't yank it out first
+> and implement the replacement later.
