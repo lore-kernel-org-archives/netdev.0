@@ -1,105 +1,86 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: TCP port randomization
-Date: Thu, 18 Oct 2007 12:29:25 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.0710181228320.12701@bizon.gios.gov.pl>
-References: <Pine.LNX.4.64.0710172308140.12701@bizon.gios.gov.pl>
- <20071017150818.0e878846@freepuppy.rosehill> <Pine.LNX.4.64.0710180026020.12701@bizon.gios.gov.pl>
- <20071017153412.6ef040bf@freepuppy.rosehill>
+From: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Subject: Re: s390x: getting ipv6 bugs on mainline since 2.6.23-git3
+Date: Thu, 18 Oct 2007 12:37:44 +0200
+Message-ID: <1192703864.13572.3.camel@localhost>
+References: <20071018093556.GT21136@shadowen.org>
+	 <47172AD5.2030009@trash.net>
+Reply-To: schwidefsky@de.ibm.com
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-714783199-1192703365=:12701"
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andy Whitcroft <apw@shadowen.org>, linux390@de.ibm.com,
+	linux-s390@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([212.244.124.8]:40431 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754535AbXJRK3m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 06:29:42 -0400
-In-Reply-To: <20071017153412.6ef040bf@freepuppy.rosehill>
+Received: from mtagate3.de.ibm.com ([195.212.29.152]:47542 "EHLO
+	mtagate3.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756228AbXJRKhr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 06:37:47 -0400
+In-Reply-To: <47172AD5.2030009@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
----187430788-714783199-1192703365=:12701
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+On Thu, 2007-10-18 at 11:43 +0200, Patrick McHardy wrote:
+> Andy Whitcroft wrote:
+> > Seems we are getting some kind of bug out of our s390x partition (l=
+nxabat1)
+> > when booting latest mainline releases, specifically since 2.6.23-gi=
+t3.
+> >=20
+> > Kernel BUG at 0000000000000002 =DDverbose debug info unavailable?
+> > illegal operation: 0001 =DD#1?
+> Which network driver are you using? Please post the output of
+> "ip link list <dev>".
+
+This is a bug in the qeth driver. It has been introduced by this commit=
+:
+
+commit 3b04ddde02cf1b6f14f2697da5c20eca5715017f
+Author: Stephen Hemminger <shemminger@linux-foundation.org>
+Date:   Tue Oct 9 01:40:57 2007 -0700
+
+    [NET]: Move hardware header operations out of netdevice.
+
+    Since hardware header operations are part of the protocol class
+    not the device instance, make them into a separate object and
+    save memory.
+
+    Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+I've hacked up a fix for it. The real fix will be done by our networkin=
+g
+people.
+
+--=20
+blue skies,
+  Martin.
+
+"Reality continues to ruin my life." - Calvin.
+
+---
+
+ drivers/s390/net/qeth_main.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff -urpN linux-2.6/drivers/s390/net/qeth_main.c linux-2.6-patched/dri=
+vers/s390/net/qeth_main.c
+--- linux-2.6/drivers/s390/net/qeth_main.c	2007-10-17 15:05:36.00000000=
+0 +0200
++++ linux-2.6-patched/drivers/s390/net/qeth_main.c	2007-10-17 15:05:46.=
+000000000 +0200
+@@ -6643,7 +6643,8 @@ qeth_netdev_init(struct net_device *dev)
+ 	dev->vlan_rx_kill_vid =3D qeth_vlan_rx_kill_vid;
+ 	dev->vlan_rx_add_vid =3D qeth_vlan_rx_add_vid;
+ #endif
+-	dev->header_ops =3D &qeth_null_ops;
++	if (qeth_get_netdev_flags(card) & IFF_NOARP)
++		dev->header_ops =3D &qeth_null_ops;
+=20
+ #ifdef CONFIG_QETH_IPV6
+ 	/*IPv6 address autoconfiguration stuff*/
 
 
-
-On Wed, 17 Oct 2007, Stephen Hemminger wrote:
-
-> On Thu, 18 Oct 2007 00:31:13 +0200 (CEST)
-> Krzysztof Oledzki <olel@ans.pl> wrote:
->
->>
->>
->> On Wed, 17 Oct 2007, Stephen Hemminger wrote:
->>
->>> On Wed, 17 Oct 2007 23:15:48 +0200 (CEST)
->>> Krzysztof Oledzki <olel@ans.pl> wrote:
->>>
->>>> Hello,
->>>>
->>>> Is it normal that TCP port randomization (tested with 2.6.22) works on=
-ly
->>>> when explicitly binding to a IP address:
->>>>
->>>>
->>>> --- cut here ---
->>>> root@fw1:~# nc 192.168.129.28 11
->>>> (UNKNOWN) [192.168.129.28] 11 (systat) : Connection refused
->>>> root@fw1:~# nc 192.168.129.28 11
->>>> (UNKNOWN) [192.168.129.28] 11 (systat) : Connection refused
->>>> root@fw1:~# nc 192.168.129.28 11
->>>> (UNKNOWN) [192.168.129.28] 11 (systat) : Connection refused
->>>>
->>>> 23:11:11.896126 IP 192.168.129.2.37839 > 192.168.129.28.11: S
->>>> 23:11:12.146573 IP 192.168.129.2.37840 > 192.168.129.28.11: S
->>>> 23:11:12.396488 IP 192.168.129.2.37841 > 192.168.129.28.11: S
->>>> --- cut here ---
->>>>
->>>>
->>>> --- cut here ---
->>>> root@fw1:~# nc -s 192.168.129.2 192.168.129.28 11
->>>> (UNKNOWN) [192.168.129.28] 11 (systat) : Connection refused
->>>> root@fw1:~# nc -s 192.168.129.2 192.168.129.28 11
->>>> (UNKNOWN) [192.168.129.28] 11 (systat) : Connection refused
->>>> root@fw1:~# nc -s 192.168.129.2 192.168.129.28 11
->>>> (UNKNOWN) [192.168.129.28] 11 (systat) : Connection refused
->>>>
->>>> 23:11:31.704391 IP 192.168.129.2.57204 > 192.168.129.28.11: S
->>>> 23:11:34.400048 IP 192.168.129.2.14512 > 192.168.129.28.11: S
->>>> 23:11:34.606707 IP 192.168.129.2.20117 > 192.168.129.28.11: S
->>>> --- cut here ---
->>>>
->>>> Best regards,
->>>>
->>>>  =09=09=09=09Krzysztof Ol=EAdzki
->>>
->>> It is a expected side effect.
->>
->> So it is not possible to use randomization without binding to a specific
->> srcip?
->>
->>> The starting point for the search
->>> is based on hash(srcaddr, dstaddr, dstport, secret).
->>> You are using same source, dest and port so yes it will stay
->>> the same until rekeying occurs.
->>> The secret only changes every 5min same as TCP initial sequence number.
->>
->> If I get it right, even with explicitly selected constant srcaddr port
->> numbers should simply increase? This is not what I observed.
->>
->>
-> When you set srcaddr, it calls bind, and bind does randomization always
-> independent of address.
->
-> This existing behavior may seem odd, but it shouldn't present a security
-> problem.
-
-Right. Thank you very much for the explanation.
-
-Best regards,
- =09=09=09=09Krzysztof Ol=EAdzki
----187430788-714783199-1192703365=:12701--
