@@ -1,30 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Virtual Netdevice
-Date: Wed, 17 Oct 2007 22:34:11 -0700 (PDT)
-Message-ID: <20071017.223411.57445764.davem@davemloft.net>
-References: <13230720.post@talk.nabble.com>
+From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Subject: Re: [PATCH] vortex_up should initialize "err"
+Date: Thu, 18 Oct 2007 08:05:06 +0200
+Message-ID: <20071018060506.GA30544@newton.mathematik.tu-chemnitz.de>
+References: <1192662956.14504.14.camel@dyn9047017100.beaverton.ibm.com> <4716A8B4.5060406@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: ashokrajjb@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Badari Pulavarty <pbadari@us.ibm.com>, netdev@vger.kernel.org,
+	lkml <linux-kernel@vger.kernel.org>, satyam@infradead.org
+To: Jeff Garzik <jeff@garzik.org>, akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34427
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751182AbXJRFeN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 01:34:13 -0400
-In-Reply-To: <13230720.post@talk.nabble.com>
+Received: from john.hrz.tu-chemnitz.de ([134.109.132.2]:54209 "EHLO
+	john.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753730AbXJRGFL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 02:05:11 -0400
+Content-Disposition: inline
+In-Reply-To: <4716A8B4.5060406@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: rajashok <ashokrajjb@gmail.com>
-Date: Wed, 17 Oct 2007 22:10:43 -0700 (PDT)
+On Wed, Oct 17, 2007 at 08:28:36PM -0400, Jeff Garzik wrote:
+> Badari Pulavarty wrote:
+> >Simple compile warning fix. (against 2.6.23-git12)
+> >
+> >Thanks,
+> >Badari
+> >
+> >vortex_up() should initialize 'err' for a successful return.
+> >
+> >drivers/net/3c59x.c: In function `vortex_up':
+> >drivers/net/3c59x.c:1494: warning: `err' might be used uninitialized in 
+> >this function
+> 
+> applied as an obvious bug fix (Steffen added to CC)
+> 
 
-> we are trying to to integrate our ipsec onto linux 2.6 kernel
+Hm, we had already the 3c59x-fix-uninitialized-variable-bug.patch from
+Satyam Sharma in -mm to fix this, but the patch was removed from -mm
+some time ago. Andrew, what happened to this one?
 
-Why not use the already existing 2.6.x kernel IPSEC stack?
-It works quite well.
+However, this issue should be fixed.
 
-And for this reason, it is unlikely you will get much help
-on these mailing lists in your efforts to replace it with
-your own. :-)
+Thanks,
+
+Steffen
