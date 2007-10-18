@@ -1,40 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Consolidate creation of kmem caches with "calculated"
- names
-Date: Wed, 17 Oct 2007 21:27:04 -0700 (PDT)
-Message-ID: <20071017.212704.34759303.davem@davemloft.net>
-References: <4716098A.9000201@openvz.org>
+Subject: Re: [PATCH 1/11] [IPSEC]: Fix pure tunnel modes involving IPv6
+Date: Wed, 17 Oct 2007 21:28:16 -0700 (PDT)
+Message-ID: <20071017.212816.69410859.davem@davemloft.net>
+References: <20071017142940.GA23879@gondor.apana.org.au>
+	<E1Ii9yK-0006Ga-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devel@openvz.org
-To: xemul@openvz.org
+Cc: yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36735
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60275
 	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751315AbXJRE1M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 00:27:12 -0400
-In-Reply-To: <4716098A.9000201@openvz.org>
+	by vger.kernel.org with ESMTP id S1752246AbXJRE2Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 00:28:24 -0400
+In-Reply-To: <E1Ii9yK-0006Ga-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pavel Emelyanov <xemul@openvz.org>
-Date: Wed, 17 Oct 2007 17:09:30 +0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 17 Oct 2007 22:34:08 +0800
 
-> Some places in network (like protocol registration and dccp)
-> generate the kmem cache name with snprintf() to create caches
-> for several protocols with similar names.
+> [IPSEC]: Fix pure tunnel modes involving IPv6
 > 
-> Make the routine that makes this in one place. Possibly, this
-> is better to be put in mm/sl[uoa]b.c, but I haven't found
-> any other places in kernel that require such functionality,
-> so put this code (temporary?) in net/core/util.c
+> I noticed that my recent patch broke 6-on-4 pure IPsec tunnels (the ones
+> that are only used for incompressible IPsec packets).  Subsequent reviews
+> show that I broke 6-on-6 pure tunnels more than three years ago and nobody
+> ever noticed. I suppose every must be testing 6-on-6 IPComp with large
+> pings which are very compressible :)
 > 
-> Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+> This patch fixes both cases.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I don't think we should be putting kmem_*() interfaces in
-a place like net/core/utils.c, please submit that seperately
-to the SLAB and/or SLUB maintainers, and once that it in
-we can add the uses to the networking.
-
-Tanks.
+Applied.
