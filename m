@@ -1,54 +1,60 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PACKET]: Kill unused pg_vec_endpage() function
-Date: Thu, 18 Oct 2007 18:09:45 +0200
-Message-ID: <47178549.3070107@trash.net>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: multicast: bug or "feature"
+Date: Thu, 18 Oct 2007 12:17:12 -0400
+Message-ID: <47178708.2040606@hp.com>
+References: <4716694D.6030508@hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000800050503000609000008"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Brian Haley <brian.haley@hp.com>,
+	David Stevens <dlstevens@us.ibm.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:41358 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755983AbXJRQKP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 12:10:15 -0400
+Received: from atlrel6.hp.com ([156.153.255.205]:42358 "EHLO atlrel6.hp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757062AbXJRQRq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2007 12:17:46 -0400
+In-Reply-To: <4716694D.6030508@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000800050503000609000008
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+Vlad Yasevich wrote:
+> We've been trying to field some questions regarding multicast
+> behavior and one such behavior has stumped us.
+> 
+> I've reproduced the following behavior on 2.6.23.
+> 
+> The application opens 2 sockets.  One socket is the receiver
+> and it simply binds to 0.0.0.0:2000 and joins a multicast group
+> on interface eth0 (for the test we used 224.0.1.3).  The other
+> socket is the sender.  It turns off MULTICAST_LOOP, sets MULTICAST_IF
+> to eth1, and sends a packet to the group that the first socket
+> joined.
+> 
+> We are expecting to receive the data on the receiver socket, but
+> nothing comes back.
+> 
+> Running tcpdump on both interfaces during the test, I see the packet
+> on both interfaces, ie. I see it sent on eth0 and received on eth1 with
+> IP statistics going up appropriately.
+> 
+> Looking at the group memberships, I see the receiving interface as
+> part of the group and IGMP messages were on the wire.
+> 
+> So, before I try to spend time figuring out where the packet went is
+> why, I'd like to know if this is a Linux "feature".
+> 
 
+Ok, so I've traced the failure down to fib_validate_source().
 
---------------000800050503000609000008
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+Because the packet we received was sourced from one of our own
+addresses, we end up finding a RTN_LOCAL route and fail out
+of that function with -EINVAL.
 
-[PACKET]: Kill unused pg_vec_endpage() function
+I can see the reason for this behavior and I think dropping
+in this case is fine.
 
-The conversion to vm_insert_page() left this unused function behind,
-remove it.
+Now, to figure out what IPv6 does different and why it works.
+Seems to me that the two should have the same behavior.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index e11000a..d093650 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1623,11 +1623,6 @@ static struct vm_operations_struct packet_mmap_ops = {
- 	.close =packet_mm_close,
- };
- 
--static inline struct page *pg_vec_endpage(char *one_pg_vec, unsigned int order)
--{
--	return virt_to_page(one_pg_vec + (PAGE_SIZE << order) - 1);
--}
--
- static void free_pg_vec(char **pg_vec, unsigned int order, unsigned int len)
- {
- 	int i;
-
---------------000800050503000609000008--
+-vlad
