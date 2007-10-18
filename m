@@ -1,41 +1,39 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] [net] gianfar: remove orphan struct.
-Date: Wed, 17 Oct 2007 20:21:13 -0400
-Message-ID: <4716A6F9.8020206@garzik.org>
-References: <E1Ii4k6-0000VM-0j@Chamillionaire.breakpoint.cc>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] fs_enet: Update for API changes
+Date: Wed, 17 Oct 2007 20:21:22 -0400
+Message-ID: <4716A702.7050907@pobox.com>
+References: <20071017174243.GA4462@loki.buserror.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Li Yang <leoli@freescale.com>
-To: Sebastian Siewior <netdev@ml.breakpoint.cc>
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: Scott Wood <scottwood@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:49906 "EHLO mail.dvmed.net"
+Received: from srv5.dvmed.net ([207.36.208.214]:49913 "EHLO mail.dvmed.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758512AbXJRAVQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 20:21:16 -0400
-In-Reply-To: <E1Ii4k6-0000VM-0j@Chamillionaire.breakpoint.cc>
+	id S1761149AbXJRAVZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 17 Oct 2007 20:21:25 -0400
+In-Reply-To: <20071017174243.GA4462@loki.buserror.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sebastian Siewior wrote:
-> struct net_device_stats is no longer used in driver's private
-> struct but in struct net_device.
+Scott Wood wrote:
+> This driver was recently broken by several changes for which this
+> driver was not (or was improperly) updated:
 > 
-> Cc: Li Yang <leoli@freescale.com>
-> Signed-off-by: Sebastian Siewior <bigeasy@linutronix.de>
-> ---
->  drivers/net/gianfar.h |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
+> 1. SET_MODULE_OWNER() was removed.
+> 2. netif_napi_add() was only being called when building with
+> the old CPM binding.
+> 3. The received/budget test was backwards.
+> 4. to_net_dev() was wrong -- the device struct embedded in
+> the net_device struct is not the same as the of_platform
+> device in the private struct.
+> 5. napi_disable/napi_enable was being called even when napi
+> was not being used.
 > 
-> diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
-> index c16cc8b..46cd773 100644
-> --- a/drivers/net/gianfar.h
-> +++ b/drivers/net/gianfar.h
-> @@ -749,7 +749,6 @@ struct gfar_private {
->  	uint32_t msg_enable;
->  
->  	/* Network Statistics */
-> -	struct net_device_stats stats;
+> These changes have been fixed, and napi is now on by default.
+> 
+> Signed-off-by: Scott Wood <scottwood@freescale.com>
 
 applied
 
