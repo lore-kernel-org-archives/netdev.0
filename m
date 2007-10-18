@@ -1,55 +1,74 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] ip: justification for local port range robustness
-Date: Thu, 18 Oct 2007 08:30:30 -0700
-Message-ID: <20071018083030.05a2aade@freepuppy.rosehill>
-References: <m3odewh50m.fsf@bandura.englab.brq.redhat.com>
+From: Oleg Nesterov <oleg@tv-sign.ru>
+Subject: Re: [PATCH] flush_work_sync vs. flush_scheduled_work Re: [PATCH] PHYLIB: IRQ event workqueue handling fixes
+Date: Thu, 18 Oct 2007 19:48:19 +0400
+Message-ID: <20071018154819.GA425@tv-sign.ru>
+References: <20071015125301.GC3015@ff.dom.local> <Pine.LNX.4.64N.0710151737250.16262@blysk.ds.pg.gda.pl> <20071016062108.GB1000@ff.dom.local> <Pine.LNX.4.64N.0710161759050.22596@blysk.ds.pg.gda.pl> <20071017085809.GA1658@ff.dom.local> <20071018063157.GA1694@ff.dom.local> <20071018070531.GA2065@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Anton Arapov <aarapov@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Maciej W. Rozycki" <macro@linux-mips.org>,
+	Andy Fleming <afleming@freescale.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.linux-foundation.org ([207.189.120.14]:38319 "EHLO
-	smtp2.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1762434AbXJRPb3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 11:31:29 -0400
-In-Reply-To: <m3odewh50m.fsf@bandura.englab.brq.redhat.com>
+Received: from x346.tv-sign.ru ([89.108.83.215]:49796 "EHLO mail.screens.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757153AbXJRPnw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2007 11:43:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20071018070531.GA2065@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 18 Oct 2007 16:27:37 +0200
-Anton Arapov <aarapov@redhat.com> wrote:
+On 10/18, Jarek Poplawski wrote:
+>
+> +/**
+> + * flush_work_sync - block until a work_struct's callback has terminated
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Hmm...
 
-> Hi!
-> 
->   There is a justifying patch for Stephen's patches. Stephen's patches
-> disallows using a port range of one single port and brakes the meaning
-> of the 'remaining' variable, in some places it has different meaning.
-> My patch gives back the sense of 'remaining' variable. It should mean how
-> many ports are remaining and nothing else. Also my patch allows using
-> a single port.
-> 
->   I sure we must be able to use mentioned port range, this does not
-> restricted by documentation and does not brake current behavior.
-> 
-> usefull links:
-> Patches posted by Stephen Hemminger
->   http://marc.info/?l=linux-netdev&m=119206106218187&w=2
->   http://marc.info/?l=linux-netdev&m=119206109918235&w=2
-> 
-> Andrew Morton's comment
->   http://marc.info/?l=linux-kernel&m=119248225007737&w=2
-> 
-> == Patch:
-> 
-> Justification of the Stephen Hemminger's patches, commit numbers
->   06393009000779b00a558fd2f280882cc7dc2008
->   227b60f5102cda4e4ab792b526a59c8cb20cd9f8
-> 
->   1. Allows using a port range of one single port.
->   2. Gives back sense of 'remaining' variable.
-> 
-> Signed-off-by: Anton Arapov <aarapov@redhat.com>
+> + * Similar to cancel_work_sync() but will only busy wait (without cancel)
+> + * if the work is queued.
 
-Acked-by: Stephen Hemminger <shemminger@linux-foundation.org>
+Yes, it won't block, but will spin in busy-wait loop until all other works
+scheduled before this work are finished. Not good. After that it really
+blocks waiting for this work to complete.
+
+And I am a bit confused. We can't use flush_workqueue() because some of the
+queued work_structs may take rtnl_lock, yes? But in that case we can't use
+the new flush_work_sync() helper as well, no?
+
+If we can't just cancel the work, can't we do something like
+
+	if (cancel_work_sync(w))
+		w->func(w);
+
+instead?
+
+> +void flush_work_sync(struct work_struct *work)
+> +{
+> +	int ret;
+> +
+> +	do {
+> +		ret = work_pending(work);
+> +		wait_on_work(work);
+> +		if (ret)
+> +			cpu_relax();
+> +	} while (ret);
+> +}
+
+If we really the new helper, perhaps we can make it a bit better?
+
+1. Modify insert_work() to take the "struct list_head *at" parameter instead
+   of "int tail". I think this patch will also cleanup the code a bit, and
+   shrink a couple of bytes from .text
+
+2. flush_work_sync() inserts a barrier right after this work and blocks.
+   We still need some retry logic to handle the queueing is in progress
+   of course, but we won't spin waiting for the other works.
+
+What do you think?
+
+Oleg.
+
