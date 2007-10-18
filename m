@@ -1,109 +1,157 @@
-From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH] [TCP]: Remove lost_retrans zero special cases
-Date: Thu, 18 Oct 2007 14:07:42 +0300 (EEST)
-Message-ID: <Pine.LNX.4.64.0710181357370.3767@kivilampi-30.cs.helsinki.fi>
-References: <20071018.125045.90803775.takano@axe-inc.co.jp>
- <Pine.LNX.4.64.0710181214140.3767@kivilampi-30.cs.helsinki.fi>
- <Pine.LNX.4.64.0710181314130.3767@kivilampi-30.cs.helsinki.fi>
- <20071018.195558.103454352.takano@axe-inc.co.jp>
+From: Krzysztof Oledzki <olel@ans.pl>
+Subject: Re: BUG: unable to handle kernel NULL pointer dereference at virtual
+ address 000000b0
+Date: Thu, 18 Oct 2007 13:22:20 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.0710181320170.12701@bizon.gios.gov.pl>
+References: <Pine.LNX.4.64.0710170833071.21430@bizon.gios.gov.pl>
+ <4715B26E.20302@cosmosbay.com> <Pine.LNX.4.64.0710171018470.21430@bizon.gios.gov.pl>
+ <4715E60E.3020401@cosmosbay.com> <Pine.LNX.4.64.0710171250480.21430@bizon.gios.gov.pl>
+ <47161415.1060808@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1454484492-1192705662=:3767"
-Cc: y-kodama@aist.go.jp, Netdev <netdev@vger.kernel.org>
-To: TAKANO Ryousei <takano@axe-inc.co.jp>,
-	David Miller <davem@davemloft.net>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-135843367-1192706540=:12701"
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:51233 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754648AbXJRLHp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 07:07:45 -0400
-In-Reply-To: <20071018.195558.103454352.takano@axe-inc.co.jp>
+Received: from bizon.gios.gov.pl ([212.244.124.8]:58563 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756050AbXJRLWu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 07:22:50 -0400
+In-Reply-To: <47161415.1060808@cosmosbay.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
   This message is in MIME format.  The first part should be readable text,
   while the remaining parts are likely unreadable without MIME-aware tools.
 
----696243703-1454484492-1192705662=:3767
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+---187430788-135843367-1192706540=:12701
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
-On Thu, 18 Oct 2007, TAKANO Ryousei wrote:
 
-> From: "Ilpo Järvinen" <ilpo.jarvinen@helsinki.fi>
-> Subject: [PATCH] [TCP]: Remove lost_retrans zero special cases
-> Date: Thu, 18 Oct 2007 13:17:24 +0300 (EEST)
-> 
-> > [PATCH] [TCP]: Remove lost_retrans zero seqno special cases
-> > 
-> > Both high-sack detection and new lowest seq variables have
-> > unnecessary zero special case which are now removed by setting
-> > safe initial seqnos.
-> > 
-> > This also fixes problem which caused zero received_upto being
-> > passed to tcp_mark_lost_retrans which confused after relations
-> > within the marker loop causing incorrect TCPCB_SACKED_RETRANS
-> > clearing. The problem was noticed because of a performance
-> > report from TAKANO Ryousei <takano@axe-inc.co.jp>.
-> > 
-> > Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-> > ---
-> >  net/ipv4/tcp_input.c |    6 +++---
-> >  1 files changed, 3 insertions(+), 3 deletions(-)
-> > 
-> > diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> > index 0f00966..9288220 100644
-> > --- a/net/ipv4/tcp_input.c
-> > +++ b/net/ipv4/tcp_input.c
-> > @@ -1121,7 +1121,7 @@ static int tcp_mark_lost_retrans(struct sock *sk, u32 received_upto)
-> >  	struct sk_buff *skb;
-> >  	int flag = 0;
-> >  	int cnt = 0;
-> > -	u32 new_low_seq = 0;
-> > +	u32 new_low_seq = tp->snd_nxt;
-> >  
-> >  	tcp_for_write_queue(skb, sk) {
-> >  		u32 ack_seq = TCP_SKB_CB(skb)->ack_seq;
-> > @@ -1153,7 +1153,7 @@ static int tcp_mark_lost_retrans(struct sock *sk, u32 received_upto)
-> >  				NET_INC_STATS_BH(LINUX_MIB_TCPLOSTRETRANSMIT);
-> >  			}
-> >  		} else {
-> > -			if (!new_low_seq || before(ack_seq, new_low_seq))
-> > +			if (before(ack_seq, new_low_seq))
-> >  				new_low_seq = ack_seq;
-> >  			cnt += tcp_skb_pcount(skb);
-> >  		}
-> > @@ -1242,7 +1242,7 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
-> >  	int num_sacks = (ptr[1] - TCPOLEN_SACK_BASE)>>3;
-> >  	int reord = tp->packets_out;
-> >  	int prior_fackets;
-> > -	u32 highest_sack_end_seq = 0;
-> > +	u32 highest_sack_end_seq = tp->lost_retrans_low;
-> >  	int flag = 0;
-> >  	int found_dup_sack = 0;
-> >  	int cached_fack_count;
-> > -- 
-> > 1.5.0.6
-> 
-> Thanks Ilpo! This patch solves the problem, as shown below:
-> 
-> iteration :001 .... done. T = 17.365902 BW = 460.672876 Mbps
-> iteration :002 .... done. T = 16.456351 BW = 486.134501 Mbps
-> iteration :003 .... done. T = 16.658353 BW = 480.239550 Mbps
-> iteration :004 .... done. T = 16.468834 BW = 485.766026 Mbps
-> iteration :005 .... done. T = 16.596055 BW = 482.042268 Mbps
-> 
-> Acked-by: Ryousei Takano <takano-ryousei@aist.go.jp>
 
-Thanks for quick testing, it was actually quite bad bug. I first
-thought that it's just performance issue and therefore suspected
-that the problem is elsewhere until I realized that the zero can
-be used as seqno.
+On Wed, 17 Oct 2007, Eric Dumazet wrote:
 
-Dave, please put this one to net-2.6 and forget the other patch with
-title "[TCP]: Add highest_sack_end_seq check back...", it would just
-add another (wrong) zero special case back (they won't conflict with
-each other, so being this verbose here) :-).
+> Krzysztof Oledzki a =E9crit :
+>>=20
+>>=20
+>> On Wed, 17 Oct 2007, Eric Dumazet wrote:
+>>=20
+>>> Krzysztof Oledzki a =E9crit :
+>>>>=20
+>>>>=20
+>>>> On Wed, 17 Oct 2007, Eric Dumazet wrote:
+>>>>=20
+>>>>> Krzysztof Oledzki a =E9crit :
+>>>>>> Hello,
+>>>>>>=20
+>>>>>> Today I found in my logs:
+>>>>>>=20
+>>>>>> BUG: unable to handle kernel NULL pointer dereference at virtual=20
+>>>>>> address 000000b0
+>>>>>>  printing eip:
+>>>>>> 78395f65
+>>>>>> *pde =3D 00000000
+>>>>>> Oops: 0000 [#1]
+>>>>>> PREEMPT SMP
+>>>>>> CPU:    0
+>>>>>> EIP:    0060:[<78395f65>]    Not tainted VLI
+>>>>>> EFLAGS: 00210286   (2.6.22.9 #1)
+>>>>>> EIP is at __ip_route_output_key+0x412/0x722
+>>>>>> eax: 80000000   ebx: 00000000   ecx: 5dd2b1c3   edx: 00000000
+>>>>>> esi: 00000000   edi: d44c7e30   ebp: ec8c4980   esp: d44c7ddc
+>>>>>> ds: 007b   es: 007b   fs: 00d8  gs: 0033  ss: 0068
+>>>>>> Process smtpd (pid: 12479, ti=3Dd44c6000 task=3D9e759510 task.ti=3Dd=
+44c6000)
+>>>>>> Stack: d44c7e7c d44c7e7c d44c7eb8 00000000 d44c7e7c 00000000 0000000=
+0=20
+>>>>>> 00000005
+>>>>>>        00000000 ffffffff 5dd2b1c3 00000000 00000000 00000000 0000000=
+0=20
+>>>>>> 00000000
+>>>>>>        00000000 00000000 00000000 00000000 00000000 00030000 0000000=
+0=20
+>>>>>> d44c7e7c
+>>>>>> Call Trace:
+>>>>>>  [<78396280>] ip_route_output_flow+0xb/0x3e
+>>>>>>  [<783b2b29>] ip4_datagram_connect+0x1c9/0x308
+>>>>>>  [<783ba70a>] inet_dgram_connect+0x45/0x4e
+>>>>>>  [<7837135e>] sys_connect+0x72/0x9c
+>>>>>>  [<78371607>] sock_map_fd+0x41/0x4a
+>>>>>>  [<7840d1b1>] _spin_lock+0x33/0x3e
+>>>>>>  [<7840d623>] _spin_unlock+0x25/0x3b
+>>>>>>  [<78371607>] sock_map_fd+0x41/0x4a
+>>>>>>  [<78372792>] sys_socketcall+0x8f/0x242
+>>>>>>  [<7813e99c>] trace_hardirqs_on+0x122/0x14c
+>>>>>>  [<78103dc6>] sysenter_past_esp+0x8f/0x99
+>>>>>>  [<78103d96>] sysenter_past_esp+0x5f/0x99
+>>>>>>  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+>>>>>> Code: fa e0 00 00 00 75 07 c6 44 24 56 05 eb 14 81 fa f0 00 00 00 0f=
+ 84=20
+>>>>>> e1 02 00 00 84 c0 0f 84 d9 02 00 00 8b 44 24 0c 0d 00 00 00 80 <f6> =
+86=20
+>>>>>> b0 00 00 00 08 0f 44 44 24 0c 89 44 24 0c b8 01 00 00 00
+>>>>>> EIP: [<78395f65>] __ip_route_output_key+0x412/0x722 SS:ESP=20
+>>>>>> 0068:d44c7ddc
+>>>>>>=20
+>>>>>> Shortly before it there was:
+>>>>>> Oct 17 07:17:55 cougar postfix/master[3400]: warning: process=20
+>>>>>> /usr/lib/postfix/smtpd pid 12479 killed by signal 11
+>>>>>>=20
+>>>>>> Best regards,
+>>>>>>=20
+>>>>>>
+>>>>>>                 Krzysztof Ol=EAdzki
+>>>>>=20
+>>>>> Hello Krzysztof
+>>>>>=20
+>>>>> Could you give us some details about this ? kernel version at least.
+>>>>=20
+>>>> Yes, I was little to hurry sending this bug report. Anyway, it is=20
+>>>> 2.6.22.9 like mentioned in the oops: EFLAGS: 00210286 (2.6.22.9 #1)
+>>>>=20
+>>>>> (you could for example take a look at REPORTING-BUGS, or run
+>>>>> scripts/ver_linux)
+>>>>=20
+>>>> Linux cougar 2.6.22.9 #1 SMP PREEMPT Wed Oct 3 10:24:19 CEST 2007 i686=
+=20
+>>>> Intel(R) Pentium(R) D CPU 3.20GHz GenuineIntel GNU/Linux
+>>>>=20
+>>>> Gnu C                  4.1.2
+>>>> Gnu make               3.81
+>>>> binutils               2.17
+>>>> util-linux             2.12r
+>>>> mount                  2.12r
+>>>> module-init-tools      3.2.2
+>>>> e2fsprogs              1.40.2
+>>>> Linux C Library        > libc.2.5
+>>>> Dynamic linker (ldd)   2.5
+>>>> Procps                 3.2.7
+>>>> Net-tools              1.60
+>>>> Kbd                    1.12
+>>>> Sh-utils               6.9
+>>>>=20
+>>>=20
+>>> Yes indeed, version was on your initial report.
+>>>=20
+>>> It seems this kernel is unusual (VMSPLIT_2G_OPT instead of stdandard=20
+>>> VMSPLIT_3G), any chance you provide full .config ?
+>>=20
+>> Attached, both .config and dmesg.
+>>=20
+>
+> Hum, you are using IPT_TPROXY thing, which is not in linux-2.6.22.9
 
--- 
- i.
----696243703-1454484492-1192705662=:3767--
+It is only compiled in, not used at the moment.
+
+> I have no idea how this can taint the kernel, since you provide no=20
+> information.
+>
+> Try to reproduce the problem with a genuine kernel.
+
+OK. Thank you.
+
+Best regards,
+
+ =09=09=09=09Krzysztof Ol=EAdzki
+---187430788-135843367-1192706540=:12701--
