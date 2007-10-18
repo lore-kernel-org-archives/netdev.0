@@ -1,29 +1,48 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/2] r8169 - trivial fixes - add KERN_DEBUG to dprintk
-Date: Thu, 18 Oct 2007 21:09:26 +0200
-Message-ID: <20071018190926.GB8594@electric-eye.fr.zoreil.com>
-References: <1192734097.23980.37.camel@localhost>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH v3 0/4] FEC - fast ethernet controller for mpc52xx
+Date: Thu, 18 Oct 2007 15:14:35 -0400
+Message-ID: <4717B09B.3060800@pobox.com>
+References: <20071014075511.GC3000@nd47.coderock.org>	 <4713BA1C.2050604@pobox.com> <fa686aa40710180715u23d81adfy83ff65837725fb80@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Domen Puncer <domen.puncer@telargo.com>, galak@kernel.crashing.org,
+	linuxppc-dev@ozlabs.org, tnt@246tnt.com, netdev@vger.kernel.org
+To: Grant Likely <grant.likely@secretlab.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from electric-eye.fr.zoreil.com ([213.41.134.224]:58148 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753991AbXJRTNW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 15:13:22 -0400
-Content-Disposition: inline
-In-Reply-To: <1192734097.23980.37.camel@localhost>
+Received: from srv5.dvmed.net ([207.36.208.214]:58112 "EHLO mail.dvmed.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758866AbXJRTOn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2007 15:14:43 -0400
+In-Reply-To: <fa686aa40710180715u23d81adfy83ff65837725fb80@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Joe Perches <joe@perches.com> :
-> Prefix dprintk with KERN_DEBUG
-> Fix a bug with existing use of dprintk (PFX KERN_INFO PFX)
+Grant Likely wrote:
+> On 10/15/07, Jeff Garzik <jgarzik@pobox.com> wrote:
+>> Domen Puncer wrote:
+>>> Hello!
+>>>
+>>> If there are no objections, I would like to get this merged
+>>> when bestcomm goes in (any time now?).
+>>>
+>>> It's split into four parts:
+>>> 1 - device tree
+>>> 2 - small bestcomm change
+>>> 3 - the actual driver
+>>> 4 - phy part of the driver
+>> patches #3 and #4 need to be combined together.
+>>
+>> Are the arch people OK with patches #1 and #2?
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Jeff,
+> 
+> The bestcomm patches and patch 1 & 2 from this series are now in
+> Linus' tree.  That clears the way for the FEC driver when Domen
+> reposts it.  (In other words; there is nothing left in arch land
+> blocking this driver)
+> 
 
-Ok, I will add #1 and #2 to the next submission to Jeff.
+except a resend combining patches 3 and 4 as requested :)
 
--- 
-Ueimor
+
