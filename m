@@ -1,312 +1,31 @@
 From: Laszlo Attila Toth <panther@balabit.hu>
-Subject: [IPTABLES PATCH] Interface group match
-Date: Thu, 18 Oct 2007 12:15:17 +0200
-Message-ID: <11927025171799-git-send-email-panther@balabit.hu>
+Subject: [PATCH 2/2] Interface group match
+Date: Thu, 18 Oct 2007 12:15:15 +0200
+Message-ID: <11927025171911-git-send-email-panther@balabit.hu>
 References: <11927025171404-git-send-email-panther@balabit.hu>
  <1192702517840-git-send-email-panther@balabit.hu>
- <11927025171911-git-send-email-panther@balabit.hu>
- <11927025171740-git-send-email-panther@balabit.hu>
 Cc: Laszlo Attila Toth <panther@balabit.hu>
 To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <11927025171740-git-send-email-panther@balabit.hu>
+In-Reply-To: <1192702517840-git-send-email-panther@balabit.hu>
+Message-Id: <7336085b0c4f969c323966058b20836a331b65a1.1192695707.git.panther@balabit.hu>
+In-Reply-To: <4e88bea1c0065fada9181e9b668a91c6c3fd8796.1192695706.git.panther@balabit.hu>
+References: <4e88bea1c0065fada9181e9b668a91c6c3fd8796.1192695706.git.panther@balabit.hu>
 In-Reply-To: <ifgroup-20071018-120757-1192702077-panther@balabit.hu>
 References: <ifgroup-20071018-120757-1192702077-panther@balabit.hu>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matching ifgroup value of incoming and/or outgoing interface.
+Interface group values can be checked on both input and output interfaces.
 
 Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
 ---
- extensions/Makefile                  |    2 +-
- extensions/libip6t_ifgroup.man       |   36 +++++++
- extensions/libipt_ifgroup.man        |   36 +++++++
- extensions/libxt_ifgroup.c           |  178 ++++++++++++++++++++++++++++++++++
- include/linux/netfilter/xt_ifgroup.h |   18 ++++
- 5 files changed, 269 insertions(+), 1 deletions(-)
+ include/linux/netfilter/xt_ifgroup.h |   18 ++++++
+ net/netfilter/Kconfig                |   16 +++++
+ net/netfilter/Makefile               |    1 +
+ net/netfilter/xt_ifgroup.c           |  108 ++++++++++++++++++++++++++++++++++
+ 4 files changed, 143 insertions(+), 0 deletions(-)
 
-diff --git a/extensions/Makefile b/extensions/Makefile
-index 5af234e..938cf0b 100644
---- a/extensions/Makefile
-+++ b/extensions/Makefile
-@@ -7,7 +7,7 @@
- #
- PF_EXT_SLIB:=ah addrtype conntrack ecn icmp iprange owner policy realm recent tos ttl unclean CLUSTERIP DNAT ECN LOG MASQUERADE MIRROR NETMAP REDIRECT REJECT SAME SNAT TOS TTL ULOG
- PF6_EXT_SLIB:=ah dst eui64 frag hbh hl icmp6 ipv6header mh owner policy rt HL LOG REJECT
--PFX_EXT_SLIB:=connbytes connmark connlimit comment dccp dscp esp hashlimit helper length limit mac mark multiport physdev pkttype quota sctp state statistic standard string tcp tcpmss time u32 udp CLASSIFY CONNMARK DSCP MARK NFLOG NFQUEUE NOTRACK TCPMSS TRACE
-+PFX_EXT_SLIB:=connbytes connmark connlimit comment dccp dscp esp hashlimit helper ifgroup length limit mac mark multiport physdev pkttype quota sctp state statistic standard string tcp tcpmss time u32 udp CLASSIFY CONNMARK DSCP MARK NFLOG NFQUEUE NOTRACK TCPMSS TRACE
- 
- PF_EXT_SELINUX_SLIB:=
- PF6_EXT_SELINUX_SLIB:=
-diff --git a/extensions/libip6t_ifgroup.man b/extensions/libip6t_ifgroup.man
-new file mode 100644
-index 0000000..a96ec91
---- /dev/null
-+++ b/extensions/libip6t_ifgroup.man
-@@ -0,0 +1,36 @@
-+Maches packets on an interface if it is in the same interface group
-+as specified by the
-+.B "--in-ifgroup"
-+or
-+.B "--out-ifgroup"
-+parameter. If a mask is also specified, the masked value of
-+the inteface's group must be equal to the given value of the
-+.B "--in-ifgroup"
-+or
-+.B "--out-ifgroup"
-+parameter to match. This match is available in all tables.
-+.TP
-+.BR "--in-ifgroup \fIgroup[/mask]\fR"
-+This specifies the interface group of input interface and the optional mask.
-+Valid only in the in the
-+.B PREROUTING
-+and
-+.B INPUT
-+and
-+.B FORWARD
-+chains, and user-defined chains which are only called from those
-+chains. 
-+.TP
-+.BR "--out-ifgroup \fIgroup[/mask]\fR"
-+This specifies the interface group of out interface and the optional mask.
-+Valid only in the in the
-+.B FORWARD
-+and
-+.B OUTPUT
-+and
-+.B POSTROUTING
-+chains, and user-defined chains which are only called from those
-+chains. 
-+.RS
-+.PP
-+
-diff --git a/extensions/libipt_ifgroup.man b/extensions/libipt_ifgroup.man
-new file mode 100644
-index 0000000..a96ec91
---- /dev/null
-+++ b/extensions/libipt_ifgroup.man
-@@ -0,0 +1,36 @@
-+Maches packets on an interface if it is in the same interface group
-+as specified by the
-+.B "--in-ifgroup"
-+or
-+.B "--out-ifgroup"
-+parameter. If a mask is also specified, the masked value of
-+the inteface's group must be equal to the given value of the
-+.B "--in-ifgroup"
-+or
-+.B "--out-ifgroup"
-+parameter to match. This match is available in all tables.
-+.TP
-+.BR "--in-ifgroup \fIgroup[/mask]\fR"
-+This specifies the interface group of input interface and the optional mask.
-+Valid only in the in the
-+.B PREROUTING
-+and
-+.B INPUT
-+and
-+.B FORWARD
-+chains, and user-defined chains which are only called from those
-+chains. 
-+.TP
-+.BR "--out-ifgroup \fIgroup[/mask]\fR"
-+This specifies the interface group of out interface and the optional mask.
-+Valid only in the in the
-+.B FORWARD
-+and
-+.B OUTPUT
-+and
-+.B POSTROUTING
-+chains, and user-defined chains which are only called from those
-+chains. 
-+.RS
-+.PP
-+
-diff --git a/extensions/libxt_ifgroup.c b/extensions/libxt_ifgroup.c
-new file mode 100644
-index 0000000..d7f982c
---- /dev/null
-+++ b/extensions/libxt_ifgroup.c
-@@ -0,0 +1,178 @@
-+/* 
-+ * Shared library add-on to iptables to match 
-+ * packets by the incoming interface group.
-+ *
-+ * Balazs Scheidler <bazsi@balabit.hu>
-+ */
-+#include <stdio.h>
-+#include <netdb.h>
-+#include <string.h>
-+#include <stdlib.h>
-+#include <getopt.h>
-+#include <xtables.h>
-+#include <linux/netfilter/xt_ifgroup.h>
-+
-+static void
-+ifgroup_help(void)
-+{
-+	printf(
-+"ifgroup v%s options:\n"
-+"  --in-ifgroup  [!] group[/mask]  incoming interface group and its mask\n"
-+"  --out-ifgroup [!] group[/mask]  outgoing interface group and its mask\n"
-+"\n", IPTABLES_VERSION);
-+}
-+
-+static struct option opts[] = {
-+	{"in-ifgroup", 1, 0, '1'},
-+	{"out-ifgroup", 1, 0, '2'},
-+	{ }
-+};
-+
-+#define PARAM_MATCH_IN   0x01
-+#define PARAM_MATCH_OUT  0x02
-+
-+static int
-+ifgroup_parse(int c, char **argv, int invert, unsigned int *flags,
-+      const void *entry, struct xt_entry_match **match)
-+{
-+	struct xt_ifgroup_info *info = (struct xt_ifgroup_info *) (*match)->data;
-+	char *end;
-+	
-+	switch (c)
-+	{
-+		case '1':
-+			if (*flags & PARAM_MATCH_IN)
-+				exit_error(PARAMETER_PROBLEM,
-+					  "ifgroup match: Can't specify --in-ifgroup twice");
-+											         
-+			check_inverse(optarg, &invert, &optind, 0);
-+			
-+			info->in_group = strtoul(optarg, &end, 0);
-+			info->in_mask = 0xffffffffUL;
-+			
-+			if (*end == '/')
-+				info->in_mask = strtoul(end+1, &end, 0);
-+
-+			if (*end != '\0' || end == optarg)
-+				exit_error(PARAMETER_PROBLEM, "ifgroup match: Bad ifgroup value `%s'", optarg);
-+			
-+			if (invert)
-+				info->flags |= XT_IFGROUP_INVERT_IN;
-+
-+			*flags |= PARAM_MATCH_IN;
-+			info->flags |= XT_IFGROUP_MATCH_IN;			
-+			break;
-+		case '2':
-+			if (*flags & PARAM_MATCH_OUT)
-+				exit_error(PARAMETER_PROBLEM,
-+					  "ifgroup match: Can't specify --out-ifgroup twice");
-+											         
-+			check_inverse(optarg, &invert, &optind, 0);
-+			
-+			info->out_group = strtoul(optarg, &end, 0);
-+			info->out_mask = 0xffffffffUL;
-+			
-+			if (*end == '/')
-+				info->out_mask = strtoul(end+1, &end, 0);
-+
-+			if (*end != '\0' || end == optarg)
-+				exit_error(PARAMETER_PROBLEM, "ifgroup match: Bad ifgroup value `%s'", optarg);
-+			
-+			if (invert)
-+				info->flags |= XT_IFGROUP_INVERT_OUT;
-+
-+			*flags |= PARAM_MATCH_OUT;
-+			info->flags |= XT_IFGROUP_MATCH_OUT;			
-+			break;
-+		default: 
-+			return 0;
-+	}
-+
-+	return 1;
-+}
-+
-+static void
-+ifgroup_final_check(unsigned int flags)
-+{
-+	if (!flags)
-+		exit_error(PARAMETER_PROBLEM, "You must specify `--in-ifgroup' or `--out-ifgroup'");
-+}
-+
-+static void
-+ifgroup_print_value_in(struct xt_ifgroup_info *info)
-+{
-+	printf("0x%x/0x%x ", info->in_group, info->in_mask);
-+}
-+
-+static void
-+ifgroup_print_value_out(struct xt_ifgroup_info *info)
-+{
-+	printf("0x%x/0x%x ", info->out_group, info->out_mask);
-+}
-+
-+static void
-+ifgroup_print(const void *ip, const struct xt_entry_match *match, int numeric)
-+{
-+	struct xt_ifgroup_info *info = (struct xt_ifgroup_info *) match->data;
-+	
-+	printf("ifgroup ");
-+	
-+	if (info->flags & XT_IFGROUP_MATCH_IN) {
-+		printf("in %s", info->flags & XT_IFGROUP_INVERT_IN ? "! " : "");
-+		ifgroup_print_value_in(info);
-+	}
-+	if (info->flags & XT_IFGROUP_MATCH_OUT) {
-+		printf("out %s", info->flags & XT_IFGROUP_INVERT_OUT ? "! " : "");
-+		ifgroup_print_value_out(info);
-+	}
-+}
-+
-+static void
-+ifgroup_save(const void *ip, const struct xt_entry_match *match)
-+{
-+	struct xt_ifgroup_info *info = (struct xt_ifgroup_info *) match->data;
-+	
-+	if (info->flags & XT_IFGROUP_MATCH_IN) {
-+		printf("--in-ifgroup %s", info->flags & XT_IFGROUP_INVERT_IN ? "! " : "");
-+		ifgroup_print_value_in(info);
-+	}
-+	if (info->flags & XT_IFGROUP_MATCH_OUT) {
-+		printf("--out-ifgroup %s", info->flags & XT_IFGROUP_INVERT_OUT ? "! " : "");
-+		ifgroup_print_value_out(info);
-+	}
-+}
-+
-+static struct xtables_match ifgroup_match = {
-+	.family		= AF_INET,
-+	.name		= "ifgroup",
-+	.version	= IPTABLES_VERSION,
-+	.size		= XT_ALIGN(sizeof(struct xt_ifgroup_info)),
-+	.userspacesize	= XT_ALIGN(sizeof(struct xt_ifgroup_info)),
-+	.help		= ifgroup_help,
-+	.parse		= ifgroup_parse, 
-+	.final_check	= ifgroup_final_check, 
-+	.print		= ifgroup_print,
-+	.save		= ifgroup_save, 
-+	.extra_opts	= opts
-+};
-+
-+static struct xtables_match ifgroup_match6 = {
-+	.family		= AF_INET6,
-+	.name		= "ifgroup",
-+	.version	= IPTABLES_VERSION,
-+	.size		= XT_ALIGN(sizeof(struct xt_ifgroup_info)),
-+	.userspacesize	= XT_ALIGN(sizeof(struct xt_ifgroup_info)),
-+	.help		= ifgroup_help,
-+	.parse		= ifgroup_parse, 
-+	.final_check	= ifgroup_final_check, 
-+	.print		= ifgroup_print,
-+	.save		= ifgroup_save, 
-+	.extra_opts	= opts
-+};
-+
-+void _init(void)
-+{
-+	xtables_register_match(&ifgroup_match);
-+	xtables_register_match(&ifgroup_match6);
-+}
-+
 diff --git a/include/linux/netfilter/xt_ifgroup.h b/include/linux/netfilter/xt_ifgroup.h
 new file mode 100644
 index 0000000..9ac75de
@@ -331,6 +50,156 @@ index 0000000..9ac75de
 +
 +#endif /*_XT_IFGROUP_H*/
 +
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 3599770..0864e19 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -597,6 +597,22 @@ config NETFILTER_XT_MATCH_QUOTA
+ 	  If you want to compile it as a module, say M here and read
+ 	  <file:Documentation/kbuild/modules.txt>.  If unsure, say `N'.
+ 
++config NETFILTER_XT_MATCH_IFGROUP
++	tristate '"ifgroup" interface group match support'
++	depends on NETFILTER_XTABLES
++	help
++	  Interface group matching allows you to match a packet by
++	  its incoming interface "group", settable using ip link set
++	  group
++
++	  Typical usage is to assign dynamic interfaces to a group
++	  when they come up using "ip link set group" and then match
++	  incoming packets with a rule like this:
++
++	    iptables -A INPUT -m ifgroup --if-group openvpn-rw1 -j LOG
++
++	  To compile it as a module, choose M here.  If unsure, say N.
++
+ config NETFILTER_XT_MATCH_REALM
+ 	tristate  '"realm" match support'
+ 	depends on NETFILTER_XTABLES
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 0c054bf..da9ab07 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -77,3 +77,4 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_TCPMSS) += xt_tcpmss.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_PHYSDEV) += xt_physdev.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_U32) += xt_u32.o
+ obj-$(CONFIG_NETFILTER_XT_MATCH_HASHLIMIT) += xt_hashlimit.o
++obj-$(CONFIG_NETFILTER_XT_MATCH_IFGROUP) += xt_ifgroup.o
+diff --git a/net/netfilter/xt_ifgroup.c b/net/netfilter/xt_ifgroup.c
+new file mode 100644
+index 0000000..07c3acc
+--- /dev/null
++++ b/net/netfilter/xt_ifgroup.c
+@@ -0,0 +1,108 @@
++/*
++ * An x_tables match module to match interface groups
++ *
++ * (C) 2006,2007 Balazs Scheidler <bazsi@balabit.hu>,
++ *   Laszlo Attila Toth <panther@balabit.hu>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/if_ether.h>
++#include <linux/if_packet.h>
++
++#include <linux/netfilter/xt_ifgroup.h>
++#include <linux/netfilter/x_tables.h>
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Laszlo Attila Toth <panther@balabit.hu>");
++MODULE_DESCRIPTION("Xtables interface group matching module");
++MODULE_ALIAS("ipt_ifgroup");
++MODULE_ALIAS("ip6t_ifgroup");
++
++static bool ifgroup_match(const struct sk_buff *skb,
++			  const struct net_device *in,
++			  const struct net_device *out,
++			  const struct xt_match *match,
++			  const void *matchinfo,
++			  int offset,
++			  unsigned int protoff,
++			  bool *hotdrop)
++{
++#define FLAG_IS_SET(a,b)  ((a & b) == b)
++#define MATCH_IN  (((in->ifgroup & info->in_mask) == info->in_group) ^ FLAG_IS_SET(info->flags, XT_IFGROUP_INVERT_IN))
++#define MATCH_OUT (((out->ifgroup & info->out_mask) == info->out_group) ^ FLAG_IS_SET(info->flags, XT_IFGROUP_INVERT_OUT))
++
++	const struct xt_ifgroup_info *info = matchinfo;
++	bool verdict = false;
++	
++	if ((info->flags & XT_IFGROUP_MATCH_IN) && (info->flags & XT_IFGROUP_MATCH_OUT))
++		verdict = MATCH_IN && MATCH_OUT;
++	else if (info->flags & XT_IFGROUP_MATCH_IN)
++		verdict = MATCH_IN;
++	else if (info->flags & XT_IFGROUP_MATCH_OUT)
++		verdict = MATCH_OUT;
++	return verdict;
++}
++
++static bool ifgroup_checkentry(const char *tablename, const void *ip_void,
++			       const struct xt_match *match,
++			       void *matchinfo, unsigned int hook_mask)
++{
++	struct xt_ifgroup_info *info = matchinfo;
++
++	if (!(info->flags & (XT_IFGROUP_MATCH_IN|XT_IFGROUP_MATCH_OUT))) {
++		printk(KERN_ERR "xt_ifgroup: neither incoming nor "
++				"outgoing device selected\n");
++		return false;
++	}
++	if (hook_mask & (1 << NF_IP_PRE_ROUTING | 1 << NF_IP_LOCAL_IN)
++	    && info->flags & XT_IFGROUP_MATCH_OUT) {
++		printk(KERN_ERR "xt_ifgroup: output device not valid in "
++				"PRE_ROUTING and INPUT\n");
++		return false;
++	}
++	if (hook_mask & (1 << NF_IP_POST_ROUTING | 1 << NF_IP_LOCAL_OUT)
++	    && info->flags & XT_IFGROUP_MATCH_IN) {
++		printk(KERN_ERR "xt_ifgroup: input device not valid in "
++				"POST_ROUTING and OUTPUT\n");
++		return false;
++	}
++	return true;
++}
++
++static struct xt_match xt_ifgroup_match[] __read_mostly  = {
++        {
++		.name		= "ifgroup",
++		.match		= ifgroup_match,
++		.checkentry	= ifgroup_checkentry,
++		.matchsize	= sizeof(struct xt_ifgroup_info),
++		.family		= AF_INET,
++		.me		= THIS_MODULE,
++	
++	},
++	{
++		.name		= "ifgroup",
++		.match		= ifgroup_match,
++		.checkentry	= ifgroup_checkentry,
++		.matchsize	= sizeof(struct xt_ifgroup_info),
++		.family		= AF_INET6,
++		.me		= THIS_MODULE,
++	},
++};
++
++static int __init xt_ifgroup_init(void)
++{
++	return xt_register_matches(xt_ifgroup_match, ARRAY_SIZE(xt_ifgroup_match));
++}
++
++static void __exit xt_ifgroup_fini(void)
++{
++	xt_unregister_matches(xt_ifgroup_match, ARRAY_SIZE(xt_ifgroup_match));
++}
++
++module_init(xt_ifgroup_init);
++module_exit(xt_ifgroup_fini);
 -- 
 1.5.2.5
 
