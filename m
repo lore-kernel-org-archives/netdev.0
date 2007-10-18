@@ -1,54 +1,37 @@
-From: Laszlo Attila Toth <panther@balabit.hu>
-Subject: Re: [PATCH 0/2] Interface groups, round two
-Date: Thu, 18 Oct 2007 13:34:27 +0200
-Message-ID: <471744C3.3000801@balabit.hu>
-References: <11927025171404-git-send-email-panther@balabit.hu> <47173354.9060301@trash.net>
-Reply-To: panther@balabit.hu
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: Re: [PATCH] PHYLIB: IRQ event workqueue handling fixes
+Date: Thu, 18 Oct 2007 12:37:33 +0100 (BST)
+Message-ID: <Pine.LNX.4.64N.0710181231350.4701@blysk.ds.pg.gda.pl>
+References: <20071015125301.GC3015@ff.dom.local>
+ <Pine.LNX.4.64N.0710151737250.16262@blysk.ds.pg.gda.pl> <20071016062108.GB1000@ff.dom.local>
+ <Pine.LNX.4.64N.0710161759050.22596@blysk.ds.pg.gda.pl> <20071017085809.GA1658@ff.dom.local>
+ <20071018063157.GA1694@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andy Fleming <afleming@freescale.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jarek Poplawski <jarkao2@o2.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.balabit.hu ([212.92.18.33]:45023 "EHLO lists.balabit.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755815AbXJRLec (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Oct 2007 07:34:32 -0400
-In-Reply-To: <47173354.9060301@trash.net>
+Received: from cerber.ds.pg.gda.pl ([153.19.208.18]:44830 "EHLO
+	cerber.ds.pg.gda.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755974AbXJRLhl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 07:37:41 -0400
+In-Reply-To: <20071018063157.GA1694@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy =EDrta:
-> Laszlo Attila Toth wrote:
->> Hello,
->>
->> Here is the new version of ifgroup patches.
->>
->> The interface group value is u_int32_t in net_device which should be=
-=20
->> enough.
->> Previously it was an int.
->>
->> Usage:
->>    ip link set eth0 group 4
->> but currently it cannot be unset, only changed to another value.
->=20
->=20
-> The only reason why it can't be set to zero again seems to
-> be this part from the iproute patch:
->=20
-> +            if (rtnl_ifgroup_a2n(&group, *argv) || group =3D=3D 0)
->=20
-> Why don't you allow a value of zero?
->=20
+On Thu, 18 Oct 2007, Jarek Poplawski wrote:
 
-It has historical reason. The original version which didn't use netlink=
-=20
-(at kernel 2.6.17) used zero to indicate that group was not set. You=20
-wrote previously that this part is useless for new kernels. I'll fix=20
-this (with type of "group" variable to unsigned int32 to be consistent=20
-with the kernel part).
+> After rethinking, it looks like this last cancel should be useless.
+> So, if phy_interrupt() schedules only if !PHY_HALTED and phy_change()
+> does enable_irq() with no exeptions, it seems phy_interrupt() even
+> without lock must see PHY_HALTED state before this free_irq() with
+> possible DEBUG_SHIRQ call, then maybe only this safety:
+> 
+> 	WARN_ON(work_pending(&phydev->phy_queue));
 
---=20
-Attila
+ Good point.
+
+  Maciej
