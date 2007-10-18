@@ -1,209 +1,123 @@
-From: Laszlo Attila Toth <panther@balabit.hu>
-Subject: [PATCH 2/2] Interface group match
-Date: Thu, 18 Oct 2007 12:15:15 +0200
-Message-ID: <7336085b0c4f969c323966058b20836a331b65a1.1192695707.git.panther__294.989746953611$1192702579$gmane$org@balabit.hu>
-References: <11927025171404-git-send-email-panther@balabit.hu>
- <1192702517840-git-send-email-panther@balabit.hu>
-Cc: Laszlo Attila Toth <panther@balabit.hu>
-To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+From: "=?ISO-8859-1?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: [PATCH] [TCP]: Remove lost_retrans zero special cases
+Date: Thu, 18 Oct 2007 13:17:24 +0300 (EEST)
+Message-ID: <Pine.LNX.4.64.0710181314130.3767@kivilampi-30.cs.helsinki.fi>
+References: <11921028671668-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <1192102867248-git-send-email-ilpo.jarvinen@helsinki.fi>
+ <20071011.173622.09942622.davem@davemloft.net> <20071018.125045.90803775.takano@axe-inc.co.jp>
+ <Pine.LNX.4.64.0710181214140.3767@kivilampi-30.cs.helsinki.fi>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696243703-1703770056-1192702644=:3767"
+Cc: y-kodama@aist.go.jp, Netdev <netdev@vger.kernel.org>
+To: TAKANO Ryousei <takano@axe-inc.co.jp>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.balabit.hu ([212.92.18.33]:43947 "EHLO lists.balabit.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761028AbXJRKP1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Oct 2007 06:15:27 -0400
-In-Reply-To: <1192702517840-git-send-email-panther@balabit.hu>
-Message-Id: <7336085b0c4f969c323966058b20836a331b65a1.1192695707.git.panther@balabit.hu>
-In-Reply-To: <4e88bea1c0065fada9181e9b668a91c6c3fd8796.1192695706.git.panther@balabit.hu>
-References: <4e88bea1c0065fada9181e9b668a91c6c3fd8796.1192695706.git.panther@balabit.hu>
-In-Reply-To: <ifgroup-20071018-120757-1192702077-panther@balabit.hu>
-References: <ifgroup-20071018-120757-1192702077-panther@balabit.hu>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:40569 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755376AbXJRKRZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 06:17:25 -0400
+In-Reply-To: <Pine.LNX.4.64.0710181214140.3767@kivilampi-30.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Interface group values can be checked on both input and output interfaces.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
+---696243703-1703770056-1192702644=:3767
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: 8BIT
+
+On Thu, 18 Oct 2007, Ilpo Järvinen wrote:
+
+> On Thu, 18 Oct 2007, TAKANO Ryousei wrote:
+> 
+> > From: David Miller <davem@davemloft.net>
+> > Subject: Re: [PATCH 7/7] [TCP]: Limit processing lost_retrans loop to work-to-do cases
+> > Date: Thu, 11 Oct 2007 17:36:22 -0700 (PDT)
+> > 
+> > > From: "Ilpo_Järvinen" <ilpo.jarvinen@helsinki.fi>
+> > > Date: Thu, 11 Oct 2007 14:41:07 +0300
+> > > 
+> > > > This addition of lost_retrans_low to tcp_sock might be
+> > > > unnecessary, it's not clear how often lost_retrans worker is
+> > > > executed when there wasn't work to do.
+> > > > 
+> > > > Cc: TAKANO Ryousei <takano@axe-inc.co.jp>
+> > > > Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+> > > 
+> > > Applied.
+> > 
+> > > +	    after(highest_sack_end_seq, tp->lost_retrans_low) &&
+> >
+> > This limit degrades the performance of my test case described before,
+> 
+> Thanks for testing.... Btw, just noticed that lost_retrans_low addition 
+> patch incorrectly dropped check for highest_sack_end_seq (probably due to 
+> incorrect resolution from my side at some point of development of those 
+> two patches as I added that check later on when realized it's necessary), 
+> patching that below... Since it causes zero received_upto in 
+> tcp_mark_lost_retrans, some RETRANS bits got cleared unintentionally
+> because of that.
+
+...snip...
+
+> --
+> 
+> [PATCH] [TCP]: Add highest_sack_end_seq check back to lost_retrans call
+
+Try this patch instead not on the top of the one I sent earlier (IMHO 
+this is better approach):
+
+--
+[PATCH] [TCP]: Remove lost_retrans zero seqno special cases
+
+Both high-sack detection and new lowest seq variables have
+unnecessary zero special case which are now removed by setting
+safe initial seqnos.
+
+This also fixes problem which caused zero received_upto being
+passed to tcp_mark_lost_retrans which confused after relations
+within the marker loop causing incorrect TCPCB_SACKED_RETRANS
+clearing. The problem was noticed because of a performance
+report from TAKANO Ryousei <takano@axe-inc.co.jp>.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
 ---
- include/linux/netfilter/xt_ifgroup.h |   18 ++++++
- net/netfilter/Kconfig                |   16 +++++
- net/netfilter/Makefile               |    1 +
- net/netfilter/xt_ifgroup.c           |  108 ++++++++++++++++++++++++++++++++++
- 4 files changed, 143 insertions(+), 0 deletions(-)
+ net/ipv4/tcp_input.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/netfilter/xt_ifgroup.h b/include/linux/netfilter/xt_ifgroup.h
-new file mode 100644
-index 0000000..9ac75de
---- /dev/null
-+++ b/include/linux/netfilter/xt_ifgroup.h
-@@ -0,0 +1,18 @@
-+#ifndef _XT_IFGROUP_H
-+#define _XT_IFGROUP_H
-+
-+#define XT_IFGROUP_INVERT_IN	0x01
-+#define XT_IFGROUP_INVERT_OUT	0x02
-+#define XT_IFGROUP_MATCH_IN	0x04
-+#define XT_IFGROUP_MATCH_OUT	0x08		
-+
-+struct xt_ifgroup_info {
-+	u_int32_t in_group;
-+	u_int32_t in_mask;
-+	u_int32_t out_group;
-+	u_int32_t out_mask;
-+	u_int8_t flags;
-+};
-+
-+#endif /*_XT_IFGROUP_H*/
-+
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 3599770..0864e19 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -597,6 +597,22 @@ config NETFILTER_XT_MATCH_QUOTA
- 	  If you want to compile it as a module, say M here and read
- 	  <file:Documentation/kbuild/modules.txt>.  If unsure, say `N'.
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 0f00966..9288220 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1121,7 +1121,7 @@ static int tcp_mark_lost_retrans(struct sock *sk, u32 received_upto)
+ 	struct sk_buff *skb;
+ 	int flag = 0;
+ 	int cnt = 0;
+-	u32 new_low_seq = 0;
++	u32 new_low_seq = tp->snd_nxt;
  
-+config NETFILTER_XT_MATCH_IFGROUP
-+	tristate '"ifgroup" interface group match support'
-+	depends on NETFILTER_XTABLES
-+	help
-+	  Interface group matching allows you to match a packet by
-+	  its incoming interface "group", settable using ip link set
-+	  group
-+
-+	  Typical usage is to assign dynamic interfaces to a group
-+	  when they come up using "ip link set group" and then match
-+	  incoming packets with a rule like this:
-+
-+	    iptables -A INPUT -m ifgroup --if-group openvpn-rw1 -j LOG
-+
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
- config NETFILTER_XT_MATCH_REALM
- 	tristate  '"realm" match support'
- 	depends on NETFILTER_XTABLES
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 0c054bf..da9ab07 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -77,3 +77,4 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_TCPMSS) += xt_tcpmss.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_PHYSDEV) += xt_physdev.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_U32) += xt_u32.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_HASHLIMIT) += xt_hashlimit.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_IFGROUP) += xt_ifgroup.o
-diff --git a/net/netfilter/xt_ifgroup.c b/net/netfilter/xt_ifgroup.c
-new file mode 100644
-index 0000000..07c3acc
---- /dev/null
-+++ b/net/netfilter/xt_ifgroup.c
-@@ -0,0 +1,108 @@
-+/*
-+ * An x_tables match module to match interface groups
-+ *
-+ * (C) 2006,2007 Balazs Scheidler <bazsi@balabit.hu>,
-+ *   Laszlo Attila Toth <panther@balabit.hu>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/if_ether.h>
-+#include <linux/if_packet.h>
-+
-+#include <linux/netfilter/xt_ifgroup.h>
-+#include <linux/netfilter/x_tables.h>
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Laszlo Attila Toth <panther@balabit.hu>");
-+MODULE_DESCRIPTION("Xtables interface group matching module");
-+MODULE_ALIAS("ipt_ifgroup");
-+MODULE_ALIAS("ip6t_ifgroup");
-+
-+static bool ifgroup_match(const struct sk_buff *skb,
-+			  const struct net_device *in,
-+			  const struct net_device *out,
-+			  const struct xt_match *match,
-+			  const void *matchinfo,
-+			  int offset,
-+			  unsigned int protoff,
-+			  bool *hotdrop)
-+{
-+#define FLAG_IS_SET(a,b)  ((a & b) == b)
-+#define MATCH_IN  (((in->ifgroup & info->in_mask) == info->in_group) ^ FLAG_IS_SET(info->flags, XT_IFGROUP_INVERT_IN))
-+#define MATCH_OUT (((out->ifgroup & info->out_mask) == info->out_group) ^ FLAG_IS_SET(info->flags, XT_IFGROUP_INVERT_OUT))
-+
-+	const struct xt_ifgroup_info *info = matchinfo;
-+	bool verdict = false;
-+	
-+	if ((info->flags & XT_IFGROUP_MATCH_IN) && (info->flags & XT_IFGROUP_MATCH_OUT))
-+		verdict = MATCH_IN && MATCH_OUT;
-+	else if (info->flags & XT_IFGROUP_MATCH_IN)
-+		verdict = MATCH_IN;
-+	else if (info->flags & XT_IFGROUP_MATCH_OUT)
-+		verdict = MATCH_OUT;
-+	return verdict;
-+}
-+
-+static bool ifgroup_checkentry(const char *tablename, const void *ip_void,
-+			       const struct xt_match *match,
-+			       void *matchinfo, unsigned int hook_mask)
-+{
-+	struct xt_ifgroup_info *info = matchinfo;
-+
-+	if (!(info->flags & (XT_IFGROUP_MATCH_IN|XT_IFGROUP_MATCH_OUT))) {
-+		printk(KERN_ERR "xt_ifgroup: neither incoming nor "
-+				"outgoing device selected\n");
-+		return false;
-+	}
-+	if (hook_mask & (1 << NF_IP_PRE_ROUTING | 1 << NF_IP_LOCAL_IN)
-+	    && info->flags & XT_IFGROUP_MATCH_OUT) {
-+		printk(KERN_ERR "xt_ifgroup: output device not valid in "
-+				"PRE_ROUTING and INPUT\n");
-+		return false;
-+	}
-+	if (hook_mask & (1 << NF_IP_POST_ROUTING | 1 << NF_IP_LOCAL_OUT)
-+	    && info->flags & XT_IFGROUP_MATCH_IN) {
-+		printk(KERN_ERR "xt_ifgroup: input device not valid in "
-+				"POST_ROUTING and OUTPUT\n");
-+		return false;
-+	}
-+	return true;
-+}
-+
-+static struct xt_match xt_ifgroup_match[] __read_mostly  = {
-+        {
-+		.name		= "ifgroup",
-+		.match		= ifgroup_match,
-+		.checkentry	= ifgroup_checkentry,
-+		.matchsize	= sizeof(struct xt_ifgroup_info),
-+		.family		= AF_INET,
-+		.me		= THIS_MODULE,
-+	
-+	},
-+	{
-+		.name		= "ifgroup",
-+		.match		= ifgroup_match,
-+		.checkentry	= ifgroup_checkentry,
-+		.matchsize	= sizeof(struct xt_ifgroup_info),
-+		.family		= AF_INET6,
-+		.me		= THIS_MODULE,
-+	},
-+};
-+
-+static int __init xt_ifgroup_init(void)
-+{
-+	return xt_register_matches(xt_ifgroup_match, ARRAY_SIZE(xt_ifgroup_match));
-+}
-+
-+static void __exit xt_ifgroup_fini(void)
-+{
-+	xt_unregister_matches(xt_ifgroup_match, ARRAY_SIZE(xt_ifgroup_match));
-+}
-+
-+module_init(xt_ifgroup_init);
-+module_exit(xt_ifgroup_fini);
+ 	tcp_for_write_queue(skb, sk) {
+ 		u32 ack_seq = TCP_SKB_CB(skb)->ack_seq;
+@@ -1153,7 +1153,7 @@ static int tcp_mark_lost_retrans(struct sock *sk, u32 received_upto)
+ 				NET_INC_STATS_BH(LINUX_MIB_TCPLOSTRETRANSMIT);
+ 			}
+ 		} else {
+-			if (!new_low_seq || before(ack_seq, new_low_seq))
++			if (before(ack_seq, new_low_seq))
+ 				new_low_seq = ack_seq;
+ 			cnt += tcp_skb_pcount(skb);
+ 		}
+@@ -1242,7 +1242,7 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
+ 	int num_sacks = (ptr[1] - TCPOLEN_SACK_BASE)>>3;
+ 	int reord = tp->packets_out;
+ 	int prior_fackets;
+-	u32 highest_sack_end_seq = 0;
++	u32 highest_sack_end_seq = tp->lost_retrans_low;
+ 	int flag = 0;
+ 	int found_dup_sack = 0;
+ 	int cached_fack_count;
 -- 
-1.5.2.5
+1.5.0.6
 
+---696243703-1703770056-1192702644=:3767--
