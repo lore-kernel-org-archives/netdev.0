@@ -1,48 +1,58 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH v3 0/4] FEC - fast ethernet controller for mpc52xx
-Date: Thu, 18 Oct 2007 15:14:35 -0400
-Message-ID: <4717B09B.3060800@pobox.com>
-References: <20071014075511.GC3000@nd47.coderock.org>	 <4713BA1C.2050604@pobox.com> <fa686aa40710180715u23d81adfy83ff65837725fb80@mail.gmail.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [0/3] Distributed storage. Mirror algo extension for automatic recovery.
+Date: Thu, 18 Oct 2007 23:17:41 +0400
+Message-ID: <20071018191741.GA848@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Domen Puncer <domen.puncer@telargo.com>, galak@kernel.crashing.org,
-	linuxppc-dev@ozlabs.org, tnt@246tnt.com, netdev@vger.kernel.org
-To: Grant Likely <grant.likely@secretlab.ca>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srv5.dvmed.net ([207.36.208.214]:58112 "EHLO mail.dvmed.net"
+Received: from relay.2ka.mipt.ru ([194.85.82.65]:47682 "EHLO 2ka.mipt.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758866AbXJRTOn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Oct 2007 15:14:43 -0400
-In-Reply-To: <fa686aa40710180715u23d81adfy83ff65837725fb80@mail.gmail.com>
+	id S1756833AbXJRTRj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2007 15:17:39 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Grant Likely wrote:
-> On 10/15/07, Jeff Garzik <jgarzik@pobox.com> wrote:
->> Domen Puncer wrote:
->>> Hello!
->>>
->>> If there are no objections, I would like to get this merged
->>> when bestcomm goes in (any time now?).
->>>
->>> It's split into four parts:
->>> 1 - device tree
->>> 2 - small bestcomm change
->>> 3 - the actual driver
->>> 4 - phy part of the driver
->> patches #3 and #4 need to be combined together.
->>
->> Are the arch people OK with patches #1 and #2?
-> 
-> Jeff,
-> 
-> The bestcomm patches and patch 1 & 2 from this series are now in
-> Linus' tree.  That clears the way for the FEC driver when Domen
-> reposts it.  (In other words; there is nothing left in arch land
-> blocking this driver)
-> 
+Hi.
 
-except a resend combining patches 3 and 4 as requested :)
+I'm pleased to announce sixth release of the distributed storage
+subsystem, which allows to form a storage on top of remote and local
+nodes, which in turn can be exported to another storage as a node to
+form tree-like storages.
 
+This release includes mirroring algorithm extension, which allows to
+store 'age' of the given node on the underlying media.
 
+In this case, if failed node gets new media, which does not contain 
+correct 'age' (unique id assigned to the whole storage during 
+initialization time), the whole node will be marked as dirty and
+eventually resynced.
+
+This allows to have completely transparent failure recovery - failed
+node can be just turned off, its hardware fixed and then turned on. DST
+core will detect connection reset and automatically reconnect when node
+is ready and resync if needed without any special administrator's steps.
+
+This patchset has been split into 4 parts:
+0 - this introduction
+1 - core files
+2 - network state machine
+3 - documentation and algorithms
+
+Hope they all will find its way into mail lists.
+
+Further TODO list includes:
+* new redundancy algorithm (complex, low priority)
+* some thoughts about distributed filesystem tightly connected to DST
+
+Thank you.
+
+Homepage:
+http://tservice.net.ru/~s0mbre/old/?section=projects&item=dst
+
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+
+-- 
+	Evgeniy Polyakov
