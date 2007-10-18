@@ -1,74 +1,47 @@
-From: Oleg Nesterov <oleg@tv-sign.ru>
-Subject: Re: [PATCH] flush_work_sync vs. flush_scheduled_work Re: [PATCH] PHYLIB: IRQ event workqueue handling fixes
-Date: Thu, 18 Oct 2007 19:48:19 +0400
-Message-ID: <20071018154819.GA425@tv-sign.ru>
-References: <20071015125301.GC3015@ff.dom.local> <Pine.LNX.4.64N.0710151737250.16262@blysk.ds.pg.gda.pl> <20071016062108.GB1000@ff.dom.local> <Pine.LNX.4.64N.0710161759050.22596@blysk.ds.pg.gda.pl> <20071017085809.GA1658@ff.dom.local> <20071018063157.GA1694@ff.dom.local> <20071018070531.GA2065@ff.dom.local>
+From: "Matthew Faulkner" <matthew.faulkner@gmail.com>
+Subject: Throughput Bug?
+Date: Thu, 18 Oct 2007 16:54:35 +0100
+Message-ID: <c565abbb0710180854j6f2f756sdd390161bafd1c4a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Maciej W. Rozycki" <macro@linux-mips.org>,
-	Andy Fleming <afleming@freescale.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from x346.tv-sign.ru ([89.108.83.215]:49796 "EHLO mail.screens.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757153AbXJRPnw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Oct 2007 11:43:52 -0400
+Received: from py-out-1112.google.com ([64.233.166.182]:25067 "EHLO
+	py-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756413AbXJRPyg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 11:54:36 -0400
+Received: by py-out-1112.google.com with SMTP id u77so394926pyb
+        for <netdev@vger.kernel.org>; Thu, 18 Oct 2007 08:54:35 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20071018070531.GA2065@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/18, Jarek Poplawski wrote:
->
-> +/**
-> + * flush_work_sync - block until a work_struct's callback has terminated
-                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Hmm...
+Hey all
 
-> + * Similar to cancel_work_sync() but will only busy wait (without cancel)
-> + * if the work is queued.
+I'm using netperf to perform TCP throughput tests via the localhost
+interface. This is being done on a SMP machine. I'm forcing the
+netperf server and client to run on the same core. However, for any
+packet sizes below 523 the throughput is much lower compared to the
+throughput when the packet sizes are greater than 524.
 
-Yes, it won't block, but will spin in busy-wait loop until all other works
-scheduled before this work are finished. Not good. After that it really
-blocks waiting for this work to complete.
+Recv   Send    Send                          Utilization       Service Demand
+Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+Size   Size    Size     Time     Throughput  local    remote   local   remote
+bytes  bytes   bytes    secs.    MBytes  /s  % S      % S      us/KB   us/KB
+ 65536  65536    523    30.01        81.49   50.00    50.00    11.984  11.984
+ 65536  65536    524    30.01       460.61   49.99    49.99    2.120   2.120
 
-And I am a bit confused. We can't use flush_workqueue() because some of the
-queued work_structs may take rtnl_lock, yes? But in that case we can't use
-the new flush_work_sync() helper as well, no?
+The chances are i'm being stupid and there is an obvious reason for
+this, but when i put  the server and client on different cores i don't
+see this effect.
 
-If we can't just cancel the work, can't we do something like
+Any help explaining this will be greatly appreciated.
 
-	if (cancel_work_sync(w))
-		w->func(w);
+Machine details:
 
-instead?
+Linux 2.6.22-2-amd64 #1 SMP Thu Aug 30 23:43:59 UTC 2007 x86_64 GNU/Linux
 
-> +void flush_work_sync(struct work_struct *work)
-> +{
-> +	int ret;
-> +
-> +	do {
-> +		ret = work_pending(work);
-> +		wait_on_work(work);
-> +		if (ret)
-> +			cpu_relax();
-> +	} while (ret);
-> +}
+sched_affinity is used by netperf internally to set the core affinity.
 
-If we really the new helper, perhaps we can make it a bit better?
-
-1. Modify insert_work() to take the "struct list_head *at" parameter instead
-   of "int tail". I think this patch will also cleanup the code a bit, and
-   shrink a couple of bytes from .text
-
-2. flush_work_sync() inserts a barrier right after this work and blocks.
-   We still need some retry logic to handle the queueing is in progress
-   of course, but we won't spin waiting for the other works.
-
-What do you think?
-
-Oleg.
-
+I tried this on 2.6.18 and i got the same problem!
