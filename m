@@ -1,45 +1,41 @@
-From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-Subject: Re: [PATCH] vortex_up should initialize "err"
-Date: Thu, 18 Oct 2007 08:05:06 +0200
-Message-ID: <20071018060506.GA30544@newton.mathematik.tu-chemnitz.de>
-References: <1192662956.14504.14.camel@dyn9047017100.beaverton.ibm.com> <4716A8B4.5060406@garzik.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH/RFA] sch_generic: fix carrier-on bug?
+Date: Wed, 17 Oct 2007 23:26:05 -0700 (PDT)
+Message-ID: <20071017.232605.74748149.davem@davemloft.net>
+References: <20071016215555.GA4732@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Badari Pulavarty <pbadari@us.ibm.com>, netdev@vger.kernel.org,
-	lkml <linux-kernel@vger.kernel.org>, satyam@infradead.org
-To: Jeff Garzik <jeff@garzik.org>, akpm@linux-foundation.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from john.hrz.tu-chemnitz.de ([134.109.132.2]:54209 "EHLO
-	john.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753730AbXJRGFL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 02:05:11 -0400
-Content-Disposition: inline
-In-Reply-To: <4716A8B4.5060406@garzik.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44822
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1750969AbXJRGZx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 02:25:53 -0400
+In-Reply-To: <20071016215555.GA4732@havoc.gtf.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 17, 2007 at 08:28:36PM -0400, Jeff Garzik wrote:
-> Badari Pulavarty wrote:
-> >Simple compile warning fix. (against 2.6.23-git12)
-> >
-> >Thanks,
-> >Badari
-> >
-> >vortex_up() should initialize 'err' for a successful return.
-> >
-> >drivers/net/3c59x.c: In function `vortex_up':
-> >drivers/net/3c59x.c:1494: warning: `err' might be used uninitialized in 
-> >this function
+From: Jeff Garzik <jeff@garzik.org>
+Date: Tue, 16 Oct 2007 17:55:55 -0400
+
+> While looking at a net driver with the following construct,
 > 
-> applied as an obvious bug fix (Steffen added to CC)
+> 	if (!netif_carrier_ok(dev))
+> 		netif_carrier_on(dev);
 > 
+> it stuck me that the netif_carrier_ok() check was redundant, since
+> netif_carrier_on() checks bit __LINK_STATE_NOCARRIER anyway.  This is
+> the same reason why netif_queue_stopped() need not be called prior to
+> netif_wake_queue().
+> 
+> This is true, but there is however an unwanted side effect from assuming
+> that netif_carrier_on() can be called multiple times:  it touches the
+> watchdog, regardless of pre-existing carrier state.
+> 
+> The fix:  move watchdog-up inside the bit-cleared code path.
+> 
+> Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
 
-Hm, we had already the 3c59x-fix-uninitialized-variable-bug.patch from
-Satyam Sharma in -mm to fix this, but the patch was removed from -mm
-some time ago. Andrew, what happened to this one?
-
-However, this issue should be fixed.
-
-Thanks,
-
-Steffen
+I see no problems with this patch, I'll apply it, thanks!
