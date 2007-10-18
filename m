@@ -1,52 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 9174] New: linux-2.6.23-git11 kernel panic
-Date: Thu, 18 Oct 2007 05:09:38 -0700 (PDT)
-Message-ID: <20071018.050938.75431271.davem@davemloft.net>
-References: <20071017130131.365f9fb6.akpm@linux-foundation.org>
-	<47172D10.2040309@trash.net>
-	<47173C62.5080302@trash.net>
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: Re: [PATCH 2/3] Lost locking in fl6_sock_lookup
+Date: Thu, 18 Oct 2007 16:11:58 +0400
+Message-ID: <47174D8E.2050200@openvz.org>
+References: <47174950.6060409@openvz.org> <20071018.210043.51908349.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: plamen.petrov@tk.ru.acad.bg, akpm@linux-foundation.org,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org
-To: kaber@trash.net
+Cc: davem@davemloft.net, netdev@vger.kernel.org, devel@openvz.org
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
+	<yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50784
-	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1762294AbXJRMJZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 08:09:25 -0400
-In-Reply-To: <47173C62.5080302@trash.net>
+Received: from sacred.ru ([62.205.161.221]:43352 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1763116AbXJRMMS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2007 08:12:18 -0400
+In-Reply-To: <20071018.210043.51908349.yoshfuji@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 18 Oct 2007 12:58:42 +0200
+YOSHIFUJI Hideaki wrote:
+> In article <47174950.6060409@openvz.org> (at Thu, 18 Oct 2007 15:53:52 +0400), Pavel Emelyanov <xemul@openvz.org> says:
+> 
+>> This routine scans the ipv6_fl_list whose update is
+>> protected with the socket lock and the ip6_sk_fl_lock.
+> 
+>>  		struct ip6_flowlabel *fl = sfl->fl;
+>>  		if (fl->label == label) {
+>> +			read_unlock_bh(&ip6_sk_fl_lock);
+>>  			fl->lastuse = jiffies;
+>>  			atomic_inc(&fl->users);
+>>  			return fl;
+> 
+> We should increment fl->users within the critical section, shouldn't we?
 
-> Patrick McHardy wrote:
-> > Andrew Morton wrote:
-> >> On Wed, 17 Oct 2007 07:36:16 -0700 (PDT)
-> >> bugme-daemon@bugzilla.kernel.org wrote:
-> >>
-> >>> http://bugzilla.kernel.org/show_bug.cgi?id=9174
-> >>>
-> >>>            Summary: linux-2.6.23-git11 kernel panic
-> >  >>
-> > 
-> >>> EIP is at packet_rcv_0x1a2/0x360
-> > 
-> > 
-> > Please find out on which device the packet socket is opened by
-> > looking at /proc/net/packet and comparing the Iface shown there
-> > to the ifindexes listed in "ip link list".
-> 
-> 
-> Well, he replied in private mail, the device in question is
-> an IPv6-over-IPv4 tunnel, which doesn't have any header_ops,
-> so the crash happens in dev_parse_header when dereferencing
-> them.
-> 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
+Not necessary. The users is more than zero (because it is 
+linked in the sock's list) so garbage collector won't catch 
+it in any way.
 
-Applied, thanks Patrick!
+Thanks,
+Pavel
+
+> --yoshfuji
+> -
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
