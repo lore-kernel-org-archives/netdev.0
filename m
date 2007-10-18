@@ -1,47 +1,47 @@
-From: Jason Wessel <jason.wessel@windriver.com>
-Subject: Re: [RFC] remove netpoll receive code
-Date: Wed, 17 Oct 2007 22:52:39 -0500
-Message-ID: <4716D887.2020209@windriver.com>
-References: <20071017132131.1992bedd@freepuppy.rosehill>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: [PATCH] gianfar: fix compile warning
+Date: Wed, 17 Oct 2007 21:54:58 -0600
+Message-ID: <20071018035458.22355.99460.stgit@trillian.cg.shawcable.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:60609 "EHLO mail.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754641AbXJRDxt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 17 Oct 2007 23:53:49 -0400
-In-Reply-To: <20071017132131.1992bedd@freepuppy.rosehill>
-Sender: netdev-owner@vger.kernel.org
+To: Li Yang <leoli@freescale.com>, Jeff Garzik <jeff@garzik.org>,
+	linuxppc-dev@ozlabs.org, netdev@vger.kernel.org
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Kgdb has been submitted for inclusion in the mainline kernel at this
-point, along with an additional change to the netpoll rx path.
+From: Grant Likely <grant.likely@secretlab.ca>
 
-If it is the case that this needs to be implemented in another manner,
-that is ok but please do let me know what the plans are for the API so
-that the kgdboe code can be adapted.
+Eliminate an uninitialized variable warning.  The code is correct, but
+a pointer to the automatic variable 'addr' is passed to dma_alloc_coherent.
+Since addr has never been initialized, and the compiler doesn't know
+what dma_alloc_coherent will do with it, it complains.
 
-Thanks,
-Jason.
+Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+---
 
+ drivers/net/gianfar.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-
-Stephen Hemminger wrote:
-> The netpoll receive code is:
-> 1. Not used by any in-tree features, it is used by kgdb-over-ether.
-> 2. A nice hook for people doing nasty things like private binary network stacks or rootkits.
-> 3. Unsecured by any of the normal firewalling code.
->
-> Hopefully all distro's are smart enough to turn it off in their default config *nudge, nudge*.
-> Doubly true for any distribution that claims to be secure or enterprise ready.
->
-> I propose that we take out all the whole netpoll rx path. If/when kgdb gets submitted
-> a better and alternative receive path can be added.
->
->   
-
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index cc288d8..c009ab6 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -696,7 +696,7 @@ int startup_gfar(struct net_device *dev)
+ {
+ 	struct txbd8 *txbdp;
+ 	struct rxbd8 *rxbdp;
+-	dma_addr_t addr;
++	dma_addr_t addr = 0;
+ 	unsigned long vaddr;
+ 	int i;
+ 	struct gfar_private *priv = netdev_priv(dev);
