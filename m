@@ -1,39 +1,57 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: about multiple network interface
-Date: Thu, 18 Oct 2007 17:28:36 +0400
-Message-ID: <20071018132836.GA15906@2ka.mipt.ru>
-References: <105610bf0710180606w6a687642r35414d2b66b6d3af@mail.gmail.com>
+From: "Grant Likely" <grant.likely@secretlab.ca>
+Subject: Re: [PATCH v3 0/4] FEC - fast ethernet controller for mpc52xx
+Date: Thu, 18 Oct 2007 08:15:21 -0600
+Message-ID: <fa686aa40710180715u23d81adfy83ff65837725fb80@mail.gmail.com>
+References: <20071014075511.GC3000@nd47.coderock.org>
+	 <4713BA1C.2050604@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: wit <is01kzh@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Domen Puncer" <domen.puncer@telargo.com>,
+	galak@kernel.crashing.org, linuxppc-dev@ozlabs.org, tnt@246tnt.com,
+	netdev@vger.kernel.org
+To: "Jeff Garzik" <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.2ka.mipt.ru ([194.85.82.65]:50422 "EHLO 2ka.mipt.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1764504AbXJRN2f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 18 Oct 2007 09:28:35 -0400
+Received: from wa-out-1112.google.com ([209.85.146.176]:4255 "EHLO
+	wa-out-1112.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933029AbXJROP1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 10:15:27 -0400
+Received: by wa-out-1112.google.com with SMTP id v27so206116wah
+        for <netdev@vger.kernel.org>; Thu, 18 Oct 2007 07:15:26 -0700 (PDT)
+In-Reply-To: <4713BA1C.2050604@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <105610bf0710180606w6a687642r35414d2b66b6d3af@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 18, 2007 at 09:06:40PM +0800, wit (is01kzh@gmail.com) wrote:
-> Hi all,
-> 
->    Sorry, I don't know if this is the right mail list. I got the
-> following question:
->    I have a e100 card and a e1000 card. Whenever I boot the system, I
-> found the eth0 matches the e1000 card, and the eth2 matches the other.
-> How can I force the eth0 to match the e100 card and the eth2 to match
-> e1000?
+On 10/15/07, Jeff Garzik <jgarzik@pobox.com> wrote:
+> Domen Puncer wrote:
+> > Hello!
+> >
+> > If there are no objections, I would like to get this merged
+> > when bestcomm goes in (any time now?).
+> >
+> > It's split into four parts:
+> > 1 - device tree
+> > 2 - small bestcomm change
+> > 3 - the actual driver
+> > 4 - phy part of the driver
+>
+> patches #3 and #4 need to be combined together.
+>
+> Are the arch people OK with patches #1 and #2?
 
-Hi.
+Jeff,
 
-Check your /etc/modprobe.conf and put there
+The bestcomm patches and patch 1 & 2 from this series are now in
+Linus' tree.  That clears the way for the FEC driver when Domen
+reposts it.  (In other words; there is nothing left in arch land
+blocking this driver)
 
-alias eth0 e100
-alias eth2 e1000
-
+Cheers,
+g.
 
 -- 
-	Evgeniy Polyakov
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
+grant.likely@secretlab.ca
+(403) 399-0195
