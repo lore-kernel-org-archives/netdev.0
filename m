@@ -1,16 +1,20 @@
 From: Laszlo Attila Toth <panther@balabit.hu>
 Subject: [PATCH 1/2] Interface group: core (netlink) part
 Date: Thu, 18 Oct 2007 12:15:14 +0200
-Message-ID: <1192702517840-git-send-email-panther@balabit.hu>
+Message-ID: <4e88bea1c0065fada9181e9b668a91c6c3fd8796.1192695706.git.panther__46013.9896058992$1192702542$gmane$org@balabit.hu>
 References: <11927025171404-git-send-email-panther@balabit.hu>
 Cc: Laszlo Attila Toth <panther@balabit.hu>
 To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.balabit.hu ([212.92.18.33]:43942 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750850AbXJRKPW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2007 06:15:22 -0400
 In-Reply-To: <11927025171404-git-send-email-panther@balabit.hu>
 Message-Id: <4e88bea1c0065fada9181e9b668a91c6c3fd8796.1192695706.git.panther@balabit.hu>
 In-Reply-To: <ifgroup-20071018-120757-1192702077-panther@balabit.hu>
 References: <ifgroup-20071018-120757-1192702077-panther@balabit.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Interface groups let handle different interfaces together
