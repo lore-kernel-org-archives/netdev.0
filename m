@@ -1,47 +1,51 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH,RFC] Marvell Orion SoC ethernet driver
-Date: Fri, 19 Oct 2007 04:02:57 +0200
-Message-ID: <20071019020257.GA16037@xi.wantstofly.org>
-References: <20071016192806.GD19618@xi.wantstofly.org> <1192570275.14601.10.camel@sakura.staff.proxad.net> <20071018011536.GA3704@xi.wantstofly.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, tzachi@marvell.com, nico@cam.org
-To: Maxime Bizon <mbizon@freebox.fr>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [PATCH] zd1211rw: fix a double include
+Date: Thu, 18 Oct 2007 21:51:25 -0400
+Message-ID: <11927586853636-git-send-email-linville@tuxdriver.com>
+References: <20071018220946.GH8510@tuxdriver.com>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	Holger Schurig <hs4233@mail.mn-solutions.de>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: jeff@garzik.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:60945 "EHLO
-	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933797AbXJSCDB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 22:03:01 -0400
-Content-Disposition: inline
-In-Reply-To: <20071018011536.GA3704@xi.wantstofly.org>
+Received: from ra.tuxdriver.com ([70.61.120.52]:2681 "EHLO ra.tuxdriver.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933425AbXJSCIz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 18 Oct 2007 22:08:55 -0400
+In-Reply-To: <20071018220946.GH8510@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 18, 2007 at 03:15:36AM +0200, Lennert Buytenhek wrote:
+From: Holger Schurig <hs4233@mail.mn-solutions.de>
 
-> > > +#define PORT_CONF		0x400
-> > > +#define PORT_CONF_EXT		0x404
-> > > +#define PORT_MAC_LO		0x414
-> > > +#define PORT_MAC_HI		0x418
-> > > +#define PORT_SDMA		0x41c
-> > > +#define PORT_SERIAL		0x43c
-> > > +#define PORT_STAT		0x444
-> > > +#define PORT_TXQ_CMD		0x448
-> > > +#define PORT_MTU		0x458
-> > > +#define PORT_CAUSE		0x460
-> > > +#define PORT_CAUSE_EXT		0x464
-> > > +#define PORT_MASK		0x468
-> > > +#define PORT_MASK_EXT		0x46c
-> > > +#define PORT_TX_THRESH		0x474
-> > 
-> > This driver seems to support the same hardware as mv643xx_eth, any
-> > chance you could use it to avoid code duplication ?
-> 
-> Interesting.  After some asking around, it appears that the mv643xx
-> ethernet silicon block is indeed very similar to the ethernet silicon
-> block found the in Orion ARM SoCs.
-> 
-> We'll work on getting Orion to use mv643xx_eth.  Thanks for pointing
-> this out.
+This patch removes all double includes of the same file. This
+makes scripts/checkincludes.pl happy.
 
-Okay, patchset coming up.
+Signed-off-by: Holger Schurig <hs4233@mail.mn-solutions.de>
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+Jeff, I missed the zd1211rw hunk of the "double includes" patch.  Could
+you apply this one manually?
+
+Thanks,
+
+John
+
+ drivers/net/wireless/zd1211rw/zd_def.h          |    1 -
+ 2 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/zd1211rw/zd_def.h b/drivers/net/wireless/zd1211rw/zd_def.h
+index deb99d1..505b4d7 100644
+--- a/drivers/net/wireless/zd1211rw/zd_def.h
++++ b/drivers/net/wireless/zd1211rw/zd_def.h
+@@ -21,7 +21,6 @@
+ #include <linux/kernel.h>
+ #include <linux/stringify.h>
+ #include <linux/device.h>
+-#include <linux/kernel.h>
+ 
+ typedef u16 __nocast zd_addr_t;
+ 
+-- 
+1.5.2.4
+
