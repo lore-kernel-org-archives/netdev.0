@@ -1,56 +1,52 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: Throughput Bug?
-Date: Fri, 19 Oct 2007 01:44:19 -0400
-Message-ID: <20071019014419.6ac8a6a0.billfink@mindspring.com>
-References: <c565abbb0710180854j6f2f756sdd390161bafd1c4a@mail.gmail.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH] [Bug 9187] ir-functions.c:(.text+0xbce18): undefined
+ reference to `input_event'
+Date: Thu, 18 Oct 2007 22:57:03 -0700
+Message-ID: <20071018225703.0fd8e74a.randy.dunlap@oracle.com>
+References: <20071019035702.B5C7E108010@picon.linux-foundation.org>
+	<4718385E.7050105@oracle.com>
+	<20071018.220222.35036834.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Matthew Faulkner" <matthew.faulkner@gmail.com>
+Cc: netdev@vger.kernel.org, jeff@garzik.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-spurfowl.atl.sa.earthlink.net ([209.86.89.66]:44143
-	"EHLO elasmtp-spurfowl.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752634AbXJSFoY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 01:44:24 -0400
-In-Reply-To: <c565abbb0710180854j6f2f756sdd390161bafd1c4a@mail.gmail.com>
+Received: from agminet01.oracle.com ([141.146.126.228]:56921 "EHLO
+	agminet01.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756235AbXJSF6r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 01:58:47 -0400
+In-Reply-To: <20071018.220222.35036834.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 18 Oct 2007, Matthew Faulkner wrote:
+On Thu, 18 Oct 2007 22:02:22 -0700 (PDT) David Miller wrote:
 
-> Hey all
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+> Date: Thu, 18 Oct 2007 21:53:50 -0700
 > 
-> I'm using netperf to perform TCP throughput tests via the localhost
-> interface. This is being done on a SMP machine. I'm forcing the
-> netperf server and client to run on the same core. However, for any
-> packet sizes below 523 the throughput is much lower compared to the
-> throughput when the packet sizes are greater than 524.
+> > [bugme-daemon@bugzilla.kernel.org wrote:]
+> > 
+> > 
+> > 
+> > From: Randy Dunlap <randy.dunlap@oracle.com>
+> > 
+> > Drivers that use lro functions should depend on INET, otherwise they
+> > may not link correctly.  Let's not select INET.  Select should be used
+> > only for library-like code, not to enable subsystems.
+> > 
+> > ERROR: "lro_flush_all" [drivers/net/myri10ge/myri10ge.ko] undefined!
+> > ERROR: "lro_receive_frags" [drivers/net/myri10ge/myri10ge.ko] undefined!
+> > 
+> > Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 > 
-> Recv   Send    Send                          Utilization       Service Demand
-> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-> Size   Size    Size     Time     Throughput  local    remote   local   remote
-> bytes  bytes   bytes    secs.    MBytes  /s  % S      % S      us/KB   us/KB
->  65536  65536    523    30.01        81.49   50.00    50.00    11.984  11.984
->  65536  65536    524    30.01       460.61   49.99    49.99    2.120   2.120
+> Acked-by: David S. Miller <davem@davemloft.net>
 > 
-> The chances are i'm being stupid and there is an obvious reason for
-> this, but when i put  the server and client on different cores i don't
-> see this effect.
-> 
-> Any help explaining this will be greatly appreciated.
-> 
-> Machine details:
-> 
-> Linux 2.6.22-2-amd64 #1 SMP Thu Aug 30 23:43:59 UTC 2007 x86_64 GNU/Linux
-> 
-> sched_affinity is used by netperf internally to set the core affinity.
+> Jeff, please pick this one up too, thanks!
 
-I don't know if it's relevant, but note that 524 bytes + 52 bytes
-of IP(20)/TCP(20)/TimeStamp(12) overhead gives a 576 byte packet,
-which is the specified size that all IP routers must handle (and
-the smallest value possible during PMTU discovery I believe).  A
-message size of 523 bytes would be 1 less than that.  Could this
-possibly have to do with ABC (possibly try disabling it if set)?
 
-						-Bill
+This patch is for kernel bugzilla #9186, not #9187.
+Clerical error, sorry about that.
+
+---
+~Randy
