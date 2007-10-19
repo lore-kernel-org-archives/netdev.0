@@ -1,12 +1,16 @@
 From: Laszlo Attila Toth <panther@balabit.hu>
 Subject: [IFGROUPv3 0/*] Interface groups, round 3
 Date: Fri, 19 Oct 2007 18:29:58 +0200
-Message-ID: <11928114032187-git-send-email-panther@balabit.hu>
+Message-ID: <20071019-181844-1192810724.panther__41703.8160645918$1192811432$gmane$org@balabit.hu>
 Cc: Laszlo Attila Toth <panther@balabit.hu>
 To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.balabit.hu ([212.92.18.33]:53288 "EHLO lists.balabit.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752345AbXJSQaI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2007 12:30:08 -0400
 Message-Id: <20071019-181844-1192810724.panther@balabit.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hello,
