@@ -1,50 +1,51 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [PATCH] PHYLIB: IRQ event workqueue handling fixes
-Date: Fri, 19 Oct 2007 13:57:33 +0100 (BST)
-Message-ID: <Pine.LNX.4.64N.0710191345020.13279@blysk.ds.pg.gda.pl>
-References: <20071015125301.GC3015@ff.dom.local>
- <Pine.LNX.4.64N.0710151737250.16262@blysk.ds.pg.gda.pl> <20071016062108.GB1000@ff.dom.local>
- <Pine.LNX.4.64N.0710161759050.22596@blysk.ds.pg.gda.pl> <20071017085809.GA1658@ff.dom.local>
- <Pine.LNX.4.64N.0710171221510.28993@blysk.ds.pg.gda.pl> <20071019081706.GA2598@ff.dom.local>
+From: maximilian attems <max@stro.at>
+Subject: Re: iproute2: git pull request from debian repo.
+Date: Fri, 19 Oct 2007 15:06:16 +0200
+Message-ID: <20071019130616.GH1362@baikonur.stro.at>
+References: <20071019122753.GA30078@scream.fatal.se>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andy Fleming <afleming@freescale.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jarek Poplawski <jarkao2@o2.pl>
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org
+To: Andreas Henriksson <andreas@fatal.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cerber.ds.pg.gda.pl ([153.19.208.18]:44609 "EHLO
-	cerber.ds.pg.gda.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758976AbXJSM5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 08:57:42 -0400
-In-Reply-To: <20071019081706.GA2598@ff.dom.local>
+Received: from baikonur.stro.at ([213.239.196.228]:56188 "EHLO
+	baikonur.stro.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753833AbXJSNGg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 09:06:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20071019122753.GA30078@scream.fatal.se>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 19 Oct 2007, Jarek Poplawski wrote:
+On Fri, Oct 19, 2007 at 02:27:53PM +0200, Andreas Henriksson wrote:
+> Hello!
+> 
+> We now have our brand new git repo set up for the debian package. We have
+> created a branch called "patches" where we are going to put stuff that we
+> hope will get merged upstream.
+> 
+> I'm sending out this pull request to get confirmation about if we are on the
+> right track ...
+> 
+> The repo url is git://git.debian.org/git/collab-maint/pkg-iproute.git
+> and the branch you're supposed to look at is "patches", as I mentioned.
 
-> But then... your patch seems to make it possible, because it enables
-> irq to the initial state of the counter. Of course, this could happen
-> on closing only.
+on klibc i'm asked to attach git log -p on a pull request so
+that the patches can be reviewed, please do so too.
+ 
+also apprecitated would be the output of
+git log master..patches | git shortlog
 
- That's because free_irq() does not disable the interrupt in the correct 
-manner.  The scenario is more or less like this:
+> It currently only contains two fixes:
+> - trivial syntax fix in the ss(8) manpage, by Justin Pryzby.
+>   (Should be a no-brainer.)
+> - ip addr flush loop fix (from ubuntu), by Daniel Silverstone
+>   (Equivalent to the treatment "ip neigh flush" previously got.
+>    This obsoletes the patch from Alexander Wirt which was dropped
+>    from the last patch submission.)
+> 
 
-phy_interrupt()				[depth == 0]
-	disable_irq()
-		depth++; status |= IRQ_DISABLED;
-...
-free_irq()				[depth == 1]
-	status |= IRQ_DISABLED;
-...
-phy_change()				[depth == 1]
-	enable_irq()
-		depth--; status &= ~IRQ_DISABLED;
-		oops!
+happy weekend
 
-Now if free_irq() correctly incremented the depth counter, then the last
-enable_irq() would still decrement it, but with its initial value of 2 it 
-would not change the status to reenable the line.
-
-  Maciej
+-- 
+maks
