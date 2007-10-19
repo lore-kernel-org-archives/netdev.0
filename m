@@ -1,39 +1,30 @@
-From: Brian Haley <brian.haley@hp.com>
+From: David Stevens <dlstevens@us.ibm.com>
 Subject: Re: multicast: bug or "feature"
-Date: Fri, 19 Oct 2007 16:39:24 -0400
-Message-ID: <471915FC.1000604@hp.com>
-References: <OFC9CC5B3C.F6B38A10-ON88257379.006F6FDE-88257379.006FE742@us.ibm.com>
+Date: Fri, 19 Oct 2007 14:25:24 -0700
+Message-ID: <OF2DB62F4D.74FDB455-ON88257379.007520E2-88257379.0075964F@us.ibm.com>
+References: <471915FC.1000604@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atlrel8.hp.com ([156.153.255.206]:55158 "EHLO atlrel8.hp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760552AbXJSUjw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2007 16:39:52 -0400
-In-Reply-To: <OFC9CC5B3C.F6B38A10-ON88257379.006F6FDE-88257379.006FE742@us.ibm.com>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:45453 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965570AbXJSVZf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 17:25:35 -0400
+In-Reply-To: <471915FC.1000604@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+I don't know about a new knob, but it's the same notion
+as rp_filter, so why not use rpf for RTN_LOCAL types?
+Ie, allow RTN_LOCAL and RTN_UNICAST at the top, but
+check rpf if the devs aren't equal or RTN_LOCAL....
 
-David Stevens wrote:
->         From looking at the code, it appears that validate
-> source is failing just because of the rp_filter. Do you have
-> rp_filter set to nonzero?
->         If so, it may do what you want just by setting that
-> to 0:
-> 
-> sysctl -w net.ipv4.conf.all.rp_filter=0
+It seems like not a good thing to rely on in the first place, though;
+usually receiving things from yourself is a bad thing. :-)
 
-rp_filter is set to zero, it's the "if (res.type != RTN_UNICAST)" check 
-in fib_validate_source() that's doing it.  If I add a new 
-"accept_local_addr" sysctl to ipv4_devconf to allow RTN_LOCAL here, 
-everything works just fine.  I just don't know how palatable that would 
-be to upstream...
+                                        +-DLS
 
--Brian
