@@ -1,7 +1,7 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH 3/8] [MV643XX_ETH] Disable RX/TX byte swapping on little-endian systems
-Date: Fri, 19 Oct 2007 04:10:28 +0200
-Message-ID: <20071019021028.GE16037@xi.wantstofly.org>
+Subject: [PATCH 4/8] [MV643XX_ETH] Enable use on Orion platforms
+Date: Fri, 19 Oct 2007 04:11:03 +0200
+Message-ID: <20071019021103.GF16037@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Nicolas Pitre <nico@marvell.com>,
@@ -9,43 +9,53 @@ Cc: Nicolas Pitre <nico@marvell.com>,
 	Manas Saksena <msaksena@marvell.com>, netdev@vger.kernel.org
 To: Dale Farnsworth <dale@farnsworth.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alephnull.demon.nl ([83.160.184.112]:43995 "EHLO
+Received: from alephnull.demon.nl ([83.160.184.112]:44004 "EHLO
 	xi.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762440AbXJSCKb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 22:10:31 -0400
+	with ESMTP id S1762752AbXJSCLE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 18 Oct 2007 22:11:04 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On little-endian systems, configure the SDMA unit with
-MV643XX_ETH_BLM_RX_NO_SWAP and MV643XX_ETH_BLM_TX_NO_SWAP.
+Allow Orion ARM platforms to use the mv643xx_eth driver.
 
 Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
 Acked-by: Tzachi Perelstein <tzachi@marvell.com>
 
-Index: linux-2.6/drivers/net/mv643xx_eth.h
+Index: linux-2.6/drivers/net/Kconfig
 ===================================================================
---- linux-2.6.orig/drivers/net/mv643xx_eth.h
-+++ linux-2.6/drivers/net/mv643xx_eth.h
-@@ -266,10 +266,21 @@
+--- linux-2.6.orig/drivers/net/Kconfig
++++ linux-2.6/drivers/net/Kconfig
+@@ -2392,13 +2392,16 @@ config UGETH_TX_ON_DEMAND
+ 	depends on UCC_GETH
  
- #define	MV643XX_ETH_IPG_INT_RX(value) ((value & 0x3fff) << 8)
+ config MV643XX_ETH
+-	tristate "MV-643XX Ethernet support"
+-	depends on MV64360 || MV64X60 || (PPC_MULTIPLATFORM && PPC32)
++	tristate "Marvell Discovery (643XX) and Orion ethernet support"
++	depends on MV64360 || MV64X60 || (PPC_MULTIPLATFORM && PPC32) || ARCH_ORION
+ 	select MII
+ 	help
+-	  This driver supports the gigabit Ethernet on the Marvell MV643XX
+-	  chipset which is used in the Momenco Ocelot C and Jaguar ATX and
+-	  Pegasos II, amongst other PPC and MIPS boards.
++	  This driver supports the gigabit ethernet MACs in the
++	  Marvell Discovery PPC/MIPS chipset family (MV643XX) and
++	  in the Marvell Orion ARM SoC family.
++
++	  Some boards that use the Discovery chipset are the Momenco
++	  Ocelot C and Jaguar ATX and Pegasos II.
  
-+#if defined(__BIG_ENDIAN)
- #define	MV643XX_ETH_PORT_SDMA_CONFIG_DEFAULT_VALUE		\
- 		MV643XX_ETH_RX_BURST_SIZE_4_64BIT	|	\
- 		MV643XX_ETH_IPG_INT_RX(0)		|	\
- 		MV643XX_ETH_TX_BURST_SIZE_4_64BIT
-+#elif defined(__LITTLE_ENDIAN)
-+#define	MV643XX_ETH_PORT_SDMA_CONFIG_DEFAULT_VALUE		\
-+		MV643XX_ETH_RX_BURST_SIZE_4_64BIT	|	\
-+		MV643XX_ETH_BLM_RX_NO_SWAP		|	\
-+		MV643XX_ETH_BLM_TX_NO_SWAP		|	\
-+		MV643XX_ETH_IPG_INT_RX(0)		|	\
-+		MV643XX_ETH_TX_BURST_SIZE_4_64BIT
-+#else
-+#error One of __BIG_ENDIAN or __LITTLE_ENDIAN must be defined
-+#endif
- 
- /* These macros describe Ethernet Port serial control reg (PSCR) bits */
- #define MV643XX_ETH_SERIAL_PORT_DISABLE			0
+ config QLA3XXX
+ 	tristate "QLogic QLA3XXX Network Driver Support"
+Index: linux-2.6/drivers/net/mv643xx_eth.c
+===================================================================
+--- linux-2.6.orig/drivers/net/mv643xx_eth.c
++++ linux-2.6/drivers/net/mv643xx_eth.c
+@@ -1,5 +1,5 @@
+ /*
+- * drivers/net/mv643xx_eth.c - Driver for MV643XX ethernet ports
++ * Driver for Marvell Discovery (MV643XX) and Marvell Orion ethernet ports
+  * Copyright (C) 2002 Matthew Dharm <mdharm@momenco.com>
+  *
+  * Based on the 64360 driver from:
