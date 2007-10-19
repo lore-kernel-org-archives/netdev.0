@@ -1,46 +1,96 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [PATCH] PHYLIB: IRQ event workqueue handling fixes
-Date: Fri, 19 Oct 2007 12:38:29 +0100 (BST)
-Message-ID: <Pine.LNX.4.64N.0710191229510.13279@blysk.ds.pg.gda.pl>
-References: <20071015125301.GC3015@ff.dom.local>
- <Pine.LNX.4.64N.0710151737250.16262@blysk.ds.pg.gda.pl> <20071016062108.GB1000@ff.dom.local>
- <Pine.LNX.4.64N.0710161759050.22596@blysk.ds.pg.gda.pl> <20071017085809.GA1658@ff.dom.local>
- <Pine.LNX.4.64N.0710171221510.28993@blysk.ds.pg.gda.pl>
+From: Joakim Koskela <joakim.koskela@hiit.fi>
+Subject: [PATCH] netdev: Netfilters on outgoing interfamily ipsec
+Date: Fri, 19 Oct 2007 14:37:38 +0300
+Message-ID: <200710191437.39449.joakim.koskela@hiit.fi>
+Reply-To: joakim.koskela@hiit.fi
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andy Fleming <afleming@freescale.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jarek Poplawski <jarkao2@o2.pl>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1756004AbXJSLiv@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64N.0710171221510.28993@blysk.ds.pg.gda.pl>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Patrick McHardy" <kaber@trash.net>,
+	"Herbert Xu" <herbert@gondor.apana.org.au>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pne-smtpout3-sn1.fre.skanova.net ([81.228.11.120]:60070 "EHLO
+	pne-smtpout3-sn1.fre.skanova.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754444AbXJSLlp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 07:41:45 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 18 Oct 2007, Maciej W. Rozycki wrote:
+Hi,
 
-> > 1) phy_change() checks PHY_HALTED flag without lock; I think it's
-> > racy: eg. if it's done during phy_stop() it can check just before
-> > the flag is set and reenable interrupts just after phy_stop() ends.
-> 
->  I remember having a look into it, but it was long ago and I cannot 
-> immediately recall the conclusion.  Which means it is either broken or 
-> deserves a comment as non-obvious.  I will have a look into it again, but 
-> I am resource-starved a little at the moment, sorry.
+I understand that Herbert is in midst of cleaning up the output of
+interfamily transformations, but I thought I'd post a couple of
+patches related to that anyway, sort of to show what we've needed to
+fix to get our systems working.
 
- Well, I have now recalled what the issue is -- we just plainly and simply 
-want to avoid a hardirq spinlock for the very reason we do not do all the 
-processing in the hardirq handler.  The thing is we make accesses to the 
-MDIO bus with the phydev lock held and it may take ages until these 
-accesses will have completed.  And we cannot afford keeping interrupts 
-disabled for so long.
+This one changes how the netfilters are applied during output to be
+based on the current address family of the packet instead of what it
+will be transformed to.
 
- So the only way is to make the check for the HALTED state lockless and 
-make sure any race condition is handled gracefully and does not lead to 
-inconsistent behaviour.  Which I think as of what we have in the 
-net-2.6.24 tree is the case, but there are never too many eyes to look at 
-a piece of code, so if anybody feels like proving me wrong, then just go 
-ahead!
+Signed-off-by: Joakim Koskela <jookos@gmail.com>
+---
 
-  Maciej
+diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+index c4a7156..8b0c6bd 100644
+--- a/net/ipv4/xfrm4_output.c
++++ b/net/ipv4/xfrm4_output.c
+@@ -13,6 +13,9 @@
+ #include <linux/kernel.h>
+ #include <linux/skbuff.h>
+ #include <linux/netfilter_ipv4.h>
++#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
++#include <linux/netfilter_ipv6.h>
++#endif
+ #include <net/ip.h>
+ #include <net/xfrm.h>
+ #include <net/icmp.h>
+@@ -139,7 +142,13 @@ static int xfrm4_output_finish(struct sk_buff *skb)
+ 
+ int xfrm4_output(struct sk_buff *skb)
+ {
+-	return NF_HOOK_COND(PF_INET, NF_IP_POST_ROUTING, skb, NULL, skb->dst->dev,
+-			    xfrm4_output_finish,
+-			    !(IPCB(skb)->flags & IPSKB_REROUTED));
++#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
++	if (ip_hdr(skb)->version == 6)
++		return NF_HOOK(PF_INET6, NF_IP6_POST_ROUTING, skb, NULL, skb->dst->dev,
++			       xfrm4_output_finish);
++	else
++#endif
++		return NF_HOOK_COND(PF_INET, NF_IP_POST_ROUTING, skb, NULL, skb->dst->dev,
++				    xfrm4_output_finish,
++				    !(IPCB(skb)->flags & IPSKB_REROUTED));
+ }
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+index 6569767..7624613 100644
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -14,8 +14,10 @@
+ #include <linux/skbuff.h>
+ #include <linux/icmpv6.h>
+ #include <linux/netfilter_ipv6.h>
++#include <linux/netfilter_ipv4.h>
+ #include <net/ipv6.h>
+ #include <net/xfrm.h>
++#include <net/ip.h>
+ 
+ int xfrm6_find_1stfragopt(struct xfrm_state *x, struct sk_buff *skb,
+ 			  u8 **prevhdr)
+@@ -134,6 +136,11 @@ static int xfrm6_output_finish(struct sk_buff *skb)
+ 
+ int xfrm6_output(struct sk_buff *skb)
+ {
+-	return NF_HOOK(PF_INET6, NF_IP6_POST_ROUTING, skb, NULL, skb->dst->dev,
+-		       xfrm6_output_finish);
++	if (ip_hdr(skb)->version == 4)
++		return NF_HOOK_COND(PF_INET, NF_IP_POST_ROUTING, skb, NULL, skb->dst->dev,
++				    xfrm6_output_finish,
++				    !(IPCB(skb)->flags & IPSKB_REROUTED));
++	else
++		return NF_HOOK(PF_INET6, NF_IP6_POST_ROUTING, skb, NULL, skb->dst->dev,
++			       xfrm6_output_finish);
+ }
