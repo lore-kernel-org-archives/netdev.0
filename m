@@ -1,30 +1,64 @@
 From: Pavel Emelyanov <xemul@openvz.org>
-Subject: [PATCH 0/4] Diet struct sk_buff a bit
-Date: Fri, 19 Oct 2007 12:59:17 +0400
-Message-ID: <471871E5.7060900@openvz.org>
+Subject: [PATCH 1/4] Use the skb_set_queue_mapping where appropriate
+Date: Fri, 19 Oct 2007 13:00:52 +0400
+Message-ID: <47187244.1010603@openvz.org>
+References: <471871E5.7060900@openvz.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sacred.ru ([62.205.161.221]:35277 "EHLO sacred.ru"
+Received: from sacred.ru ([62.205.161.221]:35376 "EHLO sacred.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754917AbXJSI73 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2007 04:59:29 -0400
+	id S1756961AbXJSJBE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2007 05:01:04 -0400
+In-Reply-To: <471871E5.7060900@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The __u16 queue_mapping field only makes sense in the
-CONFIG_NETDEVICES_MULTIQUEUE=y case only.
-
-Despite this field may be set explicitly to some non-zero 
-value (in net/core/pktgen.c), the exact value affects 
-nothing in case the config option in question is N (mainly 
-it is used in netif_subqueue_stopped(), which will always
-return 0 in this case).
-
-So cleanup the code a bit and move this field under the
-config option.
+There's already such a helper to initialize this field.
+Use it.
 
 Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
+---
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 38b03da..8726589 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1661,7 +1661,7 @@ gso:
+ 		q = dev->qdisc;
+ 		if (q->enqueue) {
+ 			/* reset queue_mapping to zero */
+-			skb->queue_mapping = 0;
++			skb_set_queue_mapping(skb, 0);
+ 			rc = q->enqueue(skb, q);
+ 			qdisc_run(dev);
+ 			spin_unlock(&dev->queue_lock);
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 8cae60c..d4d9a36 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -2603,8 +2603,7 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ 	skb->network_header = skb->tail;
+ 	skb->transport_header = skb->network_header + sizeof(struct iphdr);
+ 	skb_put(skb, sizeof(struct iphdr) + sizeof(struct udphdr));
+-	skb->queue_mapping = pkt_dev->cur_queue_map;
+-
++	skb_set_queue_mapping(skb, pkt_dev->cur_queue_map);
+ 	iph = ip_hdr(skb);
+ 	udph = udp_hdr(skb);
+ 
+@@ -2941,8 +2940,7 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+ 	skb->network_header = skb->tail;
+ 	skb->transport_header = skb->network_header + sizeof(struct ipv6hdr);
+ 	skb_put(skb, sizeof(struct ipv6hdr) + sizeof(struct udphdr));
+-	skb->queue_mapping = pkt_dev->cur_queue_map;
+-
++	skb_set_queue_mapping(skb, pkt_dev->cur_queue_map);
+ 	iph = ipv6_hdr(skb);
+ 	udph = udp_hdr(skb);
+ 
+
