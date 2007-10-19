@@ -1,40 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] netdev: Reset ipv4 flags during bundle creation on interfamily ipsec
-Date: Fri, 19 Oct 2007 21:09:05 +0800
-Message-ID: <20071019130905.GA14032@gondor.apana.org.au>
-References: <200710191437.39449.joakim.koskela@hiit.fi> <200710191440.17232.joakim.koskela@hiit.fi>
+From: Joakim Koskela <joakim.koskela@hiit.fi>
+Subject: Re: [PATCH] netdev: Netfilters on outgoing interfamily ipsec
+Date: Fri, 19 Oct 2007 16:18:56 +0300
+Message-ID: <200710191618.56476.joakim.koskela@hiit.fi>
+References: <200710191437.39449.joakim.koskela@hiit.fi> <20071019125555.GA13955@gondor.apana.org.au>
+Reply-To: joakim.koskela@hiit.fi
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
 	Patrick McHardy <kaber@trash.net>
-To: Joakim Koskela <joakim.koskela@hiit.fi>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhun.apana.org.au ([64.62.148.172]:3398 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756625AbXJSNJI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 09:09:08 -0400
+Received: from pne-smtpout3-sn1.fre.skanova.net ([81.228.11.120]:53303 "EHLO
+	pne-smtpout3-sn1.fre.skanova.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757055AbXJSNXd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 09:23:33 -0400
+In-Reply-To: <20071019125555.GA13955@gondor.apana.org.au>
 Content-Disposition: inline
-In-Reply-To: <200710191440.17232.joakim.koskela@hiit.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 19, 2007 at 02:40:16PM +0300, Joakim Koskela wrote:
-> This patch resets the ipv4-related flags in the new flow as their
-> content will otherwise depend on the bits of the ipv6 addresses the
-> struct was previously used for. For example, fl4_tos might have
-> RTO_ONLINK set, which usually prevents the right route from being
-> found.
-> 
-> This bit was chopped off the larger patch dealing with the problems
-> related to creating the bundles for inter-family tranformations.
+On Friday 19 October 2007 15:55:55 Herbert Xu wrote:
+> While I agree that this is definitely a problem, I've already
+> got a solution for it which we happen to need for async crypto
+> anyway.
+>
+> Basically xfrm_output will invoke a continuation function based
+> on the external mode/family which will then call the right hooks.
+>
+> Cheers,
 
-This changes behaviour.  Previously the same TOS value would be
-used all the way through.  With this it won't apply to the first
-tunnel and every SA after it.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ok, great. Lets go with that.
