@@ -1,114 +1,30 @@
-From: Laszlo Attila Toth <panther@balabit.hu>
-Subject: Re: [PATCH 1/2] Interface group: core (netlink) part
-Date: Fri, 19 Oct 2007 10:57:43 +0200
-Message-ID: <47187187.6090505@balabit.hu>
-References: <11927025171404-git-send-email-panther@balabit.hu> <1192702517840-git-send-email-panther@balabit.hu> <471733D5.4000500@trash.net>
-Reply-To: panther@balabit.hu
+From: Pavel Emelyanov <xemul@openvz.org>
+Subject: [PATCH 0/4] Diet struct sk_buff a bit
+Date: Fri, 19 Oct 2007 12:59:17 +0400
+Message-ID: <471871E5.7060900@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <471733D5.4000500@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>, devel@openvz.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sacred.ru ([62.205.161.221]:35277 "EHLO sacred.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754917AbXJSI73 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 19 Oct 2007 04:59:29 -0400
+Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy =EDrta:
-> Laszlo Attila Toth wrote:
->> @@ -846,6 +850,12 @@ static int do_setlink(struct net_device *dev,=20
->> struct ifinfomsg *ifm,
->>          write_unlock_bh(&dev_base_lock);
->>      }
->> =20
->> +    if (tb[IFLA_IFGROUP]) {
->> +        write_lock_bh(&dev_base_lock);
->> +        dev->ifgroup =3D nla_get_u32(tb[IFLA_IFGROUP]);
->> +        write_unlock_bh(&dev_base_lock);
->> +    }
->=20
->=20
-> So no notifications at all? Mhh .. I guess its OK for now, this stuff
-> needs to be fixed to notify once for all changes anyway.
->=20
+The __u16 queue_mapping field only makes sense in the
+CONFIG_NETDEVICES_MULTIQUEUE=y case only.
 
-I'll resend the following patch with the new ifgroup patches. The=20
-current changes: changes are now atomic and a notification will be send=
-=20
-later at the end of the function. If an address was changed, a=20
-notification will be send and after that another which is always sent=20
-when anyi modification happened.
+Despite this field may be set explicitly to some non-zero 
+value (in net/core/pktgen.c), the exact value affects 
+nothing in case the config option in question is N (mainly 
+it is used in netif_subqueue_stopped(), which will always
+return 0 in this case).
 
-This patch may not be complete.
+So cleanup the code a bit and move this field under the
+config option.
 
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 4756d58..87ab3ff 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -819,6 +819,7 @@ static int do_setlink(struct net_device *dev, struc=
-t=20
-ifinfomsg *ifm,
-         if (tb[IFLA_BROADCAST]) {
-                 nla_memcpy(dev->broadcast, tb[IFLA_BROADCAST],=20
-dev->addr_len);
-                 send_addr_notify =3D 1;
-+               modified =3D 1;
-         }
-
-         if (ifm->ifi_flags || ifm->ifi_change) {
-@@ -829,21 +830,35 @@ static int do_setlink(struct net_device *dev,=20
-struct ifinfomsg *ifm,
-                         flags =3D (flags & ifm->ifi_change) |
-                                 (dev->flags & ~ifm->ifi_change);
-                 dev_change_flags(dev, flags);
-+               modified =3D 1;
-         }
-
--       if (tb[IFLA_TXQLEN])
-+       if (tb[IFLA_TXQLEN]) {
-+               write_lock_bh(&dev_base_lock);
-                 dev->tx_queue_len =3D nla_get_u32(tb[IFLA_TXQLEN]);
-+               write_unlock_bh(&dev_base_lock);
-+               modified =3D 1;
-+       }
-
--       if (tb[IFLA_WEIGHT])
-+       if (tb[IFLA_WEIGHT]) {
-+               write_lock_bh(&dev_base_lock);
-                 dev->weight =3D nla_get_u32(tb[IFLA_WEIGHT]);
-+               write_unlock_bh(&dev_base_lock);
-+               modified =3D 1;
-+       }
-
--       if (tb[IFLA_OPERSTATE])
-+       if (tb[IFLA_OPERSTATE]) {
-+               write_lock_bh(&dev_base_lock);
-                 set_operstate(dev, nla_get_u8(tb[IFLA_OPERSTATE]));
-+               write_unlock_bh(&dev_base_lock);
-+               modified =3D 1;
-+       }
-
-         if (tb[IFLA_LINKMODE]) {
-                 write_lock_bh(&dev_base_lock);
-                 dev->link_mode =3D nla_get_u8(tb[IFLA_LINKMODE]);
-                 write_unlock_bh(&dev_base_lock);
-+               modified =3D 1;
-         }
-
-         err =3D 0;
-@@ -857,6 +872,8 @@ errout:
-
-         if (send_addr_notify)
-                 call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
-+       if (modified)
-+               rtmsg_ifinfo(RTM_NEWLINK, dev, 0)
-         return err;
-  }
-
--
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
