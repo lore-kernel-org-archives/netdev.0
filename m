@@ -1,44 +1,35 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 2/8] [MV643XX_ETH] Move ethernet register definitions into private header
-Date: Fri, 19 Oct 2007 09:30:48 +0100
-Message-ID: <20071019083048.GA16865@infradead.org>
-References: <20071019021010.GD16037@xi.wantstofly.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] net: Let inet_diag and friends autoload
+Date: Fri, 19 Oct 2007 01:34:05 -0700 (PDT)
+Message-ID: <20071019.013405.64830631.davem@davemloft.net>
+References: <20071017.195125.15264659.davem@davemloft.net>
+	<E1Iin6h-000367-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dale Farnsworth <dale@farnsworth.org>,
-	Nicolas Pitre <nico@marvell.com>,
-	Tzachi Perelstein <tzachi@marvell.com>,
-	Manas Saksena <msaksena@marvell.com>, netdev@vger.kernel.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jdelvare@suse.de, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pentafluge.infradead.org ([213.146.154.40]:44402 "EHLO
-	pentafluge.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755609AbXJSIax (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 04:30:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20071019021010.GD16037@xi.wantstofly.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59820
+	"EHLO sunset.davemloft.net" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S933225AbXJSIdw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 04:33:52 -0400
+In-Reply-To: <E1Iin6h-000367-00@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 19, 2007 at 04:10:10AM +0200, Lennert Buytenhek wrote:
-> Move the mv643xx's ethernet-related register definitions from
-> include/linux/mv643xx.h into drivers/net/mv643xx_eth.h, since
-> they aren't of any use outside the ethernet driver.
-> 
-> Signed-off-by: Lennert Buytenhek <buytenh@marvell.com>
-> Acked-by: Tzachi Perelstein <tzachi@marvell.com>
-> 
-> Index: linux-2.6/drivers/net/mv643xx_eth.h
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/mv643xx_eth.h
-> +++ linux-2.6/drivers/net/mv643xx_eth.h
-> @@ -7,7 +7,7 @@
->  #include <linux/workqueue.h>
->  #include <linux/mii.h>
->  
-> -#include <linux/mv643xx.h>
-> +#include <linux/mv643xx_eth.h>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 19 Oct 2007 16:21:23 +0800
 
-Isn't it a little too confusing to have two headers with the same name,
-one in drivers/net and one in include/linux?
+> David Miller <davem@davemloft.net> wrote:
+> >
+> > I'm concerned it might be dangerous to load the module in
+> > this context, the RTNL semaphore is held and the module we
+> > are requesting could easily try to take it and deadlock.
+> 
+> We shouldn't be holding the RTNL here.  AFAICS we only hold
+> inet_diag_mutex which is used in just one spot.
 
+You're right.
+
+I'll reconsider these patches.
