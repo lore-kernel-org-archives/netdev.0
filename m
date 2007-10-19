@@ -1,102 +1,100 @@
-From: Jarek Poplawski <jarkao2@o2.pl>
-Subject: Re: [PATCH] flush_work_sync vs. flush_scheduled_work Re: [PATCH] PHYLIB: IRQ event workqueue handling fixes
-Date: Fri, 19 Oct 2007 09:50:14 +0200
-Message-ID: <20071019075014.GA1765@ff.dom.local>
-References: <20071015125301.GC3015@ff.dom.local> <Pine.LNX.4.64N.0710151737250.16262@blysk.ds.pg.gda.pl> <20071016062108.GB1000@ff.dom.local> <Pine.LNX.4.64N.0710161759050.22596@blysk.ds.pg.gda.pl> <20071017085809.GA1658@ff.dom.local> <20071018063157.GA1694@ff.dom.local> <20071018070531.GA2065@ff.dom.local> <20071018154819.GA425@tv-sign.ru>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [NET]: Fix possible dev_deactivate race condition
+Date: Fri, 19 Oct 2007 09:35:19 +0200
+Message-ID: <1192779319.27435.163.camel@twins>
+References: <E1IiWnJ-0000ne-00@gondolin.me.apana.org.au>
+	<1192745137.7367.40.camel@pasglop>
+	<alpine.LFD.0.999.0710181549330.26902@woody.linux-foundation.org>
+	<1192749449.7367.51.camel@pasglop>
+	<alpine.LFD.0.999.0710181627091.26902@woody.linux-foundation.org>
+	<20071019023219.GB8453@gondor.apana.org.au>
+	<alpine.LFD.0.999.0710181941020.26902@woody.linux-foundation.org>
+	<alpine.LFD.0.999.0710182007170.26902@woody.linux-foundation.org>
+	<20071019042025.GA9617@gondor.apana.org.au>
+	<20071019053624.GA10560@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Maciej W\. Rozycki" <macro@linux-mips.org>,
-	Andy Fleming <afleming@freescale.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Oleg Nesterov <oleg@tv-sign.ru>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S934670AbXJSHrU@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20071018154819.GA425@tv-sign.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, linuxppc-dev@ozlabs.org,
+	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, Linus Torvalds <torvalds@linux-foundation.org>,
+	Ingo Molnar <mingo@elte.hu>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org>
+In-Reply-To: <20071019053624.GA10560@gondor.apana.org.au>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 18, 2007 at 07:48:19PM +0400, Oleg Nesterov wrote:
-> On 10/18, Jarek Poplawski wrote:
+On Fri, 2007-10-19 at 13:36 +0800, Herbert Xu wrote:
+> On Fri, Oct 19, 2007 at 12:20:25PM +0800, Herbert Xu wrote:
 > >
-> > +/**
-> > + * flush_work_sync - block until a work_struct's callback has terminated
->                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> Hmm...
+> > In fact this bug exists elsewhere too.  For example, the network
+> > stack does this in net/sched/sch_generic.c:
+> > 
+> >         /* Wait for outstanding qdisc_run calls. */
+> >       while (test_bit(__LINK_STATE_QDISC_RUNNING, &dev->state))
+> >               yield();
+> > 
+> > This has the same problem as the current synchronize_irq code.
 > 
-> > + * Similar to cancel_work_sync() but will only busy wait (without cancel)
-> > + * if the work is queued.
-> 
-> Yes, it won't block, but will spin in busy-wait loop until all other works
-> scheduled before this work are finished. Not good. After that it really
-> blocks waiting for this work to complete.
-> 
-> And I am a bit confused. We can't use flush_workqueue() because some of the
-> queued work_structs may take rtnl_lock, yes? But in that case we can't use
-> the new flush_work_sync() helper as well, no?
 
-OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOPS!
+> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+> index e01d576..b3b7420 100644
+> --- a/net/sched/sch_generic.c
+> +++ b/net/sched/sch_generic.c
+> @@ -556,6 +556,7 @@ void dev_deactivate(struct net_device *dev)
+>  {
+>         struct Qdisc *qdisc;
+>         struct sk_buff *skb;
+> +       int running;
+>  
+>         spin_lock_bh(&dev->queue_lock);
+>         qdisc = dev->qdisc;
+> @@ -571,12 +572,31 @@ void dev_deactivate(struct net_device *dev)
+>  
+>         dev_watchdog_down(dev);
+>  
+> -       /* Wait for outstanding dev_queue_xmit calls. */
+> +       /* Wait for outstanding qdisc-less dev_queue_xmit calls. */
+>         synchronize_rcu();
+>  
+>         /* Wait for outstanding qdisc_run calls. */
+> -       while (test_bit(__LINK_STATE_QDISC_RUNNING, &dev->state))
+> -               yield();
+> +       do {
+> +               while (test_bit(__LINK_STATE_QDISC_RUNNING, &dev->state))
+> +                       yield();
+> +
 
-Of course, we can't!!! I remembered there was this issue long time
-ago, but then I've had some break in tracking net & workqueue. So,
-while reading this patch I was alarmed at first, and self-misled
-later. I think, there is definitely needed some warning about
-locking (or unlocking) during these flush_ & cancel_ functions.
-(Btw, I've very much wondered now, why I didn't notice at that 'old'
-time, that you added such a great feature (wrt. locking) and I even
-didn't notice this...). 
+Ouch!, is there really no sane locking alternative? Hashed waitqueues
+like for the page lock come to mind.
 
-So, Maciej (and other readers of this thread) - I withdraw my false
-opinion from my second message here: it's very wrong to call this
-sched_work_sync() with rtnl_lock(). It's only less probable to lockup
-with this than with flush_schedule_work().
-
-> 
-> If we can't just cancel the work, can't we do something like
-> 
-> 	if (cancel_work_sync(w))
-> 		w->func(w);
-> 
-> instead?
-> 
-> > +void flush_work_sync(struct work_struct *work)
-> > +{
-> > +	int ret;
-> > +
-> > +	do {
-> > +		ret = work_pending(work);
-> > +		wait_on_work(work);
-> > +		if (ret)
-> > +			cpu_relax();
-> > +	} while (ret);
-> > +}
-> 
-> If we really the new helper, perhaps we can make it a bit better?
-> 
-> 1. Modify insert_work() to take the "struct list_head *at" parameter instead
->    of "int tail". I think this patch will also cleanup the code a bit, and
->    shrink a couple of bytes from .text
-
-Looks like a very good idea, but I need more time to rethink this.
-Probably some code example should be helpful.
-
-> 
-> 2. flush_work_sync() inserts a barrier right after this work and blocks.
->    We still need some retry logic to handle the queueing is in progress
->    of course, but we won't spin waiting for the other works.
-
-Until monday I should have an opinion on that (today a bit under
-fire...).
-
-> 
-> What do you think?
-
-Since there is no gain wrt. locking with my current proposal, I
-withdraw this patch of course.
-
-It looks like my wrong patch was great idea because we got this very
-precious Oleg's opinion! (I know I'm a genius sometimes...)
-
-Thanks very much,
-Jarek P.
+> +               /*
+> +                * Double-check inside queue lock to ensure that all effects
+> +                * of the queue run are visible when we return.
+> +                */
+> +               spin_lock_bh(&dev->queue_lock);
+> +               running = test_bit(__LINK_STATE_QDISC_RUNNING, &dev->state);
+> +               spin_unlock_bh(&dev->queue_lock);
+> +
+> +               /*
+> +                * The running flag should never be set at this point because
+> +                * we've already set dev->qdisc to noop_qdisc *inside* the same
+> +                * pair of spin locks.  That is, if any qdisc_run starts after
+> +                * our initial test it should see the noop_qdisc and then
+> +                * clear the RUNNING bit before dropping the queue lock.  So
+> +                * if it is set here then we've found a bug.
+> +                */
+> +       } while (WARN_ON_ONCE(running));
+>  }
+>  
+>  void dev_init_scheduler(struct net_device *dev) 
