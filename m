@@ -1,7 +1,8 @@
 From: Joakim Koskela <joakim.koskela@hiit.fi>
-Subject: [PATCH] netdev: Netfilters on outgoing interfamily ipsec
-Date: Fri, 19 Oct 2007 14:37:38 +0300
-Message-ID: <200710191437.39449.joakim.koskela@hiit.fi>
+Subject: [PATCH] netdev: Reset ipv4 flags during bundle creation on interfamily ipsec
+Date: Fri, 19 Oct 2007 14:40:16 +0300
+Message-ID: <200710191440.17232.joakim.koskela@hiit.fi>
+References: <200710191437.39449.joakim.koskela@hiit.fi>
 Reply-To: joakim.koskela@hiit.fi
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -12,85 +13,37 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	"Herbert Xu" <herbert@gondor.apana.org.au>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pne-smtpout3-sn1.fre.skanova.net ([81.228.11.120]:60070 "EHLO
-	pne-smtpout3-sn1.fre.skanova.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754444AbXJSLlp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 07:41:45 -0400
+Received: from pne-smtpout4-sn2.hy.skanova.net ([81.228.8.154]:53436 "EHLO
+	pne-smtpout4-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757134AbXJSLoW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 07:44:22 -0400
+In-Reply-To: <200710191437.39449.joakim.koskela@hiit.fi>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+This patch resets the ipv4-related flags in the new flow as their
+content will otherwise depend on the bits of the ipv6 addresses the
+struct was previously used for. For example, fl4_tos might have
+RTO_ONLINK set, which usually prevents the right route from being
+found.
 
-I understand that Herbert is in midst of cleaning up the output of
-interfamily transformations, but I thought I'd post a couple of
-patches related to that anyway, sort of to show what we've needed to
-fix to get our systems working.
-
-This one changes how the netfilters are applied during output to be
-based on the current address family of the packet instead of what it
-will be transformed to.
+This bit was chopped off the larger patch dealing with the problems
+related to creating the bundles for inter-family tranformations.
 
 Signed-off-by: Joakim Koskela <jookos@gmail.com>
----
+--
 
-diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
-index c4a7156..8b0c6bd 100644
---- a/net/ipv4/xfrm4_output.c
-+++ b/net/ipv4/xfrm4_output.c
-@@ -13,6 +13,9 @@
- #include <linux/kernel.h>
- #include <linux/skbuff.h>
- #include <linux/netfilter_ipv4.h>
-+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-+#include <linux/netfilter_ipv6.h>
-+#endif
- #include <net/ip.h>
- #include <net/xfrm.h>
- #include <net/icmp.h>
-@@ -139,7 +142,13 @@ static int xfrm4_output_finish(struct sk_buff *skb)
- 
- int xfrm4_output(struct sk_buff *skb)
- {
--	return NF_HOOK_COND(PF_INET, NF_IP_POST_ROUTING, skb, NULL, skb->dst->dev,
--			    xfrm4_output_finish,
--			    !(IPCB(skb)->flags & IPSKB_REROUTED));
-+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-+	if (ip_hdr(skb)->version == 6)
-+		return NF_HOOK(PF_INET6, NF_IP6_POST_ROUTING, skb, NULL, skb->dst->dev,
-+			       xfrm4_output_finish);
-+	else
-+#endif
-+		return NF_HOOK_COND(PF_INET, NF_IP_POST_ROUTING, skb, NULL, skb->dst->dev,
-+				    xfrm4_output_finish,
-+				    !(IPCB(skb)->flags & IPSKB_REROUTED));
- }
-diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
-index 6569767..7624613 100644
---- a/net/ipv6/xfrm6_output.c
-+++ b/net/ipv6/xfrm6_output.c
-@@ -14,8 +14,10 @@
- #include <linux/skbuff.h>
- #include <linux/icmpv6.h>
- #include <linux/netfilter_ipv6.h>
-+#include <linux/netfilter_ipv4.h>
- #include <net/ipv6.h>
- #include <net/xfrm.h>
-+#include <net/ip.h>
- 
- int xfrm6_find_1stfragopt(struct xfrm_state *x, struct sk_buff *skb,
- 			  u8 **prevhdr)
-@@ -134,6 +136,11 @@ static int xfrm6_output_finish(struct sk_buff *skb)
- 
- int xfrm6_output(struct sk_buff *skb)
- {
--	return NF_HOOK(PF_INET6, NF_IP6_POST_ROUTING, skb, NULL, skb->dst->dev,
--		       xfrm6_output_finish);
-+	if (ip_hdr(skb)->version == 4)
-+		return NF_HOOK_COND(PF_INET, NF_IP_POST_ROUTING, skb, NULL, skb->dst->dev,
-+				    xfrm6_output_finish,
-+				    !(IPCB(skb)->flags & IPSKB_REROUTED));
-+	else
-+		return NF_HOOK(PF_INET6, NF_IP6_POST_ROUTING, skb, NULL, skb->dst->dev,
-+			       xfrm6_output_finish);
- }
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index 82e27b8..386a762 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -184,6 +184,8 @@ __xfrm6_bundle_create(struct xfrm_policy *policy, struct xfrm_state **xfrm, int
+ 			case AF_INET:
+ 				fl_tunnel.fl4_dst = xfrm[i]->id.daddr.a4;
+ 				fl_tunnel.fl4_src = xfrm[i]->props.saddr.a4;
++				fl_tunnel.fl4_tos = 0;
++				fl_tunnel.fl4_scope = 0;
+ 				break;
+ 			case AF_INET6:
+ 				ipv6_addr_copy(&fl_tunnel.fl6_dst, __xfrm6_bundle_addr_remote(xfrm[i], &fl->fl6_dst));
