@@ -1,56 +1,45 @@
-From: Andreas Henriksson <andreas@fatal.se>
-Subject: iproute2: git pull request from debian repo.
-Date: Fri, 19 Oct 2007 14:27:53 +0200
-Message-ID: <20071019122753.GA30078@scream.fatal.se>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] netdev: Netfilters on outgoing interfamily ipsec
+Date: Fri, 19 Oct 2007 20:55:55 +0800
+Message-ID: <20071019125555.GA13955@gondor.apana.org.au>
+References: <200710191437.39449.joakim.koskela@hiit.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, andreas@fatal.se
-To: shemminger@linux-foundation.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
+To: Joakim Koskela <joakim.koskela@hiit.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1-1-1-9a.ghn.gbg.bostream.se ([82.182.69.4]:46440 "EHLO
-	scream.fatal.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753388AbXJSMbq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 08:31:46 -0400
+Received: from rhun.apana.org.au ([64.62.148.172]:3272 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757341AbXJSM4D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 19 Oct 2007 08:56:03 -0400
 Content-Disposition: inline
+In-Reply-To: <200710191437.39449.joakim.koskela@hiit.fi>
 Sender: netdev-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Fri, Oct 19, 2007 at 02:37:38PM +0300, Joakim Koskela wrote:
+> Hi,
+> 
+> I understand that Herbert is in midst of cleaning up the output of
+> interfamily transformations, but I thought I'd post a couple of
+> patches related to that anyway, sort of to show what we've needed to
+> fix to get our systems working.
+> 
+> This one changes how the netfilters are applied during output to be
+> based on the current address family of the packet instead of what it
+> will be transformed to.
 
-We now have our brand new git repo set up for the debian package. We have
-created a branch called "patches" where we are going to put stuff that we
-hope will get merged upstream.
+While I agree that this is definitely a problem, I've already
+got a solution for it which we happen to need for async crypto
+anyway.
 
-I'm sending out this pull request to get confirmation about if we are on the
-right track ...
+Basically xfrm_output will invoke a continuation function based
+on the external mode/family which will then call the right hooks.
 
-The repo url is git://git.debian.org/git/collab-maint/pkg-iproute.git
-and the branch you're supposed to look at is "patches", as I mentioned.
-
-(gitweb available at:
-http://git.debian.org/?p=collab-maint/pkg-iproute.git;a=summary )
-
-It currently only contains two fixes:
-- trivial syntax fix in the ss(8) manpage, by Justin Pryzby.
-  (Should be a no-brainer.)
-- ip addr flush loop fix (from ubuntu), by Daniel Silverstone
-  (Equivalent to the treatment "ip neigh flush" previously got.
-   This obsoletes the patch from Alexander Wirt which was dropped
-   from the last patch submission.)
-
-The patches branch is currently based on the v2.6.23-071016 release, and we
-intend to rebase it when you do a new release.
-
-Please notify me about anything I've set up wrong (and helpful hints on how
-to do it right, would be deeply appreciated since I'm a complete git newbie).
-I would also like to ask if this pull request should be followed up by
-posting the patches to the mailing list or if a public git repo is considered
-enough? If you want me to also post the individual patches, I'd be very happy
-if you have some helpful hints on how to most easily export just the ones in
-the tree which doesn't come from the upstream branch and send them out...
-
-Have a nice weekend!
-
+Cheers,
 -- 
-Regards,
-Andreas Henriksson
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
