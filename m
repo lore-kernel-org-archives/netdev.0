@@ -1,46 +1,94 @@
 From: Laszlo Attila Toth <panther@balabit.hu>
-Subject: [IFGROUPv3 0/*] Interface groups, round 3
-Date: Fri, 19 Oct 2007 18:29:58 +0200
-Message-ID: <20071019-181844-1192810724.panther__41703.8160645918$1192811432$gmane$org@balabit.hu>
+Subject: [IFGROUPv3 2/3] Interface group: core (netlink) part
+Date: Fri, 19 Oct 2007 18:30:00 +0200
+Message-ID: <11928114034113-git-send-email-panther@balabit.hu>
+References: <11928114032187-git-send-email-panther@balabit.hu>
+ <119281140331-git-send-email-panther@balabit.hu>
 Cc: Laszlo Attila Toth <panther@balabit.hu>
 To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.balabit.hu ([212.92.18.33]:53288 "EHLO lists.balabit.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752345AbXJSQaI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 19 Oct 2007 12:30:08 -0400
-Message-Id: <20071019-181844-1192810724.panther@balabit.hu>
-Sender: netdev-owner@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <119281140331-git-send-email-panther@balabit.hu>
+Message-Id: <b304cea2e4e1659e9e7e58c0303b21a8e03b6688.1192810837.git.panther@balabit.hu>
+In-Reply-To: <80da3aa904080a33dd4645a8390c96133268a512.1192810837.git.panther@balabit.hu>
+References: <80da3aa904080a33dd4645a8390c96133268a512.1192810837.git.panther@balabit.hu>
+In-Reply-To: <20071019-181844-1192810724.panther@balabit.hu>
+References: <20071019-181844-1192810724.panther@balabit.hu>From: Laszlo Attila Toth <panther@balabit.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Interface groups let handle different interfaces together
+especially in netfilter modules.
+Modified net device structure and netlink interface.
 
-This is the 3rd version of interface group patches.
+Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
+---
+ include/linux/if_link.h   |    2 ++
+ include/linux/netdevice.h |    2 ++
+ net/core/rtnetlink.c      |   11 +++++++++++
+ 3 files changed, 15 insertions(+), 0 deletions(-)
 
-Each net_device structure has a non-negative ifgroup member indicating
-the group it belongs to. In the ip tool it is between 0 and 256 where
-0 means it is unset.
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index 422084d..d9f1726 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -78,6 +78,8 @@ enum
+ 	IFLA_LINKMODE,
+ 	IFLA_LINKINFO,
+ #define IFLA_LINKINFO IFLA_LINKINFO
++	IFLA_IFGROUP,
++#define IFLA_IFGROUP IFLA_IFGROUP
+ 	__IFLA_MAX
+ };
+ 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e679b27..c489a20 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -365,6 +365,8 @@ struct net_device
+ 	/* Interface index. Unique device identifier	*/
+ 	int			ifindex;
+ 	int			iflink;
++	/* interface group this interface belongs to */
++	u_int32_t		ifgroup;
+ 
+ 
+ 	struct net_device_stats* (*get_stats)(struct net_device *dev);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 53af13f..de38c03 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -608,6 +608,7 @@ static inline size_t if_nlmsg_size(const struct net_device *dev)
+ 	       + nla_total_size(4) /* IFLA_MTU */
+ 	       + nla_total_size(4) /* IFLA_LINK */
+ 	       + nla_total_size(4) /* IFLA_MASTER */
++	       + nla_total_size(4) /* IFLA_IFGROUP */
+ 	       + nla_total_size(1) /* IFLA_OPERSTATE */
+ 	       + nla_total_size(1) /* IFLA_LINKMODE */
+ 	       + rtnl_link_get_size(dev); /* IFLA_LINKINFO */
+@@ -646,6 +647,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	if (dev->master)
+ 		NLA_PUT_U32(skb, IFLA_MASTER, dev->master->ifindex);
+ 
++	if (dev->ifgroup)
++		NLA_PUT_U32(skb, IFLA_IFGROUP, dev->ifgroup);
++
+ 	if (dev->qdisc_sleeping)
+ 		NLA_PUT_STRING(skb, IFLA_QDISC, dev->qdisc_sleeping->ops->id);
+ 
+@@ -861,6 +865,13 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
+ 		modified = 1;
+ 	}
+ 
++	if (tb[IFLA_IFGROUP]) {
++		write_lock_bh(&dev_base_lock);
++		dev->ifgroup = nla_get_u32(tb[IFLA_IFGROUP]);
++		write_unlock_bh(&dev_base_lock);
++		modified = 1;
++	}
++
+ 	err = 0;
+ 
+ errout:
+-- 
+1.5.2.5
 
-Usage:
-   ip link set eth0 group 4
-   ip lonk set eth0 group 0        # to unset
-   ip link set eth0 group intra    # named groups
-
-In /etc/iproute2/rt_ifgroup each value may have a symbolic name.
-
-Netfilter part: xt_ifgroup module for both IPv4 and IPv6. Iptables usage:
-   iptables -A INPUT -m ifgroup --in-ifgroup 4/0xf -j ACCEPT
-   iptables -A FORWARD -m ifgroup --in-ifgroup 4 --out-ifgroup 5 -j ACCEPT
-   ...
-
-in the FORWARD chain both input and output interface group value should be matched
-(with optional masks).
-
-The following patches are:
-  kernel: single notification, atomic changes
-  kernel: core part
-  kernel: netfilter module, ifgroup match
-  iproute2: showing and set ifgroup value
-  iptables: ifgroup match
---
-Attila
