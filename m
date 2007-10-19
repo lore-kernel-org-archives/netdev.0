@@ -1,7 +1,7 @@
 From: ggrundstrom@neteffect.com
-Subject: [ofa-general] [PATCH 13/14 v2] nes: kernel build infrastructure
-Date: Fri, 19 Oct 2007 15:27:01 -0500
-Message-ID: <200710192027.l9JKR197021855@neteffect.com>
+Subject: [ofa-general] [PATCH 14/14 v2] nes: kernel build infrastructure
+Date: Fri, 19 Oct 2007 15:28:49 -0500
+Message-ID: <200710192028.l9JKSnZG021867@neteffect.com>
 Cc: netdev@vger.kernel.org, general@lists.openfabrics.org
 To: ewg@lists.openfabrics.org, rdreier@cisco.com
 Return-path: <general-bounces@lists.openfabrics.org>
@@ -16,26 +16,18 @@ Sender: general-bounces@lists.openfabrics.org
 Errors-To: general-bounces@lists.openfabrics.org
 List-Id: netdev.vger.kernel.org
 
-Kconfig kernel build file.
+Makefile kernel build file.
 
 Signed-off-by: Glenn Grundstrom <ggrundstrom@neteffect.com>
 ---
 
 --- NULL	1969-12-31 18:00:00.000000000 -0600
-+++ ofa_kernel-1.3/drivers/infiniband/hw/nes/Kconfig	2007-10-19 09:43:32.000000000 -0500
-@@ -0,0 +1,15 @@
-+config INFINIBAND_NES
-+	tristate "NetEffect RNIC Driver"
-+	depends on PCI && INET && INFINIBAND
-+	---help---
-+	  This is a low-level driver for NetEffect RDMA enabled
-+	  Network Interface Cards (RNIC).
++++ ofa_kernel-1.3/drivers/infiniband/hw/nes/Makefile	2007-10-19 09:43:32.000000000 -0500
+@@ -0,0 +1,7 @@
 +
-+config INFINIBAND_NES_DEBUG
-+	bool "Verbose debugging output"
-+	depends on INFINIBAND_NES
-+	default n
-+	---help---
-+	  This option causes the NetEffect RNIC driver to produce debug
-+	  messages.  Select this if you are developing the driver
-+	  or trying to diagnose a problem.
++EXTRA_CFLAGS += -DNES_MINICM
++
++obj-$(CONFIG_INFINIBAND_NES) += iw_nes.o
++
++iw_nes-objs := nes.o nes_hw.o nes_nic.o nes_utils.o nes_verbs.o nes_cm.o
++
