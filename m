@@ -1,219 +1,87 @@
 From: Laszlo Attila Toth <panther@balabit.hu>
-Subject: [IFGROUPv3 3/3] Interface group match
-Date: Fri, 19 Oct 2007 18:30:01 +0200
-Message-ID: <11928114031993-git-send-email-panther@balabit.hu>
+Subject: [IFGROUPv3 1/3] rtnetlink: setlink changes atomic with single notification
+Date: Fri, 19 Oct 2007 18:29:59 +0200
+Message-ID: <119281140331-git-send-email-panther@balabit.hu>
 References: <11928114032187-git-send-email-panther@balabit.hu>
- <119281140331-git-send-email-panther@balabit.hu>
- <11928114034113-git-send-email-panther@balabit.hu>
 Cc: Laszlo Attila Toth <panther@balabit.hu>
 To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <11928114034113-git-send-email-panther@balabit.hu>
-Message-Id: <b90c646084a4f938fb6a0bbce687e428150aedc8.1192810837.git.panther@balabit.hu>
-In-Reply-To: <80da3aa904080a33dd4645a8390c96133268a512.1192810837.git.panther@balabit.hu>
-References: <80da3aa904080a33dd4645a8390c96133268a512.1192810837.git.panther@balabit.hu>
+In-Reply-To: <11928114032187-git-send-email-panther@balabit.hu>
+Message-Id: <80da3aa904080a33dd4645a8390c96133268a512.1192810837.git.panther@balabit.hu>
 In-Reply-To: <20071019-181844-1192810724.panther@balabit.hu>
-References: <20071019-181844-1192810724.panther@balabit.hu>From: Laszlo Attila Toth <panther@balabit.hu>
+References: <20071019-181844-1192810724.panther@balabit.hu>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Interface group values can be checked on both input and output interfaces.
+In do_setlink the device changes are atomic and notifications will be sent
+at the end of the function once if any modification occured and once if
+address has been changed.
 
 Signed-off-by: Laszlo Attila Toth <panther@balabit.hu>
 ---
- include/linux/netfilter/xt_ifgroup.h |   18 +++++
- net/netfilter/Kconfig                |   16 +++++
- net/netfilter/Makefile               |    1 +
- net/netfilter/xt_ifgroup.c           |  121 ++++++++++++++++++++++++++++++++++
- 4 files changed, 156 insertions(+), 0 deletions(-)
+ net/core/rtnetlink.c |   23 ++++++++++++++++++++---
+ 1 files changed, 20 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/netfilter/xt_ifgroup.h b/include/linux/netfilter/xt_ifgroup.h
-new file mode 100644
-index 0000000..9ac75de
---- /dev/null
-+++ b/include/linux/netfilter/xt_ifgroup.h
-@@ -0,0 +1,18 @@
-+#ifndef _XT_IFGROUP_H
-+#define _XT_IFGROUP_H
-+
-+#define XT_IFGROUP_INVERT_IN	0x01
-+#define XT_IFGROUP_INVERT_OUT	0x02
-+#define XT_IFGROUP_MATCH_IN	0x04
-+#define XT_IFGROUP_MATCH_OUT	0x08		
-+
-+struct xt_ifgroup_info {
-+	u_int32_t in_group;
-+	u_int32_t in_mask;
-+	u_int32_t out_group;
-+	u_int32_t out_mask;
-+	u_int8_t flags;
-+};
-+
-+#endif /*_XT_IFGROUP_H*/
-+
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 3599770..0864e19 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -597,6 +597,22 @@ config NETFILTER_XT_MATCH_QUOTA
- 	  If you want to compile it as a module, say M here and read
- 	  <file:Documentation/kbuild/modules.txt>.  If unsure, say `N'.
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 4756d58..53af13f 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -819,6 +819,7 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
+ 	if (tb[IFLA_BROADCAST]) {
+ 		nla_memcpy(dev->broadcast, tb[IFLA_BROADCAST], dev->addr_len);
+ 		send_addr_notify = 1;
++		modified = 1;
+ 	}
  
-+config NETFILTER_XT_MATCH_IFGROUP
-+	tristate '"ifgroup" interface group match support'
-+	depends on NETFILTER_XTABLES
-+	help
-+	  Interface group matching allows you to match a packet by
-+	  its incoming interface "group", settable using ip link set
-+	  group
-+
-+	  Typical usage is to assign dynamic interfaces to a group
-+	  when they come up using "ip link set group" and then match
-+	  incoming packets with a rule like this:
-+
-+	    iptables -A INPUT -m ifgroup --if-group openvpn-rw1 -j LOG
-+
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
- config NETFILTER_XT_MATCH_REALM
- 	tristate  '"realm" match support'
- 	depends on NETFILTER_XTABLES
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 0c054bf..da9ab07 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -77,3 +77,4 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_TCPMSS) += xt_tcpmss.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_PHYSDEV) += xt_physdev.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_U32) += xt_u32.o
- obj-$(CONFIG_NETFILTER_XT_MATCH_HASHLIMIT) += xt_hashlimit.o
-+obj-$(CONFIG_NETFILTER_XT_MATCH_IFGROUP) += xt_ifgroup.o
-diff --git a/net/netfilter/xt_ifgroup.c b/net/netfilter/xt_ifgroup.c
-new file mode 100644
-index 0000000..2baf772
---- /dev/null
-+++ b/net/netfilter/xt_ifgroup.c
-@@ -0,0 +1,121 @@
-+/*
-+ * An x_tables match module to match interface groups
-+ *
-+ * (C) 2006,2007 Balazs Scheidler <bazsi@balabit.hu>,
-+ *   Laszlo Attila Toth <panther@balabit.hu>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+
-+#include <linux/netfilter/xt_ifgroup.h>
-+#include <linux/netfilter/x_tables.h>
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Laszlo Attila Toth <panther@balabit.hu>");
-+MODULE_DESCRIPTION("Xtables interface group matching module");
-+MODULE_ALIAS("ipt_ifgroup");
-+MODULE_ALIAS("ip6t_ifgroup");
-+
-+
-+static inline bool
-+ifgroup_match_in(const struct net_device *in,
-+		 const struct xt_ifgroup_info *info)
-+{
-+
-+	return ((in->ifgroup & info->in_mask) == info->in_group) ^ 
-+		((info->flags & XT_IFGROUP_INVERT_IN) == XT_IFGROUP_INVERT_IN);
-+}
-+
-+static inline bool
-+ifgroup_match_out(const struct net_device *out,
-+		 const struct xt_ifgroup_info *info)
-+{
-+	return ((out->ifgroup & info->out_mask) == info->out_group) ^ 
-+		((info->flags & XT_IFGROUP_INVERT_OUT) == XT_IFGROUP_INVERT_OUT);
-+}
-+
-+static bool
-+ifgroup_match(const struct sk_buff *skb,
-+	     const struct net_device *in,
-+	     const struct net_device *out,
-+	     const struct xt_match *match,
-+	     const void *matchinfo,
-+	     int offset,
-+	     unsigned int protoff,
-+	     bool *hotdrop)
-+{
-+	const struct xt_ifgroup_info *info = matchinfo;
-+	
-+	if (info->flags & XT_IFGROUP_MATCH_IN &&  !ifgroup_match_in(in, info))
-+		return false;
-+	if (info->flags & XT_IFGROUP_MATCH_OUT &&  !ifgroup_match_out(out, info))
-+		return false;
-+	
-+	return true;
-+}
-+
-+static bool ifgroup_checkentry(const char *tablename, const void *ip_void,
-+			       const struct xt_match *match,
-+			       void *matchinfo, unsigned int hook_mask)
-+{
-+	struct xt_ifgroup_info *info = matchinfo;
-+
-+	if (!(info->flags & (XT_IFGROUP_MATCH_IN|XT_IFGROUP_MATCH_OUT))) {
-+		printk(KERN_ERR "xt_ifgroup: neither incoming nor "
-+				"outgoing device selected\n");
-+		return false;
+ 	if (ifm->ifi_flags || ifm->ifi_change) {
+@@ -829,21 +830,35 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
+ 			flags = (flags & ifm->ifi_change) |
+ 				(dev->flags & ~ifm->ifi_change);
+ 		dev_change_flags(dev, flags);
++		modified = 1;
+ 	}
+ 
+-	if (tb[IFLA_TXQLEN])
++	if (tb[IFLA_TXQLEN]) {
++		write_lock_bh(&dev_base_lock);
+ 		dev->tx_queue_len = nla_get_u32(tb[IFLA_TXQLEN]);
++		write_unlock_bh(&dev_base_lock);
++		modified = 1;
 +	}
-+	if (hook_mask & (1 << NF_IP_PRE_ROUTING | 1 << NF_IP_LOCAL_IN)
-+	    && info->flags & XT_IFGROUP_MATCH_OUT) {
-+		printk(KERN_ERR "xt_ifgroup: output device not valid in "
-+				"PRE_ROUTING and INPUT\n");
-+		return false;
+ 
+-	if (tb[IFLA_WEIGHT])
++	if (tb[IFLA_WEIGHT]) {
++		write_lock_bh(&dev_base_lock);
+ 		dev->weight = nla_get_u32(tb[IFLA_WEIGHT]);
++		write_unlock_bh(&dev_base_lock);
++		modified = 1;
 +	}
-+	if (hook_mask & (1 << NF_IP_POST_ROUTING | 1 << NF_IP_LOCAL_OUT)
-+	    && info->flags & XT_IFGROUP_MATCH_IN) {
-+		printk(KERN_ERR "xt_ifgroup: input device not valid in "
-+				"POST_ROUTING and OUTPUT\n");
-+		return false;
+ 
+-	if (tb[IFLA_OPERSTATE])
++	if (tb[IFLA_OPERSTATE]) {
++		write_lock_bh(&dev_base_lock);
+ 		set_operstate(dev, nla_get_u8(tb[IFLA_OPERSTATE]));
++		write_unlock_bh(&dev_base_lock);
++		modified = 1;
 +	}
-+	return true;
-+}
-+
-+static struct xt_match xt_ifgroup_match[] __read_mostly  = {
-+        {
-+		.name		= "ifgroup",
-+		.match		= ifgroup_match,
-+		.checkentry	= ifgroup_checkentry,
-+		.matchsize	= sizeof(struct xt_ifgroup_info),
-+		.family		= AF_INET,
-+		.me		= THIS_MODULE,
-+	
-+	},
-+	{
-+		.name		= "ifgroup",
-+		.match		= ifgroup_match,
-+		.checkentry	= ifgroup_checkentry,
-+		.matchsize	= sizeof(struct xt_ifgroup_info),
-+		.family		= AF_INET6,
-+		.me		= THIS_MODULE,
-+	},
-+};
-+
-+static int __init xt_ifgroup_init(void)
-+{
-+	return xt_register_matches(xt_ifgroup_match,
-+		                   ARRAY_SIZE(xt_ifgroup_match));
-+}
-+
-+static void __exit xt_ifgroup_fini(void)
-+{
-+	xt_unregister_matches(xt_ifgroup_match,
-+			      ARRAY_SIZE(xt_ifgroup_match));
-+}
-+
-+module_init(xt_ifgroup_init);
-+module_exit(xt_ifgroup_fini);
+ 
+ 	if (tb[IFLA_LINKMODE]) {
+ 		write_lock_bh(&dev_base_lock);
+ 		dev->link_mode = nla_get_u8(tb[IFLA_LINKMODE]);
+ 		write_unlock_bh(&dev_base_lock);
++		modified = 1;
+ 	}
+ 
+ 	err = 0;
+@@ -857,6 +872,8 @@ errout:
+ 
+ 	if (send_addr_notify)
+ 		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
++	if (modified)
++		rtmsg_ifinfo(RTM_NEWLINK, dev, 0);
+ 	return err;
+ }
+ 
 -- 
 1.5.2.5
 
